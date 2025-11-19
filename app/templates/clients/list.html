@@ -2,21 +2,84 @@
 
 {% block title %}Clientes - QoriCash Trading{% endblock %}
 
+{% block head %}
+<style>
+    .status-toggle {
+        cursor: pointer;
+    }
+    .document-preview {
+        max-width: 100px;
+        max-height: 100px;
+        cursor: pointer;
+    }
+    .document-section {
+        border: 1px dashed #ddd;
+        padding: 15px;
+        border-radius: 5px;
+        margin-bottom: 15px;
+    }
+    .form-section-title {
+        font-weight: 600;
+        color: #495057;
+        margin-top: 20px;
+        margin-bottom: 15px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #e9ecef;
+    }
+    .text-uppercase-input {
+        text-transform: uppercase;
+    }
+    .bank-account-group {
+        border: 1px solid #dee2e6;
+        border-radius: 5px;
+        padding: 15px;
+        margin-bottom: 15px;
+        background-color: #f8f9fa;
+    }
+    .required-accounts-info {
+        background-color: #fff3cd;
+        border: 1px solid #ffc107;
+        padding: 10px;
+        border-radius: 5px;
+        margin-bottom: 15px;
+    }
+    /* Estilos para campos bloqueados por rol Trader */
+    input[readonly], select[disabled], textarea[readonly] {
+        background-color: #e9ecef !important;
+        cursor: not-allowed !important;
+        opacity: 0.7;
+    }
+    input[disabled], select[disabled], textarea[disabled] {
+        background-color: #e9ecef !important;
+        cursor: not-allowed !important;
+        opacity: 0.7;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container-fluid">
     <!-- Header -->
     <div class="row mb-4">
-        <div class="col-md-8">
+        <div class="col-md-6">
             <h2><i class="bi bi-people"></i> Gestión de Clientes</h2>
             <p class="text-muted">Administra la base de clientes</p>
         </div>
-        <div class="col-md-4 text-end">
+        <div class="col-md-6 text-end">
+            {% if current_user.role == 'Master' %}
+            <button class="btn btn-success me-2" onclick="exportClients()">
+                <i class="bi bi-file-earmark-excel"></i> Exportar Excel/CSV
+            </button>
+            {% endif %}
+
+            {% if current_user.role in ['Master', 'Trader'] %}
             <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createClientModal">
                 <i class="bi bi-person-plus"></i> Nuevo Cliente
             </button>
+            {% endif %}
         </div>
     </div>
-    
+
     <!-- Tabla de Clientes -->
     <div class="row">
         <div class="col-md-12">
@@ -26,8 +89,9 @@
                         <thead>
                             <tr>
                                 <th>ID</th>
-                                <th>Nombre</th>
-                                <th>DNI</th>
+                                <th>Tipo Doc</th>
+                                <th>Documento</th>
+                                <th>Nombre Completo</th>
                                 <th>Email</th>
                                 <th>Teléfono</th>
                                 <th>Banco</th>
@@ -38,37 +102,55 @@
                         </thead>
                         <tbody>
                             {% for c in clients %}
-                            <tr>
+                            <tr data-client-id="{{ c.id }}">
                                 <td>{{ c.id }}</td>
-                                <td><strong>{{ c.name }}</strong></td>
+                                <td>
+                                    <span class="badge bg-info">{{ c.document_type }}</span>
+                                </td>
                                 <td>{{ c.dni }}</td>
+                                <td><strong>{{ c.full_name or '-' }}</strong></td>
                                 <td>{{ c.email }}</td>
                                 <td>{{ c.phone or '-' }}</td>
                                 <td>{{ c.bank_name or '-' }}</td>
                                 <td>
                                     {% if c.status == 'Activo' %}
-                                        <span class="badge bg-success">Activo</span>
+                                        <span class="badge bg-success status-badge">Activo</span>
                                     {% else %}
-                                        <span class="badge bg-secondary">Inactivo</span>
+                                        <span class="badge bg-secondary status-badge">Inactivo</span>
                                     {% endif %}
                                 </td>
                                 <td>
-                                    <span class="badge bg-info">{{ c.get_total_operations() }}</span>
+                                    <span class="badge bg-primary">{{ c.get_total_operations() }}</span>
                                 </td>
                                 <td>
-                                    <div class="btn-group btn-group-sm">
-                                        <button class="btn btn-outline-info" onclick="viewClient({{ c.id }})" title="Ver Detalles">
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <!-- Ver -->
+                                        <button class="btn btn-info" onclick="viewClient({{ c.id }})" title="Ver">
                                             <i class="bi bi-eye"></i>
                                         </button>
-                                        <button class="btn btn-outline-primary" onclick="editClient({{ c.id }})" title="Editar">
+
+                                        <!-- Editar -->
+                                        {% if current_user.role in ['Master', 'Trader', 'Operador'] %}
+                                        <button class="btn btn-warning" onclick="editClient({{ c.id }})" title="Editar">
                                             <i class="bi bi-pencil"></i>
                                         </button>
-                                        <button class="btn btn-outline-secondary" onclick="uploadDNI({{ c.id }})" title="Subir DNI">
-                                            <i class="bi bi-upload"></i>
+                                        {% endif %}
+
+                                        <!-- Cambiar Estado (Master y Operador) -->
+                                        {% if current_user.role in ['Master', 'Operador'] %}
+                                        <button class="btn btn-{% if c.status == 'Activo' %}secondary{% else %}success{% endif %}"
+                                                onclick="toggleClientStatus({{ c.id }}, '{{ c.status }}')"
+                                                title="{% if c.status == 'Activo' %}Desactivar{% else %}Activar{% endif %}">
+                                            <i class="bi bi-{% if c.status == 'Activo' %}x-circle{% else %}check-circle{% endif %}"></i>
                                         </button>
-                                        <button class="btn btn-outline-warning" onclick="toggleClientStatus({{ c.id }})" title="Activar/Desactivar">
-                                            <i class="bi bi-toggle-on"></i>
+                                        {% endif %}
+
+                                        <!-- Eliminar (solo Master) -->
+                                        {% if current_user.role == 'Master' %}
+                                        <button class="btn btn-danger" onclick="deleteClient({{ c.id }})" title="Eliminar">
+                                            <i class="bi bi-trash"></i>
                                         </button>
+                                        {% endif %}
                                     </div>
                                 </td>
                             </tr>
@@ -81,92 +163,203 @@
     </div>
 </div>
 
-<!-- Modal: Crear Cliente -->
-<div class="modal fade" id="createClientModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
+<!-- Modal Crear/Editar Cliente -->
+<div class="modal fade" id="createClientModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Registrar Nuevo Cliente</h5>
+                <h5 class="modal-title" id="modalTitle">
+                    <i class="bi bi-person-plus"></i> Nuevo Cliente
+                </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <form id="createClientForm">
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Nombre Completo *</label>
-                            <input type="text" class="form-control" name="name" required>
-                        </div>
-                        <div class="col-md-3 mb-3">
-                            <label class="form-label">DNI *</label>
-                            <input type="text" class="form-control" name="dni" required maxlength="8" pattern="[0-9]{8}">
-                        </div>
-                        <div class="col-md-3 mb-3">
-                            <label class="form-label">Teléfono</label>
-                            <input type="text" class="form-control" name="phone" maxlength="9">
-                        </div>
-                    </div>
-                    
-                    <div class="row">
-                        <div class="col-md-12 mb-3">
-                            <label class="form-label">Email *</label>
-                            <input type="email" class="form-control" name="email" required>
-                        </div>
-                    </div>
-                    
-                    <hr>
-                    <h6>Información Bancaria</h6>
-                    
-                    <div class="row">
-                        <div class="col-md-12 mb-3">
-                            <label class="form-label">Banco</label>
-                            <select class="form-select" name="bank_name">
+                <form id="clientForm" enctype="multipart/form-data">
+                    <input type="hidden" id="clientId" name="client_id">
+
+                    <!-- Tipo de Documento (OBLIGATORIO Y PRIMERO) -->
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Tipo de Documento <span class="text-danger">*</span></label>
+                            <select class="form-select" id="documentType" name="document_type" required onchange="changeDocumentType()">
                                 <option value="">Seleccionar...</option>
-                                <option value="BCP">BCP</option>
-                                <option value="BBVA">BBVA</option>
-                                <option value="Interbank">Interbank</option>
-                                <option value="Scotiabank">Scotiabank</option>
-                                <option value="BanBif">BanBif</option>
-                                <option value="Pichincha">Pichincha</option>
-                                <option value="Otro">Otro</option>
+                                <option value="DNI">DNI</option>
+                                <option value="CE">CE (Carnet de Extranjería)</option>
+                                <option value="RUC">RUC</option>
                             </select>
                         </div>
-                    </div>
-                    
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Cuenta en Soles</label>
-                            <input type="text" class="form-control" name="bank_account_pen" placeholder="Número de cuenta PEN">
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Cuenta en Dólares</label>
-                            <input type="text" class="form-control" name="bank_account_usd" placeholder="Número de cuenta USD">
+                        <div class="col-md-6">
+                            <label class="form-label">Número de Documento <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="dni" name="dni" required>
+                            <small class="form-text text-muted" id="dniHelp">Ingrese el número de documento</small>
                         </div>
                     </div>
-                    
-                    <div class="mb-3">
-                        <label class="form-label">Notas</label>
-                        <textarea class="form-control" name="notes" rows="3"></textarea>
+
+                    <!-- Campos para DNI/CE -->
+                    <div id="dniCeFields" style="display: none;">
+                        <div class="form-section-title">Información Personal</div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <label class="form-label">Apellido Paterno <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control text-uppercase-input" id="apellidoPaterno" name="apellido_paterno">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Apellido Materno <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control text-uppercase-input" id="apellidoMaterno" name="apellido_materno">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Nombres <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control text-uppercase-input" id="nombres" name="nombres">
+                            </div>
+                        </div>
+
+                        <div class="form-section-title">Documentos de Identidad</div>
+                        <div class="document-section">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <label class="form-label">DNI/CE Anverso (Frontal)</label>
+                                    <input type="file" class="form-control" id="dniFront" name="dni_front" accept="image/*,.pdf">
+                                    <div id="dniFrontPreview" class="mt-2"></div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">DNI/CE Reverso (Posterior)</label>
+                                    <input type="file" class="form-control" id="dniBack" name="dni_back" accept="image/*,.pdf">
+                                    <div id="dniBackPreview" class="mt-2"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Campos para RUC -->
+                    <div id="rucFields" style="display: none;">
+                        <div class="form-section-title">Información de la Empresa</div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-12">
+                                <label class="form-label">Razón Social <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control text-uppercase-input" id="razonSocial" name="razon_social">
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-12">
+                                <label class="form-label">Persona de Contacto</label>
+                                <input type="text" class="form-control text-uppercase-input" id="personaContacto" name="persona_contacto">
+                            </div>
+                        </div>
+
+                        <div class="form-section-title">Documentos del Representante Legal</div>
+                        <div class="document-section">
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">DNI/CE Representante - Anverso</label>
+                                    <input type="file" class="form-control" id="dniRepFront" name="dni_representante_front" accept="image/*,.pdf">
+                                    <div id="dniRepFrontPreview" class="mt-2"></div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">DNI/CE Representante - Reverso</label>
+                                    <input type="file" class="form-control" id="dniRepBack" name="dni_representante_back" accept="image/*,.pdf">
+                                    <div id="dniRepBackPreview" class="mt-2"></div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-12">
+                                    <label class="form-label">Ficha RUC</label>
+                                    <input type="file" class="form-control" id="fichaRuc" name="ficha_ruc" accept="image/*,.pdf">
+                                    <div id="fichaRucPreview" class="mt-2"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Información de Contacto (común para todos) -->
+                    <div class="form-section-title">Información de Contacto</div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Email <span class="text-danger">*</span></label>
+                            <input type="email" class="form-control" id="email" name="email" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Teléfono(s)</label>
+                            <input type="text" class="form-control" id="phone" name="phone" placeholder="987654321 o 987654321;912345678">
+                            <small class="form-text text-muted">Solo números. Para varios contactos, separa con punto y coma (;)</small>
+                        </div>
+                    </div>
+
+                    <!-- Dirección -->
+                    <div class="form-section-title">Dirección</div>
+                    <div class="row mb-3">
+                        <div class="col-md-12">
+                            <label class="form-label">Dirección</label>
+                            <input type="text" class="form-control" id="direccion" name="direccion" placeholder="Calle, Av., Jr., etc.">
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Distrito</label>
+                            <input type="text" class="form-control" id="distrito" name="distrito">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Provincia</label>
+                            <input type="text" class="form-control" id="provincia" name="provincia">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Departamento</label>
+                            <input type="text" class="form-control" id="departamento" name="departamento">
+                        </div>
+                    </div>
+
+                    <!-- Información Bancaria -->
+                    <div class="form-section-title">Información Bancaria</div>
+                    <div class="required-accounts-info">
+                        <i class="bi bi-info-circle"></i> <strong>Importante:</strong> Debes registrar al menos dos cuentas bancarias (una en Soles y otra en Dólares). Máximo 6 cuentas.
+                    </div>
+
+                    <!-- Contenedor dinámico de cuentas bancarias -->
+                    <div id="bankAccountsContainer"></div>
+
+                    <!-- Botón para agregar más cuentas -->
+                    <div class="text-center mb-3">
+                        <button type="button" class="btn btn-outline-primary btn-sm" id="addBankAccountBtn" onclick="addBankAccount()">
+                            <i class="bi bi-plus-circle"></i> Agregar Cuenta Bancaria
+                        </button>
+                        <small class="d-block text-muted mt-2">
+                            <span id="accountCount">0</span> de 6 cuentas registradas
+                        </small>
+                    </div>
+
+                    <div id="accountsValidationMessage" class="alert alert-warning" style="display: none;">
+                        <i class="bi bi-exclamation-triangle"></i> Debes registrar al menos una cuenta en Soles (S/) y una en Dólares ($).
+                    </div>
+
+                    <div id="duplicateAccountsMessage" class="alert alert-danger" style="display: none;">
+                        <i class="bi bi-exclamation-triangle"></i> Tienes cuentas duplicadas (mismo banco y misma moneda). Por favor, elimina los duplicados.
                     </div>
                 </form>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-primary" onclick="createClient()">Registrar Cliente</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle"></i> Cancelar
+                </button>
+                <button type="button" class="btn btn-primary" onclick="saveClient()" id="btnSaveClient">
+                    <i class="bi bi-save"></i> Guardar Cliente
+                </button>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Modal: Ver Cliente -->
+<!-- Modal Ver Cliente -->
 <div class="modal fade" id="viewClientModal" tabindex="-1">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Detalles del Cliente</h5>
+                <h5 class="modal-title"><i class="bi bi-eye"></i> Detalles del Cliente</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body" id="clientDetails">
-                <!-- Cargado dinámicamente -->
+            <div class="modal-body" id="viewClientBody">
+                <!-- Se llenará dinámicamente -->
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
@@ -175,53 +368,56 @@
     </div>
 </div>
 
-<!-- Modal: Subir DNI -->
-<div class="modal fade" id="uploadDNIModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Subir DNI del Cliente</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <form id="uploadDNIForm" enctype="multipart/form-data">
-                    <input type="hidden" name="client_id" id="upload_client_id">
-                    <p>Cliente: <strong id="upload_client_name"></strong></p>
-                    
-                    <div class="mb-3">
-                        <label class="form-label">DNI Frontal</label>
-                        <input type="file" class="form-control" name="dni_front" accept="image/*,.pdf">
-                        <small class="form-text text-muted">Formatos: JPG, PNG, PDF (máx 10MB)</small>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label class="form-label">DNI Reverso</label>
-                        <input type="file" class="form-control" name="dni_back" accept="image/*,.pdf">
-                        <small class="form-text text-muted">Formatos: JPG, PNG, PDF (máx 10MB)</small>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-primary" onclick="confirmUploadDNI()">Subir Archivos</button>
-            </div>
-        </div>
-    </div>
-</div>
 {% endblock %}
 
 {% block scripts %}
+<!-- Socket.IO para actualizaciones en tiempo real -->
+<script src="https://cdn.socket.io/4.5.4/socket.io.min.js" crossorigin="anonymous"></script>
+
+<script>
+    // Pasar el rol del usuario actual al JavaScript para restricciones
+    currentUserRole = "{{ current_user.role }}";
+</script>
 <script src="{{ url_for('static', filename='js/clients.js') }}"></script>
 <script>
-$(document).ready(function() {
-    // Inicializar DataTable
-    $('#clientsTable').DataTable({
-        language: {
-            url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
-        },
-        order: [[0, 'desc']],
-        pageLength: 25
+    // Inicializar DataTable al cargar la página
+    $(document).ready(function() {
+        $('#clientsTable').DataTable({
+            language: {
+                url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
+            },
+            order: [[0, 'desc']],
+            pageLength: 25,
+            responsive: true
+        });
     });
-});
+
+    // Asegurar que al abrir el modal el foco se coloque en el primer input
+    // Y aplicar restricciones si es necesario
+    var createClientModal = document.getElementById('createClientModal');
+    if (createClientModal) {
+        createClientModal.addEventListener('shown.bs.modal', function (event) {
+            console.log('Modal shown - aplicando restricciones si es necesario');
+            console.log('Current user role:', currentUserRole);
+
+            // Aplicar restricciones de rol después de que el modal esté completamente visible
+            if (currentUserRole && typeof applyRoleRestrictions === 'function') {
+                applyRoleRestrictions(currentUserRole);
+            }
+
+            // Foco en primer input (solo si no es Trader o es un campo editable)
+            if (currentUserRole !== 'Trader') {
+                var firstInput = createClientModal.querySelector('input, select, textarea, [autofocus]');
+                if (firstInput) {
+                    try { firstInput.focus(); } catch(e) { /* ignore */ }
+                }
+            }
+        });
+    }
+
+    // Helper para exportar (usando endpoint)
+    function exportClients() {
+        window.location = "{{ url_for('clients.export_csv') }}";
+    }
 </script>
 {% endblock %}

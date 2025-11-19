@@ -106,7 +106,15 @@ class Operation(db.Model):
         }
         
         if include_relations:
-            data['client_name'] = self.client.name if self.client else None
+            # Obtener nombre del cliente según su tipo
+            if self.client:
+                if self.client.document_type == 'RUC':
+                    data['client_name'] = self.client.razon_social
+                else:
+                    data['client_name'] = self.client.full_name
+            else:
+                data['client_name'] = None
+
             data['user_name'] = self.user.username if self.user else None
         
         return data

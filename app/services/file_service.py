@@ -21,14 +21,35 @@ class FileService:
     def _configure_cloudinary(self):
         """Configurar Cloudinary con variables de entorno"""
         try:
+            cloud_name = os.environ.get('CLOUDINARY_CLOUD_NAME')
+            api_key = os.environ.get('CLOUDINARY_API_KEY')
+            api_secret = os.environ.get('CLOUDINARY_API_SECRET')
+
+            # Verificar que las credenciales no sean valores de ejemplo
+            if not cloud_name or cloud_name == 'your-cloud-name':
+                print("ERROR: CLOUDINARY_CLOUD_NAME no está configurado correctamente en .env")
+                self.configured = False
+                return
+
+            if not api_key or api_key == 'your-api-key':
+                print("ERROR: CLOUDINARY_API_KEY no está configurado correctamente en .env")
+                self.configured = False
+                return
+
+            if not api_secret or api_secret == 'your-api-secret':
+                print("ERROR: CLOUDINARY_API_SECRET no está configurado correctamente en .env")
+                self.configured = False
+                return
+
             cloudinary.config(
-                cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME'),
-                api_key=os.environ.get('CLOUDINARY_API_KEY'),
-                api_secret=os.environ.get('CLOUDINARY_API_SECRET')
+                cloud_name=cloud_name,
+                api_key=api_key,
+                api_secret=api_secret
             )
             self.configured = True
+            print(f"✅ Cloudinary configurado correctamente: {cloud_name}")
         except Exception as e:
-            print(f"Error configurando Cloudinary: {e}")
+            print(f"❌ Error configurando Cloudinary: {e}")
             self.configured = False
     
     @staticmethod
@@ -71,17 +92,17 @@ class FileService:
     def upload_file(self, file, folder, public_id_prefix=None):
         """
         Subir archivo a Cloudinary
-        
+
         Args:
             file: FileStorage object
             folder: Carpeta en Cloudinary (e.g., 'dni', 'operations')
             public_id_prefix: Prefijo para el ID público (opcional)
-        
+
         Returns:
             tuple: (success: bool, message: str, url: str|None)
         """
         if not self.configured:
-            return False, 'Cloudinary no está configurado', None
+            return False, 'Cloudinary no está configurado. Por favor configure las credenciales en el archivo .env', None
         
         # Validar que hay archivo
         if not file or file.filename == '':

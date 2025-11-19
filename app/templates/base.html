@@ -14,6 +14,9 @@
     <!-- DataTables CSS -->
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/dataTables.bootstrap5.min.css">
     
+    <!-- SweetAlert2 CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11.10.0/dist/sweetalert2.min.css">
+    
     <!-- Custom CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
     
@@ -77,6 +80,12 @@
                             <i class="bi bi-list-check"></i> Operaciones en Proceso
                         </a>
                     </li>
+                    
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('clients.list_clients') }}">
+                            <i class="bi bi-people"></i> Clientes
+                        </a>
+                    </li>
                     {% endif %}
                 </ul>
                 
@@ -108,25 +117,25 @@
     {% endif %}
     
     <!-- Flash Messages -->
-    <div class="container mt-3">
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="container mt-3">
                 {% for category, message in messages %}
-                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-                    {{ message }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                </div>
+                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
                 {% endfor %}
-            {% endif %}
-        {% endwith %}
-    </div>
+            </div>
+        {% endif %}
+    {% endwith %}
     
     <!-- Main Content -->
-    <main class="container-fluid mt-3">
+    <main class="container-fluid py-4">
         {% block content %}{% endblock %}
     </main>
     
-    <!-- Modal: Cambiar Contraseña -->
+    <!-- Change Password Modal -->
     {% if current_user.is_authenticated %}
     <div class="modal fade" id="changePasswordModal" tabindex="-1">
         <div class="modal-dialog">
@@ -138,14 +147,13 @@
                 <div class="modal-body">
                     <form id="changePasswordForm">
                         <div class="mb-3">
-                            <label for="old_password" class="form-label">Contraseña Actual</label>
-                            <input type="password" class="form-control" id="old_password" name="old_password" required>
+                            <label for="current_password" class="form-label">Contraseña Actual</label>
+                            <input type="password" class="form-control" id="current_password" name="current_password" required>
                         </div>
                         <div class="mb-3">
                             <label for="new_password" class="form-label">Nueva Contraseña</label>
-                            <input type="password" class="form-control" id="new_password" name="new_password" 
-                                   required minlength="8">
-                            <div class="form-text">Mínimo 8 caracteres, debe incluir un número</div>
+                            <input type="password" class="form-control" id="new_password" name="new_password" required>
+                            <small class="form-text text-muted">Mínimo 8 caracteres, debe contener al menos un número</small>
                         </div>
                         <div class="mb-3">
                             <label for="confirm_password" class="form-label">Confirmar Nueva Contraseña</label>
@@ -178,6 +186,9 @@
     <!-- DataTables JS -->
     <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.4/js/dataTables.bootstrap5.min.js"></script>
+    
+    <!-- SweetAlert2 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.10.0/dist/sweetalert2.all.min.js"></script>
     
     <!-- Socket.IO -->
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
