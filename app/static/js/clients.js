@@ -239,7 +239,9 @@ function validateMinimumAccounts() {
 }
 
 /**
- * Validar cuentas duplicadas (mismo banco y misma moneda)
+ * Validar cuentas duplicadas EXACTAS (banco + tipo + número + moneda)
+ * ACTUALIZADO: Ahora permite múltiples cuentas del mismo banco en la misma moneda
+ * Solo rechaza si TODA la información es idéntica
  */
 function validateDuplicateAccounts() {
     const accounts = [];
@@ -248,18 +250,29 @@ function validateDuplicateAccounts() {
     accountGroups.forEach(group => {
         const index = group.dataset.accountIndex;
         const bank = document.getElementById(`bankName${index}`)?.value;
+        const accountType = document.getElementById(`accountType${index}`)?.value;
+        const accountNumber = document.getElementById(`bankAccountNumber${index}`)?.value;
         const currency = document.getElementById(`currency${index}`)?.value;
 
-        if (bank && currency) {
-            accounts.push({ bank, currency, index });
+        // Solo validar si todos los campos están completos
+        if (bank && accountType && accountNumber && currency) {
+            accounts.push({
+                bank,
+                accountType,
+                accountNumber: accountNumber.trim(),
+                currency,
+                index
+            });
         }
     });
 
-    // Buscar duplicados
+    // Buscar duplicados EXACTOS (toda la información idéntica)
     const duplicates = [];
     for (let i = 0; i < accounts.length; i++) {
         for (let j = i + 1; j < accounts.length; j++) {
             if (accounts[i].bank === accounts[j].bank &&
+                accounts[i].accountType === accounts[j].accountType &&
+                accounts[i].accountNumber === accounts[j].accountNumber &&
                 accounts[i].currency === accounts[j].currency) {
                 duplicates.push({ i: accounts[i].index, j: accounts[j].index });
             }
@@ -386,7 +399,10 @@ function changeDocumentType() {
 }
 
 /**
- * Aplicar restricciones por rol - VERSIÓN ROBUSTA
+ * Aplicar restricciones por rol - TRADER SOLO EDITA CUENTAS BANCARIAS
+ *
+ * El rol Trader SOLO puede editar la sección de cuentas bancarias.
+ * Todos los demás campos están en modo lectura.
  */
 function applyRoleRestrictions(role) {
     console.log('Aplicando restricciones para rol:', role);
@@ -396,40 +412,60 @@ function applyRoleRestrictions(role) {
         return;
     }
 
-    console.log('ES TRADER - Bloqueando campos...');
+    console.log('ES TRADER - Bloqueando todos los campos excepto cuentas bancarias...');
 
-    // TRADER: solo puede editar cuentas bancarias
-    // Bloquear TODOS los inputs, selects y textareas del formulario
     const form = document.getElementById('clientForm');
     if (!form) {
         console.error('Formulario no encontrado');
         return;
     }
 
-    // Obtener todos los inputs, selects y textareas
-    const allFields = form.querySelectorAll('input:not(.bank-account-number):not(.bank-name):not(.bank-currency):not(.bank-origen):not(.bank-account-type), select:not(.bank-name):not(.bank-currency):not(.bank-origen):not(.bank-account-type), textarea');
+    // Obtener TODOS los campos del formulario
+    const allFields = form.querySelectorAll('input, select, textarea');
 
-    console.log('Total de campos a bloquear:', allFields.length);
+    console.log('Total de campos encontrados:', allFields.length);
 
     allFields.forEach(field => {
-        // No bloquear campos de cuentas bancarias (tienen clases específicas)
-        const fieldClasses = field.className;
-        if (fieldClasses.includes('bank-')) {
-            console.log('Saltando campo bancario:', field.id);
-            return; // Skip bank account fields
+        const fieldClasses = field.className || '';
+        const fieldId = field.id || '';
+        const fieldName = field.name || '';
+
+        // Verificar si es un campo de cuenta bancaria
+        const isBankField = fieldClasses.includes('bank-') ||
+                           fieldId.includes('origen') ||
+                           fieldId.includes('bankName') ||
+                           fieldId.includes('accountType') ||
+                           fieldId.includes('currency') ||
+                           fieldId.includes('bankAccountNumber') ||
+                           fieldName.includes('bank_') ||
+                           fieldName.includes('origen') ||
+                           fieldName.includes('currency') ||
+                           fieldName.includes('account_');
+
+        if (isBankField) {
+            // DESBLOQUEAR explícitamente los campos bancarios
+            field.disabled = false;
+            field.readOnly = false;
+            field.classList.remove('bg-light');
+            field.style.backgroundColor = '';
+            field.style.cursor = '';
+            field.style.opacity = '';
+            console.log('Campo bancario DESBLOQUEADO:', field.id || field.name);
+            return; // No bloquear este campo
         }
 
-        // Bloquear el campo
+        // Bloquear todos los demás campos
         field.disabled = true;
         field.readOnly = true;
+        field.classList.add('bg-light');
         field.style.backgroundColor = '#e9ecef';
         field.style.cursor = 'not-allowed';
-        field.style.opacity = '0.6';
+        field.style.opacity = '0.7';
 
         console.log('Bloqueado:', field.id || field.name);
     });
 
-    // Ocultar completamente la sección de documentos
+    // Ocultar secciones de documentos
     const dniCeFields = document.getElementById('dniCeFields');
     const rucFields = document.getElementById('rucFields');
 
@@ -447,7 +483,68 @@ function applyRoleRestrictions(role) {
         }
     }
 
-    // Agregar nota informativa prominente
+    // Asegurar que el botón "Agregar Cuenta Bancaria" permanezca habilitado
+    const addBankAccountBtn = document.getElementById('addBankAccountBtn');
+    if (addBankAccountBtn) {
+        addBankAccountBtn.disabled = false;
+        addBankAccountBtn.classList.remove('bg-light');
+        addBankAccountBtn.style.opacity = '1';
+        addBankAccountBtn.style.cursor = 'pointer';
+        addBankAccountBtn.style.backgroundColor = '';
+    }
+
+    // Desbloquear botones de eliminar cuenta
+    const removeBtns = form.querySelectorAll('button[onclick^="removeBankAccount"]');
+    removeBtns.forEach(btn => {
+        btn.disabled = false;
+        btn.style.opacity = '1';
+        btn.style.cursor = 'pointer';
+    });
+
+    // Observar cambios en el contenedor de cuentas bancarias para desbloquear campos nuevos
+    const bankAccountsContainer = document.getElementById('bankAccountsContainer');
+    if (bankAccountsContainer) {
+        // Crear un observer para cuando se agreguen nuevas cuentas
+        const observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                if (mutation.addedNodes.length > 0) {
+                    // Desbloquear los campos de la nueva cuenta agregada
+                    setTimeout(() => {
+                        const newFields = bankAccountsContainer.querySelectorAll('input, select');
+                        newFields.forEach(field => {
+                            const fieldClasses = field.className || '';
+                            const fieldId = field.id || '';
+                            const fieldName = field.name || '';
+
+                            const isBankField = fieldClasses.includes('bank-') ||
+                                               fieldId.includes('origen') ||
+                                               fieldId.includes('bankName') ||
+                                               fieldId.includes('accountType') ||
+                                               fieldId.includes('currency') ||
+                                               fieldId.includes('bankAccountNumber') ||
+                                               fieldName.includes('bank_') ||
+                                               fieldName.includes('origen') ||
+                                               fieldName.includes('currency') ||
+                                               fieldName.includes('account_');
+
+                            if (isBankField) {
+                                field.disabled = false;
+                                field.readOnly = false;
+                                field.classList.remove('bg-light');
+                                field.style.backgroundColor = '';
+                                field.style.cursor = '';
+                                field.style.opacity = '';
+                            }
+                        });
+                    }, 100);
+                }
+            });
+        });
+
+        observer.observe(bankAccountsContainer, { childList: true, subtree: true });
+    }
+
+    // Agregar nota informativa
     const existingNote = document.getElementById('traderRestrictionNote');
     if (!existingNote) {
         const modalBody = document.querySelector('#createClientModal .modal-body');
@@ -460,7 +557,10 @@ function applyRoleRestrictions(role) {
             traderNote.style.zIndex = '1000';
             traderNote.innerHTML = `
                 <h6 class="alert-heading"><i class="bi bi-exclamation-triangle"></i> Modo Solo Lectura (Trader)</h6>
-                <p class="mb-0"><strong>Solo puedes editar las cuentas bancarias.</strong> Los demás campos están bloqueados y no se pueden modificar.</p>
+                <p class="mb-0">
+                    <strong>Solo puedes editar las cuentas bancarias.</strong><br>
+                    Los demás campos están bloqueados y no se pueden modificar.
+                </p>
             `;
             modalBody.insertBefore(traderNote, modalBody.firstChild);
         }
@@ -491,145 +591,15 @@ function viewClient(clientId) {
                 html += `<div class="col-md-6"><strong>Email:</strong> ${client.email}</div>`;
                 html += `<div class="col-md-6"><strong>Teléfono:</strong> ${client.phone || 'No registrado'}</div>`;
 
+                // Persona de Contacto para RUC
+                if (client.document_type === 'RUC' && client.persona_contacto) {
+                    html += `<div class="col-md-12 mt-2"><strong>Persona de Contacto:</strong> ${client.persona_contacto}</div>`;
+                }
+
                 // Dirección
                 if (client.full_address) {
                     html += '<div class="col-md-12 mt-4"><h6 class="border-bottom pb-2 mb-3">Dirección</h6></div>';
                     html += `<div class="col-md-12">${client.full_address}</div>`;
-                }
-
-                // Documentos - VERSIÓN MEJORADA
-                html += '<div class="col-md-12 mt-4"><h6 class="border-bottom pb-2 mb-3"><i class="bi bi-folder2-open"></i> Documentos Adjuntos</h6></div>';
-
-                let hasDocuments = false;
-
-                if (client.document_type === 'RUC') {
-                    if (client.dni_representante_front_url) {
-                        hasDocuments = true;
-                        html += `
-                            <div class="col-md-6 mb-3">
-                                <div class="card">
-                                    <div class="card-body p-2">
-                                        <strong class="d-block mb-2"><i class="bi bi-file-earmark-person"></i> DNI Representante (Frontal)</strong>
-                                        <img src="${client.dni_representante_front_url}"
-                                             class="img-fluid img-thumbnail mb-2"
-                                             style="max-height: 150px; cursor: pointer;"
-                                             onclick="window.open('${client.dni_representante_front_url}', '_blank')"
-                                             onerror="this.onerror=null; this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22><rect fill=%22%23ddd%22 width=%22100%22 height=%22100%22/><text x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 fill=%22%23999%22>Error</text></svg>'; this.style.maxHeight='60px';">
-                                        <br>
-                                        <a href="${client.dni_representante_front_url}" target="_blank" class="btn btn-sm btn-primary">
-                                            <i class="bi bi-eye"></i> Ver
-                                        </a>
-                                    </div>
-                                </div>
-                            </div>
-                        `;
-                    }
-                    if (client.dni_representante_back_url) {
-                        hasDocuments = true;
-                        html += `
-                            <div class="col-md-6 mb-3">
-                                <div class="card">
-                                    <div class="card-body p-2">
-                                        <strong class="d-block mb-2"><i class="bi bi-file-earmark-person"></i> DNI Representante (Reverso)</strong>
-                                        <img src="${client.dni_representante_back_url}"
-                                             class="img-fluid img-thumbnail mb-2"
-                                             style="max-height: 150px; cursor: pointer;"
-                                             onclick="window.open('${client.dni_representante_back_url}', '_blank')"
-                                             onerror="this.onerror=null; this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22><rect fill=%22%23ddd%22 width=%22100%22 height=%22100%22/><text x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 fill=%22%23999%22>Error</text></svg>'; this.style.maxHeight='60px';">
-                                        <br>
-                                        <a href="${client.dni_representante_back_url}" target="_blank" class="btn btn-sm btn-primary">
-                                            <i class="bi bi-eye"></i> Ver
-                                        </a>
-                                    </div>
-                                </div>
-                            </div>
-                        `;
-                    }
-                    if (client.ficha_ruc_url) {
-                        hasDocuments = true;
-                        const isPdf = client.ficha_ruc_url.match(/\.pdf$/i);
-                        if (isPdf) {
-                            html += `
-                                <div class="col-md-12 mb-3">
-                                    <div class="card">
-                                        <div class="card-body p-2">
-                                            <strong class="d-block mb-2"><i class="bi bi-file-pdf"></i> Ficha RUC</strong>
-                                            <a href="${client.ficha_ruc_url}" target="_blank" class="btn btn-primary">
-                                                <i class="bi bi-file-pdf"></i> Ver PDF
-                                            </a>
-                                        </div>
-                                    </div>
-                                </div>
-                            `;
-                        } else {
-                            html += `
-                                <div class="col-md-12 mb-3">
-                                    <div class="card">
-                                        <div class="card-body p-2">
-                                            <strong class="d-block mb-2"><i class="bi bi-file-earmark-text"></i> Ficha RUC</strong>
-                                            <img src="${client.ficha_ruc_url}"
-                                                 class="img-fluid img-thumbnail mb-2"
-                                                 style="max-height: 200px; cursor: pointer;"
-                                                 onclick="window.open('${client.ficha_ruc_url}', '_blank')"
-                                                 onerror="this.onerror=null; this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22><rect fill=%22%23ddd%22 width=%22100%22 height=%22100%22/><text x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 fill=%22%23999%22>PDF</text></svg>'; this.style.maxHeight='60px';">
-                                            <br>
-                                            <a href="${client.ficha_ruc_url}" target="_blank" class="btn btn-sm btn-primary">
-                                                <i class="bi bi-eye"></i> Ver
-                                            </a>
-                                        </div>
-                                    </div>
-                                </div>
-                            `;
-                        }
-                    }
-                } else {
-                    // DNI o CE
-                    if (client.dni_front_url) {
-                        hasDocuments = true;
-                        html += `
-                            <div class="col-md-6 mb-3">
-                                <div class="card">
-                                    <div class="card-body p-2">
-                                        <strong class="d-block mb-2"><i class="bi bi-file-earmark-person"></i> Documento (Frontal)</strong>
-                                        <img src="${client.dni_front_url}"
-                                             class="img-fluid img-thumbnail mb-2"
-                                             style="max-height: 150px; cursor: pointer;"
-                                             onclick="window.open('${client.dni_front_url}', '_blank')"
-                                             onerror="this.onerror=null; this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22><rect fill=%22%23ddd%22 width=%22100%22 height=%22100%22/><text x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 fill=%22%23999%22>Error</text></svg>'; this.style.maxHeight='60px';">
-                                        <br>
-                                        <a href="${client.dni_front_url}" target="_blank" class="btn btn-sm btn-primary">
-                                            <i class="bi bi-eye"></i> Ver
-                                        </a>
-                                    </div>
-                                </div>
-                            </div>
-                        `;
-                    }
-                    if (client.dni_back_url) {
-                        hasDocuments = true;
-                        html += `
-                            <div class="col-md-6 mb-3">
-                                <div class="card">
-                                    <div class="card-body p-2">
-                                        <strong class="d-block mb-2"><i class="bi bi-file-earmark-person"></i> Documento (Reverso)</strong>
-                                        <img src="${client.dni_back_url}"
-                                             class="img-fluid img-thumbnail mb-2"
-                                             style="max-height: 150px; cursor: pointer;"
-                                             onclick="window.open('${client.dni_back_url}', '_blank')"
-                                             onerror="this.onerror=null; this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22><rect fill=%22%23ddd%22 width=%22100%22 height=%22100%22/><text x=%2250%25%22 y=%2250%25%22 text-anchor=%22middle%22 fill=%22%23999%22>Error</text></svg>'; this.style.maxHeight='60px';">
-                                        <br>
-                                        <a href="${client.dni_back_url}" target="_blank" class="btn btn-sm btn-primary">
-                                            <i class="bi bi-eye"></i> Ver
-                                        </a>
-                                    </div>
-                                </div>
-                            </div>
-                        `;
-                    }
-                }
-
-                if (!hasDocuments) {
-                    html += '<div class="col-md-12"><p class="text-muted"><i class="bi bi-info-circle"></i> No hay documentos adjuntos</p></div>';
                 }
 
                 // Información bancaria
@@ -776,6 +746,12 @@ function editClient(clientId) {
                 if (dniField) {
                     dniField.disabled = true;
                     dniField.classList.add('bg-light');
+                }
+
+                // Actualizar sección de Validación OC
+                if (typeof currentUserRole !== 'undefined') {
+                    toggleValidationOcSection(currentUserRole);
+                    updateValidationOcStatus(client.validation_oc_url);
                 }
 
                 // Mostrar modal
@@ -1376,19 +1352,19 @@ function hideLoading() {
 if (typeof io !== 'undefined') {
     console.log('Inicializando WebSocket para clientes...');
 
-    // Conectar al namespace /clients
-    const socket = io('/clients');
+    // Usar el namespace por defecto (ya configurado globalmente)
+    const socket = io();
 
     socket.on('connect', function() {
-        console.log('✅ WebSocket conectado al servidor (clientes)');
+        console.log('[OK] WebSocket conectado al servidor (clientes)');
     });
 
     socket.on('disconnect', function() {
-        console.warn('⚠️ WebSocket desconectado del servidor');
+        console.warn('[WARNING] WebSocket desconectado del servidor');
     });
 
     socket.on('connect_error', function(error) {
-        console.error('❌ Error de conexión WebSocket:', error);
+        console.error('[ERROR] Error de conexión WebSocket:', error);
     });
 
     // Evento: Cliente creado
@@ -1503,7 +1479,162 @@ if (typeof io !== 'undefined') {
         }
     });
 
-    console.log('✅ Event listeners de WebSocket configurados');
+    console.log('[OK] Event listeners de WebSocket configurados');
 } else {
-    console.warn('⚠️ Socket.IO no está disponible. Las actualizaciones en tiempo real no funcionarán.');
+    console.warn('[WARNING] Socket.IO no está disponible. Las actualizaciones en tiempo real no funcionarán.');
+}
+
+/**
+ * ===========================================
+ * VALIDACIÓN OFICIAL DE CUMPLIMIENTO (OC)
+ * ===========================================
+ */
+
+/**
+ * Mostrar/Ocultar sección de Validación OC según rol del usuario
+ */
+function toggleValidationOcSection(userRole) {
+    const section = document.getElementById('validationOcSection');
+    if (!section) return;
+
+    // Solo mostrar para Master y Operador
+    if (userRole === 'Master' || userRole === 'Operador') {
+        section.style.display = 'block';
+    } else {
+        section.style.display = 'none';
+    }
+}
+
+/**
+ * Actualizar estado de validación OC
+ */
+function updateValidationOcStatus(validationOcUrl) {
+    const statusDiv = document.getElementById('validationOcStatus');
+    const uploadBtn = document.getElementById('uploadValidationOcBtn');
+    const fileInput = document.getElementById('validationOcFile');
+    const preview = document.getElementById('validationOcPreview');
+
+    if (!statusDiv) return;
+
+    if (validationOcUrl) {
+        // Ya existe documento de validación
+        statusDiv.innerHTML = `
+            <div class="alert alert-success">
+                <i class="bi bi-check-circle-fill"></i>
+                <strong>Validación completada</strong>
+                <p class="mb-0">El documento de validación OC ha sido cargado exitosamente.</p>
+            </div>
+        `;
+
+        // Mostrar archivo existente
+        if (preview) {
+            const isPdf = validationOcUrl.match(/\.pdf$/i);
+            const isDoc = validationOcUrl.match(/\.(doc|docx)$/i);
+
+            if (isPdf || isDoc) {
+                preview.innerHTML = `
+                    <div class="alert alert-info mt-2">
+                        <i class="bi bi-file-earmark-pdf fs-4"></i> <strong>Documento de Validación OC</strong>
+                        <br>
+                        <a href="${validationOcUrl}" target="_blank" class="btn btn-sm btn-primary mt-2">
+                            <i class="bi bi-eye"></i> Ver Documento
+                        </a>
+                    </div>
+                `;
+            } else {
+                preview.innerHTML = `
+                    <div class="alert alert-info mt-2">
+                        <img src="${validationOcUrl}" class="img-thumbnail" style="max-height: 150px; cursor: pointer;" onclick="window.open('${validationOcUrl}', '_blank')">
+                        <br>
+                        <a href="${validationOcUrl}" target="_blank" class="btn btn-sm btn-primary mt-2">
+                            <i class="bi bi-download"></i> Ver/Descargar
+                        </a>
+                    </div>
+                `;
+            }
+        }
+
+        // Ocultar botón de subida y deshabilitar input
+        if (uploadBtn) uploadBtn.style.display = 'none';
+        if (fileInput) fileInput.disabled = true;
+    } else {
+        // No existe documento de validación
+        statusDiv.innerHTML = `
+            <div class="alert alert-warning">
+                <i class="bi bi-exclamation-triangle-fill"></i>
+                <strong>Validación pendiente</strong>
+                <p class="mb-0">Aún no se ha cargado el documento de validación del Oficial de Cumplimiento.</p>
+            </div>
+        `;
+
+        // Mostrar botón de subida si hay archivo seleccionado
+        if (fileInput) {
+            fileInput.disabled = false;
+            fileInput.addEventListener('change', function() {
+                if (this.files.length > 0) {
+                    if (uploadBtn) uploadBtn.style.display = 'block';
+                } else {
+                    if (uploadBtn) uploadBtn.style.display = 'none';
+                }
+            });
+        }
+    }
+}
+
+/**
+ * Subir documento de validación OC
+ */
+function uploadValidationOc() {
+    const fileInput = document.getElementById('validationOcFile');
+    const file = fileInput ? fileInput.files[0] : null;
+
+    if (!file) {
+        showAlert('error', 'Por favor selecciona un archivo');
+        return;
+    }
+
+    if (!editingClientId) {
+        showAlert('error', 'No se ha identificado el cliente');
+        return;
+    }
+
+    // Validar tamaño (máximo 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+        showAlert('error', 'El archivo no debe superar 10MB');
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('validation_oc_file', file);
+
+    const uploadBtn = document.getElementById('uploadValidationOcBtn');
+    if (uploadBtn) {
+        uploadBtn.disabled = true;
+        uploadBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Subiendo...';
+    }
+
+    fetch(`/clients/api/upload_validation_oc/${editingClientId}`, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert('success', 'Documento de validación OC subido correctamente');
+            // Actualizar estado
+            updateValidationOcStatus(data.validation_oc_url);
+        } else {
+            showAlert('error', data.message || 'Error al subir el documento');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showAlert('error', 'Error al subir el documento de validación');
+    })
+    .finally(() => {
+        if (uploadBtn) {
+            uploadBtn.disabled = false;
+            uploadBtn.innerHTML = '<i class="bi bi-upload"></i> Subir Documento de Validación';
+        }
+    });
 }

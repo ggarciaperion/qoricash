@@ -94,7 +94,10 @@
                                 <th>Nombre Completo</th>
                                 <th>Email</th>
                                 <th>Teléfono</th>
-                                <th>Banco</th>
+                                {% if current_user.role in ['Master', 'Operador'] %}
+                                <th>Usuario</th>
+                                {% endif %}
+                                <th>Fecha Registro</th>
                                 <th>Estado</th>
                                 <th>Operaciones</th>
                                 <th>Acciones</th>
@@ -111,7 +114,25 @@
                                 <td><strong>{{ c.full_name or '-' }}</strong></td>
                                 <td>{{ c.email }}</td>
                                 <td>{{ c.phone or '-' }}</td>
-                                <td>{{ c.bank_name or '-' }}</td>
+                                {% if current_user.role in ['Master', 'Operador'] %}
+                                <td>
+                                    {% if c.creator %}
+                                        <span class="badge bg-secondary" title="{{ c.creator.role }}">
+                                            <i class="bi bi-envelope"></i> {{ c.creator.email }}
+                                        </span>
+                                    {% else %}
+                                        <span class="text-muted">N/A</span>
+                                    {% endif %}
+                                </td>
+                                {% endif %}
+                                <td>
+                                    {% if c.created_at %}
+                                        <small>{{ c.created_at.strftime('%d/%m/%Y') }}</small><br>
+                                        <small class="text-muted">{{ c.created_at.strftime('%H:%M') }}</small>
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
                                 <td>
                                     {% if c.status == 'Activo' %}
                                         <span class="badge bg-success status-badge">Activo</span>
@@ -273,6 +294,37 @@
                         </div>
                     </div>
 
+                    <!-- Validación OC (Solo para Master y Operador) -->
+                    <div id="validationOcSection" style="display: none;">
+                        <div class="form-section-title">
+                            <i class="bi bi-shield-check"></i> Validación Oficial de Cumplimiento (OC)
+                        </div>
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle"></i>
+                            <strong>Documento de análisis:</strong> Adjunta el informe de validación del Oficial de Cumplimiento sobre lavado de activos, PEP y procesos abiertos.
+                        </div>
+
+                        <!-- Estado de validación -->
+                        <div id="validationOcStatus" class="mb-3"></div>
+
+                        <!-- Formulario de subida -->
+                        <div class="row mb-3">
+                            <div class="col-md-12">
+                                <label class="form-label">Documento de Validación OC</label>
+                                <input type="file" class="form-control" id="validationOcFile" name="validation_oc_file" accept=".pdf,.doc,.docx,image/*">
+                                <small class="form-text text-muted">Formatos permitidos: PDF, Word, Imágenes</small>
+                                <div id="validationOcPreview" class="mt-2"></div>
+                            </div>
+                        </div>
+
+                        <!-- Botón para subir documento -->
+                        <div class="text-center mb-3">
+                            <button type="button" class="btn btn-success" id="uploadValidationOcBtn" onclick="uploadValidationOc()" style="display: none;">
+                                <i class="bi bi-upload"></i> Subir Documento de Validación
+                            </button>
+                        </div>
+                    </div>
+
                     <!-- Información de Contacto (común para todos) -->
                     <div class="form-section-title">Información de Contacto</div>
                     <div class="row mb-3">
@@ -314,6 +366,7 @@
                     <div class="form-section-title">Información Bancaria</div>
                     <div class="required-accounts-info">
                         <i class="bi bi-info-circle"></i> <strong>Importante:</strong> Debes registrar al menos dos cuentas bancarias (una en Soles y otra en Dólares). Máximo 6 cuentas.
+                        <br><small class="text-muted">✅ Puedes tener múltiples cuentas del mismo banco en la misma moneda, siempre que los números de cuenta sean diferentes.</small>
                     </div>
 
                     <!-- Contenedor dinámico de cuentas bancarias -->
@@ -334,7 +387,7 @@
                     </div>
 
                     <div id="duplicateAccountsMessage" class="alert alert-danger" style="display: none;">
-                        <i class="bi bi-exclamation-triangle"></i> Tienes cuentas duplicadas (mismo banco y misma moneda). Por favor, elimina los duplicados.
+                        <i class="bi bi-exclamation-triangle"></i> Tienes una cuenta duplicada exacta (mismo banco, tipo, número y moneda). Por favor, verifica los datos.
                     </div>
                 </form>
             </div>
@@ -394,23 +447,54 @@
 
     // Asegurar que al abrir el modal el foco se coloque en el primer input
     // Y aplicar restricciones si es necesario
-    var createClientModal = document.getElementById('createClientModal');
-    if (createClientModal) {
-        createClientModal.addEventListener('shown.bs.modal', function (event) {
+    // Nota: createClientModal ya está declarado en clients.js
+    const modalElement = document.getElementById('createClientModal');
+    if (modalElement) {
+        modalElement.addEventListener('shown.bs.modal', function (event) {
             console.log('Modal shown - aplicando restricciones si es necesario');
             console.log('Current user role:', currentUserRole);
 
             // Aplicar restricciones de rol después de que el modal esté completamente visible
+            // Usar setTimeout para asegurar que todos los campos dinámicos (cuentas bancarias) estén cargados
             if (currentUserRole && typeof applyRoleRestrictions === 'function') {
-                applyRoleRestrictions(currentUserRole);
+                setTimeout(function() {
+                    applyRoleRestrictions(currentUserRole);
+                }, 100);
             }
 
             // Foco en primer input (solo si no es Trader o es un campo editable)
             if (currentUserRole !== 'Trader') {
-                var firstInput = createClientModal.querySelector('input, select, textarea, [autofocus]');
+                var firstInput = modalElement.querySelector('input, select, textarea, [autofocus]');
                 if (firstInput) {
                     try { firstInput.focus(); } catch(e) { /* ignore */ }
                 }
+            }
+        });
+
+        // Limpiar restricciones cuando el modal se cierra
+        modalElement.addEventListener('hidden.bs.modal', function (event) {
+            // Eliminar nota de restricción
+            const restrictionNote = document.getElementById('traderRestrictionNote');
+            if (restrictionNote) {
+                restrictionNote.remove();
+            }
+
+            // Habilitar todos los campos nuevamente (excepto documentType y dni que siempre están disabled al editar)
+            const form = document.getElementById('clientForm');
+            if (form) {
+                const allFields = form.querySelectorAll('input, select, textarea');
+                allFields.forEach(field => {
+                    // No reactivar documentType y dni ya que siempre deben estar disabled al editar
+                    if (field.id === 'documentType' || field.id === 'dni') {
+                        return;
+                    }
+                    field.disabled = false;
+                    field.readOnly = false;
+                    field.classList.remove('bg-light');
+                    field.style.backgroundColor = '';
+                    field.style.cursor = '';
+                    field.style.opacity = '';
+                });
             }
         });
     }

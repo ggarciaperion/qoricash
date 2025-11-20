@@ -4,11 +4,13 @@ Entry point para desarrollo de QoriCash Trading V2
 Ejecutar con: python run.py
 """
 import os
-from app import create_app, socketio
 from dotenv import load_dotenv
 
-# Cargar variables de entorno
+# Cargar variables de entorno PRIMERO (antes de importar app)
 load_dotenv()
+
+# Ahora sí importar la app (para que config.py ya tenga las variables disponibles)
+from app import create_app, socketio
 
 # Crear aplicación
 app = create_app()

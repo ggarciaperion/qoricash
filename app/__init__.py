@@ -95,26 +95,23 @@ def configure_logging(app):
 
 def register_error_handlers(app):
     """Registrar manejadores de errores"""
-    from flask import render_template, jsonify
-    
+    from flask import jsonify
+
     @app.errorhandler(404)
     def not_found_error(error):
-        if request_wants_json():
-            return jsonify({'error': 'Recurso no encontrado'}), 404
-        return render_template('errors/404.html'), 404
-    
+        # Siempre retornar JSON para APIs
+        return jsonify({'success': False, 'error': 'Recurso no encontrado'}), 404
+
     @app.errorhandler(500)
     def internal_error(error):
         db.session.rollback()
-        if request_wants_json():
-            return jsonify({'error': 'Error interno del servidor'}), 500
-        return render_template('errors/500.html'), 500
-    
+        # Siempre retornar JSON para APIs
+        return jsonify({'success': False, 'error': 'Error interno del servidor'}), 500
+
     @app.errorhandler(403)
     def forbidden_error(error):
-        if request_wants_json():
-            return jsonify({'error': 'Acceso denegado'}), 403
-        return render_template('errors/403.html'), 403
+        # Siempre retornar JSON para APIs
+        return jsonify({'success': False, 'error': 'Acceso denegado'}), 403
 
 
 def register_shell_context(app):
@@ -130,11 +127,3 @@ def register_shell_context(app):
             'Client': Client,
             'Operation': Operation
         }
-
-
-def request_wants_json():
-    """Verificar si la petición espera JSON"""
-    from flask import request
-    best = request.accept_mimetypes.best_match(['application/json', 'text/html'])
-    return best == 'application/json' and \
-           request.accept_mimetypes[best] > request.accept_mimetypes['text/html']

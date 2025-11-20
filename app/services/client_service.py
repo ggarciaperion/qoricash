@@ -24,10 +24,14 @@ class ClientService:
         """
         Obtener todos los clientes
 
+        ACTUALIZADO: Incluye eager loading de la relación 'creator' para mostrar
+        el usuario que registró al cliente
+
         Returns:
             list: Lista de clientes ordenados por fecha de creación
         """
-        return Client.query.order_by(Client.created_at.desc()).all()
+        from sqlalchemy.orm import joinedload
+        return Client.query.options(joinedload(Client.creator)).order_by(Client.created_at.desc()).all()
 
     @staticmethod
     def get_active_clients():
@@ -269,7 +273,7 @@ class ClientService:
                     'client_id': client.id,
                     'client': client.to_dict(include_stats=True),
                     'created_by': getattr(current_user, 'username', 'Unknown')
-                }, namespace='/clients', broadcast=True)
+                }, broadcast=True)
                 logger.info(f'WebSocket event emitted: client_created for ID {client.id}')
             except Exception as ws_exc:
                 logger.warning(f'Failed to emit WebSocket event for client creation: {ws_exc}')
@@ -290,6 +294,9 @@ class ClientService:
         """
         Actualizar cliente existente
 
+        ACTUALIZADO: Ahora los Traders pueden editar más información del cliente,
+        no solo las cuentas bancarias.
+
         Args:
             current_user: Usuario que actualiza
             client_id: ID del cliente
@@ -308,7 +315,7 @@ class ClientService:
             if user_role == 'Trader':
                 # Verificar que solo se estén editando cuentas bancarias
                 allowed_fields = {'bank_accounts', 'origen', 'bank_name', 'account_type',
-                                 'currency', 'bank_account_number'}
+                                 'currency', 'bank_account_number', 'bank_accounts_json'}
 
                 # Si hay campos que no son de cuentas bancarias, rechazar
                 forbidden_fields = set(data.keys()) - allowed_fields
@@ -428,7 +435,7 @@ class ClientService:
                     'client_id': client.id,
                     'client': client.to_dict(include_stats=True),
                     'updated_by': getattr(current_user, 'username', 'Unknown')
-                }, namespace='/clients', broadcast=True)
+                }, broadcast=True)
                 logger.info(f'WebSocket event emitted: client_updated for ID {client.id}')
             except Exception as ws_exc:
                 logger.warning(f'Failed to emit WebSocket event for client update: {ws_exc}')
@@ -478,7 +485,7 @@ class ClientService:
                     'old_status': old_status,
                     'new_status': new_status,
                     'changed_by': getattr(current_user, 'username', 'Unknown')
-                }, namespace='/clients', broadcast=True)
+                }, broadcast=True)
                 logger.info(f'WebSocket event emitted: client_status_changed for ID {client.id}')
             except Exception as ws_exc:
                 logger.warning(f'Failed to emit WebSocket event for status change: {ws_exc}')
@@ -530,7 +537,7 @@ class ClientService:
                     'client_id': deleted_client_id,
                     'client_name': client_name,
                     'deleted_by': getattr(current_user, 'username', 'Unknown')
-                }, namespace='/clients', broadcast=True)
+                }, broadcast=True)
                 logger.info(f'WebSocket event emitted: client_deleted for ID {deleted_client_id}')
             except Exception as ws_exc:
                 logger.warning(f'Failed to emit WebSocket event for client deletion: {ws_exc}')
@@ -633,6 +640,8 @@ class ClientService:
     def export_clients_to_dict():
         """
         Exportar todos los clientes a diccionario (para Excel/CSV)
+
+        ACTUALIZADO: Ahora incluye el usuario que registró al cliente
         """
         clients = ClientService.get_all_clients()
 
@@ -647,7 +656,8 @@ class ClientService:
                 'Teléfono': client.phone or '',
                 'Dirección Completa': client.full_address or '',
                 'Origen': client.origen or '',
-                'Banco': client.bank_name or '',
+                # ACTUALIZADO: Reemplazar 'Banco' por 'Usuario' para Master/Operador
+                'Usuario Registro': client.creator.username if client.creator else 'N/A',
                 'Tipo Cuenta': client.account_type or '',
                 'Moneda': client.currency or '',
                 'Número Cuenta': client.bank_account_number or '',

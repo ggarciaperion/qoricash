@@ -47,9 +47,9 @@ class FileService:
                 api_secret=api_secret
             )
             self.configured = True
-            print(f"✅ Cloudinary configurado correctamente: {cloud_name}")
+            print(f"[OK] Cloudinary configurado correctamente: {cloud_name}")
         except Exception as e:
-            print(f"❌ Error configurando Cloudinary: {e}")
+            print(f"[ERROR] Error configurando Cloudinary: {e}")
             self.configured = False
     
     @staticmethod

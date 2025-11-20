@@ -293,18 +293,256 @@ Deberías ver:
 
 ---
 
+## ✅ PROBLEMA 7: Error al crear cliente con RUC (500 Internal Server Error)
+
+### Error Original:
+```
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2705' in position 0
+psycopg2.errors.StringDataRightTruncation: value too long for type character varying(8)
+```
+
+### Correcciones Aplicadas:
+
+**1. Emojis Unicode incompatibles con Windows (file_service.py líneas 50-52)**
+```python
+# Antes:
+print(f"✅ Cloudinary configurado correctamente: {cloud_name}")
+print(f"❌ Error configurando Cloudinary: {e}")
+
+# Ahora:
+print(f"[OK] Cloudinary configurado correctamente: {cloud_name}")
+print(f"[ERROR] Error configurando Cloudinary: {e}")
+```
+
+**2. Campo dni muy pequeño para RUC**
+- RUC tiene 11 dígitos, pero la columna `dni` solo aceptaba VARCHAR(8)
+- Ejecutado: `ALTER TABLE clients ALTER COLUMN dni TYPE VARCHAR(20);`
+- Ahora soporta: DNI (8), CE (9-12), RUC (11)
+
+**3. Variable duplicada createClientModal**
+- `clients.js` línea 1192: declaraba `const createClientModal`
+- `list.html` línea 397: redeclaraba `var createClientModal`
+- **Solución**: Cambiado a `modalElement` en list.html para evitar conflicto
+
+**4. Emojis en console.log (clients.js)**
+```javascript
+// Reemplazados todos los emojis por texto:
+console.log('[OK] WebSocket conectado al servidor (clientes)');
+console.warn('[WARNING] WebSocket desconectado del servidor');
+console.error('[ERROR] Error de conexión WebSocket:', error);
+```
+
+**PROBADO:** Ahora los clientes con RUC se crean correctamente sin errores.
+
+---
+
+---
+
+## ✅ MEJORA 1: Modal VER - Eliminación de archivos adjuntos y adición de Persona de Contacto
+
+### Cambios Aplicados:
+
+**Archivo:** `app/static/js/clients.js` (líneas 494-503)
+
+**1. Eliminación de sección "Archivos Adjuntos":**
+- Removida completamente la sección de documentos del modal VER (líneas 500-633 eliminadas)
+- Los archivos adjuntos ahora solo se visualizan en el modal EDITAR
+- Esto elimina redundancia y mejora la claridad de la interfaz
+
+**2. Adición de campo "Persona de Contacto" para RUC:**
+```javascript
+// Persona de Contacto para RUC
+if (client.document_type === 'RUC' && client.persona_contacto) {
+    html += `<div class="col-md-12 mt-2"><strong>Persona de Contacto:</strong> ${client.persona_contacto}</div>`;
+}
+```
+
+**Ubicación:** Se muestra en la sección "Contacto" del modal VER, justo después del teléfono.
+**Condición:** Solo se muestra cuando el tipo de documento es RUC y existe el campo persona_contacto.
+
+---
+
+## ✅ MEJORA 2: Modal EDITAR - Restricciones para rol TRADER
+
+### Cambios Aplicados:
+
+**Archivo:** `app/templates/clients/list.html` (líneas 400-442)
+
+**1. Aplicación automática de restricciones con timeout:**
+```javascript
+if (currentUserRole && typeof applyRoleRestrictions === 'function') {
+    setTimeout(function() {
+        applyRoleRestrictions(currentUserRole);
+    }, 100);
+}
+```
+- Agregado setTimeout de 100ms para asegurar que los campos dinámicos (cuentas bancarias) estén completamente cargados antes de aplicar restricciones.
+
+**2. Limpieza de restricciones al cerrar el modal:**
+```javascript
+modalElement.addEventListener('hidden.bs.modal', function (event) {
+    // Eliminar nota de restricción
+    const restrictionNote = document.getElementById('traderRestrictionNote');
+    if (restrictionNote) {
+        restrictionNote.remove();
+    }
+
+    // Habilitar todos los campos nuevamente
+    const form = document.getElementById('clientForm');
+    if (form) {
+        const allFields = form.querySelectorAll('input, select, textarea');
+        allFields.forEach(field => {
+            field.disabled = false;
+            field.readOnly = false;
+            field.style.backgroundColor = '';
+            field.style.cursor = '';
+            field.style.opacity = '';
+        });
+    }
+});
+```
+
+**Archivo:** `app/static/js/clients.js` (líneas 450-456)
+
+**3. Asegurar que el botón "Agregar Cuenta Bancaria" permanezca habilitado:**
+```javascript
+const addBankAccountBtn = document.getElementById('addBankAccountBtn');
+if (addBankAccountBtn) {
+    addBankAccountBtn.disabled = false;
+    addBankAccountBtn.style.opacity = '1';
+    addBankAccountBtn.style.cursor = 'pointer';
+}
+```
+
+### Funcionamiento para TRADER:
+
+**Cuando un TRADER abre el modal EDITAR:**
+1. Se aplican restricciones automáticamente después de 100ms
+2. Todos los campos se bloquean (disabled + readOnly + estilo visual)
+3. **EXCEPTO:** Los campos de cuentas bancarias con clases:
+   - `bank-origen`
+   - `bank-name`
+   - `bank-account-type`
+   - `bank-currency`
+   - `bank-account-number`
+4. Se muestra una alerta amarilla sticky en la parte superior: "Modo Solo Lectura (Trader)"
+5. El botón "Agregar Cuenta Bancaria" permanece habilitado
+6. La sección de documentos se oculta completamente
+
+**Cuando el modal se cierra:**
+- Se eliminan todas las restricciones
+- Se elimina la nota de advertencia
+- Todos los campos se habilitan nuevamente
+
+### Validación Backend:
+
+La validación en `app/services/client_service.py` (líneas 306-317) ya estaba implementada:
+```python
+if user_role == 'Trader':
+    allowed_fields = {'bank_accounts', 'origen', 'bank_name', 'account_type',
+                     'currency', 'bank_account_number'}
+    forbidden_fields = set(data.keys()) - allowed_fields
+    if forbidden_fields:
+        return False, 'No tienes permisos para modificar estos campos. Solo puedes editar cuentas bancarias.', None
+```
+
+---
+
+---
+
+## ✅ MEJORA 3: Sección de Validación OC (Oficial de Cumplimiento)
+
+### Descripción:
+Nueva sección en el modal EDITAR **exclusiva para roles Master y Operador** que permite adjuntar documentos de validación del Oficial de Cumplimiento para verificar que el cliente no tiene relaciones con lavado de activos, no es PEP, ni tiene procesos abiertos.
+
+### Cambios Aplicados:
+
+**1. Modelo de Datos** (`app/models/client.py`)
+- Agregado campo `validation_oc_url` (VARCHAR 500) - línea 50
+- Incluido en método `to_dict()` - línea 264
+
+**2. Base de Datos**
+- Ejecutada migración: `ALTER TABLE clients ADD COLUMN IF NOT EXISTS validation_oc_url VARCHAR(500);`
+- ✅ Columna agregada exitosamente
+
+**3. Template HTML** (`app/templates/clients/list.html` - líneas 276-305)
+```html
+<!-- Validación OC (Solo para Master y Operador) -->
+<div id="validationOcSection" style="display: none;">
+    <div class="form-section-title">
+        <i class="bi bi-shield-check"></i> Validación Oficial de Cumplimiento (OC)
+    </div>
+    <!-- Alerta informativa -->
+    <!-- Estado de validación -->
+    <!-- Formulario de subida -->
+    <!-- Botón para subir documento -->
+</div>
+```
+
+**4. JavaScript** (`app/static/js/clients.js` - líneas 1395-1548)
+
+Funciones implementadas:
+- `toggleValidationOcSection(userRole)` - Muestra/oculta sección según rol
+- `updateValidationOcStatus(validationOcUrl)` - Actualiza estado visual:
+  - ⚠️ **Sin documento**: Alerta amarilla "Validación pendiente"
+  - ✅ **Con documento**: Alerta verde "Validación completada" + preview del archivo
+- `uploadValidationOc()` - Maneja la subida del archivo
+
+**5. Backend** (`app/routes/clients.py` - líneas 352-392)
+
+Endpoint: `POST /clients/api/upload_validation_oc/<client_id>`
+- Restringido a roles: **Master** y **Operador**
+- Valida archivo y cliente
+- Sube a Cloudinary en folder `validation_oc`
+- Actualiza `client.validation_oc_url`
+
+### Características:
+
+✅ **Visibilidad por rol:**
+- **Master y Operador**: Ven y pueden subir documentos
+- **Trader**: No ve la sección
+
+✅ **Estados visuales:**
+- **Pendiente**: Alerta amarilla indicando que falta la validación
+- **Completada**: Alerta verde con preview y enlace al documento
+
+✅ **Validaciones:**
+- Tamaño máximo: 10MB
+- Formatos permitidos: PDF, Word (.doc, .docx), Imágenes
+- Solo un documento por cliente (puede ser reemplazado)
+
+✅ **Información complementaria:**
+- No bloquea la creación de clientes
+- No impide el cambio de estado a "Activo"
+- Es un registro adicional para auditoría y cumplimiento
+
+### Flujo de uso:
+
+1. **Master/Operador** edita un cliente
+2. Ve la sección "Validación OC" debajo de documentos adjuntos
+3. Si no hay documento: Alerta amarilla "Validación pendiente"
+4. Selecciona archivo → Aparece botón "Subir Documento de Validación"
+5. Hace clic en subir → Archivo se carga a Cloudinary
+6. Estado cambia a "Validación completada" (verde)
+7. Puede ver/descargar el documento subido
+
+---
+
 ## ✅ ESTADO FINAL
 
-**TODAS LAS CORRECCIONES HAN SIDO APLICADAS.**
+**TODAS LAS CORRECCIONES Y MEJORAS HAN SIDO APLICADAS.**
 
-**PARA QUE FUNCIONEN:**
-1. ⚠️ **CRÍTICO:** Configurar credenciales reales de Cloudinary en `.env`
-2. Reiniciar el servidor Flask
-3. Limpiar caché del navegador (Ctrl+Shift+Del)
-4. Probar con diferentes roles de usuario
+**✅ Cloudinary está configurado correctamente**
+**✅ Campo dni actualizado a VARCHAR(20)**
+**✅ Registro de clientes con RUC funcionando**
+**✅ Sin errores de JavaScript en consola**
+**✅ Modal VER muestra Persona de Contacto para RUC**
+**✅ Modal VER sin archivos adjuntos (solo en EDITAR)**
+**✅ Modal EDITAR en modo solo lectura para TRADER (excepto cuentas bancarias)**
+**✅ Sección de Validación OC para Master y Operador implementada**
 
 **Si sigues teniendo problemas:**
-1. Revisa la consola del servidor para errores
-2. Revisa la consola del navegador (F12)
-3. Verifica que las credenciales de Cloudinary sean correctas
+1. Limpia caché del navegador (Ctrl+Shift+F5)
+2. Revisa la consola del servidor para errores
+3. Revisa la consola del navegador (F12)
 4. Asegúrate de que Flask-SocketIO esté ejecutándose correctamente

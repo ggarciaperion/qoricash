@@ -46,6 +46,9 @@ class Client(db.Model):
     dni_representante_back_url = db.Column(db.String(500))
     ficha_ruc_url = db.Column(db.String(500))
 
+    # Validación Oficial de Cumplimiento (OC)
+    validation_oc_url = db.Column(db.String(500))  # Documento de validación OC
+
     # Dirección completa
     direccion = db.Column(db.String(300))
     distrito = db.Column(db.String(100))
@@ -161,6 +164,9 @@ class Client(db.Model):
         Validar que existan al menos 2 cuentas: una en S/ y otra en $
         Máximo 6 cuentas permitidas
 
+        ACTUALIZADO: Ahora permite múltiples cuentas con el mismo banco y moneda,
+        pero rechaza duplicados exactos (mismo banco, tipo de cuenta, número y moneda)
+
         Returns:
             tuple: (is_valid: bool, message: str)
         """
@@ -178,7 +184,7 @@ class Client(db.Model):
         allowed_currencies = {'S/', '$'}
 
         currencies_present = []
-        seen_accounts = set()  # Para detectar duplicados (banco + moneda)
+        seen_accounts = set()  # Para detectar duplicados EXACTOS (banco + tipo + número + moneda)
 
         for idx, account in enumerate(accounts_list, start=1):
             if not isinstance(account, dict):
@@ -199,10 +205,12 @@ class Client(db.Model):
             if currency:
                 currencies_present.append(currency)
 
-            # Validar duplicados (mismo banco y misma moneda)
-            account_key = f"{bank}_{currency}"
+            # MEJORADO: Validar duplicados EXACTOS (toda la información debe ser idéntica)
+            # Esto permite tener múltiples cuentas del mismo banco en la misma moneda
+            # siempre que tengan números de cuenta diferentes
+            account_key = f"{bank}_{acct_type}_{acc_num}_{currency}"
             if account_key in seen_accounts:
-                return False, f'Cuenta duplicada detectada: {bank} en {currency}. No puedes tener dos cuentas del mismo banco en la misma moneda.'
+                return False, f'Cuenta duplicada detectada en Cuenta #{idx}: Ya existe una cuenta idéntica con {bank}, {acct_type}, {currency}, número {acc_num}'
             seen_accounts.add(account_key)
 
             # Validar CCI (20 dígitos) para bancos que requieren CCI
@@ -217,6 +225,8 @@ class Client(db.Model):
     def to_dict(self, include_stats=False):
         """
         Convertir a diccionario
+
+        ACTUALIZADO: Ahora incluye información del usuario que creó el cliente
         """
         data = {
             'id': self.id,
@@ -229,6 +239,10 @@ class Client(db.Model):
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
             'bank_accounts': self.bank_accounts,
+            # NUEVO: Información del usuario que creó el cliente
+            'created_by_id': self.created_by,
+            'created_by_username': self.creator.username if self.creator else None,
+            'created_by_role': self.creator.role if self.creator else None,
         }
 
         if self.document_type == 'RUC':
@@ -256,6 +270,9 @@ class Client(db.Model):
             'departamento': self.departamento,
             'full_address': self.full_address,
         })
+
+        # Validación OC
+        data['validation_oc_url'] = self.validation_oc_url
 
         # Compatibilidad con campos antiguos
         data.update({

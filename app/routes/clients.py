@@ -287,39 +287,143 @@ def search():
 @require_role('Master')
 def export_csv():
     """
-    API: Exportar clientes a CSV
+    API: Exportar clientes a Excel con formato de tabla
     """
     try:
-        clients_data = ClientService.export_clients_to_dict()
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, PatternFill, Alignment
+        from openpyxl.utils import get_column_letter
 
-        if not clients_data:
+        # Obtener todos los clientes con eager loading
+        from sqlalchemy.orm import joinedload
+        from app.models.client import Client
+        clients = Client.query.options(joinedload(Client.creator)).order_by(Client.created_at.desc()).all()
+
+        if not clients:
             return jsonify({'success': False, 'message': 'No hay clientes para exportar'}), 404
 
-        # Crear CSV en memoria
-        output = io.StringIO()
+        # Crear workbook
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Clientes"
 
-        # Obtener headers del primer cliente
-        headers = list(clients_data[0].keys())
+        # Definir columnas en orden específico (ahora con más detalle)
+        headers = [
+            'ID',
+            'Tipo Documento',
+            'Número Documento',
+            'Nombre Completo',
+            'Persona Contacto',  # Para RUC
+            'Email',
+            'Teléfono',
+            'Dirección',
+            'Distrito',
+            'Provincia',
+            'Departamento',
+            'Usuario Registro',
+            'Fecha Registro',
+            'Estado',
+            'Total Operaciones',
+            'Operaciones Completadas',
+            'Cuenta Bancaria 1',
+            'Cuenta Bancaria 2',
+            'Cuenta Bancaria 3',
+            'Cuenta Bancaria 4',
+            'Cuenta Bancaria 5',
+            'Cuenta Bancaria 6'
+        ]
 
-        writer = csv.DictWriter(output, fieldnames=headers)
-        writer.writeheader()
-        writer.writerows(clients_data)
+        # Escribir encabezados con formato
+        for col_num, header in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col_num, value=header)
+            cell.font = Font(bold=True, color="FFFFFF")
+            cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+            cell.alignment = Alignment(horizontal="center", vertical="center")
 
-        # Convertir a bytes
-        output.seek(0)
-        csv_bytes = io.BytesIO(output.getvalue().encode('utf-8-sig'))  # UTF-8 con BOM para Excel
+        # Escribir datos
+        for row_num, client in enumerate(clients, 2):
+            col = 1
+            ws.cell(row=row_num, column=col, value=client.id); col += 1
+            ws.cell(row=row_num, column=col, value=client.document_type); col += 1
+            ws.cell(row=row_num, column=col, value=client.dni); col += 1
+            ws.cell(row=row_num, column=col, value=client.full_name or ''); col += 1
+
+            # Persona de contacto (solo para RUC)
+            ws.cell(row=row_num, column=col, value=client.persona_contacto if client.document_type == 'RUC' else ''); col += 1
+
+            ws.cell(row=row_num, column=col, value=client.email); col += 1
+            ws.cell(row=row_num, column=col, value=client.phone or ''); col += 1
+
+            # Dirección separada en columnas
+            ws.cell(row=row_num, column=col, value=client.direccion or ''); col += 1
+            ws.cell(row=row_num, column=col, value=client.distrito or ''); col += 1
+            ws.cell(row=row_num, column=col, value=client.provincia or ''); col += 1
+            ws.cell(row=row_num, column=col, value=client.departamento or ''); col += 1
+
+            ws.cell(row=row_num, column=col, value=client.creator.email if client.creator else 'N/A'); col += 1
+            ws.cell(row=row_num, column=col, value=client.created_at.strftime('%d/%m/%Y %H:%M') if client.created_at else ''); col += 1
+            ws.cell(row=row_num, column=col, value=client.status); col += 1
+            ws.cell(row=row_num, column=col, value=client.get_total_operations()); col += 1
+            ws.cell(row=row_num, column=col, value=client.get_completed_operations()); col += 1
+
+            # Cuentas bancarias (hasta 6)
+            bank_accounts = client.bank_accounts or []
+            for i in range(6):
+                if i < len(bank_accounts):
+                    account = bank_accounts[i]
+                    account_str = f"{account.get('bank_name', '')} | {account.get('account_type', '')} | {account.get('currency', '')} | {account.get('account_number', '')}"
+                    ws.cell(row=row_num, column=col, value=account_str)
+                else:
+                    ws.cell(row=row_num, column=col, value='')
+                col += 1
+
+        # Ajustar ancho de columnas
+        column_widths = {
+            'A': 8,   # ID
+            'B': 15,  # Tipo Documento
+            'C': 18,  # Número Documento
+            'D': 35,  # Nombre Completo
+            'E': 30,  # Persona Contacto
+            'F': 30,  # Email
+            'G': 15,  # Teléfono
+            'H': 30,  # Dirección
+            'I': 20,  # Distrito
+            'J': 20,  # Provincia
+            'K': 20,  # Departamento
+            'L': 30,  # Usuario Registro
+            'M': 18,  # Fecha Registro
+            'N': 12,  # Estado
+            'O': 18,  # Total Ops
+            'P': 20,  # Ops Completadas
+            'Q': 50,  # Cuenta 1
+            'R': 50,  # Cuenta 2
+            'S': 50,  # Cuenta 3
+            'T': 50,  # Cuenta 4
+            'U': 50,  # Cuenta 5
+            'V': 50   # Cuenta 6
+        }
+
+        for col, width in column_widths.items():
+            ws.column_dimensions[col].width = width
+
+        # Guardar en memoria
+        excel_file = io.BytesIO()
+        wb.save(excel_file)
+        excel_file.seek(0)
 
         # Nombre del archivo con fecha
-        filename = f"clientes_qoricash_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        filename = f"clientes_qoricash_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
 
         return send_file(
-            csv_bytes,
-            mimetype='text/csv',
+            excel_file,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             as_attachment=True,
             download_name=filename
         )
 
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return jsonify({'success': False, 'message': f'Error al exportar: {str(e)}'}), 500
 
 
@@ -347,3 +451,46 @@ def get_active():
     """
     clients = ClientService.get_active_clients()
     return jsonify({'success': True, 'clients': [client.to_dict() for client in clients]})
+
+
+@clients_bp.route('/api/upload_validation_oc/<int:client_id>', methods=['POST'])
+@login_required
+@require_role('Master', 'Operador')
+def upload_validation_oc(client_id):
+    """
+    API: Subir documento de validación del Oficial de Cumplimiento (OC)
+    Solo para roles Master y Operador
+    """
+    client = ClientService.get_client_by_id(client_id)
+    if not client:
+        return jsonify({'success': False, 'message': 'Cliente no encontrado'}), 404
+
+    if 'validation_oc_file' not in request.files:
+        return jsonify({'success': False, 'message': 'No se envió ningún archivo'}), 400
+
+    file = request.files['validation_oc_file']
+    if file.filename == '':
+        return jsonify({'success': False, 'message': 'No se seleccionó ningún archivo'}), 400
+
+    try:
+        file_service = FileService()
+
+        # Subir archivo a Cloudinary con folder específico para validación OC
+        ok, msg, url = file_service.upload_file(file, 'validation_oc', f"OC_{client.dni}")
+
+        if not ok:
+            return jsonify({'success': False, 'message': f'Error al subir archivo: {msg}'}), 400
+
+        # Actualizar cliente con URL de validación OC
+        client.validation_oc_url = url
+        from app.extensions import db
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': 'Documento de validación OC subido correctamente',
+            'validation_oc_url': url
+        })
+
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error al subir documento: {str(e)}'}), 500
