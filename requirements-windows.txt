@@ -22,6 +22,9 @@ email-validator==2.1.0
 Flask-Limiter==3.5.0
 python-dotenv==1.0.0
 
+# Mail
+Flask-Mail==0.9.1
+
 # WebSocket (Real-time)
 Flask-SocketIO==5.3.5
 python-socketio==5.10.0
