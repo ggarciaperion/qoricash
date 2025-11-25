@@ -50,6 +50,23 @@ class Config:
     WTF_CSRF_TIME_LIMIT = None  # No expiration
     WTF_CSRF_SSL_STRICT = False  # Allow HTTPS in production
 
+    # Email Configuration (Principal - para nuevas operaciones)
+    MAIL_SERVER = os.environ.get('MAIL_SERVER', 'smtp.gmail.com')
+    MAIL_PORT = int(os.environ.get('MAIL_PORT', 587))
+    MAIL_USE_TLS = os.environ.get('MAIL_USE_TLS', 'True') == 'True'
+    MAIL_USE_SSL = os.environ.get('MAIL_USE_SSL', 'False') == 'True'
+    MAIL_USERNAME = os.environ.get('MAIL_USERNAME')
+    MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD')
+    MAIL_DEFAULT_SENDER = os.environ.get('MAIL_DEFAULT_SENDER') or os.environ.get('MAIL_USERNAME')
+
+    # Email de confirmación (para operaciones completadas)
+    MAIL_CONFIRMATION_USERNAME = os.environ.get('MAIL_CONFIRMATION_USERNAME')
+    MAIL_CONFIRMATION_PASSWORD = os.environ.get('MAIL_CONFIRMATION_PASSWORD')
+    MAIL_CONFIRMATION_SENDER = os.environ.get('MAIL_CONFIRMATION_SENDER')
+
+    MAIL_MAX_EMAILS = None
+    MAIL_ASCII_ATTACHMENTS = False
+
 
 class DevelopmentConfig(Config):
     """Configuración para desarrollo"""

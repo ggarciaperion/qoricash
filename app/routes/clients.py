@@ -7,10 +7,14 @@ from app.services.client_service import ClientService
 from app.services.file_service import FileService
 from app.services.notification_service import NotificationService
 from app.utils.decorators import require_role
+from app.utils.formatters import now_peru
 import io
 import csv
 from datetime import datetime
 import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 clients_bp = Blueprint('clients', __name__, url_prefix='/clients')
 
@@ -123,6 +127,13 @@ def create_client():
         except Exception:
             # No bloquear por errores de notificación
             pass
+        # Enviar correo electrónico de nuevo cliente
+        try:
+            from app.services.email_service import EmailService
+            EmailService.send_new_client_registration_email(client, current_user)
+        except Exception as e:
+            # No bloquear por errores de email
+            logger.warning(f'Error al enviar email de nuevo cliente: {str(e)}')
         return jsonify({'success': True, 'message': message, 'client': client.to_dict()}), 201
     else:
         return jsonify({'success': False, 'message': message}), 400
@@ -156,8 +167,22 @@ def change_status(client_id):
     if not new_status:
         return jsonify({'success': False, 'message': 'El estado es requerido'}), 400
 
+    # Obtener estado anterior antes de cambiarlo
+    client_before = ClientService.get_client_by_id(client_id)
+    old_status = client_before.status if client_before else None
+
     success, message, client = ClientService.change_client_status(current_user=current_user, client_id=client_id, new_status=new_status)
     if success:
+        # Si el cliente fue activado (de Inactivo a Activo), enviar email
+        if old_status == 'Inactivo' and new_status == 'Activo':
+            try:
+                from app.services.email_service import EmailService
+                # Enviar correo con el trader que creó al cliente
+                trader = client.creator if hasattr(client, 'creator') and client.creator else current_user
+                EmailService.send_client_activation_email(client, trader)
+            except Exception as e:
+                # No bloquear por errores de email
+                logger.warning(f'Error al enviar email de cliente activado: {str(e)}')
         return jsonify({'success': True, 'message': message, 'client': client.to_dict()})
     else:
         return jsonify({'success': False, 'message': message}), 400
@@ -412,7 +437,7 @@ def export_csv():
         excel_file.seek(0)
 
         # Nombre del archivo con fecha
-        filename = f"clientes_qoricash_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        filename = f"clientes_qoricash_{now_peru().strftime('%Y%m%d_%H%M%S')}.xlsx"
 
         return send_file(
             excel_file,

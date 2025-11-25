@@ -11,42 +11,287 @@ let socket = null;
  */
 function connectSocketIO() {
     if (socket) return; // Ya conectado
-    
+
     socket = io();
-    
+
     socket.on('connect', function() {
         console.log('✅ SocketIO conectado');
+        // No mostrar notificación de conexión
     });
-    
+
     socket.on('disconnect', function() {
         console.log('⚠️  SocketIO desconectado');
+        // No mostrar notificación de desconexión
     });
-    
-    // Escuchar eventos de operaciones
+
+    socket.on('connection_established', function(data) {
+        console.log('Conexión establecida:', data);
+    });
+
+    // ============================================
+    // EVENTOS DE OPERACIONES
+    // ============================================
+
     socket.on('nueva_operacion', function(data) {
-        showAlert(`Nueva operación: ${data.operation_id} - ${data.client_name}`, 'info');
-        playNotificationSound();
+        // Solo mostrar notificación a Master y Operador
+        if (window.currentUserRole === 'Master' || window.currentUserRole === 'Operador') {
+            showNotification(`Nueva operación: ${data.operation_id} - ${data.client_name}`, 'info');
+            playNotificationSound();
+        }
+
+        // Actualizar dashboard para todos
+        if (typeof loadDashboardData === 'function') {
+            loadDashboardData();
+        }
+
+        // Actualizar tabla de operaciones si existe
+        if (typeof refreshOperationsTable === 'function') {
+            refreshOperationsTable();
+        }
     });
-    
+
     socket.on('operacion_actualizada', function(data) {
-        showAlert(`Operación ${data.operation_id} actualizada a: ${data.status}`, 'info');
+        // Solo mostrar notificación a Master y Operador
+        if (window.currentUserRole === 'Master' || window.currentUserRole === 'Operador') {
+            showNotification(`Operación ${data.operation_id} actualizada a: ${data.status}`, 'info');
+        }
+
+        // Actualizar dashboard para todos
+        if (typeof loadDashboardData === 'function') {
+            loadDashboardData();
+        }
+
+        // Actualizar tabla de operaciones si existe
+        if (typeof refreshOperationsTable === 'function') {
+            refreshOperationsTable();
+        }
     });
-    
+
     socket.on('operacion_completada', function(data) {
-        showAlert(`Operación ${data.operation_id} completada`, 'success');
-        playNotificationSound();
+        // Solo mostrar notificación a Master y Operador
+        if (window.currentUserRole === 'Master' || window.currentUserRole === 'Operador') {
+            showNotification(`Operación ${data.operation_id} completada exitosamente`, 'success');
+            playNotificationSound();
+        }
+
+        // Actualizar dashboard para todos
+        if (typeof loadDashboardData === 'function') {
+            loadDashboardData();
+        }
+
+        // Actualizar tabla de operaciones si existe
+        if (typeof refreshOperationsTable === 'function') {
+            refreshOperationsTable();
+        }
     });
-    
+
+    socket.on('operacion_cancelada', function(data) {
+        // Solo mostrar notificación a Master y Operador
+        if (window.currentUserRole === 'Master' || window.currentUserRole === 'Operador') {
+            showNotification(`Operación ${data.operation_id} cancelada`, 'warning');
+        }
+
+        // Actualizar dashboard para todos
+        if (typeof loadDashboardData === 'function') {
+            loadDashboardData();
+        }
+
+        // Actualizar tabla de operaciones si existe
+        if (typeof refreshOperationsTable === 'function') {
+            refreshOperationsTable();
+        }
+    });
+
+    // ============================================
+    // EVENTOS DE CLIENTES
+    // ============================================
+
+    socket.on('nuevo_cliente', function(data) {
+        // Solo mostrar notificación a Master y Operador
+        if (window.currentUserRole === 'Master' || window.currentUserRole === 'Operador') {
+            showNotification(`Nuevo cliente: ${data.client_name} (${data.client_dni})`, 'info');
+        }
+
+        // Actualizar tabla de clientes si existe
+        if (typeof refreshClientsTable === 'function') {
+            refreshClientsTable();
+        }
+
+        // Actualizar dashboard para todos
+        if (typeof loadDashboardData === 'function') {
+            loadDashboardData();
+        }
+    });
+
+    socket.on('client_updated', function(data) {
+        // Solo mostrar notificación a Master y Operador
+        if (window.currentUserRole === 'Master' || window.currentUserRole === 'Operador') {
+            showNotification(`Cliente actualizado: ${data.client_name}`, 'info');
+        }
+
+        // Actualizar tabla de clientes si existe
+        if (typeof refreshClientsTable === 'function') {
+            refreshClientsTable();
+        }
+    });
+
+    socket.on('client_deleted', function(data) {
+        // Solo mostrar notificación a Master y Operador
+        if (window.currentUserRole === 'Master' || window.currentUserRole === 'Operador') {
+            showNotification(`Cliente eliminado: ${data.client_name}`, 'warning');
+        }
+
+        // Actualizar tabla de clientes si existe
+        if (typeof refreshClientsTable === 'function') {
+            refreshClientsTable();
+        }
+
+        // Actualizar dashboard para todos
+        if (typeof loadDashboardData === 'function') {
+            loadDashboardData();
+        }
+    });
+
+    // ============================================
+    // EVENTOS DE USUARIOS
+    // ============================================
+
+    socket.on('nuevo_usuario', function(data) {
+        showNotification(`Nuevo usuario: ${data.username} (${data.role})`, 'info');
+
+        // Actualizar tabla de usuarios si existe
+        if (typeof refreshUsersTable === 'function') {
+            refreshUsersTable();
+        }
+
+        // Actualizar dashboard
+        if (typeof loadDashboardData === 'function') {
+            loadDashboardData();
+        }
+    });
+
+    socket.on('user_updated', function(data) {
+        showNotification(`Usuario actualizado: ${data.username}`, 'info');
+
+        // Actualizar tabla de usuarios si existe
+        if (typeof refreshUsersTable === 'function') {
+            refreshUsersTable();
+        }
+    });
+
+    socket.on('user_deleted', function(data) {
+        showNotification(`Usuario eliminado: ${data.username}`, 'warning');
+
+        // Actualizar tabla de usuarios si existe
+        if (typeof refreshUsersTable === 'function') {
+            refreshUsersTable();
+        }
+
+        // Actualizar dashboard
+        if (typeof loadDashboardData === 'function') {
+            loadDashboardData();
+        }
+    });
+
+    // ============================================
+    // EVENTOS DEL DASHBOARD
+    // ============================================
+
     socket.on('dashboard_update', function() {
         // Actualizar dashboard si estamos en esa página
         if (typeof loadDashboardData === 'function') {
             loadDashboardData();
         }
     });
+
+    // ============================================
+    // EVENTOS GENERALES
+    // ============================================
+
+    socket.on('notification', function(data) {
+        showNotification(data.message, data.type || 'info');
+    });
+
+    // ============================================
+    // EVENTOS DE ASIGNACIÓN DE OPERACIONES
+    // ============================================
+
+    socket.on('operacion_asignada', function(data) {
+        console.log('Operación asignada recibida:', data);
+
+        // Mostrar notificación al operador
+        showNotification(data.message, 'info', 8000);
+
+        // Si estamos en la página de operaciones, refrescar la tabla
+        if (typeof refreshOperationsTable === 'function') {
+            refreshOperationsTable();
+        }
+
+        // Si el modal de edición está abierto con esta operación, recargarlo
+        if (typeof currentOperation !== 'undefined' && currentOperation &&
+            currentOperation.id === data.operation_db_id) {
+            if (typeof loadEditModal === 'function') {
+                loadEditModal();
+            }
+        }
+
+        // Reproducir sonido de notificación si está disponible
+        playNotificationSound();
+    });
+
+    socket.on('operacion_reasignada_removida', function(data) {
+        console.log('Operación reasignada removida:', data);
+
+        // Mostrar notificación al operador anterior
+        showNotification(data.message, 'warning', 8000);
+
+        // Si estamos en la página de operaciones, refrescar la tabla
+        if (typeof refreshOperationsTable === 'function') {
+            refreshOperationsTable();
+        }
+
+        // Si el modal de edición está abierto con esta operación, cerrarlo
+        if (typeof currentOperation !== 'undefined' && currentOperation &&
+            currentOperation.id === data.operation_db_id) {
+            // Cerrar el modal ya que ya no está asignada a este operador
+            const editModal = bootstrap.Modal.getInstance(document.getElementById('editOperationModal'));
+            if (editModal) {
+                editModal.hide();
+            }
+        }
+    });
 }
 
 /**
- * Mostrar alerta (toast notification)
+ * Mostrar notificación toast moderna
+ */
+function showNotification(message, type = 'info', duration = 5000) {
+    // Usar SweetAlert2 Toast si está disponible
+    if (typeof Swal !== 'undefined') {
+        const Toast = Swal.mixin({
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: duration,
+            timerProgressBar: true,
+            didOpen: (toast) => {
+                toast.addEventListener('mouseenter', Swal.stopTimer)
+                toast.addEventListener('mouseleave', Swal.resumeTimer)
+            }
+        });
+
+        Toast.fire({
+            icon: type === 'danger' ? 'error' : type,
+            title: message
+        });
+    } else {
+        // Fallback a showAlert
+        showAlert(message, type);
+    }
+}
+
+/**
+ * Mostrar alerta (toast notification) - Fallback
  */
 function showAlert(message, type = 'info') {
     const alertTypes = {
@@ -55,30 +300,29 @@ function showAlert(message, type = 'info') {
         'warning': 'alert-warning',
         'info': 'alert-info'
     };
-    
+
     const alertClass = alertTypes[type] || 'alert-info';
     const icons = {
-        'success': 'bi-check-circle',
-        'danger': 'bi-x-circle',
-        'warning': 'bi-exclamation-triangle',
-        'info': 'bi-info-circle'
+        'success': 'bi-check-circle-fill',
+        'danger': 'bi-exclamation-circle-fill',
+        'warning': 'bi-exclamation-triangle-fill',
+        'info': 'bi-info-circle-fill'
     };
-    const icon = icons[type] || 'bi-info-circle';
-    
+    const icon = icons[type] || 'bi-info-circle-fill';
+
     const alertHtml = `
-        <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
-            <i class="bi ${icon}"></i> ${message}
+        <div class="alert ${alertClass} alert-dismissible fade show position-fixed" role="alert" style="top: 20px; right: 20px; z-index: 9999; min-width: 300px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+            <i class="bi ${icon} me-2"></i> ${message}
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
     `;
-    
-    // Agregar al contenedor de alerts
-    const container = $('.container').first();
-    container.prepend(alertHtml);
-    
+
+    // Agregar al body
+    $('body').append(alertHtml);
+
     // Auto-remover después de 5 segundos
     setTimeout(function() {
-        container.find('.alert').first().fadeOut(function() {
+        $('body').find('.alert').last().fadeOut(function() {
             $(this).remove();
         });
     }, 5000);
@@ -104,9 +348,14 @@ function ajaxRequest(url, method, data, successCallback, errorCallback) {
             }
         },
         error: function(xhr, status, error) {
-            const errorMsg = xhr.responseJSON?.message || error || 'Error en la petición';
-            showAlert(errorMsg, 'danger');
-            
+            // Solo mostrar error si es relevante (no errores de recursos estáticos)
+            if (xhr.status !== 0 && xhr.status !== 404) {
+                const errorMsg = xhr.responseJSON?.message || error || 'Error en la petición';
+                showAlert(errorMsg, 'danger');
+            } else if (xhr.status === 404) {
+                console.error('Recurso no encontrado:', url, xhr);
+            }
+
             if (errorCallback) {
                 errorCallback(xhr, status, error);
             }
@@ -286,5 +535,188 @@ $(document).ready(function() {
     // Solo conectar si el usuario está autenticado
     if ($('nav.navbar').length > 0) {
         connectSocketIO();
+    }
+
+    // Iniciar verificación de operaciones pendientes (solo para Operador)
+    if (window.currentUserRole === 'Operador') {
+        initPendingOperationsMonitor();
+    }
+});
+
+// ============================================
+// SISTEMA DE NOTIFICACIONES PARA OPERADOR
+// ============================================
+
+let pendingOperationsCheckInterval = null;
+let alertedOperationsMap = new Map(); // Rastrear operaciones alertadas con su último tiempo
+let isModalCurrentlyShowing = false; // Prevenir múltiples modales simultáneos
+
+/**
+ * Iniciar monitoreo de operaciones pendientes (solo para Operador)
+ */
+function initPendingOperationsMonitor() {
+    console.log('🔔 Iniciando monitoreo de operaciones pendientes para Operador');
+
+    // Verificar inmediatamente al cargar
+    checkPendingOperations();
+
+    // Verificar cada 1 minuto (60000 ms)
+    pendingOperationsCheckInterval = setInterval(function() {
+        checkPendingOperations();
+    }, 60000);
+}
+
+/**
+ * Verificar operaciones pendientes de atención
+ */
+function checkPendingOperations() {
+    // Si ya hay un modal mostrándose, no verificar
+    if (isModalCurrentlyShowing) {
+        console.log('Modal ya está visible, omitiendo verificación');
+        return;
+    }
+
+    ajaxRequest('/operations/api/check_pending_operations', 'GET', null, function(response) {
+        if (response.success && response.count > 0) {
+            const operationsToAlert = [];
+
+            // Filtrar operaciones que realmente necesitan alerta ahora
+            response.pending_operations.forEach(function(operation) {
+                const timeInProcess = operation.time_in_process_minutes;
+                const opId = operation.operation_id;
+
+                // Lógica de alerta:
+                // - Primera alerta a los 10 minutos exactos
+                // - Alertas subsiguientes cada 5 minutos (15, 20, 25, etc.)
+                const shouldAlert = (timeInProcess === 10) ||
+                                   (timeInProcess > 10 && (timeInProcess - 10) % 5 === 0);
+
+                if (shouldAlert) {
+                    // Verificar si ya fue alertada en este tiempo específico
+                    const lastAlertedTime = alertedOperationsMap.get(opId);
+
+                    // Solo alertar si:
+                    // 1. Nunca ha sido alertada, O
+                    // 2. El tiempo actual es diferente al último tiempo alertado
+                    if (!lastAlertedTime || lastAlertedTime !== timeInProcess) {
+                        operationsToAlert.push(operation);
+                        // Registrar que esta operación será alertada en este minuto
+                        alertedOperationsMap.set(opId, timeInProcess);
+                    }
+                }
+            });
+
+            // Si hay operaciones para alertar, mostrar modal
+            if (operationsToAlert.length > 0) {
+                showPendingOperationsAlert(operationsToAlert);
+            }
+
+            // Limpiar operaciones completadas del mapa de rastreo
+            cleanupAlertedOperationsMap(response.pending_operations);
+        }
+    }, function(error) {
+        console.error('Error al verificar operaciones pendientes:', error);
+    });
+}
+
+/**
+ * Limpiar el mapa de operaciones alertadas para remover operaciones que ya no están en proceso
+ */
+function cleanupAlertedOperationsMap(currentOperations) {
+    const currentOpIds = new Set(currentOperations.map(op => op.operation_id));
+
+    // Eliminar operaciones que ya no están en la lista
+    for (let [opId, time] of alertedOperationsMap.entries()) {
+        if (!currentOpIds.has(opId)) {
+            alertedOperationsMap.delete(opId);
+        }
+    }
+}
+
+/**
+ * Mostrar alerta modal de operaciones pendientes
+ */
+function showPendingOperationsAlert(operations) {
+    // Marcar que el modal está visible
+    isModalCurrentlyShowing = true;
+
+    let contentHtml = '<div class="alert alert-warning mb-3">';
+    contentHtml += '<strong><i class="bi bi-clock-history me-2"></i>Tienes operaciones que requieren atención inmediata:</strong>';
+    contentHtml += '</div>';
+
+    contentHtml += '<div class="list-group">';
+
+    operations.forEach(function(op) {
+        const timeInProcess = op.time_in_process_minutes;
+        const clientName = op.client_name || 'N/A';
+        const operationType = op.operation_type || 'N/A';
+        const amountUSD = op.amount_usd ? '$' + parseFloat(op.amount_usd).toFixed(2) : '$0.00';
+
+        contentHtml += '<div class="list-group-item">';
+        contentHtml += '<div class="d-flex w-100 justify-content-between align-items-center">';
+        contentHtml += '<div>';
+        contentHtml += '<h6 class="mb-1"><strong>' + op.operation_id + '</strong> - ' + clientName + '</h6>';
+        contentHtml += '<p class="mb-1"><small>' + operationType + ' | ' + amountUSD + '</small></p>';
+        contentHtml += '</div>';
+        contentHtml += '<div class="text-end">';
+        contentHtml += '<span class="badge bg-danger fs-6">' + timeInProcess + ' min</span>';
+        contentHtml += '</div>';
+        contentHtml += '</div>';
+        contentHtml += '</div>';
+    });
+
+    contentHtml += '</div>';
+
+    // Agregar sonido de alerta
+    playNotificationSound();
+
+    // Llenar contenido del modal
+    $('#pendingOperationsAlertContent').html(contentHtml);
+
+    // Obtener o crear instancia del modal
+    const modalElement = document.getElementById('pendingOperationsAlertModal');
+    let alertModal = bootstrap.Modal.getInstance(modalElement);
+
+    if (!alertModal) {
+        alertModal = new bootstrap.Modal(modalElement, {
+            backdrop: 'static',
+            keyboard: false
+        });
+    }
+
+    // Escuchar cuando el modal se oculta para resetear el flag
+    $(modalElement).off('hidden.bs.modal').on('hidden.bs.modal', function() {
+        isModalCurrentlyShowing = false;
+        console.log('Modal cerrado, permitiendo nuevas verificaciones');
+    });
+
+    // Mostrar modal
+    alertModal.show();
+}
+
+/**
+ * Manejar clic en "Ver Operaciones"
+ */
+$(document).on('click', '#btnViewPendingOperations', function() {
+    // Cerrar modal (el evento hidden.bs.modal se encargará de resetear isModalCurrentlyShowing)
+    const modalElement = document.getElementById('pendingOperationsAlertModal');
+    const alertModal = bootstrap.Modal.getInstance(modalElement);
+    if (alertModal) {
+        alertModal.hide();
+    }
+
+    // Redirigir a la vista de operaciones
+    window.location.href = '/operations/list';
+});
+
+/**
+ * Manejar clic en "Entendido"
+ */
+$(document).on('click', '#btnDismissAlert', function() {
+    // Cerrar modal (el evento hidden.bs.modal se encargará de resetear isModalCurrentlyShowing)
+    const modalElement = document.getElementById('pendingOperationsAlertModal');
+    const alertModal = bootstrap.Modal.getInstance(modalElement);
+    if (alertModal) {
+        alertModal.hide();
     }
 });

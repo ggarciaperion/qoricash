@@ -3,6 +3,7 @@ Modelo de Auditoría para QoriCash Trading V2
 """
 from datetime import datetime
 from app.extensions import db
+from app.utils.formatters import now_peru
 
 
 class AuditLog(db.Model):
@@ -32,7 +33,7 @@ class AuditLog(db.Model):
     user_agent = db.Column(db.String(200))
     
     # Timestamp
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+    created_at = db.Column(db.DateTime, default=now_peru, nullable=False, index=True)
     
     def to_dict(self):
         """

@@ -6,7 +6,7 @@ Este archivo crea y configura la aplicación Flask usando el patrón Factory.
 import logging
 from flask import Flask
 from app.config import get_config
-from app.extensions import db, migrate, login_manager, csrf, socketio, limiter
+from app.extensions import db, migrate, login_manager, csrf, socketio, limiter, mail
 
 
 def create_app(config_name=None):
@@ -46,23 +46,31 @@ def create_app(config_name=None):
     return app
 
 
-def initialize_extensions(app):
+def initialize_extensions(flask_app):
     """Inicializar extensiones de Flask"""
-    db.init_app(app)
-    migrate.init_app(app, db)
-    login_manager.init_app(app)
-    csrf.init_app(app)
-    socketio.init_app(app)
-    
-    if app.config['RATELIMIT_ENABLED']:
-        limiter.init_app(app)
-    
+    db.init_app(flask_app)
+    migrate.init_app(flask_app, db)
+    login_manager.init_app(flask_app)
+    csrf.init_app(flask_app)
+    socketio.init_app(flask_app)
+    mail.init_app(flask_app)
+
+    if flask_app.config['RATELIMIT_ENABLED']:
+        limiter.init_app(flask_app)
+
     # Configurar user_loader para Flask-Login
     from app.models.user import User
-    
+
     @login_manager.user_loader
     def load_user(user_id):
         return User.query.get(int(user_id))
+
+    # Importar eventos de Socket.IO
+    with flask_app.app_context():
+        import app.socketio_events
+
+    # Registrar filtros personalizados de Jinja2
+    register_template_filters(flask_app)
 
 
 def register_blueprints(app):
@@ -72,12 +80,14 @@ def register_blueprints(app):
     from app.routes.users import users_bp
     from app.routes.clients import clients_bp
     from app.routes.operations import operations_bp
-    
+    from app.routes.position import position_bp
+
     app.register_blueprint(auth_bp)
-    app.register_blueprint(dashboard_bp)
+    app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
     app.register_blueprint(users_bp, url_prefix='/users')
     app.register_blueprint(clients_bp, url_prefix='/clients')
     app.register_blueprint(operations_bp, url_prefix='/operations')
+    app.register_blueprint(position_bp, url_prefix='/position')
 
 
 def configure_logging(app):
@@ -112,6 +122,25 @@ def register_error_handlers(app):
     def forbidden_error(error):
         # Siempre retornar JSON para APIs
         return jsonify({'success': False, 'error': 'Acceso denegado'}), 403
+
+
+def register_template_filters(flask_app):
+    """Registrar filtros personalizados de Jinja2"""
+
+    def format_currency_filter(value, decimals=2):
+        """
+        Formatea un número como moneda con separador de miles (coma)
+        Ejemplo: 1000000.50 -> 1,000,000.50
+        """
+        try:
+            num = float(value)
+            formatted = f"{num:,.{decimals}f}"
+            return formatted
+        except (ValueError, TypeError):
+            return "0.00"
+
+    # Registrar el filtro en el entorno de Jinja2
+    flask_app.jinja_env.filters['format_currency'] = format_currency_filter
 
 
 def register_shell_context(app):

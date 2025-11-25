@@ -20,7 +20,7 @@ class NotificationService:
         try:
             data = {
                 'operation_id': operation.operation_id,
-                'client_name': operation.client.name if operation.client else 'N/A',
+                'client_name': operation.client.full_name if operation.client else 'N/A',
                 'operation_type': operation.operation_type,
                 'amount_usd': float(operation.amount_usd),
                 'status': operation.status,
@@ -43,7 +43,7 @@ class NotificationService:
         try:
             data = {
                 'operation_id': operation.operation_id,
-                'client_name': operation.client.name if operation.client else 'N/A',
+                'client_name': operation.client.full_name if operation.client else 'N/A',
                 'status': operation.status,
                 'old_status': old_status
             }
@@ -63,7 +63,7 @@ class NotificationService:
         try:
             data = {
                 'operation_id': operation.operation_id,
-                'client_name': operation.client.name if operation.client else 'N/A',
+                'client_name': operation.client.full_name if operation.client else 'N/A',
                 'amount_usd': float(operation.amount_usd),
                 'amount_pen': float(operation.amount_pen)
             }
@@ -84,7 +84,7 @@ class NotificationService:
         try:
             data = {
                 'operation_id': operation.operation_id,
-                'client_name': operation.client.name if operation.client else 'N/A',
+                'client_name': operation.client.full_name if operation.client else 'N/A',
                 'reason': reason
             }
             
@@ -156,7 +156,7 @@ class NotificationService:
         """
         try:
             data = {
-                'client_name': client.name,
+                'client_name': client.full_name,
                 'client_dni': client.dni,
                 'created_by': created_by.username if created_by else 'N/A'
             }
@@ -195,3 +195,81 @@ class NotificationService:
             socketio.emit('dashboard_update', {}, namespace='/')
         except Exception as e:
             print(f"Error enviando notificación de actualización de dashboard: {e}")
+
+    @staticmethod
+    def notify_position_update():
+        """
+        Notificar actualización de la posición
+        """
+        try:
+            socketio.emit('position_update', {}, namespace='/')
+        except Exception as e:
+            print(f"Error enviando notificación de actualización de posición: {e}")
+
+    @staticmethod
+    def notify_operation_assigned(operation, operator_user):
+        """
+        Notificar al operador cuando se le asigna una operación
+
+        Args:
+            operation: Objeto Operation
+            operator_user: Usuario operador asignado
+        """
+        try:
+            data = {
+                'operation_id': operation.operation_id,
+                'operation_db_id': operation.id,
+                'client_name': operation.client.full_name if operation.client else 'N/A',
+                'operation_type': operation.operation_type,
+                'amount_usd': float(operation.amount_usd) if operation.amount_usd else 0,
+                'status': operation.status,
+                'message': f'Se te ha asignado la operación {operation.operation_id}'
+            }
+
+            # Notificar solo al operador específico
+            room = f'user_{operator_user.id}'
+            socketio.emit('operacion_asignada', data, namespace='/', room=room)
+
+            print(f"Notificación enviada a operador {operator_user.username} (ID: {operator_user.id}) - Operación {operation.operation_id}")
+        except Exception as e:
+            print(f"Error enviando notificación de asignación de operación: {e}")
+
+    @staticmethod
+    def notify_operation_reassigned(operation, old_operator, new_operator, reassigned_by):
+        """
+        Notificar cuando una operación es reasignada por Master
+
+        Args:
+            operation: Objeto Operation
+            old_operator: Usuario operador anterior (puede ser None)
+            new_operator: Usuario operador nuevo
+            reassigned_by: Usuario Master que reasignó
+        """
+        try:
+            data = {
+                'operation_id': operation.operation_id,
+                'operation_db_id': operation.id,
+                'client_name': operation.client.full_name if operation.client else 'N/A',
+                'operation_type': operation.operation_type,
+                'amount_usd': float(operation.amount_usd) if operation.amount_usd else 0,
+                'status': operation.status,
+                'old_operator_name': old_operator.username if old_operator else 'No asignado',
+                'new_operator_name': new_operator.username,
+                'reassigned_by': reassigned_by.username,
+                'message': f'Se te ha reasignado la operación {operation.operation_id}'
+            }
+
+            # Notificar al nuevo operador
+            room_new = f'user_{new_operator.id}'
+            socketio.emit('operacion_asignada', data, namespace='/', room=room_new)
+
+            # Notificar al operador anterior que ya no la tiene asignada
+            if old_operator:
+                data_old = data.copy()
+                data_old['message'] = f'La operación {operation.operation_id} ha sido reasignada a {new_operator.username}'
+                room_old = f'user_{old_operator.id}'
+                socketio.emit('operacion_reasignada_removida', data_old, namespace='/', room=room_old)
+
+            print(f"Notificación de reasignación enviada: {operation.operation_id} -> {new_operator.username}")
+        except Exception as e:
+            print(f"Error enviando notificación de reasignación: {e}")

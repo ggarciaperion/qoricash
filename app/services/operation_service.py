@@ -89,15 +89,34 @@ class OperationService:
     @staticmethod
     def get_today_operations():
         """
-        Obtener operaciones de hoy
-        
+        Obtener operaciones de hoy (según zona horaria de Perú)
+        Ordenadas con "En proceso" primero, luego por fecha descendente
+
         Returns:
-            list: Lista de operaciones de hoy
+            list: Lista de operaciones de hoy ordenadas por prioridad
         """
-        today = date.today()
+        from datetime import datetime, timedelta
+        from sqlalchemy import case
+
+        # Obtener inicio y fin del día en Perú
+        now = now_peru()
+        start_of_day = datetime(now.year, now.month, now.day, 0, 0, 0)
+        end_of_day = datetime(now.year, now.month, now.day, 23, 59, 59)
+
+        # Ordenar con "En proceso" primero usando CASE
+        # 0 para "En proceso", 1 para el resto
+        priority_order = case(
+            (Operation.status == 'En proceso', 0),
+            else_=1
+        )
+
         return Operation.query.filter(
-            func.date(Operation.created_at) == today
-        ).order_by(Operation.created_at.desc()).all()
+            Operation.created_at >= start_of_day,
+            Operation.created_at <= end_of_day
+        ).order_by(
+            priority_order,  # Primero por prioridad (En proceso = 0)
+            Operation.created_at.desc()  # Luego por fecha descendente
+        ).all()
     
     @staticmethod
     def create_operation(current_user, client_id, operation_type, amount_usd, exchange_rate,
@@ -167,16 +186,25 @@ class OperationService:
         
         db.session.add(operation)
         db.session.commit()
-        
+
         # Registrar en auditoría
         AuditLog.log_action(
             user_id=current_user.id,
             action='CREATE_OPERATION',
             entity='Operation',
             entity_id=operation.id,
-            details=f'Operación {operation_id} creada: {operation_type} ${amount_usd} para {client.name}'
+            details=f'Operación {operation_id} creada: {operation_type} ${amount_usd} para {client.full_name}'
         )
-        
+
+        # Enviar email de notificación (sin bloquear si falla)
+        try:
+            from app.services.email_service import EmailService
+            EmailService.send_new_operation_email(operation)
+        except Exception as e:
+            # Log el error pero no falla la operación
+            import logging
+            logging.error(f'Error al enviar email para operación {operation_id}: {str(e)}')
+
         return True, f'Operación {operation_id} creada exitosamente', operation
     
     @staticmethod
@@ -232,7 +260,7 @@ class OperationService:
                 operation.notes = notes
         
         db.session.commit()
-        
+
         # Registrar en auditoría
         AuditLog.log_action(
             user_id=current_user.id,
@@ -242,7 +270,17 @@ class OperationService:
             details=f'Operación {operation.operation_id}: {old_status} → {new_status}',
             notes=notes
         )
-        
+
+        # Enviar email si la operación se completó
+        if new_status == 'Completada':
+            try:
+                from app.services.email_service import EmailService
+                EmailService.send_completed_operation_email(operation)
+            except Exception as e:
+                # Log el error pero no falla la actualización
+                import logging
+                logging.error(f'Error al enviar email de operación completada {operation.operation_id}: {str(e)}')
+
         return True, f'Estado actualizado a {new_status}', operation
     
     @staticmethod
@@ -414,10 +452,56 @@ class OperationService:
         """
         Obtener operaciones relevantes para operador
         (Pendientes y En proceso)
-        
+
         Returns:
             list: Lista de operaciones
         """
         return Operation.query.filter(
             Operation.status.in_(['Pendiente', 'En proceso'])
         ).order_by(Operation.created_at.desc()).all()
+
+    @staticmethod
+    def assign_operator_balanced():
+        """
+        Asignar un operador de forma balanceada
+
+        Algoritmo:
+        1. Obtener todos los usuarios con rol "Operador" activos
+        2. Contar cuántas operaciones "En proceso" tiene cada uno asignadas
+        3. Asignar al operador con menos operaciones asignadas
+
+        Returns:
+            int: ID del operador asignado, o None si no hay operadores disponibles
+        """
+        from app.models.user import User
+
+        # Obtener todos los operadores activos
+        operators = User.query.filter(
+            and_(
+                User.role == 'Operador',
+                User.status == 'Activo'
+            )
+        ).all()
+
+        if not operators:
+            print("ADVERTENCIA: No hay operadores activos disponibles para asignar")
+            return None
+
+        # Contar operaciones en proceso asignadas a cada operador
+        operator_loads = {}
+        for operator in operators:
+            count = Operation.query.filter(
+                and_(
+                    Operation.assigned_operator_id == operator.id,
+                    Operation.status == 'En proceso'
+                )
+            ).count()
+            operator_loads[operator.id] = count
+
+        # Encontrar el operador con menos carga
+        min_load_operator_id = min(operator_loads, key=operator_loads.get)
+        min_load = operator_loads[min_load_operator_id]
+
+        print(f"Asignando operador: ID={min_load_operator_id}, Carga actual={min_load} operaciones")
+
+        return min_load_operator_id

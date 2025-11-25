@@ -1,0 +1,681 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard Operador - QoriCash Trading{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h2><i class="bi bi-speedometer2"></i> Dashboard Operador</h2>
+            <p class="text-muted">Bienvenido, {{ user.username }} - Panel de operaciones</p>
+        </div>
+        <div class="col-md-4 text-end">
+            <button class="btn btn-outline-primary" onclick="refreshDashboard()">
+                <i class="bi bi-arrow-clockwise"></i> Actualizar
+            </button>
+            <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#filterModal">
+                <i class="bi bi-funnel"></i> Filtros
+            </button>
+        </div>
+    </div>
+    
+    <!-- Estadísticas del Día -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <h5><i class="bi bi-calendar-day"></i> Estadísticas de Hoy</h5>
+        </div>
+    </div>
+    
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card stat-card bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-subtitle mb-2">Clientes Atendidos</h6>
+                            <h2 class="card-title mb-0 counter" id="clientsToday">0</h2>
+                        </div>
+                        <div class="stat-icon">
+                            <i class="bi bi-people"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card stat-card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-subtitle mb-2">Operaciones</h6>
+                            <h2 class="card-title mb-0 counter" id="operationsToday">0</h2>
+                        </div>
+                        <div class="stat-icon">
+                            <i class="bi bi-list-check"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card stat-card bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-subtitle mb-2">Total USD</h6>
+                            <h2 class="card-title mb-0 counter-usd" id="usdToday">$ 0</h2>
+                        </div>
+                        <div class="stat-icon">
+                            <i class="bi bi-currency-dollar"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card stat-card bg-warning text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-subtitle mb-2">Total PEN</h6>
+                            <h2 class="card-title mb-0 counter-pen" id="penToday">S/ 0</h2>
+                        </div>
+                        <div class="stat-icon">
+                            <i class="bi bi-cash-coin"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Utilidad y Metas -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <h5><i class="bi bi-graph-up-arrow"></i> Utilidad y Metas</h5>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card border-success">
+                <div class="card-body">
+                    <h6 class="card-subtitle mb-2 text-muted">Utilidad del Día</h6>
+                    <h3 class="card-title mb-0 text-success counter-pen" id="profitToday">S/ 0.00</h3>
+                    <small class="text-muted">Ganancia en operaciones de hoy</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card border-info">
+                <div class="card-body">
+                    <h6 class="card-subtitle mb-2 text-muted">Utilidad Acumulada del Mes</h6>
+                    <h3 class="card-title mb-0 text-info counter-pen" id="profitMonth">S/ 0.00</h3>
+                    <small class="text-muted">Ganancia acumulada</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card border-warning">
+                <div class="card-body">
+                    <h6 class="card-subtitle mb-2 text-muted">Meta Mensual</h6>
+                    <h3 class="card-title mb-0 text-warning counter-pen" id="goalMonthAmount">S/ 0.00</h3>
+                    <div class="progress mt-2" style="height: 20px;">
+                        <div class="progress-bar" role="progressbar" id="goalProgress" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+                    </div>
+                    <small class="text-muted" id="goalText">Sin meta asignada</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Estadísticas del Mes -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <h5><i class="bi bi-calendar-month"></i> Estadísticas del Mes</h5>
+        </div>
+    </div>
+    
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-subtitle mb-2 text-muted">Clientes del Mes</h6>
+                    <h3 class="card-title mb-0 counter" id="clientsMonth">0</h3>
+                    <small class="text-muted">
+                        <span class="counter" id="activeClientsMonth">0</span> activos
+                    </small>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-subtitle mb-2 text-muted">Operaciones del Mes</h6>
+                    <h3 class="card-title mb-0 counter" id="operationsMonth">0</h3>
+                    <small class="text-success">
+                        <i class="bi bi-check-circle"></i> <span class="counter" id="completedMonth">0</span> completadas
+                    </small>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-subtitle mb-2 text-muted">Total USD Mes</h6>
+                    <h3 class="card-title mb-0 text-info counter-usd" id="usdMonth">$ 0</h3>
+                    <small class="text-muted">Operaciones completadas</small>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-subtitle mb-2 text-muted">Total PEN Mes</h6>
+                    <h3 class="card-title mb-0 text-warning counter-pen" id="penMonth">S/ 0</h3>
+                    <small class="text-muted">Operaciones completadas</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Estado de Operaciones -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-pie-chart"></i> Estado de Operaciones</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-3">
+                            <h4 class="text-warning counter" id="pendingCount">0</h4>
+                            <small class="text-muted">Pendientes</small>
+                        </div>
+                        <div class="col-3">
+                            <h4 class="text-info counter" id="inProcessCount">0</h4>
+                            <small class="text-muted">En Proceso</small>
+                        </div>
+                        <div class="col-3">
+                            <h4 class="text-success counter" id="completedCount">0</h4>
+                            <small class="text-muted">Completadas</small>
+                        </div>
+                        <div class="col-3">
+                            <h4 class="text-danger counter" id="canceledCount">0</h4>
+                            <small class="text-muted">Canceladas</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Accesos Rápidos -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <h5><i class="bi bi-lightning"></i> Accesos Rápidos</h5>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-md-4">
+            <a href="{{ url_for('operations.create_page') }}" class="card card-link text-decoration-none">
+                <div class="card-body text-center">
+                    <i class="bi bi-plus-circle display-4 text-primary"></i>
+                    <h6 class="mt-3 mb-0">Nueva Operación</h6>
+                </div>
+            </a>
+        </div>
+
+        <div class="col-md-4">
+            <a href="{{ url_for('operations.operations_list') }}" class="card card-link text-decoration-none">
+                <div class="card-body text-center">
+                    <i class="bi bi-list-ul display-4 text-success"></i>
+                    <h6 class="mt-3 mb-0">Ver Operaciones</h6>
+                </div>
+            </a>
+        </div>
+
+        <div class="col-md-4">
+            <a href="{{ url_for('clients.list_clients') }}" class="card card-link text-decoration-none">
+                <div class="card-body text-center">
+                    <i class="bi bi-people display-4 text-info"></i>
+                    <h6 class="mt-3 mb-0">Gestionar Clientes</h6>
+                </div>
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Filtros -->
+<div class="modal fade" id="filterModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Filtrar Estadísticas</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Trader</label>
+                    <select class="form-select" id="filterTrader">
+                        <option value="">Todos los Traders</option>
+                        <!-- Se llenarán dinámicamente -->
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Mes</label>
+                    <select class="form-select" id="filterMonth">
+                        <option value="">Mes actual</option>
+                        <option value="1">Enero</option>
+                        <option value="2">Febrero</option>
+                        <option value="3">Marzo</option>
+                        <option value="4">Abril</option>
+                        <option value="5">Mayo</option>
+                        <option value="6">Junio</option>
+                        <option value="7">Julio</option>
+                        <option value="8">Agosto</option>
+                        <option value="9">Septiembre</option>
+                        <option value="10">Octubre</option>
+                        <option value="11">Noviembre</option>
+                        <option value="12">Diciembre</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Año</label>
+                    <select class="form-select" id="filterYear">
+                        <option value="">Año actual</option>
+                        <option value="2025">2025</option>
+                        <option value="2024">2024</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-primary" onclick="applyFilters()">Aplicar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Configurar Metas y Utilidades -->
+<div class="modal fade" id="goalsModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-bullseye"></i> Meta Mensual - Configuración de Traders</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Selector de Trader -->
+                <div class="mb-4">
+                    <label class="form-label fw-bold">Seleccionar Trader</label>
+                    <select class="form-select form-select-lg" id="modalTraderSelect">
+                        <option value="">-- Seleccione un trader --</option>
+                        <!-- Se llenarán dinámicamente -->
+                    </select>
+                </div>
+
+                <!-- Contenedor de datos del trader -->
+                <div id="traderDataContainer" style="display: none;">
+                    <hr>
+
+                    <!-- Información del periodo -->
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Periodo</label>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <select class="form-select" id="goalMonth">
+                                    <option value="1">Enero</option>
+                                    <option value="2">Febrero</option>
+                                    <option value="3">Marzo</option>
+                                    <option value="4">Abril</option>
+                                    <option value="5">Mayo</option>
+                                    <option value="6">Junio</option>
+                                    <option value="7">Julio</option>
+                                    <option value="8">Agosto</option>
+                                    <option value="9">Septiembre</option>
+                                    <option value="10">Octubre</option>
+                                    <option value="11">Noviembre</option>
+                                    <option value="12">Diciembre</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <select class="form-select" id="goalYear">
+                                    <option value="2025">2025</option>
+                                    <option value="2024">2024</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Formulario de datos del trader -->
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="card border-primary mb-3">
+                                <div class="card-body">
+                                    <h6 class="card-subtitle mb-2 text-muted">Meta Mensual Asignada</h6>
+                                    <div class="input-group">
+                                        <span class="input-group-text">S/</span>
+                                        <input type="number" class="form-control form-control-lg" id="traderGoalAmount"
+                                               min="0" step="0.01" placeholder="0.00">
+                                    </div>
+                                    <small class="text-muted">Meta del mes en curso</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <div class="card border-success mb-3">
+                                <div class="card-body">
+                                    <h6 class="card-subtitle mb-2 text-muted">Utilidad del Día</h6>
+                                    <div class="input-group">
+                                        <span class="input-group-text">S/</span>
+                                        <input type="number" class="form-control form-control-lg" id="traderProfitToday"
+                                               min="0" step="0.01" placeholder="0.00">
+                                    </div>
+                                    <small class="text-muted">Utilidad de hoy (manual)</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <div class="card border-info mb-3">
+                                <div class="card-body">
+                                    <h6 class="card-subtitle mb-2 text-muted">Utilidad Acumulada del Mes</h6>
+                                    <h4 class="card-title mb-0 text-info counter-pen" id="traderProfitMonth">S/ 0.00</h4>
+                                    <small class="text-muted">Suma de utilidades diarias</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Información adicional -->
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i>
+                        <strong>Instrucciones:</strong>
+                        <ul class="mb-0 mt-2">
+                            <li>La <strong>Meta Mensual</strong> es el objetivo asignado manualmente al trader para el periodo seleccionado.</li>
+                            <li>La <strong>Utilidad del Día</strong> debe ingresarse manualmente cada día.</li>
+                            <li>La <strong>Utilidad Acumulada del Mes</strong> se calcula automáticamente sumando todas las utilidades diarias ingresadas.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-success" id="saveTraderDataBtn" onclick="saveTraderData()" style="display: none;">
+                    <i class="bi bi-check-circle"></i> Guardar Datos
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+<script>
+// Variables globales
+let currentFilters = {
+    trader_id: null,
+    month: null,
+    year: null
+};
+
+// Cargar datos al iniciar
+$(document).ready(function() {
+    loadDashboardData();
+    loadTraders();
+    setCurrentPeriod();
+
+    // Actualizar cada 60 segundos (reducido para evitar error 429)
+    setInterval(loadDashboardData, 60000);
+
+    // Conectar a SocketIO para actualizaciones en tiempo real
+    connectSocketIO();
+});
+
+function setCurrentPeriod() {
+    const now = new Date();
+    const currentMonth = now.getMonth() + 1;
+    const currentYear = now.getFullYear();
+
+    $('#goalMonth').val(currentMonth);
+    $('#goalYear').val(currentYear);
+}
+
+function loadTraders() {
+    ajaxRequest('/dashboard/api/traders', 'GET', null, function(response) {
+        let html = '<option value="">Todos los Traders</option>';
+        response.traders.forEach(function(trader) {
+            html += `<option value="${trader.id}">${trader.username} - ${trader.email}</option>`;
+        });
+        $('#filterTrader').html(html);
+    });
+}
+
+function refreshDashboard() {
+    loadDashboardData();
+    showAlert('Dashboard actualizado', 'success');
+}
+
+function applyFilters() {
+    const trader_id = $('#filterTrader').val();
+    const month = $('#filterMonth').val();
+    const year = $('#filterYear').val();
+
+    currentFilters = {
+        trader_id: trader_id || null,
+        month: month || null,
+        year: year || null
+    };
+
+    loadDashboardData();
+    $('#filterModal').modal('hide');
+}
+
+function loadDashboardData() {
+    const params = new URLSearchParams();
+
+    if (currentFilters.trader_id) params.append('trader_id', currentFilters.trader_id);
+    if (currentFilters.month) params.append('month', currentFilters.month);
+    if (currentFilters.year) params.append('year', currentFilters.year);
+
+    // Cargar TODAS las estadísticas en UNA SOLA petición
+    ajaxRequest(`/dashboard/api/dashboard/all?${params.toString()}`, 'GET', null, function(response) {
+        // Estadísticas de HOY (con animación de contador)
+        const today = response.today || {};
+        updateCounterValue('#clientsToday', today.unique_clients || 0);
+        updateCounterValue('#operationsToday', today.operations_count || 0);
+        updateCounterValue('#usdToday', today.total_usd || 0, '$', 2);
+        updateCounterValue('#penToday', today.total_pen || 0, 'S/', 2);
+        updateCounterValue('#profitToday', today.profit_today || 0, 'S/', 2);
+
+        // Estadísticas del MES (con animación de contador)
+        const month = response.month || {};
+        updateCounterValue('#clientsMonth', month.unique_clients || 0);
+        updateCounterValue('#activeClientsMonth', month.active_clients || 0);
+        updateCounterValue('#operationsMonth', month.operations_count || 0);
+        updateCounterValue('#completedMonth', month.completed_count || 0);
+        updateCounterValue('#usdMonth', month.total_usd || 0, '$', 2);
+        updateCounterValue('#penMonth', month.total_pen || 0, 'S/', 2);
+
+        // Utilidad del mes (con animación de contador)
+        updateCounterValue('#profitMonth', month.profit_month || 0, 'S/', 2);
+
+        // Meta mensual
+        const goalAmount = month.goal_amount || 0;
+        const profitMonth = month.profit_month || 0;
+        const percentage = goalAmount > 0 ? Math.min((profitMonth / goalAmount) * 100, 100) : 0;
+
+        updateCounterValue('#goalMonthAmount', goalAmount, 'S/', 2);
+        $('#goalProgress').css('width', percentage + '%').attr('aria-valuenow', percentage.toFixed(0)).text(percentage.toFixed(0) + '%');
+
+        if (goalAmount > 0) {
+            const remaining = Math.max(goalAmount - profitMonth, 0);
+            $('#goalText').text('Faltan S/ ' + remaining.toFixed(2) + ' para alcanzar la meta');
+        } else {
+            $('#goalText').text('Sin meta asignada');
+        }
+
+        // Estado de operaciones DEL DÍA (con animación de contador)
+        updateCounterValue('#pendingCount', month.pending_count || 0);
+        updateCounterValue('#inProcessCount', month.in_process_count || 0);
+        updateCounterValue('#completedCount', month.completed_count_today || 0);  // Usar completadas del día
+        updateCounterValue('#canceledCount', month.canceled_count || 0);
+
+        // Datos del sistema (solo Master)
+        const system = response.system || {};
+        $('#totalUsers').text(system.total_users || 0);
+        $('#activeUsers').text(system.active_users || 0);
+    });
+}
+
+// ============================================
+// FUNCIONES PARA GESTIÓN DE METAS Y UTILIDADES
+// ============================================
+
+function openGoalsModal() {
+    // Cargar lista de traders en el selector
+    loadTradersForModal();
+
+    // Establecer periodo actual
+    setCurrentPeriod();
+
+    // Mostrar modal
+    $('#goalsModal').modal('show');
+}
+
+function loadTradersForModal() {
+    ajaxRequest('/dashboard/api/traders', 'GET', null, function(response) {
+        let html = '<option value="">-- Seleccione un trader --</option>';
+        response.traders.forEach(function(trader) {
+            html += `<option value="${trader.id}">${trader.username} - ${trader.email}</option>`;
+        });
+        $('#modalTraderSelect').html(html);
+    });
+}
+
+// Evento: Cuando se selecciona un trader
+$(document).on('change', '#modalTraderSelect', function() {
+    const traderId = $(this).val();
+
+    if (!traderId) {
+        $('#traderDataContainer').hide();
+        $('#saveTraderDataBtn').hide();
+        return;
+    }
+
+    // Mostrar contenedor de datos
+    $('#traderDataContainer').show();
+    $('#saveTraderDataBtn').show();
+
+    // Cargar datos del trader
+    loadTraderData(traderId);
+});
+
+// Evento: Cuando cambia el periodo (mes o año)
+$(document).on('change', '#goalMonth, #goalYear', function() {
+    const traderId = $('#modalTraderSelect').val();
+    if (traderId) {
+        loadTraderData(traderId);
+    }
+});
+
+function loadTraderData(traderId) {
+    const month = $('#goalMonth').val();
+    const year = $('#goalYear').val();
+
+    if (!traderId || !month || !year) {
+        return;
+    }
+
+    // Cargar meta del trader
+    ajaxRequest(`/dashboard/api/goals?month=${month}&year=${year}`, 'GET', null, function(response) {
+        const trader = response.traders.find(t => t.id == traderId);
+        if (trader) {
+            $('#traderGoalAmount').val(trader.goal_amount || 0);
+        } else {
+            $('#traderGoalAmount').val(0);
+        }
+    });
+
+    // Cargar utilidades del trader
+    ajaxRequest(`/dashboard/api/profits?trader_id=${traderId}&month=${month}&year=${year}`, 'GET', null, function(response) {
+        $('#traderProfitToday').val(response.profit_today || 0);
+        updateCounterValue('#traderProfitMonth', response.accumulated_profit || 0, 'S/', 2);
+    });
+}
+
+function saveTraderData() {
+    const traderId = $('#modalTraderSelect').val();
+    const month = $('#goalMonth').val();
+    const year = $('#goalYear').val();
+    const goalAmount = parseFloat($('#traderGoalAmount').val()) || 0;
+    const profitToday = parseFloat($('#traderProfitToday').val()) || 0;
+
+    if (!traderId) {
+        showAlert('Selecciona un trader', 'warning');
+        return;
+    }
+
+    if (!month || !year) {
+        showAlert('Selecciona un periodo válido', 'warning');
+        return;
+    }
+
+    // Obtener fecha de hoy
+    const today = new Date();
+    const todayStr = today.getFullYear() + '-' +
+                     String(today.getMonth() + 1).padStart(2, '0') + '-' +
+                     String(today.getDate()).padStart(2, '0');
+
+    // Guardar meta
+    const goalData = {
+        goals: [{
+            trader_id: parseInt(traderId),
+            month: parseInt(month),
+            year: parseInt(year),
+            goal_amount_pen: goalAmount
+        }]
+    };
+
+    // Guardar utilidad del día
+    const profitData = {
+        trader_id: parseInt(traderId),
+        profit_date: todayStr,
+        profit_amount_pen: profitToday
+    };
+
+    // Enviar ambas peticiones
+    Promise.all([
+        new Promise((resolve, reject) => {
+            ajaxRequest('/dashboard/api/goals/save', 'POST', goalData, resolve, reject);
+        }),
+        new Promise((resolve, reject) => {
+            ajaxRequest('/dashboard/api/profits/save', 'POST', profitData, resolve, reject);
+        })
+    ]).then(() => {
+        showAlert('Datos guardados exitosamente', 'success');
+        $('#goalsModal').modal('hide');
+        loadDashboardData(); // Recargar dashboard
+    }).catch(error => {
+        showAlert('Error al guardar datos: ' + (error.responseJSON?.error || 'Error desconocido'), 'danger');
+    });
+}
+</script>
+{% endblock %}

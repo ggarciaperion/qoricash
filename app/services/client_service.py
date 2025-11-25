@@ -9,6 +9,7 @@ from app.extensions import db, socketio
 from app.models.client import Client
 from app.models.audit_log import AuditLog
 from app.utils.validators import validate_dni, validate_email, validate_phone
+from app.utils.formatters import now_peru
 from datetime import datetime
 import json
 import logging
@@ -242,7 +243,7 @@ class ClientService:
 
             # created_by si existe
             client.created_by = getattr(current_user, 'id', None)
-            client.created_at = datetime.utcnow()
+            client.created_at = now_peru()
 
             # --- Persistir en DB ---
             try:

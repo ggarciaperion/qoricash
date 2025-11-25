@@ -399,6 +399,46 @@ function changeDocumentType() {
 }
 
 /**
+ * Función helper para desbloquear campos bancarios para Trader
+ */
+function unlockBankFields() {
+    console.log('Desbloqueando campos bancarios para Trader...');
+
+    const form = document.getElementById('clientForm');
+    if (!form) return;
+
+    // Seleccionar todos los campos dentro del contenedor de cuentas bancarias
+    const bankContainer = document.getElementById('bankAccountsContainer');
+    if (!bankContainer) {
+        console.warn('Contenedor de cuentas bancarias no encontrado');
+        return;
+    }
+
+    // Desbloquear TODOS los campos dentro del contenedor de cuentas bancarias
+    const bankFields = bankContainer.querySelectorAll('input, select, textarea, button');
+    bankFields.forEach(field => {
+        field.disabled = false;
+        field.readOnly = false;
+        field.classList.remove('bg-light');
+        field.style.backgroundColor = '';
+        field.style.cursor = '';
+        field.style.opacity = '1';
+        field.style.pointerEvents = '';
+        console.log('Campo desbloqueado:', field.id || field.name || field.tagName);
+    });
+
+    // Asegurar que el botón "Agregar Cuenta Bancaria" esté habilitado
+    const addBtn = document.getElementById('addBankAccountBtn');
+    if (addBtn) {
+        addBtn.disabled = false;
+        addBtn.style.opacity = '1';
+        addBtn.style.cursor = 'pointer';
+        addBtn.style.pointerEvents = 'auto';
+        console.log('Botón Agregar Cuenta habilitado');
+    }
+}
+
+/**
  * Aplicar restricciones por rol - TRADER SOLO EDITA CUENTAS BANCARIAS
  *
  * El rol Trader SOLO puede editar la sección de cuentas bancarias.
@@ -420,50 +460,21 @@ function applyRoleRestrictions(role) {
         return;
     }
 
-    // Obtener TODOS los campos del formulario
+    // PASO 1: Bloquear TODOS los campos del formulario primero
     const allFields = form.querySelectorAll('input, select, textarea');
-
     console.log('Total de campos encontrados:', allFields.length);
 
     allFields.forEach(field => {
-        const fieldClasses = field.className || '';
-        const fieldId = field.id || '';
-        const fieldName = field.name || '';
-
-        // Verificar si es un campo de cuenta bancaria
-        const isBankField = fieldClasses.includes('bank-') ||
-                           fieldId.includes('origen') ||
-                           fieldId.includes('bankName') ||
-                           fieldId.includes('accountType') ||
-                           fieldId.includes('currency') ||
-                           fieldId.includes('bankAccountNumber') ||
-                           fieldName.includes('bank_') ||
-                           fieldName.includes('origen') ||
-                           fieldName.includes('currency') ||
-                           fieldName.includes('account_');
-
-        if (isBankField) {
-            // DESBLOQUEAR explícitamente los campos bancarios
-            field.disabled = false;
-            field.readOnly = false;
-            field.classList.remove('bg-light');
-            field.style.backgroundColor = '';
-            field.style.cursor = '';
-            field.style.opacity = '';
-            console.log('Campo bancario DESBLOQUEADO:', field.id || field.name);
-            return; // No bloquear este campo
-        }
-
-        // Bloquear todos los demás campos
         field.disabled = true;
         field.readOnly = true;
         field.classList.add('bg-light');
         field.style.backgroundColor = '#e9ecef';
         field.style.cursor = 'not-allowed';
         field.style.opacity = '0.7';
-
-        console.log('Bloqueado:', field.id || field.name);
     });
+
+    // PASO 2: Desbloquear SOLO los campos de cuentas bancarias
+    unlockBankFields();
 
     // Ocultar secciones de documentos
     const dniCeFields = document.getElementById('dniCeFields');
@@ -483,65 +494,31 @@ function applyRoleRestrictions(role) {
         }
     }
 
-    // Asegurar que el botón "Agregar Cuenta Bancaria" permanezca habilitado
-    const addBankAccountBtn = document.getElementById('addBankAccountBtn');
-    if (addBankAccountBtn) {
-        addBankAccountBtn.disabled = false;
-        addBankAccountBtn.classList.remove('bg-light');
-        addBankAccountBtn.style.opacity = '1';
-        addBankAccountBtn.style.cursor = 'pointer';
-        addBankAccountBtn.style.backgroundColor = '';
-    }
-
-    // Desbloquear botones de eliminar cuenta
-    const removeBtns = form.querySelectorAll('button[onclick^="removeBankAccount"]');
-    removeBtns.forEach(btn => {
-        btn.disabled = false;
-        btn.style.opacity = '1';
-        btn.style.cursor = 'pointer';
-    });
-
-    // Observar cambios en el contenedor de cuentas bancarias para desbloquear campos nuevos
+    // PASO 3: Configurar MutationObserver para desbloquear campos bancarios nuevos
     const bankAccountsContainer = document.getElementById('bankAccountsContainer');
     if (bankAccountsContainer) {
-        // Crear un observer para cuando se agreguen nuevas cuentas
-        const observer = new MutationObserver(function(mutations) {
-            mutations.forEach(function(mutation) {
-                if (mutation.addedNodes.length > 0) {
-                    // Desbloquear los campos de la nueva cuenta agregada
-                    setTimeout(() => {
-                        const newFields = bankAccountsContainer.querySelectorAll('input, select');
-                        newFields.forEach(field => {
-                            const fieldClasses = field.className || '';
-                            const fieldId = field.id || '';
-                            const fieldName = field.name || '';
+        // Desconectar observer anterior si existe
+        if (window.bankAccountsObserver) {
+            window.bankAccountsObserver.disconnect();
+        }
 
-                            const isBankField = fieldClasses.includes('bank-') ||
-                                               fieldId.includes('origen') ||
-                                               fieldId.includes('bankName') ||
-                                               fieldId.includes('accountType') ||
-                                               fieldId.includes('currency') ||
-                                               fieldId.includes('bankAccountNumber') ||
-                                               fieldName.includes('bank_') ||
-                                               fieldName.includes('origen') ||
-                                               fieldName.includes('currency') ||
-                                               fieldName.includes('account_');
-
-                            if (isBankField) {
-                                field.disabled = false;
-                                field.readOnly = false;
-                                field.classList.remove('bg-light');
-                                field.style.backgroundColor = '';
-                                field.style.cursor = '';
-                                field.style.opacity = '';
-                            }
-                        });
-                    }, 100);
-                }
-            });
+        // Crear nuevo observer
+        window.bankAccountsObserver = new MutationObserver(function(mutations) {
+            console.log('MutationObserver detectó cambios en cuentas bancarias');
+            // Usar setTimeout para asegurar que los elementos están completamente renderizados
+            setTimeout(() => {
+                unlockBankFields();
+            }, 50);
         });
 
-        observer.observe(bankAccountsContainer, { childList: true, subtree: true });
+        window.bankAccountsObserver.observe(bankAccountsContainer, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['disabled', 'readonly']
+        });
+
+        console.log('MutationObserver configurado para cuentas bancarias');
     }
 
     // Agregar nota informativa

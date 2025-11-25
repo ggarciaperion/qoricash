@@ -7,6 +7,7 @@ Modelo de Cliente ACTUALIZADO para QoriCash Trading V2
 """
 from datetime import datetime
 from app.extensions import db
+from app.utils.formatters import now_peru
 import json
 
 
@@ -77,8 +78,8 @@ class Client(db.Model):
     )  # Activo, Inactivo
 
     # Timestamps
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=now_peru, nullable=False)
+    updated_at = db.Column(db.DateTime, default=now_peru, onupdate=now_peru)
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'))
 
     # Relaciones
@@ -241,8 +242,8 @@ class Client(db.Model):
             'bank_accounts': self.bank_accounts,
             # NUEVO: Información del usuario que creó el cliente
             'created_by_id': self.created_by,
-            'created_by_username': self.creator.username if self.creator else None,
-            'created_by_role': self.creator.role if self.creator else None,
+            'created_by_username': getattr(self.creator, 'username', None) if self.created_by else None,
+            'created_by_role': getattr(self.creator, 'role', None) if self.created_by else None,
         }
 
         if self.document_type == 'RUC':
@@ -283,10 +284,24 @@ class Client(db.Model):
             'origen': self.origen,
         })
 
-        if include_stats and hasattr(self, 'operations'):
-            data['total_operations'] = self.operations.count()
-            completed_operations = self.operations.filter_by(status='Completada').all()
-            data['total_usd_traded'] = sum(getattr(op, 'amount_usd', 0) for op in completed_operations)
+        if include_stats:
+            try:
+                if hasattr(self, 'operations') and self.operations is not None:
+                    # Usar count() si es una relación dynamic, o len() si es una lista
+                    if hasattr(self.operations, 'count'):
+                        data['total_operations'] = self.operations.count()
+                        completed_operations = self.operations.filter_by(status='Completada').all()
+                    else:
+                        data['total_operations'] = len(self.operations) if self.operations else 0
+                        completed_operations = [op for op in self.operations if op.status == 'Completada']
+
+                    data['total_usd_traded'] = sum(float(op.amount_usd or 0) for op in completed_operations)
+                else:
+                    data['total_operations'] = 0
+                    data['total_usd_traded'] = 0
+            except Exception as e:
+                data['total_operations'] = 0
+                data['total_usd_traded'] = 0
 
         return data
 

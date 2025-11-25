@@ -5,6 +5,7 @@ from datetime import datetime
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 from app.extensions import db
+from app.utils.formatters import now_peru
 
 
 class User(UserMixin, db.Model):
@@ -35,13 +36,28 @@ class User(UserMixin, db.Model):
     )  # Activo, Inactivo
     
     # Timestamps
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=now_peru, nullable=False)
+    updated_at = db.Column(db.DateTime, default=now_peru, onupdate=now_peru)
     last_login = db.Column(db.DateTime)
     last_logout = db.Column(db.DateTime)
     
     # Relaciones
-    operations = db.relationship('Operation', backref='user', lazy='dynamic')
+    # Operaciones creadas por este usuario
+    operations = db.relationship(
+        'Operation',
+        foreign_keys='Operation.user_id',
+        backref='user',
+        lazy='dynamic'
+    )
+
+    # Operaciones asignadas a este operador
+    assigned_operations = db.relationship(
+        'Operation',
+        foreign_keys='Operation.assigned_operator_id',
+        backref='assigned_operator',
+        lazy='dynamic'
+    )
+
     audit_logs = db.relationship('AuditLog', backref='user', lazy='dynamic')
     
     # Constraints
