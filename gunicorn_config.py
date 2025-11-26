@@ -14,19 +14,19 @@ worker_class = 'eventlet'
 worker_connections = 1000
 threads = 1
 
-# Timeouts - AUMENTADOS para evitar worker timeout
-timeout = 300  # 5 minutos (antes 180s)
-graceful_timeout = 120  # 2 minutos (antes 90s)
+# Timeouts - AUMENTADOS TEMPORALMENTE mientras se aplican índices
+timeout = 600  # 10 minutos - temporal hasta que se apliquen índices
+graceful_timeout = 180  # 3 minutos
 keepalive = 5
 
 # Memory limits - AUMENTADO para reducir reinicios frecuentes
-max_requests = 1000  # Antes 250 - causaba reinicios cada 250 requests
-max_requests_jitter = 50  # Antes 25
+max_requests = 1000
+max_requests_jitter = 50
 
 # Logging
 accesslog = '-'
 errorlog = '-'
-loglevel = 'warning'  # Cambiado de 'info' a 'warning' para reducir spam
+loglevel = 'warning'  # Reduce spam en logs
 access_log_format = '%(h)s %(l)s %(u)s %(t)s "%(r)s" %(s)s %(b)s "%(f)s" "%(a)s"'
 
 # Configurar filtro para suprimir errores conocidos de Socket.IO
@@ -50,36 +50,32 @@ preload_app = False
 # Worker temp directory
 worker_tmp_dir = '/dev/shm'
 
-print(f"✓ Gunicorn configurado: {workers} workers, timeout {timeout}s, loglevel {loglevel}")
+print(f"✓ Gunicorn configurado: {workers} workers (eventlet), timeout {timeout}s, loglevel {loglevel}")
+print(f"⚠️  NOTA: Timeout alto temporal - aplicar índices de BD para mejorar performance")
 
-# Hook: Ejecutar cuando cada worker arranca (más confiable que on_starting con eventlet)
+# Hook: Ejecutar cuando cada worker arranca
 def post_worker_init(worker):
-    """
-    Hook que se ejecuta cuando cada worker termina de inicializarse.
-    OPTIMIZADO: Solo verifica conectividad, no crea tablas ni usuarios en cada reinicio.
-    """
-    print(f"🔧 Worker {worker.pid} inicializado")
+    """Hook que se ejecuta cuando cada worker termina de inicializarse"""
+    print(f"🔧 Worker {worker.pid} inicializado (eventlet)")
 
     try:
-        # Importar aquí para evitar problemas de importación circular
         from app import create_app
         from app.extensions import db
 
         app = create_app()
 
         with app.app_context():
-            # Solo verificar conectividad con una query simple
+            # Solo verificar conectividad
             db.session.execute(db.text('SELECT 1'))
             print("✓ Conexión DB verificada")
 
     except Exception as e:
         print(f"❌ Error verificando DB: {e}")
-        # No hacer traceback para no llenar logs
 
 def worker_abort(worker):
-    """Hook cuando un worker es abortado - limpiar recursos"""
-    print(f"⚠️  Worker {worker.pid} siendo abortado")
+    """Hook cuando un worker es abortado"""
+    print(f"⚠️  Worker {worker.pid} abortado (probablemente por timeout)")
 
 def on_exit(server):
-    """Hook cuando el servidor se apaga - limpiar recursos"""
+    """Hook cuando el servidor se apaga"""
     print("🔴 Servidor Gunicorn apagándose")
