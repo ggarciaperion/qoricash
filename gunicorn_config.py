@@ -6,17 +6,17 @@ import os
 # Bind
 bind = f"0.0.0.0:{os.environ.get('PORT', '10000')}"
 
-# Workers - Solo 1 worker con eventlet para Socket.IO
-workers = 1
+# Workers - 2 workers con eventlet para Socket.IO (optimizado para plan pagado)
+workers = 2
 worker_class = 'eventlet'
 
 # Timeouts
-timeout = 120
-graceful_timeout = 120
-keepalive = 5
+timeout = 60
+graceful_timeout = 30
+keepalive = 2
 
-# Memory limits
-max_requests = 1000
+# Memory limits (optimizado para plan Starter)
+max_requests = 500
 max_requests_jitter = 50
 
 # Logging
