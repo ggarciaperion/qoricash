@@ -466,32 +466,33 @@ function exportToExcel() {
  */
 $(document).ready(function() {
     $('#btnChangePassword').on('click', function() {
-        const oldPassword = $('#old_password').val();
+        // FIX: Usar current_password para coincidir con el ID del HTML
+        const currentPassword = $('#current_password').val();
         const newPassword = $('#new_password').val();
         const confirmPassword = $('#confirm_password').val();
-        
+
         // Validar
-        if (!oldPassword || !newPassword || !confirmPassword) {
+        if (!currentPassword || !newPassword || !confirmPassword) {
             showAlert('Completa todos los campos', 'warning');
             return;
         }
-        
+
         if (newPassword !== confirmPassword) {
             showAlert('Las contraseñas no coinciden', 'warning');
             return;
         }
-        
+
         if (newPassword.length < 8) {
             showAlert('La contraseña debe tener al menos 8 caracteres', 'warning');
             return;
         }
-        
+
         // Enviar
         const data = {
-            old_password: oldPassword,
+            old_password: currentPassword,  // Backend espera 'old_password'
             new_password: newPassword
         };
-        
+
         ajaxRequest('/change_password', 'POST', data, function(response) {
             showAlert(response.message, 'success');
             $('#changePasswordModal').modal('hide');
