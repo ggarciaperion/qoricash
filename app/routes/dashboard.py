@@ -110,7 +110,7 @@ def get_all_dashboard_data():
     query_today = Operation.query.filter(
         Operation.created_at >= start_of_day,
         Operation.created_at <= end_of_day
-    )
+    ).limit(500)  # EMERGENCY FIX: Limitar registros para evitar timeout
 
     if trader_id:
         query_today = query_today.filter(Operation.user_id == trader_id)
