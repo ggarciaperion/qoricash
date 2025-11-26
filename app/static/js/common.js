@@ -505,7 +505,7 @@ $(document).ready(function() {
  * Cargar datos del dashboard
  */
 function loadDashboardData(month = null, year = null) {
-    let url = '/api/dashboard_data';
+    let url = '/dashboard/api/dashboard_data';
     if (month && year) {
         url += `?month=${month}&year=${year}`;
     }

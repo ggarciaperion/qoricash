@@ -8,6 +8,7 @@ from app.services.file_service import FileService
 from app.services.notification_service import NotificationService
 from app.utils.decorators import require_role
 from app.utils.formatters import now_peru
+from app.socketio_events import emit_client_event
 import io
 import csv
 from datetime import datetime
@@ -134,6 +135,10 @@ def create_client():
         except Exception as e:
             # No bloquear por errores de email
             logger.warning(f'Error al enviar email de nuevo cliente: {str(e)}')
+        # Emitir evento Socket.IO para actualización en tiempo real
+        if success and client:
+            emit_client_event('created', client.to_dict())
+        
         return jsonify({'success': True, 'message': message, 'client': client.to_dict()}), 201
     else:
         return jsonify({'success': False, 'message': message}), 400
@@ -149,6 +154,10 @@ def update_client(client_id):
     data = request.get_json() or {}
     success, message, client = ClientService.update_client(current_user=current_user, client_id=client_id, data=data)
     if success:
+        # Emitir evento Socket.IO para actualización en tiempo real
+        if success and client:
+            emit_client_event('updated', client.to_dict())
+        
         return jsonify({'success': True, 'message': message, 'client': client.to_dict()})
     else:
         return jsonify({'success': False, 'message': message}), 400

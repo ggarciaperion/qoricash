@@ -4,6 +4,7 @@ Rutas de Operaciones para QoriCash Trading V2
 from flask import Blueprint, render_template, request, jsonify, send_file
 from flask_login import login_required, current_user
 from app.services.operation_service import OperationService
+from app.socketio_events import emit_operation_event
 from app.services.file_service import FileService
 from app.services.notification_service import NotificationService
 from app.utils.decorators import require_role
@@ -385,6 +386,9 @@ def create_operation():
         NotificationService.notify_new_operation(operation)
         NotificationService.notify_dashboard_update()
         NotificationService.notify_position_update()
+        
+        # Emitir evento Socket.IO para tiempo real
+        emit_operation_event('created', operation.to_dict(include_relations=True))
         
         return jsonify({
             'success': True,
