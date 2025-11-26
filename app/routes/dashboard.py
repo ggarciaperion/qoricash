@@ -17,6 +17,44 @@ from sqlalchemy import and_, func
 dashboard_bp = Blueprint('dashboard', __name__)
 
 
+# RUTA DE EMERGENCIA - Devuelve datos mínimos para evitar crash
+@dashboard_bp.route('/api/dashboard/all')
+@login_required
+def get_all_dashboard_data():
+    """EMERGENCY: Devuelve datos mínimos mientras se arregla el timeout"""
+    return jsonify({
+        'today': {
+            'operations_count': 0,
+            'completed_count': 0,
+            'pending_count': 0,
+            'in_process_count': 0,
+            'canceled_count': 0,
+            'total_usd': 0.0,
+            'total_pen': 0.0,
+            'unique_clients': 0,
+            'profit_today': 0.0
+        },
+        'month': {
+            'operations_count': 0,
+            'completed_count': 0,
+            'pending_count': 0,
+            'in_process_count': 0,
+            'canceled_count': 0,
+            'completed_count_today': 0,
+            'total_usd': 0.0,
+            'total_pen': 0.0,
+            'unique_clients': 0,
+            'active_clients': 0,
+            'profit_month': 0.0,
+            'goal_amount': 0.0
+        },
+        'system': {},
+        '_emergency_mode': True,
+        '_message': 'Sistema en modo emergencia - datos limitados'
+    })
+
+
+
 @dashboard_bp.route('/')
 @login_required
 def index():
@@ -71,9 +109,10 @@ def get_dashboard_data():
     return jsonify(stats)
 
 
-@dashboard_bp.route('/api/dashboard/all')
-@login_required
-def get_all_dashboard_data():
+# TEMPORALMENTE DESHABILITADO - CAUSABA WORKER TIMEOUT
+# @dashboard_bp.route('/api/dashboard/all')
+# @login_required
+def get_all_dashboard_data_DISABLED():
     """
     API: Obtener TODAS las estadísticas del dashboard en una sola petición
 

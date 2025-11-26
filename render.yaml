@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: qoricashv2
+    env: python
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn -c gunicorn_config.py "app:create_app()" --timeout 600 --graceful-timeout 180 --worker-class eventlet
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: GUNICORN_CMD_ARGS
+        value: --timeout 600 --graceful-timeout 180
