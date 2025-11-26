@@ -6,9 +6,9 @@ import os
 # Bind
 bind = f"0.0.0.0:{os.environ.get('PORT', '10000')}"
 
-# Workers
-workers = int(os.environ.get('WEB_CONCURRENCY', 2))
-worker_class = 'sync'
+# Workers - Solo 1 worker con eventlet para Socket.IO
+workers = 1
+worker_class = 'eventlet'
 
 # Timeouts
 timeout = 120

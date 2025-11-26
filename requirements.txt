@@ -44,6 +44,7 @@ pytz==2024.1
 
 # Production Server
 gunicorn==21.2.0
+eventlet==0.33.3
 
 # Testing (opcional)
 pytest==7.4.3
