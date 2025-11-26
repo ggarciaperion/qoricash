@@ -15,6 +15,16 @@ from app import create_app, socketio
 # Crear aplicación
 app = create_app()
 
+# Crear tablas automáticamente
+with app.app_context():
+    from app.extensions import db
+    try:
+        print("Creando tablas de base de datos...")
+        db.create_all()
+        print("Tablas creadas exitosamente")
+    except Exception as e:
+        print(f"Error al crear tablas: {e}")
+
 if __name__ == '__main__':
     # Ejecutar con SocketIO
     socketio.run(
