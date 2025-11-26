@@ -33,13 +33,18 @@ limiter = Limiter(
 )
 
 # WebSocket (Real-time)
+# Configuración optimizada para evitar errores "Bad file descriptor"
 socketio = SocketIO(
     cors_allowed_origins="*",
     async_mode='eventlet',  # DEBE ser 'eventlet' cuando gunicorn usa worker_class='eventlet'
-    logger=False,
-    engineio_logger=False,
-    ping_timeout=60,
-    ping_interval=25
+    logger=True,  # Habilitar logging para capturar errores
+    engineio_logger=False,  # Mantener deshabilitado para evitar spam
+    ping_timeout=120,  # Aumentado a 2 minutos para conexiones lentas
+    ping_interval=25,
+    # Configuración adicional para manejo robusto de conexiones
+    cors_credentials=True,
+    always_connect=True,  # Permitir reconexiones automáticas
+    manage_session=False  # Evita problemas con sesiones Flask en eventlet
 )
 
 # Email

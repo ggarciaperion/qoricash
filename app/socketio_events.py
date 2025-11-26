@@ -2,9 +2,13 @@
 Socket.IO Events para QoriCash Trading V2
 Maneja eventos de WebSocket para actualizaciones en tiempo real
 """
+import logging
 from flask_socketio import emit, join_room, leave_room
 from flask_login import current_user
 from app.extensions import socketio
+
+# Configurar logger
+logger = logging.getLogger(__name__)
 
 
 # ============================================
@@ -13,32 +17,42 @@ from app.extensions import socketio
 
 @socketio.on('connect')
 def handle_connect():
-    """Maneja la conexión de un cliente WebSocket"""
-    if current_user.is_authenticated:
-        # Unir al usuario a su sala de rol
-        join_room(f'role_{current_user.role}')
+    """Maneja la conexión de un cliente WebSocket con manejo robusto de errores"""
+    try:
+        if current_user.is_authenticated:
+            # Unir al usuario a su sala de rol
+            join_room(f'role_{current_user.role}')
 
-        # Unir al usuario a su sala personal
-        join_room(f'user_{current_user.id}')
+            # Unir al usuario a su sala personal
+            join_room(f'user_{current_user.id}')
 
-        # Sala global para todos los usuarios autenticados
-        join_room('authenticated')
+            # Sala global para todos los usuarios autenticados
+            join_room('authenticated')
 
-        print(f'Usuario {current_user.username} ({current_user.role}) conectado via WebSocket')
+            logger.info(f'Usuario {current_user.username} ({current_user.role}) conectado via WebSocket')
 
-        # Notificar al usuario que se conectó exitosamente
-        emit('connection_established', {
-            'message': 'Conectado al sistema en tiempo real',
-            'user': current_user.username,
-            'role': current_user.role
-        })
+            # Notificar al usuario que se conectó exitosamente
+            emit('connection_established', {
+                'message': 'Conectado al sistema en tiempo real',
+                'user': current_user.username,
+                'role': current_user.role
+            })
+    except Exception as e:
+        logger.error(f'Error en handle_connect: {str(e)}', exc_info=True)
+        # No re-lanzar la excepción para evitar crash del servidor
 
 
 @socketio.on('disconnect')
 def handle_disconnect():
-    """Maneja la desconexión de un cliente WebSocket"""
-    if current_user.is_authenticated:
-        print(f'Usuario {current_user.username} desconectado')
+    """Maneja la desconexión de un cliente WebSocket con manejo robusto de errores"""
+    try:
+        if current_user.is_authenticated:
+            logger.info(f'Usuario {current_user.username} desconectado')
+            # No intentar emit ni leave_room aquí, el socket ya puede estar cerrado
+    except Exception as e:
+        # Capturar específicamente el error "Bad file descriptor"
+        logger.warning(f'Error en handle_disconnect (esperado en desconexiones abruptas): {str(e)}')
+        # No re-lanzar - este error es común cuando el cliente cierra la conexión abruptamente
 
 
 # ============================================
@@ -123,8 +137,11 @@ def handle_user_deleted(data):
 @socketio.on('dashboard_refresh')
 def handle_dashboard_refresh(data):
     """Solicita actualización del dashboard"""
-    if current_user.is_authenticated:
-        emit('refresh_dashboard', {'message': 'Dashboard actualizado'}, room=f'user_{current_user.id}')
+    try:
+        if current_user.is_authenticated:
+            emit('refresh_dashboard', {'message': 'Dashboard actualizado'}, room=f'user_{current_user.id}')
+    except Exception as e:
+        logger.error(f'Error en handle_dashboard_refresh: {str(e)}')
 
 
 # ============================================
@@ -139,12 +156,15 @@ def emit_operation_event(event_type, operation_data):
         event_type: 'created', 'updated', 'deleted'
         operation_data: Datos de la operación
     """
-    # Emitir a todos los usuarios autenticados
-    socketio.emit(f'operation_{event_type}', operation_data, room='authenticated')
+    try:
+        # Emitir a todos los usuarios autenticados
+        socketio.emit(f'operation_{event_type}', operation_data, room='authenticated')
 
-    # También emitir específicamente a Masters y Operadores
-    socketio.emit(f'operation_{event_type}', operation_data, room='role_Master')
-    socketio.emit(f'operation_{event_type}', operation_data, room='role_Operador')
+        # También emitir específicamente a Masters y Operadores
+        socketio.emit(f'operation_{event_type}', operation_data, room='role_Master')
+        socketio.emit(f'operation_{event_type}', operation_data, room='role_Operador')
+    except Exception as e:
+        logger.error(f'Error emitiendo evento de operación: {str(e)}')
 
 
 def emit_client_event(event_type, client_data):
@@ -155,13 +175,16 @@ def emit_client_event(event_type, client_data):
         event_type: 'created', 'updated', 'deleted'
         client_data: Datos del cliente
     """
-    # Emitir a todos los usuarios autenticados
-    socketio.emit(f'client_{event_type}', client_data, room='authenticated')
+    try:
+        # Emitir a todos los usuarios autenticados
+        socketio.emit(f'client_{event_type}', client_data, room='authenticated')
 
-    # También emitir específicamente a Masters, Traders y Operadores
-    socketio.emit(f'client_{event_type}', client_data, room='role_Master')
-    socketio.emit(f'client_{event_type}', client_data, room='role_Trader')
-    socketio.emit(f'client_{event_type}', client_data, room='role_Operador')
+        # También emitir específicamente a Masters, Traders y Operadores
+        socketio.emit(f'client_{event_type}', client_data, room='role_Master')
+        socketio.emit(f'client_{event_type}', client_data, room='role_Trader')
+        socketio.emit(f'client_{event_type}', client_data, room='role_Operador')
+    except Exception as e:
+        logger.error(f'Error emitiendo evento de cliente: {str(e)}')
 
 
 def emit_user_event(event_type, user_data):
@@ -172,10 +195,16 @@ def emit_user_event(event_type, user_data):
         event_type: 'created', 'updated', 'deleted'
         user_data: Datos del usuario
     """
-    # Solo emitir a Masters
-    socketio.emit(f'user_{event_type}', user_data, room='role_Master')
+    try:
+        # Solo emitir a Masters
+        socketio.emit(f'user_{event_type}', user_data, room='role_Master')
+    except Exception as e:
+        logger.error(f'Error emitiendo evento de usuario: {str(e)}')
 
 
 def emit_dashboard_update():
     """Emite evento para actualizar el dashboard de todos los usuarios"""
-    socketio.emit('dashboard_update', {'message': 'Actualizar dashboard'}, room='authenticated')
+    try:
+        socketio.emit('dashboard_update', {'message': 'Actualizar dashboard'}, room='authenticated')
+    except Exception as e:
+        logger.error(f'Error emitiendo actualización de dashboard: {str(e)}')
