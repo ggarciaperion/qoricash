@@ -118,28 +118,35 @@ class FileService:
             return False, message, None
         
         try:
+            import eventlet
+
             # Generar nombre seguro
             filename = secure_filename(file.filename)
-            
+
             # Generar public_id
             if public_id_prefix:
                 public_id = f"{folder}/{public_id_prefix}_{filename}"
             else:
                 public_id = f"{folder}/{filename}"
-            
-            # Subir a Cloudinary
-            result = cloudinary.uploader.upload(
-                file,
-                folder=folder,
-                public_id=public_id,
-                resource_type='auto'
-            )
-            
+
+            # Subir a Cloudinary con TIMEOUT de 30s para evitar bloquear el worker
+            try:
+                with eventlet.Timeout(30):
+                    result = cloudinary.uploader.upload(
+                        file,
+                        folder=folder,
+                        public_id=public_id,
+                        resource_type='auto',
+                        timeout=25  # Timeout interno de cloudinary
+                    )
+            except eventlet.Timeout:
+                return False, 'Timeout al subir archivo (>30s). Intente con un archivo más pequeño.', None
+
             # Obtener URL segura
             url = result.get('secure_url')
-            
+
             return True, 'Archivo subido exitosamente', url
-        
+
         except Exception as e:
             return False, f'Error al subir archivo: {str(e)}', None
     

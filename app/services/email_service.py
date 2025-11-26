@@ -6,12 +6,35 @@ from flask_mail import Message
 from app.extensions import mail
 from app.models import User
 import logging
+import eventlet
 
 logger = logging.getLogger(__name__)
 
 
 class EmailService:
     """Servicio para envío de correos electrónicos"""
+
+    @staticmethod
+    def _send_async(msg, timeout=10):
+        """
+        Enviar email de forma asíncrona con timeout
+
+        Args:
+            msg: Flask-Mail Message object
+            timeout: Timeout en segundos (default 10s)
+        """
+        def _send():
+            try:
+                with eventlet.Timeout(timeout):
+                    mail.send(msg)
+                    logger.info(f'Email enviado exitosamente (async)')
+            except eventlet.Timeout:
+                logger.warning(f'Timeout al enviar email después de {timeout}s')
+            except Exception as e:
+                logger.error(f'Error al enviar email (async): {str(e)}')
+
+        # Spawn en background (fire and forget)
+        eventlet.spawn_n(_send)
 
     @staticmethod
     def get_recipients_for_new_operation(operation):
@@ -101,11 +124,11 @@ class EmailService:
                 html=html_body
             )
 
-            # Enviar
-            mail.send(msg)
+            # Enviar ASÍNCRONO para no bloquear el worker
+            EmailService._send_async(msg, timeout=15)
 
-            logger.info(f'Email de nueva operación enviado: {operation.operation_id}')
-            return True, 'Email enviado correctamente'
+            logger.info(f'Email de nueva operación programado para envío: {operation.operation_id}')
+            return True, 'Email programado para envío'
 
         except Exception as e:
             logger.error(f'Error al enviar email de nueva operación {operation.operation_id}: {str(e)}')
@@ -183,12 +206,12 @@ class EmailService:
                     html=html_body
                 )
 
-                # Enviar
-                logger.info(f'[EMAIL] Enviando email a TO: {to}, CC: {cc}')
-                mail.send(msg)
+                # Enviar ASÍNCRONO para no bloquear el worker
+                logger.info(f'[EMAIL] Programando envío de email a TO: {to}, CC: {cc}')
+                EmailService._send_async(msg, timeout=15)
 
-                logger.info(f'[EMAIL] Email de operacion completada enviado exitosamente desde {confirmation_sender}: {operation.operation_id}')
-                return True, 'Email enviado correctamente'
+                logger.info(f'[EMAIL] Email de operacion completada programado para envío desde {confirmation_sender}: {operation.operation_id}')
+                return True, 'Email programado para envío'
 
             finally:
                 # Restaurar configuración original
@@ -672,11 +695,11 @@ class EmailService:
                 html=html_body
             )
 
-            # Enviar
-            mail.send(msg)
+            # Enviar ASÍNCRONO para no bloquear el worker
+            EmailService._send_async(msg, timeout=15)
 
-            logger.info(f'Email de nuevo cliente enviado: {client.id}')
-            return True, 'Email enviado correctamente'
+            logger.info(f'Email de nuevo cliente programado para envío: {client.id}')
+            return True, 'Email programado para envío'
 
         except Exception as e:
             logger.error(f'Error al enviar email de nuevo cliente {client.id}: {str(e)}')
@@ -772,12 +795,12 @@ class EmailService:
                     html=html_body
                 )
 
-                # Enviar
-                logger.info(f'[EMAIL] Enviando email a TO: {to}, CC: {cc}')
-                mail.send(msg)
+                # Enviar ASÍNCRONO para no bloquear el worker
+                logger.info(f'[EMAIL] Programando envío de email a TO: {to}, CC: {cc}')
+                EmailService._send_async(msg, timeout=15)
 
-                logger.info(f'[EMAIL] Email de cliente activado enviado exitosamente desde {confirmation_sender}: {client.id}')
-                return True, 'Email enviado correctamente'
+                logger.info(f'[EMAIL] Email de cliente activado programado para envío desde {confirmation_sender}: {client.id}')
+                return True, 'Email programado para envío'
 
             finally:
                 # Restaurar configuración original
