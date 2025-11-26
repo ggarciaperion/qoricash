@@ -97,6 +97,7 @@ class OperationService:
         """
         from datetime import datetime, timedelta
         from sqlalchemy import case
+        from sqlalchemy.orm import joinedload
 
         # Obtener inicio y fin del día en Perú
         now = now_peru()
@@ -110,7 +111,12 @@ class OperationService:
             else_=1
         )
 
-        return Operation.query.filter(
+        # OPTIMIZACIÓN: Usar joinedload para evitar N+1 queries
+        return Operation.query.options(
+            joinedload(Operation.client),
+            joinedload(Operation.user),
+            joinedload(Operation.assigned_operator)
+        ).filter(
             Operation.created_at >= start_of_day,
             Operation.created_at <= end_of_day
         ).order_by(
@@ -466,7 +472,7 @@ class OperationService:
         Asignar un operador de forma balanceada
 
         Algoritmo:
-        1. Obtener todos los usuarios con rol "Operador" activos
+        1. Obtener todos los usuarios con rol "Operador" activos y conectados
         2. Contar cuántas operaciones "En proceso" tiene cada uno asignadas
         3. Asignar al operador con menos operaciones asignadas
 
@@ -487,9 +493,16 @@ class OperationService:
             print("ADVERTENCIA: No hay operadores activos disponibles para asignar")
             return None
 
-        # Contar operaciones en proceso asignadas a cada operador
+        # Filtrar solo operadores conectados
+        online_operators = [op for op in operators if op.is_online()]
+
+        if not online_operators:
+            print("ADVERTENCIA: No hay operadores conectados disponibles para asignar")
+            return None
+
+        # Contar operaciones en proceso asignadas a cada operador conectado
         operator_loads = {}
-        for operator in operators:
+        for operator in online_operators:
             count = Operation.query.filter(
                 and_(
                     Operation.assigned_operator_id == operator.id,

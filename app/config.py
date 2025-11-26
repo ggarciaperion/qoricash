@@ -18,15 +18,15 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ECHO = False  # Set True for SQL debugging
 
-    # Pool de conexiones - Optimizado para 1 worker eventlet (plan Starter 512MB)
+    # Pool de conexiones - OPTIMIZADO para mejor concurrencia con eventlet
     SQLALCHEMY_ENGINE_OPTIONS = {
-        'pool_size': 2,                    # Solo 2 conexiones (suficiente para 1 worker)
+        'pool_size': 5,                    # AUMENTADO: 5 conexiones base (antes 2)
         'pool_recycle': 280,               # Reciclar conexiones cada 280 segundos
         'pool_pre_ping': True,             # Verificar conexión antes de usar
-        'max_overflow': 1,                 # Máximo 1 conexión extra
-        'pool_timeout': 10,                # Timeout de 10s (reducido)
+        'max_overflow': 10,                # AUMENTADO: Hasta 10 conexiones extra (antes 1)
+        'pool_timeout': 30,                # AUMENTADO: Timeout de 30s (antes 10s)
         'connect_args': {
-            'connect_timeout': 5,          # Timeout de 5s (reducido)
+            'connect_timeout': 10,         # AUMENTADO: Timeout de 10s (antes 5s)
             'keepalives': 1,
             'keepalives_idle': 30,
             'keepalives_interval': 10,

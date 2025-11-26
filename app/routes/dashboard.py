@@ -100,11 +100,17 @@ def get_all_dashboard_data():
     # ========================================
     # ESTADÍSTICAS DE HOY
     # ========================================
+    from sqlalchemy.orm import joinedload
+
     start_of_day = datetime(now.year, now.month, now.day, 0, 0, 0)
     end_of_day = datetime(now.year, now.month, now.day, 23, 59, 59)
     today_date = now.date()
 
-    query_today = Operation.query.filter(
+    # OPTIMIZACIÓN: Usar joinedload para evitar N+1 queries
+    query_today = Operation.query.options(
+        joinedload(Operation.client),
+        joinedload(Operation.user)
+    ).filter(
         Operation.created_at >= start_of_day,
         Operation.created_at <= end_of_day
     )
@@ -150,7 +156,11 @@ def get_all_dashboard_data():
     else:
         end_date = datetime(year, month + 1, 1)
 
-    query_month = Operation.query.filter(
+    # OPTIMIZACIÓN: Usar joinedload para evitar N+1 queries
+    query_month = Operation.query.options(
+        joinedload(Operation.client),
+        joinedload(Operation.user)
+    ).filter(
         and_(
             Operation.created_at >= start_date,
             Operation.created_at < end_date
@@ -254,13 +264,18 @@ def get_today_stats():
     trader_id = request.args.get('trader_id', type=int)
 
     # Obtener inicio y fin del día en Perú
+    from sqlalchemy.orm import joinedload
+
     now = now_peru()
     start_of_day = datetime(now.year, now.month, now.day, 0, 0, 0)
     end_of_day = datetime(now.year, now.month, now.day, 23, 59, 59)
     today_date = now.date()
 
-    # Construir query
-    query = Operation.query.filter(
+    # Construir query con EAGER LOADING
+    query = Operation.query.options(
+        joinedload(Operation.client),
+        joinedload(Operation.user)
+    ).filter(
         Operation.created_at >= start_of_day,
         Operation.created_at <= end_of_day
     )

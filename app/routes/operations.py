@@ -208,13 +208,17 @@ def export_history():
     from app.models.operation import Operation
     from datetime import datetime
     from app.utils.formatters import now_peru
+    from sqlalchemy.orm import joinedload
 
     # Obtener parámetros de filtro de fechas
     start_date = request.args.get('start_date')
     end_date = request.args.get('end_date')
 
-    # Construir query base
-    query = Operation.query
+    # Construir query base con EAGER LOADING para evitar N+1
+    query = Operation.query.options(
+        joinedload(Operation.client),
+        joinedload(Operation.user)
+    )
 
     # Aplicar filtros de fecha si existen
     if start_date:
@@ -1137,20 +1141,29 @@ def check_pending_operations():
     Retorna operaciones que:
     - Están en estado 'En proceso'
     - Han estado en ese estado por 10 minutos o más
+    - Son del día actual (según in_process_since)
 
     Returns:
         JSON con lista de operaciones que necesitan atención y tiempo transcurrido
     """
     from app.extensions import db
     from app.models.operation import Operation
-    from sqlalchemy import and_
+    from sqlalchemy import and_, func
+    from datetime import datetime
 
-    # Obtener todas las operaciones en proceso asignadas al operador actual
+    # Obtener inicio y fin del día actual en Perú
+    now = now_peru()
+    start_of_day = datetime(now.year, now.month, now.day, 0, 0, 0)
+    end_of_day = datetime(now.year, now.month, now.day, 23, 59, 59)
+
+    # Obtener operaciones en proceso asignadas al operador actual y del día actual
     operations = Operation.query.filter(
         and_(
             Operation.status == 'En proceso',
             Operation.in_process_since.isnot(None),
-            Operation.assigned_operator_id == current_user.id  # Solo sus operaciones asignadas
+            Operation.assigned_operator_id == current_user.id,  # Solo sus operaciones asignadas
+            Operation.in_process_since >= start_of_day,  # Solo del día actual
+            Operation.in_process_since <= end_of_day
         )
     ).all()
 
@@ -1223,6 +1236,10 @@ def reassign_operator(operation_id):
     if new_operator.status != 'Activo':
         return jsonify({'success': False, 'message': 'El operador seleccionado no está activo'}), 400
 
+    # Validar que el operador esté conectado al sistema
+    if not new_operator.is_online():
+        return jsonify({'success': False, 'message': 'El operador seleccionado no está conectado al sistema'}), 400
+
     # Guardar operador anterior para el log
     old_operator_id = operation.assigned_operator_id
     old_operator_name = 'No asignado'
@@ -1273,10 +1290,10 @@ def reassign_operator(operation_id):
 @require_role('Master')
 def get_active_operators():
     """
-    API: Obtener lista de operadores activos (Solo Master)
+    API: Obtener lista de operadores activos y conectados (Solo Master)
 
     Returns:
-        JSON con lista de operadores activos
+        JSON con lista de operadores activos y conectados al sistema
     """
     from app.models.user import User
 
@@ -1285,11 +1302,14 @@ def get_active_operators():
         User.status == 'Activo'
     ).all()
 
+    # Filtrar solo operadores conectados
+    online_operators = [op for op in operators if op.is_online()]
+
     operators_list = [{
         'id': op.id,
         'username': op.username,
         'email': op.email
-    } for op in operators]
+    } for op in online_operators]
 
     return jsonify({
         'success': True,

@@ -10,7 +10,7 @@ Werkzeug==3.0.1
 # Database - VERSIÓN COMPATIBLE CON WINDOWS
 Flask-SQLAlchemy==3.1.1
 Flask-Migrate==4.0.5
-psycopg2-binary==2.9.9
+psycopg[binary]>=3.1.18
 alembic==1.13.1
 
 # Authentication

@@ -136,6 +136,26 @@ class User(UserMixin, db.Model):
     def is_active_user(self):
         """Verificar si está activo"""
         return self.status == 'Activo'
-    
+
+    def is_online(self):
+        """
+        Verificar si el usuario está conectado al sistema
+
+        Un usuario se considera conectado si:
+        - Tiene last_login registrado
+        - No tiene last_logout o last_logout es anterior a last_login
+
+        Returns:
+            bool: True si está conectado
+        """
+        if not self.last_login:
+            return False
+
+        # Si no hay logout o el login es más reciente que el logout, está conectado
+        if not self.last_logout:
+            return True
+
+        return self.last_login > self.last_logout
+
     def __repr__(self):
         return f'<User {self.username} ({self.role})>'

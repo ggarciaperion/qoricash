@@ -809,6 +809,10 @@ function buildViewHTML(op, readonly) {
         return accountNumber;
     }
 
+    // Formatear montos con separador de miles
+    const formattedUSD = parseFloat(op.amount_usd).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    const formattedPEN = parseFloat(op.amount_pen).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+
     let html = `
         <div class="row mb-3">
             <div class="col-md-3"><strong>ID:</strong> ${op.operation_id}</div>
@@ -817,9 +821,9 @@ function buildViewHTML(op, readonly) {
             <div class="col-md-3"><strong>Estado:</strong> ${statusBadge}</div>
         </div>
         <div class="row mb-3">
-            <div class="col-md-3"><strong>Monto USD:</strong> $ ${parseFloat(op.amount_usd).toFixed(2)}</div>
+            <div class="col-md-3"><strong>Monto USD:</strong> $ ${formattedUSD}</div>
             <div class="col-md-3"><strong>T.C.:</strong> ${parseFloat(op.exchange_rate).toFixed(4)}</div>
-            <div class="col-md-3"><strong>Monto PEN:</strong> S/ ${parseFloat(op.amount_pen).toFixed(2)}</div>
+            <div class="col-md-3"><strong>Monto PEN:</strong> S/ ${formattedPEN}</div>
             <div class="col-md-3"><strong>Creado por:</strong> ${op.user_name || '-'}</div>
         </div>
         <div class="row mb-3">
@@ -1327,13 +1331,17 @@ function updateTotals() {
         const expectedDeposits = op.operation_type === 'Compra' ? parseFloat(op.amount_usd) : parseFloat(op.amount_pen);
         const expectedPayments = op.operation_type === 'Venta' ? parseFloat(op.amount_usd) : parseFloat(op.amount_pen);
 
+        // Formatear diferencias con separador de miles
+        const diffDeposits = (expectedDeposits - totalDeposits).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        const diffPayments = (expectedPayments - totalPayments).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+
         $('#deposit_validation').html(Math.abs(totalDeposits - expectedDeposits) < 0.01
             ? '<span class="badge bg-success"><i class="bi bi-check"></i> OK</span>'
-            : `<span class="badge bg-danger">Falta: ${(expectedDeposits - totalDeposits).toFixed(2)}</span>`);
+            : `<span class="badge bg-danger">Falta: ${diffDeposits}</span>`);
 
         $('#payment_validation').html(Math.abs(totalPayments - expectedPayments) < 0.01
             ? '<span class="badge bg-success"><i class="bi bi-check"></i> OK</span>'
-            : `<span class="badge bg-danger">Falta: ${(expectedPayments - totalPayments).toFixed(2)}</span>`);
+            : `<span class="badge bg-danger">Falta: ${diffPayments}</span>`);
     }
 }
 
@@ -1377,14 +1385,18 @@ function calcularTiempoTranscurrido(fechaInicio, fechaFin) {
 
 // === ACTUALIZAR INFO DE MONEDAS ===
 function updateCurrencyInfo(operationType, amountUsd, amountPen) {
+    // Formatear montos con separador de miles
+    const formattedUSD = amountUsd.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    const formattedPEN = amountPen.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+
     if (operationType === 'Compra') {
         // Cliente abona USD, recibe PEN
-        $('#deposit_currency_info').html(`Cliente abona <strong>$ ${amountUsd.toFixed(2)} USD</strong>`);
-        $('#payment_currency_info').html(`Cliente recibe <strong>S/ ${amountPen.toFixed(2)} PEN</strong>`);
+        $('#deposit_currency_info').html(`Cliente abona <strong>$ ${formattedUSD} USD</strong>`);
+        $('#payment_currency_info').html(`Cliente recibe <strong>S/ ${formattedPEN} PEN</strong>`);
     } else {
         // Cliente abona PEN, recibe USD
-        $('#deposit_currency_info').html(`Cliente abona <strong>S/ ${amountPen.toFixed(2)} PEN</strong>`);
-        $('#payment_currency_info').html(`Cliente recibe <strong>$ ${amountUsd.toFixed(2)} USD</strong>`);
+        $('#deposit_currency_info').html(`Cliente abona <strong>S/ ${formattedPEN} PEN</strong>`);
+        $('#payment_currency_info').html(`Cliente recibe <strong>$ ${formattedUSD} USD</strong>`);
     }
 }
 

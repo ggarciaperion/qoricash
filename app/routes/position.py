@@ -57,13 +57,17 @@ def get_bank_balances():
         # Importante: created_at está almacenado como hora de Peru (sin timezone)
         # Por lo tanto, podemos comparar directamente con la fecha solicitada
         from datetime import datetime as dt, timedelta, time
+        from sqlalchemy.orm import joinedload
 
         # Crear inicio y fin del día en Peru (horario de Perú)
         # Usamos fecha_consulta que ya viene de now_peru().date() cuando no hay parámetro
         inicio_dia = dt.combine(fecha_consulta, time.min)  # 00:00:00
         fin_dia = dt.combine(fecha_consulta, time.max)      # 23:59:59.999999
 
-        all_ops_today = Operation.query.filter(
+        # OPTIMIZACIÓN: Usar joinedload para evitar N+1 queries
+        all_ops_today = Operation.query.options(
+            joinedload(Operation.client)
+        ).filter(
             Operation.status != 'Cancelado',
             Operation.created_at >= inicio_dia,
             Operation.created_at <= fin_dia

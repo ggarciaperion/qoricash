@@ -12,14 +12,14 @@ worker_class = 'eventlet'
 worker_connections = 1000
 threads = 1
 
-# Timeouts
-timeout = 180
-graceful_timeout = 90
+# Timeouts - AUMENTADOS para evitar worker timeout
+timeout = 300  # 5 minutos (antes 180s)
+graceful_timeout = 120  # 2 minutos (antes 90s)
 keepalive = 5
 
-# Memory limits (optimizado para plan Starter)
-max_requests = 250
-max_requests_jitter = 25
+# Memory limits - AUMENTADO para reducir reinicios frecuentes
+max_requests = 1000  # Antes 250 - causaba reinicios cada 250 requests
+max_requests_jitter = 50  # Antes 25
 
 # Logging
 accesslog = '-'
@@ -39,47 +39,22 @@ print(f"✓ Gunicorn configurado: {workers} workers, timeout {timeout}s")
 def post_worker_init(worker):
     """
     Hook que se ejecuta cuando cada worker termina de inicializarse.
-    Con 1 solo worker, esto se ejecuta una vez.
+    OPTIMIZADO: Solo verifica conectividad, no crea tablas ni usuarios en cada reinicio.
     """
-    print(f"🔧 Worker {worker.pid} inicializado - Verificando DB...")
+    print(f"🔧 Worker {worker.pid} inicializado")
 
     try:
         # Importar aquí para evitar problemas de importación circular
         from app import create_app
         from app.extensions import db
-        from app.models.user import User
 
         app = create_app()
 
         with app.app_context():
-            # Verificar si las tablas ya existen consultando User
-            try:
-                User.query.first()
-                print("✓ Tablas de DB ya existen")
-            except:
-                # Si falla, crear tablas
-                print("Creando tablas de base de datos...")
-                db.create_all()
-                print("✓ Tablas creadas")
-
-            # Verificar/crear usuario Master
-            master_exists = User.query.filter_by(role='Master').first()
-            if not master_exists:
-                print("Creando usuario Master...")
-                master = User(
-                    username='admin',
-                    email='admin@qoricash.com',
-                    dni='12345678',
-                    role='Master',
-                    status='Activo'
-                )
-                master.set_password('Admin123!')
-                db.session.add(master)
-                db.session.commit()
-                print("✓ Usuario Master creado (admin@qoricash.com / Admin123!)")
-            else:
-                print(f"✓ Usuario Master existe: {master_exists.username}")
+            # Solo verificar conectividad con una query simple
+            db.session.execute(db.text('SELECT 1'))
+            print("✓ Conexión DB verificada")
 
     except Exception as e:
-        print(f"❌ Error en inicialización DB: {e}")
+        print(f"❌ Error verificando DB: {e}")
         # No hacer traceback para no llenar logs
