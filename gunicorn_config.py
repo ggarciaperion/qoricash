@@ -10,15 +10,16 @@ bind = f"0.0.0.0:{os.environ.get('PORT', '10000')}"
 workers = 1
 worker_class = 'eventlet'
 worker_connections = 1000
+threads = 1
 
 # Timeouts
-timeout = 120
-graceful_timeout = 60
-keepalive = 2
+timeout = 180
+graceful_timeout = 90
+keepalive = 5
 
 # Memory limits (optimizado para plan Starter)
-max_requests = 500
-max_requests_jitter = 50
+max_requests = 250
+max_requests_jitter = 25
 
 # Logging
 accesslog = '-'
@@ -34,35 +35,37 @@ worker_tmp_dir = '/dev/shm'
 
 print(f"✓ Gunicorn configurado: {workers} workers, timeout {timeout}s")
 
-# Hook: Ejecutar SOLO UNA VEZ cuando gunicorn arranca (antes de crear workers)
-def on_starting(server):
+# Hook: Ejecutar cuando cada worker arranca (más confiable que on_starting con eventlet)
+def post_worker_init(worker):
     """
-    Hook que se ejecuta UNA SOLA VEZ cuando gunicorn inicia,
-    antes de crear los workers. Ideal para inicialización de DB.
+    Hook que se ejecuta cuando cada worker termina de inicializarse.
+    Con 1 solo worker, esto se ejecuta una vez.
     """
-    print("🔧 Ejecutando inicialización de base de datos...")
+    print(f"🔧 Worker {worker.pid} inicializado - Verificando DB...")
 
-    # Monkey patch de eventlet PRIMERO
-    import eventlet
-    eventlet.monkey_patch()
+    try:
+        # Importar aquí para evitar problemas de importación circular
+        from app import create_app
+        from app.extensions import db
+        from app.models.user import User
 
-    # Importar aquí para evitar problemas de importación circular
-    from app import create_app
-    from app.extensions import db
-    from app.models.user import User
+        app = create_app()
 
-    app = create_app()
+        with app.app_context():
+            # Verificar si las tablas ya existen consultando User
+            try:
+                User.query.first()
+                print("✓ Tablas de DB ya existen")
+            except:
+                # Si falla, crear tablas
+                print("Creando tablas de base de datos...")
+                db.create_all()
+                print("✓ Tablas creadas")
 
-    with app.app_context():
-        try:
-            print("Creando tablas de base de datos...")
-            db.create_all()
-            print("✓ Tablas creadas exitosamente")
-
-            # Crear usuario Master por defecto si no existe
+            # Verificar/crear usuario Master
             master_exists = User.query.filter_by(role='Master').first()
             if not master_exists:
-                print("Creando usuario Master por defecto...")
+                print("Creando usuario Master...")
                 master = User(
                     username='admin',
                     email='admin@qoricash.com',
@@ -73,13 +76,10 @@ def on_starting(server):
                 master.set_password('Admin123!')
                 db.session.add(master)
                 db.session.commit()
-                print("✓ Usuario Master creado:")
-                print("  Username/Email: admin@qoricash.com")
-                print("  Password: Admin123!")
+                print("✓ Usuario Master creado (admin@qoricash.com / Admin123!)")
             else:
-                print(f"✓ Usuario Master ya existe: {master_exists.username}")
+                print(f"✓ Usuario Master existe: {master_exists.username}")
 
-        except Exception as e:
-            print(f"❌ Error al inicializar base de datos: {e}")
-            import traceback
-            traceback.print_exc()
+    except Exception as e:
+        print(f"❌ Error en inicialización DB: {e}")
+        # No hacer traceback para no llenar logs

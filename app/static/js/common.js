@@ -12,10 +12,19 @@ let socket = null;
 function connectSocketIO() {
     if (socket) return; // Ya conectado
 
-    socket = io();
+    socket = io({
+        transports: ['websocket', 'polling'],  // Intentar websocket primero
+        upgrade: true,                          // Permitir upgrade de polling a websocket
+        rememberUpgrade: true,                  // Recordar que websocket funciona
+        reconnection: true,                     // Auto-reconectar
+        reconnectionDelay: 1000,                // Esperar 1s antes de reconectar
+        reconnectionAttempts: 5,                // Máximo 5 intentos
+        timeout: 20000,                         // Timeout de 20s para conexión inicial
+        forceNew: false                         // Reusar conexión existente
+    });
 
     socket.on('connect', function() {
-        console.log('✅ SocketIO conectado');
+        console.log('✅ SocketIO conectado - Transport:', socket.io.engine.transport.name);
         // No mostrar notificación de conexión
     });
 

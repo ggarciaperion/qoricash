@@ -18,19 +18,19 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ECHO = False  # Set True for SQL debugging
 
-    # Pool de conexiones - Prevenir "SSL SYSCALL error: EOF detected"
+    # Pool de conexiones - Optimizado para 1 worker eventlet (plan Starter 512MB)
     SQLALCHEMY_ENGINE_OPTIONS = {
-        'pool_size': 5,                    # Máximo 5 conexiones en el pool
-        'pool_recycle': 280,               # Reciclar conexiones cada 280 segundos (antes del timeout de 300s de Render)
-        'pool_pre_ping': True,             # Verificar conexión antes de usar (auto-reconectar si está cerrada)
-        'max_overflow': 2,                 # Máximo 2 conexiones extra si se necesitan
-        'pool_timeout': 30,                # Timeout de 30s para obtener una conexión del pool
+        'pool_size': 2,                    # Solo 2 conexiones (suficiente para 1 worker)
+        'pool_recycle': 280,               # Reciclar conexiones cada 280 segundos
+        'pool_pre_ping': True,             # Verificar conexión antes de usar
+        'max_overflow': 1,                 # Máximo 1 conexión extra
+        'pool_timeout': 10,                # Timeout de 10s (reducido)
         'connect_args': {
-            'connect_timeout': 10,         # Timeout de 10s para conectar a la DB
-            'keepalives': 1,               # Habilitar TCP keepalives
-            'keepalives_idle': 30,         # Enviar keepalive cada 30s
-            'keepalives_interval': 10,     # Intervalo entre keepalives
-            'keepalives_count': 5          # Intentos de keepalive antes de considerar conexión muerta
+            'connect_timeout': 5,          # Timeout de 5s (reducido)
+            'keepalives': 1,
+            'keepalives_idle': 30,
+            'keepalives_interval': 10,
+            'keepalives_count': 5
         }
     }
     
