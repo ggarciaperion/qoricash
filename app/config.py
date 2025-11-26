@@ -14,9 +14,25 @@ class Config:
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
     if SQLALCHEMY_DATABASE_URI and SQLALCHEMY_DATABASE_URI.startswith('postgres://'):
         SQLALCHEMY_DATABASE_URI = SQLALCHEMY_DATABASE_URI.replace('postgres://', 'postgresql://', 1)
-    
+
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ECHO = False  # Set True for SQL debugging
+
+    # Pool de conexiones - Prevenir "SSL SYSCALL error: EOF detected"
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        'pool_size': 5,                    # Máximo 5 conexiones en el pool
+        'pool_recycle': 280,               # Reciclar conexiones cada 280 segundos (antes del timeout de 300s de Render)
+        'pool_pre_ping': True,             # Verificar conexión antes de usar (auto-reconectar si está cerrada)
+        'max_overflow': 2,                 # Máximo 2 conexiones extra si se necesitan
+        'pool_timeout': 30,                # Timeout de 30s para obtener una conexión del pool
+        'connect_args': {
+            'connect_timeout': 10,         # Timeout de 10s para conectar a la DB
+            'keepalives': 1,               # Habilitar TCP keepalives
+            'keepalives_idle': 30,         # Enviar keepalive cada 30s
+            'keepalives_interval': 10,     # Intervalo entre keepalives
+            'keepalives_count': 5          # Intentos de keepalive antes de considerar conexión muerta
+        }
+    }
     
     # Session
     SESSION_COOKIE_SECURE = os.environ.get('SESSION_COOKIE_SECURE', 'False') == 'True'
