@@ -42,6 +42,10 @@ def on_starting(server):
     """
     print("🔧 Ejecutando inicialización de base de datos...")
 
+    # Monkey patch de eventlet PRIMERO
+    import eventlet
+    eventlet.monkey_patch()
+
     # Importar aquí para evitar problemas de importación circular
     from app import create_app
     from app.extensions import db

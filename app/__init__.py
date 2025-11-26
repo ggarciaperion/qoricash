@@ -3,6 +3,10 @@ Factory de la aplicación Flask para QoriCash Trading V2
 
 Este archivo crea y configura la aplicación Flask usando el patrón Factory.
 """
+# IMPORTANTE: Monkey patch de eventlet DEBE ir PRIMERO, antes de cualquier otra importación
+import eventlet
+eventlet.monkey_patch()
+
 import logging
 from flask import Flask
 from app.config import get_config
