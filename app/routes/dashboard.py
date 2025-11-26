@@ -107,10 +107,7 @@ def get_all_dashboard_data():
     today_date = now.date()
 
     # OPTIMIZACIÓN: Usar joinedload para evitar N+1 queries
-    query_today = Operation.query.options(
-        joinedload(Operation.client),
-        joinedload(Operation.user)
-    ).filter(
+    query_today = Operation.query.filter(
         Operation.created_at >= start_of_day,
         Operation.created_at <= end_of_day
     )
@@ -157,10 +154,7 @@ def get_all_dashboard_data():
         end_date = datetime(year, month + 1, 1)
 
     # OPTIMIZACIÓN: Usar joinedload para evitar N+1 queries
-    query_month = Operation.query.options(
-        joinedload(Operation.client),
-        joinedload(Operation.user)
-    ).filter(
+    query_month = Operation.query.filter(
         and_(
             Operation.created_at >= start_date,
             Operation.created_at < end_date
