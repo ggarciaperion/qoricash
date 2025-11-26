@@ -15,38 +15,7 @@ from app import create_app, socketio
 # Crear aplicación
 app = create_app()
 
-# Crear tablas automáticamente
-with app.app_context():
-    from app.extensions import db
-    from app.models.user import User
-
-    try:
-        print("Creando tablas de base de datos...")
-        db.create_all()
-        print("Tablas creadas exitosamente")
-
-        # Crear usuario Master por defecto si no existe
-        master_exists = User.query.filter_by(role='Master').first()
-        if not master_exists:
-            print("Creando usuario Master por defecto...")
-            master = User(
-                username='admin',
-                email='admin@qoricash.com',
-                dni='12345678',
-                role='Master',
-                status='Activo'
-            )
-            master.set_password('Admin123!')
-            db.session.add(master)
-            db.session.commit()
-            print("✓ Usuario Master creado:")
-            print("  Username/Email: admin@qoricash.com")
-            print("  Password: Admin123!")
-        else:
-            print(f"✓ Usuario Master ya existe: {master_exists.username}")
-
-    except Exception as e:
-        print(f"Error al inicializar base de datos: {e}")
+# Nota: La inicialización de DB se hace en gunicorn_config.py usando el hook on_starting
 
 if __name__ == '__main__':
     # Ejecutar con SocketIO
