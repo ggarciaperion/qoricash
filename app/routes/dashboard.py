@@ -489,7 +489,7 @@ def get_month_stats():
 
 @dashboard_bp.route('/api/traders')
 @login_required
-@require_role('Master')
+@require_role('Master', 'Operador')
 def get_traders():
     """
     API: Obtener lista de traders
