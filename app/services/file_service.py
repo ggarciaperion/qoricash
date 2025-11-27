@@ -55,7 +55,8 @@ class FileService:
                 's3',
                 aws_access_key_id=access_key,
                 aws_secret_access_key=secret_key,
-                region_name=region
+                region_name=region,
+                endpoint_url=f'https://s3.{region}.amazonaws.com',
             )
 
             self.bucket_name = bucket_name
