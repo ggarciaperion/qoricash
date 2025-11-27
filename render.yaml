@@ -9,7 +9,7 @@ services:
     name: qoricash-trading
     env: python
     region: oregon
-    plan: free
+    plan: starter
     branch: master
     buildCommand: pip install -r requirements.txt && flask db upgrade
     startCommand: gunicorn -c gunicorn_config.py run:app
@@ -69,6 +69,6 @@ databases:
   - name: qoricash-db
     databaseName: qoricash_trading_prod
     user: qoricash_user
-    plan: starter
+    plan: free
     region: oregon
     ipAllowList: []
