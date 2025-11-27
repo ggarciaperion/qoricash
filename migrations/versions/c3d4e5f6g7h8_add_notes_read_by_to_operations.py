@@ -1,7 +1,7 @@
 """Add notes_read_by_json to operations
 
-Revision ID: add_notes_read_by
-Revises: add_trader_goals_profits
+Revision ID: c3d4e5f6g7h8
+Revises: b2c3d4e5f6g7
 Create Date: 2025-11-22 23:00:00.000000
 
 """
@@ -10,8 +10,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = 'add_notes_read_by'
-down_revision = 'add_trader_goals_profits'
+revision = 'c3d4e5f6g7h8'
+down_revision = 'b2c3d4e5f6g7'
 branch_labels = None
 depends_on = None
 

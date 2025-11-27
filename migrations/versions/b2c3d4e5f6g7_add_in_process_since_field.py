@@ -1,7 +1,7 @@
 """add in_process_since field to operations
 
-Revision ID: in_process_since_001
-Revises: add_trader_goals_and_daily_profits
+Revision ID: b2c3d4e5f6g7
+Revises: a1b2c3d4e5f6
 Create Date: 2025-11-23
 
 """
@@ -10,8 +10,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = 'in_process_since_001'
-down_revision = 'add_trader_goals_and_daily_profits'
+revision = 'b2c3d4e5f6g7'
+down_revision = 'a1b2c3d4e5f6'
 branch_labels = None
 depends_on = None
 

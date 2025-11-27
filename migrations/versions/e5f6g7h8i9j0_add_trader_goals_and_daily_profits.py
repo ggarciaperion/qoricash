@@ -1,7 +1,7 @@
 """add trader_goals and trader_daily_profits tables
 
-Revision ID: add_trader_goals_profits
-Revises: add_operation_deposits_payments
+Revision ID: e5f6g7h8i9j0
+Revises: d4e5f6g7h8i9
 Create Date: 2025-11-21 00:00:00.000000
 
 """
@@ -10,8 +10,8 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision = 'add_trader_goals_profits'
-down_revision = 'add_deposits_payments'
+revision = 'e5f6g7h8i9j0'
+down_revision = 'd4e5f6g7h8i9'
 branch_labels = None
 depends_on = None
 

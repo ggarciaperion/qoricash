@@ -1,15 +1,15 @@
 """Add client deposits, payments and operator proofs to operations
 
-Revision ID: add_deposits_payments
-Revises:
+Revision ID: d4e5f6g7h8i9
+Revises: c3d4e5f6g7h8
 Create Date: 2025-11-20
 """
 from alembic import op
 import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
-revision = 'add_deposits_payments'
-down_revision = None
+revision = 'd4e5f6g7h8i9'
+down_revision = 'c3d4e5f6g7h8'
 branch_labels = None
 depends_on = None
 

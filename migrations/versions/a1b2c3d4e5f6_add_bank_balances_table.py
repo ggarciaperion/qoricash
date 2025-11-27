@@ -1,7 +1,7 @@
 """add bank_balances table
 
-Revision ID: add_bank_balances
-Revises: add_trader_goals_profits
+Revision ID: a1b2c3d4e5f6
+Revises: 5fde901bfcaa
 Create Date: 2025-11-22 12:00:00.000000
 
 """
@@ -9,8 +9,8 @@ from alembic import op
 import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
-revision = 'add_bank_balances'
-down_revision = 'add_notes_read_by'
+revision = 'a1b2c3d4e5f6'
+down_revision = '5fde901bfcaa'
 branch_labels = None
 depends_on = None
 
