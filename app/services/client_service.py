@@ -274,7 +274,7 @@ class ClientService:
                     'client_id': client.id,
                     'client': client.to_dict(include_stats=True),
                     'created_by': getattr(current_user, 'username', 'Unknown')
-                }, broadcast=True)
+                })
                 logger.info(f'WebSocket event emitted: client_created for ID {client.id}')
             except Exception as ws_exc:
                 logger.warning(f'Failed to emit WebSocket event for client creation: {ws_exc}')
@@ -436,7 +436,7 @@ class ClientService:
                     'client_id': client.id,
                     'client': client.to_dict(include_stats=True),
                     'updated_by': getattr(current_user, 'username', 'Unknown')
-                }, broadcast=True)
+                })
                 logger.info(f'WebSocket event emitted: client_updated for ID {client.id}')
             except Exception as ws_exc:
                 logger.warning(f'Failed to emit WebSocket event for client update: {ws_exc}')
@@ -486,7 +486,7 @@ class ClientService:
                     'old_status': old_status,
                     'new_status': new_status,
                     'changed_by': getattr(current_user, 'username', 'Unknown')
-                }, broadcast=True)
+                })
                 logger.info(f'WebSocket event emitted: client_status_changed for ID {client.id}')
             except Exception as ws_exc:
                 logger.warning(f'Failed to emit WebSocket event for status change: {ws_exc}')
@@ -538,7 +538,7 @@ class ClientService:
                     'client_id': deleted_client_id,
                     'client_name': client_name,
                     'deleted_by': getattr(current_user, 'username', 'Unknown')
-                }, broadcast=True)
+                })
                 logger.info(f'WebSocket event emitted: client_deleted for ID {deleted_client_id}')
             except Exception as ws_exc:
                 logger.warning(f'Failed to emit WebSocket event for client deletion: {ws_exc}')
