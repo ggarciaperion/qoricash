@@ -29,8 +29,8 @@ Flask-SocketIO==5.3.5
 python-socketio==5.10.0
 simple-websocket==1.0.0
 
-# File Upload
-cloudinary==1.41.0
+# File Upload (Amazon S3)
+boto3==1.34.10
 
 # Data Validation
 marshmallow==3.20.1
