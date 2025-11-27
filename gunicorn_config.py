@@ -8,11 +8,10 @@ import multiprocessing
 # Bind
 bind = f"0.0.0.0:{os.environ.get('PORT', '10000')}"
 
-# Workers - Optimizado para Render
-workers = int(os.environ.get('WEB_CONCURRENCY', 4))
-worker_class = 'eventlet'  # Mejor para WebSocket/SocketIO
+# Workers - Optimizado para Render con eventlet
+workers = int(os.environ.get('WEB_CONCURRENCY', 1))
+worker_class = 'eventlet'  # Para WebSocket/SocketIO - no usar threads con eventlet
 worker_connections = 1000
-threads = 2
 
 # Timeouts - Extendidos para operaciones largas
 timeout = 300  # 5 minutos
@@ -29,8 +28,8 @@ errorlog = '-'
 loglevel = 'info'
 access_log_format = '%(h)s %(l)s %(u)s %(t)s "%(r)s" %(s)s %(b)s "%(f)s" "%(a)s" %(D)s'
 
-# Preload
-preload_app = True  # Mejor para producción
+# Preload - DISABLED para eventlet (causa lock issues con Flask sessions)
+preload_app = False
 
 # Worker temp directory
 worker_tmp_dir = '/dev/shm'
@@ -52,4 +51,3 @@ certfile = None
 
 print(f"[GUNICORN] Configurado: {workers} workers ({worker_class}), timeout {timeout}s")
 print(f"[GUNICORN] Conexiones por worker: {worker_connections}")
-print(f"[GUNICORN] Threads por worker: {threads}")

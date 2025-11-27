@@ -52,7 +52,7 @@ def initialize_extensions(flask_app):
     migrate.init_app(flask_app, db)
     login_manager.init_app(flask_app)
     csrf.init_app(flask_app)
-    socketio.init_app(flask_app)
+    socketio.init_app(flask_app, cors_allowed_origins="*", async_mode='eventlet')
     mail.init_app(flask_app)
 
     if flask_app.config['RATELIMIT_ENABLED']:
