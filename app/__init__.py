@@ -5,7 +5,7 @@ Este archivo crea y configura la aplicación Flask usando el patrón Factory.
 """
 # IMPORTANTE: Monkey patch de eventlet DEBE ir PRIMERO, antes de cualquier otra importación
 import eventlet
-eventlet.monkey_patch()
+eventlet.monkey_patch(socket=True, select=True, thread=True, time=True, os=True, dns=False)
 
 import logging
 from flask import Flask
