@@ -1,0 +1,589 @@
+/**
+ * QoriCash Trading V2 - Dashboard Premium Minimalista
+ * Diseño profesional enfocado en datos y métricas
+ */
+
+/* Dashboard Container */
+.dashboard-container {
+    padding: 0;
+    animation: fadeIn 0.5s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Dashboard Header Minimalista */
+.dashboard-header {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 2px solid #e2e8f0;
+}
+
+.dashboard-header h2 {
+    color: #1e293b;
+    font-weight: 700;
+    font-size: 1.625rem;
+    margin-bottom: 0.25rem;
+    letter-spacing: -0.025em;
+}
+
+.dashboard-header .text-muted {
+    font-size: 0.875rem;
+    color: #64748b;
+}
+
+/* Section Headers Minimalistas */
+.section-header {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.section-header h5 {
+    margin: 0;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.section-header i {
+    color: #4f46e5;
+    font-size: 1.125rem;
+}
+
+/* Stat Cards Minimalistas Premium */
+.stat-card {
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    background: white;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    height: 100%;
+}
+
+.stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--card-color, #4f46e5), var(--card-color-light, #6366f1));
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.stat-card:hover::before {
+    opacity: 1;
+}
+
+.stat-card:hover {
+    border-color: var(--card-color, #4f46e5);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+    transform: translateY(-2px);
+}
+
+/* Colores específicos para cada tipo de stat card */
+.stat-card.bg-primary {
+    --card-color: #4f46e5;
+    --card-color-light: #6366f1;
+    background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+    border: none;
+}
+
+.stat-card.bg-success {
+    --card-color: #10b981;
+    --card-color-light: #34d399;
+    background: linear-gradient(135deg, #10b981 0%, #34d399 100%);
+    border: none;
+}
+
+.stat-card.bg-info {
+    --card-color: #3b82f6;
+    --card-color-light: #60a5fa;
+    background: linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%);
+    border: none;
+}
+
+.stat-card.bg-warning {
+    --card-color: #f59e0b;
+    --card-color-light: #fbbf24;
+    background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%);
+    border: none;
+}
+
+.stat-card.bg-danger {
+    --card-color: #ef4444;
+    --card-color-light: #f87171;
+    background: linear-gradient(135deg, #ef4444 0%, #f87171 100%);
+    border: none;
+}
+
+/* Stat Card Body */
+.stat-card .card-body {
+    padding: 1.25rem;
+    position: relative;
+}
+
+.stat-card .card-subtitle {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.075em;
+    margin-bottom: 0.5rem;
+    opacity: 0.9;
+}
+
+.stat-card.bg-primary .card-subtitle,
+.stat-card.bg-success .card-subtitle,
+.stat-card.bg-info .card-subtitle,
+.stat-card.bg-warning .card-subtitle,
+.stat-card.bg-danger .card-subtitle {
+    color: rgba(255, 255, 255, 0.95);
+}
+
+.stat-card .card-title {
+    font-size: 2rem;
+    font-weight: 700;
+    margin: 0;
+    line-height: 1.2;
+    animation: countUp 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes countUp {
+    from {
+        opacity: 0;
+        transform: translateY(10px) scale(0.9);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.stat-card.bg-primary .card-title,
+.stat-card.bg-success .card-title,
+.stat-card.bg-info .card-title,
+.stat-card.bg-warning .card-title,
+.stat-card.bg-danger .card-title {
+    color: white;
+}
+
+/* Stat Icon Minimalista */
+.stat-icon {
+    position: absolute;
+    right: 1.25rem;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 3rem;
+    opacity: 0.15;
+}
+
+.stat-card.bg-primary .stat-icon,
+.stat-card.bg-success .stat-icon,
+.stat-card.bg-info .stat-icon,
+.stat-card.bg-warning .stat-icon,
+.stat-card.bg-danger .stat-icon {
+    color: white;
+    opacity: 0.2;
+}
+
+/* Cards de Utilidad y Metas - Estilo Minimalista */
+.metric-card {
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
+    background: white;
+    transition: all 0.3s;
+    height: 100%;
+}
+
+.metric-card:hover {
+    border-color: var(--border-hover-color, #4f46e5);
+    box-shadow: 0 4px 16px rgba(79, 70, 229, 0.08);
+}
+
+.metric-card.border-success {
+    --border-hover-color: #10b981;
+}
+
+.metric-card.border-info {
+    --border-hover-color: #3b82f6;
+}
+
+.metric-card.border-warning {
+    --border-hover-color: #f59e0b;
+}
+
+.metric-card .card-body {
+    padding: 1.5rem;
+}
+
+.metric-card .card-subtitle {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #64748b;
+    margin-bottom: 0.75rem;
+}
+
+.metric-card .card-title {
+    font-size: 2.25rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+
+.metric-card.border-success .card-title {
+    color: #10b981;
+}
+
+.metric-card.border-info .card-title {
+    color: #3b82f6;
+}
+
+.metric-card.border-warning .card-title {
+    color: #f59e0b;
+}
+
+.metric-card small {
+    font-size: 0.8125rem;
+    color: #64748b;
+}
+
+/* Progress Bar Premium */
+.progress {
+    height: 24px;
+    border-radius: 12px;
+    background-color: #f1f5f9;
+    overflow: hidden;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.06);
+}
+
+.progress-bar {
+    border-radius: 12px;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(90deg, #f59e0b, #fbbf24);
+    box-shadow: 0 2px 4px rgba(245, 158, 11, 0.3);
+    transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Estado de Operaciones - Diseño Minimalista */
+.status-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+}
+
+.status-item {
+    text-align: center;
+    padding: 1.5rem 1rem;
+    background: white;
+    border-radius: 12px;
+    border: 2px solid #e2e8f0;
+    transition: all 0.3s;
+}
+
+.status-item:hover {
+    border-color: var(--status-color);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+    transform: translateY(-2px);
+}
+
+.status-item.status-pending {
+    --status-color: #f59e0b;
+}
+
+.status-item.status-process {
+    --status-color: #3b82f6;
+}
+
+.status-item.status-completed {
+    --status-color: #10b981;
+}
+
+.status-item.status-canceled {
+    --status-color: #ef4444;
+}
+
+.status-item h4 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    animation: countUp 0.6s ease-out;
+}
+
+.status-item.status-pending h4 {
+    color: #f59e0b;
+}
+
+.status-item.status-process h4 {
+    color: #3b82f6;
+}
+
+.status-item.status-completed h4 {
+    color: #10b981;
+}
+
+.status-item.status-canceled h4 {
+    color: #ef4444;
+}
+
+.status-item small {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #64748b;
+}
+
+.status-indicator {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 0.5rem;
+}
+
+.status-indicator.status-pending {
+    background-color: #f59e0b;
+    box-shadow: 0 0 8px rgba(245, 158, 11, 0.5);
+}
+
+.status-indicator.status-process {
+    background-color: #3b82f6;
+    box-shadow: 0 0 8px rgba(59, 130, 246, 0.5);
+}
+
+.status-indicator.status-completed {
+    background-color: #10b981;
+    box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+}
+
+.status-indicator.status-canceled {
+    background-color: #ef4444;
+    box-shadow: 0 0 8px rgba(239, 68, 68, 0.5);
+}
+
+/* Quick Access Cards */
+.quick-access-card {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+    background: white;
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 2rem 1.5rem;
+    text-align: center;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.quick-access-card:hover {
+    border-color: #4f46e5;
+    box-shadow: 0 8px 24px rgba(79, 70, 229, 0.12);
+    transform: translateY(-4px);
+    color: inherit;
+}
+
+.quick-access-card i {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    transition: all 0.3s;
+}
+
+.quick-access-card.access-primary i {
+    color: #4f46e5;
+}
+
+.quick-access-card.access-success i {
+    color: #10b981;
+}
+
+.quick-access-card.access-info i {
+    color: #3b82f6;
+}
+
+.quick-access-card:hover i {
+    transform: scale(1.1);
+}
+
+.quick-access-card h6 {
+    margin: 0;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: #1e293b;
+}
+
+/* Dashboard Filters Minimalista */
+.dashboard-filters {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 1.25rem;
+    margin-bottom: 1.5rem;
+}
+
+.dashboard-filters .form-select {
+    max-width: 200px;
+    font-size: 0.875rem;
+    border-radius: 8px;
+    border: 2px solid #e2e8f0;
+}
+
+.dashboard-filters .form-select:focus {
+    border-color: #4f46e5;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+/* Modal de Metas Premium */
+#metaMensualModal .modal-dialog {
+    max-width: 600px;
+}
+
+#metaMensualModal .form-label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #1e293b;
+}
+
+#metaMensualModal .form-control,
+#metaMensualModal .form-select {
+    font-size: 0.875rem;
+    border-radius: 8px;
+}
+
+/* Sistema Section */
+.sistema-card {
+    background: linear-gradient(135deg, #f8fafc 0%, white 100%);
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 2rem;
+    height: 100%;
+}
+
+.sistema-card h4 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 0.5rem;
+}
+
+.sistema-card small {
+    font-size: 0.8125rem;
+    color: #64748b;
+    font-weight: 500;
+}
+
+/* Responsive Dashboard */
+@media (max-width: 1200px) {
+    .stat-card .card-title {
+        font-size: 1.75rem;
+    }
+
+    .stat-icon {
+        font-size: 2.5rem;
+    }
+}
+
+@media (max-width: 992px) {
+    .stat-card .card-title {
+        font-size: 1.5rem;
+    }
+
+    .stat-icon {
+        font-size: 2rem;
+    }
+
+    .status-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 768px) {
+    .stat-card .card-title {
+        font-size: 1.375rem;
+    }
+
+    .stat-icon {
+        font-size: 1.75rem;
+    }
+
+    .status-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .dashboard-filters .form-select {
+        max-width: 100%;
+        margin-bottom: 0.5rem;
+    }
+
+    .quick-access-card i {
+        font-size: 2.5rem;
+    }
+}
+
+/* Loading State */
+.dashboard-loading {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 400px;
+}
+
+.dashboard-loading .spinner-border {
+    width: 3rem;
+    height: 3rem;
+    color: #4f46e5;
+}
+
+/* Empty State */
+.dashboard-empty {
+    text-align: center;
+    padding: 3rem 2rem;
+    color: #64748b;
+}
+
+.dashboard-empty i {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+    color: #cbd5e1;
+}
+
+/* Animations */
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.8;
+    }
+}
+
+.pulse {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Compact spacing */
+.row.mb-4 {
+    margin-bottom: 1.5rem !important;
+}
+
+.row.mb-3 {
+    margin-bottom: 1rem !important;
+}
+
+/* Smooth transitions for all dashboard elements */
+.dashboard-container * {
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}

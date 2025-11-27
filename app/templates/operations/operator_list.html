@@ -1,0 +1,305 @@
+{% extends "base.html" %}
+
+{% block title %}Operaciones en Proceso - QoriCash Trading{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h2><i class="bi bi-list-check"></i> Operaciones en Proceso</h2>
+            <p class="text-muted">Operaciones pendientes y en proceso que requieren atención</p>
+        </div>
+        <div class="col-md-4 text-end">
+            <button class="btn btn-outline-primary" onclick="refreshOperations()">
+                <i class="bi bi-arrow-clockwise"></i> Actualizar
+            </button>
+        </div>
+    </div>
+    
+    <!-- Estadísticas Rápidas -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <h6 class="card-subtitle mb-2">Pendientes</h6>
+                    <h2 class="card-title mb-0" id="pendingCount">0</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <h6 class="card-subtitle mb-2">En Proceso</h6>
+                    <h2 class="card-title mb-0" id="inProcessCount">0</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h6 class="card-subtitle mb-2">Completadas Hoy</h6>
+                    <h2 class="card-title mb-0" id="completedTodayCount">0</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Tabla de Operaciones -->
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-body">
+                    <table id="operationsTable" class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Cliente</th>
+                                <th>Tipo</th>
+                                <th>USD</th>
+                                <th>T.C.</th>
+                                <th>PEN</th>
+                                <th>Estado</th>
+                                <th>Creado</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for op in operations %}
+                            <tr class="{% if op.status == 'Pendiente' %}table-warning{% elif op.status == 'En proceso' %}table-info{% endif %}">
+                                <td><strong>{{ op.operation_id }}</strong></td>
+                                <td>
+                                    <strong>{{ op.client.full_name or '-' }}</strong><br>
+                                    <small class="text-muted">DNI: {{ op.client.dni }}</small>
+                                </td>
+                                <td>
+                                    {% if op.operation_type == 'Compra' %}
+                                        <span class="badge bg-success">Compra</span>
+                                    {% else %}
+                                        <span class="badge bg-primary">Venta</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">
+                                    <strong>$ {{ op.amount_usd|format_currency(2) }}</strong>
+                                </td>
+                                <td class="text-center">{{ "%.4f"|format(op.exchange_rate) }}</td>
+                                <td class="text-end">
+                                    <strong>S/ {{ op.amount_pen|format_currency(2) }}</strong>
+                                </td>
+                                <td>
+                                    {% if op.status == 'Pendiente' %}
+                                        <span class="badge bg-warning text-dark">Pendiente</span>
+                                    {% elif op.status == 'En proceso' %}
+                                        <span class="badge bg-info">En Proceso</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {{ op.created_at.strftime('%d/%m %H:%M') if op.created_at else '-' }}<br>
+                                    <small class="text-muted">{{ op.user.username }}</small>
+                                </td>
+                                <td>
+                                    <div class="btn-group-vertical btn-group-sm">
+                                        <button class="btn btn-outline-info" onclick="viewOperationDetails({{ op.id }})" title="Ver Detalles">
+                                            <i class="bi bi-eye"></i> Ver
+                                        </button>
+                                        {% if op.status == 'Pendiente' %}
+                                        <button class="btn btn-outline-success" onclick="startProcessing({{ op.id }})" title="Iniciar Proceso">
+                                            <i class="bi bi-play-fill"></i> Iniciar
+                                        </button>
+                                        {% endif %}
+                                        {% if op.status == 'En proceso' %}
+                                        <button class="btn btn-outline-primary" onclick="completeOperation({{ op.id }})" title="Completar">
+                                            <i class="bi bi-check-circle"></i> Completar
+                                        </button>
+                                        {% endif %}
+                                        <button class="btn btn-outline-secondary" onclick="uploadProofOperator({{ op.id }})" title="Subir Comprobante">
+                                            <i class="bi bi-upload"></i> Subir
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Ver Detalles -->
+<div class="modal fade" id="viewDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Detalles de la Operación</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="operationDetailsContent">
+                <!-- Cargado dinámicamente -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Subir Comprobante -->
+<div class="modal fade" id="uploadProofModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Subir Comprobante del Operador</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="uploadProofForm" enctype="multipart/form-data">
+                    <input type="hidden" name="operation_id" id="proof_operation_id">
+                    <p>Operación: <strong id="proof_operation_code"></strong></p>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Comprobante del Operador *</label>
+                        <input type="file" class="form-control" name="operator_proof" accept="image/*,.pdf" required>
+                        <small class="form-text text-muted">Formatos: JPG, PNG, PDF (máx 10MB)</small>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="confirmUploadProof()">Subir Comprobante</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/operations.js') }}"></script>
+<script>
+$(document).ready(function() {
+    // Inicializar DataTable
+    $('#operationsTable').DataTable({
+        language: {
+            url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
+        },
+        order: [[7, 'desc']],
+        pageLength: 25
+    });
+    
+    // Actualizar contadores
+    updateCounters();
+    
+    // Conectar SocketIO
+    connectSocketIO();
+    
+    // Auto-refresh cada 30 segundos
+    setInterval(function() {
+        refreshOperations();
+    }, 30000);
+});
+
+function updateCounters() {
+    const pending = $('tbody tr .badge:contains("Pendiente")').length;
+    const inProcess = $('tbody tr .badge:contains("En Proceso")').length;
+    
+    $('#pendingCount').text(pending);
+    $('#inProcessCount').text(inProcess);
+    
+    // Completadas hoy (llamada AJAX)
+    ajaxRequest('/operations/api/today', 'GET', null, function(response) {
+        const completed = response.operations.filter(op => op.status === 'Completada').length;
+        $('#completedTodayCount').text(completed);
+    });
+}
+
+function refreshOperations() {
+    location.reload();
+}
+
+function startProcessing(operationId) {
+    if (confirm('¿Iniciar el procesamiento de esta operación?')) {
+        const data = {
+            status: 'En proceso',
+            notes: 'Operación iniciada por operador'
+        };
+        
+        ajaxRequest(`/operations/api/update_status/${operationId}`, 'PATCH', data, function() {
+            showAlert('Operación iniciada', 'success');
+            setTimeout(() => location.reload(), 1000);
+        });
+    }
+}
+
+function completeOperation(operationId) {
+    if (confirm('¿Marcar esta operación como completada?')) {
+        const data = {
+            status: 'Completada',
+            notes: 'Operación completada por operador'
+        };
+        
+        ajaxRequest(`/operations/api/update_status/${operationId}`, 'PATCH', data, function() {
+            showAlert('Operación completada exitosamente', 'success');
+            setTimeout(() => location.reload(), 1000);
+        });
+    }
+}
+
+function viewOperationDetails(operationId) {
+    ajaxRequest(`/operations/api/${operationId}`, 'GET', null, function(response) {
+        const op = response.operation;
+        const html = `
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>Información de la Operación</h6>
+                    <p><strong>ID:</strong> ${op.operation_id}</p>
+                    <p><strong>Tipo:</strong> ${op.operation_type}</p>
+                    <p><strong>Estado:</strong> ${op.status}</p>
+                    <p><strong>Creado:</strong> ${new Date(op.created_at).toLocaleString('es-PE')}</p>
+                </div>
+                <div class="col-md-6">
+                    <h6>Cliente</h6>
+                    <p><strong>Nombre:</strong> ${op.client_name}</p>
+                    <p><strong>Monto USD:</strong> $ ${parseFloat(op.amount_usd).toFixed(2)}</p>
+                    <p><strong>Tipo de Cambio:</strong> ${parseFloat(op.exchange_rate).toFixed(4)}</p>
+                    <p><strong>Monto PEN:</strong> S/ ${parseFloat(op.amount_pen).toFixed(2)}</p>
+                </div>
+            </div>
+            ${op.notes ? `<hr><p><strong>Notas:</strong> ${op.notes}</p>` : ''}
+        `;
+        
+        $('#operationDetailsContent').html(html);
+        $('#viewDetailsModal').modal('show');
+    });
+}
+
+function uploadProofOperator(operationId) {
+    ajaxRequest(`/operations/api/${operationId}`, 'GET', null, function(response) {
+        $('#proof_operation_id').val(operationId);
+        $('#proof_operation_code').text(response.operation.operation_id);
+        $('#uploadProofModal').modal('show');
+    });
+}
+
+function confirmUploadProof() {
+    const operationId = $('#proof_operation_id').val();
+    const formData = new FormData($('#uploadProofForm')[0]);
+    
+    $.ajax({
+        url: `/operations/api/upload_proof/${operationId}`,
+        type: 'POST',
+        data: formData,
+        processData: false,
+        contentType: false,
+        success: function() {
+            showAlert('Comprobante subido exitosamente', 'success');
+            $('#uploadProofModal').modal('hide');
+            setTimeout(() => location.reload(), 1000);
+        },
+        error: function(xhr) {
+            showAlert('Error: ' + (xhr.responseJSON?.message || 'Error al subir comprobante'), 'danger');
+        }
+    });
+}
+</script>
+{% endblock %}

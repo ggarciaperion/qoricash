@@ -1,0 +1,221 @@
+{% extends "base.html" %}
+
+{% block title %}Gestión de Usuarios - QoriCash Trading{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h2><i class="bi bi-person-gear"></i> Gestión de Usuarios</h2>
+            <p class="text-muted">Administra usuarios del sistema</p>
+        </div>
+        <div class="col-md-4 text-end">
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createUserModal">
+                <i class="bi bi-person-plus"></i> Nuevo Usuario
+            </button>
+        </div>
+    </div>
+    
+    <!-- Tabla de Usuarios -->
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-body">
+                    <table id="usersTable" class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Username</th>
+                                <th>Email</th>
+                                <th>DNI</th>
+                                <th>Rol</th>
+                                <th>Estado</th>
+                                <th>Último Login</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for u in users %}
+                            <tr>
+                                <td>{{ u.id }}</td>
+                                <td><strong>{{ u.username }}</strong></td>
+                                <td>{{ u.email }}</td>
+                                <td>{{ u.dni }}</td>
+                                <td>
+                                    {% if u.role == 'Master' %}
+                                        <span class="badge bg-danger">Master</span>
+                                    {% elif u.role == 'Trader' %}
+                                        <span class="badge bg-primary">Trader</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">Operador</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if u.status == 'Activo' %}
+                                        <span class="badge bg-success">Activo</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">Inactivo</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ u.last_login.strftime('%d/%m/%Y %H:%M') if u.last_login else 'Nunca' }}</td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <button class="btn btn-outline-primary" onclick="editUser({{ u.id }})" title="Editar">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+                                        <button class="btn btn-outline-warning" onclick="toggleUserStatus({{ u.id }})" title="Activar/Desactivar">
+                                            <i class="bi bi-toggle-on"></i>
+                                        </button>
+                                        <button class="btn btn-outline-info" onclick="resetPassword({{ u.id }})" title="Resetear Contraseña">
+                                            <i class="bi bi-key"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Crear Usuario -->
+<div class="modal fade" id="createUserModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Crear Nuevo Usuario</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="createUserForm">
+                    <div class="mb-3">
+                        <label class="form-label">Username *</label>
+                        <input type="text" class="form-control" name="username" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email *</label>
+                        <input type="email" class="form-control" name="email" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">DNI *</label>
+                        <input type="text" class="form-control" name="dni" required maxlength="8" pattern="[0-9]{8}">
+                        <small class="form-text text-muted">8 dígitos</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Contraseña *</label>
+                        <input type="password" class="form-control" name="password" required minlength="8">
+                        <small class="form-text text-muted">Mínimo 8 caracteres, debe incluir un número</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Rol *</label>
+                        <select class="form-select" name="role" required>
+                            <option value="Trader">Trader</option>
+                            <option value="Operador">Operador</option>
+                            <option value="Master">Master</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="createUser()">Crear Usuario</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Editar Usuario -->
+<div class="modal fade" id="editUserModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Editar Usuario</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editUserForm">
+                    <input type="hidden" name="user_id" id="edit_user_id">
+                    <div class="mb-3">
+                        <label class="form-label">Username</label>
+                        <input type="text" class="form-control" id="edit_username" disabled>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" name="email" id="edit_email">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">DNI</label>
+                        <input type="text" class="form-control" name="dni" id="edit_dni" maxlength="8">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Rol</label>
+                        <select class="form-select" name="role" id="edit_role">
+                            <option value="Trader">Trader</option>
+                            <option value="Operador">Operador</option>
+                            <option value="Master">Master</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Estado</label>
+                        <select class="form-select" name="status" id="edit_status">
+                            <option value="Activo">Activo</option>
+                            <option value="Inactivo">Inactivo</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="updateUser()">Guardar Cambios</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Resetear Contraseña -->
+<div class="modal fade" id="resetPasswordModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Resetear Contraseña</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="resetPasswordForm">
+                    <input type="hidden" name="user_id" id="reset_user_id">
+                    <p>Usuario: <strong id="reset_username"></strong></p>
+                    <div class="mb-3">
+                        <label class="form-label">Nueva Contraseña</label>
+                        <input type="password" class="form-control" name="new_password" id="reset_password" required minlength="8">
+                        <small class="form-text text-muted">Mínimo 8 caracteres, debe incluir un número</small>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-warning" onclick="confirmResetPassword()">Resetear Contraseña</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/users.js') }}"></script>
+<script>
+$(document).ready(function() {
+    // Inicializar DataTable
+    $('#usersTable').DataTable({
+        language: {
+            url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
+        },
+        order: [[0, 'desc']],
+        pageLength: 25
+    });
+});
+</script>
+{% endblock %}

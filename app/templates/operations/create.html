@@ -1,0 +1,433 @@
+{% extends "base.html" %}
+
+{% block title %}Nueva Operación - QoriCash Trading{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h2><i class="bi bi-plus-circle"></i> Crear Nueva Operación</h2>
+            <p class="text-muted">Registra una operación de cambio de divisas</p>
+        </div>
+        <div class="col-md-4 text-end">
+            <a href="{{ url_for('operations.operations_list') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Volver al Listado
+            </a>
+        </div>
+    </div>
+
+    <!-- Formulario -->
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-currency-exchange"></i> Datos de la Operación</h5>
+                </div>
+                <div class="card-body">
+                    <form id="createOperationForm">
+                        <!-- Cliente - Búsqueda Inline -->
+                        <div class="mb-4">
+                            <h6 class="text-primary"><i class="bi bi-person"></i> Cliente</h6>
+
+                            <!-- Input de búsqueda -->
+                            <div class="mb-2">
+                                <label class="form-label">Buscar cliente por DNI/RUC, Nombre o Email</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="bi bi-search"></i></span>
+                                    <input type="text" class="form-control" id="searchClientInput"
+                                           placeholder="Escribe al menos 3 caracteres para buscar...">
+                                    <button class="btn btn-outline-secondary" type="button" id="clearSearchBtn" style="display: none;">
+                                        <i class="bi bi-x-lg"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Resultados de búsqueda -->
+                            <div id="searchResults" class="mb-3" style="display: none;">
+                                <div class="list-group" id="searchResultsList" style="max-height: 250px; overflow-y: auto;">
+                                    <!-- Resultados se llenan dinámicamente -->
+                                </div>
+                            </div>
+
+                            <!-- Cliente seleccionado -->
+                            <input type="hidden" id="client_id" name="client_id" required>
+                            <div id="clientInfo" class="alert alert-success" style="display: none;">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <strong><i class="bi bi-person-check"></i> Cliente seleccionado:</strong><br>
+                                        <span id="clientName" class="fw-bold"></span><br>
+                                        <small><i class="bi bi-card-text"></i> <span id="clientDNI"></span></small><br>
+                                        <small><i class="bi bi-envelope"></i> <span id="clientEmail"></span></small>
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="clearSelectedClient()">
+                                        <i class="bi bi-x"></i> Cambiar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <hr>
+
+                        <!-- Tipo de Operación -->
+                        <div class="mb-4">
+                            <h6 class="text-primary"><i class="bi bi-arrow-left-right"></i> Tipo de Operación</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-check form-check-inline">
+                                        <input class="form-check-input" type="radio" name="operation_type" id="typeCompra" value="Compra" checked>
+                                        <label class="form-check-label" for="typeCompra">
+                                            <span class="badge bg-success">Compra USD</span> (Cliente vende dólares)
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-check form-check-inline">
+                                        <input class="form-check-input" type="radio" name="operation_type" id="typeVenta" value="Venta">
+                                        <label class="form-check-label" for="typeVenta">
+                                            <span class="badge bg-primary">Venta USD</span> (Cliente compra dólares)
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            <small class="text-muted">
+                                <i class="bi bi-info-circle"></i>
+                                <strong>Compra:</strong> Origen (USD) → Destino (PEN) |
+                                <strong>Venta:</strong> Origen (PEN) → Destino (USD)
+                            </small>
+                        </div>
+
+                        <hr>
+
+                        <!-- Montos -->
+                        <div class="mb-4">
+                            <h6 class="text-primary"><i class="bi bi-calculator"></i> Cálculo de la Operación</h6>
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <label class="form-label">Monto en USD *</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">$</span>
+                                        <input type="number" class="form-control" name="amount_usd" id="amount_usd"
+                                               step="0.01" min="0" required onchange="calculatePEN()" oninput="calculatePEN()">
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Tipo de Cambio *</label>
+                                    <input type="number" class="form-control" name="exchange_rate" id="exchange_rate"
+                                           step="0.0001" min="0" required onchange="calculatePEN()" oninput="limitDecimals(this, 4); calculatePEN()">
+                                    <small class="form-text text-muted">Ejemplo: 3.7500 (máximo 4 decimales)</small>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Monto en PEN</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">S/</span>
+                                        <input type="text" class="form-control" id="amount_pen_display" readonly>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <hr>
+
+                        <!-- Cuentas Bancarias -->
+                        <div class="mb-4">
+                            <h6 class="text-primary"><i class="bi bi-bank"></i> Cuentas Bancarias</h6>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Cuenta de Origen *</label>
+                                    <select class="form-select" name="source_account" id="source_account" required>
+                                        <option value="">Primero selecciona un cliente</option>
+                                    </select>
+                                    <small class="form-text text-muted" id="source_help">Cuenta desde donde se envía</small>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Cuenta de Destino *</label>
+                                    <select class="form-select" name="destination_account" id="destination_account" required>
+                                        <option value="">Primero selecciona un cliente</option>
+                                    </select>
+                                    <small class="form-text text-muted" id="dest_help">Cuenta donde se recibe</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <hr>
+
+                        <!-- Notas -->
+                        <div class="mb-4">
+                            <h6 class="text-primary"><i class="bi bi-sticky"></i> Notas</h6>
+                            <textarea class="form-control" name="notes" rows="3" placeholder="Información adicional o notas sobre la operación"></textarea>
+                        </div>
+
+                        <!-- Botones -->
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <button type="button" class="btn btn-secondary" onclick="resetForm()">
+                                <i class="bi bi-x-circle"></i> Limpiar
+                            </button>
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="bi bi-check-circle"></i> Crear Operación
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/operations.js') }}"></script>
+<script>
+// Variables globales
+let selectedClient = null;
+let clientBankAccounts = [];
+let searchTimeout = null;
+
+// Limitar decimales en campo numérico
+function limitDecimals(input, maxDecimals) {
+    let value = input.value;
+    if (value.includes('.')) {
+        const parts = value.split('.');
+        if (parts[1] && parts[1].length > maxDecimals) {
+            input.value = parseFloat(value).toFixed(maxDecimals);
+        }
+    }
+}
+
+// Calcular monto en soles
+function calculatePEN() {
+    const usd = parseFloat($('#amount_usd').val()) || 0;
+    const rate = parseFloat($('#exchange_rate').val()) || 0;
+    const pen = usd * rate;
+    $('#amount_pen_display').val(pen.toFixed(2));
+}
+
+// Resetear formulario completo
+function resetForm() {
+    $('#createOperationForm')[0].reset();
+    clearSelectedClient();
+    $('#amount_pen_display').val('');
+}
+
+// Limpiar cliente seleccionado
+function clearSelectedClient() {
+    selectedClient = null;
+    clientBankAccounts = [];
+    $('#client_id').val('');
+    $('#clientInfo').hide();
+    $('#searchClientInput').val('').prop('disabled', false).show();
+    $('#clearSearchBtn').hide();
+    $('#searchResults').hide();
+    $('#source_account').html('<option value="">Primero selecciona un cliente</option>');
+    $('#destination_account').html('<option value="">Primero selecciona un cliente</option>');
+}
+
+// Búsqueda de clientes (inline)
+$('#searchClientInput').on('input', function() {
+    clearTimeout(searchTimeout);
+    const query = $(this).val().trim();
+
+    if (query.length === 0) {
+        $('#searchResults').hide();
+        $('#clearSearchBtn').hide();
+        return;
+    }
+
+    $('#clearSearchBtn').show();
+
+    if (query.length < 3) {
+        $('#searchResultsList').html('<div class="list-group-item text-muted"><i class="bi bi-info-circle"></i> Escribe al menos 3 caracteres...</div>');
+        $('#searchResults').show();
+        return;
+    }
+
+    // Debounce de 400ms
+    searchTimeout = setTimeout(function() {
+        performSearch(query);
+    }, 400);
+});
+
+// Limpiar búsqueda
+$('#clearSearchBtn').on('click', function() {
+    $('#searchClientInput').val('');
+    $('#searchResults').hide();
+    $('#clearSearchBtn').hide();
+});
+
+function performSearch(query) {
+    $('#searchResultsList').html('<div class="list-group-item text-center"><i class="bi bi-hourglass-split"></i> Buscando...</div>');
+    $('#searchResults').show();
+
+    ajaxRequest(`/clients/api/search?q=${encodeURIComponent(query)}`, 'GET', null, function(response) {
+        if (response.clients.length === 0) {
+            $('#searchResultsList').html(`
+                <div class="list-group-item text-warning">
+                    <i class="bi bi-exclamation-triangle"></i> No se encontraron clientes con: <strong>${query}</strong>
+                </div>
+            `);
+            return;
+        }
+
+        let html = '';
+        response.clients.forEach(function(client) {
+            const statusClass = client.status === 'Activo' ? 'success' : 'secondary';
+            const statusText = client.status === 'Activo' ? 'Activo' : 'Inactivo';
+            const bankCount = client.bank_accounts ? client.bank_accounts.length : 0;
+
+            html += `
+                <a href="#" class="list-group-item list-group-item-action py-2" onclick="selectClient(${client.id}, event)">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>${client.full_name || 'Sin nombre'}</strong>
+                            <span class="badge bg-${statusClass} ms-2">${statusText}</span><br>
+                            <small class="text-muted">
+                                <i class="bi bi-card-text"></i> ${client.dni} |
+                                <i class="bi bi-envelope"></i> ${client.email} |
+                                <i class="bi bi-bank"></i> ${bankCount} cuentas
+                            </small>
+                        </div>
+                        <i class="bi bi-chevron-right text-muted"></i>
+                    </div>
+                </a>
+            `;
+        });
+
+        $('#searchResultsList').html(html);
+    }, function(error) {
+        $('#searchResultsList').html(`
+            <div class="list-group-item text-danger">
+                <i class="bi bi-exclamation-circle"></i> Error: ${error.message || 'Error al buscar'}
+            </div>
+        `);
+    });
+}
+
+function selectClient(clientId, event) {
+    if (event) event.preventDefault();
+
+    ajaxRequest(`/clients/api/${clientId}`, 'GET', null, function(response) {
+        selectedClient = response.client;
+        clientBankAccounts = selectedClient.bank_accounts || [];
+
+        // Actualizar UI
+        $('#client_id').val(selectedClient.id);
+        $('#clientName').text(selectedClient.full_name || 'Sin nombre');
+        $('#clientDNI').text(selectedClient.dni);
+        $('#clientEmail').text(selectedClient.email);
+
+        // Mostrar cliente seleccionado y ocultar búsqueda
+        $('#searchResults').hide();
+        $('#searchClientInput').hide();
+        $('#clearSearchBtn').hide();
+        $('#clientInfo').show();
+
+        // Actualizar cuentas bancarias
+        updateBankAccounts();
+
+        showAlert('Cliente seleccionado: ' + (selectedClient.full_name || selectedClient.dni), 'success');
+    });
+}
+
+// Actualizar cuentas bancarias según tipo de operación
+function updateBankAccounts() {
+    const operationType = $('input[name="operation_type"]:checked').val();
+
+    if (!selectedClient || !clientBankAccounts.length) {
+        $('#source_account').html('<option value="">⚠️ El cliente no tiene cuentas registradas</option>');
+        $('#destination_account').html('<option value="">⚠️ El cliente no tiene cuentas registradas</option>');
+        return;
+    }
+
+    let sourceAccounts = [];
+    let destinationAccounts = [];
+
+    if (operationType === 'Compra') {
+        // Compra: Cliente vende USD → recibe PEN
+        sourceAccounts = clientBankAccounts.filter(acc => acc.currency === '$');
+        destinationAccounts = clientBankAccounts.filter(acc => acc.currency === 'S/');
+        $('#source_help').text('Cuenta USD del cliente (desde donde vende)');
+        $('#dest_help').text('Cuenta PEN del cliente (donde recibe)');
+    } else {
+        // Venta: Cliente compra USD → paga con PEN
+        sourceAccounts = clientBankAccounts.filter(acc => acc.currency === 'S/');
+        destinationAccounts = clientBankAccounts.filter(acc => acc.currency === '$');
+        $('#source_help').text('Cuenta PEN del cliente (desde donde paga)');
+        $('#dest_help').text('Cuenta USD del cliente (donde recibe)');
+    }
+
+    // Llenar select de origen
+    let sourceHtml = '<option value="">Seleccionar cuenta...</option>';
+    sourceAccounts.forEach(function(account) {
+        const accountText = `${account.bank_name} - ${account.account_type || ''} (${account.currency}) - ${account.account_number}`;
+        sourceHtml += `<option value="${account.account_number}">${accountText}</option>`;
+    });
+    if (sourceAccounts.length === 0) {
+        const currency = operationType === 'Compra' ? 'USD ($)' : 'PEN (S/)';
+        sourceHtml = `<option value="">⚠️ Sin cuentas en ${currency}</option>`;
+    }
+    $('#source_account').html(sourceHtml);
+
+    // Llenar select de destino
+    let destinationHtml = '<option value="">Seleccionar cuenta...</option>';
+    destinationAccounts.forEach(function(account) {
+        const accountText = `${account.bank_name} - ${account.account_type || ''} (${account.currency}) - ${account.account_number}`;
+        destinationHtml += `<option value="${account.account_number}">${accountText}</option>`;
+    });
+    if (destinationAccounts.length === 0) {
+        const currency = operationType === 'Compra' ? 'PEN (S/)' : 'USD ($)';
+        destinationHtml = `<option value="">⚠️ Sin cuentas en ${currency}</option>`;
+    }
+    $('#destination_account').html(destinationHtml);
+}
+
+// Listener para cambio de tipo de operación
+$('input[name="operation_type"]').on('change', function() {
+    updateBankAccounts();
+});
+
+// Crear operación
+$('#createOperationForm').on('submit', function(e) {
+    e.preventDefault();
+
+    const formData = {
+        client_id: parseInt($('#client_id').val()),
+        operation_type: $('input[name="operation_type"]:checked').val(),
+        amount_usd: parseFloat($('#amount_usd').val()),
+        exchange_rate: parseFloat($('#exchange_rate').val()),
+        source_account: $('#source_account').val(),
+        destination_account: $('#destination_account').val(),
+        notes: $('textarea[name="notes"]').val()
+    };
+
+    // Validaciones
+    if (!formData.client_id) {
+        showAlert('Por favor selecciona un cliente', 'warning');
+        return;
+    }
+    if (!formData.amount_usd || formData.amount_usd <= 0) {
+        showAlert('El monto en USD debe ser mayor a 0', 'warning');
+        return;
+    }
+    if (!formData.exchange_rate || formData.exchange_rate <= 0) {
+        showAlert('El tipo de cambio debe ser mayor a 0', 'warning');
+        return;
+    }
+    if (!formData.source_account) {
+        showAlert('Por favor selecciona la cuenta de origen', 'warning');
+        return;
+    }
+    if (!formData.destination_account) {
+        showAlert('Por favor selecciona la cuenta de destino', 'warning');
+        return;
+    }
+
+    // Enviar
+    ajaxRequest('/operations/api/create', 'POST', formData, function(response) {
+        showAlert('Operación creada exitosamente: ' + response.operation.operation_id, 'success');
+        setTimeout(function() {
+            window.location.href = '/operations/list';
+        }, 1500);
+    });
+});
+</script>
+{% endblock %}

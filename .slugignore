@@ -1,0 +1,24 @@
+# Archivos a ignorar en deployment
+*.md
+.git
+.gitignore
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info
+dist
+build
+tests
+.pytest_cache
+.coverage
+htmlcov
+.env
+.env.local
+.vscode
+.idea
+*.log
+node_modules

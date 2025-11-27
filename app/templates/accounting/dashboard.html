@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+
+{% block title %}Contabilidad - QoriCash Trading{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h2><i class="bi bi-calculator"></i> Módulo de Contabilidad</h2>
+    <p class="text-muted">Gestión de amarres contables, neteo y reportes</p>
+
+    <!-- Tabs de Navegación -->
+    <ul class="nav nav-tabs mb-4" id="accountingTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="amarres-tab" data-bs-toggle="tab" data-bs-target="#amarres" type="button">
+                <i class="bi bi-link-45deg"></i> Amarres
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="batches-tab" data-bs-toggle="tab" data-bs-target="#batches" type="button">
+                <i class="bi bi-collection"></i> Lotes de Neteo
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="reportes-tab" data-bs-toggle="tab" data-bs-target="#reportes" type="button">
+                <i class="bi bi-file-earmark-excel"></i> Reportes
+            </button>
+        </li>
+    </ul>
+
+    <!-- Tab Content -->
+    <div class="tab-content" id="accountingTabsContent">
+        <!-- Tab: Amarres -->
+        <div class="tab-pane fade show active" id="amarres" role="tabpanel">
+            <div class="row mb-3">
+                <div class="col-md-12 text-end">
+                    <button class="btn btn-primary" onclick="showCreateMatchModal()">
+                        <i class="bi bi-plus-circle"></i> Crear Amarre
+                    </button>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Amarres Contables</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-hover" id="matchesTable">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Compra</th>
+                                <th>Venta</th>
+                                <th>Monto USD</th>
+                                <th>TC Compra</th>
+                                <th>TC Venta</th>
+                                <th>Utilidad PEN</th>
+                                <th>Batch</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="matchesTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Batches -->
+        <div class="tab-pane fade" id="batches" role="tabpanel">
+            <div class="row mb-3">
+                <div class="col-md-12 text-end">
+                    <button class="btn btn-primary" onclick="showCreateBatchModal()">
+                        <i class="bi bi-plus-circle"></i> Crear Lote de Neteo
+                    </button>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Lotes de Neteo</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-hover" id="batchesTable">
+                        <thead>
+                            <tr>
+                                <th>Código</th>
+                                <th>Fecha Neteo</th>
+                                <th>Compras USD</th>
+                                <th>Ventas USD</th>
+                                <th>Utilidad PEN</th>
+                                <th>Matches</th>
+                                <th>Estado</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="batchesTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Reportes -->
+        <div class="tab-pane fade" id="reportes" role="tabpanel">
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <div class="card">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0"><i class="bi bi-book"></i> Libro Diario</h5>
+                        </div>
+                        <div class="card-body">
+                            <p>Exportar asientos contables de todos los batches cerrados.</p>
+                            <button class="btn btn-success" onclick="exportLibroDiario()">
+                                <i class="bi bi-download"></i> Descargar Excel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <div class="card">
+                        <div class="card-header bg-info text-white">
+                            <h5 class="mb-0"><i class="bi bi-graph-up"></i> Utilidad por Cliente</h5>
+                        </div>
+                        <div class="card-body">
+                            <p>Reporte de utilidad generada por cada cliente.</p>
+                            <button class="btn btn-info" onclick="showProfitByClient()">
+                                <i class="bi bi-eye"></i> Ver Reporte
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Crear Amarre -->
+<div class="modal fade" id="createMatchModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Crear Amarre Contable</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="createMatchForm">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Operación de Compra</label>
+                            <select class="form-select" id="buyOperationSelect" required></select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Operación de Venta</label>
+                            <select class="form-select" id="sellOperationSelect" required></select>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Monto USD a Amarrar</label>
+                        <input type="number" class="form-control" id="matchedAmount" step="0.01" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Notas (opcional)</label>
+                        <textarea class="form-control" id="matchNotes" rows="2"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="createMatch()">Crear Amarre</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Crear Batch -->
+<div class="modal fade" id="createBatchModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Crear Lote de Neteo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="createBatchForm">
+                    <div class="mb-3">
+                        <label class="form-label">Descripción</label>
+                        <input type="text" class="form-control" id="batchDescription" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Fecha de Neteo</label>
+                        <input type="date" class="form-control" id="batchDate" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Seleccionar Amarres</label>
+                        <div id="availableMatchesList" style="max-height: 300px; overflow-y: auto;"></div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="createBatch()">Crear Lote</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/accounting.js') }}"></script>
+{% endblock %}

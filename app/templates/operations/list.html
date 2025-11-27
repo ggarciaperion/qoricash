@@ -1,0 +1,1940 @@
+{% extends "base.html" %}
+
+{% block title %}Operaciones - QoriCash Trading{% endblock %}
+
+{# Macro para obtener nombre del banco desde número de cuenta #}
+{% macro get_bank_name(operation, account_number) %}
+    {% if operation.client and operation.client.bank_accounts %}
+        {% for account in operation.client.bank_accounts %}
+            {% if account.account_number == account_number %}
+                {{ account.bank_name }}
+            {% endif %}
+        {% endfor %}
+    {% else %}
+        N/A
+    {% endif %}
+{% endmacro %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h2><i class="bi bi-list-ul"></i> Gestión de Operaciones</h2>
+            <p class="text-muted">Operaciones del día actual</p>
+        </div>
+        <div class="col-md-4 text-end">
+            <!-- Botón Exportar Excel (para todos los roles) -->
+            <a href="/operations/api/export_today" class="btn btn-success me-2">
+                <i class="bi bi-file-earmark-excel"></i> Exportar Excel
+            </a>
+
+            {% if user.role in ['Master', 'Trader'] %}
+            <button type="button" class="btn btn-primary" onclick="openCreateOperationModal()">
+                <i class="bi bi-plus-circle"></i> Nueva Operación
+            </button>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Filtros Rápidos -->
+    <div class="row mb-3">
+        <div class="col-md-12">
+            <div class="btn-group" role="group">
+                <button type="button" class="btn btn-outline-secondary active" onclick="filterByStatus('all')">Todas</button>
+                <button type="button" class="btn btn-outline-warning" onclick="filterByStatus('Pendiente')">Pendientes</button>
+                <button type="button" class="btn btn-outline-info" onclick="filterByStatus('En proceso')">En Proceso</button>
+                <button type="button" class="btn btn-outline-success" onclick="filterByStatus('Completada')">Completadas</button>
+                <button type="button" class="btn btn-outline-danger" onclick="filterByStatus('Cancelado')">Canceladas</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla de Operaciones -->
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-body">
+                    <table id="operationsTable" class="table table-hover table-sm">
+                        <thead>
+                            <tr>
+                                <th>ID Op.</th>
+                                <th>Cliente</th>
+                                <th>Tipo</th>
+                                <th>USD</th>
+                                <th>T.C.</th>
+                                <th>PEN</th>
+                                <th>Bancos</th>
+                                <th>Estado</th>
+                                <th>Fecha</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for op in operations %}
+                            <tr data-operation-id="{{ op.id }}" data-status="{{ op.status }}">
+                                <td><strong>{{ op.operation_id }}</strong></td>
+                                <td>{{ op.client.full_name or '-' }}</td>
+                                <td>
+                                    {% if op.operation_type == 'Compra' %}
+                                        <span class="badge bg-success">Compra</span>
+                                    {% else %}
+                                        <span class="badge bg-primary">Venta</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">$ {{ op.amount_usd|format_currency(2) }}</td>
+                                <td class="text-center">{{ "%.4f"|format(op.exchange_rate) }}</td>
+                                <td class="text-end">S/ {{ op.amount_pen|format_currency(2) }}</td>
+                                <td class="text-center">
+                                    {% set source_bank = get_bank_name(op, op.source_account) %}
+                                    {% set dest_bank = get_bank_name(op, op.destination_account) %}
+                                    <small>{{ source_bank|trim or 'N/A' }} / {{ dest_bank|trim or 'N/A' }}</small>
+                                </td>
+                                <td>
+                                    {% if op.status == 'Pendiente' %}
+                                        <span class="badge bg-warning text-dark">Pendiente</span>
+                                    {% elif op.status == 'En proceso' %}
+                                        <span class="badge bg-info">En Proceso</span>
+                                        {% if op.assigned_operator_id %}
+                                            {% if user.role == 'Operador' %}
+                                                {% if op.assigned_operator_id == user.id %}
+                                                    <br><small class="badge bg-success mt-1">Asignada a ti</small>
+                                                {% else %}
+                                                    <br><small class="badge bg-secondary mt-1">Otro operador</small>
+                                                {% endif %}
+                                            {% elif user.role == 'Master' %}
+                                                <br><small class="badge bg-secondary mt-1 text-truncate" style="max-width: 120px;" title="{{ get_operator_name(op.assigned_operator_id) }}">{{ get_operator_name(op.assigned_operator_id) }}</small>
+                                            {% endif %}
+                                        {% endif %}
+                                    {% elif op.status == 'Completada' %}
+                                        <span class="badge bg-success">Completada</span>
+                                    {% else %}
+                                        <span class="badge bg-danger">Cancelado</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ op.created_at.strftime('%d/%m/%Y %H:%M') if op.created_at else '-' }}</td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        {# === BOTONES SEGÚN ROL Y ESTADO === #}
+
+                                        {# COMPLETADA o CANCELADO: Solo ver (todos los roles) #}
+                                        {% if op.status in ['Completada', 'Cancelado'] %}
+                                            <button class="btn btn-outline-info" onclick="viewOperation({{ op.id }})" title="Ver Detalles">
+                                                <i class="bi bi-eye"></i>
+                                            </button>
+
+                                        {# MASTER: Ve todo, puede editar siempre #}
+                                        {% elif user.role == 'Master' %}
+                                            <button class="btn btn-outline-primary" onclick="editOperation({{ op.id }})" title="Editar">
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
+                                            {% if op.status == 'Pendiente' %}
+                                            <button class="btn btn-outline-danger" onclick="cancelOperation({{ op.id }})" title="Cancelar">
+                                                <i class="bi bi-x-circle"></i>
+                                            </button>
+                                            {% endif %}
+
+                                        {# TRADER: Editar y Cancelar solo en Pendiente #}
+                                        {% elif user.role == 'Trader' %}
+                                            {% if op.status == 'Pendiente' %}
+                                            <button class="btn btn-outline-primary" onclick="editOperation({{ op.id }})" title="Editar">
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
+                                            <button class="btn btn-outline-danger" onclick="cancelOperation({{ op.id }})" title="Cancelar">
+                                                <i class="bi bi-x-circle"></i>
+                                            </button>
+                                            {% else %}
+                                            <button class="btn btn-outline-info" onclick="viewOperation({{ op.id }})" title="Ver Detalles">
+                                                <i class="bi bi-eye"></i>
+                                            </button>
+                                            {% endif %}
+
+                                        {# OPERADOR: Solo ver en Pendiente, editar en En proceso #}
+                                        {% elif user.role == 'Operador' %}
+                                            {% if op.status == 'Pendiente' %}
+                                            <button class="btn btn-outline-info position-relative" onclick="viewOperation({{ op.id }})" title="Ver (Solo lectura)" data-operation-id="{{ op.id }}">
+                                                <i class="bi bi-eye"></i>
+                                                {% if op.has_unread_notes(user.id) %}
+                                                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger notes-badge" data-operation-id="{{ op.id }}">
+                                                    1
+                                                    <span class="visually-hidden">nota sin leer</span>
+                                                </span>
+                                                {% endif %}
+                                            </button>
+                                            {% elif op.status == 'En proceso' %}
+                                            <button class="btn btn-outline-primary position-relative" onclick="editOperation({{ op.id }})" title="Procesar" data-operation-id="{{ op.id }}">
+                                                <i class="bi bi-pencil"></i>
+                                                {% if op.has_unread_notes(user.id) %}
+                                                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger notes-badge" data-operation-id="{{ op.id }}">
+                                                    1
+                                                    <span class="visually-hidden">nota sin leer</span>
+                                                </span>
+                                                {% endif %}
+                                            </button>
+                                            {% endif %}
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Ver Operación (Solo lectura) -->
+<div class="modal fade" id="viewOperationModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-eye"></i> Detalles de Operación</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="operationDetails">
+                <!-- Cargado dinámicamente -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Editar Operación (4 secciones) -->
+<div class="modal fade" id="editOperationModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-pencil"></i> <span id="editModalTitle">Editar Operación</span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="edit_operation_id">
+
+                <!-- Sección 1: Información de la Operación -->
+                <div class="card mb-3">
+                    <div class="card-header bg-primary text-white">
+                        <h6 class="mb-0"><i class="bi bi-info-circle"></i> Información de la Operación</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-3 mb-2">
+                                <label class="form-label text-muted small">ID</label>
+                                <div class="fw-bold" id="edit_op_id"></div>
+                            </div>
+                            <div class="col-md-3 mb-2">
+                                <label class="form-label text-muted small">Cliente</label>
+                                <div class="fw-bold" id="edit_client_name"></div>
+                            </div>
+                            <div class="col-md-3 mb-2">
+                                <label class="form-label text-muted small">Tipo</label>
+                                <div id="edit_op_type"></div>
+                            </div>
+                            <div class="col-md-3 mb-2">
+                                <label class="form-label text-muted small">Estado</label>
+                                <div id="edit_op_status"></div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-3 mb-2">
+                                <label class="form-label text-muted small">Monto USD</label>
+                                <div class="input-group input-group-sm" id="edit_amount_usd_group">
+                                    <span class="input-group-text">$</span>
+                                    <input type="number" class="form-control" id="edit_amount_usd" step="0.01" min="0">
+                                    <button class="btn btn-outline-primary" type="button" id="btnSaveAmount" onclick="saveAmountUSD()">
+                                        <i class="bi bi-check"></i>
+                                    </button>
+                                </div>
+                                <div class="fw-bold" id="edit_amount_usd_readonly" style="display:none;"></div>
+                                <small class="text-warning" id="edit_last_modification" style="display:none;">
+                                    <i class="bi bi-clock-history"></i> <span id="last_mod_text"></span>
+                                </small>
+                            </div>
+                            <div class="col-md-3 mb-2">
+                                <label class="form-label text-muted small">Tipo de Cambio</label>
+                                <div class="fw-bold" id="edit_exchange_rate"></div>
+                            </div>
+                            <div class="col-md-3 mb-2">
+                                <label class="form-label text-muted small">Monto PEN</label>
+                                <div class="fw-bold" id="edit_amount_pen"></div>
+                            </div>
+                            <div class="col-md-3 mb-2">
+                                <label class="form-label text-muted small">Fecha Creación</label>
+                                <div id="edit_created_at"></div>
+                            </div>
+                        </div>
+
+                        <!-- Sección de Reasignación (Solo Master) -->
+                        <div class="row mt-3" id="reassign_section" style="display:none;">
+                            <div class="col-md-12">
+                                <hr>
+                                <div class="alert alert-info mb-2">
+                                    <i class="bi bi-info-circle me-2"></i>
+                                    <strong>Operador Actual:</strong> <span id="current_operator_name">-</span>
+                                </div>
+                                <div class="d-flex align-items-center gap-2">
+                                    <label class="form-label text-muted small mb-0" style="min-width: 120px;">Reasignar a:</label>
+                                    <select class="form-select form-select-sm" id="new_operator_select" style="max-width: 300px;">
+                                        <option value="">Seleccione un operador...</option>
+                                    </select>
+                                    <button type="button" class="btn btn-sm btn-warning" onclick="reassignOperator()">
+                                        <i class="bi bi-arrow-repeat me-1"></i>Reasignar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sección 2: Abono del Cliente -->
+                <div class="card mb-3" id="section_deposits">
+                    <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0"><i class="bi bi-arrow-down-circle"></i> Abono del Cliente</h6>
+                        <button type="button" class="btn btn-sm btn-light" id="btnAddDeposit" onclick="addDeposit()">
+                            <i class="bi bi-plus"></i> Agregar Abono
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-info mb-2 small" id="deposit_info">
+                            <i class="bi bi-info-circle"></i>
+                            <span id="deposit_currency_info">La suma de abonos debe ser igual al monto de la operación.</span>
+                        </div>
+                        <div id="deposits_container">
+                            <!-- Abonos dinámicos -->
+                        </div>
+                        <div class="mt-2 text-end">
+                            <strong>Total abonado: <span id="total_deposits">0.00</span></strong>
+                            <span class="ms-2" id="deposit_validation"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sección 3: Pago al Cliente -->
+                <div class="card mb-3" id="section_payments">
+                    <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0"><i class="bi bi-arrow-up-circle"></i> Pago al Cliente</h6>
+                        <button type="button" class="btn btn-sm btn-dark" id="btnAddPayment" onclick="addPayment()">
+                            <i class="bi bi-plus"></i> Añadir Pago (Máx 4)
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-info mb-2 small" id="payment_info">
+                            <i class="bi bi-info-circle"></i>
+                            <span id="payment_currency_info">La suma de pagos debe ser igual al monto de la operación.</span>
+                        </div>
+                        <div id="payments_container">
+                            <!-- Pagos dinámicos -->
+                        </div>
+                        <div class="mt-2 text-end">
+                            <strong>Total a pagar: <span id="total_payments">0.00</span></strong>
+                            <span class="ms-2" id="payment_validation"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sección 4: Comprobante del Operador (Solo en En proceso para Operador/Master) -->
+                <div class="card mb-3" id="section_operator" style="display:none;">
+                    <div class="card-header bg-info text-white">
+                        <h6 class="mb-0"><i class="bi bi-file-earmark-check"></i> Comprobante del Operador</h6>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted small mb-2" id="operator_proof_hint">Puedes adjuntar hasta 4 comprobantes</p>
+                        <div id="operator_proofs_container">
+                            <!-- Comprobantes del operador -->
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Comentarios (opcional)</label>
+                            <textarea class="form-control" id="operator_comments" rows="2"></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <!-- Botón Devolver a Pendiente (solo Operador en En proceso) -->
+                <button type="button" class="btn btn-warning" id="btnReturnToPending" style="display:none;" onclick="returnToPending()">
+                    <i class="bi bi-arrow-counterclockwise"></i> Devolver a Pendiente
+                </button>
+
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+
+                <!-- Botón Enviar a Proceso (solo Trader/Master en Pendiente) -->
+                <button type="button" class="btn btn-success" id="btnSendToProcess" style="display:none;" onclick="sendToProcess()">
+                    <i class="bi bi-send"></i> Enviar a Proceso
+                </button>
+
+                <!-- Botón Finalizar (solo Operador/Master en En proceso) -->
+                <button type="button" class="btn btn-primary" id="btnComplete" style="display:none;" onclick="completeOperation()">
+                    <i class="bi bi-check-circle"></i> Finalizar Operación
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Cancelar Operación -->
+<div class="modal fade" id="cancelOperationModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">Cancelar Operación</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="cancel_operation_id">
+                <p>Operación: <strong id="cancel_operation_code"></strong></p>
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle"></i> Esta acción no se puede deshacer
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Razón de Cancelación *</label>
+                    <textarea class="form-control" id="cancel_reason" required rows="3"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">No, Mantener</button>
+                <button type="button" class="btn btn-danger" onclick="confirmCancelOperation()">Sí, Cancelar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Nueva Operación -->
+<div class="modal fade" id="createOperationModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-plus-circle"></i> Nueva Operación</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" onclick="resetCreateForm()"></button>
+            </div>
+            <div class="modal-body">
+                <form id="createOperationFormModal">
+                    <!-- Cliente - Búsqueda Inline -->
+                    <div class="mb-4">
+                        <h6 class="text-primary"><i class="bi bi-person"></i> Cliente</h6>
+
+                        <!-- Input de búsqueda -->
+                        <div class="mb-2">
+                            <label class="form-label">Buscar cliente por DNI/RUC, Nombre o Email</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                                <input type="text" class="form-control" id="searchClientInputModal"
+                                       placeholder="Escribe al menos 3 caracteres para buscar...">
+                                <button class="btn btn-outline-secondary" type="button" id="clearSearchBtnModal" style="display: none;">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Resultados de búsqueda -->
+                        <div id="searchResultsModal" class="mb-3" style="display: none;">
+                            <div class="list-group" id="searchResultsListModal" style="max-height: 250px; overflow-y: auto;">
+                                <!-- Resultados se llenan dinámicamente -->
+                            </div>
+                        </div>
+
+                        <!-- Cliente seleccionado -->
+                        <input type="hidden" id="client_id_modal" name="client_id" required>
+                        <div id="clientInfoModal" class="alert alert-success" style="display: none;">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <strong><i class="bi bi-person-check"></i> Cliente seleccionado:</strong><br>
+                                    <span id="clientNameModal" class="fw-bold"></span><br>
+                                    <small><i class="bi bi-card-text"></i> <span id="clientDNIModal"></span></small><br>
+                                    <small><i class="bi bi-envelope"></i> <span id="clientEmailModal"></span></small>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-outline-danger" onclick="clearSelectedClientModal()">
+                                    <i class="bi bi-x"></i> Cambiar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <!-- Tipo de Operación -->
+                    <div class="mb-4">
+                        <h6 class="text-primary"><i class="bi bi-arrow-left-right"></i> Tipo de Operación</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" name="operation_type_modal" id="typeCompraModal" value="Compra" checked>
+                                    <label class="form-check-label" for="typeCompraModal">
+                                        <span class="badge bg-success">Compra USD</span> (Cliente vende dólares)
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" name="operation_type_modal" id="typeVentaModal" value="Venta">
+                                    <label class="form-check-label" for="typeVentaModal">
+                                        <span class="badge bg-primary">Venta USD</span> (Cliente compra dólares)
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        <small class="text-muted">
+                            <i class="bi bi-info-circle"></i>
+                            <strong>Compra:</strong> Origen (USD) → Destino (PEN) |
+                            <strong>Venta:</strong> Origen (PEN) → Destino (USD)
+                        </small>
+                    </div>
+
+                    <hr>
+
+                    <!-- Montos -->
+                    <div class="mb-4">
+                        <h6 class="text-primary"><i class="bi bi-calculator"></i> Cálculo de la Operación</h6>
+                        <div class="row">
+                            <div class="col-md-4">
+                                <label class="form-label">Monto en USD *</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">$</span>
+                                    <input type="number" class="form-control" name="amount_usd" id="amount_usd_modal"
+                                           step="0.01" min="0" required onchange="calculatePENModal()" oninput="calculatePENModal()">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Tipo de Cambio *</label>
+                                <input type="number" class="form-control" name="exchange_rate" id="exchange_rate_modal"
+                                       step="0.0001" min="0" required onchange="calculatePENModal()" oninput="limitDecimalsModal(this, 4); calculatePENModal()">
+                                <small class="form-text text-muted">Ejemplo: 3.7500 (máximo 4 decimales)</small>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Monto en PEN</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">S/</span>
+                                    <input type="text" class="form-control" id="amount_pen_display_modal" readonly>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <!-- Cuentas Bancarias -->
+                    <div class="mb-4">
+                        <h6 class="text-primary"><i class="bi bi-bank"></i> Cuentas Bancarias</h6>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Cuenta de Origen *</label>
+                                <select class="form-select" name="source_account" id="source_account_modal" required>
+                                    <option value="">Primero selecciona un cliente</option>
+                                </select>
+                                <small class="form-text text-muted" id="source_help_modal">Cuenta desde donde se envía</small>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Cuenta de Destino *</label>
+                                <select class="form-select" name="destination_account" id="destination_account_modal" required>
+                                    <option value="">Primero selecciona un cliente</option>
+                                </select>
+                                <small class="form-text text-muted" id="dest_help_modal">Cuenta donde se recibe</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <!-- Notas -->
+                    <div class="mb-4">
+                        <h6 class="text-primary"><i class="bi bi-sticky"></i> Notas</h6>
+                        <textarea class="form-control" name="notes" id="notes_modal" rows="3" placeholder="Información adicional o notas sobre la operación"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="resetCreateForm()">
+                    <i class="bi bi-x-circle"></i> Limpiar
+                </button>
+                <button type="button" class="btn btn-primary" onclick="submitCreateOperation()">
+                    <i class="bi bi-check-circle"></i> Crear Operación
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/operations.js') }}"></script>
+<script>
+// Variables globales
+let currentOperation = null;
+let currentUserRole = '{{ user.role }}';
+let clientBankAccounts = [];
+
+$(document).ready(function() {
+    window.operationsDataTable = $('#operationsTable').DataTable({
+        language: { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' },
+        order: [],  // No ordenar automáticamente, preservar orden del DOM
+        pageLength: 50,
+        ordering: false  // Deshabilitar ordenamiento para preservar prioridad "En proceso"
+    });
+
+    // Conectar SocketIO para actualizaciones en tiempo real
+    connectSocketIO();
+});
+
+function filterByStatus(status) {
+    if (status === 'all') {
+        window.operationsDataTable.column(7).search('').draw();
+    } else {
+        window.operationsDataTable.column(7).search(status).draw();
+    }
+    $('.btn-group button').removeClass('active');
+    event.target.classList.add('active');
+}
+
+/**
+ * Refrescar tabla de operaciones en tiempo real sin recargar la página
+ */
+function refreshOperationsTable() {
+    console.log('Refrescando tabla de operaciones...');
+
+    // Obtener operaciones actualizadas desde el servidor
+    ajaxRequest('/operations/api/list', 'GET', null, function(response) {
+        if (response.success && response.operations) {
+            // Destruir DataTable actual
+            if (window.operationsDataTable) {
+                window.operationsDataTable.destroy();
+            }
+
+            // Limpiar tbody
+            $('#operationsTable tbody').empty();
+
+            // Ordenar operaciones: "En proceso" primero, luego el resto por fecha
+            const sortedOperations = sortOperationsByPriority(response.operations);
+
+            // Renderizar nuevas filas
+            sortedOperations.forEach(function(op) {
+                const row = buildOperationRow(op);
+                $('#operationsTable tbody').append(row);
+            });
+
+            // Reinicializar DataTable
+            window.operationsDataTable = $('#operationsTable').DataTable({
+                language: { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' },
+                order: [],  // No ordenar automáticamente, preservar orden del DOM
+                pageLength: 50,
+                ordering: false,  // Deshabilitar ordenamiento para preservar prioridad "En proceso"
+                retrieve: true
+            });
+
+            console.log('Tabla de operaciones actualizada');
+        }
+    }, function(error) {
+        console.error('Error al refrescar operaciones:', error);
+    });
+}
+
+/**
+ * Ordenar operaciones por prioridad: "En proceso" primero
+ */
+function sortOperationsByPriority(operations) {
+    return operations.sort(function(a, b) {
+        // Prioridad 1: "En proceso" siempre primero
+        if (a.status === 'En proceso' && b.status !== 'En proceso') {
+            return -1;
+        }
+        if (a.status !== 'En proceso' && b.status === 'En proceso') {
+            return 1;
+        }
+
+        // Prioridad 2: Si ambos son "En proceso" o ninguno lo es, ordenar por fecha (más reciente primero)
+        const dateA = new Date(a.created_at);
+        const dateB = new Date(b.created_at);
+        return dateB - dateA;
+    });
+}
+
+/**
+ * Construir fila HTML para una operación
+ */
+function buildOperationRow(op) {
+    // Badge de tipo
+    const typeBadge = op.operation_type === 'Compra'
+        ? '<span class="badge bg-success">Compra</span>'
+        : '<span class="badge bg-primary">Venta</span>';
+
+    // Badge de estado
+    let statusBadge = '';
+    if (op.status === 'Pendiente') {
+        statusBadge = '<span class="badge bg-warning text-dark">Pendiente</span>';
+    } else if (op.status === 'En proceso') {
+        statusBadge = '<span class="badge bg-info">En Proceso</span>';
+
+        // Agregar badge de asignación si está asignada a un operador
+        if (op.assigned_operator_id) {
+            if (currentUserRole === 'Operador') {
+                // Para operadores: mostrar "Asignada a ti" o "Otro operador"
+                if (op.assigned_operator_id === currentUserId) {
+                    statusBadge += '<br><small class="badge bg-success mt-1">Asignada a ti</small>';
+                } else {
+                    statusBadge += '<br><small class="badge bg-secondary mt-1">Otro operador</small>';
+                }
+            } else if (currentUserRole === 'Master') {
+                // Para Master: mostrar nombre del operador asignado
+                const operatorName = op.assigned_operator_name || 'Operador ID: ' + op.assigned_operator_id;
+                statusBadge += `<br><small class="badge bg-secondary mt-1 text-truncate" style="max-width: 120px;" title="${operatorName}">${operatorName}</small>`;
+            }
+        }
+    } else if (op.status === 'Completada') {
+        statusBadge = '<span class="badge bg-success">Completada</span>';
+    } else {
+        statusBadge = '<span class="badge bg-danger">Cancelado</span>';
+    }
+
+    // Fecha formateada
+    const fecha = op.created_at ? new Date(op.created_at).toLocaleString('es-PE', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    }) : '-';
+
+    // Botones según rol y estado
+    let buttons = '';
+    const isCompleted = op.status === 'Completada' || op.status === 'Cancelado';
+
+    if (isCompleted) {
+        // Solo ver detalles
+        buttons = `<button class="btn btn-outline-info btn-sm" onclick="viewOperation(${op.id})" title="Ver Detalles">
+                      <i class="bi bi-eye"></i>
+                   </button>`;
+    } else if (currentUserRole === 'Master') {
+        // Master puede editar siempre
+        buttons = `<button class="btn btn-outline-primary btn-sm" onclick="editOperation(${op.id})" title="Editar">
+                      <i class="bi bi-pencil"></i>
+                   </button>`;
+        if (op.status === 'Pendiente') {
+            buttons += ` <button class="btn btn-outline-danger btn-sm" onclick="cancelOperation(${op.id})" title="Cancelar">
+                           <i class="bi bi-x-circle"></i>
+                        </button>`;
+        }
+    } else if (currentUserRole === 'Trader') {
+        // Trader edita y cancela solo en Pendiente
+        if (op.status === 'Pendiente') {
+            buttons = `<button class="btn btn-outline-primary btn-sm" onclick="editOperation(${op.id})" title="Editar">
+                          <i class="bi bi-pencil"></i>
+                       </button>
+                       <button class="btn btn-outline-danger btn-sm" onclick="cancelOperation(${op.id})" title="Cancelar">
+                          <i class="bi bi-x-circle"></i>
+                       </button>`;
+        } else {
+            buttons = `<button class="btn btn-outline-info btn-sm" onclick="viewOperation(${op.id})" title="Ver Detalles">
+                          <i class="bi bi-eye"></i>
+                       </button>`;
+        }
+    } else if (currentUserRole === 'Operador') {
+        // Operador ve en Pendiente, edita en En proceso
+        // Verificar si hay notas sin leer
+        const hasUnreadNotes = op.notes && op.notes.trim() && op.notes_read_by && !op.notes_read_by.includes(currentUserId);
+        const notificationBadge = hasUnreadNotes
+            ? '<span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger notes-badge" data-operation-id="' + op.id + '">1<span class="visually-hidden">nota sin leer</span></span>'
+            : '';
+
+        if (op.status === 'Pendiente') {
+            buttons = `<button class="btn btn-outline-info btn-sm position-relative" onclick="viewOperation(${op.id})" title="Ver (Solo lectura)" data-operation-id="${op.id}">
+                          <i class="bi bi-eye"></i>
+                          ${notificationBadge}
+                       </button>`;
+        } else if (op.status === 'En proceso') {
+            buttons = `<button class="btn btn-outline-primary btn-sm position-relative" onclick="editOperation(${op.id})" title="Procesar" data-operation-id="${op.id}">
+                          <i class="bi bi-pencil"></i>
+                          ${notificationBadge}
+                       </button>`;
+        }
+    }
+
+    // Obtener nombres de bancos
+    const sourceBankName = op.source_bank_name || 'N/A';
+    const destBankName = op.destination_bank_name || 'N/A';
+    const banksText = `${sourceBankName} / ${destBankName}`;
+
+    // Formatear montos con separador de miles
+    const formattedUSD = parseFloat(op.amount_usd).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    const formattedPEN = parseFloat(op.amount_pen).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+
+    return `<tr data-operation-id="${op.id}" data-status="${op.status}">
+                <td><strong>${op.operation_id}</strong></td>
+                <td>${op.client_name || '-'}</td>
+                <td>${typeBadge}</td>
+                <td class="text-end">$ ${formattedUSD}</td>
+                <td class="text-center">${parseFloat(op.exchange_rate).toFixed(4)}</td>
+                <td class="text-end">S/ ${formattedPEN}</td>
+                <td class="text-center"><small>${banksText}</small></td>
+                <td>${statusBadge}</td>
+                <td>${fecha}</td>
+                <td><div class="btn-group btn-group-sm">${buttons}</div></td>
+            </tr>`;
+}
+
+// === VER OPERACIÓN (Solo lectura) ===
+function viewOperation(operationId) {
+    ajaxRequest(`/operations/api/${operationId}`, 'GET', null, function(response) {
+        const op = response.operation;
+        // DEBUG: Ver qué datos tiene client_deposits
+        console.log('=== DEBUG client_deposits ===', op.client_deposits);
+        console.log('=== DEBUG operación completa ===', op);
+        let html = buildViewHTML(op, true);
+        $('#operationDetails').html(html);
+        $('#viewOperationModal').modal('show');
+
+        // Si es Operador y hay notas, marcarlas como leídas
+        if (currentUserRole === 'Operador' && op.notes && op.notes.trim()) {
+            markNotesAsRead(operationId);
+        }
+    });
+}
+
+function buildViewHTML(op, readonly) {
+    const statusBadge = getStatusBadge(op.status);
+    const typeBadge = op.operation_type === 'Compra'
+        ? '<span class="badge bg-success">Compra USD</span>'
+        : '<span class="badge bg-primary">Venta USD</span>';
+
+    // Función auxiliar para obtener info completa de cuenta
+    const bankAccounts = op.client_bank_accounts || [];
+    function getAccountInfo(accountNumber) {
+        if (!accountNumber) return '-';
+        const account = bankAccounts.find(acc => acc.account_number === accountNumber);
+        if (account) {
+            return `<strong>${account.bank_name}</strong> - ${account.account_number}<br>
+                    <small class="text-muted">${account.account_type} | ${account.currency} | ${account.origen || '-'}</small>`;
+        }
+        return accountNumber;
+    }
+
+    let html = `
+        <div class="row mb-3">
+            <div class="col-md-3"><strong>ID:</strong> ${op.operation_id}</div>
+            <div class="col-md-3"><strong>Cliente:</strong> ${op.client_name || '-'}</div>
+            <div class="col-md-3"><strong>Tipo:</strong> ${typeBadge}</div>
+            <div class="col-md-3"><strong>Estado:</strong> ${statusBadge}</div>
+        </div>
+        <div class="row mb-3">
+            <div class="col-md-3"><strong>Monto USD:</strong> $ ${parseFloat(op.amount_usd).toFixed(2)}</div>
+            <div class="col-md-3"><strong>T.C.:</strong> ${parseFloat(op.exchange_rate).toFixed(4)}</div>
+            <div class="col-md-3"><strong>Monto PEN:</strong> S/ ${parseFloat(op.amount_pen).toFixed(2)}</div>
+            <div class="col-md-3"><strong>Creado por:</strong> ${op.user_name || '-'}</div>
+        </div>
+        <div class="row mb-3">
+            <div class="col-md-4"><strong>Fecha Creación:</strong> ${formatDateTime(op.created_at)}</div>
+            <div class="col-md-4"><strong>Enviada a Procesar:</strong> ${op.updated_at ? formatDateTime(op.updated_at) : '-'}</div>
+            <div class="col-md-4"><strong>Fecha Completada:</strong> ${op.completed_at ? formatDateTime(op.completed_at) : '-'}</div>
+        </div>`;
+
+    // Cuentas Bancarias
+    html += `<hr><h6><i class="bi bi-bank text-primary"></i> Cuentas Bancarias</h6>`;
+
+    // Cuenta de Cargo/Origen
+    html += `<div class="row mb-3">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-success text-white py-2">
+                    <strong><i class="bi bi-arrow-down-circle"></i> Cuenta de Cargo / Origen</strong>
+                </div>
+                <div class="card-body">`;
+
+    if (op.source_account) {
+        const accountCargo = bankAccounts.find(acc => acc.account_number === op.source_account);
+        if (accountCargo) {
+            html += `
+                <p class="mb-1"><strong>Banco:</strong> ${accountCargo.bank_name}</p>
+                <p class="mb-1"><strong>Nro. Cuenta:</strong> ${accountCargo.account_number}</p>
+                <p class="mb-1"><strong>Tipo:</strong> ${accountCargo.account_type}</p>
+                <p class="mb-1"><strong>Moneda:</strong> ${accountCargo.currency}</p>
+                <p class="mb-0"><strong>Origen:</strong> ${accountCargo.origen || '-'}</p>`;
+        } else {
+            html += `<p class="mb-0"><strong>Nro. Cuenta:</strong> ${op.source_account}</p>`;
+        }
+    } else {
+        html += `<p class="text-muted mb-0">No asignada</p>`;
+    }
+
+    html += `</div></div></div>`;
+
+    // Cuenta de Destino
+    html += `<div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-warning text-dark py-2">
+                    <strong><i class="bi bi-arrow-up-circle"></i> Cuenta de Destino</strong>
+                </div>
+                <div class="card-body">`;
+
+    if (op.destination_account) {
+        const accountDestino = bankAccounts.find(acc => acc.account_number === op.destination_account);
+        if (accountDestino) {
+            html += `
+                <p class="mb-1"><strong>Banco:</strong> ${accountDestino.bank_name}</p>
+                <p class="mb-1"><strong>Nro. Cuenta:</strong> ${accountDestino.account_number}</p>
+                <p class="mb-1"><strong>Tipo:</strong> ${accountDestino.account_type}</p>
+                <p class="mb-1"><strong>Moneda:</strong> ${accountDestino.currency}</p>
+                <p class="mb-0"><strong>Origen:</strong> ${accountDestino.origen || '-'}</p>`;
+        } else {
+            html += `<p class="mb-0"><strong>Nro. Cuenta:</strong> ${op.destination_account}</p>`;
+        }
+    } else {
+        html += `<p class="text-muted mb-0">No asignada</p>`;
+    }
+
+    html += `</div></div></div></div>`;
+
+    // Comprobantes del operador
+    if (op.operator_proofs && op.operator_proofs.length > 0) {
+        html += `<hr><h6><i class="bi bi-file-earmark-check text-info"></i> Comprobantes del Operador</h6>
+        <table class="table table-sm"><thead><tr><th>Comprobante</th><th>Comentarios del Operador</th></tr></thead><tbody>`;
+        op.operator_proofs.forEach((p, index) => {
+            html += `<tr>
+                <td><a href="${p.comprobante_url}" target="_blank" class="btn btn-sm btn-outline-primary"><i class="bi bi-download"></i> Descargar</a></td>`;
+            // Solo mostrar los comentarios del operador en la primera fila
+            if (index === 0) {
+                html += `<td rowspan="${op.operator_proofs.length}">${op.operator_comments || '-'}</td>`;
+            }
+            html += `</tr>`;
+        });
+        html += `</tbody></table>`;
+    }
+
+    if (op.notes) {
+        html += `<hr><h6>Notas</h6><p>${op.notes}</p>`;
+    }
+
+    // Historial de modificaciones
+    if (op.modification_logs && op.modification_logs.length > 0) {
+        html += `<hr><h6><i class="bi bi-clock-history text-secondary"></i> Historial de Modificaciones</h6>
+        <table class="table table-sm table-striped"><thead><tr><th>Fecha/Hora</th><th>Usuario</th><th>Campo</th><th>Valor Anterior</th><th>Valor Nuevo</th></tr></thead><tbody>`;
+        op.modification_logs.forEach(log => {
+            html += `<tr>
+                <td>${formatDateTime(log.fecha)}</td>
+                <td>${log.usuario || '-'}</td>
+                <td>${log.campo || '-'}</td>
+                <td>${log.valor_anterior || '-'}</td>
+                <td>${log.valor_nuevo || '-'}</td>
+            </tr>`;
+        });
+        html += `</tbody></table>`;
+    }
+
+    return html;
+}
+
+// === EDITAR OPERACIÓN ===
+function editOperation(operationId) {
+    ajaxRequest(`/operations/api/${operationId}`, 'GET', null, function(response) {
+        currentOperation = response.operation;
+        clientBankAccounts = currentOperation.client_bank_accounts || [];
+        loadEditModal();
+        $('#editOperationModal').modal('show');
+
+        // Si es Operador y hay notas, marcarlas como leídas
+        if (currentUserRole === 'Operador' && currentOperation.notes && currentOperation.notes.trim()) {
+            markNotesAsRead(operationId);
+        }
+    });
+}
+
+function loadEditModal() {
+    const op = currentOperation;
+    const status = op.status;
+    const role = currentUserRole;
+    const canEdit = (role === 'Master') || (role === 'Trader' && status === 'Pendiente');
+
+    // Verificar si el operador actual está asignado a esta operación
+    const isAssignedToMe = (op.assigned_operator_id === currentUserId);
+    const isOperatorProcessing = (role === 'Operador' && status === 'En proceso' && isAssignedToMe);
+    const isMasterProcessing = (role === 'Master' && status === 'En proceso');
+
+    // Info básica
+    $('#edit_operation_id').val(op.id);
+    $('#edit_op_id').text(op.operation_id);
+    $('#edit_client_name').text(op.client_name || '-');
+    $('#edit_op_type').html(op.operation_type === 'Compra'
+        ? '<span class="badge bg-success">Compra USD</span>'
+        : '<span class="badge bg-primary">Venta USD</span>');
+    $('#edit_op_status').html(getStatusBadge(status));
+    $('#edit_exchange_rate').text(parseFloat(op.exchange_rate).toFixed(4));
+    // Formatear PEN con separador de miles
+    const formattedPEN = parseFloat(op.amount_pen).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    $('#edit_amount_pen').text('S/ ' + formattedPEN);
+    $('#edit_created_at').text(formatDateTime(op.created_at));
+
+    // Monto USD editable solo para Trader/Master en Pendiente
+    if (canEdit && status === 'Pendiente') {
+        $('#edit_amount_usd_group').show();
+        $('#edit_amount_usd_readonly').hide();
+        $('#edit_amount_usd').val(parseFloat(op.amount_usd).toFixed(2));
+    } else {
+        $('#edit_amount_usd_group').hide();
+        // Formatear USD con separador de miles
+        const formattedUSD = parseFloat(op.amount_usd).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        $('#edit_amount_usd_readonly').show().text('$ ' + formattedUSD);
+    }
+
+    // Mostrar última modificación del monto si existe
+    showLastModification(op.modification_logs || []);
+
+    // Configurar info de monedas según tipo de operación (función separada para reutilizar)
+    updateCurrencyInfo(op.operation_type, parseFloat(op.amount_usd), parseFloat(op.amount_pen))
+
+    // Cargar abonos
+    loadDeposits(op.client_deposits || [], canEdit);
+
+    // Cargar pagos
+    loadPayments(op.client_payments || [], canEdit);
+
+    // Sección operador
+    if (isOperatorProcessing || isMasterProcessing) {
+        $('#section_operator').show();
+        loadOperatorProofs(op.operator_proofs || []);
+        $('#operator_comments').val(op.operator_comments || '');
+    } else {
+        $('#section_operator').hide();
+    }
+
+    // Mostrar mensaje si el operador NO está asignado
+    if (role === 'Operador' && status === 'En proceso' && !isAssignedToMe) {
+        const assignedName = op.assigned_operator_name || 'otro operador';
+        $('#section_operator').hide();
+        // Mostrar alerta informativa
+        if (!$('#alert_not_assigned').length) {
+            $('#edit_op_status').after(`
+                <div id="alert_not_assigned" class="alert alert-warning mt-2">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                    Esta operación está asignada a <strong>${assignedName}</strong>.
+                    Solo puedes verla, no editarla.
+                </div>
+            `);
+        }
+    } else {
+        $('#alert_not_assigned').remove();
+    }
+
+    // Sección de reasignación (Solo Master con operaciones en proceso)
+    if (role === 'Master' && status === 'En proceso') {
+        $('#reassign_section').show();
+        $('#current_operator_name').text(op.assigned_operator_name || 'No asignado');
+        loadActiveOperators(op.assigned_operator_id);
+    } else {
+        $('#reassign_section').hide();
+    }
+
+    // Mostrar/ocultar botones según rol, estado y asignación
+    $('#btnAddDeposit').toggle(canEdit && status === 'Pendiente');
+    $('#btnAddPayment').toggle(canEdit && status === 'Pendiente');
+    $('#btnSendToProcess').toggle(canEdit && status === 'Pendiente');
+    $('#btnReturnToPending').toggle((isOperatorProcessing || isMasterProcessing));
+    $('#btnComplete').toggle((isOperatorProcessing || isMasterProcessing));
+    $('#btnAddOperatorProof').toggle((isOperatorProcessing || isMasterProcessing));
+
+    // Título del modal
+    if (status === 'Completada' || status === 'Cancelado') {
+        $('#editModalTitle').text('Ver Operación (Solo lectura)');
+    } else if (isOperatorProcessing) {
+        $('#editModalTitle').text('Procesar Operación');
+    } else {
+        $('#editModalTitle').text('Editar Operación');
+    }
+
+    updateTotals();
+}
+
+// === ABONOS ===
+function loadDeposits(deposits, editable) {
+    $('#deposits_container').empty();
+    if (deposits.length === 0 && editable) {
+        addDeposit();
+    } else {
+        deposits.forEach((d, i) => addDepositRow(d, i, editable));
+    }
+}
+
+function addDeposit() {
+    const index = $('#deposits_container .deposit-row').length;
+    addDepositRow({}, index, true);
+}
+
+function addDepositRow(data, index, editable) {
+    const defaultAccount = data.cuenta_cargo || currentOperation.source_account;
+    const accountOptions = buildAccountOptions(currentOperation.operation_type === 'Compra' ? '$' : 'S/', defaultAccount);
+    const comprobanteUrl = data.comprobante_url || '';
+
+    const html = `
+    <div class="deposit-row border rounded p-2 mb-2" data-index="${index}" data-comprobante-url="${comprobanteUrl}">
+        <div class="row">
+            <div class="col-md-2">
+                <label class="form-label small">Importe</label>
+                <input type="number" class="form-control form-control-sm deposit-importe" value="${data.importe || ''}"
+                    step="0.01" min="0" ${editable ? '' : 'readonly'} onchange="updateTotals()">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small">Código Op.</label>
+                <input type="text" class="form-control form-control-sm deposit-codigo" value="${data.codigo_operacion || ''}" ${editable ? '' : 'readonly'}>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small">Cuenta Cargo</label>
+                ${editable
+                    ? `<select class="form-select form-select-sm deposit-cuenta">${accountOptions}</select>`
+                    : getAccountInfoDisplay(data.cuenta_cargo, false)}
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small">Comprobante</label>
+                <div class="deposit-comprobante-container">
+                    ${comprobanteUrl
+                        ? `<div class="btn-group btn-group-sm w-100">
+                            <a href="${comprobanteUrl}" target="_blank" class="btn btn-outline-success" title="Ver"><i class="bi bi-eye"></i></a>
+                            ${editable ? `<button type="button" class="btn btn-outline-warning" onclick="replaceDepositProof(${index})" title="Reemplazar"><i class="bi bi-arrow-repeat"></i></button>
+                            <button type="button" class="btn btn-outline-danger" onclick="removeDepositProof(${index})" title="Quitar"><i class="bi bi-trash"></i></button>` : ''}
+                           </div>`
+                        : (editable ? `<input type="file" class="form-control form-control-sm deposit-file" accept="image/*,.pdf" onchange="uploadDepositProof(this, ${index})">` : '<span class="text-muted">Sin comprobante</span>')}
+                </div>
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                ${editable ? `<button type="button" class="btn btn-sm btn-outline-danger w-100" onclick="removeDeposit(${index})"><i class="bi bi-trash"></i></button>` : ''}
+            </div>
+        </div>
+    </div>`;
+    $('#deposits_container').append(html);
+}
+
+function removeDeposit(index) {
+    $(`.deposit-row[data-index="${index}"]`).remove();
+    updateTotals();
+}
+
+// === PAGOS ===
+function loadPayments(payments, editable) {
+    $('#payments_container').empty();
+    if (payments.length === 0 && editable) {
+        addPayment();
+    } else {
+        payments.forEach((p, i) => addPaymentRow(p, i, editable));
+    }
+}
+
+function addPayment() {
+    const count = $('#payments_container .payment-row').length;
+    if (count >= 4) {
+        showAlert('Máximo 4 pagos permitidos', 'warning');
+        return;
+    }
+    addPaymentRow({}, count, true);
+}
+
+function addPaymentRow(data, index, editable) {
+    const defaultAccount = data.cuenta_destino || currentOperation.destination_account;
+    const accountOptions = buildAccountOptions(currentOperation.operation_type === 'Venta' ? '$' : 'S/', defaultAccount);
+
+    const html = `
+    <div class="payment-row border rounded p-2 mb-2" data-index="${index}">
+        <div class="row">
+            <div class="col-md-4">
+                <label class="form-label small">Importe</label>
+                <input type="number" class="form-control form-control-sm payment-importe" value="${data.importe || ''}"
+                    step="0.01" min="0" ${editable ? '' : 'readonly'} onchange="updateTotals()">
+            </div>
+            <div class="col-md-6">
+                <label class="form-label small">Cuenta Destino</label>
+                ${editable
+                    ? `<select class="form-select form-select-sm payment-cuenta">${accountOptions}</select>`
+                    : getAccountInfoDisplay(data.cuenta_destino, true)}
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                ${editable ? `<button type="button" class="btn btn-sm btn-outline-danger w-100" onclick="removePayment(${index})"><i class="bi bi-trash"></i></button>` : ''}
+            </div>
+        </div>
+    </div>`;
+    $('#payments_container').append(html);
+}
+
+function removePayment(index) {
+    $(`.payment-row[data-index="${index}"]`).remove();
+    updateTotals();
+}
+
+// === COMPROBANTES OPERADOR ===
+function loadOperatorProofs(proofs) {
+    $('#operator_proofs_container').empty();
+
+    // Mostrar comprobantes ya subidos
+    proofs.forEach((p, i) => {
+        const html = `
+        <div class="operator-proof-row border rounded p-2 mb-2 d-flex align-items-center" data-index="${i}">
+            <a href="${p.comprobante_url}" target="_blank" class="btn btn-sm btn-outline-success me-2">
+                <i class="bi bi-download"></i> Comprobante ${i+1}
+            </a>
+            <span class="text-success"><i class="bi bi-check-circle"></i> Subido</span>
+        </div>`;
+        $('#operator_proofs_container').append(html);
+    });
+
+    // Agregar casilla para nuevo comprobante si hay espacio
+    if (proofs.length < 4) {
+        addOperatorProofInput();
+    }
+
+    updateOperatorProofHint();
+}
+
+function addOperatorProofInput() {
+    const uploadedCount = $('#operator_proofs_container .operator-proof-row a.btn-outline-success').length;
+    const inputCount = $('#operator_proofs_container .operator-proof-file').length;
+    const totalCount = uploadedCount + inputCount;
+
+    if (totalCount >= 4) {
+        showAlert('Máximo 4 comprobantes permitidos', 'warning');
+        return;
+    }
+
+    const index = $('#operator_proofs_container .operator-proof-row').length;
+    const html = `
+    <div class="operator-proof-row border rounded p-2 mb-2" data-index="${index}">
+        <div class="d-flex align-items-center">
+            <input type="file" class="form-control form-control-sm me-2 operator-proof-file"
+                   accept="image/*,.pdf" onchange="uploadOperatorProof(this, ${index})" style="max-width: 300px;">
+            <button type="button" class="btn btn-sm btn-outline-primary" onclick="addOperatorProofInput()" title="Agregar otro comprobante">
+                <i class="bi bi-plus-lg"></i>
+            </button>
+        </div>
+    </div>`;
+    $('#operator_proofs_container').append(html);
+    updateOperatorProofHint();
+}
+
+function updateOperatorProofHint() {
+    const uploaded = $('#operator_proofs_container .operator-proof-row a.btn-outline-success').length;
+    const remaining = 4 - uploaded;
+    if (remaining > 0) {
+        $('#operator_proof_hint').text(`Puedes adjuntar hasta ${remaining} comprobante${remaining > 1 ? 's' : ''} más`);
+    } else {
+        $('#operator_proof_hint').text('Has alcanzado el máximo de 4 comprobantes');
+    }
+}
+
+function uploadOperatorProof(input, index) {
+    if (!input.files || !input.files[0]) return;
+
+    const file = input.files[0];
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('proof_index', index);
+
+    const $row = $(input).closest('.operator-proof-row');
+
+    // Mostrar loading
+    $row.html('<span class="text-muted"><i class="bi bi-hourglass-split"></i> Subiendo...</span>');
+
+    $.ajax({
+        url: `/operations/api/upload_operator_proof/${currentOperation.id}`,
+        type: 'POST',
+        data: formData,
+        processData: false,
+        contentType: false,
+        headers: {
+            'X-CSRFToken': $('meta[name="csrf-token"]').attr('content')
+        },
+        success: function(response) {
+            if (response.success) {
+                currentOperation.operator_proofs = response.proofs;
+                loadOperatorProofs(response.proofs);
+                showAlert('Comprobante subido correctamente', 'success');
+            } else {
+                loadOperatorProofs(currentOperation.operator_proofs || []);
+                showAlert(response.message || 'Error al subir', 'danger');
+            }
+        },
+        error: function(xhr) {
+            let errorMsg = 'Error al subir el comprobante';
+            try {
+                const response = JSON.parse(xhr.responseText);
+                errorMsg = response.message || errorMsg;
+            } catch(e) {}
+            loadOperatorProofs(currentOperation.operator_proofs || []);
+            showAlert(errorMsg, 'danger');
+        }
+    });
+}
+
+function addOperatorProof() {
+    addOperatorProofInput();
+}
+
+// === UTILIDADES ===
+function buildAccountOptions(currency, selected) {
+    let options = '<option value="">Seleccionar cuenta...</option>';
+    clientBankAccounts
+        .filter(acc => acc.currency === currency)
+        .forEach(acc => {
+            const isSelected = acc.account_number === selected ? 'selected' : '';
+            const origen = acc.origen || '-';
+            const tipo = acc.account_type || '-';
+            options += `<option value="${acc.account_number}" ${isSelected}>${acc.bank_name} | ${origen} | ${tipo} | ${acc.currency} | ${acc.account_number}</option>`;
+        });
+    return options;
+}
+
+function getAccountInfoDisplay(accountNumber, withCopyBtn) {
+    if (!accountNumber) return '<span class="text-muted small">No asignada</span>';
+    const account = clientBankAccounts.find(acc => acc.account_number === accountNumber);
+    if (account) {
+        const copyBtn = withCopyBtn
+            ? `<button type="button" class="btn btn-sm btn-outline-secondary py-0 px-1 ms-1" onclick="copyAccountNumber('${account.account_number}')" title="Copiar número"><i class="bi bi-clipboard"></i></button>`
+            : '';
+        return `<div class="border rounded p-2 bg-light small">
+            <div><strong>${account.bank_name}</strong> ${copyBtn}</div>
+            <div class="text-muted">${account.origen || '-'} | ${account.account_type || '-'} | ${account.currency}</div>
+            <div><strong>${account.account_number}</strong></div>
+        </div>`;
+    }
+    return `<span class="text-muted small">${accountNumber}</span>`;
+}
+
+function copyAccountNumber(accountNumber) {
+    navigator.clipboard.writeText(accountNumber).then(() => {
+        showAlert('Número de cuenta copiado', 'success');
+    }).catch(() => {
+        const temp = $('<input>').val(accountNumber).appendTo('body').select();
+        document.execCommand('copy');
+        temp.remove();
+        showAlert('Número de cuenta copiado', 'success');
+    });
+}
+
+function updateTotals() {
+    let totalDeposits = 0;
+    $('.deposit-importe').each(function() {
+        totalDeposits += parseFloat($(this).val()) || 0;
+    });
+    // Formatear total con separador de miles
+    const formattedDeposits = totalDeposits.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    $('#total_deposits').text(formattedDeposits);
+
+    let totalPayments = 0;
+    $('.payment-importe').each(function() {
+        totalPayments += parseFloat($(this).val()) || 0;
+    });
+    // Formatear total con separador de miles
+    const formattedPayments = totalPayments.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    $('#total_payments').text(formattedPayments);
+
+    // Validación visual
+    if (currentOperation) {
+        const op = currentOperation;
+        const expectedDeposits = op.operation_type === 'Compra' ? parseFloat(op.amount_usd) : parseFloat(op.amount_pen);
+        const expectedPayments = op.operation_type === 'Venta' ? parseFloat(op.amount_usd) : parseFloat(op.amount_pen);
+
+        $('#deposit_validation').html(Math.abs(totalDeposits - expectedDeposits) < 0.01
+            ? '<span class="badge bg-success"><i class="bi bi-check"></i> OK</span>'
+            : `<span class="badge bg-danger">Falta: ${(expectedDeposits - totalDeposits).toFixed(2)}</span>`);
+
+        $('#payment_validation').html(Math.abs(totalPayments - expectedPayments) < 0.01
+            ? '<span class="badge bg-success"><i class="bi bi-check"></i> OK</span>'
+            : `<span class="badge bg-danger">Falta: ${(expectedPayments - totalPayments).toFixed(2)}</span>`);
+    }
+}
+
+function getStatusBadge(status) {
+    const badges = {
+        'Pendiente': '<span class="badge bg-warning text-dark">Pendiente</span>',
+        'En proceso': '<span class="badge bg-info">En Proceso</span>',
+        'Completada': '<span class="badge bg-success">Completada</span>',
+        'Cancelado': '<span class="badge bg-danger">Cancelado</span>'
+    };
+    return badges[status] || status;
+}
+
+function formatDateTime(isoString) {
+    if (!isoString) return '-';
+    const d = new Date(isoString);
+    return d.toLocaleDateString('es-PE') + ' ' + d.toLocaleTimeString('es-PE', {hour: '2-digit', minute: '2-digit'});
+}
+
+function calcularTiempoTranscurrido(fechaInicio, fechaFin) {
+    const diffMs = fechaFin - fechaInicio;
+    const diffSeconds = Math.floor(diffMs / 1000);
+    const diffMinutes = Math.floor(diffSeconds / 60);
+    const diffHours = Math.floor(diffMinutes / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffDays > 0) {
+        const hours = diffHours % 24;
+        const minutes = diffMinutes % 60;
+        return `${diffDays}d ${hours}h ${minutes}m`;
+    } else if (diffHours > 0) {
+        const minutes = diffMinutes % 60;
+        return `${diffHours}h ${minutes}m`;
+    } else if (diffMinutes > 0) {
+        const seconds = diffSeconds % 60;
+        return `${diffMinutes}m ${seconds}s`;
+    } else {
+        return `${diffSeconds}s`;
+    }
+}
+
+// === ACTUALIZAR INFO DE MONEDAS ===
+function updateCurrencyInfo(operationType, amountUsd, amountPen) {
+    if (operationType === 'Compra') {
+        // Cliente abona USD, recibe PEN
+        $('#deposit_currency_info').html(`Cliente abona <strong>$ ${amountUsd.toFixed(2)} USD</strong>`);
+        $('#payment_currency_info').html(`Cliente recibe <strong>S/ ${amountPen.toFixed(2)} PEN</strong>`);
+    } else {
+        // Cliente abona PEN, recibe USD
+        $('#deposit_currency_info').html(`Cliente abona <strong>S/ ${amountPen.toFixed(2)} PEN</strong>`);
+        $('#payment_currency_info').html(`Cliente recibe <strong>$ ${amountUsd.toFixed(2)} USD</strong>`);
+    }
+}
+
+// === MOSTRAR ÚLTIMA MODIFICACIÓN ===
+function showLastModification(logs) {
+    if (!logs || logs.length === 0) {
+        $('#edit_last_modification').hide();
+        return;
+    }
+    // Buscar modificaciones del campo 'amount_usd'
+    const amountLogs = logs.filter(l => l.campo === 'amount_usd');
+    if (amountLogs.length === 0) {
+        $('#edit_last_modification').hide();
+        return;
+    }
+    const last = amountLogs[amountLogs.length - 1];
+    const fecha = formatDateTime(last.fecha);
+    $('#last_mod_text').text(`Modificado: ${last.valor_anterior} → ${last.valor_nuevo} por ${last.usuario} (${fecha})`);
+    $('#edit_last_modification').show();
+}
+
+// === ACCIONES ===
+function saveAmountUSD() {
+    const newAmount = parseFloat($('#edit_amount_usd').val());
+    if (!newAmount || newAmount <= 0) {
+        showAlert('Ingresa un monto válido', 'warning');
+        return;
+    }
+
+    ajaxRequest(`/operations/api/update/${currentOperation.id}`, 'PATCH', {amount_usd: newAmount}, function(response) {
+        currentOperation = response.operation;
+        const newPen = parseFloat(currentOperation.amount_pen);
+        // Formatear PEN con separador de miles
+        const formattedNewPEN = newPen.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        $('#edit_amount_pen').text('S/ ' + formattedNewPEN);
+        // Actualizar textos dinámicos
+        updateCurrencyInfo(currentOperation.operation_type, newAmount, newPen);
+        // Actualizar última modificación
+        showLastModification(currentOperation.modification_logs || []);
+        updateTotals();
+        showAlert('Monto actualizado correctamente', 'success');
+    });
+}
+
+function collectDeposits() {
+    const deposits = [];
+    $('.deposit-row').each(function() {
+        // Intentar obtener comprobante_url de data() o attr() como fallback
+        const comprobanteUrl = $(this).data('comprobante-url') || $(this).attr('data-comprobante-url') || '';
+        console.log('=== collectDeposits row ===', {
+            index: $(this).data('index'),
+            comprobanteUrl: comprobanteUrl,
+            dataVal: $(this).data('comprobante-url'),
+            attrVal: $(this).attr('data-comprobante-url')
+        });
+        deposits.push({
+            importe: parseFloat($(this).find('.deposit-importe').val()) || 0,
+            codigo_operacion: $(this).find('.deposit-codigo').val() || '',
+            cuenta_cargo: $(this).find('.deposit-cuenta').val() || '',
+            comprobante_url: comprobanteUrl
+        });
+    });
+    return deposits;
+}
+
+function uploadDepositProof(input, depositIndex) {
+    console.log('=== uploadDepositProof llamado ===', {depositIndex, operationId: currentOperation?.id});
+    if (!input.files || !input.files[0]) return;
+
+    const file = input.files[0];
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('deposit_index', depositIndex);
+
+    const $row = $(input).closest('.deposit-row');
+    const $container = $row.find('.deposit-comprobante-container');
+
+    // Mostrar loading
+    $container.html('<span class="text-muted"><i class="bi bi-hourglass-split"></i> Subiendo...</span>');
+
+    $.ajax({
+        url: `/operations/api/upload_deposit_proof/${currentOperation.id}`,
+        type: 'POST',
+        data: formData,
+        processData: false,
+        contentType: false,
+        headers: {
+            'X-CSRFToken': $('meta[name="csrf-token"]').attr('content')
+        },
+        success: function(response) {
+            console.log('=== Upload response ===', response);
+            if (response.success) {
+                // Actualizar data attribute y mostrar link
+                $row.data('comprobante-url', response.url);
+                $row.attr('data-comprobante-url', response.url); // También actualizar atributo HTML
+                console.log('=== URL guardada en data-attr ===', response.url);
+                $container.html(`<div class="btn-group btn-group-sm w-100">
+                            <a href="${response.url}" target="_blank" class="btn btn-outline-success" title="Ver"><i class="bi bi-eye"></i></a>
+                            <button type="button" class="btn btn-outline-warning" onclick="replaceDepositProof(${depositIndex})" title="Reemplazar"><i class="bi bi-arrow-repeat"></i></button>
+                            <button type="button" class="btn btn-outline-danger" onclick="removeDepositProof(${depositIndex})" title="Quitar"><i class="bi bi-trash"></i></button>
+                           </div>`);
+                showAlert('Comprobante subido correctamente', 'success');
+            } else {
+                $container.html(`<input type="file" class="form-control form-control-sm deposit-file" accept="image/*,.pdf" onchange="uploadDepositProof(this, ${depositIndex})">`);
+                showAlert(response.message || 'Error al subir', 'danger');
+            }
+        },
+        error: function(xhr, status, error) {
+            // Obtener mensaje de error del backend
+            let errorMsg = 'Error al subir el comprobante';
+            try {
+                const response = JSON.parse(xhr.responseText);
+                errorMsg = response.message || errorMsg;
+                console.log('=== Upload ERROR response ===', response);
+            } catch(e) {
+                console.log('=== Upload ERROR raw ===', xhr.responseText);
+            }
+            console.log('=== Upload ERROR ===', {status, error, errorMsg});
+            $container.html(`<input type="file" class="form-control form-control-sm deposit-file" accept="image/*,.pdf" onchange="uploadDepositProof(this, ${depositIndex})">`);
+            showAlert(errorMsg, 'danger');
+        }
+    });
+}
+
+function replaceDepositProof(depositIndex) {
+    const $row = $(`.deposit-row[data-index="${depositIndex}"]`);
+    const $container = $row.find('.deposit-comprobante-container');
+    $container.html(`<input type="file" class="form-control form-control-sm deposit-file" accept="image/*,.pdf" onchange="uploadDepositProof(this, ${depositIndex})">`);
+}
+
+function removeDepositProof(depositIndex) {
+    const $row = $(`.deposit-row[data-index="${depositIndex}"]`);
+    const $container = $row.find('.deposit-comprobante-container');
+
+    // Limpiar URL del comprobante
+    $row.data('comprobante-url', '');
+    $row.attr('data-comprobante-url', '');
+
+    // Mostrar input para subir nuevo archivo
+    $container.html(`<input type="file" class="form-control form-control-sm deposit-file" accept="image/*,.pdf" onchange="uploadDepositProof(this, ${depositIndex})">`);
+    showAlert('Comprobante eliminado', 'info');
+}
+
+function collectPayments() {
+    const payments = [];
+    $('.payment-row').each(function() {
+        payments.push({
+            importe: parseFloat($(this).find('.payment-importe').val()) || 0,
+            cuenta_destino: $(this).find('.payment-cuenta').val() || ''
+        });
+    });
+    return payments;
+}
+
+function sendToProcess() {
+    const deposits = collectDeposits();
+    const payments = collectPayments();
+
+    // DEBUG: Ver qué datos se envían
+    console.log('=== sendToProcess - deposits a enviar ===', deposits);
+    console.log('=== sendToProcess - payments a enviar ===', payments);
+
+    // Primero guardar abonos y pagos
+    ajaxRequest(`/operations/api/update/${currentOperation.id}`, 'PATCH', {
+        client_deposits: deposits,
+        client_payments: payments
+    }, function(updateResponse) {
+        console.log('=== Update response ===', updateResponse);
+        // Luego enviar a proceso
+        ajaxRequest(`/operations/api/send_to_process/${currentOperation.id}`, 'POST', {}, function(response) {
+            showAlert(response.message, 'success');
+            $('#editOperationModal').modal('hide');
+            setTimeout(() => location.reload(), 1000);
+        });
+    });
+}
+
+function returnToPending() {
+    const reason = prompt('Razón para devolver a pendiente (opcional):');
+    ajaxRequest(`/operations/api/return_to_pending/${currentOperation.id}`, 'POST', {reason: reason || ''}, function(response) {
+        showAlert(response.message, 'success');
+        $('#editOperationModal').modal('hide');
+        setTimeout(() => location.reload(), 1000);
+    });
+}
+
+function completeOperation() {
+    const comments = $('#operator_comments').val();
+
+    ajaxRequest(`/operations/api/complete/${currentOperation.id}`, 'POST', {
+        operator_comments: comments
+    }, function(response) {
+        showAlert(response.message, 'success');
+        $('#editOperationModal').modal('hide');
+        setTimeout(() => location.reload(), 1000);
+    });
+}
+
+function cancelOperation(operationId) {
+    ajaxRequest(`/operations/api/${operationId}`, 'GET', null, function(response) {
+        $('#cancel_operation_id').val(response.operation.id);
+        $('#cancel_operation_code').text(response.operation.operation_id);
+        $('#cancel_reason').val('');
+        $('#cancelOperationModal').modal('show');
+    });
+}
+
+function confirmCancelOperation() {
+    const operationId = $('#cancel_operation_id').val();
+    const reason = $('#cancel_reason').val().trim();
+
+    if (!reason) {
+        showAlert('Ingresa una razón para cancelar', 'warning');
+        return;
+    }
+
+    ajaxRequest(`/operations/api/cancel/${operationId}`, 'POST', {reason: reason}, function(response) {
+        showAlert(response.message, 'success');
+        $('#cancelOperationModal').modal('hide');
+        setTimeout(() => location.reload(), 1000);
+    });
+}
+
+// === MARCAR NOTAS COMO LEÍDAS ===
+function markNotesAsRead(operationId) {
+    ajaxRequest(`/operations/api/mark_notes_read/${operationId}`, 'POST', null, function(response) {
+        if (response.success) {
+            // Ocultar badge de notificación para esta operación
+            $(`.notes-badge[data-operation-id="${operationId}"]`).fadeOut(300, function() {
+                $(this).remove();
+            });
+        }
+    }, function(xhr, status, error) {
+        // Error silencioso - no mostrar alerta al usuario
+        console.error('Error al marcar notas como leídas:', error);
+    });
+}
+
+// ============================================
+// FUNCIONES PARA MODAL DE NUEVA OPERACIÓN
+// ============================================
+
+// Variables globales para el modal
+let selectedClientModal = null;
+let clientBankAccountsModal = [];
+let searchTimeoutModal = null;
+
+// Abrir modal de nueva operación
+function openCreateOperationModal() {
+    resetCreateForm();
+    $('#createOperationModal').modal('show');
+}
+
+// Limitar decimales en campo numérico
+function limitDecimalsModal(input, maxDecimals) {
+    let value = input.value;
+    if (value.includes('.')) {
+        const parts = value.split('.');
+        if (parts[1] && parts[1].length > maxDecimals) {
+            input.value = parseFloat(value).toFixed(maxDecimals);
+        }
+    }
+}
+
+// Calcular monto en soles
+function calculatePENModal() {
+    const usd = parseFloat($('#amount_usd_modal').val()) || 0;
+    const rate = parseFloat($('#exchange_rate_modal').val()) || 0;
+    const pen = usd * rate;
+    $('#amount_pen_display_modal').val(pen.toFixed(2));
+}
+
+// Resetear formulario completo del modal
+function resetCreateForm() {
+    $('#createOperationFormModal')[0].reset();
+    clearSelectedClientModal();
+    $('#amount_pen_display_modal').val('');
+}
+
+// Limpiar cliente seleccionado del modal
+function clearSelectedClientModal() {
+    selectedClientModal = null;
+    clientBankAccountsModal = [];
+    $('#client_id_modal').val('');
+    $('#clientInfoModal').hide();
+    $('#searchClientInputModal').val('').prop('disabled', false).show();
+    $('#clearSearchBtnModal').hide();
+    $('#searchResultsModal').hide();
+    $('#source_account_modal').html('<option value="">Primero selecciona un cliente</option>');
+    $('#destination_account_modal').html('<option value="">Primero selecciona un cliente</option>');
+}
+
+// Búsqueda de clientes (modal)
+$('#searchClientInputModal').on('input', function() {
+    clearTimeout(searchTimeoutModal);
+    const query = $(this).val().trim();
+
+    if (query.length === 0) {
+        $('#searchResultsModal').hide();
+        $('#clearSearchBtnModal').hide();
+        return;
+    }
+
+    $('#clearSearchBtnModal').show();
+
+    if (query.length < 3) {
+        $('#searchResultsListModal').html('<div class="list-group-item text-muted"><i class="bi bi-info-circle"></i> Escribe al menos 3 caracteres...</div>');
+        $('#searchResultsModal').show();
+        return;
+    }
+
+    // Debounce de 400ms
+    searchTimeoutModal = setTimeout(function() {
+        performSearchModal(query);
+    }, 400);
+});
+
+// Limpiar búsqueda (modal)
+$('#clearSearchBtnModal').on('click', function() {
+    $('#searchClientInputModal').val('');
+    $('#searchResultsModal').hide();
+    $('#clearSearchBtnModal').hide();
+});
+
+function performSearchModal(query) {
+    $('#searchResultsListModal').html('<div class="list-group-item text-center"><i class="bi bi-hourglass-split"></i> Buscando...</div>');
+    $('#searchResultsModal').show();
+
+    ajaxRequest(`/clients/api/search?q=${encodeURIComponent(query)}`, 'GET', null, function(response) {
+        if (response.clients.length === 0) {
+            $('#searchResultsListModal').html(`
+                <div class="list-group-item text-warning">
+                    <i class="bi bi-exclamation-triangle"></i> No se encontraron clientes con: <strong>${query}</strong>
+                </div>
+            `);
+            return;
+        }
+
+        let html = '';
+        response.clients.forEach(function(client) {
+            const statusClass = client.status === 'Activo' ? 'success' : 'secondary';
+            const statusText = client.status === 'Activo' ? 'Activo' : 'Inactivo';
+            const bankCount = client.bank_accounts ? client.bank_accounts.length : 0;
+
+            html += `
+                <a href="#" class="list-group-item list-group-item-action py-2" onclick="selectClientModal(${client.id}, event)">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>${client.full_name || 'Sin nombre'}</strong>
+                            <span class="badge bg-${statusClass} ms-2">${statusText}</span><br>
+                            <small class="text-muted">
+                                <i class="bi bi-card-text"></i> ${client.dni} |
+                                <i class="bi bi-envelope"></i> ${client.email} |
+                                <i class="bi bi-bank"></i> ${bankCount} cuentas
+                            </small>
+                        </div>
+                        <i class="bi bi-chevron-right text-muted"></i>
+                    </div>
+                </a>
+            `;
+        });
+
+        $('#searchResultsListModal').html(html);
+    }, function(error) {
+        $('#searchResultsListModal').html(`
+            <div class="list-group-item text-danger">
+                <i class="bi bi-exclamation-circle"></i> Error: ${error.message || 'Error al buscar'}
+            </div>
+        `);
+    });
+}
+
+function selectClientModal(clientId, event) {
+    if (event) event.preventDefault();
+
+    ajaxRequest(`/clients/api/${clientId}`, 'GET', null, function(response) {
+        selectedClientModal = response.client;
+        clientBankAccountsModal = selectedClientModal.bank_accounts || [];
+
+        // Actualizar UI
+        $('#client_id_modal').val(selectedClientModal.id);
+        $('#clientNameModal').text(selectedClientModal.full_name || 'Sin nombre');
+        $('#clientDNIModal').text(selectedClientModal.dni);
+        $('#clientEmailModal').text(selectedClientModal.email);
+
+        // Mostrar cliente seleccionado y ocultar búsqueda
+        $('#searchResultsModal').hide();
+        $('#searchClientInputModal').hide();
+        $('#clearSearchBtnModal').hide();
+        $('#clientInfoModal').show();
+
+        // Actualizar cuentas bancarias
+        updateBankAccountsModal();
+
+        showAlert('Cliente seleccionado: ' + (selectedClientModal.full_name || selectedClientModal.dni), 'success');
+    });
+}
+
+// Actualizar cuentas bancarias según tipo de operación (modal)
+function updateBankAccountsModal() {
+    const operationType = $('input[name="operation_type_modal"]:checked').val();
+
+    if (!selectedClientModal || !clientBankAccountsModal.length) {
+        $('#source_account_modal').html('<option value="">⚠️ El cliente no tiene cuentas registradas</option>');
+        $('#destination_account_modal').html('<option value="">⚠️ El cliente no tiene cuentas registradas</option>');
+        return;
+    }
+
+    let sourceAccounts = [];
+    let destinationAccounts = [];
+
+    if (operationType === 'Compra') {
+        // Compra: Cliente vende USD → recibe PEN
+        sourceAccounts = clientBankAccountsModal.filter(acc => acc.currency === '$');
+        destinationAccounts = clientBankAccountsModal.filter(acc => acc.currency === 'S/');
+        $('#source_help_modal').text('Cuenta USD del cliente (desde donde vende)');
+        $('#dest_help_modal').text('Cuenta PEN del cliente (donde recibe)');
+    } else {
+        // Venta: Cliente compra USD → paga con PEN
+        sourceAccounts = clientBankAccountsModal.filter(acc => acc.currency === 'S/');
+        destinationAccounts = clientBankAccountsModal.filter(acc => acc.currency === '$');
+        $('#source_help_modal').text('Cuenta PEN del cliente (desde donde paga)');
+        $('#dest_help_modal').text('Cuenta USD del cliente (donde recibe)');
+    }
+
+    // Llenar select de origen
+    let sourceHtml = '<option value="">Seleccionar cuenta...</option>';
+    sourceAccounts.forEach(function(account) {
+        const accountText = `${account.bank_name} - ${account.account_type || ''} (${account.currency}) - ${account.account_number}`;
+        sourceHtml += `<option value="${account.account_number}">${accountText}</option>`;
+    });
+    if (sourceAccounts.length === 0) {
+        const currency = operationType === 'Compra' ? 'USD ($)' : 'PEN (S/)';
+        sourceHtml = `<option value="">⚠️ Sin cuentas en ${currency}</option>`;
+    }
+    $('#source_account_modal').html(sourceHtml);
+
+    // Llenar select de destino
+    let destinationHtml = '<option value="">Seleccionar cuenta...</option>';
+    destinationAccounts.forEach(function(account) {
+        const accountText = `${account.bank_name} - ${account.account_type || ''} (${account.currency}) - ${account.account_number}`;
+        destinationHtml += `<option value="${account.account_number}">${accountText}</option>`;
+    });
+    if (destinationAccounts.length === 0) {
+        const currency = operationType === 'Compra' ? 'PEN (S/)' : 'USD ($)';
+        destinationHtml = `<option value="">⚠️ Sin cuentas en ${currency}</option>`;
+    }
+    $('#destination_account_modal').html(destinationHtml);
+}
+
+// Listener para cambio de tipo de operación (modal)
+$('input[name="operation_type_modal"]').on('change', function() {
+    updateBankAccountsModal();
+});
+
+// Enviar creación de operación
+function submitCreateOperation() {
+    const formData = {
+        client_id: parseInt($('#client_id_modal').val()),
+        operation_type: $('input[name="operation_type_modal"]:checked').val(),
+        amount_usd: parseFloat($('#amount_usd_modal').val()),
+        exchange_rate: parseFloat($('#exchange_rate_modal').val()),
+        source_account: $('#source_account_modal').val(),
+        destination_account: $('#destination_account_modal').val(),
+        notes: $('#notes_modal').val()
+    };
+
+    // Validaciones
+    if (!formData.client_id) {
+        showAlert('Por favor selecciona un cliente', 'warning');
+        return;
+    }
+    if (!formData.amount_usd || formData.amount_usd <= 0) {
+        showAlert('El monto en USD debe ser mayor a 0', 'warning');
+        return;
+    }
+    if (!formData.exchange_rate || formData.exchange_rate <= 0) {
+        showAlert('El tipo de cambio debe ser mayor a 0', 'warning');
+        return;
+    }
+    if (!formData.source_account) {
+        showAlert('Por favor selecciona la cuenta de origen', 'warning');
+        return;
+    }
+    if (!formData.destination_account) {
+        showAlert('Por favor selecciona la cuenta de destino', 'warning');
+        return;
+    }
+
+    // Enviar
+    ajaxRequest('/operations/api/create', 'POST', formData, function(response) {
+        showNotification('Operación creada exitosamente: ' + response.operation.operation_id, 'success');
+        $('#createOperationModal').modal('hide');
+        // Refrescar tabla sin recargar la página
+        refreshOperationsTable();
+    });
+}
+
+// === REASIGNACIÓN DE OPERADOR (Solo Master) ===
+
+/**
+ * Cargar lista de operadores activos
+ */
+function loadActiveOperators(currentOperatorId) {
+    ajaxRequest('/operations/api/get_active_operators', 'GET', null, function(response) {
+        if (response.success) {
+            let html = '<option value="">Seleccione un operador...</option>';
+            response.operators.forEach(function(operator) {
+                const selected = operator.id === currentOperatorId ? 'selected' : '';
+                html += `<option value="${operator.id}" ${selected}>${operator.username}</option>`;
+            });
+            $('#new_operator_select').html(html);
+        }
+    }, function(error) {
+        $('#new_operator_select').html('<option value="">Error al cargar operadores</option>');
+        console.error('Error cargando operadores:', error);
+    });
+}
+
+/**
+ * Reasignar operador a la operación actual
+ */
+function reassignOperator() {
+    const operationId = $('#edit_operation_id').val();
+    const newOperatorId = parseInt($('#new_operator_select').val());
+
+    if (!newOperatorId) {
+        showAlert('Por favor selecciona un operador', 'warning');
+        return;
+    }
+
+    // Confirmar reasignación
+    const selectedOperatorName = $('#new_operator_select option:selected').text();
+    if (!confirm(`¿Estás seguro de reasignar esta operación a ${selectedOperatorName}?`)) {
+        return;
+    }
+
+    const data = {
+        new_operator_id: newOperatorId
+    };
+
+    ajaxRequest(`/operations/api/reassign_operator/${operationId}`, 'POST', data, function(response) {
+        showNotification(response.message, 'success');
+        // Actualizar la operación actual
+        currentOperation = response.operation;
+        // Recargar el modal para reflejar los cambios
+        loadEditModal();
+        // Refrescar la tabla
+        refreshOperationsTable();
+    });
+}
+</script>
+{% endblock %}

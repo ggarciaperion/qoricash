@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+
+{% block title %}Historial de Operaciones - QoriCash Trading{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h2><i class="bi bi-clock-history"></i> Historial de Operaciones</h2>
+            <p class="text-muted">Registro completo de todas las operaciones</p>
+        </div>
+        <div class="col-md-4 text-end">
+            <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#exportDateFilterModal">
+                <i class="bi bi-file-earmark-excel"></i> Descargar Excel
+            </button>
+        </div>
+    </div>
+
+    <!-- Tabla de Operaciones -->
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-body">
+                    <table id="historyTable" class="table table-hover table-sm">
+                        <thead>
+                            <tr>
+                                <th>ID Op.</th>
+                                <th>Documento</th>
+                                <th>Cliente</th>
+                                <th>USD</th>
+                                <th>T.C.</th>
+                                <th>PEN</th>
+                                <th>Estado</th>
+                                <th>Fecha</th>
+                                {% if user.role in ['Master', 'Operador'] %}
+                                <th>Usuario</th>
+                                {% endif %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for op in operations %}
+                            <tr>
+                                <td><strong>{{ op.operation_id }}</strong></td>
+                                <td>{{ op.client.dni if op.client else '-' }}</td>
+                                <td>{{ op.client.full_name if op.client else '-' }}</td>
+                                <td class="text-end">$ {{ op.amount_usd|format_currency(2) }}</td>
+                                <td class="text-center">{{ "%.4f"|format(op.exchange_rate) }}</td>
+                                <td class="text-end">S/ {{ op.amount_pen|format_currency(2) }}</td>
+                                <td>
+                                    {% if op.status == 'Pendiente' %}
+                                        <span class="badge bg-warning text-dark">Pendiente</span>
+                                    {% elif op.status == 'En proceso' %}
+                                        <span class="badge bg-info">En Proceso</span>
+                                    {% elif op.status == 'Completada' %}
+                                        <span class="badge bg-success">Completada</span>
+                                    {% else %}
+                                        <span class="badge bg-danger">Cancelado</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ op.created_at.strftime('%d/%m/%Y %H:%M') if op.created_at else '-' }}</td>
+                                {% if user.role in ['Master', 'Operador'] %}
+                                <td>{{ op.user.email if op.user else '-' }}</td>
+                                {% endif %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Filtro de Fechas para Exportar -->
+    <div class="modal fade" id="exportDateFilterModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-calendar-range"></i> Exportar Historial a Excel</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted">Selecciona el rango de fechas para exportar. Si no seleccionas fechas, se exportarán todas las operaciones.</p>
+
+                    <div class="mb-3">
+                        <label for="export_start_date" class="form-label">Fecha Inicio (Opcional)</label>
+                        <input type="date" class="form-control" id="export_start_date">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="export_end_date" class="form-label">Fecha Fin (Opcional)</label>
+                        <input type="date" class="form-control" id="export_end_date">
+                    </div>
+
+                    <div class="alert alert-info small mb-0">
+                        <i class="bi bi-info-circle"></i>
+                        Si dejas ambos campos vacíos, se descargará el historial completo de todas las operaciones.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-success" onclick="downloadExcelWithDates()">
+                        <i class="bi bi-download"></i> Descargar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Inicializar DataTable con filtros en tiempo real
+let historyTable;
+
+$(document).ready(function() {
+    historyTable = $('#historyTable').DataTable({
+        "language": {
+            "url": "//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json"
+        },
+        "order": [[7, "desc"]], // Ordenar por fecha descendente
+        "pageLength": 25,
+        "responsive": true,
+        "dom": '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>rtip',
+        "columnDefs": [
+            { "orderable": true, "targets": "_all" }
+        ]
+    });
+});
+
+// Función para descargar Excel con filtro de fechas
+function downloadExcelWithDates() {
+    const startDate = $('#export_start_date').val();
+    const endDate = $('#export_end_date').val();
+
+    // Validar que si hay fecha inicio, también haya fecha fin (y viceversa)
+    if (startDate && endDate && startDate > endDate) {
+        showAlert('La fecha de inicio no puede ser mayor que la fecha fin', 'warning');
+        return;
+    }
+
+    // Construir URL con parámetros
+    let url = '/operations/api/export_history';
+    const params = [];
+
+    if (startDate) {
+        params.push(`start_date=${startDate}`);
+    }
+
+    if (endDate) {
+        params.push(`end_date=${endDate}`);
+    }
+
+    if (params.length > 0) {
+        url += '?' + params.join('&');
+    }
+
+    // Cerrar modal
+    $('#exportDateFilterModal').modal('hide');
+
+    // Mostrar mensaje
+    if (startDate || endDate) {
+        showAlert('Preparando descarga del rango seleccionado...', 'info');
+    } else {
+        showAlert('Preparando descarga del historial completo...', 'info');
+    }
+
+    // Descargar
+    window.location.href = url;
+
+    // Limpiar campos después de 1 segundo
+    setTimeout(() => {
+        $('#export_start_date').val('');
+        $('#export_end_date').val('');
+    }, 1000);
+}
+
+// Función legacy (por compatibilidad)
+function downloadExcel() {
+    window.location.href = '/operations/api/export_history';
+}
+</script>
+{% endblock %}
