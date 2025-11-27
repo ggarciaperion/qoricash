@@ -1,1 +1,1 @@
-web: gunicorn --worker-class eventlet --workers 1 --timeout 600 --bind 0.0.0.0:$PORT "app:create_app()"
+EVENTLET_NO_GREENDNS=yes gunicorn --worker-class eventlet -w 1 app:app
