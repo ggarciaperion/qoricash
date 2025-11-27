@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = 'in_process_since_001'
-down_revision = 'add_trader_goals_and_daily_profits'
+down_revision = 'add_bank_balances'
 branch_labels = None
 depends_on = None
 

@@ -9,7 +9,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = 'add_deposits_payments'
-down_revision = None
+down_revision = '5fde901bfcaa'
 branch_labels = None
 depends_on = None
 
