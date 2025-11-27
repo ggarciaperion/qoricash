@@ -5,11 +5,19 @@ Este archivo crea y configura la aplicación Flask usando el patrón Factory.
 """
 # IMPORTANTE: Monkey patch de eventlet DEBE ir PRIMERO, antes de cualquier otra importación
 import eventlet
-import os
-os.environ["EVENTLET_NO_GREENDNS"] = "yes"
-eventlet.monkey_patch()
+
+# CRITICAL: Desactivar DNS monkey patching para permitir Cloudinary/S3
+# Parchear solo lo necesario para Socket.IO
+eventlet.monkey_patch(
+    os=True,
+    select=True,
+    socket=True,
+    thread=True,
+    time=True
+)
 
 import logging
+import os
 from flask import Flask
 from app.config import get_config
 from app.extensions import db, migrate, login_manager, csrf, socketio, limiter, mail
