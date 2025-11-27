@@ -218,6 +218,8 @@ def upload_documents(client_id):
     """
     API: Subir documentos del cliente
     """
+    logger.info(f"=== UPLOAD_DOCUMENTS llamado para client_id={client_id} ===")
+    logger.info(f"request.files keys: {list(request.files.keys())}")
     client = ClientService.get_client_by_id(client_id)
     if not client:
         return jsonify({'success': False, 'message': 'Cliente no encontrado'}), 404
