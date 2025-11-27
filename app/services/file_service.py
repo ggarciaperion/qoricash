@@ -28,6 +28,7 @@ class FileService:
         try:
             import boto3
             from botocore.exceptions import ClientError
+            from botocore.config import Config
 
             # Obtener credenciales de variables de entorno
             access_key = os.environ.get('AWS_ACCESS_KEY_ID')
@@ -49,14 +50,18 @@ class FileService:
                 print("[WARNING] AWS_S3_BUCKET_NAME no configurado")
                 self.configured = False
                 return
+            # Crear cliente de S3 con configuración especial para eventlet
+            s3_config = Config(
+                signature_version='s3v4',
+                s3={'addressing_style': 'path'}
+            )
 
-            # Crear cliente de S3
             self.s3_client = boto3.client(
                 's3',
                 aws_access_key_id=access_key,
                 aws_secret_access_key=secret_key,
                 region_name=region,
-                endpoint_url=f'https://s3.{region}.amazonaws.com',
+                config=s3_config
             )
 
             self.bucket_name = bucket_name
