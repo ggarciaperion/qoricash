@@ -169,6 +169,9 @@
 {% endblock %}
 
 {% block scripts %}
+<!-- SheetJS para generar archivos Excel -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
 <script>
 // Función para formatear números con comas
 function formatNumber(num) {
@@ -372,76 +375,107 @@ function exportarExcel() {
         totalVentasPEN += op.amount_pen;
     });
 
-    // Crear contenido CSV estructurado
-    let csv = '';
+    // Crear workbook de Excel
+    const wb = XLSX.utils.book_new();
+
+    // Array de arrays para construir la hoja con estructura
+    const data = [];
 
     // TÍTULO Y FECHA
-    csv += `REPORTE DE POSICIÓN,,,,,,\n`;
-    csv += `Fecha: ${fecha},,,,,,\n`;
-    csv += `,,,,,,\n`;
+    data.push(['REPORTE DE POSICIÓN']);
+    data.push([`Fecha: ${fecha}`]);
+    data.push([]); // Fila vacía
 
-    // RESUMEN (3 filas)
-    csv += `RESUMEN,,,,,,\n`;
-    csv += `Tipo,Total USD,Contravalor PEN,,,,\n`;
-    csv += `Compras,${totalComprasUSD.toFixed(2)},${totalComprasPEN.toFixed(2)},,,,\n`;
-    csv += `Ventas,${totalVentasUSD.toFixed(2)},${totalVentasPEN.toFixed(2)},,,,\n`;
-    csv += `Diferencia,${(totalVentasUSD - totalComprasUSD).toFixed(2)},${(totalVentasPEN - totalComprasPEN).toFixed(2)},,,,\n`;
-    csv += `,,,,,,\n`;
-    csv += `,,,,,,\n`;
+    // RESUMEN
+    data.push(['RESUMEN']);
+    data.push(['Tipo', 'Total USD', 'Contravalor PEN']);
+    data.push(['Compras', totalComprasUSD.toFixed(2), totalComprasPEN.toFixed(2)]);
+    data.push(['Ventas', totalVentasUSD.toFixed(2), totalVentasPEN.toFixed(2)]);
+    data.push(['Diferencia', (totalVentasUSD - totalComprasUSD).toFixed(2), (totalVentasPEN - totalComprasPEN).toFixed(2)]);
+    data.push([]); // Fila vacía
+    data.push([]); // Fila vacía
 
     // ENCABEZADOS DE LAS DOS TABLAS LADO A LADO
-    csv += `COMPRAS,,,,,,VENTAS,,,,\n`;
-    csv += `ID Operación,Cliente,USD,TC,PEN,Estado,ID Operación,Cliente,USD,TC,PEN,Estado\n`;
+    data.push(['COMPRAS', '', '', '', '', '', 'VENTAS', '', '', '', '', '']);
+    data.push(['ID Operación', 'Cliente', 'USD', 'TC', 'PEN', 'Estado', 'ID Operación', 'Cliente', 'USD', 'TC', 'PEN', 'Estado']);
 
     // DATOS DE AMBAS TABLAS (COMPRAS Y VENTAS LADO A LADO)
     const maxRows = Math.max(allCompras.length, allVentas.length);
 
     for (let i = 0; i < maxRows; i++) {
-        let row = '';
+        const row = [];
 
         // Datos de Compras (columnas 0-5)
         if (i < allCompras.length) {
             const op = allCompras[i];
-            row += `${op.operation_id},`;
-            row += `"${op.client_name}",`;
-            row += `${op.amount_usd.toFixed(2)},`;
-            row += `${op.exchange_rate.toFixed(4)},`;
-            row += `${op.amount_pen.toFixed(2)},`;
-            row += `${op.status},`;
+            row.push(op.operation_id);
+            row.push(op.client_name);
+            row.push(parseFloat(op.amount_usd.toFixed(2)));
+            row.push(parseFloat(op.exchange_rate.toFixed(4)));
+            row.push(parseFloat(op.amount_pen.toFixed(2)));
+            row.push(op.status);
         } else {
-            row += `,,,,,,`; // Celdas vacías si no hay más compras
+            row.push('', '', '', '', '', ''); // Celdas vacías
         }
 
         // Datos de Ventas (columnas 6-11)
         if (i < allVentas.length) {
             const op = allVentas[i];
-            row += `${op.operation_id},`;
-            row += `"${op.client_name}",`;
-            row += `${op.amount_usd.toFixed(2)},`;
-            row += `${op.exchange_rate.toFixed(4)},`;
-            row += `${op.amount_pen.toFixed(2)},`;
-            row += `${op.status}`;
+            row.push(op.operation_id);
+            row.push(op.client_name);
+            row.push(parseFloat(op.amount_usd.toFixed(2)));
+            row.push(parseFloat(op.exchange_rate.toFixed(4)));
+            row.push(parseFloat(op.amount_pen.toFixed(2)));
+            row.push(op.status);
         } else {
-            row += `,,,,,`; // Celdas vacías si no hay más ventas
+            row.push('', '', '', '', '', ''); // Celdas vacías
         }
 
-        csv += row + '\n';
+        data.push(row);
     }
 
-    // TOTALES AL FINAL DE CADA COLUMNA
-    csv += `\n`;
-    csv += `TOTAL COMPRAS,,$${totalComprasUSD.toFixed(2)},,$${totalComprasPEN.toFixed(2)},,TOTAL VENTAS,,$${totalVentasUSD.toFixed(2)},,$${totalVentasPEN.toFixed(2)},\n`;
+    // TOTALES AL FINAL
+    data.push([]); // Fila vacía
+    data.push([
+        'TOTAL COMPRAS',
+        '',
+        parseFloat(totalComprasUSD.toFixed(2)),
+        '',
+        parseFloat(totalComprasPEN.toFixed(2)),
+        '',
+        'TOTAL VENTAS',
+        '',
+        parseFloat(totalVentasUSD.toFixed(2)),
+        '',
+        parseFloat(totalVentasPEN.toFixed(2)),
+        ''
+    ]);
+
+    // Crear hoja de Excel desde el array de datos
+    const ws = XLSX.utils.aoa_to_sheet(data);
+
+    // Ajustar anchos de columnas
+    const colWidths = [
+        { wch: 15 }, // ID Operación Compras
+        { wch: 25 }, // Cliente Compras
+        { wch: 12 }, // USD Compras
+        { wch: 10 }, // TC Compras
+        { wch: 12 }, // PEN Compras
+        { wch: 12 }, // Estado Compras
+        { wch: 15 }, // ID Operación Ventas
+        { wch: 25 }, // Cliente Ventas
+        { wch: 12 }, // USD Ventas
+        { wch: 10 }, // TC Ventas
+        { wch: 12 }, // PEN Ventas
+        { wch: 12 }  // Estado Ventas
+    ];
+    ws['!cols'] = colWidths;
+
+    // Agregar hoja al workbook
+    XLSX.utils.book_append_sheet(wb, ws, 'Posición');
 
     // Descargar archivo
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', `Posicion_${fecha}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    XLSX.writeFile(wb, `Posicion_${fecha}.xlsx`);
 
     showAlert('Archivo exportado correctamente', 'success');
 }
