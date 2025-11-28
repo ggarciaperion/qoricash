@@ -61,10 +61,20 @@ print(f"[GUNICORN] Conexiones por worker: {worker_connections}")
 def post_fork(server, worker):
     """
     Hook ejecutado después de que un worker es forked.
-    Asegura que eventlet esté correctamente inicializado en cada worker.
+    Asegura que eventlet y psycopg2 estén correctamente inicializados en cada worker.
     """
     print(f"[WORKER {worker.pid}] Inicializando con eventlet monkey patch")
+
     # El monkey patch ya se ejecutó arriba, pero reforzamos para el worker
     import eventlet
     eventlet.monkey_patch()
+
+    # Configurar psycopg2 para trabajar con eventlet usando psycogreen
+    try:
+        from psycogreen.eventlet import patch_psycopg
+        patch_psycopg()
+        print(f"[WORKER {worker.pid}] psycopg2 patched con psycogreen")
+    except ImportError:
+        print(f"[WORKER {worker.pid}] WARNING: psycogreen no disponible")
+
     print(f"[WORKER {worker.pid}] Listo para recibir requests")

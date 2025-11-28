@@ -20,15 +20,6 @@ def create_app(config_name=None):
     from flask import Flask
     from app.config import get_config
 
-    # Configurar psycopg2 para usar con eventlet
-    # Esto es necesario para evitar errores de locks con greenlets
-    try:
-        from psycopg2 import extensions
-        # Hacer que psycopg2 sea compatible con eventlet
-        extensions.set_wait_callback(lambda conn: None)
-    except ImportError:
-        pass  # psycopg2 puede no estar instalado en desarrollo
-
     app = Flask(__name__)
 
     # Cargar configuración
