@@ -250,14 +250,9 @@ class ClientService:
                 db.session.add(client)
                 # set_bank_accounts actualiza bank_accounts_json y campos legacy a partir de la primera cuenta
                 client.set_bank_accounts(bank_accounts)
-                db.session.commit()
-            except Exception as db_exc:
-                db.session.rollback()
-                logger.exception("Error al persistir cliente")
-                return False, f'Error al guardar cliente en la base de datos: {str(db_exc)}', None
+                db.session.flush()  # Flush para obtener el ID del cliente
 
-            # Auditoría: intentar registrar sin romper el flujo principal
-            try:
+                # Auditoría: registrar antes del commit
                 AuditLog.log_action(
                     user_id=getattr(current_user, 'id', None),
                     action='CREATE_CLIENT',
@@ -265,8 +260,13 @@ class ClientService:
                     entity_id=client.id,
                     details=f'Cliente creado: {client.full_name or client.razon_social or client.dni} ({client.document_type}: {client.dni})'
                 )
-            except Exception:
-                logger.exception("Fallo al registrar auditoría de creación de cliente")
+
+                # Commit único para client y audit_log juntos
+                db.session.commit()
+            except Exception as db_exc:
+                db.session.rollback()
+                logger.exception("Error al persistir cliente")
+                return False, f'Error al guardar cliente en la base de datos: {str(db_exc)}', None
 
             # Emitir evento WebSocket para actualización en tiempo real
             try:
@@ -416,9 +416,7 @@ class ClientService:
             if 'bank_account_number' in data:
                 client.bank_account_number = (data.get('bank_account_number') or '').strip() or None
 
-            db.session.commit()
-
-            # Auditoría
+            # Auditoría: registrar antes del commit
             try:
                 AuditLog.log_action(
                     user_id=getattr(current_user, 'id', None),
@@ -429,6 +427,9 @@ class ClientService:
                 )
             except Exception:
                 logger.exception("Fallo al registrar auditoría de actualización")
+
+            # Commit único para client y audit_log juntos
+            db.session.commit()
 
             # Emitir evento WebSocket para actualización en tiempo real
             try:
@@ -464,9 +465,7 @@ class ClientService:
             old_status = client.status
             client.status = new_status
 
-            db.session.commit()
-
-            # Auditoría
+            # Auditoría: registrar antes del commit
             try:
                 AuditLog.log_action(
                     user_id=getattr(current_user, 'id', None),
@@ -477,6 +476,9 @@ class ClientService:
                 )
             except Exception:
                 logger.exception("Fallo al registrar auditoría de cambio de estado")
+
+            # Commit único para client y audit_log juntos
+            db.session.commit()
 
             # Emitir evento WebSocket para actualización de estado
             try:
@@ -514,6 +516,9 @@ class ClientService:
 
             client_name = client.full_name or client.razon_social or client.dni
 
+            # Guardar ID antes de eliminar para el evento WebSocket
+            deleted_client_id = client.id
+
             # Auditoría antes de eliminar
             try:
                 AuditLog.log_action(
@@ -526,10 +531,8 @@ class ClientService:
             except Exception:
                 logger.exception("Fallo al registrar auditoría de eliminación")
 
-            # Guardar ID antes de eliminar para el evento WebSocket
-            deleted_client_id = client.id
-
             db.session.delete(client)
+            # Commit único para delete y audit_log juntos
             db.session.commit()
 
             # Emitir evento WebSocket para eliminación
@@ -574,9 +577,7 @@ class ClientService:
                 if 'dni_back_url' in document_urls:
                     client.dni_back_url = document_urls['dni_back_url']
 
-            db.session.commit()
-
-            # Auditoría
+            # Auditoría: registrar antes del commit
             try:
                 AuditLog.log_action(
                     user_id=getattr(current_user, 'id', None),
@@ -587,6 +588,9 @@ class ClientService:
                 )
             except Exception:
                 logger.exception("Fallo al registrar auditoría de actualización documentos")
+
+            # Commit único para client y audit_log juntos
+            db.session.commit()
 
             return True, 'Documentos actualizados exitosamente', client
 
@@ -736,9 +740,8 @@ class ClientService:
 
             # Reasignar
             client.created_by = new_trader_id
-            db.session.commit()
 
-            # Auditoría
+            # Auditoría: registrar antes del commit
             try:
                 AuditLog.log_action(
                     user_id=current_user.id,
@@ -749,6 +752,9 @@ class ClientService:
                 )
             except Exception:
                 logger.exception("Fallo al registrar auditoría de reasignación")
+
+            # Commit único para client y audit_log juntos
+            db.session.commit()
 
             # Emitir evento WebSocket
             try:

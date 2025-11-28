@@ -185,7 +185,7 @@ class OperationService:
         )
         
         db.session.add(operation)
-        db.session.commit()
+        db.session.flush()  # Flush para obtener el ID de la operación
 
         # Registrar en auditoría
         AuditLog.log_action(
@@ -195,6 +195,9 @@ class OperationService:
             entity_id=operation.id,
             details=f'Operación {operation_id} creada: {operation_type} ${amount_usd} para {client.full_name}'
         )
+
+        # Commit único para operation y audit_log juntos
+        db.session.commit()
 
         # Enviar email de notificación (sin bloquear si falla)
         try:
@@ -259,8 +262,6 @@ class OperationService:
             else:
                 operation.notes = notes
         
-        db.session.commit()
-
         # Registrar en auditoría
         AuditLog.log_action(
             user_id=current_user.id,
@@ -270,6 +271,9 @@ class OperationService:
             details=f'Operación {operation.operation_id}: {old_status} → {new_status}',
             notes=notes
         )
+
+        # Commit único para operation y audit_log juntos
+        db.session.commit()
 
         # Enviar email si la operación se completó
         if new_status == 'Completada':
@@ -310,8 +314,7 @@ class OperationService:
             operation.operator_proof_url = operator_proof_url
         
         operation.updated_at = now_peru()
-        db.session.commit()
-        
+
         # Registrar en auditoría
         AuditLog.log_action(
             user_id=current_user.id,
@@ -320,7 +323,10 @@ class OperationService:
             entity_id=operation.id,
             details=f'Comprobantes actualizados para operación {operation.operation_id}'
         )
-        
+
+        # Commit único para operation y audit_log juntos
+        db.session.commit()
+
         return True, 'Comprobantes actualizados exitosamente', operation
     
     @staticmethod
@@ -356,8 +362,6 @@ class OperationService:
         else:
             operation.notes = f"[CANCELADO] {reason}"
         
-        db.session.commit()
-        
         # Registrar en auditoría
         AuditLog.log_action(
             user_id=current_user.id,
@@ -367,7 +371,10 @@ class OperationService:
             details=f'Operación {operation.operation_id} cancelada',
             notes=reason
         )
-        
+
+        # Commit único para operation y audit_log juntos
+        db.session.commit()
+
         return True, 'Operación cancelada exitosamente', operation
     
     @staticmethod

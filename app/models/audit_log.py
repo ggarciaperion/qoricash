@@ -60,7 +60,7 @@ class AuditLog(db.Model):
     def log_action(user_id, action, entity, entity_id=None, details=None, notes=None, ip_address=None, user_agent=None):
         """
         Crear un registro de auditoría
-        
+
         Args:
             user_id: ID del usuario que realiza la acción
             action: Acción realizada (CREATE_USER, UPDATE_OPERATION, etc.)
@@ -70,9 +70,13 @@ class AuditLog(db.Model):
             notes: Notas adicionales
             ip_address: IP del usuario
             user_agent: User agent del navegador
-        
+
         Returns:
             AuditLog: Registro creado
+
+        Note:
+            El registro se agrega a la sesión pero NO se hace commit.
+            Es responsabilidad del código que llama hacer el commit.
         """
         log = AuditLog(
             user_id=user_id,
@@ -85,7 +89,6 @@ class AuditLog(db.Model):
             user_agent=user_agent
         )
         db.session.add(log)
-        db.session.commit()
         return log
     
     def __repr__(self):

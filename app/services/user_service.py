@@ -118,10 +118,10 @@ class UserService:
             created_at=now_peru()
         )
         user.set_password(password)
-        
+
         db.session.add(user)
-        db.session.commit()
-        
+        db.session.flush()  # Flush para obtener el ID del nuevo usuario
+
         # Registrar en auditoría
         AuditLog.log_action(
             user_id=current_user.id,
@@ -130,7 +130,10 @@ class UserService:
             entity_id=user.id,
             details=f'Usuario {username} creado con rol {role}'
         )
-        
+
+        # Commit único para user y audit_log juntos
+        db.session.commit()
+
         return True, 'Usuario creado exitosamente', user
     
     @staticmethod
@@ -195,8 +198,7 @@ class UserService:
             user.status = status
         
         user.updated_at = now_peru()
-        db.session.commit()
-        
+
         # Registrar en auditoría
         AuditLog.log_action(
             user_id=current_user.id,
@@ -205,7 +207,10 @@ class UserService:
             entity_id=user.id,
             details=f'Usuario {user.username} actualizado'
         )
-        
+
+        # Commit único para user y audit_log juntos
+        db.session.commit()
+
         return True, 'Usuario actualizado exitosamente', user
     
     @staticmethod
@@ -237,8 +242,7 @@ class UserService:
         new_status = 'Inactivo' if user.status == 'Activo' else 'Activo'
         user.status = new_status
         user.updated_at = now_peru()
-        db.session.commit()
-        
+
         # Registrar en auditoría
         AuditLog.log_action(
             user_id=current_user.id,
@@ -247,7 +251,10 @@ class UserService:
             entity_id=user.id,
             details=f'Usuario {user.username} {new_status.lower()}'
         )
-        
+
+        # Commit único para user y audit_log juntos
+        db.session.commit()
+
         return True, f'Usuario {new_status.lower()} exitosamente', user
     
     @staticmethod
@@ -278,8 +285,7 @@ class UserService:
         # Soft delete (marcar como inactivo)
         user.status = 'Inactivo'
         user.updated_at = now_peru()
-        db.session.commit()
-        
+
         # Registrar en auditoría
         AuditLog.log_action(
             user_id=current_user.id,
@@ -288,7 +294,10 @@ class UserService:
             entity_id=user.id,
             details=f'Usuario {user.username} eliminado (soft delete)'
         )
-        
+
+        # Commit único para user y audit_log juntos
+        db.session.commit()
+
         return True, 'Usuario eliminado exitosamente'
     
     @staticmethod

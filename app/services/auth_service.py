@@ -45,11 +45,10 @@ class AuthService:
         
         # Login exitoso
         login_user(user, remember=remember)
-        
+
         # Actualizar last_login
         user.last_login = now_peru()
-        db.session.commit()
-        
+
         # Registrar en auditoría
         AuditLog.log_action(
             user_id=user.id,
@@ -58,7 +57,10 @@ class AuthService:
             entity_id=user.id,
             details=f'Login exitoso de {user.username}'
         )
-        
+
+        # Commit único para last_login y audit_log juntos
+        db.session.commit()
+
         return True, 'Login exitoso', user
     
     @staticmethod
@@ -77,8 +79,7 @@ class AuthService:
         
         # Actualizar last_logout
         user.last_logout = now_peru()
-        db.session.commit()
-        
+
         # Registrar en auditoría
         AuditLog.log_action(
             user_id=user.id,
@@ -87,10 +88,13 @@ class AuthService:
             entity_id=user.id,
             details=f'Logout de {user.username}'
         )
-        
+
+        # Commit único para last_logout y audit_log juntos
+        db.session.commit()
+
         # Logout
         logout_user()
-        
+
         return True, 'Sesión cerrada exitosamente'
     
     @staticmethod
@@ -138,8 +142,7 @@ class AuthService:
         
         # Cambiar contraseña
         user.set_password(new_password)
-        db.session.commit()
-        
+
         # Registrar en auditoría
         AuditLog.log_action(
             user_id=user.id,
@@ -148,7 +151,10 @@ class AuthService:
             entity_id=user.id,
             details='Contraseña cambiada exitosamente'
         )
-        
+
+        # Commit único para password y audit_log juntos
+        db.session.commit()
+
         return True, 'Contraseña actualizada exitosamente'
     
     @staticmethod
@@ -177,8 +183,7 @@ class AuthService:
         
         # Cambiar contraseña
         target_user.set_password(new_password)
-        db.session.commit()
-        
+
         # Registrar en auditoría
         AuditLog.log_action(
             user_id=admin_user.id,
@@ -187,5 +192,8 @@ class AuthService:
             entity_id=target_user.id,
             details=f'Contraseña restablecida para {target_user.username}'
         )
-        
+
+        # Commit único para password y audit_log juntos
+        db.session.commit()
+
         return True, f'Contraseña de {target_user.username} restablecida exitosamente'
