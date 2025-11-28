@@ -110,6 +110,7 @@ def configure_logging(app):
 def register_error_handlers(app):
     """Registrar manejadores de errores"""
     from flask import jsonify
+    from app.extensions import db
 
     @app.errorhandler(404)
     def not_found_error(error):
@@ -118,7 +119,10 @@ def register_error_handlers(app):
 
     @app.errorhandler(500)
     def internal_error(error):
-        db.session.rollback()
+        try:
+            db.session.rollback()
+        except:
+            pass  # Si falla el rollback, continuar
         # Siempre retornar JSON para APIs
         return jsonify({'success': False, 'error': 'Error interno del servidor'}), 500
 
