@@ -356,13 +356,7 @@ function actualizarSubtituloFecha(fecha) {
 function exportarExcel() {
     const fecha = $('#fechaSelector').val() || getPeruDate();
 
-    // Crear contenido CSV
-    let csv = 'REPORTE DE POSICIÓN - ' + fecha + '\n\n';
-
-    // Resumen
-    csv += 'RESUMEN\n';
-    csv += 'Tipo,Total USD,Contravalor PEN\n';
-
+    // Calcular totales
     let totalComprasUSD = 0;
     let totalComprasPEN = 0;
     let totalVentasUSD = 0;
@@ -378,25 +372,65 @@ function exportarExcel() {
         totalVentasPEN += op.amount_pen;
     });
 
-    csv += `Compras,${totalComprasUSD.toFixed(2)},${totalComprasPEN.toFixed(2)}\n`;
-    csv += `Ventas,${totalVentasUSD.toFixed(2)},${totalVentasPEN.toFixed(2)}\n`;
-    csv += `Diferencia,${(totalVentasUSD - totalComprasUSD).toFixed(2)},${(totalVentasPEN - totalComprasPEN).toFixed(2)}\n\n`;
+    // Crear contenido CSV estructurado
+    let csv = '';
 
-    // Compras
-    csv += 'COMPRAS\n';
-    csv += 'ID Operación,Cliente,USD,TC,PEN,Estado,Crítica\n';
-    allCompras.forEach(op => {
-        csv += `${op.operation_id},${op.client_name},${op.amount_usd.toFixed(2)},${op.exchange_rate.toFixed(4)},${op.amount_pen.toFixed(2)},${op.status},${op.es_critica ? 'SÍ' : 'NO'}\n`;
-    });
+    // TÍTULO Y FECHA
+    csv += `REPORTE DE POSICIÓN,,,,,,\n`;
+    csv += `Fecha: ${fecha},,,,,,\n`;
+    csv += `,,,,,,\n`;
 
-    csv += '\n';
+    // RESUMEN (3 filas)
+    csv += `RESUMEN,,,,,,\n`;
+    csv += `Tipo,Total USD,Contravalor PEN,,,,\n`;
+    csv += `Compras,${totalComprasUSD.toFixed(2)},${totalComprasPEN.toFixed(2)},,,,\n`;
+    csv += `Ventas,${totalVentasUSD.toFixed(2)},${totalVentasPEN.toFixed(2)},,,,\n`;
+    csv += `Diferencia,${(totalVentasUSD - totalComprasUSD).toFixed(2)},${(totalVentasPEN - totalComprasPEN).toFixed(2)},,,,\n`;
+    csv += `,,,,,,\n`;
+    csv += `,,,,,,\n`;
 
-    // Ventas
-    csv += 'VENTAS\n';
-    csv += 'ID Operación,Cliente,USD,TC,PEN,Estado,Crítica\n';
-    allVentas.forEach(op => {
-        csv += `${op.operation_id},${op.client_name},${op.amount_usd.toFixed(2)},${op.exchange_rate.toFixed(4)},${op.amount_pen.toFixed(2)},${op.status},${op.es_critica ? 'SÍ' : 'NO'}\n`;
-    });
+    // ENCABEZADOS DE LAS DOS TABLAS LADO A LADO
+    csv += `COMPRAS,,,,,,VENTAS,,,,\n`;
+    csv += `ID Operación,Cliente,USD,TC,PEN,Estado,ID Operación,Cliente,USD,TC,PEN,Estado\n`;
+
+    // DATOS DE AMBAS TABLAS (COMPRAS Y VENTAS LADO A LADO)
+    const maxRows = Math.max(allCompras.length, allVentas.length);
+
+    for (let i = 0; i < maxRows; i++) {
+        let row = '';
+
+        // Datos de Compras (columnas 0-5)
+        if (i < allCompras.length) {
+            const op = allCompras[i];
+            row += `${op.operation_id},`;
+            row += `"${op.client_name}",`;
+            row += `${op.amount_usd.toFixed(2)},`;
+            row += `${op.exchange_rate.toFixed(4)},`;
+            row += `${op.amount_pen.toFixed(2)},`;
+            row += `${op.status},`;
+        } else {
+            row += `,,,,,,`; // Celdas vacías si no hay más compras
+        }
+
+        // Datos de Ventas (columnas 6-11)
+        if (i < allVentas.length) {
+            const op = allVentas[i];
+            row += `${op.operation_id},`;
+            row += `"${op.client_name}",`;
+            row += `${op.amount_usd.toFixed(2)},`;
+            row += `${op.exchange_rate.toFixed(4)},`;
+            row += `${op.amount_pen.toFixed(2)},`;
+            row += `${op.status}`;
+        } else {
+            row += `,,,,,`; // Celdas vacías si no hay más ventas
+        }
+
+        csv += row + '\n';
+    }
+
+    // TOTALES AL FINAL DE CADA COLUMNA
+    csv += `\n`;
+    csv += `TOTAL COMPRAS,,$${totalComprasUSD.toFixed(2)},,$${totalComprasPEN.toFixed(2)},,TOTAL VENTAS,,$${totalVentasUSD.toFixed(2)},,$${totalVentasPEN.toFixed(2)},\n`;
 
     // Descargar archivo
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
