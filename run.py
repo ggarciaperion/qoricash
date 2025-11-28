@@ -9,6 +9,14 @@ Producción: gunicorn -c gunicorn_config.py run:app
 import eventlet
 eventlet.monkey_patch()
 
+# Configurar psycopg2 para eventlet INMEDIATAMENTE después del monkey patch
+try:
+    from psycogreen.eventlet import patch_psycopg
+    patch_psycopg()
+    print("[RUN.PY] psycopg2 patched con psycogreen")
+except ImportError:
+    print("[RUN.PY] WARNING: psycogreen no disponible")
+
 import os
 from dotenv import load_dotenv
 
