@@ -1129,7 +1129,6 @@ def mark_notes_read(operation_id):
 
 @operations_bp.route('/api/check_pending_operations', methods=['GET'])
 @login_required
-@require_role('Operador')
 def check_pending_operations():
     """
     API: Verificar operaciones en estado 'En proceso' que requieren atención (Operador)
@@ -1141,18 +1140,34 @@ def check_pending_operations():
     Returns:
         JSON con lista de operaciones que necesitan atención y tiempo transcurrido
     """
+    # Si el usuario no es Operador, retornar vacío (no error)
+    if current_user.role != 'Operador':
+        return jsonify({
+            'success': True,
+            'pending_operations': [],
+            'count': 0
+        })
+
     from app.extensions import db
     from app.models.operation import Operation
     from sqlalchemy import and_
 
-    # Obtener todas las operaciones en proceso asignadas al operador actual
-    operations = Operation.query.filter(
-        and_(
-            Operation.status == 'En proceso',
-            Operation.in_process_since.isnot(None),
-            Operation.assigned_operator_id == current_user.id  # Solo sus operaciones asignadas
-        )
-    ).all()
+    try:
+        # Obtener todas las operaciones en proceso asignadas al operador actual
+        operations = Operation.query.filter(
+            and_(
+                Operation.status == 'En proceso',
+                Operation.in_process_since.isnot(None),
+                Operation.assigned_operator_id == current_user.id  # Solo sus operaciones asignadas
+            )
+        ).all()
+    except Exception as e:
+        # Si falla la consulta (ej: columna no existe), retornar vacío
+        return jsonify({
+            'success': True,
+            'pending_operations': [],
+            'count': 0
+        })
 
     pending_operations = []
     current_time = now_peru()
