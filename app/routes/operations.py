@@ -12,6 +12,9 @@ import openpyxl
 from openpyxl.styles import Font, Alignment, PatternFill
 from io import BytesIO
 from datetime import datetime
+import logging
+
+logger = logging.getLogger(__name__)
 
 operations_bp = Blueprint('operations', __name__)
 
@@ -1093,6 +1096,60 @@ def upload_operator_proof_new(operation_id):
         'url': url,
         'proofs': operation.operator_proofs
     })
+
+
+@operations_bp.route('/api/delete_operator_proof/<int:operation_id>/<int:proof_id>', methods=['DELETE'])
+@login_required
+@require_role('Operador', 'Master')
+def delete_operator_proof(operation_id, proof_id):
+    """
+    API: Eliminar comprobante del operador
+
+    DELETE: Elimina un comprobante específico del operador
+    """
+    from app.extensions import db
+    from app.models.operation import Operation
+
+    operation = Operation.query.get(operation_id)
+    if not operation:
+        return jsonify({'success': False, 'message': 'Operación no encontrada'}), 404
+
+    if operation.status != 'En proceso':
+        return jsonify({'success': False, 'message': 'Solo se pueden eliminar comprobantes en operaciones en proceso'}), 400
+
+    try:
+        # Obtener la lista de comprobantes
+        proofs = operation.operator_proofs or []
+
+        # Verificar que el proof_id esté dentro del rango
+        if proof_id < 0 or proof_id >= len(proofs):
+            return jsonify({'success': False, 'message': 'Comprobante no encontrado'}), 404
+
+        # Eliminar el comprobante de Cloudinary si existe
+        proof_to_delete = proofs[proof_id]
+        if 'comprobante_url' in proof_to_delete:
+            file_service = FileService()
+            # Intentar eliminar de Cloudinary (no falla si no se puede)
+            try:
+                file_service.delete_file_from_url(proof_to_delete['comprobante_url'])
+            except Exception as e:
+                logger.warning(f"No se pudo eliminar archivo de Cloudinary: {e}")
+
+        # Eliminar el comprobante de la lista
+        proofs.pop(proof_id)
+        operation.operator_proofs = proofs
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': 'Comprobante eliminado correctamente',
+            'proofs': operation.operator_proofs
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error al eliminar comprobante: {e}")
+        return jsonify({'success': False, 'message': f'Error al eliminar comprobante: {str(e)}'}), 500
 
 
 @operations_bp.route('/api/mark_notes_read/<int:operation_id>', methods=['POST'])

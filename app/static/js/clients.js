@@ -732,11 +732,18 @@ function editClient(clientId) {
                 }
 
                 // Mostrar modal
-                // Las restricciones se aplicarán automáticamente con el evento 'shown.bs.modal'
                 const modalElement = document.getElementById('createClientModal');
                 if (modalElement) {
                     const modal = new bootstrap.Modal(modalElement);
                     modal.show();
+
+                    // Aplicar restricciones de rol después de que el modal se muestre
+                    if (typeof currentUserRole !== 'undefined') {
+                        // Esperar un momento para que el modal esté completamente renderizado
+                        setTimeout(() => {
+                            applyRoleRestrictions(currentUserRole);
+                        }, 100);
+                    }
                 }
             } else {
                 showAlert('error', data.message);

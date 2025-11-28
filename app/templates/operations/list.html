@@ -957,7 +957,9 @@ function loadEditModal() {
         ? '<span class="badge bg-success">Compra USD</span>'
         : '<span class="badge bg-primary">Venta USD</span>');
     $('#edit_op_status').html(getStatusBadge(status));
-    $('#edit_exchange_rate').text(parseFloat(op.exchange_rate).toFixed(4));
+    // Formatear tipo de cambio con separador de miles
+    const formattedRate = parseFloat(op.exchange_rate).toLocaleString('en-US', {minimumFractionDigits: 4, maximumFractionDigits: 4});
+    $('#edit_exchange_rate').text(formattedRate);
     // Formatear PEN con separador de miles
     const formattedPEN = parseFloat(op.amount_pen).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
     $('#edit_amount_pen').text('S/ ' + formattedPEN);
@@ -1163,11 +1165,16 @@ function loadOperatorProofs(proofs) {
     // Mostrar comprobantes ya subidos
     proofs.forEach((p, i) => {
         const html = `
-        <div class="operator-proof-row border rounded p-2 mb-2 d-flex align-items-center" data-index="${i}">
-            <a href="${p.comprobante_url}" target="_blank" class="btn btn-sm btn-outline-success me-2">
-                <i class="bi bi-download"></i> Comprobante ${i+1}
-            </a>
-            <span class="text-success"><i class="bi bi-check-circle"></i> Subido</span>
+        <div class="operator-proof-row border rounded p-2 mb-2 d-flex align-items-center justify-content-between" data-index="${i}" data-proof-id="${p.id}">
+            <div class="d-flex align-items-center">
+                <a href="${p.comprobante_url}" target="_blank" class="btn btn-sm btn-outline-success me-2">
+                    <i class="bi bi-download"></i> Comprobante ${i+1}
+                </a>
+                <span class="text-success"><i class="bi bi-check-circle"></i> Subido</span>
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-danger" onclick="deleteOperatorProof(${p.id}, ${i})" title="Eliminar comprobante">
+                <i class="bi bi-trash"></i>
+            </button>
         </div>`;
         $('#operator_proofs_container').append(html);
     });
@@ -1261,6 +1268,26 @@ function uploadOperatorProof(input, index) {
 
 function addOperatorProof() {
     addOperatorProofInput();
+}
+
+function deleteOperatorProof(proofId, index) {
+    if (!confirm('¿Estás seguro de eliminar este comprobante?')) {
+        return;
+    }
+
+    const operationId = $('#edit_operation_id').val();
+
+    ajaxRequest(`/operations/api/delete_operator_proof/${operationId}/${proofId}`, 'DELETE', null, function(response) {
+        showAlert(response.message || 'Comprobante eliminado', 'success');
+
+        // Recargar comprobantes
+        ajaxRequest(`/operations/api/${operationId}`, 'GET', null, function(resp) {
+            currentOperation.operator_proofs = resp.operation.operator_proofs || [];
+            loadOperatorProofs(currentOperation.operator_proofs);
+        });
+    }, function(error) {
+        showAlert('Error al eliminar comprobante', 'danger');
+    });
 }
 
 // === UTILIDADES ===

@@ -26,7 +26,7 @@ function viewOperation(operationId) {
                     <hr>
                     <h6>Montos</h6>
                     <p><strong>Monto USD:</strong> ${formatCurrency(op.amount_usd, 'USD')}</p>
-                    <p><strong>Tipo de Cambio:</strong> ${parseFloat(op.exchange_rate).toFixed(4)}</p>
+                    <p><strong>Tipo de Cambio:</strong> ${parseFloat(op.exchange_rate).toLocaleString('en-US', {minimumFractionDigits: 4, maximumFractionDigits: 4})}</p>
                     <p><strong>Monto PEN:</strong> ${formatCurrency(op.amount_pen, 'PEN')}</p>
                 </div>
             </div>

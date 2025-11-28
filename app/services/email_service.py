@@ -380,13 +380,6 @@ class EmailService:
             </div>
             {% endif %}
 
-            {% if operation.notes %}
-            <div style="margin: 20px 0; padding: 15px; background: #fef3c7; border-radius: 6px; border-left: 4px solid #f59e0b;">
-                <p style="margin: 0; font-weight: 600; color: #92400e;">Notas:</p>
-                <p style="margin: 5px 0 0 0; color: #78350f;">{{ operation.notes }}</p>
-            </div>
-            {% endif %}
-
             <p style="margin-top: 25px;">Nuestro equipo procesará su operación a la brevedad posible. Le mantendremos informado sobre el progreso.</p>
 
             <p style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 13px;">
