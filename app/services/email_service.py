@@ -746,8 +746,8 @@ class EmailService:
                 {% if client.document_type %}
                 <p style="margin: 5px 0;"><strong>Tipo Documento:</strong> {{ client.document_type }}</p>
                 {% endif %}
-                {% if client.document_number %}
-                <p style="margin: 5px 0;"><strong>Número Documento:</strong> {{ client.document_number }}</p>
+                {% if client.dni %}
+                <p style="margin: 5px 0;"><strong>Número Documento:</strong> {{ client.dni }}</p>
                 {% endif %}
                 {% if client.phone %}
                 <p style="margin: 5px 0;"><strong>Teléfono:</strong> {{ client.phone }}</p>

@@ -294,7 +294,7 @@ function validateDuplicateAccounts() {
  * Configurar inputs de mayúsculas automáticas
  */
 function setupUpperCaseInputs() {
-    const upperCaseInputs = document.querySelectorAll('.text-uppercase-input');
+    const upperCaseInputs = document.querySelectorAll('.text-uppercase-input, .text-uppercase-field');
     upperCaseInputs.forEach(input => {
         input.addEventListener('input', function(e) {
             const start = this.selectionStart;
