@@ -2,6 +2,11 @@
 Configuración de Gunicorn para producción en Render
 Optimizado para QoriCash Trading
 """
+# CRÍTICO: Monkey patch de eventlet DEBE ser lo primero
+# Esto debe ejecutarse ANTES de cualquier otro import
+import eventlet
+eventlet.monkey_patch()
+
 import os
 import multiprocessing
 
@@ -51,3 +56,15 @@ certfile = None
 
 print(f"[GUNICORN] Configurado: {workers} workers ({worker_class}), timeout {timeout}s")
 print(f"[GUNICORN] Conexiones por worker: {worker_connections}")
+
+# Hooks para inicialización de workers
+def post_fork(server, worker):
+    """
+    Hook ejecutado después de que un worker es forked.
+    Asegura que eventlet esté correctamente inicializado en cada worker.
+    """
+    print(f"[WORKER {worker.pid}] Inicializando con eventlet monkey patch")
+    # El monkey patch ya se ejecutó arriba, pero reforzamos para el worker
+    import eventlet
+    eventlet.monkey_patch()
+    print(f"[WORKER {worker.pid}] Listo para recibir requests")

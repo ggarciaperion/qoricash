@@ -4,33 +4,33 @@ Factory de la aplicación Flask para QoriCash Trading V2
 Este archivo crea y configura la aplicación Flask usando el patrón Factory.
 """
 import logging
-from flask import Flask
-from app.config import get_config
-from app.extensions import db, migrate, login_manager, csrf, socketio, limiter, mail
-
-# Configurar psycopg2 para usar con eventlet
-# Esto es necesario para evitar errores de locks con greenlets
-try:
-    from psycopg2 import extensions
-    from psycopg2.pool import SimpleConnectionPool
-    # Hacer que psycopg2 sea compatible con eventlet
-    extensions.set_wait_callback(lambda conn: None)
-except ImportError:
-    pass  # psycopg2 puede no estar instalado en desarrollo
 
 
 def create_app(config_name=None):
     """
     Factory para crear la aplicación Flask
-    
+
     Args:
         config_name: Nombre de la configuración ('development', 'production', 'testing')
-    
+
     Returns:
         Flask app instance
     """
+    # Imports dentro de la función para evitar ejecución antes del monkey patch
+    from flask import Flask
+    from app.config import get_config
+
+    # Configurar psycopg2 para usar con eventlet
+    # Esto es necesario para evitar errores de locks con greenlets
+    try:
+        from psycopg2 import extensions
+        # Hacer que psycopg2 sea compatible con eventlet
+        extensions.set_wait_callback(lambda conn: None)
+    except ImportError:
+        pass  # psycopg2 puede no estar instalado en desarrollo
+
     app = Flask(__name__)
-    
+
     # Cargar configuración
     if config_name:
         from app.config import config
@@ -58,6 +58,9 @@ def create_app(config_name=None):
 
 def initialize_extensions(flask_app):
     """Inicializar extensiones de Flask"""
+    # Import aquí para evitar ejecución antes del monkey patch
+    from app.extensions import db, migrate, login_manager, csrf, socketio, limiter, mail
+
     db.init_app(flask_app)
     migrate.init_app(flask_app, db)
     login_manager.init_app(flask_app)
@@ -155,6 +158,8 @@ def register_template_filters(flask_app):
 
 def register_shell_context(app):
     """Registrar contexto para flask shell"""
+    from app.extensions import db
+
     @app.shell_context_processor
     def make_shell_context():
         from app.models.user import User
@@ -166,3 +171,24 @@ def register_shell_context(app):
             'Client': Client,
             'Operation': Operation
         }
+
+
+# Exportar socketio para que run.py pueda importarlo
+# Import lazy para evitar ejecución antes del monkey patch
+socketio = None
+
+
+def _get_socketio():
+    """Obtener instancia de socketio de forma lazy"""
+    global socketio
+    if socketio is None:
+        from app.extensions import socketio as _socketio
+        socketio = _socketio
+    return socketio
+
+
+# Permitir import directo de socketio
+def __getattr__(name):
+    if name == 'socketio':
+        return _get_socketio()
+    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
