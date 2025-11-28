@@ -82,13 +82,16 @@ class ProductionConfig(Config):
     TESTING = False
     SESSION_COOKIE_SECURE = True
 
-    # Database optimizations
+    # Database optimizations for eventlet
+    # Eventlet requires special pool configuration to avoid lock issues
     SQLALCHEMY_ENGINE_OPTIONS = {
-        'pool_size': 10,
+        'pool_size': 5,
         'pool_recycle': 3600,
         'pool_pre_ping': True,
-        'max_overflow': 20,
-        'pool_timeout': 30
+        'max_overflow': 10,
+        'pool_timeout': 30,
+        # This is critical for eventlet compatibility
+        'connect_args': {'options': '-c statement_timeout=300000'}
     }
 
     # Security

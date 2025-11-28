@@ -4,10 +4,15 @@ Entry point para QoriCash Trading V2
 Desarrollo: python run.py
 Producción: gunicorn -c gunicorn_config.py run:app
 """
+# CRÍTICO: Monkey patch de eventlet DEBE ser lo primero
+# Esto debe ejecutarse antes de cualquier import de threading, SQLAlchemy, etc.
+import eventlet
+eventlet.monkey_patch()
+
 import os
 from dotenv import load_dotenv
 
-# Cargar variables de entorno PRIMERO (antes de importar app)
+# Cargar variables de entorno (después de monkey patch)
 load_dotenv()
 
 # Ahora sí importar la app (para que config.py ya tenga las variables disponibles)
