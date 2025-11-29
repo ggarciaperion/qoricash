@@ -61,7 +61,7 @@ function initializeBankAccounts() {
  */
 function addBankAccount() {
     if (bankAccountsCount >= MAX_ACCOUNTS) {
-        showAlert('error', `Máximo ${MAX_ACCOUNTS} cuentas permitidas`);
+        showNotification('error', `Máximo ${MAX_ACCOUNTS} cuentas permitidas`);
         return;
     }
 
@@ -605,12 +605,12 @@ function viewClient(clientId) {
                 const modal = new bootstrap.Modal(document.getElementById('viewClientModal'));
                 modal.show();
             } else {
-                showAlert('error', data.message);
+                showNotification('error', data.message);
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            showAlert('error', 'Error al cargar los datos del cliente');
+            showNotification('error', 'Error al cargar los datos del cliente');
         });
 }
 
@@ -746,12 +746,12 @@ function editClient(clientId) {
                     }
                 }
             } else {
-                showAlert('error', data.message);
+                showNotification('error', data.message);
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            showAlert('error', 'Error al cargar los datos del cliente');
+            showNotification('error', 'Error al cargar los datos del cliente');
         });
 }
 
@@ -825,7 +825,7 @@ function saveClient() {
     const form = document.getElementById('clientForm');
 
     if (!form) {
-        showAlert('error', 'Formulario no encontrado');
+        showNotification('error', 'Formulario no encontrado');
         return;
     }
 
@@ -838,14 +838,14 @@ function saveClient() {
     // Validar cuentas bancarias mínimas
     const validationResult = validateMinimumAccounts();
     if (!validationResult) {
-        showAlert('error', 'Debes registrar al menos una cuenta en Soles (S/) y otra en Dólares ($)');
+        showNotification('error', 'Debes registrar al menos una cuenta en Soles (S/) y otra en Dólares ($)');
         document.getElementById('accountsValidationMessage')?.scrollIntoView({ behavior: 'smooth' });
         return;
     }
 
     // Validar duplicados
     if (!validateDuplicateAccounts()) {
-        showAlert('error', 'Tienes cuentas duplicadas (mismo banco y misma moneda). Por favor, elimina los duplicados.');
+        showNotification('error', 'Tienes cuentas duplicadas (mismo banco y misma moneda). Por favor, elimina los duplicados.');
         document.getElementById('duplicateAccountsMessage')?.scrollIntoView({ behavior: 'smooth' });
         return;
     }
@@ -858,7 +858,7 @@ function saveClient() {
         const account = document.getElementById(`bankAccountNumber${index}`)?.value;
 
         if (bank && account && (bank === 'BBVA' || bank === 'SCOTIABANK') && account.length !== 20) {
-            showAlert('error', `El CCI de ${bank} debe tener exactamente 20 dígitos`);
+            showNotification('error', `El CCI de ${bank} debe tener exactamente 20 dígitos`);
             return;
         }
     }
@@ -976,24 +976,24 @@ function saveClient() {
                 // Subir archivos
                 uploadClientDocuments(data.client.id, files)
                     .then(() => {
-                        showAlert('success', data.message);
+                        showNotification('success', data.message);
                         setTimeout(() => location.reload(), 1500);
                     });
             } else {
-                showAlert('success', data.message);
+                showNotification('success', data.message);
                 setTimeout(() => location.reload(), 1500);
             }
 
             // Cerrar modal
             bootstrap.Modal.getInstance(document.getElementById('createClientModal')).hide();
         } else {
-            showAlert('error', data.message);
+            showNotification('error', data.message);
         }
     })
     .catch(error => {
         hideLoading();
         console.error('Error:', error);
-        showAlert('error', 'Error al guardar el cliente');
+        showNotification('error', 'Error al guardar el cliente');
     });
 }
 
@@ -1046,7 +1046,7 @@ function toggleClientStatus(clientId, currentStatus) {
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    showAlert('success', data.message);
+                    showNotification('success', data.message);
 
                     // Actualizar badge en la tabla
                     const row = document.querySelector(`tr[data-client-id="${clientId}"]`);
@@ -1061,12 +1061,12 @@ function toggleClientStatus(clientId, currentStatus) {
                     btn.setAttribute('onclick', `toggleClientStatus(${clientId}, '${newStatus}')`);
                     btn.title = newStatus === 'Activo' ? 'Desactivar' : 'Activar';
                 } else {
-                    showAlert('error', data.message);
+                    showNotification('error', data.message);
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                showAlert('error', 'Error al cambiar el estado');
+                showNotification('error', 'Error al cambiar el estado');
             });
         }
     });
@@ -1096,15 +1096,15 @@ function deleteClient(clientId) {
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    showAlert('success', data.message);
+                    showNotification('success', data.message);
                     setTimeout(() => location.reload(), 1500);
                 } else {
-                    showAlert('error', data.message);
+                    showNotification('error', data.message);
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                showAlert('error', 'Error al eliminar el cliente');
+                showNotification('error', 'Error al eliminar el cliente');
             });
         }
     });
@@ -1137,12 +1137,12 @@ function exportClients() {
             window.URL.revokeObjectURL(url);
             document.body.removeChild(a);
 
-            showAlert('success', 'Clientes exportados exitosamente');
+            showNotification('success', 'Clientes exportados exitosamente');
         })
         .catch(error => {
             hideLoading();
             console.error('Error:', error);
-            showAlert('error', 'Error al exportar los clientes');
+            showNotification('error', 'Error al exportar los clientes');
         });
 }
 
@@ -1289,7 +1289,7 @@ function getCSRFToken() {
 /**
  * Mostrar alerta con SweetAlert2
  */
-function showAlert(type, message) {
+function showNotification(type, message) {
     const icon = type === 'success' ? 'success' : 'error';
     const title = type === 'success' ? '¡Éxito!' : 'Error';
 
@@ -1573,18 +1573,18 @@ function uploadValidationOc() {
     const file = fileInput ? fileInput.files[0] : null;
 
     if (!file) {
-        showAlert('error', 'Por favor selecciona un archivo');
+        showNotification('error', 'Por favor selecciona un archivo');
         return;
     }
 
     if (!editingClientId) {
-        showAlert('error', 'No se ha identificado el cliente');
+        showNotification('error', 'No se ha identificado el cliente');
         return;
     }
 
     // Validar tamaño (máximo 10MB)
     if (file.size > 10 * 1024 * 1024) {
-        showAlert('error', 'El archivo no debe superar 10MB');
+        showNotification('error', 'El archivo no debe superar 10MB');
         return;
     }
 
@@ -1604,16 +1604,16 @@ function uploadValidationOc() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            showAlert('success', 'Documento de validación OC subido correctamente');
+            showNotification('success', 'Documento de validación OC subido correctamente');
             // Actualizar estado
             updateValidationOcStatus(data.validation_oc_url);
         } else {
-            showAlert('error', data.message || 'Error al subir el documento');
+            showNotification('error', data.message || 'Error al subir el documento');
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        showAlert('error', 'Error al subir el documento de validación');
+        showNotification('error', 'Error al subir el documento de validación');
     })
     .finally(() => {
         if (uploadBtn) {
@@ -1645,12 +1645,12 @@ async function loadActiveTraders() {
             activeTraders = data.traders;
             return activeTraders;
         } else {
-            showAlert('error', 'Error al cargar traders');
+            showNotification('error', 'Error al cargar traders');
             return [];
         }
     } catch (error) {
         console.error('Error:', error);
-        showAlert('error', 'Error al cargar traders');
+        showNotification('error', 'Error al cargar traders');
         return [];
     }
 }
@@ -1665,7 +1665,7 @@ async function showReassignModal(clientId) {
     // Obtener datos del cliente
     const row = document.querySelector(`tr[data-client-id="${clientId}"]`);
     if (!row) {
-        showAlert('error', 'Cliente no encontrado');
+        showNotification('error', 'Cliente no encontrado');
         return;
     }
 
@@ -1702,7 +1702,7 @@ async function confirmReassignClient() {
     const newTraderId = document.getElementById('reassignNewTrader').value;
 
     if (!newTraderId) {
-        showAlert('error', 'Debe seleccionar un trader');
+        showNotification('error', 'Debe seleccionar un trader');
         return;
     }
 
@@ -1718,7 +1718,7 @@ async function confirmReassignClient() {
         const data = await response.json();
 
         if (data.success) {
-            showAlert('success', data.message);
+            showNotification('success', data.message);
 
             // Cerrar modal
             const modal = bootstrap.Modal.getInstance(document.getElementById('reassignClientModal'));
@@ -1729,11 +1729,11 @@ async function confirmReassignClient() {
                 location.reload();
             }, 1500);
         } else {
-            showAlert('error', data.message);
+            showNotification('error', data.message);
         }
     } catch (error) {
         console.error('Error:', error);
-        showAlert('error', 'Error al reasignar cliente');
+        showNotification('error', 'Error al reasignar cliente');
     }
 }
 
@@ -1803,12 +1803,12 @@ async function confirmBulkReassignSelected() {
     const newTraderId = document.getElementById('bulkNewTrader').value;
 
     if (clientIds.length === 0) {
-        showAlert('error', 'Debe seleccionar al menos un cliente');
+        showNotification('error', 'Debe seleccionar al menos un cliente');
         return;
     }
 
     if (!newTraderId) {
-        showAlert('error', 'Debe seleccionar un trader');
+        showNotification('error', 'Debe seleccionar un trader');
         return;
     }
 
@@ -1831,7 +1831,7 @@ async function confirmBulkReassignSelected() {
         const data = await response.json();
 
         if (data.success || (data.results && data.results.success.length > 0)) {
-            showAlert('success', data.message);
+            showNotification('success', data.message);
 
             // Cerrar modal
             const modal = bootstrap.Modal.getInstance(document.getElementById('bulkReassignModal'));
@@ -1842,11 +1842,11 @@ async function confirmBulkReassignSelected() {
                 location.reload();
             }, 1500);
         } else {
-            showAlert('error', data.message);
+            showNotification('error', data.message);
         }
     } catch (error) {
         console.error('Error:', error);
-        showAlert('error', 'Error al reasignar clientes');
+        showNotification('error', 'Error al reasignar clientes');
     }
 }
 
@@ -1858,17 +1858,17 @@ async function confirmBulkReassignFromTrader() {
     const targetTraderId = document.getElementById('bulkTargetTrader').value;
 
     if (!sourceTraderId) {
-        showAlert('error', 'Debe seleccionar el trader origen');
+        showNotification('error', 'Debe seleccionar el trader origen');
         return;
     }
 
     if (!targetTraderId) {
-        showAlert('error', 'Debe seleccionar el trader destino');
+        showNotification('error', 'Debe seleccionar el trader destino');
         return;
     }
 
     if (sourceTraderId === targetTraderId) {
-        showAlert('error', 'El trader origen y destino no pueden ser el mismo');
+        showNotification('error', 'El trader origen y destino no pueden ser el mismo');
         return;
     }
 
@@ -1882,12 +1882,12 @@ async function confirmBulkReassignFromTrader() {
         const data = await response.json();
 
         if (!data.success) {
-            showAlert('error', 'Error al obtener clientes del trader');
+            showNotification('error', 'Error al obtener clientes del trader');
             return;
         }
 
         if (data.total === 0) {
-            showAlert('warning', 'El trader seleccionado no tiene clientes');
+            showNotification('warning', 'El trader seleccionado no tiene clientes');
             return;
         }
 
@@ -1912,7 +1912,7 @@ async function confirmBulkReassignFromTrader() {
         const reassignData = await reassignResponse.json();
 
         if (reassignData.success || (reassignData.results && reassignData.results.success.length > 0)) {
-            showAlert('success', reassignData.message);
+            showNotification('success', reassignData.message);
 
             // Cerrar modal
             const modal = bootstrap.Modal.getInstance(document.getElementById('bulkReassignModal'));
@@ -1923,11 +1923,11 @@ async function confirmBulkReassignFromTrader() {
                 location.reload();
             }, 1500);
         } else {
-            showAlert('error', reassignData.message);
+            showNotification('error', reassignData.message);
         }
     } catch (error) {
         console.error('Error:', error);
-        showAlert('error', 'Error al reasignar clientes');
+        showNotification('error', 'Error al reasignar clientes');
     }
 }
 

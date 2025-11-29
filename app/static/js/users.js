@@ -13,29 +13,29 @@ function createUser() {
         password: $('input[name="password"]').val(),
         role: $('select[name="role"]').val()
     };
-    
+
     // Validar
     if (!formData.username || !formData.email || !formData.dni || !formData.password || !formData.role) {
-        showAlert('Completa todos los campos', 'warning');
+        showNotification('Completa todos los campos', 'warning');
         return;
     }
-    
+
     if (!validateDNI(formData.dni)) {
-        showAlert('DNI inválido (debe ser 8 dígitos)', 'warning');
+        showNotification('DNI inválido (debe ser 8 dígitos)', 'warning');
         return;
     }
-    
+
     if (!validateEmail(formData.email)) {
-        showAlert('Email inválido', 'warning');
+        showNotification('Email inválido', 'warning');
         return;
     }
-    
+
     // Enviar
     ajaxRequest('/users/api/create', 'POST', formData, function(response) {
-        showAlert(response.message, 'success');
+        showNotification(response.message, 'success');
         $('#createUserModal').modal('hide');
         $('#createUserForm')[0].reset();
-        
+
         // Recargar página
         setTimeout(() => location.reload(), 1000);
     });
@@ -70,9 +70,9 @@ function updateUser() {
         role: $('#edit_role').val(),
         status: $('#edit_status').val()
     };
-    
+
     ajaxRequest(`/users/api/update/${userId}`, 'PUT', formData, function(response) {
-        showAlert(response.message, 'success');
+        showNotification(response.message, 'success');
         $('#editUserModal').modal('hide');
         setTimeout(() => location.reload(), 1000);
     });
@@ -84,7 +84,7 @@ function updateUser() {
 function toggleUserStatus(userId) {
     if (confirm('¿Cambiar el estado de este usuario?')) {
         ajaxRequest(`/users/api/toggle_status/${userId}`, 'POST', null, function(response) {
-            showAlert(response.message, 'success');
+            showNotification(response.message, 'success');
             setTimeout(() => location.reload(), 1000);
         });
     }
@@ -111,16 +111,16 @@ function resetPassword(userId) {
 function confirmResetPassword() {
     const userId = $('#reset_user_id').val();
     const newPassword = $('#reset_password').val();
-    
+
     if (!newPassword || newPassword.length < 8) {
-        showAlert('La contraseña debe tener al menos 8 caracteres', 'warning');
+        showNotification('La contraseña debe tener al menos 8 caracteres', 'warning');
         return;
     }
-    
+
     const data = { new_password: newPassword };
-    
+
     ajaxRequest(`/reset_password/${userId}`, 'POST', data, function(response) {
-        showAlert(response.message, 'success');
+        showNotification(response.message, 'success');
         $('#resetPasswordModal').modal('hide');
     });
 }

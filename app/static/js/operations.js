@@ -83,17 +83,17 @@ function confirmUpdateStatus() {
     const notes = $('textarea[name="notes"]').val();
     
     if (!newStatus) {
-        showAlert('Selecciona un nuevo estado', 'warning');
+        showNotification('Selecciona un nuevo estado', 'warning');
         return;
     }
-    
+
     const data = {
         status: newStatus,
         notes: notes
     };
-    
+
     ajaxRequest(`/operations/api/update_status/${operationId}`, 'PATCH', data, function(response) {
-        showAlert(response.message, 'success');
+        showNotification(response.message, 'success');
         $('#updateStatusModal').modal('hide');
         setTimeout(() => location.reload(), 1000);
     });
@@ -127,12 +127,12 @@ function confirmUploadProof() {
         processData: false,
         contentType: false,
         success: function(response) {
-            showAlert('Comprobante subido exitosamente', 'success');
+            showNotification('Comprobante subido exitosamente', 'success');
             $('#uploadProofModal').modal('hide');
             setTimeout(() => location.reload(), 1000);
         },
         error: function(xhr) {
-            showAlert('Error: ' + (xhr.responseJSON?.message || 'Error al subir comprobante'), 'danger');
+            showNotification('Error: ' + (xhr.responseJSON?.message || 'Error al subir comprobante'), 'danger');
         }
     });
 }
@@ -159,14 +159,14 @@ function confirmCancelOperation() {
     const reason = $('textarea[name="reason"]').val().trim();
     
     if (!reason) {
-        showAlert('Debes ingresar una razón para cancelar', 'warning');
+        showNotification('Debes ingresar una razón para cancelar', 'warning');
         return;
     }
-    
+
     const data = { reason: reason };
-    
+
     ajaxRequest(`/operations/api/cancel/${operationId}`, 'POST', data, function(response) {
-        showAlert(response.message, 'success');
+        showNotification(response.message, 'success');
         $('#cancelOperationModal').modal('hide');
         setTimeout(() => location.reload(), 1000);
     });

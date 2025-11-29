@@ -351,7 +351,7 @@ function ajaxRequest(url, method, data, successCallback, errorCallback) {
             // Solo mostrar error si es relevante (no errores de recursos estáticos)
             if (xhr.status !== 0 && xhr.status !== 404) {
                 const errorMsg = xhr.responseJSON?.message || error || 'Error en la petición';
-                showAlert(errorMsg, 'danger');
+                showNotification(errorMsg, 'danger');
             } else if (xhr.status === 404) {
                 console.error('Recurso no encontrado:', url, xhr);
             }
@@ -438,9 +438,9 @@ function confirmAction(message, callback) {
  */
 function copyToClipboard(text) {
     navigator.clipboard.writeText(text).then(function() {
-        showAlert('Copiado al portapapeles', 'success');
+        showNotification('Copiado al portapapeles', 'success');
     }).catch(function() {
-        showAlert('Error al copiar', 'danger');
+        showNotification('Error al copiar', 'danger');
     });
 }
 
@@ -449,7 +449,7 @@ function copyToClipboard(text) {
  */
 function exportToExcel() {
     // Esta función requiere una librería adicional o backend
-    showAlert('Función de exportación en desarrollo', 'info');
+    showNotification('Función de exportación en desarrollo', 'info');
 }
 
 /**
@@ -457,34 +457,34 @@ function exportToExcel() {
  */
 $(document).ready(function() {
     $('#btnChangePassword').on('click', function() {
-        const oldPassword = $('#old_password').val();
+        const oldPassword = $('#current_password').val();
         const newPassword = $('#new_password').val();
         const confirmPassword = $('#confirm_password').val();
-        
+
         // Validar
         if (!oldPassword || !newPassword || !confirmPassword) {
-            showAlert('Completa todos los campos', 'warning');
+            showNotification('Completa todos los campos', 'warning');
             return;
         }
-        
+
         if (newPassword !== confirmPassword) {
-            showAlert('Las contraseñas no coinciden', 'warning');
+            showNotification('Las contraseñas no coinciden', 'warning');
             return;
         }
-        
+
         if (newPassword.length < 8) {
-            showAlert('La contraseña debe tener al menos 8 caracteres', 'warning');
+            showNotification('La contraseña debe tener al menos 8 caracteres', 'warning');
             return;
         }
-        
+
         // Enviar
         const data = {
             old_password: oldPassword,
             new_password: newPassword
         };
-        
+
         ajaxRequest('/change_password', 'POST', data, function(response) {
-            showAlert(response.message, 'success');
+            showNotification(response.message, 'success');
             $('#changePasswordModal').modal('hide');
             $('#changePasswordForm')[0].reset();
         });

@@ -117,13 +117,13 @@ function createMatch() {
     };
 
     if (!data.buy_operation_id || !data.sell_operation_id || !data.matched_amount_usd) {
-        showAlert('Por favor complete todos los campos', 'warning');
+        showNotification('Por favor complete todos los campos', 'warning');
         return;
     }
 
     ajaxRequest('/accounting/api/create_match', 'POST', data, function(response) {
         if (response.success) {
-            showAlert('Amarre creado exitosamente', 'success');
+            showNotification('Amarre creado exitosamente', 'success');
             bootstrap.Modal.getInstance(document.getElementById('createMatchModal')).hide();
             $('#createMatchForm')[0].reset();
             loadMatches();
@@ -136,7 +136,7 @@ function deleteMatch(matchId) {
 
     ajaxRequest(`/accounting/api/delete_match/${matchId}`, 'DELETE', null, function(response) {
         if (response.success) {
-            showAlert('Amarre eliminado', 'success');
+            showNotification('Amarre eliminado', 'success');
             loadMatches();
         }
     });
@@ -233,7 +233,7 @@ function createBatch() {
     });
 
     if (selectedMatches.length === 0) {
-        showAlert('Debe seleccionar al menos un amarre', 'warning');
+        showNotification('Debe seleccionar al menos un amarre', 'warning');
         return;
     }
 
@@ -245,7 +245,7 @@ function createBatch() {
 
     ajaxRequest('/accounting/api/create_batch', 'POST', data, function(response) {
         if (response.success) {
-            showAlert('Lote de neteo creado exitosamente', 'success');
+            showNotification('Lote de neteo creado exitosamente', 'success');
             bootstrap.Modal.getInstance(document.getElementById('createBatchModal')).hide();
             $('#createBatchForm')[0].reset();
             loadBatches();
@@ -306,7 +306,7 @@ function closeBatch(batchId) {
 
     ajaxRequest(`/accounting/api/close_batch/${batchId}`, 'POST', null, function(response) {
         if (response.success) {
-            showAlert('Lote cerrado exitosamente', 'success');
+            showNotification('Lote cerrado exitosamente', 'success');
             loadBatches();
         }
     });
@@ -316,7 +316,7 @@ function closeBatch(batchId) {
 
 function exportLibroDiario() {
     window.location.href = '/accounting/export/libro_diario';
-    showAlert('Descargando libro diario...', 'info');
+    showNotification('Descargando libro diario...', 'info');
 }
 
 function showProfitByClient() {
