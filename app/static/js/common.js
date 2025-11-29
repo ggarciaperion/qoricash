@@ -454,41 +454,53 @@ function exportToExcel() {
 
 /**
  * Manejo de cambio de contraseña (modal global)
- * Usando event delegation para evitar problemas con múltiples $(document).ready()
+ * Usando event delegation y búsqueda dentro del modal para evitar conflictos
  */
 $(document).on('click', '#btnChangePassword', function(e) {
     e.preventDefault();
+    e.stopPropagation();
 
-    const oldPassword = $('#current_password').val();
-    const newPassword = $('#new_password').val();
-    const confirmPassword = $('#confirm_password').val();
+    // Buscar los campos dentro del modal específico
+    const modal = $('#changePasswordModal');
+    const oldPassword = modal.find('#current_password').val();
+    const newPassword = modal.find('#new_password').val();
+    const confirmPassword = modal.find('#confirm_password').val();
 
-    console.log('btnChangePassword clicked:', {
-        oldPassword: oldPassword ? '***' : 'EMPTY',
-        newPassword: newPassword ? '***' : 'EMPTY',
-        confirmPassword: confirmPassword ? '***' : 'EMPTY'
+    console.log('=== CAMBIO DE CONTRASEÑA DEBUG ===');
+    console.log('Modal encontrado:', modal.length > 0);
+    console.log('Campo current_password:', {
+        existe: modal.find('#current_password').length > 0,
+        valor: oldPassword ? '*** (' + oldPassword.length + ' chars)' : 'EMPTY'
+    });
+    console.log('Campo new_password:', {
+        existe: modal.find('#new_password').length > 0,
+        valor: newPassword ? '*** (' + newPassword.length + ' chars)' : 'EMPTY'
+    });
+    console.log('Campo confirm_password:', {
+        existe: modal.find('#confirm_password').length > 0,
+        valor: confirmPassword ? '*** (' + confirmPassword.length + ' chars)' : 'EMPTY'
     });
 
     // Validar
     if (!oldPassword || !newPassword || !confirmPassword) {
-        console.warn('Validation failed: missing fields');
+        console.error('❌ Validación FALLIDA: campos vacíos');
         showNotification('Completa todos los campos', 'warning');
         return;
     }
 
     if (newPassword !== confirmPassword) {
-        console.warn('Validation failed: passwords dont match');
+        console.error('❌ Validación FALLIDA: contraseñas no coinciden');
         showNotification('Las contraseñas no coinciden', 'warning');
         return;
     }
 
     if (newPassword.length < 8) {
-        console.warn('Validation failed: password too short');
+        console.error('❌ Validación FALLIDA: contraseña muy corta');
         showNotification('La contraseña debe tener al menos 8 caracteres', 'warning');
         return;
     }
 
-    console.log('Validation passed, sending request...');
+    console.log('✅ Validación EXITOSA, enviando petición...');
 
     // Enviar
     const data = {
@@ -497,10 +509,10 @@ $(document).on('click', '#btnChangePassword', function(e) {
     };
 
     ajaxRequest('/change_password', 'POST', data, function(response) {
-        console.log('Password changed successfully');
+        console.log('✅ Contraseña cambiada exitosamente');
         showNotification(response.message, 'success');
-        $('#changePasswordModal').modal('hide');
-        $('#changePasswordForm')[0].reset();
+        modal.modal('hide');
+        modal.find('#changePasswordForm')[0].reset();
     });
 });
 
