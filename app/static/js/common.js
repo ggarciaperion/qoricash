@@ -454,40 +454,53 @@ function exportToExcel() {
 
 /**
  * Manejo de cambio de contraseña (modal global)
+ * Usando event delegation para evitar problemas con múltiples $(document).ready()
  */
-$(document).ready(function() {
-    $('#btnChangePassword').on('click', function() {
-        const oldPassword = $('#current_password').val();
-        const newPassword = $('#new_password').val();
-        const confirmPassword = $('#confirm_password').val();
+$(document).on('click', '#btnChangePassword', function(e) {
+    e.preventDefault();
 
-        // Validar
-        if (!oldPassword || !newPassword || !confirmPassword) {
-            showNotification('Completa todos los campos', 'warning');
-            return;
-        }
+    const oldPassword = $('#current_password').val();
+    const newPassword = $('#new_password').val();
+    const confirmPassword = $('#confirm_password').val();
 
-        if (newPassword !== confirmPassword) {
-            showNotification('Las contraseñas no coinciden', 'warning');
-            return;
-        }
+    console.log('btnChangePassword clicked:', {
+        oldPassword: oldPassword ? '***' : 'EMPTY',
+        newPassword: newPassword ? '***' : 'EMPTY',
+        confirmPassword: confirmPassword ? '***' : 'EMPTY'
+    });
 
-        if (newPassword.length < 8) {
-            showNotification('La contraseña debe tener al menos 8 caracteres', 'warning');
-            return;
-        }
+    // Validar
+    if (!oldPassword || !newPassword || !confirmPassword) {
+        console.warn('Validation failed: missing fields');
+        showNotification('Completa todos los campos', 'warning');
+        return;
+    }
 
-        // Enviar
-        const data = {
-            old_password: oldPassword,
-            new_password: newPassword
-        };
+    if (newPassword !== confirmPassword) {
+        console.warn('Validation failed: passwords dont match');
+        showNotification('Las contraseñas no coinciden', 'warning');
+        return;
+    }
 
-        ajaxRequest('/change_password', 'POST', data, function(response) {
-            showNotification(response.message, 'success');
-            $('#changePasswordModal').modal('hide');
-            $('#changePasswordForm')[0].reset();
-        });
+    if (newPassword.length < 8) {
+        console.warn('Validation failed: password too short');
+        showNotification('La contraseña debe tener al menos 8 caracteres', 'warning');
+        return;
+    }
+
+    console.log('Validation passed, sending request...');
+
+    // Enviar
+    const data = {
+        old_password: oldPassword,
+        new_password: newPassword
+    };
+
+    ajaxRequest('/change_password', 'POST', data, function(response) {
+        console.log('Password changed successfully');
+        showNotification(response.message, 'success');
+        $('#changePasswordModal').modal('hide');
+        $('#changePasswordForm')[0].reset();
     });
 });
 
