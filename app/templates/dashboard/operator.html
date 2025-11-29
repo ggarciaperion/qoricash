@@ -439,7 +439,7 @@ let currentFilters = {
 // Cargar datos al iniciar
 $(document).ready(function() {
     loadDashboardData();
-    loadTraders();
+    // loadTraders(); // Operadores no tienen acceso a la API de traders
     setCurrentPeriod();
 
     // Actualizar cada 60 segundos (reducido para evitar error 429)
@@ -459,18 +459,14 @@ function setCurrentPeriod() {
 }
 
 function loadTraders() {
-    ajaxRequest('/dashboard/api/traders', 'GET', null, function(response) {
-        let html = '<option value="">Todos los Traders</option>';
-        response.traders.forEach(function(trader) {
-            html += `<option value="${trader.id}">${trader.username} - ${trader.email}</option>`;
-        });
-        $('#filterTrader').html(html);
-    });
+    // Operadores no tienen acceso a filtrar por trader
+    // Esta función se deja vacía para evitar errores
+    console.log('loadTraders: Operadores no tienen acceso a esta funcionalidad');
 }
 
 function refreshDashboard() {
     loadDashboardData();
-    showAlert('Dashboard actualizado', 'success');
+    showNotification('Dashboard actualizado', 'success');
 }
 
 function applyFilters() {
@@ -629,12 +625,12 @@ function saveTraderData() {
     const profitToday = parseFloat($('#traderProfitToday').val()) || 0;
 
     if (!traderId) {
-        showAlert('Selecciona un trader', 'warning');
+        showNotification('Selecciona un trader', 'warning');
         return;
     }
 
     if (!month || !year) {
-        showAlert('Selecciona un periodo válido', 'warning');
+        showNotification('Selecciona un periodo válido', 'warning');
         return;
     }
 
@@ -670,11 +666,11 @@ function saveTraderData() {
             ajaxRequest('/dashboard/api/profits/save', 'POST', profitData, resolve, reject);
         })
     ]).then(() => {
-        showAlert('Datos guardados exitosamente', 'success');
+        showNotification('Datos guardados exitosamente', 'success');
         $('#goalsModal').modal('hide');
         loadDashboardData(); // Recargar dashboard
     }).catch(error => {
-        showAlert('Error al guardar datos: ' + (error.responseJSON?.error || 'Error desconocido'), 'danger');
+        showNotification('Error al guardar datos: ' + (error.responseJSON?.error || 'Error desconocido'), 'danger');
     });
 }
 </script>

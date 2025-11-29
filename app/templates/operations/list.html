@@ -1121,7 +1121,7 @@ function loadPayments(payments, editable) {
 function addPayment() {
     const count = $('#payments_container .payment-row').length;
     if (count >= 4) {
-        showAlert('Máximo 4 pagos permitidos', 'warning');
+        showNotification('Máximo 4 pagos permitidos', 'warning');
         return;
     }
     addPaymentRow({}, count, true);
@@ -1193,7 +1193,7 @@ function addOperatorProofInput() {
     const totalCount = uploadedCount + inputCount;
 
     if (totalCount >= 4) {
-        showAlert('Máximo 4 comprobantes permitidos', 'warning');
+        showNotification('Máximo 4 comprobantes permitidos', 'warning');
         return;
     }
 
@@ -1248,10 +1248,10 @@ function uploadOperatorProof(input, index) {
             if (response.success) {
                 currentOperation.operator_proofs = response.proofs;
                 loadOperatorProofs(response.proofs);
-                showAlert('Comprobante subido correctamente', 'success');
+                showNotification('Comprobante subido correctamente', 'success');
             } else {
                 loadOperatorProofs(currentOperation.operator_proofs || []);
-                showAlert(response.message || 'Error al subir', 'danger');
+                showNotification(response.message || 'Error al subir', 'danger');
             }
         },
         error: function(xhr) {
@@ -1261,7 +1261,7 @@ function uploadOperatorProof(input, index) {
                 errorMsg = response.message || errorMsg;
             } catch(e) {}
             loadOperatorProofs(currentOperation.operator_proofs || []);
-            showAlert(errorMsg, 'danger');
+            showNotification(errorMsg, 'danger');
         }
     });
 }
@@ -1278,7 +1278,7 @@ function deleteOperatorProof(proofId, index) {
     const operationId = $('#edit_operation_id').val();
 
     ajaxRequest(`/operations/api/delete_operator_proof/${operationId}/${proofId}`, 'DELETE', null, function(response) {
-        showAlert(response.message || 'Comprobante eliminado', 'success');
+        showNotification(response.message || 'Comprobante eliminado', 'success');
 
         // Recargar comprobantes
         ajaxRequest(`/operations/api/${operationId}`, 'GET', null, function(resp) {
@@ -1286,7 +1286,7 @@ function deleteOperatorProof(proofId, index) {
             loadOperatorProofs(currentOperation.operator_proofs);
         });
     }, function(error) {
-        showAlert('Error al eliminar comprobante', 'danger');
+        showNotification('Error al eliminar comprobante', 'danger');
     });
 }
 
@@ -1322,12 +1322,12 @@ function getAccountInfoDisplay(accountNumber, withCopyBtn) {
 
 function copyAccountNumber(accountNumber) {
     navigator.clipboard.writeText(accountNumber).then(() => {
-        showAlert('Número de cuenta copiado', 'success');
+        showNotification('Número de cuenta copiado', 'success');
     }).catch(() => {
         const temp = $('<input>').val(accountNumber).appendTo('body').select();
         document.execCommand('copy');
         temp.remove();
-        showAlert('Número de cuenta copiado', 'success');
+        showNotification('Número de cuenta copiado', 'success');
     });
 }
 
@@ -1437,7 +1437,7 @@ function showLastModification(logs) {
 function saveAmountUSD() {
     const newAmount = parseFloat($('#edit_amount_usd').val());
     if (!newAmount || newAmount <= 0) {
-        showAlert('Ingresa un monto válido', 'warning');
+        showNotification('Ingresa un monto válido', 'warning');
         return;
     }
 
@@ -1452,7 +1452,7 @@ function saveAmountUSD() {
         // Actualizar última modificación
         showLastModification(currentOperation.modification_logs || []);
         updateTotals();
-        showAlert('Monto actualizado correctamente', 'success');
+        showNotification('Monto actualizado correctamente', 'success');
     });
 }
 
@@ -1513,10 +1513,10 @@ function uploadDepositProof(input, depositIndex) {
                             <button type="button" class="btn btn-outline-warning" onclick="replaceDepositProof(${depositIndex})" title="Reemplazar"><i class="bi bi-arrow-repeat"></i></button>
                             <button type="button" class="btn btn-outline-danger" onclick="removeDepositProof(${depositIndex})" title="Quitar"><i class="bi bi-trash"></i></button>
                            </div>`);
-                showAlert('Comprobante subido correctamente', 'success');
+                showNotification('Comprobante subido correctamente', 'success');
             } else {
                 $container.html(`<input type="file" class="form-control form-control-sm deposit-file" accept="image/*,.pdf" onchange="uploadDepositProof(this, ${depositIndex})">`);
-                showAlert(response.message || 'Error al subir', 'danger');
+                showNotification(response.message || 'Error al subir', 'danger');
             }
         },
         error: function(xhr, status, error) {
@@ -1531,7 +1531,7 @@ function uploadDepositProof(input, depositIndex) {
             }
             console.log('=== Upload ERROR ===', {status, error, errorMsg});
             $container.html(`<input type="file" class="form-control form-control-sm deposit-file" accept="image/*,.pdf" onchange="uploadDepositProof(this, ${depositIndex})">`);
-            showAlert(errorMsg, 'danger');
+            showNotification(errorMsg, 'danger');
         }
     });
 }
@@ -1552,7 +1552,7 @@ function removeDepositProof(depositIndex) {
 
     // Mostrar input para subir nuevo archivo
     $container.html(`<input type="file" class="form-control form-control-sm deposit-file" accept="image/*,.pdf" onchange="uploadDepositProof(this, ${depositIndex})">`);
-    showAlert('Comprobante eliminado', 'info');
+    showNotification('Comprobante eliminado', 'info');
 }
 
 function collectPayments() {
@@ -1582,7 +1582,7 @@ function sendToProcess() {
         console.log('=== Update response ===', updateResponse);
         // Luego enviar a proceso
         ajaxRequest(`/operations/api/send_to_process/${currentOperation.id}`, 'POST', {}, function(response) {
-            showAlert(response.message, 'success');
+            showNotification(response.message, 'success');
             $('#editOperationModal').modal('hide');
             setTimeout(() => location.reload(), 1000);
         });
@@ -1592,7 +1592,7 @@ function sendToProcess() {
 function returnToPending() {
     const reason = prompt('Razón para devolver a pendiente (opcional):');
     ajaxRequest(`/operations/api/return_to_pending/${currentOperation.id}`, 'POST', {reason: reason || ''}, function(response) {
-        showAlert(response.message, 'success');
+        showNotification(response.message, 'success');
         $('#editOperationModal').modal('hide');
         setTimeout(() => location.reload(), 1000);
     });
@@ -1604,7 +1604,7 @@ function completeOperation() {
     ajaxRequest(`/operations/api/complete/${currentOperation.id}`, 'POST', {
         operator_comments: comments
     }, function(response) {
-        showAlert(response.message, 'success');
+        showNotification(response.message, 'success');
         $('#editOperationModal').modal('hide');
         setTimeout(() => location.reload(), 1000);
     });
@@ -1624,12 +1624,12 @@ function confirmCancelOperation() {
     const reason = $('#cancel_reason').val().trim();
 
     if (!reason) {
-        showAlert('Ingresa una razón para cancelar', 'warning');
+        showNotification('Ingresa una razón para cancelar', 'warning');
         return;
     }
 
     ajaxRequest(`/operations/api/cancel/${operationId}`, 'POST', {reason: reason}, function(response) {
-        showAlert(response.message, 'success');
+        showNotification(response.message, 'success');
         $('#cancelOperationModal').modal('hide');
         setTimeout(() => location.reload(), 1000);
     });
@@ -1806,7 +1806,7 @@ function selectClientModal(clientId, event) {
         // Actualizar cuentas bancarias
         updateBankAccountsModal();
 
-        showAlert('Cliente seleccionado: ' + (selectedClientModal.full_name || selectedClientModal.dni), 'success');
+        showNotification('Cliente seleccionado: ' + (selectedClientModal.full_name || selectedClientModal.dni), 'success');
     });
 }
 
@@ -1881,23 +1881,23 @@ function submitCreateOperation() {
 
     // Validaciones
     if (!formData.client_id) {
-        showAlert('Por favor selecciona un cliente', 'warning');
+        showNotification('Por favor selecciona un cliente', 'warning');
         return;
     }
     if (!formData.amount_usd || formData.amount_usd <= 0) {
-        showAlert('El monto en USD debe ser mayor a 0', 'warning');
+        showNotification('El monto en USD debe ser mayor a 0', 'warning');
         return;
     }
     if (!formData.exchange_rate || formData.exchange_rate <= 0) {
-        showAlert('El tipo de cambio debe ser mayor a 0', 'warning');
+        showNotification('El tipo de cambio debe ser mayor a 0', 'warning');
         return;
     }
     if (!formData.source_account) {
-        showAlert('Por favor selecciona la cuenta de origen', 'warning');
+        showNotification('Por favor selecciona la cuenta de origen', 'warning');
         return;
     }
     if (!formData.destination_account) {
-        showAlert('Por favor selecciona la cuenta de destino', 'warning');
+        showNotification('Por favor selecciona la cuenta de destino', 'warning');
         return;
     }
 
@@ -1939,7 +1939,7 @@ function reassignOperator() {
     const newOperatorId = parseInt($('#new_operator_select').val());
 
     if (!newOperatorId) {
-        showAlert('Por favor selecciona un operador', 'warning');
+        showNotification('Por favor selecciona un operador', 'warning');
         return;
     }
 

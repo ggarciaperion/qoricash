@@ -312,7 +312,7 @@ function getPeruDate(daysToSubtract = 0) {
 function refreshPosition() {
     const fecha = $('#fechaSelector').val();
     loadPosition(fecha);
-    showAlert('Posición actualizada', 'success');
+    showNotification('Posición actualizada', 'success');
 }
 
 function loadPosition(fecha = null) {
@@ -477,7 +477,7 @@ function exportarExcel() {
     // Descargar archivo
     XLSX.writeFile(wb, `Posicion_${fecha}.xlsx`);
 
-    showAlert('Archivo exportado correctamente', 'success');
+    showNotification('Archivo exportado correctamente', 'success');
 }
 
 function renderAlertaDesbalance(posicion) {

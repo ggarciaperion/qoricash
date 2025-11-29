@@ -324,7 +324,7 @@ function selectClient(clientId, event) {
         // Actualizar cuentas bancarias
         updateBankAccounts();
 
-        showAlert('Cliente seleccionado: ' + (selectedClient.full_name || selectedClient.dni), 'success');
+        showNotification('Cliente seleccionado: ' + (selectedClient.full_name || selectedClient.dni), 'success');
     });
 }
 
@@ -401,29 +401,29 @@ $('#createOperationForm').on('submit', function(e) {
 
     // Validaciones
     if (!formData.client_id) {
-        showAlert('Por favor selecciona un cliente', 'warning');
+        showNotification('Por favor selecciona un cliente', 'warning');
         return;
     }
     if (!formData.amount_usd || formData.amount_usd <= 0) {
-        showAlert('El monto en USD debe ser mayor a 0', 'warning');
+        showNotification('El monto en USD debe ser mayor a 0', 'warning');
         return;
     }
     if (!formData.exchange_rate || formData.exchange_rate <= 0) {
-        showAlert('El tipo de cambio debe ser mayor a 0', 'warning');
+        showNotification('El tipo de cambio debe ser mayor a 0', 'warning');
         return;
     }
     if (!formData.source_account) {
-        showAlert('Por favor selecciona la cuenta de origen', 'warning');
+        showNotification('Por favor selecciona la cuenta de origen', 'warning');
         return;
     }
     if (!formData.destination_account) {
-        showAlert('Por favor selecciona la cuenta de destino', 'warning');
+        showNotification('Por favor selecciona la cuenta de destino', 'warning');
         return;
     }
 
     // Enviar
     ajaxRequest('/operations/api/create', 'POST', formData, function(response) {
-        showAlert('Operación creada exitosamente: ' + response.operation.operation_id, 'success');
+        showNotification('Operación creada exitosamente: ' + response.operation.operation_id, 'success');
         setTimeout(function() {
             window.location.href = '/operations/list';
         }, 1500);

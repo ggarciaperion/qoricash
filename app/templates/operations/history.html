@@ -165,7 +165,7 @@ function downloadExcelWithDates() {
 
     // Validar que si hay fecha inicio, también haya fecha fin (y viceversa)
     if (startDate && endDate && startDate > endDate) {
-        showAlert('La fecha de inicio no puede ser mayor que la fecha fin', 'warning');
+        showNotification('La fecha de inicio no puede ser mayor que la fecha fin', 'warning');
         return;
     }
 
@@ -190,9 +190,9 @@ function downloadExcelWithDates() {
 
     // Mostrar mensaje
     if (startDate || endDate) {
-        showAlert('Preparando descarga del rango seleccionado...', 'info');
+        showNotification('Preparando descarga del rango seleccionado...', 'info');
     } else {
-        showAlert('Preparando descarga del historial completo...', 'info');
+        showNotification('Preparando descarga del historial completo...', 'info');
     }
 
     // Descargar
@@ -255,7 +255,7 @@ function viewOperationDetails(operationId) {
         $('#operationDetails').html(html);
         $('#viewOperationModal').modal('show');
     }, function(error) {
-        showAlert('Error al cargar detalles de la operación', 'danger');
+        showNotification('Error al cargar detalles de la operación', 'danger');
     });
 }
 

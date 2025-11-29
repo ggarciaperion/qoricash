@@ -503,7 +503,7 @@ function loadTraders() {
 
 function refreshDashboard() {
     loadDashboardData();
-    showAlert('Dashboard actualizado', 'success');
+    showNotification('Dashboard actualizado', 'success');
 }
 
 function applyFilters() {
@@ -662,12 +662,12 @@ function saveTraderData() {
     const profitToday = parseFloat($('#traderProfitToday').val()) || 0;
 
     if (!traderId) {
-        showAlert('Selecciona un trader', 'warning');
+        showNotification('Selecciona un trader', 'warning');
         return;
     }
 
     if (!month || !year) {
-        showAlert('Selecciona un periodo válido', 'warning');
+        showNotification('Selecciona un periodo válido', 'warning');
         return;
     }
 
@@ -703,11 +703,11 @@ function saveTraderData() {
             ajaxRequest('/dashboard/api/profits/save', 'POST', profitData, resolve, reject);
         })
     ]).then(() => {
-        showAlert('Datos guardados exitosamente', 'success');
+        showNotification('Datos guardados exitosamente', 'success');
         $('#goalsModal').modal('hide');
         loadDashboardData(); // Recargar dashboard
     }).catch(error => {
-        showAlert('Error al guardar datos: ' + (error.responseJSON?.error || 'Error desconocido'), 'danger');
+        showNotification('Error al guardar datos: ' + (error.responseJSON?.error || 'Error desconocido'), 'danger');
     });
 }
 </script>

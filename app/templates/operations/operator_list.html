@@ -225,7 +225,7 @@ function startProcessing(operationId) {
         };
         
         ajaxRequest(`/operations/api/update_status/${operationId}`, 'PATCH', data, function() {
-            showAlert('Operación iniciada', 'success');
+            showNotification('Operación iniciada', 'success');
             setTimeout(() => location.reload(), 1000);
         });
     }
@@ -239,7 +239,7 @@ function completeOperation(operationId) {
         };
         
         ajaxRequest(`/operations/api/update_status/${operationId}`, 'PATCH', data, function() {
-            showAlert('Operación completada exitosamente', 'success');
+            showNotification('Operación completada exitosamente', 'success');
             setTimeout(() => location.reload(), 1000);
         });
     }
@@ -292,12 +292,12 @@ function confirmUploadProof() {
         processData: false,
         contentType: false,
         success: function() {
-            showAlert('Comprobante subido exitosamente', 'success');
+            showNotification('Comprobante subido exitosamente', 'success');
             $('#uploadProofModal').modal('hide');
             setTimeout(() => location.reload(), 1000);
         },
         error: function(xhr) {
-            showAlert('Error: ' + (xhr.responseJSON?.message || 'Error al subir comprobante'), 'danger');
+            showNotification('Error: ' + (xhr.responseJSON?.message || 'Error al subir comprobante'), 'danger');
         }
     });
 }
