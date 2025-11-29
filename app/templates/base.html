@@ -142,8 +142,11 @@
         {% block content %}{% endblock %}
     </main>
 
-    <!-- Change Password Modal -->
-    {% if current_user.is_authenticated %}
+    <!-- Incluir modal de cambio de contraseña -->
+    {% include '_change_password_modal.html' %}
+
+    <!-- MODAL VIEJO DESHABILITADO -->
+    {% if false %}
     <div class="modal fade" id="changePasswordModal" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
