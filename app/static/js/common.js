@@ -453,68 +453,10 @@ function exportToExcel() {
 }
 
 /**
- * Manejo de cambio de contraseña (modal global)
- * Usando event delegation y búsqueda dentro del modal para evitar conflictos
+ * NOTA: El manejo de cambio de contraseña se ha movido a base.html como script inline
+ * para evitar problemas de timing con la carga de scripts y event listeners.
+ * Ver app/templates/base.html líneas ~181-312
  */
-$(document).on('click', '#btnChangePassword', function(e) {
-    e.preventDefault();
-    e.stopPropagation();
-
-    // Buscar los campos dentro del modal específico
-    const modal = $('#changePasswordModal');
-    const oldPassword = modal.find('#current_password').val();
-    const newPassword = modal.find('#new_password').val();
-    const confirmPassword = modal.find('#confirm_password').val();
-
-    console.log('=== CAMBIO DE CONTRASEÑA DEBUG ===');
-    console.log('Modal encontrado:', modal.length > 0);
-    console.log('Campo current_password:', {
-        existe: modal.find('#current_password').length > 0,
-        valor: oldPassword ? '*** (' + oldPassword.length + ' chars)' : 'EMPTY'
-    });
-    console.log('Campo new_password:', {
-        existe: modal.find('#new_password').length > 0,
-        valor: newPassword ? '*** (' + newPassword.length + ' chars)' : 'EMPTY'
-    });
-    console.log('Campo confirm_password:', {
-        existe: modal.find('#confirm_password').length > 0,
-        valor: confirmPassword ? '*** (' + confirmPassword.length + ' chars)' : 'EMPTY'
-    });
-
-    // Validar
-    if (!oldPassword || !newPassword || !confirmPassword) {
-        console.error('❌ Validación FALLIDA: campos vacíos');
-        showNotification('Completa todos los campos', 'warning');
-        return;
-    }
-
-    if (newPassword !== confirmPassword) {
-        console.error('❌ Validación FALLIDA: contraseñas no coinciden');
-        showNotification('Las contraseñas no coinciden', 'warning');
-        return;
-    }
-
-    if (newPassword.length < 8) {
-        console.error('❌ Validación FALLIDA: contraseña muy corta');
-        showNotification('La contraseña debe tener al menos 8 caracteres', 'warning');
-        return;
-    }
-
-    console.log('✅ Validación EXITOSA, enviando petición...');
-
-    // Enviar
-    const data = {
-        old_password: oldPassword,
-        new_password: newPassword
-    };
-
-    ajaxRequest('/change_password', 'POST', data, function(response) {
-        console.log('✅ Contraseña cambiada exitosamente');
-        showNotification(response.message, 'success');
-        modal.modal('hide');
-        modal.find('#changePasswordForm')[0].reset();
-    });
-});
 
 /**
  * Cargar datos del dashboard
