@@ -142,7 +142,7 @@
         {% block content %}{% endblock %}
     </main>
 
-    <!-- Modal de cambio de contraseña - NUEVO -->
+    <!-- Modal de cambio de contraseña - CON CSRF TOKEN -->
     {% if current_user.is_authenticated %}
     <div class="modal fade" id="modalCambiarClave" tabindex="-1">
         <div class="modal-dialog">
@@ -152,71 +152,141 @@
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">Contraseña Actual</label>
-                        <input type="password" class="form-control" id="inputClaveActual" autocomplete="off">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Nueva Contraseña</label>
-                        <input type="password" class="form-control" id="inputClaveNueva" autocomplete="off">
-                        <small class="form-text text-muted">Mínimo 8 caracteres</small>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Confirmar Nueva Contraseña</label>
-                        <input type="password" class="form-control" id="inputClaveConfirmar" autocomplete="off">
-                    </div>
+                    <form id="formCambiarClave">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                        <div class="mb-3">
+                            <label class="form-label">Contraseña Actual</label>
+                            <div class="input-group">
+                                <input type="password" class="form-control" id="inputClaveActual" name="old_password" autocomplete="current-password">
+                                <button class="btn btn-outline-secondary" type="button" onclick="togglePassword('inputClaveActual', this)">
+                                    <i class="bi bi-eye"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Nueva Contraseña</label>
+                            <div class="input-group">
+                                <input type="password" class="form-control" id="inputClaveNueva" name="new_password" autocomplete="new-password">
+                                <button class="btn btn-outline-secondary" type="button" onclick="togglePassword('inputClaveNueva', this)">
+                                    <i class="bi bi-eye"></i>
+                                </button>
+                            </div>
+                            <small class="form-text text-muted">Mínimo 8 caracteres</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Confirmar Nueva Contraseña</label>
+                            <div class="input-group">
+                                <input type="password" class="form-control" id="inputClaveConfirmar" autocomplete="new-password">
+                                <button class="btn btn-outline-secondary" type="button" onclick="togglePassword('inputClaveConfirmar', this)">
+                                    <i class="bi bi-eye"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </form>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="button" class="btn btn-primary" id="btnGuardarClave">Guardar Cambios</button>
+                    <button type="button" class="btn btn-primary" id="btnGuardarClave">
+                        <i class="bi bi-check-circle me-1"></i>Guardar Cambios
+                    </button>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
+    // Función para mostrar/ocultar contraseña
+    function togglePassword(inputId, button) {
+        const input = document.getElementById(inputId);
+        const icon = button.querySelector('i');
+
+        if (input.type === 'password') {
+            input.type = 'text';
+            icon.classList.remove('bi-eye');
+            icon.classList.add('bi-eye-slash');
+        } else {
+            input.type = 'password';
+            icon.classList.remove('bi-eye-slash');
+            icon.classList.add('bi-eye');
+        }
+    }
+
+    // Handler del formulario de cambio de contraseña
     (function() {
         'use strict';
         window.addEventListener('load', function() {
             const boton = document.getElementById('btnGuardarClave');
             if (boton) {
                 boton.onclick = function() {
-                    const actual = document.getElementById('inputClaveActual').value.trim();
-                    const nueva = document.getElementById('inputClaveNueva').value.trim();
+                    const form = document.getElementById('formCambiarClave');
+                    const formData = new FormData(form);
+
+                    const actual = formData.get('old_password').trim();
+                    const nueva = formData.get('new_password').trim();
                     const confirmar = document.getElementById('inputClaveConfirmar').value.trim();
 
+                    // Validaciones
                     if (!actual || !nueva || !confirmar) {
-                        alert('Por favor completa todos los campos');
-                        return;
-                    }
-                    if (nueva !== confirmar) {
-                        alert('Las contraseñas no coinciden');
-                        return;
-                    }
-                    if (nueva.length < 8) {
-                        alert('La contraseña debe tener al menos 8 caracteres');
+                        if (typeof showNotification === 'function') {
+                            showNotification('Por favor completa todos los campos', 'warning');
+                        } else {
+                            alert('Por favor completa todos los campos');
+                        }
                         return;
                     }
 
+                    if (nueva !== confirmar) {
+                        if (typeof showNotification === 'function') {
+                            showNotification('Las contraseñas no coinciden', 'warning');
+                        } else {
+                            alert('Las contraseñas no coinciden');
+                        }
+                        return;
+                    }
+
+                    if (nueva.length < 8) {
+                        if (typeof showNotification === 'function') {
+                            showNotification('La contraseña debe tener al menos 8 caracteres', 'warning');
+                        } else {
+                            alert('La contraseña debe tener al menos 8 caracteres');
+                        }
+                        return;
+                    }
+
+                    // Enviar con FormData (incluye CSRF token automáticamente)
                     fetch('/change_password', {
                         method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({old_password: actual, new_password: nueva})
+                        body: formData
                     })
                     .then(r => r.json())
                     .then(data => {
                         if (data.success) {
-                            alert('Contraseña cambiada exitosamente');
+                            if (typeof showNotification === 'function') {
+                                showNotification('Contraseña cambiada exitosamente', 'success');
+                            } else {
+                                alert('Contraseña cambiada exitosamente');
+                            }
                             const modal = bootstrap.Modal.getInstance(document.getElementById('modalCambiarClave'));
                             if (modal) modal.hide();
-                            document.getElementById('inputClaveActual').value = '';
-                            document.getElementById('inputClaveNueva').value = '';
-                            document.getElementById('inputClaveConfirmar').value = '';
+                            form.reset();
                         } else {
-                            alert(data.message || 'Error al cambiar contraseña');
+                            if (typeof showNotification === 'function') {
+                                showNotification(data.message || 'Error al cambiar contraseña', 'danger');
+                            } else {
+                                alert(data.message || 'Error al cambiar contraseña');
+                            }
                         }
                     })
-                    .catch(() => alert('Error de conexión'));
+                    .catch(err => {
+                        if (typeof showNotification === 'function') {
+                            showNotification('Error de conexión', 'danger');
+                        } else {
+                            alert('Error de conexión');
+                        }
+                    });
                 };
             }
         });

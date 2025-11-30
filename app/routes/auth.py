@@ -76,12 +76,16 @@ def logout():
 def change_password():
     """
     Cambiar contraseña del usuario actual
-    
+
     POST JSON:
         old_password: Contraseña actual
         new_password: Nueva contraseña
     """
-    data = request.get_json()
+    # Obtener datos del JSON o del form
+    if request.is_json:
+        data = request.get_json()
+    else:
+        data = request.form.to_dict()
     
     old_password = data.get('old_password', '')
     new_password = data.get('new_password', '')
