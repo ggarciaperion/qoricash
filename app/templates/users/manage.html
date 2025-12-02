@@ -47,8 +47,12 @@
                                         <span class="badge bg-danger">Master</span>
                                     {% elif u.role == 'Trader' %}
                                         <span class="badge bg-primary">Trader</span>
-                                    {% else %}
+                                    {% elif u.role == 'Operador' %}
                                         <span class="badge bg-secondary">Operador</span>
+                                    {% elif u.role == 'Middle Office' %}
+                                        <span class="badge bg-warning text-dark">Middle Office</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">{{ u.role }}</span>
                                     {% endif %}
                                 </td>
                                 <td>
@@ -115,6 +119,7 @@
                         <select class="form-select" name="role" required>
                             <option value="Trader">Trader</option>
                             <option value="Operador">Operador</option>
+                            <option value="Middle Office">Middle Office</option>
                             <option value="Master">Master</option>
                         </select>
                     </div>
@@ -156,6 +161,7 @@
                         <select class="form-select" name="role" id="edit_role">
                             <option value="Trader">Trader</option>
                             <option value="Operador">Operador</option>
+                            <option value="Middle Office">Middle Office</option>
                             <option value="Master">Master</option>
                         </select>
                     </div>
