@@ -1,0 +1,651 @@
+"""
+Rutas de Compliance para Middle Office - QoriCash Trading V2
+"""
+import json
+from flask import Blueprint, render_template, request, jsonify
+from flask_login import login_required, current_user
+from functools import wraps
+from app.extensions import db
+from app.models.compliance import (
+    ClientRiskProfile, ComplianceRule, ComplianceAlert,
+    RestrictiveListCheck, TransactionMonitoring, RiskLevel, ComplianceAudit
+)
+from app.models.client import Client
+from app.models.operation import Operation
+from app.services.compliance_service import ComplianceService
+from app.utils.formatters import now_peru
+
+compliance_bp = Blueprint('compliance', __name__)
+
+
+def middle_office_required(f):
+    """Decorator para requerir rol Middle Office"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated or not current_user.is_middle_office():
+            return jsonify({
+                'success': False,
+                'error': 'Acceso denegado. Solo Middle Office puede acceder.'
+            }), 403
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+# ==================== DASHBOARD ====================
+
+@compliance_bp.route('/')
+@login_required
+@middle_office_required
+def index():
+    """Dashboard principal de Middle Office"""
+    return render_template('compliance/dashboard.html')
+
+
+@compliance_bp.route('/api/dashboard/stats')
+@login_required
+@middle_office_required
+def dashboard_stats():
+    """API: Estadísticas para el dashboard"""
+    try:
+        stats = ComplianceService.get_compliance_dashboard_stats()
+        return jsonify({
+            'success': True,
+            'data': stats
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+# ==================== ALERTAS ====================
+
+@compliance_bp.route('/alerts')
+@login_required
+@middle_office_required
+def alerts():
+    """Página de alertas de compliance"""
+    return render_template('compliance/alerts.html')
+
+
+@compliance_bp.route('/api/alerts')
+@login_required
+@middle_office_required
+def api_alerts():
+    """API: Lista de alertas con filtros para DataTables"""
+    try:
+        # Parámetros de DataTables
+        draw = request.args.get('draw', type=int, default=1)
+        start = request.args.get('start', type=int, default=0)
+        length = request.args.get('length', type=int, default=10)
+
+        # Filtros
+        severity = request.args.get('severity')
+        status = request.args.get('status')
+        alert_type = request.args.get('alert_type')
+
+        # Query base
+        query = ComplianceAlert.query
+
+        # Aplicar filtros
+        if severity:
+            query = query.filter_by(severity=severity)
+        if status:
+            query = query.filter_by(status=status)
+        if alert_type:
+            query = query.filter_by(alert_type=alert_type)
+
+        # Total de registros
+        total_records = query.count()
+
+        # Paginación
+        alerts = query.order_by(ComplianceAlert.created_at.desc()) \
+                     .limit(length) \
+                     .offset(start) \
+                     .all()
+
+        # Formatear datos
+        data = []
+        for alert in alerts:
+            data.append({
+                'id': alert.id,
+                'alert_type': alert.alert_type,
+                'severity': alert.severity,
+                'title': alert.title,
+                'description': alert.description,
+                'client_id': alert.client_id,
+                'client_name': alert.client.full_name if alert.client else 'N/A',
+                'operation_id': alert.operation_id,
+                'status': alert.status,
+                'created_at': alert.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+                'reviewed_by': alert.reviewer.username if alert.reviewer else None,
+                'reviewed_at': alert.reviewed_at.strftime('%Y-%m-%d %H:%M:%S') if alert.reviewed_at else None
+            })
+
+        return jsonify({
+            'draw': draw,
+            'recordsTotal': total_records,
+            'recordsFiltered': total_records,
+            'data': data
+        })
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@compliance_bp.route('/alerts/<int:alert_id>')
+@login_required
+@middle_office_required
+def alert_detail(alert_id):
+    """Detalle de una alerta"""
+    alert = ComplianceAlert.query.get_or_404(alert_id)
+    return render_template('compliance/alert_detail.html', alert=alert)
+
+
+@compliance_bp.route('/api/alerts/<int:alert_id>/resolve', methods=['POST'])
+@login_required
+@middle_office_required
+def resolve_alert(alert_id):
+    """API: Resolver una alerta"""
+    try:
+        data = request.get_json()
+        resolution = data.get('resolution')
+        notes = data.get('notes', '')
+
+        if not resolution:
+            return jsonify({
+                'success': False,
+                'error': 'Debe especificar una resolución'
+            }), 400
+
+        success, message = ComplianceService.resolve_alert(
+            alert_id,
+            current_user.id,
+            resolution,
+            notes
+        )
+
+        if success:
+            # Registrar en auditoría
+            audit = ComplianceAudit(
+                user_id=current_user.id,
+                action_type='Alert_Resolution',
+                entity_type='Alert',
+                entity_id=alert_id,
+                description=f'Alerta resuelta: {resolution}',
+                changes=json.dumps({
+                    'resolution': resolution,
+                    'notes': notes
+                }),
+                ip_address=request.remote_addr,
+                user_agent=request.headers.get('User-Agent')
+            )
+            db.session.add(audit)
+            db.session.commit()
+
+        return jsonify({
+            'success': success,
+            'message': message
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+# ==================== PERFILES DE RIESGO ====================
+
+@compliance_bp.route('/risk-profiles')
+@login_required
+@middle_office_required
+def risk_profiles():
+    """Página de perfiles de riesgo"""
+    return render_template('compliance/risk_profiles.html')
+
+
+@compliance_bp.route('/api/risk-profiles')
+@login_required
+@middle_office_required
+def api_risk_profiles():
+    """API: Lista de perfiles de riesgo"""
+    try:
+        # Parámetros
+        draw = request.args.get('draw', type=int, default=1)
+        start = request.args.get('start', type=int, default=0)
+        length = request.args.get('length', type=int, default=10)
+
+        # Filtros
+        risk_level = request.args.get('risk_level')
+        kyc_status = request.args.get('kyc_status')
+        is_pep = request.args.get('is_pep')
+
+        # Query
+        query = ClientRiskProfile.query.join(Client)
+
+        if risk_level:
+            if risk_level == 'Crítico':
+                query = query.filter(ClientRiskProfile.risk_score >= 76)
+            elif risk_level == 'Alto':
+                query = query.filter(ClientRiskProfile.risk_score >= 51, ClientRiskProfile.risk_score < 76)
+            elif risk_level == 'Medio':
+                query = query.filter(ClientRiskProfile.risk_score >= 26, ClientRiskProfile.risk_score < 51)
+            elif risk_level == 'Bajo':
+                query = query.filter(ClientRiskProfile.risk_score < 26)
+
+        if kyc_status:
+            query = query.filter(ClientRiskProfile.kyc_status == kyc_status)
+
+        if is_pep and is_pep.lower() == 'true':
+            query = query.filter(ClientRiskProfile.is_pep == True)
+
+        total_records = query.count()
+
+        profiles = query.order_by(ClientRiskProfile.risk_score.desc()) \
+                       .limit(length) \
+                       .offset(start) \
+                       .all()
+
+        data = []
+        for profile in profiles:
+            data.append({
+                'id': profile.id,
+                'client_id': profile.client_id,
+                'client_name': profile.client.full_name,
+                'client_dni': profile.client.dni,
+                'risk_score': profile.risk_score,
+                'risk_level': ComplianceService.assign_risk_level(profile.risk_score),
+                'is_pep': profile.is_pep,
+                'kyc_status': profile.kyc_status,
+                'dd_level': profile.dd_level,
+                'in_restrictive_lists': profile.in_restrictive_lists,
+                'has_legal_issues': profile.has_legal_issues,
+                'updated_at': profile.updated_at.strftime('%Y-%m-%d %H:%M:%S')
+            })
+
+        return jsonify({
+            'draw': draw,
+            'recordsTotal': total_records,
+            'recordsFiltered': total_records,
+            'data': data
+        })
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@compliance_bp.route('/risk-profiles/<int:client_id>')
+@login_required
+@middle_office_required
+def risk_profile_detail(client_id):
+    """Detalle de perfil de riesgo de un cliente"""
+    client = Client.query.get_or_404(client_id)
+    profile = ClientRiskProfile.query.filter_by(client_id=client_id).first()
+
+    return render_template('compliance/risk_profile_detail.html',
+                         client=client,
+                         profile=profile)
+
+
+@compliance_bp.route('/api/risk-profiles/<int:client_id>/recalculate', methods=['POST'])
+@login_required
+@middle_office_required
+def recalculate_risk_profile(client_id):
+    """API: Recalcular perfil de riesgo de un cliente"""
+    try:
+        success, score, level = ComplianceService.update_client_risk_profile(
+            client_id,
+            current_user.id
+        )
+
+        if success:
+            # Registrar en auditoría
+            audit = ComplianceAudit(
+                user_id=current_user.id,
+                action_type='Risk_Recalculation',
+                entity_type='Client',
+                entity_id=client_id,
+                description=f'Perfil de riesgo recalculado: {level} ({score} puntos)',
+                changes=json.dumps({
+                    'score': score,
+                    'level': level
+                }),
+                ip_address=request.remote_addr,
+                user_agent=request.headers.get('User-Agent')
+            )
+            db.session.add(audit)
+            db.session.commit()
+
+            return jsonify({
+                'success': True,
+                'message': 'Perfil recalculado correctamente',
+                'data': {
+                    'score': score,
+                    'level': level
+                }
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Error al recalcular perfil'
+            }), 500
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+# ==================== KYC ====================
+
+@compliance_bp.route('/kyc')
+@login_required
+@middle_office_required
+def kyc():
+    """Página de revisión KYC"""
+    return render_template('compliance/kyc.html')
+
+
+@compliance_bp.route('/api/kyc/pending')
+@login_required
+@middle_office_required
+def api_kyc_pending():
+    """API: Lista de KYC pendientes"""
+    try:
+        pending = ClientRiskProfile.query.filter(
+            ClientRiskProfile.kyc_status.in_(['Pendiente', 'En Proceso'])
+        ).join(Client).all()
+
+        data = []
+        for profile in pending:
+            data.append({
+                'client_id': profile.client_id,
+                'client_name': profile.client.full_name,
+                'client_dni': profile.client.dni,
+                'client_email': profile.client.email,
+                'risk_score': profile.risk_score,
+                'kyc_status': profile.kyc_status,
+                'is_pep': profile.is_pep,
+                'created_at': profile.created_at.strftime('%Y-%m-%d %H:%M:%S')
+            })
+
+        return jsonify({
+            'success': True,
+            'data': data
+        })
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@compliance_bp.route('/api/kyc/<int:client_id>/approve', methods=['POST'])
+@login_required
+@middle_office_required
+def approve_kyc(client_id):
+    """API: Aprobar KYC de un cliente"""
+    try:
+        data = request.get_json()
+        notes = data.get('notes', '')
+
+        profile = ClientRiskProfile.query.filter_by(client_id=client_id).first()
+        if not profile:
+            profile = ClientRiskProfile(client_id=client_id)
+            db.session.add(profile)
+
+        profile.kyc_status = 'Aprobado'
+        profile.kyc_verified_at = now_peru()
+        profile.kyc_verified_by = current_user.id
+        profile.kyc_notes = notes
+
+        # Recalcular riesgo (KYC aprobado reduce 10 puntos)
+        ComplianceService.update_client_risk_profile(client_id, current_user.id)
+
+        # Auditoría
+        audit = ComplianceAudit(
+            user_id=current_user.id,
+            action_type='KYC_Approval',
+            entity_type='Client',
+            entity_id=client_id,
+            description='KYC aprobado',
+            changes=json.dumps({'status': 'Aprobado', 'notes': notes}),
+            ip_address=request.remote_addr,
+            user_agent=request.headers.get('User-Agent')
+        )
+        db.session.add(audit)
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': 'KYC aprobado correctamente'
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@compliance_bp.route('/api/kyc/<int:client_id>/reject', methods=['POST'])
+@login_required
+@middle_office_required
+def reject_kyc(client_id):
+    """API: Rechazar KYC de un cliente"""
+    try:
+        data = request.get_json()
+        notes = data.get('notes', '')
+
+        if not notes:
+            return jsonify({
+                'success': False,
+                'error': 'Debe especificar el motivo del rechazo'
+            }), 400
+
+        profile = ClientRiskProfile.query.filter_by(client_id=client_id).first()
+        if not profile:
+            profile = ClientRiskProfile(client_id=client_id)
+            db.session.add(profile)
+
+        profile.kyc_status = 'Rechazado'
+        profile.kyc_verified_at = now_peru()
+        profile.kyc_verified_by = current_user.id
+        profile.kyc_notes = notes
+
+        # Auditoría
+        audit = ComplianceAudit(
+            user_id=current_user.id,
+            action_type='KYC_Rejection',
+            entity_type='Client',
+            entity_id=client_id,
+            description='KYC rechazado',
+            changes=json.dumps({'status': 'Rechazado', 'notes': notes}),
+            ip_address=request.remote_addr,
+            user_agent=request.headers.get('User-Agent')
+        )
+        db.session.add(audit)
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': 'KYC rechazado'
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+# ==================== REGLAS ====================
+
+@compliance_bp.route('/rules')
+@login_required
+@middle_office_required
+def rules():
+    """Página de gestión de reglas"""
+    return render_template('compliance/rules.html')
+
+
+@compliance_bp.route('/api/rules')
+@login_required
+@middle_office_required
+def api_rules():
+    """API: Lista de reglas de compliance"""
+    try:
+        all_rules = ComplianceRule.query.order_by(ComplianceRule.created_at.desc()).all()
+
+        data = []
+        for rule in all_rules:
+            data.append({
+                'id': rule.id,
+                'name': rule.name,
+                'description': rule.description,
+                'rule_type': rule.rule_type,
+                'severity': rule.severity,
+                'is_active': rule.is_active,
+                'auto_block': rule.auto_block,
+                'created_at': rule.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+                'created_by': rule.creator.username if rule.creator else 'Sistema'
+            })
+
+        return jsonify({
+            'success': True,
+            'data': data
+        })
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+# ==================== LISTAS RESTRICTIVAS ====================
+
+@compliance_bp.route('/restrictive-lists')
+@login_required
+@middle_office_required
+def restrictive_lists():
+    """Página de listas restrictivas"""
+    return render_template('compliance/restrictive_lists.html')
+
+
+@compliance_bp.route('/api/restrictive-lists/check/<int:client_id>', methods=['POST'])
+@login_required
+@middle_office_required
+def check_restrictive_lists(client_id):
+    """API: Consultar listas restrictivas para un cliente"""
+    try:
+        client = Client.query.get_or_404(client_id)
+
+        # Por ahora, verificación manual (Inspektor en Fase 3)
+        check = ComplianceService.check_restrictive_lists(
+            client_id,
+            current_user.id,
+            provider='Manual'
+        )
+
+        # Auditoría
+        audit = ComplianceAudit(
+            user_id=current_user.id,
+            action_type='Restrictive_List_Check',
+            entity_type='Client',
+            entity_id=client_id,
+            description='Consulta a listas restrictivas',
+            changes=json.dumps({
+                'result': check.result,
+                'provider': check.provider
+            }),
+            ip_address=request.remote_addr,
+            user_agent=request.headers.get('User-Agent')
+        )
+        db.session.add(audit)
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': 'Consulta registrada',
+            'data': {
+                'result': check.result,
+                'checked_at': check.checked_at.strftime('%Y-%m-%d %H:%M:%S')
+            }
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+# ==================== AUDITORÍA ====================
+
+@compliance_bp.route('/audit')
+@login_required
+@middle_office_required
+def audit():
+    """Página de auditoría"""
+    return render_template('compliance/audit.html')
+
+
+@compliance_bp.route('/api/audit')
+@login_required
+@middle_office_required
+def api_audit():
+    """API: Log de auditoría"""
+    try:
+        draw = request.args.get('draw', type=int, default=1)
+        start = request.args.get('start', type=int, default=0)
+        length = request.args.get('length', type=int, default=10)
+
+        query = ComplianceAudit.query
+        total_records = query.count()
+
+        audits = query.order_by(ComplianceAudit.created_at.desc()) \
+                     .limit(length) \
+                     .offset(start) \
+                     .all()
+
+        data = []
+        for audit_log in audits:
+            data.append({
+                'id': audit_log.id,
+                'user': audit_log.user.username,
+                'action_type': audit_log.action_type,
+                'entity_type': audit_log.entity_type,
+                'entity_id': audit_log.entity_id,
+                'description': audit_log.description,
+                'ip_address': audit_log.ip_address,
+                'created_at': audit_log.created_at.strftime('%Y-%m-%d %H:%M:%S')
+            })
+
+        return jsonify({
+            'draw': draw,
+            'recordsTotal': total_records,
+            'recordsFiltered': total_records,
+            'data': data
+        })
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500

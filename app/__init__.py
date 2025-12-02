@@ -85,6 +85,7 @@ def register_blueprints(app):
     from app.routes.clients import clients_bp
     from app.routes.operations import operations_bp
     from app.routes.position import position_bp
+    from app.routes.compliance import compliance_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
@@ -92,6 +93,7 @@ def register_blueprints(app):
     app.register_blueprint(clients_bp, url_prefix='/clients')
     app.register_blueprint(operations_bp, url_prefix='/operations')
     app.register_blueprint(position_bp, url_prefix='/position')
+    app.register_blueprint(compliance_bp, url_prefix='/compliance')
 
 
 def configure_logging(app):
@@ -160,11 +162,24 @@ def register_shell_context(app):
         from app.models.user import User
         from app.models.client import Client
         from app.models.operation import Operation
+        from app.models.compliance import (
+            RiskLevel, ClientRiskProfile, ComplianceRule,
+            ComplianceAlert, RestrictiveListCheck, TransactionMonitoring,
+            ComplianceDocument, ComplianceAudit
+        )
         return {
             'db': db,
             'User': User,
             'Client': Client,
-            'Operation': Operation
+            'Operation': Operation,
+            'RiskLevel': RiskLevel,
+            'ClientRiskProfile': ClientRiskProfile,
+            'ComplianceRule': ComplianceRule,
+            'ComplianceAlert': ComplianceAlert,
+            'RestrictiveListCheck': RestrictiveListCheck,
+            'TransactionMonitoring': TransactionMonitoring,
+            'ComplianceDocument': ComplianceDocument,
+            'ComplianceAudit': ComplianceAudit
         }
 
 

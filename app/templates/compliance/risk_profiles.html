@@ -1,0 +1,210 @@
+{% extends "base.html" %}
+
+{% block title %}Perfiles de Riesgo - QoriCash Trading{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-0">Perfiles de Riesgo de Clientes</h2>
+            <p class="text-muted">Gestión de scoring de riesgo AML/KYC</p>
+        </div>
+        <div>
+            <a href="/compliance/" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Volver al Dashboard
+            </a>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-3">
+                    <label class="form-label">Nivel de Riesgo</label>
+                    <select id="filterRiskLevel" class="form-select">
+                        <option value="">Todos</option>
+                        <option value="Crítico">Crítico (76-100)</option>
+                        <option value="Alto">Alto (51-75)</option>
+                        <option value="Medio">Medio (26-50)</option>
+                        <option value="Bajo">Bajo (0-25)</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Estado KYC</label>
+                    <select id="filterKYC" class="form-select">
+                        <option value="">Todos</option>
+                        <option value="Pendiente">Pendiente</option>
+                        <option value="En Proceso">En Proceso</option>
+                        <option value="Aprobado">Aprobado</option>
+                        <option value="Rechazado">Rechazado</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">PEP</label>
+                    <select id="filterPEP" class="form-select">
+                        <option value="">Todos</option>
+                        <option value="true">Solo PEP</option>
+                        <option value="false">No PEP</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">&nbsp;</label>
+                    <button id="btnApplyFilters" class="btn btn-primary w-100">
+                        <i class="bi bi-funnel"></i> Aplicar Filtros
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Table -->
+    <div class="card">
+        <div class="card-body">
+            <table id="riskProfilesTable" class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Cliente</th>
+                        <th>DNI</th>
+                        <th>Score</th>
+                        <th>Nivel</th>
+                        <th>PEP</th>
+                        <th>KYC</th>
+                        <th>Due Diligence</th>
+                        <th>Actualizado</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let profilesTable = null;
+
+    $(document).ready(function() {
+        initProfilesTable();
+
+        $('#btnApplyFilters').on('click', function() {
+            profilesTable.ajax.reload();
+        });
+    });
+
+    function initProfilesTable() {
+        profilesTable = $('#riskProfilesTable').DataTable({
+            processing: true,
+            serverSide: true,
+            ajax: {
+                url: '/compliance/api/risk-profiles',
+                data: function(d) {
+                    d.risk_level = $('#filterRiskLevel').val();
+                    d.kyc_status = $('#filterKYC').val();
+                    d.is_pep = $('#filterPEP').val();
+                }
+            },
+            columns: [
+                { data: 'client_name' },
+                { data: 'client_dni' },
+                {
+                    data: 'risk_score',
+                    render: function(data) {
+                        let color = 'success';
+                        if (data >= 76) color = 'danger';
+                        else if (data >= 51) color = 'warning';
+                        else if (data >= 26) color = 'info';
+
+                        return `<span class="badge bg-${color}" style="font-size: 1em;">${data}</span>`;
+                    }
+                },
+                {
+                    data: 'risk_level',
+                    render: function(data) {
+                        const badges = {
+                            'Crítico': 'danger',
+                            'Alto': 'warning',
+                            'Medio': 'info',
+                            'Bajo': 'success'
+                        };
+                        return `<span class="badge bg-${badges[data]}">${data}</span>`;
+                    }
+                },
+                {
+                    data: 'is_pep',
+                    render: function(data) {
+                        return data ? '<i class="bi bi-check-circle-fill text-warning"></i> Sí' : 'No';
+                    }
+                },
+                {
+                    data: 'kyc_status',
+                    render: function(data) {
+                        const badges = {
+                            'Pendiente': 'warning',
+                            'En Proceso': 'info',
+                            'Aprobado': 'success',
+                            'Rechazado': 'danger'
+                        };
+                        return `<span class="badge bg-${badges[data]}">${data}</span>`;
+                    }
+                },
+                { data: 'dd_level' },
+                { data: 'updated_at' },
+                {
+                    data: null,
+                    orderable: false,
+                    render: function(data, type, row) {
+                        return `
+                            <a href="/compliance/risk-profiles/${row.client_id}" class="btn btn-sm btn-info" title="Ver Detalle">
+                                <i class="bi bi-eye"></i>
+                            </a>
+                            <button class="btn btn-sm btn-primary" onclick="recalculateRisk(${row.client_id})" title="Recalcular">
+                                <i class="bi bi-calculator"></i>
+                            </button>
+                        `;
+                    }
+                }
+            ],
+            order: [[2, 'desc']],
+            language: {
+                url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
+            }
+        });
+    }
+
+    function recalculateRisk(clientId) {
+        Swal.fire({
+            title: '¿Recalcular Perfil de Riesgo?',
+            text: 'Se recalculará el score basado en las operaciones y datos actuales',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, recalcular',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                ajaxRequest(
+                    `/compliance/api/risk-profiles/${clientId}/recalculate`,
+                    'POST',
+                    {},
+                    function(response) {
+                        if (response.success) {
+                            const data = response.data;
+                            showNotification(`Perfil recalculado: ${data.level} (${data.score} puntos)`, 'success');
+                            profilesTable.ajax.reload();
+                        } else {
+                            showNotification(response.error || 'Error al recalcular', 'error');
+                        }
+                    },
+                    function(error) {
+                        showNotification('Error al recalcular perfil', 'error');
+                    }
+                );
+            }
+        });
+    }
+</script>
+{% endblock %}

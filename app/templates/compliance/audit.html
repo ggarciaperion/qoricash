@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block title %}Auditoría de Compliance - QoriCash Trading{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-0">Auditoría de Compliance</h2>
+            <p class="text-muted">Registro de todas las acciones de compliance</p>
+        </div>
+        <div>
+            <a href="/compliance/" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Volver al Dashboard
+            </a>
+        </div>
+    </div>
+
+    <!-- Table -->
+    <div class="card">
+        <div class="card-body">
+            <table id="auditTable" class="table table-sm table-hover">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Usuario</th>
+                        <th>Acción</th>
+                        <th>Entidad</th>
+                        <th>ID Entidad</th>
+                        <th>Descripción</th>
+                        <th>IP</th>
+                        <th>Fecha</th>
+                    </tr>
+                </thead>
+                <tbody>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let auditTable = null;
+
+    $(document).ready(function() {
+        initAuditTable();
+    });
+
+    function initAuditTable() {
+        auditTable = $('#auditTable').DataTable({
+            processing: true,
+            serverSide: true,
+            ajax: {
+                url: '/compliance/api/audit'
+            },
+            columns: [
+                { data: 'id' },
+                { data: 'user' },
+                {
+                    data: 'action_type',
+                    render: function(data) {
+                        const badges = {
+                            'KYC_Approval': 'success',
+                            'KYC_Rejection': 'danger',
+                            'Alert_Resolution': 'info',
+                            'Risk_Recalculation': 'warning',
+                            'Restrictive_List_Check': 'primary',
+                            'Rule_Creation': 'secondary'
+                        };
+                        const color = badges[data] || 'secondary';
+                        return `<span class="badge bg-${color}">${data.replace(/_/g, ' ')}</span>`;
+                    }
+                },
+                { data: 'entity_type' },
+                { data: 'entity_id' },
+                { data: 'description' },
+                { data: 'ip_address' },
+                { data: 'created_at' }
+            ],
+            order: [[0, 'desc']],
+            language: {
+                url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
+            },
+            pageLength: 25
+        });
+    }
+</script>
+{% endblock %}

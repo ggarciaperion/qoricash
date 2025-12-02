@@ -22,7 +22,7 @@ dashboard_bp = Blueprint('dashboard', __name__)
 def index():
     """
     Dashboard principal
-    
+
     Redirige al dashboard según el rol del usuario
     """
     # Verificar rol y mostrar dashboard correspondiente
@@ -33,6 +33,9 @@ def index():
     elif current_user.role == 'Operador':
         # Los operadores ven dashboard completo sin Sistema ni Gestionar Usuarios
         return render_template('dashboard/operator.html', user=current_user)
+    elif current_user.role == 'Middle Office':
+        # Middle Office ve dashboard de compliance
+        return render_template('compliance/dashboard.html', user=current_user)
     else:
         return render_template('dashboard/trader.html', user=current_user)
 

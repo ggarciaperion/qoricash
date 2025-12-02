@@ -85,6 +85,38 @@
                         </a>
                     </li>
                     {% endif %}
+
+                    {% if current_user.is_middle_office() %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('compliance.alerts') }}">
+                            <i class="bi bi-exclamation-triangle"></i> Alertas
+                        </a>
+                    </li>
+
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('compliance.risk_profiles') }}">
+                            <i class="bi bi-shield-check"></i> Perfiles de Riesgo
+                        </a>
+                    </li>
+
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('compliance.kyc') }}">
+                            <i class="bi bi-person-check"></i> KYC
+                        </a>
+                    </li>
+
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('clients.list_clients') }}">
+                            <i class="bi bi-people"></i> Clientes
+                        </a>
+                    </li>
+
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('operations.history') }}">
+                            <i class="bi bi-clock-history"></i> Historial
+                        </a>
+                    </li>
+                    {% endif %}
                 </ul>
 
                 <ul class="navbar-nav">

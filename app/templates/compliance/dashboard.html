@@ -1,0 +1,313 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard Middle Office - QoriCash Trading{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-0">Dashboard de Compliance</h2>
+            <p class="text-muted">Panel de control - Middle Office</p>
+        </div>
+        <div>
+            <span class="badge bg-success">Sistema AML/KYC/PLAFT Activo</span>
+        </div>
+    </div>
+
+    <!-- Row 1: Alertas -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card border-danger">
+                <div class="card-body text-center">
+                    <i class="bi bi-exclamation-triangle-fill text-danger" style="font-size: 2rem;"></i>
+                    <h3 class="mt-2 mb-0" id="alertsCritical">0</h3>
+                    <p class="text-muted mb-0">Alertas Críticas</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-warning">
+                <div class="card-body text-center">
+                    <i class="bi bi-exclamation-circle-fill text-warning" style="font-size: 2rem;"></i>
+                    <h3 class="mt-2 mb-0" id="alertsHigh">0</h3>
+                    <p class="text-muted mb-0">Alertas Altas</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-info">
+                <div class="card-body text-center">
+                    <i class="bi bi-info-circle-fill text-info" style="font-size: 2rem;"></i>
+                    <h3 class="mt-2 mb-0" id="alertsMedium">0</h3>
+                    <p class="text-muted mb-0">Alertas Medias</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-secondary">
+                <div class="card-body text-center">
+                    <i class="bi bi-list-ul text-secondary" style="font-size: 2rem;"></i>
+                    <h3 class="mt-2 mb-0" id="alertsTotal">0</h3>
+                    <p class="text-muted mb-0">Total Pendientes</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Row 2: Clientes por Nivel de Riesgo -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <i class="bi bi-bar-chart-fill"></i> Clientes por Nivel de Riesgo
+                </div>
+                <div class="card-body">
+                    <canvas id="riskLevelChart" height="80"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card mb-3">
+                <div class="card-body text-center">
+                    <i class="bi bi-person-badge text-warning" style="font-size: 2rem;"></i>
+                    <h3 class="mt-2 mb-0" id="pepClients">0</h3>
+                    <p class="text-muted mb-0">Clientes PEP</p>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-body text-center">
+                    <i class="bi bi-shield-exclamation text-danger" style="font-size: 2rem;"></i>
+                    <h3 class="mt-2 mb-0" id="restrictiveMatches">0</h3>
+                    <p class="text-muted mb-0">Matches Listas Restrictivas</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Row 3: KYC Pendientes y Últimas Alertas -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <i class="bi bi-person-check"></i> Estado KYC
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between mb-3">
+                        <div>
+                            <h5>Pendientes</h5>
+                            <h2 id="kycPending">0</h2>
+                        </div>
+                        <div>
+                            <h5>En Proceso</h5>
+                            <h2 id="kycInProcess">0</h2>
+                        </div>
+                    </div>
+                    <a href="/compliance/kyc" class="btn btn-info w-100">
+                        <i class="bi bi-arrow-right-circle"></i> Revisar KYC
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-danger text-white">
+                    <i class="bi bi-bell-fill"></i> Alertas Críticas Recientes
+                </div>
+                <div class="card-body">
+                    <div id="recentCriticalAlerts" style="max-height: 200px; overflow-y: auto;">
+                        <p class="text-muted text-center">Cargando...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Row 4: Accesos Rápidos -->
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-dark text-white">
+                    <i class="bi bi-lightning-fill"></i> Accesos Rápidos
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-md-2">
+                            <a href="/compliance/alerts" class="btn btn-outline-primary btn-lg w-100 mb-2">
+                                <i class="bi bi-exclamation-triangle d-block" style="font-size: 2rem;"></i>
+                                <small>Alertas</small>
+                            </a>
+                        </div>
+                        <div class="col-md-2">
+                            <a href="/compliance/risk-profiles" class="btn btn-outline-warning btn-lg w-100 mb-2">
+                                <i class="bi bi-shield-check d-block" style="font-size: 2rem;"></i>
+                                <small>Perfiles de Riesgo</small>
+                            </a>
+                        </div>
+                        <div class="col-md-2">
+                            <a href="/compliance/kyc" class="btn btn-outline-info btn-lg w-100 mb-2">
+                                <i class="bi bi-person-check d-block" style="font-size: 2rem;"></i>
+                                <small>KYC</small>
+                            </a>
+                        </div>
+                        <div class="col-md-2">
+                            <a href="/clients/list" class="btn btn-outline-success btn-lg w-100 mb-2">
+                                <i class="bi bi-people d-block" style="font-size: 2rem;"></i>
+                                <small>Clientes</small>
+                            </a>
+                        </div>
+                        <div class="col-md-2">
+                            <a href="/operations/history" class="btn btn-outline-secondary btn-lg w-100 mb-2">
+                                <i class="bi bi-clock-history d-block" style="font-size: 2rem;"></i>
+                                <small>Historial</small>
+                            </a>
+                        </div>
+                        <div class="col-md-2">
+                            <a href="/compliance/audit" class="btn btn-outline-dark btn-lg w-100 mb-2">
+                                <i class="bi bi-file-text d-block" style="font-size: 2rem;"></i>
+                                <small>Auditoría</small>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+    let riskChart = null;
+
+    $(document).ready(function() {
+        loadDashboardStats();
+        loadRecentCriticalAlerts();
+
+        // Auto-refresh every 30 seconds
+        setInterval(loadDashboardStats, 30000);
+    });
+
+    function loadDashboardStats() {
+        ajaxRequest('/compliance/api/dashboard/stats', 'GET', null, function(response) {
+            if (response.success) {
+                const data = response.data;
+
+                // Update alert counts
+                $('#alertsCritical').text(data.alerts_critical || 0);
+                $('#alertsHigh').text(data.alerts_high || 0);
+                $('#alertsMedium').text(data.alerts_medium || 0);
+                $('#alertsTotal').text(data.alerts_total || 0);
+
+                // Update KYC counts
+                $('#kycPending').text(data.kyc_pending || 0);
+                $('#kycInProcess').text(data.kyc_in_process || 0);
+
+                // Update PEP and restrictive lists
+                $('#pepClients').text(data.pep_clients || 0);
+                $('#restrictiveMatches').text(data.restrictive_list_matches || 0);
+
+                // Update risk level chart
+                updateRiskChart(data);
+            }
+        }, function(error) {
+            showNotification('Error al cargar estadísticas', 'error');
+        });
+    }
+
+    function updateRiskChart(data) {
+        const ctx = document.getElementById('riskLevelChart');
+
+        if (riskChart) {
+            riskChart.destroy();
+        }
+
+        riskChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['Crítico', 'Alto', 'Medio', 'Bajo'],
+                datasets: [{
+                    label: 'Clientes',
+                    data: [
+                        data.clients_critical_risk || 0,
+                        data.clients_high_risk || 0,
+                        data.clients_medium_risk || 0,
+                        (data.clients_total || 0) - (data.clients_critical_risk || 0) - (data.clients_high_risk || 0) - (data.clients_medium_risk || 0)
+                    ],
+                    backgroundColor: [
+                        'rgba(220, 53, 69, 0.7)',   // Red - Crítico
+                        'rgba(255, 193, 7, 0.7)',   // Yellow - Alto
+                        'rgba(13, 202, 240, 0.7)',  // Cyan - Medio
+                        'rgba(25, 135, 84, 0.7)'    // Green - Bajo
+                    ],
+                    borderColor: [
+                        'rgb(220, 53, 69)',
+                        'rgb(255, 193, 7)',
+                        'rgb(13, 202, 240)',
+                        'rgb(25, 135, 84)'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    function loadRecentCriticalAlerts() {
+        ajaxRequest('/compliance/api/alerts?severity=Crítica&status=Pendiente&length=5', 'GET', null, function(response) {
+            if (response.success || response.data) {
+                const alerts = response.data || [];
+                const container = $('#recentCriticalAlerts');
+
+                if (alerts.length === 0) {
+                    container.html('<p class="text-muted text-center mb-0">No hay alertas críticas pendientes</p>');
+                } else {
+                    let html = '<div class="list-group">';
+                    alerts.forEach(alert => {
+                        html += `
+                            <a href="/compliance/alerts/${alert.id}" class="list-group-item list-group-item-action">
+                                <div class="d-flex w-100 justify-content-between">
+                                    <h6 class="mb-1">${escapeHtml(alert.title)}</h6>
+                                    <small class="text-danger">${alert.severity}</small>
+                                </div>
+                                <p class="mb-1 small">${escapeHtml(alert.client_name)}</p>
+                                <small class="text-muted">${alert.created_at}</small>
+                            </a>
+                        `;
+                    });
+                    html += '</div>';
+                    container.html(html);
+                }
+            }
+        });
+    }
+
+    function escapeHtml(text) {
+        const map = {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#039;'
+        };
+        return text.replace(/[&<>"']/g, m => map[m]);
+    }
+</script>
+{% endblock %}
