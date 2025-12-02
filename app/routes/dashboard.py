@@ -81,6 +81,7 @@ def get_all_dashboard_data():
         trader_id: ID del trader para filtrar (opcional)
         month: Mes específico (opcional)
         year: Año específico (opcional)
+        day: Día específico (opcional, requiere month y year)
 
     Returns:
         JSON con todas las estadísticas combinadas
@@ -88,6 +89,7 @@ def get_all_dashboard_data():
     trader_id = request.args.get('trader_id', type=int)
     month = request.args.get('month', type=int)
     year = request.args.get('year', type=int)
+    day = request.args.get('day', type=int)
 
     now = now_peru()
 
@@ -98,11 +100,25 @@ def get_all_dashboard_data():
         year = now.year
 
     # ========================================
-    # ESTADÍSTICAS DE HOY
+    # ESTADÍSTICAS DE HOY (o día específico si se proporciona)
     # ========================================
-    start_of_day = datetime(now.year, now.month, now.day, 0, 0, 0)
-    end_of_day = datetime(now.year, now.month, now.day, 23, 59, 59)
-    today_date = now.date()
+    # Si se proporciona un día específico, usar ese día; si no, usar hoy
+    if day and month and year:
+        # Validar que el día sea válido para el mes/año especificado
+        try:
+            specific_date = datetime(year, month, day)
+            start_of_day = datetime(year, month, day, 0, 0, 0)
+            end_of_day = datetime(year, month, day, 23, 59, 59)
+            today_date = specific_date.date()
+        except ValueError:
+            # Día inválido, usar día actual
+            start_of_day = datetime(now.year, now.month, now.day, 0, 0, 0)
+            end_of_day = datetime(now.year, now.month, now.day, 23, 59, 59)
+            today_date = now.date()
+    else:
+        start_of_day = datetime(now.year, now.month, now.day, 0, 0, 0)
+        end_of_day = datetime(now.year, now.month, now.day, 23, 59, 59)
+        today_date = now.date()
 
     query_today = Operation.query.filter(
         Operation.created_at >= start_of_day,
@@ -142,13 +158,27 @@ def get_all_dashboard_data():
     }
 
     # ========================================
-    # ESTADÍSTICAS DEL MES
+    # ESTADÍSTICAS DEL MES (o hasta día específico)
     # ========================================
     start_date = datetime(year, month, 1)
-    if month == 12:
-        end_date = datetime(year + 1, 1, 1)
+
+    # Si se especificó un día, calcular hasta ese día; si no, hasta fin de mes
+    if day and month and year:
+        try:
+            # Calcular hasta el día específico (inclusive)
+            end_date = datetime(year, month, day, 23, 59, 59)
+        except ValueError:
+            # Día inválido, usar fin de mes
+            if month == 12:
+                end_date = datetime(year + 1, 1, 1)
+            else:
+                end_date = datetime(year, month + 1, 1)
     else:
-        end_date = datetime(year, month + 1, 1)
+        # Usar fin de mes completo
+        if month == 12:
+            end_date = datetime(year + 1, 1, 1)
+        else:
+            end_date = datetime(year, month + 1, 1)
 
     query_month = Operation.query.filter(
         and_(
@@ -163,16 +193,18 @@ def get_all_dashboard_data():
     operations_month = query_month.all()
     completed_month = [op for op in operations_month if op.status == 'Completada']
 
-    # Calcular utilidad acumulada del mes
+    # Calcular utilidad acumulada del mes (o hasta día específico)
     profit_month = 0
     if trader_id:
+        # CON FILTRO: Utilidades diarias hasta la fecha especificada
         daily_profits = TraderDailyProfit.query.filter(
             TraderDailyProfit.user_id == trader_id,
             TraderDailyProfit.profit_date >= start_date.date(),
-            TraderDailyProfit.profit_date < end_date.date()
+            TraderDailyProfit.profit_date <= (end_date.date() if day else end_date.date())
         ).all()
         profit_month = sum(float(dp.profit_amount_pen) for dp in daily_profits)
     else:
+        # SIN FILTRO: Automática (Ventas - Compras) hasta la fecha especificada
         from collections import defaultdict
         daily_operations = defaultdict(lambda: {'ventas': 0, 'compras': 0})
 

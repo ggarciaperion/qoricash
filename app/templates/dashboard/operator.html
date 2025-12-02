@@ -13,6 +13,9 @@
         <div class="col-md-8">
             <h2><i class="bi bi-speedometer2"></i> Dashboard Operador</h2>
             <p class="text-muted">Bienvenido, {{ user.username }} - Panel de operaciones</p>
+            <div id="filterIndicator" class="alert alert-info py-2 px-3 d-none" style="display: inline-block;">
+                <i class="bi bi-funnel-fill"></i> <span id="filterText"></span>
+            </div>
         </div>
         <div class="col-md-4 text-end">
             <button class="btn btn-outline-primary" onclick="refreshDashboard()">
@@ -302,6 +305,13 @@
                         <option value="2024">2024</option>
                     </select>
                 </div>
+                <div class="mb-3">
+                    <label class="form-label">Día Específico (opcional)</label>
+                    <input type="number" class="form-control" id="filterDay" min="1" max="31" placeholder="Ej: 26 (dejar vacío para ver todo el mes)">
+                    <small class="form-text text-muted">
+                        Si especificas un día, verás las estadísticas de ese día y el avance acumulado hasta ese día.
+                    </small>
+                </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
@@ -433,7 +443,8 @@
 let currentFilters = {
     trader_id: null,
     month: null,
-    year: null
+    year: null,
+    day: null
 };
 
 // Cargar datos al iniciar
@@ -473,11 +484,13 @@ function applyFilters() {
     const trader_id = $('#filterTrader').val();
     const month = $('#filterMonth').val();
     const year = $('#filterYear').val();
+    const day = $('#filterDay').val();
 
     currentFilters = {
         trader_id: trader_id || null,
         month: month || null,
-        year: year || null
+        year: year || null,
+        day: day || null
     };
 
     loadDashboardData();
@@ -490,6 +503,7 @@ function loadDashboardData() {
     if (currentFilters.trader_id) params.append('trader_id', currentFilters.trader_id);
     if (currentFilters.month) params.append('month', currentFilters.month);
     if (currentFilters.year) params.append('year', currentFilters.year);
+    if (currentFilters.day) params.append('day', currentFilters.day);
 
     // Cargar TODAS las estadísticas en UNA SOLA petición
     ajaxRequest(`/dashboard/api/dashboard/all?${params.toString()}`, 'GET', null, function(response) {
@@ -538,7 +552,41 @@ function loadDashboardData() {
         const system = response.system || {};
         $('#totalUsers').text(system.total_users || 0);
         $('#activeUsers').text(system.active_users || 0);
+
+        // Actualizar indicador de filtro
+        updateFilterIndicator();
     });
+}
+
+function updateFilterIndicator() {
+    const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+                        'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+
+    let filterText = '';
+    let hasFilter = false;
+
+    // Construir texto del filtro
+    if (currentFilters.day && currentFilters.month && currentFilters.year) {
+        filterText = `Viendo día ${currentFilters.day} de ${monthNames[currentFilters.month - 1]} ${currentFilters.year}`;
+        hasFilter = true;
+    } else if (currentFilters.month && currentFilters.year) {
+        filterText = `Viendo mes de ${monthNames[currentFilters.month - 1]} ${currentFilters.year}`;
+        hasFilter = true;
+    }
+
+    if (currentFilters.trader_id) {
+        const traderSelect = $('#filterTrader option:selected').text();
+        filterText += (hasFilter ? ' - ' : 'Viendo ') + `Trader: ${traderSelect}`;
+        hasFilter = true;
+    }
+
+    // Mostrar u ocultar indicador
+    if (hasFilter) {
+        $('#filterText').text(filterText);
+        $('#filterIndicator').removeClass('d-none');
+    } else {
+        $('#filterIndicator').addClass('d-none');
+    }
 }
 
 // ============================================
