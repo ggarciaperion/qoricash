@@ -50,10 +50,10 @@ class UserService:
     def get_users_by_role(role):
         """
         Obtener usuarios por rol
-        
+
         Args:
-            role: Rol a filtrar ('Master', 'Trader', 'Operador')
-        
+            role: Rol a filtrar ('Master', 'Trader', 'Operador', 'Middle Office')
+
         Returns:
             list: Lista de usuarios con ese rol
         """
@@ -63,15 +63,15 @@ class UserService:
     def create_user(current_user, username, email, password, dni, role='Trader'):
         """
         Crear nuevo usuario
-        
+
         Args:
             current_user: Usuario que crea (debe ser Master)
             username: Nombre de usuario
             email: Email
             password: Contraseña
             dni: DNI
-            role: Rol ('Master', 'Trader', 'Operador')
-        
+            role: Rol ('Master', 'Trader', 'Operador', 'Middle Office')
+
         Returns:
             tuple: (success: bool, message: str, user: User|None)
         """
@@ -93,7 +93,7 @@ class UserService:
             return False, error, None
         
         # Validar rol
-        if role not in ['Master', 'Trader', 'Operador']:
+        if role not in ['Master', 'Trader', 'Operador', 'Middle Office']:
             return False, 'Rol inválido', None
         
         # Validar que username no existe
@@ -187,7 +187,7 @@ class UserService:
         
         # Actualizar rol
         if role and role != user.role:
-            if role not in ['Master', 'Trader', 'Operador']:
+            if role not in ['Master', 'Trader', 'Operador', 'Middle Office']:
                 return False, 'Rol inválido', None
             user.role = role
         

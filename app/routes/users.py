@@ -42,13 +42,13 @@ def list_users():
 def create_user():
     """
     API: Crear nuevo usuario
-    
+
     POST JSON:
         username: string (required)
         email: string (required)
         password: string (required)
         dni: string (required)
-        role: string (required) - 'Master', 'Trader', 'Operador'
+        role: string (required) - 'Master', 'Trader', 'Operador', 'Middle Office'
     """
     data = request.get_json()
     
