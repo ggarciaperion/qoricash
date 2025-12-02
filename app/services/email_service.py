@@ -86,8 +86,9 @@ class EmailService:
                 logger.warning(f'No hay destinatarios para la operación {operation.operation_id}')
                 return False, 'No hay destinatarios configurados'
 
-            # Asunto
-            subject = f'Nueva Operación #{operation.operation_id} - QoriCash Trading'
+            # Asunto con nombre del trader
+            trader_name = operation.user.username if operation.user else 'Sistema'
+            subject = f'{trader_name} - Nueva Operación #{operation.operation_id} - QoriCash Trading'
 
             # Contenido HTML
             html_body = EmailService._render_new_operation_template(operation)
