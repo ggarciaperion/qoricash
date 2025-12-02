@@ -24,10 +24,10 @@ class User(UserMixin, db.Model):
     
     # Rol y estado
     role = db.Column(
-        db.String(20), 
+        db.String(20),
         nullable=False,
         default='Trader'
-    )  # Master, Trader, Operador
+    )  # Master, Trader, Operador, Middle Office
     
     status = db.Column(
         db.String(20),
@@ -63,7 +63,7 @@ class User(UserMixin, db.Model):
     # Constraints
     __table_args__ = (
         db.CheckConstraint(
-            role.in_(['Master', 'Trader', 'Operador']),
+            role.in_(['Master', 'Trader', 'Operador', 'Middle Office']),
             name='check_user_role'
         ),
         db.CheckConstraint(
@@ -132,7 +132,11 @@ class User(UserMixin, db.Model):
     def is_operador(self):
         """Verificar si es Operador"""
         return self.role == 'Operador'
-    
+
+    def is_middle_office(self):
+        """Verificar si es Middle Office"""
+        return self.role == 'Middle Office'
+
     def is_active_user(self):
         """Verificar si está activo"""
         return self.status == 'Activo'
