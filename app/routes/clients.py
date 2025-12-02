@@ -23,12 +23,12 @@ clients_bp = Blueprint('clients', __name__, url_prefix='/clients')
 @clients_bp.route('/')
 @clients_bp.route('/list')
 @login_required
-@require_role('Master', 'Trader', 'Operador')
+@require_role('Master', 'Trader', 'Operador', 'Middle Office')
 def list_clients():
     """
     Página de listado de clientes
 
-    Roles permitidos: Master, Trader, Operador
+    Roles permitidos: Master, Trader, Operador, Middle Office
     """
     clients = ClientService.get_all_clients()
     return render_template('clients/list.html',
@@ -38,7 +38,7 @@ def list_clients():
 
 @clients_bp.route('/api/list')
 @login_required
-@require_role('Master', 'Trader', 'Operador')
+@require_role('Master', 'Trader', 'Operador', 'Middle Office')
 def api_list():
     """
     API: Listar clientes (JSON)
@@ -278,7 +278,7 @@ def upload_documents(client_id):
 
 @clients_bp.route('/api/<int:client_id>/stats')
 @login_required
-@require_role('Master', 'Trader', 'Operador')
+@require_role('Master', 'Trader', 'Operador', 'Middle Office')
 def get_stats(client_id):
     """
     API: Obtener estadísticas de un cliente
@@ -293,7 +293,7 @@ def get_stats(client_id):
 
 @clients_bp.route('/api/search')
 @login_required
-@require_role('Master', 'Trader', 'Operador')
+@require_role('Master', 'Trader', 'Operador', 'Middle Office')
 def search():
     """
     API: Buscar clientes
@@ -455,7 +455,7 @@ def export_csv():
 
 @clients_bp.route('/api/<int:client_id>')
 @login_required
-@require_role('Master', 'Trader', 'Operador')
+@require_role('Master', 'Trader', 'Operador', 'Middle Office')
 def get_client(client_id):
     """
     API: Obtener detalles de un cliente
@@ -470,7 +470,7 @@ def get_client(client_id):
 
 @clients_bp.route('/api/active')
 @login_required
-@require_role('Master', 'Trader', 'Operador')
+@require_role('Master', 'Trader', 'Operador', 'Middle Office')
 def get_active():
     """
     API: Obtener solo clientes activos
