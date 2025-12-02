@@ -21,8 +21,11 @@
             <button class="btn btn-outline-primary" onclick="refreshDashboard()">
                 <i class="bi bi-arrow-clockwise"></i> Actualizar
             </button>
-            <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#filterModal">
-                <i class="bi bi-funnel"></i> Filtros
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#filterDateModal">
+                <i class="bi bi-calendar3"></i> Filtrar por Fecha
+            </button>
+            <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#filterTraderModal" onclick="loadTraders()">
+                <i class="bi bi-person-circle"></i> Filtrar por Trader
             </button>
         </div>
     </div>
@@ -296,59 +299,70 @@
     </div>
 </div>
 
-<!-- Modal: Filtros -->
-<div class="modal fade" id="filterModal" tabindex="-1">
+<!-- Modal: Filtro de Fecha (Calendario) -->
+<div class="modal fade" id="filterDateModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Filtrar Estadísticas</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title"><i class="bi bi-calendar3"></i> Filtrar por Fecha</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
                 <div class="mb-3">
-                    <label class="form-label">Trader</label>
-                    <select class="form-select" id="filterTrader">
+                    <label class="form-label fw-bold">Selecciona una fecha</label>
+                    <input type="text" class="form-control form-control-lg" id="datePicker" placeholder="Haz clic para abrir el calendario">
+                    <small class="form-text text-muted">
+                        Puedes seleccionar cualquier fecha pasada o presente
+                    </small>
+                </div>
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i> <strong>Nota:</strong> Las estadísticas mostrarán:
+                    <ul class="mb-0 mt-2">
+                        <li><strong>Hoy:</strong> Operaciones de la fecha seleccionada</li>
+                        <li><strong>Este Mes:</strong> Acumulado desde el día 1 hasta la fecha seleccionada</li>
+                        <li><strong>Meta:</strong> Porcentaje de avance hasta la fecha seleccionada</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="clearDateFilter()">
+                    <i class="bi bi-x-circle"></i> Limpiar Filtro
+                </button>
+                <button type="button" class="btn btn-primary" onclick="applyDateFilter()">
+                    <i class="bi bi-check-circle"></i> Aplicar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Filtro de Trader -->
+<div class="modal fade" id="filterTraderModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title"><i class="bi bi-person-circle"></i> Filtrar por Trader</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Selecciona un Trader</label>
+                    <select class="form-select form-select-lg" id="filterTrader">
                         <option value="">Todos los Traders</option>
                         <!-- Se llenarán dinámicamente -->
                     </select>
                 </div>
-                <div class="mb-3">
-                    <label class="form-label">Mes</label>
-                    <select class="form-select" id="filterMonth">
-                        <option value="">Mes actual</option>
-                        <option value="1">Enero</option>
-                        <option value="2">Febrero</option>
-                        <option value="3">Marzo</option>
-                        <option value="4">Abril</option>
-                        <option value="5">Mayo</option>
-                        <option value="6">Junio</option>
-                        <option value="7">Julio</option>
-                        <option value="8">Agosto</option>
-                        <option value="9">Septiembre</option>
-                        <option value="10">Octubre</option>
-                        <option value="11">Noviembre</option>
-                        <option value="12">Diciembre</option>
-                    </select>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Año</label>
-                    <select class="form-select" id="filterYear">
-                        <option value="">Año actual</option>
-                        <option value="2025">2025</option>
-                        <option value="2024">2024</option>
-                    </select>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Día Específico (opcional)</label>
-                    <input type="number" class="form-control" id="filterDay" min="1" max="31" placeholder="Ej: 26 (dejar vacío para ver todo el mes)">
-                    <small class="form-text text-muted">
-                        Si especificas un día, verás las estadísticas de ese día y el avance acumulado hasta ese día.
-                    </small>
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i> <strong>Nota:</strong> Al seleccionar un trader específico, verás solo sus operaciones y utilidades manuales ingresadas.
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-                <button type="button" class="btn btn-primary" onclick="applyFilters()">Aplicar</button>
+                <button type="button" class="btn btn-secondary" onclick="clearTraderFilter()">
+                    <i class="bi bi-x-circle"></i> Limpiar Filtro
+                </button>
+                <button type="button" class="btn btn-primary" onclick="applyTraderFilter()">
+                    <i class="bi bi-check-circle"></i> Aplicar
+                </button>
             </div>
         </div>
     </div>
@@ -485,6 +499,7 @@ $(document).ready(function() {
     loadDashboardData();
     loadTraders();
     setCurrentPeriod();
+    initDatePicker();
 
     // Actualizar cada 60 segundos (reducido para evitar error 429)
     setInterval(loadDashboardData, 60000);
@@ -492,6 +507,19 @@ $(document).ready(function() {
     // Conectar a SocketIO para actualizaciones en tiempo real
     connectSocketIO();
 });
+
+// Inicializar calendario (Flatpickr)
+function initDatePicker() {
+    flatpickr("#datePicker", {
+        locale: "es",
+        dateFormat: "Y-m-d",
+        maxDate: "today",
+        defaultDate: null,
+        onChange: function(selectedDates, dateStr, instance) {
+            console.log('Fecha seleccionada:', dateStr);
+        }
+    });
+}
 
 function setCurrentPeriod() {
     const now = new Date();
@@ -517,21 +545,68 @@ function refreshDashboard() {
     showNotification('Dashboard actualizado', 'success');
 }
 
-function applyFilters() {
-    const trader_id = $('#filterTrader').val();
-    const month = $('#filterMonth').val();
-    const year = $('#filterYear').val();
-    const day = $('#filterDay').val();
+// ============================================
+// FUNCIONES DE FILTROS (REDISEÑO CON CALENDARIO)
+// ============================================
 
-    currentFilters = {
-        trader_id: trader_id || null,
-        month: month || null,
-        year: year || null,
-        day: day || null
-    };
+function applyDateFilter() {
+    const selectedDate = $('#datePicker').val();
+
+    if (!selectedDate) {
+        showNotification('Por favor selecciona una fecha del calendario', 'warning');
+        return;
+    }
+
+    // Parsear fecha (formato: YYYY-MM-DD)
+    const parts = selectedDate.split('-');
+    const year = parseInt(parts[0]);
+    const month = parseInt(parts[1]);
+    const day = parseInt(parts[2]);
+
+    currentFilters.year = year;
+    currentFilters.month = month;
+    currentFilters.day = day;
 
     loadDashboardData();
-    $('#filterModal').modal('hide');
+    $('#filterDateModal').modal('hide');
+    showNotification(`Filtro aplicado: ${day}/${month}/${year}`, 'success');
+}
+
+function clearDateFilter() {
+    currentFilters.year = null;
+    currentFilters.month = null;
+    currentFilters.day = null;
+
+    $('#datePicker').val('');
+    loadDashboardData();
+    $('#filterDateModal').modal('hide');
+    showNotification('Filtro de fecha eliminado', 'info');
+}
+
+function applyTraderFilter() {
+    const traderId = $('#filterTrader').val();
+
+    if (!traderId) {
+        showNotification('Por favor selecciona un trader', 'warning');
+        return;
+    }
+
+    currentFilters.trader_id = parseInt(traderId);
+
+    loadDashboardData();
+    $('#filterTraderModal').modal('hide');
+
+    const traderName = $('#filterTrader option:selected').text();
+    showNotification(`Filtro aplicado: ${traderName}`, 'success');
+}
+
+function clearTraderFilter() {
+    currentFilters.trader_id = null;
+
+    $('#filterTrader').val('');
+    loadDashboardData();
+    $('#filterTraderModal').modal('hide');
+    showNotification('Filtro de trader eliminado', 'info');
 }
 
 function loadDashboardData() {
@@ -599,27 +674,24 @@ function updateFilterIndicator() {
     const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
                         'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
-    let filterText = '';
-    let hasFilter = false;
+    let filterParts = [];
 
-    // Construir texto del filtro
+    // Filtro de fecha
     if (currentFilters.day && currentFilters.month && currentFilters.year) {
-        filterText = `Viendo día ${currentFilters.day} de ${monthNames[currentFilters.month - 1]} ${currentFilters.year}`;
-        hasFilter = true;
-    } else if (currentFilters.month && currentFilters.year) {
-        filterText = `Viendo mes de ${monthNames[currentFilters.month - 1]} ${currentFilters.year}`;
-        hasFilter = true;
+        filterParts.push(`📅 Fecha: ${currentFilters.day} de ${monthNames[currentFilters.month - 1]}, ${currentFilters.year}`);
     }
 
+    // Filtro de trader
     if (currentFilters.trader_id) {
         const traderSelect = $('#filterTrader option:selected').text();
-        filterText += (hasFilter ? ' - ' : 'Viendo ') + `Trader: ${traderSelect}`;
-        hasFilter = true;
+        if (traderSelect && traderSelect !== 'Todos los Traders') {
+            filterParts.push(`👤 Trader: ${traderSelect}`);
+        }
     }
 
     // Mostrar u ocultar indicador
-    if (hasFilter) {
-        $('#filterText').text(filterText);
+    if (filterParts.length > 0) {
+        $('#filterText').html(filterParts.join(' &nbsp;|&nbsp; '));
         $('#filterIndicator').removeClass('d-none');
     } else {
         $('#filterIndicator').addClass('d-none');

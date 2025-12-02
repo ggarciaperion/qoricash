@@ -13,6 +13,9 @@
         <div class="col-md-8">
             <h2><i class="bi bi-speedometer2"></i> Dashboard Trader</h2>
             <p class="text-muted">Bienvenido, {{ user.username }} - Panel de operaciones</p>
+            <div id="filterIndicator" class="alert alert-info py-2 px-3 d-none" style="display: inline-block;">
+                <i class="bi bi-funnel-fill"></i> <span id="filterText"></span>
+            </div>
         </div>
         <div class="col-md-4 text-end">
             <a href="{{ url_for('operations.create_page') }}" class="btn btn-primary">
@@ -20,6 +23,9 @@
             </a>
             <button class="btn btn-outline-primary" onclick="refreshDashboard()">
                 <i class="bi bi-arrow-clockwise"></i>
+            </button>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#filterDateModal">
+                <i class="bi bi-calendar3"></i>
             </button>
         </div>
     </div>
@@ -247,6 +253,44 @@
         </div>
     </div>
 </div>
+
+<!-- Modal: Filtro de Fecha (Calendario) -->
+<div class="modal fade" id="filterDateModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title"><i class="bi bi-calendar3"></i> Filtrar por Fecha</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Selecciona una fecha</label>
+                    <input type="text" class="form-control form-control-lg" id="datePicker" placeholder="Haz clic para abrir el calendario">
+                    <small class="form-text text-muted">
+                        Puedes seleccionar cualquier fecha pasada o presente
+                    </small>
+                </div>
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i> <strong>Nota:</strong> Las estadísticas mostrarán:
+                    <ul class="mb-0 mt-2">
+                        <li><strong>Hoy:</strong> Operaciones de la fecha seleccionada</li>
+                        <li><strong>Este Mes:</strong> Acumulado desde el día 1 hasta la fecha seleccionada</li>
+                        <li><strong>Meta:</strong> Porcentaje de avance hasta la fecha seleccionada</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="clearDateFilter()">
+                    <i class="bi bi-x-circle"></i> Limpiar Filtro
+                </button>
+                <button type="button" class="btn btn-primary" onclick="applyDateFilter()">
+                    <i class="bi bi-check-circle"></i> Aplicar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
@@ -255,9 +299,17 @@
 // ID del trader actual
 const CURRENT_TRADER_ID = {{ user.id }};
 
+// Variables de filtro
+let currentFilters = {
+    year: null,
+    month: null,
+    day: null
+};
+
 // Cargar datos al iniciar
 $(document).ready(function() {
     loadDashboardData();
+    initDatePicker();
 
     // Actualizar cada 60 segundos
     setInterval(loadDashboardData, 60000);
@@ -266,9 +318,68 @@ $(document).ready(function() {
     connectSocketIO();
 });
 
+// Inicializar calendario (Flatpickr)
+function initDatePicker() {
+    flatpickr("#datePicker", {
+        locale: "es",
+        dateFormat: "Y-m-d",
+        maxDate: "today",
+        defaultDate: null,
+        onChange: function(selectedDates, dateStr, instance) {
+            console.log('Fecha seleccionada:', dateStr);
+        }
+    });
+}
+
+// ============================================
+// FUNCIONES DE FILTROS
+// ============================================
+
+function applyDateFilter() {
+    const selectedDate = $('#datePicker').val();
+
+    if (!selectedDate) {
+        showNotification('Por favor selecciona una fecha del calendario', 'warning');
+        return;
+    }
+
+    // Parsear fecha (formato: YYYY-MM-DD)
+    const parts = selectedDate.split('-');
+    const year = parseInt(parts[0]);
+    const month = parseInt(parts[1]);
+    const day = parseInt(parts[2]);
+
+    currentFilters.year = year;
+    currentFilters.month = month;
+    currentFilters.day = day;
+
+    loadDashboardData();
+    $('#filterDateModal').modal('hide');
+    showNotification(`Filtro aplicado: ${day}/${month}/${year}`, 'success');
+}
+
+function clearDateFilter() {
+    currentFilters.year = null;
+    currentFilters.month = null;
+    currentFilters.day = null;
+
+    $('#datePicker').val('');
+    loadDashboardData();
+    $('#filterDateModal').modal('hide');
+    showNotification('Filtro de fecha eliminado', 'info');
+}
+
 function loadDashboardData() {
+    // Construir parámetros de URL
+    const params = new URLSearchParams();
+    params.append('trader_id', CURRENT_TRADER_ID);
+
+    if (currentFilters.year) params.append('year', currentFilters.year);
+    if (currentFilters.month) params.append('month', currentFilters.month);
+    if (currentFilters.day) params.append('day', currentFilters.day);
+
     // Cargar estadísticas solo del trader actual
-    ajaxRequest(`/dashboard/api/dashboard/all?trader_id=${CURRENT_TRADER_ID}`, 'GET', null, function(response) {
+    ajaxRequest(`/dashboard/api/dashboard/all?${params.toString()}`, 'GET', null, function(response) {
         // Estadísticas de HOY (del trader) (con animación de contador)
         const today = response.today || {};
         updateCounterValue('#clientsToday', today.unique_clients || 0);
@@ -309,7 +420,23 @@ function loadDashboardData() {
         updateCounterValue('#inProcessCount', today.in_process_count || 0);
         updateCounterValue('#completedCount', today.completed_count || 0);
         updateCounterValue('#canceledCount', today.canceled_count || 0);
+
+        // Actualizar indicador de filtro
+        updateFilterIndicator();
     });
+}
+
+function updateFilterIndicator() {
+    const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+                        'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+
+    // Filtro de fecha
+    if (currentFilters.day && currentFilters.month && currentFilters.year) {
+        $('#filterText').html(`📅 Fecha: ${currentFilters.day} de ${monthNames[currentFilters.month - 1]}, ${currentFilters.year}`);
+        $('#filterIndicator').removeClass('d-none');
+    } else {
+        $('#filterIndicator').addClass('d-none');
+    }
 }
 
 function refreshDashboard() {
