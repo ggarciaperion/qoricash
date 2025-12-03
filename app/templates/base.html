@@ -86,7 +86,7 @@
                     </li>
                     {% endif %}
 
-                    {% if current_user.is_middle_office() %}
+                    {% if current_user.role in ['Master', 'Middle Office'] %}
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('compliance.alerts') }}">
                             <i class="bi bi-exclamation-triangle"></i> Alertas

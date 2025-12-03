@@ -102,14 +102,21 @@
     });
 
     function loadPendingKYC() {
-        ajaxRequest('/compliance/api/kyc/pending', 'GET', null, function(response) {
-            if (response.success) {
-                renderPendingKYC(response.data);
-            } else {
-                $('#pendingKYCContainer').html('<p class="text-center text-danger">Error al cargar datos</p>');
+        $.ajax({
+            url: '/compliance/api/kyc/pending',
+            type: 'GET',
+            success: function(response) {
+                if (response.success) {
+                    renderPendingKYC(response.data);
+                } else {
+                    $('#pendingKYCContainer').html('<p class="text-center text-danger">Error: ' + (response.error || 'Error al cargar datos') + '</p>');
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('Error cargando KYC:', error);
+                console.error('Response:', xhr.responseText);
+                $('#pendingKYCContainer').html('<p class="text-center text-danger">Error de conexión: ' + error + '</p>');
             }
-        }, function(error) {
-            $('#pendingKYCContainer').html('<p class="text-center text-danger">Error de conexión</p>');
         });
     }
 
@@ -224,25 +231,25 @@
         const clientId = $('#approveClientId').val();
         const notes = $('#approveNotes').val();
 
-        const data = { notes: notes };
-
-        ajaxRequest(
-            `/compliance/api/kyc/${clientId}/approve`,
-            'POST',
-            data,
-            function(response) {
+        $.ajax({
+            url: `/compliance/api/kyc/${clientId}/approve`,
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ notes: notes }),
+            success: function(response) {
                 if (response.success) {
-                    showNotification('KYC aprobado correctamente', 'success');
+                    alert('✅ ' + response.message);
                     $('#approveKYCModal').modal('hide');
                     loadPendingKYC();
                 } else {
-                    showNotification(response.error || 'Error al aprobar KYC', 'error');
+                    alert('❌ ' + (response.error || 'Error al aprobar KYC'));
                 }
             },
-            function(error) {
-                showNotification('Error al aprobar KYC', 'error');
+            error: function(xhr, status, error) {
+                console.error('Error aprobando KYC:', error);
+                alert('❌ Error al aprobar KYC: ' + error);
             }
-        );
+        });
     }
 
     function submitRejectKYC() {
@@ -250,29 +257,29 @@
         const notes = $('#rejectNotes').val();
 
         if (!notes.trim()) {
-            showNotification('Debe especificar el motivo del rechazo', 'warning');
+            alert('⚠️ Debe especificar el motivo del rechazo');
             return;
         }
 
-        const data = { notes: notes };
-
-        ajaxRequest(
-            `/compliance/api/kyc/${clientId}/reject`,
-            'POST',
-            data,
-            function(response) {
+        $.ajax({
+            url: `/compliance/api/kyc/${clientId}/reject`,
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ notes: notes }),
+            success: function(response) {
                 if (response.success) {
-                    showNotification('KYC rechazado', 'success');
+                    alert('✅ ' + response.message);
                     $('#rejectKYCModal').modal('hide');
                     loadPendingKYC();
                 } else {
-                    showNotification(response.error || 'Error al rechazar KYC', 'error');
+                    alert('❌ ' + (response.error || 'Error al rechazar KYC'));
                 }
             },
-            function(error) {
-                showNotification('Error al rechazar KYC', 'error');
+            error: function(xhr, status, error) {
+                console.error('Error rechazando KYC:', error);
+                alert('❌ Error al rechazar KYC: ' + error);
             }
-        );
+        });
     }
 
     function escapeHtml(text) {
