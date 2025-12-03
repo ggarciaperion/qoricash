@@ -19,13 +19,20 @@ compliance_bp = Blueprint('compliance', __name__)
 
 
 def middle_office_required(f):
-    """Decorator para requerir rol Middle Office"""
+    """Decorator para requerir rol Middle Office o Master"""
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if not current_user.is_authenticated or not current_user.is_middle_office():
+        if not current_user.is_authenticated:
             return jsonify({
                 'success': False,
-                'error': 'Acceso denegado. Solo Middle Office puede acceder.'
+                'error': 'No autenticado'
+            }), 401
+
+        # Permitir Master y Middle Office
+        if current_user.role not in ['Master', 'Middle Office']:
+            return jsonify({
+                'success': False,
+                'error': 'Acceso denegado. Solo Master y Middle Office pueden acceder.'
             }), 403
         return f(*args, **kwargs)
     return decorated_function
@@ -361,30 +368,54 @@ def kyc():
 @login_required
 @middle_office_required
 def api_kyc_pending():
-    """API: Lista de KYC pendientes"""
+    """API: Lista de KYC pendientes - Incluye clientes sin perfil y con KYC pendiente"""
     try:
-        pending = ClientRiskProfile.query.filter(
-            ClientRiskProfile.kyc_status.in_(['Pendiente', 'En Proceso'])
-        ).join(Client).all()
+        from sqlalchemy.orm import outerjoin
+
+        # Obtener TODOS los clientes con LEFT JOIN para incluir los que no tienen perfil
+        all_clients = db.session.query(Client, ClientRiskProfile).outerjoin(
+            ClientRiskProfile, Client.id == ClientRiskProfile.client_id
+        ).all()
 
         data = []
-        for profile in pending:
+        for client, profile in all_clients:
+            # Determinar KYC status
+            if profile is None:
+                # Cliente sin perfil de riesgo = Pendiente
+                kyc_status = 'Pendiente'
+                risk_score = 0
+                is_pep = False
+                in_restrictive_lists = False
+                has_legal_issues = False
+                created_at = client.created_at
+            else:
+                # Cliente con perfil - solo mostrar si KYC está Pendiente o En Proceso
+                if profile.kyc_status not in ['Pendiente', 'En Proceso']:
+                    continue
+
+                kyc_status = profile.kyc_status
+                risk_score = profile.risk_score
+                is_pep = profile.is_pep
+                in_restrictive_lists = profile.in_restrictive_lists
+                has_legal_issues = profile.has_legal_issues
+                created_at = profile.created_at
+
             # Obtener nombre completo con fallback
-            client_name = profile.client.full_name if profile.client.full_name else '-'
+            client_name = client.full_name if client.full_name else '-'
 
             data.append({
-                'client_id': profile.client_id,
+                'client_id': client.id,
                 'client_name': client_name,
-                'client_dni': profile.client.dni,
-                'client_email': profile.client.email,
-                'client_status': profile.client.status,
-                'document_type': profile.client.document_type,
-                'risk_score': profile.risk_score,
-                'kyc_status': profile.kyc_status,
-                'is_pep': profile.is_pep,
-                'in_restrictive_lists': profile.in_restrictive_lists,
-                'has_legal_issues': profile.has_legal_issues,
-                'created_at': profile.created_at.strftime('%Y-%m-%d %H:%M:%S')
+                'client_dni': client.dni,
+                'client_email': client.email,
+                'client_status': client.status,
+                'document_type': client.document_type,
+                'risk_score': risk_score,
+                'kyc_status': kyc_status,
+                'is_pep': is_pep,
+                'in_restrictive_lists': in_restrictive_lists,
+                'has_legal_issues': has_legal_issues,
+                'created_at': created_at.strftime('%Y-%m-%d %H:%M:%S') if created_at else '-'
             })
 
         return jsonify({
@@ -394,7 +425,9 @@ def api_kyc_pending():
 
     except Exception as e:
         import logging
+        import traceback
         logging.error(f"Error en api_kyc_pending: {str(e)}")
+        logging.error(traceback.format_exc())
         return jsonify({
             'success': False,
             'error': str(e)
