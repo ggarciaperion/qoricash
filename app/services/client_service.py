@@ -453,8 +453,13 @@ class ClientService:
     def change_client_status(current_user, client_id, new_status):
         """
         Cambiar estado del cliente
+        SOLO Master y Middle Office - Operador NO tiene acceso
         """
         try:
+            # Validar permisos: Solo Master y Middle Office
+            if not current_user or current_user.role not in ['Master', 'Middle Office']:
+                return False, 'Solo Master y Middle Office pueden cambiar el estado de clientes', None
+
             if new_status not in ['Activo', 'Inactivo']:
                 return False, 'Estado inválido', None
 

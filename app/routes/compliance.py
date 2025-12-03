@@ -369,14 +369,21 @@ def api_kyc_pending():
 
         data = []
         for profile in pending:
+            # Obtener nombre completo con fallback
+            client_name = profile.client.full_name if profile.client.full_name else '-'
+
             data.append({
                 'client_id': profile.client_id,
-                'client_name': profile.client.full_name,
+                'client_name': client_name,
                 'client_dni': profile.client.dni,
                 'client_email': profile.client.email,
+                'client_status': profile.client.status,
+                'document_type': profile.client.document_type,
                 'risk_score': profile.risk_score,
                 'kyc_status': profile.kyc_status,
                 'is_pep': profile.is_pep,
+                'in_restrictive_lists': profile.in_restrictive_lists,
+                'has_legal_issues': profile.has_legal_issues,
                 'created_at': profile.created_at.strftime('%Y-%m-%d %H:%M:%S')
             })
 
@@ -386,6 +393,8 @@ def api_kyc_pending():
         })
 
     except Exception as e:
+        import logging
+        logging.error(f"Error en api_kyc_pending: {str(e)}")
         return jsonify({
             'success': False,
             'error': str(e)
@@ -396,11 +405,15 @@ def api_kyc_pending():
 @login_required
 @middle_office_required
 def approve_kyc(client_id):
-    """API: Aprobar KYC de un cliente"""
+    """API: Aprobar KYC de un cliente y ACTIVARLO para operar"""
     try:
         data = request.get_json()
         notes = data.get('notes', '')
 
+        # Obtener cliente
+        client = Client.query.get_or_404(client_id)
+
+        # Obtener o crear perfil de riesgo
         profile = ClientRiskProfile.query.filter_by(client_id=client_id).first()
         if not profile:
             profile = ClientRiskProfile(client_id=client_id)
@@ -411,6 +424,10 @@ def approve_kyc(client_id):
         profile.kyc_verified_by = current_user.id
         profile.kyc_notes = notes
 
+        # IMPORTANTE: ACTIVAR CLIENTE - Solo Middle Office puede hacerlo
+        client.status = 'Activo'
+        client.updated_at = now_peru()
+
         # Recalcular riesgo (KYC aprobado reduce 10 puntos)
         ComplianceService.update_client_risk_profile(client_id, current_user.id)
 
@@ -420,8 +437,12 @@ def approve_kyc(client_id):
             action_type='KYC_Approval',
             entity_type='Client',
             entity_id=client_id,
-            description='KYC aprobado',
-            changes=json.dumps({'status': 'Aprobado', 'notes': notes}),
+            description=f'KYC aprobado - Cliente ACTIVADO para operar',
+            changes=json.dumps({
+                'kyc_status': 'Aprobado',
+                'client_status': 'Activo',
+                'notes': notes
+            }),
             ip_address=request.remote_addr,
             user_agent=request.headers.get('User-Agent')
         )
@@ -430,11 +451,13 @@ def approve_kyc(client_id):
 
         return jsonify({
             'success': True,
-            'message': 'KYC aprobado correctamente'
+            'message': 'KYC aprobado - Cliente ACTIVADO para operar'
         })
 
     except Exception as e:
         db.session.rollback()
+        import logging
+        logging.error(f"Error aprobando KYC: {str(e)}")
         return jsonify({
             'success': False,
             'error': str(e)
@@ -445,7 +468,7 @@ def approve_kyc(client_id):
 @login_required
 @middle_office_required
 def reject_kyc(client_id):
-    """API: Rechazar KYC de un cliente"""
+    """API: Rechazar KYC de un cliente y mantenerlo INACTIVO"""
     try:
         data = request.get_json()
         notes = data.get('notes', '')
@@ -456,6 +479,10 @@ def reject_kyc(client_id):
                 'error': 'Debe especificar el motivo del rechazo'
             }), 400
 
+        # Obtener cliente
+        client = Client.query.get_or_404(client_id)
+
+        # Obtener o crear perfil de riesgo
         profile = ClientRiskProfile.query.filter_by(client_id=client_id).first()
         if not profile:
             profile = ClientRiskProfile(client_id=client_id)
@@ -466,14 +493,22 @@ def reject_kyc(client_id):
         profile.kyc_verified_by = current_user.id
         profile.kyc_notes = notes
 
+        # IMPORTANTE: MANTENER INACTIVO - Cliente no puede operar
+        client.status = 'Inactivo'
+        client.updated_at = now_peru()
+
         # Auditoría
         audit = ComplianceAudit(
             user_id=current_user.id,
             action_type='KYC_Rejection',
             entity_type='Client',
             entity_id=client_id,
-            description='KYC rechazado',
-            changes=json.dumps({'status': 'Rechazado', 'notes': notes}),
+            description=f'KYC rechazado - Cliente permanece INACTIVO',
+            changes=json.dumps({
+                'kyc_status': 'Rechazado',
+                'client_status': 'Inactivo',
+                'notes': notes
+            }),
             ip_address=request.remote_addr,
             user_agent=request.headers.get('User-Agent')
         )
@@ -482,11 +517,82 @@ def reject_kyc(client_id):
 
         return jsonify({
             'success': True,
-            'message': 'KYC rechazado'
+            'message': 'KYC rechazado - Cliente permanece INACTIVO'
         })
 
     except Exception as e:
         db.session.rollback()
+        import logging
+        logging.error(f"Error rechazando KYC: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@compliance_bp.route('/api/clients/<int:client_id>/change-status', methods=['POST'])
+@login_required
+@middle_office_required
+def change_client_status(client_id):
+    """API: Cambiar estado de un cliente (Activo/Inactivo) - Solo Middle Office"""
+    try:
+        data = request.get_json()
+        new_status = data.get('status')
+        reason = data.get('reason', '')
+
+        if not new_status or new_status not in ['Activo', 'Inactivo']:
+            return jsonify({
+                'success': False,
+                'error': 'Estado inválido. Debe ser "Activo" o "Inactivo"'
+            }), 400
+
+        # Obtener cliente
+        client = Client.query.get_or_404(client_id)
+        old_status = client.status
+
+        # Cambiar estado
+        client.status = new_status
+        client.updated_at = now_peru()
+
+        # Obtener perfil de riesgo
+        profile = ClientRiskProfile.query.filter_by(client_id=client_id).first()
+
+        # Si se activa, verificar que tenga KYC aprobado
+        if new_status == 'Activo':
+            if not profile or profile.kyc_status != 'Aprobado':
+                db.session.rollback()
+                return jsonify({
+                    'success': False,
+                    'error': 'No se puede activar un cliente sin KYC aprobado. Debe aprobar el KYC primero.'
+                }), 400
+
+        # Auditoría
+        audit = ComplianceAudit(
+            user_id=current_user.id,
+            action_type='Client_Status_Change',
+            entity_type='Client',
+            entity_id=client_id,
+            description=f'Estado cambiado de {old_status} a {new_status}',
+            changes=json.dumps({
+                'old_status': old_status,
+                'new_status': new_status,
+                'reason': reason
+            }),
+            ip_address=request.remote_addr,
+            user_agent=request.headers.get('User-Agent')
+        )
+        db.session.add(audit)
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': f'Cliente {new_status.lower()} correctamente'
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        import logging
+        logging.error(f"Error cambiando estado de cliente: {str(e)}")
         return jsonify({
             'success': False,
             'error': str(e)

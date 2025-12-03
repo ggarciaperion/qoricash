@@ -25,10 +25,12 @@ El rol **Middle Office** es el **Oficial de Cumplimiento** (Compliance Officer) 
 | Menú | Permisos |
 |------|----------|
 | **Dashboard** | ✅ Lectura |
-| **Clientes** | ✅ Lectura (NO puede crear/editar/eliminar) |
+| **Clientes** | ✅ Lectura (NO puede crear/editar/eliminar)<br>✅ **ACTIVAR/DESACTIVAR vía aprobación KYC** |
 | **Operaciones** | ✅ Lectura |
 | **Compliance** | ✅ Lectura y Escritura completa |
 | **Usuarios** | ❌ Sin acceso (solo Master) |
+
+**IMPORTANTE**: El rol **Operador YA NO puede activar/desactivar clientes**. Esta función ahora es EXCLUSIVA de Middle Office y Master.
 
 ### Funcionalidades Específicas
 
@@ -44,11 +46,13 @@ El rol **Middle Office** es el **Oficial de Cumplimiento** (Compliance Officer) 
    - Actualizar nivel de debida diligencia
    - Agregar notas de compliance
 
-3. **Administrar KYC (Know Your Customer)**
+3. **Administrar KYC (Know Your Customer)** ⭐ **ACTUALIZADO**
    - Revisar documentación KYC de clientes
-   - Aprobar/Rechazar KYC
-   - Establecer fecha de vencimiento de KYC
+   - **Aprobar KYC → ACTIVA automáticamente al cliente**
+   - **Rechazar KYC → Mantiene cliente INACTIVO**
+   - Cambiar estado de clientes (Activo/Inactivo) manualmente
    - Solicitar documentación adicional
+   - **Solo Middle Office y Master pueden activar clientes**
 
 4. **Generar Reportes ROS**
    - Crear Reportes de Operaciones Sospechosas
@@ -309,18 +313,32 @@ Score final = min(suma_puntos, 100)
 
 ## 5. CÓMO FUNCIONA EL SISTEMA
 
-### Flujo Automático Completo
+### Flujo Completo con KYC ⭐ **ACTUALIZADO**
 
 ```
-1. TRADER CREA OPERACIÓN
+1. TRADER CREA CLIENTE (estado: Inactivo)
    ↓
-2. OPERACIÓN REGISTRADA (estado: Pendiente)
+2. TRADER SUBE DOCUMENTACIÓN KYC
    ↓
-3. OPERADOR PROCESA OPERACIÓN
+3. MIDDLE OFFICE REVISA DOCUMENTACIÓN
+   |
+   ├─ APROBAR KYC
+   |  → Cliente pasa a ACTIVO ✅
+   |  → Puede comenzar a operar
+   |
+   └─ RECHAZAR KYC
+      → Cliente permanece INACTIVO ❌
+      → NO puede operar hasta nueva revisión
    ↓
-4. OPERACIÓN COMPLETADA
+4. TRADER CREA OPERACIÓN (solo si cliente activo)
    ↓
-5. 🤖 ANÁLISIS AUTOMÁTICO DE COMPLIANCE
+5. OPERACIÓN REGISTRADA (estado: Pendiente)
+   ↓
+6. OPERADOR PROCESA OPERACIÓN
+   ↓
+7. OPERACIÓN COMPLETADA
+   ↓
+8. 🤖 ANÁLISIS AUTOMÁTICO DE COMPLIANCE
    |
    ├─ Analizar monto
    ├─ Analizar frecuencia
@@ -331,21 +349,22 @@ Score final = min(suma_puntos, 100)
    |
    └─ Generar alertas si detecta algo
    ↓
-6. ACTUALIZAR PERFIL DE RIESGO DEL CLIENTE
+9. ACTUALIZAR PERFIL DE RIESGO DEL CLIENTE
    |
    ├─ Recalcular score (0-100)
    ├─ Asignar nivel (Bajo/Medio/Alto/Crítico)
    └─ Definir debida diligencia
    ↓
-7. MIDDLE OFFICE REVISA ALERTAS
+10. MIDDLE OFFICE REVISA ALERTAS
    |
    ├─ Si es normal: Resolver como "OK"
    ├─ Si es sospechoso: Crear ROS
    └─ Si es falso positivo: Marcar y cerrar
    ↓
-8. MIDDLE OFFICE APRUEBA/RECHAZA KYC
+11. MIDDLE OFFICE PUEDE DESACTIVAR CLIENTE
+    (si detecta problemas graves después de activación)
    ↓
-9. SISTEMA AUDITADO COMPLETAMENTE
+12. SISTEMA AUDITADO COMPLETAMENTE
 ```
 
 ### Ejemplo Real
@@ -544,7 +563,61 @@ Ver logs en Render: Dashboard → Logs
 
 ---
 
-## 10. RESUMEN EJECUTIVO
+## 10. CAMBIOS IMPORTANTES EN PERMISOS ⭐ **NUEVO**
+
+### Activación/Desactivación de Clientes
+
+**ANTES**:
+- ❌ Operador podía activar/desactivar clientes
+- ✅ Master podía activar/desactivar clientes
+
+**AHORA**:
+- ❌ **Operador YA NO puede activar/desactivar clientes**
+- ✅ Master puede activar/desactivar clientes
+- ✅ **Middle Office puede activar/desactivar clientes**
+
+### Flujo de Activación
+
+**Método Principal: Aprobación de KYC**
+```
+Trader crea cliente → Cliente queda INACTIVO
+           ↓
+Middle Office revisa documentación KYC
+           ↓
+    ¿Documenta completa?
+           |
+           ├─ SÍ → Aprobar KYC → Cliente ACTIVADO ✅
+           |
+           └─ NO → Rechazar KYC → Cliente INACTIVO ❌
+                   (Notificar al Trader qué falta)
+```
+
+**Método Secundario: Cambio Manual**
+- Middle Office puede cambiar estado manualmente desde `/compliance/api/clients/<id>/change-status`
+- **Restricción**: No se puede activar un cliente sin KYC aprobado
+- Útil para desactivar clientes que ya operan pero presentan problemas
+
+### Validaciones del Sistema
+
+1. **Al aprobar KYC**: Cliente se activa automáticamente
+2. **Al rechazar KYC**: Cliente permanece inactivo
+3. **Al intentar activar manualmente**: Sistema valida que KYC esté aprobado
+4. **Al desactivar**: No requiere validación (puede hacerse en cualquier momento)
+
+### Impacto en Roles
+
+| Acción | Master | Middle Office | Operador | Trader |
+|--------|--------|---------------|----------|--------|
+| Crear cliente | ✅ | ❌ | ❌ | ✅ |
+| Aprobar KYC | ✅ | ✅ | ❌ | ❌ |
+| Activar cliente | ✅ | ✅ | ❌ | ❌ |
+| Desactivar cliente | ✅ | ✅ | ❌ | ❌ |
+| Ver clientes | ✅ | ✅ (solo lectura) | ✅ | ✅ |
+| Crear operaciones | ✅ | ❌ | ✅ | ✅ |
+
+---
+
+## 11. RESUMEN EJECUTIVO
 
 ### ✅ Sistema 100% Funcional
 

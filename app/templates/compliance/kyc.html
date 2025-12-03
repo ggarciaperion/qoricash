@@ -35,12 +35,18 @@
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header bg-success text-white">
-                <h5 class="modal-title">Aprobar KYC</h5>
+                <h5 class="modal-title"><i class="bi bi-check-circle-fill"></i> Aprobar KYC y Activar Cliente</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
                 <input type="hidden" id="approveClientId">
                 <p id="approveClientInfo" class="mb-3"></p>
+
+                <div class="alert alert-info mb-3">
+                    <i class="bi bi-info-circle-fill"></i> <strong>Importante:</strong><br>
+                    Al aprobar el KYC, el cliente será <strong>ACTIVADO automáticamente</strong> para operar en la plataforma.
+                </div>
+
                 <div class="mb-3">
                     <label class="form-label">Notas (opcional)</label>
                     <textarea id="approveNotes" class="form-control" rows="3" placeholder="Observaciones sobre la aprobación..."></textarea>
@@ -49,7 +55,7 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                 <button type="button" class="btn btn-success" onclick="submitApproveKYC()">
-                    <i class="bi bi-check-circle"></i> Aprobar KYC
+                    <i class="bi bi-check-circle"></i> Aprobar KYC y Activar Cliente
                 </button>
             </div>
         </div>
@@ -61,12 +67,18 @@
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header bg-danger text-white">
-                <h5 class="modal-title">Rechazar KYC</h5>
+                <h5 class="modal-title"><i class="bi bi-x-circle-fill"></i> Rechazar KYC y Mantener Inactivo</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
                 <input type="hidden" id="rejectClientId">
                 <p id="rejectClientInfo" class="mb-3"></p>
+
+                <div class="alert alert-warning mb-3">
+                    <i class="bi bi-exclamation-triangle-fill"></i> <strong>Atención:</strong><br>
+                    Al rechazar el KYC, el cliente permanecerá <strong>INACTIVO</strong> y NO podrá operar hasta que se apruebe su KYC.
+                </div>
+
                 <div class="mb-3">
                     <label class="form-label">Motivo del Rechazo <span class="text-danger">*</span></label>
                     <textarea id="rejectNotes" class="form-control" rows="3" placeholder="Especifique el motivo del rechazo..." required></textarea>
@@ -118,10 +130,11 @@
             <thead>
                 <tr>
                     <th>Cliente</th>
-                    <th>DNI</th>
+                    <th>DNI/RUC</th>
                     <th>Email</th>
+                    <th>Estado Cliente</th>
                     <th>Risk Score</th>
-                    <th>PEP</th>
+                    <th>Flags</th>
                     <th>Estado KYC</th>
                     <th>Fecha Registro</th>
                     <th>Acciones</th>
@@ -132,26 +145,38 @@
 
         data.forEach(item => {
             const riskBadge = getRiskBadge(item.risk_score);
-            const pepIcon = item.is_pep ? '<i class="bi bi-exclamation-triangle-fill text-warning"></i> Sí' : 'No';
             const statusBadge = item.kyc_status === 'Pendiente' ? 'warning' : 'info';
+
+            // Estado del cliente
+            const clientStatusBadge = item.client_status === 'Activo'
+                ? '<span class="badge bg-success">Activo</span>'
+                : '<span class="badge bg-secondary">Inactivo</span>';
+
+            // Flags de riesgo
+            let flags = [];
+            if (item.is_pep) flags.push('<span class="badge bg-warning text-dark" title="Persona Expuesta Políticamente">PEP</span>');
+            if (item.in_restrictive_lists) flags.push('<span class="badge bg-danger" title="En listas restrictivas">Listas</span>');
+            if (item.has_legal_issues) flags.push('<span class="badge bg-danger" title="Problemas legales">Legal</span>');
+            const flagsHtml = flags.length > 0 ? flags.join(' ') : '<span class="text-muted">-</span>';
 
             html += `
                 <tr>
                     <td><strong>${escapeHtml(item.client_name)}</strong></td>
-                    <td>${item.client_dni}</td>
-                    <td>${escapeHtml(item.client_email)}</td>
+                    <td><small class="text-muted">${item.document_type}</small><br>${item.client_dni}</td>
+                    <td><small>${escapeHtml(item.client_email)}</small></td>
+                    <td>${clientStatusBadge}</td>
                     <td>${riskBadge}</td>
-                    <td>${pepIcon}</td>
+                    <td>${flagsHtml}</td>
                     <td><span class="badge bg-${statusBadge}">${item.kyc_status}</span></td>
-                    <td>${item.created_at}</td>
-                    <td>
-                        <button class="btn btn-sm btn-success" onclick="openApproveModal(${item.client_id}, '${escapeHtml(item.client_name)}')">
+                    <td><small>${item.created_at}</small></td>
+                    <td class="text-nowrap">
+                        <button class="btn btn-sm btn-success mb-1" onclick="openApproveModal(${item.client_id}, '${escapeHtml(item.client_name)}')">
                             <i class="bi bi-check-circle"></i> Aprobar
                         </button>
-                        <button class="btn btn-sm btn-danger" onclick="openRejectModal(${item.client_id}, '${escapeHtml(item.client_name)}')">
+                        <button class="btn btn-sm btn-danger mb-1" onclick="openRejectModal(${item.client_id}, '${escapeHtml(item.client_name)}')">
                             <i class="bi bi-x-circle"></i> Rechazar
                         </button>
-                        <a href="/clients/detail/${item.client_id}" class="btn btn-sm btn-info" target="_blank">
+                        <a href="/clients/detail/${item.client_id}" class="btn btn-sm btn-info mb-1" target="_blank">
                             <i class="bi bi-eye"></i> Ver
                         </a>
                     </td>

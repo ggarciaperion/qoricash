@@ -157,10 +157,11 @@ def update_client(client_id):
 
 @clients_bp.route('/api/change_status/<int:client_id>', methods=['PATCH'])
 @login_required
-@require_role('Master', 'Operador')
+@require_role('Master', 'Middle Office')
 def change_status(client_id):
     """
     API: Cambiar estado del cliente (Activo/Inactivo)
+    SOLO Master y Middle Office - Operador YA NO tiene este permiso
     """
     data = request.get_json() or {}
     new_status = data.get('status')
