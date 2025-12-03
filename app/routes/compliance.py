@@ -368,39 +368,45 @@ def kyc():
 @login_required
 @middle_office_required
 def api_kyc_pending():
-    """API: Lista de TODOS los clientes para revisión KYC"""
+    """API: Lista de clientes para revisión KYC"""
     try:
+        import logging
+        logger = logging.getLogger(__name__)
+
+        logger.info("KYC API: Iniciando consulta de clientes...")
+
         # Obtener TODOS los clientes
-        all_clients = Client.query.all()
+        all_clients = Client.query.order_by(Client.created_at.desc()).all()
+
+        logger.info(f"KYC API: Total de clientes en BD: {len(all_clients)}")
 
         data = []
         for client in all_clients:
+            # Obtener nombre completo
+            if client.document_type == 'RUC':
+                client_name = client.razon_social or '-'
+            else:
+                parts = []
+                if client.apellido_paterno:
+                    parts.append(client.apellido_paterno)
+                if client.apellido_materno:
+                    parts.append(client.apellido_materno)
+                if client.nombres:
+                    parts.append(client.nombres)
+                client_name = ' '.join(parts) if parts else '-'
+
             # Buscar perfil de riesgo
             profile = ClientRiskProfile.query.filter_by(client_id=client.id).first()
 
-            # Determinar datos a mostrar
-            if profile is None:
-                # Cliente SIN perfil de riesgo = Pendiente
-                kyc_status = 'Pendiente'
-                risk_score = 0
-                is_pep = False
-                in_restrictive_lists = False
-                has_legal_issues = False
-                created_at = client.created_at
-            else:
-                # Cliente CON perfil - Solo mostrar si está Pendiente o En Proceso
-                if profile.kyc_status not in ['Pendiente', 'En Proceso']:
-                    continue  # Saltar clientes con KYC aprobado/rechazado
-
+            # Determinar KYC status
+            if profile and profile.kyc_status:
                 kyc_status = profile.kyc_status
-                risk_score = profile.risk_score
-                is_pep = profile.is_pep
-                in_restrictive_lists = profile.in_restrictive_lists
-                has_legal_issues = profile.has_legal_issues
-                created_at = profile.created_at
-
-            # Obtener nombre completo con fallback
-            client_name = client.full_name if client.full_name else '-'
+                # Solo mostrar si está Pendiente o En Proceso
+                if kyc_status not in ['Pendiente', 'En Proceso']:
+                    continue
+            else:
+                # Sin perfil = Pendiente
+                kyc_status = 'Pendiente'
 
             data.append({
                 'client_id': client.id,
@@ -409,13 +415,11 @@ def api_kyc_pending():
                 'client_email': client.email,
                 'client_status': client.status,
                 'document_type': client.document_type,
-                'risk_score': risk_score,
                 'kyc_status': kyc_status,
-                'is_pep': is_pep,
-                'in_restrictive_lists': in_restrictive_lists,
-                'has_legal_issues': has_legal_issues,
-                'created_at': created_at.strftime('%Y-%m-%d %H:%M:%S') if created_at else '-'
+                'created_at': client.created_at.strftime('%d/%m/%Y %H:%M') if client.created_at else '-'
             })
+
+        logger.info(f"KYC API: Clientes para revisión: {len(data)}")
 
         return jsonify({
             'success': True,
@@ -425,8 +429,9 @@ def api_kyc_pending():
     except Exception as e:
         import logging
         import traceback
-        logging.error(f"Error en api_kyc_pending: {str(e)}")
-        logging.error(traceback.format_exc())
+        logger = logging.getLogger(__name__)
+        logger.error(f"KYC API ERROR: {str(e)}")
+        logger.error(traceback.format_exc())
         return jsonify({
             'success': False,
             'error': str(e)

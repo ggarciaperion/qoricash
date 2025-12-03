@@ -8,54 +8,76 @@
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h2 class="mb-0">Revisión KYC (Know Your Customer)</h2>
-            <p class="text-muted">Verificación y aprobación de clientes</p>
+            <p class="text-muted">Verificación y aprobación de documentación de clientes</p>
         </div>
         <div>
-            <a href="/compliance/" class="btn btn-secondary">
-                <i class="bi bi-arrow-left"></i> Volver al Dashboard
-            </a>
+            <button class="btn btn-primary" onclick="recargarLista()">
+                <i class="bi bi-arrow-clockwise"></i> Recargar
+            </button>
         </div>
     </div>
 
-    <!-- Pending KYC -->
+    <!-- Lista de Clientes -->
     <div class="card">
-        <div class="card-header bg-warning text-dark">
-            <i class="bi bi-person-check"></i> Clientes Pendientes de Revisión KYC
+        <div class="card-header bg-primary text-white">
+            <i class="bi bi-people"></i> Clientes para Revisión KYC
         </div>
         <div class="card-body">
-            <div id="pendingKYCContainer">
-                <p class="text-center text-muted">Cargando...</p>
+            <div class="table-responsive">
+                <table class="table table-hover" id="clientesTable">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Nombre / Razón Social</th>
+                            <th>DNI/RUC</th>
+                            <th>Email</th>
+                            <th>Estado Cliente</th>
+                            <th>Fecha Registro</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="clientesBody">
+                        <tr>
+                            <td colspan="7" class="text-center">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Cargando...</span>
+                                </div>
+                                <p class="mt-2">Cargando clientes...</p>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
 </div>
 
 <!-- Modal: Aprobar KYC -->
-<div class="modal fade" id="approveKYCModal" tabindex="-1">
+<div class="modal fade" id="aprobarModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header bg-success text-white">
-                <h5 class="modal-title"><i class="bi bi-check-circle-fill"></i> Aprobar KYC y Activar Cliente</h5>
+                <h5 class="modal-title">✅ Aprobar KYC y Activar Cliente</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <input type="hidden" id="approveClientId">
-                <p id="approveClientInfo" class="mb-3"></p>
-
-                <div class="alert alert-info mb-3">
-                    <i class="bi bi-info-circle-fill"></i> <strong>Importante:</strong><br>
-                    Al aprobar el KYC, el cliente será <strong>ACTIVADO automáticamente</strong> para operar en la plataforma.
+                <input type="hidden" id="aprobarClientId">
+                <div class="alert alert-info">
+                    <strong>Cliente:</strong> <span id="aprobarClientNombre"></span><br>
+                    <strong>DNI/RUC:</strong> <span id="aprobarClientDni"></span>
                 </div>
-
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle"></i> Al aprobar el KYC, el cliente será <strong>ACTIVADO automáticamente</strong> para operar.
+                </div>
                 <div class="mb-3">
                     <label class="form-label">Notas (opcional)</label>
-                    <textarea id="approveNotes" class="form-control" rows="3" placeholder="Observaciones sobre la aprobación..."></textarea>
+                    <textarea id="aprobarNotas" class="form-control" rows="3"></textarea>
                 </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-success" onclick="submitApproveKYC()">
-                    <i class="bi bi-check-circle"></i> Aprobar KYC y Activar Cliente
+                <button type="button" class="btn btn-success" onclick="confirmarAprobar()">
+                    <i class="bi bi-check-circle"></i> Aprobar y Activar
                 </button>
             </div>
         </div>
@@ -63,30 +85,30 @@
 </div>
 
 <!-- Modal: Rechazar KYC -->
-<div class="modal fade" id="rejectKYCModal" tabindex="-1">
+<div class="modal fade" id="rechazarModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header bg-danger text-white">
-                <h5 class="modal-title"><i class="bi bi-x-circle-fill"></i> Rechazar KYC y Mantener Inactivo</h5>
+                <h5 class="modal-title">❌ Rechazar KYC</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <input type="hidden" id="rejectClientId">
-                <p id="rejectClientInfo" class="mb-3"></p>
-
-                <div class="alert alert-warning mb-3">
-                    <i class="bi bi-exclamation-triangle-fill"></i> <strong>Atención:</strong><br>
-                    Al rechazar el KYC, el cliente permanecerá <strong>INACTIVO</strong> y NO podrá operar hasta que se apruebe su KYC.
+                <input type="hidden" id="rechazarClientId">
+                <div class="alert alert-info">
+                    <strong>Cliente:</strong> <span id="rechazarClientNombre"></span><br>
+                    <strong>DNI/RUC:</strong> <span id="rechazarClientDni"></span>
                 </div>
-
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle"></i> Al rechazar el KYC, el cliente permanecerá <strong>INACTIVO</strong>.
+                </div>
                 <div class="mb-3">
                     <label class="form-label">Motivo del Rechazo <span class="text-danger">*</span></label>
-                    <textarea id="rejectNotes" class="form-control" rows="3" placeholder="Especifique el motivo del rechazo..." required></textarea>
+                    <textarea id="rechazarMotivo" class="form-control" rows="3" required></textarea>
                 </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-danger" onclick="submitRejectKYC()">
+                <button type="button" class="btn btn-danger" onclick="confirmarRechazar()">
                     <i class="bi bi-x-circle"></i> Rechazar KYC
                 </button>
             </div>
@@ -97,200 +119,202 @@
 
 {% block extra_js %}
 <script>
-    $(document).ready(function() {
-        loadPendingKYC();
-    });
+$(document).ready(function() {
+    console.log('KYC: Documento listo, cargando clientes...');
+    cargarClientes();
+});
 
-    function loadPendingKYC() {
-        $.ajax({
-            url: '/compliance/api/kyc/pending',
-            type: 'GET',
-            success: function(response) {
-                if (response.success) {
-                    renderPendingKYC(response.data);
-                } else {
-                    $('#pendingKYCContainer').html('<p class="text-center text-danger">Error: ' + (response.error || 'Error al cargar datos') + '</p>');
-                }
-            },
-            error: function(xhr, status, error) {
-                console.error('Error cargando KYC:', error);
-                console.error('Response:', xhr.responseText);
-                $('#pendingKYCContainer').html('<p class="text-center text-danger">Error de conexión: ' + error + '</p>');
+function cargarClientes() {
+    console.log('KYC: Iniciando carga de clientes...');
+
+    $.ajax({
+        url: '/compliance/api/kyc/pending',
+        type: 'GET',
+        success: function(response) {
+            console.log('KYC: Respuesta recibida:', response);
+
+            if (response.success) {
+                mostrarClientes(response.data);
+            } else {
+                mostrarError('Error: ' + (response.error || 'Error desconocido'));
             }
-        });
+        },
+        error: function(xhr, status, error) {
+            console.error('KYC: Error en AJAX:', {
+                status: status,
+                error: error,
+                response: xhr.responseText
+            });
+            mostrarError('Error de conexión: ' + error);
+        }
+    });
+}
+
+function mostrarClientes(clientes) {
+    console.log('KYC: Mostrando clientes:', clientes);
+
+    const tbody = $('#clientesBody');
+    tbody.empty();
+
+    if (!clientes || clientes.length === 0) {
+        tbody.html(`
+            <tr>
+                <td colspan="7" class="text-center">
+                    <div class="alert alert-success">
+                        <i class="bi bi-check-circle"></i> No hay clientes pendientes de revisión KYC
+                    </div>
+                </td>
+            </tr>
+        `);
+        return;
     }
 
-    function renderPendingKYC(data) {
-        const container = $('#pendingKYCContainer');
+    clientes.forEach(function(cliente) {
+        const estadoBadge = cliente.client_status === 'Activo'
+            ? '<span class="badge bg-success">Activo</span>'
+            : '<span class="badge bg-secondary">Inactivo</span>';
 
-        if (data.length === 0) {
-            container.html(`
-                <div class="alert alert-success text-center">
-                    <i class="bi bi-check-circle-fill"></i> No hay revisiones KYC pendientes
-                </div>
-            `);
-            return;
-        }
-
-        let html = '<div class="table-responsive"><table class="table table-hover">';
-        html += `
-            <thead>
-                <tr>
-                    <th>Cliente</th>
-                    <th>DNI/RUC</th>
-                    <th>Email</th>
-                    <th>Estado Cliente</th>
-                    <th>Risk Score</th>
-                    <th>Flags</th>
-                    <th>Estado KYC</th>
-                    <th>Fecha Registro</th>
-                    <th>Acciones</th>
-                </tr>
-            </thead>
-            <tbody>
-        `;
-
-        data.forEach(item => {
-            const riskBadge = getRiskBadge(item.risk_score);
-            const statusBadge = item.kyc_status === 'Pendiente' ? 'warning' : 'info';
-
-            // Estado del cliente
-            const clientStatusBadge = item.client_status === 'Activo'
-                ? '<span class="badge bg-success">Activo</span>'
-                : '<span class="badge bg-secondary">Inactivo</span>';
-
-            // Flags de riesgo
-            let flags = [];
-            if (item.is_pep) flags.push('<span class="badge bg-warning text-dark" title="Persona Expuesta Políticamente">PEP</span>');
-            if (item.in_restrictive_lists) flags.push('<span class="badge bg-danger" title="En listas restrictivas">Listas</span>');
-            if (item.has_legal_issues) flags.push('<span class="badge bg-danger" title="Problemas legales">Legal</span>');
-            const flagsHtml = flags.length > 0 ? flags.join(' ') : '<span class="text-muted">-</span>';
-
-            html += `
-                <tr>
-                    <td><strong>${escapeHtml(item.client_name)}</strong></td>
-                    <td><small class="text-muted">${item.document_type}</small><br>${item.client_dni}</td>
-                    <td><small>${escapeHtml(item.client_email)}</small></td>
-                    <td>${clientStatusBadge}</td>
-                    <td>${riskBadge}</td>
-                    <td>${flagsHtml}</td>
-                    <td><span class="badge bg-${statusBadge}">${item.kyc_status}</span></td>
-                    <td><small>${item.created_at}</small></td>
-                    <td class="text-nowrap">
-                        <button class="btn btn-sm btn-success mb-1" onclick="openApproveModal(${item.client_id}, '${escapeHtml(item.client_name)}')">
+        const row = `
+            <tr>
+                <td>${cliente.client_id}</td>
+                <td><strong>${cliente.client_name || '-'}</strong></td>
+                <td><small class="text-muted">${cliente.document_type}</small><br>${cliente.client_dni}</td>
+                <td><small>${cliente.client_email}</small></td>
+                <td>${estadoBadge}</td>
+                <td><small>${cliente.created_at}</small></td>
+                <td>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-success" onclick="abrirModalAprobar(${cliente.client_id}, '${escaparTexto(cliente.client_name)}', '${cliente.client_dni}')" title="Aprobar KYC">
                             <i class="bi bi-check-circle"></i> Aprobar
                         </button>
-                        <button class="btn btn-sm btn-danger mb-1" onclick="openRejectModal(${item.client_id}, '${escapeHtml(item.client_name)}')">
+                        <button class="btn btn-danger" onclick="abrirModalRechazar(${cliente.client_id}, '${escaparTexto(cliente.client_name)}', '${cliente.client_dni}')" title="Rechazar KYC">
                             <i class="bi bi-x-circle"></i> Rechazar
                         </button>
-                        <a href="/clients/detail/${item.client_id}" class="btn btn-sm btn-info mb-1" target="_blank">
-                            <i class="bi bi-eye"></i> Ver
+                        <a href="/clients/detail/${cliente.client_id}" class="btn btn-info" target="_blank" title="Ver Cliente">
+                            <i class="bi bi-eye"></i>
                         </a>
-                    </td>
-                </tr>
-            `;
-        });
+                    </div>
+                </td>
+            </tr>
+        `;
+        tbody.append(row);
+    });
+}
 
-        html += '</tbody></table></div>';
-        container.html(html);
-    }
+function mostrarError(mensaje) {
+    console.error('KYC: Mostrando error:', mensaje);
 
-    function getRiskBadge(score) {
-        let color = 'success';
-        let level = 'Bajo';
+    $('#clientesBody').html(`
+        <tr>
+            <td colspan="7" class="text-center">
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle"></i> ${mensaje}
+                </div>
+                <button class="btn btn-primary" onclick="cargarClientes()">
+                    <i class="bi bi-arrow-clockwise"></i> Reintentar
+                </button>
+            </td>
+        </tr>
+    `);
+}
 
-        if (score >= 76) {
-            color = 'danger';
-            level = 'Crítico';
-        } else if (score >= 51) {
-            color = 'warning';
-            level = 'Alto';
-        } else if (score >= 26) {
-            color = 'info';
-            level = 'Medio';
-        }
+function abrirModalAprobar(clientId, nombre, dni) {
+    $('#aprobarClientId').val(clientId);
+    $('#aprobarClientNombre').text(nombre);
+    $('#aprobarClientDni').text(dni);
+    $('#aprobarNotas').val('');
+    $('#aprobarModal').modal('show');
+}
 
-        return `<span class="badge bg-${color}">${score} (${level})</span>`;
-    }
+function abrirModalRechazar(clientId, nombre, dni) {
+    $('#rechazarClientId').val(clientId);
+    $('#rechazarClientNombre').text(nombre);
+    $('#rechazarClientDni').text(dni);
+    $('#rechazarMotivo').val('');
+    $('#rechazarModal').modal('show');
+}
 
-    function openApproveModal(clientId, clientName) {
-        $('#approveClientId').val(clientId);
-        $('#approveClientInfo').html(`<strong>Cliente:</strong> ${clientName}`);
-        $('#approveNotes').val('');
-        $('#approveKYCModal').modal('show');
-    }
+function confirmarAprobar() {
+    const clientId = $('#aprobarClientId').val();
+    const notas = $('#aprobarNotas').val();
 
-    function openRejectModal(clientId, clientName) {
-        $('#rejectClientId').val(clientId);
-        $('#rejectClientInfo').html(`<strong>Cliente:</strong> ${clientName}`);
-        $('#rejectNotes').val('');
-        $('#rejectKYCModal').modal('show');
-    }
+    console.log('KYC: Aprobando cliente', clientId);
 
-    function submitApproveKYC() {
-        const clientId = $('#approveClientId').val();
-        const notes = $('#approveNotes').val();
+    $.ajax({
+        url: `/compliance/api/kyc/${clientId}/approve`,
+        type: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({ notes: notas }),
+        success: function(response) {
+            console.log('KYC: Respuesta aprobar:', response);
 
-        $.ajax({
-            url: `/compliance/api/kyc/${clientId}/approve`,
-            type: 'POST',
-            contentType: 'application/json',
-            data: JSON.stringify({ notes: notes }),
-            success: function(response) {
-                if (response.success) {
-                    alert('✅ ' + response.message);
-                    $('#approveKYCModal').modal('hide');
-                    loadPendingKYC();
-                } else {
-                    alert('❌ ' + (response.error || 'Error al aprobar KYC'));
-                }
-            },
-            error: function(xhr, status, error) {
-                console.error('Error aprobando KYC:', error);
-                alert('❌ Error al aprobar KYC: ' + error);
+            if (response.success) {
+                alert('✅ ' + response.message);
+                $('#aprobarModal').modal('hide');
+                cargarClientes();
+            } else {
+                alert('❌ Error: ' + (response.error || response.message));
             }
-        });
-    }
-
-    function submitRejectKYC() {
-        const clientId = $('#rejectClientId').val();
-        const notes = $('#rejectNotes').val();
-
-        if (!notes.trim()) {
-            alert('⚠️ Debe especificar el motivo del rechazo');
-            return;
+        },
+        error: function(xhr, status, error) {
+            console.error('KYC: Error aprobando:', error);
+            alert('❌ Error al aprobar KYC: ' + error);
         }
+    });
+}
 
-        $.ajax({
-            url: `/compliance/api/kyc/${clientId}/reject`,
-            type: 'POST',
-            contentType: 'application/json',
-            data: JSON.stringify({ notes: notes }),
-            success: function(response) {
-                if (response.success) {
-                    alert('✅ ' + response.message);
-                    $('#rejectKYCModal').modal('hide');
-                    loadPendingKYC();
-                } else {
-                    alert('❌ ' + (response.error || 'Error al rechazar KYC'));
-                }
-            },
-            error: function(xhr, status, error) {
-                console.error('Error rechazando KYC:', error);
-                alert('❌ Error al rechazar KYC: ' + error);
+function confirmarRechazar() {
+    const clientId = $('#rechazarClientId').val();
+    const motivo = $('#rechazarMotivo').val().trim();
+
+    if (!motivo) {
+        alert('⚠️ Debe especificar el motivo del rechazo');
+        return;
+    }
+
+    console.log('KYC: Rechazando cliente', clientId);
+
+    $.ajax({
+        url: `/compliance/api/kyc/${clientId}/reject`,
+        type: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({ notes: motivo }),
+        success: function(response) {
+            console.log('KYC: Respuesta rechazar:', response);
+
+            if (response.success) {
+                alert('✅ ' + response.message);
+                $('#rechazarModal').modal('hide');
+                cargarClientes();
+            } else {
+                alert('❌ Error: ' + (response.error || response.message));
             }
-        });
-    }
+        },
+        error: function(xhr, status, error) {
+            console.error('KYC: Error rechazando:', error);
+            alert('❌ Error al rechazar KYC: ' + error);
+        }
+    });
+}
 
-    function escapeHtml(text) {
-        const map = {
-            '&': '&amp;',
-            '<': '&lt;',
-            '>': '&gt;',
-            '"': '&quot;',
-            "'": '&#039;'
-        };
-        return text.replace(/[&<>"']/g, m => map[m]);
-    }
+function recargarLista() {
+    console.log('KYC: Recargando lista manualmente...');
+    $('#clientesBody').html(`
+        <tr>
+            <td colspan="7" class="text-center">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Cargando...</span>
+                </div>
+                <p class="mt-2">Recargando...</p>
+            </td>
+        </tr>
+    `);
+    cargarClientes();
+}
+
+function escaparTexto(texto) {
+    if (!texto) return '';
+    return texto.replace(/'/g, "\\'").replace(/"/g, '\\"');
+}
 </script>
 {% endblock %}
