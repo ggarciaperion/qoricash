@@ -285,6 +285,30 @@ class OperationService:
                 import logging
                 logging.error(f'Error al enviar email de operación completada {operation.operation_id}: {str(e)}')
 
+            # COMPLIANCE: Análisis automático de la operación
+            try:
+                from app.services.compliance_service import ComplianceService
+                import logging
+                logger = logging.getLogger(__name__)
+
+                # Analizar operación para detectar patrones sospechosos
+                alerts, risk_score = ComplianceService.analyze_operation(operation.id)
+
+                logger.info(f'Compliance analysis for {operation.operation_id}: {len(alerts)} alerts, risk_score={risk_score}')
+
+                # Actualizar perfil de riesgo del cliente
+                ComplianceService.update_client_risk_profile(operation.client_id, current_user.id)
+
+                # Log para Middle Office si hay alertas críticas
+                critical_alerts = [a for a in alerts if a.severity == 'Crítica']
+                if critical_alerts:
+                    logger.warning(f'ALERTA CRÍTICA: Operación {operation.operation_id} generó {len(critical_alerts)} alerta(s) crítica(s)')
+
+            except Exception as e:
+                # Log el error pero no falla la operación
+                import logging
+                logging.error(f'Error en análisis de compliance para {operation.operation_id}: {str(e)}')
+
         return True, f'Estado actualizado a {new_status}', operation
     
     @staticmethod
