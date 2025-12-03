@@ -368,20 +368,19 @@ def kyc():
 @login_required
 @middle_office_required
 def api_kyc_pending():
-    """API: Lista de KYC pendientes - Incluye clientes sin perfil y con KYC pendiente"""
+    """API: Lista de TODOS los clientes para revisión KYC"""
     try:
-        from sqlalchemy.orm import outerjoin
-
-        # Obtener TODOS los clientes con LEFT JOIN para incluir los que no tienen perfil
-        all_clients = db.session.query(Client, ClientRiskProfile).outerjoin(
-            ClientRiskProfile, Client.id == ClientRiskProfile.client_id
-        ).all()
+        # Obtener TODOS los clientes
+        all_clients = Client.query.all()
 
         data = []
-        for client, profile in all_clients:
-            # Determinar KYC status
+        for client in all_clients:
+            # Buscar perfil de riesgo
+            profile = ClientRiskProfile.query.filter_by(client_id=client.id).first()
+
+            # Determinar datos a mostrar
             if profile is None:
-                # Cliente sin perfil de riesgo = Pendiente
+                # Cliente SIN perfil de riesgo = Pendiente
                 kyc_status = 'Pendiente'
                 risk_score = 0
                 is_pep = False
@@ -389,9 +388,9 @@ def api_kyc_pending():
                 has_legal_issues = False
                 created_at = client.created_at
             else:
-                # Cliente con perfil - solo mostrar si KYC está Pendiente o En Proceso
+                # Cliente CON perfil - Solo mostrar si está Pendiente o En Proceso
                 if profile.kyc_status not in ['Pendiente', 'En Proceso']:
-                    continue
+                    continue  # Saltar clientes con KYC aprobado/rechazado
 
                 kyc_status = profile.kyc_status
                 risk_score = profile.risk_score

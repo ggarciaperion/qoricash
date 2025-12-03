@@ -67,7 +67,9 @@
                                 <th>Bancos</th>
                                 <th>Estado</th>
                                 <th>Fecha</th>
+                                {% if current_user.role != 'Middle Office' %}
                                 <th>Acciones</th>
+                                {% endif %}
                             </tr>
                         </thead>
                         <tbody>
@@ -113,6 +115,7 @@
                                     {% endif %}
                                 </td>
                                 <td>{{ op.created_at.strftime('%d/%m/%Y %H:%M') if op.created_at else '-' }}</td>
+                                {% if current_user.role != 'Middle Office' %}
                                 <td>
                                     <div class="btn-group btn-group-sm">
                                         {# === BOTONES SEGÚN ROL Y ESTADO === #}
@@ -175,6 +178,7 @@
                                         {% endif %}
                                     </div>
                                 </td>
+                                {% endif %}
                             </tr>
                             {% endfor %}
                         </tbody>
