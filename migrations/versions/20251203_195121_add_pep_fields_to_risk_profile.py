@@ -1,7 +1,7 @@
 """Add PEP fields to ClientRiskProfile
 
 Revision ID: pep_fields_20251203_195121
-Revises: 
+Revises: j2k3l4m5n6o7
 Create Date: 2025-12-03 19:51:21
 
 """
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = 'pep_fields_20251203_195121'
-down_revision = None
+down_revision = 'j2k3l4m5n6o7'
 branch_labels = None
 depends_on = None
 
