@@ -5,7 +5,7 @@ import json
 from flask import Blueprint, render_template, request, jsonify
 from flask_login import login_required, current_user
 from functools import wraps
-from app.extensions import db
+from app.extensions import db, csrf
 from app.models.compliance import (
     ClientRiskProfile, ComplianceRule, ComplianceAlert,
     RestrictiveListCheck, TransactionMonitoring, RiskLevel, ComplianceAudit
@@ -156,6 +156,7 @@ def alert_detail(alert_id):
 @compliance_bp.route('/api/alerts/<int:alert_id>/resolve', methods=['POST'])
 @login_required
 @middle_office_required
+@csrf.exempt
 def resolve_alert(alert_id):
     """API: Resolver una alerta"""
     try:
@@ -306,6 +307,7 @@ def risk_profile_detail(client_id):
 @compliance_bp.route('/api/risk-profiles/<int:client_id>/recalculate', methods=['POST'])
 @login_required
 @middle_office_required
+@csrf.exempt
 def recalculate_risk_profile(client_id):
     """API: Recalcular perfil de riesgo de un cliente"""
     try:
@@ -441,6 +443,7 @@ def api_kyc_pending():
 @compliance_bp.route('/api/kyc/<int:client_id>/approve', methods=['POST'])
 @login_required
 @middle_office_required
+@csrf.exempt
 def approve_kyc(client_id):
     """API: Aprobar KYC de un cliente y ACTIVARLO para operar"""
     try:
@@ -513,6 +516,7 @@ def approve_kyc(client_id):
 @compliance_bp.route('/api/kyc/<int:client_id>/reject', methods=['POST'])
 @login_required
 @middle_office_required
+@csrf.exempt
 def reject_kyc(client_id):
     """API: Rechazar KYC de un cliente y mantenerlo INACTIVO"""
     try:
@@ -579,6 +583,7 @@ def reject_kyc(client_id):
 @compliance_bp.route('/api/clients/<int:client_id>/change-status', methods=['POST'])
 @login_required
 @middle_office_required
+@csrf.exempt
 def change_client_status(client_id):
     """API: Cambiar estado de un cliente (Activo/Inactivo) - Solo Middle Office"""
     try:
@@ -702,6 +707,7 @@ def restrictive_lists():
 @compliance_bp.route('/api/restrictive-lists/check/<int:client_id>', methods=['POST'])
 @login_required
 @middle_office_required
+@csrf.exempt
 def check_restrictive_lists(client_id):
     """API: Consultar listas restrictivas para un cliente"""
     try:
