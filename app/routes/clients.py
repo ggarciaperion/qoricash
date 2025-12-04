@@ -677,10 +677,11 @@ def client_detail(client_id):
 
     # Obtener perfil de riesgo si existe
     from app.models.compliance import ClientRiskProfile
+    from app.models.operation import Operation
     risk_profile = ClientRiskProfile.query.filter_by(client_id=client_id).first()
 
-    # Obtener últimas operaciones
-    recent_operations = client.operations.order_by('created_at DESC').limit(10).all()
+    # Obtener últimas operaciones (corregido para SQLAlchemy 2.x)
+    recent_operations = Operation.query.filter_by(client_id=client_id).order_by(Operation.created_at.desc()).limit(10).all()
 
     return render_template('clients/detail.html',
                          client=client,

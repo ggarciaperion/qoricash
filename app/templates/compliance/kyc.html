@@ -238,16 +238,29 @@ function validarDocumentosCliente(clientId) {
                 let isValid = false;
                 let validationHtml = '';
 
+                // Función helper para verificar si una URL es válida (no null, no undefined, no vacía)
+                const isValidUrl = (url) => {
+                    return url && url !== null && url !== undefined && url.trim() !== '' && url !== 'null';
+                };
+
                 // Validar según tipo de documento
                 if (client.document_type === 'RUC') {
-                    isValid = client.dni_representante_front_url &&
-                             client.dni_representante_back_url &&
-                             client.ficha_ruc_url &&
-                             client.bank_accounts && client.bank_accounts.length > 0;
+                    const hasDniRepFront = isValidUrl(client.dni_representante_front_url);
+                    const hasDniRepBack = isValidUrl(client.dni_representante_back_url);
+                    const hasFichaRuc = isValidUrl(client.ficha_ruc_url);
+                    const hasBankAccounts = client.bank_accounts && Array.isArray(client.bank_accounts) && client.bank_accounts.length > 0;
+
+                    isValid = hasDniRepFront && hasDniRepBack && hasFichaRuc && hasBankAccounts;
+
+                    console.log(`Cliente ${clientId} (RUC) - DNI Rep Front: ${hasDniRepFront}, DNI Rep Back: ${hasDniRepBack}, Ficha RUC: ${hasFichaRuc}, Bank Accounts: ${hasBankAccounts}`);
                 } else {
-                    isValid = client.dni_front_url &&
-                             client.dni_back_url &&
-                             client.bank_accounts && client.bank_accounts.length > 0;
+                    const hasDniFront = isValidUrl(client.dni_front_url);
+                    const hasDniBack = isValidUrl(client.dni_back_url);
+                    const hasBankAccounts = client.bank_accounts && Array.isArray(client.bank_accounts) && client.bank_accounts.length > 0;
+
+                    isValid = hasDniFront && hasDniBack && hasBankAccounts;
+
+                    console.log(`Cliente ${clientId} (${client.document_type}) - DNI Front: ${hasDniFront}, DNI Back: ${hasDniBack}, Bank Accounts: ${hasBankAccounts}`);
                 }
 
                 if (isValid) {
@@ -259,7 +272,8 @@ function validarDocumentosCliente(clientId) {
                 $(`#validation-${clientId}`).html(validationHtml);
             }
         },
-        error: function() {
+        error: function(xhr, status, error) {
+            console.error(`Error validando cliente ${clientId}:`, error);
             $(`#validation-${clientId}`).html('<span class="badge bg-secondary">N/A</span>');
         }
     });
