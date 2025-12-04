@@ -580,6 +580,67 @@ def reject_kyc(client_id):
         }), 500
 
 
+@compliance_bp.route('/api/kyc/<int:client_id>/reset', methods=['POST'])
+@login_required
+@middle_office_required
+@csrf.exempt
+def reset_kyc(client_id):
+    """API: Reiniciar KYC rechazado para nueva revisión"""
+    try:
+        # Obtener cliente
+        client = Client.query.get_or_404(client_id)
+
+        # Obtener perfil de riesgo
+        profile = ClientRiskProfile.query.filter_by(client_id=client_id).first()
+        if not profile:
+            return jsonify({
+                'success': False,
+                'error': 'El cliente no tiene perfil de riesgo'
+            }), 404
+
+        # Solo se puede reiniciar si está Rechazado
+        if profile.kyc_status != 'Rechazado':
+            return jsonify({
+                'success': False,
+                'error': f'El KYC está en estado "{profile.kyc_status}". Solo se puede reiniciar si está Rechazado.'
+            }), 400
+
+        # Cambiar estado a "En Proceso" para nueva revisión
+        profile.kyc_status = 'En Proceso'
+        profile.kyc_notes = (profile.kyc_notes or '') + f'\n\n[{now_peru().strftime("%d/%m/%Y %H:%M")}] KYC reiniciado por {current_user.username} para nueva revisión.'
+
+        # Auditoría
+        audit = ComplianceAudit(
+            user_id=current_user.id,
+            action_type='KYC_Reset',
+            entity_type='Client',
+            entity_id=client_id,
+            description='KYC reiniciado para nueva revisión después de rechazo',
+            changes=json.dumps({
+                'old_status': 'Rechazado',
+                'new_status': 'En Proceso'
+            }),
+            ip_address=request.remote_addr,
+            user_agent=request.headers.get('User-Agent')
+        )
+        db.session.add(audit)
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': 'KYC reiniciado. El cliente volverá a aparecer en el menú de revisión KYC.'
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        import logging
+        logging.error(f"Error reiniciando KYC: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
 @compliance_bp.route('/api/clients/<int:client_id>/change-status', methods=['POST'])
 @login_required
 @middle_office_required

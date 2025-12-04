@@ -432,6 +432,11 @@
                     <!-- Botón para Middle Office -->
                     {% if current_user.role in ['Master', 'Middle Office'] %}
                         <hr>
+                        {% if risk_profile and risk_profile.kyc_status == 'Rechazado' %}
+                            <button class="btn btn-warning btn-sm w-100 mb-2" onclick="reiniciarKYC()">
+                                <i class="bi bi-arrow-clockwise"></i> Reiniciar KYC Rechazado
+                            </button>
+                        {% endif %}
                         <a href="/compliance/kyc" class="btn btn-primary btn-sm w-100">
                             <i class="bi bi-shield-check"></i> Ir a Revisión KYC
                         </a>
@@ -535,6 +540,33 @@ function validarDocumentos() {
     }
 
     $('#validationStatus').html(statusHtml);
+}
+
+function reiniciarKYC() {
+    if (!confirm('¿Está seguro de reiniciar el KYC de este cliente?\n\nEl cliente volverá a aparecer en el menú de revisión KYC con estado "En Proceso".')) {
+        return;
+    }
+
+    $.ajax({
+        url: `/compliance/api/kyc/{{ client.id }}/reset`,
+        type: 'POST',
+        contentType: 'application/json',
+        success: function(response) {
+            if (response.success) {
+                alert('✅ ' + response.message);
+                location.reload();
+            } else {
+                alert('❌ Error: ' + (response.error || response.message));
+            }
+        },
+        error: function(xhr, status, error) {
+            let errorMsg = 'Error al reiniciar KYC';
+            if (xhr.responseJSON && xhr.responseJSON.error) {
+                errorMsg = xhr.responseJSON.error;
+            }
+            alert('❌ ' + errorMsg);
+        }
+    });
 }
 </script>
 {% endblock %}
