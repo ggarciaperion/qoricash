@@ -41,6 +41,14 @@ class ClientRiskProfile(db.Model):
     in_restrictive_lists = db.Column(db.Boolean, default=False)  # En listas restrictivas
     high_volume_operations = db.Column(db.Boolean, default=False)  # Alto volumen de operaciones
 
+    # Datos adicionales de PEP (si is_pep = True)
+    pep_type = db.Column(db.String(50))  # Directo, Familiar, Asociado Cercano
+    pep_position = db.Column(db.String(200))  # Cargo/Posición
+    pep_entity = db.Column(db.String(200))  # Entidad/Institución
+    pep_designation_date = db.Column(db.Date)  # Fecha de designación
+    pep_end_date = db.Column(db.Date)  # Fecha de cese (si ya no es PEP)
+    pep_notes = db.Column(db.Text)  # Notas adicionales sobre PEP
+
     # KYC Status
     kyc_status = db.Column(db.String(50), default='Pendiente')  # Pendiente, En Proceso, Aprobado, Rechazado
     kyc_verified_at = db.Column(db.DateTime)

@@ -765,6 +765,121 @@ def restrictive_lists():
     return render_template('compliance/restrictive_lists.html')
 
 
+@compliance_bp.route('/api/pep/<int:client_id>', methods=['POST'])
+@login_required
+@middle_office_required
+@csrf.exempt
+def update_pep_status(client_id):
+    """API: Actualizar estado PEP de un cliente"""
+    try:
+        data = request.get_json()
+
+        # Obtener cliente
+        client = Client.query.get_or_404(client_id)
+
+        # Obtener o crear perfil de riesgo
+        profile = ClientRiskProfile.query.filter_by(client_id=client_id).first()
+        if not profile:
+            profile = ClientRiskProfile(client_id=client_id)
+            db.session.add(profile)
+
+        # Actualizar status PEP
+        is_pep = data.get('is_pep', False)
+        profile.is_pep = is_pep
+
+        if is_pep:
+            # Si es PEP, validar campos requeridos
+            pep_type = data.get('pep_type', '').strip()
+            pep_position = data.get('pep_position', '').strip()
+            pep_entity = data.get('pep_entity', '').strip()
+
+            if not pep_type:
+                return jsonify({
+                    'success': False,
+                    'error': 'Debe especificar el tipo de PEP (Directo/Familiar/Asociado Cercano)'
+                }), 400
+
+            if not pep_position:
+                return jsonify({
+                    'success': False,
+                    'error': 'Debe especificar el cargo/posición del PEP'
+                }), 400
+
+            if not pep_entity:
+                return jsonify({
+                    'success': False,
+                    'error': 'Debe especificar la entidad/institución del PEP'
+                }), 400
+
+            # Actualizar campos PEP
+            profile.pep_type = pep_type
+            profile.pep_position = pep_position
+            profile.pep_entity = pep_entity
+            profile.pep_notes = data.get('pep_notes', '').strip()
+
+            # Fechas
+            from datetime import datetime
+            if data.get('pep_designation_date'):
+                try:
+                    profile.pep_designation_date = datetime.strptime(data.get('pep_designation_date'), '%Y-%m-%d').date()
+                except:
+                    pass
+
+            if data.get('pep_end_date'):
+                try:
+                    profile.pep_end_date = datetime.strptime(data.get('pep_end_date'), '%Y-%m-%d').date()
+                except:
+                    pass
+        else:
+            # Si NO es PEP, limpiar campos
+            profile.pep_type = None
+            profile.pep_position = None
+            profile.pep_entity = None
+            profile.pep_designation_date = None
+            profile.pep_end_date = None
+            profile.pep_notes = None
+
+        # Recalcular riesgo automáticamente
+        ComplianceService.update_client_risk_profile(client_id, current_user.id)
+
+        # Auditoría
+        audit = ComplianceAudit(
+            user_id=current_user.id,
+            action_type='PEP_Update',
+            entity_type='Client',
+            entity_id=client_id,
+            description=f'Estado PEP actualizado a: {"Sí" if is_pep else "No"}',
+            changes=json.dumps({
+                'is_pep': is_pep,
+                'pep_type': profile.pep_type,
+                'pep_position': profile.pep_position,
+                'pep_entity': profile.pep_entity
+            }),
+            ip_address=request.remote_addr,
+            user_agent=request.headers.get('User-Agent')
+        )
+        db.session.add(audit)
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': f'Estado PEP actualizado correctamente. Perfil de riesgo recalculado.',
+            'is_pep': is_pep,
+            'new_risk_score': profile.risk_score
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        import logging
+        import traceback
+        logging.error(f"Error actualizando PEP: {str(e)}")
+        logging.error(traceback.format_exc())
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
 @compliance_bp.route('/api/restrictive-lists/check/<int:client_id>', methods=['POST'])
 @login_required
 @middle_office_required
