@@ -1,0 +1,540 @@
+{% extends "base.html" %}
+
+{% block title %}Detalle Cliente - {{ client.full_name or client.dni }} - QoriCash Trading{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header con navegación -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-2">
+                    <li class="breadcrumb-item"><a href="/clients/list">Clientes</a></li>
+                    <li class="breadcrumb-item active">{{ client.full_name or client.dni }}</li>
+                </ol>
+            </nav>
+            <h2 class="mb-0">
+                <i class="bi bi-person-badge"></i>
+                {{ client.full_name or client.dni }}
+            </h2>
+            <p class="text-muted">
+                {{ client.document_type }} - {{ client.dni }}
+                {% if client.status == 'Activo' %}
+                    <span class="badge bg-success">Activo</span>
+                {% else %}
+                    <span class="badge bg-secondary">Inactivo</span>
+                {% endif %}
+            </p>
+        </div>
+        <div>
+            <a href="/clients/list" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Volver
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Columna Izquierda: Información del Cliente -->
+        <div class="col-lg-8">
+            <!-- Datos Personales / Empresa -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <i class="bi bi-person-lines-fill"></i>
+                    {% if client.document_type == 'RUC' %}Datos de la Empresa{% else %}Datos Personales{% endif %}
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% if client.document_type == 'RUC' %}
+                            <!-- Datos RUC -->
+                            <div class="col-md-6 mb-3">
+                                <label class="text-muted small">Razón Social</label>
+                                <p class="mb-0"><strong>{{ client.razon_social or '-' }}</strong></p>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="text-muted small">Persona de Contacto</label>
+                                <p class="mb-0">{{ client.persona_contacto or '-' }}</p>
+                            </div>
+                        {% else %}
+                            <!-- Datos DNI/CE -->
+                            <div class="col-md-4 mb-3">
+                                <label class="text-muted small">Apellido Paterno</label>
+                                <p class="mb-0"><strong>{{ client.apellido_paterno or '-' }}</strong></p>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="text-muted small">Apellido Materno</label>
+                                <p class="mb-0"><strong>{{ client.apellido_materno or '-' }}</strong></p>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="text-muted small">Nombres</label>
+                                <p class="mb-0"><strong>{{ client.nombres or '-' }}</strong></p>
+                            </div>
+                        {% endif %}
+
+                        <div class="col-md-6 mb-3">
+                            <label class="text-muted small">Email</label>
+                            <p class="mb-0">
+                                <i class="bi bi-envelope"></i> {{ client.email }}
+                            </p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="text-muted small">Teléfono</label>
+                            <p class="mb-0">
+                                <i class="bi bi-telephone"></i> {{ client.phone or '-' }}
+                            </p>
+                        </div>
+
+                        <div class="col-12 mb-3">
+                            <label class="text-muted small">Dirección Completa</label>
+                            <p class="mb-0">{{ client.direccion or '-' }}</p>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="text-muted small">Distrito</label>
+                            <p class="mb-0">{{ client.distrito or '-' }}</p>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="text-muted small">Provincia</label>
+                            <p class="mb-0">{{ client.provincia or '-' }}</p>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="text-muted small">Departamento</label>
+                            <p class="mb-0">{{ client.departamento or '-' }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Documentos Adjuntos -->
+            <div class="card mb-4">
+                <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+                    <div>
+                        <i class="bi bi-file-earmark-text"></i> Documentos Adjuntos
+                    </div>
+                    <div id="validationStatus"></div>
+                </div>
+                <div class="card-body">
+                    {% if client.document_type == 'RUC' %}
+                        <!-- Documentos RUC -->
+                        <div class="row">
+                            <div class="col-md-4 mb-3 text-center">
+                                <label class="text-muted small d-block">DNI Representante (Frontal)</label>
+                                {% if client.dni_representante_front_url %}
+                                    <a href="{{ client.dni_representante_front_url }}" target="_blank">
+                                        <img src="{{ client.dni_representante_front_url }}" class="img-thumbnail" style="max-height: 150px; cursor: pointer;" alt="DNI Rep Frontal">
+                                    </a>
+                                    <p class="mt-2 mb-0">
+                                        <span class="badge bg-success"><i class="bi bi-check-circle"></i> Subido</span>
+                                    </p>
+                                {% else %}
+                                    <div class="border rounded p-3 bg-light">
+                                        <i class="bi bi-file-earmark-x text-muted" style="font-size: 3rem;"></i>
+                                        <p class="text-danger mt-2 mb-0"><small>No adjuntado</small></p>
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-4 mb-3 text-center">
+                                <label class="text-muted small d-block">DNI Representante (Reverso)</label>
+                                {% if client.dni_representante_back_url %}
+                                    <a href="{{ client.dni_representante_back_url }}" target="_blank">
+                                        <img src="{{ client.dni_representante_back_url }}" class="img-thumbnail" style="max-height: 150px; cursor: pointer;" alt="DNI Rep Reverso">
+                                    </a>
+                                    <p class="mt-2 mb-0">
+                                        <span class="badge bg-success"><i class="bi bi-check-circle"></i> Subido</span>
+                                    </p>
+                                {% else %}
+                                    <div class="border rounded p-3 bg-light">
+                                        <i class="bi bi-file-earmark-x text-muted" style="font-size: 3rem;"></i>
+                                        <p class="text-danger mt-2 mb-0"><small>No adjuntado</small></p>
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-4 mb-3 text-center">
+                                <label class="text-muted small d-block">Ficha RUC</label>
+                                {% if client.ficha_ruc_url %}
+                                    <a href="{{ client.ficha_ruc_url }}" target="_blank">
+                                        <img src="{{ client.ficha_ruc_url }}" class="img-thumbnail" style="max-height: 150px; cursor: pointer;" alt="Ficha RUC">
+                                    </a>
+                                    <p class="mt-2 mb-0">
+                                        <span class="badge bg-success"><i class="bi bi-check-circle"></i> Subido</span>
+                                    </p>
+                                {% else %}
+                                    <div class="border rounded p-3 bg-light">
+                                        <i class="bi bi-file-earmark-x text-muted" style="font-size: 3rem;"></i>
+                                        <p class="text-danger mt-2 mb-0"><small>No adjuntado</small></p>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% else %}
+                        <!-- Documentos DNI/CE -->
+                        <div class="row">
+                            <div class="col-md-6 mb-3 text-center">
+                                <label class="text-muted small d-block">{{ client.document_type }} (Frontal)</label>
+                                {% if client.dni_front_url %}
+                                    <a href="{{ client.dni_front_url }}" target="_blank">
+                                        <img src="{{ client.dni_front_url }}" class="img-thumbnail" style="max-height: 200px; cursor: pointer;" alt="DNI Frontal">
+                                    </a>
+                                    <p class="mt-2 mb-0">
+                                        <span class="badge bg-success"><i class="bi bi-check-circle"></i> Subido</span>
+                                    </p>
+                                {% else %}
+                                    <div class="border rounded p-4 bg-light">
+                                        <i class="bi bi-file-earmark-x text-muted" style="font-size: 4rem;"></i>
+                                        <p class="text-danger mt-2 mb-0"><small>No adjuntado</small></p>
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6 mb-3 text-center">
+                                <label class="text-muted small d-block">{{ client.document_type }} (Reverso)</label>
+                                {% if client.dni_back_url %}
+                                    <a href="{{ client.dni_back_url }}" target="_blank">
+                                        <img src="{{ client.dni_back_url }}" class="img-thumbnail" style="max-height: 200px; cursor: pointer;" alt="DNI Reverso">
+                                    </a>
+                                    <p class="mt-2 mb-0">
+                                        <span class="badge bg-success"><i class="bi bi-check-circle"></i> Subido</span>
+                                    </p>
+                                {% else %}
+                                    <div class="border rounded p-4 bg-light">
+                                        <i class="bi bi-file-earmark-x text-muted" style="font-size: 4rem;"></i>
+                                        <p class="text-danger mt-2 mb-0"><small>No adjuntado</small></p>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% endif %}
+
+                    <!-- Validación OC -->
+                    {% if client.validation_oc_url %}
+                        <div class="row mt-3">
+                            <div class="col-12 text-center">
+                                <label class="text-muted small d-block">Validación Oficial de Cumplimiento (OC)</label>
+                                <a href="{{ client.validation_oc_url }}" target="_blank" class="btn btn-success btn-sm">
+                                    <i class="bi bi-file-earmark-check"></i> Ver Validación OC
+                                </a>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Cuentas Bancarias -->
+            <div class="card mb-4">
+                <div class="card-header bg-success text-white">
+                    <i class="bi bi-bank"></i> Cuentas Bancarias
+                </div>
+                <div class="card-body">
+                    {% if client.bank_accounts %}
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Origen</th>
+                                        <th>Banco</th>
+                                        <th>Tipo</th>
+                                        <th>Moneda</th>
+                                        <th>Número de Cuenta</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for account in client.bank_accounts %}
+                                    <tr>
+                                        <td>{{ account.origen or '-' }}</td>
+                                        <td><strong>{{ account.bank_name }}</strong></td>
+                                        <td>{{ account.account_type }}</td>
+                                        <td>{{ account.currency }}</td>
+                                        <td><code>{{ account.account_number }}</code></td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted mb-0">
+                            <i class="bi bi-exclamation-triangle"></i> No hay cuentas bancarias registradas
+                        </p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Últimas Operaciones -->
+            <div class="card mb-4">
+                <div class="card-header bg-warning text-dark">
+                    <i class="bi bi-arrow-left-right"></i> Últimas Operaciones
+                </div>
+                <div class="card-body">
+                    {% if recent_operations %}
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Tipo</th>
+                                        <th>Monto</th>
+                                        <th>Estado</th>
+                                        <th>Fecha</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for op in recent_operations %}
+                                    <tr>
+                                        <td>#{{ op.id }}</td>
+                                        <td>
+                                            {% if op.tipo_cambio == 'Compra' %}
+                                                <span class="badge bg-success">Compra</span>
+                                            {% else %}
+                                                <span class="badge bg-danger">Venta</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <strong>{{ op.monto_soles }} S/</strong><br>
+                                            <small class="text-muted">{{ op.monto_dolares }} USD</small>
+                                        </td>
+                                        <td>
+                                            {% if op.status == 'Completada' %}
+                                                <span class="badge bg-success">{{ op.status }}</span>
+                                            {% elif op.status == 'Cancelada' %}
+                                                <span class="badge bg-danger">{{ op.status }}</span>
+                                            {% else %}
+                                                <span class="badge bg-warning text-dark">{{ op.status }}</span>
+                                            {% endif %}
+                                        </td>
+                                        <td><small>{{ op.created_at.strftime('%d/%m/%Y %H:%M') }}</small></td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        <a href="/operations/list?client_id={{ client.id }}" class="btn btn-sm btn-outline-primary">
+                            Ver todas las operaciones
+                        </a>
+                    {% else %}
+                        <p class="text-muted mb-0">No hay operaciones registradas</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Columna Derecha: Estado KYC y Compliance -->
+        <div class="col-lg-4">
+            <!-- Estado del Cliente -->
+            <div class="card mb-4">
+                <div class="card-header bg-dark text-white">
+                    <i class="bi bi-info-circle"></i> Estado del Cliente
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="text-muted small">Estado Actual</label>
+                        <h4>
+                            {% if client.status == 'Activo' %}
+                                <span class="badge bg-success">Activo</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Inactivo</span>
+                            {% endif %}
+                        </h4>
+                    </div>
+                    <div class="mb-3">
+                        <label class="text-muted small">Creado por</label>
+                        <p class="mb-0">
+                            <i class="bi bi-person"></i> {{ client.creator.username if client.creator else 'N/A' }}
+                        </p>
+                    </div>
+                    <div class="mb-3">
+                        <label class="text-muted small">Fecha de Registro</label>
+                        <p class="mb-0">
+                            <i class="bi bi-calendar"></i> {{ client.created_at.strftime('%d/%m/%Y %H:%M') if client.created_at else '-' }}
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Perfil KYC y Compliance -->
+            <div class="card mb-4">
+                <div class="card-header bg-danger text-white">
+                    <i class="bi bi-shield-check"></i> KYC & Compliance
+                </div>
+                <div class="card-body">
+                    {% if risk_profile %}
+                        <div class="mb-3">
+                            <label class="text-muted small">Estado KYC</label>
+                            <h5>
+                                {% if risk_profile.kyc_status == 'Aprobado' %}
+                                    <span class="badge bg-success">Aprobado</span>
+                                {% elif risk_profile.kyc_status == 'Rechazado' %}
+                                    <span class="badge bg-danger">Rechazado</span>
+                                {% elif risk_profile.kyc_status == 'En Proceso' %}
+                                    <span class="badge bg-warning text-dark">En Proceso</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Pendiente</span>
+                                {% endif %}
+                            </h5>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="text-muted small">Nivel de Riesgo</label>
+                            <h5>
+                                {% set risk_score = risk_profile.risk_score %}
+                                {% if risk_score >= 76 %}
+                                    <span class="badge bg-danger">Crítico ({{ risk_score }})</span>
+                                {% elif risk_score >= 51 %}
+                                    <span class="badge bg-warning text-dark">Alto ({{ risk_score }})</span>
+                                {% elif risk_score >= 26 %}
+                                    <span class="badge bg-info">Medio ({{ risk_score }})</span>
+                                {% else %}
+                                    <span class="badge bg-success">Bajo ({{ risk_score }})</span>
+                                {% endif %}
+                            </h5>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="text-muted small">PEP (Persona Expuesta Políticamente)</label>
+                            <p class="mb-0">
+                                {% if risk_profile.is_pep %}
+                                    <span class="badge bg-warning text-dark">SÍ</span>
+                                {% else %}
+                                    <span class="badge bg-success">NO</span>
+                                {% endif %}
+                            </p>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="text-muted small">Listas Restrictivas</label>
+                            <p class="mb-0">
+                                {% if risk_profile.in_restrictive_lists %}
+                                    <span class="badge bg-danger">Sí encontrado</span>
+                                {% else %}
+                                    <span class="badge bg-success">No encontrado</span>
+                                {% endif %}
+                            </p>
+                        </div>
+
+                        {% if risk_profile.kyc_notes %}
+                            <div class="mb-3">
+                                <label class="text-muted small">Notas KYC</label>
+                                <p class="mb-0"><small>{{ risk_profile.kyc_notes }}</small></p>
+                            </div>
+                        {% endif %}
+
+                        {% if risk_profile.kyc_verified_at %}
+                            <div class="mb-3">
+                                <label class="text-muted small">Verificado</label>
+                                <p class="mb-0">
+                                    <small>{{ risk_profile.kyc_verified_at.strftime('%d/%m/%Y %H:%M') }}</small>
+                                </p>
+                            </div>
+                        {% endif %}
+                    {% else %}
+                        <div class="alert alert-warning mb-0">
+                            <i class="bi bi-exclamation-triangle"></i>
+                            <strong>Sin perfil de riesgo</strong><br>
+                            <small>El cliente aún no tiene un perfil de riesgo asignado</small>
+                        </div>
+                    {% endif %}
+
+                    <!-- Botón para Middle Office -->
+                    {% if current_user.role in ['Master', 'Middle Office'] %}
+                        <hr>
+                        <a href="/compliance/kyc" class="btn btn-primary btn-sm w-100">
+                            <i class="bi bi-shield-check"></i> Ir a Revisión KYC
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Checklist de Validaciones -->
+            <div class="card">
+                <div class="card-header bg-secondary text-white">
+                    <i class="bi bi-check2-square"></i> Checklist de Validación
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled mb-0">
+                        <li class="mb-2">
+                            {% if client.document_type == 'RUC' %}
+                                {% if client.dni_representante_front_url and client.dni_representante_back_url and client.ficha_ruc_url %}
+                                    <i class="bi bi-check-circle-fill text-success"></i>
+                                {% else %}
+                                    <i class="bi bi-x-circle-fill text-danger"></i>
+                                {% endif %}
+                            {% else %}
+                                {% if client.dni_front_url and client.dni_back_url %}
+                                    <i class="bi bi-check-circle-fill text-success"></i>
+                                {% else %}
+                                    <i class="bi bi-x-circle-fill text-danger"></i>
+                                {% endif %}
+                            {% endif %}
+                            Documentos de identidad
+                        </li>
+                        <li class="mb-2">
+                            {% if client.bank_accounts %}
+                                <i class="bi bi-check-circle-fill text-success"></i>
+                            {% else %}
+                                <i class="bi bi-x-circle-fill text-danger"></i>
+                            {% endif %}
+                            Cuentas bancarias registradas
+                        </li>
+                        <li class="mb-2">
+                            {% if risk_profile and risk_profile.kyc_status == 'Aprobado' %}
+                                <i class="bi bi-check-circle-fill text-success"></i>
+                            {% else %}
+                                <i class="bi bi-x-circle-fill text-danger"></i>
+                            {% endif %}
+                            KYC aprobado
+                        </li>
+                        <li class="mb-2">
+                            {% if client.status == 'Activo' %}
+                                <i class="bi bi-check-circle-fill text-success"></i>
+                            {% else %}
+                                <i class="bi bi-x-circle-fill text-danger"></i>
+                            {% endif %}
+                            Cliente activo
+                        </li>
+                        <li class="mb-0">
+                            {% if risk_profile and not risk_profile.in_restrictive_lists %}
+                                <i class="bi bi-check-circle-fill text-success"></i>
+                            {% elif risk_profile %}
+                                <i class="bi bi-x-circle-fill text-danger"></i>
+                            {% else %}
+                                <i class="bi bi-dash-circle-fill text-warning"></i>
+                            {% endif %}
+                            Listas restrictivas verificadas
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Validar documentos al cargar la página
+$(document).ready(function() {
+    validarDocumentos();
+});
+
+function validarDocumentos() {
+    let documentType = '{{ client.document_type }}';
+    let allDocumentsUploaded = false;
+
+    if (documentType === 'RUC') {
+        let repFront = '{{ client.dni_representante_front_url or "" }}';
+        let repBack = '{{ client.dni_representante_back_url or "" }}';
+        let fichaRuc = '{{ client.ficha_ruc_url or "" }}';
+        allDocumentsUploaded = repFront && repBack && fichaRuc;
+    } else {
+        let dniFront = '{{ client.dni_front_url or "" }}';
+        let dniBack = '{{ client.dni_back_url or "" }}';
+        allDocumentsUploaded = dniFront && dniBack;
+    }
+
+    let statusHtml = '';
+    if (allDocumentsUploaded) {
+        statusHtml = '<span class="badge bg-success"><i class="bi bi-check-circle"></i> Documentos completos</span>';
+    } else {
+        statusHtml = '<span class="badge bg-warning text-dark"><i class="bi bi-exclamation-triangle"></i> Documentos incompletos</span>';
+    }
+
+    $('#validationStatus').html(statusHtml);
+}
+</script>
+{% endblock %}

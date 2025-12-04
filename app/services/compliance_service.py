@@ -414,6 +414,36 @@ class ComplianceService:
         return check
 
     @staticmethod
+    def validate_client_documents(client):
+        """
+        Validar que el cliente tenga todos los documentos necesarios
+        Retorna: (is_valid, missing_documents)
+        """
+        missing_documents = []
+
+        if client.document_type == 'RUC':
+            # Validar documentos para RUC
+            if not client.dni_representante_front_url:
+                missing_documents.append('DNI Representante Legal (Frontal)')
+            if not client.dni_representante_back_url:
+                missing_documents.append('DNI Representante Legal (Reverso)')
+            if not client.ficha_ruc_url:
+                missing_documents.append('Ficha RUC')
+        else:
+            # Validar documentos para DNI/CE
+            if not client.dni_front_url:
+                missing_documents.append(f'{client.document_type} (Frontal)')
+            if not client.dni_back_url:
+                missing_documents.append(f'{client.document_type} (Reverso)')
+
+        # Validar cuentas bancarias
+        if not client.bank_accounts or len(client.bank_accounts) == 0:
+            missing_documents.append('Al menos una cuenta bancaria')
+
+        is_valid = len(missing_documents) == 0
+        return is_valid, missing_documents
+
+    @staticmethod
     def get_compliance_dashboard_stats():
         """Obtener estadísticas para el dashboard de Middle Office"""
         stats = {}

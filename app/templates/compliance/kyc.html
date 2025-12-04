@@ -24,7 +24,7 @@
         </div>
         <div class="card-body">
             <div class="table-responsive">
-                <table class="table table-hover" id="clientesTable">
+                <table class="table table-hover align-middle" id="clientesTable">
                     <thead>
                         <tr>
                             <th>ID</th>
@@ -32,13 +32,14 @@
                             <th>DNI/RUC</th>
                             <th>Email</th>
                             <th>Estado Cliente</th>
+                            <th>Validación Docs</th>
                             <th>Fecha Registro</th>
-                            <th>Acciones</th>
+                            <th style="min-width: 200px;">Acciones</th>
                         </tr>
                     </thead>
                     <tbody id="clientesBody">
                         <tr>
-                            <td colspan="7" class="text-center">
+                            <td colspan="8" class="text-center">
                                 <div class="spinner-border text-primary" role="status">
                                     <span class="visually-hidden">Cargando...</span>
                                 </div>
@@ -159,7 +160,7 @@ function mostrarClientes(clientes) {
     if (!clientes || clientes.length === 0) {
         tbody.html(`
             <tr>
-                <td colspan="7" class="text-center">
+                <td colspan="8" class="text-center">
                     <div class="alert alert-success">
                         <i class="bi bi-check-circle"></i> No hay clientes pendientes de revisión KYC
                     </div>
@@ -174,30 +175,39 @@ function mostrarClientes(clientes) {
             ? '<span class="badge bg-success">Activo</span>'
             : '<span class="badge bg-secondary">Inactivo</span>';
 
+        // Indicador de validación de documentos (se validará con AJAX)
+        const validacionBadge = `<span class="badge bg-warning text-dark" id="validation-${cliente.client_id}">
+            <i class="bi bi-hourglass-split"></i> Verificando...
+        </span>`;
+
         const row = `
-            <tr>
+            <tr id="row-${cliente.client_id}">
                 <td>${cliente.client_id}</td>
                 <td><strong>${cliente.client_name || '-'}</strong></td>
                 <td><small class="text-muted">${cliente.document_type}</small><br>${cliente.client_dni}</td>
                 <td><small>${cliente.client_email}</small></td>
                 <td>${estadoBadge}</td>
+                <td>${validacionBadge}</td>
                 <td><small>${cliente.created_at}</small></td>
                 <td>
-                    <div class="btn-group btn-group-sm">
+                    <div class="btn-group btn-group-sm" role="group">
+                        <a href="/clients/detail/${cliente.client_id}" class="btn btn-info" target="_blank" title="Ver Cliente Completo">
+                            <i class="bi bi-eye"></i> Ver
+                        </a>
                         <button class="btn btn-success" onclick="abrirModalAprobar(${cliente.client_id}, '${escaparTexto(cliente.client_name)}', '${cliente.client_dni}')" title="Aprobar KYC">
                             <i class="bi bi-check-circle"></i> Aprobar
                         </button>
                         <button class="btn btn-danger" onclick="abrirModalRechazar(${cliente.client_id}, '${escaparTexto(cliente.client_name)}', '${cliente.client_dni}')" title="Rechazar KYC">
                             <i class="bi bi-x-circle"></i> Rechazar
                         </button>
-                        <a href="/clients/detail/${cliente.client_id}" class="btn btn-info" target="_blank" title="Ver Cliente">
-                            <i class="bi bi-eye"></i>
-                        </a>
                     </div>
                 </td>
             </tr>
         `;
         tbody.append(row);
+
+        // Validar documentos de este cliente
+        validarDocumentosCliente(cliente.client_id);
     });
 }
 
@@ -206,7 +216,7 @@ function mostrarError(mensaje) {
 
     $('#clientesBody').html(`
         <tr>
-            <td colspan="7" class="text-center">
+            <td colspan="8" class="text-center">
                 <div class="alert alert-danger">
                     <i class="bi bi-exclamation-triangle"></i> ${mensaje}
                 </div>
@@ -216,6 +226,43 @@ function mostrarError(mensaje) {
             </td>
         </tr>
     `);
+}
+
+function validarDocumentosCliente(clientId) {
+    $.ajax({
+        url: `/clients/api/${clientId}`,
+        type: 'GET',
+        success: function(response) {
+            if (response.success && response.client) {
+                const client = response.client;
+                let isValid = false;
+                let validationHtml = '';
+
+                // Validar según tipo de documento
+                if (client.document_type === 'RUC') {
+                    isValid = client.dni_representante_front_url &&
+                             client.dni_representante_back_url &&
+                             client.ficha_ruc_url &&
+                             client.bank_accounts && client.bank_accounts.length > 0;
+                } else {
+                    isValid = client.dni_front_url &&
+                             client.dni_back_url &&
+                             client.bank_accounts && client.bank_accounts.length > 0;
+                }
+
+                if (isValid) {
+                    validationHtml = '<span class="badge bg-success"><i class="bi bi-check-circle"></i> Completo</span>';
+                } else {
+                    validationHtml = '<span class="badge bg-danger"><i class="bi bi-x-circle"></i> Incompleto</span>';
+                }
+
+                $(`#validation-${clientId}`).html(validationHtml);
+            }
+        },
+        error: function() {
+            $(`#validation-${clientId}`).html('<span class="badge bg-secondary">N/A</span>');
+        }
+    });
 }
 
 function abrirModalAprobar(clientId, nombre, dni) {
@@ -253,12 +300,32 @@ function confirmarAprobar() {
                 $('#aprobarModal').modal('hide');
                 cargarClientes();
             } else {
-                alert('❌ Error: ' + (response.error || response.message));
+                // Mostrar documentos faltantes si los hay
+                let errorMsg = response.error || response.message;
+                if (response.missing_documents && response.missing_documents.length > 0) {
+                    errorMsg += '\n\nDocumentos faltantes:\n';
+                    response.missing_documents.forEach(doc => {
+                        errorMsg += '• ' + doc + '\n';
+                    });
+                }
+                alert('❌ ' + errorMsg);
             }
         },
         error: function(xhr, status, error) {
             console.error('KYC: Error aprobando:', error);
-            alert('❌ Error al aprobar KYC: ' + error);
+            let errorMsg = 'Error al aprobar KYC';
+
+            if (xhr.responseJSON && xhr.responseJSON.error) {
+                errorMsg = xhr.responseJSON.error;
+                if (xhr.responseJSON.missing_documents) {
+                    errorMsg += '\n\nDocumentos faltantes:\n';
+                    xhr.responseJSON.missing_documents.forEach(doc => {
+                        errorMsg += '• ' + doc + '\n';
+                    });
+                }
+            }
+
+            alert('❌ ' + errorMsg);
         }
     });
 }

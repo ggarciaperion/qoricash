@@ -662,6 +662,32 @@ def reassign_clients_bulk():
         return jsonify({'success': False, 'message': f'Error al reasignar clientes: {str(e)}'}), 500
 
 
+@clients_bp.route('/detail/<int:client_id>')
+@login_required
+@require_role('Master', 'Trader', 'Operador', 'Middle Office')
+def client_detail(client_id):
+    """
+    Página de detalle completo del cliente
+    Muestra información, documentos, operaciones, perfil de riesgo
+    """
+    client = ClientService.get_client_by_id(client_id)
+
+    if not client:
+        return render_template('errors/404.html', message='Cliente no encontrado'), 404
+
+    # Obtener perfil de riesgo si existe
+    from app.models.compliance import ClientRiskProfile
+    risk_profile = ClientRiskProfile.query.filter_by(client_id=client_id).first()
+
+    # Obtener últimas operaciones
+    recent_operations = client.operations.order_by('created_at DESC').limit(10).all()
+
+    return render_template('clients/detail.html',
+                         client=client,
+                         risk_profile=risk_profile,
+                         recent_operations=recent_operations)
+
+
 @clients_bp.route('/api/trader/<int:trader_id>/clients')
 @login_required
 @csrf.exempt

@@ -450,6 +450,15 @@ def approve_kyc(client_id):
         # Obtener cliente
         client = Client.query.get_or_404(client_id)
 
+        # VALIDACIÓN CRÍTICA: Verificar documentos antes de aprobar
+        is_valid, missing_docs = ComplianceService.validate_client_documents(client)
+        if not is_valid:
+            return jsonify({
+                'success': False,
+                'error': 'No se puede aprobar KYC. Faltan documentos requeridos',
+                'missing_documents': missing_docs
+            }), 400
+
         # Obtener o crear perfil de riesgo
         profile = ClientRiskProfile.query.filter_by(client_id=client_id).first()
         if not profile:
