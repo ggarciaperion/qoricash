@@ -301,6 +301,9 @@ class EmailService:
 
         <div class="content">
             <p>Estimado(a) <strong>{{ operation.client.full_name or operation.client.razon_social }}</strong>,</p>
+            <p style="margin: -10px 0 15px 0; font-size: 14px; color: #6b7280;">
+                <strong>{{ operation.client.document_type or 'Documento' }}:</strong> {{ operation.client.dni }}
+            </p>
 
             <p>Se ha registrado una nueva operación de cambio de divisas con los siguientes detalles:</p>
 
@@ -502,6 +505,9 @@ class EmailService:
 
         <div class="content">
             <p>Estimado(a) <strong>{{ operation.client.full_name or operation.client.razon_social }}</strong>,</p>
+            <p style="margin: -10px 0 15px 0; font-size: 14px; color: #6b7280;">
+                <strong>{{ operation.client.document_type or 'Documento' }}:</strong> {{ operation.client.dni }}
+            </p>
 
             <div class="success-box">
                 <h2 style="margin: 0; color: #065f46; font-size: 20px;">Operacion Exitosa</h2>
@@ -580,6 +586,131 @@ class EmailService:
 """
         return render_template_string(template, operation=operation)
 
+
+    @staticmethod
+    def send_shared_email_notification(new_client, existing_clients, trader):
+        """
+        Enviar correo informativo cuando un email se usa para registrar un nuevo cliente
+
+        Args:
+            new_client: Nuevo cliente que se está registrando
+            existing_clients: Lista de clientes que ya tienen este email
+            trader: Usuario que está registrando al nuevo cliente
+
+        Returns:
+            tuple: (success: bool, message: str)
+        """
+        try:
+            from flask_mail import Message
+            from app.extensions import mail
+
+            # Destinatario: El email compartido
+            to = EmailService.parse_email_addresses(new_client.email) if new_client.email else []
+
+            if not to:
+                return False, 'No hay destinatario para email compartido'
+
+            # Asunto
+            subject = 'Notificación: Nuevo Cliente Registrado con su Email - QoriCash'
+
+            # Contenido HTML
+            html_body = EmailService._render_shared_email_notification_template(
+                new_client, existing_clients, trader
+            )
+
+            # Crear mensaje
+            msg = Message(
+                subject=subject,
+                recipients=to,
+                html=html_body
+            )
+
+            # Enviar
+            mail.send(msg)
+
+            logger.info(f'Email de notificación de email compartido enviado: {new_client.id}')
+            return True, 'Email de notificación enviado correctamente'
+
+        except Exception as e:
+            logger.error(f'Error al enviar email de notificación de email compartido: {str(e)}')
+            return False, f'Error al enviar email: {str(e)}'
+
+    @staticmethod
+    def _render_shared_email_notification_template(new_client, existing_clients, trader):
+        """Renderizar plantilla HTML para notificación de email compartido"""
+        template = """
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; background-color: #f4f4f4; margin: 0; padding: 0; }
+        .container { max-width: 600px; margin: 20px auto; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .header { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; padding: 30px 20px; text-align: center; }
+        .header h1 { margin: 0; font-size: 24px; }
+        .content { padding: 30px 20px; }
+        .info-box { background: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0; border-radius: 4px; }
+        .client-box { background: #f0f9ff; border: 1px solid #0ea5e9; padding: 15px; margin: 15px 0; border-radius: 6px; }
+        .footer { background: #f9fafb; padding: 20px; text-align: center; font-size: 12px; color: #6b7280; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>ℹ️ Notificación Informativa</h1>
+            <p style="margin: 10px 0 0 0; font-size: 14px;">QoriCash Trading</p>
+        </div>
+
+        <div class="content">
+            <p>Estimado(a) usuario,</p>
+
+            <p>Le informamos que su correo electrónico <strong>{{ new_client.email }}</strong> ha sido utilizado para registrar un nuevo cliente en QoriCash Trading.</p>
+
+            <div class="info-box">
+                <p style="margin: 0 0 10px 0; font-weight: 600; color: #d97706;">⚠️ Esta es una notificación informativa</p>
+                <p style="margin: 5px 0; font-size: 14px;">Si usted autorizó este registro, no necesita realizar ninguna acción. Si NO reconoce este registro, por favor contacte inmediatamente con nosotros.</p>
+            </div>
+
+            <div class="client-box">
+                <p style="margin: 0 0 10px 0; font-weight: 600; color: #0369a1;">📋 Información del Nuevo Cliente Registrado:</p>
+                <p style="margin: 5px 0;"><strong>Tipo de Documento:</strong> {{ new_client.document_type }}</p>
+                <p style="margin: 5px 0;"><strong>Número de Documento:</strong> {{ new_client.dni }}</p>
+                <p style="margin: 5px 0;"><strong>Nombre:</strong> {{ new_client.full_name or new_client.razon_social }}</p>
+                {% if new_client.phone %}
+                <p style="margin: 5px 0;"><strong>Teléfono:</strong> {{ new_client.phone }}</p>
+                {% endif %}
+                <p style="margin: 5px 0;"><strong>Email:</strong> {{ new_client.email }}</p>
+                <p style="margin: 5px 0;"><strong>Estado:</strong> {{ new_client.status }}</p>
+                <p style="margin: 5px 0;"><strong>Registrado por:</strong> {{ trader.username if trader else 'Sistema' }}</p>
+            </div>
+
+            {% if existing_clients and existing_clients|length > 0 %}
+            <p style="margin-top: 20px; font-size: 14px; color: #475569;">
+                <strong>Nota:</strong> Este correo ya está asociado a {{ existing_clients|length }} cliente(s) adicional(es):
+            </p>
+            <ul style="font-size: 14px; color: #475569;">
+                {% for client in existing_clients %}
+                <li>{{ client.document_type }} {{ client.dni }} - {{ client.full_name or client.razon_social }}</li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+
+            <p style="margin-top: 25px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 13px;">
+                <strong>¿No reconoce este registro?</strong><br>
+                Si no autorizó este registro, por favor contacte con nosotros inmediatamente respondiendo a este correo o llamando a su ejecutivo asignado.
+            </p>
+        </div>
+
+        <div class="footer">
+            <p><strong>QoriCash Trading</strong></p>
+            <p>Sistema de Gestión de Operaciones Cambiarias</p>
+            <p style="margin-top: 10px;">© 2024 QoriCash Trading V2. Todos los derechos reservados.</p>
+        </div>
+    </div>
+</body>
+</html>
+"""
+        return render_template_string(template, new_client=new_client, existing_clients=existing_clients, trader=trader)
 
     @staticmethod
     def send_new_client_registration_email(client, trader):
@@ -1004,6 +1135,9 @@ class EmailService:
 
         <div class="content">
             <p>Estimado(a) <strong>{{ operation.client.full_name or operation.client.razon_social }}</strong>,</p>
+            <p style="margin: -10px 0 15px 0; font-size: 14px; color: #6b7280;">
+                <strong>{{ operation.client.document_type or 'Documento' }}:</strong> {{ operation.client.dni }}
+            </p>
 
             <div class="warning-box">
                 <h2 style="margin: 0; color: #991b1b; font-size: 20px;">Operación Cancelada</h2>
@@ -1161,6 +1295,9 @@ class EmailService:
 
         <div class="content">
             <p>Estimado(a) <strong>{{ operation.client.full_name or operation.client.razon_social }}</strong>,</p>
+            <p style="margin: -10px 0 15px 0; font-size: 14px; color: #6b7280;">
+                <strong>{{ operation.client.document_type or 'Documento' }}:</strong> {{ operation.client.dni }}
+            </p>
 
             <p>Le informamos que el <strong>monto de su operación</strong> ha sido modificado. A continuación los detalles:</p>
 

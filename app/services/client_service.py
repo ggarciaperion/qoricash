@@ -245,6 +245,17 @@ class ClientService:
             client.created_by = getattr(current_user, 'id', None)
             client.created_at = now_peru()
 
+            # --- Detectar si el email ya existe en otros clientes (para correo informativo) ---
+            existing_clients_with_email = []
+            try:
+                # Buscar clientes existentes con el mismo email (para notificación)
+                existing_clients_with_email = Client.query.filter(
+                    Client.email == client.email.lower()
+                ).all()
+                logger.info(f'Detectados {len(existing_clients_with_email)} clientes con el email {client.email}')
+            except Exception:
+                logger.warning('No se pudo verificar clientes existentes con el email')
+
             # --- Persistir en DB ---
             try:
                 db.session.add(client)
@@ -267,6 +278,20 @@ class ClientService:
                 db.session.rollback()
                 logger.exception("Error al persistir cliente")
                 return False, f'Error al guardar cliente en la base de datos: {str(db_exc)}', None
+
+            # --- Enviar correo informativo si el email ya existía en otros clientes ---
+            if existing_clients_with_email and len(existing_clients_with_email) > 0:
+                try:
+                    from app.services.email_service import EmailService
+                    EmailService.send_shared_email_notification(
+                        new_client=client,
+                        existing_clients=existing_clients_with_email,
+                        trader=current_user
+                    )
+                    logger.info(f'Correo informativo de email compartido enviado para {client.id}')
+                except Exception as e:
+                    # No bloquear la creación del cliente si falla el email
+                    logger.warning(f'Error al enviar correo informativo de email compartido: {str(e)}')
 
             # Emitir evento WebSocket para actualización en tiempo real
             try:
