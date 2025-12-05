@@ -153,8 +153,8 @@ class ClientService:
                 return False, 'El email es obligatorio', None
             if not validate_email(email):
                 return False, 'Email inválido', None
-            if ClientService.get_client_by_email(email):
-                return False, 'Ya existe un cliente con este email', None
+            # NOTA: Permitir emails duplicados (un tesorero puede manejar múltiples empresas)
+            # La validación de email único fue eliminada intencionalmente
 
             # Teléfono (opcional)
             phone = (data.get('phone') or '').strip()
@@ -333,9 +333,8 @@ class ClientService:
                 if not validate_email(new_email):
                     return False, 'Email inválido', None
 
-                existing = ClientService.get_client_by_email(new_email)
-                if existing and existing.id != client_id:
-                    return False, 'Ya existe un cliente con este email', None
+                # NOTA: Permitir emails duplicados (un tesorero puede manejar múltiples empresas)
+                # La validación de email único fue eliminada intencionalmente
 
                 client.email = new_email.lower()
 
