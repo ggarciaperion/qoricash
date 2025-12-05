@@ -818,10 +818,12 @@ class EmailService:
             <div class="info-box">
                 <p style="margin: 0 0 10px 0; font-weight: 600; color: #1e40af;">Información de su Cuenta:</p>
                 <p style="margin: 5px 0;"><strong>Cliente:</strong> {{ client.full_name or client.razon_social }}</p>
-                {% if client.document_number %}
-                <p style="margin: 5px 0;"><strong>Documento:</strong> {{ client.document_number }}</p>
+                {% if client.document_number or client.dni %}
+                <p style="margin: 5px 0;"><strong>Número de documento:</strong> {{ client.document_number or client.dni }}</p>
                 {% endif %}
-                <p style="margin: 5px 0;"><strong>Email:</strong> {{ client.email }}</p>
+                {% if client.phone %}
+                <p style="margin: 5px 0;"><strong>Número de teléfono registrado:</strong> {{ client.phone }}</p>
+                {% endif %}
                 <p style="margin: 5px 0;"><strong>Estado:</strong> <span style="color: #059669; font-weight: bold;">ACTIVO</span></p>
                 <p style="margin: 5px 0;"><strong>Ejecutivo Asignado:</strong> {{ trader.username }}</p>
             </div>
