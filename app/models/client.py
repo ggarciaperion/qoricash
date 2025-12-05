@@ -35,7 +35,7 @@ class Client(db.Model):
     dni = db.Column(db.String(20), unique=True, nullable=False, index=True)
 
     # Contacto
-    email = db.Column(db.String(120), unique=True, nullable=False, index=True)
+    email = db.Column(db.String(120), nullable=False, index=True)  # Puede contener múltiples emails separados por ;
     phone = db.Column(db.String(100))  # Puede contener múltiples números separados por ;
 
     # Documentos (URLs de Cloudinary)

@@ -14,6 +14,60 @@ class EmailService:
     """Servicio para envío de correos electrónicos"""
 
     @staticmethod
+    def parse_email_addresses(email_string):
+        """
+        Parsear string de emails separados por ; y retornar lista limpia
+
+        Args:
+            email_string: String con emails separados por ; (ej: "email1@x.com;email2@x.com")
+
+        Returns:
+            list: Lista de emails únicos y válidos
+        """
+        if not email_string:
+            return []
+
+        # Dividir por ; y limpiar espacios
+        emails = [email.strip() for email in email_string.split(';') if email.strip()]
+
+        # Eliminar duplicados manteniendo el orden
+        seen = set()
+        unique_emails = []
+        for email in emails:
+            if email not in seen:
+                seen.add(email)
+                unique_emails.append(email)
+
+        return unique_emails
+
+    @staticmethod
+    def check_if_email_is_shared(client_email):
+        """
+        Verificar si el email está siendo usado por más de un cliente
+
+        Args:
+            client_email: Email del cliente a verificar
+
+        Returns:
+            tuple: (is_shared: bool, other_clients_count: int)
+        """
+        from app.models.client import Client
+
+        if not client_email:
+            return False, 0
+
+        # Contar cuántos clientes tienen este mismo email (o lo contienen si es múltiple)
+        clients_with_email = Client.query.filter(
+            Client.email.like(f'%{client_email}%')
+        ).count()
+
+        # Si hay más de 1, el email está compartido
+        is_shared = clients_with_email > 1
+        other_count = clients_with_email - 1 if is_shared else 0
+
+        return is_shared, other_count
+
+    @staticmethod
     def get_recipients_for_new_operation(operation):
         """
         Obtener lista de destinatarios para una nueva operación
@@ -24,8 +78,8 @@ class EmailService:
                 - cc: Trader que creó la operación
                 - bcc: Master y Operadores
         """
-        # Destinatario principal: Cliente
-        to = [operation.client.email] if operation.client and operation.client.email else []
+        # Destinatario principal: Cliente (soporta múltiples emails separados por ;)
+        to = EmailService.parse_email_addresses(operation.client.email) if operation.client and operation.client.email else []
 
         # Copia: Trader que creó la operación
         cc = []
@@ -57,8 +111,8 @@ class EmailService:
                 - cc: Trader que creó la operación
                 - bcc: vacío (no se envía BCC en completadas)
         """
-        # Destinatario principal: Cliente
-        to = [operation.client.email] if operation.client and operation.client.email else []
+        # Destinatario principal: Cliente (soporta múltiples emails separados por ;)
+        to = EmailService.parse_email_addresses(operation.client.email) if operation.client and operation.client.email else []
 
         # Copia: Trader que creó la operación
         cc = []
@@ -90,8 +144,11 @@ class EmailService:
             trader_name = operation.user.username if operation.user else 'Sistema'
             subject = f'{trader_name} - Nueva Operación #{operation.operation_id} - QoriCash Trading'
 
+            # Verificar si el email está compartido
+            is_shared, other_count = EmailService.check_if_email_is_shared(operation.client.email)
+
             # Contenido HTML
-            html_body = EmailService._render_new_operation_template(operation)
+            html_body = EmailService._render_new_operation_template(operation, is_shared, other_count)
 
             # Crear mensaje
             msg = Message(
@@ -205,7 +262,7 @@ class EmailService:
             return False, f'Error al enviar email: {str(e)}'
 
     @staticmethod
-    def _render_new_operation_template(operation):
+    def _render_new_operation_template(operation, is_shared_email=False, other_clients_count=0):
         """Renderizar plantilla HTML para nueva operación"""
         template = """
 <!DOCTYPE html>
@@ -386,6 +443,14 @@ class EmailService:
             <p style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 13px;">
                 <strong>Importante:</strong> Este es un correo automático. Si tiene alguna consulta, por favor responda a este correo o contacte a su asesor.
             </p>
+
+            {% if is_shared_email %}
+            <div style="margin-top: 15px; padding: 12px; background: #fffbeb; border-left: 3px solid #f59e0b; border-radius: 4px;">
+                <p style="margin: 0; color: #92400e; font-size: 12px;">
+                    <strong>ℹ️ Nota:</strong> Este correo electrónico está registrado para más de una empresa/cliente en nuestro sistema. Las notificaciones que reciba pueden corresponder a diferentes operaciones.
+                </p>
+            </div>
+            {% endif %}
         </div>
 
         <div class="footer">
@@ -397,7 +462,7 @@ class EmailService:
 </body>
 </html>
 """
-        return render_template_string(template, operation=operation)
+        return render_template_string(template, operation=operation, is_shared_email=is_shared_email, other_clients_count=other_clients_count)
 
     @staticmethod
     def _render_completed_operation_template(operation):
@@ -529,8 +594,8 @@ class EmailService:
             tuple: (success: bool, message: str)
         """
         try:
-            # Destinatario principal: Cliente
-            to = [client.email] if client.email else []
+            # Destinatario principal: Cliente (soporta múltiples emails separados por ;)
+            to = EmailService.parse_email_addresses(client.email) if client.email else []
 
             # Copia: Trader que registró al cliente
             cc = []
@@ -598,8 +663,8 @@ class EmailService:
 
             logger.info(f'[EMAIL] Iniciando envio de email de cliente activado {client.id}')
 
-            # Destinatario principal: Cliente
-            to = [client.email] if client.email else []
+            # Destinatario principal: Cliente (soporta múltiples emails separados por ;)
+            to = EmailService.parse_email_addresses(client.email) if client.email else []
 
             # Copia: Trader que registró al cliente
             cc = []
