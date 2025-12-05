@@ -498,6 +498,17 @@ def approve_kyc(client_id):
         db.session.add(audit)
         db.session.commit()
 
+        # Enviar correo de activación
+        try:
+            from app.services.email_service import EmailService
+            # Enviar correo con el trader que creó al cliente
+            trader = client.creator if hasattr(client, 'creator') and client.creator else current_user
+            EmailService.send_client_activation_email(client, trader)
+        except Exception as e:
+            # No bloquear por errores de email
+            import logging
+            logging.warning(f'Error al enviar email de cliente activado desde KYC: {str(e)}')
+
         return jsonify({
             'success': True,
             'message': 'KYC aprobado - Cliente ACTIVADO para operar'
