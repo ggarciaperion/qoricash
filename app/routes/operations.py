@@ -540,7 +540,15 @@ def cancel_operation(operation_id):
         NotificationService.notify_operation_canceled(operation, reason)
         NotificationService.notify_dashboard_update()
         NotificationService.notify_position_update()
-        
+
+        # Enviar correo de cancelación
+        try:
+            from app.services.email_service import EmailService
+            EmailService.send_canceled_operation_email(operation, reason)
+        except Exception as e:
+            # No bloquear por errores de email
+            logger.warning(f'Error al enviar email de operación cancelada: {str(e)}')
+
         return jsonify({
             'success': True,
             'message': message,
@@ -646,6 +654,10 @@ def update_operation(operation_id):
 
     try:
         # Actualizar monto USD si se proporciona
+        amount_modified = False
+        old_amount_usd_for_email = None
+        old_amount_pen_for_email = None
+
         if 'amount_usd' in data:
             new_amount = float(data['amount_usd'])
             if new_amount <= 0:
@@ -654,6 +666,11 @@ def update_operation(operation_id):
             # Registrar log de modificación
             old_amount = float(operation.amount_usd)
             if old_amount != new_amount:
+                # Guardar valores anteriores para el correo
+                old_amount_usd_for_email = old_amount
+                old_amount_pen_for_email = float(operation.amount_pen)
+                amount_modified = True
+
                 operation.add_modification_log(
                     user=current_user,
                     campo='amount_usd',
@@ -699,6 +716,20 @@ def update_operation(operation_id):
             operation.client_payments = payments
 
         db.session.commit()
+
+        # Enviar correo si se modificó el monto
+        if amount_modified and old_amount_usd_for_email is not None:
+            try:
+                from app.services.email_service import EmailService
+                EmailService.send_amount_modified_operation_email(
+                    operation,
+                    old_amount_usd_for_email,
+                    old_amount_pen_for_email
+                )
+            except Exception as e:
+                # No bloquear por errores de email
+                import logging
+                logging.warning(f'Error al enviar email de modificación de monto: {str(e)}')
 
         # Notificar actualización de posición
         NotificationService.notify_position_update()

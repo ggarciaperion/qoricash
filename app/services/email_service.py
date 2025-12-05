@@ -854,3 +854,429 @@ class EmailService:
 </html>
 """
         return render_template_string(template, client=client, trader=trader)
+
+    @staticmethod
+    def send_canceled_operation_email(operation, reason):
+        """
+        Enviar correo de notificación de operación cancelada
+
+        Args:
+            operation: Objeto Operation
+            reason: Motivo de cancelación
+
+        Returns:
+            tuple: (success: bool, message: str)
+        """
+        try:
+            to, cc, bcc = EmailService.get_recipients_for_completed_operation(operation)
+
+            # Validar que haya al menos un destinatario
+            if not to and not cc:
+                logger.warning(f'No hay destinatarios para la operación cancelada {operation.operation_id}')
+                return False, 'No hay destinatarios configurados'
+
+            # Asunto
+            subject = f'Operación Cancelada #{operation.operation_id} - QoriCash Trading'
+
+            # Contenido HTML
+            html_body = EmailService._render_canceled_operation_template(operation, reason)
+
+            # Crear mensaje
+            msg = Message(
+                subject=subject,
+                recipients=to,
+                cc=cc,
+                html=html_body
+            )
+
+            # Enviar
+            mail.send(msg)
+
+            logger.info(f'Email de operación cancelada enviado: {operation.operation_id}')
+            return True, 'Email enviado correctamente'
+
+        except Exception as e:
+            logger.error(f'Error al enviar email de operación cancelada {operation.operation_id}: {str(e)}')
+            return False, f'Error al enviar email: {str(e)}'
+
+    @staticmethod
+    def _render_canceled_operation_template(operation, reason):
+        """Renderizar plantilla HTML para operación cancelada"""
+        template = """
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; background-color: #f4f4f4; margin: 0; padding: 0; }
+        .container { max-width: 600px; margin: 20px auto; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .header { background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%); color: white; padding: 30px 20px; text-align: center; }
+        .header h1 { margin: 0; font-size: 24px; }
+        .content { padding: 30px 20px; }
+        .badge { display: inline-block; padding: 5px 15px; border-radius: 20px; font-size: 12px; font-weight: bold; margin: 5px 0; }
+        .badge-canceled { background: #dc2626; color: white; }
+        .info-row { display: flex; justify-content: space-between; padding: 12px; border-bottom: 1px solid #e5e7eb; }
+        .info-row:last-child { border-bottom: none; }
+        .info-label { font-weight: 600; color: #6b7280; }
+        .info-value { color: #111827; font-weight: 500; }
+        .warning-box { background: #fef2f2; border-left: 4px solid #dc2626; padding: 20px; margin: 20px 0; border-radius: 4px; }
+        .reason-box { background: #fff7ed; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0; border-radius: 4px; }
+        .footer { background: #f9fafb; padding: 20px; text-align: center; font-size: 12px; color: #6b7280; }
+        @media only screen and (max-width: 600px) {
+            .info-row { flex-direction: column; }
+            .info-label { margin-bottom: 5px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚠️ Operación Cancelada</h1>
+            <p style="margin: 10px 0 0 0; font-size: 14px;">QoriCash Trading</p>
+        </div>
+
+        <div class="content">
+            <p>Estimado(a) <strong>{{ operation.client.full_name or operation.client.razon_social }}</strong>,</p>
+
+            <div class="warning-box">
+                <h2 style="margin: 0; color: #991b1b; font-size: 20px;">Operación Cancelada</h2>
+                <p style="margin: 10px 0 0 0; color: #7f1d1d;">Su operación ha sido cancelada</p>
+            </div>
+
+            <p>Lamentamos informarle que la operación con código <strong>{{ operation.operation_id }}</strong> ha sido <strong style="color: #dc2626;">CANCELADA</strong>.</p>
+
+            <div class="reason-box">
+                <p style="margin: 0 0 5px 0; font-weight: 600; color: #92400e;">Motivo de Cancelación:</p>
+                <p style="margin: 0; color: #451a03; font-style: italic;">{{ reason }}</p>
+            </div>
+
+            <p><strong>Detalles de la Operación Cancelada:</strong></p>
+
+            <div style="background: #f9fafb; border-radius: 6px; padding: 15px; margin: 20px 0;">
+                <div class="info-row">
+                    <span class="info-label">Código de Operación:</span>
+                    <span class="info-value"><strong>{{ operation.operation_id }}</strong></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Tipo:</span>
+                    <span class="info-value">{{ operation.operation_type }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Monto USD:</span>
+                    <span class="info-value" style="font-size: 18px; color: #059669;">$ {{ "{:,.2f}".format(operation.amount_usd) }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Tipo de Cambio:</span>
+                    <span class="info-value">{{ "%.4f"|format(operation.exchange_rate) }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Monto PEN:</span>
+                    <span class="info-value" style="font-size: 18px; color: #dc2626;">S/ {{ "{:,.2f}".format(operation.amount_pen) }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Fecha de Creación:</span>
+                    <span class="info-value">{{ operation.created_at.strftime('%d/%m/%Y %H:%M') }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Estado:</span>
+                    <span class="info-value"><span class="badge badge-canceled">CANCELADA</span></span>
+                </div>
+            </div>
+
+            <p style="margin-top: 25px;">Si tiene alguna consulta sobre esta cancelación, por favor contacte a su ejecutivo comercial.</p>
+
+            <p style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 13px;">
+                <strong>Nota:</strong> Para cualquier consulta sobre esta operación, puede responder a este correo o contactar a su asesor comercial.
+            </p>
+        </div>
+
+        <div class="footer">
+            <p><strong>QoriCash Trading</strong></p>
+            <p>Sistema de Gestión de Operaciones Cambiarias</p>
+            <p style="margin-top: 10px;">© 2024 QoriCash Trading V2. Todos los derechos reservados.</p>
+        </div>
+    </div>
+</body>
+</html>
+"""
+        return render_template_string(template, operation=operation, reason=reason)
+
+    @staticmethod
+    def send_amount_modified_operation_email(operation, old_amount_usd, old_amount_pen):
+        """
+        Enviar correo de notificación de modificación de monto
+
+        Args:
+            operation: Objeto Operation (con nuevos montos)
+            old_amount_usd: Monto USD anterior
+            old_amount_pen: Monto PEN anterior
+
+        Returns:
+            tuple: (success: bool, message: str)
+        """
+        try:
+            to, cc, bcc = EmailService.get_recipients_for_new_operation(operation)
+
+            # Validar que haya al menos un destinatario
+            if not to and not cc and not bcc:
+                logger.warning(f'No hay destinatarios para modificación de monto {operation.operation_id}')
+                return False, 'No hay destinatarios configurados'
+
+            # Asunto con nombre del trader
+            trader_name = operation.user.username if operation.user else 'Sistema'
+            subject = f'{trader_name} - Monto Modificado Operación #{operation.operation_id} - QoriCash Trading'
+
+            # Contenido HTML
+            html_body = EmailService._render_amount_modified_operation_template(
+                operation, old_amount_usd, old_amount_pen
+            )
+
+            # Crear mensaje
+            msg = Message(
+                subject=subject,
+                recipients=to,
+                cc=cc,
+                bcc=bcc,
+                html=html_body
+            )
+
+            # Enviar
+            mail.send(msg)
+
+            logger.info(f'Email de modificación de monto enviado: {operation.operation_id}')
+            return True, 'Email enviado correctamente'
+
+        except Exception as e:
+            logger.error(f'Error al enviar email de modificación de monto {operation.operation_id}: {str(e)}')
+            return False, f'Error al enviar email: {str(e)}'
+
+    @staticmethod
+    def _render_amount_modified_operation_template(operation, old_amount_usd, old_amount_pen):
+        """Renderizar plantilla HTML para modificación de monto"""
+        template = """
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; background-color: #f4f4f4; margin: 0; padding: 0; }
+        .container { max-width: 600px; margin: 20px auto; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .header { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; padding: 30px 20px; text-align: center; }
+        .header h1 { margin: 0; font-size: 24px; }
+        .content { padding: 30px 20px; }
+        .badge { display: inline-block; padding: 5px 15px; border-radius: 20px; font-size: 12px; font-weight: bold; margin: 5px 0; }
+        .badge-modified { background: #f59e0b; color: white; }
+        .badge-success { background: #10b981; color: white; }
+        .badge-primary { background: #3b82f6; color: white; }
+        .info-row { display: flex; justify-content: space-between; padding: 12px; border-bottom: 1px solid #e5e7eb; }
+        .info-row:last-child { border-bottom: none; }
+        .info-label { font-weight: 600; color: #6b7280; }
+        .info-value { color: #111827; font-weight: 500; }
+        .highlight-box { background: #fff7ed; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0; border-radius: 4px; }
+        .comparison-box { background: #f0f9ff; border: 2px solid #0ea5e9; padding: 20px; margin: 20px 0; border-radius: 6px; }
+        .old-value { color: #dc2626; text-decoration: line-through; font-size: 16px; }
+        .new-value { color: #059669; font-weight: bold; font-size: 18px; }
+        .arrow { color: #f59e0b; font-size: 20px; margin: 0 10px; }
+        .footer { background: #f9fafb; padding: 20px; text-align: center; font-size: 12px; color: #6b7280; }
+        @media only screen and (max-width: 600px) {
+            .info-row { flex-direction: column; }
+            .info-label { margin-bottom: 5px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📝 Monto Modificado</h1>
+            <p style="margin: 10px 0 0 0; font-size: 14px;">QoriCash Trading</p>
+        </div>
+
+        <div class="content">
+            <p>Estimado(a) <strong>{{ operation.client.full_name or operation.client.razon_social }}</strong>,</p>
+
+            <p>Le informamos que el <strong>monto de su operación</strong> ha sido modificado. A continuación los detalles:</p>
+
+            <div class="highlight-box">
+                <p style="margin: 0 0 5px 0; font-weight: 600; color: #92400e;">Operación:</p>
+                <p style="margin: 0; font-size: 18px;"><strong>{{ operation.operation_id }}</strong></p>
+            </div>
+
+            <div class="comparison-box">
+                <h3 style="margin: 0 0 15px 0; color: #0369a1;">Cambios Realizados:</h3>
+
+                <div style="margin: 15px 0;">
+                    <p style="margin: 0 0 8px 0; font-weight: 600; color: #374151;">Monto USD:</p>
+                    <div style="display: flex; align-items: center; flex-wrap: wrap;">
+                        <span class="old-value">$ {{ "{:,.2f}".format(old_amount_usd) }}</span>
+                        <span class="arrow">→</span>
+                        <span class="new-value">$ {{ "{:,.2f}".format(operation.amount_usd) }}</span>
+                    </div>
+                </div>
+
+                <div style="margin: 15px 0;">
+                    <p style="margin: 0 0 8px 0; font-weight: 600; color: #374151;">Monto PEN:</p>
+                    <div style="display: flex; align-items: center; flex-wrap: wrap;">
+                        <span class="old-value">S/ {{ "{:,.2f}".format(old_amount_pen) }}</span>
+                        <span class="arrow">→</span>
+                        <span class="new-value">S/ {{ "{:,.2f}".format(operation.amount_pen) }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <p><strong>Detalles Actuales de la Operación:</strong></p>
+
+            <div style="background: #f9fafb; border-radius: 6px; padding: 15px; margin: 20px 0;">
+                <div class="info-row">
+                    <span class="info-label">Código de Operación:</span>
+                    <span class="info-value"><strong>{{ operation.operation_id }}</strong></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Tipo:</span>
+                    <span class="info-value">
+                        {% if operation.operation_type == 'Compra' %}
+                            <span class="badge badge-success">COMPRA USD</span>
+                        {% else %}
+                            <span class="badge badge-primary">VENTA USD</span>
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Monto USD:</span>
+                    <span class="info-value" style="font-size: 18px; color: #059669;">$ {{ "{:,.2f}".format(operation.amount_usd) }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Tipo de Cambio:</span>
+                    <span class="info-value">{{ "%.4f"|format(operation.exchange_rate) }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Monto PEN:</span>
+                    <span class="info-value" style="font-size: 18px; color: #dc2626;">S/ {{ "{:,.2f}".format(operation.amount_pen) }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Estado:</span>
+                    <span class="info-value"><strong>{{ operation.status }}</strong></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Fecha:</span>
+                    <span class="info-value">{{ operation.created_at.strftime('%d/%m/%Y %H:%M') }}</span>
+                </div>
+            </div>
+
+            <!-- Cuentas bancarias para transferencia (solo si está Pendiente) -->
+            {% if operation.status == 'Pendiente' %}
+                {% if operation.operation_type == 'Compra' %}
+                <div style="margin: 25px 0; padding: 20px; background: #ecfdf5; border-radius: 8px; border: 2px solid #10b981;">
+                    <h3 style="margin: 0 0 15px 0; color: #065f46; font-size: 16px;">Cuentas para Transferencia (USD)</h3>
+                    <p style="margin: 0 0 10px 0; color: #374151; font-size: 14px;">Por favor, realice su transferencia en cualquiera de las siguientes cuentas en DOLARES:</p>
+                    <p style="margin: 0 0 15px 0; color: #065f46; font-size: 13px; font-weight: 600;">- A nombre de QORICASH SAC con número de RUC 20235842211</p>
+                    <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                        <thead>
+                            <tr style="background: #d1fae5;">
+                                <th style="padding: 10px; text-align: left; border-bottom: 2px solid #10b981; color: #065f46; font-weight: 600;">Banco</th>
+                                <th style="padding: 10px; text-align: left; border-bottom: 2px solid #10b981; color: #065f46; font-weight: 600;">Tipo</th>
+                                <th style="padding: 10px; text-align: left; border-bottom: 2px solid #10b981; color: #065f46; font-weight: 600;">Moneda</th>
+                                <th style="padding: 10px; text-align: left; border-bottom: 2px solid #10b981; color: #065f46; font-weight: 600;">Numero de Cuenta</th>
+                                <th style="padding: 10px; text-align: left; border-bottom: 2px solid #10b981; color: #065f46; font-weight: 600;">Numero de CCI</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr style="background: white;">
+                                <td style="padding: 10px; border-bottom: 1px solid #d1fae5; color: #1f2937; font-weight: 500;">BCP</td>
+                                <td style="padding: 10px; border-bottom: 1px solid #d1fae5; color: #4b5563;">Cta. Corriente</td>
+                                <td style="padding: 10px; border-bottom: 1px solid #d1fae5; color: #4b5563;">USD</td>
+                                <td style="padding: 10px; border-bottom: 1px solid #d1fae5; color: #1f2937; font-family: monospace; font-weight: 600;">654321</td>
+                                <td style="padding: 10px; border-bottom: 1px solid #d1fae5; color: #1f2937; font-family: monospace; font-weight: 600;">00265432100000000001</td>
+                            </tr>
+                            <tr style="background: #f0fdf4;">
+                                <td style="padding: 10px; border-bottom: 1px solid #d1fae5; color: #1f2937; font-weight: 500;">INTERBANK</td>
+                                <td style="padding: 10px; border-bottom: 1px solid #d1fae5; color: #4b5563;">Cta. Corriente</td>
+                                <td style="padding: 10px; border-bottom: 1px solid #d1fae5; color: #4b5563;">USD</td>
+                                <td style="padding: 10px; border-bottom: 1px solid #d1fae5; color: #1f2937; font-family: monospace; font-weight: 600;">456789</td>
+                                <td style="padding: 10px; border-bottom: 1px solid #d1fae5; color: #1f2937; font-family: monospace; font-weight: 600;">00345678900000000002</td>
+                            </tr>
+                            <tr style="background: white;">
+                                <td style="padding: 10px; border-bottom: 1px solid #d1fae5; color: #1f2937; font-weight: 500;">BANBIF</td>
+                                <td style="padding: 10px; border-bottom: 1px solid #d1fae5; color: #4b5563;">Cta. Corriente</td>
+                                <td style="padding: 10px; border-bottom: 1px solid #d1fae5; color: #4b5563;">USD</td>
+                                <td style="padding: 10px; border-bottom: 1px solid #d1fae5; color: #1f2937; font-family: monospace; font-weight: 600;">369852</td>
+                                <td style="padding: 10px; border-bottom: 1px solid #d1fae5; color: #1f2937; font-family: monospace; font-weight: 600;">03836985200000000003</td>
+                            </tr>
+                            <tr style="background: #f0fdf4;">
+                                <td style="padding: 10px; color: #1f2937; font-weight: 500;">PICHINCHA</td>
+                                <td style="padding: 10px; color: #4b5563;">Cta. Corriente</td>
+                                <td style="padding: 10px; color: #4b5563;">USD</td>
+                                <td style="padding: 10px; color: #1f2937; font-family: monospace; font-weight: 600;">159796</td>
+                                <td style="padding: 10px; color: #1f2937; font-family: monospace; font-weight: 600;">04815979600000000004</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                {% elif operation.operation_type == 'Venta' %}
+                <div style="margin: 25px 0; padding: 20px; background: #fef2f2; border-radius: 8px; border: 2px solid #ef4444;">
+                    <h3 style="margin: 0 0 15px 0; color: #991b1b; font-size: 16px;">Cuentas para Transferencia (PEN)</h3>
+                    <p style="margin: 0 0 10px 0; color: #374151; font-size: 14px;">Por favor, realice su transferencia en cualquiera de las siguientes cuentas en SOLES:</p>
+                    <p style="margin: 0 0 15px 0; color: #991b1b; font-size: 13px; font-weight: 600;">- A nombre de QORICASH SAC con número de RUC 20235842211</p>
+                    <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                        <thead>
+                            <tr style="background: #fee2e2;">
+                                <th style="padding: 10px; text-align: left; border-bottom: 2px solid #ef4444; color: #991b1b; font-weight: 600;">Banco</th>
+                                <th style="padding: 10px; text-align: left; border-bottom: 2px solid #ef4444; color: #991b1b; font-weight: 600;">Tipo</th>
+                                <th style="padding: 10px; text-align: left; border-bottom: 2px solid #ef4444; color: #991b1b; font-weight: 600;">Moneda</th>
+                                <th style="padding: 10px; text-align: left; border-bottom: 2px solid #ef4444; color: #991b1b; font-weight: 600;">Numero de Cuenta</th>
+                                <th style="padding: 10px; text-align: left; border-bottom: 2px solid #ef4444; color: #991b1b; font-weight: 600;">Numero de CCI</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr style="background: white;">
+                                <td style="padding: 10px; border-bottom: 1px solid #fee2e2; color: #1f2937; font-weight: 500;">BCP</td>
+                                <td style="padding: 10px; border-bottom: 1px solid #fee2e2; color: #4b5563;">Cta. Corriente</td>
+                                <td style="padding: 10px; border-bottom: 1px solid #fee2e2; color: #4b5563;">PEN</td>
+                                <td style="padding: 10px; border-bottom: 1px solid #fee2e2; color: #1f2937; font-family: monospace; font-weight: 600;">123456</td>
+                                <td style="padding: 10px; border-bottom: 1px solid #fee2e2; color: #1f2937; font-family: monospace; font-weight: 600;">00212345600000000005</td>
+                            </tr>
+                            <tr style="background: #fef2f2;">
+                                <td style="padding: 10px; border-bottom: 1px solid #fee2e2; color: #1f2937; font-weight: 500;">INTERBANK</td>
+                                <td style="padding: 10px; border-bottom: 1px solid #fee2e2; color: #4b5563;">Cta. Corriente</td>
+                                <td style="padding: 10px; border-bottom: 1px solid #fee2e2; color: #4b5563;">PEN</td>
+                                <td style="padding: 10px; border-bottom: 1px solid #fee2e2; color: #1f2937; font-family: monospace; font-weight: 600;">987654</td>
+                                <td style="padding: 10px; border-bottom: 1px solid #fee2e2; color: #1f2937; font-family: monospace; font-weight: 600;">00398765400000000006</td>
+                            </tr>
+                            <tr style="background: white;">
+                                <td style="padding: 10px; border-bottom: 1px solid #fee2e2; color: #1f2937; font-weight: 500;">BANBIF</td>
+                                <td style="padding: 10px; border-bottom: 1px solid #fee2e2; color: #4b5563;">Cta. Corriente</td>
+                                <td style="padding: 10px; border-bottom: 1px solid #fee2e2; color: #4b5563;">PEN</td>
+                                <td style="padding: 10px; border-bottom: 1px solid #fee2e2; color: #1f2937; font-family: monospace; font-weight: 600;">741852</td>
+                                <td style="padding: 10px; border-bottom: 1px solid #fee2e2; color: #1f2937; font-family: monospace; font-weight: 600;">03874185200000000007</td>
+                            </tr>
+                            <tr style="background: #fef2f2;">
+                                <td style="padding: 10px; color: #1f2937; font-weight: 500;">PICHINCHA</td>
+                                <td style="padding: 10px; color: #4b5563;">Cta. Corriente</td>
+                                <td style="padding: 10px; color: #4b5563;">PEN</td>
+                                <td style="padding: 10px; color: #1f2937; font-family: monospace; font-weight: 600;">753951</td>
+                                <td style="padding: 10px; color: #1f2937; font-family: monospace; font-weight: 600;">04875395100000000008</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                {% endif %}
+            {% endif %}
+
+            <p style="margin-top: 25px;">Nuestro equipo procesará su operación con el nuevo monto. Le mantendremos informado sobre el progreso.</p>
+
+            <p style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 13px;">
+                <strong>Importante:</strong> Este es un correo automático. Si tiene alguna consulta, por favor responda a este correo o contacte a su asesor.
+            </p>
+        </div>
+
+        <div class="footer">
+            <p><strong>QoriCash Trading</strong></p>
+            <p>Sistema de Gestión de Operaciones Cambiarias</p>
+            <p style="margin-top: 10px;">© 2024 QoriCash Trading V2. Todos los derechos reservados.</p>
+        </div>
+    </div>
+</body>
+</html>
+"""
+        return render_template_string(template, operation=operation, old_amount_usd=old_amount_usd, old_amount_pen=old_amount_pen)
