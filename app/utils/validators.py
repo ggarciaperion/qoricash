@@ -33,24 +33,38 @@ def validate_dni(dni):
 
 def validate_email(email):
     """
-    Validar formato de email
-    
+    Validar formato de email (soporta múltiples emails separados por ;)
+
     Args:
-        email: Email a validar
-    
+        email: Email a validar (puede ser uno o múltiples separados por ;)
+
     Returns:
         tuple: (es_valido, mensaje_error)
     """
     if not email:
         return False, 'Email es requerido'
-    
+
     # Patrón de email
     pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-    
-    if not re.match(pattern, email):
-        return False, 'Formato de email inválido'
-    
-    return True, None
+
+    # Si contiene ";", validar cada email por separado
+    if ';' in email:
+        emails = [e.strip() for e in email.split(';') if e.strip()]
+
+        if not emails:
+            return False, 'Email es requerido'
+
+        for single_email in emails:
+            if not re.match(pattern, single_email):
+                return False, f'Formato de email inválido: {single_email}'
+
+        return True, None
+    else:
+        # Validar un solo email
+        if not re.match(pattern, email):
+            return False, 'Formato de email inválido'
+
+        return True, None
 
 
 def validate_phone(phone):

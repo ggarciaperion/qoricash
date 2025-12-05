@@ -602,8 +602,9 @@ class EmailService:
             if trader and trader.email:
                 cc.append(trader.email)
 
-            # Copia oculta: Solo Master
-            bcc = []
+            # Copia oculta: info@qoricash.pe + Master(s)
+            bcc = ['info@qoricash.pe']
+
             masters = User.query.filter(
                 User.role == 'Master',
                 User.status == 'Activo',
@@ -611,7 +612,7 @@ class EmailService:
             ).all()
 
             for master in masters:
-                if master.email and master.email not in cc:
+                if master.email and master.email not in cc and master.email not in bcc:
                     bcc.append(master.email)
 
             # Validar que haya al menos un destinatario
