@@ -81,7 +81,7 @@ main.container-fluid {
 .navbar {
     background: linear-gradient(135deg, #1e293b 0%, #334155 100%) !important;
     box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    padding: 0.5rem 1rem;
+    padding: 0.25rem 1rem;
     position: relative;
     z-index: 1030;
 }
@@ -98,7 +98,7 @@ main.container-fluid {
 }
 
 .nav-link {
-    padding: 0.5rem 0.875rem !important;
+    padding: 0.375rem 0.875rem !important;
     font-size: 0.875rem;
     font-weight: 500;
     transition: all 0.3s;
