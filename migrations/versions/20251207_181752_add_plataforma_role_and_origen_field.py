@@ -1,7 +1,7 @@
 """Add Plataforma role and origen field to operations
 
 Revision ID: k3l4m5n6o7p8
-Revises: 20251203_195121
+Revises: j2k3l4m5n6o7
 Create Date: 2025-12-07 18:17:52.000000
 
 """
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = 'k3l4m5n6o7p8'
-down_revision = '20251203_195121'
+down_revision = 'j2k3l4m5n6o7'
 branch_labels = None
 depends_on = None
 
