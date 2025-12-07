@@ -140,7 +140,7 @@
 
     /* Login Header - Más compacto */
     .login-header {
-        background: linear-gradient(135deg, #0D1B2A 0%, #111F2C 100%);
+        background: linear-gradient(135deg, #1a2f3f 0%, #2a4558 100%);
         color: white;
         padding: 1.5rem 1.75rem;
         text-align: center;
@@ -412,6 +412,26 @@
     @keyframes spin {
         from { transform: rotate(0deg); }
         to { transform: rotate(360deg); }
+    }
+
+    /* Custom Scrollbar - Paleta de marca */
+    ::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+    }
+
+    ::-webkit-scrollbar-track {
+        background: #1a2f3f;
+        border-radius: 10px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background: linear-gradient(135deg, #00FFAA, #00DEA8);
+        border-radius: 10px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background: linear-gradient(135deg, #00DEA8, #00c997);
     }
 </style>
 {% endblock %}
