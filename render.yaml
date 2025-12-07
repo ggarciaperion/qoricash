@@ -1,74 +1,14 @@
-# ============================================
-# RENDER.COM - BLUEPRINT CONFIGURATION
-# Configuración para deployment de QoriCash Trading
-# ============================================
-
 services:
-  # Web Service Principal
   - type: web
-    name: qoricash-trading
+    name: qoricash
     env: python
     region: oregon
-    plan: starter
-    branch: master
-    buildCommand: pip install -r requirements.txt && flask db upgrade && python init_compliance.py
-    startCommand: gunicorn -c gunicorn_config.py run:app
-    healthCheckPath: /health
-    autoDeploy: true
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --worker-class eventlet -w 1 --bind 0.0.0.0:$PORT run:app
     envVars:
-      - key: FLASK_ENV
-        value: production
       - key: PYTHON_VERSION
         value: 3.11.6
-      - key: SECRET_KEY
-        generateValue: true
-      - key: DATABASE_URL
-        fromDatabase:
-          name: qoricash-db
-          property: connectionString
-      - key: SESSION_COOKIE_SECURE
-        value: True
-      - key: PERMANENT_SESSION_LIFETIME
-        value: 43200
-      - key: RATELIMIT_ENABLED
-        value: True
-      - key: LOG_LEVEL
-        value: INFO
-      - key: TIMEZONE
-        value: America/Lima
-      # CLOUDINARY - Configurar manualmente en Render Dashboard
-      - key: CLOUDINARY_CLOUD_NAME
-        sync: false
-      - key: CLOUDINARY_API_KEY
-        sync: false
-      - key: CLOUDINARY_API_SECRET
-        sync: false
-      # EMAIL PRINCIPAL - Configurar manualmente en Render Dashboard
-      - key: MAIL_SERVER
-        value: smtp.gmail.com
-      - key: MAIL_PORT
-        value: 587
-      - key: MAIL_USE_TLS
-        value: True
-      - key: MAIL_USERNAME
-        sync: false
-      - key: MAIL_PASSWORD
-        sync: false
-      - key: MAIL_DEFAULT_SENDER
-        sync: false
-      # EMAIL CONFIRMACIÓN - Configurar manualmente en Render Dashboard
-      - key: MAIL_CONFIRMATION_USERNAME
-        sync: false
-      - key: MAIL_CONFIRMATION_PASSWORD
-        sync: false
-      - key: MAIL_CONFIRMATION_SENDER
-        sync: false
-
-databases:
-  # PostgreSQL Database
-  - name: qoricash-db
-    databaseName: qoricash_trading_prod
-    user: qoricash_user
-    plan: free
-    region: oregon
-    ipAllowList: []
+      - key: FLASK_APP
+        value: run.py
+      - key: FLASK_ENV
+        value: production
