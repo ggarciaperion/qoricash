@@ -120,10 +120,10 @@ class OperationService:
     
     @staticmethod
     def create_operation(current_user, client_id, operation_type, amount_usd, exchange_rate,
-                        source_account=None, destination_account=None, notes=None):
+                        source_account=None, destination_account=None, notes=None, origen='sistema'):
         """
         Crear nueva operación
-        
+
         Args:
             current_user: Usuario que crea
             client_id: ID del cliente
@@ -133,12 +133,13 @@ class OperationService:
             source_account: Cuenta de origen (opcional)
             destination_account: Cuenta de destino (opcional)
             notes: Notas (opcional)
-        
+            origen: Origen de la operación - 'sistema' o 'plataforma' (opcional, default='sistema')
+
         Returns:
             tuple: (success: bool, message: str, operation: Operation|None)
         """
         # Validar permisos
-        if not current_user or current_user.role not in ['Master', 'Trader']:
+        if not current_user or current_user.role not in ['Master', 'Trader', 'Plataforma']:
             return False, 'No tienes permiso para crear operaciones', None
         
         # Validar cliente
@@ -168,6 +169,10 @@ class OperationService:
         # Generar operation_id
         operation_id = Operation.generate_operation_id()
         
+        # Validar origen
+        if origen not in ['sistema', 'plataforma']:
+            origen = 'sistema'  # Default a 'sistema' si el valor es inválido
+
         # Crear operación
         operation = Operation(
             operation_id=operation_id,
@@ -180,6 +185,7 @@ class OperationService:
             source_account=source_account,
             destination_account=destination_account,
             notes=notes,
+            origen=origen,
             status='Pendiente',
             created_at=now_peru()
         )

@@ -86,6 +86,7 @@ def register_blueprints(app):
     from app.routes.operations import operations_bp
     from app.routes.position import position_bp
     from app.routes.compliance import compliance_bp
+    from app.routes.platform_api import platform_api_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
@@ -94,6 +95,7 @@ def register_blueprints(app):
     app.register_blueprint(operations_bp, url_prefix='/operations')
     app.register_blueprint(position_bp, url_prefix='/position')
     app.register_blueprint(compliance_bp, url_prefix='/compliance')
+    app.register_blueprint(platform_api_bp)  # API Platform (ya tiene url_prefix='/api/platform')
 
 
 def configure_logging(app):

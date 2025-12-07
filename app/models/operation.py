@@ -29,6 +29,14 @@ class Operation(db.Model):
         nullable=False
     )  # Compra, Venta
 
+    # Origen de la operación
+    origen = db.Column(
+        db.String(20),
+        nullable=False,
+        default='sistema',
+        index=True
+    )  # plataforma, sistema
+
     # Montos
     amount_usd = db.Column(db.Numeric(15, 2), nullable=False)
     exchange_rate = db.Column(db.Numeric(10, 4), nullable=False)
@@ -95,6 +103,10 @@ class Operation(db.Model):
         db.CheckConstraint(
             status.in_(['Pendiente', 'En proceso', 'Completada', 'Cancelado']),
             name='check_operation_status'
+        ),
+        db.CheckConstraint(
+            origen.in_(['plataforma', 'sistema']),
+            name='check_operation_origen'
         ),
         db.CheckConstraint(
             'amount_usd > 0',
@@ -253,6 +265,7 @@ class Operation(db.Model):
             'client_id': self.client_id,
             'user_id': self.user_id,
             'operation_type': self.operation_type,
+            'origen': self.origen,
             'amount_usd': float(self.amount_usd),
             'exchange_rate': float(self.exchange_rate),
             'amount_pen': float(self.amount_pen),
