@@ -3,22 +3,22 @@
  * Diseño profesional inspirado en la pantalla de login
  */
 
-/* Variables CSS Premium */
+/* Variables CSS Premium - Paleta QoriCash */
 :root {
-    --primary-color: #4f46e5;
-    --primary-dark: #4338ca;
-    --primary-light: #6366f1;
-    --secondary-color: #7c3aed;
+    --primary-color: #00DEA8;
+    --primary-dark: #00c997;
+    --primary-light: #00FFAA;
+    --secondary-color: #0D1B2A;
     --success-color: #10b981;
     --success-dark: #059669;
     --danger-color: #ef4444;
     --danger-dark: #dc2626;
     --warning-color: #f59e0b;
     --warning-dark: #d97706;
-    --info-color: #3b82f6;
-    --info-dark: #2563eb;
+    --info-color: #00DEA8;
+    --info-dark: #00c997;
     --light-color: #f8fafc;
-    --dark-color: #1e293b;
+    --dark-color: #0D1B2A;
     --text-muted: #64748b;
     --border-color: #e2e8f0;
     --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
@@ -51,8 +51,8 @@ body::before {
     top: 0;
     left: 0;
     background-image:
-        radial-gradient(circle at 20% 50%, rgba(79, 70, 229, 0.03) 0%, transparent 50%),
-        radial-gradient(circle at 80% 80%, rgba(124, 58, 237, 0.03) 0%, transparent 50%);
+        radial-gradient(circle at 20% 50%, rgba(0, 222, 168, 0.03) 0%, transparent 50%),
+        radial-gradient(circle at 80% 80%, rgba(0, 255, 170, 0.03) 0%, transparent 50%);
     pointer-events: none;
     z-index: -1;
 }
@@ -79,7 +79,7 @@ main.container-fluid {
 
 /* Navbar Premium */
 .navbar {
-    background: linear-gradient(135deg, #1e293b 0%, #334155 100%) !important;
+    background: linear-gradient(135deg, #0D1B2A 0%, #111F2C 100%) !important;
     box-shadow: 0 4px 12px rgba(0,0,0,0.15);
     padding: 0.25rem 1rem;
     position: relative;
@@ -336,14 +336,14 @@ main.container-fluid {
 }
 
 .btn-primary {
-    background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
-    color: white;
-    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+    color: var(--dark-color);
+    box-shadow: 0 4px 12px rgba(0, 222, 168, 0.3);
 }
 
 .btn-primary:hover {
-    background: linear-gradient(135deg, var(--primary-dark) 0%, var(--secondary-color) 100%);
-    box-shadow: 0 6px 20px rgba(79, 70, 229, 0.4);
+    background: linear-gradient(135deg, var(--primary-light) 0%, var(--primary-color) 100%);
+    box-shadow: 0 6px 20px rgba(0, 255, 170, 0.5);
 }
 
 .btn-success {
@@ -363,7 +363,7 @@ main.container-fluid {
 
 .btn-info {
     background: linear-gradient(135deg, var(--info-color) 0%, var(--info-dark) 100%);
-    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    box-shadow: 0 4px 12px rgba(0, 222, 168, 0.3);
 }
 
 .btn-outline-primary {
@@ -373,7 +373,7 @@ main.container-fluid {
 
 .btn-outline-primary:hover {
     background: var(--primary-color);
-    color: white;
+    color: var(--dark-color);
 }
 
 .btn-group-sm .btn {
@@ -395,7 +395,7 @@ main.container-fluid {
 .form-control:focus,
 .form-select:focus {
     border-color: var(--primary-color);
-    box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1);
+    box-shadow: 0 0 0 4px rgba(0, 222, 168, 0.15);
     background-color: white;
 }
 
@@ -568,7 +568,7 @@ main.container-fluid {
 
 .dataTables_wrapper .dataTables_paginate .paginate_button:hover {
     background: var(--primary-color) !important;
-    color: white !important;
+    color: var(--dark-color) !important;
     border-color: var(--primary-color) !important;
 }
 
@@ -620,24 +620,24 @@ h6 { font-size: 0.875rem; margin-bottom: 0.5rem; }
     background-color: var(--light-color) !important;
 }
 
-/* Custom Scrollbar */
+/* Custom Scrollbar - Paleta QoriCash */
 ::-webkit-scrollbar {
     width: 10px;
     height: 10px;
 }
 
 ::-webkit-scrollbar-track {
-    background: #f1f5f9;
+    background: #1a2f3f;
     border-radius: 10px;
 }
 
 ::-webkit-scrollbar-thumb {
-    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    background: linear-gradient(135deg, #00FFAA, #00DEA8);
     border-radius: 10px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: linear-gradient(135deg, var(--primary-dark), var(--secondary-color));
+    background: linear-gradient(135deg, #00DEA8, #00c997);
 }
 
 /* Animations */
