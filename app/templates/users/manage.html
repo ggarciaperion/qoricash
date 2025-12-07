@@ -51,6 +51,8 @@
                                         <span class="badge bg-secondary">Operador</span>
                                     {% elif u.role == 'Middle Office' %}
                                         <span class="badge bg-warning text-dark">Middle Office</span>
+                                    {% elif u.role == 'Plataforma' %}
+                                        <span class="badge bg-success">Plataforma</span>
                                     {% else %}
                                         <span class="badge bg-secondary">{{ u.role }}</span>
                                     {% endif %}
@@ -120,6 +122,7 @@
                             <option value="Trader">Trader</option>
                             <option value="Operador">Operador</option>
                             <option value="Middle Office">Middle Office</option>
+                            <option value="Plataforma">Plataforma</option>
                             <option value="Master">Master</option>
                         </select>
                     </div>
@@ -162,6 +165,7 @@
                             <option value="Trader">Trader</option>
                             <option value="Operador">Operador</option>
                             <option value="Middle Office">Middle Office</option>
+                            <option value="Plataforma">Plataforma</option>
                             <option value="Master">Master</option>
                         </select>
                     </div>
