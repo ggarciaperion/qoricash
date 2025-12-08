@@ -336,12 +336,16 @@ def search():
 
     if current_user.role in ['Trader', 'Plataforma']:
         # Buscar solo en sus propios clientes
+        search = f"%{query}%"
         clients = Client.query.filter(
             Client.created_by == current_user.id,
             or_(
-                Client.full_name.ilike(f'%{query}%'),
-                Client.dni.ilike(f'%{query}%'),
-                Client.email.ilike(f'%{query}%')
+                Client.dni.ilike(search),
+                Client.email.ilike(search),
+                Client.apellido_paterno.ilike(search),
+                Client.apellido_materno.ilike(search),
+                Client.nombres.ilike(search),
+                Client.razon_social.ilike(search)
             )
         ).all()
     else:
