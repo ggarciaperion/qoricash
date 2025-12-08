@@ -502,15 +502,24 @@ def export_csv():
 
 @clients_bp.route('/api/<int:client_id>')
 @login_required
-@require_role('Master', 'Trader', 'Operador', 'Middle Office')
+@require_role('Master', 'Trader', 'Operador', 'Middle Office', 'Plataforma')
 def get_client(client_id):
     """
     API: Obtener detalles de un cliente
+
+    Filtrado:
+    - Plataforma/Trader: Solo pueden acceder a sus propios clientes
+    - Otros roles: Pueden acceder a cualquier cliente
     """
     client = ClientService.get_client_by_id(client_id)
 
     if not client:
         return jsonify({'success': False, 'message': 'Cliente no encontrado'}), 404
+
+    # Verificar que Plataforma/Trader solo accedan a sus propios clientes
+    if current_user.role in ['Trader', 'Plataforma']:
+        if client.created_by != current_user.id:
+            return jsonify({'success': False, 'message': 'No tiene permisos para acceder a este cliente'}), 403
 
     return jsonify({'success': True, 'client': client.to_dict(include_stats=True)})
 
