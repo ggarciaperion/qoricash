@@ -790,12 +790,31 @@ function buildOperationRow(op) {
                           ${notificationBadge}
                        </button>`;
         }
+    } else if (currentUserRole === 'Plataforma') {
+        // Plataforma edita y cancela solo en Pendiente
+        if (op.status === 'Pendiente') {
+            buttons = `<button class="btn btn-outline-primary btn-sm" onclick="editOperation(${op.id})" title="Editar">
+                          <i class="bi bi-pencil"></i>
+                       </button>
+                       <button class="btn btn-outline-danger btn-sm" onclick="cancelOperation(${op.id})" title="Cancelar">
+                          <i class="bi bi-x-circle"></i>
+                       </button>`;
+        } else {
+            buttons = `<button class="btn btn-outline-info btn-sm" onclick="viewOperation(${op.id})" title="Ver Detalles">
+                          <i class="bi bi-eye"></i>
+                       </button>`;
+        }
     }
 
     // Obtener nombres de bancos
     const sourceBankName = op.source_bank_name || 'N/A';
     const destBankName = op.destination_bank_name || 'N/A';
     const banksText = `${sourceBankName} / ${destBankName}`;
+
+    // Badge de canal (origen)
+    const canalBadge = op.origen === 'plataforma'
+        ? '<span class="badge bg-info">Web</span>'
+        : '<span class="badge bg-secondary">Sistema</span>';
 
     // Formatear montos con separador de miles
     const formattedUSD = parseFloat(op.amount_usd).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
@@ -809,6 +828,7 @@ function buildOperationRow(op) {
                 <td class="text-center">${parseFloat(op.exchange_rate).toFixed(4)}</td>
                 <td class="text-end">S/ ${formattedPEN}</td>
                 <td class="text-center"><small>${banksText}</small></td>
+                <td class="text-center">${canalBadge}</td>
                 <td>${statusBadge}</td>
                 <td>${fecha}</td>
                 <td><div class="btn-group btn-group-sm">${buttons}</div></td>
