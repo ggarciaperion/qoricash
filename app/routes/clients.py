@@ -327,6 +327,7 @@ def search():
     - Otros roles: Todos los clientes
     """
     from app.models.client import Client
+    from sqlalchemy import or_
 
     query = request.args.get('q', '').strip()
 
@@ -336,9 +337,8 @@ def search():
     if current_user.role in ['Trader', 'Plataforma']:
         # Buscar solo en sus propios clientes
         clients = Client.query.filter(
-            Client.created_by == current_user.id
-        ).filter(
-            db.or_(
+            Client.created_by == current_user.id,
+            or_(
                 Client.full_name.ilike(f'%{query}%'),
                 Client.dni.ilike(f'%{query}%'),
                 Client.email.ilike(f'%{query}%')
