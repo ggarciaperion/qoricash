@@ -52,7 +52,7 @@ def api_list():
 
 @clients_bp.route('/api/create', methods=['POST'])
 @login_required
-@require_role('Master', 'Trader')
+@require_role('Master', 'Trader', 'Plataforma')
 def create_client():
     """
     API/Endpoint para crear nuevo cliente.
@@ -206,7 +206,7 @@ def delete_client(client_id):
 
 @clients_bp.route('/api/upload_documents/<int:client_id>', methods=['POST'])
 @login_required
-@require_role('Master', 'Trader')
+@require_role('Master', 'Trader', 'Plataforma')
 def upload_documents(client_id):
     """
     API: Subir documentos del cliente

@@ -149,7 +149,12 @@ class OperationService:
         
         if client.status != 'Activo':
             return False, 'El cliente no está activo', None
-        
+
+        # Validar que Trader y Plataforma solo puedan crear operaciones para sus propios clientes
+        if current_user.role in ['Trader', 'Plataforma']:
+            if client.created_by != current_user.id:
+                return False, 'Solo puedes crear operaciones para tus propios clientes', None
+
         # Validar tipo de operación
         if operation_type not in ['Compra', 'Venta']:
             return False, 'Tipo de operación inválido', None

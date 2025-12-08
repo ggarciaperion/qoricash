@@ -62,7 +62,7 @@ def operations_list():
 
 @operations_bp.route('/create')
 @login_required
-@require_role('Master', 'Trader')
+@require_role('Master', 'Trader', 'Plataforma')
 def create_page():
     """
     Página de creación de operación
@@ -351,7 +351,7 @@ def api_list():
 
 @operations_bp.route('/api/create', methods=['POST'])
 @login_required
-@require_role('Master', 'Trader')
+@require_role('Master', 'Trader', 'Plataforma')
 def create_operation():
     """
     API: Crear nueva operación
@@ -511,7 +511,7 @@ def upload_proof(operation_id):
 
 @operations_bp.route('/api/cancel/<int:operation_id>', methods=['POST'])
 @login_required
-@require_role('Master', 'Trader')
+@require_role('Master', 'Trader', 'Plataforma')
 def cancel_operation(operation_id):
     """
     API: Cancelar operación
@@ -747,7 +747,7 @@ def update_operation(operation_id):
 
 @operations_bp.route('/api/send_to_process/<int:operation_id>', methods=['POST'])
 @login_required
-@require_role('Master', 'Trader')
+@require_role('Master', 'Trader', 'Plataforma')
 def send_to_process(operation_id):
     """
     API: Enviar operación a proceso (Trader)
@@ -1008,7 +1008,7 @@ def complete_operation(operation_id):
 
 @operations_bp.route('/api/upload_deposit_proof/<int:operation_id>', methods=['POST'])
 @login_required
-@require_role('Master', 'Trader')
+@require_role('Master', 'Trader', 'Plataforma')
 def upload_deposit_proof(operation_id):
     """
     API: Subir comprobante de abono del cliente

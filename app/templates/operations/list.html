@@ -29,7 +29,7 @@
                 <i class="bi bi-file-earmark-excel"></i> Exportar Excel
             </a>
 
-            {% if user.role in ['Master', 'Trader'] %}
+            {% if user.role in ['Master', 'Trader', 'Plataforma'] %}
             <button type="button" class="btn btn-primary" onclick="openCreateOperationModal()">
                 <i class="bi bi-plus-circle"></i> Nueva Operación
             </button>
@@ -946,7 +946,7 @@ function loadEditModal() {
     const op = currentOperation;
     const status = op.status;
     const role = currentUserRole;
-    const canEdit = (role === 'Master') || (role === 'Trader' && status === 'Pendiente');
+    const canEdit = (role === 'Master') || ((role === 'Trader' || role === 'Plataforma') && status === 'Pendiente');
 
     // Verificar si el operador actual está asignado a esta operación
     const isAssignedToMe = (op.assigned_operator_id === currentUserId);

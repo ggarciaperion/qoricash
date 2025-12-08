@@ -75,7 +75,7 @@
             </button>
             {% endif %}
 
-            {% if current_user.role in ['Master', 'Trader'] %}
+            {% if current_user.role in ['Master', 'Trader', 'Plataforma'] %}
             <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createClientModal">
                 <i class="bi bi-person-plus"></i> Nuevo Cliente
             </button>
@@ -160,7 +160,7 @@
                                         </button>
 
                                         <!-- Editar -->
-                                        {% if current_user.role in ['Master', 'Trader', 'Operador'] %}
+                                        {% if current_user.role in ['Master', 'Trader', 'Operador', 'Plataforma'] %}
                                         <button class="btn btn-warning" onclick="editClient({{ c.id }})" title="Editar">
                                             <i class="bi bi-pencil"></i>
                                         </button>

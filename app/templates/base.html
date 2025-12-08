@@ -50,7 +50,7 @@
                         </a>
                     </li>
 
-                    {% if current_user.role in ['Master', 'Trader', 'Operador', 'Middle Office'] %}
+                    {% if current_user.role in ['Master', 'Trader', 'Operador', 'Middle Office', 'Plataforma'] %}
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('operations.operations_list') }}">
                             <i class="bi bi-list-ul"></i> Operaciones
