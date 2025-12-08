@@ -69,3 +69,21 @@ migrations/__pycache__/
 # OS
 Thumbs.db
 .DS_Store
+nul
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*.swo
+
+# Image files in root (use app/static/images/ instead)
+/*.png
+/*.jpg
+/*.jpeg
+/*.gif
+
+# Setup scripts (one-time use, not needed in repo)
+apply_*.py
+create_plataforma_*.py
+verify_*.py
