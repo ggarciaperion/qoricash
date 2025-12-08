@@ -53,7 +53,8 @@
                     </div>
                 </div>
 
-                <!-- Filtros por Canal -->
+                <!-- Filtros por Canal (solo Master y Operador) -->
+                {% if current_user.role in ['Master', 'Operador'] %}
                 <div>
                     <small class="text-muted d-block mb-1">Canal:</small>
                     <div class="btn-group" role="group">
@@ -62,6 +63,7 @@
                         <button type="button" class="btn btn-outline-dark" onclick="filterByCanal('sistema')">Sistema</button>
                     </div>
                 </div>
+                {% endif %}
             </div>
         </div>
     </div>
