@@ -133,6 +133,12 @@ class EmailService:
             tuple: (success: bool, message: str)
         """
         try:
+            # NO enviar correos si el usuario que creó la operación es Plataforma
+            # La página web se encarga de enviar sus propios correos
+            if operation.user and operation.user.role == 'Plataforma':
+                logger.info(f'Email omitido para operación {operation.operation_id} - creada por rol Plataforma')
+                return True, 'Email omitido (rol Plataforma)'
+
             to, cc, bcc = EmailService.get_recipients_for_new_operation(operation)
 
             # Validar que haya al menos un destinatario
@@ -182,6 +188,12 @@ class EmailService:
             tuple: (success: bool, message: str)
         """
         try:
+            # NO enviar correos si el usuario que creó la operación es Plataforma
+            # La página web se encarga de enviar sus propios correos
+            if operation.user and operation.user.role == 'Plataforma':
+                logger.info(f'Email de completado omitido para operación {operation.operation_id} - creada por rol Plataforma')
+                return True, 'Email omitido (rol Plataforma)'
+
             from flask import current_app
             from flask_mail import Message, Mail
 
@@ -601,6 +613,12 @@ class EmailService:
             tuple: (success: bool, message: str)
         """
         try:
+            # NO enviar correos si el usuario que registró el cliente es Plataforma
+            # La página web se encarga de enviar sus propios correos
+            if trader and trader.role == 'Plataforma':
+                logger.info(f'Email de shared email omitido para cliente {new_client.id} - registrado por rol Plataforma')
+                return True, 'Email omitido (rol Plataforma)'
+
             from flask_mail import Message
             from app.extensions import mail
 
@@ -725,6 +743,12 @@ class EmailService:
             tuple: (success: bool, message: str)
         """
         try:
+            # NO enviar correos si el usuario que registró el cliente es Plataforma
+            # La página web se encarga de enviar sus propios correos
+            if trader and trader.role == 'Plataforma':
+                logger.info(f'Email de nuevo cliente omitido para cliente {client.id} - registrado por rol Plataforma')
+                return True, 'Email omitido (rol Plataforma)'
+
             # Destinatario principal: Cliente (soporta múltiples emails separados por ;)
             to = EmailService.parse_email_addresses(client.email) if client.email else []
 
@@ -790,6 +814,12 @@ class EmailService:
             tuple: (success: bool, message: str)
         """
         try:
+            # NO enviar correos si el usuario que registró el cliente es Plataforma
+            # La página web se encarga de enviar sus propios correos
+            if trader and trader.role == 'Plataforma':
+                logger.info(f'Email de cliente activado omitido para cliente {client.id} - registrado por rol Plataforma')
+                return True, 'Email omitido (rol Plataforma)'
+
             from flask import current_app
             from flask_mail import Message, Mail
 
@@ -1065,6 +1095,12 @@ class EmailService:
             tuple: (success: bool, message: str)
         """
         try:
+            # NO enviar correos si el usuario que creó la operación es Plataforma
+            # La página web se encarga de enviar sus propios correos
+            if operation.user and operation.user.role == 'Plataforma':
+                logger.info(f'Email de cancelación omitido para operación {operation.operation_id} - creada por rol Plataforma')
+                return True, 'Email omitido (rol Plataforma)'
+
             to, cc, bcc = EmailService.get_recipients_for_completed_operation(operation)
 
             # Validar que haya al menos un destinatario
@@ -1216,6 +1252,12 @@ class EmailService:
             tuple: (success: bool, message: str)
         """
         try:
+            # NO enviar correos si el usuario que creó la operación es Plataforma
+            # La página web se encarga de enviar sus propios correos
+            if operation.user and operation.user.role == 'Plataforma':
+                logger.info(f'Email de monto modificado omitido para operación {operation.operation_id} - creada por rol Plataforma')
+                return True, 'Email omitido (rol Plataforma)'
+
             to, cc, bcc = EmailService.get_recipients_for_new_operation(operation)
 
             # Validar que haya al menos un destinatario
