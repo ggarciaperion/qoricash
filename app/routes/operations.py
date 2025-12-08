@@ -365,6 +365,10 @@ def api_list():
         status: Filtrar por estado (opcional)
         client_id: Filtrar por cliente (opcional)
         all: Si es 'true', devuelve todas las operaciones (para historial)
+
+    Filtrado por rol:
+        - Trader/Plataforma: Solo sus propias operaciones
+        - Master/Operador/Middle Office: Todas las operaciones
     """
     status = request.args.get('status')
     client_id = request.args.get('client_id', type=int)
@@ -379,15 +383,27 @@ def api_list():
         else:
             operations = OperationService.get_all_operations(include_relations=True)
             # Ya viene como diccionarios
+            # Filtrar según rol
+            if current_user.role in ['Trader', 'Plataforma']:
+                operations = [op for op in operations if op.get('user_id') == current_user.id]
             return jsonify({'success': True, 'operations': operations})
     else:
         # Por defecto, solo operaciones del día actual
         operations = OperationService.get_today_operations()
+
+        # Filtrar según rol
+        if current_user.role in ['Trader', 'Plataforma']:
+            operations = [op for op in operations if op.user_id == current_user.id]
+
         # get_today_operations devuelve objetos, necesitamos convertir a dict
         return jsonify({
             'success': True,
             'operations': [op.to_dict(include_relations=True) for op in operations]
         })
+
+    # Filtrar según rol antes de retornar
+    if current_user.role in ['Trader', 'Plataforma']:
+        operations = [op for op in operations if op.user_id == current_user.id]
 
     return jsonify({
         'success': True,
