@@ -52,15 +52,15 @@ def operations_list():
 
     Muestra solo las operaciones del día actual
     Filtrado:
-    - Plataforma: Solo ve sus propias operaciones del día
-    - Otros roles: Ven todas las operaciones del día
+    - Trader/Plataforma: Solo ven sus propias operaciones del día
+    - Master/Operador/Middle Office: Ven todas las operaciones del día
     """
     from app.models.operation import Operation
     from datetime import datetime
     from sqlalchemy import case
 
-    if current_user.role == 'Plataforma':
-        # Plataforma solo ve sus propias operaciones del día
+    if current_user.role in ['Trader', 'Plataforma']:
+        # Trader y Plataforma solo ven sus propias operaciones del día
         now = now_peru()
         start_of_day = datetime(now.year, now.month, now.day, 0, 0, 0)
         end_of_day = datetime(now.year, now.month, now.day, 23, 59, 59)
@@ -80,7 +80,7 @@ def operations_list():
             Operation.created_at.desc()
         ).all()
     else:
-        # Otros roles ven todas las operaciones del día
+        # Otros roles (Master, Operador, Middle Office) ven todas las operaciones del día
         operations = OperationService.get_today_operations()
 
     return render_template('operations/list.html',
