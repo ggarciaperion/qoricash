@@ -136,9 +136,9 @@ def export_today():
 
     # Definir encabezados según el rol
     if current_user.role in ['Master', 'Operador']:
-        headers = ['ID OP.', 'DOCUMENTO', 'CLIENTE', 'USD', 'T.C.', 'PEN', 'CUENTA CARGO', 'CUENTA DESTINO', 'ESTADO', 'FECHA', 'USUARIO']
+        headers = ['ID OP.', 'DOCUMENTO', 'CLIENTE', 'USD', 'T.C.', 'PEN', 'CUENTA CARGO', 'CUENTA DESTINO', 'CANAL', 'ESTADO', 'FECHA', 'USUARIO']
     else:
-        headers = ['ID OP.', 'DOCUMENTO', 'CLIENTE', 'USD', 'T.C.', 'PEN', 'CUENTA CARGO', 'CUENTA DESTINO', 'ESTADO', 'FECHA']
+        headers = ['ID OP.', 'DOCUMENTO', 'CLIENTE', 'USD', 'T.C.', 'PEN', 'CUENTA CARGO', 'CUENTA DESTINO', 'CANAL', 'ESTADO', 'FECHA']
 
     # Escribir encabezados
     for col_num, header in enumerate(headers, 1):
@@ -157,12 +157,13 @@ def export_today():
         ws.cell(row=row_num, column=6, value=float(op.amount_pen))
         ws.cell(row=row_num, column=7, value=get_bank_account_info(op, op.source_account))
         ws.cell(row=row_num, column=8, value=get_bank_account_info(op, op.destination_account))
-        ws.cell(row=row_num, column=9, value=op.status)
-        ws.cell(row=row_num, column=10, value=op.created_at.strftime('%d/%m/%Y %H:%M') if op.created_at else '-')
+        ws.cell(row=row_num, column=9, value='Web' if op.origen == 'plataforma' else 'Sistema')
+        ws.cell(row=row_num, column=10, value=op.status)
+        ws.cell(row=row_num, column=11, value=op.created_at.strftime('%d/%m/%Y %H:%M') if op.created_at else '-')
 
         # Solo agregar columna de usuario para Master y Operador
         if current_user.role in ['Master', 'Operador']:
-            ws.cell(row=row_num, column=11, value=op.user.email if op.user else '-')
+            ws.cell(row=row_num, column=12, value=op.user.email if op.user else '-')
 
     # Ajustar ancho de columnas
     ws.column_dimensions['A'].width = 12
@@ -173,10 +174,11 @@ def export_today():
     ws.column_dimensions['F'].width = 12
     ws.column_dimensions['G'].width = 35  # CUENTA CARGO (más ancho para banco + número)
     ws.column_dimensions['H'].width = 35  # CUENTA DESTINO (más ancho para banco + número)
-    ws.column_dimensions['I'].width = 15
-    ws.column_dimensions['J'].width = 18
+    ws.column_dimensions['I'].width = 12  # CANAL
+    ws.column_dimensions['J'].width = 15  # ESTADO
+    ws.column_dimensions['K'].width = 18  # FECHA
     if current_user.role in ['Master', 'Operador']:
-        ws.column_dimensions['K'].width = 30
+        ws.column_dimensions['L'].width = 30  # USUARIO
 
     # Guardar en memoria
     excel_file = BytesIO()
@@ -251,9 +253,9 @@ def export_history():
 
     # Definir encabezados según el rol
     if current_user.role in ['Master', 'Operador']:
-        headers = ['ID OP.', 'DOCUMENTO', 'CLIENTE', 'USD', 'T.C.', 'PEN', 'CUENTA CARGO', 'CUENTA DESTINO', 'ESTADO', 'FECHA', 'USUARIO']
+        headers = ['ID OP.', 'DOCUMENTO', 'CLIENTE', 'USD', 'T.C.', 'PEN', 'CUENTA CARGO', 'CUENTA DESTINO', 'CANAL', 'ESTADO', 'FECHA', 'USUARIO']
     else:
-        headers = ['ID OP.', 'DOCUMENTO', 'CLIENTE', 'USD', 'T.C.', 'PEN', 'CUENTA CARGO', 'CUENTA DESTINO', 'ESTADO', 'FECHA']
+        headers = ['ID OP.', 'DOCUMENTO', 'CLIENTE', 'USD', 'T.C.', 'PEN', 'CUENTA CARGO', 'CUENTA DESTINO', 'CANAL', 'ESTADO', 'FECHA']
 
     # Escribir encabezados
     for col_num, header in enumerate(headers, 1):
@@ -272,12 +274,13 @@ def export_history():
         ws.cell(row=row_num, column=6, value=float(op.amount_pen))
         ws.cell(row=row_num, column=7, value=get_bank_account_info(op, op.source_account))
         ws.cell(row=row_num, column=8, value=get_bank_account_info(op, op.destination_account))
-        ws.cell(row=row_num, column=9, value=op.status)
-        ws.cell(row=row_num, column=10, value=op.created_at.strftime('%d/%m/%Y %H:%M') if op.created_at else '-')
+        ws.cell(row=row_num, column=9, value='Web' if op.origen == 'plataforma' else 'Sistema')
+        ws.cell(row=row_num, column=10, value=op.status)
+        ws.cell(row=row_num, column=11, value=op.created_at.strftime('%d/%m/%Y %H:%M') if op.created_at else '-')
 
         # Solo agregar columna de usuario para Master y Operador
         if current_user.role in ['Master', 'Operador']:
-            ws.cell(row=row_num, column=11, value=op.user.email if op.user else '-')
+            ws.cell(row=row_num, column=12, value=op.user.email if op.user else '-')
 
     # Ajustar ancho de columnas
     ws.column_dimensions['A'].width = 12
@@ -288,10 +291,11 @@ def export_history():
     ws.column_dimensions['F'].width = 12
     ws.column_dimensions['G'].width = 35  # CUENTA CARGO (más ancho para banco + número)
     ws.column_dimensions['H'].width = 35  # CUENTA DESTINO (más ancho para banco + número)
-    ws.column_dimensions['I'].width = 15
-    ws.column_dimensions['J'].width = 18
+    ws.column_dimensions['I'].width = 12  # CANAL
+    ws.column_dimensions['J'].width = 15  # ESTADO
+    ws.column_dimensions['K'].width = 18  # FECHA
     if current_user.role in ['Master', 'Operador']:
-        ws.column_dimensions['K'].width = 30
+        ws.column_dimensions['L'].width = 30  # USUARIO
 
     # Guardar en memoria
     excel_file = BytesIO()
@@ -367,6 +371,11 @@ def create_operation():
     """
     data = request.get_json()
     
+    # Determinar origen según el rol del usuario
+    # Plataforma → operaciones desde web pública
+    # Otros roles → operaciones internas del sistema
+    origen = 'plataforma' if current_user.role == 'Plataforma' else 'sistema'
+
     # Crear operación
     success, message, operation = OperationService.create_operation(
         current_user=current_user,
@@ -376,7 +385,8 @@ def create_operation():
         exchange_rate=data.get('exchange_rate'),
         source_account=data.get('source_account'),
         destination_account=data.get('destination_account'),
-        notes=data.get('notes')
+        notes=data.get('notes'),
+        origen=origen
     )
     
     if success:

@@ -40,12 +40,28 @@
     <!-- Filtros Rápidos -->
     <div class="row mb-3">
         <div class="col-md-12">
-            <div class="btn-group" role="group">
-                <button type="button" class="btn btn-outline-secondary active" onclick="filterByStatus('all')">Todas</button>
-                <button type="button" class="btn btn-outline-warning" onclick="filterByStatus('Pendiente')">Pendientes</button>
-                <button type="button" class="btn btn-outline-info" onclick="filterByStatus('En proceso')">En Proceso</button>
-                <button type="button" class="btn btn-outline-success" onclick="filterByStatus('Completada')">Completadas</button>
-                <button type="button" class="btn btn-outline-danger" onclick="filterByStatus('Cancelado')">Canceladas</button>
+            <div class="d-flex gap-3 flex-wrap">
+                <!-- Filtros por Estado -->
+                <div>
+                    <small class="text-muted d-block mb-1">Estado:</small>
+                    <div class="btn-group" role="group">
+                        <button type="button" class="btn btn-outline-secondary active" onclick="filterByStatus('all')">Todas</button>
+                        <button type="button" class="btn btn-outline-warning" onclick="filterByStatus('Pendiente')">Pendientes</button>
+                        <button type="button" class="btn btn-outline-info" onclick="filterByStatus('En proceso')">En Proceso</button>
+                        <button type="button" class="btn btn-outline-success" onclick="filterByStatus('Completada')">Completadas</button>
+                        <button type="button" class="btn btn-outline-danger" onclick="filterByStatus('Cancelado')">Canceladas</button>
+                    </div>
+                </div>
+
+                <!-- Filtros por Canal -->
+                <div>
+                    <small class="text-muted d-block mb-1">Canal:</small>
+                    <div class="btn-group" role="group">
+                        <button type="button" class="btn btn-outline-secondary active" onclick="filterByCanal('all')">Todos</button>
+                        <button type="button" class="btn btn-outline-purple" style="--bs-btn-color: #6f42c1; --bs-btn-border-color: #6f42c1; --bs-btn-hover-bg: #6f42c1; --bs-btn-hover-border-color: #6f42c1;" onclick="filterByCanal('plataforma')">Web</button>
+                        <button type="button" class="btn btn-outline-dark" onclick="filterByCanal('sistema')">Sistema</button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -65,6 +81,7 @@
                                 <th>T.C.</th>
                                 <th>PEN</th>
                                 <th>Bancos</th>
+                                <th>Canal</th>
                                 <th>Estado</th>
                                 <th>Fecha</th>
                                 {% if current_user.role != 'Middle Office' %}
@@ -74,7 +91,7 @@
                         </thead>
                         <tbody>
                             {% for op in operations %}
-                            <tr data-operation-id="{{ op.id }}" data-status="{{ op.status }}">
+                            <tr data-operation-id="{{ op.id }}" data-status="{{ op.status }}" data-origen="{{ op.origen }}">
                                 <td><strong>{{ op.operation_id }}</strong></td>
                                 <td>{{ op.client.full_name or '-' }}</td>
                                 <td>
@@ -91,6 +108,13 @@
                                     {% set source_bank = get_bank_name(op, op.source_account) %}
                                     {% set dest_bank = get_bank_name(op, op.destination_account) %}
                                     <small>{{ source_bank|trim or 'N/A' }} / {{ dest_bank|trim or 'N/A' }}</small>
+                                </td>
+                                <td class="text-center">
+                                    {% if op.origen == 'plataforma' %}
+                                        <span class="badge bg-purple" style="background-color: #6f42c1;">Web</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">Sistema</span>
+                                    {% endif %}
                                 </td>
                                 <td>
                                     {% if op.status == 'Pendiente' %}
@@ -584,11 +608,25 @@ $(document).ready(function() {
 
 function filterByStatus(status) {
     if (status === 'all') {
+        window.operationsDataTable.column(8).search('').draw();
+    } else {
+        window.operationsDataTable.column(8).search(status).draw();
+    }
+    // Solo remover active de los botones de estado
+    $(event.target).closest('.btn-group').find('button').removeClass('active');
+    event.target.classList.add('active');
+}
+
+function filterByCanal(canal) {
+    if (canal === 'all') {
         window.operationsDataTable.column(7).search('').draw();
     } else {
-        window.operationsDataTable.column(7).search(status).draw();
+        // Buscar por el texto del badge: "Web" o "Sistema"
+        const searchText = canal === 'plataforma' ? 'Web' : 'Sistema';
+        window.operationsDataTable.column(7).search(searchText).draw();
     }
-    $('.btn-group button').removeClass('active');
+    // Solo remover active de los botones de canal
+    $(event.target).closest('.btn-group').find('button').removeClass('active');
     event.target.classList.add('active');
 }
 
