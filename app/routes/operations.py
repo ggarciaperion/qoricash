@@ -51,9 +51,38 @@ def operations_list():
     Página de listado de operaciones
 
     Muestra solo las operaciones del día actual
-    Todos los roles (Master, Trader, Operador) ven las operaciones de hoy
+    Filtrado:
+    - Plataforma: Solo ve sus propias operaciones del día
+    - Otros roles: Ven todas las operaciones del día
     """
-    operations = OperationService.get_today_operations()
+    from app.models.operation import Operation
+    from datetime import datetime
+    from sqlalchemy import case
+
+    if current_user.role == 'Plataforma':
+        # Plataforma solo ve sus propias operaciones del día
+        now = now_peru()
+        start_of_day = datetime(now.year, now.month, now.day, 0, 0, 0)
+        end_of_day = datetime(now.year, now.month, now.day, 23, 59, 59)
+
+        # Ordenar con "En proceso" primero
+        priority_order = case(
+            (Operation.status == 'En proceso', 0),
+            else_=1
+        )
+
+        operations = Operation.query.filter(
+            Operation.user_id == current_user.id,
+            Operation.created_at >= start_of_day,
+            Operation.created_at <= end_of_day
+        ).order_by(
+            priority_order,
+            Operation.created_at.desc()
+        ).all()
+    else:
+        # Otros roles ven todas las operaciones del día
+        operations = OperationService.get_today_operations()
+
     return render_template('operations/list.html',
                          user=current_user,
                          operations=operations,
@@ -80,9 +109,22 @@ def history():
     Página de historial de operaciones
 
     Muestra todas las operaciones de todos los estados y fechas
-    Disponible para todos los roles (Master, Trader, Operador)
+    Disponible para todos los roles (Master, Trader, Operador, Plataforma)
+
+    Filtrado:
+    - Plataforma: Solo ve sus propias operaciones
+    - Otros roles: Ven todas las operaciones
     """
-    operations = OperationService.get_all_operations(include_relations=False)
+    from app.models.operation import Operation
+
+    # Filtrar operaciones según el rol
+    if current_user.role == 'Plataforma':
+        # Plataforma solo ve sus propias operaciones
+        operations = Operation.query.filter_by(user_id=current_user.id).order_by(Operation.created_at.desc()).all()
+    else:
+        # Otros roles ven todas las operaciones
+        operations = OperationService.get_all_operations(include_relations=False)
+
     return render_template('operations/history.html',
                          user=current_user,
                          operations=operations)

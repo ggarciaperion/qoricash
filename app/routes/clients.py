@@ -23,14 +23,27 @@ clients_bp = Blueprint('clients', __name__, url_prefix='/clients')
 @clients_bp.route('/')
 @clients_bp.route('/list')
 @login_required
-@require_role('Master', 'Trader', 'Operador', 'Middle Office')
+@require_role('Master', 'Trader', 'Operador', 'Middle Office', 'Plataforma')
 def list_clients():
     """
     Página de listado de clientes
 
-    Roles permitidos: Master, Trader, Operador, Middle Office
+    Roles permitidos: Master, Trader, Operador, Middle Office, Plataforma
+
+    Filtrado:
+    - Plataforma: Solo ve sus propios clientes (created_by = user_id)
+    - Trader: Solo ve sus propios clientes (created_by = user_id)
+    - Otros roles: Ven todos los clientes
     """
-    clients = ClientService.get_all_clients()
+    from app.models.client import Client
+
+    if current_user.role in ['Trader', 'Plataforma']:
+        # Trader y Plataforma solo ven sus propios clientes
+        clients = Client.query.filter_by(created_by=current_user.id).order_by(Client.created_at.desc()).all()
+    else:
+        # Otros roles ven todos los clientes
+        clients = ClientService.get_all_clients()
+
     return render_template('clients/list.html',
                            user=current_user,
                            clients=clients)
@@ -38,12 +51,22 @@ def list_clients():
 
 @clients_bp.route('/api/list')
 @login_required
-@require_role('Master', 'Trader', 'Operador', 'Middle Office')
+@require_role('Master', 'Trader', 'Operador', 'Middle Office', 'Plataforma')
 def api_list():
     """
     API: Listar clientes (JSON)
+
+    Filtrado:
+    - Plataforma/Trader: Solo sus propios clientes
+    - Otros roles: Todos los clientes
     """
-    clients = ClientService.get_all_clients()
+    from app.models.client import Client
+
+    if current_user.role in ['Trader', 'Plataforma']:
+        clients = Client.query.filter_by(created_by=current_user.id).order_by(Client.created_at.desc()).all()
+    else:
+        clients = ClientService.get_all_clients()
+
     return jsonify({
         'success': True,
         'clients': [client.to_dict() for client in clients]
@@ -294,17 +317,36 @@ def get_stats(client_id):
 
 @clients_bp.route('/api/search')
 @login_required
-@require_role('Master', 'Trader', 'Operador', 'Middle Office')
+@require_role('Master', 'Trader', 'Operador', 'Middle Office', 'Plataforma')
 def search():
     """
     API: Buscar clientes
+
+    Filtrado:
+    - Plataforma/Trader: Solo sus propios clientes
+    - Otros roles: Todos los clientes
     """
+    from app.models.client import Client
+
     query = request.args.get('q', '').strip()
 
     if not query or len(query) < 3:
         return jsonify({'success': False, 'message': 'La búsqueda debe tener al menos 3 caracteres'}), 400
 
-    clients = ClientService.search_clients(query)
+    if current_user.role in ['Trader', 'Plataforma']:
+        # Buscar solo en sus propios clientes
+        clients = Client.query.filter(
+            Client.created_by == current_user.id
+        ).filter(
+            db.or_(
+                Client.full_name.ilike(f'%{query}%'),
+                Client.dni.ilike(f'%{query}%'),
+                Client.email.ilike(f'%{query}%')
+            )
+        ).all()
+    else:
+        # Buscar en todos los clientes
+        clients = ClientService.search_clients(query)
 
     return jsonify({'success': True, 'clients': [client.to_dict() for client in clients]})
 
@@ -471,12 +513,25 @@ def get_client(client_id):
 
 @clients_bp.route('/api/active')
 @login_required
-@require_role('Master', 'Trader', 'Operador', 'Middle Office')
+@require_role('Master', 'Trader', 'Operador', 'Middle Office', 'Plataforma')
 def get_active():
     """
     API: Obtener solo clientes activos
+
+    Filtrado:
+    - Plataforma/Trader: Solo sus propios clientes activos
+    - Otros roles: Todos los clientes activos
     """
-    clients = ClientService.get_active_clients()
+    from app.models.client import Client
+
+    if current_user.role in ['Trader', 'Plataforma']:
+        clients = Client.query.filter_by(
+            created_by=current_user.id,
+            status='Activo'
+        ).order_by(Client.created_at.desc()).all()
+    else:
+        clients = ClientService.get_active_clients()
+
     return jsonify({'success': True, 'clients': [client.to_dict() for client in clients]})
 
 
