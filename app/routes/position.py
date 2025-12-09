@@ -248,6 +248,11 @@ def update_balance():
 
     try:
         from app.utils.formatters import now_peru
+        import logging
+        logger = logging.getLogger(__name__)
+
+        logger.info(f"Actualizando saldo actual: bank_name={bank_name}, currency={currency}, amount={amount}")
+
         balance = BankBalance.get_or_create_balance(bank_name)
 
         if currency == 'USD':
@@ -260,15 +265,28 @@ def update_balance():
 
         db.session.commit()
 
+        logger.info(f"Saldo actual actualizado exitosamente para {bank_name}")
+
         return jsonify({
             'success': True,
             'message': f'Saldo actualizado exitosamente',
-            'balance': balance.to_dict()
+            'balance': {
+                'id': balance.id,
+                'bank_name': balance.bank_name,
+                'balance_usd': float(balance.balance_usd or 0),
+                'balance_pen': float(balance.balance_pen or 0),
+                'initial_balance_usd': float(balance.initial_balance_usd or 0),
+                'initial_balance_pen': float(balance.initial_balance_pen or 0)
+            }
         })
 
     except Exception as e:
+        import traceback
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error actualizando saldo actual: {str(e)}")
+        logger.error(traceback.format_exc())
         db.session.rollback()
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': str(e), 'details': traceback.format_exc()}), 500
 
 
 @position_bp.route('/api/update_initial_balance', methods=['POST'])
@@ -304,6 +322,11 @@ def update_initial_balance():
 
     try:
         from app.utils.formatters import now_peru
+        import logging
+        logger = logging.getLogger(__name__)
+
+        logger.info(f"Actualizando saldo inicial: bank_name={bank_name}, currency={currency}, amount={amount}")
+
         balance = BankBalance.get_or_create_balance(bank_name)
 
         if currency == 'USD':
@@ -316,15 +339,28 @@ def update_initial_balance():
 
         db.session.commit()
 
+        logger.info(f"Saldo inicial actualizado exitosamente para {bank_name}")
+
         return jsonify({
             'success': True,
             'message': f'Saldo inicial actualizado exitosamente',
-            'balance': balance.to_dict()
+            'balance': {
+                'id': balance.id,
+                'bank_name': balance.bank_name,
+                'balance_usd': float(balance.balance_usd or 0),
+                'balance_pen': float(balance.balance_pen or 0),
+                'initial_balance_usd': float(balance.initial_balance_usd or 0),
+                'initial_balance_pen': float(balance.initial_balance_pen or 0)
+            }
         })
 
     except Exception as e:
+        import traceback
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error actualizando saldo inicial: {str(e)}")
+        logger.error(traceback.format_exc())
         db.session.rollback()
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': str(e), 'details': traceback.format_exc()}), 500
 
 
 @position_bp.route('/api/bank_reconciliation')
