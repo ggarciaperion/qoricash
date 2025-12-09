@@ -3,6 +3,7 @@ Modelo de Saldos Bancarios para QoriCash Trading V2
 """
 from datetime import datetime
 from app.extensions import db
+from app.utils.formatters import now_peru
 
 
 class BankBalance(db.Model):
@@ -25,8 +26,8 @@ class BankBalance(db.Model):
     initial_balance_pen = db.Column(db.Numeric(15, 2), nullable=False, default=0)
 
     # Timestamps
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=now_peru, nullable=False)
+    updated_at = db.Column(db.DateTime, default=now_peru, onupdate=now_peru)
     updated_by = db.Column(db.Integer, db.ForeignKey('users.id'))
 
     # Relaciones

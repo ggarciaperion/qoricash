@@ -651,7 +651,15 @@ def get_operation(operation_id):
             'success': False,
             'message': 'Operación no encontrada'
         }), 404
-    
+
+    # Validar permisos: Master y Operador ven todas, otros solo las propias
+    if current_user.role not in ['Master', 'Operador']:
+        if operation.user_id != current_user.id:
+            return jsonify({
+                'success': False,
+                'message': 'No tienes permiso para ver esta operación'
+            }), 403
+
     return jsonify({
         'success': True,
         'operation': operation.to_dict(include_relations=True)

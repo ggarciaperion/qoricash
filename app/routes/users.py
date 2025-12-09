@@ -200,9 +200,10 @@ def get_user(user_id):
 
 @users_bp.route('/api/by_role/<role>')
 @login_required
+@require_role('Master')
 def get_users_by_role(role):
     """
-    API: Obtener usuarios por rol
+    API: Obtener usuarios por rol (Solo Master)
     """
     users = UserService.get_users_by_role(role)
     return jsonify({
@@ -213,9 +214,10 @@ def get_users_by_role(role):
 
 @users_bp.route('/api/active')
 @login_required
+@require_role('Master')
 def get_active_users():
     """
-    API: Obtener solo usuarios activos
+    API: Obtener solo usuarios activos (Solo Master)
     """
     users = UserService.get_active_users()
     return jsonify({
