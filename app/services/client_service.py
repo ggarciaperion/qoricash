@@ -274,6 +274,16 @@ class ClientService:
 
                 # Commit único para client y audit_log juntos
                 db.session.commit()
+
+                # --- Crear perfil de riesgo automáticamente ---
+                try:
+                    from app.services.compliance_service import ComplianceService
+                    ComplianceService.update_client_risk_profile(client.id, current_user.id)
+                    logger.info(f'Perfil de riesgo creado automáticamente para cliente {client.id}')
+                except Exception as risk_exc:
+                    # No bloquear la creación del cliente si falla el perfil
+                    logger.warning(f'Error al crear perfil de riesgo para cliente {client.id}: {str(risk_exc)}')
+
             except Exception as db_exc:
                 db.session.rollback()
                 logger.exception("Error al persistir cliente")

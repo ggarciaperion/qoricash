@@ -8,12 +8,9 @@
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h2 class="mb-0">Perfiles de Riesgo de Clientes</h2>
-            <p class="text-muted">Gestión de scoring de riesgo AML/KYC</p>
+            <p class="text-muted">Listado de todos los clientes con su scoring de riesgo AML/KYC</p>
         </div>
-        <div class="d-flex gap-2">
-            <button id="btnGenerateMissing" class="btn btn-success">
-                <i class="bi bi-plus-circle"></i> Generar Perfiles Faltantes
-            </button>
+        <div>
             <a href="/compliance/" class="btn btn-secondary">
                 <i class="bi bi-arrow-left"></i> Volver al Dashboard
             </a>
@@ -96,10 +93,6 @@
 
         $('#btnApplyFilters').on('click', function() {
             profilesTable.ajax.reload();
-        });
-
-        $('#btnGenerateMissing').on('click', function() {
-            generateMissingProfiles();
         });
     });
 
@@ -208,58 +201,6 @@
                     },
                     function(error) {
                         showNotification('Error al recalcular perfil', 'error');
-                    }
-                );
-            }
-        });
-    }
-
-    function generateMissingProfiles() {
-        Swal.fire({
-            title: '¿Generar Perfiles Faltantes?',
-            html: 'Se generarán perfiles de riesgo para <strong>todos los clientes que no los tengan</strong>.<br>Esto puede tomar algunos segundos.',
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonText: 'Sí, generar',
-            cancelButtonText: 'Cancelar',
-            confirmButtonColor: '#28a745'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                // Mostrar loading
-                Swal.fire({
-                    title: 'Generando perfiles...',
-                    html: 'Por favor espere',
-                    allowOutsideClick: false,
-                    didOpen: () => {
-                        Swal.showLoading();
-                    }
-                });
-
-                ajaxRequest(
-                    '/compliance/api/risk-profiles/generate-missing',
-                    'POST',
-                    {},
-                    function(response) {
-                        Swal.close();
-                        if (response.success) {
-                            const data = response.data;
-                            Swal.fire({
-                                title: '¡Perfiles Generados!',
-                                html: `
-                                    <p><strong>${data.generated}</strong> perfiles de riesgo fueron creados</p>
-                                    <p class="text-muted">Total de clientes: ${data.total_clients}</p>
-                                    ${data.errors && data.errors.length > 0 ? `<p class="text-warning">Errores: ${data.errors.length}</p>` : ''}
-                                `,
-                                icon: 'success'
-                            });
-                            profilesTable.ajax.reload();
-                        } else {
-                            showNotification(response.error || 'Error al generar perfiles', 'error');
-                        }
-                    },
-                    function(error) {
-                        Swal.close();
-                        showNotification('Error al generar perfiles', 'error');
                     }
                 );
             }
