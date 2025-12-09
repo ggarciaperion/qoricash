@@ -227,18 +227,13 @@ def api_risk_profiles():
         import logging
         logger = logging.getLogger(__name__)
 
-        logger.info("=== INICIO api_risk_profiles ===")
+        logger.info("=== INICIO api_risk_profiles (versión simplificada) ===")
 
-        # Obtener parámetros DataTables
-        draw = request.args.get('draw', type=int, default=1)
-        start = request.args.get('start', type=int, default=0)
-        length = request.args.get('length', type=int, default=10)
-
-        # Obtener TODOS los clientes
+        # 1. Obtener TODOS los clientes
         all_clients = Client.query.all()
         logger.info(f"Total clientes en BD: {len(all_clients)}")
 
-        # Generar perfiles faltantes
+        # 2. Generar perfiles faltantes automáticamente
         generated_count = 0
         for client in all_clients:
             existing_profile = ClientRiskProfile.query.filter_by(client_id=client.id).first()
@@ -250,55 +245,22 @@ def api_risk_profiles():
                         generated_count += 1
                         logger.info(f"  -> Perfil creado: Score={score}, Level={level}")
                 except Exception as e:
-                    logger.error(f"  -> Error: {str(e)}")
+                    logger.error(f"  -> Error al generar perfil: {str(e)}")
 
         if generated_count > 0:
             db.session.commit()
             logger.info(f"COMMIT: Generados {generated_count} perfiles nuevos")
 
-        # Obtener todos los perfiles con sus clientes
-        all_profiles = db.session.query(ClientRiskProfile, Client).join(
+        # 3. Obtener TODOS los perfiles con sus clientes (INNER JOIN)
+        profiles = db.session.query(ClientRiskProfile, Client).join(
             Client, ClientRiskProfile.client_id == Client.id
         ).all()
 
-        logger.info(f"Total perfiles después de generar: {len(all_profiles)}")
+        logger.info(f"Total perfiles recuperados: {len(profiles)}")
 
-        # Aplicar filtros
-        risk_level = request.args.get('risk_level')
-        kyc_status = request.args.get('kyc_status')
-        is_pep = request.args.get('is_pep')
-
-        filtered_profiles = all_profiles
-
-        if risk_level:
-            if risk_level == 'Crítico':
-                filtered_profiles = [(p, c) for p, c in filtered_profiles if p.risk_score >= 76]
-            elif risk_level == 'Alto':
-                filtered_profiles = [(p, c) for p, c in filtered_profiles if 51 <= p.risk_score < 76]
-            elif risk_level == 'Medio':
-                filtered_profiles = [(p, c) for p, c in filtered_profiles if 26 <= p.risk_score < 51]
-            elif risk_level == 'Bajo':
-                filtered_profiles = [(p, c) for p, c in filtered_profiles if p.risk_score < 26]
-
-        if kyc_status:
-            filtered_profiles = [(p, c) for p, c in filtered_profiles if p.kyc_status == kyc_status]
-
-        if is_pep and is_pep.lower() == 'true':
-            filtered_profiles = [(p, c) for p, c in filtered_profiles if p.is_pep]
-
-        total_records = len(filtered_profiles)
-        logger.info(f"Total después de filtros: {total_records}")
-
-        # Ordenar por risk_score descendente
-        filtered_profiles.sort(key=lambda x: x[0].risk_score, reverse=True)
-
-        # Paginación
-        paginated = filtered_profiles[start:start + length]
-        logger.info(f"Mostrando {len(paginated)} registros (de {start} a {start + length})")
-
-        # Construir respuesta
+        # 4. Construir respuesta simple
         data = []
-        for profile, client in paginated:
+        for profile, client in profiles:
             data.append({
                 'id': profile.id,
                 'client_id': client.id,
@@ -311,29 +273,25 @@ def api_risk_profiles():
                 'dd_level': profile.dd_level if profile.dd_level else '-',
                 'in_restrictive_lists': profile.in_restrictive_lists,
                 'has_legal_issues': profile.has_legal_issues,
-                'updated_at': profile.updated_at.strftime('%Y-%m-%d %H:%M:%S') if profile.updated_at else '-'
+                'updated_at': profile.updated_at.strftime('%Y-%m-%d %H:%M') if profile.updated_at else '-'
             })
 
-        logger.info(f"Retornando {len(data)} registros al DataTable")
+        logger.info(f"Retornando {len(data)} perfiles al frontend")
         logger.info("=== FIN api_risk_profiles ===")
 
         return jsonify({
-            'draw': draw,
-            'recordsTotal': total_records,
-            'recordsFiltered': total_records,
+            'success': True,
             'data': data
         })
 
     except Exception as e:
         import traceback
-        import logging
         logger = logging.getLogger(__name__)
-        logger.error(f"ERROR FATAL en api_risk_profiles: {str(e)}")
+        logger.error(f"ERROR en api_risk_profiles: {str(e)}")
         logger.error(traceback.format_exc())
         return jsonify({
             'success': False,
-            'error': str(e),
-            'trace': traceback.format_exc()
+            'error': str(e)
         }), 500
 
 

@@ -8,7 +8,7 @@
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h2 class="mb-0">Perfiles de Riesgo de Clientes</h2>
-            <p class="text-muted">Listado de todos los clientes con su scoring de riesgo AML/KYC</p>
+            <p class="text-muted">Evaluación de riesgo AML/KYC de todos los clientes</p>
         </div>
         <div>
             <a href="/compliance/" class="btn btn-secondary">
@@ -17,7 +17,7 @@
         </div>
     </div>
 
-    <!-- Filters -->
+    <!-- Filtros -->
     <div class="card mb-4">
         <div class="card-body">
             <div class="row">
@@ -59,169 +59,214 @@
         </div>
     </div>
 
-    <!-- Table -->
+    <!-- Tabla -->
     <div class="card">
         <div class="card-body">
-            <table id="riskProfilesTable" class="table table-hover">
-                <thead>
-                    <tr>
-                        <th>Cliente</th>
-                        <th>DNI</th>
-                        <th>Score</th>
-                        <th>Nivel</th>
-                        <th>PEP</th>
-                        <th>KYC</th>
-                        <th>Due Diligence</th>
-                        <th>Actualizado</th>
-                        <th>Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                </tbody>
-            </table>
+            <div class="table-responsive">
+                <table id="riskProfilesTable" class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Cliente</th>
+                            <th>DNI</th>
+                            <th>Score</th>
+                            <th>Nivel</th>
+                            <th>PEP</th>
+                            <th>KYC</th>
+                            <th>Due Diligence</th>
+                            <th>Actualizado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Se llena via AJAX -->
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>
 {% endblock %}
 
-{% block extra_js %}
+{% block scripts %}
 <script>
-    let profilesTable = null;
+console.log('=== SCRIPT risk_profiles cargado ===');
 
-    $(document).ready(function() {
-        console.log('=== INICIANDO risk_profiles.html ===');
-        console.log('jQuery versión:', $.fn.jquery);
-        console.log('DataTables disponible:', typeof $.fn.DataTable);
+let profilesTable = null;
+let allProfiles = [];
 
-        initProfilesTable();
+$(document).ready(function() {
+    console.log('Document ready - Cargando perfiles de riesgo');
+    loadRiskProfiles();
 
-        $('#btnApplyFilters').on('click', function() {
-            profilesTable.ajax.reload();
-        });
+    // Aplicar filtros
+    $('#btnApplyFilters').on('click', function() {
+        applyFilters();
+    });
+});
+
+function loadRiskProfiles() {
+    console.log('Cargando perfiles desde API...');
+
+    $.ajax({
+        url: '/compliance/api/risk-profiles',
+        method: 'GET',
+        success: function(response) {
+            console.log('Respuesta recibida:', response);
+
+            if (response.success) {
+                allProfiles = response.data;
+                console.log('Total perfiles cargados:', allProfiles.length);
+                initDataTable(allProfiles);
+            } else {
+                console.error('Error en respuesta:', response.error);
+                showNotification('Error al cargar perfiles: ' + response.error, 'error');
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('Error AJAX:', {xhr, status, error});
+            console.error('Response text:', xhr.responseText);
+            showNotification('Error al cargar perfiles de riesgo', 'error');
+        }
+    });
+}
+
+function initDataTable(data) {
+    console.log('Inicializando DataTable con', data.length, 'registros');
+
+    // Destruir tabla existente si existe
+    if (profilesTable) {
+        profilesTable.destroy();
+    }
+
+    profilesTable = $('#riskProfilesTable').DataTable({
+        data: data,
+        columns: [
+            { data: 'client_name' },
+            { data: 'client_dni' },
+            {
+                data: 'risk_score',
+                render: function(data) {
+                    let color = 'success';
+                    if (data >= 76) color = 'danger';
+                    else if (data >= 51) color = 'warning';
+                    else if (data >= 26) color = 'info';
+                    return `<span class="badge bg-${color}" style="font-size: 1em;">${data}</span>`;
+                }
+            },
+            {
+                data: 'risk_level',
+                render: function(data) {
+                    const badges = {
+                        'Crítico': 'danger',
+                        'Alto': 'warning',
+                        'Medio': 'info',
+                        'Bajo': 'success'
+                    };
+                    return `<span class="badge bg-${badges[data]}">${data}</span>`;
+                }
+            },
+            {
+                data: 'is_pep',
+                render: function(data) {
+                    return data ? '<i class="bi bi-check-circle-fill text-warning"></i> Sí' : 'No';
+                }
+            },
+            {
+                data: 'kyc_status',
+                render: function(data) {
+                    const badges = {
+                        'Pendiente': 'warning',
+                        'En Proceso': 'info',
+                        'Aprobado': 'success',
+                        'Rechazado': 'danger'
+                    };
+                    return `<span class="badge bg-${badges[data]}">${data}</span>`;
+                }
+            },
+            { data: 'dd_level' },
+            { data: 'updated_at' },
+            {
+                data: null,
+                orderable: false,
+                render: function(data, type, row) {
+                    return `
+                        <a href="/compliance/risk-profiles/${row.client_id}" class="btn btn-sm btn-info" title="Ver Detalle">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                        <button class="btn btn-sm btn-primary" onclick="recalculateRisk(${row.client_id})" title="Recalcular">
+                            <i class="bi bi-calculator"></i>
+                        </button>
+                    `;
+                }
+            }
+        ],
+        order: [[2, 'desc']],
+        pageLength: 25,
+        language: {
+            url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
+        }
     });
 
-    function initProfilesTable() {
-        console.log('=== Iniciando DataTable ===');
-        console.log('Tabla existe:', $('#riskProfilesTable').length);
+    console.log('DataTable inicializado correctamente');
+}
 
-        try {
-            profilesTable = $('#riskProfilesTable').DataTable({
-                processing: true,
-                serverSide: true,
-                ajax: {
-                    url: '/compliance/api/risk-profiles',
-                    data: function(d) {
-                        console.log('DataTables enviando petición con params:', d);
-                        d.risk_level = $('#filterRiskLevel').val();
-                        d.kyc_status = $('#filterKYC').val();
-                        d.is_pep = $('#filterPEP').val();
-                    },
-                    error: function(xhr, error, thrown) {
-                        console.error('ERROR en AJAX DataTables:', {xhr, error, thrown});
-                        console.error('Response:', xhr.responseText);
-                    }
-                },
-            columns: [
-                { data: 'client_name' },
-                { data: 'client_dni' },
-                {
-                    data: 'risk_score',
-                    render: function(data) {
-                        let color = 'success';
-                        if (data >= 76) color = 'danger';
-                        else if (data >= 51) color = 'warning';
-                        else if (data >= 26) color = 'info';
+function applyFilters() {
+    const riskLevel = $('#filterRiskLevel').val();
+    const kycStatus = $('#filterKYC').val();
+    const isPep = $('#filterPEP').val();
 
-                        return `<span class="badge bg-${color}" style="font-size: 1em;">${data}</span>`;
+    console.log('Aplicando filtros:', {riskLevel, kycStatus, isPep});
+
+    let filtered = allProfiles;
+
+    // Filtro por nivel de riesgo
+    if (riskLevel) {
+        filtered = filtered.filter(p => p.risk_level === riskLevel);
+    }
+
+    // Filtro por estado KYC
+    if (kycStatus) {
+        filtered = filtered.filter(p => p.kyc_status === kycStatus);
+    }
+
+    // Filtro por PEP
+    if (isPep) {
+        const pepValue = isPep === 'true';
+        filtered = filtered.filter(p => p.is_pep === pepValue);
+    }
+
+    console.log('Resultados después de filtros:', filtered.length);
+    initDataTable(filtered);
+}
+
+function recalculateRisk(clientId) {
+    Swal.fire({
+        title: '¿Recalcular Perfil de Riesgo?',
+        text: 'Se recalculará el score basado en las operaciones y datos actuales',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, recalcular',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            $.ajax({
+                url: `/compliance/api/risk-profiles/${clientId}/recalculate`,
+                method: 'POST',
+                success: function(response) {
+                    if (response.success) {
+                        const data = response.data;
+                        showNotification(`Perfil recalculado: ${data.level} (${data.score} puntos)`, 'success');
+                        loadRiskProfiles(); // Recargar tabla
+                    } else {
+                        showNotification(response.error || 'Error al recalcular', 'error');
                     }
                 },
-                {
-                    data: 'risk_level',
-                    render: function(data) {
-                        const badges = {
-                            'Crítico': 'danger',
-                            'Alto': 'warning',
-                            'Medio': 'info',
-                            'Bajo': 'success'
-                        };
-                        return `<span class="badge bg-${badges[data]}">${data}</span>`;
-                    }
-                },
-                {
-                    data: 'is_pep',
-                    render: function(data) {
-                        return data ? '<i class="bi bi-check-circle-fill text-warning"></i> Sí' : 'No';
-                    }
-                },
-                {
-                    data: 'kyc_status',
-                    render: function(data) {
-                        const badges = {
-                            'Pendiente': 'warning',
-                            'En Proceso': 'info',
-                            'Aprobado': 'success',
-                            'Rechazado': 'danger'
-                        };
-                        return `<span class="badge bg-${badges[data]}">${data}</span>`;
-                    }
-                },
-                { data: 'dd_level' },
-                { data: 'updated_at' },
-                {
-                    data: null,
-                    orderable: false,
-                    render: function(data, type, row) {
-                        return `
-                            <a href="/compliance/risk-profiles/${row.client_id}" class="btn btn-sm btn-info" title="Ver Detalle">
-                                <i class="bi bi-eye"></i>
-                            </a>
-                            <button class="btn btn-sm btn-primary" onclick="recalculateRisk(${row.client_id})" title="Recalcular">
-                                <i class="bi bi-calculator"></i>
-                            </button>
-                        `;
-                    }
+                error: function() {
+                    showNotification('Error al recalcular perfil', 'error');
                 }
-            ],
-            order: [[2, 'desc']],
-            language: {
-                url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
-            }
-        });
-        console.log('DataTable inicializado correctamente');
-        } catch(error) {
-            console.error('ERROR al inicializar DataTable:', error);
+            });
         }
-    }
-
-    function recalculateRisk(clientId) {
-        Swal.fire({
-            title: '¿Recalcular Perfil de Riesgo?',
-            text: 'Se recalculará el score basado en las operaciones y datos actuales',
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonText: 'Sí, recalcular',
-            cancelButtonText: 'Cancelar'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                ajaxRequest(
-                    `/compliance/api/risk-profiles/${clientId}/recalculate`,
-                    'POST',
-                    {},
-                    function(response) {
-                        if (response.success) {
-                            const data = response.data;
-                            showNotification(`Perfil recalculado: ${data.level} (${data.score} puntos)`, 'success');
-                            profilesTable.ajax.reload();
-                        } else {
-                            showNotification(response.error || 'Error al recalcular', 'error');
-                        }
-                    },
-                    function(error) {
-                        showNotification('Error al recalcular perfil', 'error');
-                    }
-                );
-            }
-        });
-    }
+    });
+}
 </script>
 {% endblock %}
