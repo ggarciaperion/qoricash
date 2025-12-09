@@ -822,21 +822,41 @@ function showExistingFile(previewElementId, fileUrl, fileName) {
  * Toggle PEP fields visibility
  */
 function togglePepFields() {
-    const isPepChecked = document.getElementById('isPepCheckbox').checked;
-    const pepFieldsSection = document.getElementById('pepFieldsSection');
+    try {
+        const isPepCheckbox = document.getElementById('isPepCheckbox');
+        const pepFieldsSection = document.getElementById('pepFieldsSection');
 
-    if (isPepChecked) {
-        pepFieldsSection.style.display = 'block';
-        // Hacer campos requeridos cuando PEP está marcado
-        document.getElementById('pepType').required = true;
-        document.getElementById('pepPosition').required = true;
-        document.getElementById('pepEntity').required = true;
-    } else {
-        pepFieldsSection.style.display = 'none';
-        // Quitar requeridos cuando no es PEP
-        document.getElementById('pepType').required = false;
-        document.getElementById('pepPosition').required = false;
-        document.getElementById('pepEntity').required = false;
+        if (!isPepCheckbox || !pepFieldsSection) {
+            console.error('Elementos PEP no encontrados');
+            return;
+        }
+
+        const isPepChecked = isPepCheckbox.checked;
+        console.log('Toggle PEP fields:', isPepChecked);
+
+        if (isPepChecked) {
+            pepFieldsSection.style.display = 'block';
+            // Hacer campos requeridos cuando PEP está marcado
+            const pepType = document.getElementById('pepType');
+            const pepPosition = document.getElementById('pepPosition');
+            const pepEntity = document.getElementById('pepEntity');
+
+            if (pepType) pepType.required = true;
+            if (pepPosition) pepPosition.required = true;
+            if (pepEntity) pepEntity.required = true;
+        } else {
+            pepFieldsSection.style.display = 'none';
+            // Quitar requeridos cuando no es PEP
+            const pepType = document.getElementById('pepType');
+            const pepPosition = document.getElementById('pepPosition');
+            const pepEntity = document.getElementById('pepEntity');
+
+            if (pepType) pepType.required = false;
+            if (pepPosition) pepPosition.required = false;
+            if (pepEntity) pepEntity.required = false;
+        }
+    } catch (error) {
+        console.error('Error en togglePepFields:', error);
     }
 }
 
@@ -1051,12 +1071,28 @@ function saveClient() {
                 .then(() => {
                     // Guardar información PEP si está marcado (solo al crear, no al editar)
                     if (!isEditing) {
-                        return savePepInfo(data.client.id);
+                        return savePepInfo(data.client.id)
+                            .catch(pepError => {
+                                // Si falla PEP, mostrar advertencia pero permitir continuar
+                                console.error('Error al guardar PEP:', pepError);
+                                return {
+                                    success: false,
+                                    pepError: pepError.message
+                                };
+                            });
                     }
                     return Promise.resolve({ success: true });
                 })
-                .then(() => {
-                    showNotification('success', data.message);
+                .then((pepResult) => {
+                    hideLoading();
+
+                    // Verificar si hubo error en PEP
+                    if (pepResult && pepResult.pepError) {
+                        showNotification('warning', `Cliente creado exitosamente. Sin embargo, no se pudo guardar la información PEP: ${pepResult.pepError}. Puede marcar como PEP desde el detalle del cliente.`);
+                    } else {
+                        showNotification('success', data.message);
+                    }
+
                     bootstrap.Modal.getInstance(document.getElementById('createClientModal')).hide();
                     setTimeout(() => location.reload(), 1500);
                 })
