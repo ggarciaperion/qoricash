@@ -155,9 +155,9 @@
                                 <td>
                                     <div class="btn-group btn-group-sm" role="group">
                                         <!-- Ver -->
-                                        <button class="btn btn-info" onclick="viewClient({{ c.id }})" title="Ver">
+                                        <a href="/clients/detail/{{ c.id }}" class="btn btn-info" title="Ver">
                                             <i class="bi bi-eye"></i>
-                                        </button>
+                                        </a>
 
                                         <!-- Editar -->
                                         {% if current_user.role in ['Master', 'Trader', 'Operador', 'Plataforma'] %}

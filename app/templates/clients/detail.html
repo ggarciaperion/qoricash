@@ -403,6 +403,7 @@
                                     </div>
                                 {% else %}
                                     <span class="badge bg-success">NO</span>
+                                    <span class="text-muted ms-2">El cliente no es una Persona Expuesta Políticamente</span>
                                     {% if current_user.role in ['Master', 'Middle Office'] %}
                                         <button class="btn btn-outline-warning btn-sm ms-2" onclick="abrirModalPEP()" title="Marcar como PEP">
                                             <i class="bi bi-plus-circle"></i> Marcar PEP
