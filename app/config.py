@@ -11,20 +11,9 @@ class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-change-in-production'
     
     # Database
-    # Render puede usar DATABASE_URL o RENDER_EXTERNAL_URL
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or os.environ.get('RENDER_DATABASE_URL')
-
-    # Debug: Imprimir estado de DATABASE_URL (solo en inicio)
-    if not SQLALCHEMY_DATABASE_URI:
-        print("[CONFIG ERROR] DATABASE_URL no encontrada en variables de entorno")
-        print(f"[CONFIG] Variables disponibles: {[k for k in os.environ.keys() if 'DATABASE' in k or 'POSTGRES' in k]}")
-    else:
-        print(f"[CONFIG] DATABASE_URL encontrada: {SQLALCHEMY_DATABASE_URI[:20]}...")
-
-    # Convertir postgres:// a postgresql:// (Render usa postgres:// pero SQLAlchemy 2.x requiere postgresql://)
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
     if SQLALCHEMY_DATABASE_URI and SQLALCHEMY_DATABASE_URI.startswith('postgres://'):
         SQLALCHEMY_DATABASE_URI = SQLALCHEMY_DATABASE_URI.replace('postgres://', 'postgresql://', 1)
-        print("[CONFIG] DATABASE_URL convertida de postgres:// a postgresql://")
     
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ECHO = False  # Set True for SQL debugging
@@ -134,19 +123,5 @@ config = {
 
 def get_config():
     """Obtener configuración según el entorno"""
-    # Detectar automáticamente producción si estamos en Render
-    env = os.environ.get('FLASK_ENV')
-
-    # Si no está configurado FLASK_ENV, detectar automáticamente
-    if not env:
-        # Si estamos en Render (tiene RENDER o DATABASE_URL en env), usar producción
-        if os.environ.get('RENDER') or os.environ.get('DATABASE_URL'):
-            env = 'production'
-            print("[CONFIG] Entorno detectado automáticamente: production (Render)")
-        else:
-            env = 'development'
-            print("[CONFIG] Entorno detectado automáticamente: development")
-    else:
-        print(f"[CONFIG] Entorno configurado: {env}")
-
+    env = os.environ.get('FLASK_ENV', 'production')
     return config.get(env, config['default'])
