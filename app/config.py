@@ -87,12 +87,19 @@ class ProductionConfig(Config):
     # Eventlet requires special pool configuration to avoid lock issues
     SQLALCHEMY_ENGINE_OPTIONS = {
         'pool_size': 5,
-        'pool_recycle': 3600,
-        'pool_pre_ping': True,
-        'max_overflow': 10,
+        'pool_recycle': 1800,  # Reciclar conexiones cada 30 min (reducido de 1 hora)
+        'pool_pre_ping': True,  # Verificar conexiones antes de usarlas
+        'max_overflow': 5,  # Reducido overflow para evitar exceso de conexiones
         'pool_timeout': 30,
+        'pool_reset_on_return': 'rollback',  # Limpiar transacciones al devolver conexión
         # This is critical for eventlet compatibility
-        'connect_args': {'options': '-c statement_timeout=300000'}
+        'connect_args': {
+            'options': '-c statement_timeout=120000',  # Timeout de 2 min (reducido de 5)
+            'keepalives': 1,
+            'keepalives_idle': 30,
+            'keepalives_interval': 10,
+            'keepalives_count': 5
+        }
     }
 
     # Security

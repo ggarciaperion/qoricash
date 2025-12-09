@@ -29,15 +29,23 @@ from app import create_app, socketio
 # Crear aplicación (usado por gunicorn)
 app = create_app()
 
-# Healthcheck endpoint - SIN rate limiting
+# Healthcheck endpoint - SIN rate limiting, optimizado para respuesta rápida
 from app.extensions import limiter
+from flask import jsonify
+import time
 
 @app.route('/health')
 @limiter.exempt
 def health_check():
-    """Endpoint para verificar que el servicio está vivo - sin rate limit"""
-    from flask import jsonify
-    return jsonify({'status': 'healthy', 'service': 'qoricash-trading'}), 200
+    """
+    Endpoint para health checks de Render
+    Responde inmediatamente sin consultas a BD
+    """
+    return jsonify({
+        'status': 'healthy',
+        'service': 'qoricash-trading',
+        'timestamp': time.time()
+    }), 200, {'Cache-Control': 'no-cache, no-store, must-revalidate'}
 
 if __name__ == '__main__':
     # Solo para desarrollo local

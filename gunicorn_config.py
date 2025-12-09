@@ -18,14 +18,14 @@ workers = int(os.environ.get('WEB_CONCURRENCY', 1))
 worker_class = 'eventlet'  # Para WebSocket/SocketIO - no usar threads con eventlet
 worker_connections = 1000
 
-# Timeouts - Extendidos para operaciones largas
-timeout = 300  # 5 minutos
-graceful_timeout = 120
+# Timeouts - Optimizados para health checks rápidos y operaciones largas
+timeout = 120  # 2 minutos (reducido de 5 min para health checks más rápidos)
+graceful_timeout = 30  # Reducido para reinicio más rápido
 keepalive = 5
 
-# Memory limits - Prevenir memory leaks
-max_requests = 1000
-max_requests_jitter = 50
+# Memory limits - Prevenir memory leaks y reiniciar workers periódicamente
+max_requests = 500  # Reducido para reiniciar workers más frecuentemente
+max_requests_jitter = 100  # Mayor jitter para evitar reinicios simultáneos
 
 # Logging
 accesslog = '-'
@@ -58,6 +58,23 @@ certfile = None
 
 print(f"[GUNICORN] Configurado: {workers} workers ({worker_class}), timeout {timeout}s")
 print(f"[GUNICORN] Conexiones por worker: {worker_connections}")
+
+# Hooks para debugging y manejo de errores
+def on_starting(server):
+    """Hook ejecutado cuando Gunicorn inicia"""
+    print(f"[GUNICORN] Iniciando servidor en {bind}")
+
+def when_ready(server):
+    """Hook ejecutado cuando el servidor está listo para aceptar requests"""
+    print(f"[GUNICORN] Servidor listo con {workers} workers")
+
+def worker_exit(server, worker):
+    """Hook ejecutado cuando un worker termina"""
+    print(f"[WORKER {worker.pid}] Worker terminando (procesó ~{worker.age} requests)")
+
+def worker_abort(worker):
+    """Hook ejecutado cuando un worker es abortado (timeout/crash)"""
+    print(f"[WORKER {worker.pid}] Worker abortado - posible timeout o error crítico")
 
 # Hooks para inicialización de workers
 def post_fork(server, worker):
