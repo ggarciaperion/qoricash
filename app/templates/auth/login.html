@@ -65,41 +65,77 @@
 
     .login-flash-messages .alert {
         font-size: 0.8125rem;
-        padding: 0.625rem 0.875rem;
+        padding: 0.75rem 1rem;
         margin-bottom: 0.5rem;
-        border-radius: 8px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
         border: none;
-        backdrop-filter: blur(10px);
+        backdrop-filter: blur(20px);
+        animation: slideInUp 0.4s ease-out;
+    }
+
+    @keyframes slideInUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
     }
 
     .login-flash-messages .alert i {
-        font-size: 1rem;
+        font-size: 1.1rem;
+        margin-right: 0.5rem;
     }
 
-    .login-flash-messages .alert-danger {
-        background-color: rgba(239, 68, 68, 0.95);
-        color: white;
-    }
-
+    /* Success - Verde profesional */
     .login-flash-messages .alert-success {
-        background-color: rgba(16, 185, 129, 0.95);
+        background: linear-gradient(135deg, rgba(16, 185, 129, 0.95) 0%, rgba(5, 150, 105, 0.95) 100%);
         color: white;
+        border-left: 4px solid #059669;
     }
 
+    /* Danger - Rojo profesional */
+    .login-flash-messages .alert-danger {
+        background: linear-gradient(135deg, rgba(239, 68, 68, 0.95) 0%, rgba(220, 38, 38, 0.95) 100%);
+        color: white;
+        border-left: 4px solid #dc2626;
+    }
+
+    /* Warning - Naranja/Amarillo profesional */
     .login-flash-messages .alert-warning {
-        background-color: rgba(245, 158, 11, 0.95);
+        background: linear-gradient(135deg, rgba(245, 158, 11, 0.95) 0%, rgba(217, 119, 6, 0.95) 100%);
         color: white;
+        border-left: 4px solid #d97706;
     }
 
+    /* Info - Turquesa QoriCash */
     .login-flash-messages .alert-info {
-        background-color: rgba(59, 130, 246, 0.95);
-        color: white;
+        background: linear-gradient(135deg, rgba(0, 222, 168, 0.95) 0%, rgba(0, 201, 151, 0.95) 100%);
+        color: #0D1B2A;
+        border-left: 4px solid #00c997;
     }
 
     .login-flash-messages .btn-close {
         filter: brightness(0) invert(1);
-        opacity: 0.8;
+        opacity: 0.9;
+        transition: opacity 0.2s;
+    }
+
+    .login-flash-messages .btn-close:hover {
+        opacity: 1;
+    }
+
+    /* Para alert-info, el botón de cerrar debe ser oscuro */
+    .login-flash-messages .alert-info .btn-close {
+        filter: none;
+        opacity: 0.6;
+    }
+
+    .login-flash-messages .alert-info .btn-close:hover {
+        opacity: 1;
     }
 
     /* Login Container */
