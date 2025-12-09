@@ -263,13 +263,15 @@ function validarDocumentosCliente(clientId) {
                     console.log(`Cliente ${clientId} (${client.document_type}) - DNI Front: ${hasDniFront}, DNI Back: ${hasDniBack}, Bank Accounts: ${hasBankAccounts}`);
                 }
 
+                // Actualizar el badge existente cambiando sus clases y contenido
+                const badge = $(`#validation-${clientId}`);
                 if (isValid) {
-                    validationHtml = '<span class="badge bg-success"><i class="bi bi-check-circle"></i> Completo</span>';
+                    badge.removeClass('bg-warning text-dark').addClass('bg-success');
+                    badge.html('<i class="bi bi-check-circle"></i> Completo');
                 } else {
-                    validationHtml = '<span class="badge bg-danger"><i class="bi bi-x-circle"></i> Incompleto</span>';
+                    badge.removeClass('bg-warning text-dark').addClass('bg-danger');
+                    badge.html('<i class="bi bi-x-circle"></i> Incompleto');
                 }
-
-                $(`#validation-${clientId}`).html(validationHtml);
             }
         },
         error: function(xhr, status, error) {
