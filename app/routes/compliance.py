@@ -356,6 +356,80 @@ def recalculate_risk_profile(client_id):
         }), 500
 
 
+@compliance_bp.route('/api/risk-profiles/generate-missing', methods=['POST'])
+@login_required
+@middle_office_required
+@csrf.exempt
+def generate_missing_risk_profiles():
+    """API: Generar perfiles de riesgo para todos los clientes que no los tienen"""
+    try:
+        # Obtener todos los clientes
+        all_clients = Client.query.all()
+
+        generated = 0
+        errors = []
+
+        for client in all_clients:
+            # Verificar si ya tiene perfil
+            existing_profile = ClientRiskProfile.query.filter_by(client_id=client.id).first()
+
+            if not existing_profile:
+                try:
+                    # Generar perfil de riesgo
+                    success, score, level = ComplianceService.update_client_risk_profile(
+                        client.id,
+                        current_user.id
+                    )
+
+                    if success:
+                        generated += 1
+                    else:
+                        errors.append(f"Cliente {client.id}: Error al generar perfil")
+                except Exception as e:
+                    errors.append(f"Cliente {client.id}: {str(e)}")
+
+        db.session.commit()
+
+        # Registrar en auditoría
+        audit = ComplianceAudit(
+            user_id=current_user.id,
+            action_type='Bulk_Risk_Profile_Generation',
+            entity_type='System',
+            entity_id=None,
+            description=f'Generación masiva de perfiles de riesgo: {generated} creados',
+            changes=json.dumps({
+                'generated': generated,
+                'total_clients': len(all_clients),
+                'errors': len(errors)
+            }),
+            ip_address=request.remote_addr,
+            user_agent=request.headers.get('User-Agent')
+        )
+        db.session.add(audit)
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': f'Se generaron {generated} perfiles de riesgo',
+            'data': {
+                'generated': generated,
+                'total_clients': len(all_clients),
+                'errors': errors if errors else []
+            }
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        import logging
+        import traceback
+        logging.error(f"Error generando perfiles masivos: {str(e)}")
+        logging.error(traceback.format_exc())
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
 # ==================== KYC ====================
 
 @compliance_bp.route('/kyc')
