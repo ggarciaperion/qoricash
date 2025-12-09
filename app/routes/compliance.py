@@ -222,34 +222,50 @@ def risk_profiles():
 @login_required
 @middle_office_required
 def api_risk_profiles():
-    """API: Lista de perfiles de riesgo - Muestra TODOS los clientes"""
+    """API: Lista de perfiles de riesgo - Genera automáticamente para clientes existentes"""
     try:
-        # Parámetros
+        import logging
+        logger = logging.getLogger(__name__)
+
+        # PASO 1: Generar perfiles faltantes para TODOS los clientes existentes
+        all_clients = Client.query.all()
+        generated_count = 0
+
+        for client in all_clients:
+            existing_profile = ClientRiskProfile.query.filter_by(client_id=client.id).first()
+            if not existing_profile:
+                try:
+                    ComplianceService.update_client_risk_profile(client.id, current_user.id)
+                    generated_count += 1
+                except Exception as e:
+                    logger.warning(f"Error generando perfil para cliente {client.id}: {str(e)}")
+
+        if generated_count > 0:
+            logger.info(f"Generados {generated_count} perfiles de riesgo para clientes existentes")
+            db.session.commit()
+
+        # PASO 2: Ahora sí, listar con filtros
         draw = request.args.get('draw', type=int, default=1)
         start = request.args.get('start', type=int, default=0)
         length = request.args.get('length', type=int, default=10)
 
-        # Filtros
         risk_level = request.args.get('risk_level')
         kyc_status = request.args.get('kyc_status')
         is_pep = request.args.get('is_pep')
 
-        # Query base: TODOS los clientes con LEFT JOIN a perfiles
-        from sqlalchemy import and_, or_
-        query = db.session.query(Client, ClientRiskProfile).outerjoin(
-            ClientRiskProfile, Client.id == ClientRiskProfile.client_id
-        )
+        # Query con INNER JOIN (ahora todos tienen perfil)
+        query = ClientRiskProfile.query.join(Client)
 
         # Aplicar filtros
         if risk_level:
             if risk_level == 'Crítico':
                 query = query.filter(ClientRiskProfile.risk_score >= 76)
             elif risk_level == 'Alto':
-                query = query.filter(and_(ClientRiskProfile.risk_score >= 51, ClientRiskProfile.risk_score < 76))
+                query = query.filter(ClientRiskProfile.risk_score >= 51, ClientRiskProfile.risk_score < 76)
             elif risk_level == 'Medio':
-                query = query.filter(and_(ClientRiskProfile.risk_score >= 26, ClientRiskProfile.risk_score < 51))
+                query = query.filter(ClientRiskProfile.risk_score >= 26, ClientRiskProfile.risk_score < 51)
             elif risk_level == 'Bajo':
-                query = query.filter(or_(ClientRiskProfile.risk_score < 26, ClientRiskProfile.risk_score == None))
+                query = query.filter(ClientRiskProfile.risk_score < 26)
 
         if kyc_status:
             query = query.filter(ClientRiskProfile.kyc_status == kyc_status)
@@ -259,46 +275,26 @@ def api_risk_profiles():
 
         total_records = query.count()
 
-        # Ordenar por risk_score descendente (nulos al final)
-        from sqlalchemy import desc, nullslast
-        results = query.order_by(nullslast(desc(ClientRiskProfile.risk_score))) \
+        profiles = query.order_by(ClientRiskProfile.risk_score.desc()) \
                        .limit(length) \
                        .offset(start) \
                        .all()
 
         data = []
-        for client, profile in results:
-            # Si no tiene perfil, crear uno al vuelo
-            if not profile:
-                try:
-                    ComplianceService.update_client_risk_profile(client.id, current_user.id)
-                    profile = ClientRiskProfile.query.filter_by(client_id=client.id).first()
-                except:
-                    # Si falla, crear perfil temporal con valores por defecto
-                    profile = type('obj', (object,), {
-                        'id': None,
-                        'risk_score': 0,
-                        'is_pep': False,
-                        'kyc_status': 'Pendiente',
-                        'dd_level': None,
-                        'in_restrictive_lists': False,
-                        'has_legal_issues': False,
-                        'updated_at': client.created_at
-                    })()
-
+        for profile in profiles:
             data.append({
-                'id': profile.id if hasattr(profile, 'id') else None,
-                'client_id': client.id,
-                'client_name': client.full_name,
-                'client_dni': client.dni,
-                'risk_score': profile.risk_score if profile else 0,
-                'risk_level': ComplianceService.assign_risk_level(profile.risk_score if profile else 0),
-                'is_pep': profile.is_pep if profile else False,
-                'kyc_status': profile.kyc_status if profile else 'Pendiente',
-                'dd_level': profile.dd_level if profile else None,
-                'in_restrictive_lists': profile.in_restrictive_lists if profile else False,
-                'has_legal_issues': profile.has_legal_issues if profile else False,
-                'updated_at': profile.updated_at.strftime('%Y-%m-%d %H:%M:%S') if profile and hasattr(profile, 'updated_at') else client.created_at.strftime('%Y-%m-%d %H:%M:%S')
+                'id': profile.id,
+                'client_id': profile.client_id,
+                'client_name': profile.client.full_name,
+                'client_dni': profile.client.dni,
+                'risk_score': profile.risk_score,
+                'risk_level': ComplianceService.assign_risk_level(profile.risk_score),
+                'is_pep': profile.is_pep,
+                'kyc_status': profile.kyc_status,
+                'dd_level': profile.dd_level,
+                'in_restrictive_lists': profile.in_restrictive_lists,
+                'has_legal_issues': profile.has_legal_issues,
+                'updated_at': profile.updated_at.strftime('%Y-%m-%d %H:%M:%S')
             })
 
         return jsonify({
