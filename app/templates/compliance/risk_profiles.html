@@ -89,6 +89,10 @@
     let profilesTable = null;
 
     $(document).ready(function() {
+        console.log('=== INICIANDO risk_profiles.html ===');
+        console.log('jQuery versión:', $.fn.jquery);
+        console.log('DataTables disponible:', typeof $.fn.DataTable);
+
         initProfilesTable();
 
         $('#btnApplyFilters').on('click', function() {
@@ -97,17 +101,26 @@
     });
 
     function initProfilesTable() {
-        profilesTable = $('#riskProfilesTable').DataTable({
-            processing: true,
-            serverSide: true,
-            ajax: {
-                url: '/compliance/api/risk-profiles',
-                data: function(d) {
-                    d.risk_level = $('#filterRiskLevel').val();
-                    d.kyc_status = $('#filterKYC').val();
-                    d.is_pep = $('#filterPEP').val();
-                }
-            },
+        console.log('=== Iniciando DataTable ===');
+        console.log('Tabla existe:', $('#riskProfilesTable').length);
+
+        try {
+            profilesTable = $('#riskProfilesTable').DataTable({
+                processing: true,
+                serverSide: true,
+                ajax: {
+                    url: '/compliance/api/risk-profiles',
+                    data: function(d) {
+                        console.log('DataTables enviando petición con params:', d);
+                        d.risk_level = $('#filterRiskLevel').val();
+                        d.kyc_status = $('#filterKYC').val();
+                        d.is_pep = $('#filterPEP').val();
+                    },
+                    error: function(xhr, error, thrown) {
+                        console.error('ERROR en AJAX DataTables:', {xhr, error, thrown});
+                        console.error('Response:', xhr.responseText);
+                    }
+                },
             columns: [
                 { data: 'client_name' },
                 { data: 'client_dni' },
@@ -174,6 +187,10 @@
                 url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
             }
         });
+        console.log('DataTable inicializado correctamente');
+        } catch(error) {
+            console.error('ERROR al inicializar DataTable:', error);
+        }
     }
 
     function recalculateRisk(clientId) {
