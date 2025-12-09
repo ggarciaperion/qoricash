@@ -325,3 +325,157 @@ def update_initial_balance():
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
+
+
+@position_bp.route('/api/bank_reconciliation')
+@login_required
+@require_role('Master', 'Operador')
+def get_bank_reconciliation():
+    """
+    API: Obtener datos de reconciliación de saldos bancarios
+
+    Query params:
+        fecha: Fecha en formato YYYY-MM-DD (opcional, por defecto hoy)
+
+    Returns:
+        JSON con:
+        - Lista de bancos con saldos iniciales, movimientos del día, saldos esperados y actuales
+        - Resumen de movimientos del día (solo operaciones COMPLETADAS)
+        - Diferencias/descuadres
+    """
+    try:
+        from app.utils.formatters import now_peru
+        from datetime import datetime as dt, time
+
+        # Obtener fecha del query param o usar fecha actual
+        fecha_param = request.args.get('fecha')
+        if fecha_param:
+            try:
+                fecha_consulta = dt.strptime(fecha_param, '%Y-%m-%d').date()
+            except ValueError:
+                fecha_consulta = now_peru().date()
+        else:
+            fecha_consulta = now_peru().date()
+
+        # Crear inicio y fin del día en Peru
+        inicio_dia = dt.combine(fecha_consulta, time.min)
+        fin_dia = dt.combine(fecha_consulta, time.max)
+
+        # Obtener SOLO operaciones COMPLETADAS del día
+        completed_ops = Operation.query.filter(
+            Operation.status == 'Completada',
+            Operation.created_at >= inicio_dia,
+            Operation.created_at <= fin_dia
+        ).all()
+
+        # Calcular movimientos del día (solo COMPLETADAS)
+        total_usd_in = 0.0  # USD que entró (Ventas)
+        total_usd_out = 0.0  # USD que salió (Compras)
+        total_pen_in = 0.0  # PEN que entró (Compras)
+        total_pen_out = 0.0  # PEN que salió (Ventas)
+
+        for op in completed_ops:
+            if op.operation_type == 'Compra':
+                # Compra: Recibimos USD, Pagamos PEN
+                total_usd_in += float(op.amount_usd)
+                total_pen_out += float(op.amount_pen)
+            else:  # Venta
+                # Venta: Pagamos USD, Recibimos PEN
+                total_usd_out += float(op.amount_usd)
+                total_pen_in += float(op.amount_pen)
+
+        # Movimientos netos del día
+        net_usd_movement = total_usd_in - total_usd_out
+        net_pen_movement = total_pen_in - total_pen_out
+
+        # Obtener todos los bancos registrados
+        all_banks = BankBalance.query.all()
+
+        # Preparar datos de reconciliación por banco
+        banks_data = []
+        total_difference_usd = 0.0
+        total_difference_pen = 0.0
+
+        for bank in all_banks:
+            # Calcular saldos esperados (inicial + movimientos)
+            # NOTA: Los movimientos son GLOBALES, no por banco
+            # El usuario debe distribuir manualmente los saldos entre sus bancos
+            expected_usd = float(bank.initial_balance_usd) + net_usd_movement
+            expected_pen = float(bank.initial_balance_pen) + net_pen_movement
+
+            # Saldos actuales (ingresados manualmente)
+            actual_usd = float(bank.balance_usd)
+            actual_pen = float(bank.balance_pen)
+
+            # Diferencias (descuadres)
+            diff_usd = actual_usd - expected_usd
+            diff_pen = actual_pen - expected_pen
+
+            total_difference_usd += diff_usd
+            total_difference_pen += diff_pen
+
+            banks_data.append({
+                'id': bank.id,
+                'bank_name': bank.bank_name,
+                'usd': {
+                    'initial': float(bank.initial_balance_usd),
+                    'movements': round(net_usd_movement, 2),
+                    'expected': round(expected_usd, 2),
+                    'actual': actual_usd,
+                    'difference': round(diff_usd, 2)
+                },
+                'pen': {
+                    'initial': float(bank.initial_balance_pen),
+                    'movements': round(net_pen_movement, 2),
+                    'expected': round(expected_pen, 2),
+                    'actual': actual_pen,
+                    'difference': round(diff_pen, 2)
+                },
+                'updated_at': bank.updated_at.isoformat() if bank.updated_at else None,
+                'updated_by': bank.updater.username if bank.updater else None
+            })
+
+        # Resumen de movimientos
+        movements_summary = {
+            'usd': {
+                'inflows': round(total_usd_in, 2),
+                'outflows': round(total_usd_out, 2),
+                'net': round(net_usd_movement, 2)
+            },
+            'pen': {
+                'inflows': round(total_pen_in, 2),
+                'outflows': round(total_pen_out, 2),
+                'net': round(net_pen_movement, 2)
+            },
+            'completed_operations': len(completed_ops)
+        }
+
+        # Detectar descuadres críticos (diferencia > $100 o S/300)
+        has_critical_discrepancy = abs(total_difference_usd) > 100 or abs(total_difference_pen) > 300
+
+        return jsonify({
+            'success': True,
+            'fecha': fecha_consulta.isoformat(),
+            'banks': banks_data,
+            'movements_summary': movements_summary,
+            'total_differences': {
+                'usd': round(total_difference_usd, 2),
+                'pen': round(total_difference_pen, 2)
+            },
+            'has_critical_discrepancy': has_critical_discrepancy
+        })
+
+    except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        print("=" * 80)
+        print("ERROR EN /api/bank_reconciliation:")
+        print("=" * 80)
+        print(error_trace)
+        print("=" * 80)
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'details': error_trace
+        }), 500
