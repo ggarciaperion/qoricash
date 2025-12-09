@@ -229,6 +229,17 @@ class Client(db.Model):
 
         ACTUALIZADO: Ahora incluye información del usuario que creó el cliente
         """
+        # NUEVO: Información del usuario que creó el cliente (con manejo de errores)
+        created_by_username = None
+        created_by_role = None
+        if self.created_by:
+            try:
+                created_by_username = self.creator.username if self.creator else None
+                created_by_role = self.creator.role if self.creator else None
+            except Exception:
+                # Si la relación creator no está cargada o hay un error, usar None
+                pass
+
         data = {
             'id': self.id,
             'document_type': self.document_type,
@@ -240,10 +251,9 @@ class Client(db.Model):
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
             'bank_accounts': self.bank_accounts,
-            # NUEVO: Información del usuario que creó el cliente
             'created_by_id': self.created_by,
-            'created_by_username': getattr(self.creator, 'username', None) if self.created_by else None,
-            'created_by_role': getattr(self.creator, 'role', None) if self.created_by else None,
+            'created_by_username': created_by_username,
+            'created_by_role': created_by_role,
         }
 
         if self.document_type == 'RUC':

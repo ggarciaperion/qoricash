@@ -511,17 +511,33 @@ def get_client(client_id):
     - Plataforma/Trader: Solo pueden acceder a sus propios clientes
     - Otros roles: Pueden acceder a cualquier cliente
     """
-    client = ClientService.get_client_by_id(client_id)
+    try:
+        from sqlalchemy.orm import joinedload
+        from app.models.client import Client
 
-    if not client:
-        return jsonify({'success': False, 'message': 'Cliente no encontrado'}), 404
+        # Cargar cliente con relaciones necesarias (eager loading)
+        client = Client.query.options(
+            joinedload(Client.creator)
+        ).filter_by(id=client_id).first()
 
-    # Verificar que Plataforma/Trader solo accedan a sus propios clientes
-    if current_user.role in ['Trader', 'Plataforma']:
-        if client.created_by != current_user.id:
-            return jsonify({'success': False, 'message': 'No tiene permisos para acceder a este cliente'}), 403
+        if not client:
+            return jsonify({'success': False, 'message': 'Cliente no encontrado'}), 404
 
-    return jsonify({'success': True, 'client': client.to_dict(include_stats=True)})
+        # Verificar que Plataforma/Trader solo accedan a sus propios clientes
+        if current_user.role in ['Trader', 'Plataforma']:
+            if client.created_by != current_user.id:
+                return jsonify({'success': False, 'message': 'No tiene permisos para acceder a este cliente'}), 403
+
+        return jsonify({'success': True, 'client': client.to_dict(include_stats=True)})
+
+    except Exception as e:
+        import traceback
+        logger.error(f'Error en get_client({client_id}): {str(e)}')
+        logger.error(traceback.format_exc())
+        return jsonify({
+            'success': False,
+            'error': 'Error interno del servidor'
+        }), 500
 
 
 @clients_bp.route('/api/active')
