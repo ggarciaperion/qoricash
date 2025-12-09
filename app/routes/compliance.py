@@ -300,7 +300,13 @@ def api_risk_profiles():
 @middle_office_required
 def risk_profile_detail(client_id):
     """Detalle de perfil de riesgo de un cliente"""
-    client = Client.query.get_or_404(client_id)
+    from sqlalchemy.orm import joinedload
+
+    # Cargar cliente con operaciones (eager loading)
+    client = Client.query.options(
+        joinedload(Client.operations)
+    ).filter_by(id=client_id).first_or_404()
+
     profile = ClientRiskProfile.query.filter_by(client_id=client_id).first()
 
     return render_template('compliance/risk_profile_detail.html',

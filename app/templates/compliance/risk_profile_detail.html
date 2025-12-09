@@ -266,14 +266,20 @@
 {% block scripts %}
 <script>
 $(document).ready(function() {
-    // Inicializar DataTable para operaciones
-    $('#operationsTable').DataTable({
-        order: [[0, 'desc']],
-        pageLength: 10,
-        language: {
-            url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
-        }
-    });
+    // Inicializar DataTable solo si hay operaciones
+    var table = $('#operationsTable');
+    var hasOperations = table.find('tbody tr').length > 0 &&
+                       !table.find('tbody tr td[colspan]').length;
+
+    if (hasOperations) {
+        table.DataTable({
+            order: [[1, 'desc']], // Ordenar por fecha (columna 1)
+            pageLength: 10,
+            language: {
+                url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
+            }
+        });
+    }
 });
 
 function recalculateRisk() {
