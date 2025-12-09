@@ -15,7 +15,7 @@ class BankBalance(db.Model):
     id = db.Column(db.Integer, primary_key=True)
 
     # Nombre del banco
-    bank_name = db.Column(db.String(50), nullable=False, index=True)
+    bank_name = db.Column(db.String(100), nullable=False, index=True)
 
     # Saldos actuales
     balance_usd = db.Column(db.Numeric(15, 2), nullable=False, default=0)
@@ -47,6 +47,14 @@ class BankBalance(db.Model):
         Returns:
             dict: Representación del saldo bancario
         """
+        # Obtener nombre del usuario que actualizó (con protección)
+        updated_by_name = None
+        try:
+            if self.updated_by:
+                updated_by_name = self.updater.username if self.updater else None
+        except:
+            updated_by_name = None
+
         return {
             'id': self.id,
             'bank_name': self.bank_name,
@@ -55,7 +63,7 @@ class BankBalance(db.Model):
             'initial_balance_usd': float(self.initial_balance_usd),
             'initial_balance_pen': float(self.initial_balance_pen),
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
-            'updated_by': self.updater.username if self.updater else None
+            'updated_by': updated_by_name
         }
 
     @staticmethod
