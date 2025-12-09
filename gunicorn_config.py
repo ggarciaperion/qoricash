@@ -37,7 +37,9 @@ access_log_format = '%(h)s %(l)s %(u)s %(t)s "%(r)s" %(s)s %(b)s "%(f)s" "%(a)s"
 preload_app = False
 
 # Worker temp directory
-worker_tmp_dir = '/dev/shm'
+# Comentado '/dev/shm' porque puede no estar disponible en Render
+# Gunicorn usará el directorio temporal del sistema por defecto
+# worker_tmp_dir = '/dev/shm'
 
 # Process naming
 proc_name = 'qoricash_trading'

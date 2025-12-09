@@ -300,18 +300,19 @@ def api_risk_profiles():
 @middle_office_required
 def risk_profile_detail(client_id):
     """Detalle de perfil de riesgo de un cliente"""
-    from sqlalchemy.orm import joinedload
+    from app.models.operation import Operation
 
-    # Cargar cliente con operaciones (eager loading)
-    client = Client.query.options(
-        joinedload(Client.operations)
-    ).filter_by(id=client_id).first_or_404()
-
+    client = Client.query.get_or_404(client_id)
     profile = ClientRiskProfile.query.filter_by(client_id=client_id).first()
+
+    # Cargar operaciones manualmente (client.operations es dynamic y no soporta joinedload)
+    # Convertir la query a lista para pasarla al template
+    operations = client.operations.order_by(Operation.created_at.desc()).all()
 
     return render_template('compliance/risk_profile_detail.html',
                          client=client,
-                         profile=profile)
+                         profile=profile,
+                         operations=operations)
 
 
 @compliance_bp.route('/api/risk-profiles/<int:client_id>/recalculate', methods=['POST'])
