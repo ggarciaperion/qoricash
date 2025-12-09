@@ -789,16 +789,10 @@ def restrictive_lists():
 
 @compliance_bp.route('/api/pep/<int:client_id>', methods=['POST'])
 @login_required
+@middle_office_required
 @csrf.exempt
 def update_pep_status(client_id):
-    """API: Actualizar estado PEP de un cliente - Trader puede crear, Middle Office puede editar"""
-    # Permitir a Trader, Middle Office y Master
-    if current_user.role not in ['Master', 'Middle Office', 'Trader']:
-        return jsonify({
-            'success': False,
-            'error': 'Acceso denegado. Solo Master, Middle Office y Trader pueden acceder.'
-        }), 403
-
+    """API: Actualizar estado PEP de un cliente - SOLO Master y Middle Office"""
     try:
         data = request.get_json()
 

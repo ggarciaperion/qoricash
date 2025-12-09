@@ -819,94 +819,6 @@ function showExistingFile(previewElementId, fileUrl, fileName) {
 }
 
 /**
- * Toggle PEP fields visibility
- */
-function togglePepFields() {
-    try {
-        const isPepCheckbox = document.getElementById('isPepCheckbox');
-        const pepFieldsSection = document.getElementById('pepFieldsSection');
-
-        if (!isPepCheckbox || !pepFieldsSection) {
-            console.error('Elementos PEP no encontrados');
-            return;
-        }
-
-        const isPepChecked = isPepCheckbox.checked;
-        console.log('Toggle PEP fields:', isPepChecked);
-
-        if (isPepChecked) {
-            pepFieldsSection.style.display = 'block';
-            // Hacer campos requeridos cuando PEP está marcado
-            const pepType = document.getElementById('pepType');
-            const pepPosition = document.getElementById('pepPosition');
-            const pepEntity = document.getElementById('pepEntity');
-
-            if (pepType) pepType.required = true;
-            if (pepPosition) pepPosition.required = true;
-            if (pepEntity) pepEntity.required = true;
-        } else {
-            pepFieldsSection.style.display = 'none';
-            // Quitar requeridos cuando no es PEP
-            const pepType = document.getElementById('pepType');
-            const pepPosition = document.getElementById('pepPosition');
-            const pepEntity = document.getElementById('pepEntity');
-
-            if (pepType) pepType.required = false;
-            if (pepPosition) pepPosition.required = false;
-            if (pepEntity) pepEntity.required = false;
-        }
-    } catch (error) {
-        console.error('Error en togglePepFields:', error);
-    }
-}
-
-/**
- * Save PEP information for a client
- */
-function savePepInfo(clientId) {
-    const isPep = document.getElementById('isPepCheckbox').checked;
-
-    if (!isPep) {
-        return Promise.resolve({ success: true });
-    }
-
-    // Validar campos PEP requeridos
-    const pepType = document.getElementById('pepType').value;
-    const pepPosition = document.getElementById('pepPosition').value.trim();
-    const pepEntity = document.getElementById('pepEntity').value.trim();
-
-    if (!pepType || !pepPosition || !pepEntity) {
-        return Promise.reject(new Error('Debes completar todos los campos obligatorios de PEP (Tipo, Cargo y Entidad)'));
-    }
-
-    const pepData = {
-        is_pep: true,
-        pep_type: pepType,
-        pep_position: pepPosition,
-        pep_entity: pepEntity,
-        pep_designation_date: document.getElementById('pepDesignationDate').value || null,
-        pep_end_date: document.getElementById('pepEndDate').value || null,
-        pep_notes: document.getElementById('pepNotes').value.trim() || null
-    };
-
-    return fetch(`/compliance/api/pep/${clientId}`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': getCSRFToken()
-        },
-        body: JSON.stringify(pepData)
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (!data.success) {
-            throw new Error(data.error || data.message || 'Error al guardar información PEP');
-        }
-        return data;
-    });
-}
-
-/**
  * Guardar cliente (crear o editar)
  */
 function saveClient() {
@@ -1060,46 +972,26 @@ function saveClient() {
                 }
             }
 
-            // Cadena de promesas: archivos -> PEP -> finalizar
-            let uploadPromise = Promise.resolve();
-
+            // Subir archivos si los hay
             if (hasFiles) {
-                uploadPromise = uploadClientDocuments(data.client.id, files);
-            }
-
-            uploadPromise
-                .then(() => {
-                    // Guardar información PEP si está marcado (solo al crear, no al editar)
-                    if (!isEditing) {
-                        return savePepInfo(data.client.id)
-                            .catch(pepError => {
-                                // Si falla PEP, mostrar advertencia pero permitir continuar
-                                console.error('Error al guardar PEP:', pepError);
-                                return {
-                                    success: false,
-                                    pepError: pepError.message
-                                };
-                            });
-                    }
-                    return Promise.resolve({ success: true });
-                })
-                .then((pepResult) => {
-                    hideLoading();
-
-                    // Verificar si hubo error en PEP
-                    if (pepResult && pepResult.pepError) {
-                        showNotification('warning', `Cliente creado exitosamente. Sin embargo, no se pudo guardar la información PEP: ${pepResult.pepError}. Puede marcar como PEP desde el detalle del cliente.`);
-                    } else {
+                uploadClientDocuments(data.client.id, files)
+                    .then(() => {
+                        hideLoading();
                         showNotification('success', data.message);
-                    }
-
-                    bootstrap.Modal.getInstance(document.getElementById('createClientModal')).hide();
-                    setTimeout(() => location.reload(), 1500);
-                })
-                .catch(error => {
-                    hideLoading();
-                    showNotification('error', error.message || 'Error al procesar la información del cliente');
-                });
+                        bootstrap.Modal.getInstance(document.getElementById('createClientModal')).hide();
+                        setTimeout(() => location.reload(), 1500);
+                    })
+                    .catch(error => {
+                        hideLoading();
+                        showNotification('error', error.message || 'Error al procesar documentos del cliente');
+                    });
+            } else {
+                // No hay archivos, finalizar inmediatamente
+                hideLoading();
+                showNotification('success', data.message);
+                bootstrap.Modal.getInstance(document.getElementById('createClientModal')).hide();
+                setTimeout(() => location.reload(), 1500);
+            }
         } else {
             showNotification('error', data.message);
         }
