@@ -17,43 +17,46 @@ def migrate():
         try:
             # Verificar tamaño actual
             print("📊 Verificando tamaño actual del campo bank_name...")
-            result = db.engine.execute(text("""
-                SELECT character_maximum_length
-                FROM information_schema.columns
-                WHERE table_name = 'bank_balances'
-                AND column_name = 'bank_name'
-            """))
 
-            current_size = result.fetchone()
-            if current_size:
-                print(f"   Tamaño actual: {current_size[0]} caracteres")
+            with db.engine.connect() as conn:
+                result = conn.execute(text("""
+                    SELECT character_maximum_length
+                    FROM information_schema.columns
+                    WHERE table_name = 'bank_balances'
+                    AND column_name = 'bank_name'
+                """))
 
-                if current_size[0] >= 100:
-                    print("✅ El campo ya tiene 100 caracteres o más. No se necesita migración.")
-                    return
+                current_size = result.fetchone()
+                if current_size:
+                    print(f"   Tamaño actual: {current_size[0]} caracteres")
 
-            # Ejecutar la migración
-            print("🔧 Ejecutando ALTER TABLE...")
-            db.engine.execute(text("""
-                ALTER TABLE bank_balances
-                ALTER COLUMN bank_name TYPE VARCHAR(100)
-            """))
+                    if current_size[0] >= 100:
+                        print("✅ El campo ya tiene 100 caracteres o más. No se necesita migración.")
+                        return
 
-            # Verificar que se aplicó
-            print("✔️  Verificando cambio...")
-            result = db.engine.execute(text("""
-                SELECT character_maximum_length
-                FROM information_schema.columns
-                WHERE table_name = 'bank_balances'
-                AND column_name = 'bank_name'
-            """))
+                # Ejecutar la migración
+                print("🔧 Ejecutando ALTER TABLE...")
+                conn.execute(text("""
+                    ALTER TABLE bank_balances
+                    ALTER COLUMN bank_name TYPE VARCHAR(100)
+                """))
+                conn.commit()
 
-            new_size = result.fetchone()
-            if new_size and new_size[0] == 100:
-                print(f"✅ MIGRACIÓN COMPLETADA EXITOSAMENTE")
-                print(f"   Nuevo tamaño: {new_size[0]} caracteres")
-            else:
-                print(f"⚠️  Advertencia: Tamaño después de migración: {new_size[0] if new_size else 'No encontrado'}")
+                # Verificar que se aplicó
+                print("✔️  Verificando cambio...")
+                result = conn.execute(text("""
+                    SELECT character_maximum_length
+                    FROM information_schema.columns
+                    WHERE table_name = 'bank_balances'
+                    AND column_name = 'bank_name'
+                """))
+
+                new_size = result.fetchone()
+                if new_size and new_size[0] == 100:
+                    print(f"✅ MIGRACIÓN COMPLETADA EXITOSAMENTE")
+                    print(f"   Nuevo tamaño: {new_size[0]} caracteres")
+                else:
+                    print(f"⚠️  Advertencia: Tamaño después de migración: {new_size[0] if new_size else 'No encontrado'}")
 
         except Exception as e:
             print(f"❌ ERROR durante la migración: {str(e)}")
