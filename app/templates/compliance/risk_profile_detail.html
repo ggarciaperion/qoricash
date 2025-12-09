@@ -212,19 +212,19 @@
                         <table id="operationsTable" class="table table-hover table-sm">
                             <thead>
                                 <tr>
+                                    <th>ID</th>
                                     <th>Fecha</th>
                                     <th>Tipo</th>
-                                    <th>Moneda Origen</th>
-                                    <th>Monto Origen</th>
-                                    <th>Moneda Destino</th>
-                                    <th>Monto Destino</th>
-                                    <th>TC</th>
+                                    <th>Monto USD</th>
+                                    <th>T.C.</th>
+                                    <th>Monto PEN</th>
                                     <th>Estado</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for op in client.operations %}
                                 <tr>
+                                    <td>{{ op.operation_id }}</td>
                                     <td>{{ op.created_at.strftime('%d/%m/%Y %H:%M') if op.created_at else '-' }}</td>
                                     <td>
                                         {% if op.operation_type == 'Compra' %}
@@ -233,18 +233,16 @@
                                             <span class="badge bg-primary">{{ op.operation_type }}</span>
                                         {% endif %}
                                     </td>
-                                    <td>{{ op.currency_from }}</td>
-                                    <td class="text-end">{{ "%.2f"|format(op.amount_from) }}</td>
-                                    <td>{{ op.currency_to }}</td>
-                                    <td class="text-end">{{ "%.2f"|format(op.amount_to) }}</td>
+                                    <td class="text-end">$ {{ "%.2f"|format(op.amount_usd) }}</td>
                                     <td class="text-end">{{ "%.4f"|format(op.exchange_rate) }}</td>
+                                    <td class="text-end">S/ {{ "%.2f"|format(op.amount_pen) }}</td>
                                     <td>
-                                        {% if op.status == 'Completado' %}
+                                        {% if op.status == 'Completada' %}
                                             <span class="badge bg-success">{{ op.status }}</span>
                                         {% elif op.status == 'Cancelado' %}
                                             <span class="badge bg-danger">{{ op.status }}</span>
-                                        {% elif op.status == 'Anulado' %}
-                                            <span class="badge bg-dark">{{ op.status }}</span>
+                                        {% elif op.status == 'En proceso' %}
+                                            <span class="badge bg-info">{{ op.status }}</span>
                                         {% else %}
                                             <span class="badge bg-warning">{{ op.status }}</span>
                                         {% endif %}
@@ -252,7 +250,7 @@
                                 </tr>
                                 {% else %}
                                 <tr>
-                                    <td colspan="8" class="text-center text-muted">No hay operaciones registradas</td>
+                                    <td colspan="7" class="text-center text-muted">No hay operaciones registradas</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
