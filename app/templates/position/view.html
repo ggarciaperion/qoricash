@@ -126,29 +126,19 @@
                         <table class="table table-hover table-bordered align-middle" id="reconciliationTable">
                             <thead class="table-dark">
                                 <tr>
-                                    <th rowspan="2" class="text-center align-middle">Banco</th>
-                                    <th colspan="5" class="text-center bg-primary text-white">USD</th>
-                                    <th colspan="5" class="text-center bg-success text-white">PEN</th>
-                                    <th rowspan="2" class="text-center align-middle">Acciones</th>
-                                </tr>
-                                <tr>
-                                    <!-- USD -->
+                                    <th class="text-center">Cuenta Bancaria</th>
+                                    <th class="text-center">Moneda</th>
                                     <th class="text-center">Saldo Inicial</th>
-                                    <th class="text-center">Movimientos</th>
+                                    <th class="text-center">Movimientos del Día</th>
                                     <th class="text-center">Saldo Esperado</th>
                                     <th class="text-center">Saldo Actual</th>
                                     <th class="text-center">Diferencia</th>
-                                    <!-- PEN -->
-                                    <th class="text-center">Saldo Inicial</th>
-                                    <th class="text-center">Movimientos</th>
-                                    <th class="text-center">Saldo Esperado</th>
-                                    <th class="text-center">Saldo Actual</th>
-                                    <th class="text-center">Diferencia</th>
+                                    <th class="text-center">Acciones</th>
                                 </tr>
                             </thead>
                             <tbody id="reconciliationTableBody">
                                 <tr>
-                                    <td colspan="12" class="text-center">
+                                    <td colspan="8" class="text-center">
                                         <div class="spinner-border text-primary" role="status">
                                             <span class="visually-hidden">Cargando...</span>
                                         </div>
@@ -276,24 +266,34 @@
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header bg-success text-white">
-                <h5 class="modal-title"><i class="bi bi-bank"></i> Agregar Nuevo Banco</h5>
+                <h5 class="modal-title"><i class="bi bi-bank"></i> Agregar Cuenta Bancaria a Reconciliación</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
                 <form id="addBankForm">
                     <div class="mb-3">
-                        <label class="form-label">Nombre del Banco <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" id="newBankName" required placeholder="Ej: BCP, Interbank, BBVA">
+                        <label class="form-label">Cuenta Bancaria de QoriCash <span class="text-danger">*</span></label>
+                        <select class="form-select" id="newBankAccountSelect" required>
+                            <option value="" selected disabled>Seleccionar cuenta bancaria...</option>
+                            <optgroup label="USD - Dólares">
+                                <option value="BCP - USD - 654321">BCP - Cuenta 654321 (USD)</option>
+                                <option value="INTERBANK - USD - 456789">INTERBANK - Cuenta 456789 (USD)</option>
+                                <option value="BANBIF - USD - 369852">BANBIF - Cuenta 369852 (USD)</option>
+                                <option value="PICHINCHA - USD - 159796">PICHINCHA - Cuenta 159796 (USD)</option>
+                            </optgroup>
+                            <optgroup label="PEN - Soles">
+                                <option value="BCP - PEN - 123456">BCP - Cuenta 123456 (PEN)</option>
+                                <option value="INTERBANK - PEN - 987654">INTERBANK - Cuenta 987654 (PEN)</option>
+                                <option value="BANBIF - PEN - 741852">BANBIF - Cuenta 741852 (PEN)</option>
+                                <option value="PICHINCHA - PEN - 753951">PICHINCHA - Cuenta 753951 (PEN)</option>
+                            </optgroup>
+                        </select>
+                        <small class="form-text text-muted">Selecciona la cuenta de QoriCash que deseas agregar a la reconciliación</small>
                     </div>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <label class="form-label">Saldo Inicial USD</label>
-                            <input type="number" step="0.01" class="form-control" id="newBankInitialUSD" value="0.00">
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Saldo Inicial PEN</label>
-                            <input type="number" step="0.01" class="form-control" id="newBankInitialPEN" value="0.00">
-                        </div>
+                    <div class="mb-3">
+                        <label class="form-label">Saldo Inicial</label>
+                        <input type="number" step="0.01" class="form-control" id="newBankInitialBalance" value="0.00">
+                        <small class="form-text text-muted">Ingresa el saldo inicial de esta cuenta al inicio del día</small>
                     </div>
                 </form>
             </div>
@@ -309,7 +309,7 @@
 
 <!-- Modal Editar Saldos -->
 <div class="modal fade" id="editBalanceModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header bg-primary text-white">
                 <h5 class="modal-title"><i class="bi bi-pencil"></i> Editar Saldos - <span id="editBankName"></span></h5>
@@ -317,46 +317,22 @@
             </div>
             <div class="modal-body">
                 <input type="hidden" id="editBankId">
+                <input type="hidden" id="editBankCurrency">
 
-                <div class="row">
-                    <div class="col-md-6">
-                        <div class="card">
-                            <div class="card-header bg-light">
-                                <strong><i class="bi bi-currency-dollar"></i> USD</strong>
-                            </div>
-                            <div class="card-body">
-                                <div class="mb-3">
-                                    <label class="form-label">Saldo Inicial USD</label>
-                                    <input type="number" step="0.01" class="form-control" id="editInitialUSD">
-                                    <small class="form-text text-muted">Ingresado al inicio del día</small>
-                                </div>
-                                <div class="mb-3">
-                                    <label class="form-label">Saldo Actual USD</label>
-                                    <input type="number" step="0.01" class="form-control" id="editActualUSD">
-                                    <small class="form-text text-muted">Saldo real al momento de revisar</small>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="card">
-                            <div class="card-header bg-light">
-                                <strong><i class="bi bi-cash-coin"></i> PEN</strong>
-                            </div>
-                            <div class="card-body">
-                                <div class="mb-3">
-                                    <label class="form-label">Saldo Inicial PEN</label>
-                                    <input type="number" step="0.01" class="form-control" id="editInitialPEN">
-                                    <small class="form-text text-muted">Ingresado al inicio del día</small>
-                                </div>
-                                <div class="mb-3">
-                                    <label class="form-label">Saldo Actual PEN</label>
-                                    <input type="number" step="0.01" class="form-control" id="editActualPEN">
-                                    <small class="form-text text-muted">Saldo real al momento de revisar</small>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i> Cuenta: <strong id="editBankFullName"></strong>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Saldo Inicial <span id="editCurrencySymbol"></span></label>
+                    <input type="number" step="0.01" class="form-control" id="editInitialBalance">
+                    <small class="form-text text-muted">Ingresado al inicio del día (9:00 AM)</small>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Saldo Actual <span id="editCurrencySymbol2"></span></label>
+                    <input type="number" step="0.01" class="form-control" id="editActualBalance">
+                    <small class="form-text text-muted">Saldo real al momento de revisar (6:00 PM)</small>
                 </div>
             </div>
             <div class="modal-footer">
@@ -1078,9 +1054,9 @@ function renderReconciliationTable(banks) {
     if (!banks || banks.length === 0) {
         tbody.html(`
             <tr>
-                <td colspan="12" class="text-center">
+                <td colspan="8" class="text-center">
                     <div class="alert alert-info mb-0">
-                        <i class="bi bi-info-circle"></i> No hay bancos registrados. Haz clic en "Agregar Banco" para comenzar.
+                        <i class="bi bi-info-circle"></i> No hay cuentas bancarias registradas. Haz clic en "Agregar Banco" para comenzar.
                     </div>
                 </td>
             </tr>
@@ -1089,30 +1065,47 @@ function renderReconciliationTable(banks) {
     }
 
     banks.forEach(function(bank) {
-        // Determinar color de diferencias
-        const usdDiffClass = bank.usd.difference === 0 ? 'text-success' : (Math.abs(bank.usd.difference) > 10 ? 'text-danger fw-bold' : 'text-warning');
-        const penDiffClass = bank.pen.difference === 0 ? 'text-success' : (Math.abs(bank.pen.difference) > 30 ? 'text-danger fw-bold' : 'text-warning');
+        // Determinar la moneda basándose en el nombre del banco
+        // Formato esperado: "BCP USD (654321)" o "INTERBANK PEN (987654)"
+        let currency = 'USD';  // Default
+        let initial = bank.usd.initial;
+        let movements = bank.usd.movements;
+        let expected = bank.usd.expected;
+        let actual = bank.usd.actual;
+        let difference = bank.usd.difference;
+        let symbol = '$';
 
-        // Iconos para diferencias
-        const usdDiffIcon = bank.usd.difference === 0 ? '<i class="bi bi-check-circle-fill"></i>' : '<i class="bi bi-exclamation-triangle-fill"></i>';
-        const penDiffIcon = bank.pen.difference === 0 ? '<i class="bi bi-check-circle-fill"></i>' : '<i class="bi bi-exclamation-triangle-fill"></i>';
+        if (bank.bank_name.includes('PEN')) {
+            currency = 'PEN';
+            initial = bank.pen.initial;
+            movements = bank.pen.movements;
+            expected = bank.pen.expected;
+            actual = bank.pen.actual;
+            difference = bank.pen.difference;
+            symbol = 'S/';
+        }
+
+        // Determinar color de diferencia
+        const threshold = currency === 'USD' ? 10 : 30;
+        const diffClass = difference === 0 ? 'text-success' : (Math.abs(difference) > threshold ? 'text-danger fw-bold' : 'text-warning');
+
+        // Icono para diferencia
+        const diffIcon = difference === 0 ? '<i class="bi bi-check-circle-fill"></i>' : '<i class="bi bi-exclamation-triangle-fill"></i>';
+
+        // Color de badge de moneda
+        const currencyBadge = currency === 'USD'
+            ? '<span class="badge bg-primary">USD</span>'
+            : '<span class="badge bg-success">PEN</span>';
 
         const row = `
             <tr>
                 <td class="fw-bold"><i class="bi bi-bank"></i> ${bank.bank_name}</td>
-                <!-- USD -->
-                <td class="text-end">$${formatNumber(bank.usd.initial)}</td>
-                <td class="text-end text-primary fw-bold">${bank.usd.movements >= 0 ? '+' : ''}$${formatNumber(bank.usd.movements)}</td>
-                <td class="text-end bg-light">$${formatNumber(bank.usd.expected)}</td>
-                <td class="text-end">$${formatNumber(bank.usd.actual)}</td>
-                <td class="text-end ${usdDiffClass}">${usdDiffIcon} $${formatNumber(bank.usd.difference)}</td>
-                <!-- PEN -->
-                <td class="text-end">S/${formatNumber(bank.pen.initial)}</td>
-                <td class="text-end text-success fw-bold">${bank.pen.movements >= 0 ? '+' : ''}S/${formatNumber(bank.pen.movements)}</td>
-                <td class="text-end bg-light">S/${formatNumber(bank.pen.expected)}</td>
-                <td class="text-end">S/${formatNumber(bank.pen.actual)}</td>
-                <td class="text-end ${penDiffClass}">${penDiffIcon} S/${formatNumber(bank.pen.difference)}</td>
-                <!-- Acciones -->
+                <td class="text-center">${currencyBadge}</td>
+                <td class="text-end">${symbol}${formatNumber(initial)}</td>
+                <td class="text-end fw-bold text-info">${movements >= 0 ? '+' : ''}${symbol}${formatNumber(movements)}</td>
+                <td class="text-end bg-light">${symbol}${formatNumber(expected)}</td>
+                <td class="text-end">${symbol}${formatNumber(actual)}</td>
+                <td class="text-end ${diffClass}">${diffIcon} ${symbol}${formatNumber(difference)}</td>
                 <td class="text-center">
                     <button class="btn btn-sm btn-primary" onclick='openEditBalanceModal(${JSON.stringify(bank)})' title="Editar saldos">
                         <i class="bi bi-pencil"></i>
@@ -1137,54 +1130,67 @@ function renderDiscrepancyAlert(data) {
 }
 
 function openAddBankModal() {
-    $('#newBankName').val('');
-    $('#newBankInitialUSD').val('0.00');
-    $('#newBankInitialPEN').val('0.00');
+    $('#newBankAccountSelect').val('');
+    $('#newBankInitialBalance').val('0.00');
 
     const modal = new bootstrap.Modal(document.getElementById('addBankModal'));
     modal.show();
 }
 
 function addNewBank() {
-    const bankName = $('#newBankName').val().trim();
-    const initialUSD = parseFloat($('#newBankInitialUSD').val()) || 0;
-    const initialPEN = parseFloat($('#newBankInitialPEN').val()) || 0;
+    const accountValue = $('#newBankAccountSelect').val();
+    const initialBalance = parseFloat($('#newBankInitialBalance').val()) || 0;
 
-    if (!bankName) {
-        showNotification('Por favor ingresa el nombre del banco', 'warning');
+    if (!accountValue) {
+        showNotification('Por favor selecciona una cuenta bancaria', 'warning');
         return;
     }
 
-    // Crear el banco con saldo inicial USD
+    // Parse el valor seleccionado: "BCP - USD - 654321"
+    const parts = accountValue.split(' - ');
+    if (parts.length !== 3) {
+        showNotification('Error en el formato de la cuenta seleccionada', 'danger');
+        return;
+    }
+
+    const bankName = parts[0].trim();        // "BCP"
+    const currency = parts[1].trim();        // "USD" o "PEN"
+    const accountNumber = parts[2].trim();   // "654321"
+
+    // Crear nombre completo para el banco: "BCP USD (654321)"
+    const fullBankName = `${bankName} ${currency} (${accountNumber})`;
+
+    // Crear el banco con saldo inicial en la moneda correspondiente
     ajaxRequest('/position/api/update_initial_balance', 'POST', {
-        bank_name: bankName,
-        currency: 'USD',
-        amount: initialUSD
+        bank_name: fullBankName,
+        currency: currency,
+        amount: initialBalance
     }, function(response) {
         if (response.success) {
-            // Ahora actualizar el saldo inicial PEN
-            ajaxRequest('/position/api/update_initial_balance', 'POST', {
-                bank_name: bankName,
-                currency: 'PEN',
-                amount: initialPEN
-            }, function(response2) {
-                if (response2.success) {
-                    showNotification('Banco agregado exitosamente', 'success');
-                    $('#addBankModal').modal('hide');
-                    refreshReconciliation();
-                }
-            });
+            showNotification('Cuenta bancaria agregada exitosamente', 'success');
+            $('#addBankModal').modal('hide');
+            refreshReconciliation();
         }
     });
 }
 
 function openEditBalanceModal(bank) {
+    // Determinar moneda basándose en el nombre
+    const currency = bank.bank_name.includes('PEN') ? 'PEN' : 'USD';
+    const symbol = currency === 'USD' ? '$' : 'S/';
+
+    // Obtener valores correctos según la moneda
+    const initial = currency === 'USD' ? bank.usd.initial : bank.pen.initial;
+    const actual = currency === 'USD' ? bank.usd.actual : bank.pen.actual;
+
     $('#editBankId').val(bank.id);
     $('#editBankName').text(bank.bank_name);
-    $('#editInitialUSD').val(bank.usd.initial);
-    $('#editActualUSD').val(bank.usd.actual);
-    $('#editInitialPEN').val(bank.pen.initial);
-    $('#editActualPEN').val(bank.pen.actual);
+    $('#editBankFullName').text(bank.bank_name);
+    $('#editBankCurrency').val(currency);
+    $('#editCurrencySymbol').text(`(${symbol})`);
+    $('#editCurrencySymbol2').text(`(${symbol})`);
+    $('#editInitialBalance').val(initial);
+    $('#editActualBalance').val(actual);
 
     const modal = new bootstrap.Modal(document.getElementById('editBalanceModal'));
     modal.show();
@@ -1192,52 +1198,33 @@ function openEditBalanceModal(bank) {
 
 function saveBalanceEdits() {
     const bankName = $('#editBankName').text();
-    const initialUSD = parseFloat($('#editInitialUSD').val()) || 0;
-    const actualUSD = parseFloat($('#editActualUSD').val()) || 0;
-    const initialPEN = parseFloat($('#editInitialPEN').val()) || 0;
-    const actualPEN = parseFloat($('#editActualPEN').val()) || 0;
+    const currency = $('#editBankCurrency').val();
+    const initialBalance = parseFloat($('#editInitialBalance').val()) || 0;
+    const actualBalance = parseFloat($('#editActualBalance').val()) || 0;
 
     // Validar que los valores no sean negativos
-    if (initialUSD < 0 || actualUSD < 0 || initialPEN < 0 || actualPEN < 0) {
+    if (initialBalance < 0 || actualBalance < 0) {
         showNotification('Los saldos no pueden ser negativos', 'warning');
         return;
     }
 
-    // Actualizar saldo inicial USD
+    // Actualizar saldo inicial
     ajaxRequest('/position/api/update_initial_balance', 'POST', {
         bank_name: bankName,
-        currency: 'USD',
-        amount: initialUSD
+        currency: currency,
+        amount: initialBalance
     }, function(response1) {
         if (response1.success) {
-            // Actualizar saldo inicial PEN
-            ajaxRequest('/position/api/update_initial_balance', 'POST', {
+            // Actualizar saldo actual
+            ajaxRequest('/position/api/update_balance', 'POST', {
                 bank_name: bankName,
-                currency: 'PEN',
-                amount: initialPEN
+                currency: currency,
+                amount: actualBalance
             }, function(response2) {
                 if (response2.success) {
-                    // Actualizar saldo actual USD
-                    ajaxRequest('/position/api/update_balance', 'POST', {
-                        bank_name: bankName,
-                        currency: 'USD',
-                        amount: actualUSD
-                    }, function(response3) {
-                        if (response3.success) {
-                            // Actualizar saldo actual PEN
-                            ajaxRequest('/position/api/update_balance', 'POST', {
-                                bank_name: bankName,
-                                currency: 'PEN',
-                                amount: actualPEN
-                            }, function(response4) {
-                                if (response4.success) {
-                                    showNotification('Saldos actualizados exitosamente', 'success');
-                                    $('#editBalanceModal').modal('hide');
-                                    refreshReconciliation();
-                                }
-                            });
-                        }
-                    });
+                    showNotification('Saldos actualizados exitosamente', 'success');
+                    $('#editBalanceModal').modal('hide');
+                    refreshReconciliation();
                 }
             });
         }

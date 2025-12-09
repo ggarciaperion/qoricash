@@ -400,12 +400,13 @@ def get_bank_reconciliation():
             # Calcular saldos esperados (inicial + movimientos)
             # NOTA: Los movimientos son GLOBALES, no por banco
             # El usuario debe distribuir manualmente los saldos entre sus bancos
-            expected_usd = float(bank.initial_balance_usd) + net_usd_movement
-            expected_pen = float(bank.initial_balance_pen) + net_pen_movement
+            initial_usd = float(bank.initial_balance_usd or 0)
+            initial_pen = float(bank.initial_balance_pen or 0)
+            actual_usd = float(bank.balance_usd or 0)
+            actual_pen = float(bank.balance_pen or 0)
 
-            # Saldos actuales (ingresados manualmente)
-            actual_usd = float(bank.balance_usd)
-            actual_pen = float(bank.balance_pen)
+            expected_usd = initial_usd + net_usd_movement
+            expected_pen = initial_pen + net_pen_movement
 
             # Diferencias (descuadres)
             diff_usd = actual_usd - expected_usd
@@ -414,25 +415,35 @@ def get_bank_reconciliation():
             total_difference_usd += diff_usd
             total_difference_pen += diff_pen
 
+            # Obtener nombre del usuario que actualizó (con try-except por si hay error en la relación)
+            updated_by_name = None
+            try:
+                if bank.updated_by:
+                    from app.models.user import User
+                    updater = User.query.get(bank.updated_by)
+                    updated_by_name = updater.username if updater else None
+            except:
+                updated_by_name = None
+
             banks_data.append({
                 'id': bank.id,
                 'bank_name': bank.bank_name,
                 'usd': {
-                    'initial': float(bank.initial_balance_usd),
+                    'initial': initial_usd,
                     'movements': round(net_usd_movement, 2),
                     'expected': round(expected_usd, 2),
                     'actual': actual_usd,
                     'difference': round(diff_usd, 2)
                 },
                 'pen': {
-                    'initial': float(bank.initial_balance_pen),
+                    'initial': initial_pen,
                     'movements': round(net_pen_movement, 2),
                     'expected': round(expected_pen, 2),
                     'actual': actual_pen,
                     'difference': round(diff_pen, 2)
                 },
                 'updated_at': bank.updated_at.isoformat() if bank.updated_at else None,
-                'updated_by': bank.updater.username if bank.updater else None
+                'updated_by': updated_by_name
             })
 
         # Resumen de movimientos
