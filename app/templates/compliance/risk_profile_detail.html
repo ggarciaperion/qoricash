@@ -1,0 +1,317 @@
+{% extends "base.html" %}
+
+{% block title %}Perfil de Riesgo - {{ client.full_name }} - QoriCash Trading{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-0">Perfil de Riesgo - {{ client.full_name }}</h2>
+            <p class="text-muted">DNI: {{ client.dni }}</p>
+        </div>
+        <div>
+            <button class="btn btn-primary" onclick="recalculateRisk()">
+                <i class="bi bi-calculator"></i> Recalcular Perfil
+            </button>
+            <a href="/compliance/risk-profiles" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Volver
+            </a>
+        </div>
+    </div>
+
+    <!-- Información del Cliente -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-person-circle"></i> Datos del Cliente</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm mb-0">
+                        <tr>
+                            <th width="40%">Nombre:</th>
+                            <td>{{ client.full_name }}</td>
+                        </tr>
+                        <tr>
+                            <th>DNI:</th>
+                            <td>{{ client.dni }}</td>
+                        </tr>
+                        <tr>
+                            <th>Teléfono:</th>
+                            <td>{{ client.phone or '-' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Email:</th>
+                            <td>{{ client.email or '-' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Fecha Registro:</th>
+                            <td>{{ client.created_at.strftime('%d/%m/%Y') if client.created_at else '-' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Estado:</th>
+                            <td>
+                                {% if client.active %}
+                                    <span class="badge bg-success">Activo</span>
+                                {% else %}
+                                    <span class="badge bg-danger">Inactivo</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Score de Riesgo -->
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0"><i class="bi bi-speedometer2"></i> Evaluación de Riesgo</h5>
+                </div>
+                <div class="card-body text-center">
+                    {% if profile %}
+                        {% set score = profile.risk_score %}
+                        {% if score >= 76 %}
+                            {% set color = 'danger' %}
+                            {% set level = 'Crítico' %}
+                        {% elif score >= 51 %}
+                            {% set color = 'warning' %}
+                            {% set level = 'Alto' %}
+                        {% elif score >= 26 %}
+                            {% set color = 'info' %}
+                            {% set level = 'Medio' %}
+                        {% else %}
+                            {% set color = 'success' %}
+                            {% set level = 'Bajo' %}
+                        {% endif %}
+
+                        <h1 class="display-1 mb-3 text-{{ color }}">{{ score }}</h1>
+                        <h3><span class="badge bg-{{ color }}">{{ level }}</span></h3>
+                        <p class="text-muted mt-3">
+                            Última actualización: {{ profile.updated_at.strftime('%d/%m/%Y %H:%M') if profile.updated_at else '-' }}
+                        </p>
+                    {% else %}
+                        <p class="text-muted">No hay perfil de riesgo calculado</p>
+                        <button class="btn btn-primary" onclick="recalculateRisk()">
+                            Calcular Ahora
+                        </button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Detalles del Perfil -->
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="bi bi-shield-check"></i> Detalles de Compliance</h5>
+                </div>
+                <div class="card-body">
+                    {% if profile %}
+                    <table class="table table-sm mb-0">
+                        <tr>
+                            <th width="50%">Estado KYC:</th>
+                            <td>
+                                {% if profile.kyc_status == 'Aprobado' %}
+                                    <span class="badge bg-success">{{ profile.kyc_status }}</span>
+                                {% elif profile.kyc_status == 'Rechazado' %}
+                                    <span class="badge bg-danger">{{ profile.kyc_status }}</span>
+                                {% elif profile.kyc_status == 'En Proceso' %}
+                                    <span class="badge bg-info">{{ profile.kyc_status }}</span>
+                                {% else %}
+                                    <span class="badge bg-warning">{{ profile.kyc_status }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>PEP (Persona Expuesta):</th>
+                            <td>
+                                {% if profile.is_pep %}
+                                    <i class="bi bi-check-circle-fill text-warning"></i> Sí
+                                {% else %}
+                                    <i class="bi bi-x-circle text-muted"></i> No
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Due Diligence:</th>
+                            <td>
+                                {% if profile.dd_level %}
+                                    <span class="badge bg-secondary">{{ profile.dd_level }}</span>
+                                {% else %}
+                                    <span class="text-muted">No asignado</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Listas Restrictivas:</th>
+                            <td>
+                                {% if profile.in_restrictive_lists %}
+                                    <i class="bi bi-exclamation-triangle-fill text-danger"></i> Sí
+                                {% else %}
+                                    <i class="bi bi-check-circle text-success"></i> No
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Problemas Legales:</th>
+                            <td>
+                                {% if profile.has_legal_issues %}
+                                    <i class="bi bi-exclamation-triangle-fill text-danger"></i> Sí
+                                {% else %}
+                                    <i class="bi bi-check-circle text-success"></i> No
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>País de Riesgo:</th>
+                            <td>
+                                {% if profile.high_risk_country %}
+                                    <i class="bi bi-exclamation-triangle-fill text-warning"></i> Sí
+                                {% else %}
+                                    <i class="bi bi-check-circle text-success"></i> No
+                                {% endif %}
+                            </td>
+                        </tr>
+                    </table>
+                    {% else %}
+                    <p class="text-muted">No hay datos de compliance disponibles</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notas del Perfil -->
+    {% if profile and profile.notes %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-journal-text"></i> Notas y Observaciones</h5>
+                </div>
+                <div class="card-body">
+                    <p class="mb-0">{{ profile.notes }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Historial de Operaciones -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-clock-history"></i> Historial de Operaciones</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table id="operationsTable" class="table table-hover table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Tipo</th>
+                                    <th>Moneda Origen</th>
+                                    <th>Monto Origen</th>
+                                    <th>Moneda Destino</th>
+                                    <th>Monto Destino</th>
+                                    <th>TC</th>
+                                    <th>Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for op in client.operations %}
+                                <tr>
+                                    <td>{{ op.created_at.strftime('%d/%m/%Y %H:%M') if op.created_at else '-' }}</td>
+                                    <td>
+                                        {% if op.operation_type == 'Compra' %}
+                                            <span class="badge bg-success">{{ op.operation_type }}</span>
+                                        {% else %}
+                                            <span class="badge bg-primary">{{ op.operation_type }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ op.currency_from }}</td>
+                                    <td class="text-end">{{ "%.2f"|format(op.amount_from) }}</td>
+                                    <td>{{ op.currency_to }}</td>
+                                    <td class="text-end">{{ "%.2f"|format(op.amount_to) }}</td>
+                                    <td class="text-end">{{ "%.4f"|format(op.exchange_rate) }}</td>
+                                    <td>
+                                        {% if op.status == 'Completado' %}
+                                            <span class="badge bg-success">{{ op.status }}</span>
+                                        {% elif op.status == 'Cancelado' %}
+                                            <span class="badge bg-danger">{{ op.status }}</span>
+                                        {% elif op.status == 'Anulado' %}
+                                            <span class="badge bg-dark">{{ op.status }}</span>
+                                        {% else %}
+                                            <span class="badge bg-warning">{{ op.status }}</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="8" class="text-center text-muted">No hay operaciones registradas</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    // Inicializar DataTable para operaciones
+    $('#operationsTable').DataTable({
+        order: [[0, 'desc']],
+        pageLength: 10,
+        language: {
+            url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
+        }
+    });
+});
+
+function recalculateRisk() {
+    Swal.fire({
+        title: '¿Recalcular Perfil de Riesgo?',
+        text: 'Se recalculará el score basado en las operaciones y datos actuales',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, recalcular',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            $.ajax({
+                url: '/compliance/api/risk-profiles/{{ client.id }}/recalculate',
+                method: 'POST',
+                success: function(response) {
+                    if (response.success) {
+                        Swal.fire({
+                            title: 'Perfil Recalculado',
+                            html: `<p>Nuevo score: <strong>${response.data.score}</strong></p>
+                                   <p>Nivel: <strong>${response.data.level}</strong></p>`,
+                            icon: 'success',
+                            confirmButtonText: 'Aceptar'
+                        }).then(() => {
+                            location.reload();
+                        });
+                    } else {
+                        showNotification(response.error || 'Error al recalcular', 'error');
+                    }
+                },
+                error: function() {
+                    showNotification('Error al recalcular perfil', 'error');
+                }
+            });
+        }
+    });
+}
+</script>
+{% endblock %}
