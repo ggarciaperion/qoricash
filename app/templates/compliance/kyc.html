@@ -191,7 +191,7 @@ function mostrarClientes(clientes) {
                 <td><small>${cliente.created_at}</small></td>
                 <td>
                     <div class="btn-group btn-group-sm" role="group">
-                        <a href="/clients/detail/${cliente.client_id}" class="btn btn-info" target="_blank" title="Ver Cliente Completo">
+                        <a href="/clients/detail/${cliente.client_id}" class="btn btn-info" title="Ver Cliente Completo">
                             <i class="bi bi-eye"></i> Ver
                         </a>
                         <button class="btn btn-success" onclick="abrirModalAprobar(${cliente.client_id}, '${escaparTexto(cliente.client_name)}', '${cliente.client_dni}')" title="Aprobar KYC">
