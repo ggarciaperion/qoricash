@@ -441,6 +441,18 @@ def get_bank_reconciliation():
         total_difference_usd = total_actual_usd - expected_total_usd
         total_difference_pen = total_actual_pen - expected_total_pen
 
+        # DEBUG: Log de cálculos para diagnóstico
+        print("=" * 80)
+        print(f"DEBUG RECONCILIACIÓN - Fecha: {fecha_consulta}")
+        print(f"Número de bancos: {len(all_banks)}")
+        print(f"Movimientos del día - USD IN: ${total_usd_in}, USD OUT: ${total_usd_out}")
+        print(f"Movimientos netos - USD: ${net_usd_movement}, PEN: S/{net_pen_movement}")
+        print(f"Saldos INICIALES totales - USD: ${total_initial_usd}, PEN: S/{total_initial_pen}")
+        print(f"Saldos ACTUALES totales - USD: ${total_actual_usd}, PEN: S/{total_actual_pen}")
+        print(f"Saldos ESPERADOS totales - USD: ${expected_total_usd}, PEN: S/{expected_total_pen}")
+        print(f"DIFERENCIAS totales - USD: ${total_difference_usd}, PEN: S/{total_difference_pen}")
+        print("=" * 80)
+
         # Preparar datos de reconciliación por banco
         banks_data = []
 
