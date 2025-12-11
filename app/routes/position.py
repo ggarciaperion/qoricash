@@ -427,29 +427,39 @@ def get_bank_reconciliation():
         # Obtener todos los bancos registrados
         all_banks = BankBalance.query.all()
 
+        # Calcular totales globales (sumas de todos los bancos)
+        total_initial_usd = sum(float(bank.initial_balance_usd or 0) for bank in all_banks)
+        total_initial_pen = sum(float(bank.initial_balance_pen or 0) for bank in all_banks)
+        total_actual_usd = sum(float(bank.balance_usd or 0) for bank in all_banks)
+        total_actual_pen = sum(float(bank.balance_pen or 0) for bank in all_banks)
+
+        # Calcular saldos esperados totales (inicial + movimientos UNA SOLA VEZ)
+        expected_total_usd = total_initial_usd + net_usd_movement
+        expected_total_pen = total_initial_pen + net_pen_movement
+
+        # Calcular diferencias totales (UNA SOLA VEZ, no multiplicado por número de bancos)
+        total_difference_usd = total_actual_usd - expected_total_usd
+        total_difference_pen = total_actual_pen - expected_total_pen
+
         # Preparar datos de reconciliación por banco
         banks_data = []
-        total_difference_usd = 0.0
-        total_difference_pen = 0.0
 
         for bank in all_banks:
-            # Calcular saldos esperados (inicial + movimientos)
-            # NOTA: Los movimientos son GLOBALES, no por banco
-            # El usuario debe distribuir manualmente los saldos entre sus bancos
+            # Obtener saldos individuales del banco
             initial_usd = float(bank.initial_balance_usd or 0)
             initial_pen = float(bank.initial_balance_pen or 0)
             actual_usd = float(bank.balance_usd or 0)
             actual_pen = float(bank.balance_pen or 0)
 
-            expected_usd = initial_usd + net_usd_movement
-            expected_pen = initial_pen + net_pen_movement
+            # Para cada banco, mostramos los movimientos globales como referencia
+            # pero NO los sumamos para calcular diferencias individuales
+            # ya que los movimientos afectan a todos los bancos en conjunto
+            expected_usd = initial_usd  # Sin sumar movimientos
+            expected_pen = initial_pen  # Sin sumar movimientos
 
-            # Diferencias (descuadres)
-            diff_usd = actual_usd - expected_usd
-            diff_pen = actual_pen - expected_pen
-
-            total_difference_usd += diff_usd
-            total_difference_pen += diff_pen
+            # Diferencias individuales (solo para referencia por banco)
+            diff_usd = actual_usd - initial_usd
+            diff_pen = actual_pen - initial_pen
 
             # Obtener nombre del usuario que actualizó (con try-except por si hay error en la relación)
             updated_by_name = None
