@@ -404,6 +404,12 @@ def get_bank_reconciliation():
             Operation.created_at <= fin_dia
         ).all()
 
+        # DEBUG: Log de operaciones encontradas
+        print("=" * 80)
+        print(f"DEBUG OPERACIONES - Fecha: {fecha_consulta}")
+        print(f"Total operaciones completadas encontradas: {len(completed_ops)}")
+        print("-" * 80)
+
         # Calcular movimientos del día (solo COMPLETADAS)
         total_usd_in = 0.0  # USD que entró (Ventas)
         total_usd_out = 0.0  # USD que salió (Compras)
@@ -411,6 +417,8 @@ def get_bank_reconciliation():
         total_pen_out = 0.0  # PEN que salió (Ventas)
 
         for op in completed_ops:
+            print(f"Op {op.operation_id}: {op.operation_type} | USD: ${float(op.amount_usd)} | PEN: S/{float(op.amount_pen)} | Created: {op.created_at} | Completed: {op.completed_at}")
+
             if op.operation_type == 'Compra':
                 # Compra: Recibimos USD, Pagamos PEN
                 total_usd_in += float(op.amount_usd)
@@ -419,6 +427,8 @@ def get_bank_reconciliation():
                 # Venta: Pagamos USD, Recibimos PEN
                 total_usd_out += float(op.amount_usd)
                 total_pen_in += float(op.amount_pen)
+
+        print("-" * 80)
 
         # Movimientos netos del día
         net_usd_movement = total_usd_in - total_usd_out
@@ -445,12 +455,15 @@ def get_bank_reconciliation():
         print("=" * 80)
         print(f"DEBUG RECONCILIACIÓN - Fecha: {fecha_consulta}")
         print(f"Número de bancos: {len(all_banks)}")
-        print(f"Movimientos del día - USD IN: ${total_usd_in}, USD OUT: ${total_usd_out}")
+        print("\nBANCOS REGISTRADOS:")
+        for bank in all_banks:
+            print(f"  - {bank.bank_name}: Inicial USD=${float(bank.initial_balance_usd or 0)}, Actual USD=${float(bank.balance_usd or 0)} | Inicial PEN=S/{float(bank.initial_balance_pen or 0)}, Actual PEN=S/{float(bank.balance_pen or 0)}")
+        print(f"\nMovimientos del día - USD IN: ${total_usd_in}, USD OUT: ${total_usd_out}")
         print(f"Movimientos netos - USD: ${net_usd_movement}, PEN: S/{net_pen_movement}")
-        print(f"Saldos INICIALES totales - USD: ${total_initial_usd}, PEN: S/{total_initial_pen}")
+        print(f"\nSaldos INICIALES totales - USD: ${total_initial_usd}, PEN: S/{total_initial_pen}")
         print(f"Saldos ACTUALES totales - USD: ${total_actual_usd}, PEN: S/{total_actual_pen}")
         print(f"Saldos ESPERADOS totales - USD: ${expected_total_usd}, PEN: S/{expected_total_pen}")
-        print(f"DIFERENCIAS totales - USD: ${total_difference_usd}, PEN: S/{total_difference_pen}")
+        print(f"\nDIFERENCIAS totales - USD: ${total_difference_usd}, PEN: S/{total_difference_pen}")
         print("=" * 80)
 
         # Preparar datos de reconciliación por banco
