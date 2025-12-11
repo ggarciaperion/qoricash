@@ -1018,7 +1018,7 @@ function loadReconciliation(fecha = null) {
             reconciliationData = response;
             renderReconciliationSummary(response.movements_summary);
             renderReconciliationTable(response.banks);
-            renderDiscrepancyAlert(response);
+            // Ya no llamamos renderDiscrepancyAlert aquí - lo hace renderReconciliationTable
         }
     });
 }
@@ -1061,6 +1061,8 @@ function renderReconciliationTable(banks) {
                 </td>
             </tr>
         `);
+        // Sin bancos, sin descuadre
+        renderDiscrepancyAlert(0, 0);
         return;
     }
 
@@ -1215,17 +1217,35 @@ function renderReconciliationTable(banks) {
                 </td>
             </tr>
         `);
+        renderDiscrepancyAlert(0, 0);
+        return;
     }
+
+    // Calcular diferencias totales SOLO de los bancos mostrados en la tabla
+    const totalDifferenceUSD = usdBanks.length > 0 ? usdBanks.reduce((sum, bank) => sum + bank.usd.difference, 0) : 0;
+    const totalDifferencePEN = penBanks.length > 0 ? penBanks.reduce((sum, bank) => sum + bank.pen.difference, 0) : 0;
+
+    // Renderizar alerta de descuadre basada SOLO en lo que se muestra en la tabla
+    renderDiscrepancyAlert(totalDifferenceUSD, totalDifferencePEN);
 }
 
-function renderDiscrepancyAlert(data) {
+function renderDiscrepancyAlert(totalDifferenceUSD, totalDifferencePEN) {
     const alerta = $('#alertaDescuadre');
     const mensaje = $('#mensajeDescuadre');
 
-    if (data.has_critical_discrepancy) {
-        mensaje.text(` Diferencia total: USD $${formatNumber(Math.abs(data.total_differences.usd))} | PEN S/${formatNumber(Math.abs(data.total_differences.pen))}`);
+    // Umbrales de descuadre crítico
+    const usdThreshold = 100;
+    const penThreshold = 300;
+
+    // Verificar si hay descuadre crítico SOLO basado en datos de tabla visible
+    const hasCriticalDiscrepancy = Math.abs(totalDifferenceUSD) > usdThreshold || Math.abs(totalDifferencePEN) > penThreshold;
+
+    if (hasCriticalDiscrepancy) {
+        // Mostrar alerta con las diferencias calculadas de la tabla
+        mensaje.text(` Diferencia total: USD $${formatNumber(Math.abs(totalDifferenceUSD))} | PEN S/${formatNumber(Math.abs(totalDifferencePEN))}`);
         alerta.removeClass('d-none');
     } else {
+        // No hay descuadre crítico, ocultar alerta
         alerta.addClass('d-none');
     }
 }
