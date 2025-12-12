@@ -322,9 +322,11 @@ def risk_profile_detail(client_id):
 def recalculate_risk_profile(client_id):
     """API: Recalcular perfil de riesgo de un cliente"""
     try:
+        # Recalcular riesgo - auto_commit=False para hacer un solo commit con la auditoría
         success, score, level = ComplianceService.update_client_risk_profile(
             client_id,
-            current_user.id
+            current_user.id,
+            auto_commit=False
         )
 
         if success:
@@ -488,8 +490,8 @@ def approve_kyc(client_id):
         client.status = 'Activo'
         client.updated_at = now_peru()
 
-        # Recalcular riesgo (KYC aprobado reduce 10 puntos)
-        ComplianceService.update_client_risk_profile(client_id, current_user.id)
+        # Recalcular riesgo (KYC aprobado reduce 10 puntos) - auto_commit=False para hacer un solo commit
+        ComplianceService.update_client_risk_profile(client_id, current_user.id, auto_commit=False)
 
         # Auditoría
         audit = ComplianceAudit(
@@ -861,8 +863,8 @@ def update_pep_status(client_id):
             profile.pep_end_date = None
             profile.pep_notes = None
 
-        # Recalcular riesgo automáticamente
-        ComplianceService.update_client_risk_profile(client_id, current_user.id)
+        # Recalcular riesgo automáticamente - auto_commit=False para hacer un solo commit
+        ComplianceService.update_client_risk_profile(client_id, current_user.id, auto_commit=False)
 
         # Auditoría
         audit = ComplianceAudit(
@@ -985,14 +987,15 @@ def api_restrictive_lists_clients():
 @csrf.exempt
 def check_restrictive_lists():
     """API: Guardar verificación manual de listas restrictivas"""
+    import logging
+    import traceback
+    from werkzeug.utils import secure_filename
+    import cloudinary
+    import cloudinary.uploader
+
+    logger = logging.getLogger(__name__)
+
     try:
-        import logging
-        from werkzeug.utils import secure_filename
-        import cloudinary
-        import cloudinary.uploader
-
-        logger = logging.getLogger(__name__)
-
         client_id = request.form.get('client_id')
         if not client_id:
             return jsonify({
@@ -1062,8 +1065,12 @@ def check_restrictive_lists():
 
         if has_match:
             profile.in_restrictive_lists = True
-            # Recalcular riesgo
-            ComplianceService.update_client_risk_profile(int(client_id), current_user.id)
+            # Recalcular riesgo - IMPORTANTE: auto_commit=False para evitar commits anidados
+            try:
+                ComplianceService.update_client_risk_profile(int(client_id), current_user.id, auto_commit=False)
+            except Exception as risk_error:
+                logger.error(f"Error recalculando perfil de riesgo: {str(risk_error)}")
+                # Continuar de todas formas, el perfil se puede recalcular después
         else:
             profile.in_restrictive_lists = False
 
@@ -1083,6 +1090,8 @@ def check_restrictive_lists():
             user_agent=request.headers.get('User-Agent')
         )
         db.session.add(audit)
+
+        # Commit de toda la transacción
         db.session.commit()
 
         logger.info(f"Verificación manual guardada para cliente {client_id}: {overall_result}")
@@ -1098,9 +1107,6 @@ def check_restrictive_lists():
 
     except Exception as e:
         db.session.rollback()
-        import logging
-        import traceback
-        logger = logging.getLogger(__name__)
         logger.error(f"Error guardando verificación de listas restrictivas: {str(e)}")
         logger.error(traceback.format_exc())
         return jsonify({

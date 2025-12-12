@@ -158,8 +158,15 @@ class ComplianceService:
             return 'Crítico'
 
     @staticmethod
-    def update_client_risk_profile(client_id, user_id=None):
-        """Actualizar perfil de riesgo de un cliente"""
+    def update_client_risk_profile(client_id, user_id=None, auto_commit=True):
+        """Actualizar perfil de riesgo de un cliente
+
+        Args:
+            client_id: ID del cliente
+            user_id: ID del usuario que realiza la actualización (opcional)
+            auto_commit: Si es True, hace commit automáticamente. Si es False, deja la transacción abierta
+                        para que la función llamadora haga el commit (útil para transacciones anidadas)
+        """
         try:
             # Calcular score
             score, details = ComplianceService.calculate_client_risk_score(client_id)
@@ -189,15 +196,19 @@ class ComplianceService:
             else:
                 profile.dd_level = 'Simplificada'
 
-            db.session.commit()
+            # Solo hacer commit si auto_commit es True
+            if auto_commit:
+                db.session.commit()
 
             logger.info(f'Risk profile updated for client {client_id}: score={score}, level={risk_level_name}')
             return True, score, risk_level_name
 
         except Exception as e:
-            db.session.rollback()
+            # Solo hacer rollback si auto_commit es True (si es False, la función llamadora lo manejará)
+            if auto_commit:
+                db.session.rollback()
             logger.error(f'Error updating risk profile for client {client_id}: {str(e)}')
-            return False, 0, 'Error'
+            raise  # Re-lanzar la excepción para que la función llamadora la maneje
 
     @staticmethod
     def analyze_operation(operation_id):
