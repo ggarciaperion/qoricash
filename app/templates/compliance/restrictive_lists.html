@@ -10,7 +10,10 @@
             <h2 class="mb-0">Listas Restrictivas</h2>
             <p class="text-muted">Verificación manual de listas PEP, OFAC, ONU, UIF, Denuncias, etc.</p>
         </div>
-        <div>
+        <div class="btn-group" role="group">
+            <a href="{{ url_for('compliance.kyc') }}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Volver a KYC
+            </a>
             <button class="btn btn-primary" onclick="recargarLista()">
                 <i class="bi bi-arrow-clockwise"></i> Recargar
             </button>

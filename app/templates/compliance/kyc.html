@@ -10,7 +10,10 @@
             <h2 class="mb-0">Revisión KYC (Know Your Customer)</h2>
             <p class="text-muted">Verificación y aprobación de documentación de clientes</p>
         </div>
-        <div>
+        <div class="btn-group" role="group">
+            <a href="{{ url_for('compliance.restrictive_lists') }}" class="btn btn-warning">
+                <i class="bi bi-shield-exclamation"></i> Listas Restrictivas
+            </a>
             <button class="btn btn-primary" onclick="recargarLista()">
                 <i class="bi bi-arrow-clockwise"></i> Recargar
             </button>
