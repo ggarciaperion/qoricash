@@ -420,6 +420,10 @@ def approve_documents(client_id):
                    f'Contador de operaciones sin docs reseteado. Estado anterior: {old_reason or "N/A"}'
         )
 
+        # Recalcular perfil de riesgo automáticamente - auto_commit=False para hacer un solo commit
+        from app.services.compliance_service import ComplianceService
+        ComplianceService.update_client_risk_profile(client.id, current_user.id, auto_commit=False)
+
         db.session.commit()
 
         # Enviar email de activación si corresponde

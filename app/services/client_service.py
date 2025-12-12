@@ -479,7 +479,14 @@ class ClientService:
             except Exception:
                 logger.exception("Fallo al registrar auditoría de actualización")
 
-            # Commit único para client y audit_log juntos
+            # Recalcular perfil de riesgo automáticamente - auto_commit=False para hacer un solo commit
+            try:
+                from app.services.compliance_service import ComplianceService
+                ComplianceService.update_client_risk_profile(client.id, current_user.id, auto_commit=False)
+            except Exception as risk_exc:
+                logger.warning(f'Error al recalcular perfil de riesgo para cliente {client.id}: {str(risk_exc)}')
+
+            # Commit único para client, audit_log y risk_profile juntos
             db.session.commit()
 
             # Emitir evento WebSocket para actualización en tiempo real

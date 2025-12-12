@@ -594,7 +594,66 @@ function mostrarHistorial(historial) {
         }
 
         if (check.attachments) {
-            html += `<p><strong>Archivos adjuntos:</strong> ${check.attachments.split(',').length} archivo(s)</p>`;
+            const attachmentUrls = check.attachments.split(',');
+            html += `<p><strong>Archivos adjuntos:</strong> (${attachmentUrls.length})</p>`;
+            html += `<div class="row g-2">`;
+
+            attachmentUrls.forEach((url, index) => {
+                const trimmedUrl = url.trim();
+                const fileName = trimmedUrl.split('/').pop().split('?')[0] || `Archivo ${index + 1}`;
+                const isImage = /\.(jpg|jpeg|png|gif|webp|bmp)$/i.test(trimmedUrl);
+
+                if (isImage) {
+                    // Mostrar thumbnail clickeable para imágenes
+                    html += `
+                        <div class="col-md-3 col-sm-4 col-6">
+                            <div class="card">
+                                <a href="${trimmedUrl}" target="_blank" rel="noopener noreferrer">
+                                    <img src="${trimmedUrl}" class="card-img-top" alt="Adjunto ${index + 1}"
+                                         style="height: 120px; object-fit: cover; cursor: pointer;"
+                                         onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22%3E%3Crect fill=%22%23ddd%22 width=%22100%22 height=%22100%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 fill=%22%23999%22%3EImagen no disponible%3C/text%3E%3C/svg%3E'">
+                                </a>
+                                <div class="card-body p-2">
+                                    <small class="d-block text-truncate" title="${fileName}">
+                                        <i class="bi bi-file-earmark-image text-primary"></i> ${fileName}
+                                    </small>
+                                    <a href="${trimmedUrl}" download class="btn btn-sm btn-outline-primary w-100 mt-1">
+                                        <i class="bi bi-download"></i> Descargar
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    // Mostrar enlace de descarga para otros archivos
+                    const extension = trimmedUrl.split('.').pop().toLowerCase();
+                    let iconClass = 'bi-file-earmark';
+
+                    if (extension === 'pdf') iconClass = 'bi-file-earmark-pdf text-danger';
+                    else if (['doc', 'docx'].includes(extension)) iconClass = 'bi-file-earmark-word text-primary';
+                    else if (['xls', 'xlsx'].includes(extension)) iconClass = 'bi-file-earmark-excel text-success';
+                    else if (['zip', 'rar', '7z'].includes(extension)) iconClass = 'bi-file-earmark-zip text-warning';
+
+                    html += `
+                        <div class="col-md-3 col-sm-4 col-6">
+                            <div class="card">
+                                <div class="card-body p-3 text-center">
+                                    <i class="bi ${iconClass}" style="font-size: 3rem;"></i>
+                                    <p class="small text-truncate mb-2" title="${fileName}">${fileName}</p>
+                                    <a href="${trimmedUrl}" target="_blank" class="btn btn-sm btn-outline-secondary w-100 mb-1">
+                                        <i class="bi bi-eye"></i> Ver
+                                    </a>
+                                    <a href="${trimmedUrl}" download class="btn btn-sm btn-outline-primary w-100">
+                                        <i class="bi bi-download"></i> Descargar
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+            });
+
+            html += `</div>`;
         }
 
         html += `

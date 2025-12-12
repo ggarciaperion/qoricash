@@ -1071,9 +1071,8 @@ def check_restrictive_lists():
         else:
             profile.in_restrictive_lists = False
 
-        # Nota: El perfil de riesgo completo se recalculará en el próximo cálculo automático
-        # No lo hacemos aquí para evitar complicaciones con transacciones anidadas
-        # La verificación de PEP se maneja desde el menú KYC, no aquí
+        # Recalcular perfil de riesgo automáticamente - auto_commit=False para hacer un solo commit
+        ComplianceService.update_client_risk_profile(int(client_id), current_user.id, auto_commit=False)
 
         # Auditoría
         audit = ComplianceAudit(
