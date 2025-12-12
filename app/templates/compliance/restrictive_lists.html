@@ -75,13 +75,6 @@
                     <strong>Email:</strong> <span id="verificacionClientEmail"></span>
                 </div>
 
-                <!-- Alerta de Verificación Anterior -->
-                <div class="alert alert-success" id="previousVerificationAlert" style="display: none;">
-                    <i class="bi bi-info-circle"></i> <strong>Verificación Anterior Encontrada:</strong>
-                    Se han pre-cargado los datos de la última verificación realizada el <span id="previousVerificationDate"></span> por <span id="previousVerificationUser"></span>.
-                    Puede modificar los datos y guardar para crear una nueva verificación que subsane la anterior.
-                </div>
-
                 <div class="alert alert-warning">
                     <i class="bi bi-exclamation-triangle"></i> <strong>Instrucciones:</strong>
                     Realice la búsqueda manual del cliente en las listas públicas correspondientes.
@@ -420,7 +413,6 @@ function abrirModalVerificacion(clientId, nombre, dni, email) {
         $(`#${type}_section`).hide();
     });
     $('#attachmentsList').empty();
-    $('#previousVerificationAlert').hide();
 
     // Abrir modal
     $('#verificacionModal').modal('show');
@@ -431,11 +423,6 @@ function abrirModalVerificacion(clientId, nombre, dni, email) {
         type: 'GET',
         success: function(response) {
             if (response.success && response.has_previous && response.data) {
-                // Mostrar alerta de verificación anterior
-                $('#previousVerificationDate').text(response.data.checked_at);
-                $('#previousVerificationUser').text(response.data.checked_by);
-                $('#previousVerificationAlert').show();
-
                 // Pre-cargar datos de cada lista
                 listTypes.forEach(type => {
                     const checked = response.data[`${type}_checked`];
@@ -569,11 +556,10 @@ function mostrarHistorial(historial) {
             <div class="card mb-3">
                 <div class="card-header ${badgeClass} text-white">
                     <i class="bi ${iconClass}"></i>
-                    Verificación del ${check.checked_at} -
                     ${hasMatch ? 'Coincidencias Encontradas' : 'Sin Coincidencias'}
                 </div>
                 <div class="card-body">
-                    <p><strong>Verificado por:</strong> ${check.checked_by}</p>
+                    <p><strong>Verificado por:</strong> ${check.checked_by} el ${check.checked_at}</p>
         `;
 
         // Mostrar resultados por lista
