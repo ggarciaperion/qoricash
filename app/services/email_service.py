@@ -338,7 +338,7 @@ class EmailService:
 <body>
     <div class="container">
         <div class="header">
-            <img src="https://qoricashtrading.onrender.com/static/images/logo-principal.png" alt="QoriCash Logo" class="logo">
+            <img src="https://cdn.jsdelivr.net/gh/ggarciaperion/qoricash@main/app/static/images/logo-email.png" alt="QoriCash Logo" class="logo" style="max-width: 200px; height: auto;">
             <h1>Nueva Operación Registrada</h1>
             <p>QoriCash Trading</p>
         </div>
@@ -577,7 +577,7 @@ class EmailService:
 <body>
     <div class="container">
         <div class="header">
-            <img src="https://qoricashtrading.onrender.com/static/images/logo-principal.png" alt="QoriCash Logo" class="logo">
+            <img src="https://cdn.jsdelivr.net/gh/ggarciaperion/qoricash@main/app/static/images/logo-email.png" alt="QoriCash Logo" class="logo" style="max-width: 200px; height: auto;">
             <h1>Operación Completada</h1>
             <p>QoriCash Trading</p>
         </div>
@@ -769,7 +769,7 @@ class EmailService:
 <body>
     <div class="container">
         <div class="header">
-            <img src="https://qoricashtrading.onrender.com/static/images/logo-principal.png" alt="QoriCash Logo" class="logo">
+            <img src="https://cdn.jsdelivr.net/gh/ggarciaperion/qoricash@main/app/static/images/logo-email.png" alt="QoriCash Logo" class="logo" style="max-width: 200px; height: auto;">
             <h1>Notificación Informativa</h1>
             <p>QoriCash Trading</p>
         </div>
@@ -1075,7 +1075,7 @@ class EmailService:
 <body>
     <div class="container">
         <div class="header">
-            <img src="https://qoricashtrading.onrender.com/static/images/logo-principal.png" alt="QoriCash Logo" class="logo">
+            <img src="https://cdn.jsdelivr.net/gh/ggarciaperion/qoricash@main/app/static/images/logo-email.png" alt="QoriCash Logo" class="logo" style="max-width: 200px; height: auto;">
             <h1>Bienvenido a QoriCash</h1>
             <p>Sistema de Gestión de Operaciones Cambiarias</p>
         </div>
@@ -1176,7 +1176,7 @@ class EmailService:
 <body>
     <div class="container">
         <div class="header">
-            <img src="https://qoricashtrading.onrender.com/static/images/logo-principal.png" alt="QoriCash Logo" class="logo">
+            <img src="https://cdn.jsdelivr.net/gh/ggarciaperion/qoricash@main/app/static/images/logo-email.png" alt="QoriCash Logo" class="logo" style="max-width: 200px; height: auto;">
             <h1>¡Cuenta Activada Exitosamente!</h1>
             <p>QoriCash Trading</p>
         </div>
@@ -1343,7 +1343,7 @@ class EmailService:
 <body>
     <div class="container">
         <div class="header">
-            <img src="https://qoricashtrading.onrender.com/static/images/logo-principal.png" alt="QoriCash Logo" class="logo">
+            <img src="https://cdn.jsdelivr.net/gh/ggarciaperion/qoricash@main/app/static/images/logo-email.png" alt="QoriCash Logo" class="logo" style="max-width: 200px; height: auto;">
             <h1>Operación Cancelada</h1>
             <p>QoriCash Trading</p>
         </div>
@@ -1552,7 +1552,7 @@ class EmailService:
 <body>
     <div class="container">
         <div class="header">
-            <img src="https://qoricashtrading.onrender.com/static/images/logo-principal.png" alt="QoriCash Logo" class="logo">
+            <img src="https://cdn.jsdelivr.net/gh/ggarciaperion/qoricash@main/app/static/images/logo-email.png" alt="QoriCash Logo" class="logo" style="max-width: 200px; height: auto;">
             <h1>Monto Modificado</h1>
             <p>QoriCash Trading</p>
         </div>
