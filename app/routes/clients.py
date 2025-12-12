@@ -760,17 +760,61 @@ def client_detail(client_id):
         return render_template('errors/404.html', message='Cliente no encontrado'), 404
 
     # Obtener perfil de riesgo si existe
-    from app.models.compliance import ClientRiskProfile
+    from app.models.compliance import ClientRiskProfile, RestrictiveListCheck
     from app.models.operation import Operation
     risk_profile = ClientRiskProfile.query.filter_by(client_id=client_id).first()
 
     # Obtener últimas operaciones (corregido para SQLAlchemy 2.x)
     recent_operations = Operation.query.filter_by(client_id=client_id).order_by(Operation.created_at.desc()).limit(10).all()
 
+    # Obtener verificaciones de listas restrictivas
+    restrictive_checks = RestrictiveListCheck.query.filter_by(
+        client_id=client_id,
+        is_manual=True
+    ).order_by(RestrictiveListCheck.checked_at.desc()).all()
+
+    # Calcular estado de verificación de listas restrictivas
+    restrictive_status = {
+        'has_checks': len(restrictive_checks) > 0,
+        'total_checks': len(restrictive_checks),
+        'all_clean': False,
+        'has_matches': False,
+        'partial': False
+    }
+
+    if restrictive_checks:
+        # Obtener la última verificación
+        last_check = restrictive_checks[0]
+
+        # Contar verificaciones por tipo en la última verificación
+        list_types = ['ofac', 'onu', 'uif', 'interpol', 'denuncias', 'otras_listas']
+        total_lists = len(list_types)
+        verified_lists = 0
+        clean_lists = 0
+        matched_lists = 0
+
+        for list_type in list_types:
+            if getattr(last_check, f'{list_type}_checked', False):
+                verified_lists += 1
+                result = getattr(last_check, f'{list_type}_result', None)
+                if result == 'Clean':
+                    clean_lists += 1
+                elif result == 'Match':
+                    matched_lists += 1
+
+        # Determinar estado
+        if matched_lists > 0:
+            restrictive_status['has_matches'] = True
+        elif verified_lists == total_lists and clean_lists == total_lists:
+            restrictive_status['all_clean'] = True
+        elif verified_lists > 0:
+            restrictive_status['partial'] = True
+
     return render_template('clients/detail.html',
                          client=client,
                          risk_profile=risk_profile,
-                         recent_operations=recent_operations)
+                         recent_operations=recent_operations,
+                         restrictive_status=restrictive_status)
 
 
 @clients_bp.route('/api/trader/<int:trader_id>/clients')

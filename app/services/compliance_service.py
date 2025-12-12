@@ -104,20 +104,51 @@ class ComplianceService:
         else:
             details['pep_risk'] = 'No'
 
-        # 4. Listas restrictivas (0-25 puntos)
-        if risk_profile and risk_profile.in_restrictive_lists:
-            score += 25
-            details['restrictive_lists'] = 'Sí'
-        else:
-            last_check = RestrictiveListCheck.query.filter_by(
-                client_id=client_id,
-                result='Match'
-            ).first()
-            if last_check:
+        # 4. Listas restrictivas (0-25 puntos, o -5 si está completamente verificado)
+        # Obtener última verificación manual
+        last_check = RestrictiveListCheck.query.filter_by(
+            client_id=client_id,
+            is_manual=True
+        ).order_by(RestrictiveListCheck.checked_at.desc()).first()
+
+        if last_check:
+            # Contar verificaciones en la última verificación
+            list_types = ['ofac', 'onu', 'uif', 'interpol', 'denuncias', 'otras_listas']
+            total_lists = len(list_types)
+            verified_lists = 0
+            clean_lists = 0
+            matched_lists = 0
+
+            for list_type in list_types:
+                if getattr(last_check, f'{list_type}_checked', False):
+                    verified_lists += 1
+                    result = getattr(last_check, f'{list_type}_result', None)
+                    if result == 'Clean':
+                        clean_lists += 1
+                    elif result == 'Match':
+                        matched_lists += 1
+
+            # Determinar puntuación basada en el estado de verificación
+            if matched_lists > 0:
+                # Tiene coincidencias = alto riesgo
                 score += 25
-                details['restrictive_lists'] = 'Match encontrado'
+                details['restrictive_lists'] = f'Coincidencias encontradas ({matched_lists})'
+            elif verified_lists == total_lists and clean_lists == total_lists:
+                # Completamente verificado y limpio = reduce riesgo
+                score = max(0, score - 5)
+                details['restrictive_lists'] = 'Verificado completo - Limpio'
+            elif verified_lists > 0:
+                # Verificación parcial = riesgo medio
+                score += 10
+                details['restrictive_lists'] = f'Parcialmente verificado ({verified_lists}/{total_lists})'
             else:
-                details['restrictive_lists'] = 'No'
+                # No verificado en última verificación
+                score += 15
+                details['restrictive_lists'] = 'No verificado'
+        else:
+            # Sin verificaciones = riesgo por falta de validación
+            score += 15
+            details['restrictive_lists'] = 'Sin verificaciones'
 
         # 5. Procesos judiciales (0-15 puntos)
         if risk_profile and risk_profile.has_legal_issues:

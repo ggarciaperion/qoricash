@@ -513,14 +513,22 @@
                             Cliente activo
                         </li>
                         <li class="mb-0">
-                            {% if risk_profile and not risk_profile.in_restrictive_lists %}
+                            {% if restrictive_status.all_clean %}
                                 <i class="bi bi-check-circle-fill text-success"></i>
-                            {% elif risk_profile %}
-                                <i class="bi bi-x-circle-fill text-danger"></i>
+                                Listas restrictivas verificadas - Completo
+                            {% elif restrictive_status.has_matches %}
+                                <i class="bi bi-exclamation-triangle-fill text-danger"></i>
+                                Listas restrictivas verificadas - Coincidencias encontradas
+                            {% elif restrictive_status.partial %}
+                                <i class="bi bi-exclamation-triangle-fill text-warning"></i>
+                                Listas restrictivas verificadas - Parcialmente
+                            {% elif restrictive_status.has_checks %}
+                                <i class="bi bi-dash-circle-fill text-info"></i>
+                                Listas restrictivas verificadas - En proceso
                             {% else %}
-                                <i class="bi bi-dash-circle-fill text-warning"></i>
+                                <i class="bi bi-x-circle-fill text-muted"></i>
+                                Listas restrictivas no verificadas
                             {% endif %}
-                            Listas restrictivas verificadas
                         </li>
                     </ul>
                 </div>
