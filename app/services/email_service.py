@@ -1810,7 +1810,7 @@ class EmailService:
                 limite_monto = 'USD 3,000'
             else:
                 docs_requeridos = 'DNI representante legal (frente y reverso) + Ficha RUC'
-                limite_ops = '3 operaciones'
+                limite_ops = '1 operación'
                 limite_monto = 'USD 50,000'
 
             # Asunto

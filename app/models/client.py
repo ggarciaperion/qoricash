@@ -365,13 +365,13 @@ class Client(db.Model):
         Establecer límites iniciales basados en tipo de documento
 
         - DNI/CE: 1 operación, máximo USD 3,000
-        - RUC: 3 operaciones, máximo USD 50,000
+        - RUC: 1 operación, máximo USD 50,000
         """
         if self.document_type in ('DNI', 'CE'):
             self.operations_without_docs_limit = 1
             self.max_amount_without_docs = 3000.00
         elif self.document_type == 'RUC':
-            self.operations_without_docs_limit = 3
+            self.operations_without_docs_limit = 1
             self.max_amount_without_docs = 50000.00
 
         # Inicializar contador en 0
