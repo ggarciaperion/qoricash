@@ -1009,7 +1009,7 @@ def check_restrictive_lists():
 
         # Determinar resultado general
         has_match = False
-        list_types = ['pep', 'ofac', 'onu', 'uif', 'interpol', 'denuncias', 'otras_listas']
+        list_types = ['ofac', 'onu', 'uif', 'interpol', 'denuncias', 'otras_listas']
 
         for list_type in list_types:
             if request.form.get(f'{list_type}_checked'):
@@ -1071,25 +1071,9 @@ def check_restrictive_lists():
         else:
             profile.in_restrictive_lists = False
 
-        # IMPORTANTE: Actualizar estado PEP del cliente según la verificación
-        if request.form.get('pep_checked'):
-            pep_result = request.form.get('pep_result', 'Clean')
-            if pep_result == 'Match':
-                # Si se encontró coincidencia en PEP, marcar cliente como PEP
-                profile.is_pep = True
-                # Extraer información PEP de los detalles si es posible
-                pep_details = request.form.get('pep_details', '')
-                if pep_details and not profile.pep_position:
-                    # Si no tiene cargo registrado, usar los detalles de la verificación
-                    profile.pep_notes = f"Detectado en verificación de listas restrictivas: {pep_details}"
-            elif pep_result == 'Clean':
-                # Si se verificó PEP y salió limpio, puede desmarcar como PEP
-                # Esto permite subsanar verificaciones anteriores
-                profile.is_pep = False
-                profile.pep_notes = f"Verificado en listas restrictivas - resultado: Clean. Subsanación de verificación anterior."
-
         # Nota: El perfil de riesgo completo se recalculará en el próximo cálculo automático
         # No lo hacemos aquí para evitar complicaciones con transacciones anidadas
+        # La verificación de PEP se maneja desde el menú KYC, no aquí
 
         # Auditoría
         audit = ComplianceAudit(
@@ -1158,9 +1142,6 @@ def get_last_restrictive_check(client_id):
 
         # Retornar datos de la última verificación
         data = {
-            'pep_checked': last_check.pep_checked,
-            'pep_result': last_check.pep_result,
-            'pep_details': last_check.pep_details,
             'ofac_checked': last_check.ofac_checked,
             'ofac_result': last_check.ofac_result,
             'ofac_details': last_check.ofac_details,
@@ -1223,9 +1204,6 @@ def restrictive_lists_history(client_id):
                 'result': check.result,
                 'checked_at': check.checked_at.strftime('%d/%m/%Y %H:%M'),
                 'checked_by': checker_name,
-                'pep_checked': check.pep_checked,
-                'pep_result': check.pep_result,
-                'pep_details': check.pep_details,
                 'ofac_checked': check.ofac_checked,
                 'ofac_result': check.ofac_result,
                 'ofac_details': check.ofac_details,

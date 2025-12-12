@@ -89,31 +89,6 @@
                 </div>
 
                 <form id="verificacionForm">
-                    <!-- PEP - Personas Expuestas Políticamente -->
-                    <div class="card mb-3">
-                        <div class="card-header bg-light">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" id="pep_checked" name="pep_checked">
-                                <label class="form-check-label fw-bold" for="pep_checked">
-                                    PEP - Personas Expuestas Políticamente
-                                </label>
-                            </div>
-                        </div>
-                        <div class="card-body" id="pep_section" style="display: none;">
-                            <div class="mb-3">
-                                <label class="form-label">Resultado</label>
-                                <select class="form-select" id="pep_result" name="pep_result">
-                                    <option value="Clean">Sin Coincidencias</option>
-                                    <option value="Match">Coincidencia Encontrada</option>
-                                </select>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Detalles / Coincidencias Encontradas</label>
-                                <textarea class="form-control" id="pep_details" name="pep_details" rows="3" placeholder="Describa las coincidencias encontradas, cargo, institución, etc."></textarea>
-                            </div>
-                        </div>
-                    </div>
-
                     <!-- OFAC - Office of Foreign Assets Control -->
                     <div class="card mb-3">
                         <div class="card-header bg-light">
@@ -331,7 +306,7 @@ $(document).ready(function() {
     cargarClientes();
 
     // Mostrar/ocultar secciones al marcar checkboxes
-    const listTypes = ['pep', 'ofac', 'onu', 'uif', 'interpol', 'denuncias', 'otras_listas'];
+    const listTypes = ['ofac', 'onu', 'uif', 'interpol', 'denuncias', 'otras_listas'];
     listTypes.forEach(type => {
         $(`#${type}_checked`).change(function() {
             if ($(this).is(':checked')) {
@@ -440,7 +415,7 @@ function abrirModalVerificacion(clientId, nombre, dni, email) {
 
     // Limpiar formulario primero
     $('#verificacionForm')[0].reset();
-    const listTypes = ['pep', 'ofac', 'onu', 'uif', 'interpol', 'denuncias', 'otras_listas'];
+    const listTypes = ['ofac', 'onu', 'uif', 'interpol', 'denuncias', 'otras_listas'];
     listTypes.forEach(type => {
         $(`#${type}_section`).hide();
     });
@@ -500,7 +475,7 @@ function guardarVerificacion() {
     const btnGuardar = $('#btnGuardarVerificacion');
 
     // Validar que al menos una lista esté marcada
-    const listTypes = ['pep', 'ofac', 'onu', 'uif', 'interpol', 'denuncias', 'otras_listas'];
+    const listTypes = ['ofac', 'onu', 'uif', 'interpol', 'denuncias', 'otras_listas'];
     const anyChecked = listTypes.some(type => $(`#${type}_checked`).is(':checked'));
 
     if (!anyChecked) {
@@ -603,7 +578,6 @@ function mostrarHistorial(historial) {
 
         // Mostrar resultados por lista
         const lists = [
-            {key: 'pep', label: 'PEP'},
             {key: 'ofac', label: 'OFAC'},
             {key: 'onu', label: 'ONU'},
             {key: 'uif', label: 'UIF'},
