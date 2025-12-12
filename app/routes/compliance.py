@@ -1059,7 +1059,7 @@ def check_restrictive_lists():
 
         db.session.add(check)
 
-        # Actualizar perfil de riesgo del cliente si hay coincidencias
+        # Actualizar perfil de riesgo del cliente
         profile = ClientRiskProfile.query.filter_by(client_id=int(client_id)).first()
         if not profile:
             profile = ClientRiskProfile(client_id=int(client_id))
@@ -1071,7 +1071,24 @@ def check_restrictive_lists():
         else:
             profile.in_restrictive_lists = False
 
-        # Nota: El perfil de riesgo se recalculará en el próximo cálculo automático
+        # IMPORTANTE: Actualizar estado PEP del cliente según la verificación
+        if request.form.get('pep_checked'):
+            pep_result = request.form.get('pep_result', 'Clean')
+            if pep_result == 'Match':
+                # Si se encontró coincidencia en PEP, marcar cliente como PEP
+                profile.is_pep = True
+                # Extraer información PEP de los detalles si es posible
+                pep_details = request.form.get('pep_details', '')
+                if pep_details and not profile.pep_position:
+                    # Si no tiene cargo registrado, usar los detalles de la verificación
+                    profile.pep_notes = f"Detectado en verificación de listas restrictivas: {pep_details}"
+            elif pep_result == 'Clean':
+                # Si se verificó PEP y salió limpio, puede desmarcar como PEP
+                # Esto permite subsanar verificaciones anteriores
+                profile.is_pep = False
+                profile.pep_notes = f"Verificado en listas restrictivas - resultado: Clean. Subsanación de verificación anterior."
+
+        # Nota: El perfil de riesgo completo se recalculará en el próximo cálculo automático
         # No lo hacemos aquí para evitar complicaciones con transacciones anidadas
 
         # Auditoría
@@ -1108,6 +1125,76 @@ def check_restrictive_lists():
     except Exception as e:
         db.session.rollback()
         logger.error(f"Error guardando verificación de listas restrictivas: {str(e)}")
+        logger.error(traceback.format_exc())
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@compliance_bp.route('/api/restrictive-lists/last-check/<int:client_id>')
+@login_required
+@middle_office_required
+def get_last_restrictive_check(client_id):
+    """API: Obtener la última verificación de un cliente para pre-cargar el modal"""
+    try:
+        import logging
+        logger = logging.getLogger(__name__)
+
+        client = Client.query.get_or_404(client_id)
+
+        # Buscar última verificación manual
+        last_check = RestrictiveListCheck.query.filter_by(
+            client_id=client_id,
+            is_manual=True
+        ).order_by(RestrictiveListCheck.checked_at.desc()).first()
+
+        if not last_check:
+            return jsonify({
+                'success': True,
+                'has_previous': False,
+                'data': None
+            })
+
+        # Retornar datos de la última verificación
+        data = {
+            'pep_checked': last_check.pep_checked,
+            'pep_result': last_check.pep_result,
+            'pep_details': last_check.pep_details,
+            'ofac_checked': last_check.ofac_checked,
+            'ofac_result': last_check.ofac_result,
+            'ofac_details': last_check.ofac_details,
+            'onu_checked': last_check.onu_checked,
+            'onu_result': last_check.onu_result,
+            'onu_details': last_check.onu_details,
+            'uif_checked': last_check.uif_checked,
+            'uif_result': last_check.uif_result,
+            'uif_details': last_check.uif_details,
+            'interpol_checked': last_check.interpol_checked,
+            'interpol_result': last_check.interpol_result,
+            'interpol_details': last_check.interpol_details,
+            'denuncias_checked': last_check.denuncias_checked,
+            'denuncias_result': last_check.denuncias_result,
+            'denuncias_details': last_check.denuncias_details,
+            'otras_listas_checked': last_check.otras_listas_checked,
+            'otras_listas_result': last_check.otras_listas_result,
+            'otras_listas_details': last_check.otras_listas_details,
+            'observations': last_check.observations,
+            'checked_at': last_check.checked_at.strftime('%d/%m/%Y %H:%M'),
+            'checked_by': last_check.checker.username if last_check.checker else 'Sistema'
+        }
+
+        return jsonify({
+            'success': True,
+            'has_previous': True,
+            'data': data
+        })
+
+    except Exception as e:
+        import logging
+        import traceback
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error obteniendo última verificación: {str(e)}")
         logger.error(traceback.format_exc())
         return jsonify({
             'success': False,

@@ -75,6 +75,13 @@
                     <strong>Email:</strong> <span id="verificacionClientEmail"></span>
                 </div>
 
+                <!-- Alerta de Verificación Anterior -->
+                <div class="alert alert-success" id="previousVerificationAlert" style="display: none;">
+                    <i class="bi bi-info-circle"></i> <strong>Verificación Anterior Encontrada:</strong>
+                    Se han pre-cargado los datos de la última verificación realizada el <span id="previousVerificationDate"></span> por <span id="previousVerificationUser"></span>.
+                    Puede modificar los datos y guardar para crear una nueva verificación que subsane la anterior.
+                </div>
+
                 <div class="alert alert-warning">
                     <i class="bi bi-exclamation-triangle"></i> <strong>Instrucciones:</strong>
                     Realice la búsqueda manual del cliente en las listas públicas correspondientes.
@@ -431,15 +438,61 @@ function abrirModalVerificacion(clientId, nombre, dni, email) {
     $('#verificacionClientDni').text(dni);
     $('#verificacionClientEmail').text(email);
 
-    // Limpiar formulario
+    // Limpiar formulario primero
     $('#verificacionForm')[0].reset();
     const listTypes = ['pep', 'ofac', 'onu', 'uif', 'interpol', 'denuncias', 'otras_listas'];
     listTypes.forEach(type => {
         $(`#${type}_section`).hide();
     });
     $('#attachmentsList').empty();
+    $('#previousVerificationAlert').hide();
 
+    // Abrir modal
     $('#verificacionModal').modal('show');
+
+    // Cargar última verificación si existe
+    $.ajax({
+        url: `/compliance/api/restrictive-lists/last-check/${clientId}`,
+        type: 'GET',
+        success: function(response) {
+            if (response.success && response.has_previous && response.data) {
+                // Mostrar alerta de verificación anterior
+                $('#previousVerificationDate').text(response.data.checked_at);
+                $('#previousVerificationUser').text(response.data.checked_by);
+                $('#previousVerificationAlert').show();
+
+                // Pre-cargar datos de cada lista
+                listTypes.forEach(type => {
+                    const checked = response.data[`${type}_checked`];
+                    if (checked) {
+                        // Marcar checkbox
+                        $(`#${type}_checked`).prop('checked', true);
+                        // Mostrar sección
+                        $(`#${type}_section`).show();
+                        // Cargar resultado
+                        const result = response.data[`${type}_result`];
+                        if (result) {
+                            $(`#${type}_result`).val(result);
+                        }
+                        // Cargar detalles
+                        const details = response.data[`${type}_details`];
+                        if (details) {
+                            $(`#${type}_details`).val(details);
+                        }
+                    }
+                });
+
+                // Cargar observaciones
+                if (response.data.observations) {
+                    $('#observations').val(response.data.observations);
+                }
+            }
+        },
+        error: function(xhr, status, error) {
+            console.log('No hay verificación anterior o error al cargar:', error);
+            // No mostrar error al usuario, simplemente no pre-cargar datos
+        }
+    });
 }
 
 function guardarVerificacion() {
