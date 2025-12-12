@@ -947,6 +947,8 @@ def api_restrictive_lists_clients():
                         last_check_date = last_check.checked_at.strftime('%d/%m/%Y %H:%M')
                         last_check_result = last_check.result
                 except Exception as check_error:
+                    # Hacer rollback para limpiar la transacción abortada
+                    db.session.rollback()
                     logger.warning(f"Error obteniendo última verificación para cliente {client.id}: {str(check_error)}")
 
                 data.append({
@@ -1063,16 +1065,14 @@ def check_restrictive_lists():
             profile = ClientRiskProfile(client_id=int(client_id))
             db.session.add(profile)
 
+        # Actualizar flag de listas restrictivas en el perfil
         if has_match:
             profile.in_restrictive_lists = True
-            # Recalcular riesgo - IMPORTANTE: auto_commit=False para evitar commits anidados
-            try:
-                ComplianceService.update_client_risk_profile(int(client_id), current_user.id, auto_commit=False)
-            except Exception as risk_error:
-                logger.error(f"Error recalculando perfil de riesgo: {str(risk_error)}")
-                # Continuar de todas formas, el perfil se puede recalcular después
         else:
             profile.in_restrictive_lists = False
+
+        # Nota: El perfil de riesgo se recalculará en el próximo cálculo automático
+        # No lo hacemos aquí para evitar complicaciones con transacciones anidadas
 
         # Auditoría
         audit = ComplianceAudit(
