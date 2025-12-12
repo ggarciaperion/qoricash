@@ -391,12 +391,22 @@ let isSubmitting = false;
 // Crear operación
 $('#createOperationForm').on('submit', function(e) {
     e.preventDefault();
+    e.stopImmediatePropagation(); // Prevenir múltiples manejadores
 
-    // Prevenir doble clic / doble submit
-    if (isSubmitting) {
-        console.log('Ya se está procesando una operación...');
+    // DESHABILITAR BOTÓN INMEDIATAMENTE
+    const $submitBtn = $('#btnCreateOperation');
+    const originalBtnText = $submitBtn.html();
+
+    // Si el botón ya está deshabilitado, ignorar completamente
+    if ($submitBtn.prop('disabled') || isSubmitting) {
+        console.log('⚠️ Operación ya en proceso, ignorando clic adicional');
         return false;
     }
+
+    // Deshabilitar botón ANTES de cualquier validación
+    $submitBtn.prop('disabled', true)
+              .html('<i class="bi bi-hourglass-split"></i> Procesando...');
+    isSubmitting = true;
 
     const formData = {
         client_id: parseInt($('#client_id').val()),
@@ -408,41 +418,42 @@ $('#createOperationForm').on('submit', function(e) {
         notes: $('textarea[name="notes"]').val()
     };
 
-    // Validaciones
+    // Validaciones (si fallan, rehabilitar botón)
     if (!formData.client_id) {
+        isSubmitting = false;
+        $submitBtn.prop('disabled', false).html(originalBtnText);
         showNotification('Por favor selecciona un cliente', 'warning');
         return;
     }
     if (!formData.amount_usd || formData.amount_usd <= 0) {
+        isSubmitting = false;
+        $submitBtn.prop('disabled', false).html(originalBtnText);
         showNotification('El monto en USD debe ser mayor a 0', 'warning');
         return;
     }
     if (!formData.exchange_rate || formData.exchange_rate <= 0) {
+        isSubmitting = false;
+        $submitBtn.prop('disabled', false).html(originalBtnText);
         showNotification('El tipo de cambio debe ser mayor a 0', 'warning');
         return;
     }
     if (!formData.source_account) {
+        isSubmitting = false;
+        $submitBtn.prop('disabled', false).html(originalBtnText);
         showNotification('Por favor selecciona la cuenta de origen', 'warning');
         return;
     }
     if (!formData.destination_account) {
+        isSubmitting = false;
+        $submitBtn.prop('disabled', false).html(originalBtnText);
         showNotification('Por favor selecciona la cuenta de destino', 'warning');
         return;
     }
 
-    // Marcar como enviando y deshabilitar botón
-    isSubmitting = true;
-    const $submitBtn = $('#btnCreateOperation');
-    const originalBtnText = $submitBtn.html();
-
-    // Deshabilitar botón y mostrar indicador
-    $submitBtn.prop('disabled', true)
-              .html('<i class="bi bi-hourglass-split"></i> Procesando...');
-
     // Enviar
     ajaxRequest('/operations/api/create', 'POST', formData,
         function(response) {
-            // Éxito
+            // Éxito - NO rehabilitar botón, redirigir
             showNotification('Operación creada exitosamente: ' + response.operation.operation_id, 'success');
             setTimeout(function() {
                 window.location.href = '/operations/list';
