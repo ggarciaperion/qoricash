@@ -283,41 +283,73 @@ class EmailService:
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; background-color: #f4f4f4; margin: 0; padding: 0; }
-        .container { max-width: 600px; margin: 20px auto; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px 20px; text-align: center; }
-        .header h1 { margin: 0; font-size: 24px; }
-        .content { padding: 30px 20px; }
-        .badge { display: inline-block; padding: 5px 15px; border-radius: 20px; font-size: 12px; font-weight: bold; margin: 5px 0; }
-        .badge-success { background: #10b981; color: white; }
-        .badge-primary { background: #3b82f6; color: white; }
-        .info-row { display: flex; justify-content: space-between; padding: 12px; border-bottom: 1px solid #e5e7eb; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #FFFFFF; background-color: #0D1B2A; margin: 0; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; background: #1a2942; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+        .header { background: #0D1B2A; padding: 30px 20px; text-align: center; border-bottom: 3px solid #00DEA8; }
+        .logo { max-width: 180px; height: auto; margin-bottom: 15px; }
+        .header h1 { margin: 15px 0 5px 0; font-size: 26px; color: #FFFFFF; font-weight: 700; }
+        .header p { margin: 5px 0 0 0; font-size: 14px; color: #00DEA8; font-weight: 600; }
+        .content { padding: 35px 25px; color: #FFFFFF; }
+        .greeting { font-size: 16px; margin-bottom: 20px; }
+        .greeting strong { color: #00FFAA; }
+        .client-info { font-size: 13px; color: #a8b2d1; margin: -10px 0 20px 0; }
+        .intro-text { margin-bottom: 25px; line-height: 1.8; }
+        .highlight-box { background: #0D1B2A; border: 2px solid #00DEA8; border-radius: 8px; padding: 20px; margin: 25px 0; }
+        .info-row { display: flex; justify-content: space-between; padding: 14px 0; border-bottom: 1px solid #2d3e5f; }
         .info-row:last-child { border-bottom: none; }
-        .info-label { font-weight: 600; color: #6b7280; }
-        .info-value { color: #111827; font-weight: 500; }
-        .highlight-box { background: #f9fafb; border-left: 4px solid #667eea; padding: 15px; margin: 20px 0; border-radius: 4px; }
-        .footer { background: #f9fafb; padding: 20px; text-align: center; font-size: 12px; color: #6b7280; }
-        .btn { display: inline-block; padding: 12px 24px; background: #667eea; color: white; text-decoration: none; border-radius: 6px; margin: 10px 0; }
+        .info-label { font-weight: 600; color: #a8b2d1; font-size: 14px; }
+        .info-value { color: #FFFFFF; font-weight: 600; font-size: 14px; text-align: right; }
+        .badge { display: inline-block; padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: bold; margin: 0; }
+        .badge-compra { background: linear-gradient(135deg, #00DEA8, #00FFAA); color: #0D1B2A; }
+        .badge-venta { background: linear-gradient(135deg, #00DEA8, #00FFAA); color: #0D1B2A; }
+        .amount-usd { font-size: 20px; color: #00FFAA; font-weight: 700; }
+        .amount-pen { font-size: 20px; color: #00DEA8; font-weight: 700; }
+        .bank-section { margin: 30px 0; padding: 25px; background: #0D1B2A; border-radius: 8px; border: 2px solid #00DEA8; }
+        .bank-section h3 { margin: 0 0 12px 0; color: #00FFAA; font-size: 18px; font-weight: 700; }
+        .bank-section p { color: #a8b2d1; font-size: 14px; margin: 8px 0; line-height: 1.6; }
+        .bank-section .company-name { color: #00DEA8; font-weight: 700; }
+        .bank-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 15px; }
+        .bank-table thead tr { background: #162a40; }
+        .bank-table th { padding: 12px 10px; text-align: left; border-bottom: 2px solid #00DEA8; color: #00FFAA; font-weight: 700; font-size: 12px; }
+        .bank-table td { padding: 12px 10px; border-bottom: 1px solid #2d3e5f; color: #FFFFFF; }
+        .bank-table tbody tr:nth-child(even) { background: #162a40; }
+        .bank-table tbody tr:last-child td { border-bottom: none; }
+        .bank-table .bank-name { font-weight: 700; color: #00DEA8; }
+        .bank-table .account-number { font-family: 'Courier New', monospace; font-weight: 600; }
+        .note-box { margin-top: 30px; padding: 18px; background: #162a40; border-left: 4px solid #00DEA8; border-radius: 4px; }
+        .note-box p { margin: 0; color: #a8b2d1; font-size: 13px; line-height: 1.6; }
+        .note-box strong { color: #00FFAA; }
+        .warning-box { margin-top: 20px; padding: 15px; background: #2d3e5f; border-left: 3px solid #FFB020; border-radius: 4px; }
+        .warning-box p { margin: 0; color: #FFB020; font-size: 12px; }
+        .footer { background: #0D1B2A; padding: 25px 20px; text-align: center; font-size: 12px; color: #a8b2d1; border-top: 2px solid #00DEA8; }
+        .footer p { margin: 8px 0; }
+        .footer strong { color: #00FFAA; }
+        .divider { height: 1px; background: linear-gradient(90deg, transparent, #00DEA8, transparent); margin: 25px 0; }
         @media only screen and (max-width: 600px) {
+            body { padding: 10px; }
+            .content { padding: 25px 15px; }
             .info-row { flex-direction: column; }
-            .info-label { margin-bottom: 5px; }
+            .info-value { text-align: left; margin-top: 5px; }
+            .bank-table { font-size: 11px; }
+            .bank-table th, .bank-table td { padding: 8px 5px; }
         }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>✨ Nueva Operación Registrada</h1>
-            <p style="margin: 10px 0 0 0; font-size: 14px;">QoriCash Trading</p>
+            <img src="https://raw.githubusercontent.com/ggarciaperion/qoricash/main/app/static/images/finalfinal.png" alt="QoriCash Logo" class="logo">
+            <h1>Nueva Operación Registrada</h1>
+            <p>QoriCash Trading</p>
         </div>
 
         <div class="content">
-            <p>Estimado(a) <strong>{{ operation.client.full_name or operation.client.razon_social }}</strong>,</p>
-            <p style="margin: -10px 0 15px 0; font-size: 14px; color: #6b7280;">
+            <p class="greeting">Estimado(a) <strong>{{ operation.client.full_name or operation.client.razon_social }}</strong>,</p>
+            <p class="client-info">
                 <strong>{{ operation.client.document_type or 'Documento' }}:</strong> {{ operation.client.dni }}
             </p>
 
-            <p>Se ha registrado una nueva operación de cambio de divisas con los siguientes detalles:</p>
+            <p class="intro-text">Se ha registrado exitosamente una nueva operación de cambio de divisas con los siguientes detalles:</p>
 
             <div class="highlight-box">
                 <div class="info-row">
@@ -325,145 +357,145 @@ class EmailService:
                     <span class="info-value"><strong>{{ operation.operation_id }}</strong></span>
                 </div>
                 <div class="info-row">
-                    <span class="info-label">Tipo:</span>
+                    <span class="info-label">Tipo de Operación:</span>
                     <span class="info-value">
                         {% if operation.operation_type == 'Compra' %}
-                            <span class="badge badge-success">COMPRA USD</span>
+                            <span class="badge badge-compra">COMPRA USD</span>
                         {% else %}
-                            <span class="badge badge-primary">VENTA USD</span>
+                            <span class="badge badge-venta">VENTA USD</span>
                         {% endif %}
                     </span>
                 </div>
                 <div class="info-row">
-                    <span class="info-label">Monto USD:</span>
-                    <span class="info-value" style="font-size: 18px; color: #059669;">$ {{ "{:,.2f}".format(operation.amount_usd) }}</span>
+                    <span class="info-label">Monto en Dólares:</span>
+                    <span class="info-value amount-usd">$ {{ "{:,.2f}".format(operation.amount_usd) }}</span>
                 </div>
                 <div class="info-row">
                     <span class="info-label">Tipo de Cambio:</span>
-                    <span class="info-value">{{ "%.4f"|format(operation.exchange_rate) }}</span>
+                    <span class="info-value">S/ {{ "%.4f"|format(operation.exchange_rate) }}</span>
                 </div>
                 <div class="info-row">
-                    <span class="info-label">Monto PEN:</span>
-                    <span class="info-value" style="font-size: 18px; color: #dc2626;">S/ {{ "{:,.2f}".format(operation.amount_pen) }}</span>
+                    <span class="info-label">Monto en Soles:</span>
+                    <span class="info-value amount-pen">S/ {{ "{:,.2f}".format(operation.amount_pen) }}</span>
                 </div>
                 <div class="info-row">
                     <span class="info-label">Estado:</span>
-                    <span class="info-value"><strong>{{ operation.status }}</strong></span>
+                    <span class="info-value"><strong style="color: #00FFAA;">{{ operation.status }}</strong></span>
                 </div>
                 <div class="info-row">
-                    <span class="info-label">Fecha:</span>
+                    <span class="info-label">Fecha de Registro:</span>
                     <span class="info-value">{{ operation.created_at.strftime('%d/%m/%Y %H:%M') }}</span>
                 </div>
             </div>
 
             <!-- Cuentas bancarias para transferencia -->
             {% if operation.operation_type == 'Compra' %}
-            <div style="margin: 25px 0; padding: 20px; background: #ecfdf5; border-radius: 8px; border: 2px solid #10b981;">
-                <h3 style="margin: 0 0 15px 0; color: #065f46; font-size: 16px;">Cuentas para Transferencia (USD)</h3>
-                <p style="margin: 0 0 10px 0; color: #374151; font-size: 14px;">Por favor, realice su transferencia en cualquiera de las siguientes cuentas en DOLARES:</p>
-                <p style="margin: 0 0 15px 0; color: #065f46; font-size: 13px; font-weight: 600;">- A nombre de QORICASH SAC con número de RUC 20235842211</p>
-                <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+            <div class="bank-section">
+                <h3>💵 Cuentas para Transferencia en DÓLARES (USD)</h3>
+                <p>Por favor, realice su transferencia a cualquiera de las siguientes cuentas bancarias:</p>
+                <p class="company-name">A nombre de: QORICASH SAC | RUC: 20235842211</p>
+                <table class="bank-table">
                     <thead>
-                        <tr style="background: #d1fae5;">
-                            <th style="padding: 10px; text-align: left; border-bottom: 2px solid #10b981; color: #065f46; font-weight: 600;">Banco</th>
-                            <th style="padding: 10px; text-align: left; border-bottom: 2px solid #10b981; color: #065f46; font-weight: 600;">Tipo</th>
-                            <th style="padding: 10px; text-align: left; border-bottom: 2px solid #10b981; color: #065f46; font-weight: 600;">Moneda</th>
-                            <th style="padding: 10px; text-align: left; border-bottom: 2px solid #10b981; color: #065f46; font-weight: 600;">Numero de Cuenta</th>
-                            <th style="padding: 10px; text-align: left; border-bottom: 2px solid #10b981; color: #065f46; font-weight: 600;">Numero de CCI</th>
+                        <tr>
+                            <th>Banco</th>
+                            <th>Tipo</th>
+                            <th>Moneda</th>
+                            <th>N° Cuenta</th>
+                            <th>CCI</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <tr style="background: white;">
-                            <td style="padding: 10px; border-bottom: 1px solid #d1fae5; color: #1f2937; font-weight: 500;">BCP</td>
-                            <td style="padding: 10px; border-bottom: 1px solid #d1fae5; color: #4b5563;">Cta. Corriente</td>
-                            <td style="padding: 10px; border-bottom: 1px solid #d1fae5; color: #4b5563;">USD</td>
-                            <td style="padding: 10px; border-bottom: 1px solid #d1fae5; color: #1f2937; font-family: monospace; font-weight: 600;">654321</td>
-                            <td style="padding: 10px; border-bottom: 1px solid #d1fae5; color: #1f2937; font-family: monospace; font-weight: 600;">00265432100000000001</td>
+                        <tr>
+                            <td class="bank-name">BCP</td>
+                            <td>Cta. Corriente</td>
+                            <td>USD</td>
+                            <td class="account-number">654321</td>
+                            <td class="account-number">00265432100000000001</td>
                         </tr>
-                        <tr style="background: #f0fdf4;">
-                            <td style="padding: 10px; border-bottom: 1px solid #d1fae5; color: #1f2937; font-weight: 500;">INTERBANK</td>
-                            <td style="padding: 10px; border-bottom: 1px solid #d1fae5; color: #4b5563;">Cta. Corriente</td>
-                            <td style="padding: 10px; border-bottom: 1px solid #d1fae5; color: #4b5563;">USD</td>
-                            <td style="padding: 10px; border-bottom: 1px solid #d1fae5; color: #1f2937; font-family: monospace; font-weight: 600;">456789</td>
-                            <td style="padding: 10px; border-bottom: 1px solid #d1fae5; color: #1f2937; font-family: monospace; font-weight: 600;">00345678900000000002</td>
+                        <tr>
+                            <td class="bank-name">INTERBANK</td>
+                            <td>Cta. Corriente</td>
+                            <td>USD</td>
+                            <td class="account-number">456789</td>
+                            <td class="account-number">00345678900000000002</td>
                         </tr>
-                        <tr style="background: white;">
-                            <td style="padding: 10px; border-bottom: 1px solid #d1fae5; color: #1f2937; font-weight: 500;">BANBIF</td>
-                            <td style="padding: 10px; border-bottom: 1px solid #d1fae5; color: #4b5563;">Cta. Corriente</td>
-                            <td style="padding: 10px; border-bottom: 1px solid #d1fae5; color: #4b5563;">USD</td>
-                            <td style="padding: 10px; border-bottom: 1px solid #d1fae5; color: #1f2937; font-family: monospace; font-weight: 600;">369852</td>
-                            <td style="padding: 10px; border-bottom: 1px solid #d1fae5; color: #1f2937; font-family: monospace; font-weight: 600;">03836985200000000003</td>
+                        <tr>
+                            <td class="bank-name">BANBIF</td>
+                            <td>Cta. Corriente</td>
+                            <td>USD</td>
+                            <td class="account-number">369852</td>
+                            <td class="account-number">03836985200000000003</td>
                         </tr>
-                        <tr style="background: #f0fdf4;">
-                            <td style="padding: 10px; color: #1f2937; font-weight: 500;">PICHINCHA</td>
-                            <td style="padding: 10px; color: #4b5563;">Cta. Corriente</td>
-                            <td style="padding: 10px; color: #4b5563;">USD</td>
-                            <td style="padding: 10px; color: #1f2937; font-family: monospace; font-weight: 600;">159796</td>
-                            <td style="padding: 10px; color: #1f2937; font-family: monospace; font-weight: 600;">04815979600000000004</td>
+                        <tr>
+                            <td class="bank-name">PICHINCHA</td>
+                            <td>Cta. Corriente</td>
+                            <td>USD</td>
+                            <td class="account-number">159796</td>
+                            <td class="account-number">04815979600000000004</td>
                         </tr>
                     </tbody>
                 </table>
             </div>
             {% elif operation.operation_type == 'Venta' %}
-            <div style="margin: 25px 0; padding: 20px; background: #fef2f2; border-radius: 8px; border: 2px solid #ef4444;">
-                <h3 style="margin: 0 0 15px 0; color: #991b1b; font-size: 16px;">Cuentas para Transferencia (PEN)</h3>
-                <p style="margin: 0 0 10px 0; color: #374151; font-size: 14px;">Por favor, realice su transferencia en cualquiera de las siguientes cuentas en SOLES:</p>
-                <p style="margin: 0 0 15px 0; color: #991b1b; font-size: 13px; font-weight: 600;">- A nombre de QORICASH SAC con número de RUC 20235842211</p>
-                <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+            <div class="bank-section">
+                <h3>💰 Cuentas para Transferencia en SOLES (PEN)</h3>
+                <p>Por favor, realice su transferencia a cualquiera de las siguientes cuentas bancarias:</p>
+                <p class="company-name">A nombre de: QORICASH SAC | RUC: 20235842211</p>
+                <table class="bank-table">
                     <thead>
-                        <tr style="background: #fee2e2;">
-                            <th style="padding: 10px; text-align: left; border-bottom: 2px solid #ef4444; color: #991b1b; font-weight: 600;">Banco</th>
-                            <th style="padding: 10px; text-align: left; border-bottom: 2px solid #ef4444; color: #991b1b; font-weight: 600;">Tipo</th>
-                            <th style="padding: 10px; text-align: left; border-bottom: 2px solid #ef4444; color: #991b1b; font-weight: 600;">Moneda</th>
-                            <th style="padding: 10px; text-align: left; border-bottom: 2px solid #ef4444; color: #991b1b; font-weight: 600;">Numero de Cuenta</th>
-                            <th style="padding: 10px; text-align: left; border-bottom: 2px solid #ef4444; color: #991b1b; font-weight: 600;">Numero de CCI</th>
+                        <tr>
+                            <th>Banco</th>
+                            <th>Tipo</th>
+                            <th>Moneda</th>
+                            <th>N° Cuenta</th>
+                            <th>CCI</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <tr style="background: white;">
-                            <td style="padding: 10px; border-bottom: 1px solid #fee2e2; color: #1f2937; font-weight: 500;">BCP</td>
-                            <td style="padding: 10px; border-bottom: 1px solid #fee2e2; color: #4b5563;">Cta. Corriente</td>
-                            <td style="padding: 10px; border-bottom: 1px solid #fee2e2; color: #4b5563;">PEN</td>
-                            <td style="padding: 10px; border-bottom: 1px solid #fee2e2; color: #1f2937; font-family: monospace; font-weight: 600;">123456</td>
-                            <td style="padding: 10px; border-bottom: 1px solid #fee2e2; color: #1f2937; font-family: monospace; font-weight: 600;">00212345600000000005</td>
+                        <tr>
+                            <td class="bank-name">BCP</td>
+                            <td>Cta. Corriente</td>
+                            <td>PEN</td>
+                            <td class="account-number">123456</td>
+                            <td class="account-number">00212345600000000005</td>
                         </tr>
-                        <tr style="background: #fef2f2;">
-                            <td style="padding: 10px; border-bottom: 1px solid #fee2e2; color: #1f2937; font-weight: 500;">INTERBANK</td>
-                            <td style="padding: 10px; border-bottom: 1px solid #fee2e2; color: #4b5563;">Cta. Corriente</td>
-                            <td style="padding: 10px; border-bottom: 1px solid #fee2e2; color: #4b5563;">PEN</td>
-                            <td style="padding: 10px; border-bottom: 1px solid #fee2e2; color: #1f2937; font-family: monospace; font-weight: 600;">987654</td>
-                            <td style="padding: 10px; border-bottom: 1px solid #fee2e2; color: #1f2937; font-family: monospace; font-weight: 600;">00398765400000000006</td>
+                        <tr>
+                            <td class="bank-name">INTERBANK</td>
+                            <td>Cta. Corriente</td>
+                            <td>PEN</td>
+                            <td class="account-number">987654</td>
+                            <td class="account-number">00398765400000000006</td>
                         </tr>
-                        <tr style="background: white;">
-                            <td style="padding: 10px; border-bottom: 1px solid #fee2e2; color: #1f2937; font-weight: 500;">BANBIF</td>
-                            <td style="padding: 10px; border-bottom: 1px solid #fee2e2; color: #4b5563;">Cta. Corriente</td>
-                            <td style="padding: 10px; border-bottom: 1px solid #fee2e2; color: #4b5563;">PEN</td>
-                            <td style="padding: 10px; border-bottom: 1px solid #fee2e2; color: #1f2937; font-family: monospace; font-weight: 600;">741852</td>
-                            <td style="padding: 10px; border-bottom: 1px solid #fee2e2; color: #1f2937; font-family: monospace; font-weight: 600;">03874185200000000007</td>
+                        <tr>
+                            <td class="bank-name">BANBIF</td>
+                            <td>Cta. Corriente</td>
+                            <td>PEN</td>
+                            <td class="account-number">741852</td>
+                            <td class="account-number">03874185200000000007</td>
                         </tr>
-                        <tr style="background: #fef2f2;">
-                            <td style="padding: 10px; color: #1f2937; font-weight: 500;">PICHINCHA</td>
-                            <td style="padding: 10px; color: #4b5563;">Cta. Corriente</td>
-                            <td style="padding: 10px; color: #4b5563;">PEN</td>
-                            <td style="padding: 10px; color: #1f2937; font-family: monospace; font-weight: 600;">753951</td>
-                            <td style="padding: 10px; color: #1f2937; font-family: monospace; font-weight: 600;">04875395100000000008</td>
+                        <tr>
+                            <td class="bank-name">PICHINCHA</td>
+                            <td>Cta. Corriente</td>
+                            <td>PEN</td>
+                            <td class="account-number">753951</td>
+                            <td class="account-number">04875395100000000008</td>
                         </tr>
                     </tbody>
                 </table>
             </div>
             {% endif %}
 
-            <p style="margin-top: 25px;">Nuestro equipo procesará su operación a la brevedad posible. Le mantendremos informado sobre el progreso.</p>
+            <div class="divider"></div>
 
-            <p style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 13px;">
-                <strong>Importante:</strong> Este es un correo automático. Si tiene alguna consulta, por favor responda a este correo o contacte a su asesor.
-            </p>
+            <p style="margin-top: 25px; line-height: 1.8;">Nuestro equipo procesará su operación a la brevedad posible. Le mantendremos informado sobre el progreso en cada etapa del proceso.</p>
+
+            <div class="note-box">
+                <p><strong>Importante:</strong> Este es un correo automático generado por nuestro sistema. Si tiene alguna consulta o necesita asistencia, por favor responda a este correo o contacte directamente a su asesor comercial.</p>
+            </div>
 
             {% if is_shared_email %}
-            <div style="margin-top: 15px; padding: 12px; background: #fffbeb; border-left: 3px solid #f59e0b; border-radius: 4px;">
-                <p style="margin: 0; color: #92400e; font-size: 12px;">
-                    <strong>ℹ️ Nota:</strong> Este correo electrónico está registrado para más de una empresa/cliente en nuestro sistema. Las notificaciones que reciba pueden corresponder a diferentes operaciones.
-                </p>
+            <div class="warning-box">
+                <p><strong>ℹ️ Aviso:</strong> Este correo electrónico está registrado para múltiples empresas/clientes en nuestro sistema. Las notificaciones que reciba pueden corresponder a diferentes operaciones.</p>
             </div>
             {% endif %}
         </div>
@@ -471,7 +503,7 @@ class EmailService:
         <div class="footer">
             <p><strong>QoriCash Trading</strong></p>
             <p>Sistema de Gestión de Operaciones Cambiarias</p>
-            <p style="margin-top: 10px;">© 2024 QoriCash Trading V2. Todos los derechos reservados.</p>
+            <p style="margin-top: 12px;">© 2025 QoriCash Trading. Todos los derechos reservados.</p>
         </div>
     </div>
 </body>
@@ -489,65 +521,91 @@ class EmailService:
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; background-color: #f4f4f4; margin: 0; padding: 0; }
-        .container { max-width: 600px; margin: 20px auto; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .header { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 30px 20px; text-align: center; }
-        .header h1 { margin: 0; font-size: 24px; }
-        .content { padding: 30px 20px; }
-        .badge { display: inline-block; padding: 5px 15px; border-radius: 20px; font-size: 12px; font-weight: bold; margin: 5px 0; }
-        .badge-success { background: #10b981; color: white; }
-        .info-row { display: flex; justify-content: space-between; padding: 12px; border-bottom: 1px solid #e5e7eb; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #FFFFFF; background-color: #0D1B2A; margin: 0; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; background: #1a2942; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+        .header { background: #0D1B2A; padding: 30px 20px; text-align: center; border-bottom: 3px solid #00FFAA; }
+        .logo { max-width: 180px; height: auto; margin-bottom: 15px; }
+        .header h1 { margin: 15px 0 5px 0; font-size: 26px; color: #FFFFFF; font-weight: 700; }
+        .header p { margin: 5px 0 0 0; font-size: 14px; color: #00FFAA; font-weight: 600; }
+        .content { padding: 35px 25px; color: #FFFFFF; }
+        .greeting { font-size: 16px; margin-bottom: 20px; }
+        .greeting strong { color: #00FFAA; }
+        .client-info { font-size: 13px; color: #a8b2d1; margin: -10px 0 20px 0; }
+        .success-box { background: linear-gradient(135deg, #00DEA8, #00FFAA); padding: 25px; margin: 25px 0; border-radius: 8px; text-align: center; box-shadow: 0 4px 15px rgba(0,222,168,0.3); }
+        .success-box h2 { margin: 0; color: #0D1B2A; font-size: 22px; font-weight: 700; }
+        .success-box p { margin: 10px 0 0 0; color: #0D1B2A; font-weight: 600; }
+        .success-icon { font-size: 48px; margin-bottom: 10px; }
+        .intro-text { margin-bottom: 25px; line-height: 1.8; }
+        .highlight-box { background: #0D1B2A; border: 2px solid #00DEA8; border-radius: 8px; padding: 20px; margin: 25px 0; }
+        .info-row { display: flex; justify-content: space-between; padding: 14px 0; border-bottom: 1px solid #2d3e5f; }
         .info-row:last-child { border-bottom: none; }
-        .info-label { font-weight: 600; color: #6b7280; }
-        .info-value { color: #111827; font-weight: 500; }
-        .success-box { background: #d1fae5; border-left: 4px solid #10b981; padding: 20px; margin: 20px 0; border-radius: 4px; text-align: center; }
-        .footer { background: #f9fafb; padding: 20px; text-align: center; font-size: 12px; color: #6b7280; }
+        .info-label { font-weight: 600; color: #a8b2d1; font-size: 14px; }
+        .info-value { color: #FFFFFF; font-weight: 600; font-size: 14px; text-align: right; }
+        .amount-usd { font-size: 20px; color: #00FFAA; font-weight: 700; }
+        .amount-pen { font-size: 20px; color: #00DEA8; font-weight: 700; }
+        .proof-section { margin: 30px 0; padding: 25px; background: #0D1B2A; border-radius: 8px; border: 2px solid #00DEA8; }
+        .proof-section h3 { margin: 0 0 12px 0; color: #00FFAA; font-size: 18px; font-weight: 700; }
+        .proof-section p { color: #a8b2d1; font-size: 14px; margin: 8px 0; line-height: 1.6; }
+        .btn-proof { display: inline-block; padding: 14px 28px; background: linear-gradient(135deg, #00DEA8, #00FFAA); color: #0D1B2A; text-decoration: none; border-radius: 6px; font-weight: 700; margin: 10px 0; transition: transform 0.2s; }
+        .btn-proof:hover { transform: translateY(-2px); }
+        .proof-comment { font-size: 13px; color: #a8b2d1; font-style: italic; margin: 8px 0; }
+        .note-box { margin-top: 30px; padding: 18px; background: #162a40; border-left: 4px solid #00DEA8; border-radius: 4px; }
+        .note-box p { margin: 0; color: #a8b2d1; font-size: 13px; line-height: 1.6; }
+        .note-box strong { color: #00FFAA; }
+        .footer { background: #0D1B2A; padding: 25px 20px; text-align: center; font-size: 12px; color: #a8b2d1; border-top: 2px solid #00DEA8; }
+        .footer p { margin: 8px 0; }
+        .footer strong { color: #00FFAA; }
+        .divider { height: 1px; background: linear-gradient(90deg, transparent, #00DEA8, transparent); margin: 25px 0; }
         @media only screen and (max-width: 600px) {
+            body { padding: 10px; }
+            .content { padding: 25px 15px; }
             .info-row { flex-direction: column; }
-            .info-label { margin-bottom: 5px; }
+            .info-value { text-align: left; margin-top: 5px; }
         }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>Operacion Completada</h1>
-            <p style="margin: 10px 0 0 0; font-size: 14px;">QoriCash Trading</p>
+            <img src="https://raw.githubusercontent.com/ggarciaperion/qoricash/main/app/static/images/finalfinal.png" alt="QoriCash Logo" class="logo">
+            <h1>Operación Completada</h1>
+            <p>QoriCash Trading</p>
         </div>
 
         <div class="content">
-            <p>Estimado(a) <strong>{{ operation.client.full_name or operation.client.razon_social }}</strong>,</p>
-            <p style="margin: -10px 0 15px 0; font-size: 14px; color: #6b7280;">
+            <p class="greeting">Estimado(a) <strong>{{ operation.client.full_name or operation.client.razon_social }}</strong>,</p>
+            <p class="client-info">
                 <strong>{{ operation.client.document_type or 'Documento' }}:</strong> {{ operation.client.dni }}
             </p>
 
             <div class="success-box">
-                <h2 style="margin: 0; color: #065f46; font-size: 20px;">Operacion Exitosa</h2>
-                <p style="margin: 10px 0 0 0; color: #047857;">Su operacion ha sido completada satisfactoriamente</p>
+                <div class="success-icon">✓</div>
+                <h2>¡Operación Exitosa!</h2>
+                <p>Su operación ha sido completada satisfactoriamente</p>
             </div>
 
-            <p>Los detalles de la operación completada son:</p>
+            <p class="intro-text">Los detalles de la operación completada son los siguientes:</p>
 
-            <div style="background: #f9fafb; border-radius: 6px; padding: 15px; margin: 20px 0;">
+            <div class="highlight-box">
                 <div class="info-row">
                     <span class="info-label">Código de Operación:</span>
                     <span class="info-value"><strong>{{ operation.operation_id }}</strong></span>
                 </div>
                 <div class="info-row">
-                    <span class="info-label">Tipo:</span>
+                    <span class="info-label">Tipo de Operación:</span>
                     <span class="info-value">{{ operation.operation_type }}</span>
                 </div>
                 <div class="info-row">
-                    <span class="info-label">Monto USD:</span>
-                    <span class="info-value" style="font-size: 18px; color: #059669;">$ {{ "{:,.2f}".format(operation.amount_usd) }}</span>
+                    <span class="info-label">Monto en Dólares:</span>
+                    <span class="info-value amount-usd">$ {{ "{:,.2f}".format(operation.amount_usd) }}</span>
                 </div>
                 <div class="info-row">
                     <span class="info-label">Tipo de Cambio:</span>
-                    <span class="info-value">{{ "%.4f"|format(operation.exchange_rate) }}</span>
+                    <span class="info-value">S/ {{ "%.4f"|format(operation.exchange_rate) }}</span>
                 </div>
                 <div class="info-row">
-                    <span class="info-label">Monto PEN:</span>
-                    <span class="info-value" style="font-size: 18px; color: #dc2626;">S/ {{ "{:,.2f}".format(operation.amount_pen) }}</span>
+                    <span class="info-label">Monto en Soles:</span>
+                    <span class="info-value amount-pen">S/ {{ "{:,.2f}".format(operation.amount_pen) }}</span>
                 </div>
                 <div class="info-row">
                     <span class="info-label">Fecha de Creación:</span>
@@ -555,42 +613,44 @@ class EmailService:
                 </div>
                 <div class="info-row">
                     <span class="info-label">Fecha de Completado:</span>
-                    <span class="info-value"><strong>{{ operation.completed_at.strftime('%d/%m/%Y %H:%M') if operation.completed_at else '-' }}</strong></span>
+                    <span class="info-value"><strong style="color: #00FFAA;">{{ operation.completed_at.strftime('%d/%m/%Y %H:%M') if operation.completed_at else '-' }}</strong></span>
                 </div>
             </div>
 
             {% if operation.operator_proofs and operation.operator_proofs|length > 0 %}
-            <div style="margin: 25px 0; padding: 20px; background: #f0f9ff; border-radius: 8px; border: 1px solid #0ea5e9;">
-                <h3 style="margin: 0 0 15px 0; color: #0369a1; font-size: 16px;">Comprobante(s) de Operacion</h3>
-                <p style="margin: 0 0 15px 0; color: #334155;">Adjuntamos el comprobante de su operacion completada:</p>
+            <div class="proof-section">
+                <h3>📄 Comprobante(s) de Operación</h3>
+                <p>Adjuntamos el(los) comprobante(s) de su operación completada:</p>
                 {% for proof in operation.operator_proofs %}
-                <div style="margin: 10px 0;">
+                <div style="margin: 15px 0;">
                     <a href="{{ proof.comprobante_url if proof.comprobante_url else proof }}"
                        target="_blank"
-                       style="display: inline-block; padding: 12px 24px; background: #0ea5e9; color: white; text-decoration: none; border-radius: 6px; font-weight: 600; margin-bottom: 5px;">
-                        Ver Comprobante {% if operation.operator_proofs|length > 1 %}{{ loop.index }}{% endif %}
+                       class="btn-proof">
+                        📥 Ver Comprobante {% if operation.operator_proofs|length > 1 %}{{ loop.index }}{% endif %}
                     </a>
                     {% if proof.comentario %}
-                    <p style="margin: 5px 0 0 0; font-size: 13px; color: #475569; font-style: italic;">
-                        {{ proof.comentario }}
-                    </p>
+                    <p class="proof-comment">{{ proof.comentario }}</p>
                     {% endif %}
                 </div>
                 {% endfor %}
             </div>
             {% endif %}
 
-            <p style="margin-top: 25px;">Gracias por confiar en <strong>QoriCash Trading</strong> para sus operaciones de cambio de divisas.</p>
+            <div class="divider"></div>
 
-            <p style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 13px;">
-                <strong>Nota:</strong> Para cualquier consulta sobre esta operación, puede responder a este correo o contactar a su asesor comercial.
+            <p style="margin-top: 25px; text-align: center; font-size: 16px; line-height: 1.8;">
+                Gracias por confiar en <strong style="color: #00FFAA;">QoriCash Trading</strong> para sus operaciones de cambio de divisas.
             </p>
+
+            <div class="note-box">
+                <p><strong>Nota:</strong> Para cualquier consulta sobre esta operación, puede responder a este correo o contactar directamente a su asesor comercial.</p>
+            </div>
         </div>
 
         <div class="footer">
             <p><strong>QoriCash Trading</strong></p>
             <p>Sistema de Gestión de Operaciones Cambiarias</p>
-            <p style="margin-top: 10px;">© 2024 QoriCash Trading V2. Todos los derechos reservados.</p>
+            <p style="margin-top: 12px;">© 2025 QoriCash Trading. Todos los derechos reservados.</p>
         </div>
     </div>
 </body>
@@ -661,68 +721,93 @@ class EmailService:
 <html>
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; background-color: #f4f4f4; margin: 0; padding: 0; }
-        .container { max-width: 600px; margin: 20px auto; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .header { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; padding: 30px 20px; text-align: center; }
-        .header h1 { margin: 0; font-size: 24px; }
-        .content { padding: 30px 20px; }
-        .info-box { background: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0; border-radius: 4px; }
-        .client-box { background: #f0f9ff; border: 1px solid #0ea5e9; padding: 15px; margin: 15px 0; border-radius: 6px; }
-        .footer { background: #f9fafb; padding: 20px; text-align: center; font-size: 12px; color: #6b7280; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #FFFFFF; background-color: #0D1B2A; margin: 0; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; background: #1a2942; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+        .header { background: #0D1B2A; padding: 30px 20px; text-align: center; border-bottom: 3px solid #FFB020; }
+        .logo { max-width: 180px; height: auto; margin-bottom: 15px; }
+        .header h1 { margin: 15px 0 5px 0; font-size: 26px; color: #FFFFFF; font-weight: 700; }
+        .header p { margin: 5px 0 0 0; font-size: 14px; color: #FFB020; font-weight: 600; }
+        .content { padding: 35px 25px; color: #FFFFFF; }
+        .greeting { font-size: 16px; margin-bottom: 20px; }
+        .intro-text { margin-bottom: 25px; line-height: 1.8; }
+        .intro-text strong { color: #00FFAA; }
+        .info-box { background: #2d3e5f; border-left: 4px solid #FFB020; padding: 18px; margin: 25px 0; border-radius: 4px; }
+        .info-box p { margin: 0; color: #FFFFFF; font-size: 14px; line-height: 1.6; }
+        .info-box .warning-icon { color: #FFB020; font-weight: 700; }
+        .client-box { background: #0D1B2A; border: 2px solid #00DEA8; padding: 20px; margin: 25px 0; border-radius: 8px; }
+        .client-box .title { margin: 0 0 15px 0; font-weight: 700; color: #00FFAA; font-size: 16px; }
+        .client-box p { margin: 8px 0; color: #a8b2d1; font-size: 14px; }
+        .client-box strong { color: #FFFFFF; }
+        .existing-clients { margin-top: 25px; padding: 18px; background: #162a40; border-radius: 6px; }
+        .existing-clients p { color: #a8b2d1; font-size: 14px; margin-bottom: 10px; }
+        .existing-clients ul { margin: 10px 0; padding-left: 20px; color: #FFFFFF; }
+        .existing-clients li { margin: 5px 0; font-size: 14px; }
+        .contact-box { margin-top: 30px; padding: 18px; background: #162a40; border-left: 4px solid #00DEA8; border-radius: 4px; }
+        .contact-box p { margin: 0; color: #a8b2d1; font-size: 13px; line-height: 1.6; }
+        .contact-box strong { color: #00FFAA; }
+        .footer { background: #0D1B2A; padding: 25px 20px; text-align: center; font-size: 12px; color: #a8b2d1; border-top: 2px solid #00DEA8; }
+        .footer p { margin: 8px 0; }
+        .footer strong { color: #00FFAA; }
+        @media only screen and (max-width: 600px) {
+            body { padding: 10px; }
+            .content { padding: 25px 15px; }
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>ℹ️ Notificación Informativa</h1>
-            <p style="margin: 10px 0 0 0; font-size: 14px;">QoriCash Trading</p>
+            <img src="https://raw.githubusercontent.com/ggarciaperion/qoricash/main/app/static/images/finalfinal.png" alt="QoriCash Logo" class="logo">
+            <h1>Notificación Informativa</h1>
+            <p>QoriCash Trading</p>
         </div>
 
         <div class="content">
-            <p>Estimado(a) usuario,</p>
+            <p class="greeting">Estimado(a) usuario,</p>
 
-            <p>Le informamos que su correo electrónico <strong>{{ new_client.email }}</strong> ha sido utilizado para registrar un nuevo cliente en QoriCash Trading.</p>
+            <p class="intro-text">Le informamos que su correo electrónico <strong>{{ new_client.email }}</strong> ha sido utilizado para registrar un nuevo cliente en QoriCash Trading.</p>
 
             <div class="info-box">
-                <p style="margin: 0 0 10px 0; font-weight: 600; color: #d97706;">⚠️ Esta es una notificación informativa</p>
-                <p style="margin: 5px 0; font-size: 14px;">Si usted autorizó este registro, no necesita realizar ninguna acción. Si NO reconoce este registro, por favor contacte inmediatamente con nosotros.</p>
+                <p><span class="warning-icon">⚠️ Esta es una notificación informativa</span></p>
+                <p style="margin-top: 10px;">Si usted autorizó este registro, no necesita realizar ninguna acción. Si NO reconoce este registro, por favor contacte inmediatamente con nosotros.</p>
             </div>
 
             <div class="client-box">
-                <p style="margin: 0 0 10px 0; font-weight: 600; color: #0369a1;">📋 Información del Nuevo Cliente Registrado:</p>
-                <p style="margin: 5px 0;"><strong>Tipo de Documento:</strong> {{ new_client.document_type }}</p>
-                <p style="margin: 5px 0;"><strong>Número de Documento:</strong> {{ new_client.dni }}</p>
-                <p style="margin: 5px 0;"><strong>Nombre:</strong> {{ new_client.full_name or new_client.razon_social }}</p>
+                <p class="title">📋 Información del Nuevo Cliente Registrado:</p>
+                <p><strong>Tipo de Documento:</strong> {{ new_client.document_type }}</p>
+                <p><strong>Número de Documento:</strong> {{ new_client.dni }}</p>
+                <p><strong>Nombre:</strong> {{ new_client.full_name or new_client.razon_social }}</p>
                 {% if new_client.phone %}
-                <p style="margin: 5px 0;"><strong>Teléfono:</strong> {{ new_client.phone }}</p>
+                <p><strong>Teléfono:</strong> {{ new_client.phone }}</p>
                 {% endif %}
-                <p style="margin: 5px 0;"><strong>Email:</strong> {{ new_client.email }}</p>
-                <p style="margin: 5px 0;"><strong>Estado:</strong> {{ new_client.status }}</p>
-                <p style="margin: 5px 0;"><strong>Registrado por:</strong> {{ trader.username if trader else 'Sistema' }}</p>
+                <p><strong>Email:</strong> {{ new_client.email }}</p>
+                <p><strong>Estado:</strong> {{ new_client.status }}</p>
+                <p><strong>Registrado por:</strong> {{ trader.username if trader else 'Sistema' }}</p>
             </div>
 
             {% if existing_clients and existing_clients|length > 0 %}
-            <p style="margin-top: 20px; font-size: 14px; color: #475569;">
-                <strong>Nota:</strong> Este correo ya está asociado a {{ existing_clients|length }} cliente(s) adicional(es):
-            </p>
-            <ul style="font-size: 14px; color: #475569;">
-                {% for client in existing_clients %}
-                <li>{{ client.document_type }} {{ client.dni }} - {{ client.full_name or client.razon_social }}</li>
-                {% endfor %}
-            </ul>
+            <div class="existing-clients">
+                <p><strong>Nota:</strong> Este correo ya está asociado a {{ existing_clients|length }} cliente(s) adicional(es):</p>
+                <ul>
+                    {% for client in existing_clients %}
+                    <li>{{ client.document_type }} {{ client.dni }} - {{ client.full_name or client.razon_social }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
             {% endif %}
 
-            <p style="margin-top: 25px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 13px;">
-                <strong>¿No reconoce este registro?</strong><br>
-                Si no autorizó este registro, por favor contacte con nosotros inmediatamente respondiendo a este correo o llamando a su ejecutivo asignado.
-            </p>
+            <div class="contact-box">
+                <p><strong>¿No reconoce este registro?</strong></p>
+                <p style="margin-top: 8px;">Si no autorizó este registro, por favor contacte con nosotros inmediatamente respondiendo a este correo o llamando a su ejecutivo asignado.</p>
+            </div>
         </div>
 
         <div class="footer">
             <p><strong>QoriCash Trading</strong></p>
             <p>Sistema de Gestión de Operaciones Cambiarias</p>
-            <p style="margin-top: 10px;">© 2024 QoriCash Trading V2. Todos los derechos reservados.</p>
+            <p style="margin-top: 12px;">© 2025 QoriCash Trading. Todos los derechos reservados.</p>
         </div>
     </div>
 </body>
@@ -947,55 +1032,84 @@ class EmailService:
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; background-color: #f4f4f4; margin: 0; padding: 0; }
-        .container { max-width: 600px; margin: 20px auto; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px 20px; text-align: center; }
-        .header h1 { margin: 0; font-size: 24px; }
-        .content { padding: 30px 20px; }
-        .info-box { background: #f9fafb; border-left: 4px solid #667eea; padding: 15px; margin: 20px 0; border-radius: 4px; }
-        .footer { background: #f9fafb; padding: 20px; text-align: center; font-size: 12px; color: #6b7280; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #FFFFFF; background-color: #0D1B2A; margin: 0; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; background: #1a2942; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+        .header { background: #0D1B2A; padding: 30px 20px; text-align: center; border-bottom: 3px solid #00DEA8; }
+        .logo { max-width: 180px; height: auto; margin-bottom: 15px; }
+        .header h1 { margin: 15px 0 5px 0; font-size: 26px; color: #FFFFFF; font-weight: 700; }
+        .header p { margin: 5px 0 0 0; font-size: 14px; color: #00DEA8; font-weight: 600; }
+        .content { padding: 35px 25px; color: #FFFFFF; }
+        .greeting { font-size: 16px; margin-bottom: 20px; }
+        .greeting strong { color: #00FFAA; }
+        .intro-text { margin-bottom: 25px; line-height: 1.8; }
+        .info-box { background: #0D1B2A; border: 2px solid #00DEA8; border-radius: 8px; padding: 20px; margin: 25px 0; }
+        .info-box h3 { margin: 0 0 15px 0; color: #00FFAA; font-size: 18px; font-weight: 700; }
+        .info-box p { margin: 10px 0; color: #FFFFFF; font-size: 14px; }
+        .info-box p strong { color: #a8b2d1; }
+        .welcome-box { background: linear-gradient(135deg, #00DEA8, #00FFAA); padding: 25px; margin: 25px 0; border-radius: 8px; text-align: center; box-shadow: 0 4px 15px rgba(0,222,168,0.3); }
+        .welcome-box h2 { margin: 0; color: #0D1B2A; font-size: 22px; font-weight: 700; }
+        .welcome-box p { margin: 10px 0 0 0; color: #0D1B2A; font-weight: 600; }
+        .note-box { margin-top: 30px; padding: 18px; background: #162a40; border-left: 4px solid #00DEA8; border-radius: 4px; }
+        .note-box p { margin: 0; color: #a8b2d1; font-size: 13px; line-height: 1.6; }
+        .note-box strong { color: #00FFAA; }
+        .footer { background: #0D1B2A; padding: 25px 20px; text-align: center; font-size: 12px; color: #a8b2d1; border-top: 2px solid #00DEA8; }
+        .footer p { margin: 8px 0; }
+        .footer strong { color: #00FFAA; }
+        .divider { height: 1px; background: linear-gradient(90deg, transparent, #00DEA8, transparent); margin: 25px 0; }
+        @media only screen and (max-width: 600px) {
+            body { padding: 10px; }
+            .content { padding: 25px 15px; }
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
+            <img src="https://raw.githubusercontent.com/ggarciaperion/qoricash/main/app/static/images/finalfinal.png" alt="QoriCash Logo" class="logo">
             <h1>Bienvenido a QoriCash</h1>
-            <p style="margin: 10px 0 0 0; font-size: 14px;">Cambio de divisas</p>
+            <p>Sistema de Gestión de Operaciones Cambiarias</p>
         </div>
 
         <div class="content">
-            <p>Estimado(a) <strong>{{ client.full_name or client.razon_social }}</strong>,</p>
+            <p class="greeting">Estimado(a) <strong>{{ client.full_name or client.razon_social }}</strong>,</p>
 
-            <p>Hemos recibido su solicitud de registro por parte de su ejecutivo comercial <strong>{{ trader.username }}</strong>. Nuestro equipo está validando su información y en breve le informaremos sobre la activación de su cuenta.</p>
-
-            <div class="info-box">
-                <p style="margin: 0 0 10px 0; font-weight: 600; color: #667eea;">Datos de Registro:</p>
-                <p style="margin: 5px 0;"><strong>Cliente:</strong> {{ client.full_name or client.razon_social }}</p>
-                {% if client.document_type %}
-                <p style="margin: 5px 0;"><strong>Tipo Documento:</strong> {{ client.document_type }}</p>
-                {% endif %}
-                {% if client.dni %}
-                <p style="margin: 5px 0;"><strong>Número Documento:</strong> {{ client.dni }}</p>
-                {% endif %}
-                {% if client.phone %}
-                <p style="margin: 5px 0;"><strong>Teléfono:</strong> {{ client.phone }}</p>
-                {% endif %}
-                <p style="margin: 5px 0;"><strong>Cuentas Bancarias:</strong> {{ bank_accounts_text }}</p>
-                <p style="margin: 5px 0;"><strong>Ejecutivo Asignado:</strong> {{ trader.username }}</p>
+            <div class="welcome-box">
+                <h2>¡Registro Recibido!</h2>
+                <p>Su solicitud está en proceso de validación</p>
             </div>
 
-            <p>Para consultas, contacte a <strong>{{ trader.username }}</strong>{% if trader.email %} al correo {{ trader.email }}{% endif %}.</p>
+            <p class="intro-text">Hemos recibido su solicitud de registro por parte de su ejecutivo comercial <strong style="color: #00FFAA;">{{ trader.username }}</strong>. Nuestro equipo está validando su información y en breve le informaremos sobre la activación de su cuenta.</p>
 
-            <p style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 13px;">
-                <strong>Importante:</strong> Este es un correo automático.
-            </p>
+            <div class="info-box">
+                <h3>Datos de Registro</h3>
+                <p><strong>Cliente:</strong> {{ client.full_name or client.razon_social }}</p>
+                {% if client.document_type %}
+                <p><strong>Tipo Documento:</strong> {{ client.document_type }}</p>
+                {% endif %}
+                {% if client.dni %}
+                <p><strong>Número Documento:</strong> {{ client.dni }}</p>
+                {% endif %}
+                {% if client.phone %}
+                <p><strong>Teléfono:</strong> {{ client.phone }}</p>
+                {% endif %}
+                <p><strong>Cuentas Bancarias:</strong> {{ bank_accounts_text }}</p>
+                <p><strong>Ejecutivo Asignado:</strong> {{ trader.username }}</p>
+            </div>
+
+            <div class="divider"></div>
+
+            <p style="margin-top: 25px; line-height: 1.8;">Para consultas, contacte a <strong style="color: #00FFAA;">{{ trader.username }}</strong>{% if trader.email %} al correo <strong style="color: #00DEA8;">{{ trader.email }}</strong>{% endif %}.</p>
+
+            <div class="note-box">
+                <p><strong>Importante:</strong> Este es un correo automático generado por nuestro sistema. Una vez validada su información, recibirá un correo de confirmación de activación de cuenta.</p>
+            </div>
         </div>
 
         <div class="footer">
-            <p><strong>QoriCash</strong></p>
+            <p><strong>QoriCash Trading</strong></p>
             <p>RUC: 20235842211</p>
             <p>Sistema de Gestión de Operaciones Cambiarias</p>
-            <p style="margin-top: 10px;">© 2024 QoriCash. Todos los derechos reservados.</p>
+            <p style="margin-top: 12px;">© 2025 QoriCash Trading. Todos los derechos reservados.</p>
         </div>
     </div>
 </body>
@@ -1013,68 +1127,100 @@ class EmailService:
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; background-color: #f4f4f4; margin: 0; padding: 0; }
-        .container { max-width: 600px; margin: 20px auto; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .header { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 30px 20px; text-align: center; }
-        .header h1 { margin: 0; font-size: 24px; }
-        .content { padding: 30px 20px; }
-        .success-box { background: #d1fae5; border-left: 4px solid #10b981; padding: 20px; margin: 20px 0; border-radius: 4px; text-align: center; }
-        .info-box { background: #f0f9ff; border-left: 4px solid #3b82f6; padding: 15px; margin: 20px 0; border-radius: 4px; }
-        .footer { background: #f9fafb; padding: 20px; text-align: center; font-size: 12px; color: #6b7280; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #FFFFFF; background-color: #0D1B2A; margin: 0; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; background: #1a2942; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+        .header { background: #0D1B2A; padding: 30px 20px; text-align: center; border-bottom: 3px solid #00FFAA; }
+        .logo { max-width: 180px; height: auto; margin-bottom: 15px; }
+        .header h1 { margin: 15px 0 5px 0; font-size: 26px; color: #FFFFFF; font-weight: 700; }
+        .header p { margin: 5px 0 0 0; font-size: 14px; color: #00FFAA; font-weight: 600; }
+        .content { padding: 35px 25px; color: #FFFFFF; }
+        .greeting { font-size: 16px; margin-bottom: 20px; }
+        .greeting strong { color: #00FFAA; }
+        .success-box { background: linear-gradient(135deg, #00DEA8, #00FFAA); padding: 25px; margin: 25px 0; border-radius: 8px; text-align: center; box-shadow: 0 4px 15px rgba(0,222,168,0.3); }
+        .success-box h2 { margin: 0; color: #0D1B2A; font-size: 22px; font-weight: 700; }
+        .success-box p { margin: 10px 0 0 0; color: #0D1B2A; font-weight: 600; }
+        .success-icon { font-size: 48px; margin-bottom: 10px; }
+        .intro-text { margin-bottom: 25px; line-height: 1.8; }
+        .info-box { background: #0D1B2A; border: 2px solid #00DEA8; border-radius: 8px; padding: 20px; margin: 25px 0; }
+        .info-box h3 { margin: 0 0 15px 0; color: #00FFAA; font-size: 18px; font-weight: 700; }
+        .info-box p { margin: 10px 0; color: #FFFFFF; font-size: 14px; }
+        .info-box p strong { color: #a8b2d1; }
+        .info-box .status-active { color: #00FFAA; font-weight: bold; }
+        .benefits-box { background: #162a40; border-radius: 8px; padding: 20px; margin: 25px 0; border: 1px solid #2d3e5f; }
+        .benefits-box h3 { margin: 0 0 15px 0; color: #00FFAA; font-size: 18px; font-weight: 700; }
+        .benefits-box ul { margin: 10px 0; padding-left: 20px; color: #a8b2d1; line-height: 2; }
+        .benefits-box li { margin: 8px 0; }
+        .note-box { margin-top: 30px; padding: 18px; background: #162a40; border-left: 4px solid #00DEA8; border-radius: 4px; }
+        .note-box p { margin: 0; color: #a8b2d1; font-size: 13px; line-height: 1.6; }
+        .note-box strong { color: #00FFAA; }
+        .footer { background: #0D1B2A; padding: 25px 20px; text-align: center; font-size: 12px; color: #a8b2d1; border-top: 2px solid #00DEA8; }
+        .footer p { margin: 8px 0; }
+        .footer strong { color: #00FFAA; }
+        .divider { height: 1px; background: linear-gradient(90deg, transparent, #00DEA8, transparent); margin: 25px 0; }
+        @media only screen and (max-width: 600px) {
+            body { padding: 10px; }
+            .content { padding: 25px 15px; }
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
+            <img src="https://raw.githubusercontent.com/ggarciaperion/qoricash/main/app/static/images/finalfinal.png" alt="QoriCash Logo" class="logo">
             <h1>¡Cuenta Activada Exitosamente!</h1>
-            <p style="margin: 10px 0 0 0; font-size: 14px;">QoriCash</p>
+            <p>QoriCash Trading</p>
         </div>
 
         <div class="content">
-            <p>Estimado(a) <strong>{{ client.full_name or client.razon_social }}</strong>,</p>
+            <p class="greeting">Estimado(a) <strong>{{ client.full_name or client.razon_social }}</strong>,</p>
 
             <div class="success-box">
-                <h2 style="margin: 0; color: #065f46; font-size: 20px;">¡Bienvenido a QoriCash!</h2>
-                <p style="margin: 10px 0 0 0; color: #047857;">Su cuenta ha sido activada correctamente</p>
+                <div class="success-icon">✓</div>
+                <h2>¡Bienvenido a QoriCash!</h2>
+                <p>Su cuenta ha sido activada correctamente</p>
             </div>
 
-            <p>Nos complace informarle que su registro ha sido validado exitosamente y su cuenta ya se encuentra <strong>activa</strong> en nuestro sistema.</p>
+            <p class="intro-text">Nos complace informarle que su registro ha sido validado exitosamente y su cuenta ya se encuentra <strong style="color: #00FFAA;">ACTIVA</strong> en nuestro sistema.</p>
 
-            <p>A partir de este momento, puede comenzar a realizar operaciones de cambio de divisas con nosotros. Nuestro equipo está listo para atenderle y brindarle el mejor servicio.</p>
+            <p class="intro-text">A partir de este momento, puede comenzar a realizar operaciones de cambio de divisas con nosotros. Nuestro equipo está listo para atenderle y brindarle el mejor servicio.</p>
 
             <div class="info-box">
-                <p style="margin: 0 0 10px 0; font-weight: 600; color: #1e40af;">Información de su Cuenta:</p>
-                <p style="margin: 5px 0;"><strong>Cliente:</strong> {{ client.full_name or client.razon_social }}</p>
+                <h3>Información de su Cuenta</h3>
+                <p><strong>Cliente:</strong> {{ client.full_name or client.razon_social }}</p>
                 {% if client.document_number or client.dni %}
-                <p style="margin: 5px 0;"><strong>Número de documento:</strong> {{ client.document_number or client.dni }}</p>
+                <p><strong>Número de documento:</strong> {{ client.document_number or client.dni }}</p>
                 {% endif %}
                 {% if client.phone %}
-                <p style="margin: 5px 0;"><strong>Número de teléfono registrado:</strong> {{ client.phone }}</p>
+                <p><strong>Número de teléfono registrado:</strong> {{ client.phone }}</p>
                 {% endif %}
-                <p style="margin: 5px 0;"><strong>Estado:</strong> <span style="color: #059669; font-weight: bold;">ACTIVO</span></p>
-                <p style="margin: 5px 0;"><strong>Ejecutivo Asignado:</strong> {{ trader.username }}</p>
+                <p><strong>Estado:</strong> <span class="status-active">ACTIVO</span></p>
+                <p><strong>Ejecutivo Asignado:</strong> {{ trader.username }}</p>
             </div>
 
-            <p><strong>¿Qué puede hacer ahora?</strong></p>
-            <ul style="color: #374151; line-height: 1.8;">
-                <li>Realizar operaciones de compra y venta de dólares</li>
-                <li>Obtener tipos de cambio competitivos</li>
-                <li>Recibir atención personalizada de su ejecutivo</li>
-                <li>Acceder a transferencias rápidas y seguras</li>
-            </ul>
+            <div class="benefits-box">
+                <h3>¿Qué puede hacer ahora?</h3>
+                <ul>
+                    <li>Realizar operaciones de compra y venta de dólares</li>
+                    <li>Obtener tipos de cambio competitivos</li>
+                    <li>Recibir atención personalizada de su ejecutivo</li>
+                    <li>Acceder a transferencias rápidas y seguras</li>
+                </ul>
+            </div>
 
-            <p style="margin-top: 25px;">Para realizar su primera operación o si tiene alguna consulta, puede contactar directamente a su ejecutivo comercial <strong>{{ trader.username }}</strong>{% if trader.email %} al correo {{ trader.email }}{% endif %}.</p>
+            <div class="divider"></div>
 
-            <p style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 13px;">
-                <strong>Gracias por confiar en QoriCash para sus operaciones cambiarias.</strong>
-            </p>
+            <p style="margin-top: 25px; line-height: 1.8;">Para realizar su primera operación o si tiene alguna consulta, puede contactar directamente a su ejecutivo comercial <strong style="color: #00FFAA;">{{ trader.username }}</strong>{% if trader.email %} al correo <strong style="color: #00DEA8;">{{ trader.email }}</strong>{% endif %}.</p>
+
+            <div class="note-box">
+                <p><strong>Gracias por confiar en QoriCash Trading para sus operaciones cambiarias.</strong></p>
+            </div>
         </div>
 
         <div class="footer">
-            <p><strong>QoriCash</strong></p>
+            <p><strong>QoriCash Trading</strong></p>
             <p>RUC: 20235842211</p>
             <p>Sistema de Gestión de Operaciones Cambiarias</p>
-            <p style="margin-top: 10px;">© 2024 QoriCash. Todos los derechos reservados.</p>
+            <p style="margin-top: 12px;">© 2025 QoriCash Trading. Todos los derechos reservados.</p>
         </div>
     </div>
 </body>
@@ -1142,73 +1288,96 @@ class EmailService:
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; background-color: #f4f4f4; margin: 0; padding: 0; }
-        .container { max-width: 600px; margin: 20px auto; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .header { background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%); color: white; padding: 30px 20px; text-align: center; }
-        .header h1 { margin: 0; font-size: 24px; }
-        .content { padding: 30px 20px; }
-        .badge { display: inline-block; padding: 5px 15px; border-radius: 20px; font-size: 12px; font-weight: bold; margin: 5px 0; }
-        .badge-canceled { background: #dc2626; color: white; }
-        .info-row { display: flex; justify-content: space-between; padding: 12px; border-bottom: 1px solid #e5e7eb; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #FFFFFF; background-color: #0D1B2A; margin: 0; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; background: #1a2942; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+        .header { background: #0D1B2A; padding: 30px 20px; text-align: center; border-bottom: 3px solid #FFB020; }
+        .logo { max-width: 180px; height: auto; margin-bottom: 15px; }
+        .header h1 { margin: 15px 0 5px 0; font-size: 26px; color: #FFFFFF; font-weight: 700; }
+        .header p { margin: 5px 0 0 0; font-size: 14px; color: #FFB020; font-weight: 600; }
+        .content { padding: 35px 25px; color: #FFFFFF; }
+        .greeting { font-size: 16px; margin-bottom: 20px; }
+        .greeting strong { color: #00FFAA; }
+        .client-info { font-size: 13px; color: #a8b2d1; margin: -10px 0 20px 0; }
+        .warning-box { background: linear-gradient(135deg, #FFB020, #FF8C00); padding: 25px; margin: 25px 0; border-radius: 8px; text-align: center; box-shadow: 0 4px 15px rgba(255,176,32,0.3); }
+        .warning-box h2 { margin: 0; color: #0D1B2A; font-size: 22px; font-weight: 700; }
+        .warning-box p { margin: 10px 0 0 0; color: #0D1B2A; font-weight: 600; }
+        .warning-icon { font-size: 48px; margin-bottom: 10px; }
+        .intro-text { margin-bottom: 25px; line-height: 1.8; }
+        .reason-box { background: #162a40; border: 2px solid #FFB020; border-radius: 8px; padding: 20px; margin: 25px 0; }
+        .reason-box h3 { margin: 0 0 12px 0; color: #FFB020; font-size: 18px; font-weight: 700; }
+        .reason-box p { margin: 0; color: #FFFFFF; font-size: 14px; font-style: italic; line-height: 1.6; }
+        .highlight-box { background: #0D1B2A; border: 2px solid #00DEA8; border-radius: 8px; padding: 20px; margin: 25px 0; }
+        .highlight-box h3 { margin: 0 0 15px 0; color: #00FFAA; font-size: 18px; font-weight: 700; }
+        .info-row { display: flex; justify-content: space-between; padding: 14px 0; border-bottom: 1px solid #2d3e5f; }
         .info-row:last-child { border-bottom: none; }
-        .info-label { font-weight: 600; color: #6b7280; }
-        .info-value { color: #111827; font-weight: 500; }
-        .warning-box { background: #fef2f2; border-left: 4px solid #dc2626; padding: 20px; margin: 20px 0; border-radius: 4px; }
-        .reason-box { background: #fff7ed; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0; border-radius: 4px; }
-        .footer { background: #f9fafb; padding: 20px; text-align: center; font-size: 12px; color: #6b7280; }
+        .info-label { font-weight: 600; color: #a8b2d1; font-size: 14px; }
+        .info-value { color: #FFFFFF; font-weight: 600; font-size: 14px; text-align: right; }
+        .amount-usd { font-size: 20px; color: #00FFAA; font-weight: 700; }
+        .amount-pen { font-size: 20px; color: #00DEA8; font-weight: 700; }
+        .badge-canceled { display: inline-block; padding: 6px 16px; border-radius: 20px; font-size: 13px; font-weight: bold; background: #FFB020; color: #0D1B2A; }
+        .note-box { margin-top: 30px; padding: 18px; background: #162a40; border-left: 4px solid #00DEA8; border-radius: 4px; }
+        .note-box p { margin: 0; color: #a8b2d1; font-size: 13px; line-height: 1.6; }
+        .note-box strong { color: #00FFAA; }
+        .footer { background: #0D1B2A; padding: 25px 20px; text-align: center; font-size: 12px; color: #a8b2d1; border-top: 2px solid #00DEA8; }
+        .footer p { margin: 8px 0; }
+        .footer strong { color: #00FFAA; }
+        .divider { height: 1px; background: linear-gradient(90deg, transparent, #00DEA8, transparent); margin: 25px 0; }
         @media only screen and (max-width: 600px) {
+            body { padding: 10px; }
+            .content { padding: 25px 15px; }
             .info-row { flex-direction: column; }
-            .info-label { margin-bottom: 5px; }
+            .info-value { text-align: left; margin-top: 5px; }
         }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>⚠️ Operación Cancelada</h1>
-            <p style="margin: 10px 0 0 0; font-size: 14px;">QoriCash Trading</p>
+            <img src="https://raw.githubusercontent.com/ggarciaperion/qoricash/main/app/static/images/finalfinal.png" alt="QoriCash Logo" class="logo">
+            <h1>Operación Cancelada</h1>
+            <p>QoriCash Trading</p>
         </div>
 
         <div class="content">
-            <p>Estimado(a) <strong>{{ operation.client.full_name or operation.client.razon_social }}</strong>,</p>
-            <p style="margin: -10px 0 15px 0; font-size: 14px; color: #6b7280;">
+            <p class="greeting">Estimado(a) <strong>{{ operation.client.full_name or operation.client.razon_social }}</strong>,</p>
+            <p class="client-info">
                 <strong>{{ operation.client.document_type or 'Documento' }}:</strong> {{ operation.client.dni }}
             </p>
 
             <div class="warning-box">
-                <h2 style="margin: 0; color: #991b1b; font-size: 20px;">Operación Cancelada</h2>
-                <p style="margin: 10px 0 0 0; color: #7f1d1d;">Su operación ha sido cancelada</p>
+                <div class="warning-icon">⚠</div>
+                <h2>Operación Cancelada</h2>
+                <p>Su operación ha sido cancelada</p>
             </div>
 
-            <p>Lamentamos informarle que la operación con código <strong>{{ operation.operation_id }}</strong> ha sido <strong style="color: #dc2626;">CANCELADA</strong>.</p>
+            <p class="intro-text">Lamentamos informarle que la operación con código <strong style="color: #FFB020;">{{ operation.operation_id }}</strong> ha sido <strong style="color: #FFB020;">CANCELADA</strong>.</p>
 
             <div class="reason-box">
-                <p style="margin: 0 0 5px 0; font-weight: 600; color: #92400e;">Motivo de Cancelación:</p>
-                <p style="margin: 0; color: #451a03; font-style: italic;">{{ reason }}</p>
+                <h3>Motivo de Cancelación</h3>
+                <p>{{ reason }}</p>
             </div>
 
-            <p><strong>Detalles de la Operación Cancelada:</strong></p>
-
-            <div style="background: #f9fafb; border-radius: 6px; padding: 15px; margin: 20px 0;">
+            <div class="highlight-box">
+                <h3>Detalles de la Operación Cancelada</h3>
                 <div class="info-row">
                     <span class="info-label">Código de Operación:</span>
                     <span class="info-value"><strong>{{ operation.operation_id }}</strong></span>
                 </div>
                 <div class="info-row">
-                    <span class="info-label">Tipo:</span>
+                    <span class="info-label">Tipo de Operación:</span>
                     <span class="info-value">{{ operation.operation_type }}</span>
                 </div>
                 <div class="info-row">
-                    <span class="info-label">Monto USD:</span>
-                    <span class="info-value" style="font-size: 18px; color: #059669;">$ {{ "{:,.2f}".format(operation.amount_usd) }}</span>
+                    <span class="info-label">Monto en Dólares:</span>
+                    <span class="info-value amount-usd">$ {{ "{:,.2f}".format(operation.amount_usd) }}</span>
                 </div>
                 <div class="info-row">
                     <span class="info-label">Tipo de Cambio:</span>
-                    <span class="info-value">{{ "%.4f"|format(operation.exchange_rate) }}</span>
+                    <span class="info-value">S/ {{ "%.4f"|format(operation.exchange_rate) }}</span>
                 </div>
                 <div class="info-row">
-                    <span class="info-label">Monto PEN:</span>
-                    <span class="info-value" style="font-size: 18px; color: #dc2626;">S/ {{ "{:,.2f}".format(operation.amount_pen) }}</span>
+                    <span class="info-label">Monto en Soles:</span>
+                    <span class="info-value amount-pen">S/ {{ "{:,.2f}".format(operation.amount_pen) }}</span>
                 </div>
                 <div class="info-row">
                     <span class="info-label">Fecha de Creación:</span>
@@ -1216,21 +1385,23 @@ class EmailService:
                 </div>
                 <div class="info-row">
                     <span class="info-label">Estado:</span>
-                    <span class="info-value"><span class="badge badge-canceled">CANCELADA</span></span>
+                    <span class="info-value"><span class="badge-canceled">CANCELADA</span></span>
                 </div>
             </div>
 
-            <p style="margin-top: 25px;">Si tiene alguna consulta sobre esta cancelación, por favor contacte a su ejecutivo comercial.</p>
+            <div class="divider"></div>
 
-            <p style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 13px;">
-                <strong>Nota:</strong> Para cualquier consulta sobre esta operación, puede responder a este correo o contactar a su asesor comercial.
-            </p>
+            <p style="margin-top: 25px; line-height: 1.8;">Si tiene alguna consulta sobre esta cancelación, por favor contacte a su ejecutivo comercial.</p>
+
+            <div class="note-box">
+                <p><strong>Nota:</strong> Para cualquier consulta sobre esta operación, puede responder a este correo o contactar directamente a su asesor comercial.</p>
+            </div>
         </div>
 
         <div class="footer">
             <p><strong>QoriCash Trading</strong></p>
             <p>Sistema de Gestión de Operaciones Cambiarias</p>
-            <p style="margin-top: 10px;">© 2024 QoriCash Trading V2. Todos los derechos reservados.</p>
+            <p style="margin-top: 12px;">© 2025 QoriCash Trading. Todos los derechos reservados.</p>
         </div>
     </div>
 </body>
@@ -1303,66 +1474,113 @@ class EmailService:
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; background-color: #f4f4f4; margin: 0; padding: 0; }
-        .container { max-width: 600px; margin: 20px auto; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .header { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; padding: 30px 20px; text-align: center; }
-        .header h1 { margin: 0; font-size: 24px; }
-        .content { padding: 30px 20px; }
-        .badge { display: inline-block; padding: 5px 15px; border-radius: 20px; font-size: 12px; font-weight: bold; margin: 5px 0; }
-        .badge-modified { background: #f59e0b; color: white; }
-        .badge-success { background: #10b981; color: white; }
-        .badge-primary { background: #3b82f6; color: white; }
-        .info-row { display: flex; justify-content: space-between; padding: 12px; border-bottom: 1px solid #e5e7eb; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #FFFFFF; background-color: #0D1B2A; margin: 0; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; background: #1a2942; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+        .header { background: #0D1B2A; padding: 30px 20px; text-align: center; border-bottom: 3px solid #00DEA8; }
+        .logo { max-width: 180px; height: auto; margin-bottom: 15px; }
+        .header h1 { margin: 15px 0 5px 0; font-size: 26px; color: #FFFFFF; font-weight: 700; }
+        .header p { margin: 5px 0 0 0; font-size: 14px; color: #00DEA8; font-weight: 600; }
+        .content { padding: 35px 25px; color: #FFFFFF; }
+        .greeting { font-size: 16px; margin-bottom: 20px; }
+        .greeting strong { color: #00FFAA; }
+        .client-info { font-size: 13px; color: #a8b2d1; margin: -10px 0 20px 0; }
+        .modified-box { background: linear-gradient(135deg, #00DEA8, #00FFAA); padding: 25px; margin: 25px 0; border-radius: 8px; text-align: center; box-shadow: 0 4px 15px rgba(0,222,168,0.3); }
+        .modified-box h2 { margin: 0; color: #0D1B2A; font-size: 22px; font-weight: 700; }
+        .modified-box p { margin: 10px 0 0 0; color: #0D1B2A; font-weight: 600; }
+        .modified-icon { font-size: 48px; margin-bottom: 10px; }
+        .intro-text { margin-bottom: 25px; line-height: 1.8; }
+        .operation-box { background: #162a40; border: 2px solid #00DEA8; border-radius: 8px; padding: 18px; margin: 20px 0; text-align: center; }
+        .operation-box p { margin: 0 0 8px 0; color: #a8b2d1; font-size: 14px; font-weight: 600; }
+        .operation-box .operation-id { margin: 0; color: #00FFAA; font-size: 20px; font-weight: 700; }
+        .comparison-box { background: #0D1B2A; border: 2px solid #00DEA8; border-radius: 8px; padding: 25px; margin: 25px 0; }
+        .comparison-box h3 { margin: 0 0 20px 0; color: #00FFAA; font-size: 18px; font-weight: 700; text-align: center; }
+        .comparison-item { margin: 20px 0; }
+        .comparison-item p { margin: 0 0 10px 0; color: #a8b2d1; font-size: 14px; font-weight: 600; }
+        .comparison-values { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 15px; }
+        .old-value { color: #FFB020; text-decoration: line-through; font-size: 18px; font-weight: 600; }
+        .new-value { color: #00FFAA; font-weight: 700; font-size: 20px; }
+        .arrow { color: #00DEA8; font-size: 24px; }
+        .highlight-box { background: #0D1B2A; border: 2px solid #00DEA8; border-radius: 8px; padding: 20px; margin: 25px 0; }
+        .highlight-box h3 { margin: 0 0 15px 0; color: #00FFAA; font-size: 18px; font-weight: 700; }
+        .info-row { display: flex; justify-content: space-between; padding: 14px 0; border-bottom: 1px solid #2d3e5f; }
         .info-row:last-child { border-bottom: none; }
-        .info-label { font-weight: 600; color: #6b7280; }
-        .info-value { color: #111827; font-weight: 500; }
-        .highlight-box { background: #fff7ed; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0; border-radius: 4px; }
-        .comparison-box { background: #f0f9ff; border: 2px solid #0ea5e9; padding: 20px; margin: 20px 0; border-radius: 6px; }
-        .old-value { color: #dc2626; text-decoration: line-through; font-size: 16px; }
-        .new-value { color: #059669; font-weight: bold; font-size: 18px; }
-        .arrow { color: #f59e0b; font-size: 20px; margin: 0 10px; }
-        .footer { background: #f9fafb; padding: 20px; text-align: center; font-size: 12px; color: #6b7280; }
+        .info-label { font-weight: 600; color: #a8b2d1; font-size: 14px; }
+        .info-value { color: #FFFFFF; font-weight: 600; font-size: 14px; text-align: right; }
+        .amount-usd { font-size: 20px; color: #00FFAA; font-weight: 700; }
+        .amount-pen { font-size: 20px; color: #00DEA8; font-weight: 700; }
+        .badge { display: inline-block; padding: 6px 16px; border-radius: 20px; font-size: 13px; font-weight: bold; }
+        .badge-compra { background: #00FFAA; color: #0D1B2A; }
+        .badge-venta { background: #00DEA8; color: #0D1B2A; }
+        .bank-section { background: #162a40; border: 2px solid #00DEA8; border-radius: 8px; padding: 25px; margin: 25px 0; }
+        .bank-section h3 { margin: 0 0 15px 0; color: #00FFAA; font-size: 18px; font-weight: 700; }
+        .bank-section p { margin: 10px 0; color: #a8b2d1; font-size: 14px; line-height: 1.6; }
+        .company-name { color: #00FFAA !important; font-weight: 700 !important; }
+        .bank-table { width: 100%; border-collapse: collapse; margin: 15px 0; font-size: 13px; }
+        .bank-table thead { background: #0D1B2A; }
+        .bank-table th { padding: 12px 10px; text-align: left; border-bottom: 2px solid #00DEA8; color: #00FFAA; font-weight: 700; }
+        .bank-table td { padding: 12px 10px; border-bottom: 1px solid #2d3e5f; color: #FFFFFF; }
+        .bank-table tbody tr { background: #162a40; }
+        .bank-table tbody tr:nth-child(even) { background: #1a2942; }
+        .bank-name { color: #00FFAA; font-weight: 600; }
+        .account-number { font-family: monospace; font-weight: 600; color: #00DEA8; }
+        .note-box { margin-top: 30px; padding: 18px; background: #162a40; border-left: 4px solid #00DEA8; border-radius: 4px; }
+        .note-box p { margin: 0; color: #a8b2d1; font-size: 13px; line-height: 1.6; }
+        .note-box strong { color: #00FFAA; }
+        .footer { background: #0D1B2A; padding: 25px 20px; text-align: center; font-size: 12px; color: #a8b2d1; border-top: 2px solid #00DEA8; }
+        .footer p { margin: 8px 0; }
+        .footer strong { color: #00FFAA; }
+        .divider { height: 1px; background: linear-gradient(90deg, transparent, #00DEA8, transparent); margin: 25px 0; }
         @media only screen and (max-width: 600px) {
+            body { padding: 10px; }
+            .content { padding: 25px 15px; }
             .info-row { flex-direction: column; }
-            .info-label { margin-bottom: 5px; }
+            .info-value { text-align: left; margin-top: 5px; }
+            .comparison-values { flex-direction: column; gap: 8px; }
         }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>📝 Monto Modificado</h1>
-            <p style="margin: 10px 0 0 0; font-size: 14px;">QoriCash Trading</p>
+            <img src="https://raw.githubusercontent.com/ggarciaperion/qoricash/main/app/static/images/finalfinal.png" alt="QoriCash Logo" class="logo">
+            <h1>Monto Modificado</h1>
+            <p>QoriCash Trading</p>
         </div>
 
         <div class="content">
-            <p>Estimado(a) <strong>{{ operation.client.full_name or operation.client.razon_social }}</strong>,</p>
-            <p style="margin: -10px 0 15px 0; font-size: 14px; color: #6b7280;">
+            <p class="greeting">Estimado(a) <strong>{{ operation.client.full_name or operation.client.razon_social }}</strong>,</p>
+            <p class="client-info">
                 <strong>{{ operation.client.document_type or 'Documento' }}:</strong> {{ operation.client.dni }}
             </p>
 
-            <p>Le informamos que el <strong>monto de su operación</strong> ha sido modificado. A continuación los detalles:</p>
+            <div class="modified-box">
+                <div class="modified-icon">✎</div>
+                <h2>Monto Modificado</h2>
+                <p>El monto de su operación ha sido actualizado</p>
+            </div>
 
-            <div class="highlight-box">
-                <p style="margin: 0 0 5px 0; font-weight: 600; color: #92400e;">Operación:</p>
-                <p style="margin: 0; font-size: 18px;"><strong>{{ operation.operation_id }}</strong></p>
+            <p class="intro-text">Le informamos que el <strong style="color: #00FFAA;">monto de su operación</strong> ha sido modificado. A continuación los detalles:</p>
+
+            <div class="operation-box">
+                <p>Operación:</p>
+                <p class="operation-id">{{ operation.operation_id }}</p>
             </div>
 
             <div class="comparison-box">
-                <h3 style="margin: 0 0 15px 0; color: #0369a1;">Cambios Realizados:</h3>
+                <h3>Cambios Realizados</h3>
 
-                <div style="margin: 15px 0;">
-                    <p style="margin: 0 0 8px 0; font-weight: 600; color: #374151;">Monto USD:</p>
-                    <div style="display: flex; align-items: center; flex-wrap: wrap;">
+                <div class="comparison-item">
+                    <p>Monto en Dólares (USD):</p>
+                    <div class="comparison-values">
                         <span class="old-value">$ {{ "{:,.2f}".format(old_amount_usd) }}</span>
                         <span class="arrow">→</span>
                         <span class="new-value">$ {{ "{:,.2f}".format(operation.amount_usd) }}</span>
                     </div>
                 </div>
 
-                <div style="margin: 15px 0;">
-                    <p style="margin: 0 0 8px 0; font-weight: 600; color: #374151;">Monto PEN:</p>
-                    <div style="display: flex; align-items: center; flex-wrap: wrap;">
+                <div class="comparison-item">
+                    <p>Monto en Soles (PEN):</p>
+                    <div class="comparison-values">
                         <span class="old-value">S/ {{ "{:,.2f}".format(old_amount_pen) }}</span>
                         <span class="arrow">→</span>
                         <span class="new-value">S/ {{ "{:,.2f}".format(operation.amount_pen) }}</span>
@@ -1370,41 +1588,40 @@ class EmailService:
                 </div>
             </div>
 
-            <p><strong>Detalles Actuales de la Operación:</strong></p>
-
-            <div style="background: #f9fafb; border-radius: 6px; padding: 15px; margin: 20px 0;">
+            <div class="highlight-box">
+                <h3>Detalles Actuales de la Operación</h3>
                 <div class="info-row">
                     <span class="info-label">Código de Operación:</span>
                     <span class="info-value"><strong>{{ operation.operation_id }}</strong></span>
                 </div>
                 <div class="info-row">
-                    <span class="info-label">Tipo:</span>
+                    <span class="info-label">Tipo de Operación:</span>
                     <span class="info-value">
                         {% if operation.operation_type == 'Compra' %}
-                            <span class="badge badge-success">COMPRA USD</span>
+                            <span class="badge badge-compra">COMPRA USD</span>
                         {% else %}
-                            <span class="badge badge-primary">VENTA USD</span>
+                            <span class="badge badge-venta">VENTA USD</span>
                         {% endif %}
                     </span>
                 </div>
                 <div class="info-row">
-                    <span class="info-label">Monto USD:</span>
-                    <span class="info-value" style="font-size: 18px; color: #059669;">$ {{ "{:,.2f}".format(operation.amount_usd) }}</span>
+                    <span class="info-label">Monto en Dólares:</span>
+                    <span class="info-value amount-usd">$ {{ "{:,.2f}".format(operation.amount_usd) }}</span>
                 </div>
                 <div class="info-row">
                     <span class="info-label">Tipo de Cambio:</span>
-                    <span class="info-value">{{ "%.4f"|format(operation.exchange_rate) }}</span>
+                    <span class="info-value">S/ {{ "%.4f"|format(operation.exchange_rate) }}</span>
                 </div>
                 <div class="info-row">
-                    <span class="info-label">Monto PEN:</span>
-                    <span class="info-value" style="font-size: 18px; color: #dc2626;">S/ {{ "{:,.2f}".format(operation.amount_pen) }}</span>
+                    <span class="info-label">Monto en Soles:</span>
+                    <span class="info-value amount-pen">S/ {{ "{:,.2f}".format(operation.amount_pen) }}</span>
                 </div>
                 <div class="info-row">
                     <span class="info-label">Estado:</span>
                     <span class="info-value"><strong>{{ operation.status }}</strong></span>
                 </div>
                 <div class="info-row">
-                    <span class="info-label">Fecha:</span>
+                    <span class="info-label">Fecha de Creación:</span>
                     <span class="info-value">{{ operation.created_at.strftime('%d/%m/%Y %H:%M') }}</span>
                 </div>
             </div>
@@ -1412,113 +1629,115 @@ class EmailService:
             <!-- Cuentas bancarias para transferencia (solo si está Pendiente) -->
             {% if operation.status == 'Pendiente' %}
                 {% if operation.operation_type == 'Compra' %}
-                <div style="margin: 25px 0; padding: 20px; background: #ecfdf5; border-radius: 8px; border: 2px solid #10b981;">
-                    <h3 style="margin: 0 0 15px 0; color: #065f46; font-size: 16px;">Cuentas para Transferencia (USD)</h3>
-                    <p style="margin: 0 0 10px 0; color: #374151; font-size: 14px;">Por favor, realice su transferencia en cualquiera de las siguientes cuentas en DOLARES:</p>
-                    <p style="margin: 0 0 15px 0; color: #065f46; font-size: 13px; font-weight: 600;">- A nombre de QORICASH SAC con número de RUC 20235842211</p>
-                    <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
-                        <thead>
-                            <tr style="background: #d1fae5;">
-                                <th style="padding: 10px; text-align: left; border-bottom: 2px solid #10b981; color: #065f46; font-weight: 600;">Banco</th>
-                                <th style="padding: 10px; text-align: left; border-bottom: 2px solid #10b981; color: #065f46; font-weight: 600;">Tipo</th>
-                                <th style="padding: 10px; text-align: left; border-bottom: 2px solid #10b981; color: #065f46; font-weight: 600;">Moneda</th>
-                                <th style="padding: 10px; text-align: left; border-bottom: 2px solid #10b981; color: #065f46; font-weight: 600;">Numero de Cuenta</th>
-                                <th style="padding: 10px; text-align: left; border-bottom: 2px solid #10b981; color: #065f46; font-weight: 600;">Numero de CCI</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr style="background: white;">
-                                <td style="padding: 10px; border-bottom: 1px solid #d1fae5; color: #1f2937; font-weight: 500;">BCP</td>
-                                <td style="padding: 10px; border-bottom: 1px solid #d1fae5; color: #4b5563;">Cta. Corriente</td>
-                                <td style="padding: 10px; border-bottom: 1px solid #d1fae5; color: #4b5563;">USD</td>
-                                <td style="padding: 10px; border-bottom: 1px solid #d1fae5; color: #1f2937; font-family: monospace; font-weight: 600;">654321</td>
-                                <td style="padding: 10px; border-bottom: 1px solid #d1fae5; color: #1f2937; font-family: monospace; font-weight: 600;">00265432100000000001</td>
-                            </tr>
-                            <tr style="background: #f0fdf4;">
-                                <td style="padding: 10px; border-bottom: 1px solid #d1fae5; color: #1f2937; font-weight: 500;">INTERBANK</td>
-                                <td style="padding: 10px; border-bottom: 1px solid #d1fae5; color: #4b5563;">Cta. Corriente</td>
-                                <td style="padding: 10px; border-bottom: 1px solid #d1fae5; color: #4b5563;">USD</td>
-                                <td style="padding: 10px; border-bottom: 1px solid #d1fae5; color: #1f2937; font-family: monospace; font-weight: 600;">456789</td>
-                                <td style="padding: 10px; border-bottom: 1px solid #d1fae5; color: #1f2937; font-family: monospace; font-weight: 600;">00345678900000000002</td>
-                            </tr>
-                            <tr style="background: white;">
-                                <td style="padding: 10px; border-bottom: 1px solid #d1fae5; color: #1f2937; font-weight: 500;">BANBIF</td>
-                                <td style="padding: 10px; border-bottom: 1px solid #d1fae5; color: #4b5563;">Cta. Corriente</td>
-                                <td style="padding: 10px; border-bottom: 1px solid #d1fae5; color: #4b5563;">USD</td>
-                                <td style="padding: 10px; border-bottom: 1px solid #d1fae5; color: #1f2937; font-family: monospace; font-weight: 600;">369852</td>
-                                <td style="padding: 10px; border-bottom: 1px solid #d1fae5; color: #1f2937; font-family: monospace; font-weight: 600;">03836985200000000003</td>
-                            </tr>
-                            <tr style="background: #f0fdf4;">
-                                <td style="padding: 10px; color: #1f2937; font-weight: 500;">PICHINCHA</td>
-                                <td style="padding: 10px; color: #4b5563;">Cta. Corriente</td>
-                                <td style="padding: 10px; color: #4b5563;">USD</td>
-                                <td style="padding: 10px; color: #1f2937; font-family: monospace; font-weight: 600;">159796</td>
-                                <td style="padding: 10px; color: #1f2937; font-family: monospace; font-weight: 600;">04815979600000000004</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-                {% elif operation.operation_type == 'Venta' %}
-                <div style="margin: 25px 0; padding: 20px; background: #fef2f2; border-radius: 8px; border: 2px solid #ef4444;">
-                    <h3 style="margin: 0 0 15px 0; color: #991b1b; font-size: 16px;">Cuentas para Transferencia (PEN)</h3>
-                    <p style="margin: 0 0 10px 0; color: #374151; font-size: 14px;">Por favor, realice su transferencia en cualquiera de las siguientes cuentas en SOLES:</p>
-                    <p style="margin: 0 0 15px 0; color: #991b1b; font-size: 13px; font-weight: 600;">- A nombre de QORICASH SAC con número de RUC 20235842211</p>
-                    <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
-                        <thead>
-                            <tr style="background: #fee2e2;">
-                                <th style="padding: 10px; text-align: left; border-bottom: 2px solid #ef4444; color: #991b1b; font-weight: 600;">Banco</th>
-                                <th style="padding: 10px; text-align: left; border-bottom: 2px solid #ef4444; color: #991b1b; font-weight: 600;">Tipo</th>
-                                <th style="padding: 10px; text-align: left; border-bottom: 2px solid #ef4444; color: #991b1b; font-weight: 600;">Moneda</th>
-                                <th style="padding: 10px; text-align: left; border-bottom: 2px solid #ef4444; color: #991b1b; font-weight: 600;">Numero de Cuenta</th>
-                                <th style="padding: 10px; text-align: left; border-bottom: 2px solid #ef4444; color: #991b1b; font-weight: 600;">Numero de CCI</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr style="background: white;">
-                                <td style="padding: 10px; border-bottom: 1px solid #fee2e2; color: #1f2937; font-weight: 500;">BCP</td>
-                                <td style="padding: 10px; border-bottom: 1px solid #fee2e2; color: #4b5563;">Cta. Corriente</td>
-                                <td style="padding: 10px; border-bottom: 1px solid #fee2e2; color: #4b5563;">PEN</td>
-                                <td style="padding: 10px; border-bottom: 1px solid #fee2e2; color: #1f2937; font-family: monospace; font-weight: 600;">123456</td>
-                                <td style="padding: 10px; border-bottom: 1px solid #fee2e2; color: #1f2937; font-family: monospace; font-weight: 600;">00212345600000000005</td>
-                            </tr>
-                            <tr style="background: #fef2f2;">
-                                <td style="padding: 10px; border-bottom: 1px solid #fee2e2; color: #1f2937; font-weight: 500;">INTERBANK</td>
-                                <td style="padding: 10px; border-bottom: 1px solid #fee2e2; color: #4b5563;">Cta. Corriente</td>
-                                <td style="padding: 10px; border-bottom: 1px solid #fee2e2; color: #4b5563;">PEN</td>
-                                <td style="padding: 10px; border-bottom: 1px solid #fee2e2; color: #1f2937; font-family: monospace; font-weight: 600;">987654</td>
-                                <td style="padding: 10px; border-bottom: 1px solid #fee2e2; color: #1f2937; font-family: monospace; font-weight: 600;">00398765400000000006</td>
-                            </tr>
-                            <tr style="background: white;">
-                                <td style="padding: 10px; border-bottom: 1px solid #fee2e2; color: #1f2937; font-weight: 500;">BANBIF</td>
-                                <td style="padding: 10px; border-bottom: 1px solid #fee2e2; color: #4b5563;">Cta. Corriente</td>
-                                <td style="padding: 10px; border-bottom: 1px solid #fee2e2; color: #4b5563;">PEN</td>
-                                <td style="padding: 10px; border-bottom: 1px solid #fee2e2; color: #1f2937; font-family: monospace; font-weight: 600;">741852</td>
-                                <td style="padding: 10px; border-bottom: 1px solid #fee2e2; color: #1f2937; font-family: monospace; font-weight: 600;">03874185200000000007</td>
-                            </tr>
-                            <tr style="background: #fef2f2;">
-                                <td style="padding: 10px; color: #1f2937; font-weight: 500;">PICHINCHA</td>
-                                <td style="padding: 10px; color: #4b5563;">Cta. Corriente</td>
-                                <td style="padding: 10px; color: #4b5563;">PEN</td>
-                                <td style="padding: 10px; color: #1f2937; font-family: monospace; font-weight: 600;">753951</td>
-                                <td style="padding: 10px; color: #1f2937; font-family: monospace; font-weight: 600;">04875395100000000008</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-                {% endif %}
+            <div class="bank-section">
+                <h3>Cuentas para Transferencia en DÓLARES (USD)</h3>
+                <p>Por favor, realice su transferencia a cualquiera de las siguientes cuentas bancarias:</p>
+                <p class="company-name">A nombre de: QORICASH SAC | RUC: 20235842211</p>
+                <table class="bank-table">
+                    <thead>
+                        <tr>
+                            <th>Banco</th>
+                            <th>Tipo</th>
+                            <th>Moneda</th>
+                            <th>N° Cuenta</th>
+                            <th>CCI</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="bank-name">BCP</td>
+                            <td>Cta. Corriente</td>
+                            <td>USD</td>
+                            <td class="account-number">654321</td>
+                            <td class="account-number">00265432100000000001</td>
+                        </tr>
+                        <tr>
+                            <td class="bank-name">INTERBANK</td>
+                            <td>Cta. Corriente</td>
+                            <td>USD</td>
+                            <td class="account-number">456789</td>
+                            <td class="account-number">00345678900000000002</td>
+                        </tr>
+                        <tr>
+                            <td class="bank-name">BANBIF</td>
+                            <td>Cta. Corriente</td>
+                            <td>USD</td>
+                            <td class="account-number">369852</td>
+                            <td class="account-number">03836985200000000003</td>
+                        </tr>
+                        <tr>
+                            <td class="bank-name">PICHINCHA</td>
+                            <td>Cta. Corriente</td>
+                            <td>USD</td>
+                            <td class="account-number">159796</td>
+                            <td class="account-number">04815979600000000004</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            {% elif operation.operation_type == 'Venta' %}
+            <div class="bank-section">
+                <h3>Cuentas para Transferencia en SOLES (PEN)</h3>
+                <p>Por favor, realice su transferencia a cualquiera de las siguientes cuentas bancarias:</p>
+                <p class="company-name">A nombre de: QORICASH SAC | RUC: 20235842211</p>
+                <table class="bank-table">
+                    <thead>
+                        <tr>
+                            <th>Banco</th>
+                            <th>Tipo</th>
+                            <th>Moneda</th>
+                            <th>N° Cuenta</th>
+                            <th>CCI</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="bank-name">BCP</td>
+                            <td>Cta. Corriente</td>
+                            <td>PEN</td>
+                            <td class="account-number">123456</td>
+                            <td class="account-number">00212345600000000005</td>
+                        </tr>
+                        <tr>
+                            <td class="bank-name">INTERBANK</td>
+                            <td>Cta. Corriente</td>
+                            <td>PEN</td>
+                            <td class="account-number">987654</td>
+                            <td class="account-number">00398765400000000006</td>
+                        </tr>
+                        <tr>
+                            <td class="bank-name">BANBIF</td>
+                            <td>Cta. Corriente</td>
+                            <td>PEN</td>
+                            <td class="account-number">741852</td>
+                            <td class="account-number">03874185200000000007</td>
+                        </tr>
+                        <tr>
+                            <td class="bank-name">PICHINCHA</td>
+                            <td>Cta. Corriente</td>
+                            <td>PEN</td>
+                            <td class="account-number">753951</td>
+                            <td class="account-number">04875395100000000008</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
             {% endif %}
 
-            <p style="margin-top: 25px;">Nuestro equipo procesará su operación con el nuevo monto. Le mantendremos informado sobre el progreso.</p>
+            <div class="divider"></div>
 
-            <p style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 13px;">
-                <strong>Importante:</strong> Este es un correo automático. Si tiene alguna consulta, por favor responda a este correo o contacte a su asesor.
-            </p>
+            <p style="margin-top: 25px; line-height: 1.8;">Nuestro equipo procesará su operación con el nuevo monto. Le mantendremos informado sobre el progreso en cada etapa del proceso.</p>
+
+            <div class="note-box">
+                <p><strong>Importante:</strong> Este es un correo automático generado por nuestro sistema. Si tiene alguna consulta, por favor responda a este correo o contacte directamente a su asesor comercial.</p>
+            </div>
         </div>
 
         <div class="footer">
             <p><strong>QoriCash Trading</strong></p>
             <p>Sistema de Gestión de Operaciones Cambiarias</p>
-            <p style="margin-top: 10px;">© 2024 QoriCash Trading V2. Todos los derechos reservados.</p>
+            <p style="margin-top: 12px;">© 2025 QoriCash Trading. Todos los derechos reservados.</p>
         </div>
     </div>
 </body>
