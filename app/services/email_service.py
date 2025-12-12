@@ -283,48 +283,48 @@ class EmailService:
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #FFFFFF; background-color: #0D1B2A; margin: 0; padding: 20px; }
-        .container { max-width: 600px; margin: 0 auto; background: #1a2942; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
-        .header { background: #0D1B2A; padding: 30px 20px; text-align: center; border-bottom: 3px solid #00DEA8; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #2c3e50; background-color: #f4f6f9; margin: 0; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; background: #FFFFFF; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08); border: 1px solid #e1e8ed; }
+        .header { background: linear-gradient(135deg, #0D1B2A 0%, #1a2942 100%); padding: 25px 20px; text-align: center; border-bottom: none; }
         .logo { max-width: 180px; height: auto; margin-bottom: 15px; }
         .header h1 { margin: 15px 0 5px 0; font-size: 26px; color: #FFFFFF; font-weight: 700; }
-        .header p { margin: 5px 0 0 0; font-size: 14px; color: #00DEA8; font-weight: 600; }
-        .content { padding: 35px 25px; color: #FFFFFF; }
+        .header p { margin: 5px 0 0 0; font-size: 14px; color: white; font-weight: 600; }
+        .content { padding: 30px 25px; color: #2c3e50; }
         .greeting { font-size: 16px; margin-bottom: 20px; }
-        .greeting strong { color: #00FFAA; }
-        .client-info { font-size: 13px; color: #a8b2d1; margin: -10px 0 20px 0; }
+        .greeting strong { color: #00a887; }
+        .client-info { font-size: 13px; color: #6c757d; margin: -10px 0 20px 0; }
         .intro-text { margin-bottom: 25px; line-height: 1.8; }
-        .highlight-box { background: #0D1B2A; border: 2px solid #00DEA8; border-radius: 8px; padding: 20px; margin: 25px 0; }
-        .info-row { display: flex; justify-content: space-between; padding: 14px 0; border-bottom: 1px solid #2d3e5f; }
+        .highlight-box { background: #f8fafb; border: 2px solid #d0ebe6; border-radius: 8px; padding: 20px; margin: 25px 0; }
+        .info-row { display: flex; justify-content: space-between; padding: 14px 0; border-bottom: 1px solid #e1e8ed; }
         .info-row:last-child { border-bottom: none; }
-        .info-label { font-weight: 600; color: #a8b2d1; font-size: 14px; }
-        .info-value { color: #FFFFFF; font-weight: 600; font-size: 14px; text-align: right; }
+        .info-label { font-weight: 600; color: #6c757d; font-size: 14px; }
+        .info-value { color: #2c3e50; font-weight: 600; font-size: 14px; text-align: right; }
         .badge { display: inline-block; padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: bold; margin: 0; }
-        .badge-compra { background: linear-gradient(135deg, #00DEA8, #00FFAA); color: #0D1B2A; }
-        .badge-venta { background: linear-gradient(135deg, #00DEA8, #00FFAA); color: #0D1B2A; }
-        .amount-usd { font-size: 20px; color: #00FFAA; font-weight: 700; }
-        .amount-pen { font-size: 20px; color: #00DEA8; font-weight: 700; }
-        .bank-section { margin: 30px 0; padding: 25px; background: #0D1B2A; border-radius: 8px; border: 2px solid #00DEA8; }
-        .bank-section h3 { margin: 0 0 12px 0; color: #00FFAA; font-size: 18px; font-weight: 700; }
-        .bank-section p { color: #a8b2d1; font-size: 14px; margin: 8px 0; line-height: 1.6; }
-        .bank-section .company-name { color: #00DEA8; font-weight: 700; }
+        .badge-compra { background: linear-gradient(135deg, #d0ebe6, #e8f5f1); color: #00a887; border: 1px solid #00a887; }
+        .badge-venta { background: linear-gradient(135deg, #d0ebe6, #e8f5f1); color: #00a887; border: 1px solid #00a887; }
+        .amount-usd { font-size: 20px; color: #00a887; font-weight: 700; }
+        .amount-pen { font-size: 20px; color: #00a887; font-weight: 700; }
+        .bank-section { margin: 30px 0; padding: 25px; background: #f8fafb; border-radius: 8px; border: 2px solid #d0ebe6; }
+        .bank-section h3 { margin: 0 0 12px 0; color: #00a887; font-size: 18px; font-weight: 700; }
+        .bank-section p { color: #495057; font-size: 14px; margin: 8px 0; line-height: 1.6; }
+        .bank-section .company-name { color: #00a887; font-weight: 700; }
         .bank-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 15px; }
-        .bank-table thead tr { background: #162a40; }
-        .bank-table th { padding: 12px 10px; text-align: left; border-bottom: 2px solid #00DEA8; color: #00FFAA; font-weight: 700; font-size: 12px; }
-        .bank-table td { padding: 12px 10px; border-bottom: 1px solid #2d3e5f; color: #FFFFFF; }
-        .bank-table tbody tr:nth-child(even) { background: #162a40; }
+        .bank-table thead tr { background: #e8f5f1; }
+        .bank-table th { padding: 12px 10px; text-align: left; border-bottom: 2px solid #d0ebe6; color: #00a887; font-weight: 700; font-size: 12px; }
+        .bank-table td { padding: 12px 10px; border-bottom: 1px solid #e1e8ed; color: #2c3e50; }
+        .bank-table tbody tr:nth-child(even) { background: #f8fafb; }
         .bank-table tbody tr:last-child td { border-bottom: none; }
-        .bank-table .bank-name { font-weight: 700; color: #00DEA8; }
+        .bank-table .bank-name { font-weight: 700; color: #00a887; }
         .bank-table .account-number { font-family: 'Courier New', monospace; font-weight: 600; }
-        .note-box { margin-top: 30px; padding: 18px; background: #162a40; border-left: 4px solid #00DEA8; border-radius: 4px; }
-        .note-box p { margin: 0; color: #a8b2d1; font-size: 13px; line-height: 1.6; }
-        .note-box strong { color: #00FFAA; }
-        .warning-box { margin-top: 20px; padding: 15px; background: #2d3e5f; border-left: 3px solid #FFB020; border-radius: 4px; }
-        .warning-box p { margin: 0; color: #FFB020; font-size: 12px; }
-        .footer { background: #0D1B2A; padding: 25px 20px; text-align: center; font-size: 12px; color: #a8b2d1; border-top: 2px solid #00DEA8; }
+        .note-box { margin-top: 30px; padding: 18px; background: #f8fafb; border-left: 4px solid #00a887; border-radius: 4px; }
+        .note-box p { margin: 0; color: #495057; font-size: 13px; line-height: 1.6; }
+        .note-box strong { color: #00a887; }
+        .warning-box { margin-top: 20px; padding: 15px; background: #fff3cd; border-left: 3px solid #FFB020; border-radius: 4px; }
+        .warning-box p { margin: 0; color: #856404; font-size: 12px; }
+        .footer { background: #f8fafb; padding: 25px 20px; text-align: center; font-size: 12px; color: #6c757d; border-top: 2px solid #d0ebe6; }
         .footer p { margin: 8px 0; }
-        .footer strong { color: #00FFAA; }
-        .divider { height: 1px; background: linear-gradient(90deg, transparent, #00DEA8, transparent); margin: 25px 0; }
+        .footer strong { color: #00a887; }
+        .divider { height: 1px; background: linear-gradient(90deg, transparent, #d0ebe6, transparent); margin: 25px 0; }
         @media only screen and (max-width: 600px) {
             body { padding: 10px; }
             .content { padding: 25px 15px; }
@@ -338,7 +338,7 @@ class EmailService:
 <body>
     <div class="container">
         <div class="header">
-            <img src="https://raw.githubusercontent.com/ggarciaperion/qoricash/main/app/static/images/finalfinal.png" alt="QoriCash Logo" class="logo">
+            <img src="https://raw.githubusercontent.com/ggarciaperion/qoricash/main/app/static/images/logo-principal.png" alt="QoriCash Logo" class="logo">
             <h1>Nueva Operación Registrada</h1>
             <p>QoriCash Trading</p>
         </div>
@@ -393,7 +393,7 @@ class EmailService:
             <div class="bank-section">
                 <h3>💵 Cuentas para Transferencia en DÓLARES (USD)</h3>
                 <p>Por favor, realice su transferencia a cualquiera de las siguientes cuentas bancarias:</p>
-                <p class="company-name">A nombre de: QORICASH SAC | RUC: 20235842211</p>
+                <p class="company-name">A nombre de: QORICASH SAC | RUC: 20615113698</p>
                 <table class="bank-table">
                     <thead>
                         <tr>
@@ -440,7 +440,7 @@ class EmailService:
             <div class="bank-section">
                 <h3>💰 Cuentas para Transferencia en SOLES (PEN)</h3>
                 <p>Por favor, realice su transferencia a cualquiera de las siguientes cuentas bancarias:</p>
-                <p class="company-name">A nombre de: QORICASH SAC | RUC: 20235842211</p>
+                <p class="company-name">A nombre de: QORICASH SAC | RUC: 20615113698</p>
                 <table class="bank-table">
                     <thead>
                         <tr>
@@ -521,41 +521,41 @@ class EmailService:
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #FFFFFF; background-color: #0D1B2A; margin: 0; padding: 20px; }
-        .container { max-width: 600px; margin: 0 auto; background: #1a2942; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
-        .header { background: #0D1B2A; padding: 30px 20px; text-align: center; border-bottom: 3px solid #00FFAA; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #2c3e50; background-color: #f4f6f9; margin: 0; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; background: #FFFFFF; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08); border: 1px solid #e1e8ed; }
+        .header { background: linear-gradient(135deg, #0D1B2A 0%, #1a2942 100%); padding: 25px 20px; text-align: center; border-bottom: none; }
         .logo { max-width: 180px; height: auto; margin-bottom: 15px; }
         .header h1 { margin: 15px 0 5px 0; font-size: 26px; color: #FFFFFF; font-weight: 700; }
-        .header p { margin: 5px 0 0 0; font-size: 14px; color: #00FFAA; font-weight: 600; }
-        .content { padding: 35px 25px; color: #FFFFFF; }
+        .header p { margin: 5px 0 0 0; font-size: 14px; color: white; font-weight: 600; }
+        .content { padding: 30px 25px; color: #2c3e50; }
         .greeting { font-size: 16px; margin-bottom: 20px; }
-        .greeting strong { color: #00FFAA; }
-        .client-info { font-size: 13px; color: #a8b2d1; margin: -10px 0 20px 0; }
-        .success-box { background: linear-gradient(135deg, #00DEA8, #00FFAA); padding: 25px; margin: 25px 0; border-radius: 8px; text-align: center; box-shadow: 0 4px 15px rgba(0,222,168,0.3); }
-        .success-box h2 { margin: 0; color: #0D1B2A; font-size: 22px; font-weight: 700; }
-        .success-box p { margin: 10px 0 0 0; color: #0D1B2A; font-weight: 600; }
+        .greeting strong { color: #00a887; }
+        .client-info { font-size: 13px; color: #6c757d; margin: -10px 0 20px 0; }
+        .success-box { background: linear-gradient(135deg, #e8f5f1, #d0ebe6); padding: 25px; margin: 25px 0; border-radius: 8px; text-align: center; box-shadow: 0 2px 8px rgba(0,168,135,0.1); }
+        .success-box h2 { margin: 0; color: #00a887; font-size: 22px; font-weight: 700; }
+        .success-box p { margin: 10px 0 0 0; color: #00a887; font-weight: 600; }
         .success-icon { font-size: 48px; margin-bottom: 10px; }
         .intro-text { margin-bottom: 25px; line-height: 1.8; }
-        .highlight-box { background: #0D1B2A; border: 2px solid #00DEA8; border-radius: 8px; padding: 20px; margin: 25px 0; }
-        .info-row { display: flex; justify-content: space-between; padding: 14px 0; border-bottom: 1px solid #2d3e5f; }
+        .highlight-box { background: #f8fafb; border: 2px solid #d0ebe6; border-radius: 8px; padding: 20px; margin: 25px 0; }
+        .info-row { display: flex; justify-content: space-between; padding: 14px 0; border-bottom: 1px solid #e1e8ed; }
         .info-row:last-child { border-bottom: none; }
-        .info-label { font-weight: 600; color: #a8b2d1; font-size: 14px; }
-        .info-value { color: #FFFFFF; font-weight: 600; font-size: 14px; text-align: right; }
-        .amount-usd { font-size: 20px; color: #00FFAA; font-weight: 700; }
-        .amount-pen { font-size: 20px; color: #00DEA8; font-weight: 700; }
-        .proof-section { margin: 30px 0; padding: 25px; background: #0D1B2A; border-radius: 8px; border: 2px solid #00DEA8; }
-        .proof-section h3 { margin: 0 0 12px 0; color: #00FFAA; font-size: 18px; font-weight: 700; }
-        .proof-section p { color: #a8b2d1; font-size: 14px; margin: 8px 0; line-height: 1.6; }
-        .btn-proof { display: inline-block; padding: 14px 28px; background: linear-gradient(135deg, #00DEA8, #00FFAA); color: #0D1B2A; text-decoration: none; border-radius: 6px; font-weight: 700; margin: 10px 0; transition: transform 0.2s; }
+        .info-label { font-weight: 600; color: #6c757d; font-size: 14px; }
+        .info-value { color: #2c3e50; font-weight: 600; font-size: 14px; text-align: right; }
+        .amount-usd { font-size: 20px; color: #00a887; font-weight: 700; }
+        .amount-pen { font-size: 20px; color: #00a887; font-weight: 700; }
+        .proof-section { margin: 30px 0; padding: 25px; background: #f8fafb; border-radius: 8px; border: 2px solid #d0ebe6; }
+        .proof-section h3 { margin: 0 0 12px 0; color: #00a887; font-size: 18px; font-weight: 700; }
+        .proof-section p { color: #495057; font-size: 14px; margin: 8px 0; line-height: 1.6; }
+        .btn-proof { display: inline-block; padding: 14px 28px; background: linear-gradient(135deg, #d0ebe6, #e8f5f1); color: #00a887; text-decoration: none; border-radius: 6px; font-weight: 700; margin: 10px 0; transition: transform 0.2s; border: 1px solid #00a887; }
         .btn-proof:hover { transform: translateY(-2px); }
-        .proof-comment { font-size: 13px; color: #a8b2d1; font-style: italic; margin: 8px 0; }
-        .note-box { margin-top: 30px; padding: 18px; background: #162a40; border-left: 4px solid #00DEA8; border-radius: 4px; }
-        .note-box p { margin: 0; color: #a8b2d1; font-size: 13px; line-height: 1.6; }
-        .note-box strong { color: #00FFAA; }
-        .footer { background: #0D1B2A; padding: 25px 20px; text-align: center; font-size: 12px; color: #a8b2d1; border-top: 2px solid #00DEA8; }
+        .proof-comment { font-size: 13px; color: #6c757d; font-style: italic; margin: 8px 0; }
+        .note-box { margin-top: 30px; padding: 18px; background: #f8fafb; border-left: 4px solid #00a887; border-radius: 4px; }
+        .note-box p { margin: 0; color: #495057; font-size: 13px; line-height: 1.6; }
+        .note-box strong { color: #00a887; }
+        .footer { background: #f8fafb; padding: 25px 20px; text-align: center; font-size: 12px; color: #6c757d; border-top: 2px solid #d0ebe6; }
         .footer p { margin: 8px 0; }
-        .footer strong { color: #00FFAA; }
-        .divider { height: 1px; background: linear-gradient(90deg, transparent, #00DEA8, transparent); margin: 25px 0; }
+        .footer strong { color: #00a887; }
+        .divider { height: 1px; background: linear-gradient(90deg, transparent, #d0ebe6, transparent); margin: 25px 0; }
         @media only screen and (max-width: 600px) {
             body { padding: 10px; }
             .content { padding: 25px 15px; }
@@ -567,7 +567,7 @@ class EmailService:
 <body>
     <div class="container">
         <div class="header">
-            <img src="https://raw.githubusercontent.com/ggarciaperion/qoricash/main/app/static/images/finalfinal.png" alt="QoriCash Logo" class="logo">
+            <img src="https://raw.githubusercontent.com/ggarciaperion/qoricash/main/app/static/images/logo-principal.png" alt="QoriCash Logo" class="logo">
             <h1>Operación Completada</h1>
             <p>QoriCash Trading</p>
         </div>
@@ -723,33 +723,33 @@ class EmailService:
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #FFFFFF; background-color: #0D1B2A; margin: 0; padding: 20px; }
-        .container { max-width: 600px; margin: 0 auto; background: #1a2942; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
-        .header { background: #0D1B2A; padding: 30px 20px; text-align: center; border-bottom: 3px solid #FFB020; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #2c3e50; background-color: #f4f6f9; margin: 0; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; background: #FFFFFF; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08); border: 1px solid #e1e8ed; }
+        .header { background: linear-gradient(135deg, #0D1B2A 0%, #1a2942 100%); padding: 25px 20px; text-align: center; border-bottom: none; }
         .logo { max-width: 180px; height: auto; margin-bottom: 15px; }
         .header h1 { margin: 15px 0 5px 0; font-size: 26px; color: #FFFFFF; font-weight: 700; }
-        .header p { margin: 5px 0 0 0; font-size: 14px; color: #FFB020; font-weight: 600; }
-        .content { padding: 35px 25px; color: #FFFFFF; }
+        .header p { margin: 5px 0 0 0; font-size: 14px; color: white; font-weight: 600; }
+        .content { padding: 30px 25px; color: #2c3e50; }
         .greeting { font-size: 16px; margin-bottom: 20px; }
         .intro-text { margin-bottom: 25px; line-height: 1.8; }
-        .intro-text strong { color: #00FFAA; }
-        .info-box { background: #2d3e5f; border-left: 4px solid #FFB020; padding: 18px; margin: 25px 0; border-radius: 4px; }
-        .info-box p { margin: 0; color: #FFFFFF; font-size: 14px; line-height: 1.6; }
+        .intro-text strong { color: #00a887; }
+        .info-box { background: #fff3cd; border-left: 4px solid #FFB020; padding: 18px; margin: 25px 0; border-radius: 4px; }
+        .info-box p { margin: 0; color: #856404; font-size: 14px; line-height: 1.6; }
         .info-box .warning-icon { color: #FFB020; font-weight: 700; }
-        .client-box { background: #0D1B2A; border: 2px solid #00DEA8; padding: 20px; margin: 25px 0; border-radius: 8px; }
-        .client-box .title { margin: 0 0 15px 0; font-weight: 700; color: #00FFAA; font-size: 16px; }
-        .client-box p { margin: 8px 0; color: #a8b2d1; font-size: 14px; }
-        .client-box strong { color: #FFFFFF; }
-        .existing-clients { margin-top: 25px; padding: 18px; background: #162a40; border-radius: 6px; }
-        .existing-clients p { color: #a8b2d1; font-size: 14px; margin-bottom: 10px; }
-        .existing-clients ul { margin: 10px 0; padding-left: 20px; color: #FFFFFF; }
+        .client-box { background: #f8fafb; border: 2px solid #d0ebe6; padding: 20px; margin: 25px 0; border-radius: 8px; }
+        .client-box .title { margin: 0 0 15px 0; font-weight: 700; color: #00a887; font-size: 16px; }
+        .client-box p { margin: 8px 0; color: #6c757d; font-size: 14px; }
+        .client-box strong { color: #2c3e50; }
+        .existing-clients { margin-top: 25px; padding: 18px; background: #f8fafb; border-radius: 6px; }
+        .existing-clients p { color: #6c757d; font-size: 14px; margin-bottom: 10px; }
+        .existing-clients ul { margin: 10px 0; padding-left: 20px; color: #2c3e50; }
         .existing-clients li { margin: 5px 0; font-size: 14px; }
-        .contact-box { margin-top: 30px; padding: 18px; background: #162a40; border-left: 4px solid #00DEA8; border-radius: 4px; }
-        .contact-box p { margin: 0; color: #a8b2d1; font-size: 13px; line-height: 1.6; }
-        .contact-box strong { color: #00FFAA; }
-        .footer { background: #0D1B2A; padding: 25px 20px; text-align: center; font-size: 12px; color: #a8b2d1; border-top: 2px solid #00DEA8; }
+        .contact-box { margin-top: 30px; padding: 18px; background: #f8fafb; border-left: 4px solid #00a887; border-radius: 4px; }
+        .contact-box p { margin: 0; color: #495057; font-size: 13px; line-height: 1.6; }
+        .contact-box strong { color: #00a887; }
+        .footer { background: #f8fafb; padding: 25px 20px; text-align: center; font-size: 12px; color: #6c757d; border-top: 2px solid #d0ebe6; }
         .footer p { margin: 8px 0; }
-        .footer strong { color: #00FFAA; }
+        .footer strong { color: #00a887; }
         @media only screen and (max-width: 600px) {
             body { padding: 10px; }
             .content { padding: 25px 15px; }
@@ -759,7 +759,7 @@ class EmailService:
 <body>
     <div class="container">
         <div class="header">
-            <img src="https://raw.githubusercontent.com/ggarciaperion/qoricash/main/app/static/images/finalfinal.png" alt="QoriCash Logo" class="logo">
+            <img src="https://raw.githubusercontent.com/ggarciaperion/qoricash/main/app/static/images/logo-principal.png" alt="QoriCash Logo" class="logo">
             <h1>Notificación Informativa</h1>
             <p>QoriCash Trading</p>
         </div>
@@ -1032,30 +1032,30 @@ class EmailService:
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #FFFFFF; background-color: #0D1B2A; margin: 0; padding: 20px; }
-        .container { max-width: 600px; margin: 0 auto; background: #1a2942; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
-        .header { background: #0D1B2A; padding: 30px 20px; text-align: center; border-bottom: 3px solid #00DEA8; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #2c3e50; background-color: #f4f6f9; margin: 0; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; background: #FFFFFF; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08); border: 1px solid #e1e8ed; }
+        .header { background: linear-gradient(135deg, #0D1B2A 0%, #1a2942 100%); padding: 25px 20px; text-align: center; border-bottom: none; }
         .logo { max-width: 180px; height: auto; margin-bottom: 15px; }
         .header h1 { margin: 15px 0 5px 0; font-size: 26px; color: #FFFFFF; font-weight: 700; }
-        .header p { margin: 5px 0 0 0; font-size: 14px; color: #00DEA8; font-weight: 600; }
-        .content { padding: 35px 25px; color: #FFFFFF; }
+        .header p { margin: 5px 0 0 0; font-size: 14px; color: white; font-weight: 600; }
+        .content { padding: 30px 25px; color: #2c3e50; }
         .greeting { font-size: 16px; margin-bottom: 20px; }
-        .greeting strong { color: #00FFAA; }
+        .greeting strong { color: #00a887; }
         .intro-text { margin-bottom: 25px; line-height: 1.8; }
-        .info-box { background: #0D1B2A; border: 2px solid #00DEA8; border-radius: 8px; padding: 20px; margin: 25px 0; }
-        .info-box h3 { margin: 0 0 15px 0; color: #00FFAA; font-size: 18px; font-weight: 700; }
-        .info-box p { margin: 10px 0; color: #FFFFFF; font-size: 14px; }
-        .info-box p strong { color: #a8b2d1; }
-        .welcome-box { background: linear-gradient(135deg, #00DEA8, #00FFAA); padding: 25px; margin: 25px 0; border-radius: 8px; text-align: center; box-shadow: 0 4px 15px rgba(0,222,168,0.3); }
-        .welcome-box h2 { margin: 0; color: #0D1B2A; font-size: 22px; font-weight: 700; }
-        .welcome-box p { margin: 10px 0 0 0; color: #0D1B2A; font-weight: 600; }
-        .note-box { margin-top: 30px; padding: 18px; background: #162a40; border-left: 4px solid #00DEA8; border-radius: 4px; }
-        .note-box p { margin: 0; color: #a8b2d1; font-size: 13px; line-height: 1.6; }
-        .note-box strong { color: #00FFAA; }
-        .footer { background: #0D1B2A; padding: 25px 20px; text-align: center; font-size: 12px; color: #a8b2d1; border-top: 2px solid #00DEA8; }
+        .info-box { background: #f8fafb; border: 2px solid #d0ebe6; border-radius: 8px; padding: 20px; margin: 25px 0; }
+        .info-box h3 { margin: 0 0 15px 0; color: #00a887; font-size: 18px; font-weight: 700; }
+        .info-box p { margin: 10px 0; color: #2c3e50; font-size: 14px; }
+        .info-box p strong { color: #6c757d; }
+        .welcome-box { background: linear-gradient(135deg, #e8f5f1, #d0ebe6); padding: 25px; margin: 25px 0; border-radius: 8px; text-align: center; box-shadow: 0 2px 8px rgba(0,168,135,0.1); }
+        .welcome-box h2 { margin: 0; color: #00a887; font-size: 22px; font-weight: 700; }
+        .welcome-box p { margin: 10px 0 0 0; color: #00a887; font-weight: 600; }
+        .note-box { margin-top: 30px; padding: 18px; background: #f8fafb; border-left: 4px solid #00a887; border-radius: 4px; }
+        .note-box p { margin: 0; color: #495057; font-size: 13px; line-height: 1.6; }
+        .note-box strong { color: #00a887; }
+        .footer { background: #f8fafb; padding: 25px 20px; text-align: center; font-size: 12px; color: #6c757d; border-top: 2px solid #d0ebe6; }
         .footer p { margin: 8px 0; }
-        .footer strong { color: #00FFAA; }
-        .divider { height: 1px; background: linear-gradient(90deg, transparent, #00DEA8, transparent); margin: 25px 0; }
+        .footer strong { color: #00a887; }
+        .divider { height: 1px; background: linear-gradient(90deg, transparent, #d0ebe6, transparent); margin: 25px 0; }
         @media only screen and (max-width: 600px) {
             body { padding: 10px; }
             .content { padding: 25px 15px; }
@@ -1065,7 +1065,7 @@ class EmailService:
 <body>
     <div class="container">
         <div class="header">
-            <img src="https://raw.githubusercontent.com/ggarciaperion/qoricash/main/app/static/images/finalfinal.png" alt="QoriCash Logo" class="logo">
+            <img src="https://raw.githubusercontent.com/ggarciaperion/qoricash/main/app/static/images/logo-principal.png" alt="QoriCash Logo" class="logo">
             <h1>Bienvenido a QoriCash</h1>
             <p>Sistema de Gestión de Operaciones Cambiarias</p>
         </div>
@@ -1078,7 +1078,7 @@ class EmailService:
                 <p>Su solicitud está en proceso de validación</p>
             </div>
 
-            <p class="intro-text">Hemos recibido su solicitud de registro por parte de su ejecutivo comercial <strong style="color: #00FFAA;">{{ trader.username }}</strong>. Nuestro equipo está validando su información y en breve le informaremos sobre la activación de su cuenta.</p>
+            <p class="intro-text">Hemos recibido su solicitud de registro por parte de su ejecutivo comercial <strong style="color: #00a887;">{{ trader.username }}</strong>. Nuestro equipo está validando su información y en breve le informaremos sobre la activación de su cuenta.</p>
 
             <div class="info-box">
                 <h3>Datos de Registro</h3>
@@ -1098,7 +1098,7 @@ class EmailService:
 
             <div class="divider"></div>
 
-            <p style="margin-top: 25px; line-height: 1.8;">Para consultas, contacte a <strong style="color: #00FFAA;">{{ trader.username }}</strong>{% if trader.email %} al correo <strong style="color: #00DEA8;">{{ trader.email }}</strong>{% endif %}.</p>
+            <p style="margin-top: 25px; line-height: 1.8;">Para consultas, contacte a <strong style="color: #00a887;">{{ trader.username }}</strong>{% if trader.email %} al correo <strong style="color: #00a887;">{{ trader.email }}</strong>{% endif %}.</p>
 
             <div class="note-box">
                 <p><strong>Importante:</strong> Este es un correo automático generado por nuestro sistema. Una vez validada su información, recibirá un correo de confirmación de activación de cuenta.</p>
@@ -1107,7 +1107,7 @@ class EmailService:
 
         <div class="footer">
             <p><strong>QoriCash Trading</strong></p>
-            <p>RUC: 20235842211</p>
+            <p>RUC: 20615113698</p>
             <p>Sistema de Gestión de Operaciones Cambiarias</p>
             <p style="margin-top: 12px;">© 2025 QoriCash Trading. Todos los derechos reservados.</p>
         </div>
@@ -1127,36 +1127,36 @@ class EmailService:
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #FFFFFF; background-color: #0D1B2A; margin: 0; padding: 20px; }
-        .container { max-width: 600px; margin: 0 auto; background: #1a2942; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
-        .header { background: #0D1B2A; padding: 30px 20px; text-align: center; border-bottom: 3px solid #00FFAA; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #2c3e50; background-color: #f4f6f9; margin: 0; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; background: #FFFFFF; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08); border: 1px solid #e1e8ed; }
+        .header { background: linear-gradient(135deg, #0D1B2A 0%, #1a2942 100%); padding: 25px 20px; text-align: center; border-bottom: none; }
         .logo { max-width: 180px; height: auto; margin-bottom: 15px; }
         .header h1 { margin: 15px 0 5px 0; font-size: 26px; color: #FFFFFF; font-weight: 700; }
-        .header p { margin: 5px 0 0 0; font-size: 14px; color: #00FFAA; font-weight: 600; }
-        .content { padding: 35px 25px; color: #FFFFFF; }
+        .header p { margin: 5px 0 0 0; font-size: 14px; color: white; font-weight: 600; }
+        .content { padding: 30px 25px; color: #2c3e50; }
         .greeting { font-size: 16px; margin-bottom: 20px; }
-        .greeting strong { color: #00FFAA; }
-        .success-box { background: linear-gradient(135deg, #00DEA8, #00FFAA); padding: 25px; margin: 25px 0; border-radius: 8px; text-align: center; box-shadow: 0 4px 15px rgba(0,222,168,0.3); }
-        .success-box h2 { margin: 0; color: #0D1B2A; font-size: 22px; font-weight: 700; }
-        .success-box p { margin: 10px 0 0 0; color: #0D1B2A; font-weight: 600; }
+        .greeting strong { color: #00a887; }
+        .success-box { background: linear-gradient(135deg, #e8f5f1, #d0ebe6); padding: 25px; margin: 25px 0; border-radius: 8px; text-align: center; box-shadow: 0 2px 8px rgba(0,168,135,0.1); }
+        .success-box h2 { margin: 0; color: #00a887; font-size: 22px; font-weight: 700; }
+        .success-box p { margin: 10px 0 0 0; color: #00a887; font-weight: 600; }
         .success-icon { font-size: 48px; margin-bottom: 10px; }
         .intro-text { margin-bottom: 25px; line-height: 1.8; }
-        .info-box { background: #0D1B2A; border: 2px solid #00DEA8; border-radius: 8px; padding: 20px; margin: 25px 0; }
-        .info-box h3 { margin: 0 0 15px 0; color: #00FFAA; font-size: 18px; font-weight: 700; }
-        .info-box p { margin: 10px 0; color: #FFFFFF; font-size: 14px; }
-        .info-box p strong { color: #a8b2d1; }
-        .info-box .status-active { color: #00FFAA; font-weight: bold; }
-        .benefits-box { background: #162a40; border-radius: 8px; padding: 20px; margin: 25px 0; border: 1px solid #2d3e5f; }
-        .benefits-box h3 { margin: 0 0 15px 0; color: #00FFAA; font-size: 18px; font-weight: 700; }
-        .benefits-box ul { margin: 10px 0; padding-left: 20px; color: #a8b2d1; line-height: 2; }
+        .info-box { background: #f8fafb; border: 2px solid #d0ebe6; border-radius: 8px; padding: 20px; margin: 25px 0; }
+        .info-box h3 { margin: 0 0 15px 0; color: #00a887; font-size: 18px; font-weight: 700; }
+        .info-box p { margin: 10px 0; color: #2c3e50; font-size: 14px; }
+        .info-box p strong { color: #6c757d; }
+        .info-box .status-active { color: #00a887; font-weight: bold; }
+        .benefits-box { background: #f8fafb; border-radius: 8px; padding: 20px; margin: 25px 0; border: 1px solid #e1e8ed; }
+        .benefits-box h3 { margin: 0 0 15px 0; color: #00a887; font-size: 18px; font-weight: 700; }
+        .benefits-box ul { margin: 10px 0; padding-left: 20px; color: #6c757d; line-height: 2; }
         .benefits-box li { margin: 8px 0; }
-        .note-box { margin-top: 30px; padding: 18px; background: #162a40; border-left: 4px solid #00DEA8; border-radius: 4px; }
-        .note-box p { margin: 0; color: #a8b2d1; font-size: 13px; line-height: 1.6; }
-        .note-box strong { color: #00FFAA; }
-        .footer { background: #0D1B2A; padding: 25px 20px; text-align: center; font-size: 12px; color: #a8b2d1; border-top: 2px solid #00DEA8; }
+        .note-box { margin-top: 30px; padding: 18px; background: #f8fafb; border-left: 4px solid #00a887; border-radius: 4px; }
+        .note-box p { margin: 0; color: #495057; font-size: 13px; line-height: 1.6; }
+        .note-box strong { color: #00a887; }
+        .footer { background: #f8fafb; padding: 25px 20px; text-align: center; font-size: 12px; color: #6c757d; border-top: 2px solid #d0ebe6; }
         .footer p { margin: 8px 0; }
-        .footer strong { color: #00FFAA; }
-        .divider { height: 1px; background: linear-gradient(90deg, transparent, #00DEA8, transparent); margin: 25px 0; }
+        .footer strong { color: #00a887; }
+        .divider { height: 1px; background: linear-gradient(90deg, transparent, #d0ebe6, transparent); margin: 25px 0; }
         @media only screen and (max-width: 600px) {
             body { padding: 10px; }
             .content { padding: 25px 15px; }
@@ -1166,7 +1166,7 @@ class EmailService:
 <body>
     <div class="container">
         <div class="header">
-            <img src="https://raw.githubusercontent.com/ggarciaperion/qoricash/main/app/static/images/finalfinal.png" alt="QoriCash Logo" class="logo">
+            <img src="https://raw.githubusercontent.com/ggarciaperion/qoricash/main/app/static/images/logo-principal.png" alt="QoriCash Logo" class="logo">
             <h1>¡Cuenta Activada Exitosamente!</h1>
             <p>QoriCash Trading</p>
         </div>
@@ -1180,7 +1180,7 @@ class EmailService:
                 <p>Su cuenta ha sido activada correctamente</p>
             </div>
 
-            <p class="intro-text">Nos complace informarle que su registro ha sido validado exitosamente y su cuenta ya se encuentra <strong style="color: #00FFAA;">ACTIVA</strong> en nuestro sistema.</p>
+            <p class="intro-text">Nos complace informarle que su registro ha sido validado exitosamente y su cuenta ya se encuentra <strong style="color: #00a887;">ACTIVA</strong> en nuestro sistema.</p>
 
             <p class="intro-text">A partir de este momento, puede comenzar a realizar operaciones de cambio de divisas con nosotros. Nuestro equipo está listo para atenderle y brindarle el mejor servicio.</p>
 
@@ -1209,7 +1209,7 @@ class EmailService:
 
             <div class="divider"></div>
 
-            <p style="margin-top: 25px; line-height: 1.8;">Para realizar su primera operación o si tiene alguna consulta, puede contactar directamente a su ejecutivo comercial <strong style="color: #00FFAA;">{{ trader.username }}</strong>{% if trader.email %} al correo <strong style="color: #00DEA8;">{{ trader.email }}</strong>{% endif %}.</p>
+            <p style="margin-top: 25px; line-height: 1.8;">Para realizar su primera operación o si tiene alguna consulta, puede contactar directamente a su ejecutivo comercial <strong style="color: #00a887;">{{ trader.username }}</strong>{% if trader.email %} al correo <strong style="color: #00a887;">{{ trader.email }}</strong>{% endif %}.</p>
 
             <div class="note-box">
                 <p><strong>Gracias por confiar en QoriCash Trading para sus operaciones cambiarias.</strong></p>
@@ -1218,7 +1218,7 @@ class EmailService:
 
         <div class="footer">
             <p><strong>QoriCash Trading</strong></p>
-            <p>RUC: 20235842211</p>
+            <p>RUC: 20615113698</p>
             <p>Sistema de Gestión de Operaciones Cambiarias</p>
             <p style="margin-top: 12px;">© 2025 QoriCash Trading. Todos los derechos reservados.</p>
         </div>
@@ -1288,40 +1288,40 @@ class EmailService:
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #FFFFFF; background-color: #0D1B2A; margin: 0; padding: 20px; }
-        .container { max-width: 600px; margin: 0 auto; background: #1a2942; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
-        .header { background: #0D1B2A; padding: 30px 20px; text-align: center; border-bottom: 3px solid #FFB020; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #2c3e50; background-color: #f4f6f9; margin: 0; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; background: #FFFFFF; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08); border: 1px solid #e1e8ed; }
+        .header { background: linear-gradient(135deg, #0D1B2A 0%, #1a2942 100%); padding: 25px 20px; text-align: center; border-bottom: none; }
         .logo { max-width: 180px; height: auto; margin-bottom: 15px; }
         .header h1 { margin: 15px 0 5px 0; font-size: 26px; color: #FFFFFF; font-weight: 700; }
-        .header p { margin: 5px 0 0 0; font-size: 14px; color: #FFB020; font-weight: 600; }
-        .content { padding: 35px 25px; color: #FFFFFF; }
+        .header p { margin: 5px 0 0 0; font-size: 14px; color: white; font-weight: 600; }
+        .content { padding: 30px 25px; color: #2c3e50; }
         .greeting { font-size: 16px; margin-bottom: 20px; }
-        .greeting strong { color: #00FFAA; }
-        .client-info { font-size: 13px; color: #a8b2d1; margin: -10px 0 20px 0; }
-        .warning-box { background: linear-gradient(135deg, #FFB020, #FF8C00); padding: 25px; margin: 25px 0; border-radius: 8px; text-align: center; box-shadow: 0 4px 15px rgba(255,176,32,0.3); }
-        .warning-box h2 { margin: 0; color: #0D1B2A; font-size: 22px; font-weight: 700; }
-        .warning-box p { margin: 10px 0 0 0; color: #0D1B2A; font-weight: 600; }
+        .greeting strong { color: #00a887; }
+        .client-info { font-size: 13px; color: #6c757d; margin: -10px 0 20px 0; }
+        .warning-box { background: linear-gradient(135deg, #fff3cd, #ffe69c); padding: 25px; margin: 25px 0; border-radius: 8px; text-align: center; box-shadow: 0 2px 8px rgba(255,193,7,0.15); }
+        .warning-box h2 { margin: 0; color: #856404; font-size: 22px; font-weight: 700; }
+        .warning-box p { margin: 10px 0 0 0; color: #856404; font-weight: 600; }
         .warning-icon { font-size: 48px; margin-bottom: 10px; }
         .intro-text { margin-bottom: 25px; line-height: 1.8; }
-        .reason-box { background: #162a40; border: 2px solid #FFB020; border-radius: 8px; padding: 20px; margin: 25px 0; }
-        .reason-box h3 { margin: 0 0 12px 0; color: #FFB020; font-size: 18px; font-weight: 700; }
-        .reason-box p { margin: 0; color: #FFFFFF; font-size: 14px; font-style: italic; line-height: 1.6; }
-        .highlight-box { background: #0D1B2A; border: 2px solid #00DEA8; border-radius: 8px; padding: 20px; margin: 25px 0; }
-        .highlight-box h3 { margin: 0 0 15px 0; color: #00FFAA; font-size: 18px; font-weight: 700; }
-        .info-row { display: flex; justify-content: space-between; padding: 14px 0; border-bottom: 1px solid #2d3e5f; }
+        .reason-box { background: #fff3cd; border: 2px solid #FFB020; border-radius: 8px; padding: 20px; margin: 25px 0; }
+        .reason-box h3 { margin: 0 0 12px 0; color: #856404; font-size: 18px; font-weight: 700; }
+        .reason-box p { margin: 0; color: #856404; font-size: 14px; font-style: italic; line-height: 1.6; }
+        .highlight-box { background: #f8fafb; border: 2px solid #d0ebe6; border-radius: 8px; padding: 20px; margin: 25px 0; }
+        .highlight-box h3 { margin: 0 0 15px 0; color: #00a887; font-size: 18px; font-weight: 700; }
+        .info-row { display: flex; justify-content: space-between; padding: 14px 0; border-bottom: 1px solid #e1e8ed; }
         .info-row:last-child { border-bottom: none; }
-        .info-label { font-weight: 600; color: #a8b2d1; font-size: 14px; }
-        .info-value { color: #FFFFFF; font-weight: 600; font-size: 14px; text-align: right; }
-        .amount-usd { font-size: 20px; color: #00FFAA; font-weight: 700; }
-        .amount-pen { font-size: 20px; color: #00DEA8; font-weight: 700; }
-        .badge-canceled { display: inline-block; padding: 6px 16px; border-radius: 20px; font-size: 13px; font-weight: bold; background: #FFB020; color: #0D1B2A; }
-        .note-box { margin-top: 30px; padding: 18px; background: #162a40; border-left: 4px solid #00DEA8; border-radius: 4px; }
-        .note-box p { margin: 0; color: #a8b2d1; font-size: 13px; line-height: 1.6; }
-        .note-box strong { color: #00FFAA; }
-        .footer { background: #0D1B2A; padding: 25px 20px; text-align: center; font-size: 12px; color: #a8b2d1; border-top: 2px solid #00DEA8; }
+        .info-label { font-weight: 600; color: #6c757d; font-size: 14px; }
+        .info-value { color: #2c3e50; font-weight: 600; font-size: 14px; text-align: right; }
+        .amount-usd { font-size: 20px; color: #00a887; font-weight: 700; }
+        .amount-pen { font-size: 20px; color: #00a887; font-weight: 700; }
+        .badge-canceled { display: inline-block; padding: 6px 16px; border-radius: 20px; font-size: 13px; font-weight: bold; background: #FFB020; color: #856404; }
+        .note-box { margin-top: 30px; padding: 18px; background: #f8fafb; border-left: 4px solid #00a887; border-radius: 4px; }
+        .note-box p { margin: 0; color: #495057; font-size: 13px; line-height: 1.6; }
+        .note-box strong { color: #00a887; }
+        .footer { background: #f8fafb; padding: 25px 20px; text-align: center; font-size: 12px; color: #6c757d; border-top: 2px solid #d0ebe6; }
         .footer p { margin: 8px 0; }
-        .footer strong { color: #00FFAA; }
-        .divider { height: 1px; background: linear-gradient(90deg, transparent, #00DEA8, transparent); margin: 25px 0; }
+        .footer strong { color: #00a887; }
+        .divider { height: 1px; background: linear-gradient(90deg, transparent, #d0ebe6, transparent); margin: 25px 0; }
         @media only screen and (max-width: 600px) {
             body { padding: 10px; }
             .content { padding: 25px 15px; }
@@ -1333,7 +1333,7 @@ class EmailService:
 <body>
     <div class="container">
         <div class="header">
-            <img src="https://raw.githubusercontent.com/ggarciaperion/qoricash/main/app/static/images/finalfinal.png" alt="QoriCash Logo" class="logo">
+            <img src="https://raw.githubusercontent.com/ggarciaperion/qoricash/main/app/static/images/logo-principal.png" alt="QoriCash Logo" class="logo">
             <h1>Operación Cancelada</h1>
             <p>QoriCash Trading</p>
         </div>
@@ -1350,7 +1350,7 @@ class EmailService:
                 <p>Su operación ha sido cancelada</p>
             </div>
 
-            <p class="intro-text">Lamentamos informarle que la operación con código <strong style="color: #FFB020;">{{ operation.operation_id }}</strong> ha sido <strong style="color: #FFB020;">CANCELADA</strong>.</p>
+            <p class="intro-text">Lamentamos informarle que la operación con código <strong style="color: #856404;">{{ operation.operation_id }}</strong> ha sido <strong style="color: #856404;">CANCELADA</strong>.</p>
 
             <div class="reason-box">
                 <h3>Motivo de Cancelación</h3>
@@ -1474,62 +1474,62 @@ class EmailService:
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #FFFFFF; background-color: #0D1B2A; margin: 0; padding: 20px; }
-        .container { max-width: 600px; margin: 0 auto; background: #1a2942; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
-        .header { background: #0D1B2A; padding: 30px 20px; text-align: center; border-bottom: 3px solid #00DEA8; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #2c3e50; background-color: #f4f6f9; margin: 0; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; background: #FFFFFF; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08); border: 1px solid #e1e8ed; }
+        .header { background: linear-gradient(135deg, #0D1B2A 0%, #1a2942 100%); padding: 25px 20px; text-align: center; border-bottom: none; }
         .logo { max-width: 180px; height: auto; margin-bottom: 15px; }
         .header h1 { margin: 15px 0 5px 0; font-size: 26px; color: #FFFFFF; font-weight: 700; }
-        .header p { margin: 5px 0 0 0; font-size: 14px; color: #00DEA8; font-weight: 600; }
-        .content { padding: 35px 25px; color: #FFFFFF; }
+        .header p { margin: 5px 0 0 0; font-size: 14px; color: white; font-weight: 600; }
+        .content { padding: 30px 25px; color: #2c3e50; }
         .greeting { font-size: 16px; margin-bottom: 20px; }
-        .greeting strong { color: #00FFAA; }
-        .client-info { font-size: 13px; color: #a8b2d1; margin: -10px 0 20px 0; }
-        .modified-box { background: linear-gradient(135deg, #00DEA8, #00FFAA); padding: 25px; margin: 25px 0; border-radius: 8px; text-align: center; box-shadow: 0 4px 15px rgba(0,222,168,0.3); }
-        .modified-box h2 { margin: 0; color: #0D1B2A; font-size: 22px; font-weight: 700; }
-        .modified-box p { margin: 10px 0 0 0; color: #0D1B2A; font-weight: 600; }
+        .greeting strong { color: #00a887; }
+        .client-info { font-size: 13px; color: #6c757d; margin: -10px 0 20px 0; }
+        .modified-box { background: linear-gradient(135deg, #e8f5f1, #d0ebe6); padding: 25px; margin: 25px 0; border-radius: 8px; text-align: center; box-shadow: 0 2px 8px rgba(0,168,135,0.1); }
+        .modified-box h2 { margin: 0; color: #00a887; font-size: 22px; font-weight: 700; }
+        .modified-box p { margin: 10px 0 0 0; color: #00a887; font-weight: 600; }
         .modified-icon { font-size: 48px; margin-bottom: 10px; }
         .intro-text { margin-bottom: 25px; line-height: 1.8; }
-        .operation-box { background: #162a40; border: 2px solid #00DEA8; border-radius: 8px; padding: 18px; margin: 20px 0; text-align: center; }
-        .operation-box p { margin: 0 0 8px 0; color: #a8b2d1; font-size: 14px; font-weight: 600; }
-        .operation-box .operation-id { margin: 0; color: #00FFAA; font-size: 20px; font-weight: 700; }
-        .comparison-box { background: #0D1B2A; border: 2px solid #00DEA8; border-radius: 8px; padding: 25px; margin: 25px 0; }
-        .comparison-box h3 { margin: 0 0 20px 0; color: #00FFAA; font-size: 18px; font-weight: 700; text-align: center; }
+        .operation-box { background: #f8fafb; border: 2px solid #d0ebe6; border-radius: 8px; padding: 18px; margin: 20px 0; text-align: center; }
+        .operation-box p { margin: 0 0 8px 0; color: #6c757d; font-size: 14px; font-weight: 600; }
+        .operation-box .operation-id { margin: 0; color: #00a887; font-size: 20px; font-weight: 700; }
+        .comparison-box { background: #f8fafb; border: 2px solid #d0ebe6; border-radius: 8px; padding: 25px; margin: 25px 0; }
+        .comparison-box h3 { margin: 0 0 20px 0; color: #00a887; font-size: 18px; font-weight: 700; text-align: center; }
         .comparison-item { margin: 20px 0; }
-        .comparison-item p { margin: 0 0 10px 0; color: #a8b2d1; font-size: 14px; font-weight: 600; }
+        .comparison-item p { margin: 0 0 10px 0; color: #6c757d; font-size: 14px; font-weight: 600; }
         .comparison-values { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 15px; }
-        .old-value { color: #FFB020; text-decoration: line-through; font-size: 18px; font-weight: 600; }
-        .new-value { color: #00FFAA; font-weight: 700; font-size: 20px; }
-        .arrow { color: #00DEA8; font-size: 24px; }
-        .highlight-box { background: #0D1B2A; border: 2px solid #00DEA8; border-radius: 8px; padding: 20px; margin: 25px 0; }
-        .highlight-box h3 { margin: 0 0 15px 0; color: #00FFAA; font-size: 18px; font-weight: 700; }
-        .info-row { display: flex; justify-content: space-between; padding: 14px 0; border-bottom: 1px solid #2d3e5f; }
+        .old-value { color: #dc3545; text-decoration: line-through; font-size: 18px; font-weight: 600; }
+        .new-value { color: #00a887; font-weight: 700; font-size: 20px; }
+        .arrow { color: #00a887; font-size: 24px; }
+        .highlight-box { background: #f8fafb; border: 2px solid #d0ebe6; border-radius: 8px; padding: 20px; margin: 25px 0; }
+        .highlight-box h3 { margin: 0 0 15px 0; color: #00a887; font-size: 18px; font-weight: 700; }
+        .info-row { display: flex; justify-content: space-between; padding: 14px 0; border-bottom: 1px solid #e1e8ed; }
         .info-row:last-child { border-bottom: none; }
-        .info-label { font-weight: 600; color: #a8b2d1; font-size: 14px; }
-        .info-value { color: #FFFFFF; font-weight: 600; font-size: 14px; text-align: right; }
-        .amount-usd { font-size: 20px; color: #00FFAA; font-weight: 700; }
-        .amount-pen { font-size: 20px; color: #00DEA8; font-weight: 700; }
+        .info-label { font-weight: 600; color: #6c757d; font-size: 14px; }
+        .info-value { color: #2c3e50; font-weight: 600; font-size: 14px; text-align: right; }
+        .amount-usd { font-size: 20px; color: #00a887; font-weight: 700; }
+        .amount-pen { font-size: 20px; color: #00a887; font-weight: 700; }
         .badge { display: inline-block; padding: 6px 16px; border-radius: 20px; font-size: 13px; font-weight: bold; }
-        .badge-compra { background: #00FFAA; color: #0D1B2A; }
-        .badge-venta { background: #00DEA8; color: #0D1B2A; }
-        .bank-section { background: #162a40; border: 2px solid #00DEA8; border-radius: 8px; padding: 25px; margin: 25px 0; }
-        .bank-section h3 { margin: 0 0 15px 0; color: #00FFAA; font-size: 18px; font-weight: 700; }
-        .bank-section p { margin: 10px 0; color: #a8b2d1; font-size: 14px; line-height: 1.6; }
-        .company-name { color: #00FFAA !important; font-weight: 700 !important; }
+        .badge-compra { background: linear-gradient(135deg, #d0ebe6, #e8f5f1); color: #00a887; border: 1px solid #00a887; }
+        .badge-venta { background: linear-gradient(135deg, #d0ebe6, #e8f5f1); color: #00a887; border: 1px solid #00a887; }
+        .bank-section { background: #f8fafb; border: 2px solid #d0ebe6; border-radius: 8px; padding: 25px; margin: 25px 0; }
+        .bank-section h3 { margin: 0 0 15px 0; color: #00a887; font-size: 18px; font-weight: 700; }
+        .bank-section p { margin: 10px 0; color: #495057; font-size: 14px; line-height: 1.6; }
+        .company-name { color: #00a887 !important; font-weight: 700 !important; }
         .bank-table { width: 100%; border-collapse: collapse; margin: 15px 0; font-size: 13px; }
-        .bank-table thead { background: #0D1B2A; }
-        .bank-table th { padding: 12px 10px; text-align: left; border-bottom: 2px solid #00DEA8; color: #00FFAA; font-weight: 700; }
-        .bank-table td { padding: 12px 10px; border-bottom: 1px solid #2d3e5f; color: #FFFFFF; }
-        .bank-table tbody tr { background: #162a40; }
-        .bank-table tbody tr:nth-child(even) { background: #1a2942; }
-        .bank-name { color: #00FFAA; font-weight: 600; }
-        .account-number { font-family: monospace; font-weight: 600; color: #00DEA8; }
-        .note-box { margin-top: 30px; padding: 18px; background: #162a40; border-left: 4px solid #00DEA8; border-radius: 4px; }
-        .note-box p { margin: 0; color: #a8b2d1; font-size: 13px; line-height: 1.6; }
-        .note-box strong { color: #00FFAA; }
-        .footer { background: #0D1B2A; padding: 25px 20px; text-align: center; font-size: 12px; color: #a8b2d1; border-top: 2px solid #00DEA8; }
+        .bank-table thead { background: #e8f5f1; }
+        .bank-table th { padding: 12px 10px; text-align: left; border-bottom: 2px solid #d0ebe6; color: #00a887; font-weight: 700; }
+        .bank-table td { padding: 12px 10px; border-bottom: 1px solid #e1e8ed; color: #2c3e50; }
+        .bank-table tbody tr { background: #FFFFFF; }
+        .bank-table tbody tr:nth-child(even) { background: #f8fafb; }
+        .bank-name { color: #00a887; font-weight: 600; }
+        .account-number { font-family: monospace; font-weight: 600; color: #00a887; }
+        .note-box { margin-top: 30px; padding: 18px; background: #f8fafb; border-left: 4px solid #00a887; border-radius: 4px; }
+        .note-box p { margin: 0; color: #495057; font-size: 13px; line-height: 1.6; }
+        .note-box strong { color: #00a887; }
+        .footer { background: #f8fafb; padding: 25px 20px; text-align: center; font-size: 12px; color: #6c757d; border-top: 2px solid #d0ebe6; }
         .footer p { margin: 8px 0; }
-        .footer strong { color: #00FFAA; }
-        .divider { height: 1px; background: linear-gradient(90deg, transparent, #00DEA8, transparent); margin: 25px 0; }
+        .footer strong { color: #00a887; }
+        .divider { height: 1px; background: linear-gradient(90deg, transparent, #d0ebe6, transparent); margin: 25px 0; }
         @media only screen and (max-width: 600px) {
             body { padding: 10px; }
             .content { padding: 25px 15px; }
@@ -1542,7 +1542,7 @@ class EmailService:
 <body>
     <div class="container">
         <div class="header">
-            <img src="https://raw.githubusercontent.com/ggarciaperion/qoricash/main/app/static/images/finalfinal.png" alt="QoriCash Logo" class="logo">
+            <img src="https://raw.githubusercontent.com/ggarciaperion/qoricash/main/app/static/images/logo-principal.png" alt="QoriCash Logo" class="logo">
             <h1>Monto Modificado</h1>
             <p>QoriCash Trading</p>
         </div>
@@ -1559,7 +1559,7 @@ class EmailService:
                 <p>El monto de su operación ha sido actualizado</p>
             </div>
 
-            <p class="intro-text">Le informamos que el <strong style="color: #00FFAA;">monto de su operación</strong> ha sido modificado. A continuación los detalles:</p>
+            <p class="intro-text">Le informamos que el <strong style="color: #00a887;">monto de su operación</strong> ha sido modificado. A continuación los detalles:</p>
 
             <div class="operation-box">
                 <p>Operación:</p>
@@ -1632,7 +1632,7 @@ class EmailService:
             <div class="bank-section">
                 <h3>Cuentas para Transferencia en DÓLARES (USD)</h3>
                 <p>Por favor, realice su transferencia a cualquiera de las siguientes cuentas bancarias:</p>
-                <p class="company-name">A nombre de: QORICASH SAC | RUC: 20235842211</p>
+                <p class="company-name">A nombre de: QORICASH SAC | RUC: 20615113698</p>
                 <table class="bank-table">
                     <thead>
                         <tr>
@@ -1679,7 +1679,7 @@ class EmailService:
             <div class="bank-section">
                 <h3>Cuentas para Transferencia en SOLES (PEN)</h3>
                 <p>Por favor, realice su transferencia a cualquiera de las siguientes cuentas bancarias:</p>
-                <p class="company-name">A nombre de: QORICASH SAC | RUC: 20235842211</p>
+                <p class="company-name">A nombre de: QORICASH SAC | RUC: 20615113698</p>
                 <table class="bank-table">
                     <thead>
                         <tr>
