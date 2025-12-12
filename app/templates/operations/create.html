@@ -163,7 +163,7 @@
                             <button type="button" class="btn btn-secondary" onclick="resetForm()">
                                 <i class="bi bi-x-circle"></i> Limpiar
                             </button>
-                            <button type="submit" class="btn btn-primary btn-lg">
+                            <button type="submit" id="btnCreateOperation" class="btn btn-primary btn-lg">
                                 <i class="bi bi-check-circle"></i> Crear Operación
                             </button>
                         </div>
@@ -385,9 +385,18 @@ $('input[name="operation_type"]').on('change', function() {
     updateBankAccounts();
 });
 
+// Variable para prevenir doble submit
+let isSubmitting = false;
+
 // Crear operación
 $('#createOperationForm').on('submit', function(e) {
     e.preventDefault();
+
+    // Prevenir doble clic / doble submit
+    if (isSubmitting) {
+        console.log('Ya se está procesando una operación...');
+        return false;
+    }
 
     const formData = {
         client_id: parseInt($('#client_id').val()),
@@ -421,13 +430,31 @@ $('#createOperationForm').on('submit', function(e) {
         return;
     }
 
+    // Marcar como enviando y deshabilitar botón
+    isSubmitting = true;
+    const $submitBtn = $('#btnCreateOperation');
+    const originalBtnText = $submitBtn.html();
+
+    // Deshabilitar botón y mostrar indicador
+    $submitBtn.prop('disabled', true)
+              .html('<i class="bi bi-hourglass-split"></i> Procesando...');
+
     // Enviar
-    ajaxRequest('/operations/api/create', 'POST', formData, function(response) {
-        showNotification('Operación creada exitosamente: ' + response.operation.operation_id, 'success');
-        setTimeout(function() {
-            window.location.href = '/operations/list';
-        }, 1500);
-    });
+    ajaxRequest('/operations/api/create', 'POST', formData,
+        function(response) {
+            // Éxito
+            showNotification('Operación creada exitosamente: ' + response.operation.operation_id, 'success');
+            setTimeout(function() {
+                window.location.href = '/operations/list';
+            }, 1500);
+        },
+        function(error) {
+            // Error - rehabilitar botón
+            isSubmitting = false;
+            $submitBtn.prop('disabled', false).html(originalBtnText);
+            showNotification('Error al crear operación: ' + (error.message || 'Error desconocido'), 'danger');
+        }
+    );
 });
 </script>
 {% endblock %}
