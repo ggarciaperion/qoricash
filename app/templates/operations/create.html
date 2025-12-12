@@ -385,28 +385,31 @@ $('input[name="operation_type"]').on('change', function() {
     updateBankAccounts();
 });
 
-// Variable para prevenir doble submit
-let isSubmitting = false;
+// Variable GLOBAL para prevenir doble submit - muy importante
+window.isCreatingOperation = window.isCreatingOperation || false;
 
-// Crear operación
+// Crear operación - USAR .one() para que solo se ejecute UNA VEZ
 $('#createOperationForm').on('submit', function(e) {
     e.preventDefault();
-    e.stopImmediatePropagation(); // Prevenir múltiples manejadores
+    e.stopImmediatePropagation();
+
+    // VERIFICACIÓN GLOBAL INMEDIATA
+    if (window.isCreatingOperation === true) {
+        console.log('🚫 BLOQUEADO: Ya hay una operación en proceso');
+        return false;
+    }
+
+    // MARCAR INMEDIATAMENTE como procesando
+    window.isCreatingOperation = true;
 
     // DESHABILITAR BOTÓN INMEDIATAMENTE
     const $submitBtn = $('#btnCreateOperation');
     const originalBtnText = $submitBtn.html();
 
-    // Si el botón ya está deshabilitado, ignorar completamente
-    if ($submitBtn.prop('disabled') || isSubmitting) {
-        console.log('⚠️ Operación ya en proceso, ignorando clic adicional');
-        return false;
-    }
-
-    // Deshabilitar botón ANTES de cualquier validación
     $submitBtn.prop('disabled', true)
+              .addClass('disabled')
+              .css('pointer-events', 'none')
               .html('<i class="bi bi-hourglass-split"></i> Procesando...');
-    isSubmitting = true;
 
     const formData = {
         client_id: parseInt($('#client_id').val()),
@@ -418,34 +421,34 @@ $('#createOperationForm').on('submit', function(e) {
         notes: $('textarea[name="notes"]').val()
     };
 
-    // Validaciones (si fallan, rehabilitar botón)
+    // Validaciones (si fallan, rehabilitar botón COMPLETAMENTE)
     if (!formData.client_id) {
-        isSubmitting = false;
-        $submitBtn.prop('disabled', false).html(originalBtnText);
+        window.isCreatingOperation = false;
+        $submitBtn.prop('disabled', false).removeClass('disabled').css('pointer-events', '').html(originalBtnText);
         showNotification('Por favor selecciona un cliente', 'warning');
         return;
     }
     if (!formData.amount_usd || formData.amount_usd <= 0) {
-        isSubmitting = false;
-        $submitBtn.prop('disabled', false).html(originalBtnText);
+        window.isCreatingOperation = false;
+        $submitBtn.prop('disabled', false).removeClass('disabled').css('pointer-events', '').html(originalBtnText);
         showNotification('El monto en USD debe ser mayor a 0', 'warning');
         return;
     }
     if (!formData.exchange_rate || formData.exchange_rate <= 0) {
-        isSubmitting = false;
-        $submitBtn.prop('disabled', false).html(originalBtnText);
+        window.isCreatingOperation = false;
+        $submitBtn.prop('disabled', false).removeClass('disabled').css('pointer-events', '').html(originalBtnText);
         showNotification('El tipo de cambio debe ser mayor a 0', 'warning');
         return;
     }
     if (!formData.source_account) {
-        isSubmitting = false;
-        $submitBtn.prop('disabled', false).html(originalBtnText);
+        window.isCreatingOperation = false;
+        $submitBtn.prop('disabled', false).removeClass('disabled').css('pointer-events', '').html(originalBtnText);
         showNotification('Por favor selecciona la cuenta de origen', 'warning');
         return;
     }
     if (!formData.destination_account) {
-        isSubmitting = false;
-        $submitBtn.prop('disabled', false).html(originalBtnText);
+        window.isCreatingOperation = false;
+        $submitBtn.prop('disabled', false).removeClass('disabled').css('pointer-events', '').html(originalBtnText);
         showNotification('Por favor selecciona la cuenta de destino', 'warning');
         return;
     }
@@ -453,16 +456,16 @@ $('#createOperationForm').on('submit', function(e) {
     // Enviar
     ajaxRequest('/operations/api/create', 'POST', formData,
         function(response) {
-            // Éxito - NO rehabilitar botón, redirigir
+            // Éxito - NO rehabilitar botón ni bandera, redirigir inmediatamente
             showNotification('Operación creada exitosamente: ' + response.operation.operation_id, 'success');
             setTimeout(function() {
                 window.location.href = '/operations/list';
             }, 1500);
         },
         function(error) {
-            // Error - rehabilitar botón
-            isSubmitting = false;
-            $submitBtn.prop('disabled', false).html(originalBtnText);
+            // Error - rehabilitar botón COMPLETAMENTE
+            window.isCreatingOperation = false;
+            $submitBtn.prop('disabled', false).removeClass('disabled').css('pointer-events', '').html(originalBtnText);
             showNotification('Error al crear operación: ' + (error.message || 'Error desconocido'), 'danger');
         }
     );

@@ -332,8 +332,21 @@ function showAlert(message, type = 'info') {
  * Hacer petición AJAX
  */
 function ajaxRequest(url, method, data, successCallback, errorCallback) {
+    // PROTECCIÓN ADICIONAL: Prevenir múltiples peticiones POST simultáneas al mismo endpoint
+    if (method === 'POST') {
+        const requestKey = `${method}:${url}`;
+        window.activeAjaxRequests = window.activeAjaxRequests || new Set();
+
+        if (window.activeAjaxRequests.has(requestKey)) {
+            console.warn('🚫 BLOQUEADO: Ya hay una petición en proceso a', url);
+            return;
+        }
+
+        window.activeAjaxRequests.add(requestKey);
+    }
+
     const csrfToken = $('meta[name="csrf-token"]').attr('content');
-    
+
     $.ajax({
         url: url,
         type: method,
@@ -343,11 +356,21 @@ function ajaxRequest(url, method, data, successCallback, errorCallback) {
             'X-CSRFToken': csrfToken
         },
         success: function(response) {
+            // Remover del set de peticiones activas
+            if (method === 'POST' && window.activeAjaxRequests) {
+                window.activeAjaxRequests.delete(`${method}:${url}`);
+            }
+
             if (successCallback) {
                 successCallback(response);
             }
         },
         error: function(xhr, status, error) {
+            // Remover del set de peticiones activas
+            if (method === 'POST' && window.activeAjaxRequests) {
+                window.activeAjaxRequests.delete(`${method}:${url}`);
+            }
+
             // Solo mostrar error si es relevante (no errores de recursos estáticos)
             if (xhr.status !== 0 && xhr.status !== 404) {
                 const errorMsg = xhr.responseJSON?.message || error || 'Error en la petición';
