@@ -1,0 +1,613 @@
+{% extends "base.html" %}
+
+{% block title %}Listas Restrictivas - QoriCash Trading{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-0">Listas Restrictivas</h2>
+            <p class="text-muted">Verificación manual de listas PEP, OFAC, ONU, UIF, Denuncias, etc.</p>
+        </div>
+        <div>
+            <button class="btn btn-primary" onclick="recargarLista()">
+                <i class="bi bi-arrow-clockwise"></i> Recargar
+            </button>
+        </div>
+    </div>
+
+    <!-- Lista de Clientes -->
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <i class="bi bi-shield-exclamation"></i> Clientes para Verificación
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle" id="clientesTable">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Nombre / Razón Social</th>
+                            <th>DNI/RUC</th>
+                            <th>Email</th>
+                            <th>Última Verificación</th>
+                            <th>Resultado</th>
+                            <th style="min-width: 150px;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="clientesBody">
+                        <tr>
+                            <td colspan="7" class="text-center">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Cargando...</span>
+                                </div>
+                                <p class="mt-2">Cargando clientes...</p>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Verificación Manual de Listas Restrictivas -->
+<div class="modal fade" id="verificacionModal" tabindex="-1" aria-labelledby="verificacionModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="verificacionModalLabel">
+                    <i class="bi bi-shield-check"></i> Verificación Manual de Listas Restrictivas
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="verificacionClientId">
+
+                <!-- Información del Cliente -->
+                <div class="alert alert-info">
+                    <strong>Cliente:</strong> <span id="verificacionClientNombre"></span><br>
+                    <strong>DNI/RUC:</strong> <span id="verificacionClientDni"></span><br>
+                    <strong>Email:</strong> <span id="verificacionClientEmail"></span>
+                </div>
+
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle"></i> <strong>Instrucciones:</strong>
+                    Realice la búsqueda manual del cliente en las listas públicas correspondientes.
+                    Marque las listas consultadas, indique si encontró coincidencias, detalle los hallazgos y adjunte sustento si aplica.
+                </div>
+
+                <form id="verificacionForm">
+                    <!-- PEP - Personas Expuestas Políticamente -->
+                    <div class="card mb-3">
+                        <div class="card-header bg-light">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="pep_checked" name="pep_checked">
+                                <label class="form-check-label fw-bold" for="pep_checked">
+                                    PEP - Personas Expuestas Políticamente
+                                </label>
+                            </div>
+                        </div>
+                        <div class="card-body" id="pep_section" style="display: none;">
+                            <div class="mb-3">
+                                <label class="form-label">Resultado</label>
+                                <select class="form-select" id="pep_result" name="pep_result">
+                                    <option value="Clean">Sin Coincidencias</option>
+                                    <option value="Match">Coincidencia Encontrada</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Detalles / Coincidencias Encontradas</label>
+                                <textarea class="form-control" id="pep_details" name="pep_details" rows="3" placeholder="Describa las coincidencias encontradas, cargo, institución, etc."></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- OFAC - Office of Foreign Assets Control -->
+                    <div class="card mb-3">
+                        <div class="card-header bg-light">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="ofac_checked" name="ofac_checked">
+                                <label class="form-check-label fw-bold" for="ofac_checked">
+                                    OFAC - Lista de Sanciones de Estados Unidos
+                                </label>
+                            </div>
+                        </div>
+                        <div class="card-body" id="ofac_section" style="display: none;">
+                            <div class="mb-3">
+                                <label class="form-label">Resultado</label>
+                                <select class="form-select" id="ofac_result" name="ofac_result">
+                                    <option value="Clean">Sin Coincidencias</option>
+                                    <option value="Match">Coincidencia Encontrada</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Detalles / Coincidencias Encontradas</label>
+                                <textarea class="form-control" id="ofac_details" name="ofac_details" rows="3" placeholder="Describa las coincidencias encontradas en OFAC..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ONU - Listas de Sanciones ONU -->
+                    <div class="card mb-3">
+                        <div class="card-header bg-light">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="onu_checked" name="onu_checked">
+                                <label class="form-check-label fw-bold" for="onu_checked">
+                                    ONU - Listas de Sanciones de Naciones Unidas
+                                </label>
+                            </div>
+                        </div>
+                        <div class="card-body" id="onu_section" style="display: none;">
+                            <div class="mb-3">
+                                <label class="form-label">Resultado</label>
+                                <select class="form-select" id="onu_result" name="onu_result">
+                                    <option value="Clean">Sin Coincidencias</option>
+                                    <option value="Match">Coincidencia Encontrada</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Detalles / Coincidencias Encontradas</label>
+                                <textarea class="form-control" id="onu_details" name="onu_details" rows="3" placeholder="Describa las coincidencias encontradas en listas ONU..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- UIF - Unidad de Inteligencia Financiera -->
+                    <div class="card mb-3">
+                        <div class="card-header bg-light">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="uif_checked" name="uif_checked">
+                                <label class="form-check-label fw-bold" for="uif_checked">
+                                    UIF - Unidad de Inteligencia Financiera (Perú)
+                                </label>
+                            </div>
+                        </div>
+                        <div class="card-body" id="uif_section" style="display: none;">
+                            <div class="mb-3">
+                                <label class="form-label">Resultado</label>
+                                <select class="form-select" id="uif_result" name="uif_result">
+                                    <option value="Clean">Sin Coincidencias</option>
+                                    <option value="Match">Coincidencia Encontrada</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Detalles / Coincidencias Encontradas</label>
+                                <textarea class="form-control" id="uif_details" name="uif_details" rows="3" placeholder="Describa las coincidencias encontradas en UIF..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- INTERPOL -->
+                    <div class="card mb-3">
+                        <div class="card-header bg-light">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="interpol_checked" name="interpol_checked">
+                                <label class="form-check-label fw-bold" for="interpol_checked">
+                                    INTERPOL - Avisos de Búsqueda Internacional
+                                </label>
+                            </div>
+                        </div>
+                        <div class="card-body" id="interpol_section" style="display: none;">
+                            <div class="mb-3">
+                                <label class="form-label">Resultado</label>
+                                <select class="form-select" id="interpol_result" name="interpol_result">
+                                    <option value="Clean">Sin Coincidencias</option>
+                                    <option value="Match">Coincidencia Encontrada</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Detalles / Coincidencias Encontradas</label>
+                                <textarea class="form-control" id="interpol_details" name="interpol_details" rows="3" placeholder="Describa las coincidencias encontradas en INTERPOL..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Denuncias Públicas -->
+                    <div class="card mb-3">
+                        <div class="card-header bg-light">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="denuncias_checked" name="denuncias_checked">
+                                <label class="form-check-label fw-bold" for="denuncias_checked">
+                                    DENUNCIAS - Registros Públicos de Denuncias
+                                </label>
+                            </div>
+                        </div>
+                        <div class="card-body" id="denuncias_section" style="display: none;">
+                            <div class="mb-3">
+                                <label class="form-label">Resultado</label>
+                                <select class="form-select" id="denuncias_result" name="denuncias_result">
+                                    <option value="Clean">Sin Coincidencias</option>
+                                    <option value="Match">Coincidencia Encontrada</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Detalles / Coincidencias Encontradas</label>
+                                <textarea class="form-control" id="denuncias_details" name="denuncias_details" rows="3" placeholder="Describa las denuncias encontradas..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Otras Listas -->
+                    <div class="card mb-3">
+                        <div class="card-header bg-light">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="otras_listas_checked" name="otras_listas_checked">
+                                <label class="form-check-label fw-bold" for="otras_listas_checked">
+                                    OTRAS LISTAS - Otras Fuentes Consultadas
+                                </label>
+                            </div>
+                        </div>
+                        <div class="card-body" id="otras_listas_section" style="display: none;">
+                            <div class="mb-3">
+                                <label class="form-label">Resultado</label>
+                                <select class="form-select" id="otras_listas_result" name="otras_listas_result">
+                                    <option value="Clean">Sin Coincidencias</option>
+                                    <option value="Match">Coincidencia Encontrada</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Detalles / Coincidencias Encontradas</label>
+                                <textarea class="form-control" id="otras_listas_details" name="otras_listas_details" rows="3" placeholder="Describa las coincidencias encontradas en otras listas..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Observaciones Generales -->
+                    <div class="card mb-3">
+                        <div class="card-header bg-light">
+                            <strong>Observaciones Generales</strong>
+                        </div>
+                        <div class="card-body">
+                            <textarea class="form-control" id="observations" name="observations" rows="4" placeholder="Ingrese observaciones generales sobre la verificación realizada..."></textarea>
+                        </div>
+                    </div>
+
+                    <!-- Archivos Adjuntos -->
+                    <div class="card mb-3">
+                        <div class="card-header bg-light">
+                            <strong>Archivos de Sustento</strong>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label class="form-label">Adjuntar documentos de sustento (capturas, PDFs, etc.)</label>
+                                <input type="file" class="form-control" id="attachments" name="attachments" multiple accept="image/*,.pdf">
+                                <small class="text-muted">Puede seleccionar múltiples archivos. Formatos aceptados: imágenes y PDF</small>
+                            </div>
+                            <div id="attachmentsList"></div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="guardarVerificacion()" id="btnGuardarVerificacion">
+                    <i class="bi bi-save"></i> Guardar Verificación
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Historial de Verificaciones -->
+<div class="modal fade" id="historialModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title">
+                    <i class="bi bi-clock-history"></i> Historial de Verificaciones
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="historialClientId">
+                <div id="historialContent">
+                    <div class="text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Cargando...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    cargarClientes();
+
+    // Mostrar/ocultar secciones al marcar checkboxes
+    const listTypes = ['pep', 'ofac', 'onu', 'uif', 'interpol', 'denuncias', 'otras_listas'];
+    listTypes.forEach(type => {
+        $(`#${type}_checked`).change(function() {
+            if ($(this).is(':checked')) {
+                $(`#${type}_section`).slideDown();
+            } else {
+                $(`#${type}_section`).slideUp();
+                $(`#${type}_result`).val('Clean');
+                $(`#${type}_details`).val('');
+            }
+        });
+    });
+});
+
+function cargarClientes() {
+    $.ajax({
+        url: '/compliance/api/restrictive-lists/clients',
+        type: 'GET',
+        success: function(response) {
+            if (response.success) {
+                mostrarClientes(response.data);
+            } else {
+                mostrarError('Error: ' + (response.error || 'Error desconocido'));
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('Error en AJAX:', error);
+            mostrarError('Error de conexión: ' + error);
+        }
+    });
+}
+
+function mostrarClientes(clientes) {
+    const tbody = $('#clientesBody');
+    tbody.empty();
+
+    if (!clientes || clientes.length === 0) {
+        tbody.html(`
+            <tr>
+                <td colspan="7" class="text-center">
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i> No hay clientes registrados
+                    </div>
+                </td>
+            </tr>
+        `);
+        return;
+    }
+
+    clientes.forEach(function(cliente) {
+        let resultBadge = '<span class="badge bg-secondary">Sin verificar</span>';
+        let lastCheck = '-';
+
+        if (cliente.last_check) {
+            lastCheck = cliente.last_check;
+            if (cliente.last_result === 'Clean') {
+                resultBadge = '<span class="badge bg-success">Sin Coincidencias</span>';
+            } else if (cliente.last_result === 'Match') {
+                resultBadge = '<span class="badge bg-danger">Coincidencias Encontradas</span>';
+            }
+        }
+
+        const row = `
+            <tr>
+                <td>${cliente.client_id}</td>
+                <td><strong>${cliente.client_name || '-'}</strong></td>
+                <td><small class="text-muted">${cliente.document_type}</small><br>${cliente.client_dni}</td>
+                <td><small>${cliente.client_email}</small></td>
+                <td><small>${lastCheck}</small></td>
+                <td>${resultBadge}</td>
+                <td>
+                    <div class="btn-group btn-group-sm" role="group">
+                        <button class="btn btn-primary" onclick="abrirModalVerificacion(${cliente.client_id}, '${escaparTexto(cliente.client_name)}', '${cliente.client_dni}', '${cliente.client_email}')" title="Nueva Verificación">
+                            <i class="bi bi-shield-check"></i> Verificar
+                        </button>
+                        <button class="btn btn-info" onclick="verHistorial(${cliente.client_id})" title="Ver Historial">
+                            <i class="bi bi-clock-history"></i> Historial
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+        tbody.append(row);
+    });
+}
+
+function mostrarError(mensaje) {
+    $('#clientesBody').html(`
+        <tr>
+            <td colspan="7" class="text-center">
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle"></i> ${mensaje}
+                </div>
+                <button class="btn btn-primary" onclick="cargarClientes()">
+                    <i class="bi bi-arrow-clockwise"></i> Reintentar
+                </button>
+            </td>
+        </tr>
+    `);
+}
+
+function abrirModalVerificacion(clientId, nombre, dni, email) {
+    $('#verificacionClientId').val(clientId);
+    $('#verificacionClientNombre').text(nombre);
+    $('#verificacionClientDni').text(dni);
+    $('#verificacionClientEmail').text(email);
+
+    // Limpiar formulario
+    $('#verificacionForm')[0].reset();
+    const listTypes = ['pep', 'ofac', 'onu', 'uif', 'interpol', 'denuncias', 'otras_listas'];
+    listTypes.forEach(type => {
+        $(`#${type}_section`).hide();
+    });
+    $('#attachmentsList').empty();
+
+    $('#verificacionModal').modal('show');
+}
+
+function guardarVerificacion() {
+    const clientId = $('#verificacionClientId').val();
+    const btnGuardar = $('#btnGuardarVerificacion');
+
+    // Validar que al menos una lista esté marcada
+    const listTypes = ['pep', 'ofac', 'onu', 'uif', 'interpol', 'denuncias', 'otras_listas'];
+    const anyChecked = listTypes.some(type => $(`#${type}_checked`).is(':checked'));
+
+    if (!anyChecked) {
+        alert('Debe marcar al menos una lista para verificar');
+        return;
+    }
+
+    // Deshabilitar botón
+    btnGuardar.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> Guardando...');
+
+    // Preparar FormData para archivos
+    const formData = new FormData();
+    formData.append('client_id', clientId);
+
+    // Agregar datos de cada lista
+    listTypes.forEach(type => {
+        if ($(`#${type}_checked`).is(':checked')) {
+            formData.append(`${type}_checked`, 'true');
+            formData.append(`${type}_result`, $(`#${type}_result`).val());
+            formData.append(`${type}_details`, $(`#${type}_details`).val());
+        }
+    });
+
+    formData.append('observations', $('#observations').val());
+
+    // Agregar archivos
+    const files = $('#attachments')[0].files;
+    for (let i = 0; i < files.length; i++) {
+        formData.append('attachments', files[i]);
+    }
+
+    $.ajax({
+        url: '/compliance/api/restrictive-lists/check',
+        type: 'POST',
+        data: formData,
+        processData: false,
+        contentType: false,
+        success: function(response) {
+            if (response.success) {
+                alert('Verificación guardada correctamente');
+                $('#verificacionModal').modal('hide');
+                cargarClientes();
+            } else {
+                alert('Error: ' + (response.error || 'Error desconocido'));
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('Error:', error);
+            alert('Error al guardar verificación: ' + error);
+        },
+        complete: function() {
+            btnGuardar.prop('disabled', false).html('<i class="bi bi-save"></i> Guardar Verificación');
+        }
+    });
+}
+
+function verHistorial(clientId) {
+    $('#historialClientId').val(clientId);
+    $('#historialContent').html('<div class="text-center"><div class="spinner-border text-primary"></div></div>');
+    $('#historialModal').modal('show');
+
+    $.ajax({
+        url: `/compliance/api/restrictive-lists/history/${clientId}`,
+        type: 'GET',
+        success: function(response) {
+            if (response.success) {
+                mostrarHistorial(response.data);
+            } else {
+                $('#historialContent').html('<div class="alert alert-danger">Error al cargar historial</div>');
+            }
+        },
+        error: function(xhr, status, error) {
+            $('#historialContent').html('<div class="alert alert-danger">Error de conexión</div>');
+        }
+    });
+}
+
+function mostrarHistorial(historial) {
+    if (!historial || historial.length === 0) {
+        $('#historialContent').html('<div class="alert alert-info">No hay verificaciones registradas</div>');
+        return;
+    }
+
+    let html = '<div class="timeline">';
+    historial.forEach(function(check) {
+        const hasMatch = check.result === 'Match';
+        const badgeClass = hasMatch ? 'bg-danger' : 'bg-success';
+        const iconClass = hasMatch ? 'bi-exclamation-triangle' : 'bi-check-circle';
+
+        html += `
+            <div class="card mb-3">
+                <div class="card-header ${badgeClass} text-white">
+                    <i class="bi ${iconClass}"></i>
+                    Verificación del ${check.checked_at} -
+                    ${hasMatch ? 'Coincidencias Encontradas' : 'Sin Coincidencias'}
+                </div>
+                <div class="card-body">
+                    <p><strong>Verificado por:</strong> ${check.checked_by}</p>
+        `;
+
+        // Mostrar resultados por lista
+        const lists = [
+            {key: 'pep', label: 'PEP'},
+            {key: 'ofac', label: 'OFAC'},
+            {key: 'onu', label: 'ONU'},
+            {key: 'uif', label: 'UIF'},
+            {key: 'interpol', label: 'INTERPOL'},
+            {key: 'denuncias', label: 'Denuncias'},
+            {key: 'otras_listas', label: 'Otras Listas'}
+        ];
+
+        lists.forEach(list => {
+            if (check[`${list.key}_checked`]) {
+                const result = check[`${list.key}_result`];
+                const details = check[`${list.key}_details`];
+                const badge = result === 'Match' ?
+                    '<span class="badge bg-danger">Match</span>' :
+                    '<span class="badge bg-success">Clean</span>';
+
+                html += `
+                    <div class="mb-2">
+                        <strong>${list.label}:</strong> ${badge}
+                        ${details ? `<br><small class="text-muted">${details}</small>` : ''}
+                    </div>
+                `;
+            }
+        });
+
+        if (check.observations) {
+            html += `<p><strong>Observaciones:</strong><br>${check.observations}</p>`;
+        }
+
+        if (check.attachments) {
+            html += `<p><strong>Archivos adjuntos:</strong> ${check.attachments.split(',').length} archivo(s)</p>`;
+        }
+
+        html += `
+                </div>
+            </div>
+        `;
+    });
+    html += '</div>';
+
+    $('#historialContent').html(html);
+}
+
+function recargarLista() {
+    $('#clientesBody').html(`
+        <tr>
+            <td colspan="7" class="text-center">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Cargando...</span>
+                </div>
+                <p class="mt-2">Recargando...</p>
+            </td>
+        </tr>
+    `);
+    cargarClientes();
+}
+
+function escaparTexto(texto) {
+    if (!texto) return '';
+    return texto.replace(/'/g, "\\'").replace(/"/g, '\\"');
+}
+</script>
+{% endblock %}

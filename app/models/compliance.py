@@ -165,12 +165,50 @@ class RestrictiveListCheck(db.Model):
 
     # Tipo de lista consultada
     list_type = db.Column(db.String(50), nullable=False)  # OFAC, ONU, UIF, PEP, Interpol
-    provider = db.Column(db.String(100))  # Inspektor, WorldCheck, etc.
+    provider = db.Column(db.String(100))  # Inspektor, WorldCheck, Manual
 
     # Resultado
     result = db.Column(db.String(50), nullable=False)  # Clean, Match, Potential_Match
     match_score = db.Column(db.Integer)  # 0-100
     details = db.Column(db.Text)  # JSON con detalles del match
+
+    # Campos para búsqueda manual
+    is_manual = db.Column(db.Boolean, default=False)  # Indica si es búsqueda manual
+
+    # Verificaciones manuales específicas
+    pep_checked = db.Column(db.Boolean, default=False)
+    pep_result = db.Column(db.String(50))  # Clean, Match
+    pep_details = db.Column(db.Text)  # Detalles de coincidencias PEP
+
+    ofac_checked = db.Column(db.Boolean, default=False)
+    ofac_result = db.Column(db.String(50))  # Clean, Match
+    ofac_details = db.Column(db.Text)
+
+    onu_checked = db.Column(db.Boolean, default=False)
+    onu_result = db.Column(db.String(50))  # Clean, Match
+    onu_details = db.Column(db.Text)
+
+    uif_checked = db.Column(db.Boolean, default=False)
+    uif_result = db.Column(db.String(50))  # Clean, Match
+    uif_details = db.Column(db.Text)
+
+    interpol_checked = db.Column(db.Boolean, default=False)
+    interpol_result = db.Column(db.String(50))  # Clean, Match
+    interpol_details = db.Column(db.Text)
+
+    denuncias_checked = db.Column(db.Boolean, default=False)
+    denuncias_result = db.Column(db.String(50))  # Clean, Match
+    denuncias_details = db.Column(db.Text)
+
+    otras_listas_checked = db.Column(db.Boolean, default=False)
+    otras_listas_result = db.Column(db.String(50))  # Clean, Match
+    otras_listas_details = db.Column(db.Text)
+
+    # Observaciones generales
+    observations = db.Column(db.Text)  # Observaciones generales del oficial
+
+    # Archivos adjuntos (URLs separadas por comas)
+    attachments = db.Column(db.Text)  # URLs de Cloudinary separadas por comas
 
     # Metadata
     checked_at = db.Column(db.DateTime, default=now_peru)

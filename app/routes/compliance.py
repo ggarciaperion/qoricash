@@ -902,32 +902,167 @@ def update_pep_status(client_id):
         }), 500
 
 
-@compliance_bp.route('/api/restrictive-lists/check/<int:client_id>', methods=['POST'])
+@compliance_bp.route('/api/restrictive-lists/clients')
+@login_required
+@middle_office_required
+def api_restrictive_lists_clients():
+    """API: Lista de clientes para verificación de listas restrictivas"""
+    try:
+        import logging
+        logger = logging.getLogger(__name__)
+
+        # Obtener todos los clientes
+        all_clients = Client.query.order_by(Client.created_at.desc()).all()
+        logger.info(f"Listas Restrictivas: Total de clientes en BD: {len(all_clients)}")
+
+        data = []
+        for client in all_clients:
+            # Obtener nombre completo
+            if client.document_type == 'RUC':
+                client_name = client.razon_social or '-'
+            else:
+                parts = []
+                if client.apellido_paterno:
+                    parts.append(client.apellido_paterno)
+                if client.apellido_materno:
+                    parts.append(client.apellido_materno)
+                if client.nombres:
+                    parts.append(client.nombres)
+                client_name = ' '.join(parts) if parts else '-'
+
+            # Buscar última verificación
+            last_check = RestrictiveListCheck.query.filter_by(
+                client_id=client.id
+            ).order_by(RestrictiveListCheck.checked_at.desc()).first()
+
+            data.append({
+                'client_id': client.id,
+                'client_name': client_name,
+                'client_dni': client.dni,
+                'client_email': client.email,
+                'document_type': client.document_type,
+                'last_check': last_check.checked_at.strftime('%d/%m/%Y %H:%M') if last_check else None,
+                'last_result': last_check.result if last_check else None
+            })
+
+        logger.info(f"Listas Restrictivas: Retornando {len(data)} clientes")
+
+        return jsonify({
+            'success': True,
+            'data': data
+        })
+
+    except Exception as e:
+        import logging
+        import traceback
+        logger = logging.getLogger(__name__)
+        logger.error(f"Listas Restrictivas API ERROR: {str(e)}")
+        logger.error(traceback.format_exc())
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@compliance_bp.route('/api/restrictive-lists/check', methods=['POST'])
 @login_required
 @middle_office_required
 @csrf.exempt
-def check_restrictive_lists(client_id):
-    """API: Consultar listas restrictivas para un cliente"""
+def check_restrictive_lists():
+    """API: Guardar verificación manual de listas restrictivas"""
     try:
-        client = Client.query.get_or_404(client_id)
+        import logging
+        from werkzeug.utils import secure_filename
+        import cloudinary
+        import cloudinary.uploader
 
-        # Por ahora, verificación manual (Inspektor en Fase 3)
-        check = ComplianceService.check_restrictive_lists(
-            client_id,
-            current_user.id,
-            provider='Manual'
+        logger = logging.getLogger(__name__)
+
+        client_id = request.form.get('client_id')
+        if not client_id:
+            return jsonify({
+                'success': False,
+                'error': 'client_id es requerido'
+            }), 400
+
+        client = Client.query.get_or_404(int(client_id))
+
+        # Determinar resultado general
+        has_match = False
+        list_types = ['pep', 'ofac', 'onu', 'uif', 'interpol', 'denuncias', 'otras_listas']
+
+        for list_type in list_types:
+            if request.form.get(f'{list_type}_checked'):
+                result = request.form.get(f'{list_type}_result', 'Clean')
+                if result == 'Match':
+                    has_match = True
+                    break
+
+        overall_result = 'Match' if has_match else 'Clean'
+
+        # Subir archivos a Cloudinary si existen
+        attachment_urls = []
+        if 'attachments' in request.files:
+            files = request.files.getlist('attachments')
+            for file in files:
+                if file and file.filename:
+                    try:
+                        # Subir a Cloudinary
+                        upload_result = cloudinary.uploader.upload(
+                            file,
+                            folder=f'qoricash/restrictive_lists/client_{client_id}',
+                            resource_type='auto'
+                        )
+                        attachment_urls.append(upload_result['secure_url'])
+                        logger.info(f"Archivo subido a Cloudinary: {upload_result['secure_url']}")
+                    except Exception as e:
+                        logger.error(f"Error subiendo archivo a Cloudinary: {str(e)}")
+
+        # Crear registro de verificación
+        check = RestrictiveListCheck(
+            client_id=int(client_id),
+            list_type='Manual_Comprehensive',
+            provider='Manual',
+            result=overall_result,
+            is_manual=True,
+            observations=request.form.get('observations', ''),
+            attachments=','.join(attachment_urls) if attachment_urls else None,
+            checked_by=current_user.id
         )
+
+        # Guardar datos de cada lista verificada
+        for list_type in list_types:
+            if request.form.get(f'{list_type}_checked'):
+                setattr(check, f'{list_type}_checked', True)
+                setattr(check, f'{list_type}_result', request.form.get(f'{list_type}_result', 'Clean'))
+                setattr(check, f'{list_type}_details', request.form.get(f'{list_type}_details', ''))
+
+        db.session.add(check)
+
+        # Actualizar perfil de riesgo del cliente si hay coincidencias
+        profile = ClientRiskProfile.query.filter_by(client_id=int(client_id)).first()
+        if not profile:
+            profile = ClientRiskProfile(client_id=int(client_id))
+            db.session.add(profile)
+
+        if has_match:
+            profile.in_restrictive_lists = True
+            # Recalcular riesgo
+            ComplianceService.update_client_risk_profile(int(client_id), current_user.id)
+        else:
+            profile.in_restrictive_lists = False
 
         # Auditoría
         audit = ComplianceAudit(
             user_id=current_user.id,
-            action_type='Restrictive_List_Check',
+            action_type='Restrictive_List_Manual_Check',
             entity_type='Client',
-            entity_id=client_id,
-            description='Consulta a listas restrictivas',
+            entity_id=int(client_id),
+            description=f'Verificación manual de listas restrictivas: {overall_result}',
             changes=json.dumps({
-                'result': check.result,
-                'provider': check.provider
+                'result': overall_result,
+                'provider': 'Manual',
+                'has_attachments': len(attachment_urls) > 0
             }),
             ip_address=request.remote_addr,
             user_agent=request.headers.get('User-Agent')
@@ -935,17 +1070,87 @@ def check_restrictive_lists(client_id):
         db.session.add(audit)
         db.session.commit()
 
+        logger.info(f"Verificación manual guardada para cliente {client_id}: {overall_result}")
+
         return jsonify({
             'success': True,
-            'message': 'Consulta registrada',
+            'message': 'Verificación guardada correctamente',
             'data': {
-                'result': check.result,
+                'result': overall_result,
                 'checked_at': check.checked_at.strftime('%Y-%m-%d %H:%M:%S')
             }
         })
 
     except Exception as e:
         db.session.rollback()
+        import logging
+        import traceback
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error guardando verificación de listas restrictivas: {str(e)}")
+        logger.error(traceback.format_exc())
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@compliance_bp.route('/api/restrictive-lists/history/<int:client_id>')
+@login_required
+@middle_office_required
+def restrictive_lists_history(client_id):
+    """API: Historial de verificaciones de listas restrictivas de un cliente"""
+    try:
+        client = Client.query.get_or_404(client_id)
+
+        checks = RestrictiveListCheck.query.filter_by(
+            client_id=client_id
+        ).order_by(RestrictiveListCheck.checked_at.desc()).all()
+
+        data = []
+        for check in checks:
+            checker_name = check.checker.username if check.checker else 'Sistema'
+
+            data.append({
+                'id': check.id,
+                'result': check.result,
+                'checked_at': check.checked_at.strftime('%d/%m/%Y %H:%M'),
+                'checked_by': checker_name,
+                'pep_checked': check.pep_checked,
+                'pep_result': check.pep_result,
+                'pep_details': check.pep_details,
+                'ofac_checked': check.ofac_checked,
+                'ofac_result': check.ofac_result,
+                'ofac_details': check.ofac_details,
+                'onu_checked': check.onu_checked,
+                'onu_result': check.onu_result,
+                'onu_details': check.onu_details,
+                'uif_checked': check.uif_checked,
+                'uif_result': check.uif_result,
+                'uif_details': check.uif_details,
+                'interpol_checked': check.interpol_checked,
+                'interpol_result': check.interpol_result,
+                'interpol_details': check.interpol_details,
+                'denuncias_checked': check.denuncias_checked,
+                'denuncias_result': check.denuncias_result,
+                'denuncias_details': check.denuncias_details,
+                'otras_listas_checked': check.otras_listas_checked,
+                'otras_listas_result': check.otras_listas_result,
+                'otras_listas_details': check.otras_listas_details,
+                'observations': check.observations,
+                'attachments': check.attachments
+            })
+
+        return jsonify({
+            'success': True,
+            'data': data
+        })
+
+    except Exception as e:
+        import logging
+        import traceback
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error obteniendo historial de listas restrictivas: {str(e)}")
+        logger.error(traceback.format_exc())
         return jsonify({
             'success': False,
             'error': str(e)
