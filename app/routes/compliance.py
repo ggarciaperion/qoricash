@@ -917,33 +917,48 @@ def api_restrictive_lists_clients():
 
         data = []
         for client in all_clients:
-            # Obtener nombre completo
-            if client.document_type == 'RUC':
-                client_name = client.razon_social or '-'
-            else:
-                parts = []
-                if client.apellido_paterno:
-                    parts.append(client.apellido_paterno)
-                if client.apellido_materno:
-                    parts.append(client.apellido_materno)
-                if client.nombres:
-                    parts.append(client.nombres)
-                client_name = ' '.join(parts) if parts else '-'
+            try:
+                # Obtener nombre completo
+                if client.document_type == 'RUC':
+                    client_name = client.razon_social or '-'
+                else:
+                    parts = []
+                    if hasattr(client, 'apellido_paterno') and client.apellido_paterno:
+                        parts.append(client.apellido_paterno)
+                    if hasattr(client, 'apellido_materno') and client.apellido_materno:
+                        parts.append(client.apellido_materno)
+                    if hasattr(client, 'nombres') and client.nombres:
+                        parts.append(client.nombres)
+                    client_name = ' '.join(parts) if parts else '-'
 
-            # Buscar última verificación
-            last_check = RestrictiveListCheck.query.filter_by(
-                client_id=client.id
-            ).order_by(RestrictiveListCheck.checked_at.desc()).first()
+                # Buscar última verificación
+                last_check = None
+                last_check_date = None
+                last_check_result = None
 
-            data.append({
-                'client_id': client.id,
-                'client_name': client_name,
-                'client_dni': client.dni,
-                'client_email': client.email,
-                'document_type': client.document_type,
-                'last_check': last_check.checked_at.strftime('%d/%m/%Y %H:%M') if last_check else None,
-                'last_result': last_check.result if last_check else None
-            })
+                try:
+                    last_check = RestrictiveListCheck.query.filter_by(
+                        client_id=client.id
+                    ).order_by(RestrictiveListCheck.checked_at.desc()).first()
+
+                    if last_check:
+                        last_check_date = last_check.checked_at.strftime('%d/%m/%Y %H:%M')
+                        last_check_result = last_check.result
+                except Exception as check_error:
+                    logger.warning(f"Error obteniendo última verificación para cliente {client.id}: {str(check_error)}")
+
+                data.append({
+                    'client_id': client.id,
+                    'client_name': client_name,
+                    'client_dni': client.dni,
+                    'client_email': client.email if hasattr(client, 'email') else '-',
+                    'document_type': client.document_type if hasattr(client, 'document_type') else 'DNI',
+                    'last_check': last_check_date,
+                    'last_result': last_check_result
+                })
+            except Exception as client_error:
+                logger.error(f"Error procesando cliente {client.id}: {str(client_error)}")
+                continue
 
         logger.info(f"Listas Restrictivas: Retornando {len(data)} clientes")
 

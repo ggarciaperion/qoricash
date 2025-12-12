@@ -1,2 +1,2 @@
 web: gunicorn -c gunicorn_config.py run:app
-release: flask db upgrade
+release: python -m flask db upgrade
