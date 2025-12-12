@@ -11,6 +11,9 @@ from app.models.client import Client
 from app.models.audit_log import AuditLog
 from app.utils.validators import validate_amount, validate_exchange_rate
 from app.utils.formatters import now_peru
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class OperationService:
@@ -256,8 +259,7 @@ class OperationService:
             EmailService.send_new_operation_email(operation)
         except Exception as e:
             # Log el error pero no falla la operación
-            import logging
-            logging.error(f'Error al enviar email para operación {operation_id}: {str(e)}')
+            logger.error(f'Error al enviar email para operación {operation_id}: {str(e)}')
 
         return True, f'Operación {operation_id} creada exitosamente', operation
     
