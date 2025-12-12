@@ -73,6 +73,14 @@ def initialize_extensions(flask_app):
     with flask_app.app_context():
         import app.socketio_events
 
+    # Aplicar correcciones de esquema de base de datos (CRÍTICO)
+    with flask_app.app_context():
+        try:
+            from app.utils.database_fixes import apply_all_fixes
+            apply_all_fixes(db)
+        except Exception as e:
+            flask_app.logger.error(f"Error aplicando correcciones de BD: {str(e)}")
+
     # Registrar filtros personalizados de Jinja2
     register_template_filters(flask_app)
 
