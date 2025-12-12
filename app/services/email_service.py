@@ -338,7 +338,7 @@ class EmailService:
 <body>
     <div class="container">
         <div class="header">
-            <img src="https://raw.githubusercontent.com/ggarciaperion/qoricash/main/app/static/images/logo-principal.png" alt="QoriCash Logo" class="logo">
+            <img src="https://qoricashtrading.onrender.com/static/images/logo-principal.png" alt="QoriCash Logo" class="logo">
             <h1>Nueva Operación Registrada</h1>
             <p>QoriCash Trading</p>
         </div>
@@ -380,7 +380,17 @@ class EmailService:
                 </div>
                 <div class="info-row">
                     <span class="info-label">Estado:</span>
-                    <span class="info-value"><strong style="color: #00FFAA;">{{ operation.status }}</strong></span>
+                    <span class="info-value">
+                        {% if operation.status == 'Pendiente' %}
+                            <strong style="color: #f59e0b;">{{ operation.status }}</strong>
+                        {% elif operation.status == 'Completada' %}
+                            <strong style="color: #10b981;">{{ operation.status }}</strong>
+                        {% elif operation.status == 'Cancelada' %}
+                            <strong style="color: #ef4444;">{{ operation.status }}</strong>
+                        {% else %}
+                            <strong style="color: #00a887;">{{ operation.status }}</strong>
+                        {% endif %}
+                    </span>
                 </div>
                 <div class="info-row">
                     <span class="info-label">Fecha de Registro:</span>
@@ -567,7 +577,7 @@ class EmailService:
 <body>
     <div class="container">
         <div class="header">
-            <img src="https://raw.githubusercontent.com/ggarciaperion/qoricash/main/app/static/images/logo-principal.png" alt="QoriCash Logo" class="logo">
+            <img src="https://qoricashtrading.onrender.com/static/images/logo-principal.png" alt="QoriCash Logo" class="logo">
             <h1>Operación Completada</h1>
             <p>QoriCash Trading</p>
         </div>
@@ -759,7 +769,7 @@ class EmailService:
 <body>
     <div class="container">
         <div class="header">
-            <img src="https://raw.githubusercontent.com/ggarciaperion/qoricash/main/app/static/images/logo-principal.png" alt="QoriCash Logo" class="logo">
+            <img src="https://qoricashtrading.onrender.com/static/images/logo-principal.png" alt="QoriCash Logo" class="logo">
             <h1>Notificación Informativa</h1>
             <p>QoriCash Trading</p>
         </div>
@@ -1065,7 +1075,7 @@ class EmailService:
 <body>
     <div class="container">
         <div class="header">
-            <img src="https://raw.githubusercontent.com/ggarciaperion/qoricash/main/app/static/images/logo-principal.png" alt="QoriCash Logo" class="logo">
+            <img src="https://qoricashtrading.onrender.com/static/images/logo-principal.png" alt="QoriCash Logo" class="logo">
             <h1>Bienvenido a QoriCash</h1>
             <p>Sistema de Gestión de Operaciones Cambiarias</p>
         </div>
@@ -1166,7 +1176,7 @@ class EmailService:
 <body>
     <div class="container">
         <div class="header">
-            <img src="https://raw.githubusercontent.com/ggarciaperion/qoricash/main/app/static/images/logo-principal.png" alt="QoriCash Logo" class="logo">
+            <img src="https://qoricashtrading.onrender.com/static/images/logo-principal.png" alt="QoriCash Logo" class="logo">
             <h1>¡Cuenta Activada Exitosamente!</h1>
             <p>QoriCash Trading</p>
         </div>
@@ -1333,7 +1343,7 @@ class EmailService:
 <body>
     <div class="container">
         <div class="header">
-            <img src="https://raw.githubusercontent.com/ggarciaperion/qoricash/main/app/static/images/logo-principal.png" alt="QoriCash Logo" class="logo">
+            <img src="https://qoricashtrading.onrender.com/static/images/logo-principal.png" alt="QoriCash Logo" class="logo">
             <h1>Operación Cancelada</h1>
             <p>QoriCash Trading</p>
         </div>
@@ -1542,7 +1552,7 @@ class EmailService:
 <body>
     <div class="container">
         <div class="header">
-            <img src="https://raw.githubusercontent.com/ggarciaperion/qoricash/main/app/static/images/logo-principal.png" alt="QoriCash Logo" class="logo">
+            <img src="https://qoricashtrading.onrender.com/static/images/logo-principal.png" alt="QoriCash Logo" class="logo">
             <h1>Monto Modificado</h1>
             <p>QoriCash Trading</p>
         </div>
@@ -1618,7 +1628,17 @@ class EmailService:
                 </div>
                 <div class="info-row">
                     <span class="info-label">Estado:</span>
-                    <span class="info-value"><strong>{{ operation.status }}</strong></span>
+                    <span class="info-value">
+                        {% if operation.status == 'Pendiente' %}
+                            <strong style="color: #f59e0b;">{{ operation.status }}</strong>
+                        {% elif operation.status == 'Completada' %}
+                            <strong style="color: #10b981;">{{ operation.status }}</strong>
+                        {% elif operation.status == 'Cancelada' %}
+                            <strong style="color: #ef4444;">{{ operation.status }}</strong>
+                        {% else %}
+                            <strong style="color: #00a887;">{{ operation.status }}</strong>
+                        {% endif %}
+                    </span>
                 </div>
                 <div class="info-row">
                     <span class="info-label">Fecha de Creación:</span>
