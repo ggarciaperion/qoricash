@@ -355,6 +355,171 @@ def search():
     return jsonify({'success': True, 'clients': [client.to_dict() for client in clients]})
 
 
+@clients_bp.route('/api/approve_documents/<int:client_id>', methods=['POST'])
+@login_required
+@require_role('Master', 'Middle Office')
+def approve_documents(client_id):
+    """
+    API: Aprobar documentos del cliente y reactivarlo (Middle Office)
+
+    Este endpoint permite a Middle Office:
+    - Marcar los documentos del cliente como completos
+    - Resetear el contador de operaciones sin documentos
+    - Reactivar el cliente automáticamente
+    """
+    try:
+        from app.extensions import db
+        from app.models.audit_log import AuditLog
+
+        client = ClientService.get_client_by_id(client_id)
+        if not client:
+            return jsonify({'success': False, 'message': 'Cliente no encontrado'}), 404
+
+        # Verificar que el cliente tiene documentos completos antes de aprobar
+        if not client.check_complete_documents():
+            # Determinar qué documentos faltan
+            if client.document_type in ('DNI', 'CE'):
+                missing = []
+                if not client.dni_front_url:
+                    missing.append('DNI frente')
+                if not client.dni_back_url:
+                    missing.append('DNI reverso')
+                docs_faltantes = ', '.join(missing)
+                return jsonify({
+                    'success': False,
+                    'message': f'El cliente aún no tiene documentos completos. Faltan: {docs_faltantes}'
+                }), 400
+            else:  # RUC
+                missing = []
+                if not client.dni_representante_front_url:
+                    missing.append('DNI representante frente')
+                if not client.dni_representante_back_url:
+                    missing.append('DNI representante reverso')
+                if not client.ficha_ruc_url:
+                    missing.append('Ficha RUC')
+                docs_faltantes = ', '.join(missing)
+                return jsonify({
+                    'success': False,
+                    'message': f'El cliente aún no tiene documentos completos. Faltan: {docs_faltantes}'
+                }), 400
+
+        # Guardar estado anterior para auditoría
+        was_inactive = client.status == 'Inactivo'
+        old_reason = client.inactive_reason
+
+        # Aprobar documentos y resetear contadores
+        client.complete_documents_and_reset()
+
+        # Auditoría
+        AuditLog.log_action(
+            user_id=current_user.id,
+            action='APPROVE_DOCUMENTS',
+            entity='Client',
+            entity_id=client.id,
+            details=f'Documentos aprobados para {client.full_name}. Cliente reactivado automáticamente. '
+                   f'Contador de operaciones sin docs reseteado. Estado anterior: {old_reason or "N/A"}'
+        )
+
+        db.session.commit()
+
+        # Enviar email de activación si corresponde
+        if was_inactive:
+            try:
+                from app.services.email_service import EmailService
+                EmailService.send_client_activation_email(client, current_user)
+            except Exception as e:
+                logger.warning(f'Error al enviar email de activación: {str(e)}')
+
+        return jsonify({
+            'success': True,
+            'message': 'Documentos aprobados exitosamente. Cliente reactivado.',
+            'client': client.to_dict()
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        logger.exception(f'Error al aprobar documentos del cliente {client_id}')
+        return jsonify({
+            'success': False,
+            'message': f'Error al aprobar documentos: {str(e)}'
+        }), 500
+
+
+@clients_bp.route('/api/pending_documents')
+@login_required
+@require_role('Master', 'Middle Office')
+def get_pending_documents():
+    """
+    API: Obtener lista de clientes con documentos pendientes
+
+    Retorna clientes que:
+    - No tienen documentos completos
+    - Están inactivos por falta de documentos
+    - Tienen documents_pending_since establecido
+    """
+    from app.models.client import Client
+
+    try:
+        # Obtener clientes con documentos pendientes
+        clients = Client.query.filter(
+            Client.has_complete_documents == False,
+            Client.documents_pending_since.isnot(None)
+        ).order_by(Client.documents_pending_since.asc()).all()
+
+        # Construir respuesta con información detallada
+        clients_data = []
+        for client in clients:
+            client_dict = client.to_dict()
+
+            # Agregar información adicional de documentos
+            if client.document_type in ('DNI', 'CE'):
+                client_dict['required_docs'] = {
+                    'dni_front': bool(client.dni_front_url),
+                    'dni_back': bool(client.dni_back_url)
+                }
+                client_dict['missing_docs'] = []
+                if not client.dni_front_url:
+                    client_dict['missing_docs'].append('DNI frente')
+                if not client.dni_back_url:
+                    client_dict['missing_docs'].append('DNI reverso')
+            else:  # RUC
+                client_dict['required_docs'] = {
+                    'dni_representante_front': bool(client.dni_representante_front_url),
+                    'dni_representante_back': bool(client.dni_representante_back_url),
+                    'ficha_ruc': bool(client.ficha_ruc_url)
+                }
+                client_dict['missing_docs'] = []
+                if not client.dni_representante_front_url:
+                    client_dict['missing_docs'].append('DNI representante frente')
+                if not client.dni_representante_back_url:
+                    client_dict['missing_docs'].append('DNI representante reverso')
+                if not client.ficha_ruc_url:
+                    client_dict['missing_docs'].append('Ficha RUC')
+
+            # Información de límites
+            client_dict['limits_info'] = {
+                'operations_count': client.operations_without_docs_count,
+                'operations_limit': client.operations_without_docs_limit,
+                'max_amount': float(client.max_amount_without_docs) if client.max_amount_without_docs else None,
+                'pending_since': client.documents_pending_since.isoformat() if client.documents_pending_since else None
+            }
+
+            clients_data.append(client_dict)
+
+        return jsonify({
+            'success': True,
+            'count': len(clients_data),
+            'clients': clients_data
+        })
+
+    except Exception as e:
+        logger.exception('Error al obtener clientes con documentos pendientes')
+        return jsonify({
+            'success': False,
+            'message': f'Error al obtener clientes: {str(e)}'
+        }), 500
+
+
 @clients_bp.route('/api/export/csv')
 @login_required
 @require_role('Master')

@@ -63,6 +63,43 @@ def fix_restrictive_list_checks_schema(db):
         return False
 
 
+def fix_clients_partial_docs_schema(db):
+    """
+    Agregar columnas para sistema de documentos parciales a la tabla clients
+    Permite que clientes operen con documentación incompleta bajo límites controlados
+    """
+    try:
+        with db.engine.connect() as connection:
+            # Lista de columnas para control de documentos parciales
+            columns_to_add = [
+                ("operations_without_docs_count", "INTEGER DEFAULT 0"),
+                ("operations_without_docs_limit", "INTEGER"),
+                ("max_amount_without_docs", "NUMERIC(15, 2)"),
+                ("has_complete_documents", "BOOLEAN DEFAULT FALSE"),
+                ("inactive_reason", "VARCHAR(200)"),
+                ("documents_pending_since", "TIMESTAMP"),
+            ]
+
+            for column_name, column_type in columns_to_add:
+                try:
+                    # Intentar agregar la columna
+                    sql = f"ALTER TABLE clients ADD COLUMN IF NOT EXISTS {column_name} {column_type};"
+                    connection.execute(text(sql))
+                    connection.commit()
+                    logger.info(f"Columna clients.{column_name} verificada/agregada exitosamente")
+                except Exception as e:
+                    # Si falla, la columna probablemente ya existe
+                    connection.rollback()
+                    logger.debug(f"Columna clients.{column_name} ya existe o error: {str(e)}")
+
+            logger.info("Verificación de esquema de documentos parciales en clients completada")
+            return True
+
+    except Exception as e:
+        logger.error(f"Error al verificar/corregir esquema de documentos parciales: {str(e)}")
+        return False
+
+
 def apply_all_fixes(db):
     """
     Aplicar todas las correcciones de base de datos necesarias
@@ -71,5 +108,8 @@ def apply_all_fixes(db):
 
     # Aplicar corrección de restrictive_list_checks
     fix_restrictive_list_checks_schema(db)
+
+    # Aplicar corrección de sistema de documentos parciales
+    fix_clients_partial_docs_schema(db)
 
     logger.info("=== Verificación de esquema completada ===")

@@ -263,6 +263,23 @@ class ClientService:
                 client.set_bank_accounts(bank_accounts)
                 db.session.flush()  # Flush para obtener el ID del cliente
 
+                # --- Verificar y configurar sistema de documentos parciales ---
+                has_complete_docs = client.check_complete_documents()
+                client.has_complete_documents = has_complete_docs
+
+                if not has_complete_docs:
+                    # Cliente sin documentos completos: establecer límites
+                    client.initialize_partial_docs_limits()
+                    logger.info(f'Cliente {client.id} creado sin documentos completos. '
+                              f'Límite: {client.operations_without_docs_limit} operaciones, '
+                              f'Máximo USD {client.max_amount_without_docs}')
+                else:
+                    # Cliente con documentos completos: sin límites
+                    client.operations_without_docs_limit = None
+                    client.max_amount_without_docs = None
+                    client.operations_without_docs_count = 0
+                    logger.info(f'Cliente {client.id} creado con documentos completos')
+
                 # Auditoría: registrar antes del commit
                 AuditLog.log_action(
                     user_id=getattr(current_user, 'id', None),

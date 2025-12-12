@@ -77,6 +77,14 @@ class Client(db.Model):
         default='Inactivo'
     )  # Activo, Inactivo
 
+    # Control de operaciones sin documentos completos
+    operations_without_docs_count = db.Column(db.Integer, default=0)
+    operations_without_docs_limit = db.Column(db.Integer, nullable=True)
+    max_amount_without_docs = db.Column(db.Numeric(15, 2), nullable=True)
+    has_complete_documents = db.Column(db.Boolean, default=False)
+    inactive_reason = db.Column(db.String(200), nullable=True)
+    documents_pending_since = db.Column(db.DateTime, nullable=True)
+
     # Timestamps
     created_at = db.Column(db.DateTime, default=now_peru, nullable=False)
     updated_at = db.Column(db.DateTime, default=now_peru, onupdate=now_peru)
@@ -330,6 +338,117 @@ class Client(db.Model):
     def get_completed_operations(self):
         """Obtener operaciones completadas"""
         return self.operations.filter_by(status='Completada').count() if hasattr(self, 'operations') else 0
+
+    # Métodos para control de documentos parciales
+
+    def check_complete_documents(self):
+        """
+        Verificar si el cliente tiene todos los documentos obligatorios completos
+
+        Returns:
+            bool: True si tiene documentos completos, False en caso contrario
+        """
+        if self.document_type in ('DNI', 'CE'):
+            # Persona Natural: requiere DNI frente y reverso
+            return bool(self.dni_front_url and self.dni_back_url)
+        elif self.document_type == 'RUC':
+            # Persona Jurídica: requiere DNI rep legal (frente y reverso) + Ficha RUC
+            return bool(
+                self.dni_representante_front_url and
+                self.dni_representante_back_url and
+                self.ficha_ruc_url
+            )
+        return False
+
+    def initialize_partial_docs_limits(self):
+        """
+        Establecer límites iniciales basados en tipo de documento
+
+        - DNI/CE: 1 operación, máximo USD 3,000
+        - RUC: 3 operaciones, máximo USD 50,000
+        """
+        if self.document_type in ('DNI', 'CE'):
+            self.operations_without_docs_limit = 1
+            self.max_amount_without_docs = 3000.00
+        elif self.document_type == 'RUC':
+            self.operations_without_docs_limit = 3
+            self.max_amount_without_docs = 50000.00
+
+        # Inicializar contador en 0
+        self.operations_without_docs_count = 0
+
+        # Marcar fecha de inicio de documentos pendientes
+        if not self.has_complete_documents:
+            self.documents_pending_since = now_peru()
+
+    def can_create_operation(self, amount_usd):
+        """
+        Verificar si el cliente puede crear una nueva operación
+
+        Args:
+            amount_usd: Monto de la operación en USD
+
+        Returns:
+            tuple: (bool, str) - (puede_operar, mensaje_error)
+        """
+        # Si tiene documentos completos, puede operar sin restricciones
+        if self.has_complete_documents:
+            return True, None
+
+        # Verificar si tiene límites configurados
+        if self.operations_without_docs_limit is None:
+            return False, "Cliente sin límites configurados para operaciones sin documentos"
+
+        # Verificar si ya excedió el número de operaciones permitidas
+        if self.operations_without_docs_count >= self.operations_without_docs_limit:
+            return False, f"Cliente ha alcanzado el límite de {self.operations_without_docs_limit} operación(es) sin documentos completos. Debe regularizar documentación."
+
+        # Verificar si el monto excede el límite permitido
+        if amount_usd > float(self.max_amount_without_docs):
+            return False, f"Monto USD {amount_usd:,.2f} excede el límite permitido de USD {float(self.max_amount_without_docs):,.2f} para operaciones sin documentos completos"
+
+        return True, None
+
+    def increment_operations_without_docs(self):
+        """
+        Incrementar contador de operaciones sin documentos
+
+        Returns:
+            bool: True si alcanzó el límite, False si aún puede seguir operando
+        """
+        if not self.has_complete_documents:
+            self.operations_without_docs_count += 1
+
+            # Verificar si alcanzó el límite
+            if self.operations_without_docs_count >= self.operations_without_docs_limit:
+                return True  # Alcanzó límite
+
+        return False  # Aún puede operar
+
+    def disable_for_missing_documents(self):
+        """
+        Inhabilitar cliente por falta de documentos completos
+        """
+        self.status = 'Inactivo'
+        self.inactive_reason = 'Inactivo por falta de documentos'
+
+        # Si no tenía fecha de documentos pendientes, establecerla ahora
+        if not self.documents_pending_since:
+            self.documents_pending_since = now_peru()
+
+    def complete_documents_and_reset(self):
+        """
+        Marcar documentos como completos y resetear contadores
+        Llamar cuando Middle Office verifica y aprueba todos los documentos
+        """
+        self.has_complete_documents = True
+        self.operations_without_docs_count = 0
+        self.documents_pending_since = None
+
+        # Si estaba inactivo por documentos, reactivar
+        if self.inactive_reason == 'Inactivo por falta de documentos':
+            self.status = 'Activo'
+            self.inactive_reason = None
 
     def __repr__(self):
         return f'<Client {self.full_name or self.razon_social or self.dni} - {self.document_type}: {self.dni}>'

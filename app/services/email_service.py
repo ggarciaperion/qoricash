@@ -1757,3 +1757,259 @@ class EmailService:
 </html>
 """
         return render_template_string(template, operation=operation, old_amount_usd=old_amount_usd, old_amount_pen=old_amount_pen)
+
+    @staticmethod
+    def send_client_disabled_for_documents_alert(client, operation, trader):
+        """
+        Enviar alerta cuando un cliente es deshabilitado automáticamente
+        por alcanzar el límite de operaciones sin documentos completos
+
+        Destinatarios:
+        - To: Trader que creó el cliente
+        - Cc: Admin/Master y Middle Office
+
+        Args:
+            client: Objeto Client que fue deshabilitado
+            operation: Operación que causó la deshabilitación
+            trader: Usuario que creó la operación
+
+        Returns:
+            tuple: (success: bool, message: str)
+        """
+        try:
+            # Destinatario principal: Trader que creó al cliente
+            to = []
+            if client.creator and client.creator.email:
+                to.append(client.creator.email)
+
+            # Si el trader que creó la operación es diferente, agregarlo también
+            if trader and trader.email and trader.email not in to:
+                to.append(trader.email)
+
+            # Copia: Admin/Master y Middle Office
+            cc = []
+            admin_users = User.query.filter(
+                User.role.in_(['Master', 'Middle Office']),
+                User.status == 'Activo',
+                User.email.isnot(None)
+            ).all()
+
+            for user in admin_users:
+                if user.email:
+                    cc.append(user.email)
+
+            # Validar destinatarios
+            if not to and not cc:
+                logger.warning(f'No hay destinatarios para alerta de deshabilitación del cliente {client.id}')
+                return False, 'No hay destinatarios configurados'
+
+            # Determinar tipo de documento para mostrar documentos requeridos
+            if client.document_type in ('DNI', 'CE'):
+                docs_requeridos = 'DNI frente y reverso'
+                limite_ops = '1 operación'
+                limite_monto = 'USD 3,000'
+            else:
+                docs_requeridos = 'DNI representante legal (frente y reverso) + Ficha RUC'
+                limite_ops = '3 operaciones'
+                limite_monto = 'USD 50,000'
+
+            # Asunto
+            subject = f'⚠️ ALERTA: Cliente {client.full_name} deshabilitado por falta de documentos'
+
+            # Cuerpo del correo
+            html_body = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body {{
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 650px;
+            margin: 0 auto;
+            padding: 20px;
+        }}
+        .container {{
+            background: #ffffff;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }}
+        .header {{
+            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 8px 8px 0 0;
+            text-align: center;
+            margin: -30px -30px 30px -30px;
+        }}
+        .header h1 {{
+            margin: 0;
+            font-size: 24px;
+            font-weight: 600;
+        }}
+        .alert-icon {{
+            font-size: 48px;
+            margin-bottom: 10px;
+        }}
+        .info-box {{
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }}
+        .danger-box {{
+            background: #f8d7da;
+            border-left: 4px solid #dc3545;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }}
+        .data-table {{
+            width: 100%;
+            margin: 20px 0;
+            border-collapse: collapse;
+        }}
+        .data-table td {{
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+        }}
+        .data-table td:first-child {{
+            font-weight: 600;
+            width: 180px;
+            color: #555;
+        }}
+        .action-required {{
+            background: #17a2b8;
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 25px 0;
+        }}
+        .action-required h3 {{
+            margin-top: 0;
+        }}
+        .footer {{
+            margin-top: 30px;
+            text-align: center;
+            color: #666;
+            font-size: 12px;
+            border-top: 1px solid #eee;
+            padding-top: 20px;
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="alert-icon">⚠️</div>
+            <h1>Cliente Deshabilitado por Falta de Documentos</h1>
+        </div>
+
+        <div class="danger-box">
+            <p><strong>ALERTA AUTOMÁTICA:</strong> El cliente ha alcanzado el límite de operaciones permitidas sin documentación completa y ha sido deshabilitado automáticamente por el sistema.</p>
+        </div>
+
+        <h3 style="color: #dc3545;">Información del Cliente</h3>
+        <table class="data-table">
+            <tr>
+                <td>Cliente:</td>
+                <td><strong>{client.full_name}</strong></td>
+            </tr>
+            <tr>
+                <td>Tipo/Número de Doc:</td>
+                <td>{client.document_type}: {client.dni}</td>
+            </tr>
+            <tr>
+                <td>Email:</td>
+                <td>{client.email}</td>
+            </tr>
+            <tr>
+                <td>Teléfono:</td>
+                <td>{client.phone or 'N/A'}</td>
+            </tr>
+            <tr>
+                <td>Nuevo Estado:</td>
+                <td><strong style="color: #dc3545;">Inactivo</strong></td>
+            </tr>
+            <tr>
+                <td>Razón:</td>
+                <td>{client.inactive_reason}</td>
+            </tr>
+        </table>
+
+        <h3 style="color: #dc3545;">Última Operación (Causante)</h3>
+        <table class="data-table">
+            <tr>
+                <td>ID Operación:</td>
+                <td><strong>{operation.operation_id}</strong></td>
+            </tr>
+            <tr>
+                <td>Tipo:</td>
+                <td>{operation.operation_type}</td>
+            </tr>
+            <tr>
+                <td>Monto USD:</td>
+                <td><strong>USD {operation.amount_usd:,.2f}</strong></td>
+            </tr>
+            <tr>
+                <td>Creada por:</td>
+                <td>{trader.username if trader else 'N/A'}</td>
+            </tr>
+        </table>
+
+        <div class="info-box">
+            <h4 style="margin-top: 0;">Límites Aplicados ({client.document_type})</h4>
+            <ul style="margin: 10px 0;">
+                <li><strong>Límite de operaciones:</strong> {limite_ops}</li>
+                <li><strong>Monto máximo por operación:</strong> {limite_monto}</li>
+                <li><strong>Documentos requeridos:</strong> {docs_requeridos}</li>
+            </ul>
+            <p style="margin-bottom: 0;"><strong>Operaciones realizadas sin docs:</strong> {client.operations_without_docs_count} de {client.operations_without_docs_limit}</p>
+        </div>
+
+        <div class="action-required">
+            <h3 style="margin-top: 0;">Acción Requerida - Middle Office</h3>
+            <p><strong>Para reactivar este cliente, se debe:</strong></p>
+            <ol>
+                <li>Verificar y aprobar todos los documentos obligatorios ({docs_requeridos})</li>
+                <li>Acceder a la sección de Middle Office en el sistema</li>
+                <li>Revisar documentos pendientes del cliente</li>
+                <li>Aprobar documentación y reactivar el cliente manualmente</li>
+            </ol>
+            <p style="margin-bottom: 0;"><strong>Nota:</strong> Una vez aprobados los documentos, el contador de operaciones se reiniciará y el cliente podrá operar sin restricciones.</p>
+        </div>
+
+        <div class="footer">
+            <p><strong>QoriCash Trading</strong></p>
+            <p>Sistema de Gestión de Operaciones Cambiarias</p>
+            <p>© 2025 QoriCash Trading. Todos los derechos reservados.</p>
+            <p style="margin-top: 15px; font-size: 11px; color: #999;">
+                Este es un correo automático generado por el sistema de control de documentos.
+            </p>
+        </div>
+    </div>
+</body>
+</html>
+"""
+
+            # Crear mensaje
+            msg = Message(
+                subject=subject,
+                recipients=to,
+                cc=cc,
+                html=html_body
+            )
+
+            # Enviar
+            mail.send(msg)
+            logger.info(f'Alerta de deshabilitación enviada para cliente {client.id} a {len(to)} destinatarios principales y {len(cc)} en copia')
+
+            return True, 'Alerta enviada exitosamente'
+
+        except Exception as e:
+            logger.error(f'Error al enviar alerta de deshabilitación para cliente {client.id}: {str(e)}')
+            return False, f'Error al enviar alerta: {str(e)}'

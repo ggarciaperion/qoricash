@@ -146,9 +146,17 @@ class OperationService:
         client = Client.query.get(client_id)
         if not client:
             return False, 'Cliente no encontrado', None
-        
+
         if client.status != 'Activo':
+            # Si está inactivo por documentos, mostrar razón específica
+            if client.inactive_reason and 'documentos' in client.inactive_reason.lower():
+                return False, f'El cliente está inactivo: {client.inactive_reason}. Debe completar documentación pendiente.', None
             return False, 'El cliente no está activo', None
+
+        # Validar límites de operaciones sin documentos completos
+        can_operate, error_message = client.can_create_operation(float(amount_usd))
+        if not can_operate:
+            return False, error_message, None
 
         # Validar que Trader y Plataforma solo puedan crear operaciones para sus propios clientes
         if current_user.role in ['Trader', 'Plataforma']:
@@ -209,6 +217,38 @@ class OperationService:
 
         # Commit único para operation y audit_log juntos
         db.session.commit()
+
+        # --- Sistema de control de documentos parciales ---
+        try:
+            # Incrementar contador si el cliente no tiene documentos completos
+            if not client.has_complete_documents:
+                reached_limit = client.increment_operations_without_docs()
+
+                if reached_limit:
+                    # Cliente alcanzó el límite: inhabilitar automáticamente
+                    client.disable_for_missing_documents()
+                    db.session.commit()
+
+                    logger.warning(f'Cliente {client.id} deshabilitado automáticamente por alcanzar límite de operaciones sin documentos')
+
+                    # Enviar alertas por email a roles relevantes
+                    try:
+                        from app.services.email_service import EmailService
+                        EmailService.send_client_disabled_for_documents_alert(
+                            client=client,
+                            operation=operation,
+                            trader=current_user
+                        )
+                    except Exception as email_err:
+                        logger.error(f'Error al enviar alerta de deshabilitación: {str(email_err)}')
+                else:
+                    # Aún puede operar pero actualizar contador
+                    db.session.commit()
+                    logger.info(f'Cliente {client.id} operación #{client.operations_without_docs_count} sin docs completos '
+                              f'(límite: {client.operations_without_docs_limit})')
+        except Exception as partial_docs_err:
+            logger.error(f'Error en sistema de documentos parciales: {str(partial_docs_err)}')
+            # No bloquear la operación si falla el sistema de límites
 
         # Enviar email de notificación (sin bloquear si falla)
         try:
