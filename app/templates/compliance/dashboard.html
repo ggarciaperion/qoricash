@@ -226,44 +226,62 @@
 
 {% block extra_js %}
 <script>
+console.log('🔵 Script del dashboard cargado');
+
 // ============================================
 // CARGAR DATOS AL INICIAR
 // ============================================
 $(document).ready(function() {
-    console.log('🚀 Iniciando Dashboard Middle Office...');
-    loadDashboardData();
+    console.log('🚀 jQuery ready - Iniciando Dashboard Middle Office...');
+    console.log('🔍 Verificando jQuery:', typeof $);
+
+    // Mostrar datos de prueba primero
+    console.log('📝 Mostrando datos de prueba...');
+    $('#totalClients').text('TEST');
+    $('#activeClients').text('123');
+
+    // Esperar 1 segundo y luego cargar datos reales
+    setTimeout(function() {
+        console.log('⏰ Iniciando carga de datos reales...');
+        loadDashboardData();
+    }, 1000);
 });
 
 // ============================================
 // REFRESH DASHBOARD
 // ============================================
 function refreshDashboard() {
+    console.log('🔄 Refresh solicitado');
     loadDashboardData();
-    showNotification('Dashboard actualizado', 'success');
 }
 
 // ============================================
 // CARGAR DATOS DEL DASHBOARD
 // ============================================
 function loadDashboardData() {
-    console.log('📊 Cargando datos del dashboard...');
+    console.log('📊 [INICIO] Cargando datos del dashboard...');
+    console.log('📊 [URL] Llamando a: /compliance/api/dashboard/all');
 
     $.ajax({
         url: '/compliance/api/dashboard/all',
         method: 'GET',
         dataType: 'json',
+        timeout: 30000,
+        beforeSend: function() {
+            console.log('📤 [AJAX] Enviando petición...');
+        },
         success: function(response) {
-            console.log('✅ Respuesta completa del servidor:', response);
+            console.log('✅ [SUCCESS] Respuesta recibida:', response);
 
-            if (response.success && response.data) {
+            if (response && response.success && response.data) {
                 const d = response.data;
 
-                console.log('📊 DATOS RECIBIDOS:');
-                console.log('- Total Clientes:', d.total_clients);
-                console.log('- Clientes Activos:', d.active_clients);
-                console.log('- KYC Pendientes:', d.kyc_pending);
-                console.log('- Docs Incompletos:', d.docs_incomplete);
-                console.log('- Operaciones Mes:', d.operations_month);
+                console.log('📊 [DATOS] RECIBIDOS:');
+                console.log('  - Total Clientes:', d.total_clients);
+                console.log('  - Clientes Activos:', d.active_clients);
+                console.log('  - KYC Pendientes:', d.kyc_pending);
+                console.log('  - Docs Incompletos:', d.docs_incomplete);
+                console.log('  - Operaciones Mes:', d.operations_month);
 
                 // CLIENTES
                 $('#totalClients').text(d.total_clients || 0);
@@ -287,67 +305,27 @@ function loadDashboardData() {
                 $('#restrictiveMatches').text(d.restrictive_matches || 0);
                 $('#highRiskClients').text(d.high_risk_clients || 0);
 
-                console.log('✅ DASHBOARD CARGADO EXITOSAMENTE');
-                showNotification('Dashboard actualizado correctamente', 'success');
+                console.log('✅ [FIN] DASHBOARD CARGADO EXITOSAMENTE');
+                alert('Dashboard cargado con ' + d.total_clients + ' clientes');
             } else {
-                console.error('❌ Respuesta sin success o sin data:', response);
-                showNotification('Error: Respuesta inválida del servidor', 'danger');
+                console.error('❌ [ERROR] Respuesta sin success o sin data:', response);
+                alert('Error: Respuesta inválida del servidor');
             }
         },
         error: function(xhr, status, error) {
-            console.error('❌ ERROR AJAX:');
-            console.error('- Status HTTP:', xhr.status);
-            console.error('- Status Text:', status);
-            console.error('- Error:', error);
-            console.error('- Response Text:', xhr.responseText);
+            console.error('❌ [ERROR] AJAX falló:');
+            console.error('  - Status HTTP:', xhr.status);
+            console.error('  - Status Text:', status);
+            console.error('  - Error:', error);
+            console.error('  - Response Text:', xhr.responseText);
 
-            if (xhr.status === 403) {
-                showNotification('Error 403: Acceso denegado. Verifica permisos de Middle Office.', 'danger');
-            } else if (xhr.status === 500) {
-                showNotification('Error 500: Error en el servidor. Revisa logs.', 'danger');
-            } else {
-                showNotification('Error de conexión al cargar dashboard', 'danger');
-            }
+            alert('ERROR ' + xhr.status + ': ' + error + '\n\nRevisa la consola para más detalles');
+        },
+        complete: function() {
+            console.log('🏁 [COMPLETE] Petición AJAX completada (éxito o error)');
         }
     });
 }
 
-// ============================================
-// MOSTRAR NOTIFICACIONES
-// ============================================
-function showNotification(message, type) {
-    // Crear notificación Bootstrap Toast
-    const toastHtml = `
-        <div class="toast align-items-center text-white bg-${type} border-0" role="alert" aria-live="assertive" aria-atomic="true">
-            <div class="d-flex">
-                <div class="toast-body">
-                    ${message}
-                </div>
-                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
-            </div>
-        </div>
-    `;
-
-    // Agregar al contenedor de toasts (si no existe, crear)
-    let toastContainer = document.getElementById('toastContainer');
-    if (!toastContainer) {
-        toastContainer = document.createElement('div');
-        toastContainer.id = 'toastContainer';
-        toastContainer.className = 'toast-container position-fixed top-0 end-0 p-3';
-        document.body.appendChild(toastContainer);
-    }
-
-    const toastElement = document.createElement('div');
-    toastElement.innerHTML = toastHtml;
-    toastContainer.appendChild(toastElement.firstElementChild);
-
-    const toast = new bootstrap.Toast(toastElement.firstElementChild);
-    toast.show();
-
-    // Eliminar después de ocultar
-    toastElement.firstElementChild.addEventListener('hidden.bs.toast', function() {
-        toastElement.remove();
-    });
-}
 </script>
 {% endblock %}
