@@ -490,21 +490,23 @@
             <form method="POST" action="{{ url_for('auth.login') }}" id="loginForm">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
-                <!-- Usuario -->
+                <!-- DNI -->
                 <div class="mb-3">
                     <label for="username" class="form-label">
-                        <i class="bi bi-person-circle"></i>
-                        <span>Usuario</span>
+                        <i class="bi bi-card-text"></i>
+                        <span>DNI</span>
                     </label>
                     <input
                         type="text"
                         class="form-control"
                         id="username"
                         name="username"
-                        placeholder="Ingresa tu usuario"
+                        placeholder="Ingresa tu DNI"
                         required
                         autofocus
                         autocomplete="username"
+                        maxlength="8"
+                        pattern="[0-9]{8}"
                     >
                 </div>
 
@@ -618,6 +620,20 @@ $(document).ready(function() {
                 icon: 'warning',
                 title: 'Campos incompletos',
                 text: 'Por favor completa todos los campos',
+                confirmButtonColor: '#4f46e5',
+                timer: 3000
+            });
+            return false;
+        }
+
+        // Validación de DNI (8 dígitos numéricos)
+        const dniPattern = /^[0-9]{8}$/;
+        if (!dniPattern.test(username)) {
+            e.preventDefault();
+            Swal.fire({
+                icon: 'warning',
+                title: 'DNI inválido',
+                text: 'El DNI debe contener exactamente 8 dígitos numéricos',
                 confirmButtonColor: '#4f46e5',
                 timer: 3000
             });

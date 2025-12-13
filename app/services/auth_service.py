@@ -17,32 +17,30 @@ class AuthService:
     def authenticate_user(username, password, remember=False):
         """
         Autenticar usuario con credenciales
-        
+
         Args:
-            username: Username o email
+            username: DNI del usuario
             password: Contraseña en texto plano
             remember: Si mantener sesión activa
-        
+
         Returns:
             tuple: (success: bool, message: str, user: User|None)
         """
-        # Buscar usuario por username o email
-        user = User.query.filter(
-            (User.username == username) | (User.email == username)
-        ).first()
-        
+        # Buscar usuario por DNI
+        user = User.query.filter(User.dni == username).first()
+
         # Validar que existe
         if not user:
-            return False, 'Usuario o contraseña incorrectos', None
-        
+            return False, 'DNI o contraseña incorrectos', None
+
         # Validar que está activo
         if user.status != 'Activo':
             return False, 'Usuario inactivo. Contacte al administrador', None
-        
+
         # Validar contraseña
         if not user.check_password(password):
-            return False, 'Usuario o contraseña incorrectos', None
-        
+            return False, 'DNI o contraseña incorrectos', None
+
         # Login exitoso
         # IMPORTANTE: remember=False siempre para seguridad
         # La sesión se cerrará automáticamente al cerrar el navegador
