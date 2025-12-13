@@ -509,6 +509,8 @@ class ComplianceService:
         stats['alerts_total'] = ComplianceAlert.query.filter_by(status='Pendiente').count()
 
         # Clientes por nivel de riesgo
+        stats['clients_total'] = ClientRiskProfile.query.count()
+
         stats['clients_critical_risk'] = ClientRiskProfile.query.filter(
             ClientRiskProfile.risk_score >= 76
         ).count()

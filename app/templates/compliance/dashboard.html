@@ -190,29 +190,63 @@
     });
 
     function loadDashboardStats() {
-        ajaxRequest('/compliance/api/dashboard/stats', 'GET', null, function(response) {
-            if (response.success) {
-                const data = response.data;
+        $.ajax({
+            url: '/compliance/api/dashboard/stats',
+            method: 'GET',
+            success: function(response) {
+                if (response.success && response.data) {
+                    const data = response.data;
 
-                // Update alert counts
-                $('#alertsCritical').text(data.alerts_critical || 0);
-                $('#alertsHigh').text(data.alerts_high || 0);
-                $('#alertsMedium').text(data.alerts_medium || 0);
-                $('#alertsTotal').text(data.alerts_total || 0);
+                    // Update alert counts
+                    $('#alertsCritical').text(data.alerts_critical || 0);
+                    $('#alertsHigh').text(data.alerts_high || 0);
+                    $('#alertsMedium').text(data.alerts_medium || 0);
+                    $('#alertsTotal').text(data.alerts_total || 0);
 
-                // Update KYC counts
-                $('#kycPending').text(data.kyc_pending || 0);
-                $('#kycInProcess').text(data.kyc_in_process || 0);
+                    // Update KYC counts
+                    $('#kycPending').text(data.kyc_pending || 0);
+                    $('#kycInProcess').text(data.kyc_in_process || 0);
 
-                // Update PEP and restrictive lists
-                $('#pepClients').text(data.pep_clients || 0);
-                $('#restrictiveMatches').text(data.restrictive_list_matches || 0);
+                    // Update PEP and restrictive lists
+                    $('#pepClients').text(data.pep_clients || 0);
+                    $('#restrictiveMatches').text(data.restrictive_list_matches || 0);
 
-                // Update risk level chart
-                updateRiskChart(data);
+                    // Update risk level chart
+                    updateRiskChart(data);
+
+                    console.log('✅ Dashboard stats loaded:', data);
+                } else {
+                    console.error('❌ Error en respuesta:', response);
+                    showDefaultValues();
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('❌ Error al cargar estadísticas:', error);
+                console.error('Response:', xhr.responseText);
+                showDefaultValues();
+
+                // Show friendly message
+                if (xhr.status === 0) {
+                    console.warn('⚠️ No se pudo conectar al servidor');
+                } else {
+                    console.warn(`⚠️ Error ${xhr.status}: ${xhr.statusText}`);
+                }
             }
-        }, function(error) {
-            showNotification('Error al cargar estadísticas', 'error');
+        });
+    }
+
+    function showDefaultValues() {
+        // Show zeros when data is not available
+        $('#alertsCritical, #alertsHigh, #alertsMedium, #alertsTotal').text('0');
+        $('#kycPending, #kycInProcess').text('0');
+        $('#pepClients, #restrictiveMatches').text('0');
+
+        // Show empty chart
+        updateRiskChart({
+            clients_total: 0,
+            clients_critical_risk: 0,
+            clients_high_risk: 0,
+            clients_medium_risk: 0
         });
     }
 

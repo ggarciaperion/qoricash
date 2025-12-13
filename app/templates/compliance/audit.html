@@ -8,13 +8,26 @@
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h2 class="mb-0">Auditoría de Compliance</h2>
-            <p class="text-muted">Registro de todas las acciones de compliance</p>
+            <p class="text-muted">Registro de todas las acciones de compliance realizadas por Middle Office</p>
         </div>
         <div>
             <a href="/compliance/" class="btn btn-secondary">
                 <i class="bi bi-arrow-left"></i> Volver al Dashboard
             </a>
         </div>
+    </div>
+
+    <!-- Info Alert -->
+    <div class="alert alert-info mb-4">
+        <h5 class="alert-heading"><i class="bi bi-info-circle"></i> ¿Qué se registra aquí?</h5>
+        <ul class="mb-0">
+            <li><strong>Aprobaciones de KYC:</strong> Cuando Middle Office aprueba la validación de un cliente</li>
+            <li><strong>Rechazos de KYC:</strong> Cuando se rechaza la validación por documentación incompleta</li>
+            <li><strong>Resolución de Alertas:</strong> Cuando se resuelven alertas de compliance (PEP, montos sospechosos, etc.)</li>
+            <li><strong>Verificación de Listas Restrictivas:</strong> Búsquedas en listas OFAC, ONU, etc.</li>
+            <li><strong>Recálculo de Riesgo:</strong> Cuando se actualiza el perfil de riesgo de un cliente</li>
+            <li><strong>Creación de Reglas:</strong> Configuración de nuevas reglas de compliance</li>
+        </ul>
     </div>
 
     <!-- Table -->
