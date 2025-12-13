@@ -554,7 +554,7 @@ function handleInactivityLogout() {
         Swal.fire({
             icon: 'warning',
             title: 'Sesión Cerrada',
-            text: 'Tu sesión ha sido cerrada por inactividad (10 minutos sin actividad)',
+            text: 'Su sesión expiró',
             allowOutsideClick: false,
             allowEscapeKey: false,
             confirmButtonText: 'Entendido'
@@ -563,7 +563,7 @@ function handleInactivityLogout() {
             window.location.href = '/logout';
         });
     } else {
-        alert('Tu sesión ha sido cerrada por inactividad');
+        alert('Su sesión expiró');
         window.location.href = '/logout';
     }
 }

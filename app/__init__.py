@@ -164,7 +164,7 @@ def register_error_handlers(app):
                     session.clear()
                     return jsonify({
                         'success': False,
-                        'error': 'Sesión expirada por inactividad',
+                        'error': 'Su sesión expiró',
                         'redirect': '/login'
                     }), 401
 
