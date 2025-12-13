@@ -814,6 +814,7 @@ function showExistingFile(previewElementId, fileUrl, fileName) {
 
 /**
  * Guardar cliente (crear o editar)
+ * REFACTORIZADO: Manejo correcto de permisos para Trader
  */
 function saveClient() {
     const form = document.getElementById('clientForm');
@@ -857,12 +858,124 @@ function saveClient() {
         }
     }
 
+    const clientId = document.getElementById('clientId').value;
+    const isEditing = clientId !== '';
+    const isTrader = (typeof currentUserRole !== 'undefined' && currentUserRole === 'Trader');
+
+    // ============================================
+    // ESTRATEGIA DIFERENTE PARA TRADER EN EDICIÓN
+    // ============================================
+    if (isTrader && isEditing) {
+        console.log('🔄 Trader editando cliente - Solo actualizar cuentas bancarias y documentos');
+
+        // Paso 1: Actualizar solo cuentas bancarias
+        const bankAccounts = [];
+        accountGroups.forEach(group => {
+            const index = group.dataset.accountIndex;
+            const origen = document.getElementById(`origen${index}`)?.value;
+            const bankName = document.getElementById(`bankName${index}`)?.value;
+            const accountType = document.getElementById(`accountType${index}`)?.value;
+            const currency = document.getElementById(`currency${index}`)?.value;
+            const accountNumber = document.getElementById(`bankAccountNumber${index}`)?.value;
+
+            if (bankName && accountNumber && currency) {
+                bankAccounts.push({
+                    origen: origen || '',
+                    bank_name: bankName,
+                    account_type: accountType || '',
+                    currency: currency,
+                    account_number: accountNumber
+                });
+            }
+        });
+
+        const traderData = {
+            bank_accounts: bankAccounts
+        };
+
+        showLoading();
+
+        // Actualizar cuentas bancarias
+        fetch(`/clients/api/update/${clientId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCSRFToken()
+            },
+            body: JSON.stringify(traderData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                console.log('✅ Cuentas bancarias actualizadas');
+
+                // Paso 2: Subir documentos si hay archivos nuevos
+                const files = new FormData();
+                let hasFiles = false;
+                const docType = document.getElementById('documentType').value;
+
+                if (docType === 'RUC') {
+                    const dniRepFront = document.getElementById('dniRepFront')?.files[0];
+                    const dniRepBack = document.getElementById('dniRepBack')?.files[0];
+                    const fichaRuc = document.getElementById('fichaRuc')?.files[0];
+
+                    if (dniRepFront) {
+                        files.append('dni_representante_front', dniRepFront);
+                        hasFiles = true;
+                    }
+                    if (dniRepBack) {
+                        files.append('dni_representante_back', dniRepBack);
+                        hasFiles = true;
+                    }
+                    if (fichaRuc) {
+                        files.append('ficha_ruc', fichaRuc);
+                        hasFiles = true;
+                    }
+                } else {
+                    const dniFront = document.getElementById('dniFront')?.files[0];
+                    const dniBack = document.getElementById('dniBack')?.files[0];
+
+                    if (dniFront) {
+                        files.append('dni_front', dniFront);
+                        hasFiles = true;
+                    }
+                    if (dniBack) {
+                        files.append('dni_back', dniBack);
+                        hasFiles = true;
+                    }
+                }
+
+                if (hasFiles) {
+                    console.log('📄 Subiendo documentos...');
+                    return uploadClientDocuments(clientId, files);
+                } else {
+                    console.log('ℹ️ No hay documentos nuevos para subir');
+                    return Promise.resolve({ success: true });
+                }
+            } else {
+                throw new Error(data.message || 'Error al actualizar cuentas bancarias');
+            }
+        })
+        .then(() => {
+            hideLoading();
+            showNotification('success', 'Cliente actualizado exitosamente');
+            bootstrap.Modal.getInstance(document.getElementById('createClientModal')).hide();
+            setTimeout(() => location.reload(), 1500);
+        })
+        .catch(error => {
+            hideLoading();
+            console.error('Error:', error);
+            showNotification('error', error.message || 'Error al actualizar el cliente');
+        });
+
+        return; // Salir de la función para Trader
+    }
+
+    // ============================================
+    // FLUJO NORMAL PARA OTROS ROLES O CREACIÓN
+    // ============================================
     const formData = new FormData(form);
     const clientData = {};
-
-    // VALIDACIÓN DE ROL: Si el usuario es Trader, solo puede enviar cuentas bancarias
-    // Los documentos se suben por separado en /api/upload_documents/
-    const isTrader = (typeof currentUserRole !== 'undefined' && currentUserRole === 'Trader');
 
     // Construir objeto de datos (excluir archivos y cuentas bancarias por ahora)
     formData.forEach((value, key) => {
@@ -871,29 +984,20 @@ function saveClient() {
             !key.includes('ficha_ruc') &&
             !key.startsWith('origen') && !key.startsWith('bank') &&
             !key.startsWith('account') && !key.startsWith('currency')) {
-
-            // Si es Trader, NO enviar ningún campo de datos del cliente
-            // Solo las cuentas bancarias (que se agregan más abajo)
-            if (!isTrader) {
-                // Para otros roles, enviar todos los campos
-                clientData[key] = value;
-            }
-            // Si es Trader, se omiten todos estos campos (nombres, email, etc.)
+            clientData[key] = value;
         }
     });
 
-    // Normalizar campos a mayúsculas (solo para roles que no son Trader)
-    if (!isTrader) {
-        if (clientData.apellido_paterno) clientData.apellido_paterno = clientData.apellido_paterno.toUpperCase();
-        if (clientData.apellido_materno) clientData.apellido_materno = clientData.apellido_materno.toUpperCase();
-        if (clientData.nombres) clientData.nombres = clientData.nombres.toUpperCase();
-        if (clientData.razon_social) clientData.razon_social = clientData.razon_social.toUpperCase();
-        if (clientData.persona_contacto) clientData.persona_contacto = clientData.persona_contacto.toUpperCase();
+    // Normalizar campos a mayúsculas
+    if (clientData.apellido_paterno) clientData.apellido_paterno = clientData.apellido_paterno.toUpperCase();
+    if (clientData.apellido_materno) clientData.apellido_materno = clientData.apellido_materno.toUpperCase();
+    if (clientData.nombres) clientData.nombres = clientData.nombres.toUpperCase();
+    if (clientData.razon_social) clientData.razon_social = clientData.razon_social.toUpperCase();
+    if (clientData.persona_contacto) clientData.persona_contacto = clientData.persona_contacto.toUpperCase();
 
-        // Sanitizar teléfono
-        if (clientData.phone) {
-            clientData.phone = clientData.phone.replace(/\s*;\s*/g, ';').trim();
-        }
+    // Sanitizar teléfono
+    if (clientData.phone) {
+        clientData.phone = clientData.phone.replace(/\s*;\s*/g, ';').trim();
     }
 
     // Recolectar todas las cuentas bancarias activas
@@ -906,7 +1010,6 @@ function saveClient() {
         const currency = document.getElementById(`currency${index}`)?.value;
         const accountNumber = document.getElementById(`bankAccountNumber${index}`)?.value;
 
-        // Solo agregar cuentas completas
         if (bankName && accountNumber && currency) {
             bankAccounts.push({
                 origen: origen || '',
@@ -920,13 +1023,9 @@ function saveClient() {
 
     clientData.bank_accounts = bankAccounts;
 
-    const clientId = document.getElementById('clientId').value;
-    const isEditing = clientId !== '';
-
     const url = isEditing ? `/clients/api/update/${clientId}` : '/clients/api/create';
     const method = isEditing ? 'PUT' : 'POST';
 
-    // Mostrar loading
     showLoading();
 
     fetch(url, {
@@ -979,7 +1078,6 @@ function saveClient() {
                 }
             }
 
-            // Subir archivos si los hay
             if (hasFiles) {
                 uploadClientDocuments(data.client.id, files)
                     .then(() => {
@@ -993,7 +1091,6 @@ function saveClient() {
                         showNotification('error', error.message || 'Error al procesar documentos del cliente');
                     });
             } else {
-                // No hay archivos, finalizar inmediatamente
                 hideLoading();
                 showNotification('success', data.message);
                 bootstrap.Modal.getInstance(document.getElementById('createClientModal')).hide();
