@@ -363,22 +363,28 @@ class ClientService:
             if not client:
                 return False, 'Cliente no encontrado', None
 
-            # VALIDACIÓN DE ROL: TRADER solo puede editar cuentas bancarias
-            # Los documentos deben subirse a través del endpoint /api/upload_documents/
+            # VALIDACIÓN DE ROL: TRADER solo puede editar cuentas bancarias Y documentos adjuntos
+            # Los datos personales del cliente (nombre, email, dirección, etc.) NO pueden ser modificados
             user_role = getattr(current_user, 'role', None)
             if user_role == 'Trader':
-                # Verificar que solo se estén editando cuentas bancarias
+                # Campos permitidos para Trader:
+                # 1. Cuentas bancarias
+                # 2. Documentos adjuntos (URLs de documentos)
                 allowed_fields = {
                     # Cuentas bancarias
                     'bank_accounts', 'origen', 'bank_name', 'account_type',
-                    'currency', 'bank_account_number', 'bank_accounts_json'
+                    'currency', 'bank_account_number', 'bank_accounts_json',
+                    # Documentos adjuntos - DNI/CE
+                    'dni_front_url', 'dni_back_url',
+                    # Documentos adjuntos - RUC
+                    'dni_representante_front_url', 'dni_representante_back_url', 'ficha_ruc_url'
                 }
 
-                # Si hay campos que no son de cuentas bancarias, rechazar
+                # Si hay campos que no están permitidos, rechazar
                 forbidden_fields = set(data.keys()) - allowed_fields
                 if forbidden_fields:
                     logger.warning(f"Trader {current_user.username} intentó modificar campos prohibidos: {forbidden_fields}")
-                    return False, 'No tienes permisos para modificar estos campos. Solo puedes editar cuentas bancarias.', None
+                    return False, 'No tienes permisos para modificar estos campos. Solo puedes editar cuentas bancarias y documentos adjuntos.', None
 
             # Guardar valores anteriores para auditoría
             old_values = client.to_dict()

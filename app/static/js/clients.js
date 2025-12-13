@@ -519,16 +519,18 @@ function applyRoleRestrictions(role) {
         const modalBody = document.querySelector('#createClientModal .modal-body');
         if (modalBody) {
             const traderNote = document.createElement('div');
-            traderNote.className = 'alert alert-warning mb-3';
+            traderNote.className = 'alert alert-info mb-3';
             traderNote.id = 'traderRestrictionNote';
             traderNote.style.position = 'sticky';
             traderNote.style.top = '0';
             traderNote.style.zIndex = '1000';
             traderNote.innerHTML = `
-                <h6 class="alert-heading"><i class="bi bi-exclamation-triangle"></i> Modo Solo Lectura (Trader)</h6>
+                <h6 class="alert-heading"><i class="bi bi-info-circle"></i> Permisos de Edición (Trader)</h6>
                 <p class="mb-0">
-                    <strong>Solo puedes editar las cuentas bancarias.</strong><br>
-                    Los demás campos están bloqueados y no se pueden modificar.
+                    <strong>Puedes editar:</strong><br>
+                    ✅ Cuentas bancarias del cliente<br>
+                    ✅ Documentos adjuntos (DNI, CE, RUC, Ficha RUC)<br><br>
+                    <strong>No puedes editar:</strong> Datos personales (nombre, email, dirección, etc.)
                 </p>
             `;
             modalBody.insertBefore(traderNote, modalBody.firstChild);
