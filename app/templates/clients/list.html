@@ -539,7 +539,7 @@
 <script src="https://cdn.socket.io/4.5.4/socket.io.min.js" crossorigin="anonymous"></script>
 
 <!-- La variable window.currentUserRole ya está definida en base.html -->
-<script src="{{ url_for('static', filename='js/clients.js') }}"></script>
+<script src="{{ url_for('static', filename='js/clients.js') }}?v=20251213-0240"></script>
 <script>
     // Inicializar DataTable al cargar la página
     $(document).ready(function() {
@@ -560,18 +560,18 @@
     if (modalElement) {
         modalElement.addEventListener('shown.bs.modal', function (event) {
             console.log('Modal shown - aplicando restricciones si es necesario');
-            console.log('Current user role:', currentUserRole);
+            console.log('Current user role:', window.currentUserRole);
 
             // Aplicar restricciones de rol después de que el modal esté completamente visible
             // Usar setTimeout para asegurar que todos los campos dinámicos (cuentas bancarias) estén cargados
-            if (currentUserRole && typeof applyRoleRestrictions === 'function') {
+            if (window.currentUserRole && typeof applyRoleRestrictions === 'function') {
                 setTimeout(function() {
-                    applyRoleRestrictions(currentUserRole);
+                    applyRoleRestrictions(window.currentUserRole);
                 }, 100);
             }
 
             // Foco en primer input (solo si no es Trader o es un campo editable)
-            if (currentUserRole !== 'Trader') {
+            if (window.currentUserRole !== 'Trader') {
                 var firstInput = modalElement.querySelector('input, select, textarea, [autofocus]');
                 if (firstInput) {
                     try { firstInput.focus(); } catch(e) { /* ignore */ }
