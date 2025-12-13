@@ -452,7 +452,7 @@ function applyRoleRestrictions(role) {
         return;
     }
 
-    console.log('ES TRADER - Bloqueando todos los campos excepto cuentas bancarias...');
+    console.log('ES TRADER - Bloqueando campos excepto cuentas bancarias y documentos...');
 
     const form = document.getElementById('clientForm');
     if (!form) {
@@ -465,6 +465,12 @@ function applyRoleRestrictions(role) {
     console.log('Total de campos encontrados:', allFields.length);
 
     allFields.forEach(field => {
+        // No bloquear campos de archivos (documentos)
+        if (field.type === 'file') {
+            console.log('Campo de archivo detectado, NO se bloqueará:', field.id);
+            return; // Saltar este campo, mantenerlo habilitado
+        }
+
         field.disabled = true;
         field.readOnly = true;
         field.classList.add('bg-light');
@@ -476,23 +482,9 @@ function applyRoleRestrictions(role) {
     // PASO 2: Desbloquear SOLO los campos de cuentas bancarias
     unlockBankFields();
 
-    // Ocultar secciones de documentos
-    const dniCeFields = document.getElementById('dniCeFields');
-    const rucFields = document.getElementById('rucFields');
-
-    if (dniCeFields) {
-        const documentSection = dniCeFields.querySelector('.document-section');
-        if (documentSection) {
-            documentSection.style.display = 'none';
-        }
-    }
-
-    if (rucFields) {
-        const documentSection = rucFields.querySelector('.document-section');
-        if (documentSection) {
-            documentSection.style.display = 'none';
-        }
-    }
+    // PASO 3: Mantener visibles las secciones de documentos para que el Trader pueda subirlos
+    // NO ocultar las secciones de documentos, solo deshabilitar otros campos
+    console.log('Secciones de documentos permanecen visibles para subida de archivos')
 
     // PASO 3: Configurar MutationObserver para desbloquear campos bancarios nuevos
     const bankAccountsContainer = document.getElementById('bankAccountsContainer');
