@@ -222,21 +222,31 @@
         </div>
     </div>
 </div>
+{% endblock %}
 
+{% block extra_js %}
 <script>
-console.log('🔵 Script del dashboard cargado INLINE');
+console.log('🔵 Script del dashboard cargado en extra_js');
+
+// Esperar a que jQuery esté disponible
+if (typeof jQuery === 'undefined') {
+    console.error('❌ jQuery NO está cargado');
+} else {
+    console.log('✅ jQuery está disponible');
+}
 
 // ============================================
 // CARGAR DATOS AL INICIAR
 // ============================================
-$(document).ready(function() {
+jQuery(document).ready(function($) {
     console.log('🚀 jQuery ready - Iniciando Dashboard Middle Office...');
     console.log('🔍 Verificando jQuery:', typeof $);
+    console.log('🔍 Verificando jQuery global:', typeof jQuery);
 
     // Mostrar datos de prueba primero
     console.log('📝 Mostrando datos de prueba...');
-    $('#totalClients').text('TEST');
-    $('#activeClients').text('123');
+    jQuery('#totalClients').text('TEST');
+    jQuery('#activeClients').text('123');
 
     // Esperar 1 segundo y luego cargar datos reales
     setTimeout(function() {
@@ -260,7 +270,7 @@ function loadDashboardData() {
     console.log('📊 [INICIO] Cargando datos del dashboard...');
     console.log('📊 [URL] Llamando a: /compliance/api/dashboard/all');
 
-    $.ajax({
+    jQuery.ajax({
         url: '/compliance/api/dashboard/all',
         method: 'GET',
         dataType: 'json',
@@ -282,26 +292,26 @@ function loadDashboardData() {
                 console.log('  - Operaciones Mes:', d.operations_month);
 
                 // CLIENTES
-                $('#totalClients').text(d.total_clients || 0);
-                $('#activeClients').text(d.active_clients || 0);
-                $('#kycPending').text(d.kyc_pending || 0);
-                $('#docsIncomplete').text(d.docs_incomplete || 0);
+                jQuery('#totalClients').text(d.total_clients || 0);
+                jQuery('#activeClients').text(d.active_clients || 0);
+                jQuery('#kycPending').text(d.kyc_pending || 0);
+                jQuery('#docsIncomplete').text(d.docs_incomplete || 0);
 
                 // OPERACIONES
-                $('#totalOperations').text(d.operations_month || 0);
-                $('#opsCompleted').text(d.ops_completed || 0);
-                $('#opsInProcess').text(d.ops_in_process || 0);
-                $('#opsPending').text(d.ops_pending || 0);
+                jQuery('#totalOperations').text(d.operations_month || 0);
+                jQuery('#opsCompleted').text(d.ops_completed || 0);
+                jQuery('#opsInProcess').text(d.ops_in_process || 0);
+                jQuery('#opsPending').text(d.ops_pending || 0);
 
                 // ALERTAS
-                $('#alertsCritical').text(d.alerts_critical || 0);
-                $('#alertsHigh').text(d.alerts_high || 0);
-                $('#alertsMedium').text(d.alerts_medium || 0);
+                jQuery('#alertsCritical').text(d.alerts_critical || 0);
+                jQuery('#alertsHigh').text(d.alerts_high || 0);
+                jQuery('#alertsMedium').text(d.alerts_medium || 0);
 
                 // RIESGO
-                $('#pepClients').text(d.pep_clients || 0);
-                $('#restrictiveMatches').text(d.restrictive_matches || 0);
-                $('#highRiskClients').text(d.high_risk_clients || 0);
+                jQuery('#pepClients').text(d.pep_clients || 0);
+                jQuery('#restrictiveMatches').text(d.restrictive_matches || 0);
+                jQuery('#highRiskClients').text(d.high_risk_clients || 0);
 
                 console.log('✅ [FIN] DASHBOARD CARGADO EXITOSAMENTE');
                 alert('Dashboard cargado con ' + d.total_clients + ' clientes');
@@ -325,5 +335,4 @@ function loadDashboardData() {
     });
 }
 </script>
-
 {% endblock %}
