@@ -18,14 +18,16 @@ workers = int(os.environ.get('WEB_CONCURRENCY', 1))
 worker_class = 'eventlet'  # Para WebSocket/SocketIO - no usar threads con eventlet
 worker_connections = 1000
 
-# Timeouts - Optimizados para health checks rápidos y operaciones largas
-timeout = 120  # 2 minutos (reducido de 5 min para health checks más rápidos)
-graceful_timeout = 30  # Reducido para reinicio más rápido
-keepalive = 5
+# Timeouts - Optimizados para producción con SocketIO
+timeout = 300  # 5 minutos para operaciones largas y WebSocket
+graceful_timeout = 60  # 1 minuto para shutdown graceful
+keepalive = 10  # Mantener conexiones HTTP keep-alive más tiempo
 
 # Memory limits - Prevenir memory leaks y reiniciar workers periódicamente
-max_requests = 500  # Reducido para reiniciar workers más frecuentemente
-max_requests_jitter = 100  # Mayor jitter para evitar reinicios simultáneos
+# CRÍTICO: max_requests muy bajo causa reinicios frecuentes y desconexiones de SocketIO
+# Para producción, deshabilitamos o usamos un valor muy alto
+max_requests = 0  # 0 = DESHABILITADO (workers no se reinician automáticamente)
+max_requests_jitter = 0  # No necesario si max_requests = 0
 
 # Logging
 accesslog = '-'
