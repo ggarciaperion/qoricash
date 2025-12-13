@@ -399,32 +399,62 @@ class ClientService:
             # Guardar valores anteriores para auditoría
             old_values = client.to_dict()
 
-            # Validar email si cambió
-            new_email = (data.get('email') or '').strip()
-            if new_email and new_email != client.email:
-                if not validate_email(new_email):
-                    return False, 'Email inválido', None
+            # IMPORTANTE: Si es Trader, SOLO procesar bank_accounts y documentos
+            # NO modificar otros campos (email, phone, dirección, etc.)
+            if user_role != 'Trader':
+                # Validar email si cambió (solo para no-Traders)
+                new_email = (data.get('email') or '').strip()
+                if new_email and new_email != client.email:
+                    if not validate_email(new_email):
+                        return False, 'Email inválido', None
 
-                # NOTA: Permitir emails duplicados (un tesorero puede manejar múltiples empresas)
-                # La validación de email único fue eliminada intencionalmente
+                    # NOTA: Permitir emails duplicados (un tesorero puede manejar múltiples empresas)
+                    # La validación de email único fue eliminada intencionalmente
 
-                client.email = new_email.lower()
+                    client.email = new_email.lower()
 
-            # Validar teléfono
-            phone = (data.get('phone') or '').strip()
-            if phone and not validate_phone(phone):
-                return False, 'Teléfono inválido', None
-            client.phone = phone if phone else None
+                # Validar teléfono (solo para no-Traders)
+                phone = (data.get('phone') or '').strip()
+                if phone and not validate_phone(phone):
+                    return False, 'Teléfono inválido', None
+                client.phone = phone if phone else None
+            else:
+                logger.info(f"🔒 Trader: Campos personales (email, phone) NO se modificarán")
 
-            # Actualizar campos según tipo de documento
+            # Actualizar campos según tipo de documento (solo para no-Traders)
+            # Los Traders SOLO pueden actualizar documentos mediante URLs
+            if user_role != 'Trader':
+                if client.document_type == 'RUC':
+                    razon_social = (data.get('razon_social') or '').strip()
+                    if razon_social:
+                        client.razon_social = razon_social
+
+                    client.persona_contacto = (data.get('persona_contacto') or '').strip() or None
+                else:
+                    # DNI o CE
+                    apellido_paterno = (data.get('apellido_paterno') or '').strip()
+                    apellido_materno = (data.get('apellido_materno') or '').strip()
+                    nombres = (data.get('nombres') or '').strip()
+
+                    if apellido_paterno:
+                        client.apellido_paterno = apellido_paterno
+                    if apellido_materno:
+                        client.apellido_materno = apellido_materno
+                    if nombres:
+                        client.nombres = nombres
+
+                # Dirección (solo para no-Traders)
+                if 'direccion' in data:
+                    client.direccion = (data.get('direccion') or '').strip() or None
+                if 'distrito' in data:
+                    client.distrito = (data.get('distrito') or '').strip() or None
+                if 'provincia' in data:
+                    client.provincia = (data.get('provincia') or '').strip() or None
+                if 'departamento' in data:
+                    client.departamento = (data.get('departamento') or '').strip() or None
+
+            # URLs de documentos (PERMITIDO para Traders)
             if client.document_type == 'RUC':
-                razon_social = (data.get('razon_social') or '').strip()
-                if razon_social:
-                    client.razon_social = razon_social
-
-                client.persona_contacto = (data.get('persona_contacto') or '').strip() or None
-
-                # URLs de documentos (si se proporcionan nuevas)
                 if data.get('dni_representante_front_url'):
                     client.dni_representante_front_url = data.get('dni_representante_front_url')
                 if data.get('dni_representante_back_url'):
@@ -432,33 +462,10 @@ class ClientService:
                 if data.get('ficha_ruc_url'):
                     client.ficha_ruc_url = data.get('ficha_ruc_url')
             else:
-                # DNI o CE
-                apellido_paterno = (data.get('apellido_paterno') or '').strip()
-                apellido_materno = (data.get('apellido_materno') or '').strip()
-                nombres = (data.get('nombres') or '').strip()
-
-                if apellido_paterno:
-                    client.apellido_paterno = apellido_paterno
-                if apellido_materno:
-                    client.apellido_materno = apellido_materno
-                if nombres:
-                    client.nombres = nombres
-
-                # URLs de documentos (si se proporcionan nuevas)
                 if data.get('dni_front_url'):
                     client.dni_front_url = data.get('dni_front_url')
                 if data.get('dni_back_url'):
                     client.dni_back_url = data.get('dni_back_url')
-
-            # Dirección
-            if 'direccion' in data:
-                client.direccion = (data.get('direccion') or '').strip() or None
-            if 'distrito' in data:
-                client.distrito = (data.get('distrito') or '').strip() or None
-            if 'provincia' in data:
-                client.provincia = (data.get('provincia') or '').strip() or None
-            if 'departamento' in data:
-                client.departamento = (data.get('departamento') or '').strip() or None
 
             # Información bancaria: si vienen bank_accounts, validarlas y setearlas
             bank_accounts = data.get('bank_accounts')
