@@ -1,0 +1,913 @@
+{
+  "departamentos": [
+    {
+      "nombre": "AMAZONAS",
+      "provincias": [
+        {
+          "nombre": "CHACHAPOYAS",
+          "distritos": ["CHACHAPOYAS", "ASUNCIÓN", "BALSAS", "CHETO", "CHILIQUÍN", "CHUQUIBAMBA", "GRANADA", "HUANCAS", "LA JALCA", "LEIMEBAMBA", "LEVANTO", "MAGDALENA", "MARISCAL CASTILLA", "MOLINOPAMPA", "MONTEVIDEO", "OLLEROS", "QUINJALCA", "SAN FRANCISCO DE DAGUAS", "SAN ISIDRO DE MAINO", "SOLOCO", "SONCHE"]
+        },
+        {
+          "nombre": "BAGUA",
+          "distritos": ["BAGUA", "ARAMANGO", "COPALLIN", "EL PARCO", "IMAZA", "LA PECA"]
+        },
+        {
+          "nombre": "BONGARÁ",
+          "distritos": ["JUMBILLA", "CHISQUILLA", "CHURUJA", "COROSHA", "CUISPES", "FLORIDA", "JAZAN", "RECTA", "SAN CARLOS", "SHIPASBAMBA", "VALERA", "YAMBRASBAMBA"]
+        },
+        {
+          "nombre": "CONDORCANQUI",
+          "distritos": ["NIEVA", "EL CENEPA", "RÍO SANTIAGO"]
+        },
+        {
+          "nombre": "LUYA",
+          "distritos": ["LAMUD", "CAMPORREDONDO", "COCABAMBA", "COLCAMAR", "CONILA", "INGUILPATA", "LONGUITA", "LONYA CHICO", "LUYA", "LUYA VIEJO", "MARÍA", "OCALLI", "OCUMAL", "PISUQUIA", "PROVIDENCIA", "SAN CRISTÓBAL", "SAN FRANCISCO DEL YESO", "SAN JERÓNIMO", "SAN JUAN DE LOPECANCHA", "SANTA CATALINA", "SANTO TOMAS", "TINGO", "TRITA"]
+        },
+        {
+          "nombre": "RODRÍGUEZ DE MENDOZA",
+          "distritos": ["SAN NICOLÁS", "CHIRIMOTO", "COCHAMAL", "HUAMBO", "LIMABAMBA", "LONGAR", "MARISCAL BENAVIDES", "MILPUC", "OMIA", "SANTA ROSA", "TOTORA", "VISTA ALEGRE"]
+        },
+        {
+          "nombre": "UTCUBAMBA",
+          "distritos": ["BAGUA GRANDE", "CAJARURO", "CUMBA", "EL MILAGRO", "JAMALCA", "LONYA GRANDE", "YAMON"]
+        }
+      ]
+    },
+    {
+      "nombre": "ÁNCASH",
+      "provincias": [
+        {
+          "nombre": "HUARAZ",
+          "distritos": ["HUARAZ", "COCHABAMBA", "COLCABAMBA", "HUANCHAY", "INDEPENDENCIA", "JANGAS", "LA LIBERTAD", "OLLEROS", "PAMPAS", "PARIACOTO", "PIRA", "TARICA"]
+        },
+        {
+          "nombre": "AIJA",
+          "distritos": ["AIJA", "CORIS", "HUACLLAN", "LA MERCED", "SUCCHA"]
+        },
+        {
+          "nombre": "ANTONIO RAIMONDI",
+          "distritos": ["LLAMELLIN", "ACZO", "CHACCHO", "CHINGAS", "MIRGAS", "SAN JUAN DE RONTOY"]
+        },
+        {
+          "nombre": "ASUNCIÓN",
+          "distritos": ["CHACAS", "ACOCHACA"]
+        },
+        {
+          "nombre": "BOLOGNESI",
+          "distritos": ["CHIQUIAN", "ABELARDO PARDO LEZAMETA", "ANTONIO RAIMONDI", "AQUIA", "CAJACAY", "CANIS", "COLQUIOC", "HUALLANCA", "HUASTA", "HUAYLLACAYAN", "LA PRIMAVERA", "MANGAS", "PACLLON", "SAN MIGUEL DE CORPANQUI", "TICLLOS"]
+        },
+        {
+          "nombre": "CARHUAZ",
+          "distritos": ["CARHUAZ", "ACOPAMPA", "AMASHCA", "ANTA", "ATAQUERO", "MARCARA", "PARIAHUANCA", "SAN MIGUEL DE ACO", "SHILLA", "TINCO", "YUNGAR"]
+        },
+        {
+          "nombre": "CARLOS FERMÍN FITZCARRALD",
+          "distritos": ["SAN LUIS", "SAN NICOLÁS", "YAUYA"]
+        },
+        {
+          "nombre": "CASMA",
+          "distritos": ["CASMA", "BUENA VISTA ALTA", "COMANDANTE NOEL", "YAUTAN"]
+        },
+        {
+          "nombre": "CORONGO",
+          "distritos": ["CORONGO", "ACO", "BAMBAS", "CUSCA", "LA PAMPA", "YANAC", "YUPAN"]
+        },
+        {
+          "nombre": "HUARI",
+          "distritos": ["HUARI", "ANRA", "CAJAY", "CHAVIN DE HUANTAR", "HUACACHI", "HUACCHIS", "HUACHIS", "HUANTAR", "MASIN", "PAUCAS", "PONTO", "RAHUAPAMPA", "RAPAYAN", "SAN MARCOS", "SAN PEDRO DE CHANA", "UCO"]
+        },
+        {
+          "nombre": "HUARMEY",
+          "distritos": ["HUARMEY", "COCHAPETI", "CULEBRAS", "HUAYAN", "MALVAS"]
+        },
+        {
+          "nombre": "HUAYLAS",
+          "distritos": ["CARAZ", "HUALLANCA", "HUATA", "HUAYLAS", "MATO", "PAMPAROMAS", "PUEBLO LIBRE", "SANTA CRUZ", "SANTO TORIBIO", "YURACMARCA"]
+        },
+        {
+          "nombre": "MARISCAL LUZURIAGA",
+          "distritos": ["PISCOBAMBA", "CASCA", "ELEAZAR GUZMÁN BARRON", "FIDEL OLIVAS ESCUDERO", "LLAMA", "LLUMPA", "LUCMA", "MUSGA"]
+        },
+        {
+          "nombre": "OCROS",
+          "distritos": ["OCROS", "ACAS", "CAJAMARQUILLA", "CARHUAPAMPA", "COCHAS", "CONGAS", "LLIPA", "SAN CRISTÓBAL DE RAJAN", "SAN PEDRO", "SANTIAGO DE CHILCAS"]
+        },
+        {
+          "nombre": "PALLASCA",
+          "distritos": ["CABANA", "BOLOGNESI", "CONCHUCOS", "HUACASCHUQUE", "HUANDOVAL", "LACABAMBA", "LLAPO", "PALLASCA", "PAMPAS", "SANTA ROSA", "TAUCA"]
+        },
+        {
+          "nombre": "POMABAMBA",
+          "distritos": ["POMABAMBA", "HUAYLLAN", "PAROBAMBA", "QUINUABAMBA"]
+        },
+        {
+          "nombre": "RECUAY",
+          "distritos": ["RECUAY", "CATAC", "COTAPARACO", "HUAYLLAPAMPA", "LLACLLIN", "MARCA", "PAMPAS CHICO", "PARARIN", "TAPACOCHA", "TICAPAMPA"]
+        },
+        {
+          "nombre": "SANTA",
+          "distritos": ["CHIMBOTE", "CÁCERES DEL PERÚ", "COISHCO", "MACATE", "MORO", "NEPEÑA", "SAMANCO", "SANTA", "NUEVO CHIMBOTE"]
+        },
+        {
+          "nombre": "SIHUAS",
+          "distritos": ["SIHUAS", "ACOBAMBA", "ALFONSO UGARTE", "CASHAPAMPA", "CHINGALPO", "HUAYLLABAMBA", "QUICHES", "RAGASH", "SAN JUAN", "SICSIBAMBA"]
+        },
+        {
+          "nombre": "YUNGAY",
+          "distritos": ["YUNGAY", "CASCAPARA", "MANCOS", "MATACOTO", "QUILLO", "RANRAHIRCA", "SHUPLUY", "YANAMA"]
+        }
+      ]
+    },
+    {
+      "nombre": "APURÍMAC",
+      "provincias": [
+        {
+          "nombre": "ABANCAY",
+          "distritos": ["ABANCAY", "CHACOCHE", "CIRCA", "CURAHUASI", "HUANIPACA", "LAMBRAMA", "PICHIRHUA", "SAN PEDRO DE CACHORA", "TAMBURCO"]
+        },
+        {
+          "nombre": "ANDAHUAYLAS",
+          "distritos": ["ANDAHUAYLAS", "ANDARAPA", "CHIARA", "HUANCARAMA", "HUANCARAY", "HUAYANA", "KISHUARA", "PACOBAMBA", "PACUCHA", "PAMPACHIRI", "POMACOCHA", "SAN ANTONIO DE CACHI", "SAN JERÓNIMO", "SAN MIGUEL DE CHACCRAMPA", "SANTA MARÍA DE CHICMO", "TALAVERA", "TUMAY HUARACA", "TURPO", "KAQUIABAMBA", "JOSÉ MARÍA ARGUEDAS"]
+        },
+        {
+          "nombre": "ANTABAMBA",
+          "distritos": ["ANTABAMBA", "EL ORO", "HUAQUIRCA", "JUAN ESPINOZA MEDRANO", "OROPESA", "PACHACONAS", "SABAINO"]
+        },
+        {
+          "nombre": "AYMARAES",
+          "distritos": ["CHALHUANCA", "CAPAYA", "CARAYBAMBA", "CHAPIMARCA", "COLCABAMBA", "COTARUSE", "HUAYLLO", "JUSTO APU SAHUARAURA", "LUCRE", "POCOHUANCA", "SAN JUAN DE CHACÑA", "SAÑAYCA", "SORAYA", "TAPAIRIHUA", "TINTAY", "TORAYA", "YANACA"]
+        },
+        {
+          "nombre": "COTABAMBAS",
+          "distritos": ["TAMBOBAMBA", "COTABAMBAS", "COYLLURQUI", "HAQUIRA", "MARA", "CHALLHUAHUACHO"]
+        },
+        {
+          "nombre": "CHINCHEROS",
+          "distritos": ["CHINCHEROS", "ANCO-HUALLO", "COCHARCAS", "HUACCANA", "OCOBAMBA", "ONGOY", "URANMARCA", "RANRACANCHA"]
+        },
+        {
+          "nombre": "GRAU",
+          "distritos": ["CHUQUIBAMBILLA", "CURPAHUASI", "GAMARRA", "HUAYLLATI", "MAMARA", "MICAELA BASTIDAS", "PATAYPAMPA", "PROGRESO", "SAN ANTONIO", "SANTA ROSA", "TURPAY", "VILCABAMBA", "VIRUNDO", "CURASCO"]
+        }
+      ]
+    },
+    {
+      "nombre": "AREQUIPA",
+      "provincias": [
+        {
+          "nombre": "AREQUIPA",
+          "distritos": ["AREQUIPA", "ALTO SELVA ALEGRE", "CAYMA", "CERRO COLORADO", "CHARACATO", "CHIGUATA", "JACOBO HUNTER", "LA JOYA", "MARIANO MELGAR", "MIRAFLORES", "MOLLEBAYA", "PAUCARPATA", "POCSI", "POLOBAYA", "QUEQUEÑA", "SABANDIA", "SACHACA", "SAN JUAN DE SIGUAS", "SAN JUAN DE TARUCANI", "SANTA ISABEL DE SIGUAS", "SANTA RITA DE SIGUAS", "SOCABAYA", "TIABAYA", "UCHUMAYO", "VITOR", "YANAHUARA", "YARABAMBA", "YURA", "JOSÉ LUIS BUSTAMANTE Y RIVERO"]
+        },
+        {
+          "nombre": "CAMANÁ",
+          "distritos": ["CAMANÁ", "JOSÉ MARÍA QUIMPER", "MARIANO NICOLÁS VALCÁRCEL", "MARISCAL CÁCERES", "NICOLÁS DE PIEROLA", "OCOÑA", "QUILCA", "SAMUEL PASTOR"]
+        },
+        {
+          "nombre": "CARAVELÍ",
+          "distritos": ["CARAVELÍ", "ACARÍ", "ATICO", "ATIQUIPA", "BELLA UNIÓN", "CAHUACHO", "CHALA", "CHAPARRA", "HUANUHUANU", "JAQUI", "LOMAS", "QUICACHA", "YAUCA"]
+        },
+        {
+          "nombre": "CASTILLA",
+          "distritos": ["APLAO", "ANDAGUA", "AYO", "CHACHAS", "CHILCAYMARCA", "CHOCO", "HUANCARQUI", "MACHAGUAY", "ORCOPAMPA", "PAMPACOLCA", "TIPAN", "UÑON", "URACA", "VIRACO"]
+        },
+        {
+          "nombre": "CAYLLOMA",
+          "distritos": ["CHIVAY", "ACHOMA", "CABANACONDE", "CALLALLI", "CAYLLOMA", "COPORAQUE", "HUAMBO", "HUANCA", "ICHUPAMPA", "LARI", "LLUTA", "MACA", "MADRIGAL", "SAN ANTONIO DE CHUCA", "SIBAYO", "TAPAY", "TISCO", "TUTI", "YANQUE", "MAJES"]
+        },
+        {
+          "nombre": "CONDESUYOS",
+          "distritos": ["CHUQUIBAMBA", "ANDARAY", "CAYARANI", "CHICHAS", "IRAY", "RÍO GRANDE", "SALAMANCA", "YANAQUIHUA"]
+        },
+        {
+          "nombre": "ISLAY",
+          "distritos": ["MOLLENDO", "COCACHACRA", "DEAN VALDIVIA", "ISLAY", "MEJIA", "PUNTA DE BOMBÓN"]
+        },
+        {
+          "nombre": "LA UNIÓN",
+          "distritos": ["COTAHUASI", "ALCA", "CHARCANA", "HUAYNACOTAS", "PAMPAMARCA", "PUYCA", "QUECHUALLA", "SAYLA", "TAURIA", "TOMEPAMPA", "TORO"]
+        }
+      ]
+    },
+    {
+      "nombre": "AYACUCHO",
+      "provincias": [
+        {
+          "nombre": "HUAMANGA",
+          "distritos": ["AYACUCHO", "ACOCRO", "ACOS VINCHOS", "CARMEN ALTO", "CHIARA", "OCROS", "PACAYCASA", "QUINUA", "SAN JOSÉ DE TICLLAS", "SAN JUAN BAUTISTA", "SANTIAGO DE PISCHA", "SOCOS", "TAMBILLO", "VINCHOS", "JESÚS NAZARENO", "ANDRÉS AVELINO CÁCERES DORREGARAY"]
+        },
+        {
+          "nombre": "CANGALLO",
+          "distritos": ["CANGALLO", "CHUSCHI", "LOS MOROCHUCOS", "MARÍA PARADO DE BELLIDO", "PARAS", "TOTOS"]
+        },
+        {
+          "nombre": "HUANCA SANCOS",
+          "distritos": ["SANCOS", "CARAPO", "SACSAMARCA", "SANTIAGO DE LUCANAMARCA"]
+        },
+        {
+          "nombre": "HUANTA",
+          "distritos": ["HUANTA", "AYAHUANCO", "HUAMANGUILLA", "IGUAIN", "LURICOCHA", "SANTILLANA", "SIVIA", "LLOCHEGUA", "CANAYRE", "UCHURACCAY", "PUCACOLPA", "CHACA"]
+        },
+        {
+          "nombre": "LA MAR",
+          "distritos": ["SAN MIGUEL", "ANCO", "AYNA", "CHILCAS", "CHUNGUI", "LUIS CARRANZA", "SANTA ROSA", "TAMBO", "SAMUGARI", "ANCHIHUAY"]
+        },
+        {
+          "nombre": "LUCANAS",
+          "distritos": ["PUQUIO", "AUCARA", "CABANA", "CARMEN SALCEDO", "CHAVIÑA", "CHIPAO", "HUAC-HUAS", "LARAMATE", "LEONCIO PRADO", "LLAUTA", "LUCANAS", "OCAÑA", "OTOCA", "SAISA", "SAN CRISTÓBAL", "SAN JUAN", "SAN PEDRO", "SAN PEDRO DE PALCO", "SANCOS", "SANTA ANA DE HUAYCAHUACHO", "SANTA LUCIA", "SAISA", "HUAC-HUAS"]
+        },
+        {
+          "nombre": "PARINACOCHAS",
+          "distritos": ["CORACORA", "CHUMPI", "CORONEL CASTAÑEDA", "PACAPAUSA", "PULLO", "PUYUSCA", "SAN FRANCISCO DE RAVACAYCO", "UPAHUACHO"]
+        },
+        {
+          "nombre": "PÁUCAR DEL SARA SARA",
+          "distritos": ["PAUSA", "COLTA", "CORCULLA", "LAMPA", "MARCABAMBA", "OYOLO", "PARARCA", "SAN JAVIER DE ALPABAMBA", "SAN JOSÉ DE USHUA", "SARA SARA"]
+        },
+        {
+          "nombre": "SUCRE",
+          "distritos": ["QUEROBAMBA", "BELÉN", "CHALCOS", "CHILCAYOC", "HUACAÑA", "MORCOLLA", "PAICO", "SAN PEDRO DE LARCAY", "SAN SALVADOR DE QUIJE", "SANTIAGO DE PAUCARAY", "SORAS"]
+        },
+        {
+          "nombre": "VÍCTOR FAJARDO",
+          "distritos": ["HUANCAPI", "ALCAMENCA", "APONGO", "ASQUIPATA", "CANARIA", "CAYARA", "COLCA", "HUAMANQUIQUIA", "HUANCARAYLLA", "HUAYA", "SARHUA", "VILCANCHOS"]
+        },
+        {
+          "nombre": "VILCAS HUAMÁN",
+          "distritos": ["VILCAS HUAMÁN", "ACCOMARCA", "CARHUANCA", "CONCEPCIÓN", "HUAMBALPA", "INDEPENDENCIA", "SAURAMA", "VISCHONGO"]
+        }
+      ]
+    },
+    {
+      "nombre": "CAJAMARCA",
+      "provincias": [
+        {
+          "nombre": "CAJAMARCA",
+          "distritos": ["CAJAMARCA", "ASUNCIÓN", "CHETILLA", "COSPAN", "ENCAÑADA", "JESÚS", "LLACANORA", "LOS BAÑOS DEL INCA", "MAGDALENA", "MATARA", "NAMORA", "SAN JUAN"]
+        },
+        {
+          "nombre": "CAJABAMBA",
+          "distritos": ["CAJABAMBA", "CACHACHI", "CONDEBAMBA", "SITACOCHA"]
+        },
+        {
+          "nombre": "CELENDÍN",
+          "distritos": ["CELENDÍN", "CHUMUCH", "CORTEGANA", "HUASMIN", "JORGE CHÁVEZ", "JOSÉ GÁLVEZ", "MIGUEL IGLESIAS", "OXAMARCA", "SOROCHUCO", "SUCRE", "UTCO", "LA LIBERTAD DE PALLAN"]
+        },
+        {
+          "nombre": "CHOTA",
+          "distritos": ["CHOTA", "ANGUIA", "CHADIN", "CHIGUIRIP", "CHIMBAN", "CHOROPAMPA", "COCHABAMBA", "CONCHAN", "HUAMBOS", "LAJAS", "LLAMA", "MIRACOSTA", "PACCHA", "PION", "QUEROCOTO", "SAN JUAN DE LICUPIS", "TACABAMBA", "TOCMOCHE", "CHALAMARCA"]
+        },
+        {
+          "nombre": "CONTUMAZÁ",
+          "distritos": ["CONTUMAZÁ", "CHILETE", "CUPISNIQUE", "GUZMANGO", "SAN BENITO", "SANTA CRUZ DE TOLED", "TANTARICA", "YONAN"]
+        },
+        {
+          "nombre": "CUTERVO",
+          "distritos": ["CUTERVO", "CALLAYUC", "CHOROS", "CUJILLO", "LA RAMADA", "PIMPINGOS", "QUEROCOTILLO", "SAN ANDRÉS DE CUTERVO", "SAN JUAN DE CUTERVO", "SAN LUIS DE LUCMA", "SANTA CRUZ", "SANTO DOMINGO DE LA CAPILLA", "SANTO TOMAS", "SOCOTA", "TORIBIO CASANOVA"]
+        },
+        {
+          "nombre": "HUALGAYOC",
+          "distritos": ["BAMBAMARCA", "CHUGUR", "HUALGAYOC"]
+        },
+        {
+          "nombre": "JAÉN",
+          "distritos": ["JAÉN", "BELLAVISTA", "CHONTALI", "COLASAY", "HUABAL", "LAS PIRIAS", "POMAHUACA", "PUCARA", "SALLIQUE", "SAN FELIPE", "SAN JOSÉ DEL ALTO", "SANTA ROSA"]
+        },
+        {
+          "nombre": "SAN IGNACIO",
+          "distritos": ["SAN IGNACIO", "CHIRINOS", "HUARANGO", "LA COIPA", "NAMBALLE", "SAN JOSÉ DE LOURDES", "TABACONAS"]
+        },
+        {
+          "nombre": "SAN MARCOS",
+          "distritos": ["PEDRO GÁLVEZ", "CHANCAY", "EDUARDO VILLANUEVA", "GREGORIO PITA", "ICHOCAN", "JOSÉ MANUEL QUIROZ", "JOSÉ SABOGAL"]
+        },
+        {
+          "nombre": "SAN MIGUEL",
+          "distritos": ["SAN MIGUEL", "BOLÍVAR", "CALQUIS", "CATILLUC", "EL PRADO", "LA FLORIDA", "LLAPA", "NANCHOC", "NIEPOS", "SAN GREGORIO", "SAN SILVESTRE DE COCHAN", "TONGOD", "UNIÓN AGUA BLANCA"]
+        },
+        {
+          "nombre": "SAN PABLO",
+          "distritos": ["SAN PABLO", "SAN BERNARDINO", "SAN LUIS", "TUMBADEN"]
+        },
+        {
+          "nombre": "SANTA CRUZ",
+          "distritos": ["SANTA CRUZ", "ANDABAMBA", "CATACHE", "CHANCAYBAÑOS", "LA ESPERANZA", "NINABAMBA", "PULAN", "SAUCEPAMPA", "SEXI", "UTICYACU", "YAUYUCAN"]
+        }
+      ]
+    },
+    {
+      "nombre": "CALLAO",
+      "provincias": [
+        {
+          "nombre": "CALLAO",
+          "distritos": ["CALLAO", "BELLAVISTA", "CARMEN DE LA LEGUA REYNOSO", "LA PERLA", "LA PUNTA", "VENTANILLA", "MI PERÚ"]
+        }
+      ]
+    },
+    {
+      "nombre": "CUSCO",
+      "provincias": [
+        {
+          "nombre": "CUSCO",
+          "distritos": ["CUSCO", "CCORCA", "POROY", "SAN JERÓNIMO", "SAN SEBASTIÁN", "SANTIAGO", "SAYLLA", "WANCHAQ"]
+        },
+        {
+          "nombre": "ACOMAYO",
+          "distritos": ["ACOMAYO", "ACOPIA", "ACOS", "MOSOC LLACTA", "POMACANCHI", "RONDOCAN", "SANGARARA"]
+        },
+        {
+          "nombre": "ANTA",
+          "distritos": ["ANTA", "ANCAHUASI", "CACHIMAYO", "CHINCHAYPUJIO", "HUAROCONDO", "LIMATAMBO", "MOLLEPATA", "PUCYURA", "ZURITE"]
+        },
+        {
+          "nombre": "CALCA",
+          "distritos": ["CALCA", "COYA", "LAMAY", "LARES", "PISAC", "SAN SALVADOR", "TARAY", "YANATILE"]
+        },
+        {
+          "nombre": "CANAS",
+          "distritos": ["YANAOCA", "CHECCA", "KUNTURKANKI", "LANGUI", "LAYO", "PAMPAMARCA", "QUEHUE", "TUPAC AMARU"]
+        },
+        {
+          "nombre": "CANCHIS",
+          "distritos": ["SICUANI", "CHECACUPE", "COMBAPATA", "MARANGANI", "PITUMARCA", "SAN PABLO", "SAN PEDRO", "TINTA"]
+        },
+        {
+          "nombre": "CHUMBIVILCAS",
+          "distritos": ["SANTO TOMÁS", "CAPACMARCA", "CHAMACA", "COLQUEMARCA", "LIVITACA", "LLUSCO", "QUIÑOTA", "VELILLE"]
+        },
+        {
+          "nombre": "ESPINAR",
+          "distritos": ["ESPINAR", "CONDOROMA", "COPORAQUE", "OCORURO", "PALLPATA", "PICHIGUA", "SUYCKUTAMBO", "ALTO PICHIGUA"]
+        },
+        {
+          "nombre": "LA CONVENCIÓN",
+          "distritos": ["SANTA ANA", "ECHARATE", "HUAYOPATA", "MARANURA", "OCOBAMBA", "QUELLOUNO", "KIMBIRI", "SANTA TERESA", "VILCABAMBA", "PICHARI", "INKAWASI", "VILLA VIRGEN", "VILLA KINTIARINA", "MEGANTONI"]
+        },
+        {
+          "nombre": "PARURO",
+          "distritos": ["PARURO", "ACCHA", "CCAPI", "COLCHA", "HUANOQUITE", "OMACHA", "PACCARITAMBO", "PILLPINTO", "YAURISQUE"]
+        },
+        {
+          "nombre": "PAUCARTAMBO",
+          "distritos": ["PAUCARTAMBO", "CAICAY", "CHALLABAMBA", "COLQUEPATA", "HUANCARANI", "KOSÑIPATA"]
+        },
+        {
+          "nombre": "QUISPICANCHI",
+          "distritos": ["URCOS", "ANDAHUAYLILLAS", "CAMANTI", "CCARHUAYO", "CCATCA", "CUSIPATA", "HUARO", "LUCRE", "MARCAPATA", "OCONGATE", "OROPESA", "QUIQUIJANA"]
+        },
+        {
+          "nombre": "URUBAMBA",
+          "distritos": ["URUBAMBA", "CHINCHERO", "HUAYLLABAMBA", "MACHUPICCHU", "MARAS", "OLLANTAYTAMBO", "YUCAY"]
+        }
+      ]
+    },
+    {
+      "nombre": "HUANCAVELICA",
+      "provincias": [
+        {
+          "nombre": "HUANCAVELICA",
+          "distritos": ["HUANCAVELICA", "ACOBAMBILLA", "ACORIA", "CONAYCA", "CUENCA", "HUACHOCOLPA", "HUAYLLAHUARA", "IZCUCHACA", "LARIA", "MANTA", "MARISCAL CÁCERES", "MOYA", "NUEVO OCCORO", "PALCA", "PILCHACA", "VILCA", "YAULI", "ASCENSIÓN", "HUANDO"]
+        },
+        {
+          "nombre": "ACOBAMBA",
+          "distritos": ["ACOBAMBA", "ANDABAMBA", "ANTA", "CAJA", "MARCAS", "PAUCARA", "POMACOCHA", "ROSARIO"]
+        },
+        {
+          "nombre": "ANGARAES",
+          "distritos": ["LIRCAY", "ANCHONGA", "CALLANMARCA", "CCOCHACCASA", "CHINCHO", "CONGALLA", "HUANCA-HUANCA", "HUAYLLAY GRANDE", "JULCAMARCA", "SAN ANTONIO DE ANTAPARCO", "SANTO TOMÁS DE PATA", "SECCLLA"]
+        },
+        {
+          "nombre": "CASTROVIRREYNA",
+          "distritos": ["CASTROVIRREYNA", "ARMA", "AURAHUA", "CAPILLAS", "CHUPAMARCA", "COCAS", "HUACHOS", "HUAMATAMBO", "MOLLEPAMPA", "SAN JUAN", "SANTA ANA", "TANTARA", "TICRAPO"]
+        },
+        {
+          "nombre": "CHURCAMPA",
+          "distritos": ["CHURCAMPA", "ANCO", "CHINCHIHUASI", "EL CARMEN", "LA MERCED", "LOCROJA", "PAUCARBAMBA", "SAN MIGUEL DE MAYOCC", "SAN PEDRO DE CORIS", "PACHAMARCA", "COSME"]
+        },
+        {
+          "nombre": "HUAYTARÁ",
+          "distritos": ["HUAYTARÁ", "AYAVI", "CÓRDOVA", "HUAYACUNDO ARMA", "LARAMARCA", "OCOYO", "PILPICHACA", "QUERCO", "QUITO-ARMA", "SAN ANTONIO DE CUSICANCHA", "SAN FRANCISCO DE SANGAYAICO", "SAN ISIDRO", "SANTIAGO DE CHOCORVOS", "SANTIAGO DE QUIRAHUARA", "SANTO DOMINGO DE CAPILLAS", "TAMBO"]
+        },
+        {
+          "nombre": "TAYACAJA",
+          "distritos": ["PAMPAS", "ACOSTAMBO", "ACRAQUIA", "AHUAYCHA", "COLCABAMBA", "DANIEL HERNÁNDEZ", "HUACHOCOLPA", "HUARIBAMBA", "ÑAHUIMPUQUIO", "PAZOS", "QUISHUAR", "SALCABAMBA", "SALCAHUASI", "SAN MARCOS DE ROCCHAC", "SURCUBAMBA", "TINTAY PUNCU", "QUICHUAS", "ANDAYMARCA", "ROBLE", "PICHOS", "SANTIAGO DE TUCUMA"]
+        }
+      ]
+    },
+    {
+      "nombre": "HUÁNUCO",
+      "provincias": [
+        {
+          "nombre": "HUÁNUCO",
+          "distritos": ["HUÁNUCO", "AMARILIS", "CHINCHAO", "CHURUBAMBA", "MARGOS", "QUISQUI", "SAN FRANCISCO DE CAYRAN", "SAN PEDRO DE CHAULAN", "SANTA MARÍA DEL VALLE", "YARUMAYO", "PILLCO MARCA", "YACUS", "SAN PABLO DE PILLAO"]
+        },
+        {
+          "nombre": "AMBO",
+          "distritos": ["AMBO", "CAYNA", "COLPAS", "CONCHAMARCA", "HUACAR", "SAN FRANCISCO", "SAN RAFAEL", "TOMAY KICHWA"]
+        },
+        {
+          "nombre": "DOS DE MAYO",
+          "distritos": ["LA UNIÓN", "CHUQUIS", "MARÍAS", "PACHAS", "QUIVILLA", "RIPAN", "SHUNQUI", "SILLAPATA", "YANAS"]
+        },
+        {
+          "nombre": "HUACAYBAMBA",
+          "distritos": ["HUACAYBAMBA", "CANCHABAMBA", "COCHABAMBA", "PINRA"]
+        },
+        {
+          "nombre": "HUAMALÍES",
+          "distritos": ["LLATA", "ARANCAY", "CHAVÍN DE PARIARCA", "JACAS GRANDE", "JIRCAN", "MIRAFLORES", "MONZÓN", "PUNCHAO", "PUÑOS", "SINGA", "TANTAMAYO"]
+        },
+        {
+          "nombre": "LEONCIO PRADO",
+          "distritos": ["RUPA-RUPA", "DANIEL ALOMÍAS ROBLES", "HERMÍLIO VALDIZAN", "JOSÉ CRESPO Y CASTILLO", "LUYANDO", "MARIANO DAMASO BERAUN", "PUCAYACU", "CASTILLO GRANDE", "PUEBLO NUEVO", "SANTO DOMINGO DE ANDA"]
+        },
+        {
+          "nombre": "MARAÑÓN",
+          "distritos": ["HUACRACHUCO", "CHOLON", "SAN BUENAVENTURA"]
+        },
+        {
+          "nombre": "PACHITEA",
+          "distritos": ["PANAO", "CHAGLLA", "MOLINO", "UMARI"]
+        },
+        {
+          "nombre": "PUERTO INCA",
+          "distritos": ["PUERTO INCA", "CODO DEL POZUZO", "HONORIA", "TOURNAVISTA", "YUYAPICHIS"]
+        },
+        {
+          "nombre": "LAURICOCHA",
+          "distritos": ["JESÚS", "BAÑOS", "JIVIA", "QUEROPALCA", "RONDOS", "SAN FRANCISCO DE ASÍS", "SAN MIGUEL DE CAURI"]
+        },
+        {
+          "nombre": "YAROWILCA",
+          "distritos": ["CHAVINILLO", "CAHUAC", "CHACABAMBA", "APARICIO POMARES", "JACAS CHICO", "OBAS", "PAMPAMARCA", "CHORAS"]
+        }
+      ]
+    },
+    {
+      "nombre": "ICA",
+      "provincias": [
+        {
+          "nombre": "ICA",
+          "distritos": ["ICA", "LA TINGUIÑA", "LOS AQUIJES", "OCUCAJE", "PACHACUTEC", "PARCONA", "PUEBLO NUEVO", "SALAS", "SAN JOSÉ DE LOS MOLINOS", "SAN JUAN BAUTISTA", "SANTIAGO", "SUBTANJALLA", "TATE", "YAUCA DEL ROSARIO"]
+        },
+        {
+          "nombre": "CHINCHA",
+          "distritos": ["CHINCHA ALTA", "ALTO LARÁN", "CHAVÍN", "CHINCHA BAJA", "EL CARMEN", "GROCIO PRADO", "PUEBLO NUEVO", "SAN JUAN DE YANAC", "SAN PEDRO DE HUACARPANA", "SUNAMPE", "TAMBO DE MORA"]
+        },
+        {
+          "nombre": "NAZCA",
+          "distritos": ["NAZCA", "CHANGUILLO", "EL INGENIO", "MARCONA", "VISTA ALEGRE"]
+        },
+        {
+          "nombre": "PALPA",
+          "distritos": ["PALPA", "LLIPATA", "RÍO GRANDE", "SANTA CRUZ", "TIBILLO"]
+        },
+        {
+          "nombre": "PISCO",
+          "distritos": ["PISCO", "HUANCANO", "HUMAY", "INDEPENDENCIA", "PARACAS", "SAN ANDRÉS", "SAN CLEMENTE", "TUPAC AMARU INCA"]
+        }
+      ]
+    },
+    {
+      "nombre": "JUNÍN",
+      "provincias": [
+        {
+          "nombre": "HUANCAYO",
+          "distritos": ["HUANCAYO", "CARHUACALLANGA", "CHACAPAMPA", "CHICCHE", "CHILCA", "CHONGOS ALTO", "CHUPURO", "COLCA", "CULLHUAS", "EL TAMBO", "HUACRAPUQUIO", "HUALHUAS", "HUANCAN", "HUASICANCHA", "HUAYUCACHI", "INGENIO", "PARIAHUANCA", "PILCOMAYO", "PUCARA", "QUICHUAY", "QUILCAS", "SAN AGUSTÍN", "SAN JERÓNIMO DE TUNAN", "SAÑO", "SAPALLANGA", "SICAYA", "SANTO DOMINGO DE ACOBAMBA", "VIQUES"]
+        },
+        {
+          "nombre": "CONCEPCIÓN",
+          "distritos": ["CONCEPCIÓN", "ACO", "ANDAMARCA", "CHAMBARA", "COCHAS", "COMAS", "HEROÍNAS TOLEDO", "MANZANARES", "MARISCAL CASTILLA", "MATAHUASI", "MITO", "NUEVE DE JULIO", "ORCOTUNA", "SAN JOSÉ DE QUERO", "SANTA ROSA DE OCOPA"]
+        },
+        {
+          "nombre": "CHANCHAMAYO",
+          "distritos": ["CHANCHAMAYO", "PERENÉ", "PICHANAQUI", "SAN LUIS DE SHUARO", "SAN RAMÓN", "VITOC"]
+        },
+        {
+          "nombre": "JAUJA",
+          "distritos": ["JAUJA", "ACOLLA", "APATA", "ATAURA", "CANCHAYLLO", "CURICACA", "EL MANTARO", "HUAMALI", "HUARIPAMPA", "HUERTAS", "JANJAILLO", "JULCÁN", "LEONOR ORDÓÑEZ", "LLOCLLAPAMPA", "MARCO", "MASMA", "MASMA CHICCHE", "MOLINOS", "MONOBAMBA", "MUQUI", "MUQUIYAUYO", "PACA", "PACCHA", "PANCAN", "PARCO", "POMACANCHA", "RICRAN", "SAN LORENZO", "SAN PEDRO DE CHUNAN", "SAUSA", "SINCOS", "TUNAN MARCA", "YAULI", "YAUYOS"]
+        },
+        {
+          "nombre": "JUNÍN",
+          "distritos": ["JUNÍN", "CARHUAMAYO", "ONDORES", "ULCUMAYO"]
+        },
+        {
+          "nombre": "SATIPO",
+          "distritos": ["SATIPO", "COVIRIALI", "LLAYLLA", "MAZAMARI", "PAMPA HERMOSA", "PANGOA", "RÍO NEGRO", "RÍO TAMBO", "VIZCATAN DEL ENE"]
+        },
+        {
+          "nombre": "TARMA",
+          "distritos": ["TARMA", "ACOBAMBA", "HUARICOLCA", "HUASAHUASI", "LA UNIÓN", "PALCA", "PALCAMAYO", "SAN PEDRO DE CAJAS", "TAPO"]
+        },
+        {
+          "nombre": "YAULI",
+          "distritos": ["LA OROYA", "CHACAPALPA", "HUAY-HUAY", "MARCAPOMACOCHA", "MOROCOCHA", "PACCHA", "SANTA BÁRBARA DE CARHUACAYAN", "SANTA ROSA DE SACCO", "SUITUCANCHA", "YAULI"]
+        },
+        {
+          "nombre": "CHUPACA",
+          "distritos": ["CHUPACA", "AHUAC", "CHONGOS BAJO", "HUACHAC", "HUAMANCACA CHICO", "SAN JUAN DE ISCOS", "SAN JUAN DE JARPA", "TRES DE DICIEMBRE", "YANACANCHA"]
+        }
+      ]
+    },
+    {
+      "nombre": "LA LIBERTAD",
+      "provincias": [
+        {
+          "nombre": "TRUJILLO",
+          "distritos": ["TRUJILLO", "EL PORVENIR", "FLORENCIA DE MORA", "HUANCHACO", "LA ESPERANZA", "LAREDO", "MOCHE", "POROTO", "SALAVERRY", "SIMBAL", "VÍCTOR LARCO HERRERA"]
+        },
+        {
+          "nombre": "ASCOPE",
+          "distritos": ["ASCOPE", "CASA GRANDE", "CHICAMA", "CHOCOPE", "MAGDALENA DE CAO", "PAIJAN", "RÁZURI", "SANTIAGO DE CAO"]
+        },
+        {
+          "nombre": "BOLÍVAR",
+          "distritos": ["BOLÍVAR", "BAMBAMARCA", "CONDORMARCA", "LONGOTEA", "UCHUMARCA", "UCUNCHA"]
+        },
+        {
+          "nombre": "CHEPÉN",
+          "distritos": ["CHEPÉN", "PACANGA", "PUEBLO NUEVO"]
+        },
+        {
+          "nombre": "JULCÁN",
+          "distritos": ["JULCÁN", "CALAMARCA", "CARABAMBA", "HUASO"]
+        },
+        {
+          "nombre": "OTUZCO",
+          "distritos": ["OTUZCO", "AGALLPAMPA", "CHARAT", "HUARANCHAL", "LA CUESTA", "MACHE", "PARANDAY", "SALPO", "SINSICAP", "USQUIL"]
+        },
+        {
+          "nombre": "PACASMAYO",
+          "distritos": ["SAN PEDRO DE LLOC", "GUADALUPE", "JEQUETEPEQUE", "PACASMAYO", "SAN JOSÉ"]
+        },
+        {
+          "nombre": "PATAZ",
+          "distritos": ["TAYABAMBA", "BULDIBUYO", "CHILLIA", "HUANCASPATA", "HUAYLILLAS", "HUAYO", "ONGÓN", "PARCOY", "PATAZ", "PIAS", "SANTIAGO DE CHALLAS", "TAURIJA", "URPAY"]
+        },
+        {
+          "nombre": "SÁNCHEZ CARRIÓN",
+          "distritos": ["HUAMACHUCO", "CHUGAY", "COCHORCO", "CURGOS", "MARCABAL", "SANAGORAN", "SARIN", "SARTIMBAMBA"]
+        },
+        {
+          "nombre": "SANTIAGO DE CHUCO",
+          "distritos": ["SANTIAGO DE CHUCO", "ANGASMARCA", "CACHICADAN", "MOLLEBAMBA", "MOLLEPATA", "QUIRUVILCA", "SANTA CRUZ DE CHUCA", "SITABAMBA"]
+        },
+        {
+          "nombre": "GRAN CHIMÚ",
+          "distritos": ["CASCAS", "LUCMA", "MARMOT", "SAYAPULLO"]
+        },
+        {
+          "nombre": "VIRÚ",
+          "distritos": ["VIRÚ", "CHAO", "GUADALUPITO"]
+        }
+      ]
+    },
+    {
+      "nombre": "LAMBAYEQUE",
+      "provincias": [
+        {
+          "nombre": "CHICLAYO",
+          "distritos": ["CHICLAYO", "CHONGOYAPE", "ETEN", "ETEN PUERTO", "JOSÉ LEONARDO ORTIZ", "LA VICTORIA", "LAGUNAS", "MONSEFÚ", "NUEVA ARICA", "OYOTÚN", "PÁTAPO", "PICSI", "PIMENTEL", "POMALCA", "PUCALÁ", "REQUE", "SANTA ROSA", "SAÑA", "CAYALTÍ", "TUMÁN"]
+        },
+        {
+          "nombre": "FERREÑAFE",
+          "distritos": ["FERREÑAFE", "CAÑARIS", "INCAHUASI", "MANUEL ANTONIO MESONES MURO", "PITIPO", "PUEBLO NUEVO"]
+        },
+        {
+          "nombre": "LAMBAYEQUE",
+          "distritos": ["LAMBAYEQUE", "CHÓCHOPE", "ILLIMO", "JAYANCA", "MOCHUMI", "MÓRROPE", "MOTUPE", "OLMOS", "PACORA", "SALAS", "SAN JOSÉ", "TÚCUME"]
+        }
+      ]
+    },
+    {
+      "nombre": "LIMA",
+      "provincias": [
+        {
+          "nombre": "LIMA",
+          "distritos": ["LIMA", "ANCÓN", "ATE", "BARRANCO", "BREÑA", "CARABAYLLO", "CHACLACAYO", "CHORRILLOS", "CIENEGUILLA", "COMAS", "EL AGUSTINO", "INDEPENDENCIA", "JESÚS MARÍA", "LA MOLINA", "LA VICTORIA", "LINCE", "LOS OLIVOS", "LURIGANCHO", "LURÍN", "MAGDALENA DEL MAR", "MIRAFLORES", "PACHACAMAC", "PUCUSANA", "PUEBLO LIBRE", "PUENTE PIEDRA", "PUNTA HERMOSA", "PUNTA NEGRA", "RÍMAC", "SAN BARTOLO", "SAN BORJA", "SAN ISIDRO", "SAN JUAN DE LURIGANCHO", "SAN JUAN DE MIRAFLORES", "SAN LUIS", "SAN MARTÍN DE PORRES", "SAN MIGUEL", "SANTA ANITA", "SANTA MARÍA DEL MAR", "SANTA ROSA", "SANTIAGO DE SURCO", "SURQUILLO", "VILLA EL SALVADOR", "VILLA MARÍA DEL TRIUNFO"]
+        },
+        {
+          "nombre": "BARRANCA",
+          "distritos": ["BARRANCA", "PARAMONGA", "PATIVILCA", "SUPE", "SUPE PUERTO"]
+        },
+        {
+          "nombre": "CAJATAMBO",
+          "distritos": ["CAJATAMBO", "COPA", "GORGOR", "HUANCAPON", "MANAS"]
+        },
+        {
+          "nombre": "CANTA",
+          "distritos": ["CANTA", "ARAHUAY", "HUAMANTANGA", "HUAROS", "LACHAQUI", "SAN BUENAVENTURA", "SANTA ROSA DE QUIVES"]
+        },
+        {
+          "nombre": "CAÑETE",
+          "distritos": ["SAN VICENTE DE CAÑETE", "ASIA", "CALANGO", "CERRO AZUL", "CHILCA", "COAYLLO", "IMPERIAL", "LUNAHUANÁ", "MALA", "NUEVO IMPERIAL", "PACARAN", "QUILMANÁ", "SAN ANTONIO", "SAN LUIS", "SANTA CRUZ DE FLORES", "ZUÑIGA"]
+        },
+        {
+          "nombre": "HUARAL",
+          "distritos": ["HUARAL", "ATAVILLOS ALTO", "ATAVILLOS BAJO", "AUCALLAMA", "CHANCAY", "IHUARI", "LAMPIAN", "PACARAOS", "SAN MIGUEL DE ACOS", "SANTA CRUZ DE ANDAMARCA", "SUMBILCA", "VEINTISIETE DE NOVIEMBRE"]
+        },
+        {
+          "nombre": "HUAROCHIRÍ",
+          "distritos": ["MATUCANA", "ANTIOQUIA", "CALLAHUANCA", "CARAMPOMA", "CHICLA", "CUENCA", "HUACHUPAMPA", "HUANZA", "HUAROCHIRÍ", "LAHUAYTAMBO", "LANGA", "LARAOS", "MARIATANA", "RICARDO PALMA", "SAN ANDRÉS DE TUPICOCHA", "SAN ANTONIO", "SAN BARTOLOMÉ", "SAN DAMIAN", "SAN JUAN DE IRIS", "SAN JUAN DE TANTARANCHE", "SAN LORENZO DE QUINTI", "SAN MATEO", "SAN MATEO DE OTAO", "SAN PEDRO DE CASTA", "SAN PEDRO DE HUANCAYRE", "SANGALLAYA", "SANTA CRUZ DE COCACHACRA", "SANTA EULALIA", "SANTIAGO DE ANCHUCAYA", "SANTIAGO DE TUNA", "SANTO DOMINGO DE LOS OLLEROS", "SURCO"]
+        },
+        {
+          "nombre": "HUAURA",
+          "distritos": ["HUACHO", "ÁMBAR", "CALETA DE CARQUÍN", "CHECRAS", "HUALMAY", "HUAURA", "LEONCIO PRADO", "PACCHO", "SANTA LEONOR", "SANTA MARÍA", "SAYÁN", "VEGUETA"]
+        },
+        {
+          "nombre": "OYÓN",
+          "distritos": ["OYÓN", "ANDAJES", "CAUJUL", "COCHAMARCA", "NAVÁN", "PACHANGARA"]
+        },
+        {
+          "nombre": "YAUYOS",
+          "distritos": ["YAUYOS", "ALIS", "ALLAUCA", "AYAVIRI", "AZÁNGARO", "CACRA", "CARANIA", "CATAHUASI", "CHOCOS", "COCHAS", "COLONIA", "HONGOS", "HUAMPARA", "HUANCAYA", "HUANGASCAR", "HUANTÁN", "HUAÑEC", "LARAOS", "LINCHA", "MADEAN", "MIRAFLORES", "OMAS", "PUTINZA", "QUINCHES", "QUINOCAY", "SAN JOAQUÍN", "SAN PEDRO DE PILAS", "TANTA", "TAURIPAMPA", "TOMAS", "TUPE", "VIÑAC", "VITIS"]
+        }
+      ]
+    },
+    {
+      "nombre": "LORETO",
+      "provincias": [
+        {
+          "nombre": "MAYNAS",
+          "distritos": ["IQUITOS", "ALTO NANAY", "FERNANDO LORES", "INDIANA", "LAS AMAZONAS", "MAZAN", "NAPO", "PUNCHANA", "PUTUMAYO", "TORRES CAUSANA", "BELÉN", "SAN JUAN BAUTISTA"]
+        },
+        {
+          "nombre": "ALTO AMAZONAS",
+          "distritos": ["YURIMAGUAS", "BALSAPUERTO", "JEBEROS", "LAGUNAS", "SANTA CRUZ", "TENIENTE CESAR LÓPEZ ROJAS"]
+        },
+        {
+          "nombre": "LORETO",
+          "distritos": ["NAUTA", "PARINARI", "TIGRE", "TROMPETEROS", "URARINAS"]
+        },
+        {
+          "nombre": "MARISCAL RAMÓN CASTILLA",
+          "distritos": ["RAMÓN CASTILLA", "PEBAS", "YAVARI", "SAN PABLO"]
+        },
+        {
+          "nombre": "REQUENA",
+          "distritos": ["REQUENA", "ALTO TAPICHE", "CAPELO", "EMILIO SAN MARTÍN", "MAQUIA", "PUINAHUA", "SAQUENA", "SOPLIN", "TAPICHE", "JENARO HERRERA", "YAQUERANA"]
+        },
+        {
+          "nombre": "UCAYALI",
+          "distritos": ["CONTAMANA", "INAHUAYA", "PADRE MÁRQUEZ", "PAMPA HERMOSA", "SARAYACU", "VARGAS GUERRA"]
+        },
+        {
+          "nombre": "DATEM DEL MARAÑÓN",
+          "distritos": ["BARRANCA", "CAHUAPANAS", "MANSERICHE", "MORONA", "PASTAZA", "ANDOAS"]
+        },
+        {
+          "nombre": "PUTUMAYO",
+          "distritos": ["PUTUMAYO", "ROSA PANDURO", "TENIENTE MANUEL CLAVERO", "YAGUAS"]
+        }
+      ]
+    },
+    {
+      "nombre": "MADRE DE DIOS",
+      "provincias": [
+        {
+          "nombre": "TAMBOPATA",
+          "distritos": ["TAMBOPATA", "INAMBARI", "LAS PIEDRAS", "LABERINTO"]
+        },
+        {
+          "nombre": "MANU",
+          "distritos": ["MANU", "FITZCARRALD", "MADRE DE DIOS", "HUEPETUHE"]
+        },
+        {
+          "nombre": "TAHUAMANU",
+          "distritos": ["IÑAPARI", "IBERIA", "TAHUAMANU"]
+        }
+      ]
+    },
+    {
+      "nombre": "MOQUEGUA",
+      "provincias": [
+        {
+          "nombre": "MARISCAL NIETO",
+          "distritos": ["MOQUEGUA", "CARUMAS", "CUCHUMBAYA", "SAMEGUA", "SAN CRISTÓBAL", "TORATA"]
+        },
+        {
+          "nombre": "GENERAL SÁNCHEZ CERRO",
+          "distritos": ["OMATE", "CHOJATA", "COALAQUE", "ICHUÑA", "LA CAPILLA", "LLOQUE", "MATALAQUE", "PUQUINA", "QUINISTAQUILLAS", "UBINAS", "YUNGA"]
+        },
+        {
+          "nombre": "ILO",
+          "distritos": ["ILO", "EL ALGARROBAL", "PACOCHA"]
+        }
+      ]
+    },
+    {
+      "nombre": "PASCO",
+      "provincias": [
+        {
+          "nombre": "PASCO",
+          "distritos": ["CHAUPIMARCA", "HUACHON", "HUARIACA", "HUAYLLAY", "NINACACA", "PALLANCHACRA", "PAUCARTAMBO", "SAN FRANCISCO DE ASÍS DE YARUSYACAN", "SIMON BOLÍVAR", "TICLACAYAN", "TINYAHUARCO", "VICCO", "YANACANCHA"]
+        },
+        {
+          "nombre": "DANIEL ALCIDES CARRIÓN",
+          "distritos": ["YANAHUANCA", "CHACAYAN", "GOYLLARISQUIZGA", "PAUCAR", "SAN PEDRO DE PILLAO", "SANTA ANA DE TUSI", "TAPUC", "VILCABAMBA"]
+        },
+        {
+          "nombre": "OXAPAMPA",
+          "distritos": ["OXAPAMPA", "CHONTABAMBA", "HUANCABAMBA", "PALCAZU", "POZUZO", "PUERTO BERMÚDEZ", "VILLA RICA", "CONSTITUCIÓN"]
+        }
+      ]
+    },
+    {
+      "nombre": "PIURA",
+      "provincias": [
+        {
+          "nombre": "PIURA",
+          "distritos": ["PIURA", "CASTILLA", "CATACAOS", "CURA MORI", "EL TALLAN", "LA ARENA", "LA UNIÓN", "LAS LOMAS", "TAMBO GRANDE", "VEINTISEIS DE OCTUBRE"]
+        },
+        {
+          "nombre": "AYABACA",
+          "distritos": ["AYABACA", "FRIAS", "JILILI", "LAGUNAS", "MONTERO", "PACAIPAMPA", "PAIMAS", "SAPILLICA", "SICCHEZ", "SUYO"]
+        },
+        {
+          "nombre": "HUANCABAMBA",
+          "distritos": ["HUANCABAMBA", "CANCHAQUE", "EL CARMEN DE LA FRONTERA", "HUARMACA", "LALAQUIZ", "SAN MIGUEL DE EL FAIQUE", "SONDOR", "SONDORILLO"]
+        },
+        {
+          "nombre": "MORROPÓN",
+          "distritos": ["CHULUCANAS", "BUENOS AIRES", "CHALACO", "LA MATANZA", "MORROPÓN", "SALITRAL", "SAN JUAN DE BIGOTE", "SANTA CATALINA DE MOSSA", "SANTO DOMINGO", "YAMANGO"]
+        },
+        {
+          "nombre": "PAITA",
+          "distritos": ["PAITA", "AMOTAPE", "ARENAL", "COLÁN", "LA HUACA", "TAMARINDO", "VICHAYAL"]
+        },
+        {
+          "nombre": "SULLANA",
+          "distritos": ["SULLANA", "BELLAVISTA", "IGNACIO ESCUDERO", "LANCONES", "MARCAVELICA", "MIGUEL CHECA", "QUERECOTILLO", "SALITRAL"]
+        },
+        {
+          "nombre": "TALARA",
+          "distritos": ["PARIÑAS", "EL ALTO", "LA BREA", "LOBITOS", "LOS ÓRGANOS", "MANCORA"]
+        },
+        {
+          "nombre": "SECHURA",
+          "distritos": ["SECHURA", "BELLAVISTA DE LA UNIÓN", "BERNAL", "CRISTO NOS VALGA", "VICE", "RINCONADA LLICUAR"]
+        }
+      ]
+    },
+    {
+      "nombre": "PUNO",
+      "provincias": [
+        {
+          "nombre": "PUNO",
+          "distritos": ["PUNO", "ACORA", "AMANTANI", "ATUNCOLLA", "CAPACHICA", "CHUCUITO", "COATA", "HUATA", "MAÑAZO", "PAUCARCOLLA", "PICHACANI", "PLATERIA", "SAN ANTONIO", "TIQUILLACA", "VILQUE"]
+        },
+        {
+          "nombre": "AZÁNGARO",
+          "distritos": ["AZÁNGARO", "ACHAYA", "ARAPA", "ASILLO", "CAMINACA", "CHUPA", "JOSÉ DOMINGO CHOQUEHUANCA", "MUÑANI", "POTONI", "SAMAN", "SAN ANTÓN", "SAN JOSÉ", "SAN JUAN DE SALINAS", "SANTIAGO DE PUPUJA", "TIRAPATA"]
+        },
+        {
+          "nombre": "CARABAYA",
+          "distritos": ["MACUSANI", "AJOYANI", "AYAPATA", "COASA", "CORANI", "CRUCERO", "ITUATA", "OLLACHEA", "SAN GABÁN", "USICAYOS"]
+        },
+        {
+          "nombre": "CHUCUITO",
+          "distritos": ["JULI", "DESAGUADERO", "HUACULLANI", "KELLUYO", "PISACOMA", "POMATA", "ZEPITA"]
+        },
+        {
+          "nombre": "EL COLLAO",
+          "distritos": ["ILAVE", "CAPASO", "PILCUYO", "SANTA ROSA", "CONDURIRI"]
+        },
+        {
+          "nombre": "HUANCANÉ",
+          "distritos": ["HUANCANÉ", "COJATA", "HUATASANI", "INCHUPALLA", "PUSI", "ROSASPATA", "TARACO", "VILQUE CHICO"]
+        },
+        {
+          "nombre": "LAMPA",
+          "distritos": ["LAMPA", "CABANILLA", "CALAPUJA", "NICASIO", "OCUVIRI", "PALCA", "PARATIA", "PUCARA", "SANTA LUCIA", "VILAVILA"]
+        },
+        {
+          "nombre": "MELGAR",
+          "distritos": ["AYAVIRI", "ANTAUTA", "CUPI", "LLALLI", "MACARI", "NUÑOA", "ORURILLO", "SANTA ROSA", "UMACHIRI"]
+        },
+        {
+          "nombre": "MOHO",
+          "distritos": ["MOHO", "CONIMA", "HUAYRAPATA", "TILALI"]
+        },
+        {
+          "nombre": "SAN ANTONIO DE PUTINA",
+          "distritos": ["PUTINA", "ANANEA", "PEDRO VILCA APAZA", "QUILCAPUNCU", "SINA"]
+        },
+        {
+          "nombre": "SAN ROMÁN",
+          "distritos": ["JULIACA", "CABANA", "CABANILLAS", "CARACOTO", "SAN MIGUEL"]
+        },
+        {
+          "nombre": "SANDIA",
+          "distritos": ["SANDIA", "CUYOCUYO", "LIMBANI", "PATAMBUCO", "PHARA", "QUIACA", "SAN JUAN DEL ORO", "YANAHUAYA", "ALTO INAMBARI", "SAN PEDRO DE PUTINA PUNCO"]
+        },
+        {
+          "nombre": "YUNGUYO",
+          "distritos": ["YUNGUYO", "ANAPIA", "COPANI", "CUTURAPI", "OLLARAYA", "TINICACHI", "UNICACHI"]
+        }
+      ]
+    },
+    {
+      "nombre": "SAN MARTÍN",
+      "provincias": [
+        {
+          "nombre": "MOYOBAMBA",
+          "distritos": ["MOYOBAMBA", "CALZADA", "HABANA", "JEPELACIO", "SORITOR", "YANTALO"]
+        },
+        {
+          "nombre": "BELLAVISTA",
+          "distritos": ["BELLAVISTA", "ALTO BIAVO", "BAJO BIAVO", "HUALLAGA", "SAN PABLO", "SAN RAFAEL"]
+        },
+        {
+          "nombre": "EL DORADO",
+          "distritos": ["SAN JOSÉ DE SISA", "AGUA BLANCA", "SAN MARTÍN", "SANTA ROSA", "SHATOJA"]
+        },
+        {
+          "nombre": "HUALLAGA",
+          "distritos": ["SAPOSOA", "ALTO SAPOSOA", "EL ESLABÓN", "PISCOYACU", "SACANCHE", "TINGO DE SAPOSOA"]
+        },
+        {
+          "nombre": "LAMAS",
+          "distritos": ["LAMAS", "ALONSO DE ALVARADO", "BARRANQUITA", "CAYNARACHI", "CUÑUMBUQUI", "PINTO RECODO", "RUMISAPA", "SAN ROQUE DE CUMBAZA", "SHANAO", "TABALOSOS", "ZAPATERO"]
+        },
+        {
+          "nombre": "MARISCAL CÁCERES",
+          "distritos": ["JUANJUÍ", "CAMPANILLA", "HUICUNGO", "PACHIZA", "PAJARILLO"]
+        },
+        {
+          "nombre": "PICOTA",
+          "distritos": ["PICOTA", "BUENOS AIRES", "CASPISAPA", "PILLUANA", "PUCACACA", "SAN CRISTÓBAL", "SAN HILARIÓN", "SHAMBOYACU", "TINGO DE PONASA", "TRES UNIDOS"]
+        },
+        {
+          "nombre": "RIOJA",
+          "distritos": ["RIOJA", "AWAJUN", "ELÍAS SOPLIN VARGAS", "NUEVA CAJAMARCA", "PARDO MIGUEL", "POSIC", "SAN FERNANDO", "YORONGOS", "YURACYACU"]
+        },
+        {
+          "nombre": "SAN MARTÍN",
+          "distritos": ["TARAPOTO", "ALBERTO LEVEAU", "CACATACHI", "CHAZUTA", "CHIPURANA", "EL PORVENIR", "HUIMBAYOC", "JUAN GUERRA", "LA BANDA DE SHILCAYO", "MORALES", "PAPAPLAYA", "SAN ANTONIO", "SAUCE", "SHAPAJA"]
+        },
+        {
+          "nombre": "TOCACHE",
+          "distritos": ["TOCACHE", "NUEVO PROGRESO", "POLVORA", "SHUNTE", "UCHIZA"]
+        }
+      ]
+    },
+    {
+      "nombre": "TACNA",
+      "provincias": [
+        {
+          "nombre": "TACNA",
+          "distritos": ["TACNA", "ALTO DE LA ALIANZA", "CALANA", "CIUDAD NUEVA", "INCLAN", "PACHIA", "PALCA", "POCOLLAY", "SAMA", "CORONEL GREGORIO ALBARRACÍN LANCHIPA", "LA YARADA LOS PALOS"]
+        },
+        {
+          "nombre": "CANDARAVE",
+          "distritos": ["CANDARAVE", "CAIRANI", "CAMILACA", "CURIBAYA", "HUANUARA", "QUILAHUANI"]
+        },
+        {
+          "nombre": "JORGE BASADRE",
+          "distritos": ["LOCUMBA", "ILABAYA", "ITE"]
+        },
+        {
+          "nombre": "TARATA",
+          "distritos": ["TARATA", "HÉROES ALBARRACÍN", "ESTIQUE", "ESTIQUE-PAMPA", "SITAJARA", "SUSAPAYA", "TARUCACHI", "TICACO"]
+        }
+      ]
+    },
+    {
+      "nombre": "TUMBES",
+      "provincias": [
+        {
+          "nombre": "TUMBES",
+          "distritos": ["TUMBES", "CORRALES", "LA CRUZ", "PAMPAS DE HOSPITAL", "SAN JACINTO", "SAN JUAN DE LA VIRGEN"]
+        },
+        {
+          "nombre": "CONTRALMIRANTE VILLAR",
+          "distritos": ["ZORRITOS", "CASITAS", "CANOAS DE PUNTA SAL"]
+        },
+        {
+          "nombre": "ZARUMILLA",
+          "distritos": ["ZARUMILLA", "AGUAS VERDES", "MATAPALO", "PAPAYAL"]
+        }
+      ]
+    },
+    {
+      "nombre": "UCAYALI",
+      "provincias": [
+        {
+          "nombre": "CORONEL PORTILLO",
+          "distritos": ["CALLERÍA", "CAMPOVERDE", "IPARIA", "MASISEA", "YARINACOCHA", "NUEVA REQUENA", "MANANTAY"]
+        },
+        {
+          "nombre": "ATALAYA",
+          "distritos": ["RAYMONDI", "SEPAHUA", "TAHUANIA", "YURUA"]
+        },
+        {
+          "nombre": "PADRE ABAD",
+          "distritos": ["PADRE ABAD", "IRAZOLA", "CURIMANA", "NESHUYA", "ALEXANDER VON HUMBOLDT"]
+        },
+        {
+          "nombre": "PURÚS",
+          "distritos": ["PURÚS"]
+        }
+      ]
+    }
+  ]
+}

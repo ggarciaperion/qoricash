@@ -654,14 +654,31 @@ function editClient(clientId) {
 
                 // Dirección
                 const direccionField = document.getElementById('direccion');
-                const distritoField = document.getElementById('distrito');
-                const provinciaField = document.getElementById('provincia');
                 const departamentoField = document.getElementById('departamento');
+                const provinciaField = document.getElementById('provincia');
+                const distritoField = document.getElementById('distrito');
 
                 if (direccionField) direccionField.value = client.direccion || '';
-                if (distritoField) distritoField.value = client.distrito || '';
-                if (provinciaField) provinciaField.value = client.provincia || '';
-                if (departamentoField) departamentoField.value = client.departamento || '';
+
+                // Cargar ubicaciones en cascada si existen datos
+                if (client.departamento) {
+                    // Esperar a que los departamentos estén cargados
+                    setTimeout(async () => {
+                        if (departamentoField) {
+                            departamentoField.value = client.departamento;
+                            await loadProvincias();
+
+                            if (client.provincia && provinciaField) {
+                                provinciaField.value = client.provincia;
+                                await loadDistritos();
+
+                                if (client.distrito && distritoField) {
+                                    distritoField.value = client.distrito;
+                                }
+                            }
+                        }
+                    }, 300);
+                }
 
                 // Limpiar cuentas bancarias existentes
                 const bankAccountsContainer = document.getElementById('bankAccountsContainer');
@@ -2096,4 +2113,174 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
     }
+
+    // Cargar departamentos al iniciar
+    loadDepartamentos();
 });
+
+/**
+ * ===========================================
+ * GESTIÓN DE UBICACIONES DE PERÚ (CASCADA)
+ * ===========================================
+ */
+
+let peruLocationsData = null;
+
+/**
+ * Cargar datos de ubicaciones de Perú
+ */
+async function loadPeruLocations() {
+    if (peruLocationsData) {
+        return peruLocationsData;
+    }
+
+    try {
+        const response = await fetch('/static/data/peru_locations.json');
+        peruLocationsData = await response.json();
+        return peruLocationsData;
+    } catch (error) {
+        console.error('Error al cargar datos de ubicaciones:', error);
+        return null;
+    }
+}
+
+/**
+ * Cargar departamentos en el selector
+ */
+async function loadDepartamentos() {
+    const data = await loadPeruLocations();
+    if (!data || !data.departamentos) return;
+
+    const departamentoSelect = document.getElementById('departamento');
+    if (!departamentoSelect) return;
+
+    // Guardar el valor actual si existe (para modo edición)
+    const currentValue = departamentoSelect.value;
+
+    // Limpiar opciones excepto la primera
+    departamentoSelect.innerHTML = '<option value="">Seleccionar...</option>';
+
+    // Agregar departamentos
+    data.departamentos.forEach(dep => {
+        const option = document.createElement('option');
+        option.value = dep.nombre;
+        option.textContent = dep.nombre;
+        departamentoSelect.appendChild(option);
+    });
+
+    // Restaurar valor si existe
+    if (currentValue) {
+        departamentoSelect.value = currentValue;
+        loadProvincias();
+    }
+}
+
+/**
+ * Cargar provincias según el departamento seleccionado
+ */
+async function loadProvincias() {
+    const data = await loadPeruLocations();
+    if (!data || !data.departamentos) return;
+
+    const departamentoSelect = document.getElementById('departamento');
+    const provinciaSelect = document.getElementById('provincia');
+    const distritoSelect = document.getElementById('distrito');
+
+    if (!departamentoSelect || !provinciaSelect || !distritoSelect) return;
+
+    const departamentoValue = departamentoSelect.value;
+
+    // Guardar valor actual de provincia (para modo edición)
+    const currentProvinciaValue = provinciaSelect.value;
+
+    // Limpiar provincias y distritos
+    provinciaSelect.innerHTML = '<option value="">Seleccionar...</option>';
+    distritoSelect.innerHTML = '<option value="">Seleccionar...</option>';
+    distritoSelect.disabled = true;
+
+    if (!departamentoValue) {
+        provinciaSelect.disabled = true;
+        return;
+    }
+
+    // Buscar departamento
+    const departamento = data.departamentos.find(d => d.nombre === departamentoValue);
+    if (!departamento || !departamento.provincias) {
+        provinciaSelect.disabled = true;
+        return;
+    }
+
+    // Habilitar selector de provincias
+    provinciaSelect.disabled = false;
+
+    // Agregar provincias
+    departamento.provincias.forEach(prov => {
+        const option = document.createElement('option');
+        option.value = prov.nombre;
+        option.textContent = prov.nombre;
+        provinciaSelect.appendChild(option);
+    });
+
+    // Restaurar valor si existe
+    if (currentProvinciaValue) {
+        provinciaSelect.value = currentProvinciaValue;
+        loadDistritos();
+    }
+}
+
+/**
+ * Cargar distritos según la provincia seleccionada
+ */
+async function loadDistritos() {
+    const data = await loadPeruLocations();
+    if (!data || !data.departamentos) return;
+
+    const departamentoSelect = document.getElementById('departamento');
+    const provinciaSelect = document.getElementById('provincia');
+    const distritoSelect = document.getElementById('distrito');
+
+    if (!departamentoSelect || !provinciaSelect || !distritoSelect) return;
+
+    const departamentoValue = departamentoSelect.value;
+    const provinciaValue = provinciaSelect.value;
+
+    // Guardar valor actual de distrito (para modo edición)
+    const currentDistritoValue = distritoSelect.value;
+
+    // Limpiar distritos
+    distritoSelect.innerHTML = '<option value="">Seleccionar...</option>';
+
+    if (!departamentoValue || !provinciaValue) {
+        distritoSelect.disabled = true;
+        return;
+    }
+
+    // Buscar departamento y provincia
+    const departamento = data.departamentos.find(d => d.nombre === departamentoValue);
+    if (!departamento || !departamento.provincias) {
+        distritoSelect.disabled = true;
+        return;
+    }
+
+    const provincia = departamento.provincias.find(p => p.nombre === provinciaValue);
+    if (!provincia || !provincia.distritos) {
+        distritoSelect.disabled = true;
+        return;
+    }
+
+    // Habilitar selector de distritos
+    distritoSelect.disabled = false;
+
+    // Agregar distritos
+    provincia.distritos.forEach(dist => {
+        const option = document.createElement('option');
+        option.value = dist;
+        option.textContent = dist;
+        distritoSelect.appendChild(option);
+    });
+
+    // Restaurar valor si existe
+    if (currentDistritoValue) {
+        distritoSelect.value = currentDistritoValue;
+    }
+}

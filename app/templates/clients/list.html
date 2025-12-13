@@ -366,16 +366,22 @@
                     </div>
                     <div class="row mb-3">
                         <div class="col-md-4">
-                            <label class="form-label">Distrito</label>
-                            <input type="text" class="form-control text-uppercase-field" id="distrito" name="distrito" style="text-transform: uppercase;">
+                            <label class="form-label">Departamento</label>
+                            <select class="form-select" id="departamento" name="departamento" onchange="loadProvincias()">
+                                <option value="">Seleccionar...</option>
+                            </select>
                         </div>
                         <div class="col-md-4">
                             <label class="form-label">Provincia</label>
-                            <input type="text" class="form-control text-uppercase-field" id="provincia" name="provincia" style="text-transform: uppercase;">
+                            <select class="form-select" id="provincia" name="provincia" onchange="loadDistritos()" disabled>
+                                <option value="">Seleccionar...</option>
+                            </select>
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label">Departamento</label>
-                            <input type="text" class="form-control text-uppercase-field" id="departamento" name="departamento" style="text-transform: uppercase;">
+                            <label class="form-label">Distrito</label>
+                            <select class="form-select" id="distrito" name="distrito" disabled>
+                                <option value="">Seleccionar...</option>
+                            </select>
                         </div>
                     </div>
 
