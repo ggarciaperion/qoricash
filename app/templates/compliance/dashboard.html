@@ -228,45 +228,18 @@
 <script>
 console.log('🔵 Script del dashboard cargado en extra_js');
 
-// Esperar a que jQuery esté disponible
-if (typeof jQuery === 'undefined') {
-    console.error('❌ jQuery NO está cargado');
-} else {
-    console.log('✅ jQuery está disponible');
-}
-
 // ============================================
-// CARGAR DATOS AL INICIAR
+// REFRESH DASHBOARD - GLOBAL SCOPE
 // ============================================
-jQuery(document).ready(function($) {
-    console.log('🚀 jQuery ready - Iniciando Dashboard Middle Office...');
-    console.log('🔍 Verificando jQuery:', typeof $);
-    console.log('🔍 Verificando jQuery global:', typeof jQuery);
-
-    // Mostrar datos de prueba primero
-    console.log('📝 Mostrando datos de prueba...');
-    jQuery('#totalClients').text('TEST');
-    jQuery('#activeClients').text('123');
-
-    // Esperar 1 segundo y luego cargar datos reales
-    setTimeout(function() {
-        console.log('⏰ Iniciando carga de datos reales...');
-        loadDashboardData();
-    }, 1000);
-});
-
-// ============================================
-// REFRESH DASHBOARD
-// ============================================
-function refreshDashboard() {
+window.refreshDashboard = function() {
     console.log('🔄 Refresh solicitado');
-    loadDashboardData();
-}
+    window.loadDashboardData();
+};
 
 // ============================================
-// CARGAR DATOS DEL DASHBOARD
+// CARGAR DATOS DEL DASHBOARD - GLOBAL SCOPE
 // ============================================
-function loadDashboardData() {
+window.loadDashboardData = function() {
     console.log('📊 [INICIO] Cargando datos del dashboard...');
     console.log('📊 [URL] Llamando a: /compliance/api/dashboard/all');
 
@@ -333,6 +306,26 @@ function loadDashboardData() {
             console.log('🏁 [COMPLETE] Petición AJAX completada (éxito o error)');
         }
     });
-}
+};
+
+// ============================================
+// CARGAR DATOS AL INICIAR
+// ============================================
+jQuery(document).ready(function($) {
+    console.log('🚀 jQuery ready - Iniciando Dashboard Middle Office...');
+    console.log('🔍 Verificando jQuery:', typeof $);
+    console.log('🔍 Verificando jQuery global:', typeof jQuery);
+
+    // Mostrar datos de prueba primero
+    console.log('📝 Mostrando datos de prueba...');
+    jQuery('#totalClients').text('TEST');
+    jQuery('#activeClients').text('123');
+
+    // Esperar 1 segundo y luego cargar datos reales
+    setTimeout(function() {
+        console.log('⏰ Iniciando carga de datos reales...');
+        window.loadDashboardData();
+    }, 1000);
+});
 </script>
 {% endblock %}
