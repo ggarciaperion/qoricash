@@ -44,11 +44,13 @@
 
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
+                    {% if current_user.role != 'Middle Office' %}
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('dashboard.index') }}">
                             <i class="bi bi-speedometer2"></i> Dashboard
                         </a>
                     </li>
+                    {% endif %}
 
                     {% if current_user.role in ['Master', 'Trader', 'Operador', 'Middle Office', 'Plataforma'] %}
                     <li class="nav-item">

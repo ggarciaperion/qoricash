@@ -25,6 +25,8 @@ def index():
 
     Redirige al dashboard según el rol del usuario
     """
+    from flask import redirect, url_for
+
     # Verificar rol y mostrar dashboard correspondiente
     if current_user.role == 'Master':
         return render_template('dashboard/master.html', user=current_user)
@@ -34,8 +36,8 @@ def index():
         # Los operadores ven dashboard completo sin Sistema ni Gestionar Usuarios
         return render_template('dashboard/operator.html', user=current_user)
     elif current_user.role == 'Middle Office':
-        # Middle Office ve dashboard de compliance
-        return render_template('compliance/dashboard.html', user=current_user)
+        # Middle Office NO tiene dashboard, redirigir a KYC
+        return redirect(url_for('compliance.kyc'))
     else:
         return render_template('dashboard/trader.html', user=current_user)
 
