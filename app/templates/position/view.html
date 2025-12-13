@@ -62,15 +62,27 @@
     <div class="row mb-4">
         <div class="col-md-12">
             <div class="card">
-                <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0"><i class="bi bi-bank"></i> Saldos Bancarios</h5>
-                    <div>
-                        <button class="btn btn-sm btn-light" onclick="refreshReconciliation()">
-                            <i class="bi bi-arrow-clockwise"></i> Actualizar
-                        </button>
-                        <button class="btn btn-sm btn-success" onclick="openAddBankModal()">
-                            <i class="bi bi-plus-circle"></i> Agregar Banco
-                        </button>
+                <div class="card-header bg-info text-white">
+                    <div class="row align-items-center">
+                        <div class="col-md-4">
+                            <h5 class="mb-0"><i class="bi bi-bank"></i> Saldos Bancarios</h5>
+                            <small id="subtituloFechaSaldos" class="text-white-50">Información del día</small>
+                        </div>
+                        <div class="col-md-8 text-end">
+                            <!-- Filtro de fecha para Saldos Bancarios -->
+                            <div class="btn-group me-2" role="group">
+                                <button type="button" class="btn btn-sm btn-light" onclick="setFechaSaldosHoy()">Hoy</button>
+                                <button type="button" class="btn btn-sm btn-light" onclick="setFechaSaldosAyer()">Ayer</button>
+                                <input type="date" id="fechaSaldosSelector" class="form-control form-control-sm d-inline-block" style="width: 160px;">
+                            </div>
+
+                            <button class="btn btn-sm btn-light me-2" onclick="refreshReconciliation()">
+                                <i class="bi bi-arrow-clockwise"></i> Actualizar
+                            </button>
+                            <button class="btn btn-sm btn-success" onclick="openAddBankModal()">
+                                <i class="bi bi-plus-circle"></i> Agregar Banco
+                            </button>
+                        </div>
                     </div>
                 </div>
                 <div class="card-body">
@@ -365,11 +377,11 @@ let reconciliationData = null;
 
 // Cargar datos al iniciar
 $(document).ready(function() {
-    // Inicializar fecha de hoy
+    // Inicializar fecha de hoy para operaciones
     setFechaHoy();
 
-    // Cargar reconciliación de saldos bancarios
-    loadReconciliation();
+    // Inicializar fecha de hoy para saldos bancarios
+    setFechaSaldosHoy();
 
     // Filtros de estado
     $('#filtroCompras').on('change', function() {
@@ -389,9 +401,14 @@ $(document).ready(function() {
         filterVentas($('#filtroVentas').val());
     });
 
-    // Cambio de fecha
+    // Cambio de fecha para operaciones
     $('#fechaSelector').on('change', function() {
         loadPosition($(this).val());
+    });
+
+    // Cambio de fecha para saldos bancarios
+    $('#fechaSaldosSelector').on('change', function() {
+        loadReconciliation($(this).val());
     });
 
     // Conectar a SocketIO para actualizaciones en tiempo real
@@ -460,6 +477,20 @@ function setFechaAyer() {
     const ayer = getPeruDate(1); // Restar 1 día
     $('#fechaSelector').val(ayer);
     loadPosition(ayer);
+}
+
+function setFechaSaldosHoy() {
+    // Obtener fecha actual en Peru (UTC-5)
+    const hoy = getPeruDate();
+    $('#fechaSaldosSelector').val(hoy);
+    loadReconciliation(hoy);
+}
+
+function setFechaSaldosAyer() {
+    // Obtener fecha de ayer en Peru (UTC-5)
+    const ayer = getPeruDate(1); // Restar 1 día
+    $('#fechaSaldosSelector').val(ayer);
+    loadReconciliation(ayer);
 }
 
 // Función auxiliar para obtener fecha en Peru (UTC-5)
@@ -1016,6 +1047,10 @@ function loadReconciliation(fecha = null) {
     ajaxRequest(url, 'GET', null, function(response) {
         if (response.success) {
             reconciliationData = response;
+
+            // Actualizar subtítulo con fecha
+            actualizarSubtituloFechaSaldos(response.fecha);
+
             renderReconciliationSummary(response.movements_summary);
             renderReconciliationTable(response.banks);
             // Ya no llamamos renderDiscrepancyAlert aquí - lo hace renderReconciliationTable
@@ -1024,9 +1059,22 @@ function loadReconciliation(fecha = null) {
 }
 
 function refreshReconciliation() {
-    const fecha = $('#fechaSelector').val();
+    const fecha = $('#fechaSaldosSelector').val();
     loadReconciliation(fecha);
     showNotification('Reconciliación actualizada', 'success');
+}
+
+function actualizarSubtituloFechaSaldos(fecha) {
+    const hoy = getPeruDate();
+    const fechaObj = new Date(fecha + 'T00:00:00');
+    const opciones = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+    const fechaFormateada = fechaObj.toLocaleDateString('es-PE', opciones);
+
+    if (fecha === hoy) {
+        $('#subtituloFechaSaldos').html(`<strong>Hoy</strong> - ${fechaFormateada}`);
+    } else {
+        $('#subtituloFechaSaldos').html(`${fechaFormateada}`);
+    }
 }
 
 function renderReconciliationSummary(summary) {
