@@ -452,7 +452,16 @@ function applyRoleRestrictions(role) {
         return;
     }
 
-    console.log('ES TRADER - Bloqueando campos excepto cuentas bancarias y documentos...');
+    // IMPORTANTE: Solo aplicar restricciones si está EDITANDO, NO al crear
+    const clientId = document.getElementById('clientId')?.value;
+    const isEditing = clientId && clientId.trim() !== '';
+
+    if (!isEditing) {
+        console.log('✅ Trader CREANDO cliente - Permitir todos los campos');
+        return; // No aplicar restricciones al crear
+    }
+
+    console.log('🔒 Trader EDITANDO cliente - Bloqueando campos excepto cuentas bancarias y documentos...');
 
     const form = document.getElementById('clientForm');
     if (!form) {

@@ -21,6 +21,10 @@ login_manager = LoginManager()
 login_manager.login_view = 'auth.login'
 login_manager.login_message = 'Por favor inicia sesión para acceder a esta página'
 login_manager.login_message_category = 'warning'
+login_manager.session_protection = 'strong'  # Protección fuerte: invalida sesión si cambia IP/User-Agent
+login_manager.refresh_view = 'auth.login'
+login_manager.needs_refresh_message = 'Para proteger tu cuenta, por favor vuelve a iniciar sesión'
+login_manager.needs_refresh_message_category = 'info'
 
 # Security
 csrf = CSRFProtect()
