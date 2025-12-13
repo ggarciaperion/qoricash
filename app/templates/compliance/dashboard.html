@@ -5,343 +5,380 @@
 {% block content %}
 <div class="container-fluid py-4">
     <!-- Header -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h2 class="mb-0">Dashboard de Compliance</h2>
-            <p class="text-muted">Panel de control - Middle Office</p>
-        </div>
-        <div>
-            <span class="badge bg-success">Sistema AML/KYC/PLAFT Activo</span>
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2 class="mb-1">Dashboard Middle Office</h2>
+            <p class="text-muted mb-0">Panel de Control - Compliance y Supervisión</p>
         </div>
     </div>
 
-    <!-- Row 1: Alertas -->
+    <!-- Row 1: Estadísticas Principales -->
     <div class="row mb-4">
-        <div class="col-md-3">
-            <div class="card border-danger">
-                <div class="card-body text-center">
-                    <i class="bi bi-exclamation-triangle-fill text-danger" style="font-size: 2rem;"></i>
-                    <h3 class="mt-2 mb-0" id="alertsCritical">0</h3>
-                    <p class="text-muted mb-0">Alertas Críticas</p>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card border-warning">
-                <div class="card-body text-center">
-                    <i class="bi bi-exclamation-circle-fill text-warning" style="font-size: 2rem;"></i>
-                    <h3 class="mt-2 mb-0" id="alertsHigh">0</h3>
-                    <p class="text-muted mb-0">Alertas Altas</p>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card border-info">
-                <div class="card-body text-center">
-                    <i class="bi bi-info-circle-fill text-info" style="font-size: 2rem;"></i>
-                    <h3 class="mt-2 mb-0" id="alertsMedium">0</h3>
-                    <p class="text-muted mb-0">Alertas Medias</p>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card border-secondary">
-                <div class="card-body text-center">
-                    <i class="bi bi-list-ul text-secondary" style="font-size: 2rem;"></i>
-                    <h3 class="mt-2 mb-0" id="alertsTotal">0</h3>
-                    <p class="text-muted mb-0">Total Pendientes</p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Row 2: Clientes por Nivel de Riesgo -->
-    <div class="row mb-4">
-        <div class="col-md-8">
-            <div class="card">
-                <div class="card-header bg-primary text-white">
-                    <i class="bi bi-bar-chart-fill"></i> Clientes por Nivel de Riesgo
-                </div>
+        <!-- Total Clientes -->
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-primary shadow h-100 py-2">
                 <div class="card-body">
-                    <canvas id="riskLevelChart" height="80"></canvas>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card mb-3">
-                <div class="card-body text-center">
-                    <i class="bi bi-person-badge text-warning" style="font-size: 2rem;"></i>
-                    <h3 class="mt-2 mb-0" id="pepClients">0</h3>
-                    <p class="text-muted mb-0">Clientes PEP</p>
-                </div>
-            </div>
-            <div class="card">
-                <div class="card-body text-center">
-                    <i class="bi bi-shield-exclamation text-danger" style="font-size: 2rem;"></i>
-                    <h3 class="mt-2 mb-0" id="restrictiveMatches">0</h3>
-                    <p class="text-muted mb-0">Matches Listas Restrictivas</p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Row 3: KYC Pendientes y Últimas Alertas -->
-    <div class="row mb-4">
-        <div class="col-md-6">
-            <div class="card">
-                <div class="card-header bg-info text-white">
-                    <i class="bi bi-person-check"></i> Estado KYC
-                </div>
-                <div class="card-body">
-                    <div class="d-flex justify-content-between mb-3">
-                        <div>
-                            <h5>Pendientes</h5>
-                            <h2 id="kycPending">0</h2>
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                Total Clientes</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800" id="totalClients">
+                                <span class="spinner-border spinner-border-sm" role="status"></span>
+                            </div>
                         </div>
-                        <div>
-                            <h5>En Proceso</h5>
-                            <h2 id="kycInProcess">0</h2>
+                        <div class="col-auto">
+                            <i class="bi bi-people-fill fa-2x text-gray-300"></i>
                         </div>
                     </div>
-                    <a href="/compliance/kyc" class="btn btn-info w-100">
-                        <i class="bi bi-arrow-right-circle"></i> Revisar KYC
+                </div>
+            </div>
+        </div>
+
+        <!-- Clientes Activos -->
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                Clientes Activos</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800" id="activeClients">
+                                <span class="spinner-border spinner-border-sm" role="status"></span>
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="bi bi-check-circle-fill fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Total Operaciones -->
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-info shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                Operaciones (Mes)</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800" id="totalOperations">
+                                <span class="spinner-border spinner-border-sm" role="status"></span>
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="bi bi-arrow-left-right fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Documentos Pendientes -->
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-warning shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                Docs Incompletos</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800" id="docsIncomplete">
+                                <span class="spinner-border spinner-border-sm" role="status"></span>
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="bi bi-file-earmark-text-fill fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Row 2: KYC y Validaciones -->
+    <div class="row mb-4">
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow h-100">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-primary">Estado de Validación KYC</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-6 border-right">
+                            <div class="mb-0">
+                                <div class="text-muted small">Validados</div>
+                                <div class="h4 mb-0 text-success" id="kycValidated">
+                                    <span class="spinner-border spinner-border-sm" role="status"></span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="mb-0">
+                                <div class="text-muted small">Pendientes</div>
+                                <div class="h4 mb-0 text-warning" id="kycPending">
+                                    <span class="spinner-border spinner-border-sm" role="status"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <hr>
+                    <a href="/compliance/kyc" class="btn btn-primary btn-block">
+                        <i class="bi bi-person-check"></i> Revisar KYC
                     </a>
                 </div>
             </div>
         </div>
-        <div class="col-md-6">
-            <div class="card">
-                <div class="card-header bg-danger text-white">
-                    <i class="bi bi-bell-fill"></i> Alertas Críticas Recientes
-                </div>
-                <div class="card-body">
-                    <div id="recentCriticalAlerts" style="max-height: 200px; overflow-y: auto;">
-                        <p class="text-muted text-center">Cargando...</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
 
-    <!-- Row 4: Accesos Rápidos -->
-    <div class="row">
-        <div class="col-md-12">
-            <div class="card">
-                <div class="card-header bg-dark text-white">
-                    <i class="bi bi-lightning-fill"></i> Accesos Rápidos
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow h-100">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-primary">Operaciones del Mes</h6>
                 </div>
                 <div class="card-body">
                     <div class="row text-center">
-                        <div class="col-md-2">
-                            <a href="/compliance/alerts" class="btn btn-outline-primary btn-lg w-100 mb-2">
-                                <i class="bi bi-exclamation-triangle d-block" style="font-size: 2rem;"></i>
-                                <small>Alertas</small>
-                            </a>
+                        <div class="col-4">
+                            <div class="mb-0">
+                                <div class="text-muted small">Completadas</div>
+                                <div class="h4 mb-0 text-success" id="opsCompleted">
+                                    <span class="spinner-border spinner-border-sm" role="status"></span>
+                                </div>
+                            </div>
                         </div>
-                        <div class="col-md-2">
-                            <a href="/compliance/risk-profiles" class="btn btn-outline-warning btn-lg w-100 mb-2">
-                                <i class="bi bi-shield-check d-block" style="font-size: 2rem;"></i>
-                                <small>Perfiles de Riesgo</small>
-                            </a>
+                        <div class="col-4 border-left border-right">
+                            <div class="mb-0">
+                                <div class="text-muted small">En Proceso</div>
+                                <div class="h4 mb-0 text-info" id="opsInProcess">
+                                    <span class="spinner-border spinner-border-sm" role="status"></span>
+                                </div>
+                            </div>
                         </div>
-                        <div class="col-md-2">
-                            <a href="/compliance/kyc" class="btn btn-outline-info btn-lg w-100 mb-2">
-                                <i class="bi bi-person-check d-block" style="font-size: 2rem;"></i>
-                                <small>KYC</small>
-                            </a>
+                        <div class="col-4">
+                            <div class="mb-0">
+                                <div class="text-muted small">Pendientes</div>
+                                <div class="h4 mb-0 text-warning" id="opsPending">
+                                    <span class="spinner-border spinner-border-sm" role="status"></span>
+                                </div>
+                            </div>
                         </div>
-                        <div class="col-md-2">
-                            <a href="/clients/list" class="btn btn-outline-success btn-lg w-100 mb-2">
-                                <i class="bi bi-people d-block" style="font-size: 2rem;"></i>
-                                <small>Clientes</small>
-                            </a>
+                    </div>
+                    <hr>
+                    <a href="/operations/history" class="btn btn-info btn-block">
+                        <i class="bi bi-clock-history"></i> Ver Operaciones
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Row 3: Compliance y Alertas -->
+    <div class="row mb-4">
+        <div class="col-lg-4 mb-4">
+            <div class="card shadow h-100">
+                <div class="card-header py-3 bg-danger text-white">
+                    <h6 class="m-0 font-weight-bold">Alertas de Compliance</h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="text-danger">Críticas</span>
+                            <span class="badge bg-danger" id="alertsCritical">0</span>
                         </div>
-                        <div class="col-md-2">
-                            <a href="/operations/history" class="btn btn-outline-secondary btn-lg w-100 mb-2">
-                                <i class="bi bi-clock-history d-block" style="font-size: 2rem;"></i>
-                                <small>Historial</small>
-                            </a>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="text-warning">Altas</span>
+                            <span class="badge bg-warning" id="alertsHigh">0</span>
                         </div>
-                        <div class="col-md-2">
-                            <a href="/compliance/audit" class="btn btn-outline-dark btn-lg w-100 mb-2">
-                                <i class="bi bi-file-text d-block" style="font-size: 2rem;"></i>
-                                <small>Auditoría</small>
-                            </a>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="text-info">Medias</span>
+                            <span class="badge bg-info" id="alertsMedium">0</span>
                         </div>
+                    </div>
+                    <hr>
+                    <a href="/compliance/alerts" class="btn btn-danger btn-block">
+                        <i class="bi bi-exclamation-triangle"></i> Ver Alertas
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4 mb-4">
+            <div class="card shadow h-100">
+                <div class="card-header py-3 bg-warning text-dark">
+                    <h6 class="m-0 font-weight-bold">Clientes de Riesgo</h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span>Clientes PEP</span>
+                            <span class="badge bg-warning" id="pepClients">0</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span>Listas Restrictivas</span>
+                            <span class="badge bg-danger" id="restrictiveMatches">0</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span>Alto Riesgo</span>
+                            <span class="badge bg-danger" id="highRiskClients">0</span>
+                        </div>
+                    </div>
+                    <hr>
+                    <a href="/compliance/risk-profiles" class="btn btn-warning btn-block">
+                        <i class="bi bi-shield-exclamation"></i> Ver Perfiles
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4 mb-4">
+            <div class="card shadow h-100">
+                <div class="card-header py-3 bg-dark text-white">
+                    <h6 class="m-0 font-weight-bold">Accesos Rápidos</h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="/clients/list" class="btn btn-outline-primary btn-sm">
+                            <i class="bi bi-people"></i> Gestión de Clientes
+                        </a>
+                        <a href="/compliance/restrictive-lists" class="btn btn-outline-secondary btn-sm">
+                            <i class="bi bi-shield-lock"></i> Listas Restrictivas
+                        </a>
+                        <a href="/compliance/audit" class="btn btn-outline-dark btn-sm">
+                            <i class="bi bi-file-text"></i> Auditoría
+                        </a>
                     </div>
                 </div>
             </div>
         </div>
     </div>
+
 </div>
+
+<style>
+.border-left-primary {
+    border-left: 0.25rem solid #4e73df !important;
+}
+.border-left-success {
+    border-left: 0.25rem solid #1cc88a !important;
+}
+.border-left-info {
+    border-left: 0.25rem solid #36b9cc !important;
+}
+.border-left-warning {
+    border-left: 0.25rem solid #f6c23e !important;
+}
+.card {
+    border-radius: 0.35rem;
+}
+.fa-2x {
+    font-size: 2em;
+}
+.text-gray-300 {
+    color: #dddfeb !important;
+}
+.text-gray-800 {
+    color: #5a5c69 !important;
+}
+</style>
 {% endblock %}
 
 {% block extra_js %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
-    let riskChart = null;
+$(document).ready(function() {
+    console.log('🚀 Cargando dashboard Middle Office...');
+    loadDashboardData();
 
-    $(document).ready(function() {
-        loadDashboardStats();
-        loadRecentCriticalAlerts();
+    // Refresh every 60 seconds
+    setInterval(loadDashboardData, 60000);
+});
 
-        // Auto-refresh every 30 seconds
-        setInterval(loadDashboardStats, 30000);
+function loadDashboardData() {
+    // Cargar estadísticas de clientes y operaciones
+    $.ajax({
+        url: '/dashboard/api/dashboard/all',
+        method: 'GET',
+        success: function(response) {
+            console.log('✅ Datos recibidos:', response);
+
+            if (response.month) {
+                const data = response.month;
+
+                // Estadísticas principales
+                $('#totalClients').text(data.active_clients || 0);
+                $('#activeClients').text(data.active_clients || 0);
+                $('#totalOperations').text(data.operations_count || 0);
+
+                // Operaciones por estado
+                $('#opsCompleted').text(data.completed_count || 0);
+                $('#opsInProcess').text(data.in_process_count || 0);
+                $('#opsPending').text(data.pending_count || 0);
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('❌ Error al cargar datos generales:', error);
+            setDefaultValues();
+        }
     });
 
-    function loadDashboardStats() {
-        $.ajax({
-            url: '/compliance/api/dashboard/stats',
-            method: 'GET',
-            success: function(response) {
-                if (response.success && response.data) {
-                    const data = response.data;
+    // Cargar estadísticas de compliance
+    $.ajax({
+        url: '/compliance/api/dashboard/stats',
+        method: 'GET',
+        success: function(response) {
+            console.log('✅ Compliance stats:', response);
 
-                    // Update alert counts
-                    $('#alertsCritical').text(data.alerts_critical || 0);
-                    $('#alertsHigh').text(data.alerts_high || 0);
-                    $('#alertsMedium').text(data.alerts_medium || 0);
-                    $('#alertsTotal').text(data.alerts_total || 0);
+            if (response.success && response.data) {
+                const data = response.data;
 
-                    // Update KYC counts
-                    $('#kycPending').text(data.kyc_pending || 0);
-                    $('#kycInProcess').text(data.kyc_in_process || 0);
+                // Alertas
+                $('#alertsCritical').text(data.alerts_critical || 0);
+                $('#alertsHigh').text(data.alerts_high || 0);
+                $('#alertsMedium').text(data.alerts_medium || 0);
 
-                    // Update PEP and restrictive lists
-                    $('#pepClients').text(data.pep_clients || 0);
-                    $('#restrictiveMatches').text(data.restrictive_list_matches || 0);
+                // KYC - Calcular validados vs pendientes
+                const totalClients = data.clients_total || 0;
+                const kycPending = data.kyc_pending || 0;
+                const kycValidated = totalClients - kycPending;
 
-                    // Update risk level chart
-                    updateRiskChart(data);
+                $('#kycValidated').text(kycValidated >= 0 ? kycValidated : 0);
+                $('#kycPending').text(kycPending);
 
-                    console.log('✅ Dashboard stats loaded:', data);
-                } else {
-                    console.error('❌ Error en respuesta:', response);
-                    showDefaultValues();
-                }
-            },
-            error: function(xhr, status, error) {
-                console.error('❌ Error al cargar estadísticas:', error);
-                console.error('Response:', xhr.responseText);
-                showDefaultValues();
+                // Riesgo
+                $('#pepClients').text(data.pep_clients || 0);
+                $('#restrictiveMatches').text(data.restrictive_list_matches || 0);
+                $('#highRiskClients').text((data.clients_critical_risk || 0) + (data.clients_high_risk || 0));
 
-                // Show friendly message
-                if (xhr.status === 0) {
-                    console.warn('⚠️ No se pudo conectar al servidor');
-                } else {
-                    console.warn(`⚠️ Error ${xhr.status}: ${xhr.statusText}`);
-                }
-            }
-        });
-    }
-
-    function showDefaultValues() {
-        // Show zeros when data is not available
-        $('#alertsCritical, #alertsHigh, #alertsMedium, #alertsTotal').text('0');
-        $('#kycPending, #kycInProcess').text('0');
-        $('#pepClients, #restrictiveMatches').text('0');
-
-        // Show empty chart
-        updateRiskChart({
-            clients_total: 0,
-            clients_critical_risk: 0,
-            clients_high_risk: 0,
-            clients_medium_risk: 0
-        });
-    }
-
-    function updateRiskChart(data) {
-        const ctx = document.getElementById('riskLevelChart');
-
-        if (riskChart) {
-            riskChart.destroy();
-        }
-
-        riskChart = new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: ['Crítico', 'Alto', 'Medio', 'Bajo'],
-                datasets: [{
-                    label: 'Clientes',
-                    data: [
-                        data.clients_critical_risk || 0,
-                        data.clients_high_risk || 0,
-                        data.clients_medium_risk || 0,
-                        (data.clients_total || 0) - (data.clients_critical_risk || 0) - (data.clients_high_risk || 0) - (data.clients_medium_risk || 0)
-                    ],
-                    backgroundColor: [
-                        'rgba(220, 53, 69, 0.7)',   // Red - Crítico
-                        'rgba(255, 193, 7, 0.7)',   // Yellow - Alto
-                        'rgba(13, 202, 240, 0.7)',  // Cyan - Medio
-                        'rgba(25, 135, 84, 0.7)'    // Green - Bajo
-                    ],
-                    borderColor: [
-                        'rgb(220, 53, 69)',
-                        'rgb(255, 193, 7)',
-                        'rgb(13, 202, 240)',
-                        'rgb(25, 135, 84)'
-                    ],
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: true,
-                plugins: {
-                    legend: {
-                        display: false
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            stepSize: 1
+                // Documentos incompletos
+                $.ajax({
+                    url: '/clients/api/list',
+                    method: 'GET',
+                    success: function(clientsResponse) {
+                        if (clientsResponse.data) {
+                            const incomplete = clientsResponse.data.filter(c => !c.has_complete_documents).length;
+                            $('#docsIncomplete').text(incomplete);
                         }
+                    },
+                    error: function() {
+                        $('#docsIncomplete').text('N/A');
                     }
-                }
+                });
             }
-        });
-    }
+        },
+        error: function(xhr, status, error) {
+            console.error('❌ Error al cargar compliance:', error);
+            setComplianceDefaults();
+        }
+    });
+}
 
-    function loadRecentCriticalAlerts() {
-        ajaxRequest('/compliance/api/alerts?severity=Crítica&status=Pendiente&length=5', 'GET', null, function(response) {
-            if (response.success || response.data) {
-                const alerts = response.data || [];
-                const container = $('#recentCriticalAlerts');
+function setDefaultValues() {
+    $('#totalClients, #activeClients, #totalOperations').text('0');
+    $('#opsCompleted, #opsInProcess, #opsPending').text('0');
+}
 
-                if (alerts.length === 0) {
-                    container.html('<p class="text-muted text-center mb-0">No hay alertas críticas pendientes</p>');
-                } else {
-                    let html = '<div class="list-group">';
-                    alerts.forEach(alert => {
-                        html += `
-                            <a href="/compliance/alerts/${alert.id}" class="list-group-item list-group-item-action">
-                                <div class="d-flex w-100 justify-content-between">
-                                    <h6 class="mb-1">${escapeHtml(alert.title)}</h6>
-                                    <small class="text-danger">${alert.severity}</small>
-                                </div>
-                                <p class="mb-1 small">${escapeHtml(alert.client_name)}</p>
-                                <small class="text-muted">${alert.created_at}</small>
-                            </a>
-                        `;
-                    });
-                    html += '</div>';
-                    container.html(html);
-                }
-            }
-        });
-    }
-
-    function escapeHtml(text) {
-        const map = {
-            '&': '&amp;',
-            '<': '&lt;',
-            '>': '&gt;',
-            '"': '&quot;',
-            "'": '&#039;'
-        };
-        return text.replace(/[&<>"']/g, m => map[m]);
-    }
+function setComplianceDefaults() {
+    $('#alertsCritical, #alertsHigh, #alertsMedium').text('0');
+    $('#kycValidated, #kycPending').text('0');
+    $('#pepClients, #restrictiveMatches, #highRiskClients').text('0');
+    $('#docsIncomplete').text('0');
+}
 </script>
 {% endblock %}
