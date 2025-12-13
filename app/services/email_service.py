@@ -2013,3 +2013,270 @@ class EmailService:
         except Exception as e:
             logger.error(f'Error al enviar alerta de deshabilitación para cliente {client.id}: {str(e)}')
             return False, f'Error al enviar alerta: {str(e)}'
+
+    @staticmethod
+    def send_documents_uploaded_notification(client, trader, document_urls):
+        """
+        Enviar notificación a Middle Office cuando Trader sube documentos faltantes
+
+        Destinatarios:
+        - To: Middle Office
+        - Cc: Admin/Master
+
+        Args:
+            client: Objeto Client que recibió documentos
+            trader: Usuario (Trader) que subió los documentos
+            document_urls: Dict con URLs de documentos subidos
+
+        Returns:
+            tuple: (success: bool, message: str)
+        """
+        try:
+            # Destinatario principal: Middle Office
+            to = []
+            middle_office_users = User.query.filter(
+                User.role == 'Middle Office',
+                User.status == 'Activo',
+                User.email.isnot(None)
+            ).all()
+
+            for user in middle_office_users:
+                if user.email:
+                    to.append(user.email)
+
+            # Copia: Admin/Master
+            cc = []
+            admin_users = User.query.filter(
+                User.role == 'Master',
+                User.status == 'Activo',
+                User.email.isnot(None)
+            ).all()
+
+            for user in admin_users:
+                if user.email:
+                    cc.append(user.email)
+
+            # Validar destinatarios
+            if not to and not cc:
+                logger.warning(f'No hay destinatarios para notificación de documentos del cliente {client.id}')
+                return False, 'No hay destinatarios configurados'
+
+            # Determinar qué documentos se subieron
+            docs_subidos = []
+            if client.document_type in ('DNI', 'CE'):
+                if 'dni_front_url' in document_urls:
+                    docs_subidos.append('DNI frente')
+                if 'dni_back_url' in document_urls:
+                    docs_subidos.append('DNI reverso')
+            else:  # RUC
+                if 'dni_representante_front_url' in document_urls:
+                    docs_subidos.append('DNI representante legal frente')
+                if 'dni_representante_back_url' in document_urls:
+                    docs_subidos.append('DNI representante legal reverso')
+                if 'ficha_ruc_url' in document_urls:
+                    docs_subidos.append('Ficha RUC')
+
+            docs_list = ', '.join(docs_subidos)
+
+            # Asunto
+            subject = f'📄 Documentos Completados: {client.full_name} - Revisión Requerida'
+
+            # Cuerpo del correo
+            html_body = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body {{
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 650px;
+            margin: 0 auto;
+            padding: 20px;
+        }}
+        .container {{
+            background: #ffffff;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }}
+        .header {{
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 8px 8px 0 0;
+            text-align: center;
+            margin: -30px -30px 30px -30px;
+        }}
+        .header h1 {{
+            margin: 0;
+            font-size: 24px;
+            font-weight: 600;
+        }}
+        .icon {{
+            font-size: 48px;
+            margin-bottom: 10px;
+        }}
+        .info-box {{
+            background: #d1ecf1;
+            border-left: 4px solid #17a2b8;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }}
+        .success-box {{
+            background: #d4edda;
+            border-left: 4px solid #28a745;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }}
+        .data-table {{
+            width: 100%;
+            margin: 20px 0;
+            border-collapse: collapse;
+        }}
+        .data-table td {{
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+        }}
+        .data-table td:first-child {{
+            font-weight: 600;
+            width: 180px;
+            color: #555;
+        }}
+        .action-required {{
+            background: #17a2b8;
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 25px 0;
+        }}
+        .action-required h3 {{
+            margin-top: 0;
+        }}
+        .docs-list {{
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+        }}
+        .docs-list ul {{
+            margin: 10px 0;
+            padding-left: 25px;
+        }}
+        .docs-list li {{
+            margin: 5px 0;
+        }}
+        .footer {{
+            margin-top: 30px;
+            text-align: center;
+            color: #666;
+            font-size: 12px;
+            border-top: 1px solid #eee;
+            padding-top: 20px;
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="icon">📄</div>
+            <h1>Documentos Completados - Revisión Requerida</h1>
+        </div>
+
+        <div class="success-box">
+            <p><strong>¡Buenas noticias!</strong> El Trader ha completado los documentos faltantes del cliente. Se requiere revisión de Middle Office para activar la cuenta.</p>
+        </div>
+
+        <h3 style="color: #28a745;">Información del Cliente</h3>
+        <table class="data-table">
+            <tr>
+                <td>Cliente:</td>
+                <td><strong>{client.full_name}</strong></td>
+            </tr>
+            <tr>
+                <td>Tipo/Número de Doc:</td>
+                <td>{client.document_type}: {client.dni}</td>
+            </tr>
+            <tr>
+                <td>Email:</td>
+                <td>{client.email}</td>
+            </tr>
+            <tr>
+                <td>Teléfono:</td>
+                <td>{client.phone or 'N/A'}</td>
+            </tr>
+            <tr>
+                <td>Estado Actual:</td>
+                <td><strong>{client.status}</strong></td>
+            </tr>
+        </table>
+
+        <h3 style="color: #17a2b8;">Documentos Subidos por el Trader</h3>
+        <div class="docs-list">
+            <p><strong>Trader que subió documentos:</strong> {trader.username if trader else 'N/A'} ({trader.email if trader else 'N/A'})</p>
+            <p><strong>Documentos completados:</strong></p>
+            <ul>
+                {''.join([f'<li>✅ {doc}</li>' for doc in docs_subidos])}
+            </ul>
+        </div>
+
+        <div class="info-box">
+            <h4 style="margin-top: 0;">Estado de Validación KYC</h4>
+            <p>✅ <strong>Validación de Documentos:</strong> Actualizada automáticamente a "Completo"</p>
+            <p>ℹ️ El cliente ahora aparece con documentos completos en el menú KYC</p>
+        </div>
+
+        <div class="action-required">
+            <h3 style="margin-top: 0;">Acción Requerida - Middle Office</h3>
+            <p><strong>Para activar este cliente, debe:</strong></p>
+            <ol>
+                <li>Acceder al menú <strong>KYC</strong> en el sistema</li>
+                <li>Buscar al cliente: <strong>{client.full_name}</strong></li>
+                <li>Revisar los documentos subidos haciendo clic en el botón <strong>"VER"</strong></li>
+                <li>Verificar la autenticidad y validez de los documentos</li>
+                <li>Si todo está correcto, hacer clic en <strong>"Aprobar Documentos"</strong></li>
+            </ol>
+            <p style="margin-bottom: 0;"><strong>Nota:</strong> Una vez aprobados, el sistema:
+                <ul>
+                    <li>Reactivará automáticamente al cliente</li>
+                    <li>Reseteará los contadores de operaciones sin docs</li>
+                    <li>Permitirá al cliente operar sin restricciones</li>
+                    <li>Recalculará el perfil de riesgo</li>
+                </ul>
+            </p>
+        </div>
+
+        <div class="footer">
+            <p><strong>QoriCash Trading</strong></p>
+            <p>Sistema de Gestión de Operaciones Cambiarias</p>
+            <p>© 2025 QoriCash Trading. Todos los derechos reservados.</p>
+            <p style="margin-top: 15px; font-size: 11px; color: #999;">
+                Este es un correo automático generado por el sistema de control de documentos.
+            </p>
+        </div>
+    </div>
+</body>
+</html>
+"""
+
+            # Crear mensaje
+            msg = Message(
+                subject=subject,
+                recipients=to,
+                cc=cc,
+                html=html_body
+            )
+
+            # Enviar
+            mail.send(msg)
+            logger.info(f'Notificación de documentos completados enviada para cliente {client.id} a {len(to)} Middle Office y {len(cc)} Admin')
+
+            return True, 'Notificación enviada exitosamente'
+
+        except Exception as e:
+            logger.error(f'Error al enviar notificación de documentos para cliente {client.id}: {str(e)}')
+            return False, f'Error al enviar notificación: {str(e)}'

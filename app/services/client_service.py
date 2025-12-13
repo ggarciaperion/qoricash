@@ -620,11 +620,22 @@ class ClientService:
     def update_client_documents(current_user, client_id, document_urls):
         """
         Actualizar URLs de documentos del cliente
+
+        ACTUALIZADO: Ahora verifica si los documentos se completaron y:
+        - Actualiza has_complete_documents automáticamente
+        - Actualiza estado de validación de docs en KYC
+        - Envía notificación a Middle Office para revisión
         """
         try:
+            from app.models.client_risk_profile import ClientRiskProfile
+            from app.models.user import User
+
             client = ClientService.get_client_by_id(client_id)
             if not client:
                 return False, 'Cliente no encontrado', None
+
+            # Guardar estado anterior de documentos
+            docs_completos_antes = client.check_complete_documents()
 
             # Actualizar según tipo de documento
             if client.document_type == 'RUC':
@@ -640,26 +651,62 @@ class ClientService:
                 if 'dni_back_url' in document_urls:
                     client.dni_back_url = document_urls['dni_back_url']
 
+            # Verificar si ahora tiene documentos completos
+            docs_completos_ahora = client.check_complete_documents()
+
+            # Si se completaron los documentos, actualizar estado
+            if not docs_completos_antes and docs_completos_ahora:
+                client.has_complete_documents = True
+                logger.info(f'Cliente {client.id} ahora tiene documentos completos')
+
+                # Actualizar estado de validación de docs en KYC
+                risk_profile = ClientRiskProfile.query.filter_by(client_id=client.id).first()
+                if risk_profile:
+                    risk_profile.docs_validated = True
+                    risk_profile.updated_at = now_peru()
+                    logger.info(f'KYC actualizado: docs_validated = True para cliente {client.id}')
+
+                # Enviar notificación a Middle Office
+                try:
+                    from app.services.email_service import EmailService
+                    EmailService.send_documents_uploaded_notification(
+                        client=client,
+                        trader=current_user,
+                        document_urls=document_urls
+                    )
+                    logger.info(f'Notificación enviada a Middle Office para revisión de docs del cliente {client.id}')
+                except Exception as email_err:
+                    logger.warning(f'Error al enviar notificación a Middle Office: {str(email_err)}')
+
             # Auditoría: registrar antes del commit
             try:
                 AuditLog.log_action(
                     user_id=getattr(current_user, 'id', None),
-                    action='UPDATE_CLIENT',
+                    action='UPDATE_CLIENT_DOCUMENTS',
                     entity='Client',
                     entity_id=client.id,
-                    details=f'Documentos actualizados para cliente {client.full_name or client.dni}'
+                    details=f'Documentos actualizados para cliente {client.full_name or client.dni}. '
+                           f'Documentos completos: {docs_completos_ahora}'
                 )
             except Exception:
                 logger.exception("Fallo al registrar auditoría de actualización documentos")
 
-            # Commit único para client y audit_log juntos
+            # Recalcular perfil de riesgo si los docs se completaron
+            if not docs_completos_antes and docs_completos_ahora:
+                try:
+                    from app.services.compliance_service import ComplianceService
+                    ComplianceService.update_client_risk_profile(client.id, current_user.id, auto_commit=False)
+                except Exception as risk_exc:
+                    logger.warning(f'Error al recalcular perfil de riesgo: {str(risk_exc)}')
+
+            # Commit único para todo
             db.session.commit()
 
             return True, 'Documentos actualizados exitosamente', client
 
         except Exception as e:
             db.session.rollback()
-            current_app.logger.error(f'Error al actualizar documentos: {str(e)}')
+            logger.error(f'Error al actualizar documentos: {str(e)}')
             return False, f'Error al actualizar documentos: {str(e)}', None
 
     @staticmethod
