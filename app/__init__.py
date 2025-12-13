@@ -87,6 +87,8 @@ def initialize_extensions(flask_app):
 
 def register_blueprints(app):
     """Registrar blueprints de la aplicación"""
+    from flask import send_from_directory
+    import os
     from app.routes.auth import auth_bp
     from app.routes.dashboard import dashboard_bp
     from app.routes.users import users_bp
@@ -95,6 +97,15 @@ def register_blueprints(app):
     from app.routes.position import position_bp
     from app.routes.compliance import compliance_bp
     from app.routes.platform_api import platform_api_bp
+
+    # Ruta para servir favicon.ico
+    @app.route('/favicon.ico')
+    def favicon():
+        return send_from_directory(
+            os.path.join(app.root_path, 'static'),
+            'favicon.ico',
+            mimetype='image/vnd.microsoft.icon'
+        )
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
