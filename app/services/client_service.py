@@ -647,7 +647,7 @@ class ClientService:
         - Envía notificación a Middle Office para revisión
         """
         try:
-            from app.models.client_risk_profile import ClientRiskProfile
+            from app.models.compliance import ClientRiskProfile
             from app.models.user import User
 
             client = ClientService.get_client_by_id(client_id)

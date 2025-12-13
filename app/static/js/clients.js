@@ -513,30 +513,6 @@ function applyRoleRestrictions(role) {
         console.log('MutationObserver configurado para cuentas bancarias');
     }
 
-    // Agregar nota informativa
-    const existingNote = document.getElementById('traderRestrictionNote');
-    if (!existingNote) {
-        const modalBody = document.querySelector('#createClientModal .modal-body');
-        if (modalBody) {
-            const traderNote = document.createElement('div');
-            traderNote.className = 'alert alert-info mb-3';
-            traderNote.id = 'traderRestrictionNote';
-            traderNote.style.position = 'sticky';
-            traderNote.style.top = '0';
-            traderNote.style.zIndex = '1000';
-            traderNote.innerHTML = `
-                <h6 class="alert-heading"><i class="bi bi-info-circle"></i> Permisos de Edición (Trader)</h6>
-                <p class="mb-0">
-                    <strong>Puedes editar:</strong><br>
-                    ✅ Cuentas bancarias del cliente<br>
-                    ✅ Documentos adjuntos (DNI, CE, RUC, Ficha RUC)<br><br>
-                    <strong>No puedes editar:</strong> Datos personales (nombre, email, dirección, etc.)
-                </p>
-            `;
-            modalBody.insertBefore(traderNote, modalBody.firstChild);
-        }
-    }
-
     console.log('Restricciones aplicadas completamente');
 }
 
