@@ -589,21 +589,26 @@ function initInactivityDetection() {
  * Verificar si la sesión es válida (detectar apertura de nueva pestaña)
  */
 function checkSessionValidity() {
+    // Generar ID único para esta pestaña
+    const tabId = 'tab_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+
     // Verificar si hay una sesión activa en sessionStorage
     const sessionActive = sessionStorage.getItem(SESSION_CHECK_KEY);
 
     if (!sessionActive) {
-        // No hay sesión en sessionStorage, esto significa que:
-        // 1. Es la primera carga (OK)
-        // 2. Se cerró la pestaña y se volvió a abrir (DEBE CERRAR SESIÓN)
+        // No hay sesión en sessionStorage para esta pestaña
+        // Verificar si hay pestañas cerradas marcadas en localStorage
+        const tabClosed = localStorage.getItem('qoricash_tab_closed');
 
         // Verificar si el navegador tiene cookies de sesión de Flask
         const hasFlaskSession = document.cookie.includes('session=');
 
-        if (hasFlaskSession) {
-            // El navegador tiene sesión de Flask pero NO hay sessionStorage
-            // Esto indica que se cerró la pestaña y se volvió a abrir
-            console.log('🔒 Sesión inválida: pestaña cerrada y reabierta. Cerrando sesión...');
+        if (hasFlaskSession && tabClosed === 'true') {
+            // Hay una cookie de sesión Flask pero la última pestaña se cerró
+            console.log('🔒 Sesión inválida: todas las pestañas fueron cerradas. Cerrando sesión...');
+
+            // Limpiar marca de cierre
+            localStorage.removeItem('qoricash_tab_closed');
 
             // Cerrar sesión inmediatamente
             window.location.href = '/logout';
@@ -611,15 +616,76 @@ function checkSessionValidity() {
         }
     }
 
-    // Marcar sesión como activa en sessionStorage
-    sessionStorage.setItem(SESSION_CHECK_KEY, 'true');
+    // Marcar sesión como activa en sessionStorage de esta pestaña
+    sessionStorage.setItem(SESSION_CHECK_KEY, tabId);
+
+    // Registrar esta pestaña como activa en localStorage
+    registerActiveTab(tabId);
+
+    // Remover marca de cierre si existe (porque ahora hay una pestaña activa)
+    localStorage.removeItem('qoricash_tab_closed');
+
     return true;
 }
 
 /**
- * Limpiar sessionStorage al cerrar sesión
+ * Registrar pestaña activa
+ */
+function registerActiveTab(tabId) {
+    // Obtener lista de pestañas activas
+    let activeTabs = JSON.parse(localStorage.getItem('qoricash_active_tabs') || '[]');
+
+    // Agregar esta pestaña si no está
+    if (!activeTabs.includes(tabId)) {
+        activeTabs.push(tabId);
+        localStorage.setItem('qoricash_active_tabs', JSON.stringify(activeTabs));
+    }
+
+    // Limpiar pestañas inactivas periódicamente
+    cleanupInactiveTabs(tabId);
+}
+
+/**
+ * Limpiar pestañas que ya no existen
+ */
+function cleanupInactiveTabs(currentTabId) {
+    let activeTabs = JSON.parse(localStorage.getItem('qoricash_active_tabs') || '[]');
+
+    // Filtrar solo la pestaña actual (esto se ejecuta en cada pestaña)
+    // El truco es que cada pestaña solo se conoce a sí misma
+    const updatedTabs = activeTabs.filter(id => id === currentTabId);
+
+    localStorage.setItem('qoricash_active_tabs', JSON.stringify(updatedTabs));
+}
+
+/**
+ * Marcar que se cerró una pestaña
+ */
+function markTabClosed() {
+    const tabId = sessionStorage.getItem(SESSION_CHECK_KEY);
+
+    if (tabId) {
+        // Obtener pestañas activas
+        let activeTabs = JSON.parse(localStorage.getItem('qoricash_active_tabs') || '[]');
+
+        // Remover esta pestaña
+        activeTabs = activeTabs.filter(id => id !== tabId);
+
+        // Si no quedan pestañas activas, marcar que se cerró la última
+        if (activeTabs.length === 0) {
+            console.log('🔒 Última pestaña cerrada, marcando para cerrar sesión');
+            localStorage.setItem('qoricash_tab_closed', 'true');
+        }
+
+        localStorage.setItem('qoricash_active_tabs', JSON.stringify(activeTabs));
+    }
+}
+
+/**
+ * Limpiar sessionStorage y marcar pestaña como cerrada
  */
 function cleanupSessionStorage() {
+    markTabClosed();
     sessionStorage.removeItem(SESSION_CHECK_KEY);
 }
 
@@ -637,6 +703,17 @@ $(document).ready(function() {
 
         // Conectar SocketIO
         connectSocketIO();
+
+        // Detectar cierre de pestaña o navegador
+        window.addEventListener('beforeunload', function(event) {
+            // Marcar que esta pestaña se está cerrando
+            markTabClosed();
+        });
+
+        // También detectar cuando la pestaña pierde visibilidad (navegación, cierre, etc)
+        window.addEventListener('pagehide', function(event) {
+            markTabClosed();
+        });
     }
 
     // Iniciar verificación de operaciones pendientes (solo para Operador)
