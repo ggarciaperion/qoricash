@@ -121,8 +121,38 @@ def configure_logging(app):
 
 def register_error_handlers(app):
     """Registrar manejadores de errores"""
-    from flask import jsonify
+    from flask import jsonify, session, request
+    from flask_login import current_user
     from app.extensions import db
+    from datetime import datetime, timedelta
+
+    @app.before_request
+    def check_session_timeout():
+        """Verificar timeout de sesión en cada petición"""
+        # Solo verificar para usuarios autenticados
+        if current_user.is_authenticated:
+            # Obtener última actividad de la sesión
+            last_activity = session.get('last_activity')
+
+            if last_activity:
+                # Convertir a datetime si es string
+                if isinstance(last_activity, str):
+                    last_activity = datetime.fromisoformat(last_activity)
+
+                # Verificar si han pasado más de 10 minutos
+                timeout_limit = timedelta(minutes=10)
+                if datetime.utcnow() - last_activity > timeout_limit:
+                    # Limpiar sesión por timeout
+                    session.clear()
+                    return jsonify({
+                        'success': False,
+                        'error': 'Sesión expirada por inactividad',
+                        'redirect': '/login'
+                    }), 401
+
+            # Actualizar última actividad
+            session['last_activity'] = datetime.utcnow()
+            session.modified = True
 
     @app.errorhandler(404)
     def not_found_error(error):

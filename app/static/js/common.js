@@ -520,10 +520,122 @@ function loadDashboardData(month = null, year = null) {
     });
 }
 
+// ============================================
+// SISTEMA DE SEGURIDAD: INACTIVIDAD Y CIERRE DE PESTAÑA
+// ============================================
+
+let inactivityTimeout = null;
+const INACTIVITY_TIME = 10 * 60 * 1000; // 10 minutos en milisegundos
+const SESSION_CHECK_KEY = 'qoricash_session_active';
+
+/**
+ * Resetear el temporizador de inactividad
+ */
+function resetInactivityTimer() {
+    // Limpiar timeout anterior
+    if (inactivityTimeout) {
+        clearTimeout(inactivityTimeout);
+    }
+
+    // Crear nuevo timeout
+    inactivityTimeout = setTimeout(function() {
+        handleInactivityLogout();
+    }, INACTIVITY_TIME);
+}
+
+/**
+ * Manejar cierre de sesión por inactividad
+ */
+function handleInactivityLogout() {
+    console.log('⏰ Sesión cerrada por inactividad (10 minutos sin actividad)');
+
+    // Mostrar mensaje al usuario
+    if (typeof Swal !== 'undefined') {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Sesión Cerrada',
+            text: 'Tu sesión ha sido cerrada por inactividad (10 minutos sin actividad)',
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            confirmButtonText: 'Entendido'
+        }).then(function() {
+            // Redirigir a logout
+            window.location.href = '/logout';
+        });
+    } else {
+        alert('Tu sesión ha sido cerrada por inactividad');
+        window.location.href = '/logout';
+    }
+}
+
+/**
+ * Inicializar sistema de detección de inactividad
+ */
+function initInactivityDetection() {
+    // Eventos que resetean el contador de inactividad
+    const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
+
+    events.forEach(function(event) {
+        document.addEventListener(event, resetInactivityTimer, true);
+    });
+
+    // Iniciar el temporizador
+    resetInactivityTimer();
+
+    console.log('✅ Sistema de detección de inactividad iniciado (10 minutos)');
+}
+
+/**
+ * Verificar si la sesión es válida (detectar apertura de nueva pestaña)
+ */
+function checkSessionValidity() {
+    // Verificar si hay una sesión activa en sessionStorage
+    const sessionActive = sessionStorage.getItem(SESSION_CHECK_KEY);
+
+    if (!sessionActive) {
+        // No hay sesión en sessionStorage, esto significa que:
+        // 1. Es la primera carga (OK)
+        // 2. Se cerró la pestaña y se volvió a abrir (DEBE CERRAR SESIÓN)
+
+        // Verificar si el navegador tiene cookies de sesión de Flask
+        const hasFlaskSession = document.cookie.includes('session=');
+
+        if (hasFlaskSession) {
+            // El navegador tiene sesión de Flask pero NO hay sessionStorage
+            // Esto indica que se cerró la pestaña y se volvió a abrir
+            console.log('🔒 Sesión inválida: pestaña cerrada y reabierta. Cerrando sesión...');
+
+            // Cerrar sesión inmediatamente
+            window.location.href = '/logout';
+            return false;
+        }
+    }
+
+    // Marcar sesión como activa en sessionStorage
+    sessionStorage.setItem(SESSION_CHECK_KEY, 'true');
+    return true;
+}
+
+/**
+ * Limpiar sessionStorage al cerrar sesión
+ */
+function cleanupSessionStorage() {
+    sessionStorage.removeItem(SESSION_CHECK_KEY);
+}
+
 // Auto-conectar SocketIO al cargar la página
 $(document).ready(function() {
     // Solo conectar si el usuario está autenticado
     if ($('nav.navbar').length > 0) {
+        // Verificar validez de la sesión primero
+        if (!checkSessionValidity()) {
+            return; // Salir si la sesión no es válida
+        }
+
+        // Iniciar sistema de detección de inactividad
+        initInactivityDetection();
+
+        // Conectar SocketIO
         connectSocketIO();
     }
 
@@ -531,6 +643,11 @@ $(document).ready(function() {
     if (window.currentUserRole === 'Operador') {
         initPendingOperationsMonitor();
     }
+
+    // Limpiar sessionStorage cuando se cierra sesión
+    $('a[href*="/logout"]').on('click', function() {
+        cleanupSessionStorage();
+    });
 });
 
 // ============================================

@@ -44,7 +44,9 @@ class AuthService:
             return False, 'Usuario o contraseña incorrectos', None
         
         # Login exitoso
-        login_user(user, remember=remember)
+        # IMPORTANTE: remember=False siempre para seguridad
+        # La sesión se cerrará automáticamente al cerrar el navegador
+        login_user(user, remember=False)
 
         # Actualizar last_login
         user.last_login = now_peru()
