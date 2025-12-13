@@ -893,6 +893,13 @@ function saveClient() {
             bank_accounts: bankAccounts
         };
 
+        // LOG DETALLADO para debugging
+        console.log('📤 Datos que se enviarán al backend:');
+        console.log('   - Cliente ID:', clientId);
+        console.log('   - Rol:', currentUserRole);
+        console.log('   - Campos en traderData:', Object.keys(traderData));
+        console.log('   - bank_accounts:', JSON.stringify(bankAccounts, null, 2));
+
         showLoading();
 
         // Actualizar cuentas bancarias
@@ -904,8 +911,18 @@ function saveClient() {
             },
             body: JSON.stringify(traderData)
         })
-        .then(response => response.json())
+        .then(response => {
+            console.log('📥 Respuesta del servidor:', response.status, response.statusText);
+            if (!response.ok) {
+                return response.json().then(errorData => {
+                    console.error('❌ Error del servidor:', errorData);
+                    throw new Error(errorData.message || `Error ${response.status}: ${response.statusText}`);
+                });
+            }
+            return response.json();
+        })
         .then(data => {
+            console.log('📥 Data recibida:', data);
             if (data.success) {
                 console.log('✅ Cuentas bancarias actualizadas');
 

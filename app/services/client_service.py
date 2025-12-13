@@ -366,6 +366,12 @@ class ClientService:
             # VALIDACIÓN DE ROL: TRADER solo puede editar cuentas bancarias Y documentos adjuntos
             # Los datos personales del cliente (nombre, email, dirección, etc.) NO pueden ser modificados
             user_role = getattr(current_user, 'role', None)
+
+            # LOG DETALLADO para debugging
+            logger.info(f"📊 update_client llamado por: {current_user.username} (Rol: {user_role})")
+            logger.info(f"📦 Datos recibidos: {list(data.keys())}")
+            logger.info(f"📦 Valores: {data}")
+
             if user_role == 'Trader':
                 # Campos permitidos para Trader:
                 # 1. Cuentas bancarias
@@ -383,8 +389,12 @@ class ClientService:
                 # Si hay campos que no están permitidos, rechazar
                 forbidden_fields = set(data.keys()) - allowed_fields
                 if forbidden_fields:
-                    logger.warning(f"Trader {current_user.username} intentó modificar campos prohibidos: {forbidden_fields}")
-                    return False, 'No tienes permisos para modificar estos campos. Solo puedes editar cuentas bancarias y documentos adjuntos.', None
+                    logger.warning(f"❌ Trader {current_user.username} intentó modificar campos prohibidos: {forbidden_fields}")
+                    logger.warning(f"❌ Campos permitidos: {allowed_fields}")
+                    logger.warning(f"❌ Campos recibidos: {set(data.keys())}")
+                    return False, f'No tienes permisos para modificar estos campos: {", ".join(forbidden_fields)}. Solo puedes editar cuentas bancarias y documentos adjuntos.', None
+
+                logger.info(f"✅ Trader {current_user.username} - Validación de permisos OK")
 
             # Guardar valores anteriores para auditoría
             old_values = client.to_dict()
