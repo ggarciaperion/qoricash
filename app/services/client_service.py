@@ -363,27 +363,22 @@ class ClientService:
             if not client:
                 return False, 'Cliente no encontrado', None
 
-            # VALIDACIÓN DE ROL: TRADER solo puede editar cuentas bancarias y subir documentos
+            # VALIDACIÓN DE ROL: TRADER solo puede editar cuentas bancarias
+            # Los documentos deben subirse a través del endpoint /api/upload_documents/
             user_role = getattr(current_user, 'role', None)
             if user_role == 'Trader':
-                # Verificar que solo se estén editando cuentas bancarias o documentos
+                # Verificar que solo se estén editando cuentas bancarias
                 allowed_fields = {
                     # Cuentas bancarias
                     'bank_accounts', 'origen', 'bank_name', 'account_type',
-                    'currency', 'bank_account_number', 'bank_accounts_json',
-                    # Documentos persona natural (DNI/CE)
-                    'dni_front_url', 'dni_back_url',
-                    # Documentos persona jurídica (RUC)
-                    'dni_representante_front_url', 'dni_representante_back_url', 'ficha_ruc_url',
-                    # Otros documentos opcionales
-                    'validation_oc_file', 'constitucion_url', 'vigencia_url', 'estado_financiero_url'
+                    'currency', 'bank_account_number', 'bank_accounts_json'
                 }
 
-                # Si hay campos que no son de cuentas bancarias ni documentos, rechazar
+                # Si hay campos que no son de cuentas bancarias, rechazar
                 forbidden_fields = set(data.keys()) - allowed_fields
                 if forbidden_fields:
                     logger.warning(f"Trader {current_user.username} intentó modificar campos prohibidos: {forbidden_fields}")
-                    return False, 'No tienes permisos para modificar estos campos. Solo puedes editar cuentas bancarias y subir documentos.', None
+                    return False, 'No tienes permisos para modificar estos campos. Solo puedes editar cuentas bancarias.', None
 
             # Guardar valores anteriores para auditoría
             old_values = client.to_dict()

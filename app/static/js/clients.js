@@ -858,19 +858,9 @@ function saveClient() {
     const formData = new FormData(form);
     const clientData = {};
 
-    // VALIDACIÓN DE ROL: Si el usuario es Trader, solo puede enviar campos permitidos
+    // VALIDACIÓN DE ROL: Si el usuario es Trader, solo puede enviar cuentas bancarias
+    // Los documentos se suben por separado en /api/upload_documents/
     const isTrader = (typeof currentUserRole !== 'undefined' && currentUserRole === 'Trader');
-
-    // Lista de campos permitidos para el Trader (solo cuentas bancarias y documentos)
-    const traderAllowedFields = [
-        // Cuentas bancarias se manejan por separado más abajo
-        // Documentos persona natural (DNI/CE)
-        'dni_front_url', 'dni_back_url',
-        // Documentos persona jurídica (RUC)
-        'dni_representante_front_url', 'dni_representante_back_url', 'ficha_ruc_url',
-        // Otros documentos opcionales
-        'validation_oc_file', 'constitucion_url', 'vigencia_url', 'estado_financiero_url'
-    ];
 
     // Construir objeto de datos (excluir archivos y cuentas bancarias por ahora)
     formData.forEach((value, key) => {
@@ -880,29 +870,28 @@ function saveClient() {
             !key.startsWith('origen') && !key.startsWith('bank') &&
             !key.startsWith('account') && !key.startsWith('currency')) {
 
-            // Si es Trader, solo permitir campos en la lista blanca
-            if (isTrader) {
-                if (traderAllowedFields.includes(key)) {
-                    clientData[key] = value;
-                }
-                // Si no está en la lista, se omite (no se envía al backend)
-            } else {
+            // Si es Trader, NO enviar ningún campo de datos del cliente
+            // Solo las cuentas bancarias (que se agregan más abajo)
+            if (!isTrader) {
                 // Para otros roles, enviar todos los campos
                 clientData[key] = value;
             }
+            // Si es Trader, se omiten todos estos campos (nombres, email, etc.)
         }
     });
 
-    // Normalizar campos a mayúsculas (solo si no es Trader o si el campo fue permitido)
-    if (clientData.apellido_paterno) clientData.apellido_paterno = clientData.apellido_paterno.toUpperCase();
-    if (clientData.apellido_materno) clientData.apellido_materno = clientData.apellido_materno.toUpperCase();
-    if (clientData.nombres) clientData.nombres = clientData.nombres.toUpperCase();
-    if (clientData.razon_social) clientData.razon_social = clientData.razon_social.toUpperCase();
-    if (clientData.persona_contacto) clientData.persona_contacto = clientData.persona_contacto.toUpperCase();
+    // Normalizar campos a mayúsculas (solo para roles que no son Trader)
+    if (!isTrader) {
+        if (clientData.apellido_paterno) clientData.apellido_paterno = clientData.apellido_paterno.toUpperCase();
+        if (clientData.apellido_materno) clientData.apellido_materno = clientData.apellido_materno.toUpperCase();
+        if (clientData.nombres) clientData.nombres = clientData.nombres.toUpperCase();
+        if (clientData.razon_social) clientData.razon_social = clientData.razon_social.toUpperCase();
+        if (clientData.persona_contacto) clientData.persona_contacto = clientData.persona_contacto.toUpperCase();
 
-    // Sanitizar teléfono (solo si fue permitido)
-    if (clientData.phone) {
-        clientData.phone = clientData.phone.replace(/\s*;\s*/g, ';').trim();
+        // Sanitizar teléfono
+        if (clientData.phone) {
+            clientData.phone = clientData.phone.replace(/\s*;\s*/g, ';').trim();
+        }
     }
 
     // Recolectar todas las cuentas bancarias activas
