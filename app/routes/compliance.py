@@ -78,23 +78,32 @@ def dashboard_all():
         from app.models.operation import Operation
         from datetime import datetime
         from app.utils.formatters import now_peru
+        import logging
+
+        logger = logging.getLogger(__name__)
+        logger.info('🔵 [DASHBOARD] Iniciando carga de datos para Middle Office')
 
         # 1. COMPLIANCE STATS
+        logger.info('📊 [DASHBOARD] Obteniendo compliance stats...')
         compliance_stats = ComplianceService.get_compliance_dashboard_stats()
+        logger.info(f'✅ [DASHBOARD] Compliance stats: {compliance_stats}')
 
         # 2. CLIENTES
+        logger.info('👥 [DASHBOARD] Contando clientes...')
         total_clients = Client.query.count()
         active_clients = Client.query.filter_by(status='Activo').count()
+        logger.info(f'✅ [DASHBOARD] Total: {total_clients}, Activos: {active_clients}')
 
-        # Documentos incompletos
-        all_clients = Client.query.all()
-        docs_incomplete = 0
-        for client in all_clients:
-            is_valid, _ = ComplianceService.validate_client_documents(client)
-            if not is_valid:
-                docs_incomplete += 1
+        # Documentos incompletos - OPTIMIZADO (evitar iterar todos los clientes)
+        # Calculamos aproximado: clientes sin al menos 1 documento
+        logger.info('📄 [DASHBOARD] Calculando docs incompletos...')
+        docs_incomplete = Client.query.filter(
+            (Client.dni_front_url == None) | (Client.dni_front_url == '')
+        ).count()
+        logger.info(f'✅ [DASHBOARD] Docs incompletos: {docs_incomplete}')
 
         # 3. OPERACIONES DEL MES ACTUAL
+        logger.info('📈 [DASHBOARD] Contando operaciones del mes...')
         now = now_peru()
         start_of_month = datetime(now.year, now.month, 1)
         if now.month == 12:
@@ -110,6 +119,7 @@ def dashboard_all():
         ops_completed = sum(1 for op in operations_month if op.status == 'Completada')
         ops_pending = sum(1 for op in operations_month if op.status == 'Pendiente')
         ops_in_process = sum(1 for op in operations_month if op.status == 'En proceso')
+        logger.info(f'✅ [DASHBOARD] Operaciones - Total: {len(operations_month)}, Completadas: {ops_completed}')
 
         # KYC - Calcular validados
         kyc_pending = compliance_stats.get('kyc_pending', 0)
@@ -148,10 +158,16 @@ def dashboard_all():
             }
         }
 
+        logger.info(f'🎉 [DASHBOARD] Datos preparados exitosamente: {result["data"]}')
         return jsonify(result)
 
     except Exception as e:
         import traceback
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f'❌ [DASHBOARD] Error: {str(e)}')
+        logger.error(f'❌ [DASHBOARD] Traceback: {traceback.format_exc()}')
+
         return jsonify({
             'success': False,
             'error': str(e),
