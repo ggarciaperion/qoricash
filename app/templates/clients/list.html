@@ -538,10 +538,7 @@
 <!-- Socket.IO para actualizaciones en tiempo real -->
 <script src="https://cdn.socket.io/4.5.4/socket.io.min.js" crossorigin="anonymous"></script>
 
-<script>
-    // Pasar el rol del usuario actual al JavaScript para restricciones
-    currentUserRole = "{{ current_user.role }}";
-</script>
+<!-- La variable window.currentUserRole ya está definida en base.html -->
 <script src="{{ url_for('static', filename='js/clients.js') }}"></script>
 <script>
     // Inicializar DataTable al cargar la página

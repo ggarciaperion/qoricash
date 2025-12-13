@@ -860,7 +860,7 @@ function saveClient() {
 
     const clientId = document.getElementById('clientId').value;
     const isEditing = clientId !== '';
-    const isTrader = (typeof currentUserRole !== 'undefined' && currentUserRole === 'Trader');
+    const isTrader = (typeof window.currentUserRole !== 'undefined' && window.currentUserRole === 'Trader');
 
     // ============================================
     // ESTRATEGIA DIFERENTE PARA TRADER EN EDICIÓN
@@ -896,7 +896,7 @@ function saveClient() {
         // LOG DETALLADO para debugging
         console.log('📤 Datos que se enviarán al backend:');
         console.log('   - Cliente ID:', clientId);
-        console.log('   - Rol:', currentUserRole);
+        console.log('   - Rol:', window.currentUserRole);
         console.log('   - Campos en traderData:', Object.keys(traderData));
         console.log('   - bank_accounts:', JSON.stringify(bankAccounts, null, 2));
 
