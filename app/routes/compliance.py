@@ -66,6 +66,99 @@ def dashboard_stats():
         }), 500
 
 
+@compliance_bp.route('/api/dashboard/all')
+@login_required
+@middle_office_required
+def dashboard_all():
+    """
+    API: Obtener TODAS las estadísticas del dashboard de Middle Office
+    en una sola petición para evitar múltiples llamadas AJAX
+    """
+    try:
+        from app.models.operation import Operation
+        from datetime import datetime
+        from app.utils.formatters import now_peru
+
+        # 1. COMPLIANCE STATS
+        compliance_stats = ComplianceService.get_compliance_dashboard_stats()
+
+        # 2. CLIENTES
+        total_clients = Client.query.count()
+        active_clients = Client.query.filter_by(status='Activo').count()
+
+        # Documentos incompletos
+        all_clients = Client.query.all()
+        docs_incomplete = 0
+        for client in all_clients:
+            is_valid, _ = ComplianceService.validate_client_documents(client)
+            if not is_valid:
+                docs_incomplete += 1
+
+        # 3. OPERACIONES DEL MES ACTUAL
+        now = now_peru()
+        start_of_month = datetime(now.year, now.month, 1)
+        if now.month == 12:
+            end_of_month = datetime(now.year + 1, 1, 1)
+        else:
+            end_of_month = datetime(now.year, now.month + 1, 1)
+
+        operations_month = Operation.query.filter(
+            Operation.created_at >= start_of_month,
+            Operation.created_at < end_of_month
+        ).all()
+
+        ops_completed = sum(1 for op in operations_month if op.status == 'Completada')
+        ops_pending = sum(1 for op in operations_month if op.status == 'Pendiente')
+        ops_in_process = sum(1 for op in operations_month if op.status == 'En proceso')
+
+        # KYC - Calcular validados
+        kyc_pending = compliance_stats.get('kyc_pending', 0)
+        kyc_in_process = compliance_stats.get('kyc_in_process', 0)
+        kyc_validated = compliance_stats.get('clients_total', 0) - kyc_pending - kyc_in_process
+
+        # Combinar todo
+        result = {
+            'success': True,
+            'data': {
+                # Estadísticas principales
+                'total_clients': total_clients,
+                'active_clients': active_clients,
+                'docs_incomplete': docs_incomplete,
+                'operations_month': len(operations_month),
+
+                # Operaciones por estado
+                'ops_completed': ops_completed,
+                'ops_pending': ops_pending,
+                'ops_in_process': ops_in_process,
+
+                # KYC
+                'kyc_validated': max(0, kyc_validated),
+                'kyc_pending': kyc_pending,
+                'kyc_in_process': kyc_in_process,
+
+                # Alertas
+                'alerts_critical': compliance_stats.get('alerts_critical', 0),
+                'alerts_high': compliance_stats.get('alerts_high', 0),
+                'alerts_medium': compliance_stats.get('alerts_medium', 0),
+
+                # Riesgo
+                'pep_clients': compliance_stats.get('pep_clients', 0),
+                'restrictive_matches': compliance_stats.get('restrictive_list_matches', 0),
+                'high_risk_clients': compliance_stats.get('clients_critical_risk', 0) + compliance_stats.get('clients_high_risk', 0),
+            }
+        }
+
+        return jsonify(result)
+
+    except Exception as e:
+        import traceback
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
+
+
 # ==================== ALERTAS ====================
 
 @compliance_bp.route('/alerts')

@@ -291,138 +291,78 @@ $(document).ready(function() {
 });
 
 function loadDashboardData() {
-    console.log('📊 Cargando estadísticas de compliance...');
+    console.log('📊 Cargando estadísticas del dashboard Middle Office...');
 
-    // PASO 1: Cargar estadísticas de compliance (principal)
+    // UNA SOLA LLAMADA AJAX para obtener TODOS los datos
     $.ajax({
-        url: '/compliance/api/dashboard/stats',
+        url: '/compliance/api/dashboard/all',
         method: 'GET',
+        timeout: 30000, // 30 segundos de timeout
         success: function(response) {
-            console.log('✅ Compliance stats recibidos:', response);
+            console.log('✅ Datos recibidos del servidor:', response);
 
             if (response.success && response.data) {
-                const data = response.data;
+                const d = response.data;
 
-                // ESTADÍSTICAS PRINCIPALES - Total de Clientes
-                const totalClients = data.clients_total || 0;
-                $('#totalClients').text(totalClients);
-                console.log('📊 Total Clientes:', totalClients);
+                // ROW 1: ESTADÍSTICAS PRINCIPALES
+                $('#totalClients').text(d.total_clients || 0);
+                $('#activeClients').text(d.active_clients || 0);
+                $('#totalOperations').text(d.operations_month || 0);
+                $('#docsIncomplete').text(d.docs_incomplete || 0);
+                console.log('✅ Row 1 - Total:', d.total_clients, 'Activos:', d.active_clients, 'Ops:', d.operations_month, 'Docs:', d.docs_incomplete);
 
-                // ALERTAS
-                $('#alertsCritical').text(data.alerts_critical || 0);
-                $('#alertsHigh').text(data.alerts_high || 0);
-                $('#alertsMedium').text(data.alerts_medium || 0);
-                console.log('🚨 Alertas - Críticas:', data.alerts_critical, 'Altas:', data.alerts_high, 'Medias:', data.alerts_medium);
+                // ROW 2: KYC
+                $('#kycValidated').text(d.kyc_validated || 0);
+                $('#kycPending').text(d.kyc_pending || 0);
+                console.log('✅ KYC - Validados:', d.kyc_validated, 'Pendientes:', d.kyc_pending);
 
-                // KYC - Validados vs Pendientes
-                const kycPending = data.kyc_pending || 0;
-                const kycInProcess = data.kyc_in_process || 0;
-                const kycValidated = totalClients - kycPending - kycInProcess;
+                // ROW 2: OPERACIONES POR ESTADO
+                $('#opsCompleted').text(d.ops_completed || 0);
+                $('#opsInProcess').text(d.ops_in_process || 0);
+                $('#opsPending').text(d.ops_pending || 0);
+                console.log('✅ Operaciones - Completadas:', d.ops_completed, 'En Proceso:', d.ops_in_process, 'Pendientes:', d.ops_pending);
 
-                $('#kycValidated').text(kycValidated >= 0 ? kycValidated : 0);
-                $('#kycPending').text(kycPending);
-                console.log('✅ KYC - Validados:', kycValidated, 'Pendientes:', kycPending);
+                // ROW 3: ALERTAS
+                $('#alertsCritical').text(d.alerts_critical || 0);
+                $('#alertsHigh').text(d.alerts_high || 0);
+                $('#alertsMedium').text(d.alerts_medium || 0);
+                console.log('✅ Alertas - Críticas:', d.alerts_critical, 'Altas:', d.alerts_high, 'Medias:', d.alerts_medium);
 
-                // CLIENTES DE RIESGO
-                $('#pepClients').text(data.pep_clients || 0);
-                $('#restrictiveMatches').text(data.restrictive_list_matches || 0);
-                const highRisk = (data.clients_critical_risk || 0) + (data.clients_high_risk || 0);
-                $('#highRiskClients').text(highRisk);
-                console.log('⚠️ Riesgo - PEP:', data.pep_clients, 'Listas:', data.restrictive_list_matches, 'Alto Riesgo:', highRisk);
+                // ROW 3: RIESGO
+                $('#pepClients').text(d.pep_clients || 0);
+                $('#restrictiveMatches').text(d.restrictive_matches || 0);
+                $('#highRiskClients').text(d.high_risk_clients || 0);
+                console.log('✅ Riesgo - PEP:', d.pep_clients, 'Listas:', d.restrictive_matches, 'Alto Riesgo:', d.high_risk_clients);
 
-                // PASO 2: Cargar clientes activos desde la API de clientes
-                loadClientsData();
+                console.log('🎉 DASHBOARD CARGADO EXITOSAMENTE');
             } else {
-                console.error('❌ Respuesta de compliance sin success:', response);
-                setComplianceDefaults();
+                console.error('❌ Respuesta sin success o sin data:', response);
+                setAllDefaults();
             }
         },
         error: function(xhr, status, error) {
-            console.error('❌ Error al cargar compliance:', error);
-            console.error('Status:', status);
+            console.error('❌ ERROR AL CARGAR DASHBOARD');
+            console.error('Status HTTP:', xhr.status);
+            console.error('Status Text:', status);
+            console.error('Error:', error);
             console.error('Response:', xhr.responseText);
-            setComplianceDefaults();
-        }
-    });
 
-    // PASO 3: Cargar estadísticas de operaciones
-    $.ajax({
-        url: '/dashboard/api/dashboard/all',
-        method: 'GET',
-        success: function(response) {
-            console.log('✅ Dashboard stats recibidos:', response);
-
-            if (response.month) {
-                const data = response.month;
-
-                // OPERACIONES DEL MES
-                $('#totalOperations').text(data.operations_count || 0);
-                console.log('📈 Operaciones mes:', data.operations_count);
-
-                // OPERACIONES POR ESTADO (del mes)
-                $('#opsCompleted').text(data.completed_count || 0);
-                $('#opsInProcess').text(data.in_process_count || 0);
-                $('#opsPending').text(data.pending_count || 0);
-                console.log('📊 Operaciones - Completadas:', data.completed_count, 'En Proceso:', data.in_process_count, 'Pendientes:', data.pending_count);
-            } else {
-                console.error('❌ Respuesta de dashboard sin month:', response);
-                setDefaultValues();
-            }
-        },
-        error: function(xhr, status, error) {
-            console.error('❌ Error al cargar operaciones:', error);
-            console.error('Response:', xhr.responseText);
-            setDefaultValues();
+            // Mostrar error al usuario
+            alert('Error al cargar el dashboard. Por favor, recarga la página.\n\nDetalles: ' + error);
+            setAllDefaults();
         }
     });
 }
 
-function loadClientsData() {
-    console.log('👥 Cargando datos de clientes...');
-
-    $.ajax({
-        url: '/clients/api/list',
-        method: 'GET',
-        success: function(clientsResponse) {
-            console.log('✅ Clientes recibidos:', clientsResponse);
-
-            if (clientsResponse.data) {
-                const clients = clientsResponse.data;
-
-                // Clientes activos
-                const activeClients = clients.filter(c => c.status === 'Activo').length;
-                $('#activeClients').text(activeClients);
-                console.log('✅ Clientes Activos:', activeClients);
-
-                // Documentos incompletos
-                const incomplete = clients.filter(c => !c.has_complete_documents).length;
-                $('#docsIncomplete').text(incomplete);
-                console.log('📄 Docs Incompletos:', incomplete);
-            } else {
-                console.error('❌ Respuesta de clientes sin data:', clientsResponse);
-                $('#activeClients').text('0');
-                $('#docsIncomplete').text('0');
-            }
-        },
-        error: function(xhr, status, error) {
-            console.error('❌ Error al cargar clientes:', error);
-            console.error('Response:', xhr.responseText);
-            $('#activeClients').text('N/A');
-            $('#docsIncomplete').text('N/A');
-        }
-    });
-}
-
-function setDefaultValues() {
-    $('#totalClients, #activeClients, #totalOperations').text('0');
-    $('#opsCompleted, #opsInProcess, #opsPending').text('0');
-}
-
-function setComplianceDefaults() {
-    $('#alertsCritical, #alertsHigh, #alertsMedium').text('0');
+function setAllDefaults() {
+    // Row 1
+    $('#totalClients, #activeClients, #totalOperations, #docsIncomplete').text('0');
+    // Row 2 - KYC y Operaciones
     $('#kycValidated, #kycPending').text('0');
+    $('#opsCompleted, #opsInProcess, #opsPending').text('0');
+    // Row 3 - Alertas y Riesgo
+    $('#alertsCritical, #alertsHigh, #alertsMedium').text('0');
     $('#pepClients, #restrictiveMatches, #highRiskClients').text('0');
-    $('#docsIncomplete').text('0');
 }
 </script>
 {% endblock %}
