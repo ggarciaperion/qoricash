@@ -135,13 +135,20 @@ def register_error_handlers(app):
             last_activity = session.get('last_activity')
 
             if last_activity:
-                # Convertir a datetime si es string
+                # Obtener tiempo actual en UTC sin timezone (naive)
+                now = datetime.utcnow()
+
+                # Convertir last_activity a datetime naive si es necesario
                 if isinstance(last_activity, str):
                     last_activity = datetime.fromisoformat(last_activity)
 
+                # Si last_activity tiene timezone, removerlo para comparación
+                if hasattr(last_activity, 'tzinfo') and last_activity.tzinfo is not None:
+                    last_activity = last_activity.replace(tzinfo=None)
+
                 # Verificar si han pasado más de 10 minutos
                 timeout_limit = timedelta(minutes=10)
-                if datetime.utcnow() - last_activity > timeout_limit:
+                if now - last_activity > timeout_limit:
                     # Limpiar sesión por timeout
                     session.clear()
                     return jsonify({
@@ -150,7 +157,7 @@ def register_error_handlers(app):
                         'redirect': '/login'
                     }), 401
 
-            # Actualizar última actividad
+            # Actualizar última actividad (siempre como naive datetime)
             session['last_activity'] = datetime.utcnow()
             session.modified = True
 
