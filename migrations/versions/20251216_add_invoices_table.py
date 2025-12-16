@@ -1,7 +1,7 @@
 """add invoices table for electronic invoicing
 
 Revision ID: 20251216_invoices
-Revises: 20251212_add_partial_docs_control_fields
+Revises: m5n6o7p8q9r0
 Create Date: 2025-12-16 00:00:00.000000
 
 """
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = '20251216_invoices'
-down_revision = '20251212_add_partial_docs_control_fields'
+down_revision = 'm5n6o7p8q9r0'
 branch_labels = None
 depends_on = None
 
