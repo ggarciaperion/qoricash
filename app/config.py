@@ -55,7 +55,7 @@ class Config:
     WTF_CSRF_TIME_LIMIT = None  # No expiration
     WTF_CSRF_SSL_STRICT = False  # Allow HTTPS in production
 
-    # Email Configuration (Principal - para nuevas operaciones)
+    # Email Configuration (Unified)
     MAIL_SERVER = os.environ.get('MAIL_SERVER', 'smtp.gmail.com')
     MAIL_PORT = int(os.environ.get('MAIL_PORT', 587))
     MAIL_USE_TLS = os.environ.get('MAIL_USE_TLS', 'True') == 'True'
@@ -63,14 +63,22 @@ class Config:
     MAIL_USERNAME = os.environ.get('MAIL_USERNAME')
     MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD')
     MAIL_DEFAULT_SENDER = os.environ.get('MAIL_DEFAULT_SENDER') or os.environ.get('MAIL_USERNAME')
-
-    # Email de confirmación (para operaciones completadas)
-    MAIL_CONFIRMATION_USERNAME = os.environ.get('MAIL_CONFIRMATION_USERNAME')
-    MAIL_CONFIRMATION_PASSWORD = os.environ.get('MAIL_CONFIRMATION_PASSWORD')
-    MAIL_CONFIRMATION_SENDER = os.environ.get('MAIL_CONFIRMATION_SENDER')
-
     MAIL_MAX_EMAILS = None
     MAIL_ASCII_ATTACHMENTS = False
+
+    # NubeFact API Configuration
+    NUBEFACT_API_URL = os.environ.get('NUBEFACT_API_URL', 'https://api.nubefact.com/api/v1')
+    NUBEFACT_TOKEN = os.environ.get('NUBEFACT_TOKEN')
+    NUBEFACT_RUC = os.environ.get('NUBEFACT_RUC', '20615113698')
+    NUBEFACT_ENABLED = os.environ.get('NUBEFACT_ENABLED', 'False') == 'True'
+
+    # Company Information (Emisor)
+    COMPANY_RUC = os.environ.get('COMPANY_RUC', '20615113698')
+    COMPANY_NAME = os.environ.get('COMPANY_NAME', 'QORICASH SAC')
+    COMPANY_ADDRESS = os.environ.get('COMPANY_ADDRESS', 'AV. BRASIL NRO. 2790 INT. 504')
+    COMPANY_DISTRICT = os.environ.get('COMPANY_DISTRICT', 'PUEBLO LIBRE')
+    COMPANY_PROVINCE = os.environ.get('COMPANY_PROVINCE', 'LIMA')
+    COMPANY_DEPARTMENT = os.environ.get('COMPANY_DEPARTMENT', 'LIMA')
 
 
 class DevelopmentConfig(Config):

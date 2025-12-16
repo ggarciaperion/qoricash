@@ -47,6 +47,9 @@ eventlet==0.35.2
 # Email
 Flask-Mail==0.9.1
 
+# HTTP Requests (for NubeFact API)
+requests==2.31.0
+
 # Testing (opcional)
 pytest==7.4.3
 pytest-cov==4.1.0

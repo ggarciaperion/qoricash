@@ -330,6 +330,30 @@ class OperationService:
 
         # Enviar email si la operación se completó
         if new_status == 'Completada':
+            # Generar factura electrónica
+            invoice_generated = False
+            try:
+                from app.services.invoice_service import InvoiceService
+                import logging
+                logger = logging.getLogger(__name__)
+
+                if InvoiceService.is_enabled():
+                    logger.info(f'Generando factura electrónica para operación {operation.operation_id}')
+                    success, message, invoice = InvoiceService.generate_invoice_for_operation(operation.id)
+
+                    if success and invoice:
+                        logger.info(f'Factura generada: {invoice.invoice_number}')
+                        invoice_generated = True
+                    else:
+                        logger.warning(f'No se pudo generar factura: {message}')
+                else:
+                    logger.info('Facturación electrónica deshabilitada')
+            except Exception as e:
+                # Log el error pero no falla la operación
+                import logging
+                logging.error(f'Error al generar factura para {operation.operation_id}: {str(e)}')
+
+            # Enviar email con comprobante (y factura si se generó)
             try:
                 from app.services.email_service import EmailService
                 EmailService.send_completed_operation_email(operation)

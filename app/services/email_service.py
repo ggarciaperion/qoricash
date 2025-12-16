@@ -210,63 +210,33 @@ class EmailService:
                 logger.warning(f'No hay destinatarios para la operación completada {operation.operation_id}')
                 return False, 'No hay destinatarios configurados'
 
-            # Obtener credenciales del email de confirmación
-            confirmation_username = current_app.config.get('MAIL_CONFIRMATION_USERNAME')
-            confirmation_password = current_app.config.get('MAIL_CONFIRMATION_PASSWORD')
-            confirmation_sender = current_app.config.get('MAIL_CONFIRMATION_SENDER')
+            # Obtener remitente configurado (unificado)
+            sender = current_app.config.get('MAIL_DEFAULT_SENDER')
+            logger.info(f'[EMAIL] Remitente: {sender}')
 
-            logger.info(f'[EMAIL] Credenciales - Usuario: {confirmation_username}, Remitente: {confirmation_sender}')
+            # Asunto
+            subject = f'Operación Completada #{operation.operation_id} - QoriCash Trading'
 
-            if not confirmation_username or not confirmation_password:
-                logger.error('[EMAIL] Credenciales de email de confirmacion no configuradas')
-                return False, 'Email de confirmación no configurado'
+            # Contenido HTML
+            logger.info(f'[EMAIL] Generando plantilla HTML')
+            html_body = EmailService._render_completed_operation_template(operation)
 
-            # Guardar configuración original
-            original_username = current_app.config.get('MAIL_USERNAME')
-            original_password = current_app.config.get('MAIL_PASSWORD')
-            original_sender = current_app.config.get('MAIL_DEFAULT_SENDER')
+            # Crear mensaje usando Flask-Mail
+            logger.info(f'[EMAIL] Creando mensaje Flask-Mail')
+            msg = Message(
+                subject=subject,
+                sender=sender,
+                recipients=to,
+                cc=cc if cc else None,
+                html=html_body
+            )
 
-            # Sobrescribir temporalmente con credenciales de confirmación
-            current_app.config['MAIL_USERNAME'] = confirmation_username
-            current_app.config['MAIL_PASSWORD'] = confirmation_password
-            current_app.config['MAIL_DEFAULT_SENDER'] = confirmation_sender
+            # Enviar
+            logger.info(f'[EMAIL] Enviando email a TO: {to}, CC: {cc}')
+            mail.send(msg)
 
-            try:
-                # Crear un nuevo objeto Mail con la configuración actualizada
-                from app.extensions import mail
-                mail.init_app(current_app)
-
-                # Asunto
-                subject = f'Operación Completada #{operation.operation_id} - QoriCash Trading'
-
-                # Contenido HTML
-                logger.info(f'[EMAIL] Generando plantilla HTML')
-                html_body = EmailService._render_completed_operation_template(operation)
-
-                # Crear mensaje usando Flask-Mail
-                logger.info(f'[EMAIL] Creando mensaje Flask-Mail')
-                msg = Message(
-                    subject=subject,
-                    sender=confirmation_sender,
-                    recipients=to,
-                    cc=cc if cc else None,
-                    html=html_body
-                )
-
-                # Enviar
-                logger.info(f'[EMAIL] Enviando email a TO: {to}, CC: {cc}')
-                mail.send(msg)
-
-                logger.info(f'[EMAIL] Email de operacion completada enviado exitosamente desde {confirmation_sender}: {operation.operation_id}')
-                return True, 'Email enviado correctamente'
-
-            finally:
-                # Restaurar configuración original
-                current_app.config['MAIL_USERNAME'] = original_username
-                current_app.config['MAIL_PASSWORD'] = original_password
-                current_app.config['MAIL_DEFAULT_SENDER'] = original_sender
-                # Reinicializar mail con configuración original
-                mail.init_app(current_app)
+            logger.info(f'[EMAIL] Email de operacion completada enviado exitosamente desde {sender}: {operation.operation_id}')
+            return True, 'Email enviado correctamente'
 
         except Exception as e:
             logger.error(f'[EMAIL] ERROR al enviar email de operacion completada {operation.operation_id}: {str(e)}')
@@ -944,64 +914,34 @@ class EmailService:
                 logger.warning(f'No hay destinatarios para el cliente activado {client.id}')
                 return False, 'No hay destinatarios configurados'
 
-            # Obtener credenciales del email de confirmación
-            confirmation_username = current_app.config.get('MAIL_CONFIRMATION_USERNAME')
-            confirmation_password = current_app.config.get('MAIL_CONFIRMATION_PASSWORD')
-            confirmation_sender = current_app.config.get('MAIL_CONFIRMATION_SENDER')
+            # Obtener remitente configurado (unificado)
+            sender = current_app.config.get('MAIL_DEFAULT_SENDER')
+            logger.info(f'[EMAIL] Remitente: {sender}')
 
-            logger.info(f'[EMAIL] Credenciales - Usuario: {confirmation_username}, Remitente: {confirmation_sender}')
+            # Asunto
+            subject = f'Cuenta Activada - Bienvenido a QoriCash'
 
-            if not confirmation_username or not confirmation_password:
-                logger.error('[EMAIL] Credenciales de email de confirmacion no configuradas')
-                return False, 'Email de confirmación no configurado'
+            # Contenido HTML
+            logger.info(f'[EMAIL] Generando plantilla HTML')
+            html_body = EmailService._render_client_activation_template(client, trader)
 
-            # Guardar configuración original
-            original_username = current_app.config.get('MAIL_USERNAME')
-            original_password = current_app.config.get('MAIL_PASSWORD')
-            original_sender = current_app.config.get('MAIL_DEFAULT_SENDER')
+            # Crear mensaje usando Flask-Mail
+            logger.info(f'[EMAIL] Creando mensaje Flask-Mail')
+            msg = Message(
+                subject=subject,
+                sender=sender,
+                recipients=to,
+                cc=cc if cc else None,
+                bcc=bcc if bcc else None,
+                html=html_body
+            )
 
-            # Sobrescribir temporalmente con credenciales de confirmación
-            current_app.config['MAIL_USERNAME'] = confirmation_username
-            current_app.config['MAIL_PASSWORD'] = confirmation_password
-            current_app.config['MAIL_DEFAULT_SENDER'] = confirmation_sender
+            # Enviar
+            logger.info(f'[EMAIL] Enviando email a TO: {to}, CC: {cc}')
+            mail.send(msg)
 
-            try:
-                # Crear un nuevo objeto Mail con la configuración actualizada
-                from app.extensions import mail
-                mail.init_app(current_app)
-
-                # Asunto
-                subject = f'Cuenta Activada - Bienvenido a QoriCash'
-
-                # Contenido HTML
-                logger.info(f'[EMAIL] Generando plantilla HTML')
-                html_body = EmailService._render_client_activation_template(client, trader)
-
-                # Crear mensaje usando Flask-Mail
-                logger.info(f'[EMAIL] Creando mensaje Flask-Mail')
-                msg = Message(
-                    subject=subject,
-                    sender=confirmation_sender,
-                    recipients=to,
-                    cc=cc if cc else None,
-                    bcc=bcc if bcc else None,
-                    html=html_body
-                )
-
-                # Enviar
-                logger.info(f'[EMAIL] Enviando email a TO: {to}, CC: {cc}')
-                mail.send(msg)
-
-                logger.info(f'[EMAIL] Email de cliente activado enviado exitosamente desde {confirmation_sender}: {client.id}')
-                return True, 'Email enviado correctamente'
-
-            finally:
-                # Restaurar configuración original
-                current_app.config['MAIL_USERNAME'] = original_username
-                current_app.config['MAIL_PASSWORD'] = original_password
-                current_app.config['MAIL_DEFAULT_SENDER'] = original_sender
-                # Reinicializar mail con configuración original
-                mail.init_app(current_app)
+            logger.info(f'[EMAIL] Email de cliente activado enviado exitosamente desde {sender}: {client.id}')
+            return True, 'Email enviado correctamente'
 
         except Exception as e:
             logger.error(f'[EMAIL] ERROR al enviar email de cliente activado {client.id}: {str(e)}')
