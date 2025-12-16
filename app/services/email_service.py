@@ -195,7 +195,7 @@ class EmailService:
                 return True, 'Email omitido (rol Plataforma)'
 
             from flask import current_app
-            from flask_mail import Message, Mail
+            from flask_mail import Message
 
             logger.info(f'[EMAIL] Iniciando envio de email completado para operacion {operation.operation_id}')
             logger.info(f'[EMAIL] operator_proofs: {operation.operator_proofs}')
@@ -210,10 +210,6 @@ class EmailService:
                 logger.warning(f'No hay destinatarios para la operación completada {operation.operation_id}')
                 return False, 'No hay destinatarios configurados'
 
-            # Obtener remitente configurado (unificado)
-            sender = current_app.config.get('MAIL_DEFAULT_SENDER')
-            logger.info(f'[EMAIL] Remitente: {sender}')
-
             # Asunto
             subject = f'Operación Completada #{operation.operation_id} - QoriCash Trading'
 
@@ -225,7 +221,6 @@ class EmailService:
             logger.info(f'[EMAIL] Creando mensaje Flask-Mail')
             msg = Message(
                 subject=subject,
-                sender=sender,
                 recipients=to,
                 cc=cc if cc else None,
                 html=html_body
@@ -271,7 +266,7 @@ class EmailService:
             logger.info(f'[EMAIL] Enviando email a TO: {to}, CC: {cc}')
             mail.send(msg)
 
-            logger.info(f'[EMAIL] Email de operacion completada enviado exitosamente desde {sender}: {operation.operation_id}')
+            logger.info(f'[EMAIL] Email de operacion completada enviado exitosamente: {operation.operation_id}')
             return True, 'Email enviado correctamente'
 
         except Exception as e:
@@ -932,7 +927,7 @@ class EmailService:
                 return True, 'Email omitido (rol Plataforma)'
 
             from flask import current_app
-            from flask_mail import Message, Mail
+            from flask_mail import Message
 
             logger.info(f'[EMAIL] Iniciando envio de email de cliente activado {client.id}')
 
@@ -963,10 +958,6 @@ class EmailService:
                 logger.warning(f'No hay destinatarios para el cliente activado {client.id}')
                 return False, 'No hay destinatarios configurados'
 
-            # Obtener remitente configurado (unificado)
-            sender = current_app.config.get('MAIL_DEFAULT_SENDER')
-            logger.info(f'[EMAIL] Remitente: {sender}')
-
             # Asunto
             subject = f'Cuenta Activada - Bienvenido a QoriCash'
 
@@ -978,7 +969,6 @@ class EmailService:
             logger.info(f'[EMAIL] Creando mensaje Flask-Mail')
             msg = Message(
                 subject=subject,
-                sender=sender,
                 recipients=to,
                 cc=cc if cc else None,
                 bcc=bcc if bcc else None,
@@ -989,7 +979,7 @@ class EmailService:
             logger.info(f'[EMAIL] Enviando email a TO: {to}, CC: {cc}')
             mail.send(msg)
 
-            logger.info(f'[EMAIL] Email de cliente activado enviado exitosamente desde {sender}: {client.id}')
+            logger.info(f'[EMAIL] Email de cliente activado enviado exitosamente: {client.id}')
             return True, 'Email enviado correctamente'
 
         except Exception as e:
