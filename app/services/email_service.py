@@ -231,6 +231,42 @@ class EmailService:
                 html=html_body
             )
 
+            # Adjuntar factura electrónica si existe
+            try:
+                from app.models.invoice import Invoice
+                import requests
+                from io import BytesIO
+
+                # Buscar factura aceptada para esta operación
+                invoice = Invoice.query.filter_by(
+                    operation_id=operation.id,
+                    status='Aceptado'
+                ).first()
+
+                if invoice and invoice.nubefact_enlace_pdf:
+                    logger.info(f'[EMAIL] Adjuntando factura {invoice.invoice_number}')
+
+                    # Descargar PDF desde NubeFact
+                    pdf_response = requests.get(invoice.nubefact_enlace_pdf, timeout=30)
+
+                    if pdf_response.status_code == 200:
+                        # Adjuntar PDF al email
+                        filename = f"{invoice.invoice_number.replace('-', '_')}.pdf"
+                        msg.attach(
+                            filename,
+                            "application/pdf",
+                            pdf_response.content
+                        )
+                        logger.info(f'[EMAIL] Factura {filename} adjuntada exitosamente')
+                    else:
+                        logger.warning(f'[EMAIL] No se pudo descargar PDF de factura: Status {pdf_response.status_code}')
+                else:
+                    logger.info(f'[EMAIL] No hay factura electrónica para adjuntar')
+
+            except Exception as e:
+                # Si falla el adjunto de factura, no bloquear el envío del email
+                logger.warning(f'[EMAIL] Error al adjuntar factura: {str(e)}')
+
             # Enviar
             logger.info(f'[EMAIL] Enviando email a TO: {to}, CC: {cc}')
             mail.send(msg)
@@ -611,6 +647,19 @@ class EmailService:
                     {% endif %}
                 </div>
                 {% endfor %}
+            </div>
+            {% endif %}
+
+            {% if operation.invoices and operation.invoices|selectattr('status', 'equalto', 'Aceptado')|list|length > 0 %}
+            <div class="proof-section" style="background: linear-gradient(135deg, #f0f9ff, #e0f2fe); border: 2px solid #0ea5e9;">
+                <h3 style="color: #0284c7;">🧾 Factura Electrónica</h3>
+                <p>Su comprobante de pago electrónico ha sido generado y enviado a SUNAT.</p>
+                <p style="font-weight: 600; color: #0284c7; margin-top: 12px;">
+                    📎 El archivo PDF de la factura se encuentra adjunto a este correo.
+                </p>
+                <p style="font-size: 12px; color: #6c757d; margin-top: 8px;">
+                    Este comprobante tiene validez tributaria ante la SUNAT del Perú.
+                </p>
             </div>
             {% endif %}
 
