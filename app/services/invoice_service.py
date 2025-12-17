@@ -116,7 +116,9 @@ class InvoiceService:
                 operation, client, invoice_type_name, response_data
             )
 
-            logger.info(f'[INVOICE] Factura generada exitosamente: {invoice.invoice_number}')
+            logger.info(f'[INVOICE] ✅ Factura generada exitosamente: {invoice.invoice_number}')
+            logger.info(f'[INVOICE] PDF URL guardada: {invoice.nubefact_enlace_pdf}')
+            logger.info(f'[INVOICE] XML URL guardada: {invoice.nubefact_enlace_xml}')
             return True, 'Factura generada correctamente', invoice
 
         except Exception as e:
@@ -288,6 +290,7 @@ class InvoiceService:
             }
 
             logger.info('[INVOICE] Enviando comprobante a NubeFact...')
+            logger.info(f'[INVOICE] URL: {api_url}/documento/generar')
 
             response = requests.post(
                 f'{api_url}/documento/generar',
@@ -299,6 +302,7 @@ class InvoiceService:
             response_data = response.json()
 
             logger.info(f'[INVOICE] Respuesta NubeFact: Status {response.status_code}')
+            logger.info(f'[INVOICE] Respuesta completa: {response_data}')
 
             if response.status_code in [200, 201]:
                 # Verificar si SUNAT aceptó el comprobante

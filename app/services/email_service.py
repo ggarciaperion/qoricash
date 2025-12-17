@@ -239,28 +239,63 @@ class EmailService:
                 ).first()
 
                 if invoice and invoice.nubefact_enlace_pdf:
-                    logger.info(f'[EMAIL] Adjuntando factura {invoice.invoice_number}')
+                    logger.info(f'[EMAIL] Factura encontrada: {invoice.invoice_number}')
+                    logger.info(f'[EMAIL] URL del PDF: {invoice.nubefact_enlace_pdf}')
+                    logger.info(f'[EMAIL] Intentando descargar PDF desde NubeFact...')
 
-                    # Descargar PDF desde NubeFact
-                    pdf_response = requests.get(invoice.nubefact_enlace_pdf, timeout=30)
+                    # Preparar headers de autenticación para NubeFact
+                    nubefact_token = current_app.config.get('NUBEFACT_TOKEN')
+                    headers = {}
+                    if nubefact_token:
+                        headers['Authorization'] = f'Token token="{nubefact_token}"'
+                        logger.info(f'[EMAIL] Usando autenticación NubeFact')
+                    else:
+                        logger.warning(f'[EMAIL] No se encontró token de NubeFact, intentando descarga sin autenticación')
+
+                    # Descargar PDF desde NubeFact con autenticación
+                    pdf_response = requests.get(
+                        invoice.nubefact_enlace_pdf,
+                        headers=headers,
+                        timeout=30,
+                        allow_redirects=True
+                    )
+
+                    logger.info(f'[EMAIL] Respuesta de descarga PDF: Status {pdf_response.status_code}')
+                    logger.info(f'[EMAIL] Tamaño del contenido: {len(pdf_response.content)} bytes')
+                    logger.info(f'[EMAIL] Content-Type: {pdf_response.headers.get("Content-Type")}')
 
                     if pdf_response.status_code == 200:
-                        # Adjuntar PDF al email
-                        filename = f"{invoice.invoice_number.replace('-', '_')}.pdf"
-                        msg.attach(
-                            filename,
-                            "application/pdf",
-                            pdf_response.content
-                        )
-                        logger.info(f'[EMAIL] Factura {filename} adjuntada exitosamente')
+                        # Verificar que el contenido es realmente un PDF
+                        content_type = pdf_response.headers.get('Content-Type', '')
+                        if 'pdf' in content_type.lower() or pdf_response.content[:4] == b'%PDF':
+                            # Adjuntar PDF al email
+                            filename = f"{invoice.invoice_number.replace('-', '_')}.pdf"
+                            msg.attach(
+                                filename,
+                                "application/pdf",
+                                pdf_response.content
+                            )
+                            logger.info(f'[EMAIL] ✅ Factura {filename} adjuntada exitosamente ({len(pdf_response.content)} bytes)')
+                        else:
+                            logger.error(f'[EMAIL] ❌ El contenido descargado NO es un PDF válido. Content-Type: {content_type}')
+                            logger.error(f'[EMAIL] Primeros 100 bytes: {pdf_response.content[:100]}')
                     else:
-                        logger.warning(f'[EMAIL] No se pudo descargar PDF de factura: Status {pdf_response.status_code}')
+                        logger.error(f'[EMAIL] ❌ Error al descargar PDF: Status {pdf_response.status_code}')
+                        logger.error(f'[EMAIL] Respuesta: {pdf_response.text[:500]}')
                 else:
-                    logger.info(f'[EMAIL] No hay factura electrónica para adjuntar')
+                    if not invoice:
+                        logger.info(f'[EMAIL] No se encontró factura aceptada para esta operación')
+                    elif not invoice.nubefact_enlace_pdf:
+                        logger.warning(f'[EMAIL] La factura {invoice.invoice_number} no tiene URL de PDF')
 
+            except requests.exceptions.Timeout:
+                logger.error(f'[EMAIL] ❌ Timeout al descargar PDF de factura')
+            except requests.exceptions.RequestException as e:
+                logger.error(f'[EMAIL] ❌ Error de red al descargar PDF de factura: {str(e)}')
             except Exception as e:
                 # Si falla el adjunto de factura, no bloquear el envío del email
-                logger.warning(f'[EMAIL] Error al adjuntar factura: {str(e)}')
+                logger.error(f'[EMAIL] ❌ Error inesperado al adjuntar factura: {str(e)}')
+                logger.exception(e)
 
             # Enviar
             logger.info(f'[EMAIL] Enviando email a TO: {to}, CC: {cc}')
