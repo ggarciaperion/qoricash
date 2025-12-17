@@ -41,10 +41,22 @@ def health_check():
     Endpoint para health checks de Render
     Responde inmediatamente sin consultas a BD
     """
+    # Leer versión del deploy
+    version_info = 'UNKNOWN'
+    try:
+        version_file = os.path.join(os.path.dirname(__file__), 'VERSION.txt')
+        if os.path.exists(version_file):
+            with open(version_file, 'r') as f:
+                version_info = f.read().strip().replace('\n', ' | ')
+    except:
+        pass
+
     return jsonify({
         'status': 'healthy',
         'service': 'qoricash-trading',
-        'timestamp': time.time()
+        'timestamp': time.time(),
+        'version': version_info,
+        'build': 'b10ba85'
     }), 200, {'Cache-Control': 'no-cache, no-store, must-revalidate'}
 
 # TEMPORAL: Endpoint para limpiar bancos fantasma
