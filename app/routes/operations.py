@@ -1475,3 +1475,39 @@ def get_active_operators():
         'operators': operators_list,
         'count': len(operators_list)
     })
+
+
+@operations_bp.route('/api/debug/nubefact_config', methods=['GET'])
+@login_required
+@require_role('Master')
+def debug_nubefact_config():
+    """
+    API: Diagnóstico de configuración de NubeFact (Solo Master)
+
+    Returns:
+        JSON con información de configuración de facturación
+    """
+    from flask import current_app
+    from app.services.invoice_service import InvoiceService
+
+    config_info = {
+        'nubefact_enabled': current_app.config.get('NUBEFACT_ENABLED', False),
+        'nubefact_api_url': current_app.config.get('NUBEFACT_API_URL', 'NO CONFIGURADO'),
+        'nubefact_token_configured': bool(current_app.config.get('NUBEFACT_TOKEN')),
+        'nubefact_ruc': current_app.config.get('NUBEFACT_RUC', 'NO CONFIGURADO'),
+        'company_ruc': current_app.config.get('COMPANY_RUC', 'NO CONFIGURADO'),
+        'company_name': current_app.config.get('COMPANY_NAME', 'NO CONFIGURADO'),
+        'invoice_service_enabled': InvoiceService.is_enabled(),
+        'flask_env': current_app.config.get('FLASK_ENV', 'NO CONFIGURADO')
+    }
+
+    # Ocultar token completo por seguridad
+    if current_app.config.get('NUBEFACT_TOKEN'):
+        token = current_app.config.get('NUBEFACT_TOKEN')
+        config_info['nubefact_token_preview'] = f"{token[:10]}...{token[-10:]}" if len(token) > 20 else "TOKEN_CORTO"
+
+    return jsonify({
+        'success': True,
+        'config': config_info,
+        'message': 'Configuración de NubeFact'
+    })
