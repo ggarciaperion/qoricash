@@ -331,6 +331,12 @@ class Operation(db.Model):
             else:
                 data['assigned_operator_name'] = None
 
+            # Agregar facturas electrónicas de la operación
+            if self.invoices:
+                data['invoices'] = [invoice.to_dict() for invoice in self.invoices]
+            else:
+                data['invoices'] = []
+
         return data
 
     def is_pending(self):

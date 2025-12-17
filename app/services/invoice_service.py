@@ -305,15 +305,29 @@ class InvoiceService:
             logger.info(f'[INVOICE] Respuesta completa: {response_data}')
 
             if response.status_code in [200, 201]:
+                logger.info(f'[INVOICE] ✅ NubeFact respondió exitosamente')
+
                 # Verificar si SUNAT aceptó el comprobante
-                if response_data.get('aceptada_por_sunat', False):
+                aceptada_sunat = response_data.get('aceptada_por_sunat', False)
+                enlace_pdf = response_data.get('enlace_del_pdf', '')
+                enlace_xml = response_data.get('enlace_del_xml', '')
+
+                logger.info(f'[INVOICE] Aceptada por SUNAT: {aceptada_sunat}')
+                logger.info(f'[INVOICE] Enlace PDF: {enlace_pdf}')
+                logger.info(f'[INVOICE] Enlace XML: {enlace_xml}')
+
+                if aceptada_sunat:
+                    logger.info(f'[INVOICE] ✅ Comprobante ACEPTADO por SUNAT')
                     return True, response_data
                 else:
                     # SUNAT rechazó el comprobante
+                    sunat_desc = response_data.get('sunat_description', 'Rechazado por SUNAT')
+                    logger.error(f'[INVOICE] ❌ RECHAZADO por SUNAT: {sunat_desc}')
                     return False, {
-                        'errors': response_data.get('sunat_description', 'Rechazado por SUNAT')
+                        'errors': sunat_desc
                     }
             else:
+                logger.error(f'[INVOICE] ❌ NubeFact respondió con error: Status {response.status_code}')
                 return False, response_data
 
         except requests.exceptions.Timeout:

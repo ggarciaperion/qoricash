@@ -337,21 +337,31 @@ class OperationService:
                 import logging
                 logger = logging.getLogger(__name__)
 
+                logger.info(f'[OPERATION-{operation.operation_id}] ========== INICIANDO PROCESO DE FACTURACIÓN ==========')
+
                 if InvoiceService.is_enabled():
-                    logger.info(f'Generando factura electrónica para operación {operation.operation_id}')
+                    logger.info(f'[OPERATION-{operation.operation_id}] ✅ Facturación electrónica HABILITADA')
+                    logger.info(f'[OPERATION-{operation.operation_id}] Generando factura electrónica...')
+
                     success, message, invoice = InvoiceService.generate_invoice_for_operation(operation.id)
 
                     if success and invoice:
-                        logger.info(f'Factura generada: {invoice.invoice_number}')
+                        logger.info(f'[OPERATION-{operation.operation_id}] ✅ ÉXITO: Factura generada: {invoice.invoice_number}')
+                        logger.info(f'[OPERATION-{operation.operation_id}] PDF URL: {invoice.nubefact_enlace_pdf}')
                         invoice_generated = True
                     else:
-                        logger.warning(f'No se pudo generar factura: {message}')
+                        logger.error(f'[OPERATION-{operation.operation_id}] ❌ ERROR al generar factura: {message}')
                 else:
-                    logger.info('Facturación electrónica deshabilitada')
+                    logger.warning(f'[OPERATION-{operation.operation_id}] ⚠️ Facturación electrónica DESHABILITADA en configuración')
+                    logger.warning(f'[OPERATION-{operation.operation_id}] Verifica NUBEFACT_ENABLED en variables de entorno')
+
+                logger.info(f'[OPERATION-{operation.operation_id}] ========== FIN PROCESO DE FACTURACIÓN ==========')
+
             except Exception as e:
                 # Log el error pero no falla la operación
                 import logging
-                logging.error(f'Error al generar factura para {operation.operation_id}: {str(e)}')
+                logging.error(f'[OPERATION-{operation.operation_id}] ❌ EXCEPCIÓN al generar factura: {str(e)}')
+                logging.exception(e)
 
             # Enviar email con comprobante (y factura si se generó)
             try:
