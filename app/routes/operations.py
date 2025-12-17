@@ -1002,6 +1002,10 @@ def complete_operation(operation_id):
     from app.models.operation import Operation
     from app.models.audit_log import AuditLog
     from datetime import datetime
+    import logging
+
+    logger = logging.getLogger(__name__)
+    logger.info(f'[COMPLETE-ENDPOINT] Iniciando completar operación ID={operation_id}')
 
     data = request.get_json() or {}
     operation = Operation.query.get(operation_id)
@@ -1474,6 +1478,33 @@ def get_active_operators():
         'success': True,
         'operators': operators_list,
         'count': len(operators_list)
+    })
+
+
+@operations_bp.route('/api/version', methods=['GET'])
+def get_version():
+    """
+    API: Obtener versión del deploy (público)
+
+    Returns:
+        JSON con información de versión
+    """
+    import os
+
+    version_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), '..', 'VERSION.txt')
+    version_info = 'VERSION FILE NOT FOUND'
+
+    try:
+        if os.path.exists(version_file):
+            with open(version_file, 'r') as f:
+                version_info = f.read().strip()
+    except Exception as e:
+        version_info = f'ERROR READING VERSION: {str(e)}'
+
+    return jsonify({
+        'success': True,
+        'version': version_info,
+        'timestamp': '2025-12-17 16:30'
     })
 
 
