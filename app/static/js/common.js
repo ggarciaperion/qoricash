@@ -440,29 +440,42 @@ function validatePhone(phone) {
  * Reproducir sonido de notificación
  */
 function playNotificationSound() {
-    // Sonido de notificación moderno y suave (tono agradable)
+    // Sonido de notificación moderno con melodía agradable de 2 segundos
     const audioContext = new (window.AudioContext || window.webkitAudioContext)();
 
-    // Crear oscilador para el tono
-    const oscillator = audioContext.createOscillator();
-    const gainNode = audioContext.createGain();
+    // Notas musicales (escala pentatónica para sonido agradable)
+    // C5, E5, G5, A5
+    const notes = [
+        { freq: 523.25, start: 0.0, duration: 0.4 },    // C5
+        { freq: 659.25, start: 0.4, duration: 0.4 },    // E5
+        { freq: 783.99, start: 0.8, duration: 0.8 }     // G5 (más prolongado)
+    ];
 
-    // Conectar oscilador al gain y luego al destino
-    oscillator.connect(gainNode);
-    gainNode.connect(audioContext.destination);
+    notes.forEach(note => {
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
 
-    // Configurar tono suave (nota musical: E5 = 659 Hz)
-    oscillator.type = 'sine';
-    oscillator.frequency.setValueAtTime(659, audioContext.currentTime);
+        // Conectar oscilador al gain y luego al destino
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
 
-    // Fade in/out suave
-    gainNode.gain.setValueAtTime(0, audioContext.currentTime);
-    gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.05);
-    gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.25);
+        // Configurar tono suave (sine wave)
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(note.freq, audioContext.currentTime + note.start);
 
-    // Reproducir
-    oscillator.start(audioContext.currentTime);
-    oscillator.stop(audioContext.currentTime + 0.25);
+        // Configurar volumen con fade in/out suave
+        const startTime = audioContext.currentTime + note.start;
+        const endTime = startTime + note.duration;
+
+        gainNode.gain.setValueAtTime(0, startTime);
+        gainNode.gain.linearRampToValueAtTime(0.25, startTime + 0.05);  // Fade in
+        gainNode.gain.linearRampToValueAtTime(0.25, endTime - 0.1);     // Mantener
+        gainNode.gain.linearRampToValueAtTime(0, endTime);              // Fade out
+
+        // Reproducir esta nota
+        oscillator.start(startTime);
+        oscillator.stop(endTime);
+    });
 }
 
 /**

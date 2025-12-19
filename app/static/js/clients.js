@@ -819,16 +819,43 @@ function showExistingFile(previewElementId, fileUrl, fileName) {
  * REFACTORIZADO: Manejo correcto de permisos para Trader
  */
 function saveClient() {
+    // ============================================
+    // PROTECCIÓN CONTRA DOBLE CLIC
+    // ============================================
+    if (window.isSavingClient) {
+        console.warn('🚫 BLOQUEADO: Ya hay una operación de guardado en proceso');
+        return;
+    }
+
+    window.isSavingClient = true;
+
+    // Deshabilitar botón inmediatamente
+    const $saveBtn = $('#btnSaveClient');
+    const originalBtnText = $saveBtn.html();
+    $saveBtn.prop('disabled', true)
+            .addClass('disabled')
+            .html('<span class="spinner-border spinner-border-sm me-2"></span>Guardando...');
+
     const form = document.getElementById('clientForm');
 
     if (!form) {
         showNotification('error', 'Formulario no encontrado');
+        // Restaurar botón en caso de error
+        window.isSavingClient = false;
+        $saveBtn.prop('disabled', false).removeClass('disabled').html(originalBtnText);
         return;
     }
+
+    // Función helper para restaurar el botón en caso de error de validación
+    const restoreButton = () => {
+        window.isSavingClient = false;
+        $saveBtn.prop('disabled', false).removeClass('disabled').html(originalBtnText);
+    };
 
     // Validar formulario HTML5
     if (!form.checkValidity()) {
         form.reportValidity();
+        restoreButton();
         return;
     }
 
@@ -837,6 +864,7 @@ function saveClient() {
     if (!validationResult) {
         showNotification('error', 'Debes registrar al menos una cuenta en Soles (S/) y otra en Dólares ($)');
         document.getElementById('accountsValidationMessage')?.scrollIntoView({ behavior: 'smooth' });
+        restoreButton();
         return;
     }
 
@@ -844,6 +872,7 @@ function saveClient() {
     if (!validateDuplicateAccounts()) {
         showNotification('error', 'Tienes cuentas duplicadas (mismo banco y misma moneda). Por favor, elimina los duplicados.');
         document.getElementById('duplicateAccountsMessage')?.scrollIntoView({ behavior: 'smooth' });
+        restoreButton();
         return;
     }
 
@@ -856,6 +885,7 @@ function saveClient() {
 
         if (bank && account && (bank === 'BBVA' || bank === 'SCOTIABANK') && account.length !== 20) {
             showNotification('error', `El CCI de ${bank} debe tener exactamente 20 dígitos`);
+            restoreButton();
             return;
         }
     }
@@ -977,12 +1007,14 @@ function saveClient() {
         })
         .then(() => {
             hideLoading();
+            window.isSavingClient = false;  // Restaurar flag
             showNotification('success', 'Cliente actualizado exitosamente');
             bootstrap.Modal.getInstance(document.getElementById('createClientModal')).hide();
             setTimeout(() => location.reload(), 1500);
         })
         .catch(error => {
             hideLoading();
+            restoreButton();  // Restaurar botón en caso de error
             console.error('Error:', error);
             showNotification('error', error.message || 'Error al actualizar el cliente');
         });
@@ -1101,26 +1133,31 @@ function saveClient() {
                 uploadClientDocuments(data.client.id, files)
                     .then(() => {
                         hideLoading();
+                        window.isSavingClient = false;  // Restaurar flag
                         showNotification('success', data.message);
                         bootstrap.Modal.getInstance(document.getElementById('createClientModal')).hide();
                         setTimeout(() => location.reload(), 1500);
                     })
                     .catch(error => {
                         hideLoading();
+                        restoreButton();  // Restaurar botón en caso de error
                         showNotification('error', error.message || 'Error al procesar documentos del cliente');
                     });
             } else {
                 hideLoading();
+                window.isSavingClient = false;  // Restaurar flag
                 showNotification('success', data.message);
                 bootstrap.Modal.getInstance(document.getElementById('createClientModal')).hide();
                 setTimeout(() => location.reload(), 1500);
             }
         } else {
+            restoreButton();  // Restaurar botón en caso de error
             showNotification('error', data.message);
         }
     })
     .catch(error => {
         hideLoading();
+        restoreButton();  // Restaurar botón en caso de error
         console.error('Error:', error);
         showNotification('error', 'Error al guardar el cliente');
     });
