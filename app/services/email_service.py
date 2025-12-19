@@ -269,19 +269,46 @@ class EmailService:
                         content_type = pdf_response.headers.get('Content-Type', '')
                         if 'pdf' in content_type.lower() or pdf_response.content[:4] == b'%PDF':
                             # Adjuntar PDF al email
-                            filename = f"{invoice.invoice_number.replace('-', '_')}.pdf"
+                            filename_pdf = f"{invoice.invoice_number.replace('-', '_')}.pdf"
                             msg.attach(
-                                filename,
+                                filename_pdf,
                                 "application/pdf",
                                 pdf_response.content
                             )
-                            logger.info(f'[EMAIL] ✅ Factura {filename} adjuntada exitosamente ({len(pdf_response.content)} bytes)')
+                            logger.info(f'[EMAIL] ✅ PDF {filename_pdf} adjuntado exitosamente ({len(pdf_response.content)} bytes)')
                         else:
                             logger.error(f'[EMAIL] ❌ El contenido descargado NO es un PDF válido. Content-Type: {content_type}')
                             logger.error(f'[EMAIL] Primeros 100 bytes: {pdf_response.content[:100]}')
                     else:
                         logger.error(f'[EMAIL] ❌ Error al descargar PDF: Status {pdf_response.status_code}')
                         logger.error(f'[EMAIL] Respuesta: {pdf_response.text[:500]}')
+
+                    # Adjuntar XML también
+                    if invoice.nubefact_enlace_xml:
+                        logger.info(f'[EMAIL] URL del XML: {invoice.nubefact_enlace_xml}')
+                        logger.info(f'[EMAIL] Intentando descargar XML desde NubeFact...')
+
+                        xml_response = requests.get(
+                            invoice.nubefact_enlace_xml,
+                            headers=headers,
+                            timeout=30,
+                            allow_redirects=True
+                        )
+
+                        logger.info(f'[EMAIL] Respuesta de descarga XML: Status {xml_response.status_code}')
+
+                        if xml_response.status_code == 200:
+                            # Adjuntar XML al email
+                            filename_xml = f"{invoice.invoice_number.replace('-', '_')}.xml"
+                            msg.attach(
+                                filename_xml,
+                                "application/xml",
+                                xml_response.content
+                            )
+                            logger.info(f'[EMAIL] ✅ XML {filename_xml} adjuntado exitosamente ({len(xml_response.content)} bytes)')
+                        else:
+                            logger.error(f'[EMAIL] ❌ Error al descargar XML: Status {xml_response.status_code}')
+
                 else:
                     if not invoice:
                         logger.info(f'[EMAIL] No se encontró factura aceptada para esta operación')
