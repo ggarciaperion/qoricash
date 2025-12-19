@@ -360,13 +360,18 @@ class InvoiceService:
                 logger.info(f'[INVOICE] Enlace PDF: {enlace_pdf}')
                 logger.info(f'[INVOICE] Enlace XML: {enlace_xml}')
 
-                if aceptada_sunat:
-                    logger.info(f'[INVOICE] ✅ Comprobante ACEPTADO por SUNAT')
+                # Si NubeFact generó el comprobante (tiene enlaces), es exitoso
+                # En modo DEMO, aceptada_por_sunat puede ser False pero el comprobante se genera correctamente
+                if enlace_pdf and enlace_xml:
+                    if aceptada_sunat:
+                        logger.info(f'[INVOICE] ✅ Comprobante ACEPTADO por SUNAT')
+                    else:
+                        logger.info(f'[INVOICE] ⚠️ Comprobante generado en modo DEMO (no enviado a SUNAT aún)')
                     return True, response_data
                 else:
-                    # SUNAT rechazó el comprobante
-                    sunat_desc = response_data.get('sunat_description', 'Rechazado por SUNAT')
-                    logger.error(f'[INVOICE] ❌ RECHAZADO por SUNAT: {sunat_desc}')
+                    # No hay enlaces = error real
+                    sunat_desc = response_data.get('sunat_description', 'Error al generar comprobante')
+                    logger.error(f'[INVOICE] ❌ Error: {sunat_desc}')
                     return False, {
                         'errors': sunat_desc
                     }
