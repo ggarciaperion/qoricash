@@ -28,13 +28,47 @@ class InvoiceService:
     # Tipo de comprobante SUNAT
     INVOICE_TYPE_MAPPING = {
         'Factura': '01',    # Factura
-        'Boleta': '03'      # Boleta de Venta
+        'Boleta': '02'      # Boleta de Venta (CORREGIDO: era 03, pero 03 es Nota)
     }
 
     @staticmethod
     def is_enabled():
         """Verificar si la facturación electrónica está habilitada"""
         return current_app.config.get('NUBEFACT_ENABLED', False)
+
+    @staticmethod
+    def _get_next_correlative(serie):
+        """
+        Obtener el siguiente número correlativo para una serie
+
+        Args:
+            serie: Serie del comprobante (ej: 'F001', 'B001')
+
+        Returns:
+            int: Siguiente número correlativo
+        """
+        from sqlalchemy import func
+
+        # Buscar el último número usado para esta serie
+        last_invoice = Invoice.query.filter_by(
+            serie=serie
+        ).filter(
+            Invoice.numero.isnot(None)
+        ).order_by(
+            Invoice.created_at.desc()
+        ).first()
+
+        if last_invoice and last_invoice.numero:
+            try:
+                # Convertir el número a entero y sumar 1
+                last_number = int(last_invoice.numero)
+                return last_number + 1
+            except (ValueError, TypeError):
+                logger.warning(f'No se pudo convertir el último número: {last_invoice.numero}')
+                return 1
+        else:
+            # Primera factura de esta serie
+            return 1
 
     @staticmethod
     def generate_invoice_for_operation(operation_id):
@@ -137,7 +171,7 @@ class InvoiceService:
         if client.document_type == 'RUC':
             return 'Factura', '01'
         else:  # DNI o CE
-            return 'Boleta', '03'
+            return 'Boleta', '02'  # CORREGIDO: era 03, pero 03 es Nota
 
     @staticmethod
     def _get_company_full_address():
@@ -216,12 +250,19 @@ class InvoiceService:
             "anticipo_regularizacion": False
         }]
 
+        # Determinar serie y obtener siguiente correlativo
+        serie = "F001" if invoice_type_code == "01" else "B001"
+        next_number = InvoiceService._get_next_correlative(serie)
+        numero_str = str(next_number)  # Enviar como string simple, sin padding
+
+        logger.info(f'[INVOICE] Serie: {serie}, Número correlativo: {numero_str}')
+
         # Estructura del comprobante para NubeFact
         invoice_data = {
             "operacion": "generar_comprobante",
             "tipo_de_comprobante": invoice_type_code,
-            "serie": "F001" if invoice_type_code == "01" else "B001",
-            "numero": "-",  # NubeFact asigna automáticamente
+            "serie": serie,
+            "numero": numero_str,  # CORREGIDO: Enviar correlativo consecutivo en lugar de "-"
             "sunat_transaction": 1,  # 1 = Venta interna
             "cliente_tipo_de_documento": client_doc_type,
             "cliente_numero_de_documento": client.dni,

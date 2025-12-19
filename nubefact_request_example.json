@@ -1,0 +1,138 @@
+{
+  "_comentario": "Este es un ejemplo del JSON que QoriCash Trading está enviando a la API de NubeFact",
+  "_nota_importante": "Este JSON se genera automáticamente en app/services/invoice_service.py línea 220-268",
+  "_endpoint": "POST https://api.nubefact.com/api/v1",
+  "_headers": {
+    "Authorization": "Token token=\"c7328e0c40924368814da869b11326d7e1bceebc603c43309047102b397b6370"",
+    "Content-Type": "application/json"
+  },
+
+  "operacion": "generar_comprobante",
+  "tipo_de_comprobante": "02",
+  "serie": "B001",
+  "numero": "1",
+  "sunat_transaction": 1,
+  "cliente_tipo_de_documento": "1",
+  "cliente_numero_de_documento": "12345678",
+  "cliente_denominacion": "JUAN PEREZ GARCIA",
+  "cliente_direccion": "AV. EJEMPLO 123, LIMA, LIMA, LIMA",
+  "cliente_email": "cliente@ejemplo.com",
+  "cliente_email_1": "",
+  "cliente_email_2": "",
+  "fecha_de_emision": "19-12-2025",
+  "moneda": 1,
+  "tipo_de_cambio": "",
+  "porcentaje_de_igv": 18.00,
+  "descuento_global": "",
+  "total_descuento": "",
+  "total_anticipo": "",
+  "total_gravada": 0,
+  "total_inafecta": 0,
+  "total_exonerada": 356.98,
+  "total_igv": 0,
+  "total_gratuita": 0,
+  "total_otros_cargos": 0,
+  "total": 356.98,
+  "percepcion_tipo": "",
+  "percepcion_base_imponible": "",
+  "total_percepcion": "",
+  "total_incluido_percepcion": "",
+  "detraccion": false,
+  "observaciones": "Operación #EXP-20251219-001",
+  "documento_que_se_modifica_tipo": null,
+  "documento_que_se_modifica_serie": null,
+  "documento_que_se_modifica_numero": null,
+  "tipo_de_nota_de_credito": null,
+  "tipo_de_nota_de_debito": null,
+  "enviar_automaticamente_a_la_sunat": true,
+  "enviar_automaticamente_al_cliente": false,
+  "codigo_unico": "EXP-20251219-001",
+  "condiciones_de_pago": "",
+  "medio_de_pago": "",
+  "placa_vehiculo": "",
+  "orden_compra_servicio": "",
+  "tabla_personalizada_codigo": "",
+  "formato_de_pdf": "",
+  "items": [
+    {
+      "unidad_de_medida": "ZZ",
+      "codigo": "001",
+      "descripcion": "QORICASH VENDE 100.00 USD CON TIPO DE CAMBIO 3.5698 - CLIENTE ENVIA 356.98 PEN - CLIENTE RECIBE 100.00 USD",
+      "cantidad": 1,
+      "valor_unitario": 356.98,
+      "precio_unitario": 356.98,
+      "subtotal": 356.98,
+      "tipo_de_igv": 9,
+      "igv": 0,
+      "total": 356.98,
+      "anticipo_regularizacion": false
+    }
+  ],
+
+  "_CORRECCIONES_APLICADAS_19_DIC_2025": {
+    "tipo_de_comprobante": "CORREGIDO de 03 a 02 (03 es Nota, 02 es Boleta) según feedback de soporte NubeFact",
+    "numero": "CORREGIDO de '-' a correlativo consecutivo (1, 2, 3, etc.) según feedback de soporte NubeFact"
+  },
+
+  "_explicacion_campos_importantes": {
+    "tipo_de_comprobante": "01 = Factura (para RUC), 02 = Boleta (para DNI/CE), 03 = Nota",
+    "serie": "F001 para Facturas, B001 para Boletas",
+    "numero": "Correlativo consecutivo (1, 2, 3, etc.) - El sistema mantiene el control del correlativo por serie",
+    "sunat_transaction": "1 = Venta interna",
+    "cliente_tipo_de_documento": "1 = DNI, 4 = CE, 6 = RUC",
+    "fecha_de_emision": "Formato: DD-MM-YYYY",
+    "moneda": "1 = PEN (Soles)",
+    "total_exonerada": "Monto exonerado de IGV (operaciones de cambio están exoneradas)",
+    "total_igv": "0 porque las operaciones están exoneradas",
+    "tipo_de_igv": "9 = Exonerado (en items)",
+    "unidad_de_medida": "ZZ = Servicio",
+    "enviar_automaticamente_a_la_sunat": "true = NubeFact envía automáticamente a SUNAT",
+    "enviar_automaticamente_al_cliente": "false = Nosotros enviamos el email con PDF",
+    "codigo_unico": "ID único de la operación para evitar duplicados"
+  },
+
+  "_ejemplo_operacion_compra": {
+    "_descripcion": "Ejemplo cuando QoriCash COMPRA USD al cliente",
+    "descripcion": "QORICASH COMPRA 200.00 USD CON TIPO DE CAMBIO 3.5500 - CLIENTE ENVIA 200.00 USD - CLIENTE RECIBE 710.00 PEN",
+    "total_exonerada": 710.00,
+    "total": 710.00
+  },
+
+  "_validaciones_importantes": [
+    "1. La suma de 'total' de todos los items debe coincidir con 'total' principal",
+    "2. total_gravada + total_inafecta + total_exonerada = total (antes de IGV)",
+    "3. Para operaciones exoneradas: total_gravada = 0, total_igv = 0",
+    "4. El campo 'cliente_email' debe ser un email válido (puede estar vacío)",
+    "5. fecha_de_emision debe estar en formato DD-MM-YYYY",
+    "6. codigo_unico debe ser único por cada operación"
+  ],
+
+  "_configuracion_empresa": {
+    "COMPANY_RUC": "20615113698",
+    "COMPANY_NAME": "QORICASH SAC",
+    "COMPANY_ADDRESS": "AV. BRASIL NRO. 2790 INT. 504",
+    "COMPANY_DISTRICT": "PUEBLO LIBRE",
+    "COMPANY_PROVINCE": "LIMA",
+    "COMPANY_DEPARTMENT": "LIMA"
+  },
+
+  "_respuesta_esperada_de_nubefact": {
+    "aceptada_por_sunat": true,
+    "sunat_description": "La Factura numero B001-00000123, ha sido aceptada",
+    "sunat_note": "",
+    "serie": "B001",
+    "numero": "00000123",
+    "enlace_del_pdf": "https://app.nubefact.com/downloads/pdf/...",
+    "enlace_del_xml": "https://app.nubefact.com/downloads/xml/...",
+    "codigo_hash": "xxxxxxxxxxxxx"
+  },
+
+  "_posibles_errores": [
+    "Error: Token inválido o no configurado",
+    "Error: RUC no coincide con el configurado en NubeFact",
+    "Error: Fecha de emisión inválida",
+    "Error: Total no coincide con suma de items",
+    "Error: Cliente con documento inválido",
+    "Error: Serie no autorizada por SUNAT"
+  ]
+}
