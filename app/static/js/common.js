@@ -71,7 +71,7 @@ function connectSocketIO() {
         // Solo mostrar notificación a Master y Operador
         if (window.currentUserRole === 'Master' || window.currentUserRole === 'Operador') {
             showNotification(`Operación ${data.operation_id} completada exitosamente`, 'success');
-            playNotificationSound();
+            playCompletedSound();
         }
 
         // Actualizar dashboard para todos
@@ -110,6 +110,7 @@ function connectSocketIO() {
         // Solo mostrar notificación a Master y Operador
         if (window.currentUserRole === 'Master' || window.currentUserRole === 'Operador') {
             showNotification(`Nuevo cliente: ${data.client_name} (${data.client_dni})`, 'info');
+            playNotificationSound();
         }
 
         // Actualizar tabla de clientes si existe
@@ -437,75 +438,36 @@ function validatePhone(phone) {
 }
 
 /**
- * Reproducir sonido de notificación
- * Sonido suave y amigable de 2 segundos con tonos bajos y agradables
+ * Reproducir sonido de notificación general
+ * Usa el archivo MP3 personalizado 'allnotificaciones.mp3'
  */
 function playNotificationSound() {
-    console.log('🔔 EJECUTANDO playNotificationSound() - Versión Suave y Amigable');
+    console.log('🔔 Reproduciendo sonido: allnotificaciones.mp3');
     try {
-        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-
-        // Sonido suave con tonos cálidos y bajos (menos agudos)
-        // Patrón: tono medio → pausa breve → tono bajo (sonido agradable y relajante)
-
-        // PRIMER TONO: Tono medio agradable (C5 - 523 Hz)
-        const osc1 = audioContext.createOscillator();
-        const gain1 = audioContext.createGain();
-
-        osc1.connect(gain1);
-        gain1.connect(audioContext.destination);
-
-        osc1.type = 'sine';  // Onda suave
-        osc1.frequency.setValueAtTime(523, audioContext.currentTime);  // C5 - tono medio agradable
-
-        // Envolvente del primer tono (suave y gradual)
-        gain1.gain.setValueAtTime(0, audioContext.currentTime);
-        gain1.gain.linearRampToValueAtTime(0.2, audioContext.currentTime + 0.05);  // Ataque suave
-        gain1.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.8);  // Decay suave
-
-        osc1.start(audioContext.currentTime);
-        osc1.stop(audioContext.currentTime + 0.8);
-
-        // SEGUNDO TONO: Tono bajo cálido (G4 - 392 Hz)
-        const osc2 = audioContext.createOscillator();
-        const gain2 = audioContext.createGain();
-
-        osc2.connect(gain2);
-        gain2.connect(audioContext.destination);
-
-        osc2.type = 'sine';  // Onda suave
-        osc2.frequency.setValueAtTime(392, audioContext.currentTime + 0.4);  // G4 - tono bajo cálido
-
-        // Envolvente del segundo tono (prolongado y relajante)
-        gain2.gain.setValueAtTime(0, audioContext.currentTime + 0.4);
-        gain2.gain.linearRampToValueAtTime(0.22, audioContext.currentTime + 0.45);  // Ataque suave
-        gain2.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 2.0);  // Decay prolongado
-
-        osc2.start(audioContext.currentTime + 0.4);
-        osc2.stop(audioContext.currentTime + 2.0);
-
-        // AÑADIR ARMÓNICO SUTIL PARA CALIDEZ
-        // Tercer oscilador (armónico bajo para dar profundidad)
-        const osc3 = audioContext.createOscillator();
-        const gain3 = audioContext.createGain();
-
-        osc3.connect(gain3);
-        gain3.connect(audioContext.destination);
-
-        osc3.type = 'sine';
-        osc3.frequency.setValueAtTime(261.5, audioContext.currentTime);  // C4 - octava baja
-
-        gain3.gain.setValueAtTime(0, audioContext.currentTime);
-        gain3.gain.linearRampToValueAtTime(0.06, audioContext.currentTime + 0.05);  // Muy sutil
-        gain3.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.6);
-
-        osc3.start(audioContext.currentTime);
-        osc3.stop(audioContext.currentTime + 0.6);
-
-        console.log('🔔 Sonido de notificación suave reproducido (2 segundos)');
-
+        const audio = new Audio('/static/sounds/allnotificaciones.mp3');
+        audio.volume = 0.6; // Volumen al 60%
+        audio.play().catch(error => {
+            console.error('Error al reproducir sonido de notificación:', error);
+        });
     } catch (error) {
-        console.error('Error al reproducir sonido de notificación:', error);
+        console.error('Error al crear audio de notificación:', error);
+    }
+}
+
+/**
+ * Reproducir sonido de operación completada
+ * Usa el archivo MP3 personalizado 'completada.mp3'
+ */
+function playCompletedSound() {
+    console.log('✅ Reproduciendo sonido: completada.mp3');
+    try {
+        const audio = new Audio('/static/sounds/completada.mp3');
+        audio.volume = 0.7; // Volumen al 70%
+        audio.play().catch(error => {
+            console.error('Error al reproducir sonido de completada:', error);
+        });
+    } catch (error) {
+        console.error('Error al crear audio de completada:', error);
     }
 }
 
@@ -912,9 +874,6 @@ function showPendingOperationsAlert(operations) {
     });
 
     contentHtml += '</div>';
-
-    // Agregar sonido de alerta
-    playNotificationSound();
 
     // Llenar contenido del modal
     $('#pendingOperationsAlertContent').html(contentHtml);
