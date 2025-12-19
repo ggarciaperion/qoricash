@@ -257,7 +257,7 @@ class InvoiceService:
             "tipo_de_nota_de_debito": "",
             "enviar_automaticamente_a_la_sunat": True,
             "enviar_automaticamente_al_cliente": False,  # Lo enviamos nosotros con el comprobante
-            "codigo_unico": "",
+            "codigo_unico": operation.operation_id,  # ID único de la operación
             "condiciones_de_pago": "",
             "medio_de_pago": "",
             "placa_vehiculo": "",
@@ -290,10 +290,10 @@ class InvoiceService:
             }
 
             logger.info('[INVOICE] Enviando comprobante a NubeFact...')
-            logger.info(f'[INVOICE] URL: {api_url}/documento/generar')
+            logger.info(f'[INVOICE] URL: {api_url}')
 
             response = requests.post(
-                f'{api_url}/documento/generar',
+                api_url,
                 json=invoice_data,
                 headers=headers,
                 timeout=30

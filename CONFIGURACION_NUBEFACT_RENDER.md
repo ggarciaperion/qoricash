@@ -10,6 +10,8 @@ Este documento explica cómo configurar las credenciales de NubeFact en Render p
 **Token**: `c7328e0c40924368814da869b11326d7e1bceebc603c43309047102b397b6370`
 **RUC**: `20615113698` (QORICASH SAC)
 
+**IMPORTANTE**: La URL es la RUTA BASE sin endpoints adicionales. El sistema envía las peticiones directamente a esta URL.
+
 ---
 
 ## 🚀 PASOS PARA CONFIGURAR EN RENDER
