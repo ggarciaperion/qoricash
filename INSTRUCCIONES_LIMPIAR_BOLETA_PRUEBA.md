@@ -1,8 +1,21 @@
-# Instrucciones para Eliminar Boleta de Prueba B001-1 en NubeFact
+# ✅ PROBLEMA RESUELTO - Serie B002 Configurada
 
-## 🎯 Objetivo
+## 🎯 Solución Implementada
 
-Eliminar la boleta de prueba **B001-1** que se generó durante las pruebas de integración para poder volver a usar la serie B001 con correlativo automático.
+El problema del duplicado B001-1 ha sido resuelto cambiando la serie de boletas a **B002**.
+
+**NubeFact no permite reutilizar números de comprobantes anulados**, por lo que aunque B001-1 fue anulado, el sistema seguía rechazando ese correlativo.
+
+### ✅ Cambio Realizado:
+- **Serie de boletas:** B001 → **B002**
+- **B002 ya está autorizada** en tu cuenta de NubeFact
+- Las boletas ahora se generarán como: B002-1, B002-2, B002-3, etc.
+
+---
+
+## 📋 Información Histórica (Ya No Necesaria)
+
+~~Eliminar la boleta de prueba **B001-1** que se generó durante las pruebas de integración para poder volver a usar la serie B001 con correlativo automático.~~
 
 ---
 
