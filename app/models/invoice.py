@@ -66,7 +66,7 @@ class Invoice(db.Model):
     nubefact_response = db.Column(db.Text)  # JSON response completo de NubeFact
     nubefact_enlace_pdf = db.Column(db.String(500))  # URL del PDF
     nubefact_enlace_xml = db.Column(db.String(500))  # URL del XML
-    nubefact_enlace_cdr = db.Column(db.String(500))  # URL del CDR (Constancia SUNAT)
+    # nubefact_enlace_cdr = db.Column(db.String(500))  # URL del CDR (Constancia SUNAT) - TEMPORALMENTE COMENTADO
     nubefact_aceptada_por_sunat = db.Column(db.Boolean, default=False)
     nubefact_sunat_description = db.Column(db.Text)  # Descripción de SUNAT
     nubefact_sunat_note = db.Column(db.Text)  # Nota de SUNAT

@@ -422,7 +422,7 @@ class InvoiceService:
             nubefact_response=str(response_data),
             nubefact_enlace_pdf=response_data.get('enlace_del_pdf', ''),
             nubefact_enlace_xml=response_data.get('enlace_del_xml', ''),
-            nubefact_enlace_cdr=response_data.get('enlace_del_cdr', ''),  # CDR de SUNAT
+            # nubefact_enlace_cdr=response_data.get('enlace_del_cdr', ''),  # CDR de SUNAT - TEMPORALMENTE COMENTADO
             nubefact_aceptada_por_sunat=response_data.get('aceptada_por_sunat', False),
             nubefact_sunat_description=response_data.get('sunat_description', ''),
             nubefact_sunat_note=response_data.get('sunat_note', ''),

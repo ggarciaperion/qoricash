@@ -310,32 +310,34 @@ class EmailService:
                             logger.error(f'[EMAIL] ❌ Error al descargar XML: Status {xml_response.status_code}')
 
                     # Adjuntar CDR si existe (Constancia de Recepción SUNAT)
-                    if invoice.nubefact_enlace_cdr:
-                        logger.info(f'[EMAIL] URL del CDR: {invoice.nubefact_enlace_cdr}')
-                        logger.info(f'[EMAIL] Intentando descargar CDR desde NubeFact...')
-
-                        cdr_response = requests.get(
-                            invoice.nubefact_enlace_cdr,
-                            headers=headers,
-                            timeout=30,
-                            allow_redirects=True
-                        )
-
-                        logger.info(f'[EMAIL] Respuesta de descarga CDR: Status {cdr_response.status_code}')
-
-                        if cdr_response.status_code == 200:
-                            # Adjuntar CDR (ZIP) al email
-                            filename_cdr = f"{invoice.invoice_number.replace('-', '_')}_CDR.zip"
-                            msg.attach(
-                                filename_cdr,
-                                "application/zip",
-                                cdr_response.content
-                            )
-                            logger.info(f'[EMAIL] ✅ CDR {filename_cdr} adjuntado exitosamente ({len(cdr_response.content)} bytes)')
-                        else:
-                            logger.warning(f'[EMAIL] ⚠️ CDR no disponible: Status {cdr_response.status_code}')
-                    else:
-                        logger.info(f'[EMAIL] CDR no disponible para esta factura (normal en modo DEMO)')
+                    # TEMPORALMENTE COMENTADO hasta que la migración se ejecute
+                    # if hasattr(invoice, 'nubefact_enlace_cdr') and invoice.nubefact_enlace_cdr:
+                    #     logger.info(f'[EMAIL] URL del CDR: {invoice.nubefact_enlace_cdr}')
+                    #     logger.info(f'[EMAIL] Intentando descargar CDR desde NubeFact...')
+                    #
+                    #     cdr_response = requests.get(
+                    #         invoice.nubefact_enlace_cdr,
+                    #         headers=headers,
+                    #         timeout=30,
+                    #         allow_redirects=True
+                    #     )
+                    #
+                    #     logger.info(f'[EMAIL] Respuesta de descarga CDR: Status {cdr_response.status_code}')
+                    #
+                    #     if cdr_response.status_code == 200:
+                    #         # Adjuntar CDR (ZIP) al email
+                    #         filename_cdr = f"{invoice.invoice_number.replace('-', '_')}_CDR.zip"
+                    #         msg.attach(
+                    #             filename_cdr,
+                    #             "application/zip",
+                    #             cdr_response.content
+                    #         )
+                    #         logger.info(f'[EMAIL] ✅ CDR {filename_cdr} adjuntado exitosamente ({len(cdr_response.content)} bytes)')
+                    #     else:
+                    #         logger.warning(f'[EMAIL] ⚠️ CDR no disponible: Status {cdr_response.status_code}')
+                    # else:
+                    #     logger.info(f'[EMAIL] CDR no disponible para esta factura (normal en modo DEMO)')
+                    pass  # CDR temporalmente deshabilitado
 
                 else:
                     if not invoice:
