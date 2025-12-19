@@ -1,5 +1,25 @@
 """
 Servicio de envío de correos electrónicos para QoriCash Trading V2
+
+CONFIGURACIÓN DE EMAILS PARA ROL PLATAFORMA (Canal WEB):
+========================================================
+
+El rol Plataforma se utiliza para registrar operaciones que vienen desde la
+página web pública. La web envía sus propios correos de bienvenida y confirmación
+inicial, por lo que algunos emails están bloqueados para evitar duplicados.
+
+EMAILS BLOQUEADOS (la web ya los envió):
+✅ Cliente registrado (send_new_client_email)
+✅ Operación creada (send_new_operation_email)
+✅ Operación cancelada (send_operation_cancelled_email)
+✅ Monto modificado (send_amount_modified_email)
+✅ Email compartido entre traders (send_shared_email)
+
+EMAILS HABILITADOS (la web NO los envía, el sistema debe enviarlos):
+✅ Cliente activado (send_client_activated_email) - Notifica aprobación KYC
+✅ Operación completada (send_operation_completed_email) - Incluye factura/boleta
+
+Para más detalles, ver: ANALISIS_ROL_PLATAFORMA_WEB.md
 """
 from flask import render_template_string
 from flask_mail import Message
@@ -188,11 +208,9 @@ class EmailService:
             tuple: (success: bool, message: str)
         """
         try:
-            # NO enviar correos si el usuario que creó la operación es Plataforma
-            # La página web se encarga de enviar sus propios correos
-            if operation.user and operation.user.role == 'Plataforma':
-                logger.info(f'Email de completado omitido para operación {operation.operation_id} - creada por rol Plataforma')
-                return True, 'Email omitido (rol Plataforma)'
+            # IMPORTANTE: Para rol Plataforma, SÍ enviar email de completado
+            # Este email incluye la factura/boleta electrónica que la web NO envía
+            # Solo bloqueamos emails de registro/creación (que la web ya envió)
 
             from flask import current_app
             from flask_mail import Message
@@ -1012,11 +1030,9 @@ class EmailService:
             tuple: (success: bool, message: str)
         """
         try:
-            # NO enviar correos si el usuario que registró el cliente es Plataforma
-            # La página web se encarga de enviar sus propios correos
-            if trader and trader.role == 'Plataforma':
-                logger.info(f'Email de cliente activado omitido para cliente {client.id} - registrado por rol Plataforma')
-                return True, 'Email omitido (rol Plataforma)'
+            # IMPORTANTE: Para rol Plataforma, SÍ enviar email de activación
+            # La web NO envía correos de activación, solo de registro inicial
+            # El cliente necesita saber que su cuenta fue aprobada
 
             from flask import current_app
             from flask_mail import Message
