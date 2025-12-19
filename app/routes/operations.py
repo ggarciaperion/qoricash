@@ -1051,6 +1051,35 @@ def complete_operation(operation_id):
 
         db.session.commit()
 
+        # Generar factura electrónica
+        invoice_generated = False
+        try:
+            from app.services.invoice_service import InvoiceService
+
+            logger.info(f'[OPERATION-{operation.operation_id}] ========== INICIANDO PROCESO DE FACTURACIÓN ==========')
+
+            if InvoiceService.is_enabled():
+                logger.info(f'[OPERATION-{operation.operation_id}] ✅ Facturación electrónica HABILITADA')
+                logger.info(f'[OPERATION-{operation.operation_id}] Generando factura electrónica...')
+
+                success_invoice, message_invoice, invoice = InvoiceService.generate_invoice_for_operation(operation.id)
+
+                if success_invoice and invoice:
+                    logger.info(f'[OPERATION-{operation.operation_id}] ✅ ÉXITO: Factura generada: {invoice.invoice_number}')
+                    logger.info(f'[OPERATION-{operation.operation_id}] PDF URL: {invoice.nubefact_enlace_pdf}')
+                    invoice_generated = True
+                else:
+                    logger.error(f'[OPERATION-{operation.operation_id}] ❌ ERROR al generar factura: {message_invoice}')
+            else:
+                logger.warning(f'[OPERATION-{operation.operation_id}] ⚠️ Facturación electrónica DESHABILITADA en configuración')
+                logger.warning(f'[OPERATION-{operation.operation_id}] Verifica NUBEFACT_ENABLED en variables de entorno')
+
+            logger.info(f'[OPERATION-{operation.operation_id}] ========== FIN PROCESO DE FACTURACIÓN ==========')
+
+        except Exception as e:
+            logger.error(f'[OPERATION-{operation.operation_id}] ❌ EXCEPCIÓN al generar factura: {str(e)}')
+            logger.exception(e)
+
         # Enviar email de confirmación
         try:
             import logging
