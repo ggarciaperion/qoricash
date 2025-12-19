@@ -251,7 +251,8 @@ class InvoiceService:
         }]
 
         # Determinar serie y obtener siguiente correlativo
-        serie = "F001" if invoice_type_code == "1" else "B001"
+        # IMPORTANTE: Usar B002 porque B001-1 ya existe en NubeFact (anulado pero no eliminado)
+        serie = "F001" if invoice_type_code == "1" else "B002"
         next_number = InvoiceService._get_next_correlative(serie)
         numero_int = int(next_number)  # Enviar como entero según ejemplo NubeFact
 
