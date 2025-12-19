@@ -286,6 +286,7 @@ class InvoiceService:
 
             logger.info('[INVOICE] Enviando comprobante a NubeFact...')
             logger.info(f'[INVOICE] URL: {api_url}')
+            logger.info(f'[INVOICE] JSON enviado: {invoice_data}')
 
             response = requests.post(
                 api_url,
