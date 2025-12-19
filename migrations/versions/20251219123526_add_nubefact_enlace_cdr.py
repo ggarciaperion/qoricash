@@ -1,7 +1,7 @@
 """add nubefact_enlace_cdr
 
-Revision ID: 20251219123526
-Revises:
+Revision ID: 20251219_cdr
+Revises: 20251216_invoices
 Create Date: 2025-12-19 12:35:26
 
 """
@@ -10,8 +10,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '20251219123526'
-down_revision = None
+revision = '20251219_cdr'
+down_revision = '20251216_invoices'
 branch_labels = None
 depends_on = None
 
