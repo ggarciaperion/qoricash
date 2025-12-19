@@ -440,11 +440,29 @@ function validatePhone(phone) {
  * Reproducir sonido de notificación
  */
 function playNotificationSound() {
-    // Crear audio element
-    const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIGGe77OecTBMEUKzj8Lf4CgABCQAAAAAAAAA');
-    audio.play().catch(() => {
-        // Ignorar errores de reproducción
-    });
+    // Sonido de notificación moderno y suave (tono agradable)
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+    // Crear oscilador para el tono
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+
+    // Conectar oscilador al gain y luego al destino
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+
+    // Configurar tono suave (nota musical: E5 = 659 Hz)
+    oscillator.type = 'sine';
+    oscillator.frequency.setValueAtTime(659, audioContext.currentTime);
+
+    // Fade in/out suave
+    gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+    gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.05);
+    gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.25);
+
+    // Reproducir
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + 0.25);
 }
 
 /**
