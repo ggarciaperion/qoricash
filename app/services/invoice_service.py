@@ -27,8 +27,8 @@ class InvoiceService:
 
     # Tipo de comprobante SUNAT
     INVOICE_TYPE_MAPPING = {
-        'Factura': '01',    # Factura
-        'Boleta': '02'      # Boleta de Venta (CORREGIDO: era 03, pero 03 es Nota)
+        'Factura': '1',     # Factura
+        'Boleta': '2'       # Boleta de Venta (sin cero adelante según ejemplo NubeFact)
     }
 
     @staticmethod
@@ -169,9 +169,9 @@ class InvoiceService:
             tuple: (invoice_type_name, invoice_type_code)
         """
         if client.document_type == 'RUC':
-            return 'Factura', '01'
+            return 'Factura', '1'
         else:  # DNI o CE
-            return 'Boleta', '02'  # CORREGIDO: era 03, pero 03 es Nota
+            return 'Boleta', '2'  # Sin cero adelante según ejemplo NubeFact
 
     @staticmethod
     def _get_company_full_address():
@@ -244,60 +244,62 @@ class InvoiceService:
             "valor_unitario": total_amount,
             "precio_unitario": total_amount,
             "subtotal": total_amount,
-            "tipo_de_igv": 20,  # 20 = Exonerado (operaciones de cambio de divisas según SUNAT)
+            "tipo_de_igv": 9,  # 9 = Inafecto según ejemplo NubeFact
             "igv": 0,
             "total": total_amount,
-            "anticipo_regularizacion": False
+            "anticipo_regularizacion": False,
+            "codigo_producto_sunat": "20000000"  # Código SUNAT para servicios
         }]
 
         # Determinar serie y obtener siguiente correlativo
-        serie = "F001" if invoice_type_code == "01" else "B001"
+        serie = "F001" if invoice_type_code == "1" else "B001"
         next_number = InvoiceService._get_next_correlative(serie)
-        numero_str = str(next_number)  # Enviar como string simple, sin padding
+        numero_int = int(next_number)  # Enviar como entero según ejemplo NubeFact
 
-        logger.info(f'[INVOICE] Serie: {serie}, Número correlativo: {numero_str}')
+        logger.info(f'[INVOICE] Serie: {serie}, Número correlativo: {numero_int}')
 
-        # Estructura del comprobante para NubeFact
+        # Estructura del comprobante para NubeFact (siguiendo ejemplo oficial)
         invoice_data = {
             "operacion": "generar_comprobante",
             "tipo_de_comprobante": invoice_type_code,
             "serie": serie,
-            "numero": numero_str,  # CORREGIDO: Enviar correlativo consecutivo en lugar de "-"
-            "sunat_transaction": 1,  # 1 = Venta interna
-            "cliente_tipo_de_documento": client_doc_type,
+            "numero": numero_int,  # Enviar como entero
+            "sunat_transaction": 1,
+            "cliente_tipo_de_documento": int(client_doc_type),  # Enviar como entero
             "cliente_numero_de_documento": client.dni,
             "cliente_denominacion": client.full_name or "CLIENTE",
             "cliente_direccion": client.full_address or "-",
-            "cliente_email": client.email.split(';')[0] if client.email else "",  # Primer email
+            "cliente_email": client.email.split(';')[0] if client.email else "",
             "cliente_email_1": "",
             "cliente_email_2": "",
-            "fecha_de_emision": now_peru().strftime("%d-%m-%Y"),  # Formato DD-MM-YYYY
-            "moneda": 1,  # 1 = PEN
+            "fecha_de_emision": now_peru().strftime("%d-%m-%Y"),
+            "fecha_de_vencimiento": "",
+            "moneda": "1",  # String según ejemplo NubeFact
             "tipo_de_cambio": "",
-            "porcentaje_de_igv": 18.00,
+            "porcentaje_de_igv": "18.00",  # String según ejemplo
             "descuento_global": "",
             "total_descuento": "",
             "total_anticipo": "",
-            "total_gravada": 0,
-            "total_inafecta": 0,
-            "total_exonerada": total_amount,  # CORREGIDO: Usar exonerada según error NubeFact
-            "total_igv": 0,
-            "total_gratuita": 0,
-            "total_otros_cargos": 0,
-            "total": total_amount,
+            "total_gravada": "",  # String vacío en lugar de 0
+            "total_inafecta": str(total_amount),  # CORREGIDO: Inafecta para operaciones de cambio
+            "total_exonerada": "",  # String vacío
+            "total_igv": "",  # String vacío
+            "total_gratuita": "",
+            "total_otros_cargos": "",
+            "total": str(total_amount),  # String según ejemplo
             "percepcion_tipo": "",
             "percepcion_base_imponible": "",
             "total_percepcion": "",
             "total_incluido_percepcion": "",
-            "detraccion": False,
+            "detraccion": "false",  # String según ejemplo
             "observaciones": f"Operación #{operation.operation_id}",
-            "documento_que_se_modifica_tipo": None,
-            "documento_que_se_modifica_serie": None,
-            "documento_que_se_modifica_numero": None,
-            "tipo_de_nota_de_credito": None,
-            "tipo_de_nota_de_debito": None,
-            "enviar_automaticamente_a_la_sunat": True,
-            "enviar_automaticamente_al_cliente": False,  # Lo enviamos nosotros con el comprobante
+            "documento_que_se_modifica_tipo": "",
+            "documento_que_se_modifica_serie": "",
+            "documento_que_se_modifica_numero": "",
+            "tipo_de_nota_de_credito": "",
+            "tipo_de_nota_de_debito": "",
+            "enviar_automaticamente_a_la_sunat": "true",  # String según ejemplo
+            "enviar_automaticamente_al_cliente": "false",  # String según ejemplo
             "codigo_unico": operation.operation_id,  # ID único de la operación
             "condiciones_de_pago": "",
             "medio_de_pago": "",
