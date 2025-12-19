@@ -441,6 +441,7 @@ function validatePhone(phone) {
  * Sonido profesional tipo "ding-dong" de 2 segundos similar a WhatsApp/smartphone
  */
 function playNotificationSound() {
+    console.log('🔔 EJECUTANDO playNotificationSound() - Versión DING-DONG 2 segundos');
     try {
         const audioContext = new (window.AudioContext || window.webkitAudioContext)();
 
