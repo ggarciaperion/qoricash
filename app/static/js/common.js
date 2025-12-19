@@ -438,44 +438,74 @@ function validatePhone(phone) {
 
 /**
  * Reproducir sonido de notificación
+ * Sonido profesional tipo "ding-dong" de 2 segundos similar a WhatsApp/smartphone
  */
 function playNotificationSound() {
-    // Sonido de notificación moderno con melodía agradable de 2 segundos
-    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    try {
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
 
-    // Notas musicales (escala pentatónica para sonido agradable)
-    // C5, E5, G5, A5
-    const notes = [
-        { freq: 523.25, start: 0.0, duration: 0.4 },    // C5
-        { freq: 659.25, start: 0.4, duration: 0.4 },    // E5
-        { freq: 783.99, start: 0.8, duration: 0.8 }     // G5 (más prolongado)
-    ];
+        // Sonido tipo "ding-dong" profesional con 2 tonos descendentes
+        // Patrón: tono alto → pausa breve → tono bajo (sonido característico de notificación)
 
-    notes.forEach(note => {
-        const oscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
+        // PRIMER TONO: "Ding" (nota alta E6 - 1318 Hz)
+        const osc1 = audioContext.createOscillator();
+        const gain1 = audioContext.createGain();
 
-        // Conectar oscilador al gain y luego al destino
-        oscillator.connect(gainNode);
-        gainNode.connect(audioContext.destination);
+        osc1.connect(gain1);
+        gain1.connect(audioContext.destination);
 
-        // Configurar tono suave (sine wave)
-        oscillator.type = 'sine';
-        oscillator.frequency.setValueAtTime(note.freq, audioContext.currentTime + note.start);
+        osc1.type = 'sine';  // Onda suave
+        osc1.frequency.setValueAtTime(1318, audioContext.currentTime);  // E6
 
-        // Configurar volumen con fade in/out suave
-        const startTime = audioContext.currentTime + note.start;
-        const endTime = startTime + note.duration;
+        // Envolvente del primer tono (fade in/out rápido)
+        gain1.gain.setValueAtTime(0, audioContext.currentTime);
+        gain1.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.02);  // Ataque rápido
+        gain1.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.6);  // Decay prolongado
 
-        gainNode.gain.setValueAtTime(0, startTime);
-        gainNode.gain.linearRampToValueAtTime(0.25, startTime + 0.05);  // Fade in
-        gainNode.gain.linearRampToValueAtTime(0.25, endTime - 0.1);     // Mantener
-        gainNode.gain.linearRampToValueAtTime(0, endTime);              // Fade out
+        osc1.start(audioContext.currentTime);
+        osc1.stop(audioContext.currentTime + 0.6);
 
-        // Reproducir esta nota
-        oscillator.start(startTime);
-        oscillator.stop(endTime);
-    });
+        // SEGUNDO TONO: "Dong" (nota baja A5 - 880 Hz)
+        const osc2 = audioContext.createOscillator();
+        const gain2 = audioContext.createGain();
+
+        osc2.connect(gain2);
+        gain2.connect(audioContext.destination);
+
+        osc2.type = 'sine';  // Onda suave
+        osc2.frequency.setValueAtTime(880, audioContext.currentTime + 0.3);  // A5 (después de pausa)
+
+        // Envolvente del segundo tono (más prolongado)
+        gain2.gain.setValueAtTime(0, audioContext.currentTime + 0.3);
+        gain2.gain.linearRampToValueAtTime(0.28, audioContext.currentTime + 0.32);  // Ataque rápido
+        gain2.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 1.8);  // Decay muy prolongado
+
+        osc2.start(audioContext.currentTime + 0.3);
+        osc2.stop(audioContext.currentTime + 1.8);
+
+        // AÑADIR ARMÓNICOS PARA SONIDO MÁS RICO
+        // Tercer oscilador (armónico sutil del primer tono)
+        const osc3 = audioContext.createOscillator();
+        const gain3 = audioContext.createGain();
+
+        osc3.connect(gain3);
+        gain3.connect(audioContext.destination);
+
+        osc3.type = 'sine';
+        osc3.frequency.setValueAtTime(2636, audioContext.currentTime);  // Octava superior de E6
+
+        gain3.gain.setValueAtTime(0, audioContext.currentTime);
+        gain3.gain.linearRampToValueAtTime(0.08, audioContext.currentTime + 0.02);  // Más suave
+        gain3.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.4);
+
+        osc3.start(audioContext.currentTime);
+        osc3.stop(audioContext.currentTime + 0.4);
+
+        console.log('🔔 Sonido de notificación reproducido (2 segundos)');
+
+    } catch (error) {
+        console.error('Error al reproducir sonido de notificación:', error);
+    }
 }
 
 /**
