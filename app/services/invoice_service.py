@@ -230,7 +230,7 @@ class InvoiceService:
             "cliente_email": client.email.split(';')[0] if client.email else "",  # Primer email
             "cliente_email_1": "",
             "cliente_email_2": "",
-            "fecha_de_emision": datetime.now().strftime("%Y-%m-%d"),
+            "fecha_de_emision": now_peru().strftime("%Y-%m-%d"),
             "moneda": 1,  # 1 = PEN
             "tipo_de_cambio": "",
             "porcentaje_de_igv": 18.00,
@@ -250,11 +250,6 @@ class InvoiceService:
             "total_incluido_percepcion": "",
             "detraccion": False,
             "observaciones": f"Operación #{operation.operation_id}",
-            "documento_que_se_modifica_tipo": "",
-            "documento_que_se_modifica_serie": "",
-            "documento_que_se_modifica_numero": "",
-            "tipo_de_nota_de_credito": "",
-            "tipo_de_nota_de_debito": "",
             "enviar_automaticamente_a_la_sunat": True,
             "enviar_automaticamente_al_cliente": False,  # Lo enviamos nosotros con el comprobante
             "codigo_unico": operation.operation_id,  # ID único de la operación
