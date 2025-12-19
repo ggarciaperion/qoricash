@@ -27,8 +27,8 @@
   "total_descuento": "",
   "total_anticipo": "",
   "total_gravada": 0,
-  "total_inafecta": 0,
-  "total_exonerada": 356.98,
+  "total_inafecta": 356.98,
+  "total_exonerada": 0,
   "total_igv": 0,
   "total_gratuita": 0,
   "total_otros_cargos": 0,
@@ -62,7 +62,7 @@
       "valor_unitario": 356.98,
       "precio_unitario": 356.98,
       "subtotal": 356.98,
-      "tipo_de_igv": 9,
+      "tipo_de_igv": 30,
       "igv": 0,
       "total": 356.98,
       "anticipo_regularizacion": false
@@ -71,7 +71,9 @@
 
   "_CORRECCIONES_APLICADAS_19_DIC_2025": {
     "tipo_de_comprobante": "CORREGIDO de 03 a 02 (03 es Nota, 02 es Boleta) según feedback de soporte NubeFact",
-    "numero": "CORREGIDO de '-' a correlativo consecutivo (1, 2, 3, etc.) según feedback de soporte NubeFact"
+    "numero": "CORREGIDO de '-' a correlativo consecutivo (1, 2, 3, etc.) según feedback de soporte NubeFact",
+    "total_inafecta": "CORREGIDO de total_exonerada a total_inafecta (operaciones de cambio de divisas son inafectas según error NubeFact)",
+    "tipo_de_igv": "CORREGIDO de 9 (Exonerado) a 30 (Inafecto) para operaciones de cambio de divisas"
   },
 
   "_explicacion_campos_importantes": {
@@ -82,9 +84,10 @@
     "cliente_tipo_de_documento": "1 = DNI, 4 = CE, 6 = RUC",
     "fecha_de_emision": "Formato: DD-MM-YYYY",
     "moneda": "1 = PEN (Soles)",
-    "total_exonerada": "Monto exonerado de IGV (operaciones de cambio están exoneradas)",
-    "total_igv": "0 porque las operaciones están exoneradas",
-    "tipo_de_igv": "9 = Exonerado (en items)",
+    "total_inafecta": "Monto inafecto de IGV (operaciones de cambio de divisas son INAFECTAS, no exoneradas)",
+    "total_exonerada": "0 para operaciones de cambio (usar total_inafecta)",
+    "total_igv": "0 porque las operaciones están inafectas",
+    "tipo_de_igv": "30 = Inafecto (en items) - Para operaciones de cambio de divisas",
     "unidad_de_medida": "ZZ = Servicio",
     "enviar_automaticamente_a_la_sunat": "true = NubeFact envía automáticamente a SUNAT",
     "enviar_automaticamente_al_cliente": "false = Nosotros enviamos el email con PDF",

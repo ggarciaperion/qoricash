@@ -136,7 +136,7 @@ class InvoiceService:
                     descripcion=InvoiceService._generate_service_description(operation),
                     monto_total=operation.amount_pen,
                     moneda='PEN',
-                    exonerada=operation.amount_pen,
+                    exonerada=operation.amount_pen,  # En BD guardamos como exonerada (inafecta para NubeFact)
                     status='Error',
                     error_message=str(error_msg)
                 )
@@ -244,7 +244,7 @@ class InvoiceService:
             "valor_unitario": total_amount,
             "precio_unitario": total_amount,
             "subtotal": total_amount,
-            "tipo_de_igv": 9,  # 9 = Exonerado
+            "tipo_de_igv": 30,  # 30 = Inafecto (operaciones de cambio de divisas)
             "igv": 0,
             "total": total_amount,
             "anticipo_regularizacion": False
@@ -279,8 +279,8 @@ class InvoiceService:
             "total_descuento": "",
             "total_anticipo": "",
             "total_gravada": 0,
-            "total_inafecta": 0,
-            "total_exonerada": total_amount,
+            "total_inafecta": total_amount,  # CORREGIDO: Operaciones de cambio son inafectas, no exoneradas
+            "total_exonerada": 0,
             "total_igv": 0,
             "total_gratuita": 0,
             "total_otros_cargos": 0,
@@ -408,7 +408,7 @@ class InvoiceService:
             descripcion=InvoiceService._generate_service_description(operation),
             monto_total=operation.amount_pen,
             moneda='PEN',
-            exonerada=operation.amount_pen,
+            exonerada=operation.amount_pen,  # En BD guardamos como exonerada (inafecta para NubeFact)
             gravada=0,
             igv=0,
             status='Aceptado',
