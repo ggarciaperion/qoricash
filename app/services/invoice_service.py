@@ -244,7 +244,7 @@ class InvoiceService:
             "valor_unitario": total_amount,
             "precio_unitario": total_amount,
             "subtotal": total_amount,
-            "tipo_de_igv": 30,  # 30 = Inafecto (operaciones de cambio de divisas)
+            "tipo_de_igv": 20,  # 20 = Exonerado (operaciones de cambio de divisas según SUNAT)
             "igv": 0,
             "total": total_amount,
             "anticipo_regularizacion": False
@@ -279,8 +279,8 @@ class InvoiceService:
             "total_descuento": "",
             "total_anticipo": "",
             "total_gravada": 0,
-            "total_inafecta": total_amount,  # CORREGIDO: Operaciones de cambio son inafectas, no exoneradas
-            "total_exonerada": 0,
+            "total_inafecta": 0,
+            "total_exonerada": total_amount,  # CORREGIDO: Usar exonerada según error NubeFact
             "total_igv": 0,
             "total_gratuita": 0,
             "total_otros_cargos": 0,
