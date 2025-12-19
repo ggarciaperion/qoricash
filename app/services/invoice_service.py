@@ -47,28 +47,27 @@ class InvoiceService:
         Returns:
             int: Siguiente número correlativo
         """
-        from sqlalchemy import func
+        from sqlalchemy import func, cast, Integer
+        from sqlalchemy.sql import text
 
-        # Buscar el último número usado para esta serie
-        last_invoice = Invoice.query.filter_by(
-            serie=serie
-        ).filter(
-            Invoice.numero.isnot(None)
-        ).order_by(
-            Invoice.created_at.desc()
-        ).first()
+        # Buscar TODAS las facturas de esta serie y encontrar el máximo número
+        # Incluye errores porque NubeFact puede haberlas creado antes de rechazarlas
+        all_invoices = Invoice.query.filter_by(serie=serie).all()
 
-        if last_invoice and last_invoice.numero:
-            try:
-                # Convertir el número a entero y sumar 1
-                last_number = int(last_invoice.numero)
-                return last_number + 1
-            except (ValueError, TypeError):
-                logger.warning(f'No se pudo convertir el último número: {last_invoice.numero}')
-                return 1
-        else:
-            # Primera factura de esta serie
-            return 1
+        max_numero = 0
+        for invoice in all_invoices:
+            if invoice.numero:
+                try:
+                    num = int(invoice.numero)
+                    if num > max_numero:
+                        max_numero = num
+                except (ValueError, TypeError):
+                    # Ignorar números que no son enteros
+                    continue
+
+        next_numero = max_numero + 1
+        logger.info(f'[INVOICE] Último correlativo para {serie}: {max_numero}, siguiente: {next_numero}')
+        return next_numero
 
     @staticmethod
     def generate_invoice_for_operation(operation_id):
