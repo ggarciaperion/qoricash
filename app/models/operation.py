@@ -94,8 +94,8 @@ class Operation(db.Model):
     completed_at = db.Column(db.DateTime)
     in_process_since = db.Column(db.DateTime)  # Cuando pasó a "En proceso"
 
-    # Marca si la operación está en observación (detiene alertas repetitivas)
-    en_observacion = db.Column(db.Boolean, default=False, nullable=False)
+    # REMOVIDO: Campo en_observacion eliminado por petición del usuario
+    # en_observacion = db.Column(db.Boolean, default=False, nullable=False)
 
     # Constraints
     __table_args__ = (
@@ -293,7 +293,6 @@ class Operation(db.Model):
             'total_payments': self.get_total_payments(),
             'notes_read_by': self.notes_read_by,
             'assigned_operator_id': self.assigned_operator_id,
-            'en_observacion': self.en_observacion,
         }
 
         if include_relations:

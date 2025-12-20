@@ -1,0 +1,169 @@
+ASUNTO: URGENTE - Múltiples errores al generar comprobantes - Necesitamos configuración correcta
+
+================================================================================
+
+Estimado equipo de Soporte NubeFact,
+
+Hemos implementado las correcciones que nos indicaron anteriormente (tipo de comprobante 02 y número correlativo), sin embargo seguimos teniendo errores al intentar generar comprobantes electrónicos.
+
+EMPRESA:
+--------
+- RUC: 20615113698
+- Razón Social: QORICASH SAC
+- Giro: Casa de cambio (compra/venta de divisas)
+
+CONTEXTO DEL NEGOCIO:
+---------------------
+Realizamos operaciones de cambio de divisas (dólares por soles y viceversa). Según nuestra interpretación de la normativa SUNAT, estas operaciones están exoneradas/inafectas del IGV.
+
+HISTORIAL DE ERRORES RECIBIDOS:
+--------------------------------
+
+INTENTO 1:
+----------
+JSON enviado:
+{
+  "tipo_de_comprobante": "02",
+  "total_exonerada": 350.0,
+  "total_inafecta": 0,
+  "items": [{"tipo_de_igv": 9}]
+}
+
+Error recibido:
+"Total INAFECTA debe ser mayor a cero, Error al PreValidar codigo Tributo: 9998"
+
+
+INTENTO 2:
+----------
+JSON enviado:
+{
+  "tipo_de_comprobante": "02",
+  "total_inafecta": 1775.0,
+  "total_exonerada": 0,
+  "items": [{"tipo_de_igv": 30}]
+}
+
+Error recibido:
+"Tipo de IGV incorrecto"
+
+
+INTENTO 3:
+----------
+JSON enviado:
+{
+  "tipo_de_comprobante": "02",
+  "total_exonerada": 355.0,
+  "total_inafecta": 0,
+  "items": [{"tipo_de_igv": 20}]
+}
+
+Error recibido:
+"Error al PreValidar codigo Tributo: 9996"
+
+
+JSON COMPLETO QUE ESTAMOS ENVIANDO (Intento 3):
+------------------------------------------------
+{
+  "operacion": "generar_comprobante",
+  "tipo_de_comprobante": "02",
+  "serie": "B001",
+  "numero": "1",
+  "sunat_transaction": 1,
+  "cliente_tipo_de_documento": "1",
+  "cliente_numero_de_documento": "44411155",
+  "cliente_denominacion": "RIVERA RIVERA RIVERITA",
+  "cliente_direccion": "JR PERU 315 ASOVISEM, CHANCAY, HUARAL, LIMA",
+  "cliente_email": "mr.gpgv@gmail.com",
+  "cliente_email_1": "",
+  "cliente_email_2": "",
+  "fecha_de_emision": "19-12-2025",
+  "moneda": 1,
+  "tipo_de_cambio": "",
+  "porcentaje_de_igv": 18.0,
+  "descuento_global": "",
+  "total_descuento": "",
+  "total_anticipo": "",
+  "total_gravada": 0,
+  "total_inafecta": 0,
+  "total_exonerada": 355.0,
+  "total_igv": 0,
+  "total_gratuita": 0,
+  "total_otros_cargos": 0,
+  "total": 355.0,
+  "percepcion_tipo": "",
+  "percepcion_base_imponible": "",
+  "total_percepcion": "",
+  "total_incluido_percepcion": "",
+  "detraccion": false,
+  "observaciones": "Operación #EXP-1063",
+  "documento_que_se_modifica_tipo": null,
+  "documento_que_se_modifica_serie": null,
+  "documento_que_se_modifica_numero": null,
+  "tipo_de_nota_de_credito": null,
+  "tipo_de_nota_de_debito": null,
+  "enviar_automaticamente_a_la_sunat": true,
+  "enviar_automaticamente_al_cliente": false,
+  "codigo_unico": "EXP-1063",
+  "condiciones_de_pago": "",
+  "medio_de_pago": "",
+  "placa_vehiculo": "",
+  "orden_compra_servicio": "",
+  "tabla_personalizada_codigo": "",
+  "formato_de_pdf": "",
+  "items": [
+    {
+      "unidad_de_medida": "ZZ",
+      "codigo": "001",
+      "descripcion": "QORICASH COMPRA 100.00 USD CON TIPO DE CAMBIO 3.5500 - CLIENTE ENVIA 100.00 USD - CLIENTE RECIBE 355.00 PEN",
+      "cantidad": 1,
+      "valor_unitario": 355.0,
+      "precio_unitario": 355.0,
+      "subtotal": 355.0,
+      "tipo_de_igv": 20,
+      "igv": 0,
+      "total": 355.0,
+      "anticipo_regularizacion": false
+    }
+  ]
+}
+
+
+PREGUNTAS URGENTES:
+-------------------
+
+1. Para operaciones de casa de cambio (compra/venta de divisas), ¿cuál es el
+   código correcto de "tipo_de_igv" que debemos usar?
+   - ¿Es 9, 20, 30, u otro código?
+
+2. ¿Debemos usar "total_exonerada" o "total_inafecta" para operaciones de
+   cambio de divisas?
+
+3. ¿Qué significan los errores "codigo Tributo: 9996" y "codigo Tributo: 9998"?
+
+4. ¿Hay algún campo adicional que necesitemos configurar para este tipo de
+   operaciones?
+
+5. ¿Podrían proporcionarnos un ejemplo de JSON completo y funcional para una
+   boleta de casa de cambio?
+
+
+INFORMACIÓN ADICIONAL:
+----------------------
+- Endpoint utilizado: POST https://api.nubefact.com/api/v1/{token}
+- Header Authorization: Token token="{nuestro_token}"
+- Content-Type: application/json
+
+
+Agradecemos enormemente su pronta respuesta ya que tenemos el sistema en
+producción y necesitamos habilitar urgentemente la facturación electrónica.
+
+Quedamos atentos a sus comentarios.
+
+
+Saludos cordiales,
+
+QORICASH SAC
+RUC: 20615113698
+Email: qoricashfx@gmail.com
+
+================================================================================
