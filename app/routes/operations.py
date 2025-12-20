@@ -1047,10 +1047,14 @@ def complete_operation(operation_id):
         if 'operator_comments' in data:
             operation.operator_comments = data['operator_comments']
 
+        # Si no tiene operador asignado, asignar el usuario actual que está completando
+        if not operation.assigned_operator_id:
+            operation.assigned_operator_id = current_user.id
+
         operation.status = 'Completada'
         operation.completed_at = now_peru()
         operation.in_process_since = None  # Limpiar timestamp al completar
-        operation.assigned_operator_id = None  # Limpiar asignación de operador
+        # NO limpiar assigned_operator_id - necesitamos mantener quién atendió la operación
 
         AuditLog.log_action(
             user_id=current_user.id,
