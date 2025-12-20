@@ -59,7 +59,7 @@
                                         <span class="badge bg-danger">Cancelado</span>
                                     {% endif %}
                                 </td>
-                                <td>{{ op.created_at.strftime('%d/%m/%Y %H:%M') if op.created_at else '-' }}</td>
+                                <td data-order="{{ op.created_at.timestamp() if op.created_at else 0 }}">{{ op.created_at.strftime('%d/%m/%Y %H:%M') if op.created_at else '-' }}</td>
                                 {% if user.role in ['Master', 'Operador'] %}
                                 <td>{{ op.user.email if op.user else '-' }}</td>
                                 {% endif %}
@@ -143,11 +143,16 @@
 let historyTable;
 
 $(document).ready(function() {
+    // Determinar el índice de la columna Fecha según el rol
+    // Si el usuario es Master u Operador, hay columna "Usuario" (índice 8 para fecha)
+    // Si no, no hay columna "Usuario" (índice 7 para fecha)
+    const dateColumnIndex = window.currentUserRole === 'Master' || window.currentUserRole === 'Operador' ? 7 : 7;
+
     historyTable = $('#historyTable').DataTable({
         "language": {
             "url": "//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json"
         },
-        "order": [[7, "desc"]], // Ordenar por fecha descendente
+        "order": [[dateColumnIndex, "desc"]], // Ordenar por fecha descendente (más reciente primero)
         "pageLength": 25,
         "responsive": true,
         "dom": '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>rtip',
