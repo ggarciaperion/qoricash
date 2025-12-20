@@ -1,7 +1,7 @@
 """Increase bank_name field size to 100 characters
 
-Revision ID: k3l4m5n6o7p8
-Revises: j2k3l4m5n6o7
+Revision ID: k4l5m6n7o8p9
+Revises: k3l4m5n6o7p8
 Create Date: 2025-12-09 00:00:00.000000
 
 """
@@ -10,8 +10,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = 'k3l4m5n6o7p8'
-down_revision = 'j2k3l4m5n6o7'
+revision = 'k4l5m6n7o8p9'
+down_revision = 'k3l4m5n6o7p8'
 branch_labels = None
 depends_on = None
 
