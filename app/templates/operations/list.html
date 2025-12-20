@@ -589,7 +589,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/operations.js') }}?v=20251220_103000"></script>
+<script src="{{ url_for('static', filename='js/operations.js') }}?v=20251220_104500"></script>
 <script>
 // Variables globales
 let currentOperation = null;
@@ -962,6 +962,15 @@ function buildViewHTML(op, readonly) {
             html += `</tr>`;
         });
         html += `</tbody></table>`;
+    }
+
+    // Atendido por (mostrar nombre del operador que completó la operación)
+    if (op.status === 'Completada' && op.assigned_operator_name) {
+        html += `<hr><h6><i class="bi bi-person-check text-info"></i> Atendido por</h6>
+        <div class="alert alert-info mb-0">
+            <i class="bi bi-person-check me-2"></i>
+            <strong>${op.assigned_operator_name}</strong>
+        </div>`;
     }
 
     // Factura Electrónica

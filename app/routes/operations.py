@@ -1399,14 +1399,22 @@ def check_pending_operations():
     from app.extensions import db
     from app.models.operation import Operation
     from sqlalchemy import and_
+    from datetime import datetime
 
     try:
-        # Obtener todas las operaciones en proceso asignadas al operador actual
+        # Obtener fecha actual en Perú
+        now = now_peru()
+        start_of_day = datetime(now.year, now.month, now.day, 0, 0, 0)
+        end_of_day = datetime(now.year, now.month, now.day, 23, 59, 59)
+
+        # Obtener operaciones en proceso asignadas al operador actual DEL DÍA ACTUAL
         operations = Operation.query.filter(
             and_(
                 Operation.status == 'En proceso',
                 Operation.in_process_since.isnot(None),
-                Operation.assigned_operator_id == current_user.id  # Solo sus operaciones asignadas
+                Operation.assigned_operator_id == current_user.id,  # Solo sus operaciones asignadas
+                Operation.created_at >= start_of_day,  # Solo operaciones del día actual
+                Operation.created_at <= end_of_day
             )
         ).all()
     except Exception as e:
