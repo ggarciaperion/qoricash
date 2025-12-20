@@ -1351,26 +1351,14 @@ def check_pending_operations():
 
     try:
         # Obtener todas las operaciones en proceso asignadas al operador actual
-        # EXCLUIR las que están en observación (si el campo existe)
-        try:
-            # Intentar con el campo en_observacion (si existe después de migración)
-            operations = Operation.query.filter(
-                and_(
-                    Operation.status == 'En proceso',
-                    Operation.in_process_since.isnot(None),
-                    Operation.assigned_operator_id == current_user.id,  # Solo sus operaciones asignadas
-                    Operation.en_observacion == False  # Excluir operaciones en observación
-                )
-            ).all()
-        except Exception:
-            # Si el campo en_observacion no existe (pre-migración), consultar sin ese filtro
-            operations = Operation.query.filter(
-                and_(
-                    Operation.status == 'En proceso',
-                    Operation.in_process_since.isnot(None),
-                    Operation.assigned_operator_id == current_user.id  # Solo sus operaciones asignadas
-                )
-            ).all()
+        # NOTA: Filtro de en_observacion deshabilitado hasta ejecutar migración
+        operations = Operation.query.filter(
+            and_(
+                Operation.status == 'En proceso',
+                Operation.in_process_since.isnot(None),
+                Operation.assigned_operator_id == current_user.id  # Solo sus operaciones asignadas
+            )
+        ).all()
     except Exception as e:
         # Si falla la consulta por otra razón, retornar vacío
         return jsonify({
@@ -1438,7 +1426,15 @@ def mark_en_observacion(operation_id):
             }), 400
 
         # Marcar como en observación
-        operation.en_observacion = True
+        # TEMPORAL: Usar setattr para compatibilidad si el campo existe
+        if hasattr(operation, 'en_observacion'):
+            operation.en_observacion = True
+        else:
+            # Si no existe el campo, retornar mensaje informativo
+            return jsonify({
+                'success': False,
+                'message': 'Funcionalidad temporalmente deshabilitada. Ejecutar migración: flask db upgrade'
+            }), 503
 
         # Registrar en audit log
         audit_log = AuditLog(

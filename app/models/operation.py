@@ -95,7 +95,8 @@ class Operation(db.Model):
     in_process_since = db.Column(db.DateTime)  # Cuando pasó a "En proceso"
 
     # Marca si la operación está en observación (detiene alertas repetitivas)
-    en_observacion = db.Column(db.Boolean, default=False, nullable=False)
+    # NOTA: Comentado temporalmente hasta ejecutar migración en Render
+    # en_observacion = db.Column(db.Boolean, default=False, nullable=False)
 
     # Constraints
     __table_args__ = (
