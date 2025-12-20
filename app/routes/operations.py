@@ -1351,12 +1351,13 @@ def check_pending_operations():
 
     try:
         # Obtener todas las operaciones en proceso asignadas al operador actual
-        # NOTA: Filtro de en_observacion deshabilitado hasta ejecutar migración
+        # EXCLUIR las que están en observación
         operations = Operation.query.filter(
             and_(
                 Operation.status == 'En proceso',
                 Operation.in_process_since.isnot(None),
-                Operation.assigned_operator_id == current_user.id  # Solo sus operaciones asignadas
+                Operation.assigned_operator_id == current_user.id,  # Solo sus operaciones asignadas
+                Operation.en_observacion == False  # Excluir operaciones en observación
             )
         ).all()
     except Exception as e:
@@ -1426,15 +1427,7 @@ def mark_en_observacion(operation_id):
             }), 400
 
         # Marcar como en observación
-        # TEMPORAL: Usar setattr para compatibilidad si el campo existe
-        if hasattr(operation, 'en_observacion'):
-            operation.en_observacion = True
-        else:
-            # Si no existe el campo, retornar mensaje informativo
-            return jsonify({
-                'success': False,
-                'message': 'Funcionalidad temporalmente deshabilitada. Ejecutar migración: flask db upgrade'
-            }), 503
+        operation.en_observacion = True
 
         # Registrar en audit log
         audit_log = AuditLog(

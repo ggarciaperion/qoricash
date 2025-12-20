@@ -1,10 +1,10 @@
 /**
  * QoriCash Trading V2 - Common JavaScript Functions
  * Funciones comunes reutilizables en todo el sistema
- * VERSION: 20251219_v5_observacion
+ * VERSION: 20251219_v6_final
  */
 
-console.log('🎵 QoriCash Common.js cargado - Versión: 20251219_v5_observacion (Alertas 5min + Observación)');
+console.log('✅ QoriCash Common.js cargado - Versión: 20251219_v6_final (Sistema completo funcional)');
 
 // Socket.IO connection
 let socket = null;
