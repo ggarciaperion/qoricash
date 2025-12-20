@@ -589,7 +589,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/operations.js') }}?v=20251220_104500"></script>
+<script src="{{ url_for('static', filename='js/operations.js') }}?v=20251220_113000"></script>
 <script>
 // Variables globales
 let currentOperation = null;
@@ -951,26 +951,33 @@ function buildViewHTML(op, readonly) {
     // Comprobantes del operador
     if (op.operator_proofs && op.operator_proofs.length > 0) {
         html += `<hr><h6><i class="bi bi-file-earmark-check text-info"></i> Comprobantes del Operador</h6>
-        <table class="table table-sm"><thead><tr><th>Comprobante</th><th>Comentarios del Operador</th></tr></thead><tbody>`;
+        <table class="table table-sm"><thead><tr><th>Comprobante</th><th>Comentarios del Operador</th><th>Atendido por</th></tr></thead><tbody>`;
         op.operator_proofs.forEach((p, index) => {
             html += `<tr>
                 <td><a href="${p.comprobante_url}" target="_blank" class="btn btn-sm btn-outline-primary"><i class="bi bi-download"></i> Descargar</a></td>`;
             // Solo mostrar los comentarios del operador en la primera fila
             if (index === 0) {
                 html += `<td rowspan="${op.operator_proofs.length}">${op.operator_comments || '-'}</td>`;
+                html += `<td rowspan="${op.operator_proofs.length}">`;
+                if (op.status === 'Completada' && op.assigned_operator_name) {
+                    html += `<i class="bi bi-person-check text-info me-1"></i><strong>${op.assigned_operator_name}</strong>`;
+                } else {
+                    html += '-';
+                }
+                html += `</td>`;
             }
             html += `</tr>`;
         });
         html += `</tbody></table>`;
-    }
-
-    // Atendido por (mostrar nombre del operador que completó la operación)
-    if (op.status === 'Completada' && op.assigned_operator_name) {
-        html += `<hr><h6><i class="bi bi-person-check text-info"></i> Atendido por</h6>
-        <div class="alert alert-info mb-0">
-            <i class="bi bi-person-check me-2"></i>
-            <strong>${op.assigned_operator_name}</strong>
-        </div>`;
+    } else if (op.status === 'Completada' && op.assigned_operator_name) {
+        // Si no hay comprobantes pero sí hay operador asignado, mostrar tabla simple
+        html += `<hr><h6><i class="bi bi-file-earmark-check text-info"></i> Comprobantes del Operador</h6>
+        <table class="table table-sm"><thead><tr><th>Comentarios del Operador</th><th>Atendido por</th></tr></thead><tbody>
+        <tr>
+            <td>${op.operator_comments || '-'}</td>
+            <td><i class="bi bi-person-check text-info me-1"></i><strong>${op.assigned_operator_name}</strong></td>
+        </tr>
+        </tbody></table>`;
     }
 
     // Factura Electrónica
