@@ -1351,11 +1351,13 @@ def check_pending_operations():
 
     try:
         # Obtener todas las operaciones en proceso asignadas al operador actual
+        # EXCLUIR las que están en observación
         operations = Operation.query.filter(
             and_(
                 Operation.status == 'En proceso',
                 Operation.in_process_since.isnot(None),
-                Operation.assigned_operator_id == current_user.id  # Solo sus operaciones asignadas
+                Operation.assigned_operator_id == current_user.id,  # Solo sus operaciones asignadas
+                Operation.en_observacion == False  # Excluir operaciones en observación
             )
         ).all()
     except Exception as e:
@@ -1372,13 +1374,12 @@ def check_pending_operations():
     for operation in operations:
         time_in_process = operation.get_time_in_process_minutes()
 
-        # Solo incluir si ha pasado 10 minutos o más
-        if time_in_process and time_in_process >= 10:
+        # Solo incluir si ha pasado 5 minutos o más
+        if time_in_process and time_in_process >= 5:
             # Determinar si debe mostrar notificación
-            # Primera notificación: a los 10 minutos
-            # Notificaciones subsiguientes: cada 5 minutos después de los 10
-            minutes_since_first_alert = time_in_process - 10
-            should_alert = (time_in_process == 10) or (minutes_since_first_alert > 0 and minutes_since_first_alert % 5 == 0)
+            # Primera notificación: a los 5 minutos
+            # Notificaciones subsiguientes: cada 5 minutos (10, 15, 20, 25, etc.)
+            should_alert = (time_in_process % 5 == 0)
 
             op_data = operation.to_dict(include_relations=True)
             op_data['time_in_process_minutes'] = time_in_process
@@ -1390,6 +1391,64 @@ def check_pending_operations():
         'pending_operations': pending_operations,
         'count': len(pending_operations)
     })
+
+
+@operations_bp.route('/api/mark_en_observacion/<int:operation_id>', methods=['POST'])
+@login_required
+@require_role('Operador')
+def mark_en_observacion(operation_id):
+    """
+    API: Marcar operación en observación para detener alertas (Solo Operador)
+
+    Solo puede marcar operaciones que estén asignadas a él
+
+    Returns:
+        JSON con resultado de la actualización
+    """
+    from app.extensions import db
+    from app.models.operation import Operation
+    from app.models.audit_log import AuditLog
+
+    try:
+        operation = Operation.query.get_or_404(operation_id)
+
+        # Verificar que la operación esté asignada al operador actual
+        if operation.assigned_operator_id != current_user.id:
+            return jsonify({
+                'success': False,
+                'message': 'No tienes permiso para modificar esta operación'
+            }), 403
+
+        # Verificar que esté en estado "En proceso"
+        if operation.status != 'En proceso':
+            return jsonify({
+                'success': False,
+                'message': 'Solo se pueden marcar operaciones en proceso'
+            }), 400
+
+        # Marcar como en observación
+        operation.en_observacion = True
+
+        # Registrar en audit log
+        audit_log = AuditLog(
+            user_id=current_user.id,
+            action='OPERACION_EN_OBSERVACION',
+            entity_type='Operation',
+            entity_id=operation.id,
+            details=f'Operación {operation.operation_id} marcada en observación (alertas detenidas)'
+        )
+        db.session.add(audit_log)
+
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': f'Operación {operation.operation_id} marcada en observación. Las alertas se han detenido.'
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': f'Error: {str(e)}'}), 500
 
 
 @operations_bp.route('/api/reassign_operator/<int:operation_id>', methods=['POST'])

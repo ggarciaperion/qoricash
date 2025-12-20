@@ -1,10 +1,10 @@
 /**
  * QoriCash Trading V2 - Common JavaScript Functions
  * Funciones comunes reutilizables en todo el sistema
- * VERSION: 20251219_v4_mp3fix
+ * VERSION: 20251219_v5_observacion
  */
 
-console.log('🎵 QoriCash Common.js cargado - Versión: 20251219_v4_mp3fix (Sonidos MP3 personalizados)');
+console.log('🎵 QoriCash Common.js cargado - Versión: 20251219_v5_observacion (Alertas 5min + Observación)');
 
 // Socket.IO connection
 let socket = null;
@@ -797,10 +797,9 @@ function checkPendingOperations() {
                 const opId = operation.operation_id;
 
                 // Lógica de alerta:
-                // - Primera alerta a los 10 minutos exactos
-                // - Alertas subsiguientes cada 5 minutos (15, 20, 25, etc.)
-                const shouldAlert = (timeInProcess === 10) ||
-                                   (timeInProcess > 10 && (timeInProcess - 10) % 5 === 0);
+                // - Primera alerta a los 5 minutos exactos
+                // - Alertas subsiguientes cada 5 minutos (10, 15, 20, 25, etc.)
+                const shouldAlert = (timeInProcess % 5 === 0);
 
                 if (shouldAlert) {
                     // Verificar si ya fue alertada en este tiempo específico
@@ -865,12 +864,20 @@ function showPendingOperationsAlert(operations) {
 
         contentHtml += '<div class="list-group-item">';
         contentHtml += '<div class="d-flex w-100 justify-content-between align-items-center">';
-        contentHtml += '<div>';
+        contentHtml += '<div class="flex-grow-1">';
         contentHtml += '<h6 class="mb-1"><strong>' + op.operation_id + '</strong> - ' + clientName + '</h6>';
         contentHtml += '<p class="mb-1"><small>' + operationType + ' | ' + amountUSD + '</small></p>';
         contentHtml += '</div>';
-        contentHtml += '<div class="text-end">';
+        contentHtml += '<div class="text-end d-flex align-items-center gap-2">';
         contentHtml += '<span class="badge bg-danger fs-6">' + timeInProcess + ' min</span>';
+
+        // Si es la tercera alerta o posterior (15 min o más), mostrar botón "En observación"
+        if (timeInProcess >= 15) {
+            contentHtml += '<button class="btn btn-sm btn-warning btnMarkObservacion" data-operation-id="' + op.id + '" data-operation-code="' + op.operation_id + '">';
+            contentHtml += '<i class="bi bi-eye-slash me-1"></i>En observación';
+            contentHtml += '</button>';
+        }
+
         contentHtml += '</div>';
         contentHtml += '</div>';
         contentHtml += '</div>';
@@ -928,3 +935,57 @@ $(document).on('click', '#btnDismissAlert', function() {
         alertModal.hide();
     }
 });
+
+/**
+ * Manejar clic en "En observación"
+ */
+$(document).on('click', '.btnMarkObservacion', function() {
+    const operationId = $(this).data('operation-id');
+    const operationCode = $(this).data('operation-code');
+
+    // Confirmar con el usuario
+    if (typeof Swal !== 'undefined') {
+        Swal.fire({
+            title: '¿Marcar en observación?',
+            html: `La operación <strong>${operationCode}</strong> se marcará en observación.<br><br>
+                   <small class="text-muted">Las alertas repetitivas se detendrán hasta que se complete la operación.</small>`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, marcar',
+            cancelButtonText: 'Cancelar',
+            confirmButtonColor: '#ffc107',
+            cancelButtonColor: '#6c757d'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                markOperationEnObservacion(operationId, operationCode);
+            }
+        });
+    } else {
+        if (confirm(`¿Marcar la operación ${operationCode} en observación?\n\nLas alertas se detendrán hasta que se complete.`)) {
+            markOperationEnObservacion(operationId, operationCode);
+        }
+    }
+});
+
+/**
+ * Llamar al API para marcar operación en observación
+ */
+function markOperationEnObservacion(operationId, operationCode) {
+    ajaxRequest(`/operations/api/mark_en_observacion/${operationId}`, 'POST', null, function(response) {
+        showNotification(response.message, 'success');
+
+        // Cerrar el modal de alertas
+        const modalElement = document.getElementById('pendingOperationsAlertModal');
+        const alertModal = bootstrap.Modal.getInstance(modalElement);
+        if (alertModal) {
+            alertModal.hide();
+        }
+
+        // Limpiar la operación del mapa de alertas
+        alertedOperationsMap.delete(operationCode);
+
+    }, function(xhr) {
+        const errorMsg = xhr.responseJSON?.message || 'Error al marcar operación en observación';
+        showNotification(errorMsg, 'danger');
+    });
+}
