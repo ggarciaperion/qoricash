@@ -215,68 +215,11 @@ function downloadExcel() {
     window.location.href = '/operations/api/export_history';
 }
 
-// Función para ver detalles de operación
+// Función para ver detalles de operación (COMPLETA - idéntica a list.html)
 function viewOperationDetails(operationId) {
     ajaxRequest(`/operations/api/${operationId}`, 'GET', null, function(response) {
         const op = response.operation;
-
-        const html = `
-            <div class="row">
-                <div class="col-md-6">
-                    <h6>Información de la Operación</h6>
-                    <p><strong>ID:</strong> ${op.operation_id}</p>
-                    <p><strong>Tipo:</strong> <span class="badge bg-${op.operation_type === 'Compra' ? 'success' : 'primary'}">${op.operation_type}</span></p>
-                    <p><strong>Estado:</strong> <span class="badge bg-success">Completada</span></p>
-                    <p><strong>Usuario:</strong> ${op.user_name || '-'}</p>
-                    <p><strong>Creado:</strong> ${formatDate(op.created_at)}</p>
-                    ${op.completed_at ? `<p><strong>Completado:</strong> ${formatDate(op.completed_at)}</p>` : ''}
-                </div>
-                <div class="col-md-6">
-                    <h6>Cliente</h6>
-                    <p><strong>Nombre:</strong> ${op.client_name || '-'}</p>
-                    <hr>
-                    <h6>Montos</h6>
-                    <p><strong>Monto USD:</strong> ${formatCurrency(op.amount_usd, 'USD')}</p>
-                    <p><strong>Tipo de Cambio:</strong> ${parseFloat(op.exchange_rate).toLocaleString('en-US', {minimumFractionDigits: 4, maximumFractionDigits: 4})}</p>
-                    <p><strong>Monto PEN:</strong> ${formatCurrency(op.amount_pen, 'PEN')}</p>
-                </div>
-            </div>
-            ${op.source_account || op.destination_account ? `
-                <hr>
-                <h6>Cuentas Bancarias</h6>
-                ${op.source_account ? `<p><strong>Cuenta Origen:</strong> ${op.source_account}</p>` : ''}
-                ${op.destination_account ? `<p><strong>Cuenta Destino:</strong> ${op.destination_account}</p>` : ''}
-            ` : ''}
-            ${op.notes ? `<hr><p><strong>Notas:</strong> ${op.notes}</p>` : ''}
-            ${op.payment_proof_url || op.operator_proof_url || op.operator_comments || op.assigned_operator_name ? `
-                <hr>
-                <div class="row">
-                    <div class="col-md-6">
-                        <h6>Comprobantes del Operador</h6>
-                        ${op.payment_proof_url ? `<p><a href="${op.payment_proof_url}" target="_blank" class="btn btn-sm btn-outline-primary"><i class="bi bi-file-earmark"></i> Ver Comprobante Cliente</a></p>` : ''}
-                        ${op.operator_proof_url ? `<p><a href="${op.operator_proof_url}" target="_blank" class="btn btn-sm btn-outline-primary"><i class="bi bi-file-earmark"></i> Ver Comprobante Operador</a></p>` : ''}
-                        ${op.operator_comments ? `
-                            <div class="mt-3">
-                                <strong>Comentarios del Operador:</strong>
-                                <div class="border rounded p-2 bg-light mt-1">
-                                    ${op.operator_comments}
-                                </div>
-                            </div>
-                        ` : ''}
-                    </div>
-                    <div class="col-md-6">
-                        ${op.assigned_operator_name ? `
-                            <h6>Atendido por</h6>
-                            <div class="alert alert-info">
-                                <i class="bi bi-person-check me-2"></i>
-                                <strong>${op.assigned_operator_name}</strong>
-                            </div>
-                        ` : ''}
-                    </div>
-                </div>
-            ` : ''}
-        `;
-
+        const html = buildViewHTML(op, true);
         $('#operationDetails').html(html);
         $('#viewOperationModal').modal('show');
     }, function(error) {
@@ -284,27 +227,192 @@ function viewOperationDetails(operationId) {
     });
 }
 
-// Funciones auxiliares (si no están definidas en common.js)
-function formatCurrency(amount, currency = 'USD') {
-    const num = parseFloat(amount);
-    if (isNaN(num)) return '0.00';
+// Construir HTML completo del modal (copiado de list.html)
+function buildViewHTML(op, readonly) {
+    const statusBadge = getStatusBadge(op.status);
+    const typeBadge = op.operation_type === 'Compra'
+        ? '<span class="badge bg-success">Compra USD</span>'
+        : '<span class="badge bg-primary">Venta USD</span>';
 
-    const formatted = num.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    const bankAccounts = op.client_bank_accounts || [];
 
-    return currency === 'USD' ? `$ ${formatted}` : `S/ ${formatted}`;
+    let html = `
+        <div class="row mb-3">
+            <div class="col-md-3"><strong>ID:</strong> ${op.operation_id}</div>
+            <div class="col-md-3"><strong>Cliente:</strong> ${op.client_name || '-'}</div>
+            <div class="col-md-3"><strong>Tipo:</strong> ${typeBadge}</div>
+            <div class="col-md-3"><strong>Estado:</strong> ${statusBadge}</div>
+        </div>
+        <div class="row mb-3">
+            <div class="col-md-3"><strong>Monto USD:</strong> $ ${parseFloat(op.amount_usd).toFixed(2)}</div>
+            <div class="col-md-3"><strong>T.C.:</strong> ${parseFloat(op.exchange_rate).toFixed(4)}</div>
+            <div class="col-md-3"><strong>Monto PEN:</strong> S/ ${parseFloat(op.amount_pen).toFixed(2)}</div>
+            <div class="col-md-3"><strong>Creado por:</strong> ${op.user_name || '-'}</div>
+        </div>
+        <div class="row mb-3">
+            <div class="col-md-4"><strong>Fecha Creación:</strong> ${formatDateTime(op.created_at)}</div>
+            <div class="col-md-4"><strong>Enviada a Procesar:</strong> ${op.updated_at ? formatDateTime(op.updated_at) : '-'}</div>
+            <div class="col-md-4"><strong>Fecha Completada:</strong> ${op.completed_at ? formatDateTime(op.completed_at) : '-'}</div>
+        </div>`;
+
+    // Cuentas Bancarias
+    html += `<hr><h6><i class="bi bi-bank text-primary"></i> Cuentas Bancarias</h6>`;
+    html += `<div class="row mb-3">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-success text-white py-2">
+                    <strong><i class="bi bi-arrow-down-circle"></i> Cuenta de Cargo / Origen</strong>
+                </div>
+                <div class="card-body">`;
+
+    if (op.source_account) {
+        const accountCargo = bankAccounts.find(acc => acc.account_number === op.source_account);
+        if (accountCargo) {
+            html += `
+                <p class="mb-1"><strong>Banco:</strong> ${accountCargo.bank_name}</p>
+                <p class="mb-1"><strong>Nro. Cuenta:</strong> ${accountCargo.account_number}</p>
+                <p class="mb-1"><strong>Tipo:</strong> ${accountCargo.account_type}</p>
+                <p class="mb-1"><strong>Moneda:</strong> ${accountCargo.currency}</p>
+                <p class="mb-0"><strong>Origen:</strong> ${accountCargo.origen || '-'}</p>`;
+        } else {
+            html += `<p class="mb-0"><strong>Nro. Cuenta:</strong> ${op.source_account}</p>`;
+        }
+    } else {
+        html += `<p class="text-muted mb-0">No asignada</p>`;
+    }
+
+    html += `</div></div></div>`;
+    html += `<div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-warning text-dark py-2">
+                    <strong><i class="bi bi-arrow-up-circle"></i> Cuenta de Destino</strong>
+                </div>
+                <div class="card-body">`;
+
+    if (op.destination_account) {
+        const accountDestino = bankAccounts.find(acc => acc.account_number === op.destination_account);
+        if (accountDestino) {
+            html += `
+                <p class="mb-1"><strong>Banco:</strong> ${accountDestino.bank_name}</p>
+                <p class="mb-1"><strong>Nro. Cuenta:</strong> ${accountDestino.account_number}</p>
+                <p class="mb-1"><strong>Tipo:</strong> ${accountDestino.account_type}</p>
+                <p class="mb-1"><strong>Moneda:</strong> ${accountDestino.currency}</p>
+                <p class="mb-0"><strong>Origen:</strong> ${accountDestino.origen || '-'}</p>`;
+        } else {
+            html += `<p class="mb-0"><strong>Nro. Cuenta:</strong> ${op.destination_account}</p>`;
+        }
+    } else {
+        html += `<p class="text-muted mb-0">No asignada</p>`;
+    }
+
+    html += `</div></div></div></div>`;
+
+    // Comprobantes del operador
+    if (op.operator_proofs && op.operator_proofs.length > 0) {
+        html += `<hr><h6><i class="bi bi-file-earmark-check text-info"></i> Comprobantes del Operador</h6>
+        <table class="table table-sm"><thead><tr><th>Comprobante</th><th>Comentarios del Operador</th></tr></thead><tbody>`;
+        op.operator_proofs.forEach((p, index) => {
+            html += `<tr>
+                <td><a href="${p.comprobante_url}" target="_blank" class="btn btn-sm btn-outline-primary"><i class="bi bi-download"></i> Descargar</a></td>`;
+            if (index === 0) {
+                html += `<td rowspan="${op.operator_proofs.length}">${op.operator_comments || '-'}</td>`;
+            }
+            html += `</tr>`;
+        });
+        html += `</tbody></table>`;
+    }
+
+    // Atendido por
+    if (op.status === 'Completada' && op.assigned_operator_name) {
+        html += `<hr><h6><i class="bi bi-person-check text-info"></i> Atendido por</h6>
+        <div class="alert alert-info mb-0">
+            <i class="bi bi-person-check me-2"></i>
+            <strong>${op.assigned_operator_name}</strong>
+        </div>`;
+    }
+
+    // Factura Electrónica
+    if (op.status === 'Completada' && op.invoices && op.invoices.length > 0) {
+        const acceptedInvoice = op.invoices.find(inv => inv.status === 'Aceptado');
+        if (acceptedInvoice) {
+            html += `<hr><h6><i class="bi bi-receipt text-success"></i> Factura Electrónica</h6>
+            <div class="card border-success">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p class="mb-1"><strong>Tipo:</strong> ${acceptedInvoice.invoice_type}</p>
+                            <p class="mb-1"><strong>Número:</strong> <span class="badge bg-success">${acceptedInvoice.invoice_number}</span></p>
+                            <p class="mb-1"><strong>Monto:</strong> ${acceptedInvoice.moneda} ${parseFloat(acceptedInvoice.monto_total).toFixed(2)}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p class="mb-1"><strong>Estado:</strong> <span class="badge bg-success">✓ Aceptado por SUNAT</span></p>
+                            <p class="mb-1"><strong>Fecha:</strong> ${formatDateTime(acceptedInvoice.created_at)}</p>
+                        </div>
+                    </div>
+                    <div class="mt-3 d-flex gap-2">`;
+            if (acceptedInvoice.nubefact_enlace_pdf) {
+                html += `<a href="${acceptedInvoice.nubefact_enlace_pdf}" target="_blank" class="btn btn-success btn-sm">
+                    <i class="bi bi-file-earmark-pdf"></i> Ver/Descargar PDF
+                </a>`;
+            }
+            if (acceptedInvoice.nubefact_enlace_xml) {
+                html += `<a href="${acceptedInvoice.nubefact_enlace_xml}" target="_blank" class="btn btn-outline-success btn-sm">
+                    <i class="bi bi-file-earmark-code"></i> Descargar XML
+                </a>`;
+            }
+            html += `</div></div></div>`;
+        } else {
+            const pendingOrErrorInvoice = op.invoices[0];
+            if (pendingOrErrorInvoice) {
+                html += `<hr><h6><i class="bi bi-receipt text-warning"></i> Factura Electrónica</h6>
+                <div class="alert alert-warning mb-0">
+                    <strong>Estado:</strong> ${pendingOrErrorInvoice.status}<br>`;
+                if (pendingOrErrorInvoice.error_message) {
+                    html += `<strong>Error:</strong> ${pendingOrErrorInvoice.error_message}`;
+                }
+                html += `</div>`;
+            }
+        }
+    }
+
+    if (op.notes) {
+        html += `<hr><h6>Notas</h6><p>${op.notes}</p>`;
+    }
+
+    // Historial de modificaciones
+    if (op.modification_logs && op.modification_logs.length > 0) {
+        html += `<hr><h6><i class="bi bi-clock-history text-secondary"></i> Historial de Modificaciones</h6>
+        <table class="table table-sm table-striped"><thead><tr><th>Fecha/Hora</th><th>Usuario</th><th>Campo</th><th>Valor Anterior</th><th>Valor Nuevo</th></tr></thead><tbody>`;
+        op.modification_logs.forEach(log => {
+            html += `<tr>
+                <td>${formatDateTime(log.fecha)}</td>
+                <td>${log.usuario || '-'}</td>
+                <td>${log.campo || '-'}</td>
+                <td>${log.valor_anterior || '-'}</td>
+                <td>${log.valor_nuevo || '-'}</td>
+            </tr>`;
+        });
+        html += `</tbody></table>`;
+    }
+
+    return html;
 }
 
-function formatDate(dateString) {
-    if (!dateString) return '-';
+// Helpers
+function getStatusBadge(status) {
+    const badges = {
+        'Pendiente': '<span class="badge bg-warning text-dark">Pendiente</span>',
+        'En proceso': '<span class="badge bg-info">En Proceso</span>',
+        'Completada': '<span class="badge bg-success">Completada</span>',
+        'Cancelado': '<span class="badge bg-danger">Cancelado</span>'
+    };
+    return badges[status] || status;
+}
 
-    const date = new Date(dateString);
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const year = date.getFullYear();
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-
-    return `${day}/${month}/${year} ${hours}:${minutes}`;
+function formatDateTime(isoString) {
+    if (!isoString) return '-';
+    const d = new Date(isoString);
+    return d.toLocaleDateString('es-PE') + ' ' + d.toLocaleTimeString('es-PE', {hour: '2-digit', minute: '2-digit'});
 }
 </script>
 {% endblock %}
