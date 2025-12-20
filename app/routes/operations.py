@@ -1351,17 +1351,28 @@ def check_pending_operations():
 
     try:
         # Obtener todas las operaciones en proceso asignadas al operador actual
-        # EXCLUIR las que están en observación
-        operations = Operation.query.filter(
-            and_(
-                Operation.status == 'En proceso',
-                Operation.in_process_since.isnot(None),
-                Operation.assigned_operator_id == current_user.id,  # Solo sus operaciones asignadas
-                Operation.en_observacion == False  # Excluir operaciones en observación
-            )
-        ).all()
+        # EXCLUIR las que están en observación (si el campo existe)
+        try:
+            # Intentar con el campo en_observacion (si existe después de migración)
+            operations = Operation.query.filter(
+                and_(
+                    Operation.status == 'En proceso',
+                    Operation.in_process_since.isnot(None),
+                    Operation.assigned_operator_id == current_user.id,  # Solo sus operaciones asignadas
+                    Operation.en_observacion == False  # Excluir operaciones en observación
+                )
+            ).all()
+        except Exception:
+            # Si el campo en_observacion no existe (pre-migración), consultar sin ese filtro
+            operations = Operation.query.filter(
+                and_(
+                    Operation.status == 'En proceso',
+                    Operation.in_process_since.isnot(None),
+                    Operation.assigned_operator_id == current_user.id  # Solo sus operaciones asignadas
+                )
+            ).all()
     except Exception as e:
-        # Si falla la consulta (ej: columna no existe), retornar vacío
+        # Si falla la consulta por otra razón, retornar vacío
         return jsonify({
             'success': True,
             'pending_operations': [],

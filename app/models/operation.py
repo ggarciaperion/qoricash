@@ -293,7 +293,7 @@ class Operation(db.Model):
             'total_payments': self.get_total_payments(),
             'notes_read_by': self.notes_read_by,
             'assigned_operator_id': self.assigned_operator_id,
-            'en_observacion': self.en_observacion,
+            'en_observacion': getattr(self, 'en_observacion', False),  # Compatibilidad pre-migración
         }
 
         if include_relations:
