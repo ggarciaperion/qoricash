@@ -385,6 +385,11 @@ def api_list():
     client_id = request.args.get('client_id', type=int)
     show_all = request.args.get('all', 'false').lower() == 'true'
 
+    from app.models.operation import Operation
+    from app.models.client import Client
+    from datetime import datetime
+    from sqlalchemy import case
+
     if show_all:
         # Para el historial, mostrar todas las operaciones
         if status:
@@ -394,32 +399,63 @@ def api_list():
         else:
             operations = OperationService.get_all_operations(include_relations=True)
             # Ya viene como diccionarios
-            # Filtrar según rol
-            if current_user.role in ['Trader', 'Plataforma']:
+            # Filtrar según rol - ahora por clientes del trader
+            if current_user.role == 'Trader':
+                # Obtener IDs de clientes del trader
+                trader_client_ids = [c.id for c in Client.query.filter_by(created_by=current_user.id).all()]
+                operations = [op for op in operations if op.get('client_id') in trader_client_ids]
+            elif current_user.role == 'Plataforma':
                 operations = [op for op in operations if op.get('user_id') == current_user.id]
             return jsonify({'success': True, 'operations': operations})
     else:
         # Por defecto, solo operaciones del día actual
-        operations = OperationService.get_today_operations()
+        if current_user.role == 'Trader':
+            # Trader ve operaciones de SUS CLIENTES del día
+            now = now_peru()
+            start_of_day = datetime(now.year, now.month, now.day, 0, 0, 0)
+            end_of_day = datetime(now.year, now.month, now.day, 23, 59, 59)
 
-        # Filtrar según rol
-        if current_user.role in ['Trader', 'Plataforma']:
-            operations = [op for op in operations if op.user_id == current_user.id]
+            priority_order = case(
+                (Operation.status == 'En proceso', 0),
+                else_=1
+            )
+
+            operations = Operation.query.join(Client).filter(
+                Client.created_by == current_user.id,
+                Operation.created_at >= start_of_day,
+                Operation.created_at <= end_of_day
+            ).order_by(
+                priority_order,
+                Operation.created_at.desc()
+            ).all()
+        elif current_user.role == 'Plataforma':
+            # Plataforma ve solo sus propias operaciones del día
+            now = now_peru()
+            start_of_day = datetime(now.year, now.month, now.day, 0, 0, 0)
+            end_of_day = datetime(now.year, now.month, now.day, 23, 59, 59)
+
+            priority_order = case(
+                (Operation.status == 'En proceso', 0),
+                else_=1
+            )
+
+            operations = Operation.query.filter(
+                Operation.user_id == current_user.id,
+                Operation.created_at >= start_of_day,
+                Operation.created_at <= end_of_day
+            ).order_by(
+                priority_order,
+                Operation.created_at.desc()
+            ).all()
+        else:
+            # Otros roles (Master, Operador, Middle Office) ven todas las operaciones del día
+            operations = OperationService.get_today_operations()
 
         # get_today_operations devuelve objetos, necesitamos convertir a dict
         return jsonify({
             'success': True,
             'operations': [op.to_dict(include_relations=True) for op in operations]
         })
-
-    # Filtrar según rol antes de retornar
-    if current_user.role in ['Trader', 'Plataforma']:
-        operations = [op for op in operations if op.user_id == current_user.id]
-
-    return jsonify({
-        'success': True,
-        'operations': [op.to_dict(include_relations=True) for op in operations]
-    })
 
 
 @operations_bp.route('/api/create', methods=['POST'])
