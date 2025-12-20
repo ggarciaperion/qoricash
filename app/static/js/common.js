@@ -1,7 +1,10 @@
 /**
  * QoriCash Trading V2 - Common JavaScript Functions
  * Funciones comunes reutilizables en todo el sistema
+ * VERSION: 20251219_v4_mp3fix
  */
+
+console.log('🎵 QoriCash Common.js cargado - Versión: 20251219_v4_mp3fix (Sonidos MP3 personalizados)');
 
 // Socket.IO connection
 let socket = null;
