@@ -242,13 +242,33 @@ function viewOperationDetails(operationId) {
                 ${op.source_account ? `<p><strong>Cuenta Origen:</strong> ${op.source_account}</p>` : ''}
                 ${op.destination_account ? `<p><strong>Cuenta Destino:</strong> ${op.destination_account}</p>` : ''}
             ` : ''}
-            ${op.payment_proof_url || (op.operator_proofs && op.operator_proofs.length > 0) ? `
+            ${op.notes ? `<hr><p><strong>Notas:</strong> ${op.notes}</p>` : ''}
+            ${op.payment_proof_url || op.operator_proof_url || op.operator_comments || op.assigned_operator_name ? `
                 <hr>
-                <h6>Comprobantes</h6>
-                ${op.payment_proof_url ? `<p><a href="${op.payment_proof_url}" target="_blank" class="btn btn-sm btn-outline-primary"><i class="bi bi-file-earmark"></i> Ver Comprobante Cliente</a></p>` : ''}
-                ${op.operator_proofs && op.operator_proofs.length > 0 ?
-                    op.operator_proofs.map((proof, i) => `<p><a href="${proof.comprobante_url}" target="_blank" class="btn btn-sm btn-outline-success"><i class="bi bi-file-earmark"></i> Ver Comprobante Operador ${i + 1}</a></p>`).join('')
-                    : ''}
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Comprobantes del Operador</h6>
+                        ${op.payment_proof_url ? `<p><a href="${op.payment_proof_url}" target="_blank" class="btn btn-sm btn-outline-primary"><i class="bi bi-file-earmark"></i> Ver Comprobante Cliente</a></p>` : ''}
+                        ${op.operator_proof_url ? `<p><a href="${op.operator_proof_url}" target="_blank" class="btn btn-sm btn-outline-primary"><i class="bi bi-file-earmark"></i> Ver Comprobante Operador</a></p>` : ''}
+                        ${op.operator_comments ? `
+                            <div class="mt-3">
+                                <strong>Comentarios del Operador:</strong>
+                                <div class="border rounded p-2 bg-light mt-1">
+                                    ${op.operator_comments}
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                    <div class="col-md-6">
+                        ${op.assigned_operator_name ? `
+                            <h6>Atendido por</h6>
+                            <div class="alert alert-info">
+                                <i class="bi bi-person-check me-2"></i>
+                                <strong>${op.assigned_operator_name}</strong>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
             ` : ''}
         `;
 
