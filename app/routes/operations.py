@@ -60,7 +60,10 @@ def operations_list():
     from sqlalchemy import case
 
     if current_user.role in ['Trader', 'Plataforma']:
-        # Trader y Plataforma solo ven sus propias operaciones del día
+        # Trader y Plataforma ven operaciones de SUS CLIENTES del día
+        # (independientemente de quién creó la operación)
+        from app.models.client import Client
+
         now = now_peru()
         start_of_day = datetime(now.year, now.month, now.day, 0, 0, 0)
         end_of_day = datetime(now.year, now.month, now.day, 23, 59, 59)
@@ -71,8 +74,9 @@ def operations_list():
             else_=1
         )
 
-        operations = Operation.query.filter(
-            Operation.user_id == current_user.id,
+        # Filtrar operaciones donde el cliente pertenece al trader actual
+        operations = Operation.query.join(Client).filter(
+            Client.created_by == current_user.id,
             Operation.created_at >= start_of_day,
             Operation.created_at <= end_of_day
         ).order_by(
@@ -112,13 +116,20 @@ def history():
     Disponible para todos los roles (Master, Trader, Operador, Plataforma)
 
     Filtrado:
+    - Trader: Solo ve operaciones de sus clientes
     - Plataforma: Solo ve sus propias operaciones
     - Otros roles: Ven todas las operaciones
     """
     from app.models.operation import Operation
+    from app.models.client import Client
 
     # Filtrar operaciones según el rol
-    if current_user.role == 'Plataforma':
+    if current_user.role == 'Trader':
+        # Trader solo ve operaciones de sus clientes
+        operations = Operation.query.join(Client).filter(
+            Client.created_by == current_user.id
+        ).order_by(Operation.created_at.desc()).all()
+    elif current_user.role == 'Plataforma':
         # Plataforma solo ve sus propias operaciones
         operations = Operation.query.filter_by(user_id=current_user.id).order_by(Operation.created_at.desc()).all()
     else:
