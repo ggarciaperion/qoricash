@@ -8,6 +8,12 @@
 function viewOperation(operationId) {
     ajaxRequest(`/operations/api/${operationId}`, 'GET', null, function(response) {
         const op = response.operation;
+
+        // DEBUG: Ver qué campos tiene la operación
+        console.log('=== DEBUG: Datos de operación ===');
+        console.log('assigned_operator_id:', op.assigned_operator_id);
+        console.log('assigned_operator_name:', op.assigned_operator_name);
+        console.log('Operación completa:', op);
         
         const html = `
             <div class="row">
