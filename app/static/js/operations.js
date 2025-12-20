@@ -2,6 +2,8 @@
  * QoriCash Trading V2 - Operations Management JavaScript
  */
 
+console.log('✅ operations.js cargado - VERSION: 20251220_10:30 - Con sección Atendido por');
+
 /**
  * Ver operación
  */
