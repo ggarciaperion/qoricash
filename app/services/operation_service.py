@@ -591,7 +591,12 @@ class OperationService:
         Returns:
             int: ID del operador asignado, o None si no hay operadores disponibles
         """
+        import logging
+        logger = logging.getLogger(__name__)
+
         from app.models.user import User
+
+        logger.info("🔍 Buscando operadores activos...")
 
         # Obtener todos los operadores activos
         operators = User.query.filter(
@@ -601,9 +606,15 @@ class OperationService:
             )
         ).all()
 
+        logger.info(f"📊 Operadores encontrados: {len(operators)}")
+
         if not operators:
-            print("ADVERTENCIA: No hay operadores activos disponibles para asignar")
+            logger.warning("⚠️ ADVERTENCIA: No hay operadores activos disponibles para asignar")
             return None
+
+        # Log de operadores encontrados
+        for op in operators:
+            logger.info(f"  👤 Operador ID={op.id}, Usuario={op.username}, Email={op.email}")
 
         # Contar operaciones en proceso asignadas a cada operador
         operator_loads = {}
@@ -615,11 +626,12 @@ class OperationService:
                 )
             ).count()
             operator_loads[operator.id] = count
+            logger.info(f"  📈 Operador ID={operator.id} ({operator.username}): {count} operaciones en proceso")
 
         # Encontrar el operador con menos carga
         min_load_operator_id = min(operator_loads, key=operator_loads.get)
         min_load = operator_loads[min_load_operator_id]
 
-        print(f"Asignando operador: ID={min_load_operator_id}, Carga actual={min_load} operaciones")
+        logger.info(f"✅ Asignando operador: ID={min_load_operator_id}, Carga actual={min_load} operaciones")
 
         return min_load_operator_id
