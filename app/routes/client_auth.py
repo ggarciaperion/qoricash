@@ -316,6 +316,126 @@ def get_client_operations(dni):
         }), 500
 
 
+@client_auth_bp.route('/operation/<int:operation_id>', methods=['GET'])
+@csrf.exempt
+def get_operation_detail(operation_id):
+    """
+    Obtener detalle de una operación por ID
+
+    Args:
+        operation_id: ID de la operación
+
+    Returns:
+        JSON: {"success": true, "operation": {...}}
+    """
+    try:
+        from app.models.operation import Operation
+
+        operation = Operation.query.get(operation_id)
+        if not operation:
+            return jsonify({
+                'success': False,
+                'message': 'Operación no encontrada'
+            }), 404
+
+        return jsonify({
+            'success': True,
+            'operation': operation.to_dict(include_relations=True)
+        }), 200
+
+    except Exception as e:
+        logger.error(f"Error al obtener detalle de operación: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f'Error al obtener operación: {str(e)}'
+        }), 500
+
+
+@client_auth_bp.route('/upload-deposit-proof/<int:operation_id>', methods=['POST'])
+@csrf.exempt
+def upload_deposit_proof(operation_id):
+    """
+    Subir comprobante de abono desde app móvil
+
+    Args:
+        operation_id: ID de la operación
+
+    Form data:
+        file: archivo imagen del comprobante
+        deposit_index: índice del depósito (default 0)
+
+    Returns:
+        JSON: {"success": true, "message": "...", "url": "..."}
+    """
+    try:
+        from app.models.operation import Operation
+        from app.services.file_service import FileService
+
+        operation = Operation.query.get(operation_id)
+        if not operation:
+            return jsonify({
+                'success': False,
+                'message': 'Operación no encontrada'
+            }), 404
+
+        if 'file' not in request.files:
+            return jsonify({
+                'success': False,
+                'message': 'No se envió ningún archivo'
+            }), 400
+
+        file = request.files['file']
+        deposit_index = request.form.get('deposit_index', 0, type=int)
+
+        logger.info(f"Subiendo comprobante para operación {operation.operation_id}, deposit_index: {deposit_index}")
+
+        file_service = FileService()
+        success, message, url = file_service.upload_file(
+            file,
+            'deposits',
+            f"{operation.operation_id}_deposit_{deposit_index}"
+        )
+
+        if not success:
+            return jsonify({
+                'success': False,
+                'message': message
+            }), 400
+
+        # Actualizar el abono con la URL del comprobante
+        deposits = operation.client_deposits or []
+
+        # Asegurar que existe el índice
+        while len(deposits) <= deposit_index:
+            deposits.append({})
+
+        deposits[deposit_index]['comprobante_url'] = url
+        operation.client_deposits = deposits
+
+        # Cambiar estado a "En proceso" si está pendiente
+        if operation.status == 'Pendiente':
+            operation.status = 'En proceso'
+
+        db.commit()
+
+        logger.info(f"Comprobante subido exitosamente para operación {operation.operation_id}")
+
+        return jsonify({
+            'success': True,
+            'message': 'Comprobante subido exitosamente',
+            'url': url
+        }), 200
+
+    except Exception as e:
+        logger.error(f"Error al subir comprobante: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return jsonify({
+            'success': False,
+            'message': f'Error al subir comprobante: {str(e)}'
+        }), 500
+
+
 @client_auth_bp.route('/health', methods=['GET'])
 def health():
     """Health check para cliente auth"""
