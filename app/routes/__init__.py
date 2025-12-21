@@ -8,5 +8,6 @@ from app.routes.clients import clients_bp
 from app.routes.operations import operations_bp
 from app.routes.position import position_bp
 from app.routes.platform_api import platform_api_bp
+from app.routes.client_auth import client_auth_bp
 
-__all__ = ['auth_bp', 'dashboard_bp', 'users_bp', 'clients_bp', 'operations_bp', 'position_bp', 'platform_api_bp']
+__all__ = ['auth_bp', 'dashboard_bp', 'users_bp', 'clients_bp', 'operations_bp', 'position_bp', 'platform_api_bp', 'client_auth_bp']
