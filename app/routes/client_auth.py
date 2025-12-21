@@ -119,6 +119,40 @@ def verify_client(dni):
         }), 500
 
 
+@client_auth_bp.route('/exchange-rates', methods=['GET'])
+@csrf.exempt
+def get_exchange_rates():
+    """
+    Obtener tipos de cambio actuales
+
+    Returns:
+        JSON: {
+            "success": true,
+            "rates": {
+                "compra": 3.75,
+                "venta": 3.77
+            }
+        }
+    """
+    try:
+        # TEMPORAL: Tipos de cambio hardcodeados
+        # TODO: Obtener de configuración o base de datos controlada por Master
+        return jsonify({
+            'success': True,
+            'rates': {
+                'compra': 3.75,  # Tipo de cambio de compra (cliente vende USD)
+                'venta': 3.77    # Tipo de cambio de venta (cliente compra USD)
+            }
+        }), 200
+
+    except Exception as e:
+        logger.error(f"Error al obtener tipos de cambio: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f'Error al obtener tipos de cambio: {str(e)}'
+        }), 500
+
+
 @client_auth_bp.route('/health', methods=['GET'])
 def health():
     """Health check para cliente auth"""
