@@ -60,6 +60,7 @@
                     <div class="btn-group" role="group">
                         <button type="button" class="btn btn-outline-secondary active" onclick="filterByCanal('all')">Todos</button>
                         <button type="button" class="btn btn-outline-purple" style="--bs-btn-color: #6f42c1; --bs-btn-border-color: #6f42c1; --bs-btn-hover-bg: #6f42c1; --bs-btn-hover-border-color: #6f42c1;" onclick="filterByCanal('plataforma')">Web</button>
+                        <button type="button" class="btn btn-outline-info" onclick="filterByCanal('app')">App</button>
                         <button type="button" class="btn btn-outline-dark" onclick="filterByCanal('sistema')">Sistema</button>
                     </div>
                 </div>
@@ -114,6 +115,8 @@
                                 <td class="text-center">
                                     {% if op.origen == 'plataforma' %}
                                         <span class="badge bg-purple" style="background-color: #6f42c1;">Web</span>
+                                    {% elif op.origen == 'app' %}
+                                        <span class="badge bg-info">App</span>
                                     {% else %}
                                         <span class="badge bg-secondary">Sistema</span>
                                     {% endif %}

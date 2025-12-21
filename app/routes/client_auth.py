@@ -229,7 +229,7 @@ def create_operation():
             source_account=data.get('source_account'),
             destination_account=data.get('destination_account'),
             notes=data.get('notes', 'Operación desde app móvil'),
-            origen='plataforma'
+            origen='app'
         )
 
         if not success:
@@ -259,6 +259,60 @@ def create_operation():
         return jsonify({
             'success': False,
             'message': f'Error al crear operación: {str(e)}'
+        }), 500
+
+
+@client_auth_bp.route('/my-operations/<dni>', methods=['GET'])
+@csrf.exempt
+def get_client_operations(dni):
+    """
+    Obtener operaciones del cliente por DNI
+
+    Query params:
+        - status: filtrar por estado (Pendiente, En proceso, etc.)
+        - limit: limitar resultados
+
+    Returns:
+        JSON: {"success": true, "operations": [...]}
+    """
+    try:
+        from app.models.client import Client
+        from app.models.operation import Operation
+
+        # Buscar cliente
+        client = Client.query.filter_by(dni=dni).first()
+        if not client:
+            return jsonify({
+                'success': False,
+                'message': 'Cliente no encontrado'
+            }), 404
+
+        # Obtener parámetros de filtro
+        status_filter = request.args.get('status')
+        limit = request.args.get('limit', type=int)
+
+        # Query base
+        query = Operation.query.filter_by(client_id=client.id).order_by(Operation.created_at.desc())
+
+        # Aplicar filtros
+        if status_filter:
+            query = query.filter_by(status=status_filter)
+
+        if limit:
+            query = query.limit(limit)
+
+        operations = query.all()
+
+        return jsonify({
+            'success': True,
+            'operations': [op.to_dict(include_relations=True) for op in operations]
+        }), 200
+
+    except Exception as e:
+        logger.error(f"Error al obtener operaciones del cliente: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f'Error al obtener operaciones: {str(e)}'
         }), 500
 
 
