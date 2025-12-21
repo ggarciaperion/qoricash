@@ -481,10 +481,41 @@ def upload_deposit_proof(operation_id):
             if operation.assigned_operator_id:
                 logger.info(f"ℹ️ No se asigna operador porque ya tiene uno asignado: {operation.assigned_operator_id}")
 
+        # Auto-crear pago al cliente si viene desde app y no tiene pagos
+        if operation.origen == 'app' and (not operation.client_payments or len(operation.client_payments) == 0):
+            logger.info(f"💰 Auto-creando pago al cliente para operación desde app {operation.operation_id}")
+
+            # Calcular el total a pagar
+            if operation.operation_type == 'Compra':
+                # Cliente compra USD, paga en PEN
+                total_pago = float(operation.amount_usd or 0) * float(operation.exchange_rate or 0)
+            else:
+                # Cliente vende USD, recibe en PEN
+                total_pago = float(operation.amount_usd or 0) * float(operation.exchange_rate or 0)
+
+            # Crear pago automático
+            client_payment = {
+                'importe': total_pago,
+                'cuenta_destino': operation.destination_account
+            }
+
+            operation.client_payments = [client_payment]
+            flag_modified(operation, 'client_payments_json')
+
+            logger.info(f"✅ Pago al cliente creado: importe={total_pago}, cuenta={operation.destination_account}")
+
         # Commit de todos los cambios
         logger.info(f"💾 Guardando cambios en base de datos...")
         db.session.commit()
         logger.info(f"✅ Cambios guardados exitosamente")
+
+        # Emitir evento Socket.IO para notificar cambio en tiempo real
+        try:
+            from app.services.notification_service import NotificationService
+            NotificationService.notify_operation_updated(operation, old_status='Pendiente')
+            logger.info(f"📡 Notificación Socket.IO emitida para operación {operation.operation_id}")
+        except Exception as e:
+            logger.warning(f"⚠️ Error al emitir notificación Socket.IO: {str(e)}")
 
         # Refrescar la operación desde la DB para confirmar que se guardó correctamente
         db.session.refresh(operation)
