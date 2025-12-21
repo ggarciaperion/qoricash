@@ -482,6 +482,8 @@ def upload_deposit_proof(operation_id):
                 logger.info(f"ℹ️ No se asigna operador porque ya tiene uno asignado: {operation.assigned_operator_id}")
 
         # Auto-crear pago al cliente si viene desde app y no tiene pagos
+        logger.info(f"🔍 DEBUG Pago: origen={operation.origen}, client_payments={operation.client_payments}")
+
         if operation.origen == 'app' and (not operation.client_payments or len(operation.client_payments) == 0):
             logger.info(f"💰 Auto-creando pago al cliente para operación desde app {operation.operation_id}")
 
@@ -493,16 +495,23 @@ def upload_deposit_proof(operation_id):
                 # Cliente vende USD, recibe en PEN
                 total_pago = float(operation.amount_usd or 0) * float(operation.exchange_rate or 0)
 
+            logger.info(f"💰 Calculando pago: amount_usd={operation.amount_usd}, exchange_rate={operation.exchange_rate}, total={total_pago}")
+
             # Crear pago automático
             client_payment = {
                 'importe': total_pago,
                 'cuenta_destino': operation.destination_account
             }
 
+            logger.info(f"💰 Pago a crear: {client_payment}")
+
             operation.client_payments = [client_payment]
             flag_modified(operation, 'client_payments_json')
 
             logger.info(f"✅ Pago al cliente creado: importe={total_pago}, cuenta={operation.destination_account}")
+            logger.info(f"✅ client_payments después de asignar: {operation.client_payments}")
+        else:
+            logger.warning(f"⚠️ NO se creó pago automático: origen={operation.origen}, tiene_pagos={len(operation.client_payments) > 0 if operation.client_payments else False}")
 
         # Commit de todos los cambios
         logger.info(f"💾 Guardando cambios en base de datos...")
@@ -524,6 +533,8 @@ def upload_deposit_proof(operation_id):
         logger.info(f"  📋 Estado final: {operation.status}")
         logger.info(f"  👤 Operador asignado final: {operation.assigned_operator_id}")
         logger.info(f"  📦 Deposits en DB: {operation.client_deposits}")
+        logger.info(f"  💰 Payments en DB: {operation.client_payments}")
+        logger.info(f"  💰 Payments JSON en DB: {operation.client_payments_json}")
 
         # Verificar que los datos se guardaron correctamente
         saved_deposit = operation.client_deposits[deposit_index] if operation.client_deposits else {}
