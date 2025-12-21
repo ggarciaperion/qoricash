@@ -5,7 +5,7 @@ services:
     region: oregon
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn -c gunicorn_config.py run:app
-    preDeployCommand: echo "Ejecutando migraciones..." && python -m flask db current && python -m flask db upgrade && echo "Migraciones completadas"
+    preDeployCommand: set -e && echo "=== INICIANDO MIGRACIONES ===" && python -m flask db current && echo "=== EJECUTANDO UPGRADE ===" && python -m flask db upgrade && echo "=== VERIFICANDO RESULTADO ===" && python -m flask db current && echo "=== MIGRACIONES COMPLETADAS ==="
     healthCheckPath: /health
     envVars:
       - key: PYTHON_VERSION
