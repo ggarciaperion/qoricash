@@ -442,7 +442,8 @@ def upload_deposit_proof(operation_id):
 
         # Actualizar y marcar el campo como modificado para SQLAlchemy
         operation.client_deposits = deposits
-        flag_modified(operation, 'client_deposits')
+        # Marcar el campo JSON real (client_deposits_json) como modificado
+        flag_modified(operation, 'client_deposits_json')
 
         logger.info(f"📦 Deposits completo antes de commit: {deposits}")
         logger.info(f"📦 Deposit[{deposit_index}] = {deposits[deposit_index]}")
