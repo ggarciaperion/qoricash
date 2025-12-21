@@ -153,6 +153,115 @@ def get_exchange_rates():
         }), 500
 
 
+@client_auth_bp.route('/create-operation', methods=['POST'])
+@csrf.exempt
+def create_operation():
+    """
+    API: Crear operación desde app móvil (cliente)
+
+    Request JSON:
+    {
+        "client_dni": "12345678",
+        "operation_type": "Compra|Venta",
+        "amount_usd": 1000.00,
+        "exchange_rate": 3.75,
+        "source_account": "19123456789012345678",
+        "destination_account": "19187654321098765432",
+        "notes": "Operación desde app móvil"
+    }
+
+    Returns:
+        JSON: {"success": true, "operation": {...}}
+    """
+    try:
+        from app.models.client import Client
+        from app.models.user import User
+        from app.services.operation_service import OperationService
+        from app.services.notification_service import NotificationService
+
+        data = request.get_json()
+
+        if not data:
+            return jsonify({
+                'success': False,
+                'message': 'No se recibieron datos'
+            }), 400
+
+        # Validar campos requeridos
+        required_fields = ['client_dni', 'operation_type', 'amount_usd', 'exchange_rate']
+        missing_fields = [field for field in required_fields if not data.get(field)]
+
+        if missing_fields:
+            return jsonify({
+                'success': False,
+                'message': f'Campos requeridos faltantes: {", ".join(missing_fields)}'
+            }), 400
+
+        # Buscar cliente por DNI
+        client = Client.query.filter_by(dni=data['client_dni']).first()
+        if not client:
+            return jsonify({
+                'success': False,
+                'message': f'No existe un cliente con el documento {data["client_dni"]}'
+            }), 404
+
+        if client.status != 'Activo':
+            return jsonify({
+                'success': False,
+                'message': 'Cliente inactivo. Contacta al administrador.'
+            }), 403
+
+        # Obtener usuario plataforma para crear la operación
+        platform_user = User.query.filter_by(role='Plataforma').first()
+        if not platform_user:
+            return jsonify({
+                'success': False,
+                'message': 'Error de configuración del sistema'
+            }), 500
+
+        # Crear operación usando el servicio
+        success, message, operation = OperationService.create_operation(
+            current_user=platform_user,
+            client_id=client.id,
+            operation_type=data['operation_type'],
+            amount_usd=data['amount_usd'],
+            exchange_rate=data['exchange_rate'],
+            source_account=data.get('source_account'),
+            destination_account=data.get('destination_account'),
+            notes=data.get('notes', 'Operación desde app móvil'),
+            origen='plataforma'
+        )
+
+        if not success:
+            return jsonify({
+                'success': False,
+                'message': message
+            }), 400
+
+        # Enviar notificación
+        try:
+            NotificationService.emit_operation_created(operation)
+        except Exception as e:
+            logger.warning(f"Error enviando notificación: {str(e)}")
+
+        logger.info(f"Operación creada desde app móvil: {operation.operation_id} para cliente {client.dni}")
+
+        return jsonify({
+            'success': True,
+            'message': 'Operación creada exitosamente',
+            'operation': operation.to_dict(include_relations=True)
+        }), 201
+
+    except Exception as e:
+        logger.error(f"Error al crear operación desde app móvil: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return jsonify({
+            'success': False,
+            'message': f'Error al crear operación: {str(e)}'
+        }), 500
+
+
 @client_auth_bp.route('/health', methods=['GET'])
 def health():
     """Health check para cliente auth"""
