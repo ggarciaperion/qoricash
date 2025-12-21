@@ -416,7 +416,7 @@ def upload_deposit_proof(operation_id):
         if operation.status == 'Pendiente':
             operation.status = 'En proceso'
 
-        db.commit()
+        db.session.commit()
 
         logger.info(f"Comprobante subido exitosamente para operación {operation.operation_id}")
 
