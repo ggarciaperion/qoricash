@@ -562,6 +562,89 @@ def upload_deposit_proof(operation_id):
         }), 500
 
 
+@client_auth_bp.route('/cancel-operation/<int:operation_id>', methods=['POST'])
+@csrf.exempt
+def cancel_operation(operation_id):
+    """
+    Cancelar operación desde el cliente con motivo
+
+    Request JSON:
+    {
+        "cancellation_reason": "Motivo de la cancelación"
+    }
+    """
+    try:
+        from app.models.operation import Operation
+        from app.services.notification_service import NotificationService
+        from datetime import datetime
+
+        data = request.get_json()
+
+        if not data:
+            return jsonify({
+                'success': False,
+                'message': 'No se recibieron datos'
+            }), 400
+
+        cancellation_reason = data.get('cancellation_reason', '').strip()
+
+        if not cancellation_reason:
+            return jsonify({
+                'success': False,
+                'message': 'El motivo de cancelación es requerido'
+            }), 400
+
+        # Buscar la operación
+        operation = Operation.query.get(operation_id)
+
+        if not operation:
+            return jsonify({
+                'success': False,
+                'message': 'Operación no encontrada'
+            }), 404
+
+        # Validar que la operación no esté en proceso o completada
+        if operation.status == 'En proceso':
+            return jsonify({
+                'success': False,
+                'message': 'No se puede cancelar una operación que está siendo procesada'
+            }), 400
+
+        if operation.status in ['Completada', 'Cancelada', 'Expirada']:
+            return jsonify({
+                'success': False,
+                'message': f'No se puede cancelar una operación {operation.status.lower()}'
+            }), 400
+
+        # Cancelar la operación
+        operation.status = 'Cancelada'
+        operation.cancellation_reason = cancellation_reason
+        operation.updated_at = datetime.utcnow()
+
+        db.session.commit()
+
+        logger.info(f"Operación {operation.operation_id} cancelada por el cliente. Motivo: {cancellation_reason}")
+
+        # Notificar via Socket.IO
+        NotificationService.notify_operation_canceled(operation, cancellation_reason)
+
+        return jsonify({
+            'success': True,
+            'message': 'Operación cancelada exitosamente',
+            'operation': operation.to_dict()
+        }), 200
+
+    except Exception as e:
+        logger.error(f"Error al cancelar operación: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'message': f'Error al cancelar operación: {str(e)}'
+        }), 500
+
+
 @client_auth_bp.route('/health', methods=['GET'])
 def health():
     """Health check para cliente auth"""
