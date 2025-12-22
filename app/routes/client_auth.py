@@ -487,15 +487,15 @@ def upload_deposit_proof(operation_id):
         if operation.origen == 'plataforma' and (not operation.client_payments or len(operation.client_payments) == 0):
             logger.info(f"💰 Auto-creando pago al cliente para operación desde app móvil {operation.operation_id}")
 
-            # Calcular el total a pagar
+            # Calcular el total a pagar según tipo de operación
             if operation.operation_type == 'Compra':
-                # Cliente compra USD, paga en PEN
-                total_pago = float(operation.amount_usd or 0) * float(operation.exchange_rate or 0)
+                # Cliente compra USD → QoriCash le paga USD
+                total_pago = float(operation.amount_usd or 0)
+                logger.info(f"💰 Calculando pago (Compra): QoriCash paga USD = {total_pago}")
             else:
-                # Cliente vende USD, recibe en PEN
+                # Cliente vende USD → QoriCash le paga PEN
                 total_pago = float(operation.amount_usd or 0) * float(operation.exchange_rate or 0)
-
-            logger.info(f"💰 Calculando pago: amount_usd={operation.amount_usd}, exchange_rate={operation.exchange_rate}, total={total_pago}")
+                logger.info(f"💰 Calculando pago (Venta): amount_usd={operation.amount_usd} × exchange_rate={operation.exchange_rate} = {total_pago} PEN")
 
             # Crear pago automático
             client_payment = {
