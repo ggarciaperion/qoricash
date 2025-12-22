@@ -50,7 +50,17 @@ def create_app(config_name=None):
 def initialize_extensions(flask_app):
     """Inicializar extensiones de Flask"""
     # Import aquí para evitar ejecución antes del monkey patch
-    from app.extensions import db, migrate, login_manager, csrf, socketio, limiter, mail
+    from app.extensions import db, migrate, login_manager, csrf, socketio, limiter, mail, cors
+
+    # Inicializar CORS primero - permitir requests desde localhost para desarrollo
+    cors.init_app(flask_app, resources={
+        r"/api/*": {
+            "origins": ["http://localhost:8081", "http://localhost:19006", "https://app.qoricash.pe"],
+            "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+            "allow_headers": ["Content-Type", "Authorization"],
+            "supports_credentials": True
+        }
+    })
 
     db.init_app(flask_app)
     migrate.init_app(flask_app, db)
