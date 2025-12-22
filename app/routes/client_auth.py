@@ -229,7 +229,7 @@ def create_operation():
             source_account=data.get('source_account'),
             destination_account=data.get('destination_account'),
             notes=data.get('notes', 'Operación desde app móvil'),
-            origen='app'
+            origen='plataforma'
         )
 
         if not success:
@@ -481,11 +481,11 @@ def upload_deposit_proof(operation_id):
             if operation.assigned_operator_id:
                 logger.info(f"ℹ️ No se asigna operador porque ya tiene uno asignado: {operation.assigned_operator_id}")
 
-        # Auto-crear pago al cliente si viene desde app y no tiene pagos
+        # Auto-crear pago al cliente si viene desde app móvil (plataforma) y no tiene pagos
         logger.info(f"🔍 DEBUG Pago: origen={operation.origen}, client_payments={operation.client_payments}")
 
-        if operation.origen == 'app' and (not operation.client_payments or len(operation.client_payments) == 0):
-            logger.info(f"💰 Auto-creando pago al cliente para operación desde app {operation.operation_id}")
+        if operation.origen == 'plataforma' and (not operation.client_payments or len(operation.client_payments) == 0):
+            logger.info(f"💰 Auto-creando pago al cliente para operación desde app móvil {operation.operation_id}")
 
             # Calcular el total a pagar
             if operation.operation_type == 'Compra':

@@ -136,7 +136,7 @@ class OperationService:
             source_account: Cuenta de origen (opcional)
             destination_account: Cuenta de destino (opcional)
             notes: Notas (opcional)
-            origen: Origen de la operación - 'sistema', 'plataforma' o 'app' (opcional, default='sistema')
+            origen: Origen de la operación - 'sistema' o 'plataforma' (opcional, default='sistema')
 
         Returns:
             tuple: (success: bool, message: str, operation: Operation|None)
@@ -186,7 +186,7 @@ class OperationService:
         operation_id = Operation.generate_operation_id()
         
         # Validar origen
-        if origen not in ['sistema', 'plataforma', 'app']:
+        if origen not in ['sistema', 'plataforma']:
             origen = 'sistema'  # Default a 'sistema' si el valor es inválido
 
         # Crear operación
