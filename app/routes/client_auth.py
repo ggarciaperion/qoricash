@@ -645,6 +645,151 @@ def cancel_operation(operation_id):
         }), 500
 
 
+@client_auth_bp.route('/add-bank-account/<string:client_dni>', methods=['POST'])
+@csrf.exempt
+def add_bank_account(client_dni):
+    """
+    Agregar cuenta bancaria a un cliente desde el app
+
+    Request JSON:
+    {
+        "origen": "Lima" | "Provincia",
+        "bank_name": "BCP" | "INTERBANK" | "PICHINCHA" | "BANBIF" | otro,
+        "account_type": "Ahorro" | "Corriente",
+        "currency": "S/" | "$",
+        "account_number": "número de cuenta",
+        "cci": "número CCI de 20 dígitos" (solo si no es BCP, INTERBANK, PICHINCHA, BANBIF)
+    }
+    """
+    try:
+        from app.models.client import Client
+        from sqlalchemy.orm.attributes import flag_modified
+
+        data = request.get_json()
+
+        if not data:
+            return jsonify({
+                'success': False,
+                'message': 'No se recibieron datos'
+            }), 400
+
+        # Validar campos requeridos
+        origen = data.get('origen', '').strip()
+        bank_name = data.get('bank_name', '').strip()
+        account_type = data.get('account_type', '').strip()
+        currency = data.get('currency', '').strip()
+        account_number = data.get('account_number', '').strip()
+        cci = data.get('cci', '').strip() if data.get('cci') else ''
+
+        if not all([origen, bank_name, account_type, currency, account_number]):
+            return jsonify({
+                'success': False,
+                'message': 'Todos los campos son requeridos'
+            }), 400
+
+        # Validaciones específicas
+        if origen not in ['Lima', 'Provincia']:
+            return jsonify({
+                'success': False,
+                'message': 'Origen debe ser Lima o Provincia'
+            }), 400
+
+        if account_type not in ['Ahorro', 'Corriente']:
+            return jsonify({
+                'success': False,
+                'message': 'Tipo de cuenta debe ser Ahorro o Corriente'
+            }), 400
+
+        if currency not in ['S/', '$']:
+            return jsonify({
+                'success': False,
+                'message': 'Moneda debe ser S/ o $'
+            }), 400
+
+        # Validar provincia solo BCP o INTERBANK
+        if origen == 'Provincia' and bank_name not in ['BCP', 'INTERBANK']:
+            return jsonify({
+                'success': False,
+                'message': 'Para cuentas de provincia solo operamos con BCP e INTERBANK'
+            }), 400
+
+        # Validar CCI para bancos que no sean los principales
+        main_banks = ['BCP', 'INTERBANK', 'PICHINCHA', 'BANBIF']
+        if bank_name not in main_banks:
+            if not cci or len(cci) != 20:
+                return jsonify({
+                    'success': False,
+                    'message': 'Para este banco debe ingresar el CCI de 20 dígitos'
+                }), 400
+            # Guardar el CCI como número de cuenta
+            account_number = cci
+
+        # Buscar cliente
+        client = Client.query.filter_by(dni=client_dni).first()
+
+        if not client:
+            return jsonify({
+                'success': False,
+                'message': 'Cliente no encontrado'
+            }), 404
+
+        # Obtener cuentas existentes
+        current_accounts = client.bank_accounts or []
+
+        # Verificar que no sea duplicado
+        for acc in current_accounts:
+            if (acc.get('bank_name') == bank_name and
+                acc.get('account_type') == account_type and
+                acc.get('account_number') == account_number and
+                acc.get('currency') == currency):
+                return jsonify({
+                    'success': False,
+                    'message': 'Esta cuenta bancaria ya está registrada'
+                }), 400
+
+        # Verificar límite de 6 cuentas
+        if len(current_accounts) >= 6:
+            return jsonify({
+                'success': False,
+                'message': 'Máximo 6 cuentas bancarias permitidas'
+            }), 400
+
+        # Agregar nueva cuenta
+        new_account = {
+            'origen': origen,
+            'bank_name': bank_name,
+            'account_type': account_type,
+            'currency': currency,
+            'account_number': account_number
+        }
+
+        current_accounts.append(new_account)
+
+        # Actualizar cliente
+        client.set_bank_accounts(current_accounts)
+        flag_modified(client, 'bank_accounts_json')
+
+        db.session.commit()
+
+        logger.info(f"Cuenta bancaria agregada para cliente {client_dni}: {bank_name} - {account_number}")
+
+        return jsonify({
+            'success': True,
+            'message': 'Cuenta bancaria agregada exitosamente',
+            'client': client.to_dict()
+        }), 200
+
+    except Exception as e:
+        logger.error(f"Error al agregar cuenta bancaria: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'message': f'Error al agregar cuenta bancaria: {str(e)}'
+        }), 500
+
+
 @client_auth_bp.route('/health', methods=['GET'])
 def health():
     """Health check para cliente auth"""
