@@ -238,9 +238,10 @@ def create_operation():
                 'message': message
             }), 400
 
-        # Enviar notificación
+        # Enviar notificación en tiempo real
         try:
-            NotificationService.emit_operation_created(operation)
+            NotificationService.notify_new_operation(operation)
+            logger.info(f"📡 Notificación de nueva operación enviada: {operation.operation_id}")
         except Exception as e:
             logger.warning(f"Error enviando notificación: {str(e)}")
 
