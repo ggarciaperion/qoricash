@@ -489,13 +489,13 @@ def upload_deposit_proof(operation_id):
 
             # Calcular el total a pagar según tipo de operación
             if operation.operation_type == 'Compra':
-                # Cliente compra USD → QoriCash le paga USD
-                total_pago = float(operation.amount_usd or 0)
-                logger.info(f"💰 Calculando pago (Compra): QoriCash paga USD = {total_pago}")
-            else:
-                # Cliente vende USD → QoriCash le paga PEN
+                # Compra = QoriCash COMPRA USD → Cliente abona USD, QoriCash paga PEN
                 total_pago = float(operation.amount_usd or 0) * float(operation.exchange_rate or 0)
-                logger.info(f"💰 Calculando pago (Venta): amount_usd={operation.amount_usd} × exchange_rate={operation.exchange_rate} = {total_pago} PEN")
+                logger.info(f"💰 Calculando pago (Compra): amount_usd={operation.amount_usd} × exchange_rate={operation.exchange_rate} = {total_pago} PEN")
+            else:
+                # Venta = QoriCash VENDE USD → Cliente abona PEN, QoriCash paga USD
+                total_pago = float(operation.amount_usd or 0)
+                logger.info(f"💰 Calculando pago (Venta): QoriCash paga USD = {total_pago}")
 
             # Crear pago automático
             client_payment = {
