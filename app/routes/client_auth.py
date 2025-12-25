@@ -356,213 +356,92 @@ def get_operation_detail(operation_id):
 @csrf.exempt
 def upload_deposit_proof(operation_id):
     """
-    Subir comprobante de abono desde app móvil
-
-    Args:
-        operation_id: ID de la operación
-
-    Form data:
-        file: archivo imagen del comprobante
-        deposit_index: índice del depósito (default 0)
-        importe: importe del abono (opcional)
-        codigo_operacion: código de la operación (opcional)
-
-    Returns:
-        JSON: {"success": true, "message": "...", "url": "..."}
+    Subir comprobante de abono desde app móvil - VERSIÓN SIMPLIFICADA
     """
     try:
         from app.models.operation import Operation
         from app.services.file_service import FileService
         from sqlalchemy.orm.attributes import flag_modified
+        from app.extensions import socketio
 
         operation = Operation.query.get(operation_id)
         if not operation:
-            return jsonify({
-                'success': False,
-                'message': 'Operación no encontrada'
-            }), 404
+            return jsonify({'success': False, 'message': 'Operación no encontrada'}), 404
 
         if 'file' not in request.files:
-            return jsonify({
-                'success': False,
-                'message': 'No se envió ningún archivo'
-            }), 400
+            return jsonify({'success': False, 'message': 'No se envió ningún archivo'}), 400
 
+        # Obtener datos del formulario
         file = request.files['file']
         deposit_index = request.form.get('deposit_index', 0, type=int)
         importe = request.form.get('importe', type=float)
         codigo_operacion = request.form.get('codigo_operacion', type=str)
 
-        logger.info(f"Subiendo comprobante para operación {operation.operation_id}, deposit_index: {deposit_index}, importe: {importe}, codigo_operacion: {codigo_operacion}")
-        logger.info(f"Form data recibida: {request.form.to_dict()}")
-
+        # Subir archivo
         file_service = FileService()
         success, message, url = file_service.upload_file(
-            file,
-            'deposits',
-            f"{operation.operation_id}_deposit_{deposit_index}"
+            file, 'deposits', f"{operation.operation_id}_deposit_{deposit_index}"
         )
 
         if not success:
-            return jsonify({
-                'success': False,
-                'message': message
-            }), 400
+            return jsonify({'success': False, 'message': message}), 400
 
-        # Actualizar el abono con la URL del comprobante y datos adicionales
+        # Actualizar depósitos
         deposits = operation.client_deposits or []
-        logger.info(f"📋 Deposits actuales: {deposits}")
-
-        # Asegurar que existe el índice
         while len(deposits) <= deposit_index:
             deposits.append({})
 
-        # Actualizar el comprobante con todos los datos
         deposits[deposit_index]['comprobante_url'] = url
-        logger.info(f"✅ URL guardada: {url}")
-
         if importe is not None:
-            # Convertir explícitamente a float
             deposits[deposit_index]['importe'] = float(importe)
-            logger.info(f"✅ Importe guardado: {deposits[deposit_index]['importe']} (tipo: {type(deposits[deposit_index]['importe'])})")
-        else:
-            logger.warning(f"⚠️ Importe es None, no se guardará")
-
         if codigo_operacion:
-            # Convertir explícitamente a string
             deposits[deposit_index]['codigo_operacion'] = str(codigo_operacion)
-            logger.info(f"✅ Código guardado: {deposits[deposit_index]['codigo_operacion']} (tipo: {type(deposits[deposit_index]['codigo_operacion'])})")
-        else:
-            logger.warning(f"⚠️ Código de operación está vacío, no se guardará")
-
-        # Agregar cuenta_cargo para que se muestre en el modal del operador
-        # Usar la cuenta origen de la operación
         if operation.source_account:
             deposits[deposit_index]['cuenta_cargo'] = operation.source_account
-            logger.info(f"✅ Cuenta cargo guardada: {deposits[deposit_index]['cuenta_cargo']}")
 
-        # Actualizar y marcar el campo como modificado para SQLAlchemy
         operation.client_deposits = deposits
-        # Marcar el campo JSON real (client_deposits_json) como modificado
         flag_modified(operation, 'client_deposits_json')
 
-        logger.info(f"📦 Deposits completo antes de commit: {deposits}")
-        logger.info(f"📦 Deposit[{deposit_index}] = {deposits[deposit_index]}")
-
-        # Guardar el estado anterior para la notificación Socket.IO
+        # Cambiar estado a "En proceso"
         old_status = operation.status
-
-        # Cambiar estado a "En proceso" si está pendiente
-        logger.info(f"🔍 Estado actual de operación {operation.operation_id}: {operation.status}")
-        logger.info(f"🔍 Operador asignado actual: {operation.assigned_operator_id}")
-
         if operation.status == 'Pendiente':
             operation.status = 'En proceso'
-            logger.info(f"🔄 Estado cambiado a 'En proceso' para operación {operation.operation_id}")
 
-        # Auto-asignar operador si está "En proceso" y NO tiene operador asignado
-        if operation.status == 'En proceso' and not operation.assigned_operator_id:
-            logger.info(f"🎯 Iniciando auto-asignación de operador para {operation.operation_id}")
-
-            from app.services.operation_service import OperationService
-
-            try:
-                operator_id = OperationService.assign_operator_balanced()
-                logger.info(f"🎯 Resultado de assign_operator_balanced(): {operator_id}")
-
-                if operator_id:
-                    operation.assigned_operator_id = operator_id
-                    logger.info(f"✅ Operador {operator_id} auto-asignado a operación {operation.operation_id}")
-                else:
-                    logger.warning(f"⚠️ assign_operator_balanced() retornó None - No hay operadores activos disponibles")
-            except Exception as e:
-                logger.error(f"❌ Error al asignar operador: {str(e)}")
-                import traceback
-                logger.error(traceback.format_exc())
-        else:
-            if operation.status != 'En proceso':
-                logger.info(f"ℹ️ No se asigna operador porque estado no es 'En proceso': {operation.status}")
-            if operation.assigned_operator_id:
-                logger.info(f"ℹ️ No se asigna operador porque ya tiene uno asignado: {operation.assigned_operator_id}")
-
-        # Auto-crear pago al cliente si viene desde app móvil (plataforma) y no tiene pagos
-        logger.info(f"🔍 DEBUG Pago: origen={operation.origen}, client_payments={operation.client_payments}")
-
-        if operation.origen == 'plataforma' and (not operation.client_payments or len(operation.client_payments) == 0):
-            logger.info(f"💰 Auto-creando pago al cliente para operación desde app móvil {operation.operation_id}")
-
-            # Calcular el total a pagar según tipo de operación
+        # Auto-crear pago si no existe
+        if operation.origen == 'plataforma' and not operation.client_payments:
             if operation.operation_type == 'Compra':
-                # Compra = QoriCash COMPRA USD → Cliente abona USD, QoriCash paga PEN
                 total_pago = float(operation.amount_usd or 0) * float(operation.exchange_rate or 0)
-                logger.info(f"💰 Calculando pago (Compra): amount_usd={operation.amount_usd} × exchange_rate={operation.exchange_rate} = {total_pago} PEN")
             else:
-                # Venta = QoriCash VENDE USD → Cliente abona PEN, QoriCash paga USD
                 total_pago = float(operation.amount_usd or 0)
-                logger.info(f"💰 Calculando pago (Venta): QoriCash paga USD = {total_pago}")
 
-            # Crear pago automático
-            client_payment = {
-                'importe': total_pago,
-                'cuenta_destino': operation.destination_account
-            }
-
-            logger.info(f"💰 Pago a crear: {client_payment}")
-
-            operation.client_payments = [client_payment]
+            operation.client_payments = [{'importe': total_pago, 'cuenta_destino': operation.destination_account}]
             flag_modified(operation, 'client_payments_json')
 
-            logger.info(f"✅ Pago al cliente creado: importe={total_pago}, cuenta={operation.destination_account}")
-            logger.info(f"✅ client_payments después de asignar: {operation.client_payments}")
-        else:
-            logger.warning(f"⚠️ NO se creó pago automático: origen={operation.origen}, tiene_pagos={len(operation.client_payments) > 0 if operation.client_payments else False}")
-
-        # Commit de todos los cambios
-        logger.info(f"💾 Guardando cambios en base de datos...")
+        # Guardar cambios
         db.session.commit()
-        logger.info(f"✅ Cambios guardados exitosamente")
 
-        # Emitir evento Socket.IO para notificar cambio en tiempo real
+        # Emitir Socket.IO básico
         try:
-            from app.services.notification_service import NotificationService
-            NotificationService.notify_operation_updated(operation, old_status=old_status)
-            logger.info(f"📡 Notificación Socket.IO emitida para operación {operation.operation_id} (old: {old_status} → new: {operation.status})")
-        except Exception as e:
-            logger.warning(f"⚠️ Error al emitir notificación Socket.IO: {str(e)}")
-
-        # Refrescar la operación desde la DB para confirmar que se guardó correctamente
-        db.session.refresh(operation)
-
-        logger.info(f"🔍 VERIFICACIÓN POST-COMMIT:")
-        logger.info(f"  📋 Estado final: {operation.status}")
-        logger.info(f"  👤 Operador asignado final: {operation.assigned_operator_id}")
-        logger.info(f"  📦 Deposits en DB: {operation.client_deposits}")
-        logger.info(f"  💰 Payments en DB: {operation.client_payments}")
-        logger.info(f"  💰 Payments JSON en DB: {operation.client_payments_json}")
-
-        # Verificar que los datos se guardaron correctamente
-        saved_deposit = operation.client_deposits[deposit_index] if operation.client_deposits else {}
-        logger.info(f"  ✅ Deposit[{deposit_index}] verificado:")
-        logger.info(f"     - importe: {saved_deposit.get('importe')}")
-        logger.info(f"     - codigo: {saved_deposit.get('codigo_operacion')}")
-        logger.info(f"     - url: {saved_deposit.get('comprobante_url')}")
-        logger.info(f"     - cuenta_cargo: {saved_deposit.get('cuenta_cargo')}")
+            socketio.emit('operacion_actualizada', {
+                'id': operation.id,
+                'operation_id': operation.operation_id,
+                'status': operation.status,
+                'old_status': old_status,
+                'client_deposits': operation.client_deposits,
+                'client_payments': operation.client_payments
+            }, namespace='/')
+        except:
+            pass  # No fallar si Socket.IO tiene problemas
 
         return jsonify({
             'success': True,
             'message': 'Comprobante subido exitosamente',
-            'url': url,
-            'deposit': saved_deposit  # Devolver el deposit guardado para verificación
+            'url': url
         }), 200
 
     except Exception as e:
         logger.error(f"Error al subir comprobante: {str(e)}")
-        import traceback
-        logger.error(traceback.format_exc())
-        return jsonify({
-            'success': False,
-            'message': f'Error al subir comprobante: {str(e)}'
-        }), 500
+        return jsonify({'success': False, 'message': f'Error: {str(e)}'}), 500
 
 
 @client_auth_bp.route('/cancel-operation/<int:operation_id>', methods=['POST'])
