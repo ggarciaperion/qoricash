@@ -449,6 +449,9 @@ def upload_deposit_proof(operation_id):
         logger.info(f"📦 Deposits completo antes de commit: {deposits}")
         logger.info(f"📦 Deposit[{deposit_index}] = {deposits[deposit_index]}")
 
+        # Guardar el estado anterior para la notificación Socket.IO
+        old_status = operation.status
+
         # Cambiar estado a "En proceso" si está pendiente
         logger.info(f"🔍 Estado actual de operación {operation.operation_id}: {operation.status}")
         logger.info(f"🔍 Operador asignado actual: {operation.assigned_operator_id}")
@@ -522,8 +525,8 @@ def upload_deposit_proof(operation_id):
         # Emitir evento Socket.IO para notificar cambio en tiempo real
         try:
             from app.services.notification_service import NotificationService
-            NotificationService.notify_operation_updated(operation, old_status='Pendiente')
-            logger.info(f"📡 Notificación Socket.IO emitida para operación {operation.operation_id}")
+            NotificationService.notify_operation_updated(operation, old_status=old_status)
+            logger.info(f"📡 Notificación Socket.IO emitida para operación {operation.operation_id} (old: {old_status} → new: {operation.status})")
         except Exception as e:
             logger.warning(f"⚠️ Error al emitir notificación Socket.IO: {str(e)}")
 

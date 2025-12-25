@@ -38,20 +38,37 @@ class NotificationService:
     def notify_operation_updated(operation, old_status=None):
         """
         Notificar operación actualizada
-        
+
         Args:
             operation: Objeto Operation
             old_status: Estado anterior (opcional)
         """
         try:
+            # Enviar datos completos de la operación para actualizar el sistema web
             data = {
+                'id': operation.id,
                 'operation_id': operation.operation_id,
+                'client_id': operation.client_id,
                 'client_name': operation.client.full_name if operation.client else 'N/A',
+                'client_dni': operation.client.dni if operation.client else None,
                 'status': operation.status,
-                'old_status': old_status
+                'old_status': old_status,
+                'operation_type': operation.operation_type,
+                'amount_usd': float(operation.amount_usd) if operation.amount_usd else 0,
+                'amount_pen': float(operation.amount_pen) if operation.amount_pen else 0,
+                'exchange_rate': float(operation.exchange_rate) if operation.exchange_rate else 0,
+                'assigned_operator_id': operation.assigned_operator_id,
+                'assigned_operator_name': operation.assigned_operator.full_name if operation.assigned_operator else None,
+                'client_deposits': operation.client_deposits or [],
+                'client_payments': operation.client_payments or [],
+                'total_deposits': operation.total_deposits,
+                'total_payments': operation.total_payments,
+                'created_at': operation.created_at.isoformat() if operation.created_at else None,
+                'updated_at': operation.updated_at.isoformat() if operation.updated_at else None,
             }
-            
+
             socketio.emit('operacion_actualizada', data, namespace='/')
+            logger.info(f"📡 Socket.IO emitido: operacion_actualizada para {operation.operation_id}")
         except Exception as e:
             logger.error(f"Error enviando notificación de operación actualizada: {e}")
     
