@@ -407,6 +407,17 @@ def upload_deposit_proof(operation_id):
         if operation.status == 'Pendiente':
             operation.status = 'En proceso'
 
+        # Auto-asignar operador si está "En proceso" y NO tiene operador
+        if operation.status == 'En proceso' and not operation.assigned_operator_id:
+            try:
+                from app.services.operation_service import OperationService
+                operator_id = OperationService.assign_operator_balanced()
+                if operator_id:
+                    operation.assigned_operator_id = operator_id
+                    logger.info(f"✅ Operador {operator_id} auto-asignado a {operation.operation_id}")
+            except Exception as e:
+                logger.error(f"Error auto-asignando operador: {e}")
+
         # Auto-crear pago si no existe
         if operation.origen == 'plataforma' and not operation.client_payments:
             if operation.operation_type == 'Compra':
@@ -420,18 +431,32 @@ def upload_deposit_proof(operation_id):
         # Guardar cambios
         db.session.commit()
 
-        # Emitir Socket.IO básico
+        # Emitir Socket.IO con datos completos
         try:
             socketio.emit('operacion_actualizada', {
                 'id': operation.id,
                 'operation_id': operation.operation_id,
                 'status': operation.status,
                 'old_status': old_status,
-                'client_deposits': operation.client_deposits,
-                'client_payments': operation.client_payments
+                'client_id': operation.client_id,
+                'client_name': operation.client.full_name if operation.client else 'N/A',
+                'client_dni': operation.client.dni if operation.client else None,
+                'operation_type': operation.operation_type,
+                'amount_usd': float(operation.amount_usd) if operation.amount_usd else 0,
+                'amount_pen': float(operation.amount_pen) if operation.amount_pen else 0,
+                'exchange_rate': float(operation.exchange_rate) if operation.exchange_rate else 0,
+                'assigned_operator_id': operation.assigned_operator_id,
+                'assigned_operator_name': operation.assigned_operator.full_name if operation.assigned_operator else None,
+                'client_deposits': operation.client_deposits or [],
+                'client_payments': operation.client_payments or [],
+                'total_deposits': operation.total_deposits,
+                'total_payments': operation.total_payments,
+                'created_at': operation.created_at.isoformat() if operation.created_at else None,
+                'updated_at': operation.updated_at.isoformat() if operation.updated_at else None,
             }, namespace='/')
-        except:
-            pass  # No fallar si Socket.IO tiene problemas
+            logger.info(f"📡 Socket.IO emitido: {operation.operation_id} -> {operation.status}, operador: {operation.assigned_operator_id}")
+        except Exception as e:
+            logger.warning(f"⚠️ Error en Socket.IO: {e}")
 
         return jsonify({
             'success': True,
