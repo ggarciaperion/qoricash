@@ -211,17 +211,17 @@ def create_operation():
                 'message': 'Cliente inactivo. Contacta al administrador.'
             }), 403
 
-        # Obtener usuario plataforma para crear la operación
-        platform_user = User.query.filter_by(role='Plataforma').first()
-        if not platform_user:
+        # Obtener el usuario que creó el cliente (puede ser Master, Trader, etc.)
+        creator_user = User.query.get(client.created_by)
+        if not creator_user:
             return jsonify({
                 'success': False,
-                'message': 'Error de configuración del sistema'
+                'message': 'Error: No se encontró el usuario asociado al cliente'
             }), 500
 
-        # Crear operación usando el servicio
+        # Crear operación usando el servicio con el usuario creador del cliente
         success, message, operation = OperationService.create_operation(
-            current_user=platform_user,
+            current_user=creator_user,
             client_id=client.id,
             operation_type=data['operation_type'],
             amount_usd=data['amount_usd'],
