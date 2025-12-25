@@ -610,14 +610,14 @@ def cancel_operation(operation_id):
                 'message': 'No se puede cancelar una operación que está siendo procesada'
             }), 400
 
-        if operation.status in ['Completada', 'Cancelada', 'Expirada']:
+        if operation.status in ['Completada', 'Cancelado', 'Expirada']:
             return jsonify({
                 'success': False,
                 'message': f'No se puede cancelar una operación {operation.status.lower()}'
             }), 400
 
         # Cancelar la operación
-        operation.status = 'Cancelada'
+        operation.status = 'Cancelado'
         operation.cancellation_reason = cancellation_reason
         operation.updated_at = datetime.utcnow()
 
