@@ -24,10 +24,13 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Ahora sí importar la app (para que config.py ya tenga las variables disponibles)
-from app import create_app, socketio
+from app import create_app
 
 # Crear aplicación (usado por gunicorn)
 app = create_app()
+
+# Obtener socketio después de crear la app
+from app.extensions import socketio
 
 # Healthcheck endpoint - SIN rate limiting, optimizado para respuesta rápida
 from app.extensions import limiter
