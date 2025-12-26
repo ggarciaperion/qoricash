@@ -217,6 +217,93 @@ function refreshOperations() {
     location.reload();
 }
 
+// Función global para actualizar tabla dinámicamente (llamada por Socket.IO)
+window.refreshOperationsTable = function() {
+    console.log('🔄 Actualizando tabla de operaciones en tiempo real...');
+
+    // Hacer fetch de las operaciones actualizadas
+    ajaxRequest('/operations/api/list', 'GET', null, function(response) {
+        if (response.success && response.operations) {
+            const operations = response.operations;
+
+            // Obtener tabla DataTable
+            const table = $('#operationsTable').DataTable();
+
+            // Limpiar tabla
+            table.clear();
+
+            // Agregar filas actualizadas
+            operations.forEach(function(op) {
+                // Solo mostrar operaciones "Pendiente" o "En proceso"
+                if (op.status === 'Pendiente' || op.status === 'En proceso') {
+                    const rowClass = op.status === 'Pendiente' ? 'table-warning' : 'table-info';
+
+                    // Crear botones de acción según el estado
+                    let actionButtons = `
+                        <div class="btn-group-vertical btn-group-sm">
+                            <button class="btn btn-outline-info" onclick="viewOperationDetails(${op.id})" title="Ver Detalles">
+                                <i class="bi bi-eye"></i> Ver
+                            </button>
+                    `;
+
+                    if (op.status === 'Pendiente') {
+                        actionButtons += `
+                            <button class="btn btn-outline-success" onclick="startProcessing(${op.id})" title="Iniciar Proceso">
+                                <i class="bi bi-play-fill"></i> Iniciar
+                            </button>
+                        `;
+                    }
+
+                    if (op.status === 'En proceso') {
+                        actionButtons += `
+                            <button class="btn btn-outline-primary" onclick="completeOperation(${op.id})" title="Completar">
+                                <i class="bi bi-check-circle"></i> Completar
+                            </button>
+                        `;
+                    }
+
+                    actionButtons += `
+                            <button class="btn btn-outline-secondary" onclick="uploadProofOperator(${op.id})" title="Subir Comprobante">
+                                <i class="bi bi-upload"></i> Subir
+                            </button>
+                        </div>
+                    `;
+
+                    // Formatear fecha
+                    const createdDate = new Date(op.created_at);
+                    const dateStr = `${String(createdDate.getDate()).padStart(2, '0')}/${String(createdDate.getMonth() + 1).padStart(2, '0')} ${String(createdDate.getHours()).padStart(2, '0')}:${String(createdDate.getMinutes()).padStart(2, '0')}`;
+
+                    // Crear fila
+                    const row = table.row.add([
+                        `<strong>${op.operation_id}</strong>`,
+                        `<strong>${op.client_name || '-'}</strong><br><small class="text-muted">DNI: ${op.client_dni || '-'}</small>`,
+                        op.operation_type === 'Compra' ? '<span class="badge bg-success">Compra</span>' : '<span class="badge bg-primary">Venta</span>',
+                        `<strong>$ ${parseFloat(op.amount_usd).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong>`,
+                        parseFloat(op.exchange_rate).toLocaleString('en-US', {minimumFractionDigits: 4, maximumFractionDigits: 4}),
+                        `<strong>S/ ${parseFloat(op.amount_pen).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong>`,
+                        op.status === 'Pendiente' ? '<span class="badge bg-warning text-dark">Pendiente</span>' : '<span class="badge bg-info">En Proceso</span>',
+                        `${dateStr}<br><small class="text-muted">${op.user_username || '-'}</small>`,
+                        actionButtons
+                    ]);
+
+                    // Agregar clase a la fila
+                    $(row.node()).addClass(rowClass);
+                }
+            });
+
+            // Re-dibujar tabla
+            table.draw();
+
+            // Actualizar contadores
+            updateCounters();
+
+            console.log('✅ Tabla actualizada con', operations.length, 'operaciones');
+        }
+    }, function(error) {
+        console.error('❌ Error al actualizar tabla:', error);
+    });
+};
+
 function startProcessing(operationId) {
     if (confirm('¿Iniciar el procesamiento de esta operación?')) {
         const data = {
