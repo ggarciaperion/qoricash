@@ -178,6 +178,8 @@
 <script src="{{ url_for('static', filename='js/operations.js') }}?v=20251220_113000"></script>
 <script>
 $(document).ready(function() {
+    console.log('🔄 [Operator List] Página cargada');
+
     // Inicializar DataTable
     $('#operationsTable').DataTable({
         language: {
@@ -186,13 +188,21 @@ $(document).ready(function() {
         order: [[7, 'desc']],
         pageLength: 25
     });
-    
+
     // Actualizar contadores
     updateCounters();
-    
+
+    // Verificar que refreshOperationsTable está disponible
+    if (typeof window.refreshOperationsTable === 'function') {
+        console.log('✅ [Operator List] refreshOperationsTable() está disponible globalmente');
+    } else {
+        console.error('❌ [Operator List] refreshOperationsTable() NO está disponible globalmente');
+    }
+
     // Conectar SocketIO
+    console.log('🔌 [Operator List] Llamando connectSocketIO()');
     connectSocketIO();
-    
+
     // Auto-refresh cada 30 segundos
     setInterval(function() {
         refreshOperations();

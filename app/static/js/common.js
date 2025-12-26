@@ -13,12 +13,18 @@ let socket = null;
  * Conectar a SocketIO para actualizaciones en tiempo real
  */
 function connectSocketIO() {
-    if (socket) return; // Ya conectado
+    if (socket) {
+        console.log('ℹ️ SocketIO ya está conectado');
+        return; // Ya conectado
+    }
 
+    console.log('🔌 Intentando conectar a SocketIO...');
     socket = io();
 
     socket.on('connect', function() {
-        console.log('✅ SocketIO conectado');
+        console.log('✅ SocketIO conectado exitosamente');
+        console.log('🔌 Socket ID:', socket.id);
+        console.log('👤 Usuario actual:', window.currentUserRole);
         // No mostrar notificación de conexión
     });
 
@@ -28,7 +34,7 @@ function connectSocketIO() {
     });
 
     socket.on('connection_established', function(data) {
-        console.log('Conexión establecida:', data);
+        console.log('✅ Conexión establecida:', data);
     });
 
     // ============================================
@@ -54,19 +60,29 @@ function connectSocketIO() {
     });
 
     socket.on('operacion_actualizada', function(data) {
+        console.log('📡 [Socket.IO] Evento operacion_actualizada recibido:', data);
+        console.log('📡 [Socket.IO] Operador asignado:', data.assigned_operator_name, '(ID:', data.assigned_operator_id, ')');
+
         // Solo mostrar notificación a Master y Operador
         if (window.currentUserRole === 'Master' || window.currentUserRole === 'Operador') {
-            showNotification(`Operación ${data.operation_id} actualizada a: ${data.status}`, 'info');
+            const message = data.assigned_operator_name
+                ? `Operación ${data.operation_id} actualizada a: ${data.status} - Asignado a: ${data.assigned_operator_name}`
+                : `Operación ${data.operation_id} actualizada a: ${data.status}`;
+            showNotification(message, 'info');
         }
 
         // Actualizar dashboard para todos
         if (typeof loadDashboardData === 'function') {
+            console.log('📡 [Socket.IO] Llamando loadDashboardData()');
             loadDashboardData();
         }
 
         // Actualizar tabla de operaciones si existe
         if (typeof refreshOperationsTable === 'function') {
+            console.log('📡 [Socket.IO] Llamando refreshOperationsTable()');
             refreshOperationsTable();
+        } else {
+            console.warn('⚠️ [Socket.IO] refreshOperationsTable() no está definida');
         }
     });
 
