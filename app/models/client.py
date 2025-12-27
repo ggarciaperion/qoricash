@@ -291,6 +291,7 @@ class Client(db.Model):
             'created_by_id': self.created_by,
             'created_by_username': created_by_username,
             'created_by_role': created_by_role,
+            'has_complete_documents': self.has_complete_documents or False,
         }
 
         if self.document_type == 'RUC':

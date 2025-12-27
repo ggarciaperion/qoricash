@@ -398,9 +398,110 @@ def register_client():
         }), 201
 
     except Exception as e:
-        logger.error(f"Error registro: {str(e)}")
+        logger.error(f"Error en registro: {str(e)}")
         db.session.rollback()
-        return jsonify({'success': False, 'message': str(e)}), 500
+        return jsonify({
+            'success': False,
+            'message': f'Error al registrar: {str(e)}'
+        }), 500
+
+
+@client_auth_bp.route('/upload-dni', methods=['POST'])
+@csrf.exempt
+def upload_dni_documents():
+    """
+    Subir fotos del DNI (anverso y reverso) a Cloudinary
+
+    Form Data:
+        dni: DNI del cliente
+        dni_front: Archivo de imagen (anverso)
+        dni_back: Archivo de imagen (reverso)
+
+    Returns:
+        JSON: {
+            "success": true,
+            "message": "Documentos subidos exitosamente"
+        }
+    """
+    try:
+        import cloudinary
+        import cloudinary.uploader
+        from app.config import Config
+
+        # Configurar Cloudinary
+        cloudinary.config(
+            cloud_name=Config.CLOUDINARY_CLOUD_NAME,
+            api_key=Config.CLOUDINARY_API_KEY,
+            api_secret=Config.CLOUDINARY_API_SECRET
+        )
+
+        dni = request.form.get('dni', '').strip()
+
+        if not dni:
+            return jsonify({
+                'success': False,
+                'message': 'DNI es requerido'
+            }), 400
+
+        # Buscar cliente
+        client = Client.query.filter_by(dni=dni).first()
+
+        if not client:
+            return jsonify({
+                'success': False,
+                'message': 'Cliente no encontrado'
+            }), 404
+
+        # Obtener archivos
+        dni_front = request.files.get('dni_front')
+        dni_back = request.files.get('dni_back')
+
+        if not dni_front or not dni_back:
+            return jsonify({
+                'success': False,
+                'message': 'Se requieren ambas fotos del DNI (anverso y reverso)'
+            }), 400
+
+        # Subir anverso a Cloudinary
+        front_result = cloudinary.uploader.upload(
+            dni_front,
+            folder=f"qoricash/clients/{dni}",
+            public_id=f"dni_front_{dni}",
+            overwrite=True,
+            resource_type="image"
+        )
+
+        # Subir reverso a Cloudinary
+        back_result = cloudinary.uploader.upload(
+            dni_back,
+            folder=f"qoricash/clients/{dni}",
+            public_id=f"dni_back_{dni}",
+            overwrite=True,
+            resource_type="image"
+        )
+
+        # Actualizar cliente con las URLs
+        client.dni_front_url = front_result.get('secure_url')
+        client.dni_back_url = back_result.get('secure_url')
+
+        db.session.commit()
+
+        logger.info(f"Documentos DNI subidos exitosamente para cliente: {client.dni}")
+
+        return jsonify({
+            'success': True,
+            'message': 'Documentos subidos exitosamente',
+            'dni_front_url': client.dni_front_url,
+            'dni_back_url': client.dni_back_url
+        }), 200
+
+    except Exception as e:
+        logger.error(f"Error subiendo documentos DNI: {str(e)}")
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'message': f'Error al subir documentos: {str(e)}'
+        }), 500
 
 
 @client_auth_bp.route('/verify/<dni>', methods=['GET'])
