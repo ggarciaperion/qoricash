@@ -375,20 +375,23 @@ def manage_exchange_rates():
                 user_id=current_user.id
             )
 
-            logger.info(f"Tipos de cambio actualizados por {current_user.username}: Compra={buy_rate}, Venta={sell_rate}")
+            logger.info(f"💱 Tipos de cambio actualizados por {current_user.username}: Compra={buy_rate}, Venta={sell_rate}")
 
             # Emitir evento Socket.IO para actualizar tipos en tiempo real en todas las apps
             try:
                 from app.extensions import socketio
-                socketio.emit('tipos_cambio_actualizados', {
+                event_data = {
                     'compra': float(buy_rate),
                     'venta': float(sell_rate),
                     'updated_by': current_user.username,
                     'updated_at': new_rate.updated_at.isoformat()
-                })
-                logger.info(f"Evento Socket.IO emitido: tipos_cambio_actualizados")
+                }
+                # Emitir a TODOS los clientes conectados (broadcast)
+                socketio.emit('tipos_cambio_actualizados', event_data, namespace='/')
+                logger.info(f"📡 Evento Socket.IO emitido a TODOS los clientes: tipos_cambio_actualizados - Compra: {buy_rate}, Venta: {sell_rate}")
             except Exception as socket_error:
-                logger.warning(f"Error al emitir evento Socket.IO: {str(socket_error)}")
+                logger.error(f"❌ Error al emitir evento Socket.IO: {str(socket_error)}")
+                logger.exception(socket_error)
 
             return jsonify({
                 'success': True,
