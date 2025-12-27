@@ -276,10 +276,17 @@ def register_client():
         # Generar contraseña temporal
         temporary_password = generate_temporary_password(12)
 
+        # Determinar document_type basado en tipo_persona
+        if tipo_persona == 'Natural':
+            document_type = 'DNI'  # Por defecto DNI para personas naturales
+        else:
+            document_type = 'RUC'  # RUC para personas jurídicas
+
         # Crear cliente
         new_client = Client(
             dni=dni,
             email=email,
+            document_type=document_type,
             tipo_persona=tipo_persona,
             status='Activo',
             created_by=plataforma_user.id,
@@ -307,8 +314,10 @@ def register_client():
                     'message': 'Razón social es requerida para personas jurídicas'
                 }), 400
 
-        # Teléfono (opcional)
-        new_client.telefono = data.get('telefono', '').strip()
+        # Teléfono
+        telefono = data.get('telefono', '').strip()
+        new_client.phone = telefono  # El modelo Client usa 'phone'
+        new_client.telefono = telefono  # Mantener compatibilidad si existe el campo
 
         # Establecer contraseña temporal
         new_client.set_password(temporary_password)
