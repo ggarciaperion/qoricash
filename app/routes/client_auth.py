@@ -200,100 +200,75 @@ def change_password():
 @csrf.exempt
 def register_client():
     """
-    Auto-registro de cliente desde app móvil - VERSIÓN SIMPLIFICADA
+    Auto-registro de cliente - ULTRA SIMPLIFICADO
     """
     try:
-        from app.models.user import User
-        from app.utils.password_generator import generate_temporary_password
-        from app.services.email_service import EmailService
-
         data = request.get_json()
-        logger.info(f"[REGISTER] Datos recibidos: {data}")
 
-        # Validaciones básicas
+        # Obtener datos
         dni = data.get('dni', '').strip()
         email = data.get('email', '').strip()
         nombres = data.get('nombres', '').strip()
         apellido_paterno = data.get('apellido_paterno', '').strip()
+        apellido_materno = data.get('apellido_materno', '').strip()
         telefono = data.get('telefono', '').strip()
 
+        # Validar
         if not all([dni, email, nombres, apellido_paterno, telefono]):
-            return jsonify({
-                'success': False,
-                'message': 'Todos los campos son obligatorios'
-            }), 400
+            return jsonify({'success': False, 'message': 'Faltan campos obligatorios'}), 400
 
-        # Verificar si ya existe
+        # Ver si ya existe
         if Client.query.filter_by(dni=dni).first():
-            return jsonify({
-                'success': False,
-                'message': 'Ya existe un cliente con este DNI'
-            }), 400
+            return jsonify({'success': False, 'message': 'DNI ya registrado'}), 400
 
-        # Buscar CUALQUIER usuario Master activo (el primero que encuentre)
-        master_user = User.query.filter_by(role='Master', is_active=True).first()
+        # Generar contraseña simple
+        import secrets
+        import string
+        temp_password = ''.join(secrets.choice(string.ascii_letters + string.digits) for _ in range(10))
 
-        if not master_user:
-            logger.error("[REGISTER] No hay usuarios Master activos")
-            return jsonify({
-                'success': False,
-                'message': 'Sistema no configurado. Contacta al administrador.'
-            }), 500
+        # Crear cliente directo en SQL
+        from sqlalchemy import text
+        sql = text("""
+            INSERT INTO clients
+            (dni, document_type, email, nombres, apellido_paterno, apellido_materno, phone,
+             status, password_hash, requires_password_change, created_at)
+            VALUES
+            (:dni, 'DNI', :email, :nombres, :apellido_paterno, :apellido_materno, :phone,
+             'Activo', :password_hash, true, NOW())
+            RETURNING id
+        """)
 
-        logger.info(f"[REGISTER] Usuario asignado: {master_user.username}")
+        # Hash de contraseña
+        from werkzeug.security import generate_password_hash
+        pwd_hash = generate_password_hash(temp_password)
 
-        # Generar contraseña
-        temp_password = generate_temporary_password(12)
-        logger.info(f"[REGISTER] Contraseña generada: {temp_password}")
+        # Ejecutar
+        result = db.session.execute(sql, {
+            'dni': dni,
+            'email': email,
+            'nombres': nombres,
+            'apellido_paterno': apellido_paterno,
+            'apellido_materno': apellido_materno,
+            'phone': telefono,
+            'password_hash': pwd_hash
+        })
 
-        # Crear cliente SIN usar ClientService (directo)
-        new_client = Client()
-        new_client.dni = dni
-        new_client.document_type = 'DNI'
-        new_client.email = email
-        new_client.nombres = nombres
-        new_client.apellido_paterno = apellido_paterno
-        new_client.apellido_materno = data.get('apellido_materno', '').strip()
-        new_client.phone = telefono
-        new_client.status = 'Activo'
-        new_client.created_by = master_user.id
-        new_client.kyc_status = 'Pendiente'
-
-        # Establecer contraseña
-        new_client.set_password(temp_password)
-        new_client.requires_password_change = True
-
-        # Guardar
-        db.session.add(new_client)
+        client_id = result.fetchone()[0]
         db.session.commit()
 
-        logger.info(f"[REGISTER] Cliente creado exitosamente: {new_client.id}")
-
-        # Intentar enviar email (no bloquear si falla)
-        try:
-            EmailService.send_temporary_password_email(new_client, temp_password, master_user)
-        except Exception as email_err:
-            logger.warning(f"[REGISTER] Email no enviado: {email_err}")
+        logger.info(f"Cliente registrado: {dni} (ID: {client_id})")
 
         return jsonify({
             'success': True,
-            'message': f'Registro exitoso. Tu contraseña temporal es: {temp_password}',
-            'client': {
-                'dni': new_client.dni,
-                'email': new_client.email,
-                'nombres': new_client.nombres
-            }
+            'message': f'¡Registro exitoso!\n\nTu contraseña temporal es:\n{temp_password}\n\nGuárdala para hacer login.',
+            'password': temp_password,
+            'client': {'dni': dni, 'email': email}
         }), 201
 
     except Exception as e:
-        logger.error(f"[REGISTER] ERROR: {str(e)}")
-        import traceback
-        logger.error(traceback.format_exc())
+        logger.error(f"Error registro: {str(e)}")
         db.session.rollback()
-        return jsonify({
-            'success': False,
-            'message': f'Error: {str(e)}'
-        }), 500
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 
 @client_auth_bp.route('/verify/<dni>', methods=['GET'])
