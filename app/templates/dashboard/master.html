@@ -102,7 +102,64 @@
             </div>
         </div>
     </div>
-    
+
+    <!-- Tipos de Cambio -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <h5><i class="bi bi-currency-exchange"></i> Tipos de Cambio</h5>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="card-subtitle mb-2 text-muted">Tipo de Cambio Compra</h6>
+                            <h2 class="card-title mb-0 text-success" id="currentBuyRate">S/ 0.000</h2>
+                            <small class="text-muted">Cliente vende USD / Compra PEN</small>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="card-subtitle mb-2 text-muted">Tipo de Cambio Venta</h6>
+                            <h2 class="card-title mb-0 text-primary" id="currentSellRate">S/ 0.000</h2>
+                            <small class="text-muted">Cliente compra USD / Vende PEN</small>
+                        </div>
+                    </div>
+                    <hr>
+                    <div class="row">
+                        <div class="col-md-12">
+                            <small class="text-muted">
+                                <i class="bi bi-clock"></i> Última actualización: <span id="lastUpdate">--</span>
+                                por <span id="updatedBy">--</span>
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-warning">
+                <div class="card-body">
+                    <h6 class="card-subtitle mb-3 text-center">
+                        <i class="bi bi-pencil-square"></i> Actualizar Tipos de Cambio
+                    </h6>
+                    <div class="mb-3">
+                        <label for="newBuyRate" class="form-label">Compra (Cliente vende USD)</label>
+                        <input type="number" class="form-control" id="newBuyRate" step="0.001" min="0" placeholder="3.750">
+                    </div>
+                    <div class="mb-3">
+                        <label for="newSellRate" class="form-label">Venta (Cliente compra USD)</label>
+                        <input type="number" class="form-control" id="newSellRate" step="0.001" min="0" placeholder="3.770">
+                    </div>
+                    <button class="btn btn-warning w-100" onclick="updateExchangeRates()">
+                        <i class="bi bi-save"></i> Actualizar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Utilidad y Metas -->
     <div class="row mb-4">
         <div class="col-md-12">
@@ -500,6 +557,7 @@ $(document).ready(function() {
     loadTraders();
     setCurrentPeriod();
     initDatePicker();
+    loadExchangeRates();
 
     // Actualizar cada 60 segundos (reducido para evitar error 429)
     setInterval(loadDashboardData, 60000);
@@ -828,6 +886,86 @@ function saveTraderData() {
         loadDashboardData(); // Recargar dashboard
     }).catch(error => {
         showNotification('Error al guardar datos: ' + (error.responseJSON?.error || 'Error desconocido'), 'danger');
+    });
+}
+
+// ==================== TIPOS DE CAMBIO ====================
+
+function loadExchangeRates() {
+    ajaxRequest('/api/platform/exchange-rates', 'GET', null, function(response) {
+        if (response.success && response.rates) {
+            const rates = response.rates;
+
+            // Actualizar valores mostrados
+            $('#currentBuyRate').text('S/ ' + parseFloat(rates.compra).toFixed(3));
+            $('#currentSellRate').text('S/ ' + parseFloat(rates.venta).toFixed(3));
+
+            // Actualizar inputs del formulario
+            $('#newBuyRate').val(parseFloat(rates.compra).toFixed(3));
+            $('#newSellRate').val(parseFloat(rates.venta).toFixed(3));
+
+            // Actualizar información de última actualización
+            if (rates.updated_at && rates.updated_by) {
+                const updateDate = new Date(rates.updated_at);
+                $('#lastUpdate').text(updateDate.toLocaleString('es-PE'));
+                $('#updatedBy').text(rates.updated_by);
+            } else {
+                $('#lastUpdate').text('Sin actualizar');
+                $('#updatedBy').text('Sistema');
+            }
+        }
+    }, function(error) {
+        console.error('Error al cargar tipos de cambio:', error);
+        showNotification('Error al cargar tipos de cambio', 'danger');
+    });
+}
+
+function updateExchangeRates() {
+    const buyRate = parseFloat($('#newBuyRate').val());
+    const sellRate = parseFloat($('#newSellRate').val());
+
+    // Validaciones
+    if (!buyRate || !sellRate) {
+        showNotification('Debe ingresar ambos tipos de cambio', 'warning');
+        return;
+    }
+
+    if (buyRate <= 0 || sellRate <= 0) {
+        showNotification('Los tipos de cambio deben ser mayores a 0', 'warning');
+        return;
+    }
+
+    if (sellRate < buyRate) {
+        showNotification('El tipo de cambio de venta debe ser mayor o igual al de compra', 'warning');
+        return;
+    }
+
+    if (Math.abs(sellRate - buyRate) > 0.5) {
+        if (!confirm('La diferencia entre compra y venta es mayor a 0.5. ¿Desea continuar?')) {
+            return;
+        }
+    }
+
+    // Confirmar actualización
+    if (!confirm(`¿Está seguro de actualizar los tipos de cambio?\n\nCompra: S/ ${buyRate.toFixed(3)}\nVenta: S/ ${sellRate.toFixed(3)}`)) {
+        return;
+    }
+
+    const data = {
+        buy_rate: buyRate,
+        sell_rate: sellRate
+    };
+
+    ajaxRequest('/api/platform/exchange-rates', 'POST', data, function(response) {
+        if (response.success) {
+            showNotification('Tipos de cambio actualizados exitosamente', 'success');
+            loadExchangeRates(); // Recargar para mostrar actualizados
+        } else {
+            showNotification(response.message || 'Error al actualizar tipos de cambio', 'danger');
+        }
+    }, function(error) {
+        const message = error.responseJSON?.message || 'Error al actualizar tipos de cambio';
+        showNotification(message, 'danger');
     });
 }
 </script>

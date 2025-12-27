@@ -281,6 +281,118 @@ def get_client_by_dni(dni):
         }), 500
 
 
+@platform_api_bp.route('/exchange-rates', methods=['GET', 'POST'])
+@login_required
+@require_role('Master')
+def manage_exchange_rates():
+    """
+    API: Obtener o actualizar tipos de cambio (solo Master)
+
+    GET: Obtener tipos actuales
+    POST: Actualizar tipos de cambio
+
+    Request JSON (POST):
+    {
+        "buy_rate": 3.75,
+        "sell_rate": 3.77
+    }
+
+    Returns:
+        JSON: {
+            "success": true,
+            "rates": {"compra": 3.75, "venta": 3.77}
+        }
+    """
+    from app.models.exchange_rate import ExchangeRate
+
+    try:
+        if request.method == 'GET':
+            # Obtener tipos actuales
+            rate = ExchangeRate.query.order_by(ExchangeRate.updated_at.desc()).first()
+
+            if rate:
+                return jsonify({
+                    'success': True,
+                    'rates': rate.to_dict()
+                }), 200
+            else:
+                return jsonify({
+                    'success': True,
+                    'rates': {
+                        'compra': 3.75,
+                        'venta': 3.77,
+                        'updated_by': None,
+                        'updated_at': None
+                    }
+                }), 200
+
+        elif request.method == 'POST':
+            # Actualizar tipos de cambio
+            data = request.get_json()
+
+            buy_rate = data.get('buy_rate')
+            sell_rate = data.get('sell_rate')
+
+            # Validaciones
+            if not buy_rate or not sell_rate:
+                return jsonify({
+                    'success': False,
+                    'message': 'Debe proporcionar buy_rate y sell_rate'
+                }), 400
+
+            try:
+                buy_rate = float(buy_rate)
+                sell_rate = float(sell_rate)
+            except ValueError:
+                return jsonify({
+                    'success': False,
+                    'message': 'Los tipos de cambio deben ser números válidos'
+                }), 400
+
+            # Validar rango razonable
+            if buy_rate <= 0 or sell_rate <= 0:
+                return jsonify({
+                    'success': False,
+                    'message': 'Los tipos de cambio deben ser mayores a 0'
+                }), 400
+
+            if buy_rate > 10 or sell_rate > 10:
+                return jsonify({
+                    'success': False,
+                    'message': 'Los tipos de cambio parecen inusualmente altos (>10)'
+                }), 400
+
+            if sell_rate < buy_rate:
+                return jsonify({
+                    'success': False,
+                    'message': 'El tipo de cambio de venta debe ser mayor o igual al de compra'
+                }), 400
+
+            # Actualizar tipos de cambio
+            new_rate = ExchangeRate.update_rates(
+                buy_rate=buy_rate,
+                sell_rate=sell_rate,
+                user_id=current_user.id
+            )
+
+            logger.info(f"Tipos de cambio actualizados por {current_user.username}: Compra={buy_rate}, Venta={sell_rate}")
+
+            return jsonify({
+                'success': True,
+                'message': 'Tipos de cambio actualizados exitosamente',
+                'rates': new_rate.to_dict()
+            }), 200
+
+    except Exception as e:
+        logger.error(f"Error al gestionar tipos de cambio: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return jsonify({
+            'success': False,
+            'message': f'Error al gestionar tipos de cambio: {str(e)}'
+        }), 500
+
+
 @platform_api_bp.route('/health', methods=['GET'])
 def health_check():
     """

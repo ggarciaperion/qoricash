@@ -135,14 +135,14 @@ def get_exchange_rates():
         }
     """
     try:
-        # TEMPORAL: Tipos de cambio hardcodeados
-        # TODO: Obtener de configuración o base de datos controlada por Master
+        from app.models.exchange_rate import ExchangeRate
+
+        # Obtener tipos de cambio desde la base de datos
+        rates = ExchangeRate.get_current_rates()
+
         return jsonify({
             'success': True,
-            'rates': {
-                'compra': 3.75,  # Tipo de cambio de compra (cliente vende USD)
-                'venta': 3.77    # Tipo de cambio de venta (cliente compra USD)
-            }
+            'rates': rates
         }), 200
 
     except Exception as e:
