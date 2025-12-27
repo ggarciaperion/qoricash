@@ -292,10 +292,28 @@ def register_client():
         if Client.query.filter_by(dni=dni).first():
             return jsonify({'success': False, 'message': 'DNI ya registrado'}), 400
 
-        # Crear cliente usando ORM
+        # Obtener o crear usuario "Plataforma" para asignar como creador
         from werkzeug.security import generate_password_hash
         from datetime import datetime
+        import secrets
 
+        platform_user = User.query.filter_by(username='Plataforma').first()
+        if not platform_user:
+            logger.info("🤖 Usuario 'Plataforma' no existe, creándolo...")
+            platform_user = User(
+                username='Plataforma',
+                email='plataforma@qoricash.pe',
+                full_name='Sistema Plataforma',
+                role='Plataforma',
+                password_hash=generate_password_hash(secrets.token_urlsafe(32)),
+                status='Activo',
+                created_at=datetime.utcnow()
+            )
+            db.session.add(platform_user)
+            db.session.flush()  # Para obtener el ID antes de commit
+            logger.info(f"✅ Usuario 'Plataforma' creado con ID: {platform_user.id}")
+
+        # Crear cliente usando ORM con usuario Plataforma como creador
         new_client = Client(
             dni=dni,
             document_type='DNI',
@@ -307,6 +325,7 @@ def register_client():
             status='Activo',
             password_hash=generate_password_hash(password),
             requires_password_change=False,
+            created_by=platform_user.id,  # ✅ Asignar usuario Plataforma como creador
             created_at=datetime.utcnow()
         )
 
@@ -636,13 +655,39 @@ def create_operation():
                 'message': 'Cliente inactivo. Contacta al administrador.'
             }), 403
 
-        # Obtener el usuario que creó el cliente (puede ser Master, Trader, etc.)
-        creator_user = User.query.get(client.created_by)
+        # Obtener el usuario que creó el cliente (puede ser Master, Trader, Plataforma, etc.)
+        creator_user = None
+        if client.created_by:
+            creator_user = User.query.get(client.created_by)
+
+        # Si no hay usuario creador (clientes viejos o error), usar usuario Plataforma
         if not creator_user:
-            return jsonify({
-                'success': False,
-                'message': 'Error: No se encontró el usuario asociado al cliente'
-            }), 500
+            logger.warning(f"⚠️ Cliente {client.dni} no tiene created_by asignado, usando usuario Plataforma")
+            creator_user = User.query.filter_by(username='Plataforma').first()
+
+            # Si tampoco existe Plataforma, crearlo
+            if not creator_user:
+                logger.info("🤖 Usuario 'Plataforma' no existe, creándolo para operación...")
+                from werkzeug.security import generate_password_hash
+                import secrets
+                from datetime import datetime
+
+                creator_user = User(
+                    username='Plataforma',
+                    email='plataforma@qoricash.pe',
+                    full_name='Sistema Plataforma',
+                    role='Plataforma',
+                    password_hash=generate_password_hash(secrets.token_urlsafe(32)),
+                    status='Activo',
+                    created_at=datetime.utcnow()
+                )
+                db.session.add(creator_user)
+                db.session.flush()
+                logger.info(f"✅ Usuario 'Plataforma' creado con ID: {creator_user.id}")
+
+                # Asignar al cliente para futuras operaciones
+                client.created_by = creator_user.id
+                db.session.flush()
 
         # Crear operación usando el servicio con el usuario creador del cliente
         success, message, operation = OperationService.create_operation(
