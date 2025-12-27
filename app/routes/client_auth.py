@@ -4,6 +4,7 @@ TEMPORAL - Solo DNI sin contraseña para pruebas
 """
 from flask import Blueprint, request, jsonify
 from app.models.client import Client
+from app.models.user import User
 from app.extensions import db, csrf
 import logging
 
