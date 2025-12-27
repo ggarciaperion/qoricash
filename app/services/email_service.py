@@ -153,11 +153,8 @@ class EmailService:
             tuple: (success: bool, message: str)
         """
         try:
-            # NO enviar correos si el usuario que creó la operación es Plataforma
-            # La página web se encarga de enviar sus propios correos
-            if operation.user and operation.user.role == 'Plataforma':
-                logger.info(f'Email omitido para operación {operation.operation_id} - creada por rol Plataforma')
-                return True, 'Email omitido (rol Plataforma)'
+            # NOTA: Ya NO omitimos emails para rol Plataforma
+            # La app móvil usa rol Plataforma y SÍ debe enviar emails
 
             to, cc, bcc = EmailService.get_recipients_for_new_operation(operation)
 
@@ -179,6 +176,7 @@ class EmailService:
             # Crear mensaje
             msg = Message(
                 subject=subject,
+                sender=('QoriCash', 'info@qoricash.pe'),
                 recipients=to,
                 cc=cc,
                 bcc=bcc,
