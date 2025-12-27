@@ -196,6 +196,62 @@ def change_password():
         }), 500
 
 
+@client_auth_bp.route('/me', methods=['POST'])
+@csrf.exempt
+def get_current_client():
+    """
+    Obtener datos del cliente actual por DNI (para refrescar datos)
+
+    Request JSON:
+    {
+        "dni": "12345678"
+    }
+
+    Returns:
+        JSON: {
+            "success": true,
+            "client": {...}
+        }
+    """
+    try:
+        data = request.get_json()
+
+        if not data:
+            return jsonify({
+                'success': False,
+                'message': 'No se recibieron datos'
+            }), 400
+
+        dni = data.get('dni', '').strip()
+
+        if not dni:
+            return jsonify({
+                'success': False,
+                'message': 'DNI es requerido'
+            }), 400
+
+        # Buscar cliente por DNI
+        client = Client.query.filter_by(dni=dni).first()
+
+        if not client:
+            return jsonify({
+                'success': False,
+                'message': 'Cliente no encontrado'
+            }), 404
+
+        return jsonify({
+            'success': True,
+            'client': client.to_dict()
+        }), 200
+
+    except Exception as e:
+        logger.error(f"Error obteniendo datos de cliente: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f'Error al obtener datos: {str(e)}'
+        }), 500
+
+
 @client_auth_bp.route('/register', methods=['POST'])
 @csrf.exempt
 def register_client():
