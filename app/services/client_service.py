@@ -301,6 +301,43 @@ class ClientService:
                     # No bloquear la creación del cliente si falla el perfil
                     logger.warning(f'Error al crear perfil de riesgo para cliente {client.id}: {str(risk_exc)}')
 
+                # --- Generar contraseña temporal y enviar email ---
+                try:
+                    from app.utils.password_generator import generate_temporary_password
+                    from app.services.email_service import EmailService
+
+                    # Generar contraseña temporal segura
+                    temporary_password = generate_temporary_password(12)
+
+                    # Establecer contraseña en el cliente
+                    client.set_password(temporary_password)
+                    client.requires_password_change = True
+
+                    # Guardar cambios de contraseña
+                    db.session.commit()
+
+                    # Enviar email con contraseña temporal
+                    success_email, message_email = EmailService.send_temporary_password_email(
+                        client,
+                        temporary_password,
+                        current_user
+                    )
+
+                    if success_email:
+                        logger.info(f'✅ Contraseña temporal generada y enviada por email para cliente {client.id}')
+                    else:
+                        logger.warning(f'⚠️ Contraseña temporal generada pero email no enviado para cliente {client.id}: {message_email}')
+
+                except Exception as pwd_exc:
+                    # No bloquear la creación del cliente si falla la generación de contraseña
+                    logger.warning(f'⚠️ Error al generar/enviar contraseña temporal para cliente {client.id}: {str(pwd_exc)}')
+                    # Intentar rollback solo de la contraseña, no del cliente completo
+                    try:
+                        db.session.rollback()
+                        db.session.commit()
+                    except Exception:
+                        pass
+
             except Exception as db_exc:
                 db.session.rollback()
                 logger.exception("Error al persistir cliente")

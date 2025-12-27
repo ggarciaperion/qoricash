@@ -16,20 +16,19 @@ client_auth_bp = Blueprint('client_auth', __name__, url_prefix='/api/client')
 @csrf.exempt  # Eximir de CSRF para app móvil
 def client_login():
     """
-    Login temporal para clientes - Solo DNI
-
-    IMPORTANTE: Este es un endpoint TEMPORAL para pruebas.
-    En producción debe requerir contraseña.
+    Login de clientes con DNI y contraseña
 
     Request JSON:
     {
-        "dni": "12345678"
+        "dni": "12345678",
+        "password": "MiContraseña123!"  # Opcional: Si no se proporciona, usa login temporal (solo DNI)
     }
 
     Returns:
         JSON: {
             "success": true,
             "client": {...},
+            "requires_password_change": true/false,
             "message": "Login exitoso"
         }
     """
@@ -43,6 +42,7 @@ def client_login():
             }), 400
 
         dni = data.get('dni', '').strip()
+        password = data.get('password', '').strip()
 
         if not dni:
             return jsonify({
@@ -66,12 +66,27 @@ def client_login():
                 'message': 'Cliente inactivo. Contacta al administrador.'
             }), 403
 
+        # Si el cliente tiene contraseña configurada, validarla
+        if client.password_hash:
+            if not password:
+                return jsonify({
+                    'success': False,
+                    'message': 'Contraseña es requerida'
+                }), 400
+
+            if not client.check_password(password):
+                return jsonify({
+                    'success': False,
+                    'message': 'Contraseña incorrecta'
+                }), 401
+
         logger.info(f"Login exitoso de cliente: {client.dni}")
 
         return jsonify({
             'success': True,
             'message': 'Login exitoso',
-            'client': client.to_dict()
+            'client': client.to_dict(),
+            'requires_password_change': client.requires_password_change or False
         }), 200
 
     except Exception as e:
@@ -79,6 +94,259 @@ def client_login():
         return jsonify({
             'success': False,
             'message': f'Error al iniciar sesión: {str(e)}'
+        }), 500
+
+
+@client_auth_bp.route('/change-password', methods=['POST'])
+@csrf.exempt
+def change_password():
+    """
+    Cambiar contraseña del cliente (especialmente en primer login)
+
+    Request JSON:
+    {
+        "dni": "12345678",
+        "current_password": "temporal123",  # Opcional si requires_password_change=True
+        "new_password": "MiNuevaContraseña123!"
+    }
+
+    Returns:
+        JSON: {
+            "success": true,
+            "message": "Contraseña actualizada exitosamente"
+        }
+    """
+    try:
+        data = request.get_json()
+
+        if not data:
+            return jsonify({
+                'success': False,
+                'message': 'No se recibieron datos'
+            }), 400
+
+        dni = data.get('dni', '').strip()
+        current_password = data.get('current_password', '').strip()
+        new_password = data.get('new_password', '').strip()
+
+        # Validaciones básicas
+        if not dni or not new_password:
+            return jsonify({
+                'success': False,
+                'message': 'DNI y nueva contraseña son requeridos'
+            }), 400
+
+        # Validar fortaleza de nueva contraseña
+        if len(new_password) < 8:
+            return jsonify({
+                'success': False,
+                'message': 'La contraseña debe tener al menos 8 caracteres'
+            }), 400
+
+        # Buscar cliente
+        client = Client.query.filter_by(dni=dni).first()
+
+        if not client:
+            return jsonify({
+                'success': False,
+                'message': 'Cliente no encontrado'
+            }), 404
+
+        # Si NO es primer login, validar contraseña actual
+        if not client.requires_password_change:
+            if not current_password:
+                return jsonify({
+                    'success': False,
+                    'message': 'Contraseña actual es requerida'
+                }), 400
+
+            if not client.check_password(current_password):
+                return jsonify({
+                    'success': False,
+                    'message': 'Contraseña actual incorrecta'
+                }), 401
+        else:
+            # En primer login, validar contraseña temporal
+            if current_password and not client.check_password(current_password):
+                return jsonify({
+                    'success': False,
+                    'message': 'Contraseña temporal incorrecta'
+                }), 401
+
+        # Actualizar contraseña
+        client.set_password(new_password)
+        client.requires_password_change = False
+
+        db.session.commit()
+
+        logger.info(f"Contraseña actualizada exitosamente para cliente: {client.dni}")
+
+        return jsonify({
+            'success': True,
+            'message': 'Contraseña actualizada exitosamente',
+            'client': client.to_dict()
+        }), 200
+
+    except Exception as e:
+        logger.error(f"Error al cambiar contraseña: {str(e)}")
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'message': f'Error al cambiar contraseña: {str(e)}'
+        }), 500
+
+
+@client_auth_bp.route('/register', methods=['POST'])
+@csrf.exempt
+def register_client():
+    """
+    Auto-registro de cliente desde app móvil
+    El cliente será asignado automáticamente al usuario con rol 'Plataforma'
+
+    Request JSON:
+    {
+        "dni": "12345678",
+        "email": "cliente@example.com",
+        "nombres": "Juan",
+        "apellido_paterno": "Pérez",
+        "apellido_materno": "García",
+        "telefono": "+51987654321",
+        "tipo_persona": "Natural"  # "Natural" o "Jurídica"
+
+        # Si es Jurídica:
+        "razon_social": "Empresa SAC",
+        "ruc": "20123456789"
+    }
+
+    Returns:
+        JSON: {
+            "success": true,
+            "message": "Registro exitoso. Revise su correo para obtener su contraseña temporal",
+            "client": {...}
+        }
+    """
+    try:
+        from app.models.user import User
+        from app.utils.password_generator import generate_temporary_password
+        from app.services.email_service import EmailService
+
+        data = request.get_json()
+
+        if not data:
+            return jsonify({
+                'success': False,
+                'message': 'No se recibieron datos'
+            }), 400
+
+        # Validar campos requeridos
+        dni = data.get('dni', '').strip()
+        email = data.get('email', '').strip()
+        tipo_persona = data.get('tipo_persona', 'Natural').strip()
+
+        if not dni:
+            return jsonify({
+                'success': False,
+                'message': 'DNI es requerido'
+            }), 400
+
+        if not email:
+            return jsonify({
+                'success': False,
+                'message': 'Email es requerido'
+            }), 400
+
+        # Validar que el cliente no exista
+        existing_client = Client.query.filter_by(dni=dni).first()
+        if existing_client:
+            return jsonify({
+                'success': False,
+                'message': 'Ya existe un cliente registrado con este DNI'
+            }), 400
+
+        # Buscar usuario con rol 'Plataforma'
+        plataforma_user = User.query.filter_by(role='Plataforma', is_active=True).first()
+
+        if not plataforma_user:
+            logger.error("No se encontró usuario con rol 'Plataforma' activo")
+            return jsonify({
+                'success': False,
+                'message': 'Error en la configuración del sistema. Contacta al administrador.'
+            }), 500
+
+        # Generar contraseña temporal
+        temporary_password = generate_temporary_password(12)
+
+        # Crear cliente
+        new_client = Client(
+            dni=dni,
+            email=email,
+            tipo_persona=tipo_persona,
+            status='Activo',
+            created_by=plataforma_user.id,
+            kyc_status='Pendiente'
+        )
+
+        # Datos según tipo de persona
+        if tipo_persona == 'Natural':
+            new_client.nombres = data.get('nombres', '').strip()
+            new_client.apellido_paterno = data.get('apellido_paterno', '').strip()
+            new_client.apellido_materno = data.get('apellido_materno', '').strip()
+
+            if not new_client.nombres or not new_client.apellido_paterno:
+                return jsonify({
+                    'success': False,
+                    'message': 'Nombres y apellido paterno son requeridos para personas naturales'
+                }), 400
+        else:
+            new_client.razon_social = data.get('razon_social', '').strip()
+            new_client.ruc = data.get('ruc', '').strip()
+
+            if not new_client.razon_social:
+                return jsonify({
+                    'success': False,
+                    'message': 'Razón social es requerida para personas jurídicas'
+                }), 400
+
+        # Teléfono (opcional)
+        new_client.telefono = data.get('telefono', '').strip()
+
+        # Establecer contraseña temporal
+        new_client.set_password(temporary_password)
+        new_client.requires_password_change = True
+
+        # Guardar en base de datos
+        db.session.add(new_client)
+        db.session.commit()
+
+        logger.info(f"Cliente auto-registrado desde app: {new_client.dni} - Asignado a usuario Plataforma {plataforma_user.username}")
+
+        # Enviar email con contraseña temporal
+        try:
+            success, message = EmailService.send_temporary_password_email(
+                new_client,
+                temporary_password,
+                plataforma_user
+            )
+
+            if not success:
+                logger.warning(f"Email no enviado para cliente {new_client.dni}: {message}")
+        except Exception as email_error:
+            logger.error(f"Error enviando email a cliente {new_client.dni}: {str(email_error)}")
+
+        return jsonify({
+            'success': True,
+            'message': 'Registro exitoso. Revise su correo para obtener su contraseña temporal',
+            'client': new_client.to_dict()
+        }), 201
+
+    except Exception as e:
+        logger.error(f"Error en auto-registro de cliente: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'message': f'Error al registrar cliente: {str(e)}'
         }), 500
 
 

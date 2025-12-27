@@ -2367,3 +2367,157 @@ class EmailService:
         except Exception as e:
             logger.error(f'Error al enviar notificación de documentos para cliente {client.id}: {str(e)}')
             return False, f'Error al enviar notificación: {str(e)}'
+
+    @staticmethod
+    def send_temporary_password_email(client, temporary_password, trader):
+        """
+        Enviar correo con contraseña temporal para acceso a app móvil
+
+        Args:
+            client: Objeto Client
+            temporary_password: Contraseña temporal generada
+            trader: Objeto User (trader que creó al cliente)
+
+        Returns:
+            tuple: (success: bool, message: str)
+        """
+        try:
+            from flask import current_app
+            from flask_mail import Message
+
+            logger.info(f'[EMAIL] Enviando contraseña temporal a cliente {client.id}')
+
+            # Destinatario principal: Cliente
+            to = EmailService.parse_email_addresses(client.email) if client.email else []
+
+            # Copia: Trader que creó al cliente
+            cc = []
+            if trader and trader.email:
+                cc.append(trader.email)
+
+            # Validar destinatarios
+            if not to and not cc:
+                logger.warning(f'No hay destinatarios para contraseña temporal cliente {client.id}')
+                return False, 'No hay destinatarios configurados'
+
+            # Asunto
+            subject = 'Acceso a QoriCash App - Contraseña Temporal'
+
+            # Contenido HTML
+            html_body = EmailService._render_temporary_password_template(client, temporary_password, trader)
+
+            # Crear mensaje
+            msg = Message(
+                subject=subject,
+                recipients=to,
+                cc=cc if cc else None,
+                html=html_body
+            )
+
+            # Enviar
+            mail.send(msg)
+            logger.info(f'[EMAIL] Contraseña temporal enviada exitosamente a cliente {client.id}')
+
+            return True, 'Email con contraseña temporal enviado exitosamente'
+
+        except Exception as e:
+            logger.error(f'[EMAIL] Error al enviar contraseña temporal cliente {client.id}: {str(e)}')
+            logger.exception(e)
+            return False, f'Error al enviar email: {str(e)}'
+
+    @staticmethod
+    def _render_temporary_password_template(client, temporary_password, trader):
+        """Renderizar plantilla HTML para contraseña temporal"""
+        template = """
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #2c3e50; background-color: #f4f6f9; margin: 0; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; background: #FFFFFF; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08); border: 1px solid #e1e8ed; }
+        .header { background: linear-gradient(135deg, #0D1B2A 0%, #1a2942 100%); padding: 25px 20px; text-align: center; }
+        .header h1 { margin: 15px 0 5px 0; font-size: 26px; color: #FFFFFF; font-weight: 700; }
+        .header p { margin: 5px 0 0 0; font-size: 14px; color: white; font-weight: 600; }
+        .content { padding: 30px 25px; color: #2c3e50; }
+        .greeting { font-size: 16px; margin-bottom: 20px; }
+        .greeting strong { color: #00a887; }
+        .welcome-box { background: linear-gradient(135deg, #e8f5f1, #d0ebe6); padding: 25px; margin: 25px 0; border-radius: 8px; text-align: center; }
+        .welcome-box h2 { margin: 0; color: #00a887; font-size: 22px; font-weight: 700; }
+        .welcome-box p { margin: 10px 0 0 0; color: #00a887; font-weight: 600; }
+        .password-box { background: #fff8dc; border: 2px solid #ffd700; border-radius: 8px; padding: 25px; margin: 25px 0; text-align: center; }
+        .password-box h3 { margin: 0 0 15px 0; color: #d97706; font-size: 18px; font-weight: 700; }
+        .password-box .password { font-size: 28px; font-family: 'Courier New', monospace; font-weight: bold; color: #d97706; background: #FFFFFF; padding: 15px 20px; border-radius: 6px; display: inline-block; letter-spacing: 3px; border: 2px dashed #ffd700; }
+        .warning-box { background: #fff3cd; border: 2px solid #ffc107; border-radius: 8px; padding: 20px; margin: 25px 0; }
+        .warning-box h3 { margin: 0 0 10px 0; color: #856404; font-size: 16px; font-weight: 700; }
+        .warning-box p { margin: 8px 0; color: #856404; font-size: 14px; }
+        .steps-box { background: #f8fafb; border: 1px solid #d0ebe6; border-radius: 8px; padding: 20px; margin: 25px 0; }
+        .steps-box h3 { margin: 0 0 15px 0; color: #00a887; font-size: 18px; font-weight: 700; }
+        .steps-box ol { margin: 10px 0; padding-left: 25px; color: #6c757d; line-height: 2; }
+        .steps-box li { margin: 10px 0; }
+        .steps-box li strong { color: #2c3e50; }
+        .note-box { margin-top: 30px; padding: 18px; background: #f8fafb; border-left: 4px solid #00a887; border-radius: 4px; }
+        .note-box p { margin: 0; color: #495057; font-size: 13px; line-height: 1.6; }
+        .footer { background: #f8fafb; padding: 25px 20px; text-align: center; font-size: 12px; color: #6c757d; border-top: 2px solid #d0ebe6; }
+        .footer p { margin: 8px 0; }
+        .footer strong { color: #00a887; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔐 Acceso a QoriCash App</h1>
+            <p>Contraseña Temporal</p>
+        </div>
+
+        <div class="content">
+            <p class="greeting">Estimado(a) <strong>{{ client.full_name or client.razon_social }}</strong>,</p>
+
+            <div class="welcome-box">
+                <h2>¡Bienvenido a QoriCash!</h2>
+                <p>Su cuenta ha sido creada exitosamente</p>
+            </div>
+
+            <p style="margin-bottom: 20px;">Nos complace informarle que su cuenta en QoriCash Trading ha sido configurada y ya tiene acceso a nuestra aplicación móvil.</p>
+
+            <div class="password-box">
+                <h3>🔑 Su Contraseña Temporal</h3>
+                <div class="password">{{ temporary_password }}</div>
+            </div>
+
+            <div class="warning-box">
+                <h3>⚠️ IMPORTANTE - Seguridad</h3>
+                <p><strong>Esta es una contraseña temporal.</strong> Por su seguridad, será solicitado que cambie esta contraseña en su primer inicio de sesión.</p>
+                <p>No comparta esta contraseña con nadie. Si no ha solicitado acceso a la aplicación, contacte inmediatamente a su ejecutivo.</p>
+            </div>
+
+            <div class="steps-box">
+                <h3>📱 Pasos para Acceder</h3>
+                <ol>
+                    <li><strong>Descargue</strong> la aplicación QoriCash desde su tienda de aplicaciones</li>
+                    <li><strong>Abra</strong> la aplicación y seleccione "Iniciar Sesión"</li>
+                    <li><strong>Ingrese</strong> su DNI: <strong>{{ client.dni }}</strong></li>
+                    <li><strong>Ingrese</strong> la contraseña temporal mostrada arriba</li>
+                    <li><strong>Cree</strong> una nueva contraseña segura cuando se le solicite</li>
+                </ol>
+            </div>
+
+            <p style="margin-top: 25px;">Una vez que haya iniciado sesión y cambiado su contraseña, podrá realizar operaciones de cambio de divisas de forma rápida y segura desde su dispositivo móvil.</p>
+
+            <div class="note-box">
+                <p>Si tiene alguna pregunta o necesita ayuda, puede contactar a su ejecutivo comercial <strong style="color: #00a887;">{{ trader.username }}</strong>{% if trader.email %} al correo <strong style="color: #00a887;">{{ trader.email }}</strong>{% endif %}.</p>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p><strong>QoriCash Trading</strong></p>
+            <p>RUC: 20615113698</p>
+            <p>Sistema de Gestión de Operaciones Cambiarias</p>
+            <p style="margin-top: 12px;">© 2025 QoriCash Trading. Todos los derechos reservados.</p>
+        </div>
+    </div>
+</body>
+</html>
+"""
+        return render_template_string(template, client=client, temporary_password=temporary_password, trader=trader)

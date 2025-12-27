@@ -4,8 +4,10 @@ Modelo de Cliente ACTUALIZADO para QoriCash Trading V2
 - validate_bank_accounts ahora es @staticmethod para permitir validación desde servicios
 - full_name devuelve None si no hay datos (la plantilla mostrará fallback '-')
 - get/set para bank_accounts (JSON) y compatibilidad con campos legacy
+- Autenticación con password para acceso a app móvil
 """
 from datetime import datetime
+from werkzeug.security import generate_password_hash, check_password_hash
 from app.extensions import db
 from app.utils.formatters import now_peru
 import json
@@ -37,6 +39,10 @@ class Client(db.Model):
     # Contacto
     email = db.Column(db.String(120), nullable=False, index=True)  # Puede contener múltiples emails separados por ;
     phone = db.Column(db.String(100))  # Puede contener múltiples números separados por ;
+
+    # Autenticación para app móvil
+    password_hash = db.Column(db.String(200))  # Contraseña hasheada (NULL si cliente aún no tiene acceso a app)
+    requires_password_change = db.Column(db.Boolean, default=True)  # True si debe cambiar contraseña en primer login
 
     # Documentos (URLs de Cloudinary)
     dni_front_url = db.Column(db.String(500))  # DNI/CE Anverso
@@ -230,6 +236,29 @@ class Client(db.Model):
             return False, 'Debes registrar al menos una cuenta en Soles (S/) y una en Dólares ($)'
 
         return True, 'Cuentas válidas'
+
+    def set_password(self, password):
+        """
+        Establecer contraseña hasheada para acceso a app móvil
+
+        Args:
+            password: Contraseña en texto plano
+        """
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password):
+        """
+        Verificar contraseña del cliente
+
+        Args:
+            password: Contraseña en texto plano
+
+        Returns:
+            bool: True si la contraseña es correcta
+        """
+        if not self.password_hash:
+            return False
+        return check_password_hash(self.password_hash, password)
 
     def to_dict(self, include_stats=False):
         """
