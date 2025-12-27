@@ -462,6 +462,13 @@ def approve_kyc(client_id):
         client.status = 'Activo'
         client.updated_at = now_peru()
 
+        # MARCAR DOCUMENTOS COMO COMPLETOS para que desaparezca el banner en la app móvil
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f'📋 [KYC APPROVE] Aprobando documentos para cliente {client.dni} - {client.full_name}')
+        client.complete_documents_and_reset()
+        logger.info(f'✅ [KYC APPROVE] has_complete_documents establecido a: {client.has_complete_documents}')
+
         # Recalcular riesgo (KYC aprobado reduce 10 puntos) - auto_commit=False para hacer un solo commit
         ComplianceService.update_client_risk_profile(client_id, current_user.id, auto_commit=False)
 
@@ -475,6 +482,7 @@ def approve_kyc(client_id):
             changes=json.dumps({
                 'kyc_status': 'Aprobado',
                 'client_status': 'Activo',
+                'has_complete_documents': True,
                 'notes': notes
             }),
             ip_address=request.remote_addr,
@@ -482,6 +490,7 @@ def approve_kyc(client_id):
         )
         db.session.add(audit)
         db.session.commit()
+        logger.info(f'💾 [KYC APPROVE] Cambios guardados en BD para cliente {client.dni}')
 
         # Enviar correo de activación
         try:
@@ -491,8 +500,17 @@ def approve_kyc(client_id):
             EmailService.send_client_activation_email(client, trader)
         except Exception as e:
             # No bloquear por errores de email
-            import logging
-            logging.warning(f'Error al enviar email de cliente activado desde KYC: {str(e)}')
+            logger.warning(f'Error al enviar email de cliente activado desde KYC: {str(e)}')
+
+        # ENVIAR NOTIFICACIÓN SOCKET.IO AL CLIENTE MÓVIL
+        logger.info(f'📡 [KYC APPROVE] Enviando notificación Socket.IO a cliente {client.dni}...')
+        try:
+            from app.services.notification_service import NotificationService
+            NotificationService.notify_client_documents_approved(client)
+            logger.info(f'✅ [KYC APPROVE] Notificación Socket.IO enviada correctamente al room client_{client.dni}')
+        except Exception as e:
+            logger.error(f'❌ [KYC APPROVE] Error al enviar notificación Socket.IO al cliente: {str(e)}')
+            logger.exception(e)
 
         return jsonify({
             'success': True,
