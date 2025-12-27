@@ -263,22 +263,29 @@ def register_client():
                 'message': 'Ya existe un cliente registrado con este DNI'
             }), 400
 
-        # Buscar usuario con rol 'Plataforma' (case-insensitive)
-        from sqlalchemy import func
-        plataforma_user = User.query.filter(
-            func.lower(User.role) == 'plataforma',
+        # Buscar usuario para asignar el cliente
+        # Intentar primero con Plataforma, si no existe usar Master
+        from sqlalchemy import func, or_
+
+        assigned_user = User.query.filter(
+            or_(
+                func.lower(User.role) == 'plataforma',
+                func.lower(User.role) == 'master'
+            ),
             User.is_active == True
+        ).order_by(
+            # Priorizar Plataforma sobre Master
+            User.role.desc()
         ).first()
 
-        if not plataforma_user:
-            logger.error("No se encontró usuario con rol 'Plataforma' activo")
-            # Log todos los usuarios para debug
-            all_users = User.query.filter_by(is_active=True).all()
-            logger.error(f"Usuarios activos encontrados: {[(u.username, u.role) for u in all_users]}")
+        if not assigned_user:
+            logger.error("No se encontró usuario activo (Plataforma o Master) para asignar cliente")
             return jsonify({
                 'success': False,
                 'message': 'Error en la configuración del sistema. Contacta al administrador.'
             }), 500
+
+        logger.info(f"Cliente será asignado a usuario: {assigned_user.username} (rol: {assigned_user.role})")
 
         # Generar contraseña temporal
         temporary_password = generate_temporary_password(12)
@@ -296,7 +303,7 @@ def register_client():
             document_type=document_type,
             tipo_persona=tipo_persona,
             status='Activo',
-            created_by=plataforma_user.id,
+            created_by=assigned_user.id,
             kyc_status='Pendiente'
         )
 
@@ -334,14 +341,14 @@ def register_client():
         db.session.add(new_client)
         db.session.commit()
 
-        logger.info(f"Cliente auto-registrado desde app: {new_client.dni} - Asignado a usuario Plataforma {plataforma_user.username}")
+        logger.info(f"Cliente auto-registrado desde app: {new_client.dni} - Asignado a usuario {assigned_user.username} (rol: {assigned_user.role})")
 
         # Enviar email con contraseña temporal
         try:
             success, message = EmailService.send_temporary_password_email(
                 new_client,
                 temporary_password,
-                plataforma_user
+                assigned_user
             )
 
             if not success:
