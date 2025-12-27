@@ -143,7 +143,29 @@ def cleanup_banks_now():
             'traceback': traceback.format_exc()
         }), 500
 
+def start_operation_expiry_scheduler():
+    """
+    Tarea periódica para expirar operaciones automáticamente
+    Se ejecuta cada 60 segundos en un greenlet separado
+    """
+    while True:
+        try:
+            with app.app_context():
+                from app.services.operation_expiry_service import OperationExpiryService
+                expired_count = OperationExpiryService.expire_old_operations()
+                if expired_count > 0:
+                    print(f"[SCHEDULER] ⏱️ {expired_count} operaciones expiradas automáticamente")
+        except Exception as e:
+            print(f"[SCHEDULER] Error en scheduler de expiración: {str(e)}")
+
+        # Esperar 60 segundos antes de la próxima verificación
+        eventlet.sleep(60)
+
 if __name__ == '__main__':
+    # Iniciar scheduler de expiración en un greenlet separado
+    print("[RUN.PY] 🕒 Iniciando scheduler de expiración de operaciones...")
+    eventlet.spawn(start_operation_expiry_scheduler)
+
     # Solo para desarrollo local
     socketio.run(
         app,

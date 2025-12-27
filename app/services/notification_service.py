@@ -414,3 +414,29 @@ class NotificationService:
             logger.info(f"📱 Notificación de documentos aprobados enviada al cliente: {client.dni}")
         except Exception as e:
             logger.error(f"Error enviando notificación de documentos aprobados: {e}")
+
+    @staticmethod
+    def notify_operation_expired(operation):
+        """
+        Notificar al cliente cuando su operación expire por timeout
+
+        Args:
+            operation: Objeto Operation
+        """
+        try:
+            data = {
+                'type': 'operation_expired',
+                'operation_id': operation.operation_id,
+                'title': '⏱️ Operación Expirada',
+                'message': f'La operación {operation.operation_id} ha expirado por falta de transferencia. Puedes crear una nueva operación.',
+                'client_dni': operation.client.dni if operation.client else None,
+                'client_id': operation.client_id,
+            }
+
+            # Notificar al cliente específico usando su DNI como room
+            if operation.client:
+                room = f'client_{operation.client.dni}'
+                socketio.emit('operation_expired', data, namespace='/', room=room)
+                logger.info(f"📱 Notificación de operación expirada enviada al cliente: {operation.client.dni} - Op: {operation.operation_id}")
+        except Exception as e:
+            logger.error(f"Error enviando notificación de operación expirada: {e}")
