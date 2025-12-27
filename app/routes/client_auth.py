@@ -263,11 +263,18 @@ def register_client():
                 'message': 'Ya existe un cliente registrado con este DNI'
             }), 400
 
-        # Buscar usuario con rol 'Plataforma'
-        plataforma_user = User.query.filter_by(role='Plataforma', is_active=True).first()
+        # Buscar usuario con rol 'Plataforma' (case-insensitive)
+        from sqlalchemy import func
+        plataforma_user = User.query.filter(
+            func.lower(User.role) == 'plataforma',
+            User.is_active == True
+        ).first()
 
         if not plataforma_user:
             logger.error("No se encontró usuario con rol 'Plataforma' activo")
+            # Log todos los usuarios para debug
+            all_users = User.query.filter_by(is_active=True).all()
+            logger.error(f"Usuarios activos encontrados: {[(u.username, u.role) for u in all_users]}")
             return jsonify({
                 'success': False,
                 'message': 'Error en la configuración del sistema. Contacta al administrador.'
