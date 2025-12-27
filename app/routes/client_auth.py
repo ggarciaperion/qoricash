@@ -200,30 +200,7 @@ def change_password():
 @csrf.exempt
 def register_client():
     """
-    Auto-registro de cliente desde app móvil
-    El cliente será asignado automáticamente al usuario con rol 'Plataforma'
-
-    Request JSON:
-    {
-        "dni": "12345678",
-        "email": "cliente@example.com",
-        "nombres": "Juan",
-        "apellido_paterno": "Pérez",
-        "apellido_materno": "García",
-        "telefono": "+51987654321",
-        "tipo_persona": "Natural"  # "Natural" o "Jurídica"
-
-        # Si es Jurídica:
-        "razon_social": "Empresa SAC",
-        "ruc": "20123456789"
-    }
-
-    Returns:
-        JSON: {
-            "success": true,
-            "message": "Registro exitoso. Revise su correo para obtener su contraseña temporal",
-            "client": {...}
-        }
+    Auto-registro de cliente desde app móvil - VERSIÓN SIMPLIFICADA
     """
     try:
         from app.models.user import User
@@ -231,145 +208,91 @@ def register_client():
         from app.services.email_service import EmailService
 
         data = request.get_json()
+        logger.info(f"[REGISTER] Datos recibidos: {data}")
 
-        if not data:
-            return jsonify({
-                'success': False,
-                'message': 'No se recibieron datos'
-            }), 400
-
-        # Validar campos requeridos
+        # Validaciones básicas
         dni = data.get('dni', '').strip()
         email = data.get('email', '').strip()
-        tipo_persona = data.get('tipo_persona', 'Natural').strip()
+        nombres = data.get('nombres', '').strip()
+        apellido_paterno = data.get('apellido_paterno', '').strip()
+        telefono = data.get('telefono', '').strip()
 
-        if not dni:
+        if not all([dni, email, nombres, apellido_paterno, telefono]):
             return jsonify({
                 'success': False,
-                'message': 'DNI es requerido'
+                'message': 'Todos los campos son obligatorios'
             }), 400
 
-        if not email:
+        # Verificar si ya existe
+        if Client.query.filter_by(dni=dni).first():
             return jsonify({
                 'success': False,
-                'message': 'Email es requerido'
+                'message': 'Ya existe un cliente con este DNI'
             }), 400
 
-        # Validar que el cliente no exista
-        existing_client = Client.query.filter_by(dni=dni).first()
-        if existing_client:
+        # Buscar CUALQUIER usuario Master activo (el primero que encuentre)
+        master_user = User.query.filter_by(role='Master', is_active=True).first()
+
+        if not master_user:
+            logger.error("[REGISTER] No hay usuarios Master activos")
             return jsonify({
                 'success': False,
-                'message': 'Ya existe un cliente registrado con este DNI'
-            }), 400
-
-        # Buscar usuario para asignar el cliente
-        # Intentar primero con Plataforma, si no existe usar Master
-        from sqlalchemy import func, or_
-
-        assigned_user = User.query.filter(
-            or_(
-                func.lower(User.role) == 'plataforma',
-                func.lower(User.role) == 'master'
-            ),
-            User.is_active == True
-        ).order_by(
-            # Priorizar Plataforma sobre Master
-            User.role.desc()
-        ).first()
-
-        if not assigned_user:
-            logger.error("No se encontró usuario activo (Plataforma o Master) para asignar cliente")
-            return jsonify({
-                'success': False,
-                'message': 'Error en la configuración del sistema. Contacta al administrador.'
+                'message': 'Sistema no configurado. Contacta al administrador.'
             }), 500
 
-        logger.info(f"Cliente será asignado a usuario: {assigned_user.username} (rol: {assigned_user.role})")
+        logger.info(f"[REGISTER] Usuario asignado: {master_user.username}")
 
-        # Generar contraseña temporal
-        temporary_password = generate_temporary_password(12)
+        # Generar contraseña
+        temp_password = generate_temporary_password(12)
+        logger.info(f"[REGISTER] Contraseña generada: {temp_password}")
 
-        # Determinar document_type basado en tipo_persona
-        if tipo_persona == 'Natural':
-            document_type = 'DNI'  # Por defecto DNI para personas naturales
-        else:
-            document_type = 'RUC'  # RUC para personas jurídicas
+        # Crear cliente SIN usar ClientService (directo)
+        new_client = Client()
+        new_client.dni = dni
+        new_client.document_type = 'DNI'
+        new_client.email = email
+        new_client.nombres = nombres
+        new_client.apellido_paterno = apellido_paterno
+        new_client.apellido_materno = data.get('apellido_materno', '').strip()
+        new_client.phone = telefono
+        new_client.status = 'Activo'
+        new_client.created_by = master_user.id
+        new_client.kyc_status = 'Pendiente'
 
-        # Crear cliente
-        new_client = Client(
-            dni=dni,
-            email=email,
-            document_type=document_type,
-            tipo_persona=tipo_persona,
-            status='Activo',
-            created_by=assigned_user.id,
-            kyc_status='Pendiente'
-        )
-
-        # Datos según tipo de persona
-        if tipo_persona == 'Natural':
-            new_client.nombres = data.get('nombres', '').strip()
-            new_client.apellido_paterno = data.get('apellido_paterno', '').strip()
-            new_client.apellido_materno = data.get('apellido_materno', '').strip()
-
-            if not new_client.nombres or not new_client.apellido_paterno:
-                return jsonify({
-                    'success': False,
-                    'message': 'Nombres y apellido paterno son requeridos para personas naturales'
-                }), 400
-        else:
-            new_client.razon_social = data.get('razon_social', '').strip()
-            new_client.ruc = data.get('ruc', '').strip()
-
-            if not new_client.razon_social:
-                return jsonify({
-                    'success': False,
-                    'message': 'Razón social es requerida para personas jurídicas'
-                }), 400
-
-        # Teléfono
-        telefono = data.get('telefono', '').strip()
-        new_client.phone = telefono  # El modelo Client usa 'phone'
-        new_client.telefono = telefono  # Mantener compatibilidad si existe el campo
-
-        # Establecer contraseña temporal
-        new_client.set_password(temporary_password)
+        # Establecer contraseña
+        new_client.set_password(temp_password)
         new_client.requires_password_change = True
 
-        # Guardar en base de datos
+        # Guardar
         db.session.add(new_client)
         db.session.commit()
 
-        logger.info(f"Cliente auto-registrado desde app: {new_client.dni} - Asignado a usuario {assigned_user.username} (rol: {assigned_user.role})")
+        logger.info(f"[REGISTER] Cliente creado exitosamente: {new_client.id}")
 
-        # Enviar email con contraseña temporal
+        # Intentar enviar email (no bloquear si falla)
         try:
-            success, message = EmailService.send_temporary_password_email(
-                new_client,
-                temporary_password,
-                assigned_user
-            )
-
-            if not success:
-                logger.warning(f"Email no enviado para cliente {new_client.dni}: {message}")
-        except Exception as email_error:
-            logger.error(f"Error enviando email a cliente {new_client.dni}: {str(email_error)}")
+            EmailService.send_temporary_password_email(new_client, temp_password, master_user)
+        except Exception as email_err:
+            logger.warning(f"[REGISTER] Email no enviado: {email_err}")
 
         return jsonify({
             'success': True,
-            'message': 'Registro exitoso. Revise su correo para obtener su contraseña temporal',
-            'client': new_client.to_dict()
+            'message': f'Registro exitoso. Tu contraseña temporal es: {temp_password}',
+            'client': {
+                'dni': new_client.dni,
+                'email': new_client.email,
+                'nombres': new_client.nombres
+            }
         }), 201
 
     except Exception as e:
-        logger.error(f"Error en auto-registro de cliente: {str(e)}")
+        logger.error(f"[REGISTER] ERROR: {str(e)}")
         import traceback
         logger.error(traceback.format_exc())
         db.session.rollback()
         return jsonify({
             'success': False,
-            'message': f'Error al registrar cliente: {str(e)}'
+            'message': f'Error: {str(e)}'
         }), 500
 
 
