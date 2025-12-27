@@ -408,7 +408,9 @@ def approve_documents(client_id):
         old_reason = client.inactive_reason
 
         # Aprobar documentos y resetear contadores
+        logger.info(f'📋 Aprobando documentos para cliente {client.dni} - {client.full_name}')
         client.complete_documents_and_reset()
+        logger.info(f'✅ has_complete_documents establecido a: {client.has_complete_documents}')
 
         # Auditoría
         AuditLog.log_action(
@@ -425,6 +427,7 @@ def approve_documents(client_id):
         ComplianceService.update_client_risk_profile(client.id, current_user.id, auto_commit=False)
 
         db.session.commit()
+        logger.info(f'💾 Cambios guardados en BD para cliente {client.dni}')
 
         # Enviar email de activación si corresponde
         if was_inactive:
@@ -434,12 +437,15 @@ def approve_documents(client_id):
             except Exception as e:
                 logger.warning(f'Error al enviar email de activación: {str(e)}')
 
-        # Enviar notificación push al cliente
+        # Enviar notificación Socket.IO al cliente
+        logger.info(f'📡 Enviando notificación Socket.IO a cliente {client.dni}...')
         try:
             from app.services.notification_service import NotificationService
             NotificationService.notify_client_documents_approved(client)
+            logger.info(f'✅ Notificación Socket.IO enviada correctamente al room client_{client.dni}')
         except Exception as e:
-            logger.warning(f'Error al enviar notificación push al cliente: {str(e)}')
+            logger.error(f'❌ Error al enviar notificación Socket.IO al cliente: {str(e)}')
+            logger.exception(e)
 
         return jsonify({
             'success': True,
