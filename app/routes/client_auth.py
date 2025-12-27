@@ -292,42 +292,31 @@ def register_client():
         if Client.query.filter_by(dni=dni).first():
             return jsonify({'success': False, 'message': 'DNI ya registrado'}), 400
 
-        # Convertir bank_accounts a JSON
-        import json
-        bank_accounts_json = json.dumps(bank_accounts)
-
-        # Crear cliente directo en SQL
-        from sqlalchemy import text
-        sql = text("""
-            INSERT INTO clients
-            (dni, document_type, email, nombres, apellido_paterno, apellido_materno, phone,
-             status, password_hash, requires_password_change, bank_accounts_json, created_at)
-            VALUES
-            (:dni, 'DNI', :email, :nombres, :apellido_paterno, :apellido_materno, :phone,
-             'Activo', :password_hash, false, :bank_accounts_json::jsonb, NOW())
-            RETURNING id
-        """)
-
-        # Hash de contraseña proporcionada por el usuario
+        # Crear cliente usando ORM
         from werkzeug.security import generate_password_hash
-        pwd_hash = generate_password_hash(password)
+        from datetime import datetime
 
-        # Ejecutar
-        result = db.session.execute(sql, {
-            'dni': dni,
-            'email': email,
-            'nombres': nombres,
-            'apellido_paterno': apellido_paterno,
-            'apellido_materno': apellido_materno,
-            'phone': telefono,
-            'password_hash': pwd_hash,
-            'bank_accounts_json': bank_accounts_json
-        })
+        new_client = Client(
+            dni=dni,
+            document_type='DNI',
+            email=email,
+            nombres=nombres,
+            apellido_paterno=apellido_paterno,
+            apellido_materno=apellido_materno,
+            phone=telefono,
+            status='Activo',
+            password_hash=generate_password_hash(password),
+            requires_password_change=False,
+            created_at=datetime.utcnow()
+        )
 
-        client_id = result.fetchone()[0]
+        # Asignar cuentas bancarias
+        new_client.set_bank_accounts(bank_accounts)
+
+        db.session.add(new_client)
         db.session.commit()
 
-        logger.info(f"Cliente registrado: {dni} (ID: {client_id}) con {len(bank_accounts)} cuentas bancarias")
+        logger.info(f"Cliente registrado: {new_client.dni} (ID: {new_client.id}) con {len(bank_accounts)} cuentas bancarias")
 
         # Enviar email de bienvenida
         try:
