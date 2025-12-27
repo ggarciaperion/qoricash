@@ -258,6 +258,82 @@ def register_client():
 
         logger.info(f"Cliente registrado: {dni} (ID: {client_id})")
 
+        # Enviar email de bienvenida con contraseña temporal
+        try:
+            from app.services.email_service import EmailService
+            from flask_mail import Message
+            from flask import current_app
+
+            # Crear el mensaje de email
+            msg = Message(
+                subject='Bienvenido a QoriCash - Tu Contraseña Temporal',
+                sender=('QoriCash', 'info@qoricash.pe'),
+                recipients=[email]
+            )
+
+            msg.html = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+        .header {{ background: linear-gradient(135deg, #0D1B2A 0%, #1a2942 100%); padding: 30px; text-align: center; color: white; }}
+        .content {{ background: #f9f9f9; padding: 30px; }}
+        .password-box {{ background: #fff8dc; border: 3px solid #ffd700; border-radius: 8px; padding: 20px; margin: 20px 0; text-align: center; }}
+        .password {{ font-size: 28px; font-family: monospace; font-weight: bold; color: #d97706; letter-spacing: 3px; }}
+        .footer {{ text-align: center; padding: 20px; color: #666; font-size: 12px; }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>¡Bienvenido a QoriCash!</h1>
+            <p>Tu Casa de Cambio Digital</p>
+        </div>
+        <div class="content">
+            <p>Hola <strong>{nombres} {apellido_paterno}</strong>,</p>
+            <p>Tu cuenta ha sido creada exitosamente. A continuación encontrarás tu contraseña temporal:</p>
+
+            <div class="password-box">
+                <p style="margin: 0; font-size: 14px; color: #666;">🔑 CONTRASEÑA TEMPORAL</p>
+                <p class="password">{temp_password}</p>
+            </div>
+
+            <p><strong>⚠️ IMPORTANTE:</strong></p>
+            <ul>
+                <li>Guarda esta contraseña en un lugar seguro</li>
+                <li>Úsala para iniciar sesión por primera vez</li>
+                <li>Te solicitaremos cambiarla en tu primer acceso</li>
+            </ul>
+
+            <p><strong>Pasos para comenzar:</strong></p>
+            <ol>
+                <li>Abre la aplicación QoriCash en tu móvil</li>
+                <li>Ingresa tu DNI: <strong>{dni}</strong></li>
+                <li>Ingresa la contraseña temporal de arriba</li>
+                <li>Crea tu nueva contraseña personal</li>
+                <li>¡Listo! Ya puedes operar</li>
+            </ol>
+        </div>
+        <div class="footer">
+            <p>Este es un correo automático, por favor no responder.</p>
+            <p>© 2025 QoriCash - Casa de Cambio Digital</p>
+        </div>
+    </div>
+</body>
+</html>
+"""
+
+            from app.extensions import mail
+            mail.send(msg)
+            logger.info(f"Email de bienvenida enviado a {email}")
+
+        except Exception as email_error:
+            logger.error(f"Error enviando email: {str(email_error)}")
+            # No bloquear el registro si falla el email
+
         return jsonify({
             'success': True,
             'message': f'¡Registro exitoso!\n\nTu contraseña temporal es:\n{temp_password}\n\nGuárdala para hacer login.',
