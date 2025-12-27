@@ -256,10 +256,14 @@ class OperationService:
         # Enviar email de notificación (sin bloquear si falla)
         try:
             from app.services.email_service import EmailService
+            logger.info(f'📧 Intentando enviar email de nueva operación {operation_id} a {client.email}...')
             EmailService.send_new_operation_email(operation)
+            logger.info(f'✅ Email de nueva operación {operation_id} enviado exitosamente a {client.email}')
         except Exception as e:
             # Log el error pero no falla la operación
-            logger.error(f'Error al enviar email para operación {operation_id}: {str(e)}')
+            logger.error(f'❌ Error al enviar email para operación {operation_id}: {str(e)}')
+            import traceback
+            logger.error(traceback.format_exc())
 
         return True, f'Operación {operation_id} creada exitosamente', operation
     
