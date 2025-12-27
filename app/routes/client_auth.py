@@ -690,6 +690,83 @@ def add_bank_account(client_dni):
         }), 500
 
 
+@client_auth_bp.route('/delete-bank-account/<string:client_dni>/<int:account_index>', methods=['DELETE'])
+@csrf.exempt
+def delete_bank_account(client_dni, account_index):
+    """
+    Eliminar cuenta bancaria de un cliente desde el app
+
+    Parameters:
+    - client_dni: DNI del cliente
+    - account_index: Índice de la cuenta bancaria a eliminar (0-based)
+    """
+    try:
+        from app.models.client import Client
+        from sqlalchemy.orm.attributes import flag_modified
+
+        logger.info(f"[DELETE BANK ACCOUNT] Inicio - DNI: {client_dni}, Index: {account_index}")
+
+        # Buscar cliente
+        client = Client.query.filter_by(dni=client_dni).first()
+
+        if not client:
+            logger.warning(f"[DELETE BANK ACCOUNT] Cliente no encontrado: {client_dni}")
+            return jsonify({
+                'success': False,
+                'message': 'Cliente no encontrado'
+            }), 404
+
+        # Obtener cuentas existentes
+        current_accounts = client.bank_accounts or []
+        logger.info(f"[DELETE BANK ACCOUNT] Cuentas actuales: {len(current_accounts)}")
+
+        if not current_accounts:
+            logger.warning(f"[DELETE BANK ACCOUNT] No hay cuentas bancarias registradas")
+            return jsonify({
+                'success': False,
+                'message': 'No hay cuentas bancarias registradas'
+            }), 404
+
+        # Verificar que el índice sea válido
+        if account_index < 0 or account_index >= len(current_accounts):
+            logger.warning(f"[DELETE BANK ACCOUNT] Índice inválido: {account_index} (total: {len(current_accounts)})")
+            return jsonify({
+                'success': False,
+                'message': f'Índice de cuenta inválido: {account_index}'
+            }), 404
+
+        logger.info(f"[DELETE BANK ACCOUNT] Eliminando cuenta en índice {account_index}")
+
+        # Eliminar la cuenta por índice
+        deleted_account = current_accounts.pop(account_index)
+        logger.info(f"[DELETE BANK ACCOUNT] Cuenta eliminada: {deleted_account}")
+
+        # Actualizar cliente
+        client.set_bank_accounts(current_accounts)
+        flag_modified(client, 'bank_accounts_json')
+
+        db.session.commit()
+        logger.info(f"[DELETE BANK ACCOUNT] Base de datos actualizada exitosamente")
+
+        logger.info(f"Cuenta bancaria eliminada para cliente {client_dni}: {deleted_account.get('bank_name')} - {deleted_account.get('account_number')}")
+
+        return jsonify({
+            'success': True,
+            'message': 'Cuenta bancaria eliminada exitosamente',
+            'client': client.to_dict()
+        }), 200
+
+    except Exception as e:
+        logger.error(f"[DELETE BANK ACCOUNT] Error: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'message': f'Error al eliminar cuenta bancaria: {str(e)}'
+        }), 500
+
+
 @client_auth_bp.route('/health', methods=['GET'])
 def health():
     """Health check para cliente auth"""
