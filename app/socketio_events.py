@@ -41,6 +41,25 @@ def handle_disconnect():
         print(f'Usuario {current_user.username} desconectado')
 
 
+@socketio.on('join_client_room')
+def handle_join_client_room(data):
+    """
+    Permite que un cliente se una a su room específico para recibir notificaciones
+
+    Args:
+        data: {'dni': '12345678'}
+    """
+    try:
+        dni = data.get('dni')
+        if dni:
+            room = f'client_{dni}'
+            join_room(room)
+            print(f'Cliente {dni} unido al room: {room}')
+            emit('joined_room', {'room': room, 'dni': dni})
+    except Exception as e:
+        print(f'Error al unir cliente a room: {str(e)}')
+
+
 # ============================================
 # EVENTOS DE OPERACIONES
 # ============================================

@@ -388,3 +388,29 @@ class NotificationService:
             logger.info(f"Notificación de nuevo cliente enviada: {client.dni}")
         except Exception as e:
             logger.error(f"Error enviando notificación de nuevo cliente: {e}")
+
+    @staticmethod
+    def notify_client_documents_approved(client):
+        """
+        Notificar al cliente cuando sus documentos sean aprobados
+
+        Args:
+            client: Objeto Client
+        """
+        try:
+            data = {
+                'type': 'documents_approved',
+                'title': '✅ Cuenta Activada',
+                'message': 'Tus documentos han sido aprobados. ¡Ya puedes realizar operaciones!',
+                'client_dni': client.dni,
+                'client_id': client.id,
+                'client_name': client.full_name or client.razon_social,
+            }
+
+            # Notificar al cliente específico usando su DNI como room
+            room = f'client_{client.dni}'
+            socketio.emit('documents_approved', data, namespace='/', room=room)
+
+            logger.info(f"📱 Notificación de documentos aprobados enviada al cliente: {client.dni}")
+        except Exception as e:
+            logger.error(f"Error enviando notificación de documentos aprobados: {e}")

@@ -434,6 +434,13 @@ def approve_documents(client_id):
             except Exception as e:
                 logger.warning(f'Error al enviar email de activación: {str(e)}')
 
+        # Enviar notificación push al cliente
+        try:
+            from app.services.notification_service import NotificationService
+            NotificationService.notify_client_documents_approved(client)
+        except Exception as e:
+            logger.warning(f'Error al enviar notificación push al cliente: {str(e)}')
+
         return jsonify({
             'success': True,
             'message': 'Documentos aprobados exitosamente. Cliente reactivado.',
