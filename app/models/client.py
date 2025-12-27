@@ -134,8 +134,13 @@ class Client(db.Model):
         """Obtener cuentas bancarias como lista de diccionarios"""
         if self.bank_accounts_json:
             try:
+                # Si ya es un dict/list (JSONB de PostgreSQL), devolverlo directamente
+                if isinstance(self.bank_accounts_json, (list, dict)):
+                    return self.bank_accounts_json if isinstance(self.bank_accounts_json, list) else [self.bank_accounts_json]
+                # Si es string, parsearlo
                 return json.loads(self.bank_accounts_json)
-            except Exception:
+            except Exception as e:
+                print(f"Error parsing bank_accounts_json: {e}")
                 return []
         return []
 

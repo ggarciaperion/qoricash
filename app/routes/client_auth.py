@@ -268,35 +268,49 @@ def register_client():
         apellido_paterno = data.get('apellido_paterno', '').strip()
         apellido_materno = data.get('apellido_materno', '').strip()
         telefono = data.get('telefono', '').strip()
+        password = data.get('password', '').strip()
+        bank_accounts = data.get('bank_accounts', [])
 
         # Validar
-        if not all([dni, email, nombres, apellido_paterno, telefono]):
+        if not all([dni, email, nombres, apellido_paterno, telefono, password]):
             return jsonify({'success': False, 'message': 'Faltan campos obligatorios'}), 400
+
+        if len(password) < 6:
+            return jsonify({'success': False, 'message': 'La contraseña debe tener al menos 6 caracteres'}), 400
+
+        # Validar cuentas bancarias (al menos 1 PEN y 1 USD)
+        if not bank_accounts or len(bank_accounts) < 2:
+            return jsonify({'success': False, 'message': 'Debes agregar al menos 2 cuentas bancarias (1 en Soles y 1 en Dólares)'}), 400
+
+        pen_accounts = [acc for acc in bank_accounts if acc.get('currency') == 'S/']
+        usd_accounts = [acc for acc in bank_accounts if acc.get('currency') == '$']
+
+        if not pen_accounts or not usd_accounts:
+            return jsonify({'success': False, 'message': 'Debes agregar al menos una cuenta en Soles (S/) y una en Dólares ($)'}), 400
 
         # Ver si ya existe
         if Client.query.filter_by(dni=dni).first():
             return jsonify({'success': False, 'message': 'DNI ya registrado'}), 400
 
-        # Generar contraseña simple
-        import secrets
-        import string
-        temp_password = ''.join(secrets.choice(string.ascii_letters + string.digits) for _ in range(10))
+        # Convertir bank_accounts a JSON
+        import json
+        bank_accounts_json = json.dumps(bank_accounts)
 
         # Crear cliente directo en SQL
         from sqlalchemy import text
         sql = text("""
             INSERT INTO clients
             (dni, document_type, email, nombres, apellido_paterno, apellido_materno, phone,
-             status, password_hash, requires_password_change, created_at)
+             status, password_hash, requires_password_change, bank_accounts_json, created_at)
             VALUES
             (:dni, 'DNI', :email, :nombres, :apellido_paterno, :apellido_materno, :phone,
-             'Activo', :password_hash, true, NOW())
+             'Activo', :password_hash, false, :bank_accounts_json::jsonb, NOW())
             RETURNING id
         """)
 
-        # Hash de contraseña
+        # Hash de contraseña proporcionada por el usuario
         from werkzeug.security import generate_password_hash
-        pwd_hash = generate_password_hash(temp_password)
+        pwd_hash = generate_password_hash(password)
 
         # Ejecutar
         result = db.session.execute(sql, {
@@ -306,15 +320,16 @@ def register_client():
             'apellido_paterno': apellido_paterno,
             'apellido_materno': apellido_materno,
             'phone': telefono,
-            'password_hash': pwd_hash
+            'password_hash': pwd_hash,
+            'bank_accounts_json': bank_accounts_json
         })
 
         client_id = result.fetchone()[0]
         db.session.commit()
 
-        logger.info(f"Cliente registrado: {dni} (ID: {client_id})")
+        logger.info(f"Cliente registrado: {dni} (ID: {client_id}) con {len(bank_accounts)} cuentas bancarias")
 
-        # Enviar email de bienvenida con contraseña temporal
+        # Enviar email de bienvenida
         try:
             from app.services.email_service import EmailService
             from flask_mail import Message
@@ -322,7 +337,7 @@ def register_client():
 
             # Crear el mensaje de email
             msg = Message(
-                subject='Bienvenido a QoriCash - Tu Contraseña Temporal',
+                subject='Bienvenido a QoriCash - Cuenta Creada',
                 sender=('QoriCash', 'info@qoricash.pe'),
                 recipients=[email]
             )
@@ -337,8 +352,7 @@ def register_client():
         .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
         .header {{ background: linear-gradient(135deg, #0D1B2A 0%, #1a2942 100%); padding: 30px; text-align: center; color: white; }}
         .content {{ background: #f9f9f9; padding: 30px; }}
-        .password-box {{ background: #fff8dc; border: 3px solid #ffd700; border-radius: 8px; padding: 20px; margin: 20px 0; text-align: center; }}
-        .password {{ font-size: 28px; font-family: monospace; font-weight: bold; color: #d97706; letter-spacing: 3px; }}
+        .info-box {{ background: #e0f2fe; border-left: 4px solid #0284c7; padding: 15px; margin: 20px 0; }}
         .footer {{ text-align: center; padding: 20px; color: #666; font-size: 12px; }}
     </style>
 </head>
@@ -350,28 +364,29 @@ def register_client():
         </div>
         <div class="content">
             <p>Hola <strong>{nombres} {apellido_paterno}</strong>,</p>
-            <p>Tu cuenta ha sido creada exitosamente. A continuación encontrarás tu contraseña temporal:</p>
+            <p>¡Tu cuenta ha sido creada exitosamente! 🎉</p>
 
-            <div class="password-box">
-                <p style="margin: 0; font-size: 14px; color: #666;">🔑 CONTRASEÑA TEMPORAL</p>
-                <p class="password">{temp_password}</p>
+            <div class="info-box">
+                <p style="margin: 0; font-weight: bold;">📋 Tu información de acceso:</p>
+                <p style="margin: 10px 0 0 0;">DNI: <strong>{dni}</strong></p>
+                <p style="margin: 5px 0 0 0;">Contraseña: <strong>La que creaste durante el registro</strong></p>
             </div>
 
-            <p><strong>⚠️ IMPORTANTE:</strong></p>
-            <ul>
-                <li>Guarda esta contraseña en un lugar seguro</li>
-                <li>Úsala para iniciar sesión por primera vez</li>
-                <li>Te solicitaremos cambiarla en tu primer acceso</li>
-            </ul>
-
-            <p><strong>Pasos para comenzar:</strong></p>
+            <p><strong>📱 Próximos pasos:</strong></p>
             <ol>
                 <li>Abre la aplicación QoriCash en tu móvil</li>
                 <li>Ingresa tu DNI: <strong>{dni}</strong></li>
-                <li>Ingresa la contraseña temporal de arriba</li>
-                <li>Crea tu nueva contraseña personal</li>
-                <li>¡Listo! Ya puedes operar</li>
+                <li>Ingresa la contraseña que creaste</li>
+                <li><strong>Importante:</strong> Debes validar tu identidad subiendo fotos de tu DNI</li>
+                <li>Una vez aprobado tu KYC, ¡podrás realizar operaciones!</li>
             </ol>
+
+            <p><strong>💡 Recuerda:</strong></p>
+            <ul>
+                <li>Mantén tu contraseña segura</li>
+                <li>Nunca la compartas con nadie</li>
+                <li>Si olvidaste tu contraseña, contacta a soporte</li>
+            </ul>
         </div>
         <div class="footer">
             <p>Este es un correo automático, por favor no responder.</p>
@@ -392,8 +407,7 @@ def register_client():
 
         return jsonify({
             'success': True,
-            'message': f'¡Registro exitoso!\n\nTu contraseña temporal es:\n{temp_password}\n\nGuárdala para hacer login.',
-            'password': temp_password,
+            'message': '¡Registro exitoso! Ahora puedes iniciar sesión con tu DNI y contraseña.',
             'client': {'dni': dni, 'email': email}
         }), 201
 
