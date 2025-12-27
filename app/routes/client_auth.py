@@ -276,8 +276,8 @@ def register_client():
         if not all([dni, email, nombres, apellido_paterno, telefono, password]):
             return jsonify({'success': False, 'message': 'Faltan campos obligatorios'}), 400
 
-        if len(password) < 6:
-            return jsonify({'success': False, 'message': 'La contraseña debe tener al menos 6 caracteres'}), 400
+        if len(password) < 8:
+            return jsonify({'success': False, 'message': 'La contraseña debe tener al menos 8 caracteres'}), 400
 
         # Validar cuentas bancarias (al menos 1 PEN y 1 USD)
         if not bank_accounts or len(bank_accounts) < 2:
