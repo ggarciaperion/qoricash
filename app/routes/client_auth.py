@@ -303,7 +303,7 @@ def register_client():
             platform_user = User(
                 username='Plataforma',
                 email='plataforma@qoricash.pe',
-                dni='00000000',  # DNI ficticio para usuario Plataforma
+                dni='11111111',  # DNI ficticio para usuario Plataforma
                 role='Plataforma',
                 password_hash=generate_password_hash(secrets.token_urlsafe(32)),
                 status='Activo',
@@ -675,7 +675,7 @@ def create_operation():
                 creator_user = User(
                     username='Plataforma',
                     email='plataforma@qoricash.pe',
-                    dni='00000000',  # DNI ficticio para usuario Plataforma
+                    dni='11111111',  # DNI ficticio para usuario Plataforma
                     role='Plataforma',
                     password_hash=generate_password_hash(secrets.token_urlsafe(32)),
                     status='Activo',
