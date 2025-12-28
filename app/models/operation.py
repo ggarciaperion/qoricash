@@ -35,7 +35,7 @@ class Operation(db.Model):
         nullable=False,
         default='sistema',
         index=True
-    )  # plataforma, sistema
+    )  # sistema, plataforma, app
 
     # Montos
     amount_usd = db.Column(db.Numeric(15, 2), nullable=False)
@@ -79,7 +79,7 @@ class Operation(db.Model):
         nullable=False,
         default='Pendiente',
         index=True
-    )  # Pendiente, En proceso, Completada, Cancelado
+    )  # Pendiente, En proceso, Completada, Cancelado, Expirada
 
     # Notas
     notes = db.Column(db.Text)
@@ -104,11 +104,11 @@ class Operation(db.Model):
             name='check_operation_type'
         ),
         db.CheckConstraint(
-            status.in_(['Pendiente', 'En proceso', 'Completada', 'Cancelado']),
+            status.in_(['Pendiente', 'En proceso', 'Completada', 'Cancelado', 'Expirada']),
             name='check_operation_status'
         ),
         db.CheckConstraint(
-            origen.in_(['plataforma', 'sistema']),
+            origen.in_(['sistema', 'plataforma', 'app']),
             name='check_operation_origen'
         ),
         db.CheckConstraint(

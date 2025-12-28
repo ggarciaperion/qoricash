@@ -700,7 +700,7 @@ def create_operation():
             source_account=data.get('source_account'),
             destination_account=data.get('destination_account'),
             notes=data.get('notes', 'Operación desde app móvil'),
-            origen='plataforma'
+            origen='app'  # Operaciones desde app móvil
         )
 
         if not success:
