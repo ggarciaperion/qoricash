@@ -824,6 +824,9 @@ function buildOperationRow(op) {
     const banksText = `${sourceBankName} / ${destBankName}`;
 
     // Badge de canal (origen)
+    // DEBUG: Log para verificar el valor de origen
+    console.log(`Operación ${op.operation_id} - origen: "${op.origen}"`);
+
     let canalBadge;
     if (op.origen === 'plataforma') {
         canalBadge = '<span class="badge bg-purple" style="background-color: #6f42c1;">Web</span>';
@@ -2110,5 +2113,9 @@ function reassignOperator() {
         refreshOperationsTable();
     });
 }
+
+// VERSION: 2025-12-27-APP-CHANNEL-FIX
+// Forzar recarga de caché del navegador
+console.log('✅ Canal App soportado - Versión: 2025-12-27');
 </script>
 {% endblock %}
