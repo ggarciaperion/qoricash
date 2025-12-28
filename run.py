@@ -143,6 +143,90 @@ def cleanup_banks_now():
             'traceback': traceback.format_exc()
         }), 500
 
+# TEMPORAL: Endpoint para actualizar constraints y corregir canal de operaciones
+@app.route('/admin/fix-app-channel-now')
+@limiter.exempt
+def fix_app_channel_now():
+    """
+    ENDPOINT TEMPORAL URGENTE: Actualiza constraints y corrige canal de operaciones
+
+    1. Actualiza constraints de la BD para soportar 'app' y 'Expirada'
+    2. Corrige operaciones creadas desde app móvil
+
+    ELIMINAR ESTE ENDPOINT después de ejecutarlo una vez
+    """
+    from app.extensions import db
+    from app.models.operation import Operation
+    from sqlalchemy import text
+
+    results = {
+        'migration_executed': False,
+        'operations_updated': [],
+        'errors': []
+    }
+
+    try:
+        # 1. Actualizar constraint de origen
+        try:
+            db.session.execute(text("ALTER TABLE operations DROP CONSTRAINT IF EXISTS check_operation_origen"))
+            db.session.execute(text("ALTER TABLE operations ADD CONSTRAINT check_operation_origen CHECK (origen IN ('sistema', 'plataforma', 'app'))"))
+            results['origen_constraint'] = 'Updated'
+        except Exception as e:
+            results['errors'].append(f'Error updating origen constraint: {str(e)}')
+
+        # 2. Actualizar constraint de status
+        try:
+            db.session.execute(text("ALTER TABLE operations DROP CONSTRAINT IF EXISTS check_operation_status"))
+            db.session.execute(text("ALTER TABLE operations ADD CONSTRAINT check_operation_status CHECK (status IN ('Pendiente', 'En proceso', 'Completada', 'Cancelado', 'Expirada'))"))
+            results['status_constraint'] = 'Updated'
+        except Exception as e:
+            results['errors'].append(f'Error updating status constraint: {str(e)}')
+
+        db.session.commit()
+        results['migration_executed'] = True
+
+        # 3. Actualizar operaciones creadas con notes='Operación desde app móvil'
+        # Estas son las operaciones que fueron creadas desde la app pero tienen origen incorrecto
+        app_operations = Operation.query.filter(
+            Operation.notes.like('%app móvil%')
+        ).all()
+
+        for op in app_operations:
+            old_origen = op.origen
+            if op.origen != 'app':
+                op.origen = 'app'
+                results['operations_updated'].append({
+                    'operation_id': op.operation_id,
+                    'old_origen': old_origen,
+                    'new_origen': 'app',
+                    'notes': op.notes
+                })
+
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'migration_executed': results['migration_executed'],
+            'constraints_updated': {
+                'origen': results.get('origen_constraint', 'Error'),
+                'status': results.get('status_constraint', 'Error')
+            },
+            'operations_updated_count': len(results['operations_updated']),
+            'operations_updated': results['operations_updated'],
+            'errors': results['errors'],
+            'message': f"✓ Constraints actualizados y {len(results['operations_updated'])} operaciones corregidas a canal 'app'"
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        import traceback
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc(),
+            'partial_results': results
+        }), 500
+
 def start_operation_expiry_scheduler():
     """
     Tarea periódica para expirar operaciones automáticamente
