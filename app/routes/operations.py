@@ -477,9 +477,9 @@ def create_operation():
     data = request.get_json()
     
     # Determinar origen según el rol del usuario
-    # Plataforma → operaciones desde web pública
+    # Plataforma → operaciones desde app móvil
     # Otros roles → operaciones internas del sistema
-    origen = 'plataforma' if current_user.role == 'Plataforma' else 'sistema'
+    origen = 'app' if current_user.role == 'Plataforma' else 'sistema'
 
     # Crear operación
     success, message, operation = OperationService.create_operation(

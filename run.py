@@ -185,21 +185,35 @@ def fix_app_channel_now():
         db.session.commit()
         results['migration_executed'] = True
 
-        # 3. Actualizar operaciones creadas con notes='Operación desde app móvil'
-        # Estas son las operaciones que fueron creadas desde la app pero tienen origen incorrecto
-        app_operations = Operation.query.filter(
-            Operation.notes.like('%app móvil%')
-        ).all()
+        # 3. Actualizar operaciones creadas desde la app móvil
+        # Buscar por dos criterios:
+        # A) Operaciones con notes='Operación desde app móvil'
+        # B) Operaciones creadas por usuarios con rol 'Plataforma'
+
+        from app.models.user import User
+        from sqlalchemy import or_
+
+        # Obtener ID del usuario Plataforma
+        plataforma_user = User.query.filter_by(role='Plataforma').first()
+
+        # Buscar operaciones que cumplan alguno de los criterios
+        query_filters = [Operation.notes.like('%app móvil%')]
+        if plataforma_user:
+            query_filters.append(Operation.user_id == plataforma_user.id)
+
+        app_operations = Operation.query.filter(or_(*query_filters)).all()
 
         for op in app_operations:
             old_origen = op.origen
             if op.origen != 'app':
                 op.origen = 'app'
+                created_by = 'Plataforma' if op.user_id == (plataforma_user.id if plataforma_user else None) else 'App móvil'
                 results['operations_updated'].append({
                     'operation_id': op.operation_id,
                     'old_origen': old_origen,
                     'new_origen': 'app',
-                    'notes': op.notes
+                    'created_by': created_by,
+                    'notes': op.notes[:50] if op.notes else None
                 })
 
         db.session.commit()
