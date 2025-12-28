@@ -335,6 +335,47 @@ def migrate_all_plataforma_to_app():
             'traceback': traceback.format_exc()
         }), 500
 
+# TEMPORAL: Endpoint para verificar que los templates están actualizados
+@app.route('/admin/check-template-version')
+@limiter.exempt
+def check_template_version():
+    """
+    ENDPOINT TEMPORAL: Verificar qué versión del template se está sirviendo
+    """
+    from app.models.operation import Operation
+
+    # Obtener una operación con origen='app'
+    app_op = Operation.query.filter_by(origen='app').first()
+
+    if not app_op:
+        return jsonify({
+            'error': 'No hay operaciones con origen=app en la base de datos'
+        })
+
+    # Renderizar solo la celda del canal para esta operación
+    from flask import render_template_string
+
+    template = """
+    {% if op.origen == 'plataforma' %}
+        <span class="badge bg-purple" style="background-color: #6f42c1;">Web</span>
+    {% elif op.origen == 'app' %}
+        <span class="badge bg-info">App</span>
+    {% else %}
+        <span class="badge bg-secondary">Sistema</span>
+    {% endif %}
+    """
+
+    html = render_template_string(template, op=app_op)
+
+    return jsonify({
+        'operation_id': app_op.operation_id,
+        'origen_in_db': app_op.origen,
+        'expected_badge': 'App (blue bg-info)',
+        'rendered_html': html.strip(),
+        'template_has_app_support': 'elif op.origen' in template,
+        'message': 'Si rendered_html muestra "App", el template está correcto'
+    })
+
 def start_operation_expiry_scheduler():
     """
     Tarea periódica para expirar operaciones automáticamente
