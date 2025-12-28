@@ -115,6 +115,8 @@
                                 <td class="text-center">
                                     {% if op.origen == 'plataforma' %}
                                         <span class="badge bg-purple" style="background-color: #6f42c1;">Web</span>
+                                    {% elif op.origen == 'app' %}
+                                        <span class="badge bg-info">App</span>
                                     {% else %}
                                         <span class="badge bg-secondary">Sistema</span>
                                     {% endif %}
@@ -624,8 +626,15 @@ function filterByCanal(canal) {
     if (canal === 'all') {
         window.operationsDataTable.column(7).search('').draw();
     } else {
-        // Buscar por el texto del badge: "Web" o "Sistema"
-        const searchText = canal === 'plataforma' ? 'Web' : 'Sistema';
+        // Buscar por el texto del badge: "Web", "App" o "Sistema"
+        let searchText;
+        if (canal === 'plataforma') {
+            searchText = 'Web';
+        } else if (canal === 'app') {
+            searchText = 'App';
+        } else {
+            searchText = 'Sistema';
+        }
         window.operationsDataTable.column(7).search(searchText).draw();
     }
     // Solo remover active de los botones de canal
