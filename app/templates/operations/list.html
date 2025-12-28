@@ -824,9 +824,14 @@ function buildOperationRow(op) {
     const banksText = `${sourceBankName} / ${destBankName}`;
 
     // Badge de canal (origen)
-    const canalBadge = op.origen === 'plataforma'
-        ? '<span class="badge bg-info">Web</span>'
-        : '<span class="badge bg-secondary">Sistema</span>';
+    let canalBadge;
+    if (op.origen === 'plataforma') {
+        canalBadge = '<span class="badge bg-purple" style="background-color: #6f42c1;">Web</span>';
+    } else if (op.origen === 'app') {
+        canalBadge = '<span class="badge bg-info">App</span>';
+    } else {
+        canalBadge = '<span class="badge bg-secondary">Sistema</span>';
+    }
 
     // Formatear montos con separador de miles
     const formattedUSD = parseFloat(op.amount_usd).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
