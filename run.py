@@ -241,6 +241,100 @@ def fix_app_channel_now():
             'partial_results': results
         }), 500
 
+# TEMPORAL: Endpoint para actualizar operaciones específicas a canal app
+@app.route('/admin/update-operation-channel/<operation_id>/<new_origen>')
+@limiter.exempt
+def update_operation_channel(operation_id, new_origen):
+    """
+    ENDPOINT TEMPORAL: Actualiza el origen de una operación específica
+
+    Uso: /admin/update-operation-channel/EXP-1153/app
+    """
+    from app.extensions import db
+    from app.models.operation import Operation
+
+    try:
+        if new_origen not in ['sistema', 'plataforma', 'app']:
+            return jsonify({
+                'success': False,
+                'error': f'Origen inválido: {new_origen}. Debe ser: sistema, plataforma o app'
+            }), 400
+
+        operation = Operation.query.filter_by(operation_id=operation_id).first()
+
+        if not operation:
+            return jsonify({
+                'success': False,
+                'error': f'Operación {operation_id} no encontrada'
+            }), 404
+
+        old_origen = operation.origen
+        operation.origen = new_origen
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'operation_id': operation_id,
+            'old_origen': old_origen,
+            'new_origen': new_origen,
+            'message': f'✓ Operación {operation_id} actualizada de "{old_origen}" a "{new_origen}"'
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        import traceback
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
+
+# TEMPORAL: Endpoint para actualizar TODAS las operaciones con plataforma a app
+@app.route('/admin/migrate-all-plataforma-to-app')
+@limiter.exempt
+def migrate_all_plataforma_to_app():
+    """
+    ENDPOINT TEMPORAL: Actualiza TODAS las operaciones con origen='plataforma' a origen='app'
+
+    Esto es útil si todas las operaciones 'plataforma' son realmente de la app móvil
+    """
+    from app.extensions import db
+    from app.models.operation import Operation
+
+    try:
+        # Buscar todas las operaciones con origen='plataforma'
+        plataforma_ops = Operation.query.filter_by(origen='plataforma').all()
+
+        updated = []
+        for op in plataforma_ops:
+            old_origen = op.origen
+            op.origen = 'app'
+            updated.append({
+                'operation_id': op.operation_id,
+                'old_origen': old_origen,
+                'new_origen': 'app',
+                'client_dni': op.client.dni if op.client else None,
+                'created_at': op.created_at.isoformat() if op.created_at else None
+            })
+
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'total_updated': len(updated),
+            'operations': updated,
+            'message': f'✓ {len(updated)} operaciones actualizadas de "plataforma" a "app"'
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        import traceback
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
+
 def start_operation_expiry_scheduler():
     """
     Tarea periódica para expirar operaciones automáticamente
