@@ -396,7 +396,7 @@ def start_operation_expiry_scheduler():
 
 if __name__ == '__main__':
     # Iniciar scheduler de expiración en un greenlet separado
-    print("[RUN.PY] 🕒 Iniciando scheduler de expiración de operaciones...")
+    print("[RUN.PY] Iniciando scheduler de expiracion de operaciones...")
     eventlet.spawn(start_operation_expiry_scheduler)
 
     # Solo para desarrollo local

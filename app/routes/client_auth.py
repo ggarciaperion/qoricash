@@ -257,24 +257,68 @@ def get_current_client():
 @csrf.exempt
 def register_client():
     """
-    Auto-registro de cliente - ULTRA SIMPLIFICADO
+    Auto-registro de cliente - Soporta Persona Natural y Jurídica (RUC)
     """
     try:
         data = request.get_json()
 
-        # Obtener datos
+        # Obtener tipo de persona
+        tipo_persona = data.get('tipo_persona', 'Natural').strip()  # 'Natural' o 'Jurídica'
+
+        # Obtener datos comunes
         dni = data.get('dni', '').strip()
         email = data.get('email', '').strip()
-        nombres = data.get('nombres', '').strip()
-        apellido_paterno = data.get('apellido_paterno', '').strip()
-        apellido_materno = data.get('apellido_materno', '').strip()
         telefono = data.get('telefono', '').strip()
         password = data.get('password', '').strip()
         bank_accounts = data.get('bank_accounts', [])
 
-        # Validar
-        if not all([dni, email, nombres, apellido_paterno, telefono, password]):
-            return jsonify({'success': False, 'message': 'Faltan campos obligatorios'}), 400
+        # Obtener datos específicos según tipo de persona
+        if tipo_persona == 'Natural':
+            nombres = data.get('nombres', '').strip()
+            apellido_paterno = data.get('apellido_paterno', '').strip()
+            apellido_materno = data.get('apellido_materno', '').strip()
+
+            # Validar campos obligatorios para Persona Natural
+            if not all([dni, email, nombres, apellido_paterno, telefono, password]):
+                return jsonify({'success': False, 'message': 'Faltan campos obligatorios para Persona Natural'}), 400
+
+            # Obtener tipo de documento explícito del frontend
+            document_type = data.get('tipo_documento', '').strip()
+
+            # Si no viene tipo_documento, determinarlo por longitud (backward compatibility)
+            if not document_type:
+                document_type = 'DNI' if len(dni) == 8 else 'CE'
+
+            # Validar DNI (8 dígitos) o CE (9 dígitos) según tipo
+            if document_type == 'DNI' and len(dni) != 8:
+                return jsonify({'success': False, 'message': 'DNI debe tener 8 dígitos'}), 400
+            elif document_type == 'CE' and len(dni) != 9:
+                return jsonify({'success': False, 'message': 'CE debe tener 9 dígitos'}), 400
+            elif document_type not in ['DNI', 'CE']:
+                return jsonify({'success': False, 'message': 'Tipo de documento inválido. Debe ser DNI o CE'}), 400
+
+        else:  # Persona Jurídica (RUC)
+            ruc = data.get('ruc', '').strip()
+            razon_social = data.get('razon_social', '').strip()
+            persona_contacto = data.get('persona_contacto', '').strip()
+
+            # Para RUC, el campo 'dni' debe contener el RUC
+            if not ruc:
+                ruc = dni  # Si no viene 'ruc', usar 'dni'
+
+            # Validar campos obligatorios para Persona Jurídica
+            if not all([ruc, email, razon_social, persona_contacto, telefono, password]):
+                return jsonify({'success': False, 'message': 'Faltan campos obligatorios para Persona Jurídica (RUC, razón social, persona de contacto, email, teléfono, contraseña)'}), 400
+
+            if len(ruc) != 11:
+                return jsonify({'success': False, 'message': 'RUC debe tener 11 dígitos'}), 400
+
+            # Actualizar dni con ruc para usar en la creación del cliente
+            dni = ruc
+
+        # Validar datos comunes
+        if not email or '@' not in email:
+            return jsonify({'success': False, 'message': 'Email inválido'}), 400
 
         if len(password) < 8:
             return jsonify({'success': False, 'message': 'La contraseña debe tener al menos 8 caracteres'}), 400
@@ -290,8 +334,10 @@ def register_client():
             return jsonify({'success': False, 'message': 'Debes agregar al menos una cuenta en Soles (S/) y una en Dólares ($)'}), 400
 
         # Ver si ya existe
-        if Client.query.filter_by(dni=dni).first():
-            return jsonify({'success': False, 'message': 'DNI ya registrado'}), 400
+        existing_client = Client.query.filter_by(dni=dni).first()
+        if existing_client:
+            tipo_doc = 'RUC' if tipo_persona == 'Jurídica' else 'DNI'
+            return jsonify({'success': False, 'message': f'{tipo_doc} ya registrado'}), 400
 
         # Obtener o crear usuario "Plataforma" para asignar como creador
         from werkzeug.security import generate_password_hash
@@ -314,21 +360,38 @@ def register_client():
             db.session.flush()  # Para obtener el ID antes de commit
             logger.info(f"✅ Usuario 'Plataforma' creado con ID: {platform_user.id}")
 
-        # Crear cliente usando ORM con usuario Plataforma como creador
-        new_client = Client(
-            dni=dni,
-            document_type='DNI',
-            email=email,
-            nombres=nombres,
-            apellido_paterno=apellido_paterno,
-            apellido_materno=apellido_materno,
-            phone=telefono,
-            status='Activo',
-            password_hash=generate_password_hash(password),
-            requires_password_change=False,
-            created_by=platform_user.id,  # ✅ Asignar usuario Plataforma como creador
-            created_at=datetime.utcnow()
-        )
+        # Crear cliente según tipo de persona
+        if tipo_persona == 'Natural':
+            # Persona Natural (DNI o CE)
+            new_client = Client(
+                dni=dni,
+                document_type=document_type,  # 'DNI' o 'CE' según longitud
+                email=email,
+                nombres=nombres,
+                apellido_paterno=apellido_paterno,
+                apellido_materno=apellido_materno,
+                phone=telefono,
+                status='Activo',
+                password_hash=generate_password_hash(password),
+                requires_password_change=False,
+                created_by=platform_user.id,
+                created_at=datetime.utcnow()
+            )
+        else:
+            # Persona Jurídica (RUC)
+            new_client = Client(
+                dni=ruc,  # El RUC se almacena en el campo 'dni'
+                document_type='RUC',
+                email=email,
+                razon_social=razon_social,
+                persona_contacto=persona_contacto,
+                phone=telefono,
+                status='Activo',
+                password_hash=generate_password_hash(password),
+                requires_password_change=False,
+                created_by=platform_user.id,
+                created_at=datetime.utcnow()
+            )
 
         # Asignar cuentas bancarias
         new_client.set_bank_accounts(bank_accounts)
@@ -343,6 +406,16 @@ def register_client():
             from app.services.email_service import EmailService
             from flask_mail import Message
             from flask import current_app
+
+            # Preparar datos para el email según tipo de persona
+            if tipo_persona == 'Natural':
+                saludo = f"{nombres} {apellido_paterno}"
+                tipo_documento = document_type  # 'DNI' o 'CE'
+                documentos_requeridos = f"fotos de tu {document_type} (anverso y reverso)"
+            else:
+                saludo = razon_social
+                tipo_documento = "RUC"
+                documentos_requeridos = "DNI del representante legal (anverso y reverso) y Ficha RUC"
 
             # Crear el mensaje de email
             msg = Message(
@@ -372,21 +445,21 @@ def register_client():
             <p>Tu Casa de Cambio Digital</p>
         </div>
         <div class="content">
-            <p>Hola <strong>{nombres} {apellido_paterno}</strong>,</p>
+            <p>Hola <strong>{saludo}</strong>,</p>
             <p>¡Tu cuenta ha sido creada exitosamente! 🎉</p>
 
             <div class="info-box">
                 <p style="margin: 0; font-weight: bold;">📋 Tu información de acceso:</p>
-                <p style="margin: 10px 0 0 0;">DNI: <strong>{dni}</strong></p>
+                <p style="margin: 10px 0 0 0;">{tipo_documento}: <strong>{dni}</strong></p>
                 <p style="margin: 5px 0 0 0;">Contraseña: <strong>La que creaste durante el registro</strong></p>
             </div>
 
             <p><strong>📱 Próximos pasos:</strong></p>
             <ol>
                 <li>Abre la aplicación QoriCash en tu móvil</li>
-                <li>Ingresa tu DNI: <strong>{dni}</strong></li>
+                <li>Ingresa tu {tipo_documento}: <strong>{dni}</strong></li>
                 <li>Ingresa la contraseña que creaste</li>
-                <li><strong>Importante:</strong> Debes validar tu identidad subiendo fotos de tu DNI</li>
+                <li><strong>Importante:</strong> Debes validar tu identidad subiendo {documentos_requeridos}</li>
                 <li>Una vez aprobado tu KYC, ¡podrás realizar operaciones!</li>
             </ol>
 
