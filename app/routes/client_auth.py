@@ -341,7 +341,7 @@ def register_client():
 
         # Obtener o crear usuario "Plataforma" para asignar como creador
         from werkzeug.security import generate_password_hash
-        from datetime import datetime
+        from app.utils.formatters import now_peru
         import secrets
 
         platform_user = User.query.filter_by(username='Plataforma').first()
@@ -354,7 +354,7 @@ def register_client():
                 role='Plataforma',
                 password_hash=generate_password_hash(secrets.token_urlsafe(32)),
                 status='Activo',
-                created_at=datetime.utcnow()
+                created_at=now_peru()
             )
             db.session.add(platform_user)
             db.session.flush()  # Para obtener el ID antes de commit
@@ -375,7 +375,7 @@ def register_client():
                 password_hash=generate_password_hash(password),
                 requires_password_change=False,
                 created_by=platform_user.id,
-                created_at=datetime.utcnow()
+                created_at=now_peru()
             )
         else:
             # Persona Jurídica (RUC)
@@ -390,7 +390,7 @@ def register_client():
                 password_hash=generate_password_hash(password),
                 requires_password_change=False,
                 created_by=platform_user.id,
-                created_at=datetime.utcnow()
+                created_at=now_peru()
             )
 
         # Asignar cuentas bancarias
@@ -817,7 +817,7 @@ def create_operation():
                 logger.info("🤖 Usuario 'Plataforma' no existe, creándolo para operación...")
                 from werkzeug.security import generate_password_hash
                 import secrets
-                from datetime import datetime
+                from app.utils.formatters import now_peru
 
                 creator_user = User(
                     username='Plataforma',
@@ -826,7 +826,7 @@ def create_operation():
                     role='Plataforma',
                     password_hash=generate_password_hash(secrets.token_urlsafe(32)),
                     status='Activo',
-                    created_at=datetime.utcnow()
+                    created_at=now_peru()
                 )
                 db.session.add(creator_user)
                 db.session.flush()
@@ -1136,7 +1136,7 @@ def cancel_operation(operation_id):
         # Cancelar la operación
         operation.status = 'Cancelado'
         operation.cancellation_reason = cancellation_reason
-        operation.updated_at = datetime.utcnow()
+        operation.updated_at = now_peru()
 
         db.session.commit()
 
