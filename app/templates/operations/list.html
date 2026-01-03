@@ -1281,12 +1281,22 @@ function addPaymentRow(data, index, editable) {
     const defaultAccount = data.cuenta_destino || currentOperation.destination_account;
     const accountOptions = buildAccountOptions(currentOperation.operation_type === 'Venta' ? '$' : 'S/', defaultAccount);
 
+    // Auto-llenar importe con el monto total si es el primer pago y no tiene importe
+    let defaultImporte = data.importe || '';
+    if (!data.importe && index === 0) {
+        // Si es Venta: pago en USD, si es Compra: pago en PEN
+        const expectedPayment = currentOperation.operation_type === 'Venta'
+            ? parseFloat(currentOperation.amount_usd)
+            : parseFloat(currentOperation.amount_pen);
+        defaultImporte = expectedPayment.toFixed(2);
+    }
+
     const html = `
     <div class="payment-row border rounded p-2 mb-2" data-index="${index}">
         <div class="row">
             <div class="col-md-4">
                 <label class="form-label small">Importe</label>
-                <input type="number" class="form-control form-control-sm payment-importe" value="${data.importe || ''}"
+                <input type="number" class="form-control form-control-sm payment-importe" value="${defaultImporte}"
                     step="0.01" min="0" ${editable ? '' : 'readonly'} onchange="updateTotals()">
             </div>
             <div class="col-md-6">
