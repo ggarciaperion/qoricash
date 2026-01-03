@@ -506,12 +506,22 @@ def register_client():
 @csrf.exempt
 def upload_dni_documents():
     """
-    Subir fotos del DNI (anverso y reverso) a Cloudinary
+    Subir documentos de identidad a Cloudinary
+
+    Persona Natural (DNI/CE):
+        - dni_front: Foto del DNI anverso
+        - dni_back: Foto del DNI reverso
+
+    Persona Jurídica (RUC):
+        - dni_front: Foto del DNI del representante legal (anverso)
+        - dni_back: Foto del DNI del representante legal (reverso)
+        - ruc_ficha: Ficha RUC (imagen o PDF)
 
     Form Data:
-        dni: DNI del cliente
+        dni: DNI/RUC del cliente
         dni_front: Archivo de imagen (anverso)
         dni_back: Archivo de imagen (reverso)
+        ruc_ficha: (Opcional) Ficha RUC para persona jurídica
 
     Returns:
         JSON: {
@@ -536,7 +546,7 @@ def upload_dni_documents():
         if not dni:
             return jsonify({
                 'success': False,
-                'message': 'DNI es requerido'
+                'message': 'DNI/RUC es requerido'
             }), 400
 
         # Buscar cliente
@@ -551,48 +561,111 @@ def upload_dni_documents():
         # Obtener archivos
         dni_front = request.files.get('dni_front')
         dni_back = request.files.get('dni_back')
+        ruc_ficha = request.files.get('ruc_ficha')  # Opcional para RUC
 
         if not dni_front or not dni_back:
+            doc_type = 'DNI del representante legal' if client.document_type == 'RUC' else 'DNI'
             return jsonify({
                 'success': False,
-                'message': 'Se requieren ambas fotos del DNI (anverso y reverso)'
+                'message': f'Se requieren ambas fotos del {doc_type} (anverso y reverso)'
             }), 400
 
-        # Subir anverso a Cloudinary
-        front_result = cloudinary.uploader.upload(
-            dni_front,
-            folder=f"qoricash/clients/{dni}",
-            public_id=f"dni_front_{dni}",
-            overwrite=True,
-            resource_type="image"
-        )
+        # Validar Ficha RUC para persona jurídica
+        if client.document_type == 'RUC' and not ruc_ficha:
+            return jsonify({
+                'success': False,
+                'message': 'Se requiere la Ficha RUC para persona jurídica'
+            }), 400
 
-        # Subir reverso a Cloudinary
-        back_result = cloudinary.uploader.upload(
-            dni_back,
-            folder=f"qoricash/clients/{dni}",
-            public_id=f"dni_back_{dni}",
-            overwrite=True,
-            resource_type="image"
-        )
+        # Determinar si es persona jurídica (RUC)
+        is_legal_entity = client.document_type == 'RUC'
 
-        # Actualizar cliente con las URLs
-        client.dni_front_url = front_result.get('secure_url')
-        client.dni_back_url = back_result.get('secure_url')
+        # Subir DNI anverso
+        if is_legal_entity:
+            # Para RUC: subir como DNI del representante legal
+            front_result = cloudinary.uploader.upload(
+                dni_front,
+                folder=f"qoricash/clients/{dni}",
+                public_id=f"dni_representante_front_{dni}",
+                overwrite=True,
+                resource_type="image"
+            )
+            client.dni_representante_front_url = front_result.get('secure_url')
+        else:
+            # Para DNI/CE: subir como DNI normal
+            front_result = cloudinary.uploader.upload(
+                dni_front,
+                folder=f"qoricash/clients/{dni}",
+                public_id=f"dni_front_{dni}",
+                overwrite=True,
+                resource_type="image"
+            )
+            client.dni_front_url = front_result.get('secure_url')
+
+        # Subir DNI reverso
+        if is_legal_entity:
+            # Para RUC: subir como DNI del representante legal
+            back_result = cloudinary.uploader.upload(
+                dni_back,
+                folder=f"qoricash/clients/{dni}",
+                public_id=f"dni_representante_back_{dni}",
+                overwrite=True,
+                resource_type="image"
+            )
+            client.dni_representante_back_url = back_result.get('secure_url')
+        else:
+            # Para DNI/CE: subir como DNI normal
+            back_result = cloudinary.uploader.upload(
+                dni_back,
+                folder=f"qoricash/clients/{dni}",
+                public_id=f"dni_back_{dni}",
+                overwrite=True,
+                resource_type="image"
+            )
+            client.dni_back_url = back_result.get('secure_url')
+
+        # Subir Ficha RUC si es persona jurídica
+        if is_legal_entity and ruc_ficha:
+            # Detectar si es PDF o imagen
+            filename = ruc_ficha.filename.lower()
+            resource_type = "raw" if filename.endswith('.pdf') else "image"
+
+            ruc_result = cloudinary.uploader.upload(
+                ruc_ficha,
+                folder=f"qoricash/clients/{dni}",
+                public_id=f"ficha_ruc_{dni}",
+                overwrite=True,
+                resource_type=resource_type
+            )
+            client.ficha_ruc_url = ruc_result.get('secure_url')
 
         db.session.commit()
 
-        logger.info(f"Documentos DNI subidos exitosamente para cliente: {client.dni}")
+        doc_type = 'RUC' if is_legal_entity else 'DNI'
+        logger.info(f"Documentos de identidad subidos exitosamente para cliente {doc_type}: {client.dni}")
 
-        return jsonify({
+        response_data = {
             'success': True,
-            'message': 'Documentos subidos exitosamente',
-            'dni_front_url': client.dni_front_url,
-            'dni_back_url': client.dni_back_url
-        }), 200
+            'message': 'Documentos subidos exitosamente'
+        }
+
+        # Agregar URLs según tipo de persona
+        if is_legal_entity:
+            response_data.update({
+                'dni_representante_front_url': client.dni_representante_front_url,
+                'dni_representante_back_url': client.dni_representante_back_url,
+                'ficha_ruc_url': client.ficha_ruc_url
+            })
+        else:
+            response_data.update({
+                'dni_front_url': client.dni_front_url,
+                'dni_back_url': client.dni_back_url
+            })
+
+        return jsonify(response_data), 200
 
     except Exception as e:
-        logger.error(f"Error subiendo documentos DNI: {str(e)}")
+        logger.error(f"Error subiendo documentos de identidad: {str(e)}")
         db.session.rollback()
         return jsonify({
             'success': False,
