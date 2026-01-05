@@ -17,6 +17,15 @@
             padding: 3rem 0;
             margin-bottom: 2rem;
         }
+        .logo-container {
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+        .logo {
+            max-width: 200px;
+            height: auto;
+            filter: brightness(0) invert(1);
+        }
         .container {
             max-width: 900px;
         }
@@ -76,6 +85,9 @@
 <body>
     <div class="header">
         <div class="container">
+            <div class="logo-container">
+                <img src="{{ url_for('static', filename='images/logo-principal.png') }}" alt="QoriCash Logo" class="logo">
+            </div>
             <h1>Política de Privacidad</h1>
             <p class="mb-0">QoriCash - Casa de Cambio Digital</p>
         </div>
