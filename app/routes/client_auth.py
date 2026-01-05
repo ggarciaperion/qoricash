@@ -197,6 +197,102 @@ def change_password():
         }), 500
 
 
+@client_auth_bp.route('/forgot-password', methods=['POST'])
+@csrf.exempt
+def forgot_password():
+    """
+    Resetear contraseña del cliente cuando la olvidó
+
+    Request JSON:
+    {
+        "dni": "12345678",
+        "email": "cliente@ejemplo.com"
+    }
+
+    Returns:
+        JSON: {
+            "success": true,
+            "message": "Contraseña temporal enviada al correo"
+        }
+    """
+    try:
+        from app.utils.password_generator import generate_simple_password
+        from app.services.email_service import EmailService
+
+        data = request.get_json()
+
+        if not data:
+            return jsonify({
+                'success': False,
+                'message': 'No se recibieron datos'
+            }), 400
+
+        dni = data.get('dni', '').strip()
+        email = data.get('email', '').strip().lower()
+
+        # Validaciones básicas
+        if not dni or not email:
+            return jsonify({
+                'success': False,
+                'message': 'DNI/RUC y email son requeridos'
+            }), 400
+
+        # Buscar cliente
+        client = Client.query.filter_by(dni=dni).first()
+
+        if not client:
+            # Por seguridad, no revelamos si el cliente existe o no
+            return jsonify({
+                'success': True,
+                'message': 'Si los datos son correctos, recibirás un email con tu contraseña temporal'
+            }), 200
+
+        # Verificar que el email coincida
+        client_emails = EmailService.parse_email_addresses(client.email) if client.email else []
+
+        if email not in [e.lower() for e in client_emails]:
+            # Por seguridad, no revelamos que el email no coincide
+            return jsonify({
+                'success': True,
+                'message': 'Si los datos son correctos, recibirás un email con tu contraseña temporal'
+            }), 200
+
+        # Generar contraseña temporal simple (sin caracteres especiales para facilitar escritura)
+        temporary_password = generate_simple_password(length=10)
+
+        # Actualizar contraseña del cliente
+        client.set_password(temporary_password)
+        client.requires_password_change = True
+
+        db.session.commit()
+
+        # Enviar email con contraseña temporal
+        success, message = EmailService.send_password_reset_email(client, temporary_password)
+
+        if not success:
+            logger.error(f"Error enviando email de reseteo a {client.dni}: {message}")
+            # Aunque falle el email, la contraseña ya fue reseteada
+            return jsonify({
+                'success': True,
+                'message': 'Contraseña reseteada, pero hubo un error al enviar el email. Contacta a soporte.'
+            }), 200
+
+        logger.info(f"Contraseña reseteada exitosamente para cliente: {client.dni}")
+
+        return jsonify({
+            'success': True,
+            'message': 'Se ha enviado una contraseña temporal a tu correo electrónico'
+        }), 200
+
+    except Exception as e:
+        logger.error(f"Error en forgot-password: {str(e)}")
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'message': 'Ocurrió un error. Por favor intenta nuevamente.'
+        }), 500
+
+
 @client_auth_bp.route('/me', methods=['POST'])
 @csrf.exempt
 def get_current_client():
