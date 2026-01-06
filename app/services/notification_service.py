@@ -398,6 +398,8 @@ class NotificationService:
             client: Objeto Client
         """
         try:
+            logger.info(f"🔔 [NOTIF-KYC] INICIO - Preparando notificación de documentos aprobados para cliente {client.dni}")
+
             data = {
                 'type': 'documents_approved',
                 'title': '✅ Cuenta Activada',
@@ -409,11 +411,15 @@ class NotificationService:
 
             # Notificar al cliente específico usando su DNI como room
             room = f'client_{client.dni}'
+            logger.info(f"📡 [NOTIF-KYC] Enviando evento 'documents_approved' al room: {room}")
+            logger.info(f"📦 [NOTIF-KYC] Datos: {data}")
+
             socketio.emit('documents_approved', data, namespace='/', room=room)
 
-            logger.info(f"📱 Notificación de documentos aprobados enviada al cliente: {client.dni}")
+            logger.info(f"✅ [NOTIF-KYC] Notificación de documentos aprobados enviada exitosamente al cliente: {client.dni}")
         except Exception as e:
-            logger.error(f"Error enviando notificación de documentos aprobados: {e}")
+            logger.error(f"❌ [NOTIF-KYC] Error enviando notificación de documentos aprobados: {e}")
+            logger.exception(e)
 
     @staticmethod
     def notify_operation_expired(operation):
