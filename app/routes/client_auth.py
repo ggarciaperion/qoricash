@@ -1189,6 +1189,7 @@ def cancel_operation(operation_id):
     try:
         from app.models.operation import Operation
         from app.services.notification_service import NotificationService
+        from app.utils.formatters import now_peru
         from datetime import datetime
 
         data = request.get_json()
