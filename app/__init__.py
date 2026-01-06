@@ -7,6 +7,7 @@ import logging
 from flask import Flask
 from app.config import get_config
 from app.extensions import db, migrate, login_manager, csrf, socketio, limiter
+from app.services.scheduler_service import scheduler_service
 
 
 def create_app(config_name=None):
@@ -39,10 +40,13 @@ def create_app(config_name=None):
     
     # Registrar error handlers
     register_error_handlers(app)
-    
+
     # Configurar Shell context (para flask shell)
     register_shell_context(app)
-    
+
+    # Inicializar scheduler de tareas en segundo plano
+    scheduler_service.init_app(app)
+
     return app
 
 
