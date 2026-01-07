@@ -76,6 +76,20 @@ class OperationExpiryService:
                     except Exception as email_error:
                         logger.error(f"❌ Error enviando email de expiración: {str(email_error)}")
 
+                    # Enviar Push Notification (Expo) al cliente
+                    try:
+                        from app.services.push_notification_service import PushNotificationService
+                        if operation.client and operation.client.push_notification_token:
+                            push_result = PushNotificationService.send_operation_expired_push(operation.client)
+                            if push_result.get('success'):
+                                logger.info(f"📲 Push notification enviada para operación {operation.operation_id}")
+                            else:
+                                logger.warning(f"⚠️ No se pudo enviar push: {push_result.get('error')}")
+                        else:
+                            logger.info(f"ℹ️ Cliente sin token push registrado para operación {operation.operation_id}")
+                    except Exception as push_error:
+                        logger.error(f"❌ Error enviando push notification: {str(push_error)}")
+
                     expired_count += 1
 
                 except Exception as op_error:

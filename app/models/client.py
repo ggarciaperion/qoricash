@@ -44,6 +44,9 @@ class Client(db.Model):
     password_hash = db.Column(db.String(200))  # Contraseña hasheada (NULL si cliente aún no tiene acceso a app)
     requires_password_change = db.Column(db.Boolean, default=True)  # True si debe cambiar contraseña en primer login
 
+    # Token para notificaciones push (Expo Push Notifications)
+    push_notification_token = db.Column(db.String(200))  # Token de Expo para enviar notificaciones push
+
     # Documentos (URLs de Cloudinary)
     dni_front_url = db.Column(db.String(500))  # DNI/CE Anverso
     dni_back_url = db.Column(db.String(500))   # DNI/CE Reverso

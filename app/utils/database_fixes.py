@@ -100,6 +100,32 @@ def fix_clients_partial_docs_schema(db):
         return False
 
 
+def fix_clients_push_notifications_schema(db):
+    """
+    Agregar columna push_notification_token a la tabla clients
+    Para almacenar tokens de Expo Push Notifications
+    """
+    try:
+        with db.engine.connect() as connection:
+            try:
+                # Agregar columna push_notification_token
+                sql = "ALTER TABLE clients ADD COLUMN IF NOT EXISTS push_notification_token VARCHAR(200);"
+                connection.execute(text(sql))
+                connection.commit()
+                logger.info("Columna clients.push_notification_token verificada/agregada exitosamente")
+            except Exception as e:
+                # Si falla, la columna probablemente ya existe
+                connection.rollback()
+                logger.debug(f"Columna clients.push_notification_token ya existe o error: {str(e)}")
+
+            logger.info("Verificación de esquema de push notifications en clients completada")
+            return True
+
+    except Exception as e:
+        logger.error(f"Error al verificar/corregir esquema de push notifications: {str(e)}")
+        return False
+
+
 def apply_all_fixes(db):
     """
     Aplicar todas las correcciones de base de datos necesarias
@@ -111,5 +137,8 @@ def apply_all_fixes(db):
 
     # Aplicar corrección de sistema de documentos parciales
     fix_clients_partial_docs_schema(db)
+
+    # Aplicar corrección de push notifications
+    fix_clients_push_notifications_schema(db)
 
     logger.info("=== Verificación de esquema completada ===")

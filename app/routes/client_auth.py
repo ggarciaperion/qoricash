@@ -1475,6 +1475,85 @@ def delete_bank_account(client_dni, account_index):
         }), 500
 
 
+@client_auth_bp.route('/register-push-token', methods=['POST'])
+@csrf.exempt  # Eximir de CSRF para app móvil
+def register_push_token():
+    """
+    Registrar token de Expo Push Notifications para un cliente
+
+    Request JSON:
+    {
+        "dni": "12345678",
+        "push_token": "ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]"
+    }
+
+    Returns:
+        JSON: {
+            "success": true/false,
+            "message": str
+        }
+    """
+    try:
+        data = request.get_json() or {}
+
+        dni = data.get('dni', '').strip()
+        push_token = data.get('push_token', '').strip()
+
+        logger.info(f'📱 [PUSH TOKEN] Registro de token para DNI: {dni}')
+
+        # Validar campos requeridos
+        if not dni or not push_token:
+            return jsonify({
+                'success': False,
+                'message': 'DNI y push_token son requeridos'
+            }), 400
+
+        # Validar formato de token Expo
+        if not (push_token.startswith('ExponentPushToken[') or push_token.startswith('ExpoPushToken[')):
+            logger.warning(f'⚠️ [PUSH TOKEN] Token inválido: {push_token[:30]}...')
+            return jsonify({
+                'success': False,
+                'message': 'Token de Expo inválido'
+            }), 400
+
+        # Buscar cliente
+        client = Client.query.filter_by(dni=dni).first()
+        if not client:
+            logger.warning(f'⚠️ [PUSH TOKEN] Cliente no encontrado: {dni}')
+            return jsonify({
+                'success': False,
+                'message': 'Cliente no encontrado'
+            }), 404
+
+        # Actualizar token
+        old_token = client.push_notification_token
+        client.push_notification_token = push_token
+        db.session.commit()
+
+        if old_token and old_token != push_token:
+            logger.info(f'✅ [PUSH TOKEN] Token actualizado para {dni}')
+            logger.info(f'   - Anterior: {old_token[:30]}...')
+            logger.info(f'   - Nuevo: {push_token[:30]}...')
+        else:
+            logger.info(f'✅ [PUSH TOKEN] Token registrado para {dni}')
+            logger.info(f'   - Token: {push_token[:30]}...')
+
+        return jsonify({
+            'success': True,
+            'message': 'Token de notificaciones registrado exitosamente'
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f'❌ [PUSH TOKEN] Error al registrar token: {str(e)}')
+        import traceback
+        logger.error(traceback.format_exc())
+        return jsonify({
+            'success': False,
+            'message': f'Error al registrar token: {str(e)}'
+        }), 500
+
+
 @client_auth_bp.route('/health', methods=['GET'])
 def health():
     """Health check para cliente auth"""
