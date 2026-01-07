@@ -426,23 +426,43 @@ class NotificationService:
         """
         Notificar al cliente cuando su operación expire por timeout
 
+        NOTA: La notificación Socket.IO solo llega si la app está abierta y conectada.
+        Para notificaciones cuando la app está cerrada, se envía correo electrónico.
+
         Args:
             operation: Objeto Operation
         """
         try:
+            if not operation.client:
+                logger.warning(f"⚠️ Operación {operation.operation_id} sin cliente asociado")
+                return
+
             data = {
                 'type': 'operation_expired',
                 'operation_id': operation.operation_id,
                 'title': '⏱️ Operación Expirada',
                 'message': f'La operación {operation.operation_id} ha expirado por falta de transferencia. Puedes crear una nueva operación.',
-                'client_dni': operation.client.dni if operation.client else None,
+                'client_dni': operation.client.dni,
                 'client_id': operation.client_id,
             }
 
             # Notificar al cliente específico usando su DNI como room
-            if operation.client:
-                room = f'client_{operation.client.dni}'
-                socketio.emit('operation_expired', data, namespace='/', room=room)
-                logger.info(f"📱 Notificación de operación expirada enviada al cliente: {operation.client.dni} - Op: {operation.operation_id}")
+            room = f'client_{operation.client.dni}'
+
+            logger.info(f"📡 [SOCKET.IO] Intentando enviar notificación de operación expirada:")
+            logger.info(f"   - Cliente DNI: {operation.client.dni}")
+            logger.info(f"   - Room: {room}")
+            logger.info(f"   - Operación: {operation.operation_id}")
+            logger.info(f"   - Namespace: /")
+            logger.info(f"   - Evento: operation_expired")
+
+            # Emitir al room del cliente
+            socketio.emit('operation_expired', data, namespace='/', room=room)
+
+            logger.info(f"✅ [SOCKET.IO] Notificación emitida al room '{room}'")
+            logger.info(f"   ⚠️ NOTA: Solo llegará si la app está abierta y conectada")
+
         except Exception as e:
-            logger.error(f"Error enviando notificación de operación expirada: {e}")
+            logger.error(f"❌ [SOCKET.IO] Error enviando notificación de operación expirada: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
