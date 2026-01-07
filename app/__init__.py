@@ -43,7 +43,10 @@ def create_app(config_name=None):
     
     # Configurar Shell context (para flask shell)
     register_shell_context(app)
-    
+
+    # Inicializar scheduler de tareas en segundo plano
+    initialize_scheduler(app)
+
     return app
 
 
@@ -253,6 +256,16 @@ def register_shell_context(app):
             'ComplianceDocument': ComplianceDocument,
             'ComplianceAudit': ComplianceAudit
         }
+
+
+def initialize_scheduler(app):
+    """Inicializar scheduler de tareas en segundo plano"""
+    from app.services.scheduler_service import scheduler_service
+
+    # Inicializar scheduler solo en modo producción o desarrollo (no en tests)
+    if not app.testing:
+        scheduler_service.init_app(app)
+        app.logger.info('🕐 Scheduler de tareas en segundo plano inicializado')
 
 
 # Exportar socketio para que run.py pueda importarlo

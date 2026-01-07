@@ -45,6 +45,9 @@ pytz==2024.1
 gunicorn==21.2.0
 eventlet==0.35.2
 
+# Background Tasks Scheduler
+APScheduler==3.10.4
+
 # Email
 Flask-Mail==0.9.1
 
