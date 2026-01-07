@@ -602,6 +602,46 @@ function viewClient(clientId) {
                 html += '</div>';
 
                 document.getElementById('viewClientBody').innerHTML = html;
+
+                // Cargar últimas 5 operaciones del cliente
+                fetch(`/clients/api/${clientId}/recent-operations`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success && data.operations && data.operations.length > 0) {
+                            let operationsHtml = '<div class="row mt-4">';
+                            operationsHtml += '<div class="col-md-12"><h6 class="border-bottom pb-2 mb-3">Últimas Operaciones</h6></div>';
+                            operationsHtml += '<div class="col-md-12"><div class="table-responsive"><table class="table table-sm table-striped">';
+                            operationsHtml += '<thead><tr><th>ID</th><th>Tipo</th><th>Monto</th><th>Estado</th><th>Fecha</th></tr></thead><tbody>';
+
+                            data.operations.forEach(op => {
+                                const statusBadge = op.status === 'Completada' ? 'success' :
+                                                   op.status === 'Pendiente' ? 'warning' :
+                                                   op.status === 'En proceso' ? 'info' : 'secondary';
+                                const amount = op.type_operation === 'Compra' ? `$${op.amount_usd || 0}` : `S/ ${op.amount_pen || 0}`;
+                                const date = new Date(op.created_at).toLocaleDateString('es-PE', {
+                                    year: 'numeric', month: '2-digit', day: '2-digit',
+                                    hour: '2-digit', minute: '2-digit'
+                                });
+
+                                operationsHtml += `
+                                    <tr>
+                                        <td>${op.id}</td>
+                                        <td><span class="badge bg-${op.type_operation === 'Compra' ? 'primary' : 'success'}">${op.type_operation}</span></td>
+                                        <td>${amount}</td>
+                                        <td><span class="badge bg-${statusBadge}">${op.status}</span></td>
+                                        <td><small>${date}</small></td>
+                                    </tr>
+                                `;
+                            });
+
+                            operationsHtml += '</tbody></table></div></div></div>';
+                            document.getElementById('viewClientBody').innerHTML += operationsHtml;
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error loading recent operations:', error);
+                    });
+
                 const modal = new bootstrap.Modal(document.getElementById('viewClientModal'));
                 modal.show();
             } else {

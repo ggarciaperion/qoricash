@@ -478,6 +478,45 @@ def get_client(client_id):
     return jsonify({'success': True, 'client': client.to_dict(include_stats=True)})
 
 
+@clients_bp.route('/api/<int:client_id>/recent-operations')
+@login_required
+@require_role('Master', 'Trader', 'Operador')
+def get_recent_operations(client_id):
+    """
+    API: Obtener las últimas 5 operaciones de un cliente
+    """
+    client = ClientService.get_client_by_id(client_id)
+
+    if not client:
+        return jsonify({'success': False, 'message': 'Cliente no encontrado'}), 404
+
+    try:
+        # Obtener las últimas 5 operaciones ordenadas por fecha de creación descendente
+        from app.models.operation import Operation
+        recent_operations = Operation.query.filter_by(client_id=client_id)\
+            .order_by(Operation.created_at.desc())\
+            .limit(5)\
+            .all()
+
+        operations_list = []
+        for op in recent_operations:
+            operations_list.append({
+                'id': op.id,
+                'type_operation': op.type_operation,
+                'amount_usd': float(op.amount_usd) if op.amount_usd else 0,
+                'amount_pen': float(op.amount_pen) if op.amount_pen else 0,
+                'exchange_rate': float(op.exchange_rate) if op.exchange_rate else 0,
+                'status': op.status,
+                'created_at': op.created_at.isoformat() if op.created_at else None,
+            })
+
+        return jsonify({'success': True, 'operations': operations_list})
+
+    except Exception as e:
+        logger.error(f"Error al obtener operaciones recientes del cliente {client_id}: {str(e)}")
+        return jsonify({'success': False, 'message': 'Error al cargar operaciones'}), 500
+
+
 @clients_bp.route('/api/active')
 @login_required
 @require_role('Master', 'Trader', 'Operador')
