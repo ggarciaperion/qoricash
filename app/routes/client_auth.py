@@ -419,15 +419,8 @@ def register_client():
         if len(password) < 8:
             return jsonify({'success': False, 'message': 'La contraseña debe tener al menos 8 caracteres'}), 400
 
-        # Validar cuentas bancarias (al menos 1 PEN y 1 USD)
-        if not bank_accounts or len(bank_accounts) < 2:
-            return jsonify({'success': False, 'message': 'Debes agregar al menos 2 cuentas bancarias (1 en Soles y 1 en Dólares)'}), 400
-
-        pen_accounts = [acc for acc in bank_accounts if acc.get('currency') == 'S/']
-        usd_accounts = [acc for acc in bank_accounts if acc.get('currency') == '$']
-
-        if not pen_accounts or not usd_accounts:
-            return jsonify({'success': False, 'message': 'Debes agregar al menos una cuenta en Soles (S/) y una en Dólares ($)'}), 400
+        # Las cuentas bancarias son OPCIONALES en el registro desde app
+        # Se pueden agregar después cuando el cliente haga su primera operación
 
         # Ver si ya existe
         existing_client = Client.query.filter_by(dni=dni).first()
@@ -489,13 +482,14 @@ def register_client():
                 created_at=now_peru()
             )
 
-        # Asignar cuentas bancarias
-        new_client.set_bank_accounts(bank_accounts)
+        # Asignar cuentas bancarias solo si las proporciona
+        if bank_accounts and len(bank_accounts) > 0:
+            new_client.set_bank_accounts(bank_accounts)
 
         db.session.add(new_client)
         db.session.commit()
 
-        logger.info(f"Cliente registrado: {new_client.dni} (ID: {new_client.id}) con {len(bank_accounts)} cuentas bancarias")
+        logger.info(f"Cliente registrado: {new_client.dni} (ID: {new_client.id}) con {len(bank_accounts) if bank_accounts else 0} cuentas bancarias")
 
         # Enviar email de bienvenida
         try:
