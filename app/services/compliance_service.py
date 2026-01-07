@@ -459,6 +459,11 @@ class ComplianceService:
     def validate_client_documents(client):
         """
         Validar que el cliente tenga todos los documentos necesarios
+
+        NOTA: Las cuentas bancarias NO se validan aquí porque son OPCIONALES
+        durante el registro desde app móvil. Se agregan posteriormente durante
+        la primera operación.
+
         Retorna: (is_valid, missing_documents)
         """
         missing_documents = []
@@ -477,10 +482,6 @@ class ComplianceService:
                 missing_documents.append(f'{client.document_type} (Frontal)')
             if not client.dni_back_url:
                 missing_documents.append(f'{client.document_type} (Reverso)')
-
-        # Validar cuentas bancarias
-        if not client.bank_accounts or len(client.bank_accounts) == 0:
-            missing_documents.append('Al menos una cuenta bancaria')
 
         is_valid = len(missing_documents) == 0
         return is_valid, missing_documents
