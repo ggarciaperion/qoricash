@@ -69,7 +69,7 @@
                             <tr class="{% if op.status == 'Pendiente' %}table-warning{% elif op.status == 'En proceso' %}table-info{% endif %}">
                                 <td><strong>{{ op.operation_id }}</strong></td>
                                 <td>
-                                    <strong>{{ op.client.name }}</strong><br>
+                                    <strong>{{ op.client.full_name or '-' }}</strong><br>
                                     <small class="text-muted">DNI: {{ op.client.dni }}</small>
                                 </td>
                                 <td>
@@ -80,11 +80,11 @@
                                     {% endif %}
                                 </td>
                                 <td class="text-end">
-                                    <strong>$ {{ "%.2f"|format(op.amount_usd) }}</strong>
+                                    <strong>$ {{ op.amount_usd|format_currency(2) }}</strong>
                                 </td>
                                 <td class="text-center">{{ "%.4f"|format(op.exchange_rate) }}</td>
                                 <td class="text-end">
-                                    <strong>S/ {{ "%.2f"|format(op.amount_pen) }}</strong>
+                                    <strong>S/ {{ op.amount_pen|format_currency(2) }}</strong>
                                 </td>
                                 <td>
                                     {% if op.status == 'Pendiente' %}

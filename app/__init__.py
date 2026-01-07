@@ -3,10 +3,24 @@ Factory de la aplicación Flask para QoriCash Trading V2
 
 Este archivo crea y configura la aplicación Flask usando el patrón Factory.
 """
+# IMPORTANTE: Monkey patch de eventlet DEBE ir PRIMERO, antes de cualquier otra importación
+import eventlet
+
+# CRITICAL: Desactivar DNS monkey patching para permitir Cloudinary/S3
+# Parchear solo lo necesario para Socket.IO
+eventlet.monkey_patch(
+    os=True,
+    select=True,
+    socket=True,
+    thread=True,
+    time=True
+)
+
 import logging
+import os
 from flask import Flask
 from app.config import get_config
-from app.extensions import db, migrate, login_manager, csrf, socketio, limiter
+from app.extensions import db, migrate, login_manager, csrf, socketio, limiter, mail
 from app.services.scheduler_service import scheduler_service
 
 
@@ -50,23 +64,31 @@ def create_app(config_name=None):
     return app
 
 
-def initialize_extensions(app):
+def initialize_extensions(flask_app):
     """Inicializar extensiones de Flask"""
-    db.init_app(app)
-    migrate.init_app(app, db)
-    login_manager.init_app(app)
-    csrf.init_app(app)
-    socketio.init_app(app)
-    
-    if app.config['RATELIMIT_ENABLED']:
-        limiter.init_app(app)
-    
+    db.init_app(flask_app)
+    migrate.init_app(flask_app, db)
+    login_manager.init_app(flask_app)
+    csrf.init_app(flask_app)
+    socketio.init_app(flask_app)
+    mail.init_app(flask_app)
+
+    if flask_app.config['RATELIMIT_ENABLED']:
+        limiter.init_app(flask_app)
+
     # Configurar user_loader para Flask-Login
     from app.models.user import User
-    
+
     @login_manager.user_loader
     def load_user(user_id):
         return User.query.get(int(user_id))
+
+    # Importar eventos de Socket.IO
+    with flask_app.app_context():
+        import app.socketio_events
+
+    # Registrar filtros personalizados de Jinja2
+    register_template_filters(flask_app)
 
 
 def register_blueprints(app):
@@ -76,15 +98,17 @@ def register_blueprints(app):
     from app.routes.users import users_bp
     from app.routes.clients import clients_bp
     from app.routes.operations import operations_bp
+    from app.routes.position import position_bp
     from app.routes.platform import platform_bp
     from app.routes.legal import legal_bp
 
     app.register_blueprint(auth_bp)
-    app.register_blueprint(dashboard_bp)
+    app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
     app.register_blueprint(users_bp, url_prefix='/users')
     app.register_blueprint(clients_bp, url_prefix='/clients')
     app.register_blueprint(operations_bp, url_prefix='/operations')
-    app.register_blueprint(platform_bp)  # Sin prefijo, las rutas ya tienen /api/client
+    app.register_blueprint(position_bp, url_prefix='/position')
+    app.register_blueprint(platform_bp)  # Sin prefijo, las rutas ya tienen /api/client y /api/platform
     app.register_blueprint(legal_bp)  # Rutas legales: /legal/terms, /legal/privacy
 
 
@@ -103,26 +127,42 @@ def configure_logging(app):
 
 def register_error_handlers(app):
     """Registrar manejadores de errores"""
-    from flask import render_template, jsonify
-    
+    from flask import jsonify
+
     @app.errorhandler(404)
     def not_found_error(error):
-        if request_wants_json():
-            return jsonify({'error': 'Recurso no encontrado'}), 404
-        return render_template('errors/404.html'), 404
-    
+        # Siempre retornar JSON para APIs
+        return jsonify({'success': False, 'error': 'Recurso no encontrado'}), 404
+
     @app.errorhandler(500)
     def internal_error(error):
         db.session.rollback()
-        if request_wants_json():
-            return jsonify({'error': 'Error interno del servidor'}), 500
-        return render_template('errors/500.html'), 500
-    
+        # Siempre retornar JSON para APIs
+        return jsonify({'success': False, 'error': 'Error interno del servidor'}), 500
+
     @app.errorhandler(403)
     def forbidden_error(error):
-        if request_wants_json():
-            return jsonify({'error': 'Acceso denegado'}), 403
-        return render_template('errors/403.html'), 403
+        # Siempre retornar JSON para APIs
+        return jsonify({'success': False, 'error': 'Acceso denegado'}), 403
+
+
+def register_template_filters(flask_app):
+    """Registrar filtros personalizados de Jinja2"""
+
+    def format_currency_filter(value, decimals=2):
+        """
+        Formatea un número como moneda con separador de miles (coma)
+        Ejemplo: 1000000.50 -> 1,000,000.50
+        """
+        try:
+            num = float(value)
+            formatted = f"{num:,.{decimals}f}"
+            return formatted
+        except (ValueError, TypeError):
+            return "0.00"
+
+    # Registrar el filtro en el entorno de Jinja2
+    flask_app.jinja_env.filters['format_currency'] = format_currency_filter
 
 
 def register_shell_context(app):
@@ -138,11 +178,3 @@ def register_shell_context(app):
             'Client': Client,
             'Operation': Operation
         }
-
-
-def request_wants_json():
-    """Verificar si la petición espera JSON"""
-    from flask import request
-    best = request.accept_mimetypes.best_match(['application/json', 'text/html'])
-    return best == 'application/json' and \
-           request.accept_mimetypes[best] > request.accept_mimetypes['text/html']

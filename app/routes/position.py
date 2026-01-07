@@ -1,0 +1,331 @@
+"""
+Rutas de Posición para QoriCash Trading V2
+"""
+from flask import Blueprint, render_template, request, jsonify
+from flask_login import login_required, current_user
+from app.models import BankBalance, Operation
+from app.extensions import db
+from app.utils.decorators import require_role
+from datetime import datetime
+
+position_bp = Blueprint('position', __name__)
+
+
+@position_bp.route('/')
+@position_bp.route('/view')
+@login_required
+@require_role('Master', 'Operador')
+def position_view():
+    """
+    Página de Posición
+
+    Solo accesible para Master y Operador
+    Muestra saldos bancarios y control de operaciones
+    """
+    return render_template('position/view.html', user=current_user)
+
+
+@position_bp.route('/api/bank_balances')
+@login_required
+@require_role('Master', 'Operador')
+def get_bank_balances():
+    """
+    API: Obtener datos de posición del día
+
+    Query params:
+        fecha: Fecha en formato YYYY-MM-DD (opcional, por defecto hoy)
+
+    Returns:
+        JSON con resumen de posición y listas de operaciones
+    """
+    try:
+        from sqlalchemy import func
+        from app.utils.formatters import now_peru
+        from datetime import datetime as dt
+
+        # Obtener fecha del query param o usar fecha actual
+        fecha_param = request.args.get('fecha')
+        if fecha_param:
+            try:
+                fecha_consulta = dt.strptime(fecha_param, '%Y-%m-%d').date()
+            except ValueError:
+                fecha_consulta = now_peru().date()
+        else:
+            fecha_consulta = now_peru().date()
+
+        # Obtener TODAS las operaciones del día (excepto Cancelado)
+        # Importante: created_at está almacenado como hora de Peru (sin timezone)
+        # Por lo tanto, podemos comparar directamente con la fecha solicitada
+        from datetime import datetime as dt, timedelta, time
+        from sqlalchemy.orm import joinedload
+
+        # Crear inicio y fin del día en Peru (horario de Perú)
+        # Usamos fecha_consulta que ya viene de now_peru().date() cuando no hay parámetro
+        inicio_dia = dt.combine(fecha_consulta, time.min)  # 00:00:00
+        fin_dia = dt.combine(fecha_consulta, time.max)      # 23:59:59.999999
+
+        # OPTIMIZACIÓN: Usar joinedload para evitar N+1 queries
+        all_ops_today = Operation.query.options(
+            joinedload(Operation.client)
+        ).filter(
+            Operation.status != 'Cancelado',
+            Operation.created_at >= inicio_dia,
+            Operation.created_at <= fin_dia
+        ).all()
+
+        # Inicializar totales
+        total_compras_usd = 0.0
+        contravalor_compras_pen = 0.0
+        total_ventas_usd = 0.0
+        contravalor_ventas_pen = 0.0
+
+        # Preparar listas de operaciones para las tablas
+        compras_list = []
+        ventas_list = []
+
+        # Contadores para métricas adicionales
+        total_tc_compras = 0.0
+        count_compras = 0
+        total_tc_ventas = 0.0
+        count_ventas = 0
+
+        # Subtotales por estado
+        compras_completadas_usd = 0.0
+        compras_pendientes_usd = 0.0
+        ventas_completadas_usd = 0.0
+        ventas_pendientes_usd = 0.0
+
+        for op in all_ops_today:
+            # Calcular tiempo transcurrido desde creación
+            tiempo_transcurrido = (now_peru() - op.created_at).total_seconds() / 3600  # en horas
+
+            # Determinar si es operación crítica
+            es_critica = False
+            razon_critica = []
+
+            # Crítica por antigüedad (más de 24 horas pendiente)
+            if op.status in ['Pendiente', 'En proceso'] and tiempo_transcurrido > 24:
+                es_critica = True
+                razon_critica.append(f'{int(tiempo_transcurrido)}h pendiente')
+
+            # Crítica por monto alto (más de $10,000)
+            if float(op.amount_usd) >= 10000:
+                es_critica = True
+                razon_critica.append(f'Monto alto: ${float(op.amount_usd):,.2f}')
+
+            # Construir datos de la operación
+            op_data = {
+                'id': op.id,  # ID numérico para el modal
+                'operation_id': op.operation_id,  # Código de operación
+                'client_name': op.client.full_name if op.client and op.client.full_name else
+                              (op.client.razon_social if op.client and op.client.razon_social else 'N/A'),
+                'amount_usd': float(op.amount_usd),
+                'exchange_rate': float(op.exchange_rate),
+                'amount_pen': float(op.amount_pen),
+                'status': op.status,
+                'created_at': op.created_at.isoformat(),
+                'horas_transcurridas': round(tiempo_transcurrido, 1),
+                'es_critica': es_critica,
+                'razon_critica': ', '.join(razon_critica) if razon_critica else None
+            }
+
+            # Clasificar por tipo y sumar totales
+            if op.operation_type == 'Compra':
+                compras_list.append(op_data)
+                total_compras_usd += float(op.amount_usd)
+                contravalor_compras_pen += float(op.amount_pen)
+                total_tc_compras += float(op.exchange_rate)
+                count_compras += 1
+
+                # Subtotales por estado
+                if op.status == 'Completada':
+                    compras_completadas_usd += float(op.amount_usd)
+                else:
+                    compras_pendientes_usd += float(op.amount_usd)
+
+            else:  # Venta
+                ventas_list.append(op_data)
+                total_ventas_usd += float(op.amount_usd)
+                contravalor_ventas_pen += float(op.amount_pen)
+                total_tc_ventas += float(op.exchange_rate)
+                count_ventas += 1
+
+                # Subtotales por estado
+                if op.status == 'Completada':
+                    ventas_completadas_usd += float(op.amount_usd)
+                else:
+                    ventas_pendientes_usd += float(op.amount_usd)
+
+        # Calcular diferencia y utilidad
+        diferencia_usd = total_ventas_usd - total_compras_usd
+        utilidad_pen = contravalor_ventas_pen - contravalor_compras_pen
+
+        # Determinar etiqueta dinámica
+        if diferencia_usd > 0:
+            etiqueta_diferencia = "VENDIDOS EN"
+        elif diferencia_usd < 0:
+            etiqueta_diferencia = "COMPRADOS EN"
+        else:
+            etiqueta_diferencia = "NETEADOS"
+
+        # Calcular TC promedio
+        tc_promedio_compras = round(total_tc_compras / count_compras, 4) if count_compras > 0 else 0
+        tc_promedio_ventas = round(total_tc_ventas / count_ventas, 4) if count_ventas > 0 else 0
+
+        # Determinar si hay desbalance crítico (>$5000)
+        desbalance_critico = abs(diferencia_usd) > 5000
+
+        return jsonify({
+            'success': True,
+            'fecha': fecha_consulta.isoformat(),
+            'posicion': {
+                'total_compras_usd': round(total_compras_usd, 2),
+                'contravalor_compras_pen': round(contravalor_compras_pen, 2),
+                'total_ventas_usd': round(total_ventas_usd, 2),
+                'contravalor_ventas_pen': round(contravalor_ventas_pen, 2),
+                'diferencia_usd': round(diferencia_usd, 2),
+                'etiqueta_diferencia': etiqueta_diferencia,
+                'utilidad_pen': round(utilidad_pen, 2),
+                'desbalance_critico': desbalance_critico,
+                # Métricas adicionales
+                'total_operaciones': count_compras + count_ventas,
+                'cantidad_compras': count_compras,
+                'cantidad_ventas': count_ventas,
+                'tc_promedio_compras': tc_promedio_compras,
+                'tc_promedio_ventas': tc_promedio_ventas,
+                # Subtotales por estado
+                'compras_completadas_usd': round(compras_completadas_usd, 2),
+                'compras_pendientes_usd': round(compras_pendientes_usd, 2),
+                'ventas_completadas_usd': round(ventas_completadas_usd, 2),
+                'ventas_pendientes_usd': round(ventas_pendientes_usd, 2)
+            },
+            'compras': compras_list,
+            'ventas': ventas_list
+        })
+
+    except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        print("=" * 80)
+        print("ERROR EN /api/bank_balances:")
+        print("=" * 80)
+        print(error_trace)
+        print("=" * 80)
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'details': error_trace
+        }), 500
+
+
+@position_bp.route('/api/update_balance', methods=['POST'])
+@login_required
+@require_role('Master', 'Operador')
+def update_balance():
+    """
+    API: Actualizar saldo bancario
+
+    POST JSON:
+        bank_name: Nombre del banco
+        currency: 'USD' o 'PEN'
+        amount: Nuevo saldo
+    """
+    data = request.get_json()
+
+    bank_name = data.get('bank_name')
+    currency = data.get('currency')
+    amount = data.get('amount', 0)
+
+    if not bank_name or not currency:
+        return jsonify({'error': 'Faltan datos requeridos'}), 400
+
+    if currency not in ['USD', 'PEN']:
+        return jsonify({'error': 'Moneda inválida'}), 400
+
+    try:
+        amount = float(amount)
+        if amount < 0:
+            return jsonify({'error': 'El saldo no puede ser negativo'}), 400
+    except (ValueError, TypeError):
+        return jsonify({'error': 'Monto inválido'}), 400
+
+    try:
+        from app.utils.formatters import now_peru
+        balance = BankBalance.get_or_create_balance(bank_name)
+
+        if currency == 'USD':
+            balance.balance_usd = amount
+        else:
+            balance.balance_pen = amount
+
+        balance.updated_by = current_user.id
+        balance.updated_at = now_peru()
+
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': f'Saldo actualizado exitosamente',
+            'balance': balance.to_dict()
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
+@position_bp.route('/api/update_initial_balance', methods=['POST'])
+@login_required
+@require_role('Master', 'Operador')
+def update_initial_balance():
+    """
+    API: Actualizar saldo inicial bancario
+
+    POST JSON:
+        bank_name: Nombre del banco
+        currency: 'USD' o 'PEN'
+        amount: Nuevo saldo inicial
+    """
+    data = request.get_json()
+
+    bank_name = data.get('bank_name')
+    currency = data.get('currency')
+    amount = data.get('amount', 0)
+
+    if not bank_name or not currency:
+        return jsonify({'error': 'Faltan datos requeridos'}), 400
+
+    if currency not in ['USD', 'PEN']:
+        return jsonify({'error': 'Moneda inválida'}), 400
+
+    try:
+        amount = float(amount)
+        if amount < 0:
+            return jsonify({'error': 'El saldo inicial no puede ser negativo'}), 400
+    except (ValueError, TypeError):
+        return jsonify({'error': 'Monto inválido'}), 400
+
+    try:
+        from app.utils.formatters import now_peru
+        balance = BankBalance.get_or_create_balance(bank_name)
+
+        if currency == 'USD':
+            balance.initial_balance_usd = amount
+        else:
+            balance.initial_balance_pen = amount
+
+        balance.updated_by = current_user.id
+        balance.updated_at = now_peru()
+
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': f'Saldo inicial actualizado exitosamente',
+            'balance': balance.to_dict()
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500

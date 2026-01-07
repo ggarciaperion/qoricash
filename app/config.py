@@ -14,9 +14,25 @@ class Config:
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
     if SQLALCHEMY_DATABASE_URI and SQLALCHEMY_DATABASE_URI.startswith('postgres://'):
         SQLALCHEMY_DATABASE_URI = SQLALCHEMY_DATABASE_URI.replace('postgres://', 'postgresql://', 1)
-    
+
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ECHO = False  # Set True for SQL debugging
+
+    # Pool de conexiones - OPTIMIZADO para mejor concurrencia con eventlet
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        'pool_size': 5,                    # AUMENTADO: 5 conexiones base (antes 2)
+        'pool_recycle': 280,               # Reciclar conexiones cada 280 segundos
+        'pool_pre_ping': True,             # Verificar conexión antes de usar
+        'max_overflow': 10,                # AUMENTADO: Hasta 10 conexiones extra (antes 1)
+        'pool_timeout': 30,                # AUMENTADO: Timeout de 30s (antes 10s)
+        'connect_args': {
+            'connect_timeout': 10,         # AUMENTADO: Timeout de 10s (antes 5s)
+            'keepalives': 1,
+            'keepalives_idle': 30,
+            'keepalives_interval': 10,
+            'keepalives_count': 5
+        }
+    }
     
     # Session
     SESSION_COOKIE_SECURE = os.environ.get('SESSION_COOKIE_SECURE', 'False') == 'True'
@@ -49,6 +65,23 @@ class Config:
     # CSRF
     WTF_CSRF_TIME_LIMIT = None  # No expiration
     WTF_CSRF_SSL_STRICT = False  # Allow HTTPS in production
+
+    # Email Configuration (Principal - para nuevas operaciones)
+    MAIL_SERVER = os.environ.get('MAIL_SERVER', 'smtp.gmail.com')
+    MAIL_PORT = int(os.environ.get('MAIL_PORT', 587))
+    MAIL_USE_TLS = os.environ.get('MAIL_USE_TLS', 'True') == 'True'
+    MAIL_USE_SSL = os.environ.get('MAIL_USE_SSL', 'False') == 'True'
+    MAIL_USERNAME = os.environ.get('MAIL_USERNAME')
+    MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD')
+    MAIL_DEFAULT_SENDER = os.environ.get('MAIL_DEFAULT_SENDER') or os.environ.get('MAIL_USERNAME')
+
+    # Email de confirmación (para operaciones completadas)
+    MAIL_CONFIRMATION_USERNAME = os.environ.get('MAIL_CONFIRMATION_USERNAME')
+    MAIL_CONFIRMATION_PASSWORD = os.environ.get('MAIL_CONFIRMATION_PASSWORD')
+    MAIL_CONFIRMATION_SENDER = os.environ.get('MAIL_CONFIRMATION_SENDER')
+
+    MAIL_MAX_EMAILS = None
+    MAIL_ASCII_ATTACHMENTS = False
 
 
 class DevelopmentConfig(Config):

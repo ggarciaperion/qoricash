@@ -9,6 +9,16 @@ from app.extensions import limiter
 auth_bp = Blueprint('auth', __name__)
 
 
+@auth_bp.route('/')
+def index():
+    """
+    Ruta raíz - Redirige al login o dashboard
+    """
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard.index'))
+    return redirect(url_for('auth.login'))
+
+
 @auth_bp.route('/login', methods=['GET', 'POST'])
 @limiter.limit("5 per minute")
 def login():

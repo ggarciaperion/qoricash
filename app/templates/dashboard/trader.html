@@ -38,7 +38,7 @@
                     <div class="d-flex justify-content-between">
                         <div>
                             <h6 class="card-subtitle mb-2">Clientes</h6>
-                            <h2 class="card-title mb-0" id="clientsToday">0</h2>
+                            <h2 class="card-title mb-0 counter" id="clientsToday">0</h2>
                         </div>
                         <div class="stat-icon">
                             <i class="bi bi-people"></i>
@@ -54,7 +54,7 @@
                     <div class="d-flex justify-content-between">
                         <div>
                             <h6 class="card-subtitle mb-2">Operaciones</h6>
-                            <h2 class="card-title mb-0" id="operationsToday">0</h2>
+                            <h2 class="card-title mb-0 counter" id="operationsToday">0</h2>
                         </div>
                         <div class="stat-icon">
                             <i class="bi bi-list-check"></i>
@@ -70,7 +70,7 @@
                     <div class="d-flex justify-content-between">
                         <div>
                             <h6 class="card-subtitle mb-2">Total USD</h6>
-                            <h2 class="card-title mb-0" id="usdToday">$ 0</h2>
+                            <h2 class="card-title mb-0 counter-usd" id="usdToday">$ 0</h2>
                         </div>
                         <div class="stat-icon">
                             <i class="bi bi-currency-dollar"></i>
@@ -86,7 +86,7 @@
                     <div class="d-flex justify-content-between">
                         <div>
                             <h6 class="card-subtitle mb-2">Total PEN</h6>
-                            <h2 class="card-title mb-0" id="penToday">S/ 0</h2>
+                            <h2 class="card-title mb-0 counter-pen" id="penToday">S/ 0</h2>
                         </div>
                         <div class="stat-icon">
                             <i class="bi bi-cash-coin"></i>
@@ -96,7 +96,49 @@
             </div>
         </div>
     </div>
-    
+
+    <!-- Utilidad y Metas -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <h5><i class="bi bi-graph-up-arrow"></i> Utilidad y Metas</h5>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card border-success">
+                <div class="card-body">
+                    <h6 class="card-subtitle mb-2 text-muted">Utilidad del Día</h6>
+                    <h3 class="card-title mb-0 text-success counter-pen" id="profitToday">S/ 0.00</h3>
+                    <small class="text-muted">Ganancia de hoy</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card border-info">
+                <div class="card-body">
+                    <h6 class="card-subtitle mb-2 text-muted">Utilidad Acumulada del Mes</h6>
+                    <h3 class="card-title mb-0 text-info counter-pen" id="profitMonth">S/ 0.00</h3>
+                    <small class="text-muted">Ganancia acumulada</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card border-warning">
+                <div class="card-body">
+                    <h6 class="card-subtitle mb-2 text-muted">Meta Mensual</h6>
+                    <h3 class="card-title mb-0 text-warning counter-pen" id="goalMonth">S/ 0.00</h3>
+                    <div class="progress mt-2" style="height: 20px;">
+                        <div class="progress-bar" role="progressbar" id="goalProgress" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+                    </div>
+                    <small class="text-muted" id="goalText">Sin meta asignada</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Estadísticas del Mes -->
     <div class="row mb-4">
         <div class="col-md-12">
@@ -109,9 +151,9 @@
             <div class="card">
                 <div class="card-body">
                     <h6 class="card-subtitle mb-2 text-muted">Operaciones</h6>
-                    <h3 class="card-title mb-0" id="operationsMonth">0</h3>
+                    <h3 class="card-title mb-0 counter" id="operationsMonth">0</h3>
                     <small class="text-success">
-                        <i class="bi bi-check-circle"></i> <span id="completedMonth">0</span> completadas
+                        <i class="bi bi-check-circle"></i> <span class="counter" id="completedMonth">0</span> completadas
                     </small>
                 </div>
             </div>
@@ -121,7 +163,7 @@
             <div class="card">
                 <div class="card-body">
                     <h6 class="card-subtitle mb-2 text-muted">Total USD</h6>
-                    <h3 class="card-title mb-0 text-info" id="usdMonth">$ 0</h3>
+                    <h3 class="card-title mb-0 text-info counter-usd" id="usdMonth">$ 0</h3>
                     <small class="text-muted">Completadas</small>
                 </div>
             </div>
@@ -131,7 +173,7 @@
             <div class="card">
                 <div class="card-body">
                     <h6 class="card-subtitle mb-2 text-muted">Total PEN</h6>
-                    <h3 class="card-title mb-0 text-warning" id="penMonth">S/ 0</h3>
+                    <h3 class="card-title mb-0 text-warning counter-pen" id="penMonth">S/ 0</h3>
                     <small class="text-muted">Completadas</small>
                 </div>
             </div>
@@ -143,24 +185,24 @@
         <div class="col-md-12">
             <div class="card">
                 <div class="card-header">
-                    <h5 class="mb-0"><i class="bi bi-pie-chart"></i> Estado de Operaciones del Mes</h5>
+                    <h5 class="mb-0"><i class="bi bi-pie-chart"></i> Estado de Operaciones del Día</h5>
                 </div>
                 <div class="card-body">
                     <div class="row text-center">
                         <div class="col-3">
-                            <h4 class="text-warning" id="pendingCount">0</h4>
+                            <h4 class="text-warning counter" id="pendingCount">0</h4>
                             <small class="text-muted">Pendientes</small>
                         </div>
                         <div class="col-3">
-                            <h4 class="text-info" id="inProcessCount">0</h4>
+                            <h4 class="text-info counter" id="inProcessCount">0</h4>
                             <small class="text-muted">En Proceso</small>
                         </div>
                         <div class="col-3">
-                            <h4 class="text-success" id="completedCount">0</h4>
+                            <h4 class="text-success counter" id="completedCount">0</h4>
                             <small class="text-muted">Completadas</small>
                         </div>
                         <div class="col-3">
-                            <h4 class="text-danger" id="canceledCount">0</h4>
+                            <h4 class="text-danger counter" id="canceledCount">0</h4>
                             <small class="text-muted">Canceladas</small>
                         </div>
                     </div>
@@ -210,16 +252,65 @@
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
 <script>
+// ID del trader actual
+const CURRENT_TRADER_ID = {{ user.id }};
+
 // Cargar datos al iniciar
 $(document).ready(function() {
     loadDashboardData();
-    
-    // Actualizar cada 30 segundos
-    setInterval(loadDashboardData, 30000);
-    
+
+    // Actualizar cada 60 segundos
+    setInterval(loadDashboardData, 60000);
+
     // Conectar a SocketIO para actualizaciones en tiempo real
     connectSocketIO();
 });
+
+function loadDashboardData() {
+    // Cargar estadísticas solo del trader actual
+    ajaxRequest(`/dashboard/api/dashboard/all?trader_id=${CURRENT_TRADER_ID}`, 'GET', null, function(response) {
+        // Estadísticas de HOY (del trader) (con animación de contador)
+        const today = response.today || {};
+        updateCounterValue('#clientsToday', today.unique_clients || 0);
+        updateCounterValue('#operationsToday', today.operations_count || 0);
+        updateCounterValue('#usdToday', today.total_usd || 0, '$', 2);
+        updateCounterValue('#penToday', today.total_pen || 0, 'S/', 2);
+
+        // Utilidad del Día (manual ingresada por Master) (con animación de contador)
+        updateCounterValue('#profitToday', today.profit_today || 0, 'S/', 2);
+
+        // Estadísticas del MES (del trader) (con animación de contador)
+        const month = response.month || {};
+        updateCounterValue('#operationsMonth', month.operations_count || 0);
+        updateCounterValue('#completedMonth', month.completed_count || 0);
+        updateCounterValue('#usdMonth', month.total_usd || 0, '$', 2);
+        updateCounterValue('#penMonth', month.total_pen || 0, 'S/', 2);
+
+        // Utilidad Acumulada del Mes (suma de utilidades diarias manuales) (con animación de contador)
+        updateCounterValue('#profitMonth', month.profit_month || 0, 'S/', 2);
+
+        // Meta Mensual y Progreso
+        const goalAmount = month.goal_amount || 0;
+        const profitMonth = month.profit_month || 0;
+        const percentage = goalAmount > 0 ? Math.min((profitMonth / goalAmount) * 100, 100) : 0;
+
+        updateCounterValue('#goalMonth', goalAmount, 'S/', 2);
+        $('#goalProgress').css('width', percentage + '%').attr('aria-valuenow', percentage.toFixed(0)).text(percentage.toFixed(0) + '%');
+
+        if (goalAmount > 0) {
+            const remaining = Math.max(goalAmount - profitMonth, 0);
+            $('#goalText').text('Faltan S/ ' + remaining.toFixed(2) + ' para alcanzar la meta');
+        } else {
+            $('#goalText').text('Sin meta asignada');
+        }
+
+        // Estado de operaciones del día (del trader) (con animación de contador)
+        updateCounterValue('#pendingCount', today.pending_count || 0);
+        updateCounterValue('#inProcessCount', today.in_process_count || 0);
+        updateCounterValue('#completedCount', today.completed_count || 0);
+        updateCounterValue('#canceledCount', today.canceled_count || 0);
+    });
+}
 
 function refreshDashboard() {
     loadDashboardData();

@@ -5,6 +5,7 @@ from datetime import datetime
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 from app.extensions import db
+from app.utils.formatters import now_peru
 
 
 class User(UserMixin, db.Model):
@@ -35,13 +36,28 @@ class User(UserMixin, db.Model):
     )  # Activo, Inactivo
     
     # Timestamps
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=now_peru, nullable=False)
+    updated_at = db.Column(db.DateTime, default=now_peru, onupdate=now_peru)
     last_login = db.Column(db.DateTime)
     last_logout = db.Column(db.DateTime)
     
     # Relaciones
-    operations = db.relationship('Operation', backref='user', lazy='dynamic')
+    # Operaciones creadas por este usuario
+    operations = db.relationship(
+        'Operation',
+        foreign_keys='Operation.user_id',
+        backref='user',
+        lazy='dynamic'
+    )
+
+    # Operaciones asignadas a este operador
+    assigned_operations = db.relationship(
+        'Operation',
+        foreign_keys='Operation.assigned_operator_id',
+        backref='assigned_operator',
+        lazy='dynamic'
+    )
+
     audit_logs = db.relationship('AuditLog', backref='user', lazy='dynamic')
     
     # Constraints
@@ -120,6 +136,26 @@ class User(UserMixin, db.Model):
     def is_active_user(self):
         """Verificar si está activo"""
         return self.status == 'Activo'
-    
+
+    def is_online(self):
+        """
+        Verificar si el usuario está conectado al sistema
+
+        Un usuario se considera conectado si:
+        - Tiene last_login registrado
+        - No tiene last_logout o last_logout es anterior a last_login
+
+        Returns:
+            bool: True si está conectado
+        """
+        if not self.last_login:
+            return False
+
+        # Si no hay logout o el login es más reciente que el logout, está conectado
+        if not self.last_logout:
+            return True
+
+        return self.last_login > self.last_logout
+
     def __repr__(self):
         return f'<User {self.username} ({self.role})>'

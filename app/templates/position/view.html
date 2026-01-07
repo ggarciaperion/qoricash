@@ -1,0 +1,758 @@
+{% extends "base.html" %}
+
+{% block title %}Posición - QoriCash Trading{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <h2><i class="bi bi-graph-up-arrow"></i> Posición</h2>
+            <p class="text-muted" id="subtituloFecha">Resumen de operaciones del día</p>
+        </div>
+        <div class="col-md-8 text-end">
+            <!-- Selector de fecha -->
+            <div class="btn-group me-2" role="group">
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="setFechaHoy()">Hoy</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="setFechaAyer()">Ayer</button>
+                <input type="date" id="fechaSelector" class="form-control form-control-sm d-inline-block" style="width: 160px;">
+            </div>
+
+            <!-- Botón exportar -->
+            <button class="btn btn-sm btn-success me-2" onclick="exportarExcel()">
+                <i class="bi bi-file-earmark-excel"></i> Exportar
+            </button>
+
+            <!-- Botón actualizar -->
+            <button class="btn btn-sm btn-outline-primary" onclick="refreshPosition()">
+                <i class="bi bi-arrow-clockwise"></i> Actualizar
+            </button>
+        </div>
+    </div>
+
+    <!-- Alerta de Desbalance Crítico -->
+    <div id="alertaDesbalance" class="alert alert-danger alert-dismissible fade show d-none" role="alert">
+        <i class="bi bi-exclamation-triangle-fill"></i>
+        <strong>¡ALERTA DE DESBALANCE!</strong>
+        <span id="mensajeDesbalance"></span>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+
+    <!-- Sección Posición -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-calculator"></i> Resumen del Día</h5>
+                    <div>
+                        <span class="badge bg-info me-2" id="badgeTotalOps">0 operaciones</span>
+                        <span class="badge bg-secondary" id="badgeTC">TC Prom: 0.0000</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="posicionContainer">
+                        <!-- Se llenará con JavaScript -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tablas de Operaciones -->
+    <div class="row">
+        <!-- Tabla Compras -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div>
+                            <h5 class="mb-0"><i class="bi bi-arrow-down-circle"></i> Compras del Día</h5>
+                            <small id="subtotalCompras">Completadas: $0.00 | Pendientes: $0.00</small>
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <input type="text" class="form-control form-control-sm" id="busquedaCompras" placeholder="Buscar...">
+                        <select class="form-select form-select-sm" id="filtroCompras" style="width: auto;">
+                            <option value="todas">Todas</option>
+                            <option value="Completada">Completadas</option>
+                            <option value="Pendiente">Pendientes</option>
+                            <option value="En proceso">En proceso</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover table-sm mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>ID OP</th>
+                                    <th>Cliente</th>
+                                    <th class="text-end">USD</th>
+                                    <th class="text-center">TC</th>
+                                    <th class="text-end">PEN</th>
+                                    <th class="text-center">Estado</th>
+                                    <th class="text-center">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="comprasTableBody">
+                                <!-- Se llenará con JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabla Ventas -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div>
+                            <h5 class="mb-0"><i class="bi bi-arrow-up-circle"></i> Ventas del Día</h5>
+                            <small id="subtotalVentas">Completadas: $0.00 | Pendientes: $0.00</small>
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <input type="text" class="form-control form-control-sm" id="busquedaVentas" placeholder="Buscar...">
+                        <select class="form-select form-select-sm" id="filtroVentas" style="width: auto;">
+                            <option value="todas">Todas</option>
+                            <option value="Completada">Completadas</option>
+                            <option value="Pendiente">Pendientes</option>
+                            <option value="En proceso">En proceso</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover table-sm mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>ID OP</th>
+                                    <th>Cliente</th>
+                                    <th class="text-end">USD</th>
+                                    <th class="text-center">TC</th>
+                                    <th class="text-end">PEN</th>
+                                    <th class="text-center">Estado</th>
+                                    <th class="text-center">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ventasTableBody">
+                                <!-- Se llenará con JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Ver Detalles de Operación -->
+<div class="modal fade" id="viewOperationModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-eye"></i> Detalles de Operación</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="operationDetails">
+                <!-- Se llenará con JavaScript -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Función para formatear números con comas
+function formatNumber(num) {
+    return num.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
+// Variables globales para almacenar datos
+let allCompras = [];
+let allVentas = [];
+let currentDate = null;
+
+// Cargar datos al iniciar
+$(document).ready(function() {
+    // Inicializar fecha de hoy
+    setFechaHoy();
+
+    // Filtros de estado
+    $('#filtroCompras').on('change', function() {
+        filterCompras($(this).val());
+    });
+
+    $('#filtroVentas').on('change', function() {
+        filterVentas($(this).val());
+    });
+
+    // Búsquedas individuales
+    $('#busquedaCompras').on('keyup', function() {
+        filterCompras($('#filtroCompras').val());
+    });
+
+    $('#busquedaVentas').on('keyup', function() {
+        filterVentas($('#filtroVentas').val());
+    });
+
+    // Cambio de fecha
+    $('#fechaSelector').on('change', function() {
+        loadPosition($(this).val());
+    });
+
+    // Conectar a SocketIO para actualizaciones en tiempo real
+    connectSocketIO();
+
+    // Escuchar evento de actualización de posición
+    if (typeof socket !== 'undefined') {
+        socket.on('position_update', function(data) {
+            console.log('Actualización de posición recibida');
+            // Solo actualizar si estamos viendo el día de hoy (Peru timezone)
+            const hoy = getPeruDate();
+            const fechaActual = $('#fechaSelector').val();
+            if (fechaActual === hoy) {
+                loadPosition(fechaActual);
+            }
+        });
+
+        // También actualizar con otros eventos de operaciones
+        socket.on('nueva_operacion', function(data) {
+            console.log('Nueva operación creada, actualizando posición');
+            const hoy = getPeruDate();
+            const fechaActual = $('#fechaSelector').val();
+            if (fechaActual === hoy) {
+                loadPosition(fechaActual);
+            }
+        });
+
+        socket.on('operacion_actualizada', function(data) {
+            console.log('Operación actualizada, actualizando posición');
+            const hoy = getPeruDate();
+            const fechaActual = $('#fechaSelector').val();
+            if (fechaActual === hoy) {
+                loadPosition(fechaActual);
+            }
+        });
+
+        socket.on('operacion_completada', function(data) {
+            console.log('Operación completada, actualizando posición');
+            const hoy = getPeruDate();
+            const fechaActual = $('#fechaSelector').val();
+            if (fechaActual === hoy) {
+                loadPosition(fechaActual);
+            }
+        });
+
+        socket.on('operacion_cancelada', function(data) {
+            console.log('Operación cancelada, actualizando posición');
+            const hoy = getPeruDate();
+            const fechaActual = $('#fechaSelector').val();
+            if (fechaActual === hoy) {
+                loadPosition(fechaActual);
+            }
+        });
+    }
+});
+
+function setFechaHoy() {
+    // Obtener fecha actual en Peru (UTC-5)
+    const hoy = getPeruDate();
+    $('#fechaSelector').val(hoy);
+    loadPosition(hoy);
+}
+
+function setFechaAyer() {
+    // Obtener fecha de ayer en Peru (UTC-5)
+    const ayer = getPeruDate(1); // Restar 1 día
+    $('#fechaSelector').val(ayer);
+    loadPosition(ayer);
+}
+
+// Función auxiliar para obtener fecha en Peru (UTC-5)
+function getPeruDate(daysToSubtract = 0) {
+    // Obtener fecha/hora actual del sistema
+    const now = new Date();
+
+    // Convertir a Peru timezone usando toLocaleString
+    // Esto maneja automáticamente DST y conversiones de timezone
+    const peruTimeStr = now.toLocaleString('en-US', {
+        timeZone: 'America/Lima',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+    });
+
+    // Parse la fecha (formato: MM/DD/YYYY)
+    const [month, day, year] = peruTimeStr.split('/');
+    let peruDate = new Date(year, month - 1, day);
+
+    // Restar días si es necesario
+    if (daysToSubtract > 0) {
+        peruDate.setDate(peruDate.getDate() - daysToSubtract);
+    }
+
+    // Formatear como YYYY-MM-DD
+    const finalYear = peruDate.getFullYear();
+    const finalMonth = String(peruDate.getMonth() + 1).padStart(2, '0');
+    const finalDay = String(peruDate.getDate()).padStart(2, '0');
+    return `${finalYear}-${finalMonth}-${finalDay}`;
+}
+
+function refreshPosition() {
+    const fecha = $('#fechaSelector').val();
+    loadPosition(fecha);
+    showAlert('Posición actualizada', 'success');
+}
+
+function loadPosition(fecha = null) {
+    const url = fecha ? `/position/api/bank_balances?fecha=${fecha}` : '/position/api/bank_balances';
+
+    ajaxRequest(url, 'GET', null, function(response) {
+        if (response.success) {
+            // Almacenar datos globalmente
+            allCompras = response.compras;
+            allVentas = response.ventas;
+            currentDate = response.fecha;
+
+            // Actualizar subtítulo con fecha
+            actualizarSubtituloFecha(response.fecha);
+
+            // Renderizar todo
+            renderPosicion(response.posicion);
+            renderAlertaDesbalance(response.posicion);
+            renderMetricas(response.posicion);
+            renderSubtotales(response.posicion);
+            renderComprasTable(response.compras);
+            renderVentasTable(response.ventas);
+
+            // Limpiar búsquedas individuales
+            $('#busquedaCompras').val('');
+            $('#busquedaVentas').val('');
+        }
+    });
+}
+
+function actualizarSubtituloFecha(fecha) {
+    const hoy = getPeruDate(); // Usar fecha de Peru en lugar de UTC
+    const fechaObj = new Date(fecha + 'T00:00:00');
+    const opciones = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+    const fechaFormateada = fechaObj.toLocaleDateString('es-PE', opciones);
+
+    if (fecha === hoy) {
+        $('#subtituloFecha').html(`Resumen de operaciones del día - <strong>Hoy</strong> (${fechaFormateada})`);
+    } else {
+        $('#subtituloFecha').html(`Resumen de operaciones del día - ${fechaFormateada}`);
+    }
+}
+
+function exportarExcel() {
+    const fecha = $('#fechaSelector').val() || getPeruDate();
+
+    // Crear contenido CSV
+    let csv = 'REPORTE DE POSICIÓN - ' + fecha + '\n\n';
+
+    // Resumen
+    csv += 'RESUMEN\n';
+    csv += 'Tipo,Total USD,Contravalor PEN\n';
+
+    let totalComprasUSD = 0;
+    let totalComprasPEN = 0;
+    let totalVentasUSD = 0;
+    let totalVentasPEN = 0;
+
+    allCompras.forEach(op => {
+        totalComprasUSD += op.amount_usd;
+        totalComprasPEN += op.amount_pen;
+    });
+
+    allVentas.forEach(op => {
+        totalVentasUSD += op.amount_usd;
+        totalVentasPEN += op.amount_pen;
+    });
+
+    csv += `Compras,${totalComprasUSD.toFixed(2)},${totalComprasPEN.toFixed(2)}\n`;
+    csv += `Ventas,${totalVentasUSD.toFixed(2)},${totalVentasPEN.toFixed(2)}\n`;
+    csv += `Diferencia,${(totalVentasUSD - totalComprasUSD).toFixed(2)},${(totalVentasPEN - totalComprasPEN).toFixed(2)}\n\n`;
+
+    // Compras
+    csv += 'COMPRAS\n';
+    csv += 'ID Operación,Cliente,USD,TC,PEN,Estado,Crítica\n';
+    allCompras.forEach(op => {
+        csv += `${op.operation_id},${op.client_name},${op.amount_usd.toFixed(2)},${op.exchange_rate.toFixed(4)},${op.amount_pen.toFixed(2)},${op.status},${op.es_critica ? 'SÍ' : 'NO'}\n`;
+    });
+
+    csv += '\n';
+
+    // Ventas
+    csv += 'VENTAS\n';
+    csv += 'ID Operación,Cliente,USD,TC,PEN,Estado,Crítica\n';
+    allVentas.forEach(op => {
+        csv += `${op.operation_id},${op.client_name},${op.amount_usd.toFixed(2)},${op.exchange_rate.toFixed(4)},${op.amount_pen.toFixed(2)},${op.status},${op.es_critica ? 'SÍ' : 'NO'}\n`;
+    });
+
+    // Descargar archivo
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `Posicion_${fecha}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    showAlert('Archivo exportado correctamente', 'success');
+}
+
+function renderAlertaDesbalance(posicion) {
+    const alerta = $('#alertaDesbalance');
+    const mensaje = $('#mensajeDesbalance');
+
+    if (posicion.desbalance_critico) {
+        const diferencia = Math.abs(posicion.diferencia_usd);
+        mensaje.text(` La posición tiene un desbalance de $${formatNumber(diferencia)}. Se requiere ${posicion.etiqueta_diferencia === 'VENDIDOS EN' ? 'comprar' : 'vender'} más para balancear.`);
+        alerta.removeClass('d-none');
+    } else {
+        alerta.addClass('d-none');
+    }
+}
+
+function renderMetricas(posicion) {
+    // Badge de total de operaciones
+    $('#badgeTotalOps').text(`${posicion.total_operaciones} operaciones (${posicion.cantidad_compras}C / ${posicion.cantidad_ventas}V)`);
+
+    // Badge de TC Promedio
+    const tcCompra = posicion.tc_promedio_compras;
+    const tcVenta = posicion.tc_promedio_ventas;
+    $('#badgeTC').text(`TC C: ${tcCompra.toFixed(4)} | V: ${tcVenta.toFixed(4)}`);
+}
+
+function renderSubtotales(posicion) {
+    // Subtotales Compras
+    $('#subtotalCompras').html(`Completadas: <strong>$${formatNumber(posicion.compras_completadas_usd)}</strong> | Pendientes: <strong>$${formatNumber(posicion.compras_pendientes_usd)}</strong>`);
+
+    // Subtotales Ventas
+    $('#subtotalVentas').html(`Completadas: <strong>$${formatNumber(posicion.ventas_completadas_usd)}</strong> | Pendientes: <strong>$${formatNumber(posicion.ventas_pendientes_usd)}</strong>`);
+}
+
+function filterCompras(filtro) {
+    let filtered = allCompras;
+
+    // Aplicar filtro de estado
+    if (filtro !== 'todas') {
+        filtered = filtered.filter(op => op.status === filtro);
+    }
+
+    // Aplicar búsqueda si existe
+    const busqueda = $('#busquedaCompras').val();
+    if (busqueda && busqueda.trim() !== '') {
+        const terminoLower = busqueda.toLowerCase();
+        filtered = filtered.filter(op => {
+            return op.operation_id.toLowerCase().includes(terminoLower) ||
+                   op.client_name.toLowerCase().includes(terminoLower);
+        });
+    }
+
+    renderComprasTable(filtered);
+}
+
+function filterVentas(filtro) {
+    let filtered = allVentas;
+
+    // Aplicar filtro de estado
+    if (filtro !== 'todas') {
+        filtered = filtered.filter(op => op.status === filtro);
+    }
+
+    // Aplicar búsqueda si existe
+    const busqueda = $('#busquedaVentas').val();
+    if (busqueda && busqueda.trim() !== '') {
+        const terminoLower = busqueda.toLowerCase();
+        filtered = filtered.filter(op => {
+            return op.operation_id.toLowerCase().includes(terminoLower) ||
+                   op.client_name.toLowerCase().includes(terminoLower);
+        });
+    }
+
+    renderVentasTable(filtered);
+}
+
+function getStatusBadge(status) {
+    const badges = {
+        'Completada': '<span class="badge bg-success">Completada</span>',
+        'Pendiente': '<span class="badge bg-warning text-dark">Pendiente</span>',
+        'En proceso': '<span class="badge bg-info">En proceso</span>',
+        'Cancelado': '<span class="badge bg-danger">Cancelado</span>'
+    };
+    return badges[status] || '<span class="badge bg-secondary">' + status + '</span>';
+}
+
+function renderComprasTable(compras) {
+    const tbody = $('#comprasTableBody');
+    tbody.empty();
+
+    if (compras.length === 0) {
+        tbody.html('<tr><td colspan="7" class="text-center text-muted py-3">No hay compras para mostrar</td></tr>');
+        return;
+    }
+
+    // Ordenar: críticas primero, luego por monto descendente
+    compras.sort((a, b) => {
+        if (a.es_critica && !b.es_critica) return -1;
+        if (!a.es_critica && b.es_critica) return 1;
+        return b.amount_usd - a.amount_usd;
+    });
+
+    compras.forEach(function(op) {
+        // Determinar estilo de fila si es crítica
+        const rowClass = op.es_critica ? 'table-warning' : '';
+
+        // Icono de criticidad
+        const iconoCritico = op.es_critica ?
+            `<i class="bi bi-exclamation-triangle-fill text-danger" title="${op.razon_critica}"></i> ` : '';
+
+        const row = `
+            <tr class="${rowClass}">
+                <td class="fw-bold">${iconoCritico}${op.operation_id}</td>
+                <td>${op.client_name}</td>
+                <td class="text-end">$ ${formatNumber(op.amount_usd)}</td>
+                <td class="text-center">${op.exchange_rate.toFixed(4)}</td>
+                <td class="text-end">S/ ${formatNumber(op.amount_pen)}</td>
+                <td class="text-center">${getStatusBadge(op.status)}</td>
+                <td class="text-center">
+                    <button class="btn btn-sm btn-outline-primary" onclick="verDetallesOperacion(${op.id})" title="Ver detalles">
+                        <i class="bi bi-eye"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+        tbody.append(row);
+    });
+}
+
+function renderVentasTable(ventas) {
+    const tbody = $('#ventasTableBody');
+    tbody.empty();
+
+    if (ventas.length === 0) {
+        tbody.html('<tr><td colspan="7" class="text-center text-muted py-3">No hay ventas para mostrar</td></tr>');
+        return;
+    }
+
+    // Ordenar: críticas primero, luego por monto descendente
+    ventas.sort((a, b) => {
+        if (a.es_critica && !b.es_critica) return -1;
+        if (!a.es_critica && b.es_critica) return 1;
+        return b.amount_usd - a.amount_usd;
+    });
+
+    ventas.forEach(function(op) {
+        // Determinar estilo de fila si es crítica
+        const rowClass = op.es_critica ? 'table-warning' : '';
+
+        // Icono de criticidad
+        const iconoCritico = op.es_critica ?
+            `<i class="bi bi-exclamation-triangle-fill text-danger" title="${op.razon_critica}"></i> ` : '';
+
+        const row = `
+            <tr class="${rowClass}">
+                <td class="fw-bold">${iconoCritico}${op.operation_id}</td>
+                <td>${op.client_name}</td>
+                <td class="text-end">$ ${formatNumber(op.amount_usd)}</td>
+                <td class="text-center">${op.exchange_rate.toFixed(4)}</td>
+                <td class="text-end">S/ ${formatNumber(op.amount_pen)}</td>
+                <td class="text-center">${getStatusBadge(op.status)}</td>
+                <td class="text-center">
+                    <button class="btn btn-sm btn-outline-primary" onclick="verDetallesOperacion(${op.id})" title="Ver detalles">
+                        <i class="bi bi-eye"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+        tbody.append(row);
+    });
+}
+
+function renderPosicion(posicion) {
+    const container = $('#posicionContainer');
+    container.empty();
+
+    // Determinar el color de la diferencia según la etiqueta
+    let colorDiferencia = 'secondary';
+    if (posicion.etiqueta_diferencia === 'VENDIDOS EN') {
+        colorDiferencia = 'success';
+    } else if (posicion.etiqueta_diferencia === 'COMPRADOS EN') {
+        colorDiferencia = 'danger';
+    }
+
+    // Determinar el color de la utilidad
+    const colorUtilidad = posicion.utilidad_pen >= 0 ? 'success' : 'danger';
+
+    const html = `
+        <div class="row g-3">
+            <!-- Columna 1: Compras -->
+            <div class="col-md-4">
+                <div class="card shadow-sm h-100" style="border-left: 4px solid #0d6efd;">
+                    <div class="card-body text-center">
+                        <h6 class="text-muted mb-2" style="font-size: 0.85rem;">TOTAL COMPRAS</h6>
+                        <h3 class="fw-bold text-primary mb-2">$ ${formatNumber(posicion.total_compras_usd)}</h3>
+                        <hr class="my-2">
+                        <small class="text-muted d-block mb-1" style="font-size: 0.75rem;">Contravalor PEN</small>
+                        <h5 class="fw-bold text-secondary">S/ ${formatNumber(posicion.contravalor_compras_pen)}</h5>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Columna 2: Ventas -->
+            <div class="col-md-4">
+                <div class="card shadow-sm h-100" style="border-left: 4px solid #198754;">
+                    <div class="card-body text-center">
+                        <h6 class="text-muted mb-2" style="font-size: 0.85rem;">TOTAL VENTAS</h6>
+                        <h3 class="fw-bold text-success mb-2">$ ${formatNumber(posicion.total_ventas_usd)}</h3>
+                        <hr class="my-2">
+                        <small class="text-muted d-block mb-1" style="font-size: 0.75rem;">Contravalor PEN</small>
+                        <h5 class="fw-bold text-secondary">S/ ${formatNumber(posicion.contravalor_ventas_pen)}</h5>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Columna 3: Diferencia (Vendidos/Comprados/Neteados) -->
+            <div class="col-md-4">
+                <div class="card shadow-sm h-100" style="border-left: 4px solid var(--bs-${colorDiferencia});">
+                    <div class="card-body text-center">
+                        <h6 class="text-muted mb-2" style="font-size: 0.85rem;">${posicion.etiqueta_diferencia}</h6>
+                        <h3 class="fw-bold text-${colorDiferencia} mb-2">$ ${formatNumber(Math.abs(posicion.diferencia_usd))}</h3>
+                        <hr class="my-2">
+                        <small class="text-muted d-block mb-1" style="font-size: 0.75rem;">UTILIDAD</small>
+                        <h5 class="fw-bold text-${colorUtilidad}">S/ ${formatNumber(posicion.utilidad_pen)}</h5>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    container.html(html);
+}
+
+// === FUNCIÓN PARA VER DETALLES DE OPERACIÓN ===
+function verDetallesOperacion(operationId) {
+    ajaxRequest(`/operations/api/${operationId}`, 'GET', null, function(response) {
+        const op = response.operation;
+        let html = buildViewHTML(op);
+        $('#operationDetails').html(html);
+
+        // Mostrar modal usando Bootstrap 5
+        const modal = new bootstrap.Modal(document.getElementById('viewOperationModal'));
+        modal.show();
+    });
+}
+
+function buildViewHTML(op) {
+    const statusBadge = getStatusBadge(op.status);
+    const typeBadge = op.operation_type === 'Compra'
+        ? '<span class="badge bg-success">Compra USD</span>'
+        : '<span class="badge bg-primary">Venta USD</span>';
+
+    // Función auxiliar para obtener info completa de cuenta
+    const bankAccounts = op.client_bank_accounts || [];
+    function getAccountInfo(accountNumber) {
+        if (!accountNumber) return '<p class="text-muted mb-0">No asignada</p>';
+        const account = bankAccounts.find(acc => acc.account_number === accountNumber);
+        if (account) {
+            return `
+                <p class="mb-1"><strong>Banco:</strong> ${account.bank_name}</p>
+                <p class="mb-1"><strong>Nro. Cuenta:</strong> ${account.account_number}</p>
+                <p class="mb-1"><strong>Tipo:</strong> ${account.account_type}</p>
+                <p class="mb-1"><strong>Moneda:</strong> ${account.currency}</p>
+                <p class="mb-0"><strong>Origen:</strong> ${account.origen || '-'}</p>`;
+        }
+        return `<p class="mb-0"><strong>Nro. Cuenta:</strong> ${accountNumber}</p>`;
+    }
+
+    let html = `
+        <div class="row mb-3">
+            <div class="col-md-3"><strong>ID:</strong> ${op.operation_id}</div>
+            <div class="col-md-3"><strong>Cliente:</strong> ${op.client_name || '-'}</div>
+            <div class="col-md-3"><strong>Tipo:</strong> ${typeBadge}</div>
+            <div class="col-md-3"><strong>Estado:</strong> ${statusBadge}</div>
+        </div>
+        <div class="row mb-3">
+            <div class="col-md-3"><strong>Monto USD:</strong> $ ${parseFloat(op.amount_usd).toFixed(2)}</div>
+            <div class="col-md-3"><strong>T.C.:</strong> ${parseFloat(op.exchange_rate).toFixed(4)}</div>
+            <div class="col-md-3"><strong>Monto PEN:</strong> S/ ${parseFloat(op.amount_pen).toFixed(2)}</div>
+            <div class="col-md-3"><strong>Creado por:</strong> ${op.user_name || '-'}</div>
+        </div>
+        <div class="row mb-3">
+            <div class="col-md-4"><strong>Fecha Creación:</strong> ${formatDateTime(op.created_at)}</div>
+            <div class="col-md-4"><strong>Enviada a Procesar:</strong> ${op.updated_at ? formatDateTime(op.updated_at) : '-'}</div>
+            <div class="col-md-4"><strong>Fecha Completada:</strong> ${op.completed_at ? formatDateTime(op.completed_at) : '-'}</div>
+        </div>`;
+
+    // Cuentas Bancarias
+    html += `<hr><h6><i class="bi bi-bank text-primary"></i> Cuentas Bancarias</h6>`;
+
+    // Cuenta de Cargo/Origen
+    html += `<div class="row mb-3">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-success text-white py-2">
+                    <strong><i class="bi bi-arrow-down-circle"></i> Cuenta de Cargo / Origen</strong>
+                </div>
+                <div class="card-body">`;
+
+    if (op.source_account) {
+        const accountCargo = bankAccounts.find(acc => acc.account_number === op.source_account);
+        html += getAccountInfo(op.source_account);
+    } else {
+        html += `<p class="text-muted mb-0">No asignada</p>`;
+    }
+
+    html += `</div></div></div>`;
+
+    // Cuenta de Destino
+    html += `<div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-warning text-dark py-2">
+                    <strong><i class="bi bi-arrow-up-circle"></i> Cuenta de Destino</strong>
+                </div>
+                <div class="card-body">`;
+
+    if (op.destination_account) {
+        html += getAccountInfo(op.destination_account);
+    } else {
+        html += `<p class="text-muted mb-0">No asignada</p>`;
+    }
+
+    html += `</div></div></div></div>`;
+
+    // Notas
+    if (op.notes) {
+        html += `<hr><h6>Notas</h6><p>${op.notes}</p>`;
+    }
+
+    return html;
+}
+
+function formatDateTime(dateTimeStr) {
+    if (!dateTimeStr) return '-';
+    const date = new Date(dateTimeStr);
+    const opciones = {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+    };
+    return date.toLocaleString('es-PE', opciones);
+}
+</script>
+{% endblock %}

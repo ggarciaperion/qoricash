@@ -21,12 +21,15 @@ email-validator==2.1.0
 Flask-Limiter==3.5.0
 python-dotenv==1.0.0
 
+# Mail
+Flask-Mail==0.9.1
+
 # WebSocket (Real-time)
 Flask-SocketIO==5.3.5
 python-socketio==5.10.0
 simple-websocket==1.0.0
 
-# File Upload
+# File Upload (Amazon S3)
 cloudinary==1.41.0
 
 # Data Validation
@@ -44,6 +47,7 @@ APScheduler==3.10.4
 
 # Production Server
 gunicorn==21.2.0
+eventlet==0.33.3
 
 # Testing (opcional)
 pytest==7.4.3
