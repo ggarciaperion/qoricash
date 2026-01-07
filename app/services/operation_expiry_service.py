@@ -10,8 +10,7 @@ from app.utils.formatters import now_peru
 
 logger = logging.getLogger(__name__)
 
-# TEMPORAL: Reducido a 1 minuto para pruebas (normalmente 15 minutos)
-OPERATION_TIMEOUT_MINUTES = 1
+OPERATION_TIMEOUT_MINUTES = 15
 
 
 class OperationExpiryService:
@@ -58,12 +57,23 @@ class OperationExpiryService:
 
                     logger.info(f"⏱️ Operación {operation.operation_id} cancelada automáticamente por tiempo límite expirado (creada: {operation.created_at})")
 
-                    # Enviar notificación Socket.IO al cliente
+                    # Enviar notificación Socket.IO al cliente (app móvil)
                     try:
                         NotificationService.notify_operation_expired(operation)
-                        logger.info(f"📡 Notificación de expiración enviada para operación {operation.operation_id}")
+                        logger.info(f"📡 Notificación Socket.IO enviada para operación {operation.operation_id}")
                     except Exception as notif_error:
-                        logger.error(f"Error enviando notificación de expiración: {str(notif_error)}")
+                        logger.error(f"❌ Error enviando notificación Socket.IO: {str(notif_error)}")
+
+                    # Enviar correo electrónico al cliente
+                    try:
+                        from app.services.email_service import EmailService
+                        success, message = EmailService.send_operation_expired_email(operation)
+                        if success:
+                            logger.info(f"📧 Email de cancelación enviado para operación {operation.operation_id}")
+                        else:
+                            logger.warning(f"⚠️ No se pudo enviar email para operación {operation.operation_id}: {message}")
+                    except Exception as email_error:
+                        logger.error(f"❌ Error enviando email de expiración: {str(email_error)}")
 
                     expired_count += 1
 

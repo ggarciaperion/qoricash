@@ -2670,3 +2670,184 @@ class EmailService:
 </html>
 """
         return render_template_string(template, client=client, temporary_password=temporary_password)
+
+    @staticmethod
+    def send_operation_expired_email(operation):
+        """
+        Enviar correo cuando una operación es cancelada por tiempo límite expirado
+
+        Args:
+            operation: Objeto Operation
+
+        Returns:
+            tuple: (success: bool, message: str)
+        """
+        try:
+            from flask import current_app
+            from flask_mail import Message
+
+            logger.info(f'[EMAIL] Enviando correo de operación expirada para {operation.operation_id}')
+
+            # Destinatario: Cliente
+            to = EmailService.parse_email_addresses(operation.client.email) if operation.client and operation.client.email else []
+
+            # CC: Trader que creó la operación
+            cc = []
+            if operation.user and operation.user.email:
+                cc = [operation.user.email]
+
+            # Validar que haya al menos un destinatario
+            if not to:
+                logger.warning(f'No hay email para el cliente de la operación {operation.operation_id}')
+                return False, 'Cliente sin email configurado'
+
+            # Asunto
+            subject = f'⏱️ Operación Cancelada por Tiempo Expirado #{operation.operation_id} - QoriCash'
+
+            # Contenido HTML
+            html_body = EmailService._render_expired_operation_template(operation)
+
+            # Crear mensaje
+            msg = Message(
+                subject=subject,
+                recipients=to,
+                cc=cc if cc else None,
+                html=html_body
+            )
+
+            # Enviar
+            mail.send(msg)
+
+            logger.info(f'✅ Email de operación expirada enviado para {operation.operation_id}')
+            return True, 'Email enviado correctamente'
+
+        except Exception as e:
+            logger.error(f'❌ Error enviando email de operación expirada: {str(e)}')
+            import traceback
+            logger.error(traceback.format_exc())
+            return False, f'Error al enviar email: {str(e)}'
+
+    @staticmethod
+    def _render_expired_operation_template(operation):
+        """Renderizar template HTML para operación expirada"""
+        template = """
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Operación Cancelada - QoriCash</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #1e293b 0%, #334155 100%); padding: 30px 15px; }
+        .container { max-width: 650px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 50px rgba(0, 0, 0, 0.3); }
+        .header { background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%); color: white; padding: 35px 25px; text-align: center; }
+        .header h1 { font-size: 28px; margin-bottom: 8px; font-weight: 700; }
+        .header p { font-size: 14px; opacity: 0.95; margin-top: 5px; }
+        .content { padding: 35px 30px; color: #2c3e50; line-height: 1.7; }
+        .greeting { font-size: 16px; color: #495057; margin-bottom: 25px; }
+        .alert-box { background: linear-gradient(135deg, #fee2e2, #fecaca); border: 2px solid #dc2626; border-radius: 10px; padding: 25px; margin: 25px 0; text-align: center; }
+        .alert-box h2 { color: #dc2626; font-size: 22px; margin-bottom: 12px; font-weight: 700; }
+        .alert-box p { color: #991b1b; font-size: 15px; line-height: 1.6; }
+        .highlight-box { background: #f8fafb; border: 1px solid #d0ebe6; border-radius: 8px; padding: 20px; margin: 25px 0; }
+        .info-row { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #e2e8f0; }
+        .info-row:last-child { border-bottom: none; }
+        .info-label { font-weight: 600; color: #64748b; }
+        .info-value { color: #2c3e50; text-align: right; }
+        .reason-box { background: linear-gradient(135deg, #fff7ed, #ffedd5); border-left: 4px solid #f97316; padding: 20px; margin: 25px 0; border-radius: 8px; }
+        .reason-box h3 { color: #c2410c; margin-bottom: 12px; font-size: 18px; }
+        .reason-box p { color: #9a3412; line-height: 1.8; }
+        .next-steps-box { background: #f0f9ff; border: 2px solid #0ea5e9; border-radius: 8px; padding: 20px; margin: 25px 0; }
+        .next-steps-box h3 { color: #0284c7; margin-bottom: 15px; font-size: 18px; }
+        .next-steps-box ul { margin: 10px 0; padding-left: 25px; color: #075985; line-height: 2; }
+        .next-steps-box li { margin: 10px 0; }
+        .note-box { margin-top: 30px; padding: 18px; background: #f8fafb; border-left: 4px solid #64748b; border-radius: 4px; }
+        .note-box p { margin: 0; color: #495057; font-size: 13px; line-height: 1.6; }
+        .footer { background: #f8fafb; padding: 25px 20px; text-align: center; font-size: 12px; color: #6c757d; border-top: 2px solid #d0ebe6; }
+        .footer p { margin: 8px 0; }
+        .footer strong { color: #dc2626; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⏱️ Operación Cancelada</h1>
+            <p>Tiempo Límite Expirado</p>
+        </div>
+
+        <div class="content">
+            <p class="greeting">Estimado(a) <strong>{{ operation.client.full_name if operation.client else 'Cliente' }}</strong>,</p>
+
+            <div class="alert-box">
+                <h2>❌ Operación Cancelada</h2>
+                <p>Su operación ha sido cancelada automáticamente por tiempo límite expirado</p>
+            </div>
+
+            <div class="reason-box">
+                <h3>📋 Motivo de Cancelación</h3>
+                <p><strong>Tiempo límite de carga de comprobante expirado</strong></p>
+                <p style="margin-top: 12px;">La operación fue cancelada debido a que no se recibió el comprobante de transferencia dentro del tiempo límite establecido de 15 minutos.</p>
+            </div>
+
+            <p>Los detalles de la operación cancelada son los siguientes:</p>
+
+            <div class="highlight-box">
+                <div class="info-row">
+                    <span class="info-label">Código de Operación:</span>
+                    <span class="info-value"><strong>{{ operation.operation_id }}</strong></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Tipo de Operación:</span>
+                    <span class="info-value">{{ operation.operation_type }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Monto en Dólares:</span>
+                    <span class="info-value">$ {{ "{:,.2f}".format(operation.amount_usd) }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Tipo de Cambio:</span>
+                    <span class="info-value">S/ {{ "%.4f"|format(operation.exchange_rate) }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Monto en Soles:</span>
+                    <span class="info-value">S/ {{ "{:,.2f}".format(operation.amount_pen) }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Fecha de Creación:</span>
+                    <span class="info-value">{{ operation.created_at.strftime('%d/%m/%Y %H:%M') }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Estado:</span>
+                    <span class="info-value" style="color: #dc2626; font-weight: 700;">CANCELADA</span>
+                </div>
+            </div>
+
+            <div class="next-steps-box">
+                <h3>✅ ¿Qué puede hacer ahora?</h3>
+                <ul>
+                    <li><strong>Crear una nueva operación</strong> desde la aplicación QoriCash</li>
+                    <li>Asegúrese de <strong>cargar el comprobante dentro de los 15 minutos</strong></li>
+                    <li>Si necesita más tiempo, <strong>contacte a su asesor comercial</strong></li>
+                </ul>
+            </div>
+
+            <p style="margin-top: 25px; text-align: center; font-size: 14px; color: #64748b;">
+                Lamentamos las molestias. Estamos aquí para ayudarle.
+            </p>
+
+            <div class="note-box">
+                <p><strong>Contacto:</strong> Para cualquier consulta, puede responder a este correo o contactar directamente a su asesor comercial. También puede escribirnos a <strong style="color: #00a887;">info@qoricash.pe</strong></p>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p><strong>QoriCash Trading</strong></p>
+            <p>RUC: 20615113698</p>
+            <p>Sistema de Gestión de Operaciones Cambiarias</p>
+            <p style="margin-top: 12px;">© 2025 QoriCash Trading. Todos los derechos reservados.</p>
+        </div>
+    </div>
+</body>
+</html>
+"""
+        return render_template_string(template, operation=operation)
