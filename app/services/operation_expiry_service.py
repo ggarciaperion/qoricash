@@ -10,7 +10,8 @@ from app.utils.formatters import now_peru
 
 logger = logging.getLogger(__name__)
 
-OPERATION_TIMEOUT_MINUTES = 15
+# TEMPORAL: 1 minuto para pruebas (producción: 15 minutos)
+OPERATION_TIMEOUT_MINUTES = 1
 
 
 class OperationExpiryService:
