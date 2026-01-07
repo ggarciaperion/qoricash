@@ -76,12 +76,14 @@ def register_blueprints(app):
     from app.routes.users import users_bp
     from app.routes.clients import clients_bp
     from app.routes.operations import operations_bp
-    
+    from app.routes.platform import platform_bp
+
     app.register_blueprint(auth_bp)
     app.register_blueprint(dashboard_bp)
     app.register_blueprint(users_bp, url_prefix='/users')
     app.register_blueprint(clients_bp, url_prefix='/clients')
     app.register_blueprint(operations_bp, url_prefix='/operations')
+    app.register_blueprint(platform_bp)  # Sin prefijo, las rutas ya tienen /api/client
 
 
 def configure_logging(app):
