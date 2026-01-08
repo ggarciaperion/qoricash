@@ -23,7 +23,7 @@ platform_api_bp = Blueprint('platform_api', __name__, url_prefix='/api/platform'
 @platform_api_bp.route('/register-client', methods=['POST'])
 @csrf.exempt  # Eximir de CSRF para APIs externas
 @login_required
-@require_role('Plataforma', 'Master')
+@require_role('Plataforma', 'Master', 'App')
 def register_client():
     """
     API: Registrar cliente desde la plataforma web pública
@@ -156,7 +156,7 @@ def register_client():
 @platform_api_bp.route('/register-operation', methods=['POST'])
 @csrf.exempt  # Eximir de CSRF para APIs externas
 @login_required
-@require_role('Plataforma', 'Master')
+@require_role('Plataforma', 'Master', 'App')
 def register_operation():
     """
     API: Registrar operación desde la plataforma web pública
@@ -245,7 +245,7 @@ def register_operation():
 
 @platform_api_bp.route('/get-client/<dni>', methods=['GET'])
 @login_required
-@require_role('Plataforma', 'Master')
+@require_role('Plataforma', 'Master', 'App')
 def get_client_by_dni(dni):
     """
     API: Obtener información de un cliente por DNI
