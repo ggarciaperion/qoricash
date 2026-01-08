@@ -897,30 +897,30 @@ def create_operation():
         if client.created_by:
             creator_user = User.query.get(client.created_by)
 
-        # Si no hay usuario creador (clientes viejos o error), usar usuario Plataforma
+        # Si no hay usuario creador (clientes viejos o error), usar usuario App Móvil
         if not creator_user:
-            logger.warning(f"⚠️ Cliente {client.dni} no tiene created_by asignado, usando usuario Plataforma")
-            creator_user = User.query.filter_by(username='Plataforma').first()
+            logger.warning(f"⚠️ Cliente {client.dni} no tiene created_by asignado, usando usuario App Móvil")
+            creator_user = User.query.filter_by(email='app@qoricash.pe').first()
 
-            # Si tampoco existe Plataforma, crearlo
+            # Si tampoco existe App Móvil, crearlo
             if not creator_user:
-                logger.info("🤖 Usuario 'Plataforma' no existe, creándolo para operación...")
+                logger.info("🤖 Usuario 'App Móvil' no existe, creándolo para operación...")
                 from werkzeug.security import generate_password_hash
                 import secrets
                 from app.utils.formatters import now_peru
 
                 creator_user = User(
-                    username='Plataforma',
-                    email='plataforma@qoricash.pe',
-                    dni='11111111',  # DNI ficticio para usuario Plataforma
-                    role='Plataforma',
+                    username='App Móvil',
+                    email='app@qoricash.pe',
+                    dni='99999999',  # DNI ficticio para usuario App Móvil
+                    role='App',
                     password_hash=generate_password_hash(secrets.token_urlsafe(32)),
                     status='Activo',
                     created_at=now_peru()
                 )
                 db.session.add(creator_user)
                 db.session.flush()
-                logger.info(f"✅ Usuario 'Plataforma' creado con ID: {creator_user.id}")
+                logger.info(f"✅ Usuario 'App Móvil' creado con ID: {creator_user.id}")
 
                 # Asignar al cliente para futuras operaciones
                 client.created_by = creator_user.id
