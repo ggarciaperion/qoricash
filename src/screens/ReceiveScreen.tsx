@@ -7,6 +7,7 @@ import {
   Easing,
   TouchableOpacity,
   Alert,
+  SafeAreaView,
 } from 'react-native';
 import {
   Text,
@@ -169,7 +170,8 @@ export const ReceiveScreen: React.FC<ReceiveScreenProps> = ({ navigation, route 
   };
 
   return (
-    <ScrollView style={styles.container}>
+    <SafeAreaView style={{ flex: 1, paddingTop: 20 }}>
+      <ScrollView style={styles.container}>
       {/* Timeline Stepper */}
       <View style={styles.timelineContainer}>
         <View style={styles.timelineStep}>
@@ -318,6 +320,7 @@ export const ReceiveScreen: React.FC<ReceiveScreenProps> = ({ navigation, route 
         <Text style={styles.acceptButtonText}>ACEPTAR</Text>
       </TouchableOpacity>
     </ScrollView>
+    </SafeAreaView>
   );
 };
 

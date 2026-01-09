@@ -7,6 +7,7 @@ import {
   Platform,
   Alert,
   TouchableOpacity,
+  SafeAreaView,
 } from 'react-native';
 import {
   TextInput,
@@ -409,7 +410,7 @@ export const NewOperationScreen: React.FC<NewOperationScreenProps> = ({ navigati
   const amountToReceive = calculatePEN();
 
   return (
-    <>
+    <SafeAreaView style={{ flex: 1, paddingTop: 20 }}>
       <KeyboardAwareScrollView>
         <Card style={styles.card}>
           <Card.Content>
@@ -974,7 +975,7 @@ export const NewOperationScreen: React.FC<NewOperationScreenProps> = ({ navigati
           </Dialog.Actions>
         </Dialog>
       </Portal>
-    </>
+    </SafeAreaView>
   );
 };
 

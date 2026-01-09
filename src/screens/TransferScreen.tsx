@@ -7,6 +7,7 @@ import {
   Alert,
   Linking,
   ActivityIndicator,
+  SafeAreaView,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import {
@@ -359,7 +360,8 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
   };
 
   return (
-    <ScrollView style={styles.container}>
+    <SafeAreaView style={{ flex: 1, paddingTop: 20 }}>
+      <ScrollView style={styles.container}>
       {/* Timeline Stepper */}
       <View style={styles.timelineContainer}>
         <View style={styles.timelineStep}>
@@ -610,6 +612,7 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
         </View>
       </CustomModal>
     </ScrollView>
+    </SafeAreaView>
   );
 };
 
