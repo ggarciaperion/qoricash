@@ -123,7 +123,16 @@ export const NewOperationScreen: React.FC<NewOperationScreenProps> = ({ navigati
 
   const calculatePEN = () => {
     if (!amountUsd || !exchangeRate) return 0;
-    return calculateAmount(parseFloat(amountUsd), parseFloat(exchangeRate));
+    const amount = parseFloat(amountUsd);
+    const rate = parseFloat(exchangeRate);
+
+    // En Compra: USD -> PEN (multiplicar)
+    // En Venta: PEN -> USD (dividir)
+    if (operationType === 'Compra') {
+      return parseFloat((amount * rate).toFixed(2));
+    } else {
+      return parseFloat((amount / rate).toFixed(2));
+    }
   };
 
   const validate = () => {
