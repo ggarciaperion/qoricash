@@ -81,7 +81,7 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
                     logger.error('TransferScreen', '❌ Error limpiando caché', error);
                   }
                   logger.info('TransferScreen', '🔄 Redirigiendo a HistoryTab por expiración local');
-                  navigation.replace('Tabs', { screen: 'HistoryTab' });
+                  navigation.replace('Tabs', { screen: 'HistoryTab', params: { initialTab: 'completed' } });
                 }
               }
             ],
@@ -130,7 +130,7 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
                   logger.error('TransferScreen', '❌ Error limpiando caché', error);
                 }
                 logger.info('TransferScreen', '🔄 Redirigiendo a HistoryTab');
-                navigation.replace('Tabs', { screen: 'HistoryTab' });
+                navigation.replace('Tabs', { screen: 'HistoryTab', params: { initialTab: 'completed' } });
               }
             }
           ],

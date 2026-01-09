@@ -28,14 +28,14 @@ import { KeyboardAwareScrollView } from '../components/KeyboardAwareScrollView';
 const OPERATION_TIMEOUT_MINUTES = 1;
 const LOCAL_OPERATIONS_CACHE_KEY = '@qoricash_local_operations_cache';
 
-export const HistoryScreen: React.FC = () => {
+export const HistoryScreen: React.FC<{ route?: any }> = ({ route }) => {
   const { client } = useAuth();
   const navigation = useNavigation<any>();
   const [operations, setOperations] = useState<Operation[]>([]);
   const [filteredOperations, setFilteredOperations] = useState<Operation[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState<'pending' | 'completed'>('pending');
+  const [activeTab, setActiveTab] = useState<'pending' | 'completed'>(route?.params?.initialTab || 'pending');
   const [currentTime, setCurrentTime] = useState(new Date());
   const [cancelDialogVisible, setCancelDialogVisible] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
