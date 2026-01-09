@@ -330,7 +330,7 @@ export const HistoryScreen: React.FC<{ route?: any }> = ({ route }) => {
         };
       case 'Cancelado':
         return {
-          color: '#F44336',
+          color: '#82C16C',
           icon: 'close-circle',
           text: 'Cancelada',
         };
@@ -433,7 +433,7 @@ export const HistoryScreen: React.FC<{ route?: any }> = ({ route }) => {
   if (loading && operations.length === 0) {
     return (
       <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color={Colors.primary} />
+        <ActivityIndicator size="large" color={Colors.success} />
         <Text style={styles.loadingText}>Cargando historial...</Text>
       </View>
     );

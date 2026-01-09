@@ -1073,7 +1073,7 @@ const styles = StyleSheet.create({
     paddingVertical: 24,
   },
   avatar: {
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.success,
     marginBottom: 16,
   },
   name: {
