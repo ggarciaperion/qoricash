@@ -1001,6 +1001,14 @@ def upload_deposit_proof(operation_id):
         print(f"[DEBUG] Operación {operation_id} no encontrada")
         return jsonify({'success': False, 'message': 'Operación no encontrada'}), 404
 
+    # Validar que la operación esté en estado válido para recibir comprobantes
+    if operation.status != 'Pendiente':
+        print(f"[DEBUG] Operación {operation_id} en estado inválido: {operation.status}")
+        return jsonify({
+            'success': False,
+            'message': f'Esta operación está en estado "{operation.status}" y no puede recibir comprobantes. Solo se pueden subir comprobantes para operaciones pendientes.'
+        }), 400
+
     if 'file' not in request.files:
         print(f"[DEBUG] No hay archivo en request.files: {list(request.files.keys())}")
         return jsonify({'success': False, 'message': 'No se envió ningún archivo'}), 400
