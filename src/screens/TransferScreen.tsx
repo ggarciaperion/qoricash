@@ -25,8 +25,6 @@ import { formatCurrency, formatDateTime } from '../utils/formatters';
 import { operationsApi } from '../api/operations';
 import { CustomModal } from '../components/CustomModal';
 import { GlobalStyles } from '../styles/globalStyles';
-import socketService from '../services/socketService';
-import { logger } from '../utils/logger';
 
 const LOCAL_OPERATIONS_CACHE_KEY = '@qoricash_local_operations_cache';
 const OPERATION_TIMEOUT_MINUTES = 15;
@@ -48,7 +46,6 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
 
-  // Timer de cuenta regresiva
   useEffect(() => {
     const timer = setInterval(() => {
       const createdDate = new Date(operation.created_at);
@@ -69,65 +66,6 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
 
     return () => clearInterval(timer);
   }, [operation.created_at]);
-
-  // Escuchar evento de operación expirada vía Socket.IO
-  useEffect(() => {
-    logger.info('TransferScreen', '🎬 Iniciando useEffect de operation_expired', {
-      operation_id: operation.operation_id,
-      operation_status: operation.status,
-    });
-
-    const handleOperationExpired = (data: any) => {
-      logger.info('TransferScreen', '📡 Evento operation_expired recibido', data);
-
-      // Verificar si la operación expirada es la que estamos viendo
-      if (data.operation_id === operation.operation_id) {
-        logger.warn('TransferScreen', '⏱️ La operación actual ha expirado, mostrando alerta', {
-          operation_id: operation.operation_id,
-        });
-
-        // Mostrar alerta al usuario
-        Alert.alert(
-          '⏱️ Tiempo Expirado',
-          `La operación ${data.operation_id} ha sido cancelada porque se agotó el tiempo para subir el comprobante.\n\nPuedes crear una nueva operación desde el inicio.`,
-          [
-            {
-              text: 'Entendido',
-              onPress: () => {
-                logger.info('TransferScreen', '🔄 Redirigiendo a History screen');
-                // Redirigir al historial de operaciones
-                navigation.replace('History');
-              }
-            }
-          ],
-          { cancelable: false }
-        );
-      } else {
-        logger.debug('TransferScreen', '⏭️ Operación expirada no es la actual, ignorando', {
-          received_operation_id: data.operation_id,
-          current_operation_id: operation.operation_id,
-        });
-      }
-    };
-
-    // Verificar conexión Socket.IO
-    const isConnected = socketService.isConnected();
-    logger.info('TransferScreen', `📡 Estado Socket.IO: ${isConnected ? 'Conectado' : 'Desconectado'}`);
-
-    if (!isConnected) {
-      logger.warn('TransferScreen', '⚠️ Socket.IO no está conectado, los eventos pueden no llegar');
-    }
-
-    // Registrar listener
-    logger.info('TransferScreen', '📝 Registrando listener para operation_expired');
-    socketService.on('operation_expired', handleOperationExpired);
-
-    // Cleanup al desmontar componente
-    return () => {
-      logger.info('TransferScreen', '🧹 Removiendo listener para operation_expired');
-      socketService.off('operation_expired', handleOperationExpired);
-    };
-  }, [operation.operation_id, navigation]);
 
   const getQoriCashAccount = () => {
     // Determinar moneda según tipo de operación
