@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, RefreshControl, Image, TouchableOpacity, Alert } from 'react-native';
+import { View, StyleSheet, ScrollView, RefreshControl, Image, TouchableOpacity, Alert, SafeAreaView } from 'react-native';
 import { Text, Card, Icon, Button } from 'react-native-paper';
 import { useAuth } from '../contexts/AuthContext';
 import { Colors } from '../constants/colors';
@@ -51,9 +51,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   }
 
   return (
-    <ScrollView
-      style={GlobalStyles.container}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+    <SafeAreaView style={{ flex: 1, paddingTop: 20 }}>
+      <ScrollView
+        style={GlobalStyles.container}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
       {/* Header con Logo y Nombre de la Marca */}
       <View style={styles.header}>
@@ -152,6 +153,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         </Card.Content>
       </Card>
     </ScrollView>
+    </SafeAreaView>
   );
 };
 
