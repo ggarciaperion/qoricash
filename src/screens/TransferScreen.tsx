@@ -73,6 +73,24 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
               {
                 text: 'Entendido',
                 onPress: async () => {
+                  // Cancelar operación en backend inmediatamente
+                  logger.info('TransferScreen', '⏱️ Timer expirado - Cancelando operación en backend');
+                  try {
+                    const response = await axios.post(
+                      `${API_CONFIG.BASE_URL}/api/client/cancel-expired-operation/${operation.id}`,
+                      {},
+                      { timeout: 5000 }
+                    );
+
+                    if (response.data.success) {
+                      logger.info('TransferScreen', '✅ Operación cancelada exitosamente en backend');
+                    } else {
+                      logger.warn('TransferScreen', `⚠️ Respuesta del backend: ${response.data.message}`);
+                    }
+                  } catch (error) {
+                    logger.error('TransferScreen', '❌ Error cancelando operación en backend', error);
+                  }
+
                   logger.info('TransferScreen', '🗑️ Limpiando caché local antes de redirigir');
                   try {
                     await AsyncStorage.removeItem(LOCAL_OPERATIONS_CACHE_KEY);
