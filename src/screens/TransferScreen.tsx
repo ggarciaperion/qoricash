@@ -26,6 +26,7 @@ import { operationsApi } from '../api/operations';
 import { CustomModal } from '../components/CustomModal';
 import { GlobalStyles } from '../styles/globalStyles';
 import socketService from '../services/socketService';
+import { logger } from '../utils/logger';
 
 const LOCAL_OPERATIONS_CACHE_KEY = '@qoricash_local_operations_cache';
 const OPERATION_TIMEOUT_MINUTES = 15;
@@ -71,12 +72,19 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
 
   // Escuchar evento de operación expirada vía Socket.IO
   useEffect(() => {
+    logger.info('TransferScreen', '🎬 Iniciando useEffect de operation_expired', {
+      operation_id: operation.operation_id,
+      operation_status: operation.status,
+    });
+
     const handleOperationExpired = (data: any) => {
-      console.log('⏱️ [TransferScreen] Operación expirada recibida:', data);
+      logger.info('TransferScreen', '📡 Evento operation_expired recibido', data);
 
       // Verificar si la operación expirada es la que estamos viendo
       if (data.operation_id === operation.operation_id) {
-        console.log('⏱️ [TransferScreen] La operación actual ha expirado, redirigiendo...');
+        logger.warn('TransferScreen', '⏱️ La operación actual ha expirado, mostrando alerta', {
+          operation_id: operation.operation_id,
+        });
 
         // Mostrar alerta al usuario
         Alert.alert(
@@ -86,6 +94,7 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
             {
               text: 'Entendido',
               onPress: () => {
+                logger.info('TransferScreen', '🔄 Redirigiendo a History screen');
                 // Redirigir al historial de operaciones
                 navigation.replace('History');
               }
@@ -93,16 +102,29 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
           ],
           { cancelable: false }
         );
+      } else {
+        logger.debug('TransferScreen', '⏭️ Operación expirada no es la actual, ignorando', {
+          received_operation_id: data.operation_id,
+          current_operation_id: operation.operation_id,
+        });
       }
     };
 
+    // Verificar conexión Socket.IO
+    const isConnected = socketService.isConnected();
+    logger.info('TransferScreen', `📡 Estado Socket.IO: ${isConnected ? 'Conectado' : 'Desconectado'}`);
+
+    if (!isConnected) {
+      logger.warn('TransferScreen', '⚠️ Socket.IO no está conectado, los eventos pueden no llegar');
+    }
+
     // Registrar listener
-    console.log('📡 [TransferScreen] Registrando listener para operation_expired');
+    logger.info('TransferScreen', '📝 Registrando listener para operation_expired');
     socketService.on('operation_expired', handleOperationExpired);
 
     // Cleanup al desmontar componente
     return () => {
-      console.log('📡 [TransferScreen] Removiendo listener para operation_expired');
+      logger.info('TransferScreen', '🧹 Removiendo listener para operation_expired');
       socketService.off('operation_expired', handleOperationExpired);
     };
   }, [operation.operation_id, navigation]);
