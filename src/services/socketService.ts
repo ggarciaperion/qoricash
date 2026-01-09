@@ -1,11 +1,13 @@
 import { io, Socket } from 'socket.io-client';
 import * as Notifications from 'expo-notifications';
 import { API_CONFIG } from '../constants/config';
+import { EventEmitter } from 'events';
 
 class SocketService {
   private socket: Socket | null = null;
   private clientDni: string | null = null;
   private pendingListeners: Map<string, Array<(data: any) => void>> = new Map();
+  private eventEmitter: EventEmitter = new EventEmitter();
 
   // Configurar el manejador de notificaciones
   configure() {
@@ -170,10 +172,19 @@ class SocketService {
 
   // Manejar operación expirada
   private async handleOperationExpired(data: any) {
+    console.log('⏱️ [SOCKET] Operación expirada detectada:', data.operation_id);
+
     await this.showNotification(
       '⏱️ Operación Expirada',
       `La operación ${data.operation_id} ha expirado por falta de transferencia. Puedes crear una nueva operación.`
     );
+
+    // Emitir evento para que HistoryScreen refresque inmediatamente
+    console.log('📡 [SOCKET] Emitiendo evento refresh_operations_list');
+    this.eventEmitter.emit('refresh_operations_list', {
+      reason: 'operation_expired',
+      operation_id: data.operation_id
+    });
   }
 
   // Mostrar notificación local
@@ -244,6 +255,18 @@ class SocketService {
   // Obtener estado de conexión
   isConnected(): boolean {
     return this.socket?.connected || false;
+  }
+
+  // Suscribirse a eventos internos (para comunicación con componentes)
+  subscribeToEvent(event: string, callback: (data: any) => void) {
+    this.eventEmitter.on(event, callback);
+    console.log(`✅ [SOCKET] Componente suscrito al evento: ${event}`);
+  }
+
+  // Desuscribirse de eventos internos
+  unsubscribeFromEvent(event: string, callback: (data: any) => void) {
+    this.eventEmitter.off(event, callback);
+    console.log(`❌ [SOCKET] Componente desuscrito del evento: ${event}`);
   }
 }
 

@@ -96,6 +96,23 @@ export const HistoryScreen: React.FC<{ route?: any }> = ({ route }) => {
     };
   }, [client]);
 
+  // Escuchar evento interno de refresh desde socketService
+  useEffect(() => {
+    const handleRefreshRequest = (data: any) => {
+      console.log('🔄 [HISTORY] Evento refresh_operations_list recibido:', data);
+      if (client) {
+        console.log('🔄 [HISTORY] Refrescando historial inmediatamente...');
+        fetchHistory();
+      }
+    };
+
+    socketService.subscribeToEvent('refresh_operations_list', handleRefreshRequest);
+
+    return () => {
+      socketService.unsubscribeFromEvent('refresh_operations_list', handleRefreshRequest);
+    };
+  }, [client]);
+
   // Re-fetch al volver del background
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
