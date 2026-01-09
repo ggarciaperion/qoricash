@@ -649,7 +649,7 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 10,
   },
   customTabActive: {
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.success,
   },
   customTabText: {
     fontSize: 14,
@@ -758,7 +758,7 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   detailButton: {
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.success,
     paddingVertical: 14,
     paddingHorizontal: 16,
     margin: 16,
