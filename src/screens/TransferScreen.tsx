@@ -72,7 +72,14 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
             [
               {
                 text: 'Entendido',
-                onPress: () => {
+                onPress: async () => {
+                  logger.info('TransferScreen', '🗑️ Limpiando caché local antes de redirigir');
+                  try {
+                    await AsyncStorage.removeItem(LOCAL_OPERATIONS_CACHE_KEY);
+                    logger.info('TransferScreen', '✅ Caché limpiado exitosamente');
+                  } catch (error) {
+                    logger.error('TransferScreen', '❌ Error limpiando caché', error);
+                  }
                   logger.info('TransferScreen', '🔄 Redirigiendo a HistoryTab por expiración local');
                   navigation.replace('Tabs', { screen: 'HistoryTab' });
                 }
@@ -114,7 +121,14 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
           [
             {
               text: 'Entendido',
-              onPress: () => {
+              onPress: async () => {
+                logger.info('TransferScreen', '🗑️ Limpiando caché local antes de redirigir');
+                try {
+                  await AsyncStorage.removeItem(LOCAL_OPERATIONS_CACHE_KEY);
+                  logger.info('TransferScreen', '✅ Caché limpiado exitosamente');
+                } catch (error) {
+                  logger.error('TransferScreen', '❌ Error limpiando caché', error);
+                }
                 logger.info('TransferScreen', '🔄 Redirigiendo a HistoryTab');
                 navigation.replace('Tabs', { screen: 'HistoryTab' });
               }
