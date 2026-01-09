@@ -381,7 +381,7 @@ export const HistoryScreen: React.FC<{ route?: any }> = ({ route }) => {
                   mode="flat"
                   style={[styles.statusChip, { backgroundColor: statusConfig.color }]}
                   textStyle={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 12 }}
-                  icon={statusConfig.icon}
+                  icon={() => <Icon source={statusConfig.icon} size={18} color="#FFFFFF" />}
                 >
                   {statusConfig.text}
                 </Chip>
