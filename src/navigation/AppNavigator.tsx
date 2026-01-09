@@ -117,24 +117,21 @@ const MainNavigator = () => {
         name="NewOperation"
         component={NewOperationScreen}
         options={{
-          title: 'Nueva Operación',
-          headerTintColor: Colors.primary,
+          headerShown: false,
         }}
       />
       <Stack.Screen
         name="Transfer"
         component={TransferScreen}
         options={{
-          title: 'Realizar Transferencia',
-          headerTintColor: Colors.primary,
+          headerShown: false,
         }}
       />
       <Stack.Screen
         name="Receive"
         component={ReceiveScreen}
         options={{
-          title: 'Procesando Operación',
-          headerTintColor: Colors.primary,
+          headerShown: false,
         }}
       />
       <Stack.Screen
