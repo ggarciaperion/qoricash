@@ -44,6 +44,7 @@ interface TransferScreenProps {
 export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, route }) => {
   const { operation } = route.params;
   const [timeRemaining, setTimeRemaining] = useState('');
+  const [isExpired, setIsExpired] = useState(false);
   const [uploadDialogVisible, setUploadDialogVisible] = useState(false);
   const [operationCode, setOperationCode] = useState('');
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
@@ -58,6 +59,28 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
 
       if (diffMs <= 0) {
         setTimeRemaining('0:00');
+
+        // Marcar como expirada solo una vez
+        if (!isExpired) {
+          setIsExpired(true);
+          clearInterval(timer);
+
+          // Mostrar alerta y redirigir
+          Alert.alert(
+            '⏱️ Tiempo Expirado',
+            `La operación ${operation.operation_id} ha sido cancelada porque se agotó el tiempo para subir el comprobante.\n\nPuedes crear una nueva operación desde el inicio.`,
+            [
+              {
+                text: 'Entendido',
+                onPress: () => {
+                  logger.info('TransferScreen', '🔄 Redirigiendo a HistoryTab por expiración local');
+                  navigation.replace('Tabs', { screen: 'HistoryTab' });
+                }
+              }
+            ],
+            { cancelable: false }
+          );
+        }
         return;
       }
 
@@ -68,7 +91,7 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [operation.created_at]);
+  }, [operation.created_at, isExpired, navigation]);
 
   // Escuchar evento de operación expirada vía Socket.IO
   useEffect(() => {
@@ -203,6 +226,16 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
   };
 
   const handleUploadProof = () => {
+    // Validar que la operación no haya expirado
+    if (isExpired) {
+      Alert.alert(
+        'Operación Expirada',
+        'Esta operación ya no está disponible porque el tiempo ha expirado. Crea una nueva operación desde el inicio.',
+        [{ text: 'Entendido', onPress: () => navigation.replace('Tabs', { screen: 'HistoryTab' }) }]
+      );
+      return;
+    }
+
     setUploadDialogVisible(true);
   };
 
@@ -213,6 +246,16 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
   };
 
   const handleConfirmUpload = async () => {
+    // Validar que la operación no haya expirado
+    if (isExpired) {
+      Alert.alert(
+        'Operación Expirada',
+        'Esta operación ya no está disponible porque el tiempo ha expirado. Crea una nueva operación desde el inicio.',
+        [{ text: 'Entendido', onPress: () => navigation.replace('Tabs', { screen: 'HistoryTab' }) }]
+      );
+      return;
+    }
+
     if (selectedImages.length === 0) {
       Alert.alert('Error', 'Debes seleccionar al menos un comprobante');
       return;
@@ -431,11 +474,14 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
 
       {/* Upload Button */}
       <TouchableOpacity
-        style={styles.uploadButton}
+        style={[styles.uploadButton, isExpired && styles.uploadButtonDisabled]}
         onPress={handleUploadProof}
         activeOpacity={0.8}
+        disabled={isExpired}
       >
-        <Text style={styles.uploadButtonText}>YA TRANSFERÍ</Text>
+        <Text style={styles.uploadButtonText}>
+          {isExpired ? 'OPERACIÓN EXPIRADA' : 'YA TRANSFERÍ'}
+        </Text>
       </TouchableOpacity>
 
       {/* Upload Dialog */}
@@ -734,6 +780,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     letterSpacing: 1,
+  },
+  uploadButtonDisabled: {
+    backgroundColor: '#BDBDBD',
+    elevation: 0,
+    shadowOpacity: 0,
   },
 
   // Dialog Styles
