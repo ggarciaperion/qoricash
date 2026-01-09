@@ -245,7 +245,7 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
       Alert.alert(
         'Operación Expirada',
         'Esta operación ya no está disponible porque el tiempo ha expirado. Crea una nueva operación desde el inicio.',
-        [{ text: 'Entendido', onPress: () => navigation.replace('Tabs', { screen: 'HistoryTab' }) }]
+        [{ text: 'Entendido', onPress: () => navigation.replace('Tabs', { screen: 'HistoryTab', params: { initialTab: 'completed' } }) }]
       );
       return;
     }
@@ -265,7 +265,7 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
       Alert.alert(
         'Operación Expirada',
         'Esta operación ya no está disponible porque el tiempo ha expirado. Crea una nueva operación desde el inicio.',
-        [{ text: 'Entendido', onPress: () => navigation.replace('Tabs', { screen: 'HistoryTab' }) }]
+        [{ text: 'Entendido', onPress: () => navigation.replace('Tabs', { screen: 'HistoryTab', params: { initialTab: 'completed' } }) }]
       );
       return;
     }
