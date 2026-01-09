@@ -24,7 +24,8 @@ import { GlobalStyles } from '../styles/globalStyles';
 import { CustomModal } from '../components/CustomModal';
 import { KeyboardAwareScrollView } from '../components/KeyboardAwareScrollView';
 
-const OPERATION_TIMEOUT_MINUTES = 15;
+// TEMPORAL: Configurado a 1 minuto para pruebas (producción: 15)
+const OPERATION_TIMEOUT_MINUTES = 1;
 const LOCAL_OPERATIONS_CACHE_KEY = '@qoricash_local_operations_cache';
 
 export const HistoryScreen: React.FC = () => {
