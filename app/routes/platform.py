@@ -943,3 +943,72 @@ def upload_deposit_proof(operation_id):
             'success': False,
             'message': f'Error al subir comprobante: {str(e)}'
         }), 500
+
+@platform_bp.route('/api/client/cancel-expired-operation/<int:operation_id>', methods=['POST'])
+def cancel_expired_operation(operation_id):
+    """
+    API: Cancelar operación expirada desde el cliente
+
+    Cuando el timer local del cliente detecta expiración, llama a este endpoint
+    para cancelar inmediatamente la operación, sin esperar al scheduler del backend.
+
+    Args:
+        operation_id: ID de la operación a cancelar
+    """
+    try:
+        logger.info(f"⏱️ [CLIENT] Solicitud de cancelación por expiración: operación {operation_id}")
+
+        # Buscar la operación
+        operation = Operation.query.get(operation_id)
+
+        if not operation:
+            logger.warning(f"⚠️ [CLIENT] Operación {operation_id} no encontrada")
+            return jsonify({
+                'success': False,
+                'message': 'Operación no encontrada'
+            }), 404
+
+        # Verificar que la operación esté en estado que permita cancelación
+        if operation.status not in ['Pendiente', 'En proceso']:
+            logger.info(f"ℹ️ [CLIENT] Operación {operation_id} ya está en estado {operation.status}")
+            return jsonify({
+                'success': True,
+                'message': f'La operación ya está en estado {operation.status}',
+                'operation': operation.to_dict(include_relations=True)
+            })
+
+        # Cancelar la operación
+        reason = f"[Cliente - Expiración Local] Operación cancelada automáticamente por tiempo límite desde la aplicación móvil. Timestamp: {now_peru().strftime('%Y-%m-%d %H:%M:%S')}"
+
+        operation.status = 'Cancelado'
+        operation.notes = (operation.notes or '') + f"\n{reason}"
+        operation.updated_at = now_peru()
+
+        db.session.commit()
+
+        logger.info(f"✅ [CLIENT] Operación {operation.operation_id} cancelada por expiración local")
+
+        # Notificar cancelación via Socket.IO
+        try:
+            NotificationService.notify_operation_expired(operation)
+            logger.info(f"📡 [CLIENT] Notificación Socket.IO enviada para operación {operation.operation_id}")
+        except Exception as e:
+            logger.error(f"⚠️ [CLIENT] Error enviando notificación Socket.IO: {e}")
+
+        # Emitir evento de actualización
+        emit_operation_event('canceled', operation.to_dict(include_relations=True))
+
+        return jsonify({
+            'success': True,
+            'message': 'Operación cancelada exitosamente por expiración',
+            'operation': operation.to_dict(include_relations=True)
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"❌ [CLIENT] Error cancelando operación expirada {operation_id}: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'message': f'Error al cancelar operación: {str(e)}'
+        }), 500
+
