@@ -1,7 +1,7 @@
 import { io, Socket } from 'socket.io-client';
 import * as Notifications from 'expo-notifications';
 import { API_CONFIG } from '../constants/config';
-import { EventEmitter } from 'events';
+import { EventEmitter } from '../utils/EventEmitter';
 
 class SocketService {
   private socket: Socket | null = null;
