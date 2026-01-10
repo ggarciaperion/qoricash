@@ -1015,7 +1015,7 @@ class EmailService:
             return False, f'Error al enviar email: {str(e)}'
 
     @staticmethod
-    def send_client_activation_email(client, trader):
+    def send_client_activation_email(client, trader, temporary_password=None):
         """
         Enviar correo de notificación de cliente activado
         Usa credenciales separadas del email de confirmación con Flask-Mail
@@ -1023,6 +1023,7 @@ class EmailService:
         Args:
             client: Objeto Client
             trader: Objeto User (trader que registró al cliente)
+            temporary_password: Contraseña temporal generada (opcional)
 
         Returns:
             tuple: (success: bool, message: str)
@@ -1069,7 +1070,7 @@ class EmailService:
 
             # Contenido HTML
             logger.info(f'[EMAIL] Generando plantilla HTML')
-            html_body = EmailService._render_client_activation_template(client, trader)
+            html_body = EmailService._render_client_activation_template(client, trader, temporary_password)
 
             # Crear mensaje usando Flask-Mail
             logger.info(f'[EMAIL] Creando mensaje Flask-Mail')
@@ -1209,7 +1210,7 @@ class EmailService:
         return render_template_string(template, client=client, trader=trader, bank_accounts_text=bank_accounts_text)
 
     @staticmethod
-    def _render_client_activation_template(client, trader):
+    def _render_client_activation_template(client, trader, temporary_password=None):
         """Renderizar plantilla HTML para cliente activado"""
         template = """
 <!DOCTYPE html>
@@ -1237,6 +1238,17 @@ class EmailService:
         .info-box p { margin: 10px 0; color: #2c3e50; font-size: 14px; }
         .info-box p strong { color: #6c757d; }
         .info-box .status-active { color: #00a887; font-weight: bold; }
+        .password-box { background: #fff8e1; border: 3px solid #ffd54f; border-radius: 8px; padding: 20px; margin: 25px 0; text-align: center; }
+        .password-box h3 { margin: 0 0 12px 0; color: #f57c00; font-size: 18px; font-weight: 700; }
+        .password-box .password { font-size: 28px; font-weight: 800; color: #d97706; letter-spacing: 3px; margin: 15px 0; padding: 15px; background: white; border-radius: 8px; border: 2px dashed #ffd54f; }
+        .password-box p { margin: 8px 0; color: #f57c00; font-size: 13px; }
+        .steps-box { background: #f8fafb; border-radius: 8px; padding: 20px; margin: 25px 0; border: 2px solid #d0ebe6; }
+        .steps-box h3 { margin: 0 0 15px 0; color: #00a887; font-size: 18px; font-weight: 700; }
+        .steps-box ol { margin: 10px 0; padding-left: 25px; color: #2c3e50; line-height: 1.8; }
+        .steps-box ol li { margin: 12px 0; font-size: 14px; }
+        .steps-box ol li strong { color: #00a887; }
+        .steps-box a { color: #00a887; text-decoration: none; font-weight: 600; }
+        .steps-box a:hover { text-decoration: underline; }
         .benefits-box { background: #f8fafb; border-radius: 8px; padding: 20px; margin: 25px 0; border: 1px solid #e1e8ed; }
         .benefits-box h3 { margin: 0 0 15px 0; color: #00a887; font-size: 18px; font-weight: 700; }
         .benefits-box ul { margin: 10px 0; padding-left: 20px; color: #6c757d; line-height: 2; }
@@ -1272,7 +1284,35 @@ class EmailService:
 
             <p class="intro-text">Nos complace informarle que su registro ha sido validado exitosamente y su cuenta ya se encuentra <strong style="color: #00a887;">ACTIVA</strong> en nuestro sistema.</p>
 
+            {% if temporary_password %}
+            <p class="intro-text">A partir de este momento, puede acceder a nuestra aplicación móvil para realizar operaciones de cambio de divisas de forma rápida y segura.</p>
+
+            <div class="password-box">
+                <h3>🔐 Su Contraseña Temporal</h3>
+                <div class="password">{{ temporary_password }}</div>
+                <p><strong>⚠️ IMPORTANTE:</strong> Deberá cambiar esta contraseña en su primer acceso.</p>
+            </div>
+
+            <div class="steps-box">
+                <h3>📱 Pasos para Acceder a la App Móvil</h3>
+                <ol>
+                    <li><strong>Paso 1: Descargue la aplicación</strong><br>
+                        • <a href="https://play.google.com/store/apps/details?id=com.qoricash.app" style="color: #00a887; text-decoration: none; font-weight: 600;">📱 Descargar para Android (Play Store)</a><br>
+                        • <a href="https://apps.apple.com/app/qoricash" style="color: #00a887; text-decoration: none; font-weight: 600;">🍎 Descargar para iOS (App Store)</a>
+                    </li>
+                    <li><strong>Paso 2: Abra la app</strong> y seleccione "Iniciar Sesión"</li>
+                    <li><strong>Paso 3: Seleccione su tipo de documento</strong> (DNI, CE o RUC)</li>
+                    <li><strong>Paso 4: Ingrese su número de documento:</strong> <strong style="font-size: 16px; color: #d97706;">{{ client.dni }}</strong></li>
+                    <li><strong>Paso 5: Ingrese la contraseña temporal</strong> mostrada arriba en amarillo</li>
+                    <li><strong>Paso 6: Cree una contraseña segura</strong> cuando se le solicite (mínimo 8 caracteres)</li>
+                </ol>
+                <p style="margin-top: 15px; color: #856404; background: #fff3cd; padding: 12px; border-radius: 6px; font-size: 13px;">
+                    <strong>💡 ¿No encuentra las apps?</strong> Busque "QoriCash" en su tienda de aplicaciones o contacte a su ejecutivo para obtener el enlace directo.
+                </p>
+            </div>
+            {% else %}
             <p class="intro-text">A partir de este momento, puede comenzar a realizar operaciones de cambio de divisas con nosotros. Nuestro equipo está listo para atenderle y brindarle el mejor servicio.</p>
+            {% endif %}
 
             <div class="info-box">
                 <h3>Información de su Cuenta</h3>
@@ -1291,9 +1331,12 @@ class EmailService:
                 <h3>¿Qué puede hacer ahora?</h3>
                 <ul>
                     <li>Realizar operaciones de compra y venta de dólares</li>
-                    <li>Obtener tipos de cambio competitivos</li>
+                    <li>Obtener tipos de cambio competitivos en tiempo real</li>
                     <li>Recibir atención personalizada de su ejecutivo</li>
                     <li>Acceder a transferencias rápidas y seguras</li>
+                    {% if temporary_password %}
+                    <li>Gestionar sus operaciones desde la app móvil</li>
+                    {% endif %}
                 </ul>
             </div>
 
@@ -1316,7 +1359,7 @@ class EmailService:
 </body>
 </html>
 """
-        return render_template_string(template, client=client, trader=trader)
+        return render_template_string(template, client=client, trader=trader, temporary_password=temporary_password)
 
     @staticmethod
     def send_canceled_operation_email(operation, reason):

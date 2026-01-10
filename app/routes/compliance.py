@@ -438,6 +438,9 @@ def approve_kyc(client_id):
         # Obtener cliente
         client = Client.query.get_or_404(client_id)
 
+        # Guardar estado anterior para saber si estaba inactivo
+        was_inactive = (client.status == 'Inactivo')
+
         # VALIDACIÓN CRÍTICA: Verificar documentos antes de aprobar
         is_valid, missing_docs = ComplianceService.validate_client_documents(client)
         if not is_valid:
@@ -492,12 +495,27 @@ def approve_kyc(client_id):
         db.session.commit()
         logger.info(f'💾 [KYC APPROVE] Cambios guardados en BD para cliente {client.dni}')
 
-        # Enviar correo de activación
+        # Enviar correo de activación con contraseña temporal si el cliente estaba inactivo
         try:
             from app.services.email_service import EmailService
+            from app.utils.password_generator import generate_simple_password
+
+            # Generar contraseña temporal SOLO si el cliente estaba inactivo
+            temporary_password = None
+            if was_inactive:
+                # Generar contraseña temporal
+                temporary_password = generate_simple_password(length=10)
+
+                # Establecer contraseña en el cliente
+                client.set_password(temporary_password)
+                client.requires_password_change = True
+                db.session.commit()
+
+                logger.info(f'✅ [KYC APPROVE] Contraseña temporal generada para cliente {client.dni} al aprobar KYC')
+
             # Enviar correo con el trader que creó al cliente
             trader = client.creator if hasattr(client, 'creator') and client.creator else current_user
-            EmailService.send_client_activation_email(client, trader)
+            EmailService.send_client_activation_email(client, trader, temporary_password)
         except Exception as e:
             # No bloquear por errores de email
             logger.warning(f'Error al enviar email de cliente activado desde KYC: {str(e)}')

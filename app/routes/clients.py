@@ -198,13 +198,26 @@ def change_status(client_id):
 
     success, message, client = ClientService.change_client_status(current_user=current_user, client_id=client_id, new_status=new_status)
     if success:
-        # Si el cliente fue activado (de Inactivo a Activo), enviar email
+        # Si el cliente fue activado (de Inactivo a Activo), generar contraseña y enviar email
         if old_status == 'Inactivo' and new_status == 'Activo':
             try:
                 from app.services.email_service import EmailService
-                # Enviar correo con el trader que creó al cliente
+                from app.utils.password_generator import generate_simple_password
+                from app.extensions import db
+
+                # Generar contraseña temporal SOLO al activar la cuenta
+                temporary_password = generate_simple_password(length=10)
+
+                # Establecer contraseña en el cliente
+                client.set_password(temporary_password)
+                client.requires_password_change = True
+                db.session.commit()
+
+                logger.info(f'✅ Contraseña temporal generada para cliente {client.dni} al activar cuenta')
+
+                # Enviar correo con contraseña temporal y el trader que creó al cliente
                 trader = client.creator if hasattr(client, 'creator') and client.creator else current_user
-                EmailService.send_client_activation_email(client, trader)
+                EmailService.send_client_activation_email(client, trader, temporary_password)
             except Exception as e:
                 # No bloquear por errores de email
                 logger.warning(f'Error al enviar email de cliente activado: {str(e)}')
@@ -429,11 +442,24 @@ def approve_documents(client_id):
         db.session.commit()
         logger.info(f'💾 Cambios guardados en BD para cliente {client.dni}')
 
-        # Enviar email de activación si corresponde
+        # Enviar email de activación con contraseña temporal si corresponde
         if was_inactive:
             try:
                 from app.services.email_service import EmailService
-                EmailService.send_client_activation_email(client, current_user)
+                from app.utils.password_generator import generate_simple_password
+
+                # Generar contraseña temporal SOLO al activar la cuenta
+                temporary_password = generate_simple_password(length=10)
+
+                # Establecer contraseña en el cliente
+                client.set_password(temporary_password)
+                client.requires_password_change = True
+                db.session.commit()
+
+                logger.info(f'✅ Contraseña temporal generada para cliente {client.dni} al aprobar documentos')
+
+                # Enviar email con contraseña temporal
+                EmailService.send_client_activation_email(client, current_user, temporary_password)
             except Exception as e:
                 logger.warning(f'Error al enviar email de activación: {str(e)}')
 
