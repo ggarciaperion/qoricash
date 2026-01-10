@@ -11,7 +11,8 @@ from app.utils.formatters import now_peru
 logger = logging.getLogger(__name__)
 
 # Tiempo límite de producción: 15 minutos
-OPERATION_TIMEOUT_MINUTES = 15
+# TEMPORAL: Configurado a 1 minuto para pruebas
+OPERATION_TIMEOUT_MINUTES = 1
 
 
 class OperationExpiryService:

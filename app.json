@@ -1,0 +1,67 @@
+{
+  "expo": {
+    "name": "QoriCash",
+    "slug": "qoricash-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#1976D2"
+    },
+    "privacy": "public",
+    "primaryColor": "#1976D2",
+    "description": "QoriCash - Casa de cambio digital. Compra y vende dólares de forma rápida, segura y al mejor tipo de cambio del mercado.",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.qoricash.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Esta aplicación necesita acceso a la cámara para tomar fotos de comprobantes.",
+        "NSPhotoLibraryUsageDescription": "Esta aplicación necesita acceso a la galería para seleccionar comprobantes."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#1976D2"
+      },
+      "package": "com.qoricash.app",
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "POST_NOTIFICATIONS",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE"
+      ],
+      "edgeToEdgeEnabled": true
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "La aplicación necesita acceso a tus fotos para subir comprobantes.",
+          "cameraPermission": "La aplicación necesita acceso a la cámara para tomar fotos de comprobantes."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#1976D2"
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "qoricash-mobile-app"
+      }
+    }
+  }
+}
