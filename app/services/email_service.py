@@ -1219,57 +1219,51 @@ class EmailService:
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #2c3e50; background-color: #f4f6f9; margin: 0; padding: 20px; }
-        .container { max-width: 600px; margin: 0 auto; background: #FFFFFF; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08); border: 1px solid #e1e8ed; }
-        .header { background: linear-gradient(135deg, #0D1B2A 0%, #1a2942 100%); padding: 25px 20px; text-align: center; border-bottom: none; }
-        .logo { max-width: 180px; height: auto; margin-bottom: 15px; }
-        .header h1 { margin: 15px 0 5px 0; font-size: 26px; color: #FFFFFF; font-weight: 700; }
-        .header p { margin: 5px 0 0 0; font-size: 14px; color: white; font-weight: 600; }
-        .content { padding: 30px 25px; color: #2c3e50; }
-        .greeting { font-size: 16px; margin-bottom: 20px; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.5; color: #2c3e50; background-color: #f4f6f9; margin: 0; padding: 15px; }
+        .container { max-width: 600px; margin: 0 auto; background: #FFFFFF; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        .header { background: linear-gradient(135deg, #0D1B2A 0%, #1a2942 100%); padding: 20px; text-align: center; }
+        .header h1 { margin: 0; font-size: 22px; color: #FFFFFF; font-weight: 700; }
+        .header p { margin: 5px 0 0 0; font-size: 13px; color: white; opacity: 0.9; }
+        .content { padding: 20px; color: #2c3e50; }
+        .greeting { font-size: 15px; margin-bottom: 15px; }
         .greeting strong { color: #00a887; }
-        .success-box { background: linear-gradient(135deg, #e8f5f1, #d0ebe6); padding: 25px; margin: 25px 0; border-radius: 8px; text-align: center; box-shadow: 0 2px 8px rgba(0,168,135,0.1); }
-        .success-box h2 { margin: 0; color: #00a887; font-size: 22px; font-weight: 700; }
-        .success-box p { margin: 10px 0 0 0; color: #00a887; font-weight: 600; }
-        .success-icon { font-size: 48px; margin-bottom: 10px; }
-        .intro-text { margin-bottom: 25px; line-height: 1.8; }
-        .info-box { background: #f8fafb; border: 2px solid #d0ebe6; border-radius: 8px; padding: 20px; margin: 25px 0; }
-        .info-box h3 { margin: 0 0 15px 0; color: #00a887; font-size: 18px; font-weight: 700; }
-        .info-box p { margin: 10px 0; color: #2c3e50; font-size: 14px; }
+        .success-box { background: linear-gradient(135deg, #e8f5f1, #d0ebe6); padding: 15px; margin: 15px 0; border-radius: 8px; text-align: center; }
+        .success-box h2 { margin: 0; color: #00a887; font-size: 18px; font-weight: 700; }
+        .success-icon { font-size: 32px; }
+        .intro-text { margin-bottom: 15px; line-height: 1.6; font-size: 14px; }
+        .info-box { background: #f8fafb; border-left: 4px solid #00a887; border-radius: 6px; padding: 15px; margin: 15px 0; }
+        .info-box h3 { margin: 0 0 10px 0; color: #00a887; font-size: 16px; font-weight: 700; }
+        .info-box p { margin: 6px 0; color: #2c3e50; font-size: 13px; }
         .info-box p strong { color: #6c757d; }
         .info-box .status-active { color: #00a887; font-weight: bold; }
-        .password-box { background: #fff8e1; border: 3px solid #ffd54f; border-radius: 8px; padding: 20px; margin: 25px 0; text-align: center; }
-        .password-box h3 { margin: 0 0 12px 0; color: #f57c00; font-size: 18px; font-weight: 700; }
-        .password-box .password { font-size: 28px; font-weight: 800; color: #d97706; letter-spacing: 3px; margin: 15px 0; padding: 15px; background: white; border-radius: 8px; border: 2px dashed #ffd54f; }
-        .password-box p { margin: 8px 0; color: #f57c00; font-size: 13px; }
-        .steps-box { background: #f8fafb; border-radius: 8px; padding: 20px; margin: 25px 0; border: 2px solid #d0ebe6; }
-        .steps-box h3 { margin: 0 0 15px 0; color: #00a887; font-size: 18px; font-weight: 700; }
-        .steps-box ol { margin: 10px 0; padding-left: 25px; color: #2c3e50; line-height: 1.8; }
-        .steps-box ol li { margin: 12px 0; font-size: 14px; }
+        .password-box { background: #fff8e1; border: 2px solid #ffd54f; border-radius: 8px; padding: 15px; margin: 15px 0; text-align: center; }
+        .password-box h3 { margin: 0 0 10px 0; color: #f57c00; font-size: 16px; font-weight: 700; }
+        .password-box .password { font-size: 24px; font-weight: 800; color: #d97706; letter-spacing: 2px; margin: 10px 0; padding: 12px; background: white; border-radius: 6px; border: 2px dashed #ffd54f; }
+        .password-box p { margin: 6px 0; color: #f57c00; font-size: 12px; }
+        .steps-box { background: #f8fafb; border-radius: 6px; padding: 15px; margin: 15px 0; border: 1px solid #d0ebe6; }
+        .steps-box h3 { margin: 0 0 10px 0; color: #00a887; font-size: 16px; font-weight: 700; }
+        .steps-box ol { margin: 8px 0; padding-left: 20px; color: #2c3e50; line-height: 1.6; }
+        .steps-box ol li { margin: 8px 0; font-size: 13px; }
         .steps-box ol li strong { color: #00a887; }
         .steps-box a { color: #00a887; text-decoration: none; font-weight: 600; }
-        .steps-box a:hover { text-decoration: underline; }
-        .benefits-box { background: #f8fafb; border-radius: 8px; padding: 20px; margin: 25px 0; border: 1px solid #e1e8ed; }
-        .benefits-box h3 { margin: 0 0 15px 0; color: #00a887; font-size: 18px; font-weight: 700; }
-        .benefits-box ul { margin: 10px 0; padding-left: 20px; color: #6c757d; line-height: 2; }
-        .benefits-box li { margin: 8px 0; }
-        .note-box { margin-top: 30px; padding: 18px; background: #f8fafb; border-left: 4px solid #00a887; border-radius: 4px; }
-        .note-box p { margin: 0; color: #495057; font-size: 13px; line-height: 1.6; }
-        .note-box strong { color: #00a887; }
-        .footer { background: #f8fafb; padding: 25px 20px; text-align: center; font-size: 12px; color: #6c757d; border-top: 2px solid #d0ebe6; }
-        .footer p { margin: 8px 0; }
-        .footer strong { color: #00a887; }
-        .divider { height: 1px; background: linear-gradient(90deg, transparent, #d0ebe6, transparent); margin: 25px 0; }
+        .note-tip { margin-top: 10px; color: #856404; background: #fff3cd; padding: 10px; border-radius: 6px; font-size: 12px; }
+        .benefits { background: #f8fafb; border-radius: 6px; padding: 12px 15px; margin: 15px 0; }
+        .benefits strong { color: #00a887; font-size: 14px; display: block; margin-bottom: 8px; }
+        .benefits ul { margin: 0; padding-left: 18px; color: #6c757d; font-size: 13px; line-height: 1.8; }
+        .benefits li { margin: 4px 0; }
+        .contact { margin: 15px 0; padding: 12px; background: #f8fafb; border-radius: 6px; font-size: 13px; line-height: 1.6; }
+        .footer { background: #f8fafb; padding: 15px; text-align: center; font-size: 11px; color: #6c757d; border-top: 1px solid #e1e8ed; }
+        .footer p { margin: 4px 0; }
         @media only screen and (max-width: 600px) {
             body { padding: 10px; }
-            .content { padding: 25px 15px; }
+            .content { padding: 15px; }
         }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>¡Cuenta Activada Exitosamente!</h1>
+            <h1>✓ Cuenta Activada</h1>
             <p>QoriCash Trading</p>
         </div>
 
@@ -1278,82 +1272,65 @@ class EmailService:
 
             <div class="success-box">
                 <div class="success-icon">✓</div>
-                <h2>¡Bienvenido a QoriCash!</h2>
-                <p>Su cuenta ha sido activada correctamente</p>
+                <h2>Su cuenta está activa</h2>
             </div>
 
-            <p class="intro-text">Nos complace informarle que su registro ha sido validado exitosamente y su cuenta ya se encuentra <strong style="color: #00a887;">ACTIVA</strong> en nuestro sistema.</p>
+            <p class="intro-text">Su registro ha sido validado exitosamente. Su cuenta se encuentra <strong style="color: #00a887;">ACTIVA</strong> y lista para operar.</p>
+
+            <div class="info-box">
+                <h3>📋 Información de su Cuenta</h3>
+                <p><strong>Cliente:</strong> {{ client.full_name or client.razon_social }}</p>
+                {% if client.document_number or client.dni %}
+                <p><strong>Documento:</strong> {{ client.document_number or client.dni }}</p>
+                {% endif %}
+                {% if client.phone %}
+                <p><strong>Teléfono:</strong> {{ client.phone }}</p>
+                {% endif %}
+                <p><strong>Estado:</strong> <span class="status-active">ACTIVO</span></p>
+                <p><strong>Ejecutivo:</strong> {{ trader.username }}</p>
+            </div>
 
             {% if temporary_password %}
-            <p class="intro-text">A partir de este momento, puede acceder a nuestra aplicación móvil para realizar operaciones de cambio de divisas de forma rápida y segura.</p>
-
             <div class="password-box">
-                <h3>🔐 Su Contraseña Temporal</h3>
+                <h3>🔐 Contraseña Temporal</h3>
                 <div class="password">{{ temporary_password }}</div>
-                <p><strong>⚠️ IMPORTANTE:</strong> Deberá cambiar esta contraseña en su primer acceso.</p>
+                <p><strong>⚠️</strong> Debe cambiar esta contraseña en su primer acceso</p>
             </div>
 
             <div class="steps-box">
-                <h3>📱 Pasos para Acceder a la App Móvil</h3>
+                <h3>📱 Acceso al Aplicativo Móvil</h3>
                 <ol>
-                    <li><strong>Paso 1: Descargue la aplicación</strong><br>
-                        • <a href="https://play.google.com/store/apps/details?id=com.qoricash.app" style="color: #00a887; text-decoration: none; font-weight: 600;">📱 Descargar para Android (Play Store)</a><br>
-                        • <a href="https://apps.apple.com/app/qoricash" style="color: #00a887; text-decoration: none; font-weight: 600;">🍎 Descargar para iOS (App Store)</a>
-                    </li>
-                    <li><strong>Paso 2: Abra la app</strong> y seleccione "Iniciar Sesión"</li>
-                    <li><strong>Paso 3: Seleccione su tipo de documento</strong> (DNI, CE o RUC)</li>
-                    <li><strong>Paso 4: Ingrese su número de documento:</strong> <strong style="font-size: 16px; color: #d97706;">{{ client.dni }}</strong></li>
-                    <li><strong>Paso 5: Ingrese la contraseña temporal</strong> mostrada arriba en amarillo</li>
-                    <li><strong>Paso 6: Cree una contraseña segura</strong> cuando se le solicite (mínimo 8 caracteres)</li>
+                    <li><strong>Descargue la app:</strong> <a href="https://play.google.com/store/apps/details?id=com.qoricash.app">Android</a> | <a href="https://apps.apple.com/app/qoricash">iOS</a></li>
+                    <li>Abra la app y toque "Iniciar Sesión"</li>
+                    <li>Seleccione su tipo de documento (DNI/CE/RUC)</li>
+                    <li>Ingrese: <strong style="color: #d97706;">{{ client.dni }}</strong></li>
+                    <li>Use la contraseña temporal mostrada arriba</li>
+                    <li>Cree una nueva contraseña segura (mín. 8 caracteres)</li>
                 </ol>
-                <p style="margin-top: 15px; color: #856404; background: #fff3cd; padding: 12px; border-radius: 6px; font-size: 13px;">
-                    <strong>💡 ¿No encuentra las apps?</strong> Busque "QoriCash" en su tienda de aplicaciones o contacte a su ejecutivo para obtener el enlace directo.
-                </p>
+                <p class="note-tip"><strong>💡 Tip:</strong> Busque "QoriCash" en su tienda de aplicaciones</p>
             </div>
-            {% else %}
-            <p class="intro-text">A partir de este momento, puede comenzar a realizar operaciones de cambio de divisas con nosotros. Nuestro equipo está listo para atenderle y brindarle el mejor servicio.</p>
             {% endif %}
 
-            <div class="info-box">
-                <h3>Información de su Cuenta</h3>
-                <p><strong>Cliente:</strong> {{ client.full_name or client.razon_social }}</p>
-                {% if client.document_number or client.dni %}
-                <p><strong>Número de documento:</strong> {{ client.document_number or client.dni }}</p>
-                {% endif %}
-                {% if client.phone %}
-                <p><strong>Número de teléfono registrado:</strong> {{ client.phone }}</p>
-                {% endif %}
-                <p><strong>Estado:</strong> <span class="status-active">ACTIVO</span></p>
-                <p><strong>Ejecutivo Asignado:</strong> {{ trader.username }}</p>
-            </div>
-
-            <div class="benefits-box">
-                <h3>¿Qué puede hacer ahora?</h3>
+            <div class="benefits">
+                <strong>¿Qué puede hacer ahora?</strong>
                 <ul>
-                    <li>Realizar operaciones de compra y venta de dólares</li>
-                    <li>Obtener tipos de cambio competitivos en tiempo real</li>
-                    <li>Recibir atención personalizada de su ejecutivo</li>
-                    <li>Acceder a transferencias rápidas y seguras</li>
-                    {% if temporary_password %}
-                    <li>Gestionar sus operaciones desde la app móvil</li>
-                    {% endif %}
+                    <li>Comprar y vender dólares</li>
+                    <li>Ver tipos de cambio en tiempo real</li>
+                    <li>Transferencias rápidas y seguras</li>
+                    {% if temporary_password %}<li>Operar desde la app móvil</li>{% endif %}
                 </ul>
             </div>
 
-            <div class="divider"></div>
-
-            <p style="margin-top: 25px; line-height: 1.8;">Para realizar su primera operación o si tiene alguna consulta, puede contactar directamente a su ejecutivo comercial <strong style="color: #00a887;">{{ trader.username }}</strong>{% if trader.email %} al correo <strong style="color: #00a887;">{{ trader.email }}</strong>{% endif %}.</p>
-
-            <div class="note-box">
-                <p><strong>Gracias por confiar en QoriCash Trading para sus operaciones cambiarias.</strong></p>
+            <div class="contact">
+                Para consultas, contacte a su ejecutivo <strong style="color: #00a887;">{{ trader.username }}</strong>{% if trader.email %} (<strong style="color: #00a887;">{{ trader.email }}</strong>){% endif %}
             </div>
+
+            <p style="margin: 15px 0 0 0; font-size: 13px; color: #00a887; font-weight: 600;">Gracias por confiar en QoriCash Trading</p>
         </div>
 
         <div class="footer">
-            <p><strong>QoriCash Trading</strong></p>
-            <p>RUC: 20615113698</p>
-            <p>Sistema de Gestión de Operaciones Cambiarias</p>
-            <p style="margin-top: 12px;">© 2025 QoriCash Trading. Todos los derechos reservados.</p>
+            <p><strong>QoriCash Trading</strong> | RUC: 20615113698</p>
+            <p>© 2025 QoriCash Trading. Todos los derechos reservados.</p>
         </div>
     </div>
 </body>
