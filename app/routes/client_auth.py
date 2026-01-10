@@ -433,7 +433,11 @@ def register_client():
         from app.utils.formatters import now_peru
         import secrets
 
-        platform_user = User.query.filter_by(username='Plataforma').first()
+        # Buscar por username O por dni para evitar duplicados
+        platform_user = User.query.filter(
+            (User.username == 'Plataforma') | (User.dni == '11111111')
+        ).first()
+
         if not platform_user:
             logger.info("🤖 Usuario 'Plataforma' no existe, creándolo...")
             platform_user = User(
@@ -448,6 +452,8 @@ def register_client():
             db.session.add(platform_user)
             db.session.flush()  # Para obtener el ID antes de commit
             logger.info(f"✅ Usuario 'Plataforma' creado con ID: {platform_user.id}")
+        else:
+            logger.info(f"✅ Usuario 'Plataforma' encontrado con ID: {platform_user.id}")
 
         # Crear cliente según tipo de persona
         if tipo_persona == 'Natural':
