@@ -104,58 +104,76 @@
     </div>
 
     <!-- Tipos de Cambio -->
-    <div class="row mb-4">
+    <div class="row mb-3">
         <div class="col-md-12">
             <h5><i class="bi bi-currency-exchange"></i> Tipos de Cambio</h5>
         </div>
     </div>
 
     <div class="row mb-4">
-        <div class="col-md-8">
-            <div class="card">
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <h6 class="card-subtitle mb-2 text-muted">Tipo de Cambio Compra</h6>
-                            <h2 class="card-title mb-0 text-success" id="currentBuyRate">S/ 0.000</h2>
-                            <small class="text-muted">Cliente vende USD / Compra PEN</small>
-                        </div>
-                        <div class="col-md-6">
-                            <h6 class="card-subtitle mb-2 text-muted">Tipo de Cambio Venta</h6>
-                            <h2 class="card-title mb-0 text-primary" id="currentSellRate">S/ 0.000</h2>
-                            <small class="text-muted">Cliente compra USD / Vende PEN</small>
-                        </div>
+        <!-- Tarjeta Compra -->
+        <div class="col-md-4">
+            <div class="card border-success h-100">
+                <div class="card-body text-center py-3">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <span class="badge bg-success"><i class="bi bi-arrow-down-circle"></i> COMPRA</span>
+                        <small class="text-muted">Cliente vende USD</small>
                     </div>
-                    <hr>
-                    <div class="row">
-                        <div class="col-md-12">
-                            <small class="text-muted">
-                                <i class="bi bi-clock"></i> Última actualización: <span id="lastUpdate">--</span>
-                                por <span id="updatedBy">--</span>
-                            </small>
-                        </div>
-                    </div>
+                    <h2 class="mb-0 text-success fw-bold" id="currentBuyRate">S/ 0.000</h2>
                 </div>
             </div>
         </div>
+
+        <!-- Tarjeta Venta -->
         <div class="col-md-4">
-            <div class="card border-warning">
-                <div class="card-body">
-                    <h6 class="card-subtitle mb-3 text-center">
-                        <i class="bi bi-pencil-square"></i> Actualizar Tipos de Cambio
-                    </h6>
-                    <div class="mb-3">
-                        <label for="newBuyRate" class="form-label">Compra (Cliente vende USD)</label>
-                        <input type="number" class="form-control" id="newBuyRate" step="0.001" min="0" placeholder="3.750">
+            <div class="card border-primary h-100">
+                <div class="card-body text-center py-3">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <span class="badge bg-primary"><i class="bi bi-arrow-up-circle"></i> VENTA</span>
+                        <small class="text-muted">Cliente compra USD</small>
                     </div>
-                    <div class="mb-3">
-                        <label for="newSellRate" class="form-label">Venta (Cliente compra USD)</label>
-                        <input type="number" class="form-control" id="newSellRate" step="0.001" min="0" placeholder="3.770">
+                    <h2 class="mb-0 text-primary fw-bold" id="currentSellRate">S/ 0.000</h2>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tarjeta Actualizar -->
+        <div class="col-md-4">
+            <div class="card border-warning h-100">
+                <div class="card-body py-3">
+                    <div class="text-center mb-2">
+                        <span class="badge bg-warning text-dark"><i class="bi bi-pencil-square"></i> ACTUALIZAR</span>
                     </div>
-                    <button class="btn btn-warning w-100" onclick="updateExchangeRates()">
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <input type="number" class="form-control form-control-sm" id="newBuyRate"
+                                   step="0.001" min="0" placeholder="Compra">
+                        </div>
+                        <div class="col-6">
+                            <input type="number" class="form-control form-control-sm" id="newSellRate"
+                                   step="0.001" min="0" placeholder="Venta">
+                        </div>
+                    </div>
+                    <button class="btn btn-warning btn-sm w-100 mt-2" onclick="updateExchangeRates()">
                         <i class="bi bi-save"></i> Actualizar
                     </button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Información de última actualización -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="alert alert-light py-2 mb-0">
+                <small class="text-muted d-flex align-items-center justify-content-center">
+                    <i class="bi bi-clock me-2"></i>
+                    <strong class="me-1">Última actualización:</strong>
+                    <span id="lastUpdate">--</span>
+                    <span class="mx-2">|</span>
+                    <strong class="me-1">Por:</strong>
+                    <span id="updatedBy">--</span>
+                </small>
             </div>
         </div>
     </div>

@@ -104,6 +104,7 @@ function addBankAccount() {
                         <option value="BANBIF">BANBIF</option>
                         <option value="BBVA">BBVA</option>
                         <option value="SCOTIABANK">SCOTIABANK</option>
+                        <option value="OTROS">OTROS</option>
                     </select>
                 </div>
                 <div class="col-md-3">
@@ -338,7 +339,7 @@ function validateCCI(accountNumber) {
 
     const selectedBank = bankSelect.value;
 
-    if (selectedBank === 'BBVA' || selectedBank === 'SCOTIABANK') {
+    if (selectedBank === 'BBVA' || selectedBank === 'SCOTIABANK' || selectedBank === 'OTROS') {
         accountInput.setAttribute('minlength', '20');
         accountInput.setAttribute('maxlength', '20');
         accountInput.setAttribute('pattern', '[0-9]{20}');
