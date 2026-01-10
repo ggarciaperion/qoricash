@@ -404,9 +404,10 @@
     // Actualizar badge de KYC (solo para Master y Middle Office)
     {% if current_user.is_authenticated and current_user.role in ['Master', 'Middle Office'] %}
     function updateKycBadge() {
-        fetch('/api/kyc/pending')
+        fetch('/compliance/api/kyc/pending')
             .then(response => response.json())
             .then(data => {
+                console.log('KYC Badge Response:', data); // Debug
                 if (data.success && data.data) {
                     const count = data.data.length;
                     const badge = document.getElementById('kycBadge');
@@ -417,6 +418,8 @@
                         } else {
                             badge.style.display = 'none';
                         }
+                    } else {
+                        console.error('Badge element not found');
                     }
                 }
             })

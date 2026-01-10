@@ -87,7 +87,7 @@ function addBankAccount() {
                 <div class="col-md-3">
                     <label class="form-label">Origen ${isRequired ? '<span class="text-danger">*</span>' : ''}</label>
                     <select class="form-select bank-origen" id="origen${accountIndex}" name="origen${accountIndex}"
-                            ${isRequired ? 'required' : ''} onchange="validateDuplicateAccounts()">
+                            ${isRequired ? 'required' : ''} onchange="filterBanksByOrigin(${accountIndex}); validateDuplicateAccounts()">
                         <option value="">Seleccionar...</option>
                         <option value="Lima">Lima</option>
                         <option value="Provincia">Provincia</option>
@@ -98,14 +98,17 @@ function addBankAccount() {
                     <select class="form-select bank-name" id="bankName${accountIndex}" name="bank_name${accountIndex}"
                             ${isRequired ? 'required' : ''} onchange="validateCCI(${accountIndex}); validateDuplicateAccounts()">
                         <option value="">Seleccionar...</option>
-                        <option value="BCP">BCP</option>
-                        <option value="INTERBANK">INTERBANK</option>
-                        <option value="PICHINCHA">PICHINCHA</option>
-                        <option value="BANBIF">BANBIF</option>
-                        <option value="BBVA">BBVA</option>
-                        <option value="SCOTIABANK">SCOTIABANK</option>
-                        <option value="OTROS">OTROS</option>
+                        <option value="BCP" data-provincia="true">BCP</option>
+                        <option value="INTERBANK" data-provincia="true">INTERBANK</option>
+                        <option value="PICHINCHA" data-provincia="false">PICHINCHA</option>
+                        <option value="BANBIF" data-provincia="false">BANBIF</option>
+                        <option value="BBVA" data-provincia="false">BBVA</option>
+                        <option value="SCOTIABANK" data-provincia="false">SCOTIABANK</option>
+                        <option value="OTROS" data-provincia="false">OTROS</option>
                     </select>
+                    <small class="form-text text-danger" id="provinciaWarning${accountIndex}" style="display: none;">
+                        <i class="bi bi-exclamation-triangle"></i> Para provincia, actualmente solo trabajamos con BCP e Interbank.
+                    </small>
                 </div>
                 <div class="col-md-3">
                     <label class="form-label">Tipo de Cuenta ${isRequired ? '<span class="text-danger">*</span>' : ''}</label>
@@ -351,6 +354,58 @@ function validateCCI(accountNumber) {
         accountInput.removeAttribute('pattern');
         helpText.textContent = 'Ingrese el número de cuenta';
         helpText.className = 'form-text text-muted';
+    }
+}
+
+/**
+ * Filtrar bancos disponibles según el origen seleccionado
+ */
+function filterBanksByOrigin(accountIndex) {
+    const origenSelect = document.getElementById(`origen${accountIndex}`);
+    const bankSelect = document.getElementById(`bankName${accountIndex}`);
+    const warning = document.getElementById(`provinciaWarning${accountIndex}`);
+
+    if (!origenSelect || !bankSelect || !warning) return;
+
+    const origen = origenSelect.value;
+    const selectedBank = bankSelect.value; // Guardar selección actual
+
+    // Obtener todas las opciones del banco
+    const options = bankSelect.querySelectorAll('option');
+
+    if (origen === 'Provincia') {
+        // Mostrar advertencia
+        warning.style.display = 'block';
+
+        // Filtrar opciones: solo mostrar BCP e INTERBANK
+        options.forEach(option => {
+            if (option.value === '') {
+                // Mantener opción "Seleccionar..."
+                option.style.display = '';
+                option.disabled = false;
+            } else if (option.getAttribute('data-provincia') === 'true') {
+                // Mostrar BCP e INTERBANK
+                option.style.display = '';
+                option.disabled = false;
+            } else {
+                // Ocultar otros bancos
+                option.style.display = 'none';
+                option.disabled = true;
+            }
+        });
+
+        // Si el banco seleccionado no es válido para provincia, resetear
+        if (selectedBank && selectedBank !== 'BCP' && selectedBank !== 'INTERBANK') {
+            bankSelect.value = '';
+        }
+    } else {
+        // Lima u origen vacío: mostrar todos los bancos
+        warning.style.display = 'none';
+
+        options.forEach(option => {
+            option.style.display = '';
+            option.disabled = false;
+        });
     }
 }
 
