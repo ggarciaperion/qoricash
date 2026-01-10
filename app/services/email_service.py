@@ -2491,14 +2491,21 @@ class EmailService:
             </div>
 
             <div class="steps-box">
-                <h3>📱 Pasos para Acceder</h3>
+                <h3>📱 Pasos para Acceder a la App Móvil</h3>
                 <ol>
-                    <li><strong>Descargue</strong> la aplicación QoriCash desde su tienda de aplicaciones</li>
-                    <li><strong>Abra</strong> la aplicación y seleccione "Iniciar Sesión"</li>
-                    <li><strong>Ingrese</strong> su DNI: <strong>{{ client.dni }}</strong></li>
-                    <li><strong>Ingrese</strong> la contraseña temporal mostrada arriba</li>
-                    <li><strong>Cree</strong> una nueva contraseña segura cuando se le solicite</li>
+                    <li><strong>Paso 1: Descargue la aplicación</strong><br>
+                        • <a href="https://play.google.com/store/apps/details?id=com.qoricash.app" style="color: #00a887; text-decoration: none; font-weight: 600;">📱 Descargar para Android (Play Store)</a><br>
+                        • <a href="https://apps.apple.com/app/qoricash" style="color: #00a887; text-decoration: none; font-weight: 600;">🍎 Descargar para iOS (App Store)</a>
+                    </li>
+                    <li><strong>Paso 2: Abra la app</strong> y seleccione "Iniciar Sesión"</li>
+                    <li><strong>Paso 3: Seleccione su tipo de documento</strong> (DNI, CE o RUC)</li>
+                    <li><strong>Paso 4: Ingrese su número de documento:</strong> <strong style="font-size: 16px; color: #d97706;">{{ client.dni }}</strong></li>
+                    <li><strong>Paso 5: Ingrese la contraseña temporal</strong> mostrada arriba en amarillo</li>
+                    <li><strong>Paso 6: Cree una contraseña segura</strong> cuando se le solicite (mínimo 8 caracteres)</li>
                 </ol>
+                <p style="margin-top: 15px; color: #856404; background: #fff3cd; padding: 12px; border-radius: 6px; font-size: 13px;">
+                    <strong>💡 ¿No encuentra las apps?</strong> Busque "QoriCash" en su tienda de aplicaciones o contacte a su ejecutivo para obtener el enlace directo.
+                </p>
             </div>
 
             <p style="margin-top: 25px;">Una vez que haya iniciado sesión y cambiado su contraseña, podrá realizar operaciones de cambio de divisas de forma rápida y segura desde su dispositivo móvil.</p>
@@ -2640,12 +2647,16 @@ class EmailService:
             <div class="steps-box">
                 <h3>📱 Pasos para Recuperar Acceso</h3>
                 <ol>
-                    <li><strong>Abra</strong> la aplicación QoriCash en su dispositivo móvil</li>
-                    <li><strong>Seleccione</strong> "Iniciar Sesión"</li>
-                    <li><strong>Ingrese</strong> su DNI/RUC: <strong>{{ client.dni }}</strong></li>
-                    <li><strong>Ingrese</strong> la contraseña temporal mostrada arriba</li>
-                    <li><strong>Cree</strong> una nueva contraseña segura cuando se le solicite</li>
+                    <li><strong>Paso 1: Abra la aplicación</strong> QoriCash en su dispositivo móvil</li>
+                    <li><strong>Paso 2: Toque "Iniciar Sesión"</strong></li>
+                    <li><strong>Paso 3: Seleccione su tipo de documento</strong> (DNI, CE o RUC)</li>
+                    <li><strong>Paso 4: Ingrese su número de documento:</strong> <strong style="font-size: 16px; color: #d97706;">{{ client.dni }}</strong></li>
+                    <li><strong>Paso 5: Ingrese la contraseña temporal</strong> mostrada arriba en amarillo</li>
+                    <li><strong>Paso 6: Cree una contraseña segura</strong> cuando se le solicite (mínimo 8 caracteres)</li>
                 </ol>
+                <p style="margin-top: 15px; color: #856404; background: #fff3cd; padding: 12px; border-radius: 6px; font-size: 13px;">
+                    <strong>⏰ Válido por 24 horas.</strong> Si no inicia sesión en ese período, deberá solicitar una nueva contraseña temporal.
+                </p>
             </div>
 
             <p style="margin-top: 25px;">Una vez que haya iniciado sesión y cambiado su contraseña, podrá continuar realizando operaciones de cambio de divisas de forma segura.</p>
