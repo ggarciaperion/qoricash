@@ -11,6 +11,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   TouchableOpacity,
+  SafeAreaView,
 } from 'react-native';
 import {
   Text,
@@ -311,10 +312,11 @@ export const OperationDetailScreen: React.FC<OperationDetailScreenProps> = ({
   const outputCurrency = operation?.operation_type === 'Compra' ? 'PEN' : 'USD';
 
   return (
-    <ScrollView
-      style={styles.container}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-    >
+    <SafeAreaView style={{ flex: 1, paddingTop: 20 }}>
+      <ScrollView
+        style={styles.container}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      >
       {/* Unified Operation Details Card */}
       <Card style={styles.unifiedCard}>
         <Card.Content>
@@ -775,7 +777,17 @@ export const OperationDetailScreen: React.FC<OperationDetailScreenProps> = ({
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* Boton Aceptar */}
+      <TouchableOpacity
+        style={styles.acceptButton}
+        onPress={() => navigation.goBack()}
+        activeOpacity={0.8}
+      >
+        <Text style={styles.acceptButtonText}>ACEPTAR</Text>
+      </TouchableOpacity>
     </ScrollView>
+    </SafeAreaView>
   );
 };
 
@@ -1140,5 +1152,26 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     color: '#FFFFFF',
+  },
+  acceptButton: {
+    backgroundColor: '#82C16C',
+    borderRadius: 12,
+    paddingVertical: 16,
+    marginHorizontal: 16,
+    marginTop: 20,
+    marginBottom: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 4,
+    shadowColor: '#82C16C',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  acceptButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    letterSpacing: 1,
   },
 });

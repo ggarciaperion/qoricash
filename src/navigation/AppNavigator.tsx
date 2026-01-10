@@ -137,8 +137,7 @@ const MainNavigator = () => {
         name="OperationDetail"
         component={OperationDetailScreen}
         options={{
-          title: 'Detalle de Operación',
-          headerTintColor: Colors.primary,
+          headerShown: false,
         }}
       />
       <Stack.Screen
