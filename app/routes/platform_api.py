@@ -424,3 +424,56 @@ def health_check():
         'service': 'QoriCash Platform API',
         'version': '1.0.0'
     }), 200
+
+
+@platform_api_bp.route('/public/exchange-rates', methods=['GET'])
+@csrf.exempt
+def get_public_exchange_rates():
+    """
+    API: Obtener tipos de cambio actuales (público, sin autenticación)
+
+    Endpoint público para que la página web y app móvil obtengan
+    los tipos de cambio actuales sin necesidad de autenticación
+
+    Returns:
+        JSON: {
+            "success": true,
+            "data": {
+                "tipo_compra": 3.75,
+                "tipo_venta": 3.77,
+                "fecha_actualizacion": "2025-01-11T12:00:00"
+            }
+        }
+    """
+    try:
+        from app.models.exchange_rate import ExchangeRate
+
+        # Obtener tipos de cambio desde la base de datos
+        rate = ExchangeRate.query.order_by(ExchangeRate.updated_at.desc()).first()
+
+        if rate:
+            return jsonify({
+                'success': True,
+                'data': {
+                    'tipo_compra': float(rate.buy_rate),
+                    'tipo_venta': float(rate.sell_rate),
+                    'fecha_actualizacion': rate.updated_at.isoformat() if rate.updated_at else None
+                }
+            }), 200
+        else:
+            # Valores por defecto si no hay registros
+            return jsonify({
+                'success': True,
+                'data': {
+                    'tipo_compra': 3.75,
+                    'tipo_venta': 3.77,
+                    'fecha_actualizacion': None
+                }
+            }), 200
+
+    except Exception as e:
+        logger.error(f"Error al obtener tipos de cambio públicos: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f'Error al obtener tipos de cambio: {str(e)}'
+        }), 500
