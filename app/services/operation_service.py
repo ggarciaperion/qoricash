@@ -142,7 +142,7 @@ class OperationService:
             tuple: (success: bool, message: str, operation: Operation|None)
         """
         # Validar permisos
-        if not current_user or current_user.role not in ['Master', 'Trader', 'Plataforma', 'App']:
+        if not current_user or current_user.role not in ['Master', 'Trader', 'Plataforma', 'App', 'Web']:
             return False, 'No tienes permiso para crear operaciones', None
         
         # Validar cliente
@@ -161,8 +161,8 @@ class OperationService:
         if not can_operate:
             return False, error_message, None
 
-        # Validar que Trader, Plataforma y App solo puedan crear operaciones para sus propios clientes
-        if current_user.role in ['Trader', 'Plataforma', 'App']:
+        # Validar que Trader, Plataforma, App y Web solo puedan crear operaciones para sus propios clientes
+        if current_user.role in ['Trader', 'Plataforma', 'App', 'Web']:
             if client.created_by != current_user.id:
                 return False, 'Solo puedes crear operaciones para tus propios clientes', None
 
@@ -186,7 +186,7 @@ class OperationService:
         operation_id = Operation.generate_operation_id()
         
         # Validar origen
-        if origen not in ['sistema', 'plataforma', 'app']:
+        if origen not in ['sistema', 'plataforma', 'app', 'web']:
             origen = 'sistema'  # Default a 'sistema' si el valor es inválido
 
         # Crear operación

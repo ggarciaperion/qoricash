@@ -27,7 +27,7 @@ class User(UserMixin, db.Model):
         db.String(20),
         nullable=False,
         default='Trader'
-    )  # Master, Trader, Operador, Middle Office, Plataforma, App
+    )  # Master, Trader, Operador, Middle Office, Plataforma, App, Web
     
     status = db.Column(
         db.String(20),
@@ -63,7 +63,7 @@ class User(UserMixin, db.Model):
     # Constraints
     __table_args__ = (
         db.CheckConstraint(
-            role.in_(['Master', 'Trader', 'Operador', 'Middle Office', 'Plataforma', 'App']),
+            role.in_(['Master', 'Trader', 'Operador', 'Middle Office', 'Plataforma', 'App', 'Web']),
             name='check_user_role'
         ),
         db.CheckConstraint(
@@ -144,6 +144,10 @@ class User(UserMixin, db.Model):
     def is_app(self):
         """Verificar si es usuario del App Móvil"""
         return self.role == 'App'
+
+    def is_web(self):
+        """Verificar si es usuario de la Página Web"""
+        return self.role == 'Web'
 
     def is_active_user(self):
         """Verificar si está activo"""

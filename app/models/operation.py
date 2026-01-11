@@ -35,7 +35,7 @@ class Operation(db.Model):
         nullable=False,
         default='sistema',
         index=True
-    )  # sistema, plataforma, app
+    )  # sistema, plataforma, app, web
 
     # Montos
     amount_usd = db.Column(db.Numeric(15, 2), nullable=False)
@@ -108,7 +108,7 @@ class Operation(db.Model):
             name='check_operation_status'
         ),
         db.CheckConstraint(
-            origen.in_(['sistema', 'plataforma', 'app']),
+            origen.in_(['sistema', 'plataforma', 'app', 'web']),
             name='check_operation_origen'
         ),
         db.CheckConstraint(
