@@ -60,6 +60,7 @@ def initialize_extensions(flask_app):
         r"/api/*": {
             "origins": [
                 "http://localhost:3000",  # Página web QoriCash
+                "http://localhost:3001",  # Página web QoriCash (puerto alternativo)
                 "http://localhost:8081",  # App móvil Expo
                 "http://localhost:8082",  # App móvil Expo (alternativo)
                 "http://localhost:19006",  # App móvil Expo (web)
