@@ -108,17 +108,6 @@ def register_blueprints(app):
     """Registrar blueprints de la aplicación"""
     from flask import send_from_directory
     import os
-    from app.routes.auth import auth_bp
-    from app.routes.dashboard import dashboard_bp
-    from app.routes.users import users_bp
-    from app.routes.clients import clients_bp
-    from app.routes.operations import operations_bp
-    from app.routes.position import position_bp
-    from app.routes.compliance import compliance_bp
-    from app.routes.platform_api import platform_api_bp
-    from app.routes.client_auth import client_auth_bp
-    from app.routes.web_api import web_api_bp
-    from app.routes.legal import legal_bp
 
     # Ruta para servir favicon.ico
     @app.route('/favicon.ico')
@@ -129,17 +118,85 @@ def register_blueprints(app):
             mimetype='image/vnd.microsoft.icon'
         )
 
-    app.register_blueprint(auth_bp)
-    app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
-    app.register_blueprint(users_bp, url_prefix='/users')
-    app.register_blueprint(clients_bp, url_prefix='/clients')
-    app.register_blueprint(operations_bp, url_prefix='/operations')
-    app.register_blueprint(position_bp, url_prefix='/position')
-    app.register_blueprint(compliance_bp, url_prefix='/compliance')
-    app.register_blueprint(platform_api_bp)  # API Platform (ya tiene url_prefix='/api/platform')
-    app.register_blueprint(client_auth_bp)  # API Client Auth (ya tiene url_prefix='/api/client')
-    app.register_blueprint(web_api_bp)  # API Web (ya tiene url_prefix='/api/web')
-    app.register_blueprint(legal_bp)  # Páginas legales (Política de Privacidad, Términos y Condiciones)
+    # Importar y registrar blueprints con manejo de errores
+    try:
+        from app.routes.auth import auth_bp
+        app.register_blueprint(auth_bp)
+        app.logger.info('✅ Blueprint auth_bp registrado')
+    except Exception as e:
+        app.logger.error(f'❌ Error registrando auth_bp: {str(e)}')
+
+    try:
+        from app.routes.dashboard import dashboard_bp
+        app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
+        app.logger.info('✅ Blueprint dashboard_bp registrado')
+    except Exception as e:
+        app.logger.error(f'❌ Error registrando dashboard_bp: {str(e)}')
+
+    try:
+        from app.routes.users import users_bp
+        app.register_blueprint(users_bp, url_prefix='/users')
+        app.logger.info('✅ Blueprint users_bp registrado')
+    except Exception as e:
+        app.logger.error(f'❌ Error registrando users_bp: {str(e)}')
+
+    try:
+        from app.routes.clients import clients_bp
+        app.register_blueprint(clients_bp, url_prefix='/clients')
+        app.logger.info('✅ Blueprint clients_bp registrado')
+    except Exception as e:
+        app.logger.error(f'❌ Error registrando clients_bp: {str(e)}')
+
+    try:
+        from app.routes.operations import operations_bp
+        app.register_blueprint(operations_bp, url_prefix='/operations')
+        app.logger.info('✅ Blueprint operations_bp registrado')
+    except Exception as e:
+        app.logger.error(f'❌ Error registrando operations_bp: {str(e)}')
+
+    try:
+        from app.routes.position import position_bp
+        app.register_blueprint(position_bp, url_prefix='/position')
+        app.logger.info('✅ Blueprint position_bp registrado')
+    except Exception as e:
+        app.logger.error(f'❌ Error registrando position_bp: {str(e)}')
+
+    try:
+        from app.routes.compliance import compliance_bp
+        app.register_blueprint(compliance_bp, url_prefix='/compliance')
+        app.logger.info('✅ Blueprint compliance_bp registrado')
+    except Exception as e:
+        app.logger.error(f'❌ Error registrando compliance_bp: {str(e)}')
+
+    try:
+        from app.routes.platform_api import platform_api_bp
+        app.register_blueprint(platform_api_bp)
+        app.logger.info('✅ Blueprint platform_api_bp registrado')
+    except Exception as e:
+        app.logger.error(f'❌ Error registrando platform_api_bp: {str(e)}')
+
+    try:
+        from app.routes.client_auth import client_auth_bp
+        app.register_blueprint(client_auth_bp)
+        app.logger.info('✅ Blueprint client_auth_bp registrado')
+    except Exception as e:
+        app.logger.error(f'❌ Error registrando client_auth_bp: {str(e)}')
+
+    try:
+        from app.routes.web_api import web_api_bp
+        app.register_blueprint(web_api_bp)
+        app.logger.info('✅ Blueprint web_api_bp registrado exitosamente')
+    except Exception as e:
+        app.logger.error(f'❌ ERROR CRÍTICO registrando web_api_bp: {str(e)}')
+        import traceback
+        app.logger.error(traceback.format_exc())
+
+    try:
+        from app.routes.legal import legal_bp
+        app.register_blueprint(legal_bp)
+        app.logger.info('✅ Blueprint legal_bp registrado')
+    except Exception as e:
+        app.logger.error(f'❌ Error registrando legal_bp: {str(e)}')
 
 
 def configure_logging(app):
