@@ -350,6 +350,187 @@ def register_from_web():
         }), 500
 
 
+@web_api_bp.route('/my-operations', methods=['POST'])
+@csrf.exempt
+def get_my_operations():
+    """
+    Obtener operaciones del cliente autenticado
+
+    Request JSON:
+    {
+        "dni": "12345678"
+    }
+
+    Returns:
+        JSON: {
+            "success": true/false,
+            "operations": [...]
+        }
+    """
+    try:
+        data = request.get_json()
+
+        if not data or 'dni' not in data:
+            return jsonify({
+                'success': False,
+                'message': 'DNI es requerido'
+            }), 400
+
+        dni = data.get('dni', '').strip()
+
+        # Buscar cliente
+        client = Client.query.filter_by(dni=dni).first()
+        if not client:
+            return jsonify({
+                'success': False,
+                'message': 'Cliente no encontrado'
+            }), 404
+
+        # Obtener operaciones
+        from app.models.operation import Operation
+        operations = Operation.query.filter_by(
+            client_id=client.id
+        ).order_by(Operation.created_at.desc()).limit(50).all()
+
+        return jsonify({
+            'success': True,
+            'data': [op.to_dict(include_relations=True) for op in operations]
+        }), 200
+
+    except Exception as e:
+        logger.error(f"❌ Error al obtener operaciones: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f'Error al obtener operaciones: {str(e)}'
+        }), 500
+
+
+@web_api_bp.route('/stats', methods=['POST'])
+@csrf.exempt
+def get_client_stats():
+    """
+    Obtener estadísticas del cliente
+
+    Request JSON:
+    {
+        "dni": "12345678"
+    }
+
+    Returns:
+        JSON: {
+            "success": true/false,
+            "data": {
+                "total_operations": 0,
+                "pending_operations": 0,
+                "completed_operations": 0,
+                "total_soles": 0.0,
+                "total_dolares": 0.0
+            }
+        }
+    """
+    try:
+        data = request.get_json()
+
+        if not data or 'dni' not in data:
+            return jsonify({
+                'success': False,
+                'message': 'DNI es requerido'
+            }), 400
+
+        dni = data.get('dni', '').strip()
+
+        # Buscar cliente
+        client = Client.query.filter_by(dni=dni).first()
+        if not client:
+            return jsonify({
+                'success': False,
+                'message': 'Cliente no encontrado'
+            }), 404
+
+        # Calcular estadísticas
+        from app.models.operation import Operation
+        from sqlalchemy import func
+
+        operations = Operation.query.filter_by(client_id=client.id).all()
+
+        total_operations = len(operations)
+        pending_operations = len([op for op in operations if op.status in ['Pendiente', 'En proceso']])
+        completed_operations = len([op for op in operations if op.status == 'Completado'])
+
+        total_soles = sum([op.amount_pen for op in operations if op.status == 'Completado'])
+        total_dolares = sum([op.amount_usd for op in operations if op.status == 'Completado'])
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'total_operations': total_operations,
+                'pending_operations': pending_operations,
+                'completed_operations': completed_operations,
+                'total_soles': float(total_soles),
+                'total_dolares': float(total_dolares)
+            }
+        }), 200
+
+    except Exception as e:
+        logger.error(f"❌ Error al obtener estadísticas: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f'Error al obtener estadísticas: {str(e)}'
+        }), 500
+
+
+@web_api_bp.route('/my-accounts', methods=['POST'])
+@csrf.exempt
+def get_my_accounts():
+    """
+    Obtener cuentas bancarias del cliente
+
+    Request JSON:
+    {
+        "dni": "12345678"
+    }
+
+    Returns:
+        JSON: {
+            "success": true/false,
+            "data": [...]
+        }
+    """
+    try:
+        data = request.get_json()
+
+        if not data or 'dni' not in data:
+            return jsonify({
+                'success': False,
+                'message': 'DNI es requerido'
+            }), 400
+
+        dni = data.get('dni', '').strip()
+
+        # Buscar cliente
+        client = Client.query.filter_by(dni=dni).first()
+        if not client:
+            return jsonify({
+                'success': False,
+                'message': 'Cliente no encontrado'
+            }), 404
+
+        # Obtener cuentas bancarias
+        bank_accounts = client.bank_accounts or []
+
+        return jsonify({
+            'success': True,
+            'data': bank_accounts
+        }), 200
+
+    except Exception as e:
+        logger.error(f"❌ Error al obtener cuentas bancarias: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f'Error al obtener cuentas bancarias: {str(e)}'
+        }), 500
+
+
 @web_api_bp.route('/health', methods=['GET'])
 def health_check():
     """Health check para web API"""
