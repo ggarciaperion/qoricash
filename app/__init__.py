@@ -117,6 +117,7 @@ def register_blueprints(app):
     from app.routes.compliance import compliance_bp
     from app.routes.platform_api import platform_api_bp
     from app.routes.client_auth import client_auth_bp
+    from app.routes.web_api import web_api_bp
     from app.routes.legal import legal_bp
 
     # Ruta para servir favicon.ico
@@ -137,6 +138,7 @@ def register_blueprints(app):
     app.register_blueprint(compliance_bp, url_prefix='/compliance')
     app.register_blueprint(platform_api_bp)  # API Platform (ya tiene url_prefix='/api/platform')
     app.register_blueprint(client_auth_bp)  # API Client Auth (ya tiene url_prefix='/api/client')
+    app.register_blueprint(web_api_bp)  # API Web (ya tiene url_prefix='/api/web')
     app.register_blueprint(legal_bp)  # Páginas legales (Política de Privacidad, Términos y Condiciones)
 
 
