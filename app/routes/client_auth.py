@@ -2,7 +2,7 @@
 Rutas de Autenticación para Clientes (Mobile App)
 TEMPORAL - Solo DNI sin contraseña para pruebas
 """
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, make_response
 from app.models.client import Client
 from app.models.user import User
 from app.extensions import db, csrf
@@ -11,6 +11,30 @@ import logging
 logger = logging.getLogger(__name__)
 
 client_auth_bp = Blueprint('client_auth', __name__, url_prefix='/api/client')
+
+
+@client_auth_bp.after_request
+def after_request(response):
+    """Agregar headers CORS a todas las respuestas del blueprint"""
+    origin = request.headers.get('Origin')
+
+    # Lista de orígenes permitidos
+    allowed_origins = [
+        'http://localhost:3000',  # Página web QoriCash
+        'http://localhost:8081',  # App móvil Expo
+        'http://localhost:8082',  # App móvil Expo (alternativo)
+        'http://localhost:19006',  # App móvil Expo (web)
+        'https://app.qoricash.pe'  # App móvil en producción
+    ]
+
+    # Si el origen está en la lista, agregarlo
+    if origin in allowed_origins:
+        response.headers['Access-Control-Allow-Origin'] = origin
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+        response.headers['Access-Control-Allow-Credentials'] = 'true'
+
+    return response
 
 
 @client_auth_bp.route('/login', methods=['POST'])
