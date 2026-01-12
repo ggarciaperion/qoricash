@@ -373,12 +373,17 @@ def get_current_client():
         }), 500
 
 
-@client_auth_bp.route('/register', methods=['POST'])
+@client_auth_bp.route('/register', methods=['OPTIONS', 'POST'])
 @csrf.exempt
 def register_client():
     """
     Auto-registro de cliente - Soporta Persona Natural y Jurídica (RUC)
     """
+    # Manejar preflight OPTIONS request
+    if request.method == 'OPTIONS':
+        response = jsonify({'status': 'ok'})
+        return response, 200
+
     try:
         data = request.get_json()
 
