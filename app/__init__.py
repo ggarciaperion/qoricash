@@ -58,7 +58,13 @@ def initialize_extensions(flask_app):
     # Inicializar CORS primero - permitir requests desde localhost para desarrollo
     cors.init_app(flask_app, resources={
         r"/api/*": {
-            "origins": ["http://localhost:8081", "http://localhost:8082", "http://localhost:19006", "https://app.qoricash.pe"],
+            "origins": [
+                "http://localhost:3000",  # Página web QoriCash
+                "http://localhost:8081",  # App móvil Expo
+                "http://localhost:8082",  # App móvil Expo (alternativo)
+                "http://localhost:19006",  # App móvil Expo (web)
+                "https://app.qoricash.pe"  # App móvil en producción
+            ],
             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
             "allow_headers": ["Content-Type", "Authorization"],
             "supports_credentials": True
