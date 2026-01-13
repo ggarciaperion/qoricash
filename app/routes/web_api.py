@@ -593,13 +593,11 @@ def create_operation_web():
         # Crear operación con campos correctos del modelo
         from app.models.operation import Operation
 
-        # Generar operation_id temporal (se actualizará después del commit)
-        # Obtener el último ID para generar el siguiente
-        last_op = Operation.query.order_by(Operation.id.desc()).first()
-        next_id = (last_op.id + 1) if last_op else 1001
+        # Generar operation_id usando el método del modelo (mantiene correlativo único)
+        operation_id = Operation.generate_operation_id()
 
         new_operation = Operation(
-            operation_id=f"EXP-{next_id}",  # Temporal, se actualizará
+            operation_id=operation_id,
             client_id=client.id,
             user_id=client.created_by,  # Trader que registró al cliente
             operation_type=tipo.capitalize(),  # 'Compra' o 'Venta'
@@ -614,10 +612,6 @@ def create_operation_web():
         )
 
         db.session.add(new_operation)
-        db.session.commit()
-
-        # Actualizar operation_id con el ID real
-        new_operation.operation_id = f"EXP-{new_operation.id}"
         db.session.commit()
 
         logger.info(f"✅ Operación {new_operation.operation_id} creada desde WEB para cliente {client.dni}")
