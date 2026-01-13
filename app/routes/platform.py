@@ -21,6 +21,19 @@ platform_bp = Blueprint('platform', __name__)
 csrf.exempt(platform_bp)
 
 
+# Agregar headers CORS a todas las respuestas del blueprint
+@platform_bp.after_request
+def after_request(response):
+    """Agregar headers CORS a todas las respuestas"""
+    origin = request.headers.get('Origin')
+    if origin:
+        response.headers.add('Access-Control-Allow-Origin', origin)
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+        response.headers.add('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS')
+        response.headers.add('Access-Control-Allow-Credentials', 'true')
+    return response
+
+
 @platform_bp.route('/api/client/register', methods=['POST'])
 def client_register():
     """
@@ -206,8 +219,16 @@ def client_register():
         }), 500
 
 
-@platform_bp.route('/api/web/add-bank-account', methods=['POST'])
+@platform_bp.route('/api/web/add-bank-account', methods=['POST', 'OPTIONS'])
 def add_bank_account():
+    # Manejar preflight OPTIONS request
+    if request.method == 'OPTIONS':
+        response = jsonify({'status': 'ok'})
+        response.headers.add('Access-Control-Allow-Origin', request.headers.get('Origin', '*'))
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+        response.headers.add('Access-Control-Allow-Methods', 'POST,OPTIONS')
+        response.headers.add('Access-Control-Allow-Credentials', 'true')
+        return response, 200
     """
     Agregar cuenta bancaria a cliente existente desde web
 
