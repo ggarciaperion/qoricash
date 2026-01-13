@@ -262,24 +262,42 @@ class Operation(db.Model):
         Returns:
             dict: Representación de la operación
         """
+        # Mapear estados del backend al formato esperado por el frontend
+        status_map = {
+            'Pendiente': 'pendiente',
+            'En proceso': 'en_proceso',
+            'Completada': 'completado',
+            'Cancelado': 'cancelado',
+            'Expirada': 'expirado'
+        }
+
         data = {
             'id': self.id,
             'operation_id': self.operation_id,
             'client_id': self.client_id,
             'user_id': self.user_id,
             'operation_type': self.operation_type,
+            'tipo': self.operation_type.lower() if self.operation_type else None,  # Para frontend
             'origen': self.origen,
-            'amount_usd': float(self.amount_usd),
-            'exchange_rate': float(self.exchange_rate),
-            'amount_pen': float(self.amount_pen),
+            'amount_usd': float(self.amount_usd) if self.amount_usd is not None else 0.0,
+            'monto_dolares': float(self.amount_usd) if self.amount_usd is not None else 0.0,  # Para frontend
+            'exchange_rate': float(self.exchange_rate) if self.exchange_rate is not None else 0.0,
+            'tipo_cambio': float(self.exchange_rate) if self.exchange_rate is not None else 0.0,  # Para frontend
+            'amount_pen': float(self.amount_pen) if self.amount_pen is not None else 0.0,
+            'monto_soles': float(self.amount_pen) if self.amount_pen is not None else 0.0,  # Para frontend
             'source_account': self.source_account,
             'destination_account': self.destination_account,
             'payment_proof_url': self.payment_proof_url,
             'operator_proof_url': self.operator_proof_url,
-            'status': self.status,
+            'comprobante_url': self.payment_proof_url,  # Para frontend
+            'status': status_map.get(self.status, self.status.lower().replace(' ', '_')),
+            'estado': status_map.get(self.status, self.status.lower().replace(' ', '_')),  # Para frontend
             'notes': self.notes,
+            'notas': self.notes,  # Para frontend
             'created_at': self.created_at.isoformat() if self.created_at else None,
+            'fecha_creacion': self.created_at.isoformat() if self.created_at else None,  # Para frontend
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'fecha_actualizacion': self.updated_at.isoformat() if self.updated_at else None,  # Para frontend
             'completed_at': self.completed_at.isoformat() if self.completed_at else None,
             'in_process_since': self.in_process_since.isoformat() if self.in_process_since else None,
             'time_in_process_minutes': self.get_time_in_process_minutes(),

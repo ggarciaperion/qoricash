@@ -453,12 +453,13 @@ def get_client_stats():
 
         operations = Operation.query.filter_by(client_id=client.id).all()
 
-        total_operations = len(operations)
+        # Solo contar operaciones completadas en total_operations
+        total_operations = len([op for op in operations if op.status == 'Completada'])
         pending_operations = len([op for op in operations if op.status in ['Pendiente', 'En proceso']])
-        completed_operations = len([op for op in operations if op.status == 'Completado'])
+        completed_operations = len([op for op in operations if op.status == 'Completada'])
 
-        total_soles = sum([op.amount_pen for op in operations if op.status == 'Completado'])
-        total_dolares = sum([op.amount_usd for op in operations if op.status == 'Completado'])
+        total_soles = sum([op.amount_pen for op in operations if op.status == 'Completada'])
+        total_dolares = sum([op.amount_usd for op in operations if op.status == 'Completada'])
 
         return jsonify({
             'success': True,
