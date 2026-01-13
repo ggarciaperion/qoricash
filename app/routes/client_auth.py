@@ -21,6 +21,7 @@ def after_request(response):
     # Lista de orígenes permitidos
     allowed_origins = [
         'http://localhost:3000',  # Página web QoriCash
+        'http://localhost:3001',  # Página web QoriCash (puerto alternativo)
         'http://localhost:8081',  # App móvil Expo
         'http://localhost:8082',  # App móvil Expo (alternativo)
         'http://localhost:19006',  # App móvil Expo (web)
