@@ -63,9 +63,44 @@ BEGIN
     END IF;
 END $$;
 
--- Paso 5: Registrar migración en tabla alembic_version
+-- Paso 5: Agregar columnas de autenticación a tabla clients (si no existen)
+DO $$
+BEGIN
+    -- Agregar password_hash
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                   WHERE table_name='clients' AND column_name='password_hash') THEN
+        ALTER TABLE clients ADD COLUMN password_hash VARCHAR(200);
+        RAISE NOTICE 'Columna password_hash agregada a clients';
+    ELSE
+        RAISE NOTICE 'Columna password_hash ya existe en clients';
+    END IF;
+
+    -- Agregar requires_password_change
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                   WHERE table_name='clients' AND column_name='requires_password_change') THEN
+        ALTER TABLE clients ADD COLUMN requires_password_change BOOLEAN DEFAULT TRUE;
+        RAISE NOTICE 'Columna requires_password_change agregada a clients';
+    ELSE
+        RAISE NOTICE 'Columna requires_password_change ya existe en clients';
+    END IF;
+
+    -- Agregar push_notification_token (por si no existe)
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                   WHERE table_name='clients' AND column_name='push_notification_token') THEN
+        ALTER TABLE clients ADD COLUMN push_notification_token VARCHAR(200);
+        RAISE NOTICE 'Columna push_notification_token agregada a clients';
+    ELSE
+        RAISE NOTICE 'Columna push_notification_token ya existe en clients';
+    END IF;
+END $$;
+
+-- Paso 6: Registrar migración en tabla alembic_version
 INSERT INTO alembic_version (version_num)
 VALUES ('20250108_add_app_role')
+ON CONFLICT (version_num) DO NOTHING;
+
+INSERT INTO alembic_version (version_num)
+VALUES ('k6l7m8n9o0p1')
 ON CONFLICT (version_num) DO NOTHING;
 
 COMMIT;
@@ -73,3 +108,5 @@ COMMIT;
 -- Verificación final
 SELECT 'MIGRACIÓN COMPLETADA' AS status;
 SELECT email, username, role FROM users WHERE email IN ('app@qoricash.pe', 'web@qoricash.pe');
+SELECT column_name, data_type FROM information_schema.columns
+WHERE table_name='clients' AND column_name IN ('password_hash', 'requires_password_change', 'push_notification_token');
