@@ -64,7 +64,10 @@ def initialize_extensions(flask_app):
                 "http://localhost:8081",  # App móvil Expo
                 "http://localhost:8082",  # App móvil Expo (alternativo)
                 "http://localhost:19006",  # App móvil Expo (web)
-                "https://app.qoricash.pe"  # App móvil en producción
+                "https://app.qoricash.pe",  # App móvil en producción
+                "https://qoricash-web.vercel.app",  # Página web QoriCash en Vercel
+                "https://www.qoricash.pe",  # Dominio principal de QoriCash
+                "https://qoricash.pe"  # Dominio principal de QoriCash (sin www)
             ],
             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
             "allow_headers": ["Content-Type", "Authorization"],

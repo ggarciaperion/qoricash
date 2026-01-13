@@ -531,6 +531,131 @@ def get_my_accounts():
         }), 500
 
 
+@web_api_bp.route('/create-operation', methods=['POST'])
+@csrf.exempt
+def create_operation_web():
+    """
+    Crear operación desde la página web
+
+    POST JSON:
+        dni: string (required)
+        tipo: string (required) - 'compra' o 'venta'
+        monto_soles: float (required)
+        monto_dolares: float (required)
+        banco_cuenta_id: int (required)
+    """
+    try:
+        data = request.get_json()
+        logger.info(f"📝 Solicitud de creación de operación desde WEB: {data}")
+
+        # Validar datos requeridos
+        required_fields = ['dni', 'tipo', 'monto_soles', 'monto_dolares', 'banco_cuenta_id']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({
+                    'success': False,
+                    'message': f'Campo requerido: {field}'
+                }), 400
+
+        # Buscar cliente por DNI
+        client = Client.query.filter_by(dni=data['dni']).first()
+        if not client:
+            return jsonify({
+                'success': False,
+                'message': 'Cliente no encontrado'
+            }), 404
+
+        # Buscar usuario "Web" para asignar como operador
+        web_user = User.query.filter_by(role='Web').first()
+        if not web_user:
+            return jsonify({
+                'success': False,
+                'message': 'Usuario Web no configurado en el sistema'
+            }), 500
+
+        # Obtener tipo de cambio actual
+        from app.models.exchange_rate import ExchangeRate
+        current_rate = ExchangeRate.get_latest()
+        if not current_rate:
+            return jsonify({
+                'success': False,
+                'message': 'No hay tipo de cambio disponible'
+            }), 500
+
+        # Determinar tipo de cambio según operación
+        tipo = data['tipo'].lower()
+        exchange_rate = current_rate.tipo_compra if tipo == 'compra' else current_rate.tipo_venta
+
+        # Buscar cuenta bancaria
+        from app.models.bank_account import BankAccount
+        bank_account = BankAccount.query.get(data['banco_cuenta_id'])
+        if not bank_account or bank_account.client_id != client.id:
+            return jsonify({
+                'success': False,
+                'message': 'Cuenta bancaria no válida'
+            }), 400
+
+        # Crear operación
+        from app.models.operation import Operation
+        new_operation = Operation(
+            client_id=client.id,
+            tipo=tipo.capitalize(),
+            monto_soles=float(data['monto_soles']),
+            monto_dolares=float(data['monto_dolares']),
+            tipo_cambio=exchange_rate,
+            estado='Pendiente',
+            canal='web',  # Marcar como operación desde web
+            trader_id=client.trader_id,  # Asignar al trader del cliente
+            banco_cuenta_id=data['banco_cuenta_id'],
+            created_at=now_peru()
+        )
+
+        db.session.add(new_operation)
+        db.session.commit()
+
+        # Generar código de operación
+        new_operation.codigo_operacion = f"EXP-{new_operation.id}"
+        db.session.commit()
+
+        logger.info(f"✅ Operación {new_operation.codigo_operacion} creada desde WEB para cliente {client.dni}")
+
+        # Notificar al sistema (opcional, si el servicio de notificaciones está disponible)
+        try:
+            from app.services.notification_service import NotificationService
+            NotificationService.notify_new_operation(new_operation)
+            NotificationService.notify_dashboard_update()
+        except Exception as notify_error:
+            logger.warning(f"⚠️ Error al notificar operación: {str(notify_error)}")
+
+        return jsonify({
+            'success': True,
+            'message': 'Operación creada exitosamente',
+            'data': {
+                'operation': {
+                    'id': new_operation.id,
+                    'codigo_operacion': new_operation.codigo_operacion,
+                    'tipo': new_operation.tipo,
+                    'monto_soles': new_operation.monto_soles,
+                    'monto_dolares': new_operation.monto_dolares,
+                    'tipo_cambio': new_operation.tipo_cambio,
+                    'estado': new_operation.estado,
+                    'canal': new_operation.canal,
+                    'created_at': new_operation.created_at.isoformat() if new_operation.created_at else None,
+                }
+            }
+        }), 201
+
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"❌ Error al crear operación desde WEB: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return jsonify({
+            'success': False,
+            'message': f'Error al crear operación: {str(e)}'
+        }), 500
+
+
 @web_api_bp.route('/health', methods=['GET'])
 def health_check():
     """Health check para web API"""
