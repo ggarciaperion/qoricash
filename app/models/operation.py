@@ -423,18 +423,22 @@ class Operation(db.Model):
         Returns:
             str: ID de operación (EXP-1001, EXP-1002, etc.)
         """
-        last_operation = Operation.query.order_by(Operation.id.desc()).first()
+        # Obtener todas las operaciones y encontrar el número máximo
+        all_operations = Operation.query.all()
 
-        if last_operation and last_operation.operation_id:
-            try:
-                last_num = int(last_operation.operation_id.split('-')[1])
-                new_num = last_num + 1
-            except (IndexError, ValueError):
-                new_num = 1001
-        else:
-            new_num = 1001
+        max_num = 1000  # Empezar desde 1000, el siguiente será 1001
 
-        return f'EXP-{new_num:04d}'
+        for op in all_operations:
+            if op.operation_id and op.operation_id.startswith('EXP-'):
+                try:
+                    num = int(op.operation_id.split('-')[1])
+                    if num > max_num:
+                        max_num = num
+                except (IndexError, ValueError):
+                    continue
+
+        new_num = max_num + 1
+        return f'EXP-{new_num}'
 
     def __repr__(self):
         return f'<Operation {self.operation_id} - {self.operation_type} ${self.amount_usd}>'

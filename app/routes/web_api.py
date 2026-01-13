@@ -653,6 +653,87 @@ def create_operation_web():
         }), 500
 
 
+@web_api_bp.route('/cancel-operation', methods=['POST'])
+@csrf.exempt
+def cancel_operation_web():
+    """
+    Cancelar una operación desde la página web
+
+    Request JSON:
+        {
+            "operation_id": 198,
+            "reason": "No puedo realizar la transferencia"
+        }
+
+    Returns:
+        JSON con éxito o error
+    """
+    try:
+        data = request.get_json()
+
+        if not data:
+            return jsonify({
+                'success': False,
+                'message': 'No se recibieron datos'
+            }), 400
+
+        # Validar campos requeridos
+        operation_id = data.get('operation_id')
+        reason = data.get('reason', 'Cancelado desde la página web')
+
+        if not operation_id:
+            return jsonify({
+                'success': False,
+                'message': 'Campo requerido: operation_id'
+            }), 400
+
+        # Obtener operación
+        from app.models.operation import Operation
+        operation = Operation.query.get(operation_id)
+
+        if not operation:
+            return jsonify({
+                'success': False,
+                'message': 'Operación no encontrada'
+            }), 404
+
+        # Verificar que la operación esté en estado Pendiente
+        if operation.status != 'Pendiente':
+            return jsonify({
+                'success': False,
+                'message': f'No se puede cancelar una operación en estado {operation.status}'
+            }), 400
+
+        # Cancelar operación
+        operation.status = 'Cancelado'
+        operation.updated_at = now_peru()
+
+        # Agregar motivo a las notas
+        if operation.notes:
+            operation.notes += f"\n\n[{now_peru().strftime('%Y-%m-%d %H:%M')}] Cancelado desde web: {reason}"
+        else:
+            operation.notes = f"Cancelado desde web: {reason}"
+
+        db.session.commit()
+
+        logger.info(f"✅ Operación {operation.operation_id} cancelada desde WEB. Motivo: {reason}")
+
+        return jsonify({
+            'success': True,
+            'message': 'Operación cancelada exitosamente'
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"❌ Error al cancelar operación desde WEB: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return jsonify({
+            'success': False,
+            'message': f'Error al cancelar operación: {str(e)}'
+        }), 500
+
+
 @web_api_bp.route('/health', methods=['GET'])
 def health_check():
     """Health check para web API"""
