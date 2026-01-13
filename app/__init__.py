@@ -177,6 +177,13 @@ def register_blueprints(app):
         app.logger.error(f'❌ Error registrando platform_api_bp: {str(e)}')
 
     try:
+        from app.routes.platform import platform_bp
+        app.register_blueprint(platform_bp)
+        app.logger.info('✅ Blueprint platform_bp registrado (endpoints: /api/client/register, /api/web/add-bank-account)')
+    except Exception as e:
+        app.logger.error(f'❌ Error registrando platform_bp: {str(e)}')
+
+    try:
         from app.routes.client_auth import client_auth_bp
         app.register_blueprint(client_auth_bp)
         app.logger.info('✅ Blueprint client_auth_bp registrado')
