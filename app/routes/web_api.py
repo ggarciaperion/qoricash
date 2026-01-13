@@ -600,7 +600,7 @@ def create_operation_web():
             tipo_cambio=exchange_rate,
             estado='Pendiente',
             canal='web',  # Marcar como operación desde web
-            trader_id=client.trader_id,  # Asignar al trader del cliente
+            trader_id=client.created_by,  # Asignar al trader que registró al cliente
             banco_cuenta_id=data['banco_cuenta_id'],
             created_at=now_peru()
         )
