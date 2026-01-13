@@ -575,8 +575,8 @@ def create_operation_web():
 
         # Obtener tipo de cambio actual
         from app.models.exchange_rate import ExchangeRate
-        current_rate = ExchangeRate.get_latest()
-        if not current_rate:
+        current_rates = ExchangeRate.get_current_rates()
+        if not current_rates:
             return jsonify({
                 'success': False,
                 'message': 'No hay tipo de cambio disponible'
@@ -584,7 +584,7 @@ def create_operation_web():
 
         # Determinar tipo de cambio según operación
         tipo = data['tipo'].lower()
-        exchange_rate = current_rate.tipo_compra if tipo == 'compra' else current_rate.tipo_venta
+        exchange_rate = current_rates['compra'] if tipo == 'compra' else current_rates['venta']
 
         # Buscar cuenta bancaria
         from app.models.bank_account import BankAccount
