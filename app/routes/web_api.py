@@ -578,14 +578,17 @@ def create_operation_web():
         tipo = data['tipo'].lower()
         exchange_rate = current_rates['compra'] if tipo == 'compra' else current_rates['venta']
 
-        # Buscar cuenta bancaria
-        from app.models.bank_account import BankAccount
-        bank_account = BankAccount.query.get(data['banco_cuenta_id'])
-        if not bank_account or bank_account.client_id != client.id:
+        # Validar cuenta bancaria del cliente (están en JSON)
+        bank_accounts = client.bank_accounts  # Método property que parsea el JSON
+        bank_account_index = data['banco_cuenta_id']
+
+        if not bank_accounts or bank_account_index >= len(bank_accounts):
             return jsonify({
                 'success': False,
                 'message': 'Cuenta bancaria no válida'
             }), 400
+
+        selected_account = bank_accounts[bank_account_index]
 
         # Crear operación
         from app.models.operation import Operation
