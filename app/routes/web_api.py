@@ -565,14 +565,6 @@ def create_operation_web():
                 'message': 'Cliente no encontrado'
             }), 404
 
-        # Buscar usuario "Web" para asignar como operador
-        web_user = User.query.filter_by(role='Web').first()
-        if not web_user:
-            return jsonify({
-                'success': False,
-                'message': 'Usuario Web no configurado en el sistema'
-            }), 500
-
         # Obtener tipo de cambio actual
         from app.models.exchange_rate import ExchangeRate
         current_rates = ExchangeRate.get_current_rates()
