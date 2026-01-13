@@ -590,29 +590,37 @@ def create_operation_web():
 
         selected_account = bank_accounts[bank_account_index]
 
-        # Crear operación
+        # Crear operación con campos correctos del modelo
         from app.models.operation import Operation
+
+        # Generar operation_id temporal (se actualizará después del commit)
+        # Obtener el último ID para generar el siguiente
+        last_op = Operation.query.order_by(Operation.id.desc()).first()
+        next_id = (last_op.id + 1) if last_op else 1001
+
         new_operation = Operation(
+            operation_id=f"EXP-{next_id}",  # Temporal, se actualizará
             client_id=client.id,
-            tipo=tipo.capitalize(),
-            monto_soles=float(data['monto_soles']),
-            monto_dolares=float(data['monto_dolares']),
-            tipo_cambio=exchange_rate,
-            estado='Pendiente',
-            canal='web',  # Marcar como operación desde web
-            trader_id=client.created_by,  # Asignar al trader que registró al cliente
-            banco_cuenta_id=data['banco_cuenta_id'],
+            user_id=client.created_by,  # Trader que registró al cliente
+            operation_type=tipo.capitalize(),  # 'Compra' o 'Venta'
+            amount_usd=float(data['monto_dolares']),
+            amount_pen=float(data['monto_soles']),
+            exchange_rate=exchange_rate,
+            status='Pendiente',
+            origen='web',  # Marcar como operación desde web
+            source_account=selected_account.get('account_number', ''),
+            destination_account='',  # Se llenará cuando se asigne
             created_at=now_peru()
         )
 
         db.session.add(new_operation)
         db.session.commit()
 
-        # Generar código de operación
-        new_operation.codigo_operacion = f"EXP-{new_operation.id}"
+        # Actualizar operation_id con el ID real
+        new_operation.operation_id = f"EXP-{new_operation.id}"
         db.session.commit()
 
-        logger.info(f"✅ Operación {new_operation.codigo_operacion} creada desde WEB para cliente {client.dni}")
+        logger.info(f"✅ Operación {new_operation.operation_id} creada desde WEB para cliente {client.dni}")
 
         # Notificar al sistema (opcional, si el servicio de notificaciones está disponible)
         try:
@@ -628,13 +636,13 @@ def create_operation_web():
             'data': {
                 'operation': {
                     'id': new_operation.id,
-                    'codigo_operacion': new_operation.codigo_operacion,
-                    'tipo': new_operation.tipo,
-                    'monto_soles': new_operation.monto_soles,
-                    'monto_dolares': new_operation.monto_dolares,
-                    'tipo_cambio': new_operation.tipo_cambio,
-                    'estado': new_operation.estado,
-                    'canal': new_operation.canal,
+                    'codigo_operacion': new_operation.operation_id,
+                    'tipo': new_operation.operation_type,
+                    'monto_soles': float(new_operation.amount_pen),
+                    'monto_dolares': float(new_operation.amount_usd),
+                    'tipo_cambio': float(new_operation.exchange_rate),
+                    'estado': new_operation.status,
+                    'canal': new_operation.origen,
                     'created_at': new_operation.created_at.isoformat() if new_operation.created_at else None,
                 }
             }
