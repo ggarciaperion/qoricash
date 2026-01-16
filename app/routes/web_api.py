@@ -735,6 +735,174 @@ def cancel_operation_web():
         }), 500
 
 
+@web_api_bp.route('/submit-proof', methods=['POST'])
+@csrf.exempt
+def submit_proof_web():
+    """
+    Enviar comprobantes de pago desde la página web
+
+    Este endpoint:
+    1. Recibe archivos de comprobante (hasta 4)
+    2. Registra el código de voucher del cliente
+    3. Actualiza el estado de la operación a "En proceso"
+    4. Asigna automáticamente la operación a un Operador
+
+    Form data:
+        operation_id: int (required) - ID de la operación
+        voucher_code: string (optional) - Código del comprobante de transferencia del cliente
+        files: list of files (optional) - Hasta 4 archivos de comprobante
+
+    Returns:
+        JSON con resultado de la operación
+    """
+    try:
+        # Obtener operation_id del form
+        operation_id = request.form.get('operation_id', type=int)
+        if not operation_id:
+            return jsonify({
+                'success': False,
+                'message': 'operation_id es requerido'
+            }), 400
+
+        # Buscar operación
+        from app.models.operation import Operation
+        operation = Operation.query.get(operation_id)
+
+        if not operation:
+            return jsonify({
+                'success': False,
+                'message': 'Operación no encontrada'
+            }), 404
+
+        # Verificar que la operación esté en estado Pendiente
+        if operation.status != 'Pendiente':
+            return jsonify({
+                'success': False,
+                'message': f'No se puede procesar una operación en estado {operation.status}'
+            }), 400
+
+        # Obtener código de voucher (opcional)
+        voucher_code = request.form.get('voucher_code', '').strip()
+
+        # Procesar archivos de comprobante
+        uploaded_urls = []
+        if request.files:
+            from app.services.file_service import FileService
+            file_service = FileService()
+
+            # Obtener todos los archivos del request
+            files = request.files.getlist('files')
+
+            if len(files) > 4:
+                return jsonify({
+                    'success': False,
+                    'message': 'Máximo 4 archivos permitidos'
+                }), 400
+
+            # Subir cada archivo
+            for i, file in enumerate(files):
+                if file and file.filename:
+                    success, message, url = file_service.upload_file(
+                        file,
+                        'client_proofs',
+                        f"{operation.operation_id}_proof_{i}"
+                    )
+
+                    if success:
+                        uploaded_urls.append(url)
+                    else:
+                        logger.error(f"Error subiendo archivo {i}: {message}")
+                        # Continuar con los demás archivos aunque uno falle
+
+        # Actualizar operación
+        operation.status = 'En proceso'
+        operation.in_process_since = now_peru()
+
+        # Guardar código de voucher en notas si fue proporcionado
+        if voucher_code:
+            voucher_note = f"Código de comprobante del cliente: {voucher_code}"
+            if operation.notes:
+                operation.notes += f"\n{voucher_note}"
+            else:
+                operation.notes = voucher_note
+
+        # Guardar URLs de comprobantes en client_deposits (si hay archivos)
+        if uploaded_urls:
+            # Inicializar client_deposits si no existe
+            if not operation.client_deposits:
+                operation.client_deposits = []
+
+            # Agregar comprobantes
+            for url in uploaded_urls:
+                operation.client_deposits.append({
+                    'comprobante_url': url,
+                    'fecha': now_peru().isoformat()
+                })
+
+        # Asignar operador automáticamente de forma balanceada
+        from app.services.operation_service import OperationService
+        assigned_operator_id = OperationService.assign_operator_balanced()
+
+        if assigned_operator_id:
+            operation.assigned_operator_id = assigned_operator_id
+            logger.info(f"✅ Operación {operation.operation_id} asignada al operador ID: {assigned_operator_id}")
+        else:
+            logger.warning(f"⚠️ No se pudo asignar operador a {operation.operation_id}")
+
+        # Registrar en audit log
+        from app.models.audit_log import AuditLog
+        AuditLog.log_action(
+            user_id=operation.user_id,
+            action='UPDATE_OPERATION',
+            entity='Operation',
+            entity_id=operation.id,
+            details=f'Operación {operation.operation_id} enviada a proceso desde web. ' +
+                   f'Comprobantes: {len(uploaded_urls)}. ' +
+                   (f'Asignada al operador ID {assigned_operator_id}' if assigned_operator_id else 'Sin operador asignado')
+        )
+
+        db.session.commit()
+
+        # Notificar actualización
+        try:
+            from app.services.notification_service import NotificationService
+            NotificationService.notify_operation_updated(operation, 'Pendiente')
+            NotificationService.notify_dashboard_update()
+
+            # Notificar al operador asignado
+            if assigned_operator_id:
+                from app.models.user import User
+                assigned_operator = User.query.get(assigned_operator_id)
+                if assigned_operator:
+                    NotificationService.notify_operation_assigned(operation, assigned_operator)
+        except Exception as notify_error:
+            logger.warning(f"⚠️ Error al notificar: {str(notify_error)}")
+
+        logger.info(f"✅ Comprobante(s) enviado(s) desde WEB para operación {operation.operation_id}")
+
+        return jsonify({
+            'success': True,
+            'message': 'Comprobante enviado exitosamente. Tu operación está en proceso.',
+            'data': {
+                'operation_id': operation.id,
+                'codigo_operacion': operation.operation_id,
+                'estado': operation.status,
+                'archivos_subidos': len(uploaded_urls),
+                'operador_asignado': assigned_operator_id is not None
+            }
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"❌ Error al enviar comprobante desde WEB: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return jsonify({
+            'success': False,
+            'message': f'Error al enviar comprobante: {str(e)}'
+        }), 500
+
+
 @web_api_bp.route('/health', methods=['GET'])
 def health_check():
     """Health check para web API"""
