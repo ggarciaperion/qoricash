@@ -29,8 +29,8 @@ import socketService from '../services/socketService';
 import { logger } from '../utils/logger';
 
 const LOCAL_OPERATIONS_CACHE_KEY = '@qoricash_local_operations_cache';
-// TEMPORAL: Configurado a 1 minuto para pruebas (producción: 15)
-const OPERATION_TIMEOUT_MINUTES = 1;
+// Tiempo de expiración: 15 minutos
+const OPERATION_TIMEOUT_MINUTES = 15;
 
 interface TransferScreenProps {
   navigation: any;
