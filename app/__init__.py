@@ -2,6 +2,7 @@
 Factory de la aplicación Flask para QoriCash Trading V2
 
 Este archivo crea y configura la aplicación Flask usando el patrón Factory.
+Última actualización: 2026-01-16 - Force reload scheduler with 15min timeout
 """
 import logging
 
