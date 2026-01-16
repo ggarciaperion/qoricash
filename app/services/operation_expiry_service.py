@@ -29,10 +29,16 @@ class OperationExpiryService:
             # Calcular fecha límite (15 minutos atrás desde ahora)
             cutoff_time = now_peru() - timedelta(minutes=OPERATION_TIMEOUT_MINUTES)
 
+            # PROTECCIÓN: Solo considerar operaciones creadas en las últimas 24 horas
+            # Esto evita cancelar operaciones viejas con timestamps en hora de Perú
+            protection_cutoff = now_peru() - timedelta(hours=24)
+
             # Buscar operaciones pendientes creadas antes del cutoff_time
+            # pero DESPUÉS del protection_cutoff (últimas 24 horas)
             expired_operations = Operation.query.filter(
                 Operation.status == 'Pendiente',
-                Operation.created_at < cutoff_time
+                Operation.created_at < cutoff_time,
+                Operation.created_at > protection_cutoff  # Solo últimas 24 horas
             ).all()
 
             if not expired_operations:
