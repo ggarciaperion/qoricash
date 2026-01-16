@@ -1,6 +1,7 @@
 """
 Configuración de Gunicorn para producción en Render
 Optimizado para QoriCash Trading
+Última actualización: 2026-01-16 - Force restart con fix de timezone UTC
 """
 # CRÍTICO: Monkey patch de eventlet DEBE ser lo primero
 # Esto debe ejecutarse ANTES de cualquier otro import
