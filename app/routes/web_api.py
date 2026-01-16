@@ -591,6 +591,29 @@ def create_operation_web():
 
         selected_account = bank_accounts[bank_account_index]
 
+        # Determinar source_account y destination_account según tipo de operación
+        # La cuenta seleccionada es donde el cliente RECIBE el pago (destination)
+        destination_currency = 'S/' if tipo == 'compra' else '$'
+        source_currency = '$' if tipo == 'compra' else 'S/'
+
+        # Validar que la cuenta seleccionada sea de la moneda correcta
+        if selected_account.get('currency') != destination_currency:
+            return jsonify({
+                'success': False,
+                'message': f'La cuenta seleccionada debe ser en {destination_currency} para este tipo de operación'
+            }), 400
+
+        # destination_account es la cuenta seleccionada (donde el cliente recibirá el pago)
+        destination_account = selected_account.get('account_number', '')
+
+        # source_account: buscar otra cuenta del cliente en la moneda correcta
+        # (cuenta desde donde el cliente transferirá a QoriCash)
+        source_account = ''
+        for account in bank_accounts:
+            if account.get('currency') == source_currency:
+                source_account = account.get('account_number', '')
+                break
+
         # Crear operación con campos correctos del modelo
         from app.models.operation import Operation
 
@@ -607,8 +630,8 @@ def create_operation_web():
             exchange_rate=exchange_rate,
             status='Pendiente',
             origen='web',  # Marcar como operación desde web
-            source_account=selected_account.get('account_number', ''),
-            destination_account='',  # Se llenará cuando se asigne
+            source_account=source_account,  # Cuenta del cliente desde donde transferirá
+            destination_account=destination_account,  # Cuenta del cliente donde recibirá el pago
             created_at=now_peru()
         )
 

@@ -1114,14 +1114,22 @@ function editOperation(operationId) {
 
 function loadEditModal() {
     const op = currentOperation;
-    const status = op.status;
+    const rawStatus = op.status ? String(op.status).trim() : '';
+    const status = rawStatus.toLowerCase(); // Normalizar para comparación
     const role = currentUserRole;
-    const canEdit = (role === 'Master') || ((role === 'Trader' || role === 'Plataforma') && status === 'Pendiente');
+
+    // Normalizar comparaciones de estado (case-insensitive, manejar guion bajo y espacio)
+    const isPending = (status === 'pendiente');
+    const isInProcess = (status === 'en proceso' || status === 'en_proceso');
+    const isCompleted = (status === 'completada' || status === 'completado');
+    const isCanceled = (status === 'cancelado');
+
+    const canEdit = (role === 'Master') || ((role === 'Trader' || role === 'Plataforma') && isPending);
 
     // Verificar si el operador actual está asignado a esta operación
     const isAssignedToMe = (op.assigned_operator_id === currentUserId);
-    const isOperatorProcessing = (role === 'Operador' && status === 'En proceso' && isAssignedToMe);
-    const isMasterProcessing = (role === 'Master' && status === 'En proceso');
+    const isOperatorProcessing = (role === 'Operador' && isInProcess && isAssignedToMe);
+    const isMasterProcessing = (role === 'Master' && isInProcess);
 
     // Info básica
     $('#edit_operation_id').val(op.id);
@@ -1140,7 +1148,7 @@ function loadEditModal() {
     $('#edit_created_at').text(formatDateTime(op.created_at));
 
     // Monto USD editable solo para Trader/Master en Pendiente
-    if (canEdit && status === 'Pendiente') {
+    if (canEdit && isPending) {
         $('#edit_amount_usd_group').show();
         $('#edit_amount_usd_readonly').hide();
         $('#edit_amount_usd').val(parseFloat(op.amount_usd).toFixed(2));
@@ -1173,7 +1181,7 @@ function loadEditModal() {
     }
 
     // Mostrar mensaje si el operador NO está asignado
-    if (role === 'Operador' && status === 'En proceso' && !isAssignedToMe) {
+    if (role === 'Operador' && isInProcess && !isAssignedToMe) {
         const assignedName = op.assigned_operator_name || 'otro operador';
         $('#section_operator').hide();
         // Mostrar alerta informativa
@@ -1191,7 +1199,7 @@ function loadEditModal() {
     }
 
     // Sección de reasignación (Solo Master con operaciones en proceso)
-    if (role === 'Master' && status === 'En proceso') {
+    if (role === 'Master' && isInProcess) {
         $('#reassign_section').show();
         $('#current_operator_name').text(op.assigned_operator_name || 'No asignado');
         loadActiveOperators(op.assigned_operator_id);
@@ -1200,15 +1208,15 @@ function loadEditModal() {
     }
 
     // Mostrar/ocultar botones según rol, estado y asignación
-    $('#btnAddDeposit').toggle(canEdit && status === 'Pendiente');
-    $('#btnAddPayment').toggle(canEdit && status === 'Pendiente');
-    $('#btnSendToProcess').toggle(canEdit && status === 'Pendiente');
+    $('#btnAddDeposit').toggle(canEdit && isPending);
+    $('#btnAddPayment').toggle(canEdit && isPending);
+    $('#btnSendToProcess').toggle(canEdit && isPending);
     $('#btnReturnToPending').toggle((isOperatorProcessing || isMasterProcessing));
     $('#btnComplete').toggle((isOperatorProcessing || isMasterProcessing));
     $('#btnAddOperatorProof').toggle((isOperatorProcessing || isMasterProcessing));
 
     // Título del modal
-    if (status === 'Completada' || status === 'Cancelado') {
+    if (isCompleted || isCanceled) {
         $('#editModalTitle').text('Ver Operación (Solo lectura)');
     } else if (isOperatorProcessing) {
         $('#editModalTitle').text('Procesar Operación');
