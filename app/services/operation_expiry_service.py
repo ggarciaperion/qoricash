@@ -42,6 +42,9 @@ class OperationExpiryService:
 
             for operation in expired_operations:
                 try:
+                    # LOG: Información detallada de la operación que se va a cancelar
+                    logger.info(f"🔍 EXPIRANDO: {operation.operation_id} | Origen: {operation.origen} | Creada: {operation.created_at} | Cutoff: {cutoff_time}")
+
                     # Cambiar estado a Cancelado (como solicitado por el usuario)
                     operation.status = 'Cancelado'
                     operation.updated_at = now_peru()

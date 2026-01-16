@@ -616,6 +616,7 @@ def create_operation_web():
         db.session.commit()
 
         logger.info(f"✅ Operación {new_operation.operation_id} creada desde WEB para cliente {client.dni}")
+        logger.info(f"   📊 Estado: {new_operation.status} | Origen: {new_operation.origen} | Creada: {new_operation.created_at}")
 
         # Notificar al sistema (opcional, si el servicio de notificaciones está disponible)
         try:
