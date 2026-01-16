@@ -337,16 +337,12 @@ def register_shell_context(app):
 
 def initialize_scheduler(app):
     """Inicializar scheduler de tareas en segundo plano"""
-    # EMERGENCIA: Scheduler temporalmente deshabilitado para investigar problema crítico
-    # donde TODAS las operaciones se crean con estado "Cancelado"
-    app.logger.warning('⚠️ SCHEDULER DESHABILITADO TEMPORALMENTE - Investigando problema crítico')
-    return
+    from app.services.scheduler_service import scheduler_service
 
-    # from app.services.scheduler_service import scheduler_service
-    # # Inicializar scheduler solo en modo producción o desarrollo (no en tests)
-    # if not app.testing:
-    #     scheduler_service.init_app(app)
-    #     app.logger.info('🕐 Scheduler de tareas en segundo plano inicializado')
+    # Inicializar scheduler solo en modo producción o desarrollo (no en tests)
+    if not app.testing:
+        scheduler_service.init_app(app)
+        app.logger.info('🕐 Scheduler de tareas en segundo plano inicializado con fix de timezone UTC')
 
 
 # Exportar socketio para que run.py pueda importarlo

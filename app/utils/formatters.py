@@ -13,15 +13,17 @@ def get_peru_timezone():
 
 def now_peru():
     """
-    Obtener fecha/hora actual en timezone de Perú (naive datetime)
+    Obtener fecha/hora actual en UTC (naive datetime) para guardar en DB
+
+    IMPORTANTE: La base de datos guarda timestamps en UTC sin timezone info (naive).
+    Para mostrar al usuario, se usa format_datetime() que convierte UTC -> Peru.
 
     Returns:
-        datetime: Fecha/hora actual en Perú sin timezone info
+        datetime: Fecha/hora actual en UTC sin timezone info (naive)
     """
-    # Obtener hora actual en Perú con timezone
-    peru_time = datetime.now(get_peru_timezone())
-    # Retornar sin timezone info (naive) para compatibilidad con DB
-    return peru_time.replace(tzinfo=None)
+    # Retornar hora actual en UTC sin timezone info
+    # Esto garantiza consistencia con format_datetime() que asume naive = UTC
+    return datetime.utcnow()
 
 
 def format_currency(amount, currency='USD'):
