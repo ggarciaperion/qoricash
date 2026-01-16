@@ -827,18 +827,44 @@ def submit_proof_web():
             else:
                 operation.notes = voucher_note
 
-        # Guardar URLs de comprobantes en client_deposits (si hay archivos)
-        if uploaded_urls:
-            # Inicializar client_deposits si no existe
-            if not operation.client_deposits:
-                operation.client_deposits = []
+        # Inicializar client_deposits con datos completos del abono del cliente
+        # Determinar el monto y la moneda según el tipo de operación
+        if operation.operation_type == 'Compra':
+            # Compra: Cliente vende USD (abona dólares)
+            deposit_amount = float(operation.amount_usd)
+            deposit_currency = '$'
+        else:
+            # Venta: Cliente compra USD (abona soles)
+            deposit_amount = float(operation.amount_pen)
+            deposit_currency = 'S/'
 
-            # Agregar comprobantes
-            for url in uploaded_urls:
-                operation.client_deposits.append({
-                    'comprobante_url': url,
-                    'fecha': now_peru().isoformat()
-                })
+        # Crear registro de abono con TODOS los campos necesarios
+        deposit_entry = {
+            'importe': deposit_amount,
+            'codigo_operacion': voucher_code if voucher_code else '',
+            'cuenta_cargo': operation.source_account or '',
+            'comprobante_url': uploaded_urls[0] if uploaded_urls else '',
+            'fecha': now_peru().isoformat()
+        }
+
+        operation.client_deposits = [deposit_entry]
+
+        # Inicializar client_payments con datos de la cuenta destino
+        # Determinar el monto de pago según el tipo de operación
+        if operation.operation_type == 'Compra':
+            # Compra: QoriCash paga soles al cliente
+            payment_amount = float(operation.amount_pen)
+        else:
+            # Venta: QoriCash paga dólares al cliente
+            payment_amount = float(operation.amount_usd)
+
+        # Crear registro de pago con cuenta destino
+        payment_entry = {
+            'importe': payment_amount,
+            'cuenta_destino': operation.destination_account or ''
+        }
+
+        operation.client_payments = [payment_entry]
 
         # Asignar operador automáticamente de forma balanceada
         from app.services.operation_service import OperationService
