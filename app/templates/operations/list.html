@@ -713,25 +713,29 @@ function buildOperationRow(op) {
         ? '<span class="badge bg-success">Compra</span>'
         : '<span class="badge bg-primary">Venta</span>';
 
-    // Badge de estado - CON VALIDACIÓN ROBUSTA
+    // Badge de estado - CON VALIDACIÓN ROBUSTA Y CASE-INSENSITIVE
     let statusBadge = '';
 
-    // Validar y normalizar el estado
-    const status = op.status ? String(op.status).trim() : '';
+    // Validar y normalizar el estado (trim + lowercase para comparación)
+    const rawStatus = op.status ? String(op.status).trim() : '';
+    const status = rawStatus.toLowerCase();  // Normalizar para comparación
 
     // Log para debugging (solo si hay problemas)
-    if (!status || !['Pendiente', 'En proceso', 'Completada', 'Cancelado', 'Expirada'].includes(status)) {
+    const validStatuses = ['pendiente', 'en proceso', 'en_proceso', 'completada', 'completado', 'cancelado', 'expirada', 'expirado'];
+    if (!status || !validStatuses.includes(status)) {
         console.error('[BUG DETECTADO] Operación con estado inválido:', {
             operation_id: op.operation_id,
             status: op.status,
+            status_normalized: status,
             status_type: typeof op.status,
             full_object: op
         });
     }
 
-    if (status === 'Pendiente') {
+    // Comparaciones case-insensitive
+    if (status === 'pendiente') {
         statusBadge = '<span class="badge bg-warning text-dark">Pendiente</span>';
-    } else if (status === 'En proceso') {
+    } else if (status === 'en proceso' || status === 'en_proceso') {
         statusBadge = '<span class="badge bg-info">En Proceso</span>';
 
         // Agregar badge de asignación si está asignada a un operador
@@ -749,11 +753,11 @@ function buildOperationRow(op) {
                 statusBadge += `<br><small class="badge bg-secondary mt-1 text-truncate" style="max-width: 120px;" title="${operatorName}">${operatorName}</small>`;
             }
         }
-    } else if (status === 'Completada') {
+    } else if (status === 'completada' || status === 'completado') {
         statusBadge = '<span class="badge bg-success">Completada</span>';
-    } else if (status === 'Cancelado') {
+    } else if (status === 'cancelado') {
         statusBadge = '<span class="badge bg-danger">Cancelado</span>';
-    } else if (status === 'Expirada') {
+    } else if (status === 'expirada' || status === 'expirado') {
         statusBadge = '<span class="badge bg-danger">Expirada</span>';
     } else {
         // Estado desconocido o vacío - NO asumir "Cancelado"
