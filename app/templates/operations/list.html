@@ -713,11 +713,25 @@ function buildOperationRow(op) {
         ? '<span class="badge bg-success">Compra</span>'
         : '<span class="badge bg-primary">Venta</span>';
 
-    // Badge de estado
+    // Badge de estado - CON VALIDACIÓN ROBUSTA
     let statusBadge = '';
-    if (op.status === 'Pendiente') {
+
+    // Validar y normalizar el estado
+    const status = op.status ? String(op.status).trim() : '';
+
+    // Log para debugging (solo si hay problemas)
+    if (!status || !['Pendiente', 'En proceso', 'Completada', 'Cancelado', 'Expirada'].includes(status)) {
+        console.error('[BUG DETECTADO] Operación con estado inválido:', {
+            operation_id: op.operation_id,
+            status: op.status,
+            status_type: typeof op.status,
+            full_object: op
+        });
+    }
+
+    if (status === 'Pendiente') {
         statusBadge = '<span class="badge bg-warning text-dark">Pendiente</span>';
-    } else if (op.status === 'En proceso') {
+    } else if (status === 'En proceso') {
         statusBadge = '<span class="badge bg-info">En Proceso</span>';
 
         // Agregar badge de asignación si está asignada a un operador
@@ -735,10 +749,16 @@ function buildOperationRow(op) {
                 statusBadge += `<br><small class="badge bg-secondary mt-1 text-truncate" style="max-width: 120px;" title="${operatorName}">${operatorName}</small>`;
             }
         }
-    } else if (op.status === 'Completada') {
+    } else if (status === 'Completada') {
         statusBadge = '<span class="badge bg-success">Completada</span>';
-    } else {
+    } else if (status === 'Cancelado') {
         statusBadge = '<span class="badge bg-danger">Cancelado</span>';
+    } else if (status === 'Expirada') {
+        statusBadge = '<span class="badge bg-danger">Expirada</span>';
+    } else {
+        // Estado desconocido o vacío - NO asumir "Cancelado"
+        statusBadge = '<span class="badge bg-secondary">Estado Desconocido</span>';
+        console.warn('[ADVERTENCIA] Estado desconocido para operación:', op.operation_id, 'Estado:', op.status);
     }
 
     // Fecha formateada
