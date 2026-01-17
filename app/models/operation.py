@@ -314,35 +314,52 @@ class Operation(db.Model):
         }
 
         if include_relations:
-            # Obtener nombre del cliente según su tipo
+            # Obtener nombre del cliente según su tipo (con manejo defensivo)
             if self.client:
-                if self.client.document_type == 'RUC':
-                    data['client_name'] = self.client.razon_social
-                else:
-                    data['client_name'] = self.client.full_name
-                # Incluir cuentas bancarias del cliente
-                data['client_bank_accounts'] = self.client.bank_accounts or []
+                try:
+                    if self.client.document_type == 'RUC':
+                        data['client_name'] = self.client.razon_social or f"RUC {self.client.dni}"
+                    else:
+                        # full_name puede retornar None si no hay datos
+                        client_full_name = self.client.full_name
+                        data['client_name'] = client_full_name if client_full_name else f"Cliente {self.client.dni}"
+                except Exception as e:
+                    # Fallback si hay algún error accediendo a los atributos del cliente
+                    data['client_name'] = f"Cliente {self.client.dni if self.client.dni else 'Desconocido'}"
 
-                # Obtener nombres de bancos de origen y destino
-                bank_accounts = self.client.bank_accounts or []
-                source_bank = None
-                destination_bank = None
+                # Incluir cuentas bancarias del cliente con manejo defensivo
+                try:
+                    data['client_bank_accounts'] = self.client.bank_accounts or []
+                except Exception:
+                    data['client_bank_accounts'] = []
 
-                for account in bank_accounts:
-                    if account.get('account_number') == self.source_account:
-                        source_bank = account.get('bank_name', 'N/A')
-                    if account.get('account_number') == self.destination_account:
-                        destination_bank = account.get('bank_name', 'N/A')
+                # Obtener nombres de bancos de origen y destino con manejo defensivo
+                try:
+                    bank_accounts = self.client.bank_accounts or []
+                    source_bank = None
+                    destination_bank = None
 
-                data['source_bank_name'] = source_bank or 'N/A'
-                data['destination_bank_name'] = destination_bank or 'N/A'
+                    for account in bank_accounts:
+                        if account.get('account_number') == self.source_account:
+                            source_bank = account.get('bank_name', 'N/A')
+                        if account.get('account_number') == self.destination_account:
+                            destination_bank = account.get('bank_name', 'N/A')
+
+                    data['source_bank_name'] = source_bank or 'N/A'
+                    data['destination_bank_name'] = destination_bank or 'N/A'
+                except Exception:
+                    data['source_bank_name'] = 'N/A'
+                    data['destination_bank_name'] = 'N/A'
             else:
                 data['client_name'] = None
                 data['client_bank_accounts'] = []
                 data['source_bank_name'] = 'N/A'
                 data['destination_bank_name'] = 'N/A'
 
-            data['user_name'] = self.user.username if self.user else None
+            try:
+                data['user_name'] = self.user.username if self.user else None
+            except Exception:
+                data['user_name'] = None
 
             # Obtener nombre del operador asignado
             if self.assigned_operator_id:
