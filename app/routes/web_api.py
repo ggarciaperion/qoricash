@@ -9,6 +9,7 @@ from app.models.user import User
 from app.extensions import db, csrf
 from werkzeug.security import generate_password_hash
 from app.utils.formatters import now_peru
+from app.utils.referral import generate_referral_code
 import logging
 
 logger = logging.getLogger(__name__)
@@ -246,6 +247,16 @@ def register_from_web():
                 created_by=web_user.id,
                 created_at=now_peru()
             )
+
+        # Sistema de referidos: Generar código único para el nuevo cliente
+        max_attempts = 10
+        for _ in range(max_attempts):
+            referral_code = generate_referral_code()
+            existing_code = Client.query.filter_by(referral_code=referral_code).first()
+            if not existing_code:
+                new_client.referral_code = referral_code
+                logger.info(f'✨ Código de referido generado para cliente web: {referral_code}')
+                break
 
         db.session.add(new_client)
         db.session.commit()
