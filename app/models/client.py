@@ -99,17 +99,6 @@ class Client(db.Model):
     inactive_reason = db.Column(db.String(200), nullable=True)
     documents_pending_since = db.Column(db.DateTime, nullable=True)
 
-    # Sistema KYC (Know Your Customer)
-    kyc_status = db.Column(
-        db.String(20),
-        nullable=False,
-        default='Pendiente'
-    )  # Pendiente, En revisión, Aprobado, Rechazado
-    kyc_submitted_at = db.Column(db.DateTime, nullable=True)  # Fecha cuando se enviaron documentos
-    kyc_approved_at = db.Column(db.DateTime, nullable=True)  # Fecha cuando se aprobó
-    kyc_approved_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)  # Usuario que aprobó
-    kyc_rejection_reason = db.Column(db.String(500), nullable=True)  # Razón de rechazo
-
     # Timestamps
     created_at = db.Column(db.DateTime, default=now_peru, nullable=False)
     updated_at = db.Column(db.DateTime, default=now_peru, onupdate=now_peru)
@@ -352,15 +341,6 @@ class Client(db.Model):
             'referral_code': self.referral_code,
             'used_referral_code': self.used_referral_code,
             'referred_by': self.referred_by,
-        })
-
-        # Sistema KYC
-        data.update({
-            'kyc_status': self.kyc_status,
-            'kyc_submitted_at': self.kyc_submitted_at.isoformat() if self.kyc_submitted_at else None,
-            'kyc_approved_at': self.kyc_approved_at.isoformat() if self.kyc_approved_at else None,
-            'kyc_approved_by': self.kyc_approved_by,
-            'kyc_rejection_reason': self.kyc_rejection_reason,
         })
 
         # Compatibilidad con campos antiguos
