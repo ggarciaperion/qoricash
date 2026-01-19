@@ -533,87 +533,11 @@ def register_client():
 
         logger.info(f"Cliente registrado: {new_client.dni} (ID: {new_client.id}) con {len(bank_accounts) if bank_accounts else 0} cuentas bancarias")
 
-        # Enviar email de bienvenida
+        # Enviar email de bienvenida diferenciado (registro desde MÓVIL)
         try:
-            from app.services.email_service import EmailService
-            from flask_mail import Message
-            from flask import current_app
-
-            # Preparar datos para el email según tipo de persona
-            if tipo_persona == 'Natural':
-                saludo = f"{nombres} {apellido_paterno}"
-                tipo_documento = document_type  # 'DNI' o 'CE'
-                documentos_requeridos = f"fotos de tu {document_type} (anverso y reverso)"
-            else:
-                saludo = razon_social
-                tipo_documento = "RUC"
-                documentos_requeridos = "DNI del representante legal (anverso y reverso) y Ficha RUC"
-
-            # Crear el mensaje de email
-            msg = Message(
-                subject='Bienvenido a QoriCash - Cuenta Creada',
-                sender=('QoriCash', 'info@qoricash.pe'),
-                recipients=[email]
-            )
-
-            msg.html = f"""
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <style>
-        body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
-        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-        .header {{ background: linear-gradient(135deg, #0D1B2A 0%, #1a2942 100%); padding: 30px; text-align: center; color: white; }}
-        .content {{ background: #f9f9f9; padding: 30px; }}
-        .info-box {{ background: #e0f2fe; border-left: 4px solid #0284c7; padding: 15px; margin: 20px 0; }}
-        .footer {{ text-align: center; padding: 20px; color: #666; font-size: 12px; }}
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>¡Bienvenido a QoriCash!</h1>
-            <p>Tu Casa de Cambio Digital</p>
-        </div>
-        <div class="content">
-            <p>Hola <strong>{saludo}</strong>,</p>
-            <p>¡Tu cuenta ha sido creada exitosamente! 🎉</p>
-
-            <div class="info-box">
-                <p style="margin: 0; font-weight: bold;">📋 Tu información de acceso:</p>
-                <p style="margin: 10px 0 0 0;">{tipo_documento}: <strong>{dni}</strong></p>
-                <p style="margin: 5px 0 0 0;">Contraseña: <strong>La que creaste durante el registro</strong></p>
-            </div>
-
-            <p><strong>📱 Próximos pasos:</strong></p>
-            <ol>
-                <li>Abre la aplicación QoriCash en tu móvil</li>
-                <li>Ingresa tu {tipo_documento}: <strong>{dni}</strong></li>
-                <li>Ingresa la contraseña que creaste</li>
-                <li><strong>Importante:</strong> Debes validar tu identidad subiendo {documentos_requeridos}</li>
-                <li>Una vez aprobado tu KYC, ¡podrás realizar operaciones!</li>
-            </ol>
-
-            <p><strong>💡 Recuerda:</strong></p>
-            <ul>
-                <li>Mantén tu contraseña segura</li>
-                <li>Nunca la compartas con nadie</li>
-                <li>Si olvidaste tu contraseña, contacta a soporte</li>
-            </ul>
-        </div>
-        <div class="footer">
-            <p>Este es un correo automático, por favor no responder.</p>
-            <p>© 2025 QoriCash - Casa de Cambio Digital</p>
-        </div>
-    </div>
-</body>
-</html>
-"""
-
-            from app.extensions import mail
-            mail.send(msg)
-            logger.info(f"Email de bienvenida enviado a {email}")
+            from app.services.email_templates import EmailTemplates
+            EmailTemplates.send_welcome_email_from_mobile(new_client)
+            logger.info(f'✉️ Email de bienvenida móvil enviado a {new_client.dni}')
 
         except Exception as email_error:
             logger.error(f"Error enviando email: {str(email_error)}")

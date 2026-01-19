@@ -524,9 +524,19 @@ def approve_kyc(client_id):
             elif was_inactive and not should_generate_password:
                 logger.info(f'ℹ️ [KYC APPROVE] Cliente {client.dni} auto-registrado - NO se genera contraseña temporal (mantiene su contraseña original)')
 
-            # Enviar correo con el trader que creó al cliente
+            # Enviar correo diferenciado según tipo de activación
+            from app.services.email_templates import EmailTemplates
+
             trader = client.creator if hasattr(client, 'creator') and client.creator else current_user
-            EmailService.send_client_activation_email(client, trader, temporary_password)
+
+            if should_generate_password:
+                # Cliente creado por Trader - enviar con contraseña temporal
+                EmailTemplates.send_activation_with_temp_password(client, trader, temporary_password)
+                logger.info(f'✉️ [KYC APPROVE] Email de activación CON contraseña enviado a {client.dni}')
+            else:
+                # Cliente auto-registrado - enviar sin contraseña
+                EmailTemplates.send_activation_without_password(client)
+                logger.info(f'✉️ [KYC APPROVE] Email de activación SIN contraseña enviado a {client.dni}')
         except Exception as e:
             # No bloquear por errores de email
             logger.warning(f'Error al enviar email de cliente activado desde KYC: {str(e)}')
