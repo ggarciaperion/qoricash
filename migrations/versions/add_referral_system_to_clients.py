@@ -1,7 +1,7 @@
 """add referral system to clients
 
-Revision ID: add_referral_system
-Revises:
+Revision ID: k3l4m5n6o7p8
+Revises: j2k3l4m5n6o7
 Create Date: 2026-01-18
 
 """
@@ -10,8 +10,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = 'add_referral_system'
-down_revision = None
+revision = 'k3l4m5n6o7p8'
+down_revision = 'j2k3l4m5n6o7'
 
 def upgrade():
     # Add referral system columns to clients table
