@@ -4,6 +4,7 @@ Rutas de API para Plataforma Móvil (QoriCashApp)
 Endpoint de registro de clientes desde app móvil
 """
 from flask import Blueprint, request, jsonify
+from flask_login import login_required
 from werkzeug.security import generate_password_hash
 from app.extensions import db, csrf
 from app.models.client import Client
