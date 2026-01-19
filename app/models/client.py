@@ -65,6 +65,11 @@ class Client(db.Model):
     provincia = db.Column(db.String(100))
     departamento = db.Column(db.String(100))
 
+    # Sistema de referidos
+    referral_code = db.Column(db.String(6), unique=True, index=True)  # Código único del cliente
+    used_referral_code = db.Column(db.String(6))  # Código que usó al registrarse
+    referred_by = db.Column(db.Integer, db.ForeignKey('clients.id'))  # ID del cliente que lo refirió
+
     # Información bancaria - MÚLTIPLES CUENTAS en JSON
     # Formato: [{"origen": "Lima", "bank_name": "BCP", "account_type": "Ahorro",
     #            "currency": "S/", "account_number": "123456"}]
@@ -330,6 +335,13 @@ class Client(db.Model):
 
         # Validación OC
         data['validation_oc_url'] = self.validation_oc_url
+
+        # Sistema de referidos
+        data.update({
+            'referral_code': self.referral_code,
+            'used_referral_code': self.used_referral_code,
+            'referred_by': self.referred_by,
+        })
 
         # Compatibilidad con campos antiguos
         data.update({

@@ -210,6 +210,13 @@ def register_blueprints(app):
     except Exception as e:
         app.logger.error(f'❌ Error registrando legal_bp: {str(e)}')
 
+    try:
+        from app.routes.referrals import referrals_bp
+        app.register_blueprint(referrals_bp)
+        app.logger.info('✅ Blueprint referrals_bp registrado (Sistema de referidos)')
+    except Exception as e:
+        app.logger.error(f'❌ Error registrando referrals_bp: {str(e)}')
+
 
 def configure_logging(app):
     """Configurar logging de la aplicación"""

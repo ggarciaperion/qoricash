@@ -10,5 +10,6 @@ from app.routes.position import position_bp
 from app.routes.platform_api import platform_api_bp
 from app.routes.client_auth import client_auth_bp
 from app.routes.legal import legal_bp
+from app.routes.referrals import referrals_bp
 
-__all__ = ['auth_bp', 'dashboard_bp', 'users_bp', 'clients_bp', 'operations_bp', 'position_bp', 'platform_api_bp', 'client_auth_bp', 'legal_bp']
+__all__ = ['auth_bp', 'dashboard_bp', 'users_bp', 'clients_bp', 'operations_bp', 'position_bp', 'platform_api_bp', 'client_auth_bp', 'legal_bp', 'referrals_bp']
