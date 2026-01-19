@@ -210,6 +210,8 @@ def register_from_web():
             logger.info(f"✅ Usuario 'Web' creado con ID: {web_user.id}")
 
         # Crear cliente según tipo de persona
+        # IMPORTANTE: Todos los clientes se crean con status='Inactivo'
+        # Solo después de que Middle Office valide KYC se cambia a 'Activo'
         if tipo_persona == 'Natural':
             new_client = Client(
                 dni=dni,
@@ -223,7 +225,8 @@ def register_from_web():
                 departamento=departamento,
                 provincia=provincia,
                 distrito=distrito,
-                status='Activo',
+                status='Inactivo',  # Cambio: Inicia inactivo hasta validación KYC
+                has_complete_documents=False,  # Sin documentos al registrarse
                 password_hash=generate_password_hash(password),
                 requires_password_change=False,
                 created_by=web_user.id,
@@ -241,7 +244,8 @@ def register_from_web():
                 departamento=departamento,
                 provincia=provincia,
                 distrito=distrito,
-                status='Activo',
+                status='Inactivo',  # Cambio: Inicia inactivo hasta validación KYC
+                has_complete_documents=False,  # Sin documentos al registrarse
                 password_hash=generate_password_hash(password),
                 requires_password_change=False,
                 created_by=web_user.id,

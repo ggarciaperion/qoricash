@@ -85,12 +85,14 @@ def client_login():
                 'message': 'Cliente no encontrado. Verifica el DNI.'
             }), 404
 
-        # Verificar que el cliente esté activo
-        if client.status != 'Activo':
-            return jsonify({
-                'success': False,
-                'message': 'Cliente inactivo. Contacta al administrador.'
-            }), 403
+        # CAMBIO IMPORTANTE: Permitir login de clientes inactivos
+        # para que puedan subir documentos KYC desde la página web
+        # La restricción de operaciones se maneja en create-operation
+        # if client.status != 'Activo':
+        #     return jsonify({
+        #         'success': False,
+        #         'message': 'Cliente inactivo. Contacta al administrador.'
+        #     }), 403
 
         # Si el cliente tiene contraseña configurada, validarla
         if client.password_hash:
