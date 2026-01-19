@@ -95,7 +95,7 @@ def register_from_web():
         dni = data.get('dni', '').strip()
         email = data.get('email', '').strip()
         telefono = data.get('telefono', '').strip()
-        direccion = data.get('direccion', '').strip()
+        direccion = data.get('direccion', '').strip().upper()
         departamento = data.get('departamento', '').strip()
         provincia = data.get('provincia', '').strip()
         distrito = data.get('distrito', '').strip()
@@ -125,9 +125,9 @@ def register_from_web():
 
         # Validar según tipo de persona
         if tipo_persona == 'Natural':
-            nombres = data.get('nombres', '').strip()
-            apellido_paterno = data.get('apellido_paterno', '').strip()
-            apellido_materno = data.get('apellido_materno', '').strip()
+            nombres = data.get('nombres', '').strip().upper()
+            apellido_paterno = data.get('apellido_paterno', '').strip().upper()
+            apellido_materno = data.get('apellido_materno', '').strip().upper()
 
             if not all([nombres, apellido_paterno]):
                 return jsonify({
@@ -155,8 +155,8 @@ def register_from_web():
                 }), 400
 
         elif tipo_persona == 'Jurídica':
-            razon_social = data.get('razon_social', '').strip()
-            persona_contacto = data.get('persona_contacto', '').strip()
+            razon_social = data.get('razon_social', '').strip().upper()
+            persona_contacto = data.get('persona_contacto', '').strip().upper()
 
             if not all([razon_social, persona_contacto]):
                 return jsonify({

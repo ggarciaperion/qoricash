@@ -402,9 +402,9 @@ def register_client():
 
         # Obtener datos específicos según tipo de persona
         if tipo_persona == 'Natural':
-            nombres = data.get('nombres', '').strip()
-            apellido_paterno = data.get('apellido_paterno', '').strip()
-            apellido_materno = data.get('apellido_materno', '').strip()
+            nombres = data.get('nombres', '').strip().upper()
+            apellido_paterno = data.get('apellido_paterno', '').strip().upper()
+            apellido_materno = data.get('apellido_materno', '').strip().upper()
 
             # Validar campos obligatorios para Persona Natural
             if not all([dni, email, nombres, apellido_paterno, telefono, password]):
@@ -427,8 +427,8 @@ def register_client():
 
         else:  # Persona Jurídica (RUC)
             ruc = data.get('ruc', '').strip()
-            razon_social = data.get('razon_social', '').strip()
-            persona_contacto = data.get('persona_contacto', '').strip()
+            razon_social = data.get('razon_social', '').strip().upper()
+            persona_contacto = data.get('persona_contacto', '').strip().upper()
 
             # Para RUC, el campo 'dni' debe contener el RUC
             if not ruc:
