@@ -495,15 +495,24 @@ def approve_kyc(client_id):
         db.session.commit()
         logger.info(f'💾 [KYC APPROVE] Cambios guardados en BD para cliente {client.dni}')
 
-        # Enviar correo de activación con contraseña temporal si el cliente estaba inactivo
+        # Enviar correo de activación con contraseña temporal SOLO si fue creado por un Trader
         try:
             from app.services.email_service import EmailService
             from app.utils.password_generator import generate_simple_password
 
-            # Generar contraseña temporal SOLO si el cliente estaba inactivo
+            # LÓGICA CORREGIDA: Solo generar contraseña temporal si fue creado manualmente por un Trader
+            # Clientes auto-registrados (Web, Plataforma/Móvil) ya tienen su propia contraseña
             temporary_password = None
-            if was_inactive:
-                # Generar contraseña temporal
+
+            # Verificar si el cliente fue creado por un Trader (creación manual desde sistema web)
+            should_generate_password = False
+            if client.creator:
+                creator_role = client.creator.role if hasattr(client.creator, 'role') else None
+                should_generate_password = (creator_role == 'Trader')
+                logger.info(f'🔍 [KYC APPROVE] Cliente {client.dni} creado por: {client.creator.username} (rol: {creator_role})')
+
+            if was_inactive and should_generate_password:
+                # Solo generar contraseña temporal para clientes creados manualmente por Traders
                 temporary_password = generate_simple_password(length=10)
 
                 # Establecer contraseña en el cliente
@@ -511,7 +520,9 @@ def approve_kyc(client_id):
                 client.requires_password_change = True
                 db.session.commit()
 
-                logger.info(f'✅ [KYC APPROVE] Contraseña temporal generada para cliente {client.dni} al aprobar KYC')
+                logger.info(f'✅ [KYC APPROVE] Contraseña temporal generada para cliente {client.dni} (creado por Trader)')
+            elif was_inactive and not should_generate_password:
+                logger.info(f'ℹ️ [KYC APPROVE] Cliente {client.dni} auto-registrado - NO se genera contraseña temporal (mantiene su contraseña original)')
 
             # Enviar correo con el trader que creó al cliente
             trader = client.creator if hasattr(client, 'creator') and client.creator else current_user

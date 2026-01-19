@@ -488,6 +488,8 @@ def register_client():
             logger.info(f"✅ Usuario 'Plataforma' encontrado con ID: {platform_user.id}")
 
         # Crear cliente según tipo de persona
+        # IMPORTANTE: Todos los clientes auto-registrados inician con status='Inactivo'
+        # Solo después de que Middle Office valide KYC se cambia a 'Activo'
         if tipo_persona == 'Natural':
             # Persona Natural (DNI o CE)
             new_client = Client(
@@ -498,7 +500,8 @@ def register_client():
                 apellido_paterno=apellido_paterno,
                 apellido_materno=apellido_materno,
                 phone=telefono,
-                status='Activo',
+                status='Inactivo',  # Cambio: Inicia inactivo hasta validación KYC
+                has_complete_documents=False,  # Sin documentos al registrarse
                 password_hash=generate_password_hash(password),
                 requires_password_change=False,
                 created_by=platform_user.id,
@@ -513,7 +516,8 @@ def register_client():
                 razon_social=razon_social,
                 persona_contacto=persona_contacto,
                 phone=telefono,
-                status='Activo',
+                status='Inactivo',  # Cambio: Inicia inactivo hasta validación KYC
+                has_complete_documents=False,  # Sin documentos al registrarse
                 password_hash=generate_password_hash(password),
                 requires_password_change=False,
                 created_by=platform_user.id,
