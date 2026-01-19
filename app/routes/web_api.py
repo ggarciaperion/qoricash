@@ -577,6 +577,25 @@ def create_operation_web():
                 'message': 'Cliente no encontrado'
             }), 404
 
+        # 🔐 VALIDAR KYC: El cliente debe tener documentos aprobados para operar
+        if client.kyc_status != 'Aprobado':
+            kyc_message = ''
+            if client.kyc_status == 'Pendiente':
+                kyc_message = 'Debes validar tu identidad antes de realizar operaciones. Por favor, sube tus documentos.'
+            elif client.kyc_status == 'En revisión':
+                kyc_message = 'Tus documentos están en revisión. Pronto podrás realizar operaciones.'
+            elif client.kyc_status == 'Rechazado':
+                kyc_message = f'Tu validación fue rechazada. Motivo: {client.kyc_rejection_reason or "No especificado"}. Contacta a soporte.'
+            else:
+                kyc_message = 'Debes completar la validación de identidad antes de operar.'
+
+            return jsonify({
+                'success': False,
+                'message': kyc_message,
+                'kyc_required': True,
+                'kyc_status': client.kyc_status
+            }), 403
+
         # Obtener tipo de cambio actual
         from app.models.exchange_rate import ExchangeRate
         current_rates = ExchangeRate.get_current_rates()
@@ -961,6 +980,163 @@ def submit_proof_web():
         return jsonify({
             'success': False,
             'message': f'Error al enviar comprobante: {str(e)}'
+        }), 500
+
+
+@web_api_bp.route('/kyc/upload-documents', methods=['OPTIONS', 'POST'])
+@csrf.exempt
+def upload_kyc_documents():
+    """
+    Subir documentos KYC para validación de identidad
+
+    Persona Natural:
+    - dni_front (archivo): DNI anverso
+    - dni_back (archivo): DNI reverso
+
+    Persona Jurídica:
+    - dni_representante_front (archivo): DNI del representante
+    - dni_representante_back (archivo): DNI del representante
+    - ficha_ruc (archivo): Ficha RUC de la empresa
+
+    Datos:
+    - client_id: ID del cliente
+    """
+    if request.method == 'OPTIONS':
+        return '', 204
+
+    try:
+        # Obtener datos del formulario
+        client_id = request.form.get('client_id')
+
+        if not client_id:
+            return jsonify({
+                'success': False,
+                'message': 'ID de cliente requerido'
+            }), 400
+
+        # Buscar cliente
+        client = Client.query.get(client_id)
+        if not client:
+            return jsonify({
+                'success': False,
+                'message': 'Cliente no encontrado'
+            }), 404
+
+        logger.info(f"📄 Iniciando carga de documentos KYC para cliente {client.dni}")
+
+        # Validar archivos según tipo de cliente
+        if client.document_type == 'RUC':
+            # Persona Jurídica: requiere DNI representante y Ficha RUC
+            required_files = ['dni_representante_front', 'ficha_ruc']
+
+            if not all(key in request.files for key in required_files):
+                return jsonify({
+                    'success': False,
+                    'message': 'Faltan documentos requeridos. Se necesita: DNI del representante (anverso) y Ficha RUC'
+                }), 400
+
+        else:
+            # Persona Natural: requiere DNI anverso y reverso
+            required_files = ['dni_front', 'dni_back']
+
+            if not all(key in request.files for key in required_files):
+                return jsonify({
+                    'success': False,
+                    'message': 'Faltan documentos requeridos. Se necesita: DNI anverso y reverso'
+                }), 400
+
+        # Validar tipo y tamaño de archivos
+        ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'pdf'}
+        MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
+
+        def allowed_file(filename):
+            return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+        for file_key in request.files:
+            file = request.files[file_key]
+            if file and file.filename:
+                if not allowed_file(file.filename):
+                    return jsonify({
+                        'success': False,
+                        'message': f'Tipo de archivo no permitido: {file.filename}. Use PNG, JPG o PDF'
+                    }), 400
+
+                # Verificar tamaño
+                file.seek(0, 2)  # Ir al final
+                file_size = file.tell()
+                file.seek(0)  # Volver al inicio
+
+                if file_size > MAX_FILE_SIZE:
+                    return jsonify({
+                        'success': False,
+                        'message': f'Archivo muy grande: {file.filename}. Máximo 10 MB'
+                    }), 400
+
+        # Importar Cloudinary
+        try:
+            import cloudinary
+            import cloudinary.uploader
+        except ImportError:
+            logger.error("❌ Cloudinary no está instalado")
+            return jsonify({
+                'success': False,
+                'message': 'Error de configuración del servidor'
+            }), 500
+
+        # Subir archivos a Cloudinary
+        uploaded_urls = {}
+
+        for file_key in request.files:
+            file = request.files[file_key]
+            if file and file.filename:
+                try:
+                    # Subir a Cloudinary
+                    upload_result = cloudinary.uploader.upload(
+                        file,
+                        folder=f"qoricash/kyc/{client.dni}",
+                        resource_type="auto"
+                    )
+                    uploaded_urls[file_key] = upload_result['secure_url']
+                    logger.info(f"✅ Archivo {file_key} subido: {upload_result['secure_url']}")
+                except Exception as upload_error:
+                    logger.error(f"❌ Error subiendo {file_key}: {str(upload_error)}")
+                    return jsonify({
+                        'success': False,
+                        'message': f'Error al subir archivo {file_key}'
+                    }), 500
+
+        # Actualizar URLs en el cliente según tipo
+        if client.document_type == 'RUC':
+            client.dni_representante_front_url = uploaded_urls.get('dni_representante_front')
+            client.dni_representante_back_url = uploaded_urls.get('dni_representante_back')
+            client.ficha_ruc_url = uploaded_urls.get('ficha_ruc')
+        else:
+            client.dni_front_url = uploaded_urls.get('dni_front')
+            client.dni_back_url = uploaded_urls.get('dni_back')
+
+        # Actualizar estado KYC
+        client.kyc_status = 'En revisión'
+        client.kyc_submitted_at = now_peru()
+        client.has_complete_documents = True
+
+        db.session.commit()
+
+        logger.info(f"✅ Documentos KYC actualizados para cliente {client.dni}. Estado: En revisión")
+
+        return jsonify({
+            'success': True,
+            'message': 'Documentos enviados correctamente. Nuestro equipo los revisará en breve.',
+            'kyc_status': client.kyc_status
+        }), 200
+
+    except Exception as e:
+        logger.error(f"❌ Error en upload_kyc_documents: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'message': f'Error al subir documentos: {str(e)}'
         }), 500
 
 
