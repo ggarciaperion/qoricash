@@ -24,6 +24,7 @@ from app.services.notification_service import NotificationService
 from app.socketio_events import emit_operation_event
 from app.utils.validators import validate_dni, validate_email
 from app.utils.formatters import now_peru
+from app.utils.referral import generate_referral_code, is_valid_referral_code_format
 import logging
 import json
 
@@ -540,6 +541,38 @@ def client_register():
             new_client.razon_social = razon_social
             new_client.persona_contacto = persona_contacto
 
+        # Sistema de referidos: Generar código único para el nuevo cliente
+        max_attempts = 10
+        for _ in range(max_attempts):
+            referral_code = generate_referral_code()
+            existing_code = Client.query.filter_by(referral_code=referral_code).first()
+            if not existing_code:
+                new_client.referral_code = referral_code
+                logger.info(f'✨ Código de referido generado: {referral_code}')
+                break
+
+        # Validar y aplicar código de referido si fue proporcionado
+        used_code = data.get('referral_code', '').strip().upper()
+        if used_code:
+            if not is_valid_referral_code_format(used_code):
+                return jsonify({
+                    'success': False,
+                    'message': 'Formato de código de referido inválido'
+                }), 400
+
+            # Buscar el cliente que tiene este código
+            referrer = Client.query.filter_by(referral_code=used_code).first()
+            if not referrer:
+                return jsonify({
+                    'success': False,
+                    'message': 'Código de referido no existe'
+                }), 400
+
+            # Guardar el código usado y la referencia
+            new_client.used_referral_code = used_code
+            new_client.referred_by = referrer.id
+            logger.info(f'🎁 Cliente usa código de referido: {used_code} (Referido por: {referrer.full_name})')
+
         # Usuario "plataforma" como creador
         platform_user = User.query.filter_by(username='plataforma').first()
         if platform_user:
@@ -944,6 +977,7 @@ def upload_deposit_proof(operation_id):
             'message': f'Error al subir comprobante: {str(e)}'
         }), 500
 
+
 @platform_bp.route('/api/client/cancel-expired-operation/<int:operation_id>', methods=['POST'])
 def cancel_expired_operation(operation_id):
     """
@@ -1012,3 +1046,139 @@ def cancel_expired_operation(operation_id):
             'message': f'Error al cancelar operación: {str(e)}'
         }), 500
 
+
+@platform_bp.route('/api/web/add-bank-account', methods=['POST'])
+def add_bank_account():
+    """
+    Agregar cuenta bancaria a cliente existente desde web
+
+    Body (JSON):
+        - dni: DNI del cliente
+        - bank_name: Nombre del banco
+        - account_number: Número de cuenta o CCI
+        - account_type: 'Ahorro' | 'Corriente'
+        - currency: 'S/' | '$'
+        - origen: 'Lima' | 'Provincia' (opcional)
+
+    Returns:
+        - success: bool
+        - message: str
+        - bank_accounts: list (opcional)
+    """
+    try:
+        data = request.get_json() or {}
+
+        logger.info(f'🏦 [WEB API] Agregar cuenta bancaria')
+        logger.info(f'Data recibida: {list(data.keys())}')
+
+        # Validar campos requeridos
+        required_fields = ['dni', 'bank_name', 'account_number', 'account_type', 'currency', 'origen']
+
+        for field in required_fields:
+            if not data.get(field):
+                return jsonify({
+                    'success': False,
+                    'message': f'El campo {field} es requerido'
+                }), 400
+
+        dni = data.get('dni', '').strip()
+        bank_name = data.get('bank_name', '').strip()
+        account_number = data.get('account_number', '').strip()
+        account_type = data.get('account_type', '').strip()
+        currency = data.get('currency', '').strip()
+        origen = data.get('origen', '').strip()
+
+        # Buscar cliente
+        client = Client.query.filter_by(dni=dni).first()
+        if not client:
+            return jsonify({
+                'success': False,
+                'message': 'Cliente no encontrado'
+            }), 404
+
+        # Validar tipo de cuenta
+        if account_type not in ['Ahorro', 'Corriente']:
+            return jsonify({
+                'success': False,
+                'message': 'Tipo de cuenta inválido (debe ser Ahorro o Corriente)'
+            }), 400
+
+        # Validar moneda
+        if currency not in ['S/', '$']:
+            return jsonify({
+                'success': False,
+                'message': 'Moneda inválida (debe ser S/ o $)'
+            }), 400
+
+        # Validar origen
+        if origen not in ['Lima', 'Provincia']:
+            return jsonify({
+                'success': False,
+                'message': 'Origen inválido (debe ser Lima o Provincia)'
+            }), 400
+
+        # Validar CCI para bancos que lo requieren
+        if bank_name in ['BBVA', 'SCOTIABANK', 'OTROS']:
+            if len(account_number) != 20:
+                return jsonify({
+                    'success': False,
+                    'message': f'Para {bank_name} debes ingresar un CCI de exactamente 20 dígitos'
+                }), 400
+        else:
+            # Validar número de cuenta normal (13-20 dígitos)
+            if not account_number.isdigit() or len(account_number) < 13 or len(account_number) > 20:
+                return jsonify({
+                    'success': False,
+                    'message': 'El número de cuenta debe tener entre 13 y 20 dígitos'
+                }), 400
+
+        # Obtener cuentas existentes
+        existing_accounts = client.bank_accounts or []
+
+        # Validar máximo de cuentas
+        if len(existing_accounts) >= 6:
+            return jsonify({
+                'success': False,
+                'message': 'Has alcanzado el máximo de 6 cuentas bancarias permitidas'
+            }), 400
+
+        # Validar cuenta duplicada
+        account_key = f"{bank_name}_{account_type}_{account_number}_{currency}"
+        for acc in existing_accounts:
+            existing_key = f"{acc.get('bank_name')}_{acc.get('account_type')}_{acc.get('account_number')}_{acc.get('currency')}"
+            if account_key == existing_key:
+                return jsonify({
+                    'success': False,
+                    'message': 'Ya tienes registrada esta cuenta bancaria'
+                }), 400
+
+        # Agregar nueva cuenta
+        new_account = {
+            'origen': origen,
+            'bank_name': bank_name,
+            'account_type': account_type,
+            'currency': currency,
+            'account_number': account_number
+        }
+
+        existing_accounts.append(new_account)
+
+        # Actualizar cliente
+        client.set_bank_accounts(existing_accounts)
+        db.session.commit()
+
+        logger.info(f'✅ Cuenta bancaria agregada: {dni} - {bank_name} {currency}')
+
+        return jsonify({
+            'success': True,
+            'message': 'Cuenta bancaria agregada exitosamente',
+            'bank_accounts': client.bank_accounts
+        }), 201
+
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f'❌ Error en add_bank_account: {str(e)}', exc_info=True)
+        return jsonify({
+            'success': False,
+            'message': f'Error al agregar cuenta: {str(e)}'
+        }), 500
