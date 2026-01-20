@@ -4,10 +4,8 @@ Modelo de Cliente ACTUALIZADO para QoriCash Trading V2
 - validate_bank_accounts ahora es @staticmethod para permitir validación desde servicios
 - full_name devuelve None si no hay datos (la plantilla mostrará fallback '-')
 - get/set para bank_accounts (JSON) y compatibilidad con campos legacy
-- Autenticación con password para acceso a app móvil
 """
 from datetime import datetime
-from werkzeug.security import generate_password_hash, check_password_hash
 from app.extensions import db
 from app.utils.formatters import now_peru
 import json
@@ -37,15 +35,12 @@ class Client(db.Model):
     dni = db.Column(db.String(20), unique=True, nullable=False, index=True)
 
     # Contacto
-    email = db.Column(db.String(120), nullable=False, index=True)  # Puede contener múltiples emails separados por ;
+    email = db.Column(db.String(120), unique=True, nullable=False, index=True)
     phone = db.Column(db.String(100))  # Puede contener múltiples números separados por ;
 
-    # Autenticación para app móvil
-    password_hash = db.Column(db.String(200))  # Contraseña hasheada (NULL si cliente aún no tiene acceso a app)
-    requires_password_change = db.Column(db.Boolean, default=True)  # True si debe cambiar contraseña en primer login
-
-    # Token para notificaciones push (Expo Push Notifications)
-    push_notification_token = db.Column(db.String(200))  # Token de Expo para enviar notificaciones push
+    # Autenticación
+    password = db.Column(db.String(255))  # Contraseña hasheada para login web
+    requires_password_change = db.Column(db.Boolean, default=False)  # True si usa contraseña temporal
 
     # Documentos (URLs de Cloudinary)
     dni_front_url = db.Column(db.String(500))  # DNI/CE Anverso
@@ -91,14 +86,6 @@ class Client(db.Model):
         default='Inactivo'
     )  # Activo, Inactivo
 
-    # Control de operaciones sin documentos completos
-    operations_without_docs_count = db.Column(db.Integer, default=0)
-    operations_without_docs_limit = db.Column(db.Integer, nullable=True)
-    max_amount_without_docs = db.Column(db.Numeric(15, 2), nullable=True)
-    has_complete_documents = db.Column(db.Boolean, default=False)
-    inactive_reason = db.Column(db.String(200), nullable=True)
-    documents_pending_since = db.Column(db.DateTime, nullable=True)
-
     # Timestamps
     created_at = db.Column(db.DateTime, default=now_peru, nullable=False)
     updated_at = db.Column(db.DateTime, default=now_peru, onupdate=now_peru)
@@ -142,13 +129,8 @@ class Client(db.Model):
         """Obtener cuentas bancarias como lista de diccionarios"""
         if self.bank_accounts_json:
             try:
-                # Si ya es un dict/list (JSONB de PostgreSQL), devolverlo directamente
-                if isinstance(self.bank_accounts_json, (list, dict)):
-                    return self.bank_accounts_json if isinstance(self.bank_accounts_json, list) else [self.bank_accounts_json]
-                # Si es string, parsearlo
                 return json.loads(self.bank_accounts_json)
-            except Exception as e:
-                print(f"Error parsing bank_accounts_json: {e}")
+            except Exception:
                 return []
         return []
 
@@ -250,46 +232,12 @@ class Client(db.Model):
 
         return True, 'Cuentas válidas'
 
-    def set_password(self, password):
-        """
-        Establecer contraseña hasheada para acceso a app móvil
-
-        Args:
-            password: Contraseña en texto plano
-        """
-        self.password_hash = generate_password_hash(password)
-
-    def check_password(self, password):
-        """
-        Verificar contraseña del cliente
-
-        Args:
-            password: Contraseña en texto plano
-
-        Returns:
-            bool: True si la contraseña es correcta
-        """
-        if not self.password_hash:
-            return False
-        return check_password_hash(self.password_hash, password)
-
     def to_dict(self, include_stats=False):
         """
         Convertir a diccionario
 
         ACTUALIZADO: Ahora incluye información del usuario que creó el cliente
         """
-        # NUEVO: Información del usuario que creó el cliente (con manejo de errores)
-        created_by_username = None
-        created_by_role = None
-        if self.created_by:
-            try:
-                created_by_username = self.creator.username if self.creator else None
-                created_by_role = self.creator.role if self.creator else None
-            except Exception:
-                # Si la relación creator no está cargada o hay un error, usar None
-                pass
-
         data = {
             'id': self.id,
             'document_type': self.document_type,
@@ -301,10 +249,10 @@ class Client(db.Model):
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
             'bank_accounts': self.bank_accounts,
+            # NUEVO: Información del usuario que creó el cliente
             'created_by_id': self.created_by,
-            'created_by_username': created_by_username,
-            'created_by_role': created_by_role,
-            'has_complete_documents': self.has_complete_documents or False,
+            'created_by_username': getattr(self.creator, 'username', None) if self.created_by else None,
+            'created_by_role': getattr(self.creator, 'role', None) if self.created_by else None,
         }
 
         if self.document_type == 'RUC':
@@ -388,117 +336,6 @@ class Client(db.Model):
     def get_completed_operations(self):
         """Obtener operaciones completadas"""
         return self.operations.filter_by(status='Completada').count() if hasattr(self, 'operations') else 0
-
-    # Métodos para control de documentos parciales
-
-    def check_complete_documents(self):
-        """
-        Verificar si el cliente tiene todos los documentos obligatorios completos
-
-        Returns:
-            bool: True si tiene documentos completos, False en caso contrario
-        """
-        if self.document_type in ('DNI', 'CE'):
-            # Persona Natural: requiere DNI frente y reverso
-            return bool(self.dni_front_url and self.dni_back_url)
-        elif self.document_type == 'RUC':
-            # Persona Jurídica: requiere DNI rep legal (frente y reverso) + Ficha RUC
-            return bool(
-                self.dni_representante_front_url and
-                self.dni_representante_back_url and
-                self.ficha_ruc_url
-            )
-        return False
-
-    def initialize_partial_docs_limits(self):
-        """
-        Establecer límites iniciales basados en tipo de documento
-
-        - DNI/CE: 1 operación, máximo USD 3,000
-        - RUC: 1 operación, máximo USD 50,000
-        """
-        if self.document_type in ('DNI', 'CE'):
-            self.operations_without_docs_limit = 1
-            self.max_amount_without_docs = 3000.00
-        elif self.document_type == 'RUC':
-            self.operations_without_docs_limit = 1
-            self.max_amount_without_docs = 50000.00
-
-        # Inicializar contador en 0
-        self.operations_without_docs_count = 0
-
-        # Marcar fecha de inicio de documentos pendientes
-        if not self.has_complete_documents:
-            self.documents_pending_since = now_peru()
-
-    def can_create_operation(self, amount_usd):
-        """
-        Verificar si el cliente puede crear una nueva operación
-
-        Args:
-            amount_usd: Monto de la operación en USD
-
-        Returns:
-            tuple: (bool, str) - (puede_operar, mensaje_error)
-        """
-        # Si tiene documentos completos, puede operar sin restricciones
-        if self.has_complete_documents:
-            return True, None
-
-        # Verificar si tiene límites configurados
-        if self.operations_without_docs_limit is None:
-            return False, "Cliente sin límites configurados para operaciones sin documentos"
-
-        # Verificar si ya excedió el número de operaciones permitidas
-        if self.operations_without_docs_count >= self.operations_without_docs_limit:
-            return False, f"Cliente ha alcanzado el límite de {self.operations_without_docs_limit} operación(es) sin documentos completos. Debe regularizar documentación."
-
-        # Verificar si el monto excede el límite permitido
-        if amount_usd > float(self.max_amount_without_docs):
-            return False, f"Monto USD {amount_usd:,.2f} excede el límite permitido de USD {float(self.max_amount_without_docs):,.2f} para operaciones sin documentos completos"
-
-        return True, None
-
-    def increment_operations_without_docs(self):
-        """
-        Incrementar contador de operaciones sin documentos
-
-        Returns:
-            bool: True si alcanzó el límite, False si aún puede seguir operando
-        """
-        if not self.has_complete_documents:
-            self.operations_without_docs_count += 1
-
-            # Verificar si alcanzó el límite
-            if self.operations_without_docs_count >= self.operations_without_docs_limit:
-                return True  # Alcanzó límite
-
-        return False  # Aún puede operar
-
-    def disable_for_missing_documents(self):
-        """
-        Inhabilitar cliente por falta de documentos completos
-        """
-        self.status = 'Inactivo'
-        self.inactive_reason = 'Inactivo por falta de documentos'
-
-        # Si no tenía fecha de documentos pendientes, establecerla ahora
-        if not self.documents_pending_since:
-            self.documents_pending_since = now_peru()
-
-    def complete_documents_and_reset(self):
-        """
-        Marcar documentos como completos y resetear contadores
-        Llamar cuando Middle Office verifica y aprueba todos los documentos
-        """
-        self.has_complete_documents = True
-        self.operations_without_docs_count = 0
-        self.documents_pending_since = None
-
-        # Si estaba inactivo por documentos, reactivar
-        if self.inactive_reason == 'Inactivo por falta de documentos':
-            self.status = 'Activo'
-            self.inactive_reason = None
 
     def __repr__(self):
         return f'<Client {self.full_name or self.razon_social or self.dni} - {self.document_type}: {self.dni}>'

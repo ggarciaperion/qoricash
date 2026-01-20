@@ -22,10 +22,6 @@ login_manager = LoginManager()
 login_manager.login_view = 'auth.login'
 login_manager.login_message = 'Por favor inicia sesión para acceder a esta página'
 login_manager.login_message_category = 'warning'
-login_manager.session_protection = 'strong'  # Protección fuerte: invalida sesión si cambia IP/User-Agent
-login_manager.refresh_view = 'auth.login'
-login_manager.needs_refresh_message = 'Para proteger tu cuenta, por favor vuelve a iniciar sesión'
-login_manager.needs_refresh_message_category = 'info'
 
 # Security
 csrf = CSRFProtect()
@@ -38,15 +34,22 @@ limiter = Limiter(
 )
 
 # WebSocket (Real-time)
+# Configuración optimizada para evitar errores "Bad file descriptor"
 socketio = SocketIO(
     cors_allowed_origins="*",
-    async_mode='eventlet',
-    logger=False,
-    engineio_logger=False
+    async_mode='eventlet',  # DEBE ser 'eventlet' cuando gunicorn usa worker_class='eventlet'
+    logger=True,  # Habilitar logging para capturar errores
+    engineio_logger=False,  # Mantener deshabilitado para evitar spam
+    ping_timeout=120,  # Aumentado a 2 minutos para conexiones lentas
+    ping_interval=25,
+    # Configuración adicional para manejo robusto de conexiones
+    cors_credentials=True,
+    always_connect=True,  # Permitir reconexiones automáticas
+    manage_session=False  # Evita problemas con sesiones Flask en eventlet
 )
 
 # Email
 mail = Mail()
 
-# CORS - Allow cross-origin requests from mobile app
+# CORS - Cross-Origin Resource Sharing
 cors = CORS()

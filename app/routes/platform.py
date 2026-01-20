@@ -1,39 +1,399 @@
 """
 Rutas de API para Plataforma Móvil (QoriCashApp)
 
-Endpoint de registro de clientes desde app móvil
+Este blueprint maneja todos los endpoints necesarios para la aplicación móvil:
+- Autenticación de clientes
+- Auto-registro de clientes
+- Gestión de operaciones desde el app
+- Subida de comprobantes
+
+Autenticación: Los clientes se autentican con DNI + contraseña
 """
 from flask import Blueprint, request, jsonify
-from flask_login import login_required
-from werkzeug.security import generate_password_hash
+from flask_login import login_user, logout_user, current_user, login_required
+from werkzeug.security import generate_password_hash, check_password_hash
 from app.extensions import db, csrf
 from app.models.client import Client
 from app.models.user import User
-from app.utils.validators import validate_email
+from app.models.operation import Operation
+from app.services.client_service import ClientService
+from app.services.operation_service import OperationService
+from app.services.file_service import FileService
+from app.services.email_service import EmailService
+from app.services.notification_service import NotificationService
+from app.socketio_events import emit_operation_event
+from app.utils.validators import validate_dni, validate_email
 from app.utils.formatters import now_peru
 from app.utils.referral import generate_referral_code, is_valid_referral_code_format
 import logging
+import json
+import secrets
+import string
 
 logger = logging.getLogger(__name__)
 
-# Blueprint sin prefijo (se registrará con /api/client)
+# Blueprint sin prefijo (se registrará con /api/client y /api/platform)
 platform_bp = Blueprint('platform', __name__)
 
-# Deshabilitar CSRF para endpoints de API móvil
+# Deshabilitar CSRF para endpoints de API móvil (usa tokens en headers)
 csrf.exempt(platform_bp)
 
 
-# Agregar headers CORS a todas las respuestas del blueprint
-@platform_bp.after_request
-def after_request(response):
-    """Agregar headers CORS a todas las respuestas"""
-    origin = request.headers.get('Origin')
-    if origin:
-        response.headers.add('Access-Control-Allow-Origin', origin)
-        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
-        response.headers.add('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS')
-        response.headers.add('Access-Control-Allow-Credentials', 'true')
-    return response
+# ============================================
+# AUTENTICACIÓN DE CLIENTES
+# ============================================
+
+@platform_bp.route('/api/client/login', methods=['POST'])
+def client_login():
+    """
+    Login de cliente desde app móvil
+
+    Body (JSON):
+        - dni: DNI del cliente
+        - password: Contraseña del cliente
+
+    Returns:
+        - success: bool
+        - message: str
+        - client: dict (datos del cliente)
+        - user: dict (usuario asociado)
+        - requires_password_change: bool
+    """
+    try:
+        data = request.get_json() or {}
+        dni = data.get('dni', '').strip()
+        password = data.get('password', '').strip()
+
+        logger.info(f'📱 [PLATFORM API] Intento de login de cliente con DNI: {dni}')
+
+        # Validar campos requeridos
+        if not dni or not password:
+            return jsonify({
+                'success': False,
+                'message': 'DNI y contraseña son requeridos'
+            }), 400
+
+        # Buscar cliente por DNI
+        client = ClientService.get_client_by_dni(dni)
+
+        if not client:
+            logger.warning(f'❌ Cliente no encontrado: {dni}')
+            return jsonify({
+                'success': False,
+                'message': 'DNI o contraseña incorrectos'
+            }), 401
+
+        # Buscar usuario asociado al cliente (por DNI)
+        user = User.query.filter_by(dni=dni).first()
+
+        if not user:
+            logger.warning(f'❌ Usuario no encontrado para cliente DNI: {dni}')
+            return jsonify({
+                'success': False,
+                'message': 'DNI o contraseña incorrectos'
+            }), 401
+
+        # Verificar contraseña
+        if not user.check_password(password):
+            logger.warning(f'❌ Contraseña incorrecta para DNI: {dni}')
+            return jsonify({
+                'success': False,
+                'message': 'DNI o contraseña incorrectos'
+            }), 401
+
+        # Verificar que el usuario esté activo
+        if user.status != 'Activo':
+            return jsonify({
+                'success': False,
+                'message': 'Tu cuenta está inactiva. Contacta al administrador.'
+            }), 403
+
+        # Login exitoso - crear sesión Flask-Login
+        login_user(user, remember=True)
+
+        # Actualizar last_login
+        user.last_login = now_peru()
+        db.session.commit()
+
+        # Verificar si necesita cambiar contraseña (primera vez)
+        # Si la contraseña es igual al DNI, requiere cambio
+        requires_password_change = check_password_hash(user.password_hash, dni)
+
+        # Determinar si tiene documentos completos
+        has_complete_documents = False
+        if client.document_type == 'RUC':
+            has_complete_documents = bool(
+                client.dni_representante_front_url and
+                client.dni_representante_back_url and
+                client.ficha_ruc_url
+            )
+        else:
+            has_complete_documents = bool(client.dni_front_url and client.dni_back_url)
+
+        # Preparar respuesta
+        client_data = client.to_dict(include_stats=True)
+        client_data['has_complete_documents'] = has_complete_documents
+
+        logger.info(f'✅ Login exitoso para cliente: {client.dni} - {client.full_name}')
+
+        return jsonify({
+            'success': True,
+            'message': 'Login exitoso',
+            'client': client_data,
+            'user': user.to_dict(),
+            'requires_password_change': requires_password_change
+        }), 200
+
+    except Exception as e:
+        logger.error(f'❌ Error en client_login: {str(e)}', exc_info=True)
+        return jsonify({
+            'success': False,
+            'message': f'Error al iniciar sesión: {str(e)}'
+        }), 500
+
+
+@platform_bp.route('/api/client/me', methods=['POST'])
+def get_client_me():
+    """
+    Obtener datos del cliente autenticado actual
+
+    Body (JSON):
+        - dni: DNI del cliente (para validar)
+
+    Returns:
+        - success: bool
+        - client: dict
+    """
+    try:
+        data = request.get_json() or {}
+        dni = data.get('dni', '').strip()
+
+        if not dni:
+            return jsonify({
+                'success': False,
+                'message': 'DNI es requerido'
+            }), 400
+
+        # Buscar cliente
+        client = ClientService.get_client_by_dni(dni)
+
+        if not client:
+            return jsonify({
+                'success': False,
+                'message': 'Cliente no encontrado'
+            }), 404
+
+        # Verificar documentos completos
+        has_complete_documents = False
+        if client.document_type == 'RUC':
+            has_complete_documents = bool(
+                client.dni_representante_front_url and
+                client.dni_representante_back_url and
+                client.ficha_ruc_url
+            )
+        else:
+            has_complete_documents = bool(client.dni_front_url and client.dni_back_url)
+
+        client_data = client.to_dict(include_stats=True)
+        client_data['has_complete_documents'] = has_complete_documents
+
+        return jsonify({
+            'success': True,
+            'client': client_data
+        }), 200
+
+    except Exception as e:
+        logger.error(f'Error en get_client_me: {str(e)}', exc_info=True)
+        return jsonify({
+            'success': False,
+            'message': f'Error al obtener datos del cliente: {str(e)}'
+        }), 500
+
+
+# ============================================
+# REGISTRO DE CLIENTES
+# ============================================
+
+@platform_bp.route('/api/platform/register-client', methods=['POST'])
+def register_client():
+    """
+    Auto-registro de cliente desde app móvil
+
+    Form Data:
+        - document_type: DNI | CE | RUC
+        - dni: Número de documento
+        - nombres, apellido_paterno, apellido_materno (para DNI/CE)
+        - razon_social (para RUC)
+        - email
+        - phone
+        - direccion, distrito, provincia, departamento (opcional)
+        - bank_accounts: JSON string con cuentas bancarias
+        - dni_front: File (opcional)
+        - dni_back: File (opcional)
+
+    Returns:
+        - success: bool
+        - message: str
+        - client: dict
+    """
+    try:
+        # Obtener datos del formulario
+        data = request.form.to_dict()
+        files = request.files
+
+        logger.info(f'📱 [PLATFORM API] Registro de cliente desde app móvil')
+        logger.info(f'Data recibida: {data.keys()}')
+        logger.info(f'Files recibidos: {files.keys()}')
+
+        # Validar campos requeridos
+        required_fields = ['document_type', 'dni', 'email', 'phone']
+        for field in required_fields:
+            if not data.get(field):
+                return jsonify({
+                    'success': False,
+                    'message': f'El campo {field} es requerido'
+                }), 400
+
+        dni = data.get('dni').strip()
+        email = data.get('email').strip()
+        document_type = data.get('document_type').strip()
+
+        # Validar DNI
+        if not validate_dni(dni, document_type):
+            return jsonify({
+                'success': False,
+                'message': 'DNI inválido'
+            }), 400
+
+        # Validar email
+        if not validate_email(email):
+            return jsonify({
+                'success': False,
+                'message': 'Email inválido'
+            }), 400
+
+        # Verificar si ya existe
+        existing_client = ClientService.get_client_by_dni(dni)
+        if existing_client:
+            return jsonify({
+                'success': False,
+                'message': 'Ya existe un cliente con este DNI'
+            }), 400
+
+        existing_email = ClientService.get_client_by_email(email)
+        if existing_email:
+            return jsonify({
+                'success': False,
+                'message': 'Ya existe un cliente con este email'
+            }), 400
+
+        # Subir archivos si vienen
+        file_service = FileService()
+        document_urls = {}
+
+        if 'dni_front' in files:
+            ok, msg, url = file_service.upload_dni_front(files['dni_front'], dni)
+            if ok:
+                document_urls['dni_front_url'] = url
+            else:
+                return jsonify({'success': False, 'message': f'Error al subir DNI frontal: {msg}'}), 400
+
+        if 'dni_back' in files:
+            ok, msg, url = file_service.upload_dni_back(files['dni_back'], dni)
+            if ok:
+                document_urls['dni_back_url'] = url
+            else:
+                return jsonify({'success': False, 'message': f'Error al subir DNI reverso: {msg}'}), 400
+
+        # Parsear bank_accounts si viene como string JSON
+        bank_accounts_raw = data.get('bank_accounts')
+        if bank_accounts_raw:
+            try:
+                bank_accounts = json.loads(bank_accounts_raw)
+            except:
+                return jsonify({
+                    'success': False,
+                    'message': 'Formato inválido para bank_accounts'
+                }), 400
+        else:
+            bank_accounts = []
+
+        # Crear cliente
+        new_client = Client(
+            document_type=document_type,
+            dni=dni,
+            email=email,
+            phone=data.get('phone', ''),
+            status='Inactivo',  # Por defecto inactivo hasta validación
+            created_at=now_peru()
+        )
+
+        # Campos según tipo de documento
+        if document_type == 'RUC':
+            new_client.razon_social = data.get('razon_social', '')
+            new_client.persona_contacto = data.get('persona_contacto', '')
+        else:
+            new_client.nombres = data.get('nombres', '')
+            new_client.apellido_paterno = data.get('apellido_paterno', '')
+            new_client.apellido_materno = data.get('apellido_materno', '')
+
+        # Dirección
+        new_client.direccion = data.get('direccion', '')
+        new_client.distrito = data.get('distrito', '')
+        new_client.provincia = data.get('provincia', '')
+        new_client.departamento = data.get('departamento', '')
+
+        # Documentos
+        new_client.dni_front_url = document_urls.get('dni_front_url')
+        new_client.dni_back_url = document_urls.get('dni_back_url')
+
+        # Cuentas bancarias
+        if bank_accounts:
+            new_client.set_bank_accounts(bank_accounts)
+
+        # Usuario "plataforma" como creador por defecto
+        platform_user = User.query.filter_by(username='plataforma').first()
+        if platform_user:
+            new_client.created_by = platform_user.id
+
+        # Guardar
+        db.session.add(new_client)
+
+        # Crear usuario asociado para login (contraseña = DNI por defecto)
+        new_user = User(
+            username=dni,
+            email=email,
+            dni=dni,
+            role='Cliente',  # Rol especial para clientes móviles
+            status='Activo',
+            created_at=now_peru()
+        )
+        new_user.set_password(dni)  # Contraseña inicial = DNI
+
+        db.session.add(new_user)
+        db.session.commit()
+
+        logger.info(f'✅ Cliente registrado exitosamente: {dni} - {new_client.full_name}')
+
+        # Enviar email de bienvenida
+        try:
+            EmailService.send_new_client_registration_email(new_client, platform_user or new_user)
+        except Exception as e:
+            logger.warning(f'No se pudo enviar email de bienvenida: {str(e)}')
+
+        return jsonify({
+            'success': True,
+            'message': 'Registro exitoso. Tu cuenta será activada después de validar tus documentos.',
+            'client': new_client.to_dict()
+        }), 201
+
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f'❌ Error en register_client: {str(e)}', exc_info=True)
+        return jsonify({
+            'success': False,
+            'message': f'Error al registrar cliente: {str(e)}'
+        }), 500
 
 
 @platform_bp.route('/api/client/register', methods=['POST'])
@@ -89,7 +449,7 @@ def client_register():
             }), 400
 
         # Verificar email duplicado
-        existing_email = Client.query.filter_by(email=email).first()
+        existing_email = ClientService.get_client_by_email(email)
         if existing_email:
             return jsonify({
                 'success': False,
@@ -123,7 +483,7 @@ def client_register():
                 }), 400
 
             # Verificar DNI duplicado
-            existing_client = Client.query.filter_by(dni=dni).first()
+            existing_client = ClientService.get_client_by_dni(dni)
             if existing_client:
                 return jsonify({
                     'success': False,
@@ -151,7 +511,7 @@ def client_register():
                 }), 400
 
             # Verificar RUC duplicado
-            existing_client = Client.query.filter_by(dni=ruc).first()
+            existing_client = ClientService.get_client_by_dni(ruc)
             if existing_client:
                 return jsonify({
                     'success': False,
@@ -238,6 +598,12 @@ def client_register():
 
         logger.info(f'✅ Cliente registrado desde app: {dni} - {new_client.full_name}')
 
+        # Enviar email de bienvenida
+        try:
+            EmailService.send_new_client_registration_email(new_client, platform_user or new_user)
+        except Exception as e:
+            logger.warning(f'No se pudo enviar email de bienvenida: {str(e)}')
+
         return jsonify({
             'success': True,
             'message': 'Registro exitoso. Ya puedes iniciar sesión con tu DNI y contraseña.',
@@ -253,199 +619,175 @@ def client_register():
         }), 500
 
 
-@platform_bp.route('/api/web/add-bank-account', methods=['POST', 'OPTIONS'])
-def add_bank_account():
-    # Manejar preflight OPTIONS request
-    if request.method == 'OPTIONS':
-        response = jsonify({'status': 'ok'})
-        response.headers.add('Access-Control-Allow-Origin', request.headers.get('Origin', '*'))
-        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
-        response.headers.add('Access-Control-Allow-Methods', 'POST,OPTIONS')
-        response.headers.add('Access-Control-Allow-Credentials', 'true')
-        return response, 200
+@platform_bp.route('/api/platform/get-client/<string:dni>', methods=['GET'])
+@login_required
+def get_client_by_dni(dni):
     """
-    Agregar cuenta bancaria a cliente existente desde web
+    Obtener cliente por DNI (para verificar existencia)
+
+    Returns:
+        - success: bool
+        - client: dict
+    """
+    try:
+        client = ClientService.get_client_by_dni(dni)
+
+        if not client:
+            return jsonify({
+                'success': False,
+                'message': 'Cliente no encontrado'
+            }), 404
+
+        return jsonify({
+            'success': True,
+            'client': client.to_dict(include_stats=True)
+        }), 200
+
+    except Exception as e:
+        logger.error(f'Error en get_client_by_dni: {str(e)}')
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+
+# ============================================
+# OPERACIONES
+# ============================================
+
+@platform_bp.route('/api/client/create-operation', methods=['POST'])
+@login_required
+def create_operation():
+    """
+    Crear operación desde app móvil
 
     Body (JSON):
-        - dni: DNI del cliente
-        - bank_name: Nombre del banco
-        - account_number: Número de cuenta o CCI
-        - account_type: 'Ahorro' | 'Corriente'
-        - currency: 'S/' | '$'
-        - origen: 'Lima' | 'Provincia' (opcional)
+        - client_dni: DNI del cliente
+        - operation_type: Compra | Venta
+        - amount_usd: float
+        - exchange_rate: float
+        - source_account: str (número de cuenta origen)
+        - destination_account: str (número de cuenta destino)
+        - notes: str (opcional)
 
     Returns:
         - success: bool
         - message: str
-        - bank_accounts: list (opcional)
+        - operation: dict
     """
     try:
         data = request.get_json() or {}
 
-        logger.info(f'🏦 [WEB API] Agregar cuenta bancaria')
-        logger.info(f'Data recibida: {list(data.keys())}')
+        client_dni = data.get('client_dni', '').strip()
+        operation_type = data.get('operation_type', '').strip()
+        amount_usd = data.get('amount_usd')
+        exchange_rate = data.get('exchange_rate')
+        source_account = data.get('source_account', '').strip()
+        destination_account = data.get('destination_account', '').strip()
+        notes = data.get('notes', '').strip()
+
+        logger.info(f'📱 [PLATFORM API] Creando operación para cliente: {client_dni}')
 
         # Validar campos requeridos
-        required_fields = ['dni', 'bank_name', 'account_number', 'account_type', 'currency', 'origen']
-
-        for field in required_fields:
-            if not data.get(field):
-                return jsonify({
-                    'success': False,
-                    'message': f'El campo {field} es requerido'
-                }), 400
-
-        dni = data.get('dni', '').strip()
-        bank_name = data.get('bank_name', '').strip()
-        account_number = data.get('account_number', '').strip()
-        account_type = data.get('account_type', '').strip()
-        currency = data.get('currency', '').strip()
-        origen = data.get('origen', '').strip()
+        if not all([client_dni, operation_type, amount_usd, exchange_rate, source_account, destination_account]):
+            return jsonify({
+                'success': False,
+                'message': 'Todos los campos son requeridos'
+            }), 400
 
         # Buscar cliente
-        client = Client.query.filter_by(dni=dni).first()
+        client = ClientService.get_client_by_dni(client_dni)
         if not client:
             return jsonify({
                 'success': False,
                 'message': 'Cliente no encontrado'
             }), 404
 
-        # Validar tipo de cuenta
-        if account_type not in ['Ahorro', 'Corriente']:
+        # Verificar que el cliente esté activo
+        if client.status != 'Activo':
             return jsonify({
                 'success': False,
-                'message': 'Tipo de cuenta inválido (debe ser Ahorro o Corriente)'
-            }), 400
+                'message': 'Tu cuenta debe estar activa para realizar operaciones. Contacta al administrador.'
+            }), 403
 
-        # Validar moneda
-        if currency not in ['S/', '$']:
+        # Convertir a float
+        try:
+            amount_usd = float(amount_usd)
+            exchange_rate = float(exchange_rate)
+        except (ValueError, TypeError):
             return jsonify({
                 'success': False,
-                'message': 'Moneda inválida (debe ser S/ o $)'
+                'message': 'Monto y tipo de cambio deben ser números válidos'
             }), 400
 
-        # Validar origen
-        if origen not in ['Lima', 'Provincia']:
+        # Validar montos
+        if amount_usd <= 0:
             return jsonify({
                 'success': False,
-                'message': 'Origen inválido (debe ser Lima o Provincia)'
+                'message': 'El monto debe ser mayor a 0'
             }), 400
 
-        # Validar CCI para bancos que lo requieren
-        if bank_name in ['BBVA', 'SCOTIABANK', 'OTROS']:
-            if len(account_number) != 20:
-                return jsonify({
-                    'success': False,
-                    'message': f'Para {bank_name} debes ingresar un CCI de exactamente 20 dígitos'
-                }), 400
-        else:
-            # Validar número de cuenta normal (13-20 dígitos)
-            if not account_number.isdigit() or len(account_number) < 13 or len(account_number) > 20:
-                return jsonify({
-                    'success': False,
-                    'message': 'El número de cuenta debe tener entre 13 y 20 dígitos'
-                }), 400
-
-        # Obtener cuentas existentes
-        existing_accounts = client.bank_accounts or []
-
-        # Validar máximo de cuentas
-        if len(existing_accounts) >= 6:
+        if exchange_rate <= 0:
             return jsonify({
                 'success': False,
-                'message': 'Has alcanzado el máximo de 6 cuentas bancarias permitidas'
+                'message': 'El tipo de cambio debe ser mayor a 0'
             }), 400
 
-        # Validar cuenta duplicada
-        account_key = f"{bank_name}_{account_type}_{account_number}_{currency}"
-        for acc in existing_accounts:
-            existing_key = f"{acc.get('bank_name')}_{acc.get('account_type')}_{acc.get('account_number')}_{acc.get('currency')}"
-            if account_key == existing_key:
-                return jsonify({
-                    'success': False,
-                    'message': 'Ya tienes registrada esta cuenta bancaria'
-                }), 400
+        # Validar tipo de operación
+        if operation_type not in ['Compra', 'Venta']:
+            return jsonify({
+                'success': False,
+                'message': 'Tipo de operación inválido'
+            }), 400
 
-        # Agregar nueva cuenta
-        new_account = {
-            'origen': origen,
-            'bank_name': bank_name,
-            'account_type': account_type,
-            'currency': currency,
-            'account_number': account_number
-        }
+        # Calcular amount_pen
+        amount_pen = round(amount_usd * exchange_rate, 2)
 
-        existing_accounts.append(new_account)
+        # Generar operation_id
+        operation_id = Operation.generate_operation_id()
 
-        # Actualizar cliente
-        client.set_bank_accounts(existing_accounts)
+        # Crear operación
+        new_operation = Operation(
+            operation_id=operation_id,
+            client_id=client.id,
+            user_id=current_user.id,
+            operation_type=operation_type,
+            amount_usd=amount_usd,
+            exchange_rate=exchange_rate,
+            amount_pen=amount_pen,
+            source_account=source_account,
+            destination_account=destination_account,
+            notes=notes,
+            status='Pendiente',
+            created_at=now_peru()
+        )
+
+        db.session.add(new_operation)
         db.session.commit()
 
-        logger.info(f'✅ Cuenta bancaria agregada: {dni} - {bank_name} {currency}')
+        logger.info(f'✅ Operación creada: {operation_id} - {operation_type} ${amount_usd}')
+
+        # Emitir evento Socket.IO
+        emit_operation_event('created', new_operation.to_dict(include_relations=True))
+
+        # Enviar email
+        try:
+            EmailService.send_new_operation_email(new_operation)
+        except Exception as e:
+            logger.warning(f'No se pudo enviar email de nueva operación: {str(e)}')
 
         return jsonify({
             'success': True,
-            'message': 'Cuenta bancaria agregada exitosamente',
-            'bank_accounts': client.bank_accounts
+            'message': 'Operación creada exitosamente',
+            'operation': new_operation.to_dict(include_relations=True)
         }), 201
 
     except Exception as e:
         db.session.rollback()
-        logger.error(f'❌ Error en add_bank_account: {str(e)}', exc_info=True)
+        logger.error(f'❌ Error en create_operation: {str(e)}', exc_info=True)
         return jsonify({
             'success': False,
-            'message': f'Error al agregar cuenta: {str(e)}'
-        }), 500
-
-
-@platform_bp.route('/api/client/me', methods=['POST'])
-def get_client_me():
-    """
-    Obtener datos actualizados del cliente autenticado
-
-    Este endpoint permite al frontend refrescar los datos del cliente
-    después de eventos como aprobación de KYC o cambios de estado.
-
-    Body (JSON):
-        - dni: DNI del cliente
-
-    Returns:
-        - success: bool
-        - client: dict con datos del cliente
-        - message: str (opcional)
-    """
-    try:
-        data = request.get_json()
-        dni = data.get('dni')
-
-        if not dni:
-            return jsonify({
-                'success': False,
-                'message': 'DNI es requerido'
-            }), 400
-
-        # Buscar cliente por DNI
-        client = Client.query.filter_by(dni=dni).first()
-
-        if not client:
-            return jsonify({
-                'success': False,
-                'message': 'Cliente no encontrado'
-            }), 404
-
-        logger.info(f'✅ [/api/client/me] Datos actualizados obtenidos para cliente {dni} - Estado: {client.status}')
-
-        # Retornar datos del cliente
-        return jsonify({
-            'success': True,
-            'client': client.to_dict()
-        }), 200
-
-    except Exception as e:
-        logger.error(f'❌ Error en /api/client/me: {str(e)}', exc_info=True)
-        return jsonify({
-            'success': False,
-            'message': f'Error al obtener datos del cliente: {str(e)}'
+            'message': f'Error al crear operación: {str(e)}'
         }), 500
 
 
@@ -703,4 +1045,479 @@ def cancel_expired_operation(operation_id):
         return jsonify({
             'success': False,
             'message': f'Error al cancelar operación: {str(e)}'
+        }), 500
+
+
+@platform_bp.route('/api/web/add-bank-account', methods=['POST'])
+def add_bank_account():
+    """
+    Agregar cuenta bancaria a cliente existente desde web
+
+    Body (JSON):
+        - dni: DNI del cliente
+        - bank_name: Nombre del banco
+        - account_number: Número de cuenta o CCI
+        - account_type: 'Ahorro' | 'Corriente'
+        - currency: 'S/' | '$'
+        - origen: 'Lima' | 'Provincia' (opcional)
+
+    Returns:
+        - success: bool
+        - message: str
+        - bank_accounts: list (opcional)
+    """
+    try:
+        data = request.get_json() or {}
+
+        logger.info(f'🏦 [WEB API] Agregar cuenta bancaria')
+        logger.info(f'Data recibida: {list(data.keys())}')
+
+        # Validar campos requeridos
+        required_fields = ['dni', 'bank_name', 'account_number', 'account_type', 'currency', 'origen']
+
+        for field in required_fields:
+            if not data.get(field):
+                return jsonify({
+                    'success': False,
+                    'message': f'El campo {field} es requerido'
+                }), 400
+
+        dni = data.get('dni', '').strip()
+        bank_name = data.get('bank_name', '').strip()
+        account_number = data.get('account_number', '').strip()
+        account_type = data.get('account_type', '').strip()
+        currency = data.get('currency', '').strip()
+        origen = data.get('origen', '').strip()
+
+        # Buscar cliente
+        client = Client.query.filter_by(dni=dni).first()
+        if not client:
+            return jsonify({
+                'success': False,
+                'message': 'Cliente no encontrado'
+            }), 404
+
+        # Validar tipo de cuenta
+        if account_type not in ['Ahorro', 'Corriente']:
+            return jsonify({
+                'success': False,
+                'message': 'Tipo de cuenta inválido (debe ser Ahorro o Corriente)'
+            }), 400
+
+        # Validar moneda
+        if currency not in ['S/', '$']:
+            return jsonify({
+                'success': False,
+                'message': 'Moneda inválida (debe ser S/ o $)'
+            }), 400
+
+        # Validar origen
+        if origen not in ['Lima', 'Provincia']:
+            return jsonify({
+                'success': False,
+                'message': 'Origen inválido (debe ser Lima o Provincia)'
+            }), 400
+
+        # Validar CCI para bancos que lo requieren
+        if bank_name in ['BBVA', 'SCOTIABANK', 'OTROS']:
+            if len(account_number) != 20:
+                return jsonify({
+                    'success': False,
+                    'message': f'Para {bank_name} debes ingresar un CCI de exactamente 20 dígitos'
+                }), 400
+        else:
+            # Validar número de cuenta normal (13-20 dígitos)
+            if not account_number.isdigit() or len(account_number) < 13 or len(account_number) > 20:
+                return jsonify({
+                    'success': False,
+                    'message': 'El número de cuenta debe tener entre 13 y 20 dígitos'
+                }), 400
+
+        # Obtener cuentas existentes
+        existing_accounts = client.bank_accounts or []
+
+        # Validar máximo de cuentas
+        if len(existing_accounts) >= 6:
+            return jsonify({
+                'success': False,
+                'message': 'Has alcanzado el máximo de 6 cuentas bancarias permitidas'
+            }), 400
+
+        # Validar cuenta duplicada
+        account_key = f"{bank_name}_{account_type}_{account_number}_{currency}"
+        for acc in existing_accounts:
+            existing_key = f"{acc.get('bank_name')}_{acc.get('account_type')}_{acc.get('account_number')}_{acc.get('currency')}"
+            if account_key == existing_key:
+                return jsonify({
+                    'success': False,
+                    'message': 'Ya tienes registrada esta cuenta bancaria'
+                }), 400
+
+        # Agregar nueva cuenta
+        new_account = {
+            'origen': origen,
+            'bank_name': bank_name,
+            'account_type': account_type,
+            'currency': currency,
+            'account_number': account_number
+        }
+
+        existing_accounts.append(new_account)
+
+        # Actualizar cliente
+        client.set_bank_accounts(existing_accounts)
+        db.session.commit()
+
+        logger.info(f'✅ Cuenta bancaria agregada: {dni} - {bank_name} {currency}')
+
+        return jsonify({
+            'success': True,
+            'message': 'Cuenta bancaria agregada exitosamente',
+            'bank_accounts': client.bank_accounts
+        }), 201
+
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f'❌ Error en add_bank_account: {str(e)}', exc_info=True)
+        return jsonify({
+            'success': False,
+            'message': f'Error al agregar cuenta: {str(e)}'
+        }), 500
+
+
+@platform_bp.route('/api/web/remove-bank-account', methods=['POST'])
+def remove_bank_account():
+    """
+    Eliminar cuenta bancaria de cliente existente desde web
+
+    Body (JSON):
+        - dni: DNI del cliente
+        - account_index: Índice de la cuenta a eliminar en el array
+
+    Returns:
+        - success: bool
+        - message: str
+        - bank_accounts: list (actualizada)
+    """
+    try:
+        data = request.get_json() or {}
+
+        logger.info(f'🗑️ [WEB API] Eliminar cuenta bancaria')
+        logger.info(f'Data recibida: {list(data.keys())}')
+
+        # Validar campos requeridos
+        if not data.get('dni') or data.get('account_index') is None:
+            return jsonify({
+                'success': False,
+                'message': 'DNI y account_index son requeridos'
+            }), 400
+
+        dni = data.get('dni', '').strip()
+        account_index = data.get('account_index')
+
+        # Validar que account_index sea un número
+        try:
+            account_index = int(account_index)
+        except (ValueError, TypeError):
+            return jsonify({
+                'success': False,
+                'message': 'El índice de cuenta debe ser un número válido'
+            }), 400
+
+        # Buscar cliente
+        client = Client.query.filter_by(dni=dni).first()
+        if not client:
+            return jsonify({
+                'success': False,
+                'message': 'Cliente no encontrado'
+            }), 404
+
+        # Obtener cuentas existentes
+        existing_accounts = client.bank_accounts or []
+
+        # Validar que el índice exista
+        if account_index < 0 or account_index >= len(existing_accounts):
+            return jsonify({
+                'success': False,
+                'message': 'Índice de cuenta inválido'
+            }), 400
+
+        # Validar que queden al menos 2 cuentas después de eliminar
+        if len(existing_accounts) <= 2:
+            return jsonify({
+                'success': False,
+                'message': 'Debes mantener al menos 2 cuentas bancarias registradas (una en S/ y otra en $)'
+            }), 400
+
+        # Eliminar la cuenta
+        removed_account = existing_accounts.pop(account_index)
+
+        # Validar que después de eliminar aún haya al menos una cuenta en S/ y una en $
+        currencies_remaining = [acc.get('currency') for acc in existing_accounts]
+        if 'S/' not in currencies_remaining or '$' not in currencies_remaining:
+            return jsonify({
+                'success': False,
+                'message': 'No puedes eliminar esta cuenta. Debes mantener al menos una cuenta en Soles (S/) y una en Dólares ($)'
+            }), 400
+
+        # Actualizar cliente
+        client.set_bank_accounts(existing_accounts)
+        db.session.commit()
+
+        logger.info(f'✅ Cuenta bancaria eliminada: {dni} - {removed_account.get("bank_name")} {removed_account.get("currency")}')
+
+        return jsonify({
+            'success': True,
+            'message': 'Cuenta bancaria eliminada exitosamente',
+            'bank_accounts': client.bank_accounts
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f'❌ Error en remove_bank_account: {str(e)}', exc_info=True)
+        return jsonify({
+            'success': False,
+            'message': f'Error al eliminar cuenta: {str(e)}'
+        }), 500
+
+
+@platform_bp.route('/api/web/forgot-password', methods=['POST'])
+def forgot_password():
+    """
+    Recuperar contraseña - enviar contraseña temporal al email del cliente
+
+    Body (JSON):
+        - document_type: 'DNI' | 'CE' | 'RUC'
+        - document_number: Número de documento
+        - email: Correo electrónico registrado
+
+    Returns:
+        - success: bool
+        - message: str
+    """
+    try:
+        data = request.get_json() or {}
+
+        logger.info(f'🔑 [FORGOT-PASSWORD] Solicitud de recuperación de contraseña')
+
+        # Validar campos requeridos
+        document_type = data.get('document_type', '').strip()
+        document_number = data.get('document_number', '').strip()
+        email = data.get('email', '').strip().lower()
+
+        if not document_type or not document_number or not email:
+            return jsonify({
+                'success': False,
+                'message': 'Todos los campos son requeridos'
+            }), 400
+
+        # Validar tipo de documento
+        if document_type not in ['DNI', 'CE', 'RUC']:
+            return jsonify({
+                'success': False,
+                'message': 'Tipo de documento inválido'
+            }), 400
+
+        # Validar longitud del documento
+        expected_lengths = {'DNI': 8, 'CE': 9, 'RUC': 11}
+        if len(document_number) != expected_lengths[document_type]:
+            return jsonify({
+                'success': False,
+                'message': f'{document_type} debe tener {expected_lengths[document_type]} dígitos'
+            }), 400
+
+        # Buscar cliente
+        client = Client.query.filter_by(dni=document_number, document_type=document_type).first()
+
+        if not client:
+            return jsonify({
+                'success': False,
+                'message': 'No se encontró ningún cliente con ese documento'
+            }), 404
+
+        # Validar que el email coincida
+        if client.email.lower() != email:
+            return jsonify({
+                'success': False,
+                'message': 'El correo electrónico no coincide con el registrado para este documento'
+            }), 400
+
+        # Generar contraseña temporal (8 caracteres alfanuméricos)
+        alphabet = string.ascii_letters + string.digits
+        temp_password = ''.join(secrets.choice(alphabet) for _ in range(8))
+
+        # Actualizar contraseña del cliente y marcarla como temporal
+        client.password = generate_password_hash(temp_password)
+        client.requires_password_change = True
+        db.session.commit()
+
+        logger.info(f'✅ [FORGOT-PASSWORD] Contraseña temporal generada para cliente {document_number}')
+
+        # Enviar email con contraseña temporal
+        try:
+            EmailService.send_temporary_password_email(
+                client_email=client.email,
+                client_name=client.full_name or client.razon_social or 'Cliente',
+                temp_password=temp_password
+            )
+            logger.info(f'📧 [FORGOT-PASSWORD] Email enviado a {client.email}')
+        except Exception as email_error:
+            logger.error(f'❌ [FORGOT-PASSWORD] Error al enviar email: {email_error}')
+            # Revertir cambios si falla el envío del email
+            db.session.rollback()
+            return jsonify({
+                'success': False,
+                'message': 'Error al enviar el correo electrónico. Inténtalo nuevamente.'
+            }), 500
+
+        return jsonify({
+            'success': True,
+            'message': f'Contraseña temporal enviada a {client.email}'
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f'❌ Error en forgot_password: {str(e)}', exc_info=True)
+        return jsonify({
+            'success': False,
+            'message': f'Error al procesar la solicitud: {str(e)}'
+        }), 500
+
+
+@platform_bp.route('/api/web/change-password', methods=['POST'])
+def change_password():
+    """
+    Cambiar contraseña del cliente autenticado
+
+    Body (JSON):
+        - dni: DNI del cliente
+        - new_password: Nueva contraseña
+
+    Returns:
+        - success: bool
+        - message: str
+    """
+    try:
+        data = request.get_json() or {}
+
+        logger.info(f'🔒 [CHANGE-PASSWORD] Solicitud de cambio de contraseña')
+
+        # Validar campos requeridos
+        dni = data.get('dni', '').strip()
+        new_password = data.get('new_password', '').strip()
+
+        if not dni or not new_password:
+            return jsonify({
+                'success': False,
+                'message': 'DNI y nueva contraseña son requeridos'
+            }), 400
+
+        # Validar fortaleza de contraseña
+        if len(new_password) < 8:
+            return jsonify({
+                'success': False,
+                'message': 'La contraseña debe tener al menos 8 caracteres'
+            }), 400
+
+        # Buscar cliente
+        client = Client.query.filter_by(dni=dni).first()
+
+        if not client:
+            return jsonify({
+                'success': False,
+                'message': 'Cliente no encontrado'
+            }), 404
+
+        # Actualizar contraseña
+        client.password = generate_password_hash(new_password)
+        client.requires_password_change = False
+        db.session.commit()
+
+        logger.info(f'✅ [CHANGE-PASSWORD] Contraseña actualizada para cliente {dni}')
+
+        return jsonify({
+            'success': True,
+            'message': 'Contraseña actualizada exitosamente'
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f'❌ Error en change_password: {str(e)}', exc_info=True)
+        return jsonify({
+            'success': False,
+            'message': f'Error al cambiar contraseña: {str(e)}'
+        }), 500
+
+
+@platform_bp.route('/api/web/login', methods=['POST'])
+def web_login():
+    """Login de cliente desde plataforma web"""
+    try:
+        data = request.get_json() or {}
+        dni = data.get('dni', '').strip()
+        password = data.get('password', '').strip()
+
+        logger.info(f'🌐 [WEB LOGIN] Intento de login web con DNI: {dni}')
+
+        # Validar campos requeridos
+        if not dni or not password:
+            return jsonify({
+                'success': False,
+                'message': 'DNI y contraseña son requeridos'
+            }), 400
+
+        # Buscar cliente por DNI
+        client = Client.query.filter_by(dni=dni).first()
+
+        if not client:
+            logger.warning(f'❌ Cliente no encontrado: {dni}')
+            return jsonify({
+                'success': False,
+                'message': 'DNI o contraseña incorrectos'
+            }), 401
+
+        # Verificar que el cliente tenga contraseña configurada
+        if not client.password:
+            logger.warning(f'❌ Cliente sin contraseña configurada: {dni}')
+            return jsonify({
+                'success': False,
+                'message': 'Tu cuenta aún no tiene acceso a la plataforma web. Por favor, usa la opción de recuperar contraseña.'
+            }), 401
+
+        # Verificar contraseña
+        if not check_password_hash(client.password, password):
+            logger.warning(f'❌ Contraseña incorrecta para DNI: {dni}')
+            return jsonify({
+                'success': False,
+                'message': 'DNI o contraseña incorrectos'
+            }), 401
+
+        # Verificar que el cliente esté activo
+        if client.status != 'Activo':
+            return jsonify({
+                'success': False,
+                'message': 'Tu cuenta está inactiva. Contacta al administrador.'
+            }), 403
+
+        # Login exitoso
+        logger.info(f'✅ Login web exitoso para cliente: {client.dni} - {client.full_name}')
+
+        # Preparar respuesta con los datos del cliente
+        client_data = client.to_dict(include_stats=True)
+
+        # Agregar flag de cambio de contraseña requerido
+        requires_password_change = bool(client.requires_password_change)
+
+        return jsonify({
+            'success': True,
+            'message': 'Login exitoso',
+            'client': client_data,
+            'requires_password_change': requires_password_change
+        }), 200
+
+    except Exception as e:
+        logger.error(f'❌ Error en web_login: {str(e)}', exc_info=True)
+        return jsonify({
+            'success': False,
+            'message': f'Error al iniciar sesión: {str(e)}'
         }), 500
