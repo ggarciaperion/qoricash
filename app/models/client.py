@@ -39,7 +39,7 @@ class Client(db.Model):
     phone = db.Column(db.String(100))  # Puede contener múltiples números separados por ;
 
     # Autenticación
-    password = db.Column(db.String(255))  # Contraseña hasheada para login web
+    password_hash = db.Column(db.String(200))  # Contraseña hasheada para login (web y móvil)
     requires_password_change = db.Column(db.Boolean, default=False)  # True si usa contraseña temporal
 
     # Documentos (URLs de Cloudinary)
@@ -336,6 +336,31 @@ class Client(db.Model):
     def get_completed_operations(self):
         """Obtener operaciones completadas"""
         return self.operations.filter_by(status='Completada').count() if hasattr(self, 'operations') else 0
+
+    def set_password(self, password):
+        """
+        Establecer contraseña del cliente (hashear y guardar)
+
+        Args:
+            password: Contraseña en texto plano
+        """
+        from werkzeug.security import generate_password_hash
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password):
+        """
+        Verificar si la contraseña proporcionada es correcta
+
+        Args:
+            password: Contraseña en texto plano a verificar
+
+        Returns:
+            bool: True si la contraseña es correcta, False en caso contrario
+        """
+        from werkzeug.security import check_password_hash
+        if not self.password_hash:
+            return False
+        return check_password_hash(self.password_hash, password)
 
     def __repr__(self):
         return f'<Client {self.full_name or self.razon_social or self.dni} - {self.document_type}: {self.dni}>'
