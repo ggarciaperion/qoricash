@@ -111,6 +111,7 @@ def register_blueprints(app):
     from app.routes.platform import platform_bp
     from app.routes.platform_api import platform_api_bp
     from app.routes.client_auth import client_auth_bp
+    from app.routes.web_api import web_api_bp
     from app.routes.legal import legal_bp
     from app.routes.referrals import referrals_bp
     from app.routes.compliance import compliance_bp
@@ -124,6 +125,7 @@ def register_blueprints(app):
     app.register_blueprint(platform_bp)  # Sin prefijo, las rutas ya tienen /api/platform
     app.register_blueprint(platform_api_bp)  # API pública plataforma: /api/platform/*
     app.register_blueprint(client_auth_bp)  # Autenticación de clientes: /api/client/* (web + móvil)
+    app.register_blueprint(web_api_bp)  # API Web QoriCash: /api/web/*
     app.register_blueprint(legal_bp)  # Rutas legales: /legal/terms, /legal/privacy
     app.register_blueprint(referrals_bp)  # Sistema de referidos
     app.register_blueprint(compliance_bp, url_prefix='/compliance')  # Módulo de compliance
