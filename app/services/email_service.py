@@ -829,7 +829,6 @@ class EmailService:
             tuple: (success: bool, message: str)
         """
         try:
-            from flask import current_app
             from flask_mail import Message
 
             logger.info(f'[EMAIL] Iniciando envío de contraseña temporal a {client_email}')
@@ -837,57 +836,24 @@ class EmailService:
             # Destinatario
             to = [client_email]
 
-            # Obtener credenciales del email de confirmación (mismo que se usa para activación)
-            confirmation_username = current_app.config.get('MAIL_CONFIRMATION_USERNAME')
-            confirmation_password = current_app.config.get('MAIL_CONFIRMATION_PASSWORD')
-            confirmation_sender = current_app.config.get('MAIL_CONFIRMATION_SENDER')
+            # Asunto
+            subject = 'Recuperación de Contraseña - QoriCash'
 
-            if not confirmation_username or not confirmation_password:
-                logger.error('[EMAIL] Credenciales de email de confirmación no configuradas')
-                return False, 'Email de confirmación no configurado'
+            # Contenido HTML
+            html_body = EmailService._render_temporary_password_template(client_name, temp_password)
 
-            # Guardar configuración original
-            original_username = current_app.config.get('MAIL_USERNAME')
-            original_password = current_app.config.get('MAIL_PASSWORD')
-            original_sender = current_app.config.get('MAIL_DEFAULT_SENDER')
+            # Crear mensaje
+            msg = Message(
+                subject=subject,
+                recipients=to,
+                html=html_body
+            )
 
-            # Sobrescribir temporalmente con credenciales de confirmación
-            current_app.config['MAIL_USERNAME'] = confirmation_username
-            current_app.config['MAIL_PASSWORD'] = confirmation_password
-            current_app.config['MAIL_DEFAULT_SENDER'] = confirmation_sender
+            # Enviar ASÍNCRONO
+            EmailService._send_async(msg, timeout=15)
 
-            try:
-                # Reinicializar mail con configuración actualizada
-                from app.extensions import mail
-                mail.init_app(current_app)
-
-                # Asunto
-                subject = 'Recuperación de Contraseña - QoriCash'
-
-                # Contenido HTML
-                html_body = EmailService._render_temporary_password_template(client_name, temp_password)
-
-                # Crear mensaje
-                msg = Message(
-                    subject=subject,
-                    sender=confirmation_sender,
-                    recipients=to,
-                    html=html_body
-                )
-
-                # Enviar ASÍNCRONO
-                EmailService._send_async(msg, timeout=15)
-
-                logger.info(f'[EMAIL] Email de contraseña temporal programado para envío a {client_email}')
-                return True, 'Email programado para envío'
-
-            finally:
-                # Restaurar configuración original
-                current_app.config['MAIL_USERNAME'] = original_username
-                current_app.config['MAIL_PASSWORD'] = original_password
-                current_app.config['MAIL_DEFAULT_SENDER'] = original_sender
-                # Reinicializar mail con configuración original
-                mail.init_app(current_app)
+            logger.info(f'[EMAIL] Email de contraseña temporal programado para envío a {client_email}')
+            return True, 'Email programado para envío'
 
         except Exception as e:
             logger.error(f'[EMAIL] ERROR al enviar email de contraseña temporal: {str(e)}')
