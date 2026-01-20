@@ -16,7 +16,29 @@ referrals_bp = Blueprint('referrals', __name__, url_prefix='/api/referrals')
 csrf.exempt(referrals_bp)
 
 
-@referrals_bp.route('/validate', methods=['POST'])
+@referrals_bp.after_request
+def after_request(response):
+    """Agregar headers CORS a todas las respuestas del blueprint"""
+    origin = request.headers.get('Origin')
+
+    # Lista de orígenes permitidos
+    allowed_origins = [
+        'http://localhost:3000',  # Desarrollo local
+        'https://qoricash.pe',     # Producción
+        'https://www.qoricash.pe'  # Producción con www
+    ]
+
+    # Si el origen está en la lista, agregarlo
+    if origin in allowed_origins:
+        response.headers['Access-Control-Allow-Origin'] = origin
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+        response.headers['Access-Control-Allow-Credentials'] = 'true'
+
+    return response
+
+
+@referrals_bp.route('/validate', methods=['OPTIONS', 'POST'])
 def validate_referral_code():
     """
     Validar código de referido
@@ -31,6 +53,10 @@ def validate_referral_code():
         - is_valid: bool
         - referrer: dict (opcional) - Información del referidor
     """
+    # Manejar preflight OPTIONS request
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+
     try:
         data = request.get_json() or {}
         code = data.get('code', '').strip().upper()
