@@ -109,6 +109,7 @@ def register_blueprints(app):
     from app.routes.operations import operations_bp
     from app.routes.position import position_bp
     from app.routes.platform import platform_bp
+    from app.routes.client_auth import client_auth_bp
     from app.routes.legal import legal_bp
     from app.routes.referrals import referrals_bp
 
@@ -118,7 +119,8 @@ def register_blueprints(app):
     app.register_blueprint(clients_bp, url_prefix='/clients')
     app.register_blueprint(operations_bp, url_prefix='/operations')
     app.register_blueprint(position_bp, url_prefix='/position')
-    app.register_blueprint(platform_bp)  # Sin prefijo, las rutas ya tienen /api/client y /api/platform
+    app.register_blueprint(platform_bp)  # Sin prefijo, las rutas ya tienen /api/platform
+    app.register_blueprint(client_auth_bp)  # Autenticación de clientes: /api/client/* (web + móvil)
     app.register_blueprint(legal_bp)  # Rutas legales: /legal/terms, /legal/privacy
     app.register_blueprint(referrals_bp)  # Sistema de referidos
 
