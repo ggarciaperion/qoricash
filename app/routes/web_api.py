@@ -302,7 +302,7 @@ def register_from_web():
         }), 500
 
 
-@web_api_bp.route('/my-operations', methods=['POST'])
+@web_api_bp.route('/my-operations', methods=['OPTIONS', 'POST'])
 @csrf.exempt
 def get_my_operations():
     """
@@ -319,6 +319,10 @@ def get_my_operations():
             "operations": [...]
         }
     """
+    # Manejar preflight OPTIONS request
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+
     try:
         data = request.get_json()
 
@@ -357,7 +361,7 @@ def get_my_operations():
         }), 500
 
 
-@web_api_bp.route('/stats', methods=['POST'])
+@web_api_bp.route('/stats', methods=['OPTIONS', 'POST'])
 @csrf.exempt
 def get_client_stats():
     """
@@ -380,6 +384,10 @@ def get_client_stats():
             }
         }
     """
+    # Manejar preflight OPTIONS request
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+
     try:
         data = request.get_json()
 
@@ -432,7 +440,7 @@ def get_client_stats():
         }), 500
 
 
-@web_api_bp.route('/my-accounts', methods=['POST'])
+@web_api_bp.route('/my-accounts', methods=['OPTIONS', 'POST'])
 @csrf.exempt
 def get_my_accounts():
     """
@@ -449,6 +457,10 @@ def get_my_accounts():
             "data": [...]
         }
     """
+    # Manejar preflight OPTIONS request
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+
     try:
         data = request.get_json()
 
@@ -484,7 +496,7 @@ def get_my_accounts():
         }), 500
 
 
-@web_api_bp.route('/create-operation', methods=['POST'])
+@web_api_bp.route('/create-operation', methods=['OPTIONS', 'POST'])
 @csrf.exempt
 def create_operation_web():
     """
@@ -497,6 +509,10 @@ def create_operation_web():
         monto_dolares: float (required)
         banco_cuenta_id: int (required)
     """
+    # Manejar preflight OPTIONS request
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+
     try:
         data = request.get_json()
         logger.info(f"📝 Solicitud de creación de operación desde WEB: {data}")
@@ -630,7 +646,7 @@ def create_operation_web():
         }), 500
 
 
-@web_api_bp.route('/cancel-operation', methods=['POST'])
+@web_api_bp.route('/cancel-operation', methods=['OPTIONS', 'POST'])
 @csrf.exempt
 def cancel_operation_web():
     """
@@ -645,6 +661,10 @@ def cancel_operation_web():
     Returns:
         JSON con éxito o error
     """
+    # Manejar preflight OPTIONS request
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+
     try:
         data = request.get_json()
 
@@ -711,7 +731,7 @@ def cancel_operation_web():
         }), 500
 
 
-@web_api_bp.route('/submit-proof', methods=['POST'])
+@web_api_bp.route('/submit-proof', methods=['OPTIONS', 'POST'])
 @csrf.exempt
 def submit_proof_web():
     """
@@ -731,6 +751,10 @@ def submit_proof_web():
     Returns:
         JSON con resultado de la operación
     """
+    # Manejar preflight OPTIONS request
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+
     try:
         # Obtener operation_id del form
         operation_id = request.form.get('operation_id', type=int)
