@@ -38,7 +38,7 @@ def after_request(response):
     return response
 
 
-@client_auth_bp.route('/login', methods=['POST'])
+@client_auth_bp.route('/login', methods=['OPTIONS', 'POST'])
 @csrf.exempt  # Eximir de CSRF para app móvil
 def client_login():
     """
@@ -58,6 +58,11 @@ def client_login():
             "message": "Login exitoso"
         }
     """
+    # Manejar preflight OPTIONS request
+    if request.method == 'OPTIONS':
+        response = jsonify({'status': 'ok'})
+        return response, 200
+
     try:
         data = request.get_json()
 
@@ -125,7 +130,7 @@ def client_login():
         }), 500
 
 
-@client_auth_bp.route('/change-password', methods=['POST'])
+@client_auth_bp.route('/change-password', methods=['OPTIONS', 'POST'])
 @csrf.exempt
 def change_password():
     """
@@ -144,6 +149,11 @@ def change_password():
             "message": "Contraseña actualizada exitosamente"
         }
     """
+    # Manejar preflight OPTIONS request
+    if request.method == 'OPTIONS':
+        response = jsonify({'status': 'ok'})
+        return response, 200
+
     try:
         data = request.get_json()
 
@@ -224,7 +234,7 @@ def change_password():
         }), 500
 
 
-@client_auth_bp.route('/forgot-password', methods=['POST'])
+@client_auth_bp.route('/forgot-password', methods=['OPTIONS', 'POST'])
 @csrf.exempt
 def forgot_password():
     """
@@ -242,6 +252,11 @@ def forgot_password():
             "message": "Contraseña temporal enviada al correo"
         }
     """
+    # Manejar preflight OPTIONS request
+    if request.method == 'OPTIONS':
+        response = jsonify({'status': 'ok'})
+        return response, 200
+
     try:
         from app.utils.password_generator import generate_simple_password
         from app.services.email_service import EmailService
