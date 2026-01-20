@@ -112,6 +112,7 @@ def register_blueprints(app):
     from app.routes.client_auth import client_auth_bp
     from app.routes.legal import legal_bp
     from app.routes.referrals import referrals_bp
+    from app.routes.compliance import compliance_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
@@ -123,6 +124,7 @@ def register_blueprints(app):
     app.register_blueprint(client_auth_bp)  # Autenticación de clientes: /api/client/* (web + móvil)
     app.register_blueprint(legal_bp)  # Rutas legales: /legal/terms, /legal/privacy
     app.register_blueprint(referrals_bp)  # Sistema de referidos
+    app.register_blueprint(compliance_bp, url_prefix='/compliance')  # Módulo de compliance
 
 
 def configure_logging(app):
