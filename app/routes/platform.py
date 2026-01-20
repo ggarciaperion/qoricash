@@ -151,7 +151,6 @@ def client_login():
 
 
 @platform_bp.route('/api/client/me', methods=['POST'])
-@login_required
 def get_client_me():
     """
     Obtener datos del cliente autenticado actual
@@ -787,57 +786,6 @@ def create_operation():
         return jsonify({
             'success': False,
             'message': f'Error al crear operación: {str(e)}'
-        }), 500
-
-
-@platform_bp.route('/api/client/me', methods=['POST'])
-def get_client_me():
-    """
-    Obtener datos actualizados del cliente autenticado
-
-    Este endpoint permite al frontend refrescar los datos del cliente
-    después de eventos como aprobación de KYC o cambios de estado.
-
-    Body (JSON):
-        - dni: DNI del cliente
-
-    Returns:
-        - success: bool
-        - client: dict con datos del cliente
-        - message: str (opcional)
-    """
-    try:
-        data = request.get_json()
-        dni = data.get('dni')
-
-        if not dni:
-            return jsonify({
-                'success': False,
-                'message': 'DNI es requerido'
-            }), 400
-
-        # Buscar cliente por DNI
-        client = Client.query.filter_by(dni=dni).first()
-
-        if not client:
-            return jsonify({
-                'success': False,
-                'message': 'Cliente no encontrado'
-            }), 404
-
-        logger.info(f'✅ [/api/client/me] Datos actualizados obtenidos para cliente {dni} - Estado: {client.status}')
-
-        # Retornar datos del cliente
-        return jsonify({
-            'success': True,
-            'client': client.to_dict()
-        }), 200
-
-    except Exception as e:
-        logger.error(f'❌ Error en /api/client/me: {str(e)}', exc_info=True)
-        return jsonify({
-            'success': False,
-            'message': f'Error al obtener datos del cliente: {str(e)}'
         }), 500
 
 
