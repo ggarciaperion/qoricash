@@ -290,9 +290,7 @@ def forgot_password():
             }), 200
 
         # Verificar que el email coincida
-        client_emails = EmailService.parse_email_addresses(client.email) if client.email else []
-
-        if email not in [e.lower() for e in client_emails]:
+        if not client.email or client.email.lower().strip() != email:
             # Por seguridad, no revelamos que el email no coincide
             return jsonify({
                 'success': True,
@@ -309,7 +307,12 @@ def forgot_password():
         db.session.commit()
 
         # Enviar email con contraseña temporal
-        success, message = EmailService.send_password_reset_email(client, temporary_password)
+        client_name = client.full_name or client.razon_social or 'Cliente'
+        success, message = EmailService.send_temporary_password_email(
+            client_email=client.email,
+            client_name=client_name,
+            temp_password=temporary_password
+        )
 
         if not success:
             logger.error(f"Error enviando email de reseteo a {client.dni}: {message}")
