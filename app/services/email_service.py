@@ -23,11 +23,18 @@ class EmailService:
             msg: Flask-Mail Message object
             timeout: Timeout en segundos (default 10s)
         """
+        from flask import current_app
+
+        # Capturar el contexto de la aplicación antes de spawning
+        app = current_app._get_current_object()
+
         def _send():
             try:
-                with eventlet.Timeout(timeout):
-                    mail.send(msg)
-                    logger.info(f'Email enviado exitosamente (async)')
+                # Usar el contexto de la aplicación en el hilo asíncrono
+                with app.app_context():
+                    with eventlet.Timeout(timeout):
+                        mail.send(msg)
+                        logger.info(f'Email enviado exitosamente (async)')
             except eventlet.Timeout:
                 logger.warning(f'Timeout al enviar email después de {timeout}s')
             except Exception as e:
