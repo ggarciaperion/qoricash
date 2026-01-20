@@ -508,6 +508,7 @@ def create_operation_web():
         monto_soles: float (required)
         monto_dolares: float (required)
         banco_cuenta_id: int (required)
+        referral_code: string (optional) - Código de referido aplicado
     """
     # Manejar preflight OPTIONS request
     if request.method == 'OPTIONS':
@@ -533,6 +534,35 @@ def create_operation_web():
                 'success': False,
                 'message': 'Cliente no encontrado'
             }), 404
+
+        # CRÍTICO: Procesar código de referido si se proporcionó
+        referral_code = data.get('referral_code', '').strip().upper()
+        if referral_code:
+            # Verificar que el cliente no haya usado un código anteriormente
+            if client.used_referral_code:
+                return jsonify({
+                    'success': False,
+                    'message': 'Ya has usado un código de referido en una operación anterior'
+                }), 400
+
+            # Validar que el código exista y no sea su propio código
+            referrer = Client.query.filter_by(referral_code=referral_code).first()
+            if not referrer:
+                return jsonify({
+                    'success': False,
+                    'message': 'Código de referido no válido'
+                }), 400
+
+            if referrer.id == client.id:
+                return jsonify({
+                    'success': False,
+                    'message': 'No puedes usar tu propio código de referido'
+                }), 400
+
+            # Guardar el código usado y quién lo refirió
+            client.used_referral_code = referral_code
+            client.referred_by = referrer.id
+            logger.info(f"✅ Cliente {client.dni} usó código de referido {referral_code} de {referrer.full_name}")
 
         # Obtener tipo de cambio actual
         from app.models.exchange_rate import ExchangeRate
