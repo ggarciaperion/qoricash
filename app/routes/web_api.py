@@ -967,3 +967,67 @@ def health_check():
         'service': 'QoriCash Web API',
         'version': '1.0.0'
     }), 200
+
+
+@web_api_bp.route('/fix-referral-73733737', methods=['POST'])
+@csrf.exempt
+def fix_referral_code_temp():
+    """
+    ENDPOINT TEMPORAL: Actualizar cliente 73733737 que usó código 3NEFUG antes del fix
+    Este endpoint se puede eliminar después de ejecutarlo una vez
+    """
+    try:
+        # Buscar el cliente con DNI 73733737
+        client = Client.query.filter_by(dni='73733737').first()
+
+        if not client:
+            return jsonify({
+                'success': False,
+                'message': 'Cliente con DNI 73733737 no encontrado'
+            }), 404
+
+        # Verificar si ya fue actualizado
+        if client.used_referral_code == '3NEFUG':
+            return jsonify({
+                'success': True,
+                'message': 'Cliente ya fue actualizado previamente',
+                'already_fixed': True
+            }), 200
+
+        # Buscar el dueño del código 3NEFUG
+        referrer = Client.query.filter_by(referral_code='3NEFUG').first()
+
+        if not referrer:
+            return jsonify({
+                'success': False,
+                'message': 'No se encontró el dueño del código 3NEFUG'
+            }), 404
+
+        # Actualizar el cliente
+        client.used_referral_code = '3NEFUG'
+        client.referred_by = referrer.id
+
+        # Guardar cambios
+        db.session.commit()
+
+        logger.info(f"✅ Fix aplicado: Cliente {client.dni} marcado como que usó código {client.used_referral_code}")
+
+        return jsonify({
+            'success': True,
+            'message': 'Cliente actualizado exitosamente',
+            'data': {
+                'client_dni': client.dni,
+                'client_name': client.full_name,
+                'used_referral_code': client.used_referral_code,
+                'referrer_name': referrer.full_name,
+                'referrer_code': referrer.referral_code
+            }
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"❌ Error al aplicar fix de referral code: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f'Error al aplicar fix: {str(e)}'
+        }), 500
