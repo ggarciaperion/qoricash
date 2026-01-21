@@ -1061,13 +1061,18 @@ def complete_operation(operation_id):
     logger.info(f'[COMPLETE-ENDPOINT] Iniciando completar operación ID={operation_id}')
 
     data = request.get_json() or {}
+    logger.info(f'[COMPLETE-ENDPOINT] Data recibida: {data}')
+
     operation = Operation.query.get(operation_id)
 
     if not operation:
+        logger.warning(f'[COMPLETE-ENDPOINT] Operación {operation_id} no encontrada')
         return jsonify({'success': False, 'message': 'Operación no encontrada'}), 404
 
+    logger.info(f'[COMPLETE-ENDPOINT] Estado actual de operación: {operation.status}')
     if operation.status != 'En proceso':
-        return jsonify({'success': False, 'message': 'Solo se pueden completar operaciones en proceso'}), 400
+        logger.warning(f'[COMPLETE-ENDPOINT] Intento de completar operación con estado {operation.status}')
+        return jsonify({'success': False, 'message': f'Solo se pueden completar operaciones en proceso. Estado actual: {operation.status}'}), 400
 
     # Verificar que el operador esté asignado a esta operación (Master puede editar todas)
     if current_user.role == 'Operador':
