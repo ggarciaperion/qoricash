@@ -102,7 +102,7 @@ class ReferralService:
         """
         try:
             # Verificar que la operación esté completada
-            if operation.status != 'Completado':
+            if operation.status != 'Completada':
                 logger.debug(f"Operación {operation.operation_id} no está completada, no se otorga beneficio")
                 return False
 
@@ -173,7 +173,7 @@ class ReferralService:
             for referred_client in referred_clients:
                 ops = Operation.query.filter_by(
                     client_id=referred_client.id,
-                    status='Completado'
+                    status='Completada'
                 ).all()
                 completed_operations.extend(ops)
 
