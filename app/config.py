@@ -66,6 +66,12 @@ class Config:
     MAIL_MAX_EMAILS = None
     MAIL_ASCII_ATTACHMENTS = False
 
+    # Email Configuration - Completed Operations (Optional)
+    # Si no se configuran, se usarán las credenciales regulares (MAIL_*) como fallback
+    MAIL_CONFIRMATION_USERNAME = os.environ.get('MAIL_CONFIRMATION_USERNAME')
+    MAIL_CONFIRMATION_PASSWORD = os.environ.get('MAIL_CONFIRMATION_PASSWORD')
+    MAIL_CONFIRMATION_SENDER = os.environ.get('MAIL_CONFIRMATION_SENDER')
+
     # NubeFact API Configuration
     NUBEFACT_API_URL = os.environ.get('NUBEFACT_API_URL', 'https://api.nubefact.com/api/v1')
     NUBEFACT_TOKEN = os.environ.get('NUBEFACT_TOKEN')

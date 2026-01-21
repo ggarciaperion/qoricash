@@ -171,15 +171,16 @@ class EmailService:
                 return False, 'No hay destinatarios configurados'
 
             # Obtener credenciales del email de confirmación
-            confirmation_username = current_app.config.get('MAIL_CONFIRMATION_USERNAME')
-            confirmation_password = current_app.config.get('MAIL_CONFIRMATION_PASSWORD')
-            confirmation_sender = current_app.config.get('MAIL_CONFIRMATION_SENDER')
+            # Si no están configuradas, usar las credenciales regulares como fallback
+            confirmation_username = current_app.config.get('MAIL_CONFIRMATION_USERNAME') or current_app.config.get('MAIL_USERNAME')
+            confirmation_password = current_app.config.get('MAIL_CONFIRMATION_PASSWORD') or current_app.config.get('MAIL_PASSWORD')
+            confirmation_sender = current_app.config.get('MAIL_CONFIRMATION_SENDER') or current_app.config.get('MAIL_DEFAULT_SENDER')
 
             logger.info(f'[EMAIL] Credenciales - Usuario: {confirmation_username}, Remitente: {confirmation_sender}')
 
             if not confirmation_username or not confirmation_password:
-                logger.error('[EMAIL] Credenciales de email de confirmacion no configuradas')
-                return False, 'Email de confirmación no configurado'
+                logger.error('[EMAIL] Credenciales de email no configuradas')
+                return False, 'Email no configurado'
 
             # Guardar configuración original
             original_username = current_app.config.get('MAIL_USERNAME')
@@ -759,15 +760,16 @@ class EmailService:
                 return False, 'No hay destinatarios configurados'
 
             # Obtener credenciales del email de confirmación
-            confirmation_username = current_app.config.get('MAIL_CONFIRMATION_USERNAME')
-            confirmation_password = current_app.config.get('MAIL_CONFIRMATION_PASSWORD')
-            confirmation_sender = current_app.config.get('MAIL_CONFIRMATION_SENDER')
+            # Si no están configuradas, usar las credenciales regulares como fallback
+            confirmation_username = current_app.config.get('MAIL_CONFIRMATION_USERNAME') or current_app.config.get('MAIL_USERNAME')
+            confirmation_password = current_app.config.get('MAIL_CONFIRMATION_PASSWORD') or current_app.config.get('MAIL_PASSWORD')
+            confirmation_sender = current_app.config.get('MAIL_CONFIRMATION_SENDER') or current_app.config.get('MAIL_DEFAULT_SENDER')
 
             logger.info(f'[EMAIL] Credenciales - Usuario: {confirmation_username}, Remitente: {confirmation_sender}')
 
             if not confirmation_username or not confirmation_password:
-                logger.error('[EMAIL] Credenciales de email de confirmacion no configuradas')
-                return False, 'Email de confirmación no configurado'
+                logger.error('[EMAIL] Credenciales de email no configuradas')
+                return False, 'Email no configurado'
 
             # Guardar configuración original
             original_username = current_app.config.get('MAIL_USERNAME')
