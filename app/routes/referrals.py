@@ -41,17 +41,18 @@ def after_request(response):
 @referrals_bp.route('/validate', methods=['OPTIONS', 'POST'])
 def validate_referral_code():
     """
-    Validar código de referido
+    Validar código de referido o código de recompensa
 
     Body (JSON):
-        - code: Código de referido a validar
+        - code: Código a validar (referido o recompensa)
         - client_dni: DNI del cliente que quiere usar el código (opcional)
 
     Returns:
         - success: bool
         - message: str
         - is_valid: bool
-        - referrer: dict (opcional) - Información del referidor
+        - code_type: 'referral' | 'reward' - Tipo de código
+        - referrer: dict (opcional) - Información del referidor (solo para códigos de referido)
     """
     # Manejar preflight OPTIONS request
     if request.method == 'OPTIONS':
@@ -65,19 +66,43 @@ def validate_referral_code():
         if not code:
             return jsonify({
                 'success': False,
-                'message': 'Código de referido es requerido',
+                'message': 'Código es requerido',
                 'is_valid': False
             }), 400
 
+        # Primero intentar buscar como código de recompensa
+        from app.models.reward_code import RewardCode
+        reward_code = RewardCode.query.filter_by(code=code).first()
+
+        if reward_code:
+            # Es un código de recompensa
+            if reward_code.is_used:
+                return jsonify({
+                    'success': True,
+                    'message': 'Este código de recompensa ya fue utilizado',
+                    'is_valid': False,
+                    'code_type': 'reward'
+                }), 200
+
+            # Código de recompensa válido
+            return jsonify({
+                'success': True,
+                'message': '¡Código de recompensa válido! Se aplicará un beneficio de 30 pips (0.003) en tu tipo de cambio',
+                'is_valid': True,
+                'code_type': 'reward',
+                'reward_code_id': reward_code.id
+            }), 200
+
+        # Si no es código de recompensa, validar como código de referido
         # Validar formato
         if not is_valid_referral_code_format(code):
             return jsonify({
                 'success': True,
-                'message': 'Formato de código inválido',
+                'message': 'Código no existe o formato inválido',
                 'is_valid': False
             }), 200
 
-        # Buscar el código en la base de datos
+        # Buscar el código de referido en la base de datos
         referrer = Client.query.filter_by(referral_code=code).first()
         if not referrer:
             return jsonify({
@@ -95,7 +120,8 @@ def validate_referral_code():
                     return jsonify({
                         'success': True,
                         'message': 'No puedes usar tu propio código de referido',
-                        'is_valid': False
+                        'is_valid': False,
+                        'code_type': 'referral'
                     }), 200
 
                 # Verificar si ya usó un código
@@ -103,14 +129,16 @@ def validate_referral_code():
                     return jsonify({
                         'success': True,
                         'message': 'Ya has usado un código de referido anteriormente',
-                        'is_valid': False
+                        'is_valid': False,
+                        'code_type': 'referral'
                     }), 200
 
-        # Código válido
+        # Código de referido válido
         return jsonify({
             'success': True,
             'message': '¡Código válido! Se aplicará un descuento de 0.003 en tu tipo de cambio',
             'is_valid': True,
+            'code_type': 'referral',
             'referrer': {
                 'name': referrer.full_name,
                 'code': referrer.referral_code
@@ -118,7 +146,7 @@ def validate_referral_code():
         }), 200
 
     except Exception as e:
-        logger.error(f'❌ Error validating referral code: {str(e)}', exc_info=True)
+        logger.error(f'❌ Error validating code: {str(e)}', exc_info=True)
         return jsonify({
             'success': False,
             'message': f'Error al validar código: {str(e)}',
