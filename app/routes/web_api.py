@@ -1031,3 +1031,92 @@ def fix_referral_code_temp():
             'success': False,
             'message': f'Error al aplicar fix: {str(e)}'
         }), 500
+
+
+@web_api_bp.route('/run-migration-referral-benefits', methods=['POST'])
+@csrf.exempt
+def run_migration_referral_benefits():
+    """
+    ENDPOINT TEMPORAL: Ejecutar migración para agregar columnas de beneficios por referidos
+    Este endpoint se puede eliminar después de ejecutarlo una vez
+    """
+    try:
+        # Verificar si las columnas ya existen
+        result = db.session.execute(db.text("""
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_name = 'clients'
+            AND column_name IN ('referral_pips_earned', 'referral_pips_available', 'referral_completed_uses')
+        """))
+        existing_columns = [row[0] for row in result]
+
+        if len(existing_columns) == 3:
+            return jsonify({
+                'success': True,
+                'message': 'Las columnas ya existen. Migración no necesaria.',
+                'already_migrated': True,
+                'existing_columns': existing_columns
+            }), 200
+
+        logger.info(f"📝 Ejecutando migración de beneficios por referidos. Columnas existentes: {existing_columns}")
+
+        # Agregar columnas si no existen
+        columns_added = []
+
+        if 'referral_pips_earned' not in existing_columns:
+            db.session.execute(db.text(
+                "ALTER TABLE clients ADD COLUMN referral_pips_earned FLOAT DEFAULT 0.0"
+            ))
+            columns_added.append('referral_pips_earned')
+            logger.info("✅ Agregada columna: referral_pips_earned")
+
+        if 'referral_pips_available' not in existing_columns:
+            db.session.execute(db.text(
+                "ALTER TABLE clients ADD COLUMN referral_pips_available FLOAT DEFAULT 0.0"
+            ))
+            columns_added.append('referral_pips_available')
+            logger.info("✅ Agregada columna: referral_pips_available")
+
+        if 'referral_completed_uses' not in existing_columns:
+            db.session.execute(db.text(
+                "ALTER TABLE clients ADD COLUMN referral_completed_uses INTEGER DEFAULT 0"
+            ))
+            columns_added.append('referral_completed_uses')
+            logger.info("✅ Agregada columna: referral_completed_uses")
+
+        # Actualizar valores NULL a defaults
+        db.session.execute(db.text("""
+            UPDATE clients
+            SET referral_pips_earned = 0.0
+            WHERE referral_pips_earned IS NULL
+        """))
+        db.session.execute(db.text("""
+            UPDATE clients
+            SET referral_pips_available = 0.0
+            WHERE referral_pips_available IS NULL
+        """))
+        db.session.execute(db.text("""
+            UPDATE clients
+            SET referral_completed_uses = 0
+            WHERE referral_completed_uses IS NULL
+        """))
+
+        # Commit cambios
+        db.session.commit()
+
+        logger.info("✅ Migración de beneficios por referidos completada exitosamente")
+
+        return jsonify({
+            'success': True,
+            'message': 'Migración completada exitosamente',
+            'columns_added': columns_added,
+            'total_columns': len(columns_added)
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"❌ Error al ejecutar migración: {str(e)}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'message': f'Error al ejecutar migración: {str(e)}'
+        }), 500
