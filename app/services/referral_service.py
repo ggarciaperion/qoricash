@@ -25,22 +25,51 @@ class ReferralService:
 
     @staticmethod
     def _get_first_operation_status(client: Client) -> str:
-        """Obtener el estado de la primera operación de un cliente referido"""
+        """
+        Obtener el estado de la primera operación de un cliente referido.
+
+        Esta función busca la primera operación creada por el cliente después de usar
+        el código de referido y devuelve su estado actual.
+        """
         try:
-            first_operation = Operation.query.filter_by(client_id=client.id).order_by(Operation.created_at.asc()).first()
-            return first_operation.status if first_operation else 'Sin operación'
+            # Buscar la primera operación del cliente, ordenada por fecha de creación
+            first_operation = Operation.query.filter_by(
+                client_id=client.id
+            ).order_by(Operation.created_at.asc()).first()
+
+            if first_operation:
+                logger.debug(f"Cliente {client.dni}: Operación {first_operation.operation_id} - Estado: {first_operation.status}")
+                return first_operation.status
+            else:
+                logger.debug(f"Cliente {client.dni}: No tiene operaciones")
+                return 'Sin operación'
+
         except Exception as e:
-            logger.error(f"Error al obtener estado de operación: {str(e)}")
+            logger.error(f"Error al obtener estado de operación para cliente {client.dni}: {str(e)}", exc_info=True)
             return 'Desconocido'
 
     @staticmethod
     def _get_first_operation_date(client: Client) -> str:
-        """Obtener la fecha de la primera operación de un cliente referido"""
+        """
+        Obtener la fecha de la primera operación de un cliente referido.
+
+        Esta es la fecha en que el cliente usó el código de referido (fecha de creación de su primera operación).
+        """
         try:
-            first_operation = Operation.query.filter_by(client_id=client.id).order_by(Operation.created_at.asc()).first()
-            return first_operation.created_at.isoformat() if first_operation and first_operation.created_at else None
+            # Buscar la primera operación del cliente
+            first_operation = Operation.query.filter_by(
+                client_id=client.id
+            ).order_by(Operation.created_at.asc()).first()
+
+            if first_operation and first_operation.created_at:
+                logger.debug(f"Cliente {client.dni}: Primera operación creada el {first_operation.created_at}")
+                return first_operation.created_at.isoformat()
+            else:
+                logger.debug(f"Cliente {client.dni}: No tiene operaciones con fecha")
+                return None
+
         except Exception as e:
-            logger.error(f"Error al obtener fecha de operación: {str(e)}")
+            logger.error(f"Error al obtener fecha de operación para cliente {client.dni}: {str(e)}", exc_info=True)
             return None
 
     @staticmethod

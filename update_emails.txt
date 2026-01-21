@@ -1,0 +1,49 @@
+# INTEGRACIÓN PENDIENTE PARA SISTEMA DE EMAILS DIFERENCIADOS
+
+## 1. client_auth.py (línea 536-630 aprox)
+
+REEMPLAZAR desde línea 536:
+```python
+        # Enviar email de bienvenida
+        try:
+            from app.services.email_service import EmailService
+            from flask_mail import Message
+            ... [TODO EL BLOQUE HTML HASTA mail.send(msg)]
+```
+
+POR:
+```python
+        # Enviar email de bienvenida diferenciado (registro desde MÓVIL)
+        try:
+            from app.services.email_templates import EmailTemplates
+            EmailTemplates.send_welcome_email_from_mobile(new_client)
+            logger.info(f'✉️ Email de bienvenida móvil enviado a {new_client.dni}')
+```
+
+## 2. compliance.py (línea 498-530 aprox)
+
+ACTUALIZAR el bloque send_client_activation_email:
+
+CAMBIAR de:
+```python
+# Enviar correo con el trader que creó al cliente
+trader = client.creator if hasattr(client, 'creator') and client.creator else current_user
+EmailService.send_client_activation_email(client, trader, temporary_password)
+```
+
+A:
+```python
+# Enviar correo diferenciado según tipo de activación
+from app.services.email_templates import EmailTemplates
+
+trader = client.creator if hasattr(client, 'creator') and client.creator else current_user
+
+if should_generate_password:
+    # Cliente creado por Trader - enviar con contraseña temporal
+    EmailTemplates.send_activation_with_temp_password(client, trader, temporary_password)
+    logger.info(f'✉️ Email de activación CON contraseña enviado a {client.dni}')
+else:
+    # Cliente auto-registrado - enviar sin contraseña
+    EmailTemplates.send_activation_without_password(client)
+    logger.info(f'✉️ Email de activación SIN contraseña enviado a {client.dni}')
+```

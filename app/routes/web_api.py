@@ -1312,3 +1312,40 @@ def grant_pips_to_73733737():
             'success': False,
             'message': f'Error al otorgar pips: {str(e)}'
         }), 500
+
+
+@web_api_bp.route('/debug-client/<string:dni>', methods=['GET'])
+@csrf.exempt
+def debug_client_operations(dni):
+    """Endpoint temporal de diagnóstico para verificar operaciones de un cliente"""
+    try:
+        client = Client.query.filter_by(dni=dni).first()
+        if not client:
+            return jsonify({'success': False, 'message': 'Cliente no encontrado'}), 404
+
+        operations = Operation.query.filter_by(client_id=client.id).order_by(Operation.created_at.asc()).all()
+
+        return jsonify({
+            'success': True,
+            'client': {
+                'id': client.id,
+                'dni': client.dni,
+                'name': client.full_name,
+                'used_referral_code': client.used_referral_code,
+                'referred_by': client.referred_by
+            },
+            'operations': [
+                {
+                    'operation_id': op.operation_id,
+                    'status': op.status,
+                    'created_at': op.created_at.isoformat() if op.created_at else None,
+                    'operation_type': op.operation_type
+                }
+                for op in operations
+            ],
+            'total_operations': len(operations)
+        }), 200
+
+    except Exception as e:
+        logger.error(f"❌ Error en debug: {str(e)}", exc_info=True)
+        return jsonify({'success': False, 'message': str(e)}), 500
