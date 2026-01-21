@@ -84,7 +84,25 @@ def validate_referral_code():
                     'code_type': 'reward'
                 }), 200
 
-            # Código de recompensa válido
+            # Verificar que el cliente que intenta usar el código sea el propietario
+            if client_dni:
+                client = Client.query.filter_by(dni=client_dni).first()
+                if client:
+                    # Verificar que sea el propietario del código
+                    if client.id != reward_code.client_id:
+                        owner = Client.query.get(reward_code.client_id)
+                        logger.warning(
+                            f"Cliente {client.dni} intentó usar código de recompensa {code} "
+                            f"que pertenece a {owner.dni if owner else 'desconocido'}"
+                        )
+                        return jsonify({
+                            'success': True,
+                            'message': 'Este código de recompensa no te pertenece. Solo el propietario puede usarlo.',
+                            'is_valid': False,
+                            'code_type': 'reward'
+                        }), 200
+
+            # Código de recompensa válido y pertenece al cliente
             return jsonify({
                 'success': True,
                 'message': '¡Código de recompensa válido! Se aplicará un beneficio de 30 pips (0.003) en tu tipo de cambio',
