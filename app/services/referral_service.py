@@ -24,6 +24,26 @@ class ReferralService:
     """Servicio para gestionar el sistema de beneficios por referidos"""
 
     @staticmethod
+    def _get_first_operation_status(client: Client) -> str:
+        """Obtener el estado de la primera operación de un cliente referido"""
+        try:
+            first_operation = Operation.query.filter_by(client_id=client.id).order_by(Operation.created_at.asc()).first()
+            return first_operation.status if first_operation else 'Sin operación'
+        except Exception as e:
+            logger.error(f"Error al obtener estado de operación: {str(e)}")
+            return 'Desconocido'
+
+    @staticmethod
+    def _get_first_operation_date(client: Client) -> str:
+        """Obtener la fecha de la primera operación de un cliente referido"""
+        try:
+            first_operation = Operation.query.filter_by(client_id=client.id).order_by(Operation.created_at.asc()).first()
+            return first_operation.created_at.isoformat() if first_operation and first_operation.created_at else None
+        except Exception as e:
+            logger.error(f"Error al obtener fecha de operación: {str(e)}")
+            return None
+
+    @staticmethod
     def count_referral_use(client: Client) -> bool:
         """
         Contabilizar el uso de un código de referido cuando un cliente crea una operación
@@ -212,7 +232,9 @@ class ReferralService:
                         'dni': ref.dni,
                         'document_type': ref.document_type,
                         'created_at': ref.created_at.isoformat() if ref.created_at else None,
-                        'status': ref.status
+                        'status': ref.status,
+                        'operation_status': ReferralService._get_first_operation_status(ref),
+                        'operation_date': ReferralService._get_first_operation_date(ref)
                     }
                     for ref in referred_clients
                 ]
