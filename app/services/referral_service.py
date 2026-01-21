@@ -10,6 +10,7 @@ import logging
 from app.extensions import db
 from app.models.client import Client
 from app.models.operation import Operation
+from app.utils.formatters import now_peru
 
 logger = logging.getLogger(__name__)
 
