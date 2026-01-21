@@ -656,13 +656,30 @@ def create_operation_web():
         except Exception as notify_error:
             logger.warning(f"⚠️ Error al notificar operación: {str(notify_error)}")
 
+        # Construir información de la cuenta para el frontend
+        logger.info(f"[create-operation] selected_account: {selected_account}")
+
+        source_account_info = {
+            'banco': selected_account.get('bank') or selected_account.get('banco'),
+            'numero_cuenta': source_account,
+            'moneda': source_currency
+        }
+
+        destination_account_info = {
+            'banco': selected_account.get('bank') or selected_account.get('banco'),
+            'numero_cuenta': destination_account,
+            'moneda': destination_currency
+        }
+
         return jsonify({
             'success': True,
             'message': 'Operación creada exitosamente',
             'data': {
                 'operation': {
                     'id': new_operation.id,
+                    'operation_id': new_operation.operation_id,
                     'codigo_operacion': new_operation.operation_id,
+                    'operation_type': new_operation.operation_type,
                     'tipo': new_operation.operation_type,
                     'monto_soles': float(new_operation.amount_pen),
                     'monto_dolares': float(new_operation.amount_usd),
@@ -670,6 +687,10 @@ def create_operation_web():
                     'estado': new_operation.status,
                     'canal': new_operation.origen,
                     'created_at': new_operation.created_at.isoformat() if new_operation.created_at else None,
+                    'source_account': new_operation.source_account,
+                    'source_account_info': source_account_info,
+                    'destination_account': new_operation.destination_account,
+                    'destination_account_info': destination_account_info
                 }
             }
         }), 201
