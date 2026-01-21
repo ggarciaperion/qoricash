@@ -6,6 +6,7 @@ Actualizado: 2026-01-12 - Force redeploy para activar servicio en Render
 from flask import Blueprint, request, jsonify
 from app.models.client import Client
 from app.models.user import User
+from app.models.operation import Operation
 from app.extensions import db, csrf
 from werkzeug.security import generate_password_hash
 from app.utils.formatters import now_peru
