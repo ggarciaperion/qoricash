@@ -368,5 +368,75 @@ class Client(db.Model):
             return False
         return check_password_hash(self.password_hash, password)
 
+    def has_complete_documents(self):
+        """
+        Verificar si el cliente tiene todos los documentos completos
+
+        Returns:
+            bool: True si tiene todos los documentos requeridos
+        """
+        if self.document_type == 'RUC':
+            # RUC requiere: DNI representante (ambos lados), ficha RUC, validación OC
+            return all([
+                self.dni_representante_front_url,
+                self.dni_representante_back_url,
+                self.ficha_ruc_url,
+                self.validation_oc_url
+            ])
+        else:
+            # DNI/CE requiere: DNI (ambos lados), validación OC
+            return all([
+                self.dni_front_url,
+                self.dni_back_url,
+                self.validation_oc_url
+            ])
+
+    def get_total_operations_usd(self):
+        """
+        Obtener el total de operaciones completadas en USD
+
+        Returns:
+            float: Total en USD de operaciones completadas
+        """
+        if not hasattr(self, 'operations'):
+            return 0.0
+
+        try:
+            # Obtener operaciones completadas
+            if hasattr(self.operations, 'filter_by'):
+                completed_ops = self.operations.filter_by(status='Completada').all()
+            else:
+                completed_ops = [op for op in self.operations if op.status == 'Completada']
+
+            # Sumar montos en USD
+            total = sum(float(op.amount_usd or 0) for op in completed_ops)
+            return total
+        except Exception:
+            return 0.0
+
+    def can_create_operation(self, amount_usd):
+        """
+        Verificar si el cliente puede crear una operación con el monto especificado
+
+        Valida límites de operaciones sin documentos completos:
+        - Clientes sin documentos completos: máximo $1,000 USD total
+
+        Args:
+            amount_usd: Monto en USD de la operación a crear
+
+        Returns:
+            tuple: (can_operate: bool, error_message: str or None)
+        """
+        # Si tiene documentos completos, puede operar sin límite
+        if self.has_complete_documents():
+            return True, None
+
+        # Sin documentos completos, verificar límite de $1,000
+        total_usd = self.get_total_operations_usd()
+        if total_usd + amount_usd > 1000:
+            return False, f'Has alcanzado el límite de $1,000 USD sin documentación completa. Total actual: ${total_usd:.2f}. Completa tu documentación para operar sin límites.'
+
+        return True, None
+
     def __repr__(self):
         return f'<Client {self.full_name or self.razon_social or self.dni} - {self.document_type}: {self.dni}>'
