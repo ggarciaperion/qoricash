@@ -65,6 +65,11 @@ class Client(db.Model):
     used_referral_code = db.Column(db.String(6))  # Código que usó al registrarse
     referred_by = db.Column(db.Integer, db.ForeignKey('clients.id'))  # ID del cliente que lo refirió
 
+    # Beneficios por referidos (propietario del código)
+    referral_pips_earned = db.Column(db.Float, default=0.0)  # Pips totales ganados por referidos
+    referral_pips_available = db.Column(db.Float, default=0.0)  # Pips disponibles para usar
+    referral_completed_uses = db.Column(db.Integer, default=0)  # Usos válidos (operaciones completadas)
+
     # Información bancaria - MÚLTIPLES CUENTAS en JSON
     # Formato: [{"origen": "Lima", "bank_name": "BCP", "account_type": "Ahorro",
     #            "currency": "S/", "account_number": "123456"}]

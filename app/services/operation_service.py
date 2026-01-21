@@ -332,6 +332,14 @@ class OperationService:
         # Commit único para operation y audit_log juntos
         db.session.commit()
 
+        # Otorgar beneficio de referido si la operación se completó
+        if new_status == 'Completada':
+            try:
+                from app.services.referral_service import referral_service
+                referral_service.grant_referral_benefit(operation)
+            except Exception as e:
+                logger.warning(f"⚠️ Error al otorgar beneficio de referido: {str(e)}")
+
         # Enviar email si la operación se completó
         if new_status == 'Completada':
             # Generar factura electrónica

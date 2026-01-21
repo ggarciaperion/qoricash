@@ -129,12 +129,17 @@ def validate_referral_code():
 @referrals_bp.route('/stats/<string:client_dni>', methods=['GET'])
 def get_referral_stats(client_dni):
     """
-    Obtener estadísticas de referidos para un cliente
+    Obtener estadísticas completas de referidos para un cliente
 
     Returns:
         - success: bool
         - referral_code: str - Código del cliente
-        - total_referred: int - Total de clientes referidos
+        - total_referred_clients: int - Total de clientes referidos
+        - total_completed_operations: int - Operaciones completadas de referidos
+        - total_pips_earned: float - Total de pips ganados
+        - pips_available: float - Pips disponibles para usar
+        - completed_uses: int - Usos válidos (operaciones completadas)
+        - referral_history: list - Historial de operaciones completadas
         - referred_clients: list - Lista de clientes referidos
     """
     try:
@@ -145,22 +150,13 @@ def get_referral_stats(client_dni):
                 'message': 'Cliente no encontrado'
             }), 404
 
-        # Obtener clientes referidos
-        referred_clients = Client.query.filter_by(referred_by=client.id).all()
+        # Usar el servicio completo de referidos
+        from app.services.referral_service import referral_service
+        stats = referral_service.get_referral_stats(client)
 
         return jsonify({
             'success': True,
-            'referral_code': client.referral_code,
-            'total_referred': len(referred_clients),
-            'referred_clients': [
-                {
-                    'id': ref.id,
-                    'name': ref.full_name,
-                    'document_type': ref.document_type,
-                    'created_at': ref.created_at.isoformat() if ref.created_at else None
-                }
-                for ref in referred_clients
-            ]
+            **stats  # Expandir todas las estadísticas del servicio
         }), 200
 
     except Exception as e:

@@ -1108,6 +1108,13 @@ def complete_operation(operation_id):
 
         db.session.commit()
 
+        # Otorgar beneficio de referido si aplica
+        try:
+            from app.services.referral_service import referral_service
+            referral_service.grant_referral_benefit(operation)
+        except Exception as e:
+            logger.warning(f"⚠️ Error al otorgar beneficio de referido: {str(e)}")
+
         # Generar factura electrónica
         invoice_generated = False
         try:
