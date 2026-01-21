@@ -1213,3 +1213,101 @@ def run_migration_referral_benefits():
             'success': False,
             'message': f'Error al ejecutar migración: {str(e)}'
         }), 500
+
+
+@web_api_bp.route('/grant-pips-to-73733737', methods=['POST'])
+@csrf.exempt
+def grant_pips_to_73733737():
+    """
+    ENDPOINT TEMPORAL: Otorgar manualmente 15 pips al cliente 73733737 (dueño del código 2A5YQH)
+    por la operación completada del cliente 15979715
+
+    Este endpoint se puede eliminar después de ejecutarlo una vez
+    """
+    try:
+        # Buscar el cliente con DNI 73733737 (dueño del código)
+        referrer = Client.query.filter_by(dni='73733737').first()
+
+        if not referrer:
+            return jsonify({
+                'success': False,
+                'message': 'Cliente con DNI 73733737 no encontrado'
+            }), 404
+
+        # Buscar el cliente que usó el código (15979715)
+        referred_client = Client.query.filter_by(dni='15979715').first()
+
+        if not referred_client:
+            return jsonify({
+                'success': False,
+                'message': 'Cliente con DNI 15979715 no encontrado'
+            }), 404
+
+        # Verificar que usó el código correcto
+        if referred_client.used_referral_code != '2A5YQH':
+            return jsonify({
+                'success': False,
+                'message': f'El cliente 15979715 no usó el código 2A5YQH (usó: {referred_client.used_referral_code})'
+            }), 400
+
+        # Buscar la operación completada
+        completed_op = Operation.query.filter_by(
+            client_id=referred_client.id,
+            status='Completada'
+        ).order_by(Operation.created_at.desc()).first()
+
+        if not completed_op:
+            return jsonify({
+                'success': False,
+                'message': 'No se encontró operación completada para el cliente 15979715'
+            }), 404
+
+        # Otorgar 15 pips (0.0015)
+        PIPS_TO_GRANT = 0.0015
+
+        # Guardar valores anteriores
+        old_pips_earned = referrer.referral_pips_earned or 0.0
+        old_pips_available = referrer.referral_pips_available or 0.0
+        old_completed_uses = referrer.referral_completed_uses or 0
+
+        # Otorgar beneficio
+        referrer.referral_pips_earned = old_pips_earned + PIPS_TO_GRANT
+        referrer.referral_pips_available = old_pips_available + PIPS_TO_GRANT
+        referrer.referral_completed_uses = old_completed_uses + 1
+
+        # Guardar cambios
+        db.session.commit()
+
+        logger.info(f"✅ Pips otorgados manualmente: {PIPS_TO_GRANT} pips al cliente {referrer.dni} por operación {completed_op.operation_id}")
+
+        return jsonify({
+            'success': True,
+            'message': 'Pips otorgados exitosamente',
+            'data': {
+                'referrer_dni': referrer.dni,
+                'referrer_name': referrer.full_name,
+                'referrer_code': referrer.referral_code,
+                'referred_client_dni': referred_client.dni,
+                'referred_client_name': referred_client.full_name,
+                'operation_id': completed_op.operation_id,
+                'pips_granted': PIPS_TO_GRANT,
+                'old_values': {
+                    'pips_earned': old_pips_earned,
+                    'pips_available': old_pips_available,
+                    'completed_uses': old_completed_uses
+                },
+                'new_values': {
+                    'pips_earned': float(referrer.referral_pips_earned),
+                    'pips_available': float(referrer.referral_pips_available),
+                    'completed_uses': referrer.referral_completed_uses
+                }
+            }
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"❌ Error al otorgar pips manualmente: {str(e)}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'message': f'Error al otorgar pips: {str(e)}'
+        }), 500
