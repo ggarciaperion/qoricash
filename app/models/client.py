@@ -69,6 +69,7 @@ class Client(db.Model):
     referral_pips_earned = db.Column(db.Float, default=0.0)  # Pips totales ganados por referidos
     referral_pips_available = db.Column(db.Float, default=0.0)  # Pips disponibles para usar
     referral_completed_uses = db.Column(db.Integer, default=0)  # Usos válidos (operaciones completadas)
+    referral_total_uses = db.Column(db.Integer, default=0)  # Total de clientes que usaron el código (incluye canceladas)
 
     # Información bancaria - MÚLTIPLES CUENTAS en JSON
     # Formato: [{"origen": "Lima", "bank_name": "BCP", "account_type": "Ahorro",

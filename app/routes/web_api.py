@@ -636,6 +636,14 @@ def create_operation_web():
         db.session.add(new_operation)
         db.session.commit()
 
+        # Contabilizar uso del código de referido (independiente de si se completa la operación)
+        if referral_code:
+            try:
+                from app.services.referral_service import referral_service
+                referral_service.count_referral_use(client)
+            except Exception as e:
+                logger.warning(f"⚠️ Error al contabilizar uso de referido: {str(e)}")
+
         logger.info(f"✅ Operación {new_operation.operation_id} creada desde WEB para cliente {client.dni}")
         logger.info(f"   📊 Estado: {new_operation.status} | Origen: {new_operation.origen} | Creada: {new_operation.created_at}")
 
@@ -1030,6 +1038,91 @@ def fix_referral_code_temp():
         return jsonify({
             'success': False,
             'message': f'Error al aplicar fix: {str(e)}'
+        }), 500
+
+
+@web_api_bp.route('/run-migration-reward-codes', methods=['POST'])
+@csrf.exempt
+def run_migration_reward_codes():
+    """
+    ENDPOINT TEMPORAL: Crear tabla reward_codes y agregar columna referral_total_uses
+    Este endpoint se puede eliminar después de ejecutarlo una vez
+    """
+    try:
+        # Verificar si la tabla reward_codes ya existe
+        result = db.session.execute(db.text("""
+            SELECT table_name
+            FROM information_schema.tables
+            WHERE table_name = 'reward_codes'
+        """))
+        table_exists = result.fetchone() is not None
+
+        # Verificar si la columna referral_total_uses ya existe
+        result = db.session.execute(db.text("""
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_name = 'clients'
+            AND column_name = 'referral_total_uses'
+        """))
+        column_exists = result.fetchone() is not None
+
+        if table_exists and column_exists:
+            return jsonify({
+                'success': True,
+                'message': 'La tabla y columna ya existen. Migración no necesaria.',
+                'already_migrated': True
+            }), 200
+
+        logger.info(f"📝 Ejecutando migración de reward_codes y referral_total_uses")
+        changes_made = []
+
+        # Crear tabla reward_codes si no existe
+        if not table_exists:
+            db.session.execute(db.text("""
+                CREATE TABLE reward_codes (
+                    id SERIAL PRIMARY KEY,
+                    code VARCHAR(6) UNIQUE NOT NULL,
+                    client_id INTEGER NOT NULL REFERENCES clients(id),
+                    pips_redeemed FLOAT NOT NULL DEFAULT 0.003,
+                    is_used BOOLEAN DEFAULT FALSE,
+                    used_at TIMESTAMP,
+                    used_in_operation_id INTEGER REFERENCES operations(id),
+                    created_at TIMESTAMP NOT NULL
+                )
+            """))
+            changes_made.append('Tabla reward_codes creada')
+            logger.info("✅ Tabla reward_codes creada")
+
+        # Agregar columna referral_total_uses si no existe
+        if not column_exists:
+            db.session.execute(db.text(
+                "ALTER TABLE clients ADD COLUMN referral_total_uses INTEGER DEFAULT 0"
+            ))
+            db.session.execute(db.text("""
+                UPDATE clients
+                SET referral_total_uses = 0
+                WHERE referral_total_uses IS NULL
+            """))
+            changes_made.append('Columna referral_total_uses agregada')
+            logger.info("✅ Columna referral_total_uses agregada")
+
+        # Commit cambios
+        db.session.commit()
+
+        logger.info("✅ Migración de reward_codes completada exitosamente")
+
+        return jsonify({
+            'success': True,
+            'message': 'Migración completada exitosamente',
+            'changes_made': changes_made
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"❌ Error al ejecutar migración: {str(e)}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'message': f'Error al ejecutar migración: {str(e)}'
         }), 500
 
 

@@ -14,11 +14,74 @@ from app.models.operation import Operation
 logger = logging.getLogger(__name__)
 
 # Constante: Beneficio por cada operación completada con código de referido
-PIPS_PER_REFERRAL = 0.0030  # 30 pips = 0.003
+PIPS_PER_REFERRAL = 0.0015  # 15 pips = 0.0015 (actualizado según nuevas reglas)
+
+# Constante: Pips necesarios para canjear por código de recompensa
+PIPS_REQUIRED_FOR_REWARD = 0.0030  # 30 pips = 0.003
 
 
 class ReferralService:
     """Servicio para gestionar el sistema de beneficios por referidos"""
+
+    @staticmethod
+    def count_referral_use(client: Client) -> bool:
+        """
+        Contabilizar el uso de un código de referido cuando un cliente crea una operación
+
+        Este método se llama al CREAR la operación, no al completarla.
+        Incrementa el contador total_uses del propietario del código.
+
+        Args:
+            client: Cliente que usó el código de referido
+
+        Returns:
+            bool: True si se contabilizó correctamente, False si no aplica
+
+        Reglas:
+            - Se contabiliza al crear la primera operación con el código
+            - No importa si la operación se completa, cancela o anula
+            - Solo se cuenta una vez por cliente (no por cada operación)
+        """
+        try:
+            # Verificar si el cliente usó un código de referido
+            if not client.used_referral_code or not client.referred_by:
+                logger.debug(f"Cliente {client.dni} no usó código de referido")
+                return False
+
+            # Obtener el propietario del código (referidor)
+            referrer = Client.query.get(client.referred_by)
+            if not referrer:
+                logger.error(f"Propietario del código no encontrado (ID: {client.referred_by})")
+                return False
+
+            # Verificar si ya se contabilizó este cliente
+            # (esto evita contar múltiples veces al mismo cliente si crea varias operaciones)
+            if hasattr(client, '_referral_counted') and client._referral_counted:
+                logger.debug(f"Cliente {client.dni} ya fue contabilizado previamente")
+                return False
+
+            # Incrementar el contador total de usos
+            if referrer.referral_total_uses is None:
+                referrer.referral_total_uses = 0
+            referrer.referral_total_uses += 1
+
+            # Marcar que se contabilizó (en memoria, no en DB)
+            client._referral_counted = True
+
+            # Guardar cambios
+            db.session.commit()
+
+            logger.info(
+                f"✅ Uso contabilizado: Cliente {client.dni} usó código {client.used_referral_code} "
+                f"de {referrer.dni}. Total usos: {referrer.referral_total_uses}"
+            )
+
+            return True
+
+        except Exception as e:
+            logger.error(f"❌ Error al contabilizar uso de referido: {str(e)}", exc_info=True)
+            db.session.rollback()
+            return False
 
     @staticmethod
     def grant_referral_benefit(operation: Operation) -> bool:
@@ -35,7 +98,7 @@ class ReferralService:
             - Solo se otorga si la operación tiene estado "Completado"
             - Solo si el cliente usó un código de referido
             - Solo si el propietario del código existe
-            - El beneficio es de 30 pips (0.003) por operación
+            - El beneficio es de 15 pips (0.0015) por operación
         """
         try:
             # Verificar que la operación esté completada
@@ -133,6 +196,7 @@ class ReferralService:
             return {
                 'referral_code': client.referral_code,
                 'total_referred_clients': len(referred_clients),
+                'total_uses': client.referral_total_uses or 0,  # Total de clientes que usaron el código
                 'total_completed_operations': len(completed_operations),
                 'total_pips_earned': float(client.referral_pips_earned or 0),
                 'pips_available': float(client.referral_pips_available or 0),
@@ -206,6 +270,83 @@ class ReferralService:
             logger.error(f"❌ Error al usar pips de referido: {str(e)}", exc_info=True)
             db.session.rollback()
             return False
+
+    @staticmethod
+    def generate_reward_code(client: Client) -> tuple:
+        """
+        Generar un código de recompensa canjeando 30 pips
+
+        Args:
+            client: Cliente que canjea sus pips
+
+        Returns:
+            tuple: (success: bool, message: str, reward_code: RewardCode|None)
+
+        Reglas:
+            - Requiere mínimo 30 pips disponibles
+            - Genera un código único de 6 caracteres
+            - Descuenta 30 pips del saldo disponible
+            - El código es de un solo uso y no transferible
+        """
+        try:
+            from app.models.reward_code import RewardCode
+
+            # Verificar que tenga suficientes pips
+            if client.referral_pips_available < PIPS_REQUIRED_FOR_REWARD:
+                return False, f'Necesitas al menos 30 pips. Tienes: {int(client.referral_pips_available * 10000)} pips', None
+
+            # Generar código único
+            code = RewardCode.generate_unique_code()
+
+            # Crear el código de recompensa
+            reward_code = RewardCode(
+                code=code,
+                client_id=client.id,
+                pips_redeemed=PIPS_REQUIRED_FOR_REWARD,
+                created_at=now_peru()
+            )
+
+            # Descontar pips
+            client.referral_pips_available -= PIPS_REQUIRED_FOR_REWARD
+
+            db.session.add(reward_code)
+            db.session.commit()
+
+            logger.info(
+                f"✅ Código de recompensa generado: {code} para cliente {client.dni}. "
+                f"Pips restantes: {client.referral_pips_available}"
+            )
+
+            return True, 'Código de recompensa generado exitosamente', reward_code
+
+        except Exception as e:
+            logger.error(f"❌ Error al generar código de recompensa: {str(e)}", exc_info=True)
+            db.session.rollback()
+            return False, f'Error al generar código: {str(e)}', None
+
+    @staticmethod
+    def get_client_reward_codes(client: Client) -> list:
+        """
+        Obtener todos los códigos de recompensa de un cliente
+
+        Args:
+            client: Cliente propietario
+
+        Returns:
+            list: Lista de códigos de recompensa
+        """
+        try:
+            from app.models.reward_code import RewardCode
+
+            codes = RewardCode.query.filter_by(client_id=client.id).order_by(
+                RewardCode.created_at.desc()
+            ).all()
+
+            return [code.to_dict() for code in codes]
+
+        except Exception as e:
+            logger.error(f"❌ Error al obtener códigos de recompensa: {str(e)}", exc_info=True)
+            return []
 
 
 # Instancia global del servicio

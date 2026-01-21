@@ -219,3 +219,96 @@ def calculate_discount():
             'success': False,
             'message': f'Error al calcular descuento: {str(e)}'
         }), 500
+
+
+@referrals_bp.route('/generate-reward-code', methods=['OPTIONS', 'POST'])
+def generate_reward_code():
+    """
+    Generar un código de recompensa canjeando 30 pips
+
+    Body (JSON):
+        - client_dni: DNI del cliente que canjea
+
+    Returns:
+        - success: bool
+        - message: str
+        - reward_code: dict (código generado)
+    """
+    # Manejar preflight OPTIONS request
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+
+    try:
+        data = request.get_json() or {}
+        client_dni = data.get('client_dni', '').strip()
+
+        if not client_dni:
+            return jsonify({
+                'success': False,
+                'message': 'DNI del cliente es requerido'
+            }), 400
+
+        # Buscar cliente
+        client = Client.query.filter_by(dni=client_dni).first()
+        if not client:
+            return jsonify({
+                'success': False,
+                'message': 'Cliente no encontrado'
+            }), 404
+
+        # Generar código de recompensa
+        from app.services.referral_service import referral_service
+        success, message, reward_code = referral_service.generate_reward_code(client)
+
+        if success and reward_code:
+            return jsonify({
+                'success': True,
+                'message': message,
+                'reward_code': reward_code.to_dict()
+            }), 200
+        else:
+            return jsonify({
+                'success': False,
+                'message': message
+            }), 400
+
+    except Exception as e:
+        logger.error(f'❌ Error generating reward code: {str(e)}', exc_info=True)
+        return jsonify({
+            'success': False,
+            'message': f'Error al generar código: {str(e)}'
+        }), 500
+
+
+@referrals_bp.route('/reward-codes/<string:client_dni>', methods=['GET'])
+def get_reward_codes(client_dni):
+    """
+    Obtener códigos de recompensa de un cliente
+
+    Returns:
+        - success: bool
+        - reward_codes: list
+    """
+    try:
+        client = Client.query.filter_by(dni=client_dni).first()
+        if not client:
+            return jsonify({
+                'success': False,
+                'message': 'Cliente no encontrado'
+            }), 404
+
+        # Obtener códigos de recompensa
+        from app.services.referral_service import referral_service
+        reward_codes = referral_service.get_client_reward_codes(client)
+
+        return jsonify({
+            'success': True,
+            'reward_codes': reward_codes
+        }), 200
+
+    except Exception as e:
+        logger.error(f'❌ Error getting reward codes: {str(e)}', exc_info=True)
+        return jsonify({
+            'success': False,
+            'message': f'Error al obtener códigos: {str(e)}'
+        }), 500
