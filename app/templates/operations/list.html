@@ -166,7 +166,7 @@
                                             </button>
                                             {% endif %}
 
-                                        {# TRADER: Editar en Pendiente y En proceso, ver solo en Completada/Cancelado #}
+                                        {# TRADER: Editar solo en Pendiente, ver en otros estados #}
                                         {% elif user.role == 'Trader' %}
                                             {% if op.status == 'Pendiente' %}
                                             <button class="btn btn-outline-primary" onclick="editOperation({{ op.id }})" title="Editar">
@@ -174,10 +174,6 @@
                                             </button>
                                             <button class="btn btn-outline-danger" onclick="cancelOperation({{ op.id }})" title="Cancelar">
                                                 <i class="bi bi-x-circle"></i>
-                                            </button>
-                                            {% elif op.status == 'En proceso' %}
-                                            <button class="btn btn-outline-primary" onclick="editOperation({{ op.id }})" title="Ver Detalles / Editar">
-                                                <i class="bi bi-pencil"></i>
                                             </button>
                                             {% else %}
                                             <button class="btn btn-outline-info" onclick="viewOperation({{ op.id }})" title="Ver Detalles">
@@ -798,7 +794,7 @@ function buildOperationRow(op) {
                         </button>`;
         }
     } else if (currentUserRole === 'Trader') {
-        // Trader edita y cancela solo en Pendiente
+        // Trader edita y cancela solo en Pendiente, ve en otros estados
         if (op.status === 'Pendiente') {
             buttons = `<button class="btn btn-outline-primary btn-sm" onclick="editOperation(${op.id})" title="Editar">
                           <i class="bi bi-pencil"></i>
