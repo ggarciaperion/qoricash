@@ -774,9 +774,12 @@ function buildOperationRow(op) {
         minute: '2-digit'
     }) : '-';
 
-    // Botones según rol y estado
+    // Botones según rol y estado (comparaciones case-insensitive)
     let buttons = '';
-    const isCompleted = op.status === 'Completada' || op.status === 'Cancelado';
+    const normalizedStatus = (op.status || '').trim().toLowerCase();
+    const isCompleted = normalizedStatus === 'completada' || normalizedStatus === 'completado' || normalizedStatus === 'cancelado';
+    const isPending = normalizedStatus === 'pendiente';
+    const isInProcess = normalizedStatus === 'en proceso' || normalizedStatus === 'en_proceso';
 
     if (isCompleted) {
         // Solo ver detalles
@@ -788,14 +791,14 @@ function buildOperationRow(op) {
         buttons = `<button class="btn btn-outline-primary btn-sm" onclick="editOperation(${op.id})" title="Editar">
                       <i class="bi bi-pencil"></i>
                    </button>`;
-        if (op.status === 'Pendiente') {
+        if (isPending) {
             buttons += ` <button class="btn btn-outline-danger btn-sm" onclick="cancelOperation(${op.id})" title="Cancelar">
                            <i class="bi bi-x-circle"></i>
                         </button>`;
         }
     } else if (currentUserRole === 'Trader') {
         // Trader edita y cancela solo en Pendiente, ve en otros estados
-        if (op.status === 'Pendiente') {
+        if (isPending) {
             buttons = `<button class="btn btn-outline-primary btn-sm" onclick="editOperation(${op.id})" title="Editar">
                           <i class="bi bi-pencil"></i>
                        </button>
@@ -815,12 +818,12 @@ function buildOperationRow(op) {
             ? '<span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger notes-badge" data-operation-id="' + op.id + '">1<span class="visually-hidden">nota sin leer</span></span>'
             : '';
 
-        if (op.status === 'Pendiente') {
+        if (isPending) {
             buttons = `<button class="btn btn-outline-info btn-sm position-relative" onclick="viewOperation(${op.id})" title="Ver (Solo lectura)" data-operation-id="${op.id}">
                           <i class="bi bi-eye"></i>
                           ${notificationBadge}
                        </button>`;
-        } else if (op.status === 'En proceso') {
+        } else if (isInProcess) {
             buttons = `<button class="btn btn-outline-primary btn-sm position-relative" onclick="editOperation(${op.id})" title="Procesar" data-operation-id="${op.id}">
                           <i class="bi bi-pencil"></i>
                           ${notificationBadge}
@@ -828,7 +831,7 @@ function buildOperationRow(op) {
         }
     } else if (currentUserRole === 'Plataforma') {
         // Plataforma edita y cancela solo en Pendiente
-        if (op.status === 'Pendiente') {
+        if (isPending) {
             buttons = `<button class="btn btn-outline-primary btn-sm" onclick="editOperation(${op.id})" title="Editar">
                           <i class="bi bi-pencil"></i>
                        </button>
