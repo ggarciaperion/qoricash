@@ -1233,9 +1233,19 @@ function loadEditModal() {
 // === ABONOS ===
 function loadDeposits(deposits, editable) {
     $('#deposits_container').empty();
-    if (deposits.length === 0 && editable) {
-        addDeposit();
+
+    console.log('=== loadDeposits ===', {deposits, editable, length: deposits.length});
+
+    if (deposits.length === 0) {
+        if (editable) {
+            // Si es editable y no hay abonos, agregar una fila vacía para llenar
+            addDeposit();
+        } else {
+            // Si no es editable y no hay abonos, mostrar mensaje
+            $('#deposits_container').html('<div class="alert alert-info text-center">No hay abonos registrados para esta operación</div>');
+        }
     } else {
+        // Hay abonos, mostrarlos (editable o no)
         deposits.forEach((d, i) => addDepositRow(d, i, editable));
     }
 }
@@ -1296,9 +1306,19 @@ function removeDeposit(index) {
 // === PAGOS ===
 function loadPayments(payments, editable) {
     $('#payments_container').empty();
-    if (payments.length === 0 && editable) {
-        addPayment();
+
+    console.log('=== loadPayments ===', {payments, editable, length: payments.length});
+
+    if (payments.length === 0) {
+        if (editable) {
+            // Si es editable y no hay pagos, agregar una fila vacía para llenar
+            addPayment();
+        } else {
+            // Si no es editable y no hay pagos, mostrar mensaje
+            $('#payments_container').html('<div class="alert alert-info text-center">No hay pagos registrados para esta operación</div>');
+        }
     } else {
+        // Hay pagos, mostrarlos (editable o no)
         payments.forEach((p, i) => addPaymentRow(p, i, editable));
     }
 }
