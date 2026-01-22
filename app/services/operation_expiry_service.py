@@ -35,10 +35,13 @@ class OperationExpiryService:
 
             # Buscar operaciones pendientes creadas antes del cutoff_time
             # pero DESPUÉS del protection_cutoff (últimas 24 horas)
+            # IMPORTANTE: Solo cancelar operaciones de canales web, app y plataforma
+            # Las operaciones de 'sistema' (creadas por Trader) NO se cancelan automáticamente
             expired_operations = Operation.query.filter(
                 Operation.status == 'Pendiente',
                 Operation.created_at < cutoff_time,
-                Operation.created_at > protection_cutoff  # Solo últimas 24 horas
+                Operation.created_at > protection_cutoff,  # Solo últimas 24 horas
+                Operation.origen.in_(['web', 'app', 'plataforma'])  # Excluir 'sistema'
             ).all()
 
             if not expired_operations:
