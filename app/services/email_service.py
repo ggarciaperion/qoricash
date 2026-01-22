@@ -214,6 +214,36 @@ class EmailService:
                     html=html_body
                 )
 
+                # Adjuntar comprobante electrónico si existe
+                if operation.invoices and len(operation.invoices) > 0:
+                    invoice = operation.invoices[0]  # Tomar el primer invoice
+                    if invoice.nubefact_enlace_pdf:
+                        try:
+                            logger.info(f'[EMAIL] Descargando comprobante PDF desde: {invoice.nubefact_enlace_pdf}')
+                            import requests
+                            pdf_response = requests.get(invoice.nubefact_enlace_pdf, timeout=10)
+
+                            if pdf_response.status_code == 200:
+                                # Nombre del archivo adjunto
+                                filename = f'{invoice.invoice_number}.pdf' if invoice.invoice_number else 'comprobante.pdf'
+
+                                # Adjuntar PDF al mensaje
+                                msg.attach(
+                                    filename,
+                                    'application/pdf',
+                                    pdf_response.content,
+                                    'attachment'
+                                )
+                                logger.info(f'[EMAIL] Comprobante PDF adjuntado: {filename}')
+                            else:
+                                logger.warning(f'[EMAIL] Error al descargar PDF: HTTP {pdf_response.status_code}')
+                        except Exception as e:
+                            logger.error(f'[EMAIL] Error al adjuntar comprobante: {str(e)}')
+                    else:
+                        logger.info(f'[EMAIL] Invoice existe pero no tiene enlace PDF')
+                else:
+                    logger.info(f'[EMAIL] Operación sin comprobante electrónico')
+
                 # Enviar ASÍNCRONO para no bloquear el worker
                 logger.info(f'[EMAIL] Programando envío de email a TO: {to}, CC: {cc}')
                 EmailService._send_async(msg, timeout=15)
