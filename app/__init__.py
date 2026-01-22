@@ -76,7 +76,7 @@ def initialize_extensions(flask_app):
     # CORS - Permitir solicitudes desde el frontend web
     cors.init_app(
         flask_app,
-        resources={r"/api/*": {"origins": ["http://localhost:3000", "https://qoricash.vercel.app"]}},
+        resources={r"/api/*": {"origins": ["http://localhost:3000", "http://localhost:3001", "https://qoricash.vercel.app"]}},
         supports_credentials=True,
         allow_headers=["Content-Type", "Authorization"],
         methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"]
