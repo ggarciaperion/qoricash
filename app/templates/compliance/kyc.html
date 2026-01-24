@@ -317,6 +317,10 @@ function confirmarAprobar() {
                 alert('✅ ' + response.message);
                 $('#aprobarModal').modal('hide');
                 cargarClientes();
+                // Actualizar badge de notificaciones del menú
+                if (typeof updateKycBadge === 'function') {
+                    updateKycBadge();
+                }
             } else {
                 // Mostrar documentos faltantes si los hay
                 let errorMsg = response.error || response.message;
@@ -371,6 +375,10 @@ function confirmarRechazar() {
                 alert('✅ ' + response.message);
                 $('#rechazarModal').modal('hide');
                 cargarClientes();
+                // Actualizar badge de notificaciones del menú
+                if (typeof updateKycBadge === 'function') {
+                    updateKycBadge();
+                }
             } else {
                 alert('❌ Error: ' + (response.error || response.message));
             }
