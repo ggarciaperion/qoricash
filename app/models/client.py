@@ -92,6 +92,14 @@ class Client(db.Model):
         default='Inactivo'
     )  # Activo, Inactivo
 
+    # Control de documentos completos
+    has_complete_documents = db.Column(db.Boolean, default=False, nullable=False)
+    operations_without_docs_count = db.Column(db.Integer, default=0)
+    operations_without_docs_limit = db.Column(db.Integer)
+    max_amount_without_docs = db.Column(db.Numeric(15, 2))
+    inactive_reason = db.Column(db.String(200))
+    documents_pending_since = db.Column(db.DateTime)
+
     # Timestamps
     created_at = db.Column(db.DateTime, default=now_peru, nullable=False)
     updated_at = db.Column(db.DateTime, default=now_peru, onupdate=now_peru)
@@ -252,6 +260,7 @@ class Client(db.Model):
             'email': self.email,
             'phone': self.phone,
             'status': self.status,
+            'has_complete_documents': self.has_complete_documents,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
             'bank_accounts': self.bank_accounts,
@@ -368,12 +377,13 @@ class Client(db.Model):
             return False
         return check_password_hash(self.password_hash, password)
 
-    def has_complete_documents(self):
+    def check_documents_uploaded(self):
         """
-        Verificar si el cliente tiene todos los documentos completos
+        Verificar si el cliente ha subido todos los documentos requeridos
+        (Este método solo verifica las URLs, no el campo has_complete_documents)
 
         Returns:
-            bool: True si tiene todos los documentos requeridos
+            bool: True si tiene todos los documentos requeridos subidos
         """
         if self.document_type == 'RUC':
             # RUC requiere: DNI representante (ambos lados), ficha RUC, validación OC
@@ -390,6 +400,15 @@ class Client(db.Model):
                 self.dni_back_url,
                 self.validation_oc_url
             ])
+
+    def complete_documents_and_reset(self):
+        """
+        Marcar los documentos como completos y resetear contadores.
+        Este método se llama cuando middle office aprueba el KYC.
+        """
+        self.has_complete_documents = True
+        self.operations_without_docs_count = 0
+        # No necesitamos hacer commit aquí, el llamador lo hará
 
     def get_total_operations_usd(self):
         """
@@ -428,7 +447,7 @@ class Client(db.Model):
             tuple: (can_operate: bool, error_message: str or None)
         """
         # Si tiene documentos completos, puede operar sin límite
-        if self.has_complete_documents():
+        if self.has_complete_documents:
             return True, None
 
         # Sin documentos completos, verificar límite de $1,000
