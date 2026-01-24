@@ -78,19 +78,9 @@ def get_client_me():
                 'message': 'Cliente no encontrado'
             }), 404
 
-        # Verificar documentos completos
-        has_complete_documents = False
-        if client.document_type == 'RUC':
-            has_complete_documents = bool(
-                client.dni_representante_front_url and
-                client.dni_representante_back_url and
-                client.ficha_ruc_url
-            )
-        else:
-            has_complete_documents = bool(client.dni_front_url and client.dni_back_url)
-
+        # Obtener datos del cliente (incluye has_complete_documents del modelo)
         client_data = client.to_dict(include_stats=True)
-        client_data['has_complete_documents'] = has_complete_documents
+        # has_complete_documents ya viene desde to_dict() del modelo
 
         return jsonify({
             'success': True,
