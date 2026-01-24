@@ -274,6 +274,7 @@ class Operation(db.Model):
         data = {
             'id': self.id,
             'operation_id': self.operation_id,
+            'codigo_operacion': self.operation_id,  # Alias para frontend web
             'client_id': self.client_id,
             'user_id': self.user_id,
             'operation_type': self.operation_type,
