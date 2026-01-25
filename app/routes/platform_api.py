@@ -10,6 +10,7 @@ from app.services.operation_service import OperationService
 from app.services.file_service import FileService
 from app.services.notification_service import NotificationService
 from app.utils.decorators import require_role
+from app.utils.formatters import now_peru
 from app.models.client import Client
 from app.models.operation import Operation
 from app.extensions import db, csrf
@@ -509,7 +510,7 @@ def get_public_exchange_rates():
             'data': {
                 'tipo_compra': 3.75,
                 'tipo_venta': 3.77,
-                'fecha_actualizacion': datetime.utcnow().isoformat()
+                'fecha_actualizacion': now_peru().isoformat()
             }
         }), 200
 

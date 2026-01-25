@@ -13,17 +13,21 @@ def get_peru_timezone():
 
 def now_peru():
     """
-    Obtener fecha/hora actual en UTC (naive datetime) para guardar en DB
+    Obtener fecha/hora actual en hora de Perú (naive datetime) para guardar en DB
 
-    IMPORTANTE: La base de datos guarda timestamps en UTC sin timezone info (naive).
-    Para mostrar al usuario, se usa format_datetime() que convierte UTC -> Peru.
+    IMPORTANTE: La base de datos guarda timestamps en hora local de Perú sin timezone info (naive).
+    Para mostrar al usuario, se usa format_datetime() que solo formatea el datetime.
 
     Returns:
-        datetime: Fecha/hora actual en UTC sin timezone info (naive)
+        datetime: Fecha/hora actual en hora de Perú sin timezone info (naive)
     """
-    # Retornar hora actual en UTC sin timezone info
-    # Esto garantiza consistencia con format_datetime() que asume naive = UTC
-    return datetime.utcnow()
+    # Obtener hora actual de Perú sin timezone info
+    peru_tz = get_peru_timezone()
+    now_utc = datetime.utcnow()
+    now_utc_aware = pytz.utc.localize(now_utc)
+    now_peru = now_utc_aware.astimezone(peru_tz)
+    # Retornar naive datetime (sin timezone info)
+    return now_peru.replace(tzinfo=None)
 
 
 def format_currency(amount, currency='USD'):
@@ -54,26 +58,24 @@ def format_currency(amount, currency='USD'):
 def format_datetime(dt, format_str=DATETIME_FORMAT_DISPLAY):
     """
     Formatear datetime
-    
+
     Args:
-        dt: Datetime a formatear
+        dt: Datetime a formatear (se asume que ya está en hora de Perú)
         format_str: Formato deseado
-    
+
     Returns:
         str: Datetime formateado
     """
     if not dt:
         return ''
-    
-    # Si es naive, asumir UTC y convertir a Peru
-    if dt.tzinfo is None:
-        dt = pytz.utc.localize(dt)
-    
-    # Convertir a timezone de Perú
-    peru_tz = get_peru_timezone()
-    dt_peru = dt.astimezone(peru_tz)
-    
-    return dt_peru.strftime(format_str)
+
+    # El datetime ya está en hora de Perú (naive), solo formatearlo
+    # Si tiene timezone info, convertir a Perú primero
+    if dt.tzinfo is not None:
+        peru_tz = get_peru_timezone()
+        dt = dt.astimezone(peru_tz).replace(tzinfo=None)
+
+    return dt.strftime(format_str)
 
 
 def format_date(dt):

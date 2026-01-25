@@ -3,6 +3,7 @@ Modelo para tipos de cambio
 """
 from datetime import datetime
 from app.extensions import db
+from app.utils.formatters import now_peru
 
 class ExchangeRate(db.Model):
     """
@@ -19,7 +20,7 @@ class ExchangeRate(db.Model):
 
     # Metadatos
     updated_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, nullable=False, default=now_peru)
 
     # Relaciones
     updated_by_user = db.relationship('User', backref='exchange_rate_updates')
@@ -74,7 +75,7 @@ class ExchangeRate(db.Model):
             buy_rate=buy_rate,
             sell_rate=sell_rate,
             updated_by=user_id,
-            updated_at=datetime.utcnow()
+            updated_at=now_peru()
         )
 
         db.session.add(new_rate)
