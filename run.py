@@ -335,6 +335,101 @@ def migrate_all_plataforma_to_app():
             'traceback': traceback.format_exc()
         }), 500
 
+# TEMPORAL: Endpoint para ejecutar manualmente el scheduler de expiración
+@app.route('/admin/expire-operations-now')
+@limiter.exempt
+def expire_operations_now():
+    """
+    ENDPOINT TEMPORAL URGENTE: Ejecuta manualmente el scheduler de expiración
+
+    Cancela operaciones pendientes que hayan excedido el tiempo límite de 15 minutos
+    """
+    from app.services.operation_expiry_service import OperationExpiryService
+    from datetime import timedelta
+    from app.utils.formatters import now_peru
+
+    try:
+        # Información del sistema
+        current_time = now_peru()
+        cutoff_time = current_time - timedelta(minutes=15)
+
+        # Ejecutar el servicio de expiración
+        expired_count = OperationExpiryService.expire_old_operations()
+
+        return jsonify({
+            'success': True,
+            'current_time_peru': current_time.isoformat(),
+            'cutoff_time': cutoff_time.isoformat(),
+            'operations_cancelled': expired_count,
+            'message': f'✓ {expired_count} operaciones canceladas. Operaciones creadas antes de {cutoff_time.strftime("%H:%M:%S")} fueron canceladas.'
+        }), 200
+    except Exception as e:
+        import traceback
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
+
+# TEMPORAL: Endpoint para verificar operaciones pendientes específicas
+@app.route('/admin/check-pending-operations')
+@limiter.exempt
+def check_pending_operations():
+    """
+    ENDPOINT TEMPORAL: Verifica operaciones pendientes y su elegibilidad para expiración
+    """
+    from app.models.operation import Operation
+    from datetime import timedelta
+    from app.utils.formatters import now_peru
+
+    try:
+        current_time = now_peru()
+        cutoff_time = current_time - timedelta(minutes=15)
+        protection_cutoff = current_time - timedelta(hours=24)
+
+        # Buscar todas las operaciones pendientes
+        pending_ops = Operation.query.filter_by(status='Pendiente').all()
+
+        operations_info = []
+        for op in pending_ops:
+            age_minutes = (current_time - op.created_at).total_seconds() / 60 if op.created_at else 0
+            should_expire = (
+                op.created_at < cutoff_time and
+                op.created_at > protection_cutoff and
+                op.origen in ['web', 'app', 'plataforma']
+            ) if op.created_at else False
+
+            operations_info.append({
+                'operation_id': op.operation_id,
+                'created_at': op.created_at.isoformat() if op.created_at else None,
+                'age_minutes': round(age_minutes, 1),
+                'origen': op.origen,
+                'should_expire': should_expire,
+                'reason': 'Will be cancelled' if should_expire else (
+                    'Too recent (< 15 min)' if age_minutes < 15 else
+                    'Too old (> 24h)' if age_minutes > 1440 else
+                    'Wrong origen (sistema)' if op.origen == 'sistema' else
+                    'Unknown'
+                )
+            })
+
+        return jsonify({
+            'success': True,
+            'current_time_peru': current_time.isoformat(),
+            'cutoff_time': cutoff_time.isoformat(),
+            'protection_cutoff': protection_cutoff.isoformat(),
+            'total_pending': len(pending_ops),
+            'should_expire_count': sum(1 for op in operations_info if op['should_expire']),
+            'operations': sorted(operations_info, key=lambda x: x['age_minutes'], reverse=True)
+        }), 200
+    except Exception as e:
+        import traceback
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
+
 # TEMPORAL: Endpoint para verificar que los templates están actualizados
 @app.route('/admin/check-template-version')
 @limiter.exempt
