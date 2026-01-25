@@ -21,7 +21,9 @@ import os
 from flask import Flask
 from app.config import get_config
 from app.extensions import db, migrate, login_manager, csrf, socketio, limiter, mail, cors
-from app.services.scheduler_service import scheduler_service
+
+# Scheduler global para expiración de operaciones
+_scheduler_greenlet = None
 
 
 def create_app(config_name=None):
@@ -58,8 +60,9 @@ def create_app(config_name=None):
     # Configurar Shell context (para flask shell)
     register_shell_context(app)
 
-    # Inicializar scheduler de tareas en segundo plano
-    scheduler_service.init_app(app)
+    # Inicializar scheduler de expiración de operaciones usando eventlet
+    # IMPORTANTE: Usar eventlet en lugar de APScheduler para compatibilidad con SocketIO
+    start_operation_expiry_scheduler(app)
 
     return app
 
@@ -197,3 +200,43 @@ def register_shell_context(app):
             'Client': Client,
             'Operation': Operation
         }
+
+
+def start_operation_expiry_scheduler(app):
+    """
+    Iniciar scheduler de expiración de operaciones usando eventlet
+    Se ejecuta en un greenlet separado cada 60 segundos
+
+    IMPORTANTE: Solo se inicia UNA vez globalmente, incluso si gunicorn
+    tiene múltiples workers. Usamos una variable global para evitar duplicados.
+    """
+    global _scheduler_greenlet
+
+    # Solo iniciar si no está ya corriendo
+    if _scheduler_greenlet is not None:
+        logging.info("[SCHEDULER] Ya existe un scheduler en ejecución, no se inicia otro")
+        return
+
+    def scheduler_loop():
+        """Loop infinito que expira operaciones cada 60 segundos"""
+        import time
+        logging.info("[SCHEDULER] ✅ Scheduler de expiración de operaciones iniciado")
+
+        while True:
+            try:
+                with app.app_context():
+                    from app.services.operation_expiry_service import OperationExpiryService
+                    expired_count = OperationExpiryService.expire_old_operations()
+                    if expired_count > 0:
+                        logging.info(f"[SCHEDULER] ⏱️ {expired_count} operaciones canceladas automáticamente")
+            except Exception as e:
+                logging.error(f"[SCHEDULER] ❌ Error en scheduler de expiración: {str(e)}")
+                import traceback
+                logging.error(traceback.format_exc())
+
+            # Esperar 60 segundos antes de la próxima verificación
+            eventlet.sleep(60)
+
+    # Iniciar el scheduler en un greenlet separado
+    _scheduler_greenlet = eventlet.spawn(scheduler_loop)
+    logging.info("[SCHEDULER] 🚀 Greenlet de scheduler spawneado")
