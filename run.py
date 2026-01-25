@@ -254,10 +254,10 @@ def update_operation_channel(operation_id, new_origen):
     from app.models.operation import Operation
 
     try:
-        if new_origen not in ['sistema', 'plataforma', 'app']:
+        if new_origen not in ['sistema', 'plataforma', 'app', 'web']:
             return jsonify({
                 'success': False,
-                'error': f'Origen inválido: {new_origen}. Debe ser: sistema, plataforma o app'
+                'error': f'Origen inválido: {new_origen}. Debe ser: sistema, plataforma, app o web'
             }), 400
 
         operation = Operation.query.filter_by(operation_id=operation_id).first()
