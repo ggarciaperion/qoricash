@@ -10,5 +10,6 @@ from app.models.trader_daily_profit import TraderDailyProfit
 from app.models.bank_balance import BankBalance
 from app.models.invoice import Invoice
 from app.models.exchange_rate import ExchangeRate
+from app.models.complaint import Complaint
 
-__all__ = ['User', 'Client', 'Operation', 'AuditLog', 'TraderGoal', 'TraderDailyProfit', 'BankBalance', 'Invoice', 'ExchangeRate']
+__all__ = ['User', 'Client', 'Operation', 'AuditLog', 'TraderGoal', 'TraderDailyProfit', 'BankBalance', 'Invoice', 'ExchangeRate', 'Complaint']

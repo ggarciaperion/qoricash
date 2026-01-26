@@ -9,10 +9,10 @@ from flask_login import current_user
 def require_role(*roles):
     """
     Decorador para requerir roles específicos
-    
+
     Args:
         *roles: Roles permitidos ('Master', 'Trader', 'Operador')
-    
+
     Usage:
         @require_role('Master')
         @require_role('Master', 'Trader')
@@ -25,16 +25,20 @@ def require_role(*roles):
                     return jsonify({'error': 'No autenticado'}), 401
                 flash('Por favor inicia sesión para acceder', 'warning')
                 return redirect(url_for('auth.login'))
-            
+
             if current_user.role not in roles:
                 if request.is_json:
                     return jsonify({'error': 'No autorizado'}), 403
                 flash('No tienes permiso para acceder a esta página', 'danger')
                 return redirect(url_for('dashboard.index'))
-            
+
             return f(*args, **kwargs)
         return decorated_function
     return decorator
+
+
+# Alias para compatibilidad (algunos archivos usan role_required)
+role_required = require_role
 
 
 def api_key_required(f):

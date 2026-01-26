@@ -1506,6 +1506,53 @@ def submit_complaint():
 
         if success:
             logger.info(f"✅ {tipo_solicitud} enviado exitosamente desde libro de reclamaciones: {email}")
+
+            # Después de enviar el email exitosamente, guardar en la base de datos
+            try:
+                from app.models.complaint import Complaint
+
+                # Generar número de reclamo único
+                complaint_number = Complaint.generate_complaint_number()
+
+                # Preparar datos según tipo de documento
+                if tipo_documento == 'RUC':
+                    full_name_value = None
+                    company_name_value = complaint_data.get('razon_social', '')
+                    contact_person_value = complaint_data.get('persona_contacto', '')
+                else:
+                    # Concatenar nombres y apellidos
+                    nombres = complaint_data.get('nombres', '')
+                    apellidos = complaint_data.get('apellidos', '')
+                    full_name_value = f"{nombres} {apellidos}".strip()
+                    company_name_value = None
+                    contact_person_value = None
+
+                # Crear registro de reclamo
+                new_complaint = Complaint(
+                    complaint_number=complaint_number,
+                    document_type=tipo_documento,
+                    document_number=numero_documento,
+                    full_name=full_name_value,
+                    company_name=company_name_value,
+                    contact_person=contact_person_value,
+                    email=email,
+                    phone=telefono,
+                    address=complaint_data.get('direccion', ''),
+                    complaint_type=tipo_solicitud,
+                    detail=detalle,
+                    status='Pendiente',
+                    created_at=now_peru()
+                )
+
+                db.session.add(new_complaint)
+                db.session.commit()
+
+                logger.info(f"✅ {tipo_solicitud} {complaint_number} guardado en BD")
+
+            except Exception as db_error:
+                logger.error(f"❌ Error al guardar {tipo_solicitud} en BD: {str(db_error)}")
+                # No bloquear la respuesta exitosa si falla el guardado en BD
+
             return jsonify({
                 'success': True,
                 'message': f'{tipo_solicitud} enviado exitosamente. Recibirás una respuesta en tu correo dentro de 24-48 horas hábiles.'

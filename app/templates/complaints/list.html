@@ -1,0 +1,251 @@
+{% extends "base.html" %}
+
+{% block title %}Reclamos - QoriCash Trading{% endblock %}
+
+{% block head %}
+<style>
+    .stat-card {
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .stat-card-icon {
+        font-size: 2.5rem;
+        opacity: 0.8;
+    }
+    .stat-card-number {
+        font-size: 2rem;
+        font-weight: bold;
+        margin: 10px 0;
+    }
+    .stat-card-label {
+        font-size: 0.9rem;
+        color: #6c757d;
+        text-transform: uppercase;
+    }
+    .badge-status {
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+    }
+    .filter-tabs {
+        margin-bottom: 20px;
+    }
+    .filter-tabs .nav-link {
+        color: #495057;
+        border: none;
+        padding: 10px 20px;
+    }
+    .filter-tabs .nav-link.active {
+        background-color: #007bff;
+        color: white;
+        border-radius: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <h2><i class="bi bi-file-earmark-text"></i> Libro de Reclamaciones</h2>
+            <p class="text-muted">Gestión de reclamos y quejas de clientes</p>
+        </div>
+    </div>
+
+    <!-- Estadísticas -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="stat-card bg-primary text-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="stat-card-label">Total Este Mes</div>
+                        <div class="stat-card-number">{{ total_month }}</div>
+                    </div>
+                    <div class="stat-card-icon">
+                        <i class="bi bi-calendar-month"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="stat-card bg-warning text-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="stat-card-label">Pendientes</div>
+                        <div class="stat-card-number">{{ pending_count }}</div>
+                    </div>
+                    <div class="stat-card-icon">
+                        <i class="bi bi-clock"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="stat-card bg-info text-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="stat-card-label">En Revisión</div>
+                        <div class="stat-card-number">{{ in_review_count }}</div>
+                    </div>
+                    <div class="stat-card-icon">
+                        <i class="bi bi-eye"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="stat-card bg-success text-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="stat-card-label">Resueltos Este Mes</div>
+                        <div class="stat-card-number">{{ resolved_month }}</div>
+                    </div>
+                    <div class="stat-card-icon">
+                        <i class="bi bi-check-circle"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtros por Estado -->
+    <div class="row mb-3">
+        <div class="col-md-12">
+            <ul class="nav filter-tabs">
+                <li class="nav-item">
+                    <a class="nav-link {% if status_filter == 'all' %}active{% endif %}"
+                       href="{{ url_for('complaints.list_complaints', status='all') }}">
+                        Todos
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if status_filter == 'Pendiente' %}active{% endif %}"
+                       href="{{ url_for('complaints.list_complaints', status='Pendiente') }}">
+                        Pendientes
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if status_filter == 'En Revisión' %}active{% endif %}"
+                       href="{{ url_for('complaints.list_complaints', status='En Revisión') }}">
+                        En Revisión
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if status_filter == 'Resuelto' %}active{% endif %}"
+                       href="{{ url_for('complaints.list_complaints', status='Resuelto') }}">
+                        Resueltos
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Tabla de Reclamos -->
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-body">
+                    <table id="complaintsTable" class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Número</th>
+                                <th>Fecha</th>
+                                <th>Tipo Doc</th>
+                                <th>Documento</th>
+                                <th>Cliente</th>
+                                <th>Email</th>
+                                <th>Tipo</th>
+                                <th>Estado</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for complaint in complaints %}
+                            <tr>
+                                <td><strong>{{ complaint.complaint_number }}</strong></td>
+                                <td>
+                                    {% if complaint.created_at %}
+                                        <small>{{ complaint.created_at.strftime('%d/%m/%Y') }}</small><br>
+                                        <small class="text-muted">{{ complaint.created_at.strftime('%H:%M') }}</small>
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge bg-info">{{ complaint.document_type }}</span>
+                                </td>
+                                <td>{{ complaint.document_number }}</td>
+                                <td>
+                                    <strong>{{ complaint.display_name }}</strong>
+                                    {% if complaint.document_type == 'RUC' and complaint.contact_person %}
+                                        <br><small class="text-muted">Contacto: {{ complaint.contact_person }}</small>
+                                    {% endif %}
+                                </td>
+                                <td>{{ complaint.email }}</td>
+                                <td>
+                                    {% if complaint.complaint_type == 'Reclamo' %}
+                                        <span class="badge bg-danger">Reclamo</span>
+                                    {% else %}
+                                        <span class="badge bg-warning">Queja</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if complaint.status == 'Pendiente' %}
+                                        <span class="badge badge-status bg-warning text-dark">
+                                            <i class="bi bi-clock"></i> Pendiente
+                                        </span>
+                                    {% elif complaint.status == 'En Revisión' %}
+                                        <span class="badge badge-status bg-info">
+                                            <i class="bi bi-eye"></i> En Revisión
+                                        </span>
+                                    {% elif complaint.status == 'Resuelto' %}
+                                        <span class="badge badge-status bg-success">
+                                            <i class="bi bi-check-circle"></i> Resuelto
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a href="{{ url_for('complaints.detail_complaint', id=complaint.id) }}"
+                                       class="btn btn-sm btn-primary" title="Ver detalles">
+                                        <i class="bi bi-eye"></i> Ver
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- jQuery -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+<!-- DataTables JS -->
+<script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.4/js/dataTables.bootstrap5.min.js"></script>
+
+<script>
+$(document).ready(function() {
+    // Inicializar DataTable
+    $('#complaintsTable').DataTable({
+        language: {
+            url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
+        },
+        order: [[1, 'desc']], // Ordenar por fecha (más reciente primero)
+        pageLength: 25,
+        responsive: true
+    });
+});
+</script>
+{% endblock %}
