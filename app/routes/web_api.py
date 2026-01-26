@@ -536,6 +536,19 @@ def create_operation_web():
                 'message': 'Cliente no encontrado'
             }), 404
 
+        # Verificar si el cliente ya tiene una operación activa (Pendiente o En proceso)
+        from app.models.operation import Operation
+        active_operation = Operation.query.filter(
+            Operation.client_id == client.id,
+            Operation.estado.in_(['Pendiente', 'En proceso'])
+        ).first()
+
+        if active_operation:
+            return jsonify({
+                'success': False,
+                'message': f'Ya tienes una operación en estado "{active_operation.estado}" ({active_operation.codigo_operacion}). Debes completarla o cancelarla antes de crear una nueva.'
+            }), 400
+
         # CRÍTICO: Procesar código de referido si se proporcionó
         referral_code = data.get('referral_code', '').strip().upper()
         if referral_code:
