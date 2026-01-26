@@ -1410,7 +1410,15 @@ def submit_complaint():
         return jsonify({'status': 'ok'}), 200
 
     try:
-        data = request.get_json()
+        # Recibir datos de FormData (con archivo) o JSON
+        if request.content_type and 'multipart/form-data' in request.content_type:
+            # Datos vienen como FormData (con archivo)
+            data = request.form.to_dict()
+            evidence_file = request.files.get('evidenceImage')
+        else:
+            # Datos vienen como JSON (sin archivo)
+            data = request.get_json()
+            evidence_file = None
 
         if not data:
             return jsonify({
@@ -1527,8 +1535,19 @@ def submit_complaint():
                     company_name_value = None
                     contact_person_value = None
 
-                # Obtener URL de imagen de evidencia si existe
-                evidence_image_url = data.get('evidenceImageUrl', '').strip()
+                # Subir imagen de evidencia si existe
+                evidence_image_url = None
+                if evidence_file:
+                    try:
+                        from app.services.file_upload_service import FileUploadService
+                        evidence_image_url = FileUploadService.upload_to_cloudinary(
+                            evidence_file,
+                            folder='complaints/evidence'
+                        )
+                        logger.info(f"✅ Imagen de evidencia subida: {evidence_image_url}")
+                    except Exception as upload_error:
+                        logger.error(f"❌ Error al subir imagen de evidencia: {str(upload_error)}")
+                        # Continuar sin imagen si falla el upload
 
                 # Crear registro de reclamo
                 new_complaint = Complaint(
