@@ -123,13 +123,10 @@ def update_complaint_status(id):
             flash('Estado inválido', 'danger')
             return redirect(url_for('complaints.detail_complaint', id=id))
 
-        # Validar que al marcar como "Resuelto" haya respuesta O imagen
+        # Validar que al marcar como "Resuelto" haya respuesta
         if new_status == 'Resuelto':
-            has_response = response_text and response_text.strip() != ''
-            has_image = complaint.resolution_image_url and complaint.resolution_image_url.strip() != ''
-
-            if not has_response and not has_image:
-                flash('Para marcar como "Resuelto" debe proporcionar al menos una respuesta del equipo o una imagen de resolución', 'warning')
+            if not response_text or response_text.strip() == '':
+                flash('Para marcar como "Resuelto" debe proporcionar una respuesta del equipo', 'warning')
                 return redirect(url_for('complaints.detail_complaint', id=id))
 
         # Guardar estado anterior para comparar
@@ -216,13 +213,13 @@ def update_complaint_status(id):
                     # Correo cuando pasa a "Resuelto"
                     subject = f'Reclamo {complaint.complaint_number} - Resuelto'
 
-                    # Construir HTML con o sin imagen
-                    image_html = ''
-                    if complaint.resolution_image_url:
-                        image_html = f"""
-                        <div style="text-align: center; margin: 20px 0;">
-                            <p><strong>Imagen de Resolución:</strong></p>
-                            <img src="{complaint.resolution_image_url}" alt="Resolución" style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                    # Construir HTML con la respuesta del equipo
+                    response_html = ''
+                    if response_text:
+                        response_html = f"""
+                        <div style="background-color: #e8f5e9; padding: 20px; border-radius: 8px; border-left: 4px solid #28a745; margin: 20px 0;">
+                            <p style="margin: 0 0 10px 0;"><strong>Respuesta del Equipo:</strong></p>
+                            <p style="margin: 0; white-space: pre-wrap;">{response_text}</p>
                         </div>
                         """
 
@@ -244,7 +241,7 @@ def update_complaint_status(id):
 
                                 <p>Nos complace informarle que su reclamo <strong>{complaint.complaint_number}</strong> ha sido <strong>resuelto</strong>.</p>
 
-                                {image_html}
+                                {response_html}
 
                                 <p>Si tiene alguna consulta adicional, no dude en contactarnos.</p>
 
