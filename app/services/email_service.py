@@ -1148,8 +1148,8 @@ class EmailService:
 <body>
     <div class="container">
         <div class="header">
-            <h1>Libro de Reclamaciones</h1>
-            <p style="margin: 10px 0 0 0; font-size: 18px; font-weight: bold;">{{ complaint_data.get('tipo_solicitud', 'Reclamo') }}</p>
+            <h1>Reclamo enviado con éxito</h1>
+            <p style="margin: 10px 0 0 0; font-size: 18px; font-weight: bold;">{{ complaint_number }}</p>
         </div>
 
         <div class="content">
@@ -1245,4 +1245,5 @@ class EmailService:
         tz_peru = pytz.timezone('America/Lima')
         fecha_actual = datetime.now(tz_peru).strftime('%d/%m/%Y %H:%M:%S')
 
-        return render_template_string(template, complaint_data=complaint_data, fecha_actual=fecha_actual)
+        complaint_number = complaint_data.get('complaint_number', 'N/A')
+        return render_template_string(template, complaint_data=complaint_data, fecha_actual=fecha_actual, complaint_number=complaint_number)

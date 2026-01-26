@@ -1488,8 +1488,13 @@ def submit_complaint():
                     'message': 'Carné de Extranjería debe tener 9 dígitos'
                 }), 400
 
+        # Generar número de reclamo ANTES de enviar email
+        from app.models.complaint import Complaint
+        complaint_number = Complaint.generate_complaint_number()
+
         # Preparar datos para el email
         complaint_data = {
+            'complaint_number': complaint_number,
             'tipo_documento': tipo_documento,
             'numero_documento': numero_documento,
             'email': email,
@@ -1517,10 +1522,6 @@ def submit_complaint():
 
             # Después de enviar el email exitosamente, guardar en la base de datos
             try:
-                from app.models.complaint import Complaint
-
-                # Generar número de reclamo único
-                complaint_number = Complaint.generate_complaint_number()
 
                 # Preparar datos según tipo de documento
                 if tipo_documento == 'RUC':
