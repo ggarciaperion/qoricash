@@ -669,6 +669,17 @@ def create_operation_web():
         except Exception as notify_error:
             logger.warning(f"⚠️ Error al notificar operación: {str(notify_error)}")
 
+        # Enviar email automático de nueva operación
+        try:
+            from app.services.email_service import EmailService
+            success, message = EmailService.send_new_operation_email(new_operation)
+            if success:
+                logger.info(f"📧 Email de nueva operación enviado: {new_operation.operation_id}")
+            else:
+                logger.warning(f"⚠️ No se pudo enviar email de nueva operación: {message}")
+        except Exception as email_error:
+            logger.error(f"❌ Error al enviar email de nueva operación: {str(email_error)}")
+
         # Construir información de la cuenta para el frontend
         logger.info(f"[create-operation] selected_account: {selected_account}")
 
