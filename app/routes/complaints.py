@@ -28,45 +28,50 @@ def list_complaints():
     - Estadísticas del mes actual
     - Lista de todos los reclamos
     """
-    # Obtener mes y año actual (timezone Peru)
-    current_date = now_peru()
-    current_month = current_date.month
-    current_year = current_date.year
+    try:
+        # Obtener mes y año actual (timezone Peru)
+        current_date = now_peru()
+        current_month = current_date.month
+        current_year = current_date.year
 
-    # Estadísticas del mes actual
-    total_month = Complaint.query.filter(
-        extract('month', Complaint.created_at) == current_month,
-        extract('year', Complaint.created_at) == current_year
-    ).count()
+        # Estadísticas del mes actual
+        total_month = Complaint.query.filter(
+            extract('month', Complaint.created_at) == current_month,
+            extract('year', Complaint.created_at) == current_year
+        ).count()
 
-    pending_count = Complaint.query.filter_by(status='Pendiente').count()
-    in_review_count = Complaint.query.filter_by(status='En Revisión').count()
+        pending_count = Complaint.query.filter_by(status='Pendiente').count()
+        in_review_count = Complaint.query.filter_by(status='En Revisión').count()
 
-    resolved_month = Complaint.query.filter(
-        Complaint.status == 'Resuelto',
-        extract('month', Complaint.resolved_at) == current_month,
-        extract('year', Complaint.resolved_at) == current_year
-    ).count()
+        resolved_month = Complaint.query.filter(
+            Complaint.status == 'Resuelto',
+            extract('month', Complaint.resolved_at) == current_month,
+            extract('year', Complaint.resolved_at) == current_year
+        ).count()
 
-    # Obtener todos los reclamos ordenados por fecha (más reciente primero)
-    # Filtrar por estado si se proporciona
-    status_filter = request.args.get('status', 'all')
+        # Obtener todos los reclamos ordenados por fecha (más reciente primero)
+        # Filtrar por estado si se proporciona
+        status_filter = request.args.get('status', 'all')
 
-    if status_filter == 'all':
-        complaints = Complaint.query.order_by(Complaint.created_at.desc()).all()
-    else:
-        complaints = Complaint.query.filter_by(status=status_filter).order_by(Complaint.created_at.desc()).all()
+        if status_filter == 'all':
+            complaints = Complaint.query.order_by(Complaint.created_at.desc()).all()
+        else:
+            complaints = Complaint.query.filter_by(status=status_filter).order_by(Complaint.created_at.desc()).all()
 
-    return render_template(
-        'complaints/list.html',
-        user=current_user,
-        complaints=complaints,
-        total_month=total_month,
-        pending_count=pending_count,
-        in_review_count=in_review_count,
-        resolved_month=resolved_month,
-        status_filter=status_filter
-    )
+        return render_template(
+            'complaints/list.html',
+            user=current_user,
+            complaints=complaints,
+            total_month=total_month,
+            pending_count=pending_count,
+            in_review_count=in_review_count,
+            resolved_month=resolved_month,
+            status_filter=status_filter
+        )
+    except Exception as e:
+        logger.error(f"❌ Error al listar reclamos: {str(e)}")
+        flash('Error al cargar reclamos. Es posible que la tabla aún no exista. Contacte al administrador.', 'danger')
+        return redirect(url_for('dashboard.index'))
 
 
 @complaints_bp.route('/<int:id>')
