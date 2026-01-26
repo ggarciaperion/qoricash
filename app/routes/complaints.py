@@ -295,6 +295,8 @@ def upload_resolution_image(id):
     try:
         complaint = Complaint.query.get_or_404(id)
 
+        image_url = None
+
         # Verificar si viene archivo o URL JSON
         if request.files and 'file' in request.files:
             # Upload de archivo desde FormData
@@ -310,23 +312,35 @@ def upload_resolution_image(id):
             from app.services.file_service import FileService
             file_service = FileService()
 
+            logger.info(f"📤 Subiendo imagen de resolución para reclamo {complaint.complaint_number}")
+
             success, message, image_url = file_service.upload_file(file, folder='complaints/resolutions')
 
             if not success:
+                logger.error(f"❌ Error en FileService: {message}")
                 return jsonify({
                     'success': False,
                     'message': message
                 }), 400
 
-        elif request.get_json():
-            # URL directa desde JSON (legacy)
-            data = request.get_json()
-            image_url = data.get('image_url', '').strip()
+            logger.info(f"✅ Imagen subida a Cloudinary: {image_url}")
 
-            if not image_url:
+        elif request.content_type and 'application/json' in request.content_type:
+            # URL directa desde JSON (legacy)
+            try:
+                data = request.get_json()
+                image_url = data.get('image_url', '').strip()
+
+                if not image_url:
+                    return jsonify({
+                        'success': False,
+                        'message': 'URL de imagen no proporcionada'
+                    }), 400
+            except Exception as json_error:
+                logger.error(f"❌ Error al procesar JSON: {str(json_error)}")
                 return jsonify({
                     'success': False,
-                    'message': 'URL de imagen no proporcionada'
+                    'message': 'Error al procesar JSON'
                 }), 400
         else:
             return jsonify({
@@ -339,7 +353,7 @@ def upload_resolution_image(id):
 
         db.session.commit()
 
-        logger.info(f"✅ Imagen de resolución subida para reclamo {complaint.complaint_number}: {image_url}")
+        logger.info(f"✅ Imagen de resolución guardada para reclamo {complaint.complaint_number}")
 
         return jsonify({
             'success': True,
@@ -349,10 +363,11 @@ def upload_resolution_image(id):
 
     except Exception as e:
         db.session.rollback()
-        logger.error(f"❌ Error al subir imagen: {str(e)}")
+        logger.error(f"❌ Error al subir imagen de resolución: {str(e)}")
+        logger.exception(e)
         return jsonify({
             'success': False,
-            'message': str(e)
+            'message': f'Error: {str(e)}'
         }), 500
 
 
