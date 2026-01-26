@@ -201,16 +201,19 @@ def configure_security_headers(flask_app):
         if not flask_app.debug:
             response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
 
-        # Content Security Policy
-        response.headers['Content-Security-Policy'] = (
-            "default-src 'self'; "
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.socket.io https://vercel.live; "
-            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
-            "font-src 'self' https://fonts.gstatic.com; "
-            "img-src 'self' data: https: blob:; "
-            "connect-src 'self' https://app.qoricash.pe wss://app.qoricash.pe https://qoricash.vercel.app https://vitals.vercel-insights.com; "
-            "frame-ancestors 'none';"
-        )
+        # Content Security Policy - SOLO para rutas de API web/cliente
+        # No aplicar CSP al sistema administrativo para no romper estilos de CDN
+        from flask import request
+        if request.path.startswith('/api/'):
+            response.headers['Content-Security-Policy'] = (
+                "default-src 'self'; "
+                "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.socket.io https://vercel.live; "
+                "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+                "font-src 'self' https://fonts.gstatic.com; "
+                "img-src 'self' data: https: blob:; "
+                "connect-src 'self' https://app.qoricash.pe wss://app.qoricash.pe https://qoricash.vercel.app https://vitals.vercel-insights.com; "
+                "frame-ancestors 'none';"
+            )
 
         # Referrer Policy
         response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
