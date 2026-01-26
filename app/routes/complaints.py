@@ -149,7 +149,7 @@ def update_complaint_status(id):
         if old_status != new_status:
             try:
                 from app.services.email_service import EmailService
-                email_service = EmailService()
+                from flask_mail import Message
 
                 # Datos del cliente
                 client_name = complaint.full_name or complaint.company_name
@@ -190,19 +190,16 @@ def update_complaint_status(id):
                     </html>
                     """
 
-                    # Enviar al cliente
-                    email_service.send_email(
-                        to_email=client_email,
+                    # Crear mensaje con cliente como destinatario y copia a info
+                    msg = Message(
                         subject=subject,
-                        html_content=html_content
+                        recipients=[client_email],
+                        cc=['info@qoricash.pe'],
+                        html=html_content
                     )
 
-                    # Enviar copia a info@qoricash.pe
-                    email_service.send_email(
-                        to_email='info@qoricash.pe',
-                        subject=f'[COPIA] {subject}',
-                        html_content=html_content
-                    )
+                    # Enviar asíncrono
+                    EmailService._send_async(msg, timeout=15)
 
                     logger.info(f"✅ Correos de 'En Revisión' enviados para reclamo {complaint.complaint_number}")
 
@@ -253,19 +250,16 @@ def update_complaint_status(id):
                     </html>
                     """
 
-                    # Enviar al cliente
-                    email_service.send_email(
-                        to_email=client_email,
+                    # Crear mensaje con cliente como destinatario y copia a info
+                    msg = Message(
                         subject=subject,
-                        html_content=html_content
+                        recipients=[client_email],
+                        cc=['info@qoricash.pe'],
+                        html=html_content
                     )
 
-                    # Enviar copia a info@qoricash.pe
-                    email_service.send_email(
-                        to_email='info@qoricash.pe',
-                        subject=f'[COPIA] {subject}',
-                        html_content=html_content
-                    )
+                    # Enviar asíncrono
+                    EmailService._send_async(msg, timeout=15)
 
                     logger.info(f"✅ Correos de 'Resuelto' enviados para reclamo {complaint.complaint_number}")
 
