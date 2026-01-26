@@ -360,7 +360,7 @@
                                 }
                             });
 
-                            // Upload a Cloudinary
+                            // Upload al backend (backend subirá a Cloudinary)
                             document.getElementById('formUploadImage').addEventListener('submit', async function(e) {
                                 e.preventDefault();
 
@@ -377,42 +377,22 @@
                                 document.getElementById('btnUpload').disabled = true;
 
                                 try {
-                                    // Upload a Cloudinary
+                                    // Enviar archivo al backend
                                     const formData = new FormData();
                                     formData.append('file', file);
-                                    formData.append('upload_preset', 'qoricash_complaints');
-                                    formData.append('folder', 'complaints/resolutions');
 
-                                    const cloudinaryResponse = await fetch(
-                                        'https://api.cloudinary.com/v1_1/dccpxa7v5/image/upload',
+                                    const response = await fetch(
+                                        '{{ url_for("complaints.upload_resolution_image", id=complaint.id) }}',
                                         {
                                             method: 'POST',
                                             body: formData
                                         }
                                     );
 
-                                    if (!cloudinaryResponse.ok) {
-                                        throw new Error('Error al subir imagen a Cloudinary');
-                                    }
+                                    const result = await response.json();
 
-                                    const cloudinaryData = await cloudinaryResponse.json();
-                                    const imageUrl = cloudinaryData.secure_url;
-
-                                    // Guardar URL en el backend
-                                    const saveResponse = await fetch(
-                                        '{{ url_for("complaints.upload_resolution_image", id=complaint.id) }}',
-                                        {
-                                            method: 'POST',
-                                            headers: {
-                                                'Content-Type': 'application/json',
-                                                'X-CSRFToken': '{{ csrf_token() }}'
-                                            },
-                                            body: JSON.stringify({ image_url: imageUrl })
-                                        }
-                                    );
-
-                                    if (!saveResponse.ok) {
-                                        throw new Error('Error al guardar la URL de la imagen');
+                                    if (!response.ok || !result.success) {
+                                        throw new Error(result.message || 'Error al subir la imagen');
                                     }
 
                                     // Recargar página

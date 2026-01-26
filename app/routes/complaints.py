@@ -295,13 +295,43 @@ def upload_resolution_image(id):
     try:
         complaint = Complaint.query.get_or_404(id)
 
-        data = request.get_json()
-        image_url = data.get('image_url', '').strip()
+        # Verificar si viene archivo o URL JSON
+        if request.files and 'file' in request.files:
+            # Upload de archivo desde FormData
+            file = request.files['file']
 
-        if not image_url:
+            if not file or file.filename == '':
+                return jsonify({
+                    'success': False,
+                    'message': 'No se proporcionó archivo'
+                }), 400
+
+            # Usar FileService para subir a Cloudinary
+            from app.services.file_service import FileService
+            file_service = FileService()
+
+            success, message, image_url = file_service.upload_file(file, folder='complaints/resolutions')
+
+            if not success:
+                return jsonify({
+                    'success': False,
+                    'message': message
+                }), 400
+
+        elif request.get_json():
+            # URL directa desde JSON (legacy)
+            data = request.get_json()
+            image_url = data.get('image_url', '').strip()
+
+            if not image_url:
+                return jsonify({
+                    'success': False,
+                    'message': 'URL de imagen no proporcionada'
+                }), 400
+        else:
             return jsonify({
                 'success': False,
-                'message': 'URL de imagen no proporcionada'
+                'message': 'No se proporcionó archivo ni URL'
             }), 400
 
         complaint.resolution_image_url = image_url
@@ -309,11 +339,12 @@ def upload_resolution_image(id):
 
         db.session.commit()
 
-        logger.info(f"✅ Imagen de resolución subida para reclamo {complaint.complaint_number}")
+        logger.info(f"✅ Imagen de resolución subida para reclamo {complaint.complaint_number}: {image_url}")
 
         return jsonify({
             'success': True,
-            'message': 'Imagen subida exitosamente'
+            'message': 'Imagen subida exitosamente',
+            'image_url': image_url
         })
 
     except Exception as e:
