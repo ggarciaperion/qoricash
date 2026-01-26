@@ -77,9 +77,18 @@ def initialize_extensions(flask_app):
     mail.init_app(flask_app)
 
     # CORS - Permitir solicitudes desde el frontend web
+    # Incluye localhost para desarrollo y dominios de producción
+    allowed_origins = [
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "https://qoricash.vercel.app",
+        "https://www.qoricash.pe",
+        "https://qoricash.pe"
+    ]
+
     cors.init_app(
         flask_app,
-        resources={r"/api/*": {"origins": ["http://localhost:3000", "http://localhost:3001", "https://qoricash.vercel.app"]}},
+        resources={r"/api/*": {"origins": allowed_origins}},
         supports_credentials=True,
         allow_headers=["Content-Type", "Authorization"],
         methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"]
@@ -101,6 +110,9 @@ def initialize_extensions(flask_app):
 
     # Registrar filtros personalizados de Jinja2
     register_template_filters(flask_app)
+
+    # Configurar headers de seguridad
+    configure_security_headers(flask_app)
 
 
 def register_blueprints(app):
@@ -168,6 +180,45 @@ def register_error_handlers(app):
     def forbidden_error(error):
         # Siempre retornar JSON para APIs
         return jsonify({'success': False, 'error': 'Acceso denegado'}), 403
+
+
+def configure_security_headers(flask_app):
+    """
+    Configurar headers de seguridad HTTP para proteger contra ataques comunes
+    """
+    @flask_app.after_request
+    def add_security_headers(response):
+        # Prevenir clickjacking
+        response.headers['X-Frame-Options'] = 'DENY'
+
+        # Prevenir MIME type sniffing
+        response.headers['X-Content-Type-Options'] = 'nosniff'
+
+        # Habilitar protección XSS del navegador
+        response.headers['X-XSS-Protection'] = '1; mode=block'
+
+        # Forzar HTTPS en producción (HSTS)
+        if not flask_app.debug:
+            response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+
+        # Content Security Policy
+        response.headers['Content-Security-Policy'] = (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.socket.io https://vercel.live; "
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+            "font-src 'self' https://fonts.gstatic.com; "
+            "img-src 'self' data: https: blob:; "
+            "connect-src 'self' https://app.qoricash.pe wss://app.qoricash.pe https://qoricash.vercel.app https://vitals.vercel-insights.com; "
+            "frame-ancestors 'none';"
+        )
+
+        # Referrer Policy
+        response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+
+        # Permissions Policy (antes Feature-Policy)
+        response.headers['Permissions-Policy'] = 'geolocation=(), microphone=(), camera=()'
+
+        return response
 
 
 def register_template_filters(flask_app):

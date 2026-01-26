@@ -5,7 +5,7 @@ TEMPORAL - Solo DNI sin contraseña para pruebas
 from flask import Blueprint, request, jsonify, make_response
 from app.models.client import Client
 from app.models.user import User
-from app.extensions import db, csrf
+from app.extensions import db, csrf, limiter
 import logging
 
 logger = logging.getLogger(__name__)
@@ -40,6 +40,7 @@ def after_request(response):
 
 @client_auth_bp.route('/login', methods=['OPTIONS', 'POST'])
 @csrf.exempt  # Eximir de CSRF para app móvil
+@limiter.limit("10 per minute")  # Rate limiting: máximo 10 intentos por minuto
 def client_login():
     """
     Login de clientes con DNI y contraseña
@@ -132,6 +133,7 @@ def client_login():
 
 @client_auth_bp.route('/change-password', methods=['OPTIONS', 'POST'])
 @csrf.exempt
+@limiter.limit("5 per minute")  # Rate limiting: máximo 5 cambios por minuto
 def change_password():
     """
     Cambiar contraseña del cliente (especialmente en primer login)
@@ -236,6 +238,7 @@ def change_password():
 
 @client_auth_bp.route('/forgot-password', methods=['OPTIONS', 'POST'])
 @csrf.exempt
+@limiter.limit("3 per hour")  # Rate limiting: máximo 3 recuperaciones por hora
 def forgot_password():
     """
     Resetear contraseña del cliente cuando la olvidó
@@ -396,6 +399,7 @@ def get_current_client():
 
 @client_auth_bp.route('/register', methods=['OPTIONS', 'POST'])
 @csrf.exempt
+@limiter.limit("5 per hour")  # Rate limiting: máximo 5 registros por hora por IP
 def register_client():
     """
     Auto-registro de cliente - Soporta Persona Natural y Jurídica (RUC)
@@ -820,6 +824,7 @@ def get_exchange_rates():
 
 @client_auth_bp.route('/create-operation', methods=['POST'])
 @csrf.exempt
+@limiter.limit("20 per minute")  # Rate limiting: máximo 20 operaciones por minuto
 def create_operation():
     """
     API: Crear operación desde app móvil (cliente)
