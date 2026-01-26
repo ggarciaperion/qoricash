@@ -1539,12 +1539,14 @@ def submit_complaint():
                 evidence_image_url = None
                 if evidence_file:
                     try:
-                        from app.services.file_upload_service import FileUploadService
-                        evidence_image_url = FileUploadService.upload_to_cloudinary(
-                            evidence_file,
-                            folder='complaints/evidence'
-                        )
-                        logger.info(f"✅ Imagen de evidencia subida: {evidence_image_url}")
+                        from app.services.file_service import FileService
+                        file_service = FileService()
+                        result = file_service.upload_file(evidence_file, folder='complaints/evidence')
+                        if result['success']:
+                            evidence_image_url = result['url']
+                            logger.info(f"✅ Imagen de evidencia subida: {evidence_image_url}")
+                        else:
+                            logger.error(f"❌ Error al subir imagen de evidencia: {result.get('message')}")
                     except Exception as upload_error:
                         logger.error(f"❌ Error al subir imagen de evidencia: {str(upload_error)}")
                         # Continuar sin imagen si falla el upload
