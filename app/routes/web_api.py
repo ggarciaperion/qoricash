@@ -1527,6 +1527,9 @@ def submit_complaint():
                     company_name_value = None
                     contact_person_value = None
 
+                # Obtener URL de imagen de evidencia si existe
+                evidence_image_url = data.get('evidenceImageUrl', '').strip()
+
                 # Crear registro de reclamo
                 new_complaint = Complaint(
                     complaint_number=complaint_number,
@@ -1540,6 +1543,7 @@ def submit_complaint():
                     address=complaint_data.get('direccion', ''),
                     complaint_type=tipo_solicitud,
                     detail=detalle,
+                    evidence_image_url=evidence_image_url if evidence_image_url else None,
                     status='Pendiente',
                     created_at=now_peru()
                 )
