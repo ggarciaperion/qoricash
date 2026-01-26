@@ -113,7 +113,7 @@
                                     <small>{{ source_bank|trim or 'N/A' }} / {{ dest_bank|trim or 'N/A' }}</small>
                                 </td>
                                 <td class="text-center">
-                                    {% if op.origen == 'plataforma' %}
+                                    {% if op.origen == 'plataforma' or op.origen == 'web' %}
                                         <span class="badge bg-purple" style="background-color: #6f42c1;">Web</span>
                                     {% elif op.origen == 'app' %}
                                         <span class="badge bg-info">App</span>
@@ -855,7 +855,7 @@ function buildOperationRow(op) {
     console.log(`Operación ${op.operation_id} - origen: "${op.origen}"`);
 
     let canalBadge;
-    if (op.origen === 'plataforma') {
+    if (op.origen === 'plataforma' || op.origen === 'web') {
         canalBadge = '<span class="badge bg-purple" style="background-color: #6f42c1;">Web</span>';
     } else if (op.origen === 'app') {
         canalBadge = '<span class="badge bg-info">App</span>';
