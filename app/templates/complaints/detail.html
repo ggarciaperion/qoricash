@@ -226,13 +226,13 @@
                     </div>
                     {% else %}
                     <!-- Modo edición cuando NO está resuelto -->
-                    <form method="POST" action="{{ url_for('complaints.update_complaint_status', id=complaint.id) }}">
+                    <form id="formUpdateComplaint" method="POST" action="{{ url_for('complaints.update_complaint_status', id=complaint.id) }}">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
                         <div class="row">
                             <div class="col-md-4 mb-3">
                                 <label class="form-label">Estado</label>
-                                <select class="form-select" name="status" required>
+                                <select class="form-select" name="status" id="complaintStatus" required>
                                     <option value="Pendiente" {% if complaint.status == 'Pendiente' %}selected{% endif %}>
                                         Pendiente
                                     </option>
@@ -247,7 +247,7 @@
 
                             <div class="col-md-12 mb-3">
                                 <label class="form-label">Respuesta del Equipo</label>
-                                <textarea class="form-control" name="response" rows="5"
+                                <textarea class="form-control" name="response" id="complaintResponse" rows="5"
                                           placeholder="Ingrese la respuesta al cliente...">{{ complaint.response or '' }}</textarea>
                                 <small class="form-text text-muted">
                                     Al cambiar el estado, se enviará un correo automático al cliente notificando el cambio.
@@ -265,6 +265,23 @@
                             </button>
                         </div>
                     </form>
+
+                    <script>
+                    // Validación para estado "Resuelto"
+                    document.getElementById('formUpdateComplaint').addEventListener('submit', function(e) {
+                        const status = document.getElementById('complaintStatus').value;
+                        const response = document.getElementById('complaintResponse').value.trim();
+                        const hasImage = {{ 'true' if complaint.resolution_image_url else 'false' }};
+
+                        if (status === 'Resuelto') {
+                            if (!response && !hasImage) {
+                                e.preventDefault();
+                                alert('Para marcar como "Resuelto" debe proporcionar al menos una respuesta del equipo o una imagen de resolución');
+                                return false;
+                            }
+                        }
+                    });
+                    </script>
 
                     <!-- Imagen de Resolución (fuera del formulario principal) -->
                     <div class="row mt-4">

@@ -123,6 +123,15 @@ def update_complaint_status(id):
             flash('Estado inválido', 'danger')
             return redirect(url_for('complaints.detail_complaint', id=id))
 
+        # Validar que al marcar como "Resuelto" haya respuesta O imagen
+        if new_status == 'Resuelto':
+            has_response = response_text and response_text.strip() != ''
+            has_image = complaint.resolution_image_url and complaint.resolution_image_url.strip() != ''
+
+            if not has_response and not has_image:
+                flash('Para marcar como "Resuelto" debe proporcionar al menos una respuesta del equipo o una imagen de resolución', 'warning')
+                return redirect(url_for('complaints.detail_complaint', id=id))
+
         # Guardar estado anterior para comparar
         old_status = complaint.status
 
