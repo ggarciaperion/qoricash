@@ -32,6 +32,8 @@ CREATE TABLE IF NOT EXISTS complaints (
     detail TEXT NOT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'Pendiente' CHECK (status IN ('Pendiente', 'En Revisión', 'Resuelto')),
     response TEXT,
+    evidence_image_url TEXT,
+    resolution_image_url TEXT,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP,
     resolved_at TIMESTAMP,

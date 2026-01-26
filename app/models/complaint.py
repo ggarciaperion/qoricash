@@ -55,6 +55,10 @@ class Complaint(db.Model):
     # Respuesta del equipo
     response = db.Column(db.Text)
 
+    # Imágenes (Cloudinary URLs)
+    evidence_image_url = db.Column(db.Text)  # URL de imagen de evidencia subida por el cliente
+    resolution_image_url = db.Column(db.Text)  # URL de imagen de resolución subida por el equipo
+
     # Timestamps
     created_at = db.Column(db.DateTime, default=now_peru, nullable=False)
     updated_at = db.Column(db.DateTime, default=now_peru, onupdate=now_peru)
@@ -124,6 +128,8 @@ class Complaint(db.Model):
             'detail': self.detail,
             'status': self.status,
             'response': self.response,
+            'evidence_image_url': self.evidence_image_url,
+            'resolution_image_url': self.resolution_image_url,
             'display_name': self.display_name,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
