@@ -254,153 +254,6 @@
                                 </small>
                             </div>
 
-                            <!-- Imagen de Resolución -->
-                            <div class="col-md-12 mb-3">
-                                <label class="form-label"><i class="bi bi-image"></i> Imagen de Resolución</label>
-
-                                {% if complaint.resolution_image_url %}
-                                <div class="text-center mb-3">
-                                    <a href="{{ complaint.resolution_image_url }}" target="_blank">
-                                        <img src="{{ complaint.resolution_image_url }}"
-                                             alt="Resolución del reclamo"
-                                             class="img-fluid rounded shadow-sm"
-                                             style="max-height: 300px; object-fit: contain; cursor: pointer;">
-                                    </a>
-                                    <div class="mt-2">
-                                        <small class="text-muted d-block mb-2">Click en la imagen para ver en tamaño completo</small>
-                                        <button type="button" class="btn btn-sm btn-outline-danger"
-                                                onclick="if(confirm('¿Eliminar esta imagen?')) document.getElementById('formRemoveImage').submit();">
-                                            <i class="bi bi-trash"></i> Eliminar imagen
-                                        </button>
-                                    </div>
-                                </div>
-                                <form id="formRemoveImage" method="POST" action="{{ url_for('complaints.remove_resolution_image', id=complaint.id) }}" style="display: none;">
-                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                </form>
-                                {% else %}
-                                <div class="alert alert-info">
-                                    <i class="bi bi-info-circle"></i> Aún no se ha adjuntado una imagen de resolución
-                                </div>
-
-                                <form id="formUploadImage" enctype="multipart/form-data">
-                                    <div class="mb-3">
-                                        <label class="form-label">Adjuntar Imagen de Resolución</label>
-                                        <input type="file" class="form-control" id="resolutionImage" accept="image/*" required>
-                                        <small class="form-text text-muted">
-                                            Formatos permitidos: JPG, PNG. Tamaño máximo: 5MB
-                                        </small>
-                                    </div>
-                                    <div id="imagePreview" class="mb-3" style="display: none;">
-                                        <img id="previewImg" class="img-fluid rounded" style="max-height: 200px;">
-                                    </div>
-                                    <button type="submit" class="btn btn-primary" id="btnUpload">
-                                        <i class="bi bi-cloud-upload"></i> Subir Imagen
-                                    </button>
-                                    <div id="uploadProgress" class="mt-2" style="display: none;">
-                                        <div class="progress">
-                                            <div class="progress-bar progress-bar-striped progress-bar-animated"
-                                                 role="progressbar" style="width: 100%">Subiendo...</div>
-                                        </div>
-                                    </div>
-                                </form>
-
-                                <script>
-                                // Preview de imagen
-                                document.getElementById('resolutionImage').addEventListener('change', function(e) {
-                                    const file = e.target.files[0];
-                                    if (file) {
-                                        // Validar tipo
-                                        if (!file.type.startsWith('image/')) {
-                                            alert('Por favor selecciona un archivo de imagen válido');
-                                            this.value = '';
-                                            return;
-                                        }
-
-                                        // Validar tamaño (5MB)
-                                        if (file.size > 5 * 1024 * 1024) {
-                                            alert('La imagen no debe superar los 5MB');
-                                            this.value = '';
-                                            return;
-                                        }
-
-                                        // Mostrar preview
-                                        const reader = new FileReader();
-                                        reader.onload = function(e) {
-                                            document.getElementById('previewImg').src = e.target.result;
-                                            document.getElementById('imagePreview').style.display = 'block';
-                                        };
-                                        reader.readAsDataURL(file);
-                                    }
-                                });
-
-                                // Upload a Cloudinary
-                                document.getElementById('formUploadImage').addEventListener('submit', async function(e) {
-                                    e.preventDefault();
-
-                                    const fileInput = document.getElementById('resolutionImage');
-                                    const file = fileInput.files[0];
-
-                                    if (!file) {
-                                        alert('Por favor selecciona una imagen');
-                                        return;
-                                    }
-
-                                    // Mostrar progress
-                                    document.getElementById('uploadProgress').style.display = 'block';
-                                    document.getElementById('btnUpload').disabled = true;
-
-                                    try {
-                                        // Upload a Cloudinary
-                                        const formData = new FormData();
-                                        formData.append('file', file);
-                                        formData.append('upload_preset', 'qoricash_complaints');
-                                        formData.append('folder', 'complaints/resolutions');
-
-                                        const cloudinaryResponse = await fetch(
-                                            'https://api.cloudinary.com/v1_1/dccpxa7v5/image/upload',
-                                            {
-                                                method: 'POST',
-                                                body: formData
-                                            }
-                                        );
-
-                                        if (!cloudinaryResponse.ok) {
-                                            throw new Error('Error al subir imagen a Cloudinary');
-                                        }
-
-                                        const cloudinaryData = await cloudinaryResponse.json();
-                                        const imageUrl = cloudinaryData.secure_url;
-
-                                        // Guardar URL en el backend
-                                        const saveResponse = await fetch(
-                                            '{{ url_for("complaints.upload_resolution_image", id=complaint.id) }}',
-                                            {
-                                                method: 'POST',
-                                                headers: {
-                                                    'Content-Type': 'application/json',
-                                                    'X-CSRFToken': '{{ csrf_token() }}'
-                                                },
-                                                body: JSON.stringify({ image_url: imageUrl })
-                                            }
-                                        );
-
-                                        if (!saveResponse.ok) {
-                                            throw new Error('Error al guardar la URL de la imagen');
-                                        }
-
-                                        // Recargar página
-                                        window.location.reload();
-
-                                    } catch (error) {
-                                        console.error('Error:', error);
-                                        alert('Error al subir la imagen: ' + error.message);
-                                        document.getElementById('uploadProgress').style.display = 'none';
-                                        document.getElementById('btnUpload').disabled = false;
-                                    }
-                                });
-                                </script>
-                                {% endif %}
-                            </div>
                         </div>
 
                         <div class="d-flex justify-content-end gap-2">
@@ -412,7 +265,159 @@
                             </button>
                         </div>
                     </form>
+
+                    <!-- Imagen de Resolución (fuera del formulario principal) -->
+                    <div class="row mt-4">
+                        <div class="col-md-12">
+                            <label class="form-label"><i class="bi bi-image"></i> Imagen de Resolución</label>
+
+                            {% if complaint.resolution_image_url %}
+                            <div class="text-center mb-3">
+                                <a href="{{ complaint.resolution_image_url }}" target="_blank">
+                                    <img src="{{ complaint.resolution_image_url }}"
+                                         alt="Resolución del reclamo"
+                                         class="img-fluid rounded shadow-sm"
+                                         style="max-height: 300px; object-fit: contain; cursor: pointer;">
+                                </a>
+                                <div class="mt-2">
+                                    <small class="text-muted d-block mb-2">Click en la imagen para ver en tamaño completo</small>
+                                    <button type="button" class="btn btn-sm btn-outline-danger"
+                                            onclick="if(confirm('¿Eliminar esta imagen?')) document.getElementById('formRemoveImage').submit();">
+                                        <i class="bi bi-trash"></i> Eliminar imagen
+                                    </button>
+                                </div>
+                            </div>
+                            {% else %}
+                            <div class="alert alert-info">
+                                <i class="bi bi-info-circle"></i> Aún no se ha adjuntado una imagen de resolución
+                            </div>
+
+                            <form id="formUploadImage" enctype="multipart/form-data">
+                                <div class="mb-3">
+                                    <label class="form-label">Adjuntar Imagen de Resolución</label>
+                                    <input type="file" class="form-control" id="resolutionImage" accept="image/*" required>
+                                    <small class="form-text text-muted">
+                                        Formatos permitidos: JPG, PNG. Tamaño máximo: 5MB
+                                    </small>
+                                </div>
+                                <div id="imagePreview" class="mb-3" style="display: none;">
+                                    <img id="previewImg" class="img-fluid rounded" style="max-height: 200px;">
+                                </div>
+                                <button type="submit" class="btn btn-primary" id="btnUpload">
+                                    <i class="bi bi-cloud-upload"></i> Subir Imagen
+                                </button>
+                                <div id="uploadProgress" class="mt-2" style="display: none;">
+                                    <div class="progress">
+                                        <div class="progress-bar progress-bar-striped progress-bar-animated"
+                                             role="progressbar" style="width: 100%">Subiendo...</div>
+                                    </div>
+                                </div>
+                            </form>
+
+                            <script>
+                            // Preview de imagen
+                            document.getElementById('resolutionImage').addEventListener('change', function(e) {
+                                const file = e.target.files[0];
+                                if (file) {
+                                    // Validar tipo
+                                    if (!file.type.startsWith('image/')) {
+                                        alert('Por favor selecciona un archivo de imagen válido');
+                                        this.value = '';
+                                        return;
+                                    }
+
+                                    // Validar tamaño (5MB)
+                                    if (file.size > 5 * 1024 * 1024) {
+                                        alert('La imagen no debe superar los 5MB');
+                                        this.value = '';
+                                        return;
+                                    }
+
+                                    // Mostrar preview
+                                    const reader = new FileReader();
+                                    reader.onload = function(e) {
+                                        document.getElementById('previewImg').src = e.target.result;
+                                        document.getElementById('imagePreview').style.display = 'block';
+                                    };
+                                    reader.readAsDataURL(file);
+                                }
+                            });
+
+                            // Upload a Cloudinary
+                            document.getElementById('formUploadImage').addEventListener('submit', async function(e) {
+                                e.preventDefault();
+
+                                const fileInput = document.getElementById('resolutionImage');
+                                const file = fileInput.files[0];
+
+                                if (!file) {
+                                    alert('Por favor selecciona una imagen');
+                                    return;
+                                }
+
+                                // Mostrar progress
+                                document.getElementById('uploadProgress').style.display = 'block';
+                                document.getElementById('btnUpload').disabled = true;
+
+                                try {
+                                    // Upload a Cloudinary
+                                    const formData = new FormData();
+                                    formData.append('file', file);
+                                    formData.append('upload_preset', 'qoricash_complaints');
+                                    formData.append('folder', 'complaints/resolutions');
+
+                                    const cloudinaryResponse = await fetch(
+                                        'https://api.cloudinary.com/v1_1/dccpxa7v5/image/upload',
+                                        {
+                                            method: 'POST',
+                                            body: formData
+                                        }
+                                    );
+
+                                    if (!cloudinaryResponse.ok) {
+                                        throw new Error('Error al subir imagen a Cloudinary');
+                                    }
+
+                                    const cloudinaryData = await cloudinaryResponse.json();
+                                    const imageUrl = cloudinaryData.secure_url;
+
+                                    // Guardar URL en el backend
+                                    const saveResponse = await fetch(
+                                        '{{ url_for("complaints.upload_resolution_image", id=complaint.id) }}',
+                                        {
+                                            method: 'POST',
+                                            headers: {
+                                                'Content-Type': 'application/json',
+                                                'X-CSRFToken': '{{ csrf_token() }}'
+                                            },
+                                            body: JSON.stringify({ image_url: imageUrl })
+                                        }
+                                    );
+
+                                    if (!saveResponse.ok) {
+                                        throw new Error('Error al guardar la URL de la imagen');
+                                    }
+
+                                    // Recargar página
+                                    window.location.reload();
+
+                                } catch (error) {
+                                    console.error('Error:', error);
+                                    alert('Error al subir la imagen: ' + error.message);
+                                    document.getElementById('uploadProgress').style.display = 'none';
+                                    document.getElementById('btnUpload').disabled = false;
+                                }
+                            });
+                            </script>
+                            {% endif %}
+                        </div>
+                    </div>
                     {% endif %}
+
+                    <!-- Formulario oculto para eliminar imagen (fuera del formulario principal) -->
+                    <form id="formRemoveImage" method="POST" action="{{ url_for('complaints.remove_resolution_image', id=complaint.id) }}" style="display: none;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    </form>
 
                     <!-- Mostrar imagen de resolución en modo solo lectura si está resuelto -->
                     {% if complaint.status == 'Resuelto' and complaint.resolution_image_url %}
