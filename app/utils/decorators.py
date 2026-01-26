@@ -12,22 +12,29 @@ def require_role(*roles):
 
     Args:
         *roles: Roles permitidos ('Master', 'Trader', 'Operador')
+                También acepta una lista de roles como primer argumento
 
     Usage:
         @require_role('Master')
         @require_role('Master', 'Trader')
+        @require_role(['Master', 'Middle Office'])
     """
     def decorator(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
             if not current_user.is_authenticated:
-                if request.is_json:
+                # Detectar si es una petición JSON o AJAX
+                if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                     return jsonify({'error': 'No autenticado'}), 401
                 flash('Por favor inicia sesión para acceder', 'warning')
                 return redirect(url_for('auth.login'))
 
-            if current_user.role not in roles:
-                if request.is_json:
+            # Normalizar roles (aceptar lista o argumentos múltiples)
+            allowed_roles = roles[0] if len(roles) == 1 and isinstance(roles[0], list) else roles
+
+            if current_user.role not in allowed_roles:
+                # Detectar si es una petición JSON o AJAX
+                if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                     return jsonify({'error': 'No autorizado'}), 403
                 flash('No tienes permiso para acceder a esta página', 'danger')
                 return redirect(url_for('dashboard.index'))

@@ -437,8 +437,17 @@
 
     // Actualizar badge de Reclamos Pendientes
     function updateComplaintsBadge() {
-        fetch('/complaints/api/stats')
-            .then(response => response.json())
+        fetch('/complaints/api/stats', {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                return response.json();
+            })
             .then(data => {
                 if (data.success && data.data) {
                     const count = data.data.pending_count;
