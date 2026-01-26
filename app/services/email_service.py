@@ -1047,3 +1047,202 @@ class EmailService:
 </html>
 """
         return render_template_string(template, client=client, trader=trader)
+
+    @staticmethod
+    def send_complaint_email(complaint_data):
+        """
+        Enviar correo de reclamo/queja del libro de reclamaciones
+
+        Args:
+            complaint_data: dict con los datos del reclamo
+                - tipo_documento: str
+                - numero_documento: str
+                - nombres: str (opcional)
+                - apellidos: str (opcional)
+                - razon_social: str (opcional)
+                - persona_contacto: str (opcional)
+                - email: str
+                - telefono: str
+                - direccion: str
+                - tipo_solicitud: str ('Reclamo' o 'Queja')
+                - detalle: str
+
+        Returns:
+            tuple: (success: bool, message: str)
+        """
+        try:
+            logger.info(f'[EMAIL] Iniciando envío de email de {complaint_data.get("tipo_solicitud", "Reclamo")}')
+
+            # Destinatario principal: info@qoricash.pe
+            to = ['info@qoricash.pe']
+
+            # Copia: email del cliente
+            cc = []
+            if complaint_data.get('email'):
+                cc.append(complaint_data['email'])
+
+            logger.info(f'[EMAIL] Destinatarios - TO: {to}, CC: {cc}')
+
+            # Determinar el nombre del cliente según tipo de documento
+            if complaint_data.get('tipo_documento') == 'RUC':
+                client_name = complaint_data.get('razon_social', 'Cliente')
+            else:
+                nombres = complaint_data.get('nombres', '')
+                apellidos = complaint_data.get('apellidos', '')
+                client_name = f"{nombres} {apellidos}".strip() or 'Cliente'
+
+            # Asunto
+            tipo_solicitud = complaint_data.get('tipo_solicitud', 'Reclamo')
+            subject = f'[{tipo_solicitud}] Libro de Reclamaciones - {client_name}'
+
+            # Contenido HTML
+            html_body = EmailService._render_complaint_template(complaint_data)
+
+            # Crear mensaje
+            msg = Message(
+                subject=subject,
+                recipients=to,
+                cc=cc if cc else None,
+                html=html_body
+            )
+
+            # Enviar ASÍNCRONO para no bloquear
+            EmailService._send_async(msg, timeout=15)
+
+            logger.info(f'[EMAIL] Email de {tipo_solicitud} programado para envío')
+            return True, 'Email programado para envío'
+
+        except Exception as e:
+            logger.error(f'[EMAIL] ERROR al enviar email de reclamo: {str(e)}')
+            logger.exception(e)
+            return False, f'Error al enviar email: {str(e)}'
+
+    @staticmethod
+    def _render_complaint_template(complaint_data):
+        """Renderizar plantilla HTML para reclamo/queja del libro de reclamaciones"""
+        template = """
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; background-color: #f4f4f4; margin: 0; padding: 0; }
+        .container { max-width: 600px; margin: 20px auto; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .header { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 30px 20px; text-align: center; }
+        .header h1 { margin: 0; font-size: 24px; }
+        .content { padding: 30px 20px; }
+        .info-row { display: flex; justify-content: space-between; padding: 12px; border-bottom: 1px solid #e5e7eb; }
+        .info-row:last-child { border-bottom: none; }
+        .info-label { font-weight: 600; color: #6b7280; min-width: 150px; }
+        .info-value { color: #111827; font-weight: 500; }
+        .highlight-box { background: #f9fafb; border-left: 4px solid #10b981; padding: 15px; margin: 20px 0; border-radius: 4px; }
+        .detail-box { background: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0; border-radius: 4px; }
+        .footer { background: #f9fafb; padding: 20px; text-align: center; font-size: 12px; color: #6b7280; }
+        @media only screen and (max-width: 600px) {
+            .info-row { flex-direction: column; }
+            .info-label { margin-bottom: 5px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Libro de Reclamaciones</h1>
+            <p style="margin: 10px 0 0 0; font-size: 18px; font-weight: bold;">{{ complaint_data.get('tipo_solicitud', 'Reclamo') }}</p>
+        </div>
+
+        <div class="content">
+            <p style="font-size: 14px; color: #6b7280; margin-bottom: 20px;">
+                Fecha de registro: {{ fecha_actual }}
+            </p>
+
+            <h2 style="color: #111827; font-size: 18px; margin-bottom: 15px; border-bottom: 2px solid #10b981; padding-bottom: 8px;">
+                Datos del Reclamante
+            </h2>
+
+            <div class="highlight-box">
+                {% if complaint_data.get('tipo_documento') == 'RUC' %}
+                <div class="info-row">
+                    <span class="info-label">Tipo de Documento:</span>
+                    <span class="info-value">RUC</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Número de RUC:</span>
+                    <span class="info-value">{{ complaint_data.get('numero_documento', 'No proporcionado') }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Razón Social:</span>
+                    <span class="info-value">{{ complaint_data.get('razon_social', 'No proporcionado') }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Persona de Contacto:</span>
+                    <span class="info-value">{{ complaint_data.get('persona_contacto', 'No proporcionado') }}</span>
+                </div>
+                {% else %}
+                <div class="info-row">
+                    <span class="info-label">Tipo de Documento:</span>
+                    <span class="info-value">{{ complaint_data.get('tipo_documento', 'DNI') }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Número de Documento:</span>
+                    <span class="info-value">{{ complaint_data.get('numero_documento', 'No proporcionado') }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Nombres:</span>
+                    <span class="info-value">{{ complaint_data.get('nombres', 'No proporcionado') }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Apellidos:</span>
+                    <span class="info-value">{{ complaint_data.get('apellidos', 'No proporcionado') }}</span>
+                </div>
+                {% endif %}
+                <div class="info-row">
+                    <span class="info-label">Email:</span>
+                    <span class="info-value">{{ complaint_data.get('email', 'No proporcionado') }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Teléfono:</span>
+                    <span class="info-value">{{ complaint_data.get('telefono', 'No proporcionado') }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Dirección:</span>
+                    <span class="info-value">{{ complaint_data.get('direccion', 'No proporcionada') }}</span>
+                </div>
+            </div>
+
+            <h2 style="color: #111827; font-size: 18px; margin: 30px 0 15px 0; border-bottom: 2px solid #10b981; padding-bottom: 8px;">
+                Detalle del {{ complaint_data.get('tipo_solicitud', 'Reclamo') }}
+            </h2>
+
+            <div class="detail-box">
+                <p style="margin: 0; white-space: pre-wrap; color: #78350f; font-size: 14px;">{{ complaint_data.get('detalle', 'No se proporcionó detalle') }}</p>
+            </div>
+
+            <p style="margin-top: 25px; padding: 15px; background: #e0f2fe; border-radius: 6px; border-left: 4px solid #0ea5e9; font-size: 13px; color: #0c4a6e;">
+                <strong>Importante:</strong> Este {{ complaint_data.get('tipo_solicitud', 'reclamo').lower() }} debe ser respondido dentro de las próximas 24-48 horas hábiles.
+            </p>
+
+            <p style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 13px;">
+                Este es un correo automático generado desde el Libro de Reclamaciones de QoriCash.
+            </p>
+        </div>
+
+        <div class="footer">
+            <p><strong>QoriCash</strong></p>
+            <p>RUC: 20235842211</p>
+            <p>Sistema de Gestión de Operaciones Cambiarias</p>
+            <p style="margin-top: 10px;">© 2024 QoriCash. Todos los derechos reservados.</p>
+        </div>
+    </div>
+</body>
+</html>
+"""
+        from datetime import datetime
+        import pytz
+
+        # Obtener fecha actual en zona horaria de Perú
+        tz_peru = pytz.timezone('America/Lima')
+        fecha_actual = datetime.now(tz_peru).strftime('%d/%m/%Y %H:%M:%S')
+
+        return render_template_string(template, complaint_data=complaint_data, fecha_actual=fecha_actual)

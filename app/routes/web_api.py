@@ -1370,3 +1370,158 @@ def debug_client_operations(dni):
     except Exception as e:
         logger.error(f"❌ Error en debug: {str(e)}", exc_info=True)
         return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@web_api_bp.route('/complaints', methods=['OPTIONS', 'POST'])
+@csrf.exempt
+def submit_complaint():
+    """
+    Registrar reclamo o queja del libro de reclamaciones
+
+    Este endpoint:
+    1. Recibe los datos del formulario de libro de reclamaciones
+    2. Valida los campos obligatorios
+    3. Envía un email a info@qoricash.pe con copia al cliente
+    4. Retorna confirmación de envío
+
+    Request JSON:
+    {
+        "tipoDocumento": "DNI" | "CE" | "RUC",
+        "numeroDocumento": "12345678",
+        "nombres": "Juan" (si no es RUC),
+        "apellidos": "García López" (si no es RUC),
+        "razonSocial": "Empresa SAC" (si es RUC),
+        "personaContacto": "Juan García" (si es RUC),
+        "email": "cliente@ejemplo.com",
+        "telefono": "987654321",
+        "direccion": "Av. Principal 123",
+        "tipoSolicitud": "Reclamo" | "Queja",
+        "detalle": "Descripción detallada..."
+    }
+
+    Returns:
+        JSON: {
+            "success": true/false,
+            "message": "..."
+        }
+    """
+    # Manejar preflight OPTIONS request
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+
+    try:
+        data = request.get_json()
+
+        if not data:
+            return jsonify({
+                'success': False,
+                'message': 'No se recibieron datos'
+            }), 400
+
+        # Validar campos obligatorios comunes
+        tipo_documento = data.get('tipoDocumento', '').strip()
+        numero_documento = data.get('numeroDocumento', '').strip()
+        email = data.get('email', '').strip()
+        telefono = data.get('telefono', '').strip()
+        tipo_solicitud = data.get('tipoSolicitud', 'Reclamo').strip()
+        detalle = data.get('detalle', '').strip()
+
+        # Validar campos obligatorios
+        if not all([tipo_documento, numero_documento, email, telefono, detalle]):
+            return jsonify({
+                'success': False,
+                'message': 'Faltan campos obligatorios'
+            }), 400
+
+        # Validar email
+        if not email or '@' not in email:
+            return jsonify({
+                'success': False,
+                'message': 'Email inválido'
+            }), 400
+
+        # Validar según tipo de documento
+        if tipo_documento == 'RUC':
+            razon_social = data.get('razonSocial', '').strip()
+            persona_contacto = data.get('personaContacto', '').strip()
+
+            if not all([razon_social, persona_contacto]):
+                return jsonify({
+                    'success': False,
+                    'message': 'Razón social y persona de contacto son obligatorios para RUC'
+                }), 400
+
+            # Validar longitud RUC
+            if len(numero_documento) != 11:
+                return jsonify({
+                    'success': False,
+                    'message': 'RUC debe tener 11 dígitos'
+                }), 400
+
+        else:  # DNI o CE
+            nombres = data.get('nombres', '').strip()
+            apellidos = data.get('apellidos', '').strip()
+
+            if not all([nombres, apellidos]):
+                return jsonify({
+                    'success': False,
+                    'message': 'Nombres y apellidos son obligatorios'
+                }), 400
+
+            # Validar longitud según tipo
+            if tipo_documento == 'DNI' and len(numero_documento) != 8:
+                return jsonify({
+                    'success': False,
+                    'message': 'DNI debe tener 8 dígitos'
+                }), 400
+            elif tipo_documento == 'CE' and len(numero_documento) != 9:
+                return jsonify({
+                    'success': False,
+                    'message': 'Carné de Extranjería debe tener 9 dígitos'
+                }), 400
+
+        # Preparar datos para el email
+        complaint_data = {
+            'tipo_documento': tipo_documento,
+            'numero_documento': numero_documento,
+            'email': email,
+            'telefono': telefono,
+            'direccion': data.get('direccion', '').strip(),
+            'tipo_solicitud': tipo_solicitud,
+            'detalle': detalle
+        }
+
+        # Agregar campos según tipo de documento
+        if tipo_documento == 'RUC':
+            complaint_data['razon_social'] = data.get('razonSocial', '').strip()
+            complaint_data['persona_contacto'] = data.get('personaContacto', '').strip()
+        else:
+            complaint_data['nombres'] = data.get('nombres', '').strip()
+            complaint_data['apellidos'] = data.get('apellidos', '').strip()
+
+        # Enviar email
+        from app.services.email_service import EmailService
+
+        success, message = EmailService.send_complaint_email(complaint_data)
+
+        if success:
+            logger.info(f"✅ {tipo_solicitud} enviado exitosamente desde libro de reclamaciones: {email}")
+            return jsonify({
+                'success': True,
+                'message': f'{tipo_solicitud} enviado exitosamente. Recibirás una respuesta en tu correo dentro de 24-48 horas hábiles.'
+            }), 200
+        else:
+            logger.error(f"❌ Error al enviar {tipo_solicitud}: {message}")
+            return jsonify({
+                'success': False,
+                'message': f'Error al enviar {tipo_solicitud.lower()}: {message}'
+            }), 500
+
+    except Exception as e:
+        logger.error(f"❌ Error en endpoint de complaints: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return jsonify({
+            'success': False,
+            'message': f'Error al procesar solicitud: {str(e)}'
+        }), 500
