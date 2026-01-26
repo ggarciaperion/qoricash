@@ -660,13 +660,13 @@ def create_operation_web():
         logger.info(f"[create-operation] selected_account: {selected_account}")
 
         source_account_info = {
-            'banco': selected_account.get('bank') or selected_account.get('banco'),
+            'banco': selected_account.get('bank_name') or selected_account.get('bank') or selected_account.get('banco'),
             'numero_cuenta': source_account,
             'moneda': source_currency
         }
 
         destination_account_info = {
-            'banco': selected_account.get('bank') or selected_account.get('banco'),
+            'banco': selected_account.get('bank_name') or selected_account.get('bank') or selected_account.get('banco'),
             'numero_cuenta': destination_account,
             'moneda': destination_currency
         }
