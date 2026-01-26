@@ -540,13 +540,13 @@ def create_operation_web():
         from app.models.operation import Operation
         active_operation = Operation.query.filter(
             Operation.client_id == client.id,
-            Operation.estado.in_(['Pendiente', 'En proceso'])
+            Operation.status.in_(['Pendiente', 'En proceso'])
         ).first()
 
         if active_operation:
             return jsonify({
                 'success': False,
-                'message': f'Ya tienes una operación en estado "{active_operation.estado}" ({active_operation.codigo_operacion}). Debes completarla o cancelarla antes de crear una nueva.'
+                'message': f'Ya tienes una operación en estado "{active_operation.status}" ({active_operation.operation_id}). Debes completarla o cancelarla antes de crear una nueva.'
             }), 400
 
         # CRÍTICO: Procesar código de referido si se proporcionó
