@@ -288,12 +288,29 @@ def update_complaint_status(id):
 
 
 @complaints_bp.route('/<int:id>/upload-resolution-image', methods=['POST'])
-@login_required
-@role_required(['Master', 'Middle Office'])
 def upload_resolution_image(id):
     """Subir imagen de resolución"""
+    # Verificar autenticación ANTES de decoradores para AJAX
+    if not current_user.is_authenticated:
+        return jsonify({
+            'success': False,
+            'message': 'No autenticado'
+        }), 401
+
+    # Verificar roles manualmente para AJAX
+    if current_user.role not in ['Master', 'Middle Office']:
+        return jsonify({
+            'success': False,
+            'message': 'No tienes permisos para realizar esta acción'
+        }), 403
+
     try:
-        complaint = Complaint.query.get_or_404(id)
+        complaint = Complaint.query.get(id)
+        if not complaint:
+            return jsonify({
+                'success': False,
+                'message': 'Reclamo no encontrado'
+            }), 404
 
         image_url = None
 
