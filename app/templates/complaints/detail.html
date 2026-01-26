@@ -198,8 +198,34 @@
         <div class="col-md-12">
             <div class="card detail-card">
                 <div class="card-body">
-                    <h5 class="mb-3"><i class="bi bi-pencil-square"></i> Actualizar Estado y Respuesta</h5>
+                    <h5 class="mb-3">
+                        <i class="bi bi-{% if complaint.status == 'Resuelto' %}eye{% else %}pencil-square{% endif %}"></i>
+                        {% if complaint.status == 'Resuelto' %}Información de Resolución{% else %}Actualizar Estado y Respuesta{% endif %}
+                    </h5>
 
+                    {% if complaint.status == 'Resuelto' %}
+                    <!-- Modo solo lectura cuando está resuelto -->
+                    <div class="alert alert-success">
+                        <i class="bi bi-check-circle-fill"></i> Este reclamo ha sido resuelto y no puede editarse.
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Estado</label>
+                            <div class="form-control-plaintext">
+                                <span class="badge bg-success"><i class="bi bi-check-circle"></i> Resuelto</span>
+                            </div>
+                        </div>
+
+                        <div class="col-md-12 mb-3">
+                            <label class="form-label">Respuesta del Equipo</label>
+                            <div class="detail-text" style="border-left-color: #28a745;">
+                                {{ complaint.response or 'No se proporcionó respuesta' }}
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <!-- Modo edición cuando NO está resuelto -->
                     <form method="POST" action="{{ url_for('complaints.update_complaint_status', id=complaint.id) }}">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
@@ -224,8 +250,7 @@
                                 <textarea class="form-control" name="response" rows="5"
                                           placeholder="Ingrese la respuesta al cliente...">{{ complaint.response or '' }}</textarea>
                                 <small class="form-text text-muted">
-                                    Esta respuesta será visible para el equipo interno. Para notificar al cliente,
-                                    envíe un correo separado a {{ complaint.email }}
+                                    Al cambiar el estado, se enviará un correo automático al cliente notificando el cambio.
                                 </small>
                             </div>
 
@@ -387,6 +412,27 @@
                             </button>
                         </div>
                     </form>
+                    {% endif %}
+
+                    <!-- Mostrar imagen de resolución en modo solo lectura si está resuelto -->
+                    {% if complaint.status == 'Resuelto' and complaint.resolution_image_url %}
+                    <div class="row">
+                        <div class="col-md-12 mb-3">
+                            <label class="form-label"><i class="bi bi-image"></i> Imagen de Resolución</label>
+                            <div class="text-center">
+                                <a href="{{ complaint.resolution_image_url }}" target="_blank">
+                                    <img src="{{ complaint.resolution_image_url }}"
+                                         alt="Resolución del reclamo"
+                                         class="img-fluid rounded shadow-sm"
+                                         style="max-height: 300px; object-fit: contain; cursor: pointer;">
+                                </a>
+                                <div class="mt-2">
+                                    <small class="text-muted">Click en la imagen para ver en tamaño completo</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
                 </div>
             </div>
         </div>

@@ -108,6 +108,11 @@ def update_complaint_status(id):
     try:
         complaint = Complaint.query.get_or_404(id)
 
+        # Prevenir edición si ya está resuelto
+        if complaint.status == 'Resuelto':
+            flash('No se puede editar un reclamo que ya está resuelto', 'warning')
+            return redirect(url_for('complaints.detail_complaint', id=id))
+
         # Obtener datos del formulario
         new_status = request.form.get('status', '').strip()
         response_text = request.form.get('response', '').strip()
@@ -117,6 +122,9 @@ def update_complaint_status(id):
         if new_status not in valid_statuses:
             flash('Estado inválido', 'danger')
             return redirect(url_for('complaints.detail_complaint', id=id))
+
+        # Guardar estado anterior para comparar
+        old_status = complaint.status
 
         # Actualizar datos
         complaint.status = new_status
@@ -136,6 +144,135 @@ def update_complaint_status(id):
         db.session.commit()
 
         logger.info(f"✅ Reclamo {complaint.complaint_number} actualizado a estado '{new_status}' por {current_user.username}")
+
+        # Enviar correos automáticos cuando cambia el estado
+        if old_status != new_status:
+            try:
+                from app.services.email_service import EmailService
+                email_service = EmailService()
+
+                # Datos del cliente
+                client_name = complaint.full_name or complaint.company_name
+                client_email = complaint.email
+
+                if new_status == 'En Revisión':
+                    # Correo cuando pasa a "En Revisión"
+                    subject = f'Reclamo {complaint.complaint_number} - En Revisión'
+
+                    html_content = f"""
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <meta charset="UTF-8">
+                    </head>
+                    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                        <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+                                <h1 style="margin: 0;">Actualización de Reclamo</h1>
+                                <p style="margin: 10px 0 0 0; font-size: 18px; font-weight: bold;">{complaint.complaint_number}</p>
+                            </div>
+
+                            <div style="background-color: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px;">
+                                <p>Estimado/a <strong>{client_name}</strong>,</p>
+
+                                <p>Le informamos que su reclamo <strong>{complaint.complaint_number}</strong> se encuentra actualmente <strong>en revisión</strong> por nuestro equipo.</p>
+
+                                <p>Estamos trabajando para resolver su solicitud a la brevedad posible.</p>
+
+                                <p style="margin-top: 30px;">Atentamente,</p>
+                                <p><strong>Equipo QoriCash</strong></p>
+                                <p style="color: #666; font-size: 12px; margin-top: 30px;">
+                                    Este es un correo automático, por favor no responder a esta dirección.
+                                </p>
+                            </div>
+                        </div>
+                    </body>
+                    </html>
+                    """
+
+                    # Enviar al cliente
+                    email_service.send_email(
+                        to_email=client_email,
+                        subject=subject,
+                        html_content=html_content
+                    )
+
+                    # Enviar copia a info@qoricash.pe
+                    email_service.send_email(
+                        to_email='info@qoricash.pe',
+                        subject=f'[COPIA] {subject}',
+                        html_content=html_content
+                    )
+
+                    logger.info(f"✅ Correos de 'En Revisión' enviados para reclamo {complaint.complaint_number}")
+
+                elif new_status == 'Resuelto':
+                    # Correo cuando pasa a "Resuelto"
+                    subject = f'Reclamo {complaint.complaint_number} - Resuelto'
+
+                    # Construir HTML con o sin imagen
+                    image_html = ''
+                    if complaint.resolution_image_url:
+                        image_html = f"""
+                        <div style="text-align: center; margin: 20px 0;">
+                            <p><strong>Imagen de Resolución:</strong></p>
+                            <img src="{complaint.resolution_image_url}" alt="Resolución" style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                        </div>
+                        """
+
+                    html_content = f"""
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <meta charset="UTF-8">
+                    </head>
+                    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                        <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                            <div style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+                                <h1 style="margin: 0;">Reclamo Resuelto</h1>
+                                <p style="margin: 10px 0 0 0; font-size: 18px; font-weight: bold;">{complaint.complaint_number}</p>
+                            </div>
+
+                            <div style="background-color: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px;">
+                                <p>Estimado/a <strong>{client_name}</strong>,</p>
+
+                                <p>Nos complace informarle que su reclamo <strong>{complaint.complaint_number}</strong> ha sido <strong>resuelto</strong>.</p>
+
+                                {image_html}
+
+                                <p>Si tiene alguna consulta adicional, no dude en contactarnos.</p>
+
+                                <p style="margin-top: 30px;">Atentamente,</p>
+                                <p><strong>Equipo QoriCash</strong></p>
+                                <p style="color: #666; font-size: 12px; margin-top: 30px;">
+                                    Este es un correo automático, por favor no responder a esta dirección.
+                                </p>
+                            </div>
+                        </div>
+                    </body>
+                    </html>
+                    """
+
+                    # Enviar al cliente
+                    email_service.send_email(
+                        to_email=client_email,
+                        subject=subject,
+                        html_content=html_content
+                    )
+
+                    # Enviar copia a info@qoricash.pe
+                    email_service.send_email(
+                        to_email='info@qoricash.pe',
+                        subject=f'[COPIA] {subject}',
+                        html_content=html_content
+                    )
+
+                    logger.info(f"✅ Correos de 'Resuelto' enviados para reclamo {complaint.complaint_number}")
+
+            except Exception as email_error:
+                logger.error(f"❌ Error al enviar correos de actualización de estado: {str(email_error)}")
+                # No fallar la actualización si falla el correo
+                pass
 
         flash(f'Reclamo {complaint.complaint_number} actualizado exitosamente', 'success')
         return redirect(url_for('complaints.list_complaints'))
