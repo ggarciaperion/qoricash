@@ -189,6 +189,14 @@
                     <div class="detail-text">
                         {{ complaint.detail }}
                     </div>
+
+                    {% if complaint.evidence_image_url %}
+                    <div class="mt-4">
+                        <a href="{{ complaint.evidence_image_url }}" target="_blank" class="btn btn-primary">
+                            <i class="bi bi-image"></i> Ver Imagen de Evidencia (Cliente)
+                        </a>
+                    </div>
+                    {% endif %}
                 </div>
             </div>
         </div>
