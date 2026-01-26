@@ -147,6 +147,69 @@ def update_complaint_status(id):
         return redirect(url_for('complaints.detail_complaint', id=id))
 
 
+@complaints_bp.route('/<int:id>/upload-resolution-image', methods=['POST'])
+@login_required
+@role_required(['Master', 'Middle Office'])
+def upload_resolution_image(id):
+    """Subir imagen de resolución"""
+    try:
+        complaint = Complaint.query.get_or_404(id)
+
+        data = request.get_json()
+        image_url = data.get('image_url', '').strip()
+
+        if not image_url:
+            return jsonify({
+                'success': False,
+                'message': 'URL de imagen no proporcionada'
+            }), 400
+
+        complaint.resolution_image_url = image_url
+        complaint.updated_at = now_peru()
+
+        db.session.commit()
+
+        logger.info(f"✅ Imagen de resolución subida para reclamo {complaint.complaint_number}")
+
+        return jsonify({
+            'success': True,
+            'message': 'Imagen subida exitosamente'
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"❌ Error al subir imagen: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+
+@complaints_bp.route('/<int:id>/remove-resolution-image', methods=['POST'])
+@login_required
+@role_required(['Master', 'Middle Office'])
+def remove_resolution_image(id):
+    """Eliminar imagen de resolución"""
+    try:
+        complaint = Complaint.query.get_or_404(id)
+
+        complaint.resolution_image_url = None
+        complaint.updated_at = now_peru()
+
+        db.session.commit()
+
+        logger.info(f"✅ Imagen de resolución eliminada del reclamo {complaint.complaint_number}")
+
+        flash('Imagen eliminada exitosamente', 'success')
+        return redirect(url_for('complaints.detail_complaint', id=id))
+
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"❌ Error al eliminar imagen: {str(e)}")
+        flash(f'Error al eliminar imagen: {str(e)}', 'danger')
+        return redirect(url_for('complaints.detail_complaint', id=id))
+
+
 @complaints_bp.route('/api/stats')
 @login_required
 @role_required(['Master', 'Middle Office'])
