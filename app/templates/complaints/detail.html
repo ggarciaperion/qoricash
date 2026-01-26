@@ -175,25 +175,16 @@
                         <i class="bi bi-person-badge"></i> {{ complaint.resolver.username }} ({{ complaint.resolver.email }})
                     </div>
                     {% endif %}
-                </div>
-            </div>
-        </div>
-    </div>
 
-    <!-- Detalle del Reclamo -->
-    <div class="row">
-        <div class="col-md-12">
-            <div class="card detail-card">
-                <div class="card-body">
-                    <h5 class="mb-3"><i class="bi bi-card-text"></i> Detalle del Reclamo</h5>
+                    <div class="info-label">Detalle del Reclamo</div>
                     <div class="detail-text">
                         {{ complaint.detail }}
                     </div>
 
                     {% if complaint.evidence_image_url %}
-                    <div class="mt-4">
+                    <div class="mt-3">
                         <a href="{{ complaint.evidence_image_url }}" target="_blank" class="btn btn-primary">
-                            <i class="bi bi-image"></i> Ver Imagen de Evidencia (Cliente)
+                            <i class="bi bi-image"></i> Ver Imagen de Evidencia
                         </a>
                     </div>
                     {% endif %}
@@ -204,28 +195,7 @@
 
     <!-- Imágenes -->
     <div class="row">
-        {% if complaint.evidence_image_url %}
-        <div class="col-md-6">
-            <div class="card detail-card">
-                <div class="card-body">
-                    <h5 class="mb-3"><i class="bi bi-image"></i> Imagen de Evidencia (Cliente)</h5>
-                    <div class="text-center">
-                        <a href="{{ complaint.evidence_image_url }}" target="_blank">
-                            <img src="{{ complaint.evidence_image_url }}"
-                                 alt="Evidencia del reclamo"
-                                 class="img-fluid rounded shadow-sm"
-                                 style="max-height: 400px; object-fit: contain; cursor: pointer;">
-                        </a>
-                        <div class="mt-2">
-                            <small class="text-muted">Click en la imagen para ver en tamaño completo</small>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        {% endif %}
-
-        <div class="col-md-{% if complaint.evidence_image_url %}6{% else %}12{% endif %}">
+        <div class="col-md-12">
             <div class="card detail-card">
                 <div class="card-body">
                     <h5 class="mb-3"><i class="bi bi-image"></i> Imagen de Resolución (Equipo)</h5>
