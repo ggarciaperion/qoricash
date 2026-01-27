@@ -83,7 +83,8 @@ def initialize_extensions(flask_app):
         "http://localhost:3001",
         "https://qoricash.vercel.app",
         "https://www.qoricash.pe",
-        "https://qoricash.pe"
+        "https://qoricash.pe",
+        "https://qoricash-web.onrender.com"
     ]
 
     cors.init_app(
