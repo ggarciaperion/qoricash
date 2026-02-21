@@ -673,20 +673,27 @@ def get_my_operations(dni):
         - operations: list
     """
     try:
+        logger.info(f'📋 [MY OPERATIONS] Obteniendo operaciones para DNI: {dni}')
+
         # Buscar cliente
         client = ClientService.get_client_by_dni(dni)
 
         if not client:
+            logger.warning(f'⚠️ [MY OPERATIONS] Cliente no encontrado: {dni}')
             return jsonify({
                 'success': False,
                 'message': 'Cliente no encontrado'
             }), 404
 
+        logger.info(f'✅ [MY OPERATIONS] Cliente encontrado: {client.id}')
+
         # Obtener operaciones
         operations = OperationService.get_operations_by_client(client.id)
+        logger.info(f'📦 [MY OPERATIONS] Operaciones encontradas: {len(operations)}')
 
         # Convertir a dict
         operations_data = [op.to_dict(include_relations=True) for op in operations]
+        logger.info(f'✅ [MY OPERATIONS] Retornando {len(operations_data)} operaciones')
 
         return jsonify({
             'success': True,
