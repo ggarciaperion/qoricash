@@ -15,6 +15,7 @@ import { API_CONFIG } from '../constants/config';
 import { KeyboardAwareScrollView } from '../components/KeyboardAwareScrollView';
 import { CustomModal } from '../components/CustomModal';
 import { GlobalStyles } from '../styles/globalStyles';
+import { LoginLoadingScreen } from '../components/LoginLoadingScreen';
 
 type DocumentType = 'DNI' | 'CE' | 'RUC';
 
@@ -26,6 +27,9 @@ export const LoginScreen = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+
+  // Login Loading Screen State
+  const [showLoginLoading, setShowLoginLoading] = useState(false);
 
   // Forgot Password Modal State
   const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
@@ -70,9 +74,18 @@ export const LoginScreen = () => {
       // Enviar DNI y contraseña al backend
       // El backend validará si el cliente tiene contraseña configurada
       await login({ username: dni, password: password }, dni);
+
+      // Mostrar pantalla de carga después del login exitoso
+      setShowLoginLoading(true);
     } catch (err: any) {
       setError(err.message || 'Error al iniciar sesión');
     }
+  };
+
+  const handleLoginLoadingComplete = () => {
+    setShowLoginLoading(false);
+    // La navegación al home se maneja automáticamente por el AppNavigator
+    // cuando isAuthenticated cambia a true
   };
 
   const handleForgotPassword = async () => {
@@ -486,6 +499,12 @@ export const LoginScreen = () => {
           </Text>
         </View>
       </CustomModal>
+
+      {/* Login Loading Screen */}
+      <LoginLoadingScreen
+        visible={showLoginLoading}
+        onComplete={handleLoginLoadingComplete}
+      />
     </>
   );
 };
