@@ -70,15 +70,26 @@ export const LoginLoadingScreen: React.FC<LoginLoadingScreenProps> = ({
         ]),
 
         // 2. Rotación del ícono de validación (2000ms - 2 rotaciones completas)
-        Animated.loop(
-          Animated.timing(rotateAnim, {
-            toValue: 1,
-            duration: 1000,
-            useNativeDriver: true,
-            easing: Easing.linear,
-          }),
-          { iterations: 2 } // 2 rotaciones = 2 segundos
-        ),
+        // Rotación 1
+        Animated.timing(rotateAnim, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+          easing: Easing.linear,
+        }),
+        // Reset para rotación 2
+        Animated.timing(rotateAnim, {
+          toValue: 0,
+          duration: 0,
+          useNativeDriver: true,
+        }),
+        // Rotación 2
+        Animated.timing(rotateAnim, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+          easing: Easing.linear,
+        }),
 
         // 3. Mostrar checkmark de éxito (300ms)
         Animated.parallel([
