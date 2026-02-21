@@ -1107,7 +1107,11 @@ def upload_deposit_proof(operation_id):
             operation.status = 'En proceso'
             operation.in_process_since = now_peru()  # Registrar timestamp
             logger.info(f"✅ Estado cambiado a 'En proceso' para operación {operation.operation_id}")
-            db.session.flush()  # Forzar flush para asegurar que se registre el cambio
+
+            # CRÍTICO: Commit inmediato para persistir el cambio de estado
+            # No depender del commit al final que puede fallar
+            db.session.commit()
+            logger.info(f"💾 Commit realizado - Estado persistido en BD para {operation.operation_id}")
         else:
             logger.warning(f"⚠️ Operación {operation.operation_id} no está en estado 'Pendiente', estado actual: {operation.status}")
 
