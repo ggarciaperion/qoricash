@@ -33,7 +33,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     console.log('📡 Conectando Socket.IO (modo público para tipos de cambio)');
     socketService.connect();
 
-    loadStoredData();
+    // NO cargar datos guardados - requiere login cada vez que se abre la app
+    // loadStoredData();
+
+    // Limpiar datos de sesión al iniciar la app
+    clearStoredSession();
 
     // Limpiar al desmontar
     return () => {
@@ -81,29 +85,47 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, [client]);
 
-  const loadStoredData = async () => {
+  const clearStoredSession = async () => {
     try {
-      const [storedUser, storedClient] = await Promise.all([
-        AsyncStorage.getItem(STORAGE_KEYS.USER_DATA),
-        AsyncStorage.getItem(STORAGE_KEYS.CLIENT_DATA),
+      // Limpiar todos los datos de sesión al abrir la app
+      await AsyncStorage.multiRemove([
+        STORAGE_KEYS.USER_DATA,
+        STORAGE_KEYS.CLIENT_DATA,
+        STORAGE_KEYS.AUTH_TOKEN,
+        STORAGE_KEYS.REQUIRES_PASSWORD_CHANGE,
       ]);
-
-      if (storedUser) {
-        setUser(JSON.parse(storedUser));
-      }
-
-      if (storedClient) {
-        setClient(JSON.parse(storedClient));
-      }
-
-      // Load session cookie
-      await apiClient.loadSessionCookie();
+      console.log('🧹 [AUTH] Sesión limpiada - requiere nuevo login');
     } catch (error) {
-      console.error('Error loading stored data:', error);
+      console.error('❌ [AUTH] Error limpiando sesión:', error);
     } finally {
       setLoading(false);
     }
   };
+
+  // Función anterior comentada - ya no se usa auto-login
+  // const loadStoredData = async () => {
+  //   try {
+  //     const [storedUser, storedClient] = await Promise.all([
+  //       AsyncStorage.getItem(STORAGE_KEYS.USER_DATA),
+  //       AsyncStorage.getItem(STORAGE_KEYS.CLIENT_DATA),
+  //     ]);
+  //
+  //     if (storedUser) {
+  //       setUser(JSON.parse(storedUser));
+  //     }
+  //
+  //     if (storedClient) {
+  //       setClient(JSON.parse(storedClient));
+  //     }
+  //
+  //     // Load session cookie
+  //     await apiClient.loadSessionCookie();
+  //   } catch (error) {
+  //     console.error('Error loading stored data:', error);
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
 
   const login = async (credentials: LoginCredentials, dni: string) => {
     try {
@@ -130,16 +152,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       console.log('✅ [AUTH CONTEXT] Cliente autenticado:', clientData.dni);
       console.log('🔐 [AUTH CONTEXT] Requiere cambio de contraseña:', requiresPasswordChange);
 
-      // Store user and client data
-      await AsyncStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(loginResponse.user));
-      await AsyncStorage.setItem(STORAGE_KEYS.CLIENT_DATA, JSON.stringify(clientData));
-
-      // Store flag de cambio de contraseña requerido
-      if (requiresPasswordChange) {
-        await AsyncStorage.setItem(STORAGE_KEYS.REQUIRES_PASSWORD_CHANGE, 'true');
-      } else {
-        await AsyncStorage.removeItem(STORAGE_KEYS.REQUIRES_PASSWORD_CHANGE);
-      }
+      // NO guardar datos en AsyncStorage - sesión temporal solo en memoria
+      // La sesión se cierra automáticamente al cerrar la app
+      console.log('💾 [AUTH CONTEXT] Sesión temporal - NO se persiste en AsyncStorage');
 
       console.log('✅ [AUTH CONTEXT] Login exitoso!');
 
@@ -204,7 +219,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       if (response.success && response.client) {
         const updatedClient = response.client;
-        await AsyncStorage.setItem(STORAGE_KEYS.CLIENT_DATA, JSON.stringify(updatedClient));
+        // NO guardar en AsyncStorage - sesión temporal solo en memoria
         setClient(updatedClient);
       }
     } catch (error) {
