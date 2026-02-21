@@ -34,12 +34,16 @@ export const LoginLoadingScreen: React.FC<LoginLoadingScreenProps> = ({
   const checkmarkOpacity = useRef(new Animated.Value(0)).current;
 
   const animationInProgressRef = useRef(false);
+  const startTimeRef = useRef<number>(0);
 
   useEffect(() => {
     // Solo iniciar animación si visible es true y no hay animación en progreso
     if (visible && !animationInProgressRef.current) {
+      console.log('🎬 [LoginLoading] Iniciando animación');
+
       // Marcar que la animación está en progreso
       animationInProgressRef.current = true;
+      startTimeRef.current = Date.now();
 
       // Mostrar el componente
       setShouldRender(true);
@@ -109,22 +113,36 @@ export const LoginLoadingScreen: React.FC<LoginLoadingScreenProps> = ({
         // 4. Pausa antes de completar (500ms)
         Animated.delay(500),
       ]).start(() => {
+        console.log('✅ [LoginLoading] Animación completada, iniciando fade out');
+
         // Fade out (300ms)
         Animated.timing(fadeAnim, {
           toValue: 0,
           duration: 300,
           useNativeDriver: true,
         }).start(() => {
-          // Marcar que la animación terminó
-          animationInProgressRef.current = false;
+          // Calcular tiempo transcurrido
+          const elapsed = Date.now() - startTimeRef.current;
+          const minDuration = 3500; // 3.5 segundos mínimo
+          const remainingTime = Math.max(0, minDuration - elapsed);
 
-          // Ocultar el componente
-          setShouldRender(false);
+          console.log(`⏱️ [LoginLoading] Tiempo transcurrido: ${elapsed}ms, esperando ${remainingTime}ms más`);
 
-          // Llamar onComplete
-          if (onComplete) {
-            onComplete();
-          }
+          // Garantizar duración mínima (especialmente importante para iOS)
+          setTimeout(() => {
+            console.log('🏁 [LoginLoading] Finalizando y llamando onComplete');
+
+            // Marcar que la animación terminó
+            animationInProgressRef.current = false;
+
+            // Ocultar el componente
+            setShouldRender(false);
+
+            // Llamar onComplete
+            if (onComplete) {
+              onComplete();
+            }
+          }, remainingTime);
         });
       });
     }
