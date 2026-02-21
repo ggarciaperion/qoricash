@@ -157,19 +157,12 @@ def register_client():
                 'message': 'Email inválido'
             }), 400
 
-        # Verificar si ya existe
+        # Verificar si ya existe DNI
         existing_client = ClientService.get_client_by_dni(dni)
         if existing_client:
             return jsonify({
                 'success': False,
                 'message': 'Ya existe un cliente con este DNI'
-            }), 400
-
-        existing_email = ClientService.get_client_by_email(email)
-        if existing_email:
-            return jsonify({
-                'success': False,
-                'message': 'Ya existe un cliente con este email'
             }), 400
 
         # Subir archivos si vienen
@@ -331,14 +324,6 @@ def client_register():
             return jsonify({
                 'success': False,
                 'message': 'Email inválido'
-            }), 400
-
-        # Verificar email duplicado
-        existing_email = ClientService.get_client_by_email(email)
-        if existing_email:
-            return jsonify({
-                'success': False,
-                'message': 'Ya existe un cliente con este email'
             }), 400
 
         # Validar según tipo de persona
