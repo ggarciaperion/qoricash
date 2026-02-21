@@ -72,9 +72,6 @@ export const LoginScreen = () => {
       // Mostrar pantalla de carga ANTES de hacer el login
       setShowLoginLoading(true);
 
-      // Pequeño delay para que la animación inicie suavemente
-      await new Promise(resolve => setTimeout(resolve, 200));
-
       // Enviar DNI y contraseña al backend
       // El backend validará si el cliente tiene contraseña configurada
       await login({ username: dni, password: password }, dni);

@@ -45,106 +45,109 @@ export const LoginLoadingScreen: React.FC<LoginLoadingScreenProps> = ({
       animationInProgressRef.current = true;
       startTimeRef.current = Date.now();
 
-      // Mostrar el componente
-      setShouldRender(true);
-
-      // Reset animations
+      // Reset animations ANTES de mostrar el componente
       fadeAnim.setValue(0);
       scaleAnim.setValue(0.3);
       rotateAnim.setValue(0);
       checkmarkScale.setValue(0);
       checkmarkOpacity.setValue(0);
 
-      // Secuencia de animaciones
-      Animated.sequence([
-        // 1. Fade in del fondo y logo (400ms)
-        Animated.parallel([
+      // Pequeño delay para evitar flash inicial antes de que las animaciones inicien
+      setTimeout(() => {
+        // Mostrar el componente
+        setShouldRender(true);
+
+        // Secuencia de animaciones
+        Animated.sequence([
+          // 1. Fade in del fondo y logo (400ms)
+          Animated.parallel([
+            Animated.timing(fadeAnim, {
+              toValue: 1,
+              duration: 400,
+              useNativeDriver: true,
+              easing: Easing.out(Easing.ease),
+            }),
+            Animated.spring(scaleAnim, {
+              toValue: 1,
+              tension: 50,
+              friction: 7,
+              useNativeDriver: true,
+            }),
+          ]),
+
+          // 2. Rotación del ícono de validación (2000ms - 2 rotaciones completas)
+          // Rotación 1
+          Animated.timing(rotateAnim, {
+            toValue: 1,
+            duration: 1000,
+            useNativeDriver: true,
+            easing: Easing.linear,
+          }),
+          // Reset para rotación 2
+          Animated.timing(rotateAnim, {
+            toValue: 0,
+            duration: 0,
+            useNativeDriver: true,
+          }),
+          // Rotación 2
+          Animated.timing(rotateAnim, {
+            toValue: 1,
+            duration: 1000,
+            useNativeDriver: true,
+            easing: Easing.linear,
+          }),
+
+          // 3. Mostrar checkmark de éxito (300ms)
+          Animated.parallel([
+            Animated.spring(checkmarkScale, {
+              toValue: 1,
+              tension: 100,
+              friction: 5,
+              useNativeDriver: true,
+            }),
+            Animated.timing(checkmarkOpacity, {
+              toValue: 1,
+              duration: 300,
+              useNativeDriver: true,
+            }),
+          ]),
+
+          // 4. Pausa antes de completar (500ms)
+          Animated.delay(500),
+        ]).start(() => {
+          console.log('✅ [LoginLoading] Animación completada, iniciando fade out');
+
+          // Fade out (300ms)
           Animated.timing(fadeAnim, {
-            toValue: 1,
-            duration: 400,
-            useNativeDriver: true,
-            easing: Easing.out(Easing.ease),
-          }),
-          Animated.spring(scaleAnim, {
-            toValue: 1,
-            tension: 50,
-            friction: 7,
-            useNativeDriver: true,
-          }),
-        ]),
-
-        // 2. Rotación del ícono de validación (2000ms - 2 rotaciones completas)
-        // Rotación 1
-        Animated.timing(rotateAnim, {
-          toValue: 1,
-          duration: 1000,
-          useNativeDriver: true,
-          easing: Easing.linear,
-        }),
-        // Reset para rotación 2
-        Animated.timing(rotateAnim, {
-          toValue: 0,
-          duration: 0,
-          useNativeDriver: true,
-        }),
-        // Rotación 2
-        Animated.timing(rotateAnim, {
-          toValue: 1,
-          duration: 1000,
-          useNativeDriver: true,
-          easing: Easing.linear,
-        }),
-
-        // 3. Mostrar checkmark de éxito (300ms)
-        Animated.parallel([
-          Animated.spring(checkmarkScale, {
-            toValue: 1,
-            tension: 100,
-            friction: 5,
-            useNativeDriver: true,
-          }),
-          Animated.timing(checkmarkOpacity, {
-            toValue: 1,
+            toValue: 0,
             duration: 300,
             useNativeDriver: true,
-          }),
-        ]),
+          }).start(() => {
+            // Calcular tiempo transcurrido
+            const elapsed = Date.now() - startTimeRef.current;
+            const minDuration = 3500; // 3.5 segundos mínimo
+            const remainingTime = Math.max(0, minDuration - elapsed);
 
-        // 4. Pausa antes de completar (500ms)
-        Animated.delay(500),
-      ]).start(() => {
-        console.log('✅ [LoginLoading] Animación completada, iniciando fade out');
+            console.log(`⏱️ [LoginLoading] Tiempo transcurrido: ${elapsed}ms, esperando ${remainingTime}ms más`);
 
-        // Fade out (300ms)
-        Animated.timing(fadeAnim, {
-          toValue: 0,
-          duration: 300,
-          useNativeDriver: true,
-        }).start(() => {
-          // Calcular tiempo transcurrido
-          const elapsed = Date.now() - startTimeRef.current;
-          const minDuration = 3500; // 3.5 segundos mínimo
-          const remainingTime = Math.max(0, minDuration - elapsed);
+            // Garantizar duración mínima (especialmente importante para iOS)
+            setTimeout(() => {
+              console.log('🏁 [LoginLoading] Finalizando y llamando onComplete');
 
-          console.log(`⏱️ [LoginLoading] Tiempo transcurrido: ${elapsed}ms, esperando ${remainingTime}ms más`);
+              // Marcar que la animación terminó
+              animationInProgressRef.current = false;
 
-          // Garantizar duración mínima (especialmente importante para iOS)
-          setTimeout(() => {
-            console.log('🏁 [LoginLoading] Finalizando y llamando onComplete');
+              // Ocultar el componente
+              setShouldRender(false);
 
-            // Marcar que la animación terminó
-            animationInProgressRef.current = false;
-
-            // Ocultar el componente
-            setShouldRender(false);
-
-            // Llamar onComplete
-            if (onComplete) {
-              onComplete();
-            }
-          }, remainingTime);
+              // Llamar onComplete
+              if (onComplete) {
+                onComplete();
+              }
+            }, remainingTime);
+          });
         });
-      });
+      }, 50); // Delay de 50ms para evitar flash inicial
     }
   }, [visible]);
 
