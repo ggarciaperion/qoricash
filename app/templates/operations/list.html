@@ -1171,8 +1171,9 @@ function loadEditModal() {
     // Cargar abonos
     loadDeposits(op.client_deposits || [], canEdit);
 
-    // Cargar pagos
-    loadPayments(op.client_payments || [], canEdit);
+    // Cargar pagos - El operador puede editar pagos cuando está procesando
+    const canEditPayments = canEdit || isOperatorProcessing || isMasterProcessing;
+    loadPayments(op.client_payments || [], canEditPayments);
 
     // Sección operador
     if (isOperatorProcessing || isMasterProcessing) {
@@ -1212,7 +1213,7 @@ function loadEditModal() {
 
     // Mostrar/ocultar botones según rol, estado y asignación
     $('#btnAddDeposit').toggle(canEdit && isPending);
-    $('#btnAddPayment').toggle(canEdit && isPending);
+    $('#btnAddPayment').toggle((canEdit && isPending) || isOperatorProcessing || isMasterProcessing);
     $('#btnSendToProcess').toggle(canEdit && isPending);
     $('#btnReturnToPending').toggle((isOperatorProcessing || isMasterProcessing));
     $('#btnComplete').toggle((isOperatorProcessing || isMasterProcessing));
