@@ -242,6 +242,10 @@ def register_client():
         if platform_user:
             new_client.created_by = platform_user.id
 
+        # Configurar password del cliente (CRÍTICO para login en app móvil)
+        # Contraseña inicial = DNI
+        new_client.set_password(dni)
+
         # Guardar
         db.session.add(new_client)
 
@@ -472,6 +476,9 @@ def client_register():
         platform_user = User.query.filter_by(username='plataforma').first()
         if platform_user:
             new_client.created_by = platform_user.id
+
+        # Configurar password del cliente (CRÍTICO para login en app móvil)
+        new_client.set_password(password)
 
         # Guardar cliente
         db.session.add(new_client)
