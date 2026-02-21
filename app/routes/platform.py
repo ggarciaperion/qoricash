@@ -833,11 +833,33 @@ def upload_deposit_proof(operation_id):
             })
 
         operation.client_deposits = deposits
+
+        # CRÍTICO: Cambiar estado a "En proceso" cuando se sube el primer comprobante
+        # Este es el flujo principal desde el app móvil
+        old_status = operation.status
+        if operation.status == 'Pendiente':
+            from app.utils.formatters import now_peru
+            operation.status = 'En proceso'
+            operation.in_process_since = now_peru()
+            logger.info(f"✅ Estado cambiado de '{old_status}' a 'En proceso' para operación {operation.operation_id}")
+
+        # Commit inmediato para persistir cambios (comprobante + estado)
         db.session.commit()
+
+        # Auto-asignar operador si está "En proceso" y NO tiene operador
+        if operation.status == 'En proceso' and not operation.assigned_operator_id:
+            try:
+                operator_id = OperationService.assign_operator_balanced()
+                if operator_id:
+                    operation.assigned_operator_id = operator_id
+                    db.session.commit()
+                    logger.info(f"✅ Operador {operator_id} auto-asignado a {operation.operation_id}")
+            except Exception as e:
+                logger.error(f"Error auto-asignando operador: {e}")
 
         logger.info(f'✅ Comprobante subido para operación {operation.operation_id}')
 
-        # Emitir evento Socket.IO
+        # Emitir evento Socket.IO con el nuevo estado
         emit_operation_event('updated', operation.to_dict(include_relations=True))
 
         return jsonify({
