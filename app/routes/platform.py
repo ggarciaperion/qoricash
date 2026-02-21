@@ -157,12 +157,20 @@ def register_client():
                 'message': 'Email inválido'
             }), 400
 
-        # Verificar si ya existe DNI
+        # Verificar si ya existe DNI en clientes
         existing_client = ClientService.get_client_by_dni(dni)
         if existing_client:
             return jsonify({
                 'success': False,
                 'message': 'Ya existe un cliente con este DNI'
+            }), 400
+
+        # Verificar si ya existe DNI en usuarios
+        existing_user = User.query.filter_by(dni=dni).first()
+        if existing_user:
+            return jsonify({
+                'success': False,
+                'message': 'Ya existe una cuenta registrada con este DNI'
             }), 400
 
         # Subir archivos si vienen
@@ -352,12 +360,20 @@ def client_register():
                     'message': 'El CE debe tener 9 dígitos'
                 }), 400
 
-            # Verificar DNI duplicado
+            # Verificar DNI duplicado en clientes
             existing_client = ClientService.get_client_by_dni(dni)
             if existing_client:
                 return jsonify({
                     'success': False,
                     'message': f'Ya existe un cliente con el {document_type} {dni}'
+                }), 400
+
+            # Verificar DNI duplicado en usuarios
+            existing_user = User.query.filter_by(dni=dni).first()
+            if existing_user:
+                return jsonify({
+                    'success': False,
+                    'message': f'Ya existe una cuenta registrada con el {document_type} {dni}'
                 }), 400
 
         else:  # Jurídica
@@ -380,12 +396,20 @@ def client_register():
                     'message': 'El RUC debe tener 11 dígitos'
                 }), 400
 
-            # Verificar RUC duplicado
+            # Verificar RUC duplicado en clientes
             existing_client = ClientService.get_client_by_dni(ruc)
             if existing_client:
                 return jsonify({
                     'success': False,
                     'message': f'Ya existe un cliente con el RUC {ruc}'
+                }), 400
+
+            # Verificar RUC duplicado en usuarios
+            existing_user = User.query.filter_by(dni=ruc).first()
+            if existing_user:
+                return jsonify({
+                    'success': False,
+                    'message': f'Ya existe una cuenta registrada con el RUC {ruc}'
                 }), 400
 
         # Crear cliente
