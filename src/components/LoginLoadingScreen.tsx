@@ -33,8 +33,14 @@ export const LoginLoadingScreen: React.FC<LoginLoadingScreenProps> = ({
   const checkmarkScale = useRef(new Animated.Value(0)).current;
   const checkmarkOpacity = useRef(new Animated.Value(0)).current;
 
+  const animationInProgressRef = useRef(false);
+
   useEffect(() => {
-    if (visible) {
+    // Solo iniciar animación si visible es true y no hay animación en progreso
+    if (visible && !animationInProgressRef.current) {
+      // Marcar que la animación está en progreso
+      animationInProgressRef.current = true;
+
       // Mostrar el componente
       setShouldRender(true);
 
@@ -47,7 +53,7 @@ export const LoginLoadingScreen: React.FC<LoginLoadingScreenProps> = ({
 
       // Secuencia de animaciones
       Animated.sequence([
-        // 1. Fade in del fondo y logo
+        // 1. Fade in del fondo y logo (400ms)
         Animated.parallel([
           Animated.timing(fadeAnim, {
             toValue: 1,
@@ -63,7 +69,7 @@ export const LoginLoadingScreen: React.FC<LoginLoadingScreenProps> = ({
           }),
         ]),
 
-        // 2. Rotación del ícono de validación (2 segundos)
+        // 2. Rotación del ícono de validación (2000ms - 2 rotaciones completas)
         Animated.loop(
           Animated.timing(rotateAnim, {
             toValue: 1,
@@ -74,7 +80,7 @@ export const LoginLoadingScreen: React.FC<LoginLoadingScreenProps> = ({
           { iterations: 2 } // 2 rotaciones = 2 segundos
         ),
 
-        // 3. Mostrar checkmark de éxito
+        // 3. Mostrar checkmark de éxito (300ms)
         Animated.parallel([
           Animated.spring(checkmarkScale, {
             toValue: 1,
@@ -89,15 +95,18 @@ export const LoginLoadingScreen: React.FC<LoginLoadingScreenProps> = ({
           }),
         ]),
 
-        // 4. Pequeña pausa antes de completar
+        // 4. Pausa antes de completar (500ms)
         Animated.delay(500),
       ]).start(() => {
-        // Fade out
+        // Fade out (300ms)
         Animated.timing(fadeAnim, {
           toValue: 0,
           duration: 300,
           useNativeDriver: true,
         }).start(() => {
+          // Marcar que la animación terminó
+          animationInProgressRef.current = false;
+
           // Ocultar el componente
           setShouldRender(false);
 
