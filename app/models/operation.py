@@ -20,7 +20,7 @@ class Operation(db.Model):
 
     # Foreign Keys
     client_id = db.Column(db.Integer, db.ForeignKey('clients.id'), nullable=False, index=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True, index=True)  # Nullable: NULL para operaciones del app móvil
     assigned_operator_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True, index=True)  # Operador asignado
 
     # Tipo de operación

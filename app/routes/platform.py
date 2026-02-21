@@ -600,10 +600,12 @@ def create_operation():
         operation_id = Operation.generate_operation_id()
 
         # Crear operación
+        # IMPORTANTE: user_id=None para operaciones del app móvil (clientes no tienen usuarios internos)
+        # origen='app' identifica que la operación viene del aplicativo móvil
         new_operation = Operation(
             operation_id=operation_id,
             client_id=client.id,
-            user_id=current_user.id,
+            user_id=None,  # NULL para app móvil - solo operaciones manuales tienen user_id
             operation_type=operation_type,
             amount_usd=amount_usd,
             exchange_rate=exchange_rate,
@@ -611,6 +613,7 @@ def create_operation():
             source_account=source_account,
             destination_account=destination_account,
             notes=notes,
+            origen='app',  # Identificar origen: app móvil
             status='Pendiente',
             created_at=now_peru()
         )
