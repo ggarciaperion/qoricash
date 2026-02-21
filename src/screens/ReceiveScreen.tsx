@@ -88,7 +88,7 @@ export const ReceiveScreen: React.FC<ReceiveScreenProps> = ({ navigation, route 
         console.log(`✅ Actualización para operación ${operation.operation_id}: ${data.status}`);
 
         // Verificar si está completada (en femenino)
-        if (data.status === 'Completada') {
+        if (data.status === 'completado') {
           console.log('🎉 ¡Operación completada! Mostrando alerta...');
           Alert.alert(
             '✅ Operación Completada',

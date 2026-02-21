@@ -81,7 +81,7 @@ export const OperationDetailScreen: React.FC<OperationDetailScreenProps> = ({
 
   const getDisplayStatus = (op: Operation): string => {
     if (!op) return 'N/A';
-    if (op.status === 'Pendiente' && isOperationExpired(op.created_at || '')) {
+    if (op.status === 'pendiente' && isOperationExpired(op.created_at || '')) {
       return 'Expirado';
     }
     return op.status || 'N/A';
@@ -538,7 +538,7 @@ export const OperationDetailScreen: React.FC<OperationDetailScreenProps> = ({
       )}
 
       {/* Actions */}
-      {operation?.status === 'Pendiente' && (
+      {operation?.status === 'pendiente' && (
         <View style={styles.actionsContainer}>
           {isOperationExpired(operation?.created_at || '') ? (
             <View style={styles.expiredNotice}>

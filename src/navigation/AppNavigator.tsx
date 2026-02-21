@@ -56,6 +56,7 @@ const TabNavigator = () => {
         name="HomeTab"
         component={HomeScreen}
         options={{
+          title: 'Inicio',
           headerShown: false,
         }}
       />

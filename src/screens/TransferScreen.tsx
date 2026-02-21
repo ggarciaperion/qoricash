@@ -338,7 +338,7 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
       navigation.replace('Receive', {
         operation: {
           ...operation,
-          status: 'En proceso'
+          status: 'en_proceso'
         }
       });
     } catch (error: any) {

@@ -128,7 +128,7 @@ export const operationsApi = {
   getPendingOperations: async (clientDni: string): Promise<Operation[]> => {
     try {
       const operations = await this.getOperations(clientDni, false);
-      return operations.filter((op) => op.status === 'Pendiente' || op.status === 'En proceso');
+      return operations.filter((op) => op.status === 'pendiente' || op.status === 'en_proceso');
     } catch (error: any) {
       throw new Error(error.response?.data?.message || 'Error al obtener operaciones pendientes');
     }

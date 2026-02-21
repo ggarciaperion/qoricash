@@ -455,6 +455,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
             onPress={handleOpenAddAccountDialog}
             style={styles.addButton}
             icon="plus"
+            textColor={Colors.success}
           >
             Gestionar Cuentas
           </Button>

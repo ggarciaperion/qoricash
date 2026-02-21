@@ -240,7 +240,7 @@ export const NewOperationScreen: React.FC<NewOperationScreenProps> = ({ navigati
 
       if (response.data.success) {
         const activeOperations = response.data.operations.filter(
-          (op: any) => op.status === 'Pendiente' || op.status === 'En proceso'
+          (op: any) => op.status === 'pendiente' || op.status === 'en_proceso'
         );
 
         if (activeOperations.length > 0) {

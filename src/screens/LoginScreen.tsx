@@ -144,6 +144,19 @@ export const LoginScreen = () => {
           </Text>
         </View>
 
+        {/* Info Banner para clientes registrados por traders */}
+        <View style={styles.infoBanner}>
+          <View style={styles.infoBannerIcon}>
+            <IconButton icon="information" size={20} iconColor={Colors.info} style={{ margin: 0 }} />
+          </View>
+          <View style={styles.infoBannerContent}>
+            <Text style={styles.infoBannerTitle}>¿Te registró un asesor?</Text>
+            <Text style={styles.infoBannerText}>
+              Usa el botón "¿Olvidaste tu contraseña?" para solicitar tu acceso.
+            </Text>
+          </View>
+        </View>
+
         {/* Login Form */}
         <View style={styles.formContainer}>
           <Text variant="headlineSmall" style={styles.title}>
@@ -604,5 +617,33 @@ const styles = StyleSheet.create({
   },
   footerText: {
     color: Colors.textLight,
+  },
+  infoBanner: {
+    backgroundColor: '#E7F3FF',
+    borderLeftWidth: 4,
+    borderLeftColor: Colors.info,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 24,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  infoBannerIcon: {
+    marginRight: 12,
+    marginTop: 2,
+  },
+  infoBannerContent: {
+    flex: 1,
+  },
+  infoBannerTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: Colors.textDark,
+    marginBottom: 6,
+  },
+  infoBannerText: {
+    fontSize: 13,
+    color: '#1976D2',
+    lineHeight: 20,
   },
 });

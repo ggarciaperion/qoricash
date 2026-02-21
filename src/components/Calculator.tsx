@@ -156,8 +156,6 @@ export const Calculator: React.FC<CalculatorProps> = ({
           style={[styles.tab, operationType === 'Compra' && styles.tabActive]}
           onPress={() => {
             setOperationType('Compra');
-            setAmountUSD('');
-            setAmountPEN('');
           }}
           activeOpacity={0.8}
         >
@@ -169,8 +167,6 @@ export const Calculator: React.FC<CalculatorProps> = ({
           style={[styles.tab, operationType === 'Venta' && styles.tabActive]}
           onPress={() => {
             setOperationType('Venta');
-            setAmountUSD('');
-            setAmountPEN('');
           }}
           activeOpacity={0.8}
         >

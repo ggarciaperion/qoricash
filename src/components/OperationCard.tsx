@@ -77,7 +77,7 @@ export const OperationCard: React.FC<OperationCardProps> = ({ operation, onPress
               </View>
             )}
 
-            {operation.status === 'Expirada' && operation.updated_at && (
+            {operation.status === 'expirado' && operation.updated_at && (
               <View style={styles.compactFooter}>
                 <Icon source="clock-alert" size={14} color="#757575" />
                 <Text variant="bodySmall" style={styles.expiredText}>
@@ -166,7 +166,7 @@ export const OperationCard: React.FC<OperationCardProps> = ({ operation, onPress
             </View>
           )}
 
-          {operation.status === 'En proceso' && operation.time_in_process_minutes && (
+          {operation.status === 'en_proceso' && operation.time_in_process_minutes && (
             <View style={styles.footer}>
               <Icon source="clock-outline" size={14} color="#FF9800" />
               <Text variant="bodySmall" style={styles.processingText}>

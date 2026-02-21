@@ -141,13 +141,14 @@ export const HistoryScreen: React.FC<{ route?: any }> = ({ route }) => {
     let filtered = operations;
 
     // Filtrar por tab
+    // IMPORTANTE: Los estados vienen del backend en minúsculas (pendiente, en_proceso, completado, cancelado, expirado)
     if (activeTab === 'pending') {
       filtered = operations.filter(
-        (op) => op.status === 'Pendiente' || op.status === 'En proceso'
+        (op) => op.status === 'pendiente' || op.status === 'en_proceso'
       );
     } else {
       filtered = operations.filter(
-        (op) => op.status === 'Completada' || op.status === 'Cancelado' || op.status === 'Expirada'
+        (op) => op.status === 'completado' || op.status === 'cancelado' || op.status === 'expirado'
       );
     }
 
@@ -202,7 +203,7 @@ export const HistoryScreen: React.FC<{ route?: any }> = ({ route }) => {
 
     try {
       // Si está pendiente (recién creada), ir a Transfer
-      if (operation.status === 'Pendiente') {
+      if (operation.status === 'pendiente') {
         console.log('➡️ Navegando a Transfer');
         navigation.dispatch(
           CommonActions.navigate({
@@ -212,7 +213,7 @@ export const HistoryScreen: React.FC<{ route?: any }> = ({ route }) => {
         );
       }
       // Si está en proceso (comprobante enviado), ir a Receive
-      else if (operation.status === 'En proceso') {
+      else if (operation.status === 'en_proceso') {
         console.log('➡️ Navegando a Receive');
         navigation.dispatch(
           CommonActions.navigate({
@@ -264,7 +265,7 @@ export const HistoryScreen: React.FC<{ route?: any }> = ({ route }) => {
         const cache = cacheStr ? JSON.parse(cacheStr) : {};
         cache[operationToCancel.id] = {
           ...operationToCancel,
-          status: 'Cancelado',
+          status: 'cancelado',
           cancellation_reason: cancelReason.trim(),
         };
         await AsyncStorage.setItem(LOCAL_OPERATIONS_CACHE_KEY, JSON.stringify(cache));
@@ -351,8 +352,8 @@ export const HistoryScreen: React.FC<{ route?: any }> = ({ route }) => {
 
   const OperationCard: React.FC<{ operation: Operation; onPress: (op: Operation) => void }> = ({ operation, onPress }) => {
     const statusConfig = getStatusConfig(operation.status);
-    const isPending = operation.status === 'Pendiente' || operation.status === 'En proceso';
-    const timeRemaining = operation.status === 'Pendiente' ? calculateTimeRemaining(operation.created_at) : null;
+    const isPending = operation.status === 'pendiente' || operation.status === 'en_proceso';
+    const timeRemaining = operation.status === 'pendiente' ? calculateTimeRemaining(operation.created_at) : null;
 
     return (
       <Card style={styles.operationCard}>
@@ -385,7 +386,7 @@ export const HistoryScreen: React.FC<{ route?: any }> = ({ route }) => {
                 >
                   {statusConfig.text}
                 </Chip>
-                {operation.status === 'Pendiente' && timeRemaining && !timeRemaining.expired && (
+                {operation.status === 'pendiente' && timeRemaining && !timeRemaining.expired && (
                   <View style={styles.countdownContainerChip}>
                     <Icon source="timer-sand" size={14} color="#F44336" />
                     <Text style={styles.countdownText}>
@@ -397,7 +398,7 @@ export const HistoryScreen: React.FC<{ route?: any }> = ({ route }) => {
             </View>
           </View>
 
-          {operation.status === 'Pendiente' && (
+          {operation.status === 'pendiente' && (
             <>
               <Divider style={styles.divider} />
               <TouchableOpacity
@@ -440,10 +441,10 @@ export const HistoryScreen: React.FC<{ route?: any }> = ({ route }) => {
   }
 
   const pendingCount = operations.filter(
-    (op) => op.status === 'Pendiente' || op.status === 'En proceso'
+    (op) => op.status === 'pendiente' || op.status === 'en_proceso'
   ).length;
   const completedCount = operations.filter(
-    (op) => op.status === 'Completada' || op.status === 'Cancelado' || op.status === 'Expirada'
+    (op) => op.status === 'completado' || op.status === 'cancelado' || op.status === 'expirado'
   ).length;
 
   return (
