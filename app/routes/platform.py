@@ -165,14 +165,6 @@ def register_client():
                 'message': 'Ya existe un cliente con este DNI'
             }), 400
 
-        # Verificar si ya existe DNI en usuarios
-        existing_user = User.query.filter_by(dni=dni).first()
-        if existing_user:
-            return jsonify({
-                'success': False,
-                'message': 'Ya existe una cuenta registrada con este DNI'
-            }), 400
-
         # Subir archivos si vienen
         file_service = FileService()
         document_urls = {}
@@ -237,37 +229,25 @@ def register_client():
         if bank_accounts:
             new_client.set_bank_accounts(bank_accounts)
 
-        # Usuario "plataforma" como creador por defecto
+        # Usuario "plataforma" como creador por defecto (solo para tracking interno)
         platform_user = User.query.filter_by(username='plataforma').first()
         if platform_user:
             new_client.created_by = platform_user.id
 
         # Configurar password del cliente (CRÍTICO para login en app móvil)
+        # Los clientes se autentican contra la tabla clients, NO users
         # Contraseña inicial = DNI
         new_client.set_password(dni)
 
-        # Guardar
+        # Guardar cliente (NO se crea registro en users - solo en clients)
         db.session.add(new_client)
-
-        # Crear usuario asociado para login (contraseña = DNI por defecto)
-        new_user = User(
-            username=dni,
-            email=email,
-            dni=dni,
-            role='Cliente',  # Rol especial para clientes móviles
-            status='Activo',
-            created_at=now_peru()
-        )
-        new_user.set_password(dni)  # Contraseña inicial = DNI
-
-        db.session.add(new_user)
         db.session.commit()
 
         logger.info(f'✅ Cliente registrado exitosamente: {dni} - {new_client.full_name}')
 
         # Enviar email de bienvenida
         try:
-            EmailService.send_new_client_registration_email(new_client, platform_user or new_user)
+            EmailService.send_new_client_registration_email(new_client, platform_user)
         except Exception as e:
             logger.warning(f'No se pudo enviar email de bienvenida: {str(e)}')
 
@@ -372,14 +352,6 @@ def client_register():
                     'message': f'Ya existe un cliente con el {document_type} {dni}'
                 }), 400
 
-            # Verificar DNI duplicado en usuarios
-            existing_user = User.query.filter_by(dni=dni).first()
-            if existing_user:
-                return jsonify({
-                    'success': False,
-                    'message': f'Ya existe una cuenta registrada con el {document_type} {dni}'
-                }), 400
-
         else:  # Jurídica
             document_type = 'RUC'
             ruc = data.get('ruc', '').strip()
@@ -406,14 +378,6 @@ def client_register():
                 return jsonify({
                     'success': False,
                     'message': f'Ya existe un cliente con el RUC {ruc}'
-                }), 400
-
-            # Verificar RUC duplicado en usuarios
-            existing_user = User.query.filter_by(dni=ruc).first()
-            if existing_user:
-                return jsonify({
-                    'success': False,
-                    'message': f'Ya existe una cuenta registrada con el RUC {ruc}'
                 }), 400
 
         # Crear cliente
@@ -472,36 +436,24 @@ def client_register():
             new_client.referred_by = referrer.id
             logger.info(f'🎁 Cliente usa código de referido: {used_code} (Referido por: {referrer.full_name})')
 
-        # Usuario "plataforma" como creador
+        # Usuario "plataforma" como creador (solo para tracking interno)
         platform_user = User.query.filter_by(username='plataforma').first()
         if platform_user:
             new_client.created_by = platform_user.id
 
         # Configurar password del cliente (CRÍTICO para login en app móvil)
+        # Los clientes se autentican contra la tabla clients, NO users
         new_client.set_password(password)
 
-        # Guardar cliente
+        # Guardar cliente (NO se crea registro en users - solo en clients)
         db.session.add(new_client)
-
-        # Crear usuario asociado para login
-        new_user = User(
-            username=dni,
-            email=email.lower(),
-            dni=dni,
-            role='Plataforma',  # Rol para clientes de app móvil
-            status='Activo',
-            created_at=now_peru()
-        )
-        new_user.set_password(password)
-
-        db.session.add(new_user)
         db.session.commit()
 
         logger.info(f'✅ Cliente registrado desde app: {dni} - {new_client.full_name}')
 
         # Enviar email de bienvenida
         try:
-            EmailService.send_new_client_registration_email(new_client, platform_user or new_user)
+            EmailService.send_new_client_registration_email(new_client, platform_user)
         except Exception as e:
             logger.warning(f'No se pudo enviar email de bienvenida: {str(e)}')
 
