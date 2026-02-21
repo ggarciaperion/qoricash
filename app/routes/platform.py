@@ -530,6 +530,7 @@ def create_operation():
     """
     try:
         data = request.get_json() or {}
+        logger.info(f'📱 [CREATE OPERATION] Request data: {data}')
 
         client_dni = data.get('client_dni', '').strip()
         operation_type = data.get('operation_type', '').strip()
@@ -539,7 +540,8 @@ def create_operation():
         destination_account = data.get('destination_account', '').strip()
         notes = data.get('notes', '').strip()
 
-        logger.info(f'📱 [PLATFORM API] Creando operación para cliente: {client_dni}')
+        logger.info(f'📱 [CREATE OPERATION] Creando operación para cliente: {client_dni}')
+        logger.info(f'📱 [CREATE OPERATION] Tipo: {operation_type}, Monto USD: {amount_usd}, TC: {exchange_rate}')
 
         # Validar campos requeridos
         if not all([client_dni, operation_type, amount_usd, exchange_rate, source_account, destination_account]):
@@ -619,28 +621,43 @@ def create_operation():
         )
 
         db.session.add(new_operation)
+        logger.info(f'📝 [CREATE OPERATION] Operación agregada a sesión, haciendo commit...')
         db.session.commit()
+        logger.info(f'✅ [CREATE OPERATION] Operación creada en BD: {operation_id} - {operation_type} ${amount_usd}')
 
-        logger.info(f'✅ Operación creada: {operation_id} - {operation_type} ${amount_usd}')
+        # Serializar operación
+        logger.info(f'📦 [CREATE OPERATION] Serializando operación con include_relations=True...')
+        try:
+            operation_dict = new_operation.to_dict(include_relations=True)
+            logger.info(f'✅ [CREATE OPERATION] Operación serializada correctamente')
+        except Exception as e:
+            logger.error(f'❌ [CREATE OPERATION] Error en to_dict: {str(e)}', exc_info=True)
+            raise
 
         # Emitir evento Socket.IO
-        emit_operation_event('created', new_operation.to_dict(include_relations=True))
+        logger.info(f'📡 [CREATE OPERATION] Emitiendo evento Socket.IO...')
+        emit_operation_event('created', operation_dict)
 
         # Enviar email
+        logger.info(f'📧 [CREATE OPERATION] Enviando email de notificación...')
         try:
             EmailService.send_new_operation_email(new_operation)
+            logger.info(f'✅ [CREATE OPERATION] Email enviado correctamente')
         except Exception as e:
-            logger.warning(f'No se pudo enviar email de nueva operación: {str(e)}')
+            logger.warning(f'⚠️ [CREATE OPERATION] No se pudo enviar email: {str(e)}')
 
+        logger.info(f'🎉 [CREATE OPERATION] Preparando respuesta exitosa...')
         return jsonify({
             'success': True,
             'message': 'Operación creada exitosamente',
-            'operation': new_operation.to_dict(include_relations=True)
+            'operation': operation_dict
         }), 201
 
     except Exception as e:
         db.session.rollback()
-        logger.error(f'❌ Error en create_operation: {str(e)}', exc_info=True)
+        logger.error(f'❌ [CREATE OPERATION] ERROR CRÍTICO: {str(e)}', exc_info=True)
+        logger.error(f'❌ [CREATE OPERATION] Tipo de error: {type(e).__name__}')
+        logger.error(f'❌ [CREATE OPERATION] Datos recibidos: {request.get_json()}')
         return jsonify({
             'success': False,
             'message': f'Error al crear operación: {str(e)}'
