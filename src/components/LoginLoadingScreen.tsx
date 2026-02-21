@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -23,6 +23,9 @@ export const LoginLoadingScreen: React.FC<LoginLoadingScreenProps> = ({
   visible,
   onComplete,
 }) => {
+  // Estado interno para controlar el renderizado
+  const [shouldRender, setShouldRender] = useState(false);
+
   // Animaciones
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.3)).current;
@@ -32,6 +35,16 @@ export const LoginLoadingScreen: React.FC<LoginLoadingScreenProps> = ({
 
   useEffect(() => {
     if (visible) {
+      // Mostrar el componente
+      setShouldRender(true);
+
+      // Reset animations
+      fadeAnim.setValue(0);
+      scaleAnim.setValue(0.3);
+      rotateAnim.setValue(0);
+      checkmarkScale.setValue(0);
+      checkmarkOpacity.setValue(0);
+
       // Secuencia de animaciones
       Animated.sequence([
         // 1. Fade in del fondo y logo
@@ -50,7 +63,7 @@ export const LoginLoadingScreen: React.FC<LoginLoadingScreenProps> = ({
           }),
         ]),
 
-        // 2. Rotación del ícono de validación (1 segundo)
+        // 2. Rotación del ícono de validación (2 segundos)
         Animated.loop(
           Animated.timing(rotateAnim, {
             toValue: 1,
@@ -85,6 +98,10 @@ export const LoginLoadingScreen: React.FC<LoginLoadingScreenProps> = ({
           duration: 300,
           useNativeDriver: true,
         }).start(() => {
+          // Ocultar el componente
+          setShouldRender(false);
+
+          // Llamar onComplete
           if (onComplete) {
             onComplete();
           }
@@ -93,7 +110,7 @@ export const LoginLoadingScreen: React.FC<LoginLoadingScreenProps> = ({
     }
   }, [visible]);
 
-  if (!visible) return null;
+  if (!shouldRender) return null;
 
   const spin = rotateAnim.interpolate({
     inputRange: [0, 1],
