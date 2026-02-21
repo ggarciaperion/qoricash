@@ -49,29 +49,52 @@ export const notificationService = {
       }
 
       // Obtener token de Expo
-      // En desarrollo con Expo Go, no es necesario pasar projectId
-      const token = (await Notifications.getExpoPushTokenAsync()).data;
+      // NOTA: Para producción, se necesita configurar projectId en app.json
+      // Para desarrollo local con Expo Go, las push notifications están deshabilitadas
+      let token: string;
+      try {
+        const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+        if (!projectId) {
+          console.log('⚠️ ProjectId no configurado - Push notifications deshabilitadas en desarrollo');
+          console.log('💡 Para habilitar push notifications, configura projectId en app.json');
+          return null;
+        }
+
+        const tokenData = await Notifications.getExpoPushTokenAsync({
+          projectId: projectId,
+        });
+        token = tokenData.data;
+      } catch (tokenError: any) {
+        console.log('⚠️ No se pudo obtener token de push (normal en desarrollo local)');
+        console.log('💡 Las notificaciones push funcionarán cuando la app esté en producción');
+        return null;
+      }
 
       console.log('📲 Token de Expo obtenido:', token);
 
       // Enviar token al backend
-      const response = await axios.post(
-        `${API_URL}/api/client/register-push-token`,
-        {
-          dni: dni,
-          push_token: token,
-        }
-      );
+      try {
+        const response = await axios.post(
+          `${API_URL}/api/client/register-push-token`,
+          {
+            dni: dni,
+            push_token: token,
+          }
+        );
 
-      if (response.data.success) {
-        console.log('✅ Token registrado en backend exitosamente');
-        return token;
-      } else {
-        console.error('❌ Error registrando token:', response.data.message);
+        if (response.data.success) {
+          console.log('✅ Token registrado en backend exitosamente');
+          return token;
+        } else {
+          console.error('❌ Error registrando token:', response.data.message);
+          return null;
+        }
+      } catch (backendError) {
+        console.error('❌ Error enviando token al backend:', backendError);
         return null;
       }
     } catch (error) {
-      console.error('❌ Error obteniendo token de push:', error);
+      console.error('❌ Error en registerForPushNotifications:', error);
       return null;
     }
   },

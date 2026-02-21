@@ -57,11 +57,6 @@
           "color": "#1976D2"
         }
       ]
-    ],
-    "extra": {
-      "eas": {
-        "projectId": "qoricash-mobile-app"
-      }
-    }
+    ]
   }
 }
