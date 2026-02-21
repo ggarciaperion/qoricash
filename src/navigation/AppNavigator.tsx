@@ -196,10 +196,16 @@ export const AppNavigator = () => {
     return null; // You can add a splash screen here
   }
 
+  // Bloquear navegación mientras la animación de login está activa
+  // Esto permite que la animación complete antes de mostrar el MainNavigator
+  const shouldShowAuthScreen = !isAuthenticated || showLoginLoading;
+
   return (
     <>
       <NavigationContainer>
-        {isAuthenticated ? (
+        {shouldShowAuthScreen ? (
+          <AuthNavigator />
+        ) : isAuthenticated ? (
           requiresPasswordChange ? (
             <Stack.Navigator screenOptions={{ headerShown: false }}>
               <Stack.Screen
