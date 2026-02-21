@@ -176,7 +176,7 @@ export const LoginLoadingScreen: React.FC<LoginLoadingScreenProps> = ({
               },
             ]}
           >
-            <Icon name="shield-check" size={64} color={Colors.primary} />
+            <Icon name="lock-check" size={64} color={Colors.primary} />
           </Animated.View>
 
           {/* Checkmark de éxito */}
@@ -190,7 +190,7 @@ export const LoginLoadingScreen: React.FC<LoginLoadingScreenProps> = ({
             ]}
           >
             <View style={styles.checkmarkCircle}>
-              <Icon name="check-bold" size={48} color={Colors.secondary} />
+              <Icon name="check" size={48} color={Colors.secondary} />
             </View>
           </Animated.View>
 
