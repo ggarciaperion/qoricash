@@ -1815,6 +1815,32 @@ function returnToPending() {
 }
 
 function completeOperation() {
+    // VALIDACIÓN 1: El operador DEBE subir al menos un comprobante antes de completar
+    const operatorProofs = currentOperation.operator_proofs || [];
+    if (operatorProofs.length === 0) {
+        showNotification('Debes subir al menos un comprobante del operador antes de finalizar la operación', 'warning');
+        return;
+    }
+
+    // VALIDACIÓN 2: Debe haber al menos un pago registrado
+    const payments = collectPayments();
+    if (payments.length === 0) {
+        showNotification('Debes registrar al menos un pago al cliente antes de finalizar la operación', 'warning');
+        return;
+    }
+
+    // VALIDACIÓN 3: Cada pago debe tener importe y cuenta destino
+    for (let i = 0; i < payments.length; i++) {
+        if (!payments[i].importe || payments[i].importe <= 0) {
+            showNotification(`El pago ${i + 1} debe tener un importe mayor a 0`, 'warning');
+            return;
+        }
+        if (!payments[i].cuenta_destino) {
+            showNotification(`El pago ${i + 1} debe tener una cuenta de destino`, 'warning');
+            return;
+        }
+    }
+
     const comments = $('#operator_comments').val();
 
     ajaxRequest(`/operations/api/complete/${currentOperation.id}`, 'POST', {
