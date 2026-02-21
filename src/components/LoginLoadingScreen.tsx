@@ -29,6 +29,7 @@ export const LoginLoadingScreen: React.FC<LoginLoadingScreenProps> = ({
   // Animaciones
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.3)).current;
+  const slideInAnim = useRef(new Animated.Value(50)).current; // Slide desde abajo
   const rotateAnim = useRef(new Animated.Value(0)).current;
   const checkmarkScale = useRef(new Animated.Value(0)).current;
   const checkmarkOpacity = useRef(new Animated.Value(0)).current;
@@ -48,6 +49,7 @@ export const LoginLoadingScreen: React.FC<LoginLoadingScreenProps> = ({
       // Reset animations ANTES de mostrar el componente
       fadeAnim.setValue(0);
       scaleAnim.setValue(0.3);
+      slideInAnim.setValue(50); // Comienza 50px abajo
       rotateAnim.setValue(0);
       checkmarkScale.setValue(0);
       checkmarkOpacity.setValue(0);
@@ -59,13 +61,19 @@ export const LoginLoadingScreen: React.FC<LoginLoadingScreenProps> = ({
 
         // Secuencia de animaciones
         Animated.sequence([
-          // 1. Fade in del fondo y logo (400ms)
+          // 1. Entrada elegante: fade in + slide up + scale (500ms)
           Animated.parallel([
             Animated.timing(fadeAnim, {
               toValue: 1,
-              duration: 400,
+              duration: 500,
               useNativeDriver: true,
-              easing: Easing.out(Easing.ease),
+              easing: Easing.out(Easing.cubic),
+            }),
+            Animated.timing(slideInAnim, {
+              toValue: 0,
+              duration: 500,
+              useNativeDriver: true,
+              easing: Easing.out(Easing.cubic),
             }),
             Animated.spring(scaleAnim, {
               toValue: 1,
@@ -115,14 +123,29 @@ export const LoginLoadingScreen: React.FC<LoginLoadingScreenProps> = ({
           // 4. Pausa antes de completar (500ms)
           Animated.delay(500),
         ]).start(() => {
-          console.log('✅ [LoginLoading] Animación completada, iniciando fade out');
+          console.log('✅ [LoginLoading] Animación completada, iniciando salida elegante');
 
-          // Fade out (300ms)
-          Animated.timing(fadeAnim, {
-            toValue: 0,
-            duration: 300,
-            useNativeDriver: true,
-          }).start(() => {
+          // Salida elegante: fade out + slide up (400ms)
+          Animated.parallel([
+            Animated.timing(fadeAnim, {
+              toValue: 0,
+              duration: 400,
+              useNativeDriver: true,
+              easing: Easing.in(Easing.cubic),
+            }),
+            Animated.timing(slideInAnim, {
+              toValue: -50, // Slide hacia arriba al salir
+              duration: 400,
+              useNativeDriver: true,
+              easing: Easing.in(Easing.cubic),
+            }),
+            Animated.timing(scaleAnim, {
+              toValue: 0.85,
+              duration: 400,
+              useNativeDriver: true,
+              easing: Easing.in(Easing.ease),
+            }),
+          ]).start(() => {
             // Calcular tiempo transcurrido
             const elapsed = Date.now() - startTimeRef.current;
             const minDuration = 3500; // 3.5 segundos mínimo
@@ -160,7 +183,13 @@ export const LoginLoadingScreen: React.FC<LoginLoadingScreenProps> = ({
 
   return (
     <Animated.View
-      style={[styles.container, { opacity: fadeAnim }]}
+      style={[
+        styles.container,
+        {
+          opacity: fadeAnim,
+          transform: [{ translateY: slideInAnim }],
+        },
+      ]}
       pointerEvents={visible ? 'auto' : 'none'}
     >
       <LinearGradient
