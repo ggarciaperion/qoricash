@@ -184,36 +184,39 @@ export const LoginLoadingScreen: React.FC<LoginLoadingScreenProps> = ({
             />
           </Animated.View>
 
-          {/* Ícono de validación con rotación */}
-          <Animated.View
-            style={[
-              styles.iconContainer,
-              {
-                transform: [{ rotate: spin }],
-                opacity: checkmarkOpacity.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [1, 0],
-                }),
-              },
-            ]}
-          >
-            <Icon name="lock-check" size={64} color={Colors.primary} />
-          </Animated.View>
+          {/* Contenedor de íconos (candado y checkmark superpuestos) */}
+          <View style={styles.iconsContainer}>
+            {/* Ícono de validación con rotación */}
+            <Animated.View
+              style={[
+                styles.iconContainer,
+                {
+                  transform: [{ rotate: spin }],
+                  opacity: checkmarkOpacity.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [1, 0],
+                  }),
+                },
+              ]}
+            >
+              <Icon name="lock-check" size={64} color={Colors.primary} />
+            </Animated.View>
 
-          {/* Checkmark de éxito */}
-          <Animated.View
-            style={[
-              styles.checkmarkContainer,
-              {
-                opacity: checkmarkOpacity,
-                transform: [{ scale: checkmarkScale }],
-              },
-            ]}
-          >
-            <View style={styles.checkmarkCircle}>
-              <Icon name="check" size={48} color={Colors.secondary} />
-            </View>
-          </Animated.View>
+            {/* Checkmark de éxito */}
+            <Animated.View
+              style={[
+                styles.checkmarkContainer,
+                {
+                  opacity: checkmarkOpacity,
+                  transform: [{ scale: checkmarkScale }],
+                },
+              ]}
+            >
+              <View style={styles.checkmarkCircle}>
+                <Icon name="check" size={48} color={Colors.secondary} />
+              </View>
+            </Animated.View>
+          </View>
 
           {/* Texto */}
           <Animated.View style={{ opacity: fadeAnim }}>
@@ -278,12 +281,21 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  iconContainer: {
+  iconsContainer: {
     marginVertical: 30,
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 80,
+  },
+  iconContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   checkmarkContainer: {
     position: 'absolute',
-    top: height * 0.35,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   checkmarkCircle: {
     width: 80,
