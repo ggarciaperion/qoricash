@@ -509,7 +509,6 @@ def get_client_by_dni(dni):
 # ============================================
 
 @platform_bp.route('/api/client/create-operation', methods=['POST'])
-@login_required
 def create_operation():
     """
     Crear operación desde app móvil
@@ -665,7 +664,6 @@ def create_operation():
 
 
 @platform_bp.route('/api/client/my-operations/<string:dni>', methods=['GET'])
-@login_required
 def get_my_operations(dni):
     """
     Obtener operaciones del cliente por DNI
@@ -704,7 +702,6 @@ def get_my_operations(dni):
 
 
 @platform_bp.route('/api/client/operation/<int:operation_id>', methods=['GET'])
-@login_required
 def get_operation_detail(operation_id):
     """
     Obtener detalle de operación por ID
@@ -736,7 +733,6 @@ def get_operation_detail(operation_id):
 
 
 @platform_bp.route('/api/client/upload-deposit-proof/<int:operation_id>', methods=['POST'])
-@login_required
 def upload_deposit_proof(operation_id):
     """
     Subir comprobante de depósito del cliente
