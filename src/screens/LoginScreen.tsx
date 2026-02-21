@@ -10,6 +10,7 @@ import { TextInput, Button, Text, HelperText, IconButton } from 'react-native-pa
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../contexts/AuthContext';
+import { useLoginLoading } from '../contexts/LoginLoadingContext';
 import { Colors } from '../constants/colors';
 import { API_CONFIG } from '../constants/config';
 import { KeyboardAwareScrollView } from '../components/KeyboardAwareScrollView';
@@ -21,6 +22,7 @@ type DocumentType = 'DNI' | 'CE' | 'RUC';
 export const LoginScreen = () => {
   const navigation = useNavigation();
   const { login, loading } = useAuth();
+  const { setShowLoginLoading } = useLoginLoading();
   const [documentType, setDocumentType] = useState<DocumentType | null>(null);
   const [dni, setDni] = useState('');
   const [password, setPassword] = useState('');
@@ -67,10 +69,19 @@ export const LoginScreen = () => {
         return;
       }
 
+      // Mostrar pantalla de carga ANTES de hacer el login
+      setShowLoginLoading(true);
+
       // Enviar DNI y contraseña al backend
       // El backend validará si el cliente tiene contraseña configurada
       await login({ username: dni, password: password }, dni);
+
+      // El login fue exitoso, la pantalla de carga completará su animación
+      // y luego onComplete oculta la pantalla, permitiendo que el navigator
+      // navegue al Home
     } catch (err: any) {
+      // Si hay error, ocultar la pantalla de carga inmediatamente
+      setShowLoginLoading(false);
       setError(err.message || 'Error al iniciar sesión');
     }
   };
