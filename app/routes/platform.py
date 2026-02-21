@@ -790,7 +790,8 @@ def upload_deposit_proof(operation_id):
         deposit_index = request.form.get('deposit_index', 0)
         importe = request.form.get('importe')
         codigo_operacion = request.form.get('codigo_operacion', '')
-        cuenta_cargo = request.form.get('cuenta_cargo', '')
+        # Si no viene cuenta_cargo (desde app móvil), usar la cuenta de origen de la operación
+        cuenta_cargo = request.form.get('cuenta_cargo', '') or operation.source_account or ''
 
         try:
             deposit_index = int(deposit_index)
@@ -856,6 +857,19 @@ def upload_deposit_proof(operation_id):
                     logger.info(f"✅ Operador {operator_id} auto-asignado a {operation.operation_id}")
             except Exception as e:
                 logger.error(f"Error auto-asignando operador: {e}")
+
+        # Auto-crear pago al cliente si no existe (para operaciones desde app móvil)
+        if operation.origen == 'plataforma' and not operation.client_payments:
+            from sqlalchemy.orm.attributes import flag_modified
+            if operation.operation_type == 'Compra':
+                total_pago = float(operation.amount_usd or 0) * float(operation.exchange_rate or 0)
+            else:
+                total_pago = float(operation.amount_usd or 0)
+
+            operation.client_payments = [{'importe': total_pago, 'cuenta_destino': operation.destination_account}]
+            flag_modified(operation, 'client_payments_json')
+            db.session.commit()
+            logger.info(f"✅ Pago auto-creado para operación {operation.operation_id}")
 
         logger.info(f'✅ Comprobante subido para operación {operation.operation_id}')
 
