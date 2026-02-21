@@ -1059,6 +1059,7 @@ def upload_deposit_proof(operation_id):
         from app.services.file_service import FileService
         from sqlalchemy.orm.attributes import flag_modified
         from app.extensions import socketio
+        from app.utils.formatters import now_peru
 
         operation = Operation.query.get(operation_id)
         if not operation:
@@ -1098,10 +1099,17 @@ def upload_deposit_proof(operation_id):
         operation.client_deposits = deposits
         flag_modified(operation, 'client_deposits_json')
 
-        # Cambiar estado a "En proceso"
+        # Cambiar estado a "En proceso" SI está en Pendiente
         old_status = operation.status
+        logger.info(f"📋 Estado actual de operación {operation.operation_id}: {operation.status}")
+
         if operation.status == 'Pendiente':
             operation.status = 'En proceso'
+            operation.in_process_since = now_peru()  # Registrar timestamp
+            logger.info(f"✅ Estado cambiado a 'En proceso' para operación {operation.operation_id}")
+            db.session.flush()  # Forzar flush para asegurar que se registre el cambio
+        else:
+            logger.warning(f"⚠️ Operación {operation.operation_id} no está en estado 'Pendiente', estado actual: {operation.status}")
 
         # Auto-asignar operador si está "En proceso" y NO tiene operador
         if operation.status == 'En proceso' and not operation.assigned_operator_id:
