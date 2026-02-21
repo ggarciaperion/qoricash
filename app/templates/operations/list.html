@@ -1276,7 +1276,7 @@ function addDepositRow(data, index, editable) {
                 <label class="form-label small">Cuenta Cargo</label>
                 ${editable
                     ? `<select class="form-select form-select-sm deposit-cuenta">${accountOptions}</select>`
-                    : getAccountInfoDisplay(data.cuenta_cargo, false)}
+                    : getAccountInfoDisplay(data.cuenta_cargo || currentOperation.source_account, false)}
             </div>
             <div class="col-md-3">
                 <label class="form-label small">Comprobante</label>
@@ -1358,7 +1358,7 @@ function addPaymentRow(data, index, editable) {
                 <label class="form-label small">Cuenta Destino</label>
                 ${editable
                     ? `<select class="form-select form-select-sm payment-cuenta">${accountOptions}</select>`
-                    : getAccountInfoDisplay(data.cuenta_destino, true)}
+                    : getAccountInfoDisplay(data.cuenta_destino || currentOperation.destination_account, true)}
             </div>
             <div class="col-md-2 d-flex align-items-end">
                 ${editable ? `<button type="button" class="btn btn-sm btn-outline-danger w-100" onclick="removePayment(${index})"><i class="bi bi-trash"></i></button>` : ''}
