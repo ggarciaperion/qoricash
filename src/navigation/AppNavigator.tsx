@@ -4,10 +4,13 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer } from '@react-navigation/native';
 import { Icon } from 'react-native-paper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { View } from 'react-native';
 
 import { useAuth } from '../contexts/AuthContext';
+import { useLoginLoading } from '../contexts/LoginLoadingContext';
 import { Colors } from '../constants/colors';
 import { STORAGE_KEYS } from '../constants/config';
+import { LoginLoadingScreen } from '../components/LoginLoadingScreen';
 
 // Auth Screens
 import { LoginScreen } from '../screens/LoginScreen';
@@ -172,6 +175,7 @@ const MainNavigator = () => {
 // Root Navigator
 export const AppNavigator = () => {
   const { isAuthenticated, loading, client } = useAuth();
+  const { showLoginLoading, setShowLoginLoading } = useLoginLoading();
   const [requiresPasswordChange, setRequiresPasswordChange] = useState(false);
 
   useEffect(() => {
@@ -193,28 +197,36 @@ export const AppNavigator = () => {
   }
 
   return (
-    <NavigationContainer>
-      {isAuthenticated ? (
-        requiresPasswordChange ? (
-          <Stack.Navigator screenOptions={{ headerShown: false }}>
-            <Stack.Screen
-              name="ChangePassword"
-              component={ChangePasswordScreen}
-              initialParams={{ isFirstLogin: true, dni: client?.dni }}
-              options={{
-                headerShown: true,
-                title: 'Cambiar Contraseña',
-                headerTintColor: Colors.primary,
-                headerLeft: () => null, // Evitar que puedan regresar
-              }}
-            />
-          </Stack.Navigator>
+    <>
+      <NavigationContainer>
+        {isAuthenticated ? (
+          requiresPasswordChange ? (
+            <Stack.Navigator screenOptions={{ headerShown: false }}>
+              <Stack.Screen
+                name="ChangePassword"
+                component={ChangePasswordScreen}
+                initialParams={{ isFirstLogin: true, dni: client?.dni }}
+                options={{
+                  headerShown: true,
+                  title: 'Cambiar Contraseña',
+                  headerTintColor: Colors.primary,
+                  headerLeft: () => null, // Evitar que puedan regresar
+                }}
+              />
+            </Stack.Navigator>
+          ) : (
+            <MainNavigator />
+          )
         ) : (
-          <MainNavigator />
-        )
-      ) : (
-        <AuthNavigator />
-      )}
-    </NavigationContainer>
+          <AuthNavigator />
+        )}
+      </NavigationContainer>
+
+      {/* Login Loading Screen - Global overlay */}
+      <LoginLoadingScreen
+        visible={showLoginLoading}
+        onComplete={() => setShowLoginLoading(false)}
+      />
+    </>
   );
 };

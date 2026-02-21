@@ -6,6 +6,7 @@ import * as Notifications from 'expo-notifications';
 import { Platform, View, StyleSheet, Alert } from 'react-native';
 
 import { AuthProvider } from './src/contexts/AuthContext';
+import { LoginLoadingProvider } from './src/contexts/LoginLoadingContext';
 import { AppNavigator } from './src/navigation/AppNavigator';
 import { SplashScreen } from './src/components/SplashScreen';
 import { Colors } from './src/constants/colors';
@@ -80,8 +81,10 @@ export default function App() {
         <View style={styles.container}>
           <View style={styles.mobileContainer}>
             <AuthProvider>
-              <AppNavigator />
-              <StatusBar style="auto" />
+              <LoginLoadingProvider>
+                <AppNavigator />
+                <StatusBar style="auto" />
+              </LoginLoadingProvider>
             </AuthProvider>
           </View>
         </View>

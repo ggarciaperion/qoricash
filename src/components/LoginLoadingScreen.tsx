@@ -101,7 +101,10 @@ export const LoginLoadingScreen: React.FC<LoginLoadingScreenProps> = ({
   });
 
   return (
-    <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
+    <Animated.View
+      style={[styles.container, { opacity: fadeAnim }]}
+      pointerEvents={visible ? 'auto' : 'none'}
+    >
       <LinearGradient
         colors={[Colors.secondary, Colors.secondaryLight]}
         style={styles.gradient}

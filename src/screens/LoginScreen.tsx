@@ -10,26 +10,24 @@ import { TextInput, Button, Text, HelperText, IconButton } from 'react-native-pa
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../contexts/AuthContext';
+import { useLoginLoading } from '../contexts/LoginLoadingContext';
 import { Colors } from '../constants/colors';
 import { API_CONFIG } from '../constants/config';
 import { KeyboardAwareScrollView } from '../components/KeyboardAwareScrollView';
 import { CustomModal } from '../components/CustomModal';
 import { GlobalStyles } from '../styles/globalStyles';
-import { LoginLoadingScreen } from '../components/LoginLoadingScreen';
 
 type DocumentType = 'DNI' | 'CE' | 'RUC';
 
 export const LoginScreen = () => {
   const navigation = useNavigation();
   const { login, loading } = useAuth();
+  const { setShowLoginLoading } = useLoginLoading();
   const [documentType, setDocumentType] = useState<DocumentType | null>(null);
   const [dni, setDni] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
-
-  // Login Loading Screen State
-  const [showLoginLoading, setShowLoginLoading] = useState(false);
 
   // Forgot Password Modal State
   const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
@@ -71,21 +69,24 @@ export const LoginScreen = () => {
         return;
       }
 
+      // Mostrar pantalla de carga ANTES de hacer el login
+      setShowLoginLoading(true);
+
+      // Pequeño delay para que la animación inicie suavemente
+      await new Promise(resolve => setTimeout(resolve, 200));
+
       // Enviar DNI y contraseña al backend
       // El backend validará si el cliente tiene contraseña configurada
       await login({ username: dni, password: password }, dni);
 
-      // Mostrar pantalla de carga después del login exitoso
-      setShowLoginLoading(true);
+      // El login fue exitoso, la pantalla de carga completará su animación
+      // y luego onComplete oculta la pantalla, permitiendo que el navigator
+      // navegue al Home
     } catch (err: any) {
+      // Si hay error, ocultar la pantalla de carga inmediatamente
+      setShowLoginLoading(false);
       setError(err.message || 'Error al iniciar sesión');
     }
-  };
-
-  const handleLoginLoadingComplete = () => {
-    setShowLoginLoading(false);
-    // La navegación al home se maneja automáticamente por el AppNavigator
-    // cuando isAuthenticated cambia a true
   };
 
   const handleForgotPassword = async () => {
@@ -499,12 +500,6 @@ export const LoginScreen = () => {
           </Text>
         </View>
       </CustomModal>
-
-      {/* Login Loading Screen */}
-      <LoginLoadingScreen
-        visible={showLoginLoading}
-        onComplete={handleLoginLoadingComplete}
-      />
     </>
   );
 };
