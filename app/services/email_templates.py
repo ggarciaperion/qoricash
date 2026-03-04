@@ -10,6 +10,68 @@ from app.models.user import User
 
 logger = logging.getLogger(__name__)
 
+# ============================================
+# CSS BASE COMPARTIDO POR TODAS LAS PLANTILLAS
+# ============================================
+_EMAIL_CSS = """
+    body, table, td, p, h1, h2, h3, h4 { margin: 0; padding: 0; }
+    img { border: 0; display: block; }
+    body { background-color: #f0f4f8; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; -webkit-text-size-adjust: 100%; }
+    .email-wrapper { padding: 28px 16px; }
+    .email-card { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(13,27,42,0.09); }
+    .email-header { background-color: #0D1B2A; padding: 30px 40px 26px; text-align: center; }
+    .logo-wrap { display: inline-block; border: 1.5px solid rgba(0,222,168,0.35); border-radius: 8px; padding: 7px 22px; margin-bottom: 10px; }
+    .logo-text { color: #00DEA8; font-size: 21px; font-weight: 700; letter-spacing: 1.5px; }
+    .tagline { color: rgba(255,255,255,0.40); font-size: 11px; letter-spacing: 0.6px; margin-top: 6px; }
+    .accent-bar { height: 3px; background-color: #00DEA8; }
+    .email-body { padding: 36px 40px; color: #334155; font-size: 15px; line-height: 1.65; }
+    .status-box { border-radius: 10px; padding: 22px 24px; text-align: center; margin: 22px 0; }
+    .status-box.success { background-color: #f0fdf4; border: 1.5px solid #86efac; }
+    .status-box.info { background-color: #eff6ff; border: 1.5px solid #93c5fd; }
+    .status-box.warning { background-color: #fffbeb; border: 1.5px solid #fcd34d; }
+    .status-box h2 { font-size: 17px; font-weight: 700; margin-bottom: 6px; }
+    .status-box.success h2 { color: #15803d; }
+    .status-box.info h2 { color: #1d4ed8; }
+    .status-box.warning h2 { color: #92400e; }
+    .status-box p { font-size: 14px; margin-top: 4px; }
+    .status-box.success p { color: #166534; }
+    .status-box.info p { color: #1e40af; }
+    .status-box.warning p { color: #78350f; }
+    .section-label { font-size: 11px; font-weight: 700; color: #00DEA8; text-transform: uppercase; letter-spacing: 1.2px; margin: 24px 0 10px 0; }
+    .data-box { background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; overflow: hidden; margin: 0 0 20px 0; }
+    .data-row { padding: 10px 18px; border-bottom: 1px solid #f1f5f9; font-size: 14px; }
+    .data-row:last-child { border-bottom: none; }
+    .data-label { color: #64748b; font-weight: 600; display: inline-block; min-width: 150px; }
+    .data-value { color: #1e293b; font-weight: 500; }
+    .alert { border-radius: 8px; padding: 13px 16px; margin: 14px 0; font-size: 13.5px; line-height: 1.65; }
+    .alert.warning { background: #fffbeb; border-left: 3px solid #f59e0b; color: #78350f; }
+    .alert.danger { background: #fef2f2; border-left: 3px solid #ef4444; color: #7f1d1d; }
+    .alert.info { background: #f0f9ff; border-left: 3px solid #0ea5e9; color: #0c4a6e; }
+    .alert.success { background: #f0fdf4; border-left: 3px solid #22c55e; color: #14532d; }
+    .password-box { background-color: #0D1B2A; border-radius: 10px; padding: 22px 24px; text-align: center; margin: 16px 0; }
+    .password-label { color: rgba(255,255,255,0.50); font-size: 11px; letter-spacing: 0.8px; text-transform: uppercase; margin-bottom: 10px; }
+    .password-code { color: #00DEA8; font-size: 28px; font-family: 'Courier New', Courier, monospace; font-weight: 700; letter-spacing: 4px; }
+    .password-hint { color: rgba(255,255,255,0.35); font-size: 11px; margin-top: 10px; }
+    .steps-box { background: #f8fafc; border-radius: 8px; padding: 14px 18px 14px 14px; margin: 14px 0; }
+    .steps-box ol { margin: 0; padding-left: 22px; }
+    .steps-box li { padding: 5px 0; font-size: 14px; color: #334155; }
+    .cta-wrap { text-align: center; margin: 28px 0 20px 0; }
+    .cta-btn { display: inline-block; background-color: #00DEA8; color: #0D1B2A; font-weight: 700; font-size: 15px; padding: 13px 36px; border-radius: 8px; text-decoration: none; letter-spacing: 0.3px; }
+    .divider { height: 1px; background-color: #f1f5f9; margin: 24px 0; }
+    .note-text { font-size: 13px; color: #94a3b8; line-height: 1.6; }
+    .email-footer { background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 22px 40px; text-align: center; }
+    .footer-brand { color: #0D1B2A; font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+    .footer-meta { color: #94a3b8; font-size: 12px; }
+    .footer-link { color: #00DEA8; text-decoration: none; }
+    .footer-copy { color: #cbd5e1; font-size: 11px; margin-top: 8px; }
+    @media only screen and (max-width: 620px) {
+        .email-body { padding: 24px 20px !important; }
+        .email-header { padding: 24px 20px !important; }
+        .email-footer { padding: 20px !important; }
+        .data-label { display: block !important; min-width: unset !important; margin-bottom: 2px; }
+    }
+"""
+
 
 class EmailTemplates:
     """Plantillas de correo diferenciadas por origen"""
@@ -179,70 +241,69 @@ class EmailTemplates:
         """Plantilla para registro desde móvil"""
         client_name = client.full_name or client.razon_social or 'Cliente'
 
-        template = """
-<!DOCTYPE html>
-<html>
+        template = """<!DOCTYPE html>
+<html lang="es">
 <head>
     <meta charset="UTF-8">
-    <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; background: #f4f4f4; margin: 0; padding: 20px; }
-        .container { max-width: 600px; margin: 0 auto; background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .header { background: linear-gradient(135deg, #0D1B2A 0%, #1a2942 100%); padding: 30px 20px; text-align: center; }
-        .header h1 { margin: 0; color: #fff; font-size: 28px; }
-        .content { padding: 30px; }
-        .welcome { background: #e8f5f1; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center; }
-        .welcome h2 { color: #00a887; margin: 0 0 10px 0; }
-        .info-box { background: #f8f9fa; border-left: 4px solid #00a887; padding: 15px; margin: 20px 0; }
-        .note { background: #fff3cd; border: 1px solid #ffc107; padding: 15px; border-radius: 5px; margin: 20px 0; }
-        .access-info { background: #d1ecf1; border: 1px solid #17a2b8; padding: 20px; border-radius: 8px; margin: 25px 0; }
-        .access-info h3 { color: #00a887; margin: 0 0 15px 0; }
-        .footer { background: #f8f9fa; padding: 20px; text-align: center; color: #666; font-size: 12px; }
-    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>""" + _EMAIL_CSS + """</style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>¡Bienvenido a QoriCash!</h1>
-        </div>
+<div class="email-wrapper">
+    <div class="email-card">
 
-        <div class="content">
+        <div class="email-header">
+            <div class="logo-wrap"><span class="logo-text">QoriCash</span></div>
+            <p class="tagline">Tu casa de cambio de confianza</p>
+        </div>
+        <div class="accent-bar"></div>
+
+        <div class="email-body">
             <p>Hola <strong>{{ client_name }}</strong>,</p>
 
-            <div class="welcome">
-                <h2>✅ Tu registro fue exitoso</h2>
-                <p>Te damos la bienvenida a QoriCash, tu casa de cambio de confianza.</p>
+            <div class="status-box success">
+                <h2>Registro exitoso</h2>
+                <p>Te damos la bienvenida a QoriCash.</p>
             </div>
 
-            <div class="info-box">
-                <h3 style="color: #00a887;">Información de tu cuenta:</h3>
-                <p><strong>Documento:</strong> {{ client_dni }}</p>
-                <p><strong>Email:</strong> {{ client_email }}</p>
-                <p><strong>Estado:</strong> Cuenta creada - Pendiente de validación KYC</p>
+            <p class="section-label">Información de tu cuenta</p>
+            <div class="data-box">
+                <div class="data-row">
+                    <span class="data-label">Documento</span>
+                    <span class="data-value">{{ client_dni }}</span>
+                </div>
+                <div class="data-row">
+                    <span class="data-label">Correo electrónico</span>
+                    <span class="data-value">{{ client_email }}</span>
+                </div>
+                <div class="data-row">
+                    <span class="data-label">Estado</span>
+                    <span class="data-value" style="color:#d97706;font-weight:700;">Pendiente de validación KYC</span>
+                </div>
             </div>
 
-            <div class="note">
-                <h3 style="color: #856404; margin: 0 0 10px 0;">📋 Próximos pasos:</h3>
-                <p style="margin: 5px 0;">Para poder realizar tu primera operación, necesitamos validar tu identidad. Por favor, sube tu documento de identidad desde la aplicación móvil.</p>
-                <p style="margin: 5px 0;">Una vez aprobados tus documentos, recibirás una notificación y podrás comenzar a operar.</p>
+            <div class="alert warning">
+                <strong>Próximos pasos:</strong> Para realizar tu primera operación debemos validar tu identidad. Por favor sube tu documento desde la aplicación móvil. Recibirás una notificación cuando sea aprobado.
             </div>
 
-            <div class="access-info">
-                <h3>🌐 Acceso Multiplataforma</h3>
-                <p style="margin: 10px 0; color: #333;">Recuerda que también puedes acceder a tu cuenta desde nuestra página web <strong>www.qoricash.pe</strong> utilizando tu número de documento y la misma contraseña que registraste en el aplicativo móvil.</p>
+            <div class="alert info">
+                <strong>Acceso web:</strong> También puedes ingresar desde <strong>www.qoricash.pe</strong> usando tu número de documento y la contraseña que registraste en la app.
             </div>
 
-            <p style="margin-top: 30px;">Si tienes alguna consulta, no dudes en contactarnos a <a href="mailto:info@qoricash.pe" style="color: #00a887;">info@qoricash.pe</a></p>
+            <div class="divider"></div>
+            <p class="note-text">¿Tienes alguna consulta? Escríbenos a <a href="mailto:info@qoricash.pe" class="footer-link">info@qoricash.pe</a></p>
         </div>
 
-        <div class="footer">
-            <p><strong>QoriCash</strong></p>
-            <p>RUC: 20615113698</p>
-            <p>© 2025 QoriCash. Todos los derechos reservados.</p>
+        <div class="email-footer">
+            <p class="footer-brand">QoriCash</p>
+            <p class="footer-meta">RUC: 20615113698 &nbsp;·&nbsp; <a href="mailto:info@qoricash.pe" class="footer-link">info@qoricash.pe</a></p>
+            <p class="footer-copy">© 2025 QoriCash. Todos los derechos reservados.</p>
         </div>
+
     </div>
+</div>
 </body>
-</html>
-"""
+</html>"""
         return render_template_string(template,
                                      client_name=client_name,
                                      client_dni=client.dni,
@@ -253,76 +314,78 @@ class EmailTemplates:
         """Plantilla para registro desde web"""
         client_name = client.full_name or client.razon_social or 'Cliente'
 
-        template = """
-<!DOCTYPE html>
-<html>
+        template = """<!DOCTYPE html>
+<html lang="es">
 <head>
     <meta charset="UTF-8">
-    <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; background: #f4f4f4; margin: 0; padding: 20px; }
-        .container { max-width: 600px; margin: 0 auto; background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .header { background: linear-gradient(135deg, #0D1B2A 0%, #1a2942 100%); padding: 30px 20px; text-align: center; }
-        .header h1 { margin: 0; color: #fff; font-size: 28px; }
-        .content { padding: 30px; }
-        .welcome { background: #e8f5f1; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center; }
-        .welcome h2 { color: #00a887; margin: 0 0 10px 0; }
-        .info-box { background: #f8f9fa; border-left: 4px solid #00a887; padding: 15px; margin: 20px 0; }
-        .note { background: #fff3cd; border: 1px solid #ffc107; padding: 15px; border-radius: 5px; margin: 20px 0; }
-        .access-info { background: #d1ecf1; border: 1px solid #17a2b8; padding: 20px; border-radius: 8px; margin: 25px 0; }
-        .access-info h3 { color: #00a887; margin: 0 0 15px 0; }
-        .footer { background: #f8f9fa; padding: 20px; text-align: center; color: #666; font-size: 12px; }
-        .app-links { text-align: center; margin: 15px 0; }
-        .app-links a { display: inline-block; margin: 0 10px; padding: 10px 20px; background: #00a887; color: white; text-decoration: none; border-radius: 5px; }
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>""" + _EMAIL_CSS + """
+        .app-btn { display: inline-block; padding: 9px 20px; border-radius: 6px; text-decoration: none; font-size: 13px; font-weight: 600; margin: 4px 6px; }
+        .app-btn.android { background-color: #14532d; color: #ffffff; }
+        .app-btn.ios { background-color: #1e293b; color: #ffffff; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>¡Bienvenido a QoriCash!</h1>
-        </div>
+<div class="email-wrapper">
+    <div class="email-card">
 
-        <div class="content">
+        <div class="email-header">
+            <div class="logo-wrap"><span class="logo-text">QoriCash</span></div>
+            <p class="tagline">Tu casa de cambio de confianza</p>
+        </div>
+        <div class="accent-bar"></div>
+
+        <div class="email-body">
             <p>Hola <strong>{{ client_name }}</strong>,</p>
 
-            <div class="welcome">
-                <h2>✅ Tu registro fue exitoso</h2>
-                <p>Te damos la bienvenida a QoriCash, tu casa de cambio de confianza.</p>
+            <div class="status-box success">
+                <h2>Registro exitoso</h2>
+                <p>Te damos la bienvenida a QoriCash.</p>
             </div>
 
-            <div class="info-box">
-                <h3 style="color: #00a887;">Información de tu cuenta:</h3>
-                <p><strong>Documento:</strong> {{ client_dni }}</p>
-                <p><strong>Email:</strong> {{ client_email }}</p>
-                <p><strong>Estado:</strong> Cuenta creada - Pendiente de validación KYC</p>
-            </div>
-
-            <div class="note">
-                <h3 style="color: #856404; margin: 0 0 10px 0;">📋 Próximos pasos:</h3>
-                <p style="margin: 5px 0;">Para poder realizar tu primera operación, necesitamos validar tu identidad. Al intentar crear tu primera operación, se te solicitará subir tu documento de identidad.</p>
-                <p style="margin: 5px 0;">Una vez aprobados tus documentos, recibirás una notificación y podrás comenzar a operar.</p>
-            </div>
-
-            <div class="access-info">
-                <h3>📱 Acceso desde App Móvil</h3>
-                <p style="margin: 10px 0; color: #333;">Recuerda que también puedes acceder a tu cuenta desde nuestro aplicativo móvil. Descárgalo en Android o iOS e inicia sesión con tu número de documento y la contraseña que registraste en la web.</p>
-                <div class="app-links">
-                    <a href="#" style="background: #34a853;">📥 Android (Play Store)</a>
-                    <a href="#" style="background: #000;">📥 iOS (App Store)</a>
+            <p class="section-label">Información de tu cuenta</p>
+            <div class="data-box">
+                <div class="data-row">
+                    <span class="data-label">Documento</span>
+                    <span class="data-value">{{ client_dni }}</span>
+                </div>
+                <div class="data-row">
+                    <span class="data-label">Correo electrónico</span>
+                    <span class="data-value">{{ client_email }}</span>
+                </div>
+                <div class="data-row">
+                    <span class="data-label">Estado</span>
+                    <span class="data-value" style="color:#d97706;font-weight:700;">Pendiente de validación KYC</span>
                 </div>
             </div>
 
-            <p style="margin-top: 30px;">Si tienes alguna consulta, no dudes en contactarnos a <a href="mailto:info@qoricash.pe" style="color: #00a887;">info@qoricash.pe</a></p>
+            <div class="alert warning">
+                <strong>Próximos pasos:</strong> Para realizar tu primera operación debemos validar tu identidad. Al intentar crear tu primera operación, se te solicitará subir tu documento. Recibirás una notificación cuando sea aprobado.
+            </div>
+
+            <p class="section-label">Disponible en app móvil</p>
+            <div class="alert info">
+                Descarga nuestra aplicación e inicia sesión con tu número de documento y la contraseña que registraste en la web.
+                <div style="text-align:center;margin-top:12px;">
+                    <a href="#" class="app-btn android">Android — Play Store</a>
+                    <a href="#" class="app-btn ios">iOS — App Store</a>
+                </div>
+            </div>
+
+            <div class="divider"></div>
+            <p class="note-text">¿Tienes alguna consulta? Escríbenos a <a href="mailto:info@qoricash.pe" class="footer-link">info@qoricash.pe</a></p>
         </div>
 
-        <div class="footer">
-            <p><strong>QoriCash</strong></p>
-            <p>RUC: 20615113698</p>
-            <p>© 2025 QoriCash. Todos los derechos reservados.</p>
+        <div class="email-footer">
+            <p class="footer-brand">QoriCash</p>
+            <p class="footer-meta">RUC: 20615113698 &nbsp;·&nbsp; <a href="mailto:info@qoricash.pe" class="footer-link">info@qoricash.pe</a></p>
+            <p class="footer-copy">© 2025 QoriCash. Todos los derechos reservados.</p>
         </div>
+
     </div>
+</div>
 </body>
-</html>
-"""
+</html>"""
         return render_template_string(template,
                                      client_name=client_name,
                                      client_dni=client.dni,
@@ -334,85 +397,69 @@ class EmailTemplates:
         client_name = client.full_name or client.razon_social or 'Cliente'
         trader_name = trader.username if trader else 'QoriCash'
 
-        template = """
-<!DOCTYPE html>
-<html>
+        template = """<!DOCTYPE html>
+<html lang="es">
 <head>
     <meta charset="UTF-8">
-    <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; background: #f4f4f4; margin: 0; padding: 20px; }
-        .container { max-width: 600px; margin: 0 auto; background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .header { background: linear-gradient(135deg, #0D1B2A 0%, #1a2942 100%); padding: 30px 20px; text-align: center; }
-        .header h1 { margin: 0; color: #fff; font-size: 28px; }
-        .content { padding: 30px; }
-        .success-box { background: #d4edda; border: 2px solid #28a745; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center; }
-        .success-box h2 { color: #155724; margin: 0 0 10px 0; }
-        .password-box { background: #fff3cd; border: 2px solid #ffc107; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center; }
-        .password-box h3 { color: #856404; margin: 0 0 15px 0; }
-        .password { font-size: 24px; font-weight: bold; color: #d63384; background: white; padding: 15px; border-radius: 5px; letter-spacing: 2px; }
-        .warning { background: #f8d7da; border: 1px solid #f5c6cb; padding: 15px; border-radius: 5px; margin: 20px 0; }
-        .access-info { background: #d1ecf1; border: 1px solid #17a2b8; padding: 20px; border-radius: 8px; margin: 25px 0; }
-        .access-info h3 { color: #00a887; margin: 0 0 15px 0; }
-        .steps { background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0; }
-        .steps li { margin: 10px 0; }
-        .footer { background: #f8f9fa; padding: 20px; text-align: center; color: #666; font-size: 12px; }
-    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>""" + _EMAIL_CSS + """</style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>Cuenta Activada - QoriCash</h1>
-        </div>
+<div class="email-wrapper">
+    <div class="email-card">
 
-        <div class="content">
+        <div class="email-header">
+            <div class="logo-wrap"><span class="logo-text">QoriCash</span></div>
+            <p class="tagline">Tu casa de cambio de confianza</p>
+        </div>
+        <div class="accent-bar"></div>
+
+        <div class="email-body">
             <p>Hola <strong>{{ client_name }}</strong>,</p>
 
-            <div class="success-box">
-                <h2>✅ ¡Tu cuenta ha sido activada!</h2>
+            <div class="status-box success">
+                <h2>¡Tu cuenta ha sido activada!</h2>
                 <p>Tu asesor <strong>{{ trader_name }}</strong> ha creado tu cuenta en QoriCash.</p>
             </div>
 
+            <p class="section-label">Contraseña temporal</p>
             <div class="password-box">
-                <h3>🔐 Contraseña Temporal</h3>
-                <div class="password">{{ temporary_password }}</div>
-                <p style="margin-top: 15px; font-size: 14px; color: #856404;">Esta es una contraseña temporal que deberás cambiar en tu primer inicio de sesión.</p>
+                <p class="password-label">Tu contraseña de acceso es</p>
+                <p class="password-code">{{ temporary_password }}</p>
+                <p class="password-hint">Cópiala exactamente como aparece</p>
             </div>
 
-            <div class="warning">
-                <p style="margin: 0; color: #721c24;"><strong>⚠️ Importante:</strong> Por seguridad, deberás cambiar esta contraseña temporal la primera vez que inicies sesión.</p>
+            <div class="alert danger">
+                <strong>Importante:</strong> Por seguridad, deberás cambiar esta contraseña temporal la primera vez que inicies sesión.
             </div>
 
-            <div class="steps">
-                <h3 style="color: #00a887;">📋 Próximos pasos:</h3>
+            <p class="section-label">Próximos pasos</p>
+            <div class="steps-box">
                 <ol>
-                    <li>Inicia sesión con tu número de documento y la contraseña temporal proporcionada</li>
-                    <li>El sistema te solicitará crear una nueva contraseña segura</li>
+                    <li>Inicia sesión con tu número de documento y la contraseña temporal</li>
+                    <li>El sistema te pedirá crear una nueva contraseña segura</li>
                     <li>¡Comienza a realizar tus operaciones cambiarias!</li>
                 </ol>
             </div>
 
-            <div class="access-info">
-                <h3>🌐 Acceso Multiplataforma</h3>
-                <p style="margin: 10px 0; color: #333;">Con esta contraseña temporal puedes acceder a tu cuenta desde:</p>
-                <ul style="margin: 10px 0; padding-left: 20px;">
-                    <li><strong>Página web:</strong> www.qoricash.pe</li>
-                    <li><strong>Aplicativo móvil:</strong> Disponible en Android e iOS</li>
-                </ul>
-                <p style="margin: 10px 0; color: #333;">Utiliza tu número de documento y la contraseña temporal asignada. Por seguridad, deberás cambiarla en tu primer inicio de sesión.</p>
+            <div class="alert info">
+                <strong>Acceso multiplataforma:</strong> Puedes ingresar desde <strong>www.qoricash.pe</strong> o desde nuestra app móvil disponible en Android e iOS.
             </div>
 
-            <p style="margin-top: 30px;">Si tienes alguna consulta, puedes contactar a tu asesor <strong>{{ trader_name }}</strong> o escribirnos a <a href="mailto:info@qoricash.pe" style="color: #00a887;">info@qoricash.pe</a></p>
+            <div class="divider"></div>
+            <p class="note-text">¿Tienes alguna consulta? Contacta a tu asesor <strong>{{ trader_name }}</strong> o escríbenos a <a href="mailto:info@qoricash.pe" class="footer-link">info@qoricash.pe</a></p>
         </div>
 
-        <div class="footer">
-            <p><strong>QoriCash</strong></p>
-            <p>RUC: 20615113698</p>
-            <p>© 2025 QoriCash. Todos los derechos reservados.</p>
+        <div class="email-footer">
+            <p class="footer-brand">QoriCash</p>
+            <p class="footer-meta">RUC: 20615113698 &nbsp;·&nbsp; <a href="mailto:info@qoricash.pe" class="footer-link">info@qoricash.pe</a></p>
+            <p class="footer-copy">© 2025 QoriCash. Todos los derechos reservados.</p>
         </div>
+
     </div>
+</div>
 </body>
-</html>
-"""
+</html>"""
         return render_template_string(template,
                                      client_name=client_name,
                                      client_dni=client.dni,
@@ -424,75 +471,66 @@ class EmailTemplates:
         """Plantilla para activación sin contraseña (cliente auto-registrado)"""
         client_name = client.full_name or client.razon_social or 'Cliente'
 
-        template = """
-<!DOCTYPE html>
-<html>
+        template = """<!DOCTYPE html>
+<html lang="es">
 <head>
     <meta charset="UTF-8">
-    <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; background: #f4f4f4; margin: 0; padding: 20px; }
-        .container { max-width: 600px; margin: 0 auto; background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .header { background: linear-gradient(135deg, #0D1B2A 0%, #1a2942 100%); padding: 30px 20px; text-align: center; }
-        .header h1 { margin: 0; color: #fff; font-size: 28px; }
-        .content { padding: 30px; }
-        .success-box { background: #d4edda; border: 2px solid #28a745; padding: 25px; border-radius: 8px; margin: 20px 0; text-align: center; }
-        .success-box h2 { color: #155724; margin: 0 0 10px 0; font-size: 24px; }
-        .success-box p { color: #155724; font-size: 16px; }
-        .info-box { background: #f8f9fa; border-left: 4px solid #00a887; padding: 20px; margin: 20px 0; }
-        .access-info { background: #d1ecf1; border: 1px solid #17a2b8; padding: 20px; border-radius: 8px; margin: 25px 0; }
-        .access-info h3 { color: #00a887; margin: 0 0 15px 0; }
-        .cta-button { background: #00a887; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 20px 0; font-weight: bold; }
-        .footer { background: #f8f9fa; padding: 20px; text-align: center; color: #666; font-size: 12px; }
-    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>""" + _EMAIL_CSS + """</style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>¡Cuenta Activada!</h1>
-        </div>
+<div class="email-wrapper">
+    <div class="email-card">
 
-        <div class="content">
+        <div class="email-header">
+            <div class="logo-wrap"><span class="logo-text">QoriCash</span></div>
+            <p class="tagline">Tu casa de cambio de confianza</p>
+        </div>
+        <div class="accent-bar"></div>
+
+        <div class="email-body">
             <p>Hola <strong>{{ client_name }}</strong>,</p>
 
-            <div class="success-box">
-                <h2>✅ Tu cuenta ha sido activada exitosamente</h2>
-                <p>Tus documentos han sido verificados y aprobados.</p>
-                <p><strong>¡Ya puedes comenzar a realizar operaciones cambiarias!</strong></p>
+            <div class="status-box success">
+                <h2>¡Cuenta activada exitosamente!</h2>
+                <p>Tus documentos han sido verificados y aprobados.<br>Ya puedes comenzar a operar.</p>
             </div>
 
-            <div class="info-box">
-                <h3 style="color: #00a887;">¿Qué significa esto?</h3>
-                <p style="margin: 10px 0;">✓ Tu identidad ha sido verificada</p>
-                <p style="margin: 10px 0;">✓ Puedes crear operaciones de compra y venta</p>
-                <p style="margin: 10px 0;">✓ Acceso completo a todas las funcionalidades</p>
+            <p class="section-label">¿Qué significa esto?</p>
+            <div class="data-box">
+                <div class="data-row">
+                    <span class="data-value" style="color:#059669;">✓ &nbsp;Tu identidad ha sido verificada</span>
+                </div>
+                <div class="data-row">
+                    <span class="data-value" style="color:#059669;">✓ &nbsp;Puedes crear operaciones de compra y venta</span>
+                </div>
+                <div class="data-row">
+                    <span class="data-value" style="color:#059669;">✓ &nbsp;Acceso completo a todas las funcionalidades</span>
+                </div>
             </div>
 
-            <div style="text-align: center;">
-                <a href="https://www.qoricash.pe" class="cta-button">Iniciar Sesión Ahora</a>
+            <div class="cta-wrap">
+                <a href="https://www.qoricash.pe" class="cta-btn">Iniciar sesión ahora</a>
             </div>
 
-            <div class="access-info">
-                <h3>🌐 Accede desde cualquier plataforma</h3>
-                <p style="margin: 10px 0; color: #333;">Recuerda que puedes acceder a tu cuenta desde:</p>
-                <ul style="margin: 10px 0; padding-left: 20px; color: #333;">
-                    <li><strong>Página web:</strong> www.qoricash.pe</li>
-                    <li><strong>Aplicativo móvil:</strong> Android e iOS</li>
-                </ul>
-                <p style="margin: 15px 0; color: #333; font-weight: 500;">Utiliza tu número de documento y la contraseña que definiste al registrarte.</p>
+            <div class="alert info">
+                <strong>Acceso multiplataforma:</strong> Ingresa desde <strong>www.qoricash.pe</strong> o nuestra app móvil usando tu número de documento y la contraseña que definiste al registrarte.
             </div>
 
-            <p style="margin-top: 30px;">Si tienes alguna consulta, no dudes en contactarnos a <a href="mailto:info@qoricash.pe" style="color: #00a887;">info@qoricash.pe</a></p>
+            <div class="divider"></div>
+            <p class="note-text">¿Tienes alguna consulta? Escríbenos a <a href="mailto:info@qoricash.pe" class="footer-link">info@qoricash.pe</a></p>
         </div>
 
-        <div class="footer">
-            <p><strong>QoriCash</strong></p>
-            <p>RUC: 20615113698</p>
-            <p>© 2025 QoriCash. Todos los derechos reservados.</p>
+        <div class="email-footer">
+            <p class="footer-brand">QoriCash</p>
+            <p class="footer-meta">RUC: 20615113698 &nbsp;·&nbsp; <a href="mailto:info@qoricash.pe" class="footer-link">info@qoricash.pe</a></p>
+            <p class="footer-copy">© 2025 QoriCash. Todos los derechos reservados.</p>
         </div>
+
     </div>
+</div>
 </body>
-</html>
-"""
+</html>"""
         return render_template_string(template,
                                      client_name=client_name,
                                      client_dni=client.dni)

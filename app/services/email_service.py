@@ -267,319 +267,311 @@ class EmailService:
     @staticmethod
     def _render_new_operation_template(operation):
         """Renderizar plantilla HTML para nueva operación"""
-        template = """
-<!DOCTYPE html>
-<html>
+        template = """<!DOCTYPE html>
+<html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; background-color: #f4f4f4; margin: 0; padding: 0; }
-        .container { max-width: 600px; margin: 20px auto; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px 20px; text-align: center; }
-        .header h1 { margin: 0; font-size: 24px; }
-        .content { padding: 30px 20px; }
-        .badge { display: inline-block; padding: 5px 15px; border-radius: 20px; font-size: 12px; font-weight: bold; margin: 5px 0; }
-        .badge-success { background: #10b981; color: white; }
-        .badge-primary { background: #3b82f6; color: white; }
-        .info-row { display: flex; justify-content: space-between; padding: 12px; border-bottom: 1px solid #e5e7eb; }
-        .info-row:last-child { border-bottom: none; }
-        .info-label { font-weight: 600; color: #6b7280; }
-        .info-value { color: #111827; font-weight: 500; }
-        .highlight-box { background: #f9fafb; border-left: 4px solid #667eea; padding: 15px; margin: 20px 0; border-radius: 4px; }
-        .footer { background: #f9fafb; padding: 20px; text-align: center; font-size: 12px; color: #6b7280; }
-        .btn { display: inline-block; padding: 12px 24px; background: #667eea; color: white; text-decoration: none; border-radius: 6px; margin: 10px 0; }
-        @media only screen and (max-width: 600px) {
-            .info-row { flex-direction: column; }
-            .info-label { margin-bottom: 5px; }
+        body, table, td, p, h1, h2, h3 { margin: 0; padding: 0; }
+        body { background-color: #f0f4f8; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+        .email-wrapper { padding: 28px 16px; }
+        .email-card { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(13,27,42,0.09); }
+        .email-header { background-color: #0D1B2A; padding: 30px 40px 26px; text-align: center; }
+        .logo-wrap { display: inline-block; border: 1.5px solid rgba(0,222,168,0.35); border-radius: 8px; padding: 7px 22px; margin-bottom: 10px; }
+        .logo-text { color: #00DEA8; font-size: 21px; font-weight: 700; letter-spacing: 1.5px; }
+        .tagline { color: rgba(255,255,255,0.40); font-size: 11px; letter-spacing: 0.6px; margin-top: 6px; }
+        .accent-bar { height: 3px; background-color: #00DEA8; }
+        .email-body { padding: 36px 40px; color: #334155; font-size: 15px; line-height: 1.65; }
+        .section-label { font-size: 11px; font-weight: 700; color: #00DEA8; text-transform: uppercase; letter-spacing: 1.2px; margin: 24px 0 10px 0; }
+        .data-box { background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; overflow: hidden; margin: 0 0 20px 0; }
+        .data-row { padding: 10px 18px; border-bottom: 1px solid #f1f5f9; font-size: 14px; }
+        .data-row:last-child { border-bottom: none; }
+        .data-label { color: #64748b; font-weight: 600; display: inline-block; min-width: 150px; }
+        .data-value { color: #1e293b; font-weight: 500; }
+        .op-badge { display: inline-block; padding: 3px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; letter-spacing: 0.3px; }
+        .op-badge.buy { background-color: #dcfce7; color: #15803d; }
+        .op-badge.sell { background-color: #dbeafe; color: #1d4ed8; }
+        .bank-section { border-radius: 8px; overflow: hidden; border: 1px solid #e2e8f0; margin: 16px 0; }
+        .bank-header { padding: 12px 16px; font-size: 13px; font-weight: 700; }
+        .bank-header.buy { background-color: #f0fdf4; color: #15803d; border-bottom: 1px solid #bbf7d0; }
+        .bank-header.sell { background-color: #fef2f2; color: #991b1b; border-bottom: 1px solid #fecaca; }
+        .bank-subtext { font-size: 12px; font-weight: 400; margin-top: 3px; opacity: 0.8; }
+        .bank-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+        .bank-table th { background-color: #0D1B2A; color: #94a3b8; font-weight: 600; padding: 9px 12px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .bank-table td { padding: 9px 12px; border-bottom: 1px solid #f1f5f9; color: #334155; }
+        .bank-table tr:last-child td { border-bottom: none; }
+        .bank-table tr:nth-child(even) td { background-color: #f8fafc; }
+        .bank-name { font-weight: 700; color: #1e293b; }
+        .account-num { font-family: 'Courier New', monospace; color: #0D1B2A; font-weight: 600; }
+        .alert { border-radius: 8px; padding: 13px 16px; margin: 14px 0; font-size: 13.5px; line-height: 1.65; }
+        .alert.warning { background: #fffbeb; border-left: 3px solid #f59e0b; color: #78350f; }
+        .divider { height: 1px; background-color: #f1f5f9; margin: 24px 0; }
+        .note-text { font-size: 13px; color: #94a3b8; line-height: 1.6; }
+        .email-footer { background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 22px 40px; text-align: center; }
+        .footer-brand { color: #0D1B2A; font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+        .footer-meta { color: #94a3b8; font-size: 12px; }
+        .footer-link { color: #00DEA8; text-decoration: none; }
+        .footer-copy { color: #cbd5e1; font-size: 11px; margin-top: 8px; }
+        @media only screen and (max-width: 620px) {
+            .email-body { padding: 24px 20px !important; }
+            .email-header { padding: 24px 20px !important; }
+            .data-label { display: block !important; min-width: unset !important; margin-bottom: 2px; }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>✨ Nueva Operación Registrada</h1>
-            <p style="margin: 10px 0 0 0; font-size: 14px;">QoriCash Trading</p>
+<div class="email-wrapper">
+    <div class="email-card">
+
+        <div class="email-header">
+            <div class="logo-wrap"><span class="logo-text">QoriCash</span></div>
+            <p class="tagline">Nueva operación registrada</p>
         </div>
+        <div class="accent-bar"></div>
 
-        <div class="content">
+        <div class="email-body">
             <p>Estimado(a) <strong>{{ operation.client.full_name or operation.client.razon_social }}</strong>,</p>
+            <p style="margin-top:10px;color:#64748b;font-size:14px;">Se ha registrado una nueva operación con los siguientes detalles:</p>
 
-            <p>Se ha registrado una nueva operación de cambio de divisas con los siguientes detalles:</p>
-
-            <div class="highlight-box">
-                <div class="info-row">
-                    <span class="info-label">Código de Operación:</span>
-                    <span class="info-value"><strong>{{ operation.operation_id }}</strong></span>
+            <p class="section-label">Resumen de la operación</p>
+            <div class="data-box">
+                <div class="data-row">
+                    <span class="data-label">Código</span>
+                    <span class="data-value" style="font-weight:700;color:#0D1B2A;">{{ operation.operation_id }}</span>
                 </div>
-                <div class="info-row">
-                    <span class="info-label">Tipo:</span>
-                    <span class="info-value">
+                <div class="data-row">
+                    <span class="data-label">Tipo</span>
+                    <span class="data-value">
                         {% if operation.operation_type == 'Compra' %}
-                            <span class="badge badge-success">COMPRA USD</span>
+                            <span class="op-badge buy">COMPRA USD</span>
                         {% else %}
-                            <span class="badge badge-primary">VENTA USD</span>
+                            <span class="op-badge sell">VENTA USD</span>
                         {% endif %}
                     </span>
                 </div>
-                <div class="info-row">
-                    <span class="info-label">Monto USD:</span>
-                    <span class="info-value" style="font-size: 18px; color: #059669;">$ {{ "{:,.2f}".format(operation.amount_usd) }}</span>
+                <div class="data-row">
+                    <span class="data-label">Monto USD</span>
+                    <span class="data-value" style="color:#059669;font-weight:700;font-size:16px;">$ {{ "{:,.2f}".format(operation.amount_usd) }}</span>
                 </div>
-                <div class="info-row">
-                    <span class="info-label">Tipo de Cambio:</span>
-                    <span class="info-value">{{ "%.4f"|format(operation.exchange_rate) }}</span>
+                <div class="data-row">
+                    <span class="data-label">Tipo de cambio</span>
+                    <span class="data-value">{{ "%.4f"|format(operation.exchange_rate) }}</span>
                 </div>
-                <div class="info-row">
-                    <span class="info-label">Monto PEN:</span>
-                    <span class="info-value" style="font-size: 18px; color: #dc2626;">S/ {{ "{:,.2f}".format(operation.amount_pen) }}</span>
+                <div class="data-row">
+                    <span class="data-label">Monto PEN</span>
+                    <span class="data-value" style="color:#dc2626;font-weight:700;font-size:16px;">S/ {{ "{:,.2f}".format(operation.amount_pen) }}</span>
                 </div>
-                <div class="info-row">
-                    <span class="info-label">Estado:</span>
-                    <span class="info-value"><strong>{{ operation.status }}</strong></span>
+                <div class="data-row">
+                    <span class="data-label">Estado</span>
+                    <span class="data-value" style="color:#d97706;font-weight:600;">{{ operation.status }}</span>
                 </div>
-                <div class="info-row">
-                    <span class="info-label">Fecha:</span>
-                    <span class="info-value">{{ operation.created_at.strftime('%d/%m/%Y %H:%M') }}</span>
+                <div class="data-row">
+                    <span class="data-label">Fecha</span>
+                    <span class="data-value">{{ operation.created_at.strftime('%d/%m/%Y %H:%M') }}</span>
                 </div>
             </div>
 
-            <!-- Cuentas bancarias para transferencia -->
             {% if operation.operation_type == 'Compra' %}
-            <div style="margin: 25px 0; padding: 20px; background: #ecfdf5; border-radius: 8px; border: 2px solid #10b981;">
-                <h3 style="margin: 0 0 15px 0; color: #065f46; font-size: 16px;">Cuentas para Transferencia (USD)</h3>
-                <p style="margin: 0 0 10px 0; color: #374151; font-size: 14px;">Por favor, realice su transferencia en cualquiera de las siguientes cuentas en DOLARES:</p>
-                <p style="margin: 0 0 15px 0; color: #065f46; font-size: 13px; font-weight: 600;">- A nombre de QORICASH SAC con número de RUC 20235842211</p>
-                <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+            <p class="section-label">Cuentas para transferencia (USD)</p>
+            <div class="bank-section">
+                <div class="bank-header buy">
+                    Transfiera en DÓLARES a cualquiera de estas cuentas
+                    <div class="bank-subtext">A nombre de QORICASH SAC — RUC 20235842211</div>
+                </div>
+                <table class="bank-table">
                     <thead>
-                        <tr style="background: #d1fae5;">
-                            <th style="padding: 10px; text-align: left; border-bottom: 2px solid #10b981; color: #065f46; font-weight: 600;">Banco</th>
-                            <th style="padding: 10px; text-align: left; border-bottom: 2px solid #10b981; color: #065f46; font-weight: 600;">Tipo</th>
-                            <th style="padding: 10px; text-align: left; border-bottom: 2px solid #10b981; color: #065f46; font-weight: 600;">Moneda</th>
-                            <th style="padding: 10px; text-align: left; border-bottom: 2px solid #10b981; color: #065f46; font-weight: 600;">Numero de Cuenta</th>
-                            <th style="padding: 10px; text-align: left; border-bottom: 2px solid #10b981; color: #065f46; font-weight: 600;">Numero de CCI</th>
+                        <tr>
+                            <th>Banco</th>
+                            <th>Tipo</th>
+                            <th>Moneda</th>
+                            <th>N° Cuenta</th>
+                            <th>CCI</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <tr style="background: white;">
-                            <td style="padding: 10px; border-bottom: 1px solid #d1fae5; color: #1f2937; font-weight: 500;">BCP</td>
-                            <td style="padding: 10px; border-bottom: 1px solid #d1fae5; color: #4b5563;">Cta. Corriente</td>
-                            <td style="padding: 10px; border-bottom: 1px solid #d1fae5; color: #4b5563;">USD</td>
-                            <td style="padding: 10px; border-bottom: 1px solid #d1fae5; color: #1f2937; font-family: monospace; font-weight: 600;">654321</td>
-                            <td style="padding: 10px; border-bottom: 1px solid #d1fae5; color: #1f2937; font-family: monospace; font-weight: 600;">00265432100000000001</td>
-                        </tr>
-                        <tr style="background: #f0fdf4;">
-                            <td style="padding: 10px; border-bottom: 1px solid #d1fae5; color: #1f2937; font-weight: 500;">INTERBANK</td>
-                            <td style="padding: 10px; border-bottom: 1px solid #d1fae5; color: #4b5563;">Cta. Corriente</td>
-                            <td style="padding: 10px; border-bottom: 1px solid #d1fae5; color: #4b5563;">USD</td>
-                            <td style="padding: 10px; border-bottom: 1px solid #d1fae5; color: #1f2937; font-family: monospace; font-weight: 600;">456789</td>
-                            <td style="padding: 10px; border-bottom: 1px solid #d1fae5; color: #1f2937; font-family: monospace; font-weight: 600;">00345678900000000002</td>
-                        </tr>
-                        <tr style="background: white;">
-                            <td style="padding: 10px; border-bottom: 1px solid #d1fae5; color: #1f2937; font-weight: 500;">BANBIF</td>
-                            <td style="padding: 10px; border-bottom: 1px solid #d1fae5; color: #4b5563;">Cta. Corriente</td>
-                            <td style="padding: 10px; border-bottom: 1px solid #d1fae5; color: #4b5563;">USD</td>
-                            <td style="padding: 10px; border-bottom: 1px solid #d1fae5; color: #1f2937; font-family: monospace; font-weight: 600;">369852</td>
-                            <td style="padding: 10px; border-bottom: 1px solid #d1fae5; color: #1f2937; font-family: monospace; font-weight: 600;">03836985200000000003</td>
-                        </tr>
-                        <tr style="background: #f0fdf4;">
-                            <td style="padding: 10px; color: #1f2937; font-weight: 500;">PICHINCHA</td>
-                            <td style="padding: 10px; color: #4b5563;">Cta. Corriente</td>
-                            <td style="padding: 10px; color: #4b5563;">USD</td>
-                            <td style="padding: 10px; color: #1f2937; font-family: monospace; font-weight: 600;">159796</td>
-                            <td style="padding: 10px; color: #1f2937; font-family: monospace; font-weight: 600;">04815979600000000004</td>
-                        </tr>
+                        <tr><td class="bank-name">BCP</td><td>Cta. Corriente</td><td>USD</td><td class="account-num">654321</td><td class="account-num">00265432100000000001</td></tr>
+                        <tr><td class="bank-name">INTERBANK</td><td>Cta. Corriente</td><td>USD</td><td class="account-num">456789</td><td class="account-num">00345678900000000002</td></tr>
+                        <tr><td class="bank-name">BANBIF</td><td>Cta. Corriente</td><td>USD</td><td class="account-num">369852</td><td class="account-num">03836985200000000003</td></tr>
+                        <tr><td class="bank-name">PICHINCHA</td><td>Cta. Corriente</td><td>USD</td><td class="account-num">159796</td><td class="account-num">04815979600000000004</td></tr>
                     </tbody>
                 </table>
             </div>
             {% elif operation.operation_type == 'Venta' %}
-            <div style="margin: 25px 0; padding: 20px; background: #fef2f2; border-radius: 8px; border: 2px solid #ef4444;">
-                <h3 style="margin: 0 0 15px 0; color: #991b1b; font-size: 16px;">Cuentas para Transferencia (PEN)</h3>
-                <p style="margin: 0 0 10px 0; color: #374151; font-size: 14px;">Por favor, realice su transferencia en cualquiera de las siguientes cuentas en SOLES:</p>
-                <p style="margin: 0 0 15px 0; color: #991b1b; font-size: 13px; font-weight: 600;">- A nombre de QORICASH SAC con número de RUC 20235842211</p>
-                <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+            <p class="section-label">Cuentas para transferencia (PEN)</p>
+            <div class="bank-section">
+                <div class="bank-header sell">
+                    Transfiera en SOLES a cualquiera de estas cuentas
+                    <div class="bank-subtext">A nombre de QORICASH SAC — RUC 20235842211</div>
+                </div>
+                <table class="bank-table">
                     <thead>
-                        <tr style="background: #fee2e2;">
-                            <th style="padding: 10px; text-align: left; border-bottom: 2px solid #ef4444; color: #991b1b; font-weight: 600;">Banco</th>
-                            <th style="padding: 10px; text-align: left; border-bottom: 2px solid #ef4444; color: #991b1b; font-weight: 600;">Tipo</th>
-                            <th style="padding: 10px; text-align: left; border-bottom: 2px solid #ef4444; color: #991b1b; font-weight: 600;">Moneda</th>
-                            <th style="padding: 10px; text-align: left; border-bottom: 2px solid #ef4444; color: #991b1b; font-weight: 600;">Numero de Cuenta</th>
-                            <th style="padding: 10px; text-align: left; border-bottom: 2px solid #ef4444; color: #991b1b; font-weight: 600;">Numero de CCI</th>
+                        <tr>
+                            <th>Banco</th>
+                            <th>Tipo</th>
+                            <th>Moneda</th>
+                            <th>N° Cuenta</th>
+                            <th>CCI</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <tr style="background: white;">
-                            <td style="padding: 10px; border-bottom: 1px solid #fee2e2; color: #1f2937; font-weight: 500;">BCP</td>
-                            <td style="padding: 10px; border-bottom: 1px solid #fee2e2; color: #4b5563;">Cta. Corriente</td>
-                            <td style="padding: 10px; border-bottom: 1px solid #fee2e2; color: #4b5563;">PEN</td>
-                            <td style="padding: 10px; border-bottom: 1px solid #fee2e2; color: #1f2937; font-family: monospace; font-weight: 600;">123456</td>
-                            <td style="padding: 10px; border-bottom: 1px solid #fee2e2; color: #1f2937; font-family: monospace; font-weight: 600;">00212345600000000005</td>
-                        </tr>
-                        <tr style="background: #fef2f2;">
-                            <td style="padding: 10px; border-bottom: 1px solid #fee2e2; color: #1f2937; font-weight: 500;">INTERBANK</td>
-                            <td style="padding: 10px; border-bottom: 1px solid #fee2e2; color: #4b5563;">Cta. Corriente</td>
-                            <td style="padding: 10px; border-bottom: 1px solid #fee2e2; color: #4b5563;">PEN</td>
-                            <td style="padding: 10px; border-bottom: 1px solid #fee2e2; color: #1f2937; font-family: monospace; font-weight: 600;">987654</td>
-                            <td style="padding: 10px; border-bottom: 1px solid #fee2e2; color: #1f2937; font-family: monospace; font-weight: 600;">00398765400000000006</td>
-                        </tr>
-                        <tr style="background: white;">
-                            <td style="padding: 10px; border-bottom: 1px solid #fee2e2; color: #1f2937; font-weight: 500;">BANBIF</td>
-                            <td style="padding: 10px; border-bottom: 1px solid #fee2e2; color: #4b5563;">Cta. Corriente</td>
-                            <td style="padding: 10px; border-bottom: 1px solid #fee2e2; color: #4b5563;">PEN</td>
-                            <td style="padding: 10px; border-bottom: 1px solid #fee2e2; color: #1f2937; font-family: monospace; font-weight: 600;">741852</td>
-                            <td style="padding: 10px; border-bottom: 1px solid #fee2e2; color: #1f2937; font-family: monospace; font-weight: 600;">03874185200000000007</td>
-                        </tr>
-                        <tr style="background: #fef2f2;">
-                            <td style="padding: 10px; color: #1f2937; font-weight: 500;">PICHINCHA</td>
-                            <td style="padding: 10px; color: #4b5563;">Cta. Corriente</td>
-                            <td style="padding: 10px; color: #4b5563;">PEN</td>
-                            <td style="padding: 10px; color: #1f2937; font-family: monospace; font-weight: 600;">753951</td>
-                            <td style="padding: 10px; color: #1f2937; font-family: monospace; font-weight: 600;">04875395100000000008</td>
-                        </tr>
+                        <tr><td class="bank-name">BCP</td><td>Cta. Corriente</td><td>PEN</td><td class="account-num">123456</td><td class="account-num">00212345600000000005</td></tr>
+                        <tr><td class="bank-name">INTERBANK</td><td>Cta. Corriente</td><td>PEN</td><td class="account-num">987654</td><td class="account-num">00398765400000000006</td></tr>
+                        <tr><td class="bank-name">BANBIF</td><td>Cta. Corriente</td><td>PEN</td><td class="account-num">741852</td><td class="account-num">03874185200000000007</td></tr>
+                        <tr><td class="bank-name">PICHINCHA</td><td>Cta. Corriente</td><td>PEN</td><td class="account-num">753951</td><td class="account-num">04875395100000000008</td></tr>
                     </tbody>
                 </table>
             </div>
             {% endif %}
 
             {% if operation.notes %}
-            <div style="margin: 20px 0; padding: 15px; background: #fef3c7; border-radius: 6px; border-left: 4px solid #f59e0b;">
-                <p style="margin: 0; font-weight: 600; color: #92400e;">Notas:</p>
-                <p style="margin: 5px 0 0 0; color: #78350f;">{{ operation.notes }}</p>
+            <div class="alert warning">
+                <strong>Notas:</strong> {{ operation.notes }}
             </div>
             {% endif %}
 
-            <p style="margin-top: 25px;">Nuestro equipo procesará su operación a la brevedad posible. Le mantendremos informado sobre el progreso.</p>
-
-            <p style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 13px;">
-                <strong>Importante:</strong> Este es un correo automático. Si tiene alguna consulta, por favor responda a este correo o contacte a su asesor.
-            </p>
+            <div class="divider"></div>
+            <p style="font-size:14px;color:#334155;">Nuestro equipo procesará su operación a la brevedad posible y le mantendremos informado.</p>
+            <p class="note-text" style="margin-top:12px;">¿Consultas? Responda este correo o contacte a su asesor.</p>
         </div>
 
-        <div class="footer">
-            <p><strong>QoriCash Trading</strong></p>
-            <p>Sistema de Gestión de Operaciones Cambiarias</p>
-            <p style="margin-top: 10px;">© 2024 QoriCash Trading V2. Todos los derechos reservados.</p>
+        <div class="email-footer">
+            <p class="footer-brand">QoriCash</p>
+            <p class="footer-meta">RUC: 20235842211 &nbsp;·&nbsp; <a href="mailto:info@qoricash.pe" class="footer-link">info@qoricash.pe</a></p>
+            <p class="footer-copy">© 2025 QoriCash. Todos los derechos reservados.</p>
         </div>
+
     </div>
+</div>
 </body>
-</html>
-"""
+</html>"""
         return render_template_string(template, operation=operation)
 
     @staticmethod
     def _render_completed_operation_template(operation):
         """Renderizar plantilla HTML para operación completada"""
-        template = """
-<!DOCTYPE html>
-<html>
+        template = """<!DOCTYPE html>
+<html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; background-color: #f4f4f4; margin: 0; padding: 0; }
-        .container { max-width: 600px; margin: 20px auto; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .header { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 30px 20px; text-align: center; }
-        .header h1 { margin: 0; font-size: 24px; }
-        .content { padding: 30px 20px; }
-        .badge { display: inline-block; padding: 5px 15px; border-radius: 20px; font-size: 12px; font-weight: bold; margin: 5px 0; }
-        .badge-success { background: #10b981; color: white; }
-        .info-row { display: flex; justify-content: space-between; padding: 12px; border-bottom: 1px solid #e5e7eb; }
-        .info-row:last-child { border-bottom: none; }
-        .info-label { font-weight: 600; color: #6b7280; }
-        .info-value { color: #111827; font-weight: 500; }
-        .success-box { background: #d1fae5; border-left: 4px solid #10b981; padding: 20px; margin: 20px 0; border-radius: 4px; text-align: center; }
-        .footer { background: #f9fafb; padding: 20px; text-align: center; font-size: 12px; color: #6b7280; }
-        @media only screen and (max-width: 600px) {
-            .info-row { flex-direction: column; }
-            .info-label { margin-bottom: 5px; }
+        body, table, td, p, h1, h2, h3 { margin: 0; padding: 0; }
+        body { background-color: #f0f4f8; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+        .email-wrapper { padding: 28px 16px; }
+        .email-card { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(13,27,42,0.09); }
+        .email-header { background-color: #0D1B2A; padding: 30px 40px 26px; text-align: center; }
+        .logo-wrap { display: inline-block; border: 1.5px solid rgba(0,222,168,0.35); border-radius: 8px; padding: 7px 22px; margin-bottom: 10px; }
+        .logo-text { color: #00DEA8; font-size: 21px; font-weight: 700; letter-spacing: 1.5px; }
+        .tagline { color: rgba(255,255,255,0.40); font-size: 11px; letter-spacing: 0.6px; margin-top: 6px; }
+        .accent-bar { height: 3px; background-color: #00DEA8; }
+        .email-body { padding: 36px 40px; color: #334155; font-size: 15px; line-height: 1.65; }
+        .success-banner { background-color: #f0fdf4; border: 1.5px solid #86efac; border-radius: 10px; padding: 20px 24px; text-align: center; margin: 20px 0; }
+        .success-banner h2 { color: #15803d; font-size: 17px; font-weight: 700; margin-bottom: 6px; }
+        .success-banner p { color: #166534; font-size: 14px; }
+        .section-label { font-size: 11px; font-weight: 700; color: #00DEA8; text-transform: uppercase; letter-spacing: 1.2px; margin: 24px 0 10px 0; }
+        .data-box { background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; overflow: hidden; margin: 0 0 20px 0; }
+        .data-row { padding: 10px 18px; border-bottom: 1px solid #f1f5f9; font-size: 14px; }
+        .data-row:last-child { border-bottom: none; }
+        .data-label { color: #64748b; font-weight: 600; display: inline-block; min-width: 150px; }
+        .data-value { color: #1e293b; font-weight: 500; }
+        .proof-btn { display: inline-block; background-color: #0D1B2A; color: #00DEA8; border: 1.5px solid #00DEA8; padding: 10px 22px; border-radius: 6px; text-decoration: none; font-size: 13px; font-weight: 600; margin: 4px 0; }
+        .divider { height: 1px; background-color: #f1f5f9; margin: 24px 0; }
+        .note-text { font-size: 13px; color: #94a3b8; line-height: 1.6; }
+        .email-footer { background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 22px 40px; text-align: center; }
+        .footer-brand { color: #0D1B2A; font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+        .footer-meta { color: #94a3b8; font-size: 12px; }
+        .footer-link { color: #00DEA8; text-decoration: none; }
+        .footer-copy { color: #cbd5e1; font-size: 11px; margin-top: 8px; }
+        @media only screen and (max-width: 620px) {
+            .email-body { padding: 24px 20px !important; }
+            .email-header { padding: 24px 20px !important; }
+            .data-label { display: block !important; min-width: unset !important; margin-bottom: 2px; }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>Operacion Completada</h1>
-            <p style="margin: 10px 0 0 0; font-size: 14px;">QoriCash Trading</p>
-        </div>
+<div class="email-wrapper">
+    <div class="email-card">
 
-        <div class="content">
+        <div class="email-header">
+            <div class="logo-wrap"><span class="logo-text">QoriCash</span></div>
+            <p class="tagline">Operación completada</p>
+        </div>
+        <div class="accent-bar"></div>
+
+        <div class="email-body">
             <p>Estimado(a) <strong>{{ operation.client.full_name or operation.client.razon_social }}</strong>,</p>
 
-            <div class="success-box">
-                <h2 style="margin: 0; color: #065f46; font-size: 20px;">Operacion Exitosa</h2>
-                <p style="margin: 10px 0 0 0; color: #047857;">Su operacion ha sido completada satisfactoriamente</p>
+            <div class="success-banner">
+                <h2>¡Operación completada!</h2>
+                <p>Su operación ha sido procesada satisfactoriamente.</p>
             </div>
 
-            <p>Los detalles de la operación completada son:</p>
-
-            <div style="background: #f9fafb; border-radius: 6px; padding: 15px; margin: 20px 0;">
-                <div class="info-row">
-                    <span class="info-label">Código de Operación:</span>
-                    <span class="info-value"><strong>{{ operation.operation_id }}</strong></span>
+            <p class="section-label">Detalle de la operación</p>
+            <div class="data-box">
+                <div class="data-row">
+                    <span class="data-label">Código</span>
+                    <span class="data-value" style="font-weight:700;color:#0D1B2A;">{{ operation.operation_id }}</span>
                 </div>
-                <div class="info-row">
-                    <span class="info-label">Tipo:</span>
-                    <span class="info-value">{{ operation.operation_type }}</span>
+                <div class="data-row">
+                    <span class="data-label">Tipo</span>
+                    <span class="data-value">{{ operation.operation_type }}</span>
                 </div>
-                <div class="info-row">
-                    <span class="info-label">Monto USD:</span>
-                    <span class="info-value" style="font-size: 18px; color: #059669;">$ {{ "{:,.2f}".format(operation.amount_usd) }}</span>
+                <div class="data-row">
+                    <span class="data-label">Monto USD</span>
+                    <span class="data-value" style="color:#059669;font-weight:700;font-size:16px;">$ {{ "{:,.2f}".format(operation.amount_usd) }}</span>
                 </div>
-                <div class="info-row">
-                    <span class="info-label">Tipo de Cambio:</span>
-                    <span class="info-value">{{ "%.4f"|format(operation.exchange_rate) }}</span>
+                <div class="data-row">
+                    <span class="data-label">Tipo de cambio</span>
+                    <span class="data-value">{{ "%.4f"|format(operation.exchange_rate) }}</span>
                 </div>
-                <div class="info-row">
-                    <span class="info-label">Monto PEN:</span>
-                    <span class="info-value" style="font-size: 18px; color: #dc2626;">S/ {{ "{:,.2f}".format(operation.amount_pen) }}</span>
+                <div class="data-row">
+                    <span class="data-label">Monto PEN</span>
+                    <span class="data-value" style="color:#dc2626;font-weight:700;font-size:16px;">S/ {{ "{:,.2f}".format(operation.amount_pen) }}</span>
                 </div>
-                <div class="info-row">
-                    <span class="info-label">Fecha de Creación:</span>
-                    <span class="info-value">{{ operation.created_at.strftime('%d/%m/%Y %H:%M') }}</span>
+                <div class="data-row">
+                    <span class="data-label">Fecha de creación</span>
+                    <span class="data-value">{{ operation.created_at.strftime('%d/%m/%Y %H:%M') }}</span>
                 </div>
-                <div class="info-row">
-                    <span class="info-label">Fecha de Completado:</span>
-                    <span class="info-value"><strong>{{ operation.completed_at.strftime('%d/%m/%Y %H:%M') if operation.completed_at else '-' }}</strong></span>
+                <div class="data-row">
+                    <span class="data-label">Fecha de completado</span>
+                    <span class="data-value" style="color:#059669;font-weight:600;">{{ operation.completed_at.strftime('%d/%m/%Y %H:%M') if operation.completed_at else '-' }}</span>
                 </div>
             </div>
 
             {% if operation.operator_proofs and operation.operator_proofs|length > 0 %}
-            <div style="margin: 25px 0; padding: 20px; background: #f0f9ff; border-radius: 8px; border: 1px solid #0ea5e9;">
-                <h3 style="margin: 0 0 15px 0; color: #0369a1; font-size: 16px;">Comprobante(s) de Operacion</h3>
-                <p style="margin: 0 0 15px 0; color: #334155;">Adjuntamos el comprobante de su operacion completada:</p>
+            <p class="section-label">Comprobante(s)</p>
+            <div class="data-box" style="padding:14px 18px;">
                 {% for proof in operation.operator_proofs %}
-                <div style="margin: 10px 0;">
+                <div style="margin:6px 0;">
                     <a href="{{ proof.comprobante_url if proof.comprobante_url else proof }}"
-                       target="_blank"
-                       style="display: inline-block; padding: 12px 24px; background: #0ea5e9; color: white; text-decoration: none; border-radius: 6px; font-weight: 600; margin-bottom: 5px;">
-                        Ver Comprobante {% if operation.operator_proofs|length > 1 %}{{ loop.index }}{% endif %}
+                       target="_blank" class="proof-btn">
+                        Ver comprobante{% if operation.operator_proofs|length > 1 %} {{ loop.index }}{% endif %}
                     </a>
                     {% if proof.comentario %}
-                    <p style="margin: 5px 0 0 0; font-size: 13px; color: #475569; font-style: italic;">
-                        {{ proof.comentario }}
-                    </p>
+                    <p style="margin:5px 0 0 0;font-size:13px;color:#64748b;font-style:italic;">{{ proof.comentario }}</p>
                     {% endif %}
                 </div>
                 {% endfor %}
             </div>
             {% endif %}
 
-            <p style="margin-top: 25px;">Gracias por confiar en <strong>QoriCash Trading</strong> para sus operaciones de cambio de divisas.</p>
-
-            <p style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 13px;">
-                <strong>Nota:</strong> Para cualquier consulta sobre esta operación, puede responder a este correo o contactar a su asesor comercial.
-            </p>
+            <div class="divider"></div>
+            <p style="font-size:14px;color:#334155;">Gracias por confiar en <strong>QoriCash</strong> para sus operaciones cambiarias.</p>
+            <p class="note-text" style="margin-top:10px;">¿Consultas? Responda este correo o contacte a su asesor comercial.</p>
         </div>
 
-        <div class="footer">
-            <p><strong>QoriCash Trading</strong></p>
-            <p>Sistema de Gestión de Operaciones Cambiarias</p>
-            <p style="margin-top: 10px;">© 2024 QoriCash Trading V2. Todos los derechos reservados.</p>
+        <div class="email-footer">
+            <p class="footer-brand">QoriCash</p>
+            <p class="footer-meta">RUC: 20235842211 &nbsp;·&nbsp; <a href="mailto:info@qoricash.pe" class="footer-link">info@qoricash.pe</a></p>
+            <p class="footer-copy">© 2025 QoriCash. Todos los derechos reservados.</p>
         </div>
+
     </div>
+</div>
 </body>
-</html>
-"""
+</html>"""
         return render_template_string(template, operation=operation)
 
 
@@ -805,83 +797,109 @@ class EmailService:
     @staticmethod
     def _render_temporary_password_template(client_name, temp_password):
         """Renderizar plantilla HTML para contraseña temporal"""
-        template = """
-<!DOCTYPE html>
-<html>
+        template = """<!DOCTYPE html>
+<html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; background-color: #f4f4f4; margin: 0; padding: 0; }
-        .container { max-width: 600px; margin: 20px auto; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .header { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; padding: 30px 20px; text-align: center; }
-        .header h1 { margin: 0; font-size: 24px; }
-        .content { padding: 30px 20px; }
-        .password-box { background: #fef3c7; border: 2px solid #f59e0b; padding: 20px; margin: 20px 0; border-radius: 8px; text-align: center; }
-        .password-value { font-size: 24px; font-weight: bold; color: #92400e; font-family: monospace; letter-spacing: 2px; margin: 10px 0; }
-        .warning-box { background: #fee2e2; border-left: 4px solid #ef4444; padding: 15px; margin: 20px 0; border-radius: 4px; }
-        .footer { background: #f9fafb; padding: 20px; text-align: center; font-size: 12px; color: #6b7280; }
+        body, table, td, p, h1, h2, h3 { margin: 0; padding: 0; }
+        body { background-color: #f0f4f8; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+        .email-wrapper { padding: 28px 16px; }
+        .email-card { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(13,27,42,0.09); }
+        .email-header { background-color: #0D1B2A; padding: 30px 40px 26px; text-align: center; }
+        .logo-wrap { display: inline-block; border: 1.5px solid rgba(0,222,168,0.35); border-radius: 8px; padding: 7px 22px; margin-bottom: 10px; }
+        .logo-text { color: #00DEA8; font-size: 21px; font-weight: 700; letter-spacing: 1.5px; }
+        .tagline { color: rgba(255,255,255,0.40); font-size: 11px; letter-spacing: 0.6px; margin-top: 6px; }
+        .accent-bar { height: 3px; background-color: #00DEA8; }
+        .email-body { padding: 36px 40px; color: #334155; font-size: 15px; line-height: 1.65; }
+        .section-label { font-size: 11px; font-weight: 700; color: #00DEA8; text-transform: uppercase; letter-spacing: 1.2px; margin: 24px 0 10px 0; }
+        .password-box { background-color: #0D1B2A; border-radius: 10px; padding: 22px 24px; text-align: center; margin: 16px 0; }
+        .password-label { color: rgba(255,255,255,0.50); font-size: 11px; letter-spacing: 0.8px; text-transform: uppercase; margin-bottom: 10px; }
+        .password-code { color: #00DEA8; font-size: 28px; font-family: 'Courier New', Courier, monospace; font-weight: 700; letter-spacing: 4px; }
+        .password-hint { color: rgba(255,255,255,0.35); font-size: 11px; margin-top: 10px; }
+        .alert { border-radius: 8px; padding: 13px 16px; margin: 14px 0; font-size: 13.5px; line-height: 1.65; }
+        .alert.danger { background: #fef2f2; border-left: 3px solid #ef4444; color: #7f1d1d; }
+        .alert.info { background: #f0f9ff; border-left: 3px solid #0ea5e9; color: #0c4a6e; }
+        .steps-box { background: #f8fafc; border-radius: 8px; padding: 14px 18px 14px 14px; margin: 14px 0; }
+        .steps-box ol { margin: 0; padding-left: 22px; }
+        .steps-box li { padding: 5px 0; font-size: 14px; color: #334155; }
+        .data-box { background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; overflow: hidden; margin: 0 0 20px 0; }
+        .data-row { padding: 9px 18px; border-bottom: 1px solid #f1f5f9; font-size: 14px; }
+        .data-row:last-child { border-bottom: none; }
+        .divider { height: 1px; background-color: #f1f5f9; margin: 24px 0; }
+        .note-text { font-size: 13px; color: #94a3b8; line-height: 1.6; }
+        .email-footer { background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 22px 40px; text-align: center; }
+        .footer-brand { color: #0D1B2A; font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+        .footer-meta { color: #94a3b8; font-size: 12px; }
+        .footer-link { color: #00DEA8; text-decoration: none; }
+        .footer-copy { color: #cbd5e1; font-size: 11px; margin-top: 8px; }
+        @media only screen and (max-width: 620px) {
+            .email-body { padding: 24px 20px !important; }
+            .email-header { padding: 24px 20px !important; }
+        }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>🔐 Recuperación de Contraseña</h1>
-            <p style="margin: 10px 0 0 0; font-size: 14px;">QoriCash</p>
-        </div>
+<div class="email-wrapper">
+    <div class="email-card">
 
-        <div class="content">
+        <div class="email-header">
+            <div class="logo-wrap"><span class="logo-text">QoriCash</span></div>
+            <p class="tagline">Recuperación de contraseña</p>
+        </div>
+        <div class="accent-bar"></div>
+
+        <div class="email-body">
             <p>Hola <strong>{{ client_name }}</strong>,</p>
+            <p style="margin-top:10px;color:#64748b;font-size:14px;">Hemos recibido tu solicitud. A continuación tu contraseña temporal de acceso:</p>
 
-            <p>Hemos recibido tu solicitud de recuperación de contraseña. A continuación encontrarás tu <strong>contraseña temporal</strong>:</p>
-
+            <p class="section-label">Tu contraseña temporal</p>
             <div class="password-box">
-                <p style="margin: 0 0 10px 0; color: #78350f; font-size: 14px; font-weight: 600;">Tu contraseña temporal es:</p>
-                <div class="password-value">{{ temp_password }}</div>
-                <p style="margin: 10px 0 0 0; color: #78350f; font-size: 12px;">Copia esta contraseña exactamente como aparece</p>
+                <p class="password-label">Contraseña de acceso</p>
+                <p class="password-code">{{ temp_password }}</p>
+                <p class="password-hint">Cópiala exactamente como aparece</p>
             </div>
 
-            <div class="warning-box">
-                <p style="margin: 0; font-weight: 600; color: #991b1b;">⚠️ Importante - Seguridad:</p>
-                <ul style="margin: 10px 0 0 0; padding-left: 20px; color: #7f1d1d;">
-                    <li>Esta es una contraseña temporal que <strong>debes cambiar</strong> al iniciar sesión</li>
-                    <li>No podrás acceder al sistema hasta que establezcas una nueva contraseña</li>
-                    <li>La nueva contraseña debe cumplir con los requisitos de seguridad</li>
-                    <li>No compartas esta contraseña con nadie</li>
-                </ul>
+            <div class="alert danger">
+                <strong>Seguridad:</strong> Deberás cambiar esta contraseña al iniciar sesión. No la compartas con nadie.
             </div>
 
-            <p><strong>Pasos a seguir:</strong></p>
-            <ol style="color: #374151; line-height: 1.8;">
-                <li>Ingresa a la plataforma QoriCash</li>
-                <li>Usa tu documento y esta contraseña temporal para iniciar sesión</li>
-                <li>El sistema te pedirá que establezcas una nueva contraseña</li>
-                <li>Crea una contraseña segura que cumpla con los requisitos</li>
-            </ol>
+            <p class="section-label">Pasos a seguir</p>
+            <div class="steps-box">
+                <ol>
+                    <li>Ingresa a QoriCash con tu número de documento y esta contraseña</li>
+                    <li>El sistema te pedirá establecer una nueva contraseña segura</li>
+                    <li>¡Listo! Ya puedes operar con normalidad</li>
+                </ol>
+            </div>
 
-            <p style="margin-top: 25px;"><strong>Requisitos para tu nueva contraseña:</strong></p>
-            <ul style="color: #374151; line-height: 1.8;">
-                <li>Mínimo 8 caracteres</li>
-                <li>Al menos una letra mayúscula</li>
-                <li>Al menos una letra minúscula</li>
-                <li>Al menos un número</li>
-            </ul>
+            <p class="section-label">Requisitos para tu nueva contraseña</p>
+            <div class="data-box">
+                <div class="data-row" style="color:#334155;">Mínimo 8 caracteres</div>
+                <div class="data-row" style="color:#334155;">Al menos una letra mayúscula</div>
+                <div class="data-row" style="color:#334155;">Al menos una letra minúscula</div>
+                <div class="data-row" style="color:#334155;">Al menos un número</div>
+            </div>
 
-            <p style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 13px;">
-                <strong>¿No solicitaste este cambio?</strong><br>
-                Si no solicitaste la recuperación de contraseña, por favor contacta a nuestro equipo de soporte inmediatamente.
-            </p>
+            <div class="alert info">
+                <strong>¿No solicitaste este cambio?</strong> Contacta a nuestro equipo de soporte inmediatamente en <a href="mailto:info@qoricash.pe" style="color:#0c4a6e;">info@qoricash.pe</a>
+            </div>
+
+            <div class="divider"></div>
+            <p class="note-text">Este correo fue generado automáticamente. Por favor no respondas a este mensaje.</p>
         </div>
 
-        <div class="footer">
-            <p><strong>QoriCash</strong></p>
-            <p>Sistema de Gestión de Operaciones Cambiarias</p>
-            <p style="margin-top: 10px;">© 2024 QoriCash. Todos los derechos reservados.</p>
+        <div class="email-footer">
+            <p class="footer-brand">QoriCash</p>
+            <p class="footer-meta">RUC: 20615113698 &nbsp;·&nbsp; <a href="mailto:info@qoricash.pe" class="footer-link">info@qoricash.pe</a></p>
+            <p class="footer-copy">© 2025 QoriCash. Todos los derechos reservados.</p>
         </div>
+
     </div>
+</div>
 </body>
-</html>
-"""
+</html>"""
         return render_template_string(template, client_name=client_name, temp_password=temp_password)
 
     @staticmethod
@@ -908,144 +926,224 @@ class EmailService:
             except:
                 bank_accounts_text = "No registrado"
 
-        template = """
-<!DOCTYPE html>
-<html>
+        template = """<!DOCTYPE html>
+<html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; background-color: #f4f4f4; margin: 0; padding: 0; }
-        .container { max-width: 600px; margin: 20px auto; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px 20px; text-align: center; }
-        .header h1 { margin: 0; font-size: 24px; }
-        .content { padding: 30px 20px; }
-        .info-box { background: #f9fafb; border-left: 4px solid #667eea; padding: 15px; margin: 20px 0; border-radius: 4px; }
-        .footer { background: #f9fafb; padding: 20px; text-align: center; font-size: 12px; color: #6b7280; }
+        body, table, td, p, h1, h2, h3 { margin: 0; padding: 0; }
+        body { background-color: #f0f4f8; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+        .email-wrapper { padding: 28px 16px; }
+        .email-card { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(13,27,42,0.09); }
+        .email-header { background-color: #0D1B2A; padding: 30px 40px 26px; text-align: center; }
+        .logo-wrap { display: inline-block; border: 1.5px solid rgba(0,222,168,0.35); border-radius: 8px; padding: 7px 22px; margin-bottom: 10px; }
+        .logo-text { color: #00DEA8; font-size: 21px; font-weight: 700; letter-spacing: 1.5px; }
+        .tagline { color: rgba(255,255,255,0.40); font-size: 11px; letter-spacing: 0.6px; margin-top: 6px; }
+        .accent-bar { height: 3px; background-color: #00DEA8; }
+        .email-body { padding: 36px 40px; color: #334155; font-size: 15px; line-height: 1.65; }
+        .status-box { border-radius: 10px; padding: 20px 24px; text-align: center; margin: 20px 0; background-color: #fffbeb; border: 1.5px solid #fcd34d; }
+        .status-box h2 { font-size: 17px; font-weight: 700; color: #92400e; margin-bottom: 6px; }
+        .status-box p { font-size: 14px; color: #78350f; }
+        .section-label { font-size: 11px; font-weight: 700; color: #00DEA8; text-transform: uppercase; letter-spacing: 1.2px; margin: 24px 0 10px 0; }
+        .data-box { background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; overflow: hidden; margin: 0 0 20px 0; }
+        .data-row { padding: 10px 18px; border-bottom: 1px solid #f1f5f9; font-size: 14px; }
+        .data-row:last-child { border-bottom: none; }
+        .data-label { color: #64748b; font-weight: 600; display: inline-block; min-width: 150px; }
+        .data-value { color: #1e293b; font-weight: 500; }
+        .divider { height: 1px; background-color: #f1f5f9; margin: 24px 0; }
+        .note-text { font-size: 13px; color: #94a3b8; line-height: 1.6; }
+        .email-footer { background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 22px 40px; text-align: center; }
+        .footer-brand { color: #0D1B2A; font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+        .footer-meta { color: #94a3b8; font-size: 12px; }
+        .footer-link { color: #00DEA8; text-decoration: none; }
+        .footer-copy { color: #cbd5e1; font-size: 11px; margin-top: 8px; }
+        @media only screen and (max-width: 620px) {
+            .email-body { padding: 24px 20px !important; }
+            .email-header { padding: 24px 20px !important; }
+            .data-label { display: block !important; min-width: unset !important; margin-bottom: 2px; }
+        }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>Bienvenido a QoriCash</h1>
-            <p style="margin: 10px 0 0 0; font-size: 14px;">Cambio de divisas</p>
+<div class="email-wrapper">
+    <div class="email-card">
+
+        <div class="email-header">
+            <div class="logo-wrap"><span class="logo-text">QoriCash</span></div>
+            <p class="tagline">Registro en proceso</p>
         </div>
+        <div class="accent-bar"></div>
 
-        <div class="content">
+        <div class="email-body">
             <p>Estimado(a) <strong>{{ client.full_name or client.razon_social }}</strong>,</p>
+            <p style="margin-top:10px;color:#64748b;font-size:14px;">Hemos recibido su solicitud de registro a través de su ejecutivo comercial <strong>{{ trader.username }}</strong>. Estamos validando su información y pronto le notificaremos la activación de su cuenta.</p>
 
-            <p>Hemos recibido su solicitud de registro por parte de su ejecutivo comercial <strong>{{ trader.username }}</strong>. Nuestro equipo está validando su información y en breve le informaremos sobre la activación de su cuenta.</p>
-
-            <div class="info-box">
-                <p style="margin: 0 0 10px 0; font-weight: 600; color: #667eea;">Datos de Registro:</p>
-                <p style="margin: 5px 0;"><strong>Cliente:</strong> {{ client.full_name or client.razon_social }}</p>
+            <p class="section-label">Datos de registro</p>
+            <div class="data-box">
+                <div class="data-row">
+                    <span class="data-label">Cliente</span>
+                    <span class="data-value">{{ client.full_name or client.razon_social }}</span>
+                </div>
                 {% if client.document_type %}
-                <p style="margin: 5px 0;"><strong>Tipo Documento:</strong> {{ client.document_type }}</p>
+                <div class="data-row">
+                    <span class="data-label">Tipo de documento</span>
+                    <span class="data-value">{{ client.document_type }}</span>
+                </div>
                 {% endif %}
                 {% if client.document_number %}
-                <p style="margin: 5px 0;"><strong>Número Documento:</strong> {{ client.document_number }}</p>
+                <div class="data-row">
+                    <span class="data-label">Número de documento</span>
+                    <span class="data-value">{{ client.document_number }}</span>
+                </div>
                 {% endif %}
                 {% if client.phone %}
-                <p style="margin: 5px 0;"><strong>Teléfono:</strong> {{ client.phone }}</p>
+                <div class="data-row">
+                    <span class="data-label">Teléfono</span>
+                    <span class="data-value">{{ client.phone }}</span>
+                </div>
                 {% endif %}
-                <p style="margin: 5px 0;"><strong>Cuentas Bancarias:</strong> {{ bank_accounts_text }}</p>
-                <p style="margin: 5px 0;"><strong>Ejecutivo Asignado:</strong> {{ trader.username }}</p>
+                <div class="data-row">
+                    <span class="data-label">Cuentas bancarias</span>
+                    <span class="data-value">{{ bank_accounts_text }}</span>
+                </div>
+                <div class="data-row">
+                    <span class="data-label">Ejecutivo asignado</span>
+                    <span class="data-value" style="color:#00a87a;font-weight:600;">{{ trader.username }}</span>
+                </div>
             </div>
 
-            <p>Para consultas, contacte a <strong>{{ trader.username }}</strong>{% if trader.email %} al correo {{ trader.email }}{% endif %}.</p>
-
-            <p style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 13px;">
-                <strong>Importante:</strong> Este es un correo automático.
-            </p>
+            <div class="divider"></div>
+            <p style="font-size:14px;color:#334155;">Para cualquier consulta, contacte a su ejecutivo <strong>{{ trader.username }}</strong>{% if trader.email %} en <a href="mailto:{{ trader.email }}" class="footer-link">{{ trader.email }}</a>{% endif %}.</p>
+            <p class="note-text" style="margin-top:10px;">Este es un correo automático.</p>
         </div>
 
-        <div class="footer">
-            <p><strong>QoriCash</strong></p>
-            <p>RUC: 20235842211</p>
-            <p>Sistema de Gestión de Operaciones Cambiarias</p>
-            <p style="margin-top: 10px;">© 2024 QoriCash. Todos los derechos reservados.</p>
+        <div class="email-footer">
+            <p class="footer-brand">QoriCash</p>
+            <p class="footer-meta">RUC: 20235842211 &nbsp;·&nbsp; <a href="mailto:info@qoricash.pe" class="footer-link">info@qoricash.pe</a></p>
+            <p class="footer-copy">© 2025 QoriCash. Todos los derechos reservados.</p>
         </div>
+
     </div>
+</div>
 </body>
-</html>
-"""
+</html>"""
         return render_template_string(template, client=client, trader=trader, bank_accounts_text=bank_accounts_text)
 
     @staticmethod
     def _render_client_activation_template(client, trader):
         """Renderizar plantilla HTML para cliente activado"""
-        template = """
-<!DOCTYPE html>
-<html>
+        template = """<!DOCTYPE html>
+<html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; background-color: #f4f4f4; margin: 0; padding: 0; }
-        .container { max-width: 600px; margin: 20px auto; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .header { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 30px 20px; text-align: center; }
-        .header h1 { margin: 0; font-size: 24px; }
-        .content { padding: 30px 20px; }
-        .success-box { background: #d1fae5; border-left: 4px solid #10b981; padding: 20px; margin: 20px 0; border-radius: 4px; text-align: center; }
-        .info-box { background: #f0f9ff; border-left: 4px solid #3b82f6; padding: 15px; margin: 20px 0; border-radius: 4px; }
-        .footer { background: #f9fafb; padding: 20px; text-align: center; font-size: 12px; color: #6b7280; }
+        body, table, td, p, h1, h2, h3 { margin: 0; padding: 0; }
+        body { background-color: #f0f4f8; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+        .email-wrapper { padding: 28px 16px; }
+        .email-card { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(13,27,42,0.09); }
+        .email-header { background-color: #0D1B2A; padding: 30px 40px 26px; text-align: center; }
+        .logo-wrap { display: inline-block; border: 1.5px solid rgba(0,222,168,0.35); border-radius: 8px; padding: 7px 22px; margin-bottom: 10px; }
+        .logo-text { color: #00DEA8; font-size: 21px; font-weight: 700; letter-spacing: 1.5px; }
+        .tagline { color: rgba(255,255,255,0.40); font-size: 11px; letter-spacing: 0.6px; margin-top: 6px; }
+        .accent-bar { height: 3px; background-color: #00DEA8; }
+        .email-body { padding: 36px 40px; color: #334155; font-size: 15px; line-height: 1.65; }
+        .success-banner { background-color: #f0fdf4; border: 1.5px solid #86efac; border-radius: 10px; padding: 20px 24px; text-align: center; margin: 20px 0; }
+        .success-banner h2 { color: #15803d; font-size: 17px; font-weight: 700; margin-bottom: 6px; }
+        .success-banner p { color: #166534; font-size: 14px; }
+        .section-label { font-size: 11px; font-weight: 700; color: #00DEA8; text-transform: uppercase; letter-spacing: 1.2px; margin: 24px 0 10px 0; }
+        .data-box { background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; overflow: hidden; margin: 0 0 20px 0; }
+        .data-row { padding: 10px 18px; border-bottom: 1px solid #f1f5f9; font-size: 14px; }
+        .data-row:last-child { border-bottom: none; }
+        .data-label { color: #64748b; font-weight: 600; display: inline-block; min-width: 150px; }
+        .data-value { color: #1e293b; font-weight: 500; }
+        .cta-wrap { text-align: center; margin: 28px 0 20px 0; }
+        .cta-btn { display: inline-block; background-color: #00DEA8; color: #0D1B2A; font-weight: 700; font-size: 15px; padding: 13px 36px; border-radius: 8px; text-decoration: none; }
+        .divider { height: 1px; background-color: #f1f5f9; margin: 24px 0; }
+        .note-text { font-size: 13px; color: #94a3b8; line-height: 1.6; }
+        .email-footer { background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 22px 40px; text-align: center; }
+        .footer-brand { color: #0D1B2A; font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+        .footer-meta { color: #94a3b8; font-size: 12px; }
+        .footer-link { color: #00DEA8; text-decoration: none; }
+        .footer-copy { color: #cbd5e1; font-size: 11px; margin-top: 8px; }
+        @media only screen and (max-width: 620px) {
+            .email-body { padding: 24px 20px !important; }
+            .email-header { padding: 24px 20px !important; }
+            .data-label { display: block !important; min-width: unset !important; margin-bottom: 2px; }
+        }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>¡Cuenta Activada Exitosamente!</h1>
-            <p style="margin: 10px 0 0 0; font-size: 14px;">QoriCash</p>
-        </div>
+<div class="email-wrapper">
+    <div class="email-card">
 
-        <div class="content">
+        <div class="email-header">
+            <div class="logo-wrap"><span class="logo-text">QoriCash</span></div>
+            <p class="tagline">Cuenta activada</p>
+        </div>
+        <div class="accent-bar"></div>
+
+        <div class="email-body">
             <p>Estimado(a) <strong>{{ client.full_name or client.razon_social }}</strong>,</p>
 
-            <div class="success-box">
-                <h2 style="margin: 0; color: #065f46; font-size: 20px;">¡Bienvenido a QoriCash!</h2>
-                <p style="margin: 10px 0 0 0; color: #047857;">Su cuenta ha sido activada correctamente</p>
+            <div class="success-banner">
+                <h2>¡Bienvenido a QoriCash!</h2>
+                <p>Su cuenta ha sido activada correctamente. Ya puede comenzar a operar.</p>
             </div>
 
-            <p>Nos complace informarle que su registro ha sido validado exitosamente y su cuenta ya se encuentra <strong>activa</strong> en nuestro sistema.</p>
-
-            <p>A partir de este momento, puede comenzar a realizar operaciones de cambio de divisas con nosotros. Nuestro equipo está listo para atenderle y brindarle el mejor servicio.</p>
-
-            <div class="info-box">
-                <p style="margin: 0 0 10px 0; font-weight: 600; color: #1e40af;">Información de su Cuenta:</p>
-                <p style="margin: 5px 0;"><strong>Cliente:</strong> {{ client.full_name or client.razon_social }}</p>
+            <p class="section-label">Información de su cuenta</p>
+            <div class="data-box">
+                <div class="data-row">
+                    <span class="data-label">Cliente</span>
+                    <span class="data-value">{{ client.full_name or client.razon_social }}</span>
+                </div>
                 {% if client.document_number %}
-                <p style="margin: 5px 0;"><strong>Documento:</strong> {{ client.document_number }}</p>
+                <div class="data-row">
+                    <span class="data-label">Documento</span>
+                    <span class="data-value">{{ client.document_number }}</span>
+                </div>
                 {% endif %}
-                <p style="margin: 5px 0;"><strong>Email:</strong> {{ client.email }}</p>
-                <p style="margin: 5px 0;"><strong>Estado:</strong> <span style="color: #059669; font-weight: bold;">ACTIVO</span></p>
-                <p style="margin: 5px 0;"><strong>Ejecutivo Asignado:</strong> {{ trader.username }}</p>
+                <div class="data-row">
+                    <span class="data-label">Correo electrónico</span>
+                    <span class="data-value">{{ client.email }}</span>
+                </div>
+                <div class="data-row">
+                    <span class="data-label">Estado</span>
+                    <span class="data-value" style="color:#059669;font-weight:700;">ACTIVO</span>
+                </div>
+                <div class="data-row">
+                    <span class="data-label">Ejecutivo asignado</span>
+                    <span class="data-value" style="color:#00a87a;font-weight:600;">{{ trader.username }}</span>
+                </div>
             </div>
 
-            <p><strong>¿Qué puede hacer ahora?</strong></p>
-            <ul style="color: #374151; line-height: 1.8;">
-                <li>Realizar operaciones de compra y venta de dólares</li>
-                <li>Obtener tipos de cambio competitivos</li>
-                <li>Recibir atención personalizada de su ejecutivo</li>
-                <li>Acceder a transferencias rápidas y seguras</li>
-            </ul>
+            <p class="section-label">¿Qué puede hacer ahora?</p>
+            <div class="data-box">
+                <div class="data-row" style="color:#059669;">✓ &nbsp;Realizar operaciones de compra y venta de dólares</div>
+                <div class="data-row" style="color:#059669;">✓ &nbsp;Acceder a tipos de cambio competitivos</div>
+                <div class="data-row" style="color:#059669;">✓ &nbsp;Recibir atención personalizada de su ejecutivo</div>
+                <div class="data-row" style="color:#059669;">✓ &nbsp;Transferencias rápidas y seguras</div>
+            </div>
 
-            <p style="margin-top: 25px;">Para realizar su primera operación o si tiene alguna consulta, puede contactar directamente a su ejecutivo comercial <strong>{{ trader.username }}</strong>{% if trader.email %} al correo {{ trader.email }}{% endif %}.</p>
+            <div class="cta-wrap">
+                <a href="https://www.qoricash.pe" class="cta-btn">Iniciar sesión ahora</a>
+            </div>
 
-            <p style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 13px;">
-                <strong>Gracias por confiar en QoriCash para sus operaciones cambiarias.</strong>
-            </p>
+            <div class="divider"></div>
+            <p class="note-text">Para su primera operación o cualquier consulta, contacte a <strong>{{ trader.username }}</strong>{% if trader.email %} en <a href="mailto:{{ trader.email }}" class="footer-link">{{ trader.email }}</a>{% endif %}. Gracias por confiar en QoriCash.</p>
         </div>
 
-        <div class="footer">
-            <p><strong>QoriCash</strong></p>
-            <p>RUC: 20235842211</p>
-            <p>Sistema de Gestión de Operaciones Cambiarias</p>
-            <p style="margin-top: 10px;">© 2024 QoriCash. Todos los derechos reservados.</p>
+        <div class="email-footer">
+            <p class="footer-brand">QoriCash</p>
+            <p class="footer-meta">RUC: 20235842211 &nbsp;·&nbsp; <a href="mailto:info@qoricash.pe" class="footer-link">info@qoricash.pe</a></p>
+            <p class="footer-copy">© 2025 QoriCash. Todos los derechos reservados.</p>
         </div>
+
     </div>
+</div>
 </body>
-</html>
-"""
+</html>"""
         return render_template_string(template, client=client, trader=trader)
 
     @staticmethod
@@ -1120,124 +1218,133 @@ class EmailService:
     @staticmethod
     def _render_complaint_template(complaint_data):
         """Renderizar plantilla HTML para reclamo/queja del libro de reclamaciones"""
-        template = """
-<!DOCTYPE html>
-<html>
+        template = """<!DOCTYPE html>
+<html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; background-color: #f4f4f4; margin: 0; padding: 0; }
-        .container { max-width: 600px; margin: 20px auto; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .header { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 30px 20px; text-align: center; }
-        .header h1 { margin: 0; font-size: 24px; }
-        .content { padding: 30px 20px; }
-        .info-row { display: flex; justify-content: space-between; padding: 12px; border-bottom: 1px solid #e5e7eb; }
-        .info-row:last-child { border-bottom: none; }
-        .info-label { font-weight: 600; color: #6b7280; min-width: 150px; }
-        .info-value { color: #111827; font-weight: 500; }
-        .highlight-box { background: #f9fafb; border-left: 4px solid #10b981; padding: 15px; margin: 20px 0; border-radius: 4px; }
-        .detail-box { background: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0; border-radius: 4px; }
-        .footer { background: #f9fafb; padding: 20px; text-align: center; font-size: 12px; color: #6b7280; }
-        @media only screen and (max-width: 600px) {
-            .info-row { flex-direction: column; }
-            .info-label { margin-bottom: 5px; }
+        body, table, td, p, h1, h2, h3 { margin: 0; padding: 0; }
+        body { background-color: #f0f4f8; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+        .email-wrapper { padding: 28px 16px; }
+        .email-card { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(13,27,42,0.09); }
+        .email-header { background-color: #0D1B2A; padding: 30px 40px 26px; text-align: center; }
+        .logo-wrap { display: inline-block; border: 1.5px solid rgba(0,222,168,0.35); border-radius: 8px; padding: 7px 22px; margin-bottom: 10px; }
+        .logo-text { color: #00DEA8; font-size: 21px; font-weight: 700; letter-spacing: 1.5px; }
+        .complaint-num { color: #ffffff; font-size: 17px; font-weight: 700; margin-top: 8px; letter-spacing: 0.5px; }
+        .tagline { color: rgba(255,255,255,0.40); font-size: 11px; letter-spacing: 0.6px; margin-top: 6px; }
+        .accent-bar { height: 3px; background-color: #f59e0b; }
+        .email-body { padding: 36px 40px; color: #334155; font-size: 15px; line-height: 1.65; }
+        .meta-row { font-size: 12.5px; color: #94a3b8; margin-bottom: 20px; }
+        .section-label { font-size: 11px; font-weight: 700; color: #00DEA8; text-transform: uppercase; letter-spacing: 1.2px; margin: 24px 0 10px 0; }
+        .data-box { background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; overflow: hidden; margin: 0 0 20px 0; }
+        .data-row { padding: 10px 18px; border-bottom: 1px solid #f1f5f9; font-size: 14px; }
+        .data-row:last-child { border-bottom: none; }
+        .data-label { color: #64748b; font-weight: 600; display: inline-block; min-width: 160px; }
+        .data-value { color: #1e293b; font-weight: 500; }
+        .detail-box { background: #fffbeb; border: 1px solid #fcd34d; border-radius: 8px; padding: 16px 18px; margin: 0 0 20px 0; font-size: 14px; color: #78350f; white-space: pre-wrap; line-height: 1.7; }
+        .alert { border-radius: 8px; padding: 13px 16px; margin: 14px 0; font-size: 13.5px; line-height: 1.65; }
+        .alert.info { background: #f0f9ff; border-left: 3px solid #0ea5e9; color: #0c4a6e; }
+        .divider { height: 1px; background-color: #f1f5f9; margin: 24px 0; }
+        .note-text { font-size: 13px; color: #94a3b8; line-height: 1.6; }
+        .email-footer { background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 22px 40px; text-align: center; }
+        .footer-brand { color: #0D1B2A; font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+        .footer-meta { color: #94a3b8; font-size: 12px; }
+        .footer-link { color: #00DEA8; text-decoration: none; }
+        .footer-copy { color: #cbd5e1; font-size: 11px; margin-top: 8px; }
+        @media only screen and (max-width: 620px) {
+            .email-body { padding: 24px 20px !important; }
+            .email-header { padding: 24px 20px !important; }
+            .data-label { display: block !important; min-width: unset !important; margin-bottom: 2px; }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>Reclamo enviado con éxito</h1>
-            <p style="margin: 10px 0 0 0; font-size: 18px; font-weight: bold;">{{ complaint_number }}</p>
+<div class="email-wrapper">
+    <div class="email-card">
+
+        <div class="email-header">
+            <div class="logo-wrap"><span class="logo-text">QoriCash</span></div>
+            <p class="complaint-num">{{ complaint_number }}</p>
+            <p class="tagline">Libro de Reclamaciones</p>
         </div>
+        <div class="accent-bar"></div>
 
-        <div class="content">
-            <p style="font-size: 14px; color: #6b7280; margin-bottom: 20px;">
-                Fecha de registro: {{ fecha_actual }}
-            </p>
+        <div class="email-body">
+            <p class="meta-row">Fecha de registro: {{ fecha_actual }}</p>
 
-            <h2 style="color: #111827; font-size: 18px; margin-bottom: 15px; border-bottom: 2px solid #10b981; padding-bottom: 8px;">
-                Datos del Reclamante
-            </h2>
-
-            <div class="highlight-box">
+            <p class="section-label">Datos del reclamante</p>
+            <div class="data-box">
                 {% if complaint_data.get('tipo_documento') == 'RUC' %}
-                <div class="info-row">
-                    <span class="info-label">Tipo de Documento:</span>
-                    <span class="info-value">RUC</span>
+                <div class="data-row">
+                    <span class="data-label">Tipo de documento</span>
+                    <span class="data-value">RUC</span>
                 </div>
-                <div class="info-row">
-                    <span class="info-label">Número de RUC:</span>
-                    <span class="info-value">{{ complaint_data.get('numero_documento', 'No proporcionado') }}</span>
+                <div class="data-row">
+                    <span class="data-label">Número de RUC</span>
+                    <span class="data-value">{{ complaint_data.get('numero_documento', '—') }}</span>
                 </div>
-                <div class="info-row">
-                    <span class="info-label">Razón Social:</span>
-                    <span class="info-value">{{ complaint_data.get('razon_social', 'No proporcionado') }}</span>
+                <div class="data-row">
+                    <span class="data-label">Razón social</span>
+                    <span class="data-value">{{ complaint_data.get('razon_social', '—') }}</span>
                 </div>
-                <div class="info-row">
-                    <span class="info-label">Persona de Contacto:</span>
-                    <span class="info-value">{{ complaint_data.get('persona_contacto', 'No proporcionado') }}</span>
+                <div class="data-row">
+                    <span class="data-label">Persona de contacto</span>
+                    <span class="data-value">{{ complaint_data.get('persona_contacto', '—') }}</span>
                 </div>
                 {% else %}
-                <div class="info-row">
-                    <span class="info-label">Tipo de Documento:</span>
-                    <span class="info-value">{{ complaint_data.get('tipo_documento', 'DNI') }}</span>
+                <div class="data-row">
+                    <span class="data-label">Tipo de documento</span>
+                    <span class="data-value">{{ complaint_data.get('tipo_documento', 'DNI') }}</span>
                 </div>
-                <div class="info-row">
-                    <span class="info-label">Número de Documento:</span>
-                    <span class="info-value">{{ complaint_data.get('numero_documento', 'No proporcionado') }}</span>
+                <div class="data-row">
+                    <span class="data-label">Número de documento</span>
+                    <span class="data-value">{{ complaint_data.get('numero_documento', '—') }}</span>
                 </div>
-                <div class="info-row">
-                    <span class="info-label">Nombres:</span>
-                    <span class="info-value">{{ complaint_data.get('nombres', 'No proporcionado') }}</span>
+                <div class="data-row">
+                    <span class="data-label">Nombres</span>
+                    <span class="data-value">{{ complaint_data.get('nombres', '—') }}</span>
                 </div>
-                <div class="info-row">
-                    <span class="info-label">Apellidos:</span>
-                    <span class="info-value">{{ complaint_data.get('apellidos', 'No proporcionado') }}</span>
+                <div class="data-row">
+                    <span class="data-label">Apellidos</span>
+                    <span class="data-value">{{ complaint_data.get('apellidos', '—') }}</span>
                 </div>
                 {% endif %}
-                <div class="info-row">
-                    <span class="info-label">Email:</span>
-                    <span class="info-value">{{ complaint_data.get('email', 'No proporcionado') }}</span>
+                <div class="data-row">
+                    <span class="data-label">Correo electrónico</span>
+                    <span class="data-value">{{ complaint_data.get('email', '—') }}</span>
                 </div>
-                <div class="info-row">
-                    <span class="info-label">Teléfono:</span>
-                    <span class="info-value">{{ complaint_data.get('telefono', 'No proporcionado') }}</span>
+                <div class="data-row">
+                    <span class="data-label">Teléfono</span>
+                    <span class="data-value">{{ complaint_data.get('telefono', '—') }}</span>
                 </div>
-                <div class="info-row">
-                    <span class="info-label">Dirección:</span>
-                    <span class="info-value">{{ complaint_data.get('direccion', 'No proporcionada') }}</span>
+                <div class="data-row">
+                    <span class="data-label">Dirección</span>
+                    <span class="data-value">{{ complaint_data.get('direccion', '—') }}</span>
                 </div>
             </div>
 
-            <h2 style="color: #111827; font-size: 18px; margin: 30px 0 15px 0; border-bottom: 2px solid #10b981; padding-bottom: 8px;">
-                Detalle del {{ complaint_data.get('tipo_solicitud', 'Reclamo') }}
-            </h2>
+            <p class="section-label">Detalle del {{ complaint_data.get('tipo_solicitud', 'reclamo') }}</p>
+            <div class="detail-box">{{ complaint_data.get('detalle', 'No se proporcionó detalle.') }}</div>
 
-            <div class="detail-box">
-                <p style="margin: 0; white-space: pre-wrap; color: #78350f; font-size: 14px;">{{ complaint_data.get('detalle', 'No se proporcionó detalle') }}</p>
+            <div class="alert info">
+                <strong>Plazo de respuesta:</strong> Este {{ complaint_data.get('tipo_solicitud', 'reclamo').lower() }} debe ser atendido dentro de las próximas 24–48 horas hábiles.
             </div>
 
-            <p style="margin-top: 25px; padding: 15px; background: #e0f2fe; border-radius: 6px; border-left: 4px solid #0ea5e9; font-size: 13px; color: #0c4a6e;">
-                <strong>Importante:</strong> Este {{ complaint_data.get('tipo_solicitud', 'reclamo').lower() }} debe ser respondido dentro de las próximas 24-48 horas hábiles.
-            </p>
-
-            <p style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 13px;">
-                Este es un correo automático generado desde el Libro de Reclamaciones de QoriCash.
-            </p>
+            <div class="divider"></div>
+            <p class="note-text">Correo generado automáticamente desde el Libro de Reclamaciones de QoriCash.</p>
         </div>
 
-        <div class="footer">
-            <p><strong>QoriCash</strong></p>
-            <p>RUC: 20235842211</p>
-            <p>Sistema de Gestión de Operaciones Cambiarias</p>
-            <p style="margin-top: 10px;">© 2024 QoriCash. Todos los derechos reservados.</p>
+        <div class="email-footer">
+            <p class="footer-brand">QoriCash</p>
+            <p class="footer-meta">RUC: 20235842211 &nbsp;·&nbsp; <a href="mailto:info@qoricash.pe" class="footer-link">info@qoricash.pe</a></p>
+            <p class="footer-copy">© 2025 QoriCash. Todos los derechos reservados.</p>
         </div>
+
     </div>
+</div>
 </body>
-</html>
-"""
+</html>"""
         from datetime import datetime
         import pytz
 
