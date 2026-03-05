@@ -377,7 +377,7 @@ class EmailService:
             <div class="bank-section">
                 <div class="bank-header buy">
                     Transfiera en DÓLARES a cualquiera de estas cuentas
-                    <div class="bank-subtext">A nombre de QORICASH SAC — RUC 20235842211</div>
+                    <div class="bank-subtext">A nombre de QORICASH SAC — RUC 20615113698</div>
                 </div>
                 <table class="bank-table">
                     <thead>
@@ -402,7 +402,7 @@ class EmailService:
             <div class="bank-section">
                 <div class="bank-header sell">
                     Transfiera en SOLES a cualquiera de estas cuentas
-                    <div class="bank-subtext">A nombre de QORICASH SAC — RUC 20235842211</div>
+                    <div class="bank-subtext">A nombre de QORICASH SAC — RUC 20615113698</div>
                 </div>
                 <table class="bank-table">
                     <thead>
@@ -437,7 +437,7 @@ class EmailService:
 
         <div class="email-footer">
             <p class="footer-brand">QoriCash</p>
-            <p class="footer-meta">RUC: 20235842211 &nbsp;·&nbsp; <a href="mailto:info@qoricash.pe" class="footer-link">info@qoricash.pe</a></p>
+            <p class="footer-meta">RUC: 20615113698 &nbsp;·&nbsp; <a href="mailto:info@qoricash.pe" class="footer-link">info@qoricash.pe</a></p>
             <p class="footer-copy">© 2025 QoriCash. Todos los derechos reservados.</p>
         </div>
 
@@ -564,7 +564,7 @@ class EmailService:
 
         <div class="email-footer">
             <p class="footer-brand">QoriCash</p>
-            <p class="footer-meta">RUC: 20235842211 &nbsp;·&nbsp; <a href="mailto:info@qoricash.pe" class="footer-link">info@qoricash.pe</a></p>
+            <p class="footer-meta">RUC: 20615113698 &nbsp;·&nbsp; <a href="mailto:info@qoricash.pe" class="footer-link">info@qoricash.pe</a></p>
             <p class="footer-copy">© 2025 QoriCash. Todos los derechos reservados.</p>
         </div>
 
@@ -722,7 +722,7 @@ class EmailService:
 
         <div class="email-footer">
             <p class="footer-brand">QoriCash</p>
-            <p class="footer-meta">RUC: 20235842211 &nbsp;·&nbsp; <a href="mailto:info@qoricash.pe" class="footer-link">info@qoricash.pe</a></p>
+            <p class="footer-meta">RUC: 20615113698 &nbsp;·&nbsp; <a href="mailto:info@qoricash.pe" class="footer-link">info@qoricash.pe</a></p>
             <p class="footer-copy">© 2025 QoriCash. Todos los derechos reservados.</p>
         </div>
 
@@ -1177,7 +1177,7 @@ class EmailService:
 
         <div class="email-footer">
             <p class="footer-brand">QoriCash</p>
-            <p class="footer-meta">RUC: 20235842211 &nbsp;·&nbsp; <a href="mailto:info@qoricash.pe" class="footer-link">info@qoricash.pe</a></p>
+            <p class="footer-meta">RUC: 20615113698 &nbsp;·&nbsp; <a href="mailto:info@qoricash.pe" class="footer-link">info@qoricash.pe</a></p>
             <p class="footer-copy">© 2025 QoriCash. Todos los derechos reservados.</p>
         </div>
 
@@ -1293,7 +1293,7 @@ class EmailService:
 
         <div class="email-footer">
             <p class="footer-brand">QoriCash</p>
-            <p class="footer-meta">RUC: 20235842211 &nbsp;·&nbsp; <a href="mailto:info@qoricash.pe" class="footer-link">info@qoricash.pe</a></p>
+            <p class="footer-meta">RUC: 20615113698 &nbsp;·&nbsp; <a href="mailto:info@qoricash.pe" class="footer-link">info@qoricash.pe</a></p>
             <p class="footer-copy">© 2025 QoriCash. Todos los derechos reservados.</p>
         </div>
 
@@ -1494,7 +1494,7 @@ class EmailService:
 
         <div class="email-footer">
             <p class="footer-brand">QoriCash</p>
-            <p class="footer-meta">RUC: 20235842211 &nbsp;·&nbsp; <a href="mailto:info@qoricash.pe" class="footer-link">info@qoricash.pe</a></p>
+            <p class="footer-meta">RUC: 20615113698 &nbsp;·&nbsp; <a href="mailto:info@qoricash.pe" class="footer-link">info@qoricash.pe</a></p>
             <p class="footer-copy">© 2025 QoriCash. Todos los derechos reservados.</p>
         </div>
 
