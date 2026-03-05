@@ -4,670 +4,827 @@
 
 {% block head %}
 <style>
-    /* Override base styles para login */
-    body {
-        background: linear-gradient(135deg, #0D1B2A 0%, #111F2C 50%, #1a2f3f 100%);
-        min-height: 100vh;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 10px;
-        position: relative;
-        overflow: hidden;
-    }
-
-    /* Animated background particles */
-    body::before {
-        content: '';
-        position: absolute;
-        width: 200%;
-        height: 200%;
-        top: -50%;
-        left: -50%;
-        background-image:
-            radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px),
-            radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px);
-        background-size: 50px 50px;
-        background-position: 0 0, 25px 25px;
-        animation: moveBackground 20s linear infinite;
-        z-index: 0;
-    }
-
-    @keyframes moveBackground {
-        0% { transform: translate(0, 0); }
-        100% { transform: translate(50px, 50px); }
-    }
-
-    /* Ocultar elementos del base layout en login */
-    .footer,
-    .flash-container {
-        display: none !important;
-    }
-
-    /* Hacer transparente el main-wrapper para que login tome el control */
-    .main-wrapper {
-        margin-left: 0 !important;
-        min-height: 0 !important;
-        display: contents !important;
-    }
-
-    .main-content {
-        padding: 0 !important;
-        position: relative;
-        z-index: 1;
-        display: contents !important;
-    }
-
-    /* Flash Messages debajo del card */
-    .login-flash-messages {
-        margin-top: 1rem;
-        width: 100%;
-        max-width: 420px;
-    }
-
-    .login-flash-messages .alert {
-        font-size: 0.8125rem;
-        padding: 0.75rem 1rem;
-        margin-bottom: 0.5rem;
-        border-radius: 12px;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-        border: none !important;
-        backdrop-filter: blur(20px);
-        animation: slideInUp 0.4s ease-out;
-        background-color: transparent !important;
-    }
-
-    @keyframes slideInUp {
-        from {
-            opacity: 0;
-            transform: translateY(20px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-
-    .login-flash-messages .alert i {
-        font-size: 1.1rem;
-        margin-right: 0.5rem;
-    }
-
-    /* Success - Verde profesional */
-    .login-flash-messages .alert-success {
-        background: linear-gradient(135deg, rgba(16, 185, 129, 0.95) 0%, rgba(5, 150, 105, 0.95) 100%) !important;
-        color: white !important;
-        border-left: 4px solid #059669 !important;
-    }
-
-    /* Danger - Rojo profesional */
-    .login-flash-messages .alert-danger {
-        background: linear-gradient(135deg, rgba(239, 68, 68, 0.95) 0%, rgba(220, 38, 38, 0.95) 100%) !important;
-        color: white !important;
-        border-left: 4px solid #dc2626 !important;
-    }
-
-    /* Warning - Naranja/Amarillo profesional */
-    .login-flash-messages .alert-warning {
-        background: linear-gradient(135deg, rgba(245, 158, 11, 0.95) 0%, rgba(217, 119, 6, 0.95) 100%) !important;
-        color: white !important;
-        border-left: 4px solid #d97706 !important;
-    }
-
-    /* Info - Turquesa QoriCash */
-    .login-flash-messages .alert-info {
-        background: linear-gradient(135deg, rgba(0, 222, 168, 0.95) 0%, rgba(0, 201, 151, 0.95) 100%) !important;
-        color: #0D1B2A !important;
-        border-left: 4px solid #00c997 !important;
-    }
-
-    .login-flash-messages .btn-close {
-        filter: brightness(0) invert(1);
-        opacity: 0.9;
-        transition: opacity 0.2s;
-    }
-
-    .login-flash-messages .btn-close:hover {
-        opacity: 1;
-    }
-
-    /* Para alert-info, el botón de cerrar debe ser oscuro */
-    .login-flash-messages .alert-info .btn-close {
-        filter: none;
-        opacity: 0.6;
-    }
-
-    .login-flash-messages .alert-info .btn-close:hover {
-        opacity: 1;
-    }
-
-    /* Login Container */
-    .login-container {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        min-height: 100vh;
-        width: 100%;
-    }
-
-    /* Login Card - Compacto para caber en viewport */
-    .login-card {
-        background: rgba(255, 255, 255, 0.98);
-        backdrop-filter: blur(10px);
-        border-radius: 16px;
-        box-shadow:
-            0 20px 60px rgba(0,0,0,0.3),
-            0 0 100px rgba(0, 222, 168, 0.15);
-        overflow: hidden;
-        width: 100%;
-        max-width: 420px;
-        animation: slideInUp 0.6s ease-out;
-        position: relative;
-    }
-
-    @keyframes slideInUp {
-        from {
-            opacity: 0;
-            transform: translateY(30px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-
-    /* Login Header - Más compacto */
-    .login-header {
-        background: linear-gradient(135deg, #1a2f3f 0%, #2a4558 100%);
-        color: white;
-        padding: 1.5rem 1.75rem;
-        text-align: center;
-        position: relative;
-        overflow: hidden;
-    }
-
-    .login-header::before {
-        content: '';
-        position: absolute;
-        top: -50%;
-        left: -50%;
-        width: 200%;
-        height: 200%;
-        background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
-        animation: pulse 4s ease-in-out infinite;
-    }
-
-    @keyframes pulse {
-        0%, 100% { transform: scale(1); opacity: 0.5; }
-        50% { transform: scale(1.1); opacity: 0.8; }
-    }
-
-    .brand-icon {
-        font-size: 2.5rem;
-        margin-bottom: 0.5rem;
-        display: inline-block;
-        animation: rotate 3s ease-in-out infinite;
-        position: relative;
-        z-index: 1;
-    }
-
-    @keyframes rotate {
-        0%, 100% { transform: rotate(0deg); }
-        50% { transform: rotate(5deg); }
-    }
-
-    .login-header h3 {
-        font-size: 1.375rem;
-        font-weight: 700;
-        margin-bottom: 0.25rem;
-        position: relative;
-        z-index: 1;
-        letter-spacing: -0.025em;
-    }
-
-    .login-header p {
-        font-size: 0.8125rem;
-        opacity: 0.95;
-        position: relative;
-        z-index: 1;
-        margin: 0;
-    }
-
-    /* Login Body - Más compacto */
-    .login-body {
-        padding: 1.5rem 1.75rem;
-    }
-
-    /* Form Elements */
-    .login-body .form-label {
-        font-weight: 600;
-        color: #1e293b;
-        margin-bottom: 0.375rem;
-        font-size: 0.8125rem;
-        display: flex;
-        align-items: center;
-        gap: 0.375rem;
-    }
-
-    .login-body .form-label i {
-        color: #00DEA8;
-        font-size: 0.9375rem;
-    }
-
-    .login-body .form-control {
-        border: 2px solid #e2e8f0;
-        border-radius: 8px;
-        padding: 0.625rem 0.875rem;
-        font-size: 0.875rem;
-        transition: all 0.3s;
-        background-color: #f8fafc;
-    }
-
-    .login-body .form-control:focus {
-        border-color: #00DEA8;
-        box-shadow: 0 0 0 3px rgba(0, 222, 168, 0.15);
-        background-color: white;
-    }
-
-    .login-body .form-control::placeholder {
-        color: #94a3b8;
-        font-size: 0.8125rem;
-    }
-
-    /* Spacing entre campos */
-    .mb-3 {
-        margin-bottom: 0.875rem !important;
-    }
-
-    .mb-4 {
-        margin-bottom: 1rem !important;
-    }
-
-    /* Checkbox personalizado */
-    .form-check {
-        padding-left: 1.5rem;
-    }
-
-    .form-check-input {
-        width: 1.125rem;
-        height: 1.125rem;
-        border: 2px solid #cbd5e1;
-        border-radius: 5px;
-        margin-top: 0.125rem;
-        cursor: pointer;
-    }
-
-    .form-check-input:checked {
-        background-color: #00DEA8;
-        border-color: #00DEA8;
-    }
-
-    .form-check-label {
-        font-size: 0.8125rem;
-        color: #475569;
-        cursor: pointer;
-        user-select: none;
-    }
-
-    /* Login Button */
-    .btn-login {
-        background: linear-gradient(135deg, #00FFAA 0%, #00DEA8 100%);
-        border: none;
-        color: #0D1B2A;
-        padding: 0.75rem 1.25rem;
-        font-size: 0.9375rem;
-        font-weight: 600;
-        border-radius: 8px;
-        transition: all 0.3s;
-        box-shadow: 0 4px 12px rgba(0, 255, 170, 0.3);
-        position: relative;
-        overflow: hidden;
-    }
-
-    .btn-login::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: -100%;
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
-        transition: left 0.5s;
-    }
-
-    .btn-login:hover::before {
-        left: 100%;
-    }
-
-    .btn-login:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(0, 255, 170, 0.5);
-    }
-
-    .btn-login:active {
-        transform: translateY(0);
-    }
-
-    .btn-login i {
-        margin-right: 0.375rem;
-    }
-
-    /* Security Badge - Más compacto */
-    .security-badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.375rem;
-        padding: 0.375rem 0.75rem;
-        background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
-        border-radius: 50px;
-        font-size: 0.6875rem;
-        color: #166534;
-        margin-top: 0.75rem;
-        font-weight: 500;
-    }
-
-    .security-badge i {
-        font-size: 0.875rem;
-    }
-
-    /* Divider - Más compacto */
-    .login-divider {
-        border: none;
-        border-top: 1px solid #e2e8f0;
-        margin: 1.25rem 0;
-    }
-
-    /* Footer - Más compacto */
-    .login-footer {
-        text-align: center;
-        color: #64748b;
-        font-size: 0.6875rem;
-    }
-
-    .login-footer p {
-        margin-bottom: 0.125rem;
-    }
-
-    .login-footer .brand-name {
-        font-weight: 600;
-        color: #1e293b;
-        font-size: 0.75rem;
-    }
-
-    /* Responsive */
-    @media (max-width: 576px) {
-        .login-card {
-            max-width: 100%;
-            border-radius: 12px;
-        }
-
-        .login-header {
-            padding: 1.25rem 1.25rem;
-        }
-
-        .brand-icon {
-            font-size: 2rem;
-        }
-
-        .login-header h3 {
-            font-size: 1.25rem;
-        }
-
-        .login-body {
-            padding: 1.25rem;
-        }
-    }
-
-    /* Viewport height optimization */
-    @media (max-height: 700px) {
-        .login-header {
-            padding: 1.25rem 1.5rem;
-        }
-
-        .brand-icon {
-            font-size: 2rem;
-        }
-
-        .login-body {
-            padding: 1.25rem 1.5rem;
-        }
-
-        .login-divider {
-            margin: 1rem 0;
-        }
-    }
-
-    /* Loading state */
-    .btn-login.loading {
-        pointer-events: none;
-        opacity: 0.8;
-    }
-
-    .btn-login.loading i {
-        animation: spin 1s linear infinite;
-    }
-
-    @keyframes spin {
-        from { transform: rotate(0deg); }
-        to { transform: rotate(360deg); }
-    }
-
-    /* Custom Scrollbar - Paleta de marca */
-    ::-webkit-scrollbar {
-        width: 10px;
-        height: 10px;
-    }
-
-    ::-webkit-scrollbar-track {
-        background: #1a2f3f;
-        border-radius: 10px;
-    }
-
-    ::-webkit-scrollbar-thumb {
-        background: linear-gradient(135deg, #00FFAA, #00DEA8);
-        border-radius: 10px;
-    }
-
-    ::-webkit-scrollbar-thumb:hover {
-        background: linear-gradient(135deg, #00DEA8, #00c997);
-    }
+/* ── BASE LAYOUT OVERRIDES (login no usa sidebar) ─────────────────────── */
+body {
+    background: #060d15;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 10px 48px;
+    position: relative;
+    overflow: hidden;
+}
+
+body::before { display: none; }
+
+.footer, .flash-container { display: none !important; }
+
+.main-wrapper {
+    margin-left: 0 !important;
+    min-height: 0 !important;
+    display: contents !important;
+}
+.main-content {
+    padding: 0 !important;
+    display: contents !important;
+}
+
+/* ── TICKER INFERIOR ───────────────────────────────────────────────────── */
+#forexTicker {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    height: 38px;
+    background: rgba(4, 9, 16, 0.96);
+    border-top: 1px solid rgba(0, 222, 168, 0.3);
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 -6px 24px rgba(0,0,0,.5);
+}
+
+.ticker-label {
+    background: linear-gradient(135deg, #00DEA8, #00b88d);
+    color: #060d15;
+    font-size: 0.5625rem;
+    font-weight: 900;
+    letter-spacing: .12em;
+    padding: 0 14px;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    white-space: nowrap;
+    flex-shrink: 0;
+    text-transform: uppercase;
+    gap: 5px;
+}
+
+.ticker-pulse {
+    width: 6px; height: 6px;
+    background: #060d15;
+    border-radius: 50%;
+    animation: tickPulse 1s ease-in-out infinite;
+}
+
+@keyframes tickPulse {
+    0%,100% { opacity: 1; transform: scale(1); }
+    50%      { opacity: .4; transform: scale(.7); }
+}
+
+.ticker-scroll { flex: 1; overflow: hidden; position: relative; }
+
+#tickerTrack {
+    display: inline-flex;
+    align-items: center;
+    animation: tickerMove 45s linear infinite;
+    white-space: nowrap;
+}
+
+@keyframes tickerMove {
+    from { transform: translateX(0); }
+    to   { transform: translateX(-50%); }
+}
+
+.t-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 24px;
+    border-right: 1px solid rgba(255,255,255,.07);
+}
+
+.t-pair {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    color: rgba(255,255,255,.72);
+    font-family: 'Courier New', monospace;
+    letter-spacing: .04em;
+}
+
+.t-price {
+    font-size: 0.75rem;
+    font-weight: 700;
+    font-family: 'Courier New', monospace;
+}
+
+.t-chg {
+    font-size: 0.625rem;
+    font-weight: 600;
+    font-family: 'Courier New', monospace;
+}
+
+.t-price.up,  .t-chg.up   { color: #10b981; }
+.t-price.dn,  .t-chg.dn   { color: #ef4444; }
+.t-price.flat,.t-chg.flat  { color: rgba(255,255,255,.35); }
+
+/* ── LOGIN CONTAINER ───────────────────────────────────────────────────── */
+.login-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: calc(100vh - 48px);
+    width: 100%;
+    position: relative;
+    z-index: 10;
+}
+
+/* ── LOGIN CARD ────────────────────────────────────────────────────────── */
+.login-card {
+    background: rgba(255, 255, 255, 0.97);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border-radius: 20px;
+    box-shadow:
+        0 0 0 1px rgba(0, 222, 168, 0.25),
+        0 30px 80px rgba(0,0,0,.6),
+        0 0 100px rgba(0, 222, 168, 0.06);
+    overflow: hidden;
+    width: 100%;
+    max-width: 420px;
+    animation: cardIn .75s cubic-bezier(.22,.68,0,1.2) both;
+}
+
+@keyframes cardIn {
+    from { opacity:0; transform:translateY(32px) scale(.95); }
+    to   { opacity:1; transform:translateY(0)    scale(1); }
+}
+
+.login-header {
+    background: linear-gradient(160deg, #0D1B2A 0%, #132638 60%, #1a3048 100%);
+    color: white;
+    padding: 1.625rem 1.75rem 1.5rem;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Accent line at bottom of header */
+.login-header::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #00DEA8 50%, transparent);
+}
+
+/* Subtle radial glow in header */
+.login-header::before {
+    content: '';
+    position: absolute;
+    top: -40%; left: 50%;
+    transform: translateX(-50%);
+    width: 260px; height: 200px;
+    background: radial-gradient(circle, rgba(0,222,168,.12) 0%, transparent 70%);
+    pointer-events: none;
+}
+
+.brand-icon {
+    display: inline-block;
+    animation: brandFloat 4.5s ease-in-out infinite;
+    position: relative;
+    z-index: 1;
+}
+
+@keyframes brandFloat {
+    0%,100% { transform: translateY(0); }
+    50%      { transform: translateY(-6px); }
+}
+
+.login-header h3 {
+    font-size: 1.375rem;
+    font-weight: 700;
+    margin: .375rem 0 .25rem;
+    position: relative;
+    z-index: 1;
+    letter-spacing: -.02em;
+    color: white;
+}
+
+.login-header p {
+    font-size: .8125rem;
+    opacity: .8;
+    margin: 0;
+    position: relative;
+    z-index: 1;
+}
+
+/* ── LOGIN BODY ────────────────────────────────────────────────────────── */
+.login-body { padding: 1.5rem 1.75rem; }
+
+.login-body .form-label {
+    font-weight: 600;
+    color: #1e293b;
+    margin-bottom: .375rem;
+    font-size: .8125rem;
+    display: flex;
+    align-items: center;
+    gap: .375rem;
+}
+
+.login-body .form-label i { color: #00DEA8; font-size: .9375rem; }
+
+.login-body .form-control {
+    border: 2px solid #e2e8f0;
+    border-radius: 9px;
+    padding: .625rem .875rem;
+    font-size: .875rem;
+    transition: all .2s;
+    background: #f8fafc;
+    color: #1e293b;
+}
+
+.login-body .form-control:focus {
+    border-color: #00DEA8;
+    box-shadow: 0 0 0 3px rgba(0,222,168,.15);
+    background: white;
+    outline: none;
+}
+
+.login-body .form-control::placeholder { color: #94a3b8; font-size: .8125rem; }
+
+.mb-3 { margin-bottom: .875rem !important; }
+.mb-4 { margin-bottom: 1rem !important; }
+
+.form-check { padding-left: 1.5rem; }
+.form-check-input {
+    width: 1.125rem; height: 1.125rem;
+    border: 2px solid #cbd5e1; border-radius: 5px;
+    margin-top: .125rem; cursor: pointer;
+    transition: all .15s;
+}
+.form-check-input:checked { background-color: #00DEA8; border-color: #00DEA8; }
+.form-check-label { font-size: .8125rem; color: #475569; cursor: pointer; user-select: none; }
+
+.btn-login {
+    width: 100%;
+    background: linear-gradient(135deg, #00FFB3, #00DEA8);
+    border: none;
+    color: #0D1B2A;
+    padding: .75rem 1.25rem;
+    font-size: .9375rem;
+    font-weight: 700;
+    border-radius: 9px;
+    transition: all .22s;
+    box-shadow: 0 4px 18px rgba(0,222,168,.38);
+    cursor: pointer;
+    letter-spacing: .01em;
+    display: block;
+    text-align: center;
+}
+
+.btn-login:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 28px rgba(0,222,168,.55);
+    background: linear-gradient(135deg, #00FFB3, #00c997);
+}
+
+.btn-login:active { transform: translateY(0); }
+
+.btn-login.loading { pointer-events:none; opacity:.8; }
+@keyframes spin { from{transform:rotate(0deg);} to{transform:rotate(360deg);} }
+.btn-login.loading i { animation: spin 1s linear infinite; }
+
+.security-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: .375rem;
+    padding: .375rem .875rem;
+    background: linear-gradient(135deg, #f0fdf4, #dcfce7);
+    border-radius: 50px;
+    font-size: .6875rem;
+    color: #166534;
+    margin-top: .75rem;
+    font-weight: 600;
+}
+
+.security-badge i { font-size: .875rem; }
+
+.login-divider { border: none; border-top: 1px solid #e2e8f0; margin: 1.25rem 0; }
+
+.login-footer { text-align: center; color: #64748b; font-size: .6875rem; }
+.login-footer p { margin-bottom: .125rem; }
+.login-footer .brand-name { font-weight: 600; color: #1e293b; font-size: .75rem; }
+
+/* ── FLASH MESSAGES ─────────────────────────────────────────────────────── */
+.login-flash-messages {
+    margin-top: 1rem; width: 100%; max-width: 420px;
+}
+
+.login-flash-messages .alert {
+    font-size: .8125rem; padding: .75rem 1rem; margin-bottom: .5rem;
+    border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,.2);
+    border: none !important; backdrop-filter: blur(20px);
+    animation: slideInUp .4s ease-out; background-color: transparent !important;
+}
+
+@keyframes slideInUp {
+    from { opacity:0; transform:translateY(16px); }
+    to   { opacity:1; transform:translateY(0); }
+}
+
+.login-flash-messages .alert i { font-size: 1.1rem; margin-right: .5rem; }
+.login-flash-messages .alert-success { background: linear-gradient(135deg,rgba(16,185,129,.95),rgba(5,150,105,.95)) !important; color:white!important; border-left:4px solid #059669!important; }
+.login-flash-messages .alert-danger  { background: linear-gradient(135deg,rgba(239,68,68,.95),rgba(220,38,38,.95)) !important; color:white!important; border-left:4px solid #dc2626!important; }
+.login-flash-messages .alert-warning { background: linear-gradient(135deg,rgba(245,158,11,.95),rgba(217,119,6,.95)) !important; color:white!important; border-left:4px solid #d97706!important; }
+.login-flash-messages .alert-info    { background: linear-gradient(135deg,rgba(0,222,168,.95),rgba(0,201,151,.95)) !important; color:#0D1B2A!important; border-left:4px solid #00c997!important; }
+.login-flash-messages .btn-close { filter:brightness(0) invert(1); opacity:.85; }
+.login-flash-messages .btn-close:hover { opacity:1; }
+.login-flash-messages .alert-info .btn-close { filter:none; opacity:.6; }
+
+/* ── RESPONSIVE ─────────────────────────────────────────────────────────── */
+@media (max-width: 576px) {
+    .login-card { max-width:100%; border-radius:14px; }
+    .login-header { padding:1.25rem; }
+    .login-body { padding:1.25rem; }
+}
+
+@media (max-height: 680px) {
+    .login-header { padding:1rem 1.5rem; }
+    .brand-icon img { height:80px !important; }
+    .login-body { padding:1rem 1.5rem; }
+    .login-divider { margin:.875rem 0; }
+}
 </style>
 {% endblock %}
 
 {% block content %}
+
+<!-- ── CANVAS FOREX BACKGROUND ─────────────────────────────────────────────── -->
+<canvas id="fxCanvas" style="position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none;display:block;"></canvas>
+
+<!-- ── TICKER LIVE ─────────────────────────────────────────────────────────── -->
+<div id="forexTicker">
+    <div class="ticker-label">
+        <span class="ticker-pulse"></span>
+        LIVE FX
+    </div>
+    <div class="ticker-scroll">
+        <div id="tickerTrack"></div>
+    </div>
+</div>
+
+<!-- ── LOGIN CARD ──────────────────────────────────────────────────────────── -->
 <div class="login-container">
     <div class="login-card">
-        <!-- Header -->
         <div class="login-header">
             <div class="brand-icon">
-                <img src="{{ url_for('static', filename='images/finalfinal.png') }}" alt="QoriCash" style="height: 120px; width: auto;">
+                <img src="{{ url_for('static', filename='images/finalfinal.png') }}" alt="QoriCash" style="height:110px;width:auto;">
             </div>
-            <h3 style="color: white;">QoriCash</h3>
-            <p>Sistema integral de trading</p>
+            <h3>QoriCash</h3>
+            <p>Sistema integral de cambio de divisas</p>
         </div>
 
-        <!-- Body -->
         <div class="login-body">
             <form method="POST" action="{{ url_for('auth.login') }}" id="loginForm">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
-                <!-- DNI -->
                 <div class="mb-3">
                     <label for="username" class="form-label">
-                        <i class="bi bi-card-text"></i>
-                        <span>DNI</span>
+                        <i class="bi bi-card-text"></i><span>DNI</span>
                     </label>
-                    <input
-                        type="text"
-                        class="form-control"
-                        id="username"
-                        name="username"
-                        placeholder="Ingresa tu DNI"
-                        required
-                        autofocus
-                        autocomplete="username"
-                        maxlength="8"
-                        pattern="[0-9]{8}"
-                    >
+                    <input type="text" class="form-control" id="username" name="username"
+                        placeholder="Ingresa tu DNI" required autofocus
+                        autocomplete="username" maxlength="8" pattern="[0-9]{8}">
                 </div>
 
-                <!-- Contraseña -->
                 <div class="mb-3">
                     <label for="password" class="form-label">
-                        <i class="bi bi-shield-lock"></i>
-                        <span>Contraseña</span>
+                        <i class="bi bi-shield-lock"></i><span>Contraseña</span>
                     </label>
-                    <input
-                        type="password"
-                        class="form-control"
-                        id="password"
-                        name="password"
-                        placeholder="Ingresa tu contraseña"
-                        required
-                        autocomplete="current-password"
-                    >
+                    <input type="password" class="form-control" id="password" name="password"
+                        placeholder="Ingresa tu contraseña" required autocomplete="current-password">
                 </div>
 
-                <!-- Recordar sesión -->
                 <div class="mb-4 form-check">
-                    <input
-                        type="checkbox"
-                        class="form-check-input"
-                        id="remember"
-                        name="remember"
-                    >
-                    <label class="form-check-label" for="remember">
-                        Mantener sesión iniciada
-                    </label>
+                    <input type="checkbox" class="form-check-input" id="remember" name="remember">
+                    <label class="form-check-label" for="remember">Mantener sesión iniciada</label>
                 </div>
 
-                <!-- Botón de login -->
                 <div class="d-grid">
-                    <button type="submit" class="btn btn-login">
-                        <i class="bi bi-box-arrow-in-right"></i>
-                        Iniciar Sesión
+                    <button type="submit" class="btn-login" id="btnLogin">
+                        <i class="bi bi-box-arrow-in-right"></i> Iniciar Sesión
                     </button>
                 </div>
 
-                <!-- Security Badge -->
                 <div class="text-center">
                     <div class="security-badge">
-                        <i class="bi bi-shield-check"></i>
-                        <span>Conexión segura</span>
+                        <i class="bi bi-shield-check"></i><span>Conexión segura SSL</span>
                     </div>
                 </div>
             </form>
 
-            <!-- Divider -->
             <hr class="login-divider">
 
-            <!-- Footer -->
             <div class="login-footer">
                 <p class="brand-name">QoriCash Trading</p>
-                <p>© 2025 - Sistema Profesional</p>
+                <p>© 2025 — Sistema Profesional de Cambio de Divisas</p>
             </div>
         </div>
     </div>
 
-    <!-- Flash Messages debajo del card -->
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
-            <div class="login-flash-messages">
-                {% for category, message in messages %}
-                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-                        <div class="d-flex align-items-center">
-                            {% if category == 'success' %}
-                                <i class="bi bi-check-circle-fill me-2"></i>
-                            {% elif category == 'danger' %}
-                                <i class="bi bi-exclamation-circle-fill me-2"></i>
-                            {% elif category == 'warning' %}
-                                <i class="bi bi-exclamation-triangle-fill me-2"></i>
-                            {% else %}
-                                <i class="bi bi-info-circle-fill me-2"></i>
-                            {% endif %}
-                            <span>{{ message }}</span>
-                        </div>
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                    </div>
-                {% endfor %}
+        <div class="login-flash-messages">
+            {% for category, message in messages %}
+            <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                <div class="d-flex align-items-center">
+                    {% if category == 'success' %}<i class="bi bi-check-circle-fill me-2"></i>
+                    {% elif category == 'danger'  %}<i class="bi bi-exclamation-circle-fill me-2"></i>
+                    {% elif category == 'warning' %}<i class="bi bi-exclamation-triangle-fill me-2"></i>
+                    {% else %}<i class="bi bi-info-circle-fill me-2"></i>{% endif %}
+                    <span>{{ message }}</span>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             </div>
+            {% endfor %}
+        </div>
         {% endif %}
     {% endwith %}
 </div>
+
 {% endblock %}
 
 {% block scripts %}
 <script>
-$(document).ready(function() {
-    // Focus en el campo de usuario
+/* ══════════════════════════════════════════════════════════════════════════
+   LOGIN FORM VALIDATION
+══════════════════════════════════════════════════════════════════════════ */
+$(document).ready(function () {
     $('#username').focus();
 
-    // Auto-cerrar flash messages después de 5 segundos
-    setTimeout(function() {
-        $('.login-flash-messages .alert').fadeOut('slow', function() {
-            $(this).remove();
-        });
+    setTimeout(function () {
+        $('.login-flash-messages .alert').fadeOut('slow', function () { $(this).remove(); });
     }, 5000);
 
-    // Validación y animación del formulario
-    $('#loginForm').on('submit', function(e) {
+    $('#loginForm').on('submit', function (e) {
         const username = $('#username').val().trim();
         const password = $('#password').val();
 
-        // Validación básica
         if (!username || !password) {
             e.preventDefault();
-            Swal.fire({
-                icon: 'warning',
-                title: 'Campos incompletos',
-                text: 'Por favor completa todos los campos',
-                confirmButtonColor: '#4f46e5',
-                timer: 3000
-            });
+            Swal.fire({ icon:'warning', title:'Campos incompletos', text:'Por favor completa todos los campos', confirmButtonColor:'#00DEA8', timer:3000 });
             return false;
         }
-
-        // Validación de DNI (8 dígitos numéricos)
-        const dniPattern = /^[0-9]{8}$/;
-        if (!dniPattern.test(username)) {
+        if (!/^[0-9]{8}$/.test(username)) {
             e.preventDefault();
-            Swal.fire({
-                icon: 'warning',
-                title: 'DNI inválido',
-                text: 'El DNI debe contener exactamente 8 dígitos numéricos',
-                confirmButtonColor: '#4f46e5',
-                timer: 3000
-            });
+            Swal.fire({ icon:'warning', title:'DNI inválido', text:'El DNI debe contener exactamente 8 dígitos numéricos', confirmButtonColor:'#00DEA8', timer:3000 });
             return false;
         }
-
-        // Validación de longitud mínima
         if (password.length < 4) {
             e.preventDefault();
-            Swal.fire({
-                icon: 'warning',
-                title: 'Contraseña inválida',
-                text: 'La contraseña debe tener al menos 4 caracteres',
-                confirmButtonColor: '#4f46e5',
-                timer: 3000
-            });
+            Swal.fire({ icon:'warning', title:'Contraseña inválida', text:'La contraseña debe tener al menos 4 caracteres', confirmButtonColor:'#00DEA8', timer:3000 });
             return false;
         }
 
-        // Animación de loading
-        const $btn = $(this).find('button[type="submit"]');
-        $btn.addClass('loading')
-            .prop('disabled', true)
+        $('#btnLogin').addClass('loading').prop('disabled', true)
             .html('<i class="bi bi-hourglass-split"></i> Verificando...');
     });
 
-    // Enter key support
-    $('.form-control').on('keypress', function(e) {
-        if (e.which === 13) {
-            $('#loginForm').submit();
-        }
+    $('.form-control').on('keypress', function (e) {
+        if (e.which === 13) $('#loginForm').submit();
     });
 });
+
+/* ══════════════════════════════════════════════════════════════════════════
+   FOREX BACKGROUND ANIMATION
+══════════════════════════════════════════════════════════════════════════ */
+(function () {
+    'use strict';
+
+    const canvas = document.getElementById('fxCanvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+
+    let W, H;
+
+    /* ─ Pares de divisas ─────────────────────────────────────────────────── */
+    const PAIRS = [
+        { n:'USD/PEN', p:3.7234, d:4 }, { n:'EUR/USD', p:1.0856, d:4 },
+        { n:'GBP/USD', p:1.2743, d:4 }, { n:'USD/JPY', p:149.32,  d:2 },
+        { n:'EUR/PEN', p:4.0421, d:4 }, { n:'USD/BRL', p:4.9812,  d:4 },
+        { n:'AUD/USD', p:0.6521, d:4 }, { n:'CHF/USD', p:1.1234,  d:4 },
+        { n:'USD/MXN', p:17.234, d:3 }, { n:'EUR/GBP', p:0.8521,  d:4 },
+        { n:'GBP/PEN', p:4.7891, d:4 }, { n:'EUR/JPY', p:162.15,  d:2 },
+    ];
+
+    const liveData = PAIRS.map(p => ({ ...p, cur: p.p, dir: 0 }));
+
+    /* ─ Resize ───────────────────────────────────────────────────────────── */
+    function resize() {
+        W = canvas.width  = window.innerWidth;
+        H = canvas.height = window.innerHeight;
+        initMatrix();
+    }
+    window.addEventListener('resize', resize);
+
+    /* ─ ESTRELLAS / PARTÍCULAS ──────────────────────────────────────────── */
+    const STARS = Array.from({ length: 160 }, () => ({
+        x:   Math.random(),
+        y:   Math.random(),
+        r:   Math.random() * 1.4 + 0.3,
+        a:   Math.random() * 0.45 + 0.06,
+        spd: Math.random() * 0.028 + 0.007,
+        ph:  Math.random() * Math.PI * 2,
+    }));
+
+    function drawStars(t) {
+        STARS.forEach(s => {
+            const alpha = s.a * (0.35 + 0.65 * Math.sin(t * s.spd + s.ph));
+            ctx.beginPath();
+            ctx.arc(s.x * W, s.y * H, s.r, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(150, 210, 255, ${alpha})`;
+            ctx.fill();
+        });
+    }
+
+    /* ─ GRILLA DE TRADING ───────────────────────────────────────────────── */
+    function drawGrid() {
+        ctx.lineWidth = 0.5;
+        // Horizontales
+        ctx.strokeStyle = 'rgba(0,222,168,0.035)';
+        for (let y = 0; y < H; y += 55) {
+            ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+        }
+        // Verticales
+        ctx.strokeStyle = 'rgba(0,222,168,0.025)';
+        for (let x = 0; x < W; x += 88) {
+            ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+        }
+    }
+
+    /* ─ GRÁFICAS DE PRECIOS (líneas) ────────────────────────────────────── */
+    const HIST = 200;
+    const LINES = [
+        { c:'#00DEA8', rgb:'0,222,168',   a:0.55, yF:0.27, amp:75, fr:0.21, ph:0    },
+        { c:'#3b82f6', rgb:'59,130,246',  a:0.28, yF:0.45, amp:50, fr:0.16, ph:2.1  },
+        { c:'#f59e0b', rgb:'245,158,11',  a:0.18, yF:0.59, amp:33, fr:0.12, ph:1.0  },
+        { c:'#8b5cf6', rgb:'139,92,246',  a:0.15, yF:0.37, amp:22, fr:0.27, ph:3.5  },
+    ];
+    const lhist = LINES.map(() => []);
+    let T = 0;
+
+    function updateLines() {
+        LINES.forEach((ln, i) => {
+            const noise = (Math.random() - 0.5) * 20;
+            const v = Math.sin(T * ln.fr + ln.ph) * ln.amp
+                    + Math.sin(T * ln.fr * 2.8 + ln.ph) * (ln.amp * 0.28)
+                    + noise;
+            lhist[i].push(v);
+            if (lhist[i].length > HIST) lhist[i].shift();
+        });
+    }
+
+    function drawLines() {
+        LINES.forEach((ln, i) => {
+            const h = lhist[i];
+            if (h.length < 2) return;
+            const yB = H * ln.yF;
+            const dx = W / (HIST - 1);
+
+            /* línea con glow */
+            ctx.shadowBlur = 14;
+            ctx.shadowColor = ln.c;
+            ctx.strokeStyle = ln.c;
+            ctx.lineWidth = 1.8;
+            ctx.globalAlpha = ln.a;
+            ctx.beginPath();
+            h.forEach((v, j) => (j === 0 ? ctx.moveTo(0, yB + v) : ctx.lineTo(j * dx, yB + v)));
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+
+            /* área bajo la curva */
+            const gr = ctx.createLinearGradient(0, yB - ln.amp, 0, yB + ln.amp + 70);
+            gr.addColorStop(0, `rgba(${ln.rgb},0.10)`);
+            gr.addColorStop(1, `rgba(${ln.rgb},0)`);
+            ctx.beginPath();
+            h.forEach((v, j) => (j === 0 ? ctx.moveTo(0, yB + v) : ctx.lineTo(j * dx, yB + v)));
+            ctx.lineTo(W, yB + 80); ctx.lineTo(0, yB + 80); ctx.closePath();
+            ctx.fillStyle = gr; ctx.fill();
+
+            /* punto vivo al final */
+            const lv = h[h.length - 1];
+            ctx.globalAlpha = Math.min(ln.a * 2.8, 0.95);
+            ctx.shadowBlur = 18; ctx.shadowColor = ln.c;
+            ctx.beginPath();
+            ctx.arc(W - dx * 2, yB + lv, 3.5, 0, Math.PI * 2);
+            ctx.fillStyle = ln.c; ctx.fill();
+            ctx.shadowBlur = 0;
+            ctx.globalAlpha = 1;
+        });
+    }
+
+    /* ─ VELAS JAPONESAS (candlesticks) ─────────────────────────────────── */
+    const NC = 62;
+    let candles = [];
+
+    function initCandles() {
+        candles = [];
+        let p = 3.71 + Math.random() * 0.05;
+        for (let i = 0; i < NC; i++) {
+            const o = p, d = (Math.random() - 0.5) * 0.058, c = o + d;
+            candles.push({ o, c, h: Math.max(o,c)+Math.random()*.024, l: Math.min(o,c)-Math.random()*.024 });
+            p = c;
+        }
+    }
+
+    function drawCandles() {
+        const aTop = H * 0.70, aH = H * 0.27;
+        const prices = candles.flatMap(c => [c.h, c.l]);
+        const minP = Math.min(...prices), maxP = Math.max(...prices);
+        const rng  = maxP - minP || 0.01;
+        const slW  = W / NC, bdW = Math.max(slW * 0.55, 2);
+
+        ctx.globalAlpha = 0.70;
+        candles.forEach((c, i) => {
+            const cx = i * slW + slW / 2;
+            const bull = c.c >= c.o;
+            const toY = v => aTop + ((maxP - v) / rng) * aH;
+            const col = bull ? '#10b981' : '#ef4444';
+            ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(cx, toY(c.h)); ctx.lineTo(cx, toY(c.l)); ctx.stroke();
+            const bT = Math.min(toY(c.o), toY(c.c)), bH = Math.abs(toY(c.c) - toY(c.o)) || 1;
+            ctx.fillRect(cx - bdW/2, bT, bdW, bH);
+        });
+        ctx.globalAlpha = 1;
+
+        /* línea separadora con glow */
+        ctx.strokeStyle = 'rgba(0,222,168,0.1)';
+        ctx.shadowBlur = 6; ctx.shadowColor = '#00DEA8';
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(0, aTop); ctx.lineTo(W, aTop); ctx.stroke();
+        ctx.shadowBlur = 0;
+
+        /* Etiqueta "USD/PEN" sobre el gráfico de velas */
+        const lastC  = candles[candles.length - 1];
+        const lastY  = aTop + ((maxP - lastC.c) / rng) * aH;
+        ctx.globalAlpha = 0.7;
+        ctx.shadowBlur  = 8; ctx.shadowColor = '#00DEA8';
+        ctx.fillStyle   = '#00DEA8';
+        ctx.font        = 'bold 11px Courier New, monospace';
+        ctx.fillText(`USD/PEN  ${lastC.c.toFixed(4)}`, 12, aTop - 6);
+        ctx.shadowBlur  = 0; ctx.globalAlpha = 1;
+
+        /* Línea de precio actual */
+        ctx.strokeStyle = 'rgba(0,222,168,0.35)';
+        ctx.setLineDash([4, 5]);
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(0, lastY); ctx.lineTo(W, lastY); ctx.stroke();
+        ctx.setLineDash([]);
+    }
+
+    function pushCandle() {
+        candles.shift();
+        const last = candles[candles.length - 1].c;
+        const d = (Math.random() - 0.5) * 0.052, c = last + d;
+        candles.push({ o:last, c, h:Math.max(last,c)+Math.random()*.02, l:Math.min(last,c)-Math.random()*.02 });
+    }
+
+    /* ─ LLUVIA MATRIX (solo bordes) ─────────────────────────────────────── */
+    const M_CHARS = '0123456789ABCDEFXabcdef$€£¥/↑↓▲▼+-×≈'.split('');
+    let mDrops = [];
+    const COL_W = 16;
+
+    function initMatrix() {
+        const cols = Math.ceil(W / COL_W);
+        mDrops = Array.from({ length: cols }, () => ({
+            y:   Math.random() * H,
+            spd: 8 + Math.random() * 11,
+        }));
+    }
+
+    function drawMatrix() {
+        ctx.font = '11px Courier New, monospace';
+        mDrops.forEach((drop, i) => {
+            const x = i * COL_W;
+            /* mayor opacidad en los bordes, casi invisible en el centro */
+            const inEdge = x < W * 0.16 || x > W * 0.84;
+            const maxA   = inEdge ? 0.25 : 0.05;
+            const ch = M_CHARS[Math.floor(Math.random() * M_CHARS.length)];
+            ctx.fillStyle = `rgba(0,222,168,${Math.random() * maxA})`;
+            ctx.fillText(ch, x, drop.y);
+            drop.y += drop.spd;
+            if (drop.y > H) { drop.y = -18; drop.spd = 8 + Math.random() * 11; }
+        });
+    }
+
+    /* ─ ETIQUETAS FLOTANTES DE PARES ───────────────────────────────────── */
+    const floats = liveData.map(p => ({
+        name: p.n, price: p.cur, dec: p.d, dir: 0,
+        x:  Math.random() * W,
+        y:  50 + Math.random() * (H * 0.58),
+        vx: (Math.random() - 0.5) * 0.28,
+        vy: (Math.random() - 0.5) * 0.16,
+        a:  Math.random() * 0.18 + 0.04,
+        tick: 0,
+    }));
+
+    function drawFloats() {
+        floats.forEach(f => {
+            f.x += f.vx; f.y += f.vy; f.tick++;
+            if (f.x < -60)     f.vx = Math.abs(f.vx);
+            if (f.x > W + 60)  f.vx = -Math.abs(f.vx);
+            if (f.y < 30)      f.vy = Math.abs(f.vy);
+            if (f.y > H * 0.63) f.vy = -Math.abs(f.vy);
+
+            /* actualizar precio desde datos live */
+            if (f.tick > 75 + Math.random() * 90) {
+                const live = liveData.find(p => p.n === f.name);
+                if (live) { f.price = live.cur; f.dir = live.dir; }
+                f.a = 0.45; f.tick = 0;
+            } else {
+                f.a = Math.max(0.04, f.a - 0.0025);
+            }
+
+            const upRgb = f.dir >= 0 ? '0,222,168' : '239,68,68';
+            ctx.globalAlpha = f.a;
+            ctx.font = 'bold 12px Courier New, monospace';
+            ctx.fillStyle = '#00DEA8';
+            ctx.fillText(f.name, f.x, f.y);
+            ctx.font = '11px Courier New, monospace';
+            ctx.fillStyle = `rgba(${upRgb},1)`;
+            const arr = f.dir > 0 ? ' ▲' : f.dir < 0 ? ' ▼' : '';
+            ctx.fillText(f.price.toFixed(f.dec) + arr, f.x, f.y + 14);
+            ctx.globalAlpha = 1;
+        });
+    }
+
+    /* ─ LÍNEA DE ESCANEO ───────────────────────────────────────────────── */
+    let scanY = 0;
+    function drawScan() {
+        scanY = (scanY + 0.5) % H;
+        const g = ctx.createLinearGradient(0, scanY - 70, 0, scanY + 30);
+        g.addColorStop(0, 'rgba(0,222,168,0)');
+        g.addColorStop(0.7, 'rgba(0,222,168,0.022)');
+        g.addColorStop(1, 'rgba(0,222,168,0.06)');
+        ctx.fillStyle = g;
+        ctx.fillRect(0, scanY - 70, W, 100);
+    }
+
+    /* ─ TICKER INFERIOR ─────────────────────────────────────────────────── */
+    function buildTicker() {
+        const items = liveData.map(p => {
+            const diff = p.cur - p.p;
+            const pct  = ((diff / p.p) * 100).toFixed(2);
+            const cls  = Math.abs(diff) < 0.00005 ? 'flat' : (diff > 0 ? 'up' : 'dn');
+            const arr  = cls === 'flat' ? '●' : (cls === 'up' ? '▲' : '▼');
+            return `<span class="t-item">
+                <span class="t-pair">${p.n}</span>
+                <span class="t-price ${cls}">${p.cur.toFixed(p.d)}</span>
+                <span class="t-chg  ${cls}">${arr} ${Math.abs(parseFloat(pct))}%</span>
+            </span>`;
+        }).join('');
+        const track = document.getElementById('tickerTrack');
+        if (track) track.innerHTML = items + items; /* doble para loop infinito */
+    }
+
+    function updatePrices() {
+        liveData.forEach(p => {
+            const d = (Math.random() - 0.499) * 0.003;
+            p.cur = parseFloat((p.cur + d).toFixed(p.d));
+            p.dir = d > 0 ? 1 : -1;
+        });
+        buildTicker();
+    }
+
+    /* ─ BUCLE PRINCIPAL ─────────────────────────────────────────────────── */
+    resize();
+    initCandles();
+    buildTicker();
+
+    /* fondo inicial sólido */
+    ctx.fillStyle = '#060d15';
+    ctx.fillRect(0, 0, W, H);
+
+    let frame = 0;
+
+    function animate() {
+        /* rastro semi-transparente para efecto trail */
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = 'rgba(6, 13, 21, 0.13)';
+        ctx.fillRect(0, 0, W, H);
+
+        drawGrid();
+        drawStars(T);
+        drawScan();
+        updateLines();
+        drawLines();
+        drawCandles();
+        drawMatrix();
+        drawFloats();
+
+        T += 0.016;
+        frame++;
+        if (frame % 48 === 0) pushCandle();
+
+        requestAnimationFrame(animate);
+    }
+
+    animate();
+    setInterval(updatePrices, 2200);
+
+})();
 </script>
 {% endblock %}
