@@ -799,6 +799,13 @@ def cancel_operation_web():
 
         logger.info(f"✅ Operación {operation.operation_id} cancelada desde WEB. Motivo: {reason}")
 
+        # Enviar correo de cancelación
+        try:
+            from app.services.email_service import EmailService
+            EmailService.send_canceled_operation_email(operation, reason)
+        except Exception as e:
+            logger.warning(f'Error al enviar email de cancelación: {str(e)}')
+
         return jsonify({
             'success': True,
             'message': 'Operación cancelada exitosamente'

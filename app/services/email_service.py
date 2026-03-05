@@ -574,6 +574,163 @@ class EmailService:
 </html>"""
         return render_template_string(template, operation=operation)
 
+    @staticmethod
+    def send_canceled_operation_email(operation, reason=None):
+        """
+        Enviar correo de notificación de operación cancelada
+
+        Args:
+            operation: Objeto Operation
+            reason: Motivo de cancelación (opcional)
+
+        Returns:
+            tuple: (success: bool, message: str)
+        """
+        try:
+            to = [operation.client.email] if operation.client and operation.client.email else []
+
+            cc = []
+            if operation.user and operation.user.email:
+                cc.append(operation.user.email)
+
+            if not to and not cc:
+                logger.warning(f'No hay destinatarios para correo de cancelación de operación {operation.operation_id}')
+                return False, 'No hay destinatarios configurados'
+
+            subject = f'Operación Cancelada — {operation.operation_id} | QoriCash'
+            html_body = EmailService._render_canceled_operation_template(operation, reason)
+
+            msg = Message(
+                subject=subject,
+                recipients=to,
+                cc=cc,
+                html=html_body
+            )
+
+            EmailService._send_async(msg, timeout=15)
+            logger.info(f'Email de cancelación programado para operación {operation.operation_id}')
+            return True, 'Email programado para envío'
+
+        except Exception as e:
+            logger.error(f'Error al enviar email de cancelación {operation.operation_id}: {str(e)}')
+            return False, f'Error al enviar email: {str(e)}'
+
+    @staticmethod
+    def _render_canceled_operation_template(operation, reason=None):
+        """Renderizar plantilla HTML para operación cancelada"""
+        template = """<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body, table, td, p, h1, h2, h3 { margin: 0; padding: 0; }
+        body { background-color: #f0f4f8; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+        .email-wrapper { padding: 28px 16px; }
+        .email-card { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(13,27,42,0.09); }
+        .email-header { background-color: #0D1B2A; padding: 30px 40px 26px; text-align: center; }
+        .logo-wrap { display: inline-block; border: 1.5px solid rgba(0,222,168,0.35); border-radius: 8px; padding: 7px 22px; margin-bottom: 10px; }
+        .logo-text { color: #00DEA8; font-size: 21px; font-weight: 700; letter-spacing: 1.5px; }
+        .tagline { color: rgba(255,255,255,0.40); font-size: 11px; letter-spacing: 0.6px; margin-top: 6px; }
+        .accent-bar { height: 3px; background-color: #ef4444; }
+        .email-body { padding: 36px 40px; color: #334155; font-size: 15px; line-height: 1.65; }
+        .cancel-banner { background-color: #fef2f2; border: 1.5px solid #fecaca; border-radius: 10px; padding: 20px 24px; text-align: center; margin: 20px 0; }
+        .cancel-banner h2 { color: #991b1b; font-size: 17px; font-weight: 700; margin-bottom: 6px; }
+        .cancel-banner p { color: #7f1d1d; font-size: 14px; }
+        .section-label { font-size: 11px; font-weight: 700; color: #00DEA8; text-transform: uppercase; letter-spacing: 1.2px; margin: 24px 0 10px 0; }
+        .alert { border-radius: 8px; padding: 13px 16px; margin: 14px 0; font-size: 13.5px; line-height: 1.65; }
+        .alert.warning { background: #fffbeb; border-left: 3px solid #f59e0b; color: #78350f; }
+        .alert.info { background: #f0f9ff; border-left: 3px solid #0ea5e9; color: #0c4a6e; }
+        .divider { height: 1px; background-color: #f1f5f9; margin: 24px 0; }
+        .note-text { font-size: 13px; color: #94a3b8; line-height: 1.6; }
+        .email-footer { background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 22px 40px; text-align: center; }
+        .footer-brand { color: #0D1B2A; font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+        .footer-meta { color: #94a3b8; font-size: 12px; }
+        .footer-link { color: #00DEA8; text-decoration: none; }
+        .footer-copy { color: #cbd5e1; font-size: 11px; margin-top: 8px; }
+        @media only screen and (max-width: 620px) {
+            .email-body { padding: 24px 20px !important; }
+            .email-header { padding: 24px 20px !important; }
+        }
+    </style>
+</head>
+<body>
+<div class="email-wrapper">
+    <div class="email-card">
+
+        <div class="email-header">
+            <div class="logo-wrap"><span class="logo-text">QoriCash</span></div>
+            <p class="tagline">Operación cancelada</p>
+        </div>
+        <div class="accent-bar"></div>
+
+        <div class="email-body">
+            <p>Estimado(a) <strong>{{ operation.client.full_name or operation.client.razon_social }}</strong>,</p>
+
+            <div class="cancel-banner">
+                <h2>Operación cancelada</h2>
+                <p>La siguiente operación ha sido cancelada en nuestro sistema.</p>
+            </div>
+
+            <p class="section-label">Detalle de la operación</p>
+            <table width="100%" cellspacing="0" cellpadding="0" style="background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;border-collapse:collapse;font-size:14px;margin:0 0 20px 0;">
+                <tr style="border-bottom:1px solid #f1f5f9;">
+                    <td style="padding:10px 18px;color:#64748b;font-weight:600;width:160px;vertical-align:middle;white-space:nowrap;">Código</td>
+                    <td style="padding:10px 18px;color:#0D1B2A;font-weight:700;vertical-align:middle;">{{ operation.operation_id }}</td>
+                </tr>
+                <tr style="border-bottom:1px solid #f1f5f9;">
+                    <td style="padding:10px 18px;color:#64748b;font-weight:600;white-space:nowrap;vertical-align:middle;">Tipo</td>
+                    <td style="padding:10px 18px;color:#1e293b;font-weight:500;vertical-align:middle;">{{ operation.operation_type }}</td>
+                </tr>
+                <tr style="border-bottom:1px solid #f1f5f9;">
+                    <td style="padding:10px 18px;color:#64748b;font-weight:600;white-space:nowrap;vertical-align:middle;">Monto USD</td>
+                    <td style="padding:10px 18px;color:#1e293b;font-weight:700;font-size:16px;vertical-align:middle;">$ {{ "{:,.2f}".format(operation.amount_usd) }}</td>
+                </tr>
+                <tr style="border-bottom:1px solid #f1f5f9;">
+                    <td style="padding:10px 18px;color:#64748b;font-weight:600;white-space:nowrap;vertical-align:middle;">Tipo de cambio</td>
+                    <td style="padding:10px 18px;color:#1e293b;font-weight:500;vertical-align:middle;">{{ "%.4f"|format(operation.exchange_rate) }}</td>
+                </tr>
+                <tr style="border-bottom:1px solid #f1f5f9;">
+                    <td style="padding:10px 18px;color:#64748b;font-weight:600;white-space:nowrap;vertical-align:middle;">Monto PEN</td>
+                    <td style="padding:10px 18px;color:#1e293b;font-weight:700;font-size:16px;vertical-align:middle;">S/ {{ "{:,.2f}".format(operation.amount_pen) }}</td>
+                </tr>
+                <tr style="border-bottom:1px solid #f1f5f9;">
+                    <td style="padding:10px 18px;color:#64748b;font-weight:600;white-space:nowrap;vertical-align:middle;">Fecha</td>
+                    <td style="padding:10px 18px;color:#1e293b;font-weight:500;vertical-align:middle;">{{ operation.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
+                </tr>
+                <tr>
+                    <td style="padding:10px 18px;color:#64748b;font-weight:600;white-space:nowrap;vertical-align:middle;">Estado</td>
+                    <td style="padding:10px 18px;vertical-align:middle;">
+                        <span style="display:inline-block;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:700;background:#fee2e2;color:#991b1b;">CANCELADO</span>
+                    </td>
+                </tr>
+            </table>
+
+            {% if reason %}
+            <div class="alert warning">
+                <strong>Motivo de cancelación:</strong> {{ reason }}
+            </div>
+            {% endif %}
+
+            <div class="alert info">
+                Si desea realizar una nueva operación, puede ingresar a <strong>www.qoricash.pe</strong> o contactar a su asesor comercial.
+            </div>
+
+            <div class="divider"></div>
+            <p class="note-text">¿Consultas? Responda este correo o escríbanos a <a href="mailto:info@qoricash.pe" class="footer-link">info@qoricash.pe</a></p>
+        </div>
+
+        <div class="email-footer">
+            <p class="footer-brand">QoriCash</p>
+            <p class="footer-meta">RUC: 20235842211 &nbsp;·&nbsp; <a href="mailto:info@qoricash.pe" class="footer-link">info@qoricash.pe</a></p>
+            <p class="footer-copy">© 2025 QoriCash. Todos los derechos reservados.</p>
+        </div>
+
+    </div>
+</div>
+</body>
+</html>"""
+        return render_template_string(template, operation=operation, reason=reason)
 
     @staticmethod
     def send_new_client_registration_email(client, trader):
