@@ -130,89 +130,13 @@ body::before { display: none; }
     z-index: 10;
 }
 
-/* ── LIVE RATE WIDGET ──────────────────────────────────────────────────── */
-.live-rate-widget {
-    background: rgba(6, 14, 24, 0.68);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(0, 222, 168, 0.20);
-    border-bottom: none;
-    border-radius: 16px 16px 0 0;
-    padding: 0.6rem 1.5rem 0.5rem;
-    text-align: center;
-    width: 100%;
-    max-width: 420px;
-    box-shadow: 0 -4px 30px rgba(0,0,0,0.3);
-}
-
-.lrw-pair {
-    font-family: 'Courier New', monospace;
-    font-size: 0.5rem;
-    letter-spacing: 0.25em;
-    color: rgba(0,222,168,0.6);
-    text-transform: uppercase;
-    font-weight: 700;
-    margin-bottom: 0.1rem;
-}
-
-.lrw-price-row {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    line-height: 1;
-}
-
-#lrwValue {
-    font-family: 'Courier New', monospace;
-    font-size: 2.1rem;
-    font-weight: 900;
-    color: white;
-    letter-spacing: -0.02em;
-    display: inline-block;
-    transition: color 0.4s ease;
-}
-
-.lrw-dir {
-    font-size: 1rem;
-    font-weight: 700;
-    line-height: 1;
-    transition: color 0.4s ease;
-}
-
-#lrwChange {
-    font-family: 'Courier New', monospace;
-    font-size: 0.5625rem;
-    font-weight: 600;
-    margin-top: 0.05rem;
-    letter-spacing: 0.06em;
-    transition: color 0.4s ease;
-    min-height: 0.75rem;
-}
-
-.lrw-up  { color: #10b981; }
-.lrw-dn  { color: #ef4444; }
-.lrw-flat{ color: rgba(255,255,255,0.35); }
-
-@keyframes digitUp {
-    from { transform: translateY(8px); opacity: 0; }
-    to   { transform: translateY(0);   opacity: 1; }
-}
-@keyframes digitDn {
-    from { transform: translateY(-8px); opacity: 0; }
-    to   { transform: translateY(0);    opacity: 1; }
-}
-.anim-up { animation: digitUp 0.35s cubic-bezier(.22,.68,0,1.2); }
-.anim-dn { animation: digitDn 0.35s cubic-bezier(.22,.68,0,1.2); }
-
 /* ── LOGIN CARD ─────────────────────────────────────────── glassmorphism ── */
 .login-card {
     background: rgba(6, 14, 24, 0.78);
     backdrop-filter: blur(28px);
     -webkit-backdrop-filter: blur(28px);
-    border-radius: 0 0 20px 20px;
+    border-radius: 20px;
     border: 1px solid rgba(0, 222, 168, 0.18);
-    border-top: none;
     box-shadow:
         0 30px 80px rgba(0,0,0,.55),
         inset 0 -1px 0 rgba(255,255,255,0.03),
@@ -413,8 +337,7 @@ body::before { display: none; }
 
 /* ── RESPONSIVE ─────────────────────────────────────────────────────────── */
 @media (max-width: 576px) {
-    .login-card { max-width:100%; border-radius:0 0 14px 14px; }
-    .live-rate-widget { border-radius:12px 12px 0 0; padding:.5rem 1rem .4rem; }
+    .login-card { max-width:100%; border-radius:14px; }
     .login-header { padding:1.25rem; }
     .login-body { padding:1.25rem; }
     #lrwValue { font-size:1.875rem; }
@@ -447,16 +370,6 @@ body::before { display: none; }
 
 <!-- ── LOGIN CARD ──────────────────────────────────────────────────────────── -->
 <div class="login-container">
-
-    <!-- Tipo de cambio USD/PEN en vivo — integrado sobre la card -->
-    <div class="live-rate-widget">
-        <div class="lrw-pair">USD / PEN &nbsp;·&nbsp; Tipo de Cambio en Vivo</div>
-        <div class="lrw-price-row">
-            <span id="lrwValue">3.7234</span>
-            <span id="lrwDir" class="lrw-dir lrw-flat">●</span>
-        </div>
-        <div id="lrwChange" class="lrw-flat">–</div>
-    </div>
 
     <div class="login-card">
         <div class="login-header">
@@ -820,43 +733,6 @@ $(document).ready(function () {
         if (track) track.innerHTML = items + items;
     }
 
-    /* ─ LIVE RATE WIDGET — USD/PEN con animación de dígitos ─────────────── */
-    let prevUsdPen = 3.7234;
-
-    function updateLiveWidget() {
-        const usdpen = liveData.find(p => p.n === 'USD/PEN');
-        if (!usdpen) return;
-
-        const newPrice  = usdpen.cur;
-        const diff      = newPrice - prevUsdPen;
-        const totalDiff = newPrice - usdpen.p;
-        const pct       = ((totalDiff / usdpen.p) * 100).toFixed(3);
-        const cls       = Math.abs(diff) < 0.00001 ? 'flat' : (diff > 0 ? 'up' : 'dn');
-
-        const valEl = document.getElementById('lrwValue');
-        const dirEl = document.getElementById('lrwDir');
-        const chgEl = document.getElementById('lrwChange');
-
-        if (valEl) {
-            valEl.classList.remove('anim-up', 'anim-dn');
-            void valEl.offsetWidth;
-            if (cls !== 'flat') valEl.classList.add(cls === 'up' ? 'anim-up' : 'anim-dn');
-            valEl.textContent = newPrice.toFixed(4);
-            valEl.style.color = cls === 'up' ? '#10b981' : cls === 'dn' ? '#ef4444' : 'white';
-        }
-        if (dirEl) {
-            dirEl.className = `lrw-dir lrw-${cls}`;
-            dirEl.textContent = cls === 'up' ? '▲' : cls === 'dn' ? '▼' : '●';
-        }
-        if (chgEl) {
-            const sign = totalDiff >= 0 ? '+' : '';
-            chgEl.className = `lrw-${cls}`;
-            chgEl.textContent = `${sign}${totalDiff.toFixed(4)} (${sign}${pct}%)`;
-        }
-
-        prevUsdPen = newPrice;
-    }
-
     function updatePrices() {
         liveData.forEach(p => {
             const d = (Math.random() - 0.499) * 0.003;
@@ -864,14 +740,12 @@ $(document).ready(function () {
             p.dir = d > 0 ? 1 : -1;
         });
         buildTicker();
-        updateLiveWidget();
     }
 
     /* ─ BUCLE PRINCIPAL ─────────────────────────────────────────────────── */
     resize();
     initCandles();
     buildTicker();
-    updateLiveWidget();
 
     ctx.fillStyle = '#060d15';
     ctx.fillRect(0, 0, W, H);
