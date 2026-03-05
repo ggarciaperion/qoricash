@@ -106,6 +106,29 @@ function resetPassword(userId) {
 }
 
 /**
+ * Eliminar usuario
+ */
+function deleteUser(userId, username) {
+    Swal.fire({
+        title: '¿Eliminar usuario?',
+        html: `El usuario <strong>${username}</strong> será desactivado y no podrá acceder al sistema.`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc3545',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            ajaxRequest(`/users/api/delete/${userId}`, 'DELETE', null, function(response) {
+                showNotification(response.message, 'success');
+                setTimeout(() => location.reload(), 1000);
+            });
+        }
+    });
+}
+
+/**
  * Confirmar reset de contraseña
  */
 function confirmResetPassword() {

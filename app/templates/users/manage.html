@@ -74,6 +74,11 @@
                                         <button class="btn btn-outline-info" onclick="resetPassword({{ u.id }})" title="Resetear Contraseña">
                                             <i class="bi bi-key"></i>
                                         </button>
+                                        {% if u.id != current_user.id %}
+                                        <button class="btn btn-outline-danger" onclick="deleteUser({{ u.id }}, '{{ u.username }}')" title="Eliminar usuario">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                        {% endif %}
                                     </div>
                                 </td>
                             </tr>
