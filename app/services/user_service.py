@@ -93,7 +93,7 @@ class UserService:
             return False, error, None
         
         # Validar rol
-        if role not in ['Master', 'Trader', 'Operador', 'Middle Office', 'Plataforma']:
+        if role not in ['Master', 'Trader', 'Operador', 'Middle Office', 'App', 'Web']:
             return False, 'Rol inválido', None
         
         # Validar que username no existe
@@ -187,7 +187,7 @@ class UserService:
         
         # Actualizar rol
         if role and role != user.role:
-            if role not in ['Master', 'Trader', 'Operador', 'Middle Office', 'Plataforma']:
+            if role not in ['Master', 'Trader', 'Operador', 'Middle Office', 'App', 'Web']:
                 return False, 'Rol inválido', None
             user.role = role
         

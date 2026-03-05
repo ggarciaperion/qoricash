@@ -52,14 +52,14 @@ def operations_list():
 
     Muestra solo las operaciones del día actual
     Filtrado:
-    - Trader/Plataforma: Solo ven sus propias operaciones del día
+    - Trader/App/Web: Solo ven operaciones de sus clientes del día
     - Master/Operador/Middle Office: Ven todas las operaciones del día
     """
     from app.models.operation import Operation
     from datetime import datetime
     from sqlalchemy import case
 
-    if current_user.role in ['Trader', 'Plataforma', 'App']:
+    if current_user.role in ['Trader', 'App', 'Web']:
         # Trader y Plataforma ven operaciones de SUS CLIENTES del día
         # (independientemente de quién creó la operación)
         from app.models.client import Client
@@ -95,7 +95,7 @@ def operations_list():
 
 @operations_bp.route('/create')
 @login_required
-@require_role('Master', 'Trader', 'Plataforma', 'App')
+@require_role('Master', 'Trader', 'App', 'Web')
 def create_page():
     """
     Página de creación de operación
@@ -113,25 +113,21 @@ def history():
     Página de historial de operaciones
 
     Muestra todas las operaciones de todos los estados y fechas
-    Disponible para todos los roles (Master, Trader, Operador, Plataforma)
+    Disponible para todos los roles (Master, Trader, Operador, App, Web)
 
     Filtrado:
-    - Trader: Solo ve operaciones de sus clientes
-    - Plataforma: Solo ve sus propias operaciones
+    - Trader/App/Web: Solo ve operaciones de sus clientes
     - Otros roles: Ven todas las operaciones
     """
     from app.models.operation import Operation
     from app.models.client import Client
 
     # Filtrar operaciones según el rol
-    if current_user.role == 'Trader':
-        # Trader solo ve operaciones de sus clientes
+    if current_user.role in ['Trader', 'App', 'Web']:
+        # Trader/App/Web solo ven operaciones de sus clientes
         operations = Operation.query.join(Client).filter(
             Client.created_by == current_user.id
         ).order_by(Operation.created_at.desc()).all()
-    elif current_user.role == 'Plataforma':
-        # Plataforma solo ve sus propias operaciones
-        operations = Operation.query.filter_by(user_id=current_user.id).order_by(Operation.created_at.desc()).all()
     else:
         # Otros roles ven todas las operaciones
         operations = OperationService.get_all_operations(include_relations=False)
@@ -378,7 +374,7 @@ def api_list():
         all: Si es 'true', devuelve todas las operaciones (para historial)
 
     Filtrado por rol:
-        - Trader/Plataforma: Solo sus propias operaciones
+        - Trader/App/Web: Solo operaciones de sus clientes
         - Master/Operador/Middle Office: Todas las operaciones
     """
     status = request.args.get('status')
@@ -398,19 +394,15 @@ def api_list():
             operations = OperationService.get_operations_by_client(client_id)
         else:
             operations = OperationService.get_all_operations(include_relations=True)
-            # Ya viene como diccionarios
-            # Filtrar según rol - ahora por clientes del trader
-            if current_user.role == 'Trader':
-                # Obtener IDs de clientes del trader
+            # Filtrar según rol - por clientes del trader/app/web
+            if current_user.role in ['Trader', 'App', 'Web']:
                 trader_client_ids = [c.id for c in Client.query.filter_by(created_by=current_user.id).all()]
                 operations = [op for op in operations if op.get('client_id') in trader_client_ids]
-            elif current_user.role == 'Plataforma':
-                operations = [op for op in operations if op.get('user_id') == current_user.id]
             return jsonify({'success': True, 'operations': operations})
     else:
         # Por defecto, solo operaciones del día actual
-        if current_user.role == 'Trader':
-            # Trader ve operaciones de SUS CLIENTES del día
+        if current_user.role in ['Trader', 'App', 'Web']:
+            # Trader/App/Web ven operaciones de SUS CLIENTES del día
             now = now_peru()
             start_of_day = datetime(now.year, now.month, now.day, 0, 0, 0)
             end_of_day = datetime(now.year, now.month, now.day, 23, 59, 59)
@@ -422,25 +414,6 @@ def api_list():
 
             operations = Operation.query.join(Client).filter(
                 Client.created_by == current_user.id,
-                Operation.created_at >= start_of_day,
-                Operation.created_at <= end_of_day
-            ).order_by(
-                priority_order,
-                Operation.created_at.desc()
-            ).all()
-        elif current_user.role == 'Plataforma':
-            # Plataforma ve solo sus propias operaciones del día
-            now = now_peru()
-            start_of_day = datetime(now.year, now.month, now.day, 0, 0, 0)
-            end_of_day = datetime(now.year, now.month, now.day, 23, 59, 59)
-
-            priority_order = case(
-                (Operation.status == 'En proceso', 0),
-                else_=1
-            )
-
-            operations = Operation.query.filter(
-                Operation.user_id == current_user.id,
                 Operation.created_at >= start_of_day,
                 Operation.created_at <= end_of_day
             ).order_by(
@@ -460,11 +433,11 @@ def api_list():
 
 @operations_bp.route('/api/create', methods=['POST'])
 @login_required
-@require_role('Master', 'Trader', 'Plataforma', 'App')
+@require_role('Master', 'Trader', 'App', 'Web')
 def create_operation():
     """
     API: Crear nueva operación
-    
+
     POST JSON:
         client_id: int (required)
         operation_type: string (required) - 'Compra' o 'Venta'
@@ -475,15 +448,12 @@ def create_operation():
         notes: string (optional)
     """
     data = request.get_json()
-    
+
     # Determinar origen según el rol del usuario
-    # App → operaciones desde app móvil (usuario fantasma)
-    # Plataforma → operaciones de canales externos (web, teléfono, WhatsApp)
-    # Otros roles → operaciones internas del sistema
     if current_user.role == 'App':
         origen = 'app'
-    elif current_user.role == 'Plataforma':
-        origen = 'plataforma'
+    elif current_user.role == 'Web':
+        origen = 'web'
     else:
         origen = 'sistema'
 
@@ -632,7 +602,7 @@ def upload_proof(operation_id):
 
 @operations_bp.route('/api/cancel/<int:operation_id>', methods=['POST'])
 @login_required
-@require_role('Master', 'Trader', 'Plataforma', 'App')
+@require_role('Master', 'Trader', 'App', 'Web')
 def cancel_operation(operation_id):
     """
     API: Cancelar operación
@@ -876,7 +846,7 @@ def update_operation(operation_id):
 
 @operations_bp.route('/api/send_to_process/<int:operation_id>', methods=['POST'])
 @login_required
-@require_role('Master', 'Trader', 'Plataforma', 'App')
+@require_role('Master', 'Trader', 'App', 'Web')
 def send_to_process(operation_id):
     """
     API: Enviar operación a proceso (Trader)
@@ -1186,7 +1156,7 @@ def complete_operation(operation_id):
 
 @operations_bp.route('/api/upload_deposit_proof/<int:operation_id>', methods=['POST'])
 @login_required
-@require_role('Master', 'Trader', 'Plataforma', 'App')
+@require_role('Master', 'Trader', 'App', 'Web')
 def upload_deposit_proof(operation_id):
     """
     API: Subir comprobante de abono del cliente

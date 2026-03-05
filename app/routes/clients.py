@@ -23,21 +23,20 @@ clients_bp = Blueprint('clients', __name__, url_prefix='/clients')
 @clients_bp.route('/')
 @clients_bp.route('/list')
 @login_required
-@require_role('Master', 'Trader', 'Operador', 'Middle Office', 'Plataforma', 'App')
+@require_role('Master', 'Trader', 'Operador', 'Middle Office', 'App', 'Web')
 def list_clients():
     """
     Página de listado de clientes
 
-    Roles permitidos: Master, Trader, Operador, Middle Office, Plataforma
+    Roles permitidos: Master, Trader, Operador, Middle Office, App, Web
 
     Filtrado:
-    - Plataforma: Solo ve sus propios clientes (created_by = user_id)
-    - Trader: Solo ve sus propios clientes (created_by = user_id)
+    - Trader/App/Web: Solo ve sus propios clientes (created_by = user_id)
     - Otros roles: Ven todos los clientes
     """
     from app.models.client import Client
 
-    if current_user.role in ['Trader', 'Plataforma', 'App']:
+    if current_user.role in ['Trader', 'App', 'Web']:
         # Trader y Plataforma solo ven sus propios clientes
         clients = Client.query.filter_by(created_by=current_user.id).order_by(Client.created_at.desc()).all()
     else:
@@ -51,18 +50,18 @@ def list_clients():
 
 @clients_bp.route('/api/list')
 @login_required
-@require_role('Master', 'Trader', 'Operador', 'Middle Office', 'Plataforma', 'App')
+@require_role('Master', 'Trader', 'Operador', 'Middle Office', 'App', 'Web')
 def api_list():
     """
     API: Listar clientes (JSON)
 
     Filtrado:
-    - Plataforma/Trader: Solo sus propios clientes
+    - Trader/App/Web: Solo sus propios clientes
     - Otros roles: Todos los clientes
     """
     from app.models.client import Client
 
-    if current_user.role in ['Trader', 'Plataforma', 'App']:
+    if current_user.role in ['Trader', 'App', 'Web']:
         clients = Client.query.filter_by(created_by=current_user.id).order_by(Client.created_at.desc()).all()
     else:
         clients = ClientService.get_all_clients()
@@ -75,7 +74,7 @@ def api_list():
 
 @clients_bp.route('/api/create', methods=['POST'])
 @login_required
-@require_role('Master', 'Trader', 'Plataforma', 'App')
+@require_role('Master', 'Trader', 'App', 'Web')
 def create_client():
     """
     API/Endpoint para crear nuevo cliente.
@@ -242,7 +241,7 @@ def delete_client(client_id):
 
 @clients_bp.route('/api/upload_documents/<int:client_id>', methods=['POST'])
 @login_required
-@require_role('Master', 'Trader', 'Plataforma', 'App')
+@require_role('Master', 'Trader', 'App', 'Web')
 def upload_documents(client_id):
     """
     API: Subir documentos del cliente
@@ -330,13 +329,13 @@ def get_stats(client_id):
 
 @clients_bp.route('/api/search')
 @login_required
-@require_role('Master', 'Trader', 'Operador', 'Middle Office', 'Plataforma', 'App')
+@require_role('Master', 'Trader', 'Operador', 'Middle Office', 'App', 'Web')
 def search():
     """
     API: Buscar clientes
 
     Filtrado:
-    - Plataforma/Trader: Solo sus propios clientes
+    - Trader/App/Web: Solo sus propios clientes
     - Otros roles: Todos los clientes
     """
     from app.models.client import Client
@@ -347,7 +346,7 @@ def search():
     if not query or len(query) < 3:
         return jsonify({'success': False, 'message': 'La búsqueda debe tener al menos 3 caracteres'}), 400
 
-    if current_user.role in ['Trader', 'Plataforma', 'App']:
+    if current_user.role in ['Trader', 'App', 'Web']:
         # Buscar solo en sus propios clientes
         search = f"%{query}%"
         clients = Client.query.filter(
@@ -710,13 +709,13 @@ def export_csv():
 
 @clients_bp.route('/api/<int:client_id>')
 @login_required
-@require_role('Master', 'Trader', 'Operador', 'Middle Office', 'Plataforma', 'App')
+@require_role('Master', 'Trader', 'Operador', 'Middle Office', 'App', 'Web')
 def get_client(client_id):
     """
     API: Obtener detalles de un cliente
 
     Filtrado:
-    - Plataforma/Trader: Solo pueden acceder a sus propios clientes
+    - Trader/App/Web: Solo pueden acceder a sus propios clientes
     - Otros roles: Pueden acceder a cualquier cliente
     """
     try:
@@ -731,8 +730,8 @@ def get_client(client_id):
         if not client:
             return jsonify({'success': False, 'message': 'Cliente no encontrado'}), 404
 
-        # Verificar que Plataforma/Trader solo accedan a sus propios clientes
-        if current_user.role in ['Trader', 'Plataforma', 'App']:
+        # Verificar que Trader/App/Web solo accedan a sus propios clientes
+        if current_user.role in ['Trader', 'App', 'Web']:
             if client.created_by != current_user.id:
                 return jsonify({'success': False, 'message': 'No tiene permisos para acceder a este cliente'}), 403
 
@@ -750,18 +749,18 @@ def get_client(client_id):
 
 @clients_bp.route('/api/active')
 @login_required
-@require_role('Master', 'Trader', 'Operador', 'Middle Office', 'Plataforma', 'App')
+@require_role('Master', 'Trader', 'Operador', 'Middle Office', 'App', 'Web')
 def get_active():
     """
     API: Obtener solo clientes activos
 
     Filtrado:
-    - Plataforma/Trader: Solo sus propios clientes activos
+    - Trader/App/Web: Solo sus propios clientes activos
     - Otros roles: Todos los clientes activos
     """
     from app.models.client import Client
 
-    if current_user.role in ['Trader', 'Plataforma', 'App']:
+    if current_user.role in ['Trader', 'App', 'Web']:
         clients = Client.query.filter_by(
             created_by=current_user.id,
             status='Activo'

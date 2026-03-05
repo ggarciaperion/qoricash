@@ -169,7 +169,7 @@ def fix_app_channel_now():
         # 1. Actualizar constraint de origen
         try:
             db.session.execute(text("ALTER TABLE operations DROP CONSTRAINT IF EXISTS check_operation_origen"))
-            db.session.execute(text("ALTER TABLE operations ADD CONSTRAINT check_operation_origen CHECK (origen IN ('sistema', 'plataforma', 'app'))"))
+            db.session.execute(text("ALTER TABLE operations ADD CONSTRAINT check_operation_origen CHECK (origen IN ('sistema', 'plataforma', 'app', 'web'))"))
             results['origen_constraint'] = 'Updated'
         except Exception as e:
             results['errors'].append(f'Error updating origen constraint: {str(e)}')
@@ -186,33 +186,20 @@ def fix_app_channel_now():
         results['migration_executed'] = True
 
         # 3. Actualizar operaciones creadas desde la app móvil
-        # Buscar por dos criterios:
-        # A) Operaciones con notes='Operación desde app móvil'
-        # B) Operaciones creadas por usuarios con rol 'Plataforma'
+        # Buscar operaciones con notes='Operación desde app móvil'
 
-        from app.models.user import User
-        from sqlalchemy import or_
-
-        # Obtener ID del usuario Plataforma
-        plataforma_user = User.query.filter_by(role='Plataforma').first()
-
-        # Buscar operaciones que cumplan alguno de los criterios
-        query_filters = [Operation.notes.like('%app móvil%')]
-        if plataforma_user:
-            query_filters.append(Operation.user_id == plataforma_user.id)
-
-        app_operations = Operation.query.filter(or_(*query_filters)).all()
+        app_operations = Operation.query.filter(
+            Operation.notes.like('%app móvil%')
+        ).all()
 
         for op in app_operations:
             old_origen = op.origen
             if op.origen != 'app':
                 op.origen = 'app'
-                created_by = 'Plataforma' if op.user_id == (plataforma_user.id if plataforma_user else None) else 'App móvil'
                 results['operations_updated'].append({
                     'operation_id': op.operation_id,
                     'old_origen': old_origen,
                     'new_origen': 'app',
-                    'created_by': created_by,
                     'notes': op.notes[:50] if op.notes else None
                 })
 
@@ -254,10 +241,10 @@ def update_operation_channel(operation_id, new_origen):
     from app.models.operation import Operation
 
     try:
-        if new_origen not in ['sistema', 'plataforma', 'app', 'web']:
+        if new_origen not in ['sistema', 'app', 'web']:
             return jsonify({
                 'success': False,
-                'error': f'Origen inválido: {new_origen}. Debe ser: sistema, plataforma, app o web'
+                'error': f'Origen inválido: {new_origen}. Debe ser: sistema, app o web'
             }), 400
 
         operation = Operation.query.filter_by(operation_id=operation_id).first()

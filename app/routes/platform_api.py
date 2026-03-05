@@ -48,12 +48,12 @@ def after_request(response):
 @platform_api_bp.route('/register-client', methods=['POST'])
 @csrf.exempt  # Eximir de CSRF para APIs externas
 @login_required
-@require_role('Plataforma', 'Master', 'App')
+@require_role('Master', 'App', 'Web')
 def register_client():
     """
     API: Registrar cliente desde la plataforma web pública
 
-    Permite al rol Plataforma registrar automáticamente clientes
+    Permite al rol Web/App registrar automáticamente clientes
     que se crean desde la página web pública
 
     Request JSON:
@@ -181,12 +181,12 @@ def register_client():
 @platform_api_bp.route('/register-operation', methods=['POST'])
 @csrf.exempt  # Eximir de CSRF para APIs externas
 @login_required
-@require_role('Plataforma', 'Master', 'App')
+@require_role('Master', 'App', 'Web')
 def register_operation():
     """
     API: Registrar operación desde la plataforma web pública
 
-    Permite al rol Plataforma registrar automáticamente operaciones
+    Permite al rol Web/App registrar automáticamente operaciones
     que se crean desde la página web pública
 
     Request JSON:
@@ -240,7 +240,7 @@ def register_operation():
             source_account=data.get('source_account'),
             destination_account=data.get('destination_account'),
             notes=data.get('notes'),
-            origen='plataforma'  # ← IMPORTANTE: Marcar origen como plataforma
+            origen='web'  # Operación desde la página web pública
         )
 
         if not success:
@@ -270,7 +270,7 @@ def register_operation():
 
 @platform_api_bp.route('/get-client/<dni>', methods=['GET'])
 @login_required
-@require_role('Plataforma', 'Master', 'App')
+@require_role('Master', 'App', 'Web')
 def get_client_by_dni(dni):
     """
     API: Obtener información de un cliente por DNI

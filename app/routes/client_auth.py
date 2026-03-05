@@ -482,32 +482,33 @@ def register_client():
             tipo_doc = 'RUC' if tipo_persona == 'Jurídica' else 'DNI'
             return jsonify({'success': False, 'message': f'{tipo_doc} ya registrado'}), 400
 
-        # Obtener o crear usuario "Plataforma" para asignar como creador
+        # Obtener o crear usuario sistema "Web" para asignar como creador
         from werkzeug.security import generate_password_hash
         from app.utils.formatters import now_peru
         import secrets
 
         # Buscar por username O por dni para evitar duplicados
         platform_user = User.query.filter(
+            (User.username == 'Página Web') | (User.dni == '99999997') |
             (User.username == 'Plataforma') | (User.dni == '11111111')
         ).first()
 
         if not platform_user:
-            logger.info("🤖 Usuario 'Plataforma' no existe, creándolo...")
+            logger.info("🤖 Usuario 'Web' no existe, creándolo...")
             platform_user = User(
-                username='Plataforma',
-                email='plataforma@qoricash.pe',
-                dni='11111111',  # DNI ficticio para usuario Plataforma
-                role='Plataforma',
+                username='Página Web',
+                email='web@qoricash.pe',
+                dni='99999997',
+                role='Web',
                 password_hash=generate_password_hash(secrets.token_urlsafe(32)),
                 status='Activo',
                 created_at=now_peru()
             )
             db.session.add(platform_user)
-            db.session.flush()  # Para obtener el ID antes de commit
-            logger.info(f"✅ Usuario 'Plataforma' creado con ID: {platform_user.id}")
+            db.session.flush()
+            logger.info(f"✅ Usuario 'Web' creado con ID: {platform_user.id}")
         else:
-            logger.info(f"✅ Usuario 'Plataforma' encontrado con ID: {platform_user.id}")
+            logger.info(f"✅ Usuario sistema web encontrado con ID: {platform_user.id}")
 
         # Crear cliente según tipo de persona
         # IMPORTANTE: Todos los clientes auto-registrados inician con status='Inactivo'
