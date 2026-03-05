@@ -145,7 +145,7 @@ body.has-sidebar.sidebar-collapsed .main-wrapper {
 }
 
 .sidebar-logo {
-    height: 40px;
+    height: 42px;
     width: auto;
     flex-shrink: 0;
 }
@@ -153,12 +153,13 @@ body.has-sidebar.sidebar-collapsed .main-wrapper {
 .sidebar-brand-name {
     color: var(--qori-white);
     font-size: 1.125rem;
-    font-weight: 700;
-    letter-spacing: 0.06em;
+    font-weight: 800;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
     opacity: 1;
     transition: opacity var(--transition-base);
     overflow: hidden;
+    white-space: nowrap;
 }
 
 .sidebar.collapsed .sidebar-brand-name { opacity: 0; width: 0; }
