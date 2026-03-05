@@ -53,7 +53,7 @@
                                         <span class="badge bg-warning text-dark">Middle Office</span>
                                     {% elif u.role == 'App' %}
                                         <span class="badge bg-info text-dark">App</span>
-                                    {% elif u.role == 'Web' %}
+                                    {% elif u.role == 'Web' or u.role == 'Plataforma' %}
                                         <span class="badge bg-success">Web</span>
                                     {% else %}
                                         <span class="badge bg-secondary">{{ u.role }}</span>
@@ -220,7 +220,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/users.js') }}"></script>
+<script src="{{ url_for('static', filename='js/users.js') }}?v=20260304b"></script>
 <script>
 $(document).ready(function() {
     // Inicializar DataTable
