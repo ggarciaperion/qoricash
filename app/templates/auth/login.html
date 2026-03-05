@@ -4,7 +4,7 @@
 
 {% block head %}
 <style>
-/* ── BASE LAYOUT OVERRIDES (login no usa sidebar) ─────────────────────── */
+/* ── BASE LAYOUT OVERRIDES ─────────────────────────────────────────────── */
 body {
     background: #060d15;
     min-height: 100vh;
@@ -17,7 +17,6 @@ body {
 }
 
 body::before { display: none; }
-
 .footer, .flash-container { display: none !important; }
 
 .main-wrapper {
@@ -131,16 +130,93 @@ body::before { display: none; }
     z-index: 10;
 }
 
-/* ── LOGIN CARD ────────────────────────────────────────────────────────── */
+/* ── LIVE RATE WIDGET ──────────────────────────────────────────────────── */
+.live-rate-widget {
+    background: rgba(6, 14, 24, 0.68);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(0, 222, 168, 0.20);
+    border-bottom: none;
+    border-radius: 16px 16px 0 0;
+    padding: 0.6rem 1.5rem 0.5rem;
+    text-align: center;
+    width: 100%;
+    max-width: 420px;
+    box-shadow: 0 -4px 30px rgba(0,0,0,0.3);
+}
+
+.lrw-pair {
+    font-family: 'Courier New', monospace;
+    font-size: 0.5rem;
+    letter-spacing: 0.25em;
+    color: rgba(0,222,168,0.6);
+    text-transform: uppercase;
+    font-weight: 700;
+    margin-bottom: 0.1rem;
+}
+
+.lrw-price-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    line-height: 1;
+}
+
+#lrwValue {
+    font-family: 'Courier New', monospace;
+    font-size: 2.1rem;
+    font-weight: 900;
+    color: white;
+    letter-spacing: -0.02em;
+    display: inline-block;
+    transition: color 0.4s ease;
+}
+
+.lrw-dir {
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1;
+    transition: color 0.4s ease;
+}
+
+#lrwChange {
+    font-family: 'Courier New', monospace;
+    font-size: 0.5625rem;
+    font-weight: 600;
+    margin-top: 0.05rem;
+    letter-spacing: 0.06em;
+    transition: color 0.4s ease;
+    min-height: 0.75rem;
+}
+
+.lrw-up  { color: #10b981; }
+.lrw-dn  { color: #ef4444; }
+.lrw-flat{ color: rgba(255,255,255,0.35); }
+
+@keyframes digitUp {
+    from { transform: translateY(8px); opacity: 0; }
+    to   { transform: translateY(0);   opacity: 1; }
+}
+@keyframes digitDn {
+    from { transform: translateY(-8px); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
+}
+.anim-up { animation: digitUp 0.35s cubic-bezier(.22,.68,0,1.2); }
+.anim-dn { animation: digitDn 0.35s cubic-bezier(.22,.68,0,1.2); }
+
+/* ── LOGIN CARD ─────────────────────────────────────────── glassmorphism ── */
 .login-card {
-    background: rgba(255, 255, 255, 0.97);
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
-    border-radius: 20px;
+    background: rgba(6, 14, 24, 0.78);
+    backdrop-filter: blur(28px);
+    -webkit-backdrop-filter: blur(28px);
+    border-radius: 0 0 20px 20px;
+    border: 1px solid rgba(0, 222, 168, 0.18);
+    border-top: none;
     box-shadow:
-        0 0 0 1px rgba(0, 222, 168, 0.25),
-        0 30px 80px rgba(0,0,0,.6),
-        0 0 100px rgba(0, 222, 168, 0.06);
+        0 30px 80px rgba(0,0,0,.55),
+        inset 0 -1px 0 rgba(255,255,255,0.03),
+        0 0 50px rgba(0,222,168,0.04);
     overflow: hidden;
     width: 100%;
     max-width: 420px;
@@ -153,31 +229,30 @@ body::before { display: none; }
 }
 
 .login-header {
-    background: linear-gradient(160deg, #0D1B2A 0%, #132638 60%, #1a3048 100%);
+    background: linear-gradient(160deg, rgba(0,222,168,0.09) 0%, rgba(6,14,24,0) 100%);
+    border-bottom: 1px solid rgba(0, 222, 168, 0.12);
     color: white;
-    padding: 1.625rem 1.75rem 1.5rem;
+    padding: 1.5rem 1.75rem 1.375rem;
     text-align: center;
     position: relative;
     overflow: hidden;
 }
 
-/* Accent line at bottom of header */
 .login-header::after {
     content: '';
     position: absolute;
     bottom: 0; left: 0; right: 0;
-    height: 2px;
-    background: linear-gradient(90deg, transparent, #00DEA8 50%, transparent);
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(0,222,168,0.35) 50%, transparent);
 }
 
-/* Subtle radial glow in header */
 .login-header::before {
     content: '';
     position: absolute;
     top: -40%; left: 50%;
     transform: translateX(-50%);
     width: 260px; height: 200px;
-    background: radial-gradient(circle, rgba(0,222,168,.12) 0%, transparent 70%);
+    background: radial-gradient(circle, rgba(0,222,168,.07) 0%, transparent 70%);
     pointer-events: none;
 }
 
@@ -205,7 +280,7 @@ body::before { display: none; }
 
 .login-header p {
     font-size: .8125rem;
-    opacity: .8;
+    color: rgba(255,255,255,0.50);
     margin: 0;
     position: relative;
     z-index: 1;
@@ -216,7 +291,7 @@ body::before { display: none; }
 
 .login-body .form-label {
     font-weight: 600;
-    color: #1e293b;
+    color: rgba(255,255,255,0.78);
     margin-bottom: .375rem;
     font-size: .8125rem;
     display: flex;
@@ -227,23 +302,23 @@ body::before { display: none; }
 .login-body .form-label i { color: #00DEA8; font-size: .9375rem; }
 
 .login-body .form-control {
-    border: 2px solid #e2e8f0;
+    border: 1px solid rgba(0, 222, 168, 0.20);
     border-radius: 9px;
     padding: .625rem .875rem;
     font-size: .875rem;
     transition: all .2s;
-    background: #f8fafc;
-    color: #1e293b;
+    background: rgba(255,255,255,0.05);
+    color: rgba(255,255,255,0.90);
 }
 
 .login-body .form-control:focus {
-    border-color: #00DEA8;
-    box-shadow: 0 0 0 3px rgba(0,222,168,.15);
-    background: white;
+    border-color: rgba(0, 222, 168, 0.55);
+    box-shadow: 0 0 0 3px rgba(0,222,168,.09);
+    background: rgba(255,255,255,0.08);
     outline: none;
 }
 
-.login-body .form-control::placeholder { color: #94a3b8; font-size: .8125rem; }
+.login-body .form-control::placeholder { color: rgba(255,255,255,0.25); font-size: .8125rem; }
 
 .mb-3 { margin-bottom: .875rem !important; }
 .mb-4 { margin-bottom: 1rem !important; }
@@ -251,12 +326,13 @@ body::before { display: none; }
 .form-check { padding-left: 1.5rem; }
 .form-check-input {
     width: 1.125rem; height: 1.125rem;
-    border: 2px solid #cbd5e1; border-radius: 5px;
+    border: 1px solid rgba(255,255,255,0.22); border-radius: 5px;
+    background-color: rgba(255,255,255,0.05);
     margin-top: .125rem; cursor: pointer;
     transition: all .15s;
 }
 .form-check-input:checked { background-color: #00DEA8; border-color: #00DEA8; }
-.form-check-label { font-size: .8125rem; color: #475569; cursor: pointer; user-select: none; }
+.form-check-label { font-size: .8125rem; color: rgba(255,255,255,0.52); cursor: pointer; user-select: none; }
 
 .btn-login {
     width: 100%;
@@ -268,7 +344,7 @@ body::before { display: none; }
     font-weight: 700;
     border-radius: 9px;
     transition: all .22s;
-    box-shadow: 0 4px 18px rgba(0,222,168,.38);
+    box-shadow: 0 4px 18px rgba(0,222,168,.32);
     cursor: pointer;
     letter-spacing: .01em;
     display: block;
@@ -277,7 +353,7 @@ body::before { display: none; }
 
 .btn-login:hover {
     transform: translateY(-2px);
-    box-shadow: 0 8px 28px rgba(0,222,168,.55);
+    box-shadow: 0 8px 28px rgba(0,222,168,.48);
     background: linear-gradient(135deg, #00FFB3, #00c997);
 }
 
@@ -292,21 +368,22 @@ body::before { display: none; }
     align-items: center;
     gap: .375rem;
     padding: .375rem .875rem;
-    background: linear-gradient(135deg, #f0fdf4, #dcfce7);
+    background: rgba(0,222,168,0.09);
+    border: 1px solid rgba(0,222,168,0.18);
     border-radius: 50px;
     font-size: .6875rem;
-    color: #166534;
+    color: rgba(0,222,168,0.82);
     margin-top: .75rem;
     font-weight: 600;
 }
 
 .security-badge i { font-size: .875rem; }
 
-.login-divider { border: none; border-top: 1px solid #e2e8f0; margin: 1.25rem 0; }
+.login-divider { border: none; border-top: 1px solid rgba(255,255,255,0.07); margin: 1.25rem 0; }
 
-.login-footer { text-align: center; color: #64748b; font-size: .6875rem; }
-.login-footer p { margin-bottom: .125rem; }
-.login-footer .brand-name { font-weight: 600; color: #1e293b; font-size: .75rem; }
+.login-footer { text-align: center; font-size: .6875rem; }
+.login-footer p { margin-bottom: .125rem; color: rgba(255,255,255,0.28); }
+.login-footer .brand-name { font-weight: 600; color: rgba(255,255,255,0.50); font-size: .75rem; }
 
 /* ── FLASH MESSAGES ─────────────────────────────────────────────────────── */
 .login-flash-messages {
@@ -336,9 +413,11 @@ body::before { display: none; }
 
 /* ── RESPONSIVE ─────────────────────────────────────────────────────────── */
 @media (max-width: 576px) {
-    .login-card { max-width:100%; border-radius:14px; }
+    .login-card { max-width:100%; border-radius:0 0 14px 14px; }
+    .live-rate-widget { border-radius:12px 12px 0 0; padding:.5rem 1rem .4rem; }
     .login-header { padding:1.25rem; }
     .login-body { padding:1.25rem; }
+    #lrwValue { font-size:1.875rem; }
 }
 
 @media (max-height: 680px) {
@@ -368,6 +447,17 @@ body::before { display: none; }
 
 <!-- ── LOGIN CARD ──────────────────────────────────────────────────────────── -->
 <div class="login-container">
+
+    <!-- Tipo de cambio USD/PEN en vivo — integrado sobre la card -->
+    <div class="live-rate-widget">
+        <div class="lrw-pair">USD / PEN &nbsp;·&nbsp; Tipo de Cambio en Vivo</div>
+        <div class="lrw-price-row">
+            <span id="lrwValue">3.7234</span>
+            <span id="lrwDir" class="lrw-dir lrw-flat">●</span>
+        </div>
+        <div id="lrwChange" class="lrw-flat">–</div>
+    </div>
+
     <div class="login-card">
         <div class="login-header">
             <div class="brand-icon">
@@ -521,12 +611,12 @@ $(document).ready(function () {
     window.addEventListener('resize', resize);
 
     /* ─ ESTRELLAS / PARTÍCULAS ──────────────────────────────────────────── */
-    const STARS = Array.from({ length: 160 }, () => ({
+    const STARS = Array.from({ length: 110 }, () => ({
         x:   Math.random(),
         y:   Math.random(),
-        r:   Math.random() * 1.4 + 0.3,
-        a:   Math.random() * 0.45 + 0.06,
-        spd: Math.random() * 0.028 + 0.007,
+        r:   Math.random() * 1.2 + 0.2,
+        a:   Math.random() * 0.28 + 0.04,
+        spd: Math.random() * 0.022 + 0.005,
         ph:  Math.random() * Math.PI * 2,
     }));
 
@@ -543,25 +633,23 @@ $(document).ready(function () {
     /* ─ GRILLA DE TRADING ───────────────────────────────────────────────── */
     function drawGrid() {
         ctx.lineWidth = 0.5;
-        // Horizontales
-        ctx.strokeStyle = 'rgba(0,222,168,0.035)';
+        ctx.strokeStyle = 'rgba(0,222,168,0.025)';
         for (let y = 0; y < H; y += 55) {
             ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
         }
-        // Verticales
-        ctx.strokeStyle = 'rgba(0,222,168,0.025)';
+        ctx.strokeStyle = 'rgba(0,222,168,0.016)';
         for (let x = 0; x < W; x += 88) {
             ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
         }
     }
 
-    /* ─ GRÁFICAS DE PRECIOS (líneas) ────────────────────────────────────── */
+    /* ─ GRÁFICAS DE PRECIOS (líneas) — intensidad reducida ──────────────── */
     const HIST = 200;
     const LINES = [
-        { c:'#00DEA8', rgb:'0,222,168',   a:0.55, yF:0.27, amp:75, fr:0.21, ph:0    },
-        { c:'#3b82f6', rgb:'59,130,246',  a:0.28, yF:0.45, amp:50, fr:0.16, ph:2.1  },
-        { c:'#f59e0b', rgb:'245,158,11',  a:0.18, yF:0.59, amp:33, fr:0.12, ph:1.0  },
-        { c:'#8b5cf6', rgb:'139,92,246',  a:0.15, yF:0.37, amp:22, fr:0.27, ph:3.5  },
+        { c:'#00DEA8', rgb:'0,222,168',   a:0.13, yF:0.27, amp:75, fr:0.21, ph:0    },
+        { c:'#3b82f6', rgb:'59,130,246',  a:0.06, yF:0.45, amp:50, fr:0.16, ph:2.1  },
+        { c:'#f59e0b', rgb:'245,158,11',  a:0.045,yF:0.59, amp:33, fr:0.12, ph:1.0  },
+        { c:'#8b5cf6', rgb:'139,92,246',  a:0.04, yF:0.37, amp:22, fr:0.27, ph:3.5  },
     ];
     const lhist = LINES.map(() => []);
     let T = 0;
@@ -584,20 +672,20 @@ $(document).ready(function () {
             const yB = H * ln.yF;
             const dx = W / (HIST - 1);
 
-            /* línea con glow */
-            ctx.shadowBlur = 14;
+            /* línea con glow reducido */
+            ctx.shadowBlur = 5;
             ctx.shadowColor = ln.c;
             ctx.strokeStyle = ln.c;
-            ctx.lineWidth = 1.8;
+            ctx.lineWidth = 1.3;
             ctx.globalAlpha = ln.a;
             ctx.beginPath();
             h.forEach((v, j) => (j === 0 ? ctx.moveTo(0, yB + v) : ctx.lineTo(j * dx, yB + v)));
             ctx.stroke();
             ctx.shadowBlur = 0;
 
-            /* área bajo la curva */
+            /* área bajo la curva — muy sutil */
             const gr = ctx.createLinearGradient(0, yB - ln.amp, 0, yB + ln.amp + 70);
-            gr.addColorStop(0, `rgba(${ln.rgb},0.10)`);
+            gr.addColorStop(0, `rgba(${ln.rgb},0.035)`);
             gr.addColorStop(1, `rgba(${ln.rgb},0)`);
             ctx.beginPath();
             h.forEach((v, j) => (j === 0 ? ctx.moveTo(0, yB + v) : ctx.lineTo(j * dx, yB + v)));
@@ -606,10 +694,10 @@ $(document).ready(function () {
 
             /* punto vivo al final */
             const lv = h[h.length - 1];
-            ctx.globalAlpha = Math.min(ln.a * 2.8, 0.95);
-            ctx.shadowBlur = 18; ctx.shadowColor = ln.c;
+            ctx.globalAlpha = Math.min(ln.a * 3.2, 0.48);
+            ctx.shadowBlur = 8; ctx.shadowColor = ln.c;
             ctx.beginPath();
-            ctx.arc(W - dx * 2, yB + lv, 3.5, 0, Math.PI * 2);
+            ctx.arc(W - dx * 2, yB + lv, 2.5, 0, Math.PI * 2);
             ctx.fillStyle = ln.c; ctx.fill();
             ctx.shadowBlur = 0;
             ctx.globalAlpha = 1;
@@ -637,7 +725,7 @@ $(document).ready(function () {
         const rng  = maxP - minP || 0.01;
         const slW  = W / NC, bdW = Math.max(slW * 0.55, 2);
 
-        ctx.globalAlpha = 0.70;
+        ctx.globalAlpha = 0.42;
         candles.forEach((c, i) => {
             const cx = i * slW + slW / 2;
             const bull = c.c >= c.o;
@@ -650,29 +738,23 @@ $(document).ready(function () {
         });
         ctx.globalAlpha = 1;
 
-        /* línea separadora con glow */
-        ctx.strokeStyle = 'rgba(0,222,168,0.1)';
-        ctx.shadowBlur = 6; ctx.shadowColor = '#00DEA8';
+        ctx.strokeStyle = 'rgba(0,222,168,0.07)';
         ctx.lineWidth = 1;
         ctx.beginPath(); ctx.moveTo(0, aTop); ctx.lineTo(W, aTop); ctx.stroke();
-        ctx.shadowBlur = 0;
 
-        /* Etiqueta "USD/PEN" sobre el gráfico de velas */
         const lastC  = candles[candles.length - 1];
         const lastY  = aTop + ((maxP - lastC.c) / rng) * aH;
-        ctx.globalAlpha = 0.7;
-        ctx.shadowBlur  = 8; ctx.shadowColor = '#00DEA8';
+        ctx.globalAlpha = 0.38;
         ctx.fillStyle   = '#00DEA8';
-        ctx.font        = 'bold 11px Courier New, monospace';
+        ctx.font        = 'bold 10px Courier New, monospace';
         ctx.fillText(`USD/PEN  ${lastC.c.toFixed(4)}`, 12, aTop - 6);
-        ctx.shadowBlur  = 0; ctx.globalAlpha = 1;
 
-        /* Línea de precio actual */
-        ctx.strokeStyle = 'rgba(0,222,168,0.35)';
+        ctx.strokeStyle = 'rgba(0,222,168,0.20)';
         ctx.setLineDash([4, 5]);
         ctx.lineWidth = 1;
         ctx.beginPath(); ctx.moveTo(0, lastY); ctx.lineTo(W, lastY); ctx.stroke();
         ctx.setLineDash([]);
+        ctx.globalAlpha = 1;
     }
 
     function pushCandle() {
@@ -682,7 +764,7 @@ $(document).ready(function () {
         candles.push({ o:last, c, h:Math.max(last,c)+Math.random()*.02, l:Math.min(last,c)-Math.random()*.02 });
     }
 
-    /* ─ LLUVIA MATRIX (solo bordes) ─────────────────────────────────────── */
+    /* ─ LLUVIA MATRIX (solo bordes, muy sutil) ──────────────────────────── */
     const M_CHARS = '0123456789ABCDEFXabcdef$€£¥/↑↓▲▼+-×≈'.split('');
     let mDrops = [];
     const COL_W = 16;
@@ -699,9 +781,8 @@ $(document).ready(function () {
         ctx.font = '11px Courier New, monospace';
         mDrops.forEach((drop, i) => {
             const x = i * COL_W;
-            /* mayor opacidad en los bordes, casi invisible en el centro */
-            const inEdge = x < W * 0.16 || x > W * 0.84;
-            const maxA   = inEdge ? 0.25 : 0.05;
+            const inEdge = x < W * 0.13 || x > W * 0.87;
+            const maxA   = inEdge ? 0.13 : 0.025;
             const ch = M_CHARS[Math.floor(Math.random() * M_CHARS.length)];
             ctx.fillStyle = `rgba(0,222,168,${Math.random() * maxA})`;
             ctx.fillText(ch, x, drop.y);
@@ -710,55 +791,14 @@ $(document).ready(function () {
         });
     }
 
-    /* ─ ETIQUETAS FLOTANTES DE PARES ───────────────────────────────────── */
-    const floats = liveData.map(p => ({
-        name: p.n, price: p.cur, dec: p.d, dir: 0,
-        x:  Math.random() * W,
-        y:  50 + Math.random() * (H * 0.58),
-        vx: (Math.random() - 0.5) * 0.28,
-        vy: (Math.random() - 0.5) * 0.16,
-        a:  Math.random() * 0.18 + 0.04,
-        tick: 0,
-    }));
-
-    function drawFloats() {
-        floats.forEach(f => {
-            f.x += f.vx; f.y += f.vy; f.tick++;
-            if (f.x < -60)     f.vx = Math.abs(f.vx);
-            if (f.x > W + 60)  f.vx = -Math.abs(f.vx);
-            if (f.y < 30)      f.vy = Math.abs(f.vy);
-            if (f.y > H * 0.63) f.vy = -Math.abs(f.vy);
-
-            /* actualizar precio desde datos live */
-            if (f.tick > 75 + Math.random() * 90) {
-                const live = liveData.find(p => p.n === f.name);
-                if (live) { f.price = live.cur; f.dir = live.dir; }
-                f.a = 0.45; f.tick = 0;
-            } else {
-                f.a = Math.max(0.04, f.a - 0.0025);
-            }
-
-            const upRgb = f.dir >= 0 ? '0,222,168' : '239,68,68';
-            ctx.globalAlpha = f.a;
-            ctx.font = 'bold 12px Courier New, monospace';
-            ctx.fillStyle = '#00DEA8';
-            ctx.fillText(f.name, f.x, f.y);
-            ctx.font = '11px Courier New, monospace';
-            ctx.fillStyle = `rgba(${upRgb},1)`;
-            const arr = f.dir > 0 ? ' ▲' : f.dir < 0 ? ' ▼' : '';
-            ctx.fillText(f.price.toFixed(f.dec) + arr, f.x, f.y + 14);
-            ctx.globalAlpha = 1;
-        });
-    }
-
-    /* ─ LÍNEA DE ESCANEO ───────────────────────────────────────────────── */
+    /* ─ LÍNEA DE ESCANEO — muy sutil ───────────────────────────────────── */
     let scanY = 0;
     function drawScan() {
         scanY = (scanY + 0.5) % H;
         const g = ctx.createLinearGradient(0, scanY - 70, 0, scanY + 30);
         g.addColorStop(0, 'rgba(0,222,168,0)');
-        g.addColorStop(0.7, 'rgba(0,222,168,0.022)');
-        g.addColorStop(1, 'rgba(0,222,168,0.06)');
+        g.addColorStop(0.7, 'rgba(0,222,168,0.012)');
+        g.addColorStop(1, 'rgba(0,222,168,0.035)');
         ctx.fillStyle = g;
         ctx.fillRect(0, scanY - 70, W, 100);
     }
@@ -777,7 +817,44 @@ $(document).ready(function () {
             </span>`;
         }).join('');
         const track = document.getElementById('tickerTrack');
-        if (track) track.innerHTML = items + items; /* doble para loop infinito */
+        if (track) track.innerHTML = items + items;
+    }
+
+    /* ─ LIVE RATE WIDGET — USD/PEN con animación de dígitos ─────────────── */
+    let prevUsdPen = 3.7234;
+
+    function updateLiveWidget() {
+        const usdpen = liveData.find(p => p.n === 'USD/PEN');
+        if (!usdpen) return;
+
+        const newPrice  = usdpen.cur;
+        const diff      = newPrice - prevUsdPen;
+        const totalDiff = newPrice - usdpen.p;
+        const pct       = ((totalDiff / usdpen.p) * 100).toFixed(3);
+        const cls       = Math.abs(diff) < 0.00001 ? 'flat' : (diff > 0 ? 'up' : 'dn');
+
+        const valEl = document.getElementById('lrwValue');
+        const dirEl = document.getElementById('lrwDir');
+        const chgEl = document.getElementById('lrwChange');
+
+        if (valEl) {
+            valEl.classList.remove('anim-up', 'anim-dn');
+            void valEl.offsetWidth;
+            if (cls !== 'flat') valEl.classList.add(cls === 'up' ? 'anim-up' : 'anim-dn');
+            valEl.textContent = newPrice.toFixed(4);
+            valEl.style.color = cls === 'up' ? '#10b981' : cls === 'dn' ? '#ef4444' : 'white';
+        }
+        if (dirEl) {
+            dirEl.className = `lrw-dir lrw-${cls}`;
+            dirEl.textContent = cls === 'up' ? '▲' : cls === 'dn' ? '▼' : '●';
+        }
+        if (chgEl) {
+            const sign = totalDiff >= 0 ? '+' : '';
+            chgEl.className = `lrw-${cls}`;
+            chgEl.textContent = `${sign}${totalDiff.toFixed(4)} (${sign}${pct}%)`;
+        }
+
+        prevUsdPen = newPrice;
     }
 
     function updatePrices() {
@@ -787,21 +864,21 @@ $(document).ready(function () {
             p.dir = d > 0 ? 1 : -1;
         });
         buildTicker();
+        updateLiveWidget();
     }
 
     /* ─ BUCLE PRINCIPAL ─────────────────────────────────────────────────── */
     resize();
     initCandles();
     buildTicker();
+    updateLiveWidget();
 
-    /* fondo inicial sólido */
     ctx.fillStyle = '#060d15';
     ctx.fillRect(0, 0, W, H);
 
     let frame = 0;
 
     function animate() {
-        /* rastro semi-transparente para efecto trail */
         ctx.globalAlpha = 1;
         ctx.fillStyle = 'rgba(6, 13, 21, 0.13)';
         ctx.fillRect(0, 0, W, H);
@@ -813,7 +890,6 @@ $(document).ready(function () {
         drawLines();
         drawCandles();
         drawMatrix();
-        drawFloats();
 
         T += 0.016;
         frame++;
