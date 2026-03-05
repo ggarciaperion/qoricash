@@ -335,42 +335,42 @@ class EmailService:
             <p style="margin-top:10px;color:#64748b;font-size:14px;">Se ha registrado una nueva operación con los siguientes detalles:</p>
 
             <p class="section-label">Resumen de la operación</p>
-            <div class="data-box">
-                <div class="data-row">
-                    <span class="data-label">Código</span>
-                    <span class="data-value" style="font-weight:700;color:#0D1B2A;">{{ operation.operation_id }}</span>
-                </div>
-                <div class="data-row">
-                    <span class="data-label">Tipo</span>
-                    <span class="data-value">
+            <table width="100%" cellspacing="0" cellpadding="0" style="background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;border-collapse:collapse;font-size:14px;margin:0 0 20px 0;">
+                <tr style="border-bottom:1px solid #f1f5f9;">
+                    <td style="padding:10px 18px;color:#64748b;font-weight:600;width:160px;vertical-align:middle;white-space:nowrap;">Código</td>
+                    <td style="padding:10px 18px;color:#0D1B2A;font-weight:700;vertical-align:middle;">{{ operation.operation_id }}</td>
+                </tr>
+                <tr style="border-bottom:1px solid #f1f5f9;">
+                    <td style="padding:10px 18px;color:#64748b;font-weight:600;white-space:nowrap;vertical-align:middle;">Tipo</td>
+                    <td style="padding:10px 18px;vertical-align:middle;">
                         {% if operation.operation_type == 'Compra' %}
-                            <span class="op-badge buy">COMPRA USD</span>
+                            <span style="display:inline-block;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:700;background:#dcfce7;color:#15803d;">COMPRA USD</span>
                         {% else %}
-                            <span class="op-badge sell">VENTA USD</span>
+                            <span style="display:inline-block;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:700;background:#dbeafe;color:#1d4ed8;">VENTA USD</span>
                         {% endif %}
-                    </span>
-                </div>
-                <div class="data-row">
-                    <span class="data-label">Monto USD</span>
-                    <span class="data-value" style="color:#059669;font-weight:700;font-size:16px;">$ {{ "{:,.2f}".format(operation.amount_usd) }}</span>
-                </div>
-                <div class="data-row">
-                    <span class="data-label">Tipo de cambio</span>
-                    <span class="data-value">{{ "%.4f"|format(operation.exchange_rate) }}</span>
-                </div>
-                <div class="data-row">
-                    <span class="data-label">Monto PEN</span>
-                    <span class="data-value" style="color:#dc2626;font-weight:700;font-size:16px;">S/ {{ "{:,.2f}".format(operation.amount_pen) }}</span>
-                </div>
-                <div class="data-row">
-                    <span class="data-label">Estado</span>
-                    <span class="data-value" style="color:#d97706;font-weight:600;">{{ operation.status }}</span>
-                </div>
-                <div class="data-row">
-                    <span class="data-label">Fecha</span>
-                    <span class="data-value">{{ operation.created_at.strftime('%d/%m/%Y %H:%M') }}</span>
-                </div>
-            </div>
+                    </td>
+                </tr>
+                <tr style="border-bottom:1px solid #f1f5f9;">
+                    <td style="padding:10px 18px;color:#64748b;font-weight:600;white-space:nowrap;vertical-align:middle;">Monto USD</td>
+                    <td style="padding:10px 18px;color:#059669;font-weight:700;font-size:16px;vertical-align:middle;">$ {{ "{:,.2f}".format(operation.amount_usd) }}</td>
+                </tr>
+                <tr style="border-bottom:1px solid #f1f5f9;">
+                    <td style="padding:10px 18px;color:#64748b;font-weight:600;white-space:nowrap;vertical-align:middle;">Tipo de cambio</td>
+                    <td style="padding:10px 18px;color:#1e293b;font-weight:500;vertical-align:middle;">{{ "%.4f"|format(operation.exchange_rate) }}</td>
+                </tr>
+                <tr style="border-bottom:1px solid #f1f5f9;">
+                    <td style="padding:10px 18px;color:#64748b;font-weight:600;white-space:nowrap;vertical-align:middle;">Monto PEN</td>
+                    <td style="padding:10px 18px;color:#dc2626;font-weight:700;font-size:16px;vertical-align:middle;">S/ {{ "{:,.2f}".format(operation.amount_pen) }}</td>
+                </tr>
+                <tr style="border-bottom:1px solid #f1f5f9;">
+                    <td style="padding:10px 18px;color:#64748b;font-weight:600;white-space:nowrap;vertical-align:middle;">Estado</td>
+                    <td style="padding:10px 18px;color:#d97706;font-weight:600;vertical-align:middle;">{{ operation.status }}</td>
+                </tr>
+                <tr>
+                    <td style="padding:10px 18px;color:#64748b;font-weight:600;white-space:nowrap;vertical-align:middle;">Fecha</td>
+                    <td style="padding:10px 18px;color:#1e293b;font-weight:500;vertical-align:middle;">{{ operation.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
+                </tr>
+            </table>
 
             {% if operation.operation_type == 'Compra' %}
             <p class="section-label">Cuentas para transferencia (USD)</p>
