@@ -111,16 +111,30 @@ function resetPassword(userId) {
 function deleteUser(userId, username) {
     Swal.fire({
         title: '¿Eliminar usuario?',
-        html: `El usuario <strong>${username}</strong> será desactivado y no podrá acceder al sistema.`,
+        html: `
+            <p>El usuario <strong>${username}</strong> será desactivado y no podrá acceder al sistema.</p>
+            <div class="mt-3 text-start">
+                <label class="form-label fw-semibold">Ingresa tu contraseña para confirmar:</label>
+                <input type="password" id="swal_master_password" class="form-control" placeholder="Tu contraseña">
+            </div>
+        `,
         icon: 'warning',
         showCancelButton: true,
         confirmButtonColor: '#dc3545',
         cancelButtonColor: '#6c757d',
         confirmButtonText: 'Sí, eliminar',
-        cancelButtonText: 'Cancelar'
+        cancelButtonText: 'Cancelar',
+        preConfirm: () => {
+            const password = document.getElementById('swal_master_password').value;
+            if (!password) {
+                Swal.showValidationMessage('Debes ingresar tu contraseña para confirmar');
+                return false;
+            }
+            return password;
+        }
     }).then((result) => {
         if (result.isConfirmed) {
-            ajaxRequest(`/users/api/delete/${userId}`, 'DELETE', null, function(response) {
+            ajaxRequest(`/users/api/delete/${userId}`, 'DELETE', { master_password: result.value }, function(response) {
                 showNotification(response.message, 'success');
                 setTimeout(() => location.reload(), 1000);
             });

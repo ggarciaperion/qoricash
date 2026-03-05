@@ -157,10 +157,19 @@ def toggle_status(user_id):
 @require_role('Master')
 def delete_user(user_id):
     """
-    API: Eliminar usuario (soft delete)
+    API: Eliminar usuario (soft delete) - requiere contraseña del Master para confirmar
     """
+    data = request.get_json() or {}
+    master_password = data.get('master_password')
+
+    if not master_password:
+        return jsonify({'success': False, 'message': 'Se requiere la contraseña del Master'}), 400
+
+    if not current_user.check_password(master_password):
+        return jsonify({'success': False, 'message': 'Contraseña incorrecta'}), 403
+
     success, message = UserService.delete_user(current_user, user_id)
-    
+
     if success:
         return jsonify({
             'success': True,
