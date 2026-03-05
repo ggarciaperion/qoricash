@@ -2,13 +2,436 @@
 
 {% block title %}Historial de Operaciones - QoriCash Trading{% endblock %}
 
+{% block head %}
+<style>
+/* ── Modal "Ver Detalles" ────────────────────────────────────────────────── */
+#viewOperationModal .modal-dialog {
+    max-width: min(860px, 96vw) !important;
+}
+
+/* Hero-header dentro del modal */
+.op-hero {
+    background: linear-gradient(135deg, #0D1B2A 0%, #1a2f3f 100%);
+    border-radius: 12px 12px 0 0;
+    padding: 18px 22px 16px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.op-hero-id {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: #00DEA8;
+    letter-spacing: -.01em;
+    line-height: 1.2;
+}
+
+.op-hero-client {
+    font-size: 0.8125rem;
+    color: rgba(255,255,255,.75);
+    margin-top: 3px;
+}
+
+.op-hero-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.op-type-badge {
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 20px;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+}
+
+.op-type-compra { background: rgba(16,185,129,.2); color: #34d399; border: 1px solid rgba(16,185,129,.3); }
+.op-type-venta  { background: rgba(0,222,168,.18); color: #00DEA8; border: 1px solid rgba(0,222,168,.3); }
+
+.op-status-pill {
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 4px 12px;
+    border-radius: 20px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+.op-status-pill.completada { background: rgba(16,185,129,.15); color: #10b981; border: 1px solid rgba(16,185,129,.3); }
+
+/* Cifras financieras */
+.fin-grid {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr auto 1fr;
+    gap: 0;
+    background: #f8fafc;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.fin-cell {
+    padding: 14px 16px;
+    text-align: center;
+}
+
+.fin-cell + .fin-cell {
+    border-left: 1px solid #e5e7eb;
+}
+
+.fin-label {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    color: #6b7280;
+    margin-bottom: 4px;
+}
+
+.fin-value {
+    font-size: 1.125rem;
+    font-weight: 800;
+    color: #0D1B2A;
+    line-height: 1.2;
+}
+
+.fin-cell.tc .fin-value {
+    font-size: 1rem;
+    color: #4b5563;
+}
+
+.fin-arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 10px;
+    color: #00DEA8;
+    font-size: 1.25rem;
+    background: #f8fafc;
+    border-left: 1px solid #e5e7eb;
+}
+
+/* Fechas */
+.dates-row {
+    display: flex;
+    gap: 0;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    overflow: hidden;
+    background: white;
+}
+
+.date-cell {
+    flex: 1;
+    padding: 10px 14px;
+    font-size: 0.75rem;
+    color: #6b7280;
+    border-left: 1px solid #e5e7eb;
+}
+
+.date-cell:first-child { border-left: none; }
+
+.date-cell strong {
+    display: block;
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: #9ca3af;
+    margin-bottom: 2px;
+}
+
+.date-val {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #374151;
+}
+
+/* Sección heading */
+.sec-heading {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    color: #374151;
+    margin: 18px 0 10px;
+    padding-bottom: 6px;
+    border-bottom: 2px solid #f3f4f6;
+}
+
+.sec-heading i { color: #00DEA8; font-size: 1rem; }
+
+/* Cuenta bancaria */
+.account-card {
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    overflow: hidden;
+    height: 100%;
+}
+
+.account-card-header {
+    padding: 7px 12px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.account-card-header.origen { background: rgba(16,185,129,.1); color: #059669; border-bottom: 1px solid rgba(16,185,129,.2); }
+.account-card-header.destino { background: rgba(245,158,11,.1); color: #d97706; border-bottom: 1px solid rgba(245,158,11,.2); }
+
+.account-card-body {
+    padding: 10px 12px;
+    font-size: 0.8125rem;
+}
+
+.account-row { display: flex; gap: 6px; margin-bottom: 4px; }
+.account-row:last-child { margin-bottom: 0; }
+.account-key { color: #6b7280; font-weight: 500; white-space: nowrap; min-width: 64px; }
+.account-val { color: #1f2937; font-weight: 600; }
+
+/* Boucher / Voucher cards */
+.voucher-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 10px;
+}
+
+.voucher-card {
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    overflow: hidden;
+    background: white;
+    transition: box-shadow .15s;
+}
+
+.voucher-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,.1); }
+
+.voucher-thumb {
+    width: 100%;
+    height: 110px;
+    object-fit: cover;
+    background: #f3f4f6;
+    display: block;
+    cursor: zoom-in;
+}
+
+.voucher-thumb-pdf {
+    width: 100%;
+    height: 110px;
+    background: linear-gradient(135deg, #f3f4f6, #e5e7eb);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 6px;
+    cursor: pointer;
+}
+
+.voucher-thumb-pdf i { font-size: 2rem; color: #ef4444; }
+.voucher-thumb-pdf span { font-size: 0.6875rem; color: #6b7280; }
+
+.voucher-footer {
+    padding: 8px 10px;
+    border-top: 1px solid #f3f4f6;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+}
+
+.voucher-meta {
+    font-size: 0.6875rem;
+    color: #6b7280;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.voucher-meta strong { display: block; font-size: 0.75rem; color: #1f2937; white-space: nowrap; }
+
+.btn-open-voucher {
+    font-size: 0.6875rem;
+    padding: 3px 8px;
+    border-radius: 5px;
+    background: #0D1B2A;
+    color: white;
+    border: none;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    white-space: nowrap;
+    transition: background .15s;
+}
+.btn-open-voucher:hover { background: #1a2f3f; color: white; }
+
+/* No-document placeholder */
+.no-doc {
+    border: 2px dashed #e5e7eb;
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+    color: #9ca3af;
+    font-size: 0.8125rem;
+}
+.no-doc i { font-size: 1.5rem; display: block; margin-bottom: 4px; }
+
+/* Invoice card */
+.invoice-card {
+    border: 1px solid #d1fae5;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #f0fdf4, #ecfdf5);
+    padding: 14px 16px;
+}
+
+.invoice-card.error {
+    border-color: #fde68a;
+    background: linear-gradient(135deg, #fffbeb, #fef3c7);
+}
+
+.invoice-number {
+    font-size: 1rem;
+    font-weight: 800;
+    color: #065f46;
+    letter-spacing: -.01em;
+}
+
+.invoice-meta { font-size: 0.75rem; color: #6b7280; margin-top: 2px; }
+
+.invoice-sunat-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: rgba(16,185,129,.15);
+    color: #059669;
+    border: 1px solid rgba(16,185,129,.3);
+    border-radius: 20px;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    padding: 3px 10px;
+}
+
+.invoice-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+
+.btn-pdf {
+    background: #ef4444;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 7px 14px;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background .15s;
+}
+.btn-pdf:hover { background: #dc2626; color: white; }
+
+.btn-xml {
+    background: white;
+    color: #374151;
+    border: 1.5px solid #d1d5db;
+    border-radius: 6px;
+    padding: 7px 14px;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all .15s;
+}
+.btn-xml:hover { background: #f9fafb; border-color: #9ca3af; color: #1f2937; }
+
+/* Notas / operador info */
+.info-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: rgba(6,182,212,.08);
+    color: #0891b2;
+    border: 1px solid rgba(6,182,212,.2);
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 4px 12px;
+}
+
+.notes-box {
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    border-left: 3px solid #f59e0b;
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-size: 0.8125rem;
+    color: #374151;
+}
+
+/* Lightbox overlay */
+#voucherLightbox {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.85);
+    z-index: 9999;
+    align-items: center;
+    justify-content: center;
+    cursor: zoom-out;
+}
+#voucherLightbox.active { display: flex; }
+#voucherLightbox img {
+    max-width: 90vw;
+    max-height: 88vh;
+    border-radius: 8px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.5);
+}
+#voucherLightboxClose {
+    position: absolute;
+    top: 16px;
+    right: 20px;
+    color: white;
+    font-size: 1.5rem;
+    cursor: pointer;
+    background: rgba(255,255,255,.1);
+    border: none;
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container-fluid">
-    <!-- Header -->
-    <div class="row mb-4">
+
+    <!-- ─── Header ─────────────────────────────────────────────────────── -->
+    <div class="row mb-3">
         <div class="col-md-8">
-            <h2><i class="bi bi-clock-history"></i> Historial de Operaciones</h2>
-            <p class="text-muted">Registro completo de todas las operaciones</p>
+            <h2 style="font-size:1.375rem;font-weight:700;color:#0D1B2A;margin:0;">
+                <i class="bi bi-clock-history" style="color:#00DEA8;"></i> Historial de Operaciones
+            </h2>
+            <p class="text-muted mb-0" style="font-size:.8125rem;">Registro completo de todas las operaciones</p>
         </div>
         <div class="col-md-4 text-end">
             <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#exportDateFilterModal">
@@ -17,94 +440,87 @@
         </div>
     </div>
 
-    <!-- Tabla de Operaciones -->
-    <div class="row">
-        <div class="col-md-12">
-            <div class="card">
-                <div class="card-body">
-                    <table id="historyTable" class="table table-hover table-sm">
-                        <thead>
-                            <tr>
-                                <th>ID Op.</th>
-                                <th>Documento</th>
-                                <th>Cliente</th>
-                                <th>USD</th>
-                                <th>T.C.</th>
-                                <th>PEN</th>
-                                <th>Estado</th>
-                                <th>Fecha</th>
-                                {% if user.role in ['Master', 'Operador'] %}
-                                <th>Usuario</th>
-                                {% endif %}
-                                <th>Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for op in operations %}
-                            <tr>
-                                <td><strong>{{ op.operation_id }}</strong></td>
-                                <td>{{ op.client.dni if op.client else '-' }}</td>
-                                <td>{{ op.client.full_name if op.client else '-' }}</td>
-                                <td class="text-end">$ {{ op.amount_usd|format_currency(2) }}</td>
-                                <td class="text-center">{{ "%.4f"|format(op.exchange_rate) }}</td>
-                                <td class="text-end">S/ {{ op.amount_pen|format_currency(2) }}</td>
-                                <td>
-                                    {% if op.status == 'Pendiente' %}
-                                        <span class="badge bg-warning text-dark">Pendiente</span>
-                                    {% elif op.status == 'En proceso' %}
-                                        <span class="badge bg-info">En Proceso</span>
-                                    {% elif op.status == 'Completada' %}
-                                        <span class="badge bg-success">Completada</span>
-                                    {% else %}
-                                        <span class="badge bg-danger">Cancelado</span>
-                                    {% endif %}
-                                </td>
-                                <td data-order="{{ op.created_at.timestamp() if op.created_at else 0 }}">{{ op.created_at.strftime('%d/%m/%Y %H:%M') if op.created_at else '-' }}</td>
-                                {% if user.role in ['Master', 'Operador'] %}
-                                <td>{{ op.user.email if op.user else '-' }}</td>
-                                {% endif %}
-                                <td>
-                                    {% if op.status == 'Completada' %}
-                                    <button class="btn btn-sm btn-outline-primary" onclick="viewOperationDetails({{ op.id }})" title="Ver detalles">
-                                        <i class="bi bi-eye"></i> Ver detalles
-                                    </button>
-                                    {% else %}
-                                    <span class="text-muted small">-</span>
-                                    {% endif %}
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+    <!-- ─── Tabla ───────────────────────────────────────────────────────── -->
+    <div class="card">
+        <div class="card-body p-2">
+            <table id="historyTable" class="table table-hover table-sm mb-0">
+                <thead>
+                    <tr>
+                        <th>ID Op.</th>
+                        <th>Documento</th>
+                        <th>Cliente</th>
+                        <th>USD</th>
+                        <th>T.C.</th>
+                        <th>PEN</th>
+                        <th>Estado</th>
+                        <th>Fecha</th>
+                        {% if user.role in ['Master', 'Operador'] %}
+                        <th>Usuario</th>
+                        {% endif %}
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for op in operations %}
+                    <tr>
+                        <td><strong>{{ op.operation_id }}</strong></td>
+                        <td>{{ op.client.dni if op.client else '-' }}</td>
+                        <td>{{ op.client.full_name if op.client else '-' }}</td>
+                        <td class="text-end">$ {{ op.amount_usd|format_currency(2) }}</td>
+                        <td class="text-center">{{ "%.4f"|format(op.exchange_rate) }}</td>
+                        <td class="text-end">S/ {{ op.amount_pen|format_currency(2) }}</td>
+                        <td>
+                            {% if op.status == 'Pendiente' %}
+                                <span class="badge bg-warning text-dark">Pendiente</span>
+                            {% elif op.status == 'En proceso' %}
+                                <span class="badge bg-info">En Proceso</span>
+                            {% elif op.status == 'Completada' %}
+                                <span class="badge bg-success">Completada</span>
+                            {% else %}
+                                <span class="badge bg-danger">Cancelado</span>
+                            {% endif %}
+                        </td>
+                        <td data-order="{{ op.created_at.timestamp() if op.created_at else 0 }}">{{ op.created_at.strftime('%d/%m/%Y %H:%M') if op.created_at else '-' }}</td>
+                        {% if user.role in ['Master', 'Operador'] %}
+                        <td>{{ op.user.email if op.user else '-' }}</td>
+                        {% endif %}
+                        <td>
+                            {% if op.status == 'Completada' %}
+                            <button class="btn btn-sm btn-primary" onclick="viewOperationDetails({{ op.id }})" title="Ver detalles completos">
+                                <i class="bi bi-eye"></i> Ver Detalles
+                            </button>
+                            {% else %}
+                            <span class="text-muted small">—</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
     </div>
 
-    <!-- Modal: Filtro de Fechas para Exportar -->
+    <!-- ─── Modal: Exportar Excel ─────────────────────────────────────── -->
     <div class="modal fade" id="exportDateFilterModal" tabindex="-1">
-        <div class="modal-dialog">
+        <div class="modal-dialog modal-dialog-centered" style="max-width:420px;">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title"><i class="bi bi-calendar-range"></i> Exportar Historial a Excel</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <p class="text-muted">Selecciona el rango de fechas para exportar. Si no seleccionas fechas, se exportarán todas las operaciones.</p>
-
+                    <p class="text-muted small">Selecciona el rango de fechas. Si no seleccionas, se exporta todo.</p>
                     <div class="mb-3">
                         <label for="export_start_date" class="form-label">Fecha Inicio (Opcional)</label>
                         <input type="date" class="form-control" id="export_start_date">
                     </div>
-
                     <div class="mb-3">
                         <label for="export_end_date" class="form-label">Fecha Fin (Opcional)</label>
                         <input type="date" class="form-control" id="export_end_date">
                     </div>
-
                     <div class="alert alert-info small mb-0">
                         <i class="bi bi-info-circle"></i>
-                        Si dejas ambos campos vacíos, se descargará el historial completo de todas las operaciones.
+                        Sin fechas → descarga el historial completo.
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -117,309 +533,430 @@
         </div>
     </div>
 
-    <!-- Modal: Ver Detalles de Operación -->
+    <!-- ─── Modal: Ver Detalles de Operación ─────────────────────────── -->
     <div class="modal fade" id="viewOperationModal" tabindex="-1">
-        <div class="modal-dialog modal-xl">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title"><i class="bi bi-info-circle"></i> Detalles de Operación</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content" style="border-radius:14px;overflow:hidden;">
+
+                <!-- Header dinámico del modal -->
+                <div id="opHeroSection" class="op-hero">
+                    <div>
+                        <div class="op-hero-id" id="opHeroId">Cargando...</div>
+                        <div class="op-hero-client" id="opHeroClient"></div>
+                    </div>
+                    <div class="op-hero-right">
+                        <span id="opHeroType" class="op-type-badge"></span>
+                        <span id="opHeroStatus" class="op-status-pill completada">
+                            <i class="bi bi-check-circle-fill"></i> Completada
+                        </span>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
                 </div>
-                <div class="modal-body" id="operationDetails">
-                    <!-- Cargado dinámicamente -->
+
+                <!-- Cuerpo del modal -->
+                <div class="modal-body" style="background:#f9fafb;padding:18px 20px;" id="operationDetails">
+                    <div class="text-center py-4">
+                        <div class="spinner-border" style="color:#00DEA8;"></div>
+                        <p class="mt-2 text-muted small">Cargando detalles...</p>
+                    </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+
+                <div class="modal-footer" style="background:white;border-top:1px solid #e5e7eb;padding:10px 20px;">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-lg"></i> Cerrar
+                    </button>
                 </div>
+
             </div>
         </div>
     </div>
+
+</div>
+
+<!-- ─── Lightbox para imágenes ─────────────────────────────────────────── -->
+<div id="voucherLightbox">
+    <button id="voucherLightboxClose"><i class="bi bi-x-lg"></i></button>
+    <img id="voucherLightboxImg" src="" alt="Boucher">
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-// Inicializar DataTable con filtros en tiempo real
+// ── DataTable ──────────────────────────────────────────────────────────────
 let historyTable;
 
 $(document).ready(function() {
-    // Determinar el índice de la columna Fecha según el rol
-    // Si el usuario es Master u Operador, hay columna "Usuario" (índice 8 para fecha)
-    // Si no, no hay columna "Usuario" (índice 7 para fecha)
-    const dateColumnIndex = window.currentUserRole === 'Master' || window.currentUserRole === 'Operador' ? 7 : 7;
-
+    const dateColumnIndex = 7;
     historyTable = $('#historyTable').DataTable({
-        "language": {
-            "url": "//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json"
-        },
-        "order": [[dateColumnIndex, "desc"]], // Ordenar por fecha descendente (más reciente primero)
-        "pageLength": 25,
-        "responsive": true,
-        "dom": '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>rtip',
-        "columnDefs": [
-            { "orderable": true, "targets": "_all" },
-            { "orderable": false, "targets": -1 } // La columna Acciones no es ordenable
+        language: { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' },
+        order: [[dateColumnIndex, 'desc']],
+        pageLength: 25,
+        responsive: true,
+        dom: '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>rtip',
+        columnDefs: [
+            { orderable: true,  targets: '_all' },
+            { orderable: false, targets: -1 }
         ]
     });
 });
 
-// Función para descargar Excel con filtro de fechas
+// ── Exportar Excel ─────────────────────────────────────────────────────────
 function downloadExcelWithDates() {
     const startDate = $('#export_start_date').val();
-    const endDate = $('#export_end_date').val();
-
-    // Validar que si hay fecha inicio, también haya fecha fin (y viceversa)
+    const endDate   = $('#export_end_date').val();
     if (startDate && endDate && startDate > endDate) {
-        showNotification('La fecha de inicio no puede ser mayor que la fecha fin', 'warning');
+        showNotification('La fecha inicio no puede ser mayor que la fecha fin', 'warning');
         return;
     }
-
-    // Construir URL con parámetros
     let url = '/operations/api/export_history';
     const params = [];
-
-    if (startDate) {
-        params.push(`start_date=${startDate}`);
-    }
-
-    if (endDate) {
-        params.push(`end_date=${endDate}`);
-    }
-
-    if (params.length > 0) {
-        url += '?' + params.join('&');
-    }
-
-    // Cerrar modal
+    if (startDate) params.push(`start_date=${startDate}`);
+    if (endDate)   params.push(`end_date=${endDate}`);
+    if (params.length) url += '?' + params.join('&');
     $('#exportDateFilterModal').modal('hide');
-
-    // Mostrar mensaje
-    if (startDate || endDate) {
-        showNotification('Preparando descarga del rango seleccionado...', 'info');
-    } else {
-        showNotification('Preparando descarga del historial completo...', 'info');
-    }
-
-    // Descargar
+    showNotification(startDate || endDate ? 'Preparando descarga del rango seleccionado...' : 'Preparando descarga del historial completo...', 'info');
     window.location.href = url;
-
-    // Limpiar campos después de 1 segundo
-    setTimeout(() => {
-        $('#export_start_date').val('');
-        $('#export_end_date').val('');
-    }, 1000);
+    setTimeout(() => { $('#export_start_date').val(''); $('#export_end_date').val(''); }, 1000);
 }
 
-// Función legacy (por compatibilidad)
-function downloadExcel() {
-    window.location.href = '/operations/api/export_history';
+function downloadExcel() { window.location.href = '/operations/api/export_history'; }
+
+// ── Lightbox ───────────────────────────────────────────────────────────────
+function openLightbox(src) {
+    document.getElementById('voucherLightboxImg').src = src;
+    document.getElementById('voucherLightbox').classList.add('active');
 }
 
-// Función para ver detalles de operación (COMPLETA - idéntica a list.html)
+document.getElementById('voucherLightbox').addEventListener('click', function(e) {
+    if (e.target === this || e.target.id === 'voucherLightboxClose' || e.target.closest('#voucherLightboxClose')) {
+        this.classList.remove('active');
+        document.getElementById('voucherLightboxImg').src = '';
+    }
+});
+
+// ── Ver Detalles ───────────────────────────────────────────────────────────
 function viewOperationDetails(operationId) {
-    ajaxRequest(`/operations/api/${operationId}`, 'GET', null, function(response) {
-        const op = response.operation;
-        const html = buildViewHTML(op, true);
-        $('#operationDetails').html(html);
-        $('#viewOperationModal').modal('show');
-    }, function(error) {
-        showNotification('Error al cargar detalles de la operación', 'danger');
-    });
+    // Reset
+    document.getElementById('opHeroId').textContent     = 'Cargando...';
+    document.getElementById('opHeroClient').textContent  = '';
+    document.getElementById('opHeroType').textContent    = '';
+    document.getElementById('operationDetails').innerHTML = `
+        <div class="text-center py-4">
+            <div class="spinner-border" style="color:#00DEA8;"></div>
+            <p class="mt-2 text-muted small">Cargando detalles...</p>
+        </div>`;
+    $('#viewOperationModal').modal('show');
+
+    ajaxRequest(`/operations/api/${operationId}`, 'GET', null,
+        function(response) {
+            const op = response.operation;
+            renderOperationModal(op);
+        },
+        function() {
+            document.getElementById('operationDetails').innerHTML =
+                '<div class="alert alert-danger m-3"><i class="bi bi-exclamation-circle"></i> Error al cargar los detalles de la operación.</div>';
+        }
+    );
 }
 
-// Construir HTML completo del modal (copiado de list.html)
-function buildViewHTML(op, readonly) {
-    const statusBadge = getStatusBadge(op.status);
-    const typeBadge = op.operation_type === 'Compra'
-        ? '<span class="badge bg-success">Compra USD</span>'
-        : '<span class="badge bg-primary">Venta USD</span>';
+// ── Renderizar modal completo ───────────────────────────────────────────────
+function renderOperationModal(op) {
+    // Hero
+    document.getElementById('opHeroId').textContent = op.operation_id || `#${op.id}`;
+    document.getElementById('opHeroClient').textContent =
+        (op.client_name || '') + (op.client_name && op.operation_id ? '' : '');
 
+    const isCompra = (op.operation_type || '').toLowerCase() === 'compra';
+    const typeEl = document.getElementById('opHeroType');
+    typeEl.textContent = isCompra ? '⇩ Compra USD' : '⇧ Venta USD';
+    typeEl.className = 'op-type-badge ' + (isCompra ? 'op-type-compra' : 'op-type-venta');
+
+    // Body
+    document.getElementById('operationDetails').innerHTML = buildDetailsHTML(op);
+}
+
+function buildDetailsHTML(op) {
+    const usd = parseFloat(op.amount_usd || 0).toFixed(2);
+    const pen = parseFloat(op.amount_pen || 0).toFixed(2);
+    const tc  = parseFloat(op.exchange_rate || 0).toFixed(4);
+    const isCompra = (op.operation_type || '').toLowerCase() === 'compra';
+
+    let html = '';
+
+    // ── 1. Cifras financieras ──────────────────────────────────────────
+    html += `
+    <div class="fin-grid mb-3">
+        <div class="fin-cell">
+            <div class="fin-label">${isCompra ? 'Paga (PEN)' : 'Envía (USD)'}</div>
+            <div class="fin-value">${isCompra ? 'S/ ' + pen : '$ ' + usd}</div>
+        </div>
+        <div class="fin-arrow"><i class="bi bi-arrow-right-circle-fill"></i></div>
+        <div class="fin-cell tc">
+            <div class="fin-label">Tipo de Cambio</div>
+            <div class="fin-value">${tc}</div>
+        </div>
+        <div class="fin-arrow"><i class="bi bi-arrow-right-circle-fill"></i></div>
+        <div class="fin-cell">
+            <div class="fin-label">${isCompra ? 'Recibe (USD)' : 'Recibe (PEN)'}</div>
+            <div class="fin-value">${isCompra ? '$ ' + usd : 'S/ ' + pen}</div>
+        </div>
+    </div>`;
+
+    // ── 2. Fechas ──────────────────────────────────────────────────────
+    html += `
+    <div class="dates-row mb-3">
+        <div class="date-cell">
+            <strong><i class="bi bi-calendar-plus"></i> Creación</strong>
+            <span class="date-val">${fmtDt(op.created_at)}</span>
+        </div>
+        <div class="date-cell">
+            <strong><i class="bi bi-play-circle"></i> Procesada</strong>
+            <span class="date-val">${fmtDt(op.updated_at)}</span>
+        </div>
+        <div class="date-cell">
+            <strong><i class="bi bi-check-circle"></i> Completada</strong>
+            <span class="date-val">${fmtDt(op.completed_at)}</span>
+        </div>
+        <div class="date-cell">
+            <strong><i class="bi bi-person-badge"></i> Operador</strong>
+            <span class="date-val">${op.assigned_operator_name
+                ? `<span class="info-chip"><i class="bi bi-person-check"></i>${op.assigned_operator_name}</span>`
+                : '<span class="text-muted">—</span>'}</span>
+        </div>
+    </div>`;
+
+    // ── 3. Cuentas bancarias ───────────────────────────────────────────
     const bankAccounts = op.client_bank_accounts || [];
+    const srcAcc = bankAccounts.find(a => a.account_number === op.source_account);
+    const dstAcc = bankAccounts.find(a => a.account_number === op.destination_account);
 
-    let html = `
-        <div class="row mb-3">
-            <div class="col-md-3"><strong>ID:</strong> ${op.operation_id}</div>
-            <div class="col-md-3"><strong>Cliente:</strong> ${op.client_name || '-'}</div>
-            <div class="col-md-3"><strong>Tipo:</strong> ${typeBadge}</div>
-            <div class="col-md-3"><strong>Estado:</strong> ${statusBadge}</div>
-        </div>
-        <div class="row mb-3">
-            <div class="col-md-3"><strong>Monto USD:</strong> $ ${parseFloat(op.amount_usd).toFixed(2)}</div>
-            <div class="col-md-3"><strong>T.C.:</strong> ${parseFloat(op.exchange_rate).toFixed(4)}</div>
-            <div class="col-md-3"><strong>Monto PEN:</strong> S/ ${parseFloat(op.amount_pen).toFixed(2)}</div>
-            <div class="col-md-3"><strong>Creado por:</strong> ${op.user_name || '-'}</div>
-        </div>
-        <div class="row mb-3">
-            <div class="col-md-4"><strong>Fecha Creación:</strong> ${formatDateTime(op.created_at)}</div>
-            <div class="col-md-4"><strong>Enviada a Procesar:</strong> ${op.updated_at ? formatDateTime(op.updated_at) : '-'}</div>
-            <div class="col-md-4"><strong>Fecha Completada:</strong> ${op.completed_at ? formatDateTime(op.completed_at) : '-'}</div>
-        </div>`;
-
-    // Cuentas Bancarias
-    html += `<hr><h6><i class="bi bi-bank text-primary"></i> Cuentas Bancarias</h6>`;
-    html += `<div class="row mb-3">
+    html += `<div class="sec-heading"><i class="bi bi-bank"></i> Cuentas Bancarias</div>
+    <div class="row g-2 mb-2">
         <div class="col-md-6">
-            <div class="card">
-                <div class="card-header bg-success text-white py-2">
-                    <strong><i class="bi bi-arrow-down-circle"></i> Cuenta de Cargo / Origen</strong>
+            <div class="account-card">
+                <div class="account-card-header origen">
+                    <i class="bi bi-arrow-down-circle-fill"></i> Cuenta de Cargo / Origen
                 </div>
-                <div class="card-body">`;
+                <div class="account-card-body">`;
 
-    if (op.source_account) {
-        const accountCargo = bankAccounts.find(acc => acc.account_number === op.source_account);
-        if (accountCargo) {
-            html += `
-                <p class="mb-1"><strong>Banco:</strong> ${accountCargo.bank_name}</p>
-                <p class="mb-1"><strong>Nro. Cuenta:</strong> ${accountCargo.account_number}</p>
-                <p class="mb-1"><strong>Tipo:</strong> ${accountCargo.account_type}</p>
-                <p class="mb-1"><strong>Moneda:</strong> ${accountCargo.currency}</p>
-                <p class="mb-0"><strong>Origen:</strong> ${accountCargo.origen || '-'}</p>`;
-        } else {
-            html += `<p class="mb-0"><strong>Nro. Cuenta:</strong> ${op.source_account}</p>`;
-        }
+    if (srcAcc) {
+        html += accountRows(srcAcc);
+    } else if (op.source_account) {
+        html += `<div class="account-row"><span class="account-key">Número</span><span class="account-val">${op.source_account}</span></div>`;
     } else {
-        html += `<p class="text-muted mb-0">No asignada</p>`;
+        html += `<span class="text-muted small">No asignada</span>`;
     }
 
-    html += `</div></div></div>`;
-    html += `<div class="col-md-6">
-            <div class="card">
-                <div class="card-header bg-warning text-dark py-2">
-                    <strong><i class="bi bi-arrow-up-circle"></i> Cuenta de Destino</strong>
+    html += `</div></div></div>
+        <div class="col-md-6">
+            <div class="account-card">
+                <div class="account-card-header destino">
+                    <i class="bi bi-arrow-up-circle-fill"></i> Cuenta de Destino
                 </div>
-                <div class="card-body">`;
+                <div class="account-card-body">`;
 
-    if (op.destination_account) {
-        const accountDestino = bankAccounts.find(acc => acc.account_number === op.destination_account);
-        if (accountDestino) {
-            html += `
-                <p class="mb-1"><strong>Banco:</strong> ${accountDestino.bank_name}</p>
-                <p class="mb-1"><strong>Nro. Cuenta:</strong> ${accountDestino.account_number}</p>
-                <p class="mb-1"><strong>Tipo:</strong> ${accountDestino.account_type}</p>
-                <p class="mb-1"><strong>Moneda:</strong> ${accountDestino.currency}</p>
-                <p class="mb-0"><strong>Origen:</strong> ${accountDestino.origen || '-'}</p>`;
-        } else {
-            html += `<p class="mb-0"><strong>Nro. Cuenta:</strong> ${op.destination_account}</p>`;
-        }
+    if (dstAcc) {
+        html += accountRows(dstAcc);
+    } else if (op.destination_account) {
+        html += `<div class="account-row"><span class="account-key">Número</span><span class="account-val">${op.destination_account}</span></div>`;
     } else {
-        html += `<p class="text-muted mb-0">No asignada</p>`;
+        html += `<span class="text-muted small">No asignada</span>`;
     }
 
     html += `</div></div></div></div>`;
 
-    // Comprobantes del operador
-    if (op.operator_proofs && op.operator_proofs.length > 0) {
-        html += `<hr><h6><i class="bi bi-file-earmark-check text-info"></i> Comprobantes del Operador</h6>
-        <table class="table table-sm"><thead><tr><th>Comprobante</th><th>Comentarios del Operador</th><th>Atendido por</th></tr></thead><tbody>`;
-        op.operator_proofs.forEach((p, index) => {
-            html += `<tr>
-                <td><a href="${p.comprobante_url}" target="_blank" class="btn btn-sm btn-outline-primary"><i class="bi bi-download"></i> Descargar</a></td>`;
-            if (index === 0) {
-                html += `<td rowspan="${op.operator_proofs.length}">${op.operator_comments || '-'}</td>`;
-                html += `<td rowspan="${op.operator_proofs.length}">`;
-                if (op.status === 'Completada' && op.assigned_operator_name) {
-                    html += `<i class="bi bi-person-check text-info me-1"></i><strong>${op.assigned_operator_name}</strong>`;
-                } else {
-                    html += '-';
-                }
-                html += `</td>`;
-            }
-            html += `</tr>`;
-        });
-        html += `</tbody></table>`;
-    } else if (op.status === 'Completada' && op.assigned_operator_name) {
-        // Si no hay comprobantes pero sí hay operador asignado, mostrar tabla simple
-        html += `<hr><h6><i class="bi bi-file-earmark-check text-info"></i> Comprobantes del Operador</h6>
-        <table class="table table-sm"><thead><tr><th>Comentarios del Operador</th><th>Atendido por</th></tr></thead><tbody>
-        <tr>
-            <td>${op.operator_comments || '-'}</td>
-            <td><i class="bi bi-person-check text-info me-1"></i><strong>${op.assigned_operator_name}</strong></td>
-        </tr>
-        </tbody></table>`;
+    // ── 4. Bouchers del Cliente ────────────────────────────────────────
+    html += `<div class="sec-heading"><i class="bi bi-images"></i> Bouchers del Cliente</div>`;
+
+    const deposits = (op.client_deposits || []).filter(d => d.comprobante_url);
+    // Incluir también el campo legacy si existe y no está duplicado
+    const legacyClientUrl = op.payment_proof_url;
+    const allClientVouchers = [...deposits];
+    if (legacyClientUrl && !allClientVouchers.find(d => d.comprobante_url === legacyClientUrl)) {
+        allClientVouchers.push({ comprobante_url: legacyClientUrl });
     }
 
-    // Factura Electrónica
-    if (op.status === 'Completada' && op.invoices && op.invoices.length > 0) {
-        const acceptedInvoice = op.invoices.find(inv => inv.status === 'Aceptado');
-        if (acceptedInvoice) {
-            html += `<hr><h6><i class="bi bi-receipt text-success"></i> Factura Electrónica</h6>
-            <div class="card border-success">
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <p class="mb-1"><strong>Tipo:</strong> ${acceptedInvoice.invoice_type}</p>
-                            <p class="mb-1"><strong>Número:</strong> <span class="badge bg-success">${acceptedInvoice.invoice_number}</span></p>
-                            <p class="mb-1"><strong>Monto:</strong> ${acceptedInvoice.moneda} ${parseFloat(acceptedInvoice.monto_total).toFixed(2)}</p>
-                        </div>
-                        <div class="col-md-6">
-                            <p class="mb-1"><strong>Estado:</strong> <span class="badge bg-success">✓ Aceptado por SUNAT</span></p>
-                            <p class="mb-1"><strong>Fecha:</strong> ${formatDateTime(acceptedInvoice.created_at)}</p>
-                        </div>
+    if (allClientVouchers.length > 0) {
+        html += `<div class="voucher-grid mb-3">`;
+        allClientVouchers.forEach((dep, i) => {
+            const url = dep.comprobante_url;
+            const isPdf = url && url.toLowerCase().includes('.pdf');
+            const label = dep.importe ? `${dep.moneda || ''} ${parseFloat(dep.importe).toFixed(2)}`.trim() : `Boucher ${i + 1}`;
+            const code  = dep.codigo_operacion || '';
+
+            html += `<div class="voucher-card">`;
+            if (isPdf) {
+                html += `<div class="voucher-thumb-pdf" onclick="window.open('${url}','_blank')">
+                    <i class="bi bi-file-earmark-pdf-fill"></i>
+                    <span>Ver PDF</span>
+                </div>`;
+            } else {
+                html += `<img class="voucher-thumb" src="${url}" alt="Boucher cliente" loading="lazy"
+                    onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"
+                    onclick="openLightbox('${url}')">
+                <div class="voucher-thumb-pdf" style="display:none;" onclick="window.open('${url}','_blank')">
+                    <i class="bi bi-file-earmark-image"></i><span>Ver archivo</span>
+                </div>`;
+            }
+            html += `<div class="voucher-footer">
+                <div class="voucher-meta">
+                    <strong>${label}</strong>
+                    ${code ? `<span>${code}</span>` : ''}
+                </div>
+                <a href="${url}" target="_blank" class="btn-open-voucher">
+                    <i class="bi bi-box-arrow-up-right"></i> Abrir
+                </a>
+            </div></div>`;
+        });
+        html += `</div>`;
+    } else {
+        html += `<div class="no-doc mb-3">
+            <i class="bi bi-file-earmark-image"></i>
+            Sin bouchers del cliente adjuntos
+        </div>`;
+    }
+
+    // ── 5. Comprobantes del Operador ───────────────────────────────────
+    html += `<div class="sec-heading"><i class="bi bi-file-earmark-check"></i> Comprobantes del Operador</div>`;
+
+    const opProofs = (op.operator_proofs || []).filter(p => p.comprobante_url);
+    // Incluir campo legacy
+    const legacyOpUrl = op.operator_proof_url;
+    const allOpVouchers = [...opProofs];
+    if (legacyOpUrl && !allOpVouchers.find(p => p.comprobante_url === legacyOpUrl)) {
+        allOpVouchers.push({ comprobante_url: legacyOpUrl });
+    }
+
+    if (allOpVouchers.length > 0) {
+        html += `<div class="voucher-grid mb-3">`;
+        allOpVouchers.forEach((proof, i) => {
+            const url   = proof.comprobante_url;
+            const isPdf = url && url.toLowerCase().includes('.pdf');
+
+            html += `<div class="voucher-card">`;
+            if (isPdf) {
+                html += `<div class="voucher-thumb-pdf" onclick="window.open('${url}','_blank')">
+                    <i class="bi bi-file-earmark-pdf-fill"></i>
+                    <span>Ver PDF</span>
+                </div>`;
+            } else {
+                html += `<img class="voucher-thumb" src="${url}" alt="Comprobante operador" loading="lazy"
+                    onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"
+                    onclick="openLightbox('${url}')">
+                <div class="voucher-thumb-pdf" style="display:none;" onclick="window.open('${url}','_blank')">
+                    <i class="bi bi-file-earmark-image"></i><span>Ver archivo</span>
+                </div>`;
+            }
+            html += `<div class="voucher-footer">
+                <div class="voucher-meta">
+                    <strong>Comprobante ${i + 1}</strong>
+                </div>
+                <a href="${url}" target="_blank" class="btn-open-voucher">
+                    <i class="bi bi-box-arrow-up-right"></i> Abrir
+                </a>
+            </div></div>`;
+        });
+        html += `</div>`;
+
+        if (op.operator_comments) {
+            html += `<div class="notes-box mb-3">
+                <strong><i class="bi bi-chat-left-text me-1"></i>Comentarios del operador:</strong>
+                <div class="mt-1">${op.operator_comments}</div>
+            </div>`;
+        }
+    } else {
+        html += `<div class="no-doc mb-3">
+            <i class="bi bi-file-earmark-check"></i>
+            Sin comprobantes del operador adjuntos
+        </div>`;
+    }
+
+    // ── 6. Factura / Boleta electrónica ────────────────────────────────
+    html += `<div class="sec-heading"><i class="bi bi-receipt"></i> Comprobante de Pago (Factura / Boleta)</div>`;
+
+    const invoices = op.invoices || [];
+    if (invoices.length > 0) {
+        const accepted = invoices.find(inv => inv.status === 'Aceptado');
+        const toShow   = accepted || invoices[0];
+
+        if (toShow.status === 'Aceptado') {
+            const monto = toShow.monto_total ? parseFloat(toShow.monto_total).toFixed(2) : '—';
+            html += `<div class="invoice-card mb-3">
+                <div class="d-flex align-items-start justify-content-between flex-wrap gap-2">
+                    <div>
+                        <div class="invoice-number">${toShow.invoice_number || '—'}</div>
+                        <div class="invoice-meta">${toShow.invoice_type || 'Comprobante'} &nbsp;·&nbsp; ${toShow.moneda || ''} ${monto} &nbsp;·&nbsp; ${fmtDt(toShow.created_at)}</div>
                     </div>
-                    <div class="mt-3 d-flex gap-2">`;
-            if (acceptedInvoice.nubefact_enlace_pdf) {
-                html += `<a href="${acceptedInvoice.nubefact_enlace_pdf}" target="_blank" class="btn btn-success btn-sm">
-                    <i class="bi bi-file-earmark-pdf"></i> Ver/Descargar PDF
+                    <span class="invoice-sunat-badge">
+                        <i class="bi bi-check-circle-fill"></i> Aceptado por SUNAT
+                    </span>
+                </div>
+                <div class="invoice-actions">`;
+
+            if (toShow.nubefact_enlace_pdf) {
+                html += `<a href="${toShow.nubefact_enlace_pdf}" target="_blank" class="btn-pdf">
+                    <i class="bi bi-file-earmark-pdf-fill"></i> Descargar PDF
                 </a>`;
             }
-            if (acceptedInvoice.nubefact_enlace_xml) {
-                html += `<a href="${acceptedInvoice.nubefact_enlace_xml}" target="_blank" class="btn btn-outline-success btn-sm">
+            if (toShow.nubefact_enlace_xml) {
+                html += `<a href="${toShow.nubefact_enlace_xml}" target="_blank" class="btn-xml">
                     <i class="bi bi-file-earmark-code"></i> Descargar XML
                 </a>`;
             }
-            html += `</div></div></div>`;
-        } else {
-            const pendingOrErrorInvoice = op.invoices[0];
-            if (pendingOrErrorInvoice) {
-                html += `<hr><h6><i class="bi bi-receipt text-warning"></i> Factura Electrónica</h6>
-                <div class="alert alert-warning mb-0">
-                    <strong>Estado:</strong> ${pendingOrErrorInvoice.status}<br>`;
-                if (pendingOrErrorInvoice.error_message) {
-                    html += `<strong>Error:</strong> ${pendingOrErrorInvoice.error_message}`;
-                }
-                html += `</div>`;
+            if (!toShow.nubefact_enlace_pdf && !toShow.nubefact_enlace_xml) {
+                html += `<span class="text-muted small">Sin archivos disponibles</span>`;
             }
+
+            html += `</div></div>`;
+        } else {
+            html += `<div class="invoice-card error mb-3">
+                <div class="invoice-number" style="color:#92400e;">${toShow.invoice_number || 'Sin número'}</div>
+                <div class="invoice-meta">${toShow.invoice_type || 'Comprobante'} &nbsp;·&nbsp; Estado: <strong>${toShow.status}</strong></div>
+                ${toShow.error_message ? `<div class="mt-2 text-danger small"><i class="bi bi-exclamation-triangle"></i> ${toShow.error_message}</div>` : ''}
+            </div>`;
         }
+    } else {
+        html += `<div class="no-doc mb-3">
+            <i class="bi bi-receipt"></i>
+            Sin comprobante de pago generado
+        </div>`;
     }
 
+    // ── 7. Notas ───────────────────────────────────────────────────────
     if (op.notes) {
-        html += `<hr><h6>Notas</h6><p>${op.notes}</p>`;
-    }
-
-    // Historial de modificaciones
-    if (op.modification_logs && op.modification_logs.length > 0) {
-        html += `<hr><h6><i class="bi bi-clock-history text-secondary"></i> Historial de Modificaciones</h6>
-        <table class="table table-sm table-striped"><thead><tr><th>Fecha/Hora</th><th>Usuario</th><th>Campo</th><th>Valor Anterior</th><th>Valor Nuevo</th></tr></thead><tbody>`;
-        op.modification_logs.forEach(log => {
-            html += `<tr>
-                <td>${formatDateTime(log.fecha)}</td>
-                <td>${log.usuario || '-'}</td>
-                <td>${log.campo || '-'}</td>
-                <td>${log.valor_anterior || '-'}</td>
-                <td>${log.valor_nuevo || '-'}</td>
-            </tr>`;
-        });
-        html += `</tbody></table>`;
+        html += `<div class="sec-heading"><i class="bi bi-sticky"></i> Notas</div>
+        <div class="notes-box mb-3">${op.notes}</div>`;
     }
 
     return html;
 }
 
-// Helpers
+// ── Helpers ────────────────────────────────────────────────────────────────
+function accountRows(acc) {
+    return `
+    <div class="account-row"><span class="account-key">Banco</span><span class="account-val">${acc.bank_name || '—'}</span></div>
+    <div class="account-row"><span class="account-key">Número</span><span class="account-val">${acc.account_number || '—'}</span></div>
+    <div class="account-row"><span class="account-key">Tipo</span><span class="account-val">${acc.account_type || '—'}</span></div>
+    <div class="account-row"><span class="account-key">Moneda</span><span class="account-val">${acc.currency || '—'}</span></div>
+    ${acc.origen ? `<div class="account-row"><span class="account-key">Origen</span><span class="account-val">${acc.origen}</span></div>` : ''}`;
+}
+
+function fmtDt(iso) {
+    if (!iso) return '<span class="text-muted">—</span>';
+    const d = new Date(iso);
+    return d.toLocaleDateString('es-PE') + ' ' + d.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
+}
+
 function getStatusBadge(status) {
     const badges = {
-        'Pendiente': '<span class="badge bg-warning text-dark">Pendiente</span>',
+        'Pendiente':  '<span class="badge bg-warning text-dark">Pendiente</span>',
         'En proceso': '<span class="badge bg-info">En Proceso</span>',
         'Completada': '<span class="badge bg-success">Completada</span>',
-        'Cancelado': '<span class="badge bg-danger">Cancelado</span>'
+        'Cancelado':  '<span class="badge bg-danger">Cancelado</span>'
     };
     return badges[status] || status;
 }
 
-function formatDateTime(isoString) {
-    if (!isoString) return '-';
-    const d = new Date(isoString);
-    return d.toLocaleDateString('es-PE') + ' ' + d.toLocaleTimeString('es-PE', {hour: '2-digit', minute: '2-digit'});
-}
+function formatDateTime(iso) { return fmtDt(iso); }
 </script>
 {% endblock %}
