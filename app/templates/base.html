@@ -25,173 +25,204 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css">
 
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}?v=3.1">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}?v=4.0">
 
     <!-- Meta CSRF Token -->
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
     {% block head %}{% endblock %}
 </head>
-<body>
-    <!-- Navbar -->
+<body class="{% if current_user.is_authenticated %}has-sidebar{% endif %}">
+
     {% if current_user.is_authenticated %}
-    <nav class="navbar navbar-expand-lg navbar-dark">
-        <div class="container-fluid">
-            <a class="navbar-brand d-flex align-items-center" href="{{ url_for('dashboard.index') }}" style="margin-right: 30px;">
-                <img src="{{ url_for('static', filename='images/finalfinal.png') }}" alt="QoriCash" style="height: 50px; width: auto; margin-right: 12px;">
-                <span style="color: white; font-size: 1.25rem; font-weight: 700;">QoriCash</span>
+    <!-- ═══════════════════════════════ SIDEBAR ═══════════════════════════════ -->
+    <aside class="sidebar" id="sidebar">
+        <!-- Logo / Brand -->
+        <div class="sidebar-brand">
+            <a href="{{ url_for('dashboard.index') }}" class="sidebar-brand-link">
+                <img src="{{ url_for('static', filename='images/finalfinal.png') }}" alt="QoriCash" class="sidebar-logo">
+                <span class="sidebar-brand-name">QoriCash</span>
+            </a>
+            <button class="sidebar-toggle-btn" id="sidebarToggle" title="Contraer menú">
+                <i class="bi bi-layout-sidebar-reverse"></i>
+            </button>
+        </div>
+
+        <!-- Navigation -->
+        <nav class="sidebar-nav">
+            {% if current_user.role != 'Middle Office' %}
+            <a class="sidebar-link {% if request.endpoint and request.endpoint.startswith('dashboard') %}active{% endif %}"
+               href="{{ url_for('dashboard.index') }}">
+                <i class="bi bi-speedometer2"></i>
+                <span class="sidebar-link-text">Dashboard</span>
+            </a>
+            {% endif %}
+
+            {% if current_user.role in ['Master', 'Trader', 'Operador', 'Middle Office', 'Plataforma'] %}
+            <a class="sidebar-link {% if request.endpoint == 'operations.operations_list' %}active{% endif %}"
+               href="{{ url_for('operations.operations_list') }}">
+                <i class="bi bi-list-ul"></i>
+                <span class="sidebar-link-text">Operaciones</span>
             </a>
 
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
+            <a class="sidebar-link {% if request.endpoint == 'operations.history' %}active{% endif %}"
+               href="{{ url_for('operations.history') }}">
+                <i class="bi bi-clock-history"></i>
+                <span class="sidebar-link-text">Historial</span>
+            </a>
 
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav me-auto">
-                    {% if current_user.role != 'Middle Office' %}
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('dashboard.index') }}">
-                            <i class="bi bi-speedometer2"></i> Dashboard
-                        </a>
-                    </li>
-                    {% endif %}
+            <a class="sidebar-link {% if request.endpoint and 'clients' in request.endpoint %}active{% endif %}"
+               href="{{ url_for('clients.list_clients') }}">
+                <i class="bi bi-people"></i>
+                <span class="sidebar-link-text">Clientes</span>
+            </a>
+            {% endif %}
 
-                    {% if current_user.role in ['Master', 'Trader', 'Operador', 'Middle Office', 'Plataforma'] %}
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('operations.operations_list') }}">
-                            <i class="bi bi-list-ul"></i> Operaciones
-                        </a>
-                    </li>
+            {% if current_user.role in ['Master', 'Operador'] %}
+            <a class="sidebar-link {% if request.endpoint == 'position.position_view' %}active{% endif %}"
+               href="{{ url_for('position.position_view') }}">
+                <i class="bi bi-bank"></i>
+                <span class="sidebar-link-text">Posición</span>
+            </a>
+            {% endif %}
 
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('operations.history') }}">
-                            <i class="bi bi-clock-history"></i> Historial
-                        </a>
-                    </li>
+            {% if current_user.role == 'Master' %}
+            <a class="sidebar-link {% if request.endpoint and 'users' in request.endpoint %}active{% endif %}"
+               href="{{ url_for('users.manage') }}">
+                <i class="bi bi-person-gear"></i>
+                <span class="sidebar-link-text">Usuarios</span>
+            </a>
+            {% endif %}
 
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('clients.list_clients') }}">
-                            <i class="bi bi-people"></i> Clientes
-                        </a>
-                    </li>
-                    {% endif %}
+            {% if current_user.role in ['Master', 'Middle Office'] %}
+            <div class="sidebar-section-label">Compliance</div>
 
-                    {% if current_user.role in ['Master', 'Operador'] %}
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('position.position_view') }}">
-                            <i class="bi bi-bank"></i> Posición
-                        </a>
-                    </li>
-                    {% endif %}
+            <a class="sidebar-link {% if request.endpoint == 'compliance.alerts' %}active{% endif %}"
+               href="{{ url_for('compliance.alerts') }}">
+                <i class="bi bi-exclamation-triangle"></i>
+                <span class="sidebar-link-text">Alertas</span>
+            </a>
 
-                    {% if current_user.role == 'Master' %}
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('users.manage') }}">
-                            <i class="bi bi-person-gear"></i> Usuarios
-                        </a>
-                    </li>
-                    {% endif %}
+            <a class="sidebar-link {% if request.endpoint == 'compliance.risk_profiles' %}active{% endif %}"
+               href="{{ url_for('compliance.risk_profiles') }}">
+                <i class="bi bi-shield-check"></i>
+                <span class="sidebar-link-text">Perfiles de Riesgo</span>
+            </a>
 
-                    {% if current_user.role in ['Master', 'Middle Office'] %}
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('compliance.alerts') }}">
-                            <i class="bi bi-exclamation-triangle"></i> Alertas
-                        </a>
-                    </li>
+            <a class="sidebar-link {% if request.endpoint == 'compliance.kyc' %}active{% endif %}"
+               href="{{ url_for('compliance.kyc') }}">
+                <i class="bi bi-person-check"></i>
+                <span class="sidebar-link-text">KYC</span>
+                <span id="kycBadge" class="sidebar-badge" style="display:none;">0</span>
+            </a>
 
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('compliance.risk_profiles') }}">
-                            <i class="bi bi-shield-check"></i> Perfiles de Riesgo
-                        </a>
-                    </li>
+            <a class="sidebar-link {% if request.endpoint and 'complaints' in request.endpoint %}active{% endif %}"
+               href="{{ url_for('complaints.list_complaints') }}">
+                <i class="bi bi-file-earmark-text"></i>
+                <span class="sidebar-link-text">Reclamos</span>
+                <span id="complaintsBadge" class="sidebar-badge sidebar-badge-warning" style="display:none;">0</span>
+            </a>
+            {% endif %}
+        </nav>
 
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('compliance.kyc') }}">
-                            <i class="bi bi-person-check"></i> KYC
-                            <span id="kycBadge" class="badge bg-danger ms-1" style="display: none;">0</span>
-                        </a>
-                    </li>
-
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('complaints.list_complaints') }}">
-                            <i class="bi bi-file-earmark-text"></i> Reclamos
-                            <span id="complaintsBadge" class="badge bg-warning ms-1" style="display: none;">0</span>
-                        </a>
-                    </li>
-                    {% endif %}
-                </ul>
-
-                <ul class="navbar-nav">
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="userDropdown" role="button"
-                           data-bs-toggle="dropdown" aria-expanded="false">
-                            <i class="bi bi-person-circle me-1"></i>
-                            <span class="me-1">{{ current_user.username }}</span>
-                            <span class="badge bg-warning text-dark">{{ current_user.role }}</span>
-                        </a>
-                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
-                            <li>
-                                <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#modalCambiarClave">
-                                    <i class="bi bi-key me-2"></i> Cambiar Contraseña
-                                </a>
-                            </li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li>
-                                <a class="dropdown-item text-danger" href="{{ url_for('auth.logout') }}">
-                                    <i class="bi bi-box-arrow-right me-2"></i> Cerrar Sesión
-                                </a>
-                            </li>
-                        </ul>
-                    </li>
-                </ul>
+        <!-- User section at bottom -->
+        <div class="sidebar-user">
+            <div class="sidebar-user-info" data-bs-toggle="dropdown" aria-expanded="false" id="userMenuToggle">
+                <i class="bi bi-person-circle sidebar-user-avatar"></i>
+                <div class="sidebar-user-details">
+                    <span class="sidebar-user-name">{{ current_user.username }}</span>
+                    <span class="sidebar-user-role">{{ current_user.role }}</span>
+                </div>
+                <i class="bi bi-chevron-up sidebar-user-chevron"></i>
             </div>
+            <ul class="dropdown-menu sidebar-user-menu" aria-labelledby="userMenuToggle">
+                <li>
+                    <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#modalCambiarClave">
+                        <i class="bi bi-key"></i> Cambiar Contraseña
+                    </a>
+                </li>
+                <li><hr class="dropdown-divider"></li>
+                <li>
+                    <a class="dropdown-item text-danger" href="{{ url_for('auth.logout') }}">
+                        <i class="bi bi-box-arrow-right"></i> Cerrar Sesión
+                    </a>
+                </li>
+            </ul>
         </div>
-    </nav>
+    </aside>
+
+    <!-- Mobile overlay -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <!-- Mobile topbar -->
+    <header class="mobile-topbar">
+        <button class="mobile-menu-btn" id="mobileMenuBtn">
+            <i class="bi bi-list"></i>
+        </button>
+        <a href="{{ url_for('dashboard.index') }}" class="mobile-brand">
+            <img src="{{ url_for('static', filename='images/finalfinal.png') }}" alt="QoriCash">
+            <span>QoriCash</span>
+        </a>
+        <div class="mobile-user">
+            <span class="badge-role">{{ current_user.role }}</span>
+        </div>
+    </header>
     {% endif %}
 
-    <!-- Flash Messages -->
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            <div class="container-fluid mt-2">
-                {% for category, message in messages %}
-                    <div class="alert alert-{{ category }} alert-dismissible fade show mb-2" role="alert">
-                        <div class="d-flex align-items-center">
+    <!-- ═══════════════════════════════ MAIN WRAPPER ═══════════════════════════════ -->
+    <div class="main-wrapper">
+
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-container">
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
                             {% if category == 'success' %}
-                                <i class="bi bi-check-circle-fill me-2"></i>
+                                <i class="bi bi-check-circle-fill"></i>
                             {% elif category == 'danger' %}
-                                <i class="bi bi-exclamation-circle-fill me-2"></i>
+                                <i class="bi bi-exclamation-circle-fill"></i>
                             {% elif category == 'warning' %}
-                                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                                <i class="bi bi-exclamation-triangle-fill"></i>
                             {% else %}
-                                <i class="bi bi-info-circle-fill me-2"></i>
+                                <i class="bi bi-info-circle-fill"></i>
                             {% endif %}
                             <span>{{ message }}</span>
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                         </div>
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                    </div>
-                {% endfor %}
-            </div>
-        {% endif %}
-    {% endwith %}
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
 
-    <!-- Main Content -->
-    <main class="container-fluid">
-        {% block content %}{% endblock %}
-    </main>
+        <!-- Main Content -->
+        <main class="main-content">
+            {% block content %}{% endblock %}
+        </main>
 
-    <!-- Modal de cambio de contraseña - CON CSRF TOKEN -->
+        <!-- Footer -->
+        <footer class="footer">
+            <span>
+                <i class="bi bi-shield-check me-1"></i>
+                QoriCash Trading © 2025 — Sistema de Gestión de Cambio de Divisas
+            </span>
+        </footer>
+    </div>
+
+    <!-- ═══════════════════════════════ MODALS ═══════════════════════════════ -->
+
+    <!-- Modal cambio de contraseña -->
     {% if current_user.is_authenticated %}
     <div class="modal fade" id="modalCambiarClave" tabindex="-1">
-        <div class="modal-dialog">
+        <div class="modal-dialog modal-dialog-centered" style="max-width:440px;">
             <div class="modal-content">
-                <div class="modal-header bg-primary text-white">
-                    <h5 class="modal-title"><i class="bi bi-shield-lock me-2"></i>Cambiar Contraseña</h5>
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-shield-lock"></i>Cambiar Contraseña</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
                     <form id="formCambiarClave">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-
                         <div class="mb-3">
                             <label class="form-label">Contraseña Actual</label>
                             <div class="input-group">
@@ -201,7 +232,6 @@
                                 </button>
                             </div>
                         </div>
-
                         <div class="mb-3">
                             <label class="form-label">Nueva Contraseña</label>
                             <div class="input-group">
@@ -212,7 +242,6 @@
                             </div>
                             <small class="form-text text-muted">Mínimo 8 caracteres</small>
                         </div>
-
                         <div class="mb-3">
                             <label class="form-label">Confirmar Nueva Contraseña</label>
                             <div class="input-group">
@@ -227,7 +256,7 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                     <button type="button" class="btn btn-primary" id="btnGuardarClave">
-                        <i class="bi bi-check-circle me-1"></i>Guardar Cambios
+                        <i class="bi bi-check-circle"></i>Guardar
                     </button>
                 </div>
             </div>
@@ -235,23 +264,18 @@
     </div>
 
     <script>
-    // Función para mostrar/ocultar contraseña
     function togglePassword(inputId, button) {
         const input = document.getElementById(inputId);
         const icon = button.querySelector('i');
-
         if (input.type === 'password') {
             input.type = 'text';
-            icon.classList.remove('bi-eye');
-            icon.classList.add('bi-eye-slash');
+            icon.classList.replace('bi-eye', 'bi-eye-slash');
         } else {
             input.type = 'password';
-            icon.classList.remove('bi-eye-slash');
-            icon.classList.add('bi-eye');
+            icon.classList.replace('bi-eye-slash', 'bi-eye');
         }
     }
 
-    // Handler del formulario de cambio de contraseña
     (function() {
         'use strict';
         window.addEventListener('load', function() {
@@ -260,69 +284,42 @@
                 boton.onclick = function() {
                     const form = document.getElementById('formCambiarClave');
                     const formData = new FormData(form);
-
                     const actual = formData.get('old_password').trim();
                     const nueva = formData.get('new_password').trim();
                     const confirmar = document.getElementById('inputClaveConfirmar').value.trim();
 
-                    // Validaciones
                     if (!actual || !nueva || !confirmar) {
-                        if (typeof showNotification === 'function') {
-                            showNotification('Por favor completa todos los campos', 'warning');
-                        } else {
-                            alert('Por favor completa todos los campos');
-                        }
+                        if (typeof showNotification === 'function') showNotification('Por favor completa todos los campos', 'warning');
+                        else alert('Por favor completa todos los campos');
                         return;
                     }
-
                     if (nueva !== confirmar) {
-                        if (typeof showNotification === 'function') {
-                            showNotification('Las contraseñas no coinciden', 'warning');
-                        } else {
-                            alert('Las contraseñas no coinciden');
-                        }
+                        if (typeof showNotification === 'function') showNotification('Las contraseñas no coinciden', 'warning');
+                        else alert('Las contraseñas no coinciden');
                         return;
                     }
-
                     if (nueva.length < 8) {
-                        if (typeof showNotification === 'function') {
-                            showNotification('La contraseña debe tener al menos 8 caracteres', 'warning');
-                        } else {
-                            alert('La contraseña debe tener al menos 8 caracteres');
-                        }
+                        if (typeof showNotification === 'function') showNotification('La contraseña debe tener al menos 8 caracteres', 'warning');
+                        else alert('La contraseña debe tener al menos 8 caracteres');
                         return;
                     }
-
-                    // Enviar con FormData (incluye CSRF token automáticamente)
-                    fetch('/change_password', {
-                        method: 'POST',
-                        body: formData
-                    })
+                    fetch('/change_password', { method: 'POST', body: formData })
                     .then(r => r.json())
                     .then(data => {
                         if (data.success) {
-                            if (typeof showNotification === 'function') {
-                                showNotification('Contraseña cambiada exitosamente', 'success');
-                            } else {
-                                alert('Contraseña cambiada exitosamente');
-                            }
+                            if (typeof showNotification === 'function') showNotification('Contraseña cambiada exitosamente', 'success');
+                            else alert('Contraseña cambiada exitosamente');
                             const modal = bootstrap.Modal.getInstance(document.getElementById('modalCambiarClave'));
                             if (modal) modal.hide();
                             form.reset();
                         } else {
-                            if (typeof showNotification === 'function') {
-                                showNotification(data.message || 'Error al cambiar contraseña', 'danger');
-                            } else {
-                                alert(data.message || 'Error al cambiar contraseña');
-                            }
+                            if (typeof showNotification === 'function') showNotification(data.message || 'Error al cambiar contraseña', 'danger');
+                            else alert(data.message || 'Error al cambiar contraseña');
                         }
                     })
-                    .catch(err => {
-                        if (typeof showNotification === 'function') {
-                            showNotification('Error de conexión', 'danger');
-                        } else {
-                            alert('Error de conexión');
-                        }
+                    .catch(() => {
+                        if (typeof showNotification === 'function') showNotification('Error de conexión', 'danger');
+                        else alert('Error de conexión');
                     });
                 };
             }
@@ -331,10 +328,10 @@
     </script>
     {% endif %}
 
-    <!-- Modal de Notificación de Operaciones Pendientes (Solo Operador) -->
+    <!-- Modal operaciones pendientes (Solo Operador) -->
     {% if current_user.role == 'Operador' %}
     <div class="modal fade" id="pendingOperationsAlertModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
-        <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-dialog modal-dialog-centered" style="max-width:480px;">
             <div class="modal-content border-warning shadow-lg">
                 <div class="modal-header bg-warning text-dark">
                     <h5 class="modal-title">
@@ -343,32 +340,18 @@
                     </h5>
                 </div>
                 <div class="modal-body">
-                    <div id="pendingOperationsAlertContent">
-                        <!-- El contenido se llenará dinámicamente con JavaScript -->
-                    </div>
+                    <div id="pendingOperationsAlertContent"></div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-primary" id="btnViewPendingOperations">
-                        <i class="bi bi-eye-fill me-1"></i>Ver Operaciones
+                        <i class="bi bi-eye-fill"></i>Ver Operaciones
                     </button>
-                    <button type="button" class="btn btn-secondary" id="btnDismissAlert">
-                        Entendido
-                    </button>
+                    <button type="button" class="btn btn-secondary" id="btnDismissAlert">Entendido</button>
                 </div>
             </div>
         </div>
     </div>
     {% endif %}
-
-    <!-- Footer -->
-    <footer class="footer mt-auto">
-        <div class="container-fluid text-center">
-            <span class="text-muted">
-                <i class="bi bi-shield-check me-1"></i>
-                QoriCash Trading © 2025 - Sistema de Gestión de Cambio de Divisas
-            </span>
-        </div>
-    </footer>
 
     <!-- jQuery -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
@@ -406,72 +389,85 @@
     <!-- Common JS -->
     <script src="{{ url_for('static', filename='js/common.js') }}?v=20251219_v7_simple"></script>
 
-    <!-- KYC Badge Update Script -->
+    <!-- Sidebar JS -->
     <script>
-    // Actualizar badge de KYC (solo para Master y Middle Office)
+    (function() {
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('sidebarOverlay');
+        const toggleBtn = document.getElementById('sidebarToggle');
+        const mobileBtn = document.getElementById('mobileMenuBtn');
+        const COLLAPSED_KEY = 'sidebar_collapsed';
+
+        if (!sidebar) return;
+
+        function applyCollapsed(collapsed) {
+            sidebar.classList.toggle('collapsed', collapsed);
+            document.body.classList.toggle('sidebar-collapsed', collapsed);
+        }
+
+        // Restore collapsed state
+        applyCollapsed(localStorage.getItem(COLLAPSED_KEY) === '1');
+
+        function toggleCollapse() {
+            const now = !sidebar.classList.contains('collapsed');
+            applyCollapsed(now);
+            localStorage.setItem(COLLAPSED_KEY, now ? '1' : '0');
+        }
+
+        function openMobile() {
+            sidebar.classList.add('mobile-open');
+            overlay.classList.add('active');
+        }
+
+        function closeMobile() {
+            sidebar.classList.remove('mobile-open');
+            overlay.classList.remove('active');
+        }
+
+        if (toggleBtn) toggleBtn.addEventListener('click', toggleCollapse);
+        if (mobileBtn) mobileBtn.addEventListener('click', openMobile);
+        if (overlay) overlay.addEventListener('click', closeMobile);
+    })();
+    </script>
+
+    <!-- KYC & Complaints Badge Script -->
+    <script>
     {% if current_user.is_authenticated and current_user.role in ['Master', 'Middle Office'] %}
     function updateKycBadge() {
         fetch('/compliance/api/kyc/pending')
-            .then(response => response.json())
+            .then(r => r.json())
             .then(data => {
-                console.log('KYC Badge Response:', data); // Debug
                 if (data.success && data.data) {
                     const count = data.data.length;
                     const badge = document.getElementById('kycBadge');
                     if (badge) {
-                        if (count > 0) {
-                            badge.textContent = count;
-                            badge.style.display = 'inline-block';
-                        } else {
-                            badge.style.display = 'none';
-                        }
-                    } else {
-                        console.error('Badge element not found');
+                        badge.textContent = count;
+                        badge.style.display = count > 0 ? 'inline-flex' : 'none';
                     }
                 }
             })
-            .catch(error => {
-                console.error('Error al actualizar badge KYC:', error);
-            });
+            .catch(() => {});
     }
 
-    // Actualizar badge de Reclamos Pendientes
     function updateComplaintsBadge() {
-        fetch('/complaints/api/stats', {
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest'
-            }
-        })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}`);
-                }
-                return response.json();
-            })
+        fetch('/complaints/api/stats', { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(r => { if (!r.ok) throw new Error(); return r.json(); })
             .then(data => {
                 if (data.success && data.data) {
                     const count = data.data.pending_count;
                     const badge = document.getElementById('complaintsBadge');
                     if (badge) {
-                        if (count > 0) {
-                            badge.textContent = count;
-                            badge.style.display = 'inline-block';
-                        } else {
-                            badge.style.display = 'none';
-                        }
+                        badge.textContent = count;
+                        badge.style.display = count > 0 ? 'inline-flex' : 'none';
                     }
                 }
             })
-            .catch(error => {
-                console.error('Error al actualizar badge Reclamos:', error);
-            });
+            .catch(() => {});
     }
 
-    // Actualizar al cargar la página
     document.addEventListener('DOMContentLoaded', function() {
         updateKycBadge();
         updateComplaintsBadge();
-        // Actualizar cada 60 segundos
         setInterval(updateKycBadge, 60000);
         setInterval(updateComplaintsBadge, 60000);
     });

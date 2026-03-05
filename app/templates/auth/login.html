@@ -38,22 +38,24 @@
         100% { transform: translate(50px, 50px); }
     }
 
-    main.container-fluid {
-        padding: 0;
+    /* Ocultar elementos del base layout en login */
+    .footer,
+    .flash-container {
+        display: none !important;
+    }
+
+    /* Hacer transparente el main-wrapper para que login tome el control */
+    .main-wrapper {
+        margin-left: 0 !important;
+        min-height: 0 !important;
+        display: contents !important;
+    }
+
+    .main-content {
+        padding: 0 !important;
         position: relative;
         z-index: 1;
-    }
-
-    /* Ocultar navbar, footer y mensajes flash del base.html en login */
-    .navbar,
-    .footer {
-        display: none !important;
-    }
-
-    /* Ocultar los mensajes flash que vienen del base.html (container-fluid mt-2) */
-    body > .container-fluid.mt-2,
-    .container-fluid.mt-2 {
-        display: none !important;
+        display: contents !important;
     }
 
     /* Flash Messages debajo del card */
