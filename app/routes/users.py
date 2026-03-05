@@ -18,10 +18,10 @@ def manage():
     """
     Página de gestión de usuarios (solo Master)
     """
-    from app.models.user import User
     system_roles = ['Web', 'App']
     all_users = UserService.get_all_users()
-    human_users = [u for u in all_users if u.role not in system_roles]
+    # Solo usuarios activos con rol humano (los eliminados quedan Inactivo en BD)
+    human_users = [u for u in all_users if u.role not in system_roles and u.status == 'Activo']
     system_users = [u for u in all_users if u.role in system_roles]
     return render_template('users/manage.html', user=current_user,
                            users=human_users, system_users=system_users)
