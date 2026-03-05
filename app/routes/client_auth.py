@@ -487,11 +487,11 @@ def register_client():
         from app.utils.formatters import now_peru
         import secrets
 
-        # Buscar por username O por dni para evitar duplicados
-        platform_user = User.query.filter(
-            (User.username == 'Página Web') | (User.dni == '99999997') |
-            (User.username == 'Plataforma') | (User.dni == '11111111')
-        ).first()
+        # Buscar el usuario sistema Web por email canónico (único identificador estable)
+        platform_user = User.query.filter_by(email='web@qoricash.pe').first()
+        if not platform_user:
+            # Fallback por DNI canónico
+            platform_user = User.query.filter_by(dni='99999997').first()
 
         if not platform_user:
             logger.info("🤖 Usuario 'Web' no existe, creándolo...")

@@ -18,8 +18,13 @@ def manage():
     """
     Página de gestión de usuarios (solo Master)
     """
-    users = UserService.get_all_users()
-    return render_template('users/manage.html', user=current_user, users=users)
+    from app.models.user import User
+    system_roles = ['Web', 'App']
+    all_users = UserService.get_all_users()
+    human_users = [u for u in all_users if u.role not in system_roles]
+    system_users = [u for u in all_users if u.role in system_roles]
+    return render_template('users/manage.html', user=current_user,
+                           users=human_users, system_users=system_users)
 
 
 @users_bp.route('/api/list')

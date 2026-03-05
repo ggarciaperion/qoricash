@@ -458,6 +458,79 @@ def check_template_version():
         'message': 'Si rendered_html muestra "App", el template está correcto'
     })
 
+# TEMPORAL: Limpiar usuarios Web duplicados — ejecutar UNA VEZ
+@app.route('/admin/cleanup-web-users')
+@limiter.exempt
+def cleanup_web_users():
+    """
+    ENDPOINT TEMPORAL: Consolida los usuarios con rol Web/Plataforma en uno solo.
+
+    Mantiene el usuario canónico (email=web@qoricash.pe / dni=99999997).
+    Reasigna clientes de los duplicados al canónico y los desactiva.
+
+    ELIMINAR después de ejecutar.
+    """
+    from app.extensions import db
+    from app.models.user import User
+    from app.models.client import Client
+    from sqlalchemy import text
+
+    try:
+        # 1. Encontrar el usuario canónico Web
+        canonical = User.query.filter(
+            (User.email == 'web@qoricash.pe') | (User.dni == '99999997')
+        ).order_by(User.id.asc()).first()
+
+        if not canonical:
+            return jsonify({'success': False, 'error': 'No se encontró el usuario Web canónico'}), 404
+
+        # 2. Encontrar todos los otros usuarios con rol Web o Plataforma (excluyendo el canónico)
+        duplicates = User.query.filter(
+            User.role.in_(['Web', 'Plataforma']),
+            User.id != canonical.id
+        ).all()
+
+        reassigned_clients = []
+        deactivated_users = []
+
+        for dup in duplicates:
+            # Reasignar clientes del duplicado al canónico
+            clients = Client.query.filter_by(created_by=dup.id).all()
+            for c in clients:
+                c.created_by = canonical.id
+                reassigned_clients.append({'client_dni': c.dni, 'from_user_id': dup.id})
+
+            # Reasignar operaciones
+            db.session.execute(
+                text("UPDATE operations SET user_id = :cid WHERE user_id = :did"),
+                {'cid': canonical.id, 'did': dup.id}
+            )
+
+            # Desactivar el duplicado
+            dup.status = 'Inactivo'
+            dup.role = 'Web'
+            deactivated_users.append({'id': dup.id, 'username': dup.username, 'dni': dup.dni})
+
+        # Asegurarse de que el canónico esté activo y tenga rol Web
+        canonical.role = 'Web'
+        canonical.status = 'Activo'
+
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'canonical_user': {'id': canonical.id, 'username': canonical.username, 'email': canonical.email},
+            'duplicates_deactivated': deactivated_users,
+            'clients_reassigned': len(reassigned_clients),
+            'message': f'✓ {len(deactivated_users)} duplicados desactivados, {len(reassigned_clients)} clientes reasignados al usuario canónico'
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        import traceback
+        return jsonify({'success': False, 'error': str(e), 'traceback': traceback.format_exc()}), 500
+
+
 def start_operation_expiry_scheduler():
     """
     Tarea periódica para expirar operaciones automáticamente
