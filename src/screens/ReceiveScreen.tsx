@@ -250,8 +250,8 @@ export const ReceiveScreen: React.FC<ReceiveScreenProps> = ({ navigation, route 
               <Text style={styles.summaryLabel}>Enviaste</Text>
               <Text style={styles.summaryAmount}>
                 {operation.operation_type === 'Compra'
-                  ? `$${operation.amount_usd.toFixed(2)}`
-                  : `S/ ${operation.amount_pen.toFixed(2)}`
+                  ? formatCurrency(operation.amount_usd, 'USD')
+                  : formatCurrency(operation.amount_pen, 'PEN')
                 }
               </Text>
             </View>
@@ -263,8 +263,8 @@ export const ReceiveScreen: React.FC<ReceiveScreenProps> = ({ navigation, route 
               <Text style={styles.summaryLabel}>Recibirás</Text>
               <Text style={styles.summaryAmount}>
                 {operation.operation_type === 'Compra'
-                  ? `S/ ${operation.amount_pen.toFixed(2)}`
-                  : `$${operation.amount_usd.toFixed(2)}`
+                  ? formatCurrency(operation.amount_pen, 'PEN')
+                  : formatCurrency(operation.amount_usd, 'USD')
                 }
               </Text>
             </View>
@@ -302,7 +302,7 @@ export const ReceiveScreen: React.FC<ReceiveScreenProps> = ({ navigation, route 
       <Card style={styles.timeInfoCard}>
         <Card.Content>
           <View style={styles.timeInfoRow}>
-            <IconButton icon="clock-check-outline" size={24} iconColor="#82C16C" />
+            <IconButton icon="clock-check-outline" size={24} iconColor="#22c55e" />
             <View style={styles.timeInfoTextContainer}>
               <Text style={styles.timeInfoTitle}>Tiempo promedio de procesamiento</Text>
               <Text style={styles.timeInfoValue}>15 - 30 minutos</Text>
@@ -353,7 +353,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   timelineCircleCompleted: {
-    backgroundColor: '#82C16C',
+    backgroundColor: '#22c55e',
   },
   timelineCircleActive: {
     backgroundColor: '#2196F3',
@@ -365,7 +365,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 8,
   },
   timelineLineCompleted: {
-    backgroundColor: '#82C16C',
+    backgroundColor: '#22c55e',
   },
   timelineText: {
     fontSize: 12,
@@ -504,7 +504,7 @@ const styles = StyleSheet.create({
   timeInfoValue: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#82C16C',
+    color: '#22c55e',
   },
 
   // Accept Button Styles

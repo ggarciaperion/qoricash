@@ -18,7 +18,7 @@ import axios from 'axios';
 import { API_CONFIG } from '../constants/config';
 import socketService from '../services/socketService';
 import { Colors } from '../constants/colors';
-import { formatDateTime } from '../utils/formatters';
+import { formatCurrency, formatDateTime } from '../utils/formatters';
 import { useNavigation, CommonActions } from '@react-navigation/native';
 import { GlobalStyles } from '../styles/globalStyles';
 import { CustomModal } from '../components/CustomModal';
@@ -325,13 +325,13 @@ export const HistoryScreen: React.FC<{ route?: any }> = ({ route }) => {
         };
       case 'Completada':
         return {
-          color: '#82C16C',
+          color: '#22c55e',
           icon: 'check-circle',
           text: 'Completada',
         };
       case 'Cancelado':
         return {
-          color: '#82C16C',
+          color: '#22c55e',
           icon: 'close-circle',
           text: 'Cancelada',
         };
@@ -365,8 +365,8 @@ export const HistoryScreen: React.FC<{ route?: any }> = ({ route }) => {
               </Text>
               <Text variant="titleMedium" style={styles.operationAmount}>
                 {operation.operation_type === 'Compra'
-                  ? `$${operation.amount_usd.toFixed(2)}`
-                  : `S/ ${operation.amount_pen.toFixed(2)}`}
+                  ? formatCurrency(operation.amount_usd, 'USD')
+                  : formatCurrency(operation.amount_pen, 'PEN')}
               </Text>
               <Text variant="bodySmall" style={styles.operationType}>
                 {operation.operation_type} • T.C. {operation.exchange_rate.toFixed(3)}

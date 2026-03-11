@@ -10,6 +10,7 @@ import { Text, IconButton } from 'react-native-paper';
 import axios from 'axios';
 import { Colors } from '../constants/colors';
 import { API_CONFIG } from '../constants/config';
+import { formatInputAmount } from '../utils/formatters';
 import socketService from '../services/socketService';
 
 interface CalculatorProps {
@@ -183,8 +184,8 @@ export const Calculator: React.FC<CalculatorProps> = ({
           <View style={styles.inputBox}>
             <Text style={styles.inputLabel}>¿Cuánto envías?</Text>
             <RNTextInput
-              value={amountUSD}
-              onChangeText={setAmountUSD}
+              value={formatInputAmount(amountUSD)}
+              onChangeText={(text) => setAmountUSD(text.replace(/,/g, ''))}
               keyboardType="decimal-pad"
               placeholder="0"
               placeholderTextColor={Colors.textMuted}
@@ -210,7 +211,7 @@ export const Calculator: React.FC<CalculatorProps> = ({
           <View style={styles.inputBox}>
             <Text style={styles.inputLabel}>Entonces recibes</Text>
             <Text style={styles.outputAmount}>
-              {amountPEN || '0.00'}
+              {formatInputAmount(amountPEN) || '0.00'}
             </Text>
           </View>
           <View style={styles.currencyBox}>
@@ -224,7 +225,7 @@ export const Calculator: React.FC<CalculatorProps> = ({
         {amountPEN && (
           <View style={styles.infoRow}>
             <Text style={styles.infoText}>
-              Ahorro estimado: S/ {calculateSavings()}
+              Ahorro estimado: S/ {formatInputAmount(String(calculateSavings()))}
             </Text>
             <Text style={styles.infoText}>
               Tipo de cambio: {currentRate.toFixed(3)}
@@ -374,7 +375,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   continueButton: {
-    backgroundColor: '#82C16C',
+    backgroundColor: Colors.primary,
     borderRadius: 12,
     paddingVertical: 16,
     marginTop: 20,
@@ -382,7 +383,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     elevation: 4,
-    shadowColor: '#82C16C',
+    shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,

@@ -41,7 +41,7 @@ export const OperationCard: React.FC<OperationCardProps> = ({ operation, onPress
               </Text>
 
               <Text variant="titleMedium" style={styles.compactAmount}>
-                ${operation.amount_usd.toFixed(2)}
+                {formatCurrency(operation.amount_usd, 'USD')}
               </Text>
 
               <Text variant="bodySmall" style={styles.compactRate}>
@@ -61,7 +61,7 @@ export const OperationCard: React.FC<OperationCardProps> = ({ operation, onPress
             {/* Fecha de completado */}
             {operation.completed_at && (
               <View style={styles.compactFooter}>
-                <Icon source="check-circle" size={14} color="#82C16C" />
+                <Icon source="check-circle" size={14} color="#22c55e" />
                 <Text variant="bodySmall" style={styles.completedText}>
                   Completada: {formatDateTime(operation.completed_at)}
                 </Text>
@@ -159,7 +159,7 @@ export const OperationCard: React.FC<OperationCardProps> = ({ operation, onPress
           {/* Footer */}
           {operation.completed_at && (
             <View style={styles.footer}>
-              <Icon source="check-circle" size={14} color="#82C16C" />
+              <Icon source="check-circle" size={14} color="#22c55e" />
               <Text variant="bodySmall" style={styles.completedText}>
                 Completada: {formatDateTime(operation.completed_at)}
               </Text>
@@ -235,7 +235,7 @@ const styles = StyleSheet.create({
   },
   amountPen: {
     fontWeight: 'bold',
-    color: '#82C16C',
+    color: '#22c55e',
   },
   exchangeRate: {
     flexDirection: 'row',
@@ -257,7 +257,7 @@ const styles = StyleSheet.create({
   },
   completedText: {
     marginLeft: 4,
-    color: '#82C16C',
+    color: '#22c55e',
   },
   processingText: {
     marginLeft: 4,

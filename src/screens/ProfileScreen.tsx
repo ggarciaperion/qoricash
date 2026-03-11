@@ -9,6 +9,7 @@ import {
   Linking,
   KeyboardAvoidingView,
   Platform,
+  SafeAreaView,
 } from 'react-native';
 import {
   List,
@@ -23,7 +24,9 @@ import {
   Dialog,
   RadioButton,
   HelperText,
+  Icon,
 } from 'react-native-paper';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../contexts/AuthContext';
 import { Colors } from '../constants/colors';
 import { GlobalStyles } from '../styles/globalStyles';
@@ -354,205 +357,263 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
 
   return (
     <>
-      <ScrollView style={styles.container}>
-      {/* Profile Header */}
-      <Card style={styles.headerCard}>
-        <Card.Content style={styles.headerContent}>
-          <Avatar.Text
-            size={80}
-            label={client?.full_name?.substring(0, 2).toUpperCase() || 'U'}
-            style={styles.avatar}
-          />
-          <Text variant="headlineSmall" style={styles.name}>
-            {client?.full_name}
-          </Text>
-          <Text variant="bodyMedium" style={styles.email}>
-            {client?.email}
-          </Text>
-          <Text variant="bodyMedium" style={styles.dni}>
-            {client?.document_type}: {client?.dni}
-          </Text>
-        </Card.Content>
-      </Card>
+      <SafeAreaView style={styles.safeArea}>
+        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
 
-      {/* Personal Information */}
-      <Card style={styles.card}>
-        <Card.Content>
-          <View style={styles.sectionHeader}>
-            <Text variant="titleMedium" style={styles.sectionTitle}>
-              Información Personal
-            </Text>
-            <IconButton
-              icon="pencil"
-              size={20}
-              onPress={() => {
-                setPhone(client?.phone || '');
-                setEmail(client?.email || '');
-                setEditInfoVisible(true);
-              }}
-            />
-          </View>
-          <List.Item
-            title="Teléfono"
-            description={client?.phone || 'No registrado'}
-            left={(props) => <List.Icon {...props} icon="phone" />}
-          />
-          <Divider />
-          <List.Item
-            title="Email"
-            description={client?.email || 'No registrado'}
-            left={(props) => <List.Icon {...props} icon="email" />}
-          />
-          <Divider />
-          <List.Item
-            title="Estado"
-            description={client?.status}
-            left={(props) => <List.Icon {...props} icon="information" />}
-            right={(props) => (
-              <Text
-                style={[
-                  styles.statusText,
-                  { color: client?.status === 'Activo' ? '#82C16C' : '#F44336' },
-                ]}
-              >
-                {client?.status}
-              </Text>
-            )}
-          />
-        </Card.Content>
-      </Card>
-
-      {/* Bank Accounts */}
-      <Card style={styles.card}>
-        <Card.Content>
-          <Text variant="titleMedium" style={styles.sectionTitle}>
-            Cuentas Bancarias
-          </Text>
-          {client?.bank_accounts && client.bank_accounts.length > 0 ? (
-            client.bank_accounts.map((account, index) => (
-              <View key={index}>
-                {index > 0 && <Divider />}
-                <List.Item
-                  title={account.bank_name}
-                  description={`${account.account_type} - ${account.currency}\n****${account.account_number.slice(-4)}`}
-                  left={(props) => <List.Icon {...props} icon="bank" />}
-                  right={(props) => (
-                    <IconButton
-                      icon="delete"
-                      iconColor="#F44336"
-                      size={24}
-                      onPress={() => handleDeleteBankAccount(index)}
-                    />
-                  )}
-                />
-              </View>
-            ))
-          ) : (
-            <Text style={styles.emptyText}>No tienes cuentas bancarias registradas</Text>
-          )}
-          <Button
-            mode="outlined"
-            onPress={handleOpenAddAccountDialog}
-            style={styles.addButton}
-            icon="plus"
-            textColor={Colors.success}
+          {/* ── Dark gradient header ── */}
+          <LinearGradient
+            colors={['#0D1B2A', '#111F2C', '#0f2236']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.header}
           >
-            Gestionar Cuentas
-          </Button>
-        </Card.Content>
-      </Card>
+            <View style={styles.headerGlow} />
 
-      {/* Settings */}
-      <Card style={styles.card}>
-        <Card.Content>
-          <Text variant="titleMedium" style={styles.sectionTitle}>
-            Configuración
-          </Text>
-          <List.Item
-            title="Cambiar Contraseña"
-            description="Actualiza tu contraseña de acceso"
-            left={(props) => <List.Icon {...props} icon="lock" />}
-            right={(props) => <List.Icon {...props} icon="chevron-right" />}
-            onPress={() => setChangePasswordVisible(true)}
-          />
-          <Divider />
-          <List.Item
-            title="Ayuda y Soporte"
-            description="Contáctanos para resolver tus dudas"
-            left={(props) => <List.Icon {...props} icon="help-circle" />}
-            right={(props) => <List.Icon {...props} icon="chevron-right" />}
-            onPress={() => setHelpVisible(true)}
-          />
-        </Card.Content>
-      </Card>
+            {/* Avatar initials */}
+            <View style={styles.avatarCircle}>
+              <Text style={styles.avatarInitials}>
+                {client?.nombres
+                  ? client.nombres.charAt(0).toUpperCase()
+                  : client?.full_name?.charAt(0).toUpperCase() || 'U'}
+              </Text>
+            </View>
 
-      {/* App Information */}
-      <Card style={styles.card}>
-        <Card.Content>
-          <Text variant="titleMedium" style={styles.sectionTitle}>
-            Acerca de
-          </Text>
-          <List.Item
-            title="Versión de la App"
-            description="1.0.0"
-            left={(props) => <List.Icon {...props} icon="application" />}
-          />
-          <Divider />
-          <List.Item
-            title="Logs del Sistema"
-            description="Ver registros de depuración"
-            left={(props) => <List.Icon {...props} icon="text-box-search" />}
-            right={(props) => <List.Icon {...props} icon="chevron-right" />}
-            onPress={() => navigation.navigate('Logs')}
-          />
-          <Divider />
-          <List.Item
-            title="Términos y Condiciones"
-            left={(props) => <List.Icon {...props} icon="file-document" />}
-            right={(props) => <List.Icon {...props} icon="chevron-right" />}
-            onPress={() => {
-              const API_CONFIG = require('../constants/config').API_CONFIG;
-              const url = `${API_CONFIG.BASE_URL}/legal/terms`;
-              Linking.openURL(url).catch((err) => {
-                Alert.alert('Error', 'No se pudo abrir el navegador');
-                console.error('Error al abrir términos:', err);
-              });
-            }}
-          />
-          <Divider />
-          <List.Item
-            title="Política de Privacidad"
-            left={(props) => <List.Icon {...props} icon="shield-check" />}
-            right={(props) => <List.Icon {...props} icon="chevron-right" />}
-            onPress={() => {
-              const API_CONFIG = require('../constants/config').API_CONFIG;
-              const url = `${API_CONFIG.BASE_URL}/legal/privacy`;
-              Linking.openURL(url).catch((err) => {
-                Alert.alert('Error', 'No se pudo abrir el navegador');
-                console.error('Error al abrir política de privacidad:', err);
-              });
-            }}
-          />
-        </Card.Content>
-      </Card>
+            <Text style={styles.headerName}>{client?.full_name}</Text>
+            <Text style={styles.headerEmail}>{client?.email}</Text>
 
-      {/* Logout Button */}
-      <Button
-        mode="contained"
-        onPress={handleLogout}
-        style={styles.logoutButton}
-        buttonColor="#F44336"
-        icon="logout"
-      >
-        Cerrar Sesión
-      </Button>
+            {/* Status badge */}
+            <View style={styles.statusBadge}>
+              <View style={styles.statusDot} />
+              <Text style={styles.statusBadgeText}>{client?.status}</Text>
+            </View>
 
-      <View style={styles.footer}>
-        <Text variant="bodySmall" style={styles.version}>
-          QoriCash © 2024
-        </Text>
-      </View>
-      </ScrollView>
+            {/* Info strip */}
+            <View style={styles.infoStrip}>
+              <View style={styles.infoStripItem}>
+                <Text style={styles.infoStripLabel}>Documento</Text>
+                <Text style={styles.infoStripValue}>{client?.dni}</Text>
+              </View>
+              <View style={styles.infoStripDivider} />
+              <View style={styles.infoStripItem}>
+                <Text style={styles.infoStripLabel}>Tipo</Text>
+                <Text style={styles.infoStripValue}>
+                  {(client as any)?.client_type === 'juridico' ? 'Empresa' : 'Natural'}
+                </Text>
+              </View>
+              <View style={styles.infoStripDivider} />
+              <View style={styles.infoStripItem}>
+                <Text style={styles.infoStripLabel}>Teléfono</Text>
+                <Text style={styles.infoStripValue}>{client?.phone || '—'}</Text>
+              </View>
+            </View>
+          </LinearGradient>
+
+          <View style={styles.content}>
+
+            {/* ── Personal Info ── */}
+            <View style={styles.sectionCard}>
+              <View style={styles.sectionCardHeader}>
+                <View style={styles.sectionIconBg}>
+                  <Icon source="account-outline" size={16} color={Colors.primary} />
+                </View>
+                <Text style={styles.sectionCardTitle}>Información Personal</Text>
+                <TouchableOpacity
+                  style={styles.editBtn}
+                  onPress={() => {
+                    setPhone(client?.phone || '');
+                    setEmail(client?.email || '');
+                    setEditInfoVisible(true);
+                  }}
+                >
+                  <Icon source="pencil-outline" size={16} color={Colors.primary} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.infoRow}>
+                <View style={styles.infoRowIconBg}>
+                  <Icon source="phone-outline" size={14} color="#64748B" />
+                </View>
+                <View style={styles.infoRowTexts}>
+                  <Text style={styles.infoRowLabel}>Teléfono</Text>
+                  <Text style={styles.infoRowValue}>{client?.phone || 'No registrado'}</Text>
+                </View>
+              </View>
+
+              <View style={styles.infoRowDivider} />
+
+              <View style={styles.infoRow}>
+                <View style={styles.infoRowIconBg}>
+                  <Icon source="email-outline" size={14} color="#64748B" />
+                </View>
+                <View style={styles.infoRowTexts}>
+                  <Text style={styles.infoRowLabel}>Email</Text>
+                  <Text style={styles.infoRowValue}>{client?.email || 'No registrado'}</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* ── Bank Accounts ── */}
+            <View style={styles.sectionCard}>
+              <View style={styles.sectionCardHeader}>
+                <View style={styles.sectionIconBg}>
+                  <Icon source="bank-outline" size={16} color={Colors.primary} />
+                </View>
+                <Text style={styles.sectionCardTitle}>Cuentas Bancarias</Text>
+              </View>
+
+              {client?.bank_accounts && client.bank_accounts.length > 0 ? (
+                client.bank_accounts.map((account, index) => (
+                  <View key={index}>
+                    {index > 0 && <View style={styles.infoRowDivider} />}
+                    <View style={styles.bankRow}>
+                      <View style={styles.bankRowIconBg}>
+                        <Icon source="bank" size={16} color={Colors.primary} />
+                      </View>
+                      <View style={styles.bankRowTexts}>
+                        <Text style={styles.bankRowName}>{account.bank_name}</Text>
+                        <Text style={styles.bankRowDetail}>
+                          {account.account_type} · {account.currency} · ****{account.account_number.slice(-4)}
+                        </Text>
+                      </View>
+                      <TouchableOpacity
+                        style={styles.bankDeleteBtn}
+                        onPress={() => handleDeleteBankAccount(index)}
+                      >
+                        <Icon source="trash-can-outline" size={18} color="#ef4444" />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))
+              ) : (
+                <Text style={styles.emptyText}>Sin cuentas registradas</Text>
+              )}
+
+              <TouchableOpacity style={styles.addAccountBtn} onPress={handleOpenAddAccountDialog}>
+                <Icon source="plus-circle-outline" size={18} color={Colors.primary} />
+                <Text style={styles.addAccountBtnText}>Gestionar Cuentas</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* ── Settings ── */}
+            <View style={styles.sectionCard}>
+              <View style={styles.sectionCardHeader}>
+                <View style={styles.sectionIconBg}>
+                  <Icon source="cog-outline" size={16} color={Colors.primary} />
+                </View>
+                <Text style={styles.sectionCardTitle}>Configuración</Text>
+              </View>
+
+              <TouchableOpacity style={styles.settingsRow} onPress={() => setChangePasswordVisible(true)}>
+                <View style={styles.settingsRowIconBg}>
+                  <Icon source="lock-outline" size={14} color="#64748B" />
+                </View>
+                <View style={styles.settingsRowTexts}>
+                  <Text style={styles.settingsRowTitle}>Cambiar Contraseña</Text>
+                  <Text style={styles.settingsRowSubtitle}>Actualiza tu contraseña de acceso</Text>
+                </View>
+                <Icon source="chevron-right" size={20} color="#94A3B8" />
+              </TouchableOpacity>
+
+              <View style={styles.infoRowDivider} />
+
+              <TouchableOpacity style={styles.settingsRow} onPress={() => setHelpVisible(true)}>
+                <View style={styles.settingsRowIconBg}>
+                  <Icon source="help-circle-outline" size={14} color="#64748B" />
+                </View>
+                <View style={styles.settingsRowTexts}>
+                  <Text style={styles.settingsRowTitle}>Ayuda y Soporte</Text>
+                  <Text style={styles.settingsRowSubtitle}>Contáctanos para resolver tus dudas</Text>
+                </View>
+                <Icon source="chevron-right" size={20} color="#94A3B8" />
+              </TouchableOpacity>
+            </View>
+
+            {/* ── About ── */}
+            <View style={styles.sectionCard}>
+              <View style={styles.sectionCardHeader}>
+                <View style={styles.sectionIconBg}>
+                  <Icon source="information-outline" size={16} color={Colors.primary} />
+                </View>
+                <Text style={styles.sectionCardTitle}>Acerca de</Text>
+              </View>
+
+              <View style={styles.settingsRow}>
+                <View style={styles.settingsRowIconBg}>
+                  <Icon source="application" size={14} color="#64748B" />
+                </View>
+                <View style={styles.settingsRowTexts}>
+                  <Text style={styles.settingsRowTitle}>Versión de la App</Text>
+                  <Text style={styles.settingsRowSubtitle}>1.0.0</Text>
+                </View>
+              </View>
+
+              <View style={styles.infoRowDivider} />
+
+              <TouchableOpacity style={styles.settingsRow} onPress={() => navigation.navigate('Logs')}>
+                <View style={styles.settingsRowIconBg}>
+                  <Icon source="text-box-search-outline" size={14} color="#64748B" />
+                </View>
+                <View style={styles.settingsRowTexts}>
+                  <Text style={styles.settingsRowTitle}>Logs del Sistema</Text>
+                  <Text style={styles.settingsRowSubtitle}>Ver registros de depuración</Text>
+                </View>
+                <Icon source="chevron-right" size={20} color="#94A3B8" />
+              </TouchableOpacity>
+
+              <View style={styles.infoRowDivider} />
+
+              <TouchableOpacity
+                style={styles.settingsRow}
+                onPress={() => {
+                  const API_CONFIG = require('../constants/config').API_CONFIG;
+                  Linking.openURL(`${API_CONFIG.BASE_URL}/legal/terms`).catch(() =>
+                    Alert.alert('Error', 'No se pudo abrir el navegador')
+                  );
+                }}
+              >
+                <View style={styles.settingsRowIconBg}>
+                  <Icon source="file-document-outline" size={14} color="#64748B" />
+                </View>
+                <View style={styles.settingsRowTexts}>
+                  <Text style={styles.settingsRowTitle}>Términos y Condiciones</Text>
+                </View>
+                <Icon source="chevron-right" size={20} color="#94A3B8" />
+              </TouchableOpacity>
+
+              <View style={styles.infoRowDivider} />
+
+              <TouchableOpacity
+                style={styles.settingsRow}
+                onPress={() => {
+                  const API_CONFIG = require('../constants/config').API_CONFIG;
+                  Linking.openURL(`${API_CONFIG.BASE_URL}/legal/privacy`).catch(() =>
+                    Alert.alert('Error', 'No se pudo abrir el navegador')
+                  );
+                }}
+              >
+                <View style={styles.settingsRowIconBg}>
+                  <Icon source="shield-check-outline" size={14} color="#64748B" />
+                </View>
+                <View style={styles.settingsRowTexts}>
+                  <Text style={styles.settingsRowTitle}>Política de Privacidad</Text>
+                </View>
+                <Icon source="chevron-right" size={20} color="#94A3B8" />
+              </TouchableOpacity>
+            </View>
+
+            {/* ── Logout ── */}
+            <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
+              <Icon source="logout" size={20} color="#FFFFFF" />
+              <Text style={styles.logoutBtnText}>Cerrar Sesión</Text>
+            </TouchableOpacity>
+
+            <View style={styles.footer}>
+              <Text style={styles.footerText}>QoriCash © 2025</Text>
+            </View>
+
+          </View>
+        </ScrollView>
+      </SafeAreaView>
 
       {/* Modal: Cambiar Contraseña */}
       <Modal
@@ -860,7 +921,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
                   placeholder="Ej: Banco de la Nación, Banco Ripley, etc."
                   style={styles.inputBank}
                   outlineColor="#E0E0E0"
-                  activeOutlineColor="#82C16C"
+                  activeOutlineColor="#22c55e"
                 />
               )}
 
@@ -960,7 +1021,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
                   keyboardType="numeric"
                   style={styles.inputBank}
                   outlineColor="#E0E0E0"
-                  activeOutlineColor="#82C16C"
+                  activeOutlineColor="#22c55e"
                 />
               )}
 
@@ -976,7 +1037,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
                     maxLength={20}
                     style={styles.inputBank}
                     outlineColor="#E0E0E0"
-                    activeOutlineColor="#82C16C"
+                    activeOutlineColor="#22c55e"
                   />
                   <HelperText type="info" visible={true} style={styles.helperTextBank}>
                     Ingrese el CCI completo de 20 dígitos
@@ -1040,7 +1101,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
                   value={bank}
                   style={styles.bankRadioItem}
                   labelStyle={styles.bankRadioLabel}
-                  color="#82C16C"
+                  color="#22c55e"
                 />
               ))}
             </RadioButton.Group>
@@ -1061,72 +1122,332 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#0D1B2A',
   },
-  headerCard: {
-    margin: 16,
-    elevation: 4,
+  scrollView: {
+    flex: 1,
+    backgroundColor: Colors.background,
   },
-  headerContent: {
+
+  // ── Header ──
+  header: {
+    paddingTop: 24,
+    paddingBottom: 0,
     alignItems: 'center',
-    paddingVertical: 24,
+    overflow: 'hidden',
   },
-  avatar: {
-    backgroundColor: Colors.success,
-    marginBottom: 16,
+  headerGlow: {
+    position: 'absolute',
+    top: -60,
+    right: -60,
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: Colors.primary,
+    opacity: 0.05,
   },
-  name: {
-    fontWeight: 'bold',
+  avatarCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: `${Colors.primary}20`,
+    borderWidth: 2,
+    borderColor: `${Colors.primary}60`,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  avatarInitials: {
+    fontSize: 32,
+    fontWeight: '800',
+    color: Colors.primary,
+  },
+  headerName: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#F1F5F9',
+    letterSpacing: -0.3,
+    textAlign: 'center',
     marginBottom: 4,
-    color: Colors.textDark,
+    paddingHorizontal: 20,
   },
-  email: {
-    color: '#757575',
-    marginBottom: 4,
+  headerEmail: {
+    fontSize: 13,
+    color: '#6B7E94',
+    marginBottom: 14,
   },
-  dni: {
-    color: '#757575',
-  },
-  card: {
-    marginHorizontal: 16,
-    marginVertical: 8,
-    elevation: 2,
-  },
-  sectionHeader: {
+  statusBadge: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    gap: 5,
+    backgroundColor: `${Colors.primary}15`,
+    borderWidth: 1,
+    borderColor: `${Colors.primary}40`,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 20,
+    marginBottom: 20,
   },
-  sectionTitle: {
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Colors.primary,
+  },
+  statusBadgeText: {
+    fontSize: 12,
+    color: Colors.primary,
+    fontWeight: '700',
+  },
+  infoStrip: {
+    flexDirection: 'row',
+    width: '100%',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.07)',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+  },
+  infoStripItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  infoStripLabel: {
+    fontSize: 10,
+    color: '#6B7E94',
     fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    marginBottom: 5,
+  },
+  infoStripValue: {
+    fontSize: 13,
+    color: '#B0BBC9',
+    fontWeight: '600',
+  },
+  infoStripDivider: {
+    width: 1,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    marginVertical: 2,
+  },
+
+  // ── Content ──
+  content: {
+    padding: 16,
+    paddingTop: 20,
+  },
+
+  // Section cards
+  sectionCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  sectionCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 16,
+    paddingBottom: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.divider,
+  },
+  sectionIconBg: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: `${Colors.primary}18`,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sectionCardTitle: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '700',
     color: Colors.textDark,
   },
-  statusText: {
+  editBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: `${Colors.primary}12`,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  // Info rows
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 4,
+  },
+  infoRowIconBg: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: '#F1F5F9',
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexShrink: 0,
+  },
+  infoRowTexts: {
+    flex: 1,
+  },
+  infoRowLabel: {
+    fontSize: 11,
+    color: '#94A3B8',
     fontWeight: '600',
-    alignSelf: 'center',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+    marginBottom: 2,
+  },
+  infoRowValue: {
+    fontSize: 14,
+    color: Colors.textDark,
+    fontWeight: '600',
+  },
+  infoRowDivider: {
+    height: 1,
+    backgroundColor: Colors.divider,
+    marginVertical: 10,
+  },
+
+  // Bank rows
+  bankRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 4,
+  },
+  bankRowIconBg: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: `${Colors.primary}12`,
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexShrink: 0,
+  },
+  bankRowTexts: {
+    flex: 1,
+  },
+  bankRowName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Colors.textDark,
+    marginBottom: 2,
+  },
+  bankRowDetail: {
+    fontSize: 12,
+    color: '#94A3B8',
+  },
+  bankDeleteBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#FEF2F2',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   emptyText: {
     textAlign: 'center',
-    color: '#999',
+    color: '#94A3B8',
+    fontSize: 13,
+    paddingVertical: 8,
+  },
+  addAccountBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 12,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: `${Colors.primary}50`,
+    backgroundColor: `${Colors.primary}08`,
+  },
+  addAccountBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: Colors.primary,
+  },
+
+  // Settings rows
+  settingsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 4,
+  },
+  settingsRowIconBg: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: '#F1F5F9',
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexShrink: 0,
+  },
+  settingsRowTexts: {
+    flex: 1,
+  },
+  settingsRowTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.textDark,
+    marginBottom: 1,
+  },
+  settingsRowSubtitle: {
+    fontSize: 12,
+    color: '#94A3B8',
+  },
+
+  // Logout
+  logoutBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#ef4444',
+    borderRadius: 16,
     paddingVertical: 16,
+    marginTop: 4,
+    marginBottom: 12,
+    shadowColor: '#ef4444',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  addButton: {
-    marginTop: 8,
+  logoutBtnText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 0.3,
   },
-  logoutButton: {
-    marginHorizontal: 16,
-    marginVertical: 24,
-  },
+
+  // Footer
   footer: {
     alignItems: 'center',
-    paddingVertical: 16,
+    paddingVertical: 8,
     paddingBottom: 32,
   },
-  version: {
-    color: '#9E9E9E',
+  footerText: {
+    color: '#94A3B8',
+    fontSize: 12,
   },
   // Modal styles
   modalOverlay: {
@@ -1331,7 +1652,7 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 12,
   },
   currencySelectorButtonActive: {
-    backgroundColor: '#82C16C',
+    backgroundColor: Colors.primary,
   },
   currencySelectorButtonText: {
     fontSize: 14,
@@ -1406,7 +1727,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 8,
-    backgroundColor: '#82C16C',
+    backgroundColor: Colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1416,7 +1737,7 @@ const styles = StyleSheet.create({
   dialogAddButtonTextBank: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: '#0D1B2A',
   },
   dialogAddButtonTextBankDisabled: {
     color: '#999999',

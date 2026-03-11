@@ -45,7 +45,7 @@ export const STORAGE_KEYS = {
 export const STATUS_COLORS = {
   Pendiente: '#FFC107',
   'En proceso': '#2196F3',
-  Completada: '#82C16C',
+  Completada: '#22c55e',
   Cancelado: '#F44336',
 };
 

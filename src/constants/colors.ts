@@ -1,17 +1,17 @@
 // Paleta de Colores QoriCash - Sincronizada con el sistema web
 export const Colors = {
   // Colores Principales
-  primary: '#00DEA8',
-  primaryDark: '#00c997',
-  primaryLight: '#00FFAA',
+  primary: '#22c55e',
+  primaryDark: '#16a34a',
+  primaryLight: '#4ade80',
 
   // Colores Secundarios
   secondary: '#0D1B2A',
   secondaryLight: '#111F2C',
 
   // Colores de Estado
-  success: '#82C16C',
-  successDark: '#6FA85B',
+  success: '#22c55e',
+  successDark: '#16a34a',
   danger: '#ef4444',
   dangerDark: '#dc2626',
   warning: '#f59e0b',
@@ -47,11 +47,11 @@ export const Colors = {
 
 // Gradientes
 export const Gradients = {
-  primary: ['#00DEA8', '#00c997'],
-  primaryLight: ['#00FFAA', '#00DEA8'],
+  primary: ['#22c55e', '#16a34a'],
+  primaryLight: ['#4ade80', '#22c55e'],
   secondary: ['#0D1B2A', '#111F2C'],
   background: ['#f8fafc', '#e2e8f0'],
-  success: ['#82C16C', '#6FA85B'],
+  success: ['#22c55e', '#16a34a'],
   danger: ['#ef4444', '#dc2626'],
   warning: ['#f59e0b', '#d97706'],
 };

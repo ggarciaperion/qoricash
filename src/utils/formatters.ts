@@ -1,9 +1,22 @@
 /**
- * Format currency with symbol
+ * Format currency with symbol and thousands separator
  */
 export const formatCurrency = (amount: number, currency: 'PEN' | 'USD' = 'PEN'): string => {
   const symbol = currency === 'PEN' ? 'S/' : '$';
-  return `${symbol} ${amount.toFixed(2)}`;
+  const parts = amount.toFixed(2).split('.');
+  const intPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return `${symbol} ${intPart}.${parts[1]}`;
+};
+
+/**
+ * Format a raw numeric string (as typed by user) with thousands separator.
+ * Preserves decimal part. Used for live input fields.
+ */
+export const formatInputAmount = (raw: string): string => {
+  if (!raw) return '';
+  const parts = raw.split('.');
+  const intPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return parts.length > 1 ? `${intPart}.${parts[1]}` : intPart;
 };
 
 /**

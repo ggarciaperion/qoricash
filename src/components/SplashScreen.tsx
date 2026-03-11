@@ -1,7 +1,14 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Image, Animated, StyleSheet, Dimensions } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Colors, Gradients } from '../constants/colors';
+import {
+  View,
+  Image,
+  Animated,
+  StyleSheet,
+  Dimensions,
+  Text,
+} from 'react-native';
+import { Colors } from '../constants/colors';
+import { ForexBackground } from './ForexBackground';
 
 const { width, height } = Dimensions.get('window');
 
@@ -9,153 +16,198 @@ interface SplashScreenProps {
   onFinish: () => void;
 }
 
+const PRICE_STRIP = [
+  { pair: 'USD/PEN', price: '3.725', up: true  },
+  { pair: 'EUR/USD', price: '1.082', up: false },
+  { pair: 'GBP/PEN', price: '4.713', up: true  },
+];
+
 export const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const scaleAnim = useRef(new Animated.Value(0.3)).current;
-  const slideAnim = useRef(new Animated.Value(0)).current;
-  const textFadeAnim = useRef(new Animated.Value(0)).current;
+  // ── animations
+  const logoOpacity   = useRef(new Animated.Value(0)).current;
+  const logoScale     = useRef(new Animated.Value(0.7)).current;
+  const brandOpacity  = useRef(new Animated.Value(0)).current;
+  const brandY        = useRef(new Animated.Value(16)).current;
+  const tagOpacity    = useRef(new Animated.Value(0)).current;
+  const tagY          = useRef(new Animated.Value(12)).current;
+  const stripOpacity  = useRef(new Animated.Value(0)).current;
+  const stripY        = useRef(new Animated.Value(20)).current;
+  const screenOpacity = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    // Animación de entrada del logo
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 800,
-        useNativeDriver: true,
-      }),
-      Animated.spring(scaleAnim, {
-        toValue: 1,
-        tension: 10,
-        friction: 2,
-        useNativeDriver: true,
-      }),
+    // ── staggered entrance
+    Animated.sequence([
+      // 1. Logo (0ms)
+      Animated.parallel([
+        Animated.timing(logoOpacity, { toValue: 1, duration: 550, useNativeDriver: true }),
+        Animated.spring(logoScale,   { toValue: 1, tension: 50, friction: 7, useNativeDriver: true }),
+      ]),
+
+      // 2. Brand name (+350ms after logo starts fading in → overlap with parallel)
+      Animated.delay(0),
     ]).start();
 
-    // Animación de movimiento lateral (lado a lado)
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(slideAnim, {
-          toValue: -15,
-          duration: 800,
-          useNativeDriver: true,
-        }),
-        Animated.timing(slideAnim, {
-          toValue: 15,
-          duration: 1600,
-          useNativeDriver: true,
-        }),
-        Animated.timing(slideAnim, {
-          toValue: 0,
-          duration: 800,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-
-    // Fade in del texto después de 500ms
+    // Brand enters 350ms after start
     setTimeout(() => {
-      Animated.timing(textFadeAnim, {
-        toValue: 1,
-        duration: 600,
-        useNativeDriver: true,
-      }).start();
-    }, 500);
-
-    // Después de 3 segundos, desvanecer y terminar
-    const timer = setTimeout(() => {
       Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 0,
-          duration: 500,
-          useNativeDriver: true,
-        }),
-        Animated.timing(scaleAnim, {
-          toValue: 0.3,
-          duration: 500,
-          useNativeDriver: true,
-        }),
-      ]).start(() => {
-        onFinish();
-      });
-    }, 3000);
+        Animated.timing(brandOpacity, { toValue: 1, duration: 400, useNativeDriver: true }),
+        Animated.timing(brandY,       { toValue: 0, duration: 400, useNativeDriver: true }),
+      ]).start();
+    }, 350);
 
-    return () => clearTimeout(timer);
+    // Tagline enters 600ms after start
+    setTimeout(() => {
+      Animated.parallel([
+        Animated.timing(tagOpacity, { toValue: 1, duration: 400, useNativeDriver: true }),
+        Animated.timing(tagY,       { toValue: 0, duration: 400, useNativeDriver: true }),
+      ]).start();
+    }, 600);
+
+    // Price strip enters 900ms after start
+    setTimeout(() => {
+      Animated.parallel([
+        Animated.timing(stripOpacity, { toValue: 1, duration: 500, useNativeDriver: true }),
+        Animated.timing(stripY,       { toValue: 0, duration: 500, useNativeDriver: true }),
+      ]).start();
+    }, 900);
+
+    // ── exit at 3.2s
+    const exitTimer = setTimeout(() => {
+      Animated.timing(screenOpacity, {
+        toValue: 0,
+        duration: 450,
+        useNativeDriver: true,
+      }).start(() => onFinish());
+    }, 3200);
+
+    return () => clearTimeout(exitTimer);
   }, []);
 
   return (
-    <View style={styles.container}>
-      <LinearGradient
-        colors={[Colors.secondary, Colors.secondaryLight, Colors.primary]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.gradient}
-      >
-        <View style={styles.contentContainer}>
-          <Animated.View
-            style={[
-              styles.logoWrapper,
-              {
-                opacity: fadeAnim,
-                transform: [
-                  { scale: scaleAnim },
-                  { translateX: slideAnim }
-                ],
-              },
-            ]}
-          >
-            <Image
-              source={require('../../assets/logo-principal.png')}
-              style={styles.logo}
-              resizeMode="contain"
-            />
-          </Animated.View>
+    <Animated.View style={[styles.root, { opacity: screenOpacity }]}>
+      <ForexBackground showTickers={false} />
 
-          <Animated.Text
-            style={[
-              styles.brandName,
-              { opacity: textFadeAnim }
-            ]}
-          >
-            QoriCash
-          </Animated.Text>
-        </View>
-      </LinearGradient>
-    </View>
+      {/* ── Center content */}
+      <View style={styles.center}>
+        {/* Logo */}
+        <Animated.View
+          style={[
+            styles.logoWrapper,
+            { opacity: logoOpacity, transform: [{ scale: logoScale }] },
+          ]}
+        >
+          <Image
+            source={require('../../assets/logo-principal.png')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
+        </Animated.View>
+
+        {/* Brand name */}
+        <Animated.View
+          style={{ opacity: brandOpacity, transform: [{ translateY: brandY }] }}
+        >
+          <Text style={styles.brandName}>QoriCash</Text>
+        </Animated.View>
+
+        {/* Tagline */}
+        <Animated.View
+          style={{ opacity: tagOpacity, transform: [{ translateY: tagY }] }}
+        >
+          <Text style={styles.tagline}>Tu casa de cambio digital</Text>
+        </Animated.View>
+      </View>
+
+      {/* ── Bottom price strip */}
+      <Animated.View
+        style={[
+          styles.priceStrip,
+          { opacity: stripOpacity, transform: [{ translateY: stripY }] },
+        ]}
+      >
+        {PRICE_STRIP.map((item, i) => (
+          <View key={i} style={styles.priceItem}>
+            <Text style={styles.pricePair}>{item.pair}</Text>
+            <Text style={[styles.priceValue, { color: item.up ? Colors.primary : '#f87171' }]}>
+              {item.up ? '▲ ' : '▼ '}{item.price}
+            </Text>
+          </View>
+        ))}
+      </Animated.View>
+    </Animated.View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  root: {
     flex: 1,
+    backgroundColor: '#0B1620',
   },
-  gradient: {
+  center: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  contentContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    flex: 1,
+    paddingBottom: 80,
   },
   logoWrapper: {
-    width: width * 0.7,
-    height: width * 0.7,
+    width: width * 0.55,
+    height: width * 0.38,
     justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: 20,
   },
   logo: {
     width: '100%',
     height: '100%',
   },
   brandName: {
-    fontSize: 42,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginTop: 20,
-    letterSpacing: 2,
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
+    fontSize: 40,
+    fontWeight: '800',
+    color: '#F1F5F9',
+    letterSpacing: 1.5,
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  tagline: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#64748B',
+    letterSpacing: 1.0,
+    textAlign: 'center',
+    textTransform: 'uppercase',
+  },
+
+  // ── Price strip
+  priceStrip: {
+    position: 'absolute',
+    bottom: 52,
+    left: 24,
+    right: 24,
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+  },
+  priceItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  pricePair: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#475569',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    marginBottom: 4,
+  },
+  priceValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
 });

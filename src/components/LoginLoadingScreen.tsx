@@ -36,8 +36,28 @@ export const LoginLoadingScreen: React.FC<LoginLoadingScreenProps> = ({
 
   const animationInProgressRef = useRef(false);
   const startTimeRef = useRef<number>(0);
+  const activeAnimRef = useRef<Animated.CompositeAnimation | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    // Si el login falló (visible → false) mientras la animación corría, abortar inmediatamente
+    if (!visible && animationInProgressRef.current) {
+      if (activeAnimRef.current) {
+        activeAnimRef.current.stop();
+        activeAnimRef.current = null;
+      }
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+      animationInProgressRef.current = false;
+      setShouldRender(false);
+      fadeAnim.setValue(0);
+      scaleAnim.setValue(0.3);
+      slideInAnim.setValue(50);
+      return;
+    }
+
     // Solo iniciar animación si visible es true y no hay animación en progreso
     if (visible && !animationInProgressRef.current) {
       console.log('🎬 [LoginLoading] Iniciando animación');
@@ -55,12 +75,15 @@ export const LoginLoadingScreen: React.FC<LoginLoadingScreenProps> = ({
       checkmarkOpacity.setValue(0);
 
       // Pequeño delay para evitar flash inicial antes de que las animaciones inicien
-      setTimeout(() => {
+      timerRef.current = setTimeout(() => {
+        timerRef.current = null;
+        if (!animationInProgressRef.current) return; // fue abortado
+
         // Mostrar el componente
         setShouldRender(true);
 
         // Secuencia de animaciones
-        Animated.sequence([
+        activeAnimRef.current = Animated.sequence([
           // 1. Entrada elegante: fade in + slide up + scale (500ms)
           Animated.parallel([
             Animated.timing(fadeAnim, {
@@ -122,7 +145,10 @@ export const LoginLoadingScreen: React.FC<LoginLoadingScreenProps> = ({
 
           // 4. Pausa antes de completar (500ms)
           Animated.delay(500),
-        ]).start(() => {
+        ]).start(({ finished }) => {
+          activeAnimRef.current = null;
+          if (!finished || !animationInProgressRef.current) return; // abortado
+
           console.log('✅ [LoginLoading] Animación completada, iniciando salida elegante');
 
           // Salida elegante: fade out + slide up (400ms)
@@ -145,16 +171,19 @@ export const LoginLoadingScreen: React.FC<LoginLoadingScreenProps> = ({
               useNativeDriver: true,
               easing: Easing.in(Easing.ease),
             }),
-          ]).start(() => {
+          ]).start(({ finished: exitFinished }) => {
+            if (!exitFinished || !animationInProgressRef.current) return;
+
             // Calcular tiempo transcurrido
             const elapsed = Date.now() - startTimeRef.current;
             const minDuration = 3500; // 3.5 segundos mínimo
             const remainingTime = Math.max(0, minDuration - elapsed);
 
-            console.log(`⏱️ [LoginLoading] Tiempo transcurrido: ${elapsed}ms, esperando ${remainingTime}ms más`);
-
             // Garantizar duración mínima (especialmente importante para iOS)
-            setTimeout(() => {
+            timerRef.current = setTimeout(() => {
+              timerRef.current = null;
+              if (!animationInProgressRef.current) return;
+
               console.log('🏁 [LoginLoading] Finalizando y llamando onComplete');
 
               // Marcar que la animación terminó

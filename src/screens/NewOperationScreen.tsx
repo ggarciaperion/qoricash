@@ -483,7 +483,7 @@ export const NewOperationScreen: React.FC<NewOperationScreenProps> = ({ navigati
                   <View style={styles.summaryBox}>
                     <Text style={styles.summaryLabel}>¿Cuánto envías?</Text>
                     <Text style={styles.summaryAmount}>
-                      {amountToSend.toFixed(2)}
+                      {formatCurrency(amountToSend, inputCurrency === 'USD' ? 'USD' : 'PEN')}
                     </Text>
                   </View>
                   <View style={styles.summaryCurrencyBox}>
@@ -506,7 +506,7 @@ export const NewOperationScreen: React.FC<NewOperationScreenProps> = ({ navigati
                   <View style={styles.summaryBox}>
                     <Text style={styles.summaryLabel}>Entonces recibes</Text>
                     <Text style={styles.summaryAmount}>
-                      {amountToReceive.toFixed(2)}
+                      {formatCurrency(amountToReceive, outputCurrency === 'USD' ? 'USD' : 'PEN')}
                     </Text>
                   </View>
                   <View style={styles.summaryCurrencyBox}>
@@ -723,7 +723,7 @@ export const NewOperationScreen: React.FC<NewOperationScreenProps> = ({ navigati
                   placeholder="Ej: Banco de la Nación, Banco Ripley, etc."
                   style={styles.dialogInput}
                   outlineColor="#E0E0E0"
-                  activeOutlineColor="#82C16C"
+                  activeOutlineColor="#22c55e"
                 />
               )}
 
@@ -780,7 +780,7 @@ export const NewOperationScreen: React.FC<NewOperationScreenProps> = ({ navigati
                   keyboardType="numeric"
                   style={styles.dialogInput}
                   outlineColor="#E0E0E0"
-                  activeOutlineColor="#82C16C"
+                  activeOutlineColor="#22c55e"
                 />
               )}
 
@@ -796,7 +796,7 @@ export const NewOperationScreen: React.FC<NewOperationScreenProps> = ({ navigati
                     maxLength={20}
                     style={styles.dialogInput}
                     outlineColor="#E0E0E0"
-                    activeOutlineColor="#82C16C"
+                    activeOutlineColor="#22c55e"
                   />
                   <HelperText type="info" visible={true} style={styles.helperText}>
                     Ingrese el CCI completo de 20 dígitos
@@ -873,7 +873,7 @@ export const NewOperationScreen: React.FC<NewOperationScreenProps> = ({ navigati
                   value={bank}
                   style={styles.bankRadioItem}
                   labelStyle={styles.bankRadioLabel}
-                  color="#82C16C"
+                  color="#22c55e"
                 />
               ))}
             </RadioButton.Group>
@@ -916,7 +916,7 @@ export const NewOperationScreen: React.FC<NewOperationScreenProps> = ({ navigati
                   value={account.account_number}
                   style={styles.bankRadioItem}
                   labelStyle={styles.bankRadioLabel}
-                  color="#82C16C"
+                  color="#22c55e"
                 />
               ))}
             </RadioButton.Group>
@@ -959,7 +959,7 @@ export const NewOperationScreen: React.FC<NewOperationScreenProps> = ({ navigati
                   value={account.account_number}
                   style={styles.bankRadioItem}
                   labelStyle={styles.bankRadioLabel}
-                  color="#82C16C"
+                  color="#22c55e"
                 />
               ))}
             </RadioButton.Group>
@@ -1015,7 +1015,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   timelineDotActive: {
-    backgroundColor: '#82C16C',
+    backgroundColor: '#22c55e',
   },
   timelineDotText: {
     fontSize: 16,
@@ -1032,7 +1032,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   timelineLabelActive: {
-    color: '#82C16C',
+    color: '#22c55e',
     fontWeight: 'bold',
   },
   timelineLine: {
@@ -1068,7 +1068,7 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 12,
   },
   operationTypeButtonActive: {
-    backgroundColor: '#82C16C',
+    backgroundColor: '#22c55e',
   },
   operationTypeButtonText: {
     fontSize: 14,
@@ -1153,7 +1153,7 @@ const styles = StyleSheet.create({
     color: Colors.textDark,
   },
   addAccountButton: {
-    backgroundColor: '#82C16C',
+    backgroundColor: '#22c55e',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
@@ -1219,8 +1219,8 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   customCheckboxChecked: {
-    backgroundColor: '#82C16C',
-    borderColor: '#82C16C',
+    backgroundColor: '#22c55e',
+    borderColor: '#22c55e',
   },
   checkboxLabel: {
     flex: 1,
@@ -1237,14 +1237,14 @@ const styles = StyleSheet.create({
 
   // Submit Button Styles
   submitButton: {
-    backgroundColor: '#82C16C',
+    backgroundColor: '#22c55e',
     borderRadius: 12,
     paddingVertical: 16,
     marginTop: 20,
     alignItems: 'center',
     justifyContent: 'center',
     elevation: 4,
-    shadowColor: '#82C16C',
+    shadowColor: '#22c55e',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -1317,7 +1317,7 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 12,
   },
   dialogSegmentedButtonActive: {
-    backgroundColor: '#82C16C',
+    backgroundColor: '#22c55e',
   },
   dialogSegmentedButtonText: {
     fontSize: 14,
@@ -1428,7 +1428,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 8,
-    backgroundColor: '#82C16C',
+    backgroundColor: '#22c55e',
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -617,7 +617,7 @@ export const OperationDetailScreen: React.FC<OperationDetailScreenProps> = ({
                             {
                               color:
                                 Math.abs(getTotalDeposits() - getOperationTotal()) < 0.01
-                                  ? '#82C16C'
+                                  ? '#22c55e'
                                   : '#F57C00',
                             },
                           ]}
@@ -860,7 +860,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   operationTypeBadge: {
-    backgroundColor: '#82C16C',
+    backgroundColor: '#22c55e',
     paddingHorizontal: 24,
     paddingVertical: 10,
     borderRadius: 20,
@@ -960,13 +960,13 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   uploadButton: {
-    backgroundColor: '#82C16C',
+    backgroundColor: '#22c55e',
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
     justifyContent: 'center',
     elevation: 4,
-    shadowColor: '#82C16C',
+    shadowColor: '#22c55e',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -1060,7 +1060,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 14,
     borderRadius: 8,
-    backgroundColor: '#82C16C',
+    backgroundColor: '#22c55e',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1141,7 +1141,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   addToListButton: {
-    backgroundColor: '#82C16C',
+    backgroundColor: '#22c55e',
     borderRadius: 8,
     paddingVertical: 14,
     marginTop: 16,
@@ -1154,7 +1154,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   acceptButton: {
-    backgroundColor: '#82C16C',
+    backgroundColor: '#22c55e',
     borderRadius: 12,
     paddingVertical: 16,
     marginHorizontal: 16,
@@ -1163,7 +1163,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     elevation: 4,
-    shadowColor: '#82C16C',
+    shadowColor: '#22c55e',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,

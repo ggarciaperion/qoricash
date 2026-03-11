@@ -128,9 +128,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // };
 
   const login = async (credentials: LoginCredentials, dni: string) => {
+    // NOTE: We intentionally do NOT call setLoading(true) here.
+    // setLoading(true) causes AppNavigator to return null, which unmounts
+    // NavigationContainer and resets the nav stack to PublicCalculatorScreen
+    // on failure. The LoginLoadingScreen overlay handles the visual feedback.
     try {
-      setLoading(true);
-
       console.log('🔐 [AUTH CONTEXT] Intentando login con DNI:', dni);
 
       // Login con DNI y contraseña
@@ -161,6 +163,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setUser(loginResponse.user);
       setClient(clientData);
 
+      if (requiresPasswordChange) {
+        await AsyncStorage.setItem(STORAGE_KEYS.REQUIRES_PASSWORD_CHANGE, 'true');
+      }
+
       // Registrar token de push notifications
       try {
         console.log('📲 [AUTH CONTEXT] Registrando token de push notifications...');
@@ -172,8 +178,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } catch (error: any) {
       console.error('❌ [AUTH CONTEXT] Error en login:', error);
       throw new Error(error.message || 'Error al iniciar sesión');
-    } finally {
-      setLoading(false);
     }
   };
 

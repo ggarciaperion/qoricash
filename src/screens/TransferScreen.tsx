@@ -426,8 +426,8 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
               <Text style={styles.summaryLabel}>Envías</Text>
               <Text style={styles.summaryAmount}>
                 {operation.operation_type === 'Compra'
-                  ? `$${operation.amount_usd.toFixed(2)}`
-                  : `S/ ${operation.amount_pen.toFixed(2)}`
+                  ? formatCurrency(operation.amount_usd, 'USD')
+                  : formatCurrency(operation.amount_pen, 'PEN')
                 }
               </Text>
             </View>
@@ -439,8 +439,8 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
               <Text style={styles.summaryLabel}>Recibes</Text>
               <Text style={styles.summaryAmount}>
                 {operation.operation_type === 'Compra'
-                  ? `S/ ${operation.amount_pen.toFixed(2)}`
-                  : `$${operation.amount_usd.toFixed(2)}`
+                  ? formatCurrency(operation.amount_pen, 'PEN')
+                  : formatCurrency(operation.amount_usd, 'USD')
                 }
               </Text>
             </View>
@@ -548,7 +548,7 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
             {selectedImages.map((imageUri, index) => (
               <View key={index} style={styles.imagePreviewContainer}>
                 <View style={styles.imagePreviewInfo}>
-                  <IconButton icon="file-image" size={20} iconColor="#82C16C" />
+                  <IconButton icon="file-image" size={20} iconColor="#22c55e" />
                   <Text style={styles.imagePreviewText}>Comprobante {index + 1}</Text>
                 </View>
                 <IconButton
@@ -567,7 +567,7 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
                 activeOpacity={0.8}
                 onPress={handlePickImage}
               >
-                <IconButton icon="plus-circle" size={24} iconColor="#82C16C" />
+                <IconButton icon="plus-circle" size={24} iconColor="#22c55e" />
                 <Text style={styles.addImageButtonText}>
                   {selectedImages.length === 0 ? 'Seleccionar comprobante' : 'Agregar más comprobante'}
                 </Text>
@@ -645,7 +645,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   timelineCircleCompleted: {
-    backgroundColor: '#82C16C',
+    backgroundColor: '#22c55e',
   },
   timelineCircleActive: {
     backgroundColor: '#2196F3',
@@ -657,7 +657,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 8,
   },
   timelineLineCompleted: {
-    backgroundColor: '#82C16C',
+    backgroundColor: '#22c55e',
   },
   timelineText: {
     fontSize: 12,
@@ -799,14 +799,14 @@ const styles = StyleSheet.create({
 
   // Upload Button Styles
   uploadButton: {
-    backgroundColor: '#82C16C',
+    backgroundColor: '#22c55e',
     marginHorizontal: 16,
     marginBottom: 24,
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
     elevation: 4,
-    shadowColor: '#82C16C',
+    shadowColor: '#22c55e',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -840,7 +840,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginBottom: 8,
     borderWidth: 1,
-    borderColor: '#82C16C',
+    borderColor: '#22c55e',
   },
   imagePreviewInfo: {
     flexDirection: 'row',
@@ -858,14 +858,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: '#82C16C',
+    borderColor: '#22c55e',
     borderStyle: 'dashed',
     borderRadius: 12,
     padding: 12,
     marginBottom: 12,
   },
   addImageButtonText: {
-    color: '#82C16C',
+    color: '#22c55e',
     fontWeight: '600',
     fontSize: 14,
     marginLeft: 4,
