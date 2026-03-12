@@ -29,7 +29,7 @@
         "backgroundColor": "#1976D2"
       },
       "package": "com.qoricash.app",
-      "versionCode": 3,
+      "versionCode": 4,
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.READ_EXTERNAL_STORAGE",
