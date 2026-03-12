@@ -29,13 +29,15 @@
         "backgroundColor": "#1976D2"
       },
       "package": "com.qoricash.app",
+      "versionCode": 2,
       "permissions": [
-        "CAMERA",
-        "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE",
-        "POST_NOTIFICATIONS",
-        "RECEIVE_BOOT_COMPLETED",
-        "VIBRATE"
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.VIBRATE",
+        "android.permission.RECORD_AUDIO"
       ],
       "edgeToEdgeEnabled": true
     },
@@ -57,6 +59,11 @@
           "color": "#1976D2"
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "64a6a0f9-6adb-42ac-aa62-7e6e41e96836"
+      }
+    }
   }
 }
