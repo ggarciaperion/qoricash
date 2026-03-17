@@ -328,16 +328,12 @@
                         <select class="form-select" id="newBankAccountSelect" required>
                             <option value="" selected disabled>Seleccionar cuenta bancaria...</option>
                             <optgroup label="USD - Dólares">
-                                <option value="BCP - USD - 654321">BCP - Cuenta 654321 (USD)</option>
-                                <option value="INTERBANK - USD - 456789">INTERBANK - Cuenta 456789 (USD)</option>
-                                <option value="BANBIF - USD - 369852">BANBIF - Cuenta 369852 (USD)</option>
-                                <option value="PICHINCHA - USD - 159796">PICHINCHA - Cuenta 159796 (USD)</option>
+                                <option value="BCP - USD - 1917357790119">BCP - Cta. Corriente 1917357790119 (USD)</option>
+                                <option value="INTERBANK - USD - 200-3007757589">INTERBANK - Cta. Corriente 200-3007757589 (USD)</option>
                             </optgroup>
                             <optgroup label="PEN - Soles">
-                                <option value="BCP - PEN - 123456">BCP - Cuenta 123456 (PEN)</option>
-                                <option value="INTERBANK - PEN - 987654">INTERBANK - Cuenta 987654 (PEN)</option>
-                                <option value="BANBIF - PEN - 741852">BANBIF - Cuenta 741852 (PEN)</option>
-                                <option value="PICHINCHA - PEN - 753951">PICHINCHA - Cuenta 753951 (PEN)</option>
+                                <option value="BCP - PEN - 1937353150041">BCP - Cta. Corriente 1937353150041 (PEN)</option>
+                                <option value="INTERBANK - PEN - 200-3007757571">INTERBANK - Cta. Corriente 200-3007757571 (PEN)</option>
                             </optgroup>
                         </select>
                         <small class="form-text text-muted">Selecciona la cuenta de QoriCash que deseas agregar a la reconciliación</small>
@@ -1130,7 +1126,7 @@ function renderReconciliationTable(banks) {
     }
 
     // Lista de bancos permitidos
-    const allowedBanks = ['BCP', 'INTERBANK', 'PICHINCHA', 'BANBIF'];
+    const allowedBanks = ['BCP', 'INTERBANK'];
 
     // Filtrar solo los bancos permitidos
     const filteredBanks = banks.filter(bank => {
@@ -1278,7 +1274,7 @@ function renderReconciliationTable(banks) {
             <tr>
                 <td colspan="8" class="text-center">
                     <div class="alert alert-warning mb-0">
-                        <i class="bi bi-exclamation-circle"></i> No hay cuentas de los bancos configurados (BCP, INTERBANK, PICHINCHA, BANBIF). Haz clic en "Agregar Banco" para comenzar.
+                        <i class="bi bi-exclamation-circle"></i> No hay cuentas de BCP e INTERBANK registradas. Haz clic en "Agregar Banco" para comenzar.
                     </div>
                 </td>
             </tr>
@@ -1333,7 +1329,7 @@ function addNewBank() {
         return;
     }
 
-    // Parse el valor seleccionado: "BCP - USD - 654321"
+    // Parse el valor seleccionado: "BCP - USD - 1917357790119"
     const parts = accountValue.split(' - ');
     if (parts.length !== 3) {
         showNotification('Error en el formato de la cuenta seleccionada', 'danger');
@@ -1342,9 +1338,9 @@ function addNewBank() {
 
     const bankName = parts[0].trim();        // "BCP"
     const currency = parts[1].trim();        // "USD" o "PEN"
-    const accountNumber = parts[2].trim();   // "654321"
+    const accountNumber = parts[2].trim();   // ej: "1917357790119"
 
-    // Crear nombre completo para el banco: "BCP USD (654321)"
+    // Crear nombre completo para el banco: "BCP USD (1917357790119)"
     const fullBankName = `${bankName} ${currency} (${accountNumber})`;
 
     // Crear el banco con saldo inicial en la moneda correspondiente

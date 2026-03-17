@@ -1264,11 +1264,11 @@ def add_bank_account(client_dni):
     Request JSON:
     {
         "origen": "Lima" | "Provincia",
-        "bank_name": "BCP" | "INTERBANK" | "PICHINCHA" | "BANBIF" | otro,
+        "bank_name": "BCP" | "INTERBANK" | "BBVA" | "SCOTIABANK" | "OTROS" | otro,
         "account_type": "Ahorro" | "Corriente",
         "currency": "S/" | "$",
         "account_number": "número de cuenta",
-        "cci": "número CCI de 20 dígitos" (solo si no es BCP, INTERBANK, PICHINCHA, BANBIF)
+        "cci": "número CCI de 20 dígitos" (requerido si no es BCP o INTERBANK)
     }
     """
     try:
@@ -1323,8 +1323,8 @@ def add_bank_account(client_dni):
                 'message': 'Para cuentas de provincia solo operamos con BCP e INTERBANK'
             }), 400
 
-        # Validar CCI para bancos que no sean los principales
-        main_banks = ['BCP', 'INTERBANK', 'PICHINCHA', 'BANBIF']
+        # Validar CCI para bancos que no sean los principales (BCP e INTERBANK generan CCI automáticamente)
+        main_banks = ['BCP', 'INTERBANK']
         if bank_name not in main_banks:
             if not cci or len(cci) != 20:
                 return jsonify({

@@ -390,10 +390,8 @@ class EmailService:
                         </tr>
                     </thead>
                     <tbody>
-                        <tr><td class="bank-name">BCP</td><td>Cta. Corriente</td><td>USD</td><td class="account-num">654321</td><td class="account-num">00265432100000000001</td></tr>
-                        <tr><td class="bank-name">INTERBANK</td><td>Cta. Corriente</td><td>USD</td><td class="account-num">456789</td><td class="account-num">00345678900000000002</td></tr>
-                        <tr><td class="bank-name">BANBIF</td><td>Cta. Corriente</td><td>USD</td><td class="account-num">369852</td><td class="account-num">03836985200000000003</td></tr>
-                        <tr><td class="bank-name">PICHINCHA</td><td>Cta. Corriente</td><td>USD</td><td class="account-num">159796</td><td class="account-num">04815979600000000004</td></tr>
+                        <tr><td class="bank-name">BCP</td><td>Cta. Corriente</td><td>USD</td><td class="account-num">1917357790119</td><td class="account-num">00219100735779011959</td></tr>
+                        <tr><td class="bank-name">INTERBANK</td><td>Cta. Corriente</td><td>USD</td><td class="account-num">200-3007757589</td><td class="account-num">00320000300775758939</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -415,10 +413,8 @@ class EmailService:
                         </tr>
                     </thead>
                     <tbody>
-                        <tr><td class="bank-name">BCP</td><td>Cta. Corriente</td><td>PEN</td><td class="account-num">123456</td><td class="account-num">00212345600000000005</td></tr>
-                        <tr><td class="bank-name">INTERBANK</td><td>Cta. Corriente</td><td>PEN</td><td class="account-num">987654</td><td class="account-num">00398765400000000006</td></tr>
-                        <tr><td class="bank-name">BANBIF</td><td>Cta. Corriente</td><td>PEN</td><td class="account-num">741852</td><td class="account-num">03874185200000000007</td></tr>
-                        <tr><td class="bank-name">PICHINCHA</td><td>Cta. Corriente</td><td>PEN</td><td class="account-num">753951</td><td class="account-num">04875395100000000008</td></tr>
+                        <tr><td class="bank-name">BCP</td><td>Cta. Corriente</td><td>PEN</td><td class="account-num">1937353150041</td><td class="account-num">00219300735315004118</td></tr>
+                        <tr><td class="bank-name">INTERBANK</td><td>Cta. Corriente</td><td>PEN</td><td class="account-num">200-3007757571</td><td class="account-num">00320000300775757137</td></tr>
                     </tbody>
                 </table>
             </div>

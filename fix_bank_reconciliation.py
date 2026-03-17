@@ -2,23 +2,20 @@
 Script para eliminar bancos fantasma que no están en el desplegable oficial
 
 Según el modal "Agregar Cuenta Bancaria a Reconciliación", SOLO deben existir
-estos 8 bancos en la base de datos:
+estos 4 bancos en la base de datos (cuentas reales de QoriCash SAC):
 
 USD:
-1. BCP USD (654321)
-2. INTERBANK USD (456789)
-3. BANBIF USD (369852)
-4. PICHINCHA USD (159796)
+1. BCP USD (1917357790119)
+2. INTERBANK USD (200-3007757589)
 
 PEN:
-1. BCP PEN (123456)
-2. INTERBANK PEN (987654)
-3. BANBIF PEN (741852)
-4. PICHINCHA PEN (753951)
+1. BCP PEN (1937353150041)
+2. INTERBANK PEN (200-3007757571)
 
-Este script eliminará todos los demás bancos, incluyendo:
-- BCP (sin número de cuenta) - $5,000 que causa el descuadre
-- BBVA, INTERBANK genérico, SCOTIABANK, PICHINCHA genérico, BANBIF genérico
+Este script eliminará todos los demás bancos, incluyendo bancos demo/prueba:
+- Registros con números de cuenta demo
+- BANBIF y PICHINCHA (no operamos con esos bancos)
+- BCP/INTERBANK sin número de cuenta
 """
 
 import os
@@ -41,16 +38,12 @@ def fix_bank_reconciliation():
         print("LIMPIEZA DE BANCOS FANTASMA - RECONCILIACIÓN BANCARIA")
         print("=" * 80)
 
-        # Lista OFICIAL de bancos permitidos (según el desplegable del modal)
+        # Lista OFICIAL de bancos permitidos (cuentas reales de QoriCash SAC)
         allowed_banks = [
-            'BCP USD (654321)',
-            'INTERBANK USD (456789)',
-            'BANBIF USD (369852)',
-            'PICHINCHA USD (159796)',
-            'BCP PEN (123456)',
-            'INTERBANK PEN (987654)',
-            'BANBIF PEN (741852)',
-            'PICHINCHA PEN (753951)'
+            'BCP USD (1917357790119)',
+            'INTERBANK USD (200-3007757589)',
+            'BCP PEN (1937353150041)',
+            'INTERBANK PEN (200-3007757571)',
         ]
 
         # Obtener todos los bancos actuales
