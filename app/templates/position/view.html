@@ -328,12 +328,14 @@
                         <select class="form-select" id="newBankAccountSelect" required>
                             <option value="" selected disabled>Seleccionar cuenta bancaria...</option>
                             <optgroup label="USD - Dólares">
-                                <option value="BCP - USD - 1917357790119">BCP - Cta. Corriente 1917357790119 (USD)</option>
-                                <option value="INTERBANK - USD - 200-3007757589">INTERBANK - Cta. Corriente 200-3007757589 (USD)</option>
+                                {% for banco, data in usd_accounts %}
+                                <option value="{{ banco }} - USD - {{ data.numero }}">{{ banco }} - Cta. Corriente {{ data.numero }} (USD)</option>
+                                {% endfor %}
                             </optgroup>
                             <optgroup label="PEN - Soles">
-                                <option value="BCP - PEN - 1937353150041">BCP - Cta. Corriente 1937353150041 (PEN)</option>
-                                <option value="INTERBANK - PEN - 200-3007757571">INTERBANK - Cta. Corriente 200-3007757571 (PEN)</option>
+                                {% for banco, data in pen_accounts %}
+                                <option value="{{ banco }} - PEN - {{ data.numero }}">{{ banco }} - Cta. Corriente {{ data.numero }} (PEN)</option>
+                                {% endfor %}
                             </optgroup>
                         </select>
                         <small class="form-text text-muted">Selecciona la cuenta de QoriCash que deseas agregar a la reconciliación</small>

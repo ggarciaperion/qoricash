@@ -6,6 +6,7 @@ from flask_login import login_required, current_user
 from app.models import BankBalance, Operation
 from app.extensions import db
 from app.utils.decorators import require_role
+from app.config.bank_accounts import QORICASH_ACCOUNTS
 from datetime import datetime
 
 position_bp = Blueprint('position', __name__)
@@ -22,7 +23,24 @@ def position_view():
     Solo accesible para Master y Operador
     Muestra saldos bancarios y control de operaciones
     """
-    return render_template('position/view.html', user=current_user)
+    usd_accounts = [
+        (banco, data)
+        for banco, monedas in QORICASH_ACCOUNTS.items()
+        for moneda, data in monedas.items()
+        if moneda == 'USD'
+    ]
+    pen_accounts = [
+        (banco, data)
+        for banco, monedas in QORICASH_ACCOUNTS.items()
+        for moneda, data in monedas.items()
+        if moneda == 'PEN'
+    ]
+    return render_template(
+        'position/view.html',
+        user=current_user,
+        usd_accounts=usd_accounts,
+        pen_accounts=pen_accounts,
+    )
 
 
 @position_bp.route('/api/bank_balances')

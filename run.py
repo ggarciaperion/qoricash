@@ -76,14 +76,10 @@ def cleanup_banks_now():
     """
     from app.extensions import db
     from app.models.bank_balance import BankBalance
+    from app.config.bank_accounts import ALLOWED_BANK_NAMES
 
-    # Lista OFICIAL de bancos permitidos (cuentas reales de QoriCash SAC)
-    allowed_banks = [
-        'BCP USD (1917357790119)',
-        'INTERBANK USD (200-3007757589)',
-        'BCP PEN (1937353150041)',
-        'INTERBANK PEN (200-3007757571)',
-    ]
+    # Lista OFICIAL importada desde app/config/bank_accounts.py
+    allowed_banks = ALLOWED_BANK_NAMES
 
     try:
         all_banks = BankBalance.query.all()

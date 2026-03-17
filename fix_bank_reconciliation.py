@@ -27,6 +27,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from app import create_app
 from app.extensions import db
 from app.models.bank_balance import BankBalance
+from app.config.bank_accounts import ALLOWED_BANK_NAMES
 
 def fix_bank_reconciliation():
     """Eliminar todos los bancos que no estén en la lista oficial del desplegable"""
@@ -38,13 +39,8 @@ def fix_bank_reconciliation():
         print("LIMPIEZA DE BANCOS FANTASMA - RECONCILIACIÓN BANCARIA")
         print("=" * 80)
 
-        # Lista OFICIAL de bancos permitidos (cuentas reales de QoriCash SAC)
-        allowed_banks = [
-            'BCP USD (1917357790119)',
-            'INTERBANK USD (200-3007757589)',
-            'BCP PEN (1937353150041)',
-            'INTERBANK PEN (200-3007757571)',
-        ]
+        # Lista OFICIAL importada desde app/config/bank_accounts.py
+        allowed_banks = ALLOWED_BANK_NAMES
 
         # Obtener todos los bancos actuales
         all_banks = BankBalance.query.all()

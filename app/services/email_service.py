@@ -377,7 +377,7 @@ class EmailService:
             <div class="bank-section">
                 <div class="bank-header buy">
                     Transfiera en DÓLARES a cualquiera de estas cuentas
-                    <div class="bank-subtext">A nombre de QORICASH SAC — RUC 20615113698</div>
+                    <div class="bank-subtext">A nombre de {{ qoricash_titular }} — RUC {{ qoricash_ruc }}</div>
                 </div>
                 <table class="bank-table">
                     <thead>
@@ -390,8 +390,7 @@ class EmailService:
                         </tr>
                     </thead>
                     <tbody>
-                        <tr><td class="bank-name">BCP</td><td>Cta. Corriente</td><td>USD</td><td class="account-num">1917357790119</td><td class="account-num">00219100735779011959</td></tr>
-                        <tr><td class="bank-name">INTERBANK</td><td>Cta. Corriente</td><td>USD</td><td class="account-num">200-3007757589</td><td class="account-num">00320000300775758939</td></tr>
+                        {% for acc in usd_accounts %}<tr><td class="bank-name">{{ acc.banco }}</td><td>{{ acc.tipo }}</td><td>USD</td><td class="account-num">{{ acc.numero }}</td><td class="account-num">{{ acc.cci }}</td></tr>{% endfor %}
                     </tbody>
                 </table>
             </div>
@@ -400,7 +399,7 @@ class EmailService:
             <div class="bank-section">
                 <div class="bank-header sell">
                     Transfiera en SOLES a cualquiera de estas cuentas
-                    <div class="bank-subtext">A nombre de QORICASH SAC — RUC 20615113698</div>
+                    <div class="bank-subtext">A nombre de {{ qoricash_titular }} — RUC {{ qoricash_ruc }}</div>
                 </div>
                 <table class="bank-table">
                     <thead>
@@ -413,8 +412,7 @@ class EmailService:
                         </tr>
                     </thead>
                     <tbody>
-                        <tr><td class="bank-name">BCP</td><td>Cta. Corriente</td><td>PEN</td><td class="account-num">1937353150041</td><td class="account-num">00219300735315004118</td></tr>
-                        <tr><td class="bank-name">INTERBANK</td><td>Cta. Corriente</td><td>PEN</td><td class="account-num">200-3007757571</td><td class="account-num">00320000300775757137</td></tr>
+                        {% for acc in pen_accounts %}<tr><td class="bank-name">{{ acc.banco }}</td><td>{{ acc.tipo }}</td><td>PEN</td><td class="account-num">{{ acc.numero }}</td><td class="account-num">{{ acc.cci }}</td></tr>{% endfor %}
                     </tbody>
                 </table>
             </div>
@@ -441,7 +439,15 @@ class EmailService:
 </div>
 </body>
 </html>"""
-        return render_template_string(template, operation=operation)
+        from app.config.bank_accounts import get_accounts_for_currency, QORICASH_TITULAR, QORICASH_RUC
+        return render_template_string(
+            template,
+            operation=operation,
+            usd_accounts=get_accounts_for_currency('USD'),
+            pen_accounts=get_accounts_for_currency('PEN'),
+            qoricash_titular=QORICASH_TITULAR,
+            qoricash_ruc=QORICASH_RUC,
+        )
 
     @staticmethod
     def _render_completed_operation_template(operation):
