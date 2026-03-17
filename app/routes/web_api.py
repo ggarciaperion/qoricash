@@ -4,13 +4,15 @@ Este módulo proporciona endpoints específicos para la página web pública
 Actualizado: 2026-01-12 - Force redeploy para activar servicio en Render
 """
 from flask import Blueprint, request, jsonify
+from flask_login import login_required
 from app.models.client import Client
 from app.models.user import User
 from app.models.operation import Operation
-from app.extensions import db, csrf
+from app.extensions import db, csrf, limiter
 from werkzeug.security import generate_password_hash
 from app.utils.formatters import now_peru
 from app.utils.referral import generate_referral_code
+from app.utils.decorators import require_role
 import logging
 
 logger = logging.getLogger(__name__)
@@ -42,6 +44,7 @@ def after_request(response):
 
 @web_api_bp.route('/register', methods=['OPTIONS', 'POST'])
 @csrf.exempt
+@limiter.limit("3 per minute", methods=["POST"])
 def register_from_web():
     """
     Registro de clientes desde la página web
@@ -138,16 +141,16 @@ def register_from_web():
 
             # Validar DNI o CE
             if tipo_documento == 'DNI':
-                if len(dni) != 8:
+                if len(dni) != 8 or not dni.isdigit():
                     return jsonify({
                         'success': False,
-                        'message': 'DNI debe tener 8 dígitos'
+                        'message': 'DNI debe tener 8 dígitos numéricos'
                     }), 400
             elif tipo_documento == 'CE':
-                if len(dni) != 9:
+                if len(dni) != 9 or not dni.isdigit():
                     return jsonify({
                         'success': False,
-                        'message': 'Carné de Extranjería debe tener 9 dígitos'
+                        'message': 'Carné de Extranjería debe tener 9 dígitos numéricos'
                     }), 400
             else:
                 return jsonify({
@@ -169,10 +172,10 @@ def register_from_web():
             if tipo_documento != 'RUC':
                 tipo_documento = 'RUC'  # Forzar RUC para Jurídica
 
-            if len(dni) != 11:
+            if len(dni) != 11 or not dni.isdigit():
                 return jsonify({
                     'success': False,
-                    'message': 'RUC debe tener 11 dígitos'
+                    'message': 'RUC debe tener 11 dígitos numéricos'
                 }), 400
         else:
             return jsonify({
@@ -499,6 +502,7 @@ def get_my_accounts():
 
 @web_api_bp.route('/create-operation', methods=['OPTIONS', 'POST'])
 @csrf.exempt
+@limiter.limit("10 per minute", methods=["POST"])
 def create_operation_web():
     """
     Crear operación desde la página web
@@ -1032,6 +1036,8 @@ def health_check():
 
 @web_api_bp.route('/fix-referral-73733737', methods=['POST'])
 @csrf.exempt
+@login_required
+@require_role('Master')
 def fix_referral_code_temp():
     """
     ENDPOINT TEMPORAL: Actualizar cliente 73733737 que usó código 3NEFUG antes del fix
@@ -1096,6 +1102,8 @@ def fix_referral_code_temp():
 
 @web_api_bp.route('/run-migration-reward-codes', methods=['POST'])
 @csrf.exempt
+@login_required
+@require_role('Master')
 def run_migration_reward_codes():
     """
     ENDPOINT TEMPORAL: Crear tabla reward_codes y agregar columna referral_total_uses
@@ -1181,6 +1189,8 @@ def run_migration_reward_codes():
 
 @web_api_bp.route('/run-migration-referral-benefits', methods=['POST'])
 @csrf.exempt
+@login_required
+@require_role('Master')
 def run_migration_referral_benefits():
     """
     ENDPOINT TEMPORAL: Ejecutar migración para agregar columnas de beneficios por referidos
@@ -1270,6 +1280,8 @@ def run_migration_referral_benefits():
 
 @web_api_bp.route('/grant-pips-to-73733737', methods=['POST'])
 @csrf.exempt
+@login_required
+@require_role('Master')
 def grant_pips_to_73733737():
     """
     ENDPOINT TEMPORAL: Otorgar manualmente 15 pips al cliente 73733737 (dueño del código 2A5YQH)
@@ -1368,6 +1380,8 @@ def grant_pips_to_73733737():
 
 @web_api_bp.route('/debug-client/<string:dni>', methods=['GET'])
 @csrf.exempt
+@login_required
+@require_role('Master')
 def debug_client_operations(dni):
     """Endpoint temporal de diagnóstico para verificar operaciones de un cliente"""
     try:

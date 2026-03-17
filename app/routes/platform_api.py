@@ -393,6 +393,25 @@ def manage_exchange_rates():
                     'message': 'El tipo de cambio de venta debe ser mayor o igual al de compra'
                 }), 400
 
+            # Validar desviación máxima vs tipo de cambio anterior (A-3)
+            last_rate = ExchangeRate.query.order_by(ExchangeRate.updated_at.desc()).first()
+            if last_rate:
+                prev_buy = float(last_rate.buy_rate) if last_rate.buy_rate else None
+                prev_sell = float(last_rate.sell_rate) if last_rate.sell_rate else None
+                warnings = []
+                for label, prev, new in [('compra', prev_buy, buy_rate), ('venta', prev_sell, sell_rate)]:
+                    if prev and prev > 0:
+                        deviation = abs(new - prev) / prev
+                        if deviation > 0.03:
+                            return jsonify({
+                                'success': False,
+                                'message': f'Tipo de cambio de {label} ({new}) supera el 3% de variación respecto al valor anterior ({prev}). Desviación: {deviation*100:.1f}%'
+                            }), 400
+                        elif deviation > 0.015:
+                            warnings.append(f'{label}: {deviation*100:.1f}% de variación')
+                if warnings:
+                    logger.warning(f"⚠️ Tipos de cambio con variación alta por {current_user.username}: {', '.join(warnings)}")
+
             # Actualizar tipos de cambio
             new_rate = ExchangeRate.update_rates(
                 buy_rate=buy_rate,

@@ -3,6 +3,7 @@ Extensiones de Flask para QoriCash Trading V2
 
 Todas las extensiones se inicializan aquí y se configuran en __init__.py
 """
+import os
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_login import LoginManager
@@ -30,7 +31,7 @@ csrf = CSRFProtect()
 limiter = Limiter(
     key_func=get_remote_address,
     default_limits=["200 per day", "50 per hour"],
-    storage_uri="memory://"
+    storage_uri=os.environ.get('REDIS_URL', 'memory://')
 )
 
 # WebSocket (Real-time)
