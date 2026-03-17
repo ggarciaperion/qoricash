@@ -490,6 +490,7 @@ def create_operation():
 
 @operations_bp.route('/api/update_status/<int:operation_id>', methods=['PATCH'])
 @login_required
+@require_role('Master', 'Operador', 'Middle Office')
 def update_status(operation_id):
     """
     API: Actualizar estado de operación
@@ -544,6 +545,7 @@ def update_status(operation_id):
 
 @operations_bp.route('/api/upload_proof/<int:operation_id>', methods=['POST'])
 @login_required
+@require_role('Master', 'Operador', 'Middle Office')
 def upload_proof(operation_id):
     """
     API: Subir comprobantes de operación
@@ -720,6 +722,7 @@ def get_for_operator():
 
 @operations_bp.route('/api/update/<int:operation_id>', methods=['PUT', 'PATCH'])
 @login_required
+@require_role('Master', 'Trader')
 def update_operation(operation_id):
     """
     API: Actualizar operación (monto, abonos, pagos)
@@ -761,6 +764,18 @@ def update_operation(operation_id):
             new_amount = float(data['amount_usd'])
             if new_amount <= 0:
                 return jsonify({'success': False, 'message': 'El monto debe ser mayor a 0'}), 400
+
+            # Validación de seguridad: máximo 20% de desviación del monto original
+            old_amount_check = float(operation.amount_usd)
+            if old_amount_check > 0:
+                deviation = abs(new_amount - old_amount_check) / old_amount_check
+                if deviation > 0.20 and current_user.role != 'Master':
+                    return jsonify({
+                        'success': False,
+                        'message': f'El nuevo monto excede el 20% de variación permitida '
+                                   f'(original: ${old_amount_check:.2f}, nuevo: ${new_amount:.2f}). '
+                                   f'Contacta a un Master para aprobar este cambio.'
+                    }), 403
 
             # Registrar log de modificación
             old_amount = float(operation.amount_usd)
@@ -904,9 +919,9 @@ def send_to_process(operation_id):
         assigned_operator_id = OperationService.assign_operator_balanced()
         if assigned_operator_id:
             operation.assigned_operator_id = assigned_operator_id
-            print(f"Operación {operation.operation_id} asignada al operador ID: {assigned_operator_id}")
+            logger.info(f"Operación {operation.operation_id} asignada al operador ID: {assigned_operator_id}")
         else:
-            print(f"ADVERTENCIA: No se pudo asignar operador a {operation.operation_id}")
+            logger.warning(f"No se pudo asignar operador a {operation.operation_id}")
 
         AuditLog.log_action(
             user_id=current_user.id,
@@ -1168,27 +1183,22 @@ def upload_deposit_proof(operation_id):
     from app.extensions import db
     from app.models.operation import Operation
 
-    print(f"[DEBUG] upload_deposit_proof llamado para operación {operation_id}")
+    logger.debug(f"upload_deposit_proof llamado para operación {operation_id}")
 
     operation = Operation.query.get(operation_id)
     if not operation:
-        print(f"[DEBUG] Operación {operation_id} no encontrada")
         return jsonify({'success': False, 'message': 'Operación no encontrada'}), 404
 
     if 'file' not in request.files:
-        print(f"[DEBUG] No hay archivo en request.files: {list(request.files.keys())}")
         return jsonify({'success': False, 'message': 'No se envió ningún archivo'}), 400
 
     deposit_index = request.form.get('deposit_index', type=int)
     if deposit_index is None:
-        print(f"[DEBUG] deposit_index no proporcionado. Form data: {dict(request.form)}")
         return jsonify({'success': False, 'message': 'deposit_index es requerido'}), 400
 
     file = request.files['file']
-    print(f"[DEBUG] Archivo recibido: {file.filename}, deposit_index: {deposit_index}")
 
     file_service = FileService()
-    print(f"[DEBUG] FileService configurado: {file_service.configured}")
 
     success, message, url = file_service.upload_file(
         file,
@@ -1196,7 +1206,7 @@ def upload_deposit_proof(operation_id):
         f"{operation.operation_id}_deposit_{deposit_index}"
     )
 
-    print(f"[DEBUG] Resultado upload: success={success}, message={message}, url={url}")
+    logger.debug(f"upload_deposit_proof resultado: success={success}")
 
     if not success:
         return jsonify({'success': False, 'message': message}), 400

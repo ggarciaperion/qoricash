@@ -62,9 +62,12 @@ def health_check():
         'build': 'b10ba85'
     }), 200, {'Cache-Control': 'no-cache, no-store, must-revalidate'}
 
-# TEMPORAL: Endpoint para limpiar bancos fantasma
-@app.route('/admin/cleanup-banks-now')
-@limiter.exempt
+# =============================================================================
+# CLI COMMANDS (reemplazan los endpoints /admin/* que eran inseguros)
+# Uso en Render Shell: flask <command>
+# =============================================================================
+
+@app.cli.command("cleanup-banks")
 def cleanup_banks_now():
     """
     ENDPOINT TEMPORAL: Limpia bancos fantasma de la base de datos
@@ -109,35 +112,17 @@ def cleanup_banks_now():
         total_usd_remaining = sum(b['initial_usd'] for b in kept_banks)
         total_pen_remaining = sum(b['initial_pen'] for b in kept_banks)
 
-        return jsonify({
-            'success': True,
-            'deleted_count': len(deleted_banks),
-            'deleted_banks': deleted_banks,
-            'deleted_totals': {
-                'usd': total_usd_deleted,
-                'pen': total_pen_deleted
-            },
-            'remaining_count': len(kept_banks),
-            'remaining_banks': kept_banks,
-            'remaining_totals': {
-                'usd': total_usd_remaining,
-                'pen': total_pen_remaining
-            },
-            'message': f'✓ Eliminados {len(deleted_banks)} bancos fantasma. Total correcto USD: ${total_usd_remaining}'
-        }), 200
+        print(f"✓ Eliminados {len(deleted_banks)} bancos fantasma")
+        print(f"✓ Restantes: {len(kept_banks)} bancos — USD total: ${total_usd_remaining}")
 
     except Exception as e:
         db.session.rollback()
         import traceback
-        return jsonify({
-            'success': False,
-            'error': str(e),
-            'traceback': traceback.format_exc()
-        }), 500
+        print(f"✗ Error: {e}")
+        traceback.print_exc()
 
-# TEMPORAL: Endpoint para actualizar constraints y corregir canal de operaciones
-@app.route('/admin/fix-app-channel-now')
-@limiter.exempt
+
+@app.cli.command("fix-app-channel")
 def fix_app_channel_now():
     """
     ENDPOINT TEMPORAL URGENTE: Actualiza constraints y corrige canal de operaciones
@@ -197,330 +182,123 @@ def fix_app_channel_now():
 
         db.session.commit()
 
-        return jsonify({
-            'success': True,
-            'migration_executed': results['migration_executed'],
-            'constraints_updated': {
-                'origen': results.get('origen_constraint', 'Error'),
-                'status': results.get('status_constraint', 'Error')
-            },
-            'operations_updated_count': len(results['operations_updated']),
-            'operations_updated': results['operations_updated'],
-            'errors': results['errors'],
-            'message': f"✓ Constraints actualizados y {len(results['operations_updated'])} operaciones corregidas a canal 'app'"
-        }), 200
+        print(f"✓ Constraints actualizados, {len(results['operations_updated'])} operaciones corregidas")
+        if results['errors']:
+            print(f"  Errores parciales: {results['errors']}")
 
     except Exception as e:
         db.session.rollback()
         import traceback
-        return jsonify({
-            'success': False,
-            'error': str(e),
-            'traceback': traceback.format_exc(),
-            'partial_results': results
-        }), 500
+        print(f"✗ Error: {e}")
+        traceback.print_exc()
 
-# TEMPORAL: Endpoint para actualizar operaciones específicas a canal app
-@app.route('/admin/update-operation-channel/<operation_id>/<new_origen>')
-@limiter.exempt
-def update_operation_channel(operation_id, new_origen):
-    """
-    ENDPOINT TEMPORAL: Actualiza el origen de una operación específica
 
-    Uso: /admin/update-operation-channel/EXP-1153/app
-    """
+@app.cli.command("update-operation-channel")
+def update_operation_channel():
+    """Uso: flask update-operation-channel (editar script para especificar ID y origen)"""
     from app.extensions import db
     from app.models.operation import Operation
-
+    # Editar estas variables antes de ejecutar:
+    operation_id = None  # ej: 'EXP-1153'
+    new_origen = None    # ej: 'app'
+    if not operation_id or new_origen not in ['sistema', 'app', 'web']:
+        print("✗ Define operation_id y new_origen en el script antes de ejecutar")
+        return
     try:
-        if new_origen not in ['sistema', 'app', 'web']:
-            return jsonify({
-                'success': False,
-                'error': f'Origen inválido: {new_origen}. Debe ser: sistema, app o web'
-            }), 400
-
-        operation = Operation.query.filter_by(operation_id=operation_id).first()
-
-        if not operation:
-            return jsonify({
-                'success': False,
-                'error': f'Operación {operation_id} no encontrada'
-            }), 404
-
-        old_origen = operation.origen
-        operation.origen = new_origen
+        op = Operation.query.filter_by(operation_id=operation_id).first()
+        if not op:
+            print(f"✗ Operación {operation_id} no encontrada")
+            return
+        old = op.origen
+        op.origen = new_origen
         db.session.commit()
-
-        return jsonify({
-            'success': True,
-            'operation_id': operation_id,
-            'old_origen': old_origen,
-            'new_origen': new_origen,
-            'message': f'✓ Operación {operation_id} actualizada de "{old_origen}" a "{new_origen}"'
-        }), 200
-
+        print(f"✓ {operation_id}: '{old}' → '{new_origen}'")
     except Exception as e:
         db.session.rollback()
-        import traceback
-        return jsonify({
-            'success': False,
-            'error': str(e),
-            'traceback': traceback.format_exc()
-        }), 500
+        print(f"✗ Error: {e}")
 
-# TEMPORAL: Endpoint para actualizar TODAS las operaciones con plataforma a app
-@app.route('/admin/migrate-all-plataforma-to-app')
-@limiter.exempt
+
+@app.cli.command("migrate-plataforma-to-app")
 def migrate_all_plataforma_to_app():
-    """
-    ENDPOINT TEMPORAL: Actualiza TODAS las operaciones con origen='plataforma' a origen='app'
-
-    Esto es útil si todas las operaciones 'plataforma' son realmente de la app móvil
-    """
+    """Actualiza TODAS las operaciones con origen=plataforma a origen=app"""
     from app.extensions import db
     from app.models.operation import Operation
-
     try:
-        # Buscar todas las operaciones con origen='plataforma'
-        plataforma_ops = Operation.query.filter_by(origen='plataforma').all()
-
-        updated = []
-        for op in plataforma_ops:
-            old_origen = op.origen
+        ops = Operation.query.filter_by(origen='plataforma').all()
+        for op in ops:
             op.origen = 'app'
-            updated.append({
-                'operation_id': op.operation_id,
-                'old_origen': old_origen,
-                'new_origen': 'app',
-                'client_dni': op.client.dni if op.client else None,
-                'created_at': op.created_at.isoformat() if op.created_at else None
-            })
-
         db.session.commit()
-
-        return jsonify({
-            'success': True,
-            'total_updated': len(updated),
-            'operations': updated,
-            'message': f'✓ {len(updated)} operaciones actualizadas de "plataforma" a "app"'
-        }), 200
-
+        print(f"✓ {len(ops)} operaciones actualizadas a origen=app")
     except Exception as e:
         db.session.rollback()
-        import traceback
-        return jsonify({
-            'success': False,
-            'error': str(e),
-            'traceback': traceback.format_exc()
-        }), 500
+        print(f"✗ Error: {e}")
 
-# TEMPORAL: Endpoint para ejecutar manualmente el scheduler de expiración
-@app.route('/admin/expire-operations-now')
-@limiter.exempt
+
+@app.cli.command("expire-operations")
 def expire_operations_now():
-    """
-    ENDPOINT TEMPORAL URGENTE: Ejecuta manualmente el scheduler de expiración
-
-    Cancela operaciones pendientes que hayan excedido el tiempo límite de 15 minutos
-    """
+    """Ejecuta manualmente el scheduler de expiración de operaciones"""
     from app.services.operation_expiry_service import OperationExpiryService
-    from datetime import timedelta
-    from app.utils.formatters import now_peru
-
     try:
-        # Información del sistema
-        current_time = now_peru()
-        cutoff_time = current_time - timedelta(minutes=15)
-
-        # Ejecutar el servicio de expiración
-        expired_count = OperationExpiryService.expire_old_operations()
-
-        return jsonify({
-            'success': True,
-            'current_time_peru': current_time.isoformat(),
-            'cutoff_time': cutoff_time.isoformat(),
-            'operations_cancelled': expired_count,
-            'message': f'✓ {expired_count} operaciones canceladas. Operaciones creadas antes de {cutoff_time.strftime("%H:%M:%S")} fueron canceladas.'
-        }), 200
+        count = OperationExpiryService.expire_old_operations()
+        print(f"✓ {count} operaciones expiradas")
     except Exception as e:
-        import traceback
-        return jsonify({
-            'success': False,
-            'error': str(e),
-            'traceback': traceback.format_exc()
-        }), 500
+        print(f"✗ Error: {e}")
 
-# TEMPORAL: Endpoint para verificar operaciones pendientes específicas
-@app.route('/admin/check-pending-operations')
-@limiter.exempt
+
+@app.cli.command("check-pending-operations")
 def check_pending_operations():
-    """
-    ENDPOINT TEMPORAL: Verifica operaciones pendientes y su elegibilidad para expiración
-    """
+    """Lista operaciones pendientes y su elegibilidad para expiración"""
     from app.models.operation import Operation
     from datetime import timedelta
     from app.utils.formatters import now_peru
-
     try:
-        current_time = now_peru()
-        cutoff_time = current_time - timedelta(minutes=15)
-        protection_cutoff = current_time - timedelta(hours=24)
-
-        # Buscar todas las operaciones pendientes
-        pending_ops = Operation.query.filter_by(status='Pendiente').all()
-
-        operations_info = []
-        for op in pending_ops:
-            age_minutes = (current_time - op.created_at).total_seconds() / 60 if op.created_at else 0
-            should_expire = (
-                op.created_at < cutoff_time and
-                op.created_at > protection_cutoff and
-                op.origen in ['web', 'app', 'plataforma']
-            ) if op.created_at else False
-
-            operations_info.append({
-                'operation_id': op.operation_id,
-                'created_at': op.created_at.isoformat() if op.created_at else None,
-                'age_minutes': round(age_minutes, 1),
-                'origen': op.origen,
-                'should_expire': should_expire,
-                'reason': 'Will be cancelled' if should_expire else (
-                    'Too recent (< 15 min)' if age_minutes < 15 else
-                    'Too old (> 24h)' if age_minutes > 1440 else
-                    'Wrong origen (sistema)' if op.origen == 'sistema' else
-                    'Unknown'
-                )
-            })
-
-        return jsonify({
-            'success': True,
-            'current_time_peru': current_time.isoformat(),
-            'cutoff_time': cutoff_time.isoformat(),
-            'protection_cutoff': protection_cutoff.isoformat(),
-            'total_pending': len(pending_ops),
-            'should_expire_count': sum(1 for op in operations_info if op['should_expire']),
-            'operations': sorted(operations_info, key=lambda x: x['age_minutes'], reverse=True)
-        }), 200
+        now = now_peru()
+        cutoff = now - timedelta(minutes=15)
+        ops = Operation.query.filter_by(status='Pendiente').all()
+        print(f"Total pendientes: {len(ops)}")
+        for op in sorted(ops, key=lambda x: x.created_at or now, reverse=True):
+            age = round((now - op.created_at).total_seconds() / 60, 1) if op.created_at else 0
+            flag = "→ EXPIRA" if op.created_at and op.created_at < cutoff and op.origen != 'sistema' else ""
+            print(f"  {op.operation_id}  {age} min  {op.origen}  {flag}")
     except Exception as e:
-        import traceback
-        return jsonify({
-            'success': False,
-            'error': str(e),
-            'traceback': traceback.format_exc()
-        }), 500
+        print(f"✗ Error: {e}")
 
-# TEMPORAL: Endpoint para verificar que los templates están actualizados
-@app.route('/admin/check-template-version')
-@limiter.exempt
-def check_template_version():
-    """
-    ENDPOINT TEMPORAL: Verificar qué versión del template se está sirviendo
-    """
-    from app.models.operation import Operation
 
-    # Obtener una operación con origen='app'
-    app_op = Operation.query.filter_by(origen='app').first()
-
-    if not app_op:
-        return jsonify({
-            'error': 'No hay operaciones con origen=app en la base de datos'
-        })
-
-    # Renderizar solo la celda del canal para esta operación
-    from flask import render_template_string
-
-    template = """
-    {% if op.origen == 'plataforma' %}
-        <span class="badge bg-purple" style="background-color: #6f42c1;">Web</span>
-    {% elif op.origen == 'app' %}
-        <span class="badge bg-info">App</span>
-    {% else %}
-        <span class="badge bg-secondary">Sistema</span>
-    {% endif %}
-    """
-
-    html = render_template_string(template, op=app_op)
-
-    return jsonify({
-        'operation_id': app_op.operation_id,
-        'origen_in_db': app_op.origen,
-        'expected_badge': 'App (blue bg-info)',
-        'rendered_html': html.strip(),
-        'template_has_app_support': 'elif op.origen' in template,
-        'message': 'Si rendered_html muestra "App", el template está correcto'
-    })
-
-# TEMPORAL: Limpiar usuarios Web duplicados — ejecutar UNA VEZ
-@app.route('/admin/cleanup-web-users')
-@limiter.exempt
+@app.cli.command("cleanup-web-users")
 def cleanup_web_users():
-    """
-    ENDPOINT TEMPORAL: Consolida los usuarios con rol Web/Plataforma en uno solo.
-
-    Mantiene el usuario canónico (email=web@qoricash.pe / dni=99999997).
-    Reasigna clientes de los duplicados al canónico y los desactiva.
-
-    ELIMINAR después de ejecutar.
-    """
+    """Consolida usuarios Web/Plataforma duplicados en el usuario canónico"""
     from app.extensions import db
     from app.models.user import User
     from app.models.client import Client
     from sqlalchemy import text
-
     try:
-        # 1. Encontrar el usuario canónico Web
         canonical = User.query.filter(
             (User.email == 'web@qoricash.pe') | (User.dni == '99999997')
         ).order_by(User.id.asc()).first()
-
         if not canonical:
-            return jsonify({'success': False, 'error': 'No se encontró el usuario Web canónico'}), 404
-
-        # 2. Encontrar todos los otros usuarios con rol Web o Plataforma (excluyendo el canónico)
+            print("✗ No se encontró el usuario Web canónico")
+            return
         duplicates = User.query.filter(
-            User.role.in_(['Web', 'Plataforma']),
-            User.id != canonical.id
+            User.role.in_(['Web', 'Plataforma']), User.id != canonical.id
         ).all()
-
-        reassigned_clients = []
-        deactivated_users = []
-
+        reassigned = 0
         for dup in duplicates:
-            # Reasignar clientes del duplicado al canónico
             clients = Client.query.filter_by(created_by=dup.id).all()
             for c in clients:
                 c.created_by = canonical.id
-                reassigned_clients.append({'client_dni': c.dni, 'from_user_id': dup.id})
-
-            # Reasignar operaciones
+                reassigned += 1
             db.session.execute(
-                text("UPDATE operations SET user_id = :cid WHERE user_id = :did"),
+                text("UPDATE operations SET user_id=:cid WHERE user_id=:did"),
                 {'cid': canonical.id, 'did': dup.id}
             )
-
-            # Desactivar el duplicado
             dup.status = 'Inactivo'
-            dup.role = 'Web'
-            deactivated_users.append({'id': dup.id, 'username': dup.username, 'dni': dup.dni})
-
-        # Asegurarse de que el canónico esté activo y tenga rol Web
         canonical.role = 'Web'
         canonical.status = 'Activo'
-
         db.session.commit()
-
-        return jsonify({
-            'success': True,
-            'canonical_user': {'id': canonical.id, 'username': canonical.username, 'email': canonical.email},
-            'duplicates_deactivated': deactivated_users,
-            'clients_reassigned': len(reassigned_clients),
-            'message': f'✓ {len(deactivated_users)} duplicados desactivados, {len(reassigned_clients)} clientes reasignados al usuario canónico'
-        }), 200
-
+        print(f"✓ {len(duplicates)} duplicados desactivados, {reassigned} clientes reasignados")
     except Exception as e:
         db.session.rollback()
-        import traceback
-        return jsonify({'success': False, 'error': str(e), 'traceback': traceback.format_exc()}), 500
+        print(f"✗ Error: {e}")
 
 
 def start_operation_expiry_scheduler():
