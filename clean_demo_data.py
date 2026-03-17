@@ -53,19 +53,23 @@ def clean_demo_data():
 
         total = 0
 
-        for table, model_name in steps:
+        for table, _ in steps:
             try:
-                result = db.session.execute(
-                    db.text(f"DELETE FROM {table}")
-                )
+                # SAVEPOINT permite continuar si la tabla no existe sin abortar la transacción
+                db.session.execute(db.text(f"SAVEPOINT sp_{table}"))
+                result = db.session.execute(db.text(f"DELETE FROM {table}"))
                 count = result.rowcount
-                db.session.flush()
+                db.session.execute(db.text(f"RELEASE SAVEPOINT sp_{table}"))
                 print(f"  ✓  {table:<30} {count} registros eliminados")
                 total += count
             except Exception as e:
-                db.session.rollback()
-                print(f"  ✗  {table:<30} ERROR: {e}")
-                raise
+                db.session.execute(db.text(f"ROLLBACK TO SAVEPOINT sp_{table}"))
+                if "does not exist" in str(e):
+                    print(f"  -  {table:<30} tabla no existe (saltando)")
+                else:
+                    print(f"  ✗  {table:<30} ERROR: {e}")
+                    db.session.rollback()
+                    raise
 
         db.session.commit()
 
