@@ -14,17 +14,19 @@ Ejecutar:
 """
 import sys
 import os
+import importlib.util
 
-# Permitir importar desde la raíz del proyecto sin necesidad de instalar el paquete
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Cargar bank_accounts.py directamente (evita ejecutar app/__init__.py con Flask/eventlet)
+_config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'app', 'config', 'bank_accounts.py')
+_spec = importlib.util.spec_from_file_location('bank_accounts', _config_path)
+_mod = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_mod)
 
-from app.config.bank_accounts import (
-    QORICASH_ACCOUNTS,
-    ALLOWED_BANK_NAMES,
-    get_accounts_for_currency,
-    QORICASH_RUC,
-    QORICASH_TITULAR,
-)
+QORICASH_ACCOUNTS = _mod.QORICASH_ACCOUNTS
+ALLOWED_BANK_NAMES = _mod.ALLOWED_BANK_NAMES
+get_accounts_for_currency = _mod.get_accounts_for_currency
+QORICASH_RUC = _mod.QORICASH_RUC
+QORICASH_TITULAR = _mod.QORICASH_TITULAR
 
 BANNED_BANKS = ['BANBIF', 'PICHINCHA']
 REQUIRED_BANKS = ['BCP', 'INTERBANK']
