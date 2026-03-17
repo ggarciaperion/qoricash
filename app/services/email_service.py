@@ -324,9 +324,8 @@ class EmailService:
 <div class="email-wrapper">
     <div class="email-card">
 
-        <div class="email-header">
-            <div class="logo-wrap"><span class="logo-text">QoriCash</span></div>
-            <p class="tagline">Nueva operación registrada</p>
+        <div class="email-header" style="padding:0;background:#0D1B2A;">
+            <img src="https://res.cloudinary.com/dbks8vqoh/image/upload/v1773788552/qoricash/banneremail.png" alt="QoriCash" width="600" style="width:100%;max-width:600px;display:block;">
         </div>
         <div class="accent-bar"></div>
 
@@ -496,9 +495,8 @@ class EmailService:
 <div class="email-wrapper">
     <div class="email-card">
 
-        <div class="email-header">
-            <div class="logo-wrap"><span class="logo-text">QoriCash</span></div>
-            <p class="tagline">Operación completada</p>
+        <div class="email-header" style="padding:0;background:#0D1B2A;">
+            <img src="https://res.cloudinary.com/dbks8vqoh/image/upload/v1773788552/qoricash/banneremail.png" alt="QoriCash" width="600" style="width:100%;max-width:600px;display:block;">
         </div>
         <div class="accent-bar"></div>
 
@@ -660,9 +658,8 @@ class EmailService:
 <div class="email-wrapper">
     <div class="email-card">
 
-        <div class="email-header">
-            <div class="logo-wrap"><span class="logo-text">QoriCash</span></div>
-            <p class="tagline">Operación cancelada</p>
+        <div class="email-header" style="padding:0;background:#0D1B2A;">
+            <img src="https://res.cloudinary.com/dbks8vqoh/image/upload/v1773788552/qoricash/banneremail.png" alt="QoriCash" width="600" style="width:100%;max-width:600px;display:block;">
         </div>
         <div class="accent-bar"></div>
 
@@ -1003,9 +1000,8 @@ class EmailService:
 <div class="email-wrapper">
     <div class="email-card">
 
-        <div class="email-header">
-            <div class="logo-wrap"><span class="logo-text">QoriCash</span></div>
-            <p class="tagline">Recuperación de contraseña</p>
+        <div class="email-header" style="padding:0;background:#0D1B2A;">
+            <img src="https://res.cloudinary.com/dbks8vqoh/image/upload/v1773788552/qoricash/banneremail.png" alt="QoriCash" width="600" style="width:100%;max-width:600px;display:block;">
         </div>
         <div class="accent-bar"></div>
 
@@ -1128,9 +1124,8 @@ class EmailService:
 <div class="email-wrapper">
     <div class="email-card">
 
-        <div class="email-header">
-            <div class="logo-wrap"><span class="logo-text">QoriCash</span></div>
-            <p class="tagline">Registro en proceso</p>
+        <div class="email-header" style="padding:0;background:#0D1B2A;">
+            <img src="https://res.cloudinary.com/dbks8vqoh/image/upload/v1773788552/qoricash/banneremail.png" alt="QoriCash" width="600" style="width:100%;max-width:600px;display:block;">
         </div>
         <div class="accent-bar"></div>
 
@@ -1237,9 +1232,8 @@ class EmailService:
 <div class="email-wrapper">
     <div class="email-card">
 
-        <div class="email-header">
-            <div class="logo-wrap"><span class="logo-text">QoriCash</span></div>
-            <p class="tagline">Cuenta activada</p>
+        <div class="email-header" style="padding:0;background:#0D1B2A;">
+            <img src="https://res.cloudinary.com/dbks8vqoh/image/upload/v1773788552/qoricash/banneremail.png" alt="QoriCash" width="600" style="width:100%;max-width:600px;display:block;">
         </div>
         <div class="accent-bar"></div>
 
