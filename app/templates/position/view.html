@@ -7,8 +7,12 @@
     <!-- Header -->
     <div class="row mb-4">
         <div class="col-md-4">
-            <h2><i class="bi bi-graph-up-arrow"></i> Posición</h2>
-            <p class="text-muted" id="subtituloFecha">Resumen de operaciones del día</p>
+            <h2>
+                <i class="bi bi-graph-up-arrow"></i> Posición
+                <span id="badgePendientes" class="badge bg-secondary ms-2" style="font-size:0.5em; vertical-align:middle;">0 pendientes</span>
+            </h2>
+            <p class="text-muted mb-0" id="subtituloFecha">Resumen de operaciones del día</p>
+            <small id="aperturaStatus" class="badge bg-secondary mt-1">Sin apertura</small>
         </div>
         <div class="col-md-8 text-end">
             <!-- Selector de fecha -->
@@ -18,9 +22,24 @@
                 <input type="date" id="fechaSelector" class="form-control form-control-sm d-inline-block" style="width: 160px;">
             </div>
 
-            <!-- Botón exportar -->
+            <!-- Botón apertura/cierre -->
+            <button id="btnAperturaCierre" class="btn btn-sm btn-outline-dark me-2" onclick="registrarApertura()" style="display:none;">
+                <i class="bi bi-door-open"></i> Abrir día
+            </button>
+
+            <!-- Botón copiar resumen -->
+            <button class="btn btn-sm btn-outline-secondary me-2" onclick="copiarResumen()" title="Copiar resumen al portapapeles">
+                <i class="bi bi-clipboard"></i> Copiar
+            </button>
+
+            <!-- Botón exportar CSV -->
+            <button class="btn btn-sm btn-outline-success me-2" onclick="exportarCSV()">
+                <i class="bi bi-filetype-csv"></i> CSV
+            </button>
+
+            <!-- Botón exportar Excel -->
             <button class="btn btn-sm btn-success me-2" onclick="exportarExcel()">
-                <i class="bi bi-file-earmark-excel"></i> Exportar
+                <i class="bi bi-file-earmark-excel"></i> Excel
             </button>
 
             <!-- Botón actualizar -->
@@ -36,6 +55,24 @@
         <strong>¡ALERTA DE DESBALANCE!</strong>
         <span id="mensajeDesbalance"></span>
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+
+    <!-- Semáforo de Posición -->
+    <div class="row mb-3">
+        <div class="col-md-12">
+            <div class="card" id="semaforoCard" style="border-left: 6px solid #198754; transition: border-color 0.3s;">
+                <div class="card-body py-2">
+                    <div class="d-flex align-items-center gap-3">
+                        <div id="semaforoIndicator" style="width:22px;height:22px;border-radius:50%;background:#198754;flex-shrink:0;box-shadow:0 0 8px rgba(25,135,84,0.5);transition:background 0.3s;"></div>
+                        <div class="flex-grow-1">
+                            <span class="fw-bold" id="semaforoLabel">POSICIÓN BALANCEADA</span>
+                            <small class="text-muted ms-2" id="semaforoDetail"></small>
+                        </div>
+                        <small class="text-muted" id="semaforoUmbral" style="white-space:nowrap;">Verde ≤$1K · Amarillo ≤$3K · Rojo >$3K</small>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Sección Posición -->
@@ -254,7 +291,22 @@
             <div class="modal-body" id="operationDetails">
                 <!-- Se llenará con JavaScript -->
             </div>
-            <div class="modal-footer">
+            <div class="modal-footer flex-wrap gap-2">
+                <div class="me-auto d-flex gap-2 flex-wrap" id="statusChangeButtons">
+                    <small class="text-muted align-self-center">Cambiar estado:</small>
+                    <button type="button" class="btn btn-sm btn-warning text-dark" onclick="cambiarEstadoOperacion('Pendiente')">
+                        <i class="bi bi-clock"></i> Pendiente
+                    </button>
+                    <button type="button" class="btn btn-sm btn-info" onclick="cambiarEstadoOperacion('En proceso')">
+                        <i class="bi bi-arrow-repeat"></i> En proceso
+                    </button>
+                    <button type="button" class="btn btn-sm btn-success" onclick="cambiarEstadoOperacion('Completada')">
+                        <i class="bi bi-check-circle"></i> Completada
+                    </button>
+                    <button type="button" class="btn btn-sm btn-danger" onclick="cambiarEstadoOperacion('Cancelado')">
+                        <i class="bi bi-x-circle"></i> Cancelado
+                    </button>
+                </div>
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
             </div>
         </div>
@@ -525,6 +577,10 @@ function loadPosition(fecha = null) {
             // Limpiar búsquedas individuales
             $('#busquedaCompras').val('');
             $('#busquedaVentas').val('');
+
+            // Actualizar badge de pendientes y estado de apertura
+            updateBadgePendientes();
+            verificarAperturaDelDia();
         }
     });
 }
@@ -894,10 +950,14 @@ function renderPosicion(posicion) {
     `;
 
     container.html(html);
+    updateSemaforo(posicion);
 }
 
 // === FUNCIÓN PARA VER DETALLES DE OPERACIÓN ===
+let currentOperationId = null;
+
 function verDetallesOperacion(operationId) {
+    currentOperationId = operationId;
     ajaxRequest(`/operations/api/${operationId}`, 'GET', null, function(response) {
         const op = response.operation;
         let html = buildViewHTML(op);
@@ -1122,9 +1182,12 @@ function renderReconciliationTable(banks) {
             `;
         }
 
+        const auditInfo = bank.updated_at
+            ? `<br><small class="text-muted" style="font-size:0.7rem;"><i class="bi bi-clock"></i> ${bank.updated_at}${bank.updated_by ? ' · ' + bank.updated_by : ''}</small>`
+            : '';
         return `
             <tr class="${rowClass}">
-                <td><i class="bi bi-bank2"></i> ${bank.bank_name}</td>
+                <td><i class="bi bi-bank2"></i> ${bank.bank_name}${auditInfo}</td>
                 <td class="text-center"><span class="badge bg-${currency === 'USD' ? 'primary' : 'success'}">${currency}</span></td>
                 <td class="text-end">${symbol}${formatNumber(initial)}</td>
                 <td class="text-end text-info">${movements >= 0 ? '+' : ''}${symbol}${formatNumber(movements)}</td>
@@ -1353,6 +1416,231 @@ function saveBalanceEdits() {
             });
         }
     });
+}
+
+// ============================================================
+// SPRINT 1: SEMÁFORO DE POSICIÓN
+// ============================================================
+function updateSemaforo(posicion) {
+    const diff = Math.abs(posicion.diferencia_usd);
+    let color, borderColor, labelClass, label, detail;
+
+    if (diff <= 1000) {
+        color = '#198754'; borderColor = '#198754'; labelClass = 'text-success';
+        label = 'POSICIÓN BALANCEADA';
+        detail = `Diferencia: $${formatNumber(diff)}`;
+    } else if (diff <= 3000) {
+        color = '#ffc107'; borderColor = '#ffc107'; labelClass = 'text-warning';
+        label = 'POSICIÓN EN ALERTA';
+        detail = `Diferencia: $${formatNumber(diff)} — ${posicion.etiqueta_diferencia}`;
+    } else {
+        color = '#dc3545'; borderColor = '#dc3545'; labelClass = 'text-danger';
+        label = '¡POSICIÓN CRÍTICA!';
+        detail = `Diferencia: $${formatNumber(diff)} — ${posicion.etiqueta_diferencia}`;
+    }
+
+    $('#semaforoIndicator').css({ 'background-color': color, 'box-shadow': `0 0 8px ${color}88` });
+    $('#semaforoCard').css('border-left-color', borderColor);
+    $('#semaforoLabel').text(label).removeClass('text-success text-warning text-danger').addClass(labelClass);
+    $('#semaforoDetail').text(detail);
+}
+
+// ============================================================
+// SPRINT 4: BADGE DE PENDIENTES
+// ============================================================
+function updateBadgePendientes() {
+    const pending = [...allCompras, ...allVentas]
+        .filter(op => op.status === 'Pendiente' || op.status === 'En proceso').length;
+    const badge = $('#badgePendientes');
+    badge.text(pending + (pending === 1 ? ' pendiente' : ' pendientes'));
+    badge.removeClass('bg-secondary bg-warning bg-danger text-dark');
+    if (pending === 0) {
+        badge.addClass('bg-secondary');
+    } else if (pending <= 3) {
+        badge.addClass('bg-warning text-dark');
+    } else {
+        badge.addClass('bg-danger');
+    }
+}
+
+// ============================================================
+// SPRINT 1: APERTURA / CIERRE DEL DÍA (localStorage)
+// ============================================================
+function verificarAperturaDelDia() {
+    const fecha = $('#fechaSelector').val() || getPeruDate();
+    const keyApertura = `qoricash-apertura-${fecha}`;
+    const keyCierre = `qoricash-cierre-${fecha}`;
+    const apertura = localStorage.getItem(keyApertura);
+    const cierre = localStorage.getItem(keyCierre);
+    const esHoy = fecha === getPeruDate();
+
+    const statusEl = $('#aperturaStatus');
+    const btnApertura = $('#btnAperturaCierre');
+
+    if (cierre) {
+        const data = JSON.parse(cierre);
+        statusEl.text(`Cerrado ${data.hora}`).removeClass().addClass('badge bg-danger');
+        btnApertura.html('<i class="bi bi-info-circle"></i> Ver cierre')
+            .attr('onclick', 'verInfoCierre()').show();
+    } else if (apertura) {
+        const data = JSON.parse(apertura);
+        statusEl.text(`Abierto ${data.hora}`).removeClass().addClass('badge bg-success');
+        if (esHoy) {
+            btnApertura.html('<i class="bi bi-door-closed"></i> Cerrar día')
+                .attr('onclick', 'registrarCierre()').show();
+        } else {
+            btnApertura.hide();
+        }
+    } else {
+        statusEl.text('Sin apertura').removeClass().addClass('badge bg-secondary');
+        if (esHoy) {
+            btnApertura.html('<i class="bi bi-door-open"></i> Abrir día')
+                .attr('onclick', 'registrarApertura()').show();
+        } else {
+            btnApertura.hide();
+        }
+    }
+}
+
+function registrarApertura() {
+    const fecha = $('#fechaSelector').val() || getPeruDate();
+    const keyApertura = `qoricash-apertura-${fecha}`;
+    if (localStorage.getItem(keyApertura)) {
+        showNotification('El día ya fue abierto', 'info');
+        return;
+    }
+    const ahora = new Date().toLocaleString('es-PE', { timeZone: 'America/Lima', hour: '2-digit', minute: '2-digit', hour12: false });
+    localStorage.setItem(keyApertura, JSON.stringify({ hora: ahora, timestamp: Date.now() }));
+    showNotification('Apertura del día registrada ✓', 'success');
+    verificarAperturaDelDia();
+}
+
+function registrarCierre() {
+    const fecha = $('#fechaSelector').val() || getPeruDate();
+    const keyCierre = `qoricash-cierre-${fecha}`;
+    if (localStorage.getItem(keyCierre)) {
+        showNotification('El día ya fue cerrado', 'info');
+        return;
+    }
+    const pendingCount = [...allCompras, ...allVentas]
+        .filter(op => op.status === 'Pendiente' || op.status === 'En proceso').length;
+    const msg = pendingCount > 0
+        ? `Hay ${pendingCount} operaciones pendientes/en proceso. ¿Confirmas el cierre del día?`
+        : '¿Confirmas el cierre del día?';
+    if (!confirm(msg)) return;
+
+    const ahora = new Date().toLocaleString('es-PE', { timeZone: 'America/Lima', hour: '2-digit', minute: '2-digit', hour12: false });
+    localStorage.setItem(keyCierre, JSON.stringify({ hora: ahora, timestamp: Date.now() }));
+    showNotification('Cierre del día registrado ✓', 'success');
+    verificarAperturaDelDia();
+}
+
+function verInfoCierre() {
+    const fecha = $('#fechaSelector').val() || getPeruDate();
+    const keyCierre = `qoricash-cierre-${fecha}`;
+    const cierre = localStorage.getItem(keyCierre);
+    if (cierre) {
+        const data = JSON.parse(cierre);
+        showNotification(`Día cerrado a las ${data.hora}`, 'info');
+    }
+}
+
+// ============================================================
+// SPRINT 3: EXPORTAR CSV
+// ============================================================
+function exportarCSV() {
+    const fecha = $('#fechaSelector').val() || getPeruDate();
+    const headers = ['Tipo', 'ID Operación', 'Cliente', 'USD', 'TC', 'PEN', 'Estado'];
+    const rows = [headers];
+
+    allCompras.forEach(op => {
+        rows.push(['Compra', op.operation_id, op.client_name,
+            op.amount_usd.toFixed(2), op.exchange_rate.toFixed(4),
+            op.amount_pen.toFixed(2), op.status]);
+    });
+    allVentas.forEach(op => {
+        rows.push(['Venta', op.operation_id, op.client_name,
+            op.amount_usd.toFixed(2), op.exchange_rate.toFixed(4),
+            op.amount_pen.toFixed(2), op.status]);
+    });
+
+    const csvContent = rows
+        .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+        .join('\n');
+
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Posicion_${fecha}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    showNotification('CSV exportado correctamente', 'success');
+}
+
+// ============================================================
+// SPRINT 3: COPIAR RESUMEN AL PORTAPAPELES
+// ============================================================
+function copiarResumen() {
+    const fecha = currentDate || getPeruDate();
+    const comprasUSD = allCompras.reduce((s, op) => s + op.amount_usd, 0);
+    const ventasUSD = allVentas.reduce((s, op) => s + op.amount_usd, 0);
+    const comprasPEN = allCompras.reduce((s, op) => s + op.amount_pen, 0);
+    const ventasPEN = allVentas.reduce((s, op) => s + op.amount_pen, 0);
+    const diferencia = ventasUSD - comprasUSD;
+    const utilidad = ventasPEN - comprasPEN;
+    const pendingCount = [...allCompras, ...allVentas]
+        .filter(op => op.status === 'Pendiente' || op.status === 'En proceso').length;
+
+    const etiq = diferencia >= 0 ? 'VENDIDOS EN' : 'COMPRADOS EN';
+    const texto = [
+        `📊 POSICIÓN QORICASH — ${fecha}`,
+        ``,
+        `💰 Compras:    $${formatNumber(comprasUSD)}  (S/ ${formatNumber(comprasPEN)})`,
+        `💵 Ventas:     $${formatNumber(ventasUSD)}  (S/ ${formatNumber(ventasPEN)})`,
+        `📐 Diferencia: $${formatNumber(Math.abs(diferencia))} (${etiq})`,
+        `✅ Utilidad:   S/ ${formatNumber(utilidad)}`,
+        ``,
+        `⏳ Ops. pendientes/en proceso: ${pendingCount}`,
+    ].join('\n');
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(texto).then(() => {
+            showNotification('Resumen copiado al portapapeles', 'success');
+        });
+    } else {
+        const ta = document.createElement('textarea');
+        ta.value = texto;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        showNotification('Resumen copiado al portapapeles', 'success');
+    }
+}
+
+// ============================================================
+// SPRINT 4: CAMBIAR ESTADO DE OPERACIÓN DESDE MODAL
+// ============================================================
+function cambiarEstadoOperacion(newStatus) {
+    if (!currentOperationId) {
+        showNotification('No hay operación seleccionada', 'warning');
+        return;
+    }
+    if (!confirm(`¿Cambiar estado a "${newStatus}"?`)) return;
+
+    ajaxRequest(`/operations/api/update_status/${currentOperationId}`, 'PATCH',
+        { status: newStatus },
+        function(response) {
+            if (response.success) {
+                showNotification(`Estado actualizado a ${newStatus}`, 'success');
+                const modalEl = document.getElementById('viewOperationModal');
+                const modalInstance = bootstrap.Modal.getInstance(modalEl);
+                if (modalInstance) modalInstance.hide();
+                loadPosition($('#fechaSelector').val());
+            }
+        }
+    );
 }
 </script>
 {% endblock %}
