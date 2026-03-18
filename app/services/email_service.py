@@ -11,8 +11,80 @@ import eventlet
 logger = logging.getLogger(__name__)
 
 
+BANNER_URL = 'https://res.cloudinary.com/dbks8vqoh/image/upload/v1773788552/qoricash/banneremail.png'
+
+
 class EmailService:
     """Servicio para envío de correos electrónicos"""
+
+    @staticmethod
+    def build_email_html(title: str, body_html: str, subtitle: str = '') -> str:
+        """
+        Template base corporativo para todos los correos de QoriCash.
+
+        Garantiza consistencia visual: banner, estructura, footer.
+        Usar este método en TODOS los correos nuevos para evitar
+        templates huérfanos sin banner.
+
+        Args:
+            title:    Título principal del correo (texto grande bajo el banner)
+            body_html: Contenido HTML del cuerpo del correo
+            subtitle: Subtítulo opcional (se muestra junto al título)
+
+        Returns:
+            str: HTML completo listo para enviar como email
+        """
+        subtitle_html = f'<p style="margin:8px 0 0;font-size:16px;opacity:0.9;">{subtitle}</p>' if subtitle else ''
+        return f"""<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+</head>
+<body style="margin:0;padding:0;background-color:#f4f6f8;font-family:Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f6f8;padding:20px 0;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
+
+        <!-- BANNER CORPORATIVO -->
+        <tr>
+          <td style="padding:0;background:#0D1B2A;">
+            <img src="{BANNER_URL}" alt="QoriCash"
+                 width="600"
+                 style="width:100%;max-width:600px;display:block;border:0;">
+          </td>
+        </tr>
+
+        <!-- TÍTULO -->
+        <tr>
+          <td style="background:#0D1B2A;padding:20px 30px 24px;text-align:center;">
+            <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;">{title}</h1>
+            {subtitle_html}
+          </td>
+        </tr>
+
+        <!-- CUERPO -->
+        <tr>
+          <td style="background:#ffffff;padding:32px 30px;color:#333333;font-size:15px;line-height:1.7;">
+            {body_html}
+          </td>
+        </tr>
+
+        <!-- FOOTER -->
+        <tr>
+          <td style="background:#f0f2f5;padding:20px 30px;text-align:center;
+                     border-top:1px solid #e0e0e0;color:#888888;font-size:12px;line-height:1.6;">
+            <p style="margin:0 0 4px;"><strong style="color:#555;">QORICASH SAC</strong> — RUC 20615113698</p>
+            <p style="margin:0 0 4px;">Av. Brasil 2790 Int. 504, Pueblo Libre, Lima</p>
+            <p style="margin:0;">Este es un correo automático, por favor no responder a esta dirección.</p>
+          </td>
+        </tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>"""
 
     @staticmethod
     def _send_async(msg, timeout=10):

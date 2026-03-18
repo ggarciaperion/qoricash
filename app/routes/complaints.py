@@ -157,120 +157,67 @@ def update_complaint_status(id):
                 from app.services.email_service import EmailService
                 from flask_mail import Message
 
-                # Datos del cliente
                 client_name = complaint.full_name or complaint.company_name
                 client_email = complaint.email
 
                 if new_status == 'En Revisión':
-                    # Correo cuando pasa a "En Revisión"
-                    subject = f'Reclamo {complaint.complaint_number} - En Revisión'
-
-                    html_content = f"""
-                    <!DOCTYPE html>
-                    <html>
-                    <head>
-                        <meta charset="UTF-8">
-                    </head>
-                    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-                        <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-                            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-                                <h1 style="margin: 0;">Actualización de Reclamo</h1>
-                                <p style="margin: 10px 0 0 0; font-size: 18px; font-weight: bold;">{complaint.complaint_number}</p>
-                            </div>
-
-                            <div style="background-color: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px;">
-                                <p>Estimado/a <strong>{client_name}</strong>,</p>
-
-                                <p>Le informamos que su reclamo <strong>{complaint.complaint_number}</strong> se encuentra actualmente <strong>en revisión</strong> por nuestro equipo.</p>
-
-                                <p>Estamos trabajando para resolver su solicitud a la brevedad posible.</p>
-
-                                <p style="margin-top: 30px;">Atentamente,</p>
-                                <p><strong>Equipo QoriCash</strong></p>
-                                <p style="color: #666; font-size: 12px; margin-top: 30px;">
-                                    Este es un correo automático, por favor no responder a esta dirección.
-                                </p>
-                            </div>
-                        </div>
-                    </body>
-                    </html>
+                    body = f"""
+                        <p>Estimado/a <strong>{client_name}</strong>,</p>
+                        <p>Le informamos que su reclamo
+                           <strong>{complaint.complaint_number}</strong>
+                           se encuentra actualmente <strong>en revisión</strong>
+                           por nuestro equipo.</p>
+                        <p>Estamos trabajando para resolver su solicitud a la brevedad posible.</p>
+                        <p style="margin-top:24px;">Atentamente,<br><strong>Equipo QoriCash</strong></p>
                     """
-
-                    # Crear mensaje con cliente como destinatario y copia a info
+                    html_content = EmailService.build_email_html(
+                        title='Actualización de Reclamo',
+                        subtitle=complaint.complaint_number,
+                        body_html=body
+                    )
                     msg = Message(
-                        subject=subject,
+                        subject=f'Reclamo {complaint.complaint_number} - En Revisión',
                         recipients=[client_email],
                         cc=['info@qoricash.pe'],
                         html=html_content
                     )
-
-                    # Enviar asíncrono
                     EmailService._send_async(msg, timeout=15)
-
-                    logger.info(f"✅ Correos de 'En Revisión' enviados para reclamo {complaint.complaint_number}")
+                    logger.info(f"✅ Correo 'En Revisión' enviado para reclamo {complaint.complaint_number}")
 
                 elif new_status == 'Resuelto':
-                    # Correo cuando pasa a "Resuelto"
-                    subject = f'Reclamo {complaint.complaint_number} - Resuelto'
-
-                    # Construir HTML con la respuesta del equipo
-                    response_html = ''
+                    response_block = ''
                     if response_text:
-                        response_html = f"""
-                        <div style="background-color: #e8f5e9; padding: 20px; border-radius: 8px; border-left: 4px solid #28a745; margin: 20px 0;">
-                            <p style="margin: 0 0 10px 0;"><strong>Respuesta del Equipo:</strong></p>
-                            <p style="margin: 0; white-space: pre-wrap;">{response_text}</p>
-                        </div>
-                        """
-
-                    html_content = f"""
-                    <!DOCTYPE html>
-                    <html>
-                    <head>
-                        <meta charset="UTF-8">
-                    </head>
-                    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-                        <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-                            <div style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-                                <h1 style="margin: 0;">Reclamo Resuelto</h1>
-                                <p style="margin: 10px 0 0 0; font-size: 18px; font-weight: bold;">{complaint.complaint_number}</p>
-                            </div>
-
-                            <div style="background-color: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px;">
-                                <p>Estimado/a <strong>{client_name}</strong>,</p>
-
-                                <p>Nos complace informarle que su reclamo <strong>{complaint.complaint_number}</strong> ha sido <strong>resuelto</strong>.</p>
-
-                                {response_html}
-
-                                <p>Si tiene alguna consulta adicional, no dude en contactarnos.</p>
-
-                                <p style="margin-top: 30px;">Atentamente,</p>
-                                <p><strong>Equipo QoriCash</strong></p>
-                                <p style="color: #666; font-size: 12px; margin-top: 30px;">
-                                    Este es un correo automático, por favor no responder a esta dirección.
-                                </p>
-                            </div>
-                        </div>
-                    </body>
-                    </html>
+                        response_block = f"""
+                        <div style="background:#e8f5e9;padding:18px 20px;border-radius:8px;
+                                    border-left:4px solid #28a745;margin:20px 0;">
+                            <p style="margin:0 0 8px;font-weight:700;">Respuesta del Equipo:</p>
+                            <p style="margin:0;white-space:pre-wrap;">{response_text}</p>
+                        </div>"""
+                    body = f"""
+                        <p>Estimado/a <strong>{client_name}</strong>,</p>
+                        <p>Nos complace informarle que su reclamo
+                           <strong>{complaint.complaint_number}</strong>
+                           ha sido <strong>resuelto</strong>.</p>
+                        {response_block}
+                        <p>Si tiene alguna consulta adicional, no dude en contactarnos.</p>
+                        <p style="margin-top:24px;">Atentamente,<br><strong>Equipo QoriCash</strong></p>
                     """
-
-                    # Crear mensaje con cliente como destinatario y copia a info
+                    html_content = EmailService.build_email_html(
+                        title='Reclamo Resuelto',
+                        subtitle=complaint.complaint_number,
+                        body_html=body
+                    )
                     msg = Message(
-                        subject=subject,
+                        subject=f'Reclamo {complaint.complaint_number} - Resuelto',
                         recipients=[client_email],
                         cc=['info@qoricash.pe'],
                         html=html_content
                     )
-
-                    # Enviar asíncrono
                     EmailService._send_async(msg, timeout=15)
-
-                    logger.info(f"✅ Correos de 'Resuelto' enviados para reclamo {complaint.complaint_number}")
+                    logger.info(f"✅ Correo 'Resuelto' enviado para reclamo {complaint.complaint_number}")
 
             except Exception as email_error:
-                logger.error(f"❌ Error al enviar correos de actualización de estado: {str(email_error)}")
+                logger.error(f"❌ Error al enviar correo de actualización de estado: {str(email_error)}")
                 # No fallar la actualización si falla el correo
                 pass
 

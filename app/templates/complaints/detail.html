@@ -280,6 +280,20 @@
                             }
                         }
                     });
+
+                    // ──────────────────────────────────────────────────────────
+                    // KEEPALIVE: mantiene la sesión activa mientras el usuario
+                    // redacta una respuesta (evita CSRF "tokens do not match"
+                    // causado por timeout de sesión de 5 minutos).
+                    // Pinga /health cada 2 minutos — endpoint sin costo de BD.
+                    // ──────────────────────────────────────────────────────────
+                    (function startSessionKeepalive() {
+                        const INTERVAL_MS = 2 * 60 * 1000; // 2 minutos
+                        setInterval(function() {
+                            fetch('/health', { method: 'GET', credentials: 'same-origin' })
+                                .catch(function() { /* silencioso — no interrumpir al usuario */ });
+                        }, INTERVAL_MS);
+                    })();
                     </script>
                     {% endif %}
                 </div>
