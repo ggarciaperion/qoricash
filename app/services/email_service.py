@@ -1454,14 +1454,9 @@ class EmailService:
         body { background-color: #f0f4f8; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
         .email-wrapper { padding: 28px 16px; }
         .email-card { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(13,27,42,0.09); }
-        .email-header { background-color: #0D1B2A; padding: 30px 40px 26px; text-align: center; }
-        .logo-wrap { display: inline-block; border: 1.5px solid rgba(0,222,168,0.35); border-radius: 8px; padding: 7px 22px; margin-bottom: 10px; }
-        .logo-text { color: #00DEA8; font-size: 21px; font-weight: 700; letter-spacing: 1.5px; }
-        .complaint-num { color: #ffffff; font-size: 17px; font-weight: 700; margin-top: 8px; letter-spacing: 0.5px; }
-        .tagline { color: rgba(255,255,255,0.40); font-size: 11px; letter-spacing: 0.6px; margin-top: 6px; }
-        .accent-bar { height: 3px; background-color: #f59e0b; }
+        .email-header { background-color: #0D1B2A; padding: 0; line-height: 0; font-size: 0; }
         .email-body { padding: 36px 40px; color: #334155; font-size: 15px; line-height: 1.65; }
-        .meta-row { font-size: 12.5px; color: #94a3b8; margin-bottom: 20px; }
+        .meta-row { display: none; }
         .section-label { font-size: 11px; font-weight: 700; color: #00DEA8; text-transform: uppercase; letter-spacing: 1.2px; margin: 24px 0 10px 0; }
         .data-box { background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; overflow: hidden; margin: 0 0 20px 0; }
         .data-row { padding: 10px 18px; border-bottom: 1px solid #f1f5f9; font-size: 14px; }
@@ -1489,15 +1484,19 @@ class EmailService:
 <div class="email-wrapper">
     <div class="email-card">
 
-        <div class="email-header">
-            <div class="logo-wrap"><span class="logo-text">QoriCash</span></div>
-            <p class="complaint-num">{{ complaint_number }}</p>
-            <p class="tagline">Libro de Reclamaciones</p>
+        <div class="email-header" style="padding:0;background:#0D1B2A;line-height:0;font-size:0;">
+            <img src="https://res.cloudinary.com/dbks8vqoh/image/upload/v1773788552/qoricash/banneremail.png"
+                 alt="QoriCash" width="600"
+                 style="width:100%;max-width:600px;display:block;border:0;line-height:0;">
         </div>
-        <div class="accent-bar"></div>
 
         <div class="email-body">
-            <p class="meta-row">Fecha de registro: {{ fecha_actual }}</p>
+            <h2 style="margin:0 0 4px;font-size:18px;font-weight:700;color:#0D1B2A;">
+                Libro de Reclamaciones
+            </h2>
+            <p style="margin:0 0 16px;font-size:13px;color:#888;letter-spacing:0.4px;">
+                {{ complaint_number }} &nbsp;·&nbsp; {{ fecha_actual }}
+            </p>
 
             <p class="section-label">Datos del reclamante</p>
             <div class="data-box">
