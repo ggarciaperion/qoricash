@@ -1452,8 +1452,8 @@ class EmailService:
     <style>
         body, table, td, p, h1, h2, h3 { margin: 0; padding: 0; }
         body { background-color: #f0f4f8; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
-        .email-wrapper { padding: 28px 16px; }
-        .email-card { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(13,27,42,0.09); }
+        .email-wrapper { padding: 0 0 28px 0; }
+        .email-card { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 0 0 12px 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(13,27,42,0.09); }
         .email-header { background-color: #0D1B2A; padding: 0; line-height: 0; font-size: 0; }
         .email-body { padding: 36px 40px; color: #334155; font-size: 15px; line-height: 1.65; }
         .meta-row { display: none; }
@@ -1475,7 +1475,6 @@ class EmailService:
         .footer-copy { color: #cbd5e1; font-size: 11px; margin-top: 8px; }
         @media only screen and (max-width: 620px) {
             .email-body { padding: 24px 20px !important; }
-            .email-header { padding: 24px 20px !important; }
             .data-label { display: block !important; min-width: unset !important; margin-bottom: 2px; }
         }
     </style>
