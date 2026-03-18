@@ -163,7 +163,7 @@ def update_complaint_status(id):
                 if new_status == 'En Revisión':
                     body = f"""
                         <p>Estimado/a <strong>{client_name}</strong>,</p>
-                        <p>Le informamos que su reclamo
+                        <p>Le informamos que su reclamo número
                            <strong>{complaint.complaint_number}</strong>
                            se encuentra actualmente <strong>en revisión</strong>
                            por nuestro equipo.</p>
@@ -172,7 +172,6 @@ def update_complaint_status(id):
                     """
                     html_content = EmailService.build_email_html(
                         title='Actualización de Reclamo',
-                        subtitle=complaint.complaint_number,
                         body_html=body
                     )
                     msg = Message(
@@ -195,7 +194,7 @@ def update_complaint_status(id):
                         </div>"""
                     body = f"""
                         <p>Estimado/a <strong>{client_name}</strong>,</p>
-                        <p>Nos complace informarle que su reclamo
+                        <p>Nos complace informarle que su reclamo número
                            <strong>{complaint.complaint_number}</strong>
                            ha sido <strong>resuelto</strong>.</p>
                         {response_block}
@@ -204,7 +203,6 @@ def update_complaint_status(id):
                     """
                     html_content = EmailService.build_email_html(
                         title='Reclamo Resuelto',
-                        subtitle=complaint.complaint_number,
                         body_html=body
                     )
                     msg = Message(

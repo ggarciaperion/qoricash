@@ -22,19 +22,20 @@ class EmailService:
         """
         Template base corporativo para todos los correos de QoriCash.
 
-        Garantiza consistencia visual: banner, estructura, footer.
-        Usar este método en TODOS los correos nuevos para evitar
-        templates huérfanos sin banner.
+        Estructura: banner (imagen) → cuerpo blanco (título + contenido) → footer.
+        El título y subtítulo van dentro del cuerpo blanco, NO en el header oscuro,
+        para que el banner sea siempre visible por contraste.
 
         Args:
-            title:    Título principal del correo (texto grande bajo el banner)
+            title:     Título principal del correo (dentro del cuerpo blanco)
             body_html: Contenido HTML del cuerpo del correo
-            subtitle: Subtítulo opcional (se muestra junto al título)
-
-        Returns:
-            str: HTML completo listo para enviar como email
+            subtitle:  Texto secundario opcional (ej: número de operación/reclamo)
         """
-        subtitle_html = f'<p style="margin:8px 0 0;font-size:16px;opacity:0.9;">{subtitle}</p>' if subtitle else ''
+        subtitle_html = (
+            f'<p style="margin:4px 0 20px;font-size:13px;color:#888888;'
+            f'letter-spacing:0.5px;">{subtitle}</p>'
+        ) if subtitle else '<div style="margin-bottom:20px;"></div>'
+
         return f"""<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -46,26 +47,21 @@ class EmailService:
     <tr><td align="center">
       <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
 
-        <!-- BANNER CORPORATIVO -->
+        <!-- BANNER CORPORATIVO (imagen sobre fondo oscuro para contraste) -->
         <tr>
-          <td style="padding:0;background:#0D1B2A;">
+          <td style="padding:0;background:#0D1B2A;line-height:0;font-size:0;">
             <img src="{BANNER_URL}" alt="QoriCash"
                  width="600"
-                 style="width:100%;max-width:600px;display:block;border:0;">
+                 style="width:100%;max-width:600px;display:block;border:0;line-height:0;">
           </td>
         </tr>
 
-        <!-- TÍTULO -->
+        <!-- CUERPO BLANCO: título + contenido -->
         <tr>
-          <td style="background:#0D1B2A;padding:20px 30px 24px;text-align:center;">
-            <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;">{title}</h1>
+          <td style="background:#ffffff;padding:32px 30px 28px;
+                     color:#333333;font-size:15px;line-height:1.7;">
+            <h2 style="margin:0 0 0;font-size:20px;font-weight:700;color:#0D1B2A;">{title}</h2>
             {subtitle_html}
-          </td>
-        </tr>
-
-        <!-- CUERPO -->
-        <tr>
-          <td style="background:#ffffff;padding:32px 30px;color:#333333;font-size:15px;line-height:1.7;">
             {body_html}
           </td>
         </tr>
@@ -73,10 +69,15 @@ class EmailService:
         <!-- FOOTER -->
         <tr>
           <td style="background:#f0f2f5;padding:20px 30px;text-align:center;
-                     border-top:1px solid #e0e0e0;color:#888888;font-size:12px;line-height:1.6;">
-            <p style="margin:0 0 4px;"><strong style="color:#555;">QORICASH SAC</strong> — RUC 20615113698</p>
+                     border-top:1px solid #e0e0e0;color:#888888;
+                     font-size:12px;line-height:1.6;">
+            <p style="margin:0 0 4px;">
+              <strong style="color:#555;">QORICASH SAC</strong> — RUC 20615113698
+            </p>
             <p style="margin:0 0 4px;">Av. Brasil 2790 Int. 504, Pueblo Libre, Lima</p>
-            <p style="margin:0;">Este es un correo automático, por favor no responder a esta dirección.</p>
+            <p style="margin:0;">
+              Este es un correo automático, por favor no responder a esta dirección.
+            </p>
           </td>
         </tr>
 
