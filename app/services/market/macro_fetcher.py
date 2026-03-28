@@ -12,7 +12,6 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 import requests
-import yfinance as yf
 
 logger = logging.getLogger(__name__)
 
@@ -142,14 +141,29 @@ def _fetch_bcrp() -> dict:
     return result
 
 
-# ── yfinance: T-bill 13W como proxy de tasa FED ──────────────────────────────
+# ── Yahoo Finance v8: T-bill 13W como proxy de tasa FED ──────────────────────
 def _fetch_rates_yfinance() -> dict:
+    """Obtiene ^IRX via Yahoo Finance v8 API directamente (sin librería yfinance)."""
     result = {}
     try:
-        irx = yf.Ticker('^IRX').fast_info
-        result['fed_proxy']      = round(float(irx.last_price), 3)
-        result['fed_proxy_prev'] = round(float(irx.previous_close), 3) if irx.previous_close else None
-        logger.debug(f"[Macro] yfinance ^IRX: {result['fed_proxy']}%")
+        url  = 'https://query1.finance.yahoo.com/v8/finance/chart/%5EIRX'
+        resp = requests.get(
+            url,
+            params={'interval': '1d', 'range': '2d'},
+            headers={'User-Agent': 'Mozilla/5.0 (compatible; QoriCash/1.0)'},
+            timeout=12,
+        )
+        resp.raise_for_status()
+        data  = resp.json()
+        res   = data.get('chart', {}).get('result')
+        if res:
+            meta = res[0].get('meta', {})
+            price = meta.get('regularMarketPrice') or meta.get('chartPreviousClose')
+            prev  = meta.get('previousClose')
+            if price:
+                result['fed_proxy']      = round(float(price), 3)
+                result['fed_proxy_prev'] = round(float(prev), 3) if prev else None
+                logger.debug(f"[Macro] ^IRX: {result['fed_proxy']}%")
     except Exception as e:
         logger.debug(f"[Macro] ^IRX error: {e}")
     return result
