@@ -234,6 +234,72 @@ def migrate_all_plataforma_to_app():
         print(f"✗ Error: {e}")
 
 
+@app.cli.command("refresh-market")
+def refresh_market():
+    """Ejecuta manualmente todos los ciclos de mercado: precios, noticias, macro, calendario"""
+    from app.services.market.market_service import MarketService
+    import traceback
+
+    print("=== CICLO DE PRECIOS ===")
+    try:
+        r = MarketService.run_price_cycle()
+        print(f"  Resultado: {r}")
+    except Exception as e:
+        print(f"  ✗ Error: {e}")
+        traceback.print_exc()
+
+    print("\n=== CICLO DE NOTICIAS ===")
+    try:
+        r = MarketService.run_news_cycle()
+        print(f"  Resultado: {r}")
+    except Exception as e:
+        print(f"  ✗ Error: {e}")
+        traceback.print_exc()
+
+    print("\n=== CICLO MACRO ===")
+    try:
+        r = MarketService.run_macro_cycle()
+        print(f"  Resultado: {r}")
+    except Exception as e:
+        print(f"  ✗ Error: {e}")
+        traceback.print_exc()
+
+    print("\n=== CICLO CALENDARIO ===")
+    try:
+        r = MarketService.run_calendar_cycle()
+        print(f"  Resultado: {r}")
+    except Exception as e:
+        print(f"  ✗ Error: {e}")
+        traceback.print_exc()
+
+    print("\n✓ refresh-market completado")
+
+
+@app.cli.command("refresh-fx")
+def refresh_fx():
+    """Siembra competidores y ejecuta ciclo de scraping FX Monitor"""
+    from app.services.fx_monitor.monitor_service import FXMonitorService
+    import traceback
+
+    print("=== SEEDING COMPETIDORES ===")
+    try:
+        FXMonitorService.seed_competitors()
+        print("  ✓ Competidores sembrados")
+    except Exception as e:
+        print(f"  ✗ Error: {e}")
+        traceback.print_exc()
+
+    print("\n=== CICLO FX SCRAPING ===")
+    try:
+        r = FXMonitorService.run_scrape_cycle()
+        print(f"  Resultado: {r}")
+    except Exception as e:
+        print(f"  ✗ Error: {e}")
+        traceback.print_exc()
+
+    print("\n✓ refresh-fx completado")
+
+
 @app.cli.command("expire-operations")
 def expire_operations_now():
     """Ejecuta manualmente el scheduler de expiración de operaciones"""
