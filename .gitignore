@@ -1,66 +1,95 @@
 # ========================================
-# QORICASH MOBILE APP - GITIGNORE
+# QORICASH TRADING V2 — FLASK/PYTHON
 # ========================================
 
-# Node modules
-node_modules/
-
-# Expo
-.expo/
-.expo-shared/
-dist/
-web-build/
-
-# Environment variables
+# ── Variables de entorno (NUNCA subir al repo) ────────────────────────────────
 .env
 .env.local
 .env.production
-
-# Native builds
-*.jks
-*.p8
-*.p12
-*.key
-*.mobileprovision
-*.orig.*
-*.p12
-android/
-ios/
-
-# Metro
-.metro-health-check*
-
-# Debug
-npm-debug.*
-yarn-debug.*
-yarn-error.*
-.pnpm-debug.log*
-
-# Local env files
+.env.staging
 .env*.local
 
-# macOS
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+*.pyo
+*.pyd
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# ── Entorno virtual ───────────────────────────────────────────────────────────
+venv/
+env/
+ENV/
+.venv/
+.env/
+
+# ── Base de datos local ───────────────────────────────────────────────────────
+*.db
+*.sqlite
+*.sqlite3
+instance/
+
+# ── Uploads locales (generados por fallback sin Cloudinary) ──────────────────
+app/static/uploads/
+
+# ── Flask / Werkzeug ─────────────────────────────────────────────────────────
+instance/
+.webassets-cache
+flask_session/
+
+# ── Logs ─────────────────────────────────────────────────────────────────────
+*.log
+logs/
+/tmp/*.log
+
+# ── Tests ────────────────────────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+nosetests.xml
+coverage.xml
+*.cover
+
+# ── Jupyter ───────────────────────────────────────────────────────────────────
+.ipynb_checkpoints
+
+# ── macOS ────────────────────────────────────────────────────────────────────
 .DS_Store
+.AppleDouble
+.LSOverride
 *.pem
 
-# TypeScript
-*.tsbuildinfo
-
-# IDE
+# ── IDE ───────────────────────────────────────────────────────────────────────
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
+*.tsbuildinfo
 
-# Logs
-*.log
-logs/
-
-# OS
+# ── OS ────────────────────────────────────────────────────────────────────────
 Thumbs.db
 nul
 
-# Temporary files
+# ── Temporales ───────────────────────────────────────────────────────────────
 *.tmp
 *.bak

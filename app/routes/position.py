@@ -1,6 +1,8 @@
 """
 Rutas de Posición para QoriCash Trading V2
 """
+import logging
+import traceback
 from flask import Blueprint, render_template, request, jsonify
 from flask_login import login_required, current_user
 from app.models import BankBalance, Operation
@@ -8,6 +10,8 @@ from app.extensions import db
 from app.utils.decorators import require_role
 from app.config.bank_accounts import QORICASH_ACCOUNTS
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 position_bp = Blueprint('position', __name__)
 
@@ -218,13 +222,7 @@ def get_bank_balances():
         })
 
     except Exception as e:
-        import traceback
-        error_trace = traceback.format_exc()
-        print("=" * 80)
-        print("ERROR EN /api/bank_balances:")
-        print("=" * 80)
-        print(error_trace)
-        print("=" * 80)
+        logger.error(f'ERROR EN /api/bank_balances:\n{traceback.format_exc()}')
         db.session.rollback()
         return jsonify({
             'success': False,
@@ -422,11 +420,7 @@ def get_bank_reconciliation():
             Operation.created_at <= fin_dia
         ).all()
 
-        # DEBUG: Log de operaciones encontradas
-        print("=" * 80)
-        print(f"DEBUG OPERACIONES - Fecha: {fecha_consulta}")
-        print(f"Total operaciones completadas encontradas: {len(completed_ops)}")
-        print("-" * 80)
+        logger.debug(f'Reconciliación {fecha_consulta}: {len(completed_ops)} operaciones completadas')
 
         # Calcular movimientos del día (solo COMPLETADAS)
         total_usd_in = 0.0  # USD que entró (Ventas)
@@ -435,8 +429,6 @@ def get_bank_reconciliation():
         total_pen_out = 0.0  # PEN que salió (Ventas)
 
         for op in completed_ops:
-            print(f"Op {op.operation_id}: {op.operation_type} | USD: ${float(op.amount_usd)} | PEN: S/{float(op.amount_pen)} | Created: {op.created_at} | Completed: {op.completed_at}")
-
             if op.operation_type == 'Compra':
                 # Compra: Recibimos USD, Pagamos PEN
                 total_usd_in += float(op.amount_usd)
@@ -445,8 +437,6 @@ def get_bank_reconciliation():
                 # Venta: Pagamos USD, Recibimos PEN
                 total_usd_out += float(op.amount_usd)
                 total_pen_in += float(op.amount_pen)
-
-        print("-" * 80)
 
         # Movimientos netos del día
         net_usd_movement = total_usd_in - total_usd_out
@@ -469,20 +459,11 @@ def get_bank_reconciliation():
         total_difference_usd = total_actual_usd - expected_total_usd
         total_difference_pen = total_actual_pen - expected_total_pen
 
-        # DEBUG: Log de cálculos para diagnóstico
-        print("=" * 80)
-        print(f"DEBUG RECONCILIACIÓN - Fecha: {fecha_consulta}")
-        print(f"Número de bancos: {len(all_banks)}")
-        print("\nBANCOS REGISTRADOS:")
-        for bank in all_banks:
-            print(f"  - {bank.bank_name}: Inicial USD=${float(bank.initial_balance_usd or 0)}, Actual USD=${float(bank.balance_usd or 0)} | Inicial PEN=S/{float(bank.initial_balance_pen or 0)}, Actual PEN=S/{float(bank.balance_pen or 0)}")
-        print(f"\nMovimientos del día - USD IN: ${total_usd_in}, USD OUT: ${total_usd_out}")
-        print(f"Movimientos netos - USD: ${net_usd_movement}, PEN: S/{net_pen_movement}")
-        print(f"\nSaldos INICIALES totales - USD: ${total_initial_usd}, PEN: S/{total_initial_pen}")
-        print(f"Saldos ACTUALES totales - USD: ${total_actual_usd}, PEN: S/{total_actual_pen}")
-        print(f"Saldos ESPERADOS totales - USD: ${expected_total_usd}, PEN: S/{expected_total_pen}")
-        print(f"\nDIFERENCIAS totales - USD: ${total_difference_usd}, PEN: S/{total_difference_pen}")
-        print("=" * 80)
+        logger.debug(
+            f'Reconciliación {fecha_consulta}: bancos={len(all_banks)}, '
+            f'USD_neto={net_usd_movement}, PEN_neto={net_pen_movement}, '
+            f'diff_USD={total_difference_usd}, diff_PEN={total_difference_pen}'
+        )
 
         # Preparar datos de reconciliación por banco
         banks_data = []
@@ -566,13 +547,8 @@ def get_bank_reconciliation():
         })
 
     except Exception as e:
-        import traceback
         error_trace = traceback.format_exc()
-        print("=" * 80)
-        print("ERROR EN /api/bank_reconciliation:")
-        print("=" * 80)
-        print(error_trace)
-        print("=" * 80)
+        logger.error(f'ERROR EN /api/bank_reconciliation:\n{error_trace}')
         db.session.rollback()
         return jsonify({
             'success': False,

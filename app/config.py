@@ -8,7 +8,7 @@ class Config:
     """Configuración base"""
     
     # Flask
-    SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-change-in-production'
+    SECRET_KEY = os.environ.get('SECRET_KEY')
     
     # Database
     # Render puede usar DATABASE_URL. Convertir postgres:// a postgresql://
@@ -72,6 +72,9 @@ class Config:
     MAIL_CONFIRMATION_PASSWORD = os.environ.get('MAIL_CONFIRMATION_PASSWORD')
     MAIL_CONFIRMATION_SENDER = os.environ.get('MAIL_CONFIRMATION_SENDER')
 
+    # APIs SUNAT (representantes legales)
+    APIS_NET_PE_TOKEN = os.environ.get('APIS_NET_PE_TOKEN', '')
+
     # NubeFact API Configuration
     NUBEFACT_API_URL = os.environ.get('NUBEFACT_API_URL', 'https://api.nubefact.com/api/v1')
     NUBEFACT_TOKEN = os.environ.get('NUBEFACT_TOKEN')
@@ -91,6 +94,7 @@ class DevelopmentConfig(Config):
     """Configuración para desarrollo"""
     DEBUG = True
     TESTING = False
+    SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-secret-key-local-only')
     SESSION_COOKIE_SECURE = False
     SQLALCHEMY_ECHO = True  # Show SQL queries
 

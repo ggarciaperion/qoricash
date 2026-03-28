@@ -54,6 +54,7 @@
                                 <label class="text-muted small">Persona de Contacto</label>
                                 <p class="mb-0">{{ client.persona_contacto or '-' }}</p>
                             </div>
+
                         {% else %}
                             <!-- Datos DNI/CE -->
                             <div class="col-md-4 mb-3">
@@ -415,13 +416,27 @@
 
                         <div class="mb-3">
                             <label class="text-muted small">Listas Restrictivas</label>
-                            <p class="mb-0">
+                            <p class="mb-1">
                                 {% if risk_profile.in_restrictive_lists %}
                                     <span class="badge bg-danger">Sí encontrado</span>
                                 {% else %}
                                     <span class="badge bg-success">No encontrado</span>
                                 {% endif %}
                             </p>
+                            {% if current_user.role in ['Master', 'Middle Office'] %}
+                            <button class="btn btn-outline-primary btn-sm w-100 mt-1"
+                                    onclick="autoScreenClient({{ client.id }})"
+                                    id="btnAutoScreen">
+                                <i class="bi bi-search"></i> Realizar búsqueda restrictiva
+                            </button>
+                            <!-- Historial de búsquedas -->
+                            <div id="screeningHistoryWrapper" class="mt-2" style="display:none">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <small class="text-muted fw-bold">Historial de búsquedas</small>
+                                </div>
+                                <div id="screeningHistoryList"></div>
+                            </div>
+                            {% endif %}
                         </div>
 
                         {% if risk_profile.kyc_notes %}
@@ -795,6 +810,422 @@ function recalcularRiesgo() {
             alert('❌ ' + errorMsg);
         }
     });
+}
+</script>
+
+<!-- ── Modal Screening Automático ─────────────────────────────────────── -->
+<div class="modal fade" id="screeningModal" tabindex="-1" aria-labelledby="screeningModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="screeningModalLabel">
+          <i class="bi bi-shield-exclamation"></i> Búsqueda en Listas Restrictivas
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="screeningModalBody">
+        <!-- Contenido dinámico -->
+      </div>
+      <div class="modal-footer" id="screeningModalFooter">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Estado global del screening ───────────────────────────────────────────────
+let _screenCheckId   = null;
+let _screenDecisions = {};  // { matchKey: { decision, reason, match_name, source, score, result_type } }
+
+// ── Auto Screening ────────────────────────────────────────────────────────────
+async function autoScreenClient(clientId) {
+    const btn   = document.getElementById('btnAutoScreen');
+    const body  = document.getElementById('screeningModalBody');
+    const footer = document.getElementById('screeningModalFooter');
+    const modal = new bootstrap.Modal(document.getElementById('screeningModal'));
+
+    _screenCheckId   = null;
+    _screenDecisions = {};
+
+    body.innerHTML = `
+        <div class="text-center py-4">
+            <div class="spinner-border text-primary mb-3" role="status"></div>
+            <p class="text-muted">Consultando listas OFAC y ONU...<br>
+            <small>(La primera vez puede tardar ~30 segundos mientras se descargan los datos)</small></p>
+        </div>`;
+    footer.innerHTML = '<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>';
+    modal.show();
+
+    if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Buscando...'; }
+
+    try {
+        const res  = await fetch(`/compliance/api/screening/auto/${clientId}`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.content || '' }
+        });
+        const data = await res.json();
+
+        if (!data.success) {
+            body.innerHTML = `<div class="alert alert-danger"><i class="bi bi-x-circle"></i> ${data.error || 'Error al ejecutar búsqueda'}</div>`;
+            return;
+        }
+
+        _screenCheckId = data.check_id;
+        body.innerHTML = buildScreeningHTML(data);
+        updateScreeningFooter();
+
+    } catch (err) {
+        body.innerHTML = `<div class="alert alert-danger"><i class="bi bi-wifi-off"></i> Error de conexión: ${err.message}</div>`;
+    } finally {
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-search"></i> Realizar búsqueda restrictiva'; }
+    }
+}
+
+// ── Actualiza los botones del footer ─────────────────────────────────────────
+function updateScreeningFooter() {
+    const footer = document.getElementById('screeningModalFooter');
+    let html = '<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>';
+    if (_screenCheckId) {
+        const hasMatches = document.querySelectorAll('[data-match-key]').length > 0;
+        if (hasMatches) {
+            html += `<button class="btn btn-outline-secondary ms-2" onclick="discardAllMatches()" title="Descarta todas las coincidencias de una vez">
+                        <i class="bi bi-x-circle"></i> Descartar todas
+                     </button>`;
+        }
+        html += `<button class="btn btn-primary ms-2" onclick="saveScreeningDecisions()" id="btnSaveDecisions">
+                    <i class="bi bi-save"></i> Guardar decisiones
+                 </button>`;
+    }
+    footer.innerHTML = html;
+}
+
+// ── Descarta todas las coincidencias de golpe ─────────────────────────────────
+function discardAllMatches() {
+    document.querySelectorAll('[data-match-key]').forEach(row => {
+        const key = row.dataset.matchKey;
+        const reasonEl = document.getElementById(`reason_${key}`);
+        if (reasonEl && !reasonEl.value.trim()) {
+            reasonEl.value = 'Revisión manual — no corresponde al cliente';
+        }
+        setMatchDecision(key, 'discard');
+    });
+}
+
+// ── Registra una decisión (confirmar / descartar) ─────────────────────────────
+function setMatchDecision(key, decision) {
+    const reasonEl = document.getElementById(`reason_${key}`);
+    const reason   = (reasonEl ? reasonEl.value.trim() : '') || (decision === 'discard' ? 'Descartado por analista' : 'Confirmado por analista');
+
+    const row = document.querySelector(`[data-match-key="${key}"]`);
+    _screenDecisions[key] = {
+        decision,
+        reason,
+        match_idx:   parseInt(row.dataset.matchIdx),
+        match_name:  row.dataset.matchName,
+        source:      row.dataset.source,
+        score:       parseInt(row.dataset.score),
+        result_type: row.dataset.resultType,
+    };
+
+    // Actualizar UI de esa fila
+    const badge = document.getElementById(`badge_${key}`);
+    if (badge) {
+        badge.innerHTML = decision === 'confirm'
+            ? '<span class="badge bg-danger">Confirmado</span>'
+            : '<span class="badge bg-secondary">Descartado</span>';
+    }
+    const btnConfirm = document.getElementById(`btnC_${key}`);
+    const btnDiscard = document.getElementById(`btnD_${key}`);
+    if (btnConfirm) { btnConfirm.classList.toggle('btn-danger',    decision === 'confirm'); btnConfirm.classList.toggle('btn-outline-danger',   decision !== 'confirm'); }
+    if (btnDiscard) { btnDiscard.classList.toggle('btn-secondary', decision === 'discard'); btnDiscard.classList.toggle('btn-outline-secondary', decision !== 'discard'); }
+}
+
+// ── Guardar decisiones vía API ────────────────────────────────────────────────
+async function saveScreeningDecisions() {
+    if (!_screenCheckId) return;
+
+    // Auto-descartar coincidencias sin decisión explícita
+    document.querySelectorAll('[data-match-key]').forEach(row => {
+        const key = row.dataset.matchKey;
+        if (!_screenDecisions[key]) {
+            const reasonEl = document.getElementById(`reason_${key}`);
+            const reason   = (reasonEl && reasonEl.value.trim()) || 'Sin revisión — descartado por omisión';
+            _screenDecisions[key] = {
+                decision:    'discard',
+                reason,
+                match_idx:   parseInt(row.dataset.matchIdx),
+                match_name:  row.dataset.matchName,
+                source:      row.dataset.source,
+                score:       parseInt(row.dataset.score),
+                result_type: row.dataset.resultType,
+            };
+        }
+    });
+
+    const analystNotes = (document.getElementById('screeningAnalystNotes') || {}).value || '';
+    const decisions    = Object.values(_screenDecisions);
+
+    const btnSave = document.getElementById('btnSaveDecisions');
+    if (btnSave) { btnSave.disabled = true; btnSave.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Guardando...'; }
+
+    try {
+        const res = await fetch(`/compliance/api/screening/decision/${_screenCheckId}`, {
+            method:  'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken':  document.querySelector('meta[name="csrf-token"]')?.content || '',
+            },
+            body: JSON.stringify({ decisions, analyst_notes: analystNotes }),
+        });
+        const data = await res.json();
+
+        if (!data.success) {
+            alert('❌ Error al guardar: ' + (data.error || 'Error desconocido'));
+            if (btnSave) { btnSave.disabled = false; btnSave.innerHTML = '<i class="bi bi-save"></i> Guardar decisiones'; }
+            return;
+
+        }
+
+        // Actualizar footer con veredicto y botón PDF
+        const verdictMap = {
+            Clean:           { color: 'success', icon: '🟢', label: 'SIN COINCIDENCIAS' },
+            Potential_Match: { color: 'warning',  icon: '🟡', label: 'COINCIDENCIA PARCIAL' },
+            Match:           { color: 'danger',   icon: '🔴', label: 'COINCIDENCIA CONFIRMADA' },
+        };
+        const vd = verdictMap[data.final_verdict] || verdictMap['Clean'];
+        const footer = document.getElementById('screeningModalFooter');
+        footer.innerHTML = `
+            <span class="badge bg-${vd.color} fs-6 me-auto">${vd.icon} Veredicto: ${vd.label}</span>
+            <button class="btn btn-outline-primary" onclick="window.open('/compliance/api/screening/report/${_screenCheckId}', '_blank')">
+                <i class="bi bi-file-earmark-pdf"></i> Generar Reporte PDF
+            </button>
+            <button type="button" class="btn btn-secondary ms-2" data-bs-dismiss="modal" onclick="location.reload()">Cerrar y actualizar</button>
+        `;
+
+        // Mostrar alerta si fue Match
+        if (data.final_verdict === 'Match') {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = 'alert alert-danger d-flex align-items-center gap-2 mt-3';
+            alertDiv.innerHTML = '<i class="bi bi-exclamation-triangle-fill fs-5"></i><div><strong>Coincidencia confirmada.</strong> El KYC del cliente ha sido marcado como <strong>Rechazado</strong> automáticamente. Se ha generado una alerta de cumplimiento.</div>';
+            document.getElementById('screeningModalBody').prepend(alertDiv);
+        }
+
+        // Recargar historial en el panel
+        loadScreeningHistory();
+
+    } catch (err) {
+        alert('❌ Error de conexión: ' + err.message);
+        if (btnSave) { btnSave.disabled = false; btnSave.innerHTML = '<i class="bi bi-save"></i> Guardar decisiones'; }
+    }
+}
+
+
+// ── Cargar historial de búsquedas al iniciar ──────────────────────────────────
+async function loadScreeningHistory() {
+    try {
+        const res  = await fetch('/compliance/api/screening/history/{{ client.id }}');
+        const data = await res.json();
+        if (!data.success || !data.data || data.data.length === 0) return;
+
+        const wrapper = document.getElementById('screeningHistoryWrapper');
+        const list    = document.getElementById('screeningHistoryList');
+        if (!wrapper || !list) return;
+
+        const verdictBadge = {
+            'Clean':           '<span class="badge bg-success" style="font-size:10px">🟢 Limpio</span>',
+            'Potential_Match': '<span class="badge bg-warning text-dark" style="font-size:10px">🟡 Parcial</span>',
+            'Match':           '<span class="badge bg-danger" style="font-size:10px">🔴 Match</span>',
+        };
+
+        let html = '';
+        data.data.forEach(item => {
+            const badge = verdictBadge[item.final_verdict] || verdictBadge['Clean'];
+            const decided = item.has_decisions
+                ? `<small class="text-muted d-block" style="font-size:10px">Decisión: ${item.verdict_by || '—'} · ${item.verdict_at || '—'}</small>`
+                : `<small class="text-warning d-block" style="font-size:10px"><i class="bi bi-exclamation-triangle"></i> Sin decisión registrada</small>`;
+            html += `
+            <div class="border rounded p-2 mb-1 bg-light" style="font-size:11px">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        ${badge}
+                        <small class="text-muted ms-1">${item.checked_at}</small>
+                        <small class="text-muted d-block">Por: ${item.checked_by} · Score: ${item.max_score}%</small>
+                        ${decided}
+                    </div>
+                    <a href="/compliance/api/screening/report/${item.id}" target="_blank"
+                       class="btn btn-outline-secondary btn-sm py-0 px-1" title="Ver / Imprimir Reporte"
+                       style="font-size:10px; white-space:nowrap">
+                        <i class="bi bi-file-earmark-text"></i> Reporte
+                    </a>
+                </div>
+            </div>`;
+        });
+
+        list.innerHTML = html;
+        wrapper.style.display = 'block';
+
+    } catch (e) {
+        // Silencioso — el historial es opcional
+    }
+}
+
+$(document).ready(function() {
+    loadScreeningHistory();
+});
+
+// ── Construir HTML del modal ──────────────────────────────────────────────────
+function buildScreeningHTML(data) {
+    const semaphore = {
+        'Clean':           { color: 'success', icon: '🟢', label: 'Sin coincidencias' },
+        'Potential_Match': { color: 'warning', icon: '🟡', label: 'Coincidencias parciales — requiere revisión' },
+        'Match':           { color: 'danger',  icon: '🔴', label: 'Coincidencias — riesgo alto' },
+    };
+
+    const overall = semaphore[data.overall] || semaphore['Clean'];
+
+    const namesHtml = (data.names_searched || [])
+        .map(n => `<span class="badge bg-secondary me-1">${n}</span>`).join('');
+
+    const srcHtml = Object.entries(data.data_sources || {}).map(([src, info]) =>
+        `<span class="badge bg-light text-dark border me-1">${src}: ${(info.entries || 0).toLocaleString()} entradas${info.refreshed ? ' ↺' : ''}</span>`
+    ).join('');
+
+    // ── Explicación del score ──────────────────────────────────────────────
+    let html = `
+        <div class="alert alert-${overall.color} d-flex align-items-center gap-2 mb-3">
+            <span style="font-size:1.4rem">${overall.icon}</span>
+            <div>
+                <strong>Resultado inicial: ${overall.label}</strong>
+                ${data.max_score > 0 ? `<br><small>Score máximo detectado: <strong>${data.max_score}%</strong></small>` : ''}
+            </div>
+        </div>
+
+        <div class="mb-2"><small class="text-muted">Términos buscados: ${namesHtml}</small></div>
+        <div class="mb-3"><small class="text-muted">Fuentes consultadas: ${srcHtml}</small></div>
+
+        <div class="accordion mb-3" id="scoreExplanation">
+          <div class="accordion-item border-info">
+            <h2 class="accordion-header">
+              <button class="accordion-button collapsed py-2 bg-info bg-opacity-10 text-info-emphasis" type="button"
+                      data-bs-toggle="collapse" data-bs-target="#scoreCollapseBody">
+                <i class="bi bi-info-circle me-2"></i> ¿Qué significa el porcentaje de coincidencia?
+              </button>
+            </h2>
+            <div id="scoreCollapseBody" class="accordion-collapse collapse">
+              <div class="accordion-body py-2 small">
+                <table class="table table-sm table-bordered mb-1">
+                  <thead class="table-light"><tr><th>Score</th><th>Significado</th><th>Acción requerida</th></tr></thead>
+                  <tbody>
+                    <tr class="table-danger"><td><strong>≥ 88%</strong></td><td>🔴 Match — los nombres son prácticamente idénticos</td><td>Analista debe confirmar o descartar obligatoriamente</td></tr>
+                    <tr class="table-warning"><td><strong>78–87%</strong></td><td>🟡 Potential Match — alta similitud, posible coincidencia</td><td>Analista debe confirmar o descartar</td></tr>
+                  </tbody>
+                </table>
+                <p class="mb-0 text-muted"><strong>Importante:</strong> El % mide similitud <em>textual</em> entre nombres, NO probabilidad de que sea la misma persona.
+                Pueden existir personas con nombres similares en diferentes países — el analista decide con criterio.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <hr>`;
+
+    // ── Resultado por fuente ───────────────────────────────────────────────
+    const sources = [
+        { key: 'ofac', label: 'OFAC (US Treasury SDN)', result: data.ofac_result, matches: data.ofac_matches },
+        { key: 'un',   label: 'ONU (Consolidated Sanctions)', result: data.un_result, matches: data.un_matches },
+    ];
+
+    let globalMatchIdx = 0;
+
+    sources.forEach(src => {
+        const s       = semaphore[src.result] || semaphore['Clean'];
+        const matches = src.matches || [];
+
+        html += `
+            <div class="card mb-3">
+                <div class="card-header d-flex justify-content-between align-items-center py-2">
+                    <span><strong>${src.label}</strong></span>
+                    <span class="badge bg-${s.color}">${s.icon} ${s.label}</span>
+                </div>`;
+
+        if (matches.length > 0) {
+            html += `<div class="card-body p-0">`;
+            matches.forEach((m, i) => {
+                const idx      = globalMatchIdx++;
+                const key      = `${src.key}_${idx}`;
+                const rowClass = m.result === 'Match' ? 'table-danger' : 'table-warning';
+                const nameSafe = (m.name || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
+                html += `
+                <div class="p-2 border-bottom ${rowClass}"
+                     data-match-key="${key}"
+                     data-match-idx="${idx}"
+                     data-match-name="${nameSafe}"
+                     data-source="${src.key.toUpperCase()}"
+                     data-score="${m.score}"
+                     data-result-type="${m.result}">
+                  <div class="d-flex align-items-start gap-3 flex-wrap">
+                    <div style="min-width:200px; flex:1">
+                      <strong>${m.name}</strong>
+                      ${m.searched_as ? `<br><small class="text-muted">Buscado como: ${m.searched_as}</small>` : ''}
+                      <br><small class="text-muted">${m.entity_type || ''} ${m.program ? '— ' + m.program : ''}</small>
+                    </div>
+                    <div class="text-center" style="min-width:60px">
+                      <span class="badge ${m.score >= 88 ? 'bg-danger' : 'bg-warning text-dark'} fs-6">${m.score}%</span>
+                      <br><small class="text-muted">score</small>
+                    </div>
+                    <div id="badge_${key}" style="min-width:120px; padding-top:4px">
+                      <span class="badge bg-light text-dark border">Sin decisión</span>
+                    </div>
+                  </div>
+                  <!-- Área de decisión -->
+                  <div class="mt-2">
+                    <textarea id="reason_${key}" class="form-control form-control-sm mb-2"
+                              rows="2" placeholder="Motivo de tu decisión (obligatorio)..."></textarea>
+                    <div class="d-flex gap-2">
+                      <button id="btnC_${key}" type="button"
+                              class="btn btn-outline-danger btn-sm flex-fill"
+                              onclick="setMatchDecision('${key}', 'confirm')">
+                        <i class="bi bi-check-circle"></i> Confirmar coincidencia
+                      </button>
+                      <button id="btnD_${key}" type="button"
+                              class="btn btn-outline-secondary btn-sm flex-fill"
+                              onclick="setMatchDecision('${key}', 'discard')">
+                        <i class="bi bi-x-circle"></i> Descartar (falso positivo)
+                      </button>
+                    </div>
+                  </div>
+                </div>`;
+            });
+            html += `</div>`;
+        } else {
+            html += `<div class="card-body py-2"><small class="text-muted"><i class="bi bi-check-circle text-success"></i> Sin coincidencias en esta lista.</small></div>`;
+        }
+        html += `</div>`;
+    });
+
+    // ── Notas del analista ─────────────────────────────────────────────────
+    const hasMatches = (data.ofac_matches || []).length > 0 || (data.un_matches || []).length > 0;
+
+    if (hasMatches) {
+        html += `
+        <div class="mb-3">
+            <label class="form-label small fw-bold">Observaciones generales del analista</label>
+            <textarea id="screeningAnalystNotes" class="form-control form-control-sm" rows="2"
+                      placeholder="Observaciones adicionales sobre esta búsqueda (opcional)..."></textarea>
+        </div>`;
+    }
+
+    // ── Nota PEP / UIF ─────────────────────────────────────────────────────
+    html += `
+        <div class="alert alert-info mt-2 mb-0 py-2 small">
+            <i class="bi bi-info-circle"></i>
+            <strong>PEP / UIF / Interpol / SBS:</strong>
+            Estas consultas requieren verificación manual en
+            <a href="/compliance/restrictive-lists" target="_blank">Listas Restrictivas</a>.
+        </div>`;
+
+    return html;
 }
 </script>
 {% endblock %}

@@ -64,6 +64,9 @@ def create_app(config_name=None):
     # IMPORTANTE: Usar eventlet en lugar de APScheduler para compatibilidad con SocketIO
     start_operation_expiry_scheduler(app)
 
+    # Inicializar schedulers del módulo Mercado
+    start_market_schedulers(app)
+
     return app
 
 
@@ -132,6 +135,8 @@ def register_blueprints(app):
     from app.routes.referrals import referrals_bp
     from app.routes.compliance import compliance_bp
     from app.routes.complaints import complaints_bp
+    from app.routes.fx_monitor import fx_monitor_bp
+    from app.routes.market import market_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
@@ -147,6 +152,8 @@ def register_blueprints(app):
     app.register_blueprint(referrals_bp)  # Sistema de referidos
     app.register_blueprint(compliance_bp, url_prefix='/compliance')  # Módulo de compliance
     app.register_blueprint(complaints_bp, url_prefix='/complaints')  # Módulo de reclamos
+    app.register_blueprint(fx_monitor_bp)  # Monitor de competencia
+    app.register_blueprint(market_bp)      # Módulo Mercado
 
 
 def configure_logging(app):
@@ -297,3 +304,91 @@ def start_operation_expiry_scheduler(app):
     # Iniciar el scheduler en un greenlet separado
     _scheduler_greenlet = eventlet.spawn(scheduler_loop)
     logging.info("[SCHEDULER] 🚀 Greenlet de scheduler spawneado")
+
+
+def start_market_schedulers(app):
+    """Iniciar greenlets para jobs del módulo Mercado (precios, noticias, macro, fx_monitor)"""
+
+    def _run_every(interval_sec, job_name, fn):
+        def loop():
+            logging.info(f"[MARKET] ✅ {job_name} iniciado (cada {interval_sec//60} min)")
+            eventlet.sleep(30)  # pequeño delay al arrancar para no saturar el inicio
+            while True:
+                try:
+                    with app.app_context():
+                        fn()
+                except Exception as e:
+                    import traceback
+                    logging.error(f"[MARKET] ❌ {job_name}: {e}\n{traceback.format_exc()}")
+                eventlet.sleep(interval_sec)
+        eventlet.spawn(loop)
+
+    def _prices():
+        from app.services.market.market_service import MarketService
+        r = MarketService.run_price_cycle()
+        logging.info(f"[MARKET] Precios: {r}")
+
+    def _news():
+        from app.services.market.market_service import MarketService
+        r = MarketService.run_news_cycle()
+        logging.info(f"[MARKET] Noticias: {r}")
+
+    def _macro():
+        from app.services.market.market_service import MarketService
+        r = MarketService.run_macro_cycle()
+        logging.info(f"[MARKET] Macro: {r}")
+
+    def _fx_monitor():
+        from app.services.fx_monitor.monitor_service import FXMonitorService
+        r = FXMonitorService.run_scrape_cycle()
+        logging.info(f"[MARKET] FX Monitor: {r}")
+
+    def _calendar():
+        from app.services.market.market_service import MarketService
+        r = MarketService.run_calendar_cycle()
+        logging.info(f"[MARKET] Calendario: {r}")
+
+    _run_every(5  * 60, 'Precios de mercado',   _prices)
+    _run_every(15 * 60, 'Noticias RSS',          _news)
+    _run_every(6  * 3600, 'Indicadores macro',   _macro)
+    _run_every(5  * 60, 'FX Monitor scraping',   _fx_monitor)
+    _run_every(24 * 3600, 'Calendario económico', _calendar)
+
+    # Análisis diario a las 8:30 AM Lima, lunes a viernes
+    def _daily_analysis_at_time():
+        from datetime import datetime, timezone, timedelta
+        _LIMA = timezone(timedelta(hours=-5))
+
+        def _next_830(now_lima):
+            """Próximo 8:30 AM Lima en día hábil (lun-vie)."""
+            target = now_lima.replace(hour=8, minute=30, second=0, microsecond=0)
+            if now_lima >= target:
+                target += timedelta(days=1)
+            while target.weekday() >= 5:  # saltar sábado (5) y domingo (6)
+                target += timedelta(days=1)
+            return target
+
+        def loop():
+            logging.info("[MARKET] ✅ Scheduler análisis diario 8:30 AM Lima iniciado")
+            while True:
+                now  = datetime.now(_LIMA)
+                next_run = _next_830(now)
+                wait_secs = (next_run - now).total_seconds()
+                logging.info(
+                    f"[MARKET] Próximo análisis diario en "
+                    f"{int(wait_secs//3600)}h {int((wait_secs%3600)//60)}m "
+                    f"({next_run.strftime('%Y-%m-%d %H:%M')} Lima)"
+                )
+                eventlet.sleep(wait_secs)
+                try:
+                    with app.app_context():
+                        from app.services.market.market_service import MarketService
+                        r = MarketService.run_daily_analysis_cycle()
+                        logging.info(f"[MARKET] Análisis base 8:30 AM: {r}")
+                except Exception as e:
+                    import traceback
+                    logging.error(f"[MARKET] ❌ Análisis diario: {e}\n{traceback.format_exc()}")
+
+        eventlet.spawn(loop)
+
+    _daily_analysis_at_time()

@@ -1,48 +1,69 @@
 #!/bin/bash
 # Script para ejecutar migraciones en Render
-# Uso: bash migrate.sh
+# Maneja tanto DBs nuevas como producción existente con historial antiguo.
 
-set -e  # Salir inmediatamente si un comando falla
+set -e
 
 echo "=========================================="
 echo "   INICIANDO MIGRACIONES DE BASE DE DATOS"
 echo "=========================================="
 echo ""
 
-# Verificar variables de entorno críticas
 if [ -z "$DATABASE_URL" ]; then
     echo "❌ ERROR: DATABASE_URL no está configurada"
     exit 1
 fi
 
-echo "✅ Variables de entorno verificadas"
-echo "   DATABASE_URL: ${DATABASE_URL:0:30}..." # Mostrar solo inicio por seguridad
+echo "✅ DATABASE_URL configurada"
+echo "   ${DATABASE_URL:0:30}..."
 echo ""
 
-# Mostrar historial de revisiones disponibles
-echo "📚 Revisiones disponibles en migrations/versions:"
-ls -lh migrations/versions/*.py 2>/dev/null || echo "   (No se encontraron archivos de migración)"
+echo "📚 Revisiones disponibles:"
+ls -1 migrations/versions/*.py 2>/dev/null | xargs -I{} basename {} || echo "(ninguna)"
 echo ""
 
-# Cambiar al directorio del script
 cd "$(dirname "$0")" || exit 1
 
-echo "🚀 Ejecutando migraciones con Flask-Migrate..."
+# ── Detección de estado actual de la DB ──────────────────────────────────────
+# Si la versión en alembic_version NO existe en nuestro historial,
+# es una DB con migraciones antiguas → stampeamos al baseline sin borrar datos.
+
+echo "🔍 Verificando estado de la base de datos..."
+
+CURRENT=$(flask db current 2>&1 | grep -E '^[a-f0-9]' | head -1 || true)
+
+if [ -n "$CURRENT" ]; then
+    echo "   Revisión actual en DB: $CURRENT"
+
+    KNOWN=$(flask db history 2>&1 | grep "$CURRENT" || true)
+
+    if [ -z "$KNOWN" ]; then
+        echo ""
+        echo "⚠️  Revisión '$CURRENT' no pertenece al historial actual."
+        echo "   DB existente con migraciones antiguas — aplicando baseline seguro..."
+        echo "   (NINGUNA tabla será eliminada ni modificada)"
+        echo ""
+
+        flask db stamp --purge
+        flask db stamp 85a767945dcc
+
+        echo "✅ DB stampeada a baseline 85a767945dcc"
+        echo ""
+    else
+        echo "   ✅ Revisión reconocida."
+        echo ""
+    fi
+else
+    echo "   DB nueva o sin versión — ejecutando migración completa."
+    echo ""
+fi
+
+# ── Upgrade ───────────────────────────────────────────────────────────────────
+echo "🚀 Ejecutando flask db upgrade..."
 echo ""
 
-# Ejecutar migraciones
 flask db upgrade
 
-if [ $? -eq 0 ]; then
-    echo ""
-    echo "✅ MIGRACIÓN EJECUTADA CON ÉXITO"
-    echo ""
-    echo "=========================================="
-    echo "   MIGRACIONES COMPLETADAS"
-    echo "=========================================="
-    exit 0
-else
-    echo ""
-    echo "❌ ERROR AL EJECUTAR MIGRACIÓN"
-    exit 1
-fi
+echo ""
+echo "✅ MIGRACIONES COMPLETADAS"
+echo "=========================================="

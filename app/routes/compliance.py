@@ -1271,6 +1271,410 @@ def restrictive_lists_history(client_id):
         }), 500
 
 
+# ==================== SCREENING AUTOMÁTICO ====================
+
+@compliance_bp.route('/api/screening/auto/<int:client_id>', methods=['POST'])
+@login_required
+@middle_office_required
+@csrf.exempt
+def auto_screen_client(client_id):
+    """
+    API: Screening automático contra listas OFAC + ONU.
+    Descarga las listas si no están en caché (o tienen más de 7 días),
+    ejecuta fuzzy matching y guarda el resultado en RestrictiveListCheck.
+    """
+    try:
+        from app.models.client import Client
+        from app.models.compliance import RestrictiveListCheck, ClientRiskProfile
+        from app.models.audit_log import AuditLog
+        from app.services import sanctions_screening_service as sss
+
+        client = Client.query.get(client_id)
+        if not client:
+            return jsonify({'success': False, 'error': 'Cliente no encontrado'}), 404
+
+        # Ejecutar screening
+        result = sss.screen_client(client_id)
+
+        if 'error' in result:
+            return jsonify({'success': False, 'error': result['error']}), 400
+
+        overall     = result['overall']
+        ofac_result = result['ofac_result']
+        un_result   = result['un_result']
+
+        def _details_json(matches):
+            return json.dumps(matches, ensure_ascii=False) if matches else None
+
+        # Guardar en RestrictiveListCheck (is_manual=False)
+        check = RestrictiveListCheck(
+            client_id    = client_id,
+            list_type    = 'AUTO_COMPREHENSIVE',
+            provider     = 'QoriCash_AutoScreen',
+            result       = overall,
+            match_score  = result['max_score'],
+            details      = json.dumps({
+                'names_searched': result['names_searched'],
+                'all_matches':    result['all_matches'],
+                'data_sources':   result['data_sources'],
+            }, ensure_ascii=False),
+            is_manual    = False,
+            # OFAC
+            ofac_checked = True,
+            ofac_result  = ofac_result,
+            ofac_details = _details_json(result['ofac_matches']),
+            # ONU
+            onu_checked  = True,
+            onu_result   = un_result,
+            onu_details  = _details_json(result['un_matches']),
+            # PEP, UIF, Interpol — pendiente manual
+            pep_checked  = False,
+            uif_checked  = False,
+            interpol_checked = False,
+            denuncias_checked = False,
+            otras_listas_checked = False,
+            checked_by   = current_user.id,
+        )
+        db.session.add(check)
+
+        # Actualizar perfil de riesgo
+        profile = ClientRiskProfile.query.filter_by(client_id=client_id).first()
+        if profile:
+            profile.in_restrictive_lists = (overall == 'Match')
+            db.session.add(profile)
+
+        # Auditoría
+        AuditLog.log_action(
+            user_id   = current_user.id,
+            action    = 'AUTO_SCREEN',
+            entity    = 'Client',
+            entity_id = client_id,
+            details   = f'Screening automático: {overall} (score máx: {result["max_score"]})',
+        )
+
+        db.session.commit()
+
+        return jsonify({
+            'success':       True,
+            'overall':       overall,
+            'max_score':     result['max_score'],
+            'ofac_result':   ofac_result,
+            'ofac_matches':  result['ofac_matches'],
+            'un_result':     un_result,
+            'un_matches':    result['un_matches'],
+            'names_searched': result['names_searched'],
+            'data_sources':  result['data_sources'],
+            'check_id':      check.id,
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f'[AutoScreen] Error: {e}', exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@compliance_bp.route('/api/screening/status/<int:client_id>')
+@login_required
+@middle_office_required
+def screening_status(client_id):
+    """API: Último resultado de screening automático para un cliente."""
+    try:
+        from app.models.compliance import RestrictiveListCheck
+        last = RestrictiveListCheck.query.filter_by(
+            client_id=client_id, is_manual=False, list_type='AUTO_COMPREHENSIVE'
+        ).order_by(RestrictiveListCheck.checked_at.desc()).first()
+
+        if not last:
+            return jsonify({'success': True, 'screened': False})
+
+        details = {}
+        if last.details:
+            try:
+                details = json.loads(last.details)
+            except Exception:
+                pass
+
+        return jsonify({
+            'success':       True,
+            'screened':      True,
+            'overall':       last.result,
+            'max_score':     last.match_score,
+            'ofac_result':   last.ofac_result,
+            'ofac_matches':  json.loads(last.ofac_details) if last.ofac_details else [],
+            'un_result':     last.onu_result,
+            'un_matches':    json.loads(last.onu_details) if last.onu_details else [],
+            'names_searched': details.get('names_searched', []),
+            'data_sources':  details.get('data_sources', {}),
+            'checked_at':    last.checked_at.strftime('%d/%m/%Y %H:%M') if last.checked_at else None,
+            'checked_by':    getattr(last.checker, 'username', None),
+        })
+
+    except Exception as e:
+        logger.error(f'[ScreeningStatus] Error: {e}', exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ==================== DECISIONES DE SCREENING ====================
+
+@compliance_bp.route('/api/screening/decision/<int:check_id>', methods=['POST'])
+@login_required
+@middle_office_required
+@csrf.exempt
+def save_screening_decisions(check_id):
+    """
+    API: Guarda las decisiones del analista sobre las coincidencias detectadas.
+    Payload JSON:
+      {
+        decisions: [{ match_idx, match_name, source, score, result_type,
+                      decision: 'confirm'|'discard', reason }],
+        analyst_notes: str
+      }
+    """
+    import traceback, logging as _log
+    try:
+        from app.models.compliance import (
+            RestrictiveListCheck, ClientRiskProfile,
+            ComplianceAlert, ComplianceAudit
+        )
+        from app.services.compliance_service import ComplianceService
+
+        payload       = request.get_json() or {}
+        decisions     = payload.get('decisions', [])
+        analyst_notes = payload.get('analyst_notes', '').strip()
+
+        check = RestrictiveListCheck.query.get_or_404(check_id)
+
+        # Parsear detalles existentes
+        details = {}
+        if check.details:
+            try:
+                details = json.loads(check.details)
+            except Exception:
+                pass
+
+        now = now_peru()
+        now_str = now.strftime('%d/%m/%Y %H:%M')
+
+        # Enriquecer cada decisión con metadatos del analista
+        enriched = []
+        for d in decisions:
+            enriched.append({
+                **d,
+                'decided_by': current_user.username,
+                'decided_at': now_str,
+            })
+
+        details['decisions']     = enriched
+        details['analyst_notes'] = analyst_notes
+        details['verdict_by']    = current_user.username
+        details['verdict_at']    = now_str
+
+        # ── Calcular veredicto final ───────────────────────────────────────
+        confirmed           = [d for d in enriched if d.get('decision') == 'confirm']
+        confirmed_matches   = [d for d in confirmed if d.get('result_type') == 'Match']
+        confirmed_potential = [d for d in confirmed if d.get('result_type') == 'Potential_Match']
+
+        if confirmed_matches:
+            final_verdict = 'Match'
+        elif confirmed_potential:
+            final_verdict = 'Potential_Match'
+        else:
+            final_verdict = 'Clean'
+
+        details['final_verdict'] = final_verdict
+
+        check.details      = json.dumps(details, ensure_ascii=False)
+        check.result       = final_verdict
+        check.observations = analyst_notes
+
+        # ── Actualizar perfil de riesgo ───────────────────────────────────
+        profile = ClientRiskProfile.query.filter_by(client_id=check.client_id).first()
+        if not profile:
+            profile = ClientRiskProfile(client_id=check.client_id)
+            db.session.add(profile)
+
+        if final_verdict == 'Match':
+            profile.in_restrictive_lists = True
+            profile.risk_score = min(100, (profile.risk_score or 0) + 40)
+            if profile.kyc_status not in ['Rechazado']:
+                profile.kyc_status = 'Rechazado'
+                profile.kyc_notes  = (profile.kyc_notes or '') + (
+                    f'\n[{now_str}] Coincidencia confirmada en listas restrictivas '
+                    f'por {current_user.username}.'
+                )
+            # Crear alerta Alta
+            names_str = ', '.join(d.get('match_name', '') for d in confirmed_matches[:3])
+            alert = ComplianceAlert(
+                alert_type  = 'KYC',
+                severity    = 'Alta',
+                client_id   = check.client_id,
+                title       = f'Coincidencia CONFIRMADA en listas restrictivas: {names_str}',
+                description = (
+                    f'El analista {current_user.username} confirmó coincidencia '
+                    f'en listas OFAC/ONU. KYC rechazado automáticamente.'
+                ),
+                details     = json.dumps({'check_id': check_id, 'decisions': enriched},
+                                         ensure_ascii=False),
+                status      = 'Pendiente',
+            )
+            db.session.add(alert)
+
+        elif final_verdict == 'Potential_Match':
+            profile.in_restrictive_lists = True
+            profile.risk_score = min(100, (profile.risk_score or 0) + 15)
+            alert = ComplianceAlert(
+                alert_type  = 'KYC',
+                severity    = 'Media',
+                client_id   = check.client_id,
+                title       = 'Coincidencia parcial confirmada en listas restrictivas',
+                description = (
+                    f'El analista {current_user.username} confirmó coincidencia '
+                    f'parcial (Potential_Match). Requiere revisión adicional.'
+                ),
+                details     = json.dumps({'check_id': check_id, 'decisions': enriched},
+                                         ensure_ascii=False),
+                status      = 'Pendiente',
+            )
+            db.session.add(alert)
+
+        else:  # Clean — todas descartadas
+            profile.in_restrictive_lists = False
+            ComplianceService.update_client_risk_profile(
+                check.client_id, current_user.id, auto_commit=False
+            )
+
+        # ── Auditoría ─────────────────────────────────────────────────────
+        discarded = len(decisions) - len(confirmed)
+        audit = ComplianceAudit(
+            user_id     = current_user.id,
+            action_type = 'Screening_Decision',
+            entity_type = 'Client',
+            entity_id   = check.client_id,
+            description = (
+                f'Decisiones de screening guardadas: {final_verdict} '
+                f'({len(confirmed)} confirmadas, {discarded} descartadas)'
+            ),
+            changes     = json.dumps({
+                'check_id':        check_id,
+                'final_verdict':   final_verdict,
+                'confirmed_count': len(confirmed),
+                'discarded_count': discarded,
+            }),
+            ip_address  = request.remote_addr,
+            user_agent  = request.headers.get('User-Agent'),
+        )
+        db.session.add(audit)
+        db.session.commit()
+
+        return jsonify({
+            'success':       True,
+            'final_verdict': final_verdict,
+            'message':       f'Decisiones guardadas. Veredicto final: {final_verdict}',
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        _log.error(f'[ScreeningDecision] {e}')
+        _log.error(traceback.format_exc())
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@compliance_bp.route('/api/screening/history/<int:client_id>')
+@login_required
+@middle_office_required
+def screening_history(client_id):
+    """API: Historial de búsquedas automáticas en listas restrictivas para un cliente."""
+    try:
+        from app.models.compliance import RestrictiveListCheck
+
+        checks = RestrictiveListCheck.query.filter_by(
+            client_id=client_id,
+            is_manual=False,
+            list_type='AUTO_COMPREHENSIVE',
+        ).order_by(RestrictiveListCheck.checked_at.desc()).all()
+
+        data = []
+        for c in checks:
+            details = {}
+            if c.details:
+                try:
+                    details = json.loads(c.details)
+                except Exception:
+                    pass
+
+            final_verdict   = details.get('final_verdict') or c.result
+            verdict_by      = details.get('verdict_by')
+            verdict_at      = details.get('verdict_at')
+            decisions_count = len(details.get('decisions', []))
+            confirmed_count = sum(1 for d in details.get('decisions', []) if d.get('decision') == 'confirm')
+
+            data.append({
+                'id':              c.id,
+                'checked_at':      c.checked_at.strftime('%d/%m/%Y %H:%M') if c.checked_at else '-',
+                'initial_result':  c.result,
+                'final_verdict':   final_verdict,
+                'max_score':       c.match_score or 0,
+                'ofac_result':     c.ofac_result or 'Clean',
+                'un_result':       c.onu_result or 'Clean',
+                'checked_by':      c.checker.username if c.checker else 'Sistema',
+                'verdict_by':      verdict_by,
+                'verdict_at':      verdict_at,
+                'decisions_count': decisions_count,
+                'confirmed_count': confirmed_count,
+                'has_decisions':   decisions_count > 0,
+            })
+
+        return jsonify({'success': True, 'data': data})
+
+    except Exception as e:
+        import logging, traceback
+        logging.error(f'[ScreeningHistory] {e}')
+        logging.error(traceback.format_exc())
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@compliance_bp.route('/api/screening/report/<int:check_id>')
+@login_required
+@middle_office_required
+def screening_report(check_id):
+    """Página HTML imprimible con el reporte de screening. Abre en nueva pestaña."""
+    from app.models.compliance import RestrictiveListCheck
+    from app.models.client import Client
+
+    check  = RestrictiveListCheck.query.get_or_404(check_id)
+    client = Client.query.get_or_404(check.client_id)
+
+    details   = {}
+    if check.details:
+        try:
+            details = json.loads(check.details)
+        except Exception:
+            pass
+
+    ofac_matches = []
+    un_matches   = []
+    if check.ofac_details:
+        try:
+            ofac_matches = json.loads(check.ofac_details)
+        except Exception:
+            pass
+    if check.onu_details:
+        try:
+            un_matches = json.loads(check.onu_details)
+        except Exception:
+            pass
+
+    return render_template(
+        'compliance/screening_report.html',
+        client       = client,
+        check        = check,
+        details      = details,
+        ofac_matches = ofac_matches,
+        un_matches   = un_matches,
+        analyst      = current_user,
+    )
+
+
 # ==================== AUDITORÍA ====================
 
 @compliance_bp.route('/audit')

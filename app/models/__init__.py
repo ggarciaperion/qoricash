@@ -11,5 +11,14 @@ from app.models.bank_balance import BankBalance
 from app.models.invoice import Invoice
 from app.models.exchange_rate import ExchangeRate
 from app.models.complaint import Complaint
-
-__all__ = ['User', 'Client', 'Operation', 'AuditLog', 'TraderGoal', 'TraderDailyProfit', 'BankBalance', 'Invoice', 'ExchangeRate', 'Complaint']
+from app.models.competitor_rate import (
+    Competitor, CompetitorRateHistory,
+    CompetitorRateCurrent, CompetitorRateChangeEvent
+)
+from app.models.sanctions import SanctionsEntry
+__all__ = [
+    'User', 'Client', 'Operation', 'AuditLog', 'TraderGoal', 'TraderDailyProfit',
+    'BankBalance', 'Invoice', 'ExchangeRate', 'Complaint',
+    'Competitor', 'CompetitorRateHistory', 'CompetitorRateCurrent', 'CompetitorRateChangeEvent',
+    'SanctionsEntry',
+]

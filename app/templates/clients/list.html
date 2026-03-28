@@ -234,6 +234,16 @@
 
                     <!-- Campos para DNI/CE -->
                     <div id="dniCeFields" style="display: none;">
+
+                        <!-- Feedback de búsqueda DNI RENIEC -->
+                        <div id="dniLookupFeedback" class="mb-3" style="display:none"></div>
+                        <div id="dniReniecLookupRow" class="mb-3" style="display:none">
+                            <button type="button" class="btn btn-outline-secondary btn-sm" id="btnDniLookup">
+                                <i class="bi bi-search" id="dniLookupIcon"></i> Buscar en RENIEC
+                            </button>
+                            <small class="text-muted ms-2">Ingresa el DNI arriba y haz clic para autocompletar</small>
+                        </div>
+
                         <div class="form-section-title">Información Personal</div>
 
                         <div class="row mb-3">
@@ -272,10 +282,34 @@
                     <div id="rucFields" style="display: none;">
                         <div class="form-section-title">Información de la Empresa</div>
 
+                        <!-- Feedback de búsqueda RUC -->
+                        <div id="rucLookupFeedback" class="mb-3" style="display:none"></div>
+
                         <div class="row mb-3">
                             <div class="col-md-12">
                                 <label class="form-label">Razón Social <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control text-uppercase-input" id="razonSocial" name="razon_social">
+                                <div class="input-group">
+                                    <input type="text" class="form-control text-uppercase-input" id="razonSocial" name="razon_social" placeholder="Se autocompleta al buscar el RUC →">
+                                    <button class="btn btn-outline-secondary" type="button" id="btnRucLookup"
+                                            title="Buscar razón social por RUC en SUNAT">
+                                        <i class="bi bi-search" id="rucLookupIcon"></i>
+                                    </button>
+                                </div>
+                                <small class="form-text text-muted">
+                                    Ingresa el RUC arriba y haz clic en <i class="bi bi-search"></i> para autocompletar desde SUNAT
+                                </small>
+                            </div>
+                        </div>
+
+                        <!-- Datos adicionales SUNAT (ocultos hasta búsqueda exitosa) -->
+                        <div id="rucSunatInfo" style="display:none" class="mb-3">
+                            <div class="d-flex gap-2 flex-wrap align-items-center p-2 rounded"
+                                 style="background:#f0fdf4;border:1px solid #bbf7d0;font-size:.78rem">
+                                <i class="bi bi-building-check text-success"></i>
+                                <span class="text-muted">Estado:</span>
+                                <strong id="rucEstado">—</strong>
+                                <span class="text-muted ms-2">Condición:</span>
+                                <strong id="rucCondicion">—</strong>
                             </div>
                         </div>
 
@@ -617,5 +651,266 @@
     function exportClients() {
         window.location = "{{ url_for('clients.export_csv') }}";
     }
+</script>
+
+<script>
+// ── RUC Lookup ────────────────────────────────────────────────────────────────
+(function () {
+    function resetRucLookup() {
+        const fb = document.getElementById('rucLookupFeedback');
+        const info = document.getElementById('rucSunatInfo');
+        if (fb)   { fb.innerHTML = ''; fb.style.display = 'none'; }
+        if (info) { info.style.display = 'none'; }
+
+        // Desbloquear y limpiar razón social
+        const rsField = document.getElementById('razonSocial');
+        if (rsField) {
+            rsField.readOnly = false;
+            rsField.classList.remove('bg-light');
+            rsField.value = '';
+        }
+
+        // Limpiar dirección y geo
+        const dirField = document.getElementById('direccion');
+        if (dirField) dirField.value = '';
+
+        const depSelect  = document.getElementById('departamento');
+        const provSelect = document.getElementById('provincia');
+        const distSelect = document.getElementById('distrito');
+        if (depSelect)  { depSelect.value  = ''; }
+        if (provSelect) { provSelect.innerHTML = '<option value="">Seleccionar...</option>'; provSelect.disabled = true; }
+        if (distSelect) { distSelect.innerHTML = '<option value="">Seleccionar...</option>'; distSelect.disabled = true; }
+    }
+
+    function showFeedback(type, html) {
+        const fb = document.getElementById('rucLookupFeedback');
+        if (!fb) return;
+        fb.innerHTML = `<div class="alert alert-${type} alert-sm py-2 mb-0">${html}</div>`;
+        fb.style.display = 'block';
+    }
+
+    function setSpinner(on) {
+        const icon = document.getElementById('rucLookupIcon');
+        if (!icon) return;
+        if (on) {
+            icon.className = 'spinner-border spinner-border-sm text-secondary';
+            icon.setAttribute('role', 'status');
+        } else {
+            icon.className = 'bi bi-search';
+            icon.removeAttribute('role');
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const btn = document.getElementById('btnRucLookup');
+        if (!btn) return;
+
+        btn.addEventListener('click', async function () {
+            const rucInput = document.getElementById('dni');
+            const ruc = rucInput ? rucInput.value.trim() : '';
+
+            resetRucLookup();
+
+            if (!/^[12]\d{10}$/.test(ruc)) {
+                showFeedback('warning',
+                    '<i class="bi bi-exclamation-triangle"></i> El RUC debe tener 11 dígitos y comenzar con 1 o 2.');
+                return;
+            }
+
+            setSpinner(true);
+            btn.disabled = true;
+
+            try {
+                const res  = await fetch(`/clients/api/ruc-lookup?ruc=${encodeURIComponent(ruc)}`);
+                const json = await res.json();
+
+                if (json.already_exists) {
+                    showFeedback('warning',
+                        `<i class="bi bi-exclamation-triangle"></i> ${json.message || 'Este RUC ya está registrado.'} Puedes continuar de todas formas.`);
+                    return;
+                }
+
+                if (!json.success) {
+                    showFeedback('danger',
+                        `<i class="bi bi-x-circle"></i> ${json.message || json.error || 'Error al consultar el RUC.'}`);
+                    return;
+                }
+
+                // Autocompletar Razón Social y bloquear edición
+                const rsField = document.getElementById('razonSocial');
+                if (rsField && json.razon_social) {
+                    rsField.value    = json.razon_social;
+                    rsField.readOnly = true;
+                    rsField.classList.add('bg-light');
+                }
+
+                // Mostrar estado y condición
+                const estado    = json.estado    || '—';
+                const condicion = json.condicion || '—';
+                document.getElementById('rucEstado').textContent    = estado;
+                document.getElementById('rucCondicion').textContent = condicion;
+                const info = document.getElementById('rucSunatInfo');
+                if (info) info.style.display = 'block';
+                const estadoEl = document.getElementById('rucEstado');
+                if (estadoEl) {
+                    estadoEl.style.color = estado.toUpperCase().includes('ACTIVO') ? '#16a34a' : '#dc2626';
+                }
+
+                // Autocompletar Dirección
+                const dirField = document.getElementById('direccion');
+                if (dirField) dirField.value = json.direccion || '';
+
+                // Autocompletar ubicación geográfica en cascada
+                if (json.departamento && typeof loadProvincias === 'function') {
+                    const depSelect  = document.getElementById('departamento');
+                    const provSelect = document.getElementById('provincia');
+                    const distSelect = document.getElementById('distrito');
+                    if (depSelect) {
+                        depSelect.value = json.departamento;
+                        await loadProvincias();
+                        if (json.provincia && provSelect) {
+                            provSelect.value = json.provincia;
+                            await loadDistritos();
+                            if (json.distrito && distSelect) {
+                                distSelect.value = json.distrito;
+                            }
+                        }
+                    }
+                }
+
+                showFeedback('success', '<i class="bi bi-check-circle"></i> Datos obtenidos de SUNAT correctamente.');
+
+            } catch (err) {
+                showFeedback('danger',
+                    '<i class="bi bi-wifi-off"></i> No se pudo consultar SUNAT. Ingresa la Razón Social manualmente.');
+            } finally {
+                setSpinner(false);
+                btn.disabled = false;
+            }
+        });
+
+        const docType = document.getElementById('documentType');
+        if (docType) docType.addEventListener('change', resetRucLookup);
+
+        const dniField = document.getElementById('dni');
+        if (dniField) dniField.addEventListener('input', resetRucLookup);
+    });
+})();
+</script>
+
+<script>
+// ── DNI Lookup (RENIEC) ───────────────────────────────────────────────────────
+(function () {
+    function resetDniLookup() {
+        const fb = document.getElementById('dniLookupFeedback');
+        if (fb) { fb.innerHTML = ''; fb.style.display = 'none'; }
+
+        ['apellidoPaterno', 'apellidoMaterno', 'nombres'].forEach(function (id) {
+            const el = document.getElementById(id);
+            if (el) { el.readOnly = false; el.classList.remove('bg-light'); el.value = ''; }
+        });
+    }
+
+    function showFeedback(type, html) {
+        const fb = document.getElementById('dniLookupFeedback');
+        if (!fb) return;
+        fb.innerHTML = `<div class="alert alert-${type} alert-sm py-2 mb-0">${html}</div>`;
+        fb.style.display = 'block';
+    }
+
+    function setSpinner(on) {
+        const icon = document.getElementById('dniLookupIcon');
+        if (!icon) return;
+        if (on) {
+            icon.className = 'spinner-border spinner-border-sm text-secondary';
+            icon.setAttribute('role', 'status');
+        } else {
+            icon.className = 'bi bi-search';
+            icon.removeAttribute('role');
+        }
+    }
+
+    function toggleReniecBtn(docType) {
+        const row = document.getElementById('dniReniecLookupRow');
+        if (!row) return;
+        row.style.display = (docType === 'DNI') ? 'block' : 'none';
+        if (docType !== 'DNI') resetDniLookup();
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const btn = document.getElementById('btnDniLookup');
+        if (!btn) return;
+
+        btn.addEventListener('click', async function () {
+            const dniInput = document.getElementById('dni');
+            const dni = dniInput ? dniInput.value.trim() : '';
+
+            resetDniLookup();
+
+            if (!/^\d{8}$/.test(dni)) {
+                showFeedback('warning',
+                    '<i class="bi bi-exclamation-triangle"></i> El DNI debe tener exactamente 8 dígitos.');
+                return;
+            }
+
+            setSpinner(true);
+            btn.disabled = true;
+
+            try {
+                const res  = await fetch(`/clients/api/dni-lookup?dni=${encodeURIComponent(dni)}`);
+                const json = await res.json();
+
+                if (json.already_exists) {
+                    showFeedback('warning',
+                        `<i class="bi bi-exclamation-triangle"></i> ${json.message || 'Este DNI ya está registrado.'} Puedes continuar de todas formas.`);
+                    return;
+                }
+
+                if (!json.success) {
+                    showFeedback('danger',
+                        `<i class="bi bi-x-circle"></i> ${json.message || 'Error al consultar el DNI.'}`);
+                    return;
+                }
+
+                // Autocompletar y bloquear nombres/apellidos
+                const nameMap = {
+                    'apellidoPaterno': json.apellido_paterno,
+                    'apellidoMaterno': json.apellido_materno,
+                    'nombres':         json.nombres,
+                };
+                Object.entries(nameMap).forEach(function ([id, val]) {
+                    const el = document.getElementById(id);
+                    if (el && val) {
+                        el.value    = val;
+                        el.readOnly = true;
+                        el.classList.add('bg-light');
+                    }
+                });
+
+                showFeedback('success', '<i class="bi bi-check-circle"></i> Datos obtenidos de RENIEC correctamente.');
+
+            } catch (err) {
+                showFeedback('danger',
+                    '<i class="bi bi-wifi-off"></i> No se pudo consultar RENIEC. Ingresa los datos manualmente.');
+            } finally {
+                setSpinner(false);
+                btn.disabled = false;
+            }
+        });
+
+        // Mostrar/ocultar botón según tipo de documento
+        const docType = document.getElementById('documentType');
+        if (docType) {
+            docType.addEventListener('change', function () {
+                toggleReniecBtn(this.value);
+            });
+            toggleReniecBtn(docType.value);
+        }
+
+        // Reset al cambiar el número de DNI
+        const dniField = document.getElementById('dni');
+        if (dniField) dniField.addEventListener('input', resetDniLookup);
+    });
+})();
 </script>
 {% endblock %}

@@ -264,15 +264,15 @@ class ClientService:
                 db.session.flush()  # Flush para obtener el ID del cliente
 
                 # --- Verificar y configurar sistema de documentos parciales ---
-                has_complete_docs = client.check_complete_documents()
+                has_complete_docs = client.check_documents_uploaded()
                 client.has_complete_documents = has_complete_docs
 
                 if not has_complete_docs:
-                    # Cliente sin documentos completos: establecer límites
-                    client.initialize_partial_docs_limits()
-                    logger.info(f'Cliente {client.id} creado sin documentos completos. '
-                              f'Límite: {client.operations_without_docs_limit} operaciones, '
-                              f'Máximo USD {client.max_amount_without_docs}')
+                    # Cliente sin documentos completos: límite $1,000 USD
+                    client.operations_without_docs_limit = 10
+                    client.max_amount_without_docs = 1000
+                    client.operations_without_docs_count = 0
+                    logger.info(f'Cliente {client.id} creado sin documentos completos. Límite: $1,000 USD')
                 else:
                     # Cliente con documentos completos: sin límites
                     client.operations_without_docs_limit = None
@@ -666,7 +666,7 @@ class ClientService:
                 return False, 'Cliente no encontrado', None
 
             # Guardar estado anterior de documentos
-            docs_completos_antes = client.check_complete_documents()
+            docs_completos_antes = client.check_documents_uploaded()
 
             # Actualizar según tipo de documento
             if client.document_type == 'RUC':
@@ -683,7 +683,7 @@ class ClientService:
                     client.dni_back_url = document_urls['dni_back_url']
 
             # Verificar si ahora tiene documentos completos
-            docs_completos_ahora = client.check_complete_documents()
+            docs_completos_ahora = client.check_documents_uploaded()
 
             # Si se completaron los documentos, actualizar estado
             if not docs_completos_antes and docs_completos_ahora:

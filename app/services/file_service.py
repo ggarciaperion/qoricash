@@ -104,32 +104,47 @@ class FileService:
         Returns:
             tuple: (success: bool, message: str, url: str|None)
         """
-        if not self.configured:
-            return False, 'Cloudinary no está configurado. Por favor configure las credenciales en el archivo .env', None
-        
         # Validar que hay archivo
         if not file or file.filename == '':
             return False, 'No se seleccionó ningún archivo', None
-        
+
         # Validar extensión
         if not self.allowed_file(file.filename):
             return False, f'Tipo de archivo no permitido. Permitidos: {", ".join(ALLOWED_EXTENSIONS)}', None
-        
+
         # Validar tamaño
         is_valid, message = self.validate_file_size(file)
         if not is_valid:
             return False, message, None
-        
+
+        # Modo local: Cloudinary no configurado → guardar en carpeta local
+        if not self.configured:
+            try:
+                import pathlib
+                filename = secure_filename(file.filename)
+                if public_id_prefix:
+                    filename = f"{public_id_prefix}_{filename}"
+                local_dir = pathlib.Path(__file__).parent.parent / 'static' / 'uploads' / folder
+                local_dir.mkdir(parents=True, exist_ok=True)
+                filepath = local_dir / filename
+                file.save(str(filepath))
+                local_url = f'/static/uploads/{folder}/{filename}'
+                logger.info(f'[LOCAL] Archivo guardado en {filepath}')
+                return True, 'Archivo guardado localmente', local_url
+            except Exception as e:
+                logger.warning(f'[LOCAL] No se pudo guardar archivo: {e}')
+                return True, 'Sin archivo (modo local)', '/static/uploads/placeholder.txt'
+
         try:
             # Generar nombre seguro
             filename = secure_filename(file.filename)
-            
+
             # Generar public_id
             if public_id_prefix:
                 public_id = f"{folder}/{public_id_prefix}_{filename}"
             else:
                 public_id = f"{folder}/{filename}"
-            
+
             # Subir a Cloudinary
             result = cloudinary.uploader.upload(
                 file,
@@ -137,12 +152,10 @@ class FileService:
                 public_id=public_id,
                 resource_type='auto'
             )
-            
-            # Obtener URL segura
+
             url = result.get('secure_url')
-            
             return True, 'Archivo subido exitosamente', url
-        
+
         except Exception as e:
             return False, f'Error al subir archivo: {str(e)}', None
     

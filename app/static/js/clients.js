@@ -100,8 +100,8 @@ function addBankAccount() {
                         <option value="">Seleccionar...</option>
                         <option value="BCP" data-provincia="true">BCP</option>
                         <option value="INTERBANK" data-provincia="true">INTERBANK</option>
-                        <option value="PICHINCHA" data-provincia="false" disabled style="color:#aaa;">PICHINCHA (no disponible)</option>
-                        <option value="BANBIF" data-provincia="false" disabled style="color:#aaa;">BANBIF (no disponible)</option>
+                        <option value="PICHINCHA" data-provincia="false">PICHINCHA</option>
+                        <option value="BANBIF" data-provincia="false">BANBIF</option>
                         <option value="BBVA" data-provincia="false">BBVA</option>
                         <option value="SCOTIABANK" data-provincia="false">SCOTIABANK</option>
                         <option value="OTROS" data-provincia="false">OTROS</option>

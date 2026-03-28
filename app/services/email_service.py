@@ -1578,3 +1578,91 @@ class EmailService:
 
         complaint_number = complaint_data.get('complaint_number', 'N/A')
         return render_template_string(template, complaint_data=complaint_data, fecha_actual=fecha_actual, complaint_number=complaint_number)
+
+    @staticmethod
+    def send_fx_alert_email(competitor_name: str, change: dict, recipients: list):
+        """
+        Envía alerta de cambio de precio de competidor a usuarios Master.
+
+        Args:
+            competitor_name: Nombre del competidor que cambió sus tasas.
+            change: Dict con old_buy, new_buy, old_sell, new_sell, buy_delta, sell_delta,
+                    buy_delta_pct, sell_delta_pct, field.
+            recipients: Lista de emails de usuarios Master.
+        """
+        try:
+            import pytz
+            from datetime import datetime as _dt
+            tz_lima = pytz.timezone('America/Lima')
+            hora = _dt.now(tz_lima).strftime('%d/%m/%Y %H:%M')
+
+            field = change.get('field', 'both')
+            old_buy  = change.get('old_buy')
+            new_buy  = change.get('new_buy')
+            old_sell = change.get('old_sell')
+            new_sell = change.get('new_sell')
+            buy_pct  = change.get('buy_delta_pct', 0) or 0
+            sell_pct = change.get('sell_delta_pct', 0) or 0
+
+            def _row(label, old, new, pct):
+                if old is None or new is None:
+                    return ''
+                arrow = '▲' if new > old else '▼'
+                color = '#dc3545' if new > old else '#198754'
+                sign  = '+' if pct >= 0 else ''
+                return f"""
+                <tr>
+                  <td style="padding:8px 12px;border-bottom:1px solid #eee;">{label}</td>
+                  <td style="padding:8px 12px;border-bottom:1px solid #eee;">S/ {old:.4f}</td>
+                  <td style="padding:8px 12px;border-bottom:1px solid #eee;color:{color};font-weight:bold;">
+                    {arrow} S/ {new:.4f}
+                  </td>
+                  <td style="padding:8px 12px;border-bottom:1px solid #eee;color:{color};">
+                    {sign}{pct:.3f}%
+                  </td>
+                </tr>"""
+
+            rows_html = ''
+            if field in ('buy', 'both'):
+                rows_html += _row('Compra', old_buy, new_buy, buy_pct)
+            if field in ('sell', 'both'):
+                rows_html += _row('Venta', old_sell, new_sell, sell_pct)
+
+            body_html = f"""
+            <p style="margin:0 0 16px;font-size:15px;color:#333;">
+              Se detectó un cambio de precios en
+              <strong style="color:#0D1B2A;">{competitor_name}</strong>
+              a las {hora} (hora Lima).
+            </p>
+            <table style="width:100%;border-collapse:collapse;font-size:14px;">
+              <thead>
+                <tr style="background:#f0f4f8;">
+                  <th style="padding:8px 12px;text-align:left;">Campo</th>
+                  <th style="padding:8px 12px;text-align:left;">Anterior</th>
+                  <th style="padding:8px 12px;text-align:left;">Nuevo</th>
+                  <th style="padding:8px 12px;text-align:left;">Variación</th>
+                </tr>
+              </thead>
+              <tbody>{rows_html}</tbody>
+            </table>
+            <p style="margin:16px 0 0;font-size:12px;color:#888;">
+              Revisa el <a href="/monitor/" style="color:#0d6efd;">panel de monitoreo</a>
+              para ver el comparativo completo con todos los competidores.
+            </p>"""
+
+            html_content = EmailService.build_email_html(
+                title=f'🔔 Cambio de precio — {competitor_name}',
+                body_html=body_html,
+                subtitle=f'Monitor de Competencia · {hora}',
+            )
+
+            msg = Message(
+                subject=f'[QoriCash Monitor] {competitor_name} cambió su precio',
+                recipients=recipients,
+                html=html_content,
+            )
+            mail.send(msg)
+            logger.info(f'[EMAIL] Alerta FX enviada a {recipients} — {competitor_name}')
+
+        except Exception as e:
+            logger.warning(f'[EMAIL] No se pudo enviar alerta FX: {e}')

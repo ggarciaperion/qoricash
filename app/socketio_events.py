@@ -2,9 +2,12 @@
 Socket.IO Events para QoriCash Trading V2
 Maneja eventos de WebSocket para actualizaciones en tiempo real
 """
+import logging
 from flask_socketio import emit, join_room, leave_room
 from flask_login import current_user
 from app.extensions import socketio
+
+logger = logging.getLogger(__name__)
 
 
 # ============================================
@@ -24,7 +27,7 @@ def handle_connect():
         # Sala global para todos los usuarios autenticados
         join_room('authenticated')
 
-        print(f'Usuario {current_user.username} ({current_user.role}) conectado via WebSocket')
+        logger.info(f'Usuario {current_user.username} ({current_user.role}) conectado via WebSocket')
 
         # Notificar al usuario que se conectó exitosamente
         emit('connection_established', {
@@ -38,7 +41,7 @@ def handle_connect():
 def handle_disconnect():
     """Maneja la desconexión de un cliente WebSocket"""
     if current_user.is_authenticated:
-        print(f'Usuario {current_user.username} desconectado')
+        logger.info(f'Usuario {current_user.username} desconectado')
 
 
 @socketio.on('join_client_room')
@@ -54,10 +57,10 @@ def handle_join_client_room(data):
         if dni:
             room = f'client_{dni}'
             join_room(room)
-            print(f'Cliente {dni} unido al room: {room}')
+            logger.debug(f'Cliente {dni} unido al room: {room}')
             emit('joined_room', {'room': room, 'dni': dni})
     except Exception as e:
-        print(f'Error al unir cliente a room: {str(e)}')
+        logger.error(f'Error al unir cliente a room: {str(e)}')
 
 
 # ============================================
