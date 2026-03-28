@@ -60,6 +60,12 @@ deep-translator==1.11.4
 # RSS feed parser (noticias de mercado)
 feedparser==6.0.11
 
+# Datos financieros (precios de mercado)
+yfinance==0.2.54
+
+# HTML scraping (fx_monitor scrapers)
+beautifulsoup4==4.12.3
+
 # Fuzzy matching (screening sanciones OFAC/ONU)
 rapidfuzz==3.6.1
 
