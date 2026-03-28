@@ -75,6 +75,10 @@ def create_app(config_name=None):
     # Inicializar schedulers del módulo Mercado
     start_market_schedulers(app)
 
+    # Registrar CLI commands (aquí para que estén disponibles sin importar
+    # cómo Flask CLI descubra la app — factory o instancia directa)
+    register_cli_commands(app)
+
     return app
 
 
@@ -400,3 +404,83 @@ def start_market_schedulers(app):
         eventlet.spawn(loop)
 
     _daily_analysis_at_time()
+
+
+def register_cli_commands(app):
+    """Registra CLI commands dentro del factory para que siempre estén disponibles."""
+
+    @app.cli.command("create-tables")
+    def create_tables():
+        """Crea todas las tablas faltantes usando db.create_all() (seguro, idempotente)."""
+        from app.extensions import db
+        import traceback
+        try:
+            db.create_all()
+            print("✓ Tablas creadas / verificadas correctamente")
+        except Exception as e:
+            print(f"✗ Error: {e}")
+            traceback.print_exc()
+
+    @app.cli.command("refresh-market")
+    def refresh_market():
+        """Ejecuta manualmente todos los ciclos de mercado: precios, noticias, macro, calendario."""
+        from app.services.market.market_service import MarketService
+        import traceback
+
+        print("=== CICLO DE PRECIOS ===")
+        try:
+            r = MarketService.run_price_cycle()
+            print(f"  Resultado: {r}")
+        except Exception as e:
+            print(f"  ✗ Error: {e}")
+            traceback.print_exc()
+
+        print("\n=== CICLO DE NOTICIAS ===")
+        try:
+            r = MarketService.run_news_cycle()
+            print(f"  Resultado: {r}")
+        except Exception as e:
+            print(f"  ✗ Error: {e}")
+            traceback.print_exc()
+
+        print("\n=== CICLO MACRO ===")
+        try:
+            r = MarketService.run_macro_cycle()
+            print(f"  Resultado: {r}")
+        except Exception as e:
+            print(f"  ✗ Error: {e}")
+            traceback.print_exc()
+
+        print("\n=== CICLO CALENDARIO ===")
+        try:
+            r = MarketService.run_calendar_cycle()
+            print(f"  Resultado: {r}")
+        except Exception as e:
+            print(f"  ✗ Error: {e}")
+            traceback.print_exc()
+
+        print("\n✓ refresh-market completado")
+
+    @app.cli.command("refresh-fx")
+    def refresh_fx():
+        """Siembra competidores y ejecuta ciclo de scraping FX Monitor."""
+        from app.services.fx_monitor.monitor_service import FXMonitorService
+        import traceback
+
+        print("=== SEEDING COMPETIDORES ===")
+        try:
+            FXMonitorService.seed_competitors()
+            print("  ✓ Competidores sembrados")
+        except Exception as e:
+            print(f"  ✗ Error: {e}")
+            traceback.print_exc()
+
+        print("\n=== CICLO FX SCRAPING ===")
+        try:
+            r = FXMonitorService.run_scrape_cycle()
+            print(f"  Resultado: {r}")
+        except Exception as e:
+            print(f"  ✗ Error: {e}")
+            traceback.print_exc()
+
+        print("\n✓ refresh-fx completado")
