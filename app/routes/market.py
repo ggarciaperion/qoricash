@@ -1,10 +1,13 @@
 """
 Rutas del módulo Mercado — /mercado
 """
+import logging
 from flask import Blueprint, render_template, jsonify
 from flask_login import login_required
-from app.utils.decorators import role_required
+from app.utils.decorators import require_role as role_required
 from app.services.market.market_service import MarketService
+
+logger = logging.getLogger(__name__)
 
 market_bp = Blueprint('market', __name__, url_prefix='/mercado')
 
@@ -16,7 +19,11 @@ _WRITE = ('Master', 'Trader')
 @login_required
 @role_required(*_ALL)
 def dashboard():
-    data = MarketService.get_dashboard_data()
+    try:
+        data = MarketService.get_dashboard_data()
+    except Exception as e:
+        logger.error(f'[Market] Error en get_dashboard_data: {e}', exc_info=True)
+        data = MarketService.empty_dashboard_data()
     return render_template('market/dashboard.html', **data)
 
 

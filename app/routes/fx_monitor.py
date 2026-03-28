@@ -1,11 +1,14 @@
 """
 Rutas del módulo FX Monitor — /monitor
 """
+import logging
 from flask import Blueprint, render_template, jsonify, request
 from flask_login import login_required, current_user
-from app.utils.decorators import role_required
+from app.utils.decorators import require_role as role_required
 from app.services.fx_monitor.monitor_service import FXMonitorService
 from app.models.competitor_rate import Competitor
+
+logger = logging.getLogger(__name__)
 
 fx_monitor_bp = Blueprint("fx_monitor", __name__, url_prefix="/monitor")
 
@@ -18,7 +21,11 @@ _MON = ("Master", "Operador")
 @role_required(*_MON)
 def dashboard():
     """Panel principal de monitoreo de competencia."""
-    data = FXMonitorService.get_dashboard_data()
+    try:
+        data = FXMonitorService.get_dashboard_data()
+    except Exception as e:
+        logger.error(f'[FXMonitor] Error en get_dashboard_data: {e}', exc_info=True)
+        data = FXMonitorService.empty_dashboard_data()
     return render_template("fx_monitor/dashboard.html", **data)
 
 

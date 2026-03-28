@@ -221,6 +221,16 @@ class FXMonitorService:
         }
 
     @staticmethod
+    def empty_dashboard_data() -> dict:
+        """Datos vacíos para mostrar dashboard sin error cuando las tablas no existen aún."""
+        return {
+            "own_buy":     3.75,
+            "own_sell":    3.77,
+            "competitors": [],
+            "changes":     [],
+        }
+
+    @staticmethod
     def get_history(slug, hours=24):
         """Histórico de precios de un competidor (últimas N horas)."""
         from datetime import timedelta

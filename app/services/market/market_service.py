@@ -324,3 +324,17 @@ class MarketService:
             'calendar':       calendar_data,
             'daily_analysis': daily_analysis,
         }
+
+    @staticmethod
+    def empty_dashboard_data() -> dict:
+        """Datos vacíos para mostrar dashboard sin error cuando las tablas no existen aún."""
+        return {
+            'snapshot':       None,
+            'signal':         None,
+            'news':           [],
+            'history':        [],
+            'last_update':    None,
+            'macro':          {},
+            'calendar':       [],
+            'daily_analysis': None,
+        }
