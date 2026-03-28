@@ -1,0 +1,969 @@
+{% extends "base.html" %}
+
+{% block title %}Monitor de Competencia — QoriCash{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  /* ── Variables ── */
+  :root {
+    --green:  #198754;
+    --blue:   #0d6efd;
+    --red:    #dc3545;
+    --amber:  #fd7e14;
+    --muted:  #6c757d;
+  }
+
+  /* ── KPI cards ── */
+  .kpi-card { border: none; border-radius: 12px; }
+  .kpi-card .kpi-label { font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; opacity: .8; }
+  .kpi-card .kpi-value { font-size: 1.6rem; font-weight: 700; line-height: 1.1; }
+  .kpi-card .kpi-sub   { font-size: .72rem; opacity: .75; }
+
+  /* ── Tabla ── */
+  #tblRates th { font-size: .72rem; text-transform: uppercase; letter-spacing: .05em; white-space: nowrap; }
+  #tblRates td { font-size: .85rem; vertical-align: middle; }
+  .own-row     { background: #eafaf1 !important; font-weight: 600; }
+  .own-row td  { border-top: 2px solid var(--green) !important; border-bottom: 2px solid var(--green) !important; }
+  .scrape-err  { opacity: .5; }
+
+  .rate-cell   { }
+
+  /* Deltas */
+  .delta-up   { color: var(--red);   font-weight: 600; }
+  .delta-down { color: var(--green); font-weight: 600; }
+  .delta-zero { color: var(--muted); }
+
+  /* ── Panel derecho ── */
+  .side-panel { display: flex; flex-direction: column; gap: 1rem; }
+
+  /* ── Análisis ── */
+  .stat-row    { display: grid; grid-template-columns: 80px 1fr 1fr 1fr; gap: 4px; font-size: .78rem; align-items: center; }
+  .stat-row.header { font-size: .68rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+
+  /* ── TC update ── */
+  .tc-input-group { position: relative; }
+  .tc-input-group .currency-label {
+    position: absolute; left: 8px; top: 50%; transform: translateY(-50%);
+    font-size: .72rem; font-weight: 600; color: var(--muted); pointer-events: none;
+  }
+  .tc-input-group input { padding-left: 26px; }
+
+  /* ── Barra refresco ── */
+  #refreshTrack { height: 2px; background: #e9ecef; border-radius: 1px; }
+  #refreshBar   { height: 2px; background: var(--blue); border-radius: 1px; transition: width 1s linear; }
+
+  /* ── Chart ── */
+  .chart-card .card-body { padding: 1rem 1.25rem .75rem; }
+
+  /* ── Badges tendencia ── */
+  .trend-up   { color: var(--red);   font-size: .65rem; }
+  .trend-down { color: var(--green); font-size: .65rem; }
+
+  /* ── Leyenda ── */
+  .legend-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3 px-3">
+
+  <!-- ═══════════════════════════════════════════════════════════
+       ENCABEZADO
+  ═══════════════════════════════════════════════════════════ -->
+  <div class="d-flex align-items-center justify-content-between mb-3">
+    <div>
+      <h5 class="mb-0 fw-bold">
+        <i class="bi bi-graph-up-arrow me-2 text-primary"></i>Monitor de Competencia
+      </h5>
+      <div class="d-flex align-items-center gap-2 mt-1">
+        <div id="refreshTrack" style="width:120px"><div id="refreshBar" style="width:100%"></div></div>
+        <small class="text-muted">Próx. actualización · <span id="lastUpdate">--</span></small>
+      </div>
+    </div>
+    {% if current_user.role == 'Master' %}
+    <button class="btn btn-sm btn-primary px-3" id="btnScrapeNow">
+      <i class="bi bi-arrow-clockwise me-1"></i>Actualizar ahora
+    </button>
+    {% endif %}
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       KPI CARDS
+  ═══════════════════════════════════════════════════════════ -->
+  <div class="row g-3 mb-3">
+
+    <div class="col-6 col-md-3">
+      <div class="card kpi-card bg-success text-white shadow-sm h-100">
+        <div class="card-body py-3 px-3">
+          <div class="kpi-label">Compra QoriCash</div>
+          <div class="kpi-value mt-1" id="kpiBuy">S/ {{ "%.4f"|format(own_buy) }}</div>
+          <div class="kpi-sub mt-1">Cliente vende USD</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-6 col-md-3">
+      <div class="card kpi-card bg-primary text-white shadow-sm h-100">
+        <div class="card-body py-3 px-3">
+          <div class="kpi-label">Venta QoriCash</div>
+          <div class="kpi-value mt-1" id="kpiSell">S/ {{ "%.4f"|format(own_sell) }}</div>
+          <div class="kpi-sub mt-1">Cliente compra USD</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-6 col-md-3">
+      <div class="card kpi-card bg-dark text-white shadow-sm h-100">
+        <div class="card-body py-3 px-3">
+          <div class="kpi-label">Spread propio</div>
+          <div class="kpi-value mt-1" id="kpiSpread">
+            S/ {{ "%.4f"|format(own_sell - own_buy) }}
+          </div>
+          <div class="kpi-sub mt-1">Venta − Compra</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-6 col-md-3">
+      <div class="card kpi-card shadow-sm h-100 border-0 bg-light">
+        <div class="card-body py-3 px-3">
+          <div class="kpi-label text-muted">Competidores</div>
+          <div class="kpi-value mt-1 text-dark" id="kpiTotal">{{ competitors|length }}</div>
+          <div class="kpi-sub text-muted mt-1" id="kpiOkCount">
+            {{ competitors|selectattr('scrape_ok')|list|length }} con datos
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       FILA PRINCIPAL: TABLA + PANEL DERECHO
+  ═══════════════════════════════════════════════════════════ -->
+  <div class="row g-3 mb-3">
+
+    <!-- Tabla comparativa -->
+    <div class="col-xl-8 col-lg-7">
+      <div class="card shadow-sm h-100">
+        <div class="card-header bg-white border-bottom d-flex justify-content-between align-items-center py-2">
+          <span class="fw-semibold text-dark">
+            <i class="bi bi-table me-1 text-primary"></i>Tipos de Cambio — USD / PEN
+          </span>
+          <div class="d-flex gap-2 align-items-center">
+            <span class="legend-dot bg-success"></span><small class="text-muted me-2">Compra</small>
+            <span class="legend-dot bg-primary"></span><small class="text-muted">Venta</small>
+          </div>
+        </div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-hover mb-0" id="tblRates">
+              <thead class="table-light">
+                <tr>
+                  <th class="ps-3">Empresa</th>
+                  <th class="text-center">Compra</th>
+                  <th class="text-center">Venta</th>
+                  <th class="text-center">Spread</th>
+                  <th class="text-center">Δ Compra</th>
+                  <th class="text-center">Δ Venta</th>
+                  <th class="text-center pe-3">Actualizado</th>
+                </tr>
+              </thead>
+              <tbody id="ratesBody">
+
+                <!-- Fila propia -->
+                <tr class="own-row">
+                  <td class="ps-3">
+                    <div class="d-flex align-items-center gap-2">
+                      <img src="{{ url_for('static', filename='images/finalfinal.png') }}"
+                           width="20" class="rounded" style="background:#1a2a1a">
+                      <div>
+                        <div class="fw-bold">QoriCash</div>
+                        <div style="font-size:.68rem" class="text-muted">Tú</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="text-center rate-cell">
+                    <span class="fw-bold text-success">{{ "%.4f"|format(own_buy) }}</span>
+                  </td>
+                  <td class="text-center rate-cell">
+                    <span class="fw-bold text-primary">{{ "%.4f"|format(own_sell) }}</span>
+                  </td>
+                  <td class="text-center text-muted">{{ "%.4f"|format(own_sell - own_buy) }}</td>
+                  <td class="text-center text-muted">—</td>
+                  <td class="text-center text-muted">—</td>
+                  <td class="text-center pe-3">
+                    <span class="badge bg-success rounded-pill px-2">En vivo</span>
+                  </td>
+                </tr>
+
+                <!-- Competidores -->
+                {% for c in competitors %}
+                <tr class="{{ 'scrape-err' if not c.scrape_ok else '' }}"
+                    data-slug="{{ c.slug }}"
+                    data-buy="{{ c.buy }}"
+                    data-sell="{{ c.sell }}">
+                  <td class="ps-3">
+                    <div class="d-flex align-items-center gap-2">
+                      <div class="rounded-circle bg-secondary bg-opacity-25 d-flex align-items-center justify-content-center"
+                           style="width:22px;height:22px;font-size:.65rem;font-weight:700;color:#555;flex-shrink:0">
+                        {{ c.name[0] }}
+                      </div>
+                      <div>
+                        <a href="{{ c.website }}" target="_blank"
+                           class="text-decoration-none text-dark fw-semibold" style="font-size:.84rem">
+                          {{ c.name }}
+                        </a>
+                        {% if not c.scrape_ok %}
+                          <div><span class="badge bg-warning text-dark" style="font-size:.6rem">Sin datos</span></div>
+                        {% endif %}
+                      </div>
+                    </div>
+                  </td>
+                  <td class="text-center rate-cell">
+                    <span class="fw-semibold text-success">
+                      {{ "%.4f"|format(c.buy) if c.buy else '—' }}
+                    </span>
+                    {% if c.prev_buy and c.prev_buy != c.buy %}
+                      <span class="{{ 'trend-up' if c.buy > c.prev_buy else 'trend-down' }}">
+                        {{ '▲' if c.buy > c.prev_buy else '▼' }}
+                      </span>
+                    {% endif %}
+                  </td>
+                  <td class="text-center rate-cell">
+                    <span class="fw-semibold text-primary">
+                      {{ "%.4f"|format(c.sell) if c.sell else '—' }}
+                    </span>
+                    {% if c.prev_sell and c.prev_sell != c.sell %}
+                      <span class="{{ 'trend-up' if c.sell > c.prev_sell else 'trend-down' }}">
+                        {{ '▲' if c.sell > c.prev_sell else '▼' }}
+                      </span>
+                    {% endif %}
+                  </td>
+                  <td class="text-center text-muted" style="font-size:.8rem">
+                    {{ "%.4f"|format(c.spread) }}
+                  </td>
+                  <td class="text-center" style="font-size:.8rem">
+                    <span class="{{ 'delta-up' if c.vs_own_buy > 0 else ('delta-down' if c.vs_own_buy < 0 else 'delta-zero') }}">
+                      {{ '%+.4f'|format(c.vs_own_buy) }}
+                    </span>
+                  </td>
+                  <td class="text-center" style="font-size:.8rem">
+                    <span class="{{ 'delta-up' if c.vs_own_sell > 0 else ('delta-down' if c.vs_own_sell < 0 else 'delta-zero') }}">
+                      {{ '%+.4f'|format(c.vs_own_sell) }}
+                    </span>
+                  </td>
+                  <td class="text-center text-muted pe-3" style="font-size:.78rem">
+                    {{ c.updated_at }}
+                  </td>
+                </tr>
+                {% else %}
+                <tr>
+                  <td colspan="7" class="text-center text-muted py-5">
+                    <i class="bi bi-hourglass-split fs-4 d-block mb-2 opacity-50"></i>
+                    Sin datos — haz clic en "Actualizar ahora"
+                  </td>
+                </tr>
+                {% endfor %}
+
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card-footer bg-white border-top py-2 px-3">
+          <small class="text-muted">
+            <span class="delta-up me-3">▲ Rojo = competidor supera tu precio</span>
+            <span class="delta-down">▼ Verde = tu precio los supera</span>
+          </small>
+        </div>
+      </div>
+    </div>
+
+    <!-- Panel derecho -->
+    <div class="col-xl-4 col-lg-5 side-panel">
+
+      <!-- Análisis competitivo -->
+      <div class="card shadow-sm flex-grow-1" style="min-height:0">
+        <div class="card-header bg-white border-bottom py-2 d-flex justify-content-between align-items-center">
+          <span class="fw-semibold text-dark">
+            <i class="bi bi-lightbulb me-1 text-warning"></i>Análisis Competitivo
+          </span>
+          <span class="text-muted" style="font-size:.72rem" id="caTimestamp">--</span>
+        </div>
+        <div class="card-body p-3 overflow-auto" style="max-height:420px" id="compAnalysis">
+          <div class="text-center text-muted py-4 small">
+            <i class="bi bi-hourglass-split me-1"></i>Esperando datos...
+          </div>
+        </div>
+      </div>
+
+      <!-- Mis Tipos de Cambio -->
+      <div class="card shadow-sm">
+        <div class="card-header bg-white border-bottom py-2">
+          <span class="fw-semibold text-dark">
+            <i class="bi bi-currency-exchange me-1 text-primary"></i>Mis Tipos de Cambio
+          </span>
+        </div>
+        <div class="card-body p-3">
+
+          <!-- Valores vigentes -->
+          <div class="row g-2 mb-3">
+            <div class="col-6">
+              <div class="rounded-3 p-2 text-center" style="background:#eafaf1;border:1px solid #b7e4c7">
+                <div style="font-size:.65rem;color:var(--green);font-weight:600;text-transform:uppercase;letter-spacing:.05em">COMPRA</div>
+                <div class="fw-bold text-success mt-1" style="font-size:1.25rem" id="tcBuyRate">S/ --</div>
+                <div style="font-size:.65rem" class="text-muted">Cliente vende</div>
+              </div>
+            </div>
+            <div class="col-6">
+              <div class="rounded-3 p-2 text-center" style="background:#e8f0fe;border:1px solid #b6d0fb">
+                <div style="font-size:.65rem;color:var(--blue);font-weight:600;text-transform:uppercase;letter-spacing:.05em">VENTA</div>
+                <div class="fw-bold text-primary mt-1" style="font-size:1.25rem" id="tcSellRate">S/ --</div>
+                <div style="font-size:.65rem" class="text-muted">Cliente compra</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Inputs actualizar -->
+          <div class="row g-2 mb-2">
+            <div class="col-6">
+              <label class="form-label mb-1" style="font-size:.7rem;font-weight:600;color:var(--green)">
+                Nueva compra
+              </label>
+              <div class="tc-input-group">
+                <span class="currency-label">S/</span>
+                <input type="number" class="form-control form-control-sm" id="tcNewBuy"
+                       step="0.001" min="0" placeholder="0.000">
+              </div>
+            </div>
+            <div class="col-6">
+              <label class="form-label mb-1" style="font-size:.7rem;font-weight:600;color:var(--blue)">
+                Nueva venta
+              </label>
+              <div class="tc-input-group">
+                <span class="currency-label">S/</span>
+                <input type="number" class="form-control form-control-sm" id="tcNewSell"
+                       step="0.001" min="0" placeholder="0.000">
+              </div>
+            </div>
+          </div>
+
+          <button class="btn btn-primary btn-sm w-100 mb-2" onclick="tcUpdateRates()">
+            <i class="bi bi-send me-1"></i>Guardar y publicar
+          </button>
+
+          <div class="text-center text-muted" style="font-size:.68rem">
+            <i class="bi bi-clock me-1"></i>
+            <span id="tcLastUpdate">--</span>
+            · por <span id="tcUpdatedBy">--</span>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       GRÁFICO EVOLUCIÓN
+  ═══════════════════════════════════════════════════════════ -->
+  <div class="row mb-3">
+    <div class="col-12">
+      <div class="card shadow-sm">
+
+        <!-- Header -->
+        <div class="card-header bg-white border-bottom py-2 px-3 d-flex justify-content-between align-items-center">
+          <span class="fw-semibold text-dark">
+            <i class="bi bi-graph-up me-1 text-primary"></i>Evolución de Precios — QoriCash vs Mercado
+          </span>
+          <div class="btn-group btn-group-sm" role="group" id="rangeGroup">
+            <button type="button" class="btn btn-outline-secondary range-btn" data-hours="6">6h</button>
+            <button type="button" class="btn btn-primary range-btn"           data-hours="24">24h</button>
+            <button type="button" class="btn btn-outline-secondary range-btn" data-hours="72">3d</button>
+            <button type="button" class="btn btn-outline-secondary range-btn" data-hours="168">7d</button>
+          </div>
+        </div>
+
+        <!-- Strip resumen: posición actual vs mercado -->
+        <div id="chartSummaryStrip" style="display:none;background:#f8fafc;border-bottom:1px solid #e5e7eb;padding:.55rem 1rem">
+          <!-- llenado por JS -->
+        </div>
+
+        <!-- Cuerpo: dos gráficos lado a lado -->
+        <div class="card-body p-3">
+          <div class="row g-3" id="chartsRow">
+            <!-- Compra -->
+            <div class="col-md-6">
+              <div class="d-flex align-items-center justify-content-between mb-2">
+                <div>
+                  <span style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#065f46">
+                    ● Compra
+                  </span>
+                  <span style="font-size:.68rem;color:#6b7280;margin-left:.35rem">(cliente vende USD)</span>
+                </div>
+                <div class="d-flex gap-3" style="font-size:.63rem;color:#9ca3af">
+                  <span style="display:inline-flex;align-items:center;gap:4px">
+                    <span style="width:16px;height:2.5px;background:#059669;display:inline-block;border-radius:2px"></span>QoriCash
+                  </span>
+                  <span style="display:inline-flex;align-items:center;gap:4px">
+                    <span style="width:16px;border-top:2px dashed #94a3b8;display:inline-block"></span>Promedio
+                  </span>
+                </div>
+              </div>
+              <canvas id="chartCompra" height="130"></canvas>
+            </div>
+            <!-- Venta -->
+            <div class="col-md-6">
+              <div class="d-flex align-items-center justify-content-between mb-2">
+                <div>
+                  <span style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#1e40af">
+                    ● Venta
+                  </span>
+                  <span style="font-size:.68rem;color:#6b7280;margin-left:.35rem">(cliente compra USD)</span>
+                </div>
+                <div class="d-flex gap-3" style="font-size:.63rem;color:#9ca3af">
+                  <span style="display:inline-flex;align-items:center;gap:4px">
+                    <span style="width:16px;height:2.5px;background:#2563eb;display:inline-block;border-radius:2px"></span>QoriCash
+                  </span>
+                  <span style="display:inline-flex;align-items:center;gap:4px">
+                    <span style="width:16px;border-top:2px dashed #94a3b8;display:inline-block"></span>Promedio
+                  </span>
+                </div>
+              </div>
+              <canvas id="chartVenta" height="130"></canvas>
+            </div>
+          </div>
+
+          <!-- Estado vacío -->
+          <div id="chartEmpty" class="text-center text-muted py-5" style="display:none">
+            <i class="bi bi-bar-chart-line fs-3 d-block mb-2 opacity-25"></i>
+            <span style="font-size:.84rem">Sin datos para el período seleccionado</span>
+            <div style="font-size:.72rem;margin-top:.4rem">Haz clic en "Actualizar ahora" para generar datos</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ── Constantes ────────────────────────────────────────────────────────────
+const REFRESH_MS  = 300000;
+const MIN_SPREAD  = 0.003;
+let   refreshTimer;
+
+// ── Barra de refresco ─────────────────────────────────────────────────────
+function startRefreshBar() {
+  const bar   = document.getElementById('refreshBar');
+  const start = Date.now();
+  clearInterval(refreshTimer);
+  refreshTimer = setInterval(() => {
+    const pct = ((Date.now() - start) / REFRESH_MS) * 100;
+    bar.style.width = Math.min(pct, 100) + '%';
+    if (pct >= 100) { clearInterval(refreshTimer); loadCurrentRates(); }
+  }, 1000);
+}
+
+// ── Cargar datos del mercado ──────────────────────────────────────────────
+function loadCurrentRates() {
+  fetch("{{ url_for('fx_monitor.api_current') }}")
+    .then(r => r.json())
+    .then(res => {
+      if (!res.success) return;
+      const d = res.data;
+      document.getElementById('lastUpdate').textContent = calcNextUpdate();
+      updateTable(d.competitors, d.own_buy, d.own_sell);
+      updateKpis(d.own_buy, d.own_sell, d.competitors);
+      analyzeCompetition(d.competitors, d.own_buy, d.own_sell);
+      startRefreshBar();
+    })
+    .catch(() => startRefreshBar());
+}
+
+function calcNextUpdate() {
+  const t = new Date(Date.now() + REFRESH_MS);
+  return t.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
+}
+
+// ── KPI cards ─────────────────────────────────────────────────────────────
+function updateKpis(buy, sell, competitors) {
+  document.getElementById('kpiBuy').textContent    = 'S/ ' + buy.toFixed(4);
+  document.getElementById('kpiSell').textContent   = 'S/ ' + sell.toFixed(4);
+  document.getElementById('kpiSpread').textContent = 'S/ ' + (sell - buy).toFixed(4);
+  const ok = competitors.filter(c => c.scrape_ok).length;
+  document.getElementById('kpiOkCount').textContent = ok + ' con datos';
+  document.getElementById('kpiTotal').textContent   = competitors.length;
+}
+
+// ── Tabla ─────────────────────────────────────────────────────────────────
+function updateTable(competitors, ownBuy, ownSell) {
+  const tbody  = document.getElementById('ratesBody');
+  const ownRow = tbody.querySelector('.own-row');
+  tbody.innerHTML = '';
+  tbody.appendChild(ownRow);
+
+  competitors.sort((a,b) => b.sell - a.sell).forEach(c => {
+    const dBuy  = c.vs_own_buy;
+    const dSell = c.vs_own_sell;
+    const row = document.createElement('tr');
+    row.dataset.slug = c.slug;
+    row.dataset.buy  = c.buy;
+    row.dataset.sell = c.sell;
+    if (!c.scrape_ok) row.classList.add('scrape-err');
+    row.innerHTML = `
+      <td class="ps-3">
+        <div class="d-flex align-items-center gap-2">
+          <div class="rounded-circle bg-secondary bg-opacity-25 d-flex align-items-center justify-content-center"
+               style="width:22px;height:22px;font-size:.65rem;font-weight:700;color:#555;flex-shrink:0">
+            ${c.name[0]}
+          </div>
+          <div>
+            <a href="${c.website}" target="_blank" class="text-decoration-none text-dark fw-semibold" style="font-size:.84rem">${c.name}</a>
+            ${!c.scrape_ok ? '<div><span class="badge bg-warning text-dark" style="font-size:.6rem">Sin datos</span></div>' : ''}
+          </div>
+        </div>
+      </td>
+      <td class="text-center rate-cell">
+        <span class="fw-semibold text-success">${c.buy ? c.buy.toFixed(4) : '—'}</span>
+        ${c.prev_buy && c.prev_buy !== c.buy ? `<span class="${c.buy > c.prev_buy ? 'trend-up':'trend-down'}">${c.buy > c.prev_buy ? '▲':'▼'}</span>` : ''}
+      </td>
+      <td class="text-center rate-cell">
+        <span class="fw-semibold text-primary">${c.sell ? c.sell.toFixed(4) : '—'}</span>
+        ${c.prev_sell && c.prev_sell !== c.sell ? `<span class="${c.sell > c.prev_sell ? 'trend-up':'trend-down'}">${c.sell > c.prev_sell ? '▲':'▼'}</span>` : ''}
+      </td>
+      <td class="text-center text-muted" style="font-size:.8rem">${c.spread.toFixed(4)}</td>
+      <td class="text-center" style="font-size:.8rem">
+        <span class="${dBuy > 0 ? 'delta-up' : dBuy < 0 ? 'delta-down' : 'delta-zero'}">${(dBuy>=0?'+':'')+dBuy.toFixed(4)}</span>
+      </td>
+      <td class="text-center" style="font-size:.8rem">
+        <span class="${dSell > 0 ? 'delta-up' : dSell < 0 ? 'delta-down' : 'delta-zero'}">${(dSell>=0?'+':'')+dSell.toFixed(4)}</span>
+      </td>
+      <td class="text-center text-muted pe-3" style="font-size:.78rem">${c.updated_at}</td>`;
+    tbody.appendChild(row);
+  });
+}
+
+function pct(val, min, max) {
+  if (max === min) return 100;
+  return Math.round(((val - min) / (max - min)) * 85 + 15);  // 15-100%
+}
+
+// ── Análisis Competitivo ──────────────────────────────────────────────────
+function analyzeCompetition(competitors, ownBuy, ownSell) {
+  const el = document.getElementById('compAnalysis');
+  document.getElementById('caTimestamp').textContent = new Date().toLocaleTimeString('es-PE');
+
+  const valid = competitors.filter(c => c.buy > 0 && c.sell > 0 && c.scrape_ok);
+  if (valid.length < 2) {
+    el.innerHTML = '<div class="text-center text-muted py-3 small"><i class="bi bi-exclamation-circle me-1"></i>Pocos datos para analizar</div>';
+    return;
+  }
+
+  const buys  = valid.map(c => c.buy).sort((a,b) => b - a);
+  const sells = valid.map(c => c.sell).sort((a,b) => a - b);
+  const maxBuy  = buys[0],  minBuy  = buys[buys.length-1];
+  const minSell = sells[0], maxSell = sells[sells.length-1];
+  const avgBuy  = buys.reduce((s,v)=>s+v,0)  / buys.length;
+  const avgSell = sells.reduce((s,v)=>s+v,0) / sells.length;
+
+  const buyRank  = buys.filter(b => b > ownBuy).length + 1;
+  const sellRank = sells.filter(s => s < ownSell).length + 1;
+  const total    = valid.length + 1;
+
+  // Sugerencia
+  let sugBuy  = parseFloat((maxBuy  + 0.001).toFixed(4));
+  let sugSell = parseFloat((minSell - 0.001).toFixed(4));
+  if (sugSell - sugBuy < MIN_SPREAD) {
+    const mid = (sugBuy + sugSell) / 2;
+    sugBuy  = parseFloat((mid - MIN_SPREAD/2).toFixed(4));
+    sugSell = parseFloat((mid + MIN_SPREAD/2).toFixed(4));
+  }
+  const sugSpread = parseFloat((sugSell - sugBuy).toFixed(4));
+  const diffBuy   = parseFloat((sugBuy  - ownBuy ).toFixed(4));
+  const diffSell  = parseFloat((sugSell - ownSell).toFixed(4));
+
+  // Semáforo
+  const score = (buyRank===1?2:buyRank<=3?1:0) + (sellRank===1?2:sellRank<=3?1:0);
+  const [semBg, semColor, semText] =
+    score >= 4 ? ['#d1fae5','#065f46','Muy competitivo'] :
+    score >= 2 ? ['#fef3c7','#92400e','Moderadamente competitivo'] :
+                 ['#fee2e2','#991b1b','Poco competitivo'];
+
+  const rankColor = r => r === 1 ? 'success' : r <= 3 ? 'warning' : 'danger';
+
+  el.innerHTML = `
+
+    <!-- Posición -->
+    <div class="row g-2 mb-3">
+      <div class="col-6">
+        <div class="rounded-3 border text-center py-2 px-1">
+          <div style="font-size:.62rem;text-transform:uppercase;letter-spacing:.05em" class="text-muted mb-1">Compra</div>
+          <div class="badge bg-${rankColor(buyRank)} rounded-pill px-2 mb-1" style="font-size:.75rem">
+            #${buyRank} de ${total}
+          </div>
+          <div style="font-size:.65rem" class="text-muted">${buyRank===1?'🏆 Líderas':'Posición actual'}</div>
+        </div>
+      </div>
+      <div class="col-6">
+        <div class="rounded-3 border text-center py-2 px-1">
+          <div style="font-size:.62rem;text-transform:uppercase;letter-spacing:.05em" class="text-muted mb-1">Venta</div>
+          <div class="badge bg-${rankColor(sellRank)} rounded-pill px-2 mb-1" style="font-size:.75rem">
+            #${sellRank} de ${total}
+          </div>
+          <div style="font-size:.65rem" class="text-muted">${sellRank===1?'🏆 Líderas':'Posición actual'}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tabla de mercado -->
+    <div class="mb-3">
+      <div style="font-size:.68rem;text-transform:uppercase;letter-spacing:.06em" class="text-muted fw-semibold mb-2">
+        Resumen del mercado
+      </div>
+      <table class="table table-sm mb-0" style="font-size:.78rem">
+        <thead>
+          <tr style="font-size:.65rem">
+            <th class="text-muted fw-normal border-0 ps-0"></th>
+            <th class="text-success fw-semibold border-0 text-center">Compra</th>
+            <th class="text-primary fw-semibold border-0 text-center">Venta</th>
+            <th class="text-muted fw-normal border-0 text-center">Spread</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="ps-0 text-muted">Mejor</td>
+            <td class="text-center fw-semibold text-success">${maxBuy.toFixed(4)}</td>
+            <td class="text-center fw-semibold text-primary">${minSell.toFixed(4)}</td>
+            <td class="text-center text-muted">—</td>
+          </tr>
+          <tr>
+            <td class="ps-0 text-muted">Promedio</td>
+            <td class="text-center">${avgBuy.toFixed(4)}</td>
+            <td class="text-center">${avgSell.toFixed(4)}</td>
+            <td class="text-center text-muted">${(avgSell-avgBuy).toFixed(4)}</td>
+          </tr>
+          <tr style="background:#eafaf1">
+            <td class="ps-0 fw-semibold">Tú</td>
+            <td class="text-center fw-bold text-success">${ownBuy.toFixed(4)}</td>
+            <td class="text-center fw-bold text-primary">${ownSell.toFixed(4)}</td>
+            <td class="text-center">${(ownSell-ownBuy).toFixed(4)}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Sugerencia -->
+    <div class="rounded-3 p-3" style="background:#fffbeb;border:1px solid #fde68a">
+      <div style="font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;color:#92400e;font-weight:600" class="mb-2">
+        <i class="bi bi-stars me-1"></i>Sugerencia para liderar
+      </div>
+      <div class="row g-2 mb-2">
+        <div class="col-6 text-center">
+          <div style="font-size:.62rem;color:#065f46;font-weight:600;text-transform:uppercase">Compra</div>
+          <div class="fw-bold text-success" style="font-size:1.1rem">${sugBuy.toFixed(4)}</div>
+          <div style="font-size:.65rem" class="text-muted">
+            ${diffBuy >= 0 ? '<span class="text-danger">▲ +' : '<span class="text-success">▼ '}${Math.abs(diffBuy).toFixed(4)}</span> vs actual
+          </div>
+        </div>
+        <div class="col-6 text-center">
+          <div style="font-size:.62rem;color:#1e40af;font-weight:600;text-transform:uppercase">Venta</div>
+          <div class="fw-bold text-primary" style="font-size:1.1rem">${sugSell.toFixed(4)}</div>
+          <div style="font-size:.65rem" class="text-muted">
+            ${diffSell >= 0 ? '<span class="text-danger">▲ +' : '<span class="text-success">▼ '}${Math.abs(diffSell).toFixed(4)}</span> vs actual
+          </div>
+        </div>
+      </div>
+      <div class="text-center text-muted" style="font-size:.68rem">
+        Spread: <strong>${sugSpread.toFixed(4)}</strong>
+        ${sugSpread < 0.005 ? ' · <span style="color:#92400e">⚠ ajustado al mínimo</span>' : ''}
+      </div>
+    </div>`;
+}
+
+function caApplySuggestion(buy, sell) {
+  document.getElementById('tcNewBuy').value  = buy.toFixed(3);
+  document.getElementById('tcNewSell').value = sell.toFixed(3);
+  document.getElementById('tcNewBuy').focus();
+}
+
+// ── Tipos de Cambio ───────────────────────────────────────────────────────
+function tcLoadRates() {
+  fetch('/api/platform/exchange-rates')
+    .then(r => r.json())
+    .then(res => {
+      if (!res.success || !res.rates) return;
+      const { compra, venta, updated_at, updated_by } = res.rates;
+      const buy  = parseFloat(compra).toFixed(3);
+      const sell = parseFloat(venta).toFixed(3);
+      document.getElementById('tcBuyRate').textContent  = 'S/ ' + buy;
+      document.getElementById('tcSellRate').textContent = 'S/ ' + sell;
+      document.getElementById('tcNewBuy').value  = buy;
+      document.getElementById('tcNewSell').value = sell;
+      document.getElementById('kpiBuy').textContent    = 'S/ ' + parseFloat(compra).toFixed(4);
+      document.getElementById('kpiSell').textContent   = 'S/ ' + parseFloat(venta).toFixed(4);
+      document.getElementById('kpiSpread').textContent = 'S/ ' + (parseFloat(venta) - parseFloat(compra)).toFixed(4);
+      if (updated_at) document.getElementById('tcLastUpdate').textContent = new Date(updated_at).toLocaleString('es-PE');
+      if (updated_by) document.getElementById('tcUpdatedBy').textContent  = updated_by;
+    })
+    .catch(err => console.error('[TC]', err));
+}
+
+function tcUpdateRates() {
+  const buy  = parseFloat(document.getElementById('tcNewBuy').value);
+  const sell = parseFloat(document.getElementById('tcNewSell').value);
+  if (!buy || !sell) { alert('Ingresa ambos tipos de cambio.'); return; }
+  if (sell < buy)    { alert('La venta debe ser mayor o igual a la compra.'); return; }
+  if (!confirm(`¿Actualizar tipos de cambio?\n\nCompra: S/ ${buy.toFixed(3)}\nVenta:  S/ ${sell.toFixed(3)}`)) return;
+
+  const csrf = document.querySelector('meta[name=csrf-token]');
+  fetch('/api/platform/exchange-rates', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...(csrf ? {'X-CSRFToken': csrf.content} : {}) },
+    body: JSON.stringify({ buy_rate: buy, sell_rate: sell })
+  })
+  .then(r => r.json())
+  .then(res => {
+    if (res.success) tcLoadRates();
+    else alert(res.message || 'Error al actualizar');
+  })
+  .catch(() => alert('Error de conexión'));
+}
+
+// ── Botón scrape manual ───────────────────────────────────────────────────
+const btnNow = document.getElementById('btnScrapeNow');
+if (btnNow) {
+  btnNow.addEventListener('click', () => {
+    btnNow.disabled = true;
+    btnNow.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Actualizando...';
+    fetch("{{ url_for('fx_monitor.api_scrape_now') }}", {
+      method: 'POST',
+      headers: { 'X-CSRFToken': document.querySelector('meta[name=csrf-token]').content }
+    })
+    .then(r => r.json())
+    .then(() => {
+      btnNow.disabled = false;
+      btnNow.innerHTML = '<i class="bi bi-arrow-clockwise me-1"></i>Actualizar ahora';
+      loadCurrentRates();
+    });
+  });
+}
+
+// ── Gráfico evolución de precios ──────────────────────────────────────────
+let chartVenta, chartCompra;
+
+/** Construye un gráfico individual (venta o compra). */
+function buildEvoChart(canvasId, ownData, compData, labels, color, compColor) {
+  const allVals = [...ownData, ...compData].filter(v => v != null && v > 0);
+  if (!allVals.length) return null;
+  const minV    = Math.min(...allVals);
+  const maxV    = Math.max(...allVals);
+  const pad     = Math.max((maxV - minV) * 0.5, 0.008);
+
+  // Puntos de cambio en QoriCash (solo marcamos cuando cambia el valor)
+  const ownPoints = ownData.map((v, i) => {
+    if (v == null) return 0;
+    if (i === 0 || ownData[i - 1] == null || ownData[i - 1] !== v) return 4;
+    return 0;
+  });
+
+  const ctx = document.getElementById(canvasId).getContext('2d');
+  return new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'QoriCash',
+          data: ownData,
+          borderColor: color,
+          backgroundColor: color + '12',
+          borderWidth: 2.5,
+          stepped: 'after',          // QoriCash cambia en escalón (se actualiza manualmente)
+          pointRadius: ownPoints,
+          pointHoverRadius: 6,
+          pointBackgroundColor: color,
+          pointBorderColor: '#fff',
+          pointBorderWidth: 1.5,
+          fill: false,
+          spanGaps: true,
+          tension: 0,
+        },
+        {
+          label: 'Promedio mercado',
+          data: compData,
+          borderColor: compColor,
+          borderDash: [6, 5],
+          borderWidth: 1.5,
+          tension: 0.35,
+          pointRadius: 0,
+          pointHoverRadius: 4,
+          fill: false,
+        },
+      ]
+    },
+    options: {
+      responsive: true,
+      animation: { duration: 400 },
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: 'rgba(15,23,42,.9)',
+          titleColor: '#e2e8f0',
+          bodyColor:  '#cbd5e1',
+          titleFont:  { size: 11, weight: '600' },
+          bodyFont:   { size: 11 },
+          padding:    10,
+          borderColor: 'rgba(255,255,255,.08)',
+          borderWidth: 1,
+          callbacks: {
+            title: items => '  ' + items[0].label,
+            label: item => {
+              const v = item.parsed.y;
+              if (v == null) return null;
+              const name = item.datasetIndex === 0 ? 'QoriCash      ' : 'Prom. mercado';
+              return `  ${name}  S/ ${v.toFixed(4)}`;
+            },
+            afterBody: items => {
+              const qItem = items.find(i => i.datasetIndex === 0);
+              const cItem = items.find(i => i.datasetIndex === 1);
+              if (!qItem || !cItem || qItem.parsed.y == null || cItem.parsed.y == null) return [];
+              const diff = qItem.parsed.y - cItem.parsed.y;
+              const icon = diff > 0 ? '▲' : diff < 0 ? '▼' : '=';
+              const sign = diff >= 0 ? '+' : '';
+              return ['', `  ${icon} Diferencia  ${sign}${diff.toFixed(4)}`];
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid:   { color: 'rgba(0,0,0,.035)', drawBorder: false },
+          border: { display: false },
+          ticks:  { font: { size: 10 }, color: '#9ca3af', maxTicksLimit: 8, maxRotation: 0 }
+        },
+        y: {
+          min:    minV - pad,
+          max:    maxV + pad,
+          grid:   { color: 'rgba(0,0,0,.045)', drawBorder: false },
+          border: { display: false },
+          ticks:  {
+            callback: v => 'S/ ' + v.toFixed(4),
+            font: { size: 10 },
+            color: '#9ca3af',
+            maxTicksLimit: 6,
+          }
+        }
+      }
+    }
+  });
+}
+
+/** Banda de resumen: muestra posición actual de QoriCash vs promedio. */
+function updateSummaryStrip(d) {
+  const strip = document.getElementById('chartSummaryStrip');
+  const last  = arr => [...arr].reverse().find(v => v != null);
+
+  const oSell = last(d.own_sell),  cSell = last(d.comp_sell);
+  const oBuy  = last(d.own_buy),   cBuy  = last(d.comp_buy);
+  if (oSell == null && oBuy == null) { strip.style.display = 'none'; return; }
+
+  const chip = (own, comp, label, higherIsBetter) => {
+    if (own == null || comp == null) return '';
+    const diff = own - comp;
+    const good = higherIsBetter ? diff >= 0 : diff <= 0;
+    const sign  = diff >= 0 ? '+' : '';
+    const icon  = diff > 0 ? '▲' : diff < 0 ? '▼' : '=';
+    const color = good ? '#16a34a' : '#dc2626';
+    return `
+      <div class="d-flex align-items-center gap-2">
+        <span style="font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#6b7280">${label}</span>
+        <span style="font-size:.8rem;font-weight:700;color:#111827">S/ ${own.toFixed(4)}</span>
+        <span style="font-size:.65rem;color:#9ca3af">vs prom. S/ ${comp.toFixed(4)}</span>
+        <span style="font-size:.68rem;font-weight:700;color:${color}">${icon} ${sign}${Math.abs(diff).toFixed(4)}</span>
+      </div>`;
+  };
+
+  strip.innerHTML = `
+    <div class="d-flex flex-wrap align-items-center gap-3">
+      ${chip(oBuy, cBuy, 'Compra', true)}
+      <div style="width:1px;height:22px;background:#e5e7eb;flex-shrink:0"></div>
+      ${chip(oSell, cSell, 'Venta', true)}
+      <span style="font-size:.63rem;color:#9ca3af;margin-left:auto">
+        <i class="bi bi-info-circle me-1"></i>
+        Verde = QoriCash por encima del promedio · Rojo = por debajo
+      </span>
+    </div>`;
+  strip.style.display = 'block';
+}
+
+function loadChart() {
+  const activeBtn = document.querySelector('.range-btn.btn-primary');
+  const hours = activeBtn ? activeBtn.dataset.hours : 24;
+
+  // Mostrar spinners en las mini-leyendas
+  document.querySelectorAll('.range-btn').forEach(b => b.disabled = true);
+
+  fetch(`/monitor/api/price-evolution?hours=${hours}`)
+    .then(r => r.json())
+    .then(res => {
+      document.querySelectorAll('.range-btn').forEach(b => b.disabled = false);
+      if (chartVenta) { chartVenta.destroy(); chartVenta = null; }
+      if (chartCompra) { chartCompra.destroy(); chartCompra = null; }
+
+      const empty = document.getElementById('chartEmpty');
+      const row   = document.getElementById('chartsRow');
+
+      if (!res.success || !res.data || !res.data.labels.length) {
+        empty.style.display = 'block';
+        row.style.display   = 'none';
+        document.getElementById('chartSummaryStrip').style.display = 'none';
+        return;
+      }
+
+      empty.style.display = 'none';
+      row.style.display   = '';
+
+      const d = res.data;
+      updateSummaryStrip(d);
+      chartVenta = buildEvoChart('chartVenta', d.own_sell, d.comp_sell, d.labels, '#2563eb', '#94a3b8');
+      chartCompra = buildEvoChart('chartCompra', d.own_buy,  d.comp_buy,  d.labels, '#059669', '#94a3b8');
+    })
+    .catch(() => document.querySelectorAll('.range-btn').forEach(b => b.disabled = false));
+}
+
+// Botones de rango
+document.querySelectorAll('.range-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.range-btn').forEach(b => {
+      b.classList.replace('btn-primary', 'btn-outline-secondary');
+    });
+    btn.classList.replace('btn-outline-secondary', 'btn-primary');
+    loadChart();
+  });
+});
+
+// ── Init ──────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('lastUpdate').textContent = calcNextUpdate();
+  tcLoadRates();
+
+  const initRows  = Array.from(document.querySelectorAll('#ratesBody tr[data-slug]'));
+  const initComps = initRows.map(r => ({
+    name:      r.querySelector('a')?.textContent?.trim() || r.dataset.slug,
+    buy:       parseFloat(r.dataset.buy)  || 0,
+    sell:      parseFloat(r.dataset.sell) || 0,
+    scrape_ok: !r.classList.contains('scrape-err'),
+  }));
+  if (initComps.length > 0) analyzeCompetition(initComps, {{ own_buy }}, {{ own_sell }});
+
+  startRefreshBar();
+  loadChart();
+});
+</script>
+{% endblock %}

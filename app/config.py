@@ -42,6 +42,9 @@ class Config:
         seconds=int(os.environ.get('PERMANENT_SESSION_LIFETIME', 43200))  # 12 hours
     )
     
+    # APIs externas (RUC/DNI lookup)
+    APIS_NET_PE_TOKEN = os.environ.get('APIS_NET_PE_TOKEN', '')
+
     # File Upload (Cloudinary)
     CLOUDINARY_URL = os.environ.get('CLOUDINARY_URL')
     CLOUDINARY_CLOUD_NAME = os.environ.get('CLOUDINARY_CLOUD_NAME')

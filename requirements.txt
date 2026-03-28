@@ -10,6 +10,7 @@ Werkzeug==3.0.1
 Flask-SQLAlchemy==3.1.1
 Flask-Migrate==4.0.5
 psycopg2-binary==2.9.9
+psycogreen==1.0.2
 alembic==1.13.1
 
 # Authentication
@@ -19,6 +20,7 @@ email-validator==2.1.0
 
 # Security
 Flask-Limiter==3.5.0
+Flask-CORS==6.0.2
 python-dotenv==1.0.0
 
 # Mail
@@ -29,7 +31,7 @@ Flask-SocketIO==5.3.5
 python-socketio==5.10.0
 simple-websocket==1.0.0
 
-# File Upload (Amazon S3)
+# File Upload
 cloudinary==1.41.0
 
 # Data Validation
@@ -42,12 +44,21 @@ openpyxl==3.1.2
 # Timezone
 pytz==2024.1
 
-# Background Tasks (Scheduler)
+# Background Tasks Scheduler
 APScheduler==3.10.4
+
+# HTTP Requests (NubeFact / SUNAT APIs)
+requests==2.31.0
+
+# Traducción automática (noticias)
+deep-translator==1.11.4
 
 # Production Server
 gunicorn==21.2.0
-eventlet==0.33.3
+eventlet==0.35.2
+
+# Fuzzy matching (screening sanciones)
+rapidfuzz==3.6.1
 
 # Testing (opcional)
 pytest==7.4.3

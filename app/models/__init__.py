@@ -8,5 +8,15 @@ from app.models.audit_log import AuditLog
 from app.models.trader_goal import TraderGoal
 from app.models.trader_daily_profit import TraderDailyProfit
 from app.models.bank_balance import BankBalance
+from app.models.competitor_rate import (
+    Competitor, CompetitorRateHistory,
+    CompetitorRateCurrent, CompetitorRateChangeEvent
+)
+from app.models.sanctions import SanctionsEntry
 
-__all__ = ['User', 'Client', 'Operation', 'AuditLog', 'TraderGoal', 'TraderDailyProfit', 'BankBalance']
+__all__ = [
+    'User', 'Client', 'Operation', 'AuditLog', 'TraderGoal', 'TraderDailyProfit',
+    'BankBalance',
+    'Competitor', 'CompetitorRateHistory', 'CompetitorRateCurrent', 'CompetitorRateChangeEvent',
+    'SanctionsEntry',
+]

@@ -75,6 +75,24 @@
                     </li>
                     {% endif %}
 
+                    {% if current_user.role in ['Master', 'Operador'] %}
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint and 'fx_monitor' in request.endpoint %}active{% endif %}"
+                           href="{{ url_for('fx_monitor.dashboard') }}">
+                            <i class="bi bi-graph-up-arrow"></i> Monitor TC
+                        </a>
+                    </li>
+                    {% endif %}
+
+                    {% if current_user.role in ['Master', 'Trader', 'Operador'] %}
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint and 'market' in request.endpoint %}active{% endif %}"
+                           href="{{ url_for('market.dashboard') }}">
+                            <i class="bi bi-globe-americas"></i> Mercado
+                        </a>
+                    </li>
+                    {% endif %}
+
                     {% if current_user.role == 'Master' %}
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('users.manage') }}">
