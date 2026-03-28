@@ -13,10 +13,16 @@ from app.models.competitor_rate import (
     CompetitorRateCurrent, CompetitorRateChangeEvent
 )
 from app.models.sanctions import SanctionsEntry
+from app.models.compliance import (
+    RiskLevel, ClientRiskProfile, ComplianceRule, ComplianceAlert,
+    RestrictiveListCheck, TransactionMonitoring, ComplianceDocument, ComplianceAudit
+)
 
 __all__ = [
     'User', 'Client', 'Operation', 'AuditLog', 'TraderGoal', 'TraderDailyProfit',
     'BankBalance',
     'Competitor', 'CompetitorRateHistory', 'CompetitorRateCurrent', 'CompetitorRateChangeEvent',
     'SanctionsEntry',
+    'RiskLevel', 'ClientRiskProfile', 'ComplianceRule', 'ComplianceAlert',
+    'RestrictiveListCheck', 'TransactionMonitoring', 'ComplianceDocument', 'ComplianceAudit',
 ]

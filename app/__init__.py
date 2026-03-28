@@ -124,6 +124,7 @@ def register_blueprints(app):
     from app.routes.referrals import referrals_bp
     from app.routes.fx_monitor import fx_monitor_bp
     from app.routes.market import market_bp
+    from app.routes.compliance import compliance_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
@@ -136,6 +137,7 @@ def register_blueprints(app):
     app.register_blueprint(referrals_bp)  # Sistema de referidos
     app.register_blueprint(fx_monitor_bp) # Monitor de competencia TC
     app.register_blueprint(market_bp)     # Módulo Mercado
+    app.register_blueprint(compliance_bp, url_prefix='/compliance')  # Módulo KYC/Compliance
 
 
 def configure_logging(app):

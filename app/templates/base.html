@@ -94,6 +94,29 @@
                     {% endif %}
 
                     {% if current_user.role == 'Master' %}
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle {% if request.endpoint and 'compliance' in request.endpoint %}active{% endif %}"
+                           href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-shield-check"></i> Compliance
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="{{ url_for('compliance.kyc') }}">
+                                <i class="bi bi-person-badge me-2"></i>KYC
+                            </a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('compliance.alerts') }}">
+                                <i class="bi bi-exclamation-triangle me-2"></i>Alertas
+                            </a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('compliance.restrictive_lists') }}">
+                                <i class="bi bi-list-check me-2"></i>Listas Restrictivas
+                            </a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('compliance.risk_profiles') }}">
+                                <i class="bi bi-graph-up me-2"></i>Perfiles de Riesgo
+                            </a></li>
+                        </ul>
+                    </li>
+                    {% endif %}
+
+                    {% if current_user.role == 'Master' %}
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('users.manage') }}">
                             <i class="bi bi-person-gear"></i> Usuarios

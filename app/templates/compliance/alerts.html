@@ -1,0 +1,261 @@
+{% extends "base.html" %}
+
+{% block title %}Alertas de Compliance - QoriCash Trading{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-0">Alertas de Compliance</h2>
+            <p class="text-muted">Gestión de alertas AML/KYC/PLAFT</p>
+        </div>
+        <div>
+            <a href="/compliance/" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Volver al Dashboard
+            </a>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-3">
+                    <label class="form-label">Severidad</label>
+                    <select id="filterSeverity" class="form-select">
+                        <option value="">Todas</option>
+                        <option value="Crítica">Crítica</option>
+                        <option value="Alta">Alta</option>
+                        <option value="Media">Media</option>
+                        <option value="Baja">Baja</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Estado</label>
+                    <select id="filterStatus" class="form-select">
+                        <option value="">Todos</option>
+                        <option value="Pendiente" selected>Pendiente</option>
+                        <option value="En Revisión">En Revisión</option>
+                        <option value="Resuelta">Resuelta</option>
+                        <option value="Falsa Alarma">Falsa Alarma</option>
+                        <option value="Escalada">Escalada</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Tipo</label>
+                    <select id="filterType" class="form-select">
+                        <option value="">Todos</option>
+                        <option value="AML">AML</option>
+                        <option value="KYC">KYC</option>
+                        <option value="PEP">PEP</option>
+                        <option value="Volumetric">Volumétrico</option>
+                        <option value="Behavioral">Comportamiento</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">&nbsp;</label>
+                    <button id="btnApplyFilters" class="btn btn-primary w-100">
+                        <i class="bi bi-funnel"></i> Aplicar Filtros
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Table -->
+    <div class="card">
+        <div class="card-body">
+            <table id="alertsTable" class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Tipo</th>
+                        <th>Severidad</th>
+                        <th>Título</th>
+                        <th>Cliente</th>
+                        <th>Estado</th>
+                        <th>Fecha</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Resolver Alerta -->
+<div class="modal fade" id="resolveAlertModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Resolver Alerta</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="resolveAlertId">
+                <div class="mb-3">
+                    <label class="form-label">Resolución</label>
+                    <select id="resolveResolution" class="form-select" required>
+                        <option value="">Seleccionar...</option>
+                        <option value="Aprobado">Aprobado</option>
+                        <option value="Rechazado">Rechazado</option>
+                        <option value="Falsa Alarma">Falsa Alarma</option>
+                        <option value="Reportado a UIF">Reportado a UIF</option>
+                        <option value="Requiere Investigación">Requiere Investigación</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Notas</label>
+                    <textarea id="resolveNotes" class="form-control" rows="4" placeholder="Detalles de la resolución..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="submitResolveAlert()">Resolver</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let alertsTable = null;
+
+    $(document).ready(function() {
+        initAlertsTable();
+
+        $('#btnApplyFilters').on('click', function() {
+            alertsTable.ajax.reload();
+        });
+    });
+
+    function initAlertsTable() {
+        alertsTable = $('#alertsTable').DataTable({
+            processing: true,
+            serverSide: true,
+            ajax: {
+                url: '/compliance/api/alerts',
+                data: function(d) {
+                    d.severity = $('#filterSeverity').val();
+                    d.status = $('#filterStatus').val();
+                    d.alert_type = $('#filterType').val();
+                }
+            },
+            columns: [
+                { data: 'id' },
+                {
+                    data: 'alert_type',
+                    render: function(data) {
+                        const badges = {
+                            'AML': 'danger',
+                            'KYC': 'warning',
+                            'PEP': 'info',
+                            'Volumetric': 'primary',
+                            'Behavioral': 'secondary'
+                        };
+                        return `<span class="badge bg-${badges[data] || 'secondary'}">${data}</span>`;
+                    }
+                },
+                {
+                    data: 'severity',
+                    render: function(data) {
+                        const badges = {
+                            'Crítica': 'danger',
+                            'Alta': 'warning',
+                            'Media': 'info',
+                            'Baja': 'secondary'
+                        };
+                        return `<span class="badge bg-${badges[data]}">${data}</span>`;
+                    }
+                },
+                { data: 'title' },
+                { data: 'client_name' },
+                {
+                    data: 'status',
+                    render: function(data) {
+                        const badges = {
+                            'Pendiente': 'warning',
+                            'En Revisión': 'info',
+                            'Resuelta': 'success',
+                            'Falsa Alarma': 'secondary',
+                            'Escalada': 'danger'
+                        };
+                        return `<span class="badge bg-${badges[data]}">${data}</span>`;
+                    }
+                },
+                { data: 'created_at' },
+                {
+                    data: null,
+                    orderable: false,
+                    render: function(data, type, row) {
+                        let buttons = `
+                            <a href="/compliance/alerts/${row.id}" class="btn btn-sm btn-info" title="Ver Detalle">
+                                <i class="bi bi-eye"></i>
+                            </a>
+                        `;
+
+                        if (row.status === 'Pendiente') {
+                            buttons += `
+                                <button class="btn btn-sm btn-success" onclick="openResolveModal(${row.id})" title="Resolver">
+                                    <i class="bi bi-check-circle"></i>
+                                </button>
+                            `;
+                        }
+
+                        return buttons;
+                    }
+                }
+            ],
+            order: [[0, 'desc']],
+            language: {
+                url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
+            }
+        });
+    }
+
+    function openResolveModal(alertId) {
+        $('#resolveAlertId').val(alertId);
+        $('#resolveResolution').val('');
+        $('#resolveNotes').val('');
+        $('#resolveAlertModal').modal('show');
+    }
+
+    function submitResolveAlert() {
+        const alertId = $('#resolveAlertId').val();
+        const resolution = $('#resolveResolution').val();
+        const notes = $('#resolveNotes').val();
+
+        if (!resolution) {
+            showNotification('Debe seleccionar una resolución', 'warning');
+            return;
+        }
+
+        const data = {
+            resolution: resolution,
+            notes: notes
+        };
+
+        ajaxRequest(
+            `/compliance/api/alerts/${alertId}/resolve`,
+            'POST',
+            data,
+            function(response) {
+                if (response.success) {
+                    showNotification('Alerta resuelta correctamente', 'success');
+                    $('#resolveAlertModal').modal('hide');
+                    alertsTable.ajax.reload();
+                } else {
+                    showNotification(response.error || 'Error al resolver alerta', 'error');
+                }
+            },
+            function(error) {
+                showNotification('Error al resolver alerta', 'error');
+            }
+        );
+    }
+</script>
+{% endblock %}
