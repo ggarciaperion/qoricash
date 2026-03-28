@@ -64,6 +64,14 @@ def create_app(config_name=None):
     # IMPORTANTE: Usar eventlet en lugar de APScheduler para compatibilidad con SocketIO
     start_operation_expiry_scheduler(app)
 
+    # Sembrar competidores FX (idempotente — solo inserta si no existen)
+    try:
+        with app.app_context():
+            from app.services.fx_monitor.monitor_service import FXMonitorService
+            FXMonitorService.seed_competitors()
+    except Exception as e:
+        logging.warning(f"[FX] seed_competitors falló (puede que las tablas no existan aún): {e}")
+
     # Inicializar schedulers del módulo Mercado
     start_market_schedulers(app)
 
