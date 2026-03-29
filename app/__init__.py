@@ -64,6 +64,14 @@ def create_app(config_name=None):
     # IMPORTANTE: Usar eventlet en lugar de APScheduler para compatibilidad con SocketIO
     start_operation_expiry_scheduler(app)
 
+    # Advertir si rate limiting usa memoria (no persiste entre workers ni reinicios)
+    import os
+    if not os.environ.get('REDIS_URL'):
+        logging.warning(
+            '[Security] REDIS_URL no configurada — rate limiting usa memoria volátil. '
+            'Configura REDIS_URL en Render para rate limiting efectivo en producción.'
+        )
+
     # Sembrar competidores FX (idempotente — solo inserta si no existen)
     try:
         with app.app_context():

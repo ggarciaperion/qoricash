@@ -245,6 +245,29 @@ def register_client():
 
         logger.info(f'✅ Cliente registrado exitosamente: {dni} - {new_client.full_name}')
 
+        # Audit trail de compliance (PLAFT — trazabilidad de alta de cliente)
+        try:
+            from app.models.compliance import ComplianceAudit
+            audit = ComplianceAudit(
+                user_id=platform_user.id if platform_user else 1,
+                action_type='CLIENT_REGISTERED',
+                entity_type='Client',
+                entity_id=new_client.id,
+                description=f'Nuevo cliente registrado vía plataforma web/app: {new_client.full_name} ({dni})',
+                changes=json.dumps({
+                    'document_type': document_type,
+                    'dni': dni,
+                    'email': email,
+                    'status': 'Inactivo',
+                }),
+                ip_address=request.remote_addr,
+                user_agent=request.headers.get('User-Agent', '')[:255],
+            )
+            db.session.add(audit)
+            db.session.commit()
+        except Exception as audit_err:
+            logger.warning(f'No se pudo registrar audit trail: {audit_err}')
+
         # Enviar email de bienvenida
         try:
             EmailService.send_new_client_registration_email(new_client, platform_user)
