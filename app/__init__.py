@@ -484,3 +484,23 @@ def register_cli_commands(app):
             traceback.print_exc()
 
         print("\n✓ refresh-fx completado")
+
+    @app.cli.command("clear-complaints")
+    def clear_complaints():
+        """Elimina TODOS los reclamos de la tabla complaints (producción)."""
+        from app.extensions import db
+        from app.models.complaint import Complaint
+        import traceback
+        try:
+            count = Complaint.query.count()
+            if count == 0:
+                print("✓ No hay reclamos que eliminar.")
+                return
+            print(f"  Se van a eliminar {count} reclamo(s)...")
+            Complaint.query.delete()
+            db.session.commit()
+            print(f"✓ {count} reclamo(s) eliminado(s) correctamente.")
+        except Exception as e:
+            db.session.rollback()
+            print(f"✗ Error: {e}")
+            traceback.print_exc()
