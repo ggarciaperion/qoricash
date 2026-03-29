@@ -50,23 +50,26 @@ role_required = require_role
 
 def api_key_required(f):
     """
-    Decorador para requerir API key en requests
-    
-    Usage:
-        @api_key_required
-        def my_api_endpoint():
-            ...
+    Decorador para requerir API key en requests.
+    Valida contra la variable de entorno INTERNAL_API_KEY.
     """
     @wraps(f)
     def decorated_function(*args, **kwargs):
+        import os, logging
         api_key = request.headers.get('X-API-Key')
-        
+
         if not api_key:
             return jsonify({'error': 'API key requerida'}), 401
-        
-        # Aquí podrías validar el API key contra la base de datos
-        # Por ahora, acepta cualquier key no vacía
-        
+
+        expected = os.environ.get('INTERNAL_API_KEY', '')
+        if not expected:
+            logging.warning('[Security] INTERNAL_API_KEY no configurada — endpoint protegido rechazando acceso')
+            return jsonify({'error': 'Configuración de seguridad no disponible'}), 503
+
+        if api_key != expected:
+            logging.warning(f'[Security] API key inválida desde {request.remote_addr}')
+            return jsonify({'error': 'API key inválida'}), 403
+
         return f(*args, **kwargs)
     return decorated_function
 

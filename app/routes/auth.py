@@ -47,13 +47,13 @@ def login():
         
         if success:
             flash(f'Bienvenido {user.username}!', 'success')
-            
-            # Redirigir según rol
+
+            # Redirigir según rol — solo URLs relativas para evitar open redirect
             next_page = request.args.get('next')
-            if next_page:
+            from urllib.parse import urlparse
+            if next_page and not urlparse(next_page).netloc:
                 return redirect(next_page)
-            else:
-                return redirect(url_for('dashboard.index'))
+            return redirect(url_for('dashboard.index'))
         else:
             flash(message, 'danger')
             return render_template('auth/login.html')

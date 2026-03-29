@@ -188,7 +188,7 @@ def register_client():
         if bank_accounts_raw:
             try:
                 bank_accounts = json.loads(bank_accounts_raw)
-            except:
+            except (json.JSONDecodeError, TypeError, ValueError):
                 return jsonify({
                     'success': False,
                     'message': 'Formato inválido para bank_accounts'
@@ -262,7 +262,7 @@ def register_client():
         logger.error(f'❌ Error en register_client: {str(e)}', exc_info=True)
         return jsonify({
             'success': False,
-            'message': f'Error al registrar cliente: {str(e)}'
+            'message': 'Error al registrar cliente. Por favor intenta nuevamente.'
         }), 500
 
 
@@ -656,10 +656,9 @@ def create_operation():
         db.session.rollback()
         logger.error(f'❌ [CREATE OPERATION] ERROR CRÍTICO: {str(e)}', exc_info=True)
         logger.error(f'❌ [CREATE OPERATION] Tipo de error: {type(e).__name__}')
-        logger.error(f'❌ [CREATE OPERATION] Datos recibidos: {request.get_json()}')
         return jsonify({
             'success': False,
-            'message': f'Error al crear operación: {str(e)}'
+            'message': 'Error al crear operación. Por favor intenta nuevamente.'
         }), 500
 
 
@@ -701,10 +700,10 @@ def get_my_operations(dni):
         }), 200
 
     except Exception as e:
-        logger.error(f'Error en get_my_operations: {str(e)}')
+        logger.error(f'Error en get_my_operations: {str(e)}', exc_info=True)
         return jsonify({
             'success': False,
-            'message': str(e)
+            'message': 'Error al obtener operaciones.'
         }), 500
 
 
@@ -1093,7 +1092,7 @@ def add_bank_account():
         logger.error(f'❌ Error en add_bank_account: {str(e)}', exc_info=True)
         return jsonify({
             'success': False,
-            'message': f'Error al agregar cuenta: {str(e)}'
+            'message': 'Error al agregar cuenta bancaria. Por favor intenta nuevamente.'
         }), 500
 
 

@@ -128,7 +128,9 @@ class Operation(db.Model):
         """Obtener abonos del cliente como lista"""
         try:
             return json.loads(self.client_deposits_json or '[]')
-        except:
+        except (json.JSONDecodeError, TypeError, ValueError):
+            import logging
+            logging.getLogger(__name__).error(f'JSON corrupto en client_deposits op={self.id}')
             return []
 
     @client_deposits.setter
@@ -141,7 +143,9 @@ class Operation(db.Model):
         """Obtener pagos al cliente como lista"""
         try:
             return json.loads(self.client_payments_json or '[]')
-        except:
+        except (json.JSONDecodeError, TypeError, ValueError):
+            import logging
+            logging.getLogger(__name__).error(f'JSON corrupto en client_payments op={self.id}')
             return []
 
     @client_payments.setter
@@ -154,7 +158,9 @@ class Operation(db.Model):
         """Obtener comprobantes del operador como lista"""
         try:
             return json.loads(self.operator_proofs_json or '[]')
-        except:
+        except (json.JSONDecodeError, TypeError, ValueError):
+            import logging
+            logging.getLogger(__name__).error(f'JSON corrupto en operator_proofs op={self.id}')
             return []
 
     @operator_proofs.setter
@@ -167,7 +173,9 @@ class Operation(db.Model):
         """Obtener logs de modificación como lista"""
         try:
             return json.loads(self.modification_logs_json or '[]')
-        except:
+        except (json.JSONDecodeError, TypeError, ValueError):
+            import logging
+            logging.getLogger(__name__).error(f'JSON corrupto en modification_logs op={self.id}')
             return []
 
     @property
@@ -175,7 +183,7 @@ class Operation(db.Model):
         """Obtener lista de IDs de usuarios que leyeron las notas"""
         try:
             return json.loads(self.notes_read_by_json or '[]')
-        except:
+        except (json.JSONDecodeError, TypeError, ValueError):
             return []
 
     @notes_read_by.setter
@@ -454,27 +462,13 @@ class Operation(db.Model):
     @staticmethod
     def generate_operation_id():
         """
-        Generar ID de operación secuencial
-
-        Returns:
-            str: ID de operación (EXP-1001, EXP-1002, etc.)
+        Generar ID de operación secuencial.
+        Usa MAX(id) de la BD — no carga todos los registros en memoria.
         """
-        # Obtener todas las operaciones y encontrar el número máximo
-        all_operations = Operation.query.all()
-
-        max_num = 1000  # Empezar desde 1000, el siguiente será 1001
-
-        for op in all_operations:
-            if op.operation_id and op.operation_id.startswith('EXP-'):
-                try:
-                    num = int(op.operation_id.split('-')[1])
-                    if num > max_num:
-                        max_num = num
-                except (IndexError, ValueError):
-                    continue
-
-        new_num = max_num + 1
-        return f'EXP-{new_num}'
+        from sqlalchemy import func
+        from app.extensions import db
+        max_id = db.session.query(func.max(Operation.id)).scalar() or 1000
+        return f'EXP-{max_id + 1}'
 
     def __repr__(self):
         return f'<Operation {self.operation_id} - {self.operation_type} ${self.amount_usd}>'
