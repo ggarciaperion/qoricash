@@ -130,15 +130,6 @@ class FXMonitorService:
                         f"compra {change['old_buy']} → {change['new_buy']} | "
                         f"venta {change['old_sell']} → {change['new_sell']}"
                     )
-                    # Enviar alerta por email a usuarios Master
-                    try:
-                        from app.models import User
-                        from app.services.email_service import EmailService
-                        master_emails = [u.email for u in User.query.filter_by(role='Master').all() if u.email]
-                        if master_emails:
-                            EmailService.send_fx_alert_email(comp.name, change, master_emails)
-                    except Exception as mail_err:
-                        logger.warning(f"[FX] Alerta email no enviada: {mail_err}")
 
                 # 6. Actualizar current
                 if prev:
