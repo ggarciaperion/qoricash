@@ -253,6 +253,58 @@ body.has-sidebar.sidebar-collapsed .main-wrapper {
 
 .sidebar.collapsed .sidebar-section-label { opacity: 0; }
 
+/* ── Sidebar grupo colapsable (ej. Contabilidad) ────────────────────────── */
+.sidebar-group-toggle {
+    cursor: pointer;
+    user-select: none;
+}
+
+.sidebar-chevron {
+    font-size: 0.7rem;
+    margin-left: auto;
+    flex-shrink: 0;
+    opacity: .6;
+    transition: transform var(--transition-fast);
+}
+
+.sidebar-group-toggle[aria-expanded="true"] .sidebar-chevron {
+    transform: rotate(180deg);
+}
+
+.sidebar-submenu {
+    background: rgba(0,0,0,.18);
+    overflow: hidden;
+}
+
+.sidebar-sublink {
+    padding-left: 38px !important;
+    font-size: 0.8125rem !important;
+    padding-top: 7px !important;
+    padding-bottom: 7px !important;
+    border-left-width: 2px !important;
+    color: rgba(255,255,255,.6) !important;
+}
+
+.sidebar-sublink i {
+    font-size: 0.875rem !important;
+    width: 16px !important;
+    opacity: .8;
+}
+
+.sidebar-sublink:hover {
+    color: var(--qori-white) !important;
+}
+
+.sidebar-sublink.active {
+    color: var(--qori-primary) !important;
+    border-left-color: var(--qori-primary) !important;
+    background: rgba(0,222,168,.1) !important;
+}
+
+/* En sidebar colapsado: ocultar submenú y chevron */
+.sidebar.collapsed .sidebar-submenu  { display: none !important; }
+.sidebar.collapsed .sidebar-chevron  { display: none; }
+
 /* Badges */
 .sidebar-badge {
     display: inline-flex;

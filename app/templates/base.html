@@ -141,42 +141,53 @@
             {% endif %}
 
             {% if current_user.role == 'Master' %}
-            <div class="sidebar-section-label">Contabilidad</div>
-            <a class="sidebar-link {% if request.endpoint == 'contabilidad.dashboard' %}active{% endif %}"
-               href="{{ url_for('contabilidad.dashboard') }}">
-                <i class="bi bi-journal-bookmark"></i>
-                <span class="sidebar-link-text">Libro Diario</span>
+            {% set conta_active = request.endpoint and request.endpoint.startswith('contabilidad') %}
+            <a class="sidebar-link sidebar-group-toggle {% if conta_active %}active{% endif %}"
+               href="#contabilidadMenu"
+               data-bs-toggle="collapse"
+               aria-expanded="{{ 'true' if conta_active else 'false' }}"
+               aria-controls="contabilidadMenu">
+                <i class="bi bi-calculator"></i>
+                <span class="sidebar-link-text">Contabilidad</span>
+                <i class="bi bi-chevron-down sidebar-chevron"></i>
             </a>
-            <a class="sidebar-link {% if request.endpoint == 'contabilidad.lig' %}active{% endif %}"
-               href="{{ url_for('contabilidad.lig') }}">
-                <i class="bi bi-book"></i>
-                <span class="sidebar-link-text">Libro I&amp;G</span>
-            </a>
-            <a class="sidebar-link {% if request.endpoint == 'contabilidad.caja' %}active{% endif %}"
-               href="{{ url_for('contabilidad.caja') }}">
-                <i class="bi bi-bank"></i>
-                <span class="sidebar-link-text">Caja y Bancos</span>
-            </a>
-            <a class="sidebar-link {% if request.endpoint == 'contabilidad.gastos' %}active{% endif %}"
-               href="{{ url_for('contabilidad.gastos') }}">
-                <i class="bi bi-receipt"></i>
-                <span class="sidebar-link-text">Gastos</span>
-            </a>
-            <a class="sidebar-link {% if request.endpoint == 'contabilidad.periodos' %}active{% endif %}"
-               href="{{ url_for('contabilidad.periodos') }}">
-                <i class="bi bi-calendar3"></i>
-                <span class="sidebar-link-text">Períodos</span>
-            </a>
-            <a class="sidebar-link {% if request.endpoint == 'contabilidad.balance' %}active{% endif %}"
-               href="{{ url_for('contabilidad.balance') }}">
-                <i class="bi bi-bar-chart-steps"></i>
-                <span class="sidebar-link-text">Balance</span>
-            </a>
-            <a class="sidebar-link {% if request.endpoint == 'contabilidad.resultados' %}active{% endif %}"
-               href="{{ url_for('contabilidad.resultados') }}">
-                <i class="bi bi-graph-up-arrow"></i>
-                <span class="sidebar-link-text">Estado de Resultados</span>
-            </a>
+            <div class="collapse sidebar-submenu {% if conta_active %}show{% endif %}" id="contabilidadMenu">
+                <a class="sidebar-link sidebar-sublink {% if request.endpoint == 'contabilidad.dashboard' %}active{% endif %}"
+                   href="{{ url_for('contabilidad.dashboard') }}">
+                    <i class="bi bi-journal-bookmark"></i>
+                    <span class="sidebar-link-text">Libro Diario</span>
+                </a>
+                <a class="sidebar-link sidebar-sublink {% if request.endpoint == 'contabilidad.lig' %}active{% endif %}"
+                   href="{{ url_for('contabilidad.lig') }}">
+                    <i class="bi bi-book"></i>
+                    <span class="sidebar-link-text">Libro I&amp;G</span>
+                </a>
+                <a class="sidebar-link sidebar-sublink {% if request.endpoint == 'contabilidad.caja' %}active{% endif %}"
+                   href="{{ url_for('contabilidad.caja') }}">
+                    <i class="bi bi-bank2"></i>
+                    <span class="sidebar-link-text">Caja y Bancos</span>
+                </a>
+                <a class="sidebar-link sidebar-sublink {% if request.endpoint == 'contabilidad.gastos' %}active{% endif %}"
+                   href="{{ url_for('contabilidad.gastos') }}">
+                    <i class="bi bi-receipt"></i>
+                    <span class="sidebar-link-text">Gastos</span>
+                </a>
+                <a class="sidebar-link sidebar-sublink {% if request.endpoint == 'contabilidad.balance' %}active{% endif %}"
+                   href="{{ url_for('contabilidad.balance') }}">
+                    <i class="bi bi-bar-chart-steps"></i>
+                    <span class="sidebar-link-text">Balance</span>
+                </a>
+                <a class="sidebar-link sidebar-sublink {% if request.endpoint == 'contabilidad.resultados' %}active{% endif %}"
+                   href="{{ url_for('contabilidad.resultados') }}">
+                    <i class="bi bi-graph-up-arrow"></i>
+                    <span class="sidebar-link-text">Resultados</span>
+                </a>
+                <a class="sidebar-link sidebar-sublink {% if request.endpoint == 'contabilidad.periodos' %}active{% endif %}"
+                   href="{{ url_for('contabilidad.periodos') }}">
+                    <i class="bi bi-calendar3"></i>
+                    <span class="sidebar-link-text">Períodos</span>
+                </a>
+            </div>
             {% endif %}
         </nav>
 
