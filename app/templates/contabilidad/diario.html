@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+{% block title %}Libro Diario — QoriCash{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h2 class="mb-0"><i class="bi bi-journal-text me-2"></i>Libro Diario</h2>
+      <small class="text-muted">Partida doble — PCGE</small>
+    </div>
+    <a href="{{ url_for('contabilidad.export_diario', year=selected_year, month=selected_month) }}"
+       class="btn btn-success">
+      <i class="bi bi-file-earmark-excel me-1"></i>Exportar Excel
+    </a>
+  </div>
+
+  <!-- Filtros -->
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-body">
+      <form method="get" class="row g-2 align-items-end">
+        <div class="col-auto">
+          <label class="form-label form-label-sm mb-1">Año</label>
+          <input type="number" name="year" class="form-control form-control-sm"
+                 value="{{ selected_year }}" min="2020" max="2099" style="width:90px;">
+        </div>
+        <div class="col-auto">
+          <label class="form-label form-label-sm mb-1">Mes</label>
+          <select name="month" class="form-select form-select-sm" style="width:130px;">
+            {% for m in range(1,13) %}
+            <option value="{{ m }}" {% if m == selected_month %}selected{% endif %}>
+              {{ ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][m-1] }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-auto">
+          <label class="form-label form-label-sm mb-1">Estado</label>
+          <select name="status" class="form-select form-select-sm">
+            <option value="activo"  {% if status_filter == 'activo'  %}selected{% endif %}>Activo</option>
+            <option value="anulado" {% if status_filter == 'anulado' %}selected{% endif %}>Anulado</option>
+          </select>
+        </div>
+        <div class="col-auto">
+          <button type="submit" class="btn btn-primary btn-sm">
+            <i class="bi bi-search"></i> Filtrar
+          </button>
+        </div>
+        <div class="col-auto ms-auto text-muted small">
+          {{ entries|length }} asientos encontrados
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Tabla de asientos -->
+  <div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle">
+          <thead class="table-dark">
+            <tr>
+              <th style="width:32px;"></th>
+              <th>N° Asiento</th>
+              <th>Fecha</th>
+              <th>Tipo</th>
+              <th>Descripción</th>
+              <th class="text-end">DEBE (S/)</th>
+              <th class="text-end">HABER (S/)</th>
+              <th>Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% set total_d = namespace(v=0) %}
+            {% set total_h = namespace(v=0) %}
+            {% for e in entries %}
+            {% set total_d.v = total_d.v + e.total_debe|float %}
+            {% set total_h.v = total_h.v + e.total_haber|float %}
+            <tr data-bs-toggle="collapse" data-bs-target="#lines-{{ e.id }}"
+                style="cursor:pointer;" class="entry-row">
+              <td class="text-center">
+                <i class="bi bi-chevron-right toggle-icon" id="icon-{{ e.id }}"></i>
+              </td>
+              <td><code class="text-primary">{{ e.entry_number }}</code></td>
+              <td>{{ e.entry_date.strftime('%d/%m/%Y') }}</td>
+              <td>
+                <span class="badge
+                  {% if e.entry_type == 'operacion_completada' %}bg-primary
+                  {% elif e.entry_type == 'gasto' %}bg-warning text-dark
+                  {% elif e.entry_type == 'manual' %}bg-info text-dark
+                  {% else %}bg-secondary{% endif %}">
+                  {{ e.entry_type }}
+                </span>
+              </td>
+              <td class="text-truncate" style="max-width:300px;" title="{{ e.description }}">
+                {{ e.description }}
+              </td>
+              <td class="text-end fw-semibold">{{ "%.2f"|format(e.total_debe|float) }}</td>
+              <td class="text-end fw-semibold">{{ "%.2f"|format(e.total_haber|float) }}</td>
+              <td>
+                {% if e.status == 'activo' %}
+                  <span class="badge bg-success">activo</span>
+                {% else %}
+                  <span class="badge bg-danger">{{ e.status }}</span>
+                {% endif %}
+              </td>
+            </tr>
+            <!-- Líneas del asiento (colapsable) -->
+            <tr class="collapse" id="lines-{{ e.id }}">
+              <td colspan="8" class="p-0">
+                <div class="bg-light border-start border-4 border-primary ps-3 py-2">
+                  <div class="table-responsive">
+                    <table class="table table-sm table-bordered mb-0">
+                      <thead class="table-secondary">
+                        <tr>
+                          <th>Cuenta</th>
+                          <th>Glosa</th>
+                          <th>Moneda</th>
+                          <th class="text-end">DEBE (S/)</th>
+                          <th class="text-end">HABER (S/)</th>
+                        </tr>
+                      </thead>
+                      <tbody id="lines-body-{{ e.id }}">
+                        <tr><td colspan="5" class="text-muted text-center">Cargando…</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  {% if e.source_type and e.source_id %}
+                  <div class="text-muted small mt-1">
+                    Origen: {{ e.source_type }} #{{ e.source_id }}
+                  </div>
+                  {% endif %}
+                </div>
+              </td>
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="8" class="text-center text-muted py-5">
+                No hay asientos para el período seleccionado.
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+          {% if entries %}
+          <tfoot class="table-dark fw-bold">
+            <tr>
+              <td colspan="5" class="text-end">TOTALES</td>
+              <td class="text-end">{{ "%.2f"|format(total_d.v) }}</td>
+              <td class="text-end">{{ "%.2f"|format(total_h.v) }}</td>
+              <td></td>
+            </tr>
+          </tfoot>
+          {% endif %}
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Cargar líneas del asiento al expandir
+document.querySelectorAll('[data-bs-target]').forEach(row => {
+  const targetId = row.getAttribute('data-bs-target');
+  const entryId  = targetId.replace('#lines-', '');
+  let loaded = false;
+
+  document.querySelector(targetId).addEventListener('show.bs.collapse', () => {
+    const icon = document.getElementById('icon-' + entryId);
+    if (icon) icon.className = 'bi bi-chevron-down toggle-icon';
+
+    if (loaded) return;
+    loaded = true;
+    fetch(`/contabilidad/diario/${entryId}/lines`)
+      .then(r => r.json())
+      .then(lines => {
+        const tbody = document.getElementById('lines-body-' + entryId);
+        if (!lines.length) {
+          tbody.innerHTML = '<tr><td colspan="5" class="text-muted text-center">Sin líneas</td></tr>';
+          return;
+        }
+        tbody.innerHTML = lines.map(l => `
+          <tr>
+            <td><code>${l.account_code}</code></td>
+            <td>${l.description || ''}</td>
+            <td>${l.currency}</td>
+            <td class="text-end">${l.debe > 0 ? l.debe.toFixed(2) : ''}</td>
+            <td class="text-end">${l.haber > 0 ? l.haber.toFixed(2) : ''}</td>
+          </tr>`).join('');
+      })
+      .catch(() => {
+        document.getElementById('lines-body-' + entryId).innerHTML =
+          '<tr><td colspan="5" class="text-danger">Error al cargar líneas</td></tr>';
+      });
+  });
+
+  document.querySelector(targetId).addEventListener('hide.bs.collapse', () => {
+    const icon = document.getElementById('icon-' + entryId);
+    if (icon) icon.className = 'bi bi-chevron-right toggle-icon';
+  });
+});
+</script>
+{% endblock %}

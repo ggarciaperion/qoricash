@@ -1,0 +1,255 @@
+{% extends "base.html" %}
+{% block title %}Gastos — QoriCash{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h2 class="mb-0"><i class="bi bi-receipt me-2"></i>Gastos</h2>
+      <small class="text-muted">Registro de egresos — genera asiento contable automático</small>
+    </div>
+    <button class="btn btn-primary" onclick="nuevoGastoModal()">
+      <i class="bi bi-plus-circle me-1"></i>Registrar Gasto
+    </button>
+  </div>
+
+  <!-- Filtros -->
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-body">
+      <form method="get" class="row g-2 align-items-end">
+        <div class="col-auto">
+          <label class="form-label form-label-sm mb-1">Año</label>
+          <input type="number" name="year" class="form-control form-control-sm"
+                 value="{{ selected_year }}" min="2020" max="2099" style="width:90px;">
+        </div>
+        <div class="col-auto">
+          <label class="form-label form-label-sm mb-1">Mes</label>
+          <select name="month" class="form-select form-select-sm" style="width:130px;">
+            {% for m in range(1,13) %}
+            <option value="{{ m }}" {% if m == selected_month %}selected{% endif %}>
+              {{ ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][m-1] }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-auto">
+          <button type="submit" class="btn btn-primary btn-sm">
+            <i class="bi bi-search"></i> Filtrar
+          </button>
+        </div>
+        <div class="col-auto ms-auto text-muted small">
+          {{ records|length }} gastos —
+          Total: S/ {{ "%.2f"|format(records|sum(attribute='amount_pen')|float) }}
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Tabla -->
+  <div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle">
+          <thead class="table-dark">
+            <tr>
+              <th>Fecha</th>
+              <th>Categoría</th>
+              <th>Descripción</th>
+              <th>Proveedor</th>
+              <th>Comprobante</th>
+              <th class="text-end">Monto (S/)</th>
+              <th>Asiento</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in records %}
+            <tr>
+              <td>{{ r.expense_date.strftime('%d/%m/%Y') }}</td>
+              <td><code>{{ r.category }}</code></td>
+              <td>{{ r.description }}</td>
+              <td>
+                {% if r.supplier_name %}
+                  {{ r.supplier_name }}<br>
+                  <small class="text-muted">{{ r.supplier_ruc or '' }}</small>
+                {% else %}
+                  <span class="text-muted">—</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if r.voucher_number %}
+                  {{ r.voucher_type or '' }} {{ r.voucher_number }}
+                {% else %}
+                  <span class="text-muted">—</span>
+                {% endif %}
+              </td>
+              <td class="text-end fw-semibold">{{ "%.2f"|format(r.amount_pen|float) }}</td>
+              <td>
+                {% if r.journal_entry_id %}
+                  <span class="badge bg-success"><i class="bi bi-check-circle"></i></span>
+                {% else %}
+                  <span class="badge bg-warning text-dark">pendiente</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="7" class="text-center text-muted py-5">
+                No hay gastos registrados para el período seleccionado.
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+          {% if records %}
+          <tfoot class="table-dark fw-bold">
+            <tr>
+              <td colspan="5" class="text-end">TOTAL</td>
+              <td class="text-end">
+                {{ "%.2f"|format(records|sum(attribute='amount_pen')|float) }}
+              </td>
+              <td></td>
+            </tr>
+          </tfoot>
+          {% endif %}
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Modal Nuevo Gasto -->
+<div class="modal fade" id="gastoModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-receipt me-2"></i>Registrar Gasto</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label">Fecha <span class="text-danger">*</span></label>
+          <input type="date" id="gExpenseDate" class="form-control"
+                 value="{{ selected_year }}-{{ '%02d'|format(selected_month) }}-01">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Categoría PCGE <span class="text-danger">*</span></label>
+          <select id="gCategory" class="form-select">
+            <option value="6211">6211 — Sueldos y salarios</option>
+            <option value="6271">6271 — Publicidad</option>
+            <option value="6311">6311 — Transporte</option>
+            <option value="6361">6361 — Electricidad</option>
+            <option value="6381">6381 — Telecomunicaciones</option>
+            <option value="6391" selected>6391 — Servicios prestados por terceros</option>
+            <option value="6392">6392 — Honorarios profesionales</option>
+            <option value="6411">6411 — Gastos notariales / registrales</option>
+            <option value="6511">6511 — Seguros</option>
+            <option value="6751">6751 — Gastos bancarios</option>
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Descripción <span class="text-danger">*</span></label>
+          <input type="text" id="gDescription" class="form-control" placeholder="Detalle del gasto">
+        </div>
+        <div class="row">
+          <div class="col-md-6 mb-3">
+            <label class="form-label">Monto (S/) <span class="text-danger">*</span></label>
+            <input type="number" id="gAmount" class="form-control" step="0.01" min="0.01">
+          </div>
+          <div class="col-md-6 mb-3">
+            <label class="form-label">Tipo comprobante</label>
+            <select id="gVoucherType" class="form-select">
+              <option value="">— Ninguno —</option>
+              <option value="Factura">Factura</option>
+              <option value="Boleta">Boleta</option>
+              <option value="Recibo">Recibo por Honorarios</option>
+              <option value="Ticket">Ticket</option>
+              <option value="Nota de Débito">Nota de Débito</option>
+            </select>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-md-6 mb-3">
+            <label class="form-label">N° Comprobante</label>
+            <input type="text" id="gVoucherNumber" class="form-control" placeholder="F001-00123">
+          </div>
+          <div class="col-md-6 mb-3">
+            <label class="form-label">RUC Proveedor</label>
+            <input type="text" id="gSupplierRuc" class="form-control" maxlength="11">
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Nombre Proveedor</label>
+          <input type="text" id="gSupplierName" class="form-control">
+        </div>
+        <div id="gastoError" class="alert alert-danger d-none"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary" onclick="guardarGasto()" id="btnGuardar">
+          <i class="bi bi-save me-1"></i>Guardar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function nuevoGastoModal() {
+  document.getElementById('gastoError').classList.add('d-none');
+  new bootstrap.Modal(document.getElementById('gastoModal')).show();
+}
+
+function guardarGasto() {
+  const btn = document.getElementById('btnGuardar');
+  const errDiv = document.getElementById('gastoError');
+  errDiv.classList.add('d-none');
+
+  const payload = {
+    expense_date:   document.getElementById('gExpenseDate').value,
+    category:       document.getElementById('gCategory').value,
+    description:    document.getElementById('gDescription').value.trim(),
+    amount_pen:     document.getElementById('gAmount').value,
+    voucher_type:   document.getElementById('gVoucherType').value,
+    voucher_number: document.getElementById('gVoucherNumber').value.trim(),
+    supplier_ruc:   document.getElementById('gSupplierRuc').value.trim(),
+    supplier_name:  document.getElementById('gSupplierName').value.trim(),
+  };
+
+  if (!payload.description || !payload.amount_pen || parseFloat(payload.amount_pen) <= 0) {
+    errDiv.textContent = 'Completa los campos obligatorios (descripción y monto).';
+    errDiv.classList.remove('d-none');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Guardando…';
+
+  fetch('/contabilidad/gastos/nuevo', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload),
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.success) {
+      Swal.fire({icon:'success', title:'Gasto registrado', text: data.message, timer: 2000, showConfirmButton: false});
+      setTimeout(() => location.reload(), 1500);
+    } else {
+      errDiv.textContent = data.error || 'Error desconocido';
+      errDiv.classList.remove('d-none');
+    }
+  })
+  .catch(() => {
+    errDiv.textContent = 'Error de conexión';
+    errDiv.classList.remove('d-none');
+  })
+  .finally(() => {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-save me-1"></i>Guardar';
+  });
+}
+</script>
+{% endblock %}

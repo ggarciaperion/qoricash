@@ -157,6 +157,7 @@ def register_blueprints(app):
     from app.routes.complaints import complaints_bp
     from app.routes.fx_monitor import fx_monitor_bp
     from app.routes.market import market_bp
+    from app.routes.contabilidad import contabilidad_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
@@ -174,6 +175,7 @@ def register_blueprints(app):
     app.register_blueprint(complaints_bp, url_prefix='/complaints')  # Módulo de reclamos
     app.register_blueprint(fx_monitor_bp)  # Monitor de competencia
     app.register_blueprint(market_bp)      # Módulo Mercado
+    app.register_blueprint(contabilidad_bp, url_prefix='/contabilidad')  # Módulo Contable
 
 
 def configure_logging(app):

@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}Períodos Contables — QoriCash{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h2 class="mb-0"><i class="bi bi-calendar3 me-2"></i>Períodos Contables</h2>
+      <small class="text-muted">Gestión de períodos mensuales</small>
+    </div>
+  </div>
+
+  <div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle">
+          <thead class="table-dark">
+            <tr>
+              <th>Período</th>
+              <th>Estado</th>
+              <th>Cerrado por</th>
+              <th>Fecha de cierre</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for p in periods %}
+            <tr>
+              <td class="fw-semibold">{{ p.label }}</td>
+              <td>
+                {% if p.status == 'abierto' %}
+                  <span class="badge bg-success">Abierto</span>
+                {% else %}
+                  <span class="badge bg-secondary">Cerrado</span>
+                {% endif %}
+              </td>
+              <td>{{ p.closed_by or '—' }}</td>
+              <td>
+                {% if p.closed_at %}
+                  {{ p.closed_at.strftime('%d/%m/%Y %H:%M') }}
+                {% else %}—{% endif %}
+              </td>
+              <td>
+                {% if p.status == 'abierto' %}
+                <button class="btn btn-sm btn-outline-danger"
+                        onclick="cerrarPeriodo({{ p.year }}, {{ p.month }}, '{{ p.label }}')">
+                  <i class="bi bi-lock me-1"></i>Cerrar período
+                </button>
+                {% else %}
+                <span class="text-muted small">Período cerrado</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="5" class="text-center text-muted py-5">
+                No hay períodos registrados todavía. Se crean automáticamente al registrar operaciones.
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="alert alert-info mt-4">
+    <i class="bi bi-info-circle me-2"></i>
+    <strong>¿Cuándo cerrar un período?</strong>
+    Al cierre de cada mes, una vez verificados todos los asientos. Un período cerrado no acepta nuevos registros.
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function cerrarPeriodo(year, month, label) {
+  Swal.fire({
+    title: `Cerrar período ${label}`,
+    text: 'Esta acción es irreversible. ¿Confirmas el cierre?',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'Sí, cerrar',
+    cancelButtonText: 'Cancelar',
+    confirmButtonColor: '#dc3545',
+  }).then(result => {
+    if (!result.isConfirmed) return;
+    fetch('/contabilidad/periodos/cerrar', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({year, month}),
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) {
+        Swal.fire({icon:'success', title:'Período cerrado', text: data.message, timer: 2000, showConfirmButton: false});
+        setTimeout(() => location.reload(), 1500);
+      } else {
+        Swal.fire({icon:'error', title:'Error', text: data.message});
+      }
+    });
+  });
+}
+</script>
+{% endblock %}

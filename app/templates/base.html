@@ -139,6 +139,25 @@
                 <span id="complaintsBadge" class="sidebar-badge sidebar-badge-warning" style="display:none;">0</span>
             </a>
             {% endif %}
+
+            {% if current_user.role == 'Master' %}
+            <div class="sidebar-section-label">Contabilidad</div>
+            <a class="sidebar-link {% if request.endpoint and request.endpoint.startswith('contabilidad') %}active{% endif %}"
+               href="{{ url_for('contabilidad.dashboard') }}">
+                <i class="bi bi-journal-bookmark"></i>
+                <span class="sidebar-link-text">Libro Diario</span>
+            </a>
+            <a class="sidebar-link {% if request.endpoint == 'contabilidad.gastos' %}active{% endif %}"
+               href="{{ url_for('contabilidad.gastos') }}">
+                <i class="bi bi-receipt"></i>
+                <span class="sidebar-link-text">Gastos</span>
+            </a>
+            <a class="sidebar-link {% if request.endpoint == 'contabilidad.periodos' %}active{% endif %}"
+               href="{{ url_for('contabilidad.periodos') }}">
+                <i class="bi bi-calendar3"></i>
+                <span class="sidebar-link-text">Períodos</span>
+            </a>
+            {% endif %}
         </nav>
 
         <!-- User section at bottom -->
