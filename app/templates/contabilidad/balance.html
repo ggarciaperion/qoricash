@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% block title %}Balance de Comprobación — QoriCash{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h2 class="mb-0"><i class="bi bi-bar-chart-steps me-2"></i>Balance de Comprobación</h2>
+      <small class="text-muted">Sumas y saldos por cuenta — período mensual</small>
+    </div>
+    <a href="{{ url_for('contabilidad.export_balance', year=selected_year, month=selected_month) }}"
+       class="btn btn-success">
+      <i class="bi bi-file-earmark-excel me-1"></i>Exportar Excel
+    </a>
+  </div>
+
+  <!-- Filtros -->
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-body">
+      <form method="get" class="row g-2 align-items-end">
+        <div class="col-auto">
+          <label class="form-label form-label-sm mb-1">Año</label>
+          <input type="number" name="year" class="form-control form-control-sm"
+                 value="{{ selected_year }}" min="2020" max="2099" style="width:90px;">
+        </div>
+        <div class="col-auto">
+          <label class="form-label form-label-sm mb-1">Mes</label>
+          <select name="month" class="form-select form-select-sm" style="width:130px;">
+            {% for m in range(1,13) %}
+            <option value="{{ m }}" {% if m == selected_month %}selected{% endif %}>
+              {{ ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][m-1] }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-auto">
+          <button type="submit" class="btn btn-primary btn-sm">
+            <i class="bi bi-search"></i> Filtrar
+          </button>
+        </div>
+        <div class="col-auto ms-auto text-muted small">
+          {{ accounts|length }} cuentas con movimiento
+        </div>
+      </form>
+    </div>
+  </div>
+
+  {% if accounts %}
+  <!-- Verificación de cuadre -->
+  {% set cuadrado = (grand_debe - grand_haber)|abs < 0.01 %}
+  <div class="alert alert-{{ 'success' if cuadrado else 'danger' }} d-flex align-items-center mb-3">
+    <i class="bi bi-{{ 'check-circle' if cuadrado else 'exclamation-triangle' }} me-2 fs-5"></i>
+    <div>
+      {% if cuadrado %}
+        <strong>Balance cuadrado.</strong> DEBE = HABER = S/ {{ "%.2f"|format(grand_debe|float) }}
+      {% else %}
+        <strong>¡Descuadre detectado!</strong>
+        DEBE S/ {{ "%.2f"|format(grand_debe|float) }} ≠ HABER S/ {{ "%.2f"|format(grand_haber|float) }} —
+        diferencia: S/ {{ "%.2f"|format((grand_debe - grand_haber)|float|abs) }}
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Tabla por tipo de cuenta -->
+  {% set tipos = [
+    ('activo',     'Activo',     'primary'),
+    ('pasivo',     'Pasivo',     'warning'),
+    ('patrimonio', 'Patrimonio', 'info'),
+    ('ingreso',    'Ingreso',    'success'),
+    ('gasto',      'Gasto',      'danger'),
+  ] %}
+
+  {% for tipo, label, color in tipos %}
+  {% set tipo_accounts = accounts|selectattr('type', 'equalto', tipo)|list %}
+  {% if tipo_accounts %}
+  <div class="card border-0 shadow-sm mb-3">
+    <div class="card-header bg-{{ color }} {% if color in ['warning', 'info'] %}text-dark{% else %}text-white{% endif %} py-2">
+      <h6 class="mb-0">{{ label }}</h6>
+    </div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover table-sm mb-0 align-middle">
+          <thead class="table-light">
+            <tr>
+              <th>Código</th>
+              <th>Cuenta</th>
+              <th class="text-end">DEBE (S/)</th>
+              <th class="text-end">HABER (S/)</th>
+              <th class="text-end">Saldo Deudor</th>
+              <th class="text-end">Saldo Acreedor</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for a in tipo_accounts %}
+            <tr>
+              <td><code>{{ a.code }}</code></td>
+              <td>{{ a.name }}</td>
+              <td class="text-end">{{ "%.2f"|format(a.total_debe|float) }}</td>
+              <td class="text-end">{{ "%.2f"|format(a.total_haber|float) }}</td>
+              <td class="text-end">
+                {% if a.saldo_deudor > 0 %}
+                  <span class="fw-semibold">{{ "%.2f"|format(a.saldo_deudor|float) }}</span>
+                {% endif %}
+              </td>
+              <td class="text-end">
+                {% if a.saldo_acreedor > 0 %}
+                  <span class="fw-semibold">{{ "%.2f"|format(a.saldo_acreedor|float) }}</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+          <tfoot class="table-secondary fw-bold">
+            <tr>
+              <td colspan="2" class="text-end">Subtotal {{ label }}</td>
+              <td class="text-end">{{ "%.2f"|format(tipo_accounts|sum(attribute='total_debe')|float) }}</td>
+              <td class="text-end">{{ "%.2f"|format(tipo_accounts|sum(attribute='total_haber')|float) }}</td>
+              <td class="text-end">{{ "%.2f"|format(tipo_accounts|sum(attribute='saldo_deudor')|float) }}</td>
+              <td class="text-end">{{ "%.2f"|format(tipo_accounts|sum(attribute='saldo_acreedor')|float) }}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+  {% endfor %}
+
+  {% if accounts %}
+  <!-- Total general -->
+  <div class="card border-dark shadow-sm">
+    <div class="card-body p-2">
+      <table class="table table-sm mb-0 fw-bold">
+        <tfoot>
+          <tr class="table-dark">
+            <td class="text-end">TOTAL GENERAL</td>
+            <td class="text-end" style="width:130px;">{{ "%.2f"|format(grand_debe|float) }}</td>
+            <td class="text-end" style="width:130px;">{{ "%.2f"|format(grand_haber|float) }}</td>
+            <td class="text-end" style="width:130px;">{{ "%.2f"|format(grand_saldo_deudor|float) }}</td>
+            <td class="text-end" style="width:130px;">{{ "%.2f"|format(grand_saldo_acreedor|float) }}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+  {% else %}
+  <div class="text-center text-muted py-5">
+    <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+    No hay movimientos contables para el período seleccionado.
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

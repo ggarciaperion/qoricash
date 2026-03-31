@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+{% block title %}Estado de Resultados — QoriCash{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h2 class="mb-0"><i class="bi bi-graph-up-arrow me-2"></i>Estado de Resultados</h2>
+      <small class="text-muted">Régimen MYPE Tributario — UIT S/ {{ "%.0f"|format(UIT|float) }} — Tasa 10% hasta 15 UIT (S/ {{ "%.0f"|format(IR_LIMITE|float) }}), 29.5% exceso</small>
+    </div>
+    <a href="{{ url_for('contabilidad.export_resultados', year=selected_year, month=selected_month) }}"
+       class="btn btn-success">
+      <i class="bi bi-file-earmark-excel me-1"></i>Exportar Excel
+    </a>
+  </div>
+
+  <!-- Filtros -->
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-body">
+      <form method="get" class="row g-2 align-items-end">
+        <div class="col-auto">
+          <label class="form-label form-label-sm mb-1">Año</label>
+          <input type="number" name="year" class="form-control form-control-sm"
+                 value="{{ selected_year }}" min="2020" max="2099" style="width:90px;">
+        </div>
+        <div class="col-auto">
+          <label class="form-label form-label-sm mb-1">Mes</label>
+          <select name="month" class="form-select form-select-sm" style="width:130px;">
+            {% for m in range(1,13) %}
+            <option value="{{ m }}" {% if m == selected_month %}selected{% endif %}>
+              {{ ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][m-1] }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-auto">
+          <button type="submit" class="btn btn-primary btn-sm">
+            <i class="bi bi-search"></i> Filtrar
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="row g-4">
+
+    <!-- Columna izquierda: P&L detallado -->
+    <div class="col-lg-8">
+
+      <!-- INGRESOS -->
+      <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header bg-success text-white">
+          <h6 class="mb-0"><i class="bi bi-plus-circle me-2"></i>Ingresos</h6>
+        </div>
+        <div class="card-body p-0">
+          {% if ingresos %}
+          <table class="table table-hover table-sm mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Código</th>
+                <th>Descripción</th>
+                <th class="text-end">Monto (S/)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for i in ingresos %}
+              <tr>
+                <td><code>{{ i.code }}</code></td>
+                <td>{{ i.name }}</td>
+                <td class="text-end">{{ "%.2f"|format(i.monto|float) }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+            <tfoot class="table-success fw-bold">
+              <tr>
+                <td colspan="2" class="text-end">TOTAL INGRESOS</td>
+                <td class="text-end">{{ "%.2f"|format(total_ingresos|float) }}</td>
+              </tr>
+            </tfoot>
+          </table>
+          {% else %}
+          <div class="text-muted text-center py-3">Sin ingresos registrados en el período.</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- GASTOS -->
+      <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header bg-danger text-white">
+          <h6 class="mb-0"><i class="bi bi-dash-circle me-2"></i>Gastos</h6>
+        </div>
+        <div class="card-body p-0">
+          {% if gastos %}
+          <table class="table table-hover table-sm mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Código</th>
+                <th>Descripción</th>
+                <th class="text-end">Monto (S/)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for g in gastos %}
+              <tr>
+                <td><code>{{ g.code }}</code></td>
+                <td>{{ g.name }}</td>
+                <td class="text-end">{{ "%.2f"|format(g.monto|float) }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+            <tfoot class="table-danger fw-bold">
+              <tr>
+                <td colspan="2" class="text-end">TOTAL GASTOS</td>
+                <td class="text-end">{{ "%.2f"|format(total_gastos|float) }}</td>
+              </tr>
+            </tfoot>
+          </table>
+          {% else %}
+          <div class="text-muted text-center py-3">Sin gastos registrados en el período.</div>
+          {% endif %}
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Columna derecha: Resumen P&L -->
+    <div class="col-lg-4">
+      <div class="card border-0 shadow-sm position-sticky" style="top:80px;">
+        <div class="card-header bg-dark text-white">
+          <h6 class="mb-0">
+            <i class="bi bi-calculator me-2"></i>
+            Resumen — {{ ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][selected_month-1] }} {{ selected_year }}
+          </h6>
+        </div>
+        <div class="card-body p-0">
+          <table class="table table-sm mb-0">
+            <tbody>
+              <tr class="table-success">
+                <td>Ingresos totales</td>
+                <td class="text-end fw-semibold">S/ {{ "%.2f"|format(total_ingresos|float) }}</td>
+              </tr>
+              <tr class="table-danger">
+                <td>(–) Gastos totales</td>
+                <td class="text-end fw-semibold">S/ {{ "%.2f"|format(total_gastos|float) }}</td>
+              </tr>
+              <tr class="fw-bold border-top border-2">
+                <td>Utilidad antes de IR</td>
+                <td class="text-end {% if utilidad_antes_ir >= 0 %}text-success{% else %}text-danger{% endif %}">
+                  S/ {{ "%.2f"|format(utilidad_antes_ir|float) }}
+                </td>
+              </tr>
+              <tr class="text-muted">
+                <td class="ps-3 small">
+                  (–) IR MYPE Tributario
+                  {% if utilidad_antes_ir > 0 %}
+                    <br><small class="text-muted">
+                      {% if utilidad_antes_ir <= IR_LIMITE %}10% sobre S/ {{ "%.2f"|format(utilidad_antes_ir|float) }}
+                      {% else %}10% primeros S/ {{ "%.0f"|format(IR_LIMITE|float) }} + 29.5% exceso{% endif %}
+                    </small>
+                  {% endif %}
+                </td>
+                <td class="text-end small">S/ {{ "%.2f"|format(ir_estimado|float) }}</td>
+              </tr>
+              <tr class="fw-bold fs-5 {% if utilidad_neta >= 0 %}table-success{% else %}table-danger{% endif %}">
+                <td>UTILIDAD NETA</td>
+                <td class="text-end">S/ {{ "%.2f"|format(utilidad_neta|float) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        {% if total_ingresos > 0 %}
+        <div class="card-footer bg-light">
+          <div class="small text-muted">
+            Margen neto:
+            <strong>{{ "%.1f"|format((utilidad_neta / total_ingresos * 100)|float) }}%</strong>
+          </div>
+          <div class="progress mt-1" style="height:6px;">
+            {% set pct = [(utilidad_neta / total_ingresos * 100)|float, 100]|min %}
+            <div class="progress-bar bg-{{ 'success' if pct >= 0 else 'danger' }}"
+                 style="width:{{ pct|abs }}%"></div>
+          </div>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Nota legal -->
+      <div class="alert alert-info mt-3 small">
+        <i class="bi bi-info-circle me-1"></i>
+        El IR mostrado es una <strong>estimación mensual</strong>. El cálculo definitivo es anual.
+        Para pagos a cuenta mensuales, consultar el coeficiente o porcentaje vigente.
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

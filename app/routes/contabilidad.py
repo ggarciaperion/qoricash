@@ -362,8 +362,415 @@ def cerrar_periodo():
     return jsonify({'success': success, 'message': message})
 
 
+# ── Balance de Comprobación ────────────────────────────────────────────────────
+
+@contabilidad_bp.route('/balance')
+@login_required
+@require_role('Master')
+def balance():
+    from app.models.journal_entry import JournalEntry
+    from app.models.journal_entry_line import JournalEntryLine
+    from app.models.accounting_account import AccountingAccount
+    from app.models.accounting_period import AccountingPeriod
+    from sqlalchemy import func, extract
+
+    year  = request.args.get('year',  type=int, default=date.today().year)
+    month = request.args.get('month', type=int, default=date.today().month)
+
+    # Totales acumulados por cuenta en el período
+    rows = db.session.query(
+        JournalEntryLine.account_code,
+        func.sum(JournalEntryLine.debe).label('total_debe'),
+        func.sum(JournalEntryLine.haber).label('total_haber'),
+    ).join(
+        JournalEntry, JournalEntryLine.journal_entry_id == JournalEntry.id
+    ).filter(
+        extract('year',  JournalEntry.entry_date) == year,
+        extract('month', JournalEntry.entry_date) == month,
+        JournalEntry.status == 'activo',
+    ).group_by(
+        JournalEntryLine.account_code
+    ).order_by(
+        JournalEntryLine.account_code
+    ).all()
+
+    # Catálogo para nombres y tipo
+    catalog = {a.code: a for a in AccountingAccount.query.all()}
+
+    accounts = []
+    grand_debe = Decimal('0')
+    grand_haber = Decimal('0')
+
+    for r in rows:
+        code = r.account_code
+        acc  = catalog.get(code)
+        td   = Decimal(str(r.total_debe  or 0))
+        th   = Decimal(str(r.total_haber or 0))
+        # Saldo según naturaleza de la cuenta
+        if acc:
+            if acc.nature == 'deudora':
+                saldo_deudor  = max(td - th, Decimal('0'))
+                saldo_acreedor = max(th - td, Decimal('0'))
+            else:
+                saldo_acreedor = max(th - td, Decimal('0'))
+                saldo_deudor   = max(td - th, Decimal('0'))
+            acc_type = acc.type
+            acc_name = acc.name
+        else:
+            saldo_deudor   = max(td - th, Decimal('0'))
+            saldo_acreedor = max(th - td, Decimal('0'))
+            acc_type = _infer_type(code)
+            acc_name = '(sin descripción)'
+
+        accounts.append({
+            'code':            code,
+            'name':            acc_name,
+            'type':            acc_type,
+            'total_debe':      td,
+            'total_haber':     th,
+            'saldo_deudor':    saldo_deudor,
+            'saldo_acreedor':  saldo_acreedor,
+        })
+        grand_debe  += td
+        grand_haber += th
+
+    periods = AccountingPeriod.query.order_by(
+        AccountingPeriod.year.desc(), AccountingPeriod.month.desc()
+    ).all()
+
+    return render_template(
+        'contabilidad/balance.html',
+        accounts=accounts,
+        grand_debe=grand_debe,
+        grand_haber=grand_haber,
+        grand_saldo_deudor=sum(a['saldo_deudor'] for a in accounts),
+        grand_saldo_acreedor=sum(a['saldo_acreedor'] for a in accounts),
+        periods=periods,
+        selected_year=year,
+        selected_month=month,
+        user=current_user,
+    )
+
+
+@contabilidad_bp.route('/balance/export')
+@login_required
+@require_role('Master')
+def export_balance():
+    from app.models.journal_entry import JournalEntry
+    from app.models.journal_entry_line import JournalEntryLine
+    from app.models.accounting_account import AccountingAccount
+    from sqlalchemy import func, extract
+
+    year  = request.args.get('year',  type=int, default=date.today().year)
+    month = request.args.get('month', type=int, default=date.today().month)
+
+    rows = db.session.query(
+        JournalEntryLine.account_code,
+        func.sum(JournalEntryLine.debe).label('total_debe'),
+        func.sum(JournalEntryLine.haber).label('total_haber'),
+    ).join(JournalEntry, JournalEntryLine.journal_entry_id == JournalEntry.id
+    ).filter(
+        extract('year',  JournalEntry.entry_date) == year,
+        extract('month', JournalEntry.entry_date) == month,
+        JournalEntry.status == 'activo',
+    ).group_by(JournalEntryLine.account_code
+    ).order_by(JournalEntryLine.account_code).all()
+
+    catalog = {a.code: a for a in AccountingAccount.query.all()}
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = 'Balance Comprobación'
+
+    # Título
+    ws.merge_cells('A1:F1')
+    ws['A1'] = 'QORICASH TRADING S.A.C.'
+    ws['A1'].font = Font(bold=True, size=12)
+    ws['A1'].alignment = Alignment(horizontal='center')
+    ws.merge_cells('A2:F2')
+    ws['A2'] = f'BALANCE DE COMPROBACIÓN — {_month_name(month)} {year}'
+    ws['A2'].font = Font(bold=True)
+    ws['A2'].alignment = Alignment(horizontal='center')
+
+    header_fill = PatternFill(start_color='1B3A6B', end_color='1B3A6B', fill_type='solid')
+    headers = ['Código', 'Cuenta', 'Tipo', 'DEBE (S/)', 'HABER (S/)', 'Saldo Deudor', 'Saldo Acreedor']
+    for col, h in enumerate(headers, 1):
+        c = ws.cell(row=4, column=col, value=h)
+        c.fill = header_fill
+        c.font = Font(bold=True, color='FFFFFF')
+        c.alignment = Alignment(horizontal='center')
+
+    row = 5
+    for r in rows:
+        code = r.account_code
+        acc  = catalog.get(code)
+        td   = float(r.total_debe  or 0)
+        th   = float(r.total_haber or 0)
+        if acc and acc.nature == 'deudora':
+            sd, sa = max(td - th, 0), max(th - td, 0)
+        else:
+            sa, sd = max(th - td, 0), max(td - th, 0)
+
+        ws.cell(row=row, column=1, value=code)
+        ws.cell(row=row, column=2, value=acc.name if acc else '(sin descripción)')
+        ws.cell(row=row, column=3, value=acc.type if acc else _infer_type(code))
+        ws.cell(row=row, column=4, value=td)
+        ws.cell(row=row, column=5, value=th)
+        ws.cell(row=row, column=6, value=sd)
+        ws.cell(row=row, column=7, value=sa)
+        row += 1
+
+    for i, w in enumerate([10, 42, 12, 14, 14, 14, 14], 1):
+        ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = w
+
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+    return send_file(output,
+                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                     as_attachment=True,
+                     download_name=f'balance_comprobacion_{year}{month:02d}.xlsx')
+
+
+# ── Estado de Resultados ───────────────────────────────────────────────────────
+
+# UIT vigente (actualizar cada año)
+_UIT = Decimal('5350')   # UIT 2026
+_IR_TRAMO_1_LIMITE = _UIT * 15   # S/ 80,250
+_IR_TRAMO_1_TASA   = Decimal('0.10')
+_IR_TRAMO_2_TASA   = Decimal('0.295')
+
+
+def _ir_mype(utilidad: Decimal) -> Decimal:
+    """Cálculo IR Régimen MYPE Tributario (anual estimado sobre utilidad del período)."""
+    if utilidad <= 0:
+        return Decimal('0')
+    if utilidad <= _IR_TRAMO_1_LIMITE:
+        return (utilidad * _IR_TRAMO_1_TASA).quantize(Decimal('0.01'))
+    else:
+        t1 = _IR_TRAMO_1_LIMITE * _IR_TRAMO_1_TASA
+        t2 = (utilidad - _IR_TRAMO_1_LIMITE) * _IR_TRAMO_2_TASA
+        return (t1 + t2).quantize(Decimal('0.01'))
+
+
+@contabilidad_bp.route('/resultados')
+@login_required
+@require_role('Master')
+def resultados():
+    from app.models.journal_entry import JournalEntry
+    from app.models.journal_entry_line import JournalEntryLine
+    from app.models.accounting_account import AccountingAccount
+    from app.models.accounting_period import AccountingPeriod
+    from sqlalchemy import func, extract
+
+    year  = request.args.get('year',  type=int, default=date.today().year)
+    month = request.args.get('month', type=int, default=date.today().month)
+
+    rows = db.session.query(
+        JournalEntryLine.account_code,
+        func.sum(JournalEntryLine.debe).label('total_debe'),
+        func.sum(JournalEntryLine.haber).label('total_haber'),
+    ).join(JournalEntry, JournalEntryLine.journal_entry_id == JournalEntry.id
+    ).filter(
+        extract('year',  JournalEntry.entry_date) == year,
+        extract('month', JournalEntry.entry_date) == month,
+        JournalEntry.status == 'activo',
+    ).group_by(JournalEntryLine.account_code
+    ).order_by(JournalEntryLine.account_code).all()
+
+    catalog = {a.code: a for a in AccountingAccount.query.all()}
+
+    # Clasificar por tipo para P&L
+    ingresos = []
+    gastos   = []
+
+    for r in rows:
+        code = r.account_code
+        acc  = catalog.get(code)
+        acc_type = acc.type if acc else _infer_type(code)
+        acc_name = acc.name if acc else f'Cuenta {code}'
+        td = Decimal(str(r.total_debe  or 0))
+        th = Decimal(str(r.total_haber or 0))
+
+        if acc_type == 'ingreso':
+            # Cuentas de ingreso: naturaleza acreedora → saldo neto = haber - debe
+            neto = max(th - td, Decimal('0'))
+            if neto > 0:
+                ingresos.append({'code': code, 'name': acc_name, 'monto': neto})
+
+        elif acc_type == 'gasto':
+            # Cuentas de gasto: naturaleza deudora → saldo neto = debe - haber
+            neto = max(td - th, Decimal('0'))
+            if neto > 0:
+                gastos.append({'code': code, 'name': acc_name, 'monto': neto})
+
+    total_ingresos = sum(i['monto'] for i in ingresos)
+    total_gastos   = sum(g['monto'] for g in gastos)
+    utilidad_antes_ir = total_ingresos - total_gastos
+    ir_estimado = _ir_mype(utilidad_antes_ir)
+    utilidad_neta = utilidad_antes_ir - ir_estimado
+
+    periods = AccountingPeriod.query.order_by(
+        AccountingPeriod.year.desc(), AccountingPeriod.month.desc()
+    ).all()
+
+    return render_template(
+        'contabilidad/resultados.html',
+        ingresos=ingresos,
+        gastos=gastos,
+        total_ingresos=total_ingresos,
+        total_gastos=total_gastos,
+        utilidad_antes_ir=utilidad_antes_ir,
+        ir_estimado=ir_estimado,
+        utilidad_neta=utilidad_neta,
+        periods=periods,
+        selected_year=year,
+        selected_month=month,
+        UIT=_UIT,
+        IR_LIMITE=_IR_TRAMO_1_LIMITE,
+        user=current_user,
+    )
+
+
+@contabilidad_bp.route('/resultados/export')
+@login_required
+@require_role('Master')
+def export_resultados():
+    from app.models.journal_entry import JournalEntry
+    from app.models.journal_entry_line import JournalEntryLine
+    from app.models.accounting_account import AccountingAccount
+    from sqlalchemy import func, extract
+
+    year  = request.args.get('year',  type=int, default=date.today().year)
+    month = request.args.get('month', type=int, default=date.today().month)
+
+    rows = db.session.query(
+        JournalEntryLine.account_code,
+        func.sum(JournalEntryLine.debe).label('total_debe'),
+        func.sum(JournalEntryLine.haber).label('total_haber'),
+    ).join(JournalEntry, JournalEntryLine.journal_entry_id == JournalEntry.id
+    ).filter(
+        extract('year',  JournalEntry.entry_date) == year,
+        extract('month', JournalEntry.entry_date) == month,
+        JournalEntry.status == 'activo',
+    ).group_by(JournalEntryLine.account_code
+    ).order_by(JournalEntryLine.account_code).all()
+
+    catalog = {a.code: a for a in AccountingAccount.query.all()}
+
+    ingresos, gastos = [], []
+    for r in rows:
+        code = r.account_code
+        acc  = catalog.get(code)
+        acc_type = acc.type if acc else _infer_type(code)
+        acc_name = acc.name if acc else f'Cuenta {code}'
+        td = float(r.total_debe or 0)
+        th = float(r.total_haber or 0)
+        if acc_type == 'ingreso':
+            neto = max(th - td, 0)
+            if neto > 0:
+                ingresos.append({'code': code, 'name': acc_name, 'monto': neto})
+        elif acc_type == 'gasto':
+            neto = max(td - th, 0)
+            if neto > 0:
+                gastos.append({'code': code, 'name': acc_name, 'monto': neto})
+
+    total_i = sum(i['monto'] for i in ingresos)
+    total_g = sum(g['monto'] for g in gastos)
+    util    = total_i - total_g
+    ir      = float(_ir_mype(Decimal(str(util))))
+    util_n  = util - ir
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = 'Estado de Resultados'
+
+    header_fill = PatternFill(start_color='1B3A6B', end_color='1B3A6B', fill_type='solid')
+    green_fill  = PatternFill(start_color='198754', end_color='198754', fill_type='solid')
+    red_fill    = PatternFill(start_color='DC3545', end_color='DC3545', fill_type='solid')
+
+    ws.merge_cells('A1:C1')
+    ws['A1'] = 'QORICASH TRADING S.A.C.'
+    ws['A1'].font = Font(bold=True, size=12)
+    ws['A1'].alignment = Alignment(horizontal='center')
+    ws.merge_cells('A2:C2')
+    ws['A2'] = f'ESTADO DE RESULTADOS — {_month_name(month)} {year}'
+    ws['A2'].font = Font(bold=True)
+    ws['A2'].alignment = Alignment(horizontal='center')
+    ws.merge_cells('A3:C3')
+    ws['A3'] = 'Régimen MYPE Tributario'
+    ws['A3'].alignment = Alignment(horizontal='center')
+
+    def hrow(r, text, fill=None):
+        ws.merge_cells(f'A{r}:C{r}')
+        ws[f'A{r}'] = text
+        ws[f'A{r}'].font = Font(bold=True, color='FFFFFF' if fill else '000000')
+        if fill:
+            for c in ['A', 'B', 'C']:
+                ws[f'{c}{r}'].fill = fill
+
+    def drow(r, code, name, monto):
+        ws.cell(row=r, column=1, value=code)
+        ws.cell(row=r, column=2, value=name)
+        ws.cell(row=r, column=3, value=monto)
+        ws.cell(row=r, column=3).number_format = '#,##0.00'
+
+    row = 5
+    hrow(row, 'INGRESOS', header_fill); row += 1
+    for i in ingresos:
+        drow(row, i['code'], i['name'], i['monto']); row += 1
+    drow(row, '', 'TOTAL INGRESOS', total_i)
+    ws.cell(row=row, column=3).font = Font(bold=True)
+    ws.cell(row=row, column=3).fill = green_fill
+    ws.cell(row=row, column=3).font = Font(bold=True, color='FFFFFF')
+    row += 2
+
+    hrow(row, 'GASTOS', header_fill); row += 1
+    for g in gastos:
+        drow(row, g['code'], g['name'], g['monto']); row += 1
+    drow(row, '', 'TOTAL GASTOS', total_g)
+    ws.cell(row=row, column=3).font = Font(bold=True)
+    row += 2
+
+    drow(row, '', 'UTILIDAD ANTES DE IR', util)
+    ws.cell(row=row, column=3).font = Font(bold=True)
+    row += 1
+    drow(row, '', f'(-) IR MYPE Tributario', ir); row += 1
+    drow(row, '', 'UTILIDAD NETA', util_n)
+    ws.cell(row=row, column=3).font = Font(bold=True)
+    ws.cell(row=row, column=3).fill = green_fill if util_n >= 0 else red_fill
+    ws.cell(row=row, column=3).font = Font(bold=True, color='FFFFFF')
+
+    ws.column_dimensions['A'].width = 10
+    ws.column_dimensions['B'].width = 48
+    ws.column_dimensions['C'].width = 16
+
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+    return send_file(output,
+                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                     as_attachment=True,
+                     download_name=f'estado_resultados_{year}{month:02d}.xlsx')
+
+
 # ── Helper ─────────────────────────────────────────────────────────────────────
 
 def _month_name(m: int) -> str:
     names = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
     return names[m - 1] if 1 <= m <= 12 else str(m)
+
+
+def _infer_type(code: str) -> str:
+    """Inferir tipo de cuenta por el código PCGE cuando no está en el catálogo."""
+    if code.startswith('1') or code.startswith('3'):
+        return 'activo'
+    if code.startswith('4') or code.startswith('46'):
+        return 'pasivo'
+    if code.startswith('5'):
+        return 'patrimonio'
+    if code.startswith('7'):
+        return 'ingreso'
+    if code.startswith('6'):
+        return 'gasto'
+    return 'activo'

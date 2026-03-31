@@ -157,6 +157,16 @@
                 <i class="bi bi-calendar3"></i>
                 <span class="sidebar-link-text">Períodos</span>
             </a>
+            <a class="sidebar-link {% if request.endpoint == 'contabilidad.balance' %}active{% endif %}"
+               href="{{ url_for('contabilidad.balance') }}">
+                <i class="bi bi-bar-chart-steps"></i>
+                <span class="sidebar-link-text">Balance</span>
+            </a>
+            <a class="sidebar-link {% if request.endpoint == 'contabilidad.resultados' %}active{% endif %}"
+               href="{{ url_for('contabilidad.resultados') }}">
+                <i class="bi bi-graph-up-arrow"></i>
+                <span class="sidebar-link-text">Estado de Resultados</span>
+            </a>
             {% endif %}
         </nav>
 
