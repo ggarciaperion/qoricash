@@ -575,185 +575,322 @@ def register_cli_commands(app):
 
     @app.cli.command("seed-demo-contabilidad")
     def seed_demo_contabilidad():
-        """Carga datos demo de contabilidad para Febrero 2026 (visualización)."""
+        """Carga datos demo de contabilidad para Enero-Marzo 2026 (visualización)."""
         from app.extensions import db
         from app.models.accounting_period import AccountingPeriod
         from app.models.expense_record import ExpenseRecord
+        from app.models.operation import Operation
+        from app.models.client import Client
         from app.services.accounting.journal_service import JournalService
-        from datetime import date
+        from datetime import date, datetime
         from decimal import Decimal
+        from sqlalchemy import extract
         import traceback
 
-        YEAR, MONTH = 2026, 2
+        # ── Buscar un cliente existente para las Operaciones del LIG ────────
+        demo_client = Client.query.first()
+        if not demo_client:
+            print("  · Sin clientes en BD — se crearán asientos pero NO operaciones (LIG vacío)")
 
-        # ── 1. Período ──────────────────────────────────────────────────────
-        period = AccountingPeriod.query.filter_by(year=YEAR, month=MONTH).first()
-        if not period:
-            period = AccountingPeriod(year=YEAR, month=MONTH, status='abierto')
-            db.session.add(period)
-            db.session.commit()
-            print(f"  ✓ Período Feb {YEAR} creado")
-        else:
-            print(f"  · Período Feb {YEAR} ya existe, usando el existente")
-
-        # ── 2. Operaciones de compra/venta (bank movements) ─────────────────
-        ops = [
-            # (fecha, tipo, desc_cliente, usd, tc, pen, banco_pen, banco_usd)
-            (date(2026,2, 3), 'Compra', 'Carlos Mendoza',          5_000,  3.7200, 18_600.00, '1041','1044'),
-            (date(2026,2, 5), 'Venta',  'Ana Torres',              3_200,  3.6800, 11_776.00, '1041','1044'),
-            (date(2026,2, 7), 'Compra', 'Empresa XYZ SAC',        10_000,  3.7300, 37_300.00, '1042','1045'),
-            (date(2026,2,10), 'Venta',  'Luis García',             2_500,  3.6700,  9_175.00, '1042','1045'),
-            (date(2026,2,12), 'Compra', 'María López',             8_000,  3.7100, 29_680.00, '1041','1044'),
-            (date(2026,2,14), 'Venta',  'Importaciones ABC SAC',  15_000,  3.6900, 55_350.00, '1041','1044'),
-            (date(2026,2,17), 'Compra', 'Pedro Sánchez',           4_500,  3.7400, 16_830.00, '1043','1046'),
-            (date(2026,2,19), 'Venta',  'Rosa Flores',             6_000,  3.6800, 22_080.00, '1043','1046'),
-            (date(2026,2,21), 'Compra', 'Exportadores del Perú SAC',20_000,3.7200, 74_400.00, '1041','1044'),
-            (date(2026,2,24), 'Venta',  'Jorge Huanca',            3_800,  3.6600, 13_908.00, '1041','1044'),
-            (date(2026,2,26), 'Compra', 'Patricia Quispe',         7_500,  3.7300, 27_975.00, '1042','1045'),
-            (date(2026,2,28), 'Venta',  'Comercial Lima SAC',     12_000,  3.7000, 44_400.00, '1042','1045'),
-        ]
-
-        for d, tipo, cliente, usd, tc, pen, acc_pen, acc_usd in ops:
-            pen_d = Decimal(str(pen))
-            usd_d = Decimal(str(usd))
-            tc_d  = Decimal(str(tc))
-            if tipo == 'Compra':
-                lines = [
-                    {'account_code': acc_pen, 'description': f'Ingreso PEN – {cliente}',
-                     'debe': pen_d, 'haber': Decimal('0'), 'currency': 'PEN'},
-                    {'account_code': acc_usd, 'description': f'Egreso USD – {cliente}',
-                     'debe': Decimal('0'), 'haber': pen_d,
-                     'currency': 'USD', 'amount_usd': usd_d, 'exchange_rate': tc_d},
-                ]
-                glosa = f'DEMO Compra USD – {cliente}'
+        def _seed_month(year, month, month_tag, ops_data, spreads_data, gastos_data, op_prefix):
+            """Siembra un mes completo. Idempotente: salta si ya hay datos demo."""
+            # Período
+            period = AccountingPeriod.query.filter_by(year=year, month=month).first()
+            if not period:
+                period = AccountingPeriod(year=year, month=month, status='abierto')
+                db.session.add(period)
+                db.session.flush()
+                print(f"  ✓ Período {month_tag} {year} creado")
             else:
-                lines = [
-                    {'account_code': acc_usd, 'description': f'Ingreso USD – {cliente}',
-                     'debe': pen_d, 'haber': Decimal('0'),
-                     'currency': 'USD', 'amount_usd': usd_d, 'exchange_rate': tc_d},
-                    {'account_code': acc_pen, 'description': f'Egreso PEN – {cliente}',
-                     'debe': Decimal('0'), 'haber': pen_d, 'currency': 'PEN'},
-                ]
-                glosa = f'DEMO Venta USD – {cliente}'
+                print(f"  · Período {month_tag} {year} ya existe")
 
-            e = JournalService.create_entry(
-                entry_type='operacion_completada',
-                description=glosa,
-                lines=lines,
-                source_type='demo',
-                source_id=None,
-                entry_date=d,
-                created_by=None,
-            )
-            print(f"  ✓ {e.entry_number}  {glosa[:55]}")
+            # Chequeo de idempotencia: ¿ya existen asientos demo en este mes?
+            existing = db.session.query(JournalService._model()).filter(
+                JournalService._model().source_type == 'demo',
+                extract('year',  JournalService._model().entry_date) == year,
+                extract('month', JournalService._model().entry_date) == month,
+            ).first() if hasattr(JournalService, '_model') else None
 
-        # ── 3. Reconocimiento de spread (calce / ingresos 7711/7712) ────────
-        spreads = [
-            (date(2026,2,28), 'DEMO Spread compra USD Feb-2026',
-             [{'account_code':'1041','description':'Ingreso spread compra','debe':Decimal('1850.50'),'haber':Decimal('0'),'currency':'PEN'},
-              {'account_code':'7711','description':'Diferencial cambiario compra','debe':Decimal('0'),'haber':Decimal('1850.50'),'currency':'PEN'}]),
-            (date(2026,2,28), 'DEMO Spread venta USD Feb-2026',
-             [{'account_code':'1041','description':'Ingreso spread venta','debe':Decimal('1240.00'),'haber':Decimal('0'),'currency':'PEN'},
-              {'account_code':'7711','description':'Diferencial cambiario venta','debe':Decimal('0'),'haber':Decimal('1240.00'),'currency':'PEN'}]),
-        ]
-        for d, glosa, lines in spreads:
-            e = JournalService.create_entry('calce_netting', glosa, lines,
-                                            source_type='demo', entry_date=d)
-            print(f"  ✓ {e.entry_number}  {glosa}")
+            # Usamos JournalEntry directamente para la verificación
+            from app.models.journal_entry import JournalEntry
+            existing = JournalEntry.query.filter(
+                JournalEntry.source_type == 'demo',
+                extract('year',  JournalEntry.entry_date) == year,
+                extract('month', JournalEntry.entry_date) == month,
+            ).first()
+            if existing:
+                print(f"  · Asientos demo {month_tag} ya existen — saltando")
+                return
 
-        # ── 4. Gastos + ExpenseRecords ────────────────────────────────────
-        gastos = [
-            # (fecha, categoria, descripcion, monto, tipo_comp, num_comp, ruc, proveedor)
-            (date(2026,2, 1),'6391','Alquiler local Feb-2026',         3_500.00,'Factura','F001-00234','20512345678','Inmobiliaria Central SAC'),
-            (date(2026,2, 3),'6361','Servicio de energía eléctrica',     320.00,'Boleta', 'B003-08921','20331376783','Enel Distribución Perú SAC'),
-            (date(2026,2, 3),'6361','Telefonía e internet empresarial',   450.00,'Boleta', 'B002-01567','20116544526','Claro Perú SAC'),
-            (date(2026,2, 8),'6381','Honorarios contador Feb-2026',       800.00,'Recibo', 'RH-001-0345','10412345678','Juan Pérez Quispe CPC'),
-            (date(2026,2,10),'6391','Comisión bancaria BCP Feb-2026',     185.00, None,     None,         None,         None),
-            (date(2026,2,15),'6391','Comisión bancaria BBVA Feb-2026',    120.00, None,     None,         None,         None),
-            (date(2026,2,17),'6391','Publicidad en redes sociales',       600.00,'Factura','F004-00789','20601234567','Digital Media SAC'),
-            (date(2026,2,20),'6511','Material de oficina y útiles',       280.00,'Boleta', 'B005-02345','10298765432','Librería San Juan EIRL'),
-            (date(2026,2,25),'6391','Servicio de limpieza de local',      350.00,'Recibo', 'RC-002-0123','20456789012','Limpiezas Rápidas SAC'),
-            (date(2026,2,28),'6361','Internet y comunicaciones añadidas', 250.00,'Boleta', 'B006-04567','20116544526','Movistar Perú SAC'),
-        ]
+            # ── Asientos de operaciones ──────────────────────────────────
+            op_counter = [0]
+            for d, tipo, cliente, usd, tc, pen, acc_pen, acc_usd in ops_data:
+                pen_d = Decimal(str(pen))
+                usd_d = Decimal(str(usd))
+                tc_d  = Decimal(str(tc))
+                if tipo == 'Compra':
+                    lines = [
+                        {'account_code': acc_pen, 'description': f'Ingreso PEN – {cliente}',
+                         'debe': pen_d, 'haber': Decimal('0'), 'currency': 'PEN'},
+                        {'account_code': acc_usd, 'description': f'Egreso USD – {cliente}',
+                         'debe': Decimal('0'), 'haber': pen_d,
+                         'currency': 'USD', 'amount_usd': usd_d, 'exchange_rate': tc_d},
+                    ]
+                    glosa = f'DEMO Compra USD – {cliente}'
+                else:
+                    lines = [
+                        {'account_code': acc_usd, 'description': f'Ingreso USD – {cliente}',
+                         'debe': pen_d, 'haber': Decimal('0'),
+                         'currency': 'USD', 'amount_usd': usd_d, 'exchange_rate': tc_d},
+                        {'account_code': acc_pen, 'description': f'Egreso PEN – {cliente}',
+                         'debe': Decimal('0'), 'haber': pen_d, 'currency': 'PEN'},
+                    ]
+                    glosa = f'DEMO Venta USD – {cliente}'
 
-        for d, cat, desc, monto, vtype, vnum, ruc, proveedor in gastos:
-            pen_d = Decimal(str(monto))
-            # Asiento contable del gasto
-            e = JournalService.create_entry(
-                entry_type='gasto',
-                description=f'DEMO Gasto: {desc}',
-                lines=[
-                    {'account_code': cat,  'description': desc,
-                     'debe': pen_d, 'haber': Decimal('0'), 'currency': 'PEN'},
-                    {'account_code': '4699','description': f'Por pagar: {desc}',
-                     'debe': Decimal('0'), 'haber': pen_d, 'currency': 'PEN'},
-                ],
-                source_type='demo',
-                entry_date=d,
-                created_by=None,
-            )
-            # Registro de gasto
-            er = ExpenseRecord(
-                period_id=period.id,
-                expense_date=d,
-                category=cat,
-                description=desc,
-                amount_pen=pen_d,
-                voucher_type=vtype,
-                voucher_number=vnum,
-                supplier_ruc=ruc,
-                supplier_name=proveedor,
-                journal_entry_id=e.id if e else None,
-                created_by=None,
-            )
-            db.session.add(er)
-            print(f"  ✓ Gasto: {desc[:50]}  S/ {monto:.2f}")
+                e = JournalService.create_entry(
+                    entry_type='operacion_completada',
+                    description=glosa,
+                    lines=lines,
+                    source_type='demo',
+                    source_id=None,
+                    entry_date=d,
+                    created_by=None,
+                )
+                print(f"  ✓ {e.entry_number}  {glosa[:55]}")
 
-        db.session.commit()
-        print("\n✓ seed-demo-contabilidad completado — Febrero 2026")
-        print("  Cuando quieras eliminar estos datos: flask drop-demo-contabilidad")
+                # Crear Operation para el LIG si hay cliente disponible
+                if demo_client:
+                    op_counter[0] += 1
+                    op_id = f'{op_prefix}-{op_counter[0]:03d}'
+                    if not Operation.query.filter_by(operation_id=op_id).first():
+                        op = Operation(
+                            operation_id=op_id,
+                            client_id=demo_client.id,
+                            operation_type=tipo,
+                            origen='sistema',
+                            amount_usd=usd_d,
+                            exchange_rate=tc_d,
+                            amount_pen=pen_d,
+                            status='Completada',
+                            completed_at=datetime(d.year, d.month, d.day, 14, 0, 0),
+                        )
+                        db.session.add(op)
+
+            # ── Asientos de spread ───────────────────────────────────────
+            for d, glosa, lines in spreads_data:
+                e = JournalService.create_entry('calce_netting', glosa, lines,
+                                                source_type='demo', entry_date=d)
+                print(f"  ✓ {e.entry_number}  {glosa}")
+
+            # ── Gastos + ExpenseRecords ──────────────────────────────────
+            for d, cat, desc, monto, vtype, vnum, ruc, proveedor in gastos_data:
+                pen_d = Decimal(str(monto))
+                e = JournalService.create_entry(
+                    entry_type='gasto',
+                    description=f'DEMO Gasto: {desc}',
+                    lines=[
+                        {'account_code': cat,  'description': desc,
+                         'debe': pen_d, 'haber': Decimal('0'), 'currency': 'PEN'},
+                        {'account_code': '4699','description': f'Por pagar: {desc}',
+                         'debe': Decimal('0'), 'haber': pen_d, 'currency': 'PEN'},
+                    ],
+                    source_type='demo',
+                    entry_date=d,
+                    created_by=None,
+                )
+                er = ExpenseRecord(
+                    period_id=period.id,
+                    expense_date=d,
+                    category=cat,
+                    description=desc,
+                    amount_pen=pen_d,
+                    voucher_type=vtype,
+                    voucher_number=vnum,
+                    supplier_ruc=ruc,
+                    supplier_name=proveedor,
+                    journal_entry_id=e.id if e else None,
+                    created_by=None,
+                )
+                db.session.add(er)
+                print(f"  ✓ Gasto: {desc[:50]}  S/ {monto:.2f}")
+
+            db.session.commit()
+            print(f"  ✓ {month_tag} {year} completado\n")
+
+        # ═══════════════════════════════════════════════════════════════════
+        # DATOS ENERO 2026
+        # ═══════════════════════════════════════════════════════════════════
+        print("\n── Enero 2026 ─────────────────────────────────────────────")
+        _seed_month(2026, 1, 'Ene',
+            ops_data=[
+                (date(2026,1, 5), 'Compra', 'Roberto Castillo',    4_000, 3.7100, 14_840.00, '1041','1044'),
+                (date(2026,1, 8), 'Venta',  'Sonia Vargas',        2_800, 3.6900, 10_332.00, '1041','1044'),
+                (date(2026,1,12), 'Compra', 'Inversiones Norte SAC',7_500, 3.7200, 27_900.00, '1042','1045'),
+                (date(2026,1,15), 'Venta',  'Miguel Torres',        3_000, 3.6800, 11_040.00, '1042','1045'),
+                (date(2026,1,19), 'Compra', 'Diana Quispe',         6_000, 3.7300, 22_380.00, '1041','1044'),
+                (date(2026,1,22), 'Venta',  'Transporte Lima SAC', 10_000, 3.6700, 36_700.00, '1041','1044'),
+                (date(2026,1,26), 'Compra', 'Arturo Mendoza',       5_500, 3.7100, 20_405.00, '1043','1046'),
+                (date(2026,1,29), 'Venta',  'Cecilia Flores',       4_200, 3.6800, 15_456.00, '1043','1046'),
+            ],
+            spreads_data=[
+                (date(2026,1,31), 'DEMO Spread compra USD Ene-2026',
+                 [{'account_code':'1041','description':'Spread compra','debe':Decimal('1620.00'),'haber':Decimal('0'),'currency':'PEN'},
+                  {'account_code':'7711','description':'Dif. cambiario compra','debe':Decimal('0'),'haber':Decimal('1620.00'),'currency':'PEN'}]),
+                (date(2026,1,31), 'DEMO Spread venta USD Ene-2026',
+                 [{'account_code':'1041','description':'Spread venta','debe':Decimal('980.00'),'haber':Decimal('0'),'currency':'PEN'},
+                  {'account_code':'7711','description':'Dif. cambiario venta','debe':Decimal('0'),'haber':Decimal('980.00'),'currency':'PEN'}]),
+            ],
+            gastos_data=[
+                (date(2026,1, 2),'6391','Alquiler local Ene-2026',         3_500.00,'Factura','F001-00198','20512345678','Inmobiliaria Central SAC'),
+                (date(2026,1, 5),'6361','Energía eléctrica enero',           295.00,'Boleta', 'B003-08750','20331376783','Enel Distribución Perú SAC'),
+                (date(2026,1, 5),'6361','Telefonía e internet enero',        450.00,'Boleta', 'B002-01423','20116544526','Claro Perú SAC'),
+                (date(2026,1,10),'6381','Honorarios contador Ene-2026',      800.00,'Recibo', 'RH-001-0312','10412345678','Juan Pérez Quispe CPC'),
+                (date(2026,1,15),'6391','Comisión bancaria BCP enero',       160.00, None,     None,         None,         None),
+                (date(2026,1,20),'6391','Publicidad digital enero',          500.00,'Factura','F004-00701','20601234567','Digital Media SAC'),
+                (date(2026,1,25),'6511','Útiles de escritorio',              210.00,'Boleta', 'B005-02201','10298765432','Librería San Juan EIRL'),
+                (date(2026,1,31),'6361','Internet adicional enero',          250.00,'Boleta', 'B006-04321','20116544526','Movistar Perú SAC'),
+            ],
+            op_prefix='DEMO-ENE26',
+        )
+
+        # ═══════════════════════════════════════════════════════════════════
+        # DATOS FEBRERO 2026
+        # ═══════════════════════════════════════════════════════════════════
+        print("── Febrero 2026 ───────────────────────────────────────────")
+        _seed_month(2026, 2, 'Feb',
+            ops_data=[
+                (date(2026,2, 3), 'Compra', 'Carlos Mendoza',           5_000, 3.7200, 18_600.00, '1041','1044'),
+                (date(2026,2, 5), 'Venta',  'Ana Torres',               3_200, 3.6800, 11_776.00, '1041','1044'),
+                (date(2026,2, 7), 'Compra', 'Empresa XYZ SAC',         10_000, 3.7300, 37_300.00, '1042','1045'),
+                (date(2026,2,10), 'Venta',  'Luis García',              2_500, 3.6700,  9_175.00, '1042','1045'),
+                (date(2026,2,12), 'Compra', 'María López',              8_000, 3.7100, 29_680.00, '1041','1044'),
+                (date(2026,2,14), 'Venta',  'Importaciones ABC SAC',   15_000, 3.6900, 55_350.00, '1041','1044'),
+                (date(2026,2,17), 'Compra', 'Pedro Sánchez',            4_500, 3.7400, 16_830.00, '1043','1046'),
+                (date(2026,2,19), 'Venta',  'Rosa Flores',              6_000, 3.6800, 22_080.00, '1043','1046'),
+                (date(2026,2,21), 'Compra', 'Exportadores del Perú SAC',20_000, 3.7200, 74_400.00, '1041','1044'),
+                (date(2026,2,24), 'Venta',  'Jorge Huanca',             3_800, 3.6600, 13_908.00, '1041','1044'),
+                (date(2026,2,26), 'Compra', 'Patricia Quispe',          7_500, 3.7300, 27_975.00, '1042','1045'),
+                (date(2026,2,28), 'Venta',  'Comercial Lima SAC',      12_000, 3.7000, 44_400.00, '1042','1045'),
+            ],
+            spreads_data=[
+                (date(2026,2,28), 'DEMO Spread compra USD Feb-2026',
+                 [{'account_code':'1041','description':'Spread compra','debe':Decimal('1850.50'),'haber':Decimal('0'),'currency':'PEN'},
+                  {'account_code':'7711','description':'Dif. cambiario compra','debe':Decimal('0'),'haber':Decimal('1850.50'),'currency':'PEN'}]),
+                (date(2026,2,28), 'DEMO Spread venta USD Feb-2026',
+                 [{'account_code':'1041','description':'Spread venta','debe':Decimal('1240.00'),'haber':Decimal('0'),'currency':'PEN'},
+                  {'account_code':'7711','description':'Dif. cambiario venta','debe':Decimal('0'),'haber':Decimal('1240.00'),'currency':'PEN'}]),
+            ],
+            gastos_data=[
+                (date(2026,2, 1),'6391','Alquiler local Feb-2026',          3_500.00,'Factura','F001-00234','20512345678','Inmobiliaria Central SAC'),
+                (date(2026,2, 3),'6361','Servicio de energía eléctrica',      320.00,'Boleta', 'B003-08921','20331376783','Enel Distribución Perú SAC'),
+                (date(2026,2, 3),'6361','Telefonía e internet empresarial',   450.00,'Boleta', 'B002-01567','20116544526','Claro Perú SAC'),
+                (date(2026,2, 8),'6381','Honorarios contador Feb-2026',       800.00,'Recibo', 'RH-001-0345','10412345678','Juan Pérez Quispe CPC'),
+                (date(2026,2,10),'6391','Comisión bancaria BCP Feb-2026',     185.00, None,     None,         None,         None),
+                (date(2026,2,15),'6391','Comisión bancaria BBVA Feb-2026',    120.00, None,     None,         None,         None),
+                (date(2026,2,17),'6391','Publicidad en redes sociales',       600.00,'Factura','F004-00789','20601234567','Digital Media SAC'),
+                (date(2026,2,20),'6511','Material de oficina y útiles',       280.00,'Boleta', 'B005-02345','10298765432','Librería San Juan EIRL'),
+                (date(2026,2,25),'6391','Servicio de limpieza de local',      350.00,'Recibo', 'RC-002-0123','20456789012','Limpiezas Rápidas SAC'),
+                (date(2026,2,28),'6361','Internet y comunicaciones añadidas', 250.00,'Boleta', 'B006-04567','20116544526','Movistar Perú SAC'),
+            ],
+            op_prefix='DEMO-FEB26',
+        )
+
+        # ═══════════════════════════════════════════════════════════════════
+        # DATOS MARZO 2026 (mes actual — el que se ve por defecto)
+        # ═══════════════════════════════════════════════════════════════════
+        print("── Marzo 2026 (mes actual) ────────────────────────────────")
+        _seed_month(2026, 3, 'Mar',
+            ops_data=[
+                (date(2026,3, 2), 'Compra', 'Fernanda Villanueva',    6_000, 3.7150, 22_290.00, '1041','1044'),
+                (date(2026,3, 4), 'Venta',  'Grupo Andino SAC',       4_500, 3.6950, 16_627.50, '1041','1044'),
+                (date(2026,3, 6), 'Compra', 'Humberto Palomino',      3_200, 3.7200, 11_904.00, '1042','1045'),
+                (date(2026,3,10), 'Venta',  'Exportaciones Sur EIRL', 8_000, 3.6800, 29_440.00, '1042','1045'),
+                (date(2026,3,12), 'Compra', 'Luz Marina Rojas',       5_000, 3.7300, 18_650.00, '1041','1044'),
+                (date(2026,3,14), 'Venta',  'Comercio Global SAC',   12_000, 3.6900, 44_280.00, '1041','1044'),
+                (date(2026,3,17), 'Compra', 'Omar Salinas',            7_000, 3.7250, 26_075.00, '1043','1046'),
+                (date(2026,3,19), 'Venta',  'Importex Perú SAC',      9_500, 3.6850, 35_007.50, '1043','1046'),
+                (date(2026,3,21), 'Compra', 'Cristina Pacheco',        4_000, 3.7200, 14_880.00, '1041','1044'),
+                (date(2026,3,24), 'Venta',  'Negocios Lima SAC',      15_000, 3.6750, 55_125.00, '1041','1044'),
+                (date(2026,3,26), 'Compra', 'Raúl Contreras',          6_500, 3.7300, 24_245.00, '1042','1045'),
+                (date(2026,3,28), 'Venta',  'Trading Norte SAC',      11_000, 3.6900, 40_590.00, '1042','1045'),
+                (date(2026,3,31), 'Compra', 'Vanessa Herrera',         3_500, 3.7200, 13_020.00, '1041','1044'),
+            ],
+            spreads_data=[
+                (date(2026,3,31), 'DEMO Spread compra USD Mar-2026',
+                 [{'account_code':'1041','description':'Spread compra','debe':Decimal('2105.75'),'haber':Decimal('0'),'currency':'PEN'},
+                  {'account_code':'7711','description':'Dif. cambiario compra','debe':Decimal('0'),'haber':Decimal('2105.75'),'currency':'PEN'}]),
+                (date(2026,3,31), 'DEMO Spread venta USD Mar-2026',
+                 [{'account_code':'1041','description':'Spread venta','debe':Decimal('1487.50'),'haber':Decimal('0'),'currency':'PEN'},
+                  {'account_code':'7711','description':'Dif. cambiario venta','debe':Decimal('0'),'haber':Decimal('1487.50'),'currency':'PEN'}]),
+            ],
+            gastos_data=[
+                (date(2026,3, 2),'6391','Alquiler local Mar-2026',          3_500.00,'Factura','F001-00271','20512345678','Inmobiliaria Central SAC'),
+                (date(2026,3, 4),'6361','Energía eléctrica marzo',            308.00,'Boleta', 'B003-09104','20331376783','Enel Distribución Perú SAC'),
+                (date(2026,3, 4),'6361','Telefonía e internet marzo',         450.00,'Boleta', 'B002-01689','20116544526','Claro Perú SAC'),
+                (date(2026,3, 9),'6381','Honorarios contador Mar-2026',       800.00,'Recibo', 'RH-001-0378','10412345678','Juan Pérez Quispe CPC'),
+                (date(2026,3,11),'6391','Comisión bancaria BCP marzo',        195.00, None,     None,         None,         None),
+                (date(2026,3,15),'6391','Comisión bancaria BBVA marzo',       130.00, None,     None,         None,         None),
+                (date(2026,3,18),'6391','Campaña publicidad marzo',           750.00,'Factura','F004-00832','20601234567','Digital Media SAC'),
+                (date(2026,3,20),'6511','Material de oficina marzo',          195.00,'Boleta', 'B005-02489','10298765432','Librería San Juan EIRL'),
+                (date(2026,3,25),'6391','Servicio de limpieza marzo',         350.00,'Recibo', 'RC-002-0145','20456789012','Limpiezas Rápidas SAC'),
+                (date(2026,3,28),'6391','Renovación dominio web',             320.00,'Factura','F007-00112','20789012345','TechHost Perú SAC'),
+                (date(2026,3,31),'6361','Internet adicional marzo',           250.00,'Boleta', 'B006-04789','20116544526','Movistar Perú SAC'),
+            ],
+            op_prefix='DEMO-MAR26',
+        )
+
+        print("✓ seed-demo-contabilidad completado — Ene, Feb, Mar 2026")
+        print("  Para eliminar estos datos: flask drop-demo-contabilidad")
 
     @app.cli.command("drop-demo-contabilidad")
     def drop_demo_contabilidad():
-        """Elimina TODOS los datos demo de contabilidad de Febrero 2026."""
+        """Elimina TODOS los datos demo de contabilidad (Ene-Mar 2026)."""
         from app.extensions import db
         from app.models.accounting_period import AccountingPeriod
         from app.models.journal_entry import JournalEntry
         from app.models.journal_entry_line import JournalEntryLine
         from app.models.expense_record import ExpenseRecord
+        from app.models.operation import Operation
+        from sqlalchemy import extract
         import traceback
 
-        YEAR, MONTH = 2026, 2
+        YEAR = 2026
         try:
-            # Expense records del período
-            er_del = ExpenseRecord.query.filter(
-                db.extract('year',  ExpenseRecord.expense_date) == YEAR,
-                db.extract('month', ExpenseRecord.expense_date) == MONTH,
+            # Operaciones demo (LIG)
+            op_del = Operation.query.filter(
+                Operation.operation_id.like('DEMO-%')
             ).delete(synchronize_session=False)
-            print(f"  ✓ {er_del} expense_records eliminados")
+            print(f"  ✓ {op_del} operaciones demo eliminadas")
 
-            # Journal entries del período (las líneas se eliminan en cascade)
-            from sqlalchemy import extract
-            je_ids = [r[0] for r in db.session.query(JournalEntry.id).filter(
-                extract('year',  JournalEntry.entry_date) == YEAR,
-                extract('month', JournalEntry.entry_date) == MONTH,
-            ).all()]
-            if je_ids:
-                JournalEntryLine.query.filter(
-                    JournalEntryLine.journal_entry_id.in_(je_ids)
+            for month in [1, 2, 3]:
+                # Expense records
+                er_del = ExpenseRecord.query.filter(
+                    db.extract('year',  ExpenseRecord.expense_date) == YEAR,
+                    db.extract('month', ExpenseRecord.expense_date) == month,
                 ).delete(synchronize_session=False)
-                JournalEntry.query.filter(JournalEntry.id.in_(je_ids)).delete(
-                    synchronize_session=False)
-            print(f"  ✓ {len(je_ids)} journal_entries + líneas eliminados")
 
-            # Período
-            period = AccountingPeriod.query.filter_by(year=YEAR, month=MONTH).first()
-            if period:
-                db.session.delete(period)
-                print(f"  ✓ Período Feb {YEAR} eliminado")
+                # Journal entries (cascade a lines via source_type='demo')
+                je_ids = [r[0] for r in db.session.query(JournalEntry.id).filter(
+                    JournalEntry.source_type == 'demo',
+                    extract('year',  JournalEntry.entry_date) == YEAR,
+                    extract('month', JournalEntry.entry_date) == month,
+                ).all()]
+                if je_ids:
+                    JournalEntryLine.query.filter(
+                        JournalEntryLine.journal_entry_id.in_(je_ids)
+                    ).delete(synchronize_session=False)
+                    JournalEntry.query.filter(JournalEntry.id.in_(je_ids)).delete(
+                        synchronize_session=False)
+
+                period = AccountingPeriod.query.filter_by(year=YEAR, month=month).first()
+                if period:
+                    db.session.delete(period)
+
+                month_names = {1:'Ene', 2:'Feb', 3:'Mar'}
+                print(f"  ✓ {month_names[month]} {YEAR}: {er_del} gastos, {len(je_ids)} asientos eliminados")
 
             db.session.commit()
-            print(f"\n✓ drop-demo-contabilidad completado — datos de Feb {YEAR} eliminados")
+            print(f"\n✓ drop-demo-contabilidad completado")
         except Exception as e:
             db.session.rollback()
             print(f"✗ Error: {e}")
