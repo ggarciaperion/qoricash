@@ -493,6 +493,71 @@ def register_cli_commands(app):
 
         print("\n✓ refresh-fx completado")
 
+    @app.cli.command("seed-accounts")
+    def seed_accounts():
+        """Carga el catálogo de cuentas PCGE para QoriCash (idempotente)."""
+        from app.extensions import db
+        from app.models.accounting_account import AccountingAccount
+        import traceback
+
+        ACCOUNTS = [
+            # ── ACTIVO ──────────────────────────────────────────────────────
+            ('1011', 'Caja MN',                        'activo',    'deudora',   'PEN'),
+            ('1012', 'Caja ME',                        'activo',    'deudora',   'USD'),
+            ('1041', 'BCP – Cuenta Corriente PEN',     'activo',    'deudora',   'PEN'),
+            ('1042', 'BBVA – Cuenta Corriente PEN',    'activo',    'deudora',   'PEN'),
+            ('1043', 'Scotiabank – Cuenta Corriente PEN','activo',  'deudora',   'PEN'),
+            ('1044', 'BCP – Cuenta Corriente USD',     'activo',    'deudora',   'USD'),
+            ('1045', 'BBVA – Cuenta Corriente USD',    'activo',    'deudora',   'USD'),
+            ('1046', 'Scotiabank – Cuenta Corriente USD','activo',  'deudora',   'USD'),
+            ('1211', 'Clientes por liquidar',          'activo',    'deudora',   'PEN'),
+            # ── PASIVO ──────────────────────────────────────────────────────
+            ('4011', 'IR – Pago a cuenta mensual',     'pasivo',    'acreedora', 'PEN'),
+            ('4031', 'EsSalud por pagar',              'pasivo',    'acreedora', 'PEN'),
+            ('4032', 'AFP / ONP por pagar',            'pasivo',    'acreedora', 'PEN'),
+            ('4111', 'Sueldos por pagar',              'pasivo',    'acreedora', 'PEN'),
+            ('4699', 'Anticipos de clientes',          'pasivo',    'acreedora', 'PEN'),
+            # ── PATRIMONIO ──────────────────────────────────────────────────
+            ('501',  'Capital social',                 'patrimonio','acreedora', 'PEN'),
+            ('591',  'Utilidades acumuladas',          'patrimonio','acreedora', 'PEN'),
+            ('592',  'Pérdidas acumuladas',            'patrimonio','deudora',   'PEN'),
+            # ── INGRESOS ────────────────────────────────────────────────────
+            ('7711', 'Diferencial cambiario – Compra/Venta', 'ingreso', 'acreedora', 'PEN'),
+            ('7712', 'Otros ingresos financieros',     'ingreso',   'acreedora', 'PEN'),
+            # ── GASTOS ──────────────────────────────────────────────────────
+            ('621',  'Remuneraciones al personal',     'gasto',     'deudora',   'PEN'),
+            ('627',  'Seguridad social – EsSalud/AFP', 'gasto',     'deudora',   'PEN'),
+            ('6311', 'Transporte y delivery',          'gasto',     'deudora',   'PEN'),
+            ('6361', 'Energía / telecomunicaciones',   'gasto',     'deudora',   'PEN'),
+            ('6381', 'Honorarios (contador, legal)',   'gasto',     'deudora',   'PEN'),
+            ('6391', 'Comisiones bancarias / ITF',     'gasto',     'deudora',   'PEN'),
+            ('6392', 'Servicios de tecnología',        'gasto',     'deudora',   'PEN'),
+            ('6411', 'IR – Pago a cuenta (gasto)',     'gasto',     'deudora',   'PEN'),
+            ('6511', 'Otros gastos de gestión',        'gasto',     'deudora',   'PEN'),
+            ('6751', 'Pérdida por diferencia de cambio','gasto',    'deudora',   'PEN'),
+        ]
+
+        try:
+            created = 0
+            skipped = 0
+            for code, name, type_, nature, currency in ACCOUNTS:
+                existing = AccountingAccount.query.filter_by(code=code).first()
+                if existing:
+                    skipped += 1
+                    continue
+                acc = AccountingAccount(
+                    code=code, name=name, type=type_,
+                    nature=nature, currency=currency, is_active=True
+                )
+                db.session.add(acc)
+                created += 1
+            db.session.commit()
+            print(f"✓ seed-accounts: {created} cuentas creadas, {skipped} ya existían")
+        except Exception as e:
+            db.session.rollback()
+            print(f"✗ Error en seed-accounts: {e}")
+            traceback.print_exc()
+
     @app.cli.command("clear-complaints")
     def clear_complaints():
         """Elimina TODOS los reclamos de la tabla complaints (producción)."""

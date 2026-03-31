@@ -16,9 +16,17 @@ from app.models.competitor_rate import (
     CompetitorRateCurrent, CompetitorRateChangeEvent
 )
 from app.models.sanctions import SanctionsEntry
+from app.models.accounting_account import AccountingAccount
+from app.models.accounting_period import AccountingPeriod
+from app.models.journal_entry import JournalEntry
+from app.models.journal_entry_line import JournalEntryLine
+from app.models.expense_record import ExpenseRecord
 __all__ = [
     'User', 'Client', 'Operation', 'AuditLog', 'TraderGoal', 'TraderDailyProfit',
     'BankBalance', 'Invoice', 'ExchangeRate', 'Complaint',
     'Competitor', 'CompetitorRateHistory', 'CompetitorRateCurrent', 'CompetitorRateChangeEvent',
     'SanctionsEntry',
+    # Módulo contable
+    'AccountingAccount', 'AccountingPeriod',
+    'JournalEntry', 'JournalEntryLine', 'ExpenseRecord',
 ]

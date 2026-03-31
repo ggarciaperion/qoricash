@@ -408,6 +408,22 @@ class OperationService:
                 import logging
                 logging.error(f'Error en análisis de compliance para {operation.operation_id}: {str(e)}')
 
+        # CONTABILIDAD: Asiento automático al completar — completamente aislado
+        # Un fallo aquí NUNCA afecta el estado de la operación (ya fue commiteado)
+        if new_status == 'Completada':
+            try:
+                from app.services.accounting.journal_service import JournalService
+                JournalService.create_entry_for_completed_operation(
+                    operation,
+                    created_by_id=current_user.id,
+                )
+            except Exception as e:
+                import logging
+                logging.error(
+                    f'[Accounting] Error al registrar asiento contable '
+                    f'para {operation.operation_id}: {str(e)}'
+                )
+
         return True, f'Estado actualizado a {new_status}', operation
     
     @staticmethod
