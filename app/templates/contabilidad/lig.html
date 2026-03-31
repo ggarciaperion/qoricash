@@ -40,7 +40,7 @@
           </button>
         </div>
         <div class="col-auto ms-auto">
-          <span class="badge bg-success me-2">{{ ops|length }} ingresos</span>
+          <span class="badge bg-success me-2">{{ ingresos|length }} ingresos</span>
           <span class="badge bg-danger">{{ gastos|length }} gastos</span>
         </div>
       </form>
@@ -54,7 +54,7 @@
         <div class="card-body">
           <div class="text-muted small">Total Ingresos (S/)</div>
           <div class="fs-3 fw-bold text-success">{{ "%.2f"|format(total_ingresos) }}</div>
-          <div class="text-muted small">{{ ops|length }} operaciones completadas</div>
+          <div class="text-muted small">{{ ingresos|length }} líneas de ingreso (cuentas 7xxx)</div>
         </div>
       </div>
     </div>
@@ -86,7 +86,7 @@
     <li class="nav-item">
       <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tabIngresos">
         <i class="bi bi-arrow-down-circle me-1 text-success"></i>
-        Ingresos <span class="badge bg-success ms-1">{{ ops|length }}</span>
+        Ingresos <span class="badge bg-success ms-1">{{ ingresos|length }}</span>
       </button>
     </li>
     <li class="nav-item">
@@ -106,53 +106,46 @@
           <thead class="table-dark">
             <tr>
               <th style="width:45px;" class="text-center">N°</th>
-              <th>Fecha</th>
-              <th>Cliente</th>
-              <th>Doc.</th>
-              <th>Tipo Op.</th>
-              <th class="text-end">USD</th>
-              <th class="text-end">T.C.</th>
-              <th class="text-end">Importe S/</th>
-              <th>Referencia</th>
+              <th style="width:95px;">Fecha</th>
+              <th style="width:130px;">N° Asiento</th>
+              <th>Tipo de Ingreso</th>
+              <th style="width:90px;">Cuenta</th>
+              <th>Descripción</th>
+              <th class="text-end" style="width:130px;">Importe S/</th>
             </tr>
           </thead>
           <tbody>
-            {% for op in ops %}
+            {% for ing in ingresos %}
             <tr>
               <td class="text-center text-muted small">{{ loop.index }}</td>
-              <td>{{ op.completed_at.strftime('%d/%m/%Y') }}</td>
+              <td>{{ ing.fecha.strftime('%d/%m/%Y') }}</td>
+              <td><code class="small text-primary">{{ ing.entry_number }}</code></td>
               <td>
-                {% if op.client %}
-                  {{ op.client.full_name or op.client.razon_social or '—' }}
-                {% else %}—{% endif %}
+                <span class="badge bg-success bg-opacity-75">{{ ing.tipo_ingreso }}</span>
               </td>
-              <td class="text-muted small">
-                {% if op.client %}{{ op.client.dni or '—' }}{% else %}—{% endif %}
+              <td><code class="small">{{ ing.account_code }}</code></td>
+              <td class="text-truncate" style="max-width:280px;" title="{{ ing.description }}">
+                {{ ing.description }}
               </td>
-              <td>
-                <span class="badge {% if op.operation_type == 'Compra' %}bg-primary{% else %}bg-info text-dark{% endif %}">
-                  {{ op.operation_type }}
-                </span>
+              <td class="text-end fw-semibold text-success">
+                {{ "%.2f"|format(ing.importe|float) }}
               </td>
-              <td class="text-end">{{ "%.2f"|format(op.amount_usd|float) }}</td>
-              <td class="text-end">{{ "%.4f"|format(op.exchange_rate|float) }}</td>
-              <td class="text-end fw-semibold">{{ "%.2f"|format(op.amount_pen|float) }}</td>
-              <td><code class="small">{{ op.operation_id }}</code></td>
             </tr>
             {% else %}
             <tr>
-              <td colspan="9" class="text-center text-muted py-5">
-                No hay operaciones completadas en el período.
+              <td colspan="7" class="text-center text-muted py-5">
+                <i class="bi bi-inbox fs-2 d-block mb-2 opacity-25"></i>
+                No hay ingresos registrados en el período.<br>
+                <small>Los ingresos se generan automáticamente al contabilizar asientos con cuentas 7xxx (diferenciales cambiarios, ingresos por servicios, etc.)</small>
               </td>
             </tr>
             {% endfor %}
           </tbody>
-          {% if ops %}
+          {% if ingresos %}
           <tfoot class="table-success fw-bold">
             <tr>
-              <td colspan="7" class="text-end">TOTAL INGRESOS</td>
+              <td colspan="6" class="text-end">TOTAL INGRESOS</td>
               <td class="text-end">{{ "%.2f"|format(total_ingresos) }}</td>
-              <td></td>
             </tr>
           </tfoot>
           {% endif %}
@@ -221,10 +214,10 @@
 
   <div class="alert alert-info mt-4 small">
     <i class="bi bi-info-circle me-1"></i>
-    <strong>Nota SUNAT:</strong> El Libro de Ingresos y Gastos debe llevarse en moneda nacional (soles).
-    Para casas de cambio, los ingresos representan el monto total de las operaciones de intercambio
-    (exonerado de IGV por Apéndice II TUO Ley del IGV).
-    El IR se aplica sobre la <em>utilidad neta</em> — ver
+    <strong>Criterio contable:</strong> Para una casa de cambio, el <strong>ingreso real</strong>
+    es el diferencial cambiario (spread), registrado en las cuentas <strong>7711/7712 PCGE</strong>.
+    El movimiento bruto de divisas (compra/venta de USD) es un intercambio de activos, no un ingreso.
+    El IR MYPE Tributario se calcula sobre la utilidad neta — ver
     <a href="{{ url_for('contabilidad.resultados', year=selected_year, month=selected_month) }}">
       Estado de Resultados
     </a>.

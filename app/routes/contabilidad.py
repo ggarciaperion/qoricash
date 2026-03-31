@@ -729,34 +729,68 @@ def export_caja():
 
 # ── Libro de Ingresos y Gastos (LIG) ─────────────────────────────────────────
 
+_INGRESO_LABELS = {
+    '70': 'Ventas',
+    '71': 'Variación de inventarios',
+    '72': 'Producción de activo inmovilizado',
+    '73': 'Descuentos, rebajas y bonificaciones obtenidas',
+    '74': 'Descuentos, rebajas y bonificaciones concedidas',
+    '75': 'Otros ingresos de gestión',
+    '76': 'Ingresos excepcionales',
+    '77': 'Diferencial cambiario',
+    '78': 'Cargas cubiertas por provisiones',
+    '79': 'Cargas imputables a cuentas de costos y gastos',
+}
+
+
 @contabilidad_bp.route('/lig')
 @login_required
 @require_role('Master')
 def lig():
     """
     Libro de Ingresos y Gastos — formato SUNAT (RS 234-2006).
-    Ingresos: operaciones completadas del período.
-    Gastos: expense_records del período.
+    Ingresos: líneas de asientos con cuentas 7xxx (ingresos PCGE).
+    Gastos:   expense_records del período.
     """
-    from app.models.operation import Operation
+    from app.models.journal_entry import JournalEntry
+    from app.models.journal_entry_line import JournalEntryLine
     from app.models.expense_record import ExpenseRecord
     from app.models.accounting_period import AccountingPeriod
-    from sqlalchemy import extract
-    import calendar
+    from sqlalchemy import extract, func
 
     year  = request.args.get('year',  type=int, default=date.today().year)
     month = request.args.get('month', type=int, default=date.today().month)
 
-    # Rango de fechas del período
-    first_day = date(year, month, 1)
-    last_day  = date(year, month, calendar.monthrange(year, month)[1])
+    # Ingresos: líneas de cuentas 7xxx activas en el período
+    rows = db.session.query(
+        JournalEntry.entry_date,
+        JournalEntry.entry_number,
+        JournalEntry.description.label('entry_desc'),
+        JournalEntry.entry_type,
+        JournalEntryLine.account_code,
+        JournalEntryLine.description.label('line_desc'),
+        JournalEntryLine.haber,
+    ).join(
+        JournalEntry, JournalEntryLine.journal_entry_id == JournalEntry.id
+    ).filter(
+        JournalEntryLine.account_code.like('7%'),
+        JournalEntryLine.haber > 0,
+        extract('year',  JournalEntry.entry_date) == year,
+        extract('month', JournalEntry.entry_date) == month,
+        JournalEntry.status == 'activo',
+    ).order_by(
+        JournalEntry.entry_date.asc(), JournalEntry.id.asc()
+    ).all()
 
-    # Ingresos: operaciones completadas en el período
-    ops = Operation.query.filter(
-        Operation.status == 'Completada',
-        Operation.completed_at >= datetime.combine(first_day, datetime.min.time()),
-        Operation.completed_at <= datetime.combine(last_day, datetime.max.time()),
-    ).order_by(Operation.completed_at.asc()).all()
+    ingresos = [{
+        'fecha':        r.entry_date,
+        'entry_number': r.entry_number,
+        'entry_type':   r.entry_type,
+        'account_code': r.account_code,
+        'tipo_ingreso': _INGRESO_LABELS.get(r.account_code[:2], r.account_code),
+        'description':  r.line_desc or r.entry_desc,
+        'importe':      Decimal(str(r.haber or 0)),
+    } for r in rows]
 
     # Gastos: expense_records del período
     gastos = ExpenseRecord.query.filter(
@@ -764,8 +798,7 @@ def lig():
         extract('month', ExpenseRecord.expense_date) == month,
     ).order_by(ExpenseRecord.expense_date.asc()).all()
 
-    # Totales
-    total_ingresos = sum(float(o.amount_pen or 0) for o in ops)
+    total_ingresos = sum(float(i['importe']) for i in ingresos)
     total_gastos   = sum(float(g.amount_pen or 0) for g in gastos)
 
     periods = AccountingPeriod.query.order_by(
@@ -774,7 +807,7 @@ def lig():
 
     return render_template(
         'contabilidad/lig.html',
-        ops=ops,
+        ingresos=ingresos,
         gastos=gastos,
         total_ingresos=total_ingresos,
         total_gastos=total_gastos,
@@ -790,23 +823,40 @@ def lig():
 @require_role('Master')
 def export_lig():
     """Exporta el LIG en Excel con dos hojas: Ingresos y Gastos."""
-    from app.models.operation import Operation
+    from app.models.journal_entry import JournalEntry
+    from app.models.journal_entry_line import JournalEntryLine
     from app.models.expense_record import ExpenseRecord
-    import calendar
+    from sqlalchemy import extract as sa_extract
 
     year  = request.args.get('year',  type=int, default=date.today().year)
     month = request.args.get('month', type=int, default=date.today().month)
 
-    first_day = date(year, month, 1)
-    last_day  = date(year, month, calendar.monthrange(year, month)[1])
+    rows = db.session.query(
+        JournalEntry.entry_date,
+        JournalEntry.entry_number,
+        JournalEntry.description.label('entry_desc'),
+        JournalEntryLine.account_code,
+        JournalEntryLine.description.label('line_desc'),
+        JournalEntryLine.haber,
+    ).join(
+        JournalEntry, JournalEntryLine.journal_entry_id == JournalEntry.id
+    ).filter(
+        JournalEntryLine.account_code.like('7%'),
+        JournalEntryLine.haber > 0,
+        sa_extract('year',  JournalEntry.entry_date) == year,
+        sa_extract('month', JournalEntry.entry_date) == month,
+        JournalEntry.status == 'activo',
+    ).order_by(JournalEntry.entry_date.asc(), JournalEntry.id.asc()).all()
 
-    ops = Operation.query.filter(
-        Operation.status == 'Completada',
-        Operation.completed_at >= datetime.combine(first_day, datetime.min.time()),
-        Operation.completed_at <= datetime.combine(last_day, datetime.max.time()),
-    ).order_by(Operation.completed_at.asc()).all()
+    ingresos = [{
+        'fecha':        r.entry_date,
+        'entry_number': r.entry_number,
+        'account_code': r.account_code,
+        'tipo_ingreso': _INGRESO_LABELS.get(r.account_code[:2], r.account_code),
+        'description':  r.line_desc or r.entry_desc,
+        'importe':      float(r.haber or 0),
+    } for r in rows]
 
-    from sqlalchemy import extract as sa_extract
     gastos = ExpenseRecord.query.filter(
         sa_extract('year',  ExpenseRecord.expense_date) == year,
         sa_extract('month', ExpenseRecord.expense_date) == month,
@@ -820,26 +870,26 @@ def export_lig():
     thin  = Side(style='thin')
     bdr   = Border(left=thin, right=thin, top=thin, bottom=thin)
 
-    def title_rows(ws, titulo):
-        ws.merge_cells('A1:I1')
+    def title_rows(ws, titulo, ncols):
+        col_letter = openpyxl.utils.get_column_letter(ncols)
+        ws.merge_cells(f'A1:{col_letter}1')
         ws['A1'] = 'QORICASH TRADING S.A.C.'
         ws['A1'].font = Font(bold=True, size=12)
         ws['A1'].alignment = center
-        ws.merge_cells('A2:I2')
+        ws.merge_cells(f'A2:{col_letter}2')
         ws['A2'] = titulo
         ws['A2'].font = Font(bold=True)
         ws['A2'].alignment = center
-        ws.merge_cells('A3:I3')
+        ws.merge_cells(f'A3:{col_letter}3')
         ws['A3'] = f'Período: {_month_name(month)} {year}  —  R.M. MYPE Tributario'
         ws['A3'].alignment = center
 
     # ── Hoja 1: INGRESOS ──────────────────────────────────────────────────────
     ws1 = wb.active
     ws1.title = 'Ingresos'
-    title_rows(ws1, f'LIBRO DE INGRESOS — {_month_name(month).upper()} {year}')
+    title_rows(ws1, f'LIBRO DE INGRESOS — {_month_name(month).upper()} {year}', 6)
 
-    hdrs = ['N°', 'Fecha', 'Nombre / Razón Social', 'Doc. Identidad',
-            'Tipo Op.', 'Importe USD', 'T.C.', 'Importe S/', 'Referencia']
+    hdrs = ['N°', 'Fecha', 'N° Asiento', 'Tipo de Ingreso', 'Cuenta PCGE', 'Descripción', 'Importe S/']
     for c, h in enumerate(hdrs, 1):
         cell = ws1.cell(row=5, column=c, value=h)
         cell.fill = header_fill
@@ -848,31 +898,23 @@ def export_lig():
         cell.border = bdr
 
     row = 6
-    for n, op in enumerate(ops, 1):
-        client = op.client
-        if client:
-            nombre = client.full_name or client.razon_social or '—'
-            doc_id = client.dni or '—'
-        else:
-            nombre, doc_id = '—', '—'
+    for n, ing in enumerate(ingresos, 1):
         ws1.cell(row=row, column=1, value=n).border = bdr
-        ws1.cell(row=row, column=2, value=op.completed_at.strftime('%d/%m/%Y')).border = bdr
-        ws1.cell(row=row, column=3, value=nombre).border = bdr
-        ws1.cell(row=row, column=4, value=doc_id).border = bdr
-        ws1.cell(row=row, column=5, value=op.operation_type).border = bdr
-        ws1.cell(row=row, column=6, value=float(op.amount_usd or 0)).border = bdr
-        ws1.cell(row=row, column=7, value=float(op.exchange_rate or 0)).border = bdr
-        ws1.cell(row=row, column=8, value=float(op.amount_pen or 0)).border = bdr
-        ws1.cell(row=row, column=9, value=op.operation_id).border = bdr
+        ws1.cell(row=row, column=2, value=ing['fecha'].strftime('%d/%m/%Y')).border = bdr
+        ws1.cell(row=row, column=3, value=ing['entry_number']).border = bdr
+        ws1.cell(row=row, column=4, value=ing['tipo_ingreso']).border = bdr
+        ws1.cell(row=row, column=5, value=ing['account_code']).border = bdr
+        ws1.cell(row=row, column=6, value=ing['description']).border = bdr
+        ws1.cell(row=row, column=7, value=ing['importe']).border = bdr
         row += 1
 
     # Fila de total
-    ws1.cell(row=row, column=7, value='TOTAL').font = Font(bold=True)
-    total_i = sum(float(o.amount_pen or 0) for o in ops)
-    ws1.cell(row=row, column=8, value=total_i).font = Font(bold=True)
-    ws1.cell(row=row, column=8).fill = PatternFill(start_color='D4EDDA', end_color='D4EDDA', fill_type='solid')
+    ws1.cell(row=row, column=6, value='TOTAL').font = Font(bold=True)
+    total_i = sum(i['importe'] for i in ingresos)
+    ws1.cell(row=row, column=7, value=total_i).font = Font(bold=True)
+    ws1.cell(row=row, column=7).fill = PatternFill(start_color='D4EDDA', end_color='D4EDDA', fill_type='solid')
 
-    widths1 = [5, 12, 36, 14, 10, 12, 8, 14, 16]
+    widths1 = [5, 12, 16, 28, 12, 54, 14]
     for i, w in enumerate(widths1, 1):
         ws1.column_dimensions[openpyxl.utils.get_column_letter(i)].width = w
 
