@@ -482,6 +482,251 @@ def cerrar_periodo():
     return jsonify({'success': success, 'message': message})
 
 
+# ── Libro Caja y Bancos ────────────────────────────────────────────────────────
+
+# Mapa código PCGE → etiqueta legible
+_ACCOUNT_LABELS = {
+    '1011': ('Caja MN',        'PEN', 'efectivo'),
+    '1012': ('Caja ME',        'USD', 'efectivo'),
+    '1041': ('BCP PEN',        'PEN', 'banco'),
+    '1042': ('BBVA PEN',       'PEN', 'banco'),
+    '1043': ('Scotiabank PEN', 'PEN', 'banco'),
+    '1044': ('BCP USD',        'USD', 'banco'),
+    '1045': ('BBVA USD',       'USD', 'banco'),
+    '1046': ('Scotiabank USD', 'USD', 'banco'),
+}
+
+# Cómo relacionar PCGE code → bank_name para conciliación
+_CODE_TO_BANK = {
+    '1041': 'BCP',  '1044': 'BCP',
+    '1042': 'BBVA', '1045': 'BBVA',
+    '1043': 'SCOTIABANK', '1046': 'SCOTIABANK',
+}
+
+
+def _caja_movimientos(year: int, month: int, account_code: str):
+    """
+    Retorna lista de movimientos de una cuenta en el período, ordenados por fecha.
+    Cada item: {date, entry_number, description, debe, haber, saldo_acum}
+    También retorna saldo_anterior (suma hasta fin del mes previo).
+    """
+    from app.models.journal_entry import JournalEntry
+    from app.models.journal_entry_line import JournalEntryLine
+    from sqlalchemy import func, extract
+    import calendar
+
+    # Saldo anterior = todo lo contabilizado antes del período actual
+    first_day = date(year, month, 1)
+    prev = db.session.query(
+        func.sum(JournalEntryLine.debe).label('d'),
+        func.sum(JournalEntryLine.haber).label('h'),
+    ).join(JournalEntry, JournalEntryLine.journal_entry_id == JournalEntry.id
+    ).filter(
+        JournalEntryLine.account_code == account_code,
+        JournalEntry.entry_date < first_day,
+        JournalEntry.status == 'activo',
+    ).first()
+
+    saldo_ant = Decimal(str(prev.d or 0)) - Decimal(str(prev.h or 0))
+
+    # Movimientos del período
+    rows = db.session.query(
+        JournalEntry.entry_date,
+        JournalEntry.entry_number,
+        JournalEntry.description.label('entry_desc'),
+        JournalEntryLine.description.label('line_desc'),
+        JournalEntryLine.debe,
+        JournalEntryLine.haber,
+    ).join(JournalEntry, JournalEntryLine.journal_entry_id == JournalEntry.id
+    ).filter(
+        JournalEntryLine.account_code == account_code,
+        extract('year',  JournalEntry.entry_date) == year,
+        extract('month', JournalEntry.entry_date) == month,
+        JournalEntry.status == 'activo',
+    ).order_by(
+        JournalEntry.entry_date.asc(), JournalEntry.id.asc()
+    ).all()
+
+    movs = []
+    saldo = saldo_ant
+    for r in rows:
+        debe  = Decimal(str(r.debe  or 0))
+        haber = Decimal(str(r.haber or 0))
+        saldo += debe - haber
+        movs.append({
+            'date':         r.entry_date,
+            'entry_number': r.entry_number,
+            'description':  r.line_desc or r.entry_desc,
+            'debe':         debe,
+            'haber':        haber,
+            'saldo':        saldo,
+        })
+
+    total_debe  = sum(m['debe']  for m in movs)
+    total_haber = sum(m['haber'] for m in movs)
+
+    return {
+        'code':        account_code,
+        'label':       _ACCOUNT_LABELS.get(account_code, (f'Cta. {account_code}', 'PEN', 'otro'))[0],
+        'currency':    _ACCOUNT_LABELS.get(account_code, ('', 'PEN', ''))[1],
+        'kind':        _ACCOUNT_LABELS.get(account_code, ('', '', 'otro'))[2],
+        'saldo_ant':   saldo_ant,
+        'movimientos': movs,
+        'total_debe':  total_debe,
+        'total_haber': total_haber,
+        'saldo_final': saldo_ant + total_debe - total_haber,
+    }
+
+
+@contabilidad_bp.route('/caja')
+@login_required
+@require_role('Master')
+def caja():
+    from app.models.bank_balance import BankBalance
+    from app.models.accounting_period import AccountingPeriod
+    from app.models.journal_entry_line import JournalEntryLine
+    from app.models.journal_entry import JournalEntry
+    from sqlalchemy import func, extract
+
+    year  = request.args.get('year',  type=int, default=date.today().year)
+    month = request.args.get('month', type=int, default=date.today().month)
+
+    # Determinar qué cuentas tienen movimiento en el período o saldo anterior
+    used_codes = {r[0] for r in db.session.query(JournalEntryLine.account_code).join(
+        JournalEntry, JournalEntryLine.journal_entry_id == JournalEntry.id
+    ).filter(
+        JournalEntry.status == 'activo',
+    ).distinct().all()} & set(_ACCOUNT_LABELS.keys())
+
+    # Si no hay nada en la DB, mostrar todas de todas formas
+    codes_to_show = sorted(used_codes) if used_codes else sorted(_ACCOUNT_LABELS.keys())
+
+    accounts = [_caja_movimientos(year, month, code) for code in codes_to_show]
+    # Solo mostrar cuentas con saldo anterior != 0 o con movimientos en el período
+    accounts = [a for a in accounts if a['movimientos'] or a['saldo_ant'] != 0]
+
+    # Saldos reales del módulo de posición (para conciliación)
+    bank_balances = {b.bank_name.upper(): b for b in BankBalance.query.all()}
+
+    periods = AccountingPeriod.query.order_by(
+        AccountingPeriod.year.desc(), AccountingPeriod.month.desc()
+    ).all()
+
+    return render_template(
+        'contabilidad/caja.html',
+        accounts=accounts,
+        bank_balances=bank_balances,
+        CODE_TO_BANK=_CODE_TO_BANK,
+        periods=periods,
+        selected_year=year,
+        selected_month=month,
+        user=current_user,
+    )
+
+
+@contabilidad_bp.route('/caja/export')
+@login_required
+@require_role('Master')
+def export_caja():
+    from app.models.bank_balance import BankBalance
+    from app.models.journal_entry_line import JournalEntryLine
+    from app.models.journal_entry import JournalEntry
+
+    year  = request.args.get('year',  type=int, default=date.today().year)
+    month = request.args.get('month', type=int, default=date.today().month)
+
+    used_codes = {r[0] for r in db.session.query(JournalEntryLine.account_code).join(
+        JournalEntry, JournalEntryLine.journal_entry_id == JournalEntry.id
+    ).filter(JournalEntry.status == 'activo').distinct().all()} & set(_ACCOUNT_LABELS.keys())
+
+    codes = sorted(used_codes) if used_codes else sorted(_ACCOUNT_LABELS.keys())
+    accounts = [_caja_movimientos(year, month, c) for c in codes]
+    accounts = [a for a in accounts if a['movimientos'] or a['saldo_ant'] != 0]
+
+    wb = openpyxl.Workbook()
+    wb.remove(wb.active)  # quitamos hoja vacía default
+
+    hfill  = PatternFill(start_color='1B3A6B', end_color='1B3A6B', fill_type='solid')
+    sfill  = PatternFill(start_color='D6E4F0', end_color='D6E4F0', fill_type='solid')
+    tfill  = PatternFill(start_color='E8F5E9', end_color='E8F5E9', fill_type='solid')
+    thin   = Side(style='thin')
+    bdr    = Border(left=thin, right=thin, top=thin, bottom=thin)
+
+    for acc in accounts:
+        ws = wb.create_sheet(f"{acc['code']} {acc['label']}"[:31])
+
+        # Título
+        ws.merge_cells('A1:F1')
+        ws['A1'] = 'QORICASH TRADING S.A.C.'
+        ws['A1'].font = Font(bold=True, size=12)
+        ws['A1'].alignment = Alignment(horizontal='center')
+        ws.merge_cells('A2:F2')
+        ws['A2'] = (f"LIBRO CAJA Y BANCOS — {acc['code']} {acc['label']} "
+                    f"({acc['currency']}) — {_month_name(month)} {year}")
+        ws['A2'].font = Font(bold=True)
+        ws['A2'].alignment = Alignment(horizontal='center')
+
+        # Saldo anterior
+        ws.merge_cells('A4:D4')
+        ws['A4'] = 'SALDO ANTERIOR (al inicio del período)'
+        ws['A4'].font = Font(bold=True)
+        ws['A4'].fill = sfill
+        ws['E4'] = float(max(acc['saldo_ant'], Decimal('0')))
+        ws['F4'] = float(max(-acc['saldo_ant'], Decimal('0')))
+        for c in 'ABCDEF':
+            ws[f'{c}4'].border = bdr
+
+        # Headers
+        hdrs = ['N°', 'Fecha', 'N° Asiento', 'Descripción', 'DEBE', 'HABER', 'SALDO']
+        for col, h in enumerate(hdrs, 1):
+            cell = ws.cell(row=5, column=col, value=h)
+            cell.fill = hfill
+            cell.font = Font(bold=True, color='FFFFFF')
+            cell.alignment = Alignment(horizontal='center')
+            cell.border = bdr
+
+        row = 6
+        for n, m in enumerate(acc['movimientos'], 1):
+            ws.cell(row=row, column=1, value=n).border = bdr
+            ws.cell(row=row, column=2, value=m['date'].strftime('%d/%m/%Y')).border = bdr
+            ws.cell(row=row, column=3, value=m['entry_number']).border = bdr
+            ws.cell(row=row, column=4, value=m['description']).border = bdr
+            ws.cell(row=row, column=5, value=float(m['debe'])).border = bdr
+            ws.cell(row=row, column=6, value=float(m['haber'])).border = bdr
+            ws.cell(row=row, column=7, value=float(m['saldo'])).border = bdr
+            row += 1
+
+        # Totales
+        ws.cell(row=row, column=4, value='TOTAL DEL PERÍODO').font = Font(bold=True)
+        ws.cell(row=row, column=5, value=float(acc['total_debe'])).font  = Font(bold=True)
+        ws.cell(row=row, column=6, value=float(acc['total_haber'])).font = Font(bold=True)
+        for c in range(1, 8):
+            ws.cell(row=row, column=c).fill   = tfill
+            ws.cell(row=row, column=c).border = bdr
+        row += 1
+
+        ws.cell(row=row, column=4, value='SALDO FINAL').font = Font(bold=True)
+        ws.cell(row=row, column=7, value=float(acc['saldo_final'])).font = Font(bold=True)
+        for c in range(1, 8):
+            ws.cell(row=row, column=c).border = bdr
+
+        widths = [5, 12, 16, 54, 14, 14, 14]
+        for i, w in enumerate(widths, 1):
+            ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = w
+
+    if not wb.worksheets:
+        ws = wb.create_sheet('Sin movimientos')
+        ws['A1'] = 'No hay movimientos en cuentas de caja/bancos para el período seleccionado.'
+
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+    return send_file(output,
+                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                     as_attachment=True,
+                     download_name=f'libro_caja_bancos_{year}{month:02d}.xlsx')
+
+
 # ── Libro de Ingresos y Gastos (LIG) ─────────────────────────────────────────
 
 @contabilidad_bp.route('/lig')

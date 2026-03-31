@@ -152,6 +152,11 @@
                 <i class="bi bi-book"></i>
                 <span class="sidebar-link-text">Libro I&amp;G</span>
             </a>
+            <a class="sidebar-link {% if request.endpoint == 'contabilidad.caja' %}active{% endif %}"
+               href="{{ url_for('contabilidad.caja') }}">
+                <i class="bi bi-bank"></i>
+                <span class="sidebar-link-text">Caja y Bancos</span>
+            </a>
             <a class="sidebar-link {% if request.endpoint == 'contabilidad.gastos' %}active{% endif %}"
                href="{{ url_for('contabilidad.gastos') }}">
                 <i class="bi bi-receipt"></i>

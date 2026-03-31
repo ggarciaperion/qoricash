@@ -1,0 +1,232 @@
+{% extends "base.html" %}
+{% block title %}Libro Caja y Bancos — QoriCash{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h2 class="mb-0"><i class="bi bi-bank me-2"></i>Libro Caja y Bancos</h2>
+      <small class="text-muted">Movimientos por cuenta — cuentas 101x y 104x PCGE</small>
+    </div>
+    <a href="{{ url_for('contabilidad.export_caja', year=selected_year, month=selected_month) }}"
+       class="btn btn-success">
+      <i class="bi bi-file-earmark-excel me-1"></i>Exportar Excel
+    </a>
+  </div>
+
+  <!-- Filtros -->
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-body">
+      <form method="get" class="row g-2 align-items-end">
+        <div class="col-auto">
+          <label class="form-label form-label-sm mb-1">Año</label>
+          <input type="number" name="year" class="form-control form-control-sm"
+                 value="{{ selected_year }}" min="2020" max="2099" style="width:90px;">
+        </div>
+        <div class="col-auto">
+          <label class="form-label form-label-sm mb-1">Mes</label>
+          <select name="month" class="form-select form-select-sm" style="width:130px;">
+            {% for m in range(1,13) %}
+            <option value="{{ m }}" {% if m == selected_month %}selected{% endif %}>
+              {{ ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][m-1] }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-auto">
+          <button type="submit" class="btn btn-primary btn-sm">
+            <i class="bi bi-search"></i> Filtrar
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  {% if not accounts %}
+  <div class="text-center text-muted py-5">
+    <i class="bi bi-bank fs-1 d-block mb-3 opacity-25"></i>
+    No hay movimientos en cuentas de caja/bancos para el período seleccionado.<br>
+    <small>Los movimientos se generan automáticamente al completar operaciones.</small>
+  </div>
+  {% endif %}
+
+  <!-- Una card por cuenta con sus movimientos -->
+  {% for acc in accounts %}
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center
+                {% if acc.kind == 'efectivo' %}bg-warning text-dark{% else %}bg-primary text-white{% endif %}">
+      <div>
+        <span class="fw-bold fs-6">
+          <code class="{% if acc.kind == 'efectivo' %}text-dark{% else %}text-white{% endif %}">
+            {{ acc.code }}
+          </code>
+          — {{ acc.label }}
+          <span class="badge bg-light text-dark ms-2">{{ acc.currency }}</span>
+        </span>
+      </div>
+      <div class="text-end small">
+        <span class="me-3">Saldo anterior: <strong>{{ "%.2f"|format(acc.saldo_ant|float) }}</strong></span>
+        <span class="me-3">Saldo final: <strong>{{ "%.2f"|format(acc.saldo_final|float) }}</strong></span>
+        {% if acc.code in CODE_TO_BANK and bank_balances %}
+          {% set banco = CODE_TO_BANK[acc.code] %}
+          {% set bb = bank_balances.get(banco) %}
+          {% if bb %}
+            {% if acc.currency == 'PEN' %}
+              {% set real = bb.balance_pen|float %}
+            {% else %}
+              {% set real = bb.balance_usd|float %}
+            {% endif %}
+            {% set diff = (acc.saldo_final|float - real)|abs %}
+            <span class="badge {% if diff < 0.01 %}bg-success{% else %}bg-warning text-dark{% endif %}">
+              Real: {{ "%.2f"|format(real) }}
+              {% if diff >= 0.01 %} | Δ {{ "%.2f"|format(diff) }}{% endif %}
+            </span>
+          {% endif %}
+        {% endif %}
+      </div>
+    </div>
+
+    {% if acc.movimientos %}
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover table-sm mb-0 align-middle">
+          <thead class="table-light">
+            <tr>
+              <th class="text-center" style="width:45px;">N°</th>
+              <th style="width:95px;">Fecha</th>
+              <th style="width:130px;">N° Asiento</th>
+              <th>Descripción</th>
+              <th class="text-end" style="width:120px;">DEBE (S/)</th>
+              <th class="text-end" style="width:120px;">HABER (S/)</th>
+              <th class="text-end" style="width:130px;">SALDO</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- Fila de saldo anterior -->
+            <tr class="table-info fw-semibold">
+              <td></td>
+              <td colspan="3">Saldo anterior al período</td>
+              <td></td>
+              <td></td>
+              <td class="text-end">{{ "%.2f"|format(acc.saldo_ant|float) }}</td>
+            </tr>
+            {% for m in acc.movimientos %}
+            <tr>
+              <td class="text-center text-muted small">{{ loop.index }}</td>
+              <td>{{ m.date.strftime('%d/%m/%Y') }}</td>
+              <td><code class="small text-primary">{{ m.entry_number }}</code></td>
+              <td class="text-truncate" style="max-width:340px;" title="{{ m.description }}">
+                {{ m.description }}
+              </td>
+              <td class="text-end">
+                {% if m.debe > 0 %}
+                  <span class="text-success fw-semibold">{{ "%.2f"|format(m.debe|float) }}</span>
+                {% endif %}
+              </td>
+              <td class="text-end">
+                {% if m.haber > 0 %}
+                  <span class="text-danger fw-semibold">{{ "%.2f"|format(m.haber|float) }}</span>
+                {% endif %}
+              </td>
+              <td class="text-end fw-semibold {% if m.saldo < 0 %}text-danger{% endif %}">
+                {{ "%.2f"|format(m.saldo|float) }}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+          <tfoot class="table-secondary fw-bold">
+            <tr>
+              <td colspan="4" class="text-end">TOTAL DEL PERÍODO</td>
+              <td class="text-end text-success">{{ "%.2f"|format(acc.total_debe|float) }}</td>
+              <td class="text-end text-danger">{{ "%.2f"|format(acc.total_haber|float) }}</td>
+              <td></td>
+            </tr>
+            <tr class="table-dark">
+              <td colspan="6" class="text-end">SALDO FINAL</td>
+              <td class="text-end fs-6">{{ "%.2f"|format(acc.saldo_final|float) }}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+    {% else %}
+    <div class="card-body text-muted text-center py-3">
+      Sin movimientos en el período — saldo anterior: <strong>{{ "%.2f"|format(acc.saldo_ant|float) }}</strong>
+    </div>
+    {% endif %}
+  </div>
+  {% endfor %}
+
+  <!-- Conciliación bancaria resumida -->
+  {% if bank_balances %}
+  <div class="card border-0 shadow-sm mt-2">
+    <div class="card-header bg-dark text-white">
+      <h6 class="mb-0"><i class="bi bi-arrow-left-right me-2"></i>Conciliación — Saldos contables vs. Posición real</h6>
+    </div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-sm table-hover mb-0">
+          <thead class="table-secondary">
+            <tr>
+              <th>Cuenta PCGE</th>
+              <th>Descripción</th>
+              <th>Moneda</th>
+              <th class="text-end">Saldo contable</th>
+              <th class="text-end">Saldo real (posición)</th>
+              <th class="text-end">Diferencia</th>
+              <th class="text-center">Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for acc in accounts if acc.code in CODE_TO_BANK %}
+              {% set banco = CODE_TO_BANK[acc.code] %}
+              {% set bb = bank_balances.get(banco) %}
+              {% if bb %}
+                {% if acc.currency == 'PEN' %}
+                  {% set real = bb.balance_pen|float %}
+                {% else %}
+                  {% set real = bb.balance_usd|float %}
+                {% endif %}
+                {% set contable = acc.saldo_final|float %}
+                {% set diff = contable - real %}
+            <tr>
+              <td><code>{{ acc.code }}</code></td>
+              <td>{{ acc.label }}</td>
+              <td><span class="badge bg-light text-dark">{{ acc.currency }}</span></td>
+              <td class="text-end">{{ "%.2f"|format(contable) }}</td>
+              <td class="text-end">{{ "%.2f"|format(real) }}</td>
+              <td class="text-end {% if diff|abs < 0.01 %}text-success{% else %}text-danger fw-bold{% endif %}">
+                {% if diff|abs < 0.01 %}—{% else %}{{ "%.2f"|format(diff) }}{% endif %}
+              </td>
+              <td class="text-center">
+                {% if diff|abs < 0.01 %}
+                  <span class="badge bg-success"><i class="bi bi-check-circle"></i> Cuadra</span>
+                {% else %}
+                  <span class="badge bg-danger"><i class="bi bi-exclamation-circle"></i> Descuadre</span>
+                {% endif %}
+              </td>
+            </tr>
+              {% endif %}
+            {% else %}
+            <tr>
+              <td colspan="7" class="text-center text-muted py-3">
+                No hay cuentas bancarias con movimiento en el período.
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card-footer bg-light small text-muted">
+      <i class="bi bi-info-circle me-1"></i>
+      "Saldo contable" = suma acumulada de asientos del Libro Diario.
+      "Saldo real" = saldo registrado en el módulo de Posición Bancaria.
+      Un descuadre puede indicar movimientos no contabilizados.
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
