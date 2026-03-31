@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+{% block title %}Libro Mayor — QoriCash{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h2 class="mb-0"><i class="bi bi-journals me-2"></i>Libro Mayor</h2>
+      <small class="text-muted">Movimientos por cuenta PCGE con saldo acumulado</small>
+    </div>
+    <a href="{{ url_for('contabilidad.export_mayor', year=selected_year, month=selected_month) }}"
+       class="btn btn-success">
+      <i class="bi bi-file-earmark-excel me-1"></i>Exportar Excel
+    </a>
+  </div>
+
+  <!-- Filtros -->
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-body">
+      <form method="get" class="row g-2 align-items-end">
+        <div class="col-auto">
+          <label class="form-label form-label-sm mb-1">Año</label>
+          <input type="number" name="year" class="form-control form-control-sm"
+                 value="{{ selected_year }}" min="2020" max="2099" style="width:90px;">
+        </div>
+        <div class="col-auto">
+          <label class="form-label form-label-sm mb-1">Mes</label>
+          <select name="month" class="form-select form-select-sm" style="width:130px;">
+            {% for m in range(1,13) %}
+            <option value="{{ m }}" {% if m == selected_month %}selected{% endif %}>
+              {{ ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][m-1] }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-auto">
+          <button type="submit" class="btn btn-primary btn-sm">
+            <i class="bi bi-search"></i> Filtrar
+          </button>
+        </div>
+        <div class="col-auto ms-auto">
+          <span class="badge bg-secondary">{{ cuentas|length }} cuentas con movimientos</span>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  {% if not cuentas %}
+  <div class="alert alert-info">
+    <i class="bi bi-info-circle me-1"></i>
+    No hay asientos contabilizados en este período.
+  </div>
+  {% else %}
+
+  <!-- Acordeón por cuenta -->
+  <div class="accordion shadow-sm" id="mayorAccordion">
+    {% for cta in cuentas %}
+    {% set cta_id = 'cta_' ~ loop.index %}
+    <div class="accordion-item border-0 mb-2 rounded overflow-hidden shadow-sm">
+      <h2 class="accordion-header">
+        <button class="accordion-button {% if not loop.first %}collapsed{% endif %} py-3"
+                type="button" data-bs-toggle="collapse"
+                data-bs-target="#{{ cta_id }}">
+          <div class="d-flex align-items-center gap-3 w-100">
+            <code class="fs-6 text-primary fw-bold" style="min-width:60px;">{{ cta.code }}</code>
+            <span class="fw-semibold">{{ cta.name }}</span>
+            <span class="badge bg-light text-dark ms-1">{{ cta.type }}</span>
+            <div class="ms-auto d-flex gap-3 text-end pe-2">
+              <div class="small">
+                <div class="text-muted" style="font-size:.7rem;">DEBE</div>
+                <div class="text-success fw-semibold">{{ "%.2f"|format(cta.total_debe|float) }}</div>
+              </div>
+              <div class="small">
+                <div class="text-muted" style="font-size:.7rem;">HABER</div>
+                <div class="text-danger fw-semibold">{{ "%.2f"|format(cta.total_haber|float) }}</div>
+              </div>
+              <div class="small">
+                <div class="text-muted" style="font-size:.7rem;">SALDO</div>
+                <div class="fw-bold {% if cta.saldo_final >= 0 %}text-primary{% else %}text-warning{% endif %}">
+                  {{ "%.2f"|format(cta.saldo_final|float) }}
+                </div>
+              </div>
+            </div>
+          </div>
+        </button>
+      </h2>
+      <div id="{{ cta_id }}" class="accordion-collapse collapse {% if loop.first %}show{% endif %}">
+        <div class="accordion-body p-0">
+          <div class="table-responsive">
+            <table class="table table-hover table-sm mb-0 align-middle">
+              <thead class="table-light">
+                <tr>
+                  <th style="width:100px;">Fecha</th>
+                  <th style="width:140px;">N° Asiento</th>
+                  <th>Descripción</th>
+                  <th class="text-end" style="width:115px;">DEBE S/</th>
+                  <th class="text-end" style="width:115px;">HABER S/</th>
+                  <th class="text-end" style="width:115px;">Saldo S/</th>
+                  <th class="text-center" style="width:40px;">D/A</th>
+                </tr>
+              </thead>
+              <tbody>
+                <!-- Saldo anterior -->
+                <tr class="table-secondary">
+                  <td colspan="2" class="text-muted small fst-italic">Saldo anterior</td>
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                  <td class="text-end fw-semibold">{{ "%.2f"|format(cta.saldo_ant|float) }}</td>
+                  <td class="text-center small">
+                    {% if cta.saldo_ant >= 0 %}D{% else %}A{% endif %}
+                  </td>
+                </tr>
+                <!-- Movimientos del período -->
+                {% for mov in cta.movimientos %}
+                <tr>
+                  <td class="small">{{ mov.date.strftime('%d/%m/%Y') }}</td>
+                  <td><code class="small text-primary">{{ mov.entry_number }}</code></td>
+                  <td class="text-truncate" style="max-width:320px;" title="{{ mov.description }}">
+                    {{ mov.description }}
+                  </td>
+                  <td class="text-end {% if mov.debe > 0 %}text-success{% else %}text-muted{% endif %}">
+                    {% if mov.debe > 0 %}{{ "%.2f"|format(mov.debe|float) }}{% endif %}
+                  </td>
+                  <td class="text-end {% if mov.haber > 0 %}text-danger{% else %}text-muted{% endif %}">
+                    {% if mov.haber > 0 %}{{ "%.2f"|format(mov.haber|float) }}{% endif %}
+                  </td>
+                  <td class="text-end fw-semibold">{{ "%.2f"|format(mov.saldo|float) }}</td>
+                  <td class="text-center small text-muted">
+                    {% if mov.saldo >= 0 %}D{% else %}A{% endif %}
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+              <tfoot class="table-dark fw-bold">
+                <tr>
+                  <td colspan="3" class="text-end">TOTALES DEL PERÍODO</td>
+                  <td class="text-end text-success">{{ "%.2f"|format(cta.total_debe|float) }}</td>
+                  <td class="text-end text-danger">{{ "%.2f"|format(cta.total_haber|float) }}</td>
+                  <td class="text-end">{{ "%.2f"|format(cta.saldo_final|float) }}</td>
+                  <td class="text-center">
+                    {% if cta.saldo_final >= 0 %}D{% else %}A{% endif %}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% endif %}
+
+  <div class="alert alert-info mt-4 small">
+    <i class="bi bi-info-circle me-1"></i>
+    <strong>D</strong> = Saldo deudor (naturaleza deudora) &nbsp;|&nbsp;
+    <strong>A</strong> = Saldo acreedor (naturaleza acreedora).
+    El Libro Mayor agrupa los asientos del Libro Diario por cuenta PCGE y muestra
+    el saldo acumulado con arrastre desde períodos anteriores.
+  </div>
+
+</div>
+{% endblock %}

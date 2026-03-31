@@ -534,6 +534,68 @@ def get_bank_reconciliation():
         # Detectar descuadres críticos (diferencia > $100 o S/300)
         has_critical_discrepancy = abs(total_difference_usd) > 100 or abs(total_difference_pen) > 300
 
+        # ── C-02: Comparar saldo real vs saldo contable (Libro Mayor) ─────────
+        # Mapeo banco → código PCGE para cruzar con JournalEntryLine
+        _BANK_PCGE = {
+            'BCP':        {'PEN': '1041', 'USD': '1044'},
+            'BBVA':       {'PEN': '1042', 'USD': '1045'},
+            'SCOTIABANK': {'PEN': '1043', 'USD': '1046'},
+            'INTERBANK':  {'PEN': '1048', 'USD': '1047'},
+            'BANBIF':     {'PEN': '1049', 'USD': '1050'},
+        }
+        _LEDGER_THRESHOLD_PEN = 1.00   # S/ 1.00
+        _LEDGER_THRESHOLD_USD = 0.50   # $ 0.50
+
+        has_ledger_discrepancy = False
+
+        try:
+            from app.models.journal_entry_line import JournalEntryLine
+            from app.models.journal_entry import JournalEntry as JE
+            from sqlalchemy import func as sqlfunc
+
+            def _ledger_balance(pcge_code: str) -> float:
+                """Saldo contable = Σ DEBE - Σ HABER en JournalEntryLine (asientos activos)."""
+                debe = db.session.query(sqlfunc.sum(JournalEntryLine.debe)).join(JE).filter(
+                    JournalEntryLine.account_code == pcge_code,
+                    JE.status == 'activo'
+                ).scalar() or 0
+                haber = db.session.query(sqlfunc.sum(JournalEntryLine.haber)).join(JE).filter(
+                    JournalEntryLine.account_code == pcge_code,
+                    JE.status == 'activo'
+                ).scalar() or 0
+                return round(float(debe) - float(haber), 2)
+
+            for bank_dict in banks_data:
+                bank_key = bank_dict['bank_name'].upper()
+                pcge_map = _BANK_PCGE.get(bank_key, {})
+
+                ledger_pen = _ledger_balance(pcge_map['PEN']) if 'PEN' in pcge_map else None
+                ledger_usd = _ledger_balance(pcge_map['USD']) if 'USD' in pcge_map else None
+
+                bank_dict['ledger_pen'] = ledger_pen
+                bank_dict['ledger_usd'] = ledger_usd
+
+                if ledger_pen is not None:
+                    diff_ledger_pen = abs(ledger_pen - bank_dict['pen']['actual'])
+                    bank_dict['pen']['ledger_diff'] = round(diff_ledger_pen, 2)
+                    if diff_ledger_pen > _LEDGER_THRESHOLD_PEN:
+                        has_ledger_discrepancy = True
+                else:
+                    bank_dict['pen']['ledger_diff'] = None
+
+                if ledger_usd is not None:
+                    diff_ledger_usd = abs(ledger_usd - bank_dict['usd']['actual'])
+                    bank_dict['usd']['ledger_diff'] = round(diff_ledger_usd, 2)
+                    if diff_ledger_usd > _LEDGER_THRESHOLD_USD:
+                        has_ledger_discrepancy = True
+                else:
+                    bank_dict['usd']['ledger_diff'] = None
+
+        except Exception as exc:
+            logger.warning(f'[C-02] No se pudo calcular saldo contable: {exc}')
+            has_ledger_discrepancy = False
+        # ─────────────────────────────────────────────────────────────────────
+
         return jsonify({
             'success': True,
             'fecha': fecha_consulta.isoformat(),
@@ -543,7 +605,8 @@ def get_bank_reconciliation():
                 'usd': round(total_difference_usd, 2),
                 'pen': round(total_difference_pen, 2)
             },
-            'has_critical_discrepancy': has_critical_discrepancy
+            'has_critical_discrepancy': has_critical_discrepancy,
+            'has_ledger_discrepancy': has_ledger_discrepancy,
         })
 
     except Exception as e:

@@ -336,9 +336,77 @@ class AccountingService:
         batch.accounting_entry = entry
 
     @staticmethod
+    def _create_journal_entry_for_batch(batch, user_id):
+        """
+        Crea el asiento en el Libro Diario para el diferencial cambiario del batch.
+        Solo registra la ganancia/pérdida neta (spread) — los movimientos bancarios
+        individuales ya están en los asientos de cada operación completada.
+
+        Ganancia: DEBE 1011 / HABER 7711
+        Pérdida:  DEBE 6762 / HABER 1011
+        """
+        from app.services.accounting.journal_service import JournalService
+
+        profit = Decimal(str(batch.total_profit_pen or 0))
+        if profit == 0:
+            return
+
+        if profit > 0:
+            lines = [
+                {
+                    'account_code': '1011',
+                    'description':  f'Caja PEN – diferencial cambiario {batch.batch_code}',
+                    'debe':  profit,
+                    'haber': Decimal('0'),
+                    'currency': 'PEN',
+                },
+                {
+                    'account_code': '7711',
+                    'description':  f'Ganancia diferencial cambiario – {batch.batch_code}',
+                    'debe':  Decimal('0'),
+                    'haber': profit,
+                    'currency': 'PEN',
+                },
+            ]
+        else:
+            loss = abs(profit)
+            lines = [
+                {
+                    'account_code': '6762',
+                    'description':  f'Pérdida diferencial cambiario – {batch.batch_code}',
+                    'debe':  loss,
+                    'haber': Decimal('0'),
+                    'currency': 'PEN',
+                },
+                {
+                    'account_code': '1011',
+                    'description':  f'Caja PEN – diferencial cambiario {batch.batch_code}',
+                    'debe':  Decimal('0'),
+                    'haber': loss,
+                    'currency': 'PEN',
+                },
+            ]
+
+        entry_date = (
+            batch.netting_date if isinstance(batch.netting_date, date)
+            else date.today()
+        )
+
+        JournalService.create_entry(
+            entry_type='calce_netting',
+            description=f'Calce netting {batch.batch_code}',
+            lines=lines,
+            source_type='batch',
+            source_id=batch.id,
+            entry_date=entry_date,
+            created_by=user_id,
+        )
+
+    @staticmethod
     def close_batch(batch_id, user_id):
         """
-        Cerrar un batch (no se podrán hacer más cambios)
+        Cerrar un batch (no se podrán hacer más cambios).
+        Al cerrar se genera el asiento de diferencial cambiario en el Libro Diario (C-01).
 
         Args:
             batch_id: ID del batch
@@ -358,6 +426,9 @@ class AccountingService:
             batch.status = 'Cerrado'
             batch.closed_at = now_peru()
             db.session.commit()
+
+            # Registrar diferencial cambiario en el Libro Diario (C-01)
+            AccountingService._create_journal_entry_for_batch(batch, user_id)
 
             return True, 'Batch cerrado exitosamente'
 

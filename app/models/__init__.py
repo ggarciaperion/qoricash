@@ -21,6 +21,8 @@ from app.models.accounting_period import AccountingPeriod
 from app.models.journal_entry import JournalEntry
 from app.models.journal_entry_line import JournalEntryLine
 from app.models.expense_record import ExpenseRecord
+from app.models.journal_sequence import JournalSequence
+from app.models.system_config import SystemConfig
 __all__ = [
     'User', 'Client', 'Operation', 'AuditLog', 'TraderGoal', 'TraderDailyProfit',
     'BankBalance', 'Invoice', 'ExchangeRate', 'Complaint',
@@ -28,5 +30,6 @@ __all__ = [
     'SanctionsEntry',
     # Módulo contable
     'AccountingAccount', 'AccountingPeriod',
-    'JournalEntry', 'JournalEntryLine', 'ExpenseRecord',
+    'JournalEntry', 'JournalEntryLine', 'ExpenseRecord', 'JournalSequence',
+    'SystemConfig',
 ]

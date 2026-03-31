@@ -21,6 +21,18 @@ def _current_period_defaults():
     return today.year, today.month
 
 
+def _company_info() -> dict:
+    """Lee razón social y RUC desde SystemConfig (M-03). Fallback a valores por defecto."""
+    from app.models.system_config import SystemConfig
+    try:
+        return {
+            'razon_social': SystemConfig.get('RAZON_SOCIAL', 'QORICASH TRADING S.A.C.'),
+            'ruc':          SystemConfig.get('RUC', '—'),
+        }
+    except Exception:
+        return {'razon_social': 'QORICASH TRADING S.A.C.', 'ruc': '—'}
+
+
 # ── Dashboard contable ─────────────────────────────────────────────────────────
 
 @contabilidad_bp.route('/')
@@ -165,11 +177,28 @@ def nuevo_asiento():
             total_debe  += debe
             total_haber += haber
 
+        # Validar códigos de cuenta contra catálogo PCGE (A-02)
+        from app.models.accounting_account import AccountingAccount
+        catalog_codes = {
+            a.code for a in AccountingAccount.query.filter_by(is_active=True).all()
+        }
+        if catalog_codes:  # Solo bloquear si el catálogo tiene datos
+            for l in lines:
+                code = l['account_code']
+                # Válido si es una cuenta del catálogo o sub-cuenta de alguna
+                if not any(code == cat or code.startswith(cat) for cat in catalog_codes):
+                    return jsonify({
+                        'success': False,
+                        'error': f'Cuenta "{code}" no existe en el catálogo PCGE. '
+                                 'Verifique el código o regístrelo en el Plan de Cuentas.'
+                    }), 400
+
         diff = abs(total_debe - total_haber)
-        if diff > Decimal('0.01'):
+        if diff != Decimal('0'):
             return jsonify({
                 'success': False,
-                'error': f'El asiento no cuadra: DEBE {total_debe:.2f} ≠ HABER {total_haber:.2f}'
+                'error': f'El asiento no cuadra: DEBE {total_debe:.2f} ≠ HABER {total_haber:.2f} '
+                         f'(diferencia: {diff:.2f})'
             }), 400
 
         entry = JournalService.create_entry(
@@ -210,14 +239,23 @@ def anular_asiento(entry_id):
         return jsonify({'success': False, 'error': 'El asiento ya está anulado'}), 400
 
     try:
+        # Validar que el período del asiento original esté abierto (M-05)
+        period = JournalService.get_or_create_period(entry.entry_date)
+        if period.status == 'cerrado':
+            return jsonify({
+                'success': False,
+                'error': f'El período {entry.entry_date.strftime("%m/%Y")} está cerrado. '
+                         'Reabra el período antes de anular este asiento.'
+            }), 409
+
         # Marcar original como anulado
-        entry.status        = 'anulado'
-        entry.annulled_at   = datetime.utcnow()
-        entry.annulled_by   = current_user.id
+        entry.status          = 'anulado'
+        entry.annulled_at     = datetime.utcnow()
+        entry.annulled_by     = current_user.id
         entry.annulled_reason = motivo
         db.session.flush()
 
-        # Crear asiento inverso (contrapartida)
+        # Crear asiento inverso en la misma fecha del original (M-05)
         lines = entry.lines.all() if hasattr(entry.lines, 'all') else list(entry.lines)
         inverse_lines = [{
             'account_code': l.account_code,
@@ -227,17 +265,23 @@ def anular_asiento(entry_id):
             'currency':     l.currency or 'PEN',
         } for l in lines]
 
-        JournalService.create_entry(
+        reversal = JournalService.create_entry(
             entry_type='manual',
             description=f'ANULACIÓN: {entry.entry_number} — {motivo}',
             lines=inverse_lines,
             source_type='anulacion',
             source_id=entry.id,
-            entry_date=date.today(),
+            entry_date=entry.entry_date,   # misma fecha del asiento original
             created_by=current_user.id,
         )
 
-        # create_entry ya hace commit; si falla vuelve None pero el flag ya se guardó
+        if not reversal:
+            db.session.rollback()
+            return jsonify({
+                'success': False,
+                'error': 'No se pudo crear el asiento de reversión. Revisa los logs.'
+            }), 500
+
         db.session.commit()
         return jsonify({'success': True, 'message': f'Asiento {entry.entry_number} anulado'})
 
@@ -284,36 +328,38 @@ def export_diario():
         JournalEntry.status == 'activo',
     ).order_by(JournalEntry.entry_date.asc(), JournalEntry.id.asc()).all()
 
+    co = _company_info()
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = 'Libro Diario'
 
-    # Encabezado empresa
+    # Encabezado SUNAT (M-03)
     ws.merge_cells('A1:H1')
-    ws['A1'] = 'QORICASH TRADING S.A.C.'
+    ws['A1'] = co['razon_social']
     ws['A1'].font = Font(bold=True, size=12)
     ws['A1'].alignment = Alignment(horizontal='center')
-
     ws.merge_cells('A2:H2')
-    ws['A2'] = f'LIBRO DIARIO — {_month_name(month)} {year}'
-    ws['A2'].font = Font(bold=True)
+    ws['A2'] = f'RUC: {co["ruc"]}'
     ws['A2'].alignment = Alignment(horizontal='center')
-
     ws.merge_cells('A3:H3')
-    ws['A3'] = 'Régimen MYPE Tributario — PCGE'
+    ws['A3'] = f'LIBRO DIARIO — {_month_name(month)} {year} — Folio 0001'
+    ws['A3'].font = Font(bold=True)
     ws['A3'].alignment = Alignment(horizontal='center')
+    ws.merge_cells('A4:H4')
+    ws['A4'] = 'Régimen MYPE Tributario — PCGE'
+    ws['A4'].alignment = Alignment(horizontal='center')
 
     # Headers tabla
     header_fill = PatternFill(start_color='1B3A6B', end_color='1B3A6B', fill_type='solid')
     header_font = Font(bold=True, color='FFFFFF')
     headers = ['N° Asiento', 'Fecha', 'Tipo', 'Descripción', 'Cta.', 'Glosa línea', 'DEBE (S/)', 'HABER (S/)']
     for col, h in enumerate(headers, 1):
-        c = ws.cell(row=5, column=col, value=h)
+        c = ws.cell(row=6, column=col, value=h)
         c.fill = header_fill
         c.font = header_font
         c.alignment = Alignment(horizontal='center')
 
-    row = 6
+    row = 7
     thin = Side(style='thin')
     border = Border(left=thin, right=thin, top=thin, bottom=thin)
 
@@ -410,8 +456,14 @@ def nuevo_gasto():
             created_by=current_user.id,
         )
 
-        # Obtener/crear período
+        # Obtener/crear período y validar que esté abierto (A-01)
         period = JournalService.get_or_create_period(expense_date)
+        if period.status == 'cerrado':
+            return jsonify({
+                'success': False,
+                'error': f'El período {expense_date.strftime("%m/%Y")} está cerrado. '
+                         'No se pueden registrar gastos en períodos cerrados.'
+            }), 409
         record.period_id = period.id
         db.session.add(record)
         db.session.flush()
@@ -496,7 +548,8 @@ _ACCOUNT_LABELS = {
     '1046': ('Scotiabank USD',    'USD', 'banco'),
     '1047': ('Interbank USD',     'USD', 'banco'),
     '1048': ('Interbank PEN',     'PEN', 'banco'),
-    '1049': ('BanBif PEN/USD',    'PEN', 'banco'),
+    '1049': ('BanBif PEN',        'PEN', 'banco'),
+    '1050': ('BanBif USD',        'USD', 'banco'),
 }
 
 # Cómo relacionar PCGE code → bank_name para conciliación
@@ -505,7 +558,7 @@ _CODE_TO_BANK = {
     '1042': 'BBVA',       '1045': 'BBVA',
     '1043': 'SCOTIABANK', '1046': 'SCOTIABANK',
     '1047': 'INTERBANK',  '1048': 'INTERBANK',
-    '1049': 'BANBIF',
+    '1049': 'BANBIF',     '1050': 'BANBIF',
 }
 
 
@@ -648,6 +701,7 @@ def export_caja():
     accounts = [_caja_movimientos(year, month, c) for c in codes]
     accounts = [a for a in accounts if a['movimientos'] or a['saldo_ant'] != 0]
 
+    co = _company_info()
     wb = openpyxl.Workbook()
     wb.remove(wb.active)  # quitamos hoja vacía default
 
@@ -657,40 +711,43 @@ def export_caja():
     thin   = Side(style='thin')
     bdr    = Border(left=thin, right=thin, top=thin, bottom=thin)
 
-    for acc in accounts:
+    for folio, acc in enumerate(accounts, 1):
         ws = wb.create_sheet(f"{acc['code']} {acc['label']}"[:31])
 
-        # Título
-        ws.merge_cells('A1:F1')
-        ws['A1'] = 'QORICASH TRADING S.A.C.'
+        # Encabezado SUNAT (M-03)
+        ws.merge_cells('A1:G1')
+        ws['A1'] = co['razon_social']
         ws['A1'].font = Font(bold=True, size=12)
         ws['A1'].alignment = Alignment(horizontal='center')
-        ws.merge_cells('A2:F2')
-        ws['A2'] = (f"LIBRO CAJA Y BANCOS — {acc['code']} {acc['label']} "
-                    f"({acc['currency']}) — {_month_name(month)} {year}")
-        ws['A2'].font = Font(bold=True)
+        ws.merge_cells('A2:G2')
+        ws['A2'] = f'RUC: {co["ruc"]}'
         ws['A2'].alignment = Alignment(horizontal='center')
+        ws.merge_cells('A3:G3')
+        ws['A3'] = (f"LIBRO CAJA Y BANCOS — {acc['code']} {acc['label']} "
+                    f"({acc['currency']}) — {_month_name(month)} {year} — Folio {folio:04d}")
+        ws['A3'].font = Font(bold=True)
+        ws['A3'].alignment = Alignment(horizontal='center')
 
         # Saldo anterior
-        ws.merge_cells('A4:D4')
-        ws['A4'] = 'SALDO ANTERIOR (al inicio del período)'
-        ws['A4'].font = Font(bold=True)
-        ws['A4'].fill = sfill
-        ws['E4'] = float(max(acc['saldo_ant'], Decimal('0')))
-        ws['F4'] = float(max(-acc['saldo_ant'], Decimal('0')))
+        ws.merge_cells('A5:D5')
+        ws['A5'] = 'SALDO ANTERIOR (al inicio del período)'
+        ws['A5'].font = Font(bold=True)
+        ws['A5'].fill = sfill
+        ws['E5'] = float(max(acc['saldo_ant'], Decimal('0')))
+        ws['F5'] = float(max(-acc['saldo_ant'], Decimal('0')))
         for c in 'ABCDEF':
-            ws[f'{c}4'].border = bdr
+            ws[f'{c}5'].border = bdr
 
         # Headers
         hdrs = ['N°', 'Fecha', 'N° Asiento', 'Descripción', 'DEBE', 'HABER', 'SALDO']
         for col, h in enumerate(hdrs, 1):
-            cell = ws.cell(row=5, column=col, value=h)
+            cell = ws.cell(row=6, column=col, value=h)
             cell.fill = hfill
             cell.font = Font(bold=True, color='FFFFFF')
             cell.alignment = Alignment(horizontal='center')
             cell.border = bdr
 
-        row = 6
+        row = 7
         for n, m in enumerate(acc['movimientos'], 1):
             ws.cell(row=row, column=1, value=n).border = bdr
             ws.cell(row=row, column=2, value=m['date'].strftime('%d/%m/%Y')).border = bdr
@@ -875,19 +932,24 @@ def export_lig():
     thin  = Side(style='thin')
     bdr   = Border(left=thin, right=thin, top=thin, bottom=thin)
 
+    co = _company_info()
+
     def title_rows(ws, titulo, ncols):
         col_letter = openpyxl.utils.get_column_letter(ncols)
         ws.merge_cells(f'A1:{col_letter}1')
-        ws['A1'] = 'QORICASH TRADING S.A.C.'
+        ws['A1'] = co['razon_social']
         ws['A1'].font = Font(bold=True, size=12)
         ws['A1'].alignment = center
         ws.merge_cells(f'A2:{col_letter}2')
-        ws['A2'] = titulo
-        ws['A2'].font = Font(bold=True)
+        ws['A2'] = f'RUC: {co["ruc"]}'
         ws['A2'].alignment = center
         ws.merge_cells(f'A3:{col_letter}3')
-        ws['A3'] = f'Período: {_month_name(month)} {year}  —  R.M. MYPE Tributario'
+        ws['A3'] = titulo
+        ws['A3'].font = Font(bold=True)
         ws['A3'].alignment = center
+        ws.merge_cells(f'A4:{col_letter}4')
+        ws['A4'] = f'Período: {_month_name(month)} {year}  —  R.M. MYPE Tributario'
+        ws['A4'].alignment = center
 
     # ── Hoja 1: INGRESOS ──────────────────────────────────────────────────────
     ws1 = wb.active
@@ -965,6 +1027,359 @@ def export_lig():
                      mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                      as_attachment=True,
                      download_name=f'LIG_qoricash_{year}{month:02d}.xlsx')
+
+
+@contabilidad_bp.route('/lig/export_ple')
+@login_required
+@require_role('Master')
+def export_lig_ple():
+    """
+    Exporta el Libro de Ingresos y Gastos en formato PLE SUNAT (M-03).
+    Genera dos archivos .txt pipe-delimited en un zip:
+      - LE{RUC}AAAAMM00080100001.txt  (Ingresos)
+      - LE{RUC}AAAAMM00080200001.txt  (Gastos)
+
+    Estructura basada en el Formato 8.1 / 8.2 del PLE SUNAT para
+    Libro de Ingresos y Gastos (Régimen MYPE Tributario).
+    """
+    import zipfile
+    from app.models.journal_entry import JournalEntry
+    from app.models.journal_entry_line import JournalEntryLine
+    from app.models.expense_record import ExpenseRecord
+    from app.models.system_config import SystemConfig
+    from sqlalchemy import extract
+
+    year  = request.args.get('year',  type=int, default=date.today().year)
+    month = request.args.get('month', type=int, default=date.today().month)
+
+    ruc          = SystemConfig.get('RUC', '00000000000')
+    periodo      = f'{year}{month:02d}00'
+    ruc_clean    = ruc.replace('-', '').replace(' ', '')
+
+    # ── Ingresos: líneas JournalEntryLine con cuentas 7xxx ───────────────────
+    from app.models.journal_entry_line import JournalEntryLine as JEL
+    lines_7 = db.session.query(
+        JournalEntry, JEL
+    ).join(JEL, JEL.journal_entry_id == JournalEntry.id
+    ).filter(
+        extract('year',  JournalEntry.entry_date) == year,
+        extract('month', JournalEntry.entry_date) == month,
+        JournalEntry.status == 'activo',
+        JEL.account_code.like('7%'),
+    ).order_by(JournalEntry.entry_date.asc(), JournalEntry.id.asc()).all()
+
+    ing_lines = []
+    for corr, (entry, line) in enumerate(lines_7, 1):
+        # Formato 8.1 simplificado: Período|Correlativo|Fecha|TipoComp|Serie|Num|
+        #   TipoDoc|NumDoc|RazonSocial|ValExport|BaseImpon|Descuento|IGV|
+        #   Inafecto|Exonerado|Total|Moneda|TC|FechaRef|TipoRef|SerieRef|
+        #   NumRef|MedPago|Estado
+        haber = float(line.haber or 0)
+        fields = [
+            periodo,                              # 1 Período
+            f'{corr:05d}',                       # 2 Correlativo
+            entry.entry_date.strftime('%d/%m/%Y'),# 3 Fecha
+            '00',                                 # 4 Tipo comprobante (00=sin comprobante)
+            '',                                   # 5 Serie
+            entry.entry_number,                   # 6 Número correlativo comprobante
+            '',                                   # 7 Tipo doc identidad
+            '',                                   # 8 Número documento
+            '',                                   # 9 Razón social
+            '0.00',                               # 10 Valor exportación
+            f'{haber:.2f}',                       # 11 Base imponible
+            '0.00',                               # 12 Descuento
+            '0.00',                               # 13 IGV
+            '0.00',                               # 14 Inafecto
+            '0.00',                               # 15 Exonerado
+            f'{haber:.2f}',                       # 16 Total
+            'PEN',                                # 17 Moneda
+            '1.000',                              # 18 Tipo de cambio
+            '',                                   # 19 Fecha comprobante referenciado
+            '',                                   # 20 Tipo comprobante ref
+            '',                                   # 21 Serie ref
+            '',                                   # 22 Num ref
+            '',                                   # 23 Indicador medio pago
+            '1',                                  # 24 Estado (1=activo)
+        ]
+        ing_lines.append('|'.join(fields) + '|\n')
+
+    # ── Gastos: expense_records del período ───────────────────────────────────
+    gastos = ExpenseRecord.query.filter(
+        extract('year',  ExpenseRecord.expense_date) == year,
+        extract('month', ExpenseRecord.expense_date) == month,
+    ).order_by(ExpenseRecord.expense_date.asc()).all()
+
+    gasto_lines = []
+    for corr, g in enumerate(gastos, 1):
+        # Formato 8.2 simplificado
+        fields = [
+            periodo,
+            f'{corr:05d}',
+            g.expense_date.strftime('%d/%m/%Y'),
+            g.voucher_type or '00',
+            '',
+            g.voucher_number or '',
+            '6' if g.supplier_ruc and len(g.supplier_ruc) == 11 else '1',
+            g.supplier_ruc or '',
+            g.supplier_name or '',
+            f'{float(g.amount_pen):.2f}',  # Base imponible
+            '0.00',                         # IGV (casa de cambio exonerada)
+            f'{float(g.amount_pen):.2f}',   # Total
+            'PEN',
+            '1.000',
+            '1',
+        ]
+        gasto_lines.append('|'.join(fields) + '|\n')
+
+    # ── Empaquetar en ZIP ─────────────────────────────────────────────────────
+    ing_filename   = f'LE{ruc_clean}{periodo}080100001.txt'
+    gasto_filename = f'LE{ruc_clean}{periodo}080200001.txt'
+
+    zip_buffer = BytesIO()
+    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr(ing_filename,   ''.join(ing_lines)   or f'{periodo}|||||||||||||||||||||||\n')
+        zf.writestr(gasto_filename, ''.join(gasto_lines) or f'{periodo}||||||||||||||||\n')
+    zip_buffer.seek(0)
+
+    return send_file(
+        zip_buffer,
+        mimetype='application/zip',
+        as_attachment=True,
+        download_name=f'PLE_LIG_{ruc_clean}_{year}{month:02d}.zip',
+    )
+
+
+# ── Libro Mayor ────────────────────────────────────────────────────────────────
+
+@contabilidad_bp.route('/mayor')
+@login_required
+@require_role('Master')
+def mayor():
+    """
+    Libro Mayor — agrupa movimientos del Libro Diario por cuenta PCGE,
+    con saldo acumulado (saldo anterior + movimientos del período).
+    Requerido SUNAT para presentación de libros contables (M-04).
+    """
+    from app.models.journal_entry import JournalEntry
+    from app.models.journal_entry_line import JournalEntryLine
+    from app.models.accounting_account import AccountingAccount
+    from app.models.accounting_period import AccountingPeriod
+    from sqlalchemy import func, extract
+
+    year  = request.args.get('year',  type=int, default=date.today().year)
+    month = request.args.get('month', type=int, default=date.today().month)
+
+    current_period = AccountingPeriod.query.filter_by(year=year, month=month).first()
+
+    # Todas las cuentas con movimientos en el período
+    active_codes = [
+        r.account_code for r in
+        db.session.query(JournalEntryLine.account_code).join(
+            JournalEntry, JournalEntryLine.journal_entry_id == JournalEntry.id
+        ).filter(
+            extract('year',  JournalEntry.entry_date) == year,
+            extract('month', JournalEntry.entry_date) == month,
+            JournalEntry.status == 'activo',
+        ).distinct().order_by(JournalEntryLine.account_code).all()
+    ]
+
+    catalog = {a.code: a for a in AccountingAccount.query.all()}
+    first_day = date(year, month, 1)
+
+    cuentas = []
+    for code in active_codes:
+        # Saldo anterior (todo lo contabilizado antes del período)
+        prev = db.session.query(
+            func.sum(JournalEntryLine.debe).label('d'),
+            func.sum(JournalEntryLine.haber).label('h'),
+        ).join(JournalEntry, JournalEntryLine.journal_entry_id == JournalEntry.id
+        ).filter(
+            JournalEntryLine.account_code == code,
+            JournalEntry.entry_date < first_day,
+            JournalEntry.status == 'activo',
+        ).first()
+        saldo_ant = Decimal(str(prev.d or 0)) - Decimal(str(prev.h or 0))
+
+        # Movimientos del período
+        rows = db.session.query(
+            JournalEntry.entry_date,
+            JournalEntry.entry_number,
+            JournalEntry.description.label('entry_desc'),
+            JournalEntryLine.description.label('line_desc'),
+            JournalEntryLine.debe,
+            JournalEntryLine.haber,
+        ).join(JournalEntry, JournalEntryLine.journal_entry_id == JournalEntry.id
+        ).filter(
+            JournalEntryLine.account_code == code,
+            extract('year',  JournalEntry.entry_date) == year,
+            extract('month', JournalEntry.entry_date) == month,
+            JournalEntry.status == 'activo',
+        ).order_by(JournalEntry.entry_date.asc(), JournalEntry.id.asc()).all()
+
+        movs  = []
+        saldo = saldo_ant
+        for r in rows:
+            d = Decimal(str(r.debe  or 0))
+            h = Decimal(str(r.haber or 0))
+            saldo += d - h
+            movs.append({
+                'date':         r.entry_date,
+                'entry_number': r.entry_number,
+                'description':  r.line_desc or r.entry_desc,
+                'debe':         d,
+                'haber':        h,
+                'saldo':        saldo,
+            })
+
+        total_debe  = sum(m['debe']  for m in movs)
+        total_haber = sum(m['haber'] for m in movs)
+        acc = catalog.get(code)
+
+        cuentas.append({
+            'code':        code,
+            'name':        acc.name if acc else f'Cuenta {code}',
+            'type':        acc.type if acc else _infer_type(code),
+            'saldo_ant':   saldo_ant,
+            'movimientos': movs,
+            'total_debe':  total_debe,
+            'total_haber': total_haber,
+            'saldo_final': saldo_ant + total_debe - total_haber,
+        })
+
+    return render_template(
+        'contabilidad/mayor.html',
+        cuentas=cuentas,
+        selected_year=year,
+        selected_month=month,
+        current_period=current_period,
+        user=current_user,
+    )
+
+
+@contabilidad_bp.route('/mayor/export')
+@login_required
+@require_role('Master')
+def export_mayor():
+    """Exporta el Libro Mayor del período a Excel."""
+    from app.models.journal_entry import JournalEntry
+    from app.models.journal_entry_line import JournalEntryLine
+    from app.models.accounting_account import AccountingAccount
+    from app.models.system_config import SystemConfig
+    from sqlalchemy import func, extract
+
+    year  = request.args.get('year',  type=int, default=date.today().year)
+    month = request.args.get('month', type=int, default=date.today().month)
+
+    razon_social = SystemConfig.get('RAZON_SOCIAL', 'QORICASH TRADING S.A.C.')
+    ruc          = SystemConfig.get('RUC', '—')
+
+    active_codes = [
+        r.account_code for r in
+        db.session.query(JournalEntryLine.account_code).join(
+            JournalEntry, JournalEntryLine.journal_entry_id == JournalEntry.id
+        ).filter(
+            extract('year',  JournalEntry.entry_date) == year,
+            extract('month', JournalEntry.entry_date) == month,
+            JournalEntry.status == 'activo',
+        ).distinct().order_by(JournalEntryLine.account_code).all()
+    ]
+
+    catalog   = {a.code: a for a in AccountingAccount.query.all()}
+    first_day = date(year, month, 1)
+
+    wb = openpyxl.Workbook()
+    wb.remove(wb.active)   # eliminar hoja por defecto
+
+    header_fill  = PatternFill(start_color='1B3A6B', end_color='1B3A6B', fill_type='solid')
+    sub_fill     = PatternFill(start_color='D6E4F0', end_color='D6E4F0', fill_type='solid')
+    folio = 1
+
+    for code in active_codes:
+        acc  = catalog.get(code)
+        name = acc.name if acc else f'Cuenta {code}'
+        ws   = wb.create_sheet(title=f'{code}')
+
+        # Encabezado SUNAT
+        ws.merge_cells('A1:G1')
+        ws['A1'] = razon_social
+        ws['A1'].font = Font(bold=True, size=11)
+        ws['A1'].alignment = Alignment(horizontal='center')
+        ws.merge_cells('A2:G2')
+        ws['A2'] = f'RUC: {ruc}'
+        ws['A2'].alignment = Alignment(horizontal='center')
+        ws.merge_cells('A3:G3')
+        ws['A3'] = f'LIBRO MAYOR — {_month_name(month)} {year} — Folio {folio:04d}'
+        ws['A3'].font = Font(bold=True)
+        ws['A3'].alignment = Alignment(horizontal='center')
+        ws.merge_cells('A4:G4')
+        ws['A4'] = f'Cuenta: {code} — {name}'
+        ws['A4'].font = Font(bold=True)
+        ws['A4'].fill = sub_fill
+
+        headers = ['Fecha', 'N° Asiento', 'Descripción', 'DEBE S/', 'HABER S/', 'Saldo S/', 'D/A']
+        for col, h in enumerate(headers, 1):
+            c = ws.cell(row=6, column=col, value=h)
+            c.fill = header_fill
+            c.font = Font(bold=True, color='FFFFFF')
+            c.alignment = Alignment(horizontal='center')
+
+        # Saldo anterior
+        prev = db.session.query(
+            func.sum(JournalEntryLine.debe).label('d'),
+            func.sum(JournalEntryLine.haber).label('h'),
+        ).join(JournalEntry, JournalEntryLine.journal_entry_id == JournalEntry.id
+        ).filter(
+            JournalEntryLine.account_code == code,
+            JournalEntry.entry_date < first_day,
+            JournalEntry.status == 'activo',
+        ).first()
+        saldo_ant = Decimal(str(prev.d or 0)) - Decimal(str(prev.h or 0))
+
+        row_num = 7
+        ws.cell(row=row_num, column=1, value='Saldo anterior')
+        ws.cell(row=row_num, column=6, value=float(saldo_ant))
+        row_num += 1
+
+        rows_db = db.session.query(
+            JournalEntry.entry_date,
+            JournalEntry.entry_number,
+            JournalEntry.description.label('entry_desc'),
+            JournalEntryLine.description.label('line_desc'),
+            JournalEntryLine.debe,
+            JournalEntryLine.haber,
+        ).join(JournalEntry, JournalEntryLine.journal_entry_id == JournalEntry.id
+        ).filter(
+            JournalEntryLine.account_code == code,
+            extract('year',  JournalEntry.entry_date) == year,
+            extract('month', JournalEntry.entry_date) == month,
+            JournalEntry.status == 'activo',
+        ).order_by(JournalEntry.entry_date.asc(), JournalEntry.id.asc()).all()
+
+        saldo = saldo_ant
+        for r in rows_db:
+            d = Decimal(str(r.debe  or 0))
+            h = Decimal(str(r.haber or 0))
+            saldo += d - h
+            ws.cell(row=row_num, column=1, value=r.entry_date.strftime('%d/%m/%Y'))
+            ws.cell(row=row_num, column=2, value=r.entry_number)
+            ws.cell(row=row_num, column=3, value=r.line_desc or r.entry_desc)
+            ws.cell(row=row_num, column=4, value=float(d))
+            ws.cell(row=row_num, column=5, value=float(h))
+            ws.cell(row=row_num, column=6, value=float(saldo))
+            ws.cell(row=row_num, column=7, value='D' if saldo >= 0 else 'A')
+            row_num += 1
+
+        for i, w in enumerate([12, 14, 42, 12, 12, 12, 4], 1):
+            ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = w
+        folio += 1
+
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+    return send_file(output,
+                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                     as_attachment=True,
+                     download_name=f'libro_mayor_{year}{month:02d}.xlsx')
 
 
 # ── Balance de Comprobación ────────────────────────────────────────────────────
@@ -1087,25 +1502,29 @@ def export_balance():
     ws = wb.active
     ws.title = 'Balance Comprobación'
 
-    # Título
-    ws.merge_cells('A1:F1')
-    ws['A1'] = 'QORICASH TRADING S.A.C.'
+    co = _company_info()
+    # Encabezado SUNAT (M-03)
+    ws.merge_cells('A1:G1')
+    ws['A1'] = co['razon_social']
     ws['A1'].font = Font(bold=True, size=12)
     ws['A1'].alignment = Alignment(horizontal='center')
-    ws.merge_cells('A2:F2')
-    ws['A2'] = f'BALANCE DE COMPROBACIÓN — {_month_name(month)} {year}'
-    ws['A2'].font = Font(bold=True)
+    ws.merge_cells('A2:G2')
+    ws['A2'] = f'RUC: {co["ruc"]}'
     ws['A2'].alignment = Alignment(horizontal='center')
+    ws.merge_cells('A3:G3')
+    ws['A3'] = f'BALANCE DE COMPROBACIÓN — {_month_name(month)} {year}'
+    ws['A3'].font = Font(bold=True)
+    ws['A3'].alignment = Alignment(horizontal='center')
 
     header_fill = PatternFill(start_color='1B3A6B', end_color='1B3A6B', fill_type='solid')
     headers = ['Código', 'Cuenta', 'Tipo', 'DEBE (S/)', 'HABER (S/)', 'Saldo Deudor', 'Saldo Acreedor']
     for col, h in enumerate(headers, 1):
-        c = ws.cell(row=4, column=col, value=h)
+        c = ws.cell(row=5, column=col, value=h)
         c.fill = header_fill
         c.font = Font(bold=True, color='FFFFFF')
         c.alignment = Alignment(horizontal='center')
 
-    row = 5
+    row = 6
     for r in rows:
         code = r.account_code
         acc  = catalog.get(code)
@@ -1139,22 +1558,32 @@ def export_balance():
 
 # ── Estado de Resultados ───────────────────────────────────────────────────────
 
-# UIT vigente (actualizar cada año)
-_UIT = Decimal('5350')   # UIT 2026
-_IR_TRAMO_1_LIMITE = _UIT * 15   # S/ 80,250
-_IR_TRAMO_1_TASA   = Decimal('0.10')
-_IR_TRAMO_2_TASA   = Decimal('0.295')
+_IR_TRAMO_1_TASA = Decimal('0.10')
+_IR_TRAMO_2_TASA = Decimal('0.295')
+_UIT_DEFAULT     = Decimal('5350')   # fallback si SystemConfig no tiene valor
+
+
+def _get_uit() -> Decimal:
+    """Lee la UIT vigente desde SystemConfig (M-06). Fallback: S/ 5,350."""
+    from app.models.system_config import SystemConfig
+    try:
+        val = SystemConfig.get('UIT')
+        return Decimal(val) if val else _UIT_DEFAULT
+    except Exception:
+        return _UIT_DEFAULT
 
 
 def _ir_mype(utilidad: Decimal) -> Decimal:
     """Cálculo IR Régimen MYPE Tributario (anual estimado sobre utilidad del período)."""
     if utilidad <= 0:
         return Decimal('0')
-    if utilidad <= _IR_TRAMO_1_LIMITE:
+    uit   = _get_uit()
+    limit = uit * 15   # S/ 80,250 con UIT 5,350
+    if utilidad <= limit:
         return (utilidad * _IR_TRAMO_1_TASA).quantize(Decimal('0.01'))
     else:
-        t1 = _IR_TRAMO_1_LIMITE * _IR_TRAMO_1_TASA
-        t2 = (utilidad - _IR_TRAMO_1_LIMITE) * _IR_TRAMO_2_TASA
+        t1 = limit * _IR_TRAMO_1_TASA
+        t2 = (utilidad - limit) * _IR_TRAMO_2_TASA
         return (t1 + t2).quantize(Decimal('0.01'))
 
 
@@ -1294,17 +1723,21 @@ def export_resultados():
     green_fill  = PatternFill(start_color='198754', end_color='198754', fill_type='solid')
     red_fill    = PatternFill(start_color='DC3545', end_color='DC3545', fill_type='solid')
 
+    co = _company_info()
     ws.merge_cells('A1:C1')
-    ws['A1'] = 'QORICASH TRADING S.A.C.'
+    ws['A1'] = co['razon_social']
     ws['A1'].font = Font(bold=True, size=12)
     ws['A1'].alignment = Alignment(horizontal='center')
     ws.merge_cells('A2:C2')
-    ws['A2'] = f'ESTADO DE RESULTADOS — {_month_name(month)} {year}'
-    ws['A2'].font = Font(bold=True)
+    ws['A2'] = f'RUC: {co["ruc"]}'
     ws['A2'].alignment = Alignment(horizontal='center')
     ws.merge_cells('A3:C3')
-    ws['A3'] = 'Régimen MYPE Tributario'
+    ws['A3'] = f'ESTADO DE RESULTADOS — {_month_name(month)} {year}'
+    ws['A3'].font = Font(bold=True)
     ws['A3'].alignment = Alignment(horizontal='center')
+    ws.merge_cells('A4:C4')
+    ws['A4'] = 'Régimen MYPE Tributario'
+    ws['A4'].alignment = Alignment(horizontal='center')
 
     def hrow(r, text, fill=None):
         ws.merge_cells(f'A{r}:C{r}')
@@ -1320,7 +1753,7 @@ def export_resultados():
         ws.cell(row=r, column=3, value=monto)
         ws.cell(row=r, column=3).number_format = '#,##0.00'
 
-    row = 5
+    row = 6
     hrow(row, 'INGRESOS', header_fill); row += 1
     for i in ingresos:
         drow(row, i['code'], i['name'], i['monto']); row += 1

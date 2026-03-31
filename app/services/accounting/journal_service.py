@@ -24,15 +24,15 @@ _PEN_ACCOUNTS = {
     'BCP':        '1041',
     'BBVA':       '1042',
     'SCOTIABANK': '1043',
-    'INTERBANK':  '1048',   # cuenta genérica Interbank PEN
-    'BANBIF':     '1049',   # cuenta genérica BanBif PEN
+    'INTERBANK':  '1048',
+    'BANBIF':     '1049',   # BanBif PEN
 }
 _USD_ACCOUNTS = {
     'BCP':        '1044',
     'BBVA':       '1045',
     'SCOTIABANK': '1046',
-    'INTERBANK':  '1047',   # cuenta genérica Interbank USD
-    'BANBIF':     '1049',   # cuenta genérica BanBif USD
+    'INTERBANK':  '1047',
+    'BANBIF':     '1050',   # BanBif USD — separado de PEN (M-02)
 }
 
 
@@ -157,15 +157,27 @@ class JournalService:
 
     @staticmethod
     def _next_entry_number(year: int) -> str:
-        """Genera el próximo número de asiento: AS-YYYY-NNNN (secuencial por año)."""
-        from app.models.journal_entry import JournalEntry
-        from sqlalchemy import func, extract
+        """
+        Genera el próximo número de asiento: AS-YYYY-NNNN.
+        Usa SELECT FOR UPDATE sobre JournalSequence para garantizar
+        secuencialidad sin huecos ni duplicados bajo carga concurrente (A-04).
+        """
+        from app.models.journal_sequence import JournalSequence
 
-        count = db.session.query(func.count(JournalEntry.id)).filter(
-            extract('year', JournalEntry.entry_date) == year
-        ).scalar() or 0
+        seq = (
+            db.session.query(JournalSequence)
+            .filter_by(year=year)
+            .with_for_update()
+            .first()
+        )
+        if not seq:
+            seq = JournalSequence(year=year, last_number=0)
+            db.session.add(seq)
+            db.session.flush()
 
-        return f'AS-{year}-{(count + 1):04d}'
+        seq.last_number += 1
+        db.session.flush()
+        return f'AS-{year}-{seq.last_number:04d}'
 
     # ── Creación de asiento ───────────────────────────────────────────────────
 
@@ -365,7 +377,8 @@ class JournalService:
                 if deposits:
                     lines += _debe_lines(deposits, 'cuenta_cargo', 'PEN')
                 else:
-                    pcge = _map_bank(operation.source_account, 'PEN')
+                    bank = _bank_from_client_accounts(client, operation.source_account)
+                    pcge = _map_bank(bank or operation.source_account, 'PEN')
                     lines.append({'account_code': pcge,
                                   'description':  f'Ingreso PEN – {op_id}',
                                   'debe': amount_pen, 'haber': Decimal('0'),
@@ -375,7 +388,8 @@ class JournalService:
                 if payments:
                     lines += _haber_lines(payments, 'cuenta_destino', 'USD')
                 else:
-                    pcge    = _map_bank(operation.destination_account, 'USD')
+                    bank    = _bank_from_client_accounts(client, operation.destination_account)
+                    pcge    = _map_bank(bank or operation.destination_account, 'USD')
                     usd_amt = (amount_pen / tc).quantize(Decimal('0.01')) if tc > 0 else amount_usd
                     lines.append({'account_code': pcge,
                                   'description':  f'Egreso USD – {op_id}',
@@ -390,7 +404,8 @@ class JournalService:
                 if deposits:
                     lines += _debe_lines(deposits, 'cuenta_cargo', 'USD')
                 else:
-                    pcge = _map_bank(operation.source_account, 'USD')
+                    bank = _bank_from_client_accounts(client, operation.source_account)
+                    pcge = _map_bank(bank or operation.source_account, 'USD')
                     lines.append({'account_code': pcge,
                                   'description':  f'Ingreso USD – {op_id}',
                                   'debe': amount_pen, 'haber': Decimal('0'),
@@ -401,7 +416,8 @@ class JournalService:
                 if payments:
                     lines += _haber_lines(payments, 'cuenta_destino', 'PEN')
                 else:
-                    pcge = _map_bank(operation.destination_account, 'PEN')
+                    bank = _bank_from_client_accounts(client, operation.destination_account)
+                    pcge = _map_bank(bank or operation.destination_account, 'PEN')
                     lines.append({'account_code': pcge,
                                   'description':  f'Egreso PEN – {op_id}',
                                   'debe': Decimal('0'), 'haber': amount_pen,

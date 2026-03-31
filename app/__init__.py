@@ -436,9 +436,20 @@ def register_cli_commands(app):
     def create_tables():
         """Crea todas las tablas faltantes usando db.create_all() (seguro, idempotente)."""
         from app.extensions import db
+        from app.models.system_config import SystemConfig
         import traceback
         try:
             db.create_all()
+            # Seed parámetros fiscales por defecto (idempotente)
+            defaults = [
+                ('UIT',  '5350', 'Unidad Impositiva Tributaria vigente (S/)'),
+                ('RUC',  '20000000001', 'RUC de la empresa (para exportaciones SUNAT)'),
+                ('RAZON_SOCIAL', 'QORICASH TRADING S.A.C.', 'Razón social de la empresa'),
+            ]
+            for key, value, desc in defaults:
+                if not SystemConfig.query.get(key):
+                    db.session.add(SystemConfig(key=key, value=value, description=desc))
+            db.session.commit()
             print("✓ Tablas creadas / verificadas correctamente")
         except Exception as e:
             print(f"✗ Error: {e}")
