@@ -954,7 +954,7 @@ def export_lig():
     # ── Hoja 1: INGRESOS ──────────────────────────────────────────────────────
     ws1 = wb.active
     ws1.title = 'Ingresos'
-    title_rows(ws1, f'LIBRO DE INGRESOS — {_month_name(month).upper()} {year}', 6)
+    title_rows(ws1, f'LIBRO DE INGRESOS — {_month_name(month).upper()} {year}', 7)
 
     hdrs = ['N°', 'Fecha', 'N° Asiento', 'Tipo de Ingreso', 'Cuenta PCGE', 'Descripción', 'Importe S/']
     for c, h in enumerate(hdrs, 1):
@@ -987,7 +987,7 @@ def export_lig():
 
     # ── Hoja 2: GASTOS ────────────────────────────────────────────────────────
     ws2 = wb.create_sheet('Gastos')
-    title_rows(ws2, f'LIBRO DE GASTOS — {_month_name(month).upper()} {year}')
+    title_rows(ws2, f'LIBRO DE GASTOS — {_month_name(month).upper()} {year}', 9)
 
     hdrs2 = ['N°', 'Fecha', 'Proveedor', 'RUC', 'Tipo Comprobante',
              'N° Comprobante', 'Cta. PCGE', 'Importe S/', 'Descripción']
