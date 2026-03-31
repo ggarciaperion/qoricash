@@ -896,6 +896,219 @@ def register_cli_commands(app):
             print(f"✗ Error: {e}")
             traceback.print_exc()
 
+    @app.cli.command("seed-demo-multibanco")
+    def seed_demo_multibanco():
+        """
+        Crea cliente demo con cuentas en 3 bancos y 2 operaciones con pagos múltiples.
+        Diseñado para visualizar el Libro Caja y Bancos desagregado por banco.
+        Idempotente: salta si ya existen los datos.
+        """
+        from app.extensions import db
+        from app.models.client import Client
+        from app.models.operation import Operation
+        from app.models.accounting_period import AccountingPeriod
+        from app.services.accounting.journal_service import JournalService
+        from datetime import date, datetime
+        from decimal import Decimal
+        import json, traceback
+
+        DEMO_DNI   = '72345678'
+        DEMO_EMAIL = 'demo.multibanco@qoricash.pe'
+
+        try:
+            # ── 1. Cliente demo ─────────────────────────────────────────────
+            client = Client.query.filter_by(dni=DEMO_DNI).first()
+            if not client:
+                client = Client(
+                    document_type='DNI',
+                    dni=DEMO_DNI,
+                    email=DEMO_EMAIL,
+                    nombres='María Gracia',
+                    apellido_paterno='Villanueva',
+                    apellido_materno='Torres',
+                    phone='999888777',
+                )
+                # 5 cuentas en 3 bancos (PEN y USD)
+                cuentas = [
+                    {'bank_name': 'BCP',        'account_type': 'Ahorro',    'currency': 'S/',
+                     'account_number': '19173537790119',        'origen': 'Lima'},
+                    {'bank_name': 'BBVA',       'account_type': 'Ahorro',    'currency': 'S/',
+                     'account_number': '00110123456789',        'origen': 'Lima'},
+                    {'bank_name': 'INTERBANK',  'account_type': 'Ahorro',    'currency': 'S/',
+                     'account_number': '09830123456789',        'origen': 'Lima'},
+                    {'bank_name': 'BCP',        'account_type': 'Ahorro',    'currency': '$',
+                     'account_number': '19174567890234',        'origen': 'Lima'},
+                    {'bank_name': 'SCOTIABANK', 'account_type': 'Corriente', 'currency': '$',
+                     'account_number': '00001234567890',        'origen': 'Lima'},
+                ]
+                client.bank_accounts_json = json.dumps(cuentas)
+                db.session.add(client)
+                db.session.flush()
+                print(f"  ✓ Cliente creado: {client.nombres} {client.apellido_paterno} (DNI {DEMO_DNI})")
+                print(f"       BCP PEN     19173537790119")
+                print(f"       BBVA PEN    00110123456789")
+                print(f"       INTERBANK PEN 09830123456789")
+                print(f"       BCP USD     19174567890234")
+                print(f"       SCOTIABANK USD 00001234567890")
+            else:
+                print(f"  · Cliente {DEMO_DNI} ya existe — reutilizando")
+
+            # ── 2. Período contable Marzo 2026 ──────────────────────────────
+            period = AccountingPeriod.query.filter_by(year=2026, month=3).first()
+            if not period:
+                period = AccountingPeriod(year=2026, month=3, status='abierto')
+                db.session.add(period)
+                db.session.flush()
+
+            # ── Operación A: COMPRA $3,000 con 3 abonos PEN / 2 pagos USD ──
+            OP_A_ID = 'DEMO-MB-COMPRA-001'
+            if not Operation.query.filter_by(operation_id=OP_A_ID).first():
+                # Cliente paga en 3 abonos PEN desde 3 bancos distintos
+                deposits_a = [
+                    {'importe': 4000.00, 'codigo_operacion': 'BCK-001',
+                     'cuenta_cargo': '19173537790119',   # BCP PEN
+                     'comprobante_url': ''},
+                    {'importe': 4000.00, 'codigo_operacion': 'BCK-002',
+                     'cuenta_cargo': '00110123456789',   # BBVA PEN
+                     'comprobante_url': ''},
+                    {'importe': 3160.00, 'codigo_operacion': 'BCK-003',
+                     'cuenta_cargo': '09830123456789',   # INTERBANK PEN
+                     'comprobante_url': ''},
+                ]
+                # QoriCash paga USD al cliente en 2 cuentas distintas
+                payments_a = [
+                    {'importe': 1500.00, 'cuenta_destino': '19174567890234'},   # BCP USD
+                    {'importe': 1500.00, 'cuenta_destino': '00001234567890'},   # SCOTIABANK USD
+                ]
+                op_a = Operation(
+                    operation_id=OP_A_ID,
+                    client_id=client.id,
+                    operation_type='Compra',
+                    origen='sistema',
+                    amount_usd=Decimal('3000.00'),
+                    exchange_rate=Decimal('3.7200'),
+                    amount_pen=Decimal('11160.00'),
+                    status='Completada',
+                    completed_at=datetime(2026, 3, 10, 14, 30, 0),
+                    client_deposits_json=json.dumps(deposits_a),
+                    client_payments_json=json.dumps(payments_a),
+                )
+                db.session.add(op_a)
+                db.session.flush()
+
+                entry_a = JournalService.create_entry_for_completed_operation(op_a)
+                if entry_a:
+                    print(f"\n  ✓ Operación A: {OP_A_ID}  COMPRA $3,000 @ 3.7200 = S/ 11,160")
+                    print(f"    Abonos PEN:")
+                    print(f"      BCP       S/ 4,000.00  → cuenta 1041 DEBE")
+                    print(f"      BBVA      S/ 4,000.00  → cuenta 1042 DEBE")
+                    print(f"      INTERBANK S/ 3,160.00  → cuenta 1048 DEBE")
+                    print(f"    Pagos USD:")
+                    print(f"      BCP USD   $1,500 (S/ 5,580) → cuenta 1044 HABER")
+                    print(f"      SCOTI USD $1,500 (S/ 5,580) → cuenta 1046 HABER")
+                    print(f"    Asiento: {entry_a.entry_number}  DEBE S/{entry_a.total_debe}  HABER S/{entry_a.total_haber}")
+                else:
+                    print(f"  ✗ Error al crear asiento para {OP_A_ID}")
+            else:
+                print(f"  · {OP_A_ID} ya existe — saltando")
+
+            # ── Operación B: VENTA $2,000 con 2 abonos USD / 2 pagos PEN ───
+            OP_B_ID = 'DEMO-MB-VENTA-001'
+            if not Operation.query.filter_by(operation_id=OP_B_ID).first():
+                # Cliente deposita USD desde 2 cuentas
+                deposits_b = [
+                    {'importe': 1200.00, 'codigo_operacion': 'BKV-001',
+                     'cuenta_cargo': '19174567890234',   # BCP USD
+                     'comprobante_url': ''},
+                    {'importe':  800.00, 'codigo_operacion': 'BKV-002',
+                     'cuenta_cargo': '00001234567890',   # SCOTIABANK USD
+                     'comprobante_url': ''},
+                ]
+                # QoriCash paga PEN al cliente en 2 bancos
+                payments_b = [
+                    {'importe': 4000.00, 'cuenta_destino': '19173537790119'},   # BCP PEN
+                    {'importe': 3380.00, 'cuenta_destino': '00110123456789'},   # BBVA PEN
+                ]
+                op_b = Operation(
+                    operation_id=OP_B_ID,
+                    client_id=client.id,
+                    operation_type='Venta',
+                    origen='sistema',
+                    amount_usd=Decimal('2000.00'),
+                    exchange_rate=Decimal('3.6900'),
+                    amount_pen=Decimal('7380.00'),
+                    status='Completada',
+                    completed_at=datetime(2026, 3, 18, 10, 15, 0),
+                    client_deposits_json=json.dumps(deposits_b),
+                    client_payments_json=json.dumps(payments_b),
+                )
+                db.session.add(op_b)
+                db.session.flush()
+
+                entry_b = JournalService.create_entry_for_completed_operation(op_b)
+                if entry_b:
+                    print(f"\n  ✓ Operación B: {OP_B_ID}  VENTA $2,000 @ 3.6900 = S/ 7,380")
+                    print(f"    Abonos USD:")
+                    print(f"      BCP USD   $1,200 (S/ 4,428) → cuenta 1044 DEBE")
+                    print(f"      SCOTI USD $  800 (S/ 2,952) → cuenta 1046 DEBE")
+                    print(f"    Pagos PEN:")
+                    print(f"      BCP PEN   S/ 4,000.00 → cuenta 1041 HABER")
+                    print(f"      BBVA PEN  S/ 3,380.00 → cuenta 1042 HABER")
+                    print(f"    Asiento: {entry_b.entry_number}  DEBE S/{entry_b.total_debe}  HABER S/{entry_b.total_haber}")
+                else:
+                    print(f"  ✗ Error al crear asiento para {OP_B_ID}")
+            else:
+                print(f"  · {OP_B_ID} ya existe — saltando")
+
+            db.session.commit()
+            print(f"\n✓ seed-demo-multibanco completado")
+            print(f"  Para eliminar: flask drop-demo-multibanco")
+            print(f"  Ver en: /contabilidad/caja?year=2026&month=3")
+
+        except Exception as e:
+            db.session.rollback()
+            print(f"✗ Error: {e}")
+            traceback.print_exc()
+
+    @app.cli.command("drop-demo-multibanco")
+    def drop_demo_multibanco():
+        """Elimina el cliente y operaciones del seed-demo-multibanco."""
+        from app.extensions import db
+        from app.models.client import Client
+        from app.models.operation import Operation
+        from app.models.journal_entry import JournalEntry
+        from app.models.journal_entry_line import JournalEntryLine
+        import traceback
+
+        try:
+            # Asientos de las operaciones demo
+            for op_id in ['DEMO-MB-COMPRA-001', 'DEMO-MB-VENTA-001']:
+                op = Operation.query.filter_by(operation_id=op_id).first()
+                if op:
+                    je = JournalEntry.query.filter_by(
+                        source_type='operation', source_id=op.id
+                    ).first()
+                    if je:
+                        JournalEntryLine.query.filter_by(
+                            journal_entry_id=je.id
+                        ).delete(synchronize_session=False)
+                        db.session.delete(je)
+                    db.session.delete(op)
+                    print(f"  ✓ Operación {op_id} + asiento eliminados")
+
+            # Cliente demo
+            client = Client.query.filter_by(dni='72345678').first()
+            if client:
+                db.session.delete(client)
+                print(f"  ✓ Cliente demo DNI 72345678 eliminado")
+
+            db.session.commit()
+            print(f"✓ drop-demo-multibanco completado")
+        except Exception as e:
+            db.session.rollback()
+            print(f"✗ Error: {e}")
+            traceback.print_exc()
+
     @app.cli.command("clear-complaints")
     def clear_complaints():
         """Elimina TODOS los reclamos de la tabla complaints (producción)."""
