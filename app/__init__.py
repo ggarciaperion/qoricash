@@ -560,6 +560,192 @@ def register_cli_commands(app):
             print(f"✗ Error en seed-accounts: {e}")
             traceback.print_exc()
 
+    @app.cli.command("seed-demo-contabilidad")
+    def seed_demo_contabilidad():
+        """Carga datos demo de contabilidad para Febrero 2026 (visualización)."""
+        from app.extensions import db
+        from app.models.accounting_period import AccountingPeriod
+        from app.models.expense_record import ExpenseRecord
+        from app.services.accounting.journal_service import JournalService
+        from datetime import date
+        from decimal import Decimal
+        import traceback
+
+        YEAR, MONTH = 2026, 2
+
+        # ── 1. Período ──────────────────────────────────────────────────────
+        period = AccountingPeriod.query.filter_by(year=YEAR, month=MONTH).first()
+        if not period:
+            period = AccountingPeriod(year=YEAR, month=MONTH, status='abierto')
+            db.session.add(period)
+            db.session.commit()
+            print(f"  ✓ Período Feb {YEAR} creado")
+        else:
+            print(f"  · Período Feb {YEAR} ya existe, usando el existente")
+
+        # ── 2. Operaciones de compra/venta (bank movements) ─────────────────
+        ops = [
+            # (fecha, tipo, desc_cliente, usd, tc, pen, banco_pen, banco_usd)
+            (date(2026,2, 3), 'Compra', 'Carlos Mendoza',          5_000,  3.7200, 18_600.00, '1041','1044'),
+            (date(2026,2, 5), 'Venta',  'Ana Torres',              3_200,  3.6800, 11_776.00, '1041','1044'),
+            (date(2026,2, 7), 'Compra', 'Empresa XYZ SAC',        10_000,  3.7300, 37_300.00, '1042','1045'),
+            (date(2026,2,10), 'Venta',  'Luis García',             2_500,  3.6700,  9_175.00, '1042','1045'),
+            (date(2026,2,12), 'Compra', 'María López',             8_000,  3.7100, 29_680.00, '1041','1044'),
+            (date(2026,2,14), 'Venta',  'Importaciones ABC SAC',  15_000,  3.6900, 55_350.00, '1041','1044'),
+            (date(2026,2,17), 'Compra', 'Pedro Sánchez',           4_500,  3.7400, 16_830.00, '1043','1046'),
+            (date(2026,2,19), 'Venta',  'Rosa Flores',             6_000,  3.6800, 22_080.00, '1043','1046'),
+            (date(2026,2,21), 'Compra', 'Exportadores del Perú SAC',20_000,3.7200, 74_400.00, '1041','1044'),
+            (date(2026,2,24), 'Venta',  'Jorge Huanca',            3_800,  3.6600, 13_908.00, '1041','1044'),
+            (date(2026,2,26), 'Compra', 'Patricia Quispe',         7_500,  3.7300, 27_975.00, '1042','1045'),
+            (date(2026,2,28), 'Venta',  'Comercial Lima SAC',     12_000,  3.7000, 44_400.00, '1042','1045'),
+        ]
+
+        for d, tipo, cliente, usd, tc, pen, acc_pen, acc_usd in ops:
+            pen_d = Decimal(str(pen))
+            usd_d = Decimal(str(usd))
+            tc_d  = Decimal(str(tc))
+            if tipo == 'Compra':
+                lines = [
+                    {'account_code': acc_pen, 'description': f'Ingreso PEN – {cliente}',
+                     'debe': pen_d, 'haber': Decimal('0'), 'currency': 'PEN'},
+                    {'account_code': acc_usd, 'description': f'Egreso USD – {cliente}',
+                     'debe': Decimal('0'), 'haber': pen_d,
+                     'currency': 'USD', 'amount_usd': usd_d, 'exchange_rate': tc_d},
+                ]
+                glosa = f'DEMO Compra USD – {cliente}'
+            else:
+                lines = [
+                    {'account_code': acc_usd, 'description': f'Ingreso USD – {cliente}',
+                     'debe': pen_d, 'haber': Decimal('0'),
+                     'currency': 'USD', 'amount_usd': usd_d, 'exchange_rate': tc_d},
+                    {'account_code': acc_pen, 'description': f'Egreso PEN – {cliente}',
+                     'debe': Decimal('0'), 'haber': pen_d, 'currency': 'PEN'},
+                ]
+                glosa = f'DEMO Venta USD – {cliente}'
+
+            e = JournalService.create_entry(
+                entry_type='operacion_completada',
+                description=glosa,
+                lines=lines,
+                source_type='demo',
+                source_id=None,
+                entry_date=d,
+                created_by=None,
+            )
+            print(f"  ✓ {e.entry_number}  {glosa[:55]}")
+
+        # ── 3. Reconocimiento de spread (calce / ingresos 7711/7712) ────────
+        spreads = [
+            (date(2026,2,28), 'DEMO Spread compra USD Feb-2026',
+             [{'account_code':'1041','description':'Ingreso spread compra','debe':Decimal('1850.50'),'haber':Decimal('0'),'currency':'PEN'},
+              {'account_code':'7711','description':'Diferencial cambiario compra','debe':Decimal('0'),'haber':Decimal('1850.50'),'currency':'PEN'}]),
+            (date(2026,2,28), 'DEMO Spread venta USD Feb-2026',
+             [{'account_code':'1041','description':'Ingreso spread venta','debe':Decimal('1240.00'),'haber':Decimal('0'),'currency':'PEN'},
+              {'account_code':'7711','description':'Diferencial cambiario venta','debe':Decimal('0'),'haber':Decimal('1240.00'),'currency':'PEN'}]),
+        ]
+        for d, glosa, lines in spreads:
+            e = JournalService.create_entry('calce_netting', glosa, lines,
+                                            source_type='demo', entry_date=d)
+            print(f"  ✓ {e.entry_number}  {glosa}")
+
+        # ── 4. Gastos + ExpenseRecords ────────────────────────────────────
+        gastos = [
+            # (fecha, categoria, descripcion, monto, tipo_comp, num_comp, ruc, proveedor)
+            (date(2026,2, 1),'6391','Alquiler local Feb-2026',         3_500.00,'Factura','F001-00234','20512345678','Inmobiliaria Central SAC'),
+            (date(2026,2, 3),'6361','Servicio de energía eléctrica',     320.00,'Boleta', 'B003-08921','20331376783','Enel Distribución Perú SAC'),
+            (date(2026,2, 3),'6361','Telefonía e internet empresarial',   450.00,'Boleta', 'B002-01567','20116544526','Claro Perú SAC'),
+            (date(2026,2, 8),'6381','Honorarios contador Feb-2026',       800.00,'Recibo', 'RH-001-0345','10412345678','Juan Pérez Quispe CPC'),
+            (date(2026,2,10),'6391','Comisión bancaria BCP Feb-2026',     185.00, None,     None,         None,         None),
+            (date(2026,2,15),'6391','Comisión bancaria BBVA Feb-2026',    120.00, None,     None,         None,         None),
+            (date(2026,2,17),'6391','Publicidad en redes sociales',       600.00,'Factura','F004-00789','20601234567','Digital Media SAC'),
+            (date(2026,2,20),'6511','Material de oficina y útiles',       280.00,'Boleta', 'B005-02345','10298765432','Librería San Juan EIRL'),
+            (date(2026,2,25),'6391','Servicio de limpieza de local',      350.00,'Recibo', 'RC-002-0123','20456789012','Limpiezas Rápidas SAC'),
+            (date(2026,2,28),'6361','Internet y comunicaciones añadidas', 250.00,'Boleta', 'B006-04567','20116544526','Movistar Perú SAC'),
+        ]
+
+        for d, cat, desc, monto, vtype, vnum, ruc, proveedor in gastos:
+            pen_d = Decimal(str(monto))
+            # Asiento contable del gasto
+            e = JournalService.create_entry(
+                entry_type='gasto',
+                description=f'DEMO Gasto: {desc}',
+                lines=[
+                    {'account_code': cat,  'description': desc,
+                     'debe': pen_d, 'haber': Decimal('0'), 'currency': 'PEN'},
+                    {'account_code': '4699','description': f'Por pagar: {desc}',
+                     'debe': Decimal('0'), 'haber': pen_d, 'currency': 'PEN'},
+                ],
+                source_type='demo',
+                entry_date=d,
+                created_by=None,
+            )
+            # Registro de gasto
+            er = ExpenseRecord(
+                period_id=period.id,
+                expense_date=d,
+                category=cat,
+                description=desc,
+                amount_pen=pen_d,
+                voucher_type=vtype,
+                voucher_number=vnum,
+                supplier_ruc=ruc,
+                supplier_name=proveedor,
+                journal_entry_id=e.id if e else None,
+                created_by=None,
+            )
+            db.session.add(er)
+            print(f"  ✓ Gasto: {desc[:50]}  S/ {monto:.2f}")
+
+        db.session.commit()
+        print("\n✓ seed-demo-contabilidad completado — Febrero 2026")
+        print("  Cuando quieras eliminar estos datos: flask drop-demo-contabilidad")
+
+    @app.cli.command("drop-demo-contabilidad")
+    def drop_demo_contabilidad():
+        """Elimina TODOS los datos demo de contabilidad de Febrero 2026."""
+        from app.extensions import db
+        from app.models.accounting_period import AccountingPeriod
+        from app.models.journal_entry import JournalEntry
+        from app.models.journal_entry_line import JournalEntryLine
+        from app.models.expense_record import ExpenseRecord
+        import traceback
+
+        YEAR, MONTH = 2026, 2
+        try:
+            # Expense records del período
+            er_del = ExpenseRecord.query.filter(
+                db.extract('year',  ExpenseRecord.expense_date) == YEAR,
+                db.extract('month', ExpenseRecord.expense_date) == MONTH,
+            ).delete(synchronize_session=False)
+            print(f"  ✓ {er_del} expense_records eliminados")
+
+            # Journal entries del período (las líneas se eliminan en cascade)
+            from sqlalchemy import extract
+            je_ids = [r[0] for r in db.session.query(JournalEntry.id).filter(
+                extract('year',  JournalEntry.entry_date) == YEAR,
+                extract('month', JournalEntry.entry_date) == MONTH,
+            ).all()]
+            if je_ids:
+                JournalEntryLine.query.filter(
+                    JournalEntryLine.journal_entry_id.in_(je_ids)
+                ).delete(synchronize_session=False)
+                JournalEntry.query.filter(JournalEntry.id.in_(je_ids)).delete(
+                    synchronize_session=False)
+            print(f"  ✓ {len(je_ids)} journal_entries + líneas eliminados")
+
+            # Período
+            period = AccountingPeriod.query.filter_by(year=YEAR, month=MONTH).first()
+            if period:
+                db.session.delete(period)
+                print(f"  ✓ Período Feb {YEAR} eliminado")
+
+            db.session.commit()
+            print(f"\n✓ drop-demo-contabilidad completado — datos de Feb {YEAR} eliminados")
+        except Exception as e:
+            db.session.rollback()
+            print(f"✗ Error: {e}")
+            traceback.print_exc()
+
     @app.cli.command("clear-complaints")
     def clear_complaints():
         """Elimina TODOS los reclamos de la tabla complaints (producción)."""
