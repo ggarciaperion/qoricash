@@ -203,8 +203,21 @@ def register_error_handlers(app):
     @app.errorhandler(500)
     def internal_error(error):
         db.session.rollback()
-        # Siempre retornar JSON para APIs
-        return jsonify({'success': False, 'error': 'Error interno del servidor'}), 500
+        import traceback, logging as _log
+        tb = traceback.format_exc()
+        _log.error(f'[500] {request.path}\n{tb}')
+        # JSON solo para peticiones AJAX / API
+        if (request.is_json or
+                request.path.startswith('/api/') or
+                request.headers.get('X-Requested-With') == 'XMLHttpRequest'):
+            return jsonify({'success': False, 'error': 'Error interno del servidor'}), 500
+        # Páginas HTML: mostrar el traceback para facilitar diagnóstico
+        return (
+            f'<h2 style="color:red">Error 500 — {request.path}</h2>'
+            f'<pre style="background:#f8f8f8;padding:16px;border-radius:6px">'
+            f'{tb}</pre>',
+            500,
+        )
 
     @app.errorhandler(403)
     def forbidden_error(error):
