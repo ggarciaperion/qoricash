@@ -9,10 +9,15 @@
       <h2 class="mb-0"><i class="bi bi-journal-text me-2"></i>Libro Diario</h2>
       <small class="text-muted">Partida doble — PCGE</small>
     </div>
-    <a href="{{ url_for('contabilidad.export_diario', year=selected_year, month=selected_month) }}"
-       class="btn btn-success">
-      <i class="bi bi-file-earmark-excel me-1"></i>Exportar Excel
-    </a>
+    <div class="d-flex gap-2">
+      <button class="btn btn-primary" onclick="abrirNuevoAsiento()">
+        <i class="bi bi-plus-circle me-1"></i>Nuevo Asiento
+      </button>
+      <a href="{{ url_for('contabilidad.export_diario', year=selected_year, month=selected_month) }}"
+         class="btn btn-success">
+        <i class="bi bi-file-earmark-excel me-1"></i>Exportar Excel
+      </a>
+    </div>
   </div>
 
   <!-- Filtros -->
@@ -68,6 +73,7 @@
               <th class="text-end">DEBE (S/)</th>
               <th class="text-end">HABER (S/)</th>
               <th>Estado</th>
+              <th style="width:60px;"></th>
             </tr>
           </thead>
           <tbody>
@@ -104,10 +110,19 @@
                   <span class="badge bg-danger">{{ e.status }}</span>
                 {% endif %}
               </td>
+              <td>
+                {% if e.status == 'activo' %}
+                <button class="btn btn-sm btn-outline-danger py-0 px-1"
+                        title="Anular asiento"
+                        onclick="event.stopPropagation(); abrirAnularAsiento({{ e.id }}, '{{ e.entry_number }}')">
+                  <i class="bi bi-x-circle"></i>
+                </button>
+                {% endif %}
+              </td>
             </tr>
             <!-- Líneas del asiento (colapsable) -->
             <tr class="collapse" id="lines-{{ e.id }}">
-              <td colspan="8" class="p-0">
+              <td colspan="9" class="p-0">
                 <div class="bg-light border-start border-4 border-primary ps-3 py-2">
                   <div class="table-responsive">
                     <table class="table table-sm table-bordered mb-0">
@@ -135,7 +150,7 @@
             </tr>
             {% else %}
             <tr>
-              <td colspan="8" class="text-center text-muted py-5">
+              <td colspan="9" class="text-center text-muted py-5">
                 No hay asientos para el período seleccionado.
               </td>
             </tr>
@@ -147,7 +162,7 @@
               <td colspan="5" class="text-end">TOTALES</td>
               <td class="text-end">{{ "%.2f"|format(total_d.v) }}</td>
               <td class="text-end">{{ "%.2f"|format(total_h.v) }}</td>
-              <td></td>
+              <td colspan="2"></td>
             </tr>
           </tfoot>
           {% endif %}
@@ -159,11 +174,113 @@
 </div>
 {% endblock %}
 
+<!-- Modal: Nuevo Asiento Manual -->
+<div class="modal fade" id="modalNuevoAsiento" tabindex="-1">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title"><i class="bi bi-journal-plus me-2"></i>Nuevo Asiento Manual</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row mb-3">
+          <div class="col-md-4">
+            <label class="form-label form-label-sm">Fecha <span class="text-danger">*</span></label>
+            <input type="date" id="naFecha" class="form-control form-control-sm"
+                   value="{{ '%04d-%02d-01'|format(selected_year, selected_month) }}">
+          </div>
+          <div class="col-md-8">
+            <label class="form-label form-label-sm">Glosa / Descripción <span class="text-danger">*</span></label>
+            <input type="text" id="naGlosa" class="form-control form-control-sm"
+                   placeholder="Descripción del asiento contable">
+          </div>
+        </div>
+
+        <!-- Tabla de líneas -->
+        <div class="table-responsive">
+          <table class="table table-sm table-bordered" id="naLineasTable">
+            <thead class="table-secondary">
+              <tr>
+                <th style="width:110px;">Cuenta PCGE</th>
+                <th>Glosa de línea</th>
+                <th style="width:90px;">Moneda</th>
+                <th style="width:130px;" class="text-end">DEBE (S/)</th>
+                <th style="width:130px;" class="text-end">HABER (S/)</th>
+                <th style="width:40px;"></th>
+              </tr>
+            </thead>
+            <tbody id="naLineasBody">
+              <!-- filas dinámicas -->
+            </tbody>
+            <tfoot>
+              <tr class="table-light fw-bold">
+                <td colspan="3" class="text-end">TOTALES</td>
+                <td class="text-end" id="naTotalDebe">0.00</td>
+                <td class="text-end" id="naTotalHaber">0.00</td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+        <button class="btn btn-sm btn-outline-primary mt-1" onclick="naAgregarLinea()">
+          <i class="bi bi-plus"></i> Agregar línea
+        </button>
+
+        <div id="naError" class="alert alert-danger mt-3 d-none"></div>
+        <div id="naBalance" class="alert alert-warning mt-2 d-none">
+          <i class="bi bi-exclamation-triangle me-1"></i>
+          <span id="naBalanceMsg"></span>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="btnGuardarAsiento" onclick="guardarAsiento()">
+          <i class="bi bi-save me-1"></i>Guardar Asiento
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Anular Asiento -->
+<div class="modal fade" id="modalAnular" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title"><i class="bi bi-x-circle me-2"></i>Anular Asiento</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p>Anulando: <strong id="anularEntryNumber"></strong></p>
+        <p class="text-muted small">
+          Se creará un asiento de reversión automático (contrapartida).
+          Esta acción no puede deshacerse.
+        </p>
+        <div class="mb-3">
+          <label class="form-label">Motivo de anulación <span class="text-danger">*</span></label>
+          <textarea id="anularMotivo" class="form-control" rows="3"
+                    placeholder="Ej: Error en imputación de cuenta..."></textarea>
+        </div>
+        <div id="anularError" class="alert alert-danger d-none"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-danger" id="btnConfirmarAnular" onclick="confirmarAnulacion()">
+          <i class="bi bi-x-circle me-1"></i>Confirmar Anulación
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
 {% block scripts %}
 <script>
-// Cargar líneas del asiento al expandir
+// ── Acordeón de líneas ─────────────────────────────────────────────────────────
 document.querySelectorAll('[data-bs-target]').forEach(row => {
   const targetId = row.getAttribute('data-bs-target');
+  if (!targetId || !targetId.startsWith('#lines-')) return;
   const entryId  = targetId.replace('#lines-', '');
   let loaded = false;
 
@@ -201,5 +318,161 @@ document.querySelectorAll('[data-bs-target]').forEach(row => {
     if (icon) icon.className = 'bi bi-chevron-right toggle-icon';
   });
 });
+
+// ── Nuevo Asiento Manual ──────────────────────────────────────────────────────
+let lineaCount = 0;
+
+function abrirNuevoAsiento() {
+  lineaCount = 0;
+  document.getElementById('naLineasBody').innerHTML = '';
+  document.getElementById('naGlosa').value = '';
+  document.getElementById('naError').classList.add('d-none');
+  document.getElementById('naBalance').classList.add('d-none');
+  naAgregarLinea();
+  naAgregarLinea();
+  new bootstrap.Modal(document.getElementById('modalNuevoAsiento')).show();
+}
+
+function naAgregarLinea() {
+  lineaCount++;
+  const id = lineaCount;
+  const tr = document.createElement('tr');
+  tr.id = 'na-row-' + id;
+  tr.innerHTML = `
+    <td><input type="text" class="form-control form-control-sm na-code"
+               placeholder="ej. 1041" maxlength="10" oninput="naRecalc()"></td>
+    <td><input type="text" class="form-control form-control-sm na-desc"
+               placeholder="Glosa línea"></td>
+    <td>
+      <select class="form-select form-select-sm na-currency">
+        <option>PEN</option><option>USD</option>
+      </select>
+    </td>
+    <td>
+      <input type="number" class="form-control form-control-sm text-end na-debe"
+             step="0.01" min="0" value="0" oninput="naRecalc()">
+    </td>
+    <td>
+      <input type="number" class="form-control form-control-sm text-end na-haber"
+             step="0.01" min="0" value="0" oninput="naRecalc()">
+    </td>
+    <td class="text-center">
+      <button class="btn btn-sm btn-outline-danger py-0 px-1"
+              onclick="naEliminarLinea(${id})" title="Eliminar línea">
+        <i class="bi bi-trash3"></i>
+      </button>
+    </td>`;
+  document.getElementById('naLineasBody').appendChild(tr);
+}
+
+function naEliminarLinea(id) {
+  const row = document.getElementById('na-row-' + id);
+  if (row) { row.remove(); naRecalc(); }
+}
+
+function naRecalc() {
+  let debe = 0, haber = 0;
+  document.querySelectorAll('.na-debe').forEach(i => debe  += parseFloat(i.value) || 0);
+  document.querySelectorAll('.na-haber').forEach(i => haber += parseFloat(i.value) || 0);
+  document.getElementById('naTotalDebe').textContent  = debe.toFixed(2);
+  document.getElementById('naTotalHaber').textContent = haber.toFixed(2);
+  const diff = Math.abs(debe - haber);
+  const balDiv = document.getElementById('naBalance');
+  if (diff > 0.01) {
+    document.getElementById('naBalanceMsg').textContent =
+      `Descuadre: DEBE ${debe.toFixed(2)} ≠ HABER ${haber.toFixed(2)} (diferencia ${diff.toFixed(2)})`;
+    balDiv.classList.remove('d-none');
+  } else {
+    balDiv.classList.add('d-none');
+  }
+}
+
+function guardarAsiento() {
+  const errDiv = document.getElementById('naError');
+  errDiv.classList.add('d-none');
+
+  const fecha  = document.getElementById('naFecha').value;
+  const glosa  = document.getElementById('naGlosa').value.trim();
+
+  const rows   = document.querySelectorAll('#naLineasBody tr');
+  const lines  = [];
+  rows.forEach(tr => {
+    lines.push({
+      account_code: tr.querySelector('.na-code').value.trim(),
+      description:  tr.querySelector('.na-desc').value.trim(),
+      currency:     tr.querySelector('.na-currency').value,
+      debe:         parseFloat(tr.querySelector('.na-debe').value)  || 0,
+      haber:        parseFloat(tr.querySelector('.na-haber').value) || 0,
+    });
+  });
+
+  if (!glosa) { errDiv.textContent = 'La glosa es obligatoria.'; errDiv.classList.remove('d-none'); return; }
+
+  const btn = document.getElementById('btnGuardarAsiento');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Guardando…';
+
+  fetch('/contabilidad/diario/nuevo', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({entry_date: fecha, description: glosa, lines}),
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.success) {
+      bootstrap.Modal.getInstance(document.getElementById('modalNuevoAsiento')).hide();
+      Swal.fire({icon:'success', title:'Asiento creado', text: data.entry_number,
+                 timer: 2000, showConfirmButton: false});
+      setTimeout(() => location.reload(), 1500);
+    } else {
+      errDiv.textContent = data.error || 'Error desconocido';
+      errDiv.classList.remove('d-none');
+    }
+  })
+  .catch(() => { errDiv.textContent = 'Error de conexión'; errDiv.classList.remove('d-none'); })
+  .finally(() => { btn.disabled = false; btn.innerHTML = '<i class="bi bi-save me-1"></i>Guardar Asiento'; });
+}
+
+// ── Anulación ─────────────────────────────────────────────────────────────────
+let _anularId = null;
+
+function abrirAnularAsiento(entryId, entryNumber) {
+  _anularId = entryId;
+  document.getElementById('anularEntryNumber').textContent = entryNumber;
+  document.getElementById('anularMotivo').value = '';
+  document.getElementById('anularError').classList.add('d-none');
+  new bootstrap.Modal(document.getElementById('modalAnular')).show();
+}
+
+function confirmarAnulacion() {
+  const motivo = document.getElementById('anularMotivo').value.trim();
+  const errDiv = document.getElementById('anularError');
+  errDiv.classList.add('d-none');
+  if (!motivo) { errDiv.textContent = 'El motivo es obligatorio.'; errDiv.classList.remove('d-none'); return; }
+
+  const btn = document.getElementById('btnConfirmarAnular');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Anulando…';
+
+  fetch(`/contabilidad/diario/${_anularId}/anular`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({motivo}),
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.success) {
+      bootstrap.Modal.getInstance(document.getElementById('modalAnular')).hide();
+      Swal.fire({icon:'success', title:'Asiento anulado', text: data.message,
+                 timer: 2000, showConfirmButton: false});
+      setTimeout(() => location.reload(), 1500);
+    } else {
+      errDiv.textContent = data.error || 'Error desconocido';
+      errDiv.classList.remove('d-none');
+    }
+  })
+  .catch(() => { errDiv.textContent = 'Error de conexión'; errDiv.classList.remove('d-none'); })
+  .finally(() => { btn.disabled = false; btn.innerHTML = '<i class="bi bi-x-circle me-1"></i>Confirmar Anulación'; });
+}
 </script>
 {% endblock %}

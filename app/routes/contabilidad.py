@@ -126,6 +126,126 @@ def diario():
     )
 
 
+@contabilidad_bp.route('/diario/nuevo', methods=['POST'])
+@login_required
+@require_role('Master')
+def nuevo_asiento():
+    """Crear un asiento manual con N líneas de debe/haber."""
+    from app.services.accounting.journal_service import JournalService
+
+    data = request.get_json()
+    if not data:
+        return jsonify({'success': False, 'error': 'Sin datos'}), 400
+
+    try:
+        entry_date = date.fromisoformat(data.get('entry_date', str(date.today())))
+        description = data.get('description', '').strip()
+        raw_lines   = data.get('lines', [])
+
+        if not description:
+            return jsonify({'success': False, 'error': 'La glosa es obligatoria'}), 400
+        if len(raw_lines) < 2:
+            return jsonify({'success': False, 'error': 'Se requieren al menos 2 líneas'}), 400
+
+        lines = []
+        total_debe = Decimal('0')
+        total_haber = Decimal('0')
+        for l in raw_lines:
+            debe  = Decimal(str(l.get('debe',  0) or 0))
+            haber = Decimal(str(l.get('haber', 0) or 0))
+            if not l.get('account_code'):
+                return jsonify({'success': False, 'error': 'Todas las líneas requieren código de cuenta'}), 400
+            lines.append({
+                'account_code': l['account_code'].strip(),
+                'description':  l.get('description', '').strip() or None,
+                'debe':         debe,
+                'haber':        haber,
+                'currency':     l.get('currency', 'PEN'),
+            })
+            total_debe  += debe
+            total_haber += haber
+
+        diff = abs(total_debe - total_haber)
+        if diff > Decimal('0.01'):
+            return jsonify({
+                'success': False,
+                'error': f'El asiento no cuadra: DEBE {total_debe:.2f} ≠ HABER {total_haber:.2f}'
+            }), 400
+
+        entry = JournalService.create_entry(
+            entry_type='manual',
+            description=description,
+            lines=lines,
+            source_type='manual',
+            source_id=None,
+            entry_date=entry_date,
+            created_by=current_user.id,
+        )
+
+        if entry:
+            return jsonify({'success': True, 'entry_number': entry.entry_number})
+        else:
+            return jsonify({'success': False, 'error': 'Error al guardar el asiento. Revisa los logs.'}), 500
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+
+@contabilidad_bp.route('/diario/<int:entry_id>/anular', methods=['POST'])
+@login_required
+@require_role('Master')
+def anular_asiento(entry_id):
+    """Anular un asiento: cambia status a 'anulado' y crea asiento inverso."""
+    from app.models.journal_entry import JournalEntry
+    from app.services.accounting.journal_service import JournalService
+
+    data = request.get_json() or {}
+    motivo = data.get('motivo', '').strip()
+    if not motivo:
+        return jsonify({'success': False, 'error': 'Se requiere motivo de anulación'}), 400
+
+    entry = JournalEntry.query.get_or_404(entry_id)
+
+    if entry.status == 'anulado':
+        return jsonify({'success': False, 'error': 'El asiento ya está anulado'}), 400
+
+    try:
+        # Marcar original como anulado
+        entry.status        = 'anulado'
+        entry.annulled_at   = datetime.utcnow()
+        entry.annulled_by   = current_user.id
+        entry.annulled_reason = motivo
+        db.session.flush()
+
+        # Crear asiento inverso (contrapartida)
+        lines = entry.lines.all() if hasattr(entry.lines, 'all') else list(entry.lines)
+        inverse_lines = [{
+            'account_code': l.account_code,
+            'description':  f'Reversión: {l.description or entry.description}',
+            'debe':         l.haber,   # invertir
+            'haber':        l.debe,
+            'currency':     l.currency or 'PEN',
+        } for l in lines]
+
+        JournalService.create_entry(
+            entry_type='manual',
+            description=f'ANULACIÓN: {entry.entry_number} — {motivo}',
+            lines=inverse_lines,
+            source_type='anulacion',
+            source_id=entry.id,
+            entry_date=date.today(),
+            created_by=current_user.id,
+        )
+
+        # create_entry ya hace commit; si falla vuelve None pero el flag ya se guardó
+        db.session.commit()
+        return jsonify({'success': True, 'message': f'Asiento {entry.entry_number} anulado'})
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @contabilidad_bp.route('/diario/<int:entry_id>/lines')
 @login_required
 @require_role('Master')
