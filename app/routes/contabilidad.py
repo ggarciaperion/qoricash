@@ -486,21 +486,26 @@ def cerrar_periodo():
 
 # Mapa código PCGE → etiqueta legible
 _ACCOUNT_LABELS = {
-    '1011': ('Caja MN',        'PEN', 'efectivo'),
-    '1012': ('Caja ME',        'USD', 'efectivo'),
-    '1041': ('BCP PEN',        'PEN', 'banco'),
-    '1042': ('BBVA PEN',       'PEN', 'banco'),
-    '1043': ('Scotiabank PEN', 'PEN', 'banco'),
-    '1044': ('BCP USD',        'USD', 'banco'),
-    '1045': ('BBVA USD',       'USD', 'banco'),
-    '1046': ('Scotiabank USD', 'USD', 'banco'),
+    '1011': ('Caja MN',           'PEN', 'efectivo'),
+    '1012': ('Caja ME',           'USD', 'efectivo'),
+    '1041': ('BCP PEN',           'PEN', 'banco'),
+    '1042': ('BBVA PEN',          'PEN', 'banco'),
+    '1043': ('Scotiabank PEN',    'PEN', 'banco'),
+    '1044': ('BCP USD',           'USD', 'banco'),
+    '1045': ('BBVA USD',          'USD', 'banco'),
+    '1046': ('Scotiabank USD',    'USD', 'banco'),
+    '1047': ('Interbank USD',     'USD', 'banco'),
+    '1048': ('Interbank PEN',     'PEN', 'banco'),
+    '1049': ('BanBif PEN/USD',    'PEN', 'banco'),
 }
 
 # Cómo relacionar PCGE code → bank_name para conciliación
 _CODE_TO_BANK = {
-    '1041': 'BCP',  '1044': 'BCP',
-    '1042': 'BBVA', '1045': 'BBVA',
+    '1041': 'BCP',        '1044': 'BCP',
+    '1042': 'BBVA',       '1045': 'BBVA',
     '1043': 'SCOTIABANK', '1046': 'SCOTIABANK',
+    '1047': 'INTERBANK',  '1048': 'INTERBANK',
+    '1049': 'BANBIF',
 }
 
 

@@ -24,23 +24,23 @@ _PEN_ACCOUNTS = {
     'BCP':        '1041',
     'BBVA':       '1042',
     'SCOTIABANK': '1043',
-    'INTERBANK':  '1041',   # fallback genérico si no tiene cuenta propia
-    'BANBIF':     '1041',
+    'INTERBANK':  '1048',   # cuenta genérica Interbank PEN
+    'BANBIF':     '1049',   # cuenta genérica BanBif PEN
 }
 _USD_ACCOUNTS = {
     'BCP':        '1044',
     'BBVA':       '1045',
     'SCOTIABANK': '1046',
-    'INTERBANK':  '1044',
-    'BANBIF':     '1044',
+    'INTERBANK':  '1047',   # cuenta genérica Interbank USD
+    'BANBIF':     '1049',   # cuenta genérica BanBif USD
 }
 
 
 def _map_bank(bank_str: str, currency: str) -> str:
     """
-    Convierte un nombre de banco (libre) al código de cuenta PCGE.
-    Ejemplo: 'BCP PEN' → '1041', 'BBVA USD' → '1045'
-    Fallback: '1041' (PEN) o '1044' (USD)
+    Convierte un nombre de banco al código de cuenta PCGE.
+    Acepta nombre directo ('BCP', 'BBVA', ...) o cualquier string con el nombre embebido.
+    Fallback: '1041' (PEN) o '1044' (USD).
     """
     if not bank_str:
         return '1041' if currency == 'PEN' else '1044'
@@ -50,6 +50,48 @@ def _map_bank(bank_str: str, currency: str) -> str:
         if key in s:
             return code
     return '1041' if currency == 'PEN' else '1044'
+
+
+def _bank_from_client_accounts(client, account_number: str) -> str | None:
+    """
+    Busca el nombre del banco dado un número de cuenta en client.bank_accounts.
+    Retorna el bank_name o None si no encuentra coincidencia.
+    """
+    if not client or not account_number:
+        return None
+    try:
+        for acc in (client.bank_accounts or []):
+            if str(acc.get('account_number', '')).strip() == str(account_number).strip():
+                return acc.get('bank_name') or None
+    except Exception:
+        pass
+    return None
+
+
+def _distribute_pen(items: list, total_pen: Decimal, key: str = 'importe') -> list:
+    """
+    Distribuye total_pen entre los ítems proporcionalmente al campo `key`.
+    El último ítem absorbe la diferencia de redondeo.
+    Si todos los pesos son 0 reparte en partes iguales.
+    Retorna lista de Decimal con len == len(items).
+    """
+    if not items:
+        return []
+    weights = [_safe_decimal(item.get(key, 0)) for item in items]
+    total_w = sum(weights)
+    result = []
+    allocated = Decimal('0')
+    for i, w in enumerate(weights):
+        if i == len(weights) - 1:
+            result.append(total_pen - allocated)
+        else:
+            if total_w > 0:
+                amt = (w / total_w * total_pen).quantize(Decimal('0.01'))
+            else:
+                amt = (total_pen / len(weights)).quantize(Decimal('0.01'))
+            result.append(amt)
+            allocated += amt
+    return result
 
 
 def _safe_decimal(value, default=Decimal('0')) -> Decimal:
@@ -230,21 +272,23 @@ class JournalService:
         """
         Genera el asiento de partida doble cuando una operación pasa a 'Completada'.
 
-        COMPRA (cliente compra USD):
-          Empresa RECIBE soles → ENTREGA dólares
-          DEBE  104x Bancos PEN (banco donde ingresaron los soles)
-          HABER 104x Bancos USD (banco de donde salieron los dólares, valorizado en PEN)
+        COMPRA (cliente compra USD — QoriCash recibe PEN, entrega USD):
+          DEBE  104x PEN  por cada abono del cliente (client_deposits_json)
+          HABER 104x USD  por cada pago al cliente   (client_payments_json)
 
-        VENTA (cliente vende USD):
-          Empresa RECIBE dólares → ENTREGA soles
-          DEBE  104x Bancos USD (banco donde ingresaron los dólares, valorizado en PEN)
-          HABER 104x Bancos PEN (banco de donde salieron los soles)
+        VENTA (cliente vende USD — QoriCash recibe USD, entrega PEN):
+          DEBE  104x USD  por cada abono del cliente (client_deposits_json)
+          HABER 104x PEN  por cada pago al cliente   (client_payments_json)
+
+        El banco exacto se determina buscando el número de cuenta en client.bank_accounts.
+        Si hay múltiples abonos/pagos se crea una línea por cada uno (partición proporcional
+        del total en PEN según el importe de cada movimiento).
+        Si deposits/payments están vacíos usa source_account/destination_account como fallback.
 
         La GANANCIA (diferencial cambiario) se reconoce en el CALCE (netting),
-        NO en este asiento — este asiento solo mueve los saldos bancarios.
+        NO en este asiento — este asiento solo refleja movimientos bancarios.
 
-        Retorna: JournalEntry | None
-        Este método NUNCA lanza excepciones — cualquier error queda en el log.
+        Retorna: JournalEntry | None  — NUNCA lanza excepciones.
         """
         try:
             amount_pen = _safe_decimal(operation.amount_pen)
@@ -257,71 +301,124 @@ class JournalService:
                 )
                 return None
 
-            # Nombre del cliente para la glosa
-            client = operation.client
-            if client:
-                client_name = client.full_name or client.razon_social or client.dni
-            else:
-                client_name = 'Cliente'
+            client      = operation.client
+            client_name = (client.full_name or client.razon_social or client.dni
+                           ) if client else 'Cliente'
+            op_type     = operation.operation_type   # 'Compra' | 'Venta'
+            op_id       = operation.operation_id
 
-            op_type = operation.operation_type  # 'Compra' o 'Venta'
+            deposits = operation.client_deposits or []   # [{importe, cuenta_cargo, ...}]
+            payments = operation.client_payments or []   # [{importe, cuenta_destino, ...}]
 
-            # ── Determinar cuentas bancarias ────────────────────────────────
+            lines = []
+
+            # ── Función interna: DEBE lines ───────────────────────────────
+            def _debe_lines(items, account_key, currency_in):
+                """
+                Crea líneas DEBE distribuyendo amount_pen entre los ítems.
+                currency_in: 'PEN' o 'USD' (determina el código PCGE a usar).
+                """
+                pen_parts = _distribute_pen(items, amount_pen)
+                result = []
+                for item, pen_amt in zip(items, pen_parts):
+                    if pen_amt <= 0:
+                        continue
+                    acct_num = item.get(account_key, '')
+                    bank     = _bank_from_client_accounts(client, acct_num)
+                    pcge     = _map_bank(bank or acct_num, currency_in)
+                    usd_amt  = (pen_amt / tc).quantize(Decimal('0.01')) if tc > 0 else Decimal('0')
+                    result.append({
+                        'account_code': pcge,
+                        'description':  f'Ingreso {currency_in} – {op_id}',
+                        'debe':         pen_amt,
+                        'haber':        Decimal('0'),
+                        'currency':     currency_in,
+                        **(({'amount_usd': usd_amt, 'exchange_rate': tc})
+                           if currency_in == 'USD' else {}),
+                    })
+                return result
+
+            # ── Función interna: HABER lines ──────────────────────────────
+            def _haber_lines(items, account_key, currency_out):
+                pen_parts = _distribute_pen(items, amount_pen)
+                result = []
+                for item, pen_amt in zip(items, pen_parts):
+                    if pen_amt <= 0:
+                        continue
+                    acct_num = item.get(account_key, '')
+                    bank     = _bank_from_client_accounts(client, acct_num)
+                    pcge     = _map_bank(bank or acct_num, currency_out)
+                    usd_amt  = (pen_amt / tc).quantize(Decimal('0.01')) if tc > 0 else Decimal('0')
+                    result.append({
+                        'account_code': pcge,
+                        'description':  f'Egreso {currency_out} – {op_id}',
+                        'debe':         Decimal('0'),
+                        'haber':        pen_amt,
+                        'currency':     currency_out,
+                        **(({'amount_usd': usd_amt, 'exchange_rate': tc})
+                           if currency_out == 'USD' else {}),
+                    })
+                return result
+
             if op_type == 'Compra':
-                # source_account = banco donde el cliente depositó PEN
-                # destination_account = banco de donde salieron los USD
-                pen_account = _map_bank(operation.source_account, 'PEN')
-                usd_account = _map_bank(operation.destination_account, 'USD')
-                description = f'Compra USD – {operation.operation_id} – {client_name}'
-                lines = [
-                    {
-                        'account_code': pen_account,
-                        'description':  f'Ingreso PEN cliente – {operation.operation_id}',
-                        'debe':         amount_pen,
-                        'haber':        Decimal('0'),
-                        'currency':     'PEN',
-                    },
-                    {
-                        'account_code': usd_account,
-                        'description':  f'Egreso USD cliente – {operation.operation_id}',
-                        'debe':         Decimal('0'),
-                        'haber':        amount_pen,   # valorizado en PEN
-                        'currency':     'USD',
-                        'amount_usd':   amount_usd,
-                        'exchange_rate': tc,
-                    },
-                ]
-            else:
-                # VENTA
-                # source_account = banco donde el cliente depositó USD
-                # destination_account = banco de donde salieron los PEN
-                usd_account = _map_bank(operation.source_account, 'USD')
-                pen_account = _map_bank(operation.destination_account, 'PEN')
-                description = f'Venta USD – {operation.operation_id} – {client_name}'
-                lines = [
-                    {
-                        'account_code': usd_account,
-                        'description':  f'Ingreso USD cliente – {operation.operation_id}',
-                        'debe':         amount_pen,   # valorizado en PEN
-                        'haber':        Decimal('0'),
-                        'currency':     'USD',
-                        'amount_usd':   amount_usd,
-                        'exchange_rate': tc,
-                    },
-                    {
-                        'account_code': pen_account,
-                        'description':  f'Egreso PEN cliente – {operation.operation_id}',
-                        'debe':         Decimal('0'),
-                        'haber':        amount_pen,
-                        'currency':     'PEN',
-                    },
-                ]
+                # ── DEBE: PEN que ingresaron (abonos del cliente) ─────────
+                if deposits:
+                    lines += _debe_lines(deposits, 'cuenta_cargo', 'PEN')
+                else:
+                    pcge = _map_bank(operation.source_account, 'PEN')
+                    lines.append({'account_code': pcge,
+                                  'description':  f'Ingreso PEN – {op_id}',
+                                  'debe': amount_pen, 'haber': Decimal('0'),
+                                  'currency': 'PEN'})
 
-            # Usar la fecha de completado de la operación (no la fecha actual)
+                # ── HABER: USD que salieron (pagos al cliente) ────────────
+                if payments:
+                    lines += _haber_lines(payments, 'cuenta_destino', 'USD')
+                else:
+                    pcge    = _map_bank(operation.destination_account, 'USD')
+                    usd_amt = (amount_pen / tc).quantize(Decimal('0.01')) if tc > 0 else amount_usd
+                    lines.append({'account_code': pcge,
+                                  'description':  f'Egreso USD – {op_id}',
+                                  'debe': Decimal('0'), 'haber': amount_pen,
+                                  'currency': 'USD',
+                                  'amount_usd': usd_amt, 'exchange_rate': tc})
+
+                description = f'Compra USD – {op_id} – {client_name}'
+
+            else:  # VENTA
+                # ── DEBE: USD que ingresaron (abonos del cliente) ─────────
+                if deposits:
+                    lines += _debe_lines(deposits, 'cuenta_cargo', 'USD')
+                else:
+                    pcge = _map_bank(operation.source_account, 'USD')
+                    lines.append({'account_code': pcge,
+                                  'description':  f'Ingreso USD – {op_id}',
+                                  'debe': amount_pen, 'haber': Decimal('0'),
+                                  'currency': 'USD',
+                                  'amount_usd': amount_usd, 'exchange_rate': tc})
+
+                # ── HABER: PEN que salieron (pagos al cliente) ────────────
+                if payments:
+                    lines += _haber_lines(payments, 'cuenta_destino', 'PEN')
+                else:
+                    pcge = _map_bank(operation.destination_account, 'PEN')
+                    lines.append({'account_code': pcge,
+                                  'description':  f'Egreso PEN – {op_id}',
+                                  'debe': Decimal('0'), 'haber': amount_pen,
+                                  'currency': 'PEN'})
+
+                description = f'Venta USD – {op_id} – {client_name}'
+
             entry_date = (
                 operation.completed_at.date()
                 if operation.completed_at
                 else date_type.today()
+            )
+
+            logger.info(
+                f'[Accounting] Op {op_id} ({op_type}): '
+                f'{len([l for l in lines if l["debe"]>0])} líneas DEBE, '
+                f'{len([l for l in lines if l["haber"]>0])} líneas HABER'
             )
 
             return JournalService.create_entry(
@@ -335,10 +432,8 @@ class JournalService:
             )
 
         except Exception as exc:
-            # Captura total — NUNCA debe propagar al caller
             logger.error(
-                f'[Accounting] ❌ Error inesperado en '
-                f'create_entry_for_completed_operation '
+                f'[Accounting] ❌ Error en create_entry_for_completed_operation '
                 f'(op={getattr(operation, "operation_id", "?")}): {exc}'
             )
             return None
