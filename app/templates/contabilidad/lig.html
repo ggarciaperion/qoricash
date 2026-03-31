@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+{% block title %}Libro de Ingresos y Gastos — QoriCash{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h2 class="mb-0"><i class="bi bi-book me-2"></i>Libro de Ingresos y Gastos</h2>
+      <small class="text-muted">RS 234-2006/SUNAT — Régimen MYPE Tributario</small>
+    </div>
+    <a href="{{ url_for('contabilidad.export_lig', year=selected_year, month=selected_month) }}"
+       class="btn btn-success">
+      <i class="bi bi-file-earmark-excel me-1"></i>Exportar Excel (SUNAT)
+    </a>
+  </div>
+
+  <!-- Filtros -->
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-body">
+      <form method="get" class="row g-2 align-items-end">
+        <div class="col-auto">
+          <label class="form-label form-label-sm mb-1">Año</label>
+          <input type="number" name="year" class="form-control form-control-sm"
+                 value="{{ selected_year }}" min="2020" max="2099" style="width:90px;">
+        </div>
+        <div class="col-auto">
+          <label class="form-label form-label-sm mb-1">Mes</label>
+          <select name="month" class="form-select form-select-sm" style="width:130px;">
+            {% for m in range(1,13) %}
+            <option value="{{ m }}" {% if m == selected_month %}selected{% endif %}>
+              {{ ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][m-1] }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-auto">
+          <button type="submit" class="btn btn-primary btn-sm">
+            <i class="bi bi-search"></i> Filtrar
+          </button>
+        </div>
+        <div class="col-auto ms-auto">
+          <span class="badge bg-success me-2">{{ ops|length }} ingresos</span>
+          <span class="badge bg-danger">{{ gastos|length }} gastos</span>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Resumen rápido -->
+  <div class="row g-3 mb-4">
+    <div class="col-md-4">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body">
+          <div class="text-muted small">Total Ingresos (S/)</div>
+          <div class="fs-3 fw-bold text-success">{{ "%.2f"|format(total_ingresos) }}</div>
+          <div class="text-muted small">{{ ops|length }} operaciones completadas</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body">
+          <div class="text-muted small">Total Gastos (S/)</div>
+          <div class="fs-3 fw-bold text-danger">{{ "%.2f"|format(total_gastos) }}</div>
+          <div class="text-muted small">{{ gastos|length }} comprobantes registrados</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body">
+          <div class="text-muted small">Resultado del período (S/)</div>
+          {% set resultado = total_ingresos - total_gastos %}
+          <div class="fs-3 fw-bold {% if resultado >= 0 %}text-primary{% else %}text-danger{% endif %}">
+            {{ "%.2f"|format(resultado) }}
+          </div>
+          <div class="text-muted small">Antes de IR</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabs: Ingresos / Gastos -->
+  <ul class="nav nav-tabs mb-0" id="ligTabs" role="tablist">
+    <li class="nav-item">
+      <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tabIngresos">
+        <i class="bi bi-arrow-down-circle me-1 text-success"></i>
+        Ingresos <span class="badge bg-success ms-1">{{ ops|length }}</span>
+      </button>
+    </li>
+    <li class="nav-item">
+      <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabGastos">
+        <i class="bi bi-arrow-up-circle me-1 text-danger"></i>
+        Gastos <span class="badge bg-danger ms-1">{{ gastos|length }}</span>
+      </button>
+    </li>
+  </ul>
+
+  <div class="tab-content border border-top-0 rounded-bottom shadow-sm bg-white">
+
+    <!-- ── INGRESOS ───────────────────────────────────────────────────────── -->
+    <div class="tab-pane fade show active p-0" id="tabIngresos">
+      <div class="table-responsive">
+        <table class="table table-hover table-sm mb-0 align-middle">
+          <thead class="table-dark">
+            <tr>
+              <th style="width:45px;" class="text-center">N°</th>
+              <th>Fecha</th>
+              <th>Cliente</th>
+              <th>Doc.</th>
+              <th>Tipo Op.</th>
+              <th class="text-end">USD</th>
+              <th class="text-end">T.C.</th>
+              <th class="text-end">Importe S/</th>
+              <th>Referencia</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for op in ops %}
+            <tr>
+              <td class="text-center text-muted small">{{ loop.index }}</td>
+              <td>{{ op.completed_at.strftime('%d/%m/%Y') }}</td>
+              <td>
+                {% if op.client %}
+                  {{ op.client.full_name or op.client.razon_social or '—' }}
+                {% else %}—{% endif %}
+              </td>
+              <td class="text-muted small">
+                {% if op.client %}{{ op.client.dni or '—' }}{% else %}—{% endif %}
+              </td>
+              <td>
+                <span class="badge {% if op.operation_type == 'Compra' %}bg-primary{% else %}bg-info text-dark{% endif %}">
+                  {{ op.operation_type }}
+                </span>
+              </td>
+              <td class="text-end">{{ "%.2f"|format(op.amount_usd|float) }}</td>
+              <td class="text-end">{{ "%.4f"|format(op.exchange_rate|float) }}</td>
+              <td class="text-end fw-semibold">{{ "%.2f"|format(op.amount_pen|float) }}</td>
+              <td><code class="small">{{ op.operation_id }}</code></td>
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="9" class="text-center text-muted py-5">
+                No hay operaciones completadas en el período.
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+          {% if ops %}
+          <tfoot class="table-success fw-bold">
+            <tr>
+              <td colspan="7" class="text-end">TOTAL INGRESOS</td>
+              <td class="text-end">{{ "%.2f"|format(total_ingresos) }}</td>
+              <td></td>
+            </tr>
+          </tfoot>
+          {% endif %}
+        </table>
+      </div>
+    </div>
+
+    <!-- ── GASTOS ─────────────────────────────────────────────────────────── -->
+    <div class="tab-pane fade p-0" id="tabGastos">
+      <div class="table-responsive">
+        <table class="table table-hover table-sm mb-0 align-middle">
+          <thead class="table-dark">
+            <tr>
+              <th style="width:45px;" class="text-center">N°</th>
+              <th>Fecha</th>
+              <th>Proveedor</th>
+              <th>RUC</th>
+              <th>Comprobante</th>
+              <th>N°</th>
+              <th>Cta.</th>
+              <th class="text-end">Importe S/</th>
+              <th>Descripción</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for g in gastos %}
+            <tr>
+              <td class="text-center text-muted small">{{ loop.index }}</td>
+              <td>{{ g.expense_date.strftime('%d/%m/%Y') }}</td>
+              <td>{{ g.supplier_name or '—' }}</td>
+              <td class="text-muted small">{{ g.supplier_ruc or '—' }}</td>
+              <td>{{ g.voucher_type or '—' }}</td>
+              <td class="small">{{ g.voucher_number or '—' }}</td>
+              <td><code class="small">{{ g.category }}</code></td>
+              <td class="text-end fw-semibold">{{ "%.2f"|format(g.amount_pen|float) }}</td>
+              <td class="text-truncate" style="max-width:220px;" title="{{ g.description }}">
+                {{ g.description }}
+              </td>
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="9" class="text-center text-muted py-5">
+                No hay gastos registrados en el período.<br>
+                <a href="{{ url_for('contabilidad.gastos', year=selected_year, month=selected_month) }}"
+                   class="btn btn-sm btn-outline-primary mt-2">
+                  Registrar gasto
+                </a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+          {% if gastos %}
+          <tfoot class="table-danger fw-bold">
+            <tr>
+              <td colspan="7" class="text-end">TOTAL GASTOS</td>
+              <td class="text-end">{{ "%.2f"|format(total_gastos) }}</td>
+              <td></td>
+            </tr>
+          </tfoot>
+          {% endif %}
+        </table>
+      </div>
+    </div>
+
+  </div><!-- tab-content -->
+
+  <div class="alert alert-info mt-4 small">
+    <i class="bi bi-info-circle me-1"></i>
+    <strong>Nota SUNAT:</strong> El Libro de Ingresos y Gastos debe llevarse en moneda nacional (soles).
+    Para casas de cambio, los ingresos representan el monto total de las operaciones de intercambio
+    (exonerado de IGV por Apéndice II TUO Ley del IGV).
+    El IR se aplica sobre la <em>utilidad neta</em> — ver
+    <a href="{{ url_for('contabilidad.resultados', year=selected_year, month=selected_month) }}">
+      Estado de Resultados
+    </a>.
+  </div>
+
+</div>
+{% endblock %}

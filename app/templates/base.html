@@ -142,10 +142,15 @@
 
             {% if current_user.role == 'Master' %}
             <div class="sidebar-section-label">Contabilidad</div>
-            <a class="sidebar-link {% if request.endpoint and request.endpoint.startswith('contabilidad') %}active{% endif %}"
+            <a class="sidebar-link {% if request.endpoint == 'contabilidad.dashboard' %}active{% endif %}"
                href="{{ url_for('contabilidad.dashboard') }}">
                 <i class="bi bi-journal-bookmark"></i>
                 <span class="sidebar-link-text">Libro Diario</span>
+            </a>
+            <a class="sidebar-link {% if request.endpoint == 'contabilidad.lig' %}active{% endif %}"
+               href="{{ url_for('contabilidad.lig') }}">
+                <i class="bi bi-book"></i>
+                <span class="sidebar-link-text">Libro I&amp;G</span>
             </a>
             <a class="sidebar-link {% if request.endpoint == 'contabilidad.gastos' %}active{% endif %}"
                href="{{ url_for('contabilidad.gastos') }}">

@@ -482,6 +482,199 @@ def cerrar_periodo():
     return jsonify({'success': success, 'message': message})
 
 
+# ── Libro de Ingresos y Gastos (LIG) ─────────────────────────────────────────
+
+@contabilidad_bp.route('/lig')
+@login_required
+@require_role('Master')
+def lig():
+    """
+    Libro de Ingresos y Gastos — formato SUNAT (RS 234-2006).
+    Ingresos: operaciones completadas del período.
+    Gastos: expense_records del período.
+    """
+    from app.models.operation import Operation
+    from app.models.expense_record import ExpenseRecord
+    from app.models.accounting_period import AccountingPeriod
+    from sqlalchemy import extract
+    import calendar
+
+    year  = request.args.get('year',  type=int, default=date.today().year)
+    month = request.args.get('month', type=int, default=date.today().month)
+
+    # Rango de fechas del período
+    first_day = date(year, month, 1)
+    last_day  = date(year, month, calendar.monthrange(year, month)[1])
+
+    # Ingresos: operaciones completadas en el período
+    ops = Operation.query.filter(
+        Operation.status == 'Completada',
+        Operation.completed_at >= datetime.combine(first_day, datetime.min.time()),
+        Operation.completed_at <= datetime.combine(last_day, datetime.max.time()),
+    ).order_by(Operation.completed_at.asc()).all()
+
+    # Gastos: expense_records del período
+    gastos = ExpenseRecord.query.filter(
+        extract('year',  ExpenseRecord.expense_date) == year,
+        extract('month', ExpenseRecord.expense_date) == month,
+    ).order_by(ExpenseRecord.expense_date.asc()).all()
+
+    # Totales
+    total_ingresos = sum(float(o.amount_pen or 0) for o in ops)
+    total_gastos   = sum(float(g.amount_pen or 0) for g in gastos)
+
+    periods = AccountingPeriod.query.order_by(
+        AccountingPeriod.year.desc(), AccountingPeriod.month.desc()
+    ).all()
+
+    return render_template(
+        'contabilidad/lig.html',
+        ops=ops,
+        gastos=gastos,
+        total_ingresos=total_ingresos,
+        total_gastos=total_gastos,
+        periods=periods,
+        selected_year=year,
+        selected_month=month,
+        user=current_user,
+    )
+
+
+@contabilidad_bp.route('/lig/export')
+@login_required
+@require_role('Master')
+def export_lig():
+    """Exporta el LIG en Excel con dos hojas: Ingresos y Gastos."""
+    from app.models.operation import Operation
+    from app.models.expense_record import ExpenseRecord
+    import calendar
+
+    year  = request.args.get('year',  type=int, default=date.today().year)
+    month = request.args.get('month', type=int, default=date.today().month)
+
+    first_day = date(year, month, 1)
+    last_day  = date(year, month, calendar.monthrange(year, month)[1])
+
+    ops = Operation.query.filter(
+        Operation.status == 'Completada',
+        Operation.completed_at >= datetime.combine(first_day, datetime.min.time()),
+        Operation.completed_at <= datetime.combine(last_day, datetime.max.time()),
+    ).order_by(Operation.completed_at.asc()).all()
+
+    from sqlalchemy import extract as sa_extract
+    gastos = ExpenseRecord.query.filter(
+        sa_extract('year',  ExpenseRecord.expense_date) == year,
+        sa_extract('month', ExpenseRecord.expense_date) == month,
+    ).order_by(ExpenseRecord.expense_date.asc()).all()
+
+    wb = openpyxl.Workbook()
+
+    header_fill = PatternFill(start_color='1B3A6B', end_color='1B3A6B', fill_type='solid')
+    hfont = Font(bold=True, color='FFFFFF')
+    center = Alignment(horizontal='center')
+    thin  = Side(style='thin')
+    bdr   = Border(left=thin, right=thin, top=thin, bottom=thin)
+
+    def title_rows(ws, titulo):
+        ws.merge_cells('A1:I1')
+        ws['A1'] = 'QORICASH TRADING S.A.C.'
+        ws['A1'].font = Font(bold=True, size=12)
+        ws['A1'].alignment = center
+        ws.merge_cells('A2:I2')
+        ws['A2'] = titulo
+        ws['A2'].font = Font(bold=True)
+        ws['A2'].alignment = center
+        ws.merge_cells('A3:I3')
+        ws['A3'] = f'Período: {_month_name(month)} {year}  —  R.M. MYPE Tributario'
+        ws['A3'].alignment = center
+
+    # ── Hoja 1: INGRESOS ──────────────────────────────────────────────────────
+    ws1 = wb.active
+    ws1.title = 'Ingresos'
+    title_rows(ws1, f'LIBRO DE INGRESOS — {_month_name(month).upper()} {year}')
+
+    hdrs = ['N°', 'Fecha', 'Nombre / Razón Social', 'Doc. Identidad',
+            'Tipo Op.', 'Importe USD', 'T.C.', 'Importe S/', 'Referencia']
+    for c, h in enumerate(hdrs, 1):
+        cell = ws1.cell(row=5, column=c, value=h)
+        cell.fill = header_fill
+        cell.font = hfont
+        cell.alignment = center
+        cell.border = bdr
+
+    row = 6
+    for n, op in enumerate(ops, 1):
+        client = op.client
+        if client:
+            nombre = client.full_name or client.razon_social or '—'
+            doc_id = client.dni or '—'
+        else:
+            nombre, doc_id = '—', '—'
+        ws1.cell(row=row, column=1, value=n).border = bdr
+        ws1.cell(row=row, column=2, value=op.completed_at.strftime('%d/%m/%Y')).border = bdr
+        ws1.cell(row=row, column=3, value=nombre).border = bdr
+        ws1.cell(row=row, column=4, value=doc_id).border = bdr
+        ws1.cell(row=row, column=5, value=op.operation_type).border = bdr
+        ws1.cell(row=row, column=6, value=float(op.amount_usd or 0)).border = bdr
+        ws1.cell(row=row, column=7, value=float(op.exchange_rate or 0)).border = bdr
+        ws1.cell(row=row, column=8, value=float(op.amount_pen or 0)).border = bdr
+        ws1.cell(row=row, column=9, value=op.operation_id).border = bdr
+        row += 1
+
+    # Fila de total
+    ws1.cell(row=row, column=7, value='TOTAL').font = Font(bold=True)
+    total_i = sum(float(o.amount_pen or 0) for o in ops)
+    ws1.cell(row=row, column=8, value=total_i).font = Font(bold=True)
+    ws1.cell(row=row, column=8).fill = PatternFill(start_color='D4EDDA', end_color='D4EDDA', fill_type='solid')
+
+    widths1 = [5, 12, 36, 14, 10, 12, 8, 14, 16]
+    for i, w in enumerate(widths1, 1):
+        ws1.column_dimensions[openpyxl.utils.get_column_letter(i)].width = w
+
+    # ── Hoja 2: GASTOS ────────────────────────────────────────────────────────
+    ws2 = wb.create_sheet('Gastos')
+    title_rows(ws2, f'LIBRO DE GASTOS — {_month_name(month).upper()} {year}')
+
+    hdrs2 = ['N°', 'Fecha', 'Proveedor', 'RUC', 'Tipo Comprobante',
+             'N° Comprobante', 'Cta. PCGE', 'Importe S/', 'Descripción']
+    for c, h in enumerate(hdrs2, 1):
+        cell = ws2.cell(row=5, column=c, value=h)
+        cell.fill = header_fill
+        cell.font = hfont
+        cell.alignment = center
+        cell.border = bdr
+
+    row2 = 6
+    for n, g in enumerate(gastos, 1):
+        ws2.cell(row=row2, column=1, value=n).border = bdr
+        ws2.cell(row=row2, column=2, value=g.expense_date.strftime('%d/%m/%Y')).border = bdr
+        ws2.cell(row=row2, column=3, value=g.supplier_name or '—').border = bdr
+        ws2.cell(row=row2, column=4, value=g.supplier_ruc  or '—').border = bdr
+        ws2.cell(row=row2, column=5, value=g.voucher_type  or '—').border = bdr
+        ws2.cell(row=row2, column=6, value=g.voucher_number or '—').border = bdr
+        ws2.cell(row=row2, column=7, value=g.category).border = bdr
+        ws2.cell(row=row2, column=8, value=float(g.amount_pen)).border = bdr
+        ws2.cell(row=row2, column=9, value=g.description).border = bdr
+        row2 += 1
+
+    ws2.cell(row=row2, column=7, value='TOTAL').font = Font(bold=True)
+    total_g = sum(float(g.amount_pen) for g in gastos)
+    ws2.cell(row=row2, column=8, value=total_g).font = Font(bold=True)
+    ws2.cell(row=row2, column=8).fill = PatternFill(start_color='F8D7DA', end_color='F8D7DA', fill_type='solid')
+
+    widths2 = [5, 12, 36, 14, 18, 16, 10, 14, 48]
+    for i, w in enumerate(widths2, 1):
+        ws2.column_dimensions[openpyxl.utils.get_column_letter(i)].width = w
+
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+    return send_file(output,
+                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                     as_attachment=True,
+                     download_name=f'LIG_qoricash_{year}{month:02d}.xlsx')
+
+
 # ── Balance de Comprobación ────────────────────────────────────────────────────
 
 @contabilidad_bp.route('/balance')
