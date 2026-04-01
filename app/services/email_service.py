@@ -376,7 +376,7 @@ class EmailService:
         .bank-table tr:last-child td { border-bottom: none; }
         .bank-table tr:nth-child(even) td { background-color: #f8fafc; }
         .bank-name { font-weight: 700; color: #1e293b; }
-        .account-num { font-family: 'Courier New', monospace; color: #0D1B2A; font-weight: 600; }
+        .account-num { font-family: 'Courier New', monospace; color: #0D1B2A; font-weight: 600; font-size: 11px; letter-spacing: -0.3px; white-space: nowrap; word-break: break-all; }
         .alert { border-radius: 8px; padding: 13px 16px; margin: 14px 0; font-size: 13.5px; line-height: 1.65; }
         .alert.warning { background: #fffbeb; border-left: 3px solid #f59e0b; color: #78350f; }
         .divider { height: 1px; background-color: #f1f5f9; margin: 24px 0; }
@@ -687,6 +687,157 @@ class EmailService:
         except Exception as e:
             logger.error(f'Error al enviar email de cancelación {operation.operation_id}: {str(e)}')
             return False, f'Error al enviar email: {str(e)}'
+
+    @staticmethod
+    def send_amount_modified_operation_email(operation, old_amount_usd, old_amount_pen):
+        """
+        Enviar correo de notificación cuando el importe de una operación es modificado.
+
+        Args:
+            operation: Objeto Operation con los nuevos montos
+            old_amount_usd: Monto USD anterior (float)
+            old_amount_pen: Monto PEN anterior (float)
+
+        Returns:
+            tuple: (success: bool, message: str)
+        """
+        try:
+            to = [operation.client.email] if operation.client and operation.client.email else []
+
+            cc = []
+            if operation.user and operation.user.email:
+                cc.append(operation.user.email)
+
+            if not to and not cc:
+                logger.warning(f'No hay destinatarios para correo de modificación de monto {operation.operation_id}')
+                return False, 'No hay destinatarios configurados'
+
+            subject = f'Actualización de Importe — Operación {operation.operation_id} | QoriCash'
+            html_body = EmailService._render_amount_modified_template(operation, old_amount_usd, old_amount_pen)
+
+            msg = Message(
+                subject=subject,
+                recipients=to,
+                cc=cc,
+                html=html_body
+            )
+
+            EmailService._send_async(msg, timeout=15)
+            logger.info(f'Email de modificación de monto programado para operación {operation.operation_id}')
+            return True, 'Email programado para envío'
+
+        except Exception as e:
+            logger.error(f'Error al enviar email de modificación de monto {operation.operation_id}: {str(e)}')
+            return False, f'Error al enviar email: {str(e)}'
+
+    @staticmethod
+    def _render_amount_modified_template(operation, old_amount_usd, old_amount_pen):
+        """Renderizar plantilla HTML para notificación de modificación de importe"""
+        template = """<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body, table, td, p, h1, h2, h3 { margin: 0; padding: 0; }
+        body { background-color: #f0f4f8; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+        .email-wrapper { padding: 28px 16px; }
+        .email-card { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(13,27,42,0.09); }
+        .accent-bar { height: 3px; background-color: #f59e0b; }
+        .email-body { padding: 36px 40px; color: #334155; font-size: 15px; line-height: 1.65; }
+        .info-banner { background-color: #fffbeb; border: 1.5px solid #fcd34d; border-radius: 10px; padding: 20px 24px; text-align: center; margin: 20px 0; }
+        .info-banner h2 { color: #92400e; font-size: 17px; font-weight: 700; margin-bottom: 6px; }
+        .info-banner p { color: #78350f; font-size: 14px; }
+        .section-label { font-size: 11px; font-weight: 700; color: #00DEA8; text-transform: uppercase; letter-spacing: 1.2px; margin: 24px 0 10px 0; }
+        .change-table { width: 100%; border-collapse: collapse; font-size: 14px; margin: 0 0 20px 0; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; overflow: hidden; }
+        .change-table th { background-color: #0D1B2A; color: #94a3b8; font-weight: 600; padding: 10px 18px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .change-table td { padding: 11px 18px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+        .change-table tr:last-child td { border-bottom: none; }
+        .old-value { color: #94a3b8; text-decoration: line-through; font-size: 13px; }
+        .new-value { color: #0D1B2A; font-weight: 700; font-size: 16px; }
+        .arrow { color: #f59e0b; font-weight: 700; padding: 0 8px; }
+        .alert { border-radius: 8px; padding: 13px 16px; margin: 14px 0; font-size: 13.5px; line-height: 1.65; }
+        .alert.info { background: #f0f9ff; border-left: 3px solid #0ea5e9; color: #0c4a6e; }
+        .divider { height: 1px; background-color: #f1f5f9; margin: 24px 0; }
+        .note-text { font-size: 13px; color: #94a3b8; line-height: 1.6; }
+        .email-footer { background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 22px 40px; text-align: center; }
+        .footer-brand { color: #0D1B2A; font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+        .footer-meta { color: #94a3b8; font-size: 12px; }
+        .footer-link { color: #00DEA8; text-decoration: none; }
+        .footer-copy { color: #cbd5e1; font-size: 11px; margin-top: 8px; }
+        @media only screen and (max-width: 620px) {
+            .email-body { padding: 24px 20px !important; }
+        }
+    </style>
+</head>
+<body>
+<div class="email-wrapper">
+    <div class="email-card">
+
+        <div style="padding:0;background:#0D1B2A;">
+            <img src="https://res.cloudinary.com/dbks8vqoh/image/upload/v1773788552/qoricash/banneremail.png" alt="QoriCash" width="600" style="width:100%;max-width:600px;display:block;">
+        </div>
+        <div class="accent-bar"></div>
+
+        <div class="email-body">
+            <p>Estimado(a) <strong>{{ operation.client.full_name or operation.client.razon_social }}</strong>,</p>
+
+            <div class="info-banner">
+                <h2>Importe modificado</h2>
+                <p>El importe de su operación <strong>{{ operation.operation_id }}</strong> ha sido actualizado por nuestro equipo.</p>
+            </div>
+
+            <p class="section-label">Detalle del cambio</p>
+            <table class="change-table" cellspacing="0" cellpadding="0">
+                <tr>
+                    <th>Concepto</th>
+                    <th>Importe anterior</th>
+                    <th></th>
+                    <th>Importe nuevo</th>
+                </tr>
+                <tr>
+                    <td style="color:#64748b;font-weight:600;">Monto USD</td>
+                    <td><span class="old-value">$ {{ "{:,.2f}".format(old_amount_usd) }}</span></td>
+                    <td><span class="arrow">→</span></td>
+                    <td><span class="new-value">$ {{ "{:,.2f}".format(operation.amount_usd) }}</span></td>
+                </tr>
+                <tr>
+                    <td style="color:#64748b;font-weight:600;">Tipo de cambio</td>
+                    <td colspan="2"></td>
+                    <td style="color:#0D1B2A;font-weight:500;">{{ "%.4f"|format(operation.exchange_rate) }}</td>
+                </tr>
+                <tr>
+                    <td style="color:#64748b;font-weight:600;">Monto PEN</td>
+                    <td><span class="old-value">S/ {{ "{:,.2f}".format(old_amount_pen) }}</span></td>
+                    <td><span class="arrow">→</span></td>
+                    <td><span class="new-value">S/ {{ "{:,.2f}".format(operation.amount_pen) }}</span></td>
+                </tr>
+            </table>
+
+            <div class="alert info">
+                Si tiene alguna consulta sobre este cambio, responda este correo o contáctese directamente con su asesor.
+            </div>
+
+            <div class="divider"></div>
+            <p class="note-text">Este es un correo automático generado por el sistema QoriCash.</p>
+        </div>
+
+        <div class="email-footer">
+            <p class="footer-brand">QoriCash</p>
+            <p class="footer-meta">RUC: 20615113698 &nbsp;·&nbsp; <a href="mailto:info@qoricash.pe" class="footer-link">info@qoricash.pe</a></p>
+            <p class="footer-copy">© 2025 QoriCash. Todos los derechos reservados.</p>
+        </div>
+
+    </div>
+</div>
+</body>
+</html>"""
+        return render_template_string(
+            template,
+            operation=operation,
+            old_amount_usd=old_amount_usd,
+            old_amount_pen=old_amount_pen,
+        )
 
     @staticmethod
     def _render_canceled_operation_template(operation, reason=None):

@@ -972,7 +972,7 @@ def client_detail(client_id):
     # Obtener últimas operaciones (corregido para SQLAlchemy 2.x)
     recent_operations = Operation.query.filter_by(client_id=client_id).order_by(Operation.created_at.desc()).limit(10).all()
 
-    # Obtener verificaciones de listas restrictivas
+    # Obtener verificaciones de listas restrictivas (manual + auto-screening)
     restrictive_checks = RestrictiveListCheck.query.filter_by(
         client_id=client_id,
         is_manual=True
@@ -988,7 +988,7 @@ def client_detail(client_id):
     }
 
     if restrictive_checks:
-        # Obtener la última verificación
+        # Obtener la última verificación manual
         last_check = restrictive_checks[0]
 
         # Contar verificaciones por tipo en la última verificación
@@ -1014,6 +1014,22 @@ def client_detail(client_id):
             restrictive_status['all_clean'] = True
         elif verified_lists > 0:
             restrictive_status['partial'] = True
+    else:
+        # Sin verificación manual — considerar el último auto-screening resuelto
+        auto_check = RestrictiveListCheck.query.filter_by(
+            client_id=client_id,
+            is_manual=False,
+            list_type='AUTO_COMPREHENSIVE'
+        ).order_by(RestrictiveListCheck.checked_at.desc()).first()
+
+        if auto_check and auto_check.overall_result:
+            restrictive_status['has_checks'] = True
+            if auto_check.overall_result == 'Clean':
+                restrictive_status['all_clean'] = True
+            elif auto_check.overall_result == 'Match':
+                restrictive_status['has_matches'] = True
+            else:
+                restrictive_status['partial'] = True
 
     return render_template('clients/detail.html',
                          client=client,

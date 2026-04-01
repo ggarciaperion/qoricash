@@ -943,7 +943,7 @@ function accountRows(acc) {
 
 function fmtDt(iso) {
     if (!iso) return '<span class="text-muted">—</span>';
-    const d = new Date(iso);
+    const d = parseSafeDate(iso) || new Date(iso);
     return d.toLocaleDateString('es-PE') + ' ' + d.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
 }
 

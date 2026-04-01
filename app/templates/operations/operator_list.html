@@ -280,7 +280,7 @@ window.refreshOperationsTable = function() {
                     `;
 
                     // Formatear fecha
-                    const createdDate = new Date(op.created_at);
+                    const createdDate = parseSafeDate(op.created_at) || new Date();
                     const dateStr = `${String(createdDate.getDate()).padStart(2, '0')}/${String(createdDate.getMonth() + 1).padStart(2, '0')} ${String(createdDate.getHours()).padStart(2, '0')}:${String(createdDate.getMinutes()).padStart(2, '0')}`;
 
                     // Crear fila
@@ -352,7 +352,7 @@ function viewOperationDetails(operationId) {
                     <p><strong>ID:</strong> ${op.operation_id}</p>
                     <p><strong>Tipo:</strong> ${op.operation_type}</p>
                     <p><strong>Estado:</strong> ${op.status}</p>
-                    <p><strong>Creado:</strong> ${new Date(op.created_at).toLocaleString('es-PE')}</p>
+                    <p><strong>Creado:</strong> ${(parseSafeDate(op.created_at) || new Date()).toLocaleString('es-PE')}</p>
                 </div>
                 <div class="col-md-6">
                     <h6>Cliente</h6>

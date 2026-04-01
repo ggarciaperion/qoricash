@@ -707,7 +707,7 @@ function tcLoadRates() {
       document.getElementById('kpiBuy').textContent    = 'S/ ' + parseFloat(compra).toFixed(4);
       document.getElementById('kpiSell').textContent   = 'S/ ' + parseFloat(venta).toFixed(4);
       document.getElementById('kpiSpread').textContent = 'S/ ' + (parseFloat(venta) - parseFloat(compra)).toFixed(4);
-      if (updated_at) document.getElementById('tcLastUpdate').textContent = new Date(updated_at).toLocaleString('es-PE');
+      if (updated_at) document.getElementById('tcLastUpdate').textContent = (parseSafeDate(updated_at) || new Date()).toLocaleString('es-PE');
       if (updated_by) document.getElementById('tcUpdatedBy').textContent  = updated_by;
     })
     .catch(err => console.error('[TC]', err));

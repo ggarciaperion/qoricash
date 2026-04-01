@@ -845,6 +845,13 @@ def update_operation(operation_id):
                 import logging
                 logging.warning(f'Error al enviar email de modificación de monto: {str(e)}')
 
+        # Notificar en tiempo real la operación actualizada (admin → operadores/traders)
+        try:
+            NotificationService.notify_operation_updated(operation, old_status=operation.estado)
+        except Exception as _e:
+            import logging as _log
+            _log.warning(f'Error emitiendo Socket.IO operacion_actualizada {operation.id}: {_e}')
+
         # Notificar actualización de posición
         NotificationService.notify_position_update()
 

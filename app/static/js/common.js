@@ -419,12 +419,26 @@ function formatCurrency(amount, currency = 'USD') {
 }
 
 /**
+ * Parsear fecha de forma segura — compatible con Safari/iOS.
+ * Safari no acepta "2024-01-01 12:00:00" (espacio en lugar de T).
+ * Normaliza a ISO 8601 con Z antes de crear el objeto Date.
+ */
+function parseSafeDate(str) {
+    if (!str) return null;
+    // "2024-01-01 12:00:00" → "2024-01-01T12:00:00Z"
+    // "2024-01-01T12:00:00" → "2024-01-01T12:00:00Z"
+    const normalized = String(str).replace(' ', 'T').replace(/(\d{2}:\d{2}:\d{2})$/, '$1Z');
+    const d = new Date(normalized);
+    return isNaN(d.getTime()) ? null : d;
+}
+
+/**
  * Formatear fecha
  */
 function formatDate(dateString) {
     if (!dateString) return '-';
-    
-    const date = new Date(dateString);
+
+    const date = parseSafeDate(dateString) || new Date(dateString);
     const day = String(date.getDate()).padStart(2, '0');
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const year = date.getFullYear();

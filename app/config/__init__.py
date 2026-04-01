@@ -23,8 +23,8 @@ class Config:
     SESSION_COOKIE_SECURE = os.environ.get('SESSION_COOKIE_SECURE', 'True') == 'True'
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = 'Strict'
-    # Timeout de inactividad del servidor: 5 minutos (fintech)
-    PERMANENT_SESSION_LIFETIME = timedelta(minutes=5)
+    # Timeout de inactividad del servidor: 10 minutos (fintech)
+    PERMANENT_SESSION_LIFETIME = timedelta(minutes=10)
     # Sesión NO permanente: se cierra al cerrar navegador (cookie de sesión)
     SESSION_PERMANENT = False
     # Cookie de sesión temporal: se borra al cerrar el navegador

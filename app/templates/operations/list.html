@@ -698,8 +698,8 @@ function sortOperationsByPriority(operations) {
         }
 
         // Prioridad 2: Si ambos son "En proceso" o ninguno lo es, ordenar por fecha (más reciente primero)
-        const dateA = new Date(a.created_at);
-        const dateB = new Date(b.created_at);
+        const dateA = parseSafeDate(a.created_at) || new Date(0);
+        const dateB = parseSafeDate(b.created_at) || new Date(0);
         return dateB - dateA;
     });
 }
@@ -766,7 +766,7 @@ function buildOperationRow(op) {
     }
 
     // Fecha formateada
-    const fecha = op.created_at ? new Date(op.created_at).toLocaleString('es-PE', {
+    const fecha = op.created_at ? (parseSafeDate(op.created_at) || new Date()).toLocaleString('es-PE', {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric',
@@ -867,6 +867,10 @@ function buildOperationRow(op) {
     const formattedUSD = parseFloat(op.amount_usd).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
     const formattedPEN = parseFloat(op.amount_pen).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 
+    const actionsCell = currentUserRole !== 'Middle Office'
+        ? `<td><div class="btn-group btn-group-sm">${buttons}</div></td>`
+        : '';
+
     return `<tr data-operation-id="${op.id}" data-status="${op.status}">
                 <td><strong>${op.operation_id}</strong></td>
                 <td>${op.client_name || '-'}</td>
@@ -878,7 +882,7 @@ function buildOperationRow(op) {
                 <td class="text-center">${canalBadge}</td>
                 <td>${statusBadge}</td>
                 <td>${fecha}</td>
-                <td><div class="btn-group btn-group-sm">${buttons}</div></td>
+                ${actionsCell}
             </tr>`;
 }
 
@@ -1592,7 +1596,7 @@ function getStatusBadge(status) {
 
 function formatDateTime(isoString) {
     if (!isoString) return '-';
-    const d = new Date(isoString);
+    const d = parseSafeDate(isoString) || new Date(isoString);
     return d.toLocaleDateString('es-PE') + ' ' + d.toLocaleTimeString('es-PE', {hour: '2-digit', minute: '2-digit'});
 }
 

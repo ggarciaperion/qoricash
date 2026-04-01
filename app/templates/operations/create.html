@@ -411,15 +411,23 @@ $('#createOperationForm').on('submit', function(e) {
               .css('pointer-events', 'none')
               .html('<i class="bi bi-hourglass-split"></i> Procesando...');
 
-    const formData = {
-        client_id: parseInt($('#client_id').val()),
-        operation_type: $('input[name="operation_type"]:checked').val(),
-        amount_usd: parseFloat($('#amount_usd').val()),
-        exchange_rate: parseFloat($('#exchange_rate').val()),
-        source_account: $('#source_account').val(),
-        destination_account: $('#destination_account').val(),
-        notes: $('textarea[name="notes"]').val()
-    };
+    let formData;
+    try {
+        formData = {
+            client_id: parseInt($('#client_id').val()),
+            operation_type: $('input[name="operation_type"]:checked').val(),
+            amount_usd: parseFloat($('#amount_usd').val()),
+            exchange_rate: parseFloat($('#exchange_rate').val()),
+            source_account: $('#source_account').val(),
+            destination_account: $('#destination_account').val(),
+            notes: $('textarea[name="notes"]').val()
+        };
+    } catch (err) {
+        window.isCreatingOperation = false;
+        $submitBtn.prop('disabled', false).removeClass('disabled').css('pointer-events', '').html(originalBtnText);
+        showNotification('Error al leer el formulario: ' + err.message, 'danger');
+        return;
+    }
 
     // Validaciones (si fallan, rehabilitar botón COMPLETAMENTE)
     if (!formData.client_id) {
