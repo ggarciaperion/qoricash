@@ -26,11 +26,11 @@ def _company_info() -> dict:
     from app.models.system_config import SystemConfig
     try:
         return {
-            'razon_social': SystemConfig.get('RAZON_SOCIAL', 'QORICASH TRADING S.A.C.'),
-            'ruc':          SystemConfig.get('RUC', '—'),
+            'razon_social': SystemConfig.get('RAZON_SOCIAL', 'QORICASH SAC'),
+            'ruc':          SystemConfig.get('RUC', '20615113698'),
         }
     except Exception:
-        return {'razon_social': 'QORICASH TRADING S.A.C.', 'ruc': '—'}
+        return {'razon_social': 'QORICASH SAC', 'ruc': '20615113698'}
 
 
 # ── Dashboard contable ─────────────────────────────────────────────────────────
@@ -1200,7 +1200,7 @@ def export_lig_ple():
     year  = request.args.get('year',  type=int, default=date.today().year)
     month = request.args.get('month', type=int, default=date.today().month)
 
-    ruc          = SystemConfig.get('RUC', '00000000000')
+    ruc          = SystemConfig.get('RUC', '20615113698')
     periodo      = f'{year}{month:02d}00'
     ruc_clean    = ruc.replace('-', '').replace(' ', '')
 
@@ -1418,8 +1418,8 @@ def export_mayor():
     year  = request.args.get('year',  type=int, default=date.today().year)
     month = request.args.get('month', type=int, default=date.today().month)
 
-    razon_social = SystemConfig.get('RAZON_SOCIAL', 'QORICASH TRADING S.A.C.')
-    ruc          = SystemConfig.get('RUC', '—')
+    razon_social = SystemConfig.get('RAZON_SOCIAL', 'QORICASH SAC')
+    ruc          = SystemConfig.get('RUC', '20615113698')
 
     active_codes = [
         r.account_code for r in

@@ -441,13 +441,22 @@ def register_cli_commands(app):
         try:
             db.create_all()
             # Seed parámetros fiscales por defecto (idempotente)
-            defaults = [
-                ('UIT',  '5350', 'Unidad Impositiva Tributaria vigente (S/)'),
-                ('RUC',  '20000000001', 'RUC de la empresa (para exportaciones SUNAT)'),
-                ('RAZON_SOCIAL', 'QORICASH TRADING S.A.C.', 'Razón social de la empresa'),
+            # UIT: solo insertar si no existe (puede ser actualizada manualmente)
+            if not SystemConfig.query.get('UIT'):
+                db.session.add(SystemConfig(key='UIT', value='5350',
+                                            description='Unidad Impositiva Tributaria vigente (S/)'))
+
+            # RUC y RAZON_SOCIAL: siempre forzar los valores correctos de la empresa
+            company_defaults = [
+                ('RUC',          '20615113698', 'RUC de la empresa (para exportaciones SUNAT)'),
+                ('RAZON_SOCIAL', 'QORICASH SAC', 'Razón social de la empresa'),
             ]
-            for key, value, desc in defaults:
-                if not SystemConfig.query.get(key):
+            for key, value, desc in company_defaults:
+                existing = SystemConfig.query.get(key)
+                if existing:
+                    existing.value = value
+                    existing.description = desc
+                else:
                     db.session.add(SystemConfig(key=key, value=value, description=desc))
             db.session.commit()
             print("✓ Tablas creadas / verificadas correctamente")
