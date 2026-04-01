@@ -1808,8 +1808,8 @@ def resultados():
         periods=periods,
         selected_year=year,
         selected_month=month,
-        UIT=_UIT,
-        IR_LIMITE=_IR_TRAMO_1_LIMITE,
+        UIT=_get_uit(),
+        IR_LIMITE=_get_uit() * 15,
         user=current_user,
     )
 
