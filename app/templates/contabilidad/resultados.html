@@ -5,9 +5,14 @@
 <div class="container-fluid">
 
   <div class="d-flex justify-content-between align-items-center mb-4">
-    <div>
-      <h2 class="mb-0"><i class="bi bi-graph-up-arrow me-2"></i>Estado de Resultados</h2>
-      <small class="text-muted">Régimen MYPE Tributario — UIT S/ {{ "%.0f"|format(UIT|float) }} — Tasa 10% hasta 15 UIT (S/ {{ "%.0f"|format(IR_LIMITE|float) }}), 29.5% exceso</small>
+    <div class="d-flex align-items-center gap-3">
+      <a href="{{ url_for('contabilidad.dashboard') }}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i>
+      </a>
+      <div>
+        <h2 class="mb-0"><i class="bi bi-graph-up-arrow me-2"></i>Estado de Resultados</h2>
+        <small class="text-muted">Régimen MYPE Tributario — UIT S/ {{ "%.0f"|format(UIT|float) }} — Tasa 10% hasta 15 UIT (S/ {{ "%.0f"|format(IR_LIMITE|float) }}), 29.5% exceso</small>
+      </div>
     </div>
     <a href="{{ url_for('contabilidad.export_resultados', year=selected_year, month=selected_month) }}"
        class="btn btn-success">

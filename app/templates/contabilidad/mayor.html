@@ -5,9 +5,14 @@
 <div class="container-fluid">
 
   <div class="d-flex justify-content-between align-items-center mb-4">
-    <div>
-      <h2 class="mb-0"><i class="bi bi-journals me-2"></i>Libro Mayor</h2>
-      <small class="text-muted">Movimientos por cuenta PCGE con saldo acumulado</small>
+    <div class="d-flex align-items-center gap-3">
+      <a href="{{ url_for('contabilidad.dashboard') }}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i>
+      </a>
+      <div>
+        <h2 class="mb-0"><i class="bi bi-journals me-2"></i>Libro Mayor</h2>
+        <small class="text-muted">Movimientos por cuenta PCGE con saldo acumulado</small>
+      </div>
     </div>
     <a href="{{ url_for('contabilidad.export_mayor', year=selected_year, month=selected_month) }}"
        class="btn btn-success">
