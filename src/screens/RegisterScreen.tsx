@@ -11,15 +11,15 @@ import {
   TextInput as RNTextInput,
   Linking,
 } from 'react-native';
-import { TextInput, Button, Text, HelperText, SegmentedButtons, IconButton, Checkbox } from 'react-native-paper';
+import { TextInput, Text, HelperText, IconButton, Checkbox } from 'react-native-paper';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { LinearGradient } from 'expo-linear-gradient';
 import axios from 'axios';
 import { Colors } from '../constants/colors';
 import { API_CONFIG } from '../constants/config';
 import { getDepartamentos, getProvincias, getDistritos } from '../data/ubigeo';
 import { CustomModal } from '../components/CustomModal';
 import { KeyboardAwareScrollView } from '../components/KeyboardAwareScrollView';
-import { GlobalStyles } from '../styles/globalStyles';
 
 type RegisterRouteParams = {
   Register: {
@@ -29,11 +29,165 @@ type RegisterRouteParams = {
 
 type RegisterScreenRouteProp = RouteProp<RegisterRouteParams, 'Register'>;
 
+// ── Section header helper ──────────────────────────────────────────────────
+const SectionHeader = ({
+  icon,
+  label,
+  color = Colors.primary,
+}: {
+  icon: string;
+  label: string;
+  color?: string;
+}) => (
+  <View style={[sectionHeaderStyles.wrap, { borderLeftColor: color }]}>
+    <IconButton icon={icon} size={16} iconColor={color} style={sectionHeaderStyles.icon} />
+    <Text style={[sectionHeaderStyles.text, { color }]}>{label.toUpperCase()}</Text>
+  </View>
+);
+
+const sectionHeaderStyles = StyleSheet.create({
+  wrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderLeftWidth: 3,
+    paddingLeft: 8,
+    marginTop: 24,
+    marginBottom: 12,
+  },
+  icon: { margin: 0, marginRight: 2 },
+  text: { fontSize: 11, fontWeight: '800', letterSpacing: 1 },
+});
+
+// ── Tipo-persona toggle ────────────────────────────────────────────────────
+const TipoToggle = ({
+  value,
+  onChange,
+}: {
+  value: 'Natural' | 'Jurídica';
+  onChange: (v: 'Natural' | 'Jurídica') => void;
+}) => (
+  <View style={toggleStyles.row}>
+    {(['Natural', 'Jurídica'] as const).map((t) => {
+      const active = value === t;
+      return (
+        <TouchableOpacity
+          key={t}
+          onPress={() => onChange(t)}
+          activeOpacity={0.8}
+          style={[toggleStyles.btn, active && toggleStyles.btnActive]}
+        >
+          <Text style={[toggleStyles.label, active && toggleStyles.labelActive]}>
+            {t === 'Natural' ? '👤  Persona Natural' : '🏢  Persona Jurídica'}
+          </Text>
+        </TouchableOpacity>
+      );
+    })}
+  </View>
+);
+
+const toggleStyles = StyleSheet.create({
+  row: { flexDirection: 'row', gap: 10, marginBottom: 4 },
+  btn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surface,
+    alignItems: 'center',
+  },
+  btnActive: {
+    borderColor: Colors.primary,
+    backgroundColor: '#f0fdf4',
+  },
+  label: { fontSize: 13, fontWeight: '600', color: Colors.textLight },
+  labelActive: { color: Colors.primaryDark },
+});
+
+// ── Doc-type toggle ────────────────────────────────────────────────────────
+const DocToggle = ({
+  value,
+  onChange,
+}: {
+  value: 'DNI' | 'CE';
+  onChange: (v: 'DNI' | 'CE') => void;
+}) => (
+  <View style={toggleStyles.row}>
+    {(['DNI', 'CE'] as const).map((d) => {
+      const active = value === d;
+      return (
+        <TouchableOpacity
+          key={d}
+          onPress={() => onChange(d)}
+          activeOpacity={0.8}
+          style={[toggleStyles.btn, active && toggleStyles.btnActive]}
+        >
+          <Text style={[toggleStyles.label, active && toggleStyles.labelActive]}>
+            {d === 'DNI' ? '🪪  DNI (8 dígitos)' : '📘  CE (9 dígitos)'}
+          </Text>
+        </TouchableOpacity>
+      );
+    })}
+  </View>
+);
+
+// ── Location selector row ──────────────────────────────────────────────────
+const LocationSelector = ({
+  label,
+  value,
+  placeholder,
+  disabled,
+  onPress,
+}: {
+  label: string;
+  value: string;
+  placeholder: string;
+  disabled?: boolean;
+  onPress: () => void;
+}) => (
+  <TouchableOpacity
+    onPress={disabled ? undefined : onPress}
+    activeOpacity={disabled ? 1 : 0.7}
+    style={[locStyles.wrap, disabled && locStyles.disabled]}
+  >
+    <IconButton icon="map-marker-outline" size={20} iconColor={disabled ? '#ccc' : Colors.primary} style={locStyles.icon} />
+    <View style={locStyles.textWrap}>
+      <Text style={locStyles.labelTxt}>{label}</Text>
+      <Text style={[locStyles.valueTxt, !value && locStyles.placeholder, disabled && locStyles.placeholderDisabled]}>
+        {value || placeholder}
+      </Text>
+    </View>
+    <IconButton icon="chevron-right" size={20} iconColor={disabled ? '#ccc' : Colors.textLight} style={locStyles.chevron} />
+  </TouchableOpacity>
+);
+
+const locStyles = StyleSheet.create({
+  wrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 12,
+    marginBottom: 10,
+    minHeight: 64,
+    overflow: 'hidden',
+  },
+  disabled: { backgroundColor: '#f8f9fa', opacity: 0.6 },
+  icon: { margin: 0, marginLeft: 4 },
+  chevron: { margin: 0, marginRight: 4 },
+  textWrap: { flex: 1 },
+  labelTxt: { fontSize: 11, color: Colors.textLight, fontWeight: '600', marginBottom: 2 },
+  valueTxt: { fontSize: 15, color: Colors.textDark, fontWeight: '500' },
+  placeholder: { color: Colors.textMuted },
+  placeholderDisabled: { color: '#ccc' },
+});
+
+// ── Main screen ────────────────────────────────────────────────────────────
 export const RegisterScreen = () => {
   const navigation = useNavigation();
   const route = useRoute<RegisterScreenRouteProp>();
 
-  // Personal data
   const [tipoPersona, setTipoPersona] = useState<'Natural' | 'Jurídica'>('Natural');
   const [tipoDocumento, setTipoDocumento] = useState<'DNI' | 'CE'>('DNI');
   const [dni, setDni] = useState('');
@@ -54,7 +208,6 @@ export const RegisterScreen = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  // Ubigeo state
   const [departamentos, setDepartamentos] = useState<string[]>([]);
   const [provincias, setProvincias] = useState<string[]>([]);
   const [distritos, setDistritos] = useState<string[]>([]);
@@ -65,29 +218,21 @@ export const RegisterScreen = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Checkboxes de aceptación
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [acceptPrivacy, setAcceptPrivacy] = useState(false);
   const [acceptPromotions, setAcceptPromotions] = useState(false);
 
-  // Initialize tipoPersona from route params if provided
   useEffect(() => {
-    if (route.params?.tipoPersona) {
-      setTipoPersona(route.params.tipoPersona);
-    }
+    if (route.params?.tipoPersona) setTipoPersona(route.params.tipoPersona);
   }, [route.params?.tipoPersona]);
 
-  // Load departamentos on mount
   useEffect(() => {
-    const deps = getDepartamentos();
-    setDepartamentos(deps);
+    setDepartamentos(getDepartamentos());
   }, []);
 
-  // Update provincias when departamento changes
   useEffect(() => {
     if (departamento) {
-      const provs = getProvincias(departamento);
-      setProvincias(provs);
+      setProvincias(getProvincias(departamento));
       setProvincia('');
       setDistrito('');
       setDistritos([]);
@@ -99,11 +244,9 @@ export const RegisterScreen = () => {
     }
   }, [departamento]);
 
-  // Update distritos when provincia changes
   useEffect(() => {
     if (departamento && provincia) {
-      const dists = getDistritos(departamento, provincia);
-      setDistritos(dists);
+      setDistritos(getDistritos(departamento, provincia));
       setDistrito('');
     } else {
       setDistritos([]);
@@ -118,7 +261,6 @@ export const RegisterScreen = () => {
         setError(`${tipoDocumento} debe tener ${longitudEsperada} dígitos`);
         return false;
       }
-
       if (!nombres || !apellidoPaterno) {
         setError('Nombres y apellido paterno son obligatorios');
         return false;
@@ -128,89 +270,43 @@ export const RegisterScreen = () => {
         setError('RUC debe tener 11 dígitos');
         return false;
       }
-
       if (!razonSocial) {
         setError('Razón social es obligatoria');
         return false;
       }
-
       if (!personaContacto) {
         setError('Persona de contacto es obligatoria');
         return false;
       }
     }
 
-    if (!email || !email.includes('@')) {
-      setError('Email inválido');
-      return false;
-    }
-
-    if (!telefono) {
-      setError('Teléfono es obligatorio');
-      return false;
-    }
-
-    if (!direccion) {
-      setError('Dirección es obligatoria');
-      return false;
-    }
-
-    if (!departamento) {
-      setError('Departamento es obligatorio');
-      return false;
-    }
-
-    if (!provincia) {
-      setError('Provincia es obligatoria');
-      return false;
-    }
-
-    if (!distrito) {
-      setError('Distrito es obligatorio');
-      return false;
-    }
-
-    if (!password || password.length < 8) {
-      setError('La contraseña debe tener al menos 8 caracteres');
-      return false;
-    }
-
-    if (password !== confirmPassword) {
-      setError('Las contraseñas no coinciden');
-      return false;
-    }
-
-    if (!acceptTerms) {
-      setError('Debes aceptar los Términos y Condiciones');
-      return false;
-    }
-
-    if (!acceptPrivacy) {
-      setError('Debes aceptar la Política de Privacidad');
-      return false;
-    }
-
+    if (!email || !email.includes('@')) { setError('Email inválido'); return false; }
+    if (!telefono) { setError('Teléfono es obligatorio'); return false; }
+    if (!direccion) { setError('Dirección es obligatoria'); return false; }
+    if (!departamento) { setError('Departamento es obligatorio'); return false; }
+    if (!provincia) { setError('Provincia es obligatoria'); return false; }
+    if (!distrito) { setError('Distrito es obligatorio'); return false; }
+    if (!password || password.length < 8) { setError('La contraseña debe tener al menos 8 caracteres'); return false; }
+    if (password !== confirmPassword) { setError('Las contraseñas no coinciden'); return false; }
+    if (!acceptTerms) { setError('Debes aceptar los Términos y Condiciones'); return false; }
+    if (!acceptPrivacy) { setError('Debes aceptar la Política de Privacidad'); return false; }
     return true;
   };
 
   const handleRegister = async () => {
     try {
       setError('');
-
-      if (!validateForm()) {
-        return;
-      }
-
+      if (!validateForm()) return;
       setLoading(true);
 
       const payload: any = {
         tipo_persona: tipoPersona,
         email,
         telefono,
-        direccion: direccion,
-        departamento: departamento,
-        provincia: provincia,
-        distrito: distrito,
+        direccion,
+        departamento,
+        provincia,
+        distrito,
         password,
         accept_promotions: acceptPromotions,
       };
@@ -228,773 +324,511 @@ export const RegisterScreen = () => {
         payload.persona_contacto = personaContacto;
       }
 
-      console.log('========== PAYLOAD COMPLETO ==========');
-      console.log(JSON.stringify(payload, null, 2));
-      console.log('======================================');
-
-      const response = await axios.post(
-        `${API_CONFIG.BASE_URL}/api/client/register`,
-        payload
-      );
+      const response = await axios.post(`${API_CONFIG.BASE_URL}/api/client/register`, payload);
 
       if (response.data.success) {
         Alert.alert(
           '✅ Registro Exitoso',
-          `Tu cuenta ha sido creada exitosamente.\n\n📧 Recibirás un email de confirmación.\n\nAhora puedes iniciar sesión con tu DNI${tipoPersona === 'Jurídica' ? '/RUC' : ''} y la contraseña que creaste.`,
-          [
-            {
-              text: 'Iniciar Sesión',
-              onPress: () => {
-                // Navegar a Login y limpiar toda la pila de navegación
-                navigation.reset({
-                  index: 0,
-                  routes: [{ name: 'Login' }],
-                });
-              },
-            },
-          ]
+          `Tu cuenta ha sido creada.\n\n📧 Recibirás un email de confirmación.\n\nInicia sesión con tu ${tipoPersona === 'Jurídica' ? 'RUC' : 'DNI'} y la contraseña que creaste.`,
+          [{ text: 'Iniciar Sesión', onPress: () => navigation.reset({ index: 0, routes: [{ name: 'Login' }] }) }]
         );
       } else {
         setError(response.data.message || 'Error al registrarse');
       }
     } catch (err: any) {
-      console.error('Error registering:', err);
-      console.error('Response data:', err.response?.data);
-      console.error('Response status:', err.response?.status);
-
-      const errorMessage = err.response?.data?.message || err.message || 'Error al registrarse';
-
-      setError(errorMessage);
-
-      Alert.alert(
-        '❌ Error en el Registro',
-        errorMessage,
-        [{ text: 'OK' }]
-      );
+      const msg = err.response?.data?.message || err.message || 'Error al registrarse';
+      setError(msg);
+      Alert.alert('❌ Error en el Registro', msg, [{ text: 'OK' }]);
     } finally {
       setLoading(false);
     }
   };
 
+  const inputTheme = {
+    colors: {
+      primary: Colors.primary,
+      onSurfaceVariant: Colors.textLight,
+      background: Colors.surface,
+    },
+    roundness: 12,
+  };
+
+  const styledInput = (extra?: object) => ({
+    backgroundColor: Colors.surface,
+    marginBottom: 10,
+    ...extra,
+  });
+
+  const renderModalList = (
+    data: string[],
+    selected: string,
+    onSelect: (v: string) => void,
+    onDismiss: () => void
+  ) => (
+    <FlatList
+      data={data}
+      keyExtractor={(item) => item}
+      style={{ maxHeight: 400 }}
+      contentContainerStyle={{ paddingBottom: 20 }}
+      renderItem={({ item }) => {
+        const isSelected = item === selected;
+        return (
+          <TouchableOpacity
+            style={[modalListStyles.item, isSelected && modalListStyles.itemSelected]}
+            onPress={() => { onSelect(item); onDismiss(); }}
+            activeOpacity={0.7}
+          >
+            <IconButton icon="map-marker" size={18} iconColor={isSelected ? Colors.primary : Colors.textLight} style={{ margin: 0 }} />
+            <Text style={[modalListStyles.itemText, isSelected && modalListStyles.itemTextSelected]}>{item}</Text>
+            {isSelected && <IconButton icon="check-circle" size={18} iconColor={Colors.primary} style={{ margin: 0 }} />}
+          </TouchableOpacity>
+        );
+      }}
+    />
+  );
+
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
-    >
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.formContainer}>
-          <Text variant="headlineMedium" style={styles.title}>
-            Crear Cuenta
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+      {/* ── Gradient Header ── */}
+      <LinearGradient colors={['#0D1B2A', '#16a34a']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} activeOpacity={0.7}>
+          <IconButton icon="arrow-left" size={22} iconColor="#fff" style={{ margin: 0 }} />
+        </TouchableOpacity>
+        <View style={styles.headerContent}>
+          <View style={styles.headerBadge}>
+            <Text style={styles.headerBadgeText}>{tipoPersona === 'Natural' ? '👤' : '🏢'}</Text>
+          </View>
+          <Text style={styles.headerTitle}>Crear Cuenta</Text>
+          <Text style={styles.headerSubtitle}>
+            {tipoPersona === 'Natural' ? 'Persona Natural' : 'Persona Jurídica'}
           </Text>
-          <Text variant="bodyMedium" style={styles.subtitle}>
-            Completa tu información personal
-          </Text>
+        </View>
+      </LinearGradient>
 
-          {/* Tipo de Persona - Hidden if selected from previous screen */}
-          {!route.params?.tipoPersona && (
-            <>
-              <Text variant="labelLarge" style={styles.label}>
-                Tipo de Persona
-              </Text>
-              <SegmentedButtons
-                value={tipoPersona}
-                onValueChange={(value) => setTipoPersona(value as 'Natural' | 'Jurídica')}
-                buttons={[
-                  {
-                    value: 'Natural',
-                    label: 'Natural',
-                    icon: 'account',
-                  },
-                  {
-                    value: 'Jurídica',
-                    label: 'Jurídica',
-                    icon: 'domain',
-                  },
-                ]}
-                style={styles.segmentedButtons}
-              />
-            </>
-          )}
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        {/* ── Tipo de Persona ── */}
+        {!route.params?.tipoPersona && (
+          <View style={styles.card}>
+            <SectionHeader icon="account-switch" label="Tipo de cuenta" color="#6366f1" />
+            <TipoToggle value={tipoPersona} onChange={setTipoPersona} />
+          </View>
+        )}
 
-          {/* Campos para Persona Natural */}
+        {/* ── Datos de Identidad ── */}
+        <View style={styles.card}>
+          <SectionHeader icon="card-account-details-outline" label="Datos de identidad" color="#0891b2" />
+
           {tipoPersona === 'Natural' ? (
             <>
-              <Text style={styles.sectionLabel}>Tipo de Documento</Text>
-              <SegmentedButtons
+              <DocToggle
                 value={tipoDocumento}
-                onValueChange={(value) => {
-                  setTipoDocumento(value as 'DNI' | 'CE');
-                  setDni('');
-                  setError('');
-                }}
-                buttons={[
-                  {
-                    value: 'DNI',
-                    label: 'DNI (8 dígitos)',
-                    icon: 'card-account-details',
-                  },
-                  {
-                    value: 'CE',
-                    label: 'CE (9 dígitos)',
-                    icon: 'passport',
-                  },
-                ]}
-                style={styles.segmentedButtons}
+                onChange={(v) => { setTipoDocumento(v); setDni(''); setError(''); }}
               />
-
               <TextInput
-                label={`${tipoDocumento} *`}
+                label={`Número de ${tipoDocumento} *`}
                 value={dni}
-                onChangeText={(text) => {
-                  setDni(text);
-                  setError('');
-                }}
+                onChangeText={(t) => { setDni(t); setError(''); }}
                 mode="outlined"
                 keyboardType="numeric"
                 maxLength={tipoDocumento === 'DNI' ? 8 : 9}
-                placeholder={`Ingrese ${tipoDocumento === 'DNI' ? '8' : '9'} dígitos`}
-                style={styles.input}
-                left={<TextInput.Icon icon="card-account-details" />}
+                style={styledInput()}
+                theme={inputTheme}
+                left={<TextInput.Icon icon="identifier" />}
               />
-
               <TextInput
                 label="Nombres *"
                 value={nombres}
-                onChangeText={(text) => {
-                  setNombres(text);
-                  setError('');
-                }}
+                onChangeText={(t) => { setNombres(t); setError(''); }}
                 mode="outlined"
                 autoCapitalize="words"
-                style={styles.input}
-                left={<TextInput.Icon icon="account" />}
+                style={styledInput()}
+                theme={inputTheme}
+                left={<TextInput.Icon icon="account-outline" />}
               />
-
-              <TextInput
-                label="Apellido Paterno *"
-                value={apellidoPaterno}
-                onChangeText={(text) => {
-                  setApellidoPaterno(text);
-                  setError('');
-                }}
-                mode="outlined"
-                autoCapitalize="words"
-                style={styles.input}
-                left={<TextInput.Icon icon="account" />}
-              />
-
-              <TextInput
-                label="Apellido Materno"
-                value={apellidoMaterno}
-                onChangeText={(text) => {
-                  setApellidoMaterno(text);
-                  setError('');
-                }}
-                mode="outlined"
-                autoCapitalize="words"
-                style={styles.input}
-                left={<TextInput.Icon icon="account" />}
-              />
+              <View style={styles.row}>
+                <TextInput
+                  label="Ap. Paterno *"
+                  value={apellidoPaterno}
+                  onChangeText={(t) => { setApellidoPaterno(t); setError(''); }}
+                  mode="outlined"
+                  autoCapitalize="words"
+                  style={[styledInput(), styles.flex1]}
+                  theme={inputTheme}
+                />
+                <TextInput
+                  label="Ap. Materno"
+                  value={apellidoMaterno}
+                  onChangeText={(t) => { setApellidoMaterno(t); setError(''); }}
+                  mode="outlined"
+                  autoCapitalize="words"
+                  style={[styledInput(), styles.flex1]}
+                  theme={inputTheme}
+                />
+              </View>
             </>
           ) : (
             <>
               <TextInput
                 label="RUC *"
                 value={ruc}
-                onChangeText={(text) => {
-                  setRuc(text);
-                  setError('');
-                }}
+                onChangeText={(t) => { setRuc(t); setError(''); }}
                 mode="outlined"
                 keyboardType="numeric"
                 maxLength={11}
-                style={styles.input}
-                left={<TextInput.Icon icon="card-account-details" />}
+                style={styledInput()}
+                theme={inputTheme}
+                left={<TextInput.Icon icon="barcode" />}
               />
-
               <TextInput
                 label="Razón Social *"
                 value={razonSocial}
-                onChangeText={(text) => {
-                  setRazonSocial(text);
-                  setError('');
-                }}
+                onChangeText={(t) => { setRazonSocial(t); setError(''); }}
                 mode="outlined"
                 autoCapitalize="words"
-                style={styles.input}
+                style={styledInput()}
+                theme={inputTheme}
                 left={<TextInput.Icon icon="domain" />}
               />
-
-              <View style={styles.nativeInputContainer}>
-                <Text variant="labelMedium" style={styles.nativeInputLabel}>
-                  Persona de Contacto *
-                </Text>
-                <RNTextInput
-                  value={personaContacto}
-                  onChangeText={setPersonaContacto}
-                  placeholder="Nombre completo de la persona de contacto"
-                  autoCapitalize="words"
-                  style={styles.nativeInput}
-                />
-              </View>
+              <TextInput
+                label="Persona de Contacto *"
+                value={personaContacto}
+                onChangeText={(t) => { setPersonaContacto(t); setError(''); }}
+                mode="outlined"
+                autoCapitalize="words"
+                style={styledInput()}
+                theme={inputTheme}
+                left={<TextInput.Icon icon="account-tie-outline" />}
+              />
             </>
           )}
+        </View>
 
-          {/* Campos comunes */}
+        {/* ── Contacto ── */}
+        <View style={styles.card}>
+          <SectionHeader icon="phone-outline" label="Datos de contacto" color={Colors.primary} />
           <TextInput
             label="Email *"
             value={email}
-            onChangeText={(text) => {
-              setEmail(text);
-              setError('');
-            }}
+            onChangeText={(t) => { setEmail(t); setError(''); }}
             mode="outlined"
             keyboardType="email-address"
             autoCapitalize="none"
-            style={styles.input}
-            left={<TextInput.Icon icon="email" />}
+            style={styledInput()}
+            theme={inputTheme}
+            left={<TextInput.Icon icon="email-outline" />}
           />
-
           <TextInput
             label="Teléfono *"
             value={telefono}
-            onChangeText={(text) => {
-              setTelefono(text);
-              setError('');
-            }}
+            onChangeText={(t) => { setTelefono(t); setError(''); }}
             mode="outlined"
             keyboardType="phone-pad"
-            placeholder="+51987654321"
-            style={styles.input}
-            left={<TextInput.Icon icon="phone" />}
+            placeholder="+51 987 654 321"
+            style={styledInput()}
+            theme={inputTheme}
+            left={<TextInput.Icon icon="phone-outline" />}
           />
+        </View>
 
+        {/* ── Ubicación ── */}
+        <View style={styles.card}>
+          <SectionHeader icon="map-marker-radius-outline" label="Ubicación" color="#f59e0b" />
           <TextInput
-            label="Dirección *"
+            label="Dirección completa *"
             value={direccion}
-            onChangeText={(text) => {
-              setDireccion(text);
-              setError('');
-            }}
+            onChangeText={(t) => { setDireccion(t); setError(''); }}
             mode="outlined"
             multiline
-            numberOfLines={3}
-            placeholder="Ingrese su dirección completa"
-            style={styles.input}
-            left={<TextInput.Icon icon="map-marker" />}
+            numberOfLines={2}
+            style={styledInput()}
+            theme={inputTheme}
+            left={<TextInput.Icon icon="home-outline" />}
           />
-
-          {/* Departamento */}
-          <Text variant="labelMedium" style={styles.fieldLabel}>
-            Departamento *
-          </Text>
-          <TouchableOpacity onPress={() => setDepartamentoMenuVisible(true)}>
-            <View style={styles.selector}>
-              <Text style={styles.selectorText}>
-                {departamento || 'Seleccionar departamento'}
-              </Text>
-              <IconButton icon="chevron-down" size={20} />
-            </View>
-          </TouchableOpacity>
-
-          {/* Provincia */}
-          <Text variant="labelMedium" style={styles.fieldLabel}>
-            Provincia *
-          </Text>
-          <TouchableOpacity
-            onPress={() => departamento ? setProvinciaMenuVisible(true) : null}
+          <LocationSelector
+            label="Departamento"
+            value={departamento}
+            placeholder="Seleccionar departamento"
+            onPress={() => setDepartamentoMenuVisible(true)}
+          />
+          <LocationSelector
+            label="Provincia"
+            value={provincia}
+            placeholder={departamento ? 'Seleccionar provincia' : 'Primero elige departamento'}
             disabled={!departamento}
-          >
-            <View style={[styles.selector, !departamento && styles.disabledSelector]}>
-              <Text style={[styles.selectorText, !departamento && styles.disabledText]}>
-                {provincia || (departamento ? 'Seleccionar provincia' : 'Seleccione departamento primero')}
-              </Text>
-              <IconButton icon="chevron-down" size={20} iconColor={!departamento ? '#ccc' : undefined} />
-            </View>
-          </TouchableOpacity>
-
-          {/* Distrito */}
-          <Text variant="labelMedium" style={styles.fieldLabel}>
-            Distrito *
-          </Text>
-          <TouchableOpacity
-            onPress={() => provincia ? setDistritoMenuVisible(true) : null}
+            onPress={() => setProvinciaMenuVisible(true)}
+          />
+          <LocationSelector
+            label="Distrito"
+            value={distrito}
+            placeholder={provincia ? 'Seleccionar distrito' : 'Primero elige provincia'}
             disabled={!provincia}
-          >
-            <View style={[styles.selector, !provincia && styles.disabledSelector]}>
-              <Text style={[styles.selectorText, !provincia && styles.disabledText]}>
-                {distrito || (provincia ? 'Seleccionar distrito' : 'Seleccione provincia primero')}
-              </Text>
-              <IconButton icon="chevron-down" size={20} iconColor={!provincia ? '#ccc' : undefined} />
-            </View>
-          </TouchableOpacity>
+            onPress={() => setDistritoMenuVisible(true)}
+          />
+        </View>
 
+        {/* ── Seguridad ── */}
+        <View style={styles.card}>
+          <SectionHeader icon="lock-outline" label="Seguridad" color="#7c3aed" />
           <TextInput
-            label="Contraseña *"
+            label="Contraseña * (mín. 8 caracteres)"
             value={password}
-            onChangeText={(text) => {
-              setPassword(text);
-              setError('');
-            }}
+            onChangeText={(t) => { setPassword(t); setError(''); }}
             mode="outlined"
             secureTextEntry={!showPassword}
-            style={styles.input}
-            left={<TextInput.Icon icon="lock" />}
-            right={
-              <TextInput.Icon
-                icon={showPassword ? 'eye-off' : 'eye'}
-                onPress={() => setShowPassword(!showPassword)}
-              />
-            }
+            style={styledInput()}
+            theme={inputTheme}
+            left={<TextInput.Icon icon="lock-outline" />}
+            right={<TextInput.Icon icon={showPassword ? 'eye-off-outline' : 'eye-outline'} onPress={() => setShowPassword(!showPassword)} />}
           />
-
           <TextInput
             label="Confirmar Contraseña *"
             value={confirmPassword}
-            onChangeText={(text) => {
-              setConfirmPassword(text);
-              setError('');
-            }}
+            onChangeText={(t) => { setConfirmPassword(t); setError(''); }}
             mode="outlined"
             secureTextEntry={!showConfirmPassword}
-            style={styles.input}
-            left={<TextInput.Icon icon="lock-check" />}
-            right={
-              <TextInput.Icon
-                icon={showConfirmPassword ? 'eye-off' : 'eye'}
-                onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-              />
-            }
+            style={styledInput()}
+            theme={inputTheme}
+            left={<TextInput.Icon icon="lock-check-outline" />}
+            right={<TextInput.Icon icon={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'} onPress={() => setShowConfirmPassword(!showConfirmPassword)} />}
           />
+        </View>
 
-          {/* Checkboxes de aceptación */}
-          <View style={styles.checkboxContainer}>
-            <TouchableOpacity
-              style={styles.checkboxRow}
-              onPress={() => setAcceptTerms(!acceptTerms)}
-              activeOpacity={0.7}
-            >
-              <Checkbox.Android
-                status={acceptTerms ? 'checked' : 'unchecked'}
-                color={Colors.primary}
-              />
-              <View style={styles.checkboxTextContainer}>
-                <Text style={styles.checkboxText}>
+        {/* ── Aceptaciones ── */}
+        <View style={[styles.card, styles.cardAccept]}>
+          <SectionHeader icon="shield-check-outline" label="Términos y privacidad" color="#0891b2" />
+
+          {[
+            {
+              checked: acceptTerms,
+              onToggle: () => setAcceptTerms(!acceptTerms),
+              text: (
+                <Text style={checkStyles.txt}>
                   Acepto los{' '}
-                  <Text
-                    style={styles.checkboxLink}
-                    onPress={(e) => {
-                      e.stopPropagation();
-                      Linking.openURL(`${API_CONFIG.BASE_URL}/legal/terms`);
-                    }}
-                  >
+                  <Text style={checkStyles.link} onPress={(e) => { e.stopPropagation(); Linking.openURL(`${API_CONFIG.BASE_URL}/legal/terms`); }}>
                     Términos y Condiciones
                   </Text>
                   {' '}*
                 </Text>
-              </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.checkboxRow}
-              onPress={() => setAcceptPrivacy(!acceptPrivacy)}
-              activeOpacity={0.7}
-            >
-              <Checkbox.Android
-                status={acceptPrivacy ? 'checked' : 'unchecked'}
-                color={Colors.primary}
-              />
-              <View style={styles.checkboxTextContainer}>
-                <Text style={styles.checkboxText}>
+              ),
+            },
+            {
+              checked: acceptPrivacy,
+              onToggle: () => setAcceptPrivacy(!acceptPrivacy),
+              text: (
+                <Text style={checkStyles.txt}>
                   Acepto la{' '}
-                  <Text
-                    style={styles.checkboxLink}
-                    onPress={(e) => {
-                      e.stopPropagation();
-                      Linking.openURL(`${API_CONFIG.BASE_URL}/legal/privacy`);
-                    }}
-                  >
+                  <Text style={checkStyles.link} onPress={(e) => { e.stopPropagation(); Linking.openURL(`${API_CONFIG.BASE_URL}/legal/privacy`); }}>
                     Política de Privacidad
                   </Text>
-                  {' '}y el tratamiento de mis datos personales *
+                  {' '}y el tratamiento de mis datos *
                 </Text>
+              ),
+            },
+            {
+              checked: acceptPromotions,
+              onToggle: () => setAcceptPromotions(!acceptPromotions),
+              text: <Text style={checkStyles.txt}>Deseo recibir promociones y ofertas por correo</Text>,
+              optional: true,
+            },
+          ].map(({ checked, onToggle, text, optional }, idx) => (
+            <TouchableOpacity key={idx} onPress={onToggle} activeOpacity={0.7} style={checkStyles.row}>
+              <View style={[checkStyles.box, checked && checkStyles.boxChecked]}>
+                {checked && <IconButton icon="check" size={14} iconColor="#fff" style={{ margin: 0 }} />}
               </View>
+              <View style={{ flex: 1 }}>{text}</View>
+              {optional && (
+                <View style={checkStyles.badge}>
+                  <Text style={checkStyles.badgeTxt}>opcional</Text>
+                </View>
+              )}
             </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.checkboxRow}
-              onPress={() => setAcceptPromotions(!acceptPromotions)}
-              activeOpacity={0.7}
-            >
-              <Checkbox.Android
-                status={acceptPromotions ? 'checked' : 'unchecked'}
-                color={Colors.primary}
-              />
-              <View style={styles.checkboxTextContainer}>
-                <Text style={styles.checkboxText}>
-                  Deseo recibir promociones y ofertas por correo electrónico
-                </Text>
-              </View>
-            </TouchableOpacity>
-          </View>
-
-          {error ? (
-            <HelperText type="error" visible={!!error} style={styles.error}>
-              {error}
-            </HelperText>
-          ) : null}
-
-          <Button
-            mode="contained"
-            onPress={handleRegister}
-            loading={loading}
-            disabled={loading}
-            style={styles.button}
-            buttonColor={Colors.primary}
-          >
-            Crear Cuenta
-          </Button>
-
-          <Button
-            mode="text"
-            onPress={() => navigation.goBack()}
-            style={styles.cancelButton}
-          >
-            Cancelar
-          </Button>
-
-          {/* Modal de selección de Departamento */}
-          <CustomModal
-            visible={departamentoMenuVisible}
-            onDismiss={() => setDepartamentoMenuVisible(false)}
-            title="Seleccionar Departamento"
-          >
-            <FlatList
-              data={departamentos}
-              keyExtractor={(item) => item}
-              contentContainerStyle={styles.list}
-              style={styles.listContainer}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={[
-                    styles.option,
-                    departamento === item && styles.optionSelected
-                  ]}
-                  onPress={() => {
-                    setDepartamento(item);
-                    setDepartamentoMenuVisible(false);
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.optionContent}>
-                    <View style={styles.iconContainer}>
-                      <IconButton
-                        icon="map-marker"
-                        size={24}
-                        iconColor={departamento === item ? Colors.primary : Colors.textLight}
-                        style={styles.icon}
-                      />
-                    </View>
-                    <Text style={[
-                      styles.optionText,
-                      departamento === item && styles.optionTextSelected
-                    ]}>
-                      {item}
-                    </Text>
-                  </View>
-                  {departamento === item && (
-                    <View style={styles.checkIconContainer}>
-                      <IconButton
-                        icon="check-circle"
-                        size={24}
-                        iconColor={Colors.primary}
-                        style={{ margin: 0 }}
-                      />
-                    </View>
-                  )}
-                </TouchableOpacity>
-              )}
-            />
-          </CustomModal>
-
-          {/* Modal de selección de Provincia */}
-          <CustomModal
-            visible={provinciaMenuVisible}
-            onDismiss={() => setProvinciaMenuVisible(false)}
-            title="Seleccionar Provincia"
-          >
-            <FlatList
-              data={provincias}
-              keyExtractor={(item) => item}
-              contentContainerStyle={styles.list}
-              style={styles.listContainer}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={[
-                    styles.option,
-                    provincia === item && styles.optionSelected
-                  ]}
-                  onPress={() => {
-                    setProvincia(item);
-                    setProvinciaMenuVisible(false);
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.optionContent}>
-                    <View style={styles.iconContainer}>
-                      <IconButton
-                        icon="map-marker"
-                        size={24}
-                        iconColor={provincia === item ? Colors.primary : Colors.textLight}
-                        style={styles.icon}
-                      />
-                    </View>
-                    <Text style={[
-                      styles.optionText,
-                      provincia === item && styles.optionTextSelected
-                    ]}>
-                      {item}
-                    </Text>
-                  </View>
-                  {provincia === item && (
-                    <View style={styles.checkIconContainer}>
-                      <IconButton
-                        icon="check-circle"
-                        size={24}
-                        iconColor={Colors.primary}
-                        style={{ margin: 0 }}
-                      />
-                    </View>
-                  )}
-                </TouchableOpacity>
-              )}
-            />
-          </CustomModal>
-
-          {/* Modal de selección de Distrito */}
-          <CustomModal
-            visible={distritoMenuVisible}
-            onDismiss={() => setDistritoMenuVisible(false)}
-            title="Seleccionar Distrito"
-          >
-            <FlatList
-              data={distritos}
-              keyExtractor={(item) => item}
-              contentContainerStyle={styles.list}
-              style={styles.listContainer}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={[
-                    styles.option,
-                    distrito === item && styles.optionSelected
-                  ]}
-                  onPress={() => {
-                    setDistrito(item);
-                    setDistritoMenuVisible(false);
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.optionContent}>
-                    <View style={styles.iconContainer}>
-                      <IconButton
-                        icon="map-marker"
-                        size={24}
-                        iconColor={distrito === item ? Colors.primary : Colors.textLight}
-                        style={styles.icon}
-                      />
-                    </View>
-                    <Text style={[
-                      styles.optionText,
-                      distrito === item && styles.optionTextSelected
-                    ]}>
-                      {item}
-                    </Text>
-                  </View>
-                  {distrito === item && (
-                    <View style={styles.checkIconContainer}>
-                      <IconButton
-                        icon="check-circle"
-                        size={24}
-                        iconColor={Colors.primary}
-                        style={{ margin: 0 }}
-                      />
-                    </View>
-                  )}
-                </TouchableOpacity>
-              )}
-            />
-          </CustomModal>
+          ))}
         </View>
+
+        {/* ── Error ── */}
+        {error ? (
+          <View style={styles.errorWrap}>
+            <IconButton icon="alert-circle-outline" size={18} iconColor={Colors.danger} style={{ margin: 0 }} />
+            <Text style={styles.errorTxt}>{error}</Text>
+          </View>
+        ) : null}
+
+        {/* ── Submit ── */}
+        <TouchableOpacity
+          onPress={handleRegister}
+          disabled={loading}
+          activeOpacity={0.85}
+          style={{ borderRadius: 14, overflow: 'hidden', marginTop: 8 }}
+        >
+          <LinearGradient
+            colors={loading ? ['#9ca3af', '#6b7280'] : [Colors.primary, Colors.primaryDark]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.submitGradient}
+          >
+            {loading ? (
+              <Text style={styles.submitTxt}>Creando cuenta...</Text>
+            ) : (
+              <>
+                <IconButton icon="account-plus-outline" size={20} iconColor="#fff" style={{ margin: 0 }} />
+                <Text style={styles.submitTxt}>Crear Cuenta</Text>
+              </>
+            )}
+          </LinearGradient>
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.cancelBtn} activeOpacity={0.7}>
+          <Text style={styles.cancelTxt}>Cancelar</Text>
+        </TouchableOpacity>
+
+        {/* ── Modals ── */}
+        <CustomModal visible={departamentoMenuVisible} onDismiss={() => setDepartamentoMenuVisible(false)} title="Seleccionar Departamento">
+          {renderModalList(departamentos, departamento, setDepartamento, () => setDepartamentoMenuVisible(false))}
+        </CustomModal>
+
+        <CustomModal visible={provinciaMenuVisible} onDismiss={() => setProvinciaMenuVisible(false)} title="Seleccionar Provincia">
+          {renderModalList(provincias, provincia, setProvincia, () => setProvinciaMenuVisible(false))}
+        </CustomModal>
+
+        <CustomModal visible={distritoMenuVisible} onDismiss={() => setDistritoMenuVisible(false)} title="Seleccionar Distrito">
+          {renderModalList(distritos, distrito, setDistrito, () => setDistritoMenuVisible(false))}
+        </CustomModal>
       </ScrollView>
     </KeyboardAvoidingView>
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    padding: 24,
-  },
-  formContainer: {
-    width: '100%',
-  },
-  title: {
-    marginBottom: 8,
-    marginTop: 40,
-    fontWeight: '600',
-    textAlign: 'center',
-    color: Colors.textDark,
-  },
-  subtitle: {
-    marginBottom: 24,
-    textAlign: 'center',
-    color: Colors.textLight,
-  },
-  label: {
-    marginBottom: 8,
-    marginTop: 8,
-    color: Colors.textDark,
-  },
-  fieldLabel: {
-    marginBottom: 8,
-    marginTop: 12,
-    color: Colors.textDark,
-  },
-  segmentedButtons: {
-    marginBottom: 16,
-  },
-  input: {
-    marginBottom: 16,
-    backgroundColor: Colors.surface,
-  },
-  nativeInputContainer: {
-    marginBottom: 16,
-  },
-  nativeInputLabel: {
-    marginBottom: 8,
-    color: Colors.textDark,
-    fontSize: 12,
-  },
-  nativeInput: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 4,
-    padding: 16,
-    fontSize: 16,
-    backgroundColor: Colors.surface,
-    color: Colors.textDark,
-  },
-  error: {
-    marginBottom: 8,
-  },
-  selector: {
+// ── Checkbox styles ────────────────────────────────────────────────────────
+const checkStyles = StyleSheet.create({
+  row: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: Colors.surface,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 4,
-    paddingLeft: 16,
-    paddingRight: 4,
-    marginBottom: 8,
-    minHeight: 56,
-  },
-  selectorText: {
-    fontSize: 16,
-    color: Colors.textDark,
-  },
-  list: {
-    paddingBottom: 20,
-  },
-  listContainer: {
-    maxHeight: 400,
-  },
-  option: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 14,
-    paddingHorizontal: 20,
+    alignItems: 'flex-start',
+    gap: 10,
+    paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
-    backgroundColor: Colors.surface,
+    borderBottomColor: Colors.divider,
   },
-  optionSelected: {
-    backgroundColor: '#f0f9ff',
-    borderLeftWidth: 4,
+  box: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: Colors.border,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+  },
+  boxChecked: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  txt: { fontSize: 13, color: Colors.text, lineHeight: 19, flex: 1 },
+  link: { color: Colors.primary, fontWeight: '700', textDecorationLine: 'underline' },
+  badge: {
+    backgroundColor: '#f1f5f9',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    alignSelf: 'center',
+  },
+  badgeTxt: { fontSize: 10, color: Colors.textLight, fontWeight: '600' },
+});
+
+// ── Modal list styles ──────────────────────────────────────────────────────
+const modalListStyles = StyleSheet.create({
+  item: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.divider,
+    backgroundColor: Colors.surface,
+    gap: 8,
+  },
+  itemSelected: {
+    backgroundColor: '#f0fdf4',
+    borderLeftWidth: 3,
     borderLeftColor: Colors.primary,
   },
-  optionContent: {
-    flexDirection: 'row',
+  itemText: { flex: 1, fontSize: 15, color: Colors.textDark, fontWeight: '500' },
+  itemTextSelected: { color: Colors.primaryDark, fontWeight: '700' },
+});
+
+// ── Main styles ────────────────────────────────────────────────────────────
+const styles = StyleSheet.create({
+  header: {
+    paddingTop: Platform.OS === 'ios' ? 56 : 36,
+    paddingBottom: 28,
+    paddingHorizontal: 20,
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.15)',
     alignItems: 'center',
-    flex: 1,
-  },
-  iconContainer: {
-    marginRight: 12,
-  },
-  icon: {
-    margin: 0,
-  },
-  optionText: {
-    fontSize: 16,
-    color: Colors.textDark,
-    fontWeight: '500',
-  },
-  optionTextSelected: {
-    color: Colors.primary,
-    fontWeight: '600',
-  },
-  checkIconContainer: {
-    marginLeft: 12,
-  },
-  button: {
-    marginTop: 8,
-    paddingVertical: 8,
-  },
-  cancelButton: {
-    marginTop: 12,
-  },
-  disabledSelector: {
-    backgroundColor: '#f5f5f5',
-    opacity: 0.6,
-  },
-  disabledText: {
-    color: '#999',
-  },
-  sectionLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.textDark,
-    marginTop: 12,
-    marginBottom: 8,
-  },
-  checkboxContainer: {
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  checkboxRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 12,
   },
-  checkboxTextContainer: {
-    flex: 1,
+  headerContent: { alignItems: 'center' },
+  headerBadge: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 8,
+    marginBottom: 10,
   },
-  checkboxText: {
-    fontSize: 14,
-    color: Colors.textDark,
-    lineHeight: 20,
+  headerBadgeText: { fontSize: 32 },
+  headerTitle: { fontSize: 24, fontWeight: '800', color: '#fff', letterSpacing: -0.5 },
+  headerSubtitle: { fontSize: 13, color: 'rgba(255,255,255,0.75)', marginTop: 4, fontWeight: '500' },
+
+  scroll: { backgroundColor: '#f1f5f9' },
+  scrollContent: { padding: 16, paddingBottom: 40 },
+
+  card: {
+    backgroundColor: Colors.surface,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
   },
-  checkboxLink: {
-    color: Colors.primary,
-    textDecorationLine: 'underline',
-    fontWeight: '600',
+  cardAccept: { paddingBottom: 4 },
+
+  row: { flexDirection: 'row', gap: 10 },
+  flex1: { flex: 1 },
+
+  errorWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fef2f2',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#fecaca',
+    padding: 12,
+    marginBottom: 12,
+    gap: 6,
   },
+  errorTxt: { flex: 1, color: Colors.danger, fontSize: 13, fontWeight: '500' },
+
+  submitGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    gap: 4,
+  },
+  submitTxt: { color: '#fff', fontSize: 16, fontWeight: '700' },
+
+  cancelBtn: { alignItems: 'center', paddingVertical: 16 },
+  cancelTxt: { color: Colors.textLight, fontSize: 14, fontWeight: '600' },
 });
