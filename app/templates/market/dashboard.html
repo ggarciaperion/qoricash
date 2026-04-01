@@ -402,9 +402,9 @@
     </div>
   </div>
 
-  <!-- ══ Análisis de Señal ═══════════════════════════════════════════════════ -->
+  <!-- ══ Análisis de Señal + Indicadores Macro + Evolución de Precios ════════ -->
   <div class="row g-2 mb-2">
-  <div class="col-12 col-lg-7">
+  <div class="col-12 col-lg-6">
       {% set sig = signal %}
       {% set da  = daily_analysis %}
       {% set da_st = 'bullish' if (da and da.trend=='alza') else ('bearish' if (da and da.trend=='baja') else 'lateral') %}
@@ -450,31 +450,69 @@
           </div>
           <div class="sig-reasoning" id="signalReasoning" style="font-size:.77rem;line-height:1.65;margin-bottom:.5rem;white-space:pre-line">{{ da.summary }}</div>
 
-          <!-- ── Variables de mercado: texto corrido ── -->
+          <!-- ── Variables de mercado: lista vertical con interpretación ── -->
           {% if snapshot %}{% set sm = snapshot %}
           <div style="border-top:1px solid #f3f4f6;padding-top:.38rem;margin-bottom:.4rem">
             <div style="font-size:.55rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#9ca3af;margin-bottom:.3rem">Variables de mercado</div>
-            <div id="daVarsSection" style="display:flex;flex-wrap:wrap;gap:.1rem .85rem;font-size:.72rem;line-height:1.9">
+            <div id="daVarsSection" style="display:flex;flex-direction:column;gap:.08rem">
+
+              {%- macro vrow(lbl, val, chg_val, chg_fmt, interp) %}
+              <div style="display:flex;align-items:baseline;gap:.45rem;padding:.1rem 0;border-bottom:1px solid #f9fafb;font-size:.71rem">
+                <span style="font-size:.56rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#9ca3af;min-width:4.2rem;flex-shrink:0">{{ lbl }}</span>
+                <strong style="color:#111827;min-width:4.5rem;flex-shrink:0">{{ val }}</strong>
+                {% if chg_val is not none %}<span class="{% if chg_val > 0 %}mkt-up{% elif chg_val < 0 %}mkt-down{% else %}mkt-flat{% endif %}" style="font-size:.65rem;font-weight:700;min-width:3.2rem;flex-shrink:0">{{ chg_fmt|format(chg_val) }}%</span>{% else %}<span style="min-width:3.2rem;flex-shrink:0"></span>{% endif %}
+                <span style="font-size:.61rem;color:#6b7280">{{ interp }}</span>
+              </div>
+              {%- endmacro %}
+
               {# USD/PEN #}
-              <span><span style="font-size:.57rem;font-weight:700;text-transform:uppercase;color:#9ca3af">USD/PEN</span>&nbsp;<strong style="color:#111827">{% if sm.usdpen %}S/{{ '%.4f'|format(sm.usdpen) }}{% else %}—{% endif %}</strong>{% if sm.usdpen_chg is not none %}&nbsp;<span class="{% if sm.usdpen_chg > 0 %}mkt-up{% elif sm.usdpen_chg < 0 %}mkt-down{% else %}mkt-flat{% endif %}">{{ '%+.2f'|format(sm.usdpen_chg) }}%</span>{% endif %}</span>
+              {{ vrow('USD/PEN',
+                  'S/'+('%.4f'|format(sm.usdpen)) if sm.usdpen else '—',
+                  sm.usdpen_chg, '%+.2f',
+                  ('TC al alza' if (sm.usdpen_chg is not none and sm.usdpen_chg > 0.1) else ('TC a la baja' if (sm.usdpen_chg is not none and sm.usdpen_chg < -0.1) else 'Tipo de cambio estable')) if sm.usdpen_chg is not none else 'Ref. interbancaria') }}
               {# DXY #}
-              <span><span style="font-size:.57rem;font-weight:700;text-transform:uppercase;color:#9ca3af">DXY</span>&nbsp;<strong style="color:#111827">{% if sm.dxy %}{{ '%.2f'|format(sm.dxy) }}{% else %}—{% endif %}</strong>{% if sm.dxy_chg is not none %}&nbsp;<span class="{% if sm.dxy_chg > 0 %}mkt-up{% elif sm.dxy_chg < 0 %}mkt-down{% else %}mkt-flat{% endif %}">{{ '%+.2f'|format(sm.dxy_chg) }}%</span>{% endif %}</span>
+              {{ vrow('DXY',
+                  '%.2f'|format(sm.dxy) if sm.dxy else '—',
+                  sm.dxy_chg, '%+.2f',
+                  ('Dólar global fuerte' if (sm.dxy_chg is not none and sm.dxy_chg > 0.2) else ('Dólar global débil' if (sm.dxy_chg is not none and sm.dxy_chg < -0.2) else 'Sin cambios relevantes')) if sm.dxy_chg is not none else 'Índice del dólar') }}
               {# VIX #}
-              <span><span style="font-size:.57rem;font-weight:700;text-transform:uppercase;color:#9ca3af">VIX</span>&nbsp;<strong style="color:#111827">{% if sm.vix %}{{ '%.1f'|format(sm.vix) }}{% else %}—{% endif %}</strong>{% if sm.vix_chg is not none %}&nbsp;<span class="{% if sm.vix_chg > 0 %}mkt-down{% elif sm.vix_chg < 0 %}mkt-up{% else %}mkt-flat{% endif %}">{{ '%+.2f'|format(sm.vix_chg) }}%</span>{% endif %}</span>
+              {{ vrow('VIX',
+                  '%.1f'|format(sm.vix) if sm.vix else '—',
+                  sm.vix_chg, '%+.2f',
+                  ('Pánico — USD sube' if sm.vix and sm.vix > 30 else ('Incertidumbre elevada' if sm.vix and sm.vix > 20 else ('Volatilidad moderada' if sm.vix and sm.vix > 15 else 'Mercado calmo'))) if sm.vix else '—') }}
               {# Cobre #}
-              <span><span style="font-size:.57rem;font-weight:700;text-transform:uppercase;color:#9ca3af">Cobre</span>&nbsp;<strong style="color:#111827">{% if sm.copper %}${{ '%.3f'|format(sm.copper) }}{% else %}—{% endif %}</strong>{% if sm.copper_chg is not none %}&nbsp;<span class="{% if sm.copper_chg > 0 %}mkt-up{% elif sm.copper_chg < 0 %}mkt-down{% else %}mkt-flat{% endif %}">{{ '%+.2f'|format(sm.copper_chg) }}%</span>{% endif %}</span>
+              {{ vrow('Cobre',
+                  '$'+('%.3f'|format(sm.copper)) if sm.copper else '—',
+                  sm.copper_chg, '%+.2f',
+                  ('Fortalece al sol' if (sm.copper_chg is not none and sm.copper_chg > 1.5) else ('Presión bajista' if (sm.copper_chg is not none and sm.copper_chg < -1.5) else 'Sin impacto significativo')) if sm.copper_chg is not none else 'USD/lb · corr. PEN') }}
               {# Bono 10Y #}
-              <span><span style="font-size:.57rem;font-weight:700;text-transform:uppercase;color:#9ca3af">Bono 10Y</span>&nbsp;<strong style="color:#111827">{% if sm.treasury_10y %}{{ '%.3f'|format(sm.treasury_10y) }}%{% else %}—{% endif %}</strong>{% if sm.treasury_10y_chg is not none %}&nbsp;<span class="{% if sm.treasury_10y_chg > 0 %}mkt-up{% elif sm.treasury_10y_chg < 0 %}mkt-down{% else %}mkt-flat{% endif %}">{{ '%+.3f'|format(sm.treasury_10y_chg) }}%</span>{% endif %}</span>
+              {{ vrow('Bono 10Y',
+                  ('%.3f'|format(sm.treasury_10y))+'%' if sm.treasury_10y else '—',
+                  sm.treasury_10y_chg, '%+.3f',
+                  ('Sube → atrae capitales USD' if (sm.treasury_10y_chg is not none and sm.treasury_10y_chg > 0.03) else ('Baja → menos atractivo' if (sm.treasury_10y_chg is not none and sm.treasury_10y_chg < -0.03) else 'Bono EE.UU. estable')) if sm.treasury_10y_chg is not none else 'Tesoro EE.UU. 10 años') }}
               {# Oro #}
-              <span><span style="font-size:.57rem;font-weight:700;text-transform:uppercase;color:#9ca3af">Oro</span>&nbsp;<strong style="color:#111827">{% if sm.gold %}${{ '%.0f'|format(sm.gold) }}{% else %}—{% endif %}</strong>{% if sm.gold_chg is not none %}&nbsp;<span class="{% if sm.gold_chg > 0 %}mkt-up{% elif sm.gold_chg < 0 %}mkt-down{% else %}mkt-flat{% endif %}">{{ '%+.2f'|format(sm.gold_chg) }}%</span>{% endif %}</span>
+              {{ vrow('Oro',
+                  '$'+('%.0f'|format(sm.gold)) if sm.gold else '—',
+                  sm.gold_chg, '%+.2f',
+                  ('Refugio↑ → desconfianza USD' if (sm.gold_chg is not none and sm.gold_chg > 1.0) else ('Menor refugio' if (sm.gold_chg is not none and sm.gold_chg < -0.8) else 'Sin variación significativa')) if sm.gold_chg is not none else 'USD / oz') }}
               {# EUR/USD #}
-              <span><span style="font-size:.57rem;font-weight:700;text-transform:uppercase;color:#9ca3af">EUR/USD</span>&nbsp;<strong style="color:#111827">{% if sm.eurusd %}{{ '%.4f'|format(sm.eurusd) }}{% else %}—{% endif %}</strong>{% if sm.eurusd_chg is not none %}&nbsp;<span class="{% if sm.eurusd_chg > 0 %}mkt-up{% elif sm.eurusd_chg < 0 %}mkt-down{% else %}mkt-flat{% endif %}">{{ '%+.2f'|format(sm.eurusd_chg) }}%</span>{% endif %}</span>
+              {{ vrow('EUR/USD',
+                  '%.4f'|format(sm.eurusd) if sm.eurusd else '—',
+                  sm.eurusd_chg, '%+.2f',
+                  ('Euro↑ → DXY débil' if (sm.eurusd_chg is not none and sm.eurusd_chg > 0.3) else ('Euro↓ → DXY fuerte' if (sm.eurusd_chg is not none and sm.eurusd_chg < -0.3) else 'Sin presión DXY')) if sm.eurusd_chg is not none else 'Euro / Dólar') }}
               {# Tasa FED #}
               {% set fed = macro.get('fed_rate') %}
-              <span><span style="font-size:.57rem;font-weight:700;text-transform:uppercase;color:#9ca3af">FED</span>&nbsp;<strong style="color:#111827">{% if fed %}{{ '%.2f'|format(fed.value) }}%{% else %}—{% endif %}</strong></span>
+              {{ vrow('FED',
+                  ('%.2f'|format(fed.value))+'%' if fed else '—',
+                  none, '%+.2f',
+                  ('Política restrictiva' if fed and fed.value >= 5.25 else ('Política laxa' if fed and fed.value <= 3.5 else 'Política moderada')) if fed else '—') }}
               {# Tasa BCRP #}
               {% set bcrp = macro.get('bcrp_rate') %}
-              <span><span style="font-size:.57rem;font-weight:700;text-transform:uppercase;color:#9ca3af">BCRP</span>&nbsp;<strong style="color:#111827">{% if bcrp %}{{ '%.2f'|format(bcrp.value) }}%{% else %}—{% endif %}</strong></span>
+              {{ vrow('BCRP',
+                  ('%.2f'|format(bcrp.value))+'%' if bcrp else '—',
+                  none, '%+.2f',
+                  'Banco Central del Perú') }}
+
             </div>
           </div>
           {% else %}
@@ -535,102 +573,97 @@
         </div>
       </div>
     </div>
-  </div>
+  <!-- Columna derecha: Macro + Chart apilados -->
+  <div class="col-12 col-lg-6 d-flex flex-column gap-2">
 
-  <!-- ══ Indicadores Macro + Evolución de Precios ════════════════════════════ -->
-  <div class="row g-2 mb-2">
-
-    <!-- Indicadores Macroeconómicos (compacto) -->
-    <div class="col-12 col-lg-5">
-      <div class="mkt-card h-100">
-        <div class="mkt-card-header">
-          <div class="mkt-card-title"><i class="bi bi-bank" style="color:#00DEA8"></i> Indicadores Macroeconómicos</div>
-        </div>
-        <div class="p-1">
-          <div class="row g-1" id="macroPanel">
-            {% set MACRO_KEYS = [
-              ('fed_rate',    '🏛 Tasa FED',         'Reserva Federal',   0, 7,    ''),
-              ('bcrp_rate',   '🏦 Tasa BCRP',        'Banco Central Perú', 0, 8,   ''),
-              ('bcrp_tc_sell','💱 TC Venta BCRP',    'Interbancario',      3, 4.2,  ''),
-              ('us_cpi_yoy',  '📊 Inflación EE.UU.', 'CPI YoY — BLS',     0, 10,   ''),
-              ('us_nfp',      '💼 NFP',              'Non-Farm Payrolls', -300, 500,''),
-              ('us_unrate',   '📉 Desempleo EE.UU.', 'Tasa U-3 — BLS',    3, 8,    ''),
-            ] %}
-            {% for key, label, source_lbl, bar_min, bar_max, desc in MACRO_KEYS %}
-              {% set ind = macro.get(key) %}
-              {% set dc = 'mc-' + (ind.direction if ind else 'flat') %}
-              <div class="col-6 col-sm-4" id="macro-{{ key }}">
-                <div class="macro-row {{ dc }}">
-                  <div class="mr-label">{{ label }}</div>
-                  {% if ind %}
-                    {% set bar_pct = [([(ind.value - bar_min) / (bar_max - bar_min) * 100, 0] | max), 100] | min %}
-                    {% set bar_color = '#10b981' if ind.direction == 'down' else ('#ef4444' if ind.direction == 'up' else '#9ca3af') %}
-                    <div style="display:flex;align-items:baseline;gap:.2rem">
-                      <div class="mr-value">{{ '%.2f'|format(ind.value) }}</div>
-                      <div class="mr-unit">{{ ind.unit }}</div>
-                    </div>
-                    <div class="mr-chg">
-                      {% if ind.prev_value %}
-                        {% set chg = ind.value - ind.prev_value %}
-                        <span class="{% if chg > 0 %}mkt-up{% elif chg < 0 %}mkt-down{% else %}mkt-flat{% endif %}">
-                          {% if chg > 0 %}▲{% elif chg < 0 %}▼{% else %}—{% endif %} {{ '%+.2f'|format(chg) }} {{ ind.unit }}
-                        </span>
-                      {% else %}
-                        <span class="mkt-flat">— sin anterior</span>
-                      {% endif %}
-                    </div>
-                    <div class="mr-bar-wrap">
-                      <div class="mr-bar" style="width:{{ bar_pct }}%;background:{{ bar_color }}"></div>
-                    </div>
-                    <div class="mr-meta">{{ ind.period }} · {{ ind.source }}</div>
-                  {% else %}
-                    <div class="mr-value" style="color:#d1d5db;font-size:1rem">—</div>
-                    <div class="mr-meta" style="color:#d1d5db">Sin datos · clic Act. Macro</div>
-                  {% endif %}
-                </div>
+    <!-- Indicadores Macroeconómicos -->
+    <div class="mkt-card">
+      <div class="mkt-card-header">
+        <div class="mkt-card-title"><i class="bi bi-bank" style="color:#00DEA8"></i> Indicadores Macroeconómicos</div>
+      </div>
+      <div class="p-1">
+        <div class="row g-1" id="macroPanel">
+          {% set MACRO_KEYS = [
+            ('fed_rate',    '🏛 Tasa FED',         'Reserva Federal',   0, 7,    ''),
+            ('bcrp_rate',   '🏦 Tasa BCRP',        'Banco Central Perú', 0, 8,   ''),
+            ('bcrp_tc_sell','💱 TC Venta BCRP',    'Interbancario',      3, 4.2,  ''),
+            ('us_cpi_yoy',  '📊 Inflación EE.UU.', 'CPI YoY — BLS',     0, 10,   ''),
+            ('us_nfp',      '💼 NFP',              'Non-Farm Payrolls', -300, 500,''),
+            ('us_unrate',   '📉 Desempleo EE.UU.', 'Tasa U-3 — BLS',    3, 8,    ''),
+          ] %}
+          {% for key, label, source_lbl, bar_min, bar_max, desc in MACRO_KEYS %}
+            {% set ind = macro.get(key) %}
+            {% set dc = 'mc-' + (ind.direction if ind else 'flat') %}
+            <div class="col-6 col-sm-4" id="macro-{{ key }}">
+              <div class="macro-row {{ dc }}">
+                <div class="mr-label">{{ label }}</div>
+                {% if ind %}
+                  {% set bar_pct = [([(ind.value - bar_min) / (bar_max - bar_min) * 100, 0] | max), 100] | min %}
+                  {% set bar_color = '#10b981' if ind.direction == 'down' else ('#ef4444' if ind.direction == 'up' else '#9ca3af') %}
+                  <div style="display:flex;align-items:baseline;gap:.2rem">
+                    <div class="mr-value">{{ '%.2f'|format(ind.value) }}</div>
+                    <div class="mr-unit">{{ ind.unit }}</div>
+                  </div>
+                  <div class="mr-chg">
+                    {% if ind.prev_value %}
+                      {% set chg = ind.value - ind.prev_value %}
+                      <span class="{% if chg > 0 %}mkt-up{% elif chg < 0 %}mkt-down{% else %}mkt-flat{% endif %}">
+                        {% if chg > 0 %}▲{% elif chg < 0 %}▼{% else %}—{% endif %} {{ '%+.2f'|format(chg) }} {{ ind.unit }}
+                      </span>
+                    {% else %}
+                      <span class="mkt-flat">— sin anterior</span>
+                    {% endif %}
+                  </div>
+                  <div class="mr-bar-wrap">
+                    <div class="mr-bar" style="width:{{ bar_pct }}%;background:{{ bar_color }}"></div>
+                  </div>
+                  <div class="mr-meta">{{ ind.period }} · {{ ind.source }}</div>
+                {% else %}
+                  <div class="mr-value" style="color:#d1d5db;font-size:1rem">—</div>
+                  <div class="mr-meta" style="color:#d1d5db">Sin datos · clic Act. Macro</div>
+                {% endif %}
               </div>
-            {% endfor %}
-          </div>
+            </div>
+          {% endfor %}
         </div>
       </div>
     </div>
 
     <!-- Evolución de Precios -->
-    <div class="col-12 col-lg-7">
-      <div class="mkt-card h-100" style="overflow:visible">
-        <div class="mkt-card-header">
-          <div class="mkt-card-title"><i class="bi bi-graph-up" style="color:#00DEA8"></i> Evolución de Precios</div>
-          <div class="d-flex gap-1 align-items-center">
-            <button class="chart-btn active" data-asset="usdpen">USD/PEN</button>
-            <button class="chart-btn" data-asset="gold">Oro</button>
-            <button class="chart-btn" data-asset="vix">VIX</button>
-          </div>
+    <div class="mkt-card flex-fill" style="overflow:visible">
+      <div class="mkt-card-header">
+        <div class="mkt-card-title"><i class="bi bi-graph-up" style="color:#00DEA8"></i> Evolución de Precios</div>
+        <div class="d-flex gap-1 align-items-center">
+          <button class="chart-btn active" data-asset="usdpen">USD/PEN</button>
+          <button class="chart-btn" data-asset="gold">Oro</button>
+          <button class="chart-btn" data-asset="vix">VIX</button>
         </div>
-        <!-- Barra de rango temporal -->
-        <div style="padding:.4rem 1rem;border-bottom:1px solid #f3f4f6;background:#fafafa;display:flex;gap:.35rem;align-items:center;flex-wrap:wrap">
-          <span style="font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#9ca3af;margin-right:.2rem">Rango:</span>
-          <button class="chart-btn" data-range="6h">6h</button>
-          <button class="chart-btn" data-range="12h">12h</button>
-          <button class="chart-btn active" data-range="24h">24h</button>
-          <span class="chart-sep">|</span>
-          <button class="chart-btn" data-range="1w">1 Sem</button>
-          <button class="chart-btn" data-range="1m">1 Mes</button>
-          <button class="chart-btn" data-range="6m">6 Mes</button>
-          <button class="chart-btn" data-range="1y">1 Año</button>
+      </div>
+      <!-- Barra de rango temporal -->
+      <div style="padding:.4rem 1rem;border-bottom:1px solid #f3f4f6;background:#fafafa;display:flex;gap:.35rem;align-items:center;flex-wrap:wrap">
+        <span style="font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#9ca3af;margin-right:.2rem">Rango:</span>
+        <button class="chart-btn" data-range="6h">6h</button>
+        <button class="chart-btn" data-range="12h">12h</button>
+        <button class="chart-btn active" data-range="24h">24h</button>
+        <span class="chart-sep">|</span>
+        <button class="chart-btn" data-range="1w">1 Sem</button>
+        <button class="chart-btn" data-range="1m">1 Mes</button>
+        <button class="chart-btn" data-range="6m">6 Mes</button>
+        <button class="chart-btn" data-range="1y">1 Año</button>
+      </div>
+      <div class="mkt-card-body" style="padding:.75rem 1rem;position:relative;min-height:80px">
+        <div id="chartLoading" style="display:none;position:absolute;inset:0;background:rgba(255,255,255,.85);z-index:5;align-items:center;justify-content:center">
+          <span class="spinner-border spinner-border-sm text-secondary"></span>&nbsp;<span style="font-size:.8rem;color:#6b7280">Cargando…</span>
         </div>
-        <div class="mkt-card-body" style="padding:.75rem 1rem;position:relative;min-height:80px">
-          <div id="chartLoading" style="display:none;position:absolute;inset:0;background:rgba(255,255,255,.85);z-index:5;align-items:center;justify-content:center">
-            <span class="spinner-border spinner-border-sm text-secondary"></span>&nbsp;<span style="font-size:.8rem;color:#6b7280">Cargando…</span>
-          </div>
-          <div id="chartEmpty" style="display:none;text-align:center;padding:2.5rem 0;color:#d1d5db;font-size:.82rem">
-            <i class="bi bi-graph-up d-block mb-2 fs-2 opacity-25"></i>Sin datos suficientes para este rango
-          </div>
-          <canvas id="marketChart" style="height:220px;max-height:220px"></canvas>
+        <div id="chartEmpty" style="display:none;text-align:center;padding:2.5rem 0;color:#d1d5db;font-size:.82rem">
+          <i class="bi bi-graph-up d-block mb-2 fs-2 opacity-25"></i>Sin datos suficientes para este rango
         </div>
+        <canvas id="marketChart" style="height:200px;max-height:200px"></canvas>
       </div>
     </div>
 
   </div>
+  </div><!-- /row señal+macro+chart -->
 
   <!-- ══ FILA 5: Calendario + Noticias ════════════════════════════════════════ -->
   <div class="row g-2 mb-2">
