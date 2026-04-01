@@ -37,7 +37,14 @@ limiter = Limiter(
 # WebSocket (Real-time)
 # Configuración optimizada para evitar errores "Bad file descriptor"
 socketio = SocketIO(
-    cors_allowed_origins=["https://app.qoricash.pe", "https://www.qoricash.pe", "http://localhost:3000", "http://localhost:5000"],
+    cors_allowed_origins=[
+        "https://app.qoricash.pe",
+        "https://www.qoricash.pe",
+        "https://qoricash.pe",
+        "https://qoricash-web.onrender.com",
+        "http://localhost:3000",
+        "http://localhost:5000",
+    ],
     async_mode='eventlet',  # DEBE ser 'eventlet' cuando gunicorn usa worker_class='eventlet'
     logger=True,  # Habilitar logging para capturar errores
     engineio_logger=False,  # Mantener deshabilitado para evitar spam
