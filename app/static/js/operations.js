@@ -2,7 +2,54 @@
  * QoriCash Trading V2 - Operations Management JavaScript
  */
 
-console.log('✅ operations.js cargado - VERSION: 20251220_10:30 - Con sección Atendido por');
+console.log('✅ operations.js cargado - VERSION: 20260401_UX - Processing overlay');
+
+/**
+ * Crea un overlay de procesamiento con transición a estado de éxito.
+ * @param {string} initialText - Texto inicial del spinner
+ * @returns {{ setSuccess(title, subtitle, iconClass): void, hide(callback): void }}
+ */
+function createProcessingOverlay(initialText) {
+    $('#qoriProcessOverlay').remove();
+
+    const $overlay = $(`
+        <div id="qoriProcessOverlay" class="qori-overlay" role="dialog" aria-modal="true" aria-label="${initialText}">
+            <div class="qori-process-card">
+                <div class="qori-spinner-ring" id="qoriSpinner"></div>
+                <div id="qoriProcessIconSlot"></div>
+                <p class="qori-process-title" id="qoriProcessTitle">${initialText}</p>
+                <p class="qori-process-subtitle" id="qoriProcessSubtitle"></p>
+            </div>
+        </div>
+    `);
+
+    $('body').append($overlay);
+    // Forzar reflow para que la transición CSS se active
+    $overlay[0].getBoundingClientRect();
+    $overlay.addClass('qori-overlay--visible');
+
+    return {
+        setSuccess: function(title, subtitle, iconClass) {
+            iconClass = iconClass || 'qori-process-icon--success';
+            const icon = iconClass === 'qori-process-icon--cancel' ? '✕' : '✓';
+            $('#qoriSpinner').fadeOut(200, function() {
+                $('#qoriProcessIconSlot').html(
+                    `<span class="qori-process-icon ${iconClass}">${icon}</span>`
+                );
+            });
+            $('#qoriProcessTitle').text(title);
+            $('#qoriProcessSubtitle').text(subtitle || '');
+        },
+        hide: function(callback) {
+            const $el = $('#qoriProcessOverlay');
+            $el.removeClass('qori-overlay--visible');
+            setTimeout(function() {
+                $el.remove();
+                if (typeof callback === 'function') callback();
+            }, 380);
+        }
+    };
+}
 
 /**
  * Ver operación
@@ -180,7 +227,7 @@ function cancelOperation(operationId) {
 function confirmCancelOperation() {
     const operationId = $('#cancel_operation_id').val();
     const reason = $('textarea[name="reason"]').val().trim();
-    
+
     if (!reason) {
         showNotification('Debes ingresar una razón para cancelar', 'warning');
         return;
@@ -188,9 +235,27 @@ function confirmCancelOperation() {
 
     const data = { reason: reason };
 
+    // Ocultar modal de confirmación y mostrar overlay de procesamiento
+    $('#cancelOperationModal').modal('hide');
+    const overlay = createProcessingOverlay('Procesando cancelación...');
+    const startTime = Date.now();
+
     ajaxRequest(`/operations/api/cancel/${operationId}`, 'POST', data, function(response) {
-        showNotification(response.message, 'success');
-        $('#cancelOperationModal').modal('hide');
-        setTimeout(() => location.reload(), 1000);
+        const elapsed = Date.now() - startTime;
+        const minDelay = 2200;
+        const remaining = Math.max(0, minDelay - elapsed);
+
+        setTimeout(function() {
+            overlay.setSuccess(
+                'Operación cancelada con éxito',
+                'Recuerda que cancelar operaciones de forma recurrente puede afectar tu historial.',
+                'qori-process-icon--cancel'
+            );
+            setTimeout(function() {
+                overlay.hide(function() {
+                    window.location.href = '/';
+                });
+            }, 2500);
+        }, remaining);
     });
 }

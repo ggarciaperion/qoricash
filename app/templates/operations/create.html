@@ -461,20 +461,34 @@ $('#createOperationForm').on('submit', function(e) {
         return;
     }
 
+    // Mostrar overlay de procesamiento antes de enviar
+    const startTime = Date.now();
+    const overlay = createProcessingOverlay('Creando operación...');
+
     // Enviar
     ajaxRequest('/operations/api/create', 'POST', formData,
         function(response) {
-            // Éxito - NO rehabilitar botón ni bandera, redirigir inmediatamente
-            showNotification('Operación creada exitosamente: ' + response.operation.operation_id, 'success');
+            // Asegurar mínimo 2.2s de spinner para dar sensación de procesamiento
+            const elapsed = Date.now() - startTime;
+            const minDelay = 2200;
+            const remaining = Math.max(0, minDelay - elapsed);
+
             setTimeout(function() {
-                window.location.href = '/operations/list';
-            }, 1500);
+                overlay.setSuccess('Operación generada con éxito', '');
+                setTimeout(function() {
+                    overlay.hide(function() {
+                        window.location.href = '/operations/list';
+                    });
+                }, 2500);
+            }, remaining);
         },
         function(error) {
-            // Error - rehabilitar botón COMPLETAMENTE
-            window.isCreatingOperation = false;
-            $submitBtn.prop('disabled', false).removeClass('disabled').css('pointer-events', '').html(originalBtnText);
-            showNotification('Error al crear operación: ' + (error.message || 'Error desconocido'), 'danger');
+            // Error - ocultar overlay y rehabilitar botón
+            overlay.hide(function() {
+                window.isCreatingOperation = false;
+                $submitBtn.prop('disabled', false).removeClass('disabled').css('pointer-events', '').html(originalBtnText);
+                showNotification('Error al crear operación: ' + (error.message || 'Error desconocido'), 'danger');
+            });
         }
     );
 });
