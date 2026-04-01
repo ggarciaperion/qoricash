@@ -537,11 +537,10 @@ def get_bank_reconciliation():
         # ── C-02: Comparar saldo real vs saldo contable (Libro Mayor) ─────────
         # Mapeo banco → código PCGE para cruzar con JournalEntryLine
         _BANK_PCGE = {
-            'BCP':        {'PEN': '1041', 'USD': '1044'},
-            'BBVA':       {'PEN': '1042', 'USD': '1045'},
-            'SCOTIABANK': {'PEN': '1043', 'USD': '1046'},
-            'INTERBANK':  {'PEN': '1048', 'USD': '1047'},
-            'BANBIF':     {'PEN': '1049', 'USD': '1050'},
+            'BCP':       {'PEN': '1041', 'USD': '1044'},
+            'INTERBANK': {'PEN': '1048', 'USD': '1047'},
+            'BANBIF':    {'PEN': '1049', 'USD': '1050'},
+            'PICHINCHA': {'PEN': '1051', 'USD': '1052'},
         }
         _LEDGER_THRESHOLD_PEN = 1.00   # S/ 1.00
         _LEDGER_THRESHOLD_USD = 0.50   # $ 0.50

@@ -510,19 +510,17 @@ def nuevo_gasto():
 # Cuentas disponibles para el asiento de apertura (banco + caja)
 _APERTURA_ACCOUNTS = [
     # PEN
-    ('1011', 'Caja Moneda Nacional',       'PEN'),
-    ('1041', 'BCP — Cta. Cte. PEN',        'PEN'),
-    ('1042', 'BBVA — Cta. Cte. PEN',       'PEN'),
-    ('1043', 'Scotiabank — Cta. Cte. PEN', 'PEN'),
-    ('1048', 'Interbank — Cta. Cte. PEN',  'PEN'),
-    ('1049', 'BanBif — Cta. Cte. PEN',     'PEN'),
+    ('1011', 'Caja Moneda Nacional',                  'PEN'),
+    ('1041', 'BCP — Cta. Cte. PEN',                   'PEN'),
+    ('1048', 'Interbank — Cta. Cte. PEN',             'PEN'),
+    ('1049', 'BanBif — Cta. Cte. PEN (en apertura)',  'PEN'),
+    ('1051', 'Pichincha — Cta. Cte. PEN (en apertura)', 'PEN'),
     # USD
-    ('1012', 'Caja Moneda Extranjera',      'USD'),
-    ('1044', 'BCP — Cta. Cte. USD',        'USD'),
-    ('1045', 'BBVA — Cta. Cte. USD',       'USD'),
-    ('1046', 'Scotiabank — Cta. Cte. USD', 'USD'),
-    ('1047', 'Interbank — Cta. Cte. USD',  'USD'),
-    ('1050', 'BanBif — Cta. Cte. USD',     'USD'),
+    ('1012', 'Caja Moneda Extranjera',                'USD'),
+    ('1044', 'BCP — Cta. Cte. USD',                   'USD'),
+    ('1047', 'Interbank — Cta. Cte. USD',             'USD'),
+    ('1050', 'BanBif — Cta. Cte. USD (en apertura)',  'USD'),
+    ('1052', 'Pichincha — Cta. Cte. USD (en apertura)', 'USD'),
 ]
 
 _CONTRAPARTIDA_OPTIONS = [
@@ -692,27 +690,23 @@ def cerrar_periodo():
 
 # Mapa código PCGE → etiqueta legible
 _ACCOUNT_LABELS = {
-    '1011': ('Caja MN',           'PEN', 'efectivo'),
-    '1012': ('Caja ME',           'USD', 'efectivo'),
-    '1041': ('BCP PEN',           'PEN', 'banco'),
-    '1042': ('BBVA PEN',          'PEN', 'banco'),
-    '1043': ('Scotiabank PEN',    'PEN', 'banco'),
-    '1044': ('BCP USD',           'USD', 'banco'),
-    '1045': ('BBVA USD',          'USD', 'banco'),
-    '1046': ('Scotiabank USD',    'USD', 'banco'),
-    '1047': ('Interbank USD',     'USD', 'banco'),
-    '1048': ('Interbank PEN',     'PEN', 'banco'),
-    '1049': ('BanBif PEN',        'PEN', 'banco'),
-    '1050': ('BanBif USD',        'USD', 'banco'),
+    '1011': ('Caja MN',              'PEN', 'efectivo'),
+    '1012': ('Caja ME',              'USD', 'efectivo'),
+    '1041': ('BCP PEN',              'PEN', 'banco'),
+    '1044': ('BCP USD',              'USD', 'banco'),
+    '1047': ('Interbank USD',        'USD', 'banco'),
+    '1048': ('Interbank PEN',        'PEN', 'banco'),
+    '1049': ('BanBif PEN',           'PEN', 'banco'),
+    '1050': ('BanBif USD',           'USD', 'banco'),
+    '1051': ('Pichincha PEN',        'PEN', 'banco'),
+    '1052': ('Pichincha USD',        'USD', 'banco'),
 }
 
-# Cómo relacionar PCGE code → bank_name para conciliación
 _CODE_TO_BANK = {
-    '1041': 'BCP',        '1044': 'BCP',
-    '1042': 'BBVA',       '1045': 'BBVA',
-    '1043': 'SCOTIABANK', '1046': 'SCOTIABANK',
-    '1047': 'INTERBANK',  '1048': 'INTERBANK',
-    '1049': 'BANBIF',     '1050': 'BANBIF',
+    '1041': 'BCP',       '1044': 'BCP',
+    '1047': 'INTERBANK', '1048': 'INTERBANK',
+    '1049': 'BANBIF',    '1050': 'BANBIF',
+    '1051': 'PICHINCHA', '1052': 'PICHINCHA',
 }
 
 

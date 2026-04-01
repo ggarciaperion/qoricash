@@ -21,18 +21,16 @@ logger = logging.getLogger(__name__)
 
 # ── Mapeo banco → código PCGE ─────────────────────────────────────────────────
 _PEN_ACCOUNTS = {
-    'BCP':        '1041',
-    'BBVA':       '1042',
-    'SCOTIABANK': '1043',
-    'INTERBANK':  '1048',
-    'BANBIF':     '1049',   # BanBif PEN
+    'BCP':       '1041',
+    'INTERBANK': '1048',
+    'BANBIF':    '1049',    # en proceso de apertura
+    'PICHINCHA': '1051',    # en proceso de apertura
 }
 _USD_ACCOUNTS = {
-    'BCP':        '1044',
-    'BBVA':       '1045',
-    'SCOTIABANK': '1046',
-    'INTERBANK':  '1047',
-    'BANBIF':     '1050',   # BanBif USD — separado de PEN (M-02)
+    'BCP':       '1044',
+    'INTERBANK': '1047',
+    'BANBIF':    '1050',    # en proceso de apertura
+    'PICHINCHA': '1052',    # en proceso de apertura
 }
 
 

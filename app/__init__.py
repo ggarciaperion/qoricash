@@ -530,12 +530,14 @@ def register_cli_commands(app):
             # ── ACTIVO ──────────────────────────────────────────────────────
             ('1011', 'Caja MN',                        'activo',    'deudora',   'PEN'),
             ('1012', 'Caja ME',                        'activo',    'deudora',   'USD'),
-            ('1041', 'BCP – Cuenta Corriente PEN',     'activo',    'deudora',   'PEN'),
-            ('1042', 'BBVA – Cuenta Corriente PEN',    'activo',    'deudora',   'PEN'),
-            ('1043', 'Scotiabank – Cuenta Corriente PEN','activo',  'deudora',   'PEN'),
-            ('1044', 'BCP – Cuenta Corriente USD',     'activo',    'deudora',   'USD'),
-            ('1045', 'BBVA – Cuenta Corriente USD',    'activo',    'deudora',   'USD'),
-            ('1046', 'Scotiabank – Cuenta Corriente USD','activo',  'deudora',   'USD'),
+            ('1041', 'BCP – Cuenta Corriente PEN',        'activo',    'deudora',   'PEN'),
+            ('1044', 'BCP – Cuenta Corriente USD',        'activo',    'deudora',   'USD'),
+            ('1047', 'Interbank – Cuenta Corriente USD',  'activo',    'deudora',   'USD'),
+            ('1048', 'Interbank – Cuenta Corriente PEN',  'activo',    'deudora',   'PEN'),
+            ('1049', 'BanBif – Cuenta Corriente PEN',     'activo',    'deudora',   'PEN'),
+            ('1050', 'BanBif – Cuenta Corriente USD',     'activo',    'deudora',   'USD'),
+            ('1051', 'Pichincha – Cuenta Corriente PEN',  'activo',    'deudora',   'PEN'),
+            ('1052', 'Pichincha – Cuenta Corriente USD',  'activo',    'deudora',   'USD'),
             ('1211', 'Clientes por liquidar',          'activo',    'deudora',   'PEN'),
             # ── PASIVO ──────────────────────────────────────────────────────
             ('4011', 'IR – Pago a cuenta mensual',     'pasivo',    'acreedora', 'PEN'),
@@ -577,8 +579,15 @@ def register_cli_commands(app):
                 )
                 db.session.add(acc)
                 created += 1
+            # Desactivar cuentas BBVA/Scotiabank si existen (QoriCash no opera en esos bancos)
+            deactivated = 0
+            for old_code in ('1042', '1043', '1045', '1046'):
+                old_acc = AccountingAccount.query.filter_by(code=old_code).first()
+                if old_acc and old_acc.is_active:
+                    old_acc.is_active = False
+                    deactivated += 1
             db.session.commit()
-            print(f"✓ seed-accounts: {created} cuentas creadas, {skipped} ya existían")
+            print(f"✓ seed-accounts: {created} cuentas creadas, {skipped} ya existían, {deactivated} desactivadas")
         except Exception as e:
             db.session.rollback()
             print(f"✗ Error en seed-accounts: {e}")
@@ -736,12 +745,12 @@ def register_cli_commands(app):
             ops_data=[
                 (date(2026,1, 5), 'Compra', 'Roberto Castillo',    4_000, 3.7100, 14_840.00, '1041','1044'),
                 (date(2026,1, 8), 'Venta',  'Sonia Vargas',        2_800, 3.6900, 10_332.00, '1041','1044'),
-                (date(2026,1,12), 'Compra', 'Inversiones Norte SAC',7_500, 3.7200, 27_900.00, '1042','1045'),
-                (date(2026,1,15), 'Venta',  'Miguel Torres',        3_000, 3.6800, 11_040.00, '1042','1045'),
+                (date(2026,1,12), 'Compra', 'Inversiones Norte SAC',7_500, 3.7200, 27_900.00, '1048','1047'),
+                (date(2026,1,15), 'Venta',  'Miguel Torres',        3_000, 3.6800, 11_040.00, '1048','1047'),
                 (date(2026,1,19), 'Compra', 'Diana Quispe',         6_000, 3.7300, 22_380.00, '1041','1044'),
                 (date(2026,1,22), 'Venta',  'Transporte Lima SAC', 10_000, 3.6700, 36_700.00, '1041','1044'),
-                (date(2026,1,26), 'Compra', 'Arturo Mendoza',       5_500, 3.7100, 20_405.00, '1043','1046'),
-                (date(2026,1,29), 'Venta',  'Cecilia Flores',       4_200, 3.6800, 15_456.00, '1043','1046'),
+                (date(2026,1,26), 'Compra', 'Arturo Mendoza',       5_500, 3.7100, 20_405.00, '1041','1044'),
+                (date(2026,1,29), 'Venta',  'Cecilia Flores',       4_200, 3.6800, 15_456.00, '1041','1044'),
             ],
             spreads_data=[
                 (date(2026,1,31), 'DEMO Spread compra USD Ene-2026',
@@ -772,16 +781,16 @@ def register_cli_commands(app):
             ops_data=[
                 (date(2026,2, 3), 'Compra', 'Carlos Mendoza',           5_000, 3.7200, 18_600.00, '1041','1044'),
                 (date(2026,2, 5), 'Venta',  'Ana Torres',               3_200, 3.6800, 11_776.00, '1041','1044'),
-                (date(2026,2, 7), 'Compra', 'Empresa XYZ SAC',         10_000, 3.7300, 37_300.00, '1042','1045'),
-                (date(2026,2,10), 'Venta',  'Luis García',              2_500, 3.6700,  9_175.00, '1042','1045'),
+                (date(2026,2, 7), 'Compra', 'Empresa XYZ SAC',         10_000, 3.7300, 37_300.00, '1048','1047'),
+                (date(2026,2,10), 'Venta',  'Luis García',              2_500, 3.6700,  9_175.00, '1048','1047'),
                 (date(2026,2,12), 'Compra', 'María López',              8_000, 3.7100, 29_680.00, '1041','1044'),
                 (date(2026,2,14), 'Venta',  'Importaciones ABC SAC',   15_000, 3.6900, 55_350.00, '1041','1044'),
-                (date(2026,2,17), 'Compra', 'Pedro Sánchez',            4_500, 3.7400, 16_830.00, '1043','1046'),
-                (date(2026,2,19), 'Venta',  'Rosa Flores',              6_000, 3.6800, 22_080.00, '1043','1046'),
+                (date(2026,2,17), 'Compra', 'Pedro Sánchez',            4_500, 3.7400, 16_830.00, '1041','1044'),
+                (date(2026,2,19), 'Venta',  'Rosa Flores',              6_000, 3.6800, 22_080.00, '1041','1044'),
                 (date(2026,2,21), 'Compra', 'Exportadores del Perú SAC',20_000, 3.7200, 74_400.00, '1041','1044'),
                 (date(2026,2,24), 'Venta',  'Jorge Huanca',             3_800, 3.6600, 13_908.00, '1041','1044'),
-                (date(2026,2,26), 'Compra', 'Patricia Quispe',          7_500, 3.7300, 27_975.00, '1042','1045'),
-                (date(2026,2,28), 'Venta',  'Comercial Lima SAC',      12_000, 3.7000, 44_400.00, '1042','1045'),
+                (date(2026,2,26), 'Compra', 'Patricia Quispe',          7_500, 3.7300, 27_975.00, '1048','1047'),
+                (date(2026,2,28), 'Venta',  'Comercial Lima SAC',      12_000, 3.7000, 44_400.00, '1048','1047'),
             ],
             spreads_data=[
                 (date(2026,2,28), 'DEMO Spread compra USD Feb-2026',
@@ -797,7 +806,7 @@ def register_cli_commands(app):
                 (date(2026,2, 3),'6361','Telefonía e internet empresarial',   450.00,'Boleta', 'B002-01567','20116544526','Claro Perú SAC'),
                 (date(2026,2, 8),'6381','Honorarios contador Feb-2026',       800.00,'Recibo', 'RH-001-0345','10412345678','Juan Pérez Quispe CPC'),
                 (date(2026,2,10),'6391','Comisión bancaria BCP Feb-2026',     185.00, None,     None,         None,         None),
-                (date(2026,2,15),'6391','Comisión bancaria BBVA Feb-2026',    120.00, None,     None,         None,         None),
+                (date(2026,2,15),'6391','Comisión bancaria Interbank Feb-2026',120.00, None,     None,         None,         None),
                 (date(2026,2,17),'6391','Publicidad en redes sociales',       600.00,'Factura','F004-00789','20601234567','Digital Media SAC'),
                 (date(2026,2,20),'6511','Material de oficina y útiles',       280.00,'Boleta', 'B005-02345','10298765432','Librería San Juan EIRL'),
                 (date(2026,2,25),'6391','Servicio de limpieza de local',      350.00,'Recibo', 'RC-002-0123','20456789012','Limpiezas Rápidas SAC'),
@@ -814,16 +823,16 @@ def register_cli_commands(app):
             ops_data=[
                 (date(2026,3, 2), 'Compra', 'Fernanda Villanueva',    6_000, 3.7150, 22_290.00, '1041','1044'),
                 (date(2026,3, 4), 'Venta',  'Grupo Andino SAC',       4_500, 3.6950, 16_627.50, '1041','1044'),
-                (date(2026,3, 6), 'Compra', 'Humberto Palomino',      3_200, 3.7200, 11_904.00, '1042','1045'),
-                (date(2026,3,10), 'Venta',  'Exportaciones Sur EIRL', 8_000, 3.6800, 29_440.00, '1042','1045'),
+                (date(2026,3, 6), 'Compra', 'Humberto Palomino',      3_200, 3.7200, 11_904.00, '1048','1047'),
+                (date(2026,3,10), 'Venta',  'Exportaciones Sur EIRL', 8_000, 3.6800, 29_440.00, '1048','1047'),
                 (date(2026,3,12), 'Compra', 'Luz Marina Rojas',       5_000, 3.7300, 18_650.00, '1041','1044'),
                 (date(2026,3,14), 'Venta',  'Comercio Global SAC',   12_000, 3.6900, 44_280.00, '1041','1044'),
-                (date(2026,3,17), 'Compra', 'Omar Salinas',            7_000, 3.7250, 26_075.00, '1043','1046'),
-                (date(2026,3,19), 'Venta',  'Importex Perú SAC',      9_500, 3.6850, 35_007.50, '1043','1046'),
+                (date(2026,3,17), 'Compra', 'Omar Salinas',            7_000, 3.7250, 26_075.00, '1041','1044'),
+                (date(2026,3,19), 'Venta',  'Importex Perú SAC',      9_500, 3.6850, 35_007.50, '1041','1044'),
                 (date(2026,3,21), 'Compra', 'Cristina Pacheco',        4_000, 3.7200, 14_880.00, '1041','1044'),
                 (date(2026,3,24), 'Venta',  'Negocios Lima SAC',      15_000, 3.6750, 55_125.00, '1041','1044'),
-                (date(2026,3,26), 'Compra', 'Raúl Contreras',          6_500, 3.7300, 24_245.00, '1042','1045'),
-                (date(2026,3,28), 'Venta',  'Trading Norte SAC',      11_000, 3.6900, 40_590.00, '1042','1045'),
+                (date(2026,3,26), 'Compra', 'Raúl Contreras',          6_500, 3.7300, 24_245.00, '1048','1047'),
+                (date(2026,3,28), 'Venta',  'Trading Norte SAC',      11_000, 3.6900, 40_590.00, '1048','1047'),
                 (date(2026,3,31), 'Compra', 'Vanessa Herrera',         3_500, 3.7200, 13_020.00, '1041','1044'),
             ],
             spreads_data=[
@@ -840,7 +849,7 @@ def register_cli_commands(app):
                 (date(2026,3, 4),'6361','Telefonía e internet marzo',         450.00,'Boleta', 'B002-01689','20116544526','Claro Perú SAC'),
                 (date(2026,3, 9),'6381','Honorarios contador Mar-2026',       800.00,'Recibo', 'RH-001-0378','10412345678','Juan Pérez Quispe CPC'),
                 (date(2026,3,11),'6391','Comisión bancaria BCP marzo',        195.00, None,     None,         None,         None),
-                (date(2026,3,15),'6391','Comisión bancaria BBVA marzo',       130.00, None,     None,         None,         None),
+                (date(2026,3,15),'6391','Comisión bancaria Interbank marzo',   130.00, None,     None,         None,         None),
                 (date(2026,3,18),'6391','Campaña publicidad marzo',           750.00,'Factura','F004-00832','20601234567','Digital Media SAC'),
                 (date(2026,3,20),'6511','Material de oficina marzo',          195.00,'Boleta', 'B005-02489','10298765432','Librería San Juan EIRL'),
                 (date(2026,3,25),'6391','Servicio de limpieza marzo',         350.00,'Recibo', 'RC-002-0145','20456789012','Limpiezas Rápidas SAC'),
@@ -1011,12 +1020,12 @@ def register_cli_commands(app):
                 if entry_a:
                     print(f"\n  ✓ Operación A: {OP_A_ID}  COMPRA $3,000 @ 3.7200 = S/ 11,160")
                     print(f"    Abonos PEN:")
-                    print(f"      BCP       S/ 4,000.00  → cuenta 1041 DEBE")
-                    print(f"      BBVA      S/ 4,000.00  → cuenta 1042 DEBE")
+                    print(f"      BCP PEN   S/ 4,000.00  → cuenta 1041 DEBE")
+                    print(f"      BCP PEN   S/ 4,000.00  → cuenta 1041 DEBE (cliente BBVA→fallback BCP)")
                     print(f"      INTERBANK S/ 3,160.00  → cuenta 1048 DEBE")
                     print(f"    Pagos USD:")
                     print(f"      BCP USD   $1,500 (S/ 5,580) → cuenta 1044 HABER")
-                    print(f"      SCOTI USD $1,500 (S/ 5,580) → cuenta 1046 HABER")
+                    print(f"      BCP USD   $1,500 (S/ 5,580) → cuenta 1044 HABER (cliente Scotia→fallback BCP)")
                     print(f"    Asiento: {entry_a.entry_number}  DEBE S/{entry_a.total_debe}  HABER S/{entry_a.total_haber}")
                 else:
                     print(f"  ✗ Error al crear asiento para {OP_A_ID}")
@@ -1061,10 +1070,10 @@ def register_cli_commands(app):
                     print(f"\n  ✓ Operación B: {OP_B_ID}  VENTA $2,000 @ 3.6900 = S/ 7,380")
                     print(f"    Abonos USD:")
                     print(f"      BCP USD   $1,200 (S/ 4,428) → cuenta 1044 DEBE")
-                    print(f"      SCOTI USD $  800 (S/ 2,952) → cuenta 1046 DEBE")
+                    print(f"      BCP USD   $  800 (S/ 2,952) → cuenta 1044 DEBE (cliente Scotia→fallback BCP)")
                     print(f"    Pagos PEN:")
                     print(f"      BCP PEN   S/ 4,000.00 → cuenta 1041 HABER")
-                    print(f"      BBVA PEN  S/ 3,380.00 → cuenta 1042 HABER")
+                    print(f"      BCP PEN   S/ 3,380.00 → cuenta 1041 HABER (cliente BBVA→fallback BCP)")
                     print(f"    Asiento: {entry_b.entry_number}  DEBE S/{entry_b.total_debe}  HABER S/{entry_b.total_haber}")
                 else:
                     print(f"  ✗ Error al crear asiento para {OP_B_ID}")
