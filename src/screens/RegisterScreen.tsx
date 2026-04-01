@@ -10,6 +10,7 @@ import {
   FlatList,
   TextInput as RNTextInput,
   Linking,
+  ActivityIndicator,
 } from 'react-native';
 import { TextInput, Text, IconButton } from 'react-native-paper';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -515,7 +516,7 @@ export const RegisterScreen = () => {
                     activeOpacity={0.8}
                   >
                     {lookupLoading
-                      ? <IconButton icon="loading" size={18} iconColor="#fff" style={{ margin: 0 }} animating />
+                      ? <ActivityIndicator size={18} color="#fff" />
                       : <IconButton icon="magnify" size={18} iconColor="#fff" style={{ margin: 0 }} />
                     }
                     <Text style={lookupStyles.btnTxt}>RENIEC</Text>
@@ -607,7 +608,7 @@ export const RegisterScreen = () => {
                   activeOpacity={0.8}
                 >
                   {lookupLoading
-                    ? <IconButton icon="loading" size={18} iconColor="#fff" style={{ margin: 0 }} animating />
+                    ? <ActivityIndicator size={18} color="#fff" />
                     : <IconButton icon="magnify" size={18} iconColor="#fff" style={{ margin: 0 }} />
                   }
                   <Text style={lookupStyles.btnTxt}>SUNAT</Text>

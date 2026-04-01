@@ -3,7 +3,7 @@ Rutas API para la Página Web QoriCash
 Este módulo proporciona endpoints específicos para la página web pública
 Actualizado: 2026-01-12 - Force redeploy para activar servicio en Render
 """
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 from flask_login import login_required
 from app.models.client import Client
 from app.models.user import User
