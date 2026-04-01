@@ -505,6 +505,160 @@ def nuevo_gasto():
         return jsonify({'success': False, 'error': str(e)}), 400
 
 
+# ── Asiento de Apertura ────────────────────────────────────────────────────────
+
+# Cuentas disponibles para el asiento de apertura (banco + caja)
+_APERTURA_ACCOUNTS = [
+    # PEN
+    ('1011', 'Caja Moneda Nacional',       'PEN'),
+    ('1041', 'BCP — Cta. Cte. PEN',        'PEN'),
+    ('1042', 'BBVA — Cta. Cte. PEN',       'PEN'),
+    ('1043', 'Scotiabank — Cta. Cte. PEN', 'PEN'),
+    ('1048', 'Interbank — Cta. Cte. PEN',  'PEN'),
+    ('1049', 'BanBif — Cta. Cte. PEN',     'PEN'),
+    # USD
+    ('1012', 'Caja Moneda Extranjera',      'USD'),
+    ('1044', 'BCP — Cta. Cte. USD',        'USD'),
+    ('1045', 'BBVA — Cta. Cte. USD',       'USD'),
+    ('1046', 'Scotiabank — Cta. Cte. USD', 'USD'),
+    ('1047', 'Interbank — Cta. Cte. USD',  'USD'),
+    ('1050', 'BanBif — Cta. Cte. USD',     'USD'),
+]
+
+_CONTRAPARTIDA_OPTIONS = [
+    ('3111', 'Capital Social'),
+    ('3511', 'Utilidades Acumuladas'),
+    ('4511', 'Préstamos de accionistas'),
+]
+
+
+@contabilidad_bp.route('/apertura')
+@login_required
+@require_role('Master')
+def apertura():
+    from app.models.journal_entry import JournalEntry
+    from sqlalchemy import extract
+
+    year = request.args.get('year', type=int, default=date.today().year)
+
+    # Verificar si ya existe un asiento de apertura para este año
+    existing = JournalEntry.query.filter(
+        extract('year', JournalEntry.entry_date) == year,
+        JournalEntry.entry_type == 'apertura',
+        JournalEntry.status == 'activo',
+    ).first()
+
+    return render_template(
+        'contabilidad/apertura.html',
+        accounts=_APERTURA_ACCOUNTS,
+        contrapartida_options=_CONTRAPARTIDA_OPTIONS,
+        existing=existing,
+        selected_year=year,
+        user=current_user,
+    )
+
+
+@contabilidad_bp.route('/apertura', methods=['POST'])
+@login_required
+@require_role('Master')
+def crear_apertura():
+    from app.models.journal_entry import JournalEntry
+    from app.services.accounting.journal_service import JournalService
+    from sqlalchemy import extract
+
+    data = request.get_json() or {}
+
+    try:
+        apertura_date = date.fromisoformat(data.get('apertura_date', str(date.today())))
+        contrapartida = data.get('contrapartida', '3111')
+        forzar        = data.get('forzar', False)
+        saldos        = data.get('saldos', {})  # {account_code: importe_str}
+
+        year = apertura_date.year
+
+        # Verificar duplicado
+        existing = JournalEntry.query.filter(
+            extract('year', JournalEntry.entry_date) == year,
+            JournalEntry.entry_type == 'apertura',
+            JournalEntry.status == 'activo',
+        ).first()
+
+        if existing and not forzar:
+            return jsonify({
+                'success': False,
+                'duplicate': True,
+                'entry_number': existing.entry_number,
+                'message': f'Ya existe el asiento de apertura {existing.entry_number} para {year}. '
+                           '¿Desea reemplazarlo?',
+            }), 409
+
+        if existing and forzar:
+            # Anular el asiento previo antes de crear el nuevo
+            existing.status        = 'anulado'
+            existing.annulled_at   = datetime.utcnow()
+            existing.annulled_by   = current_user.id
+            existing.annulled_reason = 'Reemplazado por nuevo asiento de apertura'
+            db.session.flush()
+
+        # Construir líneas DEBE
+        lines = []
+        total = Decimal('0')
+        for code, name, currency in _APERTURA_ACCOUNTS:
+            raw = saldos.get(code, '').strip()
+            if not raw:
+                continue
+            try:
+                importe = Decimal(raw.replace(',', '.'))
+            except Exception:
+                continue
+            if importe <= 0:
+                continue
+
+            lines.append({
+                'account_code': code,
+                'description':  f'Saldo inicial {name}',
+                'debe':         importe,
+                'haber':        Decimal('0'),
+                'currency':     currency,
+            })
+            total += importe
+
+        if not lines:
+            return jsonify({'success': False, 'error': 'Debe ingresar al menos un saldo mayor a 0'}), 400
+
+        # Línea HABER: contrapartida (capital / patrimonio)
+        lines.append({
+            'account_code': contrapartida,
+            'description':  'Saldo de apertura — contrapartida patrimonial',
+            'debe':         Decimal('0'),
+            'haber':        total,
+            'currency':     'PEN',
+        })
+
+        entry = JournalService.create_entry(
+            entry_type='apertura',
+            description=f'Asiento de apertura {year} — saldos iniciales',
+            lines=lines,
+            source_type='manual',
+            source_id=None,
+            entry_date=apertura_date,
+            created_by=current_user.id,
+        )
+
+        if not entry:
+            return jsonify({'success': False, 'error': 'No se pudo crear el asiento. Revisa que el período esté abierto.'}), 500
+
+        return jsonify({
+            'success': True,
+            'entry_number': entry.entry_number,
+            'message': f'Asiento de apertura {entry.entry_number} creado correctamente',
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+
 # ── Períodos ───────────────────────────────────────────────────────────────────
 
 @contabilidad_bp.route('/periodos')
