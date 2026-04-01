@@ -4,56 +4,58 @@
 
 {% block head %}
 <style>
-    .status-toggle {
-        cursor: pointer;
-    }
-    .document-preview {
-        max-width: 100px;
-        max-height: 100px;
-        cursor: pointer;
-    }
-    .document-section {
-        border: 1px dashed #ddd;
-        padding: 15px;
-        border-radius: 5px;
-        margin-bottom: 15px;
-    }
+    .status-toggle { cursor: pointer; }
+    .document-preview { max-width: 100px; max-height: 100px; cursor: pointer; }
+
+    /* ── Sección header ──────────────────────────────────────── */
     .form-section-title {
-        font-weight: 600;
-        color: #495057;
-        margin-top: 20px;
-        margin-bottom: 15px;
-        padding-bottom: 10px;
-        border-bottom: 2px solid #e9ecef;
-    }
-    .text-uppercase-input {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 24px;
+        margin-bottom: 14px;
+        padding-bottom: 8px;
+        border-bottom: 1.5px solid #e9ecef;
+        font-size: .72rem;
+        font-weight: 700;
         text-transform: uppercase;
+        letter-spacing: .07em;
+        color: #6c757d;
     }
+    .form-section-title .sec-icon {
+        width: 22px; height: 22px;
+        border-radius: 6px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: .78rem; flex-shrink: 0;
+    }
+
+    /* ── Documentos ──────────────────────────────────────────── */
+    .document-section {
+        background: #f8f9fa;
+        border: 1px solid #e9ecef;
+        border-radius: 10px;
+        padding: 16px;
+        margin-bottom: 14px;
+    }
+
+    /* ── Cuenta bancaria ─────────────────────────────────────── */
     .bank-account-group {
+        background: #fff;
         border: 1px solid #dee2e6;
-        border-radius: 5px;
-        padding: 15px;
-        margin-bottom: 15px;
-        background-color: #f8f9fa;
+        border-radius: 10px;
+        padding: 14px 16px;
+        margin-bottom: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,.05);
     }
-    .required-accounts-info {
-        background-color: #fff3cd;
-        border: 1px solid #ffc107;
-        padding: 10px;
-        border-radius: 5px;
-        margin-bottom: 15px;
-    }
-    /* Estilos para campos bloqueados por rol Trader */
-    input[readonly], select[disabled], textarea[readonly] {
-        background-color: #e9ecef !important;
-        cursor: not-allowed !important;
-        opacity: 0.7;
-    }
+
+    /* ── Campos bloqueados por rol ───────────────────────────── */
+    input[readonly], textarea[readonly],
     input[disabled], select[disabled], textarea[disabled] {
         background-color: #e9ecef !important;
         cursor: not-allowed !important;
-        opacity: 0.7;
+        opacity: .7;
     }
+    .text-uppercase-input { text-transform: uppercase; }
 </style>
 {% endblock %}
 
@@ -203,50 +205,55 @@
 <!-- Modal Crear/Editar Cliente -->
 <div class="modal fade" id="createClientModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-xl">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="modalTitle">
-                    <i class="bi bi-person-plus"></i> Nuevo Cliente
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        <div class="modal-content border-0 shadow">
+
+            <!-- Header -->
+            <div class="modal-header bg-primary text-white py-3">
+                <div class="d-flex align-items-center gap-2">
+                    <i class="bi bi-person-plus-fill fs-5"></i>
+                    <h5 class="modal-title mb-0" id="modalTitle">Nuevo Cliente</h5>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body">
+
+            <div class="modal-body px-4 py-3">
                 <form id="clientForm" enctype="multipart/form-data">
                     <input type="hidden" id="clientId" name="client_id">
 
-                    <!-- Tipo de Documento (OBLIGATORIO Y PRIMERO) -->
-                    <div class="row mb-3">
+                    <!-- Tipo de Documento -->
+                    <div class="row g-3 mb-2">
                         <div class="col-md-6">
-                            <label class="form-label">Tipo de Documento <span class="text-danger">*</span></label>
+                            <label class="form-label fw-semibold">Tipo de Documento <span class="text-danger">*</span></label>
                             <select class="form-select" id="documentType" name="document_type" required onchange="changeDocumentType()">
                                 <option value="">Seleccionar...</option>
-                                <option value="DNI">DNI</option>
-                                <option value="CE">CE (Carnet de Extranjería)</option>
-                                <option value="RUC">RUC</option>
+                                <option value="DNI">DNI — Persona Natural</option>
+                                <option value="CE">CE — Carnet de Extranjería</option>
+                                <option value="RUC">RUC — Persona Jurídica</option>
                             </select>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Número de Documento <span class="text-danger">*</span></label>
+                            <label class="form-label fw-semibold">Número de Documento <span class="text-danger">*</span></label>
                             <input type="text" class="form-control" id="dni" name="dni" required>
                             <small class="form-text text-muted" id="dniHelp">Ingrese el número de documento</small>
                         </div>
                     </div>
 
-                    <!-- Campos para DNI/CE -->
+                    <!-- ── PERSONA NATURAL (DNI / CE) ─────────────────────── -->
                     <div id="dniCeFields" style="display: none;">
 
-                        <!-- Feedback de búsqueda DNI RENIEC -->
                         <div id="dniLookupFeedback" class="mb-3" style="display:none"></div>
-                        <div id="dniReniecLookupRow" class="mb-3" style="display:none">
-                            <button type="button" class="btn btn-outline-secondary btn-sm" id="btnDniLookup">
-                                <i class="bi bi-search" id="dniLookupIcon"></i> Buscar en RENIEC
+                        <div id="dniReniecLookupRow" class="mb-2" style="display:none">
+                            <button type="button" class="btn btn-outline-primary btn-sm" id="btnDniLookup">
+                                <i class="bi bi-search" id="dniLookupIcon"></i> Autocompletar desde RENIEC
                             </button>
                             <small class="text-muted ms-2">Ingresa el DNI arriba y haz clic para autocompletar</small>
                         </div>
 
-                        <div class="form-section-title">Información Personal</div>
-
-                        <div class="row mb-3">
+                        <div class="form-section-title">
+                            <span class="sec-icon bg-primary bg-opacity-10 text-primary"><i class="bi bi-person"></i></span>
+                            Información Personal
+                        </div>
+                        <div class="row g-3 mb-2">
                             <div class="col-md-4">
                                 <label class="form-label">Apellido Paterno <span class="text-danger">*</span></label>
                                 <input type="text" class="form-control text-uppercase-input" id="apellidoPaterno" name="apellido_paterno">
@@ -261,144 +268,150 @@
                             </div>
                         </div>
 
-                        <div class="form-section-title">Documentos de Identidad</div>
+                        <div class="form-section-title">
+                            <span class="sec-icon bg-indigo bg-opacity-10 text-primary"><i class="bi bi-file-earmark-person"></i></span>
+                            Documentos de Identidad
+                        </div>
                         <div class="document-section">
-                            <div class="row">
+                            <div class="row g-3">
                                 <div class="col-md-6">
-                                    <label class="form-label">DNI/CE Anverso (Frontal)</label>
-                                    <input type="file" class="form-control" id="dniFront" name="dni_front" accept="image/*,.pdf">
+                                    <label class="form-label small fw-semibold">Anverso — Parte frontal</label>
+                                    <input type="file" class="form-control form-control-sm" id="dniFront" name="dni_front" accept="image/*,.pdf">
                                     <div id="dniFrontPreview" class="mt-2"></div>
                                 </div>
                                 <div class="col-md-6">
-                                    <label class="form-label">DNI/CE Reverso (Posterior)</label>
-                                    <input type="file" class="form-control" id="dniBack" name="dni_back" accept="image/*,.pdf">
+                                    <label class="form-label small fw-semibold">Reverso — Parte posterior</label>
+                                    <input type="file" class="form-control form-control-sm" id="dniBack" name="dni_back" accept="image/*,.pdf">
                                     <div id="dniBackPreview" class="mt-2"></div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Campos para RUC -->
+                    <!-- ── PERSONA JURÍDICA (RUC) ──────────────────────────── -->
                     <div id="rucFields" style="display: none;">
-                        <div class="form-section-title">Información de la Empresa</div>
 
-                        <!-- Feedback de búsqueda RUC -->
+                        <div class="form-section-title">
+                            <span class="sec-icon bg-success bg-opacity-10 text-success"><i class="bi bi-building"></i></span>
+                            Información de la Empresa
+                        </div>
+
                         <div id="rucLookupFeedback" class="mb-3" style="display:none"></div>
 
-                        <div class="row mb-3">
+                        <div class="row g-3 mb-2">
                             <div class="col-md-12">
-                                <label class="form-label">Razón Social <span class="text-danger">*</span></label>
+                                <label class="form-label fw-semibold">Razón Social <span class="text-danger">*</span></label>
                                 <div class="input-group">
                                     <input type="text" class="form-control text-uppercase-input" id="razonSocial" name="razon_social" placeholder="Se autocompleta al buscar el RUC →">
-                                    <button class="btn btn-outline-secondary" type="button" id="btnRucLookup"
-                                            title="Buscar razón social por RUC en SUNAT">
-                                        <i class="bi bi-search" id="rucLookupIcon"></i>
+                                    <button class="btn btn-outline-primary" type="button" id="btnRucLookup" title="Autocompletar desde SUNAT">
+                                        <i class="bi bi-search" id="rucLookupIcon"></i> Buscar SUNAT
                                     </button>
                                 </div>
-                                <small class="form-text text-muted">
-                                    Ingresa el RUC arriba y haz clic en <i class="bi bi-search"></i> para autocompletar desde SUNAT
-                                </small>
+                                <small class="form-text text-muted">Ingresa el RUC arriba y haz clic en Buscar SUNAT para autocompletar</small>
                             </div>
                         </div>
 
-                        <!-- Datos adicionales SUNAT (ocultos hasta búsqueda exitosa) -->
                         <div id="rucSunatInfo" style="display:none" class="mb-3">
-                            <div class="d-flex gap-2 flex-wrap align-items-center p-2 rounded"
-                                 style="background:#f0fdf4;border:1px solid #bbf7d0;font-size:.78rem">
-                                <i class="bi bi-building-check text-success"></i>
-                                <span class="text-muted">Estado:</span>
-                                <strong id="rucEstado">—</strong>
-                                <span class="text-muted ms-2">Condición:</span>
-                                <strong id="rucCondicion">—</strong>
+                            <div class="d-flex gap-3 align-items-center p-2 rounded-3 small"
+                                 style="background:#f0fdf4;border:1px solid #bbf7d0;">
+                                <i class="bi bi-building-check text-success fs-5"></i>
+                                <div>
+                                    <span class="text-muted">Estado: </span><strong id="rucEstado">—</strong>
+                                    <span class="text-muted ms-3">Condición: </span><strong id="rucCondicion">—</strong>
+                                </div>
                             </div>
                         </div>
 
-                        <div class="row mb-3">
+                        <div class="row g-3 mb-2">
                             <div class="col-md-12">
                                 <label class="form-label">Persona de Contacto</label>
                                 <input type="text" class="form-control text-uppercase-input" id="personaContacto" name="persona_contacto">
                             </div>
                         </div>
 
-                        <div class="form-section-title">Documentos del Representante Legal</div>
+                        <div class="form-section-title">
+                            <span class="sec-icon bg-primary bg-opacity-10 text-primary"><i class="bi bi-file-earmark-person"></i></span>
+                            Documentos del Representante Legal
+                        </div>
                         <div class="document-section">
-                            <div class="row mb-3">
+                            <div class="row g-3 mb-2">
                                 <div class="col-md-6">
-                                    <label class="form-label">DNI/CE Representante - Anverso</label>
-                                    <input type="file" class="form-control" id="dniRepFront" name="dni_representante_front" accept="image/*,.pdf">
+                                    <label class="form-label small fw-semibold">DNI/CE Representante — Anverso</label>
+                                    <input type="file" class="form-control form-control-sm" id="dniRepFront" name="dni_representante_front" accept="image/*,.pdf">
                                     <div id="dniRepFrontPreview" class="mt-2"></div>
                                 </div>
                                 <div class="col-md-6">
-                                    <label class="form-label">DNI/CE Representante - Reverso</label>
-                                    <input type="file" class="form-control" id="dniRepBack" name="dni_representante_back" accept="image/*,.pdf">
+                                    <label class="form-label small fw-semibold">DNI/CE Representante — Reverso</label>
+                                    <input type="file" class="form-control form-control-sm" id="dniRepBack" name="dni_representante_back" accept="image/*,.pdf">
                                     <div id="dniRepBackPreview" class="mt-2"></div>
                                 </div>
                             </div>
-                            <div class="row">
+                            <div class="row g-3">
                                 <div class="col-md-12">
-                                    <label class="form-label">Ficha RUC</label>
-                                    <input type="file" class="form-control" id="fichaRuc" name="ficha_ruc" accept="image/*,.pdf">
+                                    <label class="form-label small fw-semibold">Ficha RUC</label>
+                                    <input type="file" class="form-control form-control-sm" id="fichaRuc" name="ficha_ruc" accept="image/*,.pdf">
                                     <div id="fichaRucPreview" class="mt-2"></div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Validación OC (Solo para Master y Operador) -->
+                    <!-- ── Validación OC ───────────────────────────────────── -->
                     <div id="validationOcSection" style="display: none;">
                         <div class="form-section-title">
-                            <i class="bi bi-shield-check"></i> Validación Oficial de Cumplimiento (OC)
+                            <span class="sec-icon bg-success bg-opacity-10 text-success"><i class="bi bi-shield-check"></i></span>
+                            Validación Oficial de Cumplimiento (OC)
                         </div>
-                        <div class="alert alert-info">
-                            <i class="bi bi-info-circle"></i>
-                            <strong>Documento de análisis:</strong> Adjunta el informe de validación del Oficial de Cumplimiento sobre lavado de activos, PEP y procesos abiertos.
+                        <div class="alert alert-info small">
+                            <i class="bi bi-info-circle me-1"></i>
+                            <strong>Documento de análisis:</strong> Adjunta el informe del Oficial de Cumplimiento sobre lavado de activos, PEP y procesos abiertos.
                         </div>
-
-                        <!-- Estado de validación -->
                         <div id="validationOcStatus" class="mb-3"></div>
-
-                        <!-- Formulario de subida -->
-                        <div class="row mb-3">
+                        <div class="row g-3 mb-2">
                             <div class="col-md-12">
                                 <label class="form-label">Documento de Validación OC</label>
                                 <input type="file" class="form-control" id="validationOcFile" name="validation_oc_file" accept=".pdf,.doc,.docx,image/*">
-                                <small class="form-text text-muted">Formatos permitidos: PDF, Word, Imágenes</small>
+                                <small class="form-text text-muted">Formatos: PDF, Word, Imágenes</small>
                                 <div id="validationOcPreview" class="mt-2"></div>
                             </div>
                         </div>
-
-                        <!-- Botón para subir documento -->
                         <div class="text-center mb-3">
-                            <button type="button" class="btn btn-success" id="uploadValidationOcBtn" onclick="uploadValidationOc()" style="display: none;">
-                                <i class="bi bi-upload"></i> Subir Documento de Validación
+                            <button type="button" class="btn btn-success btn-sm" id="uploadValidationOcBtn" onclick="uploadValidationOc()" style="display: none;">
+                                <i class="bi bi-upload me-1"></i>Subir Documento de Validación
                             </button>
                         </div>
                     </div>
 
-                    <!-- Información de Contacto (común para todos) -->
-                    <div class="form-section-title">Información de Contacto</div>
-                    <div class="row mb-3">
+                    <!-- ── Contacto ────────────────────────────────────────── -->
+                    <div class="form-section-title">
+                        <span class="sec-icon bg-info bg-opacity-10 text-info"><i class="bi bi-envelope"></i></span>
+                        Información de Contacto
+                    </div>
+                    <div class="row g-3 mb-2">
                         <div class="col-md-6">
                             <label class="form-label">Email(s) <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" id="email" name="email" required placeholder="email@ejemplo.com o email1@x.com;email2@x.com">
-                            <small class="form-text text-muted">Para varios emails, separa con punto y coma (;)</small>
+                            <input type="text" class="form-control" id="email" name="email" required placeholder="email@ejemplo.com">
+                            <small class="form-text text-muted">Varios emails: separar con punto y coma (;)</small>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Teléfono(s)</label>
-                            <input type="text" class="form-control" id="phone" name="phone" placeholder="987654321 o 987654321;912345678">
-                            <small class="form-text text-muted">Solo números. Para varios contactos, separa con punto y coma (;)</small>
+                            <input type="text" class="form-control" id="phone" name="phone" placeholder="987654321">
+                            <small class="form-text text-muted">Varios teléfonos: separar con punto y coma (;)</small>
                         </div>
                     </div>
 
-                    <!-- Dirección -->
-                    <div class="form-section-title">Dirección</div>
-                    <div class="row mb-3">
+                    <!-- ── Dirección ───────────────────────────────────────── -->
+                    <div class="form-section-title">
+                        <span class="sec-icon bg-secondary bg-opacity-10 text-secondary"><i class="bi bi-geo-alt"></i></span>
+                        Dirección
+                    </div>
+                    <div class="row g-3 mb-2">
                         <div class="col-md-12">
                             <label class="form-label">Dirección</label>
-                            <input type="text" class="form-control text-uppercase-field" id="direccion" name="direccion" placeholder="Calle, Av., Jr., etc." style="text-transform: uppercase;">
+                            <input type="text" class="form-control text-uppercase-input" id="direccion" name="direccion" placeholder="Calle, Av., Jr., etc.">
                         </div>
                     </div>
-                    <div class="row mb-3">
+                    <div class="row g-3 mb-2">
                         <div class="col-md-4">
                             <label class="form-label">Departamento</label>
                             <select class="form-select" id="departamento" name="departamento" onchange="loadProvincias()">
@@ -419,43 +432,47 @@
                         </div>
                     </div>
 
-                    <!-- Información Bancaria -->
-                    <div class="form-section-title">Información Bancaria</div>
-                    <div class="required-accounts-info">
-                        <i class="bi bi-info-circle"></i> <strong>Importante:</strong> Debes registrar al menos dos cuentas bancarias (una en Soles y otra en Dólares). Máximo 6 cuentas.
-                        <br><small class="text-muted">✅ Puedes tener múltiples cuentas del mismo banco en la misma moneda, siempre que los números de cuenta sean diferentes.</small>
+                    <!-- ── Información Bancaria ────────────────────────────── -->
+                    <div class="form-section-title">
+                        <span class="sec-icon bg-warning bg-opacity-10 text-warning"><i class="bi bi-bank"></i></span>
+                        Información Bancaria
+                    </div>
+                    <div class="alert alert-info small mb-3">
+                        <i class="bi bi-info-circle me-1"></i>
+                        <strong>Importante:</strong> Registra al menos una cuenta en Soles (S/) y una en Dólares ($). Máximo 6 cuentas.
+                        El cliente puede registrar cuentas en cualquier banco (BCP, BBVA, Scotiabank, Interbank, etc.).
                     </div>
 
-                    <!-- Contenedor dinámico de cuentas bancarias -->
                     <div id="bankAccountsContainer"></div>
 
-                    <!-- Botón para agregar más cuentas -->
                     <div class="text-center mb-3">
                         <button type="button" class="btn btn-outline-primary btn-sm" id="addBankAccountBtn" onclick="addBankAccount()">
-                            <i class="bi bi-plus-circle"></i> Agregar Cuenta Bancaria
+                            <i class="bi bi-plus-circle me-1"></i>Agregar Cuenta Bancaria
                         </button>
-                        <small class="d-block text-muted mt-2">
+                        <small class="d-block text-muted mt-1">
                             <span id="accountCount">0</span> de 6 cuentas registradas
                         </small>
                     </div>
 
-                    <div id="accountsValidationMessage" class="alert alert-warning" style="display: none;">
-                        <i class="bi bi-exclamation-triangle"></i> Debes registrar al menos una cuenta en Soles (S/) y una en Dólares ($).
+                    <div id="accountsValidationMessage" class="alert alert-warning small" style="display: none;">
+                        <i class="bi bi-exclamation-triangle me-1"></i>Debes registrar al menos una cuenta en Soles (S/) y una en Dólares ($).
+                    </div>
+                    <div id="duplicateAccountsMessage" class="alert alert-danger small" style="display: none;">
+                        <i class="bi bi-exclamation-triangle me-1"></i>Tienes una cuenta duplicada exacta (mismo banco, tipo, número y moneda). Por favor, verifica los datos.
                     </div>
 
-                    <div id="duplicateAccountsMessage" class="alert alert-danger" style="display: none;">
-                        <i class="bi bi-exclamation-triangle"></i> Tienes una cuenta duplicada exacta (mismo banco, tipo, número y moneda). Por favor, verifica los datos.
-                    </div>
                 </form>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                    <i class="bi bi-x-circle"></i> Cancelar
+
+            <div class="modal-footer bg-light border-top">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-lg me-1"></i>Cancelar
                 </button>
-                <button type="button" class="btn btn-primary" onclick="saveClient()" id="btnSaveClient">
-                    <i class="bi bi-save"></i> Guardar Cliente
+                <button type="button" class="btn btn-primary px-4" onclick="saveClient()" id="btnSaveClient">
+                    <i class="bi bi-check2-circle me-1"></i>Guardar Cliente
                 </button>
             </div>
+
         </div>
     </div>
 </div>
