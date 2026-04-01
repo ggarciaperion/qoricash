@@ -11,7 +11,7 @@ import {
   TextInput as RNTextInput,
   Linking,
 } from 'react-native';
-import { TextInput, Text, HelperText, IconButton, Checkbox } from 'react-native-paper';
+import { TextInput, Text, IconButton } from 'react-native-paper';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import axios from 'axios';
@@ -104,32 +104,6 @@ const toggleStyles = StyleSheet.create({
   labelActive: { color: Colors.primaryDark },
 });
 
-// ── Doc-type toggle ────────────────────────────────────────────────────────
-const DocToggle = ({
-  value,
-  onChange,
-}: {
-  value: 'DNI' | 'CE';
-  onChange: (v: 'DNI' | 'CE') => void;
-}) => (
-  <View style={toggleStyles.row}>
-    {(['DNI', 'CE'] as const).map((d) => {
-      const active = value === d;
-      return (
-        <TouchableOpacity
-          key={d}
-          onPress={() => onChange(d)}
-          activeOpacity={0.8}
-          style={[toggleStyles.btn, active && toggleStyles.btnActive]}
-        >
-          <Text style={[toggleStyles.label, active && toggleStyles.labelActive]}>
-            {d === 'DNI' ? '🪪  DNI (8 dígitos)' : '📘  CE (9 dígitos)'}
-          </Text>
-        </TouchableOpacity>
-      );
-    })}
-  </View>
-);
 
 // ── Location selector row ──────────────────────────────────────────────────
 const LocationSelector = ({
@@ -214,6 +188,7 @@ export const RegisterScreen = () => {
   const [departamentoMenuVisible, setDepartamentoMenuVisible] = useState(false);
   const [provinciaMenuVisible, setProvinciaMenuVisible] = useState(false);
   const [distritoMenuVisible, setDistritoMenuVisible] = useState(false);
+  const [docTypeMenuVisible, setDocTypeMenuVisible] = useState(false);
 
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -389,28 +364,29 @@ export const RegisterScreen = () => {
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-      {/* ── Gradient Header ── */}
-      <LinearGradient colors={['#0D1B2A', '#16a34a']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} activeOpacity={0.7}>
-          <IconButton icon="arrow-left" size={22} iconColor="#fff" style={{ margin: 0 }} />
-        </TouchableOpacity>
-        <View style={styles.headerContent}>
-          <View style={styles.headerBadge}>
-            <Text style={styles.headerBadgeText}>{tipoPersona === 'Natural' ? '👤' : '🏢'}</Text>
-          </View>
-          <Text style={styles.headerTitle}>Crear Cuenta</Text>
-          <Text style={styles.headerSubtitle}>
-            {tipoPersona === 'Natural' ? 'Persona Natural' : 'Persona Jurídica'}
-          </Text>
-        </View>
-      </LinearGradient>
-
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
+        {/* ── Gradient Header (scrolls with content) ── */}
+        <LinearGradient colors={['#0D1B2A', '#16a34a']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} activeOpacity={0.7}>
+            <IconButton icon="arrow-left" size={20} iconColor="#fff" style={{ margin: 0 }} />
+          </TouchableOpacity>
+          <View style={styles.headerContent}>
+            <Text style={styles.headerBadgeText}>{tipoPersona === 'Natural' ? '👤' : '🏢'}</Text>
+            <View>
+              <Text style={styles.headerTitle}>Crear Cuenta</Text>
+              <Text style={styles.headerSubtitle}>
+                {tipoPersona === 'Natural' ? 'Persona Natural' : 'Persona Jurídica'}
+              </Text>
+            </View>
+          </View>
+        </LinearGradient>
+
+        <View style={styles.formWrap}>
         {/* ── Tipo de Persona ── */}
         {!route.params?.tipoPersona && (
           <View style={styles.card}>
@@ -425,9 +401,11 @@ export const RegisterScreen = () => {
 
           {tipoPersona === 'Natural' ? (
             <>
-              <DocToggle
-                value={tipoDocumento}
-                onChange={(v) => { setTipoDocumento(v); setDni(''); setError(''); }}
+              <LocationSelector
+                label="Elegir tipo de documento"
+                value={tipoDocumento === 'DNI' ? '🪪  DNI — Documento Nacional de Identidad (8 dígitos)' : '📘  CE — Carnet de Extranjería (9 dígitos)'}
+                placeholder="Seleccionar tipo de documento"
+                onPress={() => setDocTypeMenuVisible(true)}
               />
               <TextInput
                 label={`Número de ${tipoDocumento} *`}
@@ -687,6 +665,41 @@ export const RegisterScreen = () => {
         </TouchableOpacity>
 
         {/* ── Modals ── */}
+        <CustomModal visible={docTypeMenuVisible} onDismiss={() => setDocTypeMenuVisible(false)} title="Elegir tipo de documento">
+          <FlatList
+            data={[
+              { value: 'DNI' as const, label: '🪪  DNI', desc: 'Documento Nacional de Identidad', digits: '8 dígitos' },
+              { value: 'CE' as const, label: '📘  CE', desc: 'Carnet de Extranjería', digits: '9 dígitos' },
+            ]}
+            keyExtractor={(item) => item.value}
+            renderItem={({ item }) => {
+              const isSelected = tipoDocumento === item.value;
+              return (
+                <TouchableOpacity
+                  style={[modalListStyles.item, isSelected && modalListStyles.itemSelected]}
+                  onPress={() => {
+                    setTipoDocumento(item.value);
+                    setDni('');
+                    setError('');
+                    setDocTypeMenuVisible(false);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={[modalListStyles.itemText, isSelected && modalListStyles.itemTextSelected]}>
+                      {item.label}
+                    </Text>
+                    <Text style={{ fontSize: 12, color: Colors.textLight, marginTop: 2 }}>
+                      {item.desc} — {item.digits}
+                    </Text>
+                  </View>
+                  {isSelected && <IconButton icon="check-circle" size={20} iconColor={Colors.primary} style={{ margin: 0 }} />}
+                </TouchableOpacity>
+              );
+            }}
+          />
+        </CustomModal>
+
         <CustomModal visible={departamentoMenuVisible} onDismiss={() => setDepartamentoMenuVisible(false)} title="Seleccionar Departamento">
           {renderModalList(departamentos, departamento, setDepartamento, () => setDepartamentoMenuVisible(false))}
         </CustomModal>
@@ -698,6 +711,8 @@ export const RegisterScreen = () => {
         <CustomModal visible={distritoMenuVisible} onDismiss={() => setDistritoMenuVisible(false)} title="Seleccionar Distrito">
           {renderModalList(distritos, distrito, setDistrito, () => setDistritoMenuVisible(false))}
         </CustomModal>
+
+        </View>{/* end formWrap */}
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -760,36 +775,31 @@ const modalListStyles = StyleSheet.create({
 
 // ── Main styles ────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
+  /* Compact horizontal header — scrolls with content */
   header: {
-    paddingTop: Platform.OS === 'ios' ? 56 : 36,
-    paddingBottom: 28,
-    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingTop: Platform.OS === 'ios' ? 52 : 32,
+    paddingBottom: 14,
+    paddingHorizontal: 16,
+    gap: 12,
   },
   backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: 'rgba(255,255,255,0.15)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
   },
-  headerContent: { alignItems: 'center' },
-  headerBadge: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 10,
-  },
-  headerBadgeText: { fontSize: 32 },
-  headerTitle: { fontSize: 24, fontWeight: '800', color: '#fff', letterSpacing: -0.5 },
-  headerSubtitle: { fontSize: 13, color: 'rgba(255,255,255,0.75)', marginTop: 4, fontWeight: '500' },
+  headerContent: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
+  headerBadgeText: { fontSize: 26 },
+  headerTitle: { fontSize: 18, fontWeight: '800', color: '#fff', letterSpacing: -0.3 },
+  headerSubtitle: { fontSize: 12, color: 'rgba(255,255,255,0.72)', marginTop: 1, fontWeight: '500' },
 
   scroll: { backgroundColor: '#f1f5f9' },
-  scrollContent: { padding: 16, paddingBottom: 40 },
+  scrollContent: { paddingBottom: 40 },
+  formWrap: { padding: 16 },
 
   card: {
     backgroundColor: Colors.surface,
