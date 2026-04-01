@@ -195,6 +195,27 @@
 .macro-row .mr-bar    { height: 100%; border-radius: 2px; transition: width .6s; }
 .macro-row .mr-meta   { font-size: .52rem; color: #d1d5db; margin-top: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
+/* ── Variables de mercado cards ── */
+.var-card {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: .45rem;
+  padding: .45rem .6rem;
+  display: flex; flex-direction: column; gap: .08rem;
+  position: relative; overflow: hidden;
+}
+.var-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: #e5e7eb;
+}
+.var-card.vc-up::before   { background: linear-gradient(90deg,#10b981,#34d399); }
+.var-card.vc-down::before { background: linear-gradient(90deg,#ef4444,#f87171); }
+.var-card.vc-flat::before { background: linear-gradient(90deg,#9ca3af,#d1d5db); }
+.var-card .vc-label  { font-size: .54rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #9ca3af; }
+.var-card .vc-value  { font-size: .98rem; font-weight: 900; color: #111827; line-height: 1.15; white-space: nowrap; }
+.var-card .vc-chg    { font-size: .61rem; font-weight: 800; white-space: nowrap; }
+.var-card .vc-interp { font-size: .56rem; color: #6b7280; line-height: 1.3; margin-top: auto; padding-top: .15rem; }
+
 /* ── Live dot ── */
 .live-badge {
   display: inline-flex; align-items: center; gap: .3rem;
@@ -460,80 +481,123 @@
               </div>
             </div>
 
-            <!-- Columna derecha: variables de mercado -->
-            <div class="col-12 col-md-7" style="padding-left:1.5rem">
+            <!-- Columna derecha: variables de mercado (cards) -->
+            <div class="col-12 col-md-7" style="padding-left:1.5rem;display:flex;flex-direction:column">
               {% if snapshot %}{% set sm = snapshot %}
-              <div style="font-size:.55rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#9ca3af;margin-bottom:.3rem">Variables de mercado</div>
-              <div style="display:flex;flex-direction:column;gap:0" id="daVarsSection">
-                <div style="display:grid;grid-template-columns:80px 80px 52px 1fr;gap:0 .35rem;padding:.06rem 0;border-bottom:1px solid #f3f4f6">
-                  <span style="font-size:.54rem;font-weight:700;color:#9ca3af">Variable</span>
-                  <span style="font-size:.54rem;font-weight:700;color:#9ca3af">Valor</span>
-                  <span style="font-size:.54rem;font-weight:700;color:#9ca3af">Var.</span>
-                  <span style="font-size:.54rem;font-weight:700;color:#9ca3af">Interpretación</span>
-                </div>
+              <div style="font-size:.55rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#9ca3af;margin-bottom:.4rem">Variables de mercado</div>
+              <div id="daVarsSection" style="flex:1;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);gap:.3rem">
+
+                {# USD/PEN #}
                 {% if sm.usdpen is not none %}
-                <div style="display:grid;grid-template-columns:80px 80px 52px 1fr;gap:0 .35rem;padding:.19rem 0;border-bottom:1px solid #f9fafb;align-items:center">
-                  <span style="font-size:.65rem;font-weight:700;color:#111827">USD/PEN</span>
-                  <span style="font-size:.7rem;font-weight:800;color:#111827">S/{{ '%.4f'|format(sm.usdpen) }}</span>
-                  <span style="font-size:.65rem;font-weight:700;{% if sm.usdpen_chg is not none and sm.usdpen_chg > 0 %}color:#dc2626{% elif sm.usdpen_chg is not none and sm.usdpen_chg < 0 %}color:#16a34a{% else %}color:#9ca3af{% endif %}">{% if sm.usdpen_chg is not none %}{{ '%+.2f'|format(sm.usdpen_chg) }}%{% else %}—{% endif %}</span>
-                  <span style="font-size:.62rem;color:#6b7280">{% if sm.usdpen_chg is not none %}{% if sm.usdpen_chg > 0.1 %}Tipo de cambio al alza en sesión{% elif sm.usdpen_chg < -0.1 %}Tipo de cambio a la baja en sesión{% else %}Tipo de cambio estable{% endif %}{% else %}Referencia interbancaria{% endif %}</span>
-                </div>{% endif %}
+                {% set _c = 'vc-up' if (sm.usdpen_chg is not none and sm.usdpen_chg > 0) else ('vc-down' if (sm.usdpen_chg is not none and sm.usdpen_chg < 0) else 'vc-flat') %}
+                <div class="var-card {{ _c }}">
+                  <div class="vc-label">USD/PEN</div>
+                  <div style="display:flex;align-items:baseline;gap:.25rem;flex-wrap:wrap">
+                    <span class="vc-value">S/{{ '%.4f'|format(sm.usdpen) }}</span>
+                    {% if sm.usdpen_chg is not none %}<span class="vc-chg {% if sm.usdpen_chg > 0 %}mkt-up{% elif sm.usdpen_chg < 0 %}mkt-down{% else %}mkt-flat{% endif %}">{{ '%+.2f'|format(sm.usdpen_chg) }}%</span>{% endif %}
+                  </div>
+                  <div class="vc-interp">{% if sm.usdpen_chg is not none %}{% if sm.usdpen_chg > 0.1 %}TC al alza en sesión{% elif sm.usdpen_chg < -0.1 %}TC a la baja en sesión{% else %}Tipo de cambio estable{% endif %}{% else %}Referencia interbancaria{% endif %}</div>
+                </div>
+                {% else %}<div class="var-card vc-flat"><div class="vc-label">USD/PEN</div><div class="vc-value" style="color:#d1d5db">—</div></div>{% endif %}
+
+                {# DXY #}
                 {% if sm.dxy is not none %}
-                <div style="display:grid;grid-template-columns:80px 80px 52px 1fr;gap:0 .35rem;padding:.19rem 0;border-bottom:1px solid #f9fafb;align-items:center">
-                  <span style="font-size:.65rem;font-weight:700;color:#111827">DXY</span>
-                  <span style="font-size:.7rem;font-weight:800;color:#111827">{{ '%.2f'|format(sm.dxy) }}</span>
-                  <span style="font-size:.65rem;font-weight:700;{% if sm.dxy_chg is not none and sm.dxy_chg > 0 %}color:#16a34a{% elif sm.dxy_chg is not none and sm.dxy_chg < 0 %}color:#dc2626{% else %}color:#9ca3af{% endif %}">{% if sm.dxy_chg is not none %}{{ '%+.2f'|format(sm.dxy_chg) }}%{% else %}—{% endif %}</span>
-                  <span style="font-size:.62rem;color:#6b7280">{% if sm.dxy_chg is not none %}{% if sm.dxy_chg > 0.2 %}Dólar global fuerte → presión alcista USD/PEN{% elif sm.dxy_chg < -0.2 %}Dólar global débil → presión bajista USD/PEN{% else %}Índice del dólar sin cambios relevantes{% endif %}{% else %}Índice del dólar (DXY){% endif %}</span>
-                </div>{% endif %}
+                {% set _c = 'vc-up' if (sm.dxy_chg is not none and sm.dxy_chg > 0) else ('vc-down' if (sm.dxy_chg is not none and sm.dxy_chg < 0) else 'vc-flat') %}
+                <div class="var-card {{ _c }}">
+                  <div class="vc-label">DXY</div>
+                  <div style="display:flex;align-items:baseline;gap:.25rem;flex-wrap:wrap">
+                    <span class="vc-value">{{ '%.2f'|format(sm.dxy) }}</span>
+                    {% if sm.dxy_chg is not none %}<span class="vc-chg {% if sm.dxy_chg > 0 %}mkt-up{% elif sm.dxy_chg < 0 %}mkt-down{% else %}mkt-flat{% endif %}">{{ '%+.2f'|format(sm.dxy_chg) }}%</span>{% endif %}
+                  </div>
+                  <div class="vc-interp">{% if sm.dxy_chg is not none %}{% if sm.dxy_chg > 0.2 %}Dólar global fuerte{% elif sm.dxy_chg < -0.2 %}Dólar global débil{% else %}Sin cambios relevantes{% endif %}{% else %}Índice del dólar{% endif %}</div>
+                </div>
+                {% else %}<div class="var-card vc-flat"><div class="vc-label">DXY</div><div class="vc-value" style="color:#d1d5db">—</div></div>{% endif %}
+
+                {# VIX #}
                 {% if sm.vix is not none %}
-                <div style="display:grid;grid-template-columns:80px 80px 52px 1fr;gap:0 .35rem;padding:.19rem 0;border-bottom:1px solid #f9fafb;align-items:center">
-                  <span style="font-size:.65rem;font-weight:700;color:#111827">VIX</span>
-                  <span style="font-size:.7rem;font-weight:800;color:#111827">{{ '%.1f'|format(sm.vix) }}</span>
-                  <span style="font-size:.65rem;font-weight:700;{% if sm.vix_chg is not none and sm.vix_chg > 0 %}color:#dc2626{% elif sm.vix_chg is not none and sm.vix_chg < 0 %}color:#16a34a{% else %}color:#9ca3af{% endif %}">{% if sm.vix_chg is not none %}{{ '%+.2f'|format(sm.vix_chg) }}%{% else %}—{% endif %}</span>
-                  <span style="font-size:.62rem;color:#6b7280">{% if sm.vix > 30 %}Pánico — flight-to-safety → USD sube{% elif sm.vix > 20 %}Incertidumbre elevada → soporte al USD{% elif sm.vix > 15 %}Volatilidad moderada{% else %}Mercado calmo — riesgo normal{% endif %}</span>
-                </div>{% endif %}
+                {% set _c = 'vc-down' if (sm.vix_chg is not none and sm.vix_chg > 0) else ('vc-up' if (sm.vix_chg is not none and sm.vix_chg < 0) else 'vc-flat') %}
+                <div class="var-card {{ _c }}">
+                  <div class="vc-label">VIX</div>
+                  <div style="display:flex;align-items:baseline;gap:.25rem;flex-wrap:wrap">
+                    <span class="vc-value">{{ '%.1f'|format(sm.vix) }}</span>
+                    {% if sm.vix_chg is not none %}<span class="vc-chg {% if sm.vix_chg > 0 %}mkt-down{% elif sm.vix_chg < 0 %}mkt-up{% else %}mkt-flat{% endif %}">{{ '%+.2f'|format(sm.vix_chg) }}%</span>{% endif %}
+                  </div>
+                  <div class="vc-interp">{% if sm.vix > 30 %}Pánico — USD sube{% elif sm.vix > 20 %}Incertidumbre elevada{% elif sm.vix > 15 %}Volatilidad moderada{% else %}Mercado calmo{% endif %}</div>
+                </div>
+                {% else %}<div class="var-card vc-flat"><div class="vc-label">VIX</div><div class="vc-value" style="color:#d1d5db">—</div></div>{% endif %}
+
+                {# Cobre #}
                 {% if sm.copper is not none %}
-                <div style="display:grid;grid-template-columns:80px 80px 52px 1fr;gap:0 .35rem;padding:.19rem 0;border-bottom:1px solid #f9fafb;align-items:center">
-                  <span style="font-size:.65rem;font-weight:700;color:#111827">Cobre</span>
-                  <span style="font-size:.7rem;font-weight:800;color:#111827">${{ '%.4f'|format(sm.copper) }}</span>
-                  <span style="font-size:.65rem;font-weight:700;{% if sm.copper_chg is not none and sm.copper_chg > 0 %}color:#16a34a{% elif sm.copper_chg is not none and sm.copper_chg < 0 %}color:#dc2626{% else %}color:#9ca3af{% endif %}">{% if sm.copper_chg is not none %}{{ '%+.2f'|format(sm.copper_chg) }}%{% else %}—{% endif %}</span>
-                  <span style="font-size:.62rem;color:#6b7280">{% if sm.copper_chg is not none %}{% if sm.copper_chg > 1.5 %}Alza — fortalece al sol peruano (Perú exportador){% elif sm.copper_chg < -1.5 %}Caída — presión bajista sobre el sol{% else %}Sin impacto significativo en el sol{% endif %}{% else %}Cobre USD/lb (correlación con PEN){% endif %}</span>
-                </div>{% endif %}
+                {% set _c = 'vc-up' if (sm.copper_chg is not none and sm.copper_chg > 0) else ('vc-down' if (sm.copper_chg is not none and sm.copper_chg < 0) else 'vc-flat') %}
+                <div class="var-card {{ _c }}">
+                  <div class="vc-label">Cobre</div>
+                  <div style="display:flex;align-items:baseline;gap:.25rem;flex-wrap:wrap">
+                    <span class="vc-value">${{ '%.3f'|format(sm.copper) }}</span>
+                    {% if sm.copper_chg is not none %}<span class="vc-chg {% if sm.copper_chg > 0 %}mkt-up{% elif sm.copper_chg < 0 %}mkt-down{% else %}mkt-flat{% endif %}">{{ '%+.2f'|format(sm.copper_chg) }}%</span>{% endif %}
+                  </div>
+                  <div class="vc-interp">{% if sm.copper_chg is not none %}{% if sm.copper_chg > 1.5 %}Fortalece al sol{% elif sm.copper_chg < -1.5 %}Presión bajista{% else %}Sin impacto significativo{% endif %}{% else %}USD/lb · PEN corr.{% endif %}</div>
+                </div>
+                {% else %}<div class="var-card vc-flat"><div class="vc-label">Cobre</div><div class="vc-value" style="color:#d1d5db">—</div></div>{% endif %}
+
+                {# Bono 10Y #}
                 {% if sm.treasury_10y is not none %}
-                <div style="display:grid;grid-template-columns:80px 80px 52px 1fr;gap:0 .35rem;padding:.19rem 0;border-bottom:1px solid #f9fafb;align-items:center">
-                  <span style="font-size:.65rem;font-weight:700;color:#111827">Bono 10Y</span>
-                  <span style="font-size:.7rem;font-weight:800;color:#111827">{{ '%.3f'|format(sm.treasury_10y) }}%</span>
-                  <span style="font-size:.65rem;font-weight:700;{% if sm.treasury_10y_chg is not none and sm.treasury_10y_chg > 0 %}color:#16a34a{% elif sm.treasury_10y_chg is not none and sm.treasury_10y_chg < 0 %}color:#dc2626{% else %}color:#9ca3af{% endif %}">{% if sm.treasury_10y_chg is not none %}{{ '%+.3f'|format(sm.treasury_10y_chg) }}%{% else %}—{% endif %}</span>
-                  <span style="font-size:.62rem;color:#6b7280">{% if sm.treasury_10y_chg is not none %}{% if sm.treasury_10y_chg > 0.03 %}Rendimiento sube → atrae capitales hacia USD{% elif sm.treasury_10y_chg < -0.03 %}Rendimiento baja → menor atractivo del USD{% else %}Bono EE.UU. estable{% endif %}{% else %}Tesoro EE.UU. 10 años{% endif %}</span>
-                </div>{% endif %}
+                {% set _c = 'vc-up' if (sm.treasury_10y_chg is not none and sm.treasury_10y_chg > 0) else ('vc-down' if (sm.treasury_10y_chg is not none and sm.treasury_10y_chg < 0) else 'vc-flat') %}
+                <div class="var-card {{ _c }}">
+                  <div class="vc-label">Bono 10Y</div>
+                  <div style="display:flex;align-items:baseline;gap:.25rem;flex-wrap:wrap">
+                    <span class="vc-value">{{ '%.3f'|format(sm.treasury_10y) }}%</span>
+                    {% if sm.treasury_10y_chg is not none %}<span class="vc-chg {% if sm.treasury_10y_chg > 0 %}mkt-up{% elif sm.treasury_10y_chg < 0 %}mkt-down{% else %}mkt-flat{% endif %}">{{ '%+.3f'|format(sm.treasury_10y_chg) }}%</span>{% endif %}
+                  </div>
+                  <div class="vc-interp">{% if sm.treasury_10y_chg is not none %}{% if sm.treasury_10y_chg > 0.03 %}Sube → atrae capitales USD{% elif sm.treasury_10y_chg < -0.03 %}Baja → menos atractivo{% else %}Bono EE.UU. estable{% endif %}{% else %}Tesoro EE.UU. 10 años{% endif %}</div>
+                </div>
+                {% else %}<div class="var-card vc-flat"><div class="vc-label">Bono 10Y</div><div class="vc-value" style="color:#d1d5db">—</div></div>{% endif %}
+
+                {# Oro #}
                 {% if sm.gold is not none %}
-                <div style="display:grid;grid-template-columns:80px 80px 52px 1fr;gap:0 .35rem;padding:.19rem 0;border-bottom:1px solid #f9fafb;align-items:center">
-                  <span style="font-size:.65rem;font-weight:700;color:#111827">Oro</span>
-                  <span style="font-size:.7rem;font-weight:800;color:#111827">${{ '%.0f'|format(sm.gold) }}</span>
-                  <span style="font-size:.65rem;font-weight:700;{% if sm.gold_chg is not none and sm.gold_chg > 0 %}color:#16a34a{% elif sm.gold_chg is not none and sm.gold_chg < 0 %}color:#dc2626{% else %}color:#9ca3af{% endif %}">{% if sm.gold_chg is not none %}{{ '%+.2f'|format(sm.gold_chg) }}%{% else %}—{% endif %}</span>
-                  <span style="font-size:.62rem;color:#6b7280">{% if sm.gold_chg is not none %}{% if sm.gold_chg > 1.0 %}Alza — demanda refugio, refleja desconfianza en USD{% elif sm.gold_chg < -0.8 %}Baja — menor demanda refugio, soporte relativo al USD{% else %}Oro sin variación significativa{% endif %}{% else %}Oro USD/oz{% endif %}</span>
-                </div>{% endif %}
+                {% set _c = 'vc-up' if (sm.gold_chg is not none and sm.gold_chg > 0) else ('vc-down' if (sm.gold_chg is not none and sm.gold_chg < 0) else 'vc-flat') %}
+                <div class="var-card {{ _c }}">
+                  <div class="vc-label">Oro</div>
+                  <div style="display:flex;align-items:baseline;gap:.25rem;flex-wrap:wrap">
+                    <span class="vc-value">${{ '%.0f'|format(sm.gold) }}</span>
+                    {% if sm.gold_chg is not none %}<span class="vc-chg {% if sm.gold_chg > 0 %}mkt-up{% elif sm.gold_chg < 0 %}mkt-down{% else %}mkt-flat{% endif %}">{{ '%+.2f'|format(sm.gold_chg) }}%</span>{% endif %}
+                  </div>
+                  <div class="vc-interp">{% if sm.gold_chg is not none %}{% if sm.gold_chg > 1.0 %}Refugio↑ → desconfianza USD{% elif sm.gold_chg < -0.8 %}Menor refugio{% else %}Sin variación significativa{% endif %}{% else %}USD / oz{% endif %}</div>
+                </div>
+                {% else %}<div class="var-card vc-flat"><div class="vc-label">Oro</div><div class="vc-value" style="color:#d1d5db">—</div></div>{% endif %}
+
+                {# EUR/USD #}
                 {% if sm.eurusd is not none %}
-                <div style="display:grid;grid-template-columns:80px 80px 52px 1fr;gap:0 .35rem;padding:.19rem 0;border-bottom:1px solid #f9fafb;align-items:center">
-                  <span style="font-size:.65rem;font-weight:700;color:#111827">EUR/USD</span>
-                  <span style="font-size:.7rem;font-weight:800;color:#111827">{{ '%.4f'|format(sm.eurusd) }}</span>
-                  <span style="font-size:.65rem;font-weight:700;{% if sm.eurusd_chg is not none and sm.eurusd_chg > 0 %}color:#16a34a{% elif sm.eurusd_chg is not none and sm.eurusd_chg < 0 %}color:#dc2626{% else %}color:#9ca3af{% endif %}">{% if sm.eurusd_chg is not none %}{{ '%+.2f'|format(sm.eurusd_chg) }}%{% else %}—{% endif %}</span>
-                  <span style="font-size:.62rem;color:#6b7280">{% if sm.eurusd_chg is not none %}{% if sm.eurusd_chg > 0.3 %}Euro sube vs USD → DXY debilitado → USD/PEN a la baja{% elif sm.eurusd_chg < -0.3 %}Euro cae vs USD → DXY fortalecido → USD/PEN al alza{% else %}Sin presión sobre el DXY{% endif %}{% else %}Euro / Dólar{% endif %}</span>
-                </div>{% endif %}
-                {% set fed = macro.get('fed_rate') %}{% if fed %}
-                <div style="display:grid;grid-template-columns:80px 80px 52px 1fr;gap:0 .35rem;padding:.19rem 0;border-bottom:1px solid #f9fafb;align-items:center">
-                  <span style="font-size:.65rem;font-weight:700;color:#111827">Tasa FED</span>
-                  <span style="font-size:.7rem;font-weight:800;color:#111827">{{ '%.2f'|format(fed.value) }}%</span>
-                  <span style="font-size:.65rem;color:#9ca3af">—</span>
-                  <span style="font-size:.62rem;color:#6b7280">{% if fed.value >= 5.25 %}Política restrictiva → soporte estructural al USD{% elif fed.value <= 3.5 %}Política laxa → presión bajista en USD{% else %}Política monetaria moderada{% endif %}</span>
-                </div>{% endif %}
-                {% set bcrp = macro.get('bcrp_rate') %}{% if bcrp %}
-                <div style="display:grid;grid-template-columns:80px 80px 52px 1fr;gap:0 .35rem;padding:.19rem 0;align-items:center">
-                  <span style="font-size:.65rem;font-weight:700;color:#111827">Tasa BCRP</span>
-                  <span style="font-size:.7rem;font-weight:800;color:#111827">{{ '%.2f'|format(bcrp.value) }}%</span>
-                  <span style="font-size:.65rem;color:#9ca3af">—</span>
-                  <span style="font-size:.62rem;color:#6b7280">Tasa de referencia local — Banco Central del Perú</span>
-                </div>{% endif %}
+                {% set _c = 'vc-up' if (sm.eurusd_chg is not none and sm.eurusd_chg > 0) else ('vc-down' if (sm.eurusd_chg is not none and sm.eurusd_chg < 0) else 'vc-flat') %}
+                <div class="var-card {{ _c }}">
+                  <div class="vc-label">EUR/USD</div>
+                  <div style="display:flex;align-items:baseline;gap:.25rem;flex-wrap:wrap">
+                    <span class="vc-value">{{ '%.4f'|format(sm.eurusd) }}</span>
+                    {% if sm.eurusd_chg is not none %}<span class="vc-chg {% if sm.eurusd_chg > 0 %}mkt-up{% elif sm.eurusd_chg < 0 %}mkt-down{% else %}mkt-flat{% endif %}">{{ '%+.2f'|format(sm.eurusd_chg) }}%</span>{% endif %}
+                  </div>
+                  <div class="vc-interp">{% if sm.eurusd_chg is not none %}{% if sm.eurusd_chg > 0.3 %}Euro↑ → DXY débil{% elif sm.eurusd_chg < -0.3 %}Euro↓ → DXY fuerte{% else %}Sin presión DXY{% endif %}{% else %}Euro / Dólar{% endif %}</div>
+                </div>
+                {% else %}<div class="var-card vc-flat"><div class="vc-label">EUR/USD</div><div class="vc-value" style="color:#d1d5db">—</div></div>{% endif %}
+
+                {# Tasa FED #}
+                {% set fed = macro.get('fed_rate') %}
+                <div class="var-card vc-flat">
+                  <div class="vc-label">Tasa FED</div>
+                  {% if fed %}
+                  <div class="vc-value">{{ '%.2f'|format(fed.value) }}%</div>
+                  <div class="vc-interp">{% if fed.value >= 5.25 %}Política restrictiva{% elif fed.value <= 3.5 %}Política laxa{% else %}Política moderada{% endif %}</div>
+                  {% else %}<div class="vc-value" style="color:#d1d5db">—</div>{% endif %}
+                </div>
+
+                {# Tasa BCRP #}
+                {% set bcrp = macro.get('bcrp_rate') %}
+                <div class="var-card vc-flat">
+                  <div class="vc-label">Tasa BCRP</div>
+                  {% if bcrp %}
+                  <div class="vc-value">{{ '%.2f'|format(bcrp.value) }}%</div>
+                  <div class="vc-interp">Banco Central del Perú</div>
+                  {% else %}<div class="vc-value" style="color:#d1d5db">—</div>{% endif %}
+                </div>
+
               </div>{% endif %}
             </div>
 
