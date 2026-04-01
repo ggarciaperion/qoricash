@@ -1148,3 +1148,172 @@ def register_cli_commands(app):
             db.session.rollback()
             print(f"✗ Error: {e}")
             traceback.print_exc()
+
+    @app.cli.command("drop-all-demo")
+    def drop_all_demo():
+        """
+        Limpieza completa de TODOS los datos demo:
+        asientos, gastos, operaciones, períodos, cliente demo,
+        compliance/KYC, matches y batches ligados a operaciones demo.
+        """
+        from app.extensions import db
+        from app.models.journal_entry import JournalEntry
+        from app.models.journal_entry_line import JournalEntryLine
+        from app.models.expense_record import ExpenseRecord
+        from app.models.operation import Operation
+        from app.models.accounting_period import AccountingPeriod
+        from app.models.accounting_batch import AccountingBatch
+        from app.models.accounting_match import AccountingMatch
+        from app.models.journal_sequence import JournalSequence
+        from app.models.client import Client
+        from app.models.compliance import (
+            ClientRiskProfile, ComplianceAlert, RestrictiveListCheck,
+            TransactionMonitoring, ComplianceDocument, ComplianceAudit,
+        )
+        from sqlalchemy import extract
+        import traceback
+
+        DEMO_DNI  = '72345678'
+        DEMO_YEAR = 2026
+        DEMO_MONTHS = [1, 2, 3]
+
+        try:
+            # ── 1. Recopilar IDs de operaciones demo ────────────────────────
+            demo_ops = Operation.query.filter(
+                Operation.operation_id.like('DEMO-%')
+            ).all()
+            demo_op_ids = [op.id for op in demo_ops]
+            print(f"  · {len(demo_op_ids)} operaciones demo encontradas")
+
+            # ── 2. Compliance ligado a operaciones y cliente demo ───────────
+            demo_client = Client.query.filter_by(dni=DEMO_DNI).first()
+            demo_client_id = demo_client.id if demo_client else None
+
+            if demo_op_ids:
+                tm_del = TransactionMonitoring.query.filter(
+                    TransactionMonitoring.operation_id.in_(demo_op_ids)
+                ).delete(synchronize_session=False)
+                alert_op_del = ComplianceAlert.query.filter(
+                    ComplianceAlert.operation_id.in_(demo_op_ids)
+                ).delete(synchronize_session=False)
+                print(f"  ✓ {tm_del} transaction_monitoring, {alert_op_del} alertas (ops) eliminadas")
+
+            if demo_client_id:
+                alert_cl_del = ComplianceAlert.query.filter_by(
+                    client_id=demo_client_id
+                ).delete(synchronize_session=False)
+                rlc_del = RestrictiveListCheck.query.filter_by(
+                    client_id=demo_client_id
+                ).delete(synchronize_session=False)
+                doc_del = ComplianceDocument.query.filter_by(
+                    client_id=demo_client_id
+                ).delete(synchronize_session=False)
+                audit_del = ComplianceAudit.query.filter_by(
+                    client_id=demo_client_id
+                ).delete(synchronize_session=False) if hasattr(ComplianceAudit, 'client_id') else 0
+                profile_del = ClientRiskProfile.query.filter_by(
+                    client_id=demo_client_id
+                ).delete(synchronize_session=False)
+                print(f"  ✓ KYC/compliance del cliente demo: {alert_cl_del} alertas, "
+                      f"{rlc_del} listas restrictivas, {doc_del} docs, {profile_del} perfil de riesgo")
+
+            # ── 3. Accounting matches y batches de ops demo ─────────────────
+            if demo_op_ids:
+                match_del = AccountingMatch.query.filter(
+                    (AccountingMatch.buy_operation_id.in_(demo_op_ids)) |
+                    (AccountingMatch.sell_operation_id.in_(demo_op_ids))
+                ).delete(synchronize_session=False)
+                print(f"  ✓ {match_del} accounting_matches eliminados")
+
+                # Batches sin matches restantes
+                batch_ids_used = [
+                    r[0] for r in db.session.query(AccountingMatch.batch_id)
+                    .filter(AccountingMatch.batch_id.isnot(None)).all()
+                ]
+                orphan_batches = AccountingBatch.query.filter(
+                    AccountingBatch.id.notin_(batch_ids_used) if batch_ids_used
+                    else AccountingBatch.id.isnot(None)
+                ).all()
+                for b in orphan_batches:
+                    db.session.delete(b)
+                print(f"  ✓ {len(orphan_batches)} batches huérfanos eliminados")
+
+            # ── 4. Journal entries de las operaciones demo ──────────────────
+            if demo_op_ids:
+                je_op_ids = [r[0] for r in db.session.query(JournalEntry.id).filter(
+                    JournalEntry.source_id.in_(demo_op_ids),
+                    JournalEntry.source_type == 'operation',
+                ).all()]
+                if je_op_ids:
+                    JournalEntryLine.query.filter(
+                        JournalEntryLine.journal_entry_id.in_(je_op_ids)
+                    ).delete(synchronize_session=False)
+                    JournalEntry.query.filter(
+                        JournalEntry.id.in_(je_op_ids)
+                    ).delete(synchronize_session=False)
+                    print(f"  ✓ {len(je_op_ids)} asientos de operaciones eliminados")
+
+            # ── 5. Operaciones demo ─────────────────────────────────────────
+            op_del = Operation.query.filter(
+                Operation.operation_id.like('DEMO-%')
+            ).delete(synchronize_session=False)
+            print(f"  ✓ {op_del} operaciones demo eliminadas")
+
+            # ── 6. Asientos demo (source_type='demo') + gastos por mes ──────
+            for month in DEMO_MONTHS:
+                er_del = ExpenseRecord.query.filter(
+                    extract('year',  ExpenseRecord.expense_date) == DEMO_YEAR,
+                    extract('month', ExpenseRecord.expense_date) == month,
+                ).delete(synchronize_session=False)
+
+                je_ids = [r[0] for r in db.session.query(JournalEntry.id).filter(
+                    JournalEntry.source_type == 'demo',
+                    extract('year',  JournalEntry.entry_date) == DEMO_YEAR,
+                    extract('month', JournalEntry.entry_date) == month,
+                ).all()]
+                if je_ids:
+                    JournalEntryLine.query.filter(
+                        JournalEntryLine.journal_entry_id.in_(je_ids)
+                    ).delete(synchronize_session=False)
+                    JournalEntry.query.filter(
+                        JournalEntry.id.in_(je_ids)
+                    ).delete(synchronize_session=False)
+
+                period = AccountingPeriod.query.filter_by(year=DEMO_YEAR, month=month).first()
+                if period:
+                    db.session.delete(period)
+
+                names = {1:'Ene', 2:'Feb', 3:'Mar'}
+                print(f"  ✓ {names[month]} {DEMO_YEAR}: {er_del} gastos, {len(je_ids)} asientos demo")
+
+            # ── 7. Asiento de apertura demo (si existe) ─────────────────────
+            apertura_del = JournalEntry.query.filter(
+                JournalEntry.entry_type == 'apertura',
+                extract('year', JournalEntry.entry_date) == DEMO_YEAR,
+            ).all()
+            for ap in apertura_del:
+                JournalEntryLine.query.filter_by(
+                    journal_entry_id=ap.id
+                ).delete(synchronize_session=False)
+                db.session.delete(ap)
+            if apertura_del:
+                print(f"  ✓ {len(apertura_del)} asiento(s) de apertura eliminados")
+
+            # ── 8. Secuencia de numeración 2026 (reset) ─────────────────────
+            seq = JournalSequence.query.filter_by(year=DEMO_YEAR).first()
+            if seq:
+                db.session.delete(seq)
+                print(f"  ✓ JournalSequence {DEMO_YEAR} eliminada (se reiniciará desde AS-2026-0001)")
+
+            # ── 9. Cliente demo ─────────────────────────────────────────────
+            if demo_client:
+                db.session.delete(demo_client)
+                print(f"  ✓ Cliente demo DNI {DEMO_DNI} eliminado")
+
+            db.session.commit()
+            print(f"\n✓ drop-all-demo completado — base de datos lista para producción")
+
+        except Exception as e:
+            db.session.rollback()
+            print(f"✗ Error: {e}")
+            traceback.print_exc()
