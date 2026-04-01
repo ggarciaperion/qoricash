@@ -7,42 +7,42 @@
 /* ═══════════════════════════════════════════════════════════════
    MERCADO DASHBOARD — QoriCash
 ═══════════════════════════════════════════════════════════════ */
-.mkt { padding: 1.25rem 1.5rem 2rem; }
+.mkt { padding: .85rem 1.1rem 1.5rem; }
 
 /* ── Títulos de sección ── */
 .mkt-section-title {
-  font-size: .65rem; font-weight: 800; text-transform: uppercase;
+  font-size: .62rem; font-weight: 800; text-transform: uppercase;
   letter-spacing: .1em; color: #00DEA8;
-  padding: 0 0 .4rem .1rem;
+  padding: 0 0 .3rem .1rem;
   display: flex; align-items: center; gap: .4rem;
 }
 
 /* ── Card base ── */
 .mkt-card {
   background: #fff;
-  border-radius: .75rem;
-  box-shadow: 0 2px 12px rgba(0,0,0,.08), 0 1px 3px rgba(0,0,0,.05);
+  border-radius: .7rem;
+  box-shadow: 0 2px 10px rgba(0,0,0,.07), 0 1px 3px rgba(0,0,0,.04);
   border: 1px solid #e5e7eb;
   overflow: hidden;
   height: 100%;
 }
 .mkt-card-header {
-  padding: .6rem 1rem;
+  padding: .45rem .85rem;
   border-bottom: 1px solid #f3f4f6;
   display: flex; align-items: center; justify-content: space-between;
   background: #fafafa;
 }
 .mkt-card-title {
-  font-size: .75rem; font-weight: 700; color: #1f2937;
+  font-size: .72rem; font-weight: 700; color: #1f2937;
   display: flex; align-items: center; gap: .35rem;
 }
-.mkt-card-body { padding: .9rem 1rem; }
+.mkt-card-body { padding: .7rem .85rem; }
 
 /* ── KPI hero (USD/PEN) ── */
 .kpi-hero {
   background: linear-gradient(135deg, #0D1B2A 0%, #1a2f3f 100%);
-  border-radius: .75rem;
-  padding: 1rem 1.2rem;
+  border-radius: .7rem;
+  padding: .85rem 1rem;
   height: 100%;
   border: 1px solid rgba(0,222,168,.2);
   box-shadow: 0 4px 16px rgba(0,0,0,.15);
@@ -54,40 +54,40 @@
   position: absolute; top: 0; left: 0; right: 0; height: 3px;
   background: linear-gradient(90deg, #00DEA8, #00FFAA);
 }
-.kpi-hero .h-label  { font-size: .6rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: #00DEA8; }
-.kpi-hero .h-value  { font-size: 2.1rem; font-weight: 900; color: #fff; line-height: 1.1; letter-spacing: -.02em; margin: .25rem 0 .15rem; }
-.kpi-hero .h-chg    { font-size: .8rem; font-weight: 700; }
-.kpi-hero .h-sub    { font-size: .62rem; color: rgba(255,255,255,.45); margin-top: .2rem; }
+.kpi-hero .h-label  { font-size: .57rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: #00DEA8; }
+.kpi-hero .h-value  { font-size: 1.85rem; font-weight: 900; color: #fff; line-height: 1.1; letter-spacing: -.02em; margin: .2rem 0 .1rem; }
+.kpi-hero .h-chg    { font-size: .77rem; font-weight: 700; }
+.kpi-hero .h-sub    { font-size: .58rem; color: rgba(255,255,255,.45); margin-top: .15rem; }
 
 /* ── KPI card estándar ── */
 .kpi-card {
   background: #fff;
-  border-radius: .75rem;
-  padding: .8rem 1rem;
+  border-radius: .6rem;
+  padding: .6rem .8rem;
   height: 100%;
   border: 1px solid #e5e7eb;
-  box-shadow: 0 2px 8px rgba(0,0,0,.06);
+  box-shadow: 0 1px 6px rgba(0,0,0,.05);
   transition: box-shadow .2s;
 }
-.kpi-card:hover { box-shadow: 0 4px 14px rgba(0,0,0,.1); }
-.kpi-card .c-label { font-size: .58rem; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: #9ca3af; white-space: nowrap; }
-.kpi-card .c-value { font-size: 1.15rem; font-weight: 800; color: #111827; margin: .2rem 0 .1rem; white-space: nowrap; }
-.kpi-card .c-chg   { font-size: .73rem; font-weight: 700; }
-.kpi-card .c-sub   { font-size: .58rem; color: #9ca3af; margin-top: .1rem; }
+.kpi-card:hover { box-shadow: 0 3px 12px rgba(0,0,0,.09); }
+.kpi-card .c-label { font-size: .57rem; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: #9ca3af; white-space: nowrap; }
+.kpi-card .c-value { font-size: 1.05rem; font-weight: 800; color: #111827; margin: .15rem 0 .08rem; white-space: nowrap; }
+.kpi-card .c-chg   { font-size: .7rem; font-weight: 700; }
+.kpi-card .c-sub   { font-size: .56rem; color: #9ca3af; margin-top: .06rem; }
 
 /* ── Risk chip ── */
 .risk-chip {
   background: #f9fafb;
   border: 1px solid #e5e7eb;
-  border-radius: .625rem;
-  padding: .55rem .85rem;
+  border-radius: .5rem;
+  padding: .38rem .65rem;
   display: flex; align-items: center; justify-content: space-between;
   height: 100%;
-  box-shadow: 0 1px 4px rgba(0,0,0,.04);
+  box-shadow: 0 1px 3px rgba(0,0,0,.03);
 }
-.risk-chip .r-label { font-size: .6rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #6b7280; }
-.risk-chip .r-value { font-size: .88rem; font-weight: 800; color: #111827; white-space: nowrap; }
-.risk-chip .r-chg   { font-size: .68rem; font-weight: 700; white-space: nowrap; }
+.risk-chip .r-label { font-size: .57rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #6b7280; }
+.risk-chip .r-value { font-size: .82rem; font-weight: 800; color: #111827; white-space: nowrap; }
+.risk-chip .r-chg   { font-size: .63rem; font-weight: 700; white-space: nowrap; }
 
 /* ── Colores subida/baja ── */
 .mkt-up   { color: #10b981 !important; }
@@ -97,8 +97,8 @@
 /* ── Señal ── */
 .signal-card {
   background: #fff;
-  border-radius: .75rem;
-  box-shadow: 0 2px 12px rgba(0,0,0,.08);
+  border-radius: .7rem;
+  box-shadow: 0 2px 10px rgba(0,0,0,.07);
   border: 1px solid #e5e7eb;
   height: 100%;
   overflow: hidden;
@@ -113,16 +113,16 @@
 .signal-card.sig-lateral::before  { background: #d1d5db; }
 
 .sig-badge-pill {
-  display: inline-block; font-size: .72rem; font-weight: 800;
-  padding: .3rem .75rem; border-radius: 20px; margin-bottom: .7rem;
+  display: inline-block; font-size: .71rem; font-weight: 800;
+  padding: .22rem .65rem; border-radius: 20px; margin-bottom: .5rem;
 }
 .sig-pill-bullish  { background: #fef2f2; color: #ef4444; border: 1px solid #fecaca; }
 .sig-pill-bearish  { background: #ecfdf5; color: #10b981; border: 1px solid #a7f3d0; }
 .sig-pill-volatile { background: #fffbeb; color: #f59e0b; border: 1px solid #fde68a; }
 .sig-pill-lateral  { background: #f3f4f6; color: #6b7280; border: 1px solid #e5e7eb; }
 
-.sig-conf-row { display: flex; justify-content: space-between; align-items: center; font-size: .7rem; margin-bottom: .3rem; color: #6b7280; }
-.sig-conf-row strong { color: #374151; font-size: .78rem; }
+.sig-conf-row { display: flex; justify-content: space-between; align-items: center; font-size: .7rem; margin-bottom: .28rem; color: #6b7280; }
+.sig-conf-row strong { color: #374151; font-size: .77rem; }
 .sig-track { height: 5px; background: #f3f4f6; border-radius: 3px; }
 .sig-fill  { height: 100%; border-radius: 3px; transition: width .6s; }
 .sig-fill.sig-bullish  { background: linear-gradient(90deg, #ef4444, #f87171); }
@@ -130,9 +130,9 @@
 .sig-fill.sig-volatile { background: linear-gradient(90deg, #f59e0b, #fcd34d); }
 .sig-fill.sig-lateral  { background: #d1d5db; }
 
-.sig-reasoning { font-size: .79rem; color: #374151; line-height: 1.65; margin-top: .7rem; white-space: pre-line; }
-.sig-triggers li { font-size: .72rem; color: #6b7280; padding: .08rem 0; list-style: none; }
-.sig-time { font-size: .63rem; color: #9ca3af; margin-top: .7rem; }
+.sig-reasoning { font-size: .77rem; color: #374151; line-height: 1.6; margin-top: .55rem; white-space: pre-line; }
+.sig-triggers li { font-size: .71rem; color: #6b7280; padding: .07rem 0; list-style: none; }
+.sig-time { font-size: .62rem; color: #9ca3af; margin-top: .5rem; }
 
 /* ── Chart ── */
 .chart-btn {
@@ -174,11 +174,11 @@
 .macro-row {
   background: #fff;
   border: 1px solid #e5e7eb;
-  border-radius: .55rem;
-  padding: .5rem .75rem;
+  border-radius: .5rem;
+  padding: .42rem .65rem;
   position: relative; overflow: hidden;
   height: 100%;
-  display: flex; flex-direction: column; gap: .15rem;
+  display: flex; flex-direction: column; gap: .1rem;
 }
 .macro-row::before {
   content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
@@ -187,21 +187,21 @@
 .macro-row.mc-up::before   { background: linear-gradient(90deg,#10b981,#34d399); }
 .macro-row.mc-down::before { background: linear-gradient(90deg,#ef4444,#f87171); }
 .macro-row.mc-flat::before { background: linear-gradient(90deg,#9ca3af,#d1d5db); }
-.macro-row .mr-label  { font-size: .57rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #9ca3af; }
-.macro-row .mr-value  { font-size: 1.1rem; font-weight: 900; color: #111827; line-height: 1.1; }
-.macro-row .mr-unit   { font-size: .63rem; font-weight: 600; color: #6b7280; margin-left: .1rem; }
-.macro-row .mr-chg    { font-size: .62rem; font-weight: 700; }
-.macro-row .mr-bar-wrap { height: 3px; background: #f3f4f6; border-radius: 2px; margin: .12rem 0; }
+.macro-row .mr-label  { font-size: .56rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #9ca3af; }
+.macro-row .mr-value  { font-size: 1.05rem; font-weight: 900; color: #111827; line-height: 1.1; }
+.macro-row .mr-unit   { font-size: .62rem; font-weight: 600; color: #6b7280; margin-left: .1rem; }
+.macro-row .mr-chg    { font-size: .6rem; font-weight: 700; }
+.macro-row .mr-bar-wrap { height: 3px; background: #f3f4f6; border-radius: 2px; margin: .1rem 0; }
 .macro-row .mr-bar    { height: 100%; border-radius: 2px; transition: width .6s; }
-.macro-row .mr-meta   { font-size: .52rem; color: #d1d5db; margin-top: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.macro-row .mr-meta   { font-size: .51rem; color: #d1d5db; margin-top: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* ── Variables de mercado cards ── */
 .var-card {
   background: #f9fafb;
   border: 1px solid #e5e7eb;
-  border-radius: .45rem;
-  padding: .45rem .6rem;
-  display: flex; flex-direction: column; gap: .08rem;
+  border-radius: .4rem;
+  padding: .38rem .52rem;
+  display: flex; flex-direction: column; gap: .05rem;
   position: relative; overflow: hidden;
 }
 .var-card::before {
@@ -211,10 +211,10 @@
 .var-card.vc-up::before   { background: linear-gradient(90deg,#10b981,#34d399); }
 .var-card.vc-down::before { background: linear-gradient(90deg,#ef4444,#f87171); }
 .var-card.vc-flat::before { background: linear-gradient(90deg,#9ca3af,#d1d5db); }
-.var-card .vc-label  { font-size: .54rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #9ca3af; }
-.var-card .vc-value  { font-size: .98rem; font-weight: 900; color: #111827; line-height: 1.15; white-space: nowrap; }
-.var-card .vc-chg    { font-size: .61rem; font-weight: 800; white-space: nowrap; }
-.var-card .vc-interp { font-size: .56rem; color: #6b7280; line-height: 1.3; margin-top: auto; padding-top: .15rem; }
+.var-card .vc-label  { font-size: .52rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #9ca3af; }
+.var-card .vc-value  { font-size: .93rem; font-weight: 900; color: #111827; line-height: 1.15; white-space: nowrap; }
+.var-card .vc-chg    { font-size: .59rem; font-weight: 800; white-space: nowrap; }
+.var-card .vc-interp { font-size: .53rem; color: #6b7280; line-height: 1.3; margin-top: auto; padding-top: .1rem; }
 
 /* ── Live dot ── */
 .live-badge {
@@ -262,7 +262,7 @@
 .cal-pending { color: #d1d5db; }
 
 /* ── Noticias ── */
-.news-item { display: flex; gap: .75rem; padding: .65rem 1rem; border-bottom: 1px solid #f9fafb; align-items: flex-start; }
+.news-item { display: flex; gap: .7rem; padding: .55rem .9rem; border-bottom: 1px solid #f9fafb; align-items: flex-start; }
 .news-item:last-child { border-bottom: none; }
 .news-item:hover { background: #fafafa; }
 
@@ -279,7 +279,7 @@
 .dir-bear { font-size: .66rem; font-weight: 800; color: #10b981; }
 
 /* ── Refresh bar ── */
-.mkt-progress { height: 2px; background: #e5e7eb; border-radius: 1px; margin-bottom: 1.25rem; }
+.mkt-progress { height: 2px; background: #e5e7eb; border-radius: 1px; margin-bottom: .9rem; }
 .mkt-pbar     { height: 2px; background: #00DEA8; border-radius: 1px; transition: width 1s linear; }
 </style>
 {% endblock %}
@@ -310,15 +310,16 @@
   </div>
   <div class="mkt-progress"><div class="mkt-pbar" id="refreshBar" style="width:0%"></div></div>
 
-  <!-- ══ FILA 1: KPIs Principales ════════════════════════════════════════════ -->
+  <!-- ══ BAND: Mercados Globales ══════════════════════════════════════════════ -->
   <div class="mkt-section-title">
-    <i class="bi bi-bar-chart-fill"></i>Mercados Globales
+    <i class="bi bi-bar-chart-fill"></i>Mercados Globales &amp; Riesgo
     <span class="live-badge ms-1"><span class="live-dot"></span>EN VIVO</span>
   </div>
-  <div class="row g-2 mb-3">
-    <!-- USD/PEN hero -->
-    <div class="col-12 col-sm-6 col-lg-3 col-xl-2">
-      <div class="kpi-hero">
+  <div class="row g-2 mb-2">
+
+    <!-- USD/PEN hero: ocupa altura de las dos filas del lado derecho -->
+    <div class="col-12 col-sm-4 col-lg-2">
+      <div class="kpi-hero h-100">
         <div class="h-label">💵 Tipo de Cambio</div>
         <div class="h-value" id="v-usdpen">{{ "%.4f"|format(snapshot.usdpen) if snapshot and snapshot.usdpen else '—' }}</div>
         <div class="h-chg {% if snapshot and snapshot.usdpen_chg %}{% if snapshot.usdpen_chg > 0 %}mkt-up{% elif snapshot.usdpen_chg < 0 %}mkt-down{% else %}mkt-flat{% endif %}{% endif %}" id="v-usdpen-chg">
@@ -327,84 +328,82 @@
         <div class="h-sub">USD / PEN · Sol Peruano</div>
       </div>
     </div>
-    <!-- Oro -->
-    <div class="col-6 col-sm-3 col-lg">
-      <div class="kpi-card">
-        <div class="c-label">Oro</div>
-        <div class="c-value" id="v-gold">{{ '$'+'%.2f'|format(snapshot.gold) if snapshot and snapshot.gold else '—' }}</div>
-        <div class="c-chg {% if snapshot and snapshot.gold_chg %}{% if snapshot.gold_chg > 0 %}mkt-up{% elif snapshot.gold_chg < 0 %}mkt-down{% else %}mkt-flat{% endif %}{% endif %}" id="v-gold-chg">{% if snapshot and snapshot.gold_chg %}{{ '%+.2f'|format(snapshot.gold_chg) }}%{% else %}—{% endif %}</div>
-        <div class="c-sub">USD / oz</div>
-      </div>
-    </div>
-    <!-- Petróleo -->
-    <div class="col-6 col-sm-3 col-lg">
-      <div class="kpi-card">
-        <div class="c-label">Petróleo WTI</div>
-        <div class="c-value" id="v-oil">{{ '$'+'%.2f'|format(snapshot.oil) if snapshot and snapshot.oil else '—' }}</div>
-        <div class="c-chg {% if snapshot and snapshot.oil_chg %}{% if snapshot.oil_chg > 0 %}mkt-up{% elif snapshot.oil_chg < 0 %}mkt-down{% else %}mkt-flat{% endif %}{% endif %}" id="v-oil-chg">{% if snapshot and snapshot.oil_chg %}{{ '%+.2f'|format(snapshot.oil_chg) }}%{% else %}—{% endif %}</div>
-        <div class="c-sub">USD / barril</div>
-      </div>
-    </div>
-    <!-- S&P 500 -->
-    <div class="col-6 col-sm-3 col-lg">
-      <div class="kpi-card">
-        <div class="c-label">S&amp;P 500</div>
-        <div class="c-value" id="v-sp500">{{ '%.0f'|format(snapshot.sp500) if snapshot and snapshot.sp500 else '—' }}</div>
-        <div class="c-chg {% if snapshot and snapshot.sp500_chg %}{% if snapshot.sp500_chg > 0 %}mkt-up{% elif snapshot.sp500_chg < 0 %}mkt-down{% else %}mkt-flat{% endif %}{% endif %}" id="v-sp500-chg">{% if snapshot and snapshot.sp500_chg %}{{ '%+.2f'|format(snapshot.sp500_chg) }}%{% else %}—{% endif %}</div>
-        <div class="c-sub">Índice</div>
-      </div>
-    </div>
-    <!-- Nasdaq -->
-    <div class="col-6 col-sm-3 col-lg">
-      <div class="kpi-card">
-        <div class="c-label">Nasdaq</div>
-        <div class="c-value" id="v-nasdaq">{{ '%.0f'|format(snapshot.nasdaq) if snapshot and snapshot.nasdaq else '—' }}</div>
-        <div class="c-chg {% if snapshot and snapshot.nasdaq_chg %}{% if snapshot.nasdaq_chg > 0 %}mkt-up{% elif snapshot.nasdaq_chg < 0 %}mkt-down{% else %}mkt-flat{% endif %}{% endif %}" id="v-nasdaq-chg">{% if snapshot and snapshot.nasdaq_chg %}{{ '%+.2f'|format(snapshot.nasdaq_chg) }}%{% else %}—{% endif %}</div>
-        <div class="c-sub">Composite</div>
-      </div>
-    </div>
-    <!-- DXY -->
-    <div class="col-6 col-sm-3 col-lg">
-      <div class="kpi-card">
-        <div class="c-label">DXY</div>
-        <div class="c-value" id="v-dxy">{{ '%.3f'|format(snapshot.dxy) if snapshot and snapshot.dxy else '—' }}</div>
-        <div class="c-chg {% if snapshot and snapshot.dxy_chg %}{% if snapshot.dxy_chg > 0 %}mkt-up{% elif snapshot.dxy_chg < 0 %}mkt-down{% else %}mkt-flat{% endif %}{% endif %}" id="v-dxy-chg">{% if snapshot and snapshot.dxy_chg %}{{ '%+.2f'|format(snapshot.dxy_chg) }}%{% else %}—{% endif %}</div>
-        <div class="c-sub">Índice Dólar</div>
-      </div>
-    </div>
-  </div>
 
-  <!-- ══ FILA 2: Indicadores de Riesgo ═══════════════════════════════════════ -->
-  <div class="mkt-section-title">
-    <i class="bi bi-shield-exclamation"></i>Indicadores de Riesgo &amp; Correlaciones
-    <span class="live-badge ms-1"><span class="live-dot"></span>EN VIVO</span>
-  </div>
-  <div class="row g-2 mb-3">
-    {% set rchips = [
-      ('vix',    'VIX',          '%.2f',  snapshot.vix if snapshot else None,         snapshot.vix_chg if snapshot else None),
-      ('copper', 'Cobre',        '$%.3f', snapshot.copper if snapshot else None,       snapshot.copper_chg if snapshot else None),
-      ('t10y',   'Bono 10Y',     '%.3f%%',snapshot.treasury_10y if snapshot else None, snapshot.treasury_10y_chg if snapshot else None),
-      ('eurusd', 'EUR / USD',    '%.4f',  snapshot.eurusd if snapshot else None,       snapshot.eurusd_chg if snapshot else None),
-      ('eem',    'ETF Emergentes','$%.2f', snapshot.eem if snapshot else None,          snapshot.eem_chg if snapshot else None),
-      ('epu',    'ETF Perú',     '$%.2f', snapshot.epu if snapshot else None,          snapshot.epu_chg if snapshot else None),
-    ] %}
-    {% for key, label, fmt, val, chg in rchips %}
-    <div class="col-6 col-md-4 col-xl-2">
-      <div class="risk-chip">
-        <div>
-          <div class="r-label">{{ label }}</div>
+    <!-- Lado derecho: activos principales (fila A) + riesgo (fila B) -->
+    <div class="col-12 col-sm-8 col-lg-10 d-flex flex-column gap-1">
+
+      <!-- Fila A: Oro, Petróleo, S&P 500, Nasdaq, DXY -->
+      <div class="row g-2 flex-fill">
+        <div class="col-6 col-sm">
+          <div class="kpi-card h-100">
+            <div class="c-label">Oro</div>
+            <div class="c-value" id="v-gold">{{ '$'+'%.2f'|format(snapshot.gold) if snapshot and snapshot.gold else '—' }}</div>
+            <div class="c-chg {% if snapshot and snapshot.gold_chg %}{% if snapshot.gold_chg > 0 %}mkt-up{% elif snapshot.gold_chg < 0 %}mkt-down{% else %}mkt-flat{% endif %}{% endif %}" id="v-gold-chg">{% if snapshot and snapshot.gold_chg %}{{ '%+.2f'|format(snapshot.gold_chg) }}%{% else %}—{% endif %}</div>
+            <div class="c-sub">USD / oz</div>
+          </div>
         </div>
-        <div class="text-end">
-          <div class="r-value" id="v-{{ key }}">{% if val %}{{ fmt|format(val) }}{% else %}—{% endif %}</div>
-          <div class="r-chg {% if chg %}{% if chg > 0 %}mkt-up{% elif chg < 0 %}mkt-down{% else %}mkt-flat{% endif %}{% else %}mkt-flat{% endif %}" id="v-{{ key }}-chg">{% if chg %}{{ '%+.2f'|format(chg) }}%{% else %}—{% endif %}</div>
+        <div class="col-6 col-sm">
+          <div class="kpi-card h-100">
+            <div class="c-label">Petróleo WTI</div>
+            <div class="c-value" id="v-oil">{{ '$'+'%.2f'|format(snapshot.oil) if snapshot and snapshot.oil else '—' }}</div>
+            <div class="c-chg {% if snapshot and snapshot.oil_chg %}{% if snapshot.oil_chg > 0 %}mkt-up{% elif snapshot.oil_chg < 0 %}mkt-down{% else %}mkt-flat{% endif %}{% endif %}" id="v-oil-chg">{% if snapshot and snapshot.oil_chg %}{{ '%+.2f'|format(snapshot.oil_chg) }}%{% else %}—{% endif %}</div>
+            <div class="c-sub">USD / barril</div>
+          </div>
+        </div>
+        <div class="col-6 col-sm">
+          <div class="kpi-card h-100">
+            <div class="c-label">S&amp;P 500</div>
+            <div class="c-value" id="v-sp500">{{ '%.0f'|format(snapshot.sp500) if snapshot and snapshot.sp500 else '—' }}</div>
+            <div class="c-chg {% if snapshot and snapshot.sp500_chg %}{% if snapshot.sp500_chg > 0 %}mkt-up{% elif snapshot.sp500_chg < 0 %}mkt-down{% else %}mkt-flat{% endif %}{% endif %}" id="v-sp500-chg">{% if snapshot and snapshot.sp500_chg %}{{ '%+.2f'|format(snapshot.sp500_chg) }}%{% else %}—{% endif %}</div>
+            <div class="c-sub">Índice</div>
+          </div>
+        </div>
+        <div class="col-6 col-sm">
+          <div class="kpi-card h-100">
+            <div class="c-label">Nasdaq</div>
+            <div class="c-value" id="v-nasdaq">{{ '%.0f'|format(snapshot.nasdaq) if snapshot and snapshot.nasdaq else '—' }}</div>
+            <div class="c-chg {% if snapshot and snapshot.nasdaq_chg %}{% if snapshot.nasdaq_chg > 0 %}mkt-up{% elif snapshot.nasdaq_chg < 0 %}mkt-down{% else %}mkt-flat{% endif %}{% endif %}" id="v-nasdaq-chg">{% if snapshot and snapshot.nasdaq_chg %}{{ '%+.2f'|format(snapshot.nasdaq_chg) }}%{% else %}—{% endif %}</div>
+            <div class="c-sub">Composite</div>
+          </div>
+        </div>
+        <div class="col-6 col-sm">
+          <div class="kpi-card h-100">
+            <div class="c-label">DXY</div>
+            <div class="c-value" id="v-dxy">{{ '%.3f'|format(snapshot.dxy) if snapshot and snapshot.dxy else '—' }}</div>
+            <div class="c-chg {% if snapshot and snapshot.dxy_chg %}{% if snapshot.dxy_chg > 0 %}mkt-up{% elif snapshot.dxy_chg < 0 %}mkt-down{% else %}mkt-flat{% endif %}{% endif %}" id="v-dxy-chg">{% if snapshot and snapshot.dxy_chg %}{{ '%+.2f'|format(snapshot.dxy_chg) }}%{% else %}—{% endif %}</div>
+            <div class="c-sub">Índice Dólar</div>
+          </div>
         </div>
       </div>
+
+      <!-- Fila B: Riesgo & Correlaciones -->
+      <div class="row g-1 flex-fill">
+        {% set rchips = [
+          ('vix',    'VIX',           '%.2f',   snapshot.vix if snapshot else None,          snapshot.vix_chg if snapshot else None),
+          ('copper', 'Cobre',         '$%.3f',  snapshot.copper if snapshot else None,        snapshot.copper_chg if snapshot else None),
+          ('t10y',   'Bono 10Y',      '%.3f%%', snapshot.treasury_10y if snapshot else None,  snapshot.treasury_10y_chg if snapshot else None),
+          ('eurusd', 'EUR / USD',     '%.4f',   snapshot.eurusd if snapshot else None,        snapshot.eurusd_chg if snapshot else None),
+          ('eem',    'ETF Emergentes','$%.2f',   snapshot.eem if snapshot else None,           snapshot.eem_chg if snapshot else None),
+          ('epu',    'ETF Perú',      '$%.2f',   snapshot.epu if snapshot else None,           snapshot.epu_chg if snapshot else None),
+        ] %}
+        {% for key, label, fmt, val, chg in rchips %}
+        <div class="col-6 col-md-4 col-xl-2">
+          <div class="risk-chip h-100">
+            <div><div class="r-label">{{ label }}</div></div>
+            <div class="text-end">
+              <div class="r-value" id="v-{{ key }}">{% if val %}{{ fmt|format(val) }}{% else %}—{% endif %}</div>
+              <div class="r-chg {% if chg %}{% if chg > 0 %}mkt-up{% elif chg < 0 %}mkt-down{% else %}mkt-flat{% endif %}{% else %}mkt-flat{% endif %}" id="v-{{ key }}-chg">{% if chg %}{{ '%+.2f'|format(chg) }}%{% else %}—{% endif %}</div>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+
     </div>
-    {% endfor %}
   </div>
 
   <!-- ══ Análisis de Señal (ancho completo) ══════════════════════════════════ -->
-  <div class="row g-3 mb-2">
+  <div class="row g-2 mb-2">
     <div class="col-12">
       {% set sig = signal %}
       {% set da  = daily_analysis %}
@@ -417,7 +416,7 @@
           <div style="width:36px;height:36px;border:3px solid #e5e7eb;border-top-color:#00DEA8;border-radius:50%;animation:spinLoader .8s linear infinite"></div>
           <span style="font-size:.72rem;font-weight:600;color:#374151">Actualizando análisis…</span>
         </div>
-        <div class="mkt-card-header ps-4">
+        <div class="mkt-card-header ps-3">
           <div class="mkt-card-title">
             <i class="bi bi-activity" style="color:#00DEA8"></i> Análisis de Señal
             {% if da and da.is_extraordinary %}
@@ -432,14 +431,14 @@
             </button>
           </div>
         </div>
-        <div class="p-3 ps-4">
+        <div class="p-2 ps-3">
 
           {% if da %}
           <!-- ── Layout 2 columnas: análisis izquierda · variables derecha ── -->
           <div class="row g-0">
 
             <!-- Columna izquierda: señal, texto y noticias -->
-            <div class="col-12 col-md-5" style="padding-right:1.5rem;border-right:1px solid #f3f4f6">
+            <div class="col-12 col-md-5" style="padding-right:1.25rem;border-right:1px solid #f3f4f6">
               <div style="font-size:.57rem;text-transform:uppercase;letter-spacing:.07em;color:#00DEA8;font-weight:800;margin-bottom:.35rem">Análisis del día</div>
               <span class="sig-badge-pill sig-pill-{{ da_st }}" id="signalBadge">
                 {% if da.trend == 'alza' %}▲ Probable subida del dólar hoy
@@ -482,7 +481,7 @@
             </div>
 
             <!-- Columna derecha: variables de mercado (cards) -->
-            <div class="col-12 col-md-7" style="padding-left:1.5rem;display:flex;flex-direction:column">
+            <div class="col-12 col-md-7" style="padding-left:1.25rem;display:flex;flex-direction:column">
               {% if snapshot %}{% set sm = snapshot %}
               <div style="font-size:.55rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#9ca3af;margin-bottom:.4rem">Variables de mercado</div>
               <div id="daVarsSection" style="flex:1;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);gap:.3rem">
@@ -635,7 +634,7 @@
   </div>
 
   <!-- ══ Indicadores Macro + Evolución de Precios ════════════════════════════ -->
-  <div class="row g-3 mb-3">
+  <div class="row g-2 mb-2">
 
     <!-- Indicadores Macroeconómicos (compacto) -->
     <div class="col-12 col-lg-5">
@@ -643,7 +642,7 @@
         <div class="mkt-card-header">
           <div class="mkt-card-title"><i class="bi bi-bank" style="color:#00DEA8"></i> Indicadores Macroeconómicos</div>
         </div>
-        <div class="mkt-card-body p-2">
+        <div class="p-1">
           <div class="row g-1" id="macroPanel">
             {% set MACRO_KEYS = [
               ('fed_rate',    '🏛 Tasa FED',         'Reserva Federal',   0, 7,    ''),
@@ -730,7 +729,7 @@
   </div>
 
   <!-- ══ FILA 5: Calendario + Noticias ════════════════════════════════════════ -->
-  <div class="row g-3 mb-2">
+  <div class="row g-2 mb-2">
 
     <!-- Calendario económico -->
     <div class="col-12 col-xl-6">
