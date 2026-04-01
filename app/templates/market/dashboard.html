@@ -170,6 +170,31 @@
 .macro-card .m-desc   { font-size: .62rem; color: #6b7280; line-height: 1.4; flex: 1; }
 .macro-card .m-footer { font-size: .58rem; color: #d1d5db; display: flex; justify-content: space-between; margin-top: auto; padding-top: .2rem; border-top: 1px solid #f9fafb; }
 
+/* ── Macro compact row ── */
+.macro-row {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: .55rem;
+  padding: .5rem .75rem;
+  position: relative; overflow: hidden;
+  height: 100%;
+  display: flex; flex-direction: column; gap: .15rem;
+}
+.macro-row::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: #e5e7eb;
+}
+.macro-row.mc-up::before   { background: linear-gradient(90deg,#10b981,#34d399); }
+.macro-row.mc-down::before { background: linear-gradient(90deg,#ef4444,#f87171); }
+.macro-row.mc-flat::before { background: linear-gradient(90deg,#9ca3af,#d1d5db); }
+.macro-row .mr-label  { font-size: .57rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #9ca3af; }
+.macro-row .mr-value  { font-size: 1.1rem; font-weight: 900; color: #111827; line-height: 1.1; }
+.macro-row .mr-unit   { font-size: .63rem; font-weight: 600; color: #6b7280; margin-left: .1rem; }
+.macro-row .mr-chg    { font-size: .62rem; font-weight: 700; }
+.macro-row .mr-bar-wrap { height: 3px; background: #f3f4f6; border-radius: 2px; margin: .12rem 0; }
+.macro-row .mr-bar    { height: 100%; border-radius: 2px; transition: width .6s; }
+.macro-row .mr-meta   { font-size: .52rem; color: #d1d5db; margin-top: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
 /* ── Live dot ── */
 .live-badge {
   display: inline-flex; align-items: center; gap: .3rem;
@@ -563,55 +588,54 @@
       </div>
     </div>
 
-    <!-- Indicadores Macroeconómicos -->
-    <div class="col-12 col-lg-7">
-      <div class="mkt-card h-100">
+    <!-- Indicadores Macro + Evolución de Precios -->
+    <div class="col-12 col-lg-7 d-flex flex-column gap-2">
+
+      <!-- Indicadores Macroeconómicos (compacto) -->
+      <div class="mkt-card">
         <div class="mkt-card-header">
           <div class="mkt-card-title"><i class="bi bi-bank" style="color:#00DEA8"></i> Indicadores Macroeconómicos</div>
         </div>
-        <div class="mkt-card-body" style="display:flex;flex-direction:column;flex:1;height:calc(100% - 42px)">
-          <div class="row g-2 flex-grow-1" id="macroPanel" style="align-content:stretch">
+        <div class="mkt-card-body p-2">
+          <div class="row g-1" id="macroPanel">
             {% set MACRO_KEYS = [
-              ('fed_rate',    '🏛 Tasa FED',         'Reserva Federal EE.UU.',  0, 7,   'Tasa objetivo de política monetaria de la FED. Meta: empleo máximo e inflación ~2%.'),
-              ('bcrp_rate',   '🏦 Tasa BCRP',        'Banco Central del Perú',  0, 8,   'Tasa de referencia del BCRP. Banda meta de inflación: 1%–3%.'),
-              ('bcrp_tc_sell','💱 TC Venta BCRP',    'Interbancario diario',     3, 4.2, 'Tipo de cambio interbancario de venta publicado diariamente por el BCRP.'),
-              ('us_cpi_yoy',  '📊 Inflación EE.UU.', 'CPI YoY — BLS',           0, 10,  'Variación anual del índice de precios al consumidor (IPC). Meta FED: 2%.'),
-              ('us_nfp',      '💼 Nóminas NFP',      'Non-Farm Payrolls — BLS', -300, 500,'Empleos no agrícolas creados en el mes. Indicador clave del mercado laboral.'),
-              ('us_unrate',   '📉 Desempleo EE.UU.', 'Tasa U-3 — BLS',          3, 8,   'Porcentaje de la fuerza laboral desempleada. Mínimo histórico: ~3.4%.'),
+              ('fed_rate',    '🏛 Tasa FED',         'Reserva Federal',   0, 7,    ''),
+              ('bcrp_rate',   '🏦 Tasa BCRP',        'Banco Central Perú', 0, 8,   ''),
+              ('bcrp_tc_sell','💱 TC Venta BCRP',    'Interbancario',      3, 4.2,  ''),
+              ('us_cpi_yoy',  '📊 Inflación EE.UU.', 'CPI YoY — BLS',     0, 10,   ''),
+              ('us_nfp',      '💼 NFP',              'Non-Farm Payrolls', -300, 500,''),
+              ('us_unrate',   '📉 Desempleo EE.UU.', 'Tasa U-3 — BLS',    3, 8,    ''),
             ] %}
             {% for key, label, source_lbl, bar_min, bar_max, desc in MACRO_KEYS %}
               {% set ind = macro.get(key) %}
               {% set dc = 'mc-' + (ind.direction if ind else 'flat') %}
               <div class="col-6 col-sm-4" id="macro-{{ key }}">
-                <div class="macro-card {{ dc }}">
-                  <div class="m-label">{{ label }}</div>
+                <div class="macro-row {{ dc }}">
+                  <div class="mr-label">{{ label }}</div>
                   {% if ind %}
                     {% set bar_pct = [([(ind.value - bar_min) / (bar_max - bar_min) * 100, 0] | max), 100] | min %}
                     {% set bar_color = '#10b981' if ind.direction == 'down' else ('#ef4444' if ind.direction == 'up' else '#9ca3af') %}
-                    <div class="m-value">{{ '%.2f'|format(ind.value) }}<span class="m-unit">{{ ind.unit }}</span></div>
-                    <div class="m-chg">
+                    <div style="display:flex;align-items:baseline;gap:.2rem">
+                      <div class="mr-value">{{ '%.2f'|format(ind.value) }}</div>
+                      <div class="mr-unit">{{ ind.unit }}</div>
+                    </div>
+                    <div class="mr-chg">
                       {% if ind.prev_value %}
                         {% set chg = ind.value - ind.prev_value %}
                         <span class="{% if chg > 0 %}mkt-up{% elif chg < 0 %}mkt-down{% else %}mkt-flat{% endif %}">
-                          {% if chg > 0 %}▲{% elif chg < 0 %}▼{% else %}—{% endif %}
-                          {{ '%+.2f'|format(chg) }} {{ ind.unit }} vs anterior
+                          {% if chg > 0 %}▲{% elif chg < 0 %}▼{% else %}—{% endif %} {{ '%+.2f'|format(chg) }} {{ ind.unit }}
                         </span>
                       {% else %}
-                        <span class="mkt-flat">— sin dato anterior</span>
+                        <span class="mkt-flat">— sin anterior</span>
                       {% endif %}
                     </div>
-                    <div class="m-bar-wrap">
-                      <div class="m-bar" style="width:{{ bar_pct }}%;background:{{ bar_color }}"></div>
+                    <div class="mr-bar-wrap">
+                      <div class="mr-bar" style="width:{{ bar_pct }}%;background:{{ bar_color }}"></div>
                     </div>
-                    <div class="m-desc">{{ desc }}</div>
-                    <div class="m-footer">
-                      <span>{{ ind.period }}</span>
-                      <span>{{ ind.source }}</span>
-                    </div>
+                    <div class="mr-meta">{{ ind.period }} · {{ ind.source }}</div>
                   {% else %}
-                    <div class="m-value" style="color:#d1d5db;font-size:1.1rem">—</div>
-                    <div class="m-desc" style="color:#d1d5db">{{ desc }}</div>
-                    <div class="m-footer"><span style="color:#d1d5db">Sin datos · clic en Act. Macro</span></div>
+                    <div class="mr-value" style="color:#d1d5db;font-size:1rem">—</div>
+                    <div class="mr-meta" style="color:#d1d5db">Sin datos · clic Act. Macro</div>
                   {% endif %}
                 </div>
               </div>
@@ -619,6 +643,40 @@
           </div>
         </div>
       </div>
+
+      <!-- Evolución de Precios -->
+      <div class="mkt-card flex-grow-1" style="overflow:visible">
+        <div class="mkt-card-header">
+          <div class="mkt-card-title"><i class="bi bi-graph-up" style="color:#00DEA8"></i> Evolución de Precios</div>
+          <div class="d-flex gap-1 align-items-center">
+            <button class="chart-btn active" data-asset="usdpen">USD/PEN</button>
+            <button class="chart-btn" data-asset="gold">Oro</button>
+            <button class="chart-btn" data-asset="vix">VIX</button>
+          </div>
+        </div>
+        <!-- Barra de rango temporal -->
+        <div style="padding:.4rem 1rem;border-bottom:1px solid #f3f4f6;background:#fafafa;display:flex;gap:.35rem;align-items:center;flex-wrap:wrap">
+          <span style="font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#9ca3af;margin-right:.2rem">Rango:</span>
+          <button class="chart-btn" data-range="6h">6h</button>
+          <button class="chart-btn" data-range="12h">12h</button>
+          <button class="chart-btn active" data-range="24h">24h</button>
+          <span class="chart-sep">|</span>
+          <button class="chart-btn" data-range="1w">1 Sem</button>
+          <button class="chart-btn" data-range="1m">1 Mes</button>
+          <button class="chart-btn" data-range="6m">6 Mes</button>
+          <button class="chart-btn" data-range="1y">1 Año</button>
+        </div>
+        <div class="mkt-card-body" style="padding:.75rem 1rem;position:relative;min-height:80px">
+          <div id="chartLoading" style="display:none;position:absolute;inset:0;background:rgba(255,255,255,.85);z-index:5;align-items:center;justify-content:center">
+            <span class="spinner-border spinner-border-sm text-secondary"></span>&nbsp;<span style="font-size:.8rem;color:#6b7280">Cargando…</span>
+          </div>
+          <div id="chartEmpty" style="display:none;text-align:center;padding:2.5rem 0;color:#d1d5db;font-size:.82rem">
+            <i class="bi bi-graph-up d-block mb-2 fs-2 opacity-25"></i>Sin datos suficientes para este rango
+          </div>
+          <canvas id="marketChart" style="height:220px;max-height:220px"></canvas>
+        </div>
+      </div>
+
     </div>
 
   </div>
@@ -724,39 +782,6 @@
 
   </div><!-- /fila 5 -->
 
-  <!-- ══ FILA 6: Evolución de Precios ══════════════════════════════════════════ -->
-  <div class="mkt-section-title mt-2"><i class="bi bi-graph-up"></i>Evolución de Precios</div>
-  <div class="mkt-card mb-3" style="overflow:visible">
-    <div class="mkt-card-header">
-      <div class="mkt-card-title"><i class="bi bi-graph-up" style="color:#00DEA8"></i> Histórico de Precios</div>
-      <div class="d-flex gap-1 align-items-center">
-        <button class="chart-btn active" data-asset="usdpen">USD/PEN</button>
-        <button class="chart-btn" data-asset="gold">Oro</button>
-        <button class="chart-btn" data-asset="vix">VIX</button>
-      </div>
-    </div>
-    <!-- Barra de rango temporal -->
-    <div style="padding:.45rem 1rem;border-bottom:1px solid #f3f4f6;background:#fafafa;display:flex;gap:.35rem;align-items:center;flex-wrap:wrap;border-radius:0">
-      <span style="font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#9ca3af;margin-right:.2rem">Rango:</span>
-      <button class="chart-btn" data-range="6h">6h</button>
-      <button class="chart-btn" data-range="12h">12h</button>
-      <button class="chart-btn active" data-range="24h">24h</button>
-      <span class="chart-sep">|</span>
-      <button class="chart-btn" data-range="1w">1 Sem</button>
-      <button class="chart-btn" data-range="1m">1 Mes</button>
-      <button class="chart-btn" data-range="6m">6 Mes</button>
-      <button class="chart-btn" data-range="1y">1 Año</button>
-    </div>
-    <div class="mkt-card-body" style="padding:.75rem 1rem;position:relative;min-height:80px">
-      <div id="chartLoading" style="display:none;position:absolute;inset:0;background:rgba(255,255,255,.85);z-index:5;align-items:center;justify-content:center">
-        <span class="spinner-border spinner-border-sm text-secondary"></span>&nbsp;<span style="font-size:.8rem;color:#6b7280">Cargando…</span>
-      </div>
-      <div id="chartEmpty" style="display:none;text-align:center;padding:2.5rem 0;color:#d1d5db;font-size:.82rem">
-        <i class="bi bi-graph-up d-block mb-2 fs-2 opacity-25"></i>Sin datos suficientes para este rango
-      </div>
-      <canvas id="marketChart" style="height:240px;max-height:240px"></canvas>
-    </div>
-  </div>
 
 </div><!-- /mkt -->
 
