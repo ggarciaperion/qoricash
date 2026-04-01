@@ -382,11 +382,9 @@
     {% endfor %}
   </div>
 
-  <!-- ══ FILA 3: Señal + Indicadores Macro ═══════════════════════════════════ -->
-  <div class="row g-3 mb-3">
-
-    <!-- Análisis de señal -->
-    <div class="col-12 col-lg-5">
+  <!-- ══ Análisis de Señal (ancho completo) ══════════════════════════════════ -->
+  <div class="row g-3 mb-2">
+    <div class="col-12">
       {% set sig = signal %}
       {% set da  = daily_analysis %}
       {% set da_st = 'bullish' if (da and da.trend=='alza') else ('bearish' if (da and da.trend=='baja') else 'lateral') %}
@@ -416,151 +414,133 @@
         <div class="p-3 ps-4">
 
           {% if da %}
-          <!-- ── Análisis del Día (generado 8:30 AM) ── -->
-          <div style="font-size:.57rem;text-transform:uppercase;letter-spacing:.07em;color:#00DEA8;font-weight:800;margin-bottom:.35rem">Análisis del día</div>
-          <span class="sig-badge-pill sig-pill-{{ da_st }}" id="signalBadge">
-            {% if da.trend == 'alza' %}▲ Probable subida del dólar hoy
-            {% elif da.trend == 'baja' %}▼ Probable caída del dólar hoy
-            {% else %}↔ Dólar sin dirección definida hoy{% endif %}
-          </span>
-          <div class="sig-conf-row">
-            <span>Confianza del análisis</span>
-            <strong id="confPct">{{ da.confidence }}%</strong>
-          </div>
-          <div class="sig-track mb-2">
-            <div class="sig-fill sig-{{ da_st }}" id="confBar" style="width:{{ da.confidence }}%"></div>
-          </div>
+          <!-- ── Layout 2 columnas: análisis izquierda · variables derecha ── -->
+          <div class="row g-0">
 
-          <!-- ── Texto interpretativo ── -->
-          <div class="sig-reasoning" id="signalReasoning" style="font-size:.77rem;line-height:1.65;margin-bottom:.55rem;white-space:pre-line">{{ da.summary }}</div>
-
-          {% if snapshot %}{% set sm = snapshot %}
-          <!-- ── Variables de mercado ── -->
-          <div style="border-top:1px solid #e5e7eb;padding-top:.45rem;margin-bottom:.3rem">
-            <div style="font-size:.55rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#9ca3af;margin-bottom:.3rem">Variables de mercado</div>
-            <div style="display:flex;flex-direction:column;gap:0" id="daVarsSection">
-
-              {# Macro: header row #}
-              <div style="display:grid;grid-template-columns:80px 80px 52px 1fr;gap:0 .35rem;padding:.06rem 0;border-bottom:1px solid #f3f4f6">
-                <span style="font-size:.54rem;font-weight:700;color:#9ca3af">Variable</span>
-                <span style="font-size:.54rem;font-weight:700;color:#9ca3af">Valor</span>
-                <span style="font-size:.54rem;font-weight:700;color:#9ca3af">Var.</span>
-                <span style="font-size:.54rem;font-weight:700;color:#9ca3af">Interpretación</span>
+            <!-- Columna izquierda: señal, texto y noticias -->
+            <div class="col-12 col-md-5" style="padding-right:1.5rem;border-right:1px solid #f3f4f6">
+              <div style="font-size:.57rem;text-transform:uppercase;letter-spacing:.07em;color:#00DEA8;font-weight:800;margin-bottom:.35rem">Análisis del día</div>
+              <span class="sig-badge-pill sig-pill-{{ da_st }}" id="signalBadge">
+                {% if da.trend == 'alza' %}▲ Probable subida del dólar hoy
+                {% elif da.trend == 'baja' %}▼ Probable caída del dólar hoy
+                {% else %}↔ Dólar sin dirección definida hoy{% endif %}
+              </span>
+              <div class="sig-conf-row">
+                <span>Confianza del análisis</span>
+                <strong id="confPct">{{ da.confidence }}%</strong>
               </div>
+              <div class="sig-track mb-2">
+                <div class="sig-fill sig-{{ da_st }}" id="confBar" style="width:{{ da.confidence }}%"></div>
+              </div>
+              <div class="sig-reasoning" id="signalReasoning" style="font-size:.77rem;line-height:1.65;margin-bottom:.55rem;white-space:pre-line">{{ da.summary }}</div>
 
-              {# USD/PEN #}
-              {% if sm.usdpen is not none %}
-              <div style="display:grid;grid-template-columns:80px 80px 52px 1fr;gap:0 .35rem;padding:.19rem 0;border-bottom:1px solid #f9fafb;align-items:center">
-                <span style="font-size:.65rem;font-weight:700;color:#111827">USD/PEN</span>
-                <span style="font-size:.7rem;font-weight:800;color:#111827">S/{{ '%.4f'|format(sm.usdpen) }}</span>
-                <span style="font-size:.65rem;font-weight:700;{% if sm.usdpen_chg is not none and sm.usdpen_chg > 0 %}color:#dc2626{% elif sm.usdpen_chg is not none and sm.usdpen_chg < 0 %}color:#16a34a{% else %}color:#9ca3af{% endif %}">{% if sm.usdpen_chg is not none %}{{ '%+.2f'|format(sm.usdpen_chg) }}%{% else %}—{% endif %}</span>
-                <span style="font-size:.62rem;color:#6b7280">{% if sm.usdpen_chg is not none %}{% if sm.usdpen_chg > 0.1 %}Tipo de cambio al alza en sesión{% elif sm.usdpen_chg < -0.1 %}Tipo de cambio a la baja en sesión{% else %}Tipo de cambio estable{% endif %}{% else %}Referencia interbancaria{% endif %}</span>
-              </div>{% endif %}
+              <!-- ── Noticias y eventos clave ── -->
+              {% if da.key_factors %}
+              <div style="border-top:1px solid #e5e7eb;padding-top:.45rem;margin-top:.1rem">
+                <div style="font-size:.55rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#9ca3af;margin-bottom:.3rem">Noticias y eventos relevantes</div>
+                <ul class="sig-triggers ps-0 mb-1" id="triggerList">
+                  {% for f in da.key_factors %}
+                  <li style="padding:.15rem 0;border-bottom:1px solid #f9fafb">
+                    <span style="{% if f.direction=='bullish' %}color:#16a34a{% elif f.direction=='bearish' %}color:#dc2626{% elif f.direction=='event' %}color:#f59e0b{% else %}color:#9ca3af{% endif %};font-weight:700">{% if f.direction=='bullish' %}▲{% elif f.direction=='bearish' %}▼{% elif f.direction=='event' %}⚠{% else %}◆{% endif %}</span>
+                    {{ f.text }}
+                  </li>
+                  {% endfor %}
+                </ul>
+              </div>
+              {% else %}
+              <ul class="sig-triggers ps-0 mb-1" id="triggerList"></ul>
+              {% endif %}
 
-              {# DXY #}
-              {% if sm.dxy is not none %}
-              <div style="display:grid;grid-template-columns:80px 80px 52px 1fr;gap:0 .35rem;padding:.19rem 0;border-bottom:1px solid #f9fafb;align-items:center">
-                <span style="font-size:.65rem;font-weight:700;color:#111827">DXY</span>
-                <span style="font-size:.7rem;font-weight:800;color:#111827">{{ '%.2f'|format(sm.dxy) }}</span>
-                <span style="font-size:.65rem;font-weight:700;{% if sm.dxy_chg is not none and sm.dxy_chg > 0 %}color:#16a34a{% elif sm.dxy_chg is not none and sm.dxy_chg < 0 %}color:#dc2626{% else %}color:#9ca3af{% endif %}">{% if sm.dxy_chg is not none %}{{ '%+.2f'|format(sm.dxy_chg) }}%{% else %}—{% endif %}</span>
-                <span style="font-size:.62rem;color:#6b7280">{% if sm.dxy_chg is not none %}{% if sm.dxy_chg > 0.2 %}Dólar global fuerte → presión alcista USD/PEN{% elif sm.dxy_chg < -0.2 %}Dólar global débil → presión bajista USD/PEN{% else %}Índice del dólar sin cambios relevantes{% endif %}{% else %}Índice del dólar (DXY){% endif %}</span>
-              </div>{% endif %}
-
-              {# VIX #}
-              {% if sm.vix is not none %}
-              <div style="display:grid;grid-template-columns:80px 80px 52px 1fr;gap:0 .35rem;padding:.19rem 0;border-bottom:1px solid #f9fafb;align-items:center">
-                <span style="font-size:.65rem;font-weight:700;color:#111827">VIX</span>
-                <span style="font-size:.7rem;font-weight:800;color:#111827">{{ '%.1f'|format(sm.vix) }}</span>
-                <span style="font-size:.65rem;font-weight:700;{% if sm.vix_chg is not none and sm.vix_chg > 0 %}color:#dc2626{% elif sm.vix_chg is not none and sm.vix_chg < 0 %}color:#16a34a{% else %}color:#9ca3af{% endif %}">{% if sm.vix_chg is not none %}{{ '%+.2f'|format(sm.vix_chg) }}%{% else %}—{% endif %}</span>
-                <span style="font-size:.62rem;color:#6b7280">{% if sm.vix > 30 %}Pánico — flight-to-safety → USD sube{% elif sm.vix > 20 %}Incertidumbre elevada → soporte al USD{% elif sm.vix > 15 %}Volatilidad moderada{% else %}Mercado calmo — riesgo normal{% endif %}</span>
-              </div>{% endif %}
-
-              {# Cobre #}
-              {% if sm.copper is not none %}
-              <div style="display:grid;grid-template-columns:80px 80px 52px 1fr;gap:0 .35rem;padding:.19rem 0;border-bottom:1px solid #f9fafb;align-items:center">
-                <span style="font-size:.65rem;font-weight:700;color:#111827">Cobre</span>
-                <span style="font-size:.7rem;font-weight:800;color:#111827">${{ '%.4f'|format(sm.copper) }}</span>
-                <span style="font-size:.65rem;font-weight:700;{% if sm.copper_chg is not none and sm.copper_chg > 0 %}color:#16a34a{% elif sm.copper_chg is not none and sm.copper_chg < 0 %}color:#dc2626{% else %}color:#9ca3af{% endif %}">{% if sm.copper_chg is not none %}{{ '%+.2f'|format(sm.copper_chg) }}%{% else %}—{% endif %}</span>
-                <span style="font-size:.62rem;color:#6b7280">{% if sm.copper_chg is not none %}{% if sm.copper_chg > 1.5 %}Alza — fortalece al sol peruano (Perú exportador){% elif sm.copper_chg < -1.5 %}Caída — presión bajista sobre el sol{% else %}Sin impacto significativo en el sol{% endif %}{% else %}Cobre USD/lb (correlación con PEN){% endif %}</span>
-              </div>{% endif %}
-
-              {# Bono 10Y #}
-              {% if sm.treasury_10y is not none %}
-              <div style="display:grid;grid-template-columns:80px 80px 52px 1fr;gap:0 .35rem;padding:.19rem 0;border-bottom:1px solid #f9fafb;align-items:center">
-                <span style="font-size:.65rem;font-weight:700;color:#111827">Bono 10Y</span>
-                <span style="font-size:.7rem;font-weight:800;color:#111827">{{ '%.3f'|format(sm.treasury_10y) }}%</span>
-                <span style="font-size:.65rem;font-weight:700;{% if sm.treasury_10y_chg is not none and sm.treasury_10y_chg > 0 %}color:#16a34a{% elif sm.treasury_10y_chg is not none and sm.treasury_10y_chg < 0 %}color:#dc2626{% else %}color:#9ca3af{% endif %}">{% if sm.treasury_10y_chg is not none %}{{ '%+.3f'|format(sm.treasury_10y_chg) }}%{% else %}—{% endif %}</span>
-                <span style="font-size:.62rem;color:#6b7280">{% if sm.treasury_10y_chg is not none %}{% if sm.treasury_10y_chg > 0.03 %}Rendimiento sube → atrae capitales hacia USD{% elif sm.treasury_10y_chg < -0.03 %}Rendimiento baja → menor atractivo del USD{% else %}Bono EE.UU. estable{% endif %}{% else %}Tesoro EE.UU. 10 años{% endif %}</span>
-              </div>{% endif %}
-
-              {# Oro #}
-              {% if sm.gold is not none %}
-              <div style="display:grid;grid-template-columns:80px 80px 52px 1fr;gap:0 .35rem;padding:.19rem 0;border-bottom:1px solid #f9fafb;align-items:center">
-                <span style="font-size:.65rem;font-weight:700;color:#111827">Oro</span>
-                <span style="font-size:.7rem;font-weight:800;color:#111827">${{ '%.0f'|format(sm.gold) }}</span>
-                <span style="font-size:.65rem;font-weight:700;{% if sm.gold_chg is not none and sm.gold_chg > 0 %}color:#16a34a{% elif sm.gold_chg is not none and sm.gold_chg < 0 %}color:#dc2626{% else %}color:#9ca3af{% endif %}">{% if sm.gold_chg is not none %}{{ '%+.2f'|format(sm.gold_chg) }}%{% else %}—{% endif %}</span>
-                <span style="font-size:.62rem;color:#6b7280">{% if sm.gold_chg is not none %}{% if sm.gold_chg > 1.0 %}Alza — demanda refugio, refleja desconfianza en USD{% elif sm.gold_chg < -0.8 %}Baja — menor demanda refugio, soporte relativo al USD{% else %}Oro sin variación significativa{% endif %}{% else %}Oro USD/oz{% endif %}</span>
-              </div>{% endif %}
-
-              {# EUR/USD #}
-              {% if sm.eurusd is not none %}
-              <div style="display:grid;grid-template-columns:80px 80px 52px 1fr;gap:0 .35rem;padding:.19rem 0;border-bottom:1px solid #f9fafb;align-items:center">
-                <span style="font-size:.65rem;font-weight:700;color:#111827">EUR/USD</span>
-                <span style="font-size:.7rem;font-weight:800;color:#111827">{{ '%.4f'|format(sm.eurusd) }}</span>
-                <span style="font-size:.65rem;font-weight:700;{% if sm.eurusd_chg is not none and sm.eurusd_chg > 0 %}color:#16a34a{% elif sm.eurusd_chg is not none and sm.eurusd_chg < 0 %}color:#dc2626{% else %}color:#9ca3af{% endif %}">{% if sm.eurusd_chg is not none %}{{ '%+.2f'|format(sm.eurusd_chg) }}%{% else %}—{% endif %}</span>
-                <span style="font-size:.62rem;color:#6b7280">{% if sm.eurusd_chg is not none %}{% if sm.eurusd_chg > 0.3 %}Euro sube vs USD → DXY debilitado → USD/PEN a la baja{% elif sm.eurusd_chg < -0.3 %}Euro cae vs USD → DXY fortalecido → USD/PEN al alza{% else %}Sin presión sobre el DXY{% endif %}{% else %}Euro / Dólar{% endif %}</span>
-              </div>{% endif %}
-
-              {# Tasa FED #}
-              {% set fed = macro.get('fed_rate') %}
-              {% if fed %}
-              <div style="display:grid;grid-template-columns:80px 80px 52px 1fr;gap:0 .35rem;padding:.19rem 0;border-bottom:1px solid #f9fafb;align-items:center">
-                <span style="font-size:.65rem;font-weight:700;color:#111827">Tasa FED</span>
-                <span style="font-size:.7rem;font-weight:800;color:#111827">{{ '%.2f'|format(fed.value) }}%</span>
-                <span style="font-size:.65rem;color:#9ca3af">—</span>
-                <span style="font-size:.62rem;color:#6b7280">{% if fed.value >= 5.25 %}Política restrictiva → soporte estructural al USD{% elif fed.value <= 3.5 %}Política laxa → presión bajista en USD{% else %}Política monetaria moderada{% endif %}</span>
-              </div>{% endif %}
-
-              {# Tasa BCRP #}
-              {% set bcrp = macro.get('bcrp_rate') %}
-              {% if bcrp %}
-              <div style="display:grid;grid-template-columns:80px 80px 52px 1fr;gap:0 .35rem;padding:.19rem 0;align-items:center">
-                <span style="font-size:.65rem;font-weight:700;color:#111827">Tasa BCRP</span>
-                <span style="font-size:.7rem;font-weight:800;color:#111827">{{ '%.2f'|format(bcrp.value) }}%</span>
-                <span style="font-size:.65rem;color:#9ca3af">—</span>
-                <span style="font-size:.62rem;color:#6b7280">Tasa de referencia local — Banco Central del Perú</span>
-              </div>{% endif %}
-
+              <!-- ── Stats ── -->
+              <div style="display:flex;gap:.8rem;font-size:.63rem;color:#9ca3af;margin-top:.45rem;padding-top:.35rem;border-top:1px solid #f3f4f6" id="daStatsRow">
+                <span><strong style="color:#16a34a" id="daBull">{{ da.bullish_signals }}</strong>↑ alcistas</span>
+                <span><strong style="color:#dc2626" id="daBear">{{ da.bearish_signals }}</strong>↓ bajistas</span>
+                <span>score <strong style="color:#374151" id="daNet">{{ '%+d'|format(da.net_score) }}</strong></span>
+                <span>{{ da.news_analyzed }} noticias</span>
+              </div>
             </div>
-          </div>{% endif %}
 
-          <!-- ── Noticias y eventos clave ── -->
-          {% if da.key_factors %}
-          <div style="border-top:1px solid #e5e7eb;padding-top:.45rem;margin-top:.1rem">
-            <div style="font-size:.55rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#9ca3af;margin-bottom:.3rem">Noticias y eventos relevantes</div>
-            <ul class="sig-triggers ps-0 mb-1" id="triggerList">
-              {% for f in da.key_factors %}
-              <li style="padding:.15rem 0;border-bottom:1px solid #f9fafb">
-                <span style="{% if f.direction=='bullish' %}color:#16a34a{% elif f.direction=='bearish' %}color:#dc2626{% elif f.direction=='event' %}color:#f59e0b{% else %}color:#9ca3af{% endif %};font-weight:700">{% if f.direction=='bullish' %}▲{% elif f.direction=='bearish' %}▼{% elif f.direction=='event' %}⚠{% else %}◆{% endif %}</span>
-                {{ f.text }}
-              </li>
-              {% endfor %}
-            </ul>
-          </div>
+            <!-- Columna derecha: variables de mercado -->
+            <div class="col-12 col-md-7" style="padding-left:1.5rem">
+              {% if snapshot %}{% set sm = snapshot %}
+              <div style="font-size:.55rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#9ca3af;margin-bottom:.3rem">Variables de mercado</div>
+              <div style="display:flex;flex-direction:column;gap:0" id="daVarsSection">
+                <div style="display:grid;grid-template-columns:80px 80px 52px 1fr;gap:0 .35rem;padding:.06rem 0;border-bottom:1px solid #f3f4f6">
+                  <span style="font-size:.54rem;font-weight:700;color:#9ca3af">Variable</span>
+                  <span style="font-size:.54rem;font-weight:700;color:#9ca3af">Valor</span>
+                  <span style="font-size:.54rem;font-weight:700;color:#9ca3af">Var.</span>
+                  <span style="font-size:.54rem;font-weight:700;color:#9ca3af">Interpretación</span>
+                </div>
+                {% if sm.usdpen is not none %}
+                <div style="display:grid;grid-template-columns:80px 80px 52px 1fr;gap:0 .35rem;padding:.19rem 0;border-bottom:1px solid #f9fafb;align-items:center">
+                  <span style="font-size:.65rem;font-weight:700;color:#111827">USD/PEN</span>
+                  <span style="font-size:.7rem;font-weight:800;color:#111827">S/{{ '%.4f'|format(sm.usdpen) }}</span>
+                  <span style="font-size:.65rem;font-weight:700;{% if sm.usdpen_chg is not none and sm.usdpen_chg > 0 %}color:#dc2626{% elif sm.usdpen_chg is not none and sm.usdpen_chg < 0 %}color:#16a34a{% else %}color:#9ca3af{% endif %}">{% if sm.usdpen_chg is not none %}{{ '%+.2f'|format(sm.usdpen_chg) }}%{% else %}—{% endif %}</span>
+                  <span style="font-size:.62rem;color:#6b7280">{% if sm.usdpen_chg is not none %}{% if sm.usdpen_chg > 0.1 %}Tipo de cambio al alza en sesión{% elif sm.usdpen_chg < -0.1 %}Tipo de cambio a la baja en sesión{% else %}Tipo de cambio estable{% endif %}{% else %}Referencia interbancaria{% endif %}</span>
+                </div>{% endif %}
+                {% if sm.dxy is not none %}
+                <div style="display:grid;grid-template-columns:80px 80px 52px 1fr;gap:0 .35rem;padding:.19rem 0;border-bottom:1px solid #f9fafb;align-items:center">
+                  <span style="font-size:.65rem;font-weight:700;color:#111827">DXY</span>
+                  <span style="font-size:.7rem;font-weight:800;color:#111827">{{ '%.2f'|format(sm.dxy) }}</span>
+                  <span style="font-size:.65rem;font-weight:700;{% if sm.dxy_chg is not none and sm.dxy_chg > 0 %}color:#16a34a{% elif sm.dxy_chg is not none and sm.dxy_chg < 0 %}color:#dc2626{% else %}color:#9ca3af{% endif %}">{% if sm.dxy_chg is not none %}{{ '%+.2f'|format(sm.dxy_chg) }}%{% else %}—{% endif %}</span>
+                  <span style="font-size:.62rem;color:#6b7280">{% if sm.dxy_chg is not none %}{% if sm.dxy_chg > 0.2 %}Dólar global fuerte → presión alcista USD/PEN{% elif sm.dxy_chg < -0.2 %}Dólar global débil → presión bajista USD/PEN{% else %}Índice del dólar sin cambios relevantes{% endif %}{% else %}Índice del dólar (DXY){% endif %}</span>
+                </div>{% endif %}
+                {% if sm.vix is not none %}
+                <div style="display:grid;grid-template-columns:80px 80px 52px 1fr;gap:0 .35rem;padding:.19rem 0;border-bottom:1px solid #f9fafb;align-items:center">
+                  <span style="font-size:.65rem;font-weight:700;color:#111827">VIX</span>
+                  <span style="font-size:.7rem;font-weight:800;color:#111827">{{ '%.1f'|format(sm.vix) }}</span>
+                  <span style="font-size:.65rem;font-weight:700;{% if sm.vix_chg is not none and sm.vix_chg > 0 %}color:#dc2626{% elif sm.vix_chg is not none and sm.vix_chg < 0 %}color:#16a34a{% else %}color:#9ca3af{% endif %}">{% if sm.vix_chg is not none %}{{ '%+.2f'|format(sm.vix_chg) }}%{% else %}—{% endif %}</span>
+                  <span style="font-size:.62rem;color:#6b7280">{% if sm.vix > 30 %}Pánico — flight-to-safety → USD sube{% elif sm.vix > 20 %}Incertidumbre elevada → soporte al USD{% elif sm.vix > 15 %}Volatilidad moderada{% else %}Mercado calmo — riesgo normal{% endif %}</span>
+                </div>{% endif %}
+                {% if sm.copper is not none %}
+                <div style="display:grid;grid-template-columns:80px 80px 52px 1fr;gap:0 .35rem;padding:.19rem 0;border-bottom:1px solid #f9fafb;align-items:center">
+                  <span style="font-size:.65rem;font-weight:700;color:#111827">Cobre</span>
+                  <span style="font-size:.7rem;font-weight:800;color:#111827">${{ '%.4f'|format(sm.copper) }}</span>
+                  <span style="font-size:.65rem;font-weight:700;{% if sm.copper_chg is not none and sm.copper_chg > 0 %}color:#16a34a{% elif sm.copper_chg is not none and sm.copper_chg < 0 %}color:#dc2626{% else %}color:#9ca3af{% endif %}">{% if sm.copper_chg is not none %}{{ '%+.2f'|format(sm.copper_chg) }}%{% else %}—{% endif %}</span>
+                  <span style="font-size:.62rem;color:#6b7280">{% if sm.copper_chg is not none %}{% if sm.copper_chg > 1.5 %}Alza — fortalece al sol peruano (Perú exportador){% elif sm.copper_chg < -1.5 %}Caída — presión bajista sobre el sol{% else %}Sin impacto significativo en el sol{% endif %}{% else %}Cobre USD/lb (correlación con PEN){% endif %}</span>
+                </div>{% endif %}
+                {% if sm.treasury_10y is not none %}
+                <div style="display:grid;grid-template-columns:80px 80px 52px 1fr;gap:0 .35rem;padding:.19rem 0;border-bottom:1px solid #f9fafb;align-items:center">
+                  <span style="font-size:.65rem;font-weight:700;color:#111827">Bono 10Y</span>
+                  <span style="font-size:.7rem;font-weight:800;color:#111827">{{ '%.3f'|format(sm.treasury_10y) }}%</span>
+                  <span style="font-size:.65rem;font-weight:700;{% if sm.treasury_10y_chg is not none and sm.treasury_10y_chg > 0 %}color:#16a34a{% elif sm.treasury_10y_chg is not none and sm.treasury_10y_chg < 0 %}color:#dc2626{% else %}color:#9ca3af{% endif %}">{% if sm.treasury_10y_chg is not none %}{{ '%+.3f'|format(sm.treasury_10y_chg) }}%{% else %}—{% endif %}</span>
+                  <span style="font-size:.62rem;color:#6b7280">{% if sm.treasury_10y_chg is not none %}{% if sm.treasury_10y_chg > 0.03 %}Rendimiento sube → atrae capitales hacia USD{% elif sm.treasury_10y_chg < -0.03 %}Rendimiento baja → menor atractivo del USD{% else %}Bono EE.UU. estable{% endif %}{% else %}Tesoro EE.UU. 10 años{% endif %}</span>
+                </div>{% endif %}
+                {% if sm.gold is not none %}
+                <div style="display:grid;grid-template-columns:80px 80px 52px 1fr;gap:0 .35rem;padding:.19rem 0;border-bottom:1px solid #f9fafb;align-items:center">
+                  <span style="font-size:.65rem;font-weight:700;color:#111827">Oro</span>
+                  <span style="font-size:.7rem;font-weight:800;color:#111827">${{ '%.0f'|format(sm.gold) }}</span>
+                  <span style="font-size:.65rem;font-weight:700;{% if sm.gold_chg is not none and sm.gold_chg > 0 %}color:#16a34a{% elif sm.gold_chg is not none and sm.gold_chg < 0 %}color:#dc2626{% else %}color:#9ca3af{% endif %}">{% if sm.gold_chg is not none %}{{ '%+.2f'|format(sm.gold_chg) }}%{% else %}—{% endif %}</span>
+                  <span style="font-size:.62rem;color:#6b7280">{% if sm.gold_chg is not none %}{% if sm.gold_chg > 1.0 %}Alza — demanda refugio, refleja desconfianza en USD{% elif sm.gold_chg < -0.8 %}Baja — menor demanda refugio, soporte relativo al USD{% else %}Oro sin variación significativa{% endif %}{% else %}Oro USD/oz{% endif %}</span>
+                </div>{% endif %}
+                {% if sm.eurusd is not none %}
+                <div style="display:grid;grid-template-columns:80px 80px 52px 1fr;gap:0 .35rem;padding:.19rem 0;border-bottom:1px solid #f9fafb;align-items:center">
+                  <span style="font-size:.65rem;font-weight:700;color:#111827">EUR/USD</span>
+                  <span style="font-size:.7rem;font-weight:800;color:#111827">{{ '%.4f'|format(sm.eurusd) }}</span>
+                  <span style="font-size:.65rem;font-weight:700;{% if sm.eurusd_chg is not none and sm.eurusd_chg > 0 %}color:#16a34a{% elif sm.eurusd_chg is not none and sm.eurusd_chg < 0 %}color:#dc2626{% else %}color:#9ca3af{% endif %}">{% if sm.eurusd_chg is not none %}{{ '%+.2f'|format(sm.eurusd_chg) }}%{% else %}—{% endif %}</span>
+                  <span style="font-size:.62rem;color:#6b7280">{% if sm.eurusd_chg is not none %}{% if sm.eurusd_chg > 0.3 %}Euro sube vs USD → DXY debilitado → USD/PEN a la baja{% elif sm.eurusd_chg < -0.3 %}Euro cae vs USD → DXY fortalecido → USD/PEN al alza{% else %}Sin presión sobre el DXY{% endif %}{% else %}Euro / Dólar{% endif %}</span>
+                </div>{% endif %}
+                {% set fed = macro.get('fed_rate') %}{% if fed %}
+                <div style="display:grid;grid-template-columns:80px 80px 52px 1fr;gap:0 .35rem;padding:.19rem 0;border-bottom:1px solid #f9fafb;align-items:center">
+                  <span style="font-size:.65rem;font-weight:700;color:#111827">Tasa FED</span>
+                  <span style="font-size:.7rem;font-weight:800;color:#111827">{{ '%.2f'|format(fed.value) }}%</span>
+                  <span style="font-size:.65rem;color:#9ca3af">—</span>
+                  <span style="font-size:.62rem;color:#6b7280">{% if fed.value >= 5.25 %}Política restrictiva → soporte estructural al USD{% elif fed.value <= 3.5 %}Política laxa → presión bajista en USD{% else %}Política monetaria moderada{% endif %}</span>
+                </div>{% endif %}
+                {% set bcrp = macro.get('bcrp_rate') %}{% if bcrp %}
+                <div style="display:grid;grid-template-columns:80px 80px 52px 1fr;gap:0 .35rem;padding:.19rem 0;align-items:center">
+                  <span style="font-size:.65rem;font-weight:700;color:#111827">Tasa BCRP</span>
+                  <span style="font-size:.7rem;font-weight:800;color:#111827">{{ '%.2f'|format(bcrp.value) }}%</span>
+                  <span style="font-size:.65rem;color:#9ca3af">—</span>
+                  <span style="font-size:.62rem;color:#6b7280">Tasa de referencia local — Banco Central del Perú</span>
+                </div>{% endif %}
+              </div>{% endif %}
+            </div>
+
+          </div><!-- /row 2cols -->
+
           {% else %}
-          <ul class="sig-triggers ps-0 mb-1" id="triggerList"></ul>
-          {% endif %}
-
-          <!-- ── Stats ── -->
-          <div style="display:flex;gap:.8rem;font-size:.63rem;color:#9ca3af;margin-top:.45rem;padding-top:.35rem;border-top:1px solid #f3f4f6" id="daStatsRow">
-            <span><strong style="color:#16a34a" id="daBull">{{ da.bullish_signals }}</strong>↑ alcistas</span>
-            <span><strong style="color:#dc2626" id="daBear">{{ da.bearish_signals }}</strong>↓ bajistas</span>
-            <span>score <strong style="color:#374151" id="daNet">{{ '%+d'|format(da.net_score) }}</strong></span>
-            <span>{{ da.news_analyzed }} noticias</span>
-          </div>
-
-          {% else %}
-          <!-- ── Sin análisis diario: señal en tiempo real ── -->
+          <!-- ── Sin análisis diario: señal en tiempo real (ancho completo) ── -->
           <span class="sig-badge-pill sig-pill-{{ rt_st }}" id="signalBadge">
             {% if rt_st == 'bullish' %}▲ Posible subida del dólar
             {% elif rt_st == 'bearish' %}▼ Presión bajista sobre el dólar
@@ -578,6 +558,7 @@
             {% if sig %}{{ sig.reasoning }}{% else %}—{% endif %}
           </div>
           <ul class="sig-triggers ps-0 mt-2 mb-0" id="triggerList"></ul>
+          <div id="daVarsSection" style="display:none"></div>
           <div style="font-size:.62rem;color:#9ca3af;margin-top:.5rem" id="daStatsRow">
             El análisis del día se genera automáticamente a las <strong>8:30 AM Lima</strong> lun–vie.
           </div>
@@ -587,12 +568,14 @@
         </div>
       </div>
     </div>
+  </div>
 
-    <!-- Indicadores Macro + Evolución de Precios -->
-    <div class="col-12 col-lg-7 d-flex flex-column gap-2">
+  <!-- ══ Indicadores Macro + Evolución de Precios ════════════════════════════ -->
+  <div class="row g-3 mb-3">
 
-      <!-- Indicadores Macroeconómicos (compacto) -->
-      <div class="mkt-card">
+    <!-- Indicadores Macroeconómicos (compacto) -->
+    <div class="col-12 col-lg-5">
+      <div class="mkt-card h-100">
         <div class="mkt-card-header">
           <div class="mkt-card-title"><i class="bi bi-bank" style="color:#00DEA8"></i> Indicadores Macroeconómicos</div>
         </div>
@@ -643,9 +626,11 @@
           </div>
         </div>
       </div>
+    </div>
 
-      <!-- Evolución de Precios -->
-      <div class="mkt-card flex-grow-1" style="overflow:visible">
+    <!-- Evolución de Precios -->
+    <div class="col-12 col-lg-7">
+      <div class="mkt-card h-100" style="overflow:visible">
         <div class="mkt-card-header">
           <div class="mkt-card-title"><i class="bi bi-graph-up" style="color:#00DEA8"></i> Evolución de Precios</div>
           <div class="d-flex gap-1 align-items-center">
@@ -676,7 +661,6 @@
           <canvas id="marketChart" style="height:220px;max-height:220px"></canvas>
         </div>
       </div>
-
     </div>
 
   </div>
