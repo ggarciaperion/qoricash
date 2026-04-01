@@ -361,13 +361,8 @@ class EmailTemplates:
                 <strong>Próximos pasos:</strong> Para realizar tu primera operación debemos validar tu identidad. Al intentar crear tu primera operación, se te solicitará subir tu documento. Recibirás una notificación cuando sea aprobado.
             </div>
 
-            <p class="section-label">Disponible en app móvil</p>
             <div class="alert info">
-                Descarga nuestra aplicación e inicia sesión con tu número de documento y la contraseña que registraste en la web.
-                <div style="text-align:center;margin-top:12px;">
-                    <a href="#" class="app-btn android">Android — Play Store</a>
-                    <a href="#" class="app-btn ios">iOS — App Store</a>
-                </div>
+                📱 <strong>Próximamente</strong> publicaremos nuestra app para <strong>iOS</strong> y <strong>Android</strong>. Te notificaremos cuando esté disponible para descargar.
             </div>
 
             <div class="divider"></div>
