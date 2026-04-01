@@ -1219,24 +1219,31 @@ def register_cli_commands(app):
 
             # ── 3. Accounting matches y batches de ops demo ─────────────────
             if demo_op_ids:
-                match_del = AccountingMatch.query.filter(
-                    (AccountingMatch.buy_operation_id.in_(demo_op_ids)) |
-                    (AccountingMatch.sell_operation_id.in_(demo_op_ids))
-                ).delete(synchronize_session=False)
-                print(f"  ✓ {match_del} accounting_matches eliminados")
+                try:
+                    match_del = AccountingMatch.query.filter(
+                        (AccountingMatch.buy_operation_id.in_(demo_op_ids)) |
+                        (AccountingMatch.sell_operation_id.in_(demo_op_ids))
+                    ).delete(synchronize_session=False)
+                    print(f"  ✓ {match_del} accounting_matches eliminados")
+                except Exception:
+                    db.session.rollback()
+                    print(f"  · accounting_matches no existe — saltando")
 
-                # Batches sin matches restantes
-                batch_ids_used = [
-                    r[0] for r in db.session.query(AccountingMatch.batch_id)
-                    .filter(AccountingMatch.batch_id.isnot(None)).all()
-                ]
-                orphan_batches = AccountingBatch.query.filter(
-                    AccountingBatch.id.notin_(batch_ids_used) if batch_ids_used
-                    else AccountingBatch.id.isnot(None)
-                ).all()
-                for b in orphan_batches:
-                    db.session.delete(b)
-                print(f"  ✓ {len(orphan_batches)} batches huérfanos eliminados")
+                try:
+                    batch_ids_used = [
+                        r[0] for r in db.session.query(AccountingMatch.batch_id)
+                        .filter(AccountingMatch.batch_id.isnot(None)).all()
+                    ]
+                    orphan_batches = AccountingBatch.query.filter(
+                        AccountingBatch.id.notin_(batch_ids_used) if batch_ids_used
+                        else AccountingBatch.id.isnot(None)
+                    ).all()
+                    for b in orphan_batches:
+                        db.session.delete(b)
+                    print(f"  ✓ {len(orphan_batches)} batches huérfanos eliminados")
+                except Exception:
+                    db.session.rollback()
+                    print(f"  · accounting_batches no existe — saltando")
 
             # ── 4. Journal entries de las operaciones demo ──────────────────
             if demo_op_ids:
