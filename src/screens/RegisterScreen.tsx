@@ -193,6 +193,11 @@ export const RegisterScreen = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // ── Estado lookup RENIEC / SUNAT ─────────────────────────────────────────
+  const [lookupLoading, setLookupLoading] = useState(false);
+  const [lookupMsg, setLookupMsg] = useState<{ type: 'success' | 'error' | 'warning'; text: string } | null>(null);
+  const [lookupLocked, setLookupLocked] = useState(false);
+
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [acceptPrivacy, setAcceptPrivacy] = useState(false);
   const [acceptPromotions, setAcceptPromotions] = useState(false);
@@ -228,6 +233,83 @@ export const RegisterScreen = () => {
       setDistrito('');
     }
   }, [provincia, departamento]);
+
+  // ── Consulta RENIEC / SUNAT ───────────────────────────────────────────────
+  const handleLookup = async () => {
+    setLookupMsg(null);
+    setLookupLocked(false);
+
+    const isRuc = tipoPersona === 'Jurídica';
+    const docNum = isRuc ? ruc.trim() : dni.trim();
+    const expectedLen = isRuc ? 11 : (tipoDocumento === 'DNI' ? 8 : 9);
+
+    if (docNum.length !== expectedLen) {
+      setLookupMsg({ type: 'warning', text: `Ingresa los ${expectedLen} dígitos antes de buscar.` });
+      return;
+    }
+
+    if (!isRuc && tipoDocumento === 'CE') {
+      setLookupMsg({ type: 'warning', text: 'La búsqueda automática solo está disponible para DNI.' });
+      return;
+    }
+
+    setLookupLoading(true);
+    try {
+      const endpoint = isRuc
+        ? `${API_CONFIG.BASE_URL}/api/web/ruc-lookup?numero=${encodeURIComponent(docNum)}`
+        : `${API_CONFIG.BASE_URL}/api/web/dni-lookup?numero=${encodeURIComponent(docNum)}`;
+
+      const res  = await axios.get(endpoint);
+      const data = res.data;
+
+      if (!data.success) {
+        setLookupMsg({ type: 'error', text: data.message || 'No se encontró el documento.' });
+        return;
+      }
+
+      if (isRuc) {
+        setRazonSocial(data.razon_social || '');
+        if (data.direccion)    setDireccion(data.direccion);
+        if (data.departamento) setDepartamento(data.departamento);
+        if (data.provincia)    setProvincia(data.provincia);
+        if (data.distrito)     setDistrito(data.distrito);
+
+        const estado = data.estado || '';
+        const esActivo = estado.includes('ACTIVO');
+        setLookupMsg({
+          type: esActivo ? 'success' : 'warning',
+          text: `${data.razon_social}${estado ? ` — ${estado}` : ''}${data.condicion ? ` · ${data.condicion}` : ''}`,
+        });
+      } else {
+        setNombres(data.nombres || '');
+        setApellidoPaterno(data.apellido_paterno || '');
+        setApellidoMaterno(data.apellido_materno || '');
+        setLookupMsg({
+          type: 'success',
+          text: `${data.apellido_paterno} ${data.apellido_materno}, ${data.nombres}`,
+        });
+      }
+      setLookupLocked(true);
+    } catch (err: any) {
+      const msg = err.response?.data?.message || 'No se pudo conectar con el servicio.';
+      setLookupMsg({ type: 'error', text: msg });
+    } finally {
+      setLookupLoading(false);
+    }
+  };
+
+  // Resetear lookup cuando cambia el número de documento
+  const handleDniChange = (text: string) => {
+    setDni(text);
+    setError('');
+    if (lookupLocked) { setLookupLocked(false); setLookupMsg(null); }
+  };
+
+  const handleRucChange = (text: string) => {
+    setRuc(text);
+    setError('');
+    if (lookupLocked) { setLookupLocked(false); setLookupMsg(null); }
+  };
 
   const validateForm = () => {
     if (tipoPersona === 'Natural') {
@@ -405,28 +487,76 @@ export const RegisterScreen = () => {
                 label="Elegir tipo de documento"
                 value={tipoDocumento === 'DNI' ? '🪪  DNI — Documento Nacional de Identidad (8 dígitos)' : '📘  CE — Carnet de Extranjería (9 dígitos)'}
                 placeholder="Seleccionar tipo de documento"
-                onPress={() => setDocTypeMenuVisible(true)}
+                onPress={() => { setDocTypeMenuVisible(true); setLookupLocked(false); setLookupMsg(null); }}
               />
-              <TextInput
-                label={`Número de ${tipoDocumento} *`}
-                value={dni}
-                onChangeText={(t) => { setDni(t); setError(''); }}
-                mode="outlined"
-                keyboardType="numeric"
-                maxLength={tipoDocumento === 'DNI' ? 8 : 9}
-                style={styledInput()}
-                theme={inputTheme}
-                left={<TextInput.Icon icon="identifier" />}
-              />
+
+              {/* Campo DNI + botón búsqueda RENIEC */}
+              <View style={lookupStyles.row}>
+                <TextInput
+                  label={`Número de ${tipoDocumento} *`}
+                  value={dni}
+                  onChangeText={handleDniChange}
+                  mode="outlined"
+                  keyboardType="numeric"
+                  maxLength={tipoDocumento === 'DNI' ? 8 : 9}
+                  style={[styledInput(), { flex: 1, marginBottom: 0 },
+                    lookupLocked && { backgroundColor: '#f0fdf4' }]}
+                  theme={lookupLocked
+                    ? { ...inputTheme, colors: { ...inputTheme.colors, primary: '#16a34a', onSurfaceVariant: '#16a34a' } }
+                    : inputTheme}
+                  left={<TextInput.Icon icon="identifier" />}
+                  editable={!lookupLocked}
+                />
+                {tipoDocumento === 'DNI' && (
+                  <TouchableOpacity
+                    onPress={handleLookup}
+                    disabled={lookupLoading}
+                    style={[lookupStyles.btn, lookupLoading && lookupStyles.btnDisabled]}
+                    activeOpacity={0.8}
+                  >
+                    {lookupLoading
+                      ? <IconButton icon="loading" size={18} iconColor="#fff" style={{ margin: 0 }} animating />
+                      : <IconButton icon="magnify" size={18} iconColor="#fff" style={{ margin: 0 }} />
+                    }
+                    <Text style={lookupStyles.btnTxt}>RENIEC</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {/* Feedback lookup */}
+              {lookupMsg && (
+                <View style={[lookupStyles.feedback,
+                  lookupMsg.type === 'success' && lookupStyles.fbSuccess,
+                  lookupMsg.type === 'warning' && lookupStyles.fbWarning,
+                  lookupMsg.type === 'error'   && lookupStyles.fbError,
+                ]}>
+                  <IconButton
+                    icon={lookupMsg.type === 'success' ? 'check-circle' : 'alert-circle'}
+                    size={16}
+                    iconColor={lookupMsg.type === 'success' ? '#16a34a' : lookupMsg.type === 'warning' ? '#d97706' : Colors.danger}
+                    style={{ margin: 0 }}
+                  />
+                  <Text style={[lookupStyles.fbTxt,
+                    lookupMsg.type === 'success' && { color: '#15803d' },
+                    lookupMsg.type === 'warning' && { color: '#92400e' },
+                    lookupMsg.type === 'error'   && { color: Colors.danger },
+                  ]}>{lookupMsg.text}</Text>
+                </View>
+              )}
+
               <TextInput
                 label="Nombres *"
                 value={nombres}
                 onChangeText={(t) => { setNombres(t); setError(''); }}
                 mode="outlined"
                 autoCapitalize="words"
-                style={styledInput()}
-                theme={inputTheme}
+                editable={!lookupLocked}
+                style={[styledInput(), lookupLocked && { backgroundColor: '#f0fdf4' }]}
+                theme={lookupLocked
+                  ? { ...inputTheme, colors: { ...inputTheme.colors, primary: '#16a34a', onSurfaceVariant: '#16a34a' } }
+                  : inputTheme}
                 left={<TextInput.Icon icon="account-outline" />}
+                right={lookupLocked ? <TextInput.Icon icon="lock" iconColor="#16a34a" /> : undefined}
               />
               <View style={styles.row}>
                 <TextInput
@@ -435,8 +565,11 @@ export const RegisterScreen = () => {
                   onChangeText={(t) => { setApellidoPaterno(t); setError(''); }}
                   mode="outlined"
                   autoCapitalize="words"
-                  style={[styledInput(), styles.flex1]}
-                  theme={inputTheme}
+                  editable={!lookupLocked}
+                  style={[styledInput(), styles.flex1, lookupLocked && { backgroundColor: '#f0fdf4' }]}
+                  theme={lookupLocked
+                    ? { ...inputTheme, colors: { ...inputTheme.colors, primary: '#16a34a', onSurfaceVariant: '#16a34a' } }
+                    : inputTheme}
                 />
                 <TextInput
                   label="Ap. Materno"
@@ -444,33 +577,77 @@ export const RegisterScreen = () => {
                   onChangeText={(t) => { setApellidoMaterno(t); setError(''); }}
                   mode="outlined"
                   autoCapitalize="words"
-                  style={[styledInput(), styles.flex1]}
-                  theme={inputTheme}
+                  editable={!lookupLocked}
+                  style={[styledInput(), styles.flex1, lookupLocked && { backgroundColor: '#f0fdf4' }]}
+                  theme={lookupLocked
+                    ? { ...inputTheme, colors: { ...inputTheme.colors, primary: '#16a34a', onSurfaceVariant: '#16a34a' } }
+                    : inputTheme}
                 />
               </View>
             </>
           ) : (
             <>
-              <TextInput
-                label="RUC *"
-                value={ruc}
-                onChangeText={(t) => { setRuc(t); setError(''); }}
-                mode="outlined"
-                keyboardType="numeric"
-                maxLength={11}
-                style={styledInput()}
-                theme={inputTheme}
-                left={<TextInput.Icon icon="barcode" />}
-              />
+              {/* Campo RUC + botón búsqueda SUNAT */}
+              <View style={lookupStyles.row}>
+                <TextInput
+                  label="RUC *"
+                  value={ruc}
+                  onChangeText={handleRucChange}
+                  mode="outlined"
+                  keyboardType="numeric"
+                  maxLength={11}
+                  style={[styledInput(), { flex: 1, marginBottom: 0 }]}
+                  theme={inputTheme}
+                  left={<TextInput.Icon icon="barcode" />}
+                />
+                <TouchableOpacity
+                  onPress={handleLookup}
+                  disabled={lookupLoading}
+                  style={[lookupStyles.btn, lookupLoading && lookupStyles.btnDisabled]}
+                  activeOpacity={0.8}
+                >
+                  {lookupLoading
+                    ? <IconButton icon="loading" size={18} iconColor="#fff" style={{ margin: 0 }} animating />
+                    : <IconButton icon="magnify" size={18} iconColor="#fff" style={{ margin: 0 }} />
+                  }
+                  <Text style={lookupStyles.btnTxt}>SUNAT</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Feedback lookup */}
+              {lookupMsg && (
+                <View style={[lookupStyles.feedback,
+                  lookupMsg.type === 'success' && lookupStyles.fbSuccess,
+                  lookupMsg.type === 'warning' && lookupStyles.fbWarning,
+                  lookupMsg.type === 'error'   && lookupStyles.fbError,
+                ]}>
+                  <IconButton
+                    icon={lookupMsg.type === 'success' ? 'check-circle' : 'alert-circle'}
+                    size={16}
+                    iconColor={lookupMsg.type === 'success' ? '#16a34a' : lookupMsg.type === 'warning' ? '#d97706' : Colors.danger}
+                    style={{ margin: 0 }}
+                  />
+                  <Text style={[lookupStyles.fbTxt,
+                    lookupMsg.type === 'success' && { color: '#15803d' },
+                    lookupMsg.type === 'warning' && { color: '#92400e' },
+                    lookupMsg.type === 'error'   && { color: Colors.danger },
+                  ]}>{lookupMsg.text}</Text>
+                </View>
+              )}
+
               <TextInput
                 label="Razón Social *"
                 value={razonSocial}
                 onChangeText={(t) => { setRazonSocial(t); setError(''); }}
                 mode="outlined"
                 autoCapitalize="words"
-                style={styledInput()}
-                theme={inputTheme}
+                editable={!lookupLocked}
+                style={[styledInput(), lookupLocked && { backgroundColor: '#f0fdf4' }]}
+                theme={lookupLocked
+                  ? { ...inputTheme, colors: { ...inputTheme.colors, primary: '#16a34a', onSurfaceVariant: '#16a34a' } }
+                  : inputTheme}
                 left={<TextInput.Icon icon="domain" />}
+                right={lookupLocked ? <TextInput.Icon icon="lock" iconColor="#16a34a" /> : undefined}
               />
               <TextInput
                 label="Persona de Contacto *"
@@ -841,4 +1018,41 @@ const styles = StyleSheet.create({
 
   cancelBtn: { alignItems: 'center', paddingVertical: 16 },
   cancelTxt: { color: Colors.textLight, fontSize: 14, fontWeight: '600' },
+});
+
+// ── Lookup styles ──────────────────────────────────────────────────────────
+const lookupStyles = StyleSheet.create({
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 10,
+  },
+  btn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.primary,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    gap: 2,
+    alignSelf: 'center',
+    marginTop: 4,
+  },
+  btnDisabled: { opacity: 0.6 },
+  btnTxt: { color: '#fff', fontSize: 11, fontWeight: '800', letterSpacing: 0.5 },
+  feedback: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    marginBottom: 10,
+    gap: 6,
+  },
+  fbSuccess: { backgroundColor: '#f0fdf4', borderColor: '#86efac' },
+  fbWarning: { backgroundColor: '#fffbeb', borderColor: '#fcd34d' },
+  fbError:   { backgroundColor: '#fef2f2', borderColor: '#fecaca' },
+  fbTxt: { flex: 1, fontSize: 12, lineHeight: 17 },
 });

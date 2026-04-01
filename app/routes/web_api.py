@@ -1643,3 +1643,162 @@ def submit_complaint():
             'success': False,
             'message': f'Error al procesar solicitud: {str(e)}'
         }), 500
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ENDPOINTS PÚBLICOS DE CONSULTA — RENIEC / SUNAT (sin autenticación)
+# Usados por: qoricash.pe (web) y app móvil (registro de nuevos clientes)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@web_api_bp.route('/dni-lookup', methods=['GET', 'OPTIONS'])
+@csrf.exempt
+@limiter.limit("10 per minute")
+def public_dni_lookup():
+    """
+    Consulta RENIEC por DNI — endpoint público para registro de nuevos clientes.
+    No requiere autenticación. No devuelve datos de clientes existentes.
+
+    Query param: numero (8 dígitos)
+    Returns: { success, nombres, apellido_paterno, apellido_materno }
+    """
+    import urllib.request, urllib.error, json as _json, os
+
+    if request.method == 'OPTIONS':
+        return '', 204
+
+    dni = request.args.get('numero', '').strip()
+
+    if not dni or not dni.isdigit() or len(dni) != 8:
+        return jsonify({'success': False, 'message': 'DNI debe tener 8 dígitos numéricos'}), 400
+
+    token = (
+        os.environ.get('APIS_NET_PE_TOKEN') or
+        current_app.config.get('APIS_NET_PE_TOKEN', '')
+    ).strip()
+
+    try:
+        if token:
+            url  = f'https://api.decolecta.com/v1/reniec/dni?numero={dni}'
+            hdrs = {
+                'Accept': 'application/json',
+                'User-Agent': 'QoriCash/2.0',
+                'Authorization': f'Bearer {token}',
+            }
+        else:
+            url  = f'https://api.apis.net.pe/v1/dni?numero={dni}'
+            hdrs = {'Accept': 'application/json', 'User-Agent': 'QoriCash/2.0'}
+
+        req = urllib.request.Request(url, headers=hdrs)
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            data = _json.loads(resp.read().decode())
+
+        nombres = (data.get('nombres') or data.get('nombre') or '').strip().upper()
+        ap_pat  = (data.get('apellidoPaterno') or data.get('apellido_paterno') or '').strip().upper()
+        ap_mat  = (data.get('apellidoMaterno') or data.get('apellido_materno') or '').strip().upper()
+
+        # Fallback a apis.net.pe si decolecta no retorna nombres
+        if token and not nombres and not ap_pat:
+            url2  = f'https://api.apis.net.pe/v1/dni?numero={dni}'
+            hdrs2 = {'Accept': 'application/json', 'User-Agent': 'QoriCash/2.0'}
+            req2  = urllib.request.Request(url2, headers=hdrs2)
+            with urllib.request.urlopen(req2, timeout=8) as resp2:
+                data = _json.loads(resp2.read().decode())
+            nombres = (data.get('nombres') or data.get('nombre') or '').strip().upper()
+            ap_pat  = (data.get('apellido_paterno') or data.get('apellidoPaterno') or '').strip().upper()
+            ap_mat  = (data.get('apellido_materno') or data.get('apellidoMaterno') or '').strip().upper()
+
+        if not nombres and not ap_pat:
+            return jsonify({'success': False, 'message': 'DNI no encontrado en RENIEC'}), 404
+
+        return jsonify({
+            'success': True,
+            'dni': dni,
+            'nombres': nombres,
+            'apellido_paterno': ap_pat,
+            'apellido_materno': ap_mat,
+        })
+
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            return jsonify({'success': False, 'message': 'DNI no encontrado en RENIEC'}), 404
+        return jsonify({'success': False, 'message': 'Error al consultar RENIEC — intente nuevamente'}), 502
+    except urllib.error.URLError:
+        return jsonify({'success': False, 'message': 'No se pudo conectar al servicio de consulta'}), 503
+    except Exception as e:
+        logger.error(f'[public DNI lookup] {e}')
+        return jsonify({'success': False, 'message': 'Error interno — ingrese los datos manualmente'}), 500
+
+
+@web_api_bp.route('/ruc-lookup', methods=['GET', 'OPTIONS'])
+@csrf.exempt
+@limiter.limit("10 per minute")
+def public_ruc_lookup():
+    """
+    Consulta SUNAT por RUC — endpoint público para registro de nuevos clientes.
+    No requiere autenticación. No devuelve datos de clientes existentes.
+
+    Query param: numero (11 dígitos)
+    Returns: { success, ruc, razon_social, estado, condicion, direccion, departamento, provincia, distrito }
+    """
+    import urllib.request, urllib.error, json as _json, os
+
+    if request.method == 'OPTIONS':
+        return '', 204
+
+    ruc = request.args.get('numero', '').strip()
+
+    if not ruc or not ruc.isdigit() or len(ruc) != 11:
+        return jsonify({'success': False, 'message': 'RUC debe tener 11 dígitos numéricos'}), 400
+
+    if ruc[0] not in ('1', '2'):
+        return jsonify({'success': False, 'message': 'RUC inválido — debe comenzar con 1 o 2'}), 400
+
+    token = (
+        os.environ.get('APIS_NET_PE_TOKEN') or
+        current_app.config.get('APIS_NET_PE_TOKEN', '')
+    ).strip()
+
+    try:
+        if token:
+            url  = f'https://api.decolecta.com/v1/sunat/ruc?numero={ruc}'
+            hdrs = {
+                'Accept': 'application/json',
+                'User-Agent': 'QoriCash/2.0',
+                'Authorization': f'Bearer {token}',
+            }
+        else:
+            url  = f'https://api.apis.net.pe/v1/ruc?numero={ruc}'
+            hdrs = {'Accept': 'application/json', 'User-Agent': 'QoriCash/2.0'}
+
+        req = urllib.request.Request(url, headers=hdrs)
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            data = _json.loads(resp.read().decode())
+
+        razon_social = (
+            data.get('razon_social') or data.get('nombre') or data.get('razonSocial') or ''
+        ).strip().upper()
+
+        if not razon_social:
+            return jsonify({'success': False, 'message': 'RUC no encontrado en SUNAT'}), 404
+
+        return jsonify({
+            'success': True,
+            'ruc': ruc,
+            'razon_social': razon_social,
+            'estado': (data.get('estado') or '').strip().upper(),
+            'condicion': (data.get('condicion') or '').strip().upper(),
+            'direccion': (data.get('direccion') or '').strip(),
+            'departamento': (data.get('departamento') or '').strip(),
+            'provincia': (data.get('provincia') or '').strip(),
+            'distrito': (data.get('distrito') or '').strip(),
+        })
+
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            return jsonify({'success': False, 'message': 'RUC no encontrado en SUNAT'}), 404
+        return jsonify({'success': False, 'message': 'Error al consultar SUNAT — intente nuevamente'}), 502
+    except urllib.error.URLError:
+        return jsonify({'success': False, 'message': 'No se pudo conectar al servicio de consulta'}), 503
+    except Exception as e:
+        logger.error(f'[public RUC lookup] {e}')
+        return jsonify({'success': False, 'message': 'Error interno — ingrese los datos manualmente'}), 500
