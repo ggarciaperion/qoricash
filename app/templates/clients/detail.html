@@ -279,15 +279,15 @@
                                     <tr>
                                         <td>#{{ op.id }}</td>
                                         <td>
-                                            {% if op.tipo_cambio == 'Compra' %}
+                                            {% if op.operation_type == 'Compra' %}
                                                 <span class="badge bg-success">Compra</span>
                                             {% else %}
                                                 <span class="badge bg-danger">Venta</span>
                                             {% endif %}
                                         </td>
                                         <td>
-                                            <strong>{{ op.monto_soles }} S/</strong><br>
-                                            <small class="text-muted">{{ op.monto_dolares }} USD</small>
+                                            <strong>{{ op.amount_pen }} S/</strong><br>
+                                            <small class="text-muted">{{ op.amount_usd }} USD</small>
                                         </td>
                                         <td>
                                             {% if op.status == 'Completada' %}

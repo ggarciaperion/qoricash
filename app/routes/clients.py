@@ -1022,11 +1022,11 @@ def client_detail(client_id):
             list_type='AUTO_COMPREHENSIVE'
         ).order_by(RestrictiveListCheck.checked_at.desc()).first()
 
-        if auto_check and auto_check.overall_result:
+        if auto_check and auto_check.result:
             restrictive_status['has_checks'] = True
-            if auto_check.overall_result == 'Clean':
+            if auto_check.result == 'Clean':
                 restrictive_status['all_clean'] = True
-            elif auto_check.overall_result == 'Match':
+            elif auto_check.result == 'Match':
                 restrictive_status['has_matches'] = True
             else:
                 restrictive_status['partial'] = True
