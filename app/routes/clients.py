@@ -1256,5 +1256,108 @@ def dni_lookup():
         return jsonify({'success': False, 'message': 'Error interno — ingrese los datos manualmente'}), 500
 
 
+@clients_bp.route('/api/<int:client_id>/export_history')
+@login_required
+def export_client_history(client_id):
+    """
+    Exportar historial de operaciones de un cliente específico a Excel.
+    Mismo formato que /operations/api/export_history, filtrado por client_id.
+
+    Query params opcionales:
+        start_date: Fecha inicio (formato: YYYY-MM-DD)
+        end_date:   Fecha fin   (formato: YYYY-MM-DD)
+    """
+    import openpyxl
+    from openpyxl.styles import Font, Alignment, PatternFill
+    from io import BytesIO
+    from app.models.client import Client
+    from app.models.operation import Operation
+    from app.routes.operations import get_bank_account_info
+
+    client = Client.query.get_or_404(client_id)
+
+    start_date = request.args.get('start_date')
+    end_date   = request.args.get('end_date')
+
+    query = Operation.query.filter_by(client_id=client_id)
+
+    if start_date:
+        try:
+            start = datetime.strptime(start_date, '%Y-%m-%d')
+            query = query.filter(Operation.created_at >= start)
+        except ValueError:
+            pass
+
+    if end_date:
+        try:
+            end = datetime.strptime(end_date, '%Y-%m-%d').replace(hour=23, minute=59, second=59)
+            query = query.filter(Operation.created_at <= end)
+        except ValueError:
+            pass
+
+    operations = query.order_by(Operation.created_at.desc()).all()
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Historial de Operaciones"
+
+    header_fill      = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+    header_font      = Font(color="FFFFFF", bold=True)
+    header_alignment = Alignment(horizontal="center", vertical="center")
+
+    if current_user.role in ['Master', 'Operador']:
+        headers = ['ID OP.', 'DOCUMENTO', 'CLIENTE', 'USD', 'T.C.', 'PEN',
+                   'CUENTA CARGO', 'CUENTA DESTINO', 'CANAL', 'ESTADO', 'FECHA', 'USUARIO']
+    else:
+        headers = ['ID OP.', 'DOCUMENTO', 'CLIENTE', 'USD', 'T.C.', 'PEN',
+                   'CUENTA CARGO', 'CUENTA DESTINO', 'CANAL', 'ESTADO', 'FECHA']
+
+    for col_num, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col_num, value=header)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = header_alignment
+
+    for row_num, op in enumerate(operations, 2):
+        ws.cell(row=row_num, column=1, value=op.operation_id)
+        ws.cell(row=row_num, column=2, value=op.client.dni if op.client else '-')
+        ws.cell(row=row_num, column=3, value=op.client.full_name if op.client else '-')
+        ws.cell(row=row_num, column=4, value=float(op.amount_usd))
+        ws.cell(row=row_num, column=5, value=float(op.exchange_rate))
+        ws.cell(row=row_num, column=6, value=float(op.amount_pen))
+        ws.cell(row=row_num, column=7, value=get_bank_account_info(op, op.source_account))
+        ws.cell(row=row_num, column=8, value=get_bank_account_info(op, op.destination_account))
+        ws.cell(row=row_num, column=9, value='Web' if op.origen == 'plataforma' else 'Sistema')
+        ws.cell(row=row_num, column=10, value=op.status)
+        ws.cell(row=row_num, column=11, value=op.created_at.strftime('%d/%m/%Y %H:%M') if op.created_at else '-')
+        if current_user.role in ['Master', 'Operador']:
+            ws.cell(row=row_num, column=12, value=op.user.email if op.user else '-')
+
+    ws.column_dimensions['A'].width = 12
+    ws.column_dimensions['B'].width = 15
+    ws.column_dimensions['C'].width = 30
+    ws.column_dimensions['D'].width = 12
+    ws.column_dimensions['E'].width = 10
+    ws.column_dimensions['F'].width = 12
+    ws.column_dimensions['G'].width = 35
+    ws.column_dimensions['H'].width = 35
+    ws.column_dimensions['I'].width = 12
+    ws.column_dimensions['J'].width = 15
+    ws.column_dimensions['K'].width = 18
+    if current_user.role in ['Master', 'Operador']:
+        ws.column_dimensions['L'].width = 30
+
+    excel_file = BytesIO()
+    wb.save(excel_file)
+    excel_file.seek(0)
+
+    filename = f"historial_{client.dni}_{now_peru().strftime('%Y%m%d_%H%M%S')}.xlsx"
+
+    return send_file(
+        excel_file,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        as_attachment=True,
+        download_name=filename
+    )
 
 

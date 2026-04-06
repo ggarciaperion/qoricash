@@ -304,9 +304,9 @@
                                 </tbody>
                             </table>
                         </div>
-                        <a href="/operations/list?client_id={{ client.id }}" class="btn btn-sm btn-outline-primary">
-                            Ver todas las operaciones
-                        </a>
+                        <button class="btn btn-sm btn-success" onclick="openExportModal()">
+                            <i class="bi bi-file-earmark-excel"></i> Descargar historial
+                        </button>
                     {% else %}
                         <p class="text-muted mb-0">No hay operaciones registradas</p>
                     {% endif %}
@@ -640,6 +640,37 @@
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                 <button type="button" class="btn btn-warning" onclick="guardarPEP()">
                     <i class="bi bi-save"></i> Guardar y Recalcular Riesgo
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Descargar historial de operaciones -->
+<div class="modal fade" id="exportHistorialModal" tabindex="-1" aria-labelledby="exportHistorialLabel" aria-hidden="true">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="exportHistorialLabel">
+                    <i class="bi bi-file-earmark-excel text-success"></i> Descargar historial
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Fecha inicio</label>
+                    <input type="date" id="exportStartDate" class="form-control">
+                </div>
+                <div class="mb-1">
+                    <label class="form-label fw-semibold">Fecha fin</label>
+                    <input type="date" id="exportEndDate" class="form-control">
+                </div>
+                <div class="form-text text-muted mt-2">Deje vacío para descargar todo el historial.</div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success" onclick="descargarHistorial()">
+                    <i class="bi bi-download"></i> Descargar Excel
                 </button>
             </div>
         </div>
@@ -1226,6 +1257,30 @@ function buildScreeningHTML(data) {
         </div>`;
 
     return html;
+}
+
+function openExportModal() {
+    // Preseleccionar fechas: último mes por defecto
+    const today = new Date();
+    const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    document.getElementById('exportEndDate').value = today.toISOString().split('T')[0];
+    document.getElementById('exportStartDate').value = firstOfMonth.toISOString().split('T')[0];
+    new bootstrap.Modal(document.getElementById('exportHistorialModal')).show();
+}
+
+function descargarHistorial() {
+    const startDate = document.getElementById('exportStartDate').value;
+    const endDate   = document.getElementById('exportEndDate').value;
+
+    let url = `/clients/api/{{ client.id }}/export_history`;
+    const params = new URLSearchParams();
+    if (startDate) params.append('start_date', startDate);
+    if (endDate)   params.append('end_date', endDate);
+    if (params.toString()) url += '?' + params.toString();
+
+    // Cerrar modal y disparar descarga directa
+    bootstrap.Modal.getInstance(document.getElementById('exportHistorialModal')).hide();
+    window.location.href = url;
 }
 </script>
 {% endblock %}
