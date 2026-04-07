@@ -72,6 +72,18 @@ def create_app(config_name=None):
             'Configura REDIS_URL en Render para rate limiting efectivo en producción.'
         )
 
+    # Aplicar migraciones de columnas nuevas (idempotente — usa ADD COLUMN IF NOT EXISTS)
+    try:
+        with app.app_context():
+            from app.extensions import db
+            from sqlalchemy import text
+            db.session.execute(text(
+                "ALTER TABLE clients ADD COLUMN IF NOT EXISTS registration_canal VARCHAR(20)"
+            ))
+            db.session.commit()
+    except Exception as e:
+        logging.warning(f"[Migration] registration_canal: {e}")
+
     # Sembrar competidores FX (idempotente — solo inserta si no existen)
     try:
         with app.app_context():
