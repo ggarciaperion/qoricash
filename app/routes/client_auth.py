@@ -482,33 +482,33 @@ def register_client():
             tipo_doc = 'RUC' if tipo_persona == 'Jurídica' else 'DNI'
             return jsonify({'success': False, 'message': f'{tipo_doc} ya registrado'}), 400
 
-        # Obtener o crear usuario sistema "Web" para asignar como creador
+        # Obtener o crear usuario sistema "App Móvil" para asignar como creador
         from werkzeug.security import generate_password_hash
         from app.utils.formatters import now_peru
         import secrets
 
-        # Buscar el usuario sistema Web por email canónico (único identificador estable)
-        platform_user = User.query.filter_by(email='web@qoricash.pe').first()
+        # Buscar el usuario sistema App Móvil por email canónico
+        platform_user = User.query.filter_by(email='app@qoricash.pe').first()
         if not platform_user:
             # Fallback por DNI canónico
-            platform_user = User.query.filter_by(dni='99999997').first()
+            platform_user = User.query.filter_by(dni='99999999').first()
 
         if not platform_user:
-            logger.info("🤖 Usuario 'Web' no existe, creándolo...")
+            logger.info("🤖 Usuario 'App Móvil' no existe, creándolo...")
             platform_user = User(
-                username='Página Web',
-                email='web@qoricash.pe',
-                dni='99999997',
-                role='Web',
+                username='App Móvil',
+                email='app@qoricash.pe',
+                dni='99999999',
+                role='App',
                 password_hash=generate_password_hash(secrets.token_urlsafe(32)),
                 status='Activo',
                 created_at=now_peru()
             )
             db.session.add(platform_user)
             db.session.flush()
-            logger.info(f"✅ Usuario 'Web' creado con ID: {platform_user.id}")
+            logger.info(f"✅ Usuario 'App Móvil' creado con ID: {platform_user.id}")
         else:
-            logger.info(f"✅ Usuario sistema web encontrado con ID: {platform_user.id}")
+            logger.info(f"✅ Usuario sistema App Móvil encontrado con ID: {platform_user.id}")
 
         # Crear cliente según tipo de persona
         # IMPORTANTE: Todos los clientes auto-registrados inician con status='Inactivo'
@@ -555,6 +555,14 @@ def register_client():
         db.session.commit()
 
         logger.info(f"Cliente registrado: {new_client.dni} (ID: {new_client.id}) con {len(bank_accounts) if bank_accounts else 0} cuentas bancarias")
+
+        # Crear perfil de riesgo automáticamente (igual que el registro desde sistema web)
+        try:
+            from app.services.compliance_service import ComplianceService
+            ComplianceService.update_client_risk_profile(new_client.id, platform_user.id)
+            logger.info(f'Perfil de riesgo creado automáticamente para cliente {new_client.id}')
+        except Exception as risk_exc:
+            logger.warning(f'Error al crear perfil de riesgo para cliente {new_client.id}: {str(risk_exc)}')
 
         # Enviar email de bienvenida diferenciado (registro desde MÓVIL)
         try:

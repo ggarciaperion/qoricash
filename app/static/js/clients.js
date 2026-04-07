@@ -1143,7 +1143,16 @@ function saveClient() {
         },
         body: JSON.stringify(clientData)
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            return response.json().then(errData => {
+                throw new Error(errData.message || `Error ${response.status}`);
+            }).catch(() => {
+                throw new Error(`Error ${response.status}: ${response.statusText}`);
+            });
+        }
+        return response.json();
+    })
     .then(data => {
         hideLoading();
 
@@ -1185,25 +1194,27 @@ function saveClient() {
                 }
             }
 
+            // Cerrar modal y marcar éxito del cliente ANTES de subir documentos
+            window.isSavingClient = false;
+            bootstrap.Modal.getInstance(document.getElementById('createClientModal')).hide();
+
             if (hasFiles) {
+                showNotification('success', data.message + ' — Subiendo documentos...');
                 uploadClientDocuments(data.client.id, files)
                     .then(() => {
                         hideLoading();
-                        window.isSavingClient = false;  // Restaurar flag
-                        showNotification('success', data.message);
-                        bootstrap.Modal.getInstance(document.getElementById('createClientModal')).hide();
+                        showNotification('success', 'Cliente y documentos guardados correctamente.');
                         setTimeout(() => location.reload(), 1500);
                     })
                     .catch(error => {
                         hideLoading();
-                        restoreButton();  // Restaurar botón en caso de error
-                        showNotification('error', error.message || 'Error al procesar documentos del cliente');
+                        // El cliente YA fue creado; solo falló la subida de documentos
+                        showNotification('warning', 'Cliente creado. Error al subir documentos: ' + (error.message || 'intente subirlos desde el detalle del cliente.'));
+                        setTimeout(() => location.reload(), 2500);
                     });
             } else {
                 hideLoading();
-                window.isSavingClient = false;  // Restaurar flag
                 showNotification('success', data.message);
-                bootstrap.Modal.getInstance(document.getElementById('createClientModal')).hide();
                 setTimeout(() => location.reload(), 1500);
             }
         } else {
@@ -1215,7 +1226,7 @@ function saveClient() {
         hideLoading();
         restoreButton();  // Restaurar botón en caso de error
         console.error('Error:', error);
-        showNotification('error', 'Error al guardar el cliente');
+        showNotification('error', error.message || 'Error al guardar el cliente');
     });
 }
 

@@ -19,7 +19,12 @@ function connectSocketIO() {
     }
 
     console.log('🔌 Intentando conectar a SocketIO...');
-    socket = io();
+    socket = io({
+        transports: ['websocket', 'polling'],  // polling como fallback para Safari
+        reconnection: true,
+        reconnectionDelay: 2000,
+        reconnectionAttempts: 10
+    });
 
     socket.on('connect', function() {
         console.log('✅ SocketIO conectado exitosamente');

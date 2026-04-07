@@ -128,9 +128,19 @@
                                 {% if current_user.role in ['Master', 'Operador'] %}
                                 <td>
                                     {% if c.creator %}
-                                        <span class="badge bg-secondary" title="{{ c.creator.role }}">
-                                            <i class="bi bi-envelope"></i> {{ c.creator.email }}
-                                        </span>
+                                        {% if c.creator.email == 'app@qoricash.pe' %}
+                                            <span class="badge bg-primary" title="Registro desde App Móvil">
+                                                <i class="bi bi-phone"></i> App
+                                            </span>
+                                        {% elif c.creator.email == 'web@qoricash.pe' %}
+                                            <span class="badge bg-info text-dark" title="Registro desde Página Web">
+                                                <i class="bi bi-globe"></i> Web
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-secondary" title="{{ c.creator.email }}">
+                                                <i class="bi bi-person"></i> {{ c.creator.username }}
+                                            </span>
+                                        {% endif %}
                                     {% else %}
                                         <span class="text-muted">N/A</span>
                                     {% endif %}

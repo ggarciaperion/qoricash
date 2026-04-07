@@ -133,7 +133,7 @@ class FileService:
                 return True, 'Archivo guardado localmente', local_url
             except Exception as e:
                 logger.warning(f'[LOCAL] No se pudo guardar archivo: {e}')
-                return True, 'Sin archivo (modo local)', '/static/uploads/placeholder.txt'
+                return False, f'Error al guardar archivo localmente: {str(e)}', None
 
         try:
             # Generar nombre seguro

@@ -238,7 +238,9 @@ function validarDocumentosCliente(clientId) {
 
                 // Función helper para verificar si una URL es válida (no null, no undefined, no vacía)
                 const isValidUrl = (url) => {
-                    return url && url !== null && url !== undefined && url.trim() !== '' && url !== 'null';
+                    if (!url || url === null || url === undefined) return false;
+                    const s = url.trim();
+                    return s !== '' && s !== 'null' && s !== 'undefined' && !s.includes('placeholder');
                 };
 
                 // Validar según tipo de documento
