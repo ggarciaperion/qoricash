@@ -1376,48 +1376,39 @@ def export_client_history(client_id):
 def repair_assign_app_canal():
     """
     Ruta de mantenimiento (solo Master).
-    Asigna el usuario 'App Móvil' a todos los clientes que tienen created_by = NULL.
-    Estos son clientes registrados desde el app móvil antes del fix del canal.
+    Repara registration_canal en todos los clientes que no lo tienen.
+    - created_by NULL → 'app'
+    - creator email = web@qoricash.pe → 'web'
+    - creator email = app@qoricash.pe → 'app'
     """
     from app.models.client import Client
     from app.models.user import User
-    from werkzeug.security import generate_password_hash
-    import secrets
+    from sqlalchemy import text
 
-    # Obtener o crear usuario App Móvil
-    app_user = User.query.filter_by(email='app@qoricash.pe').first()
-    if not app_user:
-        app_user = User.query.filter_by(dni='99999999').first()
-    if not app_user:
-        try:
-            app_user = User(
-                username='App Móvil',
-                email='app@qoricash.pe',
-                dni='99999999',
-                role='App',
-                password_hash=generate_password_hash(secrets.token_urlsafe(32)),
-                status='Activo',
-                created_at=now_peru()
-            )
-            db.session.add(app_user)
-            db.session.flush()
-        except Exception as e:
-            return jsonify({'success': False, 'message': f'No se pudo crear usuario App Móvil: {str(e)}'}), 500
-
-    # Buscar clientes sin creator asignado
-    orphan_clients = Client.query.filter(Client.created_by == None).all()
     updated = []
 
-    for c in orphan_clients:
-        c.created_by = app_user.id
-        updated.append({'id': c.id, 'dni': c.dni, 'name': c.full_name or c.razon_social})
+    # Clientes sin registration_canal
+    clients = Client.query.filter(Client.registration_canal == None).all()
+
+    web_emails = {'web@qoricash.pe'}
+    app_emails = {'app@qoricash.pe'}
+
+    for c in clients:
+        if c.created_by is None:
+            c.registration_canal = 'app'
+        elif c.creator and c.creator.email in web_emails:
+            c.registration_canal = 'web'
+        elif c.creator and c.creator.email in app_emails:
+            c.registration_canal = 'app'
+        else:
+            c.registration_canal = 'system'
+        updated.append({'id': c.id, 'dni': c.dni, 'canal': c.registration_canal})
 
     if updated:
         db.session.commit()
 
     return jsonify({
         'success': True,
-        'message': f'{len(updated)} clientes actualizados con canal "App Móvil"',
-        'updated_clients': updated,
-        'app_user_id': app_user.id
+        'message': f'{len(updated)} clientes actualizados con registration_canal',
+        'updated_clients': updated
     })

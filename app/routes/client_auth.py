@@ -560,6 +560,7 @@ def register_client():
                 password_hash=generate_password_hash(password),
                 requires_password_change=False,
                 created_by=platform_user.id if platform_user else None,
+                registration_canal='app',
                 created_at=now_peru()
             )
         else:
@@ -576,6 +577,7 @@ def register_client():
                 password_hash=generate_password_hash(password),
                 requires_password_change=False,
                 created_by=platform_user.id if platform_user else None,
+                registration_canal='app',
                 created_at=now_peru()
             )
 
@@ -596,6 +598,18 @@ def register_client():
             logger.info(f'Perfil de riesgo creado automáticamente para cliente {new_client.id}')
         except Exception as risk_exc:
             logger.warning(f'Error al crear perfil de riesgo para cliente {new_client.id}: {str(risk_exc)}')
+
+        # Emitir evento WebSocket para actualización en tiempo real en app.qoricash.pe
+        try:
+            from app.extensions import socketio
+            socketio.emit('client_created', {
+                'client_id': new_client.id,
+                'client': new_client.to_dict(),
+                'created_by': 'App Móvil'
+            }, broadcast=True)
+            logger.info(f'WebSocket client_created emitido para cliente {new_client.id} (canal: app)')
+        except Exception as ws_exc:
+            logger.warning(f'WebSocket emit falló (cliente ya creado): {ws_exc}')
 
         # Enviar email de bienvenida diferenciado (registro desde MÓVIL)
         try:

@@ -127,22 +127,20 @@
                                 <td>{{ c.phone or '-' }}</td>
                                 {% if current_user.role in ['Master', 'Operador'] %}
                                 <td>
-                                    {% if c.creator %}
-                                        {% if c.creator.email == 'app@qoricash.pe' %}
-                                            <span class="badge bg-primary" title="Registro desde App Móvil">
-                                                <i class="bi bi-phone"></i> App
-                                            </span>
-                                        {% elif c.creator.email == 'web@qoricash.pe' %}
-                                            <span class="badge bg-info text-dark" title="Registro desde Página Web">
-                                                <i class="bi bi-globe"></i> Web
-                                            </span>
-                                        {% else %}
-                                            <span class="badge bg-secondary" title="{{ c.creator.email }}">
-                                                <i class="bi bi-person"></i> {{ c.creator.username }}
-                                            </span>
-                                        {% endif %}
+                                    {% if c.registration_canal == 'app' %}
+                                        <span class="badge bg-primary" title="Registro desde App Móvil">
+                                            <i class="bi bi-phone"></i> App
+                                        </span>
+                                    {% elif c.registration_canal == 'web' %}
+                                        <span class="badge bg-info text-dark" title="Registro desde Página Web">
+                                            <i class="bi bi-globe"></i> Web
+                                        </span>
+                                    {% elif c.creator %}
+                                        <span class="badge bg-secondary" title="{{ c.creator.email }}">
+                                            <i class="bi bi-person"></i> {{ c.creator.username }}
+                                        </span>
                                     {% else %}
-                                        <span class="text-muted">N/A</span>
+                                        <span class="text-muted small">Sistema</span>
                                     {% endif %}
                                 </td>
                                 {% endif %}

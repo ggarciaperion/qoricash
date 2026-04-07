@@ -105,6 +105,9 @@ class Client(db.Model):
     updated_at = db.Column(db.DateTime, default=now_peru, onupdate=now_peru)
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'))
 
+    # Canal de registro: 'app' | 'web' | 'system'
+    registration_canal = db.Column(db.String(20), nullable=True)
+
     # Relaciones
     operations = db.relationship('Operation', backref='client', lazy='dynamic')
     creator = db.relationship('User', foreign_keys=[created_by])

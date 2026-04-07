@@ -130,23 +130,27 @@ function connectSocketIO() {
     // EVENTOS DE CLIENTES
     // ============================================
 
-    socket.on('nuevo_cliente', function(data) {
-        // Solo mostrar notificación a Master y Operador
-        if (window.currentUserRole === 'Master' || window.currentUserRole === 'Operador') {
-            showNotification(`Nuevo cliente: ${data.client_name} (${data.client_dni})`, 'info');
+    // Escuchar ambos nombres de evento (nuevo_cliente y client_created) para compatibilidad
+    function onNewClient(data) {
+        const name  = data.client_name || (data.client && (data.client.full_name || data.client.razon_social)) || 'Nuevo cliente';
+        const dni   = data.client_dni  || (data.client && data.client.dni) || '';
+        const canal = data.created_by  || '';
+
+        if (window.currentUserRole === 'Master' || window.currentUserRole === 'Operador' || window.currentUserRole === 'Middle Office') {
+            const canalLabel = canal === 'App Móvil' ? ' 📱 App' : (canal ? ` (${canal})` : '');
+            showNotification(`Nuevo cliente${canalLabel}: ${name} ${dni}`, 'info');
             playNotificationSound();
         }
-
-        // Actualizar tabla de clientes si existe
         if (typeof refreshClientsTable === 'function') {
             refreshClientsTable();
         }
-
-        // Actualizar dashboard para todos
         if (typeof loadDashboardData === 'function') {
             loadDashboardData();
         }
-    });
+    }
+
+    socket.on('nuevo_cliente',  onNewClient);
+    socket.on('client_created', onNewClient);
 
     socket.on('client_updated', function(data) {
         // Solo mostrar notificación a Master y Operador

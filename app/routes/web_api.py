@@ -234,6 +234,7 @@ def register_from_web():
                 password_hash=generate_password_hash(password),
                 requires_password_change=False,
                 created_by=web_user.id,
+                registration_canal='web',
                 created_at=now_peru()
             )
         else:  # Jurídica
@@ -253,6 +254,7 @@ def register_from_web():
                 password_hash=generate_password_hash(password),
                 requires_password_change=False,
                 created_by=web_user.id,
+                registration_canal='web',
                 created_at=now_peru()
             )
 
