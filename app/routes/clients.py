@@ -1370,7 +1370,7 @@ def export_client_history(client_id):
 
 
 
-@clients_bp.route('/api/repair/assign-app-canal', methods=['POST'])
+@clients_bp.route('/api/repair/assign-app-canal', methods=['GET', 'POST'])
 @login_required
 @require_role('Master')
 def repair_assign_app_canal():
