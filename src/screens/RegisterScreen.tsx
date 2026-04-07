@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   StyleSheet,
@@ -11,6 +11,8 @@ import {
   TextInput as RNTextInput,
   Linking,
   ActivityIndicator,
+  Modal,
+  Animated,
 } from 'react-native';
 import { TextInput, Text, IconButton } from 'react-native-paper';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -57,6 +59,292 @@ const sectionHeaderStyles = StyleSheet.create({
   },
   icon: { margin: 0, marginRight: 2 },
   text: { fontSize: 11, fontWeight: '800', letterSpacing: 1 },
+});
+
+// ── Processing overlay ────────────────────────────────────────────────────
+const PROCESSING_MESSAGES = [
+  'Verificando tu información...',
+  'Creando tu cuenta...',
+  'Procesando datos...',
+  'Configurando perfil...',
+  'Casi listo...',
+];
+
+const RegistrationProcessingOverlay: React.FC<{ visible: boolean }> = ({ visible }) => {
+  const [msgIndex, setMsgIndex] = useState(0);
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (!visible) return;
+    setMsgIndex(0);
+    const interval = setInterval(() => {
+      Animated.sequence([
+        Animated.timing(fadeAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
+        Animated.timing(fadeAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
+      ]).start();
+      setMsgIndex(i => (i + 1) % PROCESSING_MESSAGES.length);
+    }, 1800);
+    return () => clearInterval(interval);
+  }, [visible]);
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" statusBarTranslucent>
+      <View style={processingStyles.overlay}>
+        <View style={processingStyles.card}>
+          <View style={processingStyles.spinnerWrap}>
+            <ActivityIndicator size={48} color={Colors.primary} />
+            <View style={processingStyles.spinnerRing} />
+          </View>
+          <Text style={processingStyles.title}>Procesando</Text>
+          <Animated.Text style={[processingStyles.message, { opacity: fadeAnim }]}>
+            {PROCESSING_MESSAGES[msgIndex]}
+          </Animated.Text>
+          <View style={processingStyles.dots}>
+            {[0, 1, 2].map(i => (
+              <View key={i} style={processingStyles.dot} />
+            ))}
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
+const processingStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(13,27,42,0.85)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  card: {
+    backgroundColor: Colors.surface,
+    borderRadius: 24,
+    padding: 40,
+    alignItems: 'center',
+    width: '100%',
+    maxWidth: 320,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 12,
+  },
+  spinnerWrap: {
+    width: 80,
+    height: 80,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  spinnerRing: {
+    position: 'absolute',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 2,
+    borderColor: Colors.primaryLight,
+    opacity: 0.3,
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: Colors.textDark,
+    marginBottom: 8,
+    letterSpacing: 0.3,
+  },
+  message: {
+    fontSize: 14,
+    color: Colors.textLight,
+    textAlign: 'center',
+    lineHeight: 20,
+    minHeight: 20,
+  },
+  dots: {
+    flexDirection: 'row',
+    gap: 6,
+    marginTop: 20,
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Colors.primary,
+    opacity: 0.4,
+  },
+});
+
+// ── Success modal ──────────────────────────────────────────────────────────
+const RegistrationSuccessModal: React.FC<{
+  visible: boolean;
+  docLabel: string;
+  onContinue: () => void;
+}> = ({ visible, docLabel, onContinue }) => {
+  const scaleAnim = useRef(new Animated.Value(0.6)).current;
+  const opacityAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (visible) {
+      Animated.parallel([
+        Animated.spring(scaleAnim, { toValue: 1, tension: 60, friction: 7, useNativeDriver: true }),
+        Animated.timing(opacityAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
+      ]).start();
+    } else {
+      scaleAnim.setValue(0.6);
+      opacityAnim.setValue(0);
+    }
+  }, [visible]);
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" statusBarTranslucent>
+      <View style={successStyles.overlay}>
+        <Animated.View style={[successStyles.card, { opacity: opacityAnim, transform: [{ scale: scaleAnim }] }]}>
+          {/* Ícono */}
+          <View style={successStyles.iconCircle}>
+            <View style={successStyles.iconCircleInner}>
+              <IconButton icon="check-bold" size={36} iconColor="#fff" style={{ margin: 0 }} />
+            </View>
+          </View>
+
+          {/* Título */}
+          <Text style={successStyles.title}>¡Cuenta creada!</Text>
+          <Text style={successStyles.subtitle}>Tu registro fue exitoso</Text>
+
+          {/* Separador */}
+          <View style={successStyles.divider} />
+
+          {/* Detalles */}
+          <View style={successStyles.infoBox}>
+            <IconButton icon="email-check-outline" size={18} iconColor={Colors.primary} style={{ margin: 0 }} />
+            <Text style={successStyles.infoText}>
+              Recibirás un correo de confirmación con los detalles de tu cuenta.
+            </Text>
+          </View>
+          <View style={successStyles.infoBox}>
+            <IconButton icon="shield-check-outline" size={18} iconColor={Colors.info} style={{ margin: 0 }} />
+            <Text style={successStyles.infoText}>
+              Tu cuenta será activada luego de la verificación de identidad.
+            </Text>
+          </View>
+
+          {/* CTA */}
+          <TouchableOpacity onPress={onContinue} activeOpacity={0.85} style={{ width: '100%', marginTop: 24 }}>
+            <LinearGradient
+              colors={[Colors.primary, Colors.primaryDark]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={successStyles.ctaBtn}
+            >
+              <IconButton icon="login" size={20} iconColor="#fff" style={{ margin: 0 }} />
+              <Text style={successStyles.ctaTxt}>Iniciar Sesión</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+
+          <Text style={successStyles.hint}>Usa tu {docLabel} y la contraseña que creaste</Text>
+        </Animated.View>
+      </View>
+    </Modal>
+  );
+};
+
+const successStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(13,27,42,0.75)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  card: {
+    backgroundColor: Colors.surface,
+    borderRadius: 28,
+    padding: 32,
+    alignItems: 'center',
+    width: '100%',
+    maxWidth: 340,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.2,
+    shadowRadius: 24,
+    elevation: 14,
+  },
+  iconCircle: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: `${Colors.primary}18`,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  iconCircleInner: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: Colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: Colors.textDark,
+    textAlign: 'center',
+    letterSpacing: 0.2,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: Colors.textLight,
+    marginTop: 4,
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  divider: {
+    width: '100%',
+    height: 1,
+    backgroundColor: Colors.border,
+    marginBottom: 20,
+  },
+  infoBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    width: '100%',
+    marginBottom: 8,
+  },
+  infoText: {
+    flex: 1,
+    fontSize: 13,
+    color: Colors.text,
+    lineHeight: 18,
+    paddingTop: 10,
+  },
+  ctaBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    gap: 4,
+  },
+  ctaTxt: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  hint: {
+    fontSize: 12,
+    color: Colors.textMuted,
+    marginTop: 12,
+    textAlign: 'center',
+  },
 });
 
 // ── Tipo-persona toggle ────────────────────────────────────────────────────
@@ -193,6 +481,8 @@ export const RegisterScreen = () => {
 
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showProcessing, setShowProcessing] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
 
   // ── Estado lookup RENIEC / SUNAT ─────────────────────────────────────────
   const [lookupLoading, setLookupLoading] = useState(false);
@@ -355,7 +645,10 @@ export const RegisterScreen = () => {
     try {
       setError('');
       if (!validateForm()) return;
+
+      // Fase 1: mostrar overlay de procesamiento y deshabilitar botón
       setLoading(true);
+      setShowProcessing(true);
 
       const payload: any = {
         tipo_persona: tipoPersona,
@@ -384,19 +677,18 @@ export const RegisterScreen = () => {
 
       const response = await axios.post(`${API_CONFIG.BASE_URL}/api/client/register`, payload);
 
+      // Fase 2: ocultar procesamiento y mostrar resultado
+      setShowProcessing(false);
+
       if (response.data.success) {
-        Alert.alert(
-          '✅ Registro Exitoso',
-          `Tu cuenta ha sido creada.\n\n📧 Recibirás un email de confirmación.\n\nInicia sesión con tu ${tipoPersona === 'Jurídica' ? 'RUC' : 'DNI'} y la contraseña que creaste.`,
-          [{ text: 'Iniciar Sesión', onPress: () => navigation.reset({ index: 0, routes: [{ name: 'Login' }] }) }]
-        );
+        setShowSuccess(true);
       } else {
         setError(response.data.message || 'Error al registrarse');
       }
     } catch (err: any) {
-      const msg = err.response?.data?.message || err.message || 'Error al registrarse';
+      setShowProcessing(false);
+      const msg = err.response?.data?.message || err.message || 'Error al registrarse. Intenta nuevamente.';
       setError(msg);
-      Alert.alert('❌ Error en el Registro', msg, [{ text: 'OK' }]);
     } finally {
       setLoading(false);
     }
@@ -828,7 +1120,10 @@ export const RegisterScreen = () => {
             style={styles.submitGradient}
           >
             {loading ? (
-              <Text style={styles.submitTxt}>Creando cuenta...</Text>
+              <>
+                <ActivityIndicator size={18} color="#fff" style={{ marginRight: 8 }} />
+                <Text style={styles.submitTxt}>Procesando...</Text>
+              </>
             ) : (
               <>
                 <IconButton icon="account-plus-outline" size={20} iconColor="#fff" style={{ margin: 0 }} />
@@ -892,6 +1187,20 @@ export const RegisterScreen = () => {
 
         </View>{/* end formWrap */}
       </ScrollView>
+
+      {/* ── Processing overlay (se muestra encima de todo) ── */}
+      <RegistrationProcessingOverlay visible={showProcessing} />
+
+      {/* ── Success modal ── */}
+      <RegistrationSuccessModal
+        visible={showSuccess}
+        docLabel={tipoPersona === 'Jurídica' ? 'RUC' : tipoDocumento}
+        onContinue={() => {
+          setShowSuccess(false);
+          navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
+        }}
+      />
+
     </KeyboardAvoidingView>
   );
 };
