@@ -964,10 +964,17 @@ def client_detail(client_id):
     if not client:
         return render_template('errors/404.html', message='Cliente no encontrado'), 404
 
-    # Obtener perfil de riesgo si existe
+    # Obtener perfil de riesgo — crear si no existe (aplica a todos los canales)
     from app.models.compliance import ClientRiskProfile, RestrictiveListCheck
     from app.models.operation import Operation
     risk_profile = ClientRiskProfile.query.filter_by(client_id=client_id).first()
+    if not risk_profile:
+        try:
+            from app.services.compliance_service import ComplianceService
+            ComplianceService.update_client_risk_profile(client_id, current_user.id)
+            risk_profile = ClientRiskProfile.query.filter_by(client_id=client_id).first()
+        except Exception as rp_exc:
+            logger.warning(f'No se pudo crear perfil de riesgo para cliente {client_id}: {rp_exc}')
 
     # Obtener últimas operaciones (corregido para SQLAlchemy 2.x)
     recent_operations = Operation.query.filter_by(client_id=client_id).order_by(Operation.created_at.desc()).limit(10).all()
@@ -1361,3 +1368,56 @@ def export_client_history(client_id):
     )
 
 
+
+
+@clients_bp.route('/api/repair/assign-app-canal', methods=['POST'])
+@login_required
+@require_role('Master')
+def repair_assign_app_canal():
+    """
+    Ruta de mantenimiento (solo Master).
+    Asigna el usuario 'App Móvil' a todos los clientes que tienen created_by = NULL.
+    Estos son clientes registrados desde el app móvil antes del fix del canal.
+    """
+    from app.models.client import Client
+    from app.models.user import User
+    from werkzeug.security import generate_password_hash
+    import secrets
+
+    # Obtener o crear usuario App Móvil
+    app_user = User.query.filter_by(email='app@qoricash.pe').first()
+    if not app_user:
+        app_user = User.query.filter_by(dni='99999999').first()
+    if not app_user:
+        try:
+            app_user = User(
+                username='App Móvil',
+                email='app@qoricash.pe',
+                dni='99999999',
+                role='App',
+                password_hash=generate_password_hash(secrets.token_urlsafe(32)),
+                status='Activo',
+                created_at=now_peru()
+            )
+            db.session.add(app_user)
+            db.session.flush()
+        except Exception as e:
+            return jsonify({'success': False, 'message': f'No se pudo crear usuario App Móvil: {str(e)}'}), 500
+
+    # Buscar clientes sin creator asignado
+    orphan_clients = Client.query.filter(Client.created_by == None).all()
+    updated = []
+
+    for c in orphan_clients:
+        c.created_by = app_user.id
+        updated.append({'id': c.id, 'dni': c.dni, 'name': c.full_name or c.razon_social})
+
+    if updated:
+        db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'message': f'{len(updated)} clientes actualizados con canal "App Móvil"',
+        'updated_clients': updated,
+        'app_user_id': app_user.id
+    })

@@ -13,6 +13,59 @@ logger = logging.getLogger(__name__)
 client_auth_bp = Blueprint('client_auth', __name__, url_prefix='/api/client')
 
 
+def _get_or_create_app_user(db):
+    """
+    Devuelve el usuario sistema 'App Móvil' (app@qoricash.pe).
+    Lo crea si no existe. Nunca lanza excepción — devuelve None si todo falla.
+    """
+    import secrets
+    from werkzeug.security import generate_password_hash
+    from app.utils.formatters import now_peru
+
+    # 1. Buscar por email canónico
+    user = User.query.filter_by(email='app@qoricash.pe').first()
+    if user:
+        return user
+
+    # 2. Buscar por DNI canónico (fallback)
+    user = User.query.filter_by(dni='99999999').first()
+    if user:
+        # Actualizar email si no coincide (puede ser un usuario creado con distinto email)
+        if user.email != 'app@qoricash.pe':
+            try:
+                user.email = 'app@qoricash.pe'
+                user.username = 'App Móvil'
+                user.role = 'App'
+                db.session.flush()
+            except Exception:
+                db.session.rollback()
+                user = User.query.filter_by(email='app@qoricash.pe').first()
+        return user
+
+    # 3. Crear usuario nuevo con un username único para evitar conflictos
+    import uuid
+    unique_suffix = uuid.uuid4().hex[:6]
+    try:
+        new_user = User(
+            username=f'App Móvil',
+            email='app@qoricash.pe',
+            dni='99999999',
+            role='App',
+            password_hash=generate_password_hash(secrets.token_urlsafe(32)),
+            status='Activo',
+            created_at=now_peru()
+        )
+        db.session.add(new_user)
+        db.session.flush()
+        logger.info(f"✅ Usuario 'App Móvil' creado con ID: {new_user.id}")
+        return new_user
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"❌ No se pudo crear usuario App Móvil: {e}")
+        # Último intento: buscar nuevamente por si fue creado por otra request concurrente
+        return User.query.filter_by(email='app@qoricash.pe').first()
+
+
 @client_auth_bp.after_request
 def after_request(response):
     """Agregar headers CORS a todas las respuestas del blueprint"""
@@ -487,28 +540,7 @@ def register_client():
         from app.utils.formatters import now_peru
         import secrets
 
-        # Buscar el usuario sistema App Móvil por email canónico
-        platform_user = User.query.filter_by(email='app@qoricash.pe').first()
-        if not platform_user:
-            # Fallback por DNI canónico
-            platform_user = User.query.filter_by(dni='99999999').first()
-
-        if not platform_user:
-            logger.info("🤖 Usuario 'App Móvil' no existe, creándolo...")
-            platform_user = User(
-                username='App Móvil',
-                email='app@qoricash.pe',
-                dni='99999999',
-                role='App',
-                password_hash=generate_password_hash(secrets.token_urlsafe(32)),
-                status='Activo',
-                created_at=now_peru()
-            )
-            db.session.add(platform_user)
-            db.session.flush()
-            logger.info(f"✅ Usuario 'App Móvil' creado con ID: {platform_user.id}")
-        else:
-            logger.info(f"✅ Usuario sistema App Móvil encontrado con ID: {platform_user.id}")
+        platform_user = _get_or_create_app_user(db)
 
         # Crear cliente según tipo de persona
         # IMPORTANTE: Todos los clientes auto-registrados inician con status='Inactivo'
@@ -527,7 +559,7 @@ def register_client():
                 has_complete_documents=False,  # Sin documentos al registrarse
                 password_hash=generate_password_hash(password),
                 requires_password_change=False,
-                created_by=platform_user.id,
+                created_by=platform_user.id if platform_user else None,
                 created_at=now_peru()
             )
         else:
@@ -543,7 +575,7 @@ def register_client():
                 has_complete_documents=False,  # Sin documentos al registrarse
                 password_hash=generate_password_hash(password),
                 requires_password_change=False,
-                created_by=platform_user.id,
+                created_by=platform_user.id if platform_user else None,
                 created_at=now_peru()
             )
 
@@ -559,7 +591,8 @@ def register_client():
         # Crear perfil de riesgo automáticamente (igual que el registro desde sistema web)
         try:
             from app.services.compliance_service import ComplianceService
-            ComplianceService.update_client_risk_profile(new_client.id, platform_user.id)
+            creator_id = platform_user.id if platform_user else new_client.id
+            ComplianceService.update_client_risk_profile(new_client.id, creator_id)
             logger.info(f'Perfil de riesgo creado automáticamente para cliente {new_client.id}')
         except Exception as risk_exc:
             logger.warning(f'Error al crear perfil de riesgo para cliente {new_client.id}: {str(risk_exc)}')
