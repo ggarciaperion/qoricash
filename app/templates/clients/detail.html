@@ -152,8 +152,8 @@
                                 <label class="text-muted small d-block">Ficha RUC</label>
                                 {% if client.ficha_ruc_url %}
                                     {% if client.ficha_ruc_url.lower().endswith('.pdf') or '/raw/' in client.ficha_ruc_url %}
-                                        <a href="{{ client.ficha_ruc_url }}" target="_blank" class="btn btn-outline-danger btn-sm mt-1">
-                                            <i class="bi bi-file-earmark-pdf me-1"></i> Descargar Ficha RUC (PDF)
+                                        <a href="{{ url_for('clients.download_ficha_ruc', client_id=client.id) }}" class="btn btn-outline-danger btn-sm mt-1">
+                                            <i class="bi bi-download me-1"></i> Descargar Ficha RUC (PDF)
                                         </a>
                                     {% else %}
                                         <a href="{{ client.ficha_ruc_url }}" target="_blank">

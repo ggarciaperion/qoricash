@@ -1412,3 +1412,31 @@ def repair_assign_app_canal():
         'message': f'{len(updated)} clientes actualizados con registration_canal',
         'updated_clients': updated
     })
+
+
+@clients_bp.route('/<int:client_id>/download-ficha-ruc')
+@login_required
+def download_ficha_ruc(client_id):
+    """Proxy: descarga la ficha RUC desde Cloudinary y la sirve al navegador"""
+    import requests as req
+    from flask import Response, abort
+    from app.models.client import Client
+
+    client = Client.query.get_or_404(client_id)
+    if not client.ficha_ruc_url:
+        abort(404)
+
+    try:
+        r = req.get(client.ficha_ruc_url, timeout=15, stream=True)
+        if r.status_code != 200:
+            abort(404)
+
+        filename = f"ficha_ruc_{client.dni}.pdf"
+        return Response(
+            r.iter_content(chunk_size=8192),
+            content_type='application/pdf',
+            headers={'Content-Disposition': f'attachment; filename="{filename}"'}
+        )
+    except Exception as e:
+        logger.error(f'Error descargando ficha RUC: {e}')
+        abort(500)
