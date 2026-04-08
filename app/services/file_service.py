@@ -136,37 +136,23 @@ class FileService:
                 return False, f'Error al guardar archivo localmente: {str(e)}', None
 
         try:
-            # Generar nombre seguro y separar extensión
+            # Generar nombre seguro sin extensión (Cloudinary la añade automáticamente)
             filename = secure_filename(file.filename)
-            if '.' in filename:
-                basename = filename.rsplit('.', 1)[0]   # "Ficha_Ruc"
-                ext      = filename.rsplit('.', 1)[1].lower()  # "pdf"
-            else:
-                basename = filename
-                ext = ''
+            basename = filename.rsplit('.', 1)[0] if '.' in filename else filename
 
-            # public_id SIN extensión — Cloudinary la añade en la URL automáticamente.
-            # folder va dentro del public_id (no como param separado) para evitar duplicación.
+            # public_id con folder incluido para evitar duplicación
             if public_id_prefix:
                 public_id = f"{folder}/{public_id_prefix}_{basename}"
             else:
                 public_id = f"{folder}/{basename}"
 
-            # resource_type='image' para todo (imágenes Y PDFs).
-            # Cloudinary sirve PDFs bajo /image/upload/ con Content-Type correcto para el navegador.
-            resource_type = 'image'
-
-            upload_kwargs = dict(
+            result = cloudinary.uploader.upload(
+                file,
                 public_id=public_id,
-                resource_type=resource_type,
+                resource_type='image',
                 overwrite=True,
                 invalidate=True,
             )
-            # Para PDFs indicar formato explícito para que la URL incluya .pdf
-            if ext:
-                upload_kwargs['format'] = ext
-
-            result = cloudinary.uploader.upload(file, **upload_kwargs)
 
             url = result.get('secure_url')
             logger.info(f'[Cloudinary] Upload OK → {url}')

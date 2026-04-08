@@ -151,16 +151,9 @@
                             <div class="col-md-4 mb-3 text-center">
                                 <label class="text-muted small d-block">Ficha RUC</label>
                                 {% if client.ficha_ruc_url %}
-                                    {% if client.ficha_ruc_url.lower().endswith('.pdf') %}
-                                        <a href="https://docs.google.com/viewer?url={{ client.ficha_ruc_url | urlencode }}&embedded=false" target="_blank" class="d-block border rounded p-3 bg-light text-decoration-none">
-                                            <i class="bi bi-file-earmark-pdf text-danger" style="font-size: 3rem;"></i>
-                                            <p class="text-primary mt-2 mb-0 small">Ver Ficha RUC (PDF)</p>
-                                        </a>
-                                    {% else %}
-                                        <a href="{{ client.ficha_ruc_url }}" target="_blank">
-                                            <img src="{{ client.ficha_ruc_url }}" class="img-thumbnail" style="max-height: 150px; cursor: pointer;" alt="Ficha RUC">
-                                        </a>
-                                    {% endif %}
+                                    <a href="{{ client.ficha_ruc_url }}" target="_blank">
+                                        <img src="{{ client.ficha_ruc_url }}" class="img-thumbnail" style="max-height: 150px; cursor: pointer;" alt="Ficha RUC">
+                                    </a>
                                     <p class="mt-2 mb-0">
                                         <span class="badge bg-success"><i class="bi bi-check-circle"></i> Subido</span>
                                     </p>

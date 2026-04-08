@@ -56,7 +56,7 @@ AUDIT_LOGOUT = 'LOGOUT'
 
 # Límites de archivo
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'pdf'}
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
 
 # Timezone
 TIMEZONE = 'America/Lima'
