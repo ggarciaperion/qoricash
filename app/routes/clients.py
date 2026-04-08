@@ -1419,24 +1419,22 @@ def repair_assign_app_canal():
 def download_ficha_ruc(client_id):
     """Proxy: descarga la ficha RUC desde Cloudinary y la sirve al navegador"""
     import requests as req
-    from flask import Response, abort
+    from flask import Response
     from app.models.client import Client
 
     client = Client.query.get_or_404(client_id)
-    if not client.ficha_ruc_url:
-        abort(404)
+    url = client.ficha_ruc_url
+    if not url:
+        return "Ficha RUC no encontrada. Sube el archivo nuevamente.", 404
 
-    try:
-        r = req.get(client.ficha_ruc_url, timeout=15, stream=True)
-        if r.status_code != 200:
-            abort(404)
+    r = req.get(url, timeout=20)
+    if r.status_code != 200:
+        logger.error(f'[FichaRUC] Cloudinary devolvió {r.status_code} para {url}')
+        return f"No se pudo obtener el archivo (código {r.status_code}). Sube la ficha RUC nuevamente.", 502
 
-        filename = f"ficha_ruc_{client.dni}.pdf"
-        return Response(
-            r.iter_content(chunk_size=8192),
-            content_type='application/pdf',
-            headers={'Content-Disposition': f'attachment; filename="{filename}"'}
-        )
-    except Exception as e:
-        logger.error(f'Error descargando ficha RUC: {e}')
-        abort(500)
+    filename = f"ficha_ruc_{client.dni}.pdf"
+    return Response(
+        r.content,
+        content_type='application/pdf',
+        headers={'Content-Disposition': f'attachment; filename="{filename}"'}
+    )

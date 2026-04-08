@@ -151,13 +151,13 @@ class FileService:
             else:
                 public_id = f"{folder}/{basename}"
 
-            # PDFs → raw (archivo real, descargable). Imágenes → image.
+            # PDFs → raw sin format (Cloudinary almacena el archivo real).
+            # Imágenes → image.
             if ext == 'pdf':
                 result = cloudinary.uploader.upload(
                     file,
                     public_id=public_id,
                     resource_type='raw',
-                    format='pdf',
                     overwrite=True,
                     invalidate=True,
                 )
