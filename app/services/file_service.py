@@ -152,9 +152,9 @@ class FileService:
             else:
                 public_id = f"{folder}/{basename}"
 
-            # resource_type='raw' para PDFs → URL /raw/upload/…pdf  (descarga/visualiza directamente)
-            # resource_type='image' para imágenes → URL /image/upload/…jpg|png
-            resource_type = 'raw' if ext == 'pdf' else 'image'
+            # resource_type='image' para todo (imágenes Y PDFs).
+            # Cloudinary sirve PDFs bajo /image/upload/ con Content-Type correcto para el navegador.
+            resource_type = 'image'
 
             upload_kwargs = dict(
                 public_id=public_id,
@@ -162,8 +162,8 @@ class FileService:
                 overwrite=True,
                 invalidate=True,
             )
-            # Para raw, hay que indicar el formato explícitamente para que la URL incluya la extensión
-            if resource_type == 'raw' and ext:
+            # Para PDFs indicar formato explícito para que la URL incluya .pdf
+            if ext:
                 upload_kwargs['format'] = ext
 
             result = cloudinary.uploader.upload(file, **upload_kwargs)
