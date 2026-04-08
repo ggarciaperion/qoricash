@@ -17,7 +17,7 @@ bind = f"0.0.0.0:{os.environ.get('PORT', '10000')}"
 # Workers - Optimizado para Render con eventlet
 workers = int(os.environ.get('WEB_CONCURRENCY', 1))
 worker_class = 'eventlet'  # Para WebSocket/SocketIO - no usar threads con eventlet
-worker_connections = 1000
+worker_connections = 100  # Reducido: 1000 era excesivo en Starter 512MB
 
 # Timeouts - Optimizados para producción con SocketIO
 timeout = 300  # 5 minutos para operaciones largas y WebSocket
@@ -27,8 +27,8 @@ keepalive = 10  # Mantener conexiones HTTP keep-alive más tiempo
 # Memory limits - Prevenir memory leaks y reiniciar workers periódicamente
 # CRÍTICO: max_requests muy bajo causa reinicios frecuentes y desconexiones de SocketIO
 # Para producción, deshabilitamos o usamos un valor muy alto
-max_requests = 0  # 0 = DESHABILITADO (workers no se reinician automáticamente)
-max_requests_jitter = 0  # No necesario si max_requests = 0
+max_requests = 300  # Reinicia worker cada 300 requests — limpia memoria fragmentada
+max_requests_jitter = 50
 
 # Logging
 accesslog = '-'
