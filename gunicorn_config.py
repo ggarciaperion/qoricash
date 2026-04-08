@@ -27,8 +27,8 @@ keepalive = 10  # Mantener conexiones HTTP keep-alive más tiempo
 # Memory limits - Prevenir memory leaks y reiniciar workers periódicamente
 # CRÍTICO: max_requests muy bajo causa reinicios frecuentes y desconexiones de SocketIO
 # Para producción, deshabilitamos o usamos un valor muy alto
-max_requests = 300  # Reinicia worker cada 300 requests — limpia memoria fragmentada
-max_requests_jitter = 50
+max_requests = 0  # Deshabilitado — con eventlet+SocketIO reiniciar el worker corta conexiones
+max_requests_jitter = 0
 
 # Logging
 accesslog = '-'
