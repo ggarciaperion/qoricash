@@ -825,7 +825,6 @@ export const RegisterScreen = () => {
                       ? <ActivityIndicator size={18} color="#fff" />
                       : <IconButton icon="magnify" size={18} iconColor="#fff" style={{ margin: 0 }} />
                     }
-                    <Text style={lookupStyles.btnTxt}>RENIEC</Text>
                   </TouchableOpacity>
                 )}
               </View>
