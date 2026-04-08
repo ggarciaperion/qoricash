@@ -501,7 +501,10 @@ export const RegisterScreen = () => {
     setDepartamentos(getDepartamentos());
   }, []);
 
+  const skipUbigeoReset = useRef(false);
+
   useEffect(() => {
+    if (skipUbigeoReset.current) return;
     if (departamento) {
       setProvincias(getProvincias(departamento));
       setProvincia('');
@@ -516,6 +519,7 @@ export const RegisterScreen = () => {
   }, [departamento]);
 
   useEffect(() => {
+    if (skipUbigeoReset.current) return;
     if (departamento && provincia) {
       setDistritos(getDistritos(departamento, provincia));
       setDistrito('');
@@ -560,10 +564,20 @@ export const RegisterScreen = () => {
 
       if (isRuc) {
         setRazonSocial(data.razon_social || '');
-        if (data.direccion)    setDireccion(data.direccion);
-        if (data.departamento) setDepartamento(data.departamento);
-        if (data.provincia)    setProvincia(data.provincia);
-        if (data.distrito)     setDistrito(data.distrito);
+        if (data.direccion) setDireccion(data.direccion);
+        if (data.departamento || data.provincia || data.distrito) {
+          skipUbigeoReset.current = true;
+          if (data.departamento) {
+            setProvincias(getProvincias(data.departamento));
+            setDepartamento(data.departamento);
+          }
+          if (data.provincia) {
+            setDistritos(getDistritos(data.departamento, data.provincia));
+            setProvincia(data.provincia);
+          }
+          if (data.distrito) setDistrito(data.distrito);
+          setTimeout(() => { skipUbigeoReset.current = false; }, 0);
+        }
 
         const estado = data.estado || '';
         const esActivo = estado.includes('ACTIVO');
