@@ -139,11 +139,11 @@ class FileService:
             # Generar nombre seguro
             filename = secure_filename(file.filename)
 
-            # Generar public_id
+            # Generar public_id SIN incluir el folder (Cloudinary lo añade via folder=)
             if public_id_prefix:
-                public_id = f"{folder}/{public_id_prefix}_{filename}"
+                public_id = f"{public_id_prefix}_{filename}"
             else:
-                public_id = f"{folder}/{filename}"
+                public_id = filename
 
             # Subir a Cloudinary
             result = cloudinary.uploader.upload(
