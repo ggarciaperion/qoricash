@@ -625,6 +625,12 @@ class ClientService:
             except Exception:
                 logger.exception("Fallo al registrar auditoría de eliminación")
 
+            # Eliminar registros relacionados antes de eliminar el cliente
+            from app.models.compliance import ClientRiskProfile
+            risk_profile = ClientRiskProfile.query.filter_by(client_id=client.id).first()
+            if risk_profile:
+                db.session.delete(risk_profile)
+
             db.session.delete(client)
             # Commit único para delete y audit_log juntos
             db.session.commit()
