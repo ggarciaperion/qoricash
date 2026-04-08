@@ -136,32 +136,44 @@ class FileService:
                 return False, f'Error al guardar archivo localmente: {str(e)}', None
 
         try:
-            # Generar nombre seguro
+            # Generar nombre seguro y separar extensión
             filename = secure_filename(file.filename)
-            ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
-
-            # public_id incluye el folder para evitar ambigüedad con el SDK
-            if public_id_prefix:
-                public_id = f"{folder}/{public_id_prefix}_{filename}"
+            if '.' in filename:
+                basename = filename.rsplit('.', 1)[0]   # "Ficha_Ruc"
+                ext      = filename.rsplit('.', 1)[1].lower()  # "pdf"
             else:
-                public_id = f"{folder}/{filename}"
+                basename = filename
+                ext = ''
 
-            # PDFs → resource_type='raw' para que Cloudinary los sirva como archivo directo
-            # Imágenes → resource_type='image'
+            # public_id SIN extensión — Cloudinary la añade en la URL automáticamente.
+            # folder va dentro del public_id (no como param separado) para evitar duplicación.
+            if public_id_prefix:
+                public_id = f"{folder}/{public_id_prefix}_{basename}"
+            else:
+                public_id = f"{folder}/{basename}"
+
+            # resource_type='raw' para PDFs → URL /raw/upload/…pdf  (descarga/visualiza directamente)
+            # resource_type='image' para imágenes → URL /image/upload/…jpg|png
             resource_type = 'raw' if ext == 'pdf' else 'image'
 
-            # Subir a Cloudinary SIN el parámetro folder (ya está en public_id)
-            result = cloudinary.uploader.upload(
-                file,
+            upload_kwargs = dict(
                 public_id=public_id,
                 resource_type=resource_type,
-                overwrite=True
+                overwrite=True,
+                invalidate=True,
             )
+            # Para raw, hay que indicar el formato explícitamente para que la URL incluya la extensión
+            if resource_type == 'raw' and ext:
+                upload_kwargs['format'] = ext
+
+            result = cloudinary.uploader.upload(file, **upload_kwargs)
 
             url = result.get('secure_url')
+            logger.info(f'[Cloudinary] Upload OK → {url}')
             return True, 'Archivo subido exitosamente', url
 
         except Exception as e:
+            logger.error(f'[Cloudinary] Upload error: {e}')
             return False, f'Error al subir archivo: {str(e)}', None
     
     def upload_dni_front(self, file, client_dni):
