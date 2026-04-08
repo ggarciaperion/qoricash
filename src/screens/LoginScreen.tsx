@@ -8,6 +8,10 @@ import {
   StatusBar,
   Modal,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ActivityIndicator,
+  ScrollView,
 } from 'react-native';
 import { TextInput, Text, IconButton } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -98,6 +102,9 @@ export const LoginScreen = () => {
   const [resetEmail,      setResetEmail]      = useState('');
   const [resetLoading,    setResetLoading]    = useState(false);
   const [resetError,      setResetError]      = useState('');
+  const [resetSuccess,    setResetSuccess]    = useState(false);
+  const forgotSlide = useRef(new Animated.Value(600)).current;
+  const forgotFade  = useRef(new Animated.Value(0)).current;
 
   // Entry animations
   const fadeAnim  = useRef(new Animated.Value(0)).current;
@@ -162,6 +169,27 @@ export const LoginScreen = () => {
     }
   };
 
+  const openForgotModal = () => {
+    setShowForgotModal(true);
+    setResetSuccess(false);
+    forgotSlide.setValue(600);
+    forgotFade.setValue(0);
+    Animated.parallel([
+      Animated.timing(forgotFade,  { toValue: 1, duration: 300, useNativeDriver: true }),
+      Animated.spring(forgotSlide, { toValue: 0, tension: 65, friction: 11, useNativeDriver: true }),
+    ]).start();
+  };
+
+  const closeForgotModal = () => {
+    Animated.parallel([
+      Animated.timing(forgotFade,  { toValue: 0, duration: 220, useNativeDriver: true }),
+      Animated.timing(forgotSlide, { toValue: 600, duration: 250, useNativeDriver: true }),
+    ]).start(() => {
+      setShowForgotModal(false);
+      setResetDni(''); setResetEmail(''); setResetError(''); setResetSuccess(false);
+    });
+  };
+
   const handleForgotPassword = async () => {
     try {
       setResetError('');
@@ -177,16 +205,10 @@ export const LoginScreen = () => {
       const data = await res.json();
       setResetLoading(false);
       if (data.success) {
-        setShowForgotModal(false);
-        setResetDni(''); setResetEmail('');
         setFailedAttempts(0);
-        Alert.alert(
-          'Contraseña Enviada',
-          'Se envió una contraseña temporal a tu correo. Úsala para ingresar y luego cámbiala.',
-          [{ text: 'OK' }]
-        );
+        setResetSuccess(true);
       } else {
-        setResetError(data.message || 'Error al enviar la contraseña');
+        setResetError(data.message || 'No encontramos una cuenta con esos datos.');
       }
     } catch {
       setResetLoading(false);
@@ -334,7 +356,7 @@ export const LoginScreen = () => {
 
               {/* Forgot password */}
               <TouchableOpacity
-                onPress={() => setShowForgotModal(true)}
+                onPress={openForgotModal}
                 style={styles.forgotBtn}
                 disabled={loading}
                 activeOpacity={0.7}
@@ -453,7 +475,7 @@ export const LoginScreen = () => {
               {isLocked && (
                 <TouchableOpacity
                   style={styles.errBtnPrimary}
-                  onPress={() => { setShowErrModal(false); setShowForgotModal(true); }}
+                  onPress={() => { setShowErrModal(false); openForgotModal(); }}
                 >
                   <Text style={styles.errBtnPrimaryTxt}>Recuperar contraseña</Text>
                 </TouchableOpacity>
@@ -473,78 +495,127 @@ export const LoginScreen = () => {
       </Modal>
 
       {/* ── Forgot password modal ──────────────────────────────────────────── */}
-      <CustomModal
-        visible={showForgotModal}
-        onDismiss={() => { setShowForgotModal(false); setResetDni(''); setResetEmail(''); setResetError(''); }}
-        title="Recuperar Contraseña"
-        actions={[
-          {
-            label: 'Cancelar',
-            onPress: () => { setShowForgotModal(false); setResetDni(''); setResetEmail(''); setResetError(''); },
-            disabled: resetLoading,
-          },
-          {
-            label: 'Enviar Instrucciones',
-            onPress: handleForgotPassword,
-            primary: true,
-            disabled: resetLoading,
-            loading: resetLoading,
-          },
-        ]}
-      >
-        <View style={{ alignItems: 'center', marginBottom: 20 }}>
-          <View style={{
-            width: 80, height: 80, borderRadius: 40,
-            backgroundColor: Colors.primaryLight + '20',
-            justifyContent: 'center', alignItems: 'center', marginBottom: 16,
-          }}>
-            <IconButton icon="lock-reset" size={40} iconColor={Colors.primary} style={{ margin: 0 }} />
-          </View>
-          <Text variant="bodyLarge" style={{ textAlign: 'center', color: Colors.textDark, marginBottom: 8, fontWeight: '600' }}>
-            ¿Olvidaste tu contraseña?
-          </Text>
-          <Text variant="bodyMedium" style={{ textAlign: 'center', color: Colors.textLight, lineHeight: 22 }}>
-            No te preocupes. Ingresa tus datos y te enviaremos instrucciones para recuperar tu cuenta.
-          </Text>
-        </View>
+      <Modal visible={showForgotModal} transparent animationType="none" onRequestClose={closeForgotModal}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+          <Animated.View style={[forgotStyles.overlay, { opacity: forgotFade }]}>
+            <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={closeForgotModal} />
+            <Animated.View style={[forgotStyles.sheet, { transform: [{ translateY: forgotSlide }] }]}>
 
-        <View style={{ marginBottom: 8 }}>
-          <TextInput
-            label="DNI / CE / RUC"
-            value={resetDni}
-            onChangeText={t => { setResetDni(t); setResetError(''); }}
-            mode="outlined"
-            keyboardType="numeric"
-            style={GlobalStyles.input}
-            left={<TextInput.Icon icon="card-account-details" />}
-            disabled={resetLoading}
-          />
-          <TextInput
-            label="Correo Electrónico"
-            value={resetEmail}
-            onChangeText={t => { setResetEmail(t); setResetError(''); }}
-            mode="outlined"
-            keyboardType="email-address"
-            autoCapitalize="none"
-            style={GlobalStyles.input}
-            left={<TextInput.Icon icon="email" />}
-            disabled={resetLoading}
-          />
-        </View>
+              {/* Handle bar */}
+              <View style={forgotStyles.handle} />
 
-        {resetError ? (
-          <Text style={{ color: Colors.danger, fontSize: 13, marginTop: 4, marginBottom: 8 }}>
-            {resetError}
-          </Text>
-        ) : null}
+              {resetSuccess ? (
+                /* ── Estado éxito ── */
+                <ScrollView contentContainerStyle={forgotStyles.body} showsVerticalScrollIndicator={false}>
+                  <View style={forgotStyles.successCircle}>
+                    <IconButton icon="email-check-outline" size={44} iconColor="#fff" style={{ margin: 0 }} />
+                  </View>
+                  <Text style={forgotStyles.successTitle}>¡Correo enviado!</Text>
+                  <Text style={forgotStyles.successSub}>
+                    Enviamos una contraseña temporal a{'\n'}
+                    <Text style={{ fontWeight: '700', color: Colors.textDark }}>{resetEmail}</Text>
+                  </Text>
+                  <View style={forgotStyles.successSteps}>
+                    {[
+                      { icon: 'email-open-outline', text: 'Revisa tu bandeja de entrada (y spam)' },
+                      { icon: 'login',              text: 'Inicia sesión con la contraseña temporal' },
+                      { icon: 'lock-reset',         text: 'Cámbiala en tu perfil cuando ingreses' },
+                    ].map((s, i) => (
+                      <View key={i} style={forgotStyles.stepRow}>
+                        <View style={forgotStyles.stepNumBox}>
+                          <Text style={forgotStyles.stepNum}>{i + 1}</Text>
+                        </View>
+                        <IconButton icon={s.icon} size={20} iconColor={Colors.primary} style={{ margin: 0 }} />
+                        <Text style={forgotStyles.stepText}>{s.text}</Text>
+                      </View>
+                    ))}
+                  </View>
+                  <TouchableOpacity style={forgotStyles.primaryBtn} onPress={closeForgotModal} activeOpacity={0.85}>
+                    <LinearGradient colors={['#16a34a', '#15803d']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={forgotStyles.primaryBtnGrad}>
+                      <Text style={forgotStyles.primaryBtnTxt}>Entendido</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                </ScrollView>
+              ) : (
+                /* ── Formulario ── */
+                <ScrollView contentContainerStyle={forgotStyles.body} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+                  {/* Header */}
+                  <LinearGradient colors={['#0D1B2A', '#16a34a']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={forgotStyles.headerGrad}>
+                    <View style={forgotStyles.headerIcon}>
+                      <IconButton icon="lock-reset" size={32} iconColor="#fff" style={{ margin: 0 }} />
+                    </View>
+                    <Text style={forgotStyles.headerTitle}>Recuperar contraseña</Text>
+                    <Text style={forgotStyles.headerSub}>Te enviaremos acceso temporal a tu correo</Text>
+                  </LinearGradient>
 
-        <View style={{ backgroundColor: '#E7F3FF', padding: 12, borderRadius: 8, marginTop: 8, flexDirection: 'row', alignItems: 'flex-start' }}>
-          <IconButton icon="information" size={20} iconColor="#2196F3" style={{ margin: 0, marginRight: 8 }} />
-          <Text variant="bodySmall" style={{ flex: 1, color: '#1976D2', lineHeight: 18 }}>
-            Recibirás un correo con una contraseña temporal. Podrás cambiarla después de iniciar sesión.
-          </Text>
-        </View>
-      </CustomModal>
+                  {/* Inputs */}
+                  <View style={forgotStyles.inputs}>
+                    <TextInput
+                      label="DNI / CE / RUC"
+                      value={resetDni}
+                      onChangeText={t => { setResetDni(t); setResetError(''); }}
+                      mode="outlined"
+                      keyboardType="numeric"
+                      style={GlobalStyles.input}
+                      left={<TextInput.Icon icon="card-account-details-outline" />}
+                      disabled={resetLoading}
+                      outlineStyle={{ borderRadius: 12 }}
+                    />
+                    <TextInput
+                      label="Correo electrónico"
+                      value={resetEmail}
+                      onChangeText={t => { setResetEmail(t); setResetError(''); }}
+                      mode="outlined"
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      style={GlobalStyles.input}
+                      left={<TextInput.Icon icon="email-outline" />}
+                      disabled={resetLoading}
+                      outlineStyle={{ borderRadius: 12 }}
+                    />
+                  </View>
+
+                  {/* Error */}
+                  {resetError ? (
+                    <View style={forgotStyles.errorBox}>
+                      <IconButton icon="alert-circle-outline" size={18} iconColor={Colors.danger} style={{ margin: 0 }} />
+                      <Text style={forgotStyles.errorTxt}>{resetError}</Text>
+                    </View>
+                  ) : null}
+
+                  {/* Info */}
+                  <View style={forgotStyles.infoBox}>
+                    <IconButton icon="shield-check-outline" size={18} iconColor={Colors.primary} style={{ margin: 0 }} />
+                    <Text style={forgotStyles.infoTxt}>
+                      Recibirás una contraseña temporal. Cámbiala al ingresar por seguridad.
+                    </Text>
+                  </View>
+
+                  {/* Botón enviar */}
+                  <TouchableOpacity
+                    style={[forgotStyles.primaryBtn, resetLoading && { opacity: 0.7 }]}
+                    onPress={handleForgotPassword}
+                    disabled={resetLoading}
+                    activeOpacity={0.85}
+                  >
+                    <LinearGradient colors={['#16a34a', '#15803d']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={forgotStyles.primaryBtnGrad}>
+                      {resetLoading
+                        ? <ActivityIndicator color="#fff" size={20} />
+                        : <Text style={forgotStyles.primaryBtnTxt}>Enviar instrucciones</Text>
+                      }
+                    </LinearGradient>
+                  </TouchableOpacity>
+
+                  {/* Cancelar */}
+                  <TouchableOpacity onPress={closeForgotModal} style={forgotStyles.cancelLink} activeOpacity={0.7}>
+                    <Text style={forgotStyles.cancelTxt}>Volver al inicio de sesión</Text>
+                  </TouchableOpacity>
+                </ScrollView>
+              )}
+            </Animated.View>
+          </Animated.View>
+        </KeyboardAvoidingView>
+      </Modal>
     </>
   );
 };
@@ -997,5 +1068,202 @@ const styles = StyleSheet.create({
     color: '#B0BBC9',
     fontSize: 15,
     fontWeight: '600',
+  },
+});
+
+const forgotStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    justifyContent: 'flex-end',
+  },
+  sheet: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    maxHeight: '92%',
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 24,
+  },
+  handle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#E2E8F0',
+    alignSelf: 'center',
+    marginTop: 10,
+    marginBottom: 4,
+  },
+  body: {
+    paddingBottom: 36,
+  },
+  /* Header gradiente */
+  headerGrad: {
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 28,
+    alignItems: 'center',
+    gap: 8,
+  },
+  headerIcon: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#fff',
+    textAlign: 'center',
+  },
+  headerSub: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.8)',
+    textAlign: 'center',
+  },
+  /* Inputs */
+  inputs: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    gap: 4,
+  },
+  /* Error */
+  errorBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF2F2',
+    borderRadius: 10,
+    marginHorizontal: 20,
+    marginTop: 8,
+    paddingRight: 12,
+    paddingVertical: 4,
+    gap: 4,
+  },
+  errorTxt: {
+    flex: 1,
+    fontSize: 13,
+    color: Colors.danger,
+    lineHeight: 18,
+  },
+  /* Info */
+  infoBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0FDF4',
+    borderRadius: 10,
+    marginHorizontal: 20,
+    marginTop: 12,
+    paddingRight: 12,
+    paddingVertical: 4,
+    gap: 4,
+  },
+  infoTxt: {
+    flex: 1,
+    fontSize: 13,
+    color: '#166534',
+    lineHeight: 18,
+  },
+  /* Botón */
+  primaryBtn: {
+    marginHorizontal: 20,
+    marginTop: 20,
+    borderRadius: 14,
+    overflow: 'hidden',
+  },
+  primaryBtnGrad: {
+    paddingVertical: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  primaryBtnTxt: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#fff',
+    letterSpacing: 0.3,
+  },
+  /* Cancelar */
+  cancelLink: {
+    alignItems: 'center',
+    marginTop: 16,
+    paddingVertical: 4,
+  },
+  cancelTxt: {
+    fontSize: 14,
+    color: Colors.textLight,
+    textDecorationLine: 'underline',
+  },
+  /* Éxito */
+  successCircle: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: Colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    alignSelf: 'center',
+    marginTop: 32,
+    marginBottom: 20,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  successTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: Colors.textDark,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  successSub: {
+    fontSize: 14,
+    color: Colors.textLight,
+    textAlign: 'center',
+    lineHeight: 22,
+    paddingHorizontal: 28,
+    marginBottom: 28,
+  },
+  successSteps: {
+    marginHorizontal: 20,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 16,
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    marginBottom: 8,
+    gap: 2,
+  },
+  stepRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 4,
+  },
+  stepNumBox: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: Colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  stepNum: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#fff',
+  },
+  stepText: {
+    flex: 1,
+    fontSize: 13,
+    color: Colors.textDark,
+    lineHeight: 18,
   },
 });
