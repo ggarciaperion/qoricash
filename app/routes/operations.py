@@ -765,17 +765,6 @@ def update_operation(operation_id):
             if new_amount <= 0:
                 return jsonify({'success': False, 'message': 'El monto debe ser mayor a 0'}), 400
 
-            # Validación de seguridad: máximo 20% de desviación del monto original
-            old_amount_check = float(operation.amount_usd)
-            if old_amount_check > 0:
-                deviation = abs(new_amount - old_amount_check) / old_amount_check
-                if deviation > 0.20 and current_user.role != 'Master':
-                    return jsonify({
-                        'success': False,
-                        'message': f'El nuevo monto excede el 20% de variación permitida '
-                                   f'(original: ${old_amount_check:.2f}, nuevo: ${new_amount:.2f}). '
-                                   f'Contacta a un Master para aprobar este cambio.'
-                    }), 403
 
             # Registrar log de modificación
             old_amount = float(operation.amount_usd)
