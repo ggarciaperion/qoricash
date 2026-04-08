@@ -138,19 +138,24 @@ class FileService:
         try:
             # Generar nombre seguro
             filename = secure_filename(file.filename)
+            ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
 
-            # Generar public_id SIN incluir el folder (Cloudinary lo añade via folder=)
+            # public_id incluye el folder para evitar ambigüedad con el SDK
             if public_id_prefix:
-                public_id = f"{public_id_prefix}_{filename}"
+                public_id = f"{folder}/{public_id_prefix}_{filename}"
             else:
-                public_id = filename
+                public_id = f"{folder}/{filename}"
 
-            # Subir a Cloudinary
+            # PDFs → resource_type='raw' para que Cloudinary los sirva como archivo directo
+            # Imágenes → resource_type='image'
+            resource_type = 'raw' if ext == 'pdf' else 'image'
+
+            # Subir a Cloudinary SIN el parámetro folder (ya está en public_id)
             result = cloudinary.uploader.upload(
                 file,
-                folder=folder,
                 public_id=public_id,
-                resource_type='auto'
+                resource_type=resource_type,
+                overwrite=True
             )
 
             url = result.get('secure_url')
