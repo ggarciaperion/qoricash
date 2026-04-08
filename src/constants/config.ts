@@ -3,7 +3,7 @@ export const API_CONFIG = {
   // Cambiar esta URL por la URL de tu servidor en producción
   BASE_URL: 'https://app.qoricash.pe', // ✅ URL correcta del servidor activo
   // BASE_URL: 'https://qoricash-v2.onrender.com', // Base de datos de Render (pruebas)
-  // BASE_URL: 'http://192.168.100.3:5000', // Servidor local
+  // BASE_URL: 'http://172.20.10.5:5001', // Servidor local (Expo Go)
 
   TIMEOUT: 30000,
 
