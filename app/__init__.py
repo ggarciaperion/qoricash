@@ -140,6 +140,14 @@ def initialize_extensions(flask_app):
     def load_user(user_id):
         return User.query.get(int(user_id))
 
+    @login_manager.unauthorized_handler
+    def unauthorized():
+        """Devuelve JSON para peticiones AJAX; redirige al login para navegador normal."""
+        from flask import request, jsonify, redirect, url_for
+        if request.is_json or request.headers.get('X-CSRFToken') or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'success': False, 'message': 'Sesión expirada. Por favor recarga la página e inicia sesión nuevamente.', 'session_expired': True}), 401
+        return redirect(url_for('auth.login'))
+
     # Importar eventos de Socket.IO
     with flask_app.app_context():
         import app.socketio_events

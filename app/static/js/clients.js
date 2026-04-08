@@ -1065,7 +1065,9 @@ function saveClient() {
             hideLoading();
             window.isSavingClient = false;  // Restaurar flag
             showNotification('success', 'Cliente actualizado exitosamente');
-            bootstrap.Modal.getInstance(document.getElementById('createClientModal')).hide();
+            const modalElT = document.getElementById('createClientModal');
+            const modalInstT = modalElT ? bootstrap.Modal.getInstance(modalElT) : null;
+            if (modalInstT) modalInstT.hide();
             setTimeout(() => location.reload(), 1500);
         })
         .catch(error => {
@@ -1144,6 +1146,17 @@ function saveClient() {
         body: JSON.stringify(clientData)
     })
     .then(response => {
+        if (response.status === 401) {
+            return response.json().then(errData => {
+                const err = new Error(errData.message || 'Sesión expirada');
+                err.status = 401;
+                throw err;
+            }).catch(() => {
+                const err = new Error('Sesión expirada. Por favor recarga la página e inicia sesión nuevamente.');
+                err.status = 401;
+                throw err;
+            });
+        }
         if (!response.ok) {
             return response.json().then(errData => {
                 throw new Error(errData.message || `Error ${response.status}`);
@@ -1196,7 +1209,9 @@ function saveClient() {
 
             // Cerrar modal y marcar éxito del cliente ANTES de subir documentos
             window.isSavingClient = false;
-            bootstrap.Modal.getInstance(document.getElementById('createClientModal')).hide();
+            const modalEl = document.getElementById('createClientModal');
+            const modalInst = modalEl ? bootstrap.Modal.getInstance(modalEl) : null;
+            if (modalInst) modalInst.hide();
 
             if (hasFiles) {
                 showNotification('success', data.message + ' — Subiendo documentos...');
@@ -1226,7 +1241,12 @@ function saveClient() {
         hideLoading();
         restoreButton();  // Restaurar botón en caso de error
         console.error('Error:', error);
-        showNotification('error', error.message || 'Error al guardar el cliente');
+        if (error.status === 401 || (error.message && error.message.includes('Sesión expirada'))) {
+            Swal.fire({ icon: 'warning', title: 'Sesión expirada', text: 'Tu sesión ha expirado. Serás redirigido al inicio de sesión.', timer: 3000, showConfirmButton: false })
+                .then(() => { window.location.href = '/login'; });
+        } else {
+            showNotification('error', error.message || 'Error al guardar el cliente');
+        }
     });
 }
 
