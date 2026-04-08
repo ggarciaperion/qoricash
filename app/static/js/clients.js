@@ -1173,38 +1173,28 @@ function saveClient() {
             // Si hay archivos, subirlos
             const files = new FormData();
             let hasFiles = false;
+            const MAX_FILE_SIZE = 8 * 1024 * 1024; // 8 MB por archivo
+
+            const addFile = (fieldName, file) => {
+                if (!file) return;
+                if (file.size > MAX_FILE_SIZE) {
+                    const mb = (file.size / 1024 / 1024).toFixed(1);
+                    showNotification('warning', `El archivo "${file.name}" pesa ${mb} MB y supera el límite de 8 MB. No se subirá. Puedes subirlo desde el detalle del cliente con una imagen más pequeña.`);
+                    return;
+                }
+                files.append(fieldName, file);
+                hasFiles = true;
+            };
 
             const docType = document.getElementById('documentType').value;
 
             if (docType === 'RUC') {
-                const dniRepFront = document.getElementById('dniRepFront').files[0];
-                const dniRepBack = document.getElementById('dniRepBack').files[0];
-                const fichaRuc = document.getElementById('fichaRuc').files[0];
-
-                if (dniRepFront) {
-                    files.append('dni_representante_front', dniRepFront);
-                    hasFiles = true;
-                }
-                if (dniRepBack) {
-                    files.append('dni_representante_back', dniRepBack);
-                    hasFiles = true;
-                }
-                if (fichaRuc) {
-                    files.append('ficha_ruc', fichaRuc);
-                    hasFiles = true;
-                }
+                addFile('dni_representante_front', document.getElementById('dniRepFront')?.files[0]);
+                addFile('dni_representante_back', document.getElementById('dniRepBack')?.files[0]);
+                addFile('ficha_ruc', document.getElementById('fichaRuc')?.files[0]);
             } else {
-                const dniFront = document.getElementById('dniFront').files[0];
-                const dniBack = document.getElementById('dniBack').files[0];
-
-                if (dniFront) {
-                    files.append('dni_front', dniFront);
-                    hasFiles = true;
-                }
-                if (dniBack) {
-                    files.append('dni_back', dniBack);
-                    hasFiles = true;
-                }
+                addFile('dni_front', document.getElementById('dniFront')?.files[0]);
+                addFile('dni_back', document.getElementById('dniBack')?.files[0]);
             }
 
             // Cerrar modal y marcar éxito del cliente ANTES de subir documentos
@@ -1261,7 +1251,14 @@ function uploadClientDocuments(clientId, files) {
         },
         body: files
     })
-    .then(response => response.json())
+    .then(response => {
+        if (response.status === 413) {
+            throw new Error('Los archivos son demasiado grandes (máx. 8 MB por imagen). Sube imágenes más pequeñas desde el detalle del cliente.');
+        }
+        return response.json().catch(() => {
+            throw new Error(`Error ${response.status} al subir documentos. Intenta subirlos desde el detalle del cliente.`);
+        });
+    })
     .then(data => {
         if (!data.success) {
             throw new Error(data.message);

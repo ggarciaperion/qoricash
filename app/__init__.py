@@ -244,6 +244,10 @@ def register_error_handlers(app):
         # Siempre retornar JSON para APIs
         return jsonify({'success': False, 'error': 'Acceso denegado'}), 403
 
+    @app.errorhandler(413)
+    def request_too_large(error):
+        return jsonify({'success': False, 'message': 'Los archivos son demasiado grandes. El límite es 10 MB por solicitud. Usa imágenes más pequeñas.'}), 413
+
 
 def configure_security_headers(flask_app):
     """
