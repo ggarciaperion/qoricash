@@ -723,32 +723,78 @@ export const RegisterScreen = () => {
     ...extra,
   });
 
+  const UbigeoPickerContent = ({
+    data,
+    selected,
+    onSelect,
+    onDismiss,
+  }: {
+    data: string[];
+    selected: string;
+    onSelect: (v: string) => void;
+    onDismiss: () => void;
+  }) => {
+    const [query, setQuery] = useState('');
+    const filtered = query.trim()
+      ? data.filter(item => item.toLowerCase().includes(query.toLowerCase()))
+      : data;
+
+    return (
+      <View style={{ flex: 1 }}>
+        {/* Buscador */}
+        <View style={modalListStyles.searchBox}>
+          <IconButton icon="magnify" size={18} iconColor={Colors.textLight} style={{ margin: 0 }} />
+          <RNTextInput
+            placeholder="Buscar..."
+            placeholderTextColor={Colors.textLight}
+            value={query}
+            onChangeText={setQuery}
+            style={modalListStyles.searchInput}
+            autoCorrect={false}
+            autoCapitalize="characters"
+          />
+          {query.length > 0 && (
+            <IconButton icon="close-circle" size={16} iconColor={Colors.textLight} style={{ margin: 0 }} onPress={() => setQuery('')} />
+          )}
+        </View>
+
+        {filtered.length === 0 ? (
+          <View style={modalListStyles.emptyBox}>
+            <Text style={modalListStyles.emptyText}>Sin resultados</Text>
+          </View>
+        ) : (
+          <FlatList
+            data={filtered}
+            keyExtractor={(item) => item}
+            style={{ flex: 1 }}
+            keyboardShouldPersistTaps="handled"
+            renderItem={({ item }) => {
+              const isSelected = item === selected;
+              return (
+                <TouchableOpacity
+                  style={[modalListStyles.item, isSelected && modalListStyles.itemSelected]}
+                  onPress={() => { onSelect(item); onDismiss(); }}
+                  activeOpacity={0.7}
+                >
+                  <IconButton icon="map-marker-outline" size={16} iconColor={isSelected ? Colors.primary : Colors.textLight} style={{ margin: 0 }} />
+                  <Text style={[modalListStyles.itemText, isSelected && modalListStyles.itemTextSelected]}>{item}</Text>
+                  {isSelected && <IconButton icon="check-circle" size={16} iconColor={Colors.primary} style={{ margin: 0 }} />}
+                </TouchableOpacity>
+              );
+            }}
+          />
+        )}
+      </View>
+    );
+  };
+
   const renderModalList = (
     data: string[],
     selected: string,
     onSelect: (v: string) => void,
     onDismiss: () => void
   ) => (
-    <FlatList
-      data={data}
-      keyExtractor={(item) => item}
-      style={{ maxHeight: 400 }}
-      contentContainerStyle={{ paddingBottom: 20 }}
-      renderItem={({ item }) => {
-        const isSelected = item === selected;
-        return (
-          <TouchableOpacity
-            style={[modalListStyles.item, isSelected && modalListStyles.itemSelected]}
-            onPress={() => { onSelect(item); onDismiss(); }}
-            activeOpacity={0.7}
-          >
-            <IconButton icon="map-marker" size={18} iconColor={isSelected ? Colors.primary : Colors.textLight} style={{ margin: 0 }} />
-            <Text style={[modalListStyles.itemText, isSelected && modalListStyles.itemTextSelected]}>{item}</Text>
-            {isSelected && <IconButton icon="check-circle" size={18} iconColor={Colors.primary} style={{ margin: 0 }} />}
-          </TouchableOpacity>
-        );
-      }}
-    />
+    <UbigeoPickerContent data={data} selected={selected} onSelect={onSelect} onDismiss={onDismiss} />
   );
 
   return (
@@ -1254,22 +1300,47 @@ const checkStyles = StyleSheet.create({
 
 // ── Modal list styles ──────────────────────────────────────────────────────
 const modalListStyles = StyleSheet.create({
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 0,
+    marginBottom: 8,
+    backgroundColor: '#f4f4f5',
+    borderRadius: 10,
+    paddingHorizontal: 4,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: Colors.textDark,
+    paddingVertical: 8,
+  },
+  emptyBox: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 32,
+  },
+  emptyText: {
+    color: Colors.textLight,
+    fontSize: 14,
+  },
   item: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     borderBottomWidth: 1,
     borderBottomColor: Colors.divider,
     backgroundColor: Colors.surface,
-    gap: 8,
+    gap: 4,
   },
   itemSelected: {
     backgroundColor: '#f0fdf4',
     borderLeftWidth: 3,
     borderLeftColor: Colors.primary,
   },
-  itemText: { flex: 1, fontSize: 15, color: Colors.textDark, fontWeight: '500' },
+  itemText: { flex: 1, fontSize: 14, color: Colors.textDark, fontWeight: '500' },
   itemTextSelected: { color: Colors.primaryDark, fontWeight: '700' },
 });
 

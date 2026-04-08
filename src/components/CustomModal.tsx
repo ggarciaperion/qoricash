@@ -66,7 +66,7 @@ export const CustomModal: React.FC<CustomModalProps> = ({
                 </View>
 
                 {/* Content */}
-                <View style={{ paddingVertical: 8 }}>
+                <View style={{ flex: 1, overflow: 'hidden' }}>
                   {children}
                 </View>
 

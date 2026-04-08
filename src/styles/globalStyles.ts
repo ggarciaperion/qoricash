@@ -130,7 +130,9 @@ export const GlobalStyles = StyleSheet.create({
   modalContainer: {
     backgroundColor: Colors.surface,
     borderRadius: 20,
-    padding: 24,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 16,
     width: '100%',
     maxWidth: 400,
     maxHeight: '85%',
@@ -139,6 +141,7 @@ export const GlobalStyles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 20,
     elevation: 10,
+    overflow: 'hidden',
   },
 
   modalHeader: {
