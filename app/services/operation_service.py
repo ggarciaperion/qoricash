@@ -314,10 +314,12 @@ class OperationService:
         
         # Actualizar notas si se proporcionan
         if notes:
+            user_label = getattr(current_user, 'full_name', None) or getattr(current_user, 'username', 'Sistema')
+            new_entry = f"[{now_peru().strftime('%Y-%m-%d %H:%M')} | {user_label}] {notes}"
             if operation.notes:
-                operation.notes += f"\n\n[{now_peru().strftime('%Y-%m-%d %H:%M')}] {notes}"
+                operation.notes += f"\n\n{new_entry}"
             else:
-                operation.notes = notes
+                operation.notes = new_entry
         
         # Registrar en auditoría
         AuditLog.log_action(
@@ -496,10 +498,12 @@ class OperationService:
         operation.updated_at = now_peru()
         
         # Agregar razón a notas
+        user_label = getattr(current_user, 'full_name', None) or getattr(current_user, 'username', 'Sistema')
+        cancel_entry = f"[{now_peru().strftime('%Y-%m-%d %H:%M')} | {user_label}] [CANCELADO] {reason}"
         if operation.notes:
-            operation.notes += f"\n\n[CANCELADO] {reason}"
+            operation.notes += f"\n\n{cancel_entry}"
         else:
-            operation.notes = f"[CANCELADO] {reason}"
+            operation.notes = cancel_entry
         
         # Registrar en auditoría
         AuditLog.log_action(

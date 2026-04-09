@@ -992,7 +992,10 @@ def return_to_pending(operation_id):
 
         # Agregar nota con razón de devolución
         if reason:
-            operation.notes = (operation.notes or '') + f'\n[DEVUELTO] {reason}'
+            from app.utils.formatters import now_peru
+            user_label = getattr(current_user, 'full_name', None) or getattr(current_user, 'username', 'Sistema')
+            devuelto_entry = f"[{now_peru().strftime('%Y-%m-%d %H:%M')} | {user_label}] [DEVUELTO] {reason}"
+            operation.notes = (operation.notes or '') + f'\n\n{devuelto_entry}'
 
         AuditLog.log_action(
             user_id=current_user.id,
