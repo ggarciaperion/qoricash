@@ -905,22 +905,66 @@ function buildViewHTML(op, readonly) {
     }
 
     let html = `
-        <div class="row mb-3">
-            <div class="col-md-3"><strong>ID:</strong> ${op.operation_id}</div>
-            <div class="col-md-3"><strong>Cliente:</strong> ${op.client_name || '-'}</div>
-            <div class="col-md-3"><strong>Tipo:</strong> ${typeBadge}</div>
-            <div class="col-md-3"><strong>Estado:</strong> ${statusBadge}</div>
-        </div>
-        <div class="row mb-3">
-            <div class="col-md-3"><strong>Monto USD:</strong> $ ${parseFloat(op.amount_usd).toFixed(2)}</div>
-            <div class="col-md-3"><strong>T.C.:</strong> ${parseFloat(op.exchange_rate).toFixed(4)}</div>
-            <div class="col-md-3"><strong>Monto PEN:</strong> S/ ${parseFloat(op.amount_pen).toFixed(2)}</div>
-            <div class="col-md-3"><strong>Creado por:</strong> ${op.user_name || '-'}</div>
-        </div>
-        <div class="row mb-3">
-            <div class="col-md-4"><strong>Fecha Creación:</strong> ${formatDateTime(op.created_at)}</div>
-            <div class="col-md-4"><strong>Enviada a Procesar:</strong> ${op.updated_at ? formatDateTime(op.updated_at) : '-'}</div>
-            <div class="col-md-4"><strong>Fecha Completada:</strong> ${op.completed_at ? formatDateTime(op.completed_at) : '-'}</div>
+        <div class="rounded p-3 mb-3" style="background:#fff;border:1px solid #e9ecef;">
+
+            <!-- Fila 1: Identificación -->
+            <div class="row g-0 mb-3">
+                <div class="col-6 col-md-3 mb-2">
+                    <div class="text-uppercase" style="font-size:10px;letter-spacing:.5px;color:#9ca3af;">ID</div>
+                    <div class="fw-semibold" style="font-size:13px;">${op.operation_id}</div>
+                </div>
+                <div class="col-6 col-md-3 mb-2">
+                    <div class="text-uppercase" style="font-size:10px;letter-spacing:.5px;color:#9ca3af;">Tipo</div>
+                    <div class="mt-1">${typeBadge}</div>
+                </div>
+                <div class="col-6 col-md-3 mb-2">
+                    <div class="text-uppercase" style="font-size:10px;letter-spacing:.5px;color:#9ca3af;">Estado</div>
+                    <div class="mt-1">${statusBadge}</div>
+                </div>
+                <div class="col-6 col-md-3 mb-2">
+                    <div class="text-uppercase" style="font-size:10px;letter-spacing:.5px;color:#9ca3af;">Creado por</div>
+                    <div class="fw-semibold" style="font-size:13px;">${op.user_name || '-'}</div>
+                </div>
+            </div>
+
+            <!-- Fila 2: Cliente -->
+            <div class="mb-3 pb-3" style="border-bottom:1px solid #f3f4f6;">
+                <div class="text-uppercase" style="font-size:10px;letter-spacing:.5px;color:#9ca3af;">Cliente</div>
+                <div class="fw-semibold" style="font-size:14px;">${op.client_name || '-'}</div>
+            </div>
+
+            <!-- Fila 3: Montos -->
+            <div class="row g-0 mb-3 pb-3" style="border-bottom:1px solid #f3f4f6;">
+                <div class="col-4">
+                    <div class="text-uppercase" style="font-size:10px;letter-spacing:.5px;color:#9ca3af;">Monto USD</div>
+                    <div class="fw-bold" style="font-size:15px;">$ ${parseFloat(op.amount_usd).toFixed(2)}</div>
+                </div>
+                <div class="col-4 text-center">
+                    <div class="text-uppercase" style="font-size:10px;letter-spacing:.5px;color:#9ca3af;">T/C</div>
+                    <div class="fw-semibold" style="font-size:13px;">${parseFloat(op.exchange_rate).toFixed(4)}</div>
+                </div>
+                <div class="col-4 text-end">
+                    <div class="text-uppercase" style="font-size:10px;letter-spacing:.5px;color:#9ca3af;">Monto PEN</div>
+                    <div class="fw-bold" style="font-size:15px;">S/ ${parseFloat(op.amount_pen).toFixed(2)}</div>
+                </div>
+            </div>
+
+            <!-- Fila 4: Fechas -->
+            <div class="row g-0">
+                <div class="col-12 col-md-4 mb-1">
+                    <div class="text-uppercase" style="font-size:10px;letter-spacing:.5px;color:#9ca3af;">Fecha Creación</div>
+                    <div style="font-size:12px;color:#374151;">${formatDateTime(op.created_at)}</div>
+                </div>
+                <div class="col-12 col-md-4 mb-1">
+                    <div class="text-uppercase" style="font-size:10px;letter-spacing:.5px;color:#9ca3af;">Enviada a Procesar</div>
+                    <div style="font-size:12px;color:#374151;">${op.updated_at ? formatDateTime(op.updated_at) : '—'}</div>
+                </div>
+                <div class="col-12 col-md-4 mb-1">
+                    <div class="text-uppercase" style="font-size:10px;letter-spacing:.5px;color:#9ca3af;">Fecha Completada</div>
+                    <div style="font-size:12px;color:#374151;">${op.completed_at ? formatDateTime(op.completed_at) : '—'}</div>
+                </div>
+            </div>
+
         </div>`;
 
     // Cuentas Bancarias
