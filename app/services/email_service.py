@@ -758,6 +758,18 @@ class EmailService:
         .arrow { color: #f59e0b; font-weight: 700; padding: 0 8px; }
         .alert { border-radius: 8px; padding: 13px 16px; margin: 14px 0; font-size: 13.5px; line-height: 1.65; }
         .alert.info { background: #f0f9ff; border-left: 3px solid #0ea5e9; color: #0c4a6e; }
+        .bank-section { border-radius: 8px; overflow: hidden; border: 1px solid #e2e8f0; margin: 16px 0; }
+        .bank-header { padding: 12px 16px; font-size: 13px; font-weight: 700; }
+        .bank-header.buy { background-color: #f0fdf4; color: #15803d; border-bottom: 1px solid #bbf7d0; }
+        .bank-header.sell { background-color: #fef2f2; color: #991b1b; border-bottom: 1px solid #fecaca; }
+        .bank-subtext { font-size: 12px; font-weight: 400; margin-top: 3px; opacity: 0.8; }
+        .bank-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+        .bank-table th { background-color: #0D1B2A; color: #94a3b8; font-weight: 600; padding: 9px 12px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .bank-table td { padding: 9px 12px; border-bottom: 1px solid #f1f5f9; color: #334155; }
+        .bank-table tr:last-child td { border-bottom: none; }
+        .bank-table tr:nth-child(even) td { background-color: #f8fafc; }
+        .bank-name { font-weight: 700; color: #1e293b; }
+        .account-num { font-family: 'Courier New', monospace; color: #0D1B2A; font-weight: 600; font-size: 11px; letter-spacing: -0.3px; white-space: nowrap; word-break: break-all; }
         .divider { height: 1px; background-color: #f1f5f9; margin: 24px 0; }
         .note-text { font-size: 13px; color: #94a3b8; line-height: 1.6; }
         .email-footer { background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 22px 40px; text-align: center; }
@@ -814,6 +826,36 @@ class EmailService:
                 </tr>
             </table>
 
+            {% if operation.operation_type == 'Compra' %}
+            <p class="section-label">Cuentas para transferencia (USD)</p>
+            <div class="bank-section">
+                <div class="bank-header buy">
+                    Transfiera en DÓLARES el nuevo importe a cualquiera de estas cuentas
+                    <div class="bank-subtext">A nombre de {{ qoricash_titular }} — RUC {{ qoricash_ruc }}</div>
+                </div>
+                <table class="bank-table">
+                    <thead><tr><th>Banco</th><th>Tipo</th><th>Moneda</th><th>N° Cuenta</th><th>CCI</th></tr></thead>
+                    <tbody>
+                        {% for acc in usd_accounts %}<tr><td class="bank-name">{{ acc.banco }}</td><td>{{ acc.tipo }}</td><td>USD</td><td class="account-num">{{ acc.numero }}</td><td class="account-num">{{ acc.cci }}</td></tr>{% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% elif operation.operation_type == 'Venta' %}
+            <p class="section-label">Cuentas para transferencia (PEN)</p>
+            <div class="bank-section">
+                <div class="bank-header sell">
+                    Transfiera en SOLES el nuevo importe a cualquiera de estas cuentas
+                    <div class="bank-subtext">A nombre de {{ qoricash_titular }} — RUC {{ qoricash_ruc }}</div>
+                </div>
+                <table class="bank-table">
+                    <thead><tr><th>Banco</th><th>Tipo</th><th>Moneda</th><th>N° Cuenta</th><th>CCI</th></tr></thead>
+                    <tbody>
+                        {% for acc in pen_accounts %}<tr><td class="bank-name">{{ acc.banco }}</td><td>{{ acc.tipo }}</td><td>PEN</td><td class="account-num">{{ acc.numero }}</td><td class="account-num">{{ acc.cci }}</td></tr>{% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
+
             <div class="alert info">
                 Si tiene alguna consulta sobre este cambio, responda este correo o contáctese directamente con su asesor.
             </div>
@@ -832,11 +874,16 @@ class EmailService:
 </div>
 </body>
 </html>"""
+        from app.config.bank_accounts import get_accounts_for_currency, QORICASH_TITULAR, QORICASH_RUC
         return render_template_string(
             template,
             operation=operation,
             old_amount_usd=old_amount_usd,
             old_amount_pen=old_amount_pen,
+            usd_accounts=get_accounts_for_currency('USD'),
+            pen_accounts=get_accounts_for_currency('PEN'),
+            qoricash_titular=QORICASH_TITULAR,
+            qoricash_ruc=QORICASH_RUC,
         )
 
     @staticmethod
