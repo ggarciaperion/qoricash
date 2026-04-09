@@ -984,7 +984,14 @@ function buildViewHTML(op, readonly) {
         if (accountDestino) {
             html += `
                 <p class="mb-1"><strong>Banco:</strong> ${accountDestino.bank_name}</p>
-                <p class="mb-1"><strong>Nro. Cuenta:</strong> ${accountDestino.account_number}</p>
+                <p class="mb-1 d-flex align-items-center gap-2">
+                    <span><strong>Nro. Cuenta:</strong> ${accountDestino.account_number}</span>
+                    <button type="button" class="btn btn-sm btn-outline-secondary p-0 px-1 copy-account-btn"
+                        title="Copiar número de cuenta"
+                        onclick="copyAccountNumber('${accountDestino.account_number}', this)">
+                        <i class="bi bi-clipboard"></i>
+                    </button>
+                </p>
                 <p class="mb-1"><strong>Tipo:</strong> ${accountDestino.account_type}</p>
                 <p class="mb-1"><strong>Moneda:</strong> ${accountDestino.currency}</p>
                 <p class="mb-0"><strong>Origen:</strong> ${accountDestino.origen || '-'}</p>`;
@@ -2213,5 +2220,18 @@ function reassignOperator() {
 // VERSION: 2025-12-27-APP-CHANNEL-FIX
 // Forzar recarga de caché del navegador
 console.log('✅ Canal App soportado - Versión: 2025-12-27');
+
+function copyAccountNumber(accountNumber, btn) {
+    const digitsOnly = accountNumber.replace(/\D/g, '');
+    navigator.clipboard.writeText(digitsOnly).then(() => {
+        const icon = btn.querySelector('i');
+        icon.className = 'bi bi-clipboard-check';
+        btn.classList.replace('btn-outline-secondary', 'btn-success');
+        setTimeout(() => {
+            icon.className = 'bi bi-clipboard';
+            btn.classList.replace('btn-success', 'btn-outline-secondary');
+        }, 2000);
+    });
+}
 </script>
 {% endblock %}
