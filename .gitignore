@@ -93,3 +93,12 @@ nul
 # ── Temporales ───────────────────────────────────────────────────────────────
 *.tmp
 *.bak
+
+# ── Node / React Native ──────────────────────────────────────────────────────
+node_modules/
+package-lock.json
+.expo/
+assets/notification-icon.png
+
+# ── Scripts locales ───────────────────────────────────────────────────────────
+seed_local.py
