@@ -2253,14 +2253,12 @@ function renderNotes(rawNotes) {
         const match = block.match(/^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2})\s*\|\s*([^\]]+)\]\s*([\s\S]*)$/);
         if (match) {
             const [, ts, user, text] = match;
-            const isAction = /\[CANCELADO\]|\[DEVUELTO\]/.test(text);
-            const badgeColor = isAction ? 'bg-danger' : 'bg-secondary';
-            return `<div class="border rounded p-2 mb-2 bg-light">
+            return `<div class="border rounded p-2 mb-2" style="background:#f9fafb;">
                 <div class="d-flex align-items-center gap-2 mb-1">
-                    <span class="badge ${badgeColor}"><i class="bi bi-person-fill me-1"></i>${user.trim()}</span>
+                    <span class="badge bg-secondary"><i class="bi bi-person-fill me-1"></i>${user.trim()}</span>
                     <small class="text-muted"><i class="bi bi-clock me-1"></i>${ts}</small>
                 </div>
-                <div class="small">${text.replace(/\[CANCELADO\]|\[DEVUELTO\]/g, m => `<span class="badge bg-danger me-1">${m.slice(1,-1)}</span>`)}</div>
+                <div class="small text-dark">${text.replace(/\[CANCELADO\]|\[DEVUELTO\]/g, m => `<span class="badge bg-secondary me-1">${m.slice(1,-1)}</span>`)}</div>
             </div>`;
         }
         // Formato legacy: [YYYY-MM-DD HH:MM] texto
@@ -2273,9 +2271,8 @@ function renderNotes(rawNotes) {
             </div>`;
         }
         // Texto plano (nota inicial o CANCELADO/DEVUELTO sin formato)
-        const isAction = /\[CANCELADO\]|\[DEVUELTO\]/.test(block);
-        return `<div class="border rounded p-2 mb-2 ${isAction ? 'border-danger bg-danger bg-opacity-10' : 'bg-light'}">
-            <div class="small">${block.replace(/\[CANCELADO\]|\[DEVUELTO\]/g, m => `<span class="badge bg-danger me-1">${m.slice(1,-1)}</span>`)}</div>
+        return `<div class="border rounded p-2 mb-2" style="background:#f9fafb;">
+            <div class="small text-dark">${block.replace(/\[CANCELADO\]|\[DEVUELTO\]/g, m => `<span class="badge bg-secondary me-1">${m.slice(1,-1)}</span>`)}</div>
         </div>`;
     }).join('');
     return `<div class="mt-2">${html}</div>`;
