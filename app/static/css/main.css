@@ -774,10 +774,10 @@ body.has-sidebar.sidebar-collapsed .main-wrapper {
 }
 
 .modal-header {
-    border-bottom: none;
-    padding: 14px 16px;
-    background: linear-gradient(135deg, var(--qori-secondary), var(--qori-secondary-light));
-    color: white;
+    border-bottom: 1px solid #e9ecef;
+    padding: 14px 20px;
+    background: #f8fafc;
+    color: #111827;
     border-radius: var(--radius-xl) var(--radius-xl) 0 0;
     flex-shrink: 0;
     display: flex;
@@ -787,9 +787,9 @@ body.has-sidebar.sidebar-collapsed .main-wrapper {
 .modal-title,
 .modal-header h5,
 .modal-header h6 {
-    color: white !important;
+    color: #111827 !important;
     margin: 0;
-    font-weight: 700;
+    font-weight: 600;
     font-size: 0.9375rem;
     display: flex;
     align-items: center;
@@ -797,10 +797,6 @@ body.has-sidebar.sidebar-collapsed .main-wrapper {
 }
 
 .modal-header i { color: var(--qori-primary); }
-
-.modal-header .btn-close-white {
-    filter: brightness(0) invert(1) opacity(.7);
-}
 
 .modal-body {
     padding: 16px;
