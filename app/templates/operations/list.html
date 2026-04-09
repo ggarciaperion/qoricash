@@ -239,169 +239,134 @@
 <!-- Modal: Editar Operación (4 secciones) -->
 <div class="modal fade" id="editOperationModal" tabindex="-1" data-bs-backdrop="static">
     <div class="modal-dialog modal-xl">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title"><i class="bi bi-pencil"></i> <span id="editModalTitle">Editar Operación</span></h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        <div class="modal-content border-0 shadow" style="border-radius:10px;overflow:hidden;">
+
+            <!-- Header: ID + badges + KPIs -->
+            <div class="modal-header border-0 pb-0 px-4 pt-4" style="background:#f8fafc;">
+                <div class="w-100">
+                    <div class="d-flex align-items-start justify-content-between">
+                        <div>
+                            <div class="d-flex align-items-center gap-2 flex-wrap">
+                                <span class="fw-bold" style="font-size:15px;" id="editModalTitle">Operación</span>
+                                <span class="text-muted fw-normal small" id="edit_op_id"></span>
+                                <span id="edit_op_type"></span>
+                                <span id="edit_op_status"></span>
+                            </div>
+                            <div class="fw-semibold mt-1" style="font-size:14px;" id="edit_client_name"></div>
+                        </div>
+                        <button type="button" class="btn-close ms-3 flex-shrink-0" data-bs-dismiss="modal"></button>
+                    </div>
+                    <!-- KPI strip -->
+                    <div class="d-flex flex-wrap gap-4 mt-3 pb-3 border-bottom">
+                        <div>
+                            <div class="text-uppercase text-muted mb-1" style="font-size:10px;letter-spacing:.6px;">Monto USD</div>
+                            <div class="input-group input-group-sm" id="edit_amount_usd_group" style="width:160px;">
+                                <span class="input-group-text bg-white">$</span>
+                                <input type="number" class="form-control" id="edit_amount_usd" step="0.01" min="0">
+                                <button class="btn btn-outline-primary" type="button" id="btnSaveAmount" onclick="saveAmountUSD()"><i class="bi bi-check"></i></button>
+                            </div>
+                            <div class="fw-bold" id="edit_amount_usd_readonly" style="display:none;font-size:15px;"></div>
+                            <div id="edit_last_modification" style="display:none;">
+                                <small class="text-warning"><i class="bi bi-clock-history me-1"></i><span id="last_mod_text"></span></small>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="text-uppercase text-muted mb-1" style="font-size:10px;letter-spacing:.6px;">T/C</div>
+                            <div class="fw-bold" style="font-size:15px;" id="edit_exchange_rate">—</div>
+                        </div>
+                        <div>
+                            <div class="text-uppercase text-muted mb-1" style="font-size:10px;letter-spacing:.6px;">Monto PEN</div>
+                            <div class="fw-bold" style="font-size:15px;" id="edit_amount_pen">—</div>
+                        </div>
+                        <div class="ms-auto text-end">
+                            <div class="text-uppercase text-muted mb-1" style="font-size:10px;letter-spacing:.6px;">Fecha</div>
+                            <div class="small text-muted" id="edit_created_at">—</div>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div class="modal-body">
+
+            <div class="modal-body px-4 py-0" style="max-height:62vh;overflow-y:auto;background:#f8fafc;">
                 <input type="hidden" id="edit_operation_id">
 
-                <!-- Sección 1: Información de la Operación -->
-                <div class="card mb-3">
-                    <div class="card-header bg-primary text-white">
-                        <h6 class="mb-0"><i class="bi bi-info-circle"></i> Información de la Operación</h6>
-                    </div>
-                    <div class="card-body">
-                        <div class="row">
-                            <div class="col-md-3 mb-2">
-                                <label class="form-label text-muted small">ID</label>
-                                <div class="fw-bold" id="edit_op_id"></div>
-                            </div>
-                            <div class="col-md-3 mb-2">
-                                <label class="form-label text-muted small">Cliente</label>
-                                <div class="fw-bold" id="edit_client_name"></div>
-                            </div>
-                            <div class="col-md-3 mb-2">
-                                <label class="form-label text-muted small">Tipo</label>
-                                <div id="edit_op_type"></div>
-                            </div>
-                            <div class="col-md-3 mb-2">
-                                <label class="form-label text-muted small">Estado</label>
-                                <div id="edit_op_status"></div>
-                            </div>
-                        </div>
-
-                        <div class="row">
-                            <div class="col-md-3 mb-2">
-                                <label class="form-label text-muted small">Monto USD</label>
-                                <div class="input-group input-group-sm" id="edit_amount_usd_group">
-                                    <span class="input-group-text">$</span>
-                                    <input type="number" class="form-control" id="edit_amount_usd" step="0.01" min="0">
-                                    <button class="btn btn-outline-primary" type="button" id="btnSaveAmount" onclick="saveAmountUSD()">
-                                        <i class="bi bi-check"></i>
-                                    </button>
-                                </div>
-                                <div class="fw-bold" id="edit_amount_usd_readonly" style="display:none;"></div>
-                                <small class="text-warning" id="edit_last_modification" style="display:none;">
-                                    <i class="bi bi-clock-history"></i> <span id="last_mod_text"></span>
-                                </small>
-                            </div>
-                            <div class="col-md-3 mb-2">
-                                <label class="form-label text-muted small">Tipo de Cambio</label>
-                                <div class="fw-bold" id="edit_exchange_rate"></div>
-                            </div>
-                            <div class="col-md-3 mb-2">
-                                <label class="form-label text-muted small">Monto PEN</label>
-                                <div class="fw-bold" id="edit_amount_pen"></div>
-                            </div>
-                            <div class="col-md-3 mb-2">
-                                <label class="form-label text-muted small">Fecha Creación</label>
-                                <div id="edit_created_at"></div>
-                            </div>
-                        </div>
-
-                        <!-- Sección de Reasignación (Solo Master) -->
-                        <div class="row mt-3" id="reassign_section" style="display:none;">
-                            <div class="col-md-12">
-                                <hr>
-                                <div class="alert alert-info mb-2">
-                                    <i class="bi bi-info-circle me-2"></i>
-                                    <strong>Operador Actual:</strong> <span id="current_operator_name">-</span>
-                                </div>
-                                <div class="d-flex align-items-center gap-2">
-                                    <label class="form-label text-muted small mb-0" style="min-width: 120px;">Reasignar a:</label>
-                                    <select class="form-select form-select-sm" id="new_operator_select" style="max-width: 300px;">
-                                        <option value="">Seleccione un operador...</option>
-                                    </select>
-                                    <button type="button" class="btn btn-sm btn-warning" onclick="reassignOperator()">
-                                        <i class="bi bi-arrow-repeat me-1"></i>Reasignar
-                                    </button>
-                                </div>
-                            </div>
+                <!-- Reasignación (solo Master) -->
+                <div class="py-3 border-bottom" id="reassign_section" style="display:none;">
+                    <div class="d-flex align-items-center gap-3 flex-wrap">
+                        <span class="small text-muted">Operador asignado: <strong id="current_operator_name">—</strong></span>
+                        <div class="d-flex align-items-center gap-2 ms-auto">
+                            <select class="form-select form-select-sm" id="new_operator_select" style="width:220px;">
+                                <option value="">Reasignar a...</option>
+                            </select>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="reassignOperator()">
+                                <i class="bi bi-arrow-repeat me-1"></i>Reasignar
+                            </button>
                         </div>
                     </div>
                 </div>
 
-                <!-- Sección 2: Abono del Cliente -->
-                <div class="card mb-3" id="section_deposits">
-                    <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
-                        <h6 class="mb-0"><i class="bi bi-arrow-down-circle"></i> Abono del Cliente</h6>
-                        <button type="button" class="btn btn-sm btn-light" id="btnAddDeposit" onclick="addDeposit()">
-                            <i class="bi bi-plus"></i> Agregar Abono
+                <!-- Abono del Cliente -->
+                <div class="py-3 border-bottom" id="section_deposits">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <span class="fw-semibold small text-uppercase" style="letter-spacing:.6px;color:#16a34a;">
+                            <i class="bi bi-arrow-down-circle me-1"></i>Abono del Cliente
+                        </span>
+                        <button type="button" class="btn btn-sm btn-outline-success px-2" id="btnAddDeposit" onclick="addDeposit()" style="font-size:12px;">
+                            <i class="bi bi-plus-lg"></i> Agregar
                         </button>
                     </div>
-                    <div class="card-body">
-                        <div class="alert alert-info mb-2 small" id="deposit_info">
-                            <i class="bi bi-info-circle"></i>
-                            <span id="deposit_currency_info">La suma de abonos debe ser igual al monto de la operación.</span>
-                        </div>
-                        <div id="deposits_container">
-                            <!-- Abonos dinámicos -->
-                        </div>
-                        <div class="mt-2 text-end">
-                            <strong>Total abonado: <span id="total_deposits">0.00</span></strong>
-                            <span class="ms-2" id="deposit_validation"></span>
-                        </div>
+                    <div class="small text-muted mb-2" id="deposit_info"><span id="deposit_currency_info"></span></div>
+                    <div id="deposits_container"></div>
+                    <div class="d-flex justify-content-end align-items-center gap-2 mt-2 pt-2 border-top">
+                        <span class="small text-muted">Total abonado:</span>
+                        <span class="fw-bold" id="total_deposits">0.00</span>
+                        <span id="deposit_validation"></span>
                     </div>
                 </div>
 
-                <!-- Sección 3: Pago al Cliente -->
-                <div class="card mb-3" id="section_payments">
-                    <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
-                        <h6 class="mb-0"><i class="bi bi-arrow-up-circle"></i> Pago al Cliente</h6>
-                        <button type="button" class="btn btn-sm btn-dark" id="btnAddPayment" onclick="addPayment()">
-                            <i class="bi bi-plus"></i> Añadir Pago (Máx 4)
+                <!-- Pago al Cliente -->
+                <div class="py-3 border-bottom" id="section_payments">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <span class="fw-semibold small text-uppercase" style="letter-spacing:.6px;color:#b45309;">
+                            <i class="bi bi-arrow-up-circle me-1"></i>Pago al Cliente
+                        </span>
+                        <button type="button" class="btn btn-sm btn-outline-warning px-2" id="btnAddPayment" onclick="addPayment()" style="font-size:12px;">
+                            <i class="bi bi-plus-lg"></i> Agregar
                         </button>
                     </div>
-                    <div class="card-body">
-                        <div class="alert alert-info mb-2 small" id="payment_info">
-                            <i class="bi bi-info-circle"></i>
-                            <span id="payment_currency_info">La suma de pagos debe ser igual al monto de la operación.</span>
-                        </div>
-                        <div id="payments_container">
-                            <!-- Pagos dinámicos -->
-                        </div>
-                        <div class="mt-2 text-end">
-                            <strong>Total a pagar: <span id="total_payments">0.00</span></strong>
-                            <span class="ms-2" id="payment_validation"></span>
-                        </div>
+                    <div class="small text-muted mb-2" id="payment_info"><span id="payment_currency_info"></span></div>
+                    <div id="payments_container"></div>
+                    <div class="d-flex justify-content-end align-items-center gap-2 mt-2 pt-2 border-top">
+                        <span class="small text-muted">Total a pagar:</span>
+                        <span class="fw-bold" id="total_payments">0.00</span>
+                        <span id="payment_validation"></span>
                     </div>
                 </div>
 
-                <!-- Sección 4: Comprobante del Operador (Solo en En proceso para Operador/Master) -->
-                <div class="card mb-3" id="section_operator" style="display:none;">
-                    <div class="card-header bg-info text-white">
-                        <h6 class="mb-0"><i class="bi bi-file-earmark-check"></i> Comprobante del Operador</h6>
+                <!-- Comprobante del Operador -->
+                <div class="py-3" id="section_operator" style="display:none;">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <span class="fw-semibold small text-uppercase" style="letter-spacing:.6px;color:#0891b2;">
+                            <i class="bi bi-file-earmark-check me-1"></i>Comprobante del Operador
+                        </span>
+                        <span class="text-muted small" id="operator_proof_hint">Hasta 4 archivos</span>
                     </div>
-                    <div class="card-body">
-                        <p class="text-muted small mb-2" id="operator_proof_hint">Puedes adjuntar hasta 4 comprobantes</p>
-                        <div id="operator_proofs_container">
-                            <!-- Comprobantes del operador -->
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Comentarios (opcional)</label>
-                            <textarea class="form-control" id="operator_comments" rows="2"></textarea>
-                        </div>
+                    <div id="operator_proofs_container"></div>
+                    <div class="mt-2">
+                        <textarea class="form-control form-control-sm" id="operator_comments" rows="2" placeholder="Comentarios del operador (opcional)"></textarea>
                     </div>
                 </div>
             </div>
-            <div class="modal-footer">
-                <!-- Botón Devolver a Pendiente (solo Operador en En proceso) -->
-                <button type="button" class="btn btn-warning" id="btnReturnToPending" style="display:none;" onclick="returnToPending()">
-                    <i class="bi bi-arrow-counterclockwise"></i> Devolver a Pendiente
+
+            <div class="modal-footer border-top px-4 py-3" style="background:#f8fafc;">
+                <button type="button" class="btn btn-sm btn-outline-warning me-auto" id="btnReturnToPending" style="display:none;" onclick="returnToPending()">
+                    <i class="bi bi-arrow-counterclockwise me-1"></i>Devolver
                 </button>
-
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-
-                <!-- Botón Enviar a Proceso (solo Trader/Master en Pendiente) -->
-                <button type="button" class="btn btn-success" id="btnSendToProcess" style="display:none;" onclick="sendToProcess()">
-                    <i class="bi bi-send"></i> Enviar a Proceso
+                <button type="button" class="btn btn-sm btn-light border" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-sm btn-success px-3" id="btnSendToProcess" style="display:none;" onclick="sendToProcess()">
+                    <i class="bi bi-send me-1"></i>Enviar a Proceso
                 </button>
-
-                <!-- Botón Finalizar (solo Operador/Master en En proceso) -->
-                <button type="button" class="btn btn-primary" id="btnComplete" style="display:none;" onclick="completeOperation()">
-                    <i class="bi bi-check-circle"></i> Finalizar Operación
+                <button type="button" class="btn btn-sm btn-primary px-3" id="btnComplete" style="display:none;" onclick="completeOperation()">
+                    <i class="bi bi-check-circle me-1"></i>Finalizar
                 </button>
             </div>
         </div>
@@ -411,25 +376,41 @@
 <!-- Modal: Cancelar Operación -->
 <div class="modal fade" id="cancelOperationModal" tabindex="-1">
     <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header bg-danger text-white">
-                <h5 class="modal-title">Cancelar Operación</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        <div class="modal-content border-0 shadow" style="border-radius:10px;overflow:hidden;">
+            <div class="modal-header border-0 px-4 pt-4 pb-3" style="background:#f8fafc;">
+                <div class="w-100">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="d-flex align-items-center justify-content-center rounded-circle bg-danger bg-opacity-10" style="width:36px;height:36px;">
+                                <i class="bi bi-x-circle text-danger"></i>
+                            </span>
+                            <div>
+                                <div class="fw-semibold" style="font-size:15px;">Cancelar Operación</div>
+                                <div class="text-muted small" id="cancel_operation_code"></div>
+                            </div>
+                        </div>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                </div>
             </div>
-            <div class="modal-body">
+            <div class="modal-body px-4 pb-4" style="background:#f8fafc;">
                 <input type="hidden" id="cancel_operation_id">
-                <p>Operación: <strong id="cancel_operation_code"></strong></p>
-                <div class="alert alert-warning">
-                    <i class="bi bi-exclamation-triangle"></i> Esta acción no se puede deshacer
+                <div class="rounded p-3 mb-3" style="background:#fff1f2;border:1px solid #fecdd3;">
+                    <div class="d-flex align-items-start gap-2">
+                        <i class="bi bi-exclamation-triangle-fill text-danger mt-1 flex-shrink-0"></i>
+                        <div class="small text-danger">Esta acción <strong>no se puede deshacer</strong>. La operación quedará registrada como cancelada.</div>
+                    </div>
                 </div>
-                <div class="mb-3">
-                    <label class="form-label">Razón de Cancelación *</label>
-                    <textarea class="form-control" id="cancel_reason" required rows="3"></textarea>
+                <div class="mb-1">
+                    <label class="form-label small text-uppercase fw-semibold" style="letter-spacing:.5px;color:#6b7280;">Razón de Cancelación <span class="text-danger">*</span></label>
+                    <textarea class="form-control" id="cancel_reason" required rows="3" placeholder="Describe el motivo de la cancelación..."></textarea>
                 </div>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">No, Mantener</button>
-                <button type="button" class="btn btn-danger" onclick="confirmCancelOperation()">Sí, Cancelar</button>
+            <div class="modal-footer border-top px-4 py-3" style="background:#f8fafc;">
+                <button type="button" class="btn btn-sm btn-light border" data-bs-dismiss="modal">Mantener</button>
+                <button type="button" class="btn btn-sm btn-danger px-3" onclick="confirmCancelOperation()">
+                    <i class="bi bi-x-circle me-1"></i>Confirmar Cancelación
+                </button>
             </div>
         </div>
     </div>
@@ -438,152 +419,153 @@
 <!-- Modal: Nueva Operación -->
 <div class="modal fade" id="createOperationModal" tabindex="-1" data-bs-backdrop="static">
     <div class="modal-dialog modal-xl">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title"><i class="bi bi-plus-circle"></i> Nueva Operación</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" onclick="resetCreateForm()"></button>
-            </div>
-            <div class="modal-body">
-                <form id="createOperationFormModal">
-                    <!-- Cliente - Búsqueda Inline -->
-                    <div class="mb-4">
-                        <h6 class="text-primary"><i class="bi bi-person"></i> Cliente</h6>
+        <div class="modal-content border-0 shadow" style="border-radius:10px;overflow:hidden;">
 
-                        <!-- Input de búsqueda -->
+            <!-- Header -->
+            <div class="modal-header border-0 px-4 pt-4 pb-3" style="background:#f8fafc;">
+                <div class="w-100">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="d-flex align-items-center justify-content-center rounded-circle bg-primary bg-opacity-10" style="width:36px;height:36px;">
+                                <i class="bi bi-plus-lg text-primary"></i>
+                            </span>
+                            <div class="fw-semibold" style="font-size:15px;">Nueva Operación</div>
+                        </div>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" onclick="resetCreateForm()"></button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-body px-4 py-0" style="max-height:72vh;overflow-y:auto;background:#f8fafc;">
+                <form id="createOperationFormModal">
+
+                    <!-- CLIENTE -->
+                    <div class="py-3 border-bottom">
+                        <div class="fw-semibold small text-uppercase mb-3" style="letter-spacing:.6px;color:#0891b2;">
+                            <i class="bi bi-person me-1"></i>Cliente
+                        </div>
                         <div class="mb-2">
-                            <label class="form-label">Buscar cliente por DNI/RUC, Nombre o Email</label>
+                            <label class="form-label small text-muted">Buscar por DNI/RUC, Nombre o Email</label>
                             <div class="input-group">
-                                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                                <span class="input-group-text bg-white"><i class="bi bi-search text-muted"></i></span>
                                 <input type="text" class="form-control" id="searchClientInputModal"
                                        placeholder="Escribe al menos 3 caracteres para buscar...">
-                                <button class="btn btn-outline-secondary" type="button" id="clearSearchBtnModal" style="display: none;">
+                                <button class="btn btn-outline-secondary" type="button" id="clearSearchBtnModal" style="display:none;">
                                     <i class="bi bi-x-lg"></i>
                                 </button>
                             </div>
                         </div>
-
-                        <!-- Resultados de búsqueda -->
-                        <div id="searchResultsModal" class="mb-3" style="display: none;">
-                            <div class="list-group" id="searchResultsListModal" style="max-height: 250px; overflow-y: auto;">
-                                <!-- Resultados se llenan dinámicamente -->
-                            </div>
+                        <div id="searchResultsModal" class="mb-2" style="display:none;">
+                            <div class="list-group" id="searchResultsListModal" style="max-height:220px;overflow-y:auto;"></div>
                         </div>
-
-                        <!-- Cliente seleccionado -->
                         <input type="hidden" id="client_id_modal" name="client_id" required>
-                        <div id="clientInfoModal" class="alert alert-success" style="display: none;">
-                            <div class="d-flex justify-content-between align-items-start">
-                                <div>
-                                    <strong><i class="bi bi-person-check"></i> Cliente seleccionado:</strong><br>
-                                    <span id="clientNameModal" class="fw-bold"></span><br>
-                                    <small><i class="bi bi-card-text"></i> <span id="clientDNIModal"></span></small><br>
-                                    <small><i class="bi bi-envelope"></i> <span id="clientEmailModal"></span></small>
+                        <div id="clientInfoModal" style="display:none;">
+                            <div class="rounded p-3 d-flex justify-content-between align-items-start" style="background:#f0fdf4;border:1px solid #bbf7d0;">
+                                <div class="small">
+                                    <div class="fw-semibold text-success mb-1"><i class="bi bi-person-check me-1"></i>Cliente seleccionado</div>
+                                    <div class="fw-bold" id="clientNameModal"></div>
+                                    <div class="text-muted"><i class="bi bi-card-text me-1"></i><span id="clientDNIModal"></span></div>
+                                    <div class="text-muted"><i class="bi bi-envelope me-1"></i><span id="clientEmailModal"></span></div>
                                 </div>
-                                <button type="button" class="btn btn-sm btn-outline-danger" onclick="clearSelectedClientModal()">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearSelectedClientModal()">
                                     <i class="bi bi-x"></i> Cambiar
                                 </button>
                             </div>
                         </div>
                     </div>
 
-                    <hr>
-
-                    <!-- Tipo de Operación -->
-                    <div class="mb-4">
-                        <h6 class="text-primary"><i class="bi bi-arrow-left-right"></i> Tipo de Operación</h6>
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="form-check form-check-inline">
-                                    <input class="form-check-input" type="radio" name="operation_type_modal" id="typeCompraModal" value="Compra" checked>
-                                    <label class="form-check-label" for="typeCompraModal">
-                                        <span class="badge bg-success">Compra USD</span> (Cliente vende dólares)
-                                    </label>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="form-check form-check-inline">
-                                    <input class="form-check-input" type="radio" name="operation_type_modal" id="typeVentaModal" value="Venta">
-                                    <label class="form-check-label" for="typeVentaModal">
-                                        <span class="badge bg-primary">Venta USD</span> (Cliente compra dólares)
-                                    </label>
-                                </div>
-                            </div>
+                    <!-- TIPO DE OPERACIÓN -->
+                    <div class="py-3 border-bottom">
+                        <div class="fw-semibold small text-uppercase mb-3" style="letter-spacing:.6px;color:#16a34a;">
+                            <i class="bi bi-arrow-left-right me-1"></i>Tipo de Operación
                         </div>
-                        <small class="text-muted">
-                            <i class="bi bi-info-circle"></i>
-                            <strong>Compra:</strong> Origen (USD) → Destino (PEN) |
+                        <div class="d-flex gap-3 flex-wrap">
+                            <label class="d-flex align-items-center gap-2 rounded px-3 py-2 cursor-pointer" style="border:1px solid #e5e7eb;background:#fff;cursor:pointer;">
+                                <input class="form-check-input m-0" type="radio" name="operation_type_modal" id="typeCompraModal" value="Compra" checked>
+                                <span><span class="badge bg-success me-1">Compra USD</span><span class="small text-muted">Cliente vende dólares</span></span>
+                            </label>
+                            <label class="d-flex align-items-center gap-2 rounded px-3 py-2 cursor-pointer" style="border:1px solid #e5e7eb;background:#fff;cursor:pointer;">
+                                <input class="form-check-input m-0" type="radio" name="operation_type_modal" id="typeVentaModal" value="Venta">
+                                <span><span class="badge bg-primary me-1">Venta USD</span><span class="small text-muted">Cliente compra dólares</span></span>
+                            </label>
+                        </div>
+                        <div class="small text-muted mt-2">
+                            <i class="bi bi-info-circle me-1"></i>
+                            <strong>Compra:</strong> Origen (USD) → Destino (PEN) &nbsp;|&nbsp;
                             <strong>Venta:</strong> Origen (PEN) → Destino (USD)
-                        </small>
+                        </div>
                     </div>
 
-                    <hr>
-
-                    <!-- Montos -->
-                    <div class="mb-4">
-                        <h6 class="text-primary"><i class="bi bi-calculator"></i> Cálculo de la Operación</h6>
-                        <div class="row">
+                    <!-- CÁLCULO -->
+                    <div class="py-3 border-bottom">
+                        <div class="fw-semibold small text-uppercase mb-3" style="letter-spacing:.6px;color:#b45309;">
+                            <i class="bi bi-calculator me-1"></i>Cálculo
+                        </div>
+                        <div class="row g-3">
                             <div class="col-md-4">
-                                <label class="form-label">Monto en USD *</label>
+                                <label class="form-label small text-muted">Monto USD <span class="text-danger">*</span></label>
                                 <div class="input-group">
-                                    <span class="input-group-text">$</span>
+                                    <span class="input-group-text bg-white">$</span>
                                     <input type="number" class="form-control" name="amount_usd" id="amount_usd_modal"
                                            step="0.01" min="0" required onchange="calculatePENModal()" oninput="calculatePENModal()">
                                 </div>
                             </div>
                             <div class="col-md-4">
-                                <label class="form-label">Tipo de Cambio *</label>
+                                <label class="form-label small text-muted">Tipo de Cambio <span class="text-danger">*</span></label>
                                 <input type="number" class="form-control" name="exchange_rate" id="exchange_rate_modal"
                                        step="0.0001" min="0" required onchange="calculatePENModal()" oninput="limitDecimalsModal(this, 4); calculatePENModal()">
-                                <small class="form-text text-muted">Ejemplo: 3.7500 (máximo 4 decimales)</small>
+                                <div class="form-text">Ej: 3.7500 (máx. 4 decimales)</div>
                             </div>
                             <div class="col-md-4">
-                                <label class="form-label">Monto en PEN</label>
+                                <label class="form-label small text-muted">Monto PEN</label>
                                 <div class="input-group">
-                                    <span class="input-group-text">S/</span>
-                                    <input type="text" class="form-control" id="amount_pen_display_modal" readonly>
+                                    <span class="input-group-text bg-white">S/</span>
+                                    <input type="text" class="form-control" id="amount_pen_display_modal" readonly style="background:#f9fafb;">
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <hr>
-
-                    <!-- Cuentas Bancarias -->
-                    <div class="mb-4">
-                        <h6 class="text-primary"><i class="bi bi-bank"></i> Cuentas Bancarias</h6>
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Cuenta de Origen *</label>
+                    <!-- CUENTAS -->
+                    <div class="py-3 border-bottom">
+                        <div class="fw-semibold small text-uppercase mb-3" style="letter-spacing:.6px;color:#7c3aed;">
+                            <i class="bi bi-bank me-1"></i>Cuentas Bancarias
+                        </div>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label small text-muted">Cuenta de Origen <span class="text-danger">*</span></label>
                                 <select class="form-select" name="source_account" id="source_account_modal" required>
                                     <option value="">Primero selecciona un cliente</option>
                                 </select>
-                                <small class="form-text text-muted" id="source_help_modal">Cuenta desde donde se envía</small>
+                                <div class="form-text" id="source_help_modal">Cuenta desde donde se envía</div>
                             </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Cuenta de Destino *</label>
+                            <div class="col-md-6">
+                                <label class="form-label small text-muted">Cuenta de Destino <span class="text-danger">*</span></label>
                                 <select class="form-select" name="destination_account" id="destination_account_modal" required>
                                     <option value="">Primero selecciona un cliente</option>
                                 </select>
-                                <small class="form-text text-muted" id="dest_help_modal">Cuenta donde se recibe</small>
+                                <div class="form-text" id="dest_help_modal">Cuenta donde se recibe</div>
                             </div>
                         </div>
                     </div>
 
-                    <hr>
-
-                    <!-- Notas -->
-                    <div class="mb-4">
-                        <h6 class="text-primary"><i class="bi bi-sticky"></i> Notas</h6>
-                        <textarea class="form-control" name="notes" id="notes_modal" rows="3" placeholder="Información adicional o notas sobre la operación"></textarea>
+                    <!-- NOTAS -->
+                    <div class="py-3">
+                        <div class="fw-semibold small text-uppercase mb-3" style="letter-spacing:.6px;color:#6b7280;">
+                            <i class="bi bi-sticky me-1"></i>Notas
+                        </div>
+                        <textarea class="form-control" name="notes" id="notes_modal" rows="2" placeholder="Información adicional o notas sobre la operación (opcional)"></textarea>
                     </div>
+
                 </form>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onclick="resetCreateForm()">
-                    <i class="bi bi-x-circle"></i> Limpiar
+
+            <div class="modal-footer border-top px-4 py-3" style="background:#f8fafc;">
+                <button type="button" class="btn btn-sm btn-light border" onclick="resetCreateForm()">
+                    <i class="bi bi-arrow-counterclockwise me-1"></i>Limpiar
                 </button>
-                <button type="button" class="btn btn-primary" onclick="submitCreateOperation()">
-                    <i class="bi bi-check-circle"></i> Crear Operación
+                <button type="button" class="btn btn-sm btn-primary px-4" onclick="submitCreateOperation()">
+                    <i class="bi bi-check-circle me-1"></i>Crear Operación
                 </button>
             </div>
         </div>
@@ -1247,7 +1229,7 @@ function loadDeposits(deposits, editable) {
             addDeposit();
         } else {
             // Si no es editable y no hay abonos, mostrar mensaje
-            $('#deposits_container').html('<div class="alert alert-info text-center">No hay abonos registrados para esta operación</div>');
+            $('#deposits_container').html('<div class="text-center py-3 text-muted small"><i class="bi bi-inbox me-1"></i>No hay abonos registrados</div>');
         }
     } else {
         // Hay abonos, mostrarlos (editable o no)
@@ -1320,7 +1302,7 @@ function loadPayments(payments, editable) {
             addPayment();
         } else {
             // Si no es editable y no hay pagos, mostrar mensaje
-            $('#payments_container').html('<div class="alert alert-info text-center">No hay pagos registrados para esta operación</div>');
+            $('#payments_container').html('<div class="text-center py-3 text-muted small"><i class="bi bi-inbox me-1"></i>No hay pagos registrados</div>');
         }
     } else {
         // Hay pagos, mostrarlos (editable o no)
