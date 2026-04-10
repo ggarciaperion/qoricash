@@ -252,6 +252,13 @@ def register_operation():
         # Enviar notificación
         NotificationService.emit_operation_created(operation)
 
+        # Enviar email automático
+        try:
+            from app.services.email_service import EmailService
+            EmailService.send_new_operation_email(operation)
+        except Exception as email_error:
+            logger.warning(f'⚠️ No se pudo enviar email de nueva operación: {str(email_error)}')
+
         logger.info(f"Operación creada desde plataforma web: {operation.operation_id} por {current_user.username}")
 
         return jsonify({
