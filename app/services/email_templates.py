@@ -11,64 +11,12 @@ from app.models.user import User
 logger = logging.getLogger(__name__)
 
 # ============================================
-# CSS BASE COMPARTIDO POR TODAS LAS PLANTILLAS
+# CSS BASE: solo @media queries (estilos inline en las plantillas)
 # ============================================
 _EMAIL_CSS = """
-    body, table, td, p, h1, h2, h3, h4 { margin: 0; padding: 0; }
-    img { border: 0; display: block; }
-    body { background-color: #f0f4f8; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; -webkit-text-size-adjust: 100%; }
-    .email-wrapper { padding: 28px 16px; }
-    .email-card { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(13,27,42,0.09); }
-    .email-header { background-color: #0D1B2A; padding: 30px 40px 26px; text-align: center; }
-    .logo-wrap { display: inline-block; border: 1.5px solid rgba(0,222,168,0.35); border-radius: 8px; padding: 7px 22px; margin-bottom: 10px; }
-    .logo-text { color: #00DEA8; font-size: 21px; font-weight: 700; letter-spacing: 1.5px; }
-    .tagline { color: rgba(255,255,255,0.40); font-size: 11px; letter-spacing: 0.6px; margin-top: 6px; }
-    .accent-bar { height: 3px; background-color: #00DEA8; }
-    .email-body { padding: 36px 40px; color: #334155; font-size: 15px; line-height: 1.65; }
-    .status-box { border-radius: 10px; padding: 22px 24px; text-align: center; margin: 22px 0; }
-    .status-box.success { background-color: #f0fdf4; border: 1.5px solid #86efac; }
-    .status-box.info { background-color: #eff6ff; border: 1.5px solid #93c5fd; }
-    .status-box.warning { background-color: #fffbeb; border: 1.5px solid #fcd34d; }
-    .status-box h2 { font-size: 17px; font-weight: 700; margin-bottom: 6px; }
-    .status-box.success h2 { color: #15803d; }
-    .status-box.info h2 { color: #1d4ed8; }
-    .status-box.warning h2 { color: #92400e; }
-    .status-box p { font-size: 14px; margin-top: 4px; }
-    .status-box.success p { color: #166534; }
-    .status-box.info p { color: #1e40af; }
-    .status-box.warning p { color: #78350f; }
-    .section-label { font-size: 11px; font-weight: 700; color: #00DEA8; text-transform: uppercase; letter-spacing: 1.2px; margin: 24px 0 10px 0; }
-    .data-box { background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; overflow: hidden; margin: 0 0 20px 0; }
-    .data-row { padding: 10px 18px; border-bottom: 1px solid #f1f5f9; font-size: 14px; }
-    .data-row:last-child { border-bottom: none; }
-    .data-label { color: #64748b; font-weight: 600; display: inline-block; min-width: 150px; }
-    .data-value { color: #1e293b; font-weight: 500; }
-    .alert { border-radius: 8px; padding: 13px 16px; margin: 14px 0; font-size: 13.5px; line-height: 1.65; }
-    .alert.warning { background: #fffbeb; border-left: 3px solid #f59e0b; color: #78350f; }
-    .alert.danger { background: #fef2f2; border-left: 3px solid #ef4444; color: #7f1d1d; }
-    .alert.info { background: #f0f9ff; border-left: 3px solid #0ea5e9; color: #0c4a6e; }
-    .alert.success { background: #f0fdf4; border-left: 3px solid #22c55e; color: #14532d; }
-    .password-box { background-color: #0D1B2A; border-radius: 10px; padding: 22px 24px; text-align: center; margin: 16px 0; }
-    .password-label { color: rgba(255,255,255,0.50); font-size: 11px; letter-spacing: 0.8px; text-transform: uppercase; margin-bottom: 10px; }
-    .password-code { color: #00DEA8; font-size: 28px; font-family: 'Courier New', Courier, monospace; font-weight: 700; letter-spacing: 4px; }
-    .password-hint { color: rgba(255,255,255,0.35); font-size: 11px; margin-top: 10px; }
-    .steps-box { background: #f8fafc; border-radius: 8px; padding: 14px 18px 14px 14px; margin: 14px 0; }
-    .steps-box ol { margin: 0; padding-left: 22px; }
-    .steps-box li { padding: 5px 0; font-size: 14px; color: #334155; }
-    .cta-wrap { text-align: center; margin: 28px 0 20px 0; }
-    .cta-btn { display: inline-block; background-color: #00DEA8; color: #0D1B2A; font-weight: 700; font-size: 15px; padding: 13px 36px; border-radius: 8px; text-decoration: none; letter-spacing: 0.3px; }
-    .divider { height: 1px; background-color: #f1f5f9; margin: 24px 0; }
-    .note-text { font-size: 13px; color: #94a3b8; line-height: 1.6; }
-    .email-footer { background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 22px 40px; text-align: center; }
-    .footer-brand { color: #0D1B2A; font-size: 14px; font-weight: 700; margin-bottom: 4px; }
-    .footer-meta { color: #94a3b8; font-size: 12px; }
-    .footer-link { color: #00DEA8; text-decoration: none; }
-    .footer-copy { color: #cbd5e1; font-size: 11px; margin-top: 8px; }
     @media only screen and (max-width: 620px) {
-        .email-body { padding: 24px 20px !important; }
-        .email-header { padding: 24px 20px !important; }
-        .email-footer { padding: 20px !important; }
-        .data-label { display: block !important; min-width: unset !important; margin-bottom: 2px; }
+        .email-body-cell { padding: 24px 20px !important; }
+        .email-footer-cell { padding: 20px !important; }
     }
 """
 
@@ -248,59 +196,78 @@ class EmailTemplates:
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>""" + _EMAIL_CSS + """</style>
 </head>
-<body>
-<div class="email-wrapper">
-    <div class="email-card">
+<body style="margin:0;padding:0;background-color:#f5f7fa;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f5f7fa;padding:28px 16px;">
+  <tr><td align="center">
+    <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 16px rgba(13,27,42,0.08);">
 
-        <div class="email-header" style="padding:0;background:#0D1B2A;">
-            <img src="https://res.cloudinary.com/dbks8vqoh/image/upload/v1773788552/qoricash/banneremail.png" alt="QoriCash" width="600" style="width:100%;max-width:600px;display:block;">
-        </div>
-        <div class="accent-bar"></div>
+      <!-- BANNER -->
+      <tr>
+        <td style="padding:0;background:#0D1B2A;line-height:0;font-size:0;">
+          <img src="https://res.cloudinary.com/dbks8vqoh/image/upload/v1773788552/qoricash/banneremail.png" alt="QoriCash" width="600" style="width:100%;max-width:600px;display:block;border:0;">
+        </td>
+      </tr>
 
-        <div class="email-body">
-            <p>Hola <strong>{{ client_name }}</strong>,</p>
+      <!-- ACCENT LINE: indigo -->
+      <tr><td style="padding:0;height:3px;background-color:#6366f1;font-size:0;line-height:0;">&nbsp;</td></tr>
 
-            <div class="status-box success">
-                <h2>Registro exitoso</h2>
-                <p>Te damos la bienvenida a QoriCash.</p>
-            </div>
+      <!-- BODY -->
+      <tr>
+        <td class="email-body-cell" style="padding:36px 40px;color:#334155;font-size:15px;line-height:1.65;">
 
-            <p class="section-label">Información de tu cuenta</p>
-            <div class="data-box">
-                <div class="data-row">
-                    <span class="data-label">Documento</span>
-                    <span class="data-value">{{ client_dni }}</span>
-                </div>
-                <div class="data-row">
-                    <span class="data-label">Correo electrónico</span>
-                    <span class="data-value">{{ client_email }}</span>
-                </div>
-                <div class="data-row">
-                    <span class="data-label">Estado</span>
-                    <span class="data-value" style="color:#d97706;font-weight:700;">Pendiente de validación KYC</span>
-                </div>
-            </div>
+          <!-- Event label -->
+          <div style="margin:0 0 16px 0;">
+            <span style="display:inline-block;background:#eef2ff;color:#6366f1;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.4px;padding:4px 10px;border-radius:4px;">Bienvenido a QoriCash</span>
+          </div>
 
-            <div class="alert warning">
-                <strong>Próximos pasos:</strong> Para realizar tu primera operación debemos validar tu identidad. Por favor sube tu documento desde la aplicación móvil. Recibirás una notificación cuando sea aprobado.
-            </div>
+          <!-- Title -->
+          <h1 style="margin:0 0 6px 0;font-size:22px;font-weight:700;color:#0D1B2A;line-height:1.3;">Tu cuenta ha sido creada</h1>
+          <p style="margin:0 0 24px 0;color:#64748b;font-size:14px;">Hola <strong style="color:#1e293b;">{{ client_name }}</strong>, te damos la bienvenida a QoriCash.</p>
 
-            <div class="alert info">
-                <strong>Acceso web:</strong> También puedes ingresar desde <strong>www.qoricash.pe</strong> usando tu número de documento y la contraseña que registraste en la app.
-            </div>
+          <!-- Data table -->
+          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #e8ecf0;border-radius:8px;overflow:hidden;margin:0 0 24px 0;">
+            <tr style="border-bottom:1px solid #eef0f3;">
+              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:13px;font-weight:600;white-space:nowrap;vertical-align:top;">Documento</td>
+              <td style="padding:11px 18px;color:#1e293b;font-size:14px;font-weight:500;vertical-align:top;">{{ client_dni }}</td>
+            </tr>
+            <tr style="border-bottom:1px solid #eef0f3;">
+              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:13px;font-weight:600;white-space:nowrap;vertical-align:top;">Correo electrónico</td>
+              <td style="padding:11px 18px;color:#1e293b;font-size:14px;font-weight:500;vertical-align:top;">{{ client_email }}</td>
+            </tr>
+            <tr>
+              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:13px;font-weight:600;white-space:nowrap;vertical-align:top;">Estado</td>
+              <td style="padding:11px 18px;color:#d97706;font-size:14px;font-weight:600;vertical-align:top;">Pendiente de verificación</td>
+            </tr>
+          </table>
 
-            <div class="divider"></div>
-            <p class="note-text">¿Tienes alguna consulta? Escríbenos a <a href="mailto:info@qoricash.pe" class="footer-link">info@qoricash.pe</a></p>
-        </div>
+          <!-- Next steps -->
+          <p style="margin:0 0 10px 0;font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1.2px;">Próximos pasos</p>
+          <div style="border-radius:8px;padding:13px 16px;margin:0 0 16px 0;font-size:13px;line-height:1.65;background:#fffbeb;border-left:3px solid #f59e0b;color:#78350f;">
+            Para realizar tu primera operación debemos validar tu identidad. Por favor sube tu documento de identidad desde la aplicación móvil. Recibirás una notificación cuando sea aprobado.
+          </div>
+          <div style="border-radius:8px;padding:13px 16px;margin:0 0 20px 0;font-size:13px;line-height:1.65;background:#f0f9ff;border-left:3px solid #0ea5e9;color:#0c4a6e;">
+            <strong>Acceso web:</strong> También puedes ingresar desde <strong>www.qoricash.pe</strong> usando tu número de documento y la contraseña que registraste en la app.
+          </div>
 
-        <div class="email-footer">
-            <p class="footer-brand">QoriCash</p>
-            <p class="footer-meta">RUC: 20615113698 &nbsp;·&nbsp; <a href="mailto:info@qoricash.pe" class="footer-link">info@qoricash.pe</a></p>
-            <p class="footer-copy">© 2025 QoriCash. Todos los derechos reservados.</p>
-        </div>
+          <!-- Closing -->
+          <div style="height:1px;background-color:#f1f5f9;margin:24px 0;"></div>
+          <p style="margin:0;font-size:13px;color:#94a3b8;">¿Tienes alguna consulta? Escríbenos a <a href="mailto:info@qoricash.pe" style="color:#94a3b8;">info@qoricash.pe</a></p>
 
-    </div>
-</div>
+        </td>
+      </tr>
+
+      <!-- FOOTER -->
+      <tr>
+        <td class="email-footer-cell" style="background-color:#f8fafc;border-top:1px solid #e8ecf0;padding:20px 40px;text-align:center;">
+          <p style="margin:0 0 4px 0;color:#0D1B2A;font-size:13px;font-weight:700;">QoriCash</p>
+          <p style="margin:0 0 4px 0;color:#94a3b8;font-size:12px;">RUC: 20615113698 &nbsp;&middot;&nbsp; <a href="mailto:info@qoricash.pe" style="color:#94a3b8;text-decoration:none;">info@qoricash.pe</a></p>
+          <p style="margin:0;color:#cbd5e1;font-size:11px;">© 2025 QoriCash. Todos los derechos reservados.</p>
+        </td>
+      </tr>
+
+    </table>
+  </td></tr>
+</table>
 </body>
 </html>"""
         return render_template_string(template,
@@ -318,65 +285,80 @@ class EmailTemplates:
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>""" + _EMAIL_CSS + """
-        .app-btn { display: inline-block; padding: 9px 20px; border-radius: 6px; text-decoration: none; font-size: 13px; font-weight: 600; margin: 4px 6px; }
-        .app-btn.android { background-color: #14532d; color: #ffffff; }
-        .app-btn.ios { background-color: #1e293b; color: #ffffff; }
-    </style>
+    <style>""" + _EMAIL_CSS + """</style>
 </head>
-<body>
-<div class="email-wrapper">
-    <div class="email-card">
+<body style="margin:0;padding:0;background-color:#f5f7fa;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f5f7fa;padding:28px 16px;">
+  <tr><td align="center">
+    <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 16px rgba(13,27,42,0.08);">
 
-        <div class="email-header" style="padding:0;background:#0D1B2A;">
-            <img src="https://res.cloudinary.com/dbks8vqoh/image/upload/v1773788552/qoricash/banneremail.png" alt="QoriCash" width="600" style="width:100%;max-width:600px;display:block;">
-        </div>
-        <div class="accent-bar"></div>
+      <!-- BANNER -->
+      <tr>
+        <td style="padding:0;background:#0D1B2A;line-height:0;font-size:0;">
+          <img src="https://res.cloudinary.com/dbks8vqoh/image/upload/v1773788552/qoricash/banneremail.png" alt="QoriCash" width="600" style="width:100%;max-width:600px;display:block;border:0;">
+        </td>
+      </tr>
 
-        <div class="email-body">
-            <p>Hola <strong>{{ client_name }}</strong>,</p>
+      <!-- ACCENT LINE: indigo -->
+      <tr><td style="padding:0;height:3px;background-color:#6366f1;font-size:0;line-height:0;">&nbsp;</td></tr>
 
-            <div class="status-box success">
-                <h2>Registro exitoso</h2>
-                <p>Te damos la bienvenida a QoriCash.</p>
-            </div>
+      <!-- BODY -->
+      <tr>
+        <td class="email-body-cell" style="padding:36px 40px;color:#334155;font-size:15px;line-height:1.65;">
 
-            <p class="section-label">Información de tu cuenta</p>
-            <div class="data-box">
-                <div class="data-row">
-                    <span class="data-label">Documento</span>
-                    <span class="data-value">{{ client_dni }}</span>
-                </div>
-                <div class="data-row">
-                    <span class="data-label">Correo electrónico</span>
-                    <span class="data-value">{{ client_email }}</span>
-                </div>
-                <div class="data-row">
-                    <span class="data-label">Estado</span>
-                    <span class="data-value" style="color:#d97706;font-weight:700;">Pendiente de validación KYC</span>
-                </div>
-            </div>
+          <!-- Event label -->
+          <div style="margin:0 0 16px 0;">
+            <span style="display:inline-block;background:#eef2ff;color:#6366f1;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.4px;padding:4px 10px;border-radius:4px;">Bienvenido a QoriCash</span>
+          </div>
 
-            <div class="alert warning">
-                <strong>Próximos pasos:</strong> Para realizar tu primera operación debemos validar tu identidad. Al intentar crear tu primera operación, se te solicitará subir tu documento. Recibirás una notificación cuando sea aprobado.
-            </div>
+          <!-- Title -->
+          <h1 style="margin:0 0 6px 0;font-size:22px;font-weight:700;color:#0D1B2A;line-height:1.3;">Tu cuenta ha sido creada</h1>
+          <p style="margin:0 0 24px 0;color:#64748b;font-size:14px;">Hola <strong style="color:#1e293b;">{{ client_name }}</strong>, te damos la bienvenida a la plataforma web de QoriCash.</p>
 
-            <div class="alert info">
-                📱 <strong>Próximamente</strong> publicaremos nuestra app para <strong>iOS</strong> y <strong>Android</strong>. Te notificaremos cuando esté disponible para descargar.
-            </div>
+          <!-- Data table -->
+          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #e8ecf0;border-radius:8px;overflow:hidden;margin:0 0 24px 0;">
+            <tr style="border-bottom:1px solid #eef0f3;">
+              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:13px;font-weight:600;white-space:nowrap;vertical-align:top;">Documento</td>
+              <td style="padding:11px 18px;color:#1e293b;font-size:14px;font-weight:500;vertical-align:top;">{{ client_dni }}</td>
+            </tr>
+            <tr style="border-bottom:1px solid #eef0f3;">
+              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:13px;font-weight:600;white-space:nowrap;vertical-align:top;">Correo electrónico</td>
+              <td style="padding:11px 18px;color:#1e293b;font-size:14px;font-weight:500;vertical-align:top;">{{ client_email }}</td>
+            </tr>
+            <tr>
+              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:13px;font-weight:600;white-space:nowrap;vertical-align:top;">Estado</td>
+              <td style="padding:11px 18px;color:#d97706;font-size:14px;font-weight:600;vertical-align:top;">Pendiente de verificación</td>
+            </tr>
+          </table>
 
-            <div class="divider"></div>
-            <p class="note-text">¿Tienes alguna consulta? Escríbenos a <a href="mailto:info@qoricash.pe" class="footer-link">info@qoricash.pe</a></p>
-        </div>
+          <!-- Next steps -->
+          <p style="margin:0 0 10px 0;font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1.2px;">Próximos pasos</p>
+          <div style="border-radius:8px;padding:13px 16px;margin:0 0 16px 0;font-size:13px;line-height:1.65;background:#fffbeb;border-left:3px solid #f59e0b;color:#78350f;">
+            Para realizar tu primera operación desde la plataforma web debemos validar tu identidad. Al crear tu primera operación, se te solicitará subir tu documento de identidad. Recibirás una notificación cuando sea aprobado.
+          </div>
+          <div style="border-radius:8px;padding:13px 16px;margin:0 0 20px 0;font-size:13px;line-height:1.65;background:#f0f9ff;border-left:3px solid #0ea5e9;color:#0c4a6e;">
+            Próximamente publicaremos nuestra app para <strong>iOS</strong> y <strong>Android</strong>. Te notificaremos cuando esté disponible para descargar.
+          </div>
 
-        <div class="email-footer">
-            <p class="footer-brand">QoriCash</p>
-            <p class="footer-meta">RUC: 20615113698 &nbsp;·&nbsp; <a href="mailto:info@qoricash.pe" class="footer-link">info@qoricash.pe</a></p>
-            <p class="footer-copy">© 2025 QoriCash. Todos los derechos reservados.</p>
-        </div>
+          <!-- Closing -->
+          <div style="height:1px;background-color:#f1f5f9;margin:24px 0;"></div>
+          <p style="margin:0;font-size:13px;color:#94a3b8;">¿Tienes alguna consulta? Escríbenos a <a href="mailto:info@qoricash.pe" style="color:#94a3b8;">info@qoricash.pe</a></p>
 
-    </div>
-</div>
+        </td>
+      </tr>
+
+      <!-- FOOTER -->
+      <tr>
+        <td class="email-footer-cell" style="background-color:#f8fafc;border-top:1px solid #e8ecf0;padding:20px 40px;text-align:center;">
+          <p style="margin:0 0 4px 0;color:#0D1B2A;font-size:13px;font-weight:700;">QoriCash</p>
+          <p style="margin:0 0 4px 0;color:#94a3b8;font-size:12px;">RUC: 20615113698 &nbsp;&middot;&nbsp; <a href="mailto:info@qoricash.pe" style="color:#94a3b8;text-decoration:none;">info@qoricash.pe</a></p>
+          <p style="margin:0;color:#cbd5e1;font-size:11px;">© 2025 QoriCash. Todos los derechos reservados.</p>
+        </td>
+      </tr>
+
+    </table>
+  </td></tr>
+</table>
 </body>
 </html>"""
         return render_template_string(template,
@@ -397,59 +379,95 @@ class EmailTemplates:
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>""" + _EMAIL_CSS + """</style>
 </head>
-<body>
-<div class="email-wrapper">
-    <div class="email-card">
+<body style="margin:0;padding:0;background-color:#f5f7fa;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f5f7fa;padding:28px 16px;">
+  <tr><td align="center">
+    <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 16px rgba(13,27,42,0.08);">
 
-        <div class="email-header" style="padding:0;background:#0D1B2A;">
-            <img src="https://res.cloudinary.com/dbks8vqoh/image/upload/v1773788552/qoricash/banneremail.png" alt="QoriCash" width="600" style="width:100%;max-width:600px;display:block;">
-        </div>
-        <div class="accent-bar"></div>
+      <!-- BANNER -->
+      <tr>
+        <td style="padding:0;background:#0D1B2A;line-height:0;font-size:0;">
+          <img src="https://res.cloudinary.com/dbks8vqoh/image/upload/v1773788552/qoricash/banneremail.png" alt="QoriCash" width="600" style="width:100%;max-width:600px;display:block;border:0;">
+        </td>
+      </tr>
 
-        <div class="email-body">
-            <p>Hola <strong>{{ client_name }}</strong>,</p>
+      <!-- ACCENT LINE: indigo -->
+      <tr><td style="padding:0;height:3px;background-color:#6366f1;font-size:0;line-height:0;">&nbsp;</td></tr>
 
-            <div class="status-box success">
-                <h2>¡Tu cuenta ha sido activada!</h2>
-                <p>Tu asesor <strong>{{ trader_name }}</strong> ha creado tu cuenta en QoriCash.</p>
-            </div>
+      <!-- BODY -->
+      <tr>
+        <td class="email-body-cell" style="padding:36px 40px;color:#334155;font-size:15px;line-height:1.65;">
 
-            <p class="section-label">Contraseña temporal</p>
-            <div class="password-box">
-                <p class="password-label">Tu contraseña de acceso es</p>
-                <p class="password-code">{{ temporary_password }}</p>
-                <p class="password-hint">Cópiala exactamente como aparece</p>
-            </div>
+          <!-- Event label -->
+          <div style="margin:0 0 16px 0;">
+            <span style="display:inline-block;background:#eef2ff;color:#6366f1;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.4px;padding:4px 10px;border-radius:4px;">Cuenta Activada</span>
+          </div>
 
-            <div class="alert danger">
-                <strong>Importante:</strong> Por seguridad, deberás cambiar esta contraseña temporal la primera vez que inicies sesión.
-            </div>
+          <!-- Title -->
+          <h1 style="margin:0 0 6px 0;font-size:22px;font-weight:700;color:#0D1B2A;line-height:1.3;">Tu asesor ha creado tu cuenta</h1>
+          <p style="margin:0 0 24px 0;color:#64748b;font-size:14px;">Hola <strong style="color:#1e293b;">{{ client_name }}</strong>, tu asesor <strong style="color:#0D1B2A;">{{ trader_name }}</strong> ha creado y activado tu cuenta en QoriCash.</p>
 
-            <p class="section-label">Próximos pasos</p>
-            <div class="steps-box">
-                <ol>
-                    <li>Inicia sesión con tu número de documento y la contraseña temporal</li>
-                    <li>El sistema te pedirá crear una nueva contraseña segura</li>
-                    <li>¡Comienza a realizar tus operaciones cambiarias!</li>
-                </ol>
-            </div>
+          <!-- Password box -->
+          <p style="margin:0 0 10px 0;font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1.2px;">Tu contraseña temporal</p>
+          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin:0 0 20px 0;">
+            <tr>
+              <td style="background-color:#0D1B2A;border-radius:10px;padding:22px 24px;text-align:center;">
+                <p style="margin:0 0 10px 0;color:rgba(255,255,255,0.50);font-size:11px;letter-spacing:0.8px;text-transform:uppercase;">Tu contraseña de acceso es</p>
+                <p style="margin:0 0 10px 0;color:#00DEA8;font-size:28px;font-family:'Courier New',Courier,monospace;font-weight:700;letter-spacing:4px;">{{ temporary_password }}</p>
+                <p style="margin:0;color:rgba(255,255,255,0.35);font-size:11px;">Cópiala exactamente como aparece</p>
+              </td>
+            </tr>
+          </table>
 
-            <div class="alert info">
-                <strong>Acceso multiplataforma:</strong> Puedes ingresar desde <strong>www.qoricash.pe</strong> o desde nuestra app móvil disponible en Android e iOS.
-            </div>
+          <!-- Security alert -->
+          <div style="border-radius:8px;padding:13px 16px;margin:0 0 20px 0;font-size:13px;line-height:1.65;background:#fef2f2;border-left:3px solid #ef4444;color:#7f1d1d;">
+            <strong>Importante:</strong> Por seguridad, deberás cambiar esta contraseña temporal la primera vez que inicies sesión.
+          </div>
 
-            <div class="divider"></div>
-            <p class="note-text">¿Tienes alguna consulta? Contacta a tu asesor <strong>{{ trader_name }}</strong> o escríbenos a <a href="mailto:info@qoricash.pe" class="footer-link">info@qoricash.pe</a></p>
-        </div>
+          <!-- Steps -->
+          <p style="margin:0 0 10px 0;font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1.2px;">Próximos pasos</p>
+          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #e8ecf0;border-radius:8px;overflow:hidden;margin:0 0 20px 0;">
+            <tr style="border-bottom:1px solid #eef0f3;">
+              <td style="padding:11px 18px;color:#334155;font-size:13px;vertical-align:top;">
+                <span style="color:#6366f1;font-weight:700;margin-right:8px;">1.</span>Inicia sesión con tu número de documento y la contraseña temporal
+              </td>
+            </tr>
+            <tr style="border-bottom:1px solid #eef0f3;">
+              <td style="padding:11px 18px;color:#334155;font-size:13px;vertical-align:top;">
+                <span style="color:#6366f1;font-weight:700;margin-right:8px;">2.</span>El sistema te pedirá crear una nueva contraseña segura
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:11px 18px;color:#334155;font-size:13px;vertical-align:top;">
+                <span style="color:#6366f1;font-weight:700;margin-right:8px;">3.</span>¡Comienza a realizar tus operaciones cambiarias!
+              </td>
+            </tr>
+          </table>
 
-        <div class="email-footer">
-            <p class="footer-brand">QoriCash</p>
-            <p class="footer-meta">RUC: 20615113698 &nbsp;·&nbsp; <a href="mailto:info@qoricash.pe" class="footer-link">info@qoricash.pe</a></p>
-            <p class="footer-copy">© 2025 QoriCash. Todos los derechos reservados.</p>
-        </div>
+          <!-- Access info -->
+          <div style="border-radius:8px;padding:13px 16px;margin:0 0 20px 0;font-size:13px;line-height:1.65;background:#f0f9ff;border-left:3px solid #0ea5e9;color:#0c4a6e;">
+            <strong>Acceso multiplataforma:</strong> Puedes ingresar desde <strong>www.qoricash.pe</strong> o desde nuestra app móvil.
+          </div>
 
-    </div>
-</div>
+          <!-- Closing -->
+          <div style="height:1px;background-color:#f1f5f9;margin:24px 0;"></div>
+          <p style="margin:0;font-size:13px;color:#94a3b8;">¿Tienes alguna consulta? Contacta a tu asesor <strong style="color:#1e293b;">{{ trader_name }}</strong> o escríbenos a <a href="mailto:info@qoricash.pe" style="color:#94a3b8;">info@qoricash.pe</a></p>
+
+        </td>
+      </tr>
+
+      <!-- FOOTER -->
+      <tr>
+        <td class="email-footer-cell" style="background-color:#f8fafc;border-top:1px solid #e8ecf0;padding:20px 40px;text-align:center;">
+          <p style="margin:0 0 4px 0;color:#0D1B2A;font-size:13px;font-weight:700;">QoriCash</p>
+          <p style="margin:0 0 4px 0;color:#94a3b8;font-size:12px;">RUC: 20615113698 &nbsp;&middot;&nbsp; <a href="mailto:info@qoricash.pe" style="color:#94a3b8;text-decoration:none;">info@qoricash.pe</a></p>
+          <p style="margin:0;color:#cbd5e1;font-size:11px;">© 2025 QoriCash. Todos los derechos reservados.</p>
+        </td>
+      </tr>
+
+    </table>
+  </td></tr>
+</table>
 </body>
 </html>"""
         return render_template_string(template,
@@ -470,56 +488,89 @@ class EmailTemplates:
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>""" + _EMAIL_CSS + """</style>
 </head>
-<body>
-<div class="email-wrapper">
-    <div class="email-card">
+<body style="margin:0;padding:0;background-color:#f5f7fa;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f5f7fa;padding:28px 16px;">
+  <tr><td align="center">
+    <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 16px rgba(13,27,42,0.08);">
 
-        <div class="email-header" style="padding:0;background:#0D1B2A;">
-            <img src="https://res.cloudinary.com/dbks8vqoh/image/upload/v1773788552/qoricash/banneremail.png" alt="QoriCash" width="600" style="width:100%;max-width:600px;display:block;">
-        </div>
-        <div class="accent-bar"></div>
+      <!-- BANNER -->
+      <tr>
+        <td style="padding:0;background:#0D1B2A;line-height:0;font-size:0;">
+          <img src="https://res.cloudinary.com/dbks8vqoh/image/upload/v1773788552/qoricash/banneremail.png" alt="QoriCash" width="600" style="width:100%;max-width:600px;display:block;border:0;">
+        </td>
+      </tr>
 
-        <div class="email-body">
-            <p>Hola <strong>{{ client_name }}</strong>,</p>
+      <!-- ACCENT LINE: green -->
+      <tr><td style="padding:0;height:3px;background-color:#10b981;font-size:0;line-height:0;">&nbsp;</td></tr>
 
-            <div class="status-box success">
-                <h2>¡Cuenta activada exitosamente!</h2>
-                <p>Tus documentos han sido verificados y aprobados.<br>Ya puedes comenzar a operar.</p>
-            </div>
+      <!-- BODY -->
+      <tr>
+        <td class="email-body-cell" style="padding:36px 40px;color:#334155;font-size:15px;line-height:1.65;">
 
-            <p class="section-label">¿Qué significa esto?</p>
-            <div class="data-box">
-                <div class="data-row">
-                    <span class="data-value" style="color:#059669;">✓ &nbsp;Tu identidad ha sido verificada</span>
-                </div>
-                <div class="data-row">
-                    <span class="data-value" style="color:#059669;">✓ &nbsp;Puedes crear operaciones de compra y venta</span>
-                </div>
-                <div class="data-row">
-                    <span class="data-value" style="color:#059669;">✓ &nbsp;Acceso completo a todas las funcionalidades</span>
-                </div>
-            </div>
+          <!-- Event label -->
+          <div style="margin:0 0 16px 0;">
+            <span style="display:inline-block;background:#f0fdf4;color:#10b981;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.4px;padding:4px 10px;border-radius:4px;">Cuenta Activada</span>
+          </div>
 
-            <div class="cta-wrap">
-                <a href="https://www.qoricash.pe" class="cta-btn">Iniciar sesión ahora</a>
-            </div>
+          <!-- Title -->
+          <h1 style="margin:0 0 6px 0;font-size:22px;font-weight:700;color:#0D1B2A;line-height:1.3;">¡Ya puedes comenzar a operar!</h1>
+          <p style="margin:0 0 24px 0;color:#64748b;font-size:14px;">Hola <strong style="color:#1e293b;">{{ client_name }}</strong>, tus documentos han sido verificados y aprobados. Tu cuenta está activa.</p>
 
-            <div class="alert info">
-                <strong>Acceso multiplataforma:</strong> Ingresa desde <strong>www.qoricash.pe</strong> o nuestra app móvil usando tu número de documento y la contraseña que definiste al registrarte.
-            </div>
+          <!-- Checklist -->
+          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #e8ecf0;border-radius:8px;overflow:hidden;margin:0 0 28px 0;">
+            <tr style="border-bottom:1px solid #eef0f3;">
+              <td style="padding:13px 18px;font-size:14px;color:#1e293b;vertical-align:top;">
+                <span style="color:#10b981;font-weight:700;margin-right:10px;">&#10003;</span>Tu identidad ha sido verificada
+              </td>
+            </tr>
+            <tr style="border-bottom:1px solid #eef0f3;">
+              <td style="padding:13px 18px;font-size:14px;color:#1e293b;vertical-align:top;">
+                <span style="color:#10b981;font-weight:700;margin-right:10px;">&#10003;</span>Puedes crear operaciones de compra y venta de dólares
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:13px 18px;font-size:14px;color:#1e293b;vertical-align:top;">
+                <span style="color:#10b981;font-weight:700;margin-right:10px;">&#10003;</span>Acceso completo a todas las funcionalidades
+              </td>
+            </tr>
+          </table>
 
-            <div class="divider"></div>
-            <p class="note-text">¿Tienes alguna consulta? Escríbenos a <a href="mailto:info@qoricash.pe" class="footer-link">info@qoricash.pe</a></p>
-        </div>
+          <!-- CTA button -->
+          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin:0 0 24px 0;">
+            <tr>
+              <td align="center">
+                <a href="https://www.qoricash.pe"
+                   style="display:inline-block;background-color:#00DEA8;color:#0D1B2A;font-weight:700;font-size:15px;padding:13px 36px;border-radius:8px;text-decoration:none;letter-spacing:0.3px;">
+                  Ingresar a QoriCash
+                </a>
+              </td>
+            </tr>
+          </table>
 
-        <div class="email-footer">
-            <p class="footer-brand">QoriCash</p>
-            <p class="footer-meta">RUC: 20615113698 &nbsp;·&nbsp; <a href="mailto:info@qoricash.pe" class="footer-link">info@qoricash.pe</a></p>
-            <p class="footer-copy">© 2025 QoriCash. Todos los derechos reservados.</p>
-        </div>
+          <!-- Access info -->
+          <div style="border-radius:8px;padding:13px 16px;margin:0 0 20px 0;font-size:13px;line-height:1.65;background:#f0f9ff;border-left:3px solid #0ea5e9;color:#0c4a6e;">
+            Ingresa desde <strong>www.qoricash.pe</strong> o nuestra app móvil usando tu número de documento y la contraseña que definiste al registrarte.
+          </div>
 
-    </div>
-</div>
+          <!-- Closing -->
+          <div style="height:1px;background-color:#f1f5f9;margin:24px 0;"></div>
+          <p style="margin:0;font-size:13px;color:#94a3b8;">¿Tienes alguna consulta? Escríbenos a <a href="mailto:info@qoricash.pe" style="color:#94a3b8;">info@qoricash.pe</a></p>
+
+        </td>
+      </tr>
+
+      <!-- FOOTER -->
+      <tr>
+        <td class="email-footer-cell" style="background-color:#f8fafc;border-top:1px solid #e8ecf0;padding:20px 40px;text-align:center;">
+          <p style="margin:0 0 4px 0;color:#0D1B2A;font-size:13px;font-weight:700;">QoriCash</p>
+          <p style="margin:0 0 4px 0;color:#94a3b8;font-size:12px;">RUC: 20615113698 &nbsp;&middot;&nbsp; <a href="mailto:info@qoricash.pe" style="color:#94a3b8;text-decoration:none;">info@qoricash.pe</a></p>
+          <p style="margin:0;color:#cbd5e1;font-size:11px;">© 2025 QoriCash. Todos los derechos reservados.</p>
+        </td>
+      </tr>
+
+    </table>
+  </td></tr>
+</table>
 </body>
 </html>"""
         return render_template_string(template,
