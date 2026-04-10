@@ -243,11 +243,10 @@ class InvoiceService:
             "valor_unitario": total_amount,
             "precio_unitario": total_amount,
             "subtotal": total_amount,
-            "tipo_de_igv": 9,  # 9 = Inafecto según ejemplo NubeFact
+            "tipo_de_igv": 30,  # 30 = Inafecto (operaciones de cambio de divisas)
             "igv": 0,
             "total": total_amount,
-            "anticipo_regularizacion": False,
-            "codigo_producto_sunat": "20000000"  # Código SUNAT para servicios
+            "anticipo_regularizacion": False
         }]
 
         # Determinar serie y obtener siguiente correlativo
@@ -263,9 +262,9 @@ class InvoiceService:
             "operacion": "generar_comprobante",
             "tipo_de_comprobante": invoice_type_code,
             "serie": serie,
-            "numero": numero_int,  # Enviar como entero
+            "numero": numero_int,
             "sunat_transaction": 1,
-            "cliente_tipo_de_documento": int(client_doc_type),  # Enviar como entero
+            "cliente_tipo_de_documento": int(client_doc_type),
             "cliente_numero_de_documento": client.dni,
             "cliente_denominacion": client.full_name or "CLIENTE",
             "cliente_direccion": client.full_address or "-",
@@ -274,39 +273,39 @@ class InvoiceService:
             "cliente_email_2": "",
             "fecha_de_emision": now_peru().strftime("%d-%m-%Y"),
             "fecha_de_vencimiento": "",
-            "moneda": "1",  # String según ejemplo NubeFact
+            "moneda": 1,
             "tipo_de_cambio": "",
-            "porcentaje_de_igv": "18.00",  # String según ejemplo
+            "porcentaje_de_igv": 18.00,
             "descuento_global": "",
             "total_descuento": "",
             "total_anticipo": "",
-            "total_gravada": "",  # String vacío en lugar de 0
-            "total_inafecta": str(total_amount),  # CORREGIDO: Inafecta para operaciones de cambio
-            "total_exonerada": "",  # String vacío
-            "total_igv": "",  # String vacío
-            "total_gratuita": "",
-            "total_otros_cargos": "",
-            "total": str(total_amount),  # String según ejemplo
+            "total_gravada": 0,
+            "total_inafecta": total_amount,
+            "total_exonerada": 0,
+            "total_igv": 0,
+            "total_gratuita": 0,
+            "total_otros_cargos": 0,
+            "total": total_amount,
             "percepcion_tipo": "",
             "percepcion_base_imponible": "",
             "total_percepcion": "",
             "total_incluido_percepcion": "",
-            "detraccion": "false",  # String según ejemplo
+            "detraccion": False,
             "observaciones": f"Operación #{operation.operation_id}",
-            "documento_que_se_modifica_tipo": "",
-            "documento_que_se_modifica_serie": "",
-            "documento_que_se_modifica_numero": "",
-            "tipo_de_nota_de_credito": "",
-            "tipo_de_nota_de_debito": "",
-            "enviar_automaticamente_a_la_sunat": "true",  # String según ejemplo
-            "enviar_automaticamente_al_cliente": "false",  # String según ejemplo
-            "codigo_unico": operation.operation_id,  # ID único de la operación
+            "documento_que_se_modifica_tipo": None,
+            "documento_que_se_modifica_serie": None,
+            "documento_que_se_modifica_numero": None,
+            "tipo_de_nota_de_credito": None,
+            "tipo_de_nota_de_debito": None,
+            "enviar_automaticamente_a_la_sunat": True,
+            "enviar_automaticamente_al_cliente": False,
+            "codigo_unico": operation.operation_id,
             "condiciones_de_pago": "",
             "medio_de_pago": "",
             "placa_vehiculo": "",
             "orden_compra_servicio": "",
             "tabla_personalizada_codigo": "",
-            "formato_de_pdf": "A4",  # Formato A4 para boletas (igual que facturas)
+            "formato_de_pdf": "",
             "items": items
         }
 
