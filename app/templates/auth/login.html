@@ -350,59 +350,6 @@ body::before { display: none; }
     .login-divider { margin:.875rem 0; }
 }
 
-/* ── COOKIE BANNER ─────────────────────────────────────────────────────── */
-#lcbBanner {
-    position: fixed;
-    bottom: 38px;
-    left: 0; right: 0;
-    z-index: 2147483647;
-    background: rgba(4, 10, 20, 0.98);
-    border-top: 2px solid rgba(0, 222, 168, 0.55);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    box-shadow: 0 -8px 32px rgba(0,0,0,0.70);
-    padding: 14px 24px;
-    transform: translateY(0);
-    transition: transform 0.35s ease, opacity 0.35s ease;
-}
-#lcbBanner.lcb-hidden {
-    transform: translateY(110%);
-    opacity: 0;
-    pointer-events: none;
-}
-#lcbBanner .lcb-inner {
-    max-width: 1100px; margin: 0 auto;
-    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
-}
-#lcbBanner .lcb-icon { font-size: 1.5rem; flex-shrink: 0; line-height: 1; }
-#lcbBanner .lcb-text {
-    flex: 1; min-width: 220px;
-    font-size: 0.8125rem; color: rgba(255,255,255,0.78); line-height: 1.5;
-}
-#lcbBanner .lcb-text strong { color: #fff; font-weight: 700; }
-#lcbBanner .lcb-text a { color: #00DEA8; text-decoration: none; font-weight: 600; }
-#lcbBanner .lcb-text a:hover { text-decoration: underline; }
-#lcbBanner .lcb-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
-#lcbBanner .lcb-accept {
-    background: linear-gradient(135deg, #00FFB3, #00DEA8);
-    color: #060e18; border: none; border-radius: 8px;
-    padding: 9px 22px; font-size: 0.875rem; font-weight: 700;
-    cursor: pointer; white-space: nowrap;
-    box-shadow: 0 4px 16px rgba(0,222,168,0.35);
-    transition: box-shadow 0.2s, transform 0.2s;
-}
-#lcbBanner .lcb-accept:hover { transform: translateY(-1px); box-shadow: 0 7px 22px rgba(0,222,168,0.50); }
-#lcbBanner .lcb-decline {
-    background: transparent; border: 1px solid rgba(255,255,255,0.20);
-    color: rgba(255,255,255,0.50); border-radius: 8px;
-    padding: 8px 16px; font-size: 0.8rem; font-weight: 500;
-    cursor: pointer; white-space: nowrap; transition: color 0.2s, border-color 0.2s;
-}
-#lcbBanner .lcb-decline:hover { color: rgba(255,255,255,0.75); border-color: rgba(255,255,255,0.35); }
-@media (max-width: 576px) {
-    #lcbBanner { padding: 12px 14px; bottom: 38px; }
-    #lcbBanner .lcb-actions { width: 100%; justify-content: flex-end; }
-}
 </style>
 {% endblock %}
 
@@ -502,54 +449,10 @@ body::before { display: none; }
     {% endwith %}
 </div>
 
-<!-- ══ COOKIE BANNER ══ -->
-<div id="lcbBanner" role="dialog" aria-label="Aviso de cookies">
-    <div class="lcb-inner">
-        <div class="lcb-icon">🍪</div>
-        <div class="lcb-text">
-            <strong>Esta página usa cookies.</strong>
-            Usamos cookies para personalizar tu experiencia, mantener tu sesión segura y analizar el tráfico.
-            Consulta nuestra <a href="{{ url_for('legal.privacy_policy') }}" target="_blank" rel="noopener">Política de Privacidad</a>.
-        </div>
-        <div class="lcb-actions">
-            <button class="lcb-decline" onclick="lcbDecline()" type="button">Solo esenciales</button>
-            <button class="lcb-accept" onclick="lcbAccept()" type="button">
-                Permitir todas las cookies
-            </button>
-        </div>
-    </div>
-</div>
-
-{% endblock %}
-
 {% endblock %}
 
 {% block scripts %}
 <script>
-/* ══ COOKIE BANNER ══════════════════════════════════════════════════════ */
-(function () {
-    var KEY = 'qoricash_cookie_consent';
-    var banner = document.getElementById('lcbBanner');
-
-    function lcbHide() {
-        if (banner) banner.classList.add('lcb-hidden');
-        setTimeout(function () { if (banner) banner.style.display = 'none'; }, 380);
-    }
-
-    window.lcbAccept  = function () { try { localStorage.setItem(KEY, 'accepted');  } catch(e){} lcbHide(); };
-    window.lcbDecline = function () { try { localStorage.setItem(KEY, 'essential'); } catch(e){} lcbHide(); };
-
-    /* Mostrar si no hay consentimiento previo */
-    var consent = null;
-    try { consent = localStorage.getItem(KEY); } catch(e) {}
-    if (consent) {
-        /* Ya aceptó → ocultar inmediatamente */
-        if (banner) banner.style.display = 'none';
-    }
-    /* Si no hay consent, el banner ya está visible por defecto (sin display:none en el HTML) */
-})();
-/* ════════════════════════════════════════════════════════════════════════ */
-
 /* ══════════════════════════════════════════════════════════════════════════
    LOGIN FORM VALIDATION
 ══════════════════════════════════════════════════════════════════════════ */
