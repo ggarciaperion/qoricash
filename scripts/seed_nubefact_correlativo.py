@@ -25,7 +25,7 @@ from app.models.operation import Operation
 # ─────────────────────────────────────────────
 ULTIMO_NUMERO_POR_SERIE = {
     'B002': 32,   # Última boleta en NubeFact: B002-32
-    'F001': 1,    # ⚠️ Ajustar al número más alto que muestre NubeFact para F001
+    'F001': 8,    # Última factura en NubeFact: F001-8
 }
 # ─────────────────────────────────────────────
 
