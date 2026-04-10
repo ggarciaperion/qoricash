@@ -112,6 +112,10 @@ class InvoiceService:
             # Preparar datos del comprobante
             invoice_data = InvoiceService._prepare_invoice_data(operation, client, invoice_type_code)
 
+            # Extraer serie/numero del payload para usarlos en caso de error
+            invoice_serie = invoice_data.get('serie', '')
+            invoice_numero = invoice_data.get('numero', 0)
+
             # Enviar a NubeFact
             success, response_data = InvoiceService._send_to_nubefact(invoice_data)
 
@@ -125,9 +129,9 @@ class InvoiceService:
                     operation_id=operation.id,
                     client_id=client.id,
                     invoice_type=invoice_type_name,
-                    serie=serie,
-                    numero=str(numero_int),
-                    invoice_number=f"{serie}-{numero_int}",
+                    serie=invoice_serie,
+                    numero=str(invoice_numero),
+                    invoice_number=f"{invoice_serie}-{invoice_numero}",
                     emisor_ruc=current_app.config.get('COMPANY_RUC'),
                     emisor_razon_social=current_app.config.get('COMPANY_NAME'),
                     emisor_direccion=InvoiceService._get_company_full_address(),
@@ -247,7 +251,7 @@ class InvoiceService:
             "valor_unitario": total_amount,
             "precio_unitario": total_amount,
             "subtotal": total_amount,
-            "tipo_de_igv": 30,  # 30 = Inafecto (operaciones de cambio de divisas)
+            "tipo_de_igv": 9,  # 9 = valor aceptado por NubeFact para operaciones inafectas
             "igv": 0,
             "total": total_amount,
             "anticipo_regularizacion": False
