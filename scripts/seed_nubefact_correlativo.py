@@ -17,6 +17,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from run import app
 from app.extensions import db
 from app.models.invoice import Invoice
+from app.models.operation import Operation
 
 # ─────────────────────────────────────────────
 # CONFIGURA AQUÍ el último número que tiene NubeFact para cada serie
@@ -29,6 +30,14 @@ ULTIMO_NUMERO_POR_SERIE = {
 # ─────────────────────────────────────────────
 
 with app.app_context():
+    # Necesitamos una operación real para cumplir el NOT NULL de operation_id
+    any_operation = Operation.query.order_by(Operation.id).first()
+    if not any_operation:
+        print("❌ No hay operaciones en la BD. Crea al menos una operación primero.")
+        sys.exit(1)
+
+    any_client = any_operation.client
+
     for serie, ultimo_numero in ULTIMO_NUMERO_POR_SERIE.items():
         if ultimo_numero <= 0:
             print(f"[SKIP] {serie}: ultimo_numero={ultimo_numero}, nada que sembrar")
@@ -52,6 +61,8 @@ with app.app_context():
         # Insertar placeholder con el último número conocido de NubeFact
         print(f"[SEED] {serie}: insertando placeholder numero={ultimo_numero} (BD tenía max={max_existente})")
         placeholder = Invoice(
+            operation_id=any_operation.id,
+            client_id=any_client.id if any_client else any_operation.client_id,
             serie=serie,
             numero=str(ultimo_numero),
             invoice_number=f"{serie}-{ultimo_numero}",
