@@ -450,6 +450,111 @@ body::before { display: none; }
 
 {% endblock %}
 
+{% block extra_cookie %}
+<!-- ══════════════ COOKIE BANNER (login override — body overflow:hidden fix) ══════════════ -->
+<style>
+#loginCookieBanner {
+    position: fixed;
+    bottom: 38px; /* encima del forexTicker */
+    left: 0; right: 0;
+    z-index: 999999;
+    background: rgba(6, 14, 24, 0.97);
+    border-top: 2px solid rgba(0, 222, 168, 0.50);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    box-shadow: 0 -6px 28px rgba(0,0,0,0.60);
+    padding: 13px 24px;
+    animation: lcbSlideUp 0.45s cubic-bezier(.22,.68,0,1.1) both;
+}
+@keyframes lcbSlideUp {
+    from { transform: translateY(110%); opacity: 0; }
+    to   { transform: translateY(0);   opacity: 1; }
+}
+#loginCookieBanner .lcb-inner {
+    max-width: 1100px; margin: 0 auto;
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+}
+#loginCookieBanner .lcb-icon { font-size: 1.4rem; flex-shrink: 0; }
+#loginCookieBanner .lcb-text {
+    flex: 1; min-width: 200px;
+    font-size: 0.8rem; color: rgba(255,255,255,0.75); line-height: 1.5;
+}
+#loginCookieBanner .lcb-text strong { color: #fff; }
+#loginCookieBanner .lcb-text a { color: #00DEA8; text-decoration: none; font-weight: 600; }
+#loginCookieBanner .lcb-text a:hover { text-decoration: underline; }
+#loginCookieBanner .lcb-actions { display: flex; align-items: center; gap: 9px; flex-shrink: 0; }
+#loginCookieBanner .lcb-accept {
+    background: linear-gradient(135deg, #00FFB3, #00DEA8);
+    color: #0D1B2A; border: none; border-radius: 8px;
+    padding: 8px 20px; font-size: 0.875rem; font-weight: 700;
+    cursor: pointer; white-space: nowrap;
+    box-shadow: 0 4px 14px rgba(0,222,168,0.32);
+    transition: all 0.2s;
+}
+#loginCookieBanner .lcb-accept:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(0,222,168,0.46);
+}
+#loginCookieBanner .lcb-decline {
+    background: transparent; border: 1px solid rgba(255,255,255,0.18);
+    color: rgba(255,255,255,0.45); border-radius: 8px;
+    padding: 7px 14px; font-size: 0.8rem; font-weight: 500;
+    cursor: pointer; white-space: nowrap; transition: all 0.2s;
+}
+#loginCookieBanner .lcb-decline:hover { color: rgba(255,255,255,0.70); border-color: rgba(255,255,255,0.32); }
+@media (max-width: 576px) {
+    #loginCookieBanner { padding: 12px 14px; bottom: 38px; }
+    #loginCookieBanner .lcb-actions { width: 100%; justify-content: flex-end; }
+}
+</style>
+
+<div id="loginCookieBanner" style="display:none;" role="dialog" aria-label="Aviso de cookies">
+    <div class="lcb-inner">
+        <div class="lcb-icon">🍪</div>
+        <div class="lcb-text">
+            <strong>Usamos cookies para mejorar tu experiencia.</strong>
+            Al continuar navegando aceptas el uso de cookies propias y de terceros para el funcionamiento
+            del sistema, seguridad de sesión y análisis de uso.
+            Consulta nuestra <a href="{{ url_for('legal.privacy_policy') }}" target="_blank" rel="noopener">Política de Privacidad</a>.
+        </div>
+        <div class="lcb-actions">
+            <button class="lcb-decline" onclick="lcbDecline()" type="button">Solo esenciales</button>
+            <button class="lcb-accept" onclick="lcbAccept()" type="button">
+                <i class="bi bi-check-lg"></i> Aceptar cookies
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    var KEY = 'qoricash_cookie_consent';
+    function hideLcb() {
+        var b = document.getElementById('loginCookieBanner');
+        if (!b) return;
+        b.style.transition = 'transform 0.3s ease, opacity 0.3s ease';
+        b.style.transform  = 'translateY(110%)';
+        b.style.opacity    = '0';
+        setTimeout(function () { b.style.display = 'none'; }, 320);
+    }
+    window.lcbAccept  = function () { try { localStorage.setItem(KEY, 'accepted');  } catch(e){} hideLcb(); };
+    window.lcbDecline = function () { try { localStorage.setItem(KEY, 'essential'); } catch(e){} hideLcb(); };
+
+    document.addEventListener('DOMContentLoaded', function () {
+        var consent = null;
+        try { consent = localStorage.getItem(KEY); } catch(e) {}
+        if (!consent) {
+            setTimeout(function () {
+                var b = document.getElementById('loginCookieBanner');
+                if (b) b.style.display = 'block';
+            }, 900);
+        }
+    });
+})();
+</script>
+<!-- ══════════════════════════════════════════════════════════════════════════ -->
+{% endblock %}
+
 {% block scripts %}
 <script>
 /* ══════════════════════════════════════════════════════════════════════════
