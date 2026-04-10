@@ -120,10 +120,14 @@ class InvoiceService:
                 logger.error(f'[INVOICE] Error al enviar a NubeFact: {error_msg}')
 
                 # Crear registro de factura con error
+                # IMPORTANTE: guardar serie y numero para que el correlativo no se pierda
                 invoice = Invoice(
                     operation_id=operation.id,
                     client_id=client.id,
                     invoice_type=invoice_type_name,
+                    serie=serie,
+                    numero=str(numero_int),
+                    invoice_number=f"{serie}-{numero_int}",
                     emisor_ruc=current_app.config.get('COMPANY_RUC'),
                     emisor_razon_social=current_app.config.get('COMPANY_NAME'),
                     emisor_direccion=InvoiceService._get_company_full_address(),
@@ -135,7 +139,7 @@ class InvoiceService:
                     descripcion=InvoiceService._generate_service_description(operation),
                     monto_total=operation.amount_pen,
                     moneda='PEN',
-                    exonerada=operation.amount_pen,  # En BD guardamos como exonerada (inafecta para NubeFact)
+                    exonerada=operation.amount_pen,
                     status='Error',
                     error_message=str(error_msg)
                 )
