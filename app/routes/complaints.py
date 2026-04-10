@@ -160,22 +160,54 @@ def update_complaint_status(id):
                 client_name = complaint.full_name or complaint.company_name
                 client_email = complaint.email
 
+                BANNER = 'https://res.cloudinary.com/dbks8vqoh/image/upload/v1773788552/qoricash/banneremail.png'
+                FOOTER = """
+                  <tr>
+                    <td style="background-color:#f8fafc;border-top:1px solid #e8ecf0;padding:20px 40px;text-align:center;">
+                      <p style="margin:0 0 4px 0;color:#0D1B2A;font-size:13px;font-weight:700;">QoriCash</p>
+                      <p style="margin:0 0 4px 0;color:#94a3b8;font-size:12px;">RUC: 20615113698 &nbsp;&middot;&nbsp; info@qoricash.pe</p>
+                      <p style="margin:0;color:#cbd5e1;font-size:11px;">&copy; 2025 QoriCash. Todos los derechos reservados.</p>
+                    </td>
+                  </tr>"""
+
                 if new_status == 'En Revisión':
-                    body = f"""
-                        <p>Estimado/a <strong>{client_name}</strong>,</p>
-                        <p>Le informamos que su reclamo número
-                           <strong>{complaint.complaint_number}</strong>
-                           se encuentra actualmente <strong>en revisión</strong>
-                           por nuestro equipo.</p>
-                        <p>Estamos trabajando para resolver su solicitud a la brevedad posible.</p>
-                        <p style="margin-top:24px;">Atentamente,<br><strong>Equipo QoriCash</strong></p>
-                    """
-                    html_content = EmailService.build_email_html(
-                        title='Actualización de Reclamo',
-                        body_html=body
-                    )
+                    html_content = f"""<!DOCTYPE html>
+<html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background-color:#f5f7fa;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f5f7fa;padding:28px 16px;">
+  <tr><td align="center">
+    <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 16px rgba(13,27,42,0.08);">
+      <tr><td style="padding:0;background:#0D1B2A;line-height:0;font-size:0;"><img src="{BANNER}" alt="QoriCash" width="600" style="width:100%;max-width:600px;display:block;border:0;"></td></tr>
+      <tr><td style="padding:0;height:3px;background-color:#f59e0b;font-size:0;line-height:0;">&nbsp;</td></tr>
+      <tr>
+        <td style="padding:36px 40px;color:#334155;font-size:15px;line-height:1.65;">
+          <div style="margin:0 0 16px 0;"><span style="display:inline-block;background:#fffbeb;color:#d97706;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.4px;padding:4px 10px;border-radius:4px;">Actualización de Reclamo</span></div>
+          <h1 style="margin:0 0 6px 0;font-size:22px;font-weight:700;color:#0D1B2A;">Su reclamo está en revisión</h1>
+          <p style="margin:0 0 24px 0;color:#64748b;font-size:14px;">Estimado/a <strong style="color:#1e293b;">{client_name}</strong>, le informamos que su reclamo está siendo revisado por nuestro equipo.</p>
+          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #e8ecf0;border-radius:8px;overflow:hidden;margin:0 0 24px 0;">
+            <tr style="border-bottom:1px solid #eef0f3;">
+              <td style="padding:11px 18px;width:140px;color:#94a3b8;font-size:13px;font-weight:600;">N° de reclamo</td>
+              <td style="padding:11px 18px;color:#0D1B2A;font-size:14px;font-weight:700;">{complaint.complaint_number}</td>
+            </tr>
+            <tr>
+              <td style="padding:11px 18px;color:#94a3b8;font-size:13px;font-weight:600;">Estado</td>
+              <td style="padding:11px 18px;color:#d97706;font-size:14px;font-weight:700;">En Revisión</td>
+            </tr>
+          </table>
+          <div style="border-radius:8px;padding:13px 16px;font-size:13px;line-height:1.65;background:#eff6ff;border-left:3px solid #3b82f6;color:#1e3a5f;">
+            Estamos trabajando para resolver su solicitud. Le notificaremos cuando tengamos una respuesta.
+          </div>
+          <div style="height:1px;background-color:#f1f5f9;margin:24px 0;"></div>
+          <p style="margin:0;font-size:13px;color:#94a3b8;">Este correo fue generado automáticamente.</p>
+        </td>
+      </tr>
+      {FOOTER}
+    </table>
+  </td></tr>
+</table>
+</body></html>"""
                     msg = Message(
-                        subject=f'Reclamo {complaint.complaint_number} - En Revisión',
+                        subject=f'Reclamo {complaint.complaint_number} — En Revisión',
                         recipients=[client_email],
                         cc=['info@qoricash.pe'],
                         html=html_content
@@ -187,26 +219,44 @@ def update_complaint_status(id):
                     response_block = ''
                     if response_text:
                         response_block = f"""
-                        <div style="background:#e8f5e9;padding:18px 20px;border-radius:8px;
-                                    border-left:4px solid #28a745;margin:20px 0;">
-                            <p style="margin:0 0 8px;font-weight:700;">Respuesta del Equipo:</p>
-                            <p style="margin:0;white-space:pre-wrap;">{response_text}</p>
-                        </div>"""
-                    body = f"""
-                        <p>Estimado/a <strong>{client_name}</strong>,</p>
-                        <p>Nos complace informarle que su reclamo número
-                           <strong>{complaint.complaint_number}</strong>
-                           ha sido <strong>resuelto</strong>.</p>
-                        {response_block}
-                        <p>Si tiene alguna consulta adicional, no dude en contactarnos.</p>
-                        <p style="margin-top:24px;">Atentamente,<br><strong>Equipo QoriCash</strong></p>
-                    """
-                    html_content = EmailService.build_email_html(
-                        title='Reclamo Resuelto',
-                        body_html=body
-                    )
+                          <p style="margin:0 0 10px 0;font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1.2px;">Respuesta del equipo</p>
+                          <div style="border-radius:8px;padding:16px 18px;margin:0 0 24px 0;font-size:14px;color:#166534;white-space:pre-wrap;line-height:1.7;background:#f0fdf4;border:1px solid #bbf7d0;">{response_text}</div>"""
+                    html_content = f"""<!DOCTYPE html>
+<html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background-color:#f5f7fa;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f5f7fa;padding:28px 16px;">
+  <tr><td align="center">
+    <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 16px rgba(13,27,42,0.08);">
+      <tr><td style="padding:0;background:#0D1B2A;line-height:0;font-size:0;"><img src="{BANNER}" alt="QoriCash" width="600" style="width:100%;max-width:600px;display:block;border:0;"></td></tr>
+      <tr><td style="padding:0;height:3px;background-color:#10b981;font-size:0;line-height:0;">&nbsp;</td></tr>
+      <tr>
+        <td style="padding:36px 40px;color:#334155;font-size:15px;line-height:1.65;">
+          <div style="margin:0 0 16px 0;"><span style="display:inline-block;background:#f0fdf4;color:#10b981;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.4px;padding:4px 10px;border-radius:4px;">Reclamo Resuelto</span></div>
+          <h1 style="margin:0 0 6px 0;font-size:22px;font-weight:700;color:#0D1B2A;">Su reclamo ha sido resuelto</h1>
+          <p style="margin:0 0 24px 0;color:#64748b;font-size:14px;">Estimado/a <strong style="color:#1e293b;">{client_name}</strong>, nos complace informarle que su reclamo fue atendido.</p>
+          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #e8ecf0;border-radius:8px;overflow:hidden;margin:0 0 24px 0;">
+            <tr style="border-bottom:1px solid #eef0f3;">
+              <td style="padding:11px 18px;width:140px;color:#94a3b8;font-size:13px;font-weight:600;">N° de reclamo</td>
+              <td style="padding:11px 18px;color:#0D1B2A;font-size:14px;font-weight:700;">{complaint.complaint_number}</td>
+            </tr>
+            <tr>
+              <td style="padding:11px 18px;color:#94a3b8;font-size:13px;font-weight:600;">Estado</td>
+              <td style="padding:11px 18px;color:#059669;font-size:14px;font-weight:700;">Resuelto</td>
+            </tr>
+          </table>
+          {response_block}
+          <p style="margin:0 0 6px 0;font-size:14px;color:#334155;">Si tiene alguna consulta adicional, no dude en contactarnos en <a href="mailto:info@qoricash.pe" style="color:#1d4ed8;">info@qoricash.pe</a>.</p>
+          <div style="height:1px;background-color:#f1f5f9;margin:24px 0;"></div>
+          <p style="margin:0;font-size:13px;color:#94a3b8;">Este correo fue generado automáticamente.</p>
+        </td>
+      </tr>
+      {FOOTER}
+    </table>
+  </td></tr>
+</table>
+</body></html>"""
                     msg = Message(
-                        subject=f'Reclamo {complaint.complaint_number} - Resuelto',
+                        subject=f'Reclamo {complaint.complaint_number} — Resuelto',
                         recipients=[client_email],
                         cc=['info@qoricash.pe'],
                         html=html_content

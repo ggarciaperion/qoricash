@@ -1251,100 +1251,75 @@ class EmailService:
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        body, table, td, p, h1, h2, h3 { margin: 0; padding: 0; }
-        body { background-color: #f0f4f8; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
-        .email-wrapper { padding: 28px 16px; }
-        .email-card { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(13,27,42,0.09); }
-        .email-header { background-color: #0D1B2A; padding: 30px 40px 26px; text-align: center; }
-        .logo-wrap { display: inline-block; border: 1.5px solid rgba(0,222,168,0.35); border-radius: 8px; padding: 7px 22px; margin-bottom: 10px; }
-        .logo-text { color: #00DEA8; font-size: 21px; font-weight: 700; letter-spacing: 1.5px; }
-        .tagline { color: rgba(255,255,255,0.40); font-size: 11px; letter-spacing: 0.6px; margin-top: 6px; }
-        .accent-bar { height: 3px; background-color: #00DEA8; }
-        .email-body { padding: 36px 40px; color: #334155; font-size: 15px; line-height: 1.65; }
-        .section-label { font-size: 11px; font-weight: 700; color: #00DEA8; text-transform: uppercase; letter-spacing: 1.2px; margin: 24px 0 10px 0; }
-        .password-box { background-color: #0D1B2A; border-radius: 10px; padding: 22px 24px; text-align: center; margin: 16px 0; }
-        .password-label { color: rgba(255,255,255,0.50); font-size: 11px; letter-spacing: 0.8px; text-transform: uppercase; margin-bottom: 10px; }
-        .password-code { color: #00DEA8; font-size: 28px; font-family: 'Courier New', Courier, monospace; font-weight: 700; letter-spacing: 4px; }
-        .password-hint { color: rgba(255,255,255,0.35); font-size: 11px; margin-top: 10px; }
-        .alert { border-radius: 8px; padding: 13px 16px; margin: 14px 0; font-size: 13.5px; line-height: 1.65; }
-        .alert.danger { background: #fef2f2; border-left: 3px solid #ef4444; color: #7f1d1d; }
-        .alert.info { background: #f0f9ff; border-left: 3px solid #0ea5e9; color: #0c4a6e; }
-        .steps-box { background: #f8fafc; border-radius: 8px; padding: 14px 18px 14px 14px; margin: 14px 0; }
-        .steps-box ol { margin: 0; padding-left: 22px; }
-        .steps-box li { padding: 5px 0; font-size: 14px; color: #334155; }
-        .data-box { background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; overflow: hidden; margin: 0 0 20px 0; }
-        .data-row { padding: 9px 18px; border-bottom: 1px solid #f1f5f9; font-size: 14px; }
-        .data-row:last-child { border-bottom: none; }
-        .divider { height: 1px; background-color: #f1f5f9; margin: 24px 0; }
-        .note-text { font-size: 13px; color: #94a3b8; line-height: 1.6; }
-        .email-footer { background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 22px 40px; text-align: center; }
-        .footer-brand { color: #0D1B2A; font-size: 14px; font-weight: 700; margin-bottom: 4px; }
-        .footer-meta { color: #94a3b8; font-size: 12px; }
-        .footer-link { color: #00DEA8; text-decoration: none; }
-        .footer-copy { color: #cbd5e1; font-size: 11px; margin-top: 8px; }
-        @media only screen and (max-width: 620px) {
-            .email-body { padding: 24px 20px !important; }
-            .email-header { padding: 24px 20px !important; }
-        }
+        @media only screen and (max-width: 620px) { .email-body-cell { padding: 24px 20px !important; } }
     </style>
 </head>
-<body>
-<div class="email-wrapper">
-    <div class="email-card">
+<body style="margin:0;padding:0;background-color:#f5f7fa;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f5f7fa;padding:28px 16px;">
+  <tr><td align="center">
+    <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 16px rgba(13,27,42,0.08);">
+      <tr>
+        <td style="padding:0;background:#0D1B2A;line-height:0;font-size:0;">
+          <img src="https://res.cloudinary.com/dbks8vqoh/image/upload/v1773788552/qoricash/banneremail.png" alt="QoriCash" width="600" style="width:100%;max-width:600px;display:block;border:0;">
+        </td>
+      </tr>
+      <tr><td style="padding:0;height:3px;background-color:#6366f1;font-size:0;line-height:0;">&nbsp;</td></tr>
+      <tr>
+        <td class="email-body-cell" style="padding:36px 40px;color:#334155;font-size:15px;line-height:1.65;">
+          <div style="margin:0 0 16px 0;">
+            <span style="display:inline-block;background:#eef2ff;color:#6366f1;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.4px;padding:4px 10px;border-radius:4px;">Acceso Seguro</span>
+          </div>
+          <h1 style="margin:0 0 6px 0;font-size:22px;font-weight:700;color:#0D1B2A;line-height:1.3;">Contraseña temporal de acceso</h1>
+          <p style="margin:0 0 24px 0;color:#64748b;font-size:14px;">Hola <strong style="color:#1e293b;">{{ client_name }}</strong>, a continuación tu contraseña temporal para ingresar a QoriCash.</p>
 
-        <div class="email-header" style="padding:0;background:#0D1B2A;">
-            <img src="https://res.cloudinary.com/dbks8vqoh/image/upload/v1773788552/qoricash/banneremail.png" alt="QoriCash" width="600" style="width:100%;max-width:600px;display:block;">
-        </div>
-        <div class="accent-bar"></div>
+          <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#0D1B2A;border-radius:8px;overflow:hidden;margin:0 0 24px 0;">
+            <tr>
+              <td style="padding:24px;text-align:center;">
+                <p style="margin:0 0 8px 0;color:rgba(255,255,255,0.45);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;">Contraseña de acceso</p>
+                <p style="margin:0 0 8px 0;color:#a5b4fc;font-size:30px;font-family:'Courier New',monospace;font-weight:700;letter-spacing:6px;">{{ temp_password }}</p>
+                <p style="margin:0;color:rgba(255,255,255,0.3);font-size:11px;">Cópiala exactamente como aparece</p>
+              </td>
+            </tr>
+          </table>
 
-        <div class="email-body">
-            <p>Hola <strong>{{ client_name }}</strong>,</p>
-            <p style="margin-top:10px;color:#64748b;font-size:14px;">Hemos recibido tu solicitud. A continuación tu contraseña temporal de acceso:</p>
+          <div style="border-radius:8px;padding:13px 16px;margin:0 0 20px 0;font-size:13px;line-height:1.65;background:#fef2f2;border-left:3px solid #ef4444;color:#7f1d1d;">
+            <strong>Seguridad:</strong> Deberás cambiar esta contraseña al iniciar sesión. No la compartas con nadie.
+          </div>
 
-            <p class="section-label">Tu contraseña temporal</p>
-            <div class="password-box">
-                <p class="password-label">Contraseña de acceso</p>
-                <p class="password-code">{{ temp_password }}</p>
-                <p class="password-hint">Cópiala exactamente como aparece</p>
-            </div>
+          <p style="margin:0 0 10px 0;font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1.2px;">Pasos a seguir</p>
+          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #e8ecf0;border-radius:8px;overflow:hidden;margin:0 0 20px 0;">
+            <tr style="border-bottom:1px solid #eef0f3;">
+              <td style="padding:10px 14px;color:#94a3b8;font-size:12px;font-weight:700;width:28px;text-align:center;vertical-align:top;">1</td>
+              <td style="padding:10px 16px;color:#334155;font-size:13px;">Ingresa a QoriCash con tu número de documento y esta contraseña</td>
+            </tr>
+            <tr style="border-bottom:1px solid #eef0f3;">
+              <td style="padding:10px 14px;color:#94a3b8;font-size:12px;font-weight:700;text-align:center;vertical-align:top;">2</td>
+              <td style="padding:10px 16px;color:#334155;font-size:13px;">El sistema te pedirá establecer una nueva contraseña segura</td>
+            </tr>
+            <tr>
+              <td style="padding:10px 14px;color:#94a3b8;font-size:12px;font-weight:700;text-align:center;vertical-align:top;">3</td>
+              <td style="padding:10px 16px;color:#334155;font-size:13px;">¡Listo! Ya puedes operar con normalidad</td>
+            </tr>
+          </table>
 
-            <div class="alert danger">
-                <strong>Seguridad:</strong> Deberás cambiar esta contraseña al iniciar sesión. No la compartas con nadie.
-            </div>
+          <div style="border-radius:8px;padding:13px 16px;margin:0 0 20px 0;font-size:13px;line-height:1.65;background:#eff6ff;border-left:3px solid #3b82f6;color:#1e3a5f;">
+            <strong>¿No solicitaste este cambio?</strong> Contacta a nuestro equipo inmediatamente en <a href="mailto:info@qoricash.pe" style="color:#1d4ed8;">info@qoricash.pe</a>
+          </div>
 
-            <p class="section-label">Pasos a seguir</p>
-            <div class="steps-box">
-                <ol>
-                    <li>Ingresa a QoriCash con tu número de documento y esta contraseña</li>
-                    <li>El sistema te pedirá establecer una nueva contraseña segura</li>
-                    <li>¡Listo! Ya puedes operar con normalidad</li>
-                </ol>
-            </div>
-
-            <p class="section-label">Requisitos para tu nueva contraseña</p>
-            <div class="data-box">
-                <div class="data-row" style="color:#334155;">Mínimo 8 caracteres</div>
-                <div class="data-row" style="color:#334155;">Al menos una letra mayúscula</div>
-                <div class="data-row" style="color:#334155;">Al menos una letra minúscula</div>
-                <div class="data-row" style="color:#334155;">Al menos un número</div>
-            </div>
-
-            <div class="alert info">
-                <strong>¿No solicitaste este cambio?</strong> Contacta a nuestro equipo de soporte inmediatamente en <a href="mailto:info@qoricash.pe" style="color:#0c4a6e;">info@qoricash.pe</a>
-            </div>
-
-            <div class="divider"></div>
-            <p class="note-text">Este correo fue generado automáticamente. Por favor no respondas a este mensaje.</p>
-        </div>
-
-        <div class="email-footer">
-            <p class="footer-brand">QoriCash</p>
-            <p class="footer-meta">RUC: 20615113698 &nbsp;·&nbsp; <a href="mailto:info@qoricash.pe" class="footer-link">info@qoricash.pe</a></p>
-            <p class="footer-copy">© 2025 QoriCash. Todos los derechos reservados.</p>
-        </div>
-
-    </div>
-</div>
+          <div style="height:1px;background-color:#f1f5f9;margin:24px 0;"></div>
+          <p style="margin:0;font-size:13px;color:#94a3b8;">Este correo fue generado automáticamente. Por favor no respondas a este mensaje.</p>
+        </td>
+      </tr>
+      <tr>
+        <td style="background-color:#f8fafc;border-top:1px solid #e8ecf0;padding:20px 40px;text-align:center;">
+          <p style="margin:0 0 4px 0;color:#0D1B2A;font-size:13px;font-weight:700;">QoriCash</p>
+          <p style="margin:0 0 4px 0;color:#94a3b8;font-size:12px;">RUC: 20615113698 &nbsp;&middot;&nbsp; <a href="mailto:info@qoricash.pe" style="color:#94a3b8;text-decoration:none;">info@qoricash.pe</a></p>
+          <p style="margin:0;color:#cbd5e1;font-size:11px;">© 2025 QoriCash. Todos los derechos reservados.</p>
+        </td>
+      </tr>
+    </table>
+  </td></tr>
+</table>
 </body>
 </html>"""
         return render_template_string(template, client_name=client_name, temp_password=temp_password)
@@ -1379,99 +1354,75 @@ class EmailService:
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        body, table, td, p, h1, h2, h3 { margin: 0; padding: 0; }
-        body { background-color: #f0f4f8; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
-        .email-wrapper { padding: 28px 16px; }
-        .email-card { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(13,27,42,0.09); }
-        .email-header { background-color: #0D1B2A; padding: 30px 40px 26px; text-align: center; }
-        .logo-wrap { display: inline-block; border: 1.5px solid rgba(0,222,168,0.35); border-radius: 8px; padding: 7px 22px; margin-bottom: 10px; }
-        .logo-text { color: #00DEA8; font-size: 21px; font-weight: 700; letter-spacing: 1.5px; }
-        .tagline { color: rgba(255,255,255,0.40); font-size: 11px; letter-spacing: 0.6px; margin-top: 6px; }
-        .accent-bar { height: 3px; background-color: #00DEA8; }
-        .email-body { padding: 36px 40px; color: #334155; font-size: 15px; line-height: 1.65; }
-        .status-box { border-radius: 10px; padding: 20px 24px; text-align: center; margin: 20px 0; background-color: #fffbeb; border: 1.5px solid #fcd34d; }
-        .status-box h2 { font-size: 17px; font-weight: 700; color: #92400e; margin-bottom: 6px; }
-        .status-box p { font-size: 14px; color: #78350f; }
-        .section-label { font-size: 11px; font-weight: 700; color: #00DEA8; text-transform: uppercase; letter-spacing: 1.2px; margin: 24px 0 10px 0; }
-        .data-box { background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; overflow: hidden; margin: 0 0 20px 0; }
-        .data-row { padding: 10px 18px; border-bottom: 1px solid #f1f5f9; font-size: 14px; }
-        .data-row:last-child { border-bottom: none; }
-        .data-label { color: #64748b; font-weight: 600; display: inline-block; min-width: 150px; }
-        .data-value { color: #1e293b; font-weight: 500; }
-        .divider { height: 1px; background-color: #f1f5f9; margin: 24px 0; }
-        .note-text { font-size: 13px; color: #94a3b8; line-height: 1.6; }
-        .email-footer { background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 22px 40px; text-align: center; }
-        .footer-brand { color: #0D1B2A; font-size: 14px; font-weight: 700; margin-bottom: 4px; }
-        .footer-meta { color: #94a3b8; font-size: 12px; }
-        .footer-link { color: #00DEA8; text-decoration: none; }
-        .footer-copy { color: #cbd5e1; font-size: 11px; margin-top: 8px; }
-        @media only screen and (max-width: 620px) {
-            .email-body { padding: 24px 20px !important; }
-            .email-header { padding: 24px 20px !important; }
-            .data-label { display: block !important; min-width: unset !important; margin-bottom: 2px; }
-        }
+        @media only screen and (max-width: 620px) { .email-body-cell { padding: 24px 20px !important; } }
     </style>
 </head>
-<body>
-<div class="email-wrapper">
-    <div class="email-card">
+<body style="margin:0;padding:0;background-color:#f5f7fa;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f5f7fa;padding:28px 16px;">
+  <tr><td align="center">
+    <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 16px rgba(13,27,42,0.08);">
+      <tr>
+        <td style="padding:0;background:#0D1B2A;line-height:0;font-size:0;">
+          <img src="https://res.cloudinary.com/dbks8vqoh/image/upload/v1773788552/qoricash/banneremail.png" alt="QoriCash" width="600" style="width:100%;max-width:600px;display:block;border:0;">
+        </td>
+      </tr>
+      <tr><td style="padding:0;height:3px;background-color:#f59e0b;font-size:0;line-height:0;">&nbsp;</td></tr>
+      <tr>
+        <td class="email-body-cell" style="padding:36px 40px;color:#334155;font-size:15px;line-height:1.65;">
+          <div style="margin:0 0 16px 0;">
+            <span style="display:inline-block;background:#fffbeb;color:#d97706;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.4px;padding:4px 10px;border-radius:4px;">Registro Recibido</span>
+          </div>
+          <h1 style="margin:0 0 6px 0;font-size:22px;font-weight:700;color:#0D1B2A;line-height:1.3;">Su registro está siendo procesado</h1>
+          <p style="margin:0 0 24px 0;color:#64748b;font-size:14px;">Estimado(a) <strong style="color:#1e293b;">{{ client.full_name or client.razon_social }}</strong>, hemos recibido su solicitud de registro a través de su ejecutivo <strong>{{ trader.username }}</strong>. Pronto le notificaremos la activación.</p>
 
-        <div class="email-header" style="padding:0;background:#0D1B2A;">
-            <img src="https://res.cloudinary.com/dbks8vqoh/image/upload/v1773788552/qoricash/banneremail.png" alt="QoriCash" width="600" style="width:100%;max-width:600px;display:block;">
-        </div>
-        <div class="accent-bar"></div>
+          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #e8ecf0;border-radius:8px;overflow:hidden;margin:0 0 24px 0;">
+            <tr style="border-bottom:1px solid #eef0f3;">
+              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:13px;font-weight:600;white-space:nowrap;vertical-align:top;">Cliente</td>
+              <td style="padding:11px 18px;color:#0D1B2A;font-size:14px;font-weight:600;vertical-align:top;">{{ client.full_name or client.razon_social }}</td>
+            </tr>
+            {% if client.document_type %}
+            <tr style="border-bottom:1px solid #eef0f3;">
+              <td style="padding:11px 18px;color:#94a3b8;font-size:13px;font-weight:600;vertical-align:top;">Tipo de documento</td>
+              <td style="padding:11px 18px;color:#1e293b;font-size:14px;vertical-align:top;">{{ client.document_type }}</td>
+            </tr>
+            {% endif %}
+            {% if client.document_number %}
+            <tr style="border-bottom:1px solid #eef0f3;">
+              <td style="padding:11px 18px;color:#94a3b8;font-size:13px;font-weight:600;vertical-align:top;">N° de documento</td>
+              <td style="padding:11px 18px;color:#1e293b;font-size:14px;vertical-align:top;">{{ client.document_number }}</td>
+            </tr>
+            {% endif %}
+            {% if client.phone %}
+            <tr style="border-bottom:1px solid #eef0f3;">
+              <td style="padding:11px 18px;color:#94a3b8;font-size:13px;font-weight:600;vertical-align:top;">Teléfono</td>
+              <td style="padding:11px 18px;color:#1e293b;font-size:14px;vertical-align:top;">{{ client.phone }}</td>
+            </tr>
+            {% endif %}
+            <tr style="border-bottom:1px solid #eef0f3;">
+              <td style="padding:11px 18px;color:#94a3b8;font-size:13px;font-weight:600;vertical-align:top;">Cuentas bancarias</td>
+              <td style="padding:11px 18px;color:#1e293b;font-size:14px;vertical-align:top;">{{ bank_accounts_text }}</td>
+            </tr>
+            <tr>
+              <td style="padding:11px 18px;color:#94a3b8;font-size:13px;font-weight:600;vertical-align:top;">Ejecutivo asignado</td>
+              <td style="padding:11px 18px;color:#059669;font-size:14px;font-weight:600;vertical-align:top;">{{ trader.username }}</td>
+            </tr>
+          </table>
 
-        <div class="email-body">
-            <p>Estimado(a) <strong>{{ client.full_name or client.razon_social }}</strong>,</p>
-            <p style="margin-top:10px;color:#64748b;font-size:14px;">Hemos recibido su solicitud de registro a través de su ejecutivo comercial <strong>{{ trader.username }}</strong>. Estamos validando su información y pronto le notificaremos la activación de su cuenta.</p>
-
-            <p class="section-label">Datos de registro</p>
-            <div class="data-box">
-                <div class="data-row">
-                    <span class="data-label">Cliente</span>
-                    <span class="data-value">{{ client.full_name or client.razon_social }}</span>
-                </div>
-                {% if client.document_type %}
-                <div class="data-row">
-                    <span class="data-label">Tipo de documento</span>
-                    <span class="data-value">{{ client.document_type }}</span>
-                </div>
-                {% endif %}
-                {% if client.document_number %}
-                <div class="data-row">
-                    <span class="data-label">Número de documento</span>
-                    <span class="data-value">{{ client.document_number }}</span>
-                </div>
-                {% endif %}
-                {% if client.phone %}
-                <div class="data-row">
-                    <span class="data-label">Teléfono</span>
-                    <span class="data-value">{{ client.phone }}</span>
-                </div>
-                {% endif %}
-                <div class="data-row">
-                    <span class="data-label">Cuentas bancarias</span>
-                    <span class="data-value">{{ bank_accounts_text }}</span>
-                </div>
-                <div class="data-row">
-                    <span class="data-label">Ejecutivo asignado</span>
-                    <span class="data-value" style="color:#00a87a;font-weight:600;">{{ trader.username }}</span>
-                </div>
-            </div>
-
-            <div class="divider"></div>
-            <p style="font-size:14px;color:#334155;">Para cualquier consulta, contacte a su ejecutivo <strong>{{ trader.username }}</strong>{% if trader.email %} en <a href="mailto:{{ trader.email }}" class="footer-link">{{ trader.email }}</a>{% endif %}.</p>
-            <p class="note-text" style="margin-top:10px;">Este es un correo automático.</p>
-        </div>
-
-        <div class="email-footer">
-            <p class="footer-brand">QoriCash</p>
-            <p class="footer-meta">RUC: 20615113698 &nbsp;·&nbsp; <a href="mailto:info@qoricash.pe" class="footer-link">info@qoricash.pe</a></p>
-            <p class="footer-copy">© 2025 QoriCash. Todos los derechos reservados.</p>
-        </div>
-
-    </div>
-</div>
+          <div style="height:1px;background-color:#f1f5f9;margin:24px 0;"></div>
+          <p style="margin:0 0 6px 0;font-size:14px;color:#334155;">Para cualquier consulta, contacte a su ejecutivo <strong>{{ trader.username }}</strong>{% if trader.email %} en <a href="mailto:{{ trader.email }}" style="color:#1d4ed8;">{{ trader.email }}</a>{% endif %}.</p>
+          <p style="margin:0;font-size:13px;color:#94a3b8;">Este es un correo automático.</p>
+        </td>
+      </tr>
+      <tr>
+        <td style="background-color:#f8fafc;border-top:1px solid #e8ecf0;padding:20px 40px;text-align:center;">
+          <p style="margin:0 0 4px 0;color:#0D1B2A;font-size:13px;font-weight:700;">QoriCash</p>
+          <p style="margin:0 0 4px 0;color:#94a3b8;font-size:12px;">RUC: 20615113698 &nbsp;&middot;&nbsp; <a href="mailto:info@qoricash.pe" style="color:#94a3b8;text-decoration:none;">info@qoricash.pe</a></p>
+          <p style="margin:0;color:#cbd5e1;font-size:11px;">© 2025 QoriCash. Todos los derechos reservados.</p>
+        </td>
+      </tr>
+    </table>
+  </td></tr>
+</table>
 </body>
 </html>"""
         return render_template_string(template, client=client, trader=trader, bank_accounts_text=bank_accounts_text)
@@ -1485,108 +1436,90 @@ class EmailService:
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        body, table, td, p, h1, h2, h3 { margin: 0; padding: 0; }
-        body { background-color: #f0f4f8; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
-        .email-wrapper { padding: 28px 16px; }
-        .email-card { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(13,27,42,0.09); }
-        .email-header { background-color: #0D1B2A; padding: 30px 40px 26px; text-align: center; }
-        .logo-wrap { display: inline-block; border: 1.5px solid rgba(0,222,168,0.35); border-radius: 8px; padding: 7px 22px; margin-bottom: 10px; }
-        .logo-text { color: #00DEA8; font-size: 21px; font-weight: 700; letter-spacing: 1.5px; }
-        .tagline { color: rgba(255,255,255,0.40); font-size: 11px; letter-spacing: 0.6px; margin-top: 6px; }
-        .accent-bar { height: 3px; background-color: #00DEA8; }
-        .email-body { padding: 36px 40px; color: #334155; font-size: 15px; line-height: 1.65; }
-        .success-banner { background-color: #f0fdf4; border: 1.5px solid #86efac; border-radius: 10px; padding: 20px 24px; text-align: center; margin: 20px 0; }
-        .success-banner h2 { color: #15803d; font-size: 17px; font-weight: 700; margin-bottom: 6px; }
-        .success-banner p { color: #166534; font-size: 14px; }
-        .section-label { font-size: 11px; font-weight: 700; color: #00DEA8; text-transform: uppercase; letter-spacing: 1.2px; margin: 24px 0 10px 0; }
-        .data-box { background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; overflow: hidden; margin: 0 0 20px 0; }
-        .data-row { padding: 10px 18px; border-bottom: 1px solid #f1f5f9; font-size: 14px; }
-        .data-row:last-child { border-bottom: none; }
-        .data-label { color: #64748b; font-weight: 600; display: inline-block; min-width: 150px; }
-        .data-value { color: #1e293b; font-weight: 500; }
-        .cta-wrap { text-align: center; margin: 28px 0 20px 0; }
-        .cta-btn { display: inline-block; background-color: #00DEA8; color: #0D1B2A; font-weight: 700; font-size: 15px; padding: 13px 36px; border-radius: 8px; text-decoration: none; }
-        .divider { height: 1px; background-color: #f1f5f9; margin: 24px 0; }
-        .note-text { font-size: 13px; color: #94a3b8; line-height: 1.6; }
-        .email-footer { background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 22px 40px; text-align: center; }
-        .footer-brand { color: #0D1B2A; font-size: 14px; font-weight: 700; margin-bottom: 4px; }
-        .footer-meta { color: #94a3b8; font-size: 12px; }
-        .footer-link { color: #00DEA8; text-decoration: none; }
-        .footer-copy { color: #cbd5e1; font-size: 11px; margin-top: 8px; }
-        @media only screen and (max-width: 620px) {
-            .email-body { padding: 24px 20px !important; }
-            .email-header { padding: 24px 20px !important; }
-            .data-label { display: block !important; min-width: unset !important; margin-bottom: 2px; }
-        }
+        @media only screen and (max-width: 620px) { .email-body-cell { padding: 24px 20px !important; } }
     </style>
 </head>
-<body>
-<div class="email-wrapper">
-    <div class="email-card">
+<body style="margin:0;padding:0;background-color:#f5f7fa;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f5f7fa;padding:28px 16px;">
+  <tr><td align="center">
+    <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 16px rgba(13,27,42,0.08);">
+      <tr>
+        <td style="padding:0;background:#0D1B2A;line-height:0;font-size:0;">
+          <img src="https://res.cloudinary.com/dbks8vqoh/image/upload/v1773788552/qoricash/banneremail.png" alt="QoriCash" width="600" style="width:100%;max-width:600px;display:block;border:0;">
+        </td>
+      </tr>
+      <tr><td style="padding:0;height:3px;background-color:#10b981;font-size:0;line-height:0;">&nbsp;</td></tr>
+      <tr>
+        <td class="email-body-cell" style="padding:36px 40px;color:#334155;font-size:15px;line-height:1.65;">
+          <div style="margin:0 0 16px 0;">
+            <span style="display:inline-block;background:#f0fdf4;color:#10b981;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.4px;padding:4px 10px;border-radius:4px;">Cuenta Activada</span>
+          </div>
+          <h1 style="margin:0 0 6px 0;font-size:22px;font-weight:700;color:#0D1B2A;line-height:1.3;">¡Bienvenido(a) a QoriCash!</h1>
+          <p style="margin:0 0 24px 0;color:#64748b;font-size:14px;">Estimado(a) <strong style="color:#1e293b;">{{ client.full_name or client.razon_social }}</strong>, su cuenta ha sido activada. Ya puede comenzar a operar.</p>
 
-        <div class="email-header" style="padding:0;background:#0D1B2A;">
-            <img src="https://res.cloudinary.com/dbks8vqoh/image/upload/v1773788552/qoricash/banneremail.png" alt="QoriCash" width="600" style="width:100%;max-width:600px;display:block;">
-        </div>
-        <div class="accent-bar"></div>
+          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #e8ecf0;border-radius:8px;overflow:hidden;margin:0 0 24px 0;">
+            <tr style="border-bottom:1px solid #eef0f3;">
+              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:13px;font-weight:600;vertical-align:top;">Cliente</td>
+              <td style="padding:11px 18px;color:#0D1B2A;font-size:14px;font-weight:600;vertical-align:top;">{{ client.full_name or client.razon_social }}</td>
+            </tr>
+            {% if client.document_number %}
+            <tr style="border-bottom:1px solid #eef0f3;">
+              <td style="padding:11px 18px;color:#94a3b8;font-size:13px;font-weight:600;vertical-align:top;">Documento</td>
+              <td style="padding:11px 18px;color:#1e293b;font-size:14px;vertical-align:top;">{{ client.document_number }}</td>
+            </tr>
+            {% endif %}
+            <tr style="border-bottom:1px solid #eef0f3;">
+              <td style="padding:11px 18px;color:#94a3b8;font-size:13px;font-weight:600;vertical-align:top;">Email</td>
+              <td style="padding:11px 18px;color:#1e293b;font-size:14px;vertical-align:top;">{{ client.email }}</td>
+            </tr>
+            <tr style="border-bottom:1px solid #eef0f3;">
+              <td style="padding:11px 18px;color:#94a3b8;font-size:13px;font-weight:600;vertical-align:top;">Estado</td>
+              <td style="padding:11px 18px;color:#059669;font-size:14px;font-weight:700;vertical-align:top;">ACTIVO</td>
+            </tr>
+            <tr>
+              <td style="padding:11px 18px;color:#94a3b8;font-size:13px;font-weight:600;vertical-align:top;">Ejecutivo</td>
+              <td style="padding:11px 18px;color:#059669;font-size:14px;font-weight:600;vertical-align:top;">{{ trader.username }}</td>
+            </tr>
+          </table>
 
-        <div class="email-body">
-            <p>Estimado(a) <strong>{{ client.full_name or client.razon_social }}</strong>,</p>
+          <p style="margin:0 0 10px 0;font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1.2px;">¿Qué puede hacer ahora?</p>
+          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #e8ecf0;border-radius:8px;overflow:hidden;margin:0 0 28px 0;">
+            <tr style="border-bottom:1px solid #eef0f3;">
+              <td style="padding:10px 18px;color:#059669;font-size:13px;">✓ &nbsp;Realizar operaciones de compra y venta de dólares</td>
+            </tr>
+            <tr style="border-bottom:1px solid #eef0f3;">
+              <td style="padding:10px 18px;color:#059669;font-size:13px;">✓ &nbsp;Acceder a tipos de cambio competitivos</td>
+            </tr>
+            <tr style="border-bottom:1px solid #eef0f3;">
+              <td style="padding:10px 18px;color:#059669;font-size:13px;">✓ &nbsp;Recibir atención personalizada de su ejecutivo</td>
+            </tr>
+            <tr>
+              <td style="padding:10px 18px;color:#059669;font-size:13px;">✓ &nbsp;Transferencias rápidas y seguras</td>
+            </tr>
+          </table>
 
-            <div class="success-banner">
-                <h2>¡Bienvenido a QoriCash!</h2>
-                <p>Su cuenta ha sido activada correctamente. Ya puede comenzar a operar.</p>
-            </div>
+          <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px 0;">
+            <tr>
+              <td align="center">
+                <a href="https://www.qoricash.pe" style="display:inline-block;background:#10b981;color:#ffffff;font-weight:700;font-size:14px;padding:13px 36px;border-radius:8px;text-decoration:none;letter-spacing:0.3px;">Iniciar sesión ahora</a>
+              </td>
+            </tr>
+          </table>
 
-            <p class="section-label">Información de su cuenta</p>
-            <div class="data-box">
-                <div class="data-row">
-                    <span class="data-label">Cliente</span>
-                    <span class="data-value">{{ client.full_name or client.razon_social }}</span>
-                </div>
-                {% if client.document_number %}
-                <div class="data-row">
-                    <span class="data-label">Documento</span>
-                    <span class="data-value">{{ client.document_number }}</span>
-                </div>
-                {% endif %}
-                <div class="data-row">
-                    <span class="data-label">Correo electrónico</span>
-                    <span class="data-value">{{ client.email }}</span>
-                </div>
-                <div class="data-row">
-                    <span class="data-label">Estado</span>
-                    <span class="data-value" style="color:#059669;font-weight:700;">ACTIVO</span>
-                </div>
-                <div class="data-row">
-                    <span class="data-label">Ejecutivo asignado</span>
-                    <span class="data-value" style="color:#00a87a;font-weight:600;">{{ trader.username }}</span>
-                </div>
-            </div>
-
-            <p class="section-label">¿Qué puede hacer ahora?</p>
-            <div class="data-box">
-                <div class="data-row" style="color:#059669;">✓ &nbsp;Realizar operaciones de compra y venta de dólares</div>
-                <div class="data-row" style="color:#059669;">✓ &nbsp;Acceder a tipos de cambio competitivos</div>
-                <div class="data-row" style="color:#059669;">✓ &nbsp;Recibir atención personalizada de su ejecutivo</div>
-                <div class="data-row" style="color:#059669;">✓ &nbsp;Transferencias rápidas y seguras</div>
-            </div>
-
-            <div class="cta-wrap">
-                <a href="https://www.qoricash.pe" class="cta-btn">Iniciar sesión ahora</a>
-            </div>
-
-            <div class="divider"></div>
-            <p class="note-text">Para su primera operación o cualquier consulta, contacte a <strong>{{ trader.username }}</strong>{% if trader.email %} en <a href="mailto:{{ trader.email }}" class="footer-link">{{ trader.email }}</a>{% endif %}. Gracias por confiar en QoriCash.</p>
-        </div>
-
-        <div class="email-footer">
-            <p class="footer-brand">QoriCash</p>
-            <p class="footer-meta">RUC: 20615113698 &nbsp;·&nbsp; <a href="mailto:info@qoricash.pe" class="footer-link">info@qoricash.pe</a></p>
-            <p class="footer-copy">© 2025 QoriCash. Todos los derechos reservados.</p>
-        </div>
-
-    </div>
-</div>
+          <div style="height:1px;background-color:#f1f5f9;margin:0 0 20px 0;"></div>
+          <p style="margin:0;font-size:13px;color:#94a3b8;">Para su primera operación, contacte a <strong>{{ trader.username }}</strong>{% if trader.email %} en <a href="mailto:{{ trader.email }}" style="color:#1d4ed8;">{{ trader.email }}</a>{% endif %}. Gracias por confiar en QoriCash.</p>
+        </td>
+      </tr>
+      <tr>
+        <td style="background-color:#f8fafc;border-top:1px solid #e8ecf0;padding:20px 40px;text-align:center;">
+          <p style="margin:0 0 4px 0;color:#0D1B2A;font-size:13px;font-weight:700;">QoriCash</p>
+          <p style="margin:0 0 4px 0;color:#94a3b8;font-size:12px;">RUC: 20615113698 &nbsp;&middot;&nbsp; <a href="mailto:info@qoricash.pe" style="color:#94a3b8;text-decoration:none;">info@qoricash.pe</a></p>
+          <p style="margin:0;color:#cbd5e1;font-size:11px;">© 2025 QoriCash. Todos los derechos reservados.</p>
+        </td>
+      </tr>
+    </table>
+  </td></tr>
+</table>
 </body>
 </html>"""
         return render_template_string(template, client=client, trader=trader)
@@ -1669,123 +1602,95 @@ class EmailService:
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        body, table, td, p, h1, h2, h3 { margin: 0; padding: 0; }
-        body { background-color: #f0f4f8; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
-        .email-wrapper { padding: 0 0 28px 0; }
-        .email-card { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 0 0 12px 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(13,27,42,0.09); }
-        .email-header { background-color: #0D1B2A; padding: 0; line-height: 0; font-size: 0; }
-        .email-body { padding: 36px 40px; color: #334155; font-size: 15px; line-height: 1.65; }
-        .meta-row { display: none; }
-        .section-label { font-size: 11px; font-weight: 700; color: #00DEA8; text-transform: uppercase; letter-spacing: 1.2px; margin: 24px 0 10px 0; }
-        .data-box { background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; overflow: hidden; margin: 0 0 20px 0; }
-        .data-row { padding: 10px 18px; border-bottom: 1px solid #f1f5f9; font-size: 14px; }
-        .data-row:last-child { border-bottom: none; }
-        .data-label { color: #64748b; font-weight: 600; display: inline-block; min-width: 160px; }
-        .data-value { color: #1e293b; font-weight: 500; }
-        .detail-box { background: #fffbeb; border: 1px solid #fcd34d; border-radius: 8px; padding: 16px 18px; margin: 0 0 20px 0; font-size: 14px; color: #78350f; white-space: pre-wrap; line-height: 1.7; }
-        .alert { border-radius: 8px; padding: 13px 16px; margin: 14px 0; font-size: 13.5px; line-height: 1.65; }
-        .alert.info { background: #f0f9ff; border-left: 3px solid #0ea5e9; color: #0c4a6e; }
-        .divider { height: 1px; background-color: #f1f5f9; margin: 24px 0; }
-        .note-text { font-size: 13px; color: #94a3b8; line-height: 1.6; }
-        .email-footer { background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 22px 40px; text-align: center; }
-        .footer-brand { color: #0D1B2A; font-size: 14px; font-weight: 700; margin-bottom: 4px; }
-        .footer-meta { color: #94a3b8; font-size: 12px; }
-        .footer-link { color: #00DEA8; text-decoration: none; }
-        .footer-copy { color: #cbd5e1; font-size: 11px; margin-top: 8px; }
-        @media only screen and (max-width: 620px) {
-            .email-body { padding: 24px 20px !important; }
-            .data-label { display: block !important; min-width: unset !important; margin-bottom: 2px; }
-        }
+        @media only screen and (max-width: 620px) { .email-body-cell { padding: 24px 20px !important; } }
     </style>
 </head>
-<body>
-<div class="email-wrapper">
-    <div class="email-card">
+<body style="margin:0;padding:0;background-color:#f5f7fa;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f5f7fa;padding:28px 16px;">
+  <tr><td align="center">
+    <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 16px rgba(13,27,42,0.08);">
+      <tr>
+        <td style="padding:0;background:#0D1B2A;line-height:0;font-size:0;">
+          <img src="https://res.cloudinary.com/dbks8vqoh/image/upload/v1773788552/qoricash/banneremail.png" alt="QoriCash" width="600" style="width:100%;max-width:600px;display:block;border:0;">
+        </td>
+      </tr>
+      <tr><td style="padding:0;height:3px;background-color:#ef4444;font-size:0;line-height:0;">&nbsp;</td></tr>
+      <tr>
+        <td class="email-body-cell" style="padding:36px 40px;color:#334155;font-size:15px;line-height:1.65;">
+          <div style="margin:0 0 16px 0;">
+            <span style="display:inline-block;background:#fef2f2;color:#ef4444;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.4px;padding:4px 10px;border-radius:4px;">Libro de Reclamaciones</span>
+          </div>
+          <h1 style="margin:0 0 6px 0;font-size:22px;font-weight:700;color:#0D1B2A;line-height:1.3;">{{ complaint_data.get('tipo_solicitud', 'Reclamo') }} recibido</h1>
+          <p style="margin:0 0 24px 0;color:#64748b;font-size:14px;">N° <strong style="color:#1e293b;">{{ complaint_number }}</strong> &nbsp;·&nbsp; {{ fecha_actual }}</p>
 
-        <div class="email-header" style="padding:0;background:#0D1B2A;line-height:0;font-size:0;">
-            <img src="https://res.cloudinary.com/dbks8vqoh/image/upload/v1773788552/qoricash/banneremail.png"
-                 alt="QoriCash" width="600"
-                 style="width:100%;max-width:600px;display:block;border:0;line-height:0;">
-        </div>
+          <p style="margin:0 0 10px 0;font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1.2px;">Datos del reclamante</p>
+          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #e8ecf0;border-radius:8px;overflow:hidden;margin:0 0 24px 0;">
+            {% if complaint_data.get('tipo_documento') == 'RUC' %}
+            <tr style="border-bottom:1px solid #eef0f3;">
+              <td style="padding:10px 18px;width:160px;color:#94a3b8;font-size:13px;font-weight:600;vertical-align:top;">Tipo de documento</td>
+              <td style="padding:10px 18px;color:#1e293b;font-size:14px;vertical-align:top;">RUC</td>
+            </tr>
+            <tr style="border-bottom:1px solid #eef0f3;">
+              <td style="padding:10px 18px;color:#94a3b8;font-size:13px;font-weight:600;vertical-align:top;">N° de RUC</td>
+              <td style="padding:10px 18px;color:#1e293b;font-size:14px;vertical-align:top;">{{ complaint_data.get('numero_documento', '—') }}</td>
+            </tr>
+            <tr style="border-bottom:1px solid #eef0f3;">
+              <td style="padding:10px 18px;color:#94a3b8;font-size:13px;font-weight:600;vertical-align:top;">Razón social</td>
+              <td style="padding:10px 18px;color:#1e293b;font-size:14px;vertical-align:top;">{{ complaint_data.get('razon_social', '—') }}</td>
+            </tr>
+            <tr style="border-bottom:1px solid #eef0f3;">
+              <td style="padding:10px 18px;color:#94a3b8;font-size:13px;font-weight:600;vertical-align:top;">Persona de contacto</td>
+              <td style="padding:10px 18px;color:#1e293b;font-size:14px;vertical-align:top;">{{ complaint_data.get('persona_contacto', '—') }}</td>
+            </tr>
+            {% else %}
+            <tr style="border-bottom:1px solid #eef0f3;">
+              <td style="padding:10px 18px;width:160px;color:#94a3b8;font-size:13px;font-weight:600;vertical-align:top;">Tipo de documento</td>
+              <td style="padding:10px 18px;color:#1e293b;font-size:14px;vertical-align:top;">{{ complaint_data.get('tipo_documento', 'DNI') }}</td>
+            </tr>
+            <tr style="border-bottom:1px solid #eef0f3;">
+              <td style="padding:10px 18px;color:#94a3b8;font-size:13px;font-weight:600;vertical-align:top;">N° de documento</td>
+              <td style="padding:10px 18px;color:#1e293b;font-size:14px;vertical-align:top;">{{ complaint_data.get('numero_documento', '—') }}</td>
+            </tr>
+            <tr style="border-bottom:1px solid #eef0f3;">
+              <td style="padding:10px 18px;color:#94a3b8;font-size:13px;font-weight:600;vertical-align:top;">Nombres</td>
+              <td style="padding:10px 18px;color:#1e293b;font-size:14px;vertical-align:top;">{{ complaint_data.get('nombres', '—') }} {{ complaint_data.get('apellidos', '') }}</td>
+            </tr>
+            {% endif %}
+            <tr style="border-bottom:1px solid #eef0f3;">
+              <td style="padding:10px 18px;color:#94a3b8;font-size:13px;font-weight:600;vertical-align:top;">Email</td>
+              <td style="padding:10px 18px;color:#1e293b;font-size:14px;vertical-align:top;">{{ complaint_data.get('email', '—') }}</td>
+            </tr>
+            <tr style="border-bottom:1px solid #eef0f3;">
+              <td style="padding:10px 18px;color:#94a3b8;font-size:13px;font-weight:600;vertical-align:top;">Teléfono</td>
+              <td style="padding:10px 18px;color:#1e293b;font-size:14px;vertical-align:top;">{{ complaint_data.get('telefono', '—') }}</td>
+            </tr>
+            <tr>
+              <td style="padding:10px 18px;color:#94a3b8;font-size:13px;font-weight:600;vertical-align:top;">Dirección</td>
+              <td style="padding:10px 18px;color:#1e293b;font-size:14px;vertical-align:top;">{{ complaint_data.get('direccion', '—') }}</td>
+            </tr>
+          </table>
 
-        <div class="email-body">
-            <h2 style="margin:0 0 4px;font-size:18px;font-weight:700;color:#0D1B2A;">
-                Libro de Reclamaciones
-            </h2>
-            <p style="margin:0 0 16px;font-size:13px;color:#888;letter-spacing:0.4px;">
-                {{ complaint_number }} &nbsp;·&nbsp; {{ fecha_actual }}
-            </p>
+          <p style="margin:0 0 10px 0;font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1.2px;">Detalle del {{ complaint_data.get('tipo_solicitud', 'reclamo') }}</p>
+          <div style="border-radius:8px;padding:16px 18px;margin:0 0 24px 0;font-size:14px;color:#78350f;white-space:pre-wrap;line-height:1.7;background:#fffbeb;border:1px solid #fde68a;">{{ complaint_data.get('detalle', 'No se proporcionó detalle.') }}</div>
 
-            <p class="section-label">Datos del reclamante</p>
-            <div class="data-box">
-                {% if complaint_data.get('tipo_documento') == 'RUC' %}
-                <div class="data-row">
-                    <span class="data-label">Tipo de documento</span>
-                    <span class="data-value">RUC</span>
-                </div>
-                <div class="data-row">
-                    <span class="data-label">Número de RUC</span>
-                    <span class="data-value">{{ complaint_data.get('numero_documento', '—') }}</span>
-                </div>
-                <div class="data-row">
-                    <span class="data-label">Razón social</span>
-                    <span class="data-value">{{ complaint_data.get('razon_social', '—') }}</span>
-                </div>
-                <div class="data-row">
-                    <span class="data-label">Persona de contacto</span>
-                    <span class="data-value">{{ complaint_data.get('persona_contacto', '—') }}</span>
-                </div>
-                {% else %}
-                <div class="data-row">
-                    <span class="data-label">Tipo de documento</span>
-                    <span class="data-value">{{ complaint_data.get('tipo_documento', 'DNI') }}</span>
-                </div>
-                <div class="data-row">
-                    <span class="data-label">Número de documento</span>
-                    <span class="data-value">{{ complaint_data.get('numero_documento', '—') }}</span>
-                </div>
-                <div class="data-row">
-                    <span class="data-label">Nombres</span>
-                    <span class="data-value">{{ complaint_data.get('nombres', '—') }}</span>
-                </div>
-                <div class="data-row">
-                    <span class="data-label">Apellidos</span>
-                    <span class="data-value">{{ complaint_data.get('apellidos', '—') }}</span>
-                </div>
-                {% endif %}
-                <div class="data-row">
-                    <span class="data-label">Correo electrónico</span>
-                    <span class="data-value">{{ complaint_data.get('email', '—') }}</span>
-                </div>
-                <div class="data-row">
-                    <span class="data-label">Teléfono</span>
-                    <span class="data-value">{{ complaint_data.get('telefono', '—') }}</span>
-                </div>
-                <div class="data-row">
-                    <span class="data-label">Dirección</span>
-                    <span class="data-value">{{ complaint_data.get('direccion', '—') }}</span>
-                </div>
-            </div>
+          <div style="border-radius:8px;padding:13px 16px;margin:0 0 20px 0;font-size:13px;line-height:1.65;background:#eff6ff;border-left:3px solid #3b82f6;color:#1e3a5f;">
+            <strong>Plazo de respuesta:</strong> Este {{ complaint_data.get('tipo_solicitud', 'reclamo').lower() }} debe ser atendido dentro de las próximas 24–48 horas hábiles.
+          </div>
 
-            <p class="section-label">Detalle del {{ complaint_data.get('tipo_solicitud', 'reclamo') }}</p>
-            <div class="detail-box">{{ complaint_data.get('detalle', 'No se proporcionó detalle.') }}</div>
-
-            <div class="alert info">
-                <strong>Plazo de respuesta:</strong> Este {{ complaint_data.get('tipo_solicitud', 'reclamo').lower() }} debe ser atendido dentro de las próximas 24–48 horas hábiles.
-            </div>
-
-            <div class="divider"></div>
-            <p class="note-text">Correo generado automáticamente desde el Libro de Reclamaciones de QoriCash.</p>
-        </div>
-
-        <div class="email-footer">
-            <p class="footer-brand">QoriCash</p>
-            <p class="footer-meta">RUC: 20615113698 &nbsp;·&nbsp; <a href="mailto:info@qoricash.pe" class="footer-link">info@qoricash.pe</a></p>
-            <p class="footer-copy">© 2025 QoriCash. Todos los derechos reservados.</p>
-        </div>
-
-    </div>
-</div>
+          <div style="height:1px;background-color:#f1f5f9;margin:24px 0;"></div>
+          <p style="margin:0;font-size:13px;color:#94a3b8;">Correo generado automáticamente desde el Libro de Reclamaciones de QoriCash.</p>
+        </td>
+      </tr>
+      <tr>
+        <td style="background-color:#f8fafc;border-top:1px solid #e8ecf0;padding:20px 40px;text-align:center;">
+          <p style="margin:0 0 4px 0;color:#0D1B2A;font-size:13px;font-weight:700;">QoriCash</p>
+          <p style="margin:0 0 4px 0;color:#94a3b8;font-size:12px;">RUC: 20615113698 &nbsp;&middot;&nbsp; <a href="mailto:info@qoricash.pe" style="color:#94a3b8;text-decoration:none;">info@qoricash.pe</a></p>
+          <p style="margin:0;color:#cbd5e1;font-size:11px;">© 2025 QoriCash. Todos los derechos reservados.</p>
+        </td>
+      </tr>
+    </table>
+  </td></tr>
+</table>
 </body>
 </html>"""
         from datetime import datetime
