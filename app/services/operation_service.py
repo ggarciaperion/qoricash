@@ -253,17 +253,8 @@ class OperationService:
             logger.error(f'Error en sistema de documentos parciales: {str(partial_docs_err)}')
             # No bloquear la operación si falla el sistema de límites
 
-        # Enviar email de notificación (sin bloquear si falla)
-        try:
-            from app.services.email_service import EmailService
-            logger.info(f'📧 Intentando enviar email de nueva operación {operation_id} a {client.email}...')
-            EmailService.send_new_operation_email(operation)
-            logger.info(f'✅ Email de nueva operación {operation_id} enviado exitosamente a {client.email}')
-        except Exception as e:
-            # Log el error pero no falla la operación
-            logger.error(f'❌ Error al enviar email para operación {operation_id}: {str(e)}')
-            import traceback
-            logger.error(traceback.format_exc())
+        # Email de nueva operación: enviado por las rutas (web_api.py / platform.py)
+        # NO enviar aquí para evitar duplicados
 
         return True, f'Operación {operation_id} creada exitosamente', operation
     
@@ -377,14 +368,8 @@ class OperationService:
                 logging.error(f'[OPERATION-{operation.operation_id}] ❌ EXCEPCIÓN al generar factura: {str(e)}')
                 logging.exception(e)
 
-            # Enviar email con comprobante (y factura si se generó)
-            try:
-                from app.services.email_service import EmailService
-                EmailService.send_completed_operation_email(operation)
-            except Exception as e:
-                # Log el error pero no falla la actualización
-                import logging
-                logging.error(f'Error al enviar email de operación completada {operation.operation_id}: {str(e)}')
+            # Email de completada: enviado por la ruta complete_operation (operations.py)
+            # NO enviar aquí para evitar duplicados
 
             # COMPLIANCE: Análisis automático de la operación
             try:

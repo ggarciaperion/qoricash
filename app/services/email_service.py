@@ -158,7 +158,7 @@ class EmailService:
             tuple: (to, cc, bcc) donde:
                 - to: Cliente
                 - cc: Trader que creó la operación
-                - bcc: vacío (no se envía BCC en completadas)
+                - bcc: gerencia@qoricash.pe
         """
         # Destinatario principal: Cliente
         to = [operation.client.email] if operation.client and operation.client.email else []
@@ -168,7 +168,10 @@ class EmailService:
         if operation.user and operation.user.email:
             cc.append(operation.user.email)
 
-        return to, cc, []
+        # Copia oculta: Gerencia
+        bcc = ['gerencia@qoricash.pe']
+
+        return to, cc, bcc
 
     @staticmethod
     def send_new_operation_email(operation):
@@ -284,6 +287,7 @@ class EmailService:
                     sender=confirmation_sender,
                     recipients=to,
                     cc=cc if cc else None,
+                    bcc=bcc if bcc else None,
                     html=html_body
                 )
 
