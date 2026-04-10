@@ -303,34 +303,34 @@
 <!-- Modal: Filtro de Fecha (Calendario) -->
 <div class="modal fade" id="filterDateModal" tabindex="-1">
     <div class="modal-dialog">
-        <div class="modal-content">
+        <div class="modal-content border-0 shadow" style="border-radius:10px;overflow:hidden;">
             <div class="modal-header border-0 px-4 pt-4 pb-3" style="background:#f8fafc;">
-                <h5 class="modal-title fw-semibold"><i class="bi bi-calendar3 me-2"></i>Filtrar por Fecha</h5>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="d-flex align-items-center justify-content-center rounded-circle bg-primary bg-opacity-10" style="width:36px;height:36px;">
+                        <i class="bi bi-calendar3 text-primary"></i>
+                    </span>
+                    <h5 class="modal-title fw-semibold mb-0" style="font-size:15px;">Filtrar por Fecha</h5>
+                </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body">
+            <div class="modal-body px-4">
                 <div class="mb-3">
-                    <label class="form-label fw-bold">Selecciona una fecha</label>
-                    <input type="text" class="form-control form-control-lg" id="datePicker" placeholder="Haz clic para abrir el calendario">
-                    <small class="form-text text-muted">
-                        Puedes seleccionar cualquier fecha pasada o presente
-                    </small>
+                    <label class="form-label small text-uppercase fw-semibold" style="letter-spacing:.5px;color:#6b7280;">Selecciona una fecha</label>
+                    <input type="text" class="form-control" id="datePicker" placeholder="Haz clic para abrir el calendario">
+                    <small class="form-text text-muted">Cualquier fecha pasada o presente</small>
                 </div>
-                <div class="alert alert-info">
-                    <i class="bi bi-info-circle"></i> <strong>Nota:</strong> Las estadísticas mostrarán:
-                    <ul class="mb-0 mt-2">
-                        <li><strong>Hoy:</strong> Operaciones de la fecha seleccionada</li>
-                        <li><strong>Este Mes:</strong> Acumulado desde el día 1 hasta la fecha seleccionada</li>
-                        <li><strong>Meta:</strong> Porcentaje de avance hasta la fecha seleccionada</li>
-                    </ul>
+                <div class="rounded p-3" style="background:#eff6ff;border:1px solid #bfdbfe;">
+                    <div class="small text-primary">
+                        <i class="bi bi-info-circle-fill me-1"></i>Las estadísticas mostrarán operaciones de la fecha seleccionada y el acumulado del mes hasta esa fecha.
+                    </div>
                 </div>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onclick="clearDateFilter()">
-                    <i class="bi bi-x-circle"></i> Limpiar Filtro
+            <div class="modal-footer border-top px-4 py-3" style="background:#f8fafc;">
+                <button type="button" class="btn btn-sm btn-light border" onclick="clearDateFilter()">
+                    <i class="bi bi-x-circle me-1"></i>Limpiar
                 </button>
-                <button type="button" class="btn btn-primary" onclick="applyDateFilter()">
-                    <i class="bi bi-check-circle"></i> Aplicar
+                <button type="button" class="btn btn-sm btn-primary px-3" onclick="applyDateFilter()">
+                    <i class="bi bi-check-circle me-1"></i>Aplicar
                 </button>
             </div>
         </div>
@@ -340,29 +340,36 @@
 <!-- Modal: Filtro de Trader -->
 <div class="modal fade" id="filterTraderModal" tabindex="-1">
     <div class="modal-dialog">
-        <div class="modal-content">
+        <div class="modal-content border-0 shadow" style="border-radius:10px;overflow:hidden;">
             <div class="modal-header border-0 px-4 pt-4 pb-3" style="background:#f8fafc;">
-                <h5 class="modal-title fw-semibold"><i class="bi bi-person-circle me-2"></i>Filtrar por Trader</h5>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="d-flex align-items-center justify-content-center rounded-circle bg-primary bg-opacity-10" style="width:36px;height:36px;">
+                        <i class="bi bi-person-circle text-primary"></i>
+                    </span>
+                    <h5 class="modal-title fw-semibold mb-0" style="font-size:15px;">Filtrar por Trader</h5>
+                </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body">
+            <div class="modal-body px-4">
                 <div class="mb-3">
-                    <label class="form-label fw-bold">Selecciona un Trader</label>
-                    <select class="form-select form-select-lg" id="filterTrader">
+                    <label class="form-label small text-uppercase fw-semibold" style="letter-spacing:.5px;color:#6b7280;">Selecciona un Trader</label>
+                    <select class="form-select" id="filterTrader">
                         <option value="">Todos los Traders</option>
                         <!-- Se llenarán dinámicamente -->
                     </select>
                 </div>
-                <div class="alert alert-info">
-                    <i class="bi bi-info-circle"></i> <strong>Nota:</strong> Al seleccionar un trader específico, verás solo sus operaciones y utilidades manuales ingresadas.
+                <div class="rounded p-3" style="background:#eff6ff;border:1px solid #bfdbfe;">
+                    <div class="small text-primary">
+                        <i class="bi bi-info-circle-fill me-1"></i>Al seleccionar un trader verás solo sus operaciones y utilidades manuales ingresadas.
+                    </div>
                 </div>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onclick="clearTraderFilter()">
-                    <i class="bi bi-x-circle"></i> Limpiar Filtro
+            <div class="modal-footer border-top px-4 py-3" style="background:#f8fafc;">
+                <button type="button" class="btn btn-sm btn-light border" onclick="clearTraderFilter()">
+                    <i class="bi bi-x-circle me-1"></i>Limpiar
                 </button>
-                <button type="button" class="btn btn-primary" onclick="applyTraderFilter()">
-                    <i class="bi bi-check-circle"></i> Aplicar
+                <button type="button" class="btn btn-sm btn-primary px-3" onclick="applyTraderFilter()">
+                    <i class="bi bi-check-circle me-1"></i>Aplicar
                 </button>
             </div>
         </div>
@@ -372,111 +379,101 @@
 <!-- Modal: Configurar Metas y Utilidades -->
 <div class="modal fade" id="goalsModal" tabindex="-1">
     <div class="modal-dialog modal-xl">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title"><i class="bi bi-bullseye"></i> Meta Mensual - Configuración de Traders</h5>
+        <div class="modal-content border-0 shadow" style="border-radius:10px;overflow:hidden;">
+            <div class="modal-header border-0 px-4 pt-4 pb-3" style="background:#f8fafc;">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="d-flex align-items-center justify-content-center rounded-circle bg-success bg-opacity-10" style="width:36px;height:36px;">
+                        <i class="bi bi-bullseye text-success"></i>
+                    </span>
+                    <h5 class="modal-title fw-semibold mb-0" style="font-size:15px;">Meta Mensual — Configuración de Traders</h5>
+                </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body">
+            <div class="modal-body px-4">
                 <!-- Selector de Trader -->
                 <div class="mb-4">
-                    <label class="form-label fw-bold">Seleccionar Trader</label>
-                    <select class="form-select form-select-lg" id="modalTraderSelect">
-                        <option value="">-- Seleccione un trader --</option>
+                    <label class="form-label small text-uppercase fw-semibold" style="letter-spacing:.5px;color:#6b7280;">Seleccionar Trader</label>
+                    <select class="form-select" id="modalTraderSelect">
+                        <option value="">— Seleccione un trader —</option>
                         <!-- Se llenarán dinámicamente -->
                     </select>
                 </div>
 
                 <!-- Contenedor de datos del trader -->
                 <div id="traderDataContainer" style="display: none;">
-                    <hr>
-
-                    <!-- Información del periodo -->
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">Periodo</label>
-                        <div class="row">
-                            <div class="col-md-6">
-                                <select class="form-select" id="goalMonth">
-                                    <option value="1">Enero</option>
-                                    <option value="2">Febrero</option>
-                                    <option value="3">Marzo</option>
-                                    <option value="4">Abril</option>
-                                    <option value="5">Mayo</option>
-                                    <option value="6">Junio</option>
-                                    <option value="7">Julio</option>
-                                    <option value="8">Agosto</option>
-                                    <option value="9">Septiembre</option>
-                                    <option value="10">Octubre</option>
-                                    <option value="11">Noviembre</option>
-                                    <option value="12">Diciembre</option>
-                                </select>
-                            </div>
-                            <div class="col-md-6">
-                                <select class="form-select" id="goalYear">
-                                    <option value="2025">2025</option>
-                                    <option value="2024">2024</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Formulario de datos del trader -->
-                    <div class="row">
-                        <div class="col-md-4">
-                            <div class="card border-primary mb-3">
-                                <div class="card-body">
-                                    <h6 class="card-subtitle mb-2 text-muted">Meta Mensual Asignada</h6>
-                                    <div class="input-group">
-                                        <span class="input-group-text">S/</span>
-                                        <input type="number" class="form-control form-control-lg" id="traderGoalAmount"
-                                               min="0" step="0.01" placeholder="0.00">
-                                    </div>
-                                    <small class="text-muted">Meta del mes en curso</small>
+                    <div class="border-top pt-4">
+                        <!-- Información del periodo -->
+                        <div class="mb-4">
+                            <label class="form-label small text-uppercase fw-semibold" style="letter-spacing:.5px;color:#6b7280;">Periodo</label>
+                            <div class="row g-2">
+                                <div class="col-md-6">
+                                    <select class="form-select" id="goalMonth">
+                                        <option value="1">Enero</option>
+                                        <option value="2">Febrero</option>
+                                        <option value="3">Marzo</option>
+                                        <option value="4">Abril</option>
+                                        <option value="5">Mayo</option>
+                                        <option value="6">Junio</option>
+                                        <option value="7">Julio</option>
+                                        <option value="8">Agosto</option>
+                                        <option value="9">Septiembre</option>
+                                        <option value="10">Octubre</option>
+                                        <option value="11">Noviembre</option>
+                                        <option value="12">Diciembre</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <select class="form-select" id="goalYear">
+                                        <option value="2025">2025</option>
+                                        <option value="2024">2024</option>
+                                    </select>
                                 </div>
                             </div>
                         </div>
 
-                        <div class="col-md-4">
-                            <div class="card border-success mb-3">
-                                <div class="card-body">
-                                    <h6 class="card-subtitle mb-2 text-muted">Utilidad del Día</h6>
-                                    <div class="input-group">
-                                        <span class="input-group-text">S/</span>
-                                        <input type="number" class="form-control form-control-lg" id="traderProfitToday"
-                                               min="0" step="0.01" placeholder="0.00">
+                        <!-- Formulario de datos del trader -->
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-4">
+                                <div class="rounded p-3 h-100" style="background:#eff6ff;border:1px solid #bfdbfe;">
+                                    <div class="small text-uppercase fw-semibold mb-2" style="letter-spacing:.5px;color:#3b82f6;">Meta Mensual</div>
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text bg-white">S/</span>
+                                        <input type="number" class="form-control" id="traderGoalAmount" min="0" step="0.01" placeholder="0.00">
                                     </div>
-                                    <small class="text-muted">Utilidad de hoy (manual)</small>
+                                    <small class="text-muted">Meta asignada al periodo</small>
                                 </div>
                             </div>
-                        </div>
-
-                        <div class="col-md-4">
-                            <div class="card border-info mb-3">
-                                <div class="card-body">
-                                    <h6 class="card-subtitle mb-2 text-muted">Utilidad Acumulada del Mes</h6>
-                                    <h4 class="card-title mb-0 text-info counter-pen" id="traderProfitMonth">S/ 0.00</h4>
+                            <div class="col-md-4">
+                                <div class="rounded p-3 h-100" style="background:#f0fdf4;border:1px solid #bbf7d0;">
+                                    <div class="small text-uppercase fw-semibold mb-2" style="letter-spacing:.5px;color:#16a34a;">Utilidad del Día</div>
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text bg-white">S/</span>
+                                        <input type="number" class="form-control" id="traderProfitToday" min="0" step="0.01" placeholder="0.00">
+                                    </div>
+                                    <small class="text-muted">Ingreso manual diario</small>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="rounded p-3 h-100" style="background:#f0f9ff;border:1px solid #bae6fd;">
+                                    <div class="small text-uppercase fw-semibold mb-2" style="letter-spacing:.5px;color:#0891b2;">Acumulado del Mes</div>
+                                    <div class="fw-bold fs-5 counter-pen" id="traderProfitMonth">S/ 0.00</div>
                                     <small class="text-muted">Suma de utilidades diarias</small>
                                 </div>
                             </div>
                         </div>
-                    </div>
 
-                    <!-- Información adicional -->
-                    <div class="alert alert-info">
-                        <i class="bi bi-info-circle"></i>
-                        <strong>Instrucciones:</strong>
-                        <ul class="mb-0 mt-2">
-                            <li>La <strong>Meta Mensual</strong> es el objetivo asignado manualmente al trader para el periodo seleccionado.</li>
-                            <li>La <strong>Utilidad del Día</strong> debe ingresarse manualmente cada día.</li>
-                            <li>La <strong>Utilidad Acumulada del Mes</strong> se calcula automáticamente sumando todas las utilidades diarias ingresadas.</li>
-                        </ul>
+                        <div class="rounded p-3" style="background:#f8fafc;border:1px solid #e2e8f0;">
+                            <div class="small text-muted">
+                                <i class="bi bi-info-circle me-1"></i>La <strong>Utilidad del Día</strong> debe ingresarse manualmente cada día. El acumulado se calcula automáticamente.
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-                <button type="button" class="btn btn-success" id="saveTraderDataBtn" onclick="saveTraderData()" style="display: none;">
-                    <i class="bi bi-check-circle"></i> Guardar Datos
+            <div class="modal-footer border-top px-4 py-3" style="background:#f8fafc;">
+                <button type="button" class="btn btn-sm btn-light border" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-sm btn-success px-3" id="saveTraderDataBtn" onclick="saveTraderData()" style="display: none;">
+                    <i class="bi bi-check-circle me-1"></i>Guardar Datos
                 </button>
             </div>
         </div>

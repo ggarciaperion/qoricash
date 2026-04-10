@@ -488,16 +488,21 @@
 <!-- Modal Ver Cliente -->
 <div class="modal fade" id="viewClientModal" tabindex="-1">
     <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title"><i class="bi bi-eye"></i> Detalles del Cliente</h5>
+        <div class="modal-content border-0 shadow" style="border-radius:10px;overflow:hidden;">
+            <div class="modal-header border-0 px-4 pt-4 pb-3" style="background:#f8fafc;">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="d-flex align-items-center justify-content-center rounded-circle bg-primary bg-opacity-10" style="width:36px;height:36px;">
+                        <i class="bi bi-person text-primary"></i>
+                    </span>
+                    <h5 class="modal-title fw-semibold mb-0" style="font-size:15px;">Detalles del Cliente</h5>
+                </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body" id="viewClientBody">
+            <div class="modal-body px-4" id="viewClientBody">
                 <!-- Se llenará dinámicamente -->
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            <div class="modal-footer border-top px-4 py-3" style="background:#f8fafc;">
+                <button type="button" class="btn btn-sm btn-light border" data-bs-dismiss="modal">Cerrar</button>
             </div>
         </div>
     </div>
@@ -506,32 +511,37 @@
 <!-- Modal Reasignar Cliente Individual -->
 <div class="modal fade" id="reassignClientModal" tabindex="-1">
     <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title"><i class="bi bi-arrow-left-right"></i> Reasignar Cliente</h5>
+        <div class="modal-content border-0 shadow" style="border-radius:10px;overflow:hidden;">
+            <div class="modal-header border-0 px-4 pt-4 pb-3" style="background:#f8fafc;">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="d-flex align-items-center justify-content-center rounded-circle bg-primary bg-opacity-10" style="width:36px;height:36px;">
+                        <i class="bi bi-arrow-left-right text-primary"></i>
+                    </span>
+                    <h5 class="modal-title fw-semibold mb-0" style="font-size:15px;">Reasignar Cliente</h5>
+                </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body">
+            <div class="modal-body px-4">
                 <input type="hidden" id="reassignClientId">
                 <div class="mb-3">
-                    <label class="form-label">Cliente:</label>
-                    <p id="reassignClientName" class="fw-bold"></p>
+                    <label class="form-label small text-uppercase fw-semibold" style="letter-spacing:.5px;color:#6b7280;">Cliente</label>
+                    <p id="reassignClientName" class="fw-semibold mb-0"></p>
                 </div>
                 <div class="mb-3">
-                    <label class="form-label">Trader Actual:</label>
-                    <p id="reassignCurrentTrader" class="text-muted"></p>
+                    <label class="form-label small text-uppercase fw-semibold" style="letter-spacing:.5px;color:#6b7280;">Trader Actual</label>
+                    <p id="reassignCurrentTrader" class="text-muted mb-0"></p>
                 </div>
-                <div class="mb-3">
-                    <label for="reassignNewTrader" class="form-label">Nuevo Trader:</label>
-                    <select class="form-select" id="reassignNewTrader" required>
+                <div class="mb-1">
+                    <label for="reassignNewTrader" class="form-label small text-uppercase fw-semibold" style="letter-spacing:.5px;color:#6b7280;">Nuevo Trader</label>
+                    <select class="form-select form-select-sm" id="reassignNewTrader" required>
                         <option value="">Seleccione un trader...</option>
                     </select>
                 </div>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-primary" onclick="confirmReassignClient()">
-                    <i class="bi bi-check"></i> Reasignar
+            <div class="modal-footer border-top px-4 py-3" style="background:#f8fafc;">
+                <button type="button" class="btn btn-sm btn-light border" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-sm btn-primary px-3" onclick="confirmReassignClient()">
+                    <i class="bi bi-check me-1"></i>Reasignar
                 </button>
             </div>
         </div>
@@ -541,57 +551,64 @@
 <!-- Modal Reasignación Masiva -->
 <div class="modal fade" id="bulkReassignModal" tabindex="-1">
     <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title"><i class="bi bi-arrow-left-right"></i> Reasignación Masiva de Clientes</h5>
+        <div class="modal-content border-0 shadow" style="border-radius:10px;overflow:hidden;">
+            <div class="modal-header border-0 px-4 pt-4 pb-3" style="background:#f8fafc;">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="d-flex align-items-center justify-content-center rounded-circle bg-primary bg-opacity-10" style="width:36px;height:36px;">
+                        <i class="bi bi-arrow-left-right text-primary"></i>
+                    </span>
+                    <h5 class="modal-title fw-semibold mb-0" style="font-size:15px;">Reasignación Masiva de Clientes</h5>
+                </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body">
-                <div class="alert alert-info">
-                    <i class="bi bi-info-circle"></i>
-                    Puede seleccionar clientes individualmente con los checkboxes o reasignar todos los clientes de un trader específico.
+            <div class="modal-body px-4">
+                <div class="rounded p-3 mb-4" style="background:#eff6ff;border:1px solid #bfdbfe;">
+                    <div class="d-flex align-items-start gap-2">
+                        <i class="bi bi-info-circle-fill text-primary mt-1 flex-shrink-0"></i>
+                        <div class="small text-primary">Seleccione clientes con los checkboxes o reasigne todos los clientes de un trader específico.</div>
+                    </div>
                 </div>
 
                 <!-- Opción 1: Reasignar seleccionados -->
-                <div class="mb-4">
-                    <h6>Opción 1: Reasignar Clientes Seleccionados</h6>
-                    <p id="bulkSelectedCount" class="text-muted">No hay clientes seleccionados</p>
+                <div class="mb-4 pb-4 border-bottom">
+                    <div class="fw-semibold small text-uppercase mb-3" style="letter-spacing:.6px;color:#374151;">Opción 1 — Clientes Seleccionados</div>
+                    <p id="bulkSelectedCount" class="text-muted small mb-3">No hay clientes seleccionados</p>
                     <div class="mb-3">
-                        <label for="bulkNewTrader" class="form-label">Nuevo Trader:</label>
-                        <select class="form-select" id="bulkNewTrader">
+                        <label for="bulkNewTrader" class="form-label small text-uppercase fw-semibold" style="letter-spacing:.5px;color:#6b7280;">Nuevo Trader</label>
+                        <select class="form-select form-select-sm" id="bulkNewTrader">
                             <option value="">Seleccione un trader...</option>
                         </select>
                     </div>
-                    <button type="button" class="btn btn-primary" onclick="confirmBulkReassignSelected()">
-                        <i class="bi bi-check"></i> Reasignar Seleccionados
+                    <button type="button" class="btn btn-sm btn-primary px-3" onclick="confirmBulkReassignSelected()">
+                        <i class="bi bi-check me-1"></i>Reasignar Seleccionados
                     </button>
                 </div>
 
-                <hr>
-
                 <!-- Opción 2: Reasignar todos de un trader -->
-                <div class="mb-4">
-                    <h6>Opción 2: Reasignar Todos los Clientes de un Trader</h6>
-                    <div class="mb-3">
-                        <label for="bulkSourceTrader" class="form-label">Trader Origen:</label>
-                        <select class="form-select" id="bulkSourceTrader">
-                            <option value="">Seleccione trader origen...</option>
-                        </select>
-                        <small class="text-muted" id="bulkSourceTraderInfo"></small>
+                <div class="mb-2">
+                    <div class="fw-semibold small text-uppercase mb-3" style="letter-spacing:.6px;color:#374151;">Opción 2 — Todos los de un Trader</div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-6">
+                            <label for="bulkSourceTrader" class="form-label small text-uppercase fw-semibold" style="letter-spacing:.5px;color:#6b7280;">Trader Origen</label>
+                            <select class="form-select form-select-sm" id="bulkSourceTrader">
+                                <option value="">Seleccione trader origen...</option>
+                            </select>
+                            <small class="text-muted" id="bulkSourceTraderInfo"></small>
+                        </div>
+                        <div class="col-6">
+                            <label for="bulkTargetTrader" class="form-label small text-uppercase fw-semibold" style="letter-spacing:.5px;color:#6b7280;">Trader Destino</label>
+                            <select class="form-select form-select-sm" id="bulkTargetTrader">
+                                <option value="">Seleccione trader destino...</option>
+                            </select>
+                        </div>
                     </div>
-                    <div class="mb-3">
-                        <label for="bulkTargetTrader" class="form-label">Trader Destino:</label>
-                        <select class="form-select" id="bulkTargetTrader">
-                            <option value="">Seleccione trader destino...</option>
-                        </select>
-                    </div>
-                    <button type="button" class="btn btn-warning" onclick="confirmBulkReassignFromTrader()">
-                        <i class="bi bi-check"></i> Reasignar Todos
+                    <button type="button" class="btn btn-sm btn-outline-warning px-3" onclick="confirmBulkReassignFromTrader()">
+                        <i class="bi bi-arrow-left-right me-1"></i>Reasignar Todos
                     </button>
                 </div>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            <div class="modal-footer border-top px-4 py-3" style="background:#f8fafc;">
+                <button type="button" class="btn btn-sm btn-light border" data-bs-dismiss="modal">Cerrar</button>
             </div>
         </div>
     </div>

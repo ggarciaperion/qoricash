@@ -221,16 +221,21 @@
 <!-- Modal: Ver Operación (Solo lectura) -->
 <div class="modal fade" id="viewOperationModal" tabindex="-1">
     <div class="modal-dialog modal-xl">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title"><i class="bi bi-eye"></i> Detalles de Operación</h5>
+        <div class="modal-content border-0 shadow" style="border-radius:10px;overflow:hidden;">
+            <div class="modal-header border-0 px-4 pt-4 pb-3" style="background:#f8fafc;">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="d-flex align-items-center justify-content-center rounded-circle bg-primary bg-opacity-10" style="width:36px;height:36px;">
+                        <i class="bi bi-eye text-primary"></i>
+                    </span>
+                    <h5 class="modal-title fw-semibold mb-0" style="font-size:15px;">Detalles de Operación</h5>
+                </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body" id="operationDetails">
+            <div class="modal-body px-4" id="operationDetails">
                 <!-- Cargado dinámicamente -->
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            <div class="modal-footer border-top px-4 py-3" style="background:#f8fafc;">
+                <button type="button" class="btn btn-sm btn-light border" data-bs-dismiss="modal">Cerrar</button>
             </div>
         </div>
     </div>

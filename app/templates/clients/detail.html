@@ -561,19 +561,25 @@
 <!-- Modal: Editar PEP (Solo Master y Middle Office) -->
 <div class="modal fade" id="pepModal" tabindex="-1">
     <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header bg-warning text-dark">
-                <h5 class="modal-title">
-                    <i class="bi bi-exclamation-triangle"></i>
-                    Información PEP (Persona Expuesta Políticamente)
-                </h5>
+        <div class="modal-content border-0 shadow" style="border-radius:10px;overflow:hidden;">
+            <div class="modal-header border-0 px-4 pt-4 pb-3" style="background:#fffbeb;">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="d-flex align-items-center justify-content-center rounded-circle bg-warning bg-opacity-20" style="width:36px;height:36px;">
+                        <i class="bi bi-exclamation-triangle-fill text-warning"></i>
+                    </span>
+                    <div>
+                        <h5 class="modal-title fw-semibold mb-0" style="font-size:15px;">Información PEP</h5>
+                        <div class="small text-muted">Persona Expuesta Políticamente</div>
+                    </div>
+                </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body">
-                <div class="alert alert-info">
-                    <strong>¿Qué es un PEP?</strong><br>
-                    Persona que desempeña o ha desempeñado funciones públicas destacadas (altos cargos gubernamentales, militares, judiciales),
-                    sus familiares directos y asociados cercanos.
+            <div class="modal-body px-4">
+                <div class="rounded p-3 mb-4" style="background:#fffbeb;border:1px solid #fde68a;">
+                    <div class="small" style="color:#92400e;">
+                        <i class="bi bi-info-circle-fill me-1"></i>
+                        <strong>¿Qué es un PEP?</strong> Persona que desempeña o ha desempeñado funciones públicas destacadas (altos cargos gubernamentales, militares, judiciales), sus familiares directos y asociados cercanos.
+                    </div>
                 </div>
 
                 <form id="pepForm">
@@ -642,10 +648,10 @@
                     </div>
                 </form>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-warning" onclick="guardarPEP()">
-                    <i class="bi bi-save"></i> Guardar y Recalcular Riesgo
+            <div class="modal-footer border-top px-4 py-3" style="background:#fffbeb;">
+                <button type="button" class="btn btn-sm btn-light border" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-sm btn-warning px-3" onclick="guardarPEP()">
+                    <i class="bi bi-save me-1"></i>Guardar y Recalcular Riesgo
                 </button>
             </div>
         </div>
@@ -655,28 +661,31 @@
 <!-- Modal: Descargar historial de operaciones -->
 <div class="modal fade" id="exportHistorialModal" tabindex="-1" aria-labelledby="exportHistorialLabel" aria-hidden="true">
     <div class="modal-dialog modal-sm">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="exportHistorialLabel">
-                    <i class="bi bi-file-earmark-excel text-success"></i> Descargar historial
-                </h5>
+        <div class="modal-content border-0 shadow" style="border-radius:10px;overflow:hidden;">
+            <div class="modal-header border-0 px-4 pt-4 pb-3" style="background:#f8fafc;">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="d-flex align-items-center justify-content-center rounded-circle bg-success bg-opacity-10" style="width:36px;height:36px;">
+                        <i class="bi bi-file-earmark-excel text-success"></i>
+                    </span>
+                    <h5 class="modal-title fw-semibold mb-0" style="font-size:15px;" id="exportHistorialLabel">Descargar Historial</h5>
+                </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body">
+            <div class="modal-body px-4">
                 <div class="mb-3">
-                    <label class="form-label fw-semibold">Fecha inicio</label>
-                    <input type="date" id="exportStartDate" class="form-control">
+                    <label class="form-label small text-uppercase fw-semibold" style="letter-spacing:.5px;color:#6b7280;">Fecha inicio</label>
+                    <input type="date" id="exportStartDate" class="form-control form-control-sm">
                 </div>
                 <div class="mb-1">
-                    <label class="form-label fw-semibold">Fecha fin</label>
-                    <input type="date" id="exportEndDate" class="form-control">
+                    <label class="form-label small text-uppercase fw-semibold" style="letter-spacing:.5px;color:#6b7280;">Fecha fin</label>
+                    <input type="date" id="exportEndDate" class="form-control form-control-sm">
                 </div>
                 <div class="form-text text-muted mt-2">Deje vacío para descargar todo el historial.</div>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-success" onclick="descargarHistorial()">
-                    <i class="bi bi-download"></i> Descargar Excel
+            <div class="modal-footer border-top px-4 py-3" style="background:#f8fafc;">
+                <button type="button" class="btn btn-sm btn-light border" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-sm btn-success px-3" onclick="descargarHistorial()">
+                    <i class="bi bi-download me-1"></i>Descargar Excel
                 </button>
             </div>
         </div>
@@ -853,18 +862,21 @@ function recalcularRiesgo() {
 <!-- ── Modal Screening Automático ─────────────────────────────────────── -->
 <div class="modal fade" id="screeningModal" tabindex="-1" aria-labelledby="screeningModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-xl">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="screeningModalLabel">
-          <i class="bi bi-shield-exclamation"></i> Búsqueda en Listas Restrictivas
-        </h5>
+    <div class="modal-content border-0 shadow" style="border-radius:10px;overflow:hidden;">
+      <div class="modal-header border-0 px-4 pt-4 pb-3" style="background:#f8fafc;">
+        <div class="d-flex align-items-center gap-2">
+          <span class="d-flex align-items-center justify-content-center rounded-circle bg-danger bg-opacity-10" style="width:36px;height:36px;">
+            <i class="bi bi-shield-exclamation text-danger"></i>
+          </span>
+          <h5 class="modal-title fw-semibold mb-0" style="font-size:15px;" id="screeningModalLabel">Búsqueda en Listas Restrictivas</h5>
+        </div>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
-      <div class="modal-body" id="screeningModalBody">
+      <div class="modal-body px-4" id="screeningModalBody">
         <!-- Contenido dinámico -->
       </div>
-      <div class="modal-footer" id="screeningModalFooter">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+      <div class="modal-footer border-top px-4 py-3" style="background:#f8fafc;" id="screeningModalFooter">
+        <button type="button" class="btn btn-sm btn-light border" data-bs-dismiss="modal">Cerrar</button>
       </div>
     </div>
   </div>

@@ -257,34 +257,34 @@
 <!-- Modal: Filtro de Fecha (Calendario) -->
 <div class="modal fade" id="filterDateModal" tabindex="-1">
     <div class="modal-dialog">
-        <div class="modal-content">
+        <div class="modal-content border-0 shadow" style="border-radius:10px;overflow:hidden;">
             <div class="modal-header border-0 px-4 pt-4 pb-3" style="background:#f8fafc;">
-                <h5 class="modal-title fw-semibold"><i class="bi bi-calendar3 me-2"></i>Filtrar por Fecha</h5>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="d-flex align-items-center justify-content-center rounded-circle bg-primary bg-opacity-10" style="width:36px;height:36px;">
+                        <i class="bi bi-calendar3 text-primary"></i>
+                    </span>
+                    <h5 class="modal-title fw-semibold mb-0" style="font-size:15px;">Filtrar por Fecha</h5>
+                </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body">
+            <div class="modal-body px-4">
                 <div class="mb-3">
-                    <label class="form-label fw-bold">Selecciona una fecha</label>
-                    <input type="text" class="form-control form-control-lg" id="datePicker" placeholder="Haz clic para abrir el calendario">
-                    <small class="form-text text-muted">
-                        Puedes seleccionar cualquier fecha pasada o presente
-                    </small>
+                    <label class="form-label small text-uppercase fw-semibold" style="letter-spacing:.5px;color:#6b7280;">Selecciona una fecha</label>
+                    <input type="text" class="form-control" id="datePicker" placeholder="Haz clic para abrir el calendario">
+                    <small class="form-text text-muted">Cualquier fecha pasada o presente</small>
                 </div>
-                <div class="alert alert-info">
-                    <i class="bi bi-info-circle"></i> <strong>Nota:</strong> Las estadísticas mostrarán:
-                    <ul class="mb-0 mt-2">
-                        <li><strong>Hoy:</strong> Operaciones de la fecha seleccionada</li>
-                        <li><strong>Este Mes:</strong> Acumulado desde el día 1 hasta la fecha seleccionada</li>
-                        <li><strong>Meta:</strong> Porcentaje de avance hasta la fecha seleccionada</li>
-                    </ul>
+                <div class="rounded p-3" style="background:#eff6ff;border:1px solid #bfdbfe;">
+                    <div class="small text-primary">
+                        <i class="bi bi-info-circle-fill me-1"></i>Las estadísticas mostrarán operaciones de la fecha seleccionada y el acumulado del mes hasta esa fecha.
+                    </div>
                 </div>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onclick="clearDateFilter()">
-                    <i class="bi bi-x-circle"></i> Limpiar Filtro
+            <div class="modal-footer border-top px-4 py-3" style="background:#f8fafc;">
+                <button type="button" class="btn btn-sm btn-light border" onclick="clearDateFilter()">
+                    <i class="bi bi-x-circle me-1"></i>Limpiar
                 </button>
-                <button type="button" class="btn btn-primary" onclick="applyDateFilter()">
-                    <i class="bi bi-check-circle"></i> Aplicar
+                <button type="button" class="btn btn-sm btn-primary px-3" onclick="applyDateFilter()">
+                    <i class="bi bi-check-circle me-1"></i>Aplicar
                 </button>
             </div>
         </div>
