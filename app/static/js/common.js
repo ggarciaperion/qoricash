@@ -591,7 +591,7 @@ function loadDashboardData(month = null, year = null) {
 // ============================================
 
 let inactivityTimeout = null;
-const INACTIVITY_TIME = 10 * 60 * 1000; // 10 minutos en milisegundos
+const INACTIVITY_TIME = 20 * 60 * 1000; // 20 minutos en milisegundos
 const SESSION_CHECK_KEY = 'qoricash_session_active';
 
 /**
@@ -613,7 +613,7 @@ function resetInactivityTimer() {
  * Manejar cierre de sesión por inactividad
  */
 function handleInactivityLogout() {
-    console.log('⏰ Sesión cerrada por inactividad (10 minutos sin actividad)');
+    console.log('⏰ Sesión cerrada por inactividad (20 minutos sin actividad)');
 
     // Mostrar mensaje al usuario
     if (typeof Swal !== 'undefined') {
@@ -648,7 +648,7 @@ function initInactivityDetection() {
     // Iniciar el temporizador
     resetInactivityTimer();
 
-    console.log('✅ Sistema de detección de inactividad iniciado (10 minutos)');
+    console.log('✅ Sistema de detección de inactividad iniciado (20 minutos)');
 }
 
 /**
