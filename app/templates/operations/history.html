@@ -480,7 +480,7 @@
                                 <span class="badge bg-danger">Cancelado</span>
                             {% endif %}
                         </td>
-                        <td data-order="{{ op.created_at.timestamp() if op.created_at else 0 }}">{{ op.created_at.strftime('%d/%m/%Y %H:%M') if op.created_at else '-' }}</td>
+                        <td data-order="{{ op.created_at.timestamp()|int if op.created_at else 0 }}">{{ op.created_at.strftime('%d/%m/%Y %H:%M') if op.created_at else '-' }}</td>
                         {% if user.role in ['Master', 'Operador'] %}
                         <td>{{ op.user.email if op.user else '-' }}</td>
                         {% endif %}
@@ -594,7 +594,7 @@ $(document).ready(function() {
         responsive: true,
         dom: '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>rtip',
         columnDefs: [
-            { orderable: true,  targets: '_all' },
+            { type: 'num', targets: dateColumnIndex },
             { orderable: false, targets: -1 }
         ]
     });
