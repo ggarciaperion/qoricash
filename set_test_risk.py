@@ -31,13 +31,23 @@ REVERT = '--revert' in sys.argv
 try:
     # Buscar cliente de prueba (Gian Pierre - DNI 73085751)
     client_row = session.execute(
-        sa.text("SELECT id, full_name, dni FROM clients WHERE dni = '73085751' LIMIT 1")
+        sa.text("""
+            SELECT id,
+                   COALESCE(razon_social, CONCAT_WS(' ', nombres, apellido_paterno, apellido_materno)) AS display_name,
+                   dni
+            FROM clients WHERE dni = '73085751' LIMIT 1
+        """)
     ).fetchone()
 
     if not client_row:
         # Fallback: cualquier cliente activo
         client_row = session.execute(
-            sa.text("SELECT id, full_name, dni FROM clients WHERE status = 'Activo' LIMIT 1")
+            sa.text("""
+                SELECT id,
+                       COALESCE(razon_social, CONCAT_WS(' ', nombres, apellido_paterno, apellido_materno)) AS display_name,
+                       dni
+                FROM clients WHERE status = 'Activo' LIMIT 1
+            """)
         ).fetchone()
 
     if not client_row:
