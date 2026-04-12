@@ -2,7 +2,7 @@
 Rutas de Compliance para Middle Office - QoriCash Trading V2
 """
 import json
-from flask import Blueprint, render_template, request, jsonify
+from flask import Blueprint, render_template, request, jsonify, redirect, url_for
 from flask_login import login_required, current_user
 from functools import wraps
 from app.extensions import db, csrf
@@ -39,6 +39,15 @@ def middle_office_required(f):
 
 
 # ==================== ALERTAS ====================
+
+@compliance_bp.route('/')
+@compliance_bp.route('')
+@login_required
+@middle_office_required
+def compliance_index():
+    """Ruta raíz de compliance — redirige al dashboard principal"""
+    return redirect(url_for('dashboard.index'))
+
 
 @compliance_bp.route('/alerts')
 @login_required

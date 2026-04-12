@@ -73,7 +73,15 @@ try:
             )
             session.commit()
             print(f"✅ Perfil REVERTIDO: {full_name} → risk_score=10 (Bajo), KYC=Aprobado")
-        else:
+        # Eliminar alertas de prueba
+        deleted = session.execute(
+            sa.text("DELETE FROM compliance_alerts WHERE client_id = :cid AND status = 'Pendiente'"),
+            {'cid': client_id}
+        ).rowcount
+        session.commit()
+        if deleted:
+            print(f"✅ {deleted} alertas de prueba eliminadas")
+        if not profile_row:
             print("No había perfil que revertir.")
     else:
         # Elevar riesgo a nivel ALTO (score 75, flags activados)
@@ -109,6 +117,39 @@ try:
             print(f"✅ Perfil CREADO: {full_name} → risk_score=75 (Alto), PEP=Sí, KYC=En Proceso")
 
         session.commit()
+
+        # Insertar alertas de prueba si no existen ya
+        existing_alerts = session.execute(
+            sa.text("SELECT COUNT(*) FROM compliance_alerts WHERE client_id = :cid"),
+            {'cid': client_id}
+        ).scalar()
+
+        if existing_alerts == 0:
+            test_alerts = [
+                ('AML',        'Crítica', 'Operación de alto monto detectada',
+                 f'Cliente {full_name} realizó operación superior a $10,000 USD en una sola transacción.'),
+                ('PEP',        'Alta',    'Cliente identificado como PEP',
+                 f'{full_name} figura como Persona Expuesta Políticamente. Requiere debida diligencia reforzada.'),
+                ('Behavioral', 'Media',   'Patrón de operaciones inusual',
+                 f'Se detectaron múltiples operaciones en horario fuera de lo habitual para {full_name}.'),
+            ]
+            for atype, severity, title, desc in test_alerts:
+                session.execute(
+                    sa.text("""
+                        INSERT INTO compliance_alerts
+                            (alert_type, severity, title, description, client_id,
+                             status, created_at, updated_at)
+                        VALUES
+                            (:atype, :severity, :title, :desc, :cid,
+                             'Pendiente', :now, :now)
+                    """),
+                    {'atype': atype, 'severity': severity, 'title': title,
+                     'desc': desc, 'cid': client_id, 'now': datetime.utcnow()}
+                )
+            session.commit()
+            print(f"✅ 3 alertas de prueba creadas para {full_name}")
+        else:
+            print(f"ℹ️  Ya existen {existing_alerts} alertas para este cliente, no se duplicaron")
 
     print("\nPara revertir después de la prueba:")
     print("  python set_test_risk.py --revert")
