@@ -1633,6 +1633,24 @@ def screening_history(client_id):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@compliance_bp.route('/api/screening/history/<int:check_id>/delete', methods=['DELETE'])
+@login_required
+@middle_office_required
+@csrf.exempt
+def delete_screening_history(check_id):
+    """API: Eliminar una entrada del historial de búsquedas en listas restrictivas."""
+    try:
+        from app.models.compliance import RestrictiveListCheck
+        check = RestrictiveListCheck.query.get_or_404(check_id)
+        db.session.delete(check)
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'Entrada eliminada correctamente'})
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f'[DeleteScreeningHistory] {e}')
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @compliance_bp.route('/api/screening/report/<int:check_id>')
 @login_required
 @middle_office_required

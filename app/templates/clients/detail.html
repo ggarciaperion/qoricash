@@ -1094,19 +1094,26 @@ async function loadScreeningHistory() {
                 ? `<small class="text-muted d-block" style="font-size:10px">Decisión: ${item.verdict_by || '—'} · ${item.verdict_at || '—'}</small>`
                 : `<small class="text-warning d-block" style="font-size:10px"><i class="bi bi-exclamation-triangle"></i> Sin decisión registrada</small>`;
             html += `
-            <div class="border rounded p-2 mb-1 bg-light" style="font-size:11px">
-                <div class="d-flex justify-content-between align-items-start">
-                    <div>
+            <div class="border rounded p-2 mb-1 bg-light" style="font-size:11px" id="screening-item-${item.id}">
+                <div class="d-flex justify-content-between align-items-start gap-1">
+                    <div class="flex-grow-1">
                         ${badge}
                         <small class="text-muted ms-1">${item.checked_at}</small>
                         <small class="text-muted d-block">Por: ${item.checked_by} · Score: ${item.max_score}%</small>
                         ${decided}
                     </div>
-                    <a href="/compliance/api/screening/report/${item.id}" target="_blank"
-                       class="btn btn-outline-secondary btn-sm py-0 px-1" title="Ver / Imprimir Reporte"
-                       style="font-size:10px; white-space:nowrap">
-                        <i class="bi bi-file-earmark-text"></i> Reporte
-                    </a>
+                    <div class="d-flex gap-1 flex-shrink-0">
+                        <a href="/compliance/api/screening/report/${item.id}" target="_blank"
+                           class="btn btn-outline-secondary btn-sm py-0 px-1" title="Ver / Imprimir Reporte"
+                           style="font-size:10px; white-space:nowrap">
+                            <i class="bi bi-file-earmark-text"></i> Reporte
+                        </a>
+                        <button onclick="deleteScreeningEntry(${item.id})"
+                                class="btn btn-outline-danger btn-sm py-0 px-1" title="Eliminar entrada"
+                                style="font-size:10px; line-height:1.4">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
+                    </div>
                 </div>
             </div>`;
         });
@@ -1116,6 +1123,27 @@ async function loadScreeningHistory() {
 
     } catch (e) {
         // Silencioso — el historial es opcional
+    }
+}
+
+async function deleteScreeningEntry(checkId) {
+    if (!confirm('¿Eliminar esta entrada del historial? Esta acción no se puede deshacer.')) return;
+    try {
+        const res = await fetch(`/compliance/api/screening/history/${checkId}/delete`, { method: 'DELETE' });
+        const data = await res.json();
+        if (data.success) {
+            const el = document.getElementById(`screening-item-${checkId}`);
+            if (el) el.remove();
+            // Ocultar wrapper si ya no quedan entradas
+            const list = document.getElementById('screeningHistoryList');
+            if (list && list.children.length === 0) {
+                document.getElementById('screeningHistoryWrapper').style.display = 'none';
+            }
+        } else {
+            alert('Error al eliminar: ' + (data.error || 'Error desconocido'));
+        }
+    } catch (e) {
+        alert('Error de conexión al eliminar la entrada.');
     }
 }
 
