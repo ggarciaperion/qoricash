@@ -544,7 +544,18 @@ function applyRoleRestrictions(role) {
         field.style.opacity = '0.7';
     });
 
-    // PASO 2: Desbloquear SOLO los campos de cuentas bancarias
+    // PASO 2: Deshabilitar botones de búsqueda SUNAT y RENIEC
+    ['btnDniLookup', 'btnRucLookup'].forEach(btnId => {
+        const btn = document.getElementById(btnId);
+        if (btn) {
+            btn.disabled = true;
+            btn.style.opacity = '0.5';
+            btn.style.cursor = 'not-allowed';
+            btn.style.pointerEvents = 'none';
+        }
+    });
+
+    // PASO 3: Desbloquear SOLO los campos de cuentas bancarias
     unlockBankFields();
 
     // PASO 3: Mantener visibles las secciones de documentos para que el Trader pueda subirlos
