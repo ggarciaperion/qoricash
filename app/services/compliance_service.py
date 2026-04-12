@@ -227,6 +227,68 @@ class ComplianceService:
             else:
                 profile.dd_level = 'Simplificada'
 
+            # Generar alertas automáticas por umbral de riesgo
+            if score >= 51:
+                # Verificar si ya existe una alerta de riesgo pendiente para este cliente
+                existing_risk_alert = ComplianceAlert.query.filter_by(
+                    client_id=client_id,
+                    alert_type='RiskScore',
+                    status='Pendiente'
+                ).first()
+
+                if not existing_risk_alert:
+                    if score >= 76:
+                        severity = 'Crítica'
+                        title = f'Perfil de Riesgo Crítico — Score {score}'
+                        description = (
+                            f'El cliente ha alcanzado un score de riesgo de {score} (nivel Crítico). '
+                            f'Se requiere Due Diligence Reforzada de forma inmediata.'
+                        )
+                    else:
+                        severity = 'Alta'
+                        title = f'Perfil de Riesgo Alto — Score {score}'
+                        description = (
+                            f'El cliente ha alcanzado un score de riesgo de {score} (nivel Alto). '
+                            f'Se requiere revisión y Due Diligence.'
+                        )
+
+                    alert = ComplianceAlert(
+                        alert_type='RiskScore',
+                        severity=severity,
+                        client_id=client_id,
+                        operation_id=None,
+                        title=title,
+                        description=description,
+                        details=json.dumps({'score': score, 'level': risk_level_name}),
+                        status='Pendiente'
+                    )
+                    db.session.add(alert)
+
+            # Generar alerta por PEP si está marcado y no hay alerta PEP pendiente
+            if profile.is_pep:
+                existing_pep_alert = ComplianceAlert.query.filter_by(
+                    client_id=client_id,
+                    alert_type='PEP',
+                    status='Pendiente',
+                    operation_id=None
+                ).first()
+
+                if not existing_pep_alert:
+                    pep_alert = ComplianceAlert(
+                        alert_type='PEP',
+                        severity='Alta',
+                        client_id=client_id,
+                        operation_id=None,
+                        title='Cliente identificado como PEP',
+                        description=(
+                            'El cliente figura como Persona Expuesta Políticamente. '
+                            'Requiere debida diligencia reforzada según normativa PLAFT.'
+                        ),
+                        details=json.dumps({'is_pep': True}),
+                        status='Pendiente'
+                    )
+                    db.session.add(pep_alert)
+
             # Solo hacer commit si auto_commit es True
             if auto_commit:
                 db.session.commit()
