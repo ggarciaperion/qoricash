@@ -52,10 +52,10 @@
                         <tr>
                             <th>Estado:</th>
                             <td>
-                                {% if client.active %}
+                                {% if client.status == 'Activo' %}
                                     <span class="badge bg-success">Activo</span>
                                 {% else %}
-                                    <span class="badge bg-danger">Inactivo</span>
+                                    <span class="badge bg-danger">{{ client.status or 'Inactivo' }}</span>
                                 {% endif %}
                             </td>
                         </tr>
