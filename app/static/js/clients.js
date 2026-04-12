@@ -530,18 +530,15 @@ function applyRoleRestrictions(role) {
     console.log('Total de campos encontrados:', allFields.length);
 
     allFields.forEach(field => {
-        // No bloquear campos de archivos (documentos)
-        if (field.type === 'file') {
-            console.log('Campo de archivo detectado, NO se bloqueará:', field.id);
-            return; // Saltar este campo, mantenerlo habilitado
-        }
-
         field.disabled = true;
         field.readOnly = true;
         field.classList.add('bg-light');
         field.style.backgroundColor = '#e9ecef';
         field.style.cursor = 'not-allowed';
         field.style.opacity = '0.7';
+        if (field.type === 'file') {
+            field.style.pointerEvents = 'none';
+        }
     });
 
     // PASO 2: Deshabilitar botones de búsqueda SUNAT y RENIEC
