@@ -1,0 +1,278 @@
+{% extends "base.html" %}
+
+{% block title %}Alerta #{{ alert.id }} - Compliance - QoriCash Trading{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-0">Alerta #{{ alert.id }}</h2>
+            <p class="text-muted">Detalle de alerta de compliance</p>
+        </div>
+        <div>
+            <a href="/compliance/alerts" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Volver a Alertas
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Información principal -->
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-exclamation-triangle"></i> Información de la Alerta</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm mb-0">
+                        <tr>
+                            <th width="25%">Título:</th>
+                            <td><strong>{{ alert.title }}</strong></td>
+                        </tr>
+                        <tr>
+                            <th>Descripción:</th>
+                            <td>{{ alert.description or '-' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Tipo:</th>
+                            <td>
+                                {% set type_colors = {'AML': 'danger', 'KYC': 'warning', 'PEP': 'info', 'RiskScore': 'dark', 'Volumetric': 'primary', 'Behavioral': 'secondary'} %}
+                                <span class="badge bg-{{ type_colors.get(alert.alert_type, 'secondary') }}">{{ alert.alert_type }}</span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Severidad:</th>
+                            <td>
+                                {% if alert.severity == 'Crítica' %}
+                                    <span class="badge bg-danger">Crítica</span>
+                                {% elif alert.severity == 'Alta' %}
+                                    <span class="badge bg-warning text-dark">Alta</span>
+                                {% elif alert.severity == 'Media' %}
+                                    <span class="badge bg-info">Media</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">{{ alert.severity }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Estado:</th>
+                            <td>
+                                {% if alert.status == 'Pendiente' %}
+                                    <span class="badge bg-warning text-dark">Pendiente</span>
+                                {% elif alert.status == 'En Revisión' %}
+                                    <span class="badge bg-info">En Revisión</span>
+                                {% elif alert.status == 'Resuelta' %}
+                                    <span class="badge bg-success">Resuelta</span>
+                                {% elif alert.status == 'Falsa Alarma' %}
+                                    <span class="badge bg-secondary">Falsa Alarma</span>
+                                {% elif alert.status == 'Escalada' %}
+                                    <span class="badge bg-danger">Escalada</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">{{ alert.status }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Fecha Creación:</th>
+                            <td>{{ alert.created_at.strftime('%d/%m/%Y %H:%M:%S') if alert.created_at else '-' }}</td>
+                        </tr>
+                        {% if alert.details %}
+                        <tr>
+                            <th>Detalles Técnicos:</th>
+                            <td><code>{{ alert.details }}</code></td>
+                        </tr>
+                        {% endif %}
+                    </table>
+                </div>
+            </div>
+
+            <!-- Resolución (si ya fue resuelta) -->
+            {% if alert.status in ['Resuelta', 'Falsa Alarma', 'Escalada'] %}
+            <div class="card mb-4">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="bi bi-check-circle"></i> Resolución</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm mb-0">
+                        <tr>
+                            <th width="25%">Resolución:</th>
+                            <td>{{ alert.resolution or '-' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Revisado por:</th>
+                            <td>{{ alert.reviewer.username if alert.reviewer else '-' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Fecha Revisión:</th>
+                            <td>{{ alert.reviewed_at.strftime('%d/%m/%Y %H:%M:%S') if alert.reviewed_at else '-' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Notas:</th>
+                            <td>{{ alert.review_notes or '-' }}</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Panel lateral -->
+        <div class="col-md-4">
+            <!-- Cliente -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-person-circle"></i> Cliente</h5>
+                </div>
+                <div class="card-body">
+                    {% if alert.client %}
+                    <table class="table table-sm mb-0">
+                        <tr>
+                            <th>Nombre:</th>
+                            <td>{{ alert.client.full_name or '-' }}</td>
+                        </tr>
+                        <tr>
+                            <th>DNI/RUC:</th>
+                            <td>{{ alert.client.dni or '-' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Estado:</th>
+                            <td>
+                                {% if alert.client.status == 'Activo' %}
+                                    <span class="badge bg-success">Activo</span>
+                                {% else %}
+                                    <span class="badge bg-danger">{{ alert.client.status or 'Inactivo' }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    </table>
+                    <div class="mt-3">
+                        <a href="/clients/detail?client_id={{ alert.client.id }}" class="btn btn-sm btn-outline-primary w-100">
+                            <i class="bi bi-eye"></i> Ver Perfil del Cliente
+                        </a>
+                        {% if alert.client.risk_profile %}
+                        <a href="/compliance/risk-profiles/{{ alert.client.id }}" class="btn btn-sm btn-outline-warning w-100 mt-1">
+                            <i class="bi bi-speedometer2"></i> Ver Perfil de Riesgo
+                        </a>
+                        {% endif %}
+                    </div>
+                    {% else %}
+                    <p class="text-muted mb-0">No hay cliente asociado</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Operación (si aplica) -->
+            {% if alert.operation %}
+            <div class="card mb-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="bi bi-arrow-left-right"></i> Operación Relacionada</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm mb-0">
+                        <tr>
+                            <th>ID:</th>
+                            <td>{{ alert.operation.operation_id }}</td>
+                        </tr>
+                        <tr>
+                            <th>Tipo:</th>
+                            <td>{{ alert.operation.operation_type }}</td>
+                        </tr>
+                        <tr>
+                            <th>Monto USD:</th>
+                            <td>$ {{ "%.2f"|format(alert.operation.amount_usd) }}</td>
+                        </tr>
+                        <tr>
+                            <th>Fecha:</th>
+                            <td>{{ alert.operation.created_at.strftime('%d/%m/%Y') if alert.operation.created_at else '-' }}</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Acciones -->
+            {% if alert.status == 'Pendiente' %}
+            <div class="card">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0"><i class="bi bi-gear"></i> Acciones</h5>
+                </div>
+                <div class="card-body">
+                    <button class="btn btn-success w-100 mb-2" onclick="openResolveModal()">
+                        <i class="bi bi-check-circle"></i> Resolver Alerta
+                    </button>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Resolver Alerta -->
+<div class="modal fade" id="resolveAlertModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Resolver Alerta #{{ alert.id }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Resolución</label>
+                    <select id="resolveResolution" class="form-select" required>
+                        <option value="">Seleccionar...</option>
+                        <option value="Aprobado">Aprobado</option>
+                        <option value="Rechazado">Rechazado</option>
+                        <option value="Falsa Alarma">Falsa Alarma</option>
+                        <option value="Reportado a UIF">Reportado a UIF</option>
+                        <option value="Requiere Investigación">Requiere Investigación</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Notas</label>
+                    <textarea id="resolveNotes" class="form-control" rows="4" placeholder="Detalles de la resolución..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="submitResolveAlert()">Resolver</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function openResolveModal() {
+    $('#resolveAlertModal').modal('show');
+}
+
+function submitResolveAlert() {
+    const resolution = $('#resolveResolution').val();
+    const notes = $('#resolveNotes').val();
+
+    if (!resolution) {
+        showNotification('Debe seleccionar una resolución', 'warning');
+        return;
+    }
+
+    ajaxRequest(
+        '/compliance/api/alerts/{{ alert.id }}/resolve',
+        'POST',
+        { resolution: resolution, notes: notes },
+        function(response) {
+            if (response.success) {
+                showNotification('Alerta resuelta correctamente', 'success');
+                setTimeout(() => { location.reload(); }, 1000);
+            } else {
+                showNotification(response.error || 'Error al resolver alerta', 'error');
+            }
+        },
+        function() {
+            showNotification('Error al resolver alerta', 'error');
+        }
+    );
+}
+</script>
+{% endblock %}
