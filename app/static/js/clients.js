@@ -552,14 +552,22 @@ function applyRoleRestrictions(role) {
         }
     });
 
-    // PASO 3: Desbloquear SOLO los campos de cuentas bancarias
+    // PASO 3: Bloquear completamente las secciones de documentos de identidad
+    document.querySelectorAll('.document-section').forEach(section => {
+        section.style.pointerEvents = 'none';
+        section.style.opacity = '0.55';
+        section.style.cursor = 'not-allowed';
+        // Deshabilitar todos los inputs dentro por si acaso
+        section.querySelectorAll('input, button').forEach(el => {
+            el.disabled = true;
+            el.style.pointerEvents = 'none';
+        });
+    });
+
+    // PASO 4: Desbloquear SOLO los campos de cuentas bancarias
     unlockBankFields();
 
-    // PASO 3: Mantener visibles las secciones de documentos para que el Trader pueda subirlos
-    // NO ocultar las secciones de documentos, solo deshabilitar otros campos
-    console.log('Secciones de documentos permanecen visibles para subida de archivos')
-
-    // PASO 3: Configurar MutationObserver para desbloquear campos bancarios nuevos
+    // PASO 5: Configurar MutationObserver para desbloquear campos bancarios nuevos
     const bankAccountsContainer = document.getElementById('bankAccountsContainer');
     if (bankAccountsContainer) {
         // Desconectar observer anterior si existe
