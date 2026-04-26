@@ -255,7 +255,7 @@ if __name__ == "__main__":
     print()
     confirm = input("  Escribe SI para continuar: ").strip()
 
-    if confirm != "SI":
+    if confirm.upper() != "SI":
         print("\n  Operación cancelada.")
         sys.exit(0)
 
