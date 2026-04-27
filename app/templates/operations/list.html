@@ -82,6 +82,8 @@
                                 <th>Tipo</th>
                                 <th>USD</th>
                                 <th>T.C.</th>
+                                <th>Base</th>
+                                <th>Pips</th>
                                 <th>PEN</th>
                                 <th>Bancos</th>
                                 <th>Canal</th>
@@ -106,6 +108,8 @@
                                 </td>
                                 <td class="text-end">$ {{ op.amount_usd|format_currency(2) }}</td>
                                 <td class="text-center">{{ "%.4f"|format(op.exchange_rate) }}</td>
+                                <td class="text-center">{{ "%.4f"|format(op.base_rate) if op.base_rate else '—' }}</td>
+                                <td class="text-center">{{ "%+.1f"|format(op.pips) if op.pips else '—' }}</td>
                                 <td class="text-end">S/ {{ op.amount_pen|format_currency(2) }}</td>
                                 <td class="text-center">
                                     {% set source_bank = get_bank_name(op, op.source_account) %}
@@ -864,6 +868,8 @@ function buildOperationRow(op) {
                 <td>${typeBadge}</td>
                 <td class="text-end">$ ${formattedUSD}</td>
                 <td class="text-center">${parseFloat(op.exchange_rate).toFixed(4)}</td>
+                <td class="text-center">${op.base_rate ? parseFloat(op.base_rate).toFixed(4) : '—'}</td>
+                <td class="text-center">${op.pips != null ? (op.pips >= 0 ? '+' : '') + parseFloat(op.pips).toFixed(1) : '—'}</td>
                 <td class="text-end">S/ ${formattedPEN}</td>
                 <td class="text-center"><small>${banksText}</small></td>
                 <td class="text-center">${canalBadge}</td>
@@ -947,6 +953,8 @@ function buildViewHTML(op, readonly) {
                 <div class="col-4 text-center">
                     <div class="text-uppercase" style="font-size:10px;letter-spacing:.5px;color:#9ca3af;">T/C</div>
                     <div class="fw-semibold" style="font-size:13px;">${parseFloat(op.exchange_rate).toFixed(4)}</div>
+                    ${op.base_rate != null ? `<div class="text-uppercase" style="font-size:9px;color:#9ca3af;">Base: ${parseFloat(op.base_rate).toFixed(4)}</div>` : ''}
+                    ${op.pips != null ? `<div style="font-size:11px;color:${op.pips >= 0 ? '#198754' : '#dc3545'};">${op.pips >= 0 ? '+' : ''}${parseFloat(op.pips).toFixed(1)} pips</div>` : ''}
                 </div>
                 <div class="col-4 text-end">
                     <div class="text-uppercase" style="font-size:10px;letter-spacing:.5px;color:#9ca3af;">Monto PEN</div>

@@ -75,7 +75,7 @@
                             <div class="row">
                                 <div class="col-md-6">
                                     <div class="form-check form-check-inline">
-                                        <input class="form-check-input" type="radio" name="operation_type" id="typeCompra" value="Compra" checked>
+                                        <input class="form-check-input" type="radio" name="operation_type" id="typeCompra" value="Compra" checked onchange="calcularPips()">
                                         <label class="form-check-label" for="typeCompra">
                                             <span class="badge bg-success">Compra USD</span> (Cliente vende dólares)
                                         </label>
@@ -83,7 +83,7 @@
                                 </div>
                                 <div class="col-md-6">
                                     <div class="form-check form-check-inline">
-                                        <input class="form-check-input" type="radio" name="operation_type" id="typeVenta" value="Venta">
+                                        <input class="form-check-input" type="radio" name="operation_type" id="typeVenta" value="Venta" onchange="calcularPips()">
                                         <label class="form-check-label" for="typeVenta">
                                             <span class="badge bg-primary">Venta USD</span> (Cliente compra dólares)
                                         </label>
@@ -114,7 +114,7 @@
                                 <div class="col-md-4">
                                     <label class="form-label">Tipo de Cambio *</label>
                                     <input type="number" class="form-control" name="exchange_rate" id="exchange_rate"
-                                           step="0.0001" min="0" required onchange="calculatePEN()" oninput="limitDecimals(this, 4); calculatePEN()">
+                                           step="0.0001" min="0" required onchange="calculatePEN()" oninput="limitDecimals(this, 4); calculatePEN(); calcularPips()">
                                     <small class="form-text text-muted">Ejemplo: 3.7500 (máximo 4 decimales)</small>
                                 </div>
                                 <div class="col-md-4">
@@ -123,6 +123,15 @@
                                         <span class="input-group-text">S/</span>
                                         <input type="text" class="form-control" id="amount_pen_display" readonly>
                                     </div>
+                                </div>
+                            </div>
+                            <div class="row mt-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Base <small class="text-muted">(opcional)</small></label>
+                                    <input type="number" class="form-control" name="base_rate" id="base_rate"
+                                           step="0.0001" min="0" placeholder="0.0000"
+                                           oninput="calcularPips()">
+                                    <div class="form-text" id="pips_preview"></div>
                                 </div>
                             </div>
                         </div>
@@ -202,11 +211,36 @@ function calculatePEN() {
     $('#amount_pen_display').val(pen.toFixed(2));
 }
 
+// Calcular pips en tiempo real
+function calcularPips() {
+    const exchangeRate = parseFloat($('#exchange_rate').val());
+    const baseRate = parseFloat($('#base_rate').val());
+    const opType = $('input[name="operation_type"]:checked').val();
+    const preview = $('#pips_preview');
+
+    if (!baseRate || !exchangeRate || !opType) {
+        preview.text('');
+        return;
+    }
+
+    let pips;
+    if (opType === 'Compra') {
+        pips = Math.round((baseRate - exchangeRate) * 10000 * 10) / 10;
+    } else {
+        pips = Math.round((exchangeRate - baseRate) * 10000 * 10) / 10;
+    }
+
+    const sign = pips >= 0 ? '+' : '';
+    const color = pips >= 0 ? 'text-success' : 'text-danger';
+    preview.html(`<span class="${color}">${sign}${pips.toFixed(1)} pips</span>`);
+}
+
 // Resetear formulario completo
 function resetForm() {
     $('#createOperationForm')[0].reset();
     clearSelectedClient();
     $('#amount_pen_display').val('');
+    $('#pips_preview').text('');
 }
 
 // Limpiar cliente seleccionado
@@ -413,11 +447,13 @@ $('#createOperationForm').on('submit', function(e) {
 
     let formData;
     try {
+        const baseRateVal = $('#base_rate').val();
         formData = {
             client_id: parseInt($('#client_id').val()),
             operation_type: $('input[name="operation_type"]:checked').val(),
             amount_usd: parseFloat($('#amount_usd').val()),
             exchange_rate: parseFloat($('#exchange_rate').val()),
+            base_rate: baseRateVal ? parseFloat(baseRateVal) : null,
             source_account: $('#source_account').val(),
             destination_account: $('#destination_account').val(),
             notes: $('textarea[name="notes"]').val()

@@ -40,6 +40,8 @@ class Operation(db.Model):
     # Montos
     amount_usd = db.Column(db.Numeric(15, 2), nullable=False)
     exchange_rate = db.Column(db.Numeric(10, 4), nullable=False)
+    base_rate = db.Column(db.Numeric(10, 4), nullable=True)
+    pips = db.Column(db.Numeric(8, 1), nullable=True)
     amount_pen = db.Column(db.Numeric(15, 2), nullable=False)
 
     # Cuentas bancarias (usadas al crear la operación)
@@ -292,6 +294,8 @@ class Operation(db.Model):
             'monto_dolares': float(self.amount_usd) if self.amount_usd is not None else 0.0,  # Para frontend
             'exchange_rate': float(self.exchange_rate) if self.exchange_rate is not None else 0.0,
             'tipo_cambio': float(self.exchange_rate) if self.exchange_rate is not None else 0.0,  # Para frontend
+            'base_rate': float(self.base_rate) if self.base_rate is not None else None,
+            'pips': float(self.pips) if self.pips is not None else None,
             'amount_pen': float(self.amount_pen) if self.amount_pen is not None else 0.0,
             'monto_soles': float(self.amount_pen) if self.amount_pen is not None else 0.0,  # Para frontend
             'source_account': self.source_account,

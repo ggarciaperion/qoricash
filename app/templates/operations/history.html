@@ -451,6 +451,8 @@
                         <th>Cliente</th>
                         <th>USD</th>
                         <th>T.C.</th>
+                        <th>Base</th>
+                        <th>Pips</th>
                         <th>PEN</th>
                         <th>Estado</th>
                         <th>Fecha</th>
@@ -468,6 +470,8 @@
                         <td>{{ op.client.full_name if op.client else '-' }}</td>
                         <td class="text-end">$ {{ op.amount_usd|format_currency(2) }}</td>
                         <td class="text-center">{{ "%.4f"|format(op.exchange_rate) }}</td>
+                        <td class="text-center">{{ "%.4f"|format(op.base_rate) if op.base_rate else '—' }}</td>
+                        <td class="text-center">{{ "%+.1f"|format(op.pips) if op.pips else '—' }}</td>
                         <td class="text-end">S/ {{ op.amount_pen|format_currency(2) }}</td>
                         <td>
                             {% if op.status == 'Pendiente' %}
@@ -681,6 +685,13 @@ function buildDetailsHTML(op) {
     const tc  = parseFloat(op.exchange_rate || 0).toFixed(4);
     const isCompra = (op.operation_type || '').toLowerCase() === 'compra';
 
+    const baseLine = op.base_rate != null
+        ? `<div class="fin-label" style="font-size:10px;">Base: ${parseFloat(op.base_rate).toFixed(4)}</div>`
+        : '';
+    const pipsLine = op.pips != null
+        ? `<div style="font-size:11px;color:${op.pips >= 0 ? '#198754' : '#dc3545'};">${op.pips >= 0 ? '+' : ''}${parseFloat(op.pips).toFixed(1)} pips</div>`
+        : '';
+
     let html = '';
 
     // ── 1. Cifras financieras ──────────────────────────────────────────
@@ -694,6 +705,7 @@ function buildDetailsHTML(op) {
         <div class="fin-cell tc">
             <div class="fin-label">Tipo de Cambio</div>
             <div class="fin-value">${tc}</div>
+            ${baseLine}${pipsLine}
         </div>
         <div class="fin-arrow"><i class="bi bi-arrow-right-circle-fill"></i></div>
         <div class="fin-cell">

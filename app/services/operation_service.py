@@ -123,7 +123,8 @@ class OperationService:
     
     @staticmethod
     def create_operation(current_user, client_id, operation_type, amount_usd, exchange_rate,
-                        source_account=None, destination_account=None, notes=None, origen='sistema'):
+                        source_account=None, destination_account=None, notes=None, origen='sistema',
+                        base_rate=None):
         """
         Crear nueva operación
 
@@ -189,6 +190,20 @@ class OperationService:
         if origen not in ['sistema', 'app', 'web']:
             origen = 'sistema'  # Default a 'sistema' si el valor es inválido
 
+        # Calcular pips si se proporcionó base_rate
+        pips = None
+        if base_rate is not None:
+            try:
+                base_rate_f = float(base_rate)
+                exchange_rate_f = float(exchange_rate)
+                if operation_type == 'Compra':
+                    pips = round((base_rate_f - exchange_rate_f) * 10000, 1)
+                else:  # Venta
+                    pips = round((exchange_rate_f - base_rate_f) * 10000, 1)
+            except (TypeError, ValueError):
+                base_rate = None
+                pips = None
+
         # Crear operación
         operation = Operation(
             operation_id=operation_id,
@@ -197,6 +212,8 @@ class OperationService:
             operation_type=operation_type,
             amount_usd=amount_usd,
             exchange_rate=exchange_rate,
+            base_rate=base_rate,
+            pips=pips,
             amount_pen=amount_pen,
             source_account=source_account,
             destination_account=destination_account,
