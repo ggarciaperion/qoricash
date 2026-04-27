@@ -43,6 +43,7 @@ class Operation(db.Model):
     base_rate = db.Column(db.Numeric(10, 4), nullable=True)
     pips = db.Column(db.Numeric(8, 1), nullable=True)
     amount_pen = db.Column(db.Numeric(15, 2), nullable=False)
+    new_operation_email_sent = db.Column(db.Boolean, default=False, nullable=False, server_default='false')
 
     # Cuentas bancarias (usadas al crear la operación)
     source_account = db.Column(db.String(100))
@@ -467,12 +468,21 @@ class Operation(db.Model):
     def generate_operation_id():
         """
         Generar ID de operación secuencial.
-        Usa MAX(id) de la BD — no carga todos los registros en memoria.
+        Parsea el número del último operation_id (EXP-XXXX) para mantener
+        el correlativo correcto independientemente del PK autoincremental.
         """
-        from sqlalchemy import func
         from app.extensions import db
-        max_id = db.session.query(func.max(Operation.id)).scalar() or 1000
-        return f'EXP-{max_id + 1}'
+        last = db.session.query(Operation.operation_id).filter(
+            Operation.operation_id.like('EXP-%')
+        ).order_by(Operation.id.desc()).first()
+        if last:
+            try:
+                last_num = int(last[0].split('-')[1])
+            except (IndexError, ValueError):
+                last_num = 1000
+        else:
+            last_num = 1000
+        return f'EXP-{last_num + 1}'
 
     def __repr__(self):
         return f'<Operation {self.operation_id} - {self.operation_type} ${self.amount_usd}>'

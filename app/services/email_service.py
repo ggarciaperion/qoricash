@@ -190,6 +190,11 @@ class EmailService:
             tuple: (success: bool, message: str)
         """
         try:
+            # Idempotencia: evitar envío duplicado si ya se envió para esta operación
+            if getattr(operation, 'new_operation_email_sent', False):
+                logger.warning(f'Email de nueva operación ya enviado para {operation.operation_id}, ignorando duplicado')
+                return False, 'Email ya enviado anteriormente'
+
             to, cc, bcc = EmailService.get_recipients_for_new_operation(operation)
 
             # Validar que haya al menos un destinatario
@@ -211,6 +216,14 @@ class EmailService:
                 bcc=bcc,
                 html=html_body
             )
+
+            # Marcar como enviado ANTES del spawn para evitar race condition
+            try:
+                from app.extensions import db
+                operation.new_operation_email_sent = True
+                db.session.commit()
+            except Exception:
+                pass  # No bloquear el envío si falla el flag
 
             # Enviar ASÍNCRONO para no bloquear el worker
             EmailService._send_async(msg, timeout=15)
