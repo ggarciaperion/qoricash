@@ -490,11 +490,11 @@
                         </div>
                         <div class="d-flex gap-3 flex-wrap">
                             <label class="d-flex align-items-center gap-2 rounded px-3 py-2 cursor-pointer" style="border:1px solid #e5e7eb;background:#fff;cursor:pointer;">
-                                <input class="form-check-input m-0" type="radio" name="operation_type_modal" id="typeCompraModal" value="Compra" checked>
+                                <input class="form-check-input m-0" type="radio" name="operation_type_modal" id="typeCompraModal" value="Compra" checked onchange="calcularPipsModal()">
                                 <span><span class="badge bg-success me-1">Compra USD</span><span class="small text-muted">Cliente vende dólares</span></span>
                             </label>
                             <label class="d-flex align-items-center gap-2 rounded px-3 py-2 cursor-pointer" style="border:1px solid #e5e7eb;background:#fff;cursor:pointer;">
-                                <input class="form-check-input m-0" type="radio" name="operation_type_modal" id="typeVentaModal" value="Venta">
+                                <input class="form-check-input m-0" type="radio" name="operation_type_modal" id="typeVentaModal" value="Venta" onchange="calcularPipsModal()">
                                 <span><span class="badge bg-primary me-1">Venta USD</span><span class="small text-muted">Cliente compra dólares</span></span>
                             </label>
                         </div>
@@ -1990,7 +1990,7 @@ function calcularPipsModal() {
     const base = parseFloat($('#base_rate_modal').val());
     const preview = $('#pips_preview_modal');
     if (isNaN(tc) || isNaN(base)) { preview.html(''); return; }
-    const tipo = $('input[name="operation_type"]:checked').val() || 'Compra';
+    const tipo = $('input[name="operation_type_modal"]:checked').val() || 'Compra';
     const pips = tipo === 'Compra'
         ? Math.round((base - tc) * 10000 * 10) / 10
         : Math.round((tc - base) * 10000 * 10) / 10;
