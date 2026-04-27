@@ -315,10 +315,10 @@ def get_client_by_dni(dni):
 
 @platform_api_bp.route('/exchange-rates', methods=['GET', 'POST'])
 @login_required
-@require_role('Master')
+@require_role('Master', 'Operador')
 def manage_exchange_rates():
     """
-    API: Obtener o actualizar tipos de cambio (solo Master)
+    API: Obtener o actualizar tipos de cambio (Master y Operador)
 
     GET: Obtener tipos actuales
     POST: Actualizar tipos de cambio
