@@ -522,7 +522,7 @@
                             <div class="col-md-4">
                                 <label class="form-label small text-muted">Tipo de Cambio <span class="text-danger">*</span></label>
                                 <input type="number" class="form-control" name="exchange_rate" id="exchange_rate_modal"
-                                       step="0.0001" min="0" required onchange="calculatePENModal()" oninput="limitDecimalsModal(this, 4); calculatePENModal()">
+                                       step="0.0001" min="0" required onchange="calculatePENModal()" oninput="limitDecimalsModal(this, 4); calculatePENModal(); calcularPipsModal()">
                                 <div class="form-text">Ej: 3.7500 (máx. 4 decimales)</div>
                             </div>
                             <div class="col-md-4">
@@ -531,6 +531,13 @@
                                     <span class="input-group-text bg-white">S/</span>
                                     <input type="text" class="form-control" id="amount_pen_display_modal" readonly style="background:#f9fafb;">
                                 </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label small text-muted">Base <small class="text-muted">(opcional)</small></label>
+                                <input type="number" class="form-control" name="base_rate" id="base_rate_modal"
+                                       step="0.0001" min="0" placeholder="0.0000"
+                                       oninput="calcularPipsModal()">
+                                <div class="form-text" id="pips_preview_modal"></div>
                             </div>
                         </div>
                     </div>
@@ -1978,11 +1985,26 @@ function calculatePENModal() {
     $('#amount_pen_display_modal').val(pen.toFixed(2));
 }
 
+function calcularPipsModal() {
+    const tc = parseFloat($('#exchange_rate_modal').val());
+    const base = parseFloat($('#base_rate_modal').val());
+    const preview = $('#pips_preview_modal');
+    if (isNaN(tc) || isNaN(base)) { preview.html(''); return; }
+    const tipo = $('input[name="operation_type"]:checked').val() || 'Compra';
+    const pips = tipo === 'Compra'
+        ? Math.round((base - tc) * 10000 * 10) / 10
+        : Math.round((tc - base) * 10000 * 10) / 10;
+    const sign = pips >= 0 ? '+' : '';
+    const color = pips >= 0 ? '#198754' : '#dc3545';
+    preview.html(`<span style="color:${color};font-weight:600;">${sign}${pips.toFixed(1)} pips</span>`);
+}
+
 // Resetear formulario completo del modal
 function resetCreateForm() {
     $('#createOperationFormModal')[0].reset();
     clearSelectedClientModal();
     $('#amount_pen_display_modal').val('');
+    $('#pips_preview_modal').html('');
 }
 
 // Limpiar cliente seleccionado del modal
@@ -2168,6 +2190,7 @@ function submitCreateOperation() {
         operation_type: $('input[name="operation_type_modal"]:checked').val(),
         amount_usd: parseFloat($('#amount_usd_modal').val()),
         exchange_rate: parseFloat($('#exchange_rate_modal').val()),
+        base_rate: $('#base_rate_modal').val() ? parseFloat($('#base_rate_modal').val()) : null,
         source_account: $('#source_account_modal').val(),
         destination_account: $('#destination_account_modal').val(),
         notes: $('#notes_modal').val()
