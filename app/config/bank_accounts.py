@@ -43,6 +43,22 @@ QORICASH_ACCOUNTS = {
             'cci': '00320000300775757137',
         },
     },
+    'BANBIF': {
+        'USD': {
+            'banco': 'BANBIF',
+            'tipo': 'Cuenta Corriente',
+            'moneda': 'USD',
+            'numero': '007000845813',
+            'cci': '03840220700084581346',
+        },
+        'PEN': {
+            'banco': 'BANBIF',
+            'tipo': 'Cuenta Corriente',
+            'moneda': 'PEN',
+            'numero': '007000845805',
+            'cci': '03840210700084580543',
+        },
+    },
 }
 
 # Lista plana para reconciliación bancaria (formato: "BCP USD (numero)")
