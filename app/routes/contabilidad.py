@@ -513,13 +513,13 @@ _APERTURA_ACCOUNTS = [
     ('1011', 'Caja Moneda Nacional',                  'PEN'),
     ('1041', 'BCP — Cta. Cte. PEN',                   'PEN'),
     ('1048', 'Interbank — Cta. Cte. PEN',             'PEN'),
-    ('1049', 'BanBif — Cta. Cte. PEN (en apertura)',  'PEN'),
+    ('1049', 'BanBif — Cta. Cte. PEN',                'PEN'),
     ('1051', 'Pichincha — Cta. Cte. PEN (en apertura)', 'PEN'),
     # USD
     ('1012', 'Caja Moneda Extranjera',                'USD'),
     ('1044', 'BCP — Cta. Cte. USD',                   'USD'),
     ('1047', 'Interbank — Cta. Cte. USD',             'USD'),
-    ('1050', 'BanBif — Cta. Cte. USD (en apertura)',  'USD'),
+    ('1050', 'BanBif — Cta. Cte. USD',                'USD'),
     ('1052', 'Pichincha — Cta. Cte. USD (en apertura)', 'USD'),
 ]
 

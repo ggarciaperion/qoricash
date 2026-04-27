@@ -23,13 +23,13 @@ logger = logging.getLogger(__name__)
 _PEN_ACCOUNTS = {
     'BCP':       '1041',
     'INTERBANK': '1048',
-    'BANBIF':    '1049',    # en proceso de apertura
+    'BANBIF':    '1049',
     'PICHINCHA': '1051',    # en proceso de apertura
 }
 _USD_ACCOUNTS = {
     'BCP':       '1044',
     'INTERBANK': '1047',
-    'BANBIF':    '1050',    # en proceso de apertura
+    'BANBIF':    '1050',
     'PICHINCHA': '1052',    # en proceso de apertura
 }
 

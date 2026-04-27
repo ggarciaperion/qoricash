@@ -1378,15 +1378,15 @@ def add_bank_account(client_dni):
                 'message': 'Moneda debe ser S/ o $'
             }), 400
 
-        # Validar provincia solo BCP o INTERBANK
-        if origen == 'Provincia' and bank_name not in ['BCP', 'INTERBANK']:
+        # Validar provincia solo BCP, INTERBANK o BANBIF
+        if origen == 'Provincia' and bank_name not in ['BCP', 'INTERBANK', 'BANBIF']:
             return jsonify({
                 'success': False,
-                'message': 'Para cuentas de provincia solo operamos con BCP e INTERBANK'
+                'message': 'Para cuentas de provincia solo operamos con BCP, INTERBANK y BANBIF'
             }), 400
 
-        # Validar CCI para bancos que no sean los principales (BCP e INTERBANK generan CCI automáticamente)
-        main_banks = ['BCP', 'INTERBANK']
+        # Validar CCI para bancos que no sean los principales (BCP, INTERBANK y BANBIF generan CCI automáticamente)
+        main_banks = ['BCP', 'INTERBANK', 'BANBIF']
         if bank_name not in main_banks:
             if not cci or len(cci) != 20:
                 return jsonify({

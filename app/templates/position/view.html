@@ -1128,7 +1128,7 @@ function renderReconciliationTable(banks) {
     }
 
     // Lista de bancos permitidos
-    const allowedBanks = ['BCP', 'INTERBANK'];
+    const allowedBanks = ['BCP', 'INTERBANK', 'BANBIF'];
 
     // Filtrar solo los bancos permitidos
     const filteredBanks = banks.filter(bank => {
@@ -1276,7 +1276,7 @@ function renderReconciliationTable(banks) {
             <tr>
                 <td colspan="8" class="text-center">
                     <div class="alert alert-warning mb-0">
-                        <i class="bi bi-exclamation-circle"></i> No hay cuentas de BCP e INTERBANK registradas. Haz clic en "Agregar Banco" para comenzar.
+                        <i class="bi bi-exclamation-circle"></i> No hay cuentas bancarias registradas. Haz clic en "Agregar Banco" para comenzar.
                     </div>
                 </td>
             </tr>
