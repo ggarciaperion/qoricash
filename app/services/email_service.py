@@ -130,12 +130,14 @@ class EmailService:
         # Destinatario principal: Cliente
         to = [operation.client.email] if operation.client and operation.client.email else []
 
-        # Copia: Trader que creó la operación
+        # Copia: Trader que creó la operación (solo si es distinto al cliente)
         cc = []
         if operation.user and operation.user.email:
-            cc.append(operation.user.email)
+            if operation.user.email not in to:
+                cc.append(operation.user.email)
 
-        # Copia oculta: Master y Operadores
+        # Copia oculta: Master y Operadores (excluir emails ya en to o cc)
+        seen = set(to) | set(cc)
         bcc = []
         masters_and_operators = User.query.filter(
             User.role.in_(['Master', 'Operador']),
@@ -144,8 +146,9 @@ class EmailService:
         ).all()
 
         for user in masters_and_operators:
-            if user.email and user.email not in cc:  # Evitar duplicados
+            if user.email and user.email not in seen:
                 bcc.append(user.email)
+                seen.add(user.email)
 
         return to, cc, bcc
 
@@ -163,13 +166,15 @@ class EmailService:
         # Destinatario principal: Cliente
         to = [operation.client.email] if operation.client and operation.client.email else []
 
-        # Copia: Trader que creó la operación
+        # Copia: Trader que creó la operación (solo si es distinto al cliente)
         cc = []
         if operation.user and operation.user.email:
-            cc.append(operation.user.email)
+            if operation.user.email not in to:
+                cc.append(operation.user.email)
 
-        # Copia oculta: Gerencia
-        bcc = ['gerencia@qoricash.pe']
+        # Copia oculta: Gerencia (solo si no está ya en to/cc)
+        seen = set(to) | set(cc)
+        bcc = [e for e in ['gerencia@qoricash.pe'] if e not in seen]
 
         return to, cc, bcc
 
@@ -1039,12 +1044,13 @@ class EmailService:
             # Destinatario principal: Cliente
             to = [client.email] if client.email else []
 
-            # Copia: Trader que registró al cliente
+            # Copia: Trader que registró al cliente (solo si es distinto al cliente)
             cc = []
-            if trader and trader.email:
+            if trader and trader.email and trader.email not in to:
                 cc.append(trader.email)
 
-            # Copia oculta: Solo Master
+            # Copia oculta: Solo Master (excluir emails ya en to o cc)
+            seen = set(to) | set(cc)
             bcc = []
             masters = User.query.filter(
                 User.role == 'Master',
@@ -1053,8 +1059,9 @@ class EmailService:
             ).all()
 
             for master in masters:
-                if master.email and master.email not in cc:
+                if master.email and master.email not in seen:
                     bcc.append(master.email)
+                    seen.add(master.email)
 
             # Validar que haya al menos un destinatario
             if not to and not cc and not bcc:
@@ -1108,12 +1115,13 @@ class EmailService:
             # Destinatario principal: Cliente
             to = [client.email] if client.email else []
 
-            # Copia: Trader que registró al cliente
+            # Copia: Trader que registró al cliente (solo si es distinto al cliente)
             cc = []
-            if trader and trader.email:
+            if trader and trader.email and trader.email not in to:
                 cc.append(trader.email)
 
-            # Copia oculta: Solo Master
+            # Copia oculta: Solo Master (excluir emails ya en to o cc)
+            seen = set(to) | set(cc)
             bcc = []
             masters = User.query.filter(
                 User.role == 'Master',
@@ -1122,8 +1130,9 @@ class EmailService:
             ).all()
 
             for master in masters:
-                if master.email and master.email not in cc:
+                if master.email and master.email not in seen:
                     bcc.append(master.email)
+                    seen.add(master.email)
 
             logger.info(f'[EMAIL] Destinatarios - TO: {to}, CC: {cc}')
 
