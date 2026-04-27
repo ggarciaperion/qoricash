@@ -111,12 +111,6 @@
                     </div>
                 </div>
                 <div class="card-body">
-                    <!-- Alerta de Descuadre Crítico -->
-                    <div id="alertaDescuadre" class="alert alert-danger d-none" role="alert">
-                        <i class="bi bi-exclamation-triangle-fill"></i>
-                        <strong>¡DESCUADRE DETECTADO!</strong>
-                        <span id="mensajeDescuadre"></span>
-                    </div>
 
                     <!-- Resumen de Movimientos del Día -->
                     <div class="row mb-3">
@@ -1289,29 +1283,7 @@ function renderReconciliationTable(banks) {
     const totalDifferenceUSD = usdBanks.length > 0 ? usdBanks.reduce((sum, bank) => sum + bank.usd.difference, 0) : 0;
     const totalDifferencePEN = penBanks.length > 0 ? penBanks.reduce((sum, bank) => sum + bank.pen.difference, 0) : 0;
 
-    // Renderizar alerta de descuadre basada SOLO en lo que se muestra en la tabla
-    renderDiscrepancyAlert(totalDifferenceUSD, totalDifferencePEN);
 }
-
-function renderDiscrepancyAlert(totalDifferenceUSD, totalDifferencePEN) {
-    const alerta = $('#alertaDescuadre');
-    const mensaje = $('#mensajeDescuadre');
-
-    // Umbrales de descuadre crítico
-    const usdThreshold = 100;
-    const penThreshold = 300;
-
-    // Verificar si hay descuadre crítico SOLO basado en datos de tabla visible
-    const hasCriticalDiscrepancy = Math.abs(totalDifferenceUSD) > usdThreshold || Math.abs(totalDifferencePEN) > penThreshold;
-
-    if (hasCriticalDiscrepancy) {
-        // Mostrar alerta con las diferencias calculadas de la tabla
-        mensaje.text(` Diferencia total: USD $${formatNumber(Math.abs(totalDifferenceUSD))} | PEN S/${formatNumber(Math.abs(totalDifferencePEN))}`);
-        alerta.removeClass('d-none');
-    } else {
-        // No hay descuadre crítico, ocultar alerta
-        alerta.addClass('d-none');
-    }
 }
 
 function openAddBankModal() {
