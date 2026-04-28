@@ -1319,7 +1319,7 @@ function renderReconciliationTable(banks) {
     const totalDifferenceUSD = usdBanks.length > 0 ? usdBanks.reduce((sum, bank) => sum + bank.usd.difference, 0) : 0;
     const totalDifferencePEN = penBanks.length > 0 ? penBanks.reduce((sum, bank) => sum + bank.pen.difference, 0) : 0;
 
-}
+    renderDiscrepancyAlert(totalDifferenceUSD, totalDifferencePEN);
 }
 
 function openAddBankModal() {
