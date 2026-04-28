@@ -576,3 +576,126 @@ class EmailTemplates:
         return render_template_string(template,
                                      client_name=client_name,
                                      client_dni=client.dni)
+
+    @staticmethod
+    def send_trader_kyc_approved_notification(client, trader):
+        """
+        Notificación al Trader cuando el KYC de su cliente es aprobado.
+        Se envía al email del trader, informando que la cuenta ya está activa.
+
+        Args:
+            client: Objeto Client cuyo KYC fue aprobado
+            trader: Usuario Trader que registró al cliente
+
+        Returns:
+            tuple: (success: bool, message: str)
+        """
+        try:
+            trader_email = getattr(trader, 'email', None)
+            if not trader_email:
+                return False, 'Trader sin email registrado'
+
+            client_name = client.full_name or client.razon_social or 'Cliente'
+            trader_name = trader.username if trader else 'Asesor'
+
+            logger.info(f'📧 [EMAIL-TRADER-KYC] Notificando a trader {trader_name} sobre activación de {client.dni}')
+
+            subject = f'✅ Cuenta activa: {client_name} ya puede operar | QoriCash'
+
+            html_body = EmailTemplates._render_trader_kyc_approved_template(client, client_name, trader_name)
+
+            msg = Message(
+                subject=subject,
+                recipients=[trader_email],
+                html=html_body
+            )
+
+            mail.send(msg)
+            logger.info(f'✅ [EMAIL-TRADER-KYC] Notificación enviada a {trader_email}')
+            return True, 'Notificación enviada al trader'
+
+        except Exception as e:
+            logger.error(f'❌ [EMAIL-TRADER-KYC] Error: {str(e)}')
+            return False, str(e)
+
+    @staticmethod
+    def _render_trader_kyc_approved_template(client, client_name, trader_name):
+        """Plantilla de notificación al Trader: KYC aprobado, cuenta activa"""
+        template = """<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>""" + _EMAIL_CSS + """</style>
+</head>
+<body style="margin:0;padding:0;background-color:#f5f7fa;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f5f7fa;padding:28px 16px;">
+  <tr><td align="center">
+    <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 16px rgba(13,27,42,0.08);">
+
+      <!-- BANNER -->
+      <tr>
+        <td style="padding:0;background:#0D1B2A;line-height:0;font-size:0;">
+          <img src="https://res.cloudinary.com/dbks8vqoh/image/upload/v1773788552/qoricash/banneremail.png" alt="QoriCash" width="600" style="width:100%;max-width:600px;display:block;border:0;">
+        </td>
+      </tr>
+
+      <!-- ACCENT LINE: green -->
+      <tr><td style="padding:0;height:3px;background-color:#10b981;font-size:0;line-height:0;">&nbsp;</td></tr>
+
+      <!-- BODY -->
+      <tr>
+        <td class="email-body-cell" style="padding:36px 40px;color:#334155;font-size:15px;line-height:1.65;">
+
+          <!-- Event label -->
+          <div style="margin:0 0 16px 0;">
+            <span style="display:inline-block;background:#f0fdf4;color:#10b981;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.4px;padding:4px 10px;border-radius:4px;">KYC Aprobado</span>
+          </div>
+
+          <!-- Title -->
+          <h1 style="margin:0 0 6px 0;font-size:22px;font-weight:700;color:#0D1B2A;line-height:1.3;">Cuenta de cliente activada</h1>
+          <p style="margin:0 0 24px 0;color:#64748b;font-size:14px;">Hola <strong style="color:#1e293b;">{{ trader_name }}</strong>, te informamos que el KYC de uno de tus clientes fue aprobado por el equipo de Middle Office y su cuenta ya está activa.</p>
+
+          <!-- Client info box -->
+          <p style="margin:0 0 10px 0;font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1.2px;">Datos del cliente</p>
+          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #e8ecf0;border-radius:8px;overflow:hidden;margin:0 0 24px 0;">
+            <tr style="border-bottom:1px solid #eef0f3;">
+              <td style="padding:12px 18px;font-size:13px;color:#64748b;width:40%;vertical-align:top;">Nombre</td>
+              <td style="padding:12px 18px;font-size:13px;color:#1e293b;font-weight:600;vertical-align:top;">{{ client_name }}</td>
+            </tr>
+            <tr>
+              <td style="padding:12px 18px;font-size:13px;color:#64748b;vertical-align:top;">N° Documento</td>
+              <td style="padding:12px 18px;font-size:13px;color:#1e293b;font-weight:600;vertical-align:top;">{{ client_dni }}</td>
+            </tr>
+          </table>
+
+          <!-- Status badge -->
+          <div style="border-radius:8px;padding:13px 18px;margin:0 0 24px 0;font-size:13px;line-height:1.65;background:#f0fdf4;border-left:3px solid #10b981;color:#064e3b;">
+            <strong>Estado:</strong> Cuenta <strong>Activa</strong> — el cliente ya puede crear operaciones de compra y venta de dólares.
+          </div>
+
+          <!-- Closing -->
+          <div style="height:1px;background-color:#f1f5f9;margin:24px 0;"></div>
+          <p style="margin:0;font-size:13px;color:#94a3b8;">Este es un mensaje automático del sistema QoriCash. Para más información, ingresa a <a href="https://app.qoricash.pe" style="color:#94a3b8;">app.qoricash.pe</a>.</p>
+
+        </td>
+      </tr>
+
+      <!-- FOOTER -->
+      <tr>
+        <td class="email-footer-cell" style="background-color:#f8fafc;border-top:1px solid #e8ecf0;padding:20px 40px;text-align:center;">
+          <p style="margin:0 0 4px 0;color:#0D1B2A;font-size:13px;font-weight:700;">QoriCash</p>
+          <p style="margin:0 0 4px 0;color:#94a3b8;font-size:12px;">RUC: 20615113698 &nbsp;&middot;&nbsp; <a href="mailto:info@qoricash.pe" style="color:#94a3b8;text-decoration:none;">info@qoricash.pe</a></p>
+          <p style="margin:0;color:#cbd5e1;font-size:11px;">© 2025 QoriCash. Todos los derechos reservados.</p>
+        </td>
+      </tr>
+
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>"""
+        return render_template_string(template,
+                                     client_name=client_name,
+                                     client_dni=client.dni,
+                                     trader_name=trader_name)
