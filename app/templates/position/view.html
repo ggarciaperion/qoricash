@@ -1067,8 +1067,10 @@ function formatDateTime(dateTimeStr) {
 
 function loadReconciliation(fecha = null) {
     const url = fecha ? `/position/api/bank_reconciliation?fecha=${fecha}` : '/position/api/bank_reconciliation';
+    console.log('[Saldos] Llamando:', url);
 
     ajaxRequest(url, 'GET', null, function(response) {
+        console.log('[Saldos] Respuesta:', response);
         if (response.success) {
             reconciliationData = response;
             renderReconciliationSummary(response.movements_summary);

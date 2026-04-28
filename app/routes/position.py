@@ -380,6 +380,17 @@ def update_initial_balance():
         return jsonify({'error': str(e), 'details': traceback.format_exc()}), 500
 
 
+@position_bp.route('/api/ping')
+@login_required
+def ping():
+    """Diagnóstico: verifica que el blueprint position responde y puede consultar BankBalance."""
+    try:
+        count = BankBalance.query.count()
+        return jsonify({'success': True, 'bank_count': count, 'msg': 'OK'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @position_bp.route('/api/bank_reconciliation')
 @login_required
 @require_role('Master', 'Operador')
