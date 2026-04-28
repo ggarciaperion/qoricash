@@ -463,13 +463,81 @@ def get_bank_reconciliation():
         total_actual_usd = sum(float(bank.balance_usd or 0) for bank in all_banks)
         total_actual_pen = sum(float(bank.balance_pen or 0) for bank in all_banks)
 
-        # Calcular saldos esperados totales (inicial + movimientos UNA SOLA VEZ)
-        expected_total_usd = total_initial_usd + net_usd_movement
-        expected_total_pen = total_initial_pen + net_pen_movement
+        # ── Atribuir movimientos a cada cuenta bancaria específica ────────────
+        # QoriCash usa el mismo banco que el cliente (si el cliente tiene cuenta
+        # INTERBANK, el depósito va a la cuenta INTERBANK de QoriCash).
+        # La cuenta del cliente origen (source_account) identifica el banco usado.
+        from app.config.bank_accounts import QORICASH_ACCOUNTS
 
-        # Calcular diferencias totales (UNA SOLA VEZ, no multiplicado por número de bancos)
-        total_difference_usd = total_actual_usd - expected_total_usd
-        total_difference_pen = total_actual_pen - expected_total_pen
+        # Map: banco → { 'USD': 'INTERBANK USD (200-...)', 'PEN': 'INTERBANK PEN (200-...)' }
+        _banco_accts = {}
+        for _b, _monedas in QORICASH_ACCOUNTS.items():
+            _banco_accts[_b] = {}
+            for _m, _d in _monedas.items():
+                _banco_accts[_b][_m] = f"{_b} {_m} ({_d['numero']})"
+
+        _BANK_ALIASES = {
+            'BCP': 'BCP', 'CREDITO': 'BCP', 'CRÉDITO': 'BCP',
+            'INTERBANK': 'INTERBANK', 'IBK': 'INTERBANK',
+            'BANBIF': 'BANBIF', 'BIF': 'BANBIF',
+        }
+
+        def _normalize_banco(name):
+            u = (name or '').upper()
+            for alias, banco in _BANK_ALIASES.items():
+                if alias in u:
+                    return banco
+            return None
+
+        # acct_mvmt: { full_bank_name: { 'USD': float, 'PEN': float } }
+        acct_mvmt = {}
+
+        def _add_mvmt(full_name, usd_delta, pen_delta):
+            if not full_name:
+                return
+            if full_name not in acct_mvmt:
+                acct_mvmt[full_name] = {'USD': 0.0, 'PEN': 0.0}
+            acct_mvmt[full_name]['USD'] += usd_delta
+            acct_mvmt[full_name]['PEN'] += pen_delta
+
+        for op in completed_ops:
+            _usd = float(op.amount_usd)
+            _pen = float(op.amount_pen)
+
+            # Determinar banco del cliente buscando source_account en sus cuentas
+            _banco = None
+            try:
+                if op.source_account and op.client:
+                    for _acct in (op.client.bank_accounts or []):
+                        if _acct.get('account_number') == op.source_account:
+                            _banco = _normalize_banco(_acct.get('bank_name', ''))
+                            break
+            except Exception:
+                pass
+
+            if op.operation_type == 'Compra':
+                # Cliente transfiere USD → cuenta USD de QoriCash en ese banco
+                # QoriCash paga PEN → desde la cuenta PEN de QoriCash en ese banco
+                _add_mvmt(_banco_accts.get(_banco, {}).get('USD'), +_usd, 0.0)
+                _add_mvmt(_banco_accts.get(_banco, {}).get('PEN'), 0.0, -_pen)
+            else:  # Venta
+                # Cliente transfiere PEN → cuenta PEN de QoriCash en ese banco
+                # QoriCash paga USD → desde la cuenta USD de QoriCash en ese banco
+                _add_mvmt(_banco_accts.get(_banco, {}).get('PEN'), 0.0, +_pen)
+                _add_mvmt(_banco_accts.get(_banco, {}).get('USD'), -_usd, 0.0)
+        # ─────────────────────────────────────────────────────────────────────
+
+        # Calcular totales esperados y diferencias usando movimientos por cuenta
+        expected_total_usd = sum(
+            float(b.initial_balance_usd or 0) + acct_mvmt.get(b.bank_name, {}).get('USD', 0.0)
+            for b in all_banks
+        )
+        expected_total_pen = sum(
+            float(b.initial_balance_pen or 0) + acct_mvmt.get(b.bank_name, {}).get('PEN', 0.0)
+            for b in all_banks
+        )
+        total_difference_usd = round(total_actual_usd - expected_total_usd, 2)
+        total_difference_pen = round(total_actual_pen - expected_total_pen, 2)
 
         logger.debug(
             f'Reconciliación {fecha_consulta}: bancos={len(all_banks)}, '
@@ -481,21 +549,23 @@ def get_bank_reconciliation():
         banks_data = []
 
         for bank in all_banks:
-            # Obtener saldos individuales del banco
             initial_usd = float(bank.initial_balance_usd or 0)
             initial_pen = float(bank.initial_balance_pen or 0)
             actual_usd = float(bank.balance_usd or 0)
             actual_pen = float(bank.balance_pen or 0)
 
-            # Para cada banco, mostramos los movimientos globales como referencia
-            # pero NO los sumamos para calcular diferencias individuales
-            # ya que los movimientos afectan a todos los bancos en conjunto
-            expected_usd = initial_usd  # Sin sumar movimientos
-            expected_pen = initial_pen  # Sin sumar movimientos
+            # Movimientos atribuidos a este banco específico
+            _mvmt = acct_mvmt.get(bank.bank_name, {'USD': 0.0, 'PEN': 0.0})
+            movement_usd = _mvmt['USD']
+            movement_pen = _mvmt['PEN']
 
-            # Diferencias individuales (solo para referencia por banco)
-            diff_usd = actual_usd - initial_usd
-            diff_pen = actual_pen - initial_pen
+            # Saldo esperado = inicial + movimientos del día
+            expected_usd = initial_usd + movement_usd
+            expected_pen = initial_pen + movement_pen
+
+            # Diferencia = real - esperado
+            diff_usd = actual_usd - expected_usd
+            diff_pen = actual_pen - expected_pen
 
             # Obtener nombre del usuario que actualizó (con try-except por si hay error en la relación)
             updated_by_name = None
@@ -512,14 +582,14 @@ def get_bank_reconciliation():
                 'bank_name': bank.bank_name,
                 'usd': {
                     'initial': initial_usd,
-                    'movements': round(net_usd_movement, 2),
+                    'movements': round(movement_usd, 2),
                     'expected': round(expected_usd, 2),
                     'actual': actual_usd,
                     'difference': round(diff_usd, 2)
                 },
                 'pen': {
                     'initial': initial_pen,
-                    'movements': round(net_pen_movement, 2),
+                    'movements': round(movement_pen, 2),
                     'expected': round(expected_pen, 2),
                     'actual': actual_pen,
                     'difference': round(diff_pen, 2)
