@@ -222,7 +222,8 @@ def get_bank_balances():
         })
 
     except Exception as e:
-        logger.error(f'ERROR EN /api/bank_balances:\n{traceback.format_exc()}')
+        error_trace = traceback.format_exc()
+        logger.error(f'ERROR EN /api/bank_balances:\n{error_trace}')
         db.session.rollback()
         return jsonify({
             'success': False,
@@ -592,6 +593,7 @@ def get_bank_reconciliation():
 
         except Exception as exc:
             logger.warning(f'[C-02] No se pudo calcular saldo contable: {exc}')
+            db.session.rollback()
             has_ledger_discrepancy = False
         # ─────────────────────────────────────────────────────────────────────
 
