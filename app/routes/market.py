@@ -2,7 +2,8 @@
 Rutas del módulo Mercado — /mercado
 """
 import logging
-from flask import Blueprint, render_template, jsonify
+import os
+from flask import Blueprint, render_template, jsonify, request
 from flask_login import login_required
 from app.utils.decorators import require_role as role_required
 from app.services.market.market_service import MarketService
@@ -113,3 +114,51 @@ def api_macro_update():
     ind.updated_at = datetime.utcnow()
     db.session.commit()
     return jsonify({'success': True, 'indicator': ind.to_dict()})
+
+
+@market_bp.route('/api/ticker')
+def api_ticker_public():
+    """
+    Endpoint público para la cinta de mercado en qoricash.pe.
+    Protegido por API key via header X-Ticker-Key o query param key.
+    """
+    expected_key = os.environ.get('TICKER_API_KEY', '')
+    provided_key = request.headers.get('X-Ticker-Key') or request.args.get('key', '')
+    if expected_key and provided_key != expected_key:
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+
+    try:
+        data = MarketService.get_dashboard_data()
+    except Exception as e:
+        logger.error(f'[Ticker] Error: {e}')
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+    def _fmt(val):
+        if val is None:
+            return None
+        try:
+            return float(val)
+        except (TypeError, ValueError):
+            return None
+
+    ticker = [
+        {'key': 'usdpen',       'label': 'USD / PEN',   'value': _fmt(data.get('usdpen')),       'chg': _fmt(data.get('usdpen_chg_pct')),    'prefix': 'S/', 'suffix': ''},
+        {'key': 'gold',         'label': 'Oro',          'value': _fmt(data.get('gold')),          'chg': _fmt(data.get('gold_chg_pct')),      'prefix': '$',  'suffix': '/oz'},
+        {'key': 'oil',          'label': 'Petróleo WTI', 'value': _fmt(data.get('oil')),           'chg': _fmt(data.get('oil_chg_pct')),       'prefix': '$',  'suffix': '/bbl'},
+        {'key': 'sp500',        'label': 'S&P 500',      'value': _fmt(data.get('sp500')),         'chg': _fmt(data.get('sp500_chg_pct')),     'prefix': '',   'suffix': ''},
+        {'key': 'nasdaq',       'label': 'Nasdaq',       'value': _fmt(data.get('nasdaq')),        'chg': _fmt(data.get('nasdaq_chg_pct')),    'prefix': '',   'suffix': ''},
+        {'key': 'eurusd',       'label': 'EUR / USD',    'value': _fmt(data.get('eurusd')),        'chg': _fmt(data.get('eurusd_chg_pct')),    'prefix': '$',  'suffix': ''},
+        {'key': 'dxy',          'label': 'DXY',          'value': _fmt(data.get('dxy')),           'chg': _fmt(data.get('dxy_chg_pct')),       'prefix': '',   'suffix': ''},
+        {'key': 'vix',          'label': 'VIX',          'value': _fmt(data.get('vix')),           'chg': _fmt(data.get('vix_chg_pct')),       'prefix': '',   'suffix': ''},
+        {'key': 'copper',       'label': 'Cobre',        'value': _fmt(data.get('copper')),        'chg': _fmt(data.get('copper_chg_pct')),    'prefix': '$',  'suffix': '/lb'},
+        {'key': 'treasury_10y', 'label': 'Bono 10Y',     'value': _fmt(data.get('treasury_10y')), 'chg': _fmt(data.get('treasury_10y_chg')),  'prefix': '',   'suffix': '%'},
+    ]
+
+    # Agregar macro si están disponibles
+    macro = data.get('macro') or {}
+    if macro.get('bcrp_rate'):
+        ticker.append({'key': 'bcrp', 'label': 'Tasa BCRP', 'value': _fmt(macro['bcrp_rate'].get('value')), 'chg': None, 'prefix': '', 'suffix': '%'})
+    if macro.get('tc_venta_bcrp'):
+        ticker.append({'key': 'tc_bcrp', 'label': 'TC Venta BCRP', 'value': _fmt(macro['tc_venta_bcrp'].get('value')), 'chg': None, 'prefix': 'S/', 'suffix': ''})
+
+    return jsonify({'success': True, 'items': ticker})
