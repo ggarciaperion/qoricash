@@ -141,17 +141,20 @@ def api_ticker_public():
         except (TypeError, ValueError):
             return None
 
+    # Los precios viven dentro de data['snapshot'] (dict), no en el nivel raíz
+    snap = data.get('snapshot') or {}
+
     ticker = [
-        {'key': 'usdpen',       'label': 'USD / PEN',   'value': _fmt(data.get('usdpen')),       'chg': _fmt(data.get('usdpen_chg_pct')),    'prefix': 'S/', 'suffix': ''},
-        {'key': 'gold',         'label': 'Oro',          'value': _fmt(data.get('gold')),          'chg': _fmt(data.get('gold_chg_pct')),      'prefix': '$',  'suffix': '/oz'},
-        {'key': 'oil',          'label': 'Petróleo WTI', 'value': _fmt(data.get('oil')),           'chg': _fmt(data.get('oil_chg_pct')),       'prefix': '$',  'suffix': '/bbl'},
-        {'key': 'sp500',        'label': 'S&P 500',      'value': _fmt(data.get('sp500')),         'chg': _fmt(data.get('sp500_chg_pct')),     'prefix': '',   'suffix': ''},
-        {'key': 'nasdaq',       'label': 'Nasdaq',       'value': _fmt(data.get('nasdaq')),        'chg': _fmt(data.get('nasdaq_chg_pct')),    'prefix': '',   'suffix': ''},
-        {'key': 'eurusd',       'label': 'EUR / USD',    'value': _fmt(data.get('eurusd')),        'chg': _fmt(data.get('eurusd_chg_pct')),    'prefix': '$',  'suffix': ''},
-        {'key': 'dxy',          'label': 'DXY',          'value': _fmt(data.get('dxy')),           'chg': _fmt(data.get('dxy_chg_pct')),       'prefix': '',   'suffix': ''},
-        {'key': 'vix',          'label': 'VIX',          'value': _fmt(data.get('vix')),           'chg': _fmt(data.get('vix_chg_pct')),       'prefix': '',   'suffix': ''},
-        {'key': 'copper',       'label': 'Cobre',        'value': _fmt(data.get('copper')),        'chg': _fmt(data.get('copper_chg_pct')),    'prefix': '$',  'suffix': '/lb'},
-        {'key': 'treasury_10y', 'label': 'Bono 10Y',     'value': _fmt(data.get('treasury_10y')), 'chg': _fmt(data.get('treasury_10y_chg')),  'prefix': '',   'suffix': '%'},
+        {'key': 'usdpen',       'label': 'USD / PEN',   'value': _fmt(snap.get('usdpen')),       'chg': _fmt(snap.get('usdpen_chg_pct')),    'prefix': 'S/', 'suffix': ''},
+        {'key': 'gold',         'label': 'Oro',          'value': _fmt(snap.get('gold')),          'chg': _fmt(snap.get('gold_chg_pct')),      'prefix': '$',  'suffix': '/oz'},
+        {'key': 'oil',          'label': 'Petróleo WTI', 'value': _fmt(snap.get('oil')),           'chg': _fmt(snap.get('oil_chg_pct')),       'prefix': '$',  'suffix': '/bbl'},
+        {'key': 'sp500',        'label': 'S&P 500',      'value': _fmt(snap.get('sp500')),         'chg': _fmt(snap.get('sp500_chg_pct')),     'prefix': '',   'suffix': ''},
+        {'key': 'nasdaq',       'label': 'Nasdaq',       'value': _fmt(snap.get('nasdaq')),        'chg': _fmt(snap.get('nasdaq_chg_pct')),    'prefix': '',   'suffix': ''},
+        {'key': 'eurusd',       'label': 'EUR / USD',    'value': _fmt(snap.get('eurusd')),        'chg': _fmt(snap.get('eurusd_chg_pct')),    'prefix': '$',  'suffix': ''},
+        {'key': 'dxy',          'label': 'DXY',          'value': _fmt(snap.get('dxy')),           'chg': _fmt(snap.get('dxy_chg_pct')),       'prefix': '',   'suffix': ''},
+        {'key': 'vix',          'label': 'VIX',          'value': _fmt(snap.get('vix')),           'chg': _fmt(snap.get('vix_chg_pct')),       'prefix': '',   'suffix': ''},
+        {'key': 'copper',       'label': 'Cobre',        'value': _fmt(snap.get('copper')),        'chg': _fmt(snap.get('copper_chg_pct')),    'prefix': '$',  'suffix': '/lb'},
+        {'key': 'treasury_10y', 'label': 'Bono 10Y',     'value': _fmt(snap.get('treasury_10y')), 'chg': _fmt(snap.get('treasury_10y_chg')),  'prefix': '',   'suffix': '%'},
     ]
 
     # Agregar macro si están disponibles
