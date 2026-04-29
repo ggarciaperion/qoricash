@@ -1163,22 +1163,24 @@ function saveClient() {
     })
     .then(response => {
         if (response.status === 401) {
-            return response.json().then(errData => {
-                const err = new Error(errData.message || 'Sesión expirada');
-                err.status = 401;
-                throw err;
-            }).catch(() => {
-                const err = new Error('Sesión expirada. Por favor recarga la página e inicia sesión nuevamente.');
-                err.status = 401;
-                throw err;
-            });
+            return response.json().then(
+                errData => {
+                    const err = new Error(errData.message || 'Sesión expirada');
+                    err.status = 401;
+                    throw err;
+                },
+                () => {
+                    const err = new Error('Sesión expirada. Por favor recarga la página e inicia sesión nuevamente.');
+                    err.status = 401;
+                    throw err;
+                }
+            );
         }
         if (!response.ok) {
-            return response.json().then(errData => {
-                throw new Error(errData.message || `Error ${response.status}`);
-            }).catch(() => {
-                throw new Error(`Error ${response.status}: ${response.statusText}`);
-            });
+            return response.json().then(
+                errData => { throw new Error(errData.message || `Error ${response.status}`); },
+                () => { throw new Error(`Error ${response.status}: ${response.statusText}`); }
+            );
         }
         return response.json();
     })
