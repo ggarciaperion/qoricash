@@ -406,6 +406,7 @@ def export_diario():
 def gastos():
     from app.models.expense_record import ExpenseRecord
     from app.models.accounting_period import AccountingPeriod
+    from app.models.journal_entry import JournalEntry
     from sqlalchemy import extract
 
     year  = request.args.get('year',  type=int, default=date.today().year)
@@ -416,6 +417,15 @@ def gastos():
         extract('month', ExpenseRecord.expense_date) == month,
     ).order_by(ExpenseRecord.expense_date.desc()).all()
 
+    # IDs de gastos que ya tienen asiento de pago registrado
+    pagados_ids = set(
+        row[0] for row in db.session.query(JournalEntry.source_id).filter(
+            JournalEntry.entry_type == 'pago_proveedor',
+            JournalEntry.source_type == 'expense_record',
+            JournalEntry.source_id.in_([r.id for r in records]) if records else [],
+        ).all()
+    ) if records else set()
+
     periods = AccountingPeriod.query.order_by(
         AccountingPeriod.year.desc(), AccountingPeriod.month.desc()
     ).all()
@@ -423,6 +433,7 @@ def gastos():
     return render_template(
         'contabilidad/gastos.html',
         records=records,
+        pagados_ids=pagados_ids,
         periods=periods,
         selected_year=year,
         selected_month=month,
@@ -578,6 +589,197 @@ def nuevo_gasto():
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'error': str(e)}), 400
+
+
+# ── Pago de Proveedores ────────────────────────────────────────────────────────
+
+@contabilidad_bp.route('/gastos/<int:record_id>/pagar', methods=['POST'])
+@login_required
+@require_role('Master')
+def pagar_proveedor(record_id):
+    """
+    Registra el pago de una factura o planilla pendiente.
+    Asiento: DEBE 4211 (facturas) o 4111 (planilla) / HABER cuenta_banco seleccionada
+    Solo aplica a gastos con comprobante tipo Factura, o expense_type planilla.
+    """
+    from app.models.expense_record import ExpenseRecord
+    from app.models.journal_entry import JournalEntry
+    from app.services.accounting.journal_service import JournalService
+
+    data          = request.get_json() or {}
+    payment_date  = date.fromisoformat(data.get('payment_date', str(date.today())))
+    bank_account  = data.get('bank_account', '1041')   # cuenta desde donde se paga
+    bank_label    = data.get('bank_label', bank_account)
+
+    record = ExpenseRecord.query.get_or_404(record_id)
+
+    # Verificar que sea una factura o planilla (que generó un pasivo)
+    es_factura = (record.voucher_type or '').lower() in ('factura', 'factura electrónica')
+    es_planilla = (record.expense_type or '') == 'planilla'
+
+    if not es_factura and not es_planilla:
+        return jsonify({'success': False, 'error': 'Solo se pueden pagar facturas y planillas.'}), 400
+
+    # Verificar que no tenga ya un asiento de pago
+    existing = JournalEntry.query.filter_by(
+        entry_type='pago_proveedor',
+        source_type='expense_record',
+        source_id=record.id,
+    ).first()
+    if existing:
+        return jsonify({'success': False, 'error': 'Esta factura/planilla ya fue pagada.'}), 409
+
+    contra_debe = '4111' if es_planilla else '4211'
+    monto = Decimal(str(record.amount_pen))
+
+    entry = JournalService.create_entry(
+        entry_type='pago_proveedor',
+        description=(
+            f'Pago {record.voucher_type or "planilla"} '
+            f'{record.voucher_number or ""} – '
+            f'{record.supplier_name or record.description[:40]}'
+        ).strip(),
+        lines=[
+            {
+                'account_code': contra_debe,
+                'description': f'Cancelación {contra_debe} – {record.description[:40]}',
+                'debe': monto,
+                'haber': Decimal('0'),
+                'currency': 'PEN',
+            },
+            {
+                'account_code': bank_account,
+                'description': f'Pago desde {bank_label}',
+                'debe': Decimal('0'),
+                'haber': monto,
+                'currency': 'PEN',
+            },
+        ],
+        source_type='expense_record',
+        source_id=record.id,
+        entry_date=payment_date,
+        created_by=current_user.id,
+    )
+
+    if not entry:
+        return jsonify({'success': False, 'error': 'Período cerrado o error al crear asiento.'}), 409
+
+    return jsonify({
+        'success': True,
+        'message': f'Pago registrado. Asiento {entry.entry_number}',
+        'entry_number': entry.entry_number,
+    })
+
+
+# ── Ajuste por diferencia de tipo de cambio ────────────────────────────────────
+
+@contabilidad_bp.route('/ajuste-fx', methods=['POST'])
+@login_required
+@require_role('Master')
+def ajuste_fx_cierre():
+    """
+    Ajuste monetario por diferencia de tipo de cambio al cierre de período (NIC 21 / CPC 14).
+    Revalúa los saldos en USD al tipo de cambio de cierre.
+
+    Si USD apreciado : DEBE 1012 (Caja ME) / HABER 7761 (Ganancia diferencia TC)
+    Si USD depreciado: DEBE 6762 (Pérdida diferencia TC) / HABER 1012 (Caja ME)
+
+    La base de USD se toma de BankBalance.balance_usd (saldo operativo actual).
+    El valor libro PEN se toma de los saldos acumulados de cuentas USD en el diario.
+    """
+    from app.models.bank_balance import BankBalance
+    from app.models.journal_entry import JournalEntry
+    from app.services.accounting.journal_service import JournalService
+    import calendar as cal
+
+    data         = request.get_json() or {}
+    year         = int(data.get('year',  date.today().year))
+    month        = int(data.get('month', date.today().month))
+    closing_rate = Decimal(str(data.get('closing_rate', '0')))
+
+    if closing_rate <= 0:
+        return jsonify({'success': False, 'error': 'Ingresa un tipo de cambio de cierre válido.'}), 400
+
+    _, last_day = cal.monthrange(year, month)
+    corte = date(year, month, last_day)
+
+    # ── Saldo USD operativo total (BankBalance) ───────────────────────────────
+    banks = BankBalance.query.all()
+    total_usd = sum(Decimal(str(b.balance_usd)) for b in banks)
+
+    if total_usd <= 0:
+        return jsonify({'success': False, 'error': 'No hay saldos en USD registrados en BankBalance.'})
+
+    # ── Valor libro PEN de cuentas USD en el diario ───────────────────────────
+    usd_accounts = ('1012', '1044', '1047', '1050', '1052')
+    pen_libro = sum(_saldo_acumulado_hasta(c, corte, 'deudora') for c in usd_accounts)
+
+    # ── Diferencia ────────────────────────────────────────────────────────────
+    pen_revaluado = total_usd * closing_rate
+    diferencia    = pen_revaluado - pen_libro
+
+    if abs(diferencia) < Decimal('0.01'):
+        return jsonify({
+            'success': False,
+            'error': f'Diferencia ({diferencia:.2f}) menor a S/ 0.01. No requiere ajuste.',
+        })
+
+    # ── Verificar duplicado en el período ─────────────────────────────────────
+    period = JournalService.get_or_create_period(date(year, month, 1))
+    if period.status == 'cerrado':
+        return jsonify({'success': False, 'error': f'El período {period.label} está cerrado.'}), 409
+
+    existing = JournalEntry.query.filter_by(
+        entry_type='ajuste_fx',
+        period_id=period.id,
+    ).first()
+    if existing:
+        return jsonify({
+            'success': False,
+            'error': f'Ya existe un ajuste FX para {period.label} (asiento {existing.entry_number}).',
+        }), 409
+
+    # ── Construir líneas del asiento ──────────────────────────────────────────
+    descripcion = (
+        f'Ajuste diferencia de cambio – cierre {period.label} '
+        f'(USD {total_usd:.2f} × TC {closing_rate} = S/ {pen_revaluado:.2f}; libro S/ {pen_libro:.2f})'
+    )
+
+    if diferencia > 0:
+        lines = [
+            {'account_code': '1012', 'description': 'Revaluación Caja ME', 'debe': diferencia, 'haber': Decimal('0'), 'currency': 'USD', 'amount_usd': total_usd, 'exchange_rate': closing_rate},
+            {'account_code': '7761', 'description': 'Ganancia diferencia TC – ajuste', 'debe': Decimal('0'), 'haber': diferencia, 'currency': 'PEN'},
+        ]
+    else:
+        monto = abs(diferencia)
+        lines = [
+            {'account_code': '6762', 'description': 'Pérdida diferencia TC – ajuste', 'debe': monto, 'haber': Decimal('0'), 'currency': 'PEN'},
+            {'account_code': '1012', 'description': 'Revaluación Caja ME', 'debe': Decimal('0'), 'haber': monto, 'currency': 'USD', 'amount_usd': total_usd, 'exchange_rate': closing_rate},
+        ]
+
+    entry = JournalService.create_entry(
+        entry_type='ajuste_fx',
+        description=descripcion,
+        lines=lines,
+        source_type='ajuste_fx',
+        source_id=period.id,
+        entry_date=corte,
+        created_by=current_user.id,
+    )
+
+    if not entry:
+        return jsonify({'success': False, 'error': 'Error al crear asiento.'}), 500
+
+    signo = 'Ganancia' if diferencia > 0 else 'Pérdida'
+    return jsonify({
+        'success': True,
+        'message': f'Ajuste FX registrado. {signo} S/ {abs(diferencia):.2f}. Asiento {entry.entry_number}',
+        'diferencia': float(diferencia),
+        'total_usd': float(total_usd),
+        'pen_libro': float(pen_libro),
+        'pen_revaluado': float(pen_revaluado),
+        'entry_number': entry.entry_number,
+    })
 
 
 # ── Asiento de Apertura ────────────────────────────────────────────────────────

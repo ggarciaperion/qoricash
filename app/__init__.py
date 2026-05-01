@@ -599,6 +599,7 @@ def register_cli_commands(app):
             # ── INGRESOS ────────────────────────────────────────────────────
             ('7711', 'Ganancia diferencial cambiario',    'ingreso',   'acreedora', 'PEN'),
             ('7712', 'Otros ingresos financieros',        'ingreso',   'acreedora', 'PEN'),
+            ('7761', 'Ganancia por diferencia de cambio – ajuste monetario', 'ingreso', 'acreedora', 'PEN'),
             # ── GASTOS ──────────────────────────────────────────────────────
             ('621',  'Remuneraciones al personal',        'gasto',     'deudora',   'PEN'),
             ('627',  'Seguridad social – EsSalud/AFP',    'gasto',     'deudora',   'PEN'),

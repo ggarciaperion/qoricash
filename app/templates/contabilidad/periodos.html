@@ -57,6 +57,10 @@
                         onclick="generarAsientos({{ p.year }}, {{ p.month }}, '{{ p.label }}')">
                   <i class="bi bi-lightning-charge me-1"></i>Generar asientos
                 </button>
+                <button class="btn btn-sm btn-outline-warning"
+                        onclick="ajusteFX({{ p.year }}, {{ p.month }}, '{{ p.label }}')">
+                  <i class="bi bi-currency-exchange me-1"></i>Ajuste FX
+                </button>
               </td>
             </tr>
             {% else %}
@@ -83,6 +87,13 @@
     <strong>Generar asientos retroactivos:</strong>
     Usa este botón si el módulo contable fue activado después de que las operaciones ya estaban completadas.
     Solo genera asientos para operaciones que aún no tienen registro en el Libro Diario.
+  </div>
+
+  <div class="alert alert-secondary mt-2">
+    <i class="bi bi-currency-exchange me-2"></i>
+    <strong>Ajuste FX (diferencia de tipo de cambio):</strong>
+    Revalúa los saldos en USD al tipo de cambio de cierre del período. Genera asiento en 7761 (ganancia) o 6762 (pérdida).
+    Ejecutar una vez al cierre de cada mes. Requiere ingresar el TC SBS del último día del período.
   </div>
 
 </div>
@@ -118,6 +129,52 @@ function generarAsientos(year, month, label) {
         .then(r => { if (r.isConfirmed) location.href = `/contabilidad/diario?year=${year}&month=${month}`; });
     })
     .catch(() => Swal.fire({icon:'error', title:'Error de red', text:'No se pudo conectar con el servidor.'}));
+  });
+}
+
+function ajusteFX(year, month, label) {
+  Swal.fire({
+    title: `Ajuste FX — ${label}`,
+    html: `Ingresa el <b>tipo de cambio de cierre SBS</b> del último día de ${label}.<br>
+           <small class="text-muted">Consulta en: sbs.gob.pe → Tipo de cambio contable</small><br><br>
+           <label class="form-label small">TC Cierre (PEN/USD)</label>
+           <input type="number" id="tcCierre" class="swal2-input" step="0.0001" placeholder="3.7500" style="width:200px">`,
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonText: 'Aplicar ajuste',
+    cancelButtonText: 'Cancelar',
+    confirmButtonColor: '#fd7e14',
+    preConfirm: () => {
+      const val = parseFloat(document.getElementById('tcCierre').value);
+      if (!val || val <= 0) { Swal.showValidationMessage('Ingresa un TC válido mayor a cero'); return false; }
+      return val;
+    },
+  }).then(result => {
+    if (!result.isConfirmed) return;
+    Swal.fire({title: 'Calculando ajuste...', allowOutsideClick: false, didOpen: () => Swal.showLoading()});
+    fetch('/contabilidad/ajuste-fx', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({year, month, closing_rate: result.value}),
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) {
+        const signo = data.diferencia >= 0 ? '📈 Ganancia' : '📉 Pérdida';
+        Swal.fire({
+          icon: 'success',
+          title: 'Ajuste FX registrado',
+          html: `<b>${signo}:</b> S/ ${Math.abs(data.diferencia).toFixed(2)}<br>
+                 USD ${data.total_usd.toFixed(2)} × TC ${result.value} = S/ ${data.pen_revaluado.toFixed(2)}<br>
+                 Valor libro: S/ ${data.pen_libro.toFixed(2)}<br>
+                 Asiento: <code>${data.entry_number}</code>`,
+          confirmButtonText: 'Ver Libro Diario',
+        }).then(r => { if (r.isConfirmed) location.href = `/contabilidad/diario?year=${year}&month=${month}`; });
+      } else {
+        Swal.fire({icon: 'warning', title: 'Sin ajuste', text: data.error});
+      }
+    })
+    .catch(() => Swal.fire({icon:'error', title:'Error de red'}));
   });
 }
 

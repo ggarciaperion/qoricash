@@ -65,10 +65,13 @@
               <th>Comprobante</th>
               <th class="text-end">Monto (S/)</th>
               <th>Asiento</th>
+              <th>Pago</th>
             </tr>
           </thead>
           <tbody>
             {% for r in records %}
+            {% set es_pagable = (r.voucher_type and r.voucher_type|lower == 'factura') or r.expense_type == 'planilla' %}
+            {% set ya_pagado = r.id in pagados_ids %}
             <tr>
               <td>{{ r.expense_date.strftime('%d/%m/%Y') }}</td>
               <td><code>{{ r.category }}</code></td>
@@ -96,10 +99,22 @@
                   <span class="badge bg-warning text-dark">pendiente</span>
                 {% endif %}
               </td>
+              <td>
+                {% if not es_pagable %}
+                  <span class="text-muted small">—</span>
+                {% elif ya_pagado %}
+                  <span class="badge bg-success"><i class="bi bi-check2-circle me-1"></i>Pagado</span>
+                {% else %}
+                  <button class="btn btn-sm btn-outline-primary"
+                          onclick="pagarProveedor({{ r.id }}, '{{ r.supplier_name or r.description[:30] }}', {{ r.amount_pen }})">
+                    <i class="bi bi-cash me-1"></i>Pagar
+                  </button>
+                {% endif %}
+              </td>
             </tr>
             {% else %}
             <tr>
-              <td colspan="7" class="text-center text-muted py-5">
+              <td colspan="8" class="text-center text-muted py-5">
                 No hay gastos registrados para el período seleccionado.
               </td>
             </tr>
@@ -112,6 +127,7 @@
               <td class="text-end">
                 {{ "%.2f"|format(records|sum(attribute='amount_pen')|float) }}
               </td>
+              <td></td>
               <td></td>
             </tr>
           </tfoot>
@@ -198,6 +214,47 @@
     </div>
   </div>
 </div>
+
+<!-- Modal Pago de Proveedor -->
+<div class="modal fade" id="pagoModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-cash me-2"></i>Registrar Pago</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted small mb-3" id="pagoDesc"></p>
+        <input type="hidden" id="pagoRecordId">
+        <div class="mb-3">
+          <label class="form-label">Fecha de pago <span class="text-danger">*</span></label>
+          <input type="date" id="pagoDate" class="form-control">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Cuenta de pago (banco/caja) <span class="text-danger">*</span></label>
+          <select id="pagoBankAccount" class="form-select">
+            <option value="1011">1011 — Caja Moneda Nacional</option>
+            <option value="1041" selected>1041 — BCP Cta. Cte. PEN</option>
+            <option value="1048">1048 — Interbank Cta. Cte. PEN</option>
+            <option value="1049">1049 — BanBif Cta. Cte. PEN</option>
+            <option value="1051">1051 — Pichincha Cta. Cte. PEN</option>
+          </select>
+        </div>
+        <div class="alert alert-info small">
+          <i class="bi bi-info-circle me-1"></i>
+          Asiento: <strong>DEBE 4211 / HABER cuenta seleccionada</strong> (cancela la factura por pagar).
+        </div>
+        <div id="pagoError" class="alert alert-danger d-none"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary" onclick="confirmarPago()" id="btnPagar">
+          <i class="bi bi-cash me-1"></i>Registrar pago
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -255,6 +312,49 @@ function guardarGasto() {
     btn.disabled = false;
     btn.innerHTML = '<i class="bi bi-save me-1"></i>Guardar';
   });
+}
+
+function pagarProveedor(id, desc, monto) {
+  document.getElementById('pagoRecordId').value = id;
+  document.getElementById('pagoDesc').textContent = `${desc} — S/ ${parseFloat(monto).toFixed(2)}`;
+  document.getElementById('pagoDate').value = new Date().toISOString().split('T')[0];
+  document.getElementById('pagoError').classList.add('d-none');
+  new bootstrap.Modal(document.getElementById('pagoModal')).show();
+}
+
+function confirmarPago() {
+  const btn     = document.getElementById('btnPagar');
+  const errDiv  = document.getElementById('pagoError');
+  const id      = document.getElementById('pagoRecordId').value;
+  const date    = document.getElementById('pagoDate').value;
+  const sel     = document.getElementById('pagoBankAccount');
+  const account = sel.value;
+  const label   = sel.options[sel.selectedIndex].text;
+
+  if (!date) { errDiv.textContent = 'Selecciona la fecha de pago.'; errDiv.classList.remove('d-none'); return; }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Procesando…';
+  errDiv.classList.add('d-none');
+
+  fetch(`/contabilidad/gastos/${id}/pagar`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({payment_date: date, bank_account: account, bank_label: label}),
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.success) {
+      bootstrap.Modal.getInstance(document.getElementById('pagoModal')).hide();
+      Swal.fire({icon:'success', title:'Pago registrado', text: data.message, timer: 2200, showConfirmButton: false});
+      setTimeout(() => location.reload(), 1800);
+    } else {
+      errDiv.textContent = data.error || 'Error al registrar pago.';
+      errDiv.classList.remove('d-none');
+    }
+  })
+  .catch(() => { errDiv.textContent = 'Error de conexión.'; errDiv.classList.remove('d-none'); })
+  .finally(() => { btn.disabled = false; btn.innerHTML = '<i class="bi bi-cash me-1"></i>Registrar pago'; });
 }
 </script>
 {% endblock %}
