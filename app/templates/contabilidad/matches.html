@@ -659,8 +659,8 @@ function cargarLotes() {
           <td><code>${b.batch_code || b.id}</code></td>
           <td>${b.description || '—'}</td>
           <td>${b.netting_date || '—'}</td>
-          <td class="text-end">${b.total_matches ?? '—'}</td>
-          <td class="text-end">${fmt2(b.total_usd)}</td>
+          <td class="text-end">${b.num_matches ?? '—'}</td>
+          <td class="text-end">${fmt2((b.total_buys_usd||0)+(b.total_sells_usd||0))}</td>
           <td class="text-end fw-semibold text-success">${fmtPen(b.total_profit_pen)}</td>
           <td>${b.status === 'Cerrado'
             ? '<span class="badge bg-secondary">Cerrado</span>'
@@ -792,7 +792,7 @@ function verDetalleLote(id) {
           <div class="col-6 col-md-3"><div class="text-muted small">Estado</div>
             <div>${b.status === 'Cerrado' ? '<span class="badge bg-secondary">Cerrado</span>' : '<span class="badge bg-success">Abierto</span>'}</div></div>
           <div class="col-6 col-md-3"><div class="text-muted small">Fecha neteo</div><div class="fw-semibold">${b.netting_date || '—'}</div></div>
-          <div class="col-6 col-md-3"><div class="text-muted small">USD total</div><div class="fw-semibold">${fmt2(b.total_usd)}</div></div>
+          <div class="col-6 col-md-3"><div class="text-muted small">USD total</div><div class="fw-semibold">${fmt2((b.total_buys_usd||0)+(b.total_sells_usd||0))}</div></div>
           <div class="col-6 col-md-3"><div class="text-muted small">Utilidad total</div><div class="fw-semibold text-success">${fmtPen(b.total_profit_pen)}</div></div>
         </div>
         <div class="table-responsive">

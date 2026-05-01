@@ -3436,7 +3436,7 @@ def amarres_export():
 
     row2 = 7; bt_usd = bt_util = 0
     for b in batches:
-        usd_b  = float(b.total_usd        or 0)
+        usd_b  = float(b.total_buys_usd or 0) + float(b.total_sells_usd or 0)
         util_b = float(b.total_profit_pen or 0)
         bt_usd += usd_b; bt_util += util_b
         fill = EVEN if row2 % 2 == 0 else None
@@ -3449,7 +3449,7 @@ def amarres_export():
         wb2(1, b.batch_code or str(b.id))
         wb2(2, b.description or '')
         wb2(3, b.netting_date.strftime('%d/%m/%Y') if b.netting_date else '')
-        wb2(4, b.total_matches or 0)
+        wb2(4, b.num_matches or 0)
         wb2(5, usd_b,  True); wb2(6, util_b, True)
         ec = wb2(7, b.status)
         ec.font = Font(bold=True, color='1D7A3A' if b.status == 'Abierto' else '888888')
