@@ -3119,7 +3119,13 @@ def amarres():
 def amarres_operaciones_disponibles():
     """API: operaciones completadas con monto disponible para amarrar."""
     from app.services.accounting_service import AccountingService
+    from sqlalchemy import inspect as sa_inspect
     try:
+        # Verificar que las tablas de amarres existen; si no, crearlas ahora
+        inspector = sa_inspect(db.engine)
+        if 'accounting_matches' not in inspector.get_table_names():
+            db.create_all()
+
         ops = AccountingService.get_available_operations(
             fecha_inicio=request.args.get('fecha_inicio'),
             fecha_fin=request.args.get('fecha_fin'),
@@ -3127,8 +3133,15 @@ def amarres_operaciones_disponibles():
         )
         results = []
         for op in ops:
-            available = float(AccountingService.get_available_amount_for_operation(op.id))
+            try:
+                available = float(AccountingService.get_available_amount_for_operation(op.id))
+            except Exception:
+                available = float(op.amount_usd)
             if available > 0:
+                try:
+                    matched = float(AccountingService.get_matched_amount_for_operation(op.id))
+                except Exception:
+                    matched = 0.0
                 results.append({
                     'id': op.id,
                     'operation_id': op.operation_id,
@@ -3141,7 +3154,7 @@ def amarres_operaciones_disponibles():
                     'trader_name': op.user.full_name if op.user else None,
                     'completed_at': op.completed_at.isoformat() if op.completed_at else None,
                     'available_usd': available,
-                    'matched_usd': float(AccountingService.get_matched_amount_for_operation(op.id)),
+                    'matched_usd': matched,
                 })
         return jsonify({'success': True, 'operations': results})
     except Exception as e:

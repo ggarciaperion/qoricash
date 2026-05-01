@@ -515,12 +515,19 @@ function abrirModalAmarre() {
   fetch('/contabilidad/amarres/api/operaciones-disponibles')
     .then(r => r.json())
     .then(data => {
+      if (!data.success) {
+        const msg = `<div class="text-center text-danger py-3 small">Error: ${data.error || 'No se pudo cargar'}</div>`;
+        document.getElementById('listBuy').innerHTML  = msg;
+        document.getElementById('listSell').innerHTML = msg;
+        return;
+      }
       _opsDisponibles = data.operations || [];
       _renderLists();
     })
-    .catch(() => {
-      document.getElementById('listBuy').innerHTML  = '<div class="text-center text-danger py-3 small">Error al cargar</div>';
-      document.getElementById('listSell').innerHTML = '<div class="text-center text-danger py-3 small">Error al cargar</div>';
+    .catch(err => {
+      const msg = '<div class="text-center text-danger py-3 small">Error de conexión al cargar operaciones</div>';
+      document.getElementById('listBuy').innerHTML  = msg;
+      document.getElementById('listSell').innerHTML = msg;
     });
 
   new bootstrap.Modal(document.getElementById('modalAmarre')).show();
