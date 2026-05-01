@@ -1,0 +1,675 @@
+{% extends "base.html" %}
+{% block title %}Amarres — QoriCash{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+
+  <div class="d-flex align-items-center gap-3 mb-4">
+    <a href="{{ url_for('contabilidad.dashboard') }}" class="btn btn-sm btn-outline-secondary">
+      <i class="bi bi-arrow-left"></i>
+    </a>
+    <div>
+      <h2 class="mb-0"><i class="bi bi-arrow-left-right me-2"></i>Amarres y Neteo</h2>
+      <small class="text-muted">Cruce de operaciones de compra/venta · Lotes de neteo</small>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <ul class="nav nav-tabs mb-4" id="amarresTabs">
+    <li class="nav-item">
+      <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tabAmarres">
+        <i class="bi bi-arrow-left-right me-1"></i>Amarres
+      </button>
+    </li>
+    <li class="nav-item">
+      <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabLotes">
+        <i class="bi bi-layers me-1"></i>Lotes de Neteo
+      </button>
+    </li>
+  </ul>
+
+  <div class="tab-content">
+
+    <!-- ── TAB AMARRES ──────────────────────────────────────────────── -->
+    <div class="tab-pane fade show active" id="tabAmarres">
+
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <div class="d-flex gap-2">
+          <input type="date" id="fInicio" class="form-control form-control-sm" style="width:140px;">
+          <input type="date" id="fFin"    class="form-control form-control-sm" style="width:140px;">
+          <select id="fStatus" class="form-select form-select-sm" style="width:120px;">
+            <option value="Activo">Activos</option>
+            <option value="Anulado">Anulados</option>
+            <option value="">Todos</option>
+          </select>
+          <button class="btn btn-sm btn-outline-secondary" onclick="cargarAmarres()">
+            <i class="bi bi-search"></i>
+          </button>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="abrirModalAmarre()">
+          <i class="bi bi-plus-circle me-1"></i>Nuevo amarre
+        </button>
+      </div>
+
+      <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-hover table-sm mb-0 align-middle">
+              <thead class="table-dark">
+                <tr>
+                  <th>ID</th>
+                  <th>Tipo</th>
+                  <th>Compra</th>
+                  <th>Venta</th>
+                  <th class="text-end">USD</th>
+                  <th class="text-end">TC Compra</th>
+                  <th class="text-end">TC Venta</th>
+                  <th class="text-end">Utilidad Total</th>
+                  <th class="text-end">Trader Compra</th>
+                  <th class="text-end">Trader Venta</th>
+                  <th class="text-end">QoriCash</th>
+                  <th>Lote</th>
+                  <th>Estado</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="tbodyAmarres">
+                <tr><td colspan="14" class="text-center text-muted py-4">Cargando...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card-footer bg-white small text-muted" id="footerAmarres"></div>
+      </div>
+    </div>
+
+    <!-- ── TAB LOTES ────────────────────────────────────────────────── -->
+    <div class="tab-pane fade" id="tabLotes">
+
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <div class="d-flex gap-2">
+          <input type="date" id="lInicio" class="form-control form-control-sm" style="width:140px;">
+          <input type="date" id="lFin"    class="form-control form-control-sm" style="width:140px;">
+          <select id="lStatus" class="form-select form-select-sm" style="width:130px;">
+            <option value="">Todos</option>
+            <option value="Abierto">Abiertos</option>
+            <option value="Cerrado">Cerrados</option>
+          </select>
+          <button class="btn btn-sm btn-outline-secondary" onclick="cargarLotes()">
+            <i class="bi bi-search"></i>
+          </button>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="abrirModalLote()">
+          <i class="bi bi-plus-circle me-1"></i>Nuevo lote
+        </button>
+      </div>
+
+      <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-hover table-sm mb-0 align-middle">
+              <thead class="table-dark">
+                <tr>
+                  <th>Código</th>
+                  <th>Descripción</th>
+                  <th>Fecha neteo</th>
+                  <th class="text-end">Amarres</th>
+                  <th class="text-end">USD total</th>
+                  <th class="text-end">Utilidad total</th>
+                  <th>Estado</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="tbodyLotes">
+                <tr><td colspan="8" class="text-center text-muted py-4">Cargando...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /tab-content -->
+</div>
+
+<!-- ── Modal Nuevo Amarre ────────────────────────────────────────────── -->
+<div class="modal fade" id="modalAmarre" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-arrow-left-right me-2"></i>Nuevo Amarre</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label fw-semibold">Operación de Compra (Buy)</label>
+            <select id="selBuy" class="form-select form-select-sm">
+              <option value="">— Cargando —</option>
+            </select>
+            <div id="infoBuy" class="mt-1 text-muted small"></div>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-semibold">Operación de Venta (Sell)</label>
+            <select id="selSell" class="form-select form-select-sm">
+              <option value="">— Cargando —</option>
+            </select>
+            <div id="infoSell" class="mt-1 text-muted small"></div>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Monto a amarrar (USD)</label>
+            <input type="number" id="aMontoUSD" class="form-control form-control-sm"
+                   step="0.01" min="0.01" placeholder="0.00">
+          </div>
+          <div class="col-md-8">
+            <label class="form-label">Notas</label>
+            <input type="text" id="aNotas" class="form-control form-control-sm"
+                   placeholder="Opcional">
+          </div>
+        </div>
+        <div id="previewAmarre" class="alert alert-info mt-3 d-none small"></div>
+        <div id="errAmarre" class="alert alert-danger mt-2 d-none"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="btnCrearAmarre" onclick="crearAmarre()">
+          <i class="bi bi-check2-circle me-1"></i>Crear amarre
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal Nuevo Lote ──────────────────────────────────────────────── -->
+<div class="modal fade" id="modalLote" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-layers me-2"></i>Nuevo Lote de Neteo</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row g-3 mb-3">
+          <div class="col-md-6">
+            <label class="form-label">Descripción</label>
+            <input type="text" id="lDescripcion" class="form-control form-control-sm"
+                   placeholder="Ej: Neteo quincenal mayo 2026">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Fecha de neteo</label>
+            <input type="date" id="lFechaNeto" class="form-control form-control-sm">
+          </div>
+        </div>
+        <p class="form-label fw-semibold mb-2">Seleccionar amarres a incluir:</p>
+        <div class="table-responsive" style="max-height:300px;overflow-y:auto;">
+          <table class="table table-sm table-hover align-middle mb-0">
+            <thead class="table-light sticky-top">
+              <tr>
+                <th><input type="checkbox" id="chkTodos" onchange="toggleTodosAmarres(this)"></th>
+                <th>ID</th>
+                <th>Compra</th>
+                <th>Venta</th>
+                <th class="text-end">USD</th>
+                <th class="text-end">Utilidad</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyAmarresLote">
+              <tr><td colspan="6" class="text-center text-muted py-3">Cargando amarres libres...</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div id="errLote" class="alert alert-danger mt-2 d-none"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="btnCrearLote" onclick="crearLote()">
+          <i class="bi bi-check2-circle me-1"></i>Crear lote
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal Detalle Lote ────────────────────────────────────────────── -->
+<div class="modal fade" id="modalDetalleLote" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="detalleLoteTitulo"></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="detalleLoteBody">Cargando...</div>
+      <div class="modal-footer" id="detalleLoteFooter"></div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const TIPO_BADGE = {
+  self_match:       '<span class="badge bg-warning text-dark">Auto</span>',
+  client_to_client: '<span class="badge bg-primary">C2C</span>',
+  market_hedge:     '<span class="badge bg-info text-dark">Hedge</span>',
+};
+
+// ── Utilidades ───────────────────────────────────────────────────────────────
+
+function fmt2(v) { return v != null ? parseFloat(v).toFixed(2) : '—'; }
+function fmtPen(v) { return v != null ? 'S/ ' + parseFloat(v).toFixed(2) : '—'; }
+
+function statusBadge(s) {
+  return s === 'Activo'
+    ? '<span class="badge bg-success">Activo</span>'
+    : '<span class="badge bg-secondary">Anulado</span>';
+}
+
+// ── Amarres ──────────────────────────────────────────────────────────────────
+
+function cargarAmarres() {
+  const params = new URLSearchParams({
+    status:        document.getElementById('fStatus').value,
+    fecha_inicio:  document.getElementById('fInicio').value,
+    fecha_fin:     document.getElementById('fFin').value,
+  });
+  fetch('/contabilidad/amarres/lista?' + params)
+    .then(r => r.json())
+    .then(data => {
+      const tbody = document.getElementById('tbodyAmarres');
+      if (!data.success || !data.matches.length) {
+        tbody.innerHTML = '<tr><td colspan="14" class="text-center text-muted py-4">Sin amarres para el filtro seleccionado.</td></tr>';
+        document.getElementById('footerAmarres').textContent = '';
+        return;
+      }
+      let totalUSD = 0, totalPen = 0, totalHouse = 0;
+      tbody.innerHTML = data.matches.map(m => {
+        totalUSD  += m.matched_amount_usd;
+        totalPen  += m.profit_pen || 0;
+        totalHouse += m.house_profit_pen || 0;
+        const tipo = TIPO_BADGE[m.match_type] || TIPO_BADGE.client_to_client;
+        const anularBtn = m.status === 'Activo'
+          ? `<button class="btn btn-xs btn-outline-danger" onclick="anularAmarre(${m.id})"
+               title="Anular"><i class="bi bi-x-circle"></i></button>`
+          : '';
+        return `<tr>
+          <td class="text-muted small">#${m.id}</td>
+          <td>${tipo}</td>
+          <td>
+            <code class="text-primary">${m.buy_operation_code || m.buy_operation_id}</code><br>
+            <small class="text-muted">${m.buy_client_name || ''}</small>
+          </td>
+          <td>
+            <code class="text-danger">${m.sell_operation_code || m.sell_operation_id}</code><br>
+            <small class="text-muted">${m.sell_client_name || ''}</small>
+          </td>
+          <td class="text-end fw-semibold">${fmt2(m.matched_amount_usd)}</td>
+          <td class="text-end">${fmt2(m.buy_exchange_rate)}</td>
+          <td class="text-end">${fmt2(m.sell_exchange_rate)}</td>
+          <td class="text-end fw-semibold text-success">${fmtPen(m.profit_pen)}</td>
+          <td class="text-end">${fmtPen(m.trader_buy_profit_pen)}</td>
+          <td class="text-end">${fmtPen(m.trader_sell_profit_pen)}</td>
+          <td class="text-end">${fmtPen(m.house_profit_pen)}</td>
+          <td class="text-muted small">${m.batch_id ? '#' + m.batch_id : '—'}</td>
+          <td>${statusBadge(m.status)}</td>
+          <td>${anularBtn}</td>
+        </tr>`;
+      }).join('');
+      document.getElementById('footerAmarres').innerHTML =
+        `<b>${data.matches.length}</b> amarre(s) · USD <b>${fmt2(totalUSD)}</b> · Utilidad <b>S/ ${fmt2(totalPen)}</b> · QoriCash <b>S/ ${fmt2(totalHouse)}</b>`;
+    })
+    .catch(() => {
+      document.getElementById('tbodyAmarres').innerHTML =
+        '<tr><td colspan="14" class="text-center text-danger py-4">Error al cargar amarres.</td></tr>';
+    });
+}
+
+function anularAmarre(id) {
+  Swal.fire({
+    title: 'Anular amarre #' + id,
+    text: '¿Confirmas la anulación? Se revertirán las utilidades del trader.',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'Anular',
+    cancelButtonText: 'Cancelar',
+    confirmButtonColor: '#dc3545',
+  }).then(r => {
+    if (!r.isConfirmed) return;
+    fetch(`/contabilidad/amarres/${id}/anular`, {method: 'DELETE'})
+      .then(r => r.json())
+      .then(data => {
+        if (data.success) {
+          Swal.fire({icon:'success', title:'Amarre anulado', timer:1800, showConfirmButton:false});
+          setTimeout(cargarAmarres, 1200);
+        } else {
+          Swal.fire({icon:'error', title:'Error', text: data.error});
+        }
+      });
+  });
+}
+
+// ── Modal Nuevo Amarre ───────────────────────────────────────────────────────
+
+let _opsDisponibles = [];
+
+function abrirModalAmarre() {
+  document.getElementById('errAmarre').classList.add('d-none');
+  document.getElementById('previewAmarre').classList.add('d-none');
+  document.getElementById('aMontoUSD').value = '';
+  document.getElementById('aNotas').value = '';
+
+  fetch('/contabilidad/amarres/api/operaciones-disponibles')
+    .then(r => r.json())
+    .then(data => {
+      _opsDisponibles = data.operations || [];
+      const compras = _opsDisponibles.filter(o => o.operation_type === 'Compra');
+      const ventas  = _opsDisponibles.filter(o => o.operation_type === 'Venta');
+
+      const opHtml = ops => ['<option value="">— Seleccionar —</option>',
+        ...ops.map(o => `<option value="${o.id}"
+          data-available="${o.available_usd}"
+          data-tc="${o.exchange_rate}"
+          data-base="${o.base_rate || ''}"
+          data-trader="${o.trader_name || ''}"
+          data-client="${o.client_name}">
+          ${o.operation_id} · ${o.client_name} · USD ${fmt2(o.available_usd)} · TC ${fmt2(o.exchange_rate)}
+        </option>`)
+      ].join('');
+
+      document.getElementById('selBuy').innerHTML  = opHtml(compras);
+      document.getElementById('selSell').innerHTML = opHtml(ventas);
+      document.getElementById('infoBuy').textContent  = '';
+      document.getElementById('infoSell').textContent = '';
+    });
+
+  new bootstrap.Modal(document.getElementById('modalAmarre')).show();
+}
+
+['selBuy','selSell'].forEach(id => {
+  document.addEventListener('DOMContentLoaded', () => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('change', actualizarPreviewAmarre);
+  });
+});
+
+document.addEventListener('change', e => {
+  if (e.target.id === 'selBuy' || e.target.id === 'selSell' || e.target.id === 'aMontoUSD') {
+    actualizarPreviewAmarre();
+  }
+});
+
+function actualizarPreviewAmarre() {
+  const selBuy  = document.getElementById('selBuy');
+  const selSell = document.getElementById('selSell');
+  const monto   = parseFloat(document.getElementById('aMontoUSD').value) || 0;
+  const prev    = document.getElementById('previewAmarre');
+
+  if (!selBuy.value || !selSell.value || monto <= 0) { prev.classList.add('d-none'); return; }
+
+  const buyOpt  = selBuy.options[selBuy.selectedIndex];
+  const sellOpt = selSell.options[selSell.selectedIndex];
+  const tcBuy   = parseFloat(buyOpt.dataset.tc);
+  const tcSell  = parseFloat(sellOpt.dataset.tc);
+  const baseBuy = parseFloat(buyOpt.dataset.base) || tcBuy;
+  const baseSell= parseFloat(sellOpt.dataset.base) || tcSell;
+  const isSelf  = selBuy.value === selSell.value ||
+                  (buyOpt.dataset.trader && buyOpt.dataset.trader === sellOpt.dataset.trader && buyOpt.dataset.trader !== '');
+
+  const profitTotal = (tcSell - tcBuy) * monto;
+  let html;
+  if (isSelf) {
+    html = `<b>Auto-match (self_match):</b> toda la utilidad va al trader.<br>
+            Utilidad estimada: <b>S/ ${fmt2(profitTotal)}</b>`;
+  } else {
+    const tBuy  = (baseBuy  - tcBuy)   * monto;
+    const tSell = (tcSell   - baseSell) * monto;
+    const house = (baseSell - baseBuy)  * monto;
+    html = `TC Compra: ${fmt2(tcBuy)} · TC Venta: ${fmt2(tcSell)}<br>
+            Utilidad total: <b>S/ ${fmt2(profitTotal)}</b> &nbsp;|&nbsp;
+            Trader compra: S/ ${fmt2(tBuy)} &nbsp;|&nbsp;
+            Trader venta: S/ ${fmt2(tSell)} &nbsp;|&nbsp;
+            QoriCash: S/ ${fmt2(house)}`;
+  }
+  prev.innerHTML = html;
+  prev.classList.remove('d-none');
+}
+
+function crearAmarre() {
+  const btn = document.getElementById('btnCrearAmarre');
+  const err = document.getElementById('errAmarre');
+  err.classList.add('d-none');
+
+  const payload = {
+    buy_operation_id:   parseInt(document.getElementById('selBuy').value),
+    sell_operation_id:  parseInt(document.getElementById('selSell').value),
+    matched_amount_usd: parseFloat(document.getElementById('aMontoUSD').value),
+    notes:              document.getElementById('aNotas').value.trim(),
+  };
+
+  if (!payload.buy_operation_id || !payload.sell_operation_id) {
+    err.textContent = 'Selecciona ambas operaciones.'; err.classList.remove('d-none'); return;
+  }
+  if (!payload.matched_amount_usd || payload.matched_amount_usd <= 0) {
+    err.textContent = 'Ingresa un monto mayor a cero.'; err.classList.remove('d-none'); return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Creando...';
+
+  fetch('/contabilidad/amarres/crear', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload),
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.success) {
+      bootstrap.Modal.getInstance(document.getElementById('modalAmarre')).hide();
+      Swal.fire({icon:'success', title:'Amarre creado', text: data.message, timer:2000, showConfirmButton:false});
+      setTimeout(cargarAmarres, 1500);
+    } else {
+      err.textContent = data.error || 'Error desconocido';
+      err.classList.remove('d-none');
+    }
+  })
+  .catch(() => { err.textContent = 'Error de conexión.'; err.classList.remove('d-none'); })
+  .finally(() => { btn.disabled = false; btn.innerHTML = '<i class="bi bi-check2-circle me-1"></i>Crear amarre'; });
+}
+
+// ── Lotes ────────────────────────────────────────────────────────────────────
+
+function cargarLotes() {
+  const params = new URLSearchParams({
+    status:        document.getElementById('lStatus').value,
+    fecha_inicio:  document.getElementById('lInicio').value,
+    fecha_fin:     document.getElementById('lFin').value,
+  });
+  fetch('/contabilidad/lotes/lista?' + params)
+    .then(r => r.json())
+    .then(data => {
+      const tbody = document.getElementById('tbodyLotes');
+      if (!data.success || !data.batches.length) {
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">Sin lotes.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = data.batches.map(b => {
+        const cerrarBtn = b.status === 'Abierto'
+          ? `<button class="btn btn-xs btn-outline-warning me-1" onclick="cerrarLote(${b.id})" title="Cerrar">
+               <i class="bi bi-lock"></i></button>`
+          : '';
+        return `<tr>
+          <td><code>${b.batch_code || b.id}</code></td>
+          <td>${b.description || '—'}</td>
+          <td>${b.netting_date || '—'}</td>
+          <td class="text-end">${b.total_matches ?? '—'}</td>
+          <td class="text-end">${fmt2(b.total_usd)}</td>
+          <td class="text-end fw-semibold text-success">${fmtPen(b.total_profit_pen)}</td>
+          <td>${b.status === 'Cerrado'
+            ? '<span class="badge bg-secondary">Cerrado</span>'
+            : '<span class="badge bg-success">Abierto</span>'}</td>
+          <td>
+            ${cerrarBtn}
+            <button class="btn btn-xs btn-outline-primary" onclick="verDetalleLote(${b.id})" title="Detalle">
+              <i class="bi bi-eye"></i></button>
+          </td>
+        </tr>`;
+      }).join('');
+    });
+}
+
+function abrirModalLote() {
+  document.getElementById('lDescripcion').value = '';
+  document.getElementById('lFechaNeto').value = new Date().toISOString().split('T')[0];
+  document.getElementById('errLote').classList.add('d-none');
+
+  // Cargar amarres sin lote
+  fetch('/contabilidad/amarres/lista?status=Activo')
+    .then(r => r.json())
+    .then(data => {
+      const libres = (data.matches || []).filter(m => !m.batch_id);
+      const tbody  = document.getElementById('tbodyAmarresLote');
+      if (!libres.length) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">No hay amarres activos sin lote.</td></tr>';
+      } else {
+        tbody.innerHTML = libres.map(m => `<tr>
+          <td><input type="checkbox" class="chk-amarre" value="${m.id}"></td>
+          <td class="text-muted small">#${m.id}</td>
+          <td><code class="text-primary">${m.buy_operation_code || m.buy_operation_id}</code></td>
+          <td><code class="text-danger">${m.sell_operation_code || m.sell_operation_id}</code></td>
+          <td class="text-end">${fmt2(m.matched_amount_usd)}</td>
+          <td class="text-end text-success fw-semibold">${fmtPen(m.profit_pen)}</td>
+        </tr>`).join('');
+      }
+    });
+
+  new bootstrap.Modal(document.getElementById('modalLote')).show();
+}
+
+function toggleTodosAmarres(chk) {
+  document.querySelectorAll('.chk-amarre').forEach(c => c.checked = chk.checked);
+}
+
+function crearLote() {
+  const btn  = document.getElementById('btnCrearLote');
+  const err  = document.getElementById('errLote');
+  const ids  = [...document.querySelectorAll('.chk-amarre:checked')].map(c => parseInt(c.value));
+  err.classList.add('d-none');
+
+  if (!ids.length) {
+    err.textContent = 'Selecciona al menos un amarre.'; err.classList.remove('d-none'); return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Creando...';
+
+  fetch('/contabilidad/lotes/crear', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      match_ids:    ids,
+      description:  document.getElementById('lDescripcion').value.trim(),
+      netting_date: document.getElementById('lFechaNeto').value,
+    }),
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.success) {
+      bootstrap.Modal.getInstance(document.getElementById('modalLote')).hide();
+      Swal.fire({icon:'success', title:'Lote creado', text: data.message, timer:2000, showConfirmButton:false});
+      setTimeout(cargarLotes, 1500);
+    } else {
+      err.textContent = data.error || 'Error'; err.classList.remove('d-none');
+    }
+  })
+  .catch(() => { err.textContent = 'Error de conexión.'; err.classList.remove('d-none'); })
+  .finally(() => { btn.disabled = false; btn.innerHTML = '<i class="bi bi-check2-circle me-1"></i>Crear lote'; });
+}
+
+function cerrarLote(id) {
+  Swal.fire({
+    title: 'Cerrar lote #' + id,
+    text: 'Un lote cerrado no acepta más amarres. ¿Confirmas?',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'Cerrar lote',
+    cancelButtonText: 'Cancelar',
+    confirmButtonColor: '#fd7e14',
+  }).then(r => {
+    if (!r.isConfirmed) return;
+    fetch(`/contabilidad/lotes/${id}/cerrar`, {method: 'POST'})
+      .then(r => r.json())
+      .then(data => {
+        if (data.success) {
+          Swal.fire({icon:'success', title:'Lote cerrado', timer:1800, showConfirmButton:false});
+          setTimeout(cargarLotes, 1200);
+        } else {
+          Swal.fire({icon:'error', title:'Error', text: data.error});
+        }
+      });
+  });
+}
+
+function verDetalleLote(id) {
+  fetch(`/contabilidad/lotes/${id}`)
+    .then(r => r.json())
+    .then(data => {
+      if (!data.success) return;
+      const b = data.batch;
+      document.getElementById('detalleLoteTitulo').textContent = `Lote ${b.batch_code || b.id} — ${b.description || ''}`;
+
+      const rows = (b.matches || []).map(m => `<tr>
+        <td>#${m.id}</td>
+        <td>${TIPO_BADGE[m.match_type] || ''}</td>
+        <td><code>${m.buy_operation_code || m.buy_operation_id}</code><br><small>${m.buy_client_name || ''}</small></td>
+        <td><code>${m.sell_operation_code || m.sell_operation_id}</code><br><small>${m.sell_client_name || ''}</small></td>
+        <td class="text-end">${fmt2(m.matched_amount_usd)}</td>
+        <td class="text-end">${fmt2(m.buy_exchange_rate)}</td>
+        <td class="text-end">${fmt2(m.sell_exchange_rate)}</td>
+        <td class="text-end fw-semibold text-success">${fmtPen(m.profit_pen)}</td>
+        <td class="text-end">${fmtPen(m.house_profit_pen)}</td>
+      </tr>`).join('') || '<tr><td colspan="9" class="text-muted text-center">Sin amarres</td></tr>';
+
+      document.getElementById('detalleLoteBody').innerHTML = `
+        <div class="row g-3 mb-3">
+          <div class="col-6 col-md-3"><div class="text-muted small">Estado</div>
+            <div>${b.status === 'Cerrado' ? '<span class="badge bg-secondary">Cerrado</span>' : '<span class="badge bg-success">Abierto</span>'}</div></div>
+          <div class="col-6 col-md-3"><div class="text-muted small">Fecha neteo</div><div class="fw-semibold">${b.netting_date || '—'}</div></div>
+          <div class="col-6 col-md-3"><div class="text-muted small">USD total</div><div class="fw-semibold">${fmt2(b.total_usd)}</div></div>
+          <div class="col-6 col-md-3"><div class="text-muted small">Utilidad total</div><div class="fw-semibold text-success">${fmtPen(b.total_profit_pen)}</div></div>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle mb-0">
+            <thead class="table-dark">
+              <tr><th>ID</th><th>Tipo</th><th>Compra</th><th>Venta</th>
+                  <th class="text-end">USD</th><th class="text-end">TC Compra</th>
+                  <th class="text-end">TC Venta</th><th class="text-end">Utilidad</th>
+                  <th class="text-end">QoriCash</th></tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>`;
+
+      const footer = document.getElementById('detalleLoteFooter');
+      footer.innerHTML = b.status === 'Abierto'
+        ? `<button class="btn btn-warning" onclick="cerrarLote(${b.id})"><i class="bi bi-lock me-1"></i>Cerrar lote</button>`
+        : '';
+
+      new bootstrap.Modal(document.getElementById('modalDetalleLote')).show();
+    });
+}
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  cargarAmarres();
+  document.querySelector('[data-bs-target="#tabLotes"]').addEventListener('shown.bs.tab', () => {
+    if (document.getElementById('tbodyLotes').querySelector('td')?.textContent === 'Cargando...') {
+      cargarLotes();
+    }
+  });
+});
+</script>
+
+<style>
+.btn-xs { padding: .15rem .35rem; font-size: .75rem; }
+</style>
+{% endblock %}

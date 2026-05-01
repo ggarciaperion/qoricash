@@ -3101,3 +3101,184 @@ def exportar_excel():
         download_name=filename,
         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     )
+
+
+# ── Amarres y Lotes de Neteo ───────────────────────────────────────────────────
+
+@contabilidad_bp.route('/amarres')
+@login_required
+@require_role('Master')
+def amarres():
+    """Página de gestión de amarres y lotes de neteo."""
+    return render_template('contabilidad/matches.html', user=current_user)
+
+
+@contabilidad_bp.route('/amarres/api/operaciones-disponibles')
+@login_required
+@require_role('Master')
+def amarres_operaciones_disponibles():
+    """API: operaciones completadas con monto disponible para amarrar."""
+    from app.services.accounting_service import AccountingService
+    try:
+        ops = AccountingService.get_available_operations(
+            fecha_inicio=request.args.get('fecha_inicio'),
+            fecha_fin=request.args.get('fecha_fin'),
+            operation_type=request.args.get('operation_type'),
+        )
+        results = []
+        for op in ops:
+            available = float(AccountingService.get_available_amount_for_operation(op.id))
+            if available > 0:
+                results.append({
+                    'id': op.id,
+                    'operation_id': op.operation_id,
+                    'operation_type': op.operation_type,
+                    'amount_usd': float(op.amount_usd),
+                    'exchange_rate': float(op.exchange_rate),
+                    'amount_pen': float(op.amount_pen),
+                    'base_rate': float(op.base_rate) if op.base_rate else None,
+                    'client_name': op.client.full_name if op.client else 'N/A',
+                    'trader_name': op.user.full_name if op.user else None,
+                    'completed_at': op.completed_at.isoformat() if op.completed_at else None,
+                    'available_usd': available,
+                    'matched_usd': float(AccountingService.get_matched_amount_for_operation(op.id)),
+                })
+        return jsonify({'success': True, 'operations': results})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@contabilidad_bp.route('/amarres/crear', methods=['POST'])
+@login_required
+@require_role('Master')
+def amarres_crear():
+    """API: crear amarre entre compra y venta."""
+    from app.services.accounting_service import AccountingService
+    try:
+        data = request.get_json() or {}
+        buy_op_id  = data.get('buy_operation_id')
+        sell_op_id = data.get('sell_operation_id')
+        amount_usd = data.get('matched_amount_usd')
+        notes      = data.get('notes', '')
+
+        if not buy_op_id or not sell_op_id:
+            return jsonify({'success': False, 'error': 'Debe seleccionar ambas operaciones'}), 400
+        if not amount_usd or float(amount_usd) <= 0:
+            return jsonify({'success': False, 'error': 'El monto debe ser mayor a cero'}), 400
+
+        success, message, match = AccountingService.create_match(
+            buy_operation_id=buy_op_id,
+            sell_operation_id=sell_op_id,
+            matched_amount_usd=amount_usd,
+            user_id=current_user.id,
+            notes=notes,
+        )
+        if success:
+            return jsonify({'success': True, 'message': message, 'match': match.to_dict()})
+        return jsonify({'success': False, 'error': message}), 400
+    except Exception as e:
+        import traceback; traceback.print_exc()
+        return jsonify({'success': False, 'error': f'Error interno: {str(e)}'}), 500
+
+
+@contabilidad_bp.route('/amarres/<int:match_id>/anular', methods=['DELETE'])
+@login_required
+@require_role('Master')
+def amarres_anular(match_id):
+    """API: anular amarre."""
+    from app.services.accounting_service import AccountingService
+    try:
+        success, message = AccountingService.delete_match(match_id, current_user.id)
+        if success:
+            return jsonify({'success': True, 'message': message})
+        return jsonify({'success': False, 'error': message}), 400
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@contabilidad_bp.route('/amarres/lista')
+@login_required
+@require_role('Master')
+def amarres_lista():
+    """API: listar amarres con filtros opcionales."""
+    from app.services.accounting_service import AccountingService
+    try:
+        matches = AccountingService.get_all_matches(
+            fecha_inicio=request.args.get('fecha_inicio'),
+            fecha_fin=request.args.get('fecha_fin'),
+            batch_id=request.args.get('batch_id'),
+            status=request.args.get('status', 'Activo'),
+        )
+        return jsonify({'success': True, 'matches': [m.to_dict() for m in matches]})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@contabilidad_bp.route('/lotes/crear', methods=['POST'])
+@login_required
+@require_role('Master')
+def lotes_crear():
+    """API: crear lote de neteo."""
+    from app.services.accounting_service import AccountingService
+    from datetime import datetime as dt
+    try:
+        data = request.get_json() or {}
+        netting_date = data.get('netting_date') or dt.now().strftime('%Y-%m-%d')
+        success, message, batch = AccountingService.create_batch(
+            match_ids=data.get('match_ids', []),
+            description=data.get('description', ''),
+            netting_date=netting_date,
+            user_id=current_user.id,
+        )
+        if success:
+            return jsonify({'success': True, 'message': message, 'batch': batch.to_dict(include_matches=True)})
+        return jsonify({'success': False, 'error': message}), 400
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@contabilidad_bp.route('/lotes/lista')
+@login_required
+@require_role('Master')
+def lotes_lista():
+    """API: listar lotes de neteo."""
+    from app.services.accounting_service import AccountingService
+    try:
+        batches = AccountingService.get_all_batches(
+            fecha_inicio=request.args.get('fecha_inicio'),
+            fecha_fin=request.args.get('fecha_fin'),
+            status=request.args.get('status'),
+        )
+        return jsonify({'success': True, 'batches': [b.to_dict() for b in batches]})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@contabilidad_bp.route('/lotes/<int:batch_id>')
+@login_required
+@require_role('Master')
+def lotes_detalle(batch_id):
+    """API: detalle de un lote."""
+    from app.models import AccountingBatch
+    try:
+        batch = AccountingBatch.query.get(batch_id)
+        if not batch:
+            return jsonify({'success': False, 'error': 'Lote no encontrado'}), 404
+        return jsonify({'success': True, 'batch': batch.to_dict(include_matches=True)})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@contabilidad_bp.route('/lotes/<int:batch_id>/cerrar', methods=['POST'])
+@login_required
+@require_role('Master')
+def lotes_cerrar(batch_id):
+    """API: cerrar lote de neteo."""
+    from app.services.accounting_service import AccountingService
+    try:
+        success, message = AccountingService.close_batch(batch_id, current_user.id)
+        if success:
+            return jsonify({'success': True, 'message': message})
+        return jsonify({'success': False, 'error': message}), 400
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
