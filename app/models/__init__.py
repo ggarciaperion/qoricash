@@ -24,6 +24,8 @@ from app.models.expense_record import ExpenseRecord
 from app.models.fixed_asset import FixedAsset
 from app.models.journal_sequence import JournalSequence
 from app.models.system_config import SystemConfig
+from app.models.accounting_match import AccountingMatch
+from app.models.accounting_batch import AccountingBatch
 __all__ = [
     'User', 'Client', 'Operation', 'AuditLog', 'TraderGoal', 'TraderDailyProfit',
     'BankBalance', 'Invoice', 'ExchangeRate', 'Complaint',
@@ -33,4 +35,6 @@ __all__ = [
     'AccountingAccount', 'AccountingPeriod',
     'JournalEntry', 'JournalEntryLine', 'ExpenseRecord', 'FixedAsset', 'JournalSequence',
     'SystemConfig',
+    # Módulo amarres
+    'AccountingMatch', 'AccountingBatch',
 ]
