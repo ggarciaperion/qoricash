@@ -26,6 +26,14 @@ from app.models.journal_sequence import JournalSequence
 from app.models.system_config import SystemConfig
 from app.models.accounting_match import AccountingMatch
 from app.models.accounting_batch import AccountingBatch
+from app.models.compliance import (
+    RiskLevel, ClientRiskProfile, ComplianceRule, ComplianceAlert,
+    RestrictiveListCheck, TransactionMonitoring, ComplianceDocument, ComplianceAudit,
+)
+from app.models.market import (
+    MarketSnapshot, MarketSignal, MarketNews, MacroIndicator, EconomicEvent, DailyAnalysis,
+)
+from app.models.reward_code import RewardCode
 __all__ = [
     'User', 'Client', 'Operation', 'AuditLog', 'TraderGoal', 'TraderDailyProfit',
     'BankBalance', 'Invoice', 'ExchangeRate', 'Complaint',
@@ -37,4 +45,11 @@ __all__ = [
     'SystemConfig',
     # Módulo amarres
     'AccountingMatch', 'AccountingBatch',
+    # Compliance
+    'RiskLevel', 'ClientRiskProfile', 'ComplianceRule', 'ComplianceAlert',
+    'RestrictiveListCheck', 'TransactionMonitoring', 'ComplianceDocument', 'ComplianceAudit',
+    # Market
+    'MarketSnapshot', 'MarketSignal', 'MarketNews', 'MacroIndicator', 'EconomicEvent', 'DailyAnalysis',
+    # Referidos
+    'RewardCode',
 ]

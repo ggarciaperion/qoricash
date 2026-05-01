@@ -69,7 +69,7 @@ try:
 
         # Journal entries vinculados via source_id
         je_rows = session.execute(sa.text(
-            "SELECT id FROM journal_entries WHERE source_id = ANY(:ids) AND source_type = 'operacion_completada'"
+            "SELECT id FROM journal_entries WHERE source_id = ANY(:ids) AND source_type = 'operation'"
         ), {'ids': op_ids}).fetchall() if op_ids else []
         je_ids = [r[0] for r in je_rows]
         print(f'  Operaciones vinculadas:  {len(op_ids)}')
@@ -135,7 +135,7 @@ try:
     if orphan_ops:
         oids = [r[0] for r in orphan_ops]
         jeids_rows = session.execute(sa.text(
-            "SELECT id FROM journal_entries WHERE source_id = ANY(:ids) AND source_type = 'operacion_completada'"
+            "SELECT id FROM journal_entries WHERE source_id = ANY(:ids) AND source_type = 'operation'"
         ), {'ids': oids}).fetchall()
         jeids = [r[0] for r in jeids_rows]
         run("DELETE FROM accounting_matches WHERE buy_operation_id = ANY(:ids) OR sell_operation_id = ANY(:ids)", {'ids': oids})
