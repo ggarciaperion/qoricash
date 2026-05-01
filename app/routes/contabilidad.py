@@ -3282,3 +3282,254 @@ def lotes_cerrar(batch_id):
         return jsonify({'success': False, 'error': message}), 400
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@contabilidad_bp.route('/amarres/export')
+@login_required
+@require_role('Master')
+def amarres_export():
+    """Exportar amarres y lotes en Excel multi-hoja (3 hojas)."""
+    from app.services.accounting_service import AccountingService
+    from app.models.user import User
+    from collections import defaultdict
+
+    fecha_inicio = request.args.get('fecha_inicio')
+    fecha_fin    = request.args.get('fecha_fin')
+    status_fil   = request.args.get('status', '')
+
+    matches = AccountingService.get_all_matches(
+        fecha_inicio=fecha_inicio,
+        fecha_fin=fecha_fin,
+        status=status_fil if status_fil else None,
+    )
+    batches = AccountingService.get_all_batches(
+        fecha_inicio=fecha_inicio,
+        fecha_fin=fecha_fin,
+    )
+
+    co      = _company_info()
+    now_str = date.today().strftime('%d/%m/%Y')
+
+    H_FILL   = PatternFill('solid', fgColor='1B3A6B')
+    H_FONT   = Font(bold=True, color='FFFFFF', size=10)
+    T_FONT   = Font(bold=True, size=11)
+    SUB_FILL = PatternFill('solid', fgColor='E8EDF4')
+    TOT_FONT = Font(bold=True, size=10)
+    NUM_FMT  = '#,##0.00'
+    thin     = Side(style='thin', color='CCCCCC')
+    BRD      = Border(left=thin, right=thin, top=thin, bottom=thin)
+    EVEN     = PatternFill('solid', fgColor='F4F7FB')
+
+    TIPO_MAP = {
+        'client_to_client': 'C2C',
+        'self_match':       'Self-match',
+        'market_hedge':     'Hedge',
+    }
+
+    def title_block(ws, title):
+        ws['A1'] = co['razon_social'];     ws['A1'].font = T_FONT
+        ws['A2'] = f'RUC: {co["ruc"]}';   ws['A2'].font = Font(size=9, color='555555')
+        ws['A3'] = title;                  ws['A3'].font = Font(bold=True, size=12)
+        ws['A4'] = f'Generado: {now_str}'; ws['A4'].font = Font(italic=True, size=9, color='777777')
+
+    def hrow(ws, row_n, headers_widths):
+        for col, (h, w) in enumerate(headers_widths, 1):
+            c = ws.cell(row=row_n, column=col, value=h)
+            c.fill = H_FILL; c.font = H_FONT; c.border = BRD
+            c.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+            ws.column_dimensions[openpyxl.utils.get_column_letter(col)].width = w
+        ws.row_dimensions[row_n].height = 28
+
+    def wnum(ws, r, c, v):
+        cell = ws.cell(row=r, column=c, value=round(float(v or 0), 2))
+        cell.number_format = NUM_FMT; cell.border = BRD
+        return cell
+
+    def wtxt(ws, r, c, v, **kw):
+        cell = ws.cell(row=r, column=c, value=v or '')
+        cell.border = BRD
+        for k, val in kw.items(): setattr(cell, k, val)
+        return cell
+
+    user_map = {u.id: u.username for u in User.query.all()}
+    wb = openpyxl.Workbook()
+
+    # ══════════════════════════════════════════════════════════════════════
+    # HOJA 1 — AMARRES
+    # ══════════════════════════════════════════════════════════════════════
+    ws1 = wb.active
+    ws1.title = 'Amarres'
+    title_block(ws1, 'REPORTE DE AMARRES')
+    ws1.freeze_panes = 'A7'
+
+    h1 = [
+        ('ID',              5), ('Tipo',          11), ('Fecha',          11),
+        ('Op. Compra',     14), ('Cliente Compra', 24), ('Trader Compra',  18),
+        ('Op. Venta',      14), ('Cliente Venta',  24), ('Trader Venta',   18),
+        ('USD Amarrado',   13), ('TC Compra',      10), ('TC Venta',       10),
+        ('Base Compra',    10), ('Base Venta',     10),
+        ('Util. Total S/', 15),
+        ('Util. Tdr. Compra S/', 18),
+        ('Util. Tdr. Venta S/',  18),
+        ('Util. QoriCash S/',    16),
+        ('Lote',            9), ('Estado',          9),
+    ]
+    hrow(ws1, 6, h1)
+
+    row = 7
+    t_usd = t_util = t_ubuy = t_usell = t_uhouse = 0
+    for m in matches:
+        buy_op  = m.buy_operation
+        sell_op = m.sell_operation
+        bt = user_map.get(buy_op.user_id,  '—') if buy_op  else '—'
+        st = user_map.get(sell_op.user_id, '—') if sell_op else '—'
+        usd  = float(m.matched_amount_usd)
+        util = float(m.profit_pen               or 0)
+        ubuy = float(m.trader_buy_profit_pen    or 0)
+        usel = float(m.trader_sell_profit_pen   or 0)
+        uhou = float(m.house_profit_pen         or 0)
+        t_usd += usd; t_util += util; t_ubuy += ubuy; t_usell += usel; t_uhouse += uhou
+        fill = EVEN if row % 2 == 0 else None
+
+        def wr(col, val, is_num=False, **kw):
+            c = wnum(ws1, row, col, val) if is_num else wtxt(ws1, row, col, val, **kw)
+            if fill: c.fill = fill
+            return c
+
+        wr(1,  m.id)
+        wr(2,  TIPO_MAP.get(m.match_type, m.match_type or 'C2C'))
+        wr(3,  m.created_at.strftime('%d/%m/%Y') if m.created_at else '')
+        wr(4,  buy_op.operation_id            if buy_op  else '—')
+        wr(5,  buy_op.client.full_name        if buy_op  and buy_op.client  else '—')
+        wr(6,  bt)
+        wr(7,  sell_op.operation_id           if sell_op else '—')
+        wr(8,  sell_op.client.full_name       if sell_op and sell_op.client else '—')
+        wr(9,  st)
+        wr(10, usd,  True); wr(11, float(m.buy_exchange_rate),  True)
+        wr(12, float(m.sell_exchange_rate), True)
+        wr(13, float(m.buy_base_rate  or 0), True)
+        wr(14, float(m.sell_base_rate or 0), True)
+        wr(15, util, True); wr(16, ubuy, True); wr(17, usel, True); wr(18, uhou, True)
+        wr(19, f'#{m.batch_id}' if m.batch_id else '—')
+        ec = wr(20, m.status)
+        ec.font = Font(bold=True, color='1D7A3A' if m.status == 'Activo' else '888888')
+        row += 1
+
+    # Totales hoja 1
+    ws1.cell(row=row, column=9, value='TOTALES').font = TOT_FONT
+    for col, val in [(10, t_usd), (15, t_util), (16, t_ubuy), (17, t_usell), (18, t_uhouse)]:
+        c = wnum(ws1, row, col, val); c.fill = SUB_FILL; c.font = TOT_FONT
+
+    # ══════════════════════════════════════════════════════════════════════
+    # HOJA 2 — LOTES DE NETEO
+    # ══════════════════════════════════════════════════════════════════════
+    ws2 = wb.create_sheet('Lotes de Neteo')
+    title_block(ws2, 'LOTES DE NETEO')
+    ws2.freeze_panes = 'A7'
+
+    h2 = [
+        ('Código',        14), ('Descripción',    36), ('Fecha Neteo',  13),
+        ('N° Amarres',    12), ('USD Total',       13), ('Util. Total S/', 16),
+        ('Estado',         9),
+    ]
+    hrow(ws2, 6, h2)
+
+    row2 = 7; bt_usd = bt_util = 0
+    for b in batches:
+        usd_b  = float(b.total_usd        or 0)
+        util_b = float(b.total_profit_pen or 0)
+        bt_usd += usd_b; bt_util += util_b
+        fill = EVEN if row2 % 2 == 0 else None
+
+        def wb2(col, val, is_num=False, **kw):
+            c = wnum(ws2, row2, col, val) if is_num else wtxt(ws2, row2, col, val, **kw)
+            if fill: c.fill = fill
+            return c
+
+        wb2(1, b.batch_code or str(b.id))
+        wb2(2, b.description or '')
+        wb2(3, b.netting_date.strftime('%d/%m/%Y') if b.netting_date else '')
+        wb2(4, b.total_matches or 0)
+        wb2(5, usd_b,  True); wb2(6, util_b, True)
+        ec = wb2(7, b.status)
+        ec.font = Font(bold=True, color='1D7A3A' if b.status == 'Abierto' else '888888')
+        row2 += 1
+
+    ws2.cell(row=row2, column=4, value='TOTALES').font = TOT_FONT
+    for col, val in [(5, bt_usd), (6, bt_util)]:
+        c = wnum(ws2, row2, col, val); c.fill = SUB_FILL; c.font = TOT_FONT
+
+    # ══════════════════════════════════════════════════════════════════════
+    # HOJA 3 — RESUMEN POR TRADER
+    # ══════════════════════════════════════════════════════════════════════
+    ws3 = wb.create_sheet('Resumen por Trader')
+    title_block(ws3, 'UTILIDAD POR TRADER')
+    ws3.freeze_panes = 'A7'
+
+    h3 = [
+        ('Trader',           20), ('Amarres Compra', 14), ('Amarres Venta',  14),
+        ('Total Amarres',    13), ('USD Operado',    13),
+        ('Util. Comprador S/', 20), ('Util. Vendedor S/', 20),
+        ('Util. Total Trader S/', 20),
+    ]
+    hrow(ws3, 6, h3)
+
+    stats = defaultdict(lambda: {
+        'bc': 0, 'sc': 0, 'usd': 0.0, 'ubuy': 0.0, 'usell': 0.0
+    })
+    for m in matches:
+        if m.status != 'Activo':
+            continue
+        usd = float(m.matched_amount_usd)
+        buy_op  = m.buy_operation
+        sell_op = m.sell_operation
+        if buy_op and buy_op.user_id:
+            t = user_map.get(buy_op.user_id, f'ID {buy_op.user_id}')
+            stats[t]['bc']   += 1
+            stats[t]['usd']  += usd
+            stats[t]['ubuy'] += float(m.trader_buy_profit_pen or 0)
+        if sell_op and sell_op.user_id:
+            t = user_map.get(sell_op.user_id, f'ID {sell_op.user_id}')
+            stats[t]['sc']    += 1
+            # Evitar doble suma USD en self-match
+            if not (buy_op and buy_op.user_id == sell_op.user_id):
+                stats[t]['usd'] += usd
+            stats[t]['usell'] += float(m.trader_sell_profit_pen or 0)
+
+    row3 = 7; gt_usd = gt_ubuy = gt_usell = 0
+    for tname in sorted(stats):
+        s = stats[tname]
+        total = s['ubuy'] + s['usell']
+        fill  = EVEN if row3 % 2 == 0 else None
+
+        def wt3(col, val, is_num=False, bold=False):
+            c = wnum(ws3, row3, col, val) if is_num else wtxt(ws3, row3, col, val)
+            if fill:  c.fill = fill
+            if bold:  c.font = Font(bold=True)
+            return c
+
+        wt3(1, tname); wt3(2, s['bc']); wt3(3, s['sc'])
+        wt3(4, s['bc'] + s['sc'])
+        wt3(5, s['usd'],   True)
+        wt3(6, s['ubuy'],  True)
+        wt3(7, s['usell'], True)
+        wt3(8, total,      True, bold=True)
+        gt_usd += s['usd']; gt_ubuy += s['ubuy']; gt_usell += s['usell']
+        row3 += 1
+
+    ws3.cell(row=row3, column=4, value='TOTALES').font = TOT_FONT
+    for col, val in [(5, gt_usd), (6, gt_ubuy), (7, gt_usell), (8, gt_ubuy + gt_usell)]:
+        c = wnum(ws3, row3, col, val); c.fill = SUB_FILL; c.font = TOT_FONT
+
+    # ── Generar archivo ────────────────────────────────────────────────────
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+    suffix   = f'{(fecha_inicio or "todo").replace("-", "")}_{(fecha_fin or "hoy").replace("-", "")}'
+    filename = f'amarres_qoricash_{suffix}.xlsx'
+    return send_file(
+        output,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        as_attachment=True,
+        download_name=filename,
+    )

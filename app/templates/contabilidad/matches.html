@@ -4,14 +4,19 @@
 {% block content %}
 <div class="container-fluid">
 
-  <div class="d-flex align-items-center gap-3 mb-4">
-    <a href="{{ url_for('contabilidad.dashboard') }}" class="btn btn-sm btn-outline-secondary">
-      <i class="bi bi-arrow-left"></i>
-    </a>
-    <div>
-      <h2 class="mb-0"><i class="bi bi-arrow-left-right me-2"></i>Amarres y Neteo</h2>
-      <small class="text-muted">Cruce de operaciones de compra/venta · Lotes de neteo</small>
+  <div class="d-flex align-items-center justify-content-between gap-3 mb-4">
+    <div class="d-flex align-items-center gap-3">
+      <a href="{{ url_for('contabilidad.dashboard') }}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i>
+      </a>
+      <div>
+        <h2 class="mb-0"><i class="bi bi-arrow-left-right me-2"></i>Amarres y Neteo</h2>
+        <small class="text-muted">Cruce de operaciones de compra/venta · Lotes de neteo</small>
+      </div>
     </div>
+    <button class="btn btn-sm btn-success" onclick="exportarExcel()">
+      <i class="bi bi-file-earmark-excel me-1"></i>Exportar Excel
+    </button>
   </div>
 
   <!-- Tabs -->
@@ -809,6 +814,19 @@ function verDetalleLote(id) {
 
       new bootstrap.Modal(document.getElementById('modalDetalleLote')).show();
     });
+}
+
+// ── Exportar Excel ───────────────────────────────────────────────────────────
+
+function exportarExcel() {
+  const inicio  = document.getElementById('fInicio').value;
+  const fin     = document.getElementById('fFin').value;
+  const status  = document.getElementById('fStatus').value;
+  const params  = new URLSearchParams();
+  if (inicio)  params.set('fecha_inicio', inicio);
+  if (fin)     params.set('fecha_fin',    fin);
+  if (status)  params.set('status',       status);
+  window.location.href = '/contabilidad/amarres/export?' + params.toString();
 }
 
 // ── Init ─────────────────────────────────────────────────────────────────────
