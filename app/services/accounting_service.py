@@ -133,29 +133,64 @@ class AccountingService:
             if matched_amount > sell_available:
                 return False, f'Monto excede lo disponible en la operación de venta (disponible: ${sell_available})', None
 
-            # Calcular utilidad
-            buy_tc = Decimal(str(buy_op.exchange_rate))
-            sell_tc = Decimal(str(sell_op.exchange_rate))
+            # ── TCs y bases ───────────────────────────────────────────────
+            buy_tc   = Decimal(str(buy_op.exchange_rate))
+            sell_tc  = Decimal(str(sell_op.exchange_rate))
+            buy_base = Decimal(str(buy_op.base_rate))  if buy_op.base_rate  else buy_tc
+            sell_base = Decimal(str(sell_op.base_rate)) if sell_op.base_rate else sell_tc
 
-            # Utilidad = (TC Venta - TC Compra) * USD Amarrado
+            # Utilidad total del match
             profit_pen = (sell_tc - buy_tc) * matched_amount
             profit_percentage = ((sell_tc - buy_tc) / buy_tc) * Decimal('100') if buy_tc > 0 else Decimal('0')
 
-            # Crear match
+            # ── Desglose de utilidad por actor ────────────────────────────────
+            # Determinar tipo de match
+            is_self_match = (buy_op.user_id is not None and
+                             buy_op.user_id == sell_op.user_id)
+
+            if is_self_match:
+                # Trader cruza sus propias operaciones → toda la utilidad es suya
+                trader_buy_profit  = profit_pen
+                trader_sell_profit = Decimal('0')
+                house_profit       = Decimal('0')
+                match_type         = 'self_match'
+            else:
+                # Dos traders distintos (o trader vs mercado):
+                #   trader_buy  = (base_compra - tc_compra) × USD  ← margen sobre base
+                #   trader_sell = (tc_venta - base_venta)   × USD  ← margen sobre base
+                #   house       = (base_venta - base_compra) × USD ← spread entre bases
+                # Verificación: trader_buy + trader_sell + house = profit_pen
+                trader_buy_profit  = (buy_base  - buy_tc)   * matched_amount
+                trader_sell_profit = (sell_tc   - sell_base) * matched_amount
+                house_profit       = (sell_base - buy_base)  * matched_amount
+                match_type         = 'client_to_client'
+
+            # ── Crear match ───────────────────────────────────────────────────
             match = AccountingMatch(
                 buy_operation_id=buy_operation_id,
                 sell_operation_id=sell_operation_id,
                 matched_amount_usd=matched_amount,
                 buy_exchange_rate=buy_tc,
                 sell_exchange_rate=sell_tc,
+                buy_base_rate=buy_base,
+                sell_base_rate=sell_base,
                 profit_pen=profit_pen,
                 profit_percentage=profit_percentage,
+                trader_buy_profit_pen=trader_buy_profit,
+                trader_sell_profit_pen=trader_sell_profit,
+                house_profit_pen=house_profit,
+                match_type=match_type,
                 status='Activo',
                 notes=notes,
                 created_by=user_id
             )
 
             db.session.add(match)
+            db.session.flush()  # obtener match.id sin commit aún
+
+            # ── Actualizar TraderDailyProfit en tiempo real ───────────────────
+            AccountingService._apply_trader_profits(match, reverse=False)
+
             db.session.commit()
 
             return True, 'Match creado exitosamente', match
@@ -187,6 +222,10 @@ class AccountingService:
                     return False, 'No se puede eliminar un match de un batch cerrado'
 
             match.status = 'Anulado'
+
+            # Revertir TraderDailyProfit antes del commit
+            AccountingService._apply_trader_profits(match, reverse=True)
+
             db.session.commit()
 
             # Si pertenecía a un batch, recalcular totales
@@ -334,6 +373,84 @@ class AccountingService:
             })
 
         batch.accounting_entry = entry
+
+    @staticmethod
+    def _apply_trader_profits(match, reverse: bool = False):
+        """
+        Actualiza TraderDailyProfit en tiempo real al crear o anular un match.
+
+        Reglas de distribución:
+          self_match          → 100% de profit_pen al trader (buy_op.user_id)
+          client_to_client    → trader_buy_profit_pen al trader compra
+                                trader_sell_profit_pen al trader venta
+                                house_profit_pen queda en QoriCash (no se asigna)
+          market_hedge        → trader_buy_profit_pen al trader compra solamente
+
+        Si reverse=True, resta en lugar de sumar (para anulaciones).
+        """
+        from app.models.trader_daily_profit import TraderDailyProfit
+        from app.utils.formatters import now_peru
+
+        try:
+            sign = Decimal('-1') if reverse else Decimal('1')
+
+            buy_op  = match.buy_operation
+            sell_op = match.sell_operation
+
+            # Fecha del profit = fecha de la operación más reciente del match
+            profit_date = (buy_op.completed_at.date()
+                           if buy_op and buy_op.completed_at
+                           else now_peru().date())
+
+            def _add_profit(user_id, amount: Decimal):
+                if user_id is None or amount == 0:
+                    return
+                record = TraderDailyProfit.query.filter_by(
+                    user_id=user_id,
+                    profit_date=profit_date,
+                ).first()
+                if record:
+                    record.profit_amount_pen = Decimal(str(record.profit_amount_pen)) + amount
+                else:
+                    record = TraderDailyProfit(
+                        user_id=user_id,
+                        profit_date=profit_date,
+                        profit_amount_pen=amount,
+                    )
+                    db.session.add(record)
+
+            match_type = match.match_type or 'client_to_client'
+
+            if match_type == 'self_match':
+                # Todo el profit va al trader (buy_op.user_id == sell_op.user_id)
+                _add_profit(
+                    buy_op.user_id if buy_op else None,
+                    sign * Decimal(str(match.profit_pen or 0)),
+                )
+
+            elif match_type == 'client_to_client':
+                _add_profit(
+                    buy_op.user_id  if buy_op  else None,
+                    sign * Decimal(str(match.trader_buy_profit_pen  or 0)),
+                )
+                _add_profit(
+                    sell_op.user_id if sell_op else None,
+                    sign * Decimal(str(match.trader_sell_profit_pen or 0)),
+                )
+                # house_profit_pen queda en QoriCash — no se asigna a ningún trader
+
+            elif match_type == 'market_hedge':
+                _add_profit(
+                    buy_op.user_id if buy_op else None,
+                    sign * Decimal(str(match.trader_buy_profit_pen or 0)),
+                )
+
+        except Exception as exc:
+            import logging
+            logging.getLogger(__name__).error(
+                f'[Accounting] Error actualizando TraderDailyProfit '
+                f'para match {match.id}: {exc}'
+            )
 
     @staticmethod
     def _create_journal_entry_for_batch(batch, user_id):

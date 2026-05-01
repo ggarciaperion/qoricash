@@ -27,9 +27,19 @@ class AccountingMatch(db.Model):
     buy_exchange_rate = db.Column(db.Numeric(10, 4), nullable=False)  # TC de compra
     sell_exchange_rate = db.Column(db.Numeric(10, 4), nullable=False)  # TC de venta
 
-    # Utilidad
-    profit_pen = db.Column(db.Numeric(15, 2), nullable=False)  # Utilidad en PEN
+    # Utilidad total del match
+    profit_pen = db.Column(db.Numeric(15, 2), nullable=False)  # Utilidad total (sell_tc - buy_tc) × USD
     profit_percentage = db.Column(db.Numeric(5, 4), nullable=True)  # % de utilidad
+
+    # Desglose de utilidad por actor
+    buy_base_rate          = db.Column(db.Numeric(10, 4), nullable=True)   # Precio base de la pierna compra
+    sell_base_rate         = db.Column(db.Numeric(10, 4), nullable=True)   # Precio base de la pierna venta
+    trader_buy_profit_pen  = db.Column(db.Numeric(15, 2), nullable=True)   # Utilidad trader compra
+    trader_sell_profit_pen = db.Column(db.Numeric(15, 2), nullable=True)   # Utilidad trader venta
+    house_profit_pen       = db.Column(db.Numeric(15, 2), nullable=True)   # Utilidad QoriCash
+
+    # Tipo de match: client_to_client | self_match | market_hedge
+    match_type = db.Column(db.String(20), nullable=True, default='client_to_client')
 
     # Estado
     status = db.Column(
@@ -60,8 +70,14 @@ class AccountingMatch(db.Model):
             'matched_amount_usd': float(self.matched_amount_usd),
             'buy_exchange_rate': float(self.buy_exchange_rate),
             'sell_exchange_rate': float(self.sell_exchange_rate),
+            'buy_base_rate': float(self.buy_base_rate) if self.buy_base_rate else None,
+            'sell_base_rate': float(self.sell_base_rate) if self.sell_base_rate else None,
             'profit_pen': float(self.profit_pen),
             'profit_percentage': float(self.profit_percentage) if self.profit_percentage else None,
+            'trader_buy_profit_pen': float(self.trader_buy_profit_pen) if self.trader_buy_profit_pen is not None else None,
+            'trader_sell_profit_pen': float(self.trader_sell_profit_pen) if self.trader_sell_profit_pen is not None else None,
+            'house_profit_pen': float(self.house_profit_pen) if self.house_profit_pen is not None else None,
+            'match_type': self.match_type or 'client_to_client',
             'status': self.status,
             'notes': self.notes,
             'created_at': self.created_at.isoformat() if self.created_at else None,
@@ -71,6 +87,8 @@ class AccountingMatch(db.Model):
             'sell_operation_code': self.sell_operation.operation_id if self.sell_operation else None,
             'buy_client_name': self.buy_operation.client.full_name if self.buy_operation and self.buy_operation.client else None,
             'sell_client_name': self.sell_operation.client.full_name if self.sell_operation and self.sell_operation.client else None,
+            'buy_trader_id': self.buy_operation.user_id if self.buy_operation else None,
+            'sell_trader_id': self.sell_operation.user_id if self.sell_operation else None,
         }
 
     def __repr__(self):
