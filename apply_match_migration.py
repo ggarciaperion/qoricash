@@ -10,6 +10,14 @@ app = create_app()
 
 with app.app_context():
     inspector = inspect(db.engine)
+
+    # Si la tabla no existe, crearla junto con cualquier otra tabla nueva
+    if 'accounting_matches' not in inspector.get_table_names():
+        db.create_all()
+        print('Tablas creadas (db.create_all).')
+        # Refrescar inspector
+        inspector = inspect(db.engine)
+
     columns = [c['name'] for c in inspector.get_columns('accounting_matches')]
 
     added = []
