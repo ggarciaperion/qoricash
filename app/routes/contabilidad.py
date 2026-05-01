@@ -686,6 +686,70 @@ def cerrar_periodo():
     return jsonify({'success': success, 'message': message})
 
 
+@contabilidad_bp.route('/periodos/generar-asientos', methods=['POST'])
+@login_required
+@require_role('Master')
+def generar_asientos_retroactivos():
+    """
+    Genera asientos contables retroactivos para operaciones Completadas que
+    no tienen asiento registrado. Útil cuando el módulo contable se desplegó
+    después de que las operaciones ya estaban completadas.
+    """
+    from app.models import Operation
+    from app.models.journal_entry import JournalEntry
+    from app.services.accounting.journal_service import JournalService
+    from sqlalchemy import extract
+
+    data  = request.get_json() or {}
+    year  = int(data.get('year',  date.today().year))
+    month = int(data.get('month', date.today().month))
+
+    # IDs de operaciones que ya tienen asiento activo
+    existing_ids = {
+        r[0] for r in db.session.query(JournalEntry.source_id).filter(
+            JournalEntry.source_type == 'operation',
+            JournalEntry.status == 'activo',
+        ).all() if r[0] is not None
+    }
+
+    # Operaciones completadas en el período sin asiento
+    ops = Operation.query.filter(
+        Operation.status == 'Completada',
+        extract('year',  Operation.completed_at) == year,
+        extract('month', Operation.completed_at) == month,
+        ~Operation.id.in_(existing_ids) if existing_ids else True,
+    ).order_by(Operation.completed_at.asc()).all()
+
+    if not ops:
+        return jsonify({
+            'success': True,
+            'message': 'Todas las operaciones del período ya tienen asiento contable.',
+            'generados': 0,
+            'errores': 0,
+        })
+
+    generados = 0
+    errores   = []
+
+    for op in ops:
+        entry = JournalService.create_entry_for_completed_operation(
+            op, created_by_id=current_user.id
+        )
+        if entry:
+            generados += 1
+        else:
+            errores.append(op.operation_id)
+
+    return jsonify({
+        'success': True,
+        'message': f'{generados} asiento(s) generado(s). {len(errores)} error(es).',
+        'generados': generados,
+        'errores': len(errores),
+        'operaciones_con_error': errores,
+        'total_sin_asiento': len(ops),
+    })
+
+
 # ── Libro Caja y Bancos ────────────────────────────────────────────────────────
 
 # Mapa código PCGE → etiqueta legible

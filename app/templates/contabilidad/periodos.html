@@ -44,7 +44,7 @@
                   {{ p.closed_at.strftime('%d/%m/%Y %H:%M') }}
                 {% else %}—{% endif %}
               </td>
-              <td>
+              <td class="d-flex gap-2 flex-wrap">
                 {% if p.status == 'abierto' %}
                 <button class="btn btn-sm btn-outline-danger"
                         onclick="cerrarPeriodo({{ p.year }}, {{ p.month }}, '{{ p.label }}')">
@@ -53,6 +53,10 @@
                 {% else %}
                 <span class="text-muted small">Período cerrado</span>
                 {% endif %}
+                <button class="btn btn-sm btn-outline-primary"
+                        onclick="generarAsientos({{ p.year }}, {{ p.month }}, '{{ p.label }}')">
+                  <i class="bi bi-lightning-charge me-1"></i>Generar asientos
+                </button>
               </td>
             </tr>
             {% else %}
@@ -74,11 +78,49 @@
     Al cierre de cada mes, una vez verificados todos los asientos. Un período cerrado no acepta nuevos registros.
   </div>
 
+  <div class="alert alert-warning mt-2">
+    <i class="bi bi-lightning-charge me-2"></i>
+    <strong>Generar asientos retroactivos:</strong>
+    Usa este botón si el módulo contable fue activado después de que las operaciones ya estaban completadas.
+    Solo genera asientos para operaciones que aún no tienen registro en el Libro Diario.
+  </div>
+
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
+function generarAsientos(year, month, label) {
+  Swal.fire({
+    title: `Generar asientos — ${label}`,
+    html: `Se crearán asientos contables para todas las operaciones completadas en <b>${label}</b> que aún no tienen registro. Esta acción es segura y no duplica asientos.`,
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonText: 'Generar',
+    cancelButtonText: 'Cancelar',
+    confirmButtonColor: '#0d6efd',
+  }).then(result => {
+    if (!result.isConfirmed) return;
+    Swal.fire({title: 'Generando asientos...', allowOutsideClick: false, didOpen: () => Swal.showLoading()});
+    fetch('/contabilidad/periodos/generar-asientos', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({year, month}),
+    })
+    .then(r => r.json())
+    .then(data => {
+      const icon = data.errores > 0 ? 'warning' : 'success';
+      let html = `<b>${data.generados}</b> asiento(s) generado(s).`;
+      if (data.errores > 0) {
+        html += `<br><span class="text-danger">${data.errores} operación(es) con error: ${(data.operaciones_con_error || []).join(', ')}</span>`;
+      }
+      Swal.fire({icon, title: data.message, html, confirmButtonText: 'Ver Libro Diario'})
+        .then(r => { if (r.isConfirmed) location.href = `/contabilidad/diario?year=${year}&month=${month}`; });
+    })
+    .catch(() => Swal.fire({icon:'error', title:'Error de red', text:'No se pudo conectar con el servidor.'}));
+  });
+}
+
 function cerrarPeriodo(year, month, label) {
   Swal.fire({
     title: `Cerrar período ${label}`,
