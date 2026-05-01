@@ -63,10 +63,15 @@ try:
 
         # Obtener operaciones de esos clientes
         op_rows = session.execute(sa.text(
-            "SELECT id, journal_entry_id FROM operations WHERE client_id = ANY(:ids)"
+            "SELECT id FROM operations WHERE client_id = ANY(:ids)"
         ), {'ids': client_ids}).fetchall()
         op_ids = [r[0] for r in op_rows]
-        je_ids = [r[1] for r in op_rows if r[1]]
+
+        # Journal entries vinculados via source_id
+        je_rows = session.execute(sa.text(
+            "SELECT id FROM journal_entries WHERE source_id = ANY(:ids) AND source_type = 'operacion_completada'"
+        ), {'ids': op_ids}).fetchall() if op_ids else []
+        je_ids = [r[0] for r in je_rows]
         print(f'  Operaciones vinculadas:  {len(op_ids)}')
 
         section('1. Amarres de esas operaciones')
@@ -124,12 +129,15 @@ try:
     # ── Operaciones TSOP/SEED huérfanas (sin cliente TEST) ────────────────
     section('11. Operaciones TSOP-*/SEED residuales')
     orphan_ops = session.execute(sa.text(
-        "SELECT id, journal_entry_id FROM operations "
+        "SELECT id FROM operations "
         "WHERE operation_id LIKE 'TSOP-%' OR operation_id LIKE '%-SEED-%'"
     )).fetchall()
     if orphan_ops:
         oids = [r[0] for r in orphan_ops]
-        jeids = [r[1] for r in orphan_ops if r[1]]
+        jeids_rows = session.execute(sa.text(
+            "SELECT id FROM journal_entries WHERE source_id = ANY(:ids) AND source_type = 'operacion_completada'"
+        ), {'ids': oids}).fetchall()
+        jeids = [r[0] for r in jeids_rows]
         run("DELETE FROM accounting_matches WHERE buy_operation_id = ANY(:ids) OR sell_operation_id = ANY(:ids)", {'ids': oids})
         if jeids:
             run("DELETE FROM journal_entry_lines WHERE journal_entry_id = ANY(:ids)", {'ids': jeids})
