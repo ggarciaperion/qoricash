@@ -10,11 +10,9 @@ Ejecutar en Render shell:
     python3 cleanup_test_data.py
 """
 import os, sys
-from datetime import datetime
 
 DATABASE_URL = os.environ.get('DATABASE_URL', '')
 if not DATABASE_URL:
-    # Intentar cargar .env local
     try:
         from dotenv import load_dotenv
         load_dotenv()
@@ -37,156 +35,137 @@ Session = sessionmaker(bind=engine)
 session = Session()
 
 def run(sql, params=None):
-    r = session.execute(sa.text(sql), params or {})
-    session.flush()
-    return r.rowcount
+    try:
+        r = session.execute(sa.text(sql), params or {})
+        session.flush()
+        return r.rowcount
+    except Exception as e:
+        print(f'  [WARN] {e}')
+        session.rollback()
+        return 0
+
+def section(title):
+    print(f'\n--- {title} ---')
 
 try:
-    print('=== LIMPIEZA DE DATOS DE PRUEBA ===\n')
+    print('=== LIMPIEZA DE DATOS DE PRUEBA ===')
 
-    # ── 1. Amarres vinculados a operaciones TEST ──────────────────────────
+    # ── Obtener IDs de clientes TEST ──────────────────────────────────────
+    rows = session.execute(sa.text(
+        "SELECT id, email FROM clients WHERE email LIKE '%@test-qoricash.pe'"
+    )).fetchall()
+
+    if not rows:
+        print('\nNo se encontraron clientes de prueba (@test-qoricash.pe).')
+    else:
+        client_ids = [r[0] for r in rows]
+        print(f'\nClientes TEST encontrados: {len(client_ids)} → IDs {client_ids}')
+
+        # Obtener operaciones de esos clientes
+        op_rows = session.execute(sa.text(
+            "SELECT id, journal_entry_id FROM operations WHERE client_id = ANY(:ids)"
+        ), {'ids': client_ids}).fetchall()
+        op_ids = [r[0] for r in op_rows]
+        je_ids = [r[1] for r in op_rows if r[1]]
+        print(f'  Operaciones vinculadas:  {len(op_ids)}')
+
+        section('1. Amarres de esas operaciones')
+        if op_ids:
+            n = run(
+                "DELETE FROM accounting_matches "
+                "WHERE buy_operation_id = ANY(:ids) OR sell_operation_id = ANY(:ids)",
+                {'ids': op_ids}
+            )
+            print(f'  Amarres eliminados: {n}')
+
+        section('2. Journal entry lines de operaciones')
+        if je_ids:
+            n = run("DELETE FROM journal_entry_lines WHERE journal_entry_id = ANY(:ids)", {'ids': je_ids})
+            print(f'  Líneas eliminadas: {n}')
+
+        section('3. Facturas (invoices) de operaciones')
+        if op_ids:
+            n = run("DELETE FROM invoices WHERE operation_id = ANY(:ids)", {'ids': op_ids})
+            print(f'  Facturas eliminadas: {n}')
+
+        section('4. Operaciones')
+        if op_ids:
+            n = run("DELETE FROM operations WHERE id = ANY(:ids)", {'ids': op_ids})
+            print(f'  Operaciones eliminadas: {n}')
+
+        section('5. Journal entries huérfanos')
+        if je_ids:
+            n = run("DELETE FROM journal_entries WHERE id = ANY(:ids)", {'ids': je_ids})
+            print(f'  Asientos eliminados: {n}')
+
+        section('6. Compliance — todas las tablas')
+        for table in ['compliance_alerts', 'compliance_documents',
+                      'restrictive_list_checks', 'transaction_monitoring',
+                      'compliance_audit']:
+            n = run(f"DELETE FROM {table} WHERE client_id = ANY(:ids)", {'ids': client_ids})
+            print(f'  {table}: {n}')
+
+        section('7. Risk profiles')
+        n = run("DELETE FROM client_risk_profiles WHERE client_id = ANY(:ids)", {'ids': client_ids})
+        print(f'  Perfiles eliminados: {n}')
+
+        section('8. Reward codes')
+        n = run("DELETE FROM reward_codes WHERE client_id = ANY(:ids)", {'ids': client_ids})
+        print(f'  Reward codes eliminados: {n}')
+
+        section('9. Auto-referencia referred_by')
+        n = run("UPDATE clients SET referred_by = NULL WHERE referred_by = ANY(:ids)", {'ids': client_ids})
+        print(f'  Refs eliminadas: {n}')
+
+        section('10. CLIENTES TEST')
+        n = run("DELETE FROM clients WHERE id = ANY(:ids)", {'ids': client_ids})
+        print(f'  Clientes eliminados: {n}')
+
+    # ── Operaciones TSOP/SEED huérfanas (sin cliente TEST) ────────────────
+    section('11. Operaciones TSOP-*/SEED residuales')
+    orphan_ops = session.execute(sa.text(
+        "SELECT id, journal_entry_id FROM operations "
+        "WHERE operation_id LIKE 'TSOP-%' OR operation_id LIKE '%-SEED-%'"
+    )).fetchall()
+    if orphan_ops:
+        oids = [r[0] for r in orphan_ops]
+        jeids = [r[1] for r in orphan_ops if r[1]]
+        run("DELETE FROM accounting_matches WHERE buy_operation_id = ANY(:ids) OR sell_operation_id = ANY(:ids)", {'ids': oids})
+        if jeids:
+            run("DELETE FROM journal_entry_lines WHERE journal_entry_id = ANY(:ids)", {'ids': jeids})
+            run("DELETE FROM journal_entries WHERE id = ANY(:ids)", {'ids': jeids})
+        n = run("DELETE FROM operations WHERE id = ANY(:ids)", {'ids': oids})
+        print(f'  Operaciones residuales eliminadas: {n}')
+    else:
+        print('  Ninguna')
+
+    # ── Usuarios TEST ─────────────────────────────────────────────────────
+    section('12. Usuarios test_*')
+    n = run("DELETE FROM users WHERE username LIKE 'test_%'")
+    print(f'  Usuarios eliminados: {n}')
+
+    # ── KYC revert DNI 73085751 ───────────────────────────────────────────
+    section('13. KYC revert DNI 73085751')
     n = run("""
-        DELETE FROM accounting_matches
-        WHERE buy_operation_id IN (
-            SELECT id FROM operations WHERE operation_id LIKE 'TSOP-%' OR operation_id LIKE '%-SEED-%'
-        )
-        OR sell_operation_id IN (
-            SELECT id FROM operations WHERE operation_id LIKE 'TSOP-%' OR operation_id LIKE '%-SEED-%'
-        )
-    """)
-    print(f'  Amarres eliminados:          {n}')
-
-    # ── 2. Lotes vacíos (sin matches) ────────────────────────────────────
-    n = run("""
-        DELETE FROM accounting_batches
-        WHERE id NOT IN (SELECT DISTINCT batch_id FROM accounting_matches WHERE batch_id IS NOT NULL)
-        AND description LIKE '%TEST%'
-    """)
-    print(f'  Lotes de prueba eliminados:  {n}')
-
-    # ── 3. Journal entry lines de operaciones TEST ────────────────────────
-    n = run("""
-        DELETE FROM journal_entry_lines
-        WHERE journal_entry_id IN (
-            SELECT journal_entry_id FROM operations
-            WHERE operation_id LIKE 'TSOP-%' OR operation_id LIKE '%-SEED-%'
-            AND journal_entry_id IS NOT NULL
-        )
-    """)
-    print(f'  Líneas de asiento (ops):     {n}')
-
-    # ── 4. Journal entries de operaciones TEST ────────────────────────────
-    n = run("""
-        DELETE FROM journal_entries
-        WHERE id IN (
-            SELECT journal_entry_id FROM operations
-            WHERE (operation_id LIKE 'TSOP-%' OR operation_id LIKE '%-SEED-%')
-            AND journal_entry_id IS NOT NULL
-        )
-    """)
-    print(f'  Asientos (ops):              {n}')
-
-    # ── 5. Operaciones TEST ───────────────────────────────────────────────
-    n = run("""
-        DELETE FROM operations
-        WHERE operation_id LIKE 'TSOP-%' OR operation_id LIKE '%-SEED-%'
-    """)
-    print(f'  Operaciones eliminadas:      {n}')
-
-    # ── 6. Journal entry lines de gastos TEST ────────────────────────────
-    n = run("""
-        DELETE FROM journal_entry_lines
-        WHERE journal_entry_id IN (
-            SELECT journal_entry_id FROM expense_records
-            WHERE description LIKE '[TEST-ABR]%'
-            AND journal_entry_id IS NOT NULL
-        )
-    """)
-    print(f'  Líneas de asiento (gastos):  {n}')
-
-    # ── 7. Journal entries de gastos TEST ────────────────────────────────
-    n = run("""
-        DELETE FROM journal_entries
-        WHERE id IN (
-            SELECT journal_entry_id FROM expense_records
-            WHERE description LIKE '[TEST-ABR]%'
-            AND journal_entry_id IS NOT NULL
-        )
-    """)
-    print(f'  Asientos (gastos):           {n}')
-
-    # ── 8. Gastos TEST ────────────────────────────────────────────────────
-    n = run("DELETE FROM expense_records WHERE description LIKE '[TEST-ABR]%'")
-    print(f'  Gastos eliminados:           {n}')
-
-    # ── 9. TraderDailyProfit de abril 2026 ───────────────────────────────
-    n = run("""
-        DELETE FROM trader_daily_profits
-        WHERE EXTRACT(year FROM profit_date) = 2026
-        AND EXTRACT(month FROM profit_date) = 4
-    """)
-    print(f'  TraderDailyProfit (abr26):   {n}')
-
-    # ── 10. Compliance alerts de clientes TEST ────────────────────────────
-    n = run("""
-        DELETE FROM compliance_alerts
-        WHERE client_id IN (
-            SELECT id FROM clients WHERE email LIKE '%@test-qoricash.pe'
-        )
-        OR (status = 'Pendiente' AND client_id IN (
-            SELECT id FROM clients WHERE dni = '73085751'
-        ))
-    """)
-    print(f'  Alertas compliance:          {n}')
-
-    # ── 11. Risk profiles de clientes TEST ───────────────────────────────
-    n = run("""
-        UPDATE client_risk_profiles
-        SET risk_score = 10, is_pep = FALSE, has_legal_issues = FALSE,
+        UPDATE client_risk_profiles SET
+            risk_score = 10, is_pep = FALSE, has_legal_issues = FALSE,
             in_restrictive_lists = FALSE, high_volume_operations = FALSE,
             dd_level = 'Básica', kyc_status = 'Aprobado'
-        WHERE client_id IN (
-            SELECT id FROM clients WHERE dni = '73085751'
-        )
+        WHERE client_id = (SELECT id FROM clients WHERE dni = '73085751' LIMIT 1)
     """)
-    print(f'  Perfiles KYC revertidos:     {n}')
-
-    n = run("""
-        DELETE FROM client_risk_profiles
-        WHERE client_id IN (
-            SELECT id FROM clients WHERE email LIKE '%@test-qoricash.pe'
-        )
+    run("""
+        DELETE FROM compliance_alerts
+        WHERE status = 'Pendiente'
+        AND client_id = (SELECT id FROM clients WHERE dni = '73085751' LIMIT 1)
     """)
-    print(f'  Risk profiles TEST:          {n}')
-
-    # ── 12. Usuarios TEST ────────────────────────────────────────────────
-    n = run("DELETE FROM users WHERE username LIKE 'test_%'")
-    print(f'  Usuarios TEST eliminados:    {n}')
-
-    # ── 13. Clientes TEST ────────────────────────────────────────────────
-    n = run("DELETE FROM clients WHERE email LIKE '%@test-qoricash.pe'")
-    print(f'  Clientes TEST eliminados:    {n}')
-
-    # ── 14. Período Abril 2026 (si fue creado por seed) ──────────────────
-    # Solo borrar si no tiene journal_entries reales asociados
-    real_entries = session.execute(sa.text("""
-        SELECT COUNT(*) FROM journal_entries
-        WHERE EXTRACT(year FROM entry_date) = 2026
-        AND EXTRACT(month FROM entry_date) = 4
-    """)).scalar()
-
-    if real_entries == 0:
-        n = run("DELETE FROM accounting_periods WHERE year = 2026 AND month = 4")
-        print(f'  Período Abr 2026:            {n} (sin asientos reales, eliminado)')
-    else:
-        print(f'  Período Abr 2026:            conservado ({real_entries} asientos reales)')
+    print(f'  Perfil revertido: {n}')
 
     session.commit()
-    print('\n✅ Limpieza completada. Sistema libre de datos de prueba.')
+    print('\n✅ Limpieza completada.')
 
 except Exception as e:
     session.rollback()
-    print(f'\nERROR: {e}')
+    print(f'\nERROR FATAL: {e}')
     import traceback; traceback.print_exc()
     sys.exit(1)
 finally:
