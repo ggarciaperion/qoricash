@@ -142,13 +142,6 @@
       </div>
       <div class="modal-body">
 
-        <!-- Buscador global -->
-        <div class="mb-3">
-          <input type="text" id="aBuscar" class="form-control form-control-sm"
-                 placeholder="🔍  Buscar por ID de operación, cliente o monto…"
-                 oninput="filtrarOps()">
-        </div>
-
         <!-- Dos columnas de selección -->
         <div class="row g-3 mb-3">
 
@@ -461,16 +454,9 @@ function _opCard(op, side) {
   </div>`;
 }
 
-function _renderLists(filtro = '') {
-  const q       = filtro.toLowerCase();
-  const compras = _opsDisponibles.filter(o => o.operation_type === 'Compra' &&
-    (!q || o.operation_id.toLowerCase().includes(q) ||
-           o.client_name.toLowerCase().includes(q) ||
-           String(o.available_usd).includes(q)));
-  const ventas  = _opsDisponibles.filter(o => o.operation_type === 'Venta' &&
-    (!q || o.operation_id.toLowerCase().includes(q) ||
-           o.client_name.toLowerCase().includes(q) ||
-           String(o.available_usd).includes(q)));
+function _renderLists() {
+  const compras = _opsDisponibles.filter(o => o.operation_type === 'Compra');
+  const ventas  = _opsDisponibles.filter(o => o.operation_type === 'Venta');
 
   document.getElementById('listBuy').innerHTML = compras.length
     ? compras.map(o => _opCard(o, 'buy')).join('')
@@ -479,10 +465,6 @@ function _renderLists(filtro = '') {
   document.getElementById('listSell').innerHTML = ventas.length
     ? ventas.map(o => _opCard(o, 'sell')).join('')
     : '<div class="text-center text-muted py-3 small">Sin operaciones de venta disponibles</div>';
-}
-
-function filtrarOps() {
-  _renderLists(document.getElementById('aBuscar').value);
 }
 
 function seleccionarOp(id, side) {
@@ -500,7 +482,7 @@ function seleccionarOp(id, side) {
   buyBadge.classList.toggle('d-none',  !buy);
   sellBadge.classList.toggle('d-none', !sell);
 
-  _renderLists(document.getElementById('aBuscar').value);
+  _renderLists();
   actualizarPreviewAmarre();
 }
 
@@ -520,7 +502,6 @@ function abrirModalAmarre() {
   document.getElementById('previewAmarre').classList.add('d-none');
   document.getElementById('aMontoUSD').value = '';
   document.getElementById('aNotas').value    = '';
-  document.getElementById('aBuscar').value   = '';
   document.getElementById('badgeBuySelected').classList.add('d-none');
   document.getElementById('badgeSellSelected').classList.add('d-none');
   document.getElementById('listBuy').innerHTML  = '<div class="text-center text-muted py-4 small">Cargando…</div>';
@@ -531,6 +512,10 @@ function abrirModalAmarre() {
     .then(data => {
       _opsDisponibles = data.operations || [];
       _renderLists();
+    })
+    .catch(() => {
+      document.getElementById('listBuy').innerHTML  = '<div class="text-center text-danger py-3 small">Error al cargar</div>';
+      document.getElementById('listSell').innerHTML = '<div class="text-center text-danger py-3 small">Error al cargar</div>';
     });
 
   new bootstrap.Modal(document.getElementById('modalAmarre')).show();
