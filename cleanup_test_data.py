@@ -168,6 +168,36 @@ try:
     """)
     print(f'  Perfil revertido: {n}')
 
+    # ── DIAMANTA S.A.C. — set_test_risk lo tocó por fallback ─────────────
+    # El script set_test_risk usa LIMIT 1 como fallback y pudo haber
+    # seteado kyc_status='Aprobado' en DIAMANTA. Resetear a 'Pendiente'.
+    section('14. Restaurar KYC de DIAMANTA S.A.C. (RUC 20494899940)')
+    n = run("""
+        UPDATE client_risk_profiles SET
+            kyc_status = 'Pendiente',
+            is_pep = FALSE, has_legal_issues = FALSE,
+            in_restrictive_lists = FALSE, high_volume_operations = FALSE,
+            risk_score = 10, dd_level = 'Básica'
+        WHERE client_id = (SELECT id FROM clients WHERE dni = '20494899940' LIMIT 1)
+    """)
+    if n == 0:
+        # No tiene perfil aún — crear uno Pendiente
+        run("""
+            INSERT INTO client_risk_profiles
+                (client_id, risk_score, is_pep, has_legal_issues, in_restrictive_lists,
+                 high_volume_operations, dd_level, kyc_status, created_at, updated_at)
+            SELECT id, 10, FALSE, FALSE, FALSE, FALSE, 'Básica', 'Pendiente', NOW(), NOW()
+            FROM clients WHERE dni = '20494899940' LIMIT 1
+        """)
+        print('  Perfil KYC creado como Pendiente')
+    else:
+        print(f'  KYC restaurado a Pendiente: {n} registro(s)')
+    run("""
+        DELETE FROM compliance_alerts
+        WHERE status = 'Pendiente'
+        AND description LIKE '%DIAMANTA%'
+    """)
+
     session.commit()
     print('\n✅ Limpieza completada.')
 
