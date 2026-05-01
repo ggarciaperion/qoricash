@@ -703,7 +703,14 @@ def ajuste_fx_cierre():
     _, last_day = cal.monthrange(year, month)
     corte = date(year, month, last_day)
 
-    # ── Saldo USD operativo total (BankBalance) ───────────────────────────────
+    # ── Saldo USD por cuenta (BankBalance + mapeo PCGE) ─────────────────────
+    # Mapeo: nombre de banco → código PCGE cuenta USD
+    _BANK_USD_PCGE = {
+        'BCP':       '1044',
+        'INTERBANK': '1047',
+        'BANBIF':    '1050',
+        'PICHINCHA': '1052',
+    }
     banks = BankBalance.query.all()
     total_usd = sum(Decimal(str(b.balance_usd)) for b in banks)
 
@@ -714,7 +721,7 @@ def ajuste_fx_cierre():
     usd_accounts = ('1012', '1044', '1047', '1050', '1052')
     pen_libro = sum(_saldo_acumulado_hasta(c, corte, 'deudora') for c in usd_accounts)
 
-    # ── Diferencia ────────────────────────────────────────────────────────────
+    # ── Diferencia total ──────────────────────────────────────────────────────
     pen_revaluado = total_usd * closing_rate
     diferencia    = pen_revaluado - pen_libro
 
@@ -739,23 +746,82 @@ def ajuste_fx_cierre():
             'error': f'Ya existe un ajuste FX para {period.label} (asiento {existing.entry_number}).',
         }), 409
 
-    # ── Construir líneas del asiento ──────────────────────────────────────────
+    # ── Construir líneas del asiento por cuenta USD ───────────────────────────
+    # Distribuye el ajuste proporcionalmente entre cada cuenta USD con saldo > 0
     descripcion = (
         f'Ajuste diferencia de cambio – cierre {period.label} '
         f'(USD {total_usd:.2f} × TC {closing_rate} = S/ {pen_revaluado:.2f}; libro S/ {pen_libro:.2f})'
     )
 
+    # Calcular diferencia por cuenta individual
+    cuenta_diferencias = []
+    for code in usd_accounts:
+        pen_lib_cuenta  = _saldo_acumulado_hasta(code, corte, 'deudora')
+        # USD de esta cuenta: usar BankBalance si hay match, sino proporcional
+        usd_cuenta = Decimal('0')
+        if code == '1012':
+            # Caja ME — no mapea a BankBalance directamente; usa el residual
+            usd_bancos = sum(
+                Decimal(str(b.balance_usd))
+                for b in banks
+                if b.bank_name.upper() in _BANK_USD_PCGE
+            )
+            usd_cuenta = total_usd - usd_bancos
+        else:
+            bank_name_match = next(
+                (k for k, v in _BANK_USD_PCGE.items() if v == code), None
+            )
+            if bank_name_match:
+                bank_row = next(
+                    (b for b in banks if b.bank_name.upper() == bank_name_match), None
+                )
+                usd_cuenta = Decimal(str(bank_row.balance_usd)) if bank_row else Decimal('0')
+
+        if usd_cuenta <= 0 and pen_lib_cuenta <= 0:
+            continue
+
+        pen_rev_cuenta = usd_cuenta * closing_rate
+        diff_cuenta    = pen_rev_cuenta - pen_lib_cuenta
+        if abs(diff_cuenta) >= Decimal('0.01'):
+            cuenta_diferencias.append((code, usd_cuenta, diff_cuenta))
+
+    if not cuenta_diferencias:
+        return jsonify({
+            'success': False,
+            'error': 'No se encontraron cuentas USD con diferencia ajustable.',
+        })
+
+    lines = []
     if diferencia > 0:
-        lines = [
-            {'account_code': '1012', 'description': 'Revaluación Caja ME', 'debe': diferencia, 'haber': Decimal('0'), 'currency': 'USD', 'amount_usd': total_usd, 'exchange_rate': closing_rate},
-            {'account_code': '7761', 'description': 'Ganancia diferencia TC – ajuste', 'debe': Decimal('0'), 'haber': diferencia, 'currency': 'PEN'},
-        ]
+        # Ganancia: DEBE cuentas USD / HABER 7761
+        for code, usd_c, diff_c in cuenta_diferencias:
+            if diff_c > 0:
+                lines.append({
+                    'account_code': code,
+                    'description': f'Revaluación {code} – ajuste TC cierre',
+                    'debe': diff_c, 'haber': Decimal('0'),
+                    'currency': 'USD', 'amount_usd': usd_c, 'exchange_rate': closing_rate,
+                })
+        lines.append({
+            'account_code': '7761',
+            'description': 'Ganancia diferencia TC – ajuste cierre',
+            'debe': Decimal('0'), 'haber': diferencia, 'currency': 'PEN',
+        })
     else:
         monto = abs(diferencia)
-        lines = [
-            {'account_code': '6762', 'description': 'Pérdida diferencia TC – ajuste', 'debe': monto, 'haber': Decimal('0'), 'currency': 'PEN'},
-            {'account_code': '1012', 'description': 'Revaluación Caja ME', 'debe': Decimal('0'), 'haber': monto, 'currency': 'USD', 'amount_usd': total_usd, 'exchange_rate': closing_rate},
-        ]
+        lines.append({
+            'account_code': '6762',
+            'description': 'Pérdida diferencia TC – ajuste cierre',
+            'debe': monto, 'haber': Decimal('0'), 'currency': 'PEN',
+        })
+        for code, usd_c, diff_c in cuenta_diferencias:
+            if diff_c < 0:
+                lines.append({
+                    'account_code': code,
+                    'description': f'Revaluación {code} – ajuste TC cierre',
+                    'debe': Decimal('0'), 'haber': abs(diff_c),
+                    'currency': 'USD', 'amount_usd': usd_c, 'exchange_rate': closing_rate,
+                })
 
     entry = JournalService.create_entry(
         entry_type='ajuste_fx',
@@ -2706,6 +2772,9 @@ def exportar_excel():
         JournalEntry.status == 'activo',
     ).order_by(JournalEntry.entry_date, JournalEntry.id).all()
 
+    from app.models.accounting_account import AccountingAccount
+    _catalog_names = {a.code: a.name for a in AccountingAccount.query.all()}
+
     r = 7
     total_debe = Decimal('0')
     total_haber = Decimal('0')
@@ -2721,7 +2790,7 @@ def exportar_excel():
                 entry.entry_type or '',
                 entry.description[:80] if entry.description else '',
                 line.account_code,
-                line.account_name or '',
+                _catalog_names.get(line.account_code, ''),
                 float(line.debe or 0),
                 float(line.haber or 0),
             ]

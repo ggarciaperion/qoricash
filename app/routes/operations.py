@@ -1113,6 +1113,19 @@ def complete_operation(operation_id):
 
         db.session.commit()
 
+        # CONTABILIDAD: Asiento automático al completar — completamente aislado
+        try:
+            from app.services.accounting.journal_service import JournalService
+            JournalService.create_entry_for_completed_operation(
+                operation,
+                created_by_id=current_user.id,
+            )
+        except Exception as e:
+            logger.error(
+                f'[Accounting] Error al registrar asiento contable '
+                f'para {operation.operation_id}: {str(e)}'
+            )
+
         # Otorgar beneficio de referido si aplica
         try:
             from app.services.referral_service import referral_service
