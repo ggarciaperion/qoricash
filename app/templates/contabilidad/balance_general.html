@@ -1,0 +1,235 @@
+{% extends "base.html" %}
+{% block title %}Balance General — QoriCash{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+
+  <div class="d-flex align-items-center gap-3 mb-4">
+    <a href="{{ url_for('contabilidad.dashboard') }}" class="btn btn-sm btn-outline-secondary">
+      <i class="bi bi-arrow-left"></i>
+    </a>
+    <div>
+      <h2 class="mb-0"><i class="bi bi-bar-chart-line me-2"></i>Balance General</h2>
+      <small class="text-muted">Estado de Situación Financiera al {{ corte.strftime('%d/%m/%Y') }}</small>
+    </div>
+    <div class="ms-auto d-flex gap-2 align-items-center">
+      <!-- Selector de período -->
+      <form method="get" class="d-flex gap-2 align-items-center">
+        <select name="month" class="form-select form-select-sm" style="width:130px">
+          {% for m,n in [(1,'Enero'),(2,'Febrero'),(3,'Marzo'),(4,'Abril'),(5,'Mayo'),(6,'Junio'),
+                        (7,'Julio'),(8,'Agosto'),(9,'Septiembre'),(10,'Octubre'),(11,'Noviembre'),(12,'Diciembre')] %}
+          <option value="{{ m }}" {% if m==selected_month %}selected{% endif %}>{{ n }}</option>
+          {% endfor %}
+        </select>
+        <select name="year" class="form-select form-select-sm" style="width:90px">
+          {% for y in range(2024, 2028) %}
+          <option value="{{ y }}" {% if y==selected_year %}selected{% endif %}>{{ y }}</option>
+          {% endfor %}
+        </select>
+        <button class="btn btn-sm btn-primary">Ver</button>
+      </form>
+      <button class="btn btn-sm btn-outline-success" onclick="exportarExcel()">
+        <i class="bi bi-file-earmark-excel me-1"></i>Excel
+      </button>
+    </div>
+  </div>
+
+  <div class="row g-4" id="balance-tabla">
+
+    <!-- ═══ ACTIVO ══════════════════════════════════════════════════════════ -->
+    <div class="col-lg-6">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-header bg-primary text-white fw-bold">
+          <i class="bi bi-arrow-up-circle me-2"></i>ACTIVO
+        </div>
+        <div class="card-body p-0">
+          <table class="table table-sm mb-0">
+            <thead class="table-light">
+              <tr>
+                <th class="ps-3">Cuenta</th>
+                <th class="text-end pe-3">S/</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="table-secondary">
+                <td class="ps-3 fw-semibold">Activo Corriente</td>
+                <td></td>
+              </tr>
+              <tr>
+                <td class="ps-4">1011 · Caja M/N</td>
+                <td class="text-end pe-3">{{ "%.2f"|format(caja_mn|float) }}</td>
+              </tr>
+              <tr>
+                <td class="ps-4">1012 · Caja M/E</td>
+                <td class="text-end pe-3">{{ "%.2f"|format(caja_me|float) }}</td>
+              </tr>
+              <tr>
+                <td class="ps-4">104x/105x · Bancos PEN</td>
+                <td class="text-end pe-3">{{ "%.2f"|format(bancos_pen|float) }}</td>
+              </tr>
+              <tr>
+                <td class="ps-4">104x/105x · Bancos USD</td>
+                <td class="text-end pe-3">{{ "%.2f"|format(bancos_usd|float) }}</td>
+              </tr>
+              <tr>
+                <td class="ps-4">121 · Cuentas por cobrar</td>
+                <td class="text-end pe-3">{{ "%.2f"|format(ctas_cobrar|float) }}</td>
+              </tr>
+              <tr class="fw-semibold bg-light">
+                <td class="ps-3">Total Activo Corriente</td>
+                <td class="text-end pe-3">{{ "%.2f"|format(activo_corriente|float) }}</td>
+              </tr>
+              <tr class="table-secondary">
+                <td class="ps-3 fw-semibold">Activo No Corriente</td>
+                <td></td>
+              </tr>
+              <tr>
+                <td class="ps-4">33xx · Activos fijos (neto)</td>
+                <td class="text-end pe-3">{{ "%.2f"|format(activos_netos|float) }}</td>
+              </tr>
+              <tr class="fw-semibold bg-light">
+                <td class="ps-3">Total Activo No Corriente</td>
+                <td class="text-end pe-3">{{ "%.2f"|format(activos_netos|float) }}</td>
+              </tr>
+            </tbody>
+            <tfoot>
+              <tr class="table-primary fw-bold fs-6">
+                <td class="ps-3">TOTAL ACTIVO</td>
+                <td class="text-end pe-3">{{ "%.2f"|format(total_activo|float) }}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ PASIVO + PATRIMONIO ══════════════════════════════════════════════ -->
+    <div class="col-lg-6">
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-danger text-white fw-bold">
+          <i class="bi bi-arrow-down-circle me-2"></i>PASIVO
+        </div>
+        <div class="card-body p-0">
+          <table class="table table-sm mb-0">
+            <thead class="table-light">
+              <tr>
+                <th class="ps-3">Cuenta</th>
+                <th class="text-end pe-3">S/</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="table-secondary">
+                <td class="ps-3 fw-semibold">Pasivo Corriente</td>
+                <td></td>
+              </tr>
+              <tr>
+                <td class="ps-4">4211 · Facturas por pagar</td>
+                <td class="text-end pe-3">{{ "%.2f"|format(facturas_pagar|float) }}</td>
+              </tr>
+              <tr>
+                <td class="ps-4">4699 · Otras cuentas por pagar</td>
+                <td class="text-end pe-3">{{ "%.2f"|format(otras_ctas_pag|float) }}</td>
+              </tr>
+              <tr>
+                <td class="ps-4">4111 · Remuneraciones por pagar</td>
+                <td class="text-end pe-3">{{ "%.2f"|format(sueldos_pagar|float) }}</td>
+              </tr>
+              <tr>
+                <td class="ps-4">4031 · EsSalud por pagar</td>
+                <td class="text-end pe-3">{{ "%.2f"|format(essalud_pagar|float) }}</td>
+              </tr>
+              <tr>
+                <td class="ps-4">4032 · AFP por pagar</td>
+                <td class="text-end pe-3">{{ "%.2f"|format(afp_pagar|float) }}</td>
+              </tr>
+              <tr>
+                <td class="ps-4">4017 · IR – Pago a cuenta</td>
+                <td class="text-end pe-3">{{ "%.2f"|format(ir_pagar|float) }}</td>
+              </tr>
+              <tr class="fw-semibold bg-light">
+                <td class="ps-3">Total Pasivo</td>
+                <td class="text-end pe-3">{{ "%.2f"|format(total_pasivo|float) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card border-0 shadow-sm mt-3">
+        <div class="card-header bg-success text-white fw-bold">
+          <i class="bi bi-graph-up me-2"></i>PATRIMONIO
+        </div>
+        <div class="card-body p-0">
+          <table class="table table-sm mb-0">
+            <tbody>
+              <tr>
+                <td class="ps-4">501 · Capital social</td>
+                <td class="text-end pe-3">{{ "%.2f"|format(capital|float) }}</td>
+              </tr>
+              <tr>
+                <td class="ps-4">591 · Utilidades acumuladas</td>
+                <td class="text-end pe-3">{{ "%.2f"|format(utilidades_acc|float) }}</td>
+              </tr>
+              {% if perdidas_acc > 0 %}
+              <tr>
+                <td class="ps-4 text-danger">592 · Pérdidas acumuladas</td>
+                <td class="text-end pe-3 text-danger">({{ "%.2f"|format(perdidas_acc|float) }})</td>
+              </tr>
+              {% endif %}
+              <tr>
+                <td class="ps-4">
+                  Resultado del ejercicio
+                  {% if resultado_ejercicio >= 0 %}
+                    <span class="badge bg-success ms-1">Utilidad</span>
+                  {% else %}
+                    <span class="badge bg-danger ms-1">Pérdida</span>
+                  {% endif %}
+                </td>
+                <td class="text-end pe-3 {% if resultado_ejercicio < 0 %}text-danger{% endif %}">
+                  {{ "%.2f"|format(resultado_ejercicio|float) }}
+                </td>
+              </tr>
+              <tr class="fw-semibold bg-light">
+                <td class="ps-3">Total Patrimonio</td>
+                <td class="text-end pe-3">{{ "%.2f"|format(total_patrimonio|float) }}</td>
+              </tr>
+            </tbody>
+            <tfoot>
+              <tr class="table-success fw-bold fs-6">
+                <td class="ps-3">TOTAL PASIVO + PATRIMONIO</td>
+                <td class="text-end pe-3">{{ "%.2f"|format((total_pasivo + total_patrimonio)|float) }}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+
+      <!-- Cuadre del balance -->
+      {% set diferencia = total_activo - (total_pasivo + total_patrimonio) %}
+      {% if diferencia | abs > 0.05 %}
+      <div class="alert alert-warning mt-3 mb-0">
+        <i class="bi bi-exclamation-triangle me-2"></i>
+        <strong>Diferencia de cuadre:</strong> S/ {{ "%.2f"|format(diferencia|float) }} — revisar asientos pendientes.
+      </div>
+      {% else %}
+      <div class="alert alert-success mt-3 mb-0">
+        <i class="bi bi-check-circle me-2"></i>
+        Balance <strong>cuadrado</strong> — Activo = Pasivo + Patrimonio.
+      </div>
+      {% endif %}
+    </div>
+
+  </div><!-- /row -->
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function exportarExcel() {
+  const year  = {{ selected_year }};
+  const month = {{ selected_month }};
+  window.location.href = `/contabilidad/exportar-excel?year=${year}&month=${month}`;
+}
+</script>
+{% endblock %}

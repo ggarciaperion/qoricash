@@ -434,61 +434,119 @@ def gastos():
 @login_required
 @require_role('Master')
 def nuevo_gasto():
-    """Registrar un gasto manualmente y crear su asiento contable."""
+    """
+    Registrar un gasto / desembolso y generar el asiento contable correcto.
+
+    Reglas de asiento (PCGE — casa de cambio exonerada de IGV):
+
+    CASO A — Factura con IGV (casa de cambio NO usa crédito fiscal por defecto):
+        DEBE  63xx / 33xx   amount_pen  (total incl. IGV — IGV es costo)
+        HABER 4211           amount_pen  (Facturas por pagar)
+
+    CASO B — Factura con IGV + crédito_fiscal=True (prorrata o actividad gravada):
+        DEBE  63xx / 33xx   base_pen
+        DEBE  4011           igv_pen    (IGV recuperable)
+        HABER 4211           amount_pen
+
+    CASO C — Boleta / recibo / sin comprobante:
+        DEBE  63xx           amount_pen
+        HABER 4699           amount_pen  (Otras cuentas por pagar)
+
+    CASO D — Planilla:
+        DEBE  62x            amount_pen
+        HABER 4111           amount_pen  (Sueldos por pagar)
+    """
     from app.models.expense_record import ExpenseRecord
     from app.services.accounting.journal_service import JournalService
 
     data = request.get_json() or request.form
 
     try:
-        expense_date = date.fromisoformat(data.get('expense_date', str(date.today())))
-        amount_pen   = Decimal(str(data.get('amount_pen', 0)))
+        expense_date   = date.fromisoformat(data.get('expense_date', str(date.today())))
+        amount_pen     = Decimal(str(data.get('amount_pen', 0)))
+        igv_raw        = data.get('igv_pen')
+        base_raw       = data.get('base_pen')
+        igv_pen        = Decimal(str(igv_raw))   if igv_raw  else None
+        base_pen       = Decimal(str(base_raw))  if base_raw else None
+        credito_fiscal = bool(data.get('credito_fiscal', False))
+        expense_type   = data.get('expense_type', 'servicio')
+        voucher_type   = data.get('voucher_type') or None
+
+        # Auto-calcular base/IGV si no se proveen pero hay factura
+        if voucher_type == 'factura' and igv_pen is None and amount_pen > 0:
+            igv_pen  = (amount_pen / Decimal('1.18') * Decimal('0.18')).quantize(Decimal('0.01'))
+            base_pen = amount_pen - igv_pen
 
         record = ExpenseRecord(
             expense_date=expense_date,
             category=data.get('category', '6391'),
             description=data.get('description', ''),
             amount_pen=amount_pen,
-            voucher_type=data.get('voucher_type') or None,
+            base_pen=base_pen,
+            igv_pen=igv_pen,
+            credito_fiscal=credito_fiscal,
+            expense_type=expense_type,
+            voucher_type=voucher_type,
             voucher_number=data.get('voucher_number') or None,
             supplier_ruc=data.get('supplier_ruc') or None,
             supplier_name=data.get('supplier_name') or None,
             created_by=current_user.id,
         )
 
-        # Obtener/crear período y validar que esté abierto (A-01)
         period = JournalService.get_or_create_period(expense_date)
         if period.status == 'cerrado':
             return jsonify({
                 'success': False,
-                'error': f'El período {expense_date.strftime("%m/%Y")} está cerrado. '
-                         'No se pueden registrar gastos en períodos cerrados.'
+                'error': f'El período {expense_date.strftime("%m/%Y")} está cerrado.'
             }), 409
         record.period_id = period.id
         db.session.add(record)
         db.session.flush()
 
-        # Crear asiento contable del gasto
+        # ── Determinar cuentas del asiento ────────────────────────────────────
         account_code = data.get('category', '6391')
+        is_planilla  = expense_type == 'planilla'
+
+        if is_planilla:
+            # Planilla: cargo a remuneraciones, por pagar a 4111
+            lines = [
+                {'account_code': account_code, 'description': record.description,
+                 'debe': amount_pen, 'haber': Decimal('0'), 'currency': 'PEN'},
+                {'account_code': '4111', 'description': f'Por pagar planilla: {record.description}',
+                 'debe': Decimal('0'), 'haber': amount_pen, 'currency': 'PEN'},
+            ]
+        elif voucher_type == 'factura' and credito_fiscal and igv_pen:
+            # Factura con crédito fiscal: separar IGV en 4011
+            lines = [
+                {'account_code': account_code, 'description': record.description,
+                 'debe': base_pen, 'haber': Decimal('0'), 'currency': 'PEN'},
+                {'account_code': '4011', 'description': f'IGV compras – {record.description}',
+                 'debe': igv_pen, 'haber': Decimal('0'), 'currency': 'PEN'},
+                {'account_code': '4211', 'description': f'Factura por pagar: {record.description}',
+                 'debe': Decimal('0'), 'haber': amount_pen, 'currency': 'PEN'},
+            ]
+        elif voucher_type == 'factura':
+            # Factura SIN crédito fiscal: IGV es costo (cargo total a la cuenta de gasto)
+            lines = [
+                {'account_code': account_code, 'description': record.description,
+                 'debe': amount_pen, 'haber': Decimal('0'), 'currency': 'PEN'},
+                {'account_code': '4211', 'description': f'Factura por pagar: {record.description}',
+                 'debe': Decimal('0'), 'haber': amount_pen, 'currency': 'PEN'},
+            ]
+        else:
+            # Boleta / recibo / sin comprobante
+            lines = [
+                {'account_code': account_code, 'description': record.description,
+                 'debe': amount_pen, 'haber': Decimal('0'), 'currency': 'PEN'},
+                {'account_code': '4699', 'description': f'Por pagar: {record.description}',
+                 'debe': Decimal('0'), 'haber': amount_pen, 'currency': 'PEN'},
+            ]
+
+        entry_type = 'activo_fijo' if expense_type == 'activo_fijo' else 'gasto'
         entry = JournalService.create_entry(
-            entry_type='gasto',
-            description=f"Gasto: {record.description}",
-            lines=[
-                {
-                    'account_code': account_code,
-                    'description':  record.description,
-                    'debe':         amount_pen,
-                    'haber':        Decimal('0'),
-                    'currency':     'PEN',
-                },
-                {
-                    'account_code': '4699',   # Otras cuentas por pagar
-                    'description':  f'Por pagar: {record.description}',
-                    'debe':         Decimal('0'),
-                    'haber':        amount_pen,
-                    'currency':     'PEN',
-                },
-            ],
+            entry_type=entry_type,
+            description=f"{'Adq. activo' if entry_type == 'activo_fijo' else 'Gasto'}: {record.description}",
+            lines=lines,
             source_type='expense',
             source_id=record.id,
             entry_date=expense_date,
@@ -496,6 +554,23 @@ def nuevo_gasto():
         )
         if entry:
             record.journal_entry_id = entry.id
+
+        # ── Si es activo fijo, crear el registro en FixedAsset ────────────────
+        if expense_type == 'activo_fijo':
+            from app.models.fixed_asset import FixedAsset
+            fa_category     = data.get('fa_category', 'equipo_oficina')
+            fa_name         = data.get('fa_name') or record.description
+            fa_life_months  = data.get('fa_life_months')
+            fa_residual     = data.get('fa_residual_value')
+            fixed_asset = FixedAsset.from_expense(
+                expense_record=record,
+                category=fa_category,
+                name=fa_name,
+                useful_life_months=int(fa_life_months) if fa_life_months else None,
+                residual_value=Decimal(str(fa_residual)) if fa_residual else None,
+                created_by=current_user.id,
+            )
+            db.session.add(fixed_asset)
 
         db.session.commit()
         return jsonify({'success': True, 'message': 'Gasto registrado correctamente'})
@@ -2004,6 +2079,274 @@ def export_resultados():
                      download_name=f'estado_resultados_{year}{month:02d}.xlsx')
 
 
+# ── Balance General (Estado de Situación Financiera) ──────────────────────────
+
+def _saldo_acumulado_hasta(account_prefix: str, hasta_fecha, saldo_normal: str = 'deudora') -> Decimal:
+    """
+    Calcula el saldo acumulado de todas las cuentas que empiezan con account_prefix,
+    desde el primer asiento hasta hasta_fecha (inclusive).
+    saldo_normal: 'deudora' (activos/gastos) o 'acreedora' (pasivos/patrimonio/ingresos).
+    """
+    from app.models.journal_entry import JournalEntry
+    from app.models.journal_entry_line import JournalEntryLine
+    from sqlalchemy import func
+
+    q = db.session.query(
+        func.sum(JournalEntryLine.debe).label('d'),
+        func.sum(JournalEntryLine.haber).label('h'),
+    ).join(JournalEntry, JournalEntryLine.journal_entry_id == JournalEntry.id
+    ).filter(
+        JournalEntryLine.account_code.like(f'{account_prefix}%'),
+        JournalEntry.entry_date <= hasta_fecha,
+        JournalEntry.status == 'activo',
+    ).first()
+
+    d = Decimal(str(q.d or 0))
+    h = Decimal(str(q.h or 0))
+    return (d - h) if saldo_normal == 'deudora' else (h - d)
+
+
+@contabilidad_bp.route('/balance-general')
+@login_required
+@require_role('Master')
+def balance_general():
+    """
+    Balance General (Estado de Situación Financiera) a una fecha de corte.
+    Presenta saldos acumulados (no solo del mes) en formato ACTIVO / PASIVO / PATRIMONIO.
+    """
+    from app.models.accounting_period import AccountingPeriod
+    from app.models.fixed_asset import FixedAsset
+    import calendar
+
+    year  = request.args.get('year',  type=int, default=date.today().year)
+    month = request.args.get('month', type=int, default=date.today().month)
+    _, last_day = calendar.monthrange(year, month)
+    corte = date(year, month, last_day)
+
+    def saldo_d(prefix): return _saldo_acumulado_hasta(prefix, corte, 'deudora')
+    def saldo_a(prefix): return _saldo_acumulado_hasta(prefix, corte, 'acreedora')
+
+    # ── ACTIVO ────────────────────────────────────────────────────────────────
+    caja_mn     = saldo_d('1011')
+    caja_me     = saldo_d('1012')
+    bancos_pen  = sum(saldo_d(c) for c in ('1041','1048','1049','1051'))
+    bancos_usd  = sum(saldo_d(c) for c in ('1044','1047','1050','1052'))
+    ctas_cobrar = saldo_d('121')
+    activo_corriente = caja_mn + caja_me + bancos_pen + bancos_usd + ctas_cobrar
+
+    # Activos fijos netos (cost - deprec. acum.)
+    activos_netos = Decimal('0')
+    fixed_assets  = FixedAsset.query.filter_by(status='activo').all()
+    for fa in fixed_assets:
+        activos_netos += fa.net_book_value
+    # Fallback desde asientos si no hay fixed_assets registrados
+    if not fixed_assets:
+        costo_af     = sum(saldo_d(c) for c in ('3321','3351','3361','3362'))
+        deprec_acum  = sum(saldo_a(c) for c in ('3921','3951','3961','3962'))
+        activos_netos = costo_af - deprec_acum
+
+    total_activo = activo_corriente + activos_netos
+
+    # ── PASIVO ────────────────────────────────────────────────────────────────
+    facturas_pagar  = saldo_a('4211')
+    otras_ctas_pag  = saldo_a('4699')
+    sueldos_pagar   = saldo_a('4111')
+    ir_pagar        = saldo_a('4017')
+    essalud_pagar   = saldo_a('4031')
+    afp_pagar       = saldo_a('4032')
+    total_pasivo    = facturas_pagar + otras_ctas_pag + sueldos_pagar + ir_pagar + essalud_pagar + afp_pagar
+
+    # ── PATRIMONIO ────────────────────────────────────────────────────────────
+    capital         = saldo_a('501')
+    utilidades_acc  = saldo_a('591')
+    perdidas_acc    = saldo_d('592')
+    # Resultado del ejercicio acumulado (ingresos - gastos hasta la fecha)
+    ingresos_ac = saldo_a('77')
+    gastos_ac   = saldo_d('6')
+    resultado_ejercicio = ingresos_ac - gastos_ac
+    total_patrimonio = capital + utilidades_acc - perdidas_acc + resultado_ejercicio
+
+    periods = AccountingPeriod.query.order_by(
+        AccountingPeriod.year.desc(), AccountingPeriod.month.desc()
+    ).all()
+
+    return render_template(
+        'contabilidad/balance_general.html',
+        corte=corte,
+        caja_mn=caja_mn, caja_me=caja_me,
+        bancos_pen=bancos_pen, bancos_usd=bancos_usd,
+        ctas_cobrar=ctas_cobrar,
+        activo_corriente=activo_corriente,
+        activos_netos=activos_netos,
+        total_activo=total_activo,
+        facturas_pagar=facturas_pagar, otras_ctas_pag=otras_ctas_pag,
+        sueldos_pagar=sueldos_pagar, ir_pagar=ir_pagar,
+        essalud_pagar=essalud_pagar, afp_pagar=afp_pagar,
+        total_pasivo=total_pasivo,
+        capital=capital, utilidades_acc=utilidades_acc,
+        perdidas_acc=perdidas_acc,
+        resultado_ejercicio=resultado_ejercicio,
+        total_patrimonio=total_patrimonio,
+        periods=periods,
+        selected_year=year, selected_month=month,
+        user=current_user,
+    )
+
+
+# ── Activos Fijos ──────────────────────────────────────────────────────────────
+
+@contabilidad_bp.route('/activos-fijos')
+@login_required
+@require_role('Master')
+def activos_fijos():
+    from app.models.fixed_asset import FixedAsset
+    assets = FixedAsset.query.order_by(FixedAsset.acquisition_date.desc()).all()
+    return render_template(
+        'contabilidad/activos_fijos.html',
+        assets=assets,
+        user=current_user,
+    )
+
+
+@contabilidad_bp.route('/activos-fijos/api/list')
+@login_required
+@require_role('Master')
+def api_activos_list():
+    from app.models.fixed_asset import FixedAsset
+    status_filter = request.args.get('status', 'activo')
+    q = FixedAsset.query
+    if status_filter != 'todos':
+        q = q.filter_by(status=status_filter)
+    assets = q.order_by(FixedAsset.acquisition_date.desc()).all()
+    return jsonify([a.to_dict() for a in assets])
+
+
+@contabilidad_bp.route('/activos-fijos/depreciar', methods=['POST'])
+@login_required
+@require_role('Master')
+def depreciar_activos():
+    """
+    Registra la depreciación mensual de todos los activos activos.
+    Genera un asiento por activo: DEBE 6814 / HABER 3951/3961/3962.
+    Se debe ejecutar una vez por mes (el sistema previene duplicados por period_id + source_id).
+    """
+    from app.models.fixed_asset import FixedAsset
+    from app.services.accounting.journal_service import JournalService
+    from app.models.journal_entry import JournalEntry
+
+    data          = request.get_json() or {}
+    dep_year      = int(data.get('year',  date.today().year))
+    dep_month     = int(data.get('month', date.today().month))
+    dep_date      = date(dep_year, dep_month, 1)
+
+    assets = FixedAsset.query.filter_by(status='activo').all()
+    if not assets:
+        return jsonify({'success': False, 'error': 'No hay activos fijos activos registrados.'})
+
+    period = JournalService.get_or_create_period(dep_date)
+    if period.status == 'cerrado':
+        return jsonify({
+            'success': False,
+            'error': f'El período {dep_date.strftime("%m/%Y")} está cerrado.'
+        }), 409
+
+    generados = 0
+    omitidos  = 0
+    errores   = []
+
+    for asset in assets:
+        if asset.is_fully_depreciated:
+            asset.status = 'depreciado'
+            db.session.flush()
+            omitidos += 1
+            continue
+
+        # Verificar si ya existe asiento de depreciación para este activo en este período
+        existing = JournalEntry.query.filter_by(
+            entry_type='depreciacion',
+            source_type='fixed_asset',
+            source_id=asset.id,
+            period_id=period.id,
+        ).first()
+        if existing:
+            omitidos += 1
+            continue
+
+        cuota = Decimal(str(asset.monthly_depreciation))
+
+        entry = JournalService.create_entry(
+            entry_type='depreciacion',
+            description=f'Depreciación {asset.asset_code} – {asset.name} '
+                        f'({asset.months_depreciated + 1}/{asset.useful_life_months})',
+            lines=[
+                {
+                    'account_code': '6814',
+                    'description':  f'Deprec. {asset.asset_code}',
+                    'debe':         cuota,
+                    'haber':        Decimal('0'),
+                    'currency':     'PEN',
+                },
+                {
+                    'account_code': asset.deprec_account,
+                    'description':  f'Deprec. acum. {asset.asset_code}',
+                    'debe':         Decimal('0'),
+                    'haber':        cuota,
+                    'currency':     'PEN',
+                },
+            ],
+            source_type='fixed_asset',
+            source_id=asset.id,
+            entry_date=dep_date,
+            created_by=current_user.id,
+        )
+
+        if entry:
+            asset.months_depreciated    = (asset.months_depreciated or 0) + 1
+            asset.accumulated_depreciation = (
+                Decimal(str(asset.accumulated_depreciation or 0)) + cuota
+            )
+            if asset.is_fully_depreciated:
+                asset.status = 'depreciado'
+            generados += 1
+        else:
+            errores.append(asset.asset_code)
+
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+    return jsonify({
+        'success': True,
+        'message': f'{generados} asiento(s) de depreciación generado(s). '
+                   f'{omitidos} activo(s) omitido(s) (ya depreciado o duplicado). '
+                   f'{len(errores)} error(es).',
+        'generados': generados,
+        'omitidos': omitidos,
+        'errores': errores,
+    })
+
+
+@contabilidad_bp.route('/activos-fijos/<int:asset_id>/baja', methods=['POST'])
+@login_required
+@require_role('Master')
+def dar_baja_activo(asset_id):
+    """Da de baja un activo fijo (status = 'baja')."""
+    from app.models.fixed_asset import FixedAsset
+    asset = FixedAsset.query.get_or_404(asset_id)
+    data  = request.get_json() or {}
+    asset.status     = 'baja'
+    asset.baja_date  = date.today()
+    asset.baja_notes = data.get('notes', '')
+    try:
+        db.session.commit()
+        return jsonify({'success': True, 'message': f'Activo {asset.asset_code} dado de baja.'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 # ── Helper ─────────────────────────────────────────────────────────────────────
 
 def _month_name(m: int) -> str:
@@ -2024,3 +2367,416 @@ def _infer_type(code: str) -> str:
     if code.startswith('6'):
         return 'gasto'
     return 'activo'
+
+
+# ── Exportar Excel multi-hoja ───────────────────────────────────────────────────
+
+@contabilidad_bp.route('/exportar-excel')
+@login_required
+@require_role('Master')
+def exportar_excel():
+    """
+    Genera un workbook Excel con múltiples hojas:
+      1. Libro Diario
+      2. Balance General
+      3. Estado de Resultados
+      4. Registro de Compras
+      5. Activos Fijos
+      6. Cuadre Diario
+    """
+    from app.models.journal_entry import JournalEntry
+    from app.models.journal_entry_line import JournalEntryLine
+    from app.models.expense_record import ExpenseRecord
+    from app.models.fixed_asset import FixedAsset
+    from app.models.accounting_period import AccountingPeriod
+    from sqlalchemy import func, extract
+    import calendar
+
+    year  = request.args.get('year',  type=int, default=date.today().year)
+    month = request.args.get('month', type=int, default=date.today().month)
+    _, last_day = calendar.monthrange(year, month)
+    corte = date(year, month, last_day)
+
+    info = _company_info()
+    company = info['razon_social']
+    ruc     = info['ruc']
+    mes_label = f"{['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][month-1]} {year}"
+
+    # ── Estilos comunes ───────────────────────────────────────────────────────
+    H_FILL  = PatternFill('solid', fgColor='1F3864')   # azul oscuro
+    H_FONT  = Font(color='FFFFFF', bold=True, size=10)
+    T_FONT  = Font(bold=True, size=11)
+    S_FONT  = Font(bold=True, size=9, color='444444')
+    NUM_FMT = '#,##0.00'
+    BORDER  = Border(
+        bottom=Side(style='thin', color='CCCCCC'),
+        top=Side(style='thin', color='CCCCCC'),
+    )
+
+    def header_row(ws, cols, row=1):
+        for c, (title, width) in enumerate(cols, 1):
+            cell = ws.cell(row=row, column=c, value=title)
+            cell.font      = H_FONT
+            cell.fill      = H_FILL
+            cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+            ws.column_dimensions[openpyxl.utils.get_column_letter(c)].width = width
+        ws.row_dimensions[row].height = 22
+
+    def title_block(ws, title, subtitle=''):
+        ws['A1'] = company
+        ws['A1'].font = T_FONT
+        ws['A2'] = f'RUC: {ruc}'
+        ws['A2'].font = Font(size=9, color='555555')
+        ws['A3'] = title
+        ws['A3'].font = Font(bold=True, size=12)
+        ws['A4'] = subtitle
+        ws['A4'].font = Font(italic=True, size=9, color='777777')
+        ws.append([])   # row 5 blank
+
+    wb = openpyxl.Workbook()
+    wb.remove(wb.active)   # remove default sheet
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # HOJA 1 — Libro Diario
+    # ══════════════════════════════════════════════════════════════════════════
+    ws1 = wb.create_sheet('Libro Diario')
+    title_block(ws1, 'LIBRO DIARIO', mes_label)
+
+    cols1 = [
+        ('Nro Asiento', 14), ('Fecha', 12), ('Tipo', 14), ('Descripción', 40),
+        ('Cuenta', 10), ('Nombre Cuenta', 28), ('DEBE', 14), ('HABER', 14),
+    ]
+    header_row(ws1, cols1, row=6)
+
+    entries = JournalEntry.query.filter(
+        extract('year',  JournalEntry.entry_date) == year,
+        extract('month', JournalEntry.entry_date) == month,
+        JournalEntry.status == 'activo',
+    ).order_by(JournalEntry.entry_date, JournalEntry.id).all()
+
+    r = 7
+    total_debe = Decimal('0')
+    total_haber = Decimal('0')
+    alt_fill = PatternFill('solid', fgColor='EFF3FB')
+
+    for entry in entries:
+        lines = JournalEntryLine.query.filter_by(journal_entry_id=entry.id).all()
+        for i, line in enumerate(lines):
+            row_fill = alt_fill if (entry.id % 2 == 0) else None
+            cells = [
+                entry.entry_number or '',
+                entry.entry_date,
+                entry.entry_type or '',
+                entry.description[:80] if entry.description else '',
+                line.account_code,
+                line.account_name or '',
+                float(line.debe or 0),
+                float(line.haber or 0),
+            ]
+            for c, val in enumerate(cells, 1):
+                cell = ws1.cell(row=r, column=c, value=val)
+                if row_fill:
+                    cell.fill = row_fill
+                if c in (7, 8):
+                    cell.number_format = NUM_FMT
+                    cell.alignment = Alignment(horizontal='right')
+                if c == 2 and isinstance(val, date):
+                    cell.number_format = 'DD/MM/YYYY'
+            total_debe  += Decimal(str(line.debe or 0))
+            total_haber += Decimal(str(line.haber or 0))
+            r += 1
+
+    # Totales
+    ws1.cell(row=r, column=6, value='TOTALES').font = Font(bold=True)
+    ws1.cell(row=r, column=7, value=float(total_debe)).number_format  = NUM_FMT
+    ws1.cell(row=r, column=8, value=float(total_haber)).number_format = NUM_FMT
+    ws1.cell(row=r, column=7).font = Font(bold=True)
+    ws1.cell(row=r, column=8).font = Font(bold=True)
+    ws1.freeze_panes = 'A7'
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # HOJA 2 — Balance General
+    # ══════════════════════════════════════════════════════════════════════════
+    ws2 = wb.create_sheet('Balance General')
+    title_block(ws2, 'BALANCE GENERAL (Estado de Situación Financiera)',
+                f'Al {corte.strftime("%d/%m/%Y")}')
+
+    def saldo_d(prefix): return _saldo_acumulado_hasta(prefix, corte, 'deudora')
+    def saldo_a(prefix): return _saldo_acumulado_hasta(prefix, corte, 'acreedora')
+
+    caja_mn     = saldo_d('1011')
+    caja_me     = saldo_d('1012')
+    bancos_pen  = sum(saldo_d(c) for c in ('1041','1048','1049','1051'))
+    bancos_usd  = sum(saldo_d(c) for c in ('1044','1047','1050','1052'))
+    ctas_cobrar = saldo_d('121')
+    activo_corriente = caja_mn + caja_me + bancos_pen + bancos_usd + ctas_cobrar
+
+    fixed_assets = FixedAsset.query.filter_by(status='activo').all()
+    activos_netos = sum(fa.net_book_value for fa in fixed_assets) if fixed_assets else (
+        sum(saldo_d(c) for c in ('3321','3351','3361','3362')) -
+        sum(saldo_a(c) for c in ('3921','3951','3961','3962'))
+    )
+    total_activo = activo_corriente + activos_netos
+
+    facturas_pagar = saldo_a('4211')
+    otras_ctas_pag = saldo_a('4699')
+    sueldos_pagar  = saldo_a('4111')
+    ir_pagar       = saldo_a('4017')
+    essalud_pagar  = saldo_a('4031')
+    afp_pagar      = saldo_a('4032')
+    total_pasivo   = facturas_pagar + otras_ctas_pag + sueldos_pagar + ir_pagar + essalud_pagar + afp_pagar
+
+    capital         = saldo_a('501')
+    utilidades_acc  = saldo_a('591')
+    perdidas_acc    = saldo_d('592')
+    resultado_ejercicio = saldo_a('77') - saldo_d('6')
+    total_patrimonio = capital + utilidades_acc - perdidas_acc + resultado_ejercicio
+
+    BG_SECTION = PatternFill('solid', fgColor='D9E1F2')
+
+    bal_rows = [
+        ('ACTIVO', '', True),
+        ('ACTIVO CORRIENTE', '', False),
+        ('1011 – Caja M/N', float(caja_mn), False),
+        ('1012 – Caja M/E', float(caja_me), False),
+        ('104x/105x – Bancos PEN', float(bancos_pen), False),
+        ('104x/105x – Bancos USD', float(bancos_usd), False),
+        ('121 – Cuentas por cobrar', float(ctas_cobrar), False),
+        ('TOTAL ACTIVO CORRIENTE', float(activo_corriente), True),
+        ('', '', False),
+        ('ACTIVO NO CORRIENTE', '', False),
+        ('33xx – Activos fijos (neto)', float(activos_netos), False),
+        ('TOTAL ACTIVO NO CORRIENTE', float(activos_netos), True),
+        ('', '', False),
+        ('TOTAL ACTIVO', float(total_activo), True),
+        ('', '', False),
+        ('PASIVO', '', True),
+        ('4211 – Facturas por pagar', float(facturas_pagar), False),
+        ('4699 – Otras cuentas por pagar', float(otras_ctas_pag), False),
+        ('4111 – Remuneraciones por pagar', float(sueldos_pagar), False),
+        ('4031 – EsSalud por pagar', float(essalud_pagar), False),
+        ('4032 – AFP por pagar', float(afp_pagar), False),
+        ('4017 – IR pago a cuenta', float(ir_pagar), False),
+        ('TOTAL PASIVO', float(total_pasivo), True),
+        ('', '', False),
+        ('PATRIMONIO', '', True),
+        ('501 – Capital social', float(capital), False),
+        ('591 – Utilidades acumuladas', float(utilidades_acc), False),
+        ('592 – Pérdidas acumuladas', float(-perdidas_acc), False),
+        ('Resultado del ejercicio', float(resultado_ejercicio), False),
+        ('TOTAL PATRIMONIO', float(total_patrimonio), True),
+        ('', '', False),
+        ('TOTAL PASIVO + PATRIMONIO', float(total_pasivo + total_patrimonio), True),
+    ]
+
+    header_row(ws2, [('Concepto', 40), ('Importe (S/)', 18)], row=6)
+    for i, (label, amount, bold) in enumerate(bal_rows, 7):
+        c1 = ws2.cell(row=i, column=1, value=label)
+        c2 = ws2.cell(row=i, column=2, value=amount if amount != '' else '')
+        if bold:
+            c1.font = Font(bold=True)
+            c2.font = Font(bold=True)
+            c1.fill = c2.fill = BG_SECTION
+        if isinstance(amount, float):
+            c2.number_format = NUM_FMT
+            c2.alignment = Alignment(horizontal='right')
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # HOJA 3 — Estado de Resultados
+    # ══════════════════════════════════════════════════════════════════════════
+    ws3 = wb.create_sheet('Estado de Resultados')
+    title_block(ws3, 'ESTADO DE RESULTADOS', mes_label)
+
+    # Ingresos por tipo de asiento (calce_netting = utilidad de operaciones)
+    ingresos_op = db.session.query(func.sum(JournalEntryLine.haber)).join(
+        JournalEntry, JournalEntryLine.journal_entry_id == JournalEntry.id
+    ).filter(
+        JournalEntryLine.account_code.like('77%'),
+        extract('year',  JournalEntry.entry_date) == year,
+        extract('month', JournalEntry.entry_date) == month,
+        JournalEntry.status == 'activo',
+    ).scalar() or Decimal('0')
+
+    # Gastos por categoría
+    gastos_q = db.session.query(
+        func.sum(ExpenseRecord.amount_pen).label('total'),
+    ).filter(
+        extract('year',  ExpenseRecord.expense_date) == year,
+        extract('month', ExpenseRecord.expense_date) == month,
+    ).scalar() or Decimal('0')
+
+    # Gastos de depreciación del mes
+    deprec_mes = db.session.query(func.sum(JournalEntryLine.debe)).join(
+        JournalEntry, JournalEntryLine.journal_entry_id == JournalEntry.id
+    ).filter(
+        JournalEntryLine.account_code == '6814',
+        extract('year',  JournalEntry.entry_date) == year,
+        extract('month', JournalEntry.entry_date) == month,
+        JournalEntry.status == 'activo',
+    ).scalar() or Decimal('0')
+
+    utilidad_bruta = Decimal(str(ingresos_op)) - Decimal(str(gastos_q))
+
+    ER_FILL = PatternFill('solid', fgColor='E2EFDA')
+    er_rows = [
+        ('INGRESOS', '', True),
+        ('7711 – Utilidad por diferencia de cambio', float(ingresos_op), False),
+        ('TOTAL INGRESOS', float(ingresos_op), True),
+        ('', '', False),
+        ('GASTOS OPERATIVOS', '', True),
+        ('6xxx – Gastos del período', float(gastos_q), False),
+        ('6814 – Depreciación', float(deprec_mes), False),
+        ('TOTAL GASTOS', float(Decimal(str(gastos_q)) + Decimal(str(deprec_mes))), True),
+        ('', '', False),
+        ('RESULTADO NETO DEL PERÍODO', float(utilidad_bruta - Decimal(str(deprec_mes))), True),
+    ]
+
+    header_row(ws3, [('Concepto', 40), ('Importe (S/)', 18)], row=6)
+    for i, (label, amount, bold) in enumerate(er_rows, 7):
+        c1 = ws3.cell(row=i, column=1, value=label)
+        c2 = ws3.cell(row=i, column=2, value=amount if amount != '' else '')
+        if bold:
+            c1.font = c2.font = Font(bold=True)
+            c1.fill = c2.fill = ER_FILL
+        if isinstance(amount, float):
+            c2.number_format = NUM_FMT
+            c2.alignment = Alignment(horizontal='right')
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # HOJA 4 — Registro de Compras / Gastos
+    # ══════════════════════════════════════════════════════════════════════════
+    ws4 = wb.create_sheet('Registro de Compras')
+    title_block(ws4, 'REGISTRO DE COMPRAS / GASTOS', mes_label)
+
+    cols4 = [
+        ('Fecha', 12), ('Tipo Comp.', 12), ('Nro Comp.', 14), ('RUC Proveedor', 14),
+        ('Proveedor', 28), ('Tipo Gasto', 14), ('Descripción', 36),
+        ('Base (S/)', 13), ('IGV (S/)', 13), ('Total (S/)', 13),
+    ]
+    header_row(ws4, cols4, row=6)
+
+    gastos = ExpenseRecord.query.filter(
+        extract('year',  ExpenseRecord.expense_date) == year,
+        extract('month', ExpenseRecord.expense_date) == month,
+    ).order_by(ExpenseRecord.expense_date).all()
+
+    g_total_base = g_total_igv = g_total = Decimal('0')
+    for i, g in enumerate(gastos, 7):
+        base = float(g.base_pen or g.amount_pen or 0)
+        igv  = float(g.igv_pen or 0)
+        total = float(g.amount_pen or 0)
+        row_fill = alt_fill if i % 2 == 0 else None
+        vals = [
+            g.expense_date, g.voucher_type or '', g.voucher_number or '',
+            g.supplier_ruc or '', g.supplier_name or '',
+            g.expense_type or 'servicio', g.description[:60] if g.description else '',
+            base, igv, total,
+        ]
+        for c, val in enumerate(vals, 1):
+            cell = ws4.cell(row=i, column=c, value=val)
+            if row_fill:
+                cell.fill = row_fill
+            if c in (8, 9, 10):
+                cell.number_format = NUM_FMT
+                cell.alignment = Alignment(horizontal='right')
+            if c == 1 and isinstance(val, date):
+                cell.number_format = 'DD/MM/YYYY'
+        g_total_base += Decimal(str(base))
+        g_total_igv  += Decimal(str(igv))
+        g_total      += Decimal(str(total))
+
+    r4 = len(gastos) + 7
+    ws4.cell(row=r4, column=7, value='TOTALES').font = Font(bold=True)
+    for c, val in [(8, float(g_total_base)), (9, float(g_total_igv)), (10, float(g_total))]:
+        cell = ws4.cell(row=r4, column=c, value=val)
+        cell.number_format = NUM_FMT
+        cell.font = Font(bold=True)
+        cell.alignment = Alignment(horizontal='right')
+    ws4.freeze_panes = 'A7'
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # HOJA 5 — Control de Activos Fijos
+    # ══════════════════════════════════════════════════════════════════════════
+    ws5 = wb.create_sheet('Activos Fijos')
+    title_block(ws5, 'CONTROL DE ACTIVOS FIJOS', f'Al {corte.strftime("%d/%m/%Y")}')
+
+    cols5 = [
+        ('Código', 12), ('Descripción', 30), ('Categoría', 14),
+        ('Cta. Activo', 12), ('Cta. Deprec.', 12), ('Fecha Adq.', 13),
+        ('Costo (S/)', 13), ('Deprec./mes', 12), ('Deprec. Acum.', 14),
+        ('Valor Neto', 13), ('Meses', 8), ('Vida Útil', 10), ('Estado', 10),
+    ]
+    header_row(ws5, cols5, row=6)
+
+    all_assets = FixedAsset.query.order_by(FixedAsset.acquisition_date).all()
+    for i, a in enumerate(all_assets, 7):
+        row_fill = alt_fill if i % 2 == 0 else None
+        vals = [
+            a.asset_code, a.name, a.category,
+            a.account_code, a.deprec_account,
+            a.acquisition_date, float(a.cost_pen),
+            float(a.monthly_depreciation),
+            float(a.accumulated_depreciation or 0),
+            float(a.net_book_value),
+            a.months_depreciated or 0, a.useful_life_months, a.status,
+        ]
+        for c, val in enumerate(vals, 1):
+            cell = ws5.cell(row=i, column=c, value=val)
+            if row_fill:
+                cell.fill = row_fill
+            if c in (7, 8, 9, 10):
+                cell.number_format = NUM_FMT
+                cell.alignment = Alignment(horizontal='right')
+            if c == 6 and isinstance(val, date):
+                cell.number_format = 'DD/MM/YYYY'
+
+    ws5.freeze_panes = 'A7'
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # HOJA 6 — Cuadre Diario
+    # ══════════════════════════════════════════════════════════════════════════
+    ws6 = wb.create_sheet('Cuadre Diario')
+    title_block(ws6, 'CUADRE DIARIO DE ASIENTOS', mes_label)
+
+    cols6 = [('Fecha', 12), ('Nro Asientos', 14), ('Total DEBE', 14), ('Total HABER', 14), ('Diferencia', 14)]
+    header_row(ws6, cols6, row=6)
+
+    daily = db.session.query(
+        JournalEntry.entry_date,
+        func.count(JournalEntry.id).label('count'),
+        func.sum(JournalEntry.total_debe).label('debe'),
+        func.sum(JournalEntry.total_haber).label('haber'),
+    ).filter(
+        extract('year',  JournalEntry.entry_date) == year,
+        extract('month', JournalEntry.entry_date) == month,
+        JournalEntry.status == 'activo',
+    ).group_by(JournalEntry.entry_date).order_by(JournalEntry.entry_date).all()
+
+    for i, row in enumerate(daily, 7):
+        debe  = float(row.debe  or 0)
+        haber = float(row.haber or 0)
+        diff  = debe - haber
+        vals  = [row.entry_date, row.count, debe, haber, diff]
+        for c, val in enumerate(vals, 1):
+            cell = ws6.cell(row=i, column=c, value=val)
+            if c in (3, 4, 5):
+                cell.number_format = NUM_FMT
+                cell.alignment = Alignment(horizontal='right')
+            if c == 1:
+                cell.number_format = 'DD/MM/YYYY'
+            if c == 5 and abs(diff) > 0.01:
+                cell.font = Font(color='FF0000', bold=True)
+
+    ws6.freeze_panes = 'A7'
+
+    # ── Enviar archivo ────────────────────────────────────────────────────────
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+    filename = f'QoriCash_Contabilidad_{year}{month:02d}.xlsx'
+    return send_file(
+        output,
+        as_attachment=True,
+        download_name=filename,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )

@@ -21,6 +21,7 @@ from app.models.accounting_period import AccountingPeriod
 from app.models.journal_entry import JournalEntry
 from app.models.journal_entry_line import JournalEntryLine
 from app.models.expense_record import ExpenseRecord
+from app.models.fixed_asset import FixedAsset
 from app.models.journal_sequence import JournalSequence
 from app.models.system_config import SystemConfig
 __all__ = [
@@ -30,6 +31,6 @@ __all__ = [
     'SanctionsEntry',
     # Módulo contable
     'AccountingAccount', 'AccountingPeriod',
-    'JournalEntry', 'JournalEntryLine', 'ExpenseRecord', 'JournalSequence',
+    'JournalEntry', 'JournalEntryLine', 'ExpenseRecord', 'FixedAsset', 'JournalSequence',
     'SystemConfig',
 ]

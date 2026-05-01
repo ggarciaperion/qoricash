@@ -1,0 +1,248 @@
+{% extends "base.html" %}
+{% block title %}Activos Fijos — QoriCash{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+
+  <div class="d-flex align-items-center gap-3 mb-4">
+    <a href="{{ url_for('contabilidad.dashboard') }}" class="btn btn-sm btn-outline-secondary">
+      <i class="bi bi-arrow-left"></i>
+    </a>
+    <div>
+      <h2 class="mb-0"><i class="bi bi-building me-2"></i>Activos Fijos</h2>
+      <small class="text-muted">Control y depreciación mensual — SUNAT / PCGE</small>
+    </div>
+    <div class="ms-auto d-flex gap-2">
+      <button class="btn btn-sm btn-outline-warning" onclick="depreciarMes()">
+        <i class="bi bi-calendar-check me-1"></i>Depreciar mes actual
+      </button>
+    </div>
+  </div>
+
+  <!-- KPIs -->
+  <div class="row g-3 mb-4" id="kpis">
+    {% set activos_activos = assets | selectattr('status', 'equalto', 'activo') | list %}
+    {% set total_costo = activos_activos | sum(attribute='cost_pen') %}
+    {% set total_deprec = activos_activos | sum(attribute='accumulated_depreciation') %}
+    <div class="col-sm-6 col-xl-3">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body">
+          <div class="text-muted small mb-1">Activos activos</div>
+          <div class="fs-2 fw-bold text-primary">{{ activos_activos | length }}</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body">
+          <div class="text-muted small mb-1">Costo total</div>
+          <div class="fs-4 fw-bold">S/ {{ "%.2f"|format(total_costo|float) }}</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body">
+          <div class="text-muted small mb-1">Deprec. acumulada</div>
+          <div class="fs-4 fw-bold text-warning">S/ {{ "%.2f"|format(total_deprec|float) }}</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body">
+          <div class="text-muted small mb-1">Valor en libros neto</div>
+          <div class="fs-4 fw-bold text-success">S/ {{ "%.2f"|format((total_costo - total_deprec)|float) }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabla de activos -->
+  <div class="card border-0 shadow-sm">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <span class="fw-semibold">Registro de Activos Fijos</span>
+      <div class="d-flex gap-2">
+        <select id="filtroStatus" class="form-select form-select-sm" style="width:140px" onchange="filtrarActivos()">
+          <option value="todos">Todos</option>
+          <option value="activo" selected>Activos</option>
+          <option value="depreciado">Depreciados</option>
+          <option value="baja">Dados de baja</option>
+        </select>
+      </div>
+    </div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-dark">
+            <tr>
+              <th>Código</th>
+              <th>Descripción</th>
+              <th>Categoría</th>
+              <th>Adquisición</th>
+              <th class="text-end">Costo</th>
+              <th class="text-end">Deprec./mes</th>
+              <th class="text-end">Deprec. acum.</th>
+              <th class="text-end">Valor neto</th>
+              <th class="text-center">Meses</th>
+              <th>Estado</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for a in assets %}
+            <tr data-status="{{ a.status }}">
+              <td class="fw-semibold text-monospace">{{ a.asset_code }}</td>
+              <td>{{ a.name }}</td>
+              <td>
+                {% if a.category == 'mueble_enseres' %}
+                  <span class="badge bg-secondary">Muebles</span>
+                {% elif a.category == 'equipo_computo' %}
+                  <span class="badge bg-info text-dark">Cómputo</span>
+                {% elif a.category == 'equipo_oficina' %}
+                  <span class="badge bg-primary">Oficina</span>
+                {% elif a.category == 'instalaciones' %}
+                  <span class="badge bg-warning text-dark">Instalac.</span>
+                {% else %}
+                  <span class="badge bg-light text-dark">{{ a.category }}</span>
+                {% endif %}
+              </td>
+              <td>{{ a.acquisition_date.strftime('%d/%m/%Y') if a.acquisition_date else '—' }}</td>
+              <td class="text-end">S/ {{ "%.2f"|format(a.cost_pen|float) }}</td>
+              <td class="text-end">S/ {{ "%.2f"|format(a.monthly_depreciation|float) }}</td>
+              <td class="text-end text-warning">S/ {{ "%.2f"|format((a.accumulated_depreciation or 0)|float) }}</td>
+              <td class="text-end fw-semibold text-success">S/ {{ "%.2f"|format(a.net_book_value|float) }}</td>
+              <td class="text-center">
+                <span class="badge bg-light text-dark">
+                  {{ a.months_depreciated or 0 }}/{{ a.useful_life_months }}
+                </span>
+                <div class="progress mt-1" style="height:4px">
+                  {% set pct = ((a.months_depreciated or 0) / a.useful_life_months * 100)|int %}
+                  <div class="progress-bar {% if pct >= 100 %}bg-danger{% elif pct >= 75 %}bg-warning{% else %}bg-success{% endif %}"
+                       style="width:{{ pct }}%"></div>
+                </div>
+              </td>
+              <td>
+                {% if a.status == 'activo' %}
+                  <span class="badge bg-success">Activo</span>
+                {% elif a.status == 'depreciado' %}
+                  <span class="badge bg-secondary">Depreciado</span>
+                {% else %}
+                  <span class="badge bg-danger">Baja</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if a.status == 'activo' %}
+                <button class="btn btn-sm btn-outline-danger"
+                        onclick="darDeBaja({{ a.id }}, '{{ a.asset_code }}', '{{ a.name }}')">
+                  <i class="bi bi-x-circle"></i>
+                </button>
+                {% else %}
+                <span class="text-muted">—</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="11" class="text-center text-muted py-5">
+                No hay activos fijos registrados. Se crean automáticamente al registrar un gasto de tipo <strong>Activo Fijo</strong>.
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="alert alert-info mt-4">
+    <i class="bi bi-info-circle me-2"></i>
+    <strong>Vidas útiles SUNAT:</strong>
+    Muebles y enseres: 10 años · Equipos de cómputo: 4 años · Equipos de oficina: 5 años · Instalaciones: 10 años.
+    Método: línea recta. Asiento: DEBE 6814 / HABER 3951/3961/3962.
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const today = new Date();
+
+function filtrarActivos() {
+  const status = document.getElementById('filtroStatus').value;
+  document.querySelectorAll('tbody tr[data-status]').forEach(row => {
+    row.style.display = (status === 'todos' || row.dataset.status === status) ? '' : 'none';
+  });
+}
+
+function depreciarMes() {
+  const year  = today.getFullYear();
+  const month = today.getMonth() + 1;
+  const meses = ['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  Swal.fire({
+    title: `Depreciar ${meses[month]} ${year}`,
+    html: `Se generarán asientos de depreciación mensual para todos los activos activos.<br>
+           <small class="text-muted">Esta acción es segura: no duplica asientos si ya fue ejecutada este mes.</small>`,
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonText: 'Depreciar',
+    cancelButtonText: 'Cancelar',
+    confirmButtonColor: '#fd7e14',
+  }).then(r => {
+    if (!r.isConfirmed) return;
+    Swal.fire({title: 'Procesando...', allowOutsideClick: false, didOpen: () => Swal.showLoading()});
+    fetch('/contabilidad/activos-fijos/depreciar', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({year, month}),
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) {
+        Swal.fire({
+          icon: 'success',
+          title: 'Depreciación registrada',
+          html: `<b>${data.generados}</b> asiento(s) generado(s). ${data.omitidos} omitido(s).`,
+          confirmButtonText: 'Recargar',
+        }).then(() => location.reload());
+      } else {
+        Swal.fire({icon: 'error', title: 'Error', text: data.error});
+      }
+    })
+    .catch(() => Swal.fire({icon:'error', title:'Error de red'}));
+  });
+}
+
+function darDeBaja(id, code, name) {
+  Swal.fire({
+    title: `Dar de baja ${code}`,
+    html: `<b>${name}</b><br><br>
+           <label class="form-label small">Motivo de baja (opcional)</label>
+           <textarea id="bajaNotes" class="form-control" rows="3" placeholder="Motivo..."></textarea>`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'Confirmar baja',
+    cancelButtonText: 'Cancelar',
+    confirmButtonColor: '#dc3545',
+    preConfirm: () => document.getElementById('bajaNotes').value,
+  }).then(r => {
+    if (!r.isConfirmed) return;
+    fetch(`/contabilidad/activos-fijos/${id}/baja`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({notes: r.value || ''}),
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        Swal.fire({icon:'success', title:'Activo dado de baja', timer:1800, showConfirmButton:false});
+        setTimeout(() => location.reload(), 1500);
+      } else {
+        Swal.fire({icon:'error', title:'Error', text: data.error});
+      }
+    });
+  });
+}
+</script>
+{% endblock %}

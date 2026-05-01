@@ -560,43 +560,63 @@ def register_cli_commands(app):
         import traceback
 
         ACCOUNTS = [
-            # ── ACTIVO ──────────────────────────────────────────────────────
-            ('1011', 'Caja MN',                        'activo',    'deudora',   'PEN'),
-            ('1012', 'Caja ME',                        'activo',    'deudora',   'USD'),
-            ('1041', 'BCP – Cuenta Corriente PEN',        'activo',    'deudora',   'PEN'),
-            ('1044', 'BCP – Cuenta Corriente USD',        'activo',    'deudora',   'USD'),
-            ('1047', 'Interbank – Cuenta Corriente USD',  'activo',    'deudora',   'USD'),
-            ('1048', 'Interbank – Cuenta Corriente PEN',  'activo',    'deudora',   'PEN'),
-            ('1049', 'BanBif – Cuenta Corriente PEN',     'activo',    'deudora',   'PEN'),
-            ('1050', 'BanBif – Cuenta Corriente USD',     'activo',    'deudora',   'USD'),
-            ('1051', 'Pichincha – Cuenta Corriente PEN',  'activo',    'deudora',   'PEN'),
-            ('1052', 'Pichincha – Cuenta Corriente USD',  'activo',    'deudora',   'USD'),
-            ('1211', 'Clientes por liquidar',          'activo',    'deudora',   'PEN'),
+            # ── ACTIVO CORRIENTE ────────────────────────────────────────────
+            ('1011', 'Caja Moneda Nacional',              'activo',    'deudora',   'PEN'),
+            ('1012', 'Caja Moneda Extranjera',            'activo',    'deudora',   'USD'),
+            ('1041', 'BCP – Cta. Cte. PEN',               'activo',    'deudora',   'PEN'),
+            ('1044', 'BCP – Cta. Cte. USD',               'activo',    'deudora',   'USD'),
+            ('1047', 'Interbank – Cta. Cte. USD',         'activo',    'deudora',   'USD'),
+            ('1048', 'Interbank – Cta. Cte. PEN',         'activo',    'deudora',   'PEN'),
+            ('1049', 'BanBif – Cta. Cte. PEN',            'activo',    'deudora',   'PEN'),
+            ('1050', 'BanBif – Cta. Cte. USD',            'activo',    'deudora',   'USD'),
+            ('1051', 'Pichincha – Cta. Cte. PEN',         'activo',    'deudora',   'PEN'),
+            ('1052', 'Pichincha – Cta. Cte. USD',         'activo',    'deudora',   'USD'),
+            ('1211', 'Clientes por cobrar',               'activo',    'deudora',   'PEN'),
+            # ── ACTIVO NO CORRIENTE (inmuebles, maq. y equipo) ─────────────
+            ('3321', 'Instalaciones en curso',            'activo',    'deudora',   'PEN'),
+            ('3351', 'Muebles y enseres',                 'activo',    'deudora',   'PEN'),
+            ('3361', 'Equipos de cómputo',                'activo',    'deudora',   'PEN'),
+            ('3362', 'Equipos de oficina',                'activo',    'deudora',   'PEN'),
+            # ── DEPRECIACIÓN ACUMULADA (contra-cuenta, naturaleza acreedora)
+            ('3921', 'Deprec. acum. – Instalaciones',    'activo',    'acreedora', 'PEN'),
+            ('3951', 'Deprec. acum. – Muebles y enseres','activo',    'acreedora', 'PEN'),
+            ('3961', 'Deprec. acum. – Equipos cómputo',  'activo',    'acreedora', 'PEN'),
+            ('3962', 'Deprec. acum. – Equipos oficina',  'activo',    'acreedora', 'PEN'),
             # ── PASIVO ──────────────────────────────────────────────────────
-            ('4011', 'IR – Pago a cuenta mensual',     'pasivo',    'acreedora', 'PEN'),
-            ('4031', 'EsSalud por pagar',              'pasivo',    'acreedora', 'PEN'),
-            ('4032', 'AFP / ONP por pagar',            'pasivo',    'acreedora', 'PEN'),
-            ('4111', 'Sueldos por pagar',              'pasivo',    'acreedora', 'PEN'),
-            ('4699', 'Anticipos de clientes',          'pasivo',    'acreedora', 'PEN'),
+            # NOTA: 4011 PCGE = IGV (Impuesto General a las Ventas)
+            # Casa de cambio exonerada de IGV — 4011 se usa si hay crédito fiscal prorrata
+            ('4011', 'IGV – Cuenta propia',               'pasivo',    'acreedora', 'PEN'),
+            ('4017', 'IR – Pago a cuenta mensual',        'pasivo',    'acreedora', 'PEN'),
+            ('4031', 'EsSalud por pagar',                 'pasivo',    'acreedora', 'PEN'),
+            ('4032', 'AFP / ONP por pagar',               'pasivo',    'acreedora', 'PEN'),
+            ('4111', 'Remuneraciones por pagar',          'pasivo',    'acreedora', 'PEN'),
+            ('4211', 'Facturas por pagar',                'pasivo',    'acreedora', 'PEN'),
+            ('4699', 'Otras cuentas por pagar',           'pasivo',    'acreedora', 'PEN'),
             # ── PATRIMONIO ──────────────────────────────────────────────────
-            ('501',  'Capital social',                 'patrimonio','acreedora', 'PEN'),
-            ('591',  'Utilidades acumuladas',          'patrimonio','acreedora', 'PEN'),
-            ('592',  'Pérdidas acumuladas',            'patrimonio','deudora',   'PEN'),
+            ('501',  'Capital social',                    'patrimonio','acreedora', 'PEN'),
+            ('591',  'Utilidades acumuladas',             'patrimonio','acreedora', 'PEN'),
+            ('592',  'Pérdidas acumuladas',               'patrimonio','deudora',   'PEN'),
             # ── INGRESOS ────────────────────────────────────────────────────
-            ('7711', 'Diferencial cambiario – Compra/Venta', 'ingreso', 'acreedora', 'PEN'),
-            ('7712', 'Otros ingresos financieros',     'ingreso',   'acreedora', 'PEN'),
+            ('7711', 'Ganancia diferencial cambiario',    'ingreso',   'acreedora', 'PEN'),
+            ('7712', 'Otros ingresos financieros',        'ingreso',   'acreedora', 'PEN'),
             # ── GASTOS ──────────────────────────────────────────────────────
-            ('621',  'Remuneraciones al personal',     'gasto',     'deudora',   'PEN'),
-            ('627',  'Seguridad social – EsSalud/AFP', 'gasto',     'deudora',   'PEN'),
-            ('6311', 'Transporte y delivery',          'gasto',     'deudora',   'PEN'),
-            ('6361', 'Energía / telecomunicaciones',   'gasto',     'deudora',   'PEN'),
-            ('6381', 'Honorarios (contador, legal)',   'gasto',     'deudora',   'PEN'),
-            ('6391', 'Comisiones bancarias / ITF',     'gasto',     'deudora',   'PEN'),
-            ('6392', 'Servicios de tecnología',        'gasto',     'deudora',   'PEN'),
-            ('6411', 'IR – Pago a cuenta (gasto)',     'gasto',     'deudora',   'PEN'),
-            ('6511', 'Otros gastos de gestión',        'gasto',     'deudora',   'PEN'),
-            ('6751', 'Pérdida por diferencia de cambio','gasto',    'deudora',   'PEN'),
+            ('621',  'Remuneraciones al personal',        'gasto',     'deudora',   'PEN'),
+            ('627',  'Seguridad social – EsSalud/AFP',    'gasto',     'deudora',   'PEN'),
+            ('6311', 'Transporte y delivery',             'gasto',     'deudora',   'PEN'),
+            ('6361', 'Energía / telecomunicaciones',      'gasto',     'deudora',   'PEN'),
+            ('6381', 'Honorarios (contador, legal)',      'gasto',     'deudora',   'PEN'),
+            ('6391', 'Comisiones bancarias / ITF',        'gasto',     'deudora',   'PEN'),
+            ('6392', 'Servicios de tecnología / software','gasto',     'deudora',   'PEN'),
+            ('6411', 'IR – Pago a cuenta (gasto)',        'gasto',     'deudora',   'PEN'),
+            ('6511', 'Otros gastos de gestión',           'gasto',     'deudora',   'PEN'),
+            ('6762', 'Pérdida por diferencia de cambio',  'gasto',     'deudora',   'PEN'),
+            ('6814', 'Depreciación – Inmuebles, maq. y equipo', 'gasto','deudora',  'PEN'),
         ]
+
+        # Actualizar nombre de 4011 si fue registrado con el nombre incorrecto de IR
+        _old_4011 = AccountingAccount.query.filter_by(code='4011').first()
+        if _old_4011 and 'IR' in (_old_4011.name or '').upper():
+            _old_4011.name = 'IGV – Cuenta propia'
 
         try:
             created = 0
