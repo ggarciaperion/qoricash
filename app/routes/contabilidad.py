@@ -963,6 +963,56 @@ def cerrar_periodo():
     return jsonify({'success': success, 'message': message})
 
 
+@contabilidad_bp.route('/periodos/reabrir', methods=['POST'])
+@login_required
+@require_role('Master')
+def reabrir_periodo():
+    """
+    Reabre un período contable cerrado.
+    Requiere motivo obligatorio — queda registrado en AuditLog.
+    """
+    from app.models.accounting_period import AccountingPeriod
+    from app.models.audit_log import AuditLog
+
+    data   = request.get_json() or {}
+    year   = int(data.get('year'))
+    month  = int(data.get('month'))
+    motivo = (data.get('motivo') or '').strip()
+
+    if not motivo:
+        return jsonify({'success': False, 'message': 'El motivo de reapertura es obligatorio.'}), 400
+
+    period = AccountingPeriod.query.filter_by(year=year, month=month).first()
+    if not period:
+        return jsonify({'success': False, 'message': 'Período no encontrado.'}), 404
+    if period.status == 'abierto':
+        return jsonify({'success': False, 'message': f'El período {period.label} ya está abierto.'}), 409
+
+    try:
+        period.status    = 'abierto'
+        period.closed_at = None
+        period.closed_by = None
+
+        AuditLog.log_action(
+            user_id    = current_user.id,
+            action     = 'REOPEN_PERIOD',
+            entity     = 'AccountingPeriod',
+            entity_id  = period.id,
+            details    = f'Reapertura del período {period.label}. Motivo: {motivo}',
+            ip_address = request.remote_addr,
+            user_agent = request.headers.get('User-Agent', '')[:200],
+        )
+
+        db.session.commit()
+        return jsonify({
+            'success': True,
+            'message': f'Período {period.label} reabierto correctamente.',
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
 @contabilidad_bp.route('/periodos/generar-asientos', methods=['POST'])
 @login_required
 @require_role('Master')

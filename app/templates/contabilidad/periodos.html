@@ -51,7 +51,10 @@
                   <i class="bi bi-lock me-1"></i>Cerrar período
                 </button>
                 {% else %}
-                <span class="text-muted small">Período cerrado</span>
+                <button class="btn btn-sm btn-outline-secondary"
+                        onclick="reabrirPeriodo({{ p.year }}, {{ p.month }}, '{{ p.label }}')">
+                  <i class="bi bi-unlock me-1"></i>Reabrir
+                </button>
                 {% endif %}
                 <button class="btn btn-sm btn-outline-primary"
                         onclick="generarAsientos({{ p.year }}, {{ p.month }}, '{{ p.label }}')">
@@ -172,6 +175,47 @@ function ajusteFX(year, month, label) {
         }).then(r => { if (r.isConfirmed) location.href = `/contabilidad/diario?year=${year}&month=${month}`; });
       } else {
         Swal.fire({icon: 'warning', title: 'Sin ajuste', text: data.error});
+      }
+    })
+    .catch(() => Swal.fire({icon:'error', title:'Error de red'}));
+  });
+}
+
+function reabrirPeriodo(year, month, label) {
+  Swal.fire({
+    title: `Reabrir período ${label}`,
+    html: `<div class="alert alert-warning text-start small mb-3">
+             <i class="bi bi-exclamation-triangle me-1"></i>
+             Reabrir permite registrar o modificar asientos en este período.
+             La acción queda registrada en el log de auditoría.
+           </div>
+           <label class="form-label small text-start d-block">Motivo de reapertura <span class="text-danger">*</span></label>
+           <textarea id="motivoReapertura" class="swal2-textarea" rows="3"
+             placeholder="Ej: Corrección de asiento de depreciación, factura recibida tardíamente..."></textarea>`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'Reabrir período',
+    cancelButtonText: 'Cancelar',
+    confirmButtonColor: '#6c757d',
+    preConfirm: () => {
+      const motivo = document.getElementById('motivoReapertura').value.trim();
+      if (!motivo) { Swal.showValidationMessage('El motivo es obligatorio'); return false; }
+      return motivo;
+    },
+  }).then(result => {
+    if (!result.isConfirmed) return;
+    fetch('/contabilidad/periodos/reabrir', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({year, month, motivo: result.value}),
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) {
+        Swal.fire({icon:'success', title:'Período reabierto', text: data.message, timer: 2000, showConfirmButton: false});
+        setTimeout(() => location.reload(), 1500);
+      } else {
+        Swal.fire({icon:'error', title:'Error', text: data.message});
       }
     })
     .catch(() => Swal.fire({icon:'error', title:'Error de red'}));
