@@ -204,12 +204,17 @@ class ClientService:
                 client.dni_representante_back_url = data.get('dni_representante_back_url') or data.get('rep_dni_back_url')
                 client.ficha_ruc_url = data.get('ficha_ruc_url') or data.get('ruc_file_url')
             else:
-                # Persona natural
+                # Persona natural (DNI o CE)
                 apellido_paterno = (data.get('apellido_paterno') or '').strip()
                 apellido_materno = (data.get('apellido_materno') or '').strip()
                 nombres = (data.get('nombres') or '').strip()
-                if not apellido_paterno or not apellido_materno or not nombres:
-                    return False, 'Apellidos y nombres son obligatorios', None
+                # Para CE el apellido materno es opcional (extranjeros pueden no tenerlo)
+                if document_type == 'CE':
+                    if not apellido_paterno or not nombres:
+                        return False, 'Apellido paterno y nombres son obligatorios', None
+                else:
+                    if not apellido_paterno or not apellido_materno or not nombres:
+                        return False, 'Apellidos y nombres son obligatorios', None
                 client.apellido_paterno = apellido_paterno
                 client.apellido_materno = apellido_materno
                 client.nombres = nombres
@@ -442,7 +447,10 @@ class ClientService:
 
                     if apellido_paterno:
                         client.apellido_paterno = apellido_paterno
-                    if apellido_materno:
+                    # Para CE el apellido materno es opcional: se permite vacío
+                    if client.document_type == 'CE':
+                        client.apellido_materno = apellido_materno
+                    elif apellido_materno:
                         client.apellido_materno = apellido_materno
                     if nombres:
                         client.nombres = nombres

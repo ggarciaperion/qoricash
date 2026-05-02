@@ -1109,14 +1109,17 @@ function saveClient() {
     const clientData = {};
 
     // Construir objeto de datos (excluir archivos y cuentas bancarias por ahora)
+    const isCE = document.getElementById('documentType')?.value === 'CE';
     formData.forEach((value, key) => {
-        if (value && key !== 'client_id' &&
-            !key.includes('_front') && !key.includes('_back') &&
-            !key.includes('ficha_ruc') &&
-            !key.startsWith('origen') && !key.startsWith('bank') &&
-            !key.startsWith('account') && !key.startsWith('currency')) {
-            clientData[key] = value;
+        if (key === 'client_id') return;
+        if (key.includes('_front') || key.includes('_back') || key.includes('ficha_ruc')) return;
+        if (key.startsWith('origen') || key.startsWith('bank') || key.startsWith('account') || key.startsWith('currency')) return;
+        // Para CE incluir apellido_materno aunque esté vacío (es opcional)
+        if (!value && key === 'apellido_materno' && isCE) {
+            clientData[key] = '';
+            return;
         }
+        if (value) clientData[key] = value;
     });
 
     // Normalizar campos a mayúsculas
