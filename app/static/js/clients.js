@@ -429,6 +429,9 @@ function changeDocumentType() {
     document.getElementById('nombres').required = false;
     document.getElementById('razonSocial').required = false;
 
+    // Ocultar asterisco de apellido materno por defecto
+    const apMaternoReq = document.getElementById('apellidoMaternoRequired');
+
     if (docType === 'DNI') {
         dniCeFields.style.display = 'block';
         dniHelp.textContent = 'Ingrese 8 dígitos';
@@ -437,14 +440,17 @@ function changeDocumentType() {
         document.getElementById('apellidoPaterno').required = true;
         document.getElementById('apellidoMaterno').required = true;
         document.getElementById('nombres').required = true;
+        if (apMaternoReq) apMaternoReq.style.display = '';
     } else if (docType === 'CE') {
         dniCeFields.style.display = 'block';
         dniHelp.textContent = 'Ingrese entre 9 y 12 caracteres';
         dniInput.maxLength = 12;
         dniInput.pattern = '[A-Z0-9]{9,12}';
         document.getElementById('apellidoPaterno').required = true;
-        document.getElementById('apellidoMaterno').required = true;
+        // Apellido materno es opcional para CE (extranjeros pueden no tenerlo)
+        document.getElementById('apellidoMaterno').required = false;
         document.getElementById('nombres').required = true;
+        if (apMaternoReq) apMaternoReq.style.display = 'none';
     } else if (docType === 'RUC') {
         rucFields.style.display = 'block';
         dniHelp.textContent = 'Ingrese 11 dígitos';
