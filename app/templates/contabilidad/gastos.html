@@ -154,18 +154,44 @@
                  value="{{ selected_year }}-{{ '%02d'|format(selected_month) }}-01">
         </div>
         <div class="mb-3">
+          <label class="form-label">Tipo de gasto <span class="text-danger">*</span></label>
+          <select id="gExpenseType" class="form-select" onchange="onExpenseTypeChange()">
+            <option value="servicio" selected>Servicio / Gasto corriente</option>
+            <option value="activo_fijo">Activo fijo (escritorios, mobiliario, equipos)</option>
+            <option value="planilla">Planilla de sueldos</option>
+          </select>
+          <div id="activoFijoAlert" class="alert alert-info py-2 mt-2 d-none small">
+            <i class="bi bi-info-circle me-1"></i>
+            Para activos fijos selecciona una cuenta <strong>33xx</strong> en Categoría PCGE.
+          </div>
+        </div>
+        <div class="mb-3">
           <label class="form-label">Categoría PCGE <span class="text-danger">*</span></label>
           <select id="gCategory" class="form-select">
-            <option value="6211">6211 — Sueldos y salarios</option>
-            <option value="6271">6271 — Publicidad</option>
-            <option value="6311">6311 — Transporte</option>
-            <option value="6361">6361 — Electricidad</option>
-            <option value="6381">6381 — Telecomunicaciones</option>
-            <option value="6391" selected>6391 — Servicios prestados por terceros</option>
-            <option value="6392">6392 — Honorarios profesionales</option>
-            <option value="6411">6411 — Gastos notariales / registrales</option>
-            <option value="6511">6511 — Seguros</option>
-            <option value="6751">6751 — Gastos bancarios</option>
+            <optgroup label="Remuneraciones">
+              <option value="6211">6211 — Sueldos y salarios</option>
+            </optgroup>
+            <optgroup label="Servicios de terceros">
+              <option value="6271">6271 — Publicidad</option>
+              <option value="6311">6311 — Transporte</option>
+              <option value="6361">6361 — Electricidad</option>
+              <option value="6381">6381 — Telecomunicaciones</option>
+              <option value="6391" selected>6391 — Servicios prestados por terceros</option>
+              <option value="6392">6392 — Honorarios profesionales</option>
+            </optgroup>
+            <optgroup label="Suministros e implementación">
+              <option value="6051">6051 — Suministros y útiles de oficina</option>
+              <option value="6591">6591 — Implementación y enseres de oficina (luminarias, alfombras, decoración)</option>
+            </optgroup>
+            <optgroup label="Activos fijos (usar tipo Activo Fijo)">
+              <option value="3361">3361 — Mobiliario y enseres (escritorios, sillas, estantes)</option>
+              <option value="3363">3363 — Equipo de oficina (computadoras, impresoras)</option>
+            </optgroup>
+            <optgroup label="Otros gastos">
+              <option value="6411">6411 — Gastos notariales / registrales</option>
+              <option value="6511">6511 — Seguros</option>
+              <option value="6751">6751 — Gastos bancarios</option>
+            </optgroup>
           </select>
         </div>
         <div class="mb-3">
@@ -264,6 +290,11 @@ function nuevoGastoModal() {
   new bootstrap.Modal(document.getElementById('gastoModal')).show();
 }
 
+function onExpenseTypeChange() {
+  const tipo = document.getElementById('gExpenseType').value;
+  document.getElementById('activoFijoAlert').classList.toggle('d-none', tipo !== 'activo_fijo');
+}
+
 function guardarGasto() {
   const btn = document.getElementById('btnGuardar');
   const errDiv = document.getElementById('gastoError');
@@ -271,6 +302,7 @@ function guardarGasto() {
 
   const payload = {
     expense_date:   document.getElementById('gExpenseDate').value,
+    expense_type:   document.getElementById('gExpenseType').value,
     category:       document.getElementById('gCategory').value,
     description:    document.getElementById('gDescription').value.trim(),
     amount_pen:     document.getElementById('gAmount').value,
