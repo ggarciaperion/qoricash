@@ -289,9 +289,10 @@ function guardarGasto() {
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Guardando…';
 
+  const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
   fetch('/contabilidad/gastos/nuevo', {
     method: 'POST',
-    headers: {'Content-Type': 'application/json'},
+    headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfToken},
     body: JSON.stringify(payload),
   })
   .then(r => r.json())
@@ -339,7 +340,7 @@ function confirmarPago() {
 
   fetch(`/contabilidad/gastos/${id}/pagar`, {
     method: 'POST',
-    headers: {'Content-Type': 'application/json'},
+    headers: {'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content},
     body: JSON.stringify({payment_date: date, bank_account: account, bank_label: label}),
   })
   .then(r => r.json())
