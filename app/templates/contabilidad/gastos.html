@@ -205,7 +205,7 @@
           </div>
           <div class="col-md-6 mb-3">
             <label class="form-label">Tipo comprobante</label>
-            <select id="gVoucherType" class="form-select">
+            <select id="gVoucherType" class="form-select" onchange="onVoucherTypeChange()">
               <option value="">— Ninguno —</option>
               <option value="Factura">Factura</option>
               <option value="Boleta">Boleta</option>
@@ -214,6 +214,12 @@
               <option value="Nota de Débito">Nota de Débito</option>
             </select>
           </div>
+        </div>
+        <div id="sinComprobanteAlert" class="alert alert-warning py-2 mb-3 d-none small">
+          <i class="bi bi-exclamation-triangle me-1"></i>
+          <strong>Sin comprobante:</strong> el activo se registrará contablemente, pero
+          <strong>no será deducible</strong> para Impuesto a la Renta ni tendrá crédito fiscal de IGV (art. 44 LIR).
+          Si es posible, solicita una boleta o factura al proveedor.
         </div>
         <div class="row">
           <div class="col-md-6 mb-3">
@@ -293,6 +299,18 @@ function nuevoGastoModal() {
 function onExpenseTypeChange() {
   const tipo = document.getElementById('gExpenseType').value;
   document.getElementById('activoFijoAlert').classList.toggle('d-none', tipo !== 'activo_fijo');
+  checkSinComprobante();
+}
+
+function onVoucherTypeChange() {
+  checkSinComprobante();
+}
+
+function checkSinComprobante() {
+  const tipo    = document.getElementById('gExpenseType').value;
+  const voucher = document.getElementById('gVoucherType').value;
+  const show    = (tipo === 'activo_fijo' || tipo === 'servicio') && voucher === '';
+  document.getElementById('sinComprobanteAlert').classList.toggle('d-none', !show);
 }
 
 function guardarGasto() {
