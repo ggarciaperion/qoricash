@@ -37,7 +37,7 @@
 
     <!-- Filtros Rápidos -->
     <div class="filter-bar">
-        <div class="filter-bar-group">
+        <div class="d-flex align-items-center gap-2 flex-wrap">
             <span class="filter-bar-label">Estado</span>
             <div class="btn-group" role="group">
                 <button type="button" class="btn btn-outline-secondary active" onclick="filterByStatus('all')">Todas</button>
@@ -46,18 +46,16 @@
                 <button type="button" class="btn btn-outline-success" onclick="filterByStatus('Completada')">Completadas</button>
                 <button type="button" class="btn btn-outline-danger" onclick="filterByStatus('Cancelado')">Canceladas</button>
             </div>
-        </div>
-        {% if current_user.role in ['Master', 'Operador'] %}
-        <div class="filter-bar-group">
-            <span class="filter-bar-label">Canal</span>
+            {% if current_user.role in ['Master', 'Operador'] %}
+            <span class="filter-bar-label ms-2">Canal</span>
             <div class="btn-group" role="group">
                 <button type="button" class="btn btn-outline-secondary active" onclick="filterByCanal('all')">Todos</button>
                 <button type="button" class="btn btn-outline-secondary" style="color:#6f42c1;border-color:#6f42c1;" onclick="filterByCanal('plataforma')">Web</button>
                 <button type="button" class="btn btn-outline-info" onclick="filterByCanal('app')">App</button>
                 <button type="button" class="btn btn-outline-secondary" onclick="filterByCanal('sistema')">Sistema</button>
             </div>
+            {% endif %}
         </div>
-        {% endif %}
     </div>
 
     <!-- Tabla de Operaciones -->
