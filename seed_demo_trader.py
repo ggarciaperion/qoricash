@@ -12,7 +12,7 @@ Credenciales del demo:
 """
 import os
 import random
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -321,7 +321,6 @@ def run():
                 date(2026, 5,  6): 390.00,
             }
 
-            from datetime import date
             for profit_date, amount in daily_amounts.items():
                 dp = TraderDailyProfit(
                     user_id=demo_id,
@@ -342,5 +341,4 @@ def run():
 
 
 if __name__ == '__main__':
-    from datetime import date  # noqa: F811
     run()
