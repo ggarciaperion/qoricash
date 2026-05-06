@@ -123,7 +123,7 @@ class EmailTemplates:
             if not to:
                 return False, 'Cliente sin email'
 
-            subject = 'Cuenta Activada - Contraseña Temporal | QoriCash'
+            subject = '✅ Cuenta Activada — ¡Ya puedes operar! | QoriCash'
 
             html_body = EmailTemplates._render_trader_activation_template(client, trader, temporary_password)
 
@@ -404,48 +404,50 @@ class EmailTemplates:
           </div>
 
           <!-- Title -->
-          <h1 style="margin:0 0 6px 0;font-size:22px;font-weight:700;color:#0D1B2A;line-height:1.3;">Tu identidad ha sido verificada — cuenta activa</h1>
-          <p style="margin:0 0 24px 0;color:#64748b;font-size:14px;">Hola <strong style="color:#1e293b;">{{ client_name }}</strong>, tu identidad ha sido verificada y aprobada. Tu asesor <strong style="color:#0D1B2A;">{{ trader_name }}</strong> habilitó tu cuenta para que puedas comenzar a operar.</p>
+          <h1 style="margin:0 0 6px 0;font-size:22px;font-weight:700;color:#0D1B2A;line-height:1.3;">¡Ya puedes comenzar a operar!</h1>
+          <p style="margin:0 0 24px 0;color:#64748b;font-size:14px;">Hola <strong style="color:#1e293b;">{{ client_name }}</strong>, tu identidad ha sido verificada y aprobada. Tu cuenta está activa y lista para operar.</p>
 
-          <!-- Password box -->
+          <!-- Checklist -->
+          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #e8ecf0;border-radius:8px;overflow:hidden;margin:0 0 28px 0;">
+            <tr style="border-bottom:1px solid #eef0f3;">
+              <td style="padding:13px 18px;font-size:14px;color:#1e293b;vertical-align:top;">
+                <span style="color:#10b981;font-weight:700;margin-right:10px;">&#10003;</span>Tu identidad ha sido verificada
+              </td>
+            </tr>
+            <tr style="border-bottom:1px solid #eef0f3;">
+              <td style="padding:13px 18px;font-size:14px;color:#1e293b;vertical-align:top;">
+                <span style="color:#10b981;font-weight:700;margin-right:10px;">&#10003;</span>Puedes crear operaciones de compra y venta de dólares
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:13px 18px;font-size:14px;color:#1e293b;vertical-align:top;">
+                <span style="color:#10b981;font-weight:700;margin-right:10px;">&#10003;</span>Acceso completo a todas las funcionalidades
+              </td>
+            </tr>
+          </table>
+
+          <!-- Password section -->
           <p style="margin:0 0 10px 0;font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1.2px;">Tu contraseña temporal</p>
-          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin:0 0 20px 0;">
+          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin:0 0 12px 0;">
             <tr>
               <td style="background-color:#0D1B2A;border-radius:10px;padding:22px 24px;text-align:center;">
-                <p style="margin:0 0 10px 0;color:rgba(255,255,255,0.50);font-size:11px;letter-spacing:0.8px;text-transform:uppercase;">Tu contraseña de acceso es</p>
+                <p style="margin:0 0 10px 0;color:rgba(255,255,255,0.50);font-size:11px;letter-spacing:0.8px;text-transform:uppercase;">Contraseña de acceso</p>
                 <p style="margin:0 0 10px 0;color:#00DEA8;font-size:28px;font-family:'Courier New',Courier,monospace;font-weight:700;letter-spacing:4px;">{{ temporary_password }}</p>
                 <p style="margin:0;color:rgba(255,255,255,0.35);font-size:11px;">Cópiala exactamente como aparece</p>
               </td>
             </tr>
           </table>
+          <div style="border-radius:8px;padding:13px 16px;margin:0 0 20px 0;font-size:13px;line-height:1.65;background:#f0f9ff;border-left:3px solid #0ea5e9;color:#0c4a6e;">
+            Usa esta contraseña para iniciar sesión en <strong>www.qoricash.pe</strong>. Próximamente disponible también en nuestra app móvil. El sistema te pedirá crear una nueva contraseña en tu primer acceso.
+          </div>
 
           <!-- Security alert -->
-          <div style="border-radius:8px;padding:13px 16px;margin:0 0 20px 0;font-size:13px;line-height:1.65;background:#fef2f2;border-left:3px solid #ef4444;color:#7f1d1d;">
+          <div style="border-radius:8px;padding:13px 16px;margin:0 0 24px 0;font-size:13px;line-height:1.65;background:#fef2f2;border-left:3px solid #ef4444;color:#7f1d1d;">
             <strong>Importante:</strong> Por seguridad, deberás cambiar esta contraseña temporal la primera vez que inicies sesión.
           </div>
 
-          <!-- Steps -->
-          <p style="margin:0 0 10px 0;font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1.2px;">Próximos pasos</p>
-          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #e8ecf0;border-radius:8px;overflow:hidden;margin:0 0 20px 0;">
-            <tr style="border-bottom:1px solid #eef0f3;">
-              <td style="padding:11px 18px;color:#334155;font-size:13px;vertical-align:top;">
-                <span style="color:#6366f1;font-weight:700;margin-right:8px;">1.</span>Inicia sesión con tu número de documento y la contraseña temporal
-              </td>
-            </tr>
-            <tr style="border-bottom:1px solid #eef0f3;">
-              <td style="padding:11px 18px;color:#334155;font-size:13px;vertical-align:top;">
-                <span style="color:#6366f1;font-weight:700;margin-right:8px;">2.</span>El sistema te pedirá crear una nueva contraseña segura
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:11px 18px;color:#334155;font-size:13px;vertical-align:top;">
-                <span style="color:#6366f1;font-weight:700;margin-right:8px;">3.</span>¡Comienza a realizar tus operaciones cambiarias!
-              </td>
-            </tr>
-          </table>
-
           <!-- CTA button -->
-          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin:0 0 20px 0;">
+          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin:0 0 24px 0;">
             <tr>
               <td align="center">
                 <a href="https://www.qoricash.pe"
@@ -455,11 +457,6 @@ class EmailTemplates:
               </td>
             </tr>
           </table>
-
-          <!-- Access info -->
-          <div style="border-radius:8px;padding:13px 16px;margin:0 0 20px 0;font-size:13px;line-height:1.65;background:#f0f9ff;border-left:3px solid #0ea5e9;color:#0c4a6e;">
-            Ingresa desde <strong>www.qoricash.pe</strong> o nuestra app móvil usando tu número de documento y la contraseña temporal indicada arriba.
-          </div>
 
           <!-- Closing -->
           <div style="height:1px;background-color:#f1f5f9;margin:24px 0;"></div>
