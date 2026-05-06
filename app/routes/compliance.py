@@ -547,13 +547,7 @@ def approve_kyc(client_id):
                 EmailTemplates.send_activation_without_password(client)
                 logger.info(f'✉️ [KYC APPROVE] Email de activación SIN contraseña enviado a {client.dni}')
 
-            # Notificar al Trader que registró al cliente (en ambos casos)
-            trader_creator = client.creator if hasattr(client, 'creator') and client.creator else None
-            if trader_creator and getattr(trader_creator, 'email', None):
-                EmailTemplates.send_trader_kyc_approved_notification(client, trader_creator)
-                logger.info(f'✉️ [KYC APPROVE] Notificación de cuenta activa enviada al trader {trader_creator.username}')
-            else:
-                logger.info(f'ℹ️ [KYC APPROVE] No se notificó al trader (sin creator o sin email)')
+            # El trader ya queda en CC del correo de activación enviado al cliente
         except Exception as e:
             # No bloquear por errores de email
             logger.warning(f'Error al enviar email de cliente activado desde KYC: {str(e)}')

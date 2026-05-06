@@ -123,6 +123,15 @@ class EmailTemplates:
             if not to:
                 return False, 'Cliente sin email'
 
+            # CC: trader que creó al cliente + gerencia
+            seen = set(to)
+            cc = []
+            if trader and getattr(trader, 'email', None) and trader.email not in seen:
+                cc.append(trader.email)
+                seen.add(trader.email)
+            if 'gerencia@qoricash.pe' not in seen:
+                cc.append('gerencia@qoricash.pe')
+
             subject = '✅ Cuenta Activada — ¡Ya puedes operar! | QoriCash'
 
             html_body = EmailTemplates._render_trader_activation_template(client, trader, temporary_password)
@@ -130,6 +139,7 @@ class EmailTemplates:
             msg = Message(
                 subject=subject,
                 recipients=to,
+                cc=cc,
                 html=html_body
             )
 

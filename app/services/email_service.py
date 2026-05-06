@@ -979,27 +979,17 @@ class EmailService:
             # Destinatario principal: Cliente
             to = [client.email] if client.email else []
 
-            # Copia: Trader que registró al cliente (solo si es distinto al cliente)
+            # CC: Trader que registró al cliente + gerencia
+            seen = set(to)
             cc = []
-            if trader and trader.email and trader.email not in to:
+            if trader and trader.email and trader.email not in seen:
                 cc.append(trader.email)
-
-            # Copia oculta: Solo Master (excluir emails ya en to o cc)
-            seen = set(to) | set(cc)
-            bcc = []
-            masters = User.query.filter(
-                User.role == 'Master',
-                User.status == 'Activo',
-                User.email.isnot(None)
-            ).all()
-
-            for master in masters:
-                if master.email and master.email not in seen:
-                    bcc.append(master.email)
-                    seen.add(master.email)
+                seen.add(trader.email)
+            if 'gerencia@qoricash.pe' not in seen:
+                cc.append('gerencia@qoricash.pe')
 
             # Validar que haya al menos un destinatario
-            if not to and not cc and not bcc:
+            if not to and not cc:
                 logger.warning(f'No hay destinatarios para el cliente {client.id}')
                 return False, 'No hay destinatarios configurados'
 
@@ -1014,7 +1004,6 @@ class EmailService:
                 subject=subject,
                 recipients=to,
                 cc=cc,
-                bcc=bcc,
                 html=html_body
             )
 
