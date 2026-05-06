@@ -235,10 +235,13 @@ def api_risk_profiles():
             db.session.commit()
             logger.info(f"COMMIT: Generados {generated_count} perfiles nuevos")
 
-        # 3. Obtener TODOS los perfiles con sus clientes (INNER JOIN)
-        profiles = db.session.query(ClientRiskProfile, Client).join(
+        # 3. Obtener TODOS los perfiles con sus clientes (INNER JOIN, excluir demo_trader)
+        profiles_q = db.session.query(ClientRiskProfile, Client).join(
             Client, ClientRiskProfile.client_id == Client.id
-        ).all()
+        )
+        if _demo_id:
+            profiles_q = profiles_q.filter(Client.created_by != _demo_id)
+        profiles = profiles_q.all()
 
         logger.info(f"Total perfiles recuperados: {len(profiles)}")
 
@@ -959,8 +962,11 @@ def api_restrictive_lists_clients():
         import logging
         logger = logging.getLogger(__name__)
 
-        # Obtener todos los clientes
-        all_clients = Client.query.order_by(Client.created_at.desc()).all()
+        # Obtener todos los clientes (excluir demo_trader)
+        from app.models.user import User
+        _demo_id = User.get_demo_user_id()
+        _cq = Client.query.filter(Client.created_by != _demo_id) if _demo_id else Client.query
+        all_clients = _cq.order_by(Client.created_at.desc()).all()
         logger.info(f"Listas Restrictivas: Total de clientes en BD: {len(all_clients)}")
 
         data = []
