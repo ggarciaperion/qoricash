@@ -1069,3 +1069,29 @@ def get_profit_per_operation():
         'total_calculated_profit': round(total_profit, 2),
         'ops_with_profit': ops_with_profit
     })
+
+
+@dashboard_bp.route('/test-activacion-trader')
+@login_required
+@require_role('Master')
+def test_activacion_trader():
+    """TEMPORAL — Prueba del correo de activación con contraseña temporal"""
+    try:
+        from app.services.email_templates import EmailTemplates
+
+        class FakeClient:
+            full_name = 'Gian Garcia'
+            razon_social = None
+            dni = '12345678'
+            email = 'ggarcia@qoricash.pe'
+
+        class FakeTrader:
+            username = 'Gian Garcia'
+            email = 'ggarcia@qoricash.pe'
+
+        success, msg = EmailTemplates.send_activation_with_temp_password(
+            FakeClient(), FakeTrader(), 'Qori@2026'
+        )
+        return jsonify({'ok': success, 'mensaje': msg})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500

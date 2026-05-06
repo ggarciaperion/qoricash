@@ -391,8 +391,8 @@ class EmailTemplates:
         </td>
       </tr>
 
-      <!-- ACCENT LINE: indigo -->
-      <tr><td style="padding:0;height:3px;background-color:#6366f1;font-size:0;line-height:0;">&nbsp;</td></tr>
+      <!-- ACCENT LINE: green -->
+      <tr><td style="padding:0;height:3px;background-color:#10b981;font-size:0;line-height:0;">&nbsp;</td></tr>
 
       <!-- BODY -->
       <tr>
@@ -400,12 +400,12 @@ class EmailTemplates:
 
           <!-- Event label -->
           <div style="margin:0 0 16px 0;">
-            <span style="display:inline-block;background:#eef2ff;color:#6366f1;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.4px;padding:4px 10px;border-radius:4px;">Cuenta Activada</span>
+            <span style="display:inline-block;background:#f0fdf4;color:#10b981;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.4px;padding:4px 10px;border-radius:4px;">Cuenta Activada</span>
           </div>
 
           <!-- Title -->
-          <h1 style="margin:0 0 6px 0;font-size:22px;font-weight:700;color:#0D1B2A;line-height:1.3;">Tu asesor ha creado tu cuenta</h1>
-          <p style="margin:0 0 24px 0;color:#64748b;font-size:14px;">Hola <strong style="color:#1e293b;">{{ client_name }}</strong>, tu asesor <strong style="color:#0D1B2A;">{{ trader_name }}</strong> ha creado y activado tu cuenta en QoriCash.</p>
+          <h1 style="margin:0 0 6px 0;font-size:22px;font-weight:700;color:#0D1B2A;line-height:1.3;">Tu identidad ha sido verificada — cuenta activa</h1>
+          <p style="margin:0 0 24px 0;color:#64748b;font-size:14px;">Hola <strong style="color:#1e293b;">{{ client_name }}</strong>, tu identidad ha sido verificada y aprobada. Tu asesor <strong style="color:#0D1B2A;">{{ trader_name }}</strong> habilitó tu cuenta para que puedas comenzar a operar.</p>
 
           <!-- Password box -->
           <p style="margin:0 0 10px 0;font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1.2px;">Tu contraseña temporal</p>
@@ -444,9 +444,21 @@ class EmailTemplates:
             </tr>
           </table>
 
+          <!-- CTA button -->
+          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin:0 0 20px 0;">
+            <tr>
+              <td align="center">
+                <a href="https://www.qoricash.pe"
+                   style="display:inline-block;background-color:#00DEA8;color:#0D1B2A;font-weight:700;font-size:15px;padding:13px 36px;border-radius:8px;text-decoration:none;letter-spacing:0.3px;">
+                  Ingresar a QoriCash
+                </a>
+              </td>
+            </tr>
+          </table>
+
           <!-- Access info -->
           <div style="border-radius:8px;padding:13px 16px;margin:0 0 20px 0;font-size:13px;line-height:1.65;background:#f0f9ff;border-left:3px solid #0ea5e9;color:#0c4a6e;">
-            <strong>Acceso multiplataforma:</strong> Puedes ingresar desde <strong>www.qoricash.pe</strong> o desde nuestra app móvil.
+            Ingresa desde <strong>www.qoricash.pe</strong> o nuestra app móvil usando tu número de documento y la contraseña temporal indicada arriba.
           </div>
 
           <!-- Closing -->
@@ -461,7 +473,7 @@ class EmailTemplates:
         <td class="email-footer-cell" style="background-color:#f8fafc;border-top:1px solid #e8ecf0;padding:20px 40px;text-align:center;">
           <p style="margin:0 0 4px 0;color:#0D1B2A;font-size:13px;font-weight:700;">QoriCash</p>
           <p style="margin:0 0 4px 0;color:#94a3b8;font-size:12px;">RUC: 20615113698 &nbsp;&middot;&nbsp; <a href="mailto:info@qoricash.pe" style="color:#94a3b8;text-decoration:none;">info@qoricash.pe</a></p>
-          <p style="margin:0;color:#cbd5e1;font-size:11px;">© 2025 QoriCash. Todos los derechos reservados.</p>
+          <p style="margin:0;color:#cbd5e1;font-size:11px;">© 2026 QoriCash. Todos los derechos reservados.</p>
         </td>
       </tr>
 
