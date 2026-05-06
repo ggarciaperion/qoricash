@@ -398,8 +398,18 @@ body::before { display: none; }
                     <label for="password" class="form-label">
                         <i class="bi bi-shield-lock"></i><span>Contraseña</span>
                     </label>
-                    <input type="password" class="form-control" id="password" name="password"
-                        placeholder="Ingresa tu contraseña" required autocomplete="current-password">
+                    <div style="position:relative;">
+                        <input type="password" class="form-control" id="password" name="password"
+                            placeholder="Ingresa tu contraseña" required autocomplete="current-password"
+                            style="padding-right:2.5rem;">
+                        <button type="button" id="togglePassword"
+                            style="position:absolute;right:0;top:0;bottom:0;width:2.5rem;background:none;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.4);transition:color .2s;"
+                            onmouseenter="this.style.color='rgba(0,222,168,0.8)'"
+                            onmouseleave="this.style.color='rgba(255,255,255,0.4)'"
+                            tabindex="-1">
+                            <i class="bi bi-eye" id="togglePasswordIcon" style="font-size:1rem;"></i>
+                        </button>
+                    </div>
                 </div>
 
                 <div class="mb-4 form-check">
@@ -458,6 +468,18 @@ body::before { display: none; }
 ══════════════════════════════════════════════════════════════════════════ */
 $(document).ready(function () {
     $('#username').focus();
+
+    $('#togglePassword').on('click', function () {
+        const input = document.getElementById('password');
+        const icon  = document.getElementById('togglePasswordIcon');
+        if (input.type === 'password') {
+            input.type = 'text';
+            icon.classList.replace('bi-eye', 'bi-eye-slash');
+        } else {
+            input.type = 'password';
+            icon.classList.replace('bi-eye-slash', 'bi-eye');
+        }
+    });
 
     setTimeout(function () {
         $('.login-flash-messages .alert').fadeOut('slow', function () { $(this).remove(); });
