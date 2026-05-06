@@ -1110,18 +1110,18 @@ def test_activacion_trader():
         from app.services.email_templates import EmailTemplates
 
         class FakeClient:
-            full_name = 'Gian Garcia'
+            full_name = 'Cliente Prueba'
             razon_social = None
             dni = '12345678'
             email = 'ggarcia@qoricash.pe'
 
         class FakeTrader:
             username = 'Gian Garcia'
-            email = 'ggarcia@qoricash.pe'
+            email = 'info@qoricash.pe'  # distinto al cliente para verificar CC
 
         success, msg = EmailTemplates.send_activation_with_temp_password(
             FakeClient(), FakeTrader(), 'Qori@2026'
         )
-        return jsonify({'ok': success, 'mensaje': msg})
+        return jsonify({'ok': success, 'mensaje': msg, 'to': FakeClient.email, 'cc_trader': FakeTrader.email, 'cc_gerencia': 'gerencia@qoricash.pe'})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)}), 500
