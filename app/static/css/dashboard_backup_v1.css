@@ -196,34 +196,30 @@
     opacity: 0.2;
 }
 
-/* Cards de Utilidad y Metas - Estilo Premium con acento superior */
+/* Cards de Utilidad y Metas - Estilo Minimalista */
 .metric-card {
-    border: 1px solid #e2e8f0;
-    border-top: 3px solid var(--metric-accent, #e2e8f0);
+    border: 2px solid #e2e8f0;
     border-radius: 12px;
     background: white;
     transition: all 0.3s;
     height: 100%;
-    box-shadow: 0 1px 4px rgba(0,0,0,.04);
 }
 
 .metric-card:hover {
-    border-color: var(--metric-accent, #4f46e5);
-    border-top-color: var(--metric-accent, #4f46e5);
-    box-shadow: 0 6px 20px rgba(0,0,0,.08);
-    transform: translateY(-2px);
+    border-color: var(--border-hover-color, #4f46e5);
+    box-shadow: 0 4px 16px rgba(79, 70, 229, 0.08);
 }
 
 .metric-card.border-success {
-    --metric-accent: #10b981;
+    --border-hover-color: #10b981;
 }
 
 .metric-card.border-info {
-    --metric-accent: #3b82f6;
+    --border-hover-color: #3b82f6;
 }
 
 .metric-card.border-warning {
-    --metric-accent: #f59e0b;
+    --border-hover-color: #f59e0b;
 }
 
 .metric-card .card-body {
@@ -264,27 +260,24 @@
 
 /* Progress Bar Premium */
 .progress {
-    height: 20px;
-    border-radius: 10px;
+    height: 24px;
+    border-radius: 12px;
     background-color: #f1f5f9;
     overflow: hidden;
-    box-shadow: inset 0 1px 3px rgba(0,0,0,.06);
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.06);
 }
 
 .progress-bar {
-    border-radius: 10px;
-    font-size: 0.75rem;
-    font-weight: 700;
+    border-radius: 12px;
+    font-size: 0.8125rem;
+    font-weight: 600;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: width 1s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.4s;
-    letter-spacing: .03em;
+    background: linear-gradient(90deg, #f59e0b, #fbbf24);
+    box-shadow: 0 2px 4px rgba(245, 158, 11, 0.3);
+    transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
 }
-/* colores dinámicos por JS */
-.progress-bar.bg-danger  { background: linear-gradient(90deg,#ef4444,#f87171) !important; box-shadow: 0 2px 6px rgba(239,68,68,.3); }
-.progress-bar.bg-warning { background: linear-gradient(90deg,#f59e0b,#fbbf24) !important; box-shadow: 0 2px 6px rgba(245,158,11,.3); }
-.progress-bar.bg-success { background: linear-gradient(90deg,#10b981,#34d399) !important; box-shadow: 0 2px 6px rgba(16,185,129,.3); }
 
 /* Estado de Operaciones - Diseño Minimalista */
 .status-grid {

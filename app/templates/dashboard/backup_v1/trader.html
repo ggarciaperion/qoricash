@@ -9,34 +9,32 @@
 {% block content %}
 <div class="container-fluid">
     <!-- Header -->
-    <div class="dashboard-header mb-4">
-        <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
-            <div>
-                <h2 class="mb-1"><i class="bi bi-speedometer2 text-primary me-2"></i>Dashboard</h2>
-                <p class="text-muted mb-1">Bienvenido, <strong>{{ user.username }}</strong> &mdash; Panel de operaciones</p>
-                <small class="text-muted" id="lastUpdated"><i class="bi bi-clock me-1"></i>Cargando...</small>
-                <span id="filterIndicator" class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 ms-2 d-none" style="font-size:.72rem;">
-                    <i class="bi bi-funnel-fill me-1"></i><span id="filterText"></span>
-                </span>
-            </div>
-            <div class="d-flex gap-2 align-items-center flex-wrap">
-                <a href="{{ url_for('operations.create_page') }}" class="btn btn-primary btn-sm">
-                    <i class="bi bi-plus-circle me-1"></i>Nueva Operación
-                </a>
-                <button class="btn btn-outline-secondary btn-sm" onclick="refreshDashboard()" title="Actualizar datos">
-                    <i class="bi bi-arrow-clockwise"></i>
-                </button>
-                <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#filterDateModal" title="Filtrar por fecha">
-                    <i class="bi bi-calendar3"></i>
-                </button>
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h2><i class="bi bi-speedometer2"></i> Dashboard Trader</h2>
+            <p class="text-muted">Bienvenido, {{ user.username }} - Panel de operaciones</p>
+            <div id="filterIndicator" class="alert alert-info py-2 px-3 d-none" style="display: inline-block;">
+                <i class="bi bi-funnel-fill"></i> <span id="filterText"></span>
             </div>
         </div>
+        <div class="col-md-4 text-end">
+            <a href="{{ url_for('operations.create_page') }}" class="btn btn-primary">
+                <i class="bi bi-plus-circle"></i> Nueva Operación
+            </a>
+            <button class="btn btn-outline-primary" onclick="refreshDashboard()">
+                <i class="bi bi-arrow-clockwise"></i>
+            </button>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#filterDateModal">
+                <i class="bi bi-calendar3"></i>
+            </button>
+        </div>
     </div>
-
+    
     <!-- Estadísticas del Día -->
-    <div class="section-header mb-3">
-        <i class="bi bi-calendar-day"></i>
-        <h5>Estadísticas de Hoy</h5>
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <h5><i class="bi bi-calendar-day"></i> Hoy</h5>
+        </div>
     </div>
     
     <div class="row mb-4">
@@ -106,112 +104,128 @@
     </div>
 
     <!-- Utilidad y Metas -->
-    <div class="section-header mb-3">
-        <i class="bi bi-graph-up-arrow"></i>
-        <h5>Utilidad y Metas</h5>
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <h5><i class="bi bi-graph-up-arrow"></i> Utilidad y Metas</h5>
+        </div>
     </div>
 
     <div class="row mb-4">
-        <div class="col-md-4 mb-3 mb-md-0">
-            <div class="card metric-card border-success">
+        <div class="col-md-4">
+            <div class="card border-success">
                 <div class="card-body">
-                    <h6 class="card-subtitle mb-2">Utilidad del Día</h6>
-                    <h3 class="card-title mb-0 counter-pen" id="profitToday">S/ 0.00</h3>
-                    <small>Spread acumulado hoy</small>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-4 mb-3 mb-md-0">
-            <div class="card metric-card border-info">
-                <div class="card-body">
-                    <h6 class="card-subtitle mb-2">Utilidad Acumulada del Mes</h6>
-                    <h3 class="card-title mb-0 counter-pen" id="profitMonth">S/ 0.00</h3>
-                    <small>Spread acumulado del mes</small>
+                    <h6 class="card-subtitle mb-2 text-muted">Utilidad del Día</h6>
+                    <h3 class="card-title mb-0 text-success counter-pen" id="profitToday">S/ 0.00</h3>
+                    <small class="text-muted">Spread acumulado hoy</small>
                 </div>
             </div>
         </div>
 
         <div class="col-md-4">
-            <div class="card metric-card border-warning">
+            <div class="card border-info">
                 <div class="card-body">
-                    <h6 class="card-subtitle mb-2">Meta Mensual</h6>
-                    <h3 class="card-title mb-0 counter-pen" id="goalMonth">S/ 0.00</h3>
-                    <div class="progress mt-2">
-                        <div class="progress-bar bg-warning" role="progressbar" id="goalProgress" style="width:0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+                    <h6 class="card-subtitle mb-2 text-muted">Utilidad Acumulada del Mes</h6>
+                    <h3 class="card-title mb-0 text-info counter-pen" id="profitMonth">S/ 0.00</h3>
+                    <small class="text-muted">Spread acumulado del mes</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card border-warning">
+                <div class="card-body">
+                    <h6 class="card-subtitle mb-2 text-muted">Meta Mensual</h6>
+                    <h3 class="card-title mb-0 text-warning counter-pen" id="goalMonth">S/ 0.00</h3>
+                    <div class="progress mt-2" style="height: 20px;">
+                        <div class="progress-bar" role="progressbar" id="goalProgress" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
                     </div>
-                    <small id="goalText" class="mt-1 d-block">Sin meta asignada</small>
+                    <small class="text-muted" id="goalText">Sin meta asignada</small>
                 </div>
             </div>
         </div>
     </div>
 
     <!-- Estadísticas del Mes -->
-    <div class="section-header mb-3">
-        <i class="bi bi-calendar-month"></i>
-        <h5>Este Mes</h5>
-    </div>
-
     <div class="row mb-4">
-        <div class="col-md-4 mb-3 mb-md-0">
-            <div class="card h-100" style="border-top:3px solid #6366f1;box-shadow:0 1px 4px rgba(0,0,0,.04);">
-                <div class="card-body">
-                    <h6 class="card-subtitle mb-2 text-muted" style="font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;">Operaciones</h6>
-                    <h3 class="card-title mb-0 fw-bold counter" id="operationsMonth">0</h3>
-                    <small class="text-success"><i class="bi bi-check-circle me-1"></i><span class="counter" id="completedMonth">0</span> completadas</small>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-4 mb-3 mb-md-0">
-            <div class="card h-100" style="border-top:3px solid #3b82f6;box-shadow:0 1px 4px rgba(0,0,0,.04);">
-                <div class="card-body">
-                    <h6 class="card-subtitle mb-2 text-muted" style="font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;">Total USD</h6>
-                    <h3 class="card-title mb-0 fw-bold text-primary counter-usd" id="usdMonth">$ 0</h3>
-                    <small class="text-muted">Completadas</small>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-4">
-            <div class="card h-100" style="border-top:3px solid #f59e0b;box-shadow:0 1px 4px rgba(0,0,0,.04);">
-                <div class="card-body">
-                    <h6 class="card-subtitle mb-2 text-muted" style="font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;">Total PEN</h6>
-                    <h3 class="card-title mb-0 fw-bold text-warning counter-pen" id="penMonth">S/ 0</h3>
-                    <small class="text-muted">Completadas</small>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Estado de Operaciones -->
-    <div class="section-header mb-3">
-        <i class="bi bi-pie-chart"></i>
-        <h5>Estado de Operaciones — Hoy</h5>
-    </div>
-    <div class="status-grid mb-4">
-        <div class="status-item status-pending">
-            <h4 class="counter" id="pendingCount">0</h4>
-            <small>Pendientes</small>
-        </div>
-        <div class="status-item status-process">
-            <h4 class="counter" id="inProcessCount">0</h4>
-            <small>En Proceso</small>
-        </div>
-        <div class="status-item status-completed">
-            <h4 class="counter" id="completedCount">0</h4>
-            <small>Completadas</small>
-        </div>
-        <div class="status-item status-canceled">
-            <h4 class="counter" id="canceledCount">0</h4>
-            <small>Canceladas</small>
+        <div class="col-md-12">
+            <h5><i class="bi bi-calendar-month"></i> Este Mes</h5>
         </div>
     </div>
     
-    <!-- Análisis de Gestión -->
-    <div class="section-header mb-3 mt-2">
-        <i class="bi bi-bar-chart-line"></i>
-        <h5>Análisis de Gestión</h5>
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-subtitle mb-2 text-muted">Operaciones</h6>
+                    <h3 class="card-title mb-0 counter" id="operationsMonth">0</h3>
+                    <small class="text-success">
+                        <i class="bi bi-check-circle"></i> <span class="counter" id="completedMonth">0</span> completadas
+                    </small>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-subtitle mb-2 text-muted">Total USD</h6>
+                    <h3 class="card-title mb-0 text-info counter-usd" id="usdMonth">$ 0</h3>
+                    <small class="text-muted">Completadas</small>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-subtitle mb-2 text-muted">Total PEN</h6>
+                    <h3 class="card-title mb-0 text-warning counter-pen" id="penMonth">S/ 0</h3>
+                    <small class="text-muted">Completadas</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Estado de Operaciones -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-pie-chart"></i> Estado de Operaciones del Día</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-3">
+                            <h4 class="text-warning counter" id="pendingCount">0</h4>
+                            <small class="text-muted">Pendientes</small>
+                        </div>
+                        <div class="col-3">
+                            <h4 class="text-info counter" id="inProcessCount">0</h4>
+                            <small class="text-muted">En Proceso</small>
+                        </div>
+                        <div class="col-3">
+                            <h4 class="text-success counter" id="completedCount">0</h4>
+                            <small class="text-muted">Completadas</small>
+                        </div>
+                        <div class="col-3">
+                            <h4 class="text-danger counter" id="canceledCount">0</h4>
+                            <small class="text-muted">Canceladas</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- ================================================
+         SECCIÓN: ANÁLISIS DE GESTIÓN
+         ================================================ -->
+
+    <!-- Top 10 Clientes del Mes -->
+    <div class="row mb-4 mt-4">
+        <div class="col-md-12">
+            <h5><i class="bi bi-bar-chart-line"></i> Análisis de Gestión</h5>
+        </div>
     </div>
 
     <div class="row mb-4">
@@ -375,27 +389,39 @@
     </div>
 
     <!-- Accesos Rápidos -->
-    <div class="section-header mb-3 mt-2">
-        <i class="bi bi-lightning"></i>
-        <h5>Accesos Rápidos</h5>
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <h5><i class="bi bi-lightning"></i> Accesos Rápidos</h5>
+        </div>
     </div>
-    <div class="d-flex gap-3 flex-wrap mb-4">
-        <a href="{{ url_for('operations.create_page') }}" class="quick-access-card access-primary flex-fill" style="min-width:140px;max-width:200px;padding:1.25rem 1rem;">
-            <i class="bi bi-plus-circle" style="font-size:1.75rem;"></i>
-            <h6 class="mt-2 mb-0" style="font-size:.85rem;">Nueva Operación</h6>
-        </a>
-        <a href="{{ url_for('operations.operations_list') }}" class="quick-access-card access-success flex-fill" style="min-width:140px;max-width:200px;padding:1.25rem 1rem;">
-            <i class="bi bi-list-ul" style="font-size:1.75rem;"></i>
-            <h6 class="mt-2 mb-0" style="font-size:.85rem;">Operaciones del Día</h6>
-        </a>
-        <a href="{{ url_for('clients.list_clients') }}" class="quick-access-card access-info flex-fill" style="min-width:140px;max-width:200px;padding:1.25rem 1rem;">
-            <i class="bi bi-people" style="font-size:1.75rem;"></i>
-            <h6 class="mt-2 mb-0" style="font-size:.85rem;">Gestionar Clientes</h6>
-        </a>
-        <a href="{{ url_for('operations.history') }}" class="quick-access-card flex-fill" style="min-width:140px;max-width:200px;padding:1.25rem 1rem;--card-color:#8b5cf6;" >
-            <i class="bi bi-clock-history" style="font-size:1.75rem;color:#8b5cf6;"></i>
-            <h6 class="mt-2 mb-0" style="font-size:.85rem;">Historial</h6>
-        </a>
+    
+    <div class="row">
+        <div class="col-md-4">
+            <a href="{{ url_for('operations.create_page') }}" class="card card-link text-decoration-none">
+                <div class="card-body text-center">
+                    <i class="bi bi-plus-circle display-4 text-primary"></i>
+                    <h6 class="mt-3 mb-0">Nueva Operación</h6>
+                </div>
+            </a>
+        </div>
+        
+        <div class="col-md-4">
+            <a href="{{ url_for('operations.operations_list') }}" class="card card-link text-decoration-none">
+                <div class="card-body text-center">
+                    <i class="bi bi-list-ul display-4 text-success"></i>
+                    <h6 class="mt-3 mb-0">Ver Operaciones</h6>
+                </div>
+            </a>
+        </div>
+        
+        <div class="col-md-4">
+            <a href="{{ url_for('clients.list_clients') }}" class="card card-link text-decoration-none">
+                <div class="card-body text-center">
+                    <i class="bi bi-people display-4 text-info"></i>
+                    <h6 class="mt-3 mb-0">Gestionar Clientes</h6>
+                </div>
+            </a>
+        </div>
     </div>
 </div>
 
@@ -561,16 +587,14 @@ function loadDashboardData() {
         const percentage = goalAmount > 0 ? Math.min((profitMonth / goalAmount) * 100, 100) : 0;
 
         updateCounterValue('#goalMonth', goalAmount, 'S/', 2);
-        updateGoalProgress(profitMonth, goalAmount);
+        $('#goalProgress').css('width', percentage + '%').attr('aria-valuenow', percentage.toFixed(0)).text(percentage.toFixed(0) + '%');
 
         if (goalAmount > 0) {
             const remaining = Math.max(goalAmount - profitMonth, 0);
-            $('#goalText').text('Faltan S/ ' + remaining.toFixed(2) + ' para la meta');
+            $('#goalText').text('Faltan S/ ' + remaining.toFixed(2) + ' para alcanzar la meta');
         } else {
             $('#goalText').text('Sin meta asignada');
         }
-
-        updateLastUpdated();
 
         // Estado de operaciones del día (del trader) (con animación de contador)
         updateCounterValue('#pendingCount', today.pending_count || 0);
@@ -847,26 +871,6 @@ function loadClientHistory(clientId, clientName, clientDni) {
 // ============================================
 // HELPERS
 // ============================================
-function updateLastUpdated() {
-    const now = new Date();
-    const t = now.toLocaleTimeString('es-PE', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
-    $('#lastUpdated').html(`<i class="bi bi-clock me-1"></i>Actualizado: ${t}`);
-}
-
-function updateGoalProgress(profit, goal) {
-    const pct = goal > 0 ? Math.min((profit / goal) * 100, 100) : 0;
-    const pctStr = pct.toFixed(0) + '%';
-    let colorClass = 'bg-danger';
-    if (pct >= 80) colorClass = 'bg-success';
-    else if (pct >= 50) colorClass = 'bg-warning';
-    $('#goalProgress')
-        .css('width', pctStr)
-        .attr('aria-valuenow', pct.toFixed(0))
-        .text(pctStr)
-        .removeClass('bg-danger bg-warning bg-success')
-        .addClass(colorClass);
-}
-
 function formatNumber(n, decimals) {
     return parseFloat(n).toLocaleString('es-PE', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 }
