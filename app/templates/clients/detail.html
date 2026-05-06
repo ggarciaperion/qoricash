@@ -3,22 +3,18 @@
 {% block title %}Detalle Cliente - {{ client.full_name or client.dni }} - QoriCash Trading{% endblock %}
 
 {% block content %}
-<div class="container-fluid py-4">
-    <!-- Header con navegación -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
+<div class="container-fluid">
+    <div class="page-header mb-4">
+        <div class="page-header-info">
             <nav aria-label="breadcrumb">
-                <ol class="breadcrumb mb-2">
+                <ol class="breadcrumb mb-1">
                     <li class="breadcrumb-item"><a href="/clients/list">Clientes</a></li>
                     <li class="breadcrumb-item active">{{ client.full_name or client.dni }}</li>
                 </ol>
             </nav>
-            <h2 class="mb-0">
-                <i class="bi bi-person-badge"></i>
-                {{ client.full_name or client.dni }}
-            </h2>
-            <p class="text-muted">
-                {{ client.document_type }} - {{ client.dni }}
+            <h2><i class="bi bi-person-badge"></i> {{ client.full_name or client.dni }}</h2>
+            <p>
+                {{ client.document_type }} · {{ client.dni }} &nbsp;
                 {% if client.status == 'Activo' %}
                     <span class="badge bg-success">Activo</span>
                 {% else %}
@@ -26,8 +22,8 @@
                 {% endif %}
             </p>
         </div>
-        <div>
-            <a href="/clients/list" class="btn btn-secondary">
+        <div class="page-header-actions">
+            <a href="/clients/list" class="btn btn-secondary btn-sm">
                 <i class="bi bi-arrow-left"></i> Volver
             </a>
         </div>

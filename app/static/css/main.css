@@ -507,6 +507,33 @@ body.has-sidebar.sidebar-collapsed .main-wrapper {
 
 .card-header i { color: var(--qori-primary); font-size: 1rem; }
 
+/* Override Bootstrap colored card-headers to match design system */
+.card-header.bg-primary,
+.card-header.bg-info,
+.card-header.bg-success,
+.card-header.bg-warning,
+.card-header.bg-danger,
+.card-header.bg-dark,
+.card-header.bg-secondary {
+    background: linear-gradient(135deg, var(--qori-gray-50), var(--qori-white)) !important;
+    color: var(--qori-secondary) !important;
+}
+.card-header.bg-primary  { border-left: 3px solid var(--qori-primary) !important; }
+.card-header.bg-info     { border-left: 3px solid var(--qori-info) !important; }
+.card-header.bg-success  { border-left: 3px solid var(--qori-success) !important; }
+.card-header.bg-warning  { border-left: 3px solid var(--qori-warning) !important; }
+.card-header.bg-danger   { border-left: 3px solid var(--qori-danger) !important; }
+.card-header.bg-dark,
+.card-header.bg-secondary { border-left: 3px solid var(--qori-gray-600) !important; }
+/* Fix text colors that come with Bootstrap colored headers */
+.card-header.bg-primary.text-white,
+.card-header.bg-info.text-white,
+.card-header.bg-success.text-white,
+.card-header.bg-danger.text-white,
+.card-header.bg-dark.text-white,
+.card-header.bg-secondary.text-white { color: var(--qori-secondary) !important; }
+.card-header.bg-warning.text-dark    { color: var(--qori-secondary) !important; }
+
 .card-body { padding: 14px; }
 
 .card-footer {
@@ -1132,7 +1159,114 @@ tr[data-status="En proceso"] {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   21. PAGE HEADER — Unified header for all inner pages
+   21. PAGE LOADER — Thin teal progress bar on navigation
+   ═══════════════════════════════════════════════════════════════════════════ */
+#pageLoader {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    z-index: 10000;
+    pointer-events: none;
+}
+#pageLoaderBar {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--qori-primary), var(--qori-primary-hover));
+    box-shadow: 0 0 12px rgba(0,222,168,0.7);
+    border-radius: 0 3px 3px 0;
+    transition: width 0.4s ease, opacity 0.3s ease;
+}
+#pageLoader.done #pageLoaderBar {
+    width: 100% !important;
+    opacity: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   22. TABLE ROW STATUS INDICATORS
+   ═══════════════════════════════════════════════════════════════════════════ */
+tr[data-status="Pendiente"] {
+    border-left: 3px solid var(--qori-warning) !important;
+}
+tr[data-status="Completada"] {
+    border-left: 3px solid var(--qori-success) !important;
+    background: rgba(16,185,129,0.02) !important;
+}
+tr[data-status="Cancelado"] {
+    border-left: 3px solid var(--qori-danger) !important;
+    background: rgba(239,68,68,0.02) !important;
+    opacity: 0.82;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   23. ACTION BUTTON GROUPS — Cleaner icon buttons in tables
+   ═══════════════════════════════════════════════════════════════════════════ */
+.btn-group-sm > .btn {
+    transition: all var(--transition-fast) !important;
+}
+.btn-group-sm > .btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 3px 8px rgba(0,0,0,.12) !important;
+    z-index: 2;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   24. BREADCRUMB
+   ═══════════════════════════════════════════════════════════════════════════ */
+.breadcrumb {
+    font-size: 0.8125rem;
+    background: transparent;
+    padding: 0;
+    margin: 0;
+}
+.breadcrumb-item a {
+    color: var(--qori-primary);
+    text-decoration: none;
+    font-weight: 500;
+    transition: color var(--transition-fast);
+}
+.breadcrumb-item a:hover { color: var(--qori-primary-hover); }
+.breadcrumb-item.active  { color: var(--qori-gray-500); }
+.breadcrumb-item + .breadcrumb-item::before { color: var(--qori-gray-400); }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   25. TOOLTIP OVERRIDES — Bootstrap tooltips premium style
+   ═══════════════════════════════════════════════════════════════════════════ */
+.tooltip-inner {
+    background: var(--qori-secondary);
+    color: var(--qori-white);
+    font-size: 0.75rem;
+    font-weight: 500;
+    padding: 5px 10px;
+    border-radius: var(--radius-md);
+    letter-spacing: 0.01em;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+.bs-tooltip-auto[data-popper-placement^="top"] .tooltip-arrow::before,
+.bs-tooltip-top .tooltip-arrow::before {
+    border-top-color: var(--qori-secondary);
+}
+.bs-tooltip-auto[data-popper-placement^="bottom"] .tooltip-arrow::before,
+.bs-tooltip-bottom .tooltip-arrow::before {
+    border-bottom-color: var(--qori-secondary);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   26. CARD SECTION ANIMATIONS — Staggered fade-in for page content
+   ═══════════════════════════════════════════════════════════════════════════ */
+.card {
+    animation: cardFadeIn 0.35s ease both;
+}
+@keyframes cardFadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+.card:nth-child(1) { animation-delay: 0.00s; }
+.card:nth-child(2) { animation-delay: 0.05s; }
+.card:nth-child(3) { animation-delay: 0.10s; }
+.card:nth-child(4) { animation-delay: 0.15s; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   27. PAGE HEADER — Unified header for all inner pages
    ═══════════════════════════════════════════════════════════════════════════ */
 .page-header {
     display: flex;

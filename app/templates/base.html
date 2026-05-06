@@ -25,7 +25,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css">
 
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}?v=4.3">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}?v=4.4">
 
     <!-- Meta CSRF Token -->
     <meta name="csrf-token" content="{{ csrf_token() }}">
@@ -33,6 +33,9 @@
     {% block head %}{% endblock %}
 </head>
 <body class="{% if current_user.is_authenticated %}has-sidebar{% endif %}">
+
+<!-- Page Loader -->
+<div id="pageLoader"><div id="pageLoaderBar"></div></div>
 
     {% if current_user.is_authenticated %}
     <!-- ═══════════════════════════════ SIDEBAR ═══════════════════════════════ -->
@@ -241,7 +244,7 @@
         <div class="modal-dialog modal-dialog-centered" style="max-width:440px;">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title"><i class="bi bi-shield-lock"></i>Cambiar Contraseña</h5>
+                    <h5 class="modal-title"><i class="bi bi-shield-lock me-2"></i>Cambiar Contraseña</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
@@ -356,9 +359,9 @@
     {% if current_user.role == 'Operador' %}
     <div class="modal fade" id="pendingOperationsAlertModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
         <div class="modal-dialog modal-dialog-centered" style="max-width:480px;">
-            <div class="modal-content border-warning shadow-lg">
-                <div class="modal-header bg-warning text-dark">
-                    <h5 class="modal-title">
+            <div class="modal-content shadow-lg" style="border-top: 3px solid var(--qori-warning);">
+                <div class="modal-header" style="border-left: 3px solid var(--qori-warning);">
+                    <h5 class="modal-title" style="color: var(--qori-warning);">
                         <i class="bi bi-exclamation-triangle-fill me-2"></i>
                         <strong>OPERACIONES PENDIENTES DE ATENCIÓN</strong>
                     </h5>
@@ -451,6 +454,33 @@
         if (toggleBtn) toggleBtn.addEventListener('click', toggleCollapse);
         if (mobileBtn) mobileBtn.addEventListener('click', openMobile);
         if (overlay) overlay.addEventListener('click', closeMobile);
+    })();
+    </script>
+
+    <!-- Page Loader + Global Tooltip Init -->
+    <script>
+    (function() {
+        // Page loader: animate bar then hide after content loads
+        var loader = document.getElementById('pageLoader');
+        var loaderBar = document.getElementById('pageLoaderBar');
+        if (loader && loaderBar) {
+            // Start filling quickly to 80%
+            setTimeout(function() { loaderBar.style.width = '80%'; }, 30);
+            window.addEventListener('load', function() {
+                loaderBar.style.width = '100%';
+                setTimeout(function() {
+                    loaderBar.style.opacity = '0';
+                    setTimeout(function() { loader.style.display = 'none'; }, 350);
+                }, 250);
+            });
+        }
+        // Bootstrap tooltips — init all [title] or [data-bs-toggle="tooltip"] elements
+        document.addEventListener('DOMContentLoaded', function() {
+            var tooltipEls = document.querySelectorAll('[data-bs-toggle="tooltip"], [data-tooltip]');
+            tooltipEls.forEach(function(el) {
+                new bootstrap.Tooltip(el, { trigger: 'hover' });
+            });
+        });
     })();
     </script>
 
