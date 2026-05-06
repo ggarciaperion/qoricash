@@ -116,7 +116,7 @@
                 <div class="card-body">
                     <h6 class="card-subtitle mb-2 text-muted">Utilidad del Día</h6>
                     <h3 class="card-title mb-0 text-success counter-pen" id="profitToday">S/ 0.00</h3>
-                    <small class="text-muted">Ganancia de hoy</small>
+                    <small class="text-muted">Spread acumulado hoy</small>
                 </div>
             </div>
         </div>
@@ -126,7 +126,7 @@
                 <div class="card-body">
                     <h6 class="card-subtitle mb-2 text-muted">Utilidad Acumulada del Mes</h6>
                     <h3 class="card-title mb-0 text-info counter-pen" id="profitMonth">S/ 0.00</h3>
-                    <small class="text-muted">Ganancia acumulada</small>
+                    <small class="text-muted">Spread acumulado del mes</small>
                 </div>
             </div>
         </div>
@@ -568,8 +568,8 @@ function loadDashboardData() {
         updateCounterValue('#usdToday', today.total_usd || 0, '$', 2);
         updateCounterValue('#penToday', today.total_pen || 0, 'S/', 2);
 
-        // Utilidad del Día (manual ingresada por Master) (con animación de contador)
-        updateCounterValue('#profitToday', today.profit_today || 0, 'S/', 2);
+        // Utilidad del Día (spread × monto USD de operaciones completadas hoy)
+        updateCounterValue('#profitToday', today.profit_today_spread || 0, 'S/', 2);
 
         // Estadísticas del MES (del trader) (con animación de contador)
         const month = response.month || {};
@@ -578,8 +578,8 @@ function loadDashboardData() {
         updateCounterValue('#usdMonth', month.total_usd || 0, '$', 2);
         updateCounterValue('#penMonth', month.total_pen || 0, 'S/', 2);
 
-        // Utilidad Acumulada del Mes (suma de utilidades diarias manuales) (con animación de contador)
-        updateCounterValue('#profitMonth', month.profit_month || 0, 'S/', 2);
+        // Utilidad Acumulada del Mes (sumatoria de spread × monto USD del mes)
+        updateCounterValue('#profitMonth', month.profit_month_spread || 0, 'S/', 2);
 
         // Meta Mensual y Progreso
         const goalAmount = month.goal_amount || 0;

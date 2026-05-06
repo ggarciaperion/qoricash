@@ -137,7 +137,7 @@ def get_all_dashboard_data():
     all_operations_today = query_today.all()
     completed_today = [op for op in all_operations_today if op.status == 'Completada']
 
-    # Calcular utilidad del día
+    # Calcular utilidad del día (manual via TraderDailyProfit)
     profit_today = 0
     if trader_id:
         daily_profit = TraderDailyProfit.query.filter_by(
@@ -151,6 +151,15 @@ def get_all_dashboard_data():
         compras_pen = sum(float(op.amount_pen) for op in completed_today if op.operation_type == 'Compra')
         profit_today = ventas_pen - compras_pen
 
+    # Calcular utilidad del día por diferencia de tasa (spread × monto USD)
+    profit_today_spread = 0.0
+    for op in completed_today:
+        if op.base_rate and float(op.base_rate) > 0:
+            diff = float(op.exchange_rate) - float(op.base_rate)
+            if op.operation_type == 'Compra':
+                diff = -diff
+            profit_today_spread += diff * float(op.amount_usd)
+
     stats_today = {
         'operations_count': len(completed_today),
         'completed_count': len(completed_today),
@@ -160,7 +169,8 @@ def get_all_dashboard_data():
         'total_usd': float(sum(op.amount_usd for op in completed_today)),
         'total_pen': float(sum(op.amount_pen for op in completed_today)),
         'unique_clients': len(set(op.client_id for op in completed_today)),
-        'profit_today': round(profit_today, 2)
+        'profit_today': round(profit_today, 2),
+        'profit_today_spread': round(profit_today_spread, 2)
     }
 
     # ========================================
@@ -241,6 +251,15 @@ def get_all_dashboard_data():
         ).all()
         goal_amount = sum(float(g.goal_amount_pen) for g in all_goals)
 
+    # Calcular utilidad acumulada del mes por diferencia de tasa (spread × monto USD)
+    profit_month_spread = 0.0
+    for op in completed_month:
+        if op.base_rate and float(op.base_rate) > 0:
+            diff = float(op.exchange_rate) - float(op.base_rate)
+            if op.operation_type == 'Compra':
+                diff = -diff
+            profit_month_spread += diff * float(op.amount_usd)
+
     # Clientes activos
     from app.models.client import Client
     active_clients = Client.query.filter_by(status='Activo').count()
@@ -257,6 +276,7 @@ def get_all_dashboard_data():
         'unique_clients': len(set(op.client_id for op in completed_month)),
         'active_clients': active_clients,
         'profit_month': round(profit_month, 2),
+        'profit_month_spread': round(profit_month_spread, 2),
         'goal_amount': round(goal_amount, 2)
     }
 
