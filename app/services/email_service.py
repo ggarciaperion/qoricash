@@ -328,12 +328,10 @@ class EmailService:
 
           <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #E2E8F0;border-radius:8px;overflow:hidden;margin:0 0 24px 0;">
             <tr style="border-bottom:1px solid #F1F5F9;">
-              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:top;">Código</td>
-              <td style="padding:11px 18px;color:#0D1B2A;font-size:14px;font-weight:700;vertical-align:top;">{{ operation.operation_id }}</td>
-            </tr>
-            <tr style="border-bottom:1px solid #F1F5F9;">
-              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:top;">Tipo</td>
-              <td style="padding:11px 18px;font-size:14px;vertical-align:top;">
+              <td style="padding:11px 14px;width:70px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle;">Código</td>
+              <td style="padding:11px 14px;color:#0D1B2A;font-size:14px;font-weight:700;vertical-align:middle;border-right:1px solid #F1F5F9;">{{ operation.operation_id }}</td>
+              <td style="padding:11px 14px;width:50px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle;">Tipo</td>
+              <td style="padding:11px 14px;font-size:14px;vertical-align:middle;">
                 {% if operation.operation_type == 'Compra' %}
                   <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:#DCFCE7;color:#15803D;letter-spacing:0.3px;">COMPRA USD</span>
                 {% else %}
@@ -342,7 +340,7 @@ class EmailService:
               </td>
             </tr>
             <tr style="border-bottom:1px solid #F1F5F9;">
-              <td colspan="2" style="padding:12px 18px;">
+              <td colspan="4" style="padding:12px 18px;">
                 <table width="100%" cellspacing="0" cellpadding="0">
                   <tr>
                     <td style="text-align:center;padding:13px 8px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;">
@@ -363,13 +361,11 @@ class EmailService:
                 </table>
               </td>
             </tr>
-            <tr style="border-bottom:1px solid #F1F5F9;">
-              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:top;">Estado</td>
-              <td style="padding:11px 18px;color:#d97706;font-size:13px;font-weight:600;vertical-align:top;">{{ operation.status }}</td>
-            </tr>
             <tr>
-              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:top;">Fecha</td>
-              <td style="padding:11px 18px;color:#1e293b;font-size:13px;font-weight:500;vertical-align:top;">{{ operation.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
+              <td style="padding:11px 14px;width:70px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle;">Estado</td>
+              <td style="padding:11px 14px;color:#d97706;font-size:13px;font-weight:600;vertical-align:middle;border-right:1px solid #F1F5F9;">{{ operation.status }}</td>
+              <td style="padding:11px 14px;width:50px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle;">Fecha</td>
+              <td style="padding:11px 14px;color:#1e293b;font-size:13px;font-weight:500;vertical-align:middle;">{{ operation.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
             </tr>
           </table>
 
@@ -463,15 +459,13 @@ class EmailService:
 
           <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #E2E8F0;border-radius:8px;overflow:hidden;margin:0 0 24px 0;">
             <tr style="border-bottom:1px solid #F1F5F9;">
-              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:top;">Código</td>
-              <td style="padding:11px 18px;color:#0D1B2A;font-size:14px;font-weight:700;vertical-align:top;">{{ operation.operation_id }}</td>
+              <td style="padding:11px 14px;width:70px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle;">Código</td>
+              <td style="padding:11px 14px;color:#0D1B2A;font-size:14px;font-weight:700;vertical-align:middle;border-right:1px solid #F1F5F9;">{{ operation.operation_id }}</td>
+              <td style="padding:11px 14px;width:50px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle;">Tipo</td>
+              <td style="padding:11px 14px;color:#1e293b;font-size:13px;font-weight:500;vertical-align:middle;">{{ operation.operation_type }}</td>
             </tr>
             <tr style="border-bottom:1px solid #F1F5F9;">
-              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:top;">Tipo</td>
-              <td style="padding:11px 18px;color:#1e293b;font-size:13px;font-weight:500;vertical-align:top;">{{ operation.operation_type }}</td>
-            </tr>
-            <tr style="border-bottom:1px solid #F1F5F9;">
-              <td colspan="2" style="padding:12px 18px;">
+              <td colspan="4" style="padding:12px 18px;">
                 <table width="100%" cellspacing="0" cellpadding="0">
                   <tr>
                     <td style="text-align:center;padding:13px 8px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;">
@@ -492,13 +486,11 @@ class EmailService:
                 </table>
               </td>
             </tr>
-            <tr style="border-bottom:1px solid #F1F5F9;">
-              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:top;">Fecha de creación</td>
-              <td style="padding:11px 18px;color:#1e293b;font-size:13px;font-weight:500;vertical-align:top;">{{ operation.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
-            </tr>
             <tr>
-              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:top;">Fecha de completado</td>
-              <td style="padding:11px 18px;color:#1e293b;font-size:13px;font-weight:600;vertical-align:top;">{{ operation.completed_at.strftime('%d/%m/%Y %H:%M') if operation.completed_at else '-' }}</td>
+              <td style="padding:11px 14px;width:70px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle;">Creación</td>
+              <td style="padding:11px 14px;color:#1e293b;font-size:13px;font-weight:500;vertical-align:middle;border-right:1px solid #F1F5F9;">{{ operation.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
+              <td style="padding:11px 14px;width:70px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle;">Completado</td>
+              <td style="padding:11px 14px;color:#1e293b;font-size:13px;font-weight:600;vertical-align:middle;">{{ operation.completed_at.strftime('%d/%m/%Y %H:%M') if operation.completed_at else '-' }}</td>
             </tr>
           </table>
 
@@ -773,15 +765,13 @@ class EmailService:
 
           <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #E2E8F0;border-radius:8px;overflow:hidden;margin:0 0 24px 0;">
             <tr style="border-bottom:1px solid #F1F5F9;">
-              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:top;">Código</td>
-              <td style="padding:11px 18px;color:#0D1B2A;font-size:14px;font-weight:700;vertical-align:top;">{{ operation.operation_id }}</td>
+              <td style="padding:11px 14px;width:70px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle;">Código</td>
+              <td style="padding:11px 14px;color:#0D1B2A;font-size:14px;font-weight:700;vertical-align:middle;border-right:1px solid #F1F5F9;">{{ operation.operation_id }}</td>
+              <td style="padding:11px 14px;width:50px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle;">Tipo</td>
+              <td style="padding:11px 14px;color:#1e293b;font-size:13px;font-weight:500;vertical-align:middle;">{{ operation.operation_type }}</td>
             </tr>
             <tr style="border-bottom:1px solid #F1F5F9;">
-              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:top;">Tipo</td>
-              <td style="padding:11px 18px;color:#1e293b;font-size:13px;font-weight:500;vertical-align:top;">{{ operation.operation_type }}</td>
-            </tr>
-            <tr style="border-bottom:1px solid #F1F5F9;">
-              <td colspan="2" style="padding:12px 18px;">
+              <td colspan="4" style="padding:12px 18px;">
                 <table width="100%" cellspacing="0" cellpadding="0">
                   <tr>
                     <td style="text-align:center;padding:13px 8px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;">
@@ -802,13 +792,11 @@ class EmailService:
                 </table>
               </td>
             </tr>
-            <tr style="border-bottom:1px solid #F1F5F9;">
-              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:top;">Fecha</td>
-              <td style="padding:11px 18px;color:#1e293b;font-size:13px;font-weight:500;vertical-align:top;">{{ operation.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
-            </tr>
             <tr>
-              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:top;">Estado</td>
-              <td style="padding:11px 18px;vertical-align:top;">
+              <td style="padding:11px 14px;width:50px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle;">Fecha</td>
+              <td style="padding:11px 14px;color:#1e293b;font-size:13px;font-weight:500;vertical-align:middle;border-right:1px solid #F1F5F9;">{{ operation.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
+              <td style="padding:11px 14px;width:50px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle;">Estado</td>
+              <td style="padding:11px 14px;vertical-align:middle;">
                 <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:#FEE2E2;color:#991B1B;letter-spacing:0.3px;">CANCELADO</span>
               </td>
             </tr>
