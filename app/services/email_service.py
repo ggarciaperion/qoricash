@@ -11,7 +11,81 @@ import eventlet
 logger = logging.getLogger(__name__)
 
 
-BANNER_URL = 'https://res.cloudinary.com/dbks8vqoh/image/upload/v1773788552/qoricash/banneremail.png'
+# ============================================
+# CONSTANTES DE MARCA
+# ============================================
+_LOGO_URL = 'https://www.qoricash.pe/logofirma.png'
+_GREEN    = '#5CB85C'
+_DARK     = '#0D1B2A'
+_SBS_TAG  = 'Regulada por la SBS &nbsp;&middot;&nbsp; Res. N.&ordm; 00313-2026'
+
+_HEADER_BLOCK = f"""
+      <tr>
+        <td style="padding:28px 36px 20px;border-bottom:1px solid #E2E8F0;">
+          <table cellpadding="0" cellspacing="0" border="0">
+            <tr>
+              <td style="width:4px;min-width:4px;background:{_GREEN};border-radius:2px;">&nbsp;</td>
+              <td style="padding-left:14px;">
+                <img src="{_LOGO_URL}" alt="QoriCash" style="height:46px;width:auto;display:block;">
+                <p style="margin:5px 0 0;font-size:10px;color:#64748B;letter-spacing:0.3px;">{_SBS_TAG}</p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+"""
+
+_FOOTER_BLOCK = f"""
+      <tr>
+        <td class="email-footer-cell"
+            style="background-color:#F8FAFC;border-top:1px solid #E2E8F0;
+                   padding:20px 36px;text-align:center;">
+          <p style="margin:0 0 3px;color:{_DARK};font-size:13px;font-weight:700;">QoriCash</p>
+          <p style="margin:0 0 3px;color:#94a3b8;font-size:11px;">
+            RUC: 20615113698 &nbsp;&middot;&nbsp;
+            <a href="mailto:info@qoricash.pe" style="color:#94a3b8;text-decoration:none;">info@qoricash.pe</a>
+            &nbsp;&middot;&nbsp;
+            <a href="https://www.qoricash.pe" style="color:#94a3b8;text-decoration:none;">www.qoricash.pe</a>
+          </p>
+          <p style="margin:0 0 3px;color:#94a3b8;font-size:11px;">
+            Av. Brasil 2790, int. 504 &nbsp;&middot;&nbsp; Pueblo Libre, Lima
+          </p>
+          <p style="margin:0;color:#CBD5E1;font-size:10px;">&copy; 2026 QoriCash. Todos los derechos reservados.</p>
+        </td>
+      </tr>
+"""
+
+_EMAIL_CSS = """
+    @media only screen and (max-width: 620px) {
+        .email-body-cell { padding: 24px 20px !important; }
+        .email-footer-cell { padding: 20px !important; }
+    }
+"""
+
+
+def _wrap_email_svc(body_html: str) -> str:
+    """Wrapper base de email QoriCash para email_service."""
+    return f"""<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>{_EMAIL_CSS}</style>
+</head>
+<body style="margin:0;padding:0;background-color:#f5f7fa;font-family:Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f5f7fa;padding:28px 16px;">
+  <tr><td align="center">
+    <table width="600" cellpadding="0" cellspacing="0"
+           style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;
+                  overflow:hidden;box-shadow:0 2px 16px rgba(13,27,42,0.08);">
+      {_HEADER_BLOCK}
+      {body_html}
+      {_FOOTER_BLOCK}
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>"""
 
 
 class EmailService:
@@ -22,70 +96,24 @@ class EmailService:
         """
         Template base corporativo para todos los correos de QoriCash.
 
-        Estructura: banner (imagen) → cuerpo blanco (título + contenido) → footer.
-        El título y subtítulo van dentro del cuerpo blanco, NO en el header oscuro,
-        para que el banner sea siempre visible por contraste.
-
         Args:
-            title:     Título principal del correo (dentro del cuerpo blanco)
+            title:     Título principal del correo
             body_html: Contenido HTML del cuerpo del correo
             subtitle:  Texto secundario opcional (ej: número de operación/reclamo)
         """
-        subtitle_html = (
-            f'<p style="margin:4px 0 20px;font-size:13px;color:#888888;'
-            f'letter-spacing:0.5px;">{subtitle}</p>'
+        subtitle_block = (
+            f'<p style="margin:4px 0 20px;font-size:13px;color:#64748b;">{subtitle}</p>'
         ) if subtitle else '<div style="margin-bottom:20px;"></div>'
 
-        return f"""<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-</head>
-<body style="margin:0;padding:0;background-color:#f4f6f8;font-family:Arial,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f6f8;padding:20px 0;">
-    <tr><td align="center">
-      <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
-
-        <!-- BANNER CORPORATIVO (imagen sobre fondo oscuro para contraste) -->
-        <tr>
-          <td style="padding:0;background:#0D1B2A;line-height:0;font-size:0;">
-            <img src="{BANNER_URL}" alt="QoriCash"
-                 width="600"
-                 style="width:100%;max-width:600px;display:block;border:0;line-height:0;">
-          </td>
-        </tr>
-
-        <!-- CUERPO BLANCO: título + contenido -->
-        <tr>
-          <td style="background:#ffffff;padding:32px 30px 28px;
-                     color:#333333;font-size:15px;line-height:1.7;">
-            <h2 style="margin:0 0 0;font-size:20px;font-weight:700;color:#0D1B2A;">{title}</h2>
-            {subtitle_html}
-            {body_html}
-          </td>
-        </tr>
-
-        <!-- FOOTER -->
-        <tr>
-          <td style="background:#f0f2f5;padding:20px 30px;text-align:center;
-                     border-top:1px solid #e0e0e0;color:#888888;
-                     font-size:12px;line-height:1.6;">
-            <p style="margin:0 0 4px;">
-              <strong style="color:#555;">QORICASH SAC</strong> — RUC 20615113698
-            </p>
-            <p style="margin:0 0 4px;">Av. Brasil 2790 Int. 504, Pueblo Libre, Lima</p>
-            <p style="margin:0;">
-              Este es un correo automático, por favor no responder a esta dirección.
-            </p>
-          </td>
-        </tr>
-
-      </table>
-    </td></tr>
-  </table>
-</body>
-</html>"""
+        body = f"""
+      <tr>
+        <td class="email-body-cell" style="padding:32px 36px;color:#334155;font-size:14px;line-height:1.65;">
+          <h2 style="margin:0 0 0;font-size:20px;font-weight:700;color:{_DARK};">{title}</h2>
+          {subtitle_block}
+          {body_html}
+        </td>
+      </tr>"""
+        return _wrap_email_svc(body)
 
     @staticmethod
     def _send_async(msg, timeout=10):
@@ -286,89 +314,59 @@ class EmailService:
     @staticmethod
     def _render_new_operation_template(operation):
         """Renderizar plantilla HTML para nueva operación"""
-        template = """<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>
-        @media only screen and (max-width: 620px) {
-            .email-body-cell { padding: 24px 20px !important; }
-        }
-    </style>
-</head>
-<body style="margin:0;padding:0;background-color:#f5f7fa;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f5f7fa;padding:28px 16px;">
-  <tr><td align="center">
-    <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 16px rgba(13,27,42,0.08);">
-
-      <!-- BANNER -->
+        body = """
       <tr>
-        <td style="padding:0;background:#0D1B2A;line-height:0;font-size:0;">
-          <img src="https://res.cloudinary.com/dbks8vqoh/image/upload/v1773788552/qoricash/banneremail.png" alt="QoriCash" width="600" style="width:100%;max-width:600px;display:block;border:0;">
-        </td>
-      </tr>
+        <td class="email-body-cell" style="padding:32px 36px;color:#334155;font-size:14px;line-height:1.65;">
 
-      <!-- ACCENT LINE: blue -->
-      <tr><td style="padding:0;height:3px;background-color:#3b82f6;font-size:0;line-height:0;">&nbsp;</td></tr>
-
-      <!-- BODY -->
-      <tr>
-        <td class="email-body-cell" style="padding:36px 40px;color:#334155;font-size:15px;line-height:1.65;">
-
-          <!-- Event label -->
           <div style="margin:0 0 16px 0;">
-            <span style="display:inline-block;background:#eff6ff;color:#3b82f6;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.4px;padding:4px 10px;border-radius:4px;">Nueva Operación</span>
+            <span style="display:inline-block;background:#EFF6FF;color:#3B82F6;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.4px;padding:4px 10px;border-radius:4px;">Nueva Operación</span>
           </div>
 
-          <!-- Title -->
-          <h1 style="margin:0 0 6px 0;font-size:22px;font-weight:700;color:#0D1B2A;line-height:1.3;">Su operación ha sido registrada</h1>
+          <h1 style="margin:0 0 6px 0;font-size:21px;font-weight:700;color:#0D1B2A;line-height:1.3;">Su operación ha sido registrada</h1>
           <p style="margin:0 0 24px 0;color:#64748b;font-size:14px;">Estimado(a) <strong style="color:#1e293b;">{{ operation.client.full_name or operation.client.razon_social }}</strong>, a continuación el resumen de su operación.</p>
 
-          <!-- Data table -->
-          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #e8ecf0;border-radius:8px;overflow:hidden;margin:0 0 24px 0;">
-            <tr style="border-bottom:1px solid #eef0f3;">
-              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:13px;font-weight:600;white-space:nowrap;vertical-align:top;">Código</td>
+          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #E2E8F0;border-radius:8px;overflow:hidden;margin:0 0 24px 0;">
+            <tr style="border-bottom:1px solid #F1F5F9;">
+              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:top;">Código</td>
               <td style="padding:11px 18px;color:#0D1B2A;font-size:14px;font-weight:700;vertical-align:top;">{{ operation.operation_id }}</td>
             </tr>
-            <tr style="border-bottom:1px solid #eef0f3;">
-              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:13px;font-weight:600;white-space:nowrap;vertical-align:top;">Tipo</td>
+            <tr style="border-bottom:1px solid #F1F5F9;">
+              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:top;">Tipo</td>
               <td style="padding:11px 18px;font-size:14px;vertical-align:top;">
                 {% if operation.operation_type == 'Compra' %}
-                  <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:#dcfce7;color:#15803d;letter-spacing:0.3px;">COMPRA USD</span>
+                  <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:#DCFCE7;color:#15803D;letter-spacing:0.3px;">COMPRA USD</span>
                 {% else %}
-                  <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:#dbeafe;color:#1d4ed8;letter-spacing:0.3px;">VENTA USD</span>
+                  <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:#DBEAFE;color:#1D4ED8;letter-spacing:0.3px;">VENTA USD</span>
                 {% endif %}
               </td>
             </tr>
-            <tr style="border-bottom:1px solid #eef0f3;">
-              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:13px;font-weight:600;white-space:nowrap;vertical-align:top;">Monto USD</td>
+            <tr style="border-bottom:1px solid #F1F5F9;">
+              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:top;">Monto USD</td>
               <td style="padding:11px 18px;color:#0D1B2A;font-size:15px;font-weight:700;vertical-align:top;">$ {{ "{:,.2f}".format(operation.amount_usd) }}</td>
             </tr>
-            <tr style="border-bottom:1px solid #eef0f3;">
-              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:13px;font-weight:600;white-space:nowrap;vertical-align:top;">Tipo de cambio</td>
-              <td style="padding:11px 18px;color:#1e293b;font-size:14px;font-weight:500;vertical-align:top;">{{ "%.4f"|format(operation.exchange_rate) }}</td>
+            <tr style="border-bottom:1px solid #F1F5F9;">
+              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:top;">Tipo de cambio</td>
+              <td style="padding:11px 18px;color:#1e293b;font-size:13px;font-weight:500;vertical-align:top;">{{ "%.4f"|format(operation.exchange_rate) }}</td>
             </tr>
-            <tr style="border-bottom:1px solid #eef0f3;">
-              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:13px;font-weight:600;white-space:nowrap;vertical-align:top;">Monto PEN</td>
+            <tr style="border-bottom:1px solid #F1F5F9;">
+              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:top;">Monto PEN</td>
               <td style="padding:11px 18px;color:#0D1B2A;font-size:15px;font-weight:700;vertical-align:top;">S/ {{ "{:,.2f}".format(operation.amount_pen) }}</td>
             </tr>
-            <tr style="border-bottom:1px solid #eef0f3;">
-              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:13px;font-weight:600;white-space:nowrap;vertical-align:top;">Estado</td>
-              <td style="padding:11px 18px;color:#d97706;font-size:14px;font-weight:600;vertical-align:top;">{{ operation.status }}</td>
+            <tr style="border-bottom:1px solid #F1F5F9;">
+              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:top;">Estado</td>
+              <td style="padding:11px 18px;color:#d97706;font-size:13px;font-weight:600;vertical-align:top;">{{ operation.status }}</td>
             </tr>
             <tr>
-              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:13px;font-weight:600;white-space:nowrap;vertical-align:top;">Fecha</td>
-              <td style="padding:11px 18px;color:#1e293b;font-size:14px;font-weight:500;vertical-align:top;">{{ operation.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
+              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:top;">Fecha</td>
+              <td style="padding:11px 18px;color:#1e293b;font-size:13px;font-weight:500;vertical-align:top;">{{ operation.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
             </tr>
           </table>
 
           {% if operation.operation_type == 'Compra' %}
-          <!-- Bank accounts: USD -->
-          <p style="margin:0 0 10px 0;font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1.2px;">Cuentas para transferencia (USD)</p>
-          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #e8ecf0;border-radius:8px;overflow:hidden;margin:0 0 24px 0;font-size:13px;">
+          <p style="margin:0 0 10px 0;font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1.2px;">Cuentas para transferencia (USD)</p>
+          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #E2E8F0;border-radius:8px;overflow:hidden;margin:0 0 24px 0;font-size:13px;">
             <tr>
-              <td colspan="5" style="padding:11px 16px;background-color:#f8fafc;border-bottom:1px solid #e8ecf0;color:#334155;font-size:13px;font-weight:600;">
+              <td colspan="5" style="padding:11px 16px;background-color:#F8FAFC;border-bottom:1px solid #E2E8F0;color:#334155;font-size:13px;font-weight:600;">
                 Transfiera en <strong>DÓLARES</strong> a cualquiera de estas cuentas &mdash; A nombre de {{ qoricash_titular }} &mdash; RUC {{ qoricash_ruc }}
               </td>
             </tr>
@@ -380,7 +378,7 @@ class EmailService:
               <td style="padding:8px 12px;color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">CCI</td>
             </tr>
             {% for acc in usd_accounts %}
-            <tr style="border-top:1px solid #eef0f3;">
+            <tr style="border-top:1px solid #F1F5F9;">
               <td style="padding:9px 12px;color:#1e293b;font-weight:700;">{{ acc.banco }}</td>
               <td style="padding:9px 12px;color:#334155;">{{ acc.tipo }}</td>
               <td style="padding:9px 12px;color:#334155;">USD</td>
@@ -390,11 +388,10 @@ class EmailService:
             {% endfor %}
           </table>
           {% elif operation.operation_type == 'Venta' %}
-          <!-- Bank accounts: PEN -->
-          <p style="margin:0 0 10px 0;font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1.2px;">Cuentas para transferencia (PEN)</p>
-          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #e8ecf0;border-radius:8px;overflow:hidden;margin:0 0 24px 0;font-size:13px;">
+          <p style="margin:0 0 10px 0;font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1.2px;">Cuentas para transferencia (PEN)</p>
+          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #E2E8F0;border-radius:8px;overflow:hidden;margin:0 0 24px 0;font-size:13px;">
             <tr>
-              <td colspan="5" style="padding:11px 16px;background-color:#f8fafc;border-bottom:1px solid #e8ecf0;color:#334155;font-size:13px;font-weight:600;">
+              <td colspan="5" style="padding:11px 16px;background-color:#F8FAFC;border-bottom:1px solid #E2E8F0;color:#334155;font-size:13px;font-weight:600;">
                 Transfiera en <strong>SOLES</strong> a cualquiera de estas cuentas &mdash; A nombre de {{ qoricash_titular }} &mdash; RUC {{ qoricash_ruc }}
               </td>
             </tr>
@@ -406,7 +403,7 @@ class EmailService:
               <td style="padding:8px 12px;color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">CCI</td>
             </tr>
             {% for acc in pen_accounts %}
-            <tr style="border-top:1px solid #eef0f3;">
+            <tr style="border-top:1px solid #F1F5F9;">
               <td style="padding:9px 12px;color:#1e293b;font-weight:700;">{{ acc.banco }}</td>
               <td style="padding:9px 12px;color:#334155;">{{ acc.tipo }}</td>
               <td style="padding:9px 12px;color:#334155;">PEN</td>
@@ -418,37 +415,20 @@ class EmailService:
           {% endif %}
 
           {% if operation.notes %}
-          <!-- Notes alert -->
-          <div style="border-radius:8px;padding:13px 16px;margin:0 0 20px 0;font-size:13px;line-height:1.65;background:#fffbeb;border-left:3px solid #f59e0b;color:#78350f;">
+          <div style="border-radius:6px;padding:13px 16px;margin:0 0 20px 0;font-size:13px;line-height:1.65;background:#FFFBEB;border-left:3px solid #F59E0B;color:#78350f;">
             <strong>Notas:</strong> {{ operation.notes }}
           </div>
           {% endif %}
 
-          <!-- Closing -->
-          <div style="height:1px;background-color:#f1f5f9;margin:24px 0;"></div>
-          <p style="margin:0 0 8px 0;font-size:14px;color:#334155;">Nuestro equipo procesará su operación a la brevedad posible y le mantendremos informado.</p>
-          <p style="margin:0;font-size:13px;color:#94a3b8;">¿Consultas? Responda este correo o contacte a su asesor.</p>
+          <div style="height:1px;background-color:#F1F5F9;margin:20px 0;"></div>
+          <p style="margin:0 0 8px 0;font-size:13px;color:#334155;">Nuestro equipo procesará su operación a la brevedad posible y le mantendremos informado.</p>
+          <p style="margin:0;font-size:12px;color:#94a3b8;">¿Consultas? Responda este correo o contacte a su asesor.</p>
 
         </td>
-      </tr>
-
-      <!-- FOOTER -->
-      <tr>
-        <td style="background-color:#f8fafc;border-top:1px solid #e8ecf0;padding:20px 40px;text-align:center;">
-          <p style="margin:0 0 4px 0;color:#0D1B2A;font-size:13px;font-weight:700;">QoriCash</p>
-          <p style="margin:0 0 4px 0;color:#94a3b8;font-size:12px;">RUC: 20615113698 &nbsp;&middot;&nbsp; <a href="mailto:info@qoricash.pe" style="color:#94a3b8;text-decoration:none;">info@qoricash.pe</a></p>
-          <p style="margin:0;color:#cbd5e1;font-size:11px;">© 2025 QoriCash. Todos los derechos reservados.</p>
-        </td>
-      </tr>
-
-    </table>
-  </td></tr>
-</table>
-</body>
-</html>"""
+      </tr>"""
         from app.config.bank_accounts import get_accounts_for_currency, QORICASH_TITULAR, QORICASH_RUC
         return render_template_string(
-            template,
+            _wrap_email_svc(body),
             operation=operation,
             usd_accounts=get_accounts_for_currency('USD'),
             pen_accounts=get_accounts_for_currency('PEN'),
@@ -459,87 +439,57 @@ class EmailService:
     @staticmethod
     def _render_completed_operation_template(operation):
         """Renderizar plantilla HTML para operación completada"""
-        template = """<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>
-        @media only screen and (max-width: 620px) {
-            .email-body-cell { padding: 24px 20px !important; }
-        }
-    </style>
-</head>
-<body style="margin:0;padding:0;background-color:#f5f7fa;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f5f7fa;padding:28px 16px;">
-  <tr><td align="center">
-    <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 16px rgba(13,27,42,0.08);">
-
-      <!-- BANNER -->
+        body = """
       <tr>
-        <td style="padding:0;background:#0D1B2A;line-height:0;font-size:0;">
-          <img src="https://res.cloudinary.com/dbks8vqoh/image/upload/v1773788552/qoricash/banneremail.png" alt="QoriCash" width="600" style="width:100%;max-width:600px;display:block;border:0;">
-        </td>
-      </tr>
+        <td class="email-body-cell" style="padding:32px 36px;color:#334155;font-size:14px;line-height:1.65;">
 
-      <!-- ACCENT LINE: green -->
-      <tr><td style="padding:0;height:3px;background-color:#10b981;font-size:0;line-height:0;">&nbsp;</td></tr>
-
-      <!-- BODY -->
-      <tr>
-        <td class="email-body-cell" style="padding:36px 40px;color:#334155;font-size:15px;line-height:1.65;">
-
-          <!-- Event label -->
           <div style="margin:0 0 16px 0;">
-            <span style="display:inline-block;background:#f0fdf4;color:#10b981;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.4px;padding:4px 10px;border-radius:4px;">Operación Completada</span>
+            <span style="display:inline-block;background:#F0FDF4;color:#5CB85C;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.4px;padding:4px 10px;border-radius:4px;">✓ Operación Completada</span>
           </div>
 
-          <!-- Title -->
-          <h1 style="margin:0 0 6px 0;font-size:22px;font-weight:700;color:#0D1B2A;line-height:1.3;">Su operación fue procesada con éxito</h1>
+          <h1 style="margin:0 0 6px 0;font-size:21px;font-weight:700;color:#0D1B2A;line-height:1.3;">Su operación fue procesada con éxito</h1>
           <p style="margin:0 0 24px 0;color:#64748b;font-size:14px;">Estimado(a) <strong style="color:#1e293b;">{{ operation.client.full_name or operation.client.razon_social }}</strong>, a continuación el detalle de su operación completada.</p>
 
-          <!-- Data table -->
-          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #e8ecf0;border-radius:8px;overflow:hidden;margin:0 0 24px 0;">
-            <tr style="border-bottom:1px solid #eef0f3;">
-              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:13px;font-weight:600;white-space:nowrap;vertical-align:top;">Código</td>
+          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #E2E8F0;border-radius:8px;overflow:hidden;margin:0 0 24px 0;">
+            <tr style="border-bottom:1px solid #F1F5F9;">
+              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:top;">Código</td>
               <td style="padding:11px 18px;color:#0D1B2A;font-size:14px;font-weight:700;vertical-align:top;">{{ operation.operation_id }}</td>
             </tr>
-            <tr style="border-bottom:1px solid #eef0f3;">
-              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:13px;font-weight:600;white-space:nowrap;vertical-align:top;">Tipo</td>
-              <td style="padding:11px 18px;color:#1e293b;font-size:14px;font-weight:500;vertical-align:top;">{{ operation.operation_type }}</td>
+            <tr style="border-bottom:1px solid #F1F5F9;">
+              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:top;">Tipo</td>
+              <td style="padding:11px 18px;color:#1e293b;font-size:13px;font-weight:500;vertical-align:top;">{{ operation.operation_type }}</td>
             </tr>
-            <tr style="border-bottom:1px solid #eef0f3;">
-              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:13px;font-weight:600;white-space:nowrap;vertical-align:top;">Monto USD</td>
+            <tr style="border-bottom:1px solid #F1F5F9;">
+              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:top;">Monto USD</td>
               <td style="padding:11px 18px;color:#0D1B2A;font-size:15px;font-weight:700;vertical-align:top;">$ {{ "{:,.2f}".format(operation.amount_usd) }}</td>
             </tr>
-            <tr style="border-bottom:1px solid #eef0f3;">
-              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:13px;font-weight:600;white-space:nowrap;vertical-align:top;">Tipo de cambio</td>
-              <td style="padding:11px 18px;color:#1e293b;font-size:14px;font-weight:500;vertical-align:top;">{{ "%.4f"|format(operation.exchange_rate) }}</td>
+            <tr style="border-bottom:1px solid #F1F5F9;">
+              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:top;">Tipo de cambio</td>
+              <td style="padding:11px 18px;color:#1e293b;font-size:13px;font-weight:500;vertical-align:top;">{{ "%.4f"|format(operation.exchange_rate) }}</td>
             </tr>
-            <tr style="border-bottom:1px solid #eef0f3;">
-              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:13px;font-weight:600;white-space:nowrap;vertical-align:top;">Monto PEN</td>
+            <tr style="border-bottom:1px solid #F1F5F9;">
+              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:top;">Monto PEN</td>
               <td style="padding:11px 18px;color:#0D1B2A;font-size:15px;font-weight:700;vertical-align:top;">S/ {{ "{:,.2f}".format(operation.amount_pen) }}</td>
             </tr>
-            <tr style="border-bottom:1px solid #eef0f3;">
-              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:13px;font-weight:600;white-space:nowrap;vertical-align:top;">Fecha de creación</td>
-              <td style="padding:11px 18px;color:#1e293b;font-size:14px;font-weight:500;vertical-align:top;">{{ operation.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
+            <tr style="border-bottom:1px solid #F1F5F9;">
+              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:top;">Fecha de creación</td>
+              <td style="padding:11px 18px;color:#1e293b;font-size:13px;font-weight:500;vertical-align:top;">{{ operation.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
             </tr>
             <tr>
-              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:13px;font-weight:600;white-space:nowrap;vertical-align:top;">Fecha de completado</td>
-              <td style="padding:11px 18px;color:#1e293b;font-size:14px;font-weight:600;vertical-align:top;">{{ operation.completed_at.strftime('%d/%m/%Y %H:%M') if operation.completed_at else '-' }}</td>
+              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:top;">Fecha de completado</td>
+              <td style="padding:11px 18px;color:#1e293b;font-size:13px;font-weight:600;vertical-align:top;">{{ operation.completed_at.strftime('%d/%m/%Y %H:%M') if operation.completed_at else '-' }}</td>
             </tr>
           </table>
 
           {% if operation.operator_proofs and operation.operator_proofs|length > 0 %}
-          <!-- Proofs -->
-          <p style="margin:0 0 10px 0;font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1.2px;">Comprobante(s)</p>
-          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #e8ecf0;border-radius:8px;overflow:hidden;margin:0 0 24px 0;">
+          <p style="margin:0 0 10px 0;font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1.2px;">Comprobante(s)</p>
+          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #E2E8F0;border-radius:8px;overflow:hidden;margin:0 0 24px 0;">
             {% for proof in operation.operator_proofs %}
-            <tr style="{% if not loop.last %}border-bottom:1px solid #eef0f3;{% endif %}">
+            <tr style="{% if not loop.last %}border-bottom:1px solid #F1F5F9;{% endif %}">
               <td style="padding:12px 18px;vertical-align:middle;">
                 <a href="{{ proof.comprobante_url if proof.comprobante_url else proof }}"
                    target="_blank"
-                   style="display:inline-block;background:#0D1B2A;color:#00DEA8;border:1.5px solid #00DEA8;padding:8px 20px;border-radius:6px;text-decoration:none;font-size:13px;font-weight:600;">
+                   style="display:inline-block;background:#0D1B2A;color:#5CB85C;border:1.5px solid #5CB85C;padding:8px 20px;border-radius:6px;text-decoration:none;font-size:13px;font-weight:600;">
                   Ver comprobante{% if operation.operator_proofs|length > 1 %} {{ loop.index }}{% endif %}
                 </a>
                 {% if proof.comentario %}
@@ -554,41 +504,24 @@ class EmailService:
           {% if operation.invoices and operation.invoices|length > 0 %}
           {% set invoice = operation.invoices[0] %}
           {% if invoice.nubefact_enlace_pdf or invoice.invoice_number %}
-          <!-- Invoice -->
-          <div style="border-radius:8px;padding:13px 16px;margin:0 0 20px 0;font-size:13px;line-height:1.65;background:#f0f9ff;border-left:3px solid #0ea5e9;color:#0c4a6e;">
+          <div style="border-radius:6px;padding:13px 16px;margin:0 0 20px 0;font-size:13px;line-height:1.65;background:#F0FDF4;border-left:3px solid #5CB85C;color:#14532d;">
             <strong>Comprobante electrónico adjunto:</strong>
             {% if invoice.invoice_number %}{{ invoice.invoice_number }}{% endif %}
             {% if invoice.nubefact_enlace_pdf %}
             &nbsp;&mdash;&nbsp;
-            <a href="{{ invoice.nubefact_enlace_pdf }}" target="_blank" style="color:#0ea5e9;text-decoration:none;font-weight:600;">Descargar PDF</a>
+            <a href="{{ invoice.nubefact_enlace_pdf }}" target="_blank" style="color:#5CB85C;text-decoration:none;font-weight:600;">Descargar PDF</a>
             {% endif %}
           </div>
           {% endif %}
           {% endif %}
 
-          <!-- Closing -->
-          <div style="height:1px;background-color:#f1f5f9;margin:24px 0;"></div>
-          <p style="margin:0 0 8px 0;font-size:14px;color:#334155;">Gracias por confiar en <strong>QoriCash</strong> para sus operaciones cambiarias.</p>
-          <p style="margin:0;font-size:13px;color:#94a3b8;">¿Consultas? Responda este correo o contacte a su asesor comercial.</p>
+          <div style="height:1px;background-color:#F1F5F9;margin:20px 0;"></div>
+          <p style="margin:0 0 8px 0;font-size:13px;color:#334155;">Gracias por confiar en <strong>QoriCash</strong> para sus operaciones cambiarias.</p>
+          <p style="margin:0;font-size:12px;color:#94a3b8;">¿Consultas? Responda este correo o contacte a su asesor comercial.</p>
 
         </td>
-      </tr>
-
-      <!-- FOOTER -->
-      <tr>
-        <td style="background-color:#f8fafc;border-top:1px solid #e8ecf0;padding:20px 40px;text-align:center;">
-          <p style="margin:0 0 4px 0;color:#0D1B2A;font-size:13px;font-weight:700;">QoriCash</p>
-          <p style="margin:0 0 4px 0;color:#94a3b8;font-size:12px;">RUC: 20615113698 &nbsp;&middot;&nbsp; <a href="mailto:info@qoricash.pe" style="color:#94a3b8;text-decoration:none;">info@qoricash.pe</a></p>
-          <p style="margin:0;color:#cbd5e1;font-size:11px;">© 2025 QoriCash. Todos los derechos reservados.</p>
-        </td>
-      </tr>
-
-    </table>
-  </td></tr>
-</table>
-</body>
-</html>"""
-        return render_template_string(template, operation=operation)
+      </tr>"""
+        return render_template_string(_wrap_email_svc(body), operation=operation)
 
     @staticmethod
     def send_canceled_operation_email(operation, reason=None):
@@ -674,85 +607,55 @@ class EmailService:
     @staticmethod
     def _render_amount_modified_template(operation, old_amount_usd, old_amount_pen):
         """Renderizar plantilla HTML para notificación de modificación de importe"""
-        template = """<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>
-        @media only screen and (max-width: 620px) {
-            .email-body-cell { padding: 24px 20px !important; }
-        }
-    </style>
-</head>
-<body style="margin:0;padding:0;background-color:#f5f7fa;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f5f7fa;padding:28px 16px;">
-  <tr><td align="center">
-    <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 16px rgba(13,27,42,0.08);">
-
-      <!-- BANNER -->
+        body = """
       <tr>
-        <td style="padding:0;background:#0D1B2A;line-height:0;font-size:0;">
-          <img src="https://res.cloudinary.com/dbks8vqoh/image/upload/v1773788552/qoricash/banneremail.png" alt="QoriCash" width="600" style="width:100%;max-width:600px;display:block;border:0;">
-        </td>
-      </tr>
+        <td class="email-body-cell" style="padding:32px 36px;color:#334155;font-size:14px;line-height:1.65;">
 
-      <!-- ACCENT LINE: amber -->
-      <tr><td style="padding:0;height:3px;background-color:#f59e0b;font-size:0;line-height:0;">&nbsp;</td></tr>
-
-      <!-- BODY -->
-      <tr>
-        <td class="email-body-cell" style="padding:36px 40px;color:#334155;font-size:15px;line-height:1.65;">
-
-          <!-- Event label -->
           <div style="margin:0 0 16px 0;">
-            <span style="display:inline-block;background:#fffbeb;color:#f59e0b;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.4px;padding:4px 10px;border-radius:4px;">Actualización de Importe</span>
+            <span style="display:inline-block;background:#FFFBEB;color:#F59E0B;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.4px;padding:4px 10px;border-radius:4px;">Actualización de Importe</span>
           </div>
 
-          <!-- Title -->
-          <h1 style="margin:0 0 6px 0;font-size:22px;font-weight:700;color:#0D1B2A;line-height:1.3;">Se actualizó el importe de su operación</h1>
+          <h1 style="margin:0 0 6px 0;font-size:21px;font-weight:700;color:#0D1B2A;line-height:1.3;">Se actualizó el importe de su operación</h1>
           <p style="margin:0 0 24px 0;color:#64748b;font-size:14px;">Estimado(a) <strong style="color:#1e293b;">{{ operation.client.full_name or operation.client.razon_social }}</strong>, el importe de su operación <strong style="color:#0D1B2A;">{{ operation.operation_id }}</strong> ha sido actualizado por nuestro equipo.</p>
 
-          <!-- Exchange rate row -->
-          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #e8ecf0;border-radius:8px;overflow:hidden;margin:0 0 16px 0;">
+          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #E2E8F0;border-radius:8px;overflow:hidden;margin:0 0 16px 0;">
             <tr>
-              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:13px;font-weight:600;white-space:nowrap;vertical-align:top;">Código</td>
+              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:top;">Código</td>
               <td style="padding:11px 18px;color:#0D1B2A;font-size:14px;font-weight:700;vertical-align:top;">{{ operation.operation_id }}</td>
             </tr>
-            <tr style="border-top:1px solid #eef0f3;">
-              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:13px;font-weight:600;white-space:nowrap;vertical-align:top;">Tipo de cambio</td>
-              <td style="padding:11px 18px;color:#1e293b;font-size:14px;font-weight:500;vertical-align:top;">{{ "%.4f"|format(operation.exchange_rate) }}</td>
+            <tr style="border-top:1px solid #F1F5F9;">
+              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:top;">Tipo de cambio</td>
+              <td style="padding:11px 18px;color:#1e293b;font-size:13px;font-weight:500;vertical-align:top;">{{ "%.4f"|format(operation.exchange_rate) }}</td>
             </tr>
           </table>
 
-          <!-- Change table -->
-          <p style="margin:0 0 10px 0;font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1.2px;">Detalle del cambio</p>
-          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #e8ecf0;border-radius:8px;overflow:hidden;margin:0 0 24px 0;">
+          <p style="margin:0 0 10px 0;font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1.2px;">Detalle del cambio</p>
+          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #E2E8F0;border-radius:8px;overflow:hidden;margin:0 0 24px 0;">
             <tr style="background-color:#0D1B2A;">
               <td style="padding:9px 18px;color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;width:120px;">Concepto</td>
               <td style="padding:9px 18px;color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Importe anterior</td>
               <td style="padding:9px 6px;color:#94a3b8;font-size:11px;font-weight:600;text-align:center;width:30px;"></td>
               <td style="padding:9px 18px;color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Importe nuevo</td>
             </tr>
-            <tr style="border-top:1px solid #eef0f3;">
-              <td style="padding:12px 18px;color:#94a3b8;font-size:13px;font-weight:600;vertical-align:middle;">Monto USD</td>
+            <tr style="border-top:1px solid #F1F5F9;">
+              <td style="padding:12px 18px;color:#94a3b8;font-size:12px;font-weight:600;vertical-align:middle;">Monto USD</td>
               <td style="padding:12px 18px;vertical-align:middle;">
                 <span style="color:#94a3b8;text-decoration:line-through;font-size:13px;">$ {{ "{:,.2f}".format(old_amount_usd) }}</span>
               </td>
               <td style="padding:12px 6px;text-align:center;vertical-align:middle;">
-                <span style="color:#f59e0b;font-weight:700;font-size:14px;">&rarr;</span>
+                <span style="color:#F59E0B;font-weight:700;font-size:14px;">&rarr;</span>
               </td>
               <td style="padding:12px 18px;vertical-align:middle;">
                 <span style="color:#0D1B2A;font-weight:700;font-size:15px;">$ {{ "{:,.2f}".format(operation.amount_usd) }}</span>
               </td>
             </tr>
-            <tr style="border-top:1px solid #eef0f3;">
-              <td style="padding:12px 18px;color:#94a3b8;font-size:13px;font-weight:600;vertical-align:middle;">Monto PEN</td>
+            <tr style="border-top:1px solid #F1F5F9;">
+              <td style="padding:12px 18px;color:#94a3b8;font-size:12px;font-weight:600;vertical-align:middle;">Monto PEN</td>
               <td style="padding:12px 18px;vertical-align:middle;">
                 <span style="color:#94a3b8;text-decoration:line-through;font-size:13px;">S/ {{ "{:,.2f}".format(old_amount_pen) }}</span>
               </td>
               <td style="padding:12px 6px;text-align:center;vertical-align:middle;">
-                <span style="color:#f59e0b;font-weight:700;font-size:14px;">&rarr;</span>
+                <span style="color:#F59E0B;font-weight:700;font-size:14px;">&rarr;</span>
               </td>
               <td style="padding:12px 18px;vertical-align:middle;">
                 <span style="color:#0D1B2A;font-weight:700;font-size:15px;">S/ {{ "{:,.2f}".format(operation.amount_pen) }}</span>
@@ -761,11 +664,10 @@ class EmailService:
           </table>
 
           {% if operation.operation_type == 'Compra' %}
-          <!-- Bank accounts: USD -->
-          <p style="margin:0 0 10px 0;font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1.2px;">Cuentas para transferencia (USD)</p>
-          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #e8ecf0;border-radius:8px;overflow:hidden;margin:0 0 24px 0;font-size:13px;">
+          <p style="margin:0 0 10px 0;font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1.2px;">Cuentas para transferencia (USD)</p>
+          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #E2E8F0;border-radius:8px;overflow:hidden;margin:0 0 24px 0;font-size:13px;">
             <tr>
-              <td colspan="5" style="padding:11px 16px;background-color:#f8fafc;border-bottom:1px solid #e8ecf0;color:#334155;font-size:13px;font-weight:600;">
+              <td colspan="5" style="padding:11px 16px;background-color:#F8FAFC;border-bottom:1px solid #E2E8F0;color:#334155;font-size:13px;font-weight:600;">
                 Transfiera en <strong>DÓLARES</strong> el nuevo importe a cualquiera de estas cuentas &mdash; A nombre de {{ qoricash_titular }} &mdash; RUC {{ qoricash_ruc }}
               </td>
             </tr>
@@ -777,7 +679,7 @@ class EmailService:
               <td style="padding:8px 12px;color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">CCI</td>
             </tr>
             {% for acc in usd_accounts %}
-            <tr style="border-top:1px solid #eef0f3;">
+            <tr style="border-top:1px solid #F1F5F9;">
               <td style="padding:9px 12px;color:#1e293b;font-weight:700;">{{ acc.banco }}</td>
               <td style="padding:9px 12px;color:#334155;">{{ acc.tipo }}</td>
               <td style="padding:9px 12px;color:#334155;">USD</td>
@@ -787,11 +689,10 @@ class EmailService:
             {% endfor %}
           </table>
           {% elif operation.operation_type == 'Venta' %}
-          <!-- Bank accounts: PEN -->
-          <p style="margin:0 0 10px 0;font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1.2px;">Cuentas para transferencia (PEN)</p>
-          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #e8ecf0;border-radius:8px;overflow:hidden;margin:0 0 24px 0;font-size:13px;">
+          <p style="margin:0 0 10px 0;font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1.2px;">Cuentas para transferencia (PEN)</p>
+          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #E2E8F0;border-radius:8px;overflow:hidden;margin:0 0 24px 0;font-size:13px;">
             <tr>
-              <td colspan="5" style="padding:11px 16px;background-color:#f8fafc;border-bottom:1px solid #e8ecf0;color:#334155;font-size:13px;font-weight:600;">
+              <td colspan="5" style="padding:11px 16px;background-color:#F8FAFC;border-bottom:1px solid #E2E8F0;color:#334155;font-size:13px;font-weight:600;">
                 Transfiera en <strong>SOLES</strong> el nuevo importe a cualquiera de estas cuentas &mdash; A nombre de {{ qoricash_titular }} &mdash; RUC {{ qoricash_ruc }}
               </td>
             </tr>
@@ -803,7 +704,7 @@ class EmailService:
               <td style="padding:8px 12px;color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">CCI</td>
             </tr>
             {% for acc in pen_accounts %}
-            <tr style="border-top:1px solid #eef0f3;">
+            <tr style="border-top:1px solid #F1F5F9;">
               <td style="padding:9px 12px;color:#1e293b;font-weight:700;">{{ acc.banco }}</td>
               <td style="padding:9px 12px;color:#334155;">{{ acc.tipo }}</td>
               <td style="padding:9px 12px;color:#334155;">PEN</td>
@@ -814,35 +715,18 @@ class EmailService:
           </table>
           {% endif %}
 
-          <!-- Info note -->
-          <div style="border-radius:8px;padding:13px 16px;margin:0 0 20px 0;font-size:13px;line-height:1.65;background:#f0f9ff;border-left:3px solid #0ea5e9;color:#0c4a6e;">
+          <div style="border-radius:6px;padding:13px 16px;margin:0 0 20px 0;font-size:13px;line-height:1.65;background:#F0FDF4;border-left:3px solid #5CB85C;color:#14532d;">
             Si tiene alguna consulta sobre este cambio, responda este correo o contáctese directamente con su asesor.
           </div>
 
-          <!-- Closing -->
-          <div style="height:1px;background-color:#f1f5f9;margin:24px 0;"></div>
-          <p style="margin:0;font-size:13px;color:#94a3b8;">Este es un correo automático generado por el sistema QoriCash.</p>
+          <div style="height:1px;background-color:#F1F5F9;margin:20px 0;"></div>
+          <p style="margin:0;font-size:12px;color:#94a3b8;">Este es un correo automático generado por el sistema QoriCash.</p>
 
         </td>
-      </tr>
-
-      <!-- FOOTER -->
-      <tr>
-        <td style="background-color:#f8fafc;border-top:1px solid #e8ecf0;padding:20px 40px;text-align:center;">
-          <p style="margin:0 0 4px 0;color:#0D1B2A;font-size:13px;font-weight:700;">QoriCash</p>
-          <p style="margin:0 0 4px 0;color:#94a3b8;font-size:12px;">RUC: 20615113698 &nbsp;&middot;&nbsp; <a href="mailto:info@qoricash.pe" style="color:#94a3b8;text-decoration:none;">info@qoricash.pe</a></p>
-          <p style="margin:0;color:#cbd5e1;font-size:11px;">© 2025 QoriCash. Todos los derechos reservados.</p>
-        </td>
-      </tr>
-
-    </table>
-  </td></tr>
-</table>
-</body>
-</html>"""
+      </tr>"""
         from app.config.bank_accounts import get_accounts_for_currency, QORICASH_TITULAR, QORICASH_RUC
         return render_template_string(
-            template,
+            _wrap_email_svc(body),
             operation=operation,
             old_amount_usd=old_amount_usd,
             old_amount_pen=old_amount_pen,
@@ -855,113 +739,66 @@ class EmailService:
     @staticmethod
     def _render_canceled_operation_template(operation, reason=None):
         """Renderizar plantilla HTML para operación cancelada"""
-        template = """<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>
-        @media only screen and (max-width: 620px) {
-            .email-body-cell { padding: 24px 20px !important; }
-        }
-    </style>
-</head>
-<body style="margin:0;padding:0;background-color:#f5f7fa;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f5f7fa;padding:28px 16px;">
-  <tr><td align="center">
-    <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 16px rgba(13,27,42,0.08);">
-
-      <!-- BANNER -->
+        body = """
       <tr>
-        <td style="padding:0;background:#0D1B2A;line-height:0;font-size:0;">
-          <img src="https://res.cloudinary.com/dbks8vqoh/image/upload/v1773788552/qoricash/banneremail.png" alt="QoriCash" width="600" style="width:100%;max-width:600px;display:block;border:0;">
-        </td>
-      </tr>
+        <td class="email-body-cell" style="padding:32px 36px;color:#334155;font-size:14px;line-height:1.65;">
 
-      <!-- ACCENT LINE: red -->
-      <tr><td style="padding:0;height:3px;background-color:#ef4444;font-size:0;line-height:0;">&nbsp;</td></tr>
-
-      <!-- BODY -->
-      <tr>
-        <td class="email-body-cell" style="padding:36px 40px;color:#334155;font-size:15px;line-height:1.65;">
-
-          <!-- Event label -->
           <div style="margin:0 0 16px 0;">
-            <span style="display:inline-block;background:#fef2f2;color:#ef4444;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.4px;padding:4px 10px;border-radius:4px;">Operación Cancelada</span>
+            <span style="display:inline-block;background:#FEF2F2;color:#EF4444;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.4px;padding:4px 10px;border-radius:4px;">Operación Cancelada</span>
           </div>
 
-          <!-- Title -->
-          <h1 style="margin:0 0 6px 0;font-size:22px;font-weight:700;color:#0D1B2A;line-height:1.3;">Su operación ha sido cancelada</h1>
+          <h1 style="margin:0 0 6px 0;font-size:21px;font-weight:700;color:#0D1B2A;line-height:1.3;">Su operación ha sido cancelada</h1>
           <p style="margin:0 0 24px 0;color:#64748b;font-size:14px;">Estimado(a) <strong style="color:#1e293b;">{{ operation.client.full_name or operation.client.razon_social }}</strong>, la siguiente operación ha sido cancelada en nuestro sistema.</p>
 
-          <!-- Data table -->
-          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #e8ecf0;border-radius:8px;overflow:hidden;margin:0 0 24px 0;">
-            <tr style="border-bottom:1px solid #eef0f3;">
-              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:13px;font-weight:600;white-space:nowrap;vertical-align:top;">Código</td>
+          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #E2E8F0;border-radius:8px;overflow:hidden;margin:0 0 24px 0;">
+            <tr style="border-bottom:1px solid #F1F5F9;">
+              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:top;">Código</td>
               <td style="padding:11px 18px;color:#0D1B2A;font-size:14px;font-weight:700;vertical-align:top;">{{ operation.operation_id }}</td>
             </tr>
-            <tr style="border-bottom:1px solid #eef0f3;">
-              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:13px;font-weight:600;white-space:nowrap;vertical-align:top;">Tipo</td>
-              <td style="padding:11px 18px;color:#1e293b;font-size:14px;font-weight:500;vertical-align:top;">{{ operation.operation_type }}</td>
+            <tr style="border-bottom:1px solid #F1F5F9;">
+              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:top;">Tipo</td>
+              <td style="padding:11px 18px;color:#1e293b;font-size:13px;font-weight:500;vertical-align:top;">{{ operation.operation_type }}</td>
             </tr>
-            <tr style="border-bottom:1px solid #eef0f3;">
-              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:13px;font-weight:600;white-space:nowrap;vertical-align:top;">Monto USD</td>
+            <tr style="border-bottom:1px solid #F1F5F9;">
+              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:top;">Monto USD</td>
               <td style="padding:11px 18px;color:#0D1B2A;font-size:15px;font-weight:700;vertical-align:top;">$ {{ "{:,.2f}".format(operation.amount_usd) }}</td>
             </tr>
-            <tr style="border-bottom:1px solid #eef0f3;">
-              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:13px;font-weight:600;white-space:nowrap;vertical-align:top;">Tipo de cambio</td>
-              <td style="padding:11px 18px;color:#1e293b;font-size:14px;font-weight:500;vertical-align:top;">{{ "%.4f"|format(operation.exchange_rate) }}</td>
+            <tr style="border-bottom:1px solid #F1F5F9;">
+              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:top;">Tipo de cambio</td>
+              <td style="padding:11px 18px;color:#1e293b;font-size:13px;font-weight:500;vertical-align:top;">{{ "%.4f"|format(operation.exchange_rate) }}</td>
             </tr>
-            <tr style="border-bottom:1px solid #eef0f3;">
-              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:13px;font-weight:600;white-space:nowrap;vertical-align:top;">Monto PEN</td>
+            <tr style="border-bottom:1px solid #F1F5F9;">
+              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:top;">Monto PEN</td>
               <td style="padding:11px 18px;color:#0D1B2A;font-size:15px;font-weight:700;vertical-align:top;">S/ {{ "{:,.2f}".format(operation.amount_pen) }}</td>
             </tr>
-            <tr style="border-bottom:1px solid #eef0f3;">
-              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:13px;font-weight:600;white-space:nowrap;vertical-align:top;">Fecha</td>
-              <td style="padding:11px 18px;color:#1e293b;font-size:14px;font-weight:500;vertical-align:top;">{{ operation.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
+            <tr style="border-bottom:1px solid #F1F5F9;">
+              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:top;">Fecha</td>
+              <td style="padding:11px 18px;color:#1e293b;font-size:13px;font-weight:500;vertical-align:top;">{{ operation.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
             </tr>
             <tr>
-              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:13px;font-weight:600;white-space:nowrap;vertical-align:top;">Estado</td>
+              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:top;">Estado</td>
               <td style="padding:11px 18px;vertical-align:top;">
-                <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:#fee2e2;color:#991b1b;letter-spacing:0.3px;">CANCELADO</span>
+                <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:#FEE2E2;color:#991B1B;letter-spacing:0.3px;">CANCELADO</span>
               </td>
             </tr>
           </table>
 
           {% if reason %}
-          <!-- Cancellation reason -->
-          <div style="border-radius:8px;padding:13px 16px;margin:0 0 16px 0;font-size:13px;line-height:1.65;background:#fffbeb;border-left:3px solid #f59e0b;color:#78350f;">
+          <div style="border-radius:6px;padding:13px 16px;margin:0 0 16px 0;font-size:13px;line-height:1.65;background:#FFFBEB;border-left:3px solid #F59E0B;color:#78350f;">
             <strong>Motivo de cancelación:</strong> {{ reason }}
           </div>
           {% endif %}
 
-          <!-- Info note -->
-          <div style="border-radius:8px;padding:13px 16px;margin:0 0 20px 0;font-size:13px;line-height:1.65;background:#f0f9ff;border-left:3px solid #0ea5e9;color:#0c4a6e;">
+          <div style="border-radius:6px;padding:13px 16px;margin:0 0 24px 0;font-size:13px;line-height:1.65;background:#F0FDF4;border-left:3px solid #5CB85C;color:#14532d;">
             Si desea realizar una nueva operación, puede ingresar a <strong>www.qoricash.pe</strong> o contactar a su asesor comercial.
           </div>
 
-          <!-- Closing -->
-          <div style="height:1px;background-color:#f1f5f9;margin:24px 0;"></div>
-          <p style="margin:0;font-size:13px;color:#94a3b8;">¿Consultas? Responda este correo o escríbanos a <a href="mailto:info@qoricash.pe" style="color:#94a3b8;">info@qoricash.pe</a></p>
+          <div style="height:1px;background-color:#F1F5F9;margin:20px 0;"></div>
+          <p style="margin:0;font-size:12px;color:#94a3b8;">¿Consultas? Responda este correo o escríbanos a <a href="mailto:info@qoricash.pe" style="color:#5CB85C;">info@qoricash.pe</a></p>
 
         </td>
-      </tr>
-
-      <!-- FOOTER -->
-      <tr>
-        <td style="background-color:#f8fafc;border-top:1px solid #e8ecf0;padding:20px 40px;text-align:center;">
-          <p style="margin:0 0 4px 0;color:#0D1B2A;font-size:13px;font-weight:700;">QoriCash</p>
-          <p style="margin:0 0 4px 0;color:#94a3b8;font-size:12px;">RUC: 20615113698 &nbsp;&middot;&nbsp; <a href="mailto:info@qoricash.pe" style="color:#94a3b8;text-decoration:none;">info@qoricash.pe</a></p>
-          <p style="margin:0;color:#cbd5e1;font-size:11px;">© 2025 QoriCash. Todos los derechos reservados.</p>
-        </td>
-      </tr>
-
-    </table>
-  </td></tr>
-</table>
-</body>
-</html>"""
-        return render_template_string(template, operation=operation, reason=reason)
+      </tr>"""
+        return render_template_string(_wrap_email_svc(body), operation=operation, reason=reason)
 
     @staticmethod
     def send_new_client_registration_email(client, trader):
@@ -1178,54 +1015,41 @@ class EmailService:
     @staticmethod
     def _render_temporary_password_template(client_name, temp_password):
         """Renderizar plantilla HTML para contraseña temporal"""
-        template = """<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>
-        @media only screen and (max-width: 620px) { .email-body-cell { padding: 24px 20px !important; } }
-    </style>
-</head>
-<body style="margin:0;padding:0;background-color:#f5f7fa;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f5f7fa;padding:28px 16px;">
-  <tr><td align="center">
-    <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 16px rgba(13,27,42,0.08);">
+        body = """
       <tr>
-        <td style="padding:0;background:#0D1B2A;line-height:0;font-size:0;">
-          <img src="https://res.cloudinary.com/dbks8vqoh/image/upload/v1773788552/qoricash/banneremail.png" alt="QoriCash" width="600" style="width:100%;max-width:600px;display:block;border:0;">
-        </td>
-      </tr>
-      <tr><td style="padding:0;height:3px;background-color:#6366f1;font-size:0;line-height:0;">&nbsp;</td></tr>
-      <tr>
-        <td class="email-body-cell" style="padding:36px 40px;color:#334155;font-size:15px;line-height:1.65;">
-          <div style="margin:0 0 16px 0;">
-            <span style="display:inline-block;background:#eef2ff;color:#6366f1;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.4px;padding:4px 10px;border-radius:4px;">Acceso Seguro</span>
-          </div>
-          <h1 style="margin:0 0 6px 0;font-size:22px;font-weight:700;color:#0D1B2A;line-height:1.3;">Contraseña temporal de acceso</h1>
-          <p style="margin:0 0 24px 0;color:#64748b;font-size:14px;">Hola <strong style="color:#1e293b;">{{ client_name }}</strong>, a continuación tu contraseña temporal para ingresar a QoriCash.</p>
+        <td class="email-body-cell" style="padding:32px 36px;color:#334155;font-size:14px;line-height:1.65;">
 
-          <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#0D1B2A;border-radius:8px;overflow:hidden;margin:0 0 24px 0;">
+          <div style="margin:0 0 16px 0;">
+            <span style="display:inline-block;background:#F0FDF4;color:#5CB85C;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.4px;padding:4px 10px;border-radius:4px;">Acceso Seguro</span>
+          </div>
+
+          <h1 style="margin:0 0 6px 0;font-size:21px;font-weight:700;color:#0D1B2A;line-height:1.3;">Contraseña temporal de acceso</h1>
+          <p style="margin:0 0 24px 0;color:#64748b;font-size:14px;">
+            Hola <strong style="color:#1e293b;">{{ client_name }}</strong>,
+            a continuación tu contraseña temporal para ingresar a QoriCash.
+          </p>
+
+          <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#0D1B2A;border-radius:10px;overflow:hidden;margin:0 0 16px 0;">
             <tr>
-              <td style="padding:24px;text-align:center;">
-                <p style="margin:0 0 8px 0;color:rgba(255,255,255,0.45);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;">Contraseña de acceso</p>
-                <p style="margin:0 0 8px 0;color:#a5b4fc;font-size:30px;font-family:'Courier New',monospace;font-weight:700;letter-spacing:6px;">{{ temp_password }}</p>
-                <p style="margin:0;color:rgba(255,255,255,0.3);font-size:11px;">Cópiala exactamente como aparece</p>
+              <td style="padding:22px 24px;text-align:center;">
+                <p style="margin:0 0 10px 0;color:rgba(255,255,255,0.50);font-size:10px;letter-spacing:0.8px;text-transform:uppercase;">Contraseña de acceso</p>
+                <p style="margin:0 0 10px 0;color:#5CB85C;font-size:28px;font-family:'Courier New',Courier,monospace;font-weight:700;letter-spacing:4px;">{{ temp_password }}</p>
+                <p style="margin:0;color:rgba(255,255,255,0.35);font-size:11px;">Cópiala exactamente como aparece</p>
               </td>
             </tr>
           </table>
 
-          <div style="border-radius:8px;padding:13px 16px;margin:0 0 20px 0;font-size:13px;line-height:1.65;background:#fef2f2;border-left:3px solid #ef4444;color:#7f1d1d;">
+          <div style="border-radius:6px;padding:13px 16px;margin:0 0 16px 0;font-size:13px;line-height:1.65;background:#FEF2F2;border-left:3px solid #EF4444;color:#7f1d1d;">
             <strong>Seguridad:</strong> Deberás cambiar esta contraseña al iniciar sesión. No la compartas con nadie.
           </div>
 
-          <p style="margin:0 0 10px 0;font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1.2px;">Pasos a seguir</p>
-          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #e8ecf0;border-radius:8px;overflow:hidden;margin:0 0 20px 0;">
-            <tr style="border-bottom:1px solid #eef0f3;">
+          <p style="margin:0 0 10px 0;font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1.2px;">Pasos a seguir</p>
+          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #E2E8F0;border-radius:8px;overflow:hidden;margin:0 0 16px 0;">
+            <tr style="border-bottom:1px solid #F1F5F9;">
               <td style="padding:10px 14px;color:#94a3b8;font-size:12px;font-weight:700;width:28px;text-align:center;vertical-align:top;">1</td>
               <td style="padding:10px 16px;color:#334155;font-size:13px;">Ingresa a QoriCash con tu número de documento y esta contraseña</td>
             </tr>
-            <tr style="border-bottom:1px solid #eef0f3;">
+            <tr style="border-bottom:1px solid #F1F5F9;">
               <td style="padding:10px 14px;color:#94a3b8;font-size:12px;font-weight:700;text-align:center;vertical-align:top;">2</td>
               <td style="padding:10px 16px;color:#334155;font-size:13px;">El sistema te pedirá establecer una nueva contraseña segura</td>
             </tr>
@@ -1235,227 +1059,156 @@ class EmailService:
             </tr>
           </table>
 
-          <div style="border-radius:8px;padding:13px 16px;margin:0 0 20px 0;font-size:13px;line-height:1.65;background:#eff6ff;border-left:3px solid #3b82f6;color:#1e3a5f;">
-            <strong>¿No solicitaste este cambio?</strong> Contacta a nuestro equipo inmediatamente en <a href="mailto:info@qoricash.pe" style="color:#1d4ed8;">info@qoricash.pe</a>
+          <div style="border-radius:6px;padding:13px 16px;margin:0 0 24px 0;font-size:13px;line-height:1.65;background:#F0FDF4;border-left:3px solid #5CB85C;color:#14532d;">
+            <strong>¿No solicitaste este cambio?</strong> Contacta a nuestro equipo inmediatamente en
+            <a href="mailto:info@qoricash.pe" style="color:#5CB85C;">info@qoricash.pe</a>
           </div>
 
-          <div style="height:1px;background-color:#f1f5f9;margin:24px 0;"></div>
-          <p style="margin:0;font-size:13px;color:#94a3b8;">Este correo fue generado automáticamente. Por favor no respondas a este mensaje.</p>
+          <div style="height:1px;background-color:#F1F5F9;margin:20px 0;"></div>
+          <p style="margin:0;font-size:12px;color:#94a3b8;">Este correo fue generado automáticamente. Por favor no respondas a este mensaje.</p>
         </td>
-      </tr>
-      <tr>
-        <td style="background-color:#f8fafc;border-top:1px solid #e8ecf0;padding:20px 40px;text-align:center;">
-          <p style="margin:0 0 4px 0;color:#0D1B2A;font-size:13px;font-weight:700;">QoriCash</p>
-          <p style="margin:0 0 4px 0;color:#94a3b8;font-size:12px;">RUC: 20615113698 &nbsp;&middot;&nbsp; <a href="mailto:info@qoricash.pe" style="color:#94a3b8;text-decoration:none;">info@qoricash.pe</a></p>
-          <p style="margin:0;color:#cbd5e1;font-size:11px;">© 2025 QoriCash. Todos los derechos reservados.</p>
-        </td>
-      </tr>
-    </table>
-  </td></tr>
-</table>
-</body>
-</html>"""
-        return render_template_string(template, client_name=client_name, temp_password=temp_password)
+      </tr>"""
+        return render_template_string(_wrap_email_svc(body), client_name=client_name, temp_password=temp_password)
 
     @staticmethod
     def _render_new_client_template(client, trader):
         """Renderizar plantilla HTML para nuevo cliente registrado"""
-        # Obtener cuentas bancarias del cliente
         bank_accounts_text = "No registrado"
         if hasattr(client, 'bank_accounts') and client.bank_accounts:
             try:
                 import json
-                if isinstance(client.bank_accounts, str):
-                    accounts = json.loads(client.bank_accounts)
-                else:
-                    accounts = client.bank_accounts
-                if accounts and isinstance(accounts, list) and len(accounts) > 0:
-                    bank_list = []
-                    for acc in accounts:
-                        bank_name = acc.get('bank_name', '')
-                        currency = acc.get('currency', '')
-                        acc_number = acc.get('account_number', '')
-                        if bank_name and acc_number:
-                            bank_list.append(f"{bank_name} | {currency} | {acc_number}")
+                accounts = json.loads(client.bank_accounts) if isinstance(client.bank_accounts, str) else client.bank_accounts
+                if accounts and isinstance(accounts, list):
+                    bank_list = [
+                        f"{a.get('bank_name','')} | {a.get('currency','')} | {a.get('account_number','')}"
+                        for a in accounts if a.get('bank_name') and a.get('account_number')
+                    ]
                     bank_accounts_text = ", ".join(bank_list) if bank_list else "No registrado"
-            except:
-                bank_accounts_text = "No registrado"
+            except Exception:
+                pass
 
-        template = """<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>
-        @media only screen and (max-width: 620px) { .email-body-cell { padding: 24px 20px !important; } }
-    </style>
-</head>
-<body style="margin:0;padding:0;background-color:#f5f7fa;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f5f7fa;padding:28px 16px;">
-  <tr><td align="center">
-    <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 16px rgba(13,27,42,0.08);">
+        body = """
       <tr>
-        <td style="padding:0;background:#0D1B2A;line-height:0;font-size:0;">
-          <img src="https://res.cloudinary.com/dbks8vqoh/image/upload/v1773788552/qoricash/banneremail.png" alt="QoriCash" width="600" style="width:100%;max-width:600px;display:block;border:0;">
-        </td>
-      </tr>
-      <tr><td style="padding:0;height:3px;background-color:#f59e0b;font-size:0;line-height:0;">&nbsp;</td></tr>
-      <tr>
-        <td class="email-body-cell" style="padding:36px 40px;color:#334155;font-size:15px;line-height:1.65;">
+        <td class="email-body-cell" style="padding:32px 36px;color:#334155;font-size:14px;line-height:1.65;">
+
           <div style="margin:0 0 16px 0;">
-            <span style="display:inline-block;background:#fffbeb;color:#d97706;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.4px;padding:4px 10px;border-radius:4px;">Registro Recibido</span>
+            <span style="display:inline-block;background:#FFFBEB;color:#D97706;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.4px;padding:4px 10px;border-radius:4px;">Registro Recibido</span>
           </div>
-          <h1 style="margin:0 0 6px 0;font-size:22px;font-weight:700;color:#0D1B2A;line-height:1.3;">Su registro está siendo procesado</h1>
+
+          <h1 style="margin:0 0 6px 0;font-size:21px;font-weight:700;color:#0D1B2A;line-height:1.3;">Su registro está siendo procesado</h1>
           <p style="margin:0 0 24px 0;color:#64748b;font-size:14px;">Estimado(a) <strong style="color:#1e293b;">{{ client.full_name or client.razon_social }}</strong>, hemos recibido su solicitud de registro a través de su ejecutivo <strong>{{ trader.username }}</strong>. Pronto le notificaremos la activación.</p>
 
-          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #e8ecf0;border-radius:8px;overflow:hidden;margin:0 0 24px 0;">
-            <tr style="border-bottom:1px solid #eef0f3;">
-              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:13px;font-weight:600;white-space:nowrap;vertical-align:top;">Cliente</td>
-              <td style="padding:11px 18px;color:#0D1B2A;font-size:14px;font-weight:600;vertical-align:top;">{{ client.full_name or client.razon_social }}</td>
+          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #E2E8F0;border-radius:8px;overflow:hidden;margin:0 0 24px 0;">
+            <tr style="border-bottom:1px solid #F1F5F9;">
+              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:top;">Cliente</td>
+              <td style="padding:11px 18px;color:#0D1B2A;font-size:13px;font-weight:600;vertical-align:top;">{{ client.full_name or client.razon_social }}</td>
             </tr>
             {% if client.document_type %}
-            <tr style="border-bottom:1px solid #eef0f3;">
-              <td style="padding:11px 18px;color:#94a3b8;font-size:13px;font-weight:600;vertical-align:top;">Tipo de documento</td>
-              <td style="padding:11px 18px;color:#1e293b;font-size:14px;vertical-align:top;">{{ client.document_type }}</td>
+            <tr style="border-bottom:1px solid #F1F5F9;">
+              <td style="padding:11px 18px;color:#94a3b8;font-size:12px;font-weight:600;vertical-align:top;">Tipo de documento</td>
+              <td style="padding:11px 18px;color:#1e293b;font-size:13px;vertical-align:top;">{{ client.document_type }}</td>
             </tr>
             {% endif %}
             {% if client.document_number %}
-            <tr style="border-bottom:1px solid #eef0f3;">
-              <td style="padding:11px 18px;color:#94a3b8;font-size:13px;font-weight:600;vertical-align:top;">N° de documento</td>
-              <td style="padding:11px 18px;color:#1e293b;font-size:14px;vertical-align:top;">{{ client.document_number }}</td>
+            <tr style="border-bottom:1px solid #F1F5F9;">
+              <td style="padding:11px 18px;color:#94a3b8;font-size:12px;font-weight:600;vertical-align:top;">N° de documento</td>
+              <td style="padding:11px 18px;color:#1e293b;font-size:13px;vertical-align:top;">{{ client.document_number }}</td>
             </tr>
             {% endif %}
             {% if client.phone %}
-            <tr style="border-bottom:1px solid #eef0f3;">
-              <td style="padding:11px 18px;color:#94a3b8;font-size:13px;font-weight:600;vertical-align:top;">Teléfono</td>
-              <td style="padding:11px 18px;color:#1e293b;font-size:14px;vertical-align:top;">{{ client.phone }}</td>
+            <tr style="border-bottom:1px solid #F1F5F9;">
+              <td style="padding:11px 18px;color:#94a3b8;font-size:12px;font-weight:600;vertical-align:top;">Teléfono</td>
+              <td style="padding:11px 18px;color:#1e293b;font-size:13px;vertical-align:top;">{{ client.phone }}</td>
             </tr>
             {% endif %}
-            <tr style="border-bottom:1px solid #eef0f3;">
-              <td style="padding:11px 18px;color:#94a3b8;font-size:13px;font-weight:600;vertical-align:top;">Cuentas bancarias</td>
-              <td style="padding:11px 18px;color:#1e293b;font-size:14px;vertical-align:top;">{{ bank_accounts_text }}</td>
+            <tr style="border-bottom:1px solid #F1F5F9;">
+              <td style="padding:11px 18px;color:#94a3b8;font-size:12px;font-weight:600;vertical-align:top;">Cuentas bancarias</td>
+              <td style="padding:11px 18px;color:#1e293b;font-size:13px;vertical-align:top;">{{ bank_accounts_text }}</td>
             </tr>
             <tr>
-              <td style="padding:11px 18px;color:#94a3b8;font-size:13px;font-weight:600;vertical-align:top;">Ejecutivo asignado</td>
-              <td style="padding:11px 18px;color:#059669;font-size:14px;font-weight:600;vertical-align:top;">{{ trader.username }}</td>
+              <td style="padding:11px 18px;color:#94a3b8;font-size:12px;font-weight:600;vertical-align:top;">Ejecutivo asignado</td>
+              <td style="padding:11px 18px;color:#5CB85C;font-size:13px;font-weight:600;vertical-align:top;">{{ trader.username }}</td>
             </tr>
           </table>
 
-          <div style="height:1px;background-color:#f1f5f9;margin:24px 0;"></div>
-          <p style="margin:0 0 6px 0;font-size:14px;color:#334155;">Para cualquier consulta, contacte a su ejecutivo <strong>{{ trader.username }}</strong>{% if trader.email %} en <a href="mailto:{{ trader.email }}" style="color:#1d4ed8;">{{ trader.email }}</a>{% endif %}.</p>
-          <p style="margin:0;font-size:13px;color:#94a3b8;">Este es un correo automático.</p>
+          <div style="height:1px;background-color:#F1F5F9;margin:20px 0;"></div>
+          <p style="margin:0 0 6px 0;font-size:13px;color:#334155;">Para cualquier consulta, contacte a su ejecutivo <strong>{{ trader.username }}</strong>{% if trader.email %} en <a href="mailto:{{ trader.email }}" style="color:#5CB85C;">{{ trader.email }}</a>{% endif %}.</p>
+          <p style="margin:0;font-size:12px;color:#94a3b8;">Este es un correo automático.</p>
         </td>
-      </tr>
-      <tr>
-        <td style="background-color:#f8fafc;border-top:1px solid #e8ecf0;padding:20px 40px;text-align:center;">
-          <p style="margin:0 0 4px 0;color:#0D1B2A;font-size:13px;font-weight:700;">QoriCash</p>
-          <p style="margin:0 0 4px 0;color:#94a3b8;font-size:12px;">RUC: 20615113698 &nbsp;&middot;&nbsp; <a href="mailto:info@qoricash.pe" style="color:#94a3b8;text-decoration:none;">info@qoricash.pe</a></p>
-          <p style="margin:0;color:#cbd5e1;font-size:11px;">© 2025 QoriCash. Todos los derechos reservados.</p>
-        </td>
-      </tr>
-    </table>
-  </td></tr>
-</table>
-</body>
-</html>"""
-        return render_template_string(template, client=client, trader=trader, bank_accounts_text=bank_accounts_text)
+      </tr>"""
+        return render_template_string(_wrap_email_svc(body), client=client, trader=trader, bank_accounts_text=bank_accounts_text)
 
     @staticmethod
     def _render_client_activation_template(client, trader):
         """Renderizar plantilla HTML para cliente activado"""
-        template = """<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>
-        @media only screen and (max-width: 620px) { .email-body-cell { padding: 24px 20px !important; } }
-    </style>
-</head>
-<body style="margin:0;padding:0;background-color:#f5f7fa;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f5f7fa;padding:28px 16px;">
-  <tr><td align="center">
-    <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 16px rgba(13,27,42,0.08);">
+        body = """
       <tr>
-        <td style="padding:0;background:#0D1B2A;line-height:0;font-size:0;">
-          <img src="https://res.cloudinary.com/dbks8vqoh/image/upload/v1773788552/qoricash/banneremail.png" alt="QoriCash" width="600" style="width:100%;max-width:600px;display:block;border:0;">
-        </td>
-      </tr>
-      <tr><td style="padding:0;height:3px;background-color:#10b981;font-size:0;line-height:0;">&nbsp;</td></tr>
-      <tr>
-        <td class="email-body-cell" style="padding:36px 40px;color:#334155;font-size:15px;line-height:1.65;">
+        <td class="email-body-cell" style="padding:32px 36px;color:#334155;font-size:14px;line-height:1.65;">
+
           <div style="margin:0 0 16px 0;">
-            <span style="display:inline-block;background:#f0fdf4;color:#10b981;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.4px;padding:4px 10px;border-radius:4px;">Cuenta Activada</span>
+            <span style="display:inline-block;background:#F0FDF4;color:#5CB85C;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.4px;padding:4px 10px;border-radius:4px;">✓ Cuenta Activada</span>
           </div>
-          <h1 style="margin:0 0 6px 0;font-size:22px;font-weight:700;color:#0D1B2A;line-height:1.3;">¡Bienvenido(a) a QoriCash!</h1>
+
+          <h1 style="margin:0 0 6px 0;font-size:21px;font-weight:700;color:#0D1B2A;line-height:1.3;">¡Bienvenido(a) a QoriCash!</h1>
           <p style="margin:0 0 24px 0;color:#64748b;font-size:14px;">Estimado(a) <strong style="color:#1e293b;">{{ client.full_name or client.razon_social }}</strong>, su cuenta ha sido activada. Ya puede comenzar a operar.</p>
 
-          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #e8ecf0;border-radius:8px;overflow:hidden;margin:0 0 24px 0;">
-            <tr style="border-bottom:1px solid #eef0f3;">
-              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:13px;font-weight:600;vertical-align:top;">Cliente</td>
-              <td style="padding:11px 18px;color:#0D1B2A;font-size:14px;font-weight:600;vertical-align:top;">{{ client.full_name or client.razon_social }}</td>
+          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #E2E8F0;border-radius:8px;overflow:hidden;margin:0 0 24px 0;">
+            <tr style="border-bottom:1px solid #F1F5F9;">
+              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:12px;font-weight:600;vertical-align:top;">Cliente</td>
+              <td style="padding:11px 18px;color:#0D1B2A;font-size:13px;font-weight:600;vertical-align:top;">{{ client.full_name or client.razon_social }}</td>
             </tr>
             {% if client.document_number %}
-            <tr style="border-bottom:1px solid #eef0f3;">
-              <td style="padding:11px 18px;color:#94a3b8;font-size:13px;font-weight:600;vertical-align:top;">Documento</td>
-              <td style="padding:11px 18px;color:#1e293b;font-size:14px;vertical-align:top;">{{ client.document_number }}</td>
+            <tr style="border-bottom:1px solid #F1F5F9;">
+              <td style="padding:11px 18px;color:#94a3b8;font-size:12px;font-weight:600;vertical-align:top;">Documento</td>
+              <td style="padding:11px 18px;color:#1e293b;font-size:13px;vertical-align:top;">{{ client.document_number }}</td>
             </tr>
             {% endif %}
-            <tr style="border-bottom:1px solid #eef0f3;">
-              <td style="padding:11px 18px;color:#94a3b8;font-size:13px;font-weight:600;vertical-align:top;">Email</td>
-              <td style="padding:11px 18px;color:#1e293b;font-size:14px;vertical-align:top;">{{ client.email }}</td>
+            <tr style="border-bottom:1px solid #F1F5F9;">
+              <td style="padding:11px 18px;color:#94a3b8;font-size:12px;font-weight:600;vertical-align:top;">Email</td>
+              <td style="padding:11px 18px;color:#1e293b;font-size:13px;vertical-align:top;">{{ client.email }}</td>
             </tr>
-            <tr style="border-bottom:1px solid #eef0f3;">
-              <td style="padding:11px 18px;color:#94a3b8;font-size:13px;font-weight:600;vertical-align:top;">Estado</td>
-              <td style="padding:11px 18px;color:#059669;font-size:14px;font-weight:700;vertical-align:top;">ACTIVO</td>
+            <tr style="border-bottom:1px solid #F1F5F9;">
+              <td style="padding:11px 18px;color:#94a3b8;font-size:12px;font-weight:600;vertical-align:top;">Estado</td>
+              <td style="padding:11px 18px;color:#5CB85C;font-size:13px;font-weight:700;vertical-align:top;">ACTIVO</td>
             </tr>
             <tr>
-              <td style="padding:11px 18px;color:#94a3b8;font-size:13px;font-weight:600;vertical-align:top;">Ejecutivo</td>
-              <td style="padding:11px 18px;color:#059669;font-size:14px;font-weight:600;vertical-align:top;">{{ trader.username }}</td>
+              <td style="padding:11px 18px;color:#94a3b8;font-size:12px;font-weight:600;vertical-align:top;">Ejecutivo</td>
+              <td style="padding:11px 18px;color:#5CB85C;font-size:13px;font-weight:600;vertical-align:top;">{{ trader.username }}</td>
             </tr>
           </table>
 
-          <p style="margin:0 0 10px 0;font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1.2px;">¿Qué puede hacer ahora?</p>
-          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #e8ecf0;border-radius:8px;overflow:hidden;margin:0 0 28px 0;">
-            <tr style="border-bottom:1px solid #eef0f3;">
-              <td style="padding:10px 18px;color:#059669;font-size:13px;">✓ &nbsp;Realizar operaciones de compra y venta de dólares</td>
+          <p style="margin:0 0 10px 0;font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1.2px;">¿Qué puede hacer ahora?</p>
+          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #E2E8F0;border-radius:8px;overflow:hidden;margin:0 0 24px 0;">
+            <tr style="border-bottom:1px solid #F1F5F9;">
+              <td style="padding:10px 18px;color:#5CB85C;font-size:13px;">&#10003; &nbsp;Realizar operaciones de compra y venta de dólares</td>
             </tr>
-            <tr style="border-bottom:1px solid #eef0f3;">
-              <td style="padding:10px 18px;color:#059669;font-size:13px;">✓ &nbsp;Acceder a tipos de cambio competitivos</td>
+            <tr style="border-bottom:1px solid #F1F5F9;">
+              <td style="padding:10px 18px;color:#5CB85C;font-size:13px;">&#10003; &nbsp;Acceder a tipos de cambio competitivos</td>
             </tr>
-            <tr style="border-bottom:1px solid #eef0f3;">
-              <td style="padding:10px 18px;color:#059669;font-size:13px;">✓ &nbsp;Recibir atención personalizada de su ejecutivo</td>
+            <tr style="border-bottom:1px solid #F1F5F9;">
+              <td style="padding:10px 18px;color:#5CB85C;font-size:13px;">&#10003; &nbsp;Recibir atención personalizada de su ejecutivo</td>
             </tr>
             <tr>
-              <td style="padding:10px 18px;color:#059669;font-size:13px;">✓ &nbsp;Transferencias rápidas y seguras</td>
+              <td style="padding:10px 18px;color:#5CB85C;font-size:13px;">&#10003; &nbsp;Transferencias rápidas y seguras</td>
             </tr>
           </table>
 
           <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px 0;">
             <tr>
               <td align="center">
-                <a href="https://www.qoricash.pe" style="display:inline-block;background:#10b981;color:#ffffff;font-weight:700;font-size:14px;padding:13px 36px;border-radius:8px;text-decoration:none;letter-spacing:0.3px;">Iniciar sesión ahora</a>
+                <a href="https://www.qoricash.pe"
+                   style="display:inline-block;background:#5CB85C;color:#ffffff;font-weight:700;font-size:14px;padding:13px 36px;border-radius:8px;text-decoration:none;letter-spacing:0.3px;">
+                  Iniciar sesión ahora
+                </a>
               </td>
             </tr>
           </table>
 
-          <div style="height:1px;background-color:#f1f5f9;margin:0 0 20px 0;"></div>
-          <p style="margin:0;font-size:13px;color:#94a3b8;">Para su primera operación, contacte a <strong>{{ trader.username }}</strong>{% if trader.email %} en <a href="mailto:{{ trader.email }}" style="color:#1d4ed8;">{{ trader.email }}</a>{% endif %}. Gracias por confiar en QoriCash.</p>
+          <div style="height:1px;background-color:#F1F5F9;margin:0 0 20px 0;"></div>
+          <p style="margin:0;font-size:12px;color:#94a3b8;">Para su primera operación, contacte a <strong>{{ trader.username }}</strong>{% if trader.email %} en <a href="mailto:{{ trader.email }}" style="color:#5CB85C;">{{ trader.email }}</a>{% endif %}. Gracias por confiar en QoriCash.</p>
         </td>
-      </tr>
-      <tr>
-        <td style="background-color:#f8fafc;border-top:1px solid #e8ecf0;padding:20px 40px;text-align:center;">
-          <p style="margin:0 0 4px 0;color:#0D1B2A;font-size:13px;font-weight:700;">QoriCash</p>
-          <p style="margin:0 0 4px 0;color:#94a3b8;font-size:12px;">RUC: 20615113698 &nbsp;&middot;&nbsp; <a href="mailto:info@qoricash.pe" style="color:#94a3b8;text-decoration:none;">info@qoricash.pe</a></p>
-          <p style="margin:0;color:#cbd5e1;font-size:11px;">© 2025 QoriCash. Todos los derechos reservados.</p>
-        </td>
-      </tr>
-    </table>
-  </td></tr>
-</table>
-</body>
-</html>"""
-        return render_template_string(template, client=client, trader=trader)
+      </tr>"""
+        return render_template_string(_wrap_email_svc(body), client=client, trader=trader)
 
     @staticmethod
     def send_complaint_email(complaint_data):
@@ -1529,112 +1282,87 @@ class EmailService:
     @staticmethod
     def _render_complaint_template(complaint_data):
         """Renderizar plantilla HTML para reclamo/queja del libro de reclamaciones"""
-        template = """<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>
-        @media only screen and (max-width: 620px) { .email-body-cell { padding: 24px 20px !important; } }
-    </style>
-</head>
-<body style="margin:0;padding:0;background-color:#f5f7fa;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f5f7fa;padding:28px 16px;">
-  <tr><td align="center">
-    <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 16px rgba(13,27,42,0.08);">
+        body = """
       <tr>
-        <td style="padding:0;background:#0D1B2A;line-height:0;font-size:0;">
-          <img src="https://res.cloudinary.com/dbks8vqoh/image/upload/v1773788552/qoricash/banneremail.png" alt="QoriCash" width="600" style="width:100%;max-width:600px;display:block;border:0;">
-        </td>
-      </tr>
-      <tr><td style="padding:0;height:3px;background-color:#ef4444;font-size:0;line-height:0;">&nbsp;</td></tr>
-      <tr>
-        <td class="email-body-cell" style="padding:36px 40px;color:#334155;font-size:15px;line-height:1.65;">
-          <div style="margin:0 0 16px 0;">
-            <span style="display:inline-block;background:#fef2f2;color:#ef4444;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.4px;padding:4px 10px;border-radius:4px;">Libro de Reclamaciones</span>
-          </div>
-          <h1 style="margin:0 0 6px 0;font-size:22px;font-weight:700;color:#0D1B2A;line-height:1.3;">{{ complaint_data.get('tipo_solicitud', 'Reclamo') }} recibido</h1>
-          <p style="margin:0 0 24px 0;color:#64748b;font-size:14px;">N° <strong style="color:#1e293b;">{{ complaint_number }}</strong> &nbsp;·&nbsp; {{ fecha_actual }}</p>
+        <td class="email-body-cell" style="padding:32px 36px;color:#334155;font-size:14px;line-height:1.65;">
 
-          <p style="margin:0 0 10px 0;font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1.2px;">Datos del reclamante</p>
-          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #e8ecf0;border-radius:8px;overflow:hidden;margin:0 0 24px 0;">
+          <div style="margin:0 0 16px 0;">
+            <span style="display:inline-block;background:#FEF2F2;color:#EF4444;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.4px;padding:4px 10px;border-radius:4px;">Libro de Reclamaciones</span>
+          </div>
+
+          <h1 style="margin:0 0 6px 0;font-size:21px;font-weight:700;color:#0D1B2A;line-height:1.3;">{{ complaint_data.get('tipo_solicitud', 'Reclamo') }} recibido</h1>
+          <p style="margin:0 0 24px 0;color:#64748b;font-size:14px;">N° <strong style="color:#1e293b;">{{ complaint_number }}</strong> &nbsp;&middot;&nbsp; {{ fecha_actual }}</p>
+
+          <p style="margin:0 0 10px 0;font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1.2px;">Datos del reclamante</p>
+          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #E2E8F0;border-radius:8px;overflow:hidden;margin:0 0 24px 0;">
             {% if complaint_data.get('tipo_documento') == 'RUC' %}
-            <tr style="border-bottom:1px solid #eef0f3;">
-              <td style="padding:10px 18px;width:160px;color:#94a3b8;font-size:13px;font-weight:600;vertical-align:top;">Tipo de documento</td>
-              <td style="padding:10px 18px;color:#1e293b;font-size:14px;vertical-align:top;">RUC</td>
+            <tr style="border-bottom:1px solid #F1F5F9;">
+              <td style="padding:10px 18px;width:160px;color:#94a3b8;font-size:12px;font-weight:600;vertical-align:top;">Tipo de documento</td>
+              <td style="padding:10px 18px;color:#1e293b;font-size:13px;vertical-align:top;">RUC</td>
             </tr>
-            <tr style="border-bottom:1px solid #eef0f3;">
-              <td style="padding:10px 18px;color:#94a3b8;font-size:13px;font-weight:600;vertical-align:top;">N° de RUC</td>
-              <td style="padding:10px 18px;color:#1e293b;font-size:14px;vertical-align:top;">{{ complaint_data.get('numero_documento', '—') }}</td>
+            <tr style="border-bottom:1px solid #F1F5F9;">
+              <td style="padding:10px 18px;color:#94a3b8;font-size:12px;font-weight:600;vertical-align:top;">N° de RUC</td>
+              <td style="padding:10px 18px;color:#1e293b;font-size:13px;vertical-align:top;">{{ complaint_data.get('numero_documento', '—') }}</td>
             </tr>
-            <tr style="border-bottom:1px solid #eef0f3;">
-              <td style="padding:10px 18px;color:#94a3b8;font-size:13px;font-weight:600;vertical-align:top;">Razón social</td>
-              <td style="padding:10px 18px;color:#1e293b;font-size:14px;vertical-align:top;">{{ complaint_data.get('razon_social', '—') }}</td>
+            <tr style="border-bottom:1px solid #F1F5F9;">
+              <td style="padding:10px 18px;color:#94a3b8;font-size:12px;font-weight:600;vertical-align:top;">Razón social</td>
+              <td style="padding:10px 18px;color:#1e293b;font-size:13px;vertical-align:top;">{{ complaint_data.get('razon_social', '—') }}</td>
             </tr>
-            <tr style="border-bottom:1px solid #eef0f3;">
-              <td style="padding:10px 18px;color:#94a3b8;font-size:13px;font-weight:600;vertical-align:top;">Persona de contacto</td>
-              <td style="padding:10px 18px;color:#1e293b;font-size:14px;vertical-align:top;">{{ complaint_data.get('persona_contacto', '—') }}</td>
+            <tr style="border-bottom:1px solid #F1F5F9;">
+              <td style="padding:10px 18px;color:#94a3b8;font-size:12px;font-weight:600;vertical-align:top;">Persona de contacto</td>
+              <td style="padding:10px 18px;color:#1e293b;font-size:13px;vertical-align:top;">{{ complaint_data.get('persona_contacto', '—') }}</td>
             </tr>
             {% else %}
-            <tr style="border-bottom:1px solid #eef0f3;">
-              <td style="padding:10px 18px;width:160px;color:#94a3b8;font-size:13px;font-weight:600;vertical-align:top;">Tipo de documento</td>
-              <td style="padding:10px 18px;color:#1e293b;font-size:14px;vertical-align:top;">{{ complaint_data.get('tipo_documento', 'DNI') }}</td>
+            <tr style="border-bottom:1px solid #F1F5F9;">
+              <td style="padding:10px 18px;width:160px;color:#94a3b8;font-size:12px;font-weight:600;vertical-align:top;">Tipo de documento</td>
+              <td style="padding:10px 18px;color:#1e293b;font-size:13px;vertical-align:top;">{{ complaint_data.get('tipo_documento', 'DNI') }}</td>
             </tr>
-            <tr style="border-bottom:1px solid #eef0f3;">
-              <td style="padding:10px 18px;color:#94a3b8;font-size:13px;font-weight:600;vertical-align:top;">N° de documento</td>
-              <td style="padding:10px 18px;color:#1e293b;font-size:14px;vertical-align:top;">{{ complaint_data.get('numero_documento', '—') }}</td>
+            <tr style="border-bottom:1px solid #F1F5F9;">
+              <td style="padding:10px 18px;color:#94a3b8;font-size:12px;font-weight:600;vertical-align:top;">N° de documento</td>
+              <td style="padding:10px 18px;color:#1e293b;font-size:13px;vertical-align:top;">{{ complaint_data.get('numero_documento', '—') }}</td>
             </tr>
-            <tr style="border-bottom:1px solid #eef0f3;">
-              <td style="padding:10px 18px;color:#94a3b8;font-size:13px;font-weight:600;vertical-align:top;">Nombres</td>
-              <td style="padding:10px 18px;color:#1e293b;font-size:14px;vertical-align:top;">{{ complaint_data.get('nombres', '—') }} {{ complaint_data.get('apellidos', '') }}</td>
+            <tr style="border-bottom:1px solid #F1F5F9;">
+              <td style="padding:10px 18px;color:#94a3b8;font-size:12px;font-weight:600;vertical-align:top;">Nombres</td>
+              <td style="padding:10px 18px;color:#1e293b;font-size:13px;vertical-align:top;">{{ complaint_data.get('nombres', '—') }} {{ complaint_data.get('apellidos', '') }}</td>
             </tr>
             {% endif %}
-            <tr style="border-bottom:1px solid #eef0f3;">
-              <td style="padding:10px 18px;color:#94a3b8;font-size:13px;font-weight:600;vertical-align:top;">Email</td>
-              <td style="padding:10px 18px;color:#1e293b;font-size:14px;vertical-align:top;">{{ complaint_data.get('email', '—') }}</td>
+            <tr style="border-bottom:1px solid #F1F5F9;">
+              <td style="padding:10px 18px;color:#94a3b8;font-size:12px;font-weight:600;vertical-align:top;">Email</td>
+              <td style="padding:10px 18px;color:#1e293b;font-size:13px;vertical-align:top;">{{ complaint_data.get('email', '—') }}</td>
             </tr>
-            <tr style="border-bottom:1px solid #eef0f3;">
-              <td style="padding:10px 18px;color:#94a3b8;font-size:13px;font-weight:600;vertical-align:top;">Teléfono</td>
-              <td style="padding:10px 18px;color:#1e293b;font-size:14px;vertical-align:top;">{{ complaint_data.get('telefono', '—') }}</td>
+            <tr style="border-bottom:1px solid #F1F5F9;">
+              <td style="padding:10px 18px;color:#94a3b8;font-size:12px;font-weight:600;vertical-align:top;">Teléfono</td>
+              <td style="padding:10px 18px;color:#1e293b;font-size:13px;vertical-align:top;">{{ complaint_data.get('telefono', '—') }}</td>
             </tr>
             <tr>
-              <td style="padding:10px 18px;color:#94a3b8;font-size:13px;font-weight:600;vertical-align:top;">Dirección</td>
-              <td style="padding:10px 18px;color:#1e293b;font-size:14px;vertical-align:top;">{{ complaint_data.get('direccion', '—') }}</td>
+              <td style="padding:10px 18px;color:#94a3b8;font-size:12px;font-weight:600;vertical-align:top;">Dirección</td>
+              <td style="padding:10px 18px;color:#1e293b;font-size:13px;vertical-align:top;">{{ complaint_data.get('direccion', '—') }}</td>
             </tr>
           </table>
 
-          <p style="margin:0 0 10px 0;font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1.2px;">Detalle del {{ complaint_data.get('tipo_solicitud', 'reclamo') }}</p>
-          <div style="border-radius:8px;padding:16px 18px;margin:0 0 24px 0;font-size:14px;color:#78350f;white-space:pre-wrap;line-height:1.7;background:#fffbeb;border:1px solid #fde68a;">{{ complaint_data.get('detalle', 'No se proporcionó detalle.') }}</div>
+          <p style="margin:0 0 10px 0;font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1.2px;">Detalle del {{ complaint_data.get('tipo_solicitud', 'reclamo') }}</p>
+          <div style="border-radius:6px;padding:16px 18px;margin:0 0 24px 0;font-size:13px;color:#78350f;white-space:pre-wrap;line-height:1.7;background:#FFFBEB;border:1px solid #FDE68A;">{{ complaint_data.get('detalle', 'No se proporcionó detalle.') }}</div>
 
-          <div style="border-radius:8px;padding:13px 16px;margin:0 0 20px 0;font-size:13px;line-height:1.65;background:#eff6ff;border-left:3px solid #3b82f6;color:#1e3a5f;">
+          <div style="border-radius:6px;padding:13px 16px;margin:0 0 24px 0;font-size:13px;line-height:1.65;background:#F0FDF4;border-left:3px solid #5CB85C;color:#14532d;">
             <strong>Plazo de respuesta:</strong> Este {{ complaint_data.get('tipo_solicitud', 'reclamo').lower() }} debe ser atendido dentro de las próximas 24–48 horas hábiles.
           </div>
 
-          <div style="height:1px;background-color:#f1f5f9;margin:24px 0;"></div>
-          <p style="margin:0;font-size:13px;color:#94a3b8;">Correo generado automáticamente desde el Libro de Reclamaciones de QoriCash.</p>
+          <div style="height:1px;background-color:#F1F5F9;margin:20px 0;"></div>
+          <p style="margin:0;font-size:12px;color:#94a3b8;">Correo generado automáticamente desde el Libro de Reclamaciones de QoriCash.</p>
         </td>
-      </tr>
-      <tr>
-        <td style="background-color:#f8fafc;border-top:1px solid #e8ecf0;padding:20px 40px;text-align:center;">
-          <p style="margin:0 0 4px 0;color:#0D1B2A;font-size:13px;font-weight:700;">QoriCash</p>
-          <p style="margin:0 0 4px 0;color:#94a3b8;font-size:12px;">RUC: 20615113698 &nbsp;&middot;&nbsp; <a href="mailto:info@qoricash.pe" style="color:#94a3b8;text-decoration:none;">info@qoricash.pe</a></p>
-          <p style="margin:0;color:#cbd5e1;font-size:11px;">© 2025 QoriCash. Todos los derechos reservados.</p>
-        </td>
-      </tr>
-    </table>
-  </td></tr>
-</table>
-</body>
-</html>"""
+      </tr>"""
         from datetime import datetime
         import pytz
 
-        # Obtener fecha actual en zona horaria de Perú
         tz_peru = pytz.timezone('America/Lima')
         fecha_actual = datetime.now(tz_peru).strftime('%d/%m/%Y %H:%M:%S')
-
         complaint_number = complaint_data.get('complaint_number', 'N/A')
-        return render_template_string(template, complaint_data=complaint_data, fecha_actual=fecha_actual, complaint_number=complaint_number)
+        return render_template_string(
+            _wrap_email_svc(body),
+            complaint_data=complaint_data,
+            fecha_actual=fecha_actual,
+            complaint_number=complaint_number
+        )
 
     @staticmethod
     def send_fx_alert_email(competitor_name: str, change: dict, recipients: list):
