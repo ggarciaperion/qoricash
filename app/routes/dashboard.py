@@ -257,10 +257,11 @@ def get_all_dashboard_data():
         if goal:
             goal_amount = float(goal.goal_amount_pen)
     else:
-        all_goals = TraderGoal.query.filter_by(
-            month=month,
-            year=year
-        ).all()
+        all_goals = TraderGoal.query.filter(
+            TraderGoal.month == month,
+            TraderGoal.year == year,
+            TraderGoal.user_id != demo_id
+        ).all() if demo_id else TraderGoal.query.filter_by(month=month, year=year).all()
         goal_amount = sum(float(g.goal_amount_pen) for g in all_goals)
 
     # Calcular utilidad acumulada del mes por diferencia de tasa (spread × monto USD)
@@ -479,11 +480,13 @@ def get_month_stats():
         if goal:
             goal_amount = float(goal.goal_amount_pen)
     else:
-        # SIN FILTRO: Suma de todas las metas mensuales de todos los traders
-        all_goals = TraderGoal.query.filter_by(
-            month=month,
-            year=year
-        ).all()
+        # SIN FILTRO: Suma de todas las metas mensuales (excluir demo)
+        _demo_goal_id = _demo_user_id()
+        all_goals = TraderGoal.query.filter(
+            TraderGoal.month == month,
+            TraderGoal.year == year,
+            TraderGoal.user_id != _demo_goal_id
+        ).all() if _demo_goal_id else TraderGoal.query.filter_by(month=month, year=year).all()
         goal_amount = sum(float(g.goal_amount_pen) for g in all_goals)
 
     # Contar clientes activos (excluir demo)
