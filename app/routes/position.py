@@ -5,7 +5,7 @@ import logging
 import traceback
 from flask import Blueprint, render_template, request, jsonify
 from flask_login import login_required, current_user
-from app.models import BankBalance, Operation
+from app.models import BankBalance, Operation, User
 from app.extensions import db
 from app.utils.decorators import require_role
 from app.config.bank_accounts import QORICASH_ACCOUNTS
@@ -85,11 +85,15 @@ def get_bank_balances():
         inicio_dia = dt.combine(fecha_consulta, time.min)  # 00:00:00
         fin_dia = dt.combine(fecha_consulta, time.max)      # 23:59:59.999999
 
-        all_ops_today = Operation.query.filter(
+        demo_id = User.get_demo_user_id()
+        ops_query = Operation.query.filter(
             Operation.status != 'Cancelado',
             Operation.created_at >= inicio_dia,
             Operation.created_at <= fin_dia
-        ).all()
+        )
+        if demo_id:
+            ops_query = ops_query.filter(Operation.user_id != demo_id)
+        all_ops_today = ops_query.all()
 
         # Inicializar totales
         total_compras_usd = 0.0
@@ -425,12 +429,16 @@ def get_bank_reconciliation():
         inicio_dia = dt.combine(fecha_consulta, time.min)
         fin_dia = dt.combine(fecha_consulta, time.max)
 
-        # Obtener SOLO operaciones COMPLETADAS del día
-        completed_ops = Operation.query.filter(
+        # Obtener SOLO operaciones COMPLETADAS del día (excluir demo)
+        demo_id = User.get_demo_user_id()
+        rec_query = Operation.query.filter(
             Operation.status == 'Completada',
             Operation.created_at >= inicio_dia,
             Operation.created_at <= fin_dia
-        ).all()
+        )
+        if demo_id:
+            rec_query = rec_query.filter(Operation.user_id != demo_id)
+        completed_ops = rec_query.all()
 
         logger.debug(f'Reconciliación {fecha_consulta}: {len(completed_ops)} operaciones completadas')
 
