@@ -3,23 +3,23 @@
 {% block title %}Alertas de Compliance - QoriCash Trading{% endblock %}
 
 {% block content %}
-<div class="container-fluid py-4">
+<div class="container-fluid">
     <!-- Header -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h2 class="mb-0">Alertas de Compliance</h2>
-            <p class="text-muted">Gestión de alertas AML/KYC/PLAFT</p>
+    <div class="page-header">
+        <div class="page-header-info">
+            <h2><i class="bi bi-exclamation-triangle"></i> Alertas de Compliance</h2>
+            <p>Gestión de alertas AML/KYC/PLAFT</p>
         </div>
-        <div>
-            <a href="/dashboard" class="btn btn-secondary">
-                <i class="bi bi-arrow-left"></i> Volver al Dashboard
+        <div class="page-header-actions">
+            <a href="/dashboard" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Dashboard
             </a>
         </div>
     </div>
 
-    <!-- Filters -->
-    <div class="card mb-4">
-        <div class="card-body">
+    <!-- Filtros -->
+    <div class="filter-card">
+        <div class="row g-3">
             <div class="row">
                 <div class="col-md-3">
                     <label class="form-label">Severidad</label>
@@ -61,7 +61,6 @@
                     </button>
                 </div>
             </div>
-        </div>
     </div>
 
     <!-- Table -->

@@ -18,17 +18,15 @@
 {% block content %}
 <div class="container-fluid">
     <!-- Header -->
-    <div class="row mb-4">
-        <div class="col-md-8">
+    <div class="page-header">
+        <div class="page-header-info">
             <h2><i class="bi bi-list-ul"></i> Gestión de Operaciones</h2>
-            <p class="text-muted">Operaciones del día actual</p>
+            <p>Operaciones del día actual</p>
         </div>
-        <div class="col-md-4 text-end">
-            <!-- Botón Exportar Excel (para todos los roles) -->
-            <a href="/operations/api/export_today" class="btn btn-success me-2">
+        <div class="page-header-actions">
+            <a href="/operations/api/export_today" class="btn btn-success">
                 <i class="bi bi-file-earmark-excel"></i> Exportar Excel
             </a>
-
             {% if user.role in ['Master', 'Trader', 'Plataforma'] %}
             <button type="button" class="btn btn-primary" onclick="openCreateOperationModal()">
                 <i class="bi bi-plus-circle"></i> Nueva Operación
@@ -38,35 +36,28 @@
     </div>
 
     <!-- Filtros Rápidos -->
-    <div class="row mb-3">
-        <div class="col-md-12">
-            <div class="d-flex gap-3 flex-wrap">
-                <!-- Filtros por Estado -->
-                <div>
-                    <small class="text-muted d-block mb-1">Estado:</small>
-                    <div class="btn-group" role="group">
-                        <button type="button" class="btn btn-outline-secondary active" onclick="filterByStatus('all')">Todas</button>
-                        <button type="button" class="btn btn-outline-warning" onclick="filterByStatus('Pendiente')">Pendientes</button>
-                        <button type="button" class="btn btn-outline-info" onclick="filterByStatus('En proceso')">En Proceso</button>
-                        <button type="button" class="btn btn-outline-success" onclick="filterByStatus('Completada')">Completadas</button>
-                        <button type="button" class="btn btn-outline-danger" onclick="filterByStatus('Cancelado')">Canceladas</button>
-                    </div>
-                </div>
-
-                <!-- Filtros por Canal (solo Master y Operador) -->
-                {% if current_user.role in ['Master', 'Operador'] %}
-                <div>
-                    <small class="text-muted d-block mb-1">Canal:</small>
-                    <div class="btn-group" role="group">
-                        <button type="button" class="btn btn-outline-secondary active" onclick="filterByCanal('all')">Todos</button>
-                        <button type="button" class="btn btn-outline-purple" style="--bs-btn-color: #6f42c1; --bs-btn-border-color: #6f42c1; --bs-btn-hover-bg: #6f42c1; --bs-btn-hover-border-color: #6f42c1;" onclick="filterByCanal('plataforma')">Web</button>
-                        <button type="button" class="btn btn-outline-info" onclick="filterByCanal('app')">App</button>
-                        <button type="button" class="btn btn-outline-dark" onclick="filterByCanal('sistema')">Sistema</button>
-                    </div>
-                </div>
-                {% endif %}
+    <div class="filter-bar">
+        <div class="filter-bar-group">
+            <span class="filter-bar-label">Estado</span>
+            <div class="btn-group" role="group">
+                <button type="button" class="btn btn-outline-secondary active" onclick="filterByStatus('all')">Todas</button>
+                <button type="button" class="btn btn-outline-warning" onclick="filterByStatus('Pendiente')">Pendientes</button>
+                <button type="button" class="btn btn-outline-info" onclick="filterByStatus('En proceso')">En Proceso</button>
+                <button type="button" class="btn btn-outline-success" onclick="filterByStatus('Completada')">Completadas</button>
+                <button type="button" class="btn btn-outline-danger" onclick="filterByStatus('Cancelado')">Canceladas</button>
             </div>
         </div>
+        {% if current_user.role in ['Master', 'Operador'] %}
+        <div class="filter-bar-group">
+            <span class="filter-bar-label">Canal</span>
+            <div class="btn-group" role="group">
+                <button type="button" class="btn btn-outline-secondary active" onclick="filterByCanal('all')">Todos</button>
+                <button type="button" class="btn btn-outline-secondary" style="color:#6f42c1;border-color:#6f42c1;" onclick="filterByCanal('plataforma')">Web</button>
+                <button type="button" class="btn btn-outline-info" onclick="filterByCanal('app')">App</button>
+                <button type="button" class="btn btn-outline-secondary" onclick="filterByCanal('sistema')">Sistema</button>
+            </div>
+        </div>
+        {% endif %}
     </div>
 
     <!-- Tabla de Operaciones -->

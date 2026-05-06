@@ -1132,7 +1132,116 @@ tr[data-status="En proceso"] {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   21. PRINT
+   21. PAGE HEADER — Unified header for all inner pages
+   ═══════════════════════════════════════════════════════════════════════════ */
+.page-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 2px solid var(--qori-gray-200);
+    animation: fadeIn var(--transition-base) both;
+}
+
+.page-header-info h2 {
+    color: var(--qori-secondary);
+    font-weight: 700;
+    font-size: 1.375rem;
+    margin-bottom: 0.25rem;
+    letter-spacing: -0.025em;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    line-height: 1.2;
+}
+
+.page-header-info h2 i {
+    color: var(--qori-primary);
+    font-size: 1.25rem;
+    flex-shrink: 0;
+}
+
+.page-header-info p {
+    font-size: 0.8125rem;
+    color: var(--qori-gray-500);
+    margin: 0;
+}
+
+.page-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+}
+
+/* ── Filter Bar ─────────────────────────────────────────────────────────── */
+.filter-bar {
+    background: var(--qori-white);
+    border: 1px solid var(--qori-gray-200);
+    border-radius: var(--radius-lg);
+    padding: 0.75rem 1rem;
+    margin-bottom: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    flex-wrap: wrap;
+}
+
+.filter-bar-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.filter-bar-label {
+    font-size: 0.625rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--qori-gray-400);
+}
+
+.filter-bar .btn-group .btn {
+    font-size: 0.75rem;
+    padding: 4px 10px;
+    border-radius: var(--radius-sm) !important;
+}
+
+.filter-bar .btn-group > .btn:not(:last-child) {
+    border-right-color: transparent;
+}
+
+/* ── Filter Card (compliance pages) ────────────────────────────────────── */
+.filter-card {
+    background: var(--qori-white);
+    border: 1px solid var(--qori-gray-200);
+    border-radius: var(--radius-lg);
+    padding: 1rem;
+    margin-bottom: 1.25rem;
+}
+
+/* ── Responsive ─────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+    .page-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .page-header-actions {
+        width: 100%;
+    }
+    .filter-bar {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.75rem;
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   22. PRINT
    ═══════════════════════════════════════════════════════════════════════════ */
 @media print {
     .sidebar, .mobile-topbar, .btn, .footer, .modal, .dropdown-menu { display: none !important; }
@@ -1143,7 +1252,7 @@ tr[data-status="En proceso"] {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   22. PROCESSING OVERLAY MODAL
+   23. PROCESSING OVERLAY MODAL
    ═══════════════════════════════════════════════════════════════════════════ */
 .qori-overlay {
     position: fixed;

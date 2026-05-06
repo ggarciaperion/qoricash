@@ -4,43 +4,62 @@
 
 {% block head %}
 <style>
-    .stat-card {
-        border-radius: 10px;
-        padding: 20px;
-        margin-bottom: 20px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    .complaint-stat {
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 1.25rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        transition: box-shadow 0.2s, transform 0.2s;
+        border-top: 3px solid var(--accent-color, #e5e7eb);
     }
-    .stat-card-icon {
-        font-size: 2.5rem;
-        opacity: 0.8;
+    .complaint-stat:hover {
+        box-shadow: 0 6px 20px rgba(0,0,0,.07);
+        transform: translateY(-2px);
     }
-    .stat-card-number {
+    .complaint-stat-num {
         font-size: 2rem;
-        font-weight: bold;
-        margin: 10px 0;
+        font-weight: 800;
+        color: var(--accent-color, #1f2937);
+        line-height: 1;
+        margin-bottom: 0.25rem;
     }
-    .stat-card-label {
-        font-size: 0.9rem;
-        color: #6c757d;
+    .complaint-stat-label {
+        font-size: 0.6875rem;
+        font-weight: 700;
         text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #6b7280;
     }
-    .badge-status {
-        padding: 6px 12px;
+    .complaint-stat-icon {
+        font-size: 2.25rem;
+        opacity: 0.15;
+        color: var(--accent-color, #1f2937);
+    }
+    .complaint-stat.cs-total  { --accent-color: #4f46e5; }
+    .complaint-stat.cs-pend   { --accent-color: #f59e0b; }
+    .complaint-stat.cs-review { --accent-color: #3b82f6; }
+    .complaint-stat.cs-solved { --accent-color: #10b981; }
+
+    .filter-nav .nav-link {
+        font-size: 0.8125rem;
+        font-weight: 600;
+        color: #6b7280;
+        padding: 6px 14px;
         border-radius: 20px;
-        font-size: 0.85rem;
+        transition: all 0.2s;
+        border: 1.5px solid transparent;
     }
-    .filter-tabs {
-        margin-bottom: 20px;
+    .filter-nav .nav-link:hover {
+        color: #1f2937;
+        background: #f3f4f6;
     }
-    .filter-tabs .nav-link {
-        color: #495057;
-        border: none;
-        padding: 10px 20px;
-    }
-    .filter-tabs .nav-link.active {
-        background-color: #007bff;
+    .filter-nav .nav-link.active {
+        background: #0D1B2A;
         color: white;
-        border-radius: 20px;
+        border-color: #0D1B2A;
     }
 </style>
 {% endblock %}
@@ -48,102 +67,73 @@
 {% block content %}
 <div class="container-fluid">
     <!-- Header -->
-    <div class="row mb-4">
-        <div class="col-md-6">
+    <div class="page-header">
+        <div class="page-header-info">
             <h2><i class="bi bi-file-earmark-text"></i> Libro de Reclamaciones</h2>
-            <p class="text-muted">Gestión de reclamos y quejas de clientes</p>
+            <p>Gestión de reclamos y quejas de clientes</p>
         </div>
     </div>
 
     <!-- Estadísticas -->
-    <div class="row mb-4">
-        <div class="col-md-3">
-            <div class="stat-card bg-primary text-white">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <div class="stat-card-label">Total Este Mes</div>
-                        <div class="stat-card-number">{{ total_month }}</div>
-                    </div>
-                    <div class="stat-card-icon">
-                        <i class="bi bi-calendar-month"></i>
-                    </div>
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3">
+            <div class="complaint-stat cs-total">
+                <div>
+                    <div class="complaint-stat-num">{{ total_month }}</div>
+                    <div class="complaint-stat-label">Total Este Mes</div>
                 </div>
+                <i class="bi bi-calendar-month complaint-stat-icon"></i>
             </div>
         </div>
-
-        <div class="col-md-3">
-            <div class="stat-card bg-warning text-white">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <div class="stat-card-label">Pendientes</div>
-                        <div class="stat-card-number">{{ pending_count }}</div>
-                    </div>
-                    <div class="stat-card-icon">
-                        <i class="bi bi-clock"></i>
-                    </div>
+        <div class="col-6 col-md-3">
+            <div class="complaint-stat cs-pend">
+                <div>
+                    <div class="complaint-stat-num">{{ pending_count }}</div>
+                    <div class="complaint-stat-label">Pendientes</div>
                 </div>
+                <i class="bi bi-clock complaint-stat-icon"></i>
             </div>
         </div>
-
-        <div class="col-md-3">
-            <div class="stat-card bg-info text-white">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <div class="stat-card-label">En Revisión</div>
-                        <div class="stat-card-number">{{ in_review_count }}</div>
-                    </div>
-                    <div class="stat-card-icon">
-                        <i class="bi bi-eye"></i>
-                    </div>
+        <div class="col-6 col-md-3">
+            <div class="complaint-stat cs-review">
+                <div>
+                    <div class="complaint-stat-num">{{ in_review_count }}</div>
+                    <div class="complaint-stat-label">En Revisión</div>
                 </div>
+                <i class="bi bi-eye complaint-stat-icon"></i>
             </div>
         </div>
-
-        <div class="col-md-3">
-            <div class="stat-card bg-success text-white">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <div class="stat-card-label">Resueltos Este Mes</div>
-                        <div class="stat-card-number">{{ resolved_month }}</div>
-                    </div>
-                    <div class="stat-card-icon">
-                        <i class="bi bi-check-circle"></i>
-                    </div>
+        <div class="col-6 col-md-3">
+            <div class="complaint-stat cs-solved">
+                <div>
+                    <div class="complaint-stat-num">{{ resolved_month }}</div>
+                    <div class="complaint-stat-label">Resueltos Este Mes</div>
                 </div>
+                <i class="bi bi-check-circle complaint-stat-icon"></i>
             </div>
         </div>
     </div>
 
     <!-- Filtros por Estado -->
-    <div class="row mb-3">
-        <div class="col-md-12">
-            <ul class="nav filter-tabs">
-                <li class="nav-item">
-                    <a class="nav-link {% if status_filter == 'all' %}active{% endif %}"
-                       href="{{ url_for('complaints.list_complaints', status='all') }}">
-                        Todos
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link {% if status_filter == 'Pendiente' %}active{% endif %}"
-                       href="{{ url_for('complaints.list_complaints', status='Pendiente') }}">
-                        Pendientes
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link {% if status_filter == 'En Revisión' %}active{% endif %}"
-                       href="{{ url_for('complaints.list_complaints', status='En Revisión') }}">
-                        En Revisión
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link {% if status_filter == 'Resuelto' %}active{% endif %}"
-                       href="{{ url_for('complaints.list_complaints', status='Resuelto') }}">
-                        Resueltos
-                    </a>
-                </li>
-            </ul>
-        </div>
+    <div class="mb-3">
+        <ul class="nav filter-nav gap-1">
+            <li class="nav-item">
+                <a class="nav-link {% if status_filter == 'all' %}active{% endif %}"
+                   href="{{ url_for('complaints.list_complaints', status='all') }}">Todos</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if status_filter == 'Pendiente' %}active{% endif %}"
+                   href="{{ url_for('complaints.list_complaints', status='Pendiente') }}">Pendientes</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if status_filter == 'En Revisión' %}active{% endif %}"
+                   href="{{ url_for('complaints.list_complaints', status='En Revisión') }}">En Revisión</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if status_filter == 'Resuelto' %}active{% endif %}"
+                   href="{{ url_for('complaints.list_complaints', status='Resuelto') }}">Resueltos</a>
+            </li>
+        </ul>
     </div>
 
     <!-- Tabla de Reclamos -->
