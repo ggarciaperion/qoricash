@@ -32,15 +32,26 @@ _EMAIL_CSS = """
 # BLOQUES COMPARTIDOS
 # ============================================
 _HEADER_BLOCK = f"""
-      <!-- HEADER: logo + barra verde -->
+      <!-- HEADER: logo + nombre + SBS -->
       <tr>
-        <td style="padding:28px 36px 20px;border-bottom:1px solid #E2E8F0;">
-          <table cellpadding="0" cellspacing="0" border="0">
+        <td style="padding:20px 36px 18px;border-bottom:1px solid #E2E8F0;">
+          <table width="100%" cellpadding="0" cellspacing="0" border="0">
             <tr>
-              <td style="width:4px;min-width:4px;background:{_GREEN};border-radius:2px;">&nbsp;</td>
-              <td style="padding-left:14px;">
-                <img src="{_LOGO_URL}" alt="QoriCash" style="height:46px;width:auto;display:block;">
-                <p style="margin:5px 0 0;font-size:10px;color:#64748B;letter-spacing:0.3px;">{_SBS_TAG}</p>
+              <td style="vertical-align:middle;">
+                <table cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td style="vertical-align:middle;padding-right:10px;">
+                      <img src="{_LOGO_URL}" alt="Q" style="height:38px;width:auto;display:block;">
+                    </td>
+                    <td style="width:3px;min-width:3px;background:{_GREEN};border-radius:2px;vertical-align:middle;">&nbsp;</td>
+                    <td style="padding-left:10px;vertical-align:middle;">
+                      <span style="font-size:20px;font-weight:800;color:{_DARK};letter-spacing:2px;font-family:Arial,sans-serif;">QORICASH</span>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+              <td style="text-align:right;vertical-align:middle;">
+                <span style="font-size:10px;color:#64748B;line-height:1.5;">{_SBS_TAG}</span>
               </td>
             </tr>
           </table>

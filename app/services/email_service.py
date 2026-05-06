@@ -21,13 +21,24 @@ _SBS_TAG  = 'Regulada por la SBS &nbsp;&middot;&nbsp; Res. N.&ordm; 00313-2026'
 
 _HEADER_BLOCK = f"""
       <tr>
-        <td style="padding:28px 36px 20px;border-bottom:1px solid #E2E8F0;">
-          <table cellpadding="0" cellspacing="0" border="0">
+        <td style="padding:20px 36px 18px;border-bottom:1px solid #E2E8F0;">
+          <table width="100%" cellpadding="0" cellspacing="0" border="0">
             <tr>
-              <td style="width:4px;min-width:4px;background:{_GREEN};border-radius:2px;">&nbsp;</td>
-              <td style="padding-left:14px;">
-                <img src="{_LOGO_URL}" alt="QoriCash" style="height:46px;width:auto;display:block;">
-                <p style="margin:5px 0 0;font-size:10px;color:#64748B;letter-spacing:0.3px;">{_SBS_TAG}</p>
+              <td style="vertical-align:middle;">
+                <table cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td style="vertical-align:middle;padding-right:10px;">
+                      <img src="{_LOGO_URL}" alt="Q" style="height:38px;width:auto;display:block;">
+                    </td>
+                    <td style="width:3px;min-width:3px;background:{_GREEN};border-radius:2px;vertical-align:middle;">&nbsp;</td>
+                    <td style="padding-left:10px;vertical-align:middle;">
+                      <span style="font-size:20px;font-weight:800;color:{_DARK};letter-spacing:2px;font-family:Arial,sans-serif;">QORICASH</span>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+              <td style="text-align:right;vertical-align:middle;">
+                <span style="font-size:10px;color:#64748B;line-height:1.5;">{_SBS_TAG}</span>
               </td>
             </tr>
           </table>
@@ -341,16 +352,26 @@ class EmailService:
               </td>
             </tr>
             <tr style="border-bottom:1px solid #F1F5F9;">
-              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:top;">Monto USD</td>
-              <td style="padding:11px 18px;color:#0D1B2A;font-size:15px;font-weight:700;vertical-align:top;">$ {{ "{:,.2f}".format(operation.amount_usd) }}</td>
-            </tr>
-            <tr style="border-bottom:1px solid #F1F5F9;">
-              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:top;">Tipo de cambio</td>
-              <td style="padding:11px 18px;color:#1e293b;font-size:13px;font-weight:500;vertical-align:top;">{{ "%.4f"|format(operation.exchange_rate) }}</td>
-            </tr>
-            <tr style="border-bottom:1px solid #F1F5F9;">
-              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:top;">Monto PEN</td>
-              <td style="padding:11px 18px;color:#0D1B2A;font-size:15px;font-weight:700;vertical-align:top;">S/ {{ "{:,.2f}".format(operation.amount_pen) }}</td>
+              <td colspan="2" style="padding:12px 18px;">
+                <table width="100%" cellspacing="0" cellpadding="0">
+                  <tr>
+                    <td style="text-align:center;padding:13px 8px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;">
+                      <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Monto USD</div>
+                      <div style="font-size:17px;font-weight:800;color:#0D1B2A;">$ {{ "{:,.2f}".format(operation.amount_usd) }}</div>
+                    </td>
+                    <td width="8">&nbsp;</td>
+                    <td style="text-align:center;padding:13px 8px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;">
+                      <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Tipo de Cambio</div>
+                      <div style="font-size:15px;font-weight:700;color:#1e293b;">{{ "%.4f"|format(operation.exchange_rate) }}</div>
+                    </td>
+                    <td width="8">&nbsp;</td>
+                    <td style="text-align:center;padding:13px 8px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;">
+                      <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Monto PEN</div>
+                      <div style="font-size:17px;font-weight:800;color:#0D1B2A;">S/ {{ "{:,.2f}".format(operation.amount_pen) }}</div>
+                    </td>
+                  </tr>
+                </table>
+              </td>
             </tr>
             <tr style="border-bottom:1px solid #F1F5F9;">
               <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:top;">Estado</td>
@@ -460,16 +481,26 @@ class EmailService:
               <td style="padding:11px 18px;color:#1e293b;font-size:13px;font-weight:500;vertical-align:top;">{{ operation.operation_type }}</td>
             </tr>
             <tr style="border-bottom:1px solid #F1F5F9;">
-              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:top;">Monto USD</td>
-              <td style="padding:11px 18px;color:#0D1B2A;font-size:15px;font-weight:700;vertical-align:top;">$ {{ "{:,.2f}".format(operation.amount_usd) }}</td>
-            </tr>
-            <tr style="border-bottom:1px solid #F1F5F9;">
-              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:top;">Tipo de cambio</td>
-              <td style="padding:11px 18px;color:#1e293b;font-size:13px;font-weight:500;vertical-align:top;">{{ "%.4f"|format(operation.exchange_rate) }}</td>
-            </tr>
-            <tr style="border-bottom:1px solid #F1F5F9;">
-              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:top;">Monto PEN</td>
-              <td style="padding:11px 18px;color:#0D1B2A;font-size:15px;font-weight:700;vertical-align:top;">S/ {{ "{:,.2f}".format(operation.amount_pen) }}</td>
+              <td colspan="2" style="padding:12px 18px;">
+                <table width="100%" cellspacing="0" cellpadding="0">
+                  <tr>
+                    <td style="text-align:center;padding:13px 8px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;">
+                      <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Monto USD</div>
+                      <div style="font-size:17px;font-weight:800;color:#0D1B2A;">$ {{ "{:,.2f}".format(operation.amount_usd) }}</div>
+                    </td>
+                    <td width="8">&nbsp;</td>
+                    <td style="text-align:center;padding:13px 8px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;">
+                      <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Tipo de Cambio</div>
+                      <div style="font-size:15px;font-weight:700;color:#1e293b;">{{ "%.4f"|format(operation.exchange_rate) }}</div>
+                    </td>
+                    <td width="8">&nbsp;</td>
+                    <td style="text-align:center;padding:13px 8px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;">
+                      <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Monto PEN</div>
+                      <div style="font-size:17px;font-weight:800;color:#0D1B2A;">S/ {{ "{:,.2f}".format(operation.amount_pen) }}</div>
+                    </td>
+                  </tr>
+                </table>
+              </td>
             </tr>
             <tr style="border-bottom:1px solid #F1F5F9;">
               <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:top;">Fecha de creación</td>
@@ -760,16 +791,26 @@ class EmailService:
               <td style="padding:11px 18px;color:#1e293b;font-size:13px;font-weight:500;vertical-align:top;">{{ operation.operation_type }}</td>
             </tr>
             <tr style="border-bottom:1px solid #F1F5F9;">
-              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:top;">Monto USD</td>
-              <td style="padding:11px 18px;color:#0D1B2A;font-size:15px;font-weight:700;vertical-align:top;">$ {{ "{:,.2f}".format(operation.amount_usd) }}</td>
-            </tr>
-            <tr style="border-bottom:1px solid #F1F5F9;">
-              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:top;">Tipo de cambio</td>
-              <td style="padding:11px 18px;color:#1e293b;font-size:13px;font-weight:500;vertical-align:top;">{{ "%.4f"|format(operation.exchange_rate) }}</td>
-            </tr>
-            <tr style="border-bottom:1px solid #F1F5F9;">
-              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:top;">Monto PEN</td>
-              <td style="padding:11px 18px;color:#0D1B2A;font-size:15px;font-weight:700;vertical-align:top;">S/ {{ "{:,.2f}".format(operation.amount_pen) }}</td>
+              <td colspan="2" style="padding:12px 18px;">
+                <table width="100%" cellspacing="0" cellpadding="0">
+                  <tr>
+                    <td style="text-align:center;padding:13px 8px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;">
+                      <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Monto USD</div>
+                      <div style="font-size:17px;font-weight:800;color:#0D1B2A;">$ {{ "{:,.2f}".format(operation.amount_usd) }}</div>
+                    </td>
+                    <td width="8">&nbsp;</td>
+                    <td style="text-align:center;padding:13px 8px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;">
+                      <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Tipo de Cambio</div>
+                      <div style="font-size:15px;font-weight:700;color:#1e293b;">{{ "%.4f"|format(operation.exchange_rate) }}</div>
+                    </td>
+                    <td width="8">&nbsp;</td>
+                    <td style="text-align:center;padding:13px 8px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;">
+                      <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Monto PEN</div>
+                      <div style="font-size:17px;font-weight:800;color:#0D1B2A;">S/ {{ "{:,.2f}".format(operation.amount_pen) }}</div>
+                    </td>
+                  </tr>
+                </table>
+              </td>
             </tr>
             <tr style="border-bottom:1px solid #F1F5F9;">
               <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:top;">Fecha</td>
