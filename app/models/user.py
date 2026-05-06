@@ -148,6 +148,11 @@ class User(UserMixin, db.Model):
     def is_active_user(self):
         """Verificar si está activo"""
         return self.status == 'Activo'
+
+    @property
+    def is_demo(self):
+        """Verificar si es usuario demo (solo lectura, no afecta producción)"""
+        return self.username.lower() == 'demo_trader'
     
     def __repr__(self):
         return f'<User {self.username} ({self.role})>'

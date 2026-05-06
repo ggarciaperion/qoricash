@@ -390,6 +390,20 @@ function ajaxRequest(url, method, data, successCallback, errorCallback) {
                 window.activeAjaxRequests.delete(`${method}:${url}`);
             }
 
+            // Interceptar respuestas de modo demo
+            if (response && response.demo_mode) {
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        title: 'Modo Demo',
+                        html: '<p>Esta acción está <strong>bloqueada</strong> en el entorno de demostración.</p><p class="text-muted small mt-2">Los datos que ves son de muestra y no se modifican.</p>',
+                        icon: 'info',
+                        confirmButtonText: 'Entendido',
+                        confirmButtonColor: '#0d6efd'
+                    });
+                }
+                return; // No ejecutar successCallback
+            }
+
             if (successCallback) {
                 successCallback(response);
             }

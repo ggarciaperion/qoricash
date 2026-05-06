@@ -158,6 +158,9 @@ def initialize_extensions(flask_app):
     # Configurar headers de seguridad
     configure_security_headers(flask_app)
 
+    # Bloquear escrituras del usuario demo
+    configure_demo_mode(flask_app)
+
 
 def register_blueprints(app):
     """Registrar blueprints de la aplicación"""
@@ -247,6 +250,35 @@ def register_error_handlers(app):
     @app.errorhandler(413)
     def request_too_large(error):
         return jsonify({'success': False, 'message': 'Los archivos son demasiado grandes. El límite es 10 MB por solicitud. Usa imágenes más pequeñas.'}), 413
+
+
+def configure_demo_mode(flask_app):
+    """
+    Bloquea todas las escrituras del usuario demo_trader.
+    Cualquier POST/PUT/DELETE devuelve JSON con demo_mode=True
+    sin tocar la base de datos de producción.
+    """
+    from flask import request, jsonify
+    from flask_login import current_user
+
+    DEMO_WHITELIST = {'/auth/logout', '/auth/login'}
+
+    @flask_app.before_request
+    def block_demo_writes():
+        if request.method not in ('POST', 'PUT', 'PATCH', 'DELETE'):
+            return None
+        if request.path in DEMO_WHITELIST:
+            return None
+        try:
+            if current_user.is_authenticated and current_user.is_demo:
+                return jsonify({
+                    'demo_mode': True,
+                    'success': False,
+                    'message': 'Modo Demo activo — esta acción no se guarda en producción.'
+                }), 200
+        except Exception:
+            pass
+        return None
 
 
 def configure_security_headers(flask_app):
