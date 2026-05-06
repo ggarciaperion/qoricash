@@ -300,6 +300,95 @@ def refresh_fx():
     print("\n✓ refresh-fx completado")
 
 
+@app.cli.command("send-test-emails")
+def send_test_emails():
+    """Envía un correo de prueba de cada tipo a ggarcia@qoricash.pe para validar plantillas"""
+    from app.services.email_templates import EmailTemplates
+    from app.services.email_service import EmailService
+    from app.extensions import mail
+    from flask_mail import Message
+    from datetime import datetime
+
+    TEST = 'ggarcia@qoricash.pe'
+
+    # ── Mocks ──────────────────────────────────────────────
+    class C:
+        id = 9999; dni = '12345678'; document_type = 'DNI'; document_number = '12345678'
+        email = TEST; phone = '987654321'; full_name = 'Gianpierre Garcia'; razon_social = None
+        bank_accounts = [{'bank_name': 'BCP', 'currency': 'PEN', 'account_number': '191-12345678-0-12'}]
+
+    class CRuc:
+        id = 9998; dni = '20612345678'; document_type = 'RUC'; document_number = '20612345678'
+        email = TEST; phone = '01-4567890'; full_name = None; razon_social = 'DEMO EMPRESA S.A.C.'
+        bank_accounts = []
+
+    class T:
+        id = 1; username = 'ggarcia'; email = TEST; role = 'Trader'
+
+    class Proof:
+        comprobante_url = 'https://www.qoricash.pe'; comentario = 'Transferencia procesada'
+
+    class Inv:
+        invoice_number = 'B001-00000123'; nubefact_enlace_pdf = None
+
+    class Op:
+        operation_id = 'EXP-TEST-001'; operation_type = 'Compra'
+        amount_usd = 5000.00; exchange_rate = 3.4620; amount_pen = 17310.00
+        status = 'Pendiente'; notes = 'Operación de prueba de plantilla'
+        operator_proofs = [Proof()]; invoices = [Inv()]
+        new_operation_email_sent = False
+        user = T(); created_at = datetime(2026, 5, 6, 9, 30)
+        completed_at = datetime(2026, 5, 6, 10, 15)
+        class client:
+            full_name = 'Gianpierre Garcia'; razon_social = None; email = TEST
+        client = client()
+
+    def send(subject, html):
+        mail.send(Message(subject=subject, recipients=[TEST], html=html))
+
+    results = []
+
+    def try_send(name, fn):
+        try:
+            fn()
+            results.append((name, True))
+            print(f"  [OK]  {name}")
+        except Exception as e:
+            results.append((name, False))
+            print(f"  [FAIL]  {name}  — {e}")
+
+    print(f"\n=== Enviando correos de prueba a {TEST} ===\n")
+
+    # 1–5: email_templates (mail.send síncrono)
+    try_send("Bienvenida Móvil",     lambda: EmailTemplates.send_welcome_email_from_mobile(C()))
+    try_send("Bienvenida Web",       lambda: EmailTemplates.send_welcome_email_from_web(C()))
+    try_send("Activación + Contraseña", lambda: EmailTemplates.send_activation_with_temp_password(C(), T(), 'Qori2026!'))
+    try_send("Activación Auto",      lambda: EmailTemplates.send_activation_without_password(C()))
+    try_send("KYC Aprobado (Trader)",lambda: EmailTemplates.send_trader_kyc_approved_notification(C(), T()))
+
+    # 6–13: email_service (renderizamos y enviamos directo para evitar _send_async)
+    try_send("Nueva Operación",      lambda: send('Nueva Operación #EXP-TEST-001 — QoriCash', EmailService._render_new_operation_template(Op())))
+    try_send("Operación Completada", lambda: send('Operación Completada #EXP-TEST-001 — QoriCash', EmailService._render_completed_operation_template(Op())))
+    try_send("Operación Cancelada",  lambda: send('Operación Cancelada — EXP-TEST-001 | QoriCash', EmailService._render_canceled_operation_template(Op(), 'Plazo vencido')))
+    try_send("Modificación de Importe", lambda: send('Actualización de Importe — EXP-TEST-001 | QoriCash', EmailService._render_amount_modified_template(Op(), 4800.00, 16627.20)))
+    try_send("Nuevo Cliente (Trader)", lambda: send('Bienvenido a QoriCash — Registro en Proceso', EmailService._render_new_client_template(CRuc(), T())))
+    try_send("Cliente Activado",     lambda: send('Cuenta Activada — Bienvenido a QoriCash', EmailService._render_client_activation_template(C(), T())))
+    try_send("Contraseña Temporal",  lambda: send('Recuperación de Contraseña — QoriCash', EmailService._render_temporary_password_template('Gianpierre Garcia', 'Temp#2026')))
+
+    complaint = {
+        'complaint_number': 'REC-2026-001', 'tipo_solicitud': 'Reclamo',
+        'tipo_documento': 'DNI', 'numero_documento': '12345678',
+        'nombres': 'Gianpierre', 'apellidos': 'Garcia',
+        'email': TEST, 'telefono': '987654321',
+        'direccion': 'Av. Brasil 2790, Pueblo Libre',
+        'detalle': 'Correo de prueba del sistema de reclamaciones.',
+    }
+    try_send("Reclamo", lambda: send(f"[Reclamo] Libro de Reclamaciones — Gianpierre Garcia", EmailService._render_complaint_template(complaint)))
+
+    ok = sum(1 for _, s in results if s)
+    print(f"\n{ok}/{len(results)} correos enviados correctamente\n")
+
+
 @app.cli.command("expire-operations")
 def expire_operations_now():
     """Ejecuta manualmente el scheduler de expiración de operaciones"""
