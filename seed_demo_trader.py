@@ -180,6 +180,9 @@ def run():
         else:
             print(f'[=] Usuario ya existe: {DEMO_USERNAME} (actualizando)')
 
+        # Siempre forzar rol Trader y contraseña (idempotente)
+        demo.role   = 'Trader'
+        demo.status = 'Activo'
         demo.password_hash = generate_password_hash(DEMO_PASSWORD, method='pbkdf2:sha256')
         db.session.flush()  # para obtener demo.id
 
