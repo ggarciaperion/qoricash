@@ -30,7 +30,7 @@ from werkzeug.security import generate_password_hash
 DEMO_USERNAME   = 'demo_trader'
 DEMO_EMAIL      = 'demo@qoricash.pe'
 DEMO_PASSWORD   = 'Demo@2026'
-DEMO_DNI        = '00000000'
+DEMO_DNI        = '12345678'
 
 # Semilla fija para reproducibilidad
 rng = random.Random(42)
