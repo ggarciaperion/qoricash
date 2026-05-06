@@ -903,14 +903,24 @@ def client_search():
     if not q or len(q) < 2:
         return jsonify({'clients': []})
 
-    clients_found = Client.query.filter(
+    base_query = Client.query.filter(
         _db.or_(
             Client.dni.ilike(f'%{q}%'),
             Client.nombres.ilike(f'%{q}%'),
             Client.apellido_paterno.ilike(f'%{q}%'),
             Client.razon_social.ilike(f'%{q}%')
         )
-    ).limit(8).all()
+    )
+
+    # Si hay filtro de trader, solo mostrar clientes que hayan operado con ese trader
+    if trader_id:
+        trader_client_ids = db.session.query(Operation.client_id).filter(
+            Operation.user_id == trader_id,
+            Operation.status == 'Completada'
+        ).distinct().subquery()
+        base_query = base_query.filter(Client.id.in_(trader_client_ids))
+
+    clients_found = base_query.limit(8).all()
 
     clients_data = []
     for c in clients_found:
