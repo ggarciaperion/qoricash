@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 # ============================================
 # CONSTANTES DE MARCA
 # ============================================
-_LOGO_URL  = 'https://www.qoricash.pe/logofirma.png'
+_LOGO_URL  = 'https://app.qoricash.pe/static/images/logo-email.png'
 _GREEN     = '#5CB85C'
 _DARK      = '#0D1B2A'
 _SBS_TAG   = 'Regulada por la SBS &nbsp;&middot;&nbsp; Res. N.&ordm; 00313-2026'
@@ -32,23 +32,13 @@ _EMAIL_CSS = """
 # BLOQUES COMPARTIDOS
 # ============================================
 _HEADER_BLOCK = f"""
-      <!-- HEADER: logo + nombre + SBS -->
+      <!-- HEADER: isotipo + SBS -->
       <tr>
         <td style="padding:20px 36px 18px;border-bottom:1px solid #E2E8F0;">
           <table width="100%" cellpadding="0" cellspacing="0" border="0">
             <tr>
               <td style="vertical-align:middle;">
-                <table cellpadding="0" cellspacing="0" border="0">
-                  <tr>
-                    <td style="vertical-align:middle;padding-right:10px;">
-                      <img src="{_LOGO_URL}" alt="Q" style="height:38px;width:auto;display:block;">
-                    </td>
-                    <td style="width:3px;min-width:3px;background:{_GREEN};border-radius:2px;vertical-align:middle;">&nbsp;</td>
-                    <td style="padding-left:10px;vertical-align:middle;">
-                      <span style="font-size:20px;font-weight:800;color:{_DARK};letter-spacing:2px;font-family:Arial,sans-serif;">QORICASH</span>
-                    </td>
-                  </tr>
-                </table>
+                <img src="{_LOGO_URL}" alt="QoriCash" style="height:44px;width:auto;display:block;">
               </td>
               <td style="text-align:right;vertical-align:middle;">
                 <span style="font-size:10px;color:#64748B;line-height:1.5;">{_SBS_TAG}</span>
