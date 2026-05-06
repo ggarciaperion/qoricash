@@ -557,19 +557,27 @@ class OperationService:
         else:
             end_date = datetime(year, month + 1, 1)
         
+        # Excluir operaciones del usuario demo
+        from app.models.user import User
+        _demo_id = User.query.filter_by(username='demo_trader').with_entities(User.id).scalar()
+
         # Operaciones del mes
-        operations_month = Operation.query.filter(
+        _q_month = Operation.query.filter(
             and_(
                 Operation.created_at >= start_date,
                 Operation.created_at < end_date
             )
-        ).all()
-        
+        )
+        if _demo_id:
+            _q_month = _q_month.filter(Operation.user_id != _demo_id)
+        operations_month = _q_month.all()
+
         # Operaciones de hoy
         today = date.today()
-        operations_today = Operation.query.filter(
-            func.date(Operation.created_at) == today
-        ).all()
+        _q_today = Operation.query.filter(func.date(Operation.created_at) == today)
+        if _demo_id:
+            _q_today = _q_today.filter(Operation.user_id != _demo_id)
+        operations_today = _q_today.all()
         
         # Calcular estadísticas del mes
         completed_month = [op for op in operations_month if op.status == 'Completada']

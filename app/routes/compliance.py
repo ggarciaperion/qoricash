@@ -210,8 +210,11 @@ def api_risk_profiles():
 
         logger.info("=== INICIO api_risk_profiles (versión simplificada) ===")
 
-        # 1. Obtener TODOS los clientes
-        all_clients = Client.query.all()
+        # 1. Obtener TODOS los clientes (excluir demo_trader)
+        from app.models.user import User
+        _demo_id = User.get_demo_user_id()
+        _cq = Client.query.filter(Client.created_by != _demo_id) if _demo_id else Client.query
+        all_clients = _cq.all()
         logger.info(f"Total clientes en BD: {len(all_clients)}")
 
         # 2. Generar perfiles faltantes automáticamente
@@ -371,8 +374,11 @@ def api_kyc_pending():
 
         logger.info("KYC API: Iniciando consulta de clientes...")
 
-        # Obtener TODOS los clientes
-        all_clients = Client.query.order_by(Client.created_at.desc()).all()
+        # Obtener TODOS los clientes (excluir demo_trader)
+        from app.models.user import User
+        _demo_id = User.get_demo_user_id()
+        _cq = Client.query.filter(Client.created_by != _demo_id) if _demo_id else Client.query
+        all_clients = _cq.order_by(Client.created_at.desc()).all()
 
         logger.info(f"KYC API: Total de clientes en BD: {len(all_clients)}")
 
