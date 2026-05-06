@@ -93,7 +93,7 @@ def _wrap_email(body_html: str) -> str:
   <tr><td align="center">
     <table width="600" cellpadding="0" cellspacing="0"
            style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;
-                  overflow:hidden;box-shadow:0 2px 16px rgba(13,27,42,0.08);">
+                  overflow:hidden;box-shadow:0 2px 16px rgba(13,27,42,0.08);border-top:4px solid #5CB85C;">
       {_HEADER_BLOCK}
       {body_html}
       {_FOOTER_BLOCK}

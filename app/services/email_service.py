@@ -87,7 +87,7 @@ def _wrap_email_svc(body_html: str) -> str:
   <tr><td align="center">
     <table width="600" cellpadding="0" cellspacing="0"
            style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;
-                  overflow:hidden;box-shadow:0 2px 16px rgba(13,27,42,0.08);">
+                  overflow:hidden;box-shadow:0 2px 16px rgba(13,27,42,0.08);border-top:4px solid #5CB85C;">
       {_HEADER_BLOCK}
       {body_html}
       {_FOOTER_BLOCK}
@@ -471,7 +471,13 @@ class EmailService:
               <td style="padding:11px 14px;width:70px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle;">Código</td>
               <td style="padding:11px 14px;color:#0D1B2A;font-size:14px;font-weight:700;vertical-align:middle;border-right:1px solid #F1F5F9;">{{ operation.operation_id }}</td>
               <td style="padding:11px 14px;width:50px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle;">Tipo</td>
-              <td style="padding:11px 14px;color:#1e293b;font-size:13px;font-weight:500;vertical-align:middle;">{{ operation.operation_type }}</td>
+              <td style="padding:11px 14px;vertical-align:middle;">
+                {% if operation.operation_type == 'Compra' %}
+                  <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:#DCFCE7;color:#15803D;letter-spacing:0.3px;">COMPRA USD</span>
+                {% else %}
+                  <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:#DBEAFE;color:#1D4ED8;letter-spacing:0.3px;">VENTA USD</span>
+                {% endif %}
+              </td>
             </tr>
             <tr style="border-bottom:1px solid #F1F5F9;">
               <td colspan="4" style="padding:12px 18px;">
@@ -641,13 +647,11 @@ class EmailService:
           <p style="margin:0 0 24px 0;color:#64748b;font-size:14px;">Estimado(a) <strong style="color:#1e293b;">{{ operation.client.full_name or operation.client.razon_social }}</strong>, el importe de su operación <strong style="color:#0D1B2A;">{{ operation.operation_id }}</strong> ha sido actualizado por nuestro equipo.</p>
 
           <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #E2E8F0;border-radius:8px;overflow:hidden;margin:0 0 16px 0;">
-            <tr>
-              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:top;">Código</td>
-              <td style="padding:11px 18px;color:#0D1B2A;font-size:14px;font-weight:700;vertical-align:top;">{{ operation.operation_id }}</td>
-            </tr>
-            <tr style="border-top:1px solid #F1F5F9;">
-              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:top;">Tipo de cambio</td>
-              <td style="padding:11px 18px;color:#1e293b;font-size:13px;font-weight:500;vertical-align:top;">{{ "%.4f"|format(operation.exchange_rate) }}</td>
+            <tr style="border-bottom:1px solid #F1F5F9;">
+              <td style="padding:11px 14px;width:70px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle;">Código</td>
+              <td style="padding:11px 14px;color:#0D1B2A;font-size:14px;font-weight:700;vertical-align:middle;border-right:1px solid #F1F5F9;">{{ operation.operation_id }}</td>
+              <td style="padding:11px 14px;width:80px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle;">Tipo de cambio</td>
+              <td style="padding:11px 14px;color:#1e293b;font-size:13px;font-weight:500;vertical-align:middle;">{{ "%.4f"|format(operation.exchange_rate) }}</td>
             </tr>
           </table>
 
@@ -777,7 +781,13 @@ class EmailService:
               <td style="padding:11px 14px;width:70px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle;">Código</td>
               <td style="padding:11px 14px;color:#0D1B2A;font-size:14px;font-weight:700;vertical-align:middle;border-right:1px solid #F1F5F9;">{{ operation.operation_id }}</td>
               <td style="padding:11px 14px;width:50px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle;">Tipo</td>
-              <td style="padding:11px 14px;color:#1e293b;font-size:13px;font-weight:500;vertical-align:middle;">{{ operation.operation_type }}</td>
+              <td style="padding:11px 14px;vertical-align:middle;">
+                {% if operation.operation_type == 'Compra' %}
+                  <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:#DCFCE7;color:#15803D;letter-spacing:0.3px;">COMPRA USD</span>
+                {% else %}
+                  <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:#DBEAFE;color:#1D4ED8;letter-spacing:0.3px;">VENTA USD</span>
+                {% endif %}
+              </td>
             </tr>
             <tr style="border-bottom:1px solid #F1F5F9;">
               <td colspan="4" style="padding:12px 18px;">
