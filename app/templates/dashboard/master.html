@@ -121,7 +121,7 @@
                 <div class="card-body">
                     <h6 class="card-subtitle mb-2 text-muted">Utilidad del Día</h6>
                     <h3 class="card-title mb-0 text-success counter-pen" id="profitToday">S/ 0.00</h3>
-                    <small class="text-muted">Ganancia en operaciones de hoy</small>
+                    <small class="text-muted">Spread acumulado hoy</small>
                 </div>
             </div>
         </div>
@@ -131,7 +131,7 @@
                 <div class="card-body">
                     <h6 class="card-subtitle mb-2 text-muted">Utilidad Acumulada del Mes</h6>
                     <h3 class="card-title mb-0 text-info counter-pen" id="profitMonth">S/ 0.00</h3>
-                    <small class="text-muted">Ganancia acumulada</small>
+                    <small class="text-muted">Spread acumulado del mes</small>
                 </div>
             </div>
         </div>
@@ -254,6 +254,174 @@
         </div>
     </div>
     
+    <!-- ================================================
+         SECCIÓN: ANÁLISIS DE GESTIÓN
+         ================================================ -->
+    <div class="row mb-4 mt-4">
+        <div class="col-md-12 d-flex align-items-center justify-content-between">
+            <h5 class="mb-0"><i class="bi bi-bar-chart-line"></i> Análisis de Gestión</h5>
+            <span class="badge bg-secondary fs-6" id="analyticsBadgeTrader">Todos los traders</span>
+        </div>
+    </div>
+
+    <!-- Top Clientes + Utilidad por Operación -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0"><i class="bi bi-trophy text-warning"></i> Top Clientes del Mes</h6>
+                    <span class="badge bg-secondary" id="topClientsCount">-</span>
+                </div>
+                <div class="card-body p-0">
+                    <div id="topClientsList" class="list-group list-group-flush">
+                        <div class="text-center text-muted py-4">
+                            <div class="spinner-border spinner-border-sm" role="status"></div>
+                            <span class="ms-2 small">Cargando...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0"><i class="bi bi-graph-up text-success"></i> Utilidad por Operación</h6>
+                    <span class="badge bg-success" id="totalCalcProfit">S/ 0.00</span>
+                </div>
+                <div class="card-body p-0">
+                    <div style="max-height: 320px; overflow-y: auto;">
+                        <table class="table table-sm table-hover mb-0">
+                            <thead class="table-light sticky-top">
+                                <tr>
+                                    <th class="small">Op.</th>
+                                    <th class="small">Cliente</th>
+                                    <th class="small">Tipo</th>
+                                    <th class="small text-end">USD</th>
+                                    <th class="small text-end">Utilidad</th>
+                                </tr>
+                            </thead>
+                            <tbody id="profitPerOpBody">
+                                <tr>
+                                    <td colspan="5" class="text-center text-muted py-3">
+                                        <div class="spinner-border spinner-border-sm" role="status"></div>
+                                        <span class="ms-2 small">Cargando...</span>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Clientes Inactivos -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0"><i class="bi bi-person-dash text-danger"></i> Clientes sin Operar</h6>
+                    <div class="d-flex gap-2">
+                        <span class="badge bg-warning text-dark" id="badge30d">30d: -</span>
+                        <span class="badge bg-danger" id="badge60d">60d: -</span>
+                        <span class="badge bg-dark" id="badge90d">90d+: -</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <ul class="nav nav-tabs nav-sm mb-3" id="inactiveTabs">
+                        <li class="nav-item">
+                            <button class="nav-link active small py-1" data-tab="30" onclick="showInactiveTab('30')">
+                                1 Mes <span class="badge bg-warning text-dark ms-1" id="tab30Count">0</span>
+                            </button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link small py-1" data-tab="60" onclick="showInactiveTab('60')">
+                                2 Meses <span class="badge bg-danger ms-1" id="tab60Count">0</span>
+                            </button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link small py-1" data-tab="90" onclick="showInactiveTab('90')">
+                                3+ Meses <span class="badge bg-dark ms-1" id="tab90Count">0</span>
+                            </button>
+                        </li>
+                    </ul>
+                    <div id="inactiveClientsContent">
+                        <div class="text-center text-muted py-3">
+                            <div class="spinner-border spinner-border-sm" role="status"></div>
+                            <span class="ms-2 small">Cargando...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Buscador de Clientes -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-search"></i> Buscar Cliente — Historial de Operaciones</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-8">
+                            <input type="text" class="form-control" id="clientSearchInput"
+                                placeholder="Buscar por nombre, apellido o DNI..."
+                                oninput="onClientSearch(this.value)">
+                        </div>
+                        <div class="col-md-4">
+                            <div id="clientSearchResults" class="list-group" style="position:relative; z-index:10;"></div>
+                        </div>
+                    </div>
+                    <div id="clientHistoryPanel" class="d-none">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <div>
+                                <h6 class="mb-0" id="selectedClientName">-</h6>
+                                <small class="text-muted" id="selectedClientInfo">-</small>
+                            </div>
+                            <div class="d-flex gap-3 text-center">
+                                <div>
+                                    <div class="fw-bold text-info" id="clientTotalOps">0</div>
+                                    <small class="text-muted">Operaciones</small>
+                                </div>
+                                <div>
+                                    <div class="fw-bold text-primary" id="clientTotalUsd">$ 0</div>
+                                    <small class="text-muted">Total USD</small>
+                                </div>
+                                <div>
+                                    <div class="fw-bold text-success" id="clientTotalProfit">S/ 0</div>
+                                    <small class="text-muted">Utilidad</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="max-height: 280px; overflow-y: auto;">
+                            <table class="table table-sm table-hover mb-0">
+                                <thead class="table-light sticky-top">
+                                    <tr>
+                                        <th class="small">Fecha</th>
+                                        <th class="small">Op.</th>
+                                        <th class="small">Tipo</th>
+                                        <th class="small text-end">USD</th>
+                                        <th class="small text-end">PEN</th>
+                                        <th class="small text-end">TC</th>
+                                        <th class="small text-end">Utilidad</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="clientHistoryBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div id="clientHistoryEmpty" class="text-center text-muted py-3 d-none">
+                        <i class="bi bi-inbox display-6"></i>
+                        <p class="mt-2 small">Busca un cliente para ver su historial</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Accesos Rápidos -->
     <div class="row mb-4">
         <div class="col-md-12">
@@ -492,6 +660,11 @@ let currentFilters = {
     day: null
 };
 
+// Datos de inactividad globales
+let inactiveData = { inactive_30: [], inactive_60: [], inactive_90: [] };
+// Timer para búsqueda de clientes
+let clientSearchTimer = null;
+
 // Cargar datos al iniciar
 $(document).ready(function() {
     loadDashboardData();
@@ -499,6 +672,9 @@ $(document).ready(function() {
     setCurrentPeriod();
     initDatePicker();
     loadExchangeRates();
+    loadTopClients();
+    loadInactiveClients();
+    loadProfitPerOp();
 
     // Actualizar cada 60 segundos (reducido para evitar error 429)
     setInterval(loadDashboardData, 60000);
@@ -541,6 +717,9 @@ function loadTraders() {
 
 function refreshDashboard() {
     loadDashboardData();
+    loadTopClients();
+    loadInactiveClients();
+    loadProfitPerOp();
     showNotification('Dashboard actualizado', 'success');
 }
 
@@ -592,10 +771,14 @@ function applyTraderFilter() {
 
     currentFilters.trader_id = parseInt(traderId);
 
-    loadDashboardData();
-    $('#filterTraderModal').modal('hide');
+    const traderName = $('#filterTrader option:selected').text().split(' - ')[0];
+    $('#analyticsBadgeTrader').text(traderName).removeClass('bg-secondary').addClass('bg-success');
 
-    const traderName = $('#filterTrader option:selected').text();
+    loadDashboardData();
+    loadTopClients();
+    loadInactiveClients();
+    loadProfitPerOp();
+    $('#filterTraderModal').modal('hide');
     showNotification(`Filtro aplicado: ${traderName}`, 'success');
 }
 
@@ -603,7 +786,12 @@ function clearTraderFilter() {
     currentFilters.trader_id = null;
 
     $('#filterTrader').val('');
+    $('#analyticsBadgeTrader').text('Todos los traders').removeClass('bg-success').addClass('bg-secondary');
+
     loadDashboardData();
+    loadTopClients();
+    loadInactiveClients();
+    loadProfitPerOp();
     $('#filterTraderModal').modal('hide');
     showNotification('Filtro de trader eliminado', 'info');
 }
@@ -624,7 +812,7 @@ function loadDashboardData() {
         updateCounterValue('#operationsToday', today.operations_count || 0);
         updateCounterValue('#usdToday', today.total_usd || 0, '$', 2);
         updateCounterValue('#penToday', today.total_pen || 0, 'S/', 2);
-        updateCounterValue('#profitToday', today.profit_today || 0, 'S/', 2);
+        updateCounterValue('#profitToday', today.profit_today_spread || 0, 'S/', 2);
 
         // Estadísticas del MES (con animación de contador)
         const month = response.month || {};
@@ -635,12 +823,12 @@ function loadDashboardData() {
         updateCounterValue('#usdMonth', month.total_usd || 0, '$', 2);
         updateCounterValue('#penMonth', month.total_pen || 0, 'S/', 2);
 
-        // Utilidad del mes (con animación de contador)
-        updateCounterValue('#profitMonth', month.profit_month || 0, 'S/', 2);
+        // Utilidad del mes por spread (con animación de contador)
+        updateCounterValue('#profitMonth', month.profit_month_spread || 0, 'S/', 2);
 
         // Meta mensual
         const goalAmount = month.goal_amount || 0;
-        const profitMonth = month.profit_month || 0;
+        const profitMonth = month.profit_month_spread || 0;
         const percentage = goalAmount > 0 ? Math.min((profitMonth / goalAmount) * 100, 100) : 0;
 
         updateCounterValue('#goalMonthAmount', goalAmount, 'S/', 2);
@@ -828,6 +1016,252 @@ function saveTraderData() {
     }).catch(error => {
         showNotification('Error al guardar datos: ' + (error.responseJSON?.error || 'Error desconocido'), 'danger');
     });
+}
+
+// ============================================
+// ANALYTICS DE GESTIÓN (mismo que trader)
+// ============================================
+
+function getTraderIdFilter() {
+    return currentFilters.trader_id || '';
+}
+
+function loadTopClients() {
+    const params = new URLSearchParams();
+    const tid = getTraderIdFilter();
+    if (tid) params.append('trader_id', tid);
+    if (currentFilters.year) params.append('year', currentFilters.year);
+    if (currentFilters.month) params.append('month', currentFilters.month);
+
+    ajaxRequest(`/dashboard/api/dashboard/top-clients?${params.toString()}`, 'GET', null, function(response) {
+        const clients = response.top_clients || [];
+        const container = $('#topClientsList');
+        $('#topClientsCount').text(clients.length);
+
+        if (clients.length === 0) {
+            container.html('<div class="text-center text-muted py-4 small">Sin datos para el período</div>');
+            return;
+        }
+
+        const medals = ['<i class="bi bi-trophy-fill text-warning"></i>', '<i class="bi bi-trophy-fill text-secondary"></i>', '<i class="bi bi-trophy-fill" style="color:#cd7f32"></i>'];
+        const maxUsd = clients[0].total_usd || 1;
+
+        let html = '';
+        clients.forEach(function(c, idx) {
+            const pct = Math.round((c.total_usd / maxUsd) * 100);
+            const medal = idx < 3 ? medals[idx] : `<span class="text-muted small fw-bold">#${idx+1}</span>`;
+            html += `
+                <div class="list-group-item list-group-item-action px-3 py-2" style="cursor:pointer"
+                     onclick="loadClientHistory(${c.client_id}, '${escapeHtml(c.name)}', '${c.dni}')">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex align-items-center gap-2 overflow-hidden">
+                            <span style="min-width:24px;">${medal}</span>
+                            <span class="text-truncate small fw-semibold" title="${escapeHtml(c.name)}">${escapeHtml(c.name)}</span>
+                        </div>
+                        <div class="text-end ms-2 flex-shrink-0">
+                            <div class="small fw-bold text-primary">$ ${formatNumber(c.total_usd, 0)}</div>
+                            <div class="text-muted" style="font-size:0.7rem;">${c.op_count} op.</div>
+                        </div>
+                    </div>
+                    <div class="progress mt-1" style="height:3px;">
+                        <div class="progress-bar bg-primary" style="width:${pct}%"></div>
+                    </div>
+                </div>`;
+        });
+        container.html(html);
+    });
+}
+
+function loadInactiveClients() {
+    const params = new URLSearchParams();
+    const tid = getTraderIdFilter();
+    if (tid) params.append('trader_id', tid);
+
+    ajaxRequest(`/dashboard/api/dashboard/inactive-clients?${params.toString()}`, 'GET', null, function(response) {
+        inactiveData = response;
+        $('#badge30d').text(`30d: ${response.count_30}`);
+        $('#badge60d').text(`60d: ${response.count_60}`);
+        $('#badge90d').text(`90d+: ${response.count_90}`);
+        $('#tab30Count').text(response.count_30);
+        $('#tab60Count').text(response.count_60);
+        $('#tab90Count').text(response.count_90);
+        showInactiveTab('30');
+    });
+}
+
+function showInactiveTab(tab) {
+    $('#inactiveTabs .nav-link').removeClass('active');
+    $(`#inactiveTabs .nav-link[data-tab="${tab}"]`).addClass('active');
+
+    const list = inactiveData[`inactive_${tab}`] || [];
+    const container = $('#inactiveClientsContent');
+
+    if (list.length === 0) {
+        container.html('<div class="text-center text-success py-3 small"><i class="bi bi-check-circle me-1"></i>No hay clientes inactivos en este rango</div>');
+        return;
+    }
+
+    const badgeClass = tab === '30' ? 'bg-warning text-dark' : (tab === '60' ? 'bg-danger' : 'bg-dark');
+    let html = `<div class="table-responsive"><table class="table table-sm table-hover mb-0">
+        <thead class="table-light">
+            <tr>
+                <th class="small">Cliente</th>
+                <th class="small">DNI/RUC</th>
+                <th class="small">Última Operación</th>
+                <th class="small text-end">Días sin operar</th>
+                <th class="small text-end">Acción</th>
+            </tr>
+        </thead><tbody>`;
+
+    list.forEach(function(c) {
+        html += `<tr>
+            <td class="small fw-semibold">${escapeHtml(c.name)}</td>
+            <td class="small text-muted">${c.dni}</td>
+            <td class="small">${c.last_op || '-'}</td>
+            <td class="text-end"><span class="badge ${badgeClass}">${c.days_inactive}d</span></td>
+            <td class="text-end">
+                <button class="btn btn-outline-primary py-0 px-1" style="font-size:0.7rem"
+                        onclick="loadClientHistory(${c.client_id}, '${escapeHtml(c.name)}', '${c.dni}')">
+                    <i class="bi bi-clock-history"></i> Ver historial
+                </button>
+            </td>
+        </tr>`;
+    });
+    html += '</tbody></table></div>';
+    container.html(html);
+}
+
+function loadProfitPerOp() {
+    const params = new URLSearchParams();
+    const tid = getTraderIdFilter();
+    if (tid) params.append('trader_id', tid);
+    if (currentFilters.year) params.append('year', currentFilters.year);
+    if (currentFilters.month) params.append('month', currentFilters.month);
+
+    ajaxRequest(`/dashboard/api/dashboard/profit-per-op?${params.toString()}`, 'GET', null, function(response) {
+        const ops = response.operations || [];
+        const totalProfit = response.total_calculated_profit || 0;
+        const withProfit = response.ops_with_profit || 0;
+
+        $('#totalCalcProfit').text(`S/ ${formatNumber(totalProfit, 2)}`);
+
+        const tbody = $('#profitPerOpBody');
+        if (ops.length === 0) {
+            tbody.html('<tr><td colspan="5" class="text-center text-muted py-3 small">Sin operaciones en el período</td></tr>');
+            return;
+        }
+
+        let html = '';
+        ops.forEach(function(op) {
+            let profitHtml = '<span class="text-muted small">-</span>';
+            if (op.profit_pen !== null && op.profit_pen !== undefined) {
+                const pClass = op.profit_pen >= 0 ? 'text-success' : 'text-danger';
+                profitHtml = `<span class="${pClass} fw-bold small">S/ ${formatNumber(op.profit_pen, 2)}</span>`;
+            }
+            const shortName = op.client_name.length > 18 ? op.client_name.substring(0, 18) + '…' : op.client_name;
+            html += `<tr>
+                <td class="small text-muted">${op.operation_id}</td>
+                <td class="small" title="${escapeHtml(op.client_name)}">${escapeHtml(shortName)}</td>
+                <td><span class="badge ${op.type === 'Compra' ? 'bg-info' : 'bg-warning text-dark'}" style="font-size:0.65rem">${op.type}</span></td>
+                <td class="small text-end">$ ${formatNumber(op.amount_usd, 0)}</td>
+                <td class="text-end">${profitHtml}</td>
+            </tr>`;
+        });
+
+        if (withProfit === 0) {
+            html += `<tr><td colspan="5" class="text-center text-muted py-2 small">
+                <i class="bi bi-info-circle me-1"></i>Registra la tasa base en cada operación para ver la utilidad
+            </td></tr>`;
+        }
+        tbody.html(html);
+    });
+}
+
+function onClientSearch(value) {
+    clearTimeout(clientSearchTimer);
+    if (value.length < 2) {
+        $('#clientSearchResults').empty();
+        return;
+    }
+    clientSearchTimer = setTimeout(function() {
+        const params = new URLSearchParams({ q: value });
+        const tid = getTraderIdFilter();
+        if (tid) params.append('trader_id', tid);
+        ajaxRequest(`/dashboard/api/dashboard/client-search?${params.toString()}`, 'GET', null, function(response) {
+            const clients = response.clients || [];
+            const container = $('#clientSearchResults');
+            if (clients.length === 0) {
+                container.html('<a class="list-group-item text-muted small">Sin resultados</a>');
+                return;
+            }
+            let html = '';
+            clients.forEach(function(c) {
+                const statusBadge = c.status === 'Activo' ? '<span class="badge bg-success ms-1" style="font-size:0.6rem">Activo</span>' : '<span class="badge bg-secondary ms-1" style="font-size:0.6rem">Inactivo</span>';
+                html += `<a class="list-group-item list-group-item-action small py-1 px-2" style="cursor:pointer"
+                            onclick="loadClientHistory(${c.id}, '${escapeHtml(c.name)}', '${c.dni}')">
+                            <span class="fw-semibold">${escapeHtml(c.name)}</span>${statusBadge}
+                            <span class="text-muted ms-1">${c.dni}</span>
+                            <span class="float-end text-info">${c.op_count} ops</span>
+                        </a>`;
+            });
+            container.html(html);
+        });
+    }, 350);
+}
+
+function loadClientHistory(clientId, clientName, clientDni) {
+    $('#clientSearchResults').empty();
+    $('#clientSearchInput').val('');
+    $('#clientHistoryPanel').removeClass('d-none');
+    $('#clientHistoryEmpty').addClass('d-none');
+    $('#selectedClientName').text(clientName);
+    $('#selectedClientInfo').text(`DNI/RUC: ${clientDni}`);
+    $('#clientHistoryBody').html('<tr><td colspan="7" class="text-center py-3"><div class="spinner-border spinner-border-sm"></div></td></tr>');
+
+    const params = new URLSearchParams();
+    const tid = getTraderIdFilter();
+    if (tid) params.append('trader_id', tid);
+    ajaxRequest(`/dashboard/api/dashboard/client-operations/${clientId}?${params.toString()}`, 'GET', null, function(response) {
+        const ops = response.operations || [];
+        const summary = response.summary || {};
+
+        $('#clientTotalOps').text(summary.total_ops || 0);
+        $('#clientTotalUsd').text(`$ ${formatNumber(summary.total_usd || 0, 0)}`);
+        $('#clientTotalProfit').text(`S/ ${formatNumber(summary.total_profit || 0, 2)}`);
+
+        if (ops.length === 0) {
+            $('#clientHistoryBody').html('<tr><td colspan="7" class="text-center text-muted py-3 small">Sin operaciones registradas</td></tr>');
+            return;
+        }
+
+        let html = '';
+        ops.forEach(function(op) {
+            let profitHtml = '<span class="text-muted small">-</span>';
+            if (op.profit_pen !== null && op.profit_pen !== undefined) {
+                const pClass = op.profit_pen >= 0 ? 'text-success' : 'text-danger';
+                profitHtml = `<span class="${pClass} fw-bold small">S/ ${formatNumber(op.profit_pen, 2)}</span>`;
+            }
+            html += `<tr>
+                <td class="small text-muted">${op.date}</td>
+                <td class="small">${op.operation_id}</td>
+                <td><span class="badge ${op.type === 'Compra' ? 'bg-info' : 'bg-warning text-dark'}" style="font-size:0.65rem">${op.type}</span></td>
+                <td class="small text-end">$ ${formatNumber(op.amount_usd, 2)}</td>
+                <td class="small text-end">S/ ${formatNumber(op.amount_pen, 2)}</td>
+                <td class="small text-end">${op.exchange_rate.toFixed(4)}</td>
+                <td class="text-end">${profitHtml}</td>
+            </tr>`;
+        });
+        $('#clientHistoryBody').html(html);
+    });
+}
+
+function formatNumber(n, decimals) {
+    return parseFloat(n).toLocaleString('es-PE', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+}
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 // ==================== TIPOS DE CAMBIO ====================
