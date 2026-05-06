@@ -180,6 +180,8 @@ class EmailService:
 
             # Sender: email del trader dueño de la operación
             trader_email = operation.user.email if operation.user and operation.user.email else None
+            if not trader_email:
+                logger.warning(f'Trader sin email para operación {operation.operation_id} — usando remitente por defecto')
 
             # Crear mensaje
             msg = Message(

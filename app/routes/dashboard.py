@@ -17,26 +17,6 @@ from sqlalchemy import and_, func
 dashboard_bp = Blueprint('dashboard', __name__)
 
 
-@dashboard_bp.route('/test-email-relay')
-@login_required
-@require_role('Master')
-def test_email_relay():
-    """Ruta temporal: verifica que SMTP relay envía desde el email del trader"""
-    from flask_mail import Message
-    from app.extensions import mail
-    try:
-        msg = Message(
-            subject='[TEST RELAY] Correo desde trader — QoriCash',
-            sender='ggarcia@qoricash.pe',
-            recipients=['ggarcia@qoricash.pe'],
-            cc=['gerencia@qoricash.pe'],
-            html='<p>Test exitoso. El correo sale desde <strong>ggarcia@qoricash.pe</strong> via SMTP relay.</p>'
-        )
-        mail.send(msg)
-        return jsonify({'ok': True, 'mensaje': 'Email enviado desde ggarcia@qoricash.pe — revisa la bandeja'})
-    except Exception as e:
-        return jsonify({'ok': False, 'error': str(e)}), 500
-
 
 @dashboard_bp.route('/')
 @login_required
@@ -747,3 +727,345 @@ def save_profit():
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
+
+
+@dashboard_bp.route('/api/dashboard/top-clients')
+@login_required
+def get_top_clients():
+    """
+    API: Top 10 clientes por volumen USD del trader en el mes
+    """
+    from app.models.client import Client
+
+    trader_id = request.args.get('trader_id', type=int)
+    month = request.args.get('month', type=int)
+    year = request.args.get('year', type=int)
+
+    now = now_peru()
+    if not month:
+        month = now.month
+    if not year:
+        year = now.year
+
+    start_date = datetime(year, month, 1)
+    if month == 12:
+        end_date = datetime(year + 1, 1, 1)
+    else:
+        end_date = datetime(year, month + 1, 1)
+
+    query = db.session.query(
+        Operation.client_id,
+        func.sum(Operation.amount_usd).label('total_usd'),
+        func.sum(Operation.amount_pen).label('total_pen'),
+        func.count(Operation.id).label('op_count')
+    ).filter(
+        Operation.status == 'Completada',
+        Operation.created_at >= start_date,
+        Operation.created_at < end_date
+    )
+
+    if trader_id:
+        query = query.filter(Operation.user_id == trader_id)
+
+    results = query.group_by(Operation.client_id).order_by(
+        func.sum(Operation.amount_usd).desc()
+    ).limit(10).all()
+
+    top_clients = []
+    for r in results:
+        client = Client.query.get(r.client_id)
+        if client:
+            if client.document_type == 'RUC':
+                name = client.razon_social or f'RUC {client.dni}'
+            else:
+                parts = [client.apellido_paterno, client.apellido_materno, client.nombres]
+                name = ' '.join(p for p in parts if p) or f'Cliente {client.dni}'
+            top_clients.append({
+                'client_id': r.client_id,
+                'name': name,
+                'dni': client.dni,
+                'total_usd': float(r.total_usd),
+                'total_pen': float(r.total_pen),
+                'op_count': int(r.op_count)
+            })
+
+    return jsonify({'top_clients': top_clients})
+
+
+@dashboard_bp.route('/api/dashboard/inactive-clients')
+@login_required
+def get_inactive_clients():
+    """
+    API: Clientes que dejaron de operar (30, 60, 90+ dias)
+    """
+    from app.models.client import Client
+
+    trader_id = request.args.get('trader_id', type=int)
+
+    now = now_peru()
+    date_30 = now - timedelta(days=30)
+    date_60 = now - timedelta(days=60)
+    date_90 = now - timedelta(days=90)
+
+    subq = db.session.query(
+        Operation.client_id,
+        func.max(Operation.created_at).label('last_op')
+    ).filter(Operation.status == 'Completada')
+
+    if trader_id:
+        subq = subq.filter(Operation.user_id == trader_id)
+
+    subq = subq.group_by(Operation.client_id).subquery()
+
+    results = db.session.query(
+        Client.id,
+        Client.document_type,
+        Client.nombres,
+        Client.apellido_paterno,
+        Client.apellido_materno,
+        Client.razon_social,
+        Client.dni,
+        subq.c.last_op
+    ).join(subq, Client.id == subq.c.client_id).filter(
+        subq.c.last_op < date_30
+    ).order_by(subq.c.last_op.asc()).all()
+
+    inactive_30 = []
+    inactive_60 = []
+    inactive_90 = []
+
+    for r in results:
+        if r.document_type == 'RUC':
+            name = r.razon_social or f'RUC {r.dni}'
+        else:
+            parts = [r.apellido_paterno, r.apellido_materno, r.nombres]
+            name = ' '.join(p for p in parts if p) or f'Cliente {r.dni}'
+
+        days_inactive = (now - r.last_op).days if r.last_op else 0
+        client_data = {
+            'client_id': r.id,
+            'name': name,
+            'dni': r.dni,
+            'last_op': r.last_op.strftime('%d/%m/%Y') if r.last_op else None,
+            'days_inactive': days_inactive
+        }
+
+        if r.last_op < date_90:
+            inactive_90.append(client_data)
+        elif r.last_op < date_60:
+            inactive_60.append(client_data)
+        else:
+            inactive_30.append(client_data)
+
+    return jsonify({
+        'inactive_30': inactive_30,
+        'inactive_60': inactive_60,
+        'inactive_90': inactive_90,
+        'count_30': len(inactive_30),
+        'count_60': len(inactive_60),
+        'count_90': len(inactive_90),
+        'total': len(results)
+    })
+
+
+@dashboard_bp.route('/api/dashboard/client-search')
+@login_required
+def client_search():
+    """
+    API: Buscar clientes por DNI o nombre
+    """
+    from app.models.client import Client
+    from app.extensions import db as _db
+
+    q = request.args.get('q', '').strip()
+    trader_id = request.args.get('trader_id', type=int)
+
+    if not q or len(q) < 2:
+        return jsonify({'clients': []})
+
+    clients_found = Client.query.filter(
+        _db.or_(
+            Client.dni.ilike(f'%{q}%'),
+            Client.nombres.ilike(f'%{q}%'),
+            Client.apellido_paterno.ilike(f'%{q}%'),
+            Client.razon_social.ilike(f'%{q}%')
+        )
+    ).limit(8).all()
+
+    clients_data = []
+    for c in clients_found:
+        if c.document_type == 'RUC':
+            name = c.razon_social or f'RUC {c.dni}'
+        else:
+            parts = [c.apellido_paterno, c.apellido_materno, c.nombres]
+            name = ' '.join(p for p in parts if p) or f'Cliente {c.dni}'
+
+        op_count_q = Operation.query.filter(
+            Operation.client_id == c.id,
+            Operation.status == 'Completada'
+        )
+        if trader_id:
+            op_count_q = op_count_q.filter(Operation.user_id == trader_id)
+        op_count = op_count_q.count()
+
+        clients_data.append({
+            'id': c.id,
+            'name': name,
+            'dni': c.dni,
+            'status': c.status,
+            'op_count': op_count
+        })
+
+    return jsonify({'clients': clients_data})
+
+
+@dashboard_bp.route('/api/dashboard/client-operations/<int:client_id>')
+@login_required
+def get_client_operations(client_id):
+    """
+    API: Historial de operaciones de un cliente especifico
+    """
+    from app.models.client import Client
+
+    trader_id = request.args.get('trader_id', type=int)
+
+    client = Client.query.get_or_404(client_id)
+
+    query = Operation.query.filter(
+        Operation.client_id == client_id,
+        Operation.status == 'Completada'
+    )
+
+    if trader_id:
+        query = query.filter(Operation.user_id == trader_id)
+
+    operations = query.order_by(Operation.created_at.desc()).limit(30).all()
+
+    ops_data = []
+    total_usd = 0.0
+    total_profit = 0.0
+
+    for op in operations:
+        profit = None
+        if op.base_rate and float(op.base_rate) > 0:
+            diff = float(op.exchange_rate) - float(op.base_rate)
+            if op.operation_type == 'Compra':
+                diff = -diff
+            profit = round(diff * float(op.amount_usd), 2)
+
+        total_usd += float(op.amount_usd)
+        if profit is not None:
+            total_profit += profit
+
+        ops_data.append({
+            'operation_id': op.operation_id,
+            'type': op.operation_type,
+            'amount_usd': float(op.amount_usd),
+            'amount_pen': float(op.amount_pen),
+            'exchange_rate': float(op.exchange_rate),
+            'base_rate': float(op.base_rate) if op.base_rate else None,
+            'profit_pen': profit,
+            'date': op.created_at.strftime('%d/%m/%Y %H:%M')
+        })
+
+    if client.document_type == 'RUC':
+        name = client.razon_social or f'RUC {client.dni}'
+    else:
+        parts = [client.apellido_paterno, client.apellido_materno, client.nombres]
+        name = ' '.join(p for p in parts if p) or f'Cliente {client.dni}'
+
+    return jsonify({
+        'client': {
+            'id': client.id,
+            'name': name,
+            'dni': client.dni,
+            'email': client.email,
+            'status': client.status
+        },
+        'operations': ops_data,
+        'summary': {
+            'total_ops': len(ops_data),
+            'total_usd': round(total_usd, 2),
+            'total_profit': round(total_profit, 2)
+        }
+    })
+
+
+@dashboard_bp.route('/api/dashboard/profit-per-op')
+@login_required
+def get_profit_per_operation():
+    """
+    API: Ultimas operaciones del mes con utilidad calculada por operacion
+    Utilidad = (tipo_cambio - tasa_base) * monto_USD  (requiere base_rate registrado)
+    """
+    from app.models.client import Client
+
+    trader_id = request.args.get('trader_id', type=int)
+    month = request.args.get('month', type=int)
+    year = request.args.get('year', type=int)
+
+    now = now_peru()
+    if not month:
+        month = now.month
+    if not year:
+        year = now.year
+
+    start_date = datetime(year, month, 1)
+    if month == 12:
+        end_date = datetime(year + 1, 1, 1)
+    else:
+        end_date = datetime(year, month + 1, 1)
+
+    query = Operation.query.filter(
+        Operation.status == 'Completada',
+        Operation.created_at >= start_date,
+        Operation.created_at < end_date
+    )
+
+    if trader_id:
+        query = query.filter(Operation.user_id == trader_id)
+
+    operations = query.order_by(Operation.created_at.desc()).limit(25).all()
+
+    ops_data = []
+    total_profit = 0.0
+    ops_with_profit = 0
+
+    for op in operations:
+        profit = None
+        if op.base_rate and float(op.base_rate) > 0:
+            diff = float(op.exchange_rate) - float(op.base_rate)
+            if op.operation_type == 'Compra':
+                diff = -diff
+            profit = round(diff * float(op.amount_usd), 2)
+
+        client = op.client
+        if client:
+            if client.document_type == 'RUC':
+                client_name = client.razon_social or f'RUC {client.dni}'
+            else:
+                parts = [client.apellido_paterno, client.apellido_materno, client.nombres]
+                client_name = ' '.join(p for p in parts if p) or f'Cliente {client.dni}'
+        else:
+            client_name = 'N/A'
+
+        if profit is not None:
+            total_profit += profit
+            ops_with_profit += 1
+
+        ops_data.append({
+            'operation_id': op.operation_id,
+            'client_name': client_name,
+            'type': op.operation_type,
+            'amount_usd': float(op.amount_usd),
+            'exchange_rate': float(op.exchange_rate),
+            'base_rate': float(op.base_rate) if op.base_rate else None,
+            'profit_pen': profit,
+            'date': op.created_at.strftime('%d/%m/%Y')
+        })
+
+    return jsonify({
+        'operations': ops_data,
+        'total_calculated_profit': round(total_profit, 2),
+        'ops_with_profit': ops_with_profit
+    })
