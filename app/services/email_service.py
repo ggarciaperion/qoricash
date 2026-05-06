@@ -124,32 +124,12 @@ class EmailService:
         Returns:
             tuple: (to, cc, bcc) donde:
                 - to: Cliente (destinatario principal)
-                - cc: Trader que creó la operación
-                - bcc: Master y Operadores
+                - cc: gerencia@qoricash.pe
+                - bcc: vacío
         """
-        # Destinatario principal: Cliente
         to = [operation.client.email] if operation.client and operation.client.email else []
-
-        # Copia: Trader que creó la operación (solo si es distinto al cliente)
-        cc = []
-        if operation.user and operation.user.email:
-            if operation.user.email not in to:
-                cc.append(operation.user.email)
-
-        # Copia oculta: Master y Operadores (excluir emails ya en to o cc)
-        seen = set(to) | set(cc)
+        cc = [e for e in ['gerencia@qoricash.pe'] if e not in set(to)]
         bcc = []
-        masters_and_operators = User.query.filter(
-            User.role.in_(['Master', 'Operador']),
-            User.status == 'Activo',
-            User.email.isnot(None)
-        ).all()
-
-        for user in masters_and_operators:
-            if user.email and user.email not in seen:
-                bcc.append(user.email)
-                seen.add(user.email)
-
         return to, cc, bcc
 
     @staticmethod
@@ -160,22 +140,12 @@ class EmailService:
         Returns:
             tuple: (to, cc, bcc) donde:
                 - to: Cliente
-                - cc: Trader que creó la operación
-                - bcc: gerencia@qoricash.pe
+                - cc: gerencia@qoricash.pe
+                - bcc: vacío
         """
-        # Destinatario principal: Cliente
         to = [operation.client.email] if operation.client and operation.client.email else []
-
-        # Copia: Trader que creó la operación (solo si es distinto al cliente)
-        cc = []
-        if operation.user and operation.user.email:
-            if operation.user.email not in to:
-                cc.append(operation.user.email)
-
-        # Copia oculta: Gerencia (solo si no está ya en to/cc)
-        seen = set(to) | set(cc)
-        bcc = [e for e in ['gerencia@qoricash.pe'] if e not in seen]
-
+        cc = [e for e in ['gerencia@qoricash.pe'] if e not in set(to)]
+        bcc = []
         return to, cc, bcc
 
     @staticmethod
@@ -208,9 +178,13 @@ class EmailService:
             # Contenido HTML
             html_body = EmailService._render_new_operation_template(operation)
 
+            # Sender: email del trader dueño de la operación
+            trader_email = operation.user.email if operation.user and operation.user.email else None
+
             # Crear mensaje
             msg = Message(
                 subject=subject,
+                sender=trader_email,
                 recipients=to,
                 cc=cc,
                 bcc=bcc,
@@ -248,111 +222,59 @@ class EmailService:
             tuple: (success: bool, message: str)
         """
         try:
-            from flask import current_app
-            from flask_mail import Message, Mail
-
             logger.info(f'[EMAIL] Iniciando envio de email completado para operacion {operation.operation_id}')
-            logger.info(f'[EMAIL] operator_proofs: {operation.operator_proofs}')
-            logger.info(f'[EMAIL] operator_proof_url (legacy): {operation.operator_proof_url}')
 
             to, cc, bcc = EmailService.get_recipients_for_completed_operation(operation)
 
             logger.info(f'[EMAIL] Destinatarios - TO: {to}, CC: {cc}')
 
-            # Validar que haya al menos un destinatario
             if not to and not cc:
                 logger.warning(f'No hay destinatarios para la operación completada {operation.operation_id}')
                 return False, 'No hay destinatarios configurados'
 
-            # Obtener credenciales del email de confirmación
-            # Si no están configuradas, usar las credenciales regulares como fallback
-            confirmation_username = current_app.config.get('MAIL_CONFIRMATION_USERNAME') or current_app.config.get('MAIL_USERNAME')
-            confirmation_password = current_app.config.get('MAIL_CONFIRMATION_PASSWORD') or current_app.config.get('MAIL_PASSWORD')
-            confirmation_sender = current_app.config.get('MAIL_CONFIRMATION_SENDER') or current_app.config.get('MAIL_DEFAULT_SENDER')
+            # Sender: email del trader dueño de la operación
+            trader_email = operation.user.email if operation.user and operation.user.email else None
 
-            logger.info(f'[EMAIL] Credenciales - Usuario: {confirmation_username}, Remitente: {confirmation_sender}')
+            subject = f'Operación Completada #{operation.operation_id} - QoriCash Trading'
 
-            if not confirmation_username or not confirmation_password:
-                logger.error('[EMAIL] Credenciales de email no configuradas')
-                return False, 'Email no configurado'
+            logger.info(f'[EMAIL] Generando plantilla HTML')
+            html_body = EmailService._render_completed_operation_template(operation)
 
-            # Guardar configuración original
-            original_username = current_app.config.get('MAIL_USERNAME')
-            original_password = current_app.config.get('MAIL_PASSWORD')
-            original_sender = current_app.config.get('MAIL_DEFAULT_SENDER')
+            logger.info(f'[EMAIL] Creando mensaje Flask-Mail')
+            msg = Message(
+                subject=subject,
+                sender=trader_email,
+                recipients=to,
+                cc=cc if cc else None,
+                html=html_body
+            )
 
-            # Sobrescribir temporalmente con credenciales de confirmación
-            current_app.config['MAIL_USERNAME'] = confirmation_username
-            current_app.config['MAIL_PASSWORD'] = confirmation_password
-            current_app.config['MAIL_DEFAULT_SENDER'] = confirmation_sender
-
-            try:
-                # Crear un nuevo objeto Mail con la configuración actualizada
-                from app.extensions import mail
-                mail.init_app(current_app)
-
-                # Asunto
-                subject = f'Operación Completada #{operation.operation_id} - QoriCash Trading'
-
-                # Contenido HTML
-                logger.info(f'[EMAIL] Generando plantilla HTML')
-                html_body = EmailService._render_completed_operation_template(operation)
-
-                # Crear mensaje usando Flask-Mail
-                logger.info(f'[EMAIL] Creando mensaje Flask-Mail')
-                msg = Message(
-                    subject=subject,
-                    sender=confirmation_sender,
-                    recipients=to,
-                    cc=cc if cc else None,
-                    bcc=bcc if bcc else None,
-                    html=html_body
-                )
-
-                # Adjuntar comprobante electrónico si existe
-                if operation.invoices and len(operation.invoices) > 0:
-                    invoice = operation.invoices[0]  # Tomar el primer invoice
-                    if invoice.nubefact_enlace_pdf:
-                        try:
-                            logger.info(f'[EMAIL] Descargando comprobante PDF desde: {invoice.nubefact_enlace_pdf}')
-                            import requests
-                            pdf_response = requests.get(invoice.nubefact_enlace_pdf, timeout=10)
-
-                            if pdf_response.status_code == 200:
-                                # Nombre del archivo adjunto
-                                filename = f'{invoice.invoice_number}.pdf' if invoice.invoice_number else 'comprobante.pdf'
-
-                                # Adjuntar PDF al mensaje
-                                msg.attach(
-                                    filename,
-                                    'application/pdf',
-                                    pdf_response.content,
-                                    'attachment'
-                                )
-                                logger.info(f'[EMAIL] Comprobante PDF adjuntado: {filename}')
-                            else:
-                                logger.warning(f'[EMAIL] Error al descargar PDF: HTTP {pdf_response.status_code}')
-                        except Exception as e:
-                            logger.error(f'[EMAIL] Error al adjuntar comprobante: {str(e)}')
-                    else:
-                        logger.info(f'[EMAIL] Invoice existe pero no tiene enlace PDF')
+            # Adjuntar comprobante electrónico si existe
+            if operation.invoices and len(operation.invoices) > 0:
+                invoice = operation.invoices[0]
+                if invoice.nubefact_enlace_pdf:
+                    try:
+                        logger.info(f'[EMAIL] Descargando comprobante PDF desde: {invoice.nubefact_enlace_pdf}')
+                        import requests
+                        pdf_response = requests.get(invoice.nubefact_enlace_pdf, timeout=10)
+                        if pdf_response.status_code == 200:
+                            filename = f'{invoice.invoice_number}.pdf' if invoice.invoice_number else 'comprobante.pdf'
+                            msg.attach(filename, 'application/pdf', pdf_response.content, 'attachment')
+                            logger.info(f'[EMAIL] Comprobante PDF adjuntado: {filename}')
+                        else:
+                            logger.warning(f'[EMAIL] Error al descargar PDF: HTTP {pdf_response.status_code}')
+                    except Exception as e:
+                        logger.error(f'[EMAIL] Error al adjuntar comprobante: {str(e)}')
                 else:
-                    logger.info(f'[EMAIL] Operación sin comprobante electrónico')
+                    logger.info(f'[EMAIL] Invoice existe pero no tiene enlace PDF')
+            else:
+                logger.info(f'[EMAIL] Operación sin comprobante electrónico')
 
-                # Enviar ASÍNCRONO para no bloquear el worker
-                logger.info(f'[EMAIL] Programando envío de email a TO: {to}, CC: {cc}')
-                EmailService._send_async(msg, timeout=15)
+            logger.info(f'[EMAIL] Programando envío desde {trader_email} a TO: {to}, CC: {cc}')
+            EmailService._send_async(msg, timeout=15)
 
-                logger.info(f'[EMAIL] Email de operacion completada programado para envío desde {confirmation_sender}: {operation.operation_id}')
-                return True, 'Email programado para envío'
-
-            finally:
-                # Restaurar configuración original
-                current_app.config['MAIL_USERNAME'] = original_username
-                current_app.config['MAIL_PASSWORD'] = original_password
-                current_app.config['MAIL_DEFAULT_SENDER'] = original_sender
-                # Reinicializar mail con configuración original
-                mail.init_app(current_app)
+            logger.info(f'[EMAIL] Email de operacion completada programado: {operation.operation_id}')
+            return True, 'Email programado para envío'
 
         except Exception as e:
             logger.error(f'[EMAIL] ERROR al enviar email de operacion completada {operation.operation_id}: {str(e)}')
@@ -680,12 +602,10 @@ class EmailService:
         """
         try:
             to = [operation.client.email] if operation.client and operation.client.email else []
+            cc = [e for e in ['gerencia@qoricash.pe'] if e not in set(to)]
+            trader_email = operation.user.email if operation.user and operation.user.email else None
 
-            cc = []
-            if operation.user and operation.user.email:
-                cc.append(operation.user.email)
-
-            if not to and not cc:
+            if not to:
                 logger.warning(f'No hay destinatarios para correo de cancelación de operación {operation.operation_id}')
                 return False, 'No hay destinatarios configurados'
 
@@ -694,6 +614,7 @@ class EmailService:
 
             msg = Message(
                 subject=subject,
+                sender=trader_email,
                 recipients=to,
                 cc=cc,
                 html=html_body
@@ -722,12 +643,10 @@ class EmailService:
         """
         try:
             to = [operation.client.email] if operation.client and operation.client.email else []
+            cc = [e for e in ['gerencia@qoricash.pe'] if e not in set(to)]
+            trader_email = operation.user.email if operation.user and operation.user.email else None
 
-            cc = []
-            if operation.user and operation.user.email:
-                cc.append(operation.user.email)
-
-            if not to and not cc:
+            if not to:
                 logger.warning(f'No hay destinatarios para correo de modificación de monto {operation.operation_id}')
                 return False, 'No hay destinatarios configurados'
 
@@ -736,6 +655,7 @@ class EmailService:
 
             msg = Message(
                 subject=subject,
+                sender=trader_email,
                 recipients=to,
                 cc=cc,
                 html=html_body

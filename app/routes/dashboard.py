@@ -17,6 +17,27 @@ from sqlalchemy import and_, func
 dashboard_bp = Blueprint('dashboard', __name__)
 
 
+@dashboard_bp.route('/test-email-relay')
+@login_required
+@require_role('Master')
+def test_email_relay():
+    """Ruta temporal: verifica que SMTP relay envía desde el email del trader"""
+    from flask_mail import Message
+    from app.extensions import mail
+    try:
+        msg = Message(
+            subject='[TEST RELAY] Correo desde trader — QoriCash',
+            sender='ggarcia@qoricash.pe',
+            recipients=['ggarcia@qoricash.pe'],
+            cc=['gerencia@qoricash.pe'],
+            html='<p>Test exitoso. El correo sale desde <strong>ggarcia@qoricash.pe</strong> via SMTP relay.</p>'
+        )
+        mail.send(msg)
+        return jsonify({'ok': True, 'mensaje': 'Email enviado desde ggarcia@qoricash.pe — revisa la bandeja'})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
 @dashboard_bp.route('/')
 @login_required
 def index():
