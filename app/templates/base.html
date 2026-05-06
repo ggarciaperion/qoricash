@@ -88,7 +88,7 @@
 
             {% if current_user.role in ['Master', 'Trader', 'Operador', 'Middle Office'] %}
             <div class="sidebar-section-label">Inteligencia</div>
-            {% if current_user.role in ['Master', 'Operador'] %}
+            {% if current_user.role in ['Master', 'Trader', 'Operador'] %}
             <a class="sidebar-link {% if request.endpoint and 'fx_monitor' in request.endpoint %}active{% endif %}"
                href="{{ url_for('fx_monitor.dashboard') }}">
                 <i class="bi bi-graph-up-arrow"></i>

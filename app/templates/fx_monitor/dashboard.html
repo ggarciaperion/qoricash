@@ -298,7 +298,8 @@
         </div>
       </div>
 
-      <!-- Mis Tipos de Cambio -->
+      <!-- Mis Tipos de Cambio (solo Master / Operador) -->
+      {% if current_user.role in ['Master', 'Operador'] %}
       <div class="card shadow-sm">
         <div class="card-header bg-white border-bottom py-2">
           <span class="fw-semibold text-dark">
@@ -361,6 +362,7 @@
 
         </div>
       </div>
+      {% endif %}
 
     </div>
   </div>
