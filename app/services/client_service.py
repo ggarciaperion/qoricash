@@ -21,18 +21,24 @@ class ClientService:
     """Servicio de gestión de clientes"""
 
     @staticmethod
-    def get_all_clients():
+    def get_all_clients(exclude_user_id=None):
         """
         Obtener todos los clientes
 
         ACTUALIZADO: Incluye eager loading de la relación 'creator' para mostrar
         el usuario que registró al cliente
 
+        Args:
+            exclude_user_id: ID de usuario cuyos clientes excluir (ej. demo_trader)
+
         Returns:
             list: Lista de clientes ordenados por fecha de creación
         """
         from sqlalchemy.orm import joinedload
-        return Client.query.options(joinedload(Client.creator)).order_by(Client.created_at.desc()).all()
+        query = Client.query.options(joinedload(Client.creator))
+        if exclude_user_id:
+            query = query.filter(Client.created_by != exclude_user_id)
+        return query.order_by(Client.created_at.desc()).all()
 
     @staticmethod
     def get_active_clients():

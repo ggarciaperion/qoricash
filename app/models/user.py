@@ -153,6 +153,12 @@ class User(UserMixin, db.Model):
     def is_demo(self):
         """Verificar si es usuario demo (solo lectura, no afecta producción)"""
         return self.username.lower() == 'demo_trader'
-    
+
+    @classmethod
+    def get_demo_user_id(cls):
+        """Retorna el ID del usuario demo_trader, o None si no existe."""
+        demo = cls.query.filter_by(username='demo_trader').first()
+        return demo.id if demo else None
+
     def __repr__(self):
         return f'<User {self.username} ({self.role})>'

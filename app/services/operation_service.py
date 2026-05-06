@@ -20,21 +20,25 @@ class OperationService:
     """Servicio de gestión de operaciones"""
     
     @staticmethod
-    def get_all_operations(include_relations=True):
+    def get_all_operations(include_relations=True, exclude_user_id=None):
         """
         Obtener todas las operaciones
-        
+
         Args:
             include_relations: Si incluir datos de cliente y usuario
-        
+            exclude_user_id: ID de usuario cuyas operaciones excluir (ej. demo_trader)
+
         Returns:
             list: Lista de operaciones
         """
-        operations = Operation.query.order_by(Operation.created_at.desc()).all()
-        
+        query = Operation.query
+        if exclude_user_id:
+            query = query.filter(Operation.user_id != exclude_user_id)
+        operations = query.order_by(Operation.created_at.desc()).all()
+
         if include_relations:
             return [op.to_dict(include_relations=True) for op in operations]
-        
+
         return operations
     
     @staticmethod
@@ -90,10 +94,13 @@ class OperationService:
         return Operation.query.filter_by(client_id=client_id).order_by(Operation.created_at.desc()).all()
     
     @staticmethod
-    def get_today_operations():
+    def get_today_operations(exclude_user_id=None):
         """
         Obtener operaciones de hoy (según zona horaria de Perú)
         Ordenadas con "En proceso" primero, luego por fecha descendente
+
+        Args:
+            exclude_user_id: ID de usuario cuyas operaciones excluir (ej. demo_trader)
 
         Returns:
             list: Lista de operaciones de hoy ordenadas por prioridad
@@ -113,10 +120,13 @@ class OperationService:
             else_=1
         )
 
-        return Operation.query.filter(
+        query = Operation.query.filter(
             Operation.created_at >= start_of_day,
             Operation.created_at <= end_of_day
-        ).order_by(
+        )
+        if exclude_user_id:
+            query = query.filter(Operation.user_id != exclude_user_id)
+        return query.order_by(
             priority_order,  # Primero por prioridad (En proceso = 0)
             Operation.created_at.desc()  # Luego por fecha descendente
         ).all()

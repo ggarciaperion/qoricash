@@ -17,6 +17,11 @@ from sqlalchemy import and_, func
 dashboard_bp = Blueprint('dashboard', __name__)
 
 
+def _demo_user_id():
+    """Retorna el ID del demo_trader para excluirlo de vistas de producción."""
+    return User.query.filter_by(username='demo_trader').with_entities(User.id).scalar()
+
+
 
 @dashboard_bp.route('/')
 @login_required
@@ -69,10 +74,12 @@ def get_dashboard_data():
         from app.models.user import User
         from app.models.client import Client
 
-        stats['total_users'] = User.query.count()
-        stats['active_users'] = User.query.filter_by(status='Activo').count()
-        stats['total_clients'] = Client.query.count()
-        stats['active_clients'] = Client.query.filter_by(status='Activo').count()
+        demo_id = _demo_user_id()
+        stats['total_users'] = User.query.filter(User.username != 'demo_trader').count()
+        stats['active_users'] = User.query.filter(User.status == 'Activo', User.username != 'demo_trader').count()
+        base_q = Client.query.filter(Client.created_by != demo_id) if demo_id else Client.query
+        stats['total_clients'] = base_q.count()
+        stats['active_clients'] = base_q.filter_by(status='Activo').count()
 
     return jsonify(stats)
 
@@ -126,10 +133,13 @@ def get_all_dashboard_data():
         end_of_day = datetime(now.year, now.month, now.day, 23, 59, 59)
         today_date = now.date()
 
+    demo_id = _demo_user_id()
     query_today = Operation.query.filter(
         Operation.created_at >= start_of_day,
         Operation.created_at <= end_of_day
     )
+    if not trader_id and demo_id:
+        query_today = query_today.filter(Operation.user_id != demo_id)
 
     if trader_id:
         query_today = query_today.filter(Operation.user_id == trader_id)
@@ -202,6 +212,8 @@ def get_all_dashboard_data():
             Operation.created_at < end_date
         )
     )
+    if not trader_id and demo_id:
+        query_month = query_month.filter(Operation.user_id != demo_id)
 
     if trader_id:
         query_month = query_month.filter(Operation.user_id == trader_id)
@@ -260,9 +272,10 @@ def get_all_dashboard_data():
                 diff = -diff
             profit_month_spread += diff * float(op.amount_usd)
 
-    # Clientes activos
+    # Clientes activos (excluir demo)
     from app.models.client import Client
-    active_clients = Client.query.filter_by(status='Activo').count()
+    _client_q = Client.query.filter(Client.created_by != demo_id) if demo_id else Client.query
+    active_clients = _client_q.filter_by(status='Activo').count()
 
     stats_month = {
         'operations_count': len(completed_month),
@@ -322,6 +335,12 @@ def get_today_stats():
         Operation.created_at >= start_of_day,
         Operation.created_at <= end_of_day
     )
+
+    # Excluir demo cuando no hay filtro de trader específico
+    if not trader_id:
+        demo_id = _demo_user_id()
+        if demo_id:
+            query = query.filter(Operation.user_id != demo_id)
 
     # Aplicar filtro por trader si existe
     if trader_id:
@@ -408,6 +427,12 @@ def get_month_stats():
         )
     )
 
+    # Excluir demo cuando no hay filtro de trader específico
+    if not trader_id:
+        _demo_id = _demo_user_id()
+        if _demo_id:
+            query = query.filter(Operation.user_id != _demo_id)
+
     # Aplicar filtro por trader si existe
     if trader_id:
         query = query.filter(Operation.user_id == trader_id)
@@ -461,9 +486,11 @@ def get_month_stats():
         ).all()
         goal_amount = sum(float(g.goal_amount_pen) for g in all_goals)
 
-    # Contar clientes activos
+    # Contar clientes activos (excluir demo)
     from app.models.client import Client
-    active_clients = Client.query.filter_by(status='Activo').count()
+    _demo_id_c = _demo_user_id()
+    _cq = Client.query.filter(Client.created_by != _demo_id_c) if _demo_id_c else Client.query
+    active_clients = _cq.filter_by(status='Activo').count()
 
     # Obtener operaciones solo del día actual para "Estado de Operaciones"
     today_start = datetime(now.year, now.month, now.day, 0, 0, 0)
@@ -473,6 +500,8 @@ def get_month_stats():
         Operation.created_at >= today_start,
         Operation.created_at <= today_end
     )
+    if not trader_id and _demo_id_c:
+        query_today = query_today.filter(Operation.user_id != _demo_id_c)
 
     # Aplicar filtro por trader si existe
     if trader_id:
@@ -506,7 +535,11 @@ def get_traders():
 
     Solo accesible para Master
     """
-    traders = User.query.filter_by(role='Trader', status='Activo').all()
+    traders = User.query.filter(
+        User.role == 'Trader',
+        User.status == 'Activo',
+        User.username != 'demo_trader'
+    ).all()
 
     return jsonify({
         'traders': [{
@@ -773,16 +806,21 @@ def get_top_clients():
     else:
         end_date = datetime(year, month + 1, 1)
 
+    _demo_top = _demo_user_id() if not trader_id else None
+    _top_filters = [
+        Operation.status == 'Completada',
+        Operation.created_at >= start_date,
+        Operation.created_at < end_date,
+    ]
+    if _demo_top:
+        _top_filters.append(Operation.user_id != _demo_top)
+
     query = db.session.query(
         Operation.client_id,
         func.sum(Operation.amount_usd).label('total_usd'),
         func.sum(Operation.amount_pen).label('total_pen'),
         func.count(Operation.id).label('op_count')
-    ).filter(
-        Operation.status == 'Completada',
-        Operation.created_at >= start_date,
-        Operation.created_at < end_date
-    )
+    ).filter(*_top_filters)
 
     if trader_id:
         query = query.filter(Operation.user_id == trader_id)
@@ -827,10 +865,13 @@ def get_inactive_clients():
     date_60 = now - timedelta(days=60)
     date_90 = now - timedelta(days=90)
 
+    _demo_inact = _demo_user_id() if not trader_id else None
     subq = db.session.query(
         Operation.client_id,
         func.max(Operation.created_at).label('last_op')
     ).filter(Operation.status == 'Completada')
+    if _demo_inact:
+        subq = subq.filter(Operation.user_id != _demo_inact)
 
     if trader_id:
         subq = subq.filter(Operation.user_id == trader_id)
@@ -1051,6 +1092,10 @@ def get_profit_per_operation():
         Operation.created_at >= start_date,
         Operation.created_at < end_date
     )
+    if not trader_id:
+        _demo_profit = _demo_user_id()
+        if _demo_profit:
+            query = query.filter(Operation.user_id != _demo_profit)
 
     if trader_id:
         query = query.filter(Operation.user_id == trader_id)

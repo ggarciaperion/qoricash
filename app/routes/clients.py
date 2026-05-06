@@ -41,8 +41,9 @@ def list_clients():
         # Trader y Plataforma solo ven sus propios clientes
         clients = Client.query.filter_by(created_by=current_user.id).order_by(Client.created_at.desc()).all()
     else:
-        # Otros roles ven todos los clientes
-        clients = ClientService.get_all_clients()
+        # Otros roles ven todos los clientes (excepto demo)
+        from app.models.user import User
+        clients = ClientService.get_all_clients(exclude_user_id=User.get_demo_user_id())
 
     return render_template('clients/list.html',
                            user=current_user,
@@ -65,7 +66,8 @@ def api_list():
     if current_user.role in ['Trader', 'App', 'Web']:
         clients = Client.query.filter_by(created_by=current_user.id).order_by(Client.created_at.desc()).all()
     else:
-        clients = ClientService.get_all_clients()
+        from app.models.user import User
+        clients = ClientService.get_all_clients(exclude_user_id=User.get_demo_user_id())
 
     return jsonify({
         'success': True,
@@ -572,10 +574,15 @@ def export_csv():
         from openpyxl.styles import Font, PatternFill, Alignment
         from openpyxl.utils import get_column_letter
 
-        # Obtener todos los clientes con eager loading
+        # Obtener todos los clientes con eager loading (excluir demo)
         from sqlalchemy.orm import joinedload
         from app.models.client import Client
-        clients = Client.query.options(joinedload(Client.creator)).order_by(Client.created_at.desc()).all()
+        from app.models.user import User
+        _demo_id = User.get_demo_user_id()
+        _q = Client.query.options(joinedload(Client.creator))
+        if _demo_id:
+            _q = _q.filter(Client.created_by != _demo_id)
+        clients = _q.order_by(Client.created_at.desc()).all()
 
         if not clients:
             return jsonify({'success': False, 'message': 'No hay clientes para exportar'}), 404

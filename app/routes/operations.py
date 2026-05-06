@@ -85,7 +85,8 @@ def operations_list():
         ).all()
     else:
         # Otros roles (Master, Operador, Middle Office) ven todas las operaciones del día
-        operations = OperationService.get_today_operations()
+        from app.models.user import User
+        operations = OperationService.get_today_operations(exclude_user_id=User.get_demo_user_id())
 
     return render_template('operations/list.html',
                          user=current_user,
@@ -129,8 +130,9 @@ def history():
             Client.created_by == current_user.id
         ).order_by(Operation.created_at.desc()).all()
     else:
-        # Otros roles ven todas las operaciones
-        operations = OperationService.get_all_operations(include_relations=False)
+        # Otros roles ven todas las operaciones (excepto demo)
+        from app.models.user import User
+        operations = OperationService.get_all_operations(include_relations=False, exclude_user_id=User.get_demo_user_id())
 
     return render_template('operations/history.html',
                          user=current_user,
@@ -271,8 +273,10 @@ def export_history():
     start_date = request.args.get('start_date')
     end_date = request.args.get('end_date')
 
-    # Construir query base
-    query = Operation.query
+    # Construir query base (excluir operaciones del usuario demo)
+    from app.models.user import User
+    demo_id = User.get_demo_user_id()
+    query = Operation.query.filter(Operation.user_id != demo_id) if demo_id else Operation.query
 
     # Aplicar filtros de fecha si existen
     if start_date:
