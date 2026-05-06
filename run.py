@@ -364,7 +364,6 @@ def send_test_emails():
     try_send("Bienvenida Web",       lambda: EmailTemplates.send_welcome_email_from_web(C()))
     try_send("Activación + Contraseña", lambda: EmailTemplates.send_activation_with_temp_password(C(), T(), 'Qori2026!'))
     try_send("Activación Auto",      lambda: EmailTemplates.send_activation_without_password(C()))
-    try_send("KYC Aprobado (Trader)",lambda: EmailTemplates.send_trader_kyc_approved_notification(C(), T()))
 
     # 6–13: email_service (renderizamos y enviamos directo para evitar _send_async)
     try_send("Nueva Operación",      lambda: send('Nueva Operación #EXP-TEST-001 — QoriCash', EmailService._render_new_operation_template(Op())))

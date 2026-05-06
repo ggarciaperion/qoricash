@@ -1474,7 +1474,6 @@ def register_cli_commands(app):
         try_send("Bienvenida Web",          lambda: EmailTemplates.send_welcome_email_from_web(C()))
         try_send("Activacion + Contrasena", lambda: EmailTemplates.send_activation_with_temp_password(C(), T(), 'Qori2026!'))
         try_send("Activacion Auto",         lambda: EmailTemplates.send_activation_without_password(C()))
-        try_send("KYC Aprobado (Trader)",   lambda: EmailTemplates.send_trader_kyc_approved_notification(C(), T()))
         try_send("Nueva Operacion",         lambda: send('Nueva Operacion #EXP-TEST-001 - QoriCash', EmailService._render_new_operation_template(Op())))
         try_send("Operacion Completada",    lambda: send('Operacion Completada #EXP-TEST-001 - QoriCash', EmailService._render_completed_operation_template(Op())))
         try_send("Operacion Cancelada",     lambda: send('Operacion Cancelada - EXP-TEST-001 | QoriCash', EmailService._render_canceled_operation_template(Op(), 'Plazo vencido')))
