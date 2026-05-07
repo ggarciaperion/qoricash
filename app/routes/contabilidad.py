@@ -3151,7 +3151,7 @@ def amarres_operaciones_disponibles():
                     'amount_pen': float(op.amount_pen),
                     'base_rate': float(op.base_rate) if op.base_rate else None,
                     'client_name': op.client.full_name if op.client else 'N/A',
-                    'trader_name': op.user.full_name if op.user else None,
+                    'trader_name': op.user.username if op.user else None,
                     'completed_at': op.completed_at.isoformat() if op.completed_at else None,
                     'available_usd': available,
                     'matched_usd': matched,

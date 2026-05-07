@@ -58,7 +58,7 @@ class NotificationService:
                 'amount_pen': float(operation.amount_pen) if operation.amount_pen else 0,
                 'exchange_rate': float(operation.exchange_rate) if operation.exchange_rate else 0,
                 'assigned_operator_id': operation.assigned_operator_id,
-                'assigned_operator_name': operation.assigned_operator.full_name if operation.assigned_operator else None,
+                'assigned_operator_name': operation.assigned_operator.username if operation.assigned_operator else None,
                 'client_deposits': operation.client_deposits or [],
                 'client_payments': operation.client_payments or [],
                 'total_deposits': operation.total_deposits,
