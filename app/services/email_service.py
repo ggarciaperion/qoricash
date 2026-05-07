@@ -579,8 +579,14 @@ class EmailService:
         """
         try:
             to = [operation.client.email] if operation.client and operation.client.email else []
-            cc = [e for e in ['gerencia@qoricash.pe'] if e not in set(to)]
-            trader_email = operation.user.email if operation.user and operation.user.email else None
+            seen = set(to)
+            cc = []
+            trader_email = operation.user.email if operation.user and getattr(operation.user, 'email', None) else None
+            if trader_email and trader_email not in seen:
+                cc.append(trader_email)
+                seen.add(trader_email)
+            if 'gerencia@qoricash.pe' not in seen:
+                cc.append('gerencia@qoricash.pe')
 
             if not to:
                 logger.warning(f'No hay destinatarios para correo de cancelación de operación {operation.operation_id}')
@@ -591,11 +597,12 @@ class EmailService:
 
             msg = Message(
                 subject=subject,
-                sender=trader_email,
                 recipients=to,
                 cc=cc,
                 html=html_body
             )
+            if trader_email:
+                msg.reply_to = trader_email
 
             EmailService._send_async(msg, timeout=15)
             logger.info(f'Email de cancelación programado para operación {operation.operation_id}')
@@ -620,8 +627,14 @@ class EmailService:
         """
         try:
             to = [operation.client.email] if operation.client and operation.client.email else []
-            cc = [e for e in ['gerencia@qoricash.pe'] if e not in set(to)]
-            trader_email = operation.user.email if operation.user and operation.user.email else None
+            seen = set(to)
+            cc = []
+            trader_email = operation.user.email if operation.user and getattr(operation.user, 'email', None) else None
+            if trader_email and trader_email not in seen:
+                cc.append(trader_email)
+                seen.add(trader_email)
+            if 'gerencia@qoricash.pe' not in seen:
+                cc.append('gerencia@qoricash.pe')
 
             if not to:
                 logger.warning(f'No hay destinatarios para correo de modificación de monto {operation.operation_id}')
@@ -632,11 +645,12 @@ class EmailService:
 
             msg = Message(
                 subject=subject,
-                sender=trader_email,
                 recipients=to,
                 cc=cc,
                 html=html_body
             )
+            if trader_email:
+                msg.reply_to = trader_email
 
             EmailService._send_async(msg, timeout=15)
             logger.info(f'Email de modificación de monto programado para operación {operation.operation_id}')
