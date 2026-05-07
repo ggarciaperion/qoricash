@@ -22,6 +22,40 @@ def _demo_user_id():
     return User.query.filter_by(username='demo_trader').with_entities(User.id).scalar()
 
 
+def _trader_profit_from_matches(trader_id, start_dt, end_dt):
+    """
+    Calcula la utilidad real del trader sumando trader_buy_profit_pen
+    y trader_sell_profit_pen de los AccountingMatch activos cuyas
+    operaciones pertenecen a clientes del trader, dentro del rango de fechas.
+    Esta es la fuente de verdad: los amarres ya calculan el split correcto
+    incluso cuando las operaciones del Master no tienen base_rate.
+    """
+    from app.models.accounting_match import AccountingMatch
+    from app.models.client import Client as _C
+
+    buy_profit = db.session.query(func.sum(AccountingMatch.trader_buy_profit_pen))\
+        .join(Operation, AccountingMatch.buy_operation_id == Operation.id)\
+        .join(_C, Operation.client_id == _C.id)\
+        .filter(
+            _C.created_by == trader_id,
+            AccountingMatch.status == 'Activo',
+            AccountingMatch.created_at >= start_dt,
+            AccountingMatch.created_at < end_dt,
+        ).scalar() or 0
+
+    sell_profit = db.session.query(func.sum(AccountingMatch.trader_sell_profit_pen))\
+        .join(Operation, AccountingMatch.sell_operation_id == Operation.id)\
+        .join(_C, Operation.client_id == _C.id)\
+        .filter(
+            _C.created_by == trader_id,
+            AccountingMatch.status == 'Activo',
+            AccountingMatch.created_at >= start_dt,
+            AccountingMatch.created_at < end_dt,
+        ).scalar() or 0
+
+    return float(buy_profit) + float(sell_profit)
+
+
 
 @dashboard_bp.route('/')
 @login_required
@@ -153,16 +187,18 @@ def get_all_dashboard_data():
     all_operations_today = query_today.all()
     completed_today = [op for op in all_operations_today if op.status == 'Completada']
 
-    # Utilidad del día: spread por operación (exchange_rate vs base_rate).
-    # Operaciones sin base_rate no aportan utilidad calculable.
-    profit_today = 0
-    profit_today_spread = 0.0
-    for op in completed_today:
-        if op.base_rate and float(op.base_rate) > 0:
-            diff = float(op.exchange_rate) - float(op.base_rate)
-            if op.operation_type == 'Compra':
-                diff = -diff
-            profit_today_spread += diff * float(op.amount_usd)
+    # Utilidad del día: desde amarres (fuente de verdad) si hay trader_id,
+    # si no, spread de operaciones (vista global).
+    if trader_id:
+        profit_today_spread = _trader_profit_from_matches(trader_id, start_of_day, end_of_day)
+    else:
+        profit_today_spread = 0.0
+        for op in completed_today:
+            if op.base_rate and float(op.base_rate) > 0:
+                diff = float(op.exchange_rate) - float(op.base_rate)
+                if op.operation_type == 'Compra':
+                    diff = -diff
+                profit_today_spread += diff * float(op.amount_usd)
     profit_today = profit_today_spread
 
     stats_today = {
@@ -239,13 +275,17 @@ def get_all_dashboard_data():
         ).all() if demo_id else TraderGoal.query.filter_by(month=month, year=year).all()
         goal_amount = sum(float(g.goal_amount_pen) for g in all_goals)
 
-    profit_month_spread = 0.0
-    for op in completed_month:
-        if op.base_rate and float(op.base_rate) > 0:
-            diff = float(op.exchange_rate) - float(op.base_rate)
-            if op.operation_type == 'Compra':
-                diff = -diff
-            profit_month_spread += diff * float(op.amount_usd)
+    # Utilidad del mes: desde amarres si hay trader_id, spread si no.
+    if trader_id:
+        profit_month_spread = _trader_profit_from_matches(trader_id, start_date, end_date)
+    else:
+        profit_month_spread = 0.0
+        for op in completed_month:
+            if op.base_rate and float(op.base_rate) > 0:
+                diff = float(op.exchange_rate) - float(op.base_rate)
+                if op.operation_type == 'Compra':
+                    diff = -diff
+                profit_month_spread += diff * float(op.amount_usd)
     profit_month = profit_month_spread
 
     # Clientes activos (excluir demo)
@@ -412,14 +452,17 @@ def get_month_stats():
     operations = query.all()
     completed = [op for op in operations if op.status == 'Completada']
 
-    # Utilidad del mes: spread por operación
-    profit_month = 0.0
-    for op in completed:
-        if op.base_rate and float(op.base_rate) > 0:
-            diff = float(op.exchange_rate) - float(op.base_rate)
-            if op.operation_type == 'Compra':
-                diff = -diff
-            profit_month += diff * float(op.amount_usd)
+    # Utilidad del mes: amarres si hay trader_id, spread si no
+    if trader_id:
+        profit_month = _trader_profit_from_matches(trader_id, start_date, end_date)
+    else:
+        profit_month = 0.0
+        for op in completed:
+            if op.base_rate and float(op.base_rate) > 0:
+                diff = float(op.exchange_rate) - float(op.base_rate)
+                if op.operation_type == 'Compra':
+                    diff = -diff
+                profit_month += diff * float(op.amount_usd)
 
     # Obtener meta mensual según filtro
     goal_amount = 0
