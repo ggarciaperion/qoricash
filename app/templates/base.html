@@ -159,42 +159,52 @@
             <!-- Title bar -->
             <div class="datatec-titlebar">
                 <span class="datatec-flag">🇵🇪</span>
-                <span class="datatec-title">Dólar Spot - Resumen de hoy</span>
-                {% if current_user.role in ['Master', 'Trader'] %}
-                <button class="datatec-edit-btn" id="datatecEditBtn" title="Actualizar tasas">
-                    <i class="bi bi-pencil-fill"></i>
-                </button>
-                {% endif %}
+                <span class="datatec-title">Dólar Spot DATATEC</span>
             </div>
-            <!-- Rates display -->
-            <div class="datatec-rates" id="datatecRates">
-                <div class="datatec-panel datatec-demand">
-                    <span class="datatec-panel-label">Mejor demanda</span>
-                    <span class="datatec-panel-val" id="datatecCompra">—</span>
+            <!-- Cierre -->
+            <div class="datatec-section-label">
+                Cierre &middot; <span id="datatecDate">—</span>
+            </div>
+            <div class="datatec-cierre">
+                <div class="datatec-field datatec-field-compra">
+                    <span class="datatec-field-lbl">Compra</span>
+                    <input class="datatec-input datatec-input-lg" id="datatecCompra"
+                           type="number" step="0.0001" min="1" max="10" placeholder="0.0000"
+                           {% if current_user.role not in ['Master','Trader'] %}readonly{% endif %}>
                 </div>
-                <div class="datatec-panel datatec-offer">
-                    <span class="datatec-panel-label">Mejor oferta</span>
-                    <span class="datatec-panel-val" id="datatecVenta">—</span>
+                <div class="datatec-field datatec-field-venta">
+                    <span class="datatec-field-lbl">Venta</span>
+                    <input class="datatec-input datatec-input-lg" id="datatecVenta"
+                           type="number" step="0.0001" min="1" max="10" placeholder="0.0000"
+                           {% if current_user.role not in ['Master','Trader'] %}readonly{% endif %}>
                 </div>
             </div>
-            <!-- Edit form -->
+            <!-- Precios tarde -->
+            <div class="datatec-section-label datatec-tarde-label">Precios tarde</div>
+            <div class="datatec-tarde">
+                <div class="datatec-field datatec-field-compra-t">
+                    <span class="datatec-field-lbl">Compra</span>
+                    <input class="datatec-input datatec-input-sm" id="datatecCompTarde"
+                           type="number" step="0.0001" min="1" max="10" placeholder="0.0000"
+                           {% if current_user.role not in ['Master','Trader'] %}readonly{% endif %}>
+                </div>
+                <div class="datatec-field datatec-field-venta-t">
+                    <span class="datatec-field-lbl">Venta</span>
+                    <input class="datatec-input datatec-input-sm" id="datatecVentTarde"
+                           type="number" step="0.0001" min="1" max="10" placeholder="0.0000"
+                           {% if current_user.role not in ['Master','Trader'] %}readonly{% endif %}>
+                </div>
+            </div>
             {% if current_user.role in ['Master', 'Trader'] %}
-            <div class="datatec-edit-form" id="datatecEditForm" style="display:none;">
-                <div class="datatec-edit-row">
-                    <label>Demanda</label>
-                    <input type="number" id="datatecInputC" step="0.0001" min="1" max="10" placeholder="3.4600">
-                </div>
-                <div class="datatec-edit-row">
-                    <label>Oferta</label>
-                    <input type="number" id="datatecInputV" step="0.0001" min="1" max="10" placeholder="3.4640">
-                </div>
-                <div class="datatec-form-btns">
-                    <button class="datatec-save-btn" id="datatecSaveBtn"><i class="bi bi-check-lg"></i> Guardar</button>
-                    <button class="datatec-cancel-btn" id="datatecCancelBtn"><i class="bi bi-x-lg"></i></button>
-                </div>
+            <div class="datatec-footer">
+                <button class="datatec-save-btn" id="datatecSaveBtn">
+                    <i class="bi bi-check-lg"></i> Guardar
+                </button>
+                <span class="datatec-updated" id="datatecUpdated"></span>
             </div>
-            {% endif %}
+            {% else %}
             <span class="datatec-updated" id="datatecUpdated"></span>
+            {% endif %}
         </div>
         {% endif %}
 
@@ -581,8 +591,17 @@
     (function() {
         const canEdit = {{ 'true' if current_user.role in ['Master', 'Trader'] else 'false' }};
 
-        function fmt(v) {
-            return (v && v > 0) ? parseFloat(v).toFixed(3) : '—';
+        function fmt4(v) {
+            return (v != null && parseFloat(v) > 0) ? parseFloat(v).toFixed(4) : '';
+        }
+
+        function todayLabel() {
+            const now = new Date();
+            const days = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+            const d = String(now.getDate()).padStart(2,'0');
+            const m = String(now.getMonth()+1).padStart(2,'0');
+            const y = now.getFullYear();
+            return days[now.getDay()] + ' ' + d + '/' + m + '/' + y;
         }
 
         function loadDatatec() {
@@ -591,8 +610,16 @@
                 .then(res => {
                     if (!res.success) return;
                     const d = res.data;
-                    document.getElementById('datatecCompra').textContent = fmt(d.compra);
-                    document.getElementById('datatecVenta').textContent  = fmt(d.venta);
+                    const eC  = document.getElementById('datatecCompra');
+                    const eV  = document.getElementById('datatecVenta');
+                    const eCT = document.getElementById('datatecCompTarde');
+                    const eVT = document.getElementById('datatecVentTarde');
+                    if (eC  && document.activeElement !== eC)  eC.value  = fmt4(d.compra);
+                    if (eV  && document.activeElement !== eV)  eV.value  = fmt4(d.venta);
+                    if (eCT && document.activeElement !== eCT) eCT.value = fmt4(d.compra_tarde);
+                    if (eVT && document.activeElement !== eVT) eVT.value = fmt4(d.venta_tarde);
+                    const dateEl = document.getElementById('datatecDate');
+                    if (dateEl) dateEl.textContent = todayLabel();
                     if (d.updated_at) {
                         const dt = new Date(d.updated_at);
                         const hm = dt.toLocaleTimeString('es-PE', {hour:'2-digit', minute:'2-digit'});
@@ -606,55 +633,43 @@
         setInterval(loadDatatec, 30000);
 
         if (canEdit) {
-            const editBtn   = document.getElementById('datatecEditBtn');
-            const editForm  = document.getElementById('datatecEditForm');
-            const ratesDiv  = document.getElementById('datatecRates');
-            const saveBtn   = document.getElementById('datatecSaveBtn');
-            const cancelBtn = document.getElementById('datatecCancelBtn');
-            const inputC    = document.getElementById('datatecInputC');
-            const inputV    = document.getElementById('datatecInputV');
-
-            editBtn.addEventListener('click', function() {
-                inputC.value = document.getElementById('datatecCompra').textContent.replace('—','');
-                inputV.value = document.getElementById('datatecVenta').textContent.replace('—','');
-                ratesDiv.style.display  = 'none';
-                editForm.style.display  = 'flex';
-                editBtn.style.display   = 'none';
-                inputC.focus();
-            });
-
-            cancelBtn.addEventListener('click', function() {
-                editForm.style.display  = 'none';
-                ratesDiv.style.display  = 'flex';
-                editBtn.style.display   = '';
-            });
-
-            saveBtn.addEventListener('click', function() {
-                const c = parseFloat(inputC.value);
-                const v = parseFloat(inputV.value);
-                if (!c || !v || c <= 0 || v <= 0) return;
-                fetch('/mercado/api/datatec', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest'},
-                    body: JSON.stringify({compra: c, venta: v})
-                }).then(r => r.json()).then(res => {
-                    if (res.success) {
-                        document.getElementById('datatecCompra').textContent = fmt(res.data.compra);
-                        document.getElementById('datatecVenta').textContent  = fmt(res.data.venta);
-                        editForm.style.display  = 'none';
-                        ratesDiv.style.display  = 'flex';
-                        editBtn.style.display   = '';
-                    }
-                }).catch(() => {});
-            });
-
-            // Save on Enter key
-            [inputC, inputV].forEach(inp => {
-                inp.addEventListener('keydown', function(e) {
-                    if (e.key === 'Enter') saveBtn.click();
-                    if (e.key === 'Escape') cancelBtn.click();
+            const saveBtn = document.getElementById('datatecSaveBtn');
+            if (saveBtn) {
+                saveBtn.addEventListener('click', function() {
+                    const c  = document.getElementById('datatecCompra').value;
+                    const v  = document.getElementById('datatecVenta').value;
+                    const ct = document.getElementById('datatecCompTarde').value;
+                    const vt = document.getElementById('datatecVentTarde').value;
+                    if (!c || !v || parseFloat(c) <= 0 || parseFloat(v) <= 0) return;
+                    saveBtn.disabled = true;
+                    fetch('/mercado/api/datatec', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest'},
+                        body: JSON.stringify({
+                            compra: parseFloat(c),
+                            venta:  parseFloat(v),
+                            compra_tarde: ct ? parseFloat(ct) : null,
+                            venta_tarde:  vt ? parseFloat(vt) : null
+                        })
+                    }).then(r => r.json()).then(res => {
+                        saveBtn.disabled = false;
+                        if (res.success && res.data.updated_at) {
+                            const dt = new Date(res.data.updated_at);
+                            const hm = dt.toLocaleTimeString('es-PE', {hour:'2-digit', minute:'2-digit'});
+                            const el = document.getElementById('datatecUpdated');
+                            if (el) el.textContent = 'Act. ' + hm + (res.data.updated_by ? ' · ' + res.data.updated_by : '');
+                        }
+                    }).catch(() => { saveBtn.disabled = false; });
                 });
-            });
+
+                // Enter on any input triggers save
+                ['datatecCompra','datatecVenta','datatecCompTarde','datatecVentTarde'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.addEventListener('keydown', function(e) {
+                        if (e.key === 'Enter') saveBtn.click();
+                    });
+                });
+            }
         }
     })();
     </script>

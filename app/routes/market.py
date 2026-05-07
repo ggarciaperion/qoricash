@@ -194,7 +194,14 @@ def datatec_update():
         venta  = data.get('venta')
         if compra is None or venta is None:
             return jsonify({'success': False, 'error': 'Faltan compra o venta'}), 400
-        row = DatatecRate.update(float(compra), float(venta), current_user.id)
+        compra_tarde = data.get('compra_tarde')
+        venta_tarde  = data.get('venta_tarde')
+        row = DatatecRate.update(
+            float(compra), float(venta),
+            float(compra_tarde) if compra_tarde not in (None, '') else None,
+            float(venta_tarde)  if venta_tarde  not in (None, '') else None,
+            current_user.id
+        )
         return jsonify({'success': True, 'data': row.to_dict()})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
