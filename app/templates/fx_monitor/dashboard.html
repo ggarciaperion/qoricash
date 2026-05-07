@@ -62,6 +62,30 @@
 
   /* ── Leyenda ── */
   .legend-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+
+  /* ── DATATEC card inputs ── */
+  .dt-input {
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid rgba(255,255,255,0.15);
+    outline: none;
+    font-family: 'Courier New', 'Consolas', monospace;
+    font-weight: 700;
+    letter-spacing: .04em;
+    color: #29d9f5;
+    padding: 2px 0 3px;
+    -moz-appearance: textfield;
+    border-radius: 0;
+  }
+  .dt-input::-webkit-outer-spin-button,
+  .dt-input::-webkit-inner-spin-button { -webkit-appearance: none; }
+  .dt-input:focus { border-bottom-color: #4dd9ec; outline: none; box-shadow: none; }
+  .dt-input[readonly] { opacity: .8; cursor: default; }
+  .dt-input::placeholder { color: rgba(255,255,255,.2); }
+  .dt-input-lg  { font-size: 1.35rem; }
+  .dt-input-venta { color: #b8e040; }
+  .dt-input-sm  { font-size: .95rem; color: #4dd9ec; }
+  .dt-input-venta-t { color: #8ec820; }
 </style>
 {% endblock %}
 
@@ -363,6 +387,87 @@
         </div>
       </div>
       {% endif %}
+
+      <!-- DATATEC Dólar Spot -->
+      <div class="card shadow-sm" id="datatecCard">
+        <div class="card-header border-bottom py-2 d-flex align-items-center gap-2"
+             style="background:#2b2b2b">
+          <span style="font-size:14px">🇵🇪</span>
+          <span class="fw-bold text-white" style="font-size:.78rem;letter-spacing:.04em;text-transform:uppercase">
+            Dólar Spot DATATEC
+          </span>
+        </div>
+        <div class="card-body p-0">
+
+          <!-- Cierre -->
+          <div class="px-3 pt-2 pb-1"
+               style="background:#0d1a2e;border-bottom:1px solid #0a0a0a">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+              <span style="font-size:.65rem;font-weight:700;text-transform:uppercase;
+                           letter-spacing:.07em;color:#4dd9ec">Cierre</span>
+              <span style="font-size:.65rem;color:#4dd9ec" id="dtDate">—</span>
+            </div>
+            <div class="row g-2">
+              <div class="col-6">
+                <div style="font-size:.6rem;font-weight:700;text-transform:uppercase;
+                            letter-spacing:.06em;color:#4dd9ec;margin-bottom:3px">Compra</div>
+                <input id="dtCompra" type="number" step="0.0001" min="1" max="10"
+                       placeholder="0.0000"
+                       class="dt-input dt-input-lg text-center w-100"
+                       {% if current_user.role not in ['Master','Trader'] %}readonly{% endif %}>
+              </div>
+              <div class="col-6">
+                <div style="font-size:.6rem;font-weight:700;text-transform:uppercase;
+                            letter-spacing:.06em;color:#b8e040;margin-bottom:3px">Venta</div>
+                <input id="dtVenta" type="number" step="0.0001" min="1" max="10"
+                       placeholder="0.0000"
+                       class="dt-input dt-input-lg dt-input-venta text-center w-100"
+                       {% if current_user.role not in ['Master','Trader'] %}readonly{% endif %}>
+              </div>
+            </div>
+          </div>
+
+          <!-- Precios tarde -->
+          <div class="px-3 pt-2 pb-2" style="background:#111e00">
+            <div class="mb-2" style="font-size:.65rem;font-weight:700;text-transform:uppercase;
+                                     letter-spacing:.07em;color:#8ec820">Precios tarde</div>
+            <div class="row g-2">
+              <div class="col-6">
+                <div style="font-size:.6rem;font-weight:600;text-transform:uppercase;
+                            letter-spacing:.05em;color:#4dd9ec;margin-bottom:3px">Compra</div>
+                <input id="dtCompTarde" type="number" step="0.0001" min="1" max="10"
+                       placeholder="0.0000"
+                       class="dt-input dt-input-sm text-center w-100"
+                       {% if current_user.role not in ['Master','Trader'] %}readonly{% endif %}>
+              </div>
+              <div class="col-6">
+                <div style="font-size:.6rem;font-weight:600;text-transform:uppercase;
+                            letter-spacing:.05em;color:#8ec820;margin-bottom:3px">Venta</div>
+                <input id="dtVentTarde" type="number" step="0.0001" min="1" max="10"
+                       placeholder="0.0000"
+                       class="dt-input dt-input-sm dt-input-venta-t text-center w-100"
+                       {% if current_user.role not in ['Master','Trader'] %}readonly{% endif %}>
+              </div>
+            </div>
+          </div>
+
+          <!-- Footer -->
+          <div class="px-3 py-2 d-flex align-items-center justify-content-between"
+               style="background:#1a1a1a;border-top:1px solid #0a0a0a">
+            {% if current_user.role in ['Master', 'Trader'] %}
+            <button class="btn btn-sm" id="dtSaveBtn"
+                    style="background:#1a4a1a;border:1px solid #2a6a2a;color:#b8e040;
+                           font-size:.72rem;font-weight:600;padding:3px 14px">
+              <i class="bi bi-check-lg me-1"></i>Guardar
+            </button>
+            {% else %}
+            <span></span>
+            {% endif %}
+            <small class="text-muted" id="dtUpdated" style="font-size:.65rem"></small>
+          </div>
+
+        </div>
+      </div>
 
     </div>
   </div>
@@ -949,6 +1054,86 @@ document.querySelectorAll('.range-btn').forEach(btn => {
     loadChart();
   });
 });
+
+// ── DATATEC ───────────────────────────────────────────────────────────────
+(function() {
+  const canEdit = {{ 'true' if current_user.role in ['Master', 'Trader'] else 'false' }};
+
+  function fmt4(v) {
+    return (v != null && parseFloat(v) > 0) ? parseFloat(v).toFixed(4) : '';
+  }
+
+  function todayLabel() {
+    const now = new Date();
+    const days = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+    const d = String(now.getDate()).padStart(2,'0');
+    const m = String(now.getMonth()+1).padStart(2,'0');
+    const y = now.getFullYear();
+    return days[now.getDay()] + ' ' + d + '/' + m + '/' + y;
+  }
+
+  function loadDatatec() {
+    fetch('/mercado/api/datatec', {headers: {'X-Requested-With': 'XMLHttpRequest'}})
+      .then(r => r.json())
+      .then(res => {
+        if (!res.success) return;
+        const d = res.data;
+        const ids = ['dtCompra','dtVenta','dtCompTarde','dtVentTarde'];
+        const vals = [fmt4(d.compra), fmt4(d.venta), fmt4(d.compra_tarde), fmt4(d.venta_tarde)];
+        ids.forEach((id, i) => {
+          const el = document.getElementById(id);
+          if (el && document.activeElement !== el) el.value = vals[i];
+        });
+        const dateEl = document.getElementById('dtDate');
+        if (dateEl) dateEl.textContent = todayLabel();
+        if (d.updated_at) {
+          const dt = new Date(d.updated_at);
+          const hm = dt.toLocaleTimeString('es-PE', {hour:'2-digit', minute:'2-digit'});
+          const el = document.getElementById('dtUpdated');
+          if (el) el.textContent = 'Act. ' + hm + (d.updated_by ? ' · ' + d.updated_by : '');
+        }
+      }).catch(() => {});
+  }
+
+  loadDatatec();
+  setInterval(loadDatatec, 30000);
+
+  if (canEdit) {
+    const saveBtn = document.getElementById('dtSaveBtn');
+    if (saveBtn) {
+      saveBtn.addEventListener('click', function() {
+        const c  = document.getElementById('dtCompra').value;
+        const v  = document.getElementById('dtVenta').value;
+        const ct = document.getElementById('dtCompTarde').value;
+        const vt = document.getElementById('dtVentTarde').value;
+        if (!c || !v || parseFloat(c) <= 0 || parseFloat(v) <= 0) return;
+        saveBtn.disabled = true;
+        fetch('/mercado/api/datatec', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest'},
+          body: JSON.stringify({
+            compra: parseFloat(c), venta: parseFloat(v),
+            compra_tarde: ct ? parseFloat(ct) : null,
+            venta_tarde:  vt ? parseFloat(vt) : null
+          })
+        }).then(r => r.json()).then(res => {
+          saveBtn.disabled = false;
+          if (res.success && res.data.updated_at) {
+            const dt = new Date(res.data.updated_at);
+            const hm = dt.toLocaleTimeString('es-PE', {hour:'2-digit', minute:'2-digit'});
+            const el = document.getElementById('dtUpdated');
+            if (el) el.textContent = 'Act. ' + hm + (res.data.updated_by ? ' · ' + res.data.updated_by : '');
+          }
+        }).catch(() => { saveBtn.disabled = false; });
+      });
+
+      ['dtCompra','dtVenta','dtCompTarde','dtVentTarde'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('keydown', e => { if (e.key === 'Enter') saveBtn.click(); });
+      });
+    }
+  }
+})();
 
 // ── Init ──────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
