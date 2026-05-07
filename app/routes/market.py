@@ -5,6 +5,7 @@ import logging
 import os
 from flask import Blueprint, render_template, jsonify, request
 from flask_login import login_required
+from app.extensions import csrf
 from app.utils.decorators import require_role as role_required
 from app.services.market.market_service import MarketService
 
@@ -182,6 +183,7 @@ def datatec_get():
 
 
 @market_bp.route('/api/datatec', methods=['POST'])
+@csrf.exempt
 @login_required
 @role_required('Master', 'Trader')
 def datatec_update():
