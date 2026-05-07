@@ -16,12 +16,12 @@ class UserService:
     @staticmethod
     def get_all_users():
         """
-        Obtener todos los usuarios
-        
+        Obtener todos los usuarios (excluye demo_trader)
+
         Returns:
             list: Lista de usuarios
         """
-        return User.query.order_by(User.created_at.desc()).all()
+        return User.query.filter(User.username != 'demo_trader').order_by(User.created_at.desc()).all()
     
     @staticmethod
     def get_user_by_id(user_id):
@@ -39,17 +39,17 @@ class UserService:
     @staticmethod
     def get_active_users():
         """
-        Obtener solo usuarios activos
-        
+        Obtener solo usuarios activos (excluye demo_trader)
+
         Returns:
             list: Lista de usuarios activos
         """
-        return User.query.filter_by(status='Activo').order_by(User.username).all()
+        return User.query.filter(User.status == 'Activo', User.username != 'demo_trader').order_by(User.username).all()
     
     @staticmethod
     def get_users_by_role(role):
         """
-        Obtener usuarios por rol
+        Obtener usuarios por rol (excluye demo_trader)
 
         Args:
             role: Rol a filtrar ('Master', 'Trader', 'Operador', 'Middle Office')
@@ -57,7 +57,7 @@ class UserService:
         Returns:
             list: Lista de usuarios con ese rol
         """
-        return User.query.filter_by(role=role).order_by(User.username).all()
+        return User.query.filter(User.role == role, User.username != 'demo_trader').order_by(User.username).all()
     
     @staticmethod
     def create_user(current_user, username, email, password, dni, role='Trader'):

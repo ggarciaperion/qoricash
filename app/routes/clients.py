@@ -361,8 +361,9 @@ def search():
             )
         ).all()
     else:
-        # Buscar en todos los clientes
-        clients = ClientService.search_clients(query)
+        # Buscar en todos los clientes (excluir demo)
+        from app.models.user import User
+        clients = ClientService.search_clients(query, exclude_user_id=User.get_demo_user_id())
 
     return jsonify({'success': True, 'clients': [client.to_dict() for client in clients]})
 
@@ -771,7 +772,8 @@ def get_active():
             status='Activo'
         ).order_by(Client.created_at.desc()).all()
     else:
-        clients = ClientService.get_active_clients()
+        from app.models.user import User
+        clients = ClientService.get_active_clients(exclude_user_id=User.get_demo_user_id())
 
     return jsonify({'success': True, 'clients': [client.to_dict() for client in clients]})
 

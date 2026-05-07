@@ -1105,13 +1105,18 @@ def generar_asientos_retroactivos():
         ).all() if r[0] is not None
     }
 
-    # Operaciones completadas en el período sin asiento
-    ops = Operation.query.filter(
+    # Operaciones completadas en el período sin asiento (excluir demo)
+    from app.models.user import User as _User
+    _demo_id = _User.get_demo_user_id()
+    _ops_q = Operation.query.filter(
         Operation.status == 'Completada',
         extract('year',  Operation.completed_at) == year,
         extract('month', Operation.completed_at) == month,
         ~Operation.id.in_(existing_ids) if existing_ids else True,
-    ).order_by(Operation.completed_at.asc()).all()
+    )
+    if _demo_id:
+        _ops_q = _ops_q.filter(Operation.user_id != _demo_id)
+    ops = _ops_q.order_by(Operation.completed_at.asc()).all()
 
     if not ops:
         return jsonify({
@@ -3126,10 +3131,12 @@ def amarres_operaciones_disponibles():
         if 'accounting_matches' not in inspector.get_table_names():
             db.create_all()
 
+        from app.models.user import User
         ops = AccountingService.get_available_operations(
             fecha_inicio=request.args.get('fecha_inicio'),
             fecha_fin=request.args.get('fecha_fin'),
             operation_type=request.args.get('operation_type'),
+            exclude_user_id=User.get_demo_user_id()
         )
         results = []
         for op in ops:

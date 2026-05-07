@@ -15,7 +15,7 @@ class AccountingService:
     """Servicio de contabilidad y neteo"""
 
     @staticmethod
-    def get_available_operations(fecha_inicio=None, fecha_fin=None, operation_type=None):
+    def get_available_operations(fecha_inicio=None, fecha_fin=None, operation_type=None, exclude_user_id=None):
         """
         Obtener operaciones completadas disponibles para amarrar
 
@@ -23,6 +23,7 @@ class AccountingService:
             fecha_inicio: Fecha de inicio (opcional)
             fecha_fin: Fecha de fin (opcional)
             operation_type: 'Compra' o 'Venta' (opcional)
+            exclude_user_id: ID de usuario a excluir (ej. demo_trader)
 
         Returns:
             list: Lista de operaciones disponibles
@@ -30,6 +31,9 @@ class AccountingService:
         query = Operation.query.filter(
             Operation.status == 'Completada'
         )
+
+        if exclude_user_id:
+            query = query.filter(Operation.user_id != exclude_user_id)
 
         if operation_type:
             query = query.filter(Operation.operation_type == operation_type)

@@ -41,14 +41,20 @@ class ClientService:
         return query.order_by(Client.created_at.desc()).all()
 
     @staticmethod
-    def get_active_clients():
+    def get_active_clients(exclude_user_id=None):
         """
         Obtener solo clientes activos
+
+        Args:
+            exclude_user_id: ID de usuario cuyos clientes excluir (ej. demo_trader)
 
         Returns:
             list: Lista de clientes activos
         """
-        return Client.query.filter_by(status='Activo').order_by(Client.created_at.desc()).all()
+        query = Client.query.filter_by(status='Activo')
+        if exclude_user_id:
+            query = query.filter(Client.created_by != exclude_user_id)
+        return query.order_by(Client.created_at.desc()).all()
 
     @staticmethod
     def get_client_by_id(client_id):
@@ -786,12 +792,16 @@ class ClientService:
         }
 
     @staticmethod
-    def search_clients(query):
+    def search_clients(query, exclude_user_id=None):
         """
         Buscar clientes por nombre, DNI o email
+
+        Args:
+            query: Texto a buscar
+            exclude_user_id: ID de usuario cuyos clientes excluir (ej. demo_trader)
         """
         search = f"%{query}%"
-        return Client.query.filter(
+        q = Client.query.filter(
             or_(
                 Client.dni.ilike(search),
                 Client.email.ilike(search),
@@ -800,7 +810,10 @@ class ClientService:
                 Client.nombres.ilike(search),
                 Client.razon_social.ilike(search)
             )
-        ).all()
+        )
+        if exclude_user_id:
+            q = q.filter(Client.created_by != exclude_user_id)
+        return q.all()
 
     @staticmethod
     def export_clients_to_dict():

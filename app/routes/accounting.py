@@ -34,10 +34,12 @@ def get_available_operations():
         fecha_fin = request.args.get('fecha_fin')
         operation_type = request.args.get('operation_type')
 
+        from app.models.user import User
         operations = AccountingService.get_available_operations(
             fecha_inicio=fecha_inicio,
             fecha_fin=fecha_fin,
-            operation_type=operation_type
+            operation_type=operation_type,
+            exclude_user_id=User.get_demo_user_id()
         )
 
         results = []
