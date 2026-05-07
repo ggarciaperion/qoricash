@@ -442,7 +442,7 @@ function _opCard(op, side) {
         <span class="ms-2 text-muted small">${op.client_name}</span>
         ${op.trader_name ? `<span class="ms-1 badge bg-secondary bg-opacity-25 text-secondary" style="font-size:.65rem;">${op.trader_name}</span>` : ''}
       </div>
-      <span class="badge bg-${color} bg-opacity-10 text-${color} fw-semibold font-monospace" style="font-size:.8rem;">
+      <span class="fw-semibold font-monospace text-${color}" style="font-size:.8rem;">
         USD ${fmt2(op.available_usd)}
       </span>
     </div>
