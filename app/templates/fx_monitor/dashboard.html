@@ -1063,16 +1063,20 @@ document.querySelectorAll('.range-btn').forEach(btn => {
   const canEdit = {{ 'true' if current_user.role in ['Master', 'Trader'] else 'false' }};
 
   function fmt4(v) {
-    return (v != null && parseFloat(v) > 0) ? parseFloat(v).toFixed(4) : '';
+    const n = parseFloat(v);
+    return (v != null && !isNaN(n) && n > 0) ? n.toFixed(4) : '';
   }
 
-  function todayLabel() {
-    const now = new Date();
-    const days = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
-    const d = String(now.getDate()).padStart(2,'0');
-    const m = String(now.getMonth()+1).padStart(2,'0');
-    const y = now.getFullYear();
-    return days[now.getDay()] + ' ' + d + '/' + m + '/' + y;
+  function applyDateLabel(isoStr, updatedBy) {
+    const dt = new Date(isoStr);
+    const label = dt.toLocaleDateString('es-PE', {day:'2-digit', month:'2-digit', year:'numeric'})
+                + ' ' + dt.toLocaleTimeString('es-PE', {hour:'2-digit', minute:'2-digit'});
+    const elC = document.getElementById('dtDateCierre');
+    const elT = document.getElementById('dtDateTarde');
+    const elU = document.getElementById('dtUpdated');
+    if (elC) elC.textContent = label;
+    if (elT) elT.textContent = label;
+    if (elU) elU.textContent = (updatedBy ? updatedBy + ' · ' : '') + label;
   }
 
   function loadDatatec() {
@@ -1081,23 +1085,15 @@ document.querySelectorAll('.range-btn').forEach(btn => {
       .then(res => {
         if (!res.success) return;
         const d = res.data;
-        const ids = ['dtCompra','dtVenta','dtCompTarde','dtVentTarde'];
-        const vals = [fmt4(d.compra), fmt4(d.venta), fmt4(d.compra_tarde), fmt4(d.venta_tarde)];
-        ids.forEach((id, i) => {
+        const map = {
+          'dtCompra': d.compra, 'dtVenta': d.venta,
+          'dtCompTarde': d.compra_tarde, 'dtVentTarde': d.venta_tarde
+        };
+        Object.entries(map).forEach(([id, val]) => {
           const el = document.getElementById(id);
-          if (el && document.activeElement !== el) el.value = vals[i];
+          if (el && document.activeElement !== el) el.value = fmt4(val);
         });
-        if (d.updated_at) {
-          const dt = new Date(d.updated_at);
-          const label = dt.toLocaleDateString('es-PE', {day:'2-digit', month:'2-digit', year:'numeric'})
-                      + ' ' + dt.toLocaleTimeString('es-PE', {hour:'2-digit', minute:'2-digit'});
-          const elC = document.getElementById('dtDateCierre');
-          const elT = document.getElementById('dtDateTarde');
-          if (elC) elC.textContent = label;
-          if (elT) elT.textContent = label;
-          const elU = document.getElementById('dtUpdated');
-          if (elU) elU.textContent = (d.updated_by ? d.updated_by + ' · ' : '') + label;
-        }
+        if (d.updated_at) applyDateLabel(d.updated_at, d.updated_by);
       }).catch(() => {});
   }
 
@@ -1112,11 +1108,20 @@ document.querySelectorAll('.range-btn').forEach(btn => {
         const v  = document.getElementById('dtVenta').value;
         const ct = document.getElementById('dtCompTarde').value;
         const vt = document.getElementById('dtVentTarde').value;
-        if (!c || !v || parseFloat(c) <= 0 || parseFloat(v) <= 0) return;
+        if (!c || !v || parseFloat(c) <= 0 || parseFloat(v) <= 0) {
+          alert('Ingresa Compra y Venta de Cierre antes de guardar.');
+          return;
+        }
         saveBtn.disabled = true;
+        saveBtn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Guardando...';
+        const csrfToken = document.querySelector('meta[name=csrf-token]');
         fetch('/mercado/api/datatec', {
           method: 'POST',
-          headers: {'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest'},
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+            ...(csrfToken ? {'X-CSRFToken': csrfToken.content} : {})
+          },
           body: JSON.stringify({
             compra: parseFloat(c), venta: parseFloat(v),
             compra_tarde: ct ? parseFloat(ct) : null,
@@ -1124,18 +1129,17 @@ document.querySelectorAll('.range-btn').forEach(btn => {
           })
         }).then(r => r.json()).then(res => {
           saveBtn.disabled = false;
+          saveBtn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Guardar';
           if (res.success && res.data.updated_at) {
-            const dt = new Date(res.data.updated_at);
-            const label = dt.toLocaleDateString('es-PE', {day:'2-digit', month:'2-digit', year:'numeric'})
-                        + ' ' + dt.toLocaleTimeString('es-PE', {hour:'2-digit', minute:'2-digit'});
-            const elC = document.getElementById('dtDateCierre');
-            const elT = document.getElementById('dtDateTarde');
-            if (elC) elC.textContent = label;
-            if (elT) elT.textContent = label;
-            const elU = document.getElementById('dtUpdated');
-            if (elU) elU.textContent = (res.data.updated_by ? res.data.updated_by + ' · ' : '') + label;
+            applyDateLabel(res.data.updated_at, res.data.updated_by);
+          } else if (!res.success) {
+            alert('Error al guardar: ' + (res.error || 'desconocido'));
           }
-        }).catch(() => { saveBtn.disabled = false; });
+        }).catch(err => {
+          saveBtn.disabled = false;
+          saveBtn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Guardar';
+          alert('Error de conexión al guardar DATATEC.');
+        });
       });
 
       ['dtCompra','dtVenta','dtCompTarde','dtVentTarde'].forEach(id => {
