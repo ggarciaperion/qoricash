@@ -133,35 +133,29 @@ def get_all_dashboard_data():
         end_of_day = datetime(now.year, now.month, now.day, 23, 59, 59)
         today_date = now.date()
 
+    from app.models.client import Client as _Client
     demo_id = _demo_user_id()
+
+    # ── Filtro de operaciones del día ──────────────────────────────────────
+    # Si hay trader_id: operaciones de los CLIENTES del trader (mismo criterio que historial).
+    # Si no hay trader_id: todas menos demo.
     query_today = Operation.query.filter(
         Operation.created_at >= start_of_day,
         Operation.created_at <= end_of_day
     )
-    if not trader_id and demo_id:
-        query_today = query_today.filter(Operation.user_id != demo_id)
-
     if trader_id:
-        query_today = query_today.filter(Operation.user_id == trader_id)
+        query_today = query_today.join(
+            _Client, Operation.client_id == _Client.id
+        ).filter(_Client.created_by == trader_id)
+    elif demo_id:
+        query_today = query_today.filter(Operation.user_id != demo_id)
 
     all_operations_today = query_today.all()
     completed_today = [op for op in all_operations_today if op.status == 'Completada']
 
-    # Calcular utilidad del día (manual via TraderDailyProfit)
+    # Utilidad del día: spread por operación (exchange_rate vs base_rate).
+    # Operaciones sin base_rate no aportan utilidad calculable.
     profit_today = 0
-    if trader_id:
-        daily_profit = TraderDailyProfit.query.filter_by(
-            user_id=trader_id,
-            profit_date=today_date
-        ).first()
-        if daily_profit:
-            profit_today = float(daily_profit.profit_amount_pen)
-    else:
-        ventas_pen = sum(float(op.amount_pen) for op in completed_today if op.operation_type == 'Venta')
-        compras_pen = sum(float(op.amount_pen) for op in completed_today if op.operation_type == 'Compra')
-        profit_today = ventas_pen - compras_pen
-
-    # Calcular utilidad del día por diferencia de tasa (spread × monto USD)
     profit_today_spread = 0.0
     for op in completed_today:
         if op.base_rate and float(op.base_rate) > 0:
@@ -169,6 +163,7 @@ def get_all_dashboard_data():
             if op.operation_type == 'Compra':
                 diff = -diff
             profit_today_spread += diff * float(op.amount_usd)
+    profit_today = profit_today_spread
 
     stats_today = {
         'operations_count': len(completed_today),
@@ -206,45 +201,25 @@ def get_all_dashboard_data():
         else:
             end_date = datetime(year, month + 1, 1)
 
+    # ── Filtro de operaciones del mes ─────────────────────────────────────
     query_month = Operation.query.filter(
         and_(
             Operation.created_at >= start_date,
             Operation.created_at < end_date
         )
     )
-    if not trader_id and demo_id:
-        query_month = query_month.filter(Operation.user_id != demo_id)
-
     if trader_id:
-        query_month = query_month.filter(Operation.user_id == trader_id)
+        query_month = query_month.join(
+            _Client, Operation.client_id == _Client.id
+        ).filter(_Client.created_by == trader_id)
+    elif demo_id:
+        query_month = query_month.filter(Operation.user_id != demo_id)
 
     operations_month = query_month.all()
     completed_month = [op for op in operations_month if op.status == 'Completada']
 
-    # Calcular utilidad acumulada del mes (o hasta día específico)
+    # Utilidad del mes: spread por operación (consistente con hoy)
     profit_month = 0
-    if trader_id:
-        # CON FILTRO: Utilidades diarias hasta la fecha especificada
-        daily_profits = TraderDailyProfit.query.filter(
-            TraderDailyProfit.user_id == trader_id,
-            TraderDailyProfit.profit_date >= start_date.date(),
-            TraderDailyProfit.profit_date <= (end_date.date() if day else end_date.date())
-        ).all()
-        profit_month = sum(float(dp.profit_amount_pen) for dp in daily_profits)
-    else:
-        # SIN FILTRO: Automática (Ventas - Compras) hasta la fecha especificada
-        from collections import defaultdict
-        daily_operations = defaultdict(lambda: {'ventas': 0, 'compras': 0})
-
-        for op in completed_month:
-            op_date = op.created_at.date()
-            if op.operation_type == 'Venta':
-                daily_operations[op_date]['ventas'] += float(op.amount_pen)
-            elif op.operation_type == 'Compra':
-                daily_operations[op_date]['compras'] += float(op.amount_pen)
-
-        for date_data in daily_operations.values():
-            profit_month += (date_data['ventas'] - date_data['compras'])
 
     # Obtener meta mensual
     goal_amount = 0
@@ -264,7 +239,6 @@ def get_all_dashboard_data():
         ).all() if demo_id else TraderGoal.query.filter_by(month=month, year=year).all()
         goal_amount = sum(float(g.goal_amount_pen) for g in all_goals)
 
-    # Calcular utilidad acumulada del mes por diferencia de tasa (spread × monto USD)
     profit_month_spread = 0.0
     for op in completed_month:
         if op.base_rate and float(op.base_rate) > 0:
@@ -272,6 +246,7 @@ def get_all_dashboard_data():
             if op.operation_type == 'Compra':
                 diff = -diff
             profit_month_spread += diff * float(op.amount_usd)
+    profit_month = profit_month_spread
 
     # Clientes activos (excluir demo)
     from app.models.client import Client
@@ -332,20 +307,18 @@ def get_today_stats():
     today_date = now.date()
 
     # Construir query
+    from app.models.client import Client as _Client2
     query = Operation.query.filter(
         Operation.created_at >= start_of_day,
         Operation.created_at <= end_of_day
     )
-
-    # Excluir demo cuando no hay filtro de trader específico
-    if not trader_id:
+    if trader_id:
+        query = query.join(_Client2, Operation.client_id == _Client2.id)\
+                     .filter(_Client2.created_by == trader_id)
+    else:
         demo_id = _demo_user_id()
         if demo_id:
             query = query.filter(Operation.user_id != demo_id)
-
-    # Aplicar filtro por trader si existe
-    if trader_id:
-        query = query.filter(Operation.user_id == trader_id)
 
     # Obtener todas las operaciones del día
     all_operations = query.all()
@@ -420,53 +393,33 @@ def get_month_stats():
     else:
         end_date = datetime(year, month + 1, 1)
 
-    # Construir query
+    # Construir query — filtro consistente con historial
+    from app.models.client import Client as _Client3
     query = Operation.query.filter(
         and_(
             Operation.created_at >= start_date,
             Operation.created_at < end_date
         )
     )
-
-    # Excluir demo cuando no hay filtro de trader específico
-    if not trader_id:
+    if trader_id:
+        query = query.join(_Client3, Operation.client_id == _Client3.id)\
+                     .filter(_Client3.created_by == trader_id)
+    else:
         _demo_id = _demo_user_id()
         if _demo_id:
             query = query.filter(Operation.user_id != _demo_id)
 
-    # Aplicar filtro por trader si existe
-    if trader_id:
-        query = query.filter(Operation.user_id == trader_id)
-
     operations = query.all()
     completed = [op for op in operations if op.status == 'Completada']
 
-    # Calcular utilidad acumulada del mes según filtro
-    profit_month = 0
-    if trader_id:
-        # CON FILTRO: Suma de utilidades diarias manuales del trader
-        daily_profits = TraderDailyProfit.query.filter(
-            TraderDailyProfit.user_id == trader_id,
-            TraderDailyProfit.profit_date >= start_date.date(),
-            TraderDailyProfit.profit_date < end_date.date()
-        ).all()
-        profit_month = sum(float(dp.profit_amount_pen) for dp in daily_profits)
-    else:
-        # SIN FILTRO: Automática - calcular día por día (Ventas PEN - Compras PEN)
-        # Agrupar operaciones por día
-        from collections import defaultdict
-        daily_operations = defaultdict(lambda: {'ventas': 0, 'compras': 0})
-
-        for op in completed:
-            op_date = op.created_at.date()
-            if op.operation_type == 'Venta':
-                daily_operations[op_date]['ventas'] += float(op.amount_pen)
-            elif op.operation_type == 'Compra':
-                daily_operations[op_date]['compras'] += float(op.amount_pen)
-
-        # Sumar utilidades diarias
-        for date_data in daily_operations.values():
-            profit_month += (date_data['ventas'] - date_data['compras'])
+    # Utilidad del mes: spread por operación
+    profit_month = 0.0
+    for op in completed:
+        if op.base_rate and float(op.base_rate) > 0:
+            diff = float(op.exchange_rate) - float(op.base_rate)
+            if op.operation_type == 'Compra':
+                diff = -diff
+            profit_month += diff * float(op.amount_usd)
 
     # Obtener meta mensual según filtro
     goal_amount = 0
@@ -499,16 +452,16 @@ def get_month_stats():
     today_start = datetime(now.year, now.month, now.day, 0, 0, 0)
     today_end = datetime(now.year, now.month, now.day, 23, 59, 59)
 
+    from app.models.client import Client as _Client4
     query_today = Operation.query.filter(
         Operation.created_at >= today_start,
         Operation.created_at <= today_end
     )
-    if not trader_id and _demo_id_c:
-        query_today = query_today.filter(Operation.user_id != _demo_id_c)
-
-    # Aplicar filtro por trader si existe
     if trader_id:
-        query_today = query_today.filter(Operation.user_id == trader_id)
+        query_today = query_today.join(_Client4, Operation.client_id == _Client4.id)\
+                                 .filter(_Client4.created_by == trader_id)
+    elif _demo_id_c:
+        query_today = query_today.filter(Operation.user_id != _demo_id_c)
 
     operations_today = query_today.all()
 
@@ -826,7 +779,10 @@ def get_top_clients():
     ).filter(*_top_filters)
 
     if trader_id:
-        query = query.filter(Operation.user_id == trader_id)
+        from app.models.client import Client as _ClientTop
+        trader_client_ids = db.session.query(_ClientTop.id)\
+            .filter(_ClientTop.created_by == trader_id).subquery()
+        query = query.filter(Operation.client_id.in_(trader_client_ids))
 
     results = query.group_by(Operation.client_id).order_by(
         func.sum(Operation.amount_usd).desc()
@@ -877,7 +833,10 @@ def get_inactive_clients():
         subq = subq.filter(Operation.user_id != _demo_inact)
 
     if trader_id:
-        subq = subq.filter(Operation.user_id == trader_id)
+        from app.models.client import Client as _ClientInact
+        trader_client_ids2 = db.session.query(_ClientInact.id)\
+            .filter(_ClientInact.created_by == trader_id).subquery()
+        subq = subq.filter(Operation.client_id.in_(trader_client_ids2))
 
     subq = subq.group_by(Operation.client_id).subquery()
 
@@ -1101,7 +1060,10 @@ def get_profit_per_operation():
             query = query.filter(Operation.user_id != _demo_profit)
 
     if trader_id:
-        query = query.filter(Operation.user_id == trader_id)
+        from app.models.client import Client as _ClientProfit
+        trader_client_ids3 = db.session.query(_ClientProfit.id)\
+            .filter(_ClientProfit.created_by == trader_id).subquery()
+        query = query.filter(Operation.client_id.in_(trader_client_ids3))
 
     operations = query.order_by(Operation.created_at.desc()).limit(25).all()
 
