@@ -34,6 +34,7 @@ from app.models.market import (
     MarketSnapshot, MarketSignal, MarketNews, MacroIndicator, EconomicEvent, DailyAnalysis,
 )
 from app.models.reward_code import RewardCode
+from app.models.datatec_rate import DatatecRate
 __all__ = [
     'User', 'Client', 'Operation', 'AuditLog', 'TraderGoal', 'TraderDailyProfit',
     'BankBalance', 'Invoice', 'ExchangeRate', 'Complaint',
@@ -52,4 +53,6 @@ __all__ = [
     'MarketSnapshot', 'MarketSignal', 'MarketNews', 'MacroIndicator', 'EconomicEvent', 'DailyAnalysis',
     # Referidos
     'RewardCode',
+    # DATATEC
+    'DatatecRate',
 ]

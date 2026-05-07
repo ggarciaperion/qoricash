@@ -165,3 +165,36 @@ def api_ticker_public():
         ticker.append({'key': 'tc_bcrp', 'label': 'TC Venta BCRP', 'value': _fmt(macro['tc_venta_bcrp'].get('value')), 'chg': None, 'prefix': 'S/', 'suffix': ''})
 
     return jsonify({'success': True, 'items': ticker})
+
+
+# ─── DATATEC Reference Rates ─────────────────────────────────────────────────
+
+@market_bp.route('/api/datatec', methods=['GET'])
+@login_required
+def datatec_get():
+    """GET: retorna las tasas DATATEC actuales."""
+    try:
+        from app.models.datatec_rate import DatatecRate
+        row = DatatecRate.get()
+        return jsonify({'success': True, 'data': row.to_dict()})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@market_bp.route('/api/datatec', methods=['POST'])
+@login_required
+@role_required('Master', 'Trader')
+def datatec_update():
+    """POST: actualiza las tasas DATATEC."""
+    try:
+        from app.models.datatec_rate import DatatecRate
+        from flask_login import current_user
+        data = request.get_json() or {}
+        compra = data.get('compra')
+        venta  = data.get('venta')
+        if compra is None or venta is None:
+            return jsonify({'success': False, 'error': 'Faltan compra o venta'}), 400
+        row = DatatecRate.update(float(compra), float(venta), current_user.id)
+        return jsonify({'success': True, 'data': row.to_dict()})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500

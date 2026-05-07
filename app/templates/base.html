@@ -51,6 +51,42 @@
             </button>
         </div>
 
+        <!-- ── DATATEC Rate Widget ── -->
+        {% if current_user.role in ['Master', 'Trader', 'Operador'] %}
+        <div class="datatec-widget" id="datatecWidget">
+            <div class="datatec-header">
+                <span class="datatec-label"><i class="bi bi-broadcast-pin me-1"></i>DATATEC</span>
+                {% if current_user.role in ['Master', 'Trader'] %}
+                <button class="datatec-edit-btn" id="datatecEditBtn" title="Actualizar tasas">
+                    <i class="bi bi-pencil-fill"></i>
+                </button>
+                {% endif %}
+            </div>
+            <div class="datatec-rates" id="datatecRates">
+                <span class="datatec-rate-item datatec-buy">
+                    <span class="datatec-rate-label">C</span>
+                    <span class="datatec-rate-val" id="datatecCompra">—</span>
+                </span>
+                <span class="datatec-divider">|</span>
+                <span class="datatec-rate-item datatec-sell">
+                    <span class="datatec-rate-label">V</span>
+                    <span class="datatec-rate-val" id="datatecVenta">—</span>
+                </span>
+            </div>
+            {% if current_user.role in ['Master', 'Trader'] %}
+            <div class="datatec-edit-form" id="datatecEditForm" style="display:none;">
+                <input type="number" id="datatecInputC" step="0.001" min="1" max="10" placeholder="Compra">
+                <input type="number" id="datatecInputV" step="0.001" min="1" max="10" placeholder="Venta">
+                <div class="datatec-form-btns">
+                    <button class="datatec-save-btn" id="datatecSaveBtn"><i class="bi bi-check-lg"></i></button>
+                    <button class="datatec-cancel-btn" id="datatecCancelBtn"><i class="bi bi-x-lg"></i></button>
+                </div>
+            </div>
+            {% endif %}
+            <span class="datatec-updated" id="datatecUpdated"></span>
+        </div>
+        {% endif %}
+
         <!-- Navigation -->
         <nav class="sidebar-nav">
             {% if current_user.role != 'Middle Office' %}
@@ -530,6 +566,89 @@
 
     {% block scripts %}{% endblock %}
 
+    {% if current_user.is_authenticated and current_user.role in ['Master', 'Trader', 'Operador'] %}
+    <script>
+    (function() {
+        const canEdit = {{ 'true' if current_user.role in ['Master', 'Trader'] else 'false' }};
+
+        function fmt(v) {
+            return (v && v > 0) ? parseFloat(v).toFixed(3) : '—';
+        }
+
+        function loadDatatec() {
+            fetch('/mercado/api/datatec', {headers: {'X-Requested-With': 'XMLHttpRequest'}})
+                .then(r => r.json())
+                .then(res => {
+                    if (!res.success) return;
+                    const d = res.data;
+                    document.getElementById('datatecCompra').textContent = fmt(d.compra);
+                    document.getElementById('datatecVenta').textContent  = fmt(d.venta);
+                    if (d.updated_at) {
+                        const dt = new Date(d.updated_at);
+                        const hm = dt.toLocaleTimeString('es-PE', {hour:'2-digit', minute:'2-digit'});
+                        const el = document.getElementById('datatecUpdated');
+                        if (el) el.textContent = 'Act. ' + hm + (d.updated_by ? ' · ' + d.updated_by : '');
+                    }
+                }).catch(() => {});
+        }
+
+        loadDatatec();
+        setInterval(loadDatatec, 30000);
+
+        if (canEdit) {
+            const editBtn   = document.getElementById('datatecEditBtn');
+            const editForm  = document.getElementById('datatecEditForm');
+            const ratesDiv  = document.getElementById('datatecRates');
+            const saveBtn   = document.getElementById('datatecSaveBtn');
+            const cancelBtn = document.getElementById('datatecCancelBtn');
+            const inputC    = document.getElementById('datatecInputC');
+            const inputV    = document.getElementById('datatecInputV');
+
+            editBtn.addEventListener('click', function() {
+                inputC.value = document.getElementById('datatecCompra').textContent.replace('—','');
+                inputV.value = document.getElementById('datatecVenta').textContent.replace('—','');
+                ratesDiv.style.display  = 'none';
+                editForm.style.display  = 'flex';
+                editBtn.style.display   = 'none';
+                inputC.focus();
+            });
+
+            cancelBtn.addEventListener('click', function() {
+                editForm.style.display  = 'none';
+                ratesDiv.style.display  = 'flex';
+                editBtn.style.display   = '';
+            });
+
+            saveBtn.addEventListener('click', function() {
+                const c = parseFloat(inputC.value);
+                const v = parseFloat(inputV.value);
+                if (!c || !v || c <= 0 || v <= 0) return;
+                fetch('/mercado/api/datatec', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest'},
+                    body: JSON.stringify({compra: c, venta: v})
+                }).then(r => r.json()).then(res => {
+                    if (res.success) {
+                        document.getElementById('datatecCompra').textContent = fmt(res.data.compra);
+                        document.getElementById('datatecVenta').textContent  = fmt(res.data.venta);
+                        editForm.style.display  = 'none';
+                        ratesDiv.style.display  = 'flex';
+                        editBtn.style.display   = '';
+                    }
+                }).catch(() => {});
+            });
+
+            // Save on Enter key
+            [inputC, inputV].forEach(inp => {
+                inp.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter') saveBtn.click();
+                    if (e.key === 'Escape') cancelBtn.click();
+                });
+            });
+        }
+    })();
+    </script>
+    {% endif %}
 
 </body>
 </html>
