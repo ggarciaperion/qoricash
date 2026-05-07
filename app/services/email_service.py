@@ -162,11 +162,18 @@ class EmailService:
         Returns:
             tuple: (to, cc, bcc) donde:
                 - to: Cliente (destinatario principal)
-                - cc: gerencia@qoricash.pe
+                - cc: trader que creó la operación + gerencia@qoricash.pe
                 - bcc: vacío
         """
         to = [operation.client.email] if operation.client and operation.client.email else []
-        cc = [e for e in ['gerencia@qoricash.pe'] if e not in set(to)]
+        seen = set(to)
+        cc = []
+        trader_email = operation.user.email if operation.user and getattr(operation.user, 'email', None) else None
+        if trader_email and trader_email not in seen:
+            cc.append(trader_email)
+            seen.add(trader_email)
+        if 'gerencia@qoricash.pe' not in seen:
+            cc.append('gerencia@qoricash.pe')
         bcc = []
         return to, cc, bcc
 
@@ -178,11 +185,18 @@ class EmailService:
         Returns:
             tuple: (to, cc, bcc) donde:
                 - to: Cliente
-                - cc: gerencia@qoricash.pe
+                - cc: trader que creó la operación + gerencia@qoricash.pe
                 - bcc: vacío
         """
         to = [operation.client.email] if operation.client and operation.client.email else []
-        cc = [e for e in ['gerencia@qoricash.pe'] if e not in set(to)]
+        seen = set(to)
+        cc = []
+        trader_email = operation.user.email if operation.user and getattr(operation.user, 'email', None) else None
+        if trader_email and trader_email not in seen:
+            cc.append(trader_email)
+            seen.add(trader_email)
+        if 'gerencia@qoricash.pe' not in seen:
+            cc.append('gerencia@qoricash.pe')
         bcc = []
         return to, cc, bcc
 
@@ -216,20 +230,19 @@ class EmailService:
             # Contenido HTML
             html_body = EmailService._render_new_operation_template(operation)
 
-            # Sender: email del trader dueño de la operación
+            # Reply-To: trader dueño de la operación (para que el cliente pueda responder directamente al trader)
             trader_email = operation.user.email if operation.user and operation.user.email else None
-            if not trader_email:
-                logger.warning(f'Trader sin email para operación {operation.operation_id} — usando remitente por defecto')
 
-            # Crear mensaje
+            # Crear mensaje — sender usa MAIL_DEFAULT_SENDER para no romper autenticación SMTP
             msg = Message(
                 subject=subject,
-                sender=trader_email,
                 recipients=to,
                 cc=cc,
                 bcc=bcc,
                 html=html_body
             )
+            if trader_email:
+                msg.reply_to = trader_email
 
             # Marcar como enviado ANTES del spawn para evitar race condition
             try:
@@ -272,7 +285,7 @@ class EmailService:
                 logger.warning(f'No hay destinatarios para la operación completada {operation.operation_id}')
                 return False, 'No hay destinatarios configurados'
 
-            # Sender: email del trader dueño de la operación
+            # Reply-To: trader dueño de la operación
             trader_email = operation.user.email if operation.user and operation.user.email else None
 
             subject = f'Operación Completada #{operation.operation_id} - QoriCash Trading'
@@ -283,11 +296,12 @@ class EmailService:
             logger.info(f'[EMAIL] Creando mensaje Flask-Mail')
             msg = Message(
                 subject=subject,
-                sender=trader_email,
                 recipients=to,
                 cc=cc if cc else None,
                 html=html_body
             )
+            if trader_email:
+                msg.reply_to = trader_email
 
             # Adjuntar comprobante electrónico si existe
             if operation.invoices and len(operation.invoices) > 0:
