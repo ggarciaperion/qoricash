@@ -173,6 +173,7 @@ def export_today():
     - Master y Operador: Incluyen columna de Usuario (email)
     - Trader: No incluye columna de Usuario
     """
+    from app.models.user import User
     operations = OperationService.get_today_operations(exclude_user_id=User.get_demo_user_id())
 
     # Crear libro de Excel
@@ -395,6 +396,7 @@ def api_list():
 
     from app.models.operation import Operation
     from app.models.client import Client
+    from app.models.user import User
     from datetime import datetime
     from sqlalchemy import case
 
@@ -722,6 +724,7 @@ def get_today_operations():
     """
     API: Obtener operaciones de hoy
     """
+    from app.models.user import User
     operations = OperationService.get_today_operations(exclude_user_id=User.get_demo_user_id())
     return jsonify({
         'success': True,
@@ -736,6 +739,7 @@ def get_for_operator():
     """
     API: Obtener operaciones para operador (Pendientes y En proceso)
     """
+    from app.models.user import User
     operations = OperationService.get_operations_for_operator(exclude_user_id=User.get_demo_user_id())
     return jsonify({
         'success': True,
