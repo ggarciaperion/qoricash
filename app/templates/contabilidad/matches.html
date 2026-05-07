@@ -327,6 +327,7 @@ const TIPO_BADGE = {
 // ── Utilidades ───────────────────────────────────────────────────────────────
 
 function fmt2(v) { return v != null ? parseFloat(v).toFixed(2) : '—'; }
+function fmt4(v) { return v != null ? parseFloat(v).toFixed(4) : '—'; }
 function fmtPen(v) { return v != null ? 'S/ ' + parseFloat(v).toFixed(2) : '—'; }
 
 function statusBadge(s) {
@@ -374,8 +375,8 @@ function cargarAmarres() {
             <small class="text-muted">${m.sell_client_name || ''}</small>
           </td>
           <td class="text-end fw-semibold">${fmt2(m.matched_amount_usd)}</td>
-          <td class="text-end">${fmt2(m.buy_exchange_rate)}</td>
-          <td class="text-end">${fmt2(m.sell_exchange_rate)}</td>
+          <td class="text-end">${fmt4(m.buy_exchange_rate)}</td>
+          <td class="text-end">${fmt4(m.sell_exchange_rate)}</td>
           <td class="text-end fw-semibold text-success">${fmtPen(m.profit_pen)}</td>
           <td class="text-end">${fmtPen(m.trader_buy_profit_pen)}</td>
           <td class="text-end">${fmtPen(m.trader_sell_profit_pen)}</td>
@@ -788,8 +789,8 @@ function verDetalleLote(id) {
         <td><code>${m.buy_operation_code || m.buy_operation_id}</code><br><small>${m.buy_client_name || ''}</small></td>
         <td><code>${m.sell_operation_code || m.sell_operation_id}</code><br><small>${m.sell_client_name || ''}</small></td>
         <td class="text-end">${fmt2(m.matched_amount_usd)}</td>
-        <td class="text-end">${fmt2(m.buy_exchange_rate)}</td>
-        <td class="text-end">${fmt2(m.sell_exchange_rate)}</td>
+        <td class="text-end">${fmt4(m.buy_exchange_rate)}</td>
+        <td class="text-end">${fmt4(m.sell_exchange_rate)}</td>
         <td class="text-end fw-semibold text-success">${fmtPen(m.profit_pen)}</td>
         <td class="text-end">${fmtPen(m.house_profit_pen)}</td>
       </tr>`).join('') || '<tr><td colspan="9" class="text-muted text-center">Sin amarres</td></tr>';
