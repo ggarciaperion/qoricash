@@ -1455,111 +1455,171 @@ tr[data-status="Cancelado"] {
 }
 
 /* ═══════════════════════════════════════════════
-   DATATEC WIDGET — Sidebar rate monitor
+   DATATEC WIDGET — Dólar Spot panel (replica DATATEC)
    ═══════════════════════════════════════════════ */
 .datatec-widget {
-    margin: 8px 10px 4px;
-    background: rgba(255,255,255,0.06);
-    border: 1px solid rgba(255,255,255,0.12);
-    border-radius: 10px;
-    padding: 8px 10px;
-    transition: background 0.2s;
+    margin: 6px 8px 8px;
+    border-radius: 4px;
+    overflow: hidden;
+    border: 1px solid #111;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+    flex-shrink: 0;
 }
-.datatec-widget:hover { background: rgba(255,255,255,0.1); }
 
-.datatec-header {
+/* Title bar — dark gray like DATATEC header */
+.datatec-titlebar {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    margin-bottom: 5px;
+    gap: 5px;
+    background: #2b2b2b;
+    padding: 4px 8px;
+    border-bottom: 1px solid #111;
 }
-.datatec-label {
+.datatec-flag { font-size: 12px; line-height: 1; }
+.datatec-title {
+    flex: 1;
     font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    color: rgba(255,255,255,0.55);
-    text-transform: uppercase;
+    font-weight: 600;
+    color: #d0d0d0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    letter-spacing: 0.01em;
 }
-.datatec-edit-btn, .datatec-save-btn, .datatec-cancel-btn {
+.datatec-edit-btn {
     background: none;
     border: none;
     cursor: pointer;
-    padding: 2px 5px;
-    border-radius: 5px;
+    color: rgba(255,255,255,0.35);
+    font-size: 10px;
+    padding: 1px 4px;
+    border-radius: 3px;
     line-height: 1;
-    transition: background 0.15s;
+    transition: color 0.15s, background 0.15s;
+    flex-shrink: 0;
 }
-.datatec-edit-btn { color: rgba(255,255,255,0.45); font-size: 11px; }
-.datatec-edit-btn:hover { background: rgba(255,255,255,0.15); color: #fff; }
-.datatec-save-btn  { color: #4ade80; font-size: 13px; }
-.datatec-save-btn:hover  { background: rgba(74,222,128,0.15); }
-.datatec-cancel-btn { color: rgba(255,255,255,0.4); font-size: 13px; }
-.datatec-cancel-btn:hover { background: rgba(255,255,255,0.1); }
+.datatec-edit-btn:hover { color: #fff; background: rgba(255,255,255,0.1); }
 
+/* Two-panel rate display */
 .datatec-rates {
+    display: flex;
+}
+.datatec-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 4px 10px;
+}
+.datatec-demand { background: #0d1f3c; border-right: 1px solid #111; }
+.datatec-offer  { background: #192b00; }
+
+.datatec-panel-label {
+    font-size: 9px;
+    font-weight: 500;
+    color: #4dd9ec;
+    letter-spacing: 0.02em;
+    margin-bottom: 4px;
+    text-align: center;
+}
+.datatec-demand .datatec-panel-val { color: #29d9f5; }
+.datatec-offer  .datatec-panel-val { color: #b8e040; }
+.datatec-panel-val {
+    font-size: 20px;
+    font-weight: 700;
+    font-family: 'Courier New', 'Consolas', monospace;
+    letter-spacing: 0.03em;
+    line-height: 1;
+}
+
+/* Edit form */
+.datatec-edit-form {
+    background: #1e1e1e;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    border-top: 1px solid #111;
+}
+.datatec-edit-row {
     display: flex;
     align-items: center;
     gap: 6px;
 }
-.datatec-rate-item {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-}
-.datatec-rate-label {
+.datatec-edit-row label {
     font-size: 9px;
-    font-weight: 700;
+    color: #4dd9ec;
+    font-weight: 600;
+    width: 42px;
+    flex-shrink: 0;
     text-transform: uppercase;
-    color: rgba(255,255,255,0.4);
-}
-.datatec-buy  .datatec-rate-val { color: #4ade80; font-size: 13px; font-weight: 700; }
-.datatec-sell .datatec-rate-val { color: #60a5fa; font-size: 13px; font-weight: 700; }
-.datatec-divider { color: rgba(255,255,255,0.2); font-size: 11px; }
-
-.datatec-edit-form {
-    margin-top: 7px;
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
+    letter-spacing: 0.04em;
 }
 .datatec-edit-form input[type="number"] {
-    background: rgba(255,255,255,0.1);
-    border: 1px solid rgba(255,255,255,0.2);
-    border-radius: 6px;
-    color: #fff;
-    font-size: 12px;
-    font-weight: 600;
-    padding: 4px 8px;
-    width: 100%;
+    flex: 1;
+    background: #0d0d0d;
+    border: 1px solid #3a3a3a;
+    border-radius: 3px;
+    color: #b8e040;
+    font-size: 13px;
+    font-weight: 700;
+    font-family: 'Courier New', monospace;
+    padding: 3px 7px;
     outline: none;
+    width: 100%;
 }
-.datatec-edit-form input[type="number"]:focus {
-    border-color: rgba(255,255,255,0.45);
-    background: rgba(255,255,255,0.15);
-}
-.datatec-edit-form input::placeholder { color: rgba(255,255,255,0.3); }
+.datatec-edit-form input[type="number"]:focus { border-color: #4dd9ec; }
+.datatec-edit-form input::placeholder { color: rgba(255,255,255,0.2); }
 .datatec-form-btns {
     display: flex;
-    gap: 4px;
+    gap: 5px;
     justify-content: flex-end;
+    margin-top: 2px;
 }
+.datatec-save-btn {
+    background: #1a4a1a;
+    border: 1px solid #2a6a2a;
+    border-radius: 3px;
+    color: #b8e040;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 10px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.datatec-save-btn:hover { background: #235a23; }
+.datatec-cancel-btn {
+    background: none;
+    border: 1px solid #3a3a3a;
+    border-radius: 3px;
+    color: rgba(255,255,255,0.4);
+    font-size: 12px;
+    padding: 3px 8px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.datatec-cancel-btn:hover { background: rgba(255,255,255,0.08); color: #fff; }
 
 .datatec-updated {
     display: block;
-    font-size: 9px;
-    color: rgba(255,255,255,0.25);
-    margin-top: 3px;
+    font-size: 8px;
+    color: rgba(255,255,255,0.2);
+    text-align: right;
+    padding: 2px 7px 3px;
+    background: #1e1e1e;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
-/* Collapsed sidebar: hide text, keep compact */
-.sidebar.collapsed .datatec-label,
-.sidebar.collapsed .datatec-divider,
-.sidebar.collapsed .datatec-rate-label,
+/* Collapsed sidebar: ultra-compact */
+.sidebar.collapsed .datatec-titlebar,
+.sidebar.collapsed .datatec-title,
+.sidebar.collapsed .datatec-flag,
+.sidebar.collapsed .datatec-panel-label,
 .sidebar.collapsed .datatec-updated,
 .sidebar.collapsed .datatec-edit-btn,
 .sidebar.collapsed .datatec-edit-form { display: none; }
-.sidebar.collapsed .datatec-rates { flex-direction: column; gap: 2px; }
-.sidebar.collapsed .datatec-widget { padding: 6px; text-align: center; }
+.sidebar.collapsed .datatec-panel { padding: 5px 2px; }
+.sidebar.collapsed .datatec-panel-val { font-size: 11px; }

@@ -52,41 +52,6 @@
         </div>
 
         <!-- ── DATATEC Rate Widget ── -->
-        {% if current_user.role in ['Master', 'Trader', 'Operador'] %}
-        <div class="datatec-widget" id="datatecWidget">
-            <div class="datatec-header">
-                <span class="datatec-label"><i class="bi bi-broadcast-pin me-1"></i>DATATEC</span>
-                {% if current_user.role in ['Master', 'Trader'] %}
-                <button class="datatec-edit-btn" id="datatecEditBtn" title="Actualizar tasas">
-                    <i class="bi bi-pencil-fill"></i>
-                </button>
-                {% endif %}
-            </div>
-            <div class="datatec-rates" id="datatecRates">
-                <span class="datatec-rate-item datatec-buy">
-                    <span class="datatec-rate-label">C</span>
-                    <span class="datatec-rate-val" id="datatecCompra">—</span>
-                </span>
-                <span class="datatec-divider">|</span>
-                <span class="datatec-rate-item datatec-sell">
-                    <span class="datatec-rate-label">V</span>
-                    <span class="datatec-rate-val" id="datatecVenta">—</span>
-                </span>
-            </div>
-            {% if current_user.role in ['Master', 'Trader'] %}
-            <div class="datatec-edit-form" id="datatecEditForm" style="display:none;">
-                <input type="number" id="datatecInputC" step="0.001" min="1" max="10" placeholder="Compra">
-                <input type="number" id="datatecInputV" step="0.001" min="1" max="10" placeholder="Venta">
-                <div class="datatec-form-btns">
-                    <button class="datatec-save-btn" id="datatecSaveBtn"><i class="bi bi-check-lg"></i></button>
-                    <button class="datatec-cancel-btn" id="datatecCancelBtn"><i class="bi bi-x-lg"></i></button>
-                </div>
-            </div>
-            {% endif %}
-            <span class="datatec-updated" id="datatecUpdated"></span>
-        </div>
-        {% endif %}
-
         <!-- Navigation -->
         <nav class="sidebar-nav">
             {% if current_user.role != 'Middle Office' %}
@@ -187,6 +152,51 @@
             </a>
             {% endif %}
         </nav>
+
+        <!-- ── DATATEC Dólar Spot Widget ── -->
+        {% if current_user.role in ['Master', 'Trader', 'Operador'] %}
+        <div class="datatec-widget" id="datatecWidget">
+            <!-- Title bar -->
+            <div class="datatec-titlebar">
+                <span class="datatec-flag">🇵🇪</span>
+                <span class="datatec-title">Dólar Spot - Resumen de hoy</span>
+                {% if current_user.role in ['Master', 'Trader'] %}
+                <button class="datatec-edit-btn" id="datatecEditBtn" title="Actualizar tasas">
+                    <i class="bi bi-pencil-fill"></i>
+                </button>
+                {% endif %}
+            </div>
+            <!-- Rates display -->
+            <div class="datatec-rates" id="datatecRates">
+                <div class="datatec-panel datatec-demand">
+                    <span class="datatec-panel-label">Mejor demanda</span>
+                    <span class="datatec-panel-val" id="datatecCompra">—</span>
+                </div>
+                <div class="datatec-panel datatec-offer">
+                    <span class="datatec-panel-label">Mejor oferta</span>
+                    <span class="datatec-panel-val" id="datatecVenta">—</span>
+                </div>
+            </div>
+            <!-- Edit form -->
+            {% if current_user.role in ['Master', 'Trader'] %}
+            <div class="datatec-edit-form" id="datatecEditForm" style="display:none;">
+                <div class="datatec-edit-row">
+                    <label>Demanda</label>
+                    <input type="number" id="datatecInputC" step="0.0001" min="1" max="10" placeholder="3.4600">
+                </div>
+                <div class="datatec-edit-row">
+                    <label>Oferta</label>
+                    <input type="number" id="datatecInputV" step="0.0001" min="1" max="10" placeholder="3.4640">
+                </div>
+                <div class="datatec-form-btns">
+                    <button class="datatec-save-btn" id="datatecSaveBtn"><i class="bi bi-check-lg"></i> Guardar</button>
+                    <button class="datatec-cancel-btn" id="datatecCancelBtn"><i class="bi bi-x-lg"></i></button>
+                </div>
+            </div>
+            {% endif %}
+            <span class="datatec-updated" id="datatecUpdated"></span>
+        </div>
+        {% endif %}
 
         <!-- User section at bottom -->
         <div class="sidebar-user">
