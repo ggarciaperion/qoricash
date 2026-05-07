@@ -39,7 +39,7 @@ def clean_accounting_test():
 
         print(f"\n  accounting_batches ({len(batches)} registros):")
         for b in batches:
-            print(f"    ID={b.id} | total_usd={b.total_usd} | matches={len(b.matches)} | {b.created_at}")
+            print(f"    ID={b.id} | code={b.batch_code} | profit={b.total_profit_pen} | matches={b.num_matches} | {b.created_at}")
 
         print("\n" + "=" * 60)
         confirm = input("¿Eliminar TODOS estos registros? (escribe SI para confirmar): ").strip()
