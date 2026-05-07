@@ -42,7 +42,7 @@ def clean_accounting_test():
             print(f"    ID={b.id} | code={b.batch_code} | profit={b.total_profit_pen} | matches={b.num_matches} | {b.created_at}")
 
         print("\n" + "=" * 60)
-        confirm = input("¿Eliminar TODOS estos registros? (escribe SI para confirmar): ").strip()
+        confirm = input("¿Eliminar TODOS estos registros? (escribe SI para confirmar): ").strip().upper()
         if confirm != "SI":
             print("Cancelado.")
             return
