@@ -405,7 +405,7 @@
             <div class="d-flex align-items-center justify-content-between mb-2">
               <span style="font-size:.65rem;font-weight:700;text-transform:uppercase;
                            letter-spacing:.07em;color:#4dd9ec">Cierre</span>
-              <span style="font-size:.65rem;color:#4dd9ec" id="dtDate">—</span>
+              <span style="font-size:.62rem;color:rgba(77,217,236,.65)" id="dtDateCierre">—</span>
             </div>
             <div class="row g-2">
               <div class="col-6">
@@ -429,8 +429,11 @@
 
           <!-- Precios tarde -->
           <div class="px-3 pt-2 pb-2" style="background:#111e00">
-            <div class="mb-2" style="font-size:.65rem;font-weight:700;text-transform:uppercase;
-                                     letter-spacing:.07em;color:#8ec820">Precios tarde</div>
+            <div class="d-flex align-items-center justify-content-between mb-2">
+              <span style="font-size:.65rem;font-weight:700;text-transform:uppercase;
+                           letter-spacing:.07em;color:#8ec820">Precios tarde</span>
+              <span style="font-size:.62rem;color:rgba(142,200,32,.65)" id="dtDateTarde">—</span>
+            </div>
             <div class="row g-2">
               <div class="col-6">
                 <div style="font-size:.6rem;font-weight:600;text-transform:uppercase;
@@ -1084,13 +1087,16 @@ document.querySelectorAll('.range-btn').forEach(btn => {
           const el = document.getElementById(id);
           if (el && document.activeElement !== el) el.value = vals[i];
         });
-        const dateEl = document.getElementById('dtDate');
-        if (dateEl) dateEl.textContent = todayLabel();
         if (d.updated_at) {
           const dt = new Date(d.updated_at);
-          const hm = dt.toLocaleTimeString('es-PE', {hour:'2-digit', minute:'2-digit'});
-          const el = document.getElementById('dtUpdated');
-          if (el) el.textContent = 'Act. ' + hm + (d.updated_by ? ' · ' + d.updated_by : '');
+          const label = dt.toLocaleDateString('es-PE', {day:'2-digit', month:'2-digit', year:'numeric'})
+                      + ' ' + dt.toLocaleTimeString('es-PE', {hour:'2-digit', minute:'2-digit'});
+          const elC = document.getElementById('dtDateCierre');
+          const elT = document.getElementById('dtDateTarde');
+          if (elC) elC.textContent = label;
+          if (elT) elT.textContent = label;
+          const elU = document.getElementById('dtUpdated');
+          if (elU) elU.textContent = (d.updated_by ? d.updated_by + ' · ' : '') + label;
         }
       }).catch(() => {});
   }
@@ -1120,9 +1126,14 @@ document.querySelectorAll('.range-btn').forEach(btn => {
           saveBtn.disabled = false;
           if (res.success && res.data.updated_at) {
             const dt = new Date(res.data.updated_at);
-            const hm = dt.toLocaleTimeString('es-PE', {hour:'2-digit', minute:'2-digit'});
-            const el = document.getElementById('dtUpdated');
-            if (el) el.textContent = 'Act. ' + hm + (res.data.updated_by ? ' · ' + res.data.updated_by : '');
+            const label = dt.toLocaleDateString('es-PE', {day:'2-digit', month:'2-digit', year:'numeric'})
+                        + ' ' + dt.toLocaleTimeString('es-PE', {hour:'2-digit', minute:'2-digit'});
+            const elC = document.getElementById('dtDateCierre');
+            const elT = document.getElementById('dtDateTarde');
+            if (elC) elC.textContent = label;
+            if (elT) elT.textContent = label;
+            const elU = document.getElementById('dtUpdated');
+            if (elU) elU.textContent = (res.data.updated_by ? res.data.updated_by + ' · ' : '') + label;
           }
         }).catch(() => { saveBtn.disabled = false; });
       });
