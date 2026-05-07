@@ -4,7 +4,7 @@ Solo accesible por rol Master.
 """
 from flask import Blueprint, render_template, request, jsonify, send_file
 from flask_login import login_required, current_user
-from app.extensions import db
+from app.extensions import db, csrf
 from app.utils.decorators import require_role
 from datetime import date, datetime
 from decimal import Decimal
@@ -139,6 +139,7 @@ def diario():
 
 
 @contabilidad_bp.route('/diario/nuevo', methods=['POST'])
+@csrf.exempt
 @login_required
 @require_role('Master')
 def nuevo_asiento():
@@ -221,6 +222,7 @@ def nuevo_asiento():
 
 
 @contabilidad_bp.route('/diario/<int:entry_id>/anular', methods=['POST'])
+@csrf.exempt
 @login_required
 @require_role('Master')
 def anular_asiento(entry_id):
@@ -442,6 +444,7 @@ def gastos():
 
 
 @contabilidad_bp.route('/gastos/nuevo', methods=['POST'])
+@csrf.exempt
 @login_required
 @require_role('Master')
 def nuevo_gasto():
@@ -594,6 +597,7 @@ def nuevo_gasto():
 # ── Pago de Proveedores ────────────────────────────────────────────────────────
 
 @contabilidad_bp.route('/gastos/<int:record_id>/pagar', methods=['POST'])
+@csrf.exempt
 @login_required
 @require_role('Master')
 def pagar_proveedor(record_id):
@@ -674,6 +678,7 @@ def pagar_proveedor(record_id):
 # ── Ajuste por diferencia de tipo de cambio ────────────────────────────────────
 
 @contabilidad_bp.route('/ajuste-fx', methods=['POST'])
+@csrf.exempt
 @login_required
 @require_role('Master')
 def ajuste_fx_cierre():
@@ -900,6 +905,7 @@ def apertura():
 
 
 @contabilidad_bp.route('/apertura', methods=['POST'])
+@csrf.exempt
 @login_required
 @require_role('Master')
 def crear_apertura():
@@ -1018,6 +1024,7 @@ def periodos():
 
 
 @contabilidad_bp.route('/periodos/cerrar', methods=['POST'])
+@csrf.exempt
 @login_required
 @require_role('Master')
 def cerrar_periodo():
@@ -1030,6 +1037,7 @@ def cerrar_periodo():
 
 
 @contabilidad_bp.route('/periodos/reabrir', methods=['POST'])
+@csrf.exempt
 @login_required
 @require_role('Master')
 def reabrir_periodo():
@@ -1080,6 +1088,7 @@ def reabrir_periodo():
 
 
 @contabilidad_bp.route('/periodos/generar-asientos', methods=['POST'])
+@csrf.exempt
 @login_required
 @require_role('Master')
 def generar_asientos_retroactivos():
@@ -2545,6 +2554,7 @@ def api_activos_list():
 
 
 @contabilidad_bp.route('/activos-fijos/depreciar', methods=['POST'])
+@csrf.exempt
 @login_required
 @require_role('Master')
 def depreciar_activos():
@@ -2652,6 +2662,7 @@ def depreciar_activos():
 
 
 @contabilidad_bp.route('/activos-fijos/<int:asset_id>/baja', methods=['POST'])
+@csrf.exempt
 @login_required
 @require_role('Master')
 def dar_baja_activo(asset_id):
@@ -3169,6 +3180,7 @@ def amarres_operaciones_disponibles():
 
 
 @contabilidad_bp.route('/amarres/crear', methods=['POST'])
+@csrf.exempt
 @login_required
 @require_role('Master')
 def amarres_crear():
@@ -3235,6 +3247,7 @@ def amarres_lista():
 
 
 @contabilidad_bp.route('/lotes/crear', methods=['POST'])
+@csrf.exempt
 @login_required
 @require_role('Master')
 def lotes_crear():
@@ -3290,6 +3303,7 @@ def lotes_detalle(batch_id):
 
 
 @contabilidad_bp.route('/lotes/<int:batch_id>/cerrar', methods=['POST'])
+@csrf.exempt
 @login_required
 @require_role('Master')
 def lotes_cerrar(batch_id):
