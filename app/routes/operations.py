@@ -173,7 +173,7 @@ def export_today():
     - Master y Operador: Incluyen columna de Usuario (email)
     - Trader: No incluye columna de Usuario
     """
-    operations = OperationService.get_today_operations()
+    operations = OperationService.get_today_operations(exclude_user_id=User.get_demo_user_id())
 
     # Crear libro de Excel
     wb = openpyxl.Workbook()
@@ -398,14 +398,16 @@ def api_list():
     from datetime import datetime
     from sqlalchemy import case
 
+    demo_id = User.get_demo_user_id()
+
     if show_all:
         # Para el historial, mostrar todas las operaciones
         if status:
-            operations = OperationService.get_operations_by_status(status)
+            operations = OperationService.get_operations_by_status(status, exclude_user_id=demo_id)
         elif client_id:
             operations = OperationService.get_operations_by_client(client_id)
         else:
-            operations = OperationService.get_all_operations(include_relations=True)
+            operations = OperationService.get_all_operations(include_relations=True, exclude_user_id=demo_id)
             # Filtrar según rol - por clientes del trader/app/web
             if current_user.role in ['Trader', 'App', 'Web']:
                 trader_client_ids = [c.id for c in Client.query.filter_by(created_by=current_user.id).all()]
@@ -424,17 +426,20 @@ def api_list():
                 else_=1
             )
 
-            operations = Operation.query.join(Client).filter(
+            query = Operation.query.join(Client).filter(
                 Client.created_by == current_user.id,
                 Operation.created_at >= start_of_day,
                 Operation.created_at <= end_of_day
-            ).order_by(
+            )
+            if demo_id:
+                query = query.filter(Operation.user_id != demo_id)
+            operations = query.order_by(
                 priority_order,
                 Operation.created_at.desc()
             ).all()
         else:
             # Otros roles (Master, Operador, Middle Office) ven todas las operaciones del día
-            operations = OperationService.get_today_operations()
+            operations = OperationService.get_today_operations(exclude_user_id=demo_id)
 
         # get_today_operations devuelve objetos, necesitamos convertir a dict
         return jsonify({
@@ -717,7 +722,7 @@ def get_today_operations():
     """
     API: Obtener operaciones de hoy
     """
-    operations = OperationService.get_today_operations()
+    operations = OperationService.get_today_operations(exclude_user_id=User.get_demo_user_id())
     return jsonify({
         'success': True,
         'operations': [op.to_dict(include_relations=True) for op in operations]
@@ -731,7 +736,7 @@ def get_for_operator():
     """
     API: Obtener operaciones para operador (Pendientes y En proceso)
     """
-    operations = OperationService.get_operations_for_operator()
+    operations = OperationService.get_operations_for_operator(exclude_user_id=User.get_demo_user_id())
     return jsonify({
         'success': True,
         'operations': [op.to_dict(include_relations=True) for op in operations]

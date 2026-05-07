@@ -68,17 +68,21 @@ class OperationService:
         return Operation.query.filter_by(operation_id=operation_id_str).first()
     
     @staticmethod
-    def get_operations_by_status(status):
+    def get_operations_by_status(status, exclude_user_id=None):
         """
         Obtener operaciones por estado
-        
+
         Args:
             status: Estado ('Pendiente', 'En proceso', 'Completada', 'Cancelado')
-        
+            exclude_user_id: ID de usuario cuyas operaciones excluir (ej. demo_trader)
+
         Returns:
             list: Lista de operaciones
         """
-        return Operation.query.filter_by(status=status).order_by(Operation.created_at.desc()).all()
+        query = Operation.query.filter_by(status=status)
+        if exclude_user_id:
+            query = query.filter(Operation.user_id != exclude_user_id)
+        return query.order_by(Operation.created_at.desc()).all()
     
     @staticmethod
     def get_operations_by_client(client_id):
@@ -618,17 +622,23 @@ class OperationService:
         }
     
     @staticmethod
-    def get_operations_for_operator():
+    def get_operations_for_operator(exclude_user_id=None):
         """
         Obtener operaciones relevantes para operador
         (Pendientes y En proceso)
 
+        Args:
+            exclude_user_id: ID de usuario cuyas operaciones excluir (ej. demo_trader)
+
         Returns:
             list: Lista de operaciones
         """
-        return Operation.query.filter(
+        query = Operation.query.filter(
             Operation.status.in_(['Pendiente', 'En proceso'])
-        ).order_by(Operation.created_at.desc()).all()
+        )
+        if exclude_user_id:
+            query = query.filter(Operation.user_id != exclude_user_id)
+        return query.order_by(Operation.created_at.desc()).all()
 
     @staticmethod
     def assign_operator_balanced():
