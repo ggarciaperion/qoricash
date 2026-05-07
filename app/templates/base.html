@@ -144,11 +144,12 @@
             </a>
             {% endif %}
 
-            {% if current_user.role == 'Master' %}
+            {% if current_user.role in ['Master', 'Operador'] %}
             <a class="sidebar-link {% if request.endpoint and request.endpoint.startswith('contabilidad') %}active{% endif %}"
                href="{{ url_for('contabilidad.dashboard') }}">
                 <i class="bi bi-calculator"></i>
                 <span class="sidebar-link-text">Contabilidad</span>
+                <span id="unmatchedBadge" class="sidebar-badge sidebar-badge-warning" style="display:none;">0</span>
             </a>
             {% endif %}
         </nav>
@@ -488,6 +489,25 @@
 
     <!-- KYC & Complaints Badge Script -->
     <script>
+    {% if current_user.is_authenticated and current_user.role in ['Master', 'Operador'] %}
+    function updateUnmatchedBadge() {
+        fetch('/contabilidad/api/unmatched_count', {headers: {'X-Requested-With': 'XMLHttpRequest'}})
+            .then(r => r.json())
+            .then(data => {
+                const badge = document.getElementById('unmatchedBadge');
+                if (badge) {
+                    const n = data.count || 0;
+                    badge.textContent = n;
+                    badge.style.display = n > 0 ? 'inline-flex' : 'none';
+                }
+            }).catch(() => {});
+    }
+    document.addEventListener('DOMContentLoaded', function() {
+        updateUnmatchedBadge();
+        setInterval(updateUnmatchedBadge, 120000);
+    });
+    {% endif %}
+
     {% if current_user.is_authenticated and current_user.role in ['Master', 'Middle Office'] %}
     function updateKycBadge() {
         fetch('/compliance/api/kyc/pending')

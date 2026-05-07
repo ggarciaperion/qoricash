@@ -3567,3 +3567,68 @@ def amarres_export():
         as_attachment=True,
         download_name=filename,
     )
+
+
+@contabilidad_bp.route('/api/unmatched_count')
+@login_required
+@require_role('Master', 'Operador')
+def unmatched_count():
+    """API: Cuenta operaciones completadas del mes sin amarrar (o parcialmente)."""
+    try:
+        from app.models.accounting_match import AccountingMatch
+        from app.utils.formatters import now_peru
+        from sqlalchemy import func, and_
+        now = now_peru()
+        start = datetime(now.year, now.month, 1)
+        if now.month == 12:
+            end = datetime(now.year + 1, 1, 1)
+        else:
+            end = datetime(now.year, now.month + 1, 1)
+
+        # Montos ya amarrados por operación (buy side + sell side)
+        buy_matched = db.session.query(
+            AccountingMatch.buy_operation_id.label('op_id'),
+            func.sum(AccountingMatch.matched_amount_usd).label('matched')
+        ).filter(AccountingMatch.status == 'Activo').group_by(
+            AccountingMatch.buy_operation_id
+        ).subquery()
+
+        sell_matched = db.session.query(
+            AccountingMatch.sell_operation_id.label('op_id'),
+            func.sum(AccountingMatch.matched_amount_usd).label('matched')
+        ).filter(AccountingMatch.status == 'Activo').group_by(
+            AccountingMatch.sell_operation_id
+        ).subquery()
+
+        from app.models.operation import Operation as _Op
+        from app.models.user import User as _User
+        ops = _Op.query.filter(
+            _Op.status == 'Completada',
+            _Op.created_at >= start,
+            _Op.created_at < end,
+        ).all()
+
+        # Excluir demo
+        demo_id = _User.query.filter_by(username='demo_trader')\
+            .with_entities(_User.id).scalar()
+
+        count = 0
+        for op in ops:
+            if demo_id and op.user_id == demo_id:
+                continue
+            amount = float(op.amount_usd)
+            # Monto amarrado en el lado buy
+            buy_row = db.session.query(func.sum(AccountingMatch.matched_amount_usd))\
+                .filter(AccountingMatch.buy_operation_id == op.id,
+                        AccountingMatch.status == 'Activo').scalar() or 0
+            # Monto amarrado en el lado sell
+            sell_row = db.session.query(func.sum(AccountingMatch.matched_amount_usd))\
+                .filter(AccountingMatch.sell_operation_id == op.id,
+                        AccountingMatch.status == 'Activo').scalar() or 0
+            matched = float(max(buy_row, sell_row))
+            if matched < amount - 0.01:
+                count += 1
+
+        return jsonify({'success': True, 'count': count})
+    except Exception as e:
+        return jsonify({'success': False, 'count': 0, 'error': str(e)}), 500
