@@ -525,15 +525,29 @@
         }
     });
 
-    // ── BADGES DE MENÚ: exponer función para common.js ───────────────────────
-    // Los badges se actualizan desde el servidor (como KYC/Reclamos).
-    // common.js llama window._menuBadgeInc(k) en los socket events para refrescar.
-    window._menuBadgeInc = function(k) {
-        setTimeout(function() {
-            if (k === 'ops'     && typeof updateOpsBadge     === 'function') updateOpsBadge();
-            if (k === 'clients' && typeof updateClientsBadge === 'function') updateClientsBadge();
-        }, 600); // espera leve para que el servidor procese el evento
-    };
+    // ── BADGES DE MENÚ: nuevos registros desde la última visita ─────────────
+    // Lógica: socket event → badge +1  |  usuario entra al menú → badge = 0
+    (function() {
+        var KEYS = { ops: 'qori_new_ops', clients: 'qori_new_clients' };
+        function _get(k) { return parseInt(sessionStorage.getItem(KEYS[k]) || '0'); }
+        function _set(k, n) {
+            n = Math.max(0, n);
+            sessionStorage.setItem(KEYS[k], n);
+            var el = document.getElementById(k === 'ops' ? 'opsBadge' : 'clientsBadge');
+            if (!el) return;
+            el.textContent = n > 99 ? '99+' : n;
+            el.style.display = n > 0 ? 'inline-flex' : 'none';
+        }
+        // common.js llama esto cuando llega un socket event
+        window._menuBadgeInc = function(k) { _set(k, _get(k) + 1); };
+
+        // Al cargar la página: si estamos en esa sección → limpiar; si no → restaurar
+        document.addEventListener('DOMContentLoaded', function() {
+            var p = window.location.pathname;
+            _set('ops',     p.indexOf('/operations') === 0 ? 0 : _get('ops'));
+            _set('clients', p.indexOf('/clients')    === 0 ? 0 : _get('clients'));
+        });
+    })();
     </script>
     {% endif %}
 
@@ -607,38 +621,6 @@
 
     <!-- KYC & Complaints Badge Script -->
     <script>
-    {% if current_user.is_authenticated and current_user.role in ['Master', 'Operador'] %}
-    function updateOpsBadge() {
-        fetch('/operations/api/badge_count', {headers: {'X-Requested-With': 'XMLHttpRequest'}})
-            .then(function(r) { return r.json(); })
-            .then(function(data) {
-                var n = data.count || 0;
-                var el = document.getElementById('opsBadge');
-                if (el) { el.textContent = n > 99 ? '99+' : n; el.style.display = n > 0 ? 'inline-flex' : 'none'; }
-            }).catch(function() {});
-    }
-    document.addEventListener('DOMContentLoaded', function() {
-        updateOpsBadge();
-        setInterval(updateOpsBadge, 60000);
-    });
-    {% endif %}
-
-    {% if current_user.is_authenticated and current_user.role in ['Master', 'Operador', 'Trader', 'Middle Office'] %}
-    function updateClientsBadge() {
-        fetch('/clients/api/badge_count', {headers: {'X-Requested-With': 'XMLHttpRequest'}})
-            .then(function(r) { return r.json(); })
-            .then(function(data) {
-                var n = data.count || 0;
-                var el = document.getElementById('clientsBadge');
-                if (el) { el.textContent = n > 99 ? '99+' : n; el.style.display = n > 0 ? 'inline-flex' : 'none'; }
-            }).catch(function() {});
-    }
-    document.addEventListener('DOMContentLoaded', function() {
-        updateClientsBadge();
-        setInterval(updateClientsBadge, 60000);
-    });
-    {% endif %}
-
     {% if current_user.is_authenticated and current_user.role in ['Master', 'Operador'] %}
     function updateUnmatchedBadge() {
         fetch('/contabilidad/api/unmatched_count', {headers: {'X-Requested-With': 'XMLHttpRequest'}})

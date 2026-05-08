@@ -51,7 +51,7 @@ function connectSocketIO() {
         if (window.currentUserRole === 'Master' || window.currentUserRole === 'Operador') {
             showNotification(`Nueva operación: ${data.operation_id} - ${data.client_name}`, 'info');
             playNotificationSound();
-            if (window._menuBadgeInc) window._menuBadgeInc('ops'); // refresca desde servidor
+            if (window._menuBadgeInc) window._menuBadgeInc('ops');
         }
 
         // Actualizar dashboard para todos
@@ -143,7 +143,7 @@ function connectSocketIO() {
             const canalLabel = canal === 'App Móvil' ? ' 📱 App' : (canal === 'Web' || canal === 'web' ? ' 🌐 Web' : (canal ? ` (${canal})` : ''));
             showNotification(`Nuevo cliente${canalLabel}: ${name} ${dni}`, 'info');
             playNotificationSound();
-            if (window._menuBadgeInc) window._menuBadgeInc('clients'); // refresca desde servidor
+            if (window._menuBadgeInc) window._menuBadgeInc('clients');
         }
         if (typeof refreshClientsTable === 'function') {
             refreshClientsTable();
@@ -255,7 +255,7 @@ function connectSocketIO() {
         // Mostrar notificación al operador
         showNotification(data.message, 'info', 8000);
         playNotificationSound();
-        if (window._menuBadgeInc) window._menuBadgeInc('ops'); // refresca desde servidor
+        if (window._menuBadgeInc) window._menuBadgeInc('ops');
 
         // Si estamos en la página de operaciones, refrescar la tabla
         if (typeof refreshOperationsTable === 'function') {
