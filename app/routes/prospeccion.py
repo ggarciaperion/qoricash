@@ -15,11 +15,16 @@ from app.models.user import User
 from app.utils.decorators import require_role
 from app.utils.formatters import now_peru
 
-# Mapeo email de usuario → variable de entorno con el token Gmail OAuth2
-_GMAIL_TOKEN_ENV = {
-    "ggarcia@qoricash.pe":  "GMAIL_TOKEN_GGARCIA",
-    "gerencia@qoricash.pe": "GMAIL_TOKEN_GERENCIA",
-    "luacosta@qoricash.pe": "GMAIL_TOKEN_LUACOSTA",
+# Credenciales OAuth2 compartidas — se leen de variables de entorno de Render
+# GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET
+_GMAIL_TOKEN_URI = "https://oauth2.googleapis.com/token"
+_GMAIL_SCOPES    = ["https://mail.google.com/"]
+
+# Mapeo email → variable de entorno que contiene SOLO el refresh_token (string simple)
+_GMAIL_REFRESH_ENV = {
+    "ggarcia@qoricash.pe":  "GMAIL_REFRESH_TOKEN_GGARCIA",
+    "gerencia@qoricash.pe": "GMAIL_REFRESH_TOKEN_GERENCIA",
+    "luacosta@qoricash.pe": "GMAIL_REFRESH_TOKEN_LUACOSTA",
 }
 
 
@@ -29,24 +34,25 @@ def _send_via_gmail_api(sender_email, to_email, subject, html_body):
     from google.auth.transport.requests import Request
     from googleapiclient.discovery import build
 
-    env_key    = _GMAIL_TOKEN_ENV.get(sender_email.lower())
-    token_json = os.environ.get(env_key, "") if env_key else ""
-    if not token_json:
-        raise ValueError(f"Token Gmail no configurado para {sender_email} (var: {env_key})")
+    env_key       = _GMAIL_REFRESH_ENV.get(sender_email.lower())
+    refresh_token = os.environ.get(env_key, "").strip() if env_key else ""
+    if not refresh_token:
+        raise ValueError(f"Refresh token no configurado para {sender_email} (var: {env_key})")
 
-    # Eliminar caracteres de control que Render puede insertar al copiar/pegar
-    token_json = "".join(ch for ch in token_json if ord(ch) >= 32 or ch in "\t")
-    token_data = json.loads(token_json)
+    client_id     = os.environ.get("GMAIL_CLIENT_ID", "")
+    client_secret = os.environ.get("GMAIL_CLIENT_SECRET", "")
+    if not client_id or not client_secret:
+        raise ValueError("GMAIL_CLIENT_ID o GMAIL_CLIENT_SECRET no configurados en Render")
+
     creds = Credentials(
-        token=token_data.get("token"),
-        refresh_token=token_data["refresh_token"],
-        token_uri=token_data["token_uri"],
-        client_id=token_data["client_id"],
-        client_secret=token_data["client_secret"],
-        scopes=token_data["scopes"],
+        token=None,
+        refresh_token=refresh_token,
+        token_uri=_GMAIL_TOKEN_URI,
+        client_id=client_id,
+        client_secret=client_secret,
+        scopes=_GMAIL_SCOPES,
     )
-    if creds.expired and creds.refresh_token:
-        creds.refresh(Request())
+    creds.refresh(Request())
 
     service = build("gmail", "v1", credentials=creds)
 
