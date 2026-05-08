@@ -35,6 +35,7 @@ from app.models.market import (
 )
 from app.models.reward_code import RewardCode
 from app.models.datatec_rate import DatatecRate
+from app.models.notification import Notification
 __all__ = [
     'User', 'Client', 'Operation', 'AuditLog', 'TraderGoal', 'TraderDailyProfit',
     'BankBalance', 'Invoice', 'ExchangeRate', 'Complaint',
@@ -55,4 +56,6 @@ __all__ = [
     'RewardCode',
     # DATATEC
     'DatatecRate',
+    # Notificaciones
+    'Notification',
 ]

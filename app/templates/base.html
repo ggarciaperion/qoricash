@@ -155,6 +155,25 @@
         </nav>
 
 
+        <!-- ── Notification Bell ── -->
+        {% if current_user.is_authenticated %}
+        <div class="sidebar-notif-bell" id="notifBellWrap" style="padding:10px 16px;border-top:1px solid rgba(255,255,255,.08);cursor:pointer;" onclick="toggleNotifPanel()">
+            <span style="position:relative;display:inline-block;">
+                <i class="bi bi-bell" style="font-size:1.2rem;"></i>
+                <span id="notifBadge" class="sidebar-badge" style="display:none;position:absolute;top:-6px;right:-10px;background:#e74c3c;color:#fff;border-radius:50%;min-width:18px;height:18px;font-size:10px;line-height:18px;text-align:center;padding:0 4px;">0</span>
+            </span>
+            <span class="sidebar-link-text" style="margin-left:10px;">Notificaciones</span>
+        </div>
+        <!-- Notification Panel -->
+        <div id="notifPanel" style="display:none;position:fixed;bottom:60px;left:64px;width:340px;max-height:440px;background:#fff;border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,.18);z-index:9999;overflow:hidden;flex-direction:column;">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid #eee;background:#f8f9fa;">
+                <strong style="font-size:.9rem;">Notificaciones</strong>
+                <button onclick="markAllRead()" class="btn btn-sm btn-link text-muted p-0" style="font-size:.75rem;">Marcar todas leídas</button>
+            </div>
+            <div id="notifList" style="overflow-y:auto;max-height:360px;"></div>
+        </div>
+        {% endif %}
+
         <!-- User section at bottom -->
         <div class="sidebar-user">
             <div class="sidebar-user-info" data-bs-toggle="dropdown" aria-expanded="false" id="userMenuToggle">
@@ -418,6 +437,168 @@
 
     <!-- Common JS -->
     <script src="{{ url_for('static', filename='js/common.js') }}?v=20260408_v8"></script>
+
+    <!-- ── SOCKET GLOBAL + NOTIFICATION CENTER ─────────────────────────────── -->
+    {% if current_user.is_authenticated %}
+    <script>
+    // ── AudioContext desbloqueado en primer gesto del usuario ────────────────
+    window._audioCtxUnlocked = false;
+    window._audioCtx = null;
+    function _unlockAudio() {
+        if (window._audioCtxUnlocked) return;
+        try {
+            window._audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            window._audioCtx.resume().then(() => { window._audioCtxUnlocked = true; });
+        } catch(e) {}
+        document.removeEventListener('click', _unlockAudio);
+        document.removeEventListener('keydown', _unlockAudio);
+        document.removeEventListener('touchstart', _unlockAudio);
+    }
+    document.addEventListener('click', _unlockAudio, {once:true});
+    document.addEventListener('keydown', _unlockAudio, {once:true});
+    document.addEventListener('touchstart', _unlockAudio, {once:true});
+
+    // ── Socket global (conecta en TODAS las páginas) ─────────────────────────
+    document.addEventListener('DOMContentLoaded', function() {
+        if (typeof connectSocketIO === 'function') {
+            connectSocketIO();
+        }
+    });
+
+    // ── badge counter vía SocketIO (en tiempo real) ──────────────────────────
+    document.addEventListener('DOMContentLoaded', function() {
+        // Escuchar badge actualizado desde backend
+        if (typeof socket !== 'undefined') {
+            _attachBadgeListener();
+        } else {
+            // socket puede no estar listo aún; esperar 1s
+            setTimeout(_attachBadgeListener, 1000);
+        }
+    });
+
+    function _attachBadgeListener() {
+        if (typeof socket === 'undefined' || !socket) return;
+        socket.on('notification_badge', function(data) {
+            _setNotifBadge(data.count || 0);
+        });
+    }
+
+    function _setNotifBadge(count) {
+        const badge = document.getElementById('notifBadge');
+        if (!badge) return;
+        badge.textContent = count;
+        badge.style.display = count > 0 ? 'inline-flex' : 'none';
+    }
+
+    // ── Notification panel ───────────────────────────────────────────────────
+    function toggleNotifPanel() {
+        const panel = document.getElementById('notifPanel');
+        if (!panel) return;
+        const visible = panel.style.display !== 'none' && panel.style.display !== '';
+        if (visible) {
+            panel.style.display = 'none';
+        } else {
+            panel.style.display = 'flex';
+            panel.style.flexDirection = 'column';
+            _loadNotifications();
+        }
+    }
+
+    function _loadNotifications() {
+        fetch('/notifications/api/list?limit=30')
+            .then(r => r.json())
+            .then(data => {
+                const list = document.getElementById('notifList');
+                if (!list) return;
+                if (!data.notifications || !data.notifications.length) {
+                    list.innerHTML = '<div style="padding:24px;text-align:center;color:#aaa;font-size:.85rem;">Sin notificaciones</div>';
+                    return;
+                }
+                list.innerHTML = data.notifications.map(n => `
+                    <div onclick="_clickNotif(${n.id},'${n.link||''}')"
+                         style="padding:10px 16px;border-bottom:1px solid #f0f0f0;cursor:pointer;
+                                background:${n.is_read?'#fff':'#f0f7ff'};transition:background .15s;"
+                         onmouseover="this.style.background='#e8f4fd'" onmouseout="this.style.background='${n.is_read?'#fff':'#f0f7ff'}'">
+                        <div style="display:flex;align-items:flex-start;gap:8px;">
+                            <span style="font-size:1rem;">${_notifIcon(n.type)}</span>
+                            <div style="flex:1;min-width:0;">
+                                <div style="font-weight:${n.is_read?'400':'600'};font-size:.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${n.title}</div>
+                                <div style="font-size:.78rem;color:#666;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${n.message}</div>
+                                <div style="font-size:.7rem;color:#aaa;margin-top:4px;">${_timeAgo(n.created_at)}</div>
+                            </div>
+                            ${!n.is_read?'<span style="width:8px;height:8px;border-radius:50%;background:#0d6efd;flex-shrink:0;margin-top:4px;"></span>':''}
+                        </div>
+                    </div>
+                `).join('');
+            }).catch(() => {});
+    }
+
+    function _clickNotif(id, link) {
+        fetch('/notifications/api/mark_read/' + id, {
+            method:'POST',
+            headers:{'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.content || ''}
+        }).then(() => {
+            _loadNotifications();
+            // Actualizar badge
+            fetch('/notifications/api/unread_count').then(r=>r.json()).then(d=>_setNotifBadge(d.count||0));
+        });
+        if (link) { window.location.href = link; }
+    }
+
+    function markAllRead() {
+        fetch('/notifications/api/mark_all_read', {
+            method:'POST',
+            headers:{'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.content || ''}
+        }).then(() => {
+            _setNotifBadge(0);
+            _loadNotifications();
+        });
+    }
+
+    function _notifIcon(type) {
+        const m = {success:'✅', warning:'⚠️', danger:'❌', info:'🔔'};
+        return m[type] || '🔔';
+    }
+
+    function _timeAgo(iso) {
+        if (!iso) return '';
+        const d = new Date(iso.endsWith('Z') ? iso : iso + 'Z');
+        const diff = Math.round((Date.now() - d.getTime()) / 1000);
+        if (diff < 60) return 'hace un momento';
+        if (diff < 3600) return `hace ${Math.floor(diff/60)} min`;
+        if (diff < 86400) return `hace ${Math.floor(diff/3600)} h`;
+        return `hace ${Math.floor(diff/86400)} días`;
+    }
+
+    // Cerrar panel al click fuera
+    document.addEventListener('click', function(e) {
+        const panel = document.getElementById('notifPanel');
+        const bell  = document.getElementById('notifBellWrap');
+        if (panel && bell && !panel.contains(e.target) && !bell.contains(e.target)) {
+            panel.style.display = 'none';
+        }
+    });
+
+    // Cargar badge inicial al cargar la página
+    document.addEventListener('DOMContentLoaded', function() {
+        fetch('/notifications/api/unread_count')
+            .then(r => r.json())
+            .then(d => _setNotifBadge(d.count || 0))
+            .catch(() => {});
+    });
+
+    // ── Service Worker registration ──────────────────────────────────────────
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function() {
+            navigator.serviceWorker.register('/sw.js', {scope: '/'}).then(function(reg) {
+                console.log('[SW] Registrado:', reg.scope);
+            }).catch(function(err) {
+                console.warn('[SW] Error registro:', err);
+            });
+        });
+    }
+    </script>
+    {% endif %}
 
     <!-- Sidebar JS -->
     <script>

@@ -494,38 +494,43 @@ function validatePhone(phone) {
 }
 
 /**
- * Reproducir sonido de notificación general
- * Usa el archivo MP3 personalizado 'allnotificaciones.mp3'
+ * Sistema de audio con fallback progresivo:
+ * 1. AudioContext desbloqueado (no bloqueado por política de autoplay del navegador)
+ * 2. HTMLAudio como fallback (puede ser bloqueado si no hubo gesto)
+ * El AudioContext se desbloquea en base.html en el primer click/keydown del usuario.
  */
-function playNotificationSound() {
-    console.log('🔔 Reproduciendo sonido: allnotificaciones.mp3');
-    try {
-        const audio = new Audio('/static/sounds/allnotificaciones.mp3');
-        audio.volume = 0.6; // Volumen al 60%
-        audio.play().catch(error => {
-            console.error('Error al reproducir sonido de notificación:', error);
-        });
-    } catch (error) {
-        console.error('Error al crear audio de notificación:', error);
+function _playSound(file, volume) {
+    const url = '/static/sounds/' + file + '.mp3';
+    if (window._audioCtxUnlocked && window._audioCtx && window._audioCtx.state !== 'closed') {
+        fetch(url)
+            .then(r => r.arrayBuffer())
+            .then(buf => window._audioCtx.decodeAudioData(buf))
+            .then(decoded => {
+                const src  = window._audioCtx.createBufferSource();
+                const gain = window._audioCtx.createGain();
+                gain.gain.value = volume;
+                src.buffer = decoded;
+                src.connect(gain);
+                gain.connect(window._audioCtx.destination);
+                src.start(0);
+            })
+            .catch(() => _playAudioTag(url, volume));
+    } else {
+        _playAudioTag(url, volume);
     }
 }
 
-/**
- * Reproducir sonido de operación completada
- * Usa el archivo MP3 personalizado 'completada.mp3'
- */
-function playCompletedSound() {
-    console.log('✅ Reproduciendo sonido: completada.mp3');
+function _playAudioTag(url, volume) {
     try {
-        const audio = new Audio('/static/sounds/completada.mp3');
-        audio.volume = 0.7; // Volumen al 70%
-        audio.play().catch(error => {
-            console.error('Error al reproducir sonido de completada:', error);
-        });
-    } catch (error) {
-        console.error('Error al crear audio de completada:', error);
-    }
+        const a = new Audio(url);
+        a.volume = volume;
+        const p = a.play();
+        if (p) p.catch(() => {});
+    } catch(e) {}
 }
+
+function playNotificationSound() { _playSound('allnotificaciones', 0.6); }
+function playCompletedSound()    { _playSound('completada',        0.7); }
 
 /**
  * Confirmar acción
@@ -769,31 +774,19 @@ function cleanupSessionStorage() {
     sessionStorage.removeItem(SESSION_CHECK_KEY);
 }
 
-// Auto-conectar SocketIO al cargar la página
+// Auto-iniciar al cargar la página
 $(document).ready(function() {
-    // Solo conectar si el usuario está autenticado
-    if ($('nav.navbar').length > 0) {
-        // Verificar validez de la sesión primero
-        if (!checkSessionValidity()) {
-            return; // Salir si la sesión no es válida
-        }
+    if (window.currentUserId) {
+        // Verificar validez de la sesión
+        checkSessionValidity();
 
         // Iniciar sistema de detección de inactividad
         initInactivityDetection();
 
-        // Conectar SocketIO
-        connectSocketIO();
-
         // Detectar cierre de pestaña o navegador
-        window.addEventListener('beforeunload', function(event) {
-            // Marcar que esta pestaña se está cerrando
-            markTabClosed();
-        });
-
-        // También detectar cuando la pestaña pierde visibilidad (navegación, cierre, etc)
-        window.addEventListener('pagehide', function(event) {
-            markTabClosed();
-        });
+        window.addEventListener('beforeunload', function() { markTabClosed(); });
+        window.addEventListener('pagehide',     function() { markTabClosed(); });
+        // NOTA: connectSocketIO() se llama desde base.html (global, todas las páginas)
     }
 
     // Iniciar verificación de operaciones pendientes (solo para Operador)

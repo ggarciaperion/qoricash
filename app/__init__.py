@@ -200,6 +200,20 @@ def register_blueprints(app):
     app.register_blueprint(market_bp)      # Módulo Mercado
     app.register_blueprint(contabilidad_bp, url_prefix='/contabilidad')  # Módulo Contable
 
+    from app.routes.notifications import notifications_bp
+    app.register_blueprint(notifications_bp)  # API de notificaciones internas
+
+    # Service Worker debe servirse desde la raíz del dominio (scope /)
+    import os
+    from flask import send_from_directory
+    @app.route('/sw.js')
+    def service_worker():
+        return send_from_directory(
+            os.path.join(app.root_path, 'static'),
+            'sw.js',
+            mimetype='application/javascript',
+        )
+
 
 def configure_logging(app):
     """Configurar logging de la aplicación"""

@@ -1,468 +1,413 @@
 """
-Servicio de Notificaciones para QoriCash Trading V2
+Servicio de Notificaciones — QoriCash
+Centraliza WebSocket (tiempo real) + DB (historial) + badge counter.
 
-Maneja notificaciones en tiempo real usando SocketIO.
+REGLAS DE ROOMS (socketio_events.py):
+  - Por rol:  f'role_{role}'   → "role_Master", "role_Operador", etc.
+  - Por user: f'user_{user_id}'
+  - Global:   'authenticated'
 """
-from app.extensions import socketio
 import logging
+from app.extensions import socketio, db
 
 logger = logging.getLogger(__name__)
 
+# ─── Utilidades internas ───────────────────────────────────────────────────────
+
+def _emit_to_role(event, data, role):
+    """Emite a todos los usuarios de un rol. Room correcto: role_{role}."""
+    try:
+        socketio.emit(event, data, namespace='/', room=f'role_{role}')
+    except Exception as e:
+        logger.error(f'[NOTIF] emit_to_role({role}) error: {e}')
+
+
+def _emit_to_user(event, data, user_id):
+    try:
+        socketio.emit(event, data, namespace='/', room=f'user_{user_id}')
+    except Exception as e:
+        logger.error(f'[NOTIF] emit_to_user({user_id}) error: {e}')
+
+
+def _emit_to_roles(event, data, roles):
+    for role in roles:
+        _emit_to_role(event, data, role)
+
+
+def _save_to_db(roles, title, message, notif_type='info', category='general', link=None):
+    try:
+        from app.models.notification import Notification
+        Notification.create_for_roles(roles, title, message, notif_type, category, link)
+        db.session.commit()
+    except Exception as e:
+        logger.error(f'[NOTIF] save_to_db error: {e}')
+        db.session.rollback()
+
+
+def _save_to_db_user(user_id, title, message, notif_type='info', category='general', link=None):
+    try:
+        from app.models.notification import Notification
+        Notification.create_for_user(user_id, title, message, notif_type, category, link)
+        db.session.commit()
+    except Exception as e:
+        logger.error(f'[NOTIF] save_to_db_user error: {e}')
+        db.session.rollback()
+
+
+def _push_unread_count(user_id):
+    try:
+        from app.models.notification import Notification
+        count = Notification.query.filter_by(user_id=user_id, is_read=False).count()
+        _emit_to_user('notification_badge', {'count': count}, user_id)
+    except Exception as e:
+        logger.error(f'[NOTIF] push_unread_count error: {e}')
+
+
+def _push_unread_counts_for_roles(roles):
+    try:
+        from app.models.user import User
+        from app.models.notification import Notification
+        users = User.query.filter(User.role.in_(roles), User.status == 'Activo').all()
+        for u in users:
+            count = Notification.query.filter_by(user_id=u.id, is_read=False).count()
+            _emit_to_user('notification_badge', {'count': count}, u.id)
+    except Exception as e:
+        logger.error(f'[NOTIF] push_unread_counts_for_roles error: {e}')
+
+
+# ─── Clase pública (mantiene compatibilidad con imports existentes) ─────────────
 
 class NotificationService:
-    """Servicio de notificaciones en tiempo real"""
-    
+
+    # ── Operaciones ──────────────────────────────────────────────────────────
+
     @staticmethod
     def notify_new_operation(operation):
-        """
-        Notificar nueva operación creada
-        
-        Args:
-            operation: Objeto Operation
-        """
+        """Trader/Web crea operación → Master y Operador."""
         try:
+            name = operation.client.full_name if operation.client else 'N/A'
             data = {
-                'operation_id': operation.operation_id,
-                'client_name': operation.client.full_name if operation.client else 'N/A',
+                'event': 'nueva_operacion',
+                'operation_id':   operation.operation_id,
+                'client_name':    name,
                 'operation_type': operation.operation_type,
-                'amount_usd': float(operation.amount_usd),
-                'status': operation.status,
-                'created_by': operation.user.username if operation.user else 'N/A'
+                'amount_usd':     float(operation.amount_usd or 0),
+                'status':         operation.status,
+                'created_by':     operation.user.username if operation.user else 'N/A',
+                'title':          '📋 Nueva Operación',
+                'message':        f'{operation.operation_id} — {name}',
+                'type':           'info',
+                'sound':          True,
             }
-            
-            socketio.emit('nueva_operacion', data, namespace='/')
+            roles = ['Master', 'Operador']
+            _emit_to_roles('nueva_operacion', data, roles)
+            _save_to_db(roles, '📋 Nueva Operación',
+                        f'{operation.operation_id} — {name} ({operation.operation_type})',
+                        notif_type='info', category='operation',
+                        link=f'/operations/{operation.id}')
+            _push_unread_counts_for_roles(roles)
         except Exception as e:
-            logger.error(f"Error enviando notificación de nueva operación: {e}")
+            logger.error(f'[NOTIF] notify_new_operation error: {e}')
+
+    # Alias para platform_api.py que llama emit_operation_created
+    @staticmethod
+    def emit_operation_created(operation):
+        NotificationService.notify_new_operation(operation)
     
     @staticmethod
     def notify_operation_updated(operation, old_status=None):
-        """
-        Notificar operación actualizada
-
-        Args:
-            operation: Objeto Operation
-            old_status: Estado anterior (opcional)
-        """
+        """Operación actualizada → Master y Operador."""
         try:
-            # Enviar datos completos de la operación para actualizar el sistema web
+            msg = f'{operation.operation_id} → {operation.status}'
+            if operation.assigned_operator:
+                msg += f' | {operation.assigned_operator.username}'
             data = {
-                'id': operation.id,
-                'operation_id': operation.operation_id,
-                'client_id': operation.client_id,
-                'client_name': operation.client.full_name if operation.client else 'N/A',
-                'client_dni': operation.client.dni if operation.client else None,
-                'status': operation.status,
-                'old_status': old_status,
-                'operation_type': operation.operation_type,
-                'amount_usd': float(operation.amount_usd) if operation.amount_usd else 0,
-                'amount_pen': float(operation.amount_pen) if operation.amount_pen else 0,
-                'exchange_rate': float(operation.exchange_rate) if operation.exchange_rate else 0,
-                'assigned_operator_id': operation.assigned_operator_id,
+                'event':                  'operacion_actualizada',
+                'id':                     operation.id,
+                'operation_id':           operation.operation_id,
+                'client_id':              operation.client_id,
+                'client_name':            operation.client.full_name if operation.client else 'N/A',
+                'client_dni':             operation.client.dni if operation.client else None,
+                'status':                 operation.status,
+                'old_status':             old_status,
+                'operation_type':         operation.operation_type,
+                'amount_usd':             float(operation.amount_usd or 0),
+                'amount_pen':             float(operation.amount_pen or 0),
+                'exchange_rate':          float(operation.exchange_rate or 0),
+                'assigned_operator_id':   operation.assigned_operator_id,
                 'assigned_operator_name': operation.assigned_operator.username if operation.assigned_operator else None,
-                'client_deposits': operation.client_deposits or [],
-                'client_payments': operation.client_payments or [],
-                'total_deposits': operation.total_deposits,
-                'total_payments': operation.total_payments,
-                'created_at': operation.created_at.isoformat() if operation.created_at else None,
-                'updated_at': operation.updated_at.isoformat() if operation.updated_at else None,
+                'client_deposits':        operation.client_deposits or [],
+                'client_payments':        operation.client_payments or [],
+                'total_deposits':         operation.total_deposits,
+                'total_payments':         operation.total_payments,
+                'created_at':             operation.created_at.isoformat() if operation.created_at else None,
+                'updated_at':             operation.updated_at.isoformat() if operation.updated_at else None,
+                'title':                  '🔄 Operación Actualizada',
+                'message':                msg,
+                'type':                   'info',
+                'sound':                  False,
             }
-
-            socketio.emit('operacion_actualizada', data, namespace='/')
-            logger.info(f"📡 Socket.IO emitido: operacion_actualizada para {operation.operation_id}")
+            _emit_to_roles('operacion_actualizada', data, ['Master', 'Operador'])
+            logger.info(f'[NOTIF] operacion_actualizada: {operation.operation_id}')
         except Exception as e:
-            logger.error(f"Error enviando notificación de operación actualizada: {e}")
+            logger.error(f'[NOTIF] notify_operation_updated error: {e}')
     
     @staticmethod
     def notify_operation_completed(operation):
-        """
-        Notificar operación completada
-        
-        Args:
-            operation: Objeto Operation
-        """
         try:
-            data = {
-                'operation_id': operation.operation_id,
-                'client_name': operation.client.full_name if operation.client else 'N/A',
-                'amount_usd': float(operation.amount_usd),
-                'amount_pen': float(operation.amount_pen)
+            title = '✅ Operación Completada'
+            name  = operation.client.full_name if operation.client else 'N/A'
+            msg   = f'{operation.operation_id} — {name}'
+            data  = {
+                'event': 'operacion_completada', 'operation_id': operation.operation_id,
+                'client_name': name, 'amount_usd': float(operation.amount_usd or 0),
+                'amount_pen': float(operation.amount_pen or 0),
+                'title': title, 'message': msg, 'type': 'success', 'sound': True, 'sound_file': 'completada',
             }
-            
-            socketio.emit('operacion_completada', data, namespace='/')
+            roles = ['Master', 'Operador']
+            _emit_to_roles('operacion_completada', data, roles)
+            _save_to_db(roles, title, msg, notif_type='success', category='operation',
+                        link=f'/operations/{operation.id}')
+            _push_unread_counts_for_roles(roles)
         except Exception as e:
-            logger.error(f"Error enviando notificación de operación completada: {e}")
-    
+            logger.error(f'[NOTIF] notify_operation_completed error: {e}')
+
     @staticmethod
     def notify_operation_canceled(operation, reason=None):
-        """
-        Notificar operación cancelada
-        
-        Args:
-            operation: Objeto Operation
-            reason: Razón de cancelación (opcional)
-        """
         try:
-            data = {
-                'operation_id': operation.operation_id,
+            title = '❌ Operación Cancelada'
+            msg   = f'{operation.operation_id} — {reason or "sin razón"}'
+            data  = {
+                'event': 'operacion_cancelada', 'operation_id': operation.operation_id,
                 'client_name': operation.client.full_name if operation.client else 'N/A',
-                'reason': reason
+                'reason': reason, 'title': title, 'message': msg, 'type': 'warning', 'sound': False,
             }
-            
-            socketio.emit('operacion_cancelada', data, namespace='/')
+            roles = ['Master', 'Operador']
+            _emit_to_roles('operacion_cancelada', data, roles)
+            _save_to_db(roles, title, msg, notif_type='warning', category='operation',
+                        link=f'/operations/{operation.id}')
+            _push_unread_counts_for_roles(roles)
         except Exception as e:
-            logger.error(f"Error enviando notificación de operación cancelada: {e}")
-    
+            logger.error(f'[NOTIF] notify_operation_canceled error: {e}')
+
     @staticmethod
     def notify_to_role(role, message_type, data):
-        """
-        Notificar a usuarios de un rol específico
-        
-        Args:
-            role: Rol a notificar ('Master', 'Trader', 'Operador')
-            message_type: Tipo de mensaje
-            data: Datos del mensaje
-        """
+        """Emite a un rol. Room correcto: role_{role}."""
         try:
             data['target_role'] = role
-            socketio.emit(message_type, data, namespace='/', room=role)
+            _emit_to_role(message_type, data, role)
         except Exception as e:
-            logger.error(f"Error enviando notificación a rol {role}: {e}")
-    
+            logger.error(f'[NOTIF] notify_to_role({role}) error: {e}')
+
     @staticmethod
     def notify_to_user(user_id, message_type, data):
-        """
-        Notificar a un usuario específico
-        
-        Args:
-            user_id: ID del usuario
-            message_type: Tipo de mensaje
-            data: Datos del mensaje
-        """
         try:
-            room = f'user_{user_id}'
-            socketio.emit(message_type, data, namespace='/', room=room)
+            _emit_to_user(message_type, data, user_id)
         except Exception as e:
-            logger.error(f"Error enviando notificación a usuario {user_id}: {e}")
-    
+            logger.error(f'[NOTIF] notify_to_user({user_id}) error: {e}')
+
     @staticmethod
     def broadcast_notification(title, message, notification_type='info'):
-        """
-        Enviar notificación broadcast a todos
-        
-        Args:
-            title: Título de la notificación
-            message: Mensaje
-            notification_type: Tipo ('info', 'success', 'warning', 'error')
-        """
         try:
-            data = {
-                'title': title,
-                'message': message,
-                'type': notification_type
-            }
-            
-            socketio.emit('notification', data, namespace='/')
+            socketio.emit('notification', {'title': title, 'message': message, 'type': notification_type},
+                          namespace='/', room='authenticated')
         except Exception as e:
-            logger.error(f"Error enviando notificación broadcast: {e}")
-    
+            logger.error(f'[NOTIF] broadcast_notification error: {e}')
+
     @staticmethod
-    def notify_new_client(client, created_by):
-        """
-        Notificar nuevo cliente creado
-        
-        Args:
-            client: Objeto Client
-            created_by: Usuario que creó
-        """
+    def notify_new_client(client, created_by_user=None):
+        """Nuevo cliente → Master, Operador, Middle Office."""
         try:
-            data = {
-                'client_name': client.full_name,
-                'client_dni': client.dni,
-                'created_by': created_by.username if created_by else 'N/A'
+            created_by = created_by_user or getattr(client, '_created_by', None)
+            name  = client.full_name or getattr(client, 'razon_social', None) or client.dni
+            canal = created_by.username if created_by else 'N/A'
+            title = '👤 Nuevo Cliente'
+            msg   = f'{name} ({client.dni}) — por {canal}'
+            data  = {
+                'event': 'nuevo_cliente', 'client_id': client.id, 'client_name': name,
+                'client_dni': client.dni, 'created_by': canal,
+                'title': title, 'message': msg, 'type': 'info', 'sound': True,
             }
-            
-            socketio.emit('nuevo_cliente', data, namespace='/')
+            roles = ['Master', 'Operador', 'Middle Office']
+            _emit_to_roles('nuevo_cliente', data, roles)
+            _emit_to_roles('client_created', data, roles)
+            _save_to_db(roles, title, msg, notif_type='info', category='client',
+                        link=f'/clients/{client.id}')
+            _push_unread_counts_for_roles(roles)
         except Exception as e:
-            logger.error(f"Error enviando notificación de nuevo cliente: {e}")
-    
+            logger.error(f'[NOTIF] notify_new_client error: {e}')
+
+    # Alias para platform_api.py
+    @staticmethod
+    def emit_client_created(client_data):
+        try:
+            data = client_data if isinstance(client_data, dict) else {}
+            data.update({'event': 'client_created', 'sound': True, 'type': 'info'})
+            _emit_to_roles('client_created', data, ['Master', 'Operador', 'Middle Office'])
+        except Exception as e:
+            logger.error(f'[NOTIF] emit_client_created error: {e}')
+
     @staticmethod
     def notify_new_user(user, created_by):
-        """
-        Notificar nuevo usuario creado
-        
-        Args:
-            user: Objeto User
-            created_by: Usuario que creó
-        """
+        """Nuevo usuario → solo Masters."""
         try:
-            data = {
-                'username': user.username,
-                'role': user.role,
-                'created_by': created_by.username if created_by else 'N/A'
+            title = '🧑‍💼 Nuevo Usuario'
+            msg   = f'{user.username} ({user.role}) — por {created_by.username if created_by else "N/A"}'
+            data  = {
+                'event': 'nuevo_usuario', 'username': user.username, 'role': user.role,
+                'created_by': created_by.username if created_by else 'N/A',
+                'title': title, 'message': msg, 'type': 'info', 'sound': False,
             }
-            
-            # Solo notificar a Masters
-            NotificationService.notify_to_role('Master', 'nuevo_usuario', data)
+            _emit_to_role('nuevo_usuario', data, 'Master')
+            _save_to_db(['Master'], title, msg, notif_type='info', category='user',
+                        link=f'/users/{user.id}')
+            _push_unread_counts_for_roles(['Master'])
         except Exception as e:
-            logger.error(f"Error enviando notificación de nuevo usuario: {e}")
-    
+            logger.error(f'[NOTIF] notify_new_user error: {e}')
+
     @staticmethod
     def notify_dashboard_update():
-        """
-        Notificar actualización del dashboard
-        """
         try:
-            socketio.emit('dashboard_update', {}, namespace='/')
+            socketio.emit('dashboard_update', {}, namespace='/', room='authenticated')
         except Exception as e:
-            logger.error(f"Error enviando notificación de actualización de dashboard: {e}")
+            logger.error(f'[NOTIF] notify_dashboard_update error: {e}')
 
     @staticmethod
     def notify_position_update():
-        """
-        Notificar actualización de la posición
-        """
         try:
-            socketio.emit('position_update', {}, namespace='/')
+            socketio.emit('position_update', {}, namespace='/', room='authenticated')
         except Exception as e:
-            logger.error(f"Error enviando notificación de actualización de posición: {e}")
+            logger.error(f'[NOTIF] notify_position_update error: {e}')
 
     @staticmethod
     def notify_operation_assigned(operation, operator_user):
-        """
-        Notificar al operador cuando se le asigna una operación
-
-        Args:
-            operation: Objeto Operation
-            operator_user: Usuario operador asignado
-        """
         try:
-            data = {
-                'operation_id': operation.operation_id,
+            title = '📌 Operación Asignada'
+            msg   = f'Se te asignó la operación {operation.operation_id}'
+            data  = {
+                'event': 'operacion_asignada', 'operation_id': operation.operation_id,
                 'operation_db_id': operation.id,
                 'client_name': operation.client.full_name if operation.client else 'N/A',
                 'operation_type': operation.operation_type,
-                'amount_usd': float(operation.amount_usd) if operation.amount_usd else 0,
-                'status': operation.status,
-                'message': f'Se te ha asignado la operación {operation.operation_id}'
+                'amount_usd': float(operation.amount_usd or 0), 'status': operation.status,
+                'title': title, 'message': msg, 'type': 'info', 'sound': True,
             }
-
-            # Notificar solo al operador específico
-            room = f'user_{operator_user.id}'
-            socketio.emit('operacion_asignada', data, namespace='/', room=room)
-
-            logger.info(f"Notificación enviada a operador {operator_user.username} (ID: {operator_user.id}) - Operación {operation.operation_id}")
+            _emit_to_user('operacion_asignada', data, operator_user.id)
+            _save_to_db_user(operator_user.id, title, msg, notif_type='info', category='operation',
+                             link=f'/operations/{operation.id}')
+            _push_unread_count(operator_user.id)
         except Exception as e:
-            logger.error(f"Error enviando notificación de asignación de operación: {e}")
+            logger.error(f'[NOTIF] notify_operation_assigned error: {e}')
 
     @staticmethod
     def notify_operation_reassigned(operation, old_operator, new_operator, reassigned_by):
-        """
-        Notificar cuando una operación es reasignada por Master
-
-        Args:
-            operation: Objeto Operation
-            old_operator: Usuario operador anterior (puede ser None)
-            new_operator: Usuario operador nuevo
-            reassigned_by: Usuario Master que reasignó
-        """
         try:
-            data = {
-                'operation_id': operation.operation_id,
+            title_new = '📌 Operación Reasignada'
+            msg_new   = f'Se te reasignó la operación {operation.operation_id}'
+            data_new  = {
+                'event': 'operacion_asignada', 'operation_id': operation.operation_id,
                 'operation_db_id': operation.id,
                 'client_name': operation.client.full_name if operation.client else 'N/A',
                 'operation_type': operation.operation_type,
-                'amount_usd': float(operation.amount_usd) if operation.amount_usd else 0,
-                'status': operation.status,
-                'old_operator_name': old_operator.username if old_operator else 'No asignado',
-                'new_operator_name': new_operator.username,
+                'amount_usd': float(operation.amount_usd or 0), 'status': operation.status,
                 'reassigned_by': reassigned_by.username,
-                'message': f'Se te ha reasignado la operación {operation.operation_id}'
+                'title': title_new, 'message': msg_new, 'type': 'info', 'sound': True,
             }
+            _emit_to_user('operacion_asignada', data_new, new_operator.id)
+            _save_to_db_user(new_operator.id, title_new, msg_new, notif_type='info',
+                             category='operation', link=f'/operations/{operation.id}')
+            _push_unread_count(new_operator.id)
 
-            # Notificar al nuevo operador
-            room_new = f'user_{new_operator.id}'
-            socketio.emit('operacion_asignada', data, namespace='/', room=room_new)
-
-            # Notificar al operador anterior que ya no la tiene asignada
             if old_operator:
-                data_old = data.copy()
-                data_old['message'] = f'La operación {operation.operation_id} ha sido reasignada a {new_operator.username}'
-                room_old = f'user_{old_operator.id}'
-                socketio.emit('operacion_reasignada_removida', data_old, namespace='/', room=room_old)
-
-            logger.info(f"Notificación de reasignación enviada: {operation.operation_id} -> {new_operator.username}")
+                title_old = '🔁 Operación Removida'
+                msg_old   = f'La op. {operation.operation_id} fue reasignada a {new_operator.username}'
+                data_old  = {**data_new,
+                             'event': 'operacion_reasignada_removida',
+                             'title': title_old, 'message': msg_old, 'sound': False}
+                _emit_to_user('operacion_reasignada_removida', data_old, old_operator.id)
+                _save_to_db_user(old_operator.id, title_old, msg_old, notif_type='warning',
+                                 category='operation', link=f'/operations/{operation.id}')
+                _push_unread_count(old_operator.id)
         except Exception as e:
-            logger.error(f"Error enviando notificación de reasignación: {e}")
+            logger.error(f'[NOTIF] notify_operation_reassigned error: {e}')
 
     @staticmethod
     def notify_client_reassignment(client, reassigned_by_user, new_trader_id):
-        """
-        Notificar cuando un cliente es reasignado a otro trader
-
-        Args:
-            client: Objeto Client
-            reassigned_by_user: Usuario Master que reasignó
-            new_trader_id: ID del nuevo trader
-        """
         try:
             from app.models.user import User
-
             new_trader = User.query.get(new_trader_id)
             if not new_trader:
                 return
-
             old_trader = client.creator if hasattr(client, 'creator') else None
-
-            data = {
-                'client_id': client.id,
-                'client_name': client.full_name or client.razon_social or client.dni,
-                'client_dni': client.dni,
-                'old_trader_name': old_trader.username if old_trader else 'No asignado',
-                'new_trader_name': new_trader.username,
-                'reassigned_by': reassigned_by_user.username,
-                'message': f'Se te ha asignado el cliente {client.full_name or client.razon_social or client.dni}'
+            name = client.full_name or getattr(client, 'razon_social', None) or client.dni
+            title_new = '👤 Cliente Asignado'
+            msg_new   = f'Se te asignó el cliente {name}'
+            data_new  = {
+                'event': 'cliente_asignado', 'client_id': client.id,
+                'client_name': name, 'client_dni': client.dni,
+                'title': title_new, 'message': msg_new, 'type': 'info', 'sound': True,
             }
+            _emit_to_user('cliente_asignado', data_new, new_trader.id)
+            _save_to_db_user(new_trader.id, title_new, msg_new, notif_type='info',
+                             category='client', link=f'/clients/{client.id}')
+            _push_unread_count(new_trader.id)
 
-            # Notificar al nuevo trader
-            room_new = f'user_{new_trader.id}'
-            socketio.emit('cliente_asignado', data, namespace='/', room=room_new)
-
-            # Notificar al trader anterior que ya no tiene el cliente
             if old_trader:
-                data_old = data.copy()
-                data_old['message'] = f'El cliente {client.full_name or client.razon_social or client.dni} ha sido reasignado a {new_trader.username}'
-                room_old = f'user_{old_trader.id}'
-                socketio.emit('cliente_reasignado_removido', data_old, namespace='/', room=room_old)
-
-            logger.info(f"Notificación de reasignación de cliente enviada: {client.dni} -> {new_trader.username}")
+                title_old = '🔁 Cliente Reasignado'
+                msg_old   = f'{name} fue reasignado a {new_trader.username}'
+                data_old  = {**data_new,
+                             'event': 'cliente_reasignado_removido',
+                             'title': title_old, 'message': msg_old, 'sound': False}
+                _emit_to_user('cliente_reasignado_removido', data_old, old_trader.id)
+                _save_to_db_user(old_trader.id, title_old, msg_old, notif_type='warning',
+                                 category='client', link=f'/clients/{client.id}')
+                _push_unread_count(old_trader.id)
         except Exception as e:
-            logger.error(f"Error enviando notificación de reasignación de cliente: {e}")
+            logger.error(f'[NOTIF] notify_client_reassignment error: {e}')
 
     @staticmethod
     def notify_bulk_client_reassignment(new_trader, reassigned_by_user, client_count):
-        """
-        Notificar reasignación masiva de clientes
-
-        Args:
-            new_trader: Usuario trader que recibe los clientes
-            reassigned_by_user: Usuario Master que reasignó
-            client_count: Cantidad de clientes reasignados
-        """
         try:
-            data = {
-                'client_count': client_count,
-                'new_trader_name': new_trader.username,
-                'reassigned_by': reassigned_by_user.username,
-                'message': f'Se te han asignado {client_count} cliente(s) nuevos'
+            title = '👥 Clientes Asignados'
+            msg   = f'Se te asignaron {client_count} cliente(s)'
+            data  = {
+                'event': 'clientes_asignados_masivo', 'client_count': client_count,
+                'new_trader_name': new_trader.username, 'title': title,
+                'message': msg, 'type': 'info', 'sound': True,
             }
-
-            # Notificar al nuevo trader
-            room = f'user_{new_trader.id}'
-            socketio.emit('clientes_asignados_masivo', data, namespace='/', room=room)
-
-            logger.info(f"Notificación de reasignación masiva enviada: {client_count} clientes -> {new_trader.username}")
+            _emit_to_user('clientes_asignados_masivo', data, new_trader.id)
+            _save_to_db_user(new_trader.id, title, msg, notif_type='info', category='client')
+            _push_unread_count(new_trader.id)
         except Exception as e:
-            logger.error(f"Error enviando notificación de reasignación masiva: {e}")
-
-    @staticmethod
-    def notify_new_client(client, created_by_user):
-        """
-        Notificar cuando se crea un nuevo cliente
-
-        Args:
-            client: Objeto Client
-            created_by_user: Usuario que creó el cliente
-        """
-        try:
-            data = {
-                'client_id': client.id,
-                'client_name': client.full_name or client.razon_social or client.dni,
-                'client_dni': client.dni,
-                'created_by': created_by_user.username,
-                'message': f'Nuevo cliente registrado: {client.full_name or client.razon_social or client.dni}'
-            }
-
-            # Notificar a todos los Masters y Operadores
-            socketio.emit('nuevo_cliente', data, namespace='/')
-
-            logger.info(f"Notificación de nuevo cliente enviada: {client.dni}")
-        except Exception as e:
-            logger.error(f"Error enviando notificación de nuevo cliente: {e}")
+            logger.error(f'[NOTIF] notify_bulk_client_reassignment error: {e}')
 
     @staticmethod
     def notify_client_documents_approved(client):
-        """
-        Notificar al cliente cuando sus documentos sean aprobados
-
-        Args:
-            client: Objeto Client
-        """
         try:
-            logger.info(f"🔔 [NOTIF-KYC] INICIO - Preparando notificación de documentos aprobados para cliente {client.dni}")
-
             data = {
-                'type': 'documents_approved',
+                'event': 'documents_approved', 'type': 'documents_approved',
                 'title': '✅ Cuenta Activada',
-                'message': 'Tus documentos han sido aprobados. ¡Ya puedes realizar operaciones!',
-                'client_dni': client.dni,
-                'client_id': client.id,
-                'client_name': client.full_name or client.razon_social,
+                'message': '¡Tus documentos fueron aprobados! Ya puedes operar.',
+                'client_dni': client.dni, 'client_id': client.id,
+                'client_name': client.full_name or getattr(client, 'razon_social', ''),
             }
-
-            # Notificar al cliente específico usando su DNI como room
-            room = f'client_{client.dni}'
-            logger.info(f"📡 [NOTIF-KYC] Enviando evento 'documents_approved' al room: {room}")
-            logger.info(f"📦 [NOTIF-KYC] Datos: {data}")
-
-            socketio.emit('documents_approved', data, namespace='/', room=room)
-
-            logger.info(f"✅ [NOTIF-KYC] Notificación de documentos aprobados enviada exitosamente al cliente: {client.dni}")
+            socketio.emit('documents_approved', data, namespace='/', room=f'client_{client.dni}')
+            logger.info(f'[NOTIF] documents_approved → client_{client.dni}')
         except Exception as e:
-            logger.error(f"❌ [NOTIF-KYC] Error enviando notificación de documentos aprobados: {e}")
-            logger.exception(e)
+            logger.error(f'[NOTIF] notify_client_documents_approved error: {e}')
 
     @staticmethod
     def notify_operation_expired(operation):
-        """
-        Notificar al cliente cuando su operación expire por timeout
-
-        NOTA: La notificación Socket.IO solo llega si la app está abierta y conectada.
-        Para notificaciones cuando la app está cerrada, se envía correo electrónico.
-
-        Args:
-            operation: Objeto Operation
-        """
         try:
             if not operation.client:
-                logger.warning(f"⚠️ Operación {operation.operation_id} sin cliente asociado")
                 return
-
             data = {
-                'type': 'operation_expired',
+                'event': 'operation_expired', 'type': 'operation_expired',
                 'operation_id': operation.operation_id,
                 'title': '⏱️ Operación Expirada',
-                'message': f'La operación {operation.operation_id} ha expirado por falta de transferencia. Puedes crear una nueva operación.',
-                'client_dni': operation.client.dni,
-                'client_id': operation.client_id,
+                'message': f'La operación {operation.operation_id} expiró. Puedes crear una nueva.',
+                'client_dni': operation.client.dni, 'client_id': operation.client_id,
             }
-
-            # Notificar al cliente específico usando su DNI como room
-            room = f'client_{operation.client.dni}'
-
-            logger.info(f"📡 [SOCKET.IO] Intentando enviar notificación de operación expirada:")
-            logger.info(f"   - Cliente DNI: {operation.client.dni}")
-            logger.info(f"   - Room: {room}")
-            logger.info(f"   - Operación: {operation.operation_id}")
-            logger.info(f"   - Namespace: /")
-            logger.info(f"   - Evento: operation_expired")
-
-            # Emitir al room del cliente
-            socketio.emit('operation_expired', data, namespace='/', room=room)
-
-            logger.info(f"✅ [SOCKET.IO] Notificación emitida al room '{room}'")
-            logger.info(f"   ⚠️ NOTA: Solo llegará si la app está abierta y conectada")
-
+            socketio.emit('operation_expired', data, namespace='/', room=f'client_{operation.client.dni}')
         except Exception as e:
-            logger.error(f"❌ [SOCKET.IO] Error enviando notificación de operación expirada: {e}")
-            import traceback
-            logger.error(traceback.format_exc())
+            logger.error(f'[NOTIF] notify_operation_expired error: {e}')
