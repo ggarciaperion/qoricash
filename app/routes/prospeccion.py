@@ -5,7 +5,7 @@ Rutas para Master y Trader.
 from flask import Blueprint, render_template, request, jsonify, flash, redirect, url_for
 from flask_login import login_required, current_user
 from sqlalchemy import or_, func
-from app.extensions import db
+from app.extensions import db, csrf
 from app.models.prospecto import Prospecto, AsignacionProspecto, ActividadProspecto
 from app.models.user import User
 from app.utils.decorators import require_role
@@ -390,6 +390,41 @@ def api_rubros():
             .order_by(func.count(Prospecto.id).desc())
             .limit(10).all())
     return jsonify([{"rubro": r[0], "total": r[1]} for r in rows])
+
+
+# ── Import masivo via HTTP (endpoint temporal para carga inicial) ─────────────
+
+@prospeccion_bp.route("/api/import-batch", methods=["POST"])
+@csrf.exempt
+def import_batch():
+    """
+    Endpoint temporal para cargar los 11K prospectos desde el Mac.
+    Protegido por API key en header X-Import-Key.
+    """
+    import os
+    key = request.headers.get("X-Import-Key", "")
+    if key != os.environ.get("INTERNAL_API_KEY", "qoricash-import-2026"):
+        return jsonify({"error": "No autorizado"}), 401
+
+    data = request.get_json(force=True)
+    action = data.get("action", "insert")
+
+    if action == "truncate":
+        Prospecto.query.delete()
+        db.session.commit()
+        return jsonify({"ok": True, "msg": "Tabla limpiada"})
+
+    if action == "count":
+        return jsonify({"total": Prospecto.query.count()})
+
+    registros = data.get("registros", [])
+    if not registros:
+        return jsonify({"ok": True, "insertados": 0})
+
+    objs = [Prospecto(**r) for r in registros]
+    db.session.bulk_save_objects(objs)
+    db.session.commit()
+    return jsonify({"ok": True, "insertados": len(objs)})
 
 
 # ── Helper ────────────────────────────────────────────────────────────────────
