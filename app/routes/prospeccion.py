@@ -427,6 +427,104 @@ def import_batch():
     return jsonify({"ok": True, "insertados": len(objs)})
 
 
+@prospeccion_bp.route("/api/asignar-por-remitente", methods=["POST"])
+@csrf.exempt
+def asignar_por_remitente():
+    """
+    Asigna prospectos a usuarios segun el campo 'remitente'.
+    Payload: {"remitente": "ggarcia", "email_usuario": "ggarcia@qoricash.pe"}
+    O accion "preview" para ver cuantos se asignarian.
+    """
+    import os
+    key = request.headers.get("X-Import-Key", "")
+    if key != os.environ.get("PROSPECCION_IMPORT_KEY", "qc-import-prospectos-2026"):
+        return jsonify({"error": "No autorizado"}), 401
+
+    data          = request.get_json(force=True)
+    remitente     = data.get("remitente", "").strip().lower()
+    email_usuario = data.get("email_usuario", "").strip().lower()
+    accion        = data.get("accion", "asignar")
+
+    if not remitente or not email_usuario:
+        return jsonify({"error": "remitente y email_usuario son requeridos"}), 400
+
+    # Buscar usuario por email
+    usuario = User.query.filter(
+        db.func.lower(User.email) == email_usuario
+    ).first()
+    if not usuario:
+        # Intentar por username
+        usuario = User.query.filter(
+            db.func.lower(User.username) == remitente
+        ).first()
+    if not usuario:
+        usuarios_disponibles = [
+            {"id": u.id, "username": u.username, "email": u.email, "role": u.role}
+            for u in User.query.filter(User.role.in_(["Master", "Trader"])).all()
+        ]
+        return jsonify({
+            "error": f"No se encontro usuario con email '{email_usuario}'",
+            "usuarios_disponibles": usuarios_disponibles
+        }), 404
+
+    # Buscar prospectos con ese remitente
+    prospectos = Prospecto.query.filter(
+        db.func.lower(Prospecto.remitente) == remitente
+    ).all()
+
+    if accion == "preview":
+        ya_asignados = sum(
+            1 for p in prospectos
+            if p.asignaciones.filter_by(trader_id=usuario.id, activo=True).first()
+        )
+        return jsonify({
+            "remitente":      remitente,
+            "usuario":        {"id": usuario.id, "username": usuario.username, "email": usuario.email, "role": usuario.role},
+            "total_encontrados": len(prospectos),
+            "ya_asignados":   ya_asignados,
+            "por_asignar":    len(prospectos) - ya_asignados,
+        })
+
+    # Asignar
+    asignados = 0
+    ya_tenia  = 0
+    ahora     = now_peru()
+
+    for p in prospectos:
+        existente = AsignacionProspecto.query.filter_by(
+            prospecto_id=p.id, trader_id=usuario.id
+        ).first()
+        if existente:
+            if not existente.activo:
+                existente.activo      = True
+                existente.asignado_en = ahora
+                asignados += 1
+            else:
+                ya_tenia += 1
+        else:
+            nueva = AsignacionProspecto(
+                prospecto_id=p.id,
+                trader_id=usuario.id,
+                activo=True,
+                asignado_en=ahora,
+            )
+            db.session.add(nueva)
+            asignados += 1
+
+        if asignados % 500 == 0:
+            db.session.flush()
+
+    db.session.commit()
+    return jsonify({
+        "ok":        True,
+        "remitente": remitente,
+        "usuario":   {"id": usuario.id, "username": usuario.username, "role": usuario.role},
+        "asignados": asignados,
+        "ya_tenian": ya_tenia,
+        "total":     len(prospectos),
+    })
+
+
 # ── Helper ────────────────────────────────────────────────────────────────────
 
 def _verificar_acceso(p):
