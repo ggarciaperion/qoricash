@@ -2,10 +2,12 @@
 Modulo de Prospeccion — QoriCash Trading V2
 Rutas para Master y Trader.
 """
+from datetime import datetime
 from flask import Blueprint, render_template, request, jsonify, flash, redirect, url_for
 from flask_login import login_required, current_user
+from flask_mail import Message
 from sqlalchemy import or_, func
-from app.extensions import db, csrf
+from app.extensions import db, csrf, mail
 from app.models.prospecto import Prospecto, AsignacionProspecto, ActividadProspecto
 from app.models.user import User
 from app.utils.decorators import require_role
@@ -523,6 +525,335 @@ def asignar_por_remitente():
         "ya_tenian": ya_tenia,
         "total":     len(prospectos),
     })
+
+
+# ── Enviar correo a prospecto ─────────────────────────────────────────────────
+
+LOGO_URL = "https://www.qoricash.pe/logofirma.png"
+
+HEADER_HTML = f"""\
+<table cellpadding="0" cellspacing="0" border="0" style="margin-bottom:24px;">
+  <tr>
+    <td style="width:4px;min-width:4px;background:#5CB85C;border-radius:2px;">&nbsp;</td>
+    <td style="padding-left:14px;">
+      <img src="{LOGO_URL}" alt="QoriCash" style="height:48px;width:auto;display:block;">
+      <p style="margin:6px 0 0;font-size:11px;color:#64748B;letter-spacing:0.3px;">
+        Regulada por la SBS &nbsp;&middot;&nbsp; Res. N.&ordm; 00313-2026
+      </p>
+    </td>
+  </tr>
+</table>"""
+
+FIRMA_HTML = f"""\
+<table cellpadding="0" cellspacing="0" border="0"
+  style="max-width:500px;width:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;
+         border:1px solid #e5e5e5;border-radius:8px;overflow:hidden;">
+  <tr>
+    <td style="width:80px;min-width:80px;background:linear-gradient(135deg,#f8faf8 0%,#ffffff 100%);
+               padding:16px 12px;border-right:3px solid #5CB85C;text-align:center;vertical-align:middle;">
+      <img src="{LOGO_URL}" alt="QoriCash" width="56" height="56" style="display:block;margin:0 auto;">
+    </td>
+    <td style="padding:14px 16px;vertical-align:middle;">
+      <div style="font-size:16px;font-weight:700;color:#1a1a1a;line-height:1.2;margin-bottom:3px;">
+        {{trader_nombre}}
+      </div>
+      <div style="font-size:10px;font-weight:600;color:#5CB85C;text-transform:uppercase;
+                  letter-spacing:0.5px;margin-bottom:8px;">Trader QoriCash</div>
+      <div style="width:40px;height:2px;background:linear-gradient(90deg,#5CB85C,transparent);
+                  margin-bottom:10px;"></div>
+      <table cellpadding="0" cellspacing="0" border="0" style="margin-bottom:3px;"><tr>
+        <td style="padding-right:7px;vertical-align:middle;">
+          <img src="https://img.icons8.com/material-rounded/48/5CB85C/phone.png"
+               width="13" height="13" alt="" style="display:block;"></td>
+        <td style="vertical-align:middle;font-size:12px;color:#2c2c2c;">
+          <a href="https://wa.me/51926011920" style="color:#2c2c2c;text-decoration:none;">+51 926 011 920</a>
+        </td>
+      </tr></table>
+      <table cellpadding="0" cellspacing="0" border="0" style="margin-bottom:3px;"><tr>
+        <td style="padding-right:7px;vertical-align:middle;">
+          <img src="https://img.icons8.com/material-rounded/48/5CB85C/marker.png"
+               width="13" height="13" alt="" style="display:block;"></td>
+        <td style="vertical-align:middle;font-size:12px;color:#2c2c2c;">
+          <a href="https://www.google.com/maps/search/?api=1&query=Av.+Brasil+2790,+int.+504,+Pueblo+Libre,+Lima,+Peru"
+             style="color:#2c2c2c;text-decoration:none;">Av. Brasil 2790, int. 504 - Pueblo Libre</a>
+        </td>
+      </tr></table>
+      <table cellpadding="0" cellspacing="0" border="0" style="margin-bottom:12px;"><tr>
+        <td style="padding-right:7px;vertical-align:middle;">
+          <img src="https://img.icons8.com/material-rounded/48/5CB85C/globe.png"
+               width="13" height="13" alt="" style="display:block;"></td>
+        <td style="vertical-align:middle;font-size:12px;">
+          <a href="https://www.qoricash.pe/" style="color:#5CB85C;text-decoration:none;font-weight:600;">
+            www.qoricash.pe</a>
+        </td>
+      </tr></table>
+      <a href="https://qoricash.pe/"
+         style="display:inline-block;padding:7px 18px;background:linear-gradient(135deg,#5CB85C 0%,#4a9b4a 100%);
+                color:#ffffff;text-decoration:none;border-radius:5px;font-size:11px;font-weight:700;
+                letter-spacing:0.3px;">CAMBIAR AHORA</a>
+    </td>
+  </tr>
+</table>"""
+
+PIE = """\
+<p style="font-size:10px;color:#94A3B8;margin-top:24px;border-top:1px solid #EEF2F7;padding-top:12px;">
+  Si no desea recibir m&aacute;s comunicaciones de nuestra parte, responda este correo
+  con el asunto <em>&ldquo;NO CONTACTAR&rdquo;</em> y lo retiraremos de inmediato.
+</p>"""
+
+BANCOS_HTML = """\
+<table cellpadding="0" cellspacing="0" border="0" width="100%"
+  style="margin:0 0 24px;border:1px solid #E2E8F0;border-radius:10px;overflow:hidden;">
+  <tr>
+    <td colspan="3" style="padding:8px 20px;background:#ECFDF5;border-bottom:1px solid #D1FAE5;">
+      <p style="margin:0;font-size:9px;color:#047857;">
+        Titular: <strong>QORICASH S.A.C.</strong> &nbsp;&bull;&nbsp; RUC: <strong>20615113698</strong>
+      </p>
+    </td>
+  </tr>
+  <tr>
+    <td colspan="3" style="background:#ECFDF5;padding:8px 20px;border-bottom:1px solid #D1FAE5;">
+      <p style="margin:0;font-size:9px;font-weight:700;color:#059669;text-transform:uppercase;letter-spacing:1px;">
+        &#9889; Transferencia inmediata
+      </p>
+    </td>
+  </tr>
+  <tr style="border-bottom:1px solid #F1F5F9;">
+    <td style="width:90px;padding:12px 8px 12px 20px;vertical-align:middle;">
+      <span style="font-size:14px;font-weight:800;color:#F97316;">BCP</span>
+    </td>
+    <td style="padding:12px 12px;vertical-align:middle;border-left:1px solid #F1F5F9;">
+      <p style="margin:0;font-size:9px;color:#94A3B8;text-transform:uppercase;letter-spacing:0.5px;">Soles (PEN)</p>
+      <p style="margin:2px 0 0;font-size:12px;font-weight:700;color:#0D1B2A;letter-spacing:0.3px;">1937353150041</p>
+    </td>
+    <td style="padding:12px 20px 12px 12px;vertical-align:middle;border-left:1px solid #F1F5F9;">
+      <p style="margin:0;font-size:9px;color:#94A3B8;text-transform:uppercase;letter-spacing:0.5px;">D&oacute;lares (USD)</p>
+      <p style="margin:2px 0 0;font-size:12px;font-weight:700;color:#0D1B2A;letter-spacing:0.3px;">1917357790119</p>
+    </td>
+  </tr>
+  <tr style="border-bottom:1px solid #F1F5F9;background:#FAFAFA;">
+    <td style="width:90px;padding:12px 8px 12px 20px;vertical-align:middle;">
+      <span style="font-size:14px;font-weight:800;color:#00A859;">Interbank</span>
+    </td>
+    <td style="padding:12px 12px;vertical-align:middle;border-left:1px solid #F1F5F9;">
+      <p style="margin:0;font-size:9px;color:#94A3B8;text-transform:uppercase;letter-spacing:0.5px;">Soles (PEN)</p>
+      <p style="margin:2px 0 0;font-size:12px;font-weight:700;color:#0D1B2A;letter-spacing:0.3px;">200-3007757571</p>
+    </td>
+    <td style="padding:12px 20px 12px 12px;vertical-align:middle;border-left:1px solid #F1F5F9;">
+      <p style="margin:0;font-size:9px;color:#94A3B8;text-transform:uppercase;letter-spacing:0.5px;">D&oacute;lares (USD)</p>
+      <p style="margin:2px 0 0;font-size:12px;font-weight:700;color:#0D1B2A;letter-spacing:0.3px;">200-3007757589</p>
+    </td>
+  </tr>
+  <tr>
+    <td style="width:90px;padding:12px 8px 12px 20px;vertical-align:middle;">
+      <span style="font-size:14px;font-weight:800;color:#004B9D;">BanBif</span>
+      <p style="margin:2px 0 0;font-size:9px;color:#94A3B8;">Solo Lima</p>
+    </td>
+    <td style="padding:12px 12px;vertical-align:middle;border-left:1px solid #F1F5F9;">
+      <p style="margin:0;font-size:9px;color:#94A3B8;text-transform:uppercase;letter-spacing:0.5px;">Soles (PEN)</p>
+      <p style="margin:2px 0 0;font-size:12px;font-weight:700;color:#0D1B2A;letter-spacing:0.3px;">007000845805</p>
+    </td>
+    <td style="padding:12px 20px 12px 12px;vertical-align:middle;border-left:1px solid #F1F5F9;">
+      <p style="margin:0;font-size:9px;color:#94A3B8;text-transform:uppercase;letter-spacing:0.5px;">D&oacute;lares (USD)</p>
+      <p style="margin:2px 0 0;font-size:12px;font-weight:700;color:#0D1B2A;letter-spacing:0.3px;">007000845813</p>
+    </td>
+  </tr>
+  <tr>
+    <td colspan="3" style="background:#F8FAFC;padding:8px 20px;border-top:1px solid #E2E8F0;border-bottom:1px solid #E2E8F0;">
+      <p style="margin:0;font-size:9px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:1px;">
+        &#8646; Transferencia interbancaria &mdash; CCI (desde cualquier banco)
+        &nbsp;<span style="font-size:9px;color:#94A3B8;font-weight:400;text-transform:none;letter-spacing:0;">Solo Lima</span>
+      </p>
+    </td>
+  </tr>
+  <tr>
+    <td colspan="3" style="padding:12px 20px;background:#F8FAFC;">
+      <table cellpadding="0" cellspacing="0" border="0"><tr>
+        <td style="padding-right:20px;vertical-align:middle;">
+          <span style="font-size:14px;font-weight:800;color:#004A97;">BBVA</span>
+        </td>
+        <td style="padding-right:20px;vertical-align:middle;">
+          <span style="font-size:14px;font-weight:800;color:#EC1C24;">Scotiabank</span>
+        </td>
+        <td style="padding-right:20px;vertical-align:middle;">
+          <span style="font-size:14px;font-weight:800;color:#B8860B;">Pichincha</span>
+        </td>
+        <td style="vertical-align:middle;">
+          <p style="margin:0;font-size:9px;color:#94A3B8;font-style:italic;">y cualquier otro banco del Per&uacute;</p>
+        </td>
+      </tr></table>
+    </td>
+  </tr>
+</table>"""
+
+CUERPO_PRESENTACION = """\
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="UTF-8"></head>
+<body style="font-family:Arial,sans-serif;font-size:14px;color:#1E293B;line-height:1.7;max-width:620px;margin:0 auto;padding:24px;">
+  {header}
+  <p>Estimado(a) <strong>{nombre}</strong>,</p>
+  <p style="text-align:justify;">Mi nombre es {trader}, Trader de <strong>QoriCash SAC</strong>, fintech de cambio
+    de divisas 100% digital, regulada por la Superintendencia de Banca, Seguros y AFP del Peru.</p>
+  <p style="text-align:justify;">Trabajamos con empresas que realizan operaciones frecuentes de compra y venta de
+    dolares, y que en muchos casos estan dejando dinero sobre la mesa al operar con el tipo de cambio que les ofrece
+    su entidad financiera actual.</p>
+  <p style="text-align:justify;">Porque cada centavo cuenta, le ofrecemos <strong>tasas que superan
+    consistentemente al sistema bancario tradicional</strong>, con ejecucion inmediata y cero costos ocultos.
+    Nuestro sistema tecnologico monitorea el mercado en tiempo real, lo que nos permite notificarle cuando es el
+    momento ideal para operar.</p>
+  <div style="background:#F7F9FC;border-left:4px solid #4CAF50;border-radius:4px;padding:16px 20px;margin:24px 0;">
+    <p style="margin:0 0 6px;font-weight:bold;color:#0D1B2A;">Le propongo algo concreto:</p>
+    <p style="margin:0;color:#4A5568;text-align:justify;">Una comparativa sin compromiso entre las tasas que recibe
+      hoy de su proveedor actual y las que podemos ofrecerle en QoriCash, en tiempo real.</p>
+  </div>
+  <p style="text-align:justify;">Si desea conocer mas, puede ver nuestra presentacion institucional aqui:</p>
+  <div style="margin:16px 0 24px;">
+    <a href="https://qoricash.pe/presentacion.pdf"
+       style="display:inline-block;padding:10px 24px;background:linear-gradient(135deg,#5CB85C 0%,#4a9b4a 100%);
+              color:#ffffff;text-decoration:none;border-radius:6px;font-size:13px;font-weight:700;letter-spacing:0.3px;"
+       target="_blank">Ver presentacion QoriCash</a>
+  </div>
+  <p style="text-align:justify;">Contamos con cuentas corrientes en soles y d&oacute;lares en los bancos
+    m&aacute;s importantes del Per&uacute;:</p>
+  {bancos}
+  <p style="text-align:justify;">Quedamos atentos a su respuesta.</p>
+  <br>{firma}{pie}
+</body></html>"""
+
+CUERPO_PRECIO = """\
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="UTF-8"></head>
+<body style="font-family:Arial,sans-serif;font-size:14px;color:#1E293B;line-height:1.7;max-width:620px;margin:0 auto;padding:24px;">
+  {header}
+  <p>Estimado(a) <strong>{nombre}</strong>,</p>
+  <p style="text-align:justify;">Le compartimos las tasas de tipo de cambio vigentes en este momento.
+    Sabemos que cada centavo importa en sus operaciones, por eso actualizamos nuestros precios en tiempo real
+    para que siempre opere con la mejor tasa:</p>
+  {ticker}
+  <p style="text-align:justify;">Contamos con cuentas corrientes en soles y d&oacute;lares en los bancos
+    m&aacute;s importantes del Per&uacute;:</p>
+  {bancos}
+  <p style="text-align:justify;">Estamos listos para ejecutar su operaci&oacute;n de forma inmediata.
+    Esc&iacute;banos por WhatsApp o responda este correo.</p>
+  <div style="margin:16px 0 24px;">
+    <a href="https://wa.me/51926011920"
+       style="display:inline-block;padding:10px 24px;background:linear-gradient(135deg,#5CB85C 0%,#4a9b4a 100%);
+              color:#ffffff;text-decoration:none;border-radius:6px;font-size:13px;font-weight:700;
+              letter-spacing:0.3px;" target="_blank">Cotizar en linea</a>
+  </div>
+  <p style="text-align:justify;">Quedamos atentos a su respuesta.</p>
+  <br>{firma}{pie}
+</body></html>"""
+
+
+def _build_ticker(compra, venta):
+    hoy = datetime.now().strftime("%d/%m/%Y")
+    return f"""\
+<table cellpadding="0" cellspacing="0" border="0" width="100%"
+  style="margin:24px 0;border:1px solid #E2E8F0;border-left:4px solid #5CB85C;
+         border-radius:6px;background:#FFFFFF;">
+  <tr>
+    <td style="padding:20px 24px;">
+      <p style="margin:0 0 16px;font-size:10px;font-weight:700;color:#64748B;
+         text-transform:uppercase;letter-spacing:1.2px;">
+        Tipo de cambio &nbsp;&middot;&nbsp; {hoy}
+      </p>
+      <table cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td style="padding-right:40px;vertical-align:top;">
+            <p style="margin:0;font-size:10px;color:#94A3B8;font-weight:600;
+               text-transform:uppercase;letter-spacing:0.8px;">Compramos</p>
+            <p style="margin:4px 0 0;font-size:28px;font-weight:700;color:#1E293B;
+               letter-spacing:-0.5px;line-height:1;">S/. {compra}</p>
+          </td>
+          <td style="width:1px;background:#E2E8F0;padding:0;">&nbsp;</td>
+          <td style="padding-left:40px;vertical-align:top;">
+            <p style="margin:0;font-size:10px;color:#94A3B8;font-weight:600;
+               text-transform:uppercase;letter-spacing:0.8px;">Vendemos</p>
+            <p style="margin:4px 0 0;font-size:28px;font-weight:700;color:#1E293B;
+               letter-spacing:-0.5px;line-height:1;">S/. {venta}</p>
+          </td>
+        </tr>
+      </table>
+      <p style="margin:14px 0 0;font-size:11px;color:#64748B;border-top:1px solid #F1F5F9;
+         padding-top:12px;">
+        Tasa garantizada &nbsp;&middot;&nbsp; Sin comisiones ocultas &nbsp;&middot;&nbsp;
+        Operaci&oacute;n en minutos
+      </p>
+      <p style="margin:8px 0 0;font-size:10px;color:#94A3B8;font-style:italic;">
+        * Precios del momento, sujetos a variaci&oacute;n.
+      </p>
+    </td>
+  </tr>
+</table>"""
+
+
+@prospeccion_bp.route("/<int:pid>/enviar-email", methods=["POST"])
+@login_required
+@require_role("Master", "Trader")
+def enviar_email(pid):
+    p = Prospecto.query.get_or_404(pid)
+    _verificar_acceso(p)
+
+    if not p.email:
+        return jsonify({"ok": False, "error": "El prospecto no tiene email registrado."}), 400
+
+    data   = request.get_json(force=True)
+    tipo   = data.get("tipo", "presentacion")
+    compra = data.get("compra", "")
+    venta  = data.get("venta", "")
+
+    if tipo == "precio" and (not compra or not venta):
+        return jsonify({"ok": False, "error": "Debes indicar COMPRA y VENTA."}), 400
+
+    # Nombre para el saludo
+    nombre_saludo = (p.nombre_contacto or p.razon_social or "estimado cliente").split()[0].capitalize()
+    trader_nombre = getattr(current_user, "full_name", None) or current_user.username
+
+    firma = FIRMA_HTML.replace("{trader_nombre}", trader_nombre)
+
+    if tipo == "precio":
+        ticker   = _build_ticker(compra, venta)
+        html     = CUERPO_PRECIO.format(
+            header=HEADER_HTML, nombre=nombre_saludo,
+            ticker=ticker, bancos=BANCOS_HTML, firma=firma, pie=PIE,
+        )
+        asunto   = "QoriCash - Tipo de cambio del dia"
+        nuevo_estado = "P2"
+    else:
+        html     = CUERPO_PRESENTACION.format(
+            header=HEADER_HTML, nombre=nombre_saludo, trader=trader_nombre,
+            bancos=BANCOS_HTML, firma=firma, pie=PIE,
+        )
+        asunto   = "QoriCash - El mejor tipo de cambio para empresas"
+        nuevo_estado = "P1"
+
+    try:
+        msg = Message(
+            subject=asunto,
+            recipients=[p.email],
+            html=html,
+        )
+        mail.send(msg)
+    except Exception as exc:
+        return jsonify({"ok": False, "error": f"Error al enviar: {exc}"}), 500
+
+    # Registrar actividad y actualizar estado
+    act = ActividadProspecto(
+        prospecto_id=p.id,
+        user_id=current_user.id,
+        tipo="email",
+        descripcion=f"Correo de {tipo} enviado desde la Base Maestra.",
+        resultado="Enviado",
+        nuevo_estado=nuevo_estado,
+    )
+    db.session.add(act)
+    p.estado_comercial       = nuevo_estado
+    p.fecha_ultimo_contacto  = now_peru().strftime("%Y-%m-%d %H:%M")
+    db.session.commit()
+
+    tipo_label = "presentacion" if tipo == "presentacion" else "precio del dia"
+    return jsonify({"ok": True, "msg": f"Correo de {tipo_label} enviado a {p.email}."})
 
 
 # ── Helper ────────────────────────────────────────────────────────────────────

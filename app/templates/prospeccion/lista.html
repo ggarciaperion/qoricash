@@ -7,7 +7,7 @@
   <div class="d-flex align-items-center justify-content-between mb-3">
     <h5 class="mb-0 fw-bold">
       <i class="bi bi-database text-warning"></i> Base Maestra
-      <span class="badge bg-secondary ms-2">{{ prospectos.total }}</span>
+      <span class="badge bg-secondary ms-2" id="totalBadge">{{ prospectos.total }}</span>
     </h5>
     <a href="{{ url_for('prospeccion.dashboard') }}" class="btn btn-sm btn-outline-secondary">
       <i class="bi bi-arrow-left"></i> Dashboard
@@ -17,13 +17,14 @@
   <!-- Filtros -->
   <div class="card border-0 shadow-sm mb-3">
     <div class="card-body py-2">
-      <form method="GET" class="row g-2 align-items-end">
-        <div class="col-md-3">
-          <input type="text" name="q" class="form-control form-control-sm"
-                 placeholder="Buscar empresa, email, contacto..." value="{{ filtros.q }}"/>
+      <form method="GET" id="filtroForm" class="row g-2 align-items-end">
+        <div class="col-md-4">
+          <input type="text" name="q" id="searchInput" class="form-control form-control-sm"
+                 placeholder="Buscar empresa, RUC, email, contacto..."
+                 value="{{ filtros.q }}" autocomplete="off"/>
         </div>
         <div class="col-md-2">
-          <select name="grupo" class="form-select form-select-sm">
+          <select name="grupo" class="form-select form-select-sm" onchange="this.form.submit()">
             <option value="">Todos los segmentos</option>
             {% for g in grupos %}
               <option value="{{ g }}" {% if filtros.grupo == g %}selected{% endif %}>{{ g }}</option>
@@ -31,23 +32,14 @@
           </select>
         </div>
         <div class="col-md-2">
-          <select name="rubro" class="form-select form-select-sm">
-            <option value="">Todos los rubros</option>
-            {% for r in rubros %}
-              <option value="{{ r }}" {% if filtros.rubro == r %}selected{% endif %}>{{ r }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div class="col-md-2">
-          <select name="depto" class="form-select form-select-sm">
+          <select name="depto" class="form-select form-select-sm" onchange="this.form.submit()">
             <option value="">Todos los deptos.</option>
             {% for d in deptos %}
               <option value="{{ d }}" {% if filtros.depto == d %}selected{% endif %}>{{ d }}</option>
             {% endfor %}
           </select>
         </div>
-        <div class="col-md-3 d-flex gap-2">
-          <button type="submit" class="btn btn-sm btn-primary"><i class="bi bi-search"></i> Filtrar</button>
+        <div class="col-auto">
           <a href="{{ url_for('prospeccion.lista') }}" class="btn btn-sm btn-outline-secondary">
             <i class="bi bi-x-circle"></i> Limpiar
           </a>
@@ -64,6 +56,7 @@
           <tr>
             <th style="width:50px">Score</th>
             <th>Empresa</th>
+            <th>RUC</th>
             <th>Rubro</th>
             <th>Depto.</th>
             <th>Email</th>
@@ -74,7 +67,7 @@
             <th></th>
           </tr>
         </thead>
-        <tbody>
+        <tbody id="tblBody">
           {% for p in prospectos.items %}
           <tr>
             <td class="text-center">
@@ -86,6 +79,7 @@
             <td class="fw-semibold" style="max-width:180px">
               <span class="text-truncate d-block">{{ p.razon_social or '—' }}</span>
             </td>
+            <td class="text-muted" style="font-size:.75rem;white-space:nowrap">{{ p.ruc or '—' }}</td>
             <td class="text-muted text-truncate" style="max-width:120px">{{ p.rubro or '—' }}</td>
             <td class="text-muted">{{ p.departamento or '—' }}</td>
             <td>
@@ -114,16 +108,25 @@
               {% endif %}
             </td>
             {% endif %}
-            <td>
+            <td style="white-space:nowrap">
               <a href="{{ url_for('prospeccion.detalle', pid=p.id) }}"
                  class="btn btn-sm btn-outline-secondary py-0 px-2">
                 <i class="bi bi-eye"></i>
               </a>
+              <button type="button"
+                      class="btn btn-sm btn-outline-success py-0 px-2 btn-enviar"
+                      data-pid="{{ p.id }}"
+                      data-nombre="{{ (p.nombre_contacto or p.razon_social or '') | e }}"
+                      data-empresa="{{ (p.razon_social or '') | e }}"
+                      data-email="{{ p.email or '' }}"
+                      title="Enviar correo">
+                <i class="bi bi-send"></i>
+              </button>
             </td>
           </tr>
           {% else %}
           <tr>
-            <td colspan="10" class="text-center py-5 text-muted">
+            <td colspan="11" class="text-center py-5 text-muted">
               <i class="bi bi-inbox fs-2 d-block mb-2"></i>
               No se encontraron registros.
             </td>
@@ -166,4 +169,149 @@
     {% endif %}
   </div>
 </div>
+
+<!-- ── Modal envio correo ──────────────────────────────────────────── -->
+<div class="modal fade" id="modalEnvio" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-send text-success me-2"></i>Enviar correo</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted small mb-3" id="modalDestinatario"></p>
+
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Tipo de correo</label>
+          <div class="d-flex gap-4">
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="tipo_correo"
+                     id="tipoPresentacion" value="presentacion" checked>
+              <label class="form-check-label" for="tipoPresentacion">
+                <i class="bi bi-file-earmark-text text-primary"></i> Presentacion
+              </label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="tipo_correo"
+                     id="tipoPrecio" value="precio">
+              <label class="form-check-label" for="tipoPrecio">
+                <i class="bi bi-currency-dollar text-success"></i> Precio del dia
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div id="campoPrecio" class="d-none border rounded p-3 bg-light">
+          <p class="text-muted small mb-2">Tipo de cambio para el correo:</p>
+          <div class="row g-2">
+            <div class="col-6">
+              <label class="form-label small fw-semibold">Compramos (S/.)</label>
+              <input type="number" step="0.001" min="1" id="inputCompra"
+                     class="form-control form-control-sm" placeholder="3.720">
+            </div>
+            <div class="col-6">
+              <label class="form-label small fw-semibold">Vendemos (S/.)</label>
+              <input type="number" step="0.001" min="1" id="inputVenta"
+                     class="form-control form-control-sm" placeholder="3.740">
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-success" id="btnEnviarModal">
+          <i class="bi bi-send"></i> Enviar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ── Real-time search (debounce 450ms, submit form) ────────────────────────────
+(function() {
+  const inp  = document.getElementById('searchInput');
+  const form = document.getElementById('filtroForm');
+  let timer;
+  inp.addEventListener('input', function() {
+    clearTimeout(timer);
+    timer = setTimeout(function() { form.submit(); }, 450);
+  });
+})();
+
+// ── Modal envio ───────────────────────────────────────────────────────────────
+(function() {
+  let currentPid = null;
+  const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+  // Abrir modal al pulsar btn-enviar
+  document.querySelectorAll('.btn-enviar').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      currentPid = this.dataset.pid;
+      const nombre = this.dataset.nombre || this.dataset.empresa || 'Prospecto';
+      const email  = this.dataset.email;
+      document.getElementById('modalDestinatario').textContent =
+        'Para: ' + nombre + (email ? ' <' + email + '>' : '');
+      // Reset
+      document.getElementById('tipoPresentacion').checked = true;
+      document.getElementById('campoPrecio').classList.add('d-none');
+      document.getElementById('inputCompra').value = '';
+      document.getElementById('inputVenta').value  = '';
+      var modal = new bootstrap.Modal(document.getElementById('modalEnvio'));
+      modal.show();
+    });
+  });
+
+  // Mostrar/ocultar campos de precio
+  document.querySelectorAll('input[name="tipo_correo"]').forEach(function(radio) {
+    radio.addEventListener('change', function() {
+      document.getElementById('campoPrecio').classList.toggle('d-none', this.value !== 'precio');
+    });
+  });
+
+  // Enviar
+  document.getElementById('btnEnviarModal').addEventListener('click', async function() {
+    const tipo   = document.querySelector('input[name="tipo_correo"]:checked').value;
+    const compra = document.getElementById('inputCompra').value.trim();
+    const venta  = document.getElementById('inputVenta').value.trim();
+
+    if (tipo === 'precio' && (!compra || !venta)) {
+      Swal.fire('Faltan precios', 'Ingresa COMPRA y VENTA para continuar.', 'warning');
+      return;
+    }
+
+    const btn = this;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Enviando...';
+
+    try {
+      const resp = await fetch('/prospeccion/' + currentPid + '/enviar-email', {
+        method:  'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken':  csrfToken
+        },
+        body: JSON.stringify({ tipo: tipo, compra: compra, venta: venta })
+      });
+      const data = await resp.json();
+
+      bootstrap.Modal.getInstance(document.getElementById('modalEnvio')).hide();
+
+      if (data.ok) {
+        Swal.fire({ icon: 'success', title: 'Enviado', text: data.msg,
+                    timer: 2500, showConfirmButton: false });
+      } else {
+        Swal.fire('Error al enviar', data.error || 'No se pudo enviar el correo.', 'error');
+      }
+    } catch(e) {
+      Swal.fire('Error', 'Fallo de conexion con el servidor.', 'error');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-send"></i> Enviar';
+    }
+  });
+})();
+</script>
 {% endblock %}
