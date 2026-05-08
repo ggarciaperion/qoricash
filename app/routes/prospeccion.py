@@ -403,7 +403,7 @@ def import_batch():
     """
     import os
     key = request.headers.get("X-Import-Key", "")
-    if key != os.environ.get("INTERNAL_API_KEY", "qoricash-import-2026"):
+    if key != os.environ.get("PROSPECCION_IMPORT_KEY", "qc-import-prospectos-2026"):
         return jsonify({"error": "No autorizado"}), 401
 
     data = request.get_json(force=True)

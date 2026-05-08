@@ -5,8 +5,8 @@ Uso: python3 upload_prospectos.py
 import os, sys, json, openpyxl
 import urllib.request, urllib.error
 
-APP_URL  = "https://qoricash.onrender.com"   # <-- URL de tu app en Render
-API_KEY  = "qoricash-import-2026"
+APP_URL  = "https://app.qoricash.pe"
+API_KEY  = "qc-import-prospectos-2026"
 EXCEL    = os.path.join(os.path.expanduser("~"), "Desktop", "QoriCash_BASE_MAESTRA_2026.xlsx")
 ENDPOINT = f"{APP_URL}/prospeccion/api/import-batch"
 
