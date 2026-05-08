@@ -50,6 +50,9 @@ APScheduler==3.10.4
 
 # Email
 Flask-Mail==0.9.1
+google-auth==2.29.0
+google-auth-oauthlib==1.2.0
+google-api-python-client==2.126.0
 
 # HTTP Requests (for NubeFact API)
 requests==2.31.0

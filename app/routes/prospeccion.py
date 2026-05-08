@@ -2,16 +2,60 @@
 Modulo de Prospeccion — QoriCash Trading V2
 Rutas para Master y Trader.
 """
+import os, json, base64
 from datetime import datetime
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 from flask import Blueprint, render_template, request, jsonify, flash, redirect, url_for
 from flask_login import login_required, current_user
-from flask_mail import Message
 from sqlalchemy import or_, func
-from app.extensions import db, csrf, mail
+from app.extensions import db, csrf
 from app.models.prospecto import Prospecto, AsignacionProspecto, ActividadProspecto
 from app.models.user import User
 from app.utils.decorators import require_role
 from app.utils.formatters import now_peru
+
+# Mapeo email de usuario → variable de entorno con el token Gmail OAuth2
+_GMAIL_TOKEN_ENV = {
+    "ggarcia@qoricash.pe":  "GMAIL_TOKEN_GGARCIA",
+    "gerencia@qoricash.pe": "GMAIL_TOKEN_GERENCIA",
+    "luacosta@qoricash.pe": "GMAIL_TOKEN_LUACOSTA",
+}
+
+
+def _send_via_gmail_api(sender_email, to_email, subject, html_body):
+    """Envía un correo usando Gmail API con OAuth2. El email queda en Enviados del remitente."""
+    from google.oauth2.credentials import Credentials
+    from google.auth.transport.requests import Request
+    from googleapiclient.discovery import build
+
+    env_key    = _GMAIL_TOKEN_ENV.get(sender_email.lower())
+    token_json = os.environ.get(env_key, "") if env_key else ""
+    if not token_json:
+        raise ValueError(f"Token Gmail no configurado para {sender_email} (var: {env_key})")
+
+    token_data = json.loads(token_json)
+    creds = Credentials(
+        token=token_data.get("token"),
+        refresh_token=token_data["refresh_token"],
+        token_uri=token_data["token_uri"],
+        client_id=token_data["client_id"],
+        client_secret=token_data["client_secret"],
+        scopes=token_data["scopes"],
+    )
+    if creds.expired and creds.refresh_token:
+        creds.refresh(Request())
+
+    service = build("gmail", "v1", credentials=creds)
+
+    msg = MIMEMultipart("alternative")
+    msg["To"]      = to_email
+    msg["From"]    = sender_email
+    msg["Subject"] = subject
+    msg.attach(MIMEText(html_body, "html"))
+
+    raw = base64.urlsafe_b64encode(msg.as_bytes()).decode()
+    service.users().messages().send(userId="me", body={"raw": raw}).execute()
 
 prospeccion_bp = Blueprint("prospeccion", __name__, url_prefix="/prospeccion")
 
@@ -828,23 +872,14 @@ def enviar_email(pid):
         asunto   = "QoriCash - El mejor tipo de cambio para empresas"
         nuevo_estado = "P1"
 
-    from flask import current_app
-    from app.services.email_service import EmailService
-
-    sender = current_app.config.get("MAIL_DEFAULT_SENDER") or current_app.config.get("MAIL_USERNAME")
-    if not sender:
-        return jsonify({"ok": False, "error": "MAIL_DEFAULT_SENDER no configurado en el servidor."}), 500
+    sender_email = getattr(current_user, "email", None)
+    if not sender_email:
+        return jsonify({"ok": False, "error": "Tu usuario no tiene email configurado."}), 400
 
     try:
-        msg = Message(
-            subject=asunto,
-            sender=sender,
-            recipients=[p.email],
-            html=html,
-        )
-        EmailService._send_async(msg, timeout=20)
+        _send_via_gmail_api(sender_email, p.email, asunto, html)
     except Exception as exc:
-        return jsonify({"ok": False, "error": f"Error al enviar: {exc}"}), 500
+        return jsonify({"ok": False, "error": str(exc)}), 500
 
     # Registrar actividad y actualizar estado
     act = ActividadProspecto(
