@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}Editar — {{ p.razon_social or p.email }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+  <nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{{ url_for('prospeccion.dashboard') }}">Prospeccion</a></li>
+      <li class="breadcrumb-item"><a href="{{ url_for('prospeccion.detalle', pid=p.id) }}">{{ p.razon_social or p.email }}</a></li>
+      <li class="breadcrumb-item active">Editar</li>
+    </ol>
+  </nav>
+
+  <div class="card border-0 shadow-sm" style="max-width:860px">
+    <div class="card-header bg-transparent border-0">
+      <span class="fw-bold">Editar registro</span>
+    </div>
+    <div class="card-body">
+      <form method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+        <div class="row g-3">
+          <div class="col-md-8">
+            <label class="form-label small fw-semibold text-muted text-uppercase">Razon Social</label>
+            <input type="text" name="razon_social" class="form-control" value="{{ p.razon_social or '' }}"/>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small fw-semibold text-muted text-uppercase">RUC</label>
+            <input type="text" name="ruc" class="form-control" value="{{ p.ruc or '' }}"/>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small fw-semibold text-muted text-uppercase">Rubro</label>
+            <input type="text" name="rubro" class="form-control" value="{{ p.rubro or '' }}"/>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small fw-semibold text-muted text-uppercase">Departamento</label>
+            <input type="text" name="departamento" class="form-control" value="{{ p.departamento or '' }}"/>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small fw-semibold text-muted text-uppercase">Tipo</label>
+            <select name="tipo" class="form-select">
+              <option {% if p.tipo == 'Empresa' %}selected{% endif %}>Empresa</option>
+              <option {% if p.tipo == 'Persona' %}selected{% endif %}>Persona</option>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold text-muted text-uppercase">Nombre contacto</label>
+            <input type="text" name="nombre_contacto" class="form-control" value="{{ p.nombre_contacto or '' }}"/>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold text-muted text-uppercase">Cargo</label>
+            <input type="text" name="cargo" class="form-control" value="{{ p.cargo or '' }}"/>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold text-muted text-uppercase">Email principal</label>
+            <input type="email" name="email" class="form-control" value="{{ p.email or '' }}"/>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold text-muted text-uppercase">Telefono</label>
+            <input type="text" name="telefono" class="form-control" value="{{ p.telefono or '' }}"/>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small fw-semibold text-muted text-uppercase">Score (0-100)</label>
+            <input type="number" name="score" class="form-control" min="0" max="100" value="{{ p.score or 0 }}"/>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small fw-semibold text-muted text-uppercase">Estado comercial</label>
+            <select name="estado_comercial" class="form-select">
+              <option value="">—</option>
+              {% for opt in ['P1','P2','P3','P4'] %}
+              <option {% if p.estado_comercial == opt %}selected{% endif %}>{{ opt }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small fw-semibold text-muted text-uppercase">Nivel interes</label>
+            <select name="nivel_interes" class="form-select">
+              <option value="">—</option>
+              {% for opt in ['Alto','Medio','Bajo','Sin datos'] %}
+              <option {% if p.nivel_interes == opt %}selected{% endif %}>{{ opt }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold text-muted text-uppercase">Segmento</label>
+            <select name="grupo" class="form-select">
+              {% for g in grupos %}
+              <option {% if p.grupo == g %}selected{% endif %}>{{ g }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold text-muted text-uppercase">Proximo contacto</label>
+            <input type="date" name="fecha_proximo_contacto" class="form-control"
+                   value="{{ p.fecha_proximo_contacto[:10] if p.fecha_proximo_contacto else '' }}"/>
+          </div>
+          <div class="col-12">
+            <label class="form-label small fw-semibold text-muted text-uppercase">Notas</label>
+            <textarea name="notas" class="form-control" rows="3">{{ p.notas or '' }}</textarea>
+          </div>
+          <div class="col-12 d-flex gap-2">
+            <button type="submit" class="btn btn-primary">
+              <i class="bi bi-check-lg"></i> Guardar cambios
+            </button>
+            <a href="{{ url_for('prospeccion.detalle', pid=p.id) }}" class="btn btn-outline-secondary">
+              Cancelar
+            </a>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

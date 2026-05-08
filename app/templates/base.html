@@ -114,6 +114,14 @@
             </a>
             {% endif %}
 
+            {% if current_user.role in ['Master', 'Trader'] %}
+            <a class="sidebar-link {% if request.endpoint and request.endpoint.startswith('prospeccion') %}active{% endif %}"
+               href="{{ url_for('prospeccion.dashboard') }}">
+                <i class="bi bi-megaphone"></i>
+                <span class="sidebar-link-text">Prospeccion</span>
+            </a>
+            {% endif %}
+
             {% if current_user.role in ['Master', 'Middle Office'] %}
             <div class="sidebar-section-label">Compliance</div>
 
@@ -436,7 +444,7 @@
     </script>
 
     <!-- Common JS -->
-    <script src="{{ url_for('static', filename='js/common.js') }}?v=20260408_v8"></script>
+    <script src="{{ url_for('static', filename='js/common.js') }}?v=20260508_v9"></script>
 
     <!-- ── SOCKET GLOBAL + NOTIFICATION CENTER ─────────────────────────────── -->
     {% if current_user.is_authenticated %}

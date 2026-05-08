@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+{% block title %}Base Maestra — Prospeccion{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+  <div class="d-flex align-items-center justify-content-between mb-3">
+    <h5 class="mb-0 fw-bold">
+      <i class="bi bi-database text-warning"></i> Base Maestra
+      <span class="badge bg-secondary ms-2">{{ prospectos.total }}</span>
+    </h5>
+    <a href="{{ url_for('prospeccion.dashboard') }}" class="btn btn-sm btn-outline-secondary">
+      <i class="bi bi-arrow-left"></i> Dashboard
+    </a>
+  </div>
+
+  <!-- Filtros -->
+  <div class="card border-0 shadow-sm mb-3">
+    <div class="card-body py-2">
+      <form method="GET" class="row g-2 align-items-end">
+        <div class="col-md-3">
+          <input type="text" name="q" class="form-control form-control-sm"
+                 placeholder="Buscar empresa, email, contacto..." value="{{ filtros.q }}"/>
+        </div>
+        <div class="col-md-2">
+          <select name="grupo" class="form-select form-select-sm">
+            <option value="">Todos los segmentos</option>
+            {% for g in grupos %}
+              <option value="{{ g }}" {% if filtros.grupo == g %}selected{% endif %}>{{ g }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-2">
+          <select name="rubro" class="form-select form-select-sm">
+            <option value="">Todos los rubros</option>
+            {% for r in rubros %}
+              <option value="{{ r }}" {% if filtros.rubro == r %}selected{% endif %}>{{ r }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-2">
+          <select name="depto" class="form-select form-select-sm">
+            <option value="">Todos los deptos.</option>
+            {% for d in deptos %}
+              <option value="{{ d }}" {% if filtros.depto == d %}selected{% endif %}>{{ d }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-3 d-flex gap-2">
+          <button type="submit" class="btn btn-sm btn-primary"><i class="bi bi-search"></i> Filtrar</button>
+          <a href="{{ url_for('prospeccion.lista') }}" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-x-circle"></i> Limpiar
+          </a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Tabla -->
+  <div class="card border-0 shadow-sm">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0 small">
+        <thead class="table-dark">
+          <tr>
+            <th style="width:50px">Score</th>
+            <th>Empresa</th>
+            <th>Rubro</th>
+            <th>Depto.</th>
+            <th>Email</th>
+            <th>Contacto</th>
+            <th>Estado</th>
+            <th>Segmento</th>
+            {% if current_user.role == 'Master' %}<th>Trader</th>{% endif %}
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in prospectos.items %}
+          <tr>
+            <td class="text-center">
+              <span class="badge rounded-pill fw-bold"
+                    style="background:{{ p.score_color }};width:36px;display:inline-block">
+                {{ p.score or 0 }}
+              </span>
+            </td>
+            <td class="fw-semibold" style="max-width:180px">
+              <span class="text-truncate d-block">{{ p.razon_social or '—' }}</span>
+            </td>
+            <td class="text-muted text-truncate" style="max-width:120px">{{ p.rubro or '—' }}</td>
+            <td class="text-muted">{{ p.departamento or '—' }}</td>
+            <td>
+              <a href="mailto:{{ p.email }}" class="text-decoration-none text-muted small">
+                {{ p.email or '—' }}
+              </a>
+            </td>
+            <td class="text-muted">{{ p.nombre_contacto or '—' }}</td>
+            <td>
+              {% set bc, bl = p.estado_badge %}
+              <span class="badge bg-{{ bc }}">{{ bl }}</span>
+            </td>
+            <td>
+              {% if p.grupo %}
+              <span class="badge bg-dark" style="font-size:.65rem">
+                {{ p.grupo | truncate(16, true, '…') }}
+              </span>
+              {% endif %}
+            </td>
+            {% if current_user.role == 'Master' %}
+            <td class="text-muted small">
+              {% if p.trader_asignado %}
+                <i class="bi bi-person-check text-success"></i> {{ p.trader_asignado.username }}
+              {% else %}
+                <span class="text-muted">—</span>
+              {% endif %}
+            </td>
+            {% endif %}
+            <td>
+              <a href="{{ url_for('prospeccion.detalle', pid=p.id) }}"
+                 class="btn btn-sm btn-outline-secondary py-0 px-2">
+                <i class="bi bi-eye"></i>
+              </a>
+            </td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="10" class="text-center py-5 text-muted">
+              <i class="bi bi-inbox fs-2 d-block mb-2"></i>
+              No se encontraron registros.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Paginacion -->
+    {% if prospectos.pages > 1 %}
+    <div class="card-footer bg-transparent d-flex justify-content-between align-items-center">
+      <small class="text-muted">
+        Pagina {{ prospectos.page }} de {{ prospectos.pages }} — {{ prospectos.total }} registros
+      </small>
+      <nav>
+        <ul class="pagination pagination-sm mb-0">
+          {% if prospectos.has_prev %}
+          <li class="page-item">
+            <a class="page-link" href="{{ url_for('prospeccion.lista', page=prospectos.prev_num, **filtros) }}">&laquo;</a>
+          </li>
+          {% endif %}
+          {% for pg in prospectos.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+            {% if pg %}
+            <li class="page-item {% if pg == prospectos.page %}active{% endif %}">
+              <a class="page-link" href="{{ url_for('prospeccion.lista', page=pg, **filtros) }}">{{ pg }}</a>
+            </li>
+            {% else %}
+            <li class="page-item disabled"><span class="page-link">…</span></li>
+            {% endif %}
+          {% endfor %}
+          {% if prospectos.has_next %}
+          <li class="page-item">
+            <a class="page-link" href="{{ url_for('prospeccion.lista', page=prospectos.next_num, **filtros) }}">&raquo;</a>
+          </li>
+          {% endif %}
+        </ul>
+      </nav>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

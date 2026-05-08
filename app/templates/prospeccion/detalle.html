@@ -1,0 +1,305 @@
+{% extends "base.html" %}
+{% block title %}{{ p.razon_social or p.email }} — Prospeccion{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+  <!-- Breadcrumb -->
+  <nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{{ url_for('prospeccion.dashboard') }}">Prospeccion</a></li>
+      <li class="breadcrumb-item"><a href="{{ url_for('prospeccion.lista') }}">Base</a></li>
+      <li class="breadcrumb-item active">{{ p.razon_social or p.email }}</li>
+    </ol>
+  </nav>
+
+  <div class="row g-4">
+
+    <!-- Columna principal -->
+    <div class="col-lg-8">
+
+      <!-- Header card -->
+      <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-start">
+            <div>
+              <h5 class="fw-bold mb-1">{{ p.razon_social or '(Sin nombre)' }}</h5>
+              <div class="text-muted small">
+                {% if p.ruc %}<span class="me-3"><i class="bi bi-building"></i> RUC {{ p.ruc }}</span>{% endif %}
+                {% if p.rubro %}<span class="me-3"><i class="bi bi-tag"></i> {{ p.rubro }}</span>{% endif %}
+                {% if p.departamento %}<span><i class="bi bi-geo-alt"></i> {{ p.departamento }}</span>{% endif %}
+              </div>
+            </div>
+            <div class="d-flex gap-2 align-items-center">
+              <span class="badge rounded-pill fw-bold fs-6 px-3 py-2"
+                    style="background:{{ p.score_color }}">
+                {{ p.score or 0 }}
+              </span>
+              <a href="{{ url_for('prospeccion.editar', pid=p.id) }}"
+                 class="btn btn-sm btn-outline-primary">
+                <i class="bi bi-pencil"></i> Editar
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Datos contacto -->
+      <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header bg-transparent border-0 pb-0">
+          <span class="fw-semibold small text-uppercase text-muted">Contacto</span>
+        </div>
+        <div class="card-body">
+          <div class="row g-3 small">
+            <div class="col-sm-6">
+              <div class="text-muted">Email principal</div>
+              <div class="fw-semibold"><a href="mailto:{{ p.email }}">{{ p.email or '—' }}</a></div>
+              {% if p.email_alt %}
+              <div class="text-muted">Alt: {{ p.email_alt }}</div>
+              {% endif %}
+            </div>
+            <div class="col-sm-6">
+              <div class="text-muted">Telefono</div>
+              <div>{{ p.telefono or '—' }}</div>
+            </div>
+            <div class="col-sm-6">
+              <div class="text-muted">Contacto</div>
+              <div class="fw-semibold">{{ p.nombre_contacto or '—' }}</div>
+              <div class="text-muted">{{ p.cargo or '' }}</div>
+            </div>
+            <div class="col-sm-6">
+              <div class="text-muted">Cliente LFC</div>
+              {% if p.cliente_lfc == 'Cliente LFC' %}
+                <span class="badge bg-success">{{ p.cliente_lfc }}</span>
+              {% else %}
+                <span>—</span>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Historial -->
+      <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header bg-transparent border-0 pb-0">
+          <span class="fw-semibold small text-uppercase text-muted">Historial de contacto</span>
+        </div>
+        <div class="card-body">
+          <div class="row g-3 small">
+            <div class="col-sm-4">
+              <div class="text-muted">Primer contacto</div>
+              <div>{{ p.fecha_primer_contacto or '—' }}</div>
+            </div>
+            <div class="col-sm-4">
+              <div class="text-muted">Ultimo contacto</div>
+              <div>{{ p.fecha_ultimo_contacto or '—' }}</div>
+            </div>
+            <div class="col-sm-4">
+              <div class="text-muted">Proximo contacto</div>
+              <div class="fw-semibold {% if p.fecha_proximo_contacto %}text-primary{% endif %}">
+                {{ p.fecha_proximo_contacto or 'Sin programar' }}
+              </div>
+            </div>
+            <div class="col-sm-4">
+              <div class="text-muted">N° contactos</div>
+              <div>{{ p.num_contactos or 0 }}</div>
+            </div>
+            <div class="col-sm-4">
+              <div class="text-muted">Ultimo envio</div>
+              <div>{{ p.tipo_ultimo_envio or '—' }}</div>
+            </div>
+            <div class="col-sm-4">
+              <div class="text-muted">Remitente</div>
+              <div>{{ p.remitente or '—' }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Registrar actividad -->
+      <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
+          <span class="fw-semibold small text-uppercase text-muted">Registrar actividad</span>
+        </div>
+        <div class="card-body">
+          <form method="POST" action="{{ url_for('prospeccion.agregar_actividad', pid=p.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <div class="row g-2">
+              <div class="col-sm-3">
+                <select name="tipo" class="form-select form-select-sm">
+                  <option value="email">Email</option>
+                  <option value="llamada">Llamada</option>
+                  <option value="reunion">Reunion</option>
+                  <option value="nota">Nota</option>
+                </select>
+              </div>
+              <div class="col-sm-3">
+                <select name="nuevo_estado" class="form-select form-select-sm">
+                  <option value="">Sin cambio de estado</option>
+                  <option value="P1">P1 — Presentacion</option>
+                  <option value="P2">P2 — Precio</option>
+                  <option value="P3">P3 — Negociacion</option>
+                  <option value="P4">P4 — Cliente</option>
+                </select>
+              </div>
+              <div class="col-sm-3">
+                <input type="date" name="fecha_proximo_contacto" class="form-control form-control-sm"
+                       placeholder="Proximo contacto"/>
+              </div>
+              <div class="col-sm-3">
+                <input type="text" name="resultado" class="form-control form-control-sm"
+                       placeholder="Resultado (opcional)"/>
+              </div>
+              <div class="col-12">
+                <textarea name="descripcion" class="form-control form-control-sm" rows="2"
+                          placeholder="Descripcion de la actividad..." required></textarea>
+              </div>
+              <div class="col-12">
+                <button type="submit" class="btn btn-sm btn-primary">
+                  <i class="bi bi-check-lg"></i> Guardar actividad
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Historial actividades -->
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-transparent border-0 pb-0">
+          <span class="fw-semibold small text-uppercase text-muted">Historial de actividades</span>
+        </div>
+        <div class="card-body p-0">
+          {% for act in actividades %}
+          <div class="d-flex gap-3 px-3 py-2 border-bottom">
+            <div class="text-center pt-1" style="min-width:28px">
+              <i class="bi bi-{% if act.tipo == 'email' %}envelope{% elif act.tipo == 'llamada' %}telephone{% elif act.tipo == 'reunion' %}people{% else %}sticky{% endif %} text-muted small"></i>
+            </div>
+            <div class="flex-grow-1">
+              <div class="small fw-semibold">{{ act.descripcion }}</div>
+              {% if act.resultado %}
+              <div class="text-muted" style="font-size:.75rem">Resultado: {{ act.resultado }}</div>
+              {% endif %}
+              {% if act.nuevo_estado %}
+              <span class="badge bg-warning text-dark" style="font-size:.65rem">→ {{ act.nuevo_estado }}</span>
+              {% endif %}
+              <div class="text-muted" style="font-size:.7rem">
+                {{ act.usuario.username }} &mdash; {{ act.creado_en.strftime('%d/%m/%Y %H:%M') }}
+              </div>
+            </div>
+          </div>
+          {% else %}
+          <div class="text-center py-4 text-muted small">Sin actividades registradas.</div>
+          {% endfor %}
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Columna lateral -->
+    <div class="col-lg-4">
+
+      <!-- Estado comercial -->
+      <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header bg-transparent border-0 pb-0">
+          <span class="fw-semibold small text-uppercase text-muted">Estado comercial</span>
+        </div>
+        <div class="card-body">
+          {% set bc, bl = p.estado_badge %}
+          <span class="badge bg-{{ bc }} fs-6 mb-3">{{ bl }}</span>
+
+          <div class="small mb-1 text-muted">Nivel de interes</div>
+          <div class="mb-3">{{ p.nivel_interes or '—' }}</div>
+
+          <div class="small mb-1 text-muted">Segmento</div>
+          <div class="mb-3"><span class="badge bg-dark">{{ p.grupo or '—' }}</span></div>
+
+          <div class="small mb-1 text-muted">Estado email</div>
+          <div>
+            {% if p.estado_email == 'Hard Bounce' %}
+              <span class="badge bg-danger">Hard Bounce</span>
+            {% elif p.estado_email == 'Soft Bounce' %}
+              <span class="badge bg-warning text-dark">Soft Bounce</span>
+            {% elif p.estado_email %}
+              <span class="badge bg-success">{{ p.estado_email }}</span>
+            {% else %}
+              <span class="text-muted small">Sin validar</span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Asignacion (solo Master) -->
+      {% if current_user.role == 'Master' %}
+      <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header bg-transparent border-0 pb-0">
+          <span class="fw-semibold small text-uppercase text-muted">Asignacion de trader</span>
+        </div>
+        <div class="card-body">
+          {% if asignacion_actual %}
+          <div class="d-flex align-items-center gap-2 mb-3">
+            <i class="bi bi-person-check-fill text-success"></i>
+            <span class="fw-semibold small">{{ asignacion_actual.trader.username }}</span>
+          </div>
+          {% else %}
+          <div class="text-muted small mb-3">Sin asignar</div>
+          {% endif %}
+
+          <form method="POST" action="{{ url_for('prospeccion.asignar', pid=p.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <div class="d-flex gap-2">
+              <select name="trader_id" class="form-select form-select-sm">
+                <option value="">— Sin asignar —</option>
+                {% for t in traders_disponibles %}
+                <option value="{{ t.id }}"
+                  {% if asignacion_actual and asignacion_actual.trader_id == t.id %}selected{% endif %}>
+                  {{ t.username }}
+                </option>
+                {% endfor %}
+              </select>
+              <button type="submit" class="btn btn-sm btn-outline-primary">
+                <i class="bi bi-check"></i>
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Mover pipeline -->
+      <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header bg-transparent border-0 pb-0">
+          <span class="fw-semibold small text-uppercase text-muted">Mover en pipeline</span>
+        </div>
+        <div class="card-body">
+          <form method="POST" action="{{ url_for('prospeccion.mover_pipeline', pid=p.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <div class="d-flex gap-2">
+              <select name="estado" class="form-select form-select-sm">
+                <option value="P1" {% if p.estado_comercial == 'P1' %}selected{% endif %}>P1 — Presentacion</option>
+                <option value="P2" {% if p.estado_comercial == 'P2' %}selected{% endif %}>P2 — Precio</option>
+                <option value="P3" {% if p.estado_comercial == 'P3' %}selected{% endif %}>P3 — Negociacion</option>
+                <option value="P4" {% if p.estado_comercial == 'P4' %}selected{% endif %}>P4 — Cliente</option>
+              </select>
+              <button type="submit" class="btn btn-sm btn-success">
+                <i class="bi bi-arrow-right"></i>
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Notas -->
+      {% if p.notas %}
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-transparent border-0 pb-0">
+          <span class="fw-semibold small text-uppercase text-muted">Notas</span>
+        </div>
+        <div class="card-body small text-muted" style="white-space:pre-wrap">{{ p.notas }}</div>
+      </div>
+      {% endif %}
+
+    </div>
+  </div>
+</div>
+{% endblock %}

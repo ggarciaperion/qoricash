@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Pipeline — Prospeccion{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+  <div class="d-flex align-items-center justify-content-between mb-4">
+    <h5 class="mb-0 fw-bold">
+      <i class="bi bi-kanban text-warning"></i> Pipeline de ventas
+    </h5>
+    <a href="{{ url_for('prospeccion.dashboard') }}" class="btn btn-sm btn-outline-secondary">
+      <i class="bi bi-arrow-left"></i> Dashboard
+    </a>
+  </div>
+
+  <div class="row g-3">
+    {% for estado, col in columnas.items() %}
+    <div class="col-md-3">
+      <div class="rounded-3 p-3" style="background:#F8FAFC;min-height:500px">
+        <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom border-2"
+             style="border-color:var(--bs-{{ col.color }})!important">
+          <span class="fw-bold small text-uppercase text-{{ col.color }}">{{ col.label }}</span>
+          <span class="badge bg-{{ col.color }}">{{ col.items | length }}</span>
+        </div>
+
+        {% for p in col.items %}
+        <div class="card border-0 shadow-sm mb-2"
+             style="border-left:3px solid {{ p.score_color }}!important;border-radius:8px">
+          <div class="card-body p-3">
+            <div class="fw-semibold small text-truncate mb-1">{{ p.razon_social or p.email }}</div>
+            <div class="text-muted" style="font-size:.72rem">{{ p.rubro or '—' }}</div>
+            <div class="text-muted" style="font-size:.72rem">{{ p.email }}</div>
+            <div class="d-flex justify-content-between align-items-center mt-2">
+              <span class="badge rounded-pill" style="background:{{ p.score_color }};font-size:.65rem">
+                Score {{ p.score or 0 }}
+              </span>
+              <div class="d-flex gap-1">
+                <a href="{{ url_for('prospeccion.detalle', pid=p.id) }}"
+                   class="btn btn-xs py-0 px-2 btn-outline-secondary" style="font-size:.7rem">
+                  <i class="bi bi-eye"></i>
+                </a>
+                {% set sig = {'P1':'P2','P2':'P3','P3':'P4'} %}
+                {% if estado in sig %}
+                <form method="POST" action="{{ url_for('prospeccion.mover_pipeline', pid=p.id) }}"
+                      class="d-inline">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                  <input type="hidden" name="estado" value="{{ sig[estado] }}"/>
+                  <button type="submit" class="btn btn-xs btn-outline-success py-0 px-2"
+                          style="font-size:.7rem" title="Avanzar a {{ sig[estado] }}">
+                    <i class="bi bi-arrow-right"></i>
+                  </button>
+                </form>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </div>
+        {% else %}
+        <div class="text-center text-muted py-5 small">Sin registros</div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

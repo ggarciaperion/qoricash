@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+{% block title %}Prospeccion — QoriCash{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+  <!-- Header -->
+  <div class="d-flex align-items-center justify-content-between mb-4">
+    <div>
+      <h4 class="mb-0 fw-bold">
+        <i class="bi bi-megaphone text-warning"></i>
+        Prospeccion Comercial
+      </h4>
+      <small class="text-muted">
+        {% if current_user.role == 'Master' %}Vista general — todos los traders{% else %}Mis prospectos asignados{% endif %}
+      </small>
+    </div>
+    <div class="d-flex gap-2">
+      <a href="{{ url_for('prospeccion.lista') }}" class="btn btn-primary btn-sm">
+        <i class="bi bi-database"></i> Ver base
+      </a>
+      <a href="{{ url_for('prospeccion.pipeline') }}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-kanban"></i> Pipeline
+      </a>
+      {% if current_user.role == 'Master' %}
+      <a href="{{ url_for('prospeccion.asignar_masivo') }}" class="btn btn-outline-warning btn-sm">
+        <i class="bi bi-person-plus"></i> Asignar
+      </a>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- KPIs -->
+  <div class="row g-3 mb-4">
+    <div class="col-6 col-md-2">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body text-center">
+          <div class="fs-2 fw-bold text-dark">{{ total }}</div>
+          <div class="text-muted small">Total prospectos</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-2">
+      <div class="card border-0 shadow-sm h-100 border-start border-4 border-warning">
+        <div class="card-body text-center">
+          <div class="fs-2 fw-bold text-warning">{{ pipeline }}</div>
+          <div class="text-muted small">En pipeline</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-2">
+      <div class="card border-0 shadow-sm h-100 border-start border-4 border-warning">
+        <div class="card-body text-center">
+          <div class="fs-2 fw-bold" style="color:#F59E0B">{{ en_negoc }}</div>
+          <div class="text-muted small">En negociacion</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-2">
+      <div class="card border-0 shadow-sm h-100 border-start border-4 border-success">
+        <div class="card-body text-center">
+          <div class="fs-2 fw-bold text-success">{{ clientes }}</div>
+          <div class="text-muted small">Clientes cerrados</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-2">
+      <div class="card border-0 shadow-sm h-100 border-start border-4" style="border-color:#22C55E!important">
+        <div class="card-body text-center">
+          <div class="fs-2 fw-bold" style="color:#22C55E">{{ lfc }}</div>
+          <div class="text-muted small">Clientes LFC</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-2">
+      <div class="card border-0 shadow-sm h-100 bg-light">
+        <div class="card-body text-center d-flex flex-column justify-content-center">
+          <a href="{{ url_for('prospeccion.lista', grupo='PRIORITARIOS') }}"
+             class="btn btn-sm btn-danger">
+            <i class="bi bi-fire"></i> Ver prioritarios
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3">
+
+    <!-- Chart segmentos -->
+    <div class="col-md-5">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-header bg-transparent border-0 pb-0">
+          <span class="fw-semibold small text-uppercase text-muted">Distribucion por segmento</span>
+        </div>
+        <div class="card-body">
+          <canvas id="chartGrupos" height="240"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Top rubros -->
+    <div class="col-md-4">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-header bg-transparent border-0 pb-0">
+          <span class="fw-semibold small text-uppercase text-muted">Top rubros</span>
+        </div>
+        <div class="card-body">
+          {% for rubro, cnt in top_rubros %}
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="small text-truncate me-2" style="max-width:160px">{{ rubro }}</span>
+            <div class="d-flex align-items-center gap-2">
+              <div class="progress" style="width:80px;height:6px">
+                <div class="progress-bar bg-warning" style="width:{{ (cnt / top_rubros[0][1] * 100)|int }}%"></div>
+              </div>
+              <span class="small fw-bold">{{ cnt }}</span>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Actividades recientes -->
+    <div class="col-md-3">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-header bg-transparent border-0 pb-0">
+          <span class="fw-semibold small text-uppercase text-muted">Mis actividades recientes</span>
+        </div>
+        <div class="card-body p-0">
+          <ul class="list-group list-group-flush">
+            {% for act in actividades %}
+            <li class="list-group-item border-0 py-2 px-3">
+              <div class="d-flex gap-2">
+                <i class="bi bi-{% if act.tipo == 'email' %}envelope{% elif act.tipo == 'llamada' %}telephone{% elif act.tipo == 'reunion' %}people{% else %}sticky{% endif %} text-muted mt-1 flex-shrink-0"></i>
+                <div>
+                  <div class="small text-truncate" style="max-width:180px">{{ act.descripcion }}</div>
+                  <div class="text-muted" style="font-size:.7rem">{{ act.creado_en.strftime('%d/%m %H:%M') }}</div>
+                </div>
+              </div>
+            </li>
+            {% else %}
+            <li class="list-group-item border-0 text-center text-muted py-4 small">Sin actividades aun.</li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tabla traders (solo Master) -->
+    {% if current_user.role == 'Master' and traders_stats %}
+    <div class="col-12">
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-transparent border-0">
+          <span class="fw-semibold small text-uppercase text-muted">Prospectos asignados por trader</span>
+        </div>
+        <div class="card-body p-0">
+          <table class="table table-hover mb-0 small">
+            <thead class="table-dark">
+              <tr>
+                <th>Trader</th>
+                <th>Email</th>
+                <th class="text-end">Asignados</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for ts in traders_stats %}
+              <tr>
+                <td class="fw-semibold">{{ ts.trader.username }}</td>
+                <td class="text-muted">{{ ts.trader.email }}</td>
+                <td class="text-end">
+                  <span class="badge bg-warning text-dark">{{ ts.asignados }}</span>
+                </td>
+                <td>
+                  <a href="{{ url_for('prospeccion.asignar_masivo') }}"
+                     class="btn btn-xs btn-outline-secondary py-0 px-2" style="font-size:.7rem">
+                    + Asignar
+                  </a>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script>
+fetch("{{ url_for('prospeccion.api_grupos') }}")
+  .then(r => r.json())
+  .then(data => {
+    new Chart(document.getElementById("chartGrupos"), {
+      type: "doughnut",
+      data: {
+        labels:   data.map(d => d.label),
+        datasets: [{ data: data.map(d => d.value),
+                     backgroundColor: data.map(d => d.color),
+                     borderWidth: 2 }]
+      },
+      options: { plugins: { legend: { position: "bottom", labels: { font: { size: 11 } } } } }
+    });
+  });
+</script>
+{% endblock %}
