@@ -828,13 +828,21 @@ def enviar_email(pid):
         asunto   = "QoriCash - El mejor tipo de cambio para empresas"
         nuevo_estado = "P1"
 
+    from flask import current_app
+    from app.services.email_service import EmailService
+
+    sender = current_app.config.get("MAIL_DEFAULT_SENDER") or current_app.config.get("MAIL_USERNAME")
+    if not sender:
+        return jsonify({"ok": False, "error": "MAIL_DEFAULT_SENDER no configurado en el servidor."}), 500
+
     try:
         msg = Message(
             subject=asunto,
+            sender=sender,
             recipients=[p.email],
             html=html,
         )
-        mail.send(msg)
+        EmailService._send_async(msg, timeout=20)
     except Exception as exc:
         return jsonify({"ok": False, "error": f"Error al enviar: {exc}"}), 500
 
