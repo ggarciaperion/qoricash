@@ -22,6 +22,25 @@ def _demo_user_id():
     return User.query.filter_by(username='demo_trader').with_entities(User.id).scalar()
 
 
+def _total_profit_from_matches(start_dt, end_dt, exclude_user_id=None):
+    """
+    Utilidad total QoriCash = suma de profit_pen de amarres activos en el rango.
+    profit_pen = (sell_tc - buy_tc) × matched_amount — spread completo del match.
+    """
+    from app.models.accounting_match import AccountingMatch
+    q = db.session.query(func.sum(AccountingMatch.profit_pen))\
+        .filter(
+            AccountingMatch.status == 'Activo',
+            AccountingMatch.created_at >= start_dt,
+            AccountingMatch.created_at < end_dt,
+        )
+    if exclude_user_id:
+        # Excluir matches donde la operación de compra pertenece al demo
+        q = q.join(Operation, AccountingMatch.buy_operation_id == Operation.id)\
+             .filter(Operation.user_id != exclude_user_id)
+    return float(q.scalar() or 0)
+
+
 def _trader_profit_from_matches(trader_id, start_dt, end_dt):
     """
     Calcula la utilidad real del trader sumando trader_buy_profit_pen
@@ -187,18 +206,11 @@ def get_all_dashboard_data():
     all_operations_today = query_today.all()
     completed_today = [op for op in all_operations_today if op.status == 'Completada']
 
-    # Utilidad del día: desde amarres (fuente de verdad) si hay trader_id,
-    # si no, spread de operaciones (vista global).
+    # Utilidad del día: siempre desde amarres activos del período.
     if trader_id:
         profit_today_spread = _trader_profit_from_matches(trader_id, start_of_day, end_of_day)
     else:
-        profit_today_spread = 0.0
-        for op in completed_today:
-            if op.base_rate and float(op.base_rate) > 0:
-                diff = float(op.exchange_rate) - float(op.base_rate)
-                if op.operation_type == 'Compra':
-                    diff = -diff
-                profit_today_spread += diff * float(op.amount_usd)
+        profit_today_spread = _total_profit_from_matches(start_of_day, end_of_day, exclude_user_id=demo_id)
     profit_today = profit_today_spread
 
     stats_today = {
@@ -275,17 +287,11 @@ def get_all_dashboard_data():
         ).all() if demo_id else TraderGoal.query.filter_by(month=month, year=year).all()
         goal_amount = sum(float(g.goal_amount_pen) for g in all_goals)
 
-    # Utilidad del mes: desde amarres si hay trader_id, spread si no.
+    # Utilidad del mes: siempre desde amarres activos del período.
     if trader_id:
         profit_month_spread = _trader_profit_from_matches(trader_id, start_date, end_date)
     else:
-        profit_month_spread = 0.0
-        for op in completed_month:
-            if op.base_rate and float(op.base_rate) > 0:
-                diff = float(op.exchange_rate) - float(op.base_rate)
-                if op.operation_type == 'Compra':
-                    diff = -diff
-                profit_month_spread += diff * float(op.amount_usd)
+        profit_month_spread = _total_profit_from_matches(start_date, end_date, exclude_user_id=demo_id)
     profit_month = profit_month_spread
 
     # Clientes activos (excluir demo)
@@ -377,10 +383,9 @@ def get_today_stats():
         if daily_profit:
             profit_today = float(daily_profit.profit_amount_pen)
     else:
-        # SIN FILTRO: Automática (Ventas PEN - Compras PEN) solo de operaciones completadas
-        ventas_pen = sum(float(op.amount_pen) for op in completed if op.operation_type == 'Venta')
-        compras_pen = sum(float(op.amount_pen) for op in completed if op.operation_type == 'Compra')
-        profit_today = ventas_pen - compras_pen
+        # SIN FILTRO: Utilidad desde amarres activos del día
+        demo_id = _demo_user_id()
+        profit_today = _total_profit_from_matches(start_of_day, end_of_day, exclude_user_id=demo_id)
 
     # ESTADÍSTICAS DE HOY: Solo operaciones completadas
     return jsonify({
@@ -452,17 +457,12 @@ def get_month_stats():
     operations = query.all()
     completed = [op for op in operations if op.status == 'Completada']
 
-    # Utilidad del mes: amarres si hay trader_id, spread si no
+    # Utilidad del mes: siempre desde amarres activos del período.
     if trader_id:
         profit_month = _trader_profit_from_matches(trader_id, start_date, end_date)
     else:
-        profit_month = 0.0
-        for op in completed:
-            if op.base_rate and float(op.base_rate) > 0:
-                diff = float(op.exchange_rate) - float(op.base_rate)
-                if op.operation_type == 'Compra':
-                    diff = -diff
-                profit_month += diff * float(op.amount_usd)
+        _demo_id = _demo_user_id()
+        profit_month = _total_profit_from_matches(start_date, end_date, exclude_user_id=_demo_id)
 
     # Obtener meta mensual según filtro
     goal_amount = 0
