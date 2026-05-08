@@ -84,6 +84,63 @@ def create_app(config_name=None):
     except Exception as e:
         logging.warning(f"[Migration] registration_canal: {e}")
 
+    # Crear tablas del modulo Prospeccion si no existen
+    try:
+        with app.app_context():
+            from sqlalchemy import text, inspect as sa_inspect
+            inspector = sa_inspect(db.engine)
+            existing = inspector.get_table_names()
+            if "prospectos" not in existing:
+                db.session.execute(text("""
+                    CREATE TABLE IF NOT EXISTS prospectos (
+                        id SERIAL PRIMARY KEY,
+                        razon_social VARCHAR(300), ruc VARCHAR(20), tipo VARCHAR(50),
+                        rubro VARCHAR(150), departamento VARCHAR(100), provincia VARCHAR(100),
+                        nombre_contacto VARCHAR(200), cargo VARCHAR(150),
+                        email VARCHAR(200), email_alt VARCHAR(200), telefono VARCHAR(50),
+                        cliente_lfc VARCHAR(50), score INTEGER DEFAULT 0,
+                        clasificacion VARCHAR(80), canal VARCHAR(80), fuente VARCHAR(80),
+                        remitente VARCHAR(100), tipo_ultimo_envio VARCHAR(80),
+                        fecha_primer_contacto VARCHAR(30), fecha_ultimo_contacto VARCHAR(30),
+                        fecha_proximo_contacto VARCHAR(30), num_contactos INTEGER DEFAULT 0,
+                        estado_email VARCHAR(80), estado_comercial VARCHAR(80),
+                        nivel_interes VARCHAR(80), grupo VARCHAR(80), notas TEXT,
+                        creado_en TIMESTAMP DEFAULT NOW(), actualizado_en TIMESTAMP DEFAULT NOW()
+                    )
+                """))
+                db.session.execute(text("CREATE INDEX IF NOT EXISTS ix_prospectos_email ON prospectos(email)"))
+                db.session.execute(text("CREATE INDEX IF NOT EXISTS ix_prospectos_ruc ON prospectos(ruc)"))
+                db.session.commit()
+                logging.info("[Prospeccion] Tabla prospectos creada.")
+            if "asignaciones_prospecto" not in existing:
+                db.session.execute(text("""
+                    CREATE TABLE IF NOT EXISTS asignaciones_prospecto (
+                        id SERIAL PRIMARY KEY,
+                        prospecto_id INTEGER REFERENCES prospectos(id),
+                        trader_id INTEGER REFERENCES users(id),
+                        activo BOOLEAN DEFAULT TRUE,
+                        asignado_por INTEGER REFERENCES users(id),
+                        asignado_en TIMESTAMP DEFAULT NOW(),
+                        CONSTRAINT uq_asignacion UNIQUE (prospecto_id, trader_id)
+                    )
+                """))
+                db.session.commit()
+                logging.info("[Prospeccion] Tabla asignaciones_prospecto creada.")
+            if "actividades_prospecto" not in existing:
+                db.session.execute(text("""
+                    CREATE TABLE IF NOT EXISTS actividades_prospecto (
+                        id SERIAL PRIMARY KEY,
+                        prospecto_id INTEGER REFERENCES prospectos(id),
+                        user_id INTEGER REFERENCES users(id),
+                        tipo VARCHAR(50), descripcion TEXT, resultado VARCHAR(200),
+                        nuevo_estado VARCHAR(80), creado_en TIMESTAMP DEFAULT NOW()
+                    )
+                """))
+                db.session.commit()
+                logging.info("[Prospeccion] Tabla actividades_prospecto creada.")
+    except Exception as e:
+        logging.warning(f"[Prospeccion] Error creando tablas: {e}")
+
     # Sembrar competidores FX (idempotente — solo inserta si no existen)
     try:
         with app.app_context():
