@@ -68,18 +68,18 @@ def val(cell):
 
 
 def run():
+    excel_path = EXCEL_PATH
+    if not os.path.exists(excel_path):
+        alt = "/opt/render/project/src/QoriCash_BASE_MAESTRA_2026.xlsx"
+        if os.path.exists(alt):
+            excel_path = alt
+        else:
+            print("ERROR: No se encontro el archivo Excel.")
+            print("Sube el archivo al servidor o corre este script localmente apuntando a la DB de prod.")
+            sys.exit(1)
+
     with app.app_context():
-        print(f"Cargando {EXCEL_PATH} ...")
-        if not os.path.exists(EXCEL_PATH):
-            # En produccion intentar ruta alternativa
-            alt = "/opt/render/project/src/QoriCash_BASE_MAESTRA_2026.xlsx"
-            if os.path.exists(alt):
-                global EXCEL_PATH
-                EXCEL_PATH = alt
-            else:
-                print("ERROR: No se encontro el archivo Excel.")
-                print("Sube el archivo al servidor o corre este script localmente apuntando a la DB de prod.")
-                sys.exit(1)
+        print(f"Cargando {excel_path} ...")
 
         existing = Prospecto.query.count()
         if existing > 0:
@@ -91,7 +91,7 @@ def run():
             db.session.commit()
             print("Tabla limpiada.")
 
-        wb = openpyxl.load_workbook(EXCEL_PATH, read_only=True, data_only=True)
+        wb = openpyxl.load_workbook(excel_path, read_only=True, data_only=True)
         emails_vistos = set()
         total = duplicados = 0
 
