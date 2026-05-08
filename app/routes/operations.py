@@ -718,6 +718,16 @@ def get_operation(operation_id):
     })
 
 
+@operations_bp.route('/api/badge_count')
+@login_required
+@require_role('Master', 'Operador')
+def ops_badge_count():
+    """Badge: cantidad de operaciones Pendientes."""
+    from app.models.operation import Operation
+    count = Operation.query.filter_by(status='Pendiente').count()
+    return jsonify({'count': count})
+
+
 @operations_bp.route('/api/today')
 @login_required
 def get_today_operations():

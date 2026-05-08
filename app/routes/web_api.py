@@ -273,6 +273,14 @@ def register_from_web():
 
         logger.info(f"🌐 Cliente registrado desde web: {new_client.dni} (ID: {new_client.id})")
 
+        # Notificar al sistema
+        try:
+            from app.services.notification_service import NotificationService
+            new_client._created_by = web_user
+            NotificationService.notify_new_client(new_client, web_user)
+        except Exception as e:
+            logger.warning(f"Error al notificar nuevo cliente web: {e}")
+
         # Enviar email de bienvenida diferenciado (registro desde WEB)
         try:
             from app.services.email_templates import EmailTemplates

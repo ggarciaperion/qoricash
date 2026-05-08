@@ -241,6 +241,7 @@ function confirmCancelOperation() {
     const startTime = Date.now();
 
     ajaxRequest(`/operations/api/cancel/${operationId}`, 'POST', data, function(response) {
+        if (typeof playNotificationSound === 'function') playNotificationSound();
         const elapsed = Date.now() - startTime;
         const minDelay = 2200;
         const remaining = Math.max(0, minDelay - elapsed);

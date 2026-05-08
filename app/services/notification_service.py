@@ -180,7 +180,7 @@ class NotificationService:
             data  = {
                 'event': 'operacion_cancelada', 'operation_id': operation.operation_id,
                 'client_name': operation.client.full_name if operation.client else 'N/A',
-                'reason': reason, 'title': title, 'message': msg, 'type': 'warning', 'sound': False,
+                'reason': reason, 'title': title, 'message': msg, 'type': 'warning', 'sound': True,
             }
             roles = ['Master', 'Operador']
             _emit_to_roles('operacion_cancelada', data, roles)

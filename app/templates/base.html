@@ -67,6 +67,9 @@
                href="{{ url_for('operations.operations_list') }}">
                 <i class="bi bi-list-ul"></i>
                 <span class="sidebar-link-text">Operaciones</span>
+                {% if current_user.role in ['Master', 'Operador'] %}
+                <span id="opsBadge" class="sidebar-badge" style="display:none;">0</span>
+                {% endif %}
             </a>
 
             <a class="sidebar-link {% if request.endpoint == 'operations.history' %}active{% endif %}"
@@ -79,6 +82,9 @@
                href="{{ url_for('clients.list_clients') }}">
                 <i class="bi bi-people"></i>
                 <span class="sidebar-link-text">Clientes</span>
+                {% if current_user.role in ['Master', 'Operador', 'Middle Office'] %}
+                <span id="clientsBadge" class="sidebar-badge" style="display:none;">0</span>
+                {% endif %}
             </a>
             {% endif %}
 
@@ -163,24 +169,6 @@
         </nav>
 
 
-        <!-- ── Notification Bell ── -->
-        {% if current_user.is_authenticated %}
-        <div class="sidebar-notif-bell" id="notifBellWrap" style="padding:10px 16px;border-top:1px solid rgba(255,255,255,.08);cursor:pointer;" onclick="toggleNotifPanel()">
-            <span style="position:relative;display:inline-block;">
-                <i class="bi bi-bell" style="font-size:1.2rem;"></i>
-                <span id="notifBadge" class="sidebar-badge" style="display:none;position:absolute;top:-6px;right:-10px;background:#e74c3c;color:#fff;border-radius:50%;min-width:18px;height:18px;font-size:10px;line-height:18px;text-align:center;padding:0 4px;">0</span>
-            </span>
-            <span class="sidebar-link-text" style="margin-left:10px;">Notificaciones</span>
-        </div>
-        <!-- Notification Panel -->
-        <div id="notifPanel" style="display:none;position:fixed;bottom:60px;left:64px;width:340px;max-height:440px;background:#fff;border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,.18);z-index:9999;overflow:hidden;flex-direction:column;">
-            <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid #eee;background:#f8f9fa;">
-                <strong style="font-size:.9rem;">Notificaciones</strong>
-                <button onclick="markAllRead()" class="btn btn-sm btn-link text-muted p-0" style="font-size:.75rem;">Marcar todas leídas</button>
-            </div>
-            <div id="notifList" style="overflow-y:auto;max-height:360px;"></div>
-        </div>
-        {% endif %}
 
         <!-- User section at bottom -->
         <div class="sidebar-user">
@@ -444,27 +432,91 @@
     </script>
 
     <!-- Common JS -->
-    <script src="{{ url_for('static', filename='js/common.js') }}?v=20260508_v9"></script>
+    <script src="{{ url_for('static', filename='js/common.js') }}?v=20260508_v10"></script>
 
     <!-- ── SOCKET GLOBAL + NOTIFICATION CENTER ─────────────────────────────── -->
     {% if current_user.is_authenticated %}
     <script>
-    // ── AudioContext desbloqueado en primer gesto del usuario ────────────────
-    window._audioCtxUnlocked = false;
-    window._audioCtx = null;
-    function _unlockAudio() {
-        if (window._audioCtxUnlocked) return;
-        try {
-            window._audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            window._audioCtx.resume().then(() => { window._audioCtxUnlocked = true; });
-        } catch(e) {}
-        document.removeEventListener('click', _unlockAudio);
-        document.removeEventListener('keydown', _unlockAudio);
-        document.removeEventListener('touchstart', _unlockAudio);
-    }
-    document.addEventListener('click', _unlockAudio, {once:true});
-    document.addEventListener('keydown', _unlockAudio, {once:true});
-    document.addEventListener('touchstart', _unlockAudio, {once:true});
+    // ── SISTEMA DE AUDIO (QoriPlaySound) ─────────────────────────────────────
+    // Pre-decodifica los MP3 al cargar la página para reproducción instantánea.
+    // El AudioContext se desbloquea en el primer gesto del usuario.
+    (function() {
+        var _ctx = null;
+        var _bufs = {};
+        var _unlocked = false;
+        var SOUNDS = {
+            notification: '/static/sounds/allnotificaciones.mp3',
+            completada:   '/static/sounds/completada.mp3'
+        };
+
+        // Crear AudioContext ahora (puede quedar suspended, decodeAudioData funciona igual)
+        try { _ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) {}
+
+        // Pre-decodificar sonidos inmediatamente (no requiere gesto)
+        function _prefetch() {
+            if (!_ctx) return;
+            Object.keys(SOUNDS).forEach(function(name) {
+                fetch(SOUNDS[name])
+                    .then(function(r) { return r.arrayBuffer(); })
+                    .then(function(ab) { return _ctx.decodeAudioData(ab); })
+                    .then(function(buf) { _bufs[name] = buf; })
+                    .catch(function() {});
+            });
+        }
+        _prefetch();
+
+        // Desbloquear AudioContext en el primer gesto
+        function _unlock() {
+            if (_unlocked) return;
+            _unlocked = true;
+            if (!_ctx) return;
+            if (_ctx.state === 'suspended') _ctx.resume().catch(function() {});
+            // Buffer silencioso para forzar permiso de audio en Chrome
+            try {
+                var b = _ctx.createBuffer(1, 1, 22050);
+                var s = _ctx.createBufferSource();
+                s.buffer = b; s.connect(_ctx.destination); s.start(0);
+            } catch(e) {}
+        }
+        ['click','touchstart','mousedown','keydown'].forEach(function(e) {
+            document.addEventListener(e, _unlock, {once: true, passive: true});
+        });
+
+        // Reproducción interna vía AudioContext
+        function _rawPlay(name, vol) {
+            if (!_ctx || !_bufs[name]) return false;
+            try {
+                var _go = function() {
+                    var g = _ctx.createGain();
+                    g.gain.value = (typeof vol === 'number') ? vol : 0.7;
+                    g.connect(_ctx.destination);
+                    var s = _ctx.createBufferSource();
+                    s.buffer = _bufs[name]; s.connect(g); s.start(0);
+                };
+                if (_ctx.state === 'running') { _go(); }
+                else { _ctx.resume().then(_go).catch(function() {}); }
+                return true;
+            } catch(e) { return false; }
+        }
+
+        // API pública global
+        window.QoriPlaySound = function(name, vol) {
+            vol = (typeof vol === 'number') ? vol : 0.7;
+            if (_rawPlay(name, vol)) return;
+            // Fallback HTMLAudio
+            try {
+                var url = SOUNDS[name] || SOUNDS.notification;
+                var a = new Audio(url);
+                a.volume = vol;
+                var p = a.play();
+                if (p) p.catch(function() {});
+            } catch(e) {}
+        };
+
+        // Sobrescribir funciones de common.js (se ejecuta después de que carga common.js)
+        window.playNotificationSound = function() { window.QoriPlaySound('notification', 0.6); };
+        window.playCompletedSound    = function() { window.QoriPlaySound('completada',   0.7); };
+    })();
 
     // ── Socket global (conecta en TODAS las páginas) ─────────────────────────
     document.addEventListener('DOMContentLoaded', function() {
@@ -473,138 +525,15 @@
         }
     });
 
-    // ── badge counter vía SocketIO (en tiempo real) ──────────────────────────
-    document.addEventListener('DOMContentLoaded', function() {
-        // Escuchar badge actualizado desde backend
-        if (typeof socket !== 'undefined') {
-            _attachBadgeListener();
-        } else {
-            // socket puede no estar listo aún; esperar 1s
-            setTimeout(_attachBadgeListener, 1000);
-        }
-    });
-
-    function _attachBadgeListener() {
-        if (typeof socket === 'undefined' || !socket) return;
-        socket.on('notification_badge', function(data) {
-            _setNotifBadge(data.count || 0);
-        });
-    }
-
-    function _setNotifBadge(count) {
-        const badge = document.getElementById('notifBadge');
-        if (!badge) return;
-        badge.textContent = count;
-        badge.style.display = count > 0 ? 'inline-flex' : 'none';
-    }
-
-    // ── Notification panel ───────────────────────────────────────────────────
-    function toggleNotifPanel() {
-        const panel = document.getElementById('notifPanel');
-        if (!panel) return;
-        const visible = panel.style.display !== 'none' && panel.style.display !== '';
-        if (visible) {
-            panel.style.display = 'none';
-        } else {
-            panel.style.display = 'flex';
-            panel.style.flexDirection = 'column';
-            _loadNotifications();
-        }
-    }
-
-    function _loadNotifications() {
-        fetch('/notifications/api/list?limit=30')
-            .then(r => r.json())
-            .then(data => {
-                const list = document.getElementById('notifList');
-                if (!list) return;
-                if (!data.notifications || !data.notifications.length) {
-                    list.innerHTML = '<div style="padding:24px;text-align:center;color:#aaa;font-size:.85rem;">Sin notificaciones</div>';
-                    return;
-                }
-                list.innerHTML = data.notifications.map(n => `
-                    <div onclick="_clickNotif(${n.id},'${n.link||''}')"
-                         style="padding:10px 16px;border-bottom:1px solid #f0f0f0;cursor:pointer;
-                                background:${n.is_read?'#fff':'#f0f7ff'};transition:background .15s;"
-                         onmouseover="this.style.background='#e8f4fd'" onmouseout="this.style.background='${n.is_read?'#fff':'#f0f7ff'}'">
-                        <div style="display:flex;align-items:flex-start;gap:8px;">
-                            <span style="font-size:1rem;">${_notifIcon(n.type)}</span>
-                            <div style="flex:1;min-width:0;">
-                                <div style="font-weight:${n.is_read?'400':'600'};font-size:.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${n.title}</div>
-                                <div style="font-size:.78rem;color:#666;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${n.message}</div>
-                                <div style="font-size:.7rem;color:#aaa;margin-top:4px;">${_timeAgo(n.created_at)}</div>
-                            </div>
-                            ${!n.is_read?'<span style="width:8px;height:8px;border-radius:50%;background:#0d6efd;flex-shrink:0;margin-top:4px;"></span>':''}
-                        </div>
-                    </div>
-                `).join('');
-            }).catch(() => {});
-    }
-
-    function _clickNotif(id, link) {
-        fetch('/notifications/api/mark_read/' + id, {
-            method:'POST',
-            headers:{'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.content || ''}
-        }).then(() => {
-            _loadNotifications();
-            // Actualizar badge
-            fetch('/notifications/api/unread_count').then(r=>r.json()).then(d=>_setNotifBadge(d.count||0));
-        });
-        if (link) { window.location.href = link; }
-    }
-
-    function markAllRead() {
-        fetch('/notifications/api/mark_all_read', {
-            method:'POST',
-            headers:{'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.content || ''}
-        }).then(() => {
-            _setNotifBadge(0);
-            _loadNotifications();
-        });
-    }
-
-    function _notifIcon(type) {
-        const m = {success:'✅', warning:'⚠️', danger:'❌', info:'🔔'};
-        return m[type] || '🔔';
-    }
-
-    function _timeAgo(iso) {
-        if (!iso) return '';
-        const d = new Date(iso.endsWith('Z') ? iso : iso + 'Z');
-        const diff = Math.round((Date.now() - d.getTime()) / 1000);
-        if (diff < 60) return 'hace un momento';
-        if (diff < 3600) return `hace ${Math.floor(diff/60)} min`;
-        if (diff < 86400) return `hace ${Math.floor(diff/3600)} h`;
-        return `hace ${Math.floor(diff/86400)} días`;
-    }
-
-    // Cerrar panel al click fuera
-    document.addEventListener('click', function(e) {
-        const panel = document.getElementById('notifPanel');
-        const bell  = document.getElementById('notifBellWrap');
-        if (panel && bell && !panel.contains(e.target) && !bell.contains(e.target)) {
-            panel.style.display = 'none';
-        }
-    });
-
-    // Cargar badge inicial al cargar la página
-    document.addEventListener('DOMContentLoaded', function() {
-        fetch('/notifications/api/unread_count')
-            .then(r => r.json())
-            .then(d => _setNotifBadge(d.count || 0))
-            .catch(() => {});
-    });
-
-    // ── Service Worker registration ──────────────────────────────────────────
-    if ('serviceWorker' in navigator) {
-        window.addEventListener('load', function() {
-            navigator.serviceWorker.register('/sw.js', {scope: '/'}).then(function(reg) {
-                console.log('[SW] Registrado:', reg.scope);
-            }).catch(function(err) {
-                console.warn('[SW] Error registro:', err);
-            });
-        });
-    }
+    // ── BADGES DE MENÚ: exponer función para common.js ───────────────────────
+    // Los badges se actualizan desde el servidor (como KYC/Reclamos).
+    // common.js llama window._menuBadgeInc(k) en los socket events para refrescar.
+    window._menuBadgeInc = function(k) {
+        setTimeout(function() {
+            if (k === 'ops'     && typeof updateOpsBadge     === 'function') updateOpsBadge();
+            if (k === 'clients' && typeof updateClientsBadge === 'function') updateClientsBadge();
+        }, 600); // espera leve para que el servidor procese el evento
+    };
     </script>
     {% endif %}
 
@@ -678,6 +607,38 @@
 
     <!-- KYC & Complaints Badge Script -->
     <script>
+    {% if current_user.is_authenticated and current_user.role in ['Master', 'Operador'] %}
+    function updateOpsBadge() {
+        fetch('/operations/api/badge_count', {headers: {'X-Requested-With': 'XMLHttpRequest'}})
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                var n = data.count || 0;
+                var el = document.getElementById('opsBadge');
+                if (el) { el.textContent = n > 99 ? '99+' : n; el.style.display = n > 0 ? 'inline-flex' : 'none'; }
+            }).catch(function() {});
+    }
+    document.addEventListener('DOMContentLoaded', function() {
+        updateOpsBadge();
+        setInterval(updateOpsBadge, 60000);
+    });
+    {% endif %}
+
+    {% if current_user.is_authenticated and current_user.role in ['Master', 'Operador', 'Trader', 'Middle Office'] %}
+    function updateClientsBadge() {
+        fetch('/clients/api/badge_count', {headers: {'X-Requested-With': 'XMLHttpRequest'}})
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                var n = data.count || 0;
+                var el = document.getElementById('clientsBadge');
+                if (el) { el.textContent = n > 99 ? '99+' : n; el.style.display = n > 0 ? 'inline-flex' : 'none'; }
+            }).catch(function() {});
+    }
+    document.addEventListener('DOMContentLoaded', function() {
+        updateClientsBadge();
+        setInterval(updateClientsBadge, 60000);
+    });
+    {% endif %}
+
     {% if current_user.is_authenticated and current_user.role in ['Master', 'Operador'] %}
     function updateUnmatchedBadge() {
         fetch('/contabilidad/api/unmatched_count', {headers: {'X-Requested-With': 'XMLHttpRequest'}})

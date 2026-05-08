@@ -51,6 +51,7 @@ function connectSocketIO() {
         if (window.currentUserRole === 'Master' || window.currentUserRole === 'Operador') {
             showNotification(`Nueva operación: ${data.operation_id} - ${data.client_name}`, 'info');
             playNotificationSound();
+            if (window._menuBadgeInc) window._menuBadgeInc('ops'); // refresca desde servidor
         }
 
         // Actualizar dashboard para todos
@@ -74,6 +75,7 @@ function connectSocketIO() {
                 ? `Operación ${data.operation_id} actualizada a: ${data.status} - Asignado a: ${data.assigned_operator_name}`
                 : `Operación ${data.operation_id} actualizada a: ${data.status}`;
             showNotification(message, 'info');
+            if (data.sound) playNotificationSound();
         }
 
         // Actualizar dashboard para todos
@@ -113,6 +115,7 @@ function connectSocketIO() {
         // Solo mostrar notificación a Master y Operador
         if (window.currentUserRole === 'Master' || window.currentUserRole === 'Operador') {
             showNotification(`Operación ${data.operation_id} cancelada`, 'warning');
+            playNotificationSound();
         }
 
         // Actualizar dashboard para todos
@@ -137,9 +140,10 @@ function connectSocketIO() {
         const canal = data.created_by  || '';
 
         if (window.currentUserRole === 'Master' || window.currentUserRole === 'Operador' || window.currentUserRole === 'Middle Office') {
-            const canalLabel = canal === 'App Móvil' ? ' 📱 App' : (canal ? ` (${canal})` : '');
+            const canalLabel = canal === 'App Móvil' ? ' 📱 App' : (canal === 'Web' || canal === 'web' ? ' 🌐 Web' : (canal ? ` (${canal})` : ''));
             showNotification(`Nuevo cliente${canalLabel}: ${name} ${dni}`, 'info');
             playNotificationSound();
+            if (window._menuBadgeInc) window._menuBadgeInc('clients'); // refresca desde servidor
         }
         if (typeof refreshClientsTable === 'function') {
             refreshClientsTable();
@@ -250,6 +254,8 @@ function connectSocketIO() {
 
         // Mostrar notificación al operador
         showNotification(data.message, 'info', 8000);
+        playNotificationSound();
+        if (window._menuBadgeInc) window._menuBadgeInc('ops'); // refresca desde servidor
 
         // Si estamos en la página de operaciones, refrescar la tabla
         if (typeof refreshOperationsTable === 'function') {
@@ -263,9 +269,6 @@ function connectSocketIO() {
                 loadEditModal();
             }
         }
-
-        // Reproducir sonido de notificación si está disponible
-        playNotificationSound();
     });
 
     socket.on('operacion_reasignada_removida', function(data) {
@@ -501,20 +504,31 @@ function validatePhone(phone) {
  */
 function _playSound(file, volume) {
     const url = '/static/sounds/' + file + '.mp3';
-    if (window._audioCtxUnlocked && window._audioCtx && window._audioCtx.state !== 'closed') {
+    // Crear AudioContext si no existe aún
+    if (!window._audioCtx) {
+        try { window._audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+        catch(e) { _playAudioTag(url, volume); return; }
+    }
+    const ctx = window._audioCtx;
+    const _doPlay = function() {
         fetch(url)
-            .then(r => r.arrayBuffer())
-            .then(buf => window._audioCtx.decodeAudioData(buf))
-            .then(decoded => {
-                const src  = window._audioCtx.createBufferSource();
-                const gain = window._audioCtx.createGain();
+            .then(function(r) { return r.arrayBuffer(); })
+            .then(function(buf) { return ctx.decodeAudioData(buf); })
+            .then(function(decoded) {
+                const src  = ctx.createBufferSource();
+                const gain = ctx.createGain();
                 gain.gain.value = volume;
                 src.buffer = decoded;
                 src.connect(gain);
-                gain.connect(window._audioCtx.destination);
+                gain.connect(ctx.destination);
                 src.start(0);
             })
-            .catch(() => _playAudioTag(url, volume));
+            .catch(function() { _playAudioTag(url, volume); });
+    };
+    if (ctx.state === 'running') {
+        _doPlay();
+    } else if (ctx.state === 'suspended') {
+        ctx.resume().then(_doPlay).catch(function() { _playAudioTag(url, volume); });
     } else {
         _playAudioTag(url, volume);
     }
@@ -529,8 +543,14 @@ function _playAudioTag(url, volume) {
     } catch(e) {}
 }
 
-function playNotificationSound() { _playSound('allnotificaciones', 0.6); }
-function playCompletedSound()    { _playSound('completada',        0.7); }
+function playNotificationSound() {
+    if (window.QoriPlaySound) { window.QoriPlaySound('notification', 0.6); }
+    else { _playSound('allnotificaciones', 0.6); }
+}
+function playCompletedSound() {
+    if (window.QoriPlaySound) { window.QoriPlaySound('completada', 0.7); }
+    else { _playSound('completada', 0.7); }
+}
 
 /**
  * Confirmar acción

@@ -50,6 +50,17 @@ def list_clients():
                            clients=clients)
 
 
+@clients_bp.route('/api/badge_count')
+@login_required
+@require_role('Master', 'Trader', 'Operador', 'Middle Office')
+def clients_badge_count():
+    """Badge: nuevos clientes registrados hoy."""
+    from app.models.client import Client
+    today_start = now_peru().replace(hour=0, minute=0, second=0, microsecond=0)
+    count = Client.query.filter(Client.created_at >= today_start).count()
+    return jsonify({'count': count})
+
+
 @clients_bp.route('/api/list')
 @login_required
 @require_role('Master', 'Trader', 'Operador', 'Middle Office', 'App', 'Web')
