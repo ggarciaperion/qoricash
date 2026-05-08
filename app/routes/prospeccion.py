@@ -34,6 +34,8 @@ def _send_via_gmail_api(sender_email, to_email, subject, html_body):
     if not token_json:
         raise ValueError(f"Token Gmail no configurado para {sender_email} (var: {env_key})")
 
+    # Eliminar caracteres de control que Render puede insertar al copiar/pegar
+    token_json = "".join(ch for ch in token_json if ord(ch) >= 32 or ch in "\t")
     token_data = json.loads(token_json)
     creds = Credentials(
         token=token_data.get("token"),
