@@ -25,19 +25,21 @@ def _demo_user_id():
 def _total_profit_from_matches(start_dt, end_dt, exclude_user_id=None):
     """
     Utilidad total QoriCash = suma de profit_pen de amarres activos en el rango.
-    profit_pen = (sell_tc - buy_tc) × matched_amount — spread completo del match.
+    Filtra por la fecha de la operación de compra (created_at de buy_operation),
+    no por la fecha del amarre — así las operaciones de abril cuentan en abril
+    aunque el amarre se haya creado en mayo.
     """
     from app.models.accounting_match import AccountingMatch
+    buy_op = db.aliased(Operation, name='buy_op')
     q = db.session.query(func.sum(AccountingMatch.profit_pen))\
+        .join(buy_op, AccountingMatch.buy_operation_id == buy_op.id)\
         .filter(
             AccountingMatch.status == 'Activo',
-            AccountingMatch.created_at >= start_dt,
-            AccountingMatch.created_at < end_dt,
+            buy_op.created_at >= start_dt,
+            buy_op.created_at < end_dt,
         )
     if exclude_user_id:
-        # Excluir matches donde la operación de compra pertenece al demo
-        q = q.join(Operation, AccountingMatch.buy_operation_id == Operation.id)\
-             .filter(Operation.user_id != exclude_user_id)
+        q = q.filter(buy_op.user_id != exclude_user_id)
     return float(q.scalar() or 0)
 
 
@@ -52,24 +54,27 @@ def _trader_profit_from_matches(trader_id, start_dt, end_dt):
     from app.models.accounting_match import AccountingMatch
     from app.models.client import Client as _C
 
+    # Filtrar por fecha de la operación (no del amarre) para que abril → abril, mayo → mayo
+    buy_op = db.aliased(Operation, name='buy_op_trader')
     buy_profit = db.session.query(func.sum(AccountingMatch.trader_buy_profit_pen))\
-        .join(Operation, AccountingMatch.buy_operation_id == Operation.id)\
-        .join(_C, Operation.client_id == _C.id)\
+        .join(buy_op, AccountingMatch.buy_operation_id == buy_op.id)\
+        .join(_C, buy_op.client_id == _C.id)\
         .filter(
             _C.created_by == trader_id,
             AccountingMatch.status == 'Activo',
-            AccountingMatch.created_at >= start_dt,
-            AccountingMatch.created_at < end_dt,
+            buy_op.created_at >= start_dt,
+            buy_op.created_at < end_dt,
         ).scalar() or 0
 
+    sell_op = db.aliased(Operation, name='sell_op_trader')
     sell_profit = db.session.query(func.sum(AccountingMatch.trader_sell_profit_pen))\
-        .join(Operation, AccountingMatch.sell_operation_id == Operation.id)\
-        .join(_C, Operation.client_id == _C.id)\
+        .join(sell_op, AccountingMatch.sell_operation_id == sell_op.id)\
+        .join(_C, sell_op.client_id == _C.id)\
         .filter(
             _C.created_by == trader_id,
             AccountingMatch.status == 'Activo',
-            AccountingMatch.created_at >= start_dt,
-            AccountingMatch.created_at < end_dt,
+            sell_op.created_at >= start_dt,
+            sell_op.created_at < end_dt,
         ).scalar() or 0
 
     return float(buy_profit) + float(sell_profit)
