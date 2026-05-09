@@ -118,6 +118,7 @@
             <th>Contacto</th>
             <th>Estado</th>
             <th>Ultimo correo</th>
+            <th>Vigencia</th>
             {% if current_user.role == 'Master' %}<th>Trader</th>{% endif %}
             <th style="width:130px"></th>
           </tr>
@@ -161,6 +162,20 @@
               {% else %}
                 <span class="text-muted">—</span>
               {% endif %}
+            </td>
+            <td style="white-space:nowrap">
+              {% set dias = vigencia_map.get(p.id) %}
+              {% if dias is not none %}
+                {% if dias <= 0 %}
+                  <span class="badge bg-danger">Vencido</span>
+                {% elif dias <= 7 %}
+                  <span class="badge bg-danger">{{ dias }}d</span>
+                {% elif dias <= 15 %}
+                  <span class="badge bg-warning text-dark">{{ dias }}d</span>
+                {% else %}
+                  <span class="text-muted small">{{ dias }}d</span>
+                {% endif %}
+              {% else %}—{% endif %}
             </td>
             {% if current_user.role == 'Master' %}
             <td class="text-muted small">
@@ -209,7 +224,7 @@
           </tr>
           {% else %}
           <tr>
-            <td colspan="10" class="text-center py-5 text-muted">
+            <td colspan="11" class="text-center py-5 text-muted">
               <i class="bi bi-inbox fs-2 d-block mb-2"></i>
               No hay registros en esta seccion.
             </td>

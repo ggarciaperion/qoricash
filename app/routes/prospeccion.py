@@ -3,7 +3,7 @@ Modulo de Prospeccion — QoriCash Trading V2
 Rutas para Master y Trader.
 """
 import os, json, base64, threading
-from datetime import datetime
+from datetime import datetime, timedelta
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from flask import Blueprint, render_template, request, jsonify, flash, redirect, url_for, current_app
@@ -109,6 +109,8 @@ def _send_via_gmail_api(sender_email, to_email, subject, html_body):
 
 prospeccion_bp = Blueprint("prospeccion", __name__, url_prefix="/prospeccion")
 
+DIAS_VIGENCIA = 45  # días de vigencia de un prospecto asignado a un trader
+
 GRUPOS_ORDEN = [
     "PIPELINE ACTIVO", "CLIENTES LFC", "PRIORITARIOS",
     "CALIFICADOS", "POR CONTACTAR", "UNIVERSO CONTACTADOS",
@@ -153,14 +155,43 @@ def dashboard():
                    .order_by(ActividadProspecto.creado_en.desc())
                    .limit(8).all())
 
-    # Solo Master: resumen por trader
-    traders_stats = []
+    # Solo Master: resumen por trader + prospectos vencidos
+    traders_stats      = []
+    traders_disponibles = []
+    vencidos            = []
+
     if current_user.role == "Master":
         traders = User.query.filter(User.role == "Trader", User.status == "Activo").all()
+        traders_disponibles = traders
         for t in traders:
             count = (AsignacionProspecto.query
                      .filter_by(trader_id=t.id, activo=True).count())
             traders_stats.append({"trader": t, "asignados": count})
+
+        # Prospectos vencidos: asignados hace >DIAS_VIGENCIA días SIN actividad reciente
+        fecha_corte = now_peru() - timedelta(days=DIAS_VIGENCIA)
+        hoy = now_peru().date()
+        rows = (db.session.query(Prospecto, AsignacionProspecto, User)
+                .join(AsignacionProspecto, AsignacionProspecto.prospecto_id == Prospecto.id)
+                .join(User, User.id == AsignacionProspecto.trader_id)
+                .filter(
+                    AsignacionProspecto.activo == True,
+                    Prospecto.estado_comercial.notin_(["cliente", "P4"]),
+                    Prospecto.actualizado_en < fecha_corte,
+                    AsignacionProspecto.asignado_en < fecha_corte,
+                )
+                .order_by(Prospecto.actualizado_en.asc())
+                .limit(150).all())
+
+        for p, asig, trader in rows:
+            base = asig.asignado_en.date()
+            if p.actualizado_en and p.actualizado_en.date() > base:
+                base = p.actualizado_en.date()
+            vencidos.append({
+                "p":       p,
+                "trader":  trader,
+                "dias_sin": (hoy - base).days,
+            })
 
     return render_template(
         "prospeccion/dashboard.html",
@@ -169,6 +200,9 @@ def dashboard():
         top_rubros=top_rubros,
         actividades=actividades,
         traders_stats=traders_stats,
+        traders_disponibles=traders_disponibles,
+        vencidos=vencidos,
+        dias_vigencia=DIAS_VIGENCIA,
     )
 
 
@@ -219,6 +253,25 @@ def lista():
     cnt_negociacion = base.filter(Prospecto.estado_comercial.in_(["negociacion","P2","P3"])).count()
     cnt_clientes    = base.filter(Prospecto.estado_comercial.in_(["cliente","P4"])).count()
 
+    # Vigencia por prospecto (días restantes hasta vencimiento de asignación)
+    hoy   = now_peru().date()
+    pids  = [p.id for p in prospectos.items]
+    asigs = (AsignacionProspecto.query
+             .filter(AsignacionProspecto.prospecto_id.in_(pids),
+                     AsignacionProspecto.activo == True)
+             .all())
+    asig_by_pid = {a.prospecto_id: a for a in asigs}
+
+    vigencia_map = {}
+    for p in prospectos.items:
+        asig = asig_by_pid.get(p.id)
+        if not asig:
+            continue
+        base_date = asig.asignado_en.date()
+        if p.actualizado_en and p.actualizado_en.date() > base_date:
+            base_date = p.actualizado_en.date()
+        vigencia_map[p.id] = DIAS_VIGENCIA - (hoy - base_date).days
+
     return render_template(
         "prospeccion/lista.html",
         prospectos=prospectos,
@@ -229,6 +282,8 @@ def lista():
         cnt_seguimiento=cnt_seguimiento,
         cnt_negociacion=cnt_negociacion,
         cnt_clientes=cnt_clientes,
+        vigencia_map=vigencia_map,
+        dias_vigencia=DIAS_VIGENCIA,
     )
 
 
@@ -246,13 +301,29 @@ def detalle(pid):
     if current_user.role == "Master":
         traders_disponibles = User.query.filter_by(role="Trader", status="Activo").all()
 
-    asignacion_actual = p.asignaciones.filter_by(activo=True).first()
+    asignacion_actual  = p.asignaciones.filter_by(activo=True).first()
+    historial_traders  = (p.asignaciones
+                          .filter_by(activo=False)
+                          .order_by(AsignacionProspecto.asignado_en.desc())
+                          .all())
+
+    # Vigencia para Trader
+    vigencia_dias = None
+    if current_user.role == "Trader" and asignacion_actual:
+        hoy       = now_peru().date()
+        base_date = asignacion_actual.asignado_en.date()
+        if p.actualizado_en and p.actualizado_en.date() > base_date:
+            base_date = p.actualizado_en.date()
+        vigencia_dias = DIAS_VIGENCIA - (hoy - base_date).days
 
     return render_template(
         "prospeccion/detalle.html",
         p=p, actividades=actividades,
         traders_disponibles=traders_disponibles,
         asignacion_actual=asignacion_actual,
+        historial_traders=historial_traders,
+        vigencia_dias=vigencia_dias,
+        dias_vigencia=DIAS_VIGENCIA,
     )
 
 
@@ -1289,6 +1360,62 @@ def campana_detener():
             return jsonify({"ok": False, "error": "No hay campaña activa."}), 400
         camp["stop"].set()
     return jsonify({"ok": True})
+
+
+@prospeccion_bp.route("/reasignar-vencidos", methods=["POST"])
+@login_required
+@require_role("Master")
+def reasignar_vencidos():
+    data            = request.get_json(force=True)
+    ids             = [int(i) for i in data.get("ids", []) if str(i).isdigit()]
+    nuevo_trader_id = int(data.get("trader_id", 0))
+
+    if not ids or not nuevo_trader_id:
+        return jsonify({"ok": False, "error": "Faltan parámetros."}), 400
+
+    nuevo_trader = User.query.get(nuevo_trader_id)
+    if not nuevo_trader:
+        return jsonify({"ok": False, "error": "Trader no encontrado."}), 404
+
+    ahora       = now_peru()
+    reasignados = 0
+
+    for pid in ids:
+        p = Prospecto.query.get(pid)
+        if not p:
+            continue
+
+        # Desactivar asignación actual
+        p.asignaciones.filter_by(activo=True).update({"activo": False})
+
+        # Crear o reactivar asignación al nuevo trader
+        existente = AsignacionProspecto.query.filter_by(
+            prospecto_id=pid, trader_id=nuevo_trader_id
+        ).first()
+        if existente:
+            existente.activo       = True
+            existente.asignado_en  = ahora
+            existente.asignado_por = current_user.id
+        else:
+            db.session.add(AsignacionProspecto(
+                prospecto_id=pid,
+                trader_id=nuevo_trader_id,
+                asignado_por=current_user.id,
+                asignado_en=ahora,
+            ))
+
+        # Registrar actividad
+        db.session.add(ActividadProspecto(
+            prospecto_id=pid,
+            user_id=current_user.id,
+            tipo="nota",
+            descripcion=(f"Reasignado a {nuevo_trader.username} "
+                         f"por vencimiento de vigencia ({DIAS_VIGENCIA} días sin actividad)."),
+        ))
+        reasignados += 1
+
+    db.session.commit()
+    return jsonify({"ok": True, "reasignados": reasignados})
 
 
 @prospeccion_bp.route("/campana/actualizar-precios", methods=["POST"])

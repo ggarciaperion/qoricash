@@ -192,8 +192,157 @@
     </div>
     {% endif %}
 
+    <!-- Prospectos vencidos (solo Master) -->
+    {% if current_user.role == 'Master' %}
+    <div class="col-12">
+      <div class="card border-0 shadow-sm" style="border-left:4px solid #dc3545!important;">
+        <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
+          <span class="fw-semibold small text-uppercase text-muted">
+            <i class="bi bi-exclamation-triangle-fill text-danger me-1"></i>
+            Prospectos vencidos — +{{ dias_vigencia }} dias sin actividad
+          </span>
+          <span class="badge bg-danger rounded-pill">{{ vencidos|length }}</span>
+        </div>
+        {% if vencidos %}
+        <div class="card-body p-0">
+          <!-- Barra de reasignacion masiva -->
+          <div class="px-3 py-2 bg-light border-bottom d-flex gap-2 align-items-center flex-wrap">
+            <label class="form-check mb-0">
+              <input type="checkbox" class="form-check-input" id="chkTodosVenc"> Sel. todos
+            </label>
+            <div class="vr"></div>
+            <small class="text-muted">Reasignar seleccionados a:</small>
+            <select id="nuevoTraderVenc" class="form-select form-select-sm" style="width:180px">
+              <option value="">— Trader —</option>
+              {% for t in traders_disponibles %}
+              <option value="{{ t.id }}">{{ t.username }}</option>
+              {% endfor %}
+            </select>
+            <button class="btn btn-sm btn-danger" id="btnReasignarVenc">
+              <i class="bi bi-arrow-repeat"></i> Reasignar
+            </button>
+            <span id="reasigCount" class="small text-muted"></span>
+          </div>
+          <!-- Tabla vencidos -->
+          <div class="table-responsive" style="max-height:420px;overflow-y:auto;">
+            <table class="table table-hover table-sm mb-0 small">
+              <thead class="table-dark sticky-top">
+                <tr>
+                  <th style="width:36px"></th>
+                  <th>Empresa</th>
+                  <th>Email</th>
+                  <th>Trader actual</th>
+                  <th>Dias sin actividad</th>
+                  <th>Ultimo correo</th>
+                  <th>Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for item in vencidos %}
+                <tr>
+                  <td><input type="checkbox" class="form-check-input chk-venc" value="{{ item.p.id }}"></td>
+                  <td class="fw-semibold">
+                    <a href="{{ url_for('prospeccion.detalle', pid=item.p.id) }}"
+                       class="text-decoration-none">
+                      {{ item.p.razon_social or item.p.email or '—' }}
+                    </a>
+                  </td>
+                  <td class="text-muted">{{ item.p.email or '—' }}</td>
+                  <td><span class="badge bg-secondary">{{ item.trader.username }}</span></td>
+                  <td>
+                    <span class="badge bg-danger fw-bold">{{ item.dias_sin }}d</span>
+                  </td>
+                  <td>
+                    {% if item.p.tipo_ultimo_envio %}
+                      <span class="badge bg-{{ 'warning text-dark' if item.p.tipo_ultimo_envio == 'precio' else 'info text-dark' }}">
+                        {{ 'Precio' if item.p.tipo_ultimo_envio == 'precio' else 'Presentacion' }}
+                      </span>
+                    {% else %}—{% endif %}
+                  </td>
+                  <td>
+                    {% set bc, bl = item.p.estado_badge %}
+                    <span class="badge bg-{{ bc }}">{{ bl }}</span>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        {% else %}
+        <div class="card-body text-center text-muted py-3 small">
+          <i class="bi bi-check-circle text-success me-1"></i>
+          Sin prospectos vencidos. Todos tienen actividad reciente.
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
   </div>
 </div>
+
+{% block scripts %}
+<script>
+const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+
+// ── Reasignacion de vencidos ──────────────────────────────────────────────────
+(function() {
+  const chkTodos = document.getElementById('chkTodosVenc');
+  if (!chkTodos) return;
+
+  chkTodos.addEventListener('change', function() {
+    document.querySelectorAll('.chk-venc').forEach(c => { c.checked = chkTodos.checked; });
+  });
+
+  document.getElementById('btnReasignarVenc').addEventListener('click', async function() {
+    const ids      = Array.from(document.querySelectorAll('.chk-venc:checked')).map(c => c.value);
+    const traderId = document.getElementById('nuevoTraderVenc').value;
+
+    if (!ids.length) {
+      Swal.fire('Sin seleccion', 'Selecciona al menos un prospecto.', 'warning'); return;
+    }
+    if (!traderId) {
+      Swal.fire('Sin trader', 'Selecciona un trader destino.', 'warning'); return;
+    }
+
+    const conf = await Swal.fire({
+      title: 'Reasignar ' + ids.length + ' prospectos?',
+      text: 'Se reasignaran al trader seleccionado y se registrara la actividad.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Reasignar',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#dc3545'
+    });
+    if (!conf.isConfirmed) return;
+
+    const btn = this;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+    try {
+      const resp = await fetch('/prospeccion/reasignar-vencidos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+        body: JSON.stringify({ ids, trader_id: traderId })
+      });
+      const data = await resp.json();
+      if (data.ok) {
+        Swal.fire({
+          icon: 'success',
+          title: data.reasignados + ' prospectos reasignados',
+          timer: 2000, showConfirmButton: false
+        }).then(() => location.reload());
+      } else {
+        Swal.fire('Error', data.error, 'error');
+      }
+    } catch(e) { Swal.fire('Error', 'Fallo de conexion.', 'error'); }
+    finally { btn.disabled = false; btn.innerHTML = '<i class="bi bi-arrow-repeat"></i> Reasignar'; }
+  });
+})();
+</script>
+{% endblock %}
 {% endblock %}
 
 {% block styles %}

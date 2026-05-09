@@ -30,12 +30,25 @@
                 {% if p.departamento %}<span><i class="bi bi-geo-alt"></i> {{ p.departamento }}</span>{% endif %}
               </div>
             </div>
-            {% if current_user.role == 'Master' %}
-            <a href="{{ url_for('prospeccion.editar', pid=p.id) }}"
-               class="btn btn-sm btn-outline-primary">
-              <i class="bi bi-pencil"></i> Editar
-            </a>
-            {% endif %}
+            <div class="d-flex gap-2 align-items-center">
+              {% if vigencia_dias is not none %}
+                {% if vigencia_dias <= 0 %}
+                  <span class="badge bg-danger fs-6">Vencido</span>
+                {% elif vigencia_dias <= 7 %}
+                  <span class="badge bg-danger">{{ vigencia_dias }}d restantes</span>
+                {% elif vigencia_dias <= 15 %}
+                  <span class="badge bg-warning text-dark">{{ vigencia_dias }}d restantes</span>
+                {% else %}
+                  <span class="badge bg-success-subtle text-success border border-success-subtle">{{ vigencia_dias }}d restantes</span>
+                {% endif %}
+              {% endif %}
+              {% if current_user.role == 'Master' %}
+              <a href="{{ url_for('prospeccion.editar', pid=p.id) }}"
+                 class="btn btn-sm btn-outline-primary">
+                <i class="bi bi-pencil"></i> Editar
+              </a>
+              {% endif %}
+            </div>
           </div>
         </div>
       </div>
@@ -258,6 +271,21 @@
               </button>
             </div>
           </form>
+
+          {% if historial_traders %}
+          <div class="mt-3 pt-2 border-top">
+            <div class="text-muted small mb-2 text-uppercase fw-semibold" style="font-size:.65rem;letter-spacing:.5px">
+              Traders anteriores
+            </div>
+            {% for ha in historial_traders %}
+            <div class="d-flex align-items-center gap-2 mb-1 small">
+              <i class="bi bi-person-dash text-muted"></i>
+              <span class="fw-semibold">{{ ha.trader.username }}</span>
+              <span class="text-muted">· asignado {{ ha.asignado_en.strftime('%d/%m/%Y') }}</span>
+            </div>
+            {% endfor %}
+          </div>
+          {% endif %}
         </div>
       </div>
       {% endif %}
