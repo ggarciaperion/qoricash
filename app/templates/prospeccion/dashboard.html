@@ -113,7 +113,7 @@
         <div class="card-body">
           {% for rubro, cnt in top_rubros %}
           <div class="d-flex justify-content-between align-items-center mb-1">
-            <span class="text-truncate me-2" style="font-size:.75rem;max-width:150px">{{ rubro }}</span>
+            <span class="text-truncate me-2" style="font-size:.75rem;max-width:210px">{{ rubro }}</span>
             <div class="d-flex align-items-center gap-2 flex-shrink-0">
               <div class="progress" style="width:70px;height:5px">
                 <div class="progress-bar bg-warning" style="width:{{ (cnt / top_rubros[0][1] * 100)|int }}%"></div>
