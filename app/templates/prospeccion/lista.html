@@ -164,10 +164,20 @@
               {% endif %}
             </td>
             <td style="white-space:nowrap">
-              {% set dias = vigencia_map.get(p.id) %}
-              {% if dias is not none %}
-                {% if dias <= 0 %}
+              {% set vig = vigencia_map.get(p.id) %}
+              {% if vig is not none %}
+                {% set dias, ext_sol = vig %}
+                {% if ext_sol %}
+                  <span class="badge bg-secondary">Ext. pendiente</span>
+                {% elif dias <= 0 %}
                   <span class="badge bg-danger">Vencido</span>
+                  {# Botón solicitar extensión (solo Trader, solo negociacion) #}
+                  {% if current_user.role == 'Trader' and estado in ['negociacion','P2','P3'] %}
+                  <button class="btn btn-xs btn-outline-warning py-0 px-1 ms-1 btn-sol-ext"
+                          data-pid="{{ p.id }}" style="font-size:.65rem" title="Solicitar extension">
+                    <i class="bi bi-plus-circle"></i>
+                  </button>
+                  {% endif %}
                 {% elif dias <= 7 %}
                   <span class="badge bg-danger">{{ dias }}d</span>
                 {% elif dias <= 15 %}
@@ -763,6 +773,34 @@ document.querySelectorAll('.btn-respondio').forEach(function(btn) {
       const data = await resp.json();
       if (data.ok) {
         Swal.fire({ icon: 'success', title: 'Actualizado', timer: 1500, showConfirmButton: false })
+          .then(() => location.reload());
+      } else { Swal.fire('Error', data.error, 'error'); }
+    } catch(e) { Swal.fire('Error', 'Fallo de conexion.', 'error'); }
+  });
+});
+
+// ── Solicitar extension de vigencia ───────────────────────────────────────────
+document.querySelectorAll('.btn-sol-ext').forEach(function(btn) {
+  btn.addEventListener('click', async function() {
+    const pid = this.dataset.pid;
+    const conf = await Swal.fire({
+      title: 'Solicitar extension?',
+      text: 'Se enviara una solicitud al Master para extender 45 dias mas la vigencia de este prospecto.',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Solicitar',
+      cancelButtonText: 'Cancelar'
+    });
+    if (!conf.isConfirmed) return;
+    try {
+      const resp = await fetch('/prospeccion/' + pid + '/solicitar-extension', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+        body: JSON.stringify({})
+      });
+      const data = await resp.json();
+      if (data.ok) {
+        Swal.fire({ icon: 'success', title: 'Solicitud enviada', timer: 2000, showConfirmButton: false })
           .then(() => location.reload());
       } else { Swal.fire('Error', data.error, 'error'); }
     } catch(e) { Swal.fire('Error', 'Fallo de conexion.', 'error'); }

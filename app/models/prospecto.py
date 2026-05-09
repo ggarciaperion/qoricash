@@ -98,12 +98,14 @@ class AsignacionProspecto(db.Model):
     """Asignacion de un prospecto a un trader."""
     __tablename__ = "asignaciones_prospecto"
 
-    id           = db.Column(db.Integer, primary_key=True)
-    prospecto_id = db.Column(db.Integer, db.ForeignKey("prospectos.id"), nullable=False, index=True)
-    trader_id    = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
-    activo       = db.Column(db.Boolean, default=True)
-    asignado_por = db.Column(db.Integer, db.ForeignKey("users.id"))
-    asignado_en  = db.Column(db.DateTime, default=now_peru)
+    id                   = db.Column(db.Integer, primary_key=True)
+    prospecto_id         = db.Column(db.Integer, db.ForeignKey("prospectos.id"), nullable=False, index=True)
+    trader_id            = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    activo               = db.Column(db.Boolean, default=True)
+    asignado_por         = db.Column(db.Integer, db.ForeignKey("users.id"))
+    asignado_en          = db.Column(db.DateTime, default=now_peru)
+    dias_extra           = db.Column(db.Integer, default=0)       # días adicionales aprobados
+    extension_solicitada = db.Column(db.Boolean, default=False)   # pendiente de aprobación
 
     trader     = db.relationship("User", foreign_keys=[trader_id], backref="prospectos_asignados")
     asignador  = db.relationship("User", foreign_keys=[asignado_por])

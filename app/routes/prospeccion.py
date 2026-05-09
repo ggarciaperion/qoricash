@@ -168,7 +168,8 @@ def dashboard():
                      .filter_by(trader_id=t.id, activo=True).count())
             traders_stats.append({"trader": t, "asignados": count})
 
-        # Prospectos vencidos: asignados hace >DIAS_VIGENCIA días SIN actividad reciente
+        # Prospectos vencidos: asignado_en + DIAS_VIGENCIA + dias_extra < hoy
+        # y sin extensión solicitada pendiente
         fecha_corte = now_peru() - timedelta(days=DIAS_VIGENCIA)
         hoy = now_peru().date()
         rows = (db.session.query(Prospecto, AsignacionProspecto, User)
@@ -176,22 +177,38 @@ def dashboard():
                 .join(User, User.id == AsignacionProspecto.trader_id)
                 .filter(
                     AsignacionProspecto.activo == True,
+                    AsignacionProspecto.extension_solicitada == False,
                     Prospecto.estado_comercial.notin_(["cliente", "P4"]),
-                    Prospecto.actualizado_en < fecha_corte,
                     AsignacionProspecto.asignado_en < fecha_corte,
                 )
-                .order_by(Prospecto.actualizado_en.asc())
-                .limit(150).all())
+                .order_by(AsignacionProspecto.asignado_en.asc())
+                .limit(200).all())
 
         for p, asig, trader in rows:
-            base = asig.asignado_en.date()
-            if p.actualizado_en and p.actualizado_en.date() > base:
-                base = p.actualizado_en.date()
+            vigencia_total = DIAS_VIGENCIA + (asig.dias_extra or 0)
+            dias_desde     = (hoy - asig.asignado_en.date()).days
+            if dias_desde <= vigencia_total:
+                continue   # extensión aprobada que aún cubre
             vencidos.append({
-                "p":       p,
-                "trader":  trader,
-                "dias_sin": (hoy - base).days,
+                "p":          p,
+                "asig":       asig,
+                "trader":     trader,
+                "dias_vencido": dias_desde - vigencia_total,
             })
+
+        # Solicitudes de extensión pendientes
+        sol_rows = (db.session.query(Prospecto, AsignacionProspecto, User)
+                    .join(AsignacionProspecto, AsignacionProspecto.prospecto_id == Prospecto.id)
+                    .join(User, User.id == AsignacionProspecto.trader_id)
+                    .filter(
+                        AsignacionProspecto.activo == True,
+                        AsignacionProspecto.extension_solicitada == True,
+                    ).all())
+        solicitudes_extension = [
+            {"p": p, "asig": asig, "trader": trader,
+             "dias_desde": (hoy - asig.asignado_en.date()).days}
+            for p, asig, trader in sol_rows
+        ]
 
     return render_template(
         "prospeccion/dashboard.html",
@@ -202,6 +219,7 @@ def dashboard():
         traders_stats=traders_stats,
         traders_disponibles=traders_disponibles,
         vencidos=vencidos,
+        solicitudes_extension=solicitudes_extension if current_user.role == "Master" else [],
         dias_vigencia=DIAS_VIGENCIA,
     )
 
@@ -267,10 +285,10 @@ def lista():
         asig = asig_by_pid.get(p.id)
         if not asig:
             continue
-        base_date = asig.asignado_en.date()
-        if p.actualizado_en and p.actualizado_en.date() > base_date:
-            base_date = p.actualizado_en.date()
-        vigencia_map[p.id] = DIAS_VIGENCIA - (hoy - base_date).days
+        vigencia_total      = DIAS_VIGENCIA + (asig.dias_extra or 0)
+        dias_desde_asign    = (hoy - asig.asignado_en.date()).days
+        vigencia_map[p.id]  = (vigencia_total - dias_desde_asign,
+                                asig.extension_solicitada)
 
     return render_template(
         "prospeccion/lista.html",
@@ -307,14 +325,15 @@ def detalle(pid):
                           .order_by(AsignacionProspecto.asignado_en.desc())
                           .all())
 
-    # Vigencia para Trader
-    vigencia_dias = None
-    if current_user.role == "Trader" and asignacion_actual:
-        hoy       = now_peru().date()
-        base_date = asignacion_actual.asignado_en.date()
-        if p.actualizado_en and p.actualizado_en.date() > base_date:
-            base_date = p.actualizado_en.date()
-        vigencia_dias = DIAS_VIGENCIA - (hoy - base_date).days
+    # Vigencia (aplica para ambos roles al ver el detalle)
+    vigencia_dias        = None
+    ext_solicitada       = False
+    if asignacion_actual:
+        hoy              = now_peru().date()
+        vigencia_total   = DIAS_VIGENCIA + (asignacion_actual.dias_extra or 0)
+        dias_desde       = (hoy - asignacion_actual.asignado_en.date()).days
+        vigencia_dias    = vigencia_total - dias_desde
+        ext_solicitada   = bool(asignacion_actual.extension_solicitada)
 
     return render_template(
         "prospeccion/detalle.html",
@@ -323,6 +342,7 @@ def detalle(pid):
         asignacion_actual=asignacion_actual,
         historial_traders=historial_traders,
         vigencia_dias=vigencia_dias,
+        ext_solicitada=ext_solicitada,
         dias_vigencia=DIAS_VIGENCIA,
     )
 
@@ -1360,6 +1380,88 @@ def campana_detener():
             return jsonify({"ok": False, "error": "No hay campaña activa."}), 400
         camp["stop"].set()
     return jsonify({"ok": True})
+
+
+@prospeccion_bp.route("/<int:pid>/solicitar-extension", methods=["POST"])
+@login_required
+@require_role("Trader")
+def solicitar_extension(pid):
+    """Trader solicita 45 días extra para un prospecto en negociación."""
+    p = Prospecto.query.get_or_404(pid)
+    _verificar_acceso(p)
+
+    if p.estado_comercial not in ("negociacion", "P2", "P3"):
+        return jsonify({"ok": False,
+                        "error": "Solo puedes solicitar extensión para prospectos En Negociacion."}), 400
+
+    asig = p.asignaciones.filter_by(trader_id=current_user.id, activo=True).first()
+    if not asig:
+        return jsonify({"ok": False, "error": "No tienes este prospecto asignado."}), 400
+    if asig.extension_solicitada:
+        return jsonify({"ok": False, "error": "Ya hay una solicitud pendiente de aprobacion."}), 400
+
+    asig.extension_solicitada = True
+    db.session.add(ActividadProspecto(
+        prospecto_id=pid,
+        user_id=current_user.id,
+        tipo="nota",
+        descripcion="Solicitud de extension de vigencia enviada al Master (prospecto en negociacion).",
+    ))
+    db.session.commit()
+    return jsonify({"ok": True})
+
+
+@prospeccion_bp.route("/<int:pid>/resolver-extension", methods=["POST"])
+@login_required
+@require_role("Master")
+def resolver_extension(pid):
+    """Master aprueba o rechaza la extensión de vigencia."""
+    data    = request.get_json(force=True)
+    accion  = data.get("accion")          # "aprobar" | "rechazar"
+    asig_id = int(data.get("asig_id", 0))
+
+    asig = AsignacionProspecto.query.get(asig_id)
+    if not asig or asig.prospecto_id != pid:
+        return jsonify({"ok": False, "error": "Asignacion no encontrada."}), 404
+
+    if accion == "aprobar":
+        asig.dias_extra           = (asig.dias_extra or 0) + DIAS_VIGENCIA
+        asig.extension_solicitada = False
+        desc = f"Extension de {DIAS_VIGENCIA} dias aprobada por {current_user.username}."
+    else:
+        asig.extension_solicitada = False
+        desc = f"Solicitud de extension rechazada por {current_user.username}."
+
+    db.session.add(ActividadProspecto(
+        prospecto_id=pid,
+        user_id=current_user.id,
+        tipo="nota",
+        descripcion=desc,
+    ))
+    db.session.commit()
+    return jsonify({"ok": True, "accion": accion})
+
+
+@prospeccion_bp.route("/api/migrar-vigencia", methods=["POST"])
+@login_required
+@require_role("Master")
+def migrar_vigencia():
+    """Agrega columnas dias_extra y extension_solicitada a asignaciones_prospecto (idempotente)."""
+    from sqlalchemy import text
+    try:
+        with db.engine.connect() as conn:
+            conn.execute(text(
+                "ALTER TABLE asignaciones_prospecto "
+                "ADD COLUMN IF NOT EXISTS dias_extra INTEGER DEFAULT 0"
+            ))
+            conn.execute(text(
+                "ALTER TABLE asignaciones_prospecto "
+                "ADD COLUMN IF NOT EXISTS extension_solicitada BOOLEAN DEFAULT FALSE"
+            ))
+            conn.commit()
+        return jsonify({"ok": True, "msg": "Migracion completada."})
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
 
 
 @prospeccion_bp.route("/reasignar-vencidos", methods=["POST"])

@@ -192,6 +192,66 @@
     </div>
     {% endif %}
 
+    <!-- Solicitudes de extension pendientes (solo Master) -->
+    {% if current_user.role == 'Master' and solicitudes_extension %}
+    <div class="col-12">
+      <div class="card border-0 shadow-sm" style="border-left:4px solid #f59e0b!important;">
+        <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
+          <span class="fw-semibold small text-uppercase text-muted">
+            <i class="bi bi-clock-history text-warning me-1"></i>
+            Solicitudes de extension de vigencia
+          </span>
+          <span class="badge bg-warning text-dark rounded-pill">{{ solicitudes_extension|length }}</span>
+        </div>
+        <div class="card-body p-0">
+          <table class="table table-hover table-sm mb-0 small">
+            <thead class="table-dark">
+              <tr>
+                <th>Empresa</th>
+                <th>Email</th>
+                <th>Trader</th>
+                <th>Estado</th>
+                <th>Dias desde asignacion</th>
+                <th class="text-center">Accion</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for sol in solicitudes_extension %}
+              <tr>
+                <td class="fw-semibold">
+                  <a href="{{ url_for('prospeccion.detalle', pid=sol.p.id) }}" class="text-decoration-none">
+                    {{ sol.p.razon_social or sol.p.email or '—' }}
+                  </a>
+                </td>
+                <td class="text-muted">{{ sol.p.email or '—' }}</td>
+                <td><span class="badge bg-secondary">{{ sol.trader.username }}</span></td>
+                <td>
+                  {% set bc, bl = sol.p.estado_badge %}
+                  <span class="badge bg-{{ bc }}">{{ bl }}</span>
+                </td>
+                <td>
+                  <span class="badge bg-danger">{{ sol.dias_desde }}d</span>
+                  <small class="text-muted">(vigencia: {{ dias_vigencia + (sol.asig.dias_extra or 0) }}d)</small>
+                </td>
+                <td class="text-center" style="white-space:nowrap">
+                  <button class="btn btn-sm btn-success py-0 btn-aprobar-ext"
+                          data-pid="{{ sol.p.id }}" data-asig="{{ sol.asig.id }}">
+                    <i class="bi bi-check-lg"></i> Aprobar
+                  </button>
+                  <button class="btn btn-sm btn-outline-danger py-0 btn-rechazar-ext"
+                          data-pid="{{ sol.p.id }}" data-asig="{{ sol.asig.id }}">
+                    <i class="bi bi-x-lg"></i> Rechazar
+                  </button>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
     <!-- Prospectos vencidos (solo Master) -->
     {% if current_user.role == 'Master' %}
     <div class="col-12">
@@ -250,7 +310,7 @@
                   <td class="text-muted">{{ item.p.email or '—' }}</td>
                   <td><span class="badge bg-secondary">{{ item.trader.username }}</span></td>
                   <td>
-                    <span class="badge bg-danger fw-bold">{{ item.dias_sin }}d</span>
+                    <span class="badge bg-danger fw-bold">+{{ item.dias_vencido }}d vencido</span>
                   </td>
                   <td>
                     {% if item.p.tipo_ultimo_envio %}
@@ -285,6 +345,44 @@
 {% block scripts %}
 <script>
 const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+
+// ── Resolver solicitudes de extension ────────────────────────────────────────
+(function() {
+  async function resolver(btn, accion) {
+    const pid    = btn.dataset.pid;
+    const asigId = btn.dataset.asig;
+    const label  = accion === 'aprobar' ? 'Aprobar 45 días extra?' : 'Rechazar solicitud?';
+    const conf   = await Swal.fire({
+      title: label,
+      icon: accion === 'aprobar' ? 'question' : 'warning',
+      showCancelButton: true,
+      confirmButtonText: accion === 'aprobar' ? 'Aprobar' : 'Rechazar',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: accion === 'aprobar' ? '#198754' : '#dc3545'
+    });
+    if (!conf.isConfirmed) return;
+    const resp = await fetch('/prospeccion/' + pid + '/resolver-extension', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+      body: JSON.stringify({ accion, asig_id: asigId })
+    });
+    const data = await resp.json();
+    if (data.ok) {
+      Swal.fire({ icon: 'success', title: accion === 'aprobar' ? 'Aprobado' : 'Rechazado',
+                  timer: 1800, showConfirmButton: false })
+        .then(() => location.reload());
+    } else {
+      Swal.fire('Error', data.error || 'Error inesperado.', 'error');
+    }
+  }
+
+  document.querySelectorAll('.btn-aprobar-ext').forEach(b => {
+    b.addEventListener('click', () => resolver(b, 'aprobar'));
+  });
+  document.querySelectorAll('.btn-rechazar-ext').forEach(b => {
+    b.addEventListener('click', () => resolver(b, 'rechazar'));
+  });
+})();
 
 // ── Reasignacion de vencidos ──────────────────────────────────────────────────
 (function() {
