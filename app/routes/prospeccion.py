@@ -1224,12 +1224,30 @@ def enviar_email(pid):
     except Exception as exc:
         return jsonify({"ok": False, "error": str(exc)}), 500
 
+    # Enviar también al email alternativo si existe
+    enviado_alt = False
+    if p.email_alt and p.email_alt.strip() and p.email_alt.strip() != p.email:
+        try:
+            if html_editado:
+                html_alt   = html_editado
+                asunto_alt = asunto
+            else:
+                html_alt, asunto_alt, _ = _construir_email(
+                    p, tipo, compra, venta, sender_email, nombre_completo, cargo)
+            _send_via_gmail_api(sender_email, p.email_alt.strip(), asunto_alt, html_alt)
+            enviado_alt = True
+        except Exception:
+            pass  # El principal ya fue enviado; el alt falla silencioso
+
     nuevo_estado = "negociacion" if tipo == "precio" else "seguimiento"
+    desc = f"Correo de {tipo} enviado."
+    if enviado_alt:
+        desc += f" También enviado a email alternativo ({p.email_alt.strip()})."
     act = ActividadProspecto(
         prospecto_id=p.id,
         user_id=current_user.id,
         tipo="email",
-        descripcion=f"Correo de {tipo} enviado.",
+        descripcion=desc,
         resultado="Enviado",
         nuevo_estado=nuevo_estado,
     )
@@ -1240,7 +1258,10 @@ def enviar_email(pid):
     db.session.commit()
 
     tipo_label = "presentacion" if tipo == "presentacion" else "precio del dia"
-    return jsonify({"ok": True, "msg": f"Correo de {tipo_label} enviado a {p.email}."})
+    msg = f"Correo de {tipo_label} enviado a {p.email}."
+    if enviado_alt:
+        msg += f" Copia también enviada a {p.email_alt.strip()}."
+    return jsonify({"ok": True, "msg": msg})
 
 
 # ── Cambiar estado (seguimiento → negociacion) ────────────────────────────────
@@ -1374,15 +1395,29 @@ def _campana_worker(app, trader_id, prospecto_ids, tipo, sender_email,
                 )
                 _send_via_gmail_api(sender_email, p.email, asunto, html)
 
+                # Enviar al email alternativo si existe
+                enviado_alt = False
+                if p.email_alt and p.email_alt.strip() and p.email_alt.strip() != p.email:
+                    try:
+                        stop_event.wait(timeout=3)  # pausa corta entre principal y alt
+                        if not stop_event.is_set():
+                            _send_via_gmail_api(sender_email, p.email_alt.strip(), asunto, html)
+                            enviado_alt = True
+                    except Exception:
+                        pass
+
                 p.estado_comercial      = nuevo_estado
                 p.tipo_ultimo_envio     = tipo
                 p.fecha_ultimo_contacto = now_peru().strftime("%Y-%m-%d %H:%M")
 
+                desc = f"Campaña masiva: correo de {tipo} enviado."
+                if enviado_alt:
+                    desc += f" También a email alternativo ({p.email_alt.strip()})."
                 act = ActividadProspecto(
                     prospecto_id=p.id,
                     user_id=trader_id,
                     tipo="email",
-                    descripcion=f"Campaña masiva: correo de {tipo} enviado.",
+                    descripcion=desc,
                     resultado="Enviado",
                     nuevo_estado=nuevo_estado,
                 )
