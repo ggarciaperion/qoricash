@@ -839,29 +839,11 @@ def _build_ticker(compra, venta):
 </table>"""
 
 
-@prospeccion_bp.route("/<int:pid>/enviar-email", methods=["POST"])
-@login_required
-@require_role("Master", "Trader")
-def enviar_email(pid):
-    p = Prospecto.query.get_or_404(pid)
-    _verificar_acceso(p)
-
-    if not p.email:
-        return jsonify({"ok": False, "error": "El prospecto no tiene email registrado."}), 400
-
-    data   = request.get_json(force=True)
-    tipo   = data.get("tipo", "presentacion")
-    compra = data.get("compra", "")
-    venta  = data.get("venta", "")
-
-    if tipo == "precio" and (not compra or not venta):
-        return jsonify({"ok": False, "error": "Debes indicar COMPRA y VENTA."}), 400
-
-    # Nombre para el saludo
+def _construir_email(p, tipo, compra, venta):
+    """Construye el HTML y asunto del correo. Retorna (html, asunto, nuevo_estado)."""
     nombre_saludo = (p.nombre_contacto or p.razon_social or "estimado cliente").split()[0].capitalize()
     trader_nombre = getattr(current_user, "full_name", None) or current_user.username
 
-    # Texto de presentacion segun rol (ggarcia usa el mismo texto que Master)
     _usa_texto_presidente = (
         current_user.role == "Master" or
         getattr(current_user, "username", "").lower() == "ggarcia"
@@ -882,21 +864,69 @@ def enviar_email(pid):
     firma = FIRMA_HTML.replace("{trader_nombre}", trader_nombre)
 
     if tipo == "precio":
-        ticker   = _build_ticker(compra, venta)
-        html     = CUERPO_PRECIO.format(
+        ticker = _build_ticker(compra, venta)
+        html   = CUERPO_PRECIO.format(
             header=HEADER_HTML, nombre=nombre_saludo,
             ticker=ticker, bancos=BANCOS_HTML, firma=firma, pie=PIE,
         )
-        asunto   = "QoriCash - Tipo de cambio del dia"
-        nuevo_estado = "P2"
+        return html, "QoriCash - Tipo de cambio del dia", "P2"
     else:
-        html     = CUERPO_PRESENTACION.format(
+        html = CUERPO_PRESENTACION.format(
             header=HEADER_HTML, nombre=nombre_saludo,
             presentacion_remitente=presentacion_remitente,
             bancos=BANCOS_HTML, firma=firma, pie=PIE,
         )
-        asunto   = "QoriCash - El mejor tipo de cambio para empresas"
-        nuevo_estado = "P1"
+        return html, "QoriCash - El mejor tipo de cambio para empresas", "P1"
+
+
+@prospeccion_bp.route("/<int:pid>/preview-email", methods=["POST"])
+@login_required
+@require_role("Master", "Trader")
+def preview_email(pid):
+    """Genera el borrador HTML sin enviarlo."""
+    p = Prospecto.query.get_or_404(pid)
+    _verificar_acceso(p)
+
+    if not p.email:
+        return jsonify({"ok": False, "error": "El prospecto no tiene email registrado."}), 400
+
+    data   = request.get_json(force=True)
+    tipo   = data.get("tipo", "presentacion")
+    compra = data.get("compra", "")
+    venta  = data.get("venta", "")
+
+    if tipo == "precio" and (not compra or not venta):
+        return jsonify({"ok": False, "error": "Debes indicar COMPRA y VENTA."}), 400
+
+    html, asunto, _ = _construir_email(p, tipo, compra, venta)
+    return jsonify({"ok": True, "html": html, "asunto": asunto, "para": p.email})
+
+
+@prospeccion_bp.route("/<int:pid>/enviar-email", methods=["POST"])
+@login_required
+@require_role("Master", "Trader")
+def enviar_email(pid):
+    p = Prospecto.query.get_or_404(pid)
+    _verificar_acceso(p)
+
+    if not p.email:
+        return jsonify({"ok": False, "error": "El prospecto no tiene email registrado."}), 400
+
+    data         = request.get_json(force=True)
+    tipo         = data.get("tipo", "presentacion")
+    compra       = data.get("compra", "")
+    venta        = data.get("venta", "")
+    html_editado = data.get("html_editado", "").strip()
+
+    if tipo == "precio" and (not compra or not venta):
+        return jsonify({"ok": False, "error": "Debes indicar COMPRA y VENTA."}), 400
+
+    if html_editado:
+        html, asunto, nuevo_estado = html_editado, data.get("asunto", "QoriCash"), (
+            "P2" if tipo == "precio" else "P1"
+        )
+    else:
+        html, asunto, nuevo_estado = _construir_email(p, tipo, compra, venta)
 
     sender_email = getattr(current_user, "email", None)
     if not sender_email:
