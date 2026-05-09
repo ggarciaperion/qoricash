@@ -628,6 +628,94 @@ def sincronizar_enviados():
     return jsonify({"actualizados": actualizados, "no_encontrados": no_encontrados})
 
 
+@prospeccion_bp.route("/api/registrar-envios", methods=["POST"])
+@csrf.exempt
+def registrar_envios():
+    """
+    Recibe envios de los scripts de campaña y actualiza la BD en tiempo real.
+    Body: {"envios": [{"email": "...", "tipo": "presentacion"|"precio", "remitente": "ggarcia"}]}
+    """
+    import os
+    key = request.headers.get("X-Import-Key", "")
+    if key != os.environ.get("PROSPECCION_IMPORT_KEY", "qc-import-prospectos-2026"):
+        return jsonify({"error": "No autorizado"}), 401
+
+    data   = request.get_json(force=True)
+    envios = data.get("envios", [])
+    if not envios:
+        return jsonify({"actualizados": 0})
+
+    _NO_DEGRADAR = {"negociando", "negociacion", "P3", "cliente", "P4"}
+    ahora        = now_peru().strftime("%Y-%m-%d %H:%M")
+    actualizados = 0
+
+    for item in envios:
+        email     = (item.get("email") or "").strip().lower()
+        tipo      = (item.get("tipo")  or "presentacion").strip()
+        remitente = (item.get("remitente") or "ggarcia").strip()
+
+        if not email or "@" not in email:
+            continue
+
+        nuevo_estado = "precio_enviado" if tipo == "precio" else "presentado"
+
+        p = Prospecto.query.filter(
+            db.func.lower(Prospecto.email) == email
+        ).first()
+        if not p:
+            continue
+
+        # No degradar si ya está en negociacion o cliente
+        if (p.estado_comercial or "") not in _NO_DEGRADAR:
+            p.estado_comercial = nuevo_estado
+
+        p.tipo_ultimo_envio     = tipo
+        p.remitente             = remitente
+        p.fecha_ultimo_contacto = ahora
+        p.num_contactos         = (p.num_contactos or 0) + 1
+        if not p.fecha_primer_contacto:
+            p.fecha_primer_contacto = ahora
+
+        actualizados += 1
+
+    db.session.commit()
+    return jsonify({"actualizados": actualizados, "total": len(envios)})
+
+
+@prospeccion_bp.route("/api/registrar-bounces", methods=["POST"])
+@csrf.exempt
+def registrar_bounces():
+    """
+    Recibe lista de emails rebotados desde monitor_rebotes.py y actualiza la BD.
+    Body: {"emails": ["..."], "tipo": "Hard Bounce"}
+    """
+    import os
+    key = request.headers.get("X-Import-Key", "")
+    if key != os.environ.get("PROSPECCION_IMPORT_KEY", "qc-import-prospectos-2026"):
+        return jsonify({"error": "No autorizado"}), 401
+
+    data         = request.get_json(force=True)
+    emails       = data.get("emails", [])
+    tipo_bounce  = data.get("tipo", "Hard Bounce")
+    actualizados = 0
+
+    for email in emails:
+        email = (email or "").strip().lower().rstrip(".")
+        if not email or "@" not in email:
+            continue
+        p = Prospecto.query.filter(
+            db.func.lower(Prospecto.email) == email
+        ).first()
+        if p:
+            p.estado_email = tipo_bounce
+            if tipo_bounce == "Hard Bounce":
+                p.email = None   # nullificar para limpiar la base
+            actualizados += 1
+
+    db.session.commit()
+    return jsonify({"actualizados": actualizados, "total": len(emails)})
+
+
 @prospeccion_bp.route("/api/import-batch", methods=["POST"])
 @csrf.exempt
 def import_batch():
