@@ -164,10 +164,36 @@ def dashboard():
     if current_user.role == "Master":
         traders = User.query.filter(User.role == "Trader", User.status == "Activo").all()
         traders_disponibles = traders
+        hace7 = now_peru() - timedelta(days=7)
         for t in traders:
-            count = (AsignacionProspecto.query
-                     .filter_by(trader_id=t.id, activo=True).count())
-            traders_stats.append({"trader": t, "asignados": count})
+            base_t = (db.session.query(Prospecto)
+                      .join(AsignacionProspecto, AsignacionProspecto.prospecto_id == Prospecto.id)
+                      .filter(AsignacionProspecto.trader_id == t.id,
+                              AsignacionProspecto.activo == True))
+            cnt_total = base_t.count()
+            cnt_seg   = base_t.filter(Prospecto.estado_comercial.in_(
+                            ["seguimiento","P1","P2"])).count()
+            cnt_neg   = base_t.filter(Prospecto.estado_comercial.in_(
+                            ["negociacion","P3"])).count()
+            cnt_cli   = base_t.filter(Prospecto.estado_comercial.in_(
+                            ["cliente","P4"])).count()
+            act7d     = (ActividadProspecto.query
+                         .filter_by(user_id=t.id)
+                         .filter(ActividadProspecto.creado_en >= hace7)
+                         .count())
+            last_act  = (ActividadProspecto.query
+                         .filter_by(user_id=t.id)
+                         .order_by(ActividadProspecto.creado_en.desc())
+                         .first())
+            traders_stats.append({
+                "trader":    t,
+                "asignados": cnt_total,
+                "seguim":    cnt_seg,
+                "negoc":     cnt_neg,
+                "clientes":  cnt_cli,
+                "act7d":     act7d,
+                "last_act":  last_act.creado_en if last_act else None,
+            })
 
         # Prospectos vencidos: asignado_en + DIAS_VIGENCIA + dias_extra < hoy
         # y sin extensión solicitada pendiente
@@ -222,6 +248,98 @@ def dashboard():
         vencidos=vencidos,
         solicitudes_extension=solicitudes_extension,
         dias_vigencia=DIAS_VIGENCIA,
+    )
+
+
+# ── Reporte por trader (Master) ───────────────────────────────────────────────
+
+@prospeccion_bp.route("/reporte-trader/<int:trader_id>")
+@login_required
+@require_role("Master")
+def reporte_trader(trader_id):
+    trader = User.query.get_or_404(trader_id)
+    hoy    = now_peru().date()
+    hace7  = now_peru() - timedelta(days=7)
+    hace30 = now_peru() - timedelta(days=30)
+
+    # Prospectos asignados activos
+    prospectos = (db.session.query(Prospecto, AsignacionProspecto)
+                  .join(AsignacionProspecto, AsignacionProspecto.prospecto_id == Prospecto.id)
+                  .filter(AsignacionProspecto.trader_id == trader_id,
+                          AsignacionProspecto.activo == True)
+                  .order_by(Prospecto.actualizado_en.desc())
+                  .all())
+
+    # Pipeline counts
+    estados = {"seguim": 0, "negoc": 0, "cliente": 0, "sin": 0}
+    for p, _ in prospectos:
+        ec = p.estado_comercial or ""
+        if ec in ("P4", "cliente"):
+            estados["cliente"] += 1
+        elif ec in ("P3", "negociacion"):
+            estados["negoc"] += 1
+        elif ec in ("P1", "P2", "seguimiento"):
+            estados["seguim"] += 1
+        else:
+            estados["sin"] += 1
+
+    total_asig = len(prospectos)
+    tasa_conv  = round(estados["cliente"] / total_asig * 100, 1) if total_asig else 0
+
+    # Actividades últimos 30 días agrupadas por día
+    act_rows = (db.session.query(
+                    db.func.date(ActividadProspecto.creado_en).label("dia"),
+                    db.func.count(ActividadProspecto.id).label("cnt"))
+                .filter(ActividadProspecto.user_id == trader_id,
+                        ActividadProspecto.creado_en >= hace30)
+                .group_by(db.func.date(ActividadProspecto.creado_en))
+                .order_by(db.func.date(ActividadProspecto.creado_en))
+                .all())
+    act_chart = {str(r.dia): r.cnt for r in act_rows}
+
+    # Todas las actividades recientes (últimas 50)
+    actividades_recientes = (ActividadProspecto.query
+                             .filter_by(user_id=trader_id)
+                             .order_by(ActividadProspecto.creado_en.desc())
+                             .limit(50).all())
+
+    act7d  = sum(1 for r in act_rows if r.dia >= hace7.date())
+    act30d = sum(r.cnt for r in act_rows)
+
+    # Vigencia por prospecto
+    vigencia_map = {}
+    for p, asig in prospectos:
+        vt = DIAS_VIGENCIA + (asig.dias_extra or 0)
+        dd = (hoy - asig.asignado_en.date()).days
+        vigencia_map[p.id] = vt - dd
+
+    # Prospectos sin actividad en últimos 7 días
+    pids_con_act = set(
+        r.prospecto_id for r in
+        db.session.query(ActividadProspecto.prospecto_id)
+        .filter(ActividadProspecto.user_id == trader_id,
+                ActividadProspecto.creado_en >= hace7)
+        .distinct().all()
+    )
+    inactivos = [(p, asig) for p, asig in prospectos
+                 if p.id not in pids_con_act
+                 and (p.estado_comercial or "") not in ("cliente", "P4")]
+
+    return render_template(
+        "prospeccion/reporte_trader.html",
+        trader=trader,
+        prospectos=prospectos,
+        estados=estados,
+        total_asig=total_asig,
+        tasa_conv=tasa_conv,
+        act7d=act7d,
+        act30d=act30d,
+        act_chart=act_chart,
+        actividades_recientes=actividades_recientes,
+        vigencia_map=vigencia_map,
+        inactivos=inactivos,
+        dias_vigencia=DIAS_VIGENCIA,
+        hoy=hoy,
     )
 
 

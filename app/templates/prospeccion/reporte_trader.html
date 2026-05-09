@@ -1,0 +1,426 @@
+{% extends "base.html" %}
+{% block title %}Reporte — {{ trader.username }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+  <!-- Breadcrumb -->
+  <nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{{ url_for('prospeccion.dashboard') }}">Prospeccion</a></li>
+      <li class="breadcrumb-item active">Reporte {{ trader.username }}</li>
+    </ol>
+  </nav>
+
+  <!-- Header trader -->
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-body">
+      <div class="d-flex align-items-center gap-3">
+        <div class="rounded-circle bg-warning d-flex align-items-center justify-content-center fw-bold text-dark"
+             style="width:52px;height:52px;font-size:1.3rem">
+          {{ trader.username[0].upper() }}
+        </div>
+        <div>
+          <h5 class="mb-0 fw-bold">{{ trader.username }}</h5>
+          <div class="text-muted small">{{ trader.email }} &mdash; Trader Fx</div>
+        </div>
+        <div class="ms-auto d-flex gap-4 text-center">
+          <div>
+            <div class="fs-4 fw-bold text-dark">{{ total_asig }}</div>
+            <div class="text-muted" style="font-size:.75rem">Asignados</div>
+          </div>
+          <div>
+            <div class="fs-4 fw-bold text-primary">{{ act7d }}</div>
+            <div class="text-muted" style="font-size:.75rem">Actividades 7d</div>
+          </div>
+          <div>
+            <div class="fs-4 fw-bold text-warning">{{ act30d }}</div>
+            <div class="text-muted" style="font-size:.75rem">Actividades 30d</div>
+          </div>
+          <div>
+            <div class="fs-4 fw-bold text-success">{{ tasa_conv }}%</div>
+            <div class="text-muted" style="font-size:.75rem">Tasa conversion</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-4">
+
+    <!-- Columna izquierda -->
+    <div class="col-lg-8">
+
+      <!-- Embudo pipeline -->
+      <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-transparent border-0 pb-0">
+          <span class="fw-semibold small text-uppercase text-muted">Pipeline de prospeccion</span>
+        </div>
+        <div class="card-body">
+          <div class="row g-2 text-center">
+            {% set stages = [
+              ("Sin contactar",  estados.sin,     "secondary", "person"),
+              ("En Seguimiento", estados.seguim,  "primary",   "envelope"),
+              ("En Negociacion", estados.negoc,   "warning",   "chat-dots"),
+              ("Cliente",        estados.cliente, "success",   "trophy"),
+            ] %}
+            {% for label, cnt, color, icon in stages %}
+            <div class="col-3">
+              <div class="card border-0 bg-{{ color }} bg-opacity-10 h-100">
+                <div class="card-body py-3">
+                  <i class="bi bi-{{ icon }} text-{{ color }} fs-4"></i>
+                  <div class="fs-2 fw-bold text-{{ color }} mt-1">{{ cnt }}</div>
+                  <div class="small text-muted">{{ label }}</div>
+                  {% if total_asig > 0 %}
+                  <div class="mt-2">
+                    <div class="progress" style="height:4px">
+                      <div class="progress-bar bg-{{ color }}"
+                           style="width:{{ (cnt / total_asig * 100)|int }}%"></div>
+                    </div>
+                    <div style="font-size:.7rem" class="text-muted mt-1">
+                      {{ (cnt / total_asig * 100)|round(1) }}%
+                    </div>
+                  </div>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+
+          <!-- Flecha embudo visual -->
+          <div class="d-flex align-items-center gap-1 mt-3 px-2">
+            {% set total_funnel = estados.sin + estados.seguim + estados.negoc + estados.cliente %}
+            {% if total_funnel > 0 %}
+              {% for label, cnt, color, icon in stages %}
+              <div class="flex-grow-1 text-center" style="
+                height: {{ [12, (cnt / total_funnel * 60)|int + 8]|max }}px;
+                background: var(--bs-{{ color }});
+                opacity: 0.25;
+                border-radius: 3px;
+              "></div>
+              {% if not loop.last %}
+              <i class="bi bi-chevron-right text-muted" style="font-size:.7rem"></i>
+              {% endif %}
+              {% endfor %}
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Grafico actividad 30 dias -->
+      <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-transparent border-0 pb-0">
+          <span class="fw-semibold small text-uppercase text-muted">Actividad — ultimos 30 dias</span>
+        </div>
+        <div class="card-body">
+          <canvas id="chartActividad" height="100"></canvas>
+        </div>
+      </div>
+
+      <!-- Prospectos inactivos -->
+      {% if inactivos %}
+      <div class="card border-0 shadow-sm mb-4" style="border-left:4px solid #f59e0b!important;">
+        <div class="card-header bg-transparent border-0 d-flex justify-content-between">
+          <span class="fw-semibold small text-uppercase text-muted">
+            <i class="bi bi-clock text-warning me-1"></i>
+            Sin actividad en los ultimos 7 dias
+          </span>
+          <span class="badge bg-warning text-dark">{{ inactivos|length }}</span>
+        </div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-hover table-sm mb-0 small">
+              <thead class="table-light">
+                <tr>
+                  <th>Empresa</th>
+                  <th>Estado</th>
+                  <th>Vigencia</th>
+                  <th>Ultimo envio</th>
+                  <th>Proximo contacto</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for p, asig in inactivos %}
+                {% set dias_vig = vigencia_map.get(p.id, 99) %}
+                <tr class="{% if dias_vig <= 0 %}table-danger{% elif dias_vig <= 7 %}table-warning{% endif %}">
+                  <td>
+                    <a href="{{ url_for('prospeccion.detalle', pid=p.id) }}" class="text-decoration-none fw-semibold">
+                      {{ p.razon_social or p.email or '—' }}
+                    </a>
+                    <div class="text-muted" style="font-size:.7rem">{{ p.email or '' }}</div>
+                  </td>
+                  <td>
+                    {% set bc, bl = p.estado_badge %}
+                    <span class="badge bg-{{ bc }}">{{ bl }}</span>
+                  </td>
+                  <td>
+                    {% if dias_vig <= 0 %}
+                      <span class="badge bg-danger">Vencido</span>
+                    {% elif dias_vig <= 7 %}
+                      <span class="badge bg-warning text-dark">{{ dias_vig }}d</span>
+                    {% else %}
+                      <span class="text-muted small">{{ dias_vig }}d</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    {% if p.tipo_ultimo_envio %}
+                      <span class="badge bg-{{ 'warning text-dark' if p.tipo_ultimo_envio == 'precio' else 'info text-dark' }}">
+                        {{ 'Precio' if p.tipo_ultimo_envio == 'precio' else 'Presentacion' }}
+                      </span>
+                    {% else %}<span class="text-muted">—</span>{% endif %}
+                  </td>
+                  <td class="{% if p.fecha_proximo_contacto %}text-primary fw-semibold{% endif %}">
+                    {{ p.fecha_proximo_contacto or '—' }}
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Todos los prospectos -->
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
+          <span class="fw-semibold small text-uppercase text-muted">Todos los prospectos asignados</span>
+          <span class="badge bg-secondary">{{ total_asig }}</span>
+        </div>
+        <div class="card-body p-0">
+          <!-- Filtro rapido -->
+          <div class="px-3 py-2 border-bottom bg-light d-flex gap-2 flex-wrap align-items-center">
+            <input type="text" id="filtroTabla" class="form-control form-control-sm"
+                   style="max-width:220px" placeholder="Buscar empresa / email...">
+            <select id="filtroEstado" class="form-select form-select-sm" style="max-width:180px">
+              <option value="">Todos los estados</option>
+              <option value="Sin contactar">Sin contactar</option>
+              <option value="En Seguimiento">En Seguimiento</option>
+              <option value="En Negociacion">En Negociacion</option>
+              <option value="Cliente">Cliente</option>
+            </select>
+          </div>
+          <div class="table-responsive" style="max-height:500px;overflow-y:auto;">
+            <table class="table table-hover table-sm mb-0 small" id="tablaProspectos">
+              <thead class="table-dark sticky-top">
+                <tr>
+                  <th>Empresa</th>
+                  <th>Email</th>
+                  <th>Estado</th>
+                  <th>Vigencia</th>
+                  <th>Ultimo envio</th>
+                  <th>Proximo contacto</th>
+                  <th>Nivel interes</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for p, asig in prospectos %}
+                {% set dias_vig = vigencia_map.get(p.id, 99) %}
+                {% set bc, bl = p.estado_badge %}
+                <tr data-nombre="{{ (p.razon_social or p.email or '')|lower }}"
+                    data-email="{{ (p.email or '')|lower }}"
+                    data-estado="{{ bl }}">
+                  <td>
+                    <a href="{{ url_for('prospeccion.detalle', pid=p.id) }}"
+                       class="text-decoration-none fw-semibold">
+                      {{ p.razon_social or '(Sin nombre)' }}
+                    </a>
+                    {% if p.rubro %}<div class="text-muted" style="font-size:.7rem">{{ p.rubro }}</div>{% endif %}
+                  </td>
+                  <td class="text-muted">{{ p.email or '—' }}</td>
+                  <td><span class="badge bg-{{ bc }}">{{ bl }}</span></td>
+                  <td>
+                    {% if dias_vig <= 0 %}
+                      <span class="badge bg-danger">Vencido</span>
+                    {% elif dias_vig <= 7 %}
+                      <span class="badge bg-danger">{{ dias_vig }}d</span>
+                    {% elif dias_vig <= 15 %}
+                      <span class="badge bg-warning text-dark">{{ dias_vig }}d</span>
+                    {% else %}
+                      <span class="text-muted">{{ dias_vig }}d</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    {% if p.tipo_ultimo_envio %}
+                      <span class="badge bg-{{ 'warning text-dark' if p.tipo_ultimo_envio == 'precio' else 'info text-dark' }}">
+                        {{ 'Precio' if p.tipo_ultimo_envio == 'precio' else 'Presentacion' }}
+                      </span>
+                      {% if p.fecha_ultimo_contacto %}
+                      <div class="text-muted" style="font-size:.68rem">{{ p.fecha_ultimo_contacto }}</div>
+                      {% endif %}
+                    {% else %}<span class="text-muted">—</span>{% endif %}
+                  </td>
+                  <td class="{% if p.fecha_proximo_contacto %}text-primary fw-semibold{% endif %}">
+                    {{ p.fecha_proximo_contacto or '—' }}
+                  </td>
+                  <td>
+                    {% if p.nivel_interes %}
+                      <span class="badge bg-light text-dark border">{{ p.nivel_interes }}</span>
+                    {% else %}<span class="text-muted">—</span>{% endif %}
+                  </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="7" class="text-center text-muted py-4">Sin prospectos asignados.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Columna derecha -->
+    <div class="col-lg-4">
+
+      <!-- Indicadores clave -->
+      <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-transparent border-0 pb-0">
+          <span class="fw-semibold small text-uppercase text-muted">Indicadores clave</span>
+        </div>
+        <div class="card-body">
+          {% set pct_seg = (estados.seguim / total_asig * 100)|round(1) if total_asig else 0 %}
+          {% set pct_neg = (estados.negoc  / total_asig * 100)|round(1) if total_asig else 0 %}
+          {% set pct_cli = (estados.cliente/ total_asig * 100)|round(1) if total_asig else 0 %}
+          {% set pct_ina = (inactivos|length / total_asig * 100)|round(1) if total_asig else 0 %}
+
+          <div class="mb-3">
+            <div class="d-flex justify-content-between small mb-1">
+              <span class="text-muted">En Seguimiento</span>
+              <span class="fw-bold text-primary">{{ pct_seg }}%</span>
+            </div>
+            <div class="progress" style="height:6px">
+              <div class="progress-bar bg-primary" style="width:{{ pct_seg }}%"></div>
+            </div>
+          </div>
+          <div class="mb-3">
+            <div class="d-flex justify-content-between small mb-1">
+              <span class="text-muted">En Negociacion</span>
+              <span class="fw-bold text-warning">{{ pct_neg }}%</span>
+            </div>
+            <div class="progress" style="height:6px">
+              <div class="progress-bar bg-warning" style="width:{{ pct_neg }}%"></div>
+            </div>
+          </div>
+          <div class="mb-3">
+            <div class="d-flex justify-content-between small mb-1">
+              <span class="text-muted">Convertidos a cliente</span>
+              <span class="fw-bold text-success">{{ pct_cli }}%</span>
+            </div>
+            <div class="progress" style="height:6px">
+              <div class="progress-bar bg-success" style="width:{{ pct_cli }}%"></div>
+            </div>
+          </div>
+          <div class="mb-1">
+            <div class="d-flex justify-content-between small mb-1">
+              <span class="text-muted">Inactivos (7d)</span>
+              <span class="fw-bold text-danger">{{ pct_ina }}%</span>
+            </div>
+            <div class="progress" style="height:6px">
+              <div class="progress-bar bg-danger" style="width:{{ pct_ina }}%"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Actividades recientes -->
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-transparent border-0 pb-0">
+          <span class="fw-semibold small text-uppercase text-muted">Actividades recientes</span>
+        </div>
+        <div class="card-body p-0" style="max-height:520px;overflow-y:auto;">
+          {% for act in actividades_recientes %}
+          <div class="d-flex gap-3 px-3 py-2 border-bottom">
+            <div class="text-center pt-1" style="min-width:24px">
+              <i class="bi bi-{% if act.tipo == 'email' %}envelope{% elif act.tipo == 'llamada' %}telephone{% elif act.tipo == 'reunion' %}people{% else %}sticky{% endif %} text-muted small"></i>
+            </div>
+            <div class="flex-grow-1">
+              <div class="small fw-semibold text-truncate" style="max-width:220px">
+                <a href="{{ url_for('prospeccion.detalle', pid=act.prospecto_id) }}"
+                   class="text-decoration-none text-dark">
+                  {{ act.prospecto.razon_social or act.prospecto.email or '—' }}
+                </a>
+              </div>
+              <div class="text-muted" style="font-size:.72rem">{{ act.descripcion[:80] }}{% if act.descripcion|length > 80 %}…{% endif %}</div>
+              {% if act.nuevo_estado %}
+              <span class="badge bg-warning text-dark" style="font-size:.6rem">→ {{ act.nuevo_estado }}</span>
+              {% endif %}
+              <div class="text-muted" style="font-size:.68rem">{{ act.creado_en.strftime('%d/%m/%Y %H:%M') }}</div>
+            </div>
+          </div>
+          {% else %}
+          <div class="text-center py-4 text-muted small">Sin actividades registradas.</div>
+          {% endfor %}
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script>
+// ── Grafico actividad 30 dias ──────────────────────────────────────────────
+(function() {
+  const raw = {{ act_chart | tojson }};
+
+  // Generar labels para los ultimos 30 dias
+  const labels = [], values = [];
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const key = d.toISOString().slice(0, 10);
+    labels.push(d.toLocaleDateString('es-PE', { day:'2-digit', month:'2-digit' }));
+    values.push(raw[key] || 0);
+  }
+
+  new Chart(document.getElementById('chartActividad'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Actividades',
+        data: values,
+        backgroundColor: 'rgba(234,179,8,.7)',
+        borderColor: 'rgba(234,179,8,1)',
+        borderWidth: 1,
+        borderRadius: 3,
+      }]
+    },
+    options: {
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 10 } } },
+        x: { ticks: { font: { size: 9 }, maxRotation: 45 } }
+      }
+    }
+  });
+})();
+
+// ── Filtro tabla ─────────────────────────────────────────────────────────────
+(function() {
+  const inp    = document.getElementById('filtroTabla');
+  const sel    = document.getElementById('filtroEstado');
+  const tbody  = document.querySelector('#tablaProspectos tbody');
+
+  function filtrar() {
+    const q  = inp.value.toLowerCase();
+    const es = sel.value;
+    Array.from(tbody.rows).forEach(tr => {
+      const nombre = tr.dataset.nombre || '';
+      const email  = tr.dataset.email  || '';
+      const estado = tr.dataset.estado || '';
+      const matchQ  = !q  || nombre.includes(q) || email.includes(q);
+      const matchE  = !es || estado === es;
+      tr.style.display = matchQ && matchE ? '' : 'none';
+    });
+  }
+
+  inp.addEventListener('input', filtrar);
+  sel.addEventListener('change', filtrar);
+})();
+</script>
+{% endblock %}

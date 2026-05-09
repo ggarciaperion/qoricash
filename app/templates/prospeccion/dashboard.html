@@ -156,37 +156,74 @@
     {% if current_user.role == 'Master' and traders_stats %}
     <div class="col-12">
       <div class="card border-0 shadow-sm">
-        <div class="card-header bg-transparent border-0">
-          <span class="fw-semibold small text-uppercase text-muted">Prospectos asignados por trader</span>
+        <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
+          <span class="fw-semibold small text-uppercase text-muted">Rendimiento por trader</span>
         </div>
         <div class="card-body p-0">
-          <table class="table table-hover mb-0 small">
+          <div class="table-responsive">
+          <table class="table table-hover mb-0 small align-middle">
             <thead class="table-dark">
               <tr>
                 <th>Trader</th>
-                <th>Email</th>
-                <th class="text-end">Asignados</th>
+                <th class="text-center">Asignados</th>
+                <th class="text-center">Seguimiento</th>
+                <th class="text-center">Negociacion</th>
+                <th class="text-center">Clientes</th>
+                <th class="text-center">Actividades 7d</th>
+                <th>Ultimo movimiento</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
               {% for ts in traders_stats %}
+              {% set conv = (ts.clientes / ts.asignados * 100)|round(1) if ts.asignados else 0 %}
               <tr>
-                <td class="fw-semibold">{{ ts.trader.username }}</td>
-                <td class="text-muted">{{ ts.trader.email }}</td>
-                <td class="text-end">
-                  <span class="badge bg-warning text-dark">{{ ts.asignados }}</span>
-                </td>
                 <td>
-                  <a href="{{ url_for('prospeccion.asignar_masivo') }}"
-                     class="btn btn-xs btn-outline-secondary py-0 px-2" style="font-size:.7rem">
-                    + Asignar
+                  <div class="fw-semibold">{{ ts.trader.username }}</div>
+                  <div class="text-muted" style="font-size:.7rem">{{ ts.trader.email }}</div>
+                </td>
+                <td class="text-center">
+                  <span class="badge bg-secondary">{{ ts.asignados }}</span>
+                </td>
+                <td class="text-center">
+                  <span class="badge bg-primary">{{ ts.seguim }}</span>
+                </td>
+                <td class="text-center">
+                  <span class="badge bg-warning text-dark">{{ ts.negoc }}</span>
+                </td>
+                <td class="text-center">
+                  <span class="badge bg-success">{{ ts.clientes }}</span>
+                  {% if ts.asignados > 0 %}
+                  <div class="text-muted" style="font-size:.65rem">{{ conv }}%</div>
+                  {% endif %}
+                </td>
+                <td class="text-center">
+                  {% if ts.act7d == 0 %}
+                    <span class="badge bg-danger">0</span>
+                  {% elif ts.act7d < 5 %}
+                    <span class="badge bg-warning text-dark">{{ ts.act7d }}</span>
+                  {% else %}
+                    <span class="badge bg-success">{{ ts.act7d }}</span>
+                  {% endif %}
+                </td>
+                <td class="text-muted" style="font-size:.8rem">
+                  {% if ts.last_act %}
+                    {{ ts.last_act.strftime('%d/%m/%Y %H:%M') }}
+                  {% else %}
+                    <span class="text-danger">Sin actividad</span>
+                  {% endif %}
+                </td>
+                <td style="white-space:nowrap">
+                  <a href="{{ url_for('prospeccion.reporte_trader', trader_id=ts.trader.id) }}"
+                     class="btn btn-sm btn-outline-primary py-0 px-2" style="font-size:.75rem">
+                    <i class="bi bi-bar-chart-line"></i> Ver reporte
                   </a>
                 </td>
               </tr>
               {% endfor %}
             </tbody>
           </table>
+          </div>
         </div>
       </div>
     </div>
