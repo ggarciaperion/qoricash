@@ -192,6 +192,34 @@
     </div>
     {% endif %}
 
+    <!-- Limpieza de emails (solo Master) -->
+    {% if current_user.role == 'Master' %}
+    <div class="col-12">
+      <div class="card border-0 shadow-sm" style="border-left:4px solid #6366f1!important;">
+        <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
+          <span class="fw-semibold small text-uppercase text-muted">
+            <i class="bi bi-shield-check text-indigo me-1" style="color:#6366f1"></i>
+            Limpieza de emails invalidos
+          </span>
+          <button class="btn btn-sm btn-outline-secondary" id="btnLimpiarEmails">
+            <i class="bi bi-broom"></i> Iniciar limpieza
+          </button>
+        </div>
+        <div class="card-body py-2" id="limpiarPanel" style="display:none">
+          <div class="d-flex align-items-center gap-3">
+            <div class="flex-grow-1">
+              <div class="progress" style="height:8px">
+                <div class="progress-bar bg-indigo" id="limpiarBar" role="progressbar" style="width:0%;background:#6366f1"></div>
+              </div>
+            </div>
+            <span id="limpiarInfo" class="small text-muted" style="white-space:nowrap">—</span>
+          </div>
+          <div id="limpiarMsg" class="small text-muted mt-1"></div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
     <!-- Solicitudes de extension pendientes (solo Master) -->
     {% if current_user.role == 'Master' and solicitudes_extension %}
     <div class="col-12">
@@ -369,6 +397,79 @@ fetch("{{ url_for('prospeccion.api_grupos') }}")
       options: { plugins: { legend: { position: "bottom", labels: { font: { size: 11 } } } } }
     });
   });
+
+// ── Limpieza de emails invalidos ──────────────────────────────────────────────
+(function() {
+  const btn   = document.getElementById('btnLimpiarEmails');
+  if (!btn) return;
+  const panel = document.getElementById('limpiarPanel');
+  const bar   = document.getElementById('limpiarBar');
+  const info  = document.getElementById('limpiarInfo');
+  const msg   = document.getElementById('limpiarMsg');
+  let poller  = null;
+
+  async function pollEstado() {
+    try {
+      const r = await fetch('/prospeccion/api/limpiar-emails/estado');
+      const d = await r.json();
+      if (!d.estado) return;
+      panel.style.display = '';
+      if (d.estado === 'corriendo') {
+        const pct = d.total > 0 ? Math.round(d.procesados / d.total * 100) : 0;
+        bar.style.width = pct + '%';
+        info.textContent = d.procesados + ' / ' + d.total + ' (' + d.limpiados + ' limpiados)';
+        msg.textContent  = 'Procesando... esto puede tardar varios minutos.';
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Corriendo...';
+      } else if (d.estado === 'listo') {
+        clearInterval(poller);
+        bar.style.width = '100%';
+        info.textContent = d.total + ' revisados — ' + d.limpiados + ' emails nullificados';
+        msg.innerHTML = '<span class="text-success fw-semibold"><i class="bi bi-check-circle"></i> Limpieza completada.</span>';
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-broom"></i> Limpiar de nuevo';
+      } else if (d.estado && d.estado.startsWith('error')) {
+        clearInterval(poller);
+        msg.innerHTML = '<span class="text-danger">' + d.estado + '</span>';
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-broom"></i> Reintentar';
+      }
+    } catch(e) {}
+  }
+
+  btn.addEventListener('click', async function() {
+    const conf = await Swal.fire({
+      title: 'Limpiar emails invalidos?',
+      html: 'Se verificara el DNS de cada dominio.<br>Los emails con dominio inexistente quedarán en <strong>NULL</strong>.<br>Los registros se conservan para prospeccion manual.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Iniciar limpieza',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#6366f1'
+    });
+    if (!conf.isConfirmed) return;
+    const r = await fetch('/prospeccion/api/limpiar-emails', {
+      method: 'POST',
+      headers: { 'X-CSRFToken': csrfToken }
+    });
+    const d = await r.json();
+    if (d.ok) {
+      panel.style.display = '';
+      poller = setInterval(pollEstado, 3000);
+      pollEstado();
+    } else {
+      Swal.fire('Error', d.error, 'error');
+    }
+  });
+
+  // Si ya hay un proceso corriendo al cargar la página
+  pollEstado().then(() => {
+    if (info.textContent !== '—') {
+      const st = info.textContent;
+      if (st.includes('/')) poller = setInterval(pollEstado, 3000);
+    }
+  });
+})();
 
 // ── Resolver solicitudes de extension ────────────────────────────────────────
 (function() {

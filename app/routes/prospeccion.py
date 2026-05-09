@@ -1537,6 +1537,122 @@ def campana_actualizar_precios():
     return jsonify({"ok": True})
 
 
+# ── Limpieza de emails invalidos ─────────────────────────────────────────────
+
+_limpiar_estado: dict = {}   # {"estado": "corriendo"|"listo"|"error", "total":n, "procesados":n, "limpiados":n}
+_limpiar_lock   = threading.Lock()
+
+
+def _limpiar_emails_worker(app):
+    """Corre en background: valida MX de cada email y nullifica los invalidos."""
+    import re, socket
+    try:
+        import dns.resolver as _res
+    except ImportError:
+        _res = None
+
+    FREE_DOMAINS = {
+        "gmail.com","hotmail.com","yahoo.com","outlook.com","live.com",
+        "icloud.com","me.com","aol.com","msn.com","protonmail.com",
+        "yahoo.es","hotmail.es","yahoo.com.pe","gmail.pe",
+    }
+    SYNTAX_RE = re.compile(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
+
+    _mx_cache: dict = {}
+
+    def tiene_mx(domain: str) -> bool:
+        if domain in _mx_cache:
+            return _mx_cache[domain]
+        if _res is None:
+            _mx_cache[domain] = True
+            return True
+        try:
+            records = _res.resolve(domain, "MX", lifetime=5)
+            ok = len(records) > 0
+        except Exception:
+            ok = False
+        _mx_cache[domain] = ok
+        return ok
+
+    def email_valido(email: str) -> bool:
+        if not email or not SYNTAX_RE.match(email.strip()):
+            return False
+        domain = email.strip().split("@")[1].lower()
+        # Dominios gratis: se mantienen (son contactos reales)
+        if domain in FREE_DOMAINS:
+            return True
+        return tiene_mx(domain)
+
+    with app.app_context():
+        try:
+            # Traer todos los prospectos con email
+            rows = db.session.execute(
+                db.text("SELECT id, email FROM prospectos WHERE email IS NOT NULL AND email != ''")
+            ).fetchall()
+
+            total = len(rows)
+            with _limpiar_lock:
+                _limpiar_estado.update({"estado": "corriendo", "total": total,
+                                        "procesados": 0, "limpiados": 0})
+
+            limpiados = 0
+            for i, (pid, email) in enumerate(rows):
+                if not email_valido(email):
+                    db.session.execute(
+                        db.text("UPDATE prospectos SET email = NULL WHERE id = :id"),
+                        {"id": pid}
+                    )
+                    db.session.execute(
+                        db.text("UPDATE prospectos SET estado_email = 'Dominio inválido' WHERE id = :id"),
+                        {"id": pid}
+                    )
+                    limpiados += 1
+
+                if (i + 1) % 100 == 0:
+                    db.session.commit()
+                    with _limpiar_lock:
+                        _limpiar_estado.update({"procesados": i + 1, "limpiados": limpiados})
+
+            db.session.commit()
+            with _limpiar_lock:
+                _limpiar_estado.update({
+                    "estado": "listo",
+                    "procesados": total,
+                    "limpiados": limpiados,
+                })
+        except Exception as e:
+            db.session.rollback()
+            with _limpiar_lock:
+                _limpiar_estado["estado"] = f"error: {e}"
+
+
+@prospeccion_bp.route("/api/limpiar-emails", methods=["POST"])
+@login_required
+@require_role("Master")
+def limpiar_emails_iniciar():
+    with _limpiar_lock:
+        if _limpiar_estado.get("estado") == "corriendo":
+            return jsonify({"ok": False, "error": "Ya está corriendo."})
+        _limpiar_estado.clear()
+        _limpiar_estado["estado"] = "corriendo"
+
+    t = threading.Thread(
+        target=_limpiar_emails_worker,
+        args=(current_app._get_current_object(),),
+        daemon=True,
+    )
+    t.start()
+    return jsonify({"ok": True})
+
+
+@prospeccion_bp.route("/api/limpiar-emails/estado")
+@login_required
+@require_role("Master")
+def limpiar_emails_estado():
+    with _limpiar_lock:
+        return jsonify(dict(_limpiar_estado))
+
+
 # ── Helper ────────────────────────────────────────────────────────────────────
 
 def _verificar_acceso(p):
