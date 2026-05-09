@@ -84,6 +84,23 @@ def create_app(config_name=None):
     except Exception as e:
         logging.warning(f"[Migration] registration_canal: {e}")
 
+    # Migracion: columnas vigencia en asignaciones_prospecto
+    try:
+        with app.app_context():
+            from app.extensions import db
+            from sqlalchemy import text
+            db.session.execute(text(
+                "ALTER TABLE asignaciones_prospecto "
+                "ADD COLUMN IF NOT EXISTS dias_extra INTEGER DEFAULT 0"
+            ))
+            db.session.execute(text(
+                "ALTER TABLE asignaciones_prospecto "
+                "ADD COLUMN IF NOT EXISTS extension_solicitada BOOLEAN DEFAULT FALSE"
+            ))
+            db.session.commit()
+    except Exception as e:
+        logging.warning(f"[Migration] asignaciones_prospecto vigencia: {e}")
+
     # Crear tablas del modulo Prospeccion si no existen
     try:
         with app.app_context():

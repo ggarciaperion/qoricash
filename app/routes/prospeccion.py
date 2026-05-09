@@ -156,9 +156,10 @@ def dashboard():
                    .limit(8).all())
 
     # Solo Master: resumen por trader + prospectos vencidos
-    traders_stats      = []
-    traders_disponibles = []
-    vencidos            = []
+    traders_stats        = []
+    traders_disponibles  = []
+    vencidos             = []
+    solicitudes_extension = []
 
     if current_user.role == "Master":
         traders = User.query.filter(User.role == "Trader", User.status == "Activo").all()
@@ -219,7 +220,7 @@ def dashboard():
         traders_stats=traders_stats,
         traders_disponibles=traders_disponibles,
         vencidos=vencidos,
-        solicitudes_extension=solicitudes_extension if current_user.role == "Master" else [],
+        solicitudes_extension=solicitudes_extension,
         dias_vigencia=DIAS_VIGENCIA,
     )
 
