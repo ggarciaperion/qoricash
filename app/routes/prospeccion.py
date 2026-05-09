@@ -744,8 +744,7 @@ CUERPO_PRESENTACION = """\
 <body style="font-family:Arial,sans-serif;font-size:14px;color:#1E293B;line-height:1.7;max-width:620px;margin:0 auto;padding:24px;">
   {header}
   <p>Estimado(a) <strong>{nombre}</strong>,</p>
-  <p style="text-align:justify;">Mi nombre es {trader}, Trader de <strong>QoriCash SAC</strong>, fintech de cambio
-    de divisas 100% digital, regulada por la Superintendencia de Banca, Seguros y AFP del Peru.</p>
+  <p style="text-align:justify;">{presentacion_remitente}</p>
   <p style="text-align:justify;">Trabajamos con empresas que realizan operaciones frecuentes de compra y venta de
     dolares, y que en muchos casos estan dejando dinero sobre la mesa al operar con el tipo de cambio que les ofrece
     su entidad financiera actual.</p>
@@ -862,6 +861,20 @@ def enviar_email(pid):
     nombre_saludo = (p.nombre_contacto or p.razon_social or "estimado cliente").split()[0].capitalize()
     trader_nombre = getattr(current_user, "full_name", None) or current_user.username
 
+    # Texto de presentacion segun rol
+    if current_user.role == "Master":
+        presentacion_remitente = (
+            "Mi nombre es <strong>Gian Pierre Garcia</strong>, Presidente de Negocios de "
+            "<strong>QoriCash SAC</strong>, fintech de cambio de divisas 100% digital, "
+            "regulada por la Superintendencia de Banca, Seguros y AFP del Peru."
+        )
+    else:
+        presentacion_remitente = (
+            "Soy <strong>Trader Fx Senior</strong> de <strong>QoriCash SAC</strong>, "
+            "fintech de cambio de divisas 100% digital, regulada por la Superintendencia "
+            "de Banca, Seguros y AFP del Peru."
+        )
+
     firma = FIRMA_HTML.replace("{trader_nombre}", trader_nombre)
 
     if tipo == "precio":
@@ -874,7 +887,8 @@ def enviar_email(pid):
         nuevo_estado = "P2"
     else:
         html     = CUERPO_PRESENTACION.format(
-            header=HEADER_HTML, nombre=nombre_saludo, trader=trader_nombre,
+            header=HEADER_HTML, nombre=nombre_saludo,
+            presentacion_remitente=presentacion_remitente,
             bancos=BANCOS_HTML, firma=firma, pie=PIE,
         )
         asunto   = "QoriCash - El mejor tipo de cambio para empresas"
