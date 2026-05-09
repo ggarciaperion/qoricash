@@ -2,11 +2,11 @@
 Modulo de Prospeccion — QoriCash Trading V2
 Rutas para Master y Trader.
 """
-import os, json, base64
+import os, json, base64, threading
 from datetime import datetime
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from flask import Blueprint, render_template, request, jsonify, flash, redirect, url_for
+from flask import Blueprint, render_template, request, jsonify, flash, redirect, url_for, current_app
 from flask_login import login_required, current_user
 from sqlalchemy import or_, func
 from app.extensions import db, csrf
@@ -36,6 +36,18 @@ _TRADER_NOMBRES = {
 
 # Emails que usan cargo "Presidente de Negocios"
 _EMAILS_PRESIDENTE = {"ggarcia@qoricash.pe", "gerencia@qoricash.pe"}
+
+# Estado de campañas masivas activas: trader_id → dict
+_campanas: dict = {}
+_campanas_lock  = threading.Lock()
+
+
+def _get_trader_info(sender_email: str, role: str = "Trader"):
+    """Retorna (nombre_completo, cargo) para el remitente."""
+    es_pres         = (role == "Master" or sender_email in _EMAILS_PRESIDENTE)
+    nombre_completo = _TRADER_NOMBRES.get(sender_email, sender_email.split("@")[0])
+    cargo           = "Presidente de Negocios" if es_pres else "Trader Fx"
+    return nombre_completo, cargo
 
 
 def _get_gmail_service(sender_email):
@@ -915,14 +927,9 @@ def _build_ticker(compra, venta):
 </table>"""
 
 
-def _construir_email(p, tipo, compra, venta):
-    """Construye el HTML y asunto del correo. Retorna (html, asunto, nuevo_estado)."""
+def _construir_email(p, tipo, compra, venta, sender_email, nombre_completo, cargo, firma_pre=None):
+    """Construye el HTML y asunto. Sin dependencia en current_user (usable en hilos)."""
     nombre_saludo = (p.nombre_contacto or p.razon_social or "estimado cliente").split()[0].capitalize()
-
-    sender_email    = (getattr(current_user, "email", "") or "").lower()
-    es_presidente   = (current_user.role == "Master" or sender_email in _EMAILS_PRESIDENTE)
-    nombre_completo = _TRADER_NOMBRES.get(sender_email, current_user.username)
-    cargo           = "Presidente de Negocios" if es_presidente else "Trader Fx"
 
     presentacion_remitente = (
         f"Mi nombre es <strong>{nombre_completo}</strong>, {cargo} de "
@@ -930,8 +937,8 @@ def _construir_email(p, tipo, compra, venta):
         "regulada por la Superintendencia de Banca, Seguros y AFP del Peru."
     )
 
-    # Intentar obtener la firma real de Gmail; si falla usar la interna como fallback
-    firma_gmail = _get_firma_gmail(sender_email)
+    # firma_pre: firma ya obtenida (evita llamada extra a Gmail API en campañas masivas)
+    firma_gmail = firma_pre if firma_pre is not None else _get_firma_gmail(sender_email)
     if firma_gmail:
         firma = f'<div style="margin-top:16px">{firma_gmail}</div>'
     else:
@@ -972,7 +979,9 @@ def preview_email(pid):
     if tipo == "precio" and (not compra or not venta):
         return jsonify({"ok": False, "error": "Debes indicar COMPRA y VENTA."}), 400
 
-    html, asunto, _ = _construir_email(p, tipo, compra, venta)
+    sender_email            = (getattr(current_user, "email", "") or "").lower()
+    nombre_completo, cargo  = _get_trader_info(sender_email, current_user.role)
+    html, asunto, _         = _construir_email(p, tipo, compra, venta, sender_email, nombre_completo, cargo)
     return jsonify({"ok": True, "html": html, "asunto": asunto, "para": p.email})
 
 
@@ -995,22 +1004,23 @@ def enviar_email(pid):
     if tipo == "precio" and (not compra or not venta):
         return jsonify({"ok": False, "error": "Debes indicar COMPRA y VENTA."}), 400
 
+    sender_email            = (getattr(current_user, "email", "") or "").lower()
+    nombre_completo, cargo  = _get_trader_info(sender_email, current_user.role)
+
+    if not sender_email:
+        return jsonify({"ok": False, "error": "Tu usuario no tiene email configurado."}), 400
+
     if html_editado:
         html   = html_editado
         asunto = data.get("asunto", "QoriCash")
     else:
-        html, asunto, _ = _construir_email(p, tipo, compra, venta)
-
-    sender_email = getattr(current_user, "email", None)
-    if not sender_email:
-        return jsonify({"ok": False, "error": "Tu usuario no tiene email configurado."}), 400
+        html, asunto, _ = _construir_email(p, tipo, compra, venta, sender_email, nombre_completo, cargo)
 
     try:
         _send_via_gmail_api(sender_email, p.email, asunto, html)
     except Exception as exc:
         return jsonify({"ok": False, "error": str(exc)}), 500
 
-    # Presentacion → seguimiento / Precio → negociacion
     nuevo_estado = "negociacion" if tipo == "precio" else "seguimiento"
     act = ActividadProspecto(
         prospecto_id=p.id,
@@ -1022,6 +1032,7 @@ def enviar_email(pid):
     )
     db.session.add(act)
     p.estado_comercial      = nuevo_estado
+    p.tipo_ultimo_envio     = tipo
     p.fecha_ultimo_contacto = now_peru().strftime("%Y-%m-%d %H:%M")
     db.session.commit()
 
@@ -1125,6 +1136,178 @@ def registrar_cliente(pid):
 
     return jsonify({"ok": True, "accion": "creado",
                     "msg": f"Cliente creado exitosamente: {p.email}"})
+
+
+# ── Campaña masiva ────────────────────────────────────────────────────────────
+
+def _campana_worker(app, trader_id, prospecto_ids, tipo, sender_email,
+                    nombre_completo, cargo, firma_pre):
+    """Hilo que envía emails con pausa configurable entre cada uno."""
+    pausa = 7  # segundos entre envíos
+
+    with app.app_context():
+        stop_event = _campanas[trader_id]["stop"]
+
+        for pid in prospecto_ids:
+            if stop_event.is_set():
+                break
+            try:
+                with _campanas_lock:
+                    if trader_id not in _campanas or stop_event.is_set():
+                        break
+                    compra = _campanas[trader_id]["compra"]
+                    venta  = _campanas[trader_id]["venta"]
+
+                p = Prospecto.query.get(pid)
+                if not p or not p.email:
+                    with _campanas_lock:
+                        if trader_id in _campanas:
+                            _campanas[trader_id]["errores"] += 1
+                    continue
+
+                html, asunto, nuevo_estado = _construir_email(
+                    p, tipo, compra, venta,
+                    sender_email, nombre_completo, cargo, firma_pre=firma_pre,
+                )
+                _send_via_gmail_api(sender_email, p.email, asunto, html)
+
+                p.estado_comercial      = nuevo_estado
+                p.tipo_ultimo_envio     = tipo
+                p.fecha_ultimo_contacto = now_peru().strftime("%Y-%m-%d %H:%M")
+
+                act = ActividadProspecto(
+                    prospecto_id=p.id,
+                    user_id=trader_id,
+                    tipo="email",
+                    descripcion=f"Campaña masiva: correo de {tipo} enviado.",
+                    resultado="Enviado",
+                    nuevo_estado=nuevo_estado,
+                )
+                db.session.add(act)
+                db.session.commit()
+
+                with _campanas_lock:
+                    if trader_id in _campanas:
+                        _campanas[trader_id]["enviados"] += 1
+
+            except Exception:
+                db.session.rollback()
+                with _campanas_lock:
+                    if trader_id in _campanas:
+                        _campanas[trader_id]["errores"] += 1
+
+            # Pausa interruptible
+            stop_event.wait(timeout=pausa)
+
+        with _campanas_lock:
+            if trader_id in _campanas:
+                if stop_event.is_set():
+                    _campanas[trader_id]["estado"] = "detenida"
+                else:
+                    _campanas[trader_id]["estado"] = "completada"
+
+
+@prospeccion_bp.route("/campana/iniciar", methods=["POST"])
+@login_required
+@require_role("Master", "Trader")
+def campana_iniciar():
+    data   = request.get_json(force=True)
+    ids    = [int(i) for i in data.get("ids", []) if str(i).isdigit()]
+    tipo   = data.get("tipo", "presentacion")
+    compra = data.get("compra", "").strip()
+    venta  = data.get("venta", "").strip()
+
+    if not ids:
+        return jsonify({"ok": False, "error": "No se seleccionaron prospectos."}), 400
+    if tipo == "precio" and (not compra or not venta):
+        return jsonify({"ok": False, "error": "Debes indicar COMPRA y VENTA."}), 400
+
+    trader_id = current_user.id
+    with _campanas_lock:
+        camp = _campanas.get(trader_id)
+        if camp and camp["estado"] == "activa":
+            return jsonify({"ok": False,
+                            "error": "Ya hay una campaña activa. Detén la actual primero."}), 400
+
+    sender_email            = (getattr(current_user, "email", "") or "").lower()
+    nombre_completo, cargo  = _get_trader_info(sender_email, current_user.role)
+    firma_pre               = _get_firma_gmail(sender_email)
+
+    stop_event = threading.Event()
+    with _campanas_lock:
+        _campanas[trader_id] = {
+            "estado":   "activa",
+            "tipo":     tipo,
+            "compra":   compra,
+            "venta":    venta,
+            "total":    len(ids),
+            "enviados": 0,
+            "errores":  0,
+            "stop":     stop_event,
+        }
+
+    app = current_app._get_current_object()
+    t = threading.Thread(
+        target=_campana_worker,
+        args=(app, trader_id, ids, tipo, sender_email, nombre_completo, cargo, firma_pre),
+        daemon=True,
+    )
+    t.start()
+    return jsonify({"ok": True, "total": len(ids)})
+
+
+@prospeccion_bp.route("/campana/estado")
+@login_required
+@require_role("Master", "Trader")
+def campana_estado():
+    trader_id = current_user.id
+    with _campanas_lock:
+        camp = _campanas.get(trader_id)
+        if not camp:
+            return jsonify({"activa": False})
+        return jsonify({
+            "activa":   camp["estado"] == "activa",
+            "estado":   camp["estado"],
+            "tipo":     camp["tipo"],
+            "total":    camp["total"],
+            "enviados": camp["enviados"],
+            "errores":  camp["errores"],
+            "compra":   camp.get("compra", ""),
+            "venta":    camp.get("venta", ""),
+        })
+
+
+@prospeccion_bp.route("/campana/detener", methods=["POST"])
+@login_required
+@require_role("Master", "Trader")
+def campana_detener():
+    trader_id = current_user.id
+    with _campanas_lock:
+        camp = _campanas.get(trader_id)
+        if not camp or camp["estado"] != "activa":
+            return jsonify({"ok": False, "error": "No hay campaña activa."}), 400
+        camp["stop"].set()
+    return jsonify({"ok": True})
+
+
+@prospeccion_bp.route("/campana/actualizar-precios", methods=["POST"])
+@login_required
+@require_role("Master", "Trader")
+def campana_actualizar_precios():
+    data   = request.get_json(force=True)
+    compra = data.get("compra", "").strip()
+    venta  = data.get("venta", "").strip()
+    if not compra or not venta:
+        return jsonify({"ok": False, "error": "Debes indicar COMPRA y VENTA."}), 400
+
+    trader_id = current_user.id
+    with _campanas_lock:
+        camp = _campanas.get(trader_id)
+        if not camp or camp["estado"] != "activa":
+            return jsonify({"ok": False, "error": "No hay campaña activa."}), 400
+        camp["compra"] = compra
+        camp["venta"]  = venta
+    return jsonify({"ok": True})
 
 
 # ── Helper ────────────────────────────────────────────────────────────────────

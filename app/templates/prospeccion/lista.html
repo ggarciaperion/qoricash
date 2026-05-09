@@ -13,6 +13,40 @@
     </a>
   </div>
 
+  <!-- Panel de campaña activa -->
+  <div id="campanaPanel" class="d-none card border-0 shadow-sm mb-3" style="border-left:4px solid #22c55e !important;">
+    <div class="card-body py-2 px-3">
+      <div class="d-flex align-items-center gap-3 flex-wrap">
+        <div class="spinner-border spinner-border-sm text-success flex-shrink-0" id="cpSpinner"></div>
+        <div class="flex-grow-1">
+          <div class="d-flex justify-content-between mb-1">
+            <span class="small fw-semibold" id="cpEstado">Enviando campaña...</span>
+            <span class="small text-muted" id="cpConteo">0 / 0</span>
+          </div>
+          <div class="progress" style="height:5px">
+            <div class="progress-bar bg-success" id="cpBarra" style="width:0%"></div>
+          </div>
+          <div class="small text-muted mt-1" id="cpDetalle"></div>
+        </div>
+        <div class="d-flex gap-2 flex-shrink-0">
+          <!-- Actualizar precios (solo visible si tipo=precio) -->
+          <div id="cpActualizarWrap" class="d-none d-flex gap-1 align-items-center">
+            <input type="number" step="0.001" id="cpNuevaCompra" class="form-control form-control-sm"
+                   placeholder="Compra" style="width:80px">
+            <input type="number" step="0.001" id="cpNuevaVenta" class="form-control form-control-sm"
+                   placeholder="Venta" style="width:80px">
+            <button class="btn btn-sm btn-outline-warning" id="btnActualizarPrecios">
+              <i class="bi bi-arrow-repeat"></i> Actualizar
+            </button>
+          </div>
+          <button class="btn btn-sm btn-danger" id="btnDetenerCampana">
+            <i class="bi bi-stop-circle"></i> Detener
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Pestañas -->
   <ul class="nav nav-pills mb-3 gap-2">
     <li class="nav-item">
@@ -74,6 +108,9 @@
       <table class="table table-hover align-middle mb-0 small">
         <thead class="table-dark">
           <tr>
+            <th style="width:36px">
+              <input type="checkbox" class="form-check-input" id="chkTodos" title="Seleccionar todos">
+            </th>
             <th style="width:50px">Score</th>
             <th>Empresa</th>
             <th>RUC</th>
@@ -81,6 +118,7 @@
             <th>Email</th>
             <th>Contacto</th>
             <th>Estado</th>
+            <th>Ultimo correo</th>
             {% if current_user.role == 'Master' %}<th>Trader</th>{% endif %}
             <th style="width:130px"></th>
           </tr>
@@ -88,7 +126,16 @@
         <tbody>
           {% for p in prospectos.items %}
           {% set estado = p.estado_comercial or '' %}
-          <tr>
+          {% set correo_hoy = p.tipo_ultimo_envio and p.fecha_ultimo_contacto %}
+          <tr class="{% if correo_hoy %}fila-correo-enviado{% endif %}"
+              data-pid="{{ p.id }}"
+              data-email="{{ p.email or '' }}"
+              data-nombre="{{ (p.nombre_contacto or p.razon_social or '') | e }}">
+            <td>
+              <input type="checkbox" class="form-check-input chk-prospecto"
+                     value="{{ p.id }}"
+                     {% if not p.email %}disabled title="Sin email"{% endif %}>
+            </td>
             <td class="text-center">
               <span class="badge rounded-pill fw-bold"
                     style="background:{{ p.score_color }};width:36px;display:inline-block">
@@ -110,6 +157,18 @@
               {% set bc, bl = p.estado_badge %}
               <span class="badge bg-{{ bc }}">{{ bl }}</span>
             </td>
+            <td style="white-space:nowrap">
+              {% if p.tipo_ultimo_envio %}
+                <span class="badge bg-{{ 'warning text-dark' if p.tipo_ultimo_envio == 'precio' else 'info text-dark' }} small">
+                  {{ 'Precio' if p.tipo_ultimo_envio == 'precio' else 'Presentacion' }}
+                </span>
+                {% if p.fecha_ultimo_contacto %}
+                <div class="text-muted" style="font-size:.65rem">{{ p.fecha_ultimo_contacto }}</div>
+                {% endif %}
+              {% else %}
+                <span class="text-muted">—</span>
+              {% endif %}
+            </td>
             {% if current_user.role == 'Master' %}
             <td class="text-muted small">
               {% if p.trader_asignado %}
@@ -123,7 +182,6 @@
                 <i class="bi bi-eye"></i>
               </a>
 
-              {# Boton enviar correo (todos los estados excepto cliente) #}
               <button type="button"
                       class="btn btn-sm btn-outline-success py-0 px-2 btn-enviar"
                       data-pid="{{ p.id }}"
@@ -134,7 +192,6 @@
                 <i class="bi bi-send"></i>
               </button>
 
-              {# En Seguimiento → boton "Respondio" #}
               {% if estado in ['seguimiento','P1','P2'] %}
               <button type="button"
                       class="btn btn-sm btn-outline-warning py-0 px-2 btn-respondio"
@@ -144,7 +201,6 @@
               </button>
               {% endif %}
 
-              {# En Negociacion → boton "Registrar cliente" #}
               {% if estado in ['negociacion','P3'] %}
               <button type="button"
                       class="btn btn-sm btn-outline-primary py-0 px-2 btn-reg-cliente"
@@ -160,7 +216,7 @@
           </tr>
           {% else %}
           <tr>
-            <td colspan="9" class="text-center py-5 text-muted">
+            <td colspan="11" class="text-center py-5 text-muted">
               <i class="bi bi-inbox fs-2 d-block mb-2"></i>
               No hay registros en esta seccion.
             </td>
@@ -204,7 +260,49 @@
   </div>
 </div>
 
-<!-- ── Modal envio correo (2 pasos) ──────────────────────────────────────── -->
+<!-- ── Barra de accion masiva (flotante, aparece al seleccionar) ──────────── -->
+<div id="bulkBar" class="d-none position-fixed bottom-0 start-50 translate-middle-x mb-3"
+     style="z-index:1050;min-width:640px;max-width:95vw">
+  <div class="card shadow-lg border-0 border-top border-3 border-success">
+    <div class="card-body py-2 px-3 d-flex align-items-center gap-3 flex-wrap">
+      <span class="fw-semibold small">
+        <span id="bulkCount" class="badge bg-success rounded-pill">0</span>
+        seleccionados
+      </span>
+      <div class="vr"></div>
+      <div class="d-flex gap-3 align-items-center">
+        <div class="form-check mb-0">
+          <input class="form-check-input" type="radio" name="bulk_tipo"
+                 id="btPresentacion" value="presentacion" checked>
+          <label class="form-check-label small" for="btPresentacion">
+            <i class="bi bi-file-earmark-text text-primary"></i> Presentacion
+          </label>
+        </div>
+        <div class="form-check mb-0">
+          <input class="form-check-input" type="radio" name="bulk_tipo"
+                 id="btPrecio" value="precio">
+          <label class="form-check-label small" for="btPrecio">
+            <i class="bi bi-currency-dollar text-success"></i> Precio
+          </label>
+        </div>
+      </div>
+      <div id="bulkPrecioFields" class="d-none d-flex gap-1 align-items-center">
+        <input type="number" step="0.001" id="bulkCompra" class="form-control form-control-sm"
+               placeholder="Compra S/." style="width:95px">
+        <input type="number" step="0.001" id="bulkVenta" class="form-control form-control-sm"
+               placeholder="Venta S/." style="width:95px">
+      </div>
+      <button class="btn btn-success btn-sm ms-auto" id="btnIniciarCampana">
+        <i class="bi bi-send"></i> Iniciar campaña
+      </button>
+      <button class="btn btn-outline-secondary btn-sm" id="btnDeselecAll" title="Deseleccionar">
+        <i class="bi bi-x-lg"></i>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal envio correo individual (2 pasos) ───────────────────────────── -->
 <div class="modal fade" id="modalEnvio" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-xl modal-dialog-scrollable">
     <div class="modal-content">
@@ -280,13 +378,20 @@
 </div>
 {% endblock %}
 
+{% block styles %}
+<style>
+.fila-correo-enviado { background-color: rgba(34,197,94,.07) !important; }
+.fila-correo-enviado:hover { background-color: rgba(34,197,94,.14) !important; }
+</style>
+{% endblock %}
+
 {% block scripts %}
 <script>
 const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 
 // ── Real-time search ──────────────────────────────────────────────────────────
 (function() {
-  const inp = document.getElementById('searchInput');
+  const inp  = document.getElementById('searchInput');
   const form = document.getElementById('filtroForm');
   let timer;
   inp.addEventListener('input', function() {
@@ -295,7 +400,232 @@ const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute
   });
 })();
 
-// ── Modal envio (2 pasos) ─────────────────────────────────────────────────────
+// ── Checkboxes y barra masiva ─────────────────────────────────────────────────
+(function() {
+  const chkTodos   = document.getElementById('chkTodos');
+  const bulkBar    = document.getElementById('bulkBar');
+  const bulkCount  = document.getElementById('bulkCount');
+  const btnDeselec = document.getElementById('btnDeselecAll');
+
+  function getChecked() {
+    return Array.from(document.querySelectorAll('.chk-prospecto:checked'));
+  }
+
+  function updateBar() {
+    const checked = getChecked();
+    if (checked.length > 0) {
+      bulkBar.classList.remove('d-none');
+      bulkCount.textContent = checked.length;
+    } else {
+      bulkBar.classList.add('d-none');
+    }
+    // Sincronizar "seleccionar todos"
+    const total = document.querySelectorAll('.chk-prospecto:not([disabled])').length;
+    chkTodos.checked       = checked.length === total && total > 0;
+    chkTodos.indeterminate = checked.length > 0 && checked.length < total;
+  }
+
+  chkTodos.addEventListener('change', function() {
+    document.querySelectorAll('.chk-prospecto:not([disabled])').forEach(c => {
+      c.checked = chkTodos.checked;
+    });
+    updateBar();
+  });
+
+  document.querySelectorAll('.chk-prospecto').forEach(c => {
+    c.addEventListener('change', updateBar);
+  });
+
+  btnDeselec.addEventListener('click', function() {
+    document.querySelectorAll('.chk-prospecto').forEach(c => { c.checked = false; });
+    chkTodos.checked = false;
+    updateBar();
+  });
+
+  // Toggle campo precios en barra masiva
+  document.querySelectorAll('input[name="bulk_tipo"]').forEach(r => {
+    r.addEventListener('change', function() {
+      document.getElementById('bulkPrecioFields').classList.toggle('d-none', this.value !== 'precio');
+    });
+  });
+
+  // Iniciar campaña
+  document.getElementById('btnIniciarCampana').addEventListener('click', async function() {
+    const checked = getChecked();
+    if (!checked.length) return;
+
+    const tipo   = document.querySelector('input[name="bulk_tipo"]:checked').value;
+    const compra = document.getElementById('bulkCompra').value.trim();
+    const venta  = document.getElementById('bulkVenta').value.trim();
+
+    if (tipo === 'precio' && (!compra || !venta)) {
+      Swal.fire('Faltan precios', 'Ingresa COMPRA y VENTA para la campaña.', 'warning'); return;
+    }
+
+    const ids = checked.map(c => c.value);
+    const conf = await Swal.fire({
+      title: 'Iniciar campaña masiva',
+      html: `<b>${ids.length} prospectos</b> recibirán un correo de <b>${tipo === 'precio' ? 'precio' : 'presentación'}</b>.<br>
+             <small class="text-muted">Los correos se enviarán cada ~7 segundos.</small>`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Iniciar',
+      cancelButtonText: 'Cancelar'
+    });
+    if (!conf.isConfirmed) return;
+
+    const btn = this;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Iniciando...';
+
+    try {
+      const resp = await fetch('/prospeccion/campana/iniciar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+        body: JSON.stringify({ ids, tipo, compra, venta })
+      });
+      const data = await resp.json();
+      if (data.ok) {
+        bulkBar.classList.add('d-none');
+        document.querySelectorAll('.chk-prospecto').forEach(c => { c.checked = false; });
+        iniciarPoller();
+      } else {
+        Swal.fire('Error', data.error || 'No se pudo iniciar.', 'error');
+      }
+    } catch(e) { Swal.fire('Error', 'Fallo de conexion.', 'error'); }
+    finally {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-send"></i> Iniciar campaña';
+    }
+  });
+})();
+
+// ── Panel de campaña activa ───────────────────────────────────────────────────
+let campanaPoller = null;
+
+function mostrarPanelCampana(data) {
+  const panel     = document.getElementById('campanaPanel');
+  const spinner   = document.getElementById('cpSpinner');
+  const cpEstado  = document.getElementById('cpEstado');
+  const cpConteo  = document.getElementById('cpConteo');
+  const cpBarra   = document.getElementById('cpBarra');
+  const cpDetalle = document.getElementById('cpDetalle');
+  const cpActWrap = document.getElementById('cpActualizarWrap');
+
+  panel.classList.remove('d-none');
+
+  const enviados = data.enviados || 0;
+  const total    = data.total    || 0;
+  const pct      = total > 0 ? Math.round(enviados / total * 100) : 0;
+
+  cpBarra.style.width = pct + '%';
+  cpConteo.textContent = `${enviados} / ${total} enviados${data.errores ? ' · ' + data.errores + ' errores' : ''}`;
+
+  if (data.activa) {
+    spinner.classList.remove('d-none');
+    cpEstado.textContent = `Enviando campaña de ${data.tipo === 'precio' ? 'precios' : 'presentacion'}...`;
+    cpDetalle.textContent = 'Pausa de ~7 seg entre correos.';
+    document.getElementById('btnDetenerCampana').disabled = false;
+    cpActWrap.classList.toggle('d-none', data.tipo !== 'precio');
+    if (data.tipo === 'precio') {
+      document.getElementById('cpNuevaCompra').placeholder = 'Compra: ' + (data.compra || '');
+      document.getElementById('cpNuevaVenta').placeholder  = 'Venta: '  + (data.venta  || '');
+    }
+  } else {
+    spinner.classList.add('d-none');
+    cpActWrap.classList.add('d-none');
+    document.getElementById('btnDetenerCampana').disabled = true;
+    if (data.estado === 'completada') {
+      cpEstado.textContent = '✓ Campaña completada';
+      cpDetalle.textContent = `${enviados} correos enviados.`;
+      panel.style.borderColor = '#22c55e';
+      // Recargar la página después de 3 segundos
+      setTimeout(() => location.reload(), 3000);
+    } else if (data.estado === 'detenida') {
+      cpEstado.textContent = 'Campaña detenida';
+      cpDetalle.textContent = `${enviados} de ${total} enviados.`;
+    }
+  }
+}
+
+async function checkCampanaEstado() {
+  try {
+    const resp = await fetch('/prospeccion/campana/estado');
+    const data = await resp.json();
+
+    if (!data.activa && !data.estado) {
+      document.getElementById('campanaPanel').classList.add('d-none');
+      if (campanaPoller) { clearInterval(campanaPoller); campanaPoller = null; }
+      return;
+    }
+
+    mostrarPanelCampana(data);
+
+    if (!data.activa && campanaPoller) {
+      clearInterval(campanaPoller);
+      campanaPoller = null;
+    }
+  } catch(e) {}
+}
+
+function iniciarPoller() {
+  if (!campanaPoller) {
+    campanaPoller = setInterval(checkCampanaEstado, 3000);
+  }
+  checkCampanaEstado();
+}
+
+// Verificar al cargar la página
+checkCampanaEstado().then(() => {
+  // Si hay campaña activa, arrancar el poller automáticamente
+  fetch('/prospeccion/campana/estado')
+    .then(r => r.json())
+    .then(d => { if (d.activa) iniciarPoller(); })
+    .catch(() => {});
+});
+
+// Botón detener campaña
+document.getElementById('btnDetenerCampana').addEventListener('click', async function() {
+  const conf = await Swal.fire({
+    title: 'Detener campaña?',
+    text: 'Se detendrá el envío. Los correos ya enviados no se pueden revertir.',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'Detener',
+    cancelButtonText: 'Continuar',
+    confirmButtonColor: '#dc3545'
+  });
+  if (!conf.isConfirmed) return;
+  await fetch('/prospeccion/campana/detener', {
+    method: 'POST',
+    headers: { 'X-CSRFToken': csrfToken }
+  });
+  checkCampanaEstado();
+});
+
+// Botón actualizar precios
+document.getElementById('btnActualizarPrecios').addEventListener('click', async function() {
+  const compra = document.getElementById('cpNuevaCompra').value.trim();
+  const venta  = document.getElementById('cpNuevaVenta').value.trim();
+  if (!compra || !venta) {
+    Swal.fire('Faltan datos', 'Ingresa COMPRA y VENTA.', 'warning'); return;
+  }
+  const resp = await fetch('/prospeccion/campana/actualizar-precios', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+    body: JSON.stringify({ compra, venta })
+  });
+  const data = await resp.json();
+  if (data.ok) {
+    Swal.fire({ icon: 'success', title: 'Precios actualizados', timer: 1500, showConfirmButton: false });
+    document.getElementById('cpNuevaCompra').value = '';
+    document.getElementById('cpNuevaVenta').value  = '';
+  } else {
+    Swal.fire('Error', data.error, 'error');
+  }
+});
+
+// ── Modal envio individual (2 pasos) ──────────────────────────────────────────
 (function() {
   let currentPid   = null;
   let currentTipo  = 'presentacion';
