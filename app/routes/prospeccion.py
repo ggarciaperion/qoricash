@@ -205,7 +205,11 @@ def lista():
             Prospecto.ruc.ilike(like),
         ))
 
-    prospectos = query.order_by(Prospecto.score.desc()).paginate(page=page, per_page=50, error_out=False)
+    if tab == "seguimiento":
+        order = Prospecto.actualizado_en.desc()
+    else:
+        order = Prospecto.score.desc()
+    prospectos = query.order_by(order).paginate(page=page, per_page=50, error_out=False)
     deptos = [d[0] for d in db.session.query(Prospecto.departamento).distinct().order_by(Prospecto.departamento).all() if d[0]]
 
     # Conteos para las pestañas
