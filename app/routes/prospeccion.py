@@ -92,11 +92,11 @@ def _base_query():
 @require_role("Master", "Trader")
 def dashboard():
     q = _base_query()
-    total       = q.count()
-    pipeline    = q.filter(Prospecto.estado_comercial.in_(["P1","P2","P3","P4"])).count()
-    clientes    = q.filter(Prospecto.estado_comercial == "P4").count()
-    en_negoc    = q.filter(Prospecto.estado_comercial == "P3").count()
-    lfc         = q.filter(Prospecto.cliente_lfc == "Cliente LFC").count()
+    total        = q.filter(Prospecto.estado_comercial != "cliente").count()
+    en_seguim    = q.filter(Prospecto.estado_comercial.in_(["seguimiento","P1","P2"])).count()
+    en_negoc     = q.filter(Prospecto.estado_comercial.in_(["negociacion","P3"])).count()
+    clientes     = q.filter(Prospecto.estado_comercial.in_(["cliente","P4"])).count()
+    lfc          = q.filter(Prospecto.cliente_lfc == "Cliente LFC").count()
 
     # Top 5 rubros
     top_rubros = (db.session.query(Prospecto.rubro, func.count(Prospecto.id))
@@ -122,7 +122,7 @@ def dashboard():
 
     return render_template(
         "prospeccion/dashboard.html",
-        total=total, pipeline=pipeline, clientes=clientes,
+        total=total, en_seguim=en_seguim, clientes=clientes,
         en_negoc=en_negoc, lfc=lfc,
         top_rubros=top_rubros,
         actividades=actividades,
