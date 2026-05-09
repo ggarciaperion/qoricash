@@ -73,15 +73,16 @@ class Prospecto(db.Model):
     @property
     def estado_badge(self):
         mapa = {
-            "P1": ("secondary", "Presentacion enviada"),
-            "P2": ("info",      "Precio enviado"),
-            "P3": ("warning",   "En negociacion"),
-            "P4": ("success",   "Cliente cerrado"),
-            "❌ Hard Bounce": ("danger",  "Rebotado"),
-            "⚠️ Soft Bounce": ("warning", "Soft Bounce"),
-            "🚫 Rechazado":   ("dark",    "No contactar"),
+            "seguimiento": ("primary",   "En Seguimiento"),
+            "negociacion": ("warning",   "En Negociacion"),
+            "cliente":     ("success",   "Cliente"),
+            # compatibilidad con estados anteriores
+            "P1": ("primary",  "En Seguimiento"),
+            "P2": ("primary",  "En Seguimiento"),
+            "P3": ("warning",  "En Negociacion"),
+            "P4": ("success",  "Cliente"),
         }
-        return mapa.get(self.estado_comercial, ("secondary", self.estado_comercial or "—"))
+        return mapa.get(self.estado_comercial, ("secondary", "Sin contactar"))
 
     @property
     def trader_asignado(self):

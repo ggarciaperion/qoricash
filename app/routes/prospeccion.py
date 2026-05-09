@@ -136,18 +136,21 @@ def dashboard():
 @login_required
 @require_role("Master", "Trader")
 def lista():
-    grupo  = request.args.get("grupo", "")
-    rubro  = request.args.get("rubro", "")
+    tab    = request.args.get("tab", "todos")       # todos | seguimiento | negociacion
     depto  = request.args.get("depto", "")
     q_str  = request.args.get("q", "")
     page   = request.args.get("page", 1, type=int)
 
-    query = _base_query()
+    query = _base_query().filter(Prospecto.estado_comercial != "cliente")
 
-    if grupo:
-        query = query.filter(Prospecto.grupo == grupo)
-    if rubro:
-        query = query.filter(Prospecto.rubro.ilike(f"%{rubro}%"))
+    # Filtro por pestaña
+    if tab == "seguimiento":
+        query = query.filter(Prospecto.estado_comercial.in_(["seguimiento", "P1", "P2"]))
+    elif tab == "negociacion":
+        query = query.filter(Prospecto.estado_comercial.in_(["negociacion", "P3"]))
+    elif tab == "todos":
+        pass  # muestra todo excepto clientes ya convertidos
+
     if depto:
         query = query.filter(Prospecto.departamento.ilike(f"%{depto}%"))
     if q_str:
@@ -160,15 +163,23 @@ def lista():
         ))
 
     prospectos = query.order_by(Prospecto.score.desc()).paginate(page=page, per_page=50, error_out=False)
-
-    rubros = [r[0] for r in db.session.query(Prospecto.rubro).distinct().order_by(Prospecto.rubro).all() if r[0]]
     deptos = [d[0] for d in db.session.query(Prospecto.departamento).distinct().order_by(Prospecto.departamento).all() if d[0]]
+
+    # Conteos para las pestañas
+    base = _base_query()
+    cnt_todos        = base.filter(Prospecto.estado_comercial != "cliente").count()
+    cnt_seguimiento  = base.filter(Prospecto.estado_comercial.in_(["seguimiento","P1","P2"])).count()
+    cnt_negociacion  = base.filter(Prospecto.estado_comercial.in_(["negociacion","P3"])).count()
 
     return render_template(
         "prospeccion/lista.html",
         prospectos=prospectos,
-        grupos=GRUPOS_ORDEN, rubros=rubros, deptos=deptos,
-        filtros={"grupo": grupo, "rubro": rubro, "depto": depto, "q": q_str},
+        deptos=deptos,
+        tab=tab,
+        filtros={"depto": depto, "q": q_str, "tab": tab},
+        cnt_todos=cnt_todos,
+        cnt_seguimiento=cnt_seguimiento,
+        cnt_negociacion=cnt_negociacion,
     )
 
 
@@ -447,6 +458,38 @@ def api_rubros():
 
 
 # ── Import masivo via HTTP (endpoint temporal para carga inicial) ─────────────
+
+@prospeccion_bp.route("/api/sincronizar-enviados", methods=["POST"])
+@csrf.exempt
+def sincronizar_enviados():
+    """Marca como 'seguimiento' todos los prospectos cuyo email aparece en la lista."""
+    import os
+    key = request.headers.get("X-Import-Key", "")
+    if key != os.environ.get("PROSPECCION_IMPORT_KEY", "qc-import-prospectos-2026"):
+        return jsonify({"error": "No autorizado"}), 401
+
+    emails = request.get_json(force=True).get("emails", [])
+    if not emails:
+        return jsonify({"actualizados": 0, "no_encontrados": 0})
+
+    emails_lower = [e.strip().lower() for e in emails if e and "@" in e]
+    actualizados = 0
+    no_encontrados = 0
+
+    for email in emails_lower:
+        p = Prospecto.query.filter(
+            db.func.lower(Prospecto.email) == email,
+            Prospecto.estado_comercial.notin_(["seguimiento","negociacion","cliente","P1","P2","P3","P4"])
+        ).first()
+        if p:
+            p.estado_comercial = "seguimiento"
+            actualizados += 1
+        else:
+            no_encontrados += 1
+
+    db.session.commit()
+    return jsonify({"actualizados": actualizados, "no_encontrados": no_encontrados})
+
 
 @prospeccion_bp.route("/api/import-batch", methods=["POST"])
 @csrf.exempt
@@ -922,11 +965,10 @@ def enviar_email(pid):
         return jsonify({"ok": False, "error": "Debes indicar COMPRA y VENTA."}), 400
 
     if html_editado:
-        html, asunto, nuevo_estado = html_editado, data.get("asunto", "QoriCash"), (
-            "P2" if tipo == "precio" else "P1"
-        )
+        html   = html_editado
+        asunto = data.get("asunto", "QoriCash")
     else:
-        html, asunto, nuevo_estado = _construir_email(p, tipo, compra, venta)
+        html, asunto, _ = _construir_email(p, tipo, compra, venta)
 
     sender_email = getattr(current_user, "email", None)
     if not sender_email:
@@ -937,22 +979,120 @@ def enviar_email(pid):
     except Exception as exc:
         return jsonify({"ok": False, "error": str(exc)}), 500
 
-    # Registrar actividad y actualizar estado
+    # Registrar actividad y pasar a "En Seguimiento"
     act = ActividadProspecto(
         prospecto_id=p.id,
         user_id=current_user.id,
         tipo="email",
-        descripcion=f"Correo de {tipo} enviado desde la Base Maestra.",
+        descripcion=f"Correo de {tipo} enviado.",
         resultado="Enviado",
-        nuevo_estado=nuevo_estado,
+        nuevo_estado="seguimiento",
     )
     db.session.add(act)
-    p.estado_comercial       = nuevo_estado
-    p.fecha_ultimo_contacto  = now_peru().strftime("%Y-%m-%d %H:%M")
+    p.estado_comercial      = "seguimiento"
+    p.fecha_ultimo_contacto = now_peru().strftime("%Y-%m-%d %H:%M")
     db.session.commit()
 
     tipo_label = "presentacion" if tipo == "presentacion" else "precio del dia"
     return jsonify({"ok": True, "msg": f"Correo de {tipo_label} enviado a {p.email}."})
+
+
+# ── Cambiar estado (seguimiento → negociacion) ────────────────────────────────
+
+@prospeccion_bp.route("/<int:pid>/cambiar-estado", methods=["POST"])
+@login_required
+@require_role("Master", "Trader")
+def cambiar_estado(pid):
+    p = Prospecto.query.get_or_404(pid)
+    _verificar_acceso(p)
+
+    nuevo = request.get_json(force=True).get("estado", "")
+    if nuevo not in ("seguimiento", "negociacion"):
+        return jsonify({"ok": False, "error": "Estado invalido."}), 400
+
+    act = ActividadProspecto(
+        prospecto_id=p.id,
+        user_id=current_user.id,
+        tipo="estado",
+        descripcion=f"Estado cambiado a {nuevo}.",
+        nuevo_estado=nuevo,
+    )
+    db.session.add(act)
+    p.estado_comercial = nuevo
+    db.session.commit()
+    return jsonify({"ok": True})
+
+
+# ── Registrar como cliente ────────────────────────────────────────────────────
+
+@prospeccion_bp.route("/<int:pid>/registrar-cliente", methods=["POST"])
+@login_required
+@require_role("Master", "Trader")
+def registrar_cliente(pid):
+    from app.models.client import Client
+    from werkzeug.security import generate_password_hash
+    import secrets
+
+    p = Prospecto.query.get_or_404(pid)
+    _verificar_acceso(p)
+
+    # 1. Buscar cliente existente por RUC o email
+    cliente = None
+    if p.ruc:
+        cliente = Client.query.filter_by(dni=p.ruc).first()
+    if not cliente and p.email:
+        cliente = Client.query.filter_by(email=p.email).first()
+
+    if cliente:
+        # Ya existe — solo marcar prospecto como convertido
+        p.estado_comercial = "cliente"
+        act = ActividadProspecto(
+            prospecto_id=p.id, user_id=current_user.id,
+            tipo="estado",
+            descripcion=f"Cruzado con cliente existente ID {cliente.id} ({cliente.email}).",
+            nuevo_estado="cliente",
+        )
+        db.session.add(act)
+        db.session.commit()
+        return jsonify({"ok": True, "accion": "vinculado",
+                        "msg": f"Vinculado con cliente existente: {cliente.email}"})
+
+    # 2. No existe — crear cliente basico con los datos del prospecto
+    if not p.email:
+        return jsonify({"ok": False,
+                        "error": "El prospecto no tiene email. Agrega uno antes de registrarlo como cliente."}), 400
+
+    temp_pass = secrets.token_urlsafe(10)
+    nuevo_cliente = Client(
+        document_type = "RUC" if p.ruc else "DNI",
+        dni           = p.ruc or p.email,
+        razon_social  = p.razon_social,
+        persona_contacto = p.nombre_contacto,
+        email         = p.email,
+        phone         = p.telefono,
+        departamento  = p.departamento,
+        provincia     = p.provincia,
+        password_hash = generate_password_hash(temp_pass),
+    )
+    db.session.add(nuevo_cliente)
+
+    p.estado_comercial = "cliente"
+    act = ActividadProspecto(
+        prospecto_id=p.id, user_id=current_user.id,
+        tipo="estado",
+        descripcion=f"Registrado como nuevo cliente ({p.email}).",
+        nuevo_estado="cliente",
+    )
+    db.session.add(act)
+
+    try:
+        db.session.commit()
+    except Exception as exc:
+        db.session.rollback()
+        return jsonify({"ok": False, "error": f"Error al crear cliente: {exc}"}), 500
+
+    return jsonify({"ok": True, "accion": "creado",
+                    "msg": f"Cliente creado exitosamente: {p.email}"})
 
 
 # ── Helper ────────────────────────────────────────────────────────────────────
