@@ -132,21 +132,15 @@ GRUPOS_ORDEN = [
 
 
 def _base_query():
-    """Retorna query filtrada segun rol: Master ve todo, Trader solo los suyos."""
-    q = Prospecto.query
-    if current_user.role == "Trader":
-        q = (q.join(AsignacionProspecto,
-                    AsignacionProspecto.prospecto_id == Prospecto.id)
-               .filter(AsignacionProspecto.trader_id == current_user.id,
-                       AsignacionProspecto.activo == True))
-    return q
+    """Retorna query base de prospectos (solo Master accede al modulo)."""
+    return Prospecto.query
 
 
 # ── Dashboard prospeccion ─────────────────────────────────────────────────────
 
 @prospeccion_bp.route("/")
 @login_required
-@require_role("Master", "Trader")
+@require_role("Master")
 def dashboard():
     q = _base_query()
     total        = q.filter(Prospecto.estado_comercial.notin_(["cliente","P4"])).count()
@@ -166,93 +160,10 @@ def dashboard():
                   .order_by(func.count(Prospecto.id).desc())
                   .limit(15).all())
 
-    # Mis ultimas actividades
+    # Ultimas actividades del equipo
     actividades = (ActividadProspecto.query
-                   .filter_by(user_id=current_user.id)
                    .order_by(ActividadProspecto.creado_en.desc())
-                   .limit(8).all())
-
-    # Solo Master: resumen por trader + prospectos vencidos
-    traders_stats        = []
-    traders_disponibles  = []
-    vencidos             = []
-    solicitudes_extension = []
-
-    if current_user.role == "Master":
-        traders = User.query.filter(User.role == "Trader", User.status == "Activo").all()
-        traders_disponibles = traders
-        hace7 = now_peru() - timedelta(days=7)
-        for t in traders:
-            base_t = (db.session.query(Prospecto)
-                      .join(AsignacionProspecto, AsignacionProspecto.prospecto_id == Prospecto.id)
-                      .filter(AsignacionProspecto.trader_id == t.id,
-                              AsignacionProspecto.activo == True))
-            cnt_total = base_t.count()
-            cnt_seg   = base_t.filter(Prospecto.estado_comercial.in_(
-                            ["seguimiento","P1","P2"])).count()
-            cnt_neg   = base_t.filter(Prospecto.estado_comercial.in_(
-                            ["negociacion","P3"])).count()
-            cnt_cli   = base_t.filter(Prospecto.estado_comercial.in_(
-                            ["cliente","P4"])).count()
-            act7d     = (ActividadProspecto.query
-                         .filter_by(user_id=t.id)
-                         .filter(ActividadProspecto.creado_en >= hace7)
-                         .count())
-            last_act  = (ActividadProspecto.query
-                         .filter_by(user_id=t.id)
-                         .order_by(ActividadProspecto.creado_en.desc())
-                         .first())
-            traders_stats.append({
-                "trader":    t,
-                "asignados": cnt_total,
-                "seguim":    cnt_seg,
-                "negoc":     cnt_neg,
-                "clientes":  cnt_cli,
-                "act7d":     act7d,
-                "last_act":  last_act.creado_en if last_act else None,
-            })
-
-        # Prospectos vencidos: asignado_en + DIAS_VIGENCIA + dias_extra < hoy
-        # y sin extensión solicitada pendiente
-        fecha_corte = now_peru() - timedelta(days=DIAS_VIGENCIA)
-        hoy = now_peru().date()
-        rows = (db.session.query(Prospecto, AsignacionProspecto, User)
-                .join(AsignacionProspecto, AsignacionProspecto.prospecto_id == Prospecto.id)
-                .join(User, User.id == AsignacionProspecto.trader_id)
-                .filter(
-                    AsignacionProspecto.activo == True,
-                    AsignacionProspecto.extension_solicitada == False,
-                    Prospecto.estado_comercial.notin_(["cliente", "P4"]),
-                    AsignacionProspecto.asignado_en < fecha_corte,
-                )
-                .order_by(AsignacionProspecto.asignado_en.asc())
-                .limit(200).all())
-
-        for p, asig, trader in rows:
-            vigencia_total = DIAS_VIGENCIA + (asig.dias_extra or 0)
-            dias_desde     = (hoy - asig.asignado_en.date()).days
-            if dias_desde <= vigencia_total:
-                continue   # extensión aprobada que aún cubre
-            vencidos.append({
-                "p":          p,
-                "asig":       asig,
-                "trader":     trader,
-                "dias_vencido": dias_desde - vigencia_total,
-            })
-
-        # Solicitudes de extensión pendientes
-        sol_rows = (db.session.query(Prospecto, AsignacionProspecto, User)
-                    .join(AsignacionProspecto, AsignacionProspecto.prospecto_id == Prospecto.id)
-                    .join(User, User.id == AsignacionProspecto.trader_id)
-                    .filter(
-                        AsignacionProspecto.activo == True,
-                        AsignacionProspecto.extension_solicitada == True,
-                    ).all())
-        solicitudes_extension = [
-            {"p": p, "asig": asig, "trader": trader,
-             "dias_desde": (hoy - asig.asignado_en.date()).days}
-            for p, asig, trader in sol_rows
-        ]
+                   .limit(10).all())
 
     return render_template(
         "prospeccion/dashboard.html",
@@ -260,11 +171,6 @@ def dashboard():
         en_negoc=en_negoc, lfc=lfc,
         top_rubros=top_rubros,
         actividades=actividades,
-        traders_stats=traders_stats,
-        traders_disponibles=traders_disponibles,
-        vencidos=vencidos,
-        solicitudes_extension=solicitudes_extension,
-        dias_vigencia=DIAS_VIGENCIA,
     )
 
 
@@ -364,7 +270,7 @@ def reporte_trader(trader_id):
 
 @prospeccion_bp.route("/lista")
 @login_required
-@require_role("Master", "Trader")
+@require_role("Master")
 def lista():
     tab    = request.args.get("tab", "todos")       # todos | seguimiento | negociacion
     depto  = request.args.get("depto", "")
@@ -425,25 +331,6 @@ def lista():
                             or_(Prospecto.grupo == "CLIENTES LFC",
                                 Prospecto.cliente_lfc == "Cliente LFC")).count()
 
-    # Vigencia por prospecto (días restantes hasta vencimiento de asignación)
-    hoy   = now_peru().date()
-    pids  = [p.id for p in prospectos.items]
-    asigs = (AsignacionProspecto.query
-             .filter(AsignacionProspecto.prospecto_id.in_(pids),
-                     AsignacionProspecto.activo == True)
-             .all())
-    asig_by_pid = {a.prospecto_id: a for a in asigs}
-
-    vigencia_map = {}
-    for p in prospectos.items:
-        asig = asig_by_pid.get(p.id)
-        if not asig:
-            continue
-        vigencia_total      = DIAS_VIGENCIA + (asig.dias_extra or 0)
-        dias_desde_asign    = (hoy - asig.asignado_en.date()).days
-        vigencia_map[p.id]  = (vigencia_total - dias_desde_asign,
-                                asig.extension_solicitada)
-
     return render_template(
         "prospeccion/lista.html",
         prospectos=prospectos,
@@ -457,8 +344,6 @@ def lista():
         cnt_negociando=cnt_negociando,
         cnt_clientes=cnt_clientes,
         cnt_lfc=cnt_lfc,
-        vigencia_map=vigencia_map,
-        dias_vigencia=DIAS_VIGENCIA,
     )
 
 
@@ -466,41 +351,14 @@ def lista():
 
 @prospeccion_bp.route("/<int:pid>")
 @login_required
-@require_role("Master", "Trader")
+@require_role("Master")
 def detalle(pid):
     p = Prospecto.query.get_or_404(pid)
-    _verificar_acceso(p)
-    actividades = p.actividades.limit(30).all()
-
-    traders_disponibles = []
-    if current_user.role == "Master":
-        traders_disponibles = User.query.filter_by(role="Trader", status="Activo").all()
-
-    asignacion_actual  = p.asignaciones.filter_by(activo=True).first()
-    historial_traders  = (p.asignaciones
-                          .filter_by(activo=False)
-                          .order_by(AsignacionProspecto.asignado_en.desc())
-                          .all())
-
-    # Vigencia (aplica para ambos roles al ver el detalle)
-    vigencia_dias        = None
-    ext_solicitada       = False
-    if asignacion_actual:
-        hoy              = now_peru().date()
-        vigencia_total   = DIAS_VIGENCIA + (asignacion_actual.dias_extra or 0)
-        dias_desde       = (hoy - asignacion_actual.asignado_en.date()).days
-        vigencia_dias    = vigencia_total - dias_desde
-        ext_solicitada   = bool(asignacion_actual.extension_solicitada)
+    actividades = p.actividades.limit(50).all()
 
     return render_template(
         "prospeccion/detalle.html",
         p=p, actividades=actividades,
-        traders_disponibles=traders_disponibles,
-        asignacion_actual=asignacion_actual,
-        historial_traders=historial_traders,
-        vigencia_dias=vigencia_dias,
-        ext_solicitada=ext_solicitada,
-        dias_vigencia=DIAS_VIGENCIA,
     )
 
 
@@ -508,7 +366,7 @@ def detalle(pid):
 
 @prospeccion_bp.route("/<int:pid>/actividad", methods=["POST"])
 @login_required
-@require_role("Master", "Trader")
+@require_role("Master")
 def agregar_actividad(pid):
     p = Prospecto.query.get_or_404(pid)
     _verificar_acceso(p)
@@ -677,7 +535,7 @@ def pipeline():
 
 @prospeccion_bp.route("/<int:pid>/mover", methods=["POST"])
 @login_required
-@require_role("Master", "Trader")
+@require_role("Master")
 def mover_pipeline(pid):
     p = Prospecto.query.get_or_404(pid)
     _verificar_acceso(p)
@@ -706,7 +564,7 @@ def no_contactar():
 
 @prospeccion_bp.route("/api/charts/grupos")
 @login_required
-@require_role("Master", "Trader")
+@require_role("Master")
 def api_grupos():
     q = _base_query()
     rows = (db.session.query(Prospecto.grupo, func.count(Prospecto.id))
@@ -724,7 +582,7 @@ def api_grupos():
 
 @prospeccion_bp.route("/api/charts/rubros")
 @login_required
-@require_role("Master", "Trader")
+@require_role("Master")
 def api_rubros():
     q = _base_query()
     rows = (db.session.query(Prospecto.rubro, func.count(Prospecto.id))
@@ -1196,7 +1054,7 @@ def _construir_email(p, tipo, compra, venta, sender_email, nombre_completo, carg
 
 @prospeccion_bp.route("/<int:pid>/preview-email", methods=["POST"])
 @login_required
-@require_role("Master", "Trader")
+@require_role("Master")
 def preview_email(pid):
     """Genera el borrador HTML sin enviarlo."""
     p = Prospecto.query.get_or_404(pid)
@@ -1221,7 +1079,7 @@ def preview_email(pid):
 
 @prospeccion_bp.route("/<int:pid>/enviar-email", methods=["POST"])
 @login_required
-@require_role("Master", "Trader")
+@require_role("Master")
 def enviar_email(pid):
     p = Prospecto.query.get_or_404(pid)
     _verificar_acceso(p)
@@ -1299,7 +1157,7 @@ def enviar_email(pid):
 
 @prospeccion_bp.route("/<int:pid>/cambiar-estado", methods=["POST"])
 @login_required
-@require_role("Master", "Trader")
+@require_role("Master")
 def cambiar_estado(pid):
     p = Prospecto.query.get_or_404(pid)
     _verificar_acceso(p)
@@ -1324,7 +1182,7 @@ def cambiar_estado(pid):
 
 @prospeccion_bp.route("/<int:pid>/registrar-cliente", methods=["POST"])
 @login_required
-@require_role("Master", "Trader")
+@require_role("Master")
 def registrar_cliente(pid):
     from app.models.client import Client
     from werkzeug.security import generate_password_hash
@@ -1478,7 +1336,7 @@ def _campana_worker(app, trader_id, prospecto_ids, tipo, sender_email,
 
 @prospeccion_bp.route("/campana/iniciar", methods=["POST"])
 @login_required
-@require_role("Master", "Trader")
+@require_role("Master")
 def campana_iniciar():
     data   = request.get_json(force=True)
     ids    = [int(i) for i in data.get("ids", []) if str(i).isdigit()]
@@ -1527,7 +1385,7 @@ def campana_iniciar():
 
 @prospeccion_bp.route("/campana/estado")
 @login_required
-@require_role("Master", "Trader")
+@require_role("Master")
 def campana_estado():
     trader_id = current_user.id
     with _campanas_lock:
@@ -1552,7 +1410,7 @@ def campana_estado():
 
 @prospeccion_bp.route("/campana/detener", methods=["POST"])
 @login_required
-@require_role("Master", "Trader")
+@require_role("Master")
 def campana_detener():
     trader_id = current_user.id
     with _campanas_lock:
@@ -1703,7 +1561,7 @@ def reasignar_vencidos():
 
 @prospeccion_bp.route("/campana/actualizar-precios", methods=["POST"])
 @login_required
-@require_role("Master", "Trader")
+@require_role("Master")
 def campana_actualizar_precios():
     data   = request.get_json(force=True)
     compra = data.get("compra", "").strip()

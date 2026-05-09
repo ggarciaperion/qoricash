@@ -120,7 +120,7 @@
             </a>
             {% endif %}
 
-            {% if current_user.role in ['Master', 'Trader'] %}
+            {% if current_user.role == 'Master' %}
             <a class="sidebar-link {% if request.endpoint and request.endpoint.startswith('prospeccion') %}active{% endif %}"
                href="{{ url_for('prospeccion.dashboard') }}">
                 <i class="bi bi-megaphone"></i>

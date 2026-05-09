@@ -110,17 +110,12 @@
             <th>Estado</th>
             <th>Ultimo envio</th>
             <th>Proximo contacto</th>
-            <th>Vigencia</th>
-            {% if current_user.role == 'Master' %}<th>Trader</th>{% endif %}
             <th style="width:80px"></th>
           </tr>
         </thead>
         <tbody>
           {% for p in prospectos.items %}
-          {% set estado = p.estado_comercial or '' %}
-          {% set vig = vigencia_map.get(p.id) %}
-          {% set dias_vig = vig[0] if vig else none %}
-          <tr data-pid="{{ p.id }}" class="{% if dias_vig is not none and dias_vig <= 7 and dias_vig >= 0 %}table-danger bg-opacity-25{% endif %}">
+          <tr data-pid="{{ p.id }}">
             <td>
               <input type="checkbox" class="form-check-input chk-prospecto" value="{{ p.id }}"
                      {% if not p.email %}disabled title="Sin email"{% endif %}>
@@ -180,35 +175,6 @@
               <span class="text-muted">—</span>
               {% endif %}
             </td>
-            <td style="white-space:nowrap">
-              {% if vig is not none %}
-                {% set dias, ext_sol = vig %}
-                {% if ext_sol %}
-                  <span class="badge bg-secondary">Ext. pendiente</span>
-                {% elif dias <= 0 %}
-                  <span class="badge bg-danger">Vencido</span>
-                  {% if current_user.role == 'Trader' and estado in ['negociando','negociacion','P3'] %}
-                  <button class="btn btn-sol-ext border-0 bg-transparent text-warning p-0 ms-1"
-                          data-pid="{{ p.id }}" title="Solicitar extension">
-                    <i class="bi bi-plus-circle-fill"></i>
-                  </button>
-                  {% endif %}
-                {% elif dias <= 7 %}
-                  <span class="badge bg-danger">{{ dias }}d</span>
-                {% elif dias <= 15 %}
-                  <span class="badge bg-warning text-dark">{{ dias }}d</span>
-                {% else %}
-                  <span class="text-muted small">{{ dias }}d</span>
-                {% endif %}
-              {% else %}<span class="text-muted">—</span>{% endif %}
-            </td>
-            {% if current_user.role == 'Master' %}
-            <td class="text-muted" style="font-size:.78rem">
-              {% if p.trader_asignado %}
-              <i class="bi bi-person-check-fill text-success"></i> {{ p.trader_asignado.username }}
-              {% else %}—{% endif %}
-            </td>
-            {% endif %}
             <td>
               <div class="d-flex gap-1">
                 <a href="{{ url_for('prospeccion.detalle', pid=p.id) }}"

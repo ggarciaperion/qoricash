@@ -14,24 +14,6 @@
       </ol>
     </nav>
     <div class="d-flex gap-2 align-items-center flex-wrap">
-      {% if vigencia_dias is not none %}
-        {% if ext_solicitada %}
-          <span class="badge bg-warning text-dark fs-6">Extension pendiente</span>
-        {% elif vigencia_dias <= 0 %}
-          <span class="badge bg-danger fs-6">Vigencia vencida</span>
-          {% if current_user.role == 'Trader' %}
-          <button class="btn btn-sm btn-outline-warning" id="btnSolExt">
-            <i class="bi bi-plus-circle"></i> Solicitar extension
-          </button>
-          {% endif %}
-        {% elif vigencia_dias <= 7 %}
-          <span class="badge bg-danger fs-6">{{ vigencia_dias }}d restantes</span>
-        {% elif vigencia_dias <= 15 %}
-          <span class="badge bg-warning text-dark fs-6">{{ vigencia_dias }}d restantes</span>
-        {% else %}
-          <span class="badge bg-success-subtle text-success border border-success-subtle fs-6">{{ vigencia_dias }}d restantes</span>
-        {% endif %}
-      {% endif %}
       <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalEnviarEmail">
         <i class="bi bi-envelope"></i> Enviar email
       </button>
@@ -265,50 +247,6 @@
         </div>
       </div>
 
-      <!-- Asignacion trader (solo Master) -->
-      {% if current_user.role == 'Master' %}
-      <div class="card border-0 shadow-sm mb-3">
-        <div class="card-header bg-transparent border-bottom py-3 px-3">
-          <span class="fw-semibold small text-uppercase text-muted">Trader asignado</span>
-        </div>
-        <div class="card-body px-3 py-3">
-          {% if asignacion_actual %}
-          <div class="d-flex align-items-center gap-2 mb-3 small">
-            <i class="bi bi-person-check-fill text-success"></i>
-            <span class="fw-semibold">{{ asignacion_actual.trader.username }}</span>
-            <span class="text-muted">· desde {{ asignacion_actual.asignado_en.strftime('%d/%m/%Y') }}</span>
-          </div>
-          {% else %}
-          <div class="text-muted small mb-3">Sin asignar</div>
-          {% endif %}
-          <form method="POST" action="{{ url_for('prospeccion.asignar', pid=p.id) }}">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-            <div class="d-flex gap-2">
-              <select name="trader_id" class="form-select form-select-sm">
-                <option value="">— Sin asignar —</option>
-                {% for t in traders_disponibles %}
-                <option value="{{ t.id }}"
-                  {% if asignacion_actual and asignacion_actual.trader_id == t.id %}selected{% endif %}>
-                  {{ t.username }}
-                </option>
-                {% endfor %}
-              </select>
-              <button type="submit" class="btn btn-sm btn-outline-primary px-3">
-                <i class="bi bi-check"></i>
-              </button>
-            </div>
-          </form>
-          {% if historial_traders %}
-          <div class="mt-3 pt-2 border-top">
-            <div class="text-muted mb-1" style="font-size:.65rem;text-transform:uppercase;letter-spacing:.5px">Anteriores</div>
-            {% for ha in historial_traders %}
-            <div class="small text-muted">{{ ha.trader.username }} <span class="opacity-50">· {{ ha.asignado_en.strftime('%d/%m/%Y') }}</span></div>
-            {% endfor %}
-          </div>
-          {% endif %}
-        </div>
-      </div>
-      {% endif %}
 
       <!-- Clasificacion -->
       {% if p.canal or p.fuente or p.nivel_interes or p.grupo %}
@@ -393,34 +331,6 @@
 {% block scripts %}
 <script>
 const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-
-// Solicitar extension vigencia
-const btnSolExt = document.getElementById('btnSolExt');
-if (btnSolExt) {
-  btnSolExt.addEventListener('click', async function() {
-    const conf = await Swal.fire({
-      title: '¿Solicitar extension de vigencia?',
-      text: 'Se enviara una solicitud al Master para extender 45 dias mas este prospecto.',
-      icon: 'question',
-      showCancelButton: true,
-      confirmButtonText: 'Solicitar',
-      cancelButtonText: 'Cancelar'
-    });
-    if (!conf.isConfirmed) return;
-    const resp = await fetch('/prospeccion/{{ p.id }}/solicitar-extension', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
-      body: JSON.stringify({})
-    });
-    const data = await resp.json();
-    if (data.ok) {
-      Swal.fire({ icon: 'success', title: 'Solicitud enviada al Master', timer: 2000, showConfirmButton: false })
-        .then(() => location.reload());
-    } else {
-      Swal.fire('Error', data.error, 'error');
-    }
-  });
-}
 
 // Modal email: mostrar/ocultar campos precio
 const tipoSel = document.getElementById('tipoEmailSel');
