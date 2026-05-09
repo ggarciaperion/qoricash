@@ -33,6 +33,12 @@
         En Negociacion <span class="badge bg-warning text-dark ms-1">{{ cnt_negociacion }}</span>
       </a>
     </li>
+    <li class="nav-item">
+      <a class="nav-link {% if tab == 'clientes' %}active{% endif %}"
+         href="{{ url_for('prospeccion.lista', tab='clientes', depto=filtros.depto, q=filtros.q) }}">
+        Clientes <span class="badge bg-success ms-1">{{ cnt_clientes }}</span>
+      </a>
+    </li>
   </ul>
 
   <!-- Filtros -->

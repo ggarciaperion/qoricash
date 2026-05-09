@@ -141,15 +141,16 @@ def lista():
     q_str  = request.args.get("q", "")
     page   = request.args.get("page", 1, type=int)
 
-    query = _base_query().filter(Prospecto.estado_comercial != "cliente")
+    if tab == "clientes":
+        query = _base_query().filter(Prospecto.estado_comercial.in_(["cliente", "P4"]))
+    else:
+        query = _base_query().filter(Prospecto.estado_comercial.notin_(["cliente", "P4"]))
 
     # Filtro por pestaña
     if tab == "seguimiento":
-        query = query.filter(Prospecto.estado_comercial.in_(["seguimiento", "P1", "P2"]))
+        query = query.filter(Prospecto.estado_comercial.in_(["seguimiento", "P1"]))
     elif tab == "negociacion":
-        query = query.filter(Prospecto.estado_comercial.in_(["negociacion", "P3"]))
-    elif tab == "todos":
-        pass  # muestra todo excepto clientes ya convertidos
+        query = query.filter(Prospecto.estado_comercial.in_(["negociacion", "P2", "P3"]))
 
     if depto:
         query = query.filter(Prospecto.departamento.ilike(f"%{depto}%"))
@@ -167,9 +168,10 @@ def lista():
 
     # Conteos para las pestañas
     base = _base_query()
-    cnt_todos        = base.filter(Prospecto.estado_comercial != "cliente").count()
-    cnt_seguimiento  = base.filter(Prospecto.estado_comercial.in_(["seguimiento","P1","P2"])).count()
-    cnt_negociacion  = base.filter(Prospecto.estado_comercial.in_(["negociacion","P3"])).count()
+    cnt_todos       = base.filter(Prospecto.estado_comercial.notin_(["cliente","P4"])).count()
+    cnt_seguimiento = base.filter(Prospecto.estado_comercial.in_(["seguimiento","P1"])).count()
+    cnt_negociacion = base.filter(Prospecto.estado_comercial.in_(["negociacion","P2","P3"])).count()
+    cnt_clientes    = base.filter(Prospecto.estado_comercial.in_(["cliente","P4"])).count()
 
     return render_template(
         "prospeccion/lista.html",
@@ -180,6 +182,7 @@ def lista():
         cnt_todos=cnt_todos,
         cnt_seguimiento=cnt_seguimiento,
         cnt_negociacion=cnt_negociacion,
+        cnt_clientes=cnt_clientes,
     )
 
 
@@ -979,17 +982,18 @@ def enviar_email(pid):
     except Exception as exc:
         return jsonify({"ok": False, "error": str(exc)}), 500
 
-    # Registrar actividad y pasar a "En Seguimiento"
+    # Presentacion → seguimiento / Precio → negociacion
+    nuevo_estado = "negociacion" if tipo == "precio" else "seguimiento"
     act = ActividadProspecto(
         prospecto_id=p.id,
         user_id=current_user.id,
         tipo="email",
         descripcion=f"Correo de {tipo} enviado.",
         resultado="Enviado",
-        nuevo_estado="seguimiento",
+        nuevo_estado=nuevo_estado,
     )
     db.session.add(act)
-    p.estado_comercial      = "seguimiento"
+    p.estado_comercial      = nuevo_estado
     p.fecha_ultimo_contacto = now_peru().strftime("%Y-%m-%d %H:%M")
     db.session.commit()
 

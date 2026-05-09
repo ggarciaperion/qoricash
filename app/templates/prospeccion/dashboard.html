@@ -16,12 +16,6 @@
       </small>
     </div>
     <div class="d-flex gap-2">
-      <a href="{{ url_for('prospeccion.lista') }}" class="btn btn-primary btn-sm">
-        <i class="bi bi-database"></i> Ver base
-      </a>
-      <a href="{{ url_for('prospeccion.pipeline') }}" class="btn btn-outline-secondary btn-sm">
-        <i class="bi bi-kanban"></i> Pipeline
-      </a>
       {% if current_user.role == 'Master' %}
       <a href="{{ url_for('prospeccion.asignar_masivo') }}" class="btn btn-outline-warning btn-sm">
         <i class="bi bi-person-plus"></i> Asignar
@@ -33,36 +27,48 @@
   <!-- KPIs -->
   <div class="row g-3 mb-4">
     <div class="col-6 col-md-2">
-      <div class="card border-0 shadow-sm h-100">
-        <div class="card-body text-center">
-          <div class="fs-2 fw-bold text-dark">{{ total }}</div>
-          <div class="text-muted small">Total prospectos</div>
+      <a href="{{ url_for('prospeccion.lista', tab='todos') }}"
+         class="text-decoration-none">
+        <div class="card border-0 shadow-sm h-100 kpi-card">
+          <div class="card-body text-center">
+            <div class="fs-2 fw-bold text-dark">{{ total }}</div>
+            <div class="text-muted small">Total prospectos</div>
+          </div>
         </div>
-      </div>
+      </a>
     </div>
     <div class="col-6 col-md-2">
-      <div class="card border-0 shadow-sm h-100 border-start border-4 border-primary">
-        <div class="card-body text-center">
-          <div class="fs-2 fw-bold text-primary">{{ en_seguim }}</div>
-          <div class="text-muted small">En Seguimiento</div>
+      <a href="{{ url_for('prospeccion.lista', tab='seguimiento') }}"
+         class="text-decoration-none">
+        <div class="card border-0 shadow-sm h-100 border-start border-4 border-primary kpi-card">
+          <div class="card-body text-center">
+            <div class="fs-2 fw-bold text-primary">{{ en_seguim }}</div>
+            <div class="text-muted small">En Seguimiento</div>
+          </div>
         </div>
-      </div>
+      </a>
     </div>
     <div class="col-6 col-md-2">
-      <div class="card border-0 shadow-sm h-100 border-start border-4 border-warning">
-        <div class="card-body text-center">
-          <div class="fs-2 fw-bold text-warning">{{ en_negoc }}</div>
-          <div class="text-muted small">En Negociacion</div>
+      <a href="{{ url_for('prospeccion.lista', tab='negociacion') }}"
+         class="text-decoration-none">
+        <div class="card border-0 shadow-sm h-100 border-start border-4 border-warning kpi-card">
+          <div class="card-body text-center">
+            <div class="fs-2 fw-bold text-warning">{{ en_negoc }}</div>
+            <div class="text-muted small">En Negociacion</div>
+          </div>
         </div>
-      </div>
+      </a>
     </div>
     <div class="col-6 col-md-2">
-      <div class="card border-0 shadow-sm h-100 border-start border-4 border-success">
-        <div class="card-body text-center">
-          <div class="fs-2 fw-bold text-success">{{ clientes }}</div>
-          <div class="text-muted small">Clientes</div>
+      <a href="{{ url_for('prospeccion.lista', tab='clientes') }}"
+         class="text-decoration-none">
+        <div class="card border-0 shadow-sm h-100 border-start border-4 border-success kpi-card">
+          <div class="card-body text-center">
+            <div class="fs-2 fw-bold text-success">{{ clientes }}</div>
+            <div class="text-muted small">Clientes</div>
+          </div>
         </div>
-      </div>
+      </a>
     </div>
     <div class="col-6 col-md-2">
       <div class="card border-0 shadow-sm h-100 border-start border-4" style="border-color:#22C55E!important">
@@ -188,6 +194,13 @@
 
   </div>
 </div>
+{% endblock %}
+
+{% block styles %}
+<style>
+.kpi-card { transition: transform .15s, box-shadow .15s; cursor: pointer; }
+.kpi-card:hover { transform: translateY(-3px); box-shadow: 0 6px 20px rgba(0,0,0,.12) !important; }
+</style>
 {% endblock %}
 
 {% block scripts %}
