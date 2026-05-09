@@ -386,6 +386,8 @@ def lista():
                 Prospecto.estado_comercial == "",
                 Prospecto.estado_comercial == "sin_contactar")
         )
+    elif tab == "lfc":
+        query = query.filter(Prospecto.cliente_lfc == "Cliente LFC")
     else:  # todos — excluye clientes
         query = query.filter(Prospecto.estado_comercial.notin_(_FASE_ESTADOS["clientes"]))
 
@@ -414,6 +416,7 @@ def lista():
     cnt_precio        = base.filter(Prospecto.estado_comercial.in_(_FASE_ESTADOS["precio"])).count()
     cnt_negociando    = base.filter(Prospecto.estado_comercial.in_(_FASE_ESTADOS["negociando"])).count()
     cnt_clientes      = base.filter(Prospecto.estado_comercial.in_(_FASE_ESTADOS["clientes"])).count()
+    cnt_lfc           = base.filter(Prospecto.cliente_lfc == "Cliente LFC").count()
 
     # Vigencia por prospecto (días restantes hasta vencimiento de asignación)
     hoy   = now_peru().date()
@@ -446,6 +449,7 @@ def lista():
         cnt_precio=cnt_precio,
         cnt_negociando=cnt_negociando,
         cnt_clientes=cnt_clientes,
+        cnt_lfc=cnt_lfc,
         vigencia_map=vigencia_map,
         dias_vigencia=DIAS_VIGENCIA,
     )

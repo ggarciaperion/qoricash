@@ -58,6 +58,7 @@
       ("precio",        "Precio enviado", cnt_precio,        "info"),
       ("negociando",    "Negociando",     cnt_negociando,    "warning"),
       ("clientes",      "Clientes",       cnt_clientes,      "success"),
+      ("lfc",           "Clientes LFC",   cnt_lfc,           "success"),
     ] %}
     {% for t_id, t_label, t_cnt, t_color in tabs %}
     <a href="{{ url_for('prospeccion.lista', tab=t_id, depto=filtros.depto, q=filtros.q) }}"
