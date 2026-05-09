@@ -1265,7 +1265,7 @@ def campana_estado():
         camp = _campanas.get(trader_id)
         if not camp:
             return jsonify({"activa": False})
-        return jsonify({
+        resp = {
             "activa":   camp["estado"] == "activa",
             "estado":   camp["estado"],
             "tipo":     camp["tipo"],
@@ -1274,7 +1274,11 @@ def campana_estado():
             "errores":  camp["errores"],
             "compra":   camp.get("compra", ""),
             "venta":    camp.get("venta", ""),
-        })
+        }
+        # Limpiar estado final para que no persista entre recargas
+        if camp["estado"] in ("completada", "detenida"):
+            del _campanas[trader_id]
+        return jsonify(resp)
 
 
 @prospeccion_bp.route("/campana/detener", methods=["POST"])

@@ -501,7 +501,8 @@ const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute
 })();
 
 // ── Panel de campaña activa ───────────────────────────────────────────────────
-let campanaPoller = null;
+let campanaPoller  = null;
+let reloadPending  = false;
 
 function mostrarPanelCampana(data) {
   const panel     = document.getElementById('campanaPanel');
@@ -538,9 +539,10 @@ function mostrarPanelCampana(data) {
     if (data.estado === 'completada') {
       cpEstado.textContent = '✓ Campaña completada';
       cpDetalle.textContent = `${enviados} correos enviados.`;
-      panel.style.borderColor = '#22c55e';
-      // Recargar la página después de 3 segundos
-      setTimeout(() => location.reload(), 3000);
+      if (!reloadPending) {
+        reloadPending = true;
+        setTimeout(() => location.reload(), 2500);
+      }
     } else if (data.estado === 'detenida') {
       cpEstado.textContent = 'Campaña detenida';
       cpDetalle.textContent = `${enviados} de ${total} enviados.`;
@@ -553,7 +555,8 @@ async function checkCampanaEstado() {
     const resp = await fetch('/prospeccion/campana/estado');
     const data = await resp.json();
 
-    if (!data.activa && !data.estado) {
+    if (!data.estado) {
+      // Sin campaña — ocultar panel y detener poller
       document.getElementById('campanaPanel').classList.add('d-none');
       if (campanaPoller) { clearInterval(campanaPoller); campanaPoller = null; }
       return;
@@ -561,7 +564,10 @@ async function checkCampanaEstado() {
 
     mostrarPanelCampana(data);
 
-    if (!data.activa && campanaPoller) {
+    if (data.activa && !campanaPoller) {
+      // Campaña en curso detectada en página cargada — arrancar poller
+      campanaPoller = setInterval(checkCampanaEstado, 3000);
+    } else if (!data.activa && campanaPoller) {
       clearInterval(campanaPoller);
       campanaPoller = null;
     }
@@ -569,20 +575,15 @@ async function checkCampanaEstado() {
 }
 
 function iniciarPoller() {
+  // Llamado cuando el trader inicia una campaña en esta misma página
   if (!campanaPoller) {
     campanaPoller = setInterval(checkCampanaEstado, 3000);
   }
   checkCampanaEstado();
 }
 
-// Verificar al cargar la página
-checkCampanaEstado().then(() => {
-  // Si hay campaña activa, arrancar el poller automáticamente
-  fetch('/prospeccion/campana/estado')
-    .then(r => r.json())
-    .then(d => { if (d.activa) iniciarPoller(); })
-    .catch(() => {});
-});
+// Verificar al cargar la página (una sola llamada)
+checkCampanaEstado();
 
 // Botón detener campaña
 document.getElementById('btnDetenerCampana').addEventListener('click', async function() {
