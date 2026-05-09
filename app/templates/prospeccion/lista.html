@@ -1,15 +1,17 @@
 {% extends "base.html" %}
-{% block title %}Prospeccion — QoriCash{% endblock %}
+{% block title %}Prospeccion — Base{% endblock %}
 
 {% block content %}
-<div class="container-fluid py-4">
+<div class="container-fluid py-3">
 
+  <!-- Header -->
   <div class="d-flex align-items-center justify-content-between mb-3">
-    <h5 class="mb-0 fw-bold">
-      <i class="bi bi-people text-warning"></i> Prospeccion
-    </h5>
+    <div>
+      <h5 class="mb-0 fw-bold"><i class="bi bi-people-fill text-warning me-2"></i>Base de Prospeccion</h5>
+      <small class="text-muted">{{ prospectos.total }} registros en esta vista · {{ cnt_clientes }} clientes</small>
+    </div>
     <a href="{{ url_for('prospeccion.dashboard') }}" class="btn btn-sm btn-outline-secondary">
-      <i class="bi bi-arrow-left"></i> Dashboard
+      <i class="bi bi-grid"></i> Dashboard
     </a>
   </div>
 
@@ -47,135 +49,147 @@
     </div>
   </div>
 
-  <!-- Pestañas -->
-  <ul class="nav nav-pills mb-3 gap-2">
-    <li class="nav-item">
-      <a class="nav-link {% if tab == 'todos' %}active{% endif %}"
-         href="{{ url_for('prospeccion.lista', tab='todos', depto=filtros.depto, q=filtros.q) }}">
-        Todos <span class="badge bg-secondary ms-1">{{ cnt_todos }}</span>
-      </a>
-    </li>
-    <li class="nav-item">
-      <a class="nav-link {% if tab == 'seguimiento' %}active{% endif %}"
-         href="{{ url_for('prospeccion.lista', tab='seguimiento', depto=filtros.depto, q=filtros.q) }}">
-        En Seguimiento <span class="badge bg-primary ms-1">{{ cnt_seguimiento }}</span>
-      </a>
-    </li>
-    <li class="nav-item">
-      <a class="nav-link {% if tab == 'negociacion' %}active{% endif %}"
-         href="{{ url_for('prospeccion.lista', tab='negociacion', depto=filtros.depto, q=filtros.q) }}">
-        En Negociacion <span class="badge bg-warning text-dark ms-1">{{ cnt_negociacion }}</span>
-      </a>
-    </li>
-    <li class="nav-item">
-      <a class="nav-link {% if tab == 'clientes' %}active{% endif %}"
-         href="{{ url_for('prospeccion.lista', tab='clientes', depto=filtros.depto, q=filtros.q) }}">
-        Clientes <span class="badge bg-success ms-1">{{ cnt_clientes }}</span>
-      </a>
-    </li>
-  </ul>
+  <!-- Pestañas pipeline -->
+  <div class="d-flex align-items-center gap-1 mb-3 flex-wrap">
+    {% set tabs = [
+      ("todos",         "Todos",          cnt_todos,         "secondary"),
+      ("sin_contactar", "Sin contactar",  cnt_sin_contactar, "secondary"),
+      ("presentado",    "Presentado",     cnt_presentado,    "primary"),
+      ("precio",        "Precio enviado", cnt_precio,        "info"),
+      ("negociando",    "Negociando",     cnt_negociando,    "warning"),
+      ("clientes",      "Clientes",       cnt_clientes,      "success"),
+    ] %}
+    {% for t_id, t_label, t_cnt, t_color in tabs %}
+    <a href="{{ url_for('prospeccion.lista', tab=t_id, depto=filtros.depto, q=filtros.q) }}"
+       class="btn btn-sm {% if tab == t_id %}btn-{{ t_color }}{% else %}btn-outline-{{ t_color }}{% endif %} {% if tab == t_id and t_color in ['warning','info'] %}text-dark{% endif %}">
+      {{ t_label }}
+      <span class="badge ms-1 {% if tab == t_id %}bg-white text-{{ t_color }}{% else %}bg-{{ t_color }} {% if t_color in ['warning','info'] %}text-dark{% endif %}{% endif %}">{{ t_cnt }}</span>
+    </a>
+    {% endfor %}
+  </div>
 
-  <!-- Filtros -->
+  <!-- Barra de filtros -->
   <div class="card border-0 shadow-sm mb-3">
-    <div class="card-body py-2">
-      <form method="GET" id="filtroForm" class="row g-2 align-items-end">
+    <div class="card-body py-2 px-3">
+      <form method="GET" id="filtroForm" class="d-flex gap-2 flex-wrap align-items-center">
         <input type="hidden" name="tab" value="{{ tab }}">
-        <div class="col-md-5">
+        <div style="flex:1;min-width:180px;max-width:320px">
           <input type="text" name="q" id="searchInput" class="form-control form-control-sm"
-                 placeholder="Buscar empresa, RUC, email, contacto..."
-                 value="{{ filtros.q }}" autocomplete="off"/>
+                 placeholder="Buscar empresa, email, RUC, contacto..." value="{{ filtros.q }}" autocomplete="off"/>
         </div>
-        <div class="col-md-2">
-          <select name="depto" class="form-select form-select-sm" onchange="this.form.submit()">
-            <option value="">Todos los deptos.</option>
-            {% for d in deptos %}
-              <option value="{{ d }}" {% if filtros.depto == d %}selected{% endif %}>{{ d }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div class="col-auto">
-          <a href="{{ url_for('prospeccion.lista', tab=tab) }}" class="btn btn-sm btn-outline-secondary">
-            <i class="bi bi-x-circle"></i> Limpiar
-          </a>
-        </div>
+        <select name="depto" class="form-select form-select-sm" style="max-width:160px" onchange="this.form.submit()">
+          <option value="">Todos los deptos.</option>
+          {% for d in deptos %}
+          <option value="{{ d }}" {% if filtros.depto == d %}selected{% endif %}>{{ d }}</option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="btn btn-sm btn-primary"><i class="bi bi-search"></i></button>
+        {% if filtros.q or filtros.depto %}
+        <a href="{{ url_for('prospeccion.lista', tab=tab) }}" class="btn btn-sm btn-outline-secondary">
+          <i class="bi bi-x"></i> Limpiar
+        </a>
+        {% endif %}
+        <span class="text-muted small ms-auto">{{ prospectos.total }} resultados</span>
       </form>
     </div>
   </div>
 
-  <!-- Tabla -->
+  <!-- Tabla principal -->
   <div class="card border-0 shadow-sm">
     <div class="table-responsive">
-      <table class="table table-hover align-middle mb-0 small">
+      <table class="table table-hover align-middle mb-0" style="font-size:.83rem">
         <thead class="table-dark">
           <tr>
             <th style="width:36px">
-              <input type="checkbox" class="form-check-input" id="chkTodos" title="Seleccionar todos">
+              <input type="checkbox" class="form-check-input" id="chkTodos">
             </th>
-            <th>Empresa</th>
-            <th>RUC</th>
-            <th>Depto.</th>
+            <th>Empresa / Rubro</th>
             <th>Email</th>
             <th>Contacto</th>
             <th>Estado</th>
-            <th>Ultimo correo</th>
+            <th>Ultimo envio</th>
+            <th>Proximo contacto</th>
             <th>Vigencia</th>
             {% if current_user.role == 'Master' %}<th>Trader</th>{% endif %}
-            <th style="width:130px"></th>
+            <th style="width:80px"></th>
           </tr>
         </thead>
         <tbody>
           {% for p in prospectos.items %}
           {% set estado = p.estado_comercial or '' %}
-          {% set correo_hoy = p.tipo_ultimo_envio and p.fecha_ultimo_contacto %}
-          <tr class="{% if correo_hoy %}fila-correo-enviado{% endif %}"
-              data-pid="{{ p.id }}"
-              data-email="{{ p.email or '' }}"
-              data-nombre="{{ (p.nombre_contacto or p.razon_social or '') | e }}">
+          {% set vig = vigencia_map.get(p.id) %}
+          {% set dias_vig = vig[0] if vig else none %}
+          <tr data-pid="{{ p.id }}" class="{% if dias_vig is not none and dias_vig <= 7 and dias_vig >= 0 %}table-danger bg-opacity-25{% endif %}">
             <td>
-              <input type="checkbox" class="form-check-input chk-prospecto"
-                     value="{{ p.id }}"
+              <input type="checkbox" class="form-check-input chk-prospecto" value="{{ p.id }}"
                      {% if not p.email %}disabled title="Sin email"{% endif %}>
             </td>
-            <td class="fw-semibold" style="max-width:180px">
-              <span class="text-truncate d-block">{{ p.razon_social or '—' }}</span>
-            </td>
-            <td class="text-muted" style="font-size:.75rem;white-space:nowrap">{{ p.ruc or '—' }}</td>
-            <td class="text-muted">{{ p.departamento or '—' }}</td>
-            <td>
-              <a href="mailto:{{ p.email }}" class="text-decoration-none text-muted small">
-                {{ p.email or '—' }}
+            <td style="max-width:200px">
+              <a href="{{ url_for('prospeccion.detalle', pid=p.id) }}"
+                 class="text-decoration-none fw-semibold text-dark d-block text-truncate">
+                {{ p.razon_social or '(Sin nombre)' }}
               </a>
+              <div class="text-muted text-truncate" style="font-size:.71rem">
+                {% if p.rubro %}{{ p.rubro }}{% endif %}
+                {% if p.rubro and p.departamento %} &middot; {% endif %}
+                {% if p.departamento %}{{ p.departamento }}{% endif %}
+              </div>
             </td>
-            <td class="text-muted">{{ p.nombre_contacto or '—' }}</td>
-            <td>
-              {% set bc, bl = p.estado_badge %}
-              <span class="badge bg-{{ bc }}">{{ bl }}</span>
+            <td style="max-width:180px">
+              {% if p.email %}
+              <a href="mailto:{{ p.email }}" class="text-decoration-none text-muted d-block text-truncate">{{ p.email }}</a>
+              {% if p.email_alt %}
+              <div class="text-muted text-truncate" style="font-size:.68rem" title="{{ p.email_alt }}">
+                <i class="bi bi-plus-circle"></i> {{ p.email_alt }}
+              </div>
+              {% endif %}
+              {% else %}
+              <span class="text-muted small">Sin email</span>
+              {% endif %}
+            </td>
+            <td style="max-width:140px">
+              <div class="text-truncate">{{ p.nombre_contacto or '—' }}</div>
+              {% if p.cargo %}<div class="text-muted text-truncate" style="font-size:.7rem">{{ p.cargo }}</div>{% endif %}
             </td>
             <td style="white-space:nowrap">
-              {% if p.tipo_ultimo_envio %}
-                <span class="badge bg-{{ 'warning text-dark' if p.tipo_ultimo_envio == 'precio' else 'info text-dark' }} small">
-                  {{ 'Precio' if p.tipo_ultimo_envio == 'precio' else 'Presentacion' }}
-                </span>
-                {% if p.fecha_ultimo_contacto %}
-                <div class="text-muted" style="font-size:.65rem">{{ p.fecha_ultimo_contacto }}</div>
-                {% endif %}
-              {% else %}
-                <span class="text-muted">—</span>
+              {% set bc, bl = p.estado_badge %}
+              <span class="badge bg-{{ bc }} {% if bc in ['info','warning'] %}text-dark{% endif %}">{{ bl }}</span>
+              {% if p.cliente_lfc == 'Cliente LFC' %}
+              <span class="badge bg-success-subtle text-success border border-success-subtle d-block mt-1" style="font-size:.62rem">LFC</span>
               {% endif %}
             </td>
             <td style="white-space:nowrap">
-              {% set vig = vigencia_map.get(p.id) %}
+              {% if p.tipo_ultimo_envio %}
+              <span class="badge {% if p.tipo_ultimo_envio == 'precio' %}bg-warning text-dark{% else %}bg-primary{% endif %}">
+                {{ 'Precio' if p.tipo_ultimo_envio == 'precio' else 'Presentacion' }}
+              </span>
+              {% if p.fecha_ultimo_contacto %}
+              <div class="text-muted" style="font-size:.68rem">{{ p.fecha_ultimo_contacto[:10] }}</div>
+              {% endif %}
+              {% else %}
+              <span class="text-muted">—</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if p.fecha_proximo_contacto %}
+              <span class="text-primary fw-semibold">
+                <i class="bi bi-calendar-event"></i> {{ p.fecha_proximo_contacto }}
+              </span>
+              {% else %}
+              <span class="text-muted">—</span>
+              {% endif %}
+            </td>
+            <td style="white-space:nowrap">
               {% if vig is not none %}
                 {% set dias, ext_sol = vig %}
                 {% if ext_sol %}
                   <span class="badge bg-secondary">Ext. pendiente</span>
                 {% elif dias <= 0 %}
                   <span class="badge bg-danger">Vencido</span>
-                  {# Botón solicitar extensión (solo Trader, solo negociacion) #}
-                  {% if current_user.role == 'Trader' and estado in ['negociacion','P2','P3'] %}
-                  <button class="btn btn-xs btn-outline-warning py-0 px-1 ms-1 btn-sol-ext"
-                          data-pid="{{ p.id }}" style="font-size:.65rem" title="Solicitar extension">
-                    <i class="bi bi-plus-circle"></i>
+                  {% if current_user.role == 'Trader' and estado in ['negociando','negociacion','P3'] %}
+                  <button class="btn btn-sol-ext border-0 bg-transparent text-warning p-0 ms-1"
+                          data-pid="{{ p.id }}" title="Solicitar extension">
+                    <i class="bi bi-plus-circle-fill"></i>
                   </button>
                   {% endif %}
                 {% elif dias <= 7 %}
@@ -185,58 +199,39 @@
                 {% else %}
                   <span class="text-muted small">{{ dias }}d</span>
                 {% endif %}
-              {% else %}—{% endif %}
+              {% else %}<span class="text-muted">—</span>{% endif %}
             </td>
             {% if current_user.role == 'Master' %}
-            <td class="text-muted small">
+            <td class="text-muted" style="font-size:.78rem">
               {% if p.trader_asignado %}
-                <i class="bi bi-person-check text-success"></i> {{ p.trader_asignado.username }}
+              <i class="bi bi-person-check-fill text-success"></i> {{ p.trader_asignado.username }}
               {% else %}—{% endif %}
             </td>
             {% endif %}
-            <td style="white-space:nowrap">
-              <a href="{{ url_for('prospeccion.detalle', pid=p.id) }}"
-                 class="btn btn-sm btn-outline-secondary py-0 px-2" title="Ver detalle">
-                <i class="bi bi-eye"></i>
-              </a>
-
-              <button type="button"
-                      class="btn btn-sm btn-outline-success py-0 px-2 btn-enviar"
-                      data-pid="{{ p.id }}"
-                      data-nombre="{{ (p.nombre_contacto or p.razon_social or '') | e }}"
-                      data-empresa="{{ (p.razon_social or '') | e }}"
-                      data-email="{{ p.email or '' }}"
-                      title="Enviar correo">
-                <i class="bi bi-send"></i>
-              </button>
-
-              {% if estado in ['seguimiento','P1','P2'] %}
-              <button type="button"
-                      class="btn btn-sm btn-outline-warning py-0 px-2 btn-respondio"
-                      data-pid="{{ p.id }}"
-                      title="Marcar que el cliente respondio">
-                <i class="bi bi-reply"></i>
-              </button>
-              {% endif %}
-
-              {% if estado in ['negociacion','P3'] %}
-              <button type="button"
-                      class="btn btn-sm btn-outline-primary py-0 px-2 btn-reg-cliente"
-                      data-pid="{{ p.id }}"
-                      data-nombre="{{ (p.razon_social or p.nombre_contacto or '') | e }}"
-                      data-ruc="{{ p.ruc or '' }}"
-                      data-email="{{ p.email or '' }}"
-                      title="Registrar como cliente">
-                <i class="bi bi-person-check"></i>
-              </button>
-              {% endif %}
+            <td>
+              <div class="d-flex gap-1">
+                <a href="{{ url_for('prospeccion.detalle', pid=p.id) }}"
+                   class="btn btn-sm btn-outline-secondary py-0 px-2" title="Ver detalle">
+                  <i class="bi bi-eye"></i>
+                </a>
+                {% if p.email %}
+                <button class="btn btn-sm btn-outline-success py-0 px-2 btn-enviar"
+                        data-pid="{{ p.id }}"
+                        data-nombre="{{ (p.nombre_contacto or p.razon_social or '')|e }}"
+                        data-empresa="{{ (p.razon_social or '')|e }}"
+                        data-email="{{ p.email }}"
+                        title="Enviar correo">
+                  <i class="bi bi-send"></i>
+                </button>
+                {% endif %}
+              </div>
             </td>
           </tr>
           {% else %}
           <tr>
-            <td colspan="11" class="text-center py-5 text-muted">
-              <i class="bi bi-inbox fs-2 d-block mb-2"></i>
-              No hay registros en esta seccion.
+            <td colspan="10" class="text-center py-5 text-muted">
+              <i class="bi bi-inbox fs-1 d-block mb-2 opacity-25"></i>
+              No hay registros en esta pestaña.
             </td>
           </tr>
           {% endfor %}
@@ -246,21 +241,19 @@
 
     <!-- Paginacion -->
     {% if prospectos.pages > 1 %}
-    <div class="card-footer bg-transparent d-flex justify-content-between align-items-center">
-      <small class="text-muted">
-        Pagina {{ prospectos.page }} de {{ prospectos.pages }} — {{ prospectos.total }} registros
-      </small>
+    <div class="card-footer bg-transparent d-flex justify-content-between align-items-center py-2">
+      <small class="text-muted">Pag. {{ prospectos.page }} / {{ prospectos.pages }} — {{ prospectos.total }} registros</small>
       <nav>
         <ul class="pagination pagination-sm mb-0">
           {% if prospectos.has_prev %}
           <li class="page-item">
-            <a class="page-link" href="{{ url_for('prospeccion.lista', page=prospectos.prev_num, **filtros) }}">&laquo;</a>
+            <a class="page-link" href="{{ url_for('prospeccion.lista', tab=tab, page=prospectos.prev_num, depto=filtros.depto, q=filtros.q) }}">‹</a>
           </li>
           {% endif %}
           {% for pg in prospectos.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
             {% if pg %}
             <li class="page-item {% if pg == prospectos.page %}active{% endif %}">
-              <a class="page-link" href="{{ url_for('prospeccion.lista', page=pg, **filtros) }}">{{ pg }}</a>
+              <a class="page-link" href="{{ url_for('prospeccion.lista', tab=tab, page=pg, depto=filtros.depto, q=filtros.q) }}">{{ pg }}</a>
             </li>
             {% else %}
             <li class="page-item disabled"><span class="page-link">…</span></li>
@@ -268,7 +261,7 @@
           {% endfor %}
           {% if prospectos.has_next %}
           <li class="page-item">
-            <a class="page-link" href="{{ url_for('prospeccion.lista', page=prospectos.next_num, **filtros) }}">&raquo;</a>
+            <a class="page-link" href="{{ url_for('prospeccion.lista', tab=tab, page=prospectos.next_num, depto=filtros.depto, q=filtros.q) }}">›</a>
           </li>
           {% endif %}
         </ul>
@@ -278,118 +271,84 @@
   </div>
 </div>
 
-<!-- ── Barra de accion masiva (flotante, aparece al seleccionar) ──────────── -->
+<!-- Barra de acción masiva flotante -->
 <div id="bulkBar" class="d-none position-fixed bottom-0 start-50 translate-middle-x mb-3"
-     style="z-index:1050;min-width:640px;max-width:95vw">
-  <div class="card shadow-lg border-0 border-top border-3 border-success">
+     style="z-index:1050;min-width:580px;max-width:95vw">
+  <div class="card border-0 shadow-lg" style="border-top:3px solid #198754!important">
     <div class="card-body py-2 px-3 d-flex align-items-center gap-3 flex-wrap">
-      <span class="fw-semibold small">
-        <span id="bulkCount" class="badge bg-success rounded-pill">0</span>
-        seleccionados
-      </span>
+      <span class="fw-semibold small"><span id="bulkCount" class="badge bg-success rounded-pill">0</span> seleccionados</span>
       <div class="vr"></div>
-      <div class="d-flex gap-3 align-items-center">
+      <div class="d-flex gap-3">
         <div class="form-check mb-0">
-          <input class="form-check-input" type="radio" name="bulk_tipo"
-                 id="btPresentacion" value="presentacion" checked>
-          <label class="form-check-label small" for="btPresentacion">
-            <i class="bi bi-file-earmark-text text-primary"></i> Presentacion
-          </label>
+          <input class="form-check-input" type="radio" name="bulk_tipo" id="btPresentacion" value="presentacion" checked>
+          <label class="form-check-label small" for="btPresentacion"><i class="bi bi-file-earmark-text text-primary"></i> Presentacion</label>
         </div>
         <div class="form-check mb-0">
-          <input class="form-check-input" type="radio" name="bulk_tipo"
-                 id="btPrecio" value="precio">
-          <label class="form-check-label small" for="btPrecio">
-            <i class="bi bi-currency-dollar text-success"></i> Precio
-          </label>
+          <input class="form-check-input" type="radio" name="bulk_tipo" id="btPrecio" value="precio">
+          <label class="form-check-label small" for="btPrecio"><i class="bi bi-currency-dollar text-success"></i> Precio</label>
         </div>
       </div>
-      <div id="bulkPrecioFields" class="d-none d-flex gap-1 align-items-center">
-        <input type="number" step="0.001" id="bulkCompra" class="form-control form-control-sm"
-               placeholder="Compra S/." style="width:95px">
-        <input type="number" step="0.001" id="bulkVenta" class="form-control form-control-sm"
-               placeholder="Venta S/." style="width:95px">
+      <div id="bulkPrecioFields" class="d-none d-flex gap-1">
+        <input type="number" step="0.001" id="bulkCompra" class="form-control form-control-sm" placeholder="Compra S/." style="width:90px">
+        <input type="number" step="0.001" id="bulkVenta"  class="form-control form-control-sm" placeholder="Venta S/."  style="width:90px">
       </div>
       <button class="btn btn-success btn-sm ms-auto" id="btnIniciarCampana">
-        <i class="bi bi-send"></i> Iniciar campaña
+        <i class="bi bi-send-fill"></i> Iniciar campaña
       </button>
-      <button class="btn btn-outline-secondary btn-sm" id="btnDeselecAll" title="Deseleccionar">
-        <i class="bi bi-x-lg"></i>
-      </button>
+      <button class="btn btn-outline-secondary btn-sm" id="btnDeselecAll"><i class="bi bi-x-lg"></i></button>
     </div>
   </div>
 </div>
 
-<!-- ── Modal envio correo individual (2 pasos) ───────────────────────────── -->
-<div class="modal fade" id="modalEnvio" tabindex="-1" aria-hidden="true">
+<!-- Modal envío individual (2 pasos) -->
+<div class="modal fade" id="modalEnvio" tabindex="-1">
   <div class="modal-dialog modal-xl modal-dialog-scrollable">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="modalEnvioTitulo">
-          <i class="bi bi-send text-success me-2"></i>Enviar correo
-        </h5>
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header border-0">
+        <h6 class="modal-title fw-bold" id="modalEnvioTitulo"><i class="bi bi-send text-success me-2"></i>Enviar correo</h6>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
-      <div class="modal-body">
-        <!-- PASO 1 -->
+      <div class="modal-body pt-0">
         <div id="paso1">
           <p class="text-muted small mb-3" id="modalDestinatario"></p>
           <div class="mb-3">
-            <label class="form-label fw-semibold">Tipo de correo</label>
             <div class="d-flex gap-4">
               <div class="form-check">
-                <input class="form-check-input" type="radio" name="tipo_correo"
-                       id="tipoPresentacion" value="presentacion" checked>
-                <label class="form-check-label" for="tipoPresentacion">
-                  <i class="bi bi-file-earmark-text text-primary"></i> Presentacion
-                </label>
+                <input class="form-check-input" type="radio" name="tipo_correo" id="tipoPresentacion" value="presentacion" checked>
+                <label class="form-check-label" for="tipoPresentacion"><i class="bi bi-file-earmark-text text-primary"></i> Presentacion</label>
               </div>
               <div class="form-check">
-                <input class="form-check-input" type="radio" name="tipo_correo"
-                       id="tipoPrecio" value="precio">
-                <label class="form-check-label" for="tipoPrecio">
-                  <i class="bi bi-currency-dollar text-success"></i> Precio del dia
-                </label>
+                <input class="form-check-input" type="radio" name="tipo_correo" id="tipoPrecio" value="precio">
+                <label class="form-check-label" for="tipoPrecio"><i class="bi bi-currency-dollar text-success"></i> Precio del dia</label>
               </div>
             </div>
           </div>
-          <div id="campoPrecio" class="d-none border rounded p-3 bg-light">
-            <p class="text-muted small mb-2">Tipo de cambio para el correo:</p>
+          <div id="campoPrecio" class="d-none border rounded p-3 bg-light mb-2">
             <div class="row g-2">
               <div class="col-6">
                 <label class="form-label small fw-semibold">Compramos (S/.)</label>
-                <input type="number" step="0.001" min="1" id="inputCompra"
-                       class="form-control form-control-sm" placeholder="3.720">
+                <input type="number" step="0.001" id="inputCompra" class="form-control form-control-sm" placeholder="3.720">
               </div>
               <div class="col-6">
                 <label class="form-label small fw-semibold">Vendemos (S/.)</label>
-                <input type="number" step="0.001" min="1" id="inputVenta"
-                       class="form-control form-control-sm" placeholder="3.740">
+                <input type="number" step="0.001" id="inputVenta" class="form-control form-control-sm" placeholder="3.740">
               </div>
             </div>
           </div>
         </div>
-        <!-- PASO 2: borrador editable -->
         <div id="paso2" class="d-none">
           <div class="alert alert-info py-2 small mb-2">
-            <i class="bi bi-pencil-square me-1"></i>
-            Haz clic en cualquier texto para editarlo antes de enviar.
+            <i class="bi bi-pencil-square me-1"></i> Puedes editar el texto antes de enviar.
           </div>
           <div id="emailPreview" contenteditable="true"
-               style="border:1px solid #dee2e6;border-radius:6px;padding:12px;
-                      min-height:300px;max-height:60vh;overflow-y:auto;
-                      background:#fff;outline:none;cursor:text;font-size:13px;">
+               style="border:1px solid #dee2e6;border-radius:6px;padding:12px;min-height:300px;max-height:60vh;overflow-y:auto;background:#fff;outline:none;font-size:13px;">
           </div>
         </div>
       </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" id="btnCancelarModal">Cancelar</button>
-        <button type="button" class="btn btn-primary" id="btnVerBorrador">
-          <i class="bi bi-eye"></i> Ver borrador
-        </button>
-        <button type="button" class="btn btn-success d-none" id="btnEnviarModal">
-          <i class="bi bi-send"></i> Enviar correo
-        </button>
+      <div class="modal-footer border-0">
+        <button type="button" class="btn btn-outline-secondary btn-sm" id="btnCancelarModal">Cancelar</button>
+        <button type="button" class="btn btn-primary btn-sm" id="btnVerBorrador"><i class="bi bi-eye"></i> Ver borrador</button>
+        <button type="button" class="btn btn-success btn-sm d-none" id="btnEnviarModal"><i class="bi bi-send"></i> Enviar</button>
       </div>
     </div>
   </div>
@@ -398,8 +357,7 @@
 
 {% block styles %}
 <style>
-.fila-correo-enviado { background-color: rgba(34,197,94,.07) !important; }
-.fila-correo-enviado:hover { background-color: rgba(34,197,94,.14) !important; }
+.table > tbody > tr { transition: background .1s; }
 </style>
 {% endblock %}
 
@@ -407,258 +365,121 @@
 <script>
 const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 
-// ── Real-time search ──────────────────────────────────────────────────────────
+// Búsqueda con debounce
 (function() {
-  const inp  = document.getElementById('searchInput');
-  const form = document.getElementById('filtroForm');
-  let timer;
-  inp.addEventListener('input', function() {
-    clearTimeout(timer);
-    timer = setTimeout(function() { form.submit(); }, 450);
-  });
+  const inp = document.getElementById('searchInput'), form = document.getElementById('filtroForm');
+  let t;
+  inp.addEventListener('input', () => { clearTimeout(t); t = setTimeout(() => form.submit(), 450); });
 })();
 
-// ── Checkboxes y barra masiva ─────────────────────────────────────────────────
+// Checkboxes y barra masiva
 (function() {
-  const chkTodos   = document.getElementById('chkTodos');
-  const bulkBar    = document.getElementById('bulkBar');
-  const bulkCount  = document.getElementById('bulkCount');
-  const btnDeselec = document.getElementById('btnDeselecAll');
+  const chkTodos = document.getElementById('chkTodos');
+  const bulkBar  = document.getElementById('bulkBar');
 
-  function getChecked() {
-    return Array.from(document.querySelectorAll('.chk-prospecto:checked'));
-  }
-
+  function getChecked() { return Array.from(document.querySelectorAll('.chk-prospecto:checked')); }
   function updateBar() {
-    const checked = getChecked();
-    if (checked.length > 0) {
-      bulkBar.classList.remove('d-none');
-      bulkCount.textContent = checked.length;
-    } else {
-      bulkBar.classList.add('d-none');
-    }
-    // Sincronizar "seleccionar todos"
-    const total = document.querySelectorAll('.chk-prospecto:not([disabled])').length;
-    chkTodos.checked       = checked.length === total && total > 0;
-    chkTodos.indeterminate = checked.length > 0 && checked.length < total;
+    const sel = getChecked(), total = document.querySelectorAll('.chk-prospecto:not([disabled])').length;
+    sel.length > 0 ? bulkBar.classList.remove('d-none') : bulkBar.classList.add('d-none');
+    document.getElementById('bulkCount').textContent = sel.length;
+    chkTodos.checked = sel.length === total && total > 0;
+    chkTodos.indeterminate = sel.length > 0 && sel.length < total;
   }
-
-  chkTodos.addEventListener('change', function() {
-    document.querySelectorAll('.chk-prospecto:not([disabled])').forEach(c => {
-      c.checked = chkTodos.checked;
-    });
+  chkTodos.addEventListener('change', () => {
+    document.querySelectorAll('.chk-prospecto:not([disabled])').forEach(c => c.checked = chkTodos.checked);
     updateBar();
   });
-
-  document.querySelectorAll('.chk-prospecto').forEach(c => {
-    c.addEventListener('change', updateBar);
+  document.querySelectorAll('.chk-prospecto').forEach(c => c.addEventListener('change', updateBar));
+  document.getElementById('btnDeselecAll').addEventListener('click', () => {
+    document.querySelectorAll('.chk-prospecto').forEach(c => c.checked = false);
+    chkTodos.checked = false; updateBar();
   });
-
-  btnDeselec.addEventListener('click', function() {
-    document.querySelectorAll('.chk-prospecto').forEach(c => { c.checked = false; });
-    chkTodos.checked = false;
-    updateBar();
-  });
-
-  // Toggle campo precios en barra masiva
   document.querySelectorAll('input[name="bulk_tipo"]').forEach(r => {
-    r.addEventListener('change', function() {
-      document.getElementById('bulkPrecioFields').classList.toggle('d-none', this.value !== 'precio');
+    r.addEventListener('change', () => {
+      document.getElementById('bulkPrecioFields').classList.toggle('d-none', r.value !== 'precio');
     });
   });
 
-  // Iniciar campaña
   document.getElementById('btnIniciarCampana').addEventListener('click', async function() {
-    const checked = getChecked();
-    if (!checked.length) return;
-
+    const ids    = getChecked().map(c => c.value);
     const tipo   = document.querySelector('input[name="bulk_tipo"]:checked').value;
     const compra = document.getElementById('bulkCompra').value.trim();
     const venta  = document.getElementById('bulkVenta').value.trim();
-
-    if (tipo === 'precio' && (!compra || !venta)) {
-      Swal.fire('Faltan precios', 'Ingresa COMPRA y VENTA para la campaña.', 'warning'); return;
-    }
-
-    const ids = checked.map(c => c.value);
+    if (!ids.length) return;
+    if (tipo === 'precio' && (!compra || !venta)) { Swal.fire('Faltan precios', 'Ingresa COMPRA y VENTA.', 'warning'); return; }
     const conf = await Swal.fire({
       title: 'Iniciar campaña masiva',
-      html: `<b>${ids.length} prospectos</b> recibirán un correo de <b>${tipo === 'precio' ? 'precio' : 'presentación'}</b>.<br>
-             <small class="text-muted">Los correos se enviarán cada ~7 segundos.</small>`,
-      icon: 'question',
-      showCancelButton: true,
-      confirmButtonText: 'Iniciar',
-      cancelButtonText: 'Cancelar'
+      html: `<b>${ids.length} prospectos</b> · correo de <b>${tipo === 'precio' ? 'precio' : 'presentacion'}</b><br><small class="text-muted">~7 seg entre cada correo</small>`,
+      icon: 'question', showCancelButton: true, confirmButtonText: 'Iniciar', cancelButtonText: 'Cancelar'
     });
     if (!conf.isConfirmed) return;
-
-    const btn = this;
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Iniciando...';
-
-    try {
-      const resp = await fetch('/prospeccion/campana/iniciar', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
-        body: JSON.stringify({ ids, tipo, compra, venta })
-      });
-      const data = await resp.json();
-      if (data.ok) {
-        bulkBar.classList.add('d-none');
-        document.querySelectorAll('.chk-prospecto').forEach(c => { c.checked = false; });
-        iniciarPoller();
-      } else {
-        Swal.fire('Error', data.error || 'No se pudo iniciar.', 'error');
-      }
-    } catch(e) { Swal.fire('Error', 'Fallo de conexion.', 'error'); }
-    finally {
-      btn.disabled = false;
-      btn.innerHTML = '<i class="bi bi-send"></i> Iniciar campaña';
-    }
+    this.disabled = true; this.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+    const r = await fetch('/prospeccion/campana/iniciar', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+      body: JSON.stringify({ ids, tipo, compra, venta })
+    });
+    const d = await r.json();
+    if (d.ok) { bulkBar.classList.add('d-none'); document.querySelectorAll('.chk-prospecto').forEach(c => c.checked = false); iniciarPoller(); }
+    else Swal.fire('Error', d.error, 'error');
+    this.disabled = false; this.innerHTML = '<i class="bi bi-send-fill"></i> Iniciar campaña';
   });
 })();
 
-// ── Panel de campaña activa ───────────────────────────────────────────────────
-let campanaPoller  = null;
-let reloadPending  = false;
+// Panel campaña activa
+let campanaPoller = null, reloadPending = false;
 
 function mostrarPanelCampana(data) {
-  const panel     = document.getElementById('campanaPanel');
-  const spinner   = document.getElementById('cpSpinner');
-  const cpEstado  = document.getElementById('cpEstado');
-  const cpConteo  = document.getElementById('cpConteo');
-  const cpBarra   = document.getElementById('cpBarra');
-  const cpDetalle = document.getElementById('cpDetalle');
-  const cpActWrap = document.getElementById('cpActualizarWrap');
-
+  const panel = document.getElementById('campanaPanel');
   panel.classList.remove('d-none');
-
-  const enviados = data.enviados || 0;
-  const total    = data.total    || 0;
-  const pct      = total > 0 ? Math.round(enviados / total * 100) : 0;
-
-  cpBarra.style.width = pct + '%';
-  cpConteo.textContent = `${enviados} / ${total} enviados${data.errores ? ' · ' + data.errores + ' errores' : ''}`;
-
+  const env = data.enviados || 0, total = data.total || 0;
+  document.getElementById('cpBarra').style.width = (total > 0 ? Math.round(env/total*100) : 0) + '%';
+  document.getElementById('cpConteo').textContent = `${env} / ${total}${data.errores ? ' · '+data.errores+' err' : ''}`;
   if (data.activa) {
-    spinner.classList.remove('d-none');
-    cpEstado.textContent = `Enviando campaña de ${data.tipo === 'precio' ? 'precios' : 'presentacion'}...`;
-    cpDetalle.textContent = 'Pausa de ~7 seg entre correos.';
-    document.getElementById('btnDetenerCampana').disabled = false;
-    cpActWrap.classList.toggle('d-none', data.tipo !== 'precio');
-    if (data.tipo === 'precio') {
-      document.getElementById('cpNuevaCompra').placeholder = 'Compra: ' + (data.compra || '');
-      document.getElementById('cpNuevaVenta').placeholder  = 'Venta: '  + (data.venta  || '');
-    }
+    document.getElementById('cpEstado').textContent = `Enviando campaña de ${data.tipo === 'precio' ? 'precios' : 'presentacion'}...`;
+    document.getElementById('cpDetalle').textContent = '~7 seg por correo';
+    document.getElementById('cpActualizarWrap').classList.toggle('d-none', data.tipo !== 'precio');
   } else {
-    spinner.classList.add('d-none');
-    cpActWrap.classList.add('d-none');
-    document.getElementById('btnDetenerCampana').disabled = true;
-    if (data.estado === 'completada') {
-      cpEstado.textContent = '✓ Campaña completada';
-      cpDetalle.textContent = `${enviados} correos enviados.`;
-      if (!reloadPending) {
-        reloadPending = true;
-        setTimeout(() => location.reload(), 2500);
-      }
-    } else if (data.estado === 'detenida') {
-      cpEstado.textContent = 'Campaña detenida';
-      cpDetalle.textContent = `${enviados} de ${total} enviados.`;
-    }
+    document.getElementById('cpActualizarWrap').classList.add('d-none');
+    document.getElementById('cpEstado').textContent = data.estado === 'completada' ? `✓ Completada · ${env} enviados` : `■ Detenida · ${env}/${total}`;
+    if (data.estado === 'completada' && !reloadPending) { reloadPending = true; setTimeout(() => location.reload(), 2500); }
   }
 }
-
 async function checkCampanaEstado() {
-  try {
-    const resp = await fetch('/prospeccion/campana/estado');
-    const data = await resp.json();
-
-    if (!data.estado) {
-      // Sin campaña — ocultar panel y detener poller
-      document.getElementById('campanaPanel').classList.add('d-none');
-      if (campanaPoller) { clearInterval(campanaPoller); campanaPoller = null; }
-      return;
-    }
-
-    mostrarPanelCampana(data);
-
-    if (data.activa && !campanaPoller) {
-      // Campaña en curso detectada en página cargada — arrancar poller
-      campanaPoller = setInterval(checkCampanaEstado, 3000);
-    } else if (!data.activa && campanaPoller) {
-      clearInterval(campanaPoller);
-      campanaPoller = null;
-    }
-  } catch(e) {}
+  const r = await fetch('/prospeccion/campana/estado');
+  const d = await r.json();
+  if (!d.estado) { document.getElementById('campanaPanel').classList.add('d-none'); if (campanaPoller) { clearInterval(campanaPoller); campanaPoller = null; } return; }
+  mostrarPanelCampana(d);
+  if (d.activa && !campanaPoller) campanaPoller = setInterval(checkCampanaEstado, 3000);
+  else if (!d.activa && campanaPoller) { clearInterval(campanaPoller); campanaPoller = null; }
 }
-
-function iniciarPoller() {
-  // Llamado cuando el trader inicia una campaña en esta misma página
-  if (!campanaPoller) {
-    campanaPoller = setInterval(checkCampanaEstado, 3000);
-  }
-  checkCampanaEstado();
-}
-
-// Verificar al cargar la página (una sola llamada)
+function iniciarPoller() { if (!campanaPoller) campanaPoller = setInterval(checkCampanaEstado, 3000); checkCampanaEstado(); }
 checkCampanaEstado();
 
-// Botón detener campaña
-document.getElementById('btnDetenerCampana').addEventListener('click', async function() {
-  const conf = await Swal.fire({
-    title: 'Detener campaña?',
-    text: 'Se detendrá el envío. Los correos ya enviados no se pueden revertir.',
-    icon: 'warning',
-    showCancelButton: true,
-    confirmButtonText: 'Detener',
-    cancelButtonText: 'Continuar',
-    confirmButtonColor: '#dc3545'
-  });
-  if (!conf.isConfirmed) return;
-  await fetch('/prospeccion/campana/detener', {
-    method: 'POST',
-    headers: { 'X-CSRFToken': csrfToken }
-  });
+document.getElementById('btnDetenerCampana').addEventListener('click', async () => {
+  const c = await Swal.fire({ title:'Detener campaña?', icon:'warning', showCancelButton:true, confirmButtonText:'Detener', confirmButtonColor:'#dc3545' });
+  if (!c.isConfirmed) return;
+  await fetch('/prospeccion/campana/detener', { method:'POST', headers:{'X-CSRFToken':csrfToken} });
   checkCampanaEstado();
 });
-
-// Botón actualizar precios
-document.getElementById('btnActualizarPrecios').addEventListener('click', async function() {
-  const compra = document.getElementById('cpNuevaCompra').value.trim();
-  const venta  = document.getElementById('cpNuevaVenta').value.trim();
-  if (!compra || !venta) {
-    Swal.fire('Faltan datos', 'Ingresa COMPRA y VENTA.', 'warning'); return;
-  }
-  const resp = await fetch('/prospeccion/campana/actualizar-precios', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
-    body: JSON.stringify({ compra, venta })
-  });
-  const data = await resp.json();
-  if (data.ok) {
-    Swal.fire({ icon: 'success', title: 'Precios actualizados', timer: 1500, showConfirmButton: false });
-    document.getElementById('cpNuevaCompra').value = '';
-    document.getElementById('cpNuevaVenta').value  = '';
-  } else {
-    Swal.fire('Error', data.error, 'error');
-  }
+document.getElementById('btnActualizarPrecios').addEventListener('click', async () => {
+  const compra = document.getElementById('cpNuevaCompra').value.trim(), venta = document.getElementById('cpNuevaVenta').value.trim();
+  if (!compra || !venta) { Swal.fire('Ingresa compra y venta','','warning'); return; }
+  const r = await fetch('/prospeccion/campana/actualizar-precios', { method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':csrfToken}, body:JSON.stringify({compra,venta}) });
+  const d = await r.json();
+  if (!d.ok) Swal.fire('Error', d.error, 'error');
 });
 
-// ── Modal envio individual (2 pasos) ──────────────────────────────────────────
+// Modal envío individual
 (function() {
-  let currentPid   = null;
-  let currentTipo  = 'presentacion';
-  let currentAsunto = '';
+  let currentPid = null, currentTipo = 'presentacion', currentAsunto = '';
 
   function irPaso1() {
     document.getElementById('paso1').classList.remove('d-none');
     document.getElementById('paso2').classList.add('d-none');
     document.getElementById('btnVerBorrador').classList.remove('d-none');
     document.getElementById('btnEnviarModal').classList.add('d-none');
-    document.getElementById('modalEnvioTitulo').innerHTML =
-      '<i class="bi bi-send text-success me-2"></i>Enviar correo';
+    document.getElementById('modalEnvioTitulo').innerHTML = '<i class="bi bi-send text-success me-2"></i>Enviar correo';
   }
-
   function irPaso2(html, asunto) {
     currentAsunto = asunto;
     document.getElementById('emailPreview').innerHTML = html;
@@ -666,179 +487,70 @@ document.getElementById('btnActualizarPrecios').addEventListener('click', async 
     document.getElementById('paso2').classList.remove('d-none');
     document.getElementById('btnVerBorrador').classList.add('d-none');
     document.getElementById('btnEnviarModal').classList.remove('d-none');
-    document.getElementById('modalEnvioTitulo').innerHTML =
-      '<i class="bi bi-pencil-square text-warning me-2"></i>Revisar y editar borrador';
+    document.getElementById('modalEnvioTitulo').innerHTML = '<i class="bi bi-pencil-square text-warning me-2"></i>Revisar borrador';
   }
 
-  document.querySelectorAll('.btn-enviar').forEach(function(btn) {
+  document.querySelectorAll('.btn-enviar').forEach(btn => {
     btn.addEventListener('click', function() {
       currentPid = this.dataset.pid;
-      const nombre = this.dataset.nombre || this.dataset.empresa || 'Prospecto';
-      const email  = this.dataset.email;
-      document.getElementById('modalDestinatario').textContent =
-        'Para: ' + nombre + (email ? ' <' + email + '>' : '');
+      document.getElementById('modalDestinatario').textContent = 'Para: ' + (this.dataset.nombre || this.dataset.empresa) + ' <' + this.dataset.email + '>';
       document.getElementById('tipoPresentacion').checked = true;
       document.getElementById('campoPrecio').classList.add('d-none');
       document.getElementById('inputCompra').value = '';
-      document.getElementById('inputVenta').value  = '';
+      document.getElementById('inputVenta').value = '';
       irPaso1();
       new bootstrap.Modal(document.getElementById('modalEnvio')).show();
     });
   });
 
-  document.getElementById('btnCancelarModal').addEventListener('click', function() {
-    if (!document.getElementById('paso2').classList.contains('d-none')) {
-      irPaso1();
-    } else {
-      bootstrap.Modal.getInstance(document.getElementById('modalEnvio')).hide();
-    }
+  document.getElementById('btnCancelarModal').addEventListener('click', () => {
+    document.getElementById('paso2').classList.contains('d-none')
+      ? bootstrap.Modal.getInstance(document.getElementById('modalEnvio')).hide()
+      : irPaso1();
   });
-
-  document.querySelectorAll('input[name="tipo_correo"]').forEach(function(radio) {
-    radio.addEventListener('change', function() {
-      document.getElementById('campoPrecio').classList.toggle('d-none', this.value !== 'precio');
-    });
+  document.querySelectorAll('input[name="tipo_correo"]').forEach(r => {
+    r.addEventListener('change', () => document.getElementById('campoPrecio').classList.toggle('d-none', r.value !== 'precio'));
   });
 
   document.getElementById('btnVerBorrador').addEventListener('click', async function() {
-    currentTipo  = document.querySelector('input[name="tipo_correo"]:checked').value;
-    const compra = document.getElementById('inputCompra').value.trim();
-    const venta  = document.getElementById('inputVenta').value.trim();
-    if (currentTipo === 'precio' && (!compra || !venta)) {
-      Swal.fire('Faltan precios', 'Ingresa COMPRA y VENTA para continuar.', 'warning'); return;
-    }
-    const btn = this;
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Generando...';
-    try {
-      const resp = await fetch('/prospeccion/' + currentPid + '/preview-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
-        body: JSON.stringify({ tipo: currentTipo, compra: compra, venta: venta })
-      });
-      const data = await resp.json();
-      if (data.ok) { irPaso2(data.html, data.asunto); }
-      else { Swal.fire('Error', data.error || 'No se pudo generar el borrador.', 'error'); }
-    } catch(e) { Swal.fire('Error', 'Fallo de conexion.', 'error'); }
-    finally { btn.disabled = false; btn.innerHTML = '<i class="bi bi-eye"></i> Ver borrador'; }
+    currentTipo = document.querySelector('input[name="tipo_correo"]:checked').value;
+    const compra = document.getElementById('inputCompra').value.trim(), venta = document.getElementById('inputVenta').value.trim();
+    if (currentTipo === 'precio' && (!compra || !venta)) { Swal.fire('Faltan precios', '', 'warning'); return; }
+    this.disabled = true; this.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+    const r = await fetch(`/prospeccion/${currentPid}/preview-email`, {
+      method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':csrfToken},
+      body: JSON.stringify({tipo:currentTipo, compra, venta})
+    });
+    const d = await r.json();
+    d.ok ? irPaso2(d.html, d.asunto) : Swal.fire('Error', d.error, 'error');
+    this.disabled = false; this.innerHTML = '<i class="bi bi-eye"></i> Ver borrador';
   });
 
   document.getElementById('btnEnviarModal').addEventListener('click', async function() {
-    const compra      = document.getElementById('inputCompra').value.trim();
-    const venta       = document.getElementById('inputVenta').value.trim();
-    const htmlEditado = document.getElementById('emailPreview').innerHTML;
-    const btn = this;
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Enviando...';
-    try {
-      const resp = await fetch('/prospeccion/' + currentPid + '/enviar-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
-        body: JSON.stringify({ tipo: currentTipo, compra: compra, venta: venta,
-                               html_editado: htmlEditado, asunto: currentAsunto })
-      });
-      const data = await resp.json();
-      bootstrap.Modal.getInstance(document.getElementById('modalEnvio')).hide();
-      if (data.ok) {
-        Swal.fire({ icon: 'success', title: 'Enviado', text: data.msg,
-                    timer: 2500, showConfirmButton: false })
-          .then(() => location.reload());
-      } else {
-        Swal.fire('Error al enviar', data.error || 'No se pudo enviar.', 'error');
-      }
-    } catch(e) { Swal.fire('Error', 'Fallo de conexion.', 'error'); }
-    finally { btn.disabled = false; btn.innerHTML = '<i class="bi bi-send"></i> Enviar correo'; }
+    const compra = document.getElementById('inputCompra').value.trim(), venta = document.getElementById('inputVenta').value.trim();
+    this.disabled = true; this.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+    const r = await fetch(`/prospeccion/${currentPid}/enviar-email`, {
+      method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':csrfToken},
+      body: JSON.stringify({tipo:currentTipo, compra, venta, html_editado: document.getElementById('emailPreview').innerHTML, asunto:currentAsunto})
+    });
+    const d = await r.json();
+    bootstrap.Modal.getInstance(document.getElementById('modalEnvio')).hide();
+    if (d.ok) Swal.fire({icon:'success', title:'Enviado', text:d.msg, timer:2500, showConfirmButton:false}).then(() => location.reload());
+    else Swal.fire('Error', d.error, 'error');
+    this.disabled = false; this.innerHTML = '<i class="bi bi-send"></i> Enviar';
   });
 })();
 
-// ── Boton "Respondio" → pasa a En Negociacion ─────────────────────────────────
-document.querySelectorAll('.btn-respondio').forEach(function(btn) {
+// Solicitar extensión
+document.querySelectorAll('.btn-sol-ext').forEach(btn => {
   btn.addEventListener('click', async function() {
     const pid = this.dataset.pid;
-    const conf = await Swal.fire({
-      title: 'El cliente respondio?',
-      text: 'El registro pasara a "En Negociacion".',
-      icon: 'question',
-      showCancelButton: true,
-      confirmButtonText: 'Si, respondio',
-      cancelButtonText: 'Cancelar'
-    });
-    if (!conf.isConfirmed) return;
-    try {
-      const resp = await fetch('/prospeccion/' + pid + '/cambiar-estado', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
-        body: JSON.stringify({ estado: 'negociacion' })
-      });
-      const data = await resp.json();
-      if (data.ok) {
-        Swal.fire({ icon: 'success', title: 'Actualizado', timer: 1500, showConfirmButton: false })
-          .then(() => location.reload());
-      } else { Swal.fire('Error', data.error, 'error'); }
-    } catch(e) { Swal.fire('Error', 'Fallo de conexion.', 'error'); }
-  });
-});
-
-// ── Solicitar extension de vigencia ───────────────────────────────────────────
-document.querySelectorAll('.btn-sol-ext').forEach(function(btn) {
-  btn.addEventListener('click', async function() {
-    const pid = this.dataset.pid;
-    const conf = await Swal.fire({
-      title: 'Solicitar extension?',
-      text: 'Se enviara una solicitud al Master para extender 45 dias mas la vigencia de este prospecto.',
-      icon: 'question',
-      showCancelButton: true,
-      confirmButtonText: 'Solicitar',
-      cancelButtonText: 'Cancelar'
-    });
-    if (!conf.isConfirmed) return;
-    try {
-      const resp = await fetch('/prospeccion/' + pid + '/solicitar-extension', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
-        body: JSON.stringify({})
-      });
-      const data = await resp.json();
-      if (data.ok) {
-        Swal.fire({ icon: 'success', title: 'Solicitud enviada', timer: 2000, showConfirmButton: false })
-          .then(() => location.reload());
-      } else { Swal.fire('Error', data.error, 'error'); }
-    } catch(e) { Swal.fire('Error', 'Fallo de conexion.', 'error'); }
-  });
-});
-
-// ── Boton "Registrar como cliente" ────────────────────────────────────────────
-document.querySelectorAll('.btn-reg-cliente').forEach(function(btn) {
-  btn.addEventListener('click', async function() {
-    const pid    = this.dataset.pid;
-    const nombre = this.dataset.nombre;
-    const ruc    = this.dataset.ruc;
-    const email  = this.dataset.email;
-    const conf = await Swal.fire({
-      title: 'Registrar como cliente',
-      html: `<b>${nombre}</b><br><small class="text-muted">RUC: ${ruc || '—'} &nbsp;|&nbsp; ${email}</small>
-             <hr class="my-2">
-             <p class="text-start small">El sistema cruzara el RUC con la base de clientes.<br>
-             Si ya existe, lo vincula. Si no, crea el registro.</p>`,
-      icon: 'info',
-      showCancelButton: true,
-      confirmButtonText: 'Confirmar',
-      cancelButtonText: 'Cancelar'
-    });
-    if (!conf.isConfirmed) return;
-    try {
-      const resp = await fetch('/prospeccion/' + pid + '/registrar-cliente', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
-        body: JSON.stringify({})
-      });
-      const data = await resp.json();
-      if (data.ok) {
-        Swal.fire({ icon: 'success', title: data.accion === 'vinculado' ? 'Vinculado' : 'Cliente creado',
-                    text: data.msg, timer: 3000, showConfirmButton: false })
-          .then(() => location.reload());
-      } else { Swal.fire('Error', data.error, 'error'); }
-    } catch(e) { Swal.fire('Error', 'Fallo de conexion.', 'error'); }
+    const c = await Swal.fire({title:'¿Solicitar extension?', text:'45 días extra para este prospecto.', icon:'question', showCancelButton:true, confirmButtonText:'Solicitar'});
+    if (!c.isConfirmed) return;
+    const r = await fetch(`/prospeccion/${pid}/solicitar-extension`, { method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':csrfToken}, body:'{}' });
+    const d = await r.json();
+    if (d.ok) Swal.fire({icon:'success', title:'Solicitud enviada', timer:1800, showConfirmButton:false}).then(() => location.reload());
+    else Swal.fire('Error', d.error, 'error');
   });
 });
 </script>

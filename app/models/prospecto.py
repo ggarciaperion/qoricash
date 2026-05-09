@@ -63,26 +63,36 @@ class Prospecto(db.Model):
         return {c.name: getattr(self, c.name) for c in self.__table__.columns}
 
     @property
-    def score_color(self):
-        s = self.score or 0
-        if s >= 70: return "#B91C1C"
-        if s >= 50: return "#3B82F6"
-        if s >= 30: return "#22C55E"
-        return "#94A3B8"
+    def estado_fase(self):
+        """Categoria canonica del estado para filtros y logica de negocio."""
+        ec = self.estado_comercial or ""
+        if ec in ("cliente", "P4"):
+            return "cliente"
+        if ec in ("negociando", "negociacion", "P3"):
+            return "negociando"
+        if ec in ("precio_enviado", "P2"):
+            return "precio_enviado"
+        if ec in ("presentado", "seguimiento", "P1"):
+            return "presentado"
+        return "sin_contactar"
 
     @property
     def estado_badge(self):
+        """Retorna (bg_class, label) para mostrar el badge de estado."""
         mapa = {
-            "seguimiento": ("primary",   "En Seguimiento"),
-            "negociacion": ("warning",   "En Negociacion"),
-            "cliente":     ("success",   "Cliente"),
-            # compatibilidad con estados anteriores
-            "P1": ("primary",  "En Seguimiento"),
-            "P2": ("primary",  "En Seguimiento"),
-            "P3": ("warning",  "En Negociacion"),
-            "P4": ("success",  "Cliente"),
+            "presentado":    ("primary",   "Presentado"),
+            "precio_enviado":("info",      "Precio enviado"),
+            "negociando":    ("warning",   "Negociando"),
+            "cliente":       ("success",   "Cliente"),
+            # legacy
+            "seguimiento":   ("primary",   "Presentado"),
+            "negociacion":   ("warning",   "Negociando"),
+            "P1":            ("primary",   "Presentado"),
+            "P2":            ("info",      "Precio enviado"),
+            "P3":            ("warning",   "Negociando"),
+            "P4":            ("success",   "Cliente"),
         }
-        return mapa.get(self.estado_comercial, ("secondary", "Sin contactar"))
+        return mapa.get(self.estado_comercial or "", ("secondary", "Sin contactar"))
 
     @property
     def trader_asignado(self):

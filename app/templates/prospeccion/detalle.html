@@ -4,167 +4,145 @@
 {% block content %}
 <div class="container-fluid py-4">
 
-  <!-- Breadcrumb -->
-  <nav aria-label="breadcrumb" class="mb-3">
-    <ol class="breadcrumb">
-      <li class="breadcrumb-item"><a href="{{ url_for('prospeccion.dashboard') }}">Prospeccion</a></li>
-      <li class="breadcrumb-item"><a href="{{ url_for('prospeccion.lista') }}">Base</a></li>
-      <li class="breadcrumb-item active">{{ p.razon_social or p.email }}</li>
-    </ol>
-  </nav>
+  <!-- Breadcrumb + acciones -->
+  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <nav aria-label="breadcrumb">
+      <ol class="breadcrumb mb-0">
+        <li class="breadcrumb-item"><a href="{{ url_for('prospeccion.dashboard') }}">Prospeccion</a></li>
+        <li class="breadcrumb-item"><a href="{{ url_for('prospeccion.lista') }}">Base</a></li>
+        <li class="breadcrumb-item active">{{ p.razon_social or p.email }}</li>
+      </ol>
+    </nav>
+    <div class="d-flex gap-2 align-items-center flex-wrap">
+      {% if vigencia_dias is not none %}
+        {% if ext_solicitada %}
+          <span class="badge bg-warning text-dark fs-6">Extension pendiente</span>
+        {% elif vigencia_dias <= 0 %}
+          <span class="badge bg-danger fs-6">Vigencia vencida</span>
+          {% if current_user.role == 'Trader' %}
+          <button class="btn btn-sm btn-outline-warning" id="btnSolExt">
+            <i class="bi bi-plus-circle"></i> Solicitar extension
+          </button>
+          {% endif %}
+        {% elif vigencia_dias <= 7 %}
+          <span class="badge bg-danger fs-6">{{ vigencia_dias }}d restantes</span>
+        {% elif vigencia_dias <= 15 %}
+          <span class="badge bg-warning text-dark fs-6">{{ vigencia_dias }}d restantes</span>
+        {% else %}
+          <span class="badge bg-success-subtle text-success border border-success-subtle fs-6">{{ vigencia_dias }}d restantes</span>
+        {% endif %}
+      {% endif %}
+      <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalEnviarEmail">
+        <i class="bi bi-envelope"></i> Enviar email
+      </button>
+      {% if current_user.role == 'Master' %}
+      <a href="{{ url_for('prospeccion.editar', pid=p.id) }}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-pencil"></i> Editar
+      </a>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Cabecera prospecto -->
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-body py-3">
+      <div class="row g-3 align-items-start">
+        <div class="col-lg-5">
+          <h5 class="fw-bold mb-1">{{ p.razon_social or '(Sin nombre)' }}</h5>
+          <div class="text-muted small d-flex flex-wrap gap-3 mt-1">
+            {% if p.ruc %}<span><i class="bi bi-building me-1"></i>{{ p.ruc }}</span>{% endif %}
+            {% if p.rubro %}<span><i class="bi bi-tag me-1"></i>{{ p.rubro }}</span>{% endif %}
+            {% if p.departamento %}<span><i class="bi bi-geo-alt me-1"></i>{{ p.departamento }}</span>{% endif %}
+            {% if p.tipo %}<span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">{{ p.tipo }}</span>{% endif %}
+          </div>
+        </div>
+        <div class="col-lg-4">
+          <div class="small">
+            {% if p.nombre_contacto %}
+            <div class="fw-semibold mb-1">
+              {{ p.nombre_contacto }}
+              {% if p.cargo %}<span class="text-muted fw-normal"> · {{ p.cargo }}</span>{% endif %}
+            </div>
+            {% endif %}
+            {% if p.email %}
+            <div class="mb-1"><a href="mailto:{{ p.email }}" class="text-decoration-none"><i class="bi bi-envelope me-1 text-muted"></i>{{ p.email }}</a></div>
+            {% endif %}
+            {% if p.email_alt %}
+            <div class="text-muted mb-1"><i class="bi bi-envelope me-1"></i>{{ p.email_alt }} <span class="badge bg-light text-muted border" style="font-size:.6rem">alt</span></div>
+            {% endif %}
+            {% if p.telefono %}
+            <div class="text-muted"><i class="bi bi-telephone me-1"></i>{{ p.telefono }}</div>
+            {% endif %}
+          </div>
+        </div>
+        <div class="col-lg-3">
+          <div class="small d-flex flex-column gap-1">
+            {% if p.fecha_proximo_contacto %}
+            <div><span class="text-muted">Proximo:</span> <span class="fw-semibold text-primary">{{ p.fecha_proximo_contacto }}</span></div>
+            {% endif %}
+            {% if p.fecha_ultimo_contacto %}
+            <div><span class="text-muted">Ultimo:</span> {{ p.fecha_ultimo_contacto }}</div>
+            {% endif %}
+            {% if p.num_contactos %}
+            <div><span class="text-muted">Contactos:</span> {{ p.num_contactos }}</div>
+            {% endif %}
+            {% if p.cliente_lfc == 'Cliente LFC' %}
+            <span class="badge bg-success" style="width:fit-content">Cliente LFC</span>
+            {% endif %}
+            {% if p.estado_email == 'Hard Bounce' %}
+            <span class="badge bg-danger" style="width:fit-content">Hard Bounce</span>
+            {% elif p.estado_email == 'Soft Bounce' %}
+            <span class="badge bg-warning text-dark" style="width:fit-content">Soft Bounce</span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <div class="row g-4">
 
-    <!-- Columna principal -->
+    <!-- LEFT: Timeline -->
     <div class="col-lg-8">
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-transparent border-bottom py-3 px-4 d-flex justify-content-between align-items-center">
+          <span class="fw-semibold">Timeline</span>
+          <span class="badge bg-light text-muted border">{{ actividades|length }} registros</span>
+        </div>
+        <div class="card-body px-4 py-3">
 
-      <!-- Header card -->
-      <div class="card border-0 shadow-sm mb-3">
-        <div class="card-body">
-          <div class="d-flex justify-content-between align-items-start">
-            <div>
-              <h5 class="fw-bold mb-1">{{ p.razon_social or '(Sin nombre)' }}</h5>
-              <div class="text-muted small">
-                {% if p.ruc %}<span class="me-3"><i class="bi bi-building"></i> RUC {{ p.ruc }}</span>{% endif %}
-                {% if p.rubro %}<span class="me-3"><i class="bi bi-tag"></i> {{ p.rubro }}</span>{% endif %}
-                {% if p.departamento %}<span><i class="bi bi-geo-alt"></i> {{ p.departamento }}</span>{% endif %}
-              </div>
-            </div>
-            <div class="d-flex gap-2 align-items-center flex-wrap">
-              {% if vigencia_dias is not none %}
-                {% if ext_solicitada %}
-                  <span class="badge bg-warning text-dark">Extension pendiente</span>
-                {% elif vigencia_dias <= 0 %}
-                  <span class="badge bg-danger">Vencido</span>
-                  {% if current_user.role == 'Trader' and p.estado_comercial in ['negociacion','P2','P3'] %}
-                  <button class="btn btn-sm btn-outline-warning" id="btnSolExt">
-                    <i class="bi bi-plus-circle"></i> Solicitar extension
-                  </button>
-                  {% endif %}
-                {% elif vigencia_dias <= 7 %}
-                  <span class="badge bg-danger">{{ vigencia_dias }}d restantes</span>
-                {% elif vigencia_dias <= 15 %}
-                  <span class="badge bg-warning text-dark">{{ vigencia_dias }}d restantes</span>
-                {% else %}
-                  <span class="badge bg-success-subtle text-success border border-success-subtle">{{ vigencia_dias }}d restantes</span>
-                {% endif %}
-              {% endif %}
-              {% if current_user.role == 'Master' %}
-              <a href="{{ url_for('prospeccion.editar', pid=p.id) }}"
-                 class="btn btn-sm btn-outline-primary">
-                <i class="bi bi-pencil"></i> Editar
-              </a>
-              {% endif %}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Datos contacto -->
-      <div class="card border-0 shadow-sm mb-3">
-        <div class="card-header bg-transparent border-0 pb-0">
-          <span class="fw-semibold small text-uppercase text-muted">Contacto</span>
-        </div>
-        <div class="card-body">
-          <div class="row g-3 small">
-            <div class="col-sm-6">
-              <div class="text-muted">Email principal</div>
-              <div class="fw-semibold"><a href="mailto:{{ p.email }}">{{ p.email or '—' }}</a></div>
-              {% if p.email_alt %}
-              <div class="text-muted">Alt: {{ p.email_alt }}</div>
-              {% endif %}
-            </div>
-            <div class="col-sm-6">
-              <div class="text-muted">Telefono</div>
-              <div>{{ p.telefono or '—' }}</div>
-            </div>
-            <div class="col-sm-6">
-              <div class="text-muted">Contacto</div>
-              <div class="fw-semibold">{{ p.nombre_contacto or '—' }}</div>
-              <div class="text-muted">{{ p.cargo or '' }}</div>
-            </div>
-            <div class="col-sm-6">
-              <div class="text-muted">Cliente LFC</div>
-              {% if p.cliente_lfc == 'Cliente LFC' %}
-                <span class="badge bg-success">{{ p.cliente_lfc }}</span>
-              {% else %}
-                <span>—</span>
-              {% endif %}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Historial -->
-      <div class="card border-0 shadow-sm mb-3">
-        <div class="card-header bg-transparent border-0 pb-0">
-          <span class="fw-semibold small text-uppercase text-muted">Historial de contacto</span>
-        </div>
-        <div class="card-body">
-          <div class="row g-3 small">
-            <div class="col-sm-4">
-              <div class="text-muted">Primer contacto</div>
-              <div>{{ p.fecha_primer_contacto or '—' }}</div>
-            </div>
-            <div class="col-sm-4">
-              <div class="text-muted">Ultimo contacto</div>
-              <div>{{ p.fecha_ultimo_contacto or '—' }}</div>
-            </div>
-            <div class="col-sm-4">
-              <div class="text-muted">Proximo contacto</div>
-              <div class="fw-semibold {% if p.fecha_proximo_contacto %}text-primary{% endif %}">
-                {{ p.fecha_proximo_contacto or 'Sin programar' }}
-              </div>
-            </div>
-            <div class="col-sm-4">
-              <div class="text-muted">N° contactos</div>
-              <div>{{ p.num_contactos or 0 }}</div>
-            </div>
-            <div class="col-sm-4">
-              <div class="text-muted">Ultimo envio</div>
-              <div>{{ p.tipo_ultimo_envio or '—' }}</div>
-            </div>
-            <div class="col-sm-4">
-              <div class="text-muted">Remitente</div>
-              <div>{{ p.remitente or '—' }}</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Registrar actividad -->
-      <div class="card border-0 shadow-sm mb-3">
-        <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
-          <span class="fw-semibold small text-uppercase text-muted">Registrar actividad</span>
-        </div>
-        <div class="card-body">
-          <form method="POST" action="{{ url_for('prospeccion.agregar_actividad', pid=p.id) }}">
+          <!-- Formulario nueva actividad -->
+          <form method="POST" action="{{ url_for('prospeccion.agregar_actividad', pid=p.id) }}" class="mb-4 pb-4 border-bottom">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
             <div class="row g-2">
               <div class="col-sm-3">
+                <label class="form-label small text-muted mb-1">Tipo</label>
                 <select name="tipo" class="form-select form-select-sm">
-                  <option value="email">Email</option>
                   <option value="llamada">Llamada</option>
                   <option value="reunion">Reunion</option>
+                  <option value="email">Email</option>
                   <option value="nota">Nota</option>
                 </select>
               </div>
               <div class="col-sm-3">
+                <label class="form-label small text-muted mb-1">Mover estado</label>
                 <select name="nuevo_estado" class="form-select form-select-sm">
-                  <option value="">Sin cambio de estado</option>
-                  <option value="P1">P1 — Presentacion</option>
-                  <option value="P2">P2 — Precio</option>
-                  <option value="P3">P3 — Negociacion</option>
-                  <option value="P4">P4 — Cliente</option>
+                  <option value="">Sin cambio</option>
+                  <option value="presentado">Presentado</option>
+                  <option value="precio_enviado">Precio enviado</option>
+                  <option value="negociando">Negociando</option>
+                  <option value="cliente">Cliente</option>
                 </select>
               </div>
               <div class="col-sm-3">
+                <label class="form-label small text-muted mb-1">Proximo contacto</label>
                 <input type="date" name="fecha_proximo_contacto" class="form-control form-control-sm"
-                       placeholder="Proximo contacto"/>
+                       value="{{ p.fecha_proximo_contacto or '' }}"/>
               </div>
               <div class="col-sm-3">
+                <label class="form-label small text-muted mb-1">Resultado</label>
                 <input type="text" name="resultado" class="form-control form-control-sm"
-                       placeholder="Resultado (opcional)"/>
+                       placeholder="Opcional"/>
               </div>
               <div class="col-12">
                 <textarea name="descripcion" class="form-control form-control-sm" rows="2"
@@ -172,95 +150,137 @@
               </div>
               <div class="col-12">
                 <button type="submit" class="btn btn-sm btn-primary">
-                  <i class="bi bi-check-lg"></i> Guardar actividad
+                  <i class="bi bi-plus-lg"></i> Registrar
                 </button>
               </div>
             </div>
           </form>
-        </div>
-      </div>
 
-      <!-- Historial actividades -->
-      <div class="card border-0 shadow-sm">
-        <div class="card-header bg-transparent border-0 pb-0">
-          <span class="fw-semibold small text-uppercase text-muted">Historial de actividades</span>
-        </div>
-        <div class="card-body p-0">
+          <!-- Entradas timeline -->
           {% for act in actividades %}
-          <div class="d-flex gap-3 px-3 py-2 border-bottom">
-            <div class="text-center pt-1" style="min-width:28px">
-              <i class="bi bi-{% if act.tipo == 'email' %}envelope{% elif act.tipo == 'llamada' %}telephone{% elif act.tipo == 'reunion' %}people{% else %}sticky{% endif %} text-muted small"></i>
+          {% if act.tipo == 'email' %}
+            {% set t_icon = 'envelope-fill' %}{% set t_color = '#0d6efd' %}
+          {% elif act.tipo == 'llamada' %}
+            {% set t_icon = 'telephone-fill' %}{% set t_color = '#198754' %}
+          {% elif act.tipo == 'reunion' %}
+            {% set t_icon = 'people-fill' %}{% set t_color = '#ffc107' %}
+          {% elif act.tipo == 'estado' %}
+            {% set t_icon = 'arrow-right-circle-fill' %}{% set t_color = '#0dcaf0' %}
+          {% else %}
+            {% set t_icon = 'sticky-fill' %}{% set t_color = '#6c757d' %}
+          {% endif %}
+
+          <div class="d-flex gap-3 mb-3 {% if not loop.last %}pb-3 border-bottom{% endif %}">
+            <div class="flex-shrink-0">
+              <div class="rounded-circle d-flex align-items-center justify-content-center text-white"
+                   style="width:32px;height:32px;background:{{ t_color }}">
+                <i class="bi bi-{{ t_icon }}" style="font-size:.7rem"></i>
+              </div>
             </div>
             <div class="flex-grow-1">
-              <div class="small fw-semibold">{{ act.descripcion }}</div>
-              {% if act.resultado %}
-              <div class="text-muted" style="font-size:.75rem">Resultado: {{ act.resultado }}</div>
-              {% endif %}
-              {% if act.nuevo_estado %}
-              <span class="badge bg-warning text-dark" style="font-size:.65rem">→ {{ act.nuevo_estado }}</span>
-              {% endif %}
-              <div class="text-muted" style="font-size:.7rem">
-                {{ act.usuario.username }} &mdash; {{ act.creado_en.strftime('%d/%m/%Y %H:%M') }}
+              <div class="d-flex justify-content-between align-items-start gap-2">
+                <div class="small fw-semibold">{{ act.descripcion }}</div>
+                <div class="text-muted flex-shrink-0" style="font-size:.7rem">
+                  {{ act.creado_en.strftime('%d/%m %H:%M') }}
+                </div>
+              </div>
+              <div class="d-flex flex-wrap gap-2 mt-1 align-items-center">
+                {% if act.resultado %}
+                <span class="text-muted" style="font-size:.75rem"><i class="bi bi-check-circle me-1"></i>{{ act.resultado }}</span>
+                {% endif %}
+                {% if act.nuevo_estado %}
+                  {% if act.nuevo_estado in ['presentado', 'seguimiento', 'P1'] %}
+                  <span class="badge bg-primary-subtle text-primary border border-primary-subtle" style="font-size:.65rem">→ Presentado</span>
+                  {% elif act.nuevo_estado in ['precio_enviado', 'P2'] %}
+                  <span class="badge bg-info-subtle text-info border border-info-subtle" style="font-size:.65rem">→ Precio enviado</span>
+                  {% elif act.nuevo_estado in ['negociando', 'negociacion', 'P3'] %}
+                  <span class="badge bg-warning-subtle text-warning border border-warning-subtle" style="font-size:.65rem">→ Negociando</span>
+                  {% elif act.nuevo_estado in ['cliente', 'P4'] %}
+                  <span class="badge bg-success-subtle text-success border border-success-subtle" style="font-size:.65rem">→ Cliente</span>
+                  {% endif %}
+                {% endif %}
+                <span class="text-muted" style="font-size:.7rem">{{ act.usuario.username }}</span>
               </div>
             </div>
           </div>
           {% else %}
-          <div class="text-center py-4 text-muted small">Sin actividades registradas.</div>
+          <div class="text-center py-5 text-muted">
+            <i class="bi bi-clock-history d-block mb-2 opacity-25" style="font-size:2rem"></i>
+            Sin actividades registradas aun.
+          </div>
+          {% endfor %}
+
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: Sidebar -->
+    <div class="col-lg-4">
+
+      <!-- Pipeline stepper -->
+      <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header bg-transparent border-bottom py-3 px-3">
+          <span class="fw-semibold small text-uppercase text-muted">Pipeline</span>
+        </div>
+        <div class="card-body px-3 py-3">
+          {% set fase_actual = p.estado_fase %}
+          {% set fases = [
+            ('sin_contactar', 'secondary', 'Sin contactar',  'dash-circle'),
+            ('presentado',    'primary',   'Presentado',     'send-check'),
+            ('precio_enviado','info',      'Precio enviado', 'cash-coin'),
+            ('negociando',    'warning',   'Negociando',     'handshake'),
+            ('cliente',       'success',   'Cliente',        'star-fill'),
+          ] %}
+          {% set order_list = ['sin_contactar','presentado','precio_enviado','negociando','cliente'] %}
+          {% set ns = namespace(actual_idx=0) %}
+          {% for fo in order_list %}{% if fo == fase_actual %}{% set ns.actual_idx = loop.index0 %}{% endif %}{% endfor %}
+
+          {% for fkey, fcolor, flabel, ficon in fases %}
+          {% set is_active = (fkey == fase_actual) %}
+          {% set is_past   = (loop.index0 < ns.actual_idx) %}
+
+          <div class="d-flex align-items-center gap-2 rounded-2 px-2 py-2 mb-1
+               {{ 'bg-' + fcolor + '-subtle border border-' + fcolor + '-subtle' if is_active else '' }}">
+            <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+                 style="width:28px;height:28px;
+                 {% if is_active %}background-color:var(--bs-{{ fcolor }});color:#fff{% elif is_past %}background-color:#e9ecef;color:#6c757d{% else %}background-color:#f8f9fa;color:#adb5bd{% endif %}">
+              <i class="bi bi-{{ ficon }}" style="font-size:.7rem"></i>
+            </div>
+            <span class="small {% if is_active %}fw-bold text-{{ fcolor }}{% elif is_past %}text-muted{% else %}text-muted opacity-50{% endif %}">
+              {{ flabel }}
+            </span>
+            {% if is_active %}
+            <span class="badge bg-{{ fcolor }} ms-auto" style="font-size:.6rem">Actual</span>
+            {% elif fkey != 'sin_contactar' %}
+            <form method="POST" action="{{ url_for('prospeccion.mover_pipeline', pid=p.id) }}" class="ms-auto">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+              <input type="hidden" name="estado" value="{{ fkey }}"/>
+              <button type="submit" class="btn btn-link btn-sm p-0 text-muted" title="Mover a {{ flabel }}" style="font-size:.8rem">
+                <i class="bi bi-arrow-right-circle"></i>
+              </button>
+            </form>
+            {% endif %}
+          </div>
           {% endfor %}
         </div>
       </div>
 
-    </div>
-
-    <!-- Columna lateral -->
-    <div class="col-lg-4">
-
-      <!-- Estado comercial -->
-      <div class="card border-0 shadow-sm mb-3">
-        <div class="card-header bg-transparent border-0 pb-0">
-          <span class="fw-semibold small text-uppercase text-muted">Estado comercial</span>
-        </div>
-        <div class="card-body">
-          {% set bc, bl = p.estado_badge %}
-          <span class="badge bg-{{ bc }} fs-6 mb-3">{{ bl }}</span>
-
-          <div class="small mb-1 text-muted">Nivel de interes</div>
-          <div class="mb-3">{{ p.nivel_interes or '—' }}</div>
-
-          <div class="small mb-1 text-muted">Segmento</div>
-          <div class="mb-3"><span class="badge bg-dark">{{ p.grupo or '—' }}</span></div>
-
-          <div class="small mb-1 text-muted">Estado email</div>
-          <div>
-            {% if p.estado_email == 'Hard Bounce' %}
-              <span class="badge bg-danger">Hard Bounce</span>
-            {% elif p.estado_email == 'Soft Bounce' %}
-              <span class="badge bg-warning text-dark">Soft Bounce</span>
-            {% elif p.estado_email %}
-              <span class="badge bg-success">{{ p.estado_email }}</span>
-            {% else %}
-              <span class="text-muted small">Sin validar</span>
-            {% endif %}
-          </div>
-        </div>
-      </div>
-
-      <!-- Asignacion (solo Master) -->
+      <!-- Asignacion trader (solo Master) -->
       {% if current_user.role == 'Master' %}
       <div class="card border-0 shadow-sm mb-3">
-        <div class="card-header bg-transparent border-0 pb-0">
-          <span class="fw-semibold small text-uppercase text-muted">Asignacion de trader</span>
+        <div class="card-header bg-transparent border-bottom py-3 px-3">
+          <span class="fw-semibold small text-uppercase text-muted">Trader asignado</span>
         </div>
-        <div class="card-body">
+        <div class="card-body px-3 py-3">
           {% if asignacion_actual %}
-          <div class="d-flex align-items-center gap-2 mb-3">
+          <div class="d-flex align-items-center gap-2 mb-3 small">
             <i class="bi bi-person-check-fill text-success"></i>
-            <span class="fw-semibold small">{{ asignacion_actual.trader.username }}</span>
+            <span class="fw-semibold">{{ asignacion_actual.trader.username }}</span>
+            <span class="text-muted">· desde {{ asignacion_actual.asignado_en.strftime('%d/%m/%Y') }}</span>
           </div>
           {% else %}
           <div class="text-muted small mb-3">Sin asignar</div>
           {% endif %}
-
           <form method="POST" action="{{ url_for('prospeccion.asignar', pid=p.id) }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
             <div class="d-flex gap-2">
@@ -273,23 +293,16 @@
                 </option>
                 {% endfor %}
               </select>
-              <button type="submit" class="btn btn-sm btn-outline-primary">
+              <button type="submit" class="btn btn-sm btn-outline-primary px-3">
                 <i class="bi bi-check"></i>
               </button>
             </div>
           </form>
-
           {% if historial_traders %}
           <div class="mt-3 pt-2 border-top">
-            <div class="text-muted small mb-2 text-uppercase fw-semibold" style="font-size:.65rem;letter-spacing:.5px">
-              Traders anteriores
-            </div>
+            <div class="text-muted mb-1" style="font-size:.65rem;text-transform:uppercase;letter-spacing:.5px">Anteriores</div>
             {% for ha in historial_traders %}
-            <div class="d-flex align-items-center gap-2 mb-1 small">
-              <i class="bi bi-person-dash text-muted"></i>
-              <span class="fw-semibold">{{ ha.trader.username }}</span>
-              <span class="text-muted">· asignado {{ ha.asignado_en.strftime('%d/%m/%Y') }}</span>
-            </div>
+            <div class="small text-muted">{{ ha.trader.username }} <span class="opacity-50">· {{ ha.asignado_en.strftime('%d/%m/%Y') }}</span></div>
             {% endfor %}
           </div>
           {% endif %}
@@ -297,47 +310,91 @@
       </div>
       {% endif %}
 
-      <!-- Mover pipeline -->
+      <!-- Clasificacion -->
+      {% if p.canal or p.fuente or p.nivel_interes or p.grupo %}
       <div class="card border-0 shadow-sm mb-3">
-        <div class="card-header bg-transparent border-0 pb-0">
-          <span class="fw-semibold small text-uppercase text-muted">Mover en pipeline</span>
+        <div class="card-header bg-transparent border-bottom py-3 px-3">
+          <span class="fw-semibold small text-uppercase text-muted">Clasificacion</span>
         </div>
-        <div class="card-body">
-          <form method="POST" action="{{ url_for('prospeccion.mover_pipeline', pid=p.id) }}">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-            <div class="d-flex gap-2">
-              <select name="estado" class="form-select form-select-sm">
-                <option value="P1" {% if p.estado_comercial == 'P1' %}selected{% endif %}>P1 — Presentacion</option>
-                <option value="P2" {% if p.estado_comercial == 'P2' %}selected{% endif %}>P2 — Precio</option>
-                <option value="P3" {% if p.estado_comercial == 'P3' %}selected{% endif %}>P3 — Negociacion</option>
-                <option value="P4" {% if p.estado_comercial == 'P4' %}selected{% endif %}>P4 — Cliente</option>
-              </select>
-              <button type="submit" class="btn btn-sm btn-success">
-                <i class="bi bi-arrow-right"></i>
-              </button>
-            </div>
-          </form>
+        <div class="card-body px-3 py-3 small">
+          {% if p.canal %}<div class="mb-1"><span class="text-muted">Canal:</span> {{ p.canal }}</div>{% endif %}
+          {% if p.fuente %}<div class="mb-1"><span class="text-muted">Fuente:</span> {{ p.fuente }}</div>{% endif %}
+          {% if p.nivel_interes %}<div class="mb-1"><span class="text-muted">Interes:</span> {{ p.nivel_interes }}</div>{% endif %}
+          {% if p.grupo %}<div><span class="text-muted">Segmento:</span> <span class="badge bg-dark ms-1">{{ p.grupo }}</span></div>{% endif %}
         </div>
       </div>
+      {% endif %}
 
       <!-- Notas -->
       {% if p.notas %}
       <div class="card border-0 shadow-sm">
-        <div class="card-header bg-transparent border-0 pb-0">
+        <div class="card-header bg-transparent border-bottom py-3 px-3">
           <span class="fw-semibold small text-uppercase text-muted">Notas</span>
         </div>
-        <div class="card-body small text-muted" style="white-space:pre-wrap">{{ p.notas }}</div>
+        <div class="card-body px-3 py-3 small text-muted" style="white-space:pre-wrap">{{ p.notas }}</div>
       </div>
       {% endif %}
 
     </div>
   </div>
 </div>
+
+<!-- Modal enviar email -->
+<div class="modal fade" id="modalEnviarEmail" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header border-0 pb-0">
+        <h6 class="modal-title fw-bold"><i class="bi bi-envelope me-2 text-primary"></i>Enviar email a {{ p.razon_social or p.email }}</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body pt-3">
+        <div class="mb-3">
+          <label class="form-label small fw-semibold">Tipo de correo</label>
+          <select id="tipoEmailSel" class="form-select form-select-sm">
+            <option value="presentacion">Presentacion — primera vez</option>
+            <option value="precio">Envio de precios — seguimiento</option>
+          </select>
+        </div>
+        <div id="precioFields" class="d-none">
+          <div class="row g-2 mb-2">
+            <div class="col-6">
+              <label class="form-label small fw-semibold">Compra (S/)</label>
+              <input type="number" step="0.01" id="inputCompra" class="form-control form-control-sm" placeholder="3.72"/>
+            </div>
+            <div class="col-6">
+              <label class="form-label small fw-semibold">Venta (S/)</label>
+              <input type="number" step="0.01" id="inputVenta" class="form-control form-control-sm" placeholder="3.74"/>
+            </div>
+          </div>
+        </div>
+        {% if p.email %}
+        <div class="small text-muted">
+          <i class="bi bi-send me-1"></i>Se enviara a <strong>{{ p.email }}</strong>
+          {% if p.email_alt %} y <strong>{{ p.email_alt }}</strong> (alt){% endif %}
+        </div>
+        {% else %}
+        <div class="alert alert-warning py-2 small mb-0">
+          <i class="bi bi-exclamation-triangle me-1"></i>Este prospecto no tiene email registrado.
+        </div>
+        {% endif %}
+      </div>
+      <div class="modal-footer border-0 pt-0">
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-sm btn-primary" id="btnEnviarEmail" {% if not p.email %}disabled{% endif %}>
+          <i class="bi bi-send"></i> Enviar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
 <script>
 const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+
+// Solicitar extension vigencia
 const btnSolExt = document.getElementById('btnSolExt');
 if (btnSolExt) {
   btnSolExt.addEventListener('click', async function() {
@@ -357,11 +414,63 @@ if (btnSolExt) {
     });
     const data = await resp.json();
     if (data.ok) {
-      Swal.fire({ icon: 'success', title: 'Solicitud enviada al Master',
-                  timer: 2000, showConfirmButton: false })
+      Swal.fire({ icon: 'success', title: 'Solicitud enviada al Master', timer: 2000, showConfirmButton: false })
         .then(() => location.reload());
     } else {
       Swal.fire('Error', data.error, 'error');
+    }
+  });
+}
+
+// Modal email: mostrar/ocultar campos precio
+const tipoSel = document.getElementById('tipoEmailSel');
+const precioFields = document.getElementById('precioFields');
+if (tipoSel) {
+  tipoSel.addEventListener('change', function() {
+    precioFields.classList.toggle('d-none', this.value !== 'precio');
+  });
+}
+
+// Enviar email
+const btnEnviar = document.getElementById('btnEnviarEmail');
+if (btnEnviar) {
+  btnEnviar.addEventListener('click', async function() {
+    const tipo = tipoSel.value;
+    const payload = { tipo };
+
+    if (tipo === 'precio') {
+      const compra = document.getElementById('inputCompra').value.trim();
+      const venta  = document.getElementById('inputVenta').value.trim();
+      if (!compra || !venta) {
+        Swal.fire('Faltan datos', 'Debes ingresar el tipo de cambio COMPRA y VENTA.', 'warning');
+        return;
+      }
+      payload.compra = compra;
+      payload.venta  = venta;
+    }
+
+    btnEnviar.disabled = true;
+    btnEnviar.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Enviando...';
+
+    try {
+      const resp = await fetch('/prospeccion/{{ p.id }}/enviar-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+        body: JSON.stringify(payload)
+      });
+      const data = await resp.json();
+      bootstrap.Modal.getInstance(document.getElementById('modalEnviarEmail')).hide();
+      if (data.ok) {
+        Swal.fire({ icon: 'success', title: 'Enviado', text: data.msg, timer: 3000, showConfirmButton: false })
+          .then(() => location.reload());
+      } else {
+        Swal.fire('Error', data.error, 'error');
+      }
+    } catch (e) {
+      Swal.fire('Error', 'No se pudo conectar con el servidor.', 'error');
+    } finally {
+      btnEnviar.disabled = false;
+      btnEnviar.innerHTML = '<i class="bi bi-send"></i> Enviar';
     }
   });
 }

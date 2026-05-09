@@ -111,6 +111,19 @@ prospeccion_bp = Blueprint("prospeccion", __name__, url_prefix="/prospeccion")
 
 DIAS_VIGENCIA = 45  # días de vigencia de un prospecto asignado a un trader
 
+# Agrupacion de valores legacy + nuevos por fase canónica
+_FASE_ESTADOS = {
+    "sin_contactar": [],          # NULL o vacío — se trata especial en queries
+    "presentado":    ["presentado",    "seguimiento", "P1"],
+    "precio":        ["precio_enviado","P2"],
+    "negociando":    ["negociando",    "negociacion", "P3"],
+    "clientes":      ["cliente",       "P4"],
+}
+# Estados que NO son cliente (para conteo "activos")
+_ESTADOS_NO_CLIENTE = (
+    _FASE_ESTADOS["presentado"] + _FASE_ESTADOS["precio"] + _FASE_ESTADOS["negociando"]
+)
+
 GRUPOS_ORDEN = [
     "PIPELINE ACTIVO", "CLIENTES LFC", "PRIORITARIOS",
     "CALIFICADOS", "POR CONTACTAR", "UNIVERSO CONTACTADOS",
@@ -136,10 +149,12 @@ def _base_query():
 @require_role("Master", "Trader")
 def dashboard():
     q = _base_query()
-    total        = q.filter(Prospecto.estado_comercial != "cliente").count()
-    en_seguim    = q.filter(Prospecto.estado_comercial.in_(["seguimiento","P1","P2"])).count()
-    en_negoc     = q.filter(Prospecto.estado_comercial.in_(["negociacion","P3"])).count()
-    clientes     = q.filter(Prospecto.estado_comercial.in_(["cliente","P4"])).count()
+    total        = q.filter(Prospecto.estado_comercial.notin_(["cliente","P4"])).count()
+    presentados  = q.filter(Prospecto.estado_comercial.in_(_FASE_ESTADOS["presentado"])).count()
+    precio_env   = q.filter(Prospecto.estado_comercial.in_(_FASE_ESTADOS["precio"])).count()
+    en_negoc     = q.filter(Prospecto.estado_comercial.in_(_FASE_ESTADOS["negociando"])).count()
+    clientes     = q.filter(Prospecto.estado_comercial.in_(_FASE_ESTADOS["clientes"])).count()
+    en_seguim    = presentados + precio_env   # para compatibilidad con template existente
     lfc          = q.filter(Prospecto.cliente_lfc == "Cliente LFC").count()
 
     # Top 5 rubros
@@ -354,16 +369,25 @@ def lista():
     q_str  = request.args.get("q", "")
     page   = request.args.get("page", 1, type=int)
 
-    if tab == "clientes":
-        query = _base_query().filter(Prospecto.estado_comercial.in_(["cliente", "P4"]))
-    else:
-        query = _base_query().filter(Prospecto.estado_comercial.notin_(["cliente", "P4"]))
+    query = _base_query()
 
     # Filtro por pestaña
-    if tab == "seguimiento":
-        query = query.filter(Prospecto.estado_comercial.in_(["seguimiento", "P1"]))
-    elif tab == "negociacion":
-        query = query.filter(Prospecto.estado_comercial.in_(["negociacion", "P2", "P3"]))
+    if tab == "clientes":
+        query = query.filter(Prospecto.estado_comercial.in_(_FASE_ESTADOS["clientes"]))
+    elif tab == "presentado":
+        query = query.filter(Prospecto.estado_comercial.in_(_FASE_ESTADOS["presentado"]))
+    elif tab == "precio":
+        query = query.filter(Prospecto.estado_comercial.in_(_FASE_ESTADOS["precio"]))
+    elif tab == "negociando":
+        query = query.filter(Prospecto.estado_comercial.in_(_FASE_ESTADOS["negociando"]))
+    elif tab == "sin_contactar":
+        query = query.filter(
+            or_(Prospecto.estado_comercial == None,
+                Prospecto.estado_comercial == "",
+                Prospecto.estado_comercial == "sin_contactar")
+        )
+    else:  # todos — excluye clientes
+        query = query.filter(Prospecto.estado_comercial.notin_(_FASE_ESTADOS["clientes"]))
 
     if depto:
         query = query.filter(Prospecto.departamento.ilike(f"%{depto}%"))
@@ -381,10 +405,15 @@ def lista():
 
     # Conteos para las pestañas
     base = _base_query()
-    cnt_todos       = base.filter(Prospecto.estado_comercial.notin_(["cliente","P4"])).count()
-    cnt_seguimiento = base.filter(Prospecto.estado_comercial.in_(["seguimiento","P1"])).count()
-    cnt_negociacion = base.filter(Prospecto.estado_comercial.in_(["negociacion","P2","P3"])).count()
-    cnt_clientes    = base.filter(Prospecto.estado_comercial.in_(["cliente","P4"])).count()
+    cnt_todos         = base.filter(Prospecto.estado_comercial.notin_(_FASE_ESTADOS["clientes"])).count()
+    cnt_sin_contactar = base.filter(or_(
+                            Prospecto.estado_comercial == None,
+                            Prospecto.estado_comercial == "",
+                            Prospecto.estado_comercial == "sin_contactar")).count()
+    cnt_presentado    = base.filter(Prospecto.estado_comercial.in_(_FASE_ESTADOS["presentado"])).count()
+    cnt_precio        = base.filter(Prospecto.estado_comercial.in_(_FASE_ESTADOS["precio"])).count()
+    cnt_negociando    = base.filter(Prospecto.estado_comercial.in_(_FASE_ESTADOS["negociando"])).count()
+    cnt_clientes      = base.filter(Prospecto.estado_comercial.in_(_FASE_ESTADOS["clientes"])).count()
 
     # Vigencia por prospecto (días restantes hasta vencimiento de asignación)
     hoy   = now_peru().date()
@@ -412,8 +441,10 @@ def lista():
         tab=tab,
         filtros={"depto": depto, "q": q_str, "tab": tab},
         cnt_todos=cnt_todos,
-        cnt_seguimiento=cnt_seguimiento,
-        cnt_negociacion=cnt_negociacion,
+        cnt_sin_contactar=cnt_sin_contactar,
+        cnt_presentado=cnt_presentado,
+        cnt_precio=cnt_precio,
+        cnt_negociando=cnt_negociando,
         cnt_clientes=cnt_clientes,
         vigencia_map=vigencia_map,
         dias_vigencia=DIAS_VIGENCIA,
@@ -629,21 +660,8 @@ def asignar_masivo():
 
 @prospeccion_bp.route("/pipeline")
 @login_required
-@require_role("Master", "Trader")
 def pipeline():
-    base = _base_query()
-    columnas = {}
-    config = [
-        ("P1", "Presentacion enviada", "secondary"),
-        ("P2", "Precio enviado",       "info"),
-        ("P3", "En negociacion",       "warning"),
-        ("P4", "Cliente cerrado",      "success"),
-    ]
-    for estado, label, color in config:
-        items = base.filter(Prospecto.estado_comercial == estado).order_by(Prospecto.score.desc()).all()
-        columnas[estado] = {"label": label, "color": color, "items": items}
-
-    return render_template("prospeccion/pipeline.html", columnas=columnas)
+    return redirect(url_for("prospeccion.lista"))
 
 
 @prospeccion_bp.route("/<int:pid>/mover", methods=["POST"])
@@ -653,22 +671,24 @@ def mover_pipeline(pid):
     p = Prospecto.query.get_or_404(pid)
     _verificar_acceso(p)
     nuevo = request.form.get("estado")
-    if nuevo in ("P1", "P2", "P3", "P4"):
+    validos = {"presentado","precio_enviado","negociando","cliente","P1","P2","P3","P4"}
+    if nuevo in validos:
         p.estado_comercial = nuevo
+        act = ActividadProspecto(
+            prospecto_id=p.id, user_id=current_user.id, tipo="estado",
+            descripcion=f"Pipeline movido a {nuevo}.", nuevo_estado=nuevo,
+        )
+        db.session.add(act)
         db.session.commit()
-    return redirect(request.referrer or url_for("prospeccion.pipeline"))
+    return redirect(request.referrer or url_for("prospeccion.lista"))
 
 
 # ── No contactar ─────────────────────────────────────────────────────────────
 
 @prospeccion_bp.route("/no-contactar")
 @login_required
-@require_role("Master")
 def no_contactar():
-    lista = (Prospecto.query
-             .filter(Prospecto.grupo == "NO CONTACTAR")
-             .order_by(Prospecto.razon_social).all())
-    return render_template("prospeccion/no_contactar.html", lista=lista)
+    return redirect(url_for("prospeccion.lista"))
 
 
 # ── API JSON (para charts del dashboard) ─────────────────────────────────────
@@ -1153,14 +1173,14 @@ def _construir_email(p, tipo, compra, venta, sender_email, nombre_completo, carg
             header=HEADER_HTML, nombre=nombre_saludo,
             ticker=ticker, bancos=BANCOS_HTML, firma=firma, pie=PIE,
         )
-        return html, "QoriCash - Tipo de cambio del dia", "negociacion"
+        return html, "QoriCash - Tipo de cambio del dia", "precio_enviado"
     else:
         html = CUERPO_PRESENTACION.format(
             header=HEADER_HTML, nombre=nombre_saludo,
             presentacion_remitente=presentacion_remitente,
             bancos=BANCOS_HTML, firma=firma, pie=PIE,
         )
-        return html, "QoriCash - El mejor tipo de cambio para empresas", "seguimiento"
+        return html, "QoriCash - El mejor tipo de cambio para empresas", "presentado"
 
 
 @prospeccion_bp.route("/<int:pid>/preview-email", methods=["POST"])
@@ -1239,7 +1259,7 @@ def enviar_email(pid):
         except Exception:
             pass  # El principal ya fue enviado; el alt falla silencioso
 
-    nuevo_estado = "negociacion" if tipo == "precio" else "seguimiento"
+    nuevo_estado = "precio_enviado" if tipo == "precio" else "presentado"
     desc = f"Correo de {tipo} enviado."
     if enviado_alt:
         desc += f" También enviado a email alternativo ({p.email_alt.strip()})."
@@ -1274,15 +1294,14 @@ def cambiar_estado(pid):
     _verificar_acceso(p)
 
     nuevo = request.get_json(force=True).get("estado", "")
-    if nuevo not in ("seguimiento", "negociacion"):
+    validos = {"presentado","precio_enviado","negociando","cliente",
+               "seguimiento","negociacion","P1","P2","P3","P4"}
+    if nuevo not in validos:
         return jsonify({"ok": False, "error": "Estado invalido."}), 400
 
     act = ActividadProspecto(
-        prospecto_id=p.id,
-        user_id=current_user.id,
-        tipo="estado",
-        descripcion=f"Estado cambiado a {nuevo}.",
-        nuevo_estado=nuevo,
+        prospecto_id=p.id, user_id=current_user.id, tipo="estado",
+        descripcion=f"Estado cambiado a {nuevo}.", nuevo_estado=nuevo,
     )
     db.session.add(act)
     p.estado_comercial = nuevo
@@ -1410,6 +1429,7 @@ def _campana_worker(app, trader_id, prospecto_ids, tipo, sender_email,
                 p.tipo_ultimo_envio     = tipo
                 p.fecha_ultimo_contacto = now_peru().strftime("%Y-%m-%d %H:%M")
 
+                nuevo_estado = "precio_enviado" if tipo == "precio" else "presentado"
                 desc = f"Campaña masiva: correo de {tipo} enviado."
                 if enviado_alt:
                     desc += f" También a email alternativo ({p.email_alt.strip()})."
