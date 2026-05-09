@@ -296,7 +296,7 @@ def agregar_actividad(pid):
 
 @prospeccion_bp.route("/<int:pid>/editar", methods=["GET", "POST"])
 @login_required
-@require_role("Master", "Trader")
+@require_role("Master")
 def editar(pid):
     p = Prospecto.query.get_or_404(pid)
     _verificar_acceso(p)
@@ -313,13 +313,6 @@ def editar(pid):
             val = request.form.get(campo)
             if val is not None:
                 setattr(p, campo, val.strip() or None)
-
-        score_val = request.form.get("score")
-        if score_val:
-            try:
-                p.score = int(score_val)
-            except ValueError:
-                pass
 
         db.session.commit()
         flash("Registro actualizado.", "success")
