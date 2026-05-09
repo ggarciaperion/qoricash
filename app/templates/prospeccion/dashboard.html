@@ -86,7 +86,72 @@
     </div>
   </div>
 
+  <!-- Metricas de campana -->
+  <div class="row g-3 mb-3">
+    <div class="col-6 col-md">
+      <div class="card border-0 shadow-sm h-100 border-start border-4 border-primary">
+        <div class="card-body text-center py-3">
+          <div class="fs-3 fw-bold text-primary">{{ env_presentacion }}</div>
+          <div class="text-muted small">Presentacion enviada</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md">
+      <div class="card border-0 shadow-sm h-100 border-start border-4 border-info">
+        <div class="card-body text-center py-3">
+          <div class="fs-3 fw-bold text-info">{{ env_precio }}</div>
+          <div class="text-muted small">Precio enviado</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md">
+      <a href="{{ url_for('prospeccion.lista', tab='lfc') }}" class="text-decoration-none">
+        <div class="card border-0 shadow-sm h-100 border-start border-4 kpi-card" style="border-color:#22C55E!important">
+          <div class="card-body text-center py-3">
+            <div class="fs-3 fw-bold" style="color:#22C55E">{{ lfc_contactados }}</div>
+            <div class="text-muted small">LFC contactados</div>
+          </div>
+        </div>
+      </a>
+    </div>
+    <div class="col-6 col-md">
+      <div class="card border-0 shadow-sm h-100 border-start border-4 border-danger">
+        <div class="card-body text-center py-3">
+          <div class="fs-3 fw-bold text-danger">{{ bounces }}</div>
+          <div class="text-muted small">Rechazos (bounces)</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md">
+      <div class="card border-0 shadow-sm h-100 border-start border-4 border-secondary">
+        <div class="card-body text-center py-3">
+          <div class="fs-3 fw-bold text-secondary">{{ sin_email }}</div>
+          <div class="text-muted small">Sin email</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="row g-3">
+
+    <!-- Envios por dia -->
+    <div class="col-md-7">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-header bg-transparent border-0 pb-0">
+          <span class="fw-semibold small text-uppercase text-muted">Historial de envios por dia</span>
+        </div>
+        <div class="card-body">
+          {% if envios_por_dia %}
+          <canvas id="chartEnviosDia" height="200"></canvas>
+          {% else %}
+          <div class="text-center text-muted py-5 small">
+            <i class="bi bi-bar-chart d-block mb-2 opacity-25" style="font-size:2rem"></i>
+            Sin historial de envios aun.
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
 
     <!-- Chart segmentos -->
     <div class="col-md-5">
@@ -95,55 +160,7 @@
           <span class="fw-semibold small text-uppercase text-muted">Distribucion por segmento</span>
         </div>
         <div class="card-body">
-          <canvas id="chartGrupos" height="240"></canvas>
-        </div>
-      </div>
-    </div>
-
-    <!-- Top rubros -->
-    <div class="col-md-4">
-      <div class="card border-0 shadow-sm h-100">
-        <div class="card-header bg-transparent border-0 pb-0">
-          <span class="fw-semibold small text-uppercase text-muted">Top rubros</span>
-        </div>
-        <div class="card-body">
-          {% for rubro, cnt in top_rubros %}
-          <div class="d-flex justify-content-between align-items-center mb-1">
-            <span class="text-truncate me-2" style="font-size:.75rem;max-width:210px">{{ rubro }}</span>
-            <div class="d-flex align-items-center gap-2 flex-shrink-0">
-              <div class="progress" style="width:70px;height:5px">
-                <div class="progress-bar bg-warning" style="width:{{ (cnt / top_rubros[0][1] * 100)|int }}%"></div>
-              </div>
-              <span class="fw-bold" style="font-size:.75rem;min-width:22px;text-align:right">{{ cnt }}</span>
-            </div>
-          </div>
-          {% endfor %}
-        </div>
-      </div>
-    </div>
-
-    <!-- Actividades recientes -->
-    <div class="col-md-3">
-      <div class="card border-0 shadow-sm h-100">
-        <div class="card-header bg-transparent border-0 pb-0">
-          <span class="fw-semibold small text-uppercase text-muted">Mis actividades recientes</span>
-        </div>
-        <div class="card-body p-0">
-          <ul class="list-group list-group-flush">
-            {% for act in actividades %}
-            <li class="list-group-item border-0 py-2 px-3">
-              <div class="d-flex gap-2">
-                <i class="bi bi-{% if act.tipo == 'email' %}envelope{% elif act.tipo == 'llamada' %}telephone{% elif act.tipo == 'reunion' %}people{% else %}sticky{% endif %} text-muted mt-1 flex-shrink-0"></i>
-                <div>
-                  <div class="small text-truncate" style="max-width:180px">{{ act.descripcion }}</div>
-                  <div class="text-muted" style="font-size:.7rem">{{ act.creado_en.strftime('%d/%m %H:%M') }}</div>
-                </div>
-              </div>
-            </li>
-            {% else %}
-            <li class="list-group-item border-0 text-center text-muted py-4 small">Sin actividades aun.</li>
-            {% endfor %}
-          </ul>
+          <canvas id="chartGrupos" height="200"></canvas>
         </div>
       </div>
     </div>
@@ -193,6 +210,7 @@
 <script>
 const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
 
+// Chart: segmentos
 fetch("{{ url_for('prospeccion.api_grupos') }}")
   .then(r => r.json())
   .then(data => {
@@ -207,6 +225,36 @@ fetch("{{ url_for('prospeccion.api_grupos') }}")
       options: { plugins: { legend: { position: "bottom", labels: { font: { size: 11 } } } } }
     });
   });
+
+// Chart: envios por dia
+(function() {
+  const canvas = document.getElementById("chartEnviosDia");
+  if (!canvas) return;
+  const labels  = {{ envios_por_dia | map(attribute=0) | list | tojson }};
+  const valores = {{ envios_por_dia | map(attribute=1) | list | tojson }};
+  new Chart(canvas, {
+    type: "bar",
+    data: {
+      labels: labels,
+      datasets: [{
+        label: "Prospectos contactados",
+        data: valores,
+        backgroundColor: "rgba(13,110,253,0.7)",
+        borderColor: "rgba(13,110,253,1)",
+        borderWidth: 1,
+        borderRadius: 4,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { font: { size: 10 }, maxRotation: 45 } },
+        y: { beginAtZero: true, ticks: { font: { size: 11 }, stepSize: 1 } }
+      }
+    }
+  });
+})();
 
 // ── Limpieza de emails invalidos ──────────────────────────────────────────────
 (function() {

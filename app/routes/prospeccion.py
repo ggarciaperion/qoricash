@@ -153,24 +153,42 @@ def dashboard():
                        or_(Prospecto.grupo == "CLIENTES LFC",
                            Prospecto.cliente_lfc == "Cliente LFC")).count()
 
-    # Top 5 rubros
-    top_rubros = (db.session.query(Prospecto.rubro, func.count(Prospecto.id))
-                  .filter(Prospecto.rubro.isnot(None))
-                  .group_by(Prospecto.rubro)
-                  .order_by(func.count(Prospecto.id).desc())
-                  .limit(15).all())
+    # Metricas de campana
+    env_presentacion = q.filter(Prospecto.tipo_ultimo_envio == "presentacion").count()
+    env_precio       = q.filter(Prospecto.tipo_ultimo_envio == "precio").count()
+    bounces          = q.filter(Prospecto.estado_email == "Hard Bounce").count()
+    sin_email        = q.filter(or_(Prospecto.email == None, Prospecto.email == "")).count()
+    lfc_contactados  = q.filter(
+                           or_(Prospecto.grupo == "CLIENTES LFC",
+                               Prospecto.cliente_lfc == "Cliente LFC"),
+                           Prospecto.tipo_ultimo_envio.isnot(None)
+                       ).count()
 
-    # Ultimas actividades del equipo
-    actividades = (ActividadProspecto.query
-                   .order_by(ActividadProspecto.creado_en.desc())
-                   .limit(10).all())
+    # Envios por dia (ultimos 30 dias con actividad)
+    envios_por_dia = (
+        db.session.query(
+            func.left(Prospecto.fecha_ultimo_contacto, 10).label("dia"),
+            func.count(Prospecto.id).label("cnt")
+        )
+        .filter(
+            Prospecto.fecha_ultimo_contacto.isnot(None),
+            Prospecto.fecha_ultimo_contacto != ""
+        )
+        .group_by("dia")
+        .order_by("dia")
+        .limit(30).all()
+    )
 
     return render_template(
         "prospeccion/dashboard.html",
         total=total, en_seguim=en_seguim, clientes=clientes,
         en_negoc=en_negoc, lfc=lfc,
-        top_rubros=top_rubros,
-        actividades=actividades,
+        env_presentacion=env_presentacion,
+        env_precio=env_precio,
+        bounces=bounces,
+        sin_email=sin_email,
+        lfc_contactados=lfc_contactados,
+        envios_por_dia=envios_por_dia,
     )
 
 
