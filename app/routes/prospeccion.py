@@ -147,7 +147,7 @@ def dashboard():
                   .filter(Prospecto.rubro.isnot(None))
                   .group_by(Prospecto.rubro)
                   .order_by(func.count(Prospecto.id).desc())
-                  .limit(5).all())
+                  .limit(15).all())
 
     # Mis ultimas actividades
     actividades = (ActividadProspecto.query
