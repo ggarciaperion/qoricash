@@ -27,9 +27,19 @@ _GMAIL_REFRESH_ENV = {
     "luacosta@qoricash.pe": "GMAIL_REFRESH_TOKEN_LUACOSTA",
 }
 
+# Mapeo email → nombre completo para el cuerpo del correo
+_TRADER_NOMBRES = {
+    "ggarcia@qoricash.pe":  "Gian Garcia",
+    "gerencia@qoricash.pe": "Gian Garcia",
+    "luacosta@qoricash.pe": "Luciana Acosta",
+}
 
-def _send_via_gmail_api(sender_email, to_email, subject, html_body):
-    """Envía un correo usando Gmail API con OAuth2. El email queda en Enviados del remitente."""
+# Emails que usan cargo "Presidente de Negocios"
+_EMAILS_PRESIDENTE = {"ggarcia@qoricash.pe", "gerencia@qoricash.pe"}
+
+
+def _get_gmail_service(sender_email):
+    """Construye y retorna el servicio Gmail API para el remitente."""
     from google.oauth2.credentials import Credentials
     from google.auth.transport.requests import Request
     from googleapiclient.discovery import build
@@ -53,8 +63,28 @@ def _send_via_gmail_api(sender_email, to_email, subject, html_body):
         scopes=_GMAIL_SCOPES,
     )
     creds.refresh(Request())
+    return build("gmail", "v1", credentials=creds)
 
-    service = build("gmail", "v1", credentials=creds)
+
+def _get_firma_gmail(sender_email):
+    """Obtiene la firma HTML real de la cuenta Gmail del remitente. Retorna '' si falla."""
+    try:
+        service = _get_gmail_service(sender_email)
+        result  = service.users().settings().sendAs().list(userId="me").execute()
+        for alias in result.get("sendAs", []):
+            if alias.get("isDefault"):
+                return alias.get("signature", "")
+        sendas = result.get("sendAs", [])
+        if sendas:
+            return sendas[0].get("signature", "")
+    except Exception:
+        pass
+    return ""
+
+
+def _send_via_gmail_api(sender_email, to_email, subject, html_body):
+    """Envía un correo usando Gmail API con OAuth2. El email queda en Enviados del remitente."""
+    service = _get_gmail_service(sender_email)
 
     msg = MIMEMultipart("alternative")
     msg["To"]      = to_email
@@ -888,26 +918,24 @@ def _build_ticker(compra, venta):
 def _construir_email(p, tipo, compra, venta):
     """Construye el HTML y asunto del correo. Retorna (html, asunto, nuevo_estado)."""
     nombre_saludo = (p.nombre_contacto or p.razon_social or "estimado cliente").split()[0].capitalize()
-    trader_nombre = getattr(current_user, "full_name", None) or current_user.username
 
-    _usa_texto_presidente = (
-        current_user.role == "Master" or
-        getattr(current_user, "username", "").lower() == "ggarcia"
+    sender_email    = (getattr(current_user, "email", "") or "").lower()
+    es_presidente   = (current_user.role == "Master" or sender_email in _EMAILS_PRESIDENTE)
+    nombre_completo = _TRADER_NOMBRES.get(sender_email, current_user.username)
+    cargo           = "Presidente de Negocios" if es_presidente else "Trader Fx"
+
+    presentacion_remitente = (
+        f"Mi nombre es <strong>{nombre_completo}</strong>, {cargo} de "
+        "<strong>QoriCash SAC</strong>, fintech de cambio de divisas 100% digital, "
+        "regulada por la Superintendencia de Banca, Seguros y AFP del Peru."
     )
-    if _usa_texto_presidente:
-        presentacion_remitente = (
-            "Mi nombre es <strong>Gian Pierre Garcia</strong>, Presidente de Negocios de "
-            "<strong>QoriCash SAC</strong>, fintech de cambio de divisas 100% digital, "
-            "regulada por la Superintendencia de Banca, Seguros y AFP del Peru."
-        )
-    else:
-        presentacion_remitente = (
-            "Soy <strong>Trader Fx Senior</strong> de <strong>QoriCash SAC</strong>, "
-            "fintech de cambio de divisas 100% digital, regulada por la Superintendencia "
-            "de Banca, Seguros y AFP del Peru."
-        )
 
-    firma = FIRMA_HTML.replace("{trader_nombre}", trader_nombre)
+    # Intentar obtener la firma real de Gmail; si falla usar la interna como fallback
+    firma_gmail = _get_firma_gmail(sender_email)
+    if firma_gmail:
+        firma = f'<div style="margin-top:16px">{firma_gmail}</div>'
+    else:
+        firma = FIRMA_HTML.replace("{trader_nombre}", nombre_completo)
 
     if tipo == "precio":
         ticker = _build_ticker(compra, venta)
@@ -915,14 +943,14 @@ def _construir_email(p, tipo, compra, venta):
             header=HEADER_HTML, nombre=nombre_saludo,
             ticker=ticker, bancos=BANCOS_HTML, firma=firma, pie=PIE,
         )
-        return html, "QoriCash - Tipo de cambio del dia", "P2"
+        return html, "QoriCash - Tipo de cambio del dia", "negociacion"
     else:
         html = CUERPO_PRESENTACION.format(
             header=HEADER_HTML, nombre=nombre_saludo,
             presentacion_remitente=presentacion_remitente,
             bancos=BANCOS_HTML, firma=firma, pie=PIE,
         )
-        return html, "QoriCash - El mejor tipo de cambio para empresas", "P1"
+        return html, "QoriCash - El mejor tipo de cambio para empresas", "seguimiento"
 
 
 @prospeccion_bp.route("/<int:pid>/preview-email", methods=["POST"])
