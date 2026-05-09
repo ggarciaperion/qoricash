@@ -861,8 +861,12 @@ def enviar_email(pid):
     nombre_saludo = (p.nombre_contacto or p.razon_social or "estimado cliente").split()[0].capitalize()
     trader_nombre = getattr(current_user, "full_name", None) or current_user.username
 
-    # Texto de presentacion segun rol
-    if current_user.role == "Master":
+    # Texto de presentacion segun rol (ggarcia usa el mismo texto que Master)
+    _usa_texto_presidente = (
+        current_user.role == "Master" or
+        getattr(current_user, "username", "").lower() == "ggarcia"
+    )
+    if _usa_texto_presidente:
         presentacion_remitente = (
             "Mi nombre es <strong>Gian Pierre Garcia</strong>, Presidente de Negocios de "
             "<strong>QoriCash SAC</strong>, fintech de cambio de divisas 100% digital, "
