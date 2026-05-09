@@ -155,7 +155,9 @@ def dashboard():
     en_negoc     = q.filter(Prospecto.estado_comercial.in_(_FASE_ESTADOS["negociando"])).count()
     clientes     = q.filter(Prospecto.estado_comercial.in_(_FASE_ESTADOS["clientes"])).count()
     en_seguim    = presentados + precio_env   # para compatibilidad con template existente
-    lfc          = q.filter(Prospecto.cliente_lfc == "Cliente LFC").count()
+    lfc          = q.filter(
+                       or_(Prospecto.grupo == "CLIENTES LFC",
+                           Prospecto.cliente_lfc == "Cliente LFC")).count()
 
     # Top 5 rubros
     top_rubros = (db.session.query(Prospecto.rubro, func.count(Prospecto.id))
@@ -387,7 +389,10 @@ def lista():
                 Prospecto.estado_comercial == "sin_contactar")
         )
     elif tab == "lfc":
-        query = query.filter(Prospecto.cliente_lfc == "Cliente LFC")
+        query = query.filter(
+            or_(Prospecto.grupo == "CLIENTES LFC",
+                Prospecto.cliente_lfc == "Cliente LFC")
+        )
     else:  # todos — excluye clientes
         query = query.filter(Prospecto.estado_comercial.notin_(_FASE_ESTADOS["clientes"]))
 
@@ -416,7 +421,9 @@ def lista():
     cnt_precio        = base.filter(Prospecto.estado_comercial.in_(_FASE_ESTADOS["precio"])).count()
     cnt_negociando    = base.filter(Prospecto.estado_comercial.in_(_FASE_ESTADOS["negociando"])).count()
     cnt_clientes      = base.filter(Prospecto.estado_comercial.in_(_FASE_ESTADOS["clientes"])).count()
-    cnt_lfc           = base.filter(Prospecto.cliente_lfc == "Cliente LFC").count()
+    cnt_lfc           = base.filter(
+                            or_(Prospecto.grupo == "CLIENTES LFC",
+                                Prospecto.cliente_lfc == "Cliente LFC")).count()
 
     # Vigencia por prospecto (días restantes hasta vencimiento de asignación)
     hoy   = now_peru().date()
