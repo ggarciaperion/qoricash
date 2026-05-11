@@ -997,7 +997,7 @@ def submit_proof_web():
         # Notificar actualización
         try:
             from app.services.notification_service import NotificationService
-            NotificationService.notify_operation_updated(operation, 'Pendiente')
+            NotificationService.notify_operation_in_process(operation)
             NotificationService.notify_dashboard_update()
 
             # Notificar al operador asignado

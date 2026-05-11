@@ -173,6 +173,32 @@ class NotificationService:
             logger.error(f'[NOTIF] notify_operation_completed error: {e}')
 
     @staticmethod
+    def notify_operation_in_process(operation):
+        """Trader/Web sube comprobante → operación pasa a En proceso → Master y Operador."""
+        try:
+            title = '⏳ Operación En Proceso'
+            name  = operation.client.full_name if operation.client else 'N/A'
+            msg   = f'{operation.operation_id} — {name} subió comprobante'
+            data  = {
+                'event': 'operacion_en_proceso',
+                'operation_id':   operation.operation_id,
+                'operation_db_id': operation.id,
+                'client_name':    name,
+                'status':         'En proceso',
+                'title':          title,
+                'message':        msg,
+                'type':           'warning',
+                'sound':          True,
+            }
+            roles = ['Master', 'Operador']
+            _emit_to_roles('operacion_en_proceso', data, roles)
+            _save_to_db(roles, title, msg, notif_type='warning', category='operation',
+                        link=f'/operations/{operation.id}')
+            _push_unread_counts_for_roles(roles)
+        except Exception as e:
+            logger.error(f'[NOTIF] notify_operation_in_process error: {e}')
+
+    @staticmethod
     def notify_operation_canceled(operation, reason=None):
         try:
             title = '❌ Operación Cancelada'

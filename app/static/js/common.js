@@ -1,7 +1,7 @@
 /**
  * QoriCash Trading V2 - Common JavaScript Functions
  * Funciones comunes reutilizables en todo el sistema
- * VERSION: 20251219_v7_simple
+ * VERSION: 20260511_v11
  */
 
 console.log('🔔 QoriCash Common.js cargado - Versión: 20251219_v7_simple (Alertas cada 10min)');
@@ -127,6 +127,31 @@ function connectSocketIO() {
         if (typeof refreshOperationsTable === 'function') {
             refreshOperationsTable();
         }
+    });
+
+    socket.on('operacion_en_proceso', function(data) {
+        if (window.currentUserRole === 'Master' || window.currentUserRole === 'Operador') {
+            playNotificationSound();
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    toast: true,
+                    position: 'top-end',
+                    icon: 'warning',
+                    title: data.title || '⏳ Operación En Proceso',
+                    text: data.message || `${data.operation_id} — comprobante subido`,
+                    showConfirmButton: false,
+                    timer: 6000,
+                    timerProgressBar: true,
+                });
+            } else {
+                showNotification(data.message || `Operación ${data.operation_id} en proceso`, 'warning');
+            }
+            if (typeof window._menuBadgeInc === 'function') {
+                window._menuBadgeInc('ops');
+            }
+        }
+        if (typeof refreshOperationsTable === 'function') refreshOperationsTable();
+        if (typeof loadDashboardData     === 'function') loadDashboardData();
     });
 
     // ============================================

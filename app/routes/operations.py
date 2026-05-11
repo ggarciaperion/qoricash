@@ -618,6 +618,13 @@ def upload_proof(operation_id):
         )
         
         if success:
+            # Notificar si se subió comprobante de pago del cliente (operación pasa a En proceso)
+            if payment_proof_url and operation.status == 'En proceso':
+                try:
+                    from app.services.notification_service import NotificationService
+                    NotificationService.notify_operation_in_process(operation)
+                except Exception as ne:
+                    current_app.logger.warning(f'[upload_proof] notify_in_process error: {ne}')
             return jsonify({
                 'success': True,
                 'message': message,
@@ -625,7 +632,7 @@ def upload_proof(operation_id):
             })
         else:
             return jsonify({'success': False, 'message': message}), 400
-    
+
     return jsonify({'success': False, 'message': 'No se seleccionó ningún archivo'}), 400
 
 
