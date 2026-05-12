@@ -101,6 +101,57 @@ def create_app(config_name=None):
     except Exception as e:
         logging.warning(f"[Migration] asignaciones_prospecto vigencia: {e}")
 
+    # Migracion: columnas faltantes en operations (base_rate, pips, new_operation_email_sent)
+    try:
+        with app.app_context():
+            from app.extensions import db
+            from sqlalchemy import text
+            db.session.execute(text(
+                "ALTER TABLE operations ADD COLUMN IF NOT EXISTS base_rate NUMERIC(10, 4)"
+            ))
+            db.session.execute(text(
+                "ALTER TABLE operations ADD COLUMN IF NOT EXISTS pips NUMERIC(8, 1)"
+            ))
+            db.session.execute(text(
+                "ALTER TABLE operations ADD COLUMN IF NOT EXISTS new_operation_email_sent "
+                "BOOLEAN NOT NULL DEFAULT false"
+            ))
+            db.session.commit()
+    except Exception as e:
+        logging.warning(f"[Migration] operations columnas faltantes: {e}")
+
+    # Migracion: tabla notifications si no existe
+    try:
+        with app.app_context():
+            from app.extensions import db
+            from sqlalchemy import text
+            db.session.execute(text("""
+                CREATE TABLE IF NOT EXISTS notifications (
+                    id SERIAL PRIMARY KEY,
+                    user_id INTEGER NOT NULL REFERENCES users(id),
+                    title VARCHAR(200) NOT NULL,
+                    message VARCHAR(500) NOT NULL,
+                    notif_type VARCHAR(30) NOT NULL DEFAULT 'info',
+                    category VARCHAR(50) NOT NULL DEFAULT 'general',
+                    link VARCHAR(300),
+                    is_read BOOLEAN NOT NULL DEFAULT false,
+                    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                    read_at TIMESTAMP
+                )
+            """))
+            db.session.execute(text(
+                "CREATE INDEX IF NOT EXISTS ix_notifications_user_id ON notifications (user_id)"
+            ))
+            db.session.execute(text(
+                "CREATE INDEX IF NOT EXISTS ix_notifications_is_read ON notifications (is_read)"
+            ))
+            db.session.execute(text(
+                "CREATE INDEX IF NOT EXISTS ix_notifications_created_at ON notifications (created_at)"
+            ))
+            db.session.commit()
+    except Exception as e:
+        logging.warning(f"[Migration] notifications tabla: {e}")
+
     # Crear tablas del modulo Prospeccion si no existen
     try:
         with app.app_context():
