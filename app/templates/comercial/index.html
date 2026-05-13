@@ -558,6 +558,10 @@ function generarPreview(compra, venta) {
   });
 }
 
+// TC actual cargado desde el servidor
+var _tcCompra = '{% if rate %}{{ "%.3f"|format(rate.buy_rate) }}{% endif %}';
+var _tcVenta  = '{% if rate %}{{ "%.3f"|format(rate.sell_rate) }}{% endif %}';
+
 // ── Abrir modal ───────────────────────────────────────────────────────────────
 function abrirModalEmail(id, nombre, email, tipo) {
   _clienteId   = id;
@@ -573,48 +577,7 @@ function abrirModalEmail(id, nombre, email, tipo) {
   document.getElementById('iframeLoading').style.display = 'flex';
 
   new bootstrap.Modal(document.getElementById('modalEnviarPrecio')).show();
-
-  // Pedir compra y venta antes de generar el borrador
-  Swal.fire({
-    title: 'Tipo de cambio del día',
-    html:
-      '<div style="display:flex;gap:16px;justify-content:center;margin-top:8px;">' +
-        '<div>' +
-          '<label style="font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:.5px;">Compramos</label>' +
-          '<input id="swal-compra" type="number" step="0.001" placeholder="3.750" class="swal2-input" style="width:120px;font-size:18px;font-weight:700;text-align:center;">' +
-        '</div>' +
-        '<div>' +
-          '<label style="font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:.5px;">Vendemos</label>' +
-          '<input id="swal-venta" type="number" step="0.001" placeholder="3.770" class="swal2-input" style="width:120px;font-size:18px;font-weight:700;text-align:center;">' +
-        '</div>' +
-      '</div>',
-    confirmButtonText: 'Generar borrador',
-    confirmButtonColor: '#00DEA8',
-    showCancelButton: true,
-    cancelButtonText: 'Cancelar',
-    didOpen: function() {
-      {% if rate %}
-      document.getElementById('swal-compra').value = '{{ "%.3f"|format(rate.buy_rate) }}';
-      document.getElementById('swal-venta').value  = '{{ "%.3f"|format(rate.sell_rate) }}';
-      {% endif %}
-      document.getElementById('swal-compra').focus();
-    },
-    preConfirm: function() {
-      var c = document.getElementById('swal-compra').value.trim();
-      var v = document.getElementById('swal-venta').value.trim();
-      if (!c || !v || isNaN(c) || isNaN(v)) {
-        Swal.showValidationMessage('Ingresa compra y venta válidos');
-        return false;
-      }
-      return { compra: c, venta: v };
-    }
-  }).then(function(result) {
-    if (result.isConfirmed) {
-      generarPreview(result.value.compra, result.value.venta);
-    } else {
-      bootstrap.Modal.getInstance(document.getElementById('modalEnviarPrecio')).hide();
-    }
-  });
+  generarPreview(_tcCompra, _tcVenta);
 }
 
 // ── Enviar email ──────────────────────────────────────────────────────────────
