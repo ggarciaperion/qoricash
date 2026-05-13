@@ -149,6 +149,101 @@ def index():
 
 # ── Helpers compartidos ───────────────────────────────────────────────────────
 
+def _build_ticker_comercial(compra, venta, tipo="Mixto"):
+    """
+    Ticker de precios con resaltado según el tipo de operación del cliente.
+    - Compra: el cliente compra dólares → QoriCash le VENDE → resaltar celda Vendemos
+    - Venta:  el cliente vende dólares  → QoriCash le COMPRA → resaltar celda Compramos
+    - Mixto:  ambas celdas neutras.
+    """
+    # Estilos de celda destacada vs neutra
+    highlight_venta  = tipo == 'Compra'
+    highlight_compra = tipo == 'Venta'
+
+    # ── Compramos ────────────────────────────────────────────────────────────
+    if highlight_compra:
+        td_compra = (
+            'padding:20px 28px;border-right:1.5px solid #BFDBFE;text-align:center;'
+            'background:#EFF6FF;'
+        )
+        label_compra = (
+            'margin:0 0 4px;font-size:9px;font-weight:700;color:#2563EB;'
+            'text-transform:uppercase;letter-spacing:1.8px;'
+        )
+        precio_compra = (
+            'margin:0;font-size:36px;font-weight:800;color:#1D4ED8;'
+            'letter-spacing:-1px;line-height:1;'
+        )
+        badge_compra = (
+            '<br><span style="display:inline-block;margin-top:6px;font-size:9px;font-weight:700;'
+            'color:#fff;background:#2563EB;border-radius:20px;padding:2px 10px;'
+            'letter-spacing:.6px;">Tu tasa</span>'
+        )
+    else:
+        td_compra     = 'padding:24px 28px;border-right:1.5px solid #E2E8F0;text-align:center;'
+        label_compra  = 'margin:0 0 6px;font-size:9px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:1.8px;'
+        precio_compra = 'margin:0;font-size:34px;font-weight:800;color:#0D1B2A;letter-spacing:-1px;line-height:1;'
+        badge_compra  = ''
+
+    # ── Vendemos ─────────────────────────────────────────────────────────────
+    if highlight_venta:
+        td_venta = (
+            'padding:20px 28px;text-align:center;'
+            'background:#F0FDF4;'
+        )
+        label_venta = (
+            'margin:0 0 4px;font-size:9px;font-weight:700;color:#16A34A;'
+            'text-transform:uppercase;letter-spacing:1.8px;'
+        )
+        precio_venta = (
+            'margin:0;font-size:36px;font-weight:800;color:#15803D;'
+            'letter-spacing:-1px;line-height:1;'
+        )
+        badge_venta = (
+            '<br><span style="display:inline-block;margin-top:6px;font-size:9px;font-weight:700;'
+            'color:#fff;background:#16A34A;border-radius:20px;padding:2px 10px;'
+            'letter-spacing:.6px;">Tu tasa</span>'
+        )
+    else:
+        td_venta     = 'padding:24px 28px;text-align:center;'
+        label_venta  = 'margin:0 0 6px;font-size:9px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:1.8px;'
+        precio_venta = 'margin:0;font-size:34px;font-weight:800;color:#16a34a;letter-spacing:-1px;line-height:1;'
+        badge_venta  = ''
+
+    return f"""\
+<tr>
+  <td style="padding:20px 28px;">
+    <table width="100%" cellpadding="0" cellspacing="0" border="0"
+      style="border:1.5px solid #E2E8F0;border-radius:10px;overflow:hidden;">
+      <tr>
+        <td width="50%" style="{td_compra}">
+          <p style="{label_compra}">Compramos</p>
+          <p style="{precio_compra}">S/. {compra}</p>
+          <p style="margin:8px 0 0;font-size:10px;color:#94A3B8;">por d&oacute;lar &middot; USD</p>
+          {badge_compra}
+        </td>
+        <td width="50%" style="{td_venta}">
+          <p style="{label_venta}">Vendemos</p>
+          <p style="{precio_venta}">S/. {venta}</p>
+          <p style="margin:8px 0 0;font-size:10px;color:#94A3B8;">por d&oacute;lar &middot; USD</p>
+          {badge_venta}
+        </td>
+      </tr>
+      <tr>
+        <td colspan="2" style="padding:10px 28px;border-top:1.5px solid #E2E8F0;text-align:center;">
+          <span style="font-size:10px;font-weight:600;color:#64748B;letter-spacing:0.3px;">
+            &bull;&nbsp; Operaci&oacute;n en minutos &nbsp;&middot;&nbsp; Sin costo de transferencia
+          </span><br>
+          <span style="font-size:9.5px;color:#94A3B8;font-style:italic;">
+            Precios del momento &mdash; sujetos a variaci&oacute;n por volatilidad del mercado.
+          </span>
+        </td>
+      </tr>
+    </table>
+  </td>
+</tr>"""
+
+
 _SUFIJOS_LEGALES = {
     'SAC', 'SA', 'EIRL', 'SRL', 'SAS', 'SAA', 'SCRL', 'SCS',
     'S.A.C.', 'S.A.', 'E.I.R.L.', 'S.R.L.', 'S.A.S.',
@@ -263,7 +358,7 @@ def _build_email_html(c, compra, venta, sender_email, nombre_completo, cargo="Tr
         firma = FIRMA_HTML.replace("{trader_nombre}", nombre_completo).replace("{trader_cargo}", cargo)
 
     nombre_saludo = _nombre_saludo_cliente(c)
-    ticker  = _build_ticker(compra, venta)
+    ticker  = _build_ticker_comercial(compra, venta, tipo)
     mensaje = _build_mensaje_personalizado(tipo)
     header  = HEADER_HTML.replace("{fecha}", fecha).replace("{nombre}", nombre_saludo)
 
