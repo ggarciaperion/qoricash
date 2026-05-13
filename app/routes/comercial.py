@@ -157,8 +157,8 @@ def _build_ticker_comercial(compra, venta, tipo="Mixto"):
     - Mixto:  ambas celdas neutras.
     """
     # Estilos de celda destacada vs neutra
-    highlight_venta  = tipo == 'Compra'
-    highlight_compra = tipo == 'Venta'
+    highlight_compra = tipo == 'Compra'
+    highlight_venta  = tipo == 'Venta'
 
     # ── Compramos ────────────────────────────────────────────────────────────
     if highlight_compra:
@@ -177,7 +177,7 @@ def _build_ticker_comercial(compra, venta, tipo="Mixto"):
         badge_compra = (
             '<br><span style="display:inline-block;margin-top:6px;font-size:9px;font-weight:700;'
             'color:#fff;background:#2563EB;border-radius:20px;padding:2px 10px;'
-            'letter-spacing:.6px;">Tu tasa</span>'
+            'letter-spacing:.6px;">Tasa preferencial</span>'
         )
     else:
         td_compra     = 'padding:24px 28px;border-right:1.5px solid #E2E8F0;text-align:center;'
@@ -202,7 +202,7 @@ def _build_ticker_comercial(compra, venta, tipo="Mixto"):
         badge_venta = (
             '<br><span style="display:inline-block;margin-top:6px;font-size:9px;font-weight:700;'
             'color:#fff;background:#16A34A;border-radius:20px;padding:2px 10px;'
-            'letter-spacing:.6px;">Tu tasa</span>'
+            'letter-spacing:.6px;">Tasa preferencial</span>'
         )
     else:
         td_venta     = 'padding:24px 28px;text-align:center;'
