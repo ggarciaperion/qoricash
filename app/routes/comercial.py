@@ -30,7 +30,48 @@ from app.routes.prospeccion import (
     BANCOS_HTML,
     PIE,
     FIRMA_HTML,
+    LOGO_URL,
 )
+
+import os
+import re
+
+# ── Logo en base64 (cacheado) para el preview ─────────────────────────────────
+_logo_b64_cache: str = ""
+
+def _get_logo_data_uri() -> str:
+    """Devuelve el logo como data:image URI para el preview del iframe."""
+    global _logo_b64_cache
+    if _logo_b64_cache:
+        return _logo_b64_cache
+    # Intentar desde static local
+    candidates = [
+        os.path.join(os.path.dirname(__file__), '..', 'static', 'images', 'logo-email.png'),
+        os.path.join(os.path.dirname(__file__), '..', 'static', 'images', 'Logofinal.png'),
+    ]
+    for path in candidates:
+        path = os.path.normpath(path)
+        if os.path.exists(path):
+            with open(path, 'rb') as f:
+                _logo_b64_cache = "data:image/png;base64," + base64.b64encode(f.read()).decode()
+            return _logo_b64_cache
+    # Fallback: usar la URL pública tal cual
+    return LOGO_URL
+
+
+def _html_para_preview(html: str) -> str:
+    """
+    Prepara el HTML para mostrarse en el iframe del preview:
+    - Reemplaza la URL del logo por base64 inline para que cargue sin depender de internet.
+    - Elimina referencias cid: de Gmail (que solo funcionan en clientes de correo).
+    """
+    logo_uri = _get_logo_data_uri()
+    # Reemplazar URL del logo por base64
+    html = html.replace(LOGO_URL, logo_uri)
+    # Eliminar src con cid: (imágenes de Gmail embebidas que no se pueden resolver)
+    html = re.sub(r'src="cid:[^"]*"', 'src=""', html)
+    html = re.sub(r"src='cid:[^']*'", "src=''", html)
+    return html
 
 comercial_bp = Blueprint("comercial", __name__, url_prefix="/comercial")
 
@@ -403,7 +444,7 @@ def preview_precio(client_id):
 
     try:
         html = _build_email_html(c, compra, venta, sender_email, nombre_completo, cargo, tipo)
-        return jsonify({"ok": True, "html": html})
+        return jsonify({"ok": True, "html": _html_para_preview(html)})
     except Exception as e:
         current_app.logger.error(f"[Comercial] Error generando preview para {c.email}: {e}")
         return jsonify({"ok": False, "msg": str(e)}), 500
