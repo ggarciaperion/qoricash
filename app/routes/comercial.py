@@ -147,6 +147,54 @@ def index():
     )
 
 
+# ── Helpers compartidos ───────────────────────────────────────────────────────
+
+def _build_email_html(c, compra, venta, sender_email, nombre_completo):
+    """Construye el HTML del correo de precios para un cliente."""
+    firma_gmail = _get_firma_gmail(sender_email)
+    if firma_gmail:
+        firma = f'<div style="margin-top:16px">{firma_gmail}</div>'
+    else:
+        firma = FIRMA_HTML.replace("{trader_nombre}", nombre_completo)
+
+    nombre_saludo = (c.full_name or c.razon_social or "estimado cliente").split()[0].capitalize()
+    ticker = _build_ticker(compra, venta)
+
+    return CUERPO_PRECIO.format(
+        header=HEADER_HTML,
+        nombre=nombre_saludo,
+        ticker=ticker,
+        bancos=BANCOS_HTML,
+        firma=firma,
+        pie=PIE,
+    )
+
+
+# ── API: preview del email de precios ────────────────────────────────────────
+
+@comercial_bp.route("/preview-precio/<int:client_id>")
+@login_required
+@require_role("Master", "Trader")
+def preview_precio(client_id):
+    c = Client.query.get_or_404(client_id)
+
+    compra = request.args.get("compra", "").strip()
+    venta  = request.args.get("venta", "").strip()
+
+    if not compra or not venta:
+        return jsonify({"ok": False, "msg": "Ingresa compra y venta"}), 400
+
+    sender_email = current_user.email
+    nombre_completo, _ = _get_trader_info(sender_email, current_user.role)
+
+    try:
+        html = _build_email_html(c, compra, venta, sender_email, nombre_completo)
+        return jsonify({"ok": True, "html": html})
+    except Exception as e:
+        current_app.logger.error(f"[Comercial] Error generando preview para {c.email}: {e}")
+        return jsonify({"ok": False, "msg": str(e)}), 500
+
+
 # ── API: enviar email de precios a un cliente ─────────────────────────────────
 
 @comercial_bp.route("/enviar-precio/<int:client_id>", methods=["POST"])
@@ -156,36 +204,22 @@ def index():
 def enviar_precio(client_id):
     c = Client.query.get_or_404(client_id)
 
-    compra = request.json.get("compra", "").strip()
-    venta  = request.json.get("venta", "").strip()
-
-    if not compra or not venta:
-        return jsonify({"ok": False, "msg": "Ingresa compra y venta"}), 400
+    data   = request.json or {}
+    compra = data.get("compra", "").strip()
+    venta  = data.get("venta", "").strip()
+    html   = data.get("html", "").strip()  # HTML editado desde el borrador
 
     if not c.email:
         return jsonify({"ok": False, "msg": "El cliente no tiene email registrado"}), 400
 
     sender_email = current_user.email
-    nombre_completo, cargo = _get_trader_info(sender_email, current_user.role)
+    nombre_completo, _ = _get_trader_info(sender_email, current_user.role)
 
     try:
-        firma_gmail = _get_firma_gmail(sender_email)
-        if firma_gmail:
-            firma = f'<div style="margin-top:16px">{firma_gmail}</div>'
-        else:
-            firma = FIRMA_HTML.replace("{trader_nombre}", nombre_completo)
-
-        nombre_saludo = (c.full_name or c.razon_social or "estimado cliente").split()[0].capitalize()
-        ticker = _build_ticker(compra, venta)
-
-        html = CUERPO_PRECIO.format(
-            header=HEADER_HTML,
-            nombre=nombre_saludo,
-            ticker=ticker,
-            bancos=BANCOS_HTML,
-            firma=firma,
-            pie=PIE,
-        )
+        if not html:
+            if not compra or not venta:
+                return jsonify({"ok": False, "msg": "Ingresa compra y venta"}), 400
+            html = _build_email_html(c, compra, venta, sender_email, nombre_completo)
 
         _send_via_gmail_api(sender_email, c.email, "QoriCash - Tipo de cambio del día", html)
 

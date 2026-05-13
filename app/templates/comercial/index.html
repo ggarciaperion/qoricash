@@ -174,45 +174,101 @@
 
 <!-- Modal envío de precio -->
 <div class="modal fade" id="modalEnviarPrecio" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered" style="max-width:420px;">
+  <div class="modal-dialog modal-dialog-centered" id="modalEnviarPrecioDialog" style="max-width:440px;transition:max-width .2s ease;">
     <div class="modal-content shadow">
       <div class="modal-header border-0 pb-0">
-        <h5 class="modal-title"><i class="bi bi-send me-2 text-primary"></i>Enviar Tipo de Cambio</h5>
+        <h5 class="modal-title">
+          <i class="bi bi-send me-2 text-primary"></i>
+          <span id="modalTitulo">Enviar Tipo de Cambio</span>
+        </h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
-      <div class="modal-body">
-        <p class="text-muted small mb-3">
-          Se enviará el email con los precios actuales a
-          <strong id="modalClienteNombre">—</strong><br>
-          <span class="text-muted" id="modalClienteEmail" style="font-size:12px;"></span>
-        </p>
 
-        {% if rate %}
-        <div class="alert alert-success py-2 px-3 mb-3 small">
-          <strong>TC actual:</strong> Compra {{ "%.3f"|format(rate.buy_rate) }} / Venta {{ "%.3f"|format(rate.sell_rate) }}
-          <a href="#" class="ms-2 text-success fw-semibold" id="btnUsarTCActual" style="font-size:11px;">Usar estos valores</a>
+      <!-- PASO 1: ingresar TC -->
+      <div id="paso1">
+        <div class="modal-body">
+          <p class="text-muted small mb-3">
+            Se enviará el email con los precios actuales a
+            <strong id="modalClienteNombre">—</strong><br>
+            <span class="text-muted" id="modalClienteEmail" style="font-size:12px;"></span>
+          </p>
+
+          {% if rate %}
+          <div class="alert alert-success py-2 px-3 mb-3 small">
+            <strong>TC actual:</strong> Compra {{ "%.3f"|format(rate.buy_rate) }} / Venta {{ "%.3f"|format(rate.sell_rate) }}
+            <a href="#" class="ms-2 text-success fw-semibold" id="btnUsarTCActual" style="font-size:11px;">Usar estos valores</a>
+          </div>
+          {% endif %}
+
+          <div class="row g-2">
+            <div class="col-6">
+              <label class="form-label small fw-semibold">Compramos (S/)</label>
+              <input type="number" step="0.001" class="form-control" id="inputCompra"
+                     placeholder="3.750" {% if rate %}value="{{ '%.3f'|format(rate.buy_rate) }}"{% endif %}>
+            </div>
+            <div class="col-6">
+              <label class="form-label small fw-semibold">Vendemos (S/)</label>
+              <input type="number" step="0.001" class="form-control" id="inputVenta"
+                     placeholder="3.770" {% if rate %}value="{{ '%.3f'|format(rate.sell_rate) }}"{% endif %}>
+            </div>
+          </div>
         </div>
-        {% endif %}
-
-        <div class="row g-2">
-          <div class="col-6">
-            <label class="form-label small fw-semibold">Compramos (S/)</label>
-            <input type="number" step="0.001" class="form-control" id="inputCompra"
-                   placeholder="3.750" {% if rate %}value="{{ '%.3f'|format(rate.buy_rate) }}"{% endif %}>
-          </div>
-          <div class="col-6">
-            <label class="form-label small fw-semibold">Vendemos (S/)</label>
-            <input type="number" step="0.001" class="form-control" id="inputVenta"
-                   placeholder="3.770" {% if rate %}value="{{ '%.3f'|format(rate.sell_rate) }}"{% endif %}>
-          </div>
+        <div class="modal-footer border-0 pt-0">
+          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" class="btn btn-primary btn-sm" id="btnVerBorrador">
+            <i class="bi bi-eye me-1"></i>Ver borrador
+          </button>
         </div>
       </div>
-      <div class="modal-footer border-0 pt-0">
-        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
-        <button type="button" class="btn btn-primary btn-sm" id="btnEnviarEmail">
-          <i class="bi bi-send me-1"></i>Enviar email
-        </button>
+
+      <!-- PASO 2: borrador editable -->
+      <div id="paso2" style="display:none;">
+        <div class="modal-body p-0">
+          <!-- Tabs -->
+          <ul class="nav nav-tabs px-3 pt-3" id="tabsBorrador">
+            <li class="nav-item">
+              <button class="nav-link active small py-1 px-3" id="tabVistaBtn" onclick="mostrarTab('vista')">
+                <i class="bi bi-eye me-1"></i>Vista previa
+              </button>
+            </li>
+            <li class="nav-item">
+              <button class="nav-link small py-1 px-3" id="tabEditarBtn" onclick="mostrarTab('editar')">
+                <i class="bi bi-pencil me-1"></i>Editar HTML
+              </button>
+            </li>
+          </ul>
+
+          <!-- Vista previa (iframe) -->
+          <div id="tabVista" class="p-0">
+            <div id="iframeLoading" class="text-center py-4 text-muted small">
+              <div class="spinner-border spinner-border-sm me-2"></div>Cargando borrador...
+            </div>
+            <iframe id="previewFrame" style="display:none;width:100%;height:420px;border:0;"></iframe>
+          </div>
+
+          <!-- Editar HTML -->
+          <div id="tabEditar" style="display:none;" class="p-3">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+              <span class="text-muted small">Puedes editar el HTML directamente. Los cambios se reflejan en la vista previa.</span>
+              <button class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:11px;" onclick="actualizarIframe()">
+                <i class="bi bi-arrow-clockwise me-1"></i>Actualizar vista
+              </button>
+            </div>
+            <textarea id="htmlEditable" class="form-control font-monospace"
+                      style="height:360px;font-size:11px;line-height:1.5;resize:vertical;"
+                      spellcheck="false"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer border-0 pt-2">
+          <button type="button" class="btn btn-outline-secondary btn-sm" id="btnVolver">
+            <i class="bi bi-arrow-left me-1"></i>Volver
+          </button>
+          <button type="button" class="btn btn-primary btn-sm" id="btnEnviarEmail">
+            <i class="bi bi-send me-1"></i>Enviar email
+          </button>
+        </div>
       </div>
+
     </div>
   </div>
 </div>
@@ -226,7 +282,38 @@ function abrirModalEmail(id, nombre, email) {
   _clienteId = id;
   document.getElementById('modalClienteNombre').textContent = nombre;
   document.getElementById('modalClienteEmail').textContent = email;
+  // Reset al paso 1
+  irAPaso(1);
   new bootstrap.Modal(document.getElementById('modalEnviarPrecio')).show();
+}
+
+function irAPaso(paso) {
+  var dialog = document.getElementById('modalEnviarPrecioDialog');
+  if (paso === 1) {
+    document.getElementById('paso1').style.display = '';
+    document.getElementById('paso2').style.display = 'none';
+    dialog.style.maxWidth = '440px';
+    document.getElementById('modalTitulo').textContent = 'Enviar Tipo de Cambio';
+  } else {
+    document.getElementById('paso1').style.display = 'none';
+    document.getElementById('paso2').style.display = '';
+    dialog.style.maxWidth = '720px';
+    document.getElementById('modalTitulo').textContent = 'Borrador del email';
+    mostrarTab('vista');
+  }
+}
+
+function mostrarTab(tab) {
+  document.getElementById('tabVista').style.display   = tab === 'vista'  ? '' : 'none';
+  document.getElementById('tabEditar').style.display  = tab === 'editar' ? '' : 'none';
+  document.getElementById('tabVistaBtn').classList.toggle('active',  tab === 'vista');
+  document.getElementById('tabEditarBtn').classList.toggle('active', tab === 'editar');
+}
+
+function actualizarIframe() {
+  var html = document.getElementById('htmlEditable').value;
+  var frame = document.getElementById('previewFrame');
+  frame.srcdoc = html;
 }
 
 // Usar TC actual
@@ -234,18 +321,64 @@ var btnUsarTC = document.getElementById('btnUsarTCActual');
 if (btnUsarTC) {
   btnUsarTC.addEventListener('click', function(e) {
     e.preventDefault();
-    // Los valores ya están precargados en los inputs, solo confirmación visual
     btnUsarTC.textContent = '✓ Aplicado';
   });
 }
 
-// Enviar email
-document.getElementById('btnEnviarEmail').addEventListener('click', function() {
+// Ver borrador → paso 2
+document.getElementById('btnVerBorrador').addEventListener('click', function() {
   var compra = document.getElementById('inputCompra').value.trim();
   var venta  = document.getElementById('inputVenta').value.trim();
 
   if (!compra || !venta || isNaN(compra) || isNaN(venta)) {
     Swal.fire({ icon: 'warning', title: 'Faltan datos', text: 'Ingresa compra y venta válidos.', confirmButtonColor: '#22c55e' });
+    return;
+  }
+
+  var btn = this;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Generando...';
+
+  fetch('/comercial/preview-precio/' + _clienteId + '?compra=' + encodeURIComponent(compra) + '&venta=' + encodeURIComponent(venta))
+  .then(r => r.json())
+  .then(data => {
+    if (!data.ok) {
+      Swal.fire({ icon: 'error', title: 'Error', text: data.msg, confirmButtonColor: '#22c55e' });
+      return;
+    }
+    irAPaso(2);
+    // Cargar iframe
+    var frame = document.getElementById('previewFrame');
+    var loading = document.getElementById('iframeLoading');
+    frame.style.display = 'none';
+    loading.style.display = '';
+    frame.srcdoc = data.html;
+    frame.onload = function() {
+      loading.style.display = 'none';
+      frame.style.display = '';
+    };
+    // Cargar textarea
+    document.getElementById('htmlEditable').value = data.html;
+  })
+  .catch(() => {
+    Swal.fire({ icon: 'error', title: 'Error de red', text: 'No se pudo generar el borrador.', confirmButtonColor: '#22c55e' });
+  })
+  .finally(() => {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-eye me-1"></i>Ver borrador';
+  });
+});
+
+// Volver al paso 1
+document.getElementById('btnVolver').addEventListener('click', function() {
+  irAPaso(1);
+});
+
+// Enviar email (usa el HTML editado)
+document.getElementById('btnEnviarEmail').addEventListener('click', function() {
+  var html = document.getElementById('htmlEditable').value.trim();
+  if (!html) {
+    Swal.fire({ icon: 'warning', title: 'Sin contenido', text: 'El borrador está vacío.', confirmButtonColor: '#22c55e' });
     return;
   }
 
@@ -259,7 +392,7 @@ document.getElementById('btnEnviarEmail').addEventListener('click', function() {
       'Content-Type': 'application/json',
       'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
     },
-    body: JSON.stringify({ compra: compra, venta: venta })
+    body: JSON.stringify({ html: html })
   })
   .then(r => r.json())
   .then(data => {
