@@ -64,6 +64,10 @@ def create_app(config_name=None):
     # IMPORTANTE: Usar eventlet en lugar de APScheduler para compatibilidad con SocketIO
     start_operation_expiry_scheduler(app)
 
+    # Aplicar headers de seguridad HTTP en todas las respuestas
+    from app.utils.security import configure_security_headers
+    configure_security_headers(app)
+
     # Advertir si rate limiting usa memoria (no persiste entre workers ni reinicios)
     import os
     if not os.environ.get('REDIS_URL'):
@@ -100,6 +104,21 @@ def create_app(config_name=None):
             db.session.commit()
     except Exception as e:
         logging.warning(f"[Migration] asignaciones_prospecto vigencia: {e}")
+
+    # Migracion: columnas de account lockout en users
+    try:
+        with app.app_context():
+            from app.extensions import db
+            from sqlalchemy import text
+            db.session.execute(text(
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS failed_attempts INTEGER NOT NULL DEFAULT 0"
+            ))
+            db.session.execute(text(
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS locked_until TIMESTAMP"
+            ))
+            db.session.commit()
+    except Exception as e:
+        logging.warning(f"[Migration] users lockout columns: {e}")
 
     # Migracion: columnas faltantes en operations (base_rate, pips, new_operation_email_sent)
     try:

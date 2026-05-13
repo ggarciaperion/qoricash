@@ -51,24 +51,25 @@ role_required = require_role
 def api_key_required(f):
     """
     Decorador para requerir API key en requests.
-    Valida contra la variable de entorno INTERNAL_API_KEY.
+    Usa comparación en tiempo constante (anti timing-attack).
     """
     @wraps(f)
     def decorated_function(*args, **kwargs):
+        from app.utils.security import safe_compare
         import os, logging
-        api_key = request.headers.get('X-API-Key')
+        api_key = request.headers.get('X-API-Key', '')
 
         if not api_key:
-            return jsonify({'error': 'API key requerida'}), 401
+            return jsonify({'error': 'No autorizado'}), 401
 
         expected = os.environ.get('INTERNAL_API_KEY', '')
         if not expected:
-            logging.warning('[Security] INTERNAL_API_KEY no configurada — endpoint protegido rechazando acceso')
+            logging.critical('[Security] INTERNAL_API_KEY no configurada — bloqueando acceso')
             return jsonify({'error': 'Configuración de seguridad no disponible'}), 503
 
-        if api_key != expected:
-            logging.warning(f'[Security] API key inválida desde {request.remote_addr}')
-            return jsonify({'error': 'API key inválida'}), 403
+        if not safe_compare(api_key, expected):
+            logging.warning(f'[Security] API key inválida desde {request.remote_addr} → {request.path}')
+            return jsonify({'error': 'No autorizado'}), 401
 
         return f(*args, **kwargs)
     return decorated_function

@@ -73,6 +73,7 @@ def logout():
 
 @auth_bp.route('/change_password', methods=['POST'])
 @login_required
+@limiter.limit("5 per hour")
 def change_password():
     """
     Cambiar contraseña del usuario actual
@@ -104,6 +105,7 @@ def change_password():
 
 @auth_bp.route('/reset_password/<int:user_id>', methods=['POST'])
 @login_required
+@limiter.limit("10 per hour")
 def reset_user_password(user_id):
     """
     Restablecer contraseña de otro usuario (solo Master)

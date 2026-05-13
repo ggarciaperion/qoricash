@@ -620,7 +620,9 @@ def sincronizar_enviados():
     """Marca como 'seguimiento' todos los prospectos cuyo email aparece en la lista."""
     import os
     key = request.headers.get("X-Import-Key", "")
-    if key != os.environ.get("PROSPECCION_IMPORT_KEY", "qc-import-prospectos-2026"):
+    from app.utils.security import safe_compare
+    expected_key = os.environ.get("PROSPECCION_IMPORT_KEY", "")
+    if not expected_key or not safe_compare(key, expected_key):
         return jsonify({"error": "No autorizado"}), 401
 
     emails = request.get_json(force=True).get("emails", [])
@@ -655,7 +657,9 @@ def registrar_envios():
     """
     import os
     key = request.headers.get("X-Import-Key", "")
-    if key != os.environ.get("PROSPECCION_IMPORT_KEY", "qc-import-prospectos-2026"):
+    from app.utils.security import safe_compare
+    expected_key = os.environ.get("PROSPECCION_IMPORT_KEY", "")
+    if not expected_key or not safe_compare(key, expected_key):
         return jsonify({"error": "No autorizado"}), 401
 
     data   = request.get_json(force=True)
@@ -709,7 +713,9 @@ def registrar_bounces():
     """
     import os
     key = request.headers.get("X-Import-Key", "")
-    if key != os.environ.get("PROSPECCION_IMPORT_KEY", "qc-import-prospectos-2026"):
+    from app.utils.security import safe_compare
+    expected_key = os.environ.get("PROSPECCION_IMPORT_KEY", "")
+    if not expected_key or not safe_compare(key, expected_key):
         return jsonify({"error": "No autorizado"}), 401
 
     data         = request.get_json(force=True)
@@ -743,7 +749,9 @@ def import_batch():
     """
     import os
     key = request.headers.get("X-Import-Key", "")
-    if key != os.environ.get("PROSPECCION_IMPORT_KEY", "qc-import-prospectos-2026"):
+    from app.utils.security import safe_compare
+    expected_key = os.environ.get("PROSPECCION_IMPORT_KEY", "")
+    if not expected_key or not safe_compare(key, expected_key):
         return jsonify({"error": "No autorizado"}), 401
 
     data = request.get_json(force=True)
@@ -777,7 +785,9 @@ def asignar_por_remitente():
     """
     import os
     key = request.headers.get("X-Import-Key", "")
-    if key != os.environ.get("PROSPECCION_IMPORT_KEY", "qc-import-prospectos-2026"):
+    from app.utils.security import safe_compare
+    expected_key = os.environ.get("PROSPECCION_IMPORT_KEY", "")
+    if not expected_key or not safe_compare(key, expected_key):
         return jsonify({"error": "No autorizado"}), 401
 
     data          = request.get_json(force=True)

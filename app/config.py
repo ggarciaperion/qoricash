@@ -52,8 +52,8 @@ class Config:
     SOCKETIO_MESSAGE_QUEUE = os.environ.get('SOCKETIO_MESSAGE_QUEUE')
     
     # CSRF
-    WTF_CSRF_TIME_LIMIT = None  # No expiration
-    WTF_CSRF_SSL_STRICT = False  # Allow HTTPS in production
+    WTF_CSRF_TIME_LIMIT = 3600   # Tokens expiran en 1 hora
+    WTF_CSRF_SSL_STRICT = False  # Overridden to True in ProductionConfig
 
     # Email Configuration (Unified)
     MAIL_SERVER = os.environ.get('MAIL_SERVER', 'smtp.gmail.com')
@@ -129,6 +129,7 @@ class ProductionConfig(Config):
     SESSION_COOKIE_SAMESITE = 'Strict'
     REMEMBER_COOKIE_SECURE = True
     REMEMBER_COOKIE_HTTPONLY = True
+    WTF_CSRF_SSL_STRICT = True  # Requiere HTTPS para CSRF en producción
 
     # Performance
     SEND_FILE_MAX_AGE_DEFAULT = 31536000  # 1 year for static files

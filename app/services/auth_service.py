@@ -12,6 +12,24 @@ from app.utils.formatters import now_peru
 
 class AuthService:
     """Servicio de autenticación"""
+
+    @staticmethod
+    def validate_password_policy(password: str):
+        """
+        Valida política de contraseñas reforzada.
+        Retorna (ok: bool, mensaje: str)
+        """
+        if len(password) < 10:
+            return False, 'La contraseña debe tener al menos 10 caracteres'
+        if not any(c.isupper() for c in password):
+            return False, 'La contraseña debe contener al menos una mayúscula'
+        if not any(c.islower() for c in password):
+            return False, 'La contraseña debe contener al menos una minúscula'
+        if not any(c.isdigit() for c in password):
+            return False, 'La contraseña debe contener al menos un número'
+        if not any(c in '!@#$%^&*()_+-=[]{}|;:,.<>?' for c in password):
+            return False, 'La contraseña debe contener al menos un carácter especial (!@#$%...)'
+        return True, 'OK'
     
     @staticmethod
     def authenticate_user(username, password, remember=False):
@@ -26,10 +44,12 @@ class AuthService:
         Returns:
             tuple: (success: bool, message: str, user: User|None)
         """
+        from app.utils.security import check_account_lockout, register_failed_attempt, reset_failed_attempts
+
         # Buscar usuario por DNI
         user = User.query.filter(User.dni == username).first()
 
-        # Validar que existe
+        # Respuesta genérica — no revelar si el DNI existe
         if not user:
             return False, 'DNI o contraseña incorrectos', None
 
@@ -37,30 +57,44 @@ class AuthService:
         if user.status != 'Activo':
             return False, 'Usuario inactivo. Contacte al administrador', None
 
+        # Verificar bloqueo por intentos fallidos
+        bloqueado, msg_lockout, _ = check_account_lockout(user)
+        if bloqueado:
+            AuditLog.log_action(
+                user_id=user.id, action='LOGIN_BLOCKED',
+                entity='User', entity_id=user.id,
+                details=f'Login bloqueado para {user.username}'
+            )
+            db.session.commit()
+            return False, msg_lockout, None
+
         # Validar contraseña
         if not user.check_password(password):
-            return False, 'DNI o contraseña incorrectos', None
+            register_failed_attempt(user, db)
+            attempts = getattr(user, 'failed_attempts', 1) or 1
+            remaining = max(0, 5 - attempts)
+            msg = 'DNI o contraseña incorrectos'
+            if 0 < remaining <= 2:
+                msg += f' ({remaining} intento{"s" if remaining > 1 else ""} restante{"s" if remaining > 1 else ""})'
+            AuditLog.log_action(
+                user_id=user.id, action='LOGIN_FAILED',
+                entity='User', entity_id=user.id,
+                details=f'Intento fallido #{attempts} para {user.username}'
+            )
+            db.session.commit()
+            return False, msg, None
 
-        # Login exitoso
-        # IMPORTANTE: remember=False siempre para seguridad
-        # La sesión se cerrará automáticamente al cerrar el navegador
+        # Login exitoso — resetear contador de intentos
+        reset_failed_attempts(user, db)
         login_user(user, remember=False)
-
-        # Actualizar last_login
         user.last_login = now_peru()
 
-        # Registrar en auditoría
         AuditLog.log_action(
-            user_id=user.id,
-            action='LOGIN',
-            entity='User',
-            entity_id=user.id,
+            user_id=user.id, action='LOGIN',
+            entity='User', entity_id=user.id,
             details=f'Login exitoso de {user.username}'
         )
-
-        # Commit único para last_login y audit_log juntos
         db.session.commit()
-
         return True, 'Login exitoso', user
     
     @staticmethod
@@ -133,13 +167,11 @@ class AuthService:
         if not user.check_password(old_password):
             return False, 'Contraseña actual incorrecta'
         
-        # Validar nueva contraseña
-        if len(new_password) < 8:
-            return False, 'La nueva contraseña debe tener al menos 8 caracteres'
-        
-        if not any(c.isdigit() for c in new_password):
-            return False, 'La nueva contraseña debe contener al menos un número'
-        
+        # Validar nueva contraseña (política reforzada)
+        ok, msg = AuthService.validate_password_policy(new_password)
+        if not ok:
+            return False, msg
+
         # Cambiar contraseña
         user.set_password(new_password)
 
@@ -174,13 +206,11 @@ class AuthService:
         if not admin_user or admin_user.role != 'Master':
             return False, 'Solo el Master puede restablecer contraseñas'
         
-        # Validar nueva contraseña
-        if len(new_password) < 8:
-            return False, 'La contraseña debe tener al menos 8 caracteres'
-        
-        if not any(c.isdigit() for c in new_password):
-            return False, 'La contraseña debe contener al menos un número'
-        
+        # Validar nueva contraseña (política reforzada)
+        ok, msg = AuthService.validate_password_policy(new_password)
+        if not ok:
+            return False, msg
+
         # Cambiar contraseña
         target_user.set_password(new_password)
 
