@@ -538,7 +538,7 @@
 <!-- ── Modal: Enviar TC ────────────────────────────────────────── -->
 <div class="modal fade com-modal" id="modalEnviarPrecio" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered" id="modalEnviarPrecioDialog"
-       style="max-width:460px;transition:max-width .25s cubic-bezier(.4,0,.2,1);margin:auto;">
+       style="max-width:460px;width:460px;transition:max-width .25s cubic-bezier(.4,0,.2,1),width .25s cubic-bezier(.4,0,.2,1);margin:1.75rem auto;">
     <div class="modal-content">
 
       <div class="modal-header">
@@ -639,7 +639,8 @@
               <div class="spinner-border spinner-border-sm" style="color:var(--qori-primary);"></div>
               Generando borrador...
             </div>
-            <iframe id="previewFrame" style="display:none;width:100%;border:0;"></iframe>
+            <iframe id="previewFrame" scrolling="no"
+                    style="display:none;width:100%;min-width:560px;border:0;overflow:hidden;"></iframe>
           </div>
 
           <!-- Editor -->
@@ -699,12 +700,14 @@ function irAPaso(paso) {
     document.getElementById('paso1').style.display = '';
     document.getElementById('paso2').style.display = 'none';
     dialog.style.maxWidth = '460px';
+    dialog.style.width    = '460px';
     document.getElementById('modalTitulo').textContent = 'Enviar Tipo de Cambio';
     setStep(1);
   } else {
     document.getElementById('paso1').style.display = 'none';
     document.getElementById('paso2').style.display = '';
-    dialog.style.maxWidth = '640px';
+    dialog.style.maxWidth = '620px';
+    dialog.style.width    = '620px';
     document.getElementById('modalTitulo').textContent = 'Borrador del email';
     setStep(2);
     mostrarTab('vista');
