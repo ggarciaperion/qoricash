@@ -538,134 +538,109 @@
 <!-- ── Modal: Enviar TC ────────────────────────────────────────── -->
 <div class="modal fade com-modal" id="modalEnviarPrecio" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered" id="modalEnviarPrecioDialog"
-       style="max-width:460px;width:460px;transition:max-width .25s cubic-bezier(.4,0,.2,1),width .25s cubic-bezier(.4,0,.2,1);margin:1.75rem auto;">
+       style="max-width:620px;width:620px;margin:1.75rem auto;">
     <div class="modal-content">
 
+      <!-- Header -->
       <div class="modal-header">
         <div class="modal-title">
           <i class="bi bi-send-fill"></i>
-          <span id="modalTitulo">Enviar Tipo de Cambio</span>
+          <span>Enviar Tipo de Cambio</span>
         </div>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
 
-      <!-- ── Paso 1 ── -->
-      <div id="paso1">
-        <div class="modal-body">
+      <!-- Client + TC editable -->
+      <div style="padding:14px 20px 0;border-bottom:1px solid var(--qori-gray-100);">
+        <div class="d-flex align-items-center justify-content-between gap-3 flex-wrap pb-3">
 
-          <!-- Step indicator -->
-          <div class="com-step-indicator">
-            <div class="com-step active" id="step1Ind">
-              <span class="com-step-num">1</span> Tasas
-            </div>
-            <div class="com-step-line"></div>
-            <div class="com-step" id="step2Ind">
-              <span class="com-step-num">2</span> Borrador
-            </div>
-            <div class="com-step-line"></div>
-            <div class="com-step" id="step3Ind">
-              <span class="com-step-num">3</span> Enviar
-            </div>
-          </div>
-
-          <!-- Client info -->
-          <div class="com-modal-client">
-            <div class="com-avatar" style="width:40px;height:40px;font-size:15px;" id="modalAvatar">?</div>
+          <!-- Cliente -->
+          <div class="d-flex align-items-center gap-3">
+            <div class="com-avatar" style="width:38px;height:38px;font-size:14px;" id="modalAvatar">?</div>
             <div>
               <div class="com-modal-client-name" id="modalClienteNombre">—</div>
               <div class="com-modal-client-email" id="modalClienteEmail"></div>
             </div>
           </div>
 
-          <!-- TC actual -->
-          {% if rate %}
-          <div class="com-tc-card">
-            <div>
-              <div class="com-tc-card-label">TC actual del mercado</div>
-              <div class="com-tc-card-value">
-                Compra <span style="color:var(--qori-primary);">{{ "%.3f"|format(rate.buy_rate) }}</span>
-                &nbsp;/&nbsp;
-                Venta <span style="color:#f87171;">{{ "%.3f"|format(rate.sell_rate) }}</span>
+          <!-- Inputs TC inline -->
+          <div class="d-flex align-items-center gap-2">
+            <div style="text-align:center;">
+              <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--qori-gray-400);margin-bottom:3px;">
+                <i class="bi bi-arrow-down-circle" style="color:var(--qori-info);"></i> Compramos
               </div>
+              <input type="number" step="0.001" id="inputCompra"
+                     placeholder="3.750"
+                     {% if rate %}value="{{ '%.3f'|format(rate.buy_rate) }}"{% endif %}
+                     style="width:90px;text-align:center;font-size:16px;font-weight:700;
+                            border:1.5px solid var(--qori-gray-200);border-radius:var(--radius-lg);
+                            padding:5px 8px;color:var(--qori-gray-900);outline:none;
+                            transition:border-color .15s;">
             </div>
-            <button class="com-tc-use-btn" id="btnUsarTCActual">Usar estos valores</button>
+            <div style="font-size:18px;color:var(--qori-gray-300);font-weight:300;padding-top:14px;">/</div>
+            <div style="text-align:center;">
+              <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--qori-gray-400);margin-bottom:3px;">
+                <i class="bi bi-arrow-up-circle" style="color:#f87171;"></i> Vendemos
+              </div>
+              <input type="number" step="0.001" id="inputVenta"
+                     placeholder="3.770"
+                     {% if rate %}value="{{ '%.3f'|format(rate.sell_rate) }}"{% endif %}
+                     style="width:90px;text-align:center;font-size:16px;font-weight:700;
+                            border:1.5px solid var(--qori-gray-200);border-radius:var(--radius-lg);
+                            padding:5px 8px;color:var(--qori-gray-900);outline:none;
+                            transition:border-color .15s;">
+            </div>
+            <button id="btnRefrescar" title="Actualizar borrador"
+                    style="margin-top:14px;padding:6px 10px;border-radius:var(--radius-lg);
+                           border:1.5px solid var(--qori-gray-200);background:white;
+                           color:var(--qori-gray-500);cursor:pointer;transition:all .15s;font-size:13px;">
+              <i class="bi bi-arrow-clockwise"></i>
+            </button>
           </div>
-          {% endif %}
-
-          <!-- Inputs -->
-          <div class="row g-3">
-            <div class="col-6">
-              <div class="com-input-group">
-                <label><i class="bi bi-arrow-down-circle me-1" style="color:var(--qori-info);"></i>Compramos (S/)</label>
-                <input type="number" step="0.001" id="inputCompra"
-                       placeholder="3.750" {% if rate %}value="{{ '%.3f'|format(rate.buy_rate) }}"{% endif %}>
-              </div>
-            </div>
-            <div class="col-6">
-              <div class="com-input-group">
-                <label><i class="bi bi-arrow-up-circle me-1" style="color:#f87171;"></i>Vendemos (S/)</label>
-                <input type="number" step="0.001" id="inputVenta"
-                       placeholder="3.770" {% if rate %}value="{{ '%.3f'|format(rate.sell_rate) }}"{% endif %}>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="modal-footer">
-          <button type="button" class="com-btn-ghost" data-bs-dismiss="modal">Cancelar</button>
-          <button type="button" class="com-btn-primary" id="btnVerBorrador">
-            <i class="bi bi-eye"></i> Ver borrador
-          </button>
         </div>
       </div>
 
-      <!-- ── Paso 2 ── -->
-      <div id="paso2" style="display:none;">
-        <div class="modal-body p-0">
+      <!-- Tabs -->
+      <div class="com-tabs" style="padding-top:0;border-bottom:1px solid var(--qori-gray-200);">
+        <button class="com-tab active" id="tabVistaBtn" onclick="mostrarTab('vista')">
+          <i class="bi bi-eye"></i> Vista previa
+        </button>
+        <button class="com-tab" id="tabEditarBtn" onclick="mostrarTab('editar')">
+          <i class="bi bi-pencil"></i> Editar HTML
+        </button>
+      </div>
 
-          <!-- Tabs -->
-          <div class="com-tabs">
-            <button class="com-tab active" id="tabVistaBtn" onclick="mostrarTab('vista')">
-              <i class="bi bi-eye"></i> Vista previa
-            </button>
-            <button class="com-tab" id="tabEditarBtn" onclick="mostrarTab('editar')">
-              <i class="bi bi-pencil"></i> Editar HTML
-            </button>
-          </div>
-
-          <!-- iframe preview -->
-          <div id="tabVista" style="max-height:82vh;overflow-y:auto;">
-            <div id="iframeLoading" style="display:flex;align-items:center;justify-content:center;gap:10px;padding:48px;color:var(--qori-gray-400);font-size:13px;">
-              <div class="spinner-border spinner-border-sm" style="color:var(--qori-primary);"></div>
-              Generando borrador...
-            </div>
-            <iframe id="previewFrame" scrolling="no"
-                    style="display:none;width:100%;min-width:560px;border:0;overflow:hidden;"></iframe>
-          </div>
-
-          <!-- Editor -->
-          <div id="tabEditar" style="display:none;" class="p-3">
-            <div class="d-flex align-items-center justify-content-between mb-2">
-              <span style="font-size:11px;color:var(--qori-gray-500);">Edita el HTML y actualiza la vista previa.</span>
-              <button class="com-btn-ghost" style="padding:4px 10px;font-size:11px;" onclick="actualizarIframe()">
-                <i class="bi bi-arrow-clockwise"></i> Actualizar
-              </button>
-            </div>
-            <textarea id="htmlEditable" class="form-control font-monospace"
-                      style="height:380px;font-size:11px;line-height:1.5;resize:vertical;
-                             border:1.5px solid var(--qori-gray-200);border-radius:var(--radius-lg);"
-                      spellcheck="false"></textarea>
-          </div>
+      <!-- Vista previa -->
+      <div id="tabVista" style="max-height:78vh;overflow-y:auto;">
+        <div id="iframeLoading" style="display:flex;align-items:center;justify-content:center;
+             gap:10px;padding:56px;color:var(--qori-gray-400);font-size:13px;">
+          <div class="spinner-border spinner-border-sm" style="color:var(--qori-primary);"></div>
+          Generando borrador...
         </div>
+        <iframe id="previewFrame" scrolling="no"
+                style="display:none;width:100%;min-width:560px;border:0;overflow:hidden;"></iframe>
+      </div>
 
-        <div class="modal-footer">
-          <button type="button" class="com-btn-ghost" id="btnVolver">
-            <i class="bi bi-arrow-left"></i> Volver
-          </button>
-          <button type="button" class="com-btn-primary" id="btnEnviarEmail">
-            <i class="bi bi-send"></i> Enviar email
+      <!-- Editor HTML -->
+      <div id="tabEditar" style="display:none;" class="p-3">
+        <div class="d-flex align-items-center justify-content-between mb-2">
+          <span style="font-size:11px;color:var(--qori-gray-500);">Edita el HTML y presiona Actualizar.</span>
+          <button class="com-btn-ghost" style="padding:4px 10px;font-size:11px;" onclick="actualizarIframe()">
+            <i class="bi bi-arrow-clockwise"></i> Actualizar vista
           </button>
         </div>
+        <textarea id="htmlEditable" class="form-control font-monospace"
+                  style="height:380px;font-size:11px;line-height:1.5;resize:vertical;
+                         border:1.5px solid var(--qori-gray-200);border-radius:var(--radius-lg);"
+                  spellcheck="false"></textarea>
+      </div>
+
+      <!-- Footer -->
+      <div class="modal-footer">
+        <button type="button" class="com-btn-ghost" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="com-btn-primary" id="btnEnviarEmail">
+          <i class="bi bi-send"></i> Enviar email
+        </button>
       </div>
 
     </div>
@@ -678,44 +653,7 @@
 var _clienteId   = null;
 var _clienteTipo = 'Mixto';
 
-function abrirModalEmail(id, nombre, email, tipo) {
-  _clienteId   = id;
-  _clienteTipo = tipo || 'Mixto';
-  document.getElementById('modalClienteNombre').textContent = nombre;
-  document.getElementById('modalClienteEmail').textContent  = email || '(sin email)';
-  document.getElementById('modalAvatar').textContent        = nombre ? nombre[0].toUpperCase() : '?';
-  irAPaso(1);
-  new bootstrap.Modal(document.getElementById('modalEnviarPrecio')).show();
-}
-
-function setStep(n) {
-  [1,2,3].forEach(function(i) {
-    var el = document.getElementById('step' + i + 'Ind');
-    el.className = 'com-step' + (i < n ? ' done' : i === n ? ' active' : '');
-    el.querySelector('.com-step-num').textContent = i < n ? '✓' : i;
-  });
-}
-
-function irAPaso(paso) {
-  var dialog = document.getElementById('modalEnviarPrecioDialog');
-  if (paso === 1) {
-    document.getElementById('paso1').style.display = '';
-    document.getElementById('paso2').style.display = 'none';
-    dialog.style.maxWidth = '460px';
-    dialog.style.width    = '460px';
-    document.getElementById('modalTitulo').textContent = 'Enviar Tipo de Cambio';
-    setStep(1);
-  } else {
-    document.getElementById('paso1').style.display = 'none';
-    document.getElementById('paso2').style.display = '';
-    dialog.style.maxWidth = '620px';
-    dialog.style.width    = '620px';
-    document.getElementById('modalTitulo').textContent = 'Borrador del email';
-    setStep(2);
-    mostrarTab('vista');
-  }
-}
-
+// ── Tabs ──────────────────────────────────────────────────────────────────────
 function mostrarTab(tab) {
   document.getElementById('tabVista').style.display   = tab === 'vista'  ? '' : 'none';
   document.getElementById('tabEditar').style.display  = tab === 'editar' ? '' : 'none';
@@ -723,6 +661,7 @@ function mostrarTab(tab) {
   document.getElementById('tabEditarBtn').classList.toggle('active', tab === 'editar');
 }
 
+// ── Actualizar iframe desde el textarea ───────────────────────────────────────
 function actualizarIframe() {
   var frame = document.getElementById('previewFrame');
   frame.style.height = '0';
@@ -738,17 +677,8 @@ function actualizarIframe() {
   };
 }
 
-// Usar TC actual
-var btnUsarTC = document.getElementById('btnUsarTCActual');
-if (btnUsarTC) {
-  btnUsarTC.addEventListener('click', function() {
-    btnUsarTC.textContent = '✓ Aplicado';
-    btnUsarTC.style.color = 'var(--qori-success)';
-  });
-}
-
-// Ver borrador → paso 2
-document.getElementById('btnVerBorrador').addEventListener('click', function() {
+// ── Generar preview vía API ───────────────────────────────────────────────────
+function generarPreview() {
   var compra = document.getElementById('inputCompra').value.trim();
   var venta  = document.getElementById('inputVenta').value.trim();
 
@@ -757,27 +687,28 @@ document.getElementById('btnVerBorrador').addEventListener('click', function() {
     return;
   }
 
-  var btn = this;
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Generando...';
+  var frame   = document.getElementById('previewFrame');
+  var loading = document.getElementById('iframeLoading');
+  frame.style.display   = 'none';
+  loading.style.display = 'flex';
+  mostrarTab('vista');
 
-  fetch('/comercial/preview-precio/' + _clienteId + '?compra=' + encodeURIComponent(compra) + '&venta=' + encodeURIComponent(venta) + '&tipo=' + encodeURIComponent(_clienteTipo))
+  fetch('/comercial/preview-precio/' + _clienteId
+        + '?compra=' + encodeURIComponent(compra)
+        + '&venta='  + encodeURIComponent(venta)
+        + '&tipo='   + encodeURIComponent(_clienteTipo))
   .then(r => r.json())
   .then(data => {
     if (!data.ok) {
+      loading.style.display = 'none';
       Swal.fire({ icon: 'error', title: 'Error', text: data.msg, confirmButtonColor: '#00DEA8' });
       return;
     }
-    irAPaso(2);
-    var frame   = document.getElementById('previewFrame');
-    var loading = document.getElementById('iframeLoading');
-    frame.style.display = 'none';
-    loading.style.display = 'flex';
+    document.getElementById('htmlEditable').value = data.html;
     frame.srcdoc = data.html;
     frame.onload = function() {
       loading.style.display = 'none';
-      frame.style.display = '';
-      // Auto-ajustar alto al contenido del email
+      frame.style.display   = '';
       try {
         var h = frame.contentDocument.documentElement.scrollHeight
              || frame.contentDocument.body.scrollHeight;
@@ -786,28 +717,59 @@ document.getElementById('btnVerBorrador').addEventListener('click', function() {
         frame.style.height = '800px';
       }
     };
-    document.getElementById('htmlEditable').value = data.html;
   })
   .catch(() => {
+    loading.style.display = 'none';
     Swal.fire({ icon: 'error', title: 'Error de red', text: 'No se pudo generar el borrador.', confirmButtonColor: '#00DEA8' });
-  })
-  .finally(() => {
-    btn.disabled = false;
-    btn.innerHTML = '<i class="bi bi-eye"></i> Ver borrador';
   });
+}
+
+// ── Abrir modal ───────────────────────────────────────────────────────────────
+function abrirModalEmail(id, nombre, email, tipo) {
+  _clienteId   = id;
+  _clienteTipo = tipo || 'Mixto';
+  document.getElementById('modalClienteNombre').textContent = nombre;
+  document.getElementById('modalClienteEmail').textContent  = email || '(sin email)';
+  document.getElementById('modalAvatar').textContent        = nombre ? nombre[0].toUpperCase() : '?';
+
+  // Limpiar estado previo
+  document.getElementById('previewFrame').style.display = 'none';
+  document.getElementById('previewFrame').srcdoc        = '';
+  document.getElementById('htmlEditable').value         = '';
+  document.getElementById('iframeLoading').style.display = 'flex';
+  mostrarTab('vista');
+
+  new bootstrap.Modal(document.getElementById('modalEnviarPrecio')).show();
+
+  // Auto-generar preview al abrir si hay TC cargado
+  var compra = document.getElementById('inputCompra').value.trim();
+  var venta  = document.getElementById('inputVenta').value.trim();
+  if (compra && venta) {
+    generarPreview();
+  } else {
+    document.getElementById('iframeLoading').style.display = 'none';
+  }
+}
+
+// ── Botón refrescar ───────────────────────────────────────────────────────────
+document.getElementById('btnRefrescar').addEventListener('click', function() {
+  var btn = this;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+  generarPreview();
+  setTimeout(function() {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-arrow-clockwise"></i>';
+  }, 1200);
 });
 
-// Volver
-document.getElementById('btnVolver').addEventListener('click', function() { irAPaso(1); });
-
-// Enviar
+// ── Enviar email ──────────────────────────────────────────────────────────────
 document.getElementById('btnEnviarEmail').addEventListener('click', function() {
   var html = document.getElementById('htmlEditable').value.trim();
   if (!html) {
-    Swal.fire({ icon: 'warning', title: 'Sin contenido', text: 'El borrador está vacío.', confirmButtonColor: '#00DEA8' });
+    Swal.fire({ icon: 'warning', title: 'Sin contenido', text: 'Genera el borrador primero.', confirmButtonColor: '#00DEA8' });
     return;
   }
-  setStep(3);
   var btn = this;
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Enviando...';
@@ -838,7 +800,7 @@ document.getElementById('btnEnviarEmail').addEventListener('click', function() {
   });
 });
 
-// Buscador
+// ── Buscador ──────────────────────────────────────────────────────────────────
 document.getElementById('buscadorCliente').addEventListener('input', function() {
   var q = this.value.toLowerCase();
   document.querySelectorAll('.cliente-row').forEach(function(row) {
