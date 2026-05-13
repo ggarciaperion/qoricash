@@ -228,6 +228,34 @@ def create_app(config_name=None):
     except Exception as e:
         logging.warning(f"[Prospeccion] Error creando tablas: {e}")
 
+    # Migración: tabla comercial_envios
+    try:
+        with app.app_context():
+            from app.extensions import db
+            from sqlalchemy import text
+            db.session.execute(text("""
+                CREATE TABLE IF NOT EXISTS comercial_envios (
+                    id        SERIAL PRIMARY KEY,
+                    client_id INTEGER NOT NULL REFERENCES clients(id),
+                    user_id   INTEGER NOT NULL REFERENCES users(id),
+                    sent_at   TIMESTAMP NOT NULL DEFAULT NOW(),
+                    compra    VARCHAR(10),
+                    venta     VARCHAR(10)
+                )
+            """))
+            db.session.execute(text(
+                "CREATE INDEX IF NOT EXISTS ix_comercial_envios_client_id ON comercial_envios(client_id)"
+            ))
+            db.session.execute(text(
+                "CREATE INDEX IF NOT EXISTS ix_comercial_envios_user_id ON comercial_envios(user_id)"
+            ))
+            db.session.execute(text(
+                "CREATE INDEX IF NOT EXISTS ix_comercial_envios_sent_at ON comercial_envios(sent_at)"
+            ))
+            db.session.commit()
+    except Exception as e:
+        logging.warning(f"[Comercial] Error creando tabla comercial_envios: {e}")
+
     # Sembrar competidores FX (idempotente — solo inserta si no existen)
     try:
         with app.app_context():

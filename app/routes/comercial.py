@@ -12,11 +12,13 @@ from flask import Blueprint, render_template, request, jsonify, current_app
 from flask_login import login_required, current_user
 from sqlalchemy import func, distinct
 
+import time
 from app.extensions import db, csrf
 from app.models.client import Client
 from app.models.operation import Operation
 from app.models.exchange_rate import ExchangeRate
 from app.models.user import User
+from app.models.comercial_envio import ComercialEnvio
 from app.utils.decorators import require_role
 
 # ── Importar utilidades de email desde prospeccion ───────────────────────────
@@ -84,6 +86,40 @@ def _html_para_preview(html: str) -> str:
     return html
 
 comercial_bp = Blueprint("comercial", __name__, url_prefix="/comercial")
+
+LIMITE_LOTE   = 10   # máx. por envío masivo
+LIMITE_DIARIO = 50   # máx. por usuario por día
+
+
+def _count_hoy(user_id: int) -> int:
+    """Emails de TC enviados hoy desde Comercial por este usuario."""
+    from sqlalchemy import func
+    hoy = datetime.utcnow().date()
+    return (
+        db.session.query(func.count(ComercialEnvio.id))
+        .filter(
+            ComercialEnvio.user_id == user_id,
+            func.date(ComercialEnvio.sent_at) == hoy,
+        )
+        .scalar() or 0
+    )
+
+
+def _ultimo_tc_map(client_ids: list, user_id: int) -> dict:
+    """Devuelve {client_id: datetime} con el último envío de TC por cliente."""
+    if not client_ids:
+        return {}
+    from sqlalchemy import func
+    rows = (
+        db.session.query(
+            ComercialEnvio.client_id,
+            func.max(ComercialEnvio.sent_at).label('ultimo'),
+        )
+        .filter(ComercialEnvio.client_id.in_(client_ids))
+        .group_by(ComercialEnvio.client_id)
+        .all()
+    )
+    return {r.client_id: r.ultimo for r in rows}
 
 
 def _clasificar_cliente(ops_completadas):
@@ -158,6 +194,26 @@ def _get_cartera(trader_id=None, tipo_filtro=None):
             'ultima_op': ultima_op.created_at,
         })
 
+    # Enriquecer con último envío de TC desde Comercial
+    ids = [r['id'] for r in resultado]
+    utc_map = _ultimo_tc_map(ids, trader_id or 0) if trader_id else _ultimo_tc_map(ids, 0)
+    # Para Master ver todos los envíos independientemente del trader
+    if not trader_id:
+        from sqlalchemy import func as _func
+        rows = (
+            db.session.query(
+                ComercialEnvio.client_id,
+                _func.max(ComercialEnvio.sent_at).label('ultimo'),
+            )
+            .filter(ComercialEnvio.client_id.in_(ids))
+            .group_by(ComercialEnvio.client_id)
+            .all()
+        )
+        utc_map = {r.client_id: r.ultimo for r in rows}
+
+    for r in resultado:
+        r['ultimo_tc'] = utc_map.get(r['id'])
+
     # Ordenar: más reciente primero
     resultado.sort(key=lambda x: x['ultima_op'], reverse=True)
     return resultado
@@ -189,12 +245,17 @@ def index():
     # Tipo de cambio actual
     rate = ExchangeRate.query.order_by(ExchangeRate.updated_at.desc()).first()
 
+    envios_hoy = _count_hoy(current_user.id)
+
     return render_template(
         "comercial/index.html",
         clientes=clientes,
         tipo_filtro=tipo_filtro,
         cnt=cnt,
         rate=rate,
+        envios_hoy=envios_hoy,
+        limite_diario=LIMITE_DIARIO,
+        limite_lote=LIMITE_LOTE,
     )
 
 
@@ -498,8 +559,90 @@ def enviar_precio(client_id):
 
         _send_via_gmail_api(sender_email, c.email, "QoriCash - Tipo de cambio del día", html)
 
+        # Registrar envío
+        db.session.add(ComercialEnvio(
+            client_id=c.id,
+            user_id=current_user.id,
+            compra=compra or None,
+            venta=venta or None,
+        ))
+        db.session.commit()
+
         return jsonify({"ok": True, "msg": f"Email enviado a {c.email}"})
 
     except Exception as e:
         current_app.logger.error(f"[Comercial] Error enviando email a {c.email}: {e}")
         return jsonify({"ok": False, "msg": str(e)}), 500
+
+
+# ── API: envío masivo de TC ───────────────────────────────────────────────────
+
+@comercial_bp.route("/enviar-masivo", methods=["POST"])
+@login_required
+@require_role("Master", "Trader")
+@csrf.exempt
+def enviar_masivo():
+    data       = request.json or {}
+    client_ids = data.get("client_ids", [])
+    compra     = data.get("compra", "").strip()
+    venta      = data.get("venta", "").strip()
+
+    if not compra or not venta:
+        return jsonify({"ok": False, "msg": "Ingresa compra y venta"}), 400
+    if not client_ids:
+        return jsonify({"ok": False, "msg": "Selecciona al menos un cliente"}), 400
+    if len(client_ids) > LIMITE_LOTE:
+        return jsonify({"ok": False, "msg": f"Máximo {LIMITE_LOTE} por lote"}), 400
+
+    # Verificar cuota diaria
+    enviados_hoy = _count_hoy(current_user.id)
+    restantes    = LIMITE_DIARIO - enviados_hoy
+    if restantes <= 0:
+        return jsonify({"ok": False, "msg": f"Límite diario de {LIMITE_DIARIO} emails alcanzado"}), 429
+    if len(client_ids) > restantes:
+        client_ids = client_ids[:restantes]
+
+    sender_email = current_user.email
+    nombre_completo, cargo = _get_trader_info(sender_email, current_user.role)
+
+    resultados = []
+    for cid in client_ids:
+        c = Client.query.get(cid)
+        if not c:
+            resultados.append({"id": cid, "nombre": "—", "ok": False, "msg": "Cliente no encontrado"})
+            continue
+        if not c.email:
+            resultados.append({"id": cid, "nombre": c.full_name or str(cid), "ok": False, "msg": "Sin email"})
+            continue
+
+        tipo = _clasificar_cliente(
+            c.operations.filter_by(status='Completada').all()
+        )
+
+        try:
+            html = _build_email_html(c, compra, venta, sender_email, nombre_completo, cargo, tipo)
+            _send_via_gmail_api(sender_email, c.email, "QoriCash - Tipo de cambio del día", html)
+            db.session.add(ComercialEnvio(
+                client_id=c.id, user_id=current_user.id, compra=compra, venta=venta
+            ))
+            resultados.append({"id": cid, "nombre": c.full_name or str(cid), "ok": True, "msg": c.email})
+        except Exception as e:
+            current_app.logger.error(f"[Comercial Masivo] Error enviando a {c.email}: {e}")
+            resultados.append({"id": cid, "nombre": c.full_name or str(cid), "ok": False, "msg": str(e)})
+
+        time.sleep(1)  # pausa entre envíos
+
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+
+    ok_count  = sum(1 for r in resultados if r["ok"])
+    err_count = len(resultados) - ok_count
+    return jsonify({
+        "ok": True,
+        "enviados": ok_count,
+        "errores": err_count,
+        "resultados": resultados,
+        "envios_hoy": _count_hoy(current_user.id),
+    })
