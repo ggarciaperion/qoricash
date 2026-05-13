@@ -270,9 +270,18 @@ def _nombre_saludo_cliente(c) -> str:
     es_empresa = (getattr(c, 'document_type', '') or '').upper() == 'RUC'
     if es_empresa:
         return _saludo_empresa(c.razon_social or c.full_name or '')
-    # Persona natural → solo primer nombre
-    nombre = (c.full_name or c.razon_social or 'estimado cliente').strip()
-    return nombre.split()[0].capitalize()
+    # Persona natural → primer nombre del campo `nombres` (evita tomar el apellido)
+    nombres = (getattr(c, 'nombres', None) or '').strip()
+    if nombres:
+        return nombres.split()[0].capitalize()
+    # Fallback: si no hay campo nombres separado, descartamos apellidos conocidos
+    full = (c.full_name or '').strip()
+    ap_pat = (getattr(c, 'apellido_paterno', None) or '').strip().upper()
+    ap_mat = (getattr(c, 'apellido_materno', None) or '').strip().upper()
+    for palabra in full.split():
+        if palabra.upper() not in (ap_pat, ap_mat) and palabra:
+            return palabra.capitalize()
+    return (full.split()[0].capitalize() if full else 'estimado cliente')
 
 
 def _build_mensaje_personalizado(tipo):
