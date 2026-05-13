@@ -516,7 +516,7 @@
 
               <button class="com-btn-email"
                       title="Enviar TC a {{ c.email }}"
-                      onclick="abrirModalEmail({{ c.id }}, '{{ c.full_name|replace("'", "\\'") }}', '{{ c.email }}')">
+                      onclick="abrirModalEmail({{ c.id }}, '{{ c.full_name|replace("'", "\\'") }}', '{{ c.email }}', '{{ c.tipo }}')">
                 <i class="bi bi-envelope-fill"></i> Enviar TC
               </button>
             </div>
@@ -675,13 +675,15 @@
 
 {% block scripts %}
 <script>
-var _clienteId = null;
+var _clienteId   = null;
+var _clienteTipo = 'Mixto';
 
-function abrirModalEmail(id, nombre, email) {
-  _clienteId = id;
+function abrirModalEmail(id, nombre, email, tipo) {
+  _clienteId   = id;
+  _clienteTipo = tipo || 'Mixto';
   document.getElementById('modalClienteNombre').textContent = nombre;
-  document.getElementById('modalClienteEmail').textContent = email || '(sin email)';
-  document.getElementById('modalAvatar').textContent = nombre ? nombre[0].toUpperCase() : '?';
+  document.getElementById('modalClienteEmail').textContent  = email || '(sin email)';
+  document.getElementById('modalAvatar').textContent        = nombre ? nombre[0].toUpperCase() : '?';
   irAPaso(1);
   new bootstrap.Modal(document.getElementById('modalEnviarPrecio')).show();
 }
@@ -759,7 +761,7 @@ document.getElementById('btnVerBorrador').addEventListener('click', function() {
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Generando...';
 
-  fetch('/comercial/preview-precio/' + _clienteId + '?compra=' + encodeURIComponent(compra) + '&venta=' + encodeURIComponent(venta))
+  fetch('/comercial/preview-precio/' + _clienteId + '?compra=' + encodeURIComponent(compra) + '&venta=' + encodeURIComponent(venta) + '&tipo=' + encodeURIComponent(_clienteTipo))
   .then(r => r.json())
   .then(data => {
     if (!data.ok) {
@@ -816,7 +818,7 @@ document.getElementById('btnEnviarEmail').addEventListener('click', function() {
       'Content-Type': 'application/json',
       'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
     },
-    body: JSON.stringify({ html: html })
+    body: JSON.stringify({ html: html, tipo: _clienteTipo })
   })
   .then(r => r.json())
   .then(data => {

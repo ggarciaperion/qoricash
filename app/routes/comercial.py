@@ -149,7 +149,80 @@ def index():
 
 # ── Helpers compartidos ───────────────────────────────────────────────────────
 
-def _build_email_html(c, compra, venta, sender_email, nombre_completo, cargo="Trader"):
+def _build_mensaje_personalizado(tipo):
+    """Bloque HTML con mensaje contextual según el tipo de operación del cliente."""
+    if tipo == 'Compra':
+        # Cliente compra dólares → le conviene cuando el dólar está bajo
+        return """\
+<tr>
+  <td style="padding:0 28px 4px;">
+    <table width="100%" cellpadding="0" cellspacing="0" border="0"
+      style="background:#EFF6FF;border-left:4px solid #2563EB;border-radius:0 8px 8px 0;padding:14px 18px;">
+      <tr>
+        <td>
+          <p style="margin:0 0 4px;font-size:10px;font-weight:800;color:#1D4ED8;
+                    text-transform:uppercase;letter-spacing:1px;">
+            Oportunidad para usted
+          </p>
+          <p style="margin:0;font-size:12px;color:#1E3A5F;line-height:1.6;">
+            El tipo de cambio está en un <strong>nivel favorable</strong> para comprar dólares.
+            Es un buen momento para adquirir divisas antes de que el mercado suba y maximizar
+            el valor de su inversión.
+          </p>
+        </td>
+      </tr>
+    </table>
+  </td>
+</tr>"""
+    elif tipo == 'Venta':
+        # Cliente vende dólares → le conviene cuando el dólar está alto
+        return """\
+<tr>
+  <td style="padding:0 28px 4px;">
+    <table width="100%" cellpadding="0" cellspacing="0" border="0"
+      style="background:#F0FDF4;border-left:4px solid #16A34A;border-radius:0 8px 8px 0;padding:14px 18px;">
+      <tr>
+        <td>
+          <p style="margin:0 0 4px;font-size:10px;font-weight:800;color:#15803D;
+                    text-transform:uppercase;letter-spacing:1px;">
+            Oportunidad para usted
+          </p>
+          <p style="margin:0;font-size:12px;color:#14532D;line-height:1.6;">
+            El tipo de cambio está en un <strong>nivel alto</strong>. Es un excelente momento
+            para vender sus dólares y obtener más soles por cada dólar antes de que el
+            mercado corrija a la baja.
+          </p>
+        </td>
+      </tr>
+    </table>
+  </td>
+</tr>"""
+    else:
+        # Mixto → menciona ambas opciones
+        return """\
+<tr>
+  <td style="padding:0 28px 4px;">
+    <table width="100%" cellpadding="0" cellspacing="0" border="0"
+      style="background:#FAFAFA;border-left:4px solid #5CB85C;border-radius:0 8px 8px 0;padding:14px 18px;">
+      <tr>
+        <td>
+          <p style="margin:0 0 4px;font-size:10px;font-weight:800;color:#5CB85C;
+                    text-transform:uppercase;letter-spacing:1px;">
+            Tasas vigentes del día
+          </p>
+          <p style="margin:0;font-size:12px;color:#1E293B;line-height:1.6;">
+            Tanto para <strong>compra</strong> como para <strong>venta</strong> de dólares,
+            contamos con las mejores tasas del mercado. Contáctenos para coordinar
+            su operación de forma inmediata.
+          </p>
+        </td>
+      </tr>
+    </table>
+  </td>
+</tr>"""
+
+
+def _build_email_html(c, compra, venta, sender_email, nombre_completo, cargo="Trader", tipo="Mixto"):
     """Construye el HTML del correo de precios para un cliente."""
     from datetime import datetime as _dt
     fecha = _dt.now().strftime("%d/%m/%Y")
@@ -161,11 +234,13 @@ def _build_email_html(c, compra, venta, sender_email, nombre_completo, cargo="Tr
         firma = FIRMA_HTML.replace("{trader_nombre}", nombre_completo).replace("{trader_cargo}", cargo)
 
     nombre_saludo = (c.full_name or c.razon_social or "estimado cliente").split()[0].capitalize()
-    ticker = _build_ticker(compra, venta)
-    header = HEADER_HTML.replace("{fecha}", fecha).replace("{nombre}", nombre_saludo)
+    ticker  = _build_ticker(compra, venta)
+    mensaje = _build_mensaje_personalizado(tipo)
+    header  = HEADER_HTML.replace("{fecha}", fecha).replace("{nombre}", nombre_saludo)
 
     return CUERPO_PRECIO.format(
         header=header,
+        mensaje=mensaje,
         ticker=ticker,
         bancos=BANCOS_HTML,
         firma=firma,
@@ -183,6 +258,9 @@ def preview_precio(client_id):
 
     compra = request.args.get("compra", "").strip()
     venta  = request.args.get("venta", "").strip()
+    tipo   = request.args.get("tipo", "Mixto").strip()
+    if tipo not in ("Compra", "Venta", "Mixto"):
+        tipo = "Mixto"
 
     if not compra or not venta:
         return jsonify({"ok": False, "msg": "Ingresa compra y venta"}), 400
@@ -191,7 +269,7 @@ def preview_precio(client_id):
     nombre_completo, cargo = _get_trader_info(sender_email, current_user.role)
 
     try:
-        html = _build_email_html(c, compra, venta, sender_email, nombre_completo, cargo)
+        html = _build_email_html(c, compra, venta, sender_email, nombre_completo, cargo, tipo)
         return jsonify({"ok": True, "html": html})
     except Exception as e:
         current_app.logger.error(f"[Comercial] Error generando preview para {c.email}: {e}")
@@ -210,7 +288,10 @@ def enviar_precio(client_id):
     data   = request.json or {}
     compra = data.get("compra", "").strip()
     venta  = data.get("venta", "").strip()
+    tipo   = data.get("tipo", "Mixto").strip()
     html   = data.get("html", "").strip()  # HTML editado desde el borrador
+    if tipo not in ("Compra", "Venta", "Mixto"):
+        tipo = "Mixto"
 
     if not c.email:
         return jsonify({"ok": False, "msg": "El cliente no tiene email registrado"}), 400
@@ -222,7 +303,7 @@ def enviar_precio(client_id):
         if not html:
             if not compra or not venta:
                 return jsonify({"ok": False, "msg": "Ingresa compra y venta"}), 400
-            html = _build_email_html(c, compra, venta, sender_email, nombre_completo, cargo)
+            html = _build_email_html(c, compra, venta, sender_email, nombre_completo, cargo, tipo)
 
         _send_via_gmail_api(sender_email, c.email, "QoriCash - Tipo de cambio del día", html)
 

@@ -1055,6 +1055,7 @@ CUERPO_PRECIO = """\
 <table width="560" cellpadding="0" cellspacing="0" border="0"
   style="max-width:560px;width:100%;background:#FFFFFF;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.07);">
   {header}
+  {mensaje}
   {ticker}
   {bancos}
   {firma}
