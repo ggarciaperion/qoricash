@@ -149,10 +149,41 @@ def index():
 
 # ── Helpers compartidos ───────────────────────────────────────────────────────
 
+_SUFIJOS_LEGALES = {
+    'SAC', 'SA', 'EIRL', 'SRL', 'SAS', 'SAA', 'SCRL', 'SCS',
+    'S.A.C.', 'S.A.', 'E.I.R.L.', 'S.R.L.', 'S.A.S.',
+}
+
+def _saludo_empresa(razon_social: str) -> str:
+    """Devuelve un saludo apropiado para una empresa: razón social limpia o abreviada."""
+    if not razon_social:
+        return "estimado cliente"
+    # Quitar sufijos legales al final
+    partes = razon_social.strip().split()
+    while partes and partes[-1].upper().rstrip('.') in {s.rstrip('.') for s in _SUFIJOS_LEGALES}:
+        partes.pop()
+    nombre_limpio = ' '.join(partes).title() if partes else razon_social.title()
+    # Si es corto (≤ 28 chars) usarlo tal cual, si no tomar las 3 primeras palabras significativas
+    if len(nombre_limpio) <= 28:
+        return nombre_limpio
+    palabras = nombre_limpio.split()
+    return ' '.join(palabras[:3]) if len(palabras) >= 3 else nombre_limpio
+
+
+def _nombre_saludo_cliente(c) -> str:
+    """Primer nombre para persona natural; razón social limpia/abreviada para empresa."""
+    es_empresa = (getattr(c, 'document_type', '') or '').upper() == 'RUC'
+    if es_empresa:
+        return _saludo_empresa(c.razon_social or c.full_name or '')
+    # Persona natural → solo primer nombre
+    nombre = (c.full_name or c.razon_social or 'estimado cliente').strip()
+    return nombre.split()[0].capitalize()
+
+
 def _build_mensaje_personalizado(tipo):
     """Bloque HTML con mensaje contextual según el tipo de operación del cliente."""
     if tipo == 'Compra':
-        # Cliente compra dólares → le conviene cuando el dólar está bajo
+        # Cliente compra dólares → le conviene cuando el dólar baja
         return """\
 <tr>
   <td style="padding:0 28px 4px;">
@@ -165,9 +196,8 @@ def _build_mensaje_personalizado(tipo):
             Oportunidad para usted
           </p>
           <p style="margin:0;font-size:12px;color:#1E3A5F;line-height:1.6;">
-            El tipo de cambio está en un <strong>nivel favorable</strong> para comprar dólares.
-            Es un buen momento para adquirir divisas antes de que el mercado suba y maximizar
-            el valor de su inversión.
+            El tipo de cambio <strong>ha bajado</strong>, es un buen momento para adquirir
+            dólares antes de que el mercado recupere y maximizar el valor de su inversión.
           </p>
         </td>
       </tr>
@@ -175,7 +205,7 @@ def _build_mensaje_personalizado(tipo):
   </td>
 </tr>"""
     elif tipo == 'Venta':
-        # Cliente vende dólares → le conviene cuando el dólar está alto
+        # Cliente vende dólares → le conviene cuando el dólar sube
         return """\
 <tr>
   <td style="padding:0 28px 4px;">
@@ -188,9 +218,8 @@ def _build_mensaje_personalizado(tipo):
             Oportunidad para usted
           </p>
           <p style="margin:0;font-size:12px;color:#14532D;line-height:1.6;">
-            El tipo de cambio está en un <strong>nivel alto</strong>. Es un excelente momento
-            para vender sus dólares y obtener más soles por cada dólar antes de que el
-            mercado corrija a la baja.
+            El tipo de cambio <strong>ha subido</strong>. Es un excelente momento para vender
+            sus dólares y obtener más soles por cada dólar antes de que el mercado corrija.
           </p>
         </td>
       </tr>
@@ -233,7 +262,7 @@ def _build_email_html(c, compra, venta, sender_email, nombre_completo, cargo="Tr
     else:
         firma = FIRMA_HTML.replace("{trader_nombre}", nombre_completo).replace("{trader_cargo}", cargo)
 
-    nombre_saludo = (c.full_name or c.razon_social or "estimado cliente").split()[0].capitalize()
+    nombre_saludo = _nombre_saludo_cliente(c)
     ticker  = _build_ticker(compra, venta)
     mensaje = _build_mensaje_personalizado(tipo)
     header  = HEADER_HTML.replace("{fecha}", fecha).replace("{nombre}", nombre_saludo)
