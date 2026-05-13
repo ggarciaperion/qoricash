@@ -348,6 +348,8 @@ def register_blueprints(app):
     app.register_blueprint(notifications_bp)  # API de notificaciones internas
     from app.routes.prospeccion import prospeccion_bp
     app.register_blueprint(prospeccion_bp)     # Modulo de Prospeccion comercial
+    from app.routes.comercial import comercial_bp
+    app.register_blueprint(comercial_bp)       # Modulo Comercial — cartera de clientes
 
     # Service Worker debe servirse desde la raíz del dominio (scope /)
     import os

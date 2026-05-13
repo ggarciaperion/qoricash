@@ -128,6 +128,14 @@
             </a>
             {% endif %}
 
+            {% if current_user.role in ['Master', 'Trader'] %}
+            <a class="sidebar-link {% if request.endpoint and request.endpoint.startswith('comercial') %}active{% endif %}"
+               href="{{ url_for('comercial.index') }}">
+                <i class="bi bi-briefcase"></i>
+                <span class="sidebar-link-text">Comercial</span>
+            </a>
+            {% endif %}
+
             {% if current_user.role in ['Master', 'Middle Office'] %}
             <div class="sidebar-section-label">Compliance</div>
 
