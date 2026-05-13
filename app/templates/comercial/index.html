@@ -2,269 +2,667 @@
 {% block title %}Comercial — Cartera de Clientes{% endblock %}
 
 {% block content %}
-<div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4">
-  <div>
-    <h1 class="page-title mb-1"><i class="bi bi-briefcase me-2 text-success"></i>Comercial</h1>
-    <p class="text-muted small mb-0">
-      {% if current_user.role == 'Master' %}Todos los clientes con operaciones completadas{% else %}Tu cartera de clientes activos{% endif %}
-    </p>
+<style>
+/* ── Comercial module styles ─────────────────────────── */
+.com-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.com-title {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--qori-gray-900);
+  margin: 0 0 2px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.com-title-icon {
+  width: 36px; height: 36px;
+  background: var(--qori-primary-light);
+  border-radius: var(--radius-lg);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--qori-primary);
+  font-size: 16px;
+  flex-shrink: 0;
+}
+.com-subtitle { font-size: 12px; color: var(--qori-gray-500); margin: 0; }
+
+/* TC Widget */
+.tc-widget {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--qori-secondary);
+  border-radius: var(--radius-xl);
+  padding: 10px 18px;
+  box-shadow: var(--shadow-md);
+}
+.tc-live-dot {
+  width: 7px; height: 7px;
+  background: var(--qori-primary);
+  border-radius: 50%;
+  animation: tcPulse 2s ease-in-out infinite;
+  flex-shrink: 0;
+}
+@keyframes tcPulse {
+  0%,100% { box-shadow: 0 0 0 0 rgba(0,222,168,.5); }
+  50%      { box-shadow: 0 0 0 5px rgba(0,222,168,0); }
+}
+.tc-label { font-size: 9px; text-transform: uppercase; letter-spacing: .8px; color: rgba(255,255,255,.45); }
+.tc-value { font-size: 18px; font-weight: 700; line-height: 1; }
+.tc-buy  { color: var(--qori-primary); }
+.tc-sell { color: #f87171; }
+.tc-divider { width: 1px; height: 32px; background: rgba(255,255,255,.1); }
+.tc-badge {
+  font-size: 9px; font-weight: 700; letter-spacing: .6px;
+  text-transform: uppercase;
+  background: rgba(0,222,168,.15);
+  color: var(--qori-primary);
+  border-radius: var(--radius-full);
+  padding: 3px 8px;
+}
+
+/* Alert insight */
+.com-insight {
+  display: flex; align-items: flex-start; gap: 14px;
+  background: linear-gradient(135deg, rgba(0,222,168,.06) 0%, rgba(0,222,168,.02) 100%);
+  border: 1px solid rgba(0,222,168,.2);
+  border-left: 3px solid var(--qori-primary);
+  border-radius: var(--radius-lg);
+  padding: 14px 18px;
+  margin-bottom: 20px;
+}
+.com-insight-icon {
+  width: 32px; height: 32px; flex-shrink: 0;
+  background: var(--qori-primary-light);
+  border-radius: var(--radius-md);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--qori-primary); font-size: 15px;
+}
+.com-insight-title { font-size: 12px; font-weight: 700; color: var(--qori-primary); margin-bottom: 3px; }
+.com-insight-text  { font-size: 12px; color: var(--qori-gray-500); line-height: 1.6; margin: 0; }
+
+/* Filter pills */
+.com-filters {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.com-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 14px;
+  border-radius: var(--radius-full);
+  font-size: 12px; font-weight: 500;
+  text-decoration: none;
+  border: 1px solid var(--qori-gray-200);
+  background: white;
+  color: var(--qori-gray-600);
+  transition: all var(--transition-base);
+  cursor: pointer;
+}
+.com-pill:hover { border-color: var(--qori-primary); color: var(--qori-primary); background: var(--qori-primary-light); }
+.com-pill.active { background: var(--qori-secondary); color: white; border-color: var(--qori-secondary); }
+.com-pill .pill-count {
+  background: rgba(255,255,255,.2);
+  color: inherit;
+  font-size: 10px; font-weight: 700;
+  border-radius: var(--radius-full);
+  padding: 1px 7px;
+  min-width: 20px; text-align: center;
+}
+.com-pill:not(.active) .pill-count { background: var(--qori-gray-100); color: var(--qori-gray-500); }
+
+/* Search */
+.com-search { position: relative; }
+.com-search input {
+  padding-left: 32px;
+  font-size: 12px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--qori-gray-200);
+  background: white;
+  height: 32px;
+  min-width: 220px;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+.com-search input:focus {
+  border-color: var(--qori-primary);
+  box-shadow: 0 0 0 3px rgba(0,222,168,.12);
+  outline: none;
+}
+.com-search-icon {
+  position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+  color: var(--qori-gray-400); font-size: 13px; pointer-events: none;
+}
+
+/* Table */
+.com-table-card {
+  background: white;
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--qori-gray-200);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+.com-table { width: 100%; border-collapse: collapse; }
+.com-table thead th {
+  background: var(--qori-gray-50);
+  border-bottom: 1px solid var(--qori-gray-200);
+  padding: 10px 16px;
+  font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .7px;
+  color: var(--qori-gray-500);
+  white-space: nowrap;
+}
+.com-table thead th:first-child { padding-left: 24px; }
+.com-table thead th:last-child  { padding-right: 24px; text-align: center; }
+.com-table tbody tr {
+  border-bottom: 1px solid var(--qori-gray-100);
+  transition: background var(--transition-fast);
+  animation: rowFadeIn .35s ease both;
+}
+.com-table tbody tr:last-child { border-bottom: none; }
+.com-table tbody tr:hover { background: rgba(0,222,168,.03); }
+@keyframes rowFadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.com-table td {
+  padding: 12px 16px;
+  vertical-align: middle;
+  font-size: 13px;
+  color: var(--qori-gray-800);
+}
+.com-table td:first-child { padding-left: 24px; }
+.com-table td:last-child  { padding-right: 24px; }
+
+/* Avatar */
+.com-avatar {
+  width: 36px; height: 36px; flex-shrink: 0;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(135deg, var(--qori-primary-light), rgba(0,222,168,.05));
+  border: 1.5px solid rgba(0,222,168,.2);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 13px;
+  color: var(--qori-primary);
+  text-transform: uppercase;
+}
+.com-client-name { font-weight: 600; font-size: 13px; color: var(--qori-gray-900); }
+.com-client-doc  { font-size: 11px; color: var(--qori-gray-400); margin-top: 1px; }
+
+/* Type badges */
+.com-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px; font-weight: 600;
+  padding: 3px 10px; border-radius: var(--radius-full);
+}
+.com-badge-compra { background: rgba(6,182,212,.1); color: var(--qori-info); }
+.com-badge-venta  { background: rgba(245,158,11,.1); color: var(--qori-warning); }
+.com-badge-mixto  { background: var(--qori-primary-light); color: var(--qori-primary); }
+
+/* Stats in cells */
+.com-ops  { font-weight: 700; color: var(--qori-gray-800); }
+.com-usd  { font-weight: 700; color: var(--qori-gray-900); }
+.com-date { font-size: 12px; color: var(--qori-gray-400); }
+
+/* Action buttons */
+.com-btn-wa {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 12px; border-radius: var(--radius-full);
+  font-size: 11px; font-weight: 600;
+  background: #dcfce7; color: #15803d;
+  border: 1px solid #bbf7d0;
+  text-decoration: none;
+  transition: all var(--transition-fast);
+  cursor: pointer;
+}
+.com-btn-wa:hover { background: #16a34a; color: white; border-color: #16a34a; }
+.com-btn-wa:disabled, .com-btn-wa.disabled {
+  background: var(--qori-gray-100); color: var(--qori-gray-400);
+  border-color: var(--qori-gray-200); cursor: not-allowed;
+}
+.com-btn-email {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 12px; border-radius: var(--radius-full);
+  font-size: 11px; font-weight: 600;
+  background: var(--qori-primary-light); color: var(--qori-primary);
+  border: 1px solid rgba(0,222,168,.3);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.com-btn-email:hover { background: var(--qori-primary); color: var(--qori-secondary); }
+
+/* Empty state */
+.com-empty {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 60px 24px;
+  color: var(--qori-gray-400);
+}
+.com-empty-icon {
+  width: 64px; height: 64px;
+  background: var(--qori-gray-100);
+  border-radius: var(--radius-2xl);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 28px; margin-bottom: 16px;
+}
+
+/* Modal styles */
+.com-modal .modal-content {
+  border: none;
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-2xl);
+  overflow: hidden;
+}
+.com-modal .modal-header {
+  background: var(--qori-secondary);
+  padding: 16px 20px;
+  border-bottom: none;
+}
+.com-modal .modal-title {
+  color: white; font-size: 14px; font-weight: 600;
+  display: flex; align-items: center; gap: 8px;
+}
+.com-modal .modal-title i { color: var(--qori-primary); }
+.com-modal .btn-close { filter: invert(1) brightness(1.5); opacity: .7; }
+.com-modal .modal-body { padding: 20px; }
+.com-modal .modal-footer {
+  padding: 12px 20px;
+  border-top: 1px solid var(--qori-gray-100);
+  background: var(--qori-gray-50);
+}
+
+/* Modal client card */
+.com-modal-client {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--qori-gray-50);
+  border: 1px solid var(--qori-gray-200);
+  border-radius: var(--radius-lg);
+  padding: 12px 14px;
+  margin-bottom: 18px;
+}
+.com-modal-client-name { font-size: 13px; font-weight: 600; color: var(--qori-gray-900); }
+.com-modal-client-email { font-size: 11px; color: var(--qori-gray-500); }
+
+/* TC current card in modal */
+.com-tc-card {
+  display: flex; align-items: center; justify-content: space-between;
+  background: linear-gradient(135deg, rgba(0,222,168,.07), rgba(0,222,168,.02));
+  border: 1px solid rgba(0,222,168,.2);
+  border-radius: var(--radius-lg);
+  padding: 10px 14px;
+  margin-bottom: 18px;
+}
+.com-tc-card-label { font-size: 11px; color: var(--qori-gray-500); }
+.com-tc-card-value { font-size: 13px; font-weight: 700; color: var(--qori-gray-900); }
+.com-tc-use-btn {
+  font-size: 11px; font-weight: 600; color: var(--qori-primary);
+  background: none; border: none; cursor: pointer; padding: 0;
+  text-decoration: underline; text-decoration-style: dotted;
+}
+.com-tc-use-btn:hover { color: var(--qori-primary-hover); }
+
+/* Input groups in modal */
+.com-input-group label {
+  font-size: 11px; font-weight: 600; color: var(--qori-gray-600);
+  text-transform: uppercase; letter-spacing: .4px;
+  margin-bottom: 5px; display: block;
+}
+.com-input-group input {
+  width: 100%;
+  border: 1.5px solid var(--qori-gray-200);
+  border-radius: var(--radius-lg);
+  padding: 8px 12px;
+  font-size: 18px; font-weight: 700; color: var(--qori-gray-900);
+  text-align: center;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+.com-input-group input:focus {
+  border-color: var(--qori-primary);
+  box-shadow: 0 0 0 3px rgba(0,222,168,.12);
+  outline: none;
+}
+
+/* Step indicator */
+.com-step-indicator {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 18px;
+}
+.com-step {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11px; font-weight: 600;
+  color: var(--qori-gray-400);
+}
+.com-step.active { color: var(--qori-primary); }
+.com-step.done   { color: var(--qori-success); }
+.com-step-num {
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  background: var(--qori-gray-200); color: var(--qori-gray-500);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700;
+}
+.com-step.active .com-step-num { background: var(--qori-primary); color: var(--qori-secondary); }
+.com-step.done   .com-step-num { background: var(--qori-success); color: white; }
+.com-step-line { flex: 1; height: 1px; background: var(--qori-gray-200); }
+
+/* Preview tabs */
+.com-tabs { display: flex; gap: 4px; padding: 12px 16px 0; border-bottom: 1px solid var(--qori-gray-200); }
+.com-tab {
+  padding: 7px 14px; font-size: 12px; font-weight: 500;
+  color: var(--qori-gray-500); border: none; background: none;
+  border-bottom: 2px solid transparent; cursor: pointer;
+  transition: all var(--transition-fast); border-radius: var(--radius-md) var(--radius-md) 0 0;
+  display: flex; align-items: center; gap: 5px;
+}
+.com-tab:hover { color: var(--qori-primary); background: var(--qori-primary-light); }
+.com-tab.active { color: var(--qori-primary); border-bottom-color: var(--qori-primary); font-weight: 600; }
+
+/* Buttons */
+.com-btn-primary {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 18px; font-size: 12px; font-weight: 600;
+  background: var(--qori-primary); color: var(--qori-secondary);
+  border: none; border-radius: var(--radius-full);
+  cursor: pointer; transition: all var(--transition-fast);
+}
+.com-btn-primary:hover { background: var(--qori-primary-hover); box-shadow: 0 4px 12px rgba(0,222,168,.3); }
+.com-btn-primary:disabled { opacity: .6; cursor: not-allowed; }
+.com-btn-ghost {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 14px; font-size: 12px; font-weight: 500;
+  background: none; color: var(--qori-gray-600);
+  border: 1px solid var(--qori-gray-200); border-radius: var(--radius-full);
+  cursor: pointer; transition: all var(--transition-fast);
+}
+.com-btn-ghost:hover { border-color: var(--qori-gray-400); color: var(--qori-gray-800); }
+</style>
+
+<!-- ── Page header ─────────────────────────────────────────────── -->
+<div class="com-header">
+  <div class="d-flex align-items-center gap-3">
+    <div class="com-title-icon"><i class="bi bi-briefcase-fill"></i></div>
+    <div>
+      <h1 class="com-title">Comercial</h1>
+      <p class="com-subtitle">
+        {% if current_user.role == 'Master' %}Todos los clientes con operaciones completadas{% else %}Tu cartera de clientes activos{% endif %}
+      </p>
+    </div>
   </div>
 
-  <!-- TC actual -->
   {% if rate %}
-  <div class="d-flex align-items-center gap-3">
-    <div class="card border-0 shadow-sm px-3 py-2" style="min-width:220px;">
-      <div class="d-flex align-items-center gap-3">
-        <span class="badge bg-success-subtle text-success fw-bold" style="font-size:10px;">TC LIVE</span>
-        <div class="d-flex gap-3">
-          <div class="text-center">
-            <div class="text-muted" style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;">Compra</div>
-            <div class="fw-bold text-success" style="font-size:17px;">{{ "%.3f"|format(rate.buy_rate) }}</div>
-          </div>
-          <div class="vr"></div>
-          <div class="text-center">
-            <div class="text-muted" style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;">Venta</div>
-            <div class="fw-bold text-danger" style="font-size:17px;">{{ "%.3f"|format(rate.sell_rate) }}</div>
-          </div>
-        </div>
-      </div>
+  <div class="tc-widget">
+    <div class="tc-live-dot"></div>
+    <span class="tc-badge">TC Live</span>
+    <div class="tc-divider"></div>
+    <div>
+      <div class="tc-label">Compramos</div>
+      <div class="tc-value tc-buy">{{ "%.3f"|format(rate.buy_rate) }}</div>
+    </div>
+    <div class="tc-divider"></div>
+    <div>
+      <div class="tc-label">Vendemos</div>
+      <div class="tc-value tc-sell">{{ "%.3f"|format(rate.sell_rate) }}</div>
     </div>
   </div>
   {% endif %}
 </div>
 
-<!-- Alerta contextual según TC -->
+<!-- ── Insight contextual ──────────────────────────────────────── -->
 {% if rate %}
-<div class="alert border-0 shadow-sm mb-4 d-flex align-items-start gap-3 py-3" id="tcAlerta"
-     style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border-left:4px solid #22c55e !important;">
-  <i class="bi bi-lightning-charge-fill text-success mt-1" style="font-size:18px;"></i>
+<div class="com-insight">
+  <div class="com-insight-icon"><i class="bi bi-lightning-charge-fill"></i></div>
   <div>
-    <strong class="text-success">Sugerencia de contacto</strong>
-    <p class="mb-0 small text-muted mt-1" id="tcSugerencia">
-      Usa los filtros para identificar los clientes correctos según el movimiento del mercado.
-      Cuando el <strong>dólar baja</strong> → contacta clientes <span class="badge bg-primary-subtle text-primary">Venta</span> (buen momento para comprar dólares baratos).
-      Cuando el <strong>dólar sube</strong> → contacta clientes <span class="badge bg-warning-subtle text-warning-emphasis">Compra</span> (buen momento para vender dólares caros).
+    <div class="com-insight-title">Sugerencia de contacto</div>
+    <p class="com-insight-text">
+      Dólar <strong>baja</strong> → contacta clientes
+      <span style="background:rgba(6,182,212,.12);color:var(--qori-info);padding:1px 7px;border-radius:20px;font-size:10px;font-weight:700;">VENTA</span>
+      (buen momento para comprarles dólares baratos). &nbsp;
+      Dólar <strong>sube</strong> → contacta clientes
+      <span style="background:rgba(245,158,11,.12);color:var(--qori-warning);padding:1px 7px;border-radius:20px;font-size:10px;font-weight:700;">COMPRA</span>
+      (buen momento para vender dólares caros).
     </p>
   </div>
 </div>
 {% endif %}
 
-<!-- Filtros por tipo -->
-<div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
+<!-- ── Filtros + Buscador ──────────────────────────────────────── -->
+<div class="com-filters">
+  {% set icons = {"Todos":"people", "Compra":"arrow-down-circle", "Venta":"arrow-up-circle", "Mixto":"arrow-left-right"} %}
   {% for t in ["Todos", "Compra", "Venta", "Mixto"] %}
   <a href="{{ url_for('comercial.index', tipo=t) }}"
-     class="btn btn-sm {% if tipo_filtro == t %}btn-dark{% else %}btn-outline-secondary{% endif %} d-flex align-items-center gap-2">
-    {% if t == 'Compra' %}<i class="bi bi-arrow-down-circle text-primary"></i>
-    {% elif t == 'Venta' %}<i class="bi bi-arrow-up-circle text-warning"></i>
-    {% elif t == 'Mixto' %}<i class="bi bi-arrow-left-right text-success"></i>
-    {% else %}<i class="bi bi-people"></i>{% endif %}
+     class="com-pill {% if tipo_filtro == t %}active{% endif %}">
+    <i class="bi bi-{{ icons[t] }}"></i>
     {{ t }}
-    <span class="badge {% if tipo_filtro == t %}bg-white text-dark{% else %}bg-secondary{% endif %} rounded-pill">
-      {{ cnt[t] }}
-    </span>
+    <span class="pill-count">{{ cnt[t] }}</span>
   </a>
   {% endfor %}
 
-  <!-- Buscador rápido -->
-  <div class="ms-auto">
-    <input type="search" id="buscadorCliente" class="form-control form-control-sm" placeholder="Buscar cliente..." style="min-width:220px;">
+  <div class="com-search ms-auto">
+    <i class="bi bi-search com-search-icon"></i>
+    <input type="search" id="buscadorCliente" placeholder="Buscar cliente...">
   </div>
 </div>
 
-<!-- Tabla de clientes -->
-<div class="card border-0 shadow-sm">
-  <div class="card-body p-0">
-    {% if clientes %}
-    <div class="table-responsive">
-      <table class="table table-hover align-middle mb-0" id="tablaClientes">
-        <thead class="table-light">
-          <tr>
-            <th class="px-4 py-3" style="font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:#64748b;">Cliente</th>
-            <th class="py-3" style="font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:#64748b;">Tipo</th>
-            <th class="py-3" style="font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:#64748b;">Ops</th>
-            <th class="py-3" style="font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:#64748b;">Vol. USD</th>
-            <th class="py-3" style="font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:#64748b;">Última op.</th>
-            <th class="py-3 text-center" style="font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:#64748b;">Contacto</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for c in clientes %}
-          <tr class="cliente-row" data-nombre="{{ c.full_name|lower }}">
-            <td class="px-4 py-3">
-              <div class="d-flex align-items-center gap-3">
-                <div class="rounded-circle bg-light d-flex align-items-center justify-content-center fw-bold text-muted"
-                     style="width:36px;height:36px;font-size:13px;flex-shrink:0;">
-                  {{ c.full_name[0] if c.full_name else '?' }}
-                </div>
-                <div>
-                  <div class="fw-semibold" style="font-size:14px;">{{ c.full_name }}</div>
-                  <div class="text-muted" style="font-size:11px;">{{ c.document_type }} {{ c.dni }}</div>
-                </div>
+<!-- ── Tabla de clientes ───────────────────────────────────────── -->
+<div class="com-table-card">
+  {% if clientes %}
+  <div class="table-responsive">
+    <table class="com-table" id="tablaClientes">
+      <thead>
+        <tr>
+          <th>Cliente</th>
+          <th>Tipo</th>
+          <th>Operaciones</th>
+          <th>Vol. USD</th>
+          <th>Última op.</th>
+          <th style="text-align:center;">Contacto</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in clientes %}
+        <tr class="cliente-row" data-nombre="{{ c.full_name|lower }}"
+            style="animation-delay: {{ loop.index0 * 0.04 }}s;">
+          <td>
+            <div class="d-flex align-items-center gap-3">
+              <div class="com-avatar">{{ c.full_name[0] if c.full_name else '?' }}</div>
+              <div>
+                <div class="com-client-name">{{ c.full_name }}</div>
+                <div class="com-client-doc">{{ c.document_type }} · {{ c.dni }}</div>
               </div>
-            </td>
-            <td>
-              {% if c.tipo == 'Compra' %}
-                <span class="badge bg-primary-subtle text-primary px-3 py-1">
-                  <i class="bi bi-arrow-down-circle me-1"></i>Compra
-                </span>
-              {% elif c.tipo == 'Venta' %}
-                <span class="badge bg-warning-subtle text-warning-emphasis px-3 py-1">
-                  <i class="bi bi-arrow-up-circle me-1"></i>Venta
-                </span>
+            </div>
+          </td>
+          <td>
+            {% if c.tipo == 'Compra' %}
+              <span class="com-badge com-badge-compra">
+                <i class="bi bi-arrow-down-circle-fill"></i> Compra
+              </span>
+            {% elif c.tipo == 'Venta' %}
+              <span class="com-badge com-badge-venta">
+                <i class="bi bi-arrow-up-circle-fill"></i> Venta
+              </span>
+            {% else %}
+              <span class="com-badge com-badge-mixto">
+                <i class="bi bi-arrow-left-right"></i> Mixto
+              </span>
+            {% endif %}
+          </td>
+          <td>
+            <span class="com-ops">{{ c.total_ops }}</span>
+            <span style="font-size:11px;color:var(--qori-gray-400);margin-left:2px;">ops</span>
+          </td>
+          <td>
+            <span class="com-usd">$ {{ "{:,.0f}".format(c.total_usd) }}</span>
+          </td>
+          <td>
+            <span class="com-date">{{ c.ultima_op.strftime('%d/%m/%Y') }}</span>
+          </td>
+          <td style="text-align:center;">
+            <div class="d-flex align-items-center justify-content-center gap-2">
+              {% if c.wa_number %}
+              <a href="https://wa.me/{{ c.wa_number }}" target="_blank"
+                 class="com-btn-wa" title="WhatsApp · {{ c.full_name }}">
+                <svg width="13" height="13" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                </svg>
+                WhatsApp
+              </a>
               {% else %}
-                <span class="badge bg-success-subtle text-success px-3 py-1">
-                  <i class="bi bi-arrow-left-right me-1"></i>Mixto
-                </span>
+              <span class="com-btn-wa disabled" title="Sin teléfono registrado">
+                <i class="bi bi-whatsapp"></i> WA
+              </span>
               {% endif %}
-            </td>
-            <td>
-              <span class="fw-semibold">{{ c.total_ops }}</span>
-              <span class="text-muted small"> ops</span>
-            </td>
-            <td>
-              <span class="fw-semibold">$ {{ "{:,.0f}".format(c.total_usd) }}</span>
-            </td>
-            <td>
-              <span class="text-muted small">{{ c.ultima_op.strftime('%d/%m/%Y') }}</span>
-            </td>
-            <td class="text-center pe-4">
-              <div class="d-flex align-items-center justify-content-center gap-2">
-                <!-- WhatsApp -->
-                {% if c.wa_number %}
-                <a href="https://wa.me/{{ c.wa_number }}"
-                   target="_blank"
-                   class="btn btn-sm btn-success d-flex align-items-center gap-1"
-                   title="Abrir WhatsApp con {{ c.full_name }}"
-                   style="font-size:12px;">
-                  <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-                  </svg>
-                  WA
-                </a>
-                {% else %}
-                <button class="btn btn-sm btn-outline-secondary" disabled title="Sin teléfono registrado" style="font-size:12px;">
-                  <i class="bi bi-whatsapp"></i>
-                </button>
-                {% endif %}
 
-                <!-- Email -->
-                <button class="btn btn-sm btn-outline-primary d-flex align-items-center gap-1"
-                        style="font-size:12px;"
-                        title="Enviar tipo de cambio a {{ c.email }}"
-                        onclick="abrirModalEmail({{ c.id }}, '{{ c.full_name|replace("'", "\\'") }}', '{{ c.email }}')">
-                  <i class="bi bi-envelope"></i>
-                  TC
-                </button>
-              </div>
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-    {% else %}
-    <div class="text-center py-5 text-muted">
-      <i class="bi bi-people" style="font-size:48px;opacity:.3;"></i>
-      <p class="mt-3 mb-0">No hay clientes en esta categoría aún.</p>
-      <p class="small">Los clientes aparecen aquí después de completar su primera operación.</p>
-    </div>
-    {% endif %}
+              <button class="com-btn-email"
+                      title="Enviar TC a {{ c.email }}"
+                      onclick="abrirModalEmail({{ c.id }}, '{{ c.full_name|replace("'", "\\'") }}', '{{ c.email }}')">
+                <i class="bi bi-envelope-fill"></i> Enviar TC
+              </button>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
   </div>
+  {% else %}
+  <div class="com-empty">
+    <div class="com-empty-icon"><i class="bi bi-people"></i></div>
+    <p style="font-weight:600;color:var(--qori-gray-600);margin:0 0 4px;">Sin clientes en esta categoría</p>
+    <p style="font-size:12px;margin:0;">Los clientes aparecen aquí tras completar su primera operación.</p>
+  </div>
+  {% endif %}
 </div>
 
-<!-- Modal envío de precio -->
-<div class="modal fade" id="modalEnviarPrecio" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered" id="modalEnviarPrecioDialog" style="max-width:440px;transition:max-width .2s ease;">
-    <div class="modal-content shadow">
-      <div class="modal-header border-0 pb-0">
-        <h5 class="modal-title">
-          <i class="bi bi-send me-2 text-primary"></i>
+<!-- ── Modal: Enviar TC ────────────────────────────────────────── -->
+<div class="modal fade com-modal" id="modalEnviarPrecio" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered" id="modalEnviarPrecioDialog"
+       style="max-width:460px;transition:max-width .25s cubic-bezier(.4,0,.2,1);">
+    <div class="modal-content">
+
+      <div class="modal-header">
+        <div class="modal-title">
+          <i class="bi bi-send-fill"></i>
           <span id="modalTitulo">Enviar Tipo de Cambio</span>
-        </h5>
+        </div>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
 
-      <!-- PASO 1: ingresar TC -->
+      <!-- ── Paso 1 ── -->
       <div id="paso1">
         <div class="modal-body">
-          <p class="text-muted small mb-3">
-            Se enviará el email con los precios actuales a
-            <strong id="modalClienteNombre">—</strong><br>
-            <span class="text-muted" id="modalClienteEmail" style="font-size:12px;"></span>
-          </p>
 
+          <!-- Step indicator -->
+          <div class="com-step-indicator">
+            <div class="com-step active" id="step1Ind">
+              <span class="com-step-num">1</span> Tasas
+            </div>
+            <div class="com-step-line"></div>
+            <div class="com-step" id="step2Ind">
+              <span class="com-step-num">2</span> Borrador
+            </div>
+            <div class="com-step-line"></div>
+            <div class="com-step" id="step3Ind">
+              <span class="com-step-num">3</span> Enviar
+            </div>
+          </div>
+
+          <!-- Client info -->
+          <div class="com-modal-client">
+            <div class="com-avatar" style="width:40px;height:40px;font-size:15px;" id="modalAvatar">?</div>
+            <div>
+              <div class="com-modal-client-name" id="modalClienteNombre">—</div>
+              <div class="com-modal-client-email" id="modalClienteEmail"></div>
+            </div>
+          </div>
+
+          <!-- TC actual -->
           {% if rate %}
-          <div class="alert alert-success py-2 px-3 mb-3 small">
-            <strong>TC actual:</strong> Compra {{ "%.3f"|format(rate.buy_rate) }} / Venta {{ "%.3f"|format(rate.sell_rate) }}
-            <a href="#" class="ms-2 text-success fw-semibold" id="btnUsarTCActual" style="font-size:11px;">Usar estos valores</a>
+          <div class="com-tc-card">
+            <div>
+              <div class="com-tc-card-label">TC actual del mercado</div>
+              <div class="com-tc-card-value">
+                Compra <span style="color:var(--qori-primary);">{{ "%.3f"|format(rate.buy_rate) }}</span>
+                &nbsp;/&nbsp;
+                Venta <span style="color:#f87171;">{{ "%.3f"|format(rate.sell_rate) }}</span>
+              </div>
+            </div>
+            <button class="com-tc-use-btn" id="btnUsarTCActual">Usar estos valores</button>
           </div>
           {% endif %}
 
-          <div class="row g-2">
+          <!-- Inputs -->
+          <div class="row g-3">
             <div class="col-6">
-              <label class="form-label small fw-semibold">Compramos (S/)</label>
-              <input type="number" step="0.001" class="form-control" id="inputCompra"
-                     placeholder="3.750" {% if rate %}value="{{ '%.3f'|format(rate.buy_rate) }}"{% endif %}>
+              <div class="com-input-group">
+                <label><i class="bi bi-arrow-down-circle me-1" style="color:var(--qori-info);"></i>Compramos (S/)</label>
+                <input type="number" step="0.001" id="inputCompra"
+                       placeholder="3.750" {% if rate %}value="{{ '%.3f'|format(rate.buy_rate) }}"{% endif %}>
+              </div>
             </div>
             <div class="col-6">
-              <label class="form-label small fw-semibold">Vendemos (S/)</label>
-              <input type="number" step="0.001" class="form-control" id="inputVenta"
-                     placeholder="3.770" {% if rate %}value="{{ '%.3f'|format(rate.sell_rate) }}"{% endif %}>
+              <div class="com-input-group">
+                <label><i class="bi bi-arrow-up-circle me-1" style="color:#f87171;"></i>Vendemos (S/)</label>
+                <input type="number" step="0.001" id="inputVenta"
+                       placeholder="3.770" {% if rate %}value="{{ '%.3f'|format(rate.sell_rate) }}"{% endif %}>
+              </div>
             </div>
           </div>
         </div>
-        <div class="modal-footer border-0 pt-0">
-          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
-          <button type="button" class="btn btn-primary btn-sm" id="btnVerBorrador">
-            <i class="bi bi-eye me-1"></i>Ver borrador
+
+        <div class="modal-footer">
+          <button type="button" class="com-btn-ghost" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" class="com-btn-primary" id="btnVerBorrador">
+            <i class="bi bi-eye"></i> Ver borrador
           </button>
         </div>
       </div>
 
-      <!-- PASO 2: borrador editable -->
+      <!-- ── Paso 2 ── -->
       <div id="paso2" style="display:none;">
         <div class="modal-body p-0">
-          <!-- Tabs -->
-          <ul class="nav nav-tabs px-3 pt-3" id="tabsBorrador">
-            <li class="nav-item">
-              <button class="nav-link active small py-1 px-3" id="tabVistaBtn" onclick="mostrarTab('vista')">
-                <i class="bi bi-eye me-1"></i>Vista previa
-              </button>
-            </li>
-            <li class="nav-item">
-              <button class="nav-link small py-1 px-3" id="tabEditarBtn" onclick="mostrarTab('editar')">
-                <i class="bi bi-pencil me-1"></i>Editar HTML
-              </button>
-            </li>
-          </ul>
 
-          <!-- Vista previa (iframe) -->
-          <div id="tabVista" class="p-0">
-            <div id="iframeLoading" class="text-center py-4 text-muted small">
-              <div class="spinner-border spinner-border-sm me-2"></div>Cargando borrador...
-            </div>
-            <iframe id="previewFrame" style="display:none;width:100%;height:420px;border:0;"></iframe>
+          <!-- Tabs -->
+          <div class="com-tabs">
+            <button class="com-tab active" id="tabVistaBtn" onclick="mostrarTab('vista')">
+              <i class="bi bi-eye"></i> Vista previa
+            </button>
+            <button class="com-tab" id="tabEditarBtn" onclick="mostrarTab('editar')">
+              <i class="bi bi-pencil"></i> Editar HTML
+            </button>
           </div>
 
-          <!-- Editar HTML -->
+          <!-- iframe preview -->
+          <div id="tabVista">
+            <div id="iframeLoading" style="display:flex;align-items:center;justify-content:center;gap:10px;padding:48px;color:var(--qori-gray-400);font-size:13px;">
+              <div class="spinner-border spinner-border-sm" style="color:var(--qori-primary);"></div>
+              Generando borrador...
+            </div>
+            <iframe id="previewFrame" style="display:none;width:100%;height:440px;border:0;"></iframe>
+          </div>
+
+          <!-- Editor -->
           <div id="tabEditar" style="display:none;" class="p-3">
             <div class="d-flex align-items-center justify-content-between mb-2">
-              <span class="text-muted small">Puedes editar el HTML directamente. Los cambios se reflejan en la vista previa.</span>
-              <button class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:11px;" onclick="actualizarIframe()">
-                <i class="bi bi-arrow-clockwise me-1"></i>Actualizar vista
+              <span style="font-size:11px;color:var(--qori-gray-500);">Edita el HTML y actualiza la vista previa.</span>
+              <button class="com-btn-ghost" style="padding:4px 10px;font-size:11px;" onclick="actualizarIframe()">
+                <i class="bi bi-arrow-clockwise"></i> Actualizar
               </button>
             </div>
             <textarea id="htmlEditable" class="form-control font-monospace"
-                      style="height:360px;font-size:11px;line-height:1.5;resize:vertical;"
+                      style="height:380px;font-size:11px;line-height:1.5;resize:vertical;
+                             border:1.5px solid var(--qori-gray-200);border-radius:var(--radius-lg);"
                       spellcheck="false"></textarea>
           </div>
         </div>
-        <div class="modal-footer border-0 pt-2">
-          <button type="button" class="btn btn-outline-secondary btn-sm" id="btnVolver">
-            <i class="bi bi-arrow-left me-1"></i>Volver
+
+        <div class="modal-footer">
+          <button type="button" class="com-btn-ghost" id="btnVolver">
+            <i class="bi bi-arrow-left"></i> Volver
           </button>
-          <button type="button" class="btn btn-primary btn-sm" id="btnEnviarEmail">
-            <i class="bi bi-send me-1"></i>Enviar email
+          <button type="button" class="com-btn-primary" id="btnEnviarEmail">
+            <i class="bi bi-send"></i> Enviar email
           </button>
         </div>
       </div>
@@ -281,10 +679,18 @@ var _clienteId = null;
 function abrirModalEmail(id, nombre, email) {
   _clienteId = id;
   document.getElementById('modalClienteNombre').textContent = nombre;
-  document.getElementById('modalClienteEmail').textContent = email;
-  // Reset al paso 1
+  document.getElementById('modalClienteEmail').textContent = email || '(sin email)';
+  document.getElementById('modalAvatar').textContent = nombre ? nombre[0].toUpperCase() : '?';
   irAPaso(1);
   new bootstrap.Modal(document.getElementById('modalEnviarPrecio')).show();
+}
+
+function setStep(n) {
+  [1,2,3].forEach(function(i) {
+    var el = document.getElementById('step' + i + 'Ind');
+    el.className = 'com-step' + (i < n ? ' done' : i === n ? ' active' : '');
+    el.querySelector('.com-step-num').textContent = i < n ? '✓' : i;
+  });
 }
 
 function irAPaso(paso) {
@@ -292,13 +698,15 @@ function irAPaso(paso) {
   if (paso === 1) {
     document.getElementById('paso1').style.display = '';
     document.getElementById('paso2').style.display = 'none';
-    dialog.style.maxWidth = '440px';
+    dialog.style.maxWidth = '460px';
     document.getElementById('modalTitulo').textContent = 'Enviar Tipo de Cambio';
+    setStep(1);
   } else {
     document.getElementById('paso1').style.display = 'none';
     document.getElementById('paso2').style.display = '';
-    dialog.style.maxWidth = '720px';
+    dialog.style.maxWidth = '740px';
     document.getElementById('modalTitulo').textContent = 'Borrador del email';
+    setStep(2);
     mostrarTab('vista');
   }
 }
@@ -311,17 +719,16 @@ function mostrarTab(tab) {
 }
 
 function actualizarIframe() {
-  var html = document.getElementById('htmlEditable').value;
   var frame = document.getElementById('previewFrame');
-  frame.srcdoc = html;
+  frame.srcdoc = document.getElementById('htmlEditable').value;
 }
 
 // Usar TC actual
 var btnUsarTC = document.getElementById('btnUsarTCActual');
 if (btnUsarTC) {
-  btnUsarTC.addEventListener('click', function(e) {
-    e.preventDefault();
+  btnUsarTC.addEventListener('click', function() {
     btnUsarTC.textContent = '✓ Aplicado';
+    btnUsarTC.style.color = 'var(--qori-success)';
   });
 }
 
@@ -331,60 +738,56 @@ document.getElementById('btnVerBorrador').addEventListener('click', function() {
   var venta  = document.getElementById('inputVenta').value.trim();
 
   if (!compra || !venta || isNaN(compra) || isNaN(venta)) {
-    Swal.fire({ icon: 'warning', title: 'Faltan datos', text: 'Ingresa compra y venta válidos.', confirmButtonColor: '#22c55e' });
+    Swal.fire({ icon: 'warning', title: 'Faltan datos', text: 'Ingresa compra y venta válidos.', confirmButtonColor: '#00DEA8' });
     return;
   }
 
   var btn = this;
   btn.disabled = true;
-  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Generando...';
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Generando...';
 
   fetch('/comercial/preview-precio/' + _clienteId + '?compra=' + encodeURIComponent(compra) + '&venta=' + encodeURIComponent(venta))
   .then(r => r.json())
   .then(data => {
     if (!data.ok) {
-      Swal.fire({ icon: 'error', title: 'Error', text: data.msg, confirmButtonColor: '#22c55e' });
+      Swal.fire({ icon: 'error', title: 'Error', text: data.msg, confirmButtonColor: '#00DEA8' });
       return;
     }
     irAPaso(2);
-    // Cargar iframe
-    var frame = document.getElementById('previewFrame');
+    var frame   = document.getElementById('previewFrame');
     var loading = document.getElementById('iframeLoading');
     frame.style.display = 'none';
-    loading.style.display = '';
+    loading.style.display = 'flex';
     frame.srcdoc = data.html;
     frame.onload = function() {
       loading.style.display = 'none';
       frame.style.display = '';
     };
-    // Cargar textarea
     document.getElementById('htmlEditable').value = data.html;
   })
   .catch(() => {
-    Swal.fire({ icon: 'error', title: 'Error de red', text: 'No se pudo generar el borrador.', confirmButtonColor: '#22c55e' });
+    Swal.fire({ icon: 'error', title: 'Error de red', text: 'No se pudo generar el borrador.', confirmButtonColor: '#00DEA8' });
   })
   .finally(() => {
     btn.disabled = false;
-    btn.innerHTML = '<i class="bi bi-eye me-1"></i>Ver borrador';
+    btn.innerHTML = '<i class="bi bi-eye"></i> Ver borrador';
   });
 });
 
-// Volver al paso 1
-document.getElementById('btnVolver').addEventListener('click', function() {
-  irAPaso(1);
-});
+// Volver
+document.getElementById('btnVolver').addEventListener('click', function() { irAPaso(1); });
 
-// Enviar email (usa el HTML editado)
+// Enviar
 document.getElementById('btnEnviarEmail').addEventListener('click', function() {
   var html = document.getElementById('htmlEditable').value.trim();
   if (!html) {
-    Swal.fire({ icon: 'warning', title: 'Sin contenido', text: 'El borrador está vacío.', confirmButtonColor: '#22c55e' });
+    Swal.fire({ icon: 'warning', title: 'Sin contenido', text: 'El borrador está vacío.', confirmButtonColor: '#00DEA8' });
     return;
   }
-
+  setStep(3);
   var btn = this;
   btn.disabled = true;
-  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Enviando...';
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Enviando...';
 
   fetch('/comercial/enviar-precio/' + _clienteId, {
     method: 'POST',
@@ -398,21 +801,21 @@ document.getElementById('btnEnviarEmail').addEventListener('click', function() {
   .then(data => {
     bootstrap.Modal.getInstance(document.getElementById('modalEnviarPrecio')).hide();
     if (data.ok) {
-      Swal.fire({ icon: 'success', title: '¡Enviado!', text: data.msg, confirmButtonColor: '#22c55e', timer: 3000, showConfirmButton: false });
+      Swal.fire({ icon: 'success', title: '¡Enviado!', text: data.msg, confirmButtonColor: '#00DEA8', timer: 3000, showConfirmButton: false });
     } else {
-      Swal.fire({ icon: 'error', title: 'Error', text: data.msg, confirmButtonColor: '#22c55e' });
+      Swal.fire({ icon: 'error', title: 'Error', text: data.msg, confirmButtonColor: '#00DEA8' });
     }
   })
   .catch(() => {
-    Swal.fire({ icon: 'error', title: 'Error de red', text: 'No se pudo enviar el email.', confirmButtonColor: '#22c55e' });
+    Swal.fire({ icon: 'error', title: 'Error de red', text: 'No se pudo enviar el email.', confirmButtonColor: '#00DEA8' });
   })
   .finally(() => {
     btn.disabled = false;
-    btn.innerHTML = '<i class="bi bi-send me-1"></i>Enviar email';
+    btn.innerHTML = '<i class="bi bi-send"></i> Enviar email';
   });
 });
 
-// Buscador rápido
+// Buscador
 document.getElementById('buscadorCliente').addEventListener('input', function() {
   var q = this.value.toLowerCase();
   document.querySelectorAll('.cliente-row').forEach(function(row) {
