@@ -36,6 +36,16 @@ from app.routes.prospeccion import (
 import os
 import re
 
+# ── WhatsApp por trader ───────────────────────────────────────────────────────
+# Formato: email → (número_wa sin "+", texto_display)
+# Agrega aquí cada nuevo trader con su número personal.
+_TRADER_WHATSAPP: dict[str, tuple[str, str]] = {
+    "ggarcia@qoricash.pe":  ("51926011920", "+51 926 011 920"),
+    "gerencia@qoricash.pe": ("51926011920", "+51 926 011 920"),
+    "luacosta@qoricash.pe": ("51926011920", "+51 926 011 920"),  # actualizar cuando tenga número propio
+}
+_WA_DEFAULT = ("51926011920", "+51 926 011 920")  # fallback para nuevos traders sin configurar
+
 # ── Logo en base64 (cacheado) para el preview ─────────────────────────────────
 _logo_b64_cache: str = ""
 
@@ -412,7 +422,10 @@ def _build_email_html(c, compra, venta, sender_email, nombre_completo, cargo="Tr
     mensaje = _build_mensaje_personalizado(tipo)
     header  = HEADER_HTML.replace("{fecha}", fecha).replace("{nombre}", nombre_saludo)
 
-    return CUERPO_PRECIO.format(
+    # Número de WhatsApp del trader que envía el correo
+    wa_num, wa_display = _TRADER_WHATSAPP.get(sender_email.lower(), _WA_DEFAULT)
+
+    html = CUERPO_PRECIO.format(
         header=header,
         mensaje=mensaje,
         ticker=ticker,
@@ -420,6 +433,10 @@ def _build_email_html(c, compra, venta, sender_email, nombre_completo, cargo="Tr
         firma=firma,
         pie=PIE,
     )
+    # Reemplazar el número hardcodeado por el del trader correspondiente
+    html = html.replace("51926011920", wa_num)
+    html = html.replace("+51 926 011 920", wa_display)
+    return html
 
 
 # ── API: preview del email de precios ────────────────────────────────────────
