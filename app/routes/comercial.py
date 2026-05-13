@@ -42,7 +42,7 @@ import re
 _TRADER_WHATSAPP: dict[str, tuple[str, str]] = {
     "ggarcia@qoricash.pe":  ("51926011920", "+51 926 011 920"),
     "gerencia@qoricash.pe": ("51926011920", "+51 926 011 920"),
-    "luacosta@qoricash.pe": ("51926011920", "+51 926 011 920"),  # actualizar cuando tenga número propio
+    "luacosta@qoricash.pe": ("51905566165", "+51 905 566 165"),
 }
 _WA_DEFAULT = ("51926011920", "+51 926 011 920")  # fallback para nuevos traders sin configurar
 
