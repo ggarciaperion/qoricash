@@ -57,6 +57,12 @@
     }
     .text-uppercase-input { text-transform: uppercase; }
 
+    /* Texto de botones: oculto cuando el icono carga, visible como fallback en Safari */
+    .btn-label { display: none; }
+    @supports not (font-family: 'bootstrap-icons') {
+        .btn-label { display: inline; }
+    }
+
     .stat-filter-card { transition: transform .15s, box-shadow .15s; user-select: none; }
     .stat-filter-card:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,.12) !important; }
     .stat-card-active        { box-shadow: 0 0 0 3px rgba(13,110,253,.4)  !important; }
@@ -191,10 +197,8 @@
                                 {% if current_user.role in ['Master', 'Operador'] %}
                                 <th>Usuario</th>
                                 {% endif %}
-                                <th>Fecha Registro</th>
                                 <th>Estado</th>
                                 <th>Origen</th>
-                                <th>Riesgo</th>
                                 <th>Operaciones</th>
                                 <th>Acciones</th>
                             </tr>
@@ -236,14 +240,6 @@
                                 </td>
                                 {% endif %}
                                 <td>
-                                    {% if c.created_at %}
-                                        <small>{{ c.created_at.strftime('%d/%m/%Y') }}</small><br>
-                                        <small class="text-muted">{{ c.created_at.strftime('%H:%M') }}</small>
-                                    {% else %}
-                                        <span class="text-muted">-</span>
-                                    {% endif %}
-                                </td>
-                                <td>
                                     {% if c.status == 'Activo' %}
                                         <span class="badge bg-success status-badge">Activo</span>
                                     {% else %}
@@ -258,30 +254,8 @@
                                     {% if c.reassigned_at %}
                                         <span class="badge bg-primary" style="font-size:.7rem"
                                               title="Reasignado el {{ c.reassigned_at.strftime('%d/%m/%Y') }}">
-                                            <i class="bi bi-arrow-left-right"></i> Reasignado
+                                            ⇄ Reasignado
                                         </span>
-                                    {% else %}
-                                        <span class="text-muted small">—</span>
-                                    {% endif %}
-                                </td>
-                                <!-- Riesgo -->
-                                <td>
-                                    {% set rp = risk_map.get(c.id) %}
-                                    {% if rp and rp.risk_level %}
-                                        {% if rp.risk_level.name == 'Bajo' %}
-                                            <span class="badge bg-success" style="font-size:.68rem">Bajo</span>
-                                        {% elif rp.risk_level.name == 'Medio' %}
-                                            <span class="badge bg-warning text-dark" style="font-size:.68rem">Medio</span>
-                                        {% elif rp.risk_level.name == 'Alto' %}
-                                            <span class="badge" style="background:#fd7e14;color:#fff;font-size:.68rem">Alto</span>
-                                        {% elif rp.risk_level.name == 'Crítico' %}
-                                            <span class="badge bg-danger" style="font-size:.68rem">Crítico</span>
-                                        {% else %}
-                                            <span class="badge bg-secondary" style="font-size:.68rem">{{ rp.risk_level.name }}</span>
-                                        {% endif %}
-                                        {% if rp.is_pep %}
-                                            <br><span class="badge bg-dark mt-1" style="font-size:.6rem" title="Persona Expuesta Políticamente">PEP</span>
-                                        {% endif %}
                                     {% else %}
                                         <span class="text-muted small">—</span>
                                     {% endif %}
@@ -293,44 +267,44 @@
                                     <div class="btn-group btn-group-sm" role="group">
                                         <!-- Ver -->
                                         <a href="/clients/detail/{{ c.id }}" class="btn btn-info" title="Ver">
-                                            <i class="bi bi-eye"></i>
+                                            <i class="bi bi-eye"></i> <span class="btn-label">Ver</span>
                                         </a>
 
                                         <!-- Nueva Operación (solo Trader, cliente Activo) -->
                                         {% if current_user.role == 'Trader' and c.status == 'Activo' %}
                                         <a href="{{ url_for('operations.create_page') }}?client_id={{ c.id }}"
                                            class="btn btn-success" title="Nueva Operación">
-                                            <i class="bi bi-plus-circle"></i>
+                                            <i class="bi bi-plus-circle"></i> <span class="btn-label">Op</span>
                                         </a>
                                         {% endif %}
 
                                         <!-- Editar -->
                                         {% if current_user.role in ['Master', 'Trader', 'Operador', 'Plataforma'] %}
                                         <button class="btn btn-warning" onclick="editClient({{ c.id }})" title="Editar">
-                                            <i class="bi bi-pencil"></i>
+                                            <i class="bi bi-pencil"></i> <span class="btn-label">Editar</span>
                                         </button>
                                         {% endif %}
 
                                         <!-- Reasignar (solo Master) -->
                                         {% if current_user.role == 'Master' %}
-                                        <button class="btn btn-primary" onclick="showReassignModal({{ c.id }})" title="Reasignar a otro trader">
-                                            <i class="bi bi-arrow-left-right"></i>
+                                        <button class="btn btn-primary" onclick="showReassignModal({{ c.id }})" title="Reasignar">
+                                            <i class="bi bi-arrow-left-right"></i> <span class="btn-label">Reasignar</span>
                                         </button>
                                         {% endif %}
 
-                                        <!-- Cambiar Estado (Master y Middle Office SOLAMENTE) -->
+                                        <!-- Cambiar Estado -->
                                         {% if current_user.role in ['Master', 'Middle Office'] %}
                                         <button class="btn btn-{% if c.status == 'Activo' %}secondary{% else %}success{% endif %}"
                                                 onclick="toggleClientStatus({{ c.id }}, '{{ c.status }}')"
                                                 title="{% if c.status == 'Activo' %}Desactivar{% else %}Activar{% endif %}">
-                                            <i class="bi bi-{% if c.status == 'Activo' %}x-circle{% else %}check-circle{% endif %}"></i>
+                                            {% if c.status == 'Activo' %}✕{% else %}✓{% endif %}
                                         </button>
                                         {% endif %}
 
                                         <!-- Eliminar (solo Master) -->
                                         {% if current_user.role == 'Master' %}
                                         <button class="btn btn-danger" onclick="deleteClient({{ c.id }})" title="Eliminar">
-                                            <i class="bi bi-trash"></i>
+                                            <i class="bi bi-trash"></i> <span class="btn-label">Eliminar</span>
                                         </button>
                                         {% endif %}
                                     </div>
