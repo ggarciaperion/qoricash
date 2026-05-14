@@ -176,7 +176,7 @@ def _get_cartera(trader_id=None, tipo_filtro=None):
                 pips_list.append(float(op.pips))
             elif op.exchange_rate is not None and op.base_rate is not None:
                 pips_list.append(abs(float(op.exchange_rate) - float(op.base_rate)) * 1000)
-        avg_spread = round(sum(pips_list) / len(pips_list), 1) if pips_list else None
+        avg_spread = round(sum(pips_list) / len(pips_list)) if pips_list else None
 
         # Teléfonos: puede haber múltiples separados por ;
         phones = [p.strip() for p in (c.phone or '').split(';') if p.strip()]
