@@ -45,34 +45,9 @@ def list_clients():
         from app.models.user import User
         clients = ClientService.get_all_clients(exclude_user_id=User.get_demo_user_id())
 
-    # Estadísticas rápidas
-    stats = {
-        'total':      len(clients),
-        'active':     sum(1 for c in clients if c.status == 'Activo'),
-        'inactive':   sum(1 for c in clients if c.status == 'Inactivo'),
-        'no_docs':    sum(1 for c in clients if not c.has_complete_documents),
-        'reasignados': sum(1 for c in clients if c.reassigned_at),
-    }
-
-    # Mapa de perfiles de riesgo (evita N+1 queries)
-    risk_map = {}
-    if clients:
-        try:
-            from app.models.compliance import ClientRiskProfile
-            from sqlalchemy.orm import joinedload as _jl
-            _ids = [c.id for c in clients]
-            _rps = ClientRiskProfile.query.options(_jl(ClientRiskProfile.risk_level)).filter(
-                ClientRiskProfile.client_id.in_(_ids)
-            ).all()
-            risk_map = {rp.client_id: rp for rp in _rps}
-        except Exception:
-            pass
-
     return render_template('clients/list.html',
                            user=current_user,
-                           clients=clients,
-                           stats=stats,
-                           risk_map=risk_map)
+                           clients=clients)
 
 
 @clients_bp.route('/api/badge_count')
@@ -233,38 +208,26 @@ def change_status(client_id):
 
     success, message, client = ClientService.change_client_status(current_user=current_user, client_id=client_id, new_status=new_status)
     if success:
-        # Si el cliente fue activado (de Inactivo a Activo), enviar email diferenciado
+        # Si el cliente fue activado (de Inactivo a Activo), generar contraseña y enviar email
         if old_status == 'Inactivo' and new_status == 'Activo':
             try:
-                from app.services.email_templates import EmailTemplates
+                from app.services.email_service import EmailService
                 from app.utils.password_generator import generate_simple_password
                 from app.extensions import db
 
-                # Determinar si se debe generar contraseña temporal
-                # Solo para clientes creados manualmente por un Trader (no auto-registrados)
-                canal = getattr(client, 'registration_canal', None)
-                should_generate_password = False
-                if canal in ('web', 'app'):
-                    should_generate_password = False  # auto-registrado, ya tiene contraseña
-                elif client.creator:
-                    creator_role = getattr(client.creator, 'role', None)
-                    should_generate_password = (creator_role == 'Trader')
-                else:
-                    should_generate_password = (canal == 'system')
+                # Generar contraseña temporal SOLO al activar la cuenta
+                temporary_password = generate_simple_password(length=10)
 
+                # Establecer contraseña en el cliente
+                client.set_password(temporary_password)
+                client.requires_password_change = True
+                db.session.commit()
+
+                logger.info(f'✅ Contraseña temporal generada para cliente {client.dni} al activar cuenta')
+
+                # Enviar correo con contraseña temporal y el trader que creó al cliente
                 trader = client.creator if hasattr(client, 'creator') and client.creator else current_user
-
-                if should_generate_password:
-                    temporary_password = generate_simple_password(length=10)
-                    client.set_password(temporary_password)
-                    client.requires_password_change = True
-                    db.session.commit()
-                    logger.info(f'✅ Contraseña temporal generada para cliente {client.dni} al activar cuenta')
-                    EmailTemplates.send_activation_with_temp_password(client, trader, temporary_password)
-                else:
-                    logger.info(f'ℹ️ Cliente {client.dni} auto-registrado — se mantiene su contraseña original')
-                    EmailTemplates.send_activation_without_password(client)
-
+                EmailService.send_client_activation_email(client, trader, temporary_password)
             except Exception as e:
                 # No bloquear por errores de email
                 logger.warning(f'Error al enviar email de cliente activado: {str(e)}')
@@ -490,35 +453,24 @@ def approve_documents(client_id):
         db.session.commit()
         logger.info(f'💾 Cambios guardados en BD para cliente {client.dni}')
 
-        # Enviar email de activación diferenciado si corresponde
+        # Enviar email de activación con contraseña temporal si corresponde
         if was_inactive:
             try:
-                from app.services.email_templates import EmailTemplates
+                from app.services.email_service import EmailService
                 from app.utils.password_generator import generate_simple_password
 
-                canal = getattr(client, 'registration_canal', None)
-                should_generate_password = False
-                if canal in ('web', 'app'):
-                    should_generate_password = False
-                elif client.creator:
-                    creator_role = getattr(client.creator, 'role', None)
-                    should_generate_password = (creator_role == 'Trader')
-                else:
-                    should_generate_password = (canal == 'system')
+                # Generar contraseña temporal SOLO al activar la cuenta
+                temporary_password = generate_simple_password(length=10)
 
-                trader = client.creator if hasattr(client, 'creator') and client.creator else current_user
+                # Establecer contraseña en el cliente
+                client.set_password(temporary_password)
+                client.requires_password_change = True
+                db.session.commit()
 
-                if should_generate_password:
-                    temporary_password = generate_simple_password(length=10)
-                    client.set_password(temporary_password)
-                    client.requires_password_change = True
-                    db.session.commit()
-                    logger.info(f'✅ Contraseña temporal generada para cliente {client.dni} al aprobar documentos')
-                    EmailTemplates.send_activation_with_temp_password(client, trader, temporary_password)
-                else:
-                    logger.info(f'ℹ️ Cliente {client.dni} auto-registrado — se mantiene su contraseña original')
-                    EmailTemplates.send_activation_without_password(client)
+                logger.info(f'✅ Contraseña temporal generada para cliente {client.dni} al aprobar documentos')
 
+                # Enviar email con contraseña temporal
+                EmailService.send_client_activation_email(client, current_user, temporary_password)
             except Exception as e:
                 logger.warning(f'Error al enviar email de activación: {str(e)}')
 

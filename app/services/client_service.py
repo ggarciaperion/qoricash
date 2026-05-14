@@ -388,11 +388,6 @@ class ClientService:
             # Los datos personales del cliente (nombre, email, dirección, etc.) NO pueden ser modificados
             user_role = getattr(current_user, 'role', None)
 
-            # SEGURIDAD: Trader solo puede editar sus propios clientes
-            if user_role == 'Trader' and client.created_by != current_user.id:
-                logger.warning(f"⛔ Trader {current_user.username} intentó editar cliente {client_id} (created_by={client.created_by})")
-                return False, 'Solo puedes editar los clientes de tu propia cartera', None
-
             # LOG DETALLADO para debugging
             logger.info(f"📊 update_client llamado por: {current_user.username} (Rol: {user_role})")
             logger.info(f"📦 Datos recibidos: {list(data.keys())}")
@@ -651,19 +646,10 @@ class ClientService:
                 logger.exception("Fallo al registrar auditoría de eliminación")
 
             # Eliminar registros relacionados antes de eliminar el cliente
-            from app.models.compliance import (
-                ClientRiskProfile, RestrictiveListCheck, TransactionMonitoring
-            )
-            # ClientRiskProfile (nullable=False, unique)
+            from app.models.compliance import ClientRiskProfile
             risk_profile = ClientRiskProfile.query.filter_by(client_id=client.id).first()
             if risk_profile:
                 db.session.delete(risk_profile)
-
-            # RestrictiveListCheck (client_id nullable=False)
-            RestrictiveListCheck.query.filter_by(client_id=client.id).delete(synchronize_session=False)
-
-            # TransactionMonitoring (client_id nullable=False)
-            TransactionMonitoring.query.filter_by(client_id=client.id).delete(synchronize_session=False)
 
             db.session.delete(client)
             # Commit único para delete y audit_log juntos
@@ -928,7 +914,6 @@ class ClientService:
 
             # Reasignar
             client.created_by = new_trader_id
-            client.reassigned_at = datetime.utcnow()
 
             # Auditoría: registrar antes del commit
             try:
