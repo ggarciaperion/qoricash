@@ -696,8 +696,8 @@ function buildDetailsHTML(op) {
     html += `
     <div class="fin-grid mb-3">
         <div class="fin-cell">
-            <div class="fin-label">${isCompra ? 'Paga (PEN)' : 'Envía (USD)'}</div>
-            <div class="fin-value">${isCompra ? 'S/ ' + pen : '$ ' + usd}</div>
+            <div class="fin-label">${isCompra ? 'Envía (USD)' : 'Envía (PEN)'}</div>
+            <div class="fin-value">${isCompra ? '$ ' + usd : 'S/ ' + pen}</div>
         </div>
         <div class="fin-arrow"><i class="bi bi-arrow-right-circle-fill"></i></div>
         <div class="fin-cell tc">
@@ -707,8 +707,8 @@ function buildDetailsHTML(op) {
         </div>
         <div class="fin-arrow"><i class="bi bi-arrow-right-circle-fill"></i></div>
         <div class="fin-cell">
-            <div class="fin-label">${isCompra ? 'Recibe (USD)' : 'Recibe (PEN)'}</div>
-            <div class="fin-value">${isCompra ? '$ ' + usd : 'S/ ' + pen}</div>
+            <div class="fin-label">${isCompra ? 'Recibe (PEN)' : 'Recibe (USD)'}</div>
+            <div class="fin-value">${isCompra ? 'S/ ' + pen : '$ ' + usd}</div>
         </div>
     </div>`;
 
