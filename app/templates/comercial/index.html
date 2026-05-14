@@ -437,7 +437,7 @@ tr.row-selected { background: rgba(0,222,168,.06) !important; }
           <th>Operaciones</th>
           <th>Vol. USD</th>
           <th>Última op.</th>
-          <th>Último TC</th>
+          <th title="Promedio de pips (spread) de las operaciones completadas del cliente">Spread</th>
           <th style="text-align:center;">Contacto</th>
         </tr>
       </thead>
@@ -488,10 +488,9 @@ tr.row-selected { background: rgba(0,222,168,.06) !important; }
             <span class="com-date">{{ c.ultima_op.strftime('%d/%m/%Y') }}</span>
           </td>
           <td>
-            {% if c.ultimo_tc %}
-              <span class="com-date" title="{{ c.ultimo_tc.strftime('%d/%m/%Y %H:%M') }}">
-                {{ c.ultimo_tc.strftime('%d/%m/%Y') }}
-              </span>
+            {% if c.avg_spread is not none %}
+              <span style="font-weight:700;color:var(--qori-gray-800);">{{ c.avg_spread }}</span>
+              <span style="font-size:10px;color:var(--qori-gray-400);margin-left:2px;">pips</span>
             {% else %}
               <span style="font-size:11px;color:var(--qori-gray-300);">—</span>
             {% endif %}

@@ -169,6 +169,15 @@ def _get_cartera(trader_id=None, tipo_filtro=None):
         ultima_op = max(ops, key=lambda o: o.created_at)
         total_usd = sum(float(o.amount_usd or 0) for o in ops)
 
+        # Promedio de pips (spread) de operaciones completadas
+        pips_list = []
+        for op in ops:
+            if op.pips is not None:
+                pips_list.append(float(op.pips))
+            elif op.exchange_rate is not None and op.base_rate is not None:
+                pips_list.append(abs(float(op.exchange_rate) - float(op.base_rate)) * 1000)
+        avg_spread = round(sum(pips_list) / len(pips_list), 1) if pips_list else None
+
         # Teléfonos: puede haber múltiples separados por ;
         phones = [p.strip() for p in (c.phone or '').split(';') if p.strip()]
         # Limpiar a solo dígitos para wa.me (primer número)
@@ -192,6 +201,7 @@ def _get_cartera(trader_id=None, tipo_filtro=None):
             'total_ops': len(ops),
             'total_usd': total_usd,
             'ultima_op': ultima_op.created_at,
+            'avg_spread': avg_spread,
         })
 
     # Enriquecer con último envío de TC desde Comercial
