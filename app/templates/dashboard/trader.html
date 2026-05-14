@@ -214,11 +214,13 @@
         <h5>Análisis de Gestión</h5>
     </div>
 
+    <!-- Top Clientes: Volumen / Utilidad / Operaciones -->
     <div class="row mb-4">
-        <div class="col-md-6">
+        <!-- Top 10 por Volumen USD -->
+        <div class="col-md-4">
             <div class="card h-100">
                 <div class="card-header d-flex justify-content-between align-items-center">
-                    <h6 class="mb-0"><i class="bi bi-trophy text-warning"></i> Top Clientes del Mes</h6>
+                    <h6 class="mb-0"><i class="bi bi-trophy text-warning"></i> Mayor Volumen USD</h6>
                     <span class="badge bg-secondary" id="topClientsCount">-</span>
                 </div>
                 <div class="card-body p-0">
@@ -232,34 +234,37 @@
             </div>
         </div>
 
-        <!-- Utilidad por Operación -->
-        <div class="col-md-6">
+        <!-- Top 10 por Utilidad -->
+        <div class="col-md-4">
             <div class="card h-100">
                 <div class="card-header d-flex justify-content-between align-items-center">
-                    <h6 class="mb-0"><i class="bi bi-graph-up text-success"></i> Utilidad por Operación</h6>
-                    <span class="badge bg-success" id="totalCalcProfit">S/ 0.00</span>
+                    <h6 class="mb-0"><i class="bi bi-graph-up text-success"></i> Mayor Utilidad</h6>
+                    <span class="badge bg-success" id="topProfitCount">-</span>
                 </div>
                 <div class="card-body p-0">
-                    <div style="max-height: 320px; overflow-y: auto;">
-                        <table class="table table-sm table-hover mb-0" id="profitPerOpTable">
-                            <thead class="table-light sticky-top">
-                                <tr>
-                                    <th class="small">Op.</th>
-                                    <th class="small">Cliente</th>
-                                    <th class="small">Tipo</th>
-                                    <th class="small text-end">USD</th>
-                                    <th class="small text-end">Utilidad</th>
-                                </tr>
-                            </thead>
-                            <tbody id="profitPerOpBody">
-                                <tr>
-                                    <td colspan="5" class="text-center text-muted py-3">
-                                        <div class="spinner-border spinner-border-sm" role="status"></div>
-                                        <span class="ms-2 small">Cargando...</span>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
+                    <div id="topProfitList" class="list-group list-group-flush">
+                        <div class="text-center text-muted py-4">
+                            <div class="spinner-border spinner-border-sm" role="status"></div>
+                            <span class="ms-2 small">Cargando...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Top 10 por Cantidad de Operaciones -->
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0"><i class="bi bi-lightning-charge text-primary"></i> Más Operaciones</h6>
+                    <span class="badge bg-primary" id="topOpsCount">-</span>
+                </div>
+                <div class="card-body p-0">
+                    <div id="topOpsList" class="list-group list-group-flush">
+                        <div class="text-center text-muted py-4">
+                            <div class="spinner-border spinner-border-sm" role="status"></div>
+                            <span class="ms-2 small">Cargando...</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -470,7 +475,8 @@ $(document).ready(function() {
     // Cargar secciones de análisis
     loadTopClients();
     loadInactiveClients();
-    loadProfitPerOp();
+    loadTopProfit();
+    loadTopOps();
 });
 
 // Inicializar calendario (Flatpickr)
@@ -600,7 +606,8 @@ function refreshDashboard() {
     loadDashboardData();
     loadTopClients();
     loadInactiveClients();
-    loadProfitPerOp();
+    loadTopProfit();
+    loadTopOps();
     showNotification('Dashboard actualizado', 'success');
 }
 
@@ -719,51 +726,94 @@ function showInactiveTab(tab) {
 // ============================================
 // UTILIDAD POR OPERACIÓN
 // ============================================
-function loadProfitPerOp() {
+function loadTopProfit() {
     const params = new URLSearchParams();
     params.append('trader_id', CURRENT_TRADER_ID);
     if (currentFilters.year) params.append('year', currentFilters.year);
     if (currentFilters.month) params.append('month', currentFilters.month);
 
-    ajaxRequest(`/dashboard/api/dashboard/profit-per-op?${params.toString()}`, 'GET', null, function(response) {
-        const ops = response.operations || [];
-        const totalProfit = response.total_calculated_profit || 0;
-        const withProfit = response.ops_with_profit || 0;
+    ajaxRequest(`/dashboard/api/dashboard/top-clients-profit?${params.toString()}`, 'GET', null, function(response) {
+        const clients = response.top_clients || [];
+        const container = $('#topProfitList');
+        $('#topProfitCount').text(clients.length);
 
-        $('#totalCalcProfit').text(`S/ ${formatNumber(totalProfit, 2)}`);
-
-        const tbody = $('#profitPerOpBody');
-
-        if (ops.length === 0) {
-            tbody.html('<tr><td colspan="5" class="text-center text-muted py-3 small">Sin operaciones en el período</td></tr>');
+        if (clients.length === 0) {
+            container.html('<div class="text-center text-muted py-4 small">Sin datos de utilidad en el período<br><span style="font-size:0.7rem">Registra la tasa base en las operaciones</span></div>');
             return;
         }
 
-        let html = '';
-        ops.forEach(function(op) {
-            const typeClass = op.type === 'Compra' ? 'text-info' : 'text-warning';
-            let profitHtml = '<span class="text-muted small">-</span>';
-            if (op.profit_pen !== null && op.profit_pen !== undefined) {
-                const pClass = op.profit_pen >= 0 ? 'text-success' : 'text-danger';
-                profitHtml = `<span class="${pClass} fw-bold small">S/ ${formatNumber(op.profit_pen, 2)}</span>`;
-            }
-            const shortName = op.client_name.length > 18 ? op.client_name.substring(0, 18) + '…' : op.client_name;
-            html += `<tr>
-                <td class="small text-muted">${op.operation_id}</td>
-                <td class="small" title="${escapeHtml(op.client_name)}">${escapeHtml(shortName)}</td>
-                <td><span class="badge ${op.type === 'Compra' ? 'bg-info' : 'bg-warning text-dark'}" style="font-size:0.65rem">${op.type}</span></td>
-                <td class="small text-end">$ ${formatNumber(op.amount_usd, 0)}</td>
-                <td class="text-end">${profitHtml}</td>
-            </tr>`;
-        });
+        const medals = ['<i class="bi bi-trophy-fill text-warning"></i>', '<i class="bi bi-trophy-fill text-secondary"></i>', '<i class="bi bi-trophy-fill" style="color:#cd7f32"></i>'];
+        const maxProfit = Math.abs(clients[0].total_profit) || 1;
 
-        if (withProfit === 0) {
-            html += `<tr><td colspan="5" class="text-center text-muted py-2 small">
-                <i class="bi bi-info-circle me-1"></i>Registra la tasa base en cada operación para ver la utilidad
-            </td></tr>`;
+        let html = '';
+        clients.forEach(function(c, idx) {
+            const pct = Math.round((Math.abs(c.total_profit) / maxProfit) * 100);
+            const medal = idx < 3 ? medals[idx] : `<span class="text-muted small fw-bold">#${idx+1}</span>`;
+            const pClass = c.total_profit >= 0 ? 'text-success' : 'text-danger';
+            html += `
+                <div class="list-group-item list-group-item-action px-3 py-2" style="cursor:pointer"
+                     onclick="loadClientHistory(${c.client_id}, '${escapeHtml(c.name)}', '${c.dni}')">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex align-items-center gap-2 overflow-hidden">
+                            <span style="min-width:24px;">${medal}</span>
+                            <span class="text-truncate small fw-semibold" title="${escapeHtml(c.name)}">${escapeHtml(c.name)}</span>
+                        </div>
+                        <div class="text-end ms-2 flex-shrink-0">
+                            <div class="small fw-bold ${pClass}">S/ ${formatNumber(c.total_profit, 2)}</div>
+                            <div class="text-muted" style="font-size:0.7rem;">${c.op_count} op.</div>
+                        </div>
+                    </div>
+                    <div class="progress mt-1" style="height:3px;">
+                        <div class="progress-bar bg-success" style="width:${pct}%"></div>
+                    </div>
+                </div>`;
+        });
+        container.html(html);
+    });
+}
+
+function loadTopOps() {
+    const params = new URLSearchParams();
+    params.append('trader_id', CURRENT_TRADER_ID);
+    if (currentFilters.year) params.append('year', currentFilters.year);
+    if (currentFilters.month) params.append('month', currentFilters.month);
+
+    ajaxRequest(`/dashboard/api/dashboard/top-clients-ops?${params.toString()}`, 'GET', null, function(response) {
+        const clients = response.top_clients || [];
+        const container = $('#topOpsList');
+        $('#topOpsCount').text(clients.length);
+
+        if (clients.length === 0) {
+            container.html('<div class="text-center text-muted py-4 small">Sin datos para el período</div>');
+            return;
         }
 
-        tbody.html(html);
+        const medals = ['<i class="bi bi-trophy-fill text-warning"></i>', '<i class="bi bi-trophy-fill text-secondary"></i>', '<i class="bi bi-trophy-fill" style="color:#cd7f32"></i>'];
+        const maxOps = clients[0].op_count || 1;
+
+        let html = '';
+        clients.forEach(function(c, idx) {
+            const pct = Math.round((c.op_count / maxOps) * 100);
+            const medal = idx < 3 ? medals[idx] : `<span class="text-muted small fw-bold">#${idx+1}</span>`;
+            html += `
+                <div class="list-group-item list-group-item-action px-3 py-2" style="cursor:pointer"
+                     onclick="loadClientHistory(${c.client_id}, '${escapeHtml(c.name)}', '${c.dni}')">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex align-items-center gap-2 overflow-hidden">
+                            <span style="min-width:24px;">${medal}</span>
+                            <span class="text-truncate small fw-semibold" title="${escapeHtml(c.name)}">${escapeHtml(c.name)}</span>
+                        </div>
+                        <div class="text-end ms-2 flex-shrink-0">
+                            <div class="small fw-bold text-primary">${c.op_count} ops</div>
+                            <div class="text-muted" style="font-size:0.7rem;">$ ${formatNumber(c.total_usd, 0)}</div>
+                        </div>
+                    </div>
+                    <div class="progress mt-1" style="height:3px;">
+                        <div class="progress-bar bg-primary" style="width:${pct}%"></div>
+                    </div>
+                </div>`;
+        });
+        container.html(html);
     });
 }
 

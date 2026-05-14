@@ -1159,6 +1159,149 @@ def get_profit_per_operation():
     })
 
 
+@dashboard_bp.route('/api/dashboard/top-clients-profit')
+@login_required
+def get_top_clients_profit():
+    """
+    API: Top 10 clientes por utilidad total generada en el mes.
+    Utilidad = (exchange_rate - base_rate) * amount_usd para Venta,
+               (base_rate - exchange_rate) * amount_usd para Compra.
+    Solo incluye operaciones con base_rate registrado.
+    """
+    from app.models.client import Client
+
+    trader_id = request.args.get('trader_id', type=int)
+    month = request.args.get('month', type=int)
+    year = request.args.get('year', type=int)
+
+    now = now_peru()
+    if not month:
+        month = now.month
+    if not year:
+        year = now.year
+
+    start_date = datetime(year, month, 1)
+    end_date = datetime(year + 1, 1, 1) if month == 12 else datetime(year, month + 1, 1)
+
+    query = Operation.query.filter(
+        Operation.status == 'Completada',
+        Operation.created_at >= start_date,
+        Operation.created_at < end_date,
+        Operation.base_rate.isnot(None),
+        Operation.base_rate > 0,
+    )
+    if not trader_id:
+        _demo = _demo_user_id()
+        if _demo:
+            query = query.filter(Operation.user_id != _demo)
+    if trader_id:
+        trader_client_ids = db.session.query(Client.id)\
+            .filter(Client.created_by == trader_id).subquery()
+        query = query.filter(Operation.client_id.in_(trader_client_ids))
+
+    operations = query.all()
+
+    # Agrupar utilidad por cliente
+    profit_map = {}
+    ops_map = {}
+    for op in operations:
+        diff = float(op.exchange_rate) - float(op.base_rate)
+        if op.operation_type == 'Compra':
+            diff = -diff
+        profit = diff * float(op.amount_usd)
+        cid = op.client_id
+        profit_map[cid] = profit_map.get(cid, 0.0) + profit
+        ops_map[cid] = ops_map.get(cid, 0) + 1
+
+    # Ordenar por utilidad desc, tomar top 10
+    top_ids = sorted(profit_map, key=lambda x: profit_map[x], reverse=True)[:10]
+
+    top_clients = []
+    for cid in top_ids:
+        client = Client.query.get(cid)
+        if client:
+            if client.document_type == 'RUC':
+                name = client.razon_social or f'RUC {client.dni}'
+            else:
+                parts = [client.apellido_paterno, client.apellido_materno, client.nombres]
+                name = ' '.join(p for p in parts if p) or f'Cliente {client.dni}'
+            top_clients.append({
+                'client_id': cid,
+                'name': name,
+                'dni': client.dni,
+                'total_profit': round(profit_map[cid], 2),
+                'op_count': ops_map[cid],
+            })
+
+    return jsonify({'top_clients': top_clients})
+
+
+@dashboard_bp.route('/api/dashboard/top-clients-ops')
+@login_required
+def get_top_clients_ops():
+    """
+    API: Top 10 clientes por cantidad de operaciones completadas en el mes.
+    """
+    from app.models.client import Client
+
+    trader_id = request.args.get('trader_id', type=int)
+    month = request.args.get('month', type=int)
+    year = request.args.get('year', type=int)
+
+    now = now_peru()
+    if not month:
+        month = now.month
+    if not year:
+        year = now.year
+
+    start_date = datetime(year, month, 1)
+    end_date = datetime(year + 1, 1, 1) if month == 12 else datetime(year, month + 1, 1)
+
+    _filters = [
+        Operation.status == 'Completada',
+        Operation.created_at >= start_date,
+        Operation.created_at < end_date,
+    ]
+    if not trader_id:
+        _demo = _demo_user_id()
+        if _demo:
+            _filters.append(Operation.user_id != _demo)
+
+    query = db.session.query(
+        Operation.client_id,
+        func.count(Operation.id).label('op_count'),
+        func.sum(Operation.amount_usd).label('total_usd'),
+    ).filter(*_filters)
+
+    if trader_id:
+        trader_client_ids = db.session.query(Client.id)\
+            .filter(Client.created_by == trader_id).subquery()
+        query = query.filter(Operation.client_id.in_(trader_client_ids))
+
+    results = query.group_by(Operation.client_id).order_by(
+        func.count(Operation.id).desc()
+    ).limit(10).all()
+
+    top_clients = []
+    for r in results:
+        client = Client.query.get(r.client_id)
+        if client:
+            if client.document_type == 'RUC':
+                name = client.razon_social or f'RUC {client.dni}'
+            else:
+                parts = [client.apellido_paterno, client.apellido_materno, client.nombres]
+                name = ' '.join(p for p in parts if p) or f'Cliente {client.dni}'
+            top_clients.append({
+                'client_id': r.client_id,
+                'name': name,
+                'dni': client.dni,
+                'op_count': int(r.op_count),
+                'total_usd': float(r.total_usd),
+            })
+
+    return jsonify({'top_clients': top_clients})
+
+
 @dashboard_bp.route('/test-activacion-trader')
 @login_required
 @require_role('Master')
