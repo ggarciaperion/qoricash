@@ -208,26 +208,38 @@ def change_status(client_id):
 
     success, message, client = ClientService.change_client_status(current_user=current_user, client_id=client_id, new_status=new_status)
     if success:
-        # Si el cliente fue activado (de Inactivo a Activo), generar contraseña y enviar email
+        # Si el cliente fue activado (de Inactivo a Activo), enviar email diferenciado
         if old_status == 'Inactivo' and new_status == 'Activo':
             try:
-                from app.services.email_service import EmailService
+                from app.services.email_templates import EmailTemplates
                 from app.utils.password_generator import generate_simple_password
                 from app.extensions import db
 
-                # Generar contraseña temporal SOLO al activar la cuenta
-                temporary_password = generate_simple_password(length=10)
+                # Determinar si se debe generar contraseña temporal
+                # Solo para clientes creados manualmente por un Trader (no auto-registrados)
+                canal = getattr(client, 'registration_canal', None)
+                should_generate_password = False
+                if canal in ('web', 'app'):
+                    should_generate_password = False  # auto-registrado, ya tiene contraseña
+                elif client.creator:
+                    creator_role = getattr(client.creator, 'role', None)
+                    should_generate_password = (creator_role == 'Trader')
+                else:
+                    should_generate_password = (canal == 'system')
 
-                # Establecer contraseña en el cliente
-                client.set_password(temporary_password)
-                client.requires_password_change = True
-                db.session.commit()
-
-                logger.info(f'✅ Contraseña temporal generada para cliente {client.dni} al activar cuenta')
-
-                # Enviar correo con contraseña temporal y el trader que creó al cliente
                 trader = client.creator if hasattr(client, 'creator') and client.creator else current_user
-                EmailService.send_client_activation_email(client, trader, temporary_password)
+
+                if should_generate_password:
+                    temporary_password = generate_simple_password(length=10)
+                    client.set_password(temporary_password)
+                    client.requires_password_change = True
+                    db.session.commit()
+                    logger.info(f'✅ Contraseña temporal generada para cliente {client.dni} al activar cuenta')
+                    EmailTemplates.send_activation_with_temp_password(client, trader, temporary_password)
+                else:
+                    logger.info(f'ℹ️ Cliente {client.dni} auto-registrado — se mantiene su contraseña original')
+                    EmailTemplates.send_activation_without_password(client)
+
             except Exception as e:
                 # No bloquear por errores de email
                 logger.warning(f'Error al enviar email de cliente activado: {str(e)}')
@@ -453,24 +465,35 @@ def approve_documents(client_id):
         db.session.commit()
         logger.info(f'💾 Cambios guardados en BD para cliente {client.dni}')
 
-        # Enviar email de activación con contraseña temporal si corresponde
+        # Enviar email de activación diferenciado si corresponde
         if was_inactive:
             try:
-                from app.services.email_service import EmailService
+                from app.services.email_templates import EmailTemplates
                 from app.utils.password_generator import generate_simple_password
 
-                # Generar contraseña temporal SOLO al activar la cuenta
-                temporary_password = generate_simple_password(length=10)
+                canal = getattr(client, 'registration_canal', None)
+                should_generate_password = False
+                if canal in ('web', 'app'):
+                    should_generate_password = False
+                elif client.creator:
+                    creator_role = getattr(client.creator, 'role', None)
+                    should_generate_password = (creator_role == 'Trader')
+                else:
+                    should_generate_password = (canal == 'system')
 
-                # Establecer contraseña en el cliente
-                client.set_password(temporary_password)
-                client.requires_password_change = True
-                db.session.commit()
+                trader = client.creator if hasattr(client, 'creator') and client.creator else current_user
 
-                logger.info(f'✅ Contraseña temporal generada para cliente {client.dni} al aprobar documentos')
+                if should_generate_password:
+                    temporary_password = generate_simple_password(length=10)
+                    client.set_password(temporary_password)
+                    client.requires_password_change = True
+                    db.session.commit()
+                    logger.info(f'✅ Contraseña temporal generada para cliente {client.dni} al aprobar documentos')
+                    EmailTemplates.send_activation_with_temp_password(client, trader, temporary_password)
+                else:
+                    logger.info(f'ℹ️ Cliente {client.dni} auto-registrado — se mantiene su contraseña original')
+                    EmailTemplates.send_activation_without_password(client)
 
-                # Enviar email con contraseña temporal
-                EmailService.send_client_activation_email(client, current_user, temporary_password)
             except Exception as e:
                 logger.warning(f'Error al enviar email de activación: {str(e)}')
 

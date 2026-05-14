@@ -150,7 +150,7 @@ class EmailTemplates:
         """
         Correo de bienvenida para clientes registrados desde página web
         - NO incluye contraseña (definida por el usuario)
-        - Menciona acceso a app móvil
+        - Para Persona Jurídica (RUC): CC a gerencia@qoricash.pe
 
         Args:
             client: Objeto Client
@@ -165,6 +165,12 @@ class EmailTemplates:
             if not to:
                 return False, 'Cliente sin email'
 
+            # CC a gerencia para Persona Jurídica (requiere revisión KYC especial)
+            cc = []
+            if getattr(client, 'document_type', None) == 'RUC':
+                cc.append('gerencia@qoricash.pe')
+                logger.info(f'📧 [EMAIL-WEB] CC a gerencia por registro Jurídica: {client.dni}')
+
             subject = '¡Bienvenido a QoriCash!'
 
             html_body = EmailTemplates._render_web_welcome_template(client)
@@ -172,11 +178,12 @@ class EmailTemplates:
             msg = Message(
                 subject=subject,
                 recipients=to,
+                cc=cc if cc else None,
                 html=html_body
             )
 
             mail.send(msg)
-            logger.info(f'✅ [EMAIL-WEB] Email enviado a {client.dni}')
+            logger.info(f'✅ [EMAIL-WEB] Email enviado a {client.dni}' + (' + gerencia' if cc else ''))
             return True, 'Email enviado'
 
         except Exception as e:
