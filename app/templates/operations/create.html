@@ -192,6 +192,15 @@ let selectedClient = null;
 let clientBankAccounts = [];
 let searchTimeout = null;
 
+// Auto-seleccionar cliente si viene por URL param (?client_id=X)
+$(document).ready(function() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const preClientId = urlParams.get('client_id');
+    if (preClientId && parseInt(preClientId)) {
+        selectClient(parseInt(preClientId), null);
+    }
+});
+
 // Limitar decimales en campo numérico
 function limitDecimals(input, maxDecimals) {
     let value = input.value;

@@ -84,11 +84,84 @@
         </div>
     </div>
 
+    <!-- Stats rápidos -->
+    <div class="row g-3 mb-3">
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm h-100" style="border-left:4px solid #0d6efd!important;">
+                <div class="card-body py-3 px-3">
+                    <div class="d-flex align-items-center gap-3">
+                        <span class="fs-4 text-primary"><i class="bi bi-people-fill"></i></span>
+                        <div>
+                            <div class="fw-bold fs-5 mb-0 lh-1">{{ stats.total }}</div>
+                            <small class="text-muted">Total</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm h-100" style="border-left:4px solid #198754!important;">
+                <div class="card-body py-3 px-3">
+                    <div class="d-flex align-items-center gap-3">
+                        <span class="fs-4 text-success"><i class="bi bi-person-check-fill"></i></span>
+                        <div>
+                            <div class="fw-bold fs-5 mb-0 lh-1">{{ stats.active }}</div>
+                            <small class="text-muted">Activos</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm h-100" style="border-left:4px solid #ffc107!important;">
+                <div class="card-body py-3 px-3">
+                    <div class="d-flex align-items-center gap-3">
+                        <span class="fs-4 text-warning"><i class="bi bi-file-earmark-x-fill"></i></span>
+                        <div>
+                            <div class="fw-bold fs-5 mb-0 lh-1">{{ stats.no_docs }}</div>
+                            <small class="text-muted">Sin Docs</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm h-100" style="border-left:4px solid #6c757d!important;">
+                <div class="card-body py-3 px-3">
+                    <div class="d-flex align-items-center gap-3">
+                        <span class="fs-4 text-secondary"><i class="bi bi-person-dash-fill"></i></span>
+                        <div>
+                            <div class="fw-bold fs-5 mb-0 lh-1">{{ stats.inactive }}</div>
+                            <small class="text-muted">Inactivos</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Tabla de Clientes -->
     <div class="row">
         <div class="col-md-12">
             <div class="card">
                 <div class="card-body">
+                    <!-- Filtros rápidos -->
+                    <div class="d-flex gap-2 mb-3 flex-wrap align-items-center">
+                        <span class="text-muted small me-1"><i class="bi bi-funnel"></i></span>
+                        <button class="btn btn-sm btn-primary filter-pill" data-filter="all">
+                            Todos <span class="badge bg-white text-primary ms-1">{{ stats.total }}</span>
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary filter-pill" data-filter="active">
+                            Activos <span class="badge bg-success ms-1">{{ stats.active }}</span>
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary filter-pill" data-filter="inactive">
+                            Inactivos <span class="badge bg-secondary ms-1">{{ stats.inactive }}</span>
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary filter-pill" data-filter="nodocs">
+                            Sin Docs <span class="badge bg-warning text-dark ms-1">{{ stats.no_docs }}</span>
+                        </button>
+                    </div>
+
                     <table id="clientsTable" class="table table-hover">
                         <thead>
                             <tr>
@@ -107,13 +180,16 @@
                                 <th>Fecha Registro</th>
                                 <th>Estado</th>
                                 <th>Origen</th>
+                                <th>Riesgo</th>
                                 <th>Operaciones</th>
                                 <th>Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for c in clients %}
-                            <tr data-client-id="{{ c.id }}">
+                            <tr data-client-id="{{ c.id }}"
+                                data-status="{{ c.status }}"
+                                data-docs="{{ 'completo' if c.has_complete_documents else 'pendiente' }}">
                                 {% if current_user.role == 'Master' %}
                                 <td><input type="checkbox" class="client-checkbox" value="{{ c.id }}"></td>
                                 {% endif %}
@@ -158,10 +234,34 @@
                                     {% else %}
                                         <span class="badge bg-secondary status-badge">Inactivo</span>
                                     {% endif %}
+                                    {% if not c.has_complete_documents %}
+                                        <br><span class="badge bg-warning text-dark mt-1" style="font-size:.62rem">⚠ Sin Docs</span>
+                                    {% endif %}
                                 </td>
                                 <td>
                                     {% if c.reassigned_at %}
                                         <span class="badge" style="background:#0d6efd;font-size:.7rem" title="Reasignado el {{ c.reassigned_at.strftime('%d/%m/%Y') }}">Reasignado</span>
+                                    {% else %}
+                                        <span class="text-muted small">—</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% set rp = risk_map.get(c.id) %}
+                                    {% if rp and rp.risk_level %}
+                                        {% if rp.risk_level.name == 'Bajo' %}
+                                            <span class="badge bg-success" style="font-size:.68rem">Bajo</span>
+                                        {% elif rp.risk_level.name == 'Medio' %}
+                                            <span class="badge bg-warning text-dark" style="font-size:.68rem">Medio</span>
+                                        {% elif rp.risk_level.name == 'Alto' %}
+                                            <span class="badge" style="background:#fd7e14;color:#fff;font-size:.68rem">Alto</span>
+                                        {% elif rp.risk_level.name == 'Crítico' %}
+                                            <span class="badge bg-danger" style="font-size:.68rem">Crítico</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary" style="font-size:.68rem">{{ rp.risk_level.name }}</span>
+                                        {% endif %}
+                                        {% if rp.is_pep %}
+                                            <br><span class="badge bg-dark mt-1" style="font-size:.6rem" title="Persona Expuesta Políticamente">PEP</span>
+                                        {% endif %}
                                     {% else %}
                                         <span class="text-muted small">—</span>
                                     {% endif %}
@@ -175,6 +275,14 @@
                                         <a href="/clients/detail/{{ c.id }}" class="btn btn-info" title="Ver">
                                             <i class="bi bi-eye"></i>
                                         </a>
+
+                                        <!-- Nueva Operación (Trader) -->
+                                        {% if current_user.role == 'Trader' and c.status == 'Activo' %}
+                                        <a href="{{ url_for('operations.create_page') }}?client_id={{ c.id }}"
+                                           class="btn btn-success" title="Nueva Operación para este cliente">
+                                            <i class="bi bi-plus-circle"></i>
+                                        </a>
+                                        {% endif %}
 
                                         <!-- Editar -->
                                         {% if current_user.role in ['Master', 'Trader', 'Operador', 'Plataforma'] %}
@@ -630,15 +738,43 @@
 <!-- La variable window.currentUserRole ya está definida en base.html -->
 <script src="{{ url_for('static', filename='js/clients.js') }}?v=20250110_provincia"></script>
 <script>
-    // Inicializar DataTable al cargar la página
+    // Inicializar DataTable con filtros rápidos
     $(document).ready(function() {
-        $('#clientsTable').DataTable({
+        let activeFilter = 'all';
+
+        // Extensión de búsqueda personalizada para pills
+        $.fn.dataTable.ext.search.push(function(settings, data, dataIndex) {
+            if (settings.nTable.id !== 'clientsTable') return true;
+            if (activeFilter === 'all') return true;
+            const row = settings.aoData[dataIndex].nTr;
+            if (!row) return true;
+            if (activeFilter === 'active')   return row.dataset.status === 'Activo';
+            if (activeFilter === 'inactive') return row.dataset.status === 'Inactivo';
+            if (activeFilter === 'nodocs')   return row.dataset.docs   === 'pendiente';
+            return true;
+        });
+
+        var table = $('#clientsTable').DataTable({
             language: {
                 url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
             },
             order: [[0, 'desc']],
             pageLength: 25,
             responsive: true
+        });
+
+        // Click en pills de filtro
+        document.querySelectorAll('.filter-pill').forEach(function(pill) {
+            pill.addEventListener('click', function() {
+                activeFilter = this.dataset.filter;
+                document.querySelectorAll('.filter-pill').forEach(function(p) {
+                    p.classList.remove('btn-primary', 'active');
+                    p.classList.add('btn-outline-secondary');
+                });
+                this.classList.remove('btn-outline-secondary');
+                this.classList.add('btn-primary', 'active');
+                table.draw();
+            });
         });
     });
 

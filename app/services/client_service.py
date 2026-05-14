@@ -388,6 +388,11 @@ class ClientService:
             # Los datos personales del cliente (nombre, email, dirección, etc.) NO pueden ser modificados
             user_role = getattr(current_user, 'role', None)
 
+            # SEGURIDAD: Trader solo puede editar sus propios clientes
+            if user_role == 'Trader' and client.created_by != current_user.id:
+                logger.warning(f"⛔ Trader {current_user.username} intentó editar cliente {client_id} (created_by={client.created_by})")
+                return False, 'Solo puedes editar los clientes de tu propia cartera', None
+
             # LOG DETALLADO para debugging
             logger.info(f"📊 update_client llamado por: {current_user.username} (Rol: {user_role})")
             logger.info(f"📦 Datos recibidos: {list(data.keys())}")
