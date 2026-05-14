@@ -1,0 +1,347 @@
+{% extends "base.html" %}
+{% block title %}Alertas TC — QoriCash{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3">
+
+  <!-- Header -->
+  <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+    <div>
+      <h5 class="mb-0 fw-bold">
+        <i class="bi bi-bell-fill text-success me-2"></i>Alertas de Tipo de Cambio
+      </h5>
+      <small class="text-muted">Alertas creadas en qoricash.pe por clientes y prospectos</small>
+    </div>
+    <button class="btn btn-sm btn-outline-success" onclick="refreshData()" id="btnRefresh">
+      <i class="bi bi-arrow-clockwise me-1"></i>Actualizar
+    </button>
+  </div>
+
+  {% if error %}
+  <div class="alert alert-warning d-flex align-items-center gap-2 mb-3">
+    <i class="bi bi-exclamation-triangle-fill"></i>
+    <span>No se pudo conectar con qoricash.pe: <strong>{{ error }}</strong></span>
+  </div>
+  {% endif %}
+
+  <!-- Stats -->
+  <div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body py-3">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <p class="text-muted small mb-0">Total alertas</p>
+              <h4 class="fw-black mb-0" id="statTotal">{{ total }}</h4>
+            </div>
+            <div class="fs-3 text-secondary opacity-25"><i class="bi bi-bell"></i></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card border-0 shadow-sm h-100" style="border-left:3px solid #22c55e !important;">
+        <div class="card-body py-3">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <p class="text-muted small mb-0">Activas</p>
+              <h4 class="fw-black mb-0 text-success" id="statActivas">{{ cnt_activas }}</h4>
+            </div>
+            <div class="fs-3 text-success opacity-25"><i class="bi bi-bell-fill"></i></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card border-0 shadow-sm h-100" style="border-left:3px solid #f59e0b !important;">
+        <div class="card-body py-3">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <p class="text-muted small mb-0">Prospectos</p>
+              <h4 class="fw-black mb-0 text-warning" id="statProspectos">{{ cnt_prospectos }}</h4>
+            </div>
+            <div class="fs-3 text-warning opacity-25"><i class="bi bi-person-plus"></i></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card border-0 shadow-sm h-100" style="border-left:3px solid #6366f1 !important;">
+        <div class="card-body py-3">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <p class="text-muted small mb-0">Disparadas</p>
+              <h4 class="fw-black mb-0" style="color:#6366f1;" id="statDisparadas">{{ cnt_disparadas }}</h4>
+            </div>
+            <div class="fs-3 opacity-25" style="color:#6366f1;"><i class="bi bi-send-check"></i></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filtros -->
+  <div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
+    <button class="btn btn-sm btn-success active" data-filter="todos" onclick="filtrar(this)">
+      Todos <span class="badge bg-white text-success ms-1" id="badgeTodos">{{ total }}</span>
+    </button>
+    <button class="btn btn-sm btn-outline-success" data-filter="activas" onclick="filtrar(this)">
+      Activas <span class="badge bg-success ms-1" id="badgeActivas">{{ cnt_activas }}</span>
+    </button>
+    <button class="btn btn-sm btn-outline-warning" data-filter="prospectos" onclick="filtrar(this)">
+      Prospectos <span class="badge bg-warning text-dark ms-1" id="badgeProspectos">{{ cnt_prospectos }}</span>
+    </button>
+    <button class="btn btn-sm btn-outline-primary" data-filter="clientes" onclick="filtrar(this)">
+      Clientes registrados <span class="badge bg-primary ms-1" id="badgeClientes">{{ cnt_clientes }}</span>
+    </button>
+    <button class="btn btn-sm btn-outline-secondary" data-filter="disparadas" onclick="filtrar(this)">
+      Disparadas <span class="badge bg-secondary ms-1" id="badgeDisparadas">{{ cnt_disparadas }}</span>
+    </button>
+
+    <!-- Búsqueda -->
+    <div class="ms-auto">
+      <input type="text" class="form-control form-control-sm" id="searchInput"
+             placeholder="Buscar nombre o email..." style="width:220px;"
+             oninput="aplicarBusqueda()">
+    </div>
+  </div>
+
+  <!-- Tabla -->
+  <div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0" id="tablaAlertas">
+          <thead class="table-light">
+            <tr>
+              <th class="ps-3">Nombre</th>
+              <th>Email</th>
+              <th>Condición</th>
+              <th>TC</th>
+              <th>Tipo</th>
+              <th>Estado</th>
+              <th>Fecha</th>
+              <th class="text-center">Acción</th>
+            </tr>
+          </thead>
+          <tbody id="tablaBody">
+            {% for a in alertas %}
+            <tr
+              data-filter-activa="{{ 'true' if a.activa else 'false' }}"
+              data-filter-prospecto="{{ 'true' if a.esProspecto else 'false' }}"
+              data-filter-disparada="{{ 'true' if a.notificada else 'false' }}"
+              data-nombre="{{ (a.nombre or '') | lower }}"
+              data-email="{{ (a.email or '') | lower }}"
+            >
+              <td class="ps-3">
+                <div class="d-flex align-items-center gap-2">
+                  {% if a.esProspecto %}
+                  <span class="badge bg-warning text-dark" title="No registrado">
+                    <i class="bi bi-person-plus-fill"></i>
+                  </span>
+                  {% else %}
+                  <span class="badge bg-success" title="Cliente registrado">
+                    <i class="bi bi-person-check-fill"></i>
+                  </span>
+                  {% endif %}
+                  <span class="fw-semibold small">{{ a.nombre or '—' }}</span>
+                </div>
+              </td>
+              <td>
+                <a href="mailto:{{ a.email }}" class="text-decoration-none small text-muted">
+                  {{ a.email }}
+                </a>
+              </td>
+              <td>
+                {% if a.tipo == 'sobre' %}
+                <span class="badge bg-success-subtle text-success border border-success-subtle">
+                  <i class="bi bi-arrow-up-right me-1"></i>Por encima de
+                </span>
+                {% else %}
+                <span class="badge bg-danger-subtle text-danger border border-danger-subtle">
+                  <i class="bi bi-arrow-down-right me-1"></i>Por debajo de
+                </span>
+                {% endif %}
+              </td>
+              <td>
+                <strong class="small">S/ {{ "%.3f"|format(a.valor) }}</strong>
+              </td>
+              <td>
+                <span class="badge bg-light text-dark border small">
+                  TC {{ 'Venta' if a.moneda == 'venta' else 'Compra' }}
+                </span>
+              </td>
+              <td>
+                {% if a.activa %}
+                <span class="badge bg-success">
+                  <i class="bi bi-bell-fill me-1"></i>Activa
+                </span>
+                {% elif a.notificada %}
+                <span class="badge bg-secondary">
+                  <i class="bi bi-send-check me-1"></i>Disparada
+                </span>
+                {% else %}
+                <span class="badge bg-light text-muted border">Inactiva</span>
+                {% endif %}
+              </td>
+              <td class="text-muted small">
+                {{ a.fecha[:10] if a.fecha else '—' }}
+              </td>
+              <td class="text-center">
+                <a href="mailto:{{ a.email }}?subject=QoriCash%20%E2%80%94%20Alerta%20de%20tipo%20de%20cambio"
+                   class="btn btn-xs btn-outline-success btn-sm py-0 px-2"
+                   title="Contactar por email">
+                  <i class="bi bi-envelope"></i>
+                </a>
+              </td>
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="8" class="text-center text-muted py-4">
+                No hay alertas registradas aún.
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <p class="text-muted small mt-2">
+    <i class="bi bi-info-circle me-1"></i>
+    Los datos se obtienen en tiempo real desde <strong>qoricash.pe</strong>.
+    Usa el botón Actualizar para refrescar.
+  </p>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let todosLosRegistros = [];
+let filtroActual = 'todos';
+
+// Inicializar con los datos del servidor
+document.addEventListener('DOMContentLoaded', () => {
+  todosLosRegistros = Array.from(document.querySelectorAll('#tablaBody tr[data-email]'));
+});
+
+function filtrar(btn) {
+  document.querySelectorAll('[data-filter]').forEach(b => {
+    b.classList.remove('btn-success', 'btn-warning', 'btn-primary', 'btn-secondary', 'active');
+    b.classList.add('btn-outline-' + (
+      b.dataset.filter === 'prospectos' ? 'warning' :
+      b.dataset.filter === 'clientes'   ? 'primary' :
+      b.dataset.filter === 'disparadas' ? 'secondary' : 'success'
+    ));
+  });
+  const f = btn.dataset.filter;
+  filtroActual = f;
+  btn.classList.remove('btn-outline-success','btn-outline-warning','btn-outline-primary','btn-outline-secondary');
+  btn.classList.add(
+    f === 'prospectos' ? 'btn-warning' :
+    f === 'clientes'   ? 'btn-primary' :
+    f === 'disparadas' ? 'btn-secondary' : 'btn-success',
+    'active'
+  );
+  aplicarBusqueda();
+}
+
+function aplicarBusqueda() {
+  const q = document.getElementById('searchInput').value.toLowerCase().trim();
+  const rows = document.querySelectorAll('#tablaBody tr[data-email]');
+  rows.forEach(row => {
+    const matchFiltro =
+      filtroActual === 'todos'      ? true :
+      filtroActual === 'activas'    ? row.dataset.filterActiva    === 'true' :
+      filtroActual === 'prospectos' ? row.dataset.filterProspecto === 'true' :
+      filtroActual === 'clientes'   ? row.dataset.filterProspecto === 'false' :
+      filtroActual === 'disparadas' ? row.dataset.filterDisparada === 'true' : true;
+
+    const matchSearch = !q || row.dataset.nombre.includes(q) || row.dataset.email.includes(q);
+    row.style.display = (matchFiltro && matchSearch) ? '' : 'none';
+  });
+}
+
+async function refreshData() {
+  const btn = document.getElementById('btnRefresh');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Actualizando...';
+  try {
+    const res = await fetch('{{ url_for("alertas_tc.api_data") }}');
+    const data = await res.json();
+    if (!data.success) { alert('Error al obtener datos: ' + data.error); return; }
+
+    const alertas = data.alertas;
+    // Recalcular stats
+    const total      = alertas.length;
+    const activas    = alertas.filter(a => a.activa).length;
+    const prospectos = alertas.filter(a => a.esProspecto).length;
+    const clientes   = total - prospectos;
+    const disparadas = alertas.filter(a => a.notificada).length;
+
+    document.getElementById('statTotal').textContent      = total;
+    document.getElementById('statActivas').textContent    = activas;
+    document.getElementById('statProspectos').textContent = prospectos;
+    document.getElementById('statDisparadas').textContent = disparadas;
+    document.getElementById('badgeTodos').textContent      = total;
+    document.getElementById('badgeActivas').textContent    = activas;
+    document.getElementById('badgeProspectos').textContent = prospectos;
+    document.getElementById('badgeClientes').textContent   = clientes;
+    document.getElementById('badgeDisparadas').textContent = disparadas;
+
+    // Re-renderizar filas
+    const tbody = document.getElementById('tablaBody');
+    tbody.innerHTML = alertas.length === 0
+      ? '<tr><td colspan="8" class="text-center text-muted py-4">No hay alertas registradas aún.</td></tr>'
+      : alertas.map(a => `
+        <tr
+          data-filter-activa="${a.activa ? 'true' : 'false'}"
+          data-filter-prospecto="${a.esProspecto ? 'true' : 'false'}"
+          data-filter-disparada="${a.notificada ? 'true' : 'false'}"
+          data-nombre="${(a.nombre || '').toLowerCase()}"
+          data-email="${(a.email || '').toLowerCase()}"
+        >
+          <td class="ps-3">
+            <div class="d-flex align-items-center gap-2">
+              ${a.esProspecto
+                ? '<span class="badge bg-warning text-dark" title="No registrado"><i class="bi bi-person-plus-fill"></i></span>'
+                : '<span class="badge bg-success" title="Cliente registrado"><i class="bi bi-person-check-fill"></i></span>'}
+              <span class="fw-semibold small">${a.nombre || '—'}</span>
+            </div>
+          </td>
+          <td><a href="mailto:${a.email}" class="text-decoration-none small text-muted">${a.email}</a></td>
+          <td>
+            ${a.tipo === 'sobre'
+              ? '<span class="badge bg-success-subtle text-success border border-success-subtle"><i class="bi bi-arrow-up-right me-1"></i>Por encima de</span>'
+              : '<span class="badge bg-danger-subtle text-danger border border-danger-subtle"><i class="bi bi-arrow-down-right me-1"></i>Por debajo de</span>'}
+          </td>
+          <td><strong class="small">S/ ${Number(a.valor).toFixed(3)}</strong></td>
+          <td><span class="badge bg-light text-dark border small">TC ${a.moneda === 'venta' ? 'Venta' : 'Compra'}</span></td>
+          <td>
+            ${a.activa
+              ? '<span class="badge bg-success"><i class="bi bi-bell-fill me-1"></i>Activa</span>'
+              : a.notificada
+                ? '<span class="badge bg-secondary"><i class="bi bi-send-check me-1"></i>Disparada</span>'
+                : '<span class="badge bg-light text-muted border">Inactiva</span>'}
+          </td>
+          <td class="text-muted small">${a.fecha ? a.fecha.substring(0, 10) : '—'}</td>
+          <td class="text-center">
+            <a href="mailto:${a.email}?subject=QoriCash%20%E2%80%94%20Alerta%20de%20tipo%20de%20cambio"
+               class="btn btn-xs btn-outline-success btn-sm py-0 px-2" title="Contactar">
+              <i class="bi bi-envelope"></i>
+            </a>
+          </td>
+        </tr>`).join('');
+
+    todosLosRegistros = Array.from(document.querySelectorAll('#tablaBody tr[data-email]'));
+    aplicarBusqueda();
+  } catch(e) {
+    alert('Error al actualizar: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-arrow-clockwise me-1"></i>Actualizar';
+  }
+}
+</script>
+{% endblock %}

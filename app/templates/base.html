@@ -136,6 +136,14 @@
             </a>
             {% endif %}
 
+            {% if current_user.role == 'Master' %}
+            <a class="sidebar-link {% if request.endpoint and request.endpoint.startswith('alertas_tc') %}active{% endif %}"
+               href="{{ url_for('alertas_tc.index') }}">
+                <i class="bi bi-bell-fill"></i>
+                <span class="sidebar-link-text">Alertas TC</span>
+            </a>
+            {% endif %}
+
             {% if current_user.role in ['Master', 'Middle Office'] %}
             <div class="sidebar-section-label">Compliance</div>
 

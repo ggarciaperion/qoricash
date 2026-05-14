@@ -390,6 +390,8 @@ def register_blueprints(app):
     app.register_blueprint(prospeccion_bp)     # Modulo de Prospeccion comercial
     from app.routes.comercial import comercial_bp
     app.register_blueprint(comercial_bp)       # Modulo Comercial — cartera de clientes
+    from app.routes.alertas_tc import alertas_tc_bp
+    app.register_blueprint(alertas_tc_bp)      # Modulo Alertas TC — leads desde qoricash.pe
 
     # Service Worker debe servirse desde la raíz del dominio (scope /)
     import os
