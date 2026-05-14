@@ -214,7 +214,6 @@
                                 <th>Riesgo</th>
                                 <th>Operaciones</th>
                                 <th>Acciones</th>
-                                <th><!-- filtro-oculto --></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -347,7 +346,6 @@
                                         {% endif %}
                                     </div>
                                 </td>
-                                <td>{{ c.status }}{% if not c.has_complete_documents %} pendiente{% endif %}</td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -771,32 +769,31 @@
 <!-- La variable window.currentUserRole ya está definida en base.html -->
 <script src="{{ url_for('static', filename='js/clients.js') }}?v=20250110_provincia"></script>
 <script>
-    // DataTable: filtro por cards + buscador libre
+    // DataTable: filtro por cards + buscador en tiempo real
     $(document).ready(function() {
 
-        // Estado compartido entre ambos filtros
         var filterState = { status: 'all', text: '' };
 
-        // Una sola función ext.search que maneja TODO.
-        // searchData[N] = texto/HTML de cada celda en el orden del <tr>.
-        // La última celda (searchData.length - 1) es la columna oculta con el estado.
-        $.fn.dataTable.ext.search.push(function(settings, searchData) {
+        // Capturar data-status y data-docs de cada <tr> ANTES de que DataTable
+        // reorganice el DOM. El índice aquí coincide con dataIndex en ext.search.
+        var rowMeta = [];
+        $('#clientsTable tbody tr').each(function() {
+            rowMeta.push({
+                status: ($(this).data('status') || '').toString(),
+                docs:   ($(this).data('docs')   || '').toString(),
+                text:   $(this).text().replace(/\s+/g, ' ').toLowerCase()
+            });
+        });
+
+        // Registrar función de filtro. dataIndex es la posición original del row en aoData.
+        $.fn.dataTable.ext.search.push(function(settings, searchData, dataIndex) {
             if (settings.nTable.id !== 'clientsTable') return true;
-
-            // Contenido de la celda oculta: "Activo", "Activo pendiente", "Inactivo", etc.
-            var filterCell = (searchData[searchData.length - 1] || '').trim();
-
-            // Filtro por stat card
-            if (filterState.status === 'active'   && filterCell.indexOf('Activo')    !== 0) return false;
-            if (filterState.status === 'inactive' && filterCell.indexOf('Inactivo')  !== 0) return false;
-            if (filterState.status === 'nodocs'   && filterCell.indexOf('pendiente') === -1) return false;
-
-            // Búsqueda libre sobre todas las celdas del row
-            if (filterState.text) {
-                var rowText = searchData.join(' ').toLowerCase();
-                if (rowText.indexOf(filterState.text) === -1) return false;
-            }
-
+            var m = rowMeta[dataIndex];
+            if (!m) return true;
+            if (filterState.status === 'active'   && m.status !== 'Activo')    return false;
+            if (filterState.status === 'inactive' && m.status !== 'Inactivo')  return false;
+            if (filterState.status === 'nodocs'   && m.docs   !== 'pendiente') return false;
+            if (filterState.text && m.text.indexOf(filterState.text) === -1)   return false;
             return true;
         });
 
@@ -805,11 +802,10 @@
             order: [[0, 'desc']],
             pageLength: 25,
             responsive: true,
-            dom: 'lrtip',
-            columnDefs: [{ targets: -1, visible: false }]
+            dom: 'lrtip'
         });
 
-        // Clic en stat cards → actualizar filterState.status y redibujar
+        // Clic en stat cards
         document.querySelectorAll('.stat-filter-card').forEach(function(card) {
             card.addEventListener('click', function() {
                 filterState.status = this.dataset.filter;
@@ -822,7 +818,7 @@
             });
         });
 
-        // Buscador libre → actualizar filterState.text y redibujar
+        // Buscador en tiempo real
         var searchTimer;
         $('#clientQuickSearch').on('input', function() {
             filterState.text = $(this).val().trim().toLowerCase();
