@@ -56,6 +56,30 @@
         opacity: .7;
     }
     .text-uppercase-input { text-transform: uppercase; }
+
+    /* ── Triángulos de ordenamiento en headers ───────────────── */
+    #clientsTable thead th {
+        cursor: pointer;
+        user-select: none;
+        white-space: nowrap;
+    }
+    #clientsTable thead th::after {
+        content: ' ⇅';
+        font-size: .75em;
+        opacity: .35;
+    }
+    #clientsTable thead th.sorting_asc::after {
+        content: ' ▲';
+        opacity: 1;
+        color: #0d6efd;
+    }
+    #clientsTable thead th.sorting_desc::after {
+        content: ' ▼';
+        opacity: 1;
+        color: #0d6efd;
+    }
+    /* Columna de checkbox no necesita triángulo */
+    #clientsTable thead th:first-child::after { content: ''; }
 </style>
 {% endblock %}
 
