@@ -770,59 +770,47 @@
 <script src="{{ url_for('static', filename='js/clients.js') }}?v=20250110_provincia"></script>
 <script>
     // ══════════════════════════════════════════════════════════════════
-    //  FILTRO DE CLIENTES — arquitectura DOM-first (sin ext.search)
-    //  Funciona destruyendo y re-creando DataTable sobre las filas que
-    //  pasan el filtro. No depende de searchData, columnas ocultas ni
-    //  ninguna API interna de DataTables.
+    //  FILTRO DE CLIENTES
+    //  Lee data-status / data-docs del <tr> via settings.aoData[i].nTr
+    //  (referencia interna que DataTables guarda desde el inicio).
+    //  No toca el DOM antes de inicializar DataTable.
     // ══════════════════════════════════════════════════════════════════
     (function() {
         var filterState = { status: 'all', text: '' };
-        var $tbody      = null;
-        var $allRows    = null;   // referencia a TODOS los <tr> originales
+        var table;
 
-        function matchesFilter($row) {
-            var status = String($row.data('status') || '');
-            var docs   = String($row.data('docs')   || '');
+        // Registrar ext.search ANTES de init para que DataTable lo aplique
+        $.fn.dataTable.ext.search.push(function(settings, searchData, dataIndex) {
+            if (settings.nTable.id !== 'clientsTable') return true;
+
+            // nTr: el <tr> original con data-status y data-docs
+            var nTr = settings.aoData[dataIndex] && settings.aoData[dataIndex].nTr;
+            if (!nTr) return true;
+
+            var status = nTr.getAttribute('data-status') || '';
+            var docs   = nTr.getAttribute('data-docs')   || '';
+
             if (filterState.status === 'active'   && status !== 'Activo')    return false;
             if (filterState.status === 'inactive' && status !== 'Inactivo')  return false;
             if (filterState.status === 'nodocs'   && docs   !== 'pendiente') return false;
-            if (filterState.text) {
-                var rowTxt = $row.text().replace(/\s+/g, ' ').toLowerCase();
-                if (rowTxt.indexOf(filterState.text) === -1) return false;
-            }
-            return true;
-        }
 
-        function renderTable() {
-            // 1. Destruir DataTable si existe
-            if ($.fn.DataTable.isDataTable('#clientsTable')) {
-                $('#clientsTable').DataTable().destroy();
+            if (filterState.text) {
+                var rowText = (nTr.textContent || nTr.innerText || '')
+                              .replace(/\s+/g, ' ').toLowerCase();
+                if (rowText.indexOf(filterState.text) === -1) return false;
             }
-            // 2. Vaciar tbody y añadir solo las filas que pasan el filtro
-            $tbody.empty();
-            $allRows.each(function() {
-                if (matchesFilter($(this))) {
-                    $tbody.append(this);
-                }
-            });
-            // 3. Re-inicializar DataTable sobre las filas visibles
-            $('#clientsTable').DataTable({
-                language: { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' },
+
+            return true;
+        });
+
+        $(document).ready(function() {
+            table = $('#clientsTable').DataTable({
+                language:   { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' },
                 order:      [[0, 'desc']],
                 pageLength: 25,
                 responsive: true,
-                dom:        'lrtip',
-                destroy:    true
+                dom:        'lrtip'
             });
-        }
-
-        $(document).ready(function() {
-            $tbody   = $('#clientsTable tbody');
-            // Desacoplar todas las filas del DOM y guardarlas
-            $allRows = $tbody.children('tr').detach();
-
-            // Primera renderización (sin filtro → todas las filas)
-            renderTable();
 
             // ── Clic en stat cards ────────────────────────────────────
             document.querySelectorAll('.stat-filter-card').forEach(function(card) {
@@ -835,7 +823,7 @@
                         );
                     });
                     this.classList.add(this.dataset.activeClass || 'stat-card-active');
-                    renderTable();
+                    table.draw();
                 });
             });
 
@@ -846,14 +834,14 @@
                 document.getElementById('clearQuickSearch').style.display =
                     filterState.text.length ? 'inline-block' : 'none';
                 clearTimeout(searchTimer);
-                searchTimer = setTimeout(renderTable, 300);
+                searchTimer = setTimeout(function() { table.draw(); }, 300);
             });
 
             document.getElementById('clearQuickSearch').addEventListener('click', function() {
                 filterState.text = '';
                 document.getElementById('clientQuickSearch').value = '';
                 this.style.display = 'none';
-                renderTable();
+                table.draw();
             });
         });
     }());
