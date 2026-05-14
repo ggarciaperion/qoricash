@@ -89,10 +89,16 @@
         <div class="col-md-12">
             <div class="card">
                 <div class="card-body">
-                    <div class="mb-3">
+                    <div class="mb-3 d-flex gap-2">
                         <input type="text" id="clientSearch"
                                class="form-control"
-                               placeholder="🔍 Buscar por nombre, documento, email, teléfono…">
+                               placeholder="Buscar por nombre, documento, email, teléfono…">
+                        <button class="btn btn-outline-secondary" id="btnClientSearch" type="button">
+                            <i class="bi bi-search"></i> Buscar
+                        </button>
+                        <button class="btn btn-outline-danger" id="btnClientClear" type="button" style="display:none">
+                            <i class="bi bi-x"></i>
+                        </button>
                     </div>
                     <table id="clientsTable" class="table table-hover">
                         <thead>
@@ -637,11 +643,23 @@
             dom: 'lrtip'
         });
 
-        var t;
-        document.getElementById('clientSearch').addEventListener('input', function() {
-            clearTimeout(t);
-            var val = this.value;
-            t = setTimeout(function() { table.search(val).draw(); }, 250);
+        // Tiempo real al escribir (keyup — patrón oficial DataTables)
+        $('#clientSearch').on('keyup', function() {
+            table.search(this.value).draw();
+            $('#btnClientClear').toggle(this.value.length > 0);
+        });
+
+        // Botón Buscar (respaldo)
+        $('#btnClientSearch').on('click', function() {
+            table.search($('#clientSearch').val()).draw();
+            $('#btnClientClear').toggle($('#clientSearch').val().length > 0);
+        });
+
+        // Botón Limpiar
+        $('#btnClientClear').on('click', function() {
+            $('#clientSearch').val('');
+            $(this).hide();
+            table.search('').draw();
         });
     });
 
