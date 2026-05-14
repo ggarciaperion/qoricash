@@ -214,6 +214,7 @@
                                 <th>Riesgo</th>
                                 <th>Operaciones</th>
                                 <th>Acciones</th>
+                                <th><!-- filtro-oculto --></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -346,6 +347,7 @@
                                         {% endif %}
                                     </div>
                                 </td>
+                                <td>{{ c.status }}{% if not c.has_complete_documents %} pendiente{% endif %}</td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -769,55 +771,27 @@
 <!-- La variable window.currentUserRole ya está definida en base.html -->
 <script src="{{ url_for('static', filename='js/clients.js') }}?v=20250110_provincia"></script>
 <script>
-    // Inicializar DataTable con filtro por cards y buscador en tiempo real
+    // DataTable: filtro por cards (columna oculta) + buscador libre
     $(document).ready(function() {
 
-        // ── 1. Capturar status/docs de cada <tr> ANTES de que DataTable los mueva
-        //    dataIndex en ext.search corresponde al orden original de tbody
-        var rowFilterData = {};
-        $('#clientsTable tbody tr').each(function(i) {
-            rowFilterData[i] = {
-                status: this.dataset.status || '',
-                docs:   this.dataset.docs   || ''
-            };
-        });
-
-        var activeFilter = 'all';
-        var searchText   = '';
-
-        // ── 2. Extensión única: combina filtro de card + búsqueda libre
-        $.fn.dataTable.ext.search.push(function(settings, data, dataIndex) {
-            if (settings.nTable.id !== 'clientsTable') return true;
-
-            // Búsqueda de texto: quita HTML, normaliza y compara
-            if (searchText) {
-                var cellText = data.join(' ').replace(/<[^>]*>/g, ' ').toLowerCase();
-                if (cellText.indexOf(searchText) === -1) return false;
-            }
-
-            // Filtro por card stat
-            if (activeFilter !== 'all') {
-                var rd = rowFilterData[dataIndex] || {};
-                if (activeFilter === 'active')   return rd.status === 'Activo';
-                if (activeFilter === 'inactive') return rd.status === 'Inactivo';
-                if (activeFilter === 'nodocs')   return rd.docs   === 'pendiente';
-            }
-            return true;
-        });
-
-        // ── 3. Inicializar DataTable (dom sin buscador nativo)
         var table = $('#clientsTable').DataTable({
             language: { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' },
             order: [[0, 'desc']],
             pageLength: 25,
             responsive: true,
-            dom: 'lrtip'
+            dom: 'lrtip',
+            columnDefs: [{
+                // Última columna: oculta visualmente pero buscable por column().search()
+                targets: -1,
+                visible: false,
+                searchable: true
+            }]
         });
 
-        // ── 4. Clic en stat cards
+        // ── Clic en stat cards → column(-1).search() con patrón exacto
         document.querySelectorAll('.stat-filter-card').forEach(function(card) {
             card.addEventListener('click', function() {
-                activeFilter = this.dataset.filter;
+                // Resaltado visual
                 document.querySelectorAll('.stat-filter-card').forEach(function(c) {
                     c.classList.remove(
                         'stat-card-active', 'stat-card-active-green',
@@ -825,24 +799,32 @@
                     );
                 });
                 this.classList.add(this.dataset.activeClass);
+
+                // Filtro por columna oculta (último índice)
+                var f = this.dataset.filter;
+                if (f === 'all')      table.column(-1).search('', false, false);
+                else if (f === 'active')   table.column(-1).search('^Activo',   true, false);
+                else if (f === 'inactive') table.column(-1).search('^Inactivo', true, false);
+                else if (f === 'nodocs')   table.column(-1).search('pendiente', false, false);
                 table.draw();
             });
         });
 
-        // ── 5. Buscador en tiempo real
+        // ── Buscador libre → table.search() sobre las columnas visibles
         var searchTimer;
         $('#clientQuickSearch').on('input', function() {
-            searchText = $(this).val().trim().toLowerCase();
-            $('#clearQuickSearch').toggle(searchText.length > 0);
+            var val = $(this).val();
+            $('#clearQuickSearch').toggle(val.length > 0);
             clearTimeout(searchTimer);
-            searchTimer = setTimeout(function() { table.draw(); }, 200);
+            searchTimer = setTimeout(function() {
+                table.search(val).draw();
+            }, 200);
         });
 
         $('#clearQuickSearch').on('click', function() {
-            searchText = '';
             $('#clientQuickSearch').val('');
             $(this).hide();
-            table.draw();
+            table.search('').draw();
         });
     });
 
