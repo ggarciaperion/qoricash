@@ -449,7 +449,8 @@ tr.row-selected { background: rgba(0,222,168,.06) !important; }
           <td class="com-check-col">
             {% if c.email %}
             <input type="checkbox" class="row-check" value="{{ c.id }}"
-                   data-nombre="{{ c.full_name }}" data-email="{{ c.email }}">
+                   data-nombre="{{ c.full_name }}" data-email="{{ c.email }}"
+                   data-tipo="{{ c.tipo }}">
             {% endif %}
           </td>
           <td>
@@ -542,21 +543,118 @@ tr.row-selected { background: rgba(0,222,168,.06) !important; }
   <button class="com-sel-clear" id="btnClearSel" title="Limpiar selección">×</button>
 </div>
 
-<!-- ── Modal: Resultados envío masivo ─────────────────────────── -->
+<!-- ── Modal: Borrador + envío masivo ─────────────────────────── -->
 <div class="modal fade com-modal" id="modalMasivo" tabindex="-1" data-bs-backdrop="static">
-  <div class="modal-dialog modal-dialog-centered" style="max-width:480px;">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:660px;width:660px;margin:1.75rem auto;">
     <div class="modal-content">
+
+      <!-- Header -->
       <div class="modal-header">
-        <div class="modal-title"><i class="bi bi-send-fill"></i> <span id="masivo-titulo">Enviando...</span></div>
+        <div class="modal-title">
+          <i class="bi bi-send-fill"></i>
+          <span id="masivo-titulo">Envío masivo — borrador</span>
+        </div>
+        <button type="button" class="btn-close" id="btnCerrarMasivoX"
+                data-bs-dismiss="modal" style="filter:invert(1) brightness(1.5);opacity:.7;"></button>
       </div>
-      <div class="modal-body" style="padding:16px 20px;">
-        <div id="masivo-lista" style="display:flex;flex-direction:column;gap:8px;max-height:320px;overflow-y:auto;"></div>
+
+      <!-- TC inputs + lista de clientes -->
+      <div style="padding:14px 20px;border-bottom:1px solid var(--qori-gray-100);">
+        <div class="d-flex align-items-center justify-content-between gap-3 flex-wrap">
+
+          <!-- Clientes seleccionados -->
+          <div>
+            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;
+                        color:var(--qori-gray-400);margin-bottom:6px;">Destinatarios</div>
+            <div id="masivo-chips" style="display:flex;flex-wrap:wrap;gap:5px;max-width:340px;"></div>
+          </div>
+
+          <!-- TC inputs -->
+          <div class="d-flex align-items-center gap-2">
+            <div style="text-align:center;">
+              <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;
+                          color:var(--qori-gray-400);margin-bottom:3px;">
+                <i class="bi bi-arrow-down-circle" style="color:var(--qori-info);"></i> Compramos
+              </div>
+              <input type="number" step="0.001" id="masivo-compra"
+                     {% if rate %}value="{{ '%.3f'|format(rate.buy_rate) }}"{% endif %}
+                     placeholder="3.750"
+                     style="width:90px;text-align:center;font-size:16px;font-weight:700;
+                            border:1.5px solid var(--qori-gray-200);border-radius:var(--radius-lg);
+                            padding:5px 8px;color:var(--qori-gray-900);outline:none;">
+            </div>
+            <div style="font-size:18px;color:var(--qori-gray-300);font-weight:300;padding-top:14px;">/</div>
+            <div style="text-align:center;">
+              <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;
+                          color:var(--qori-gray-400);margin-bottom:3px;">
+                <i class="bi bi-arrow-up-circle" style="color:#f87171;"></i> Vendemos
+              </div>
+              <input type="number" step="0.001" id="masivo-venta"
+                     {% if rate %}value="{{ '%.3f'|format(rate.sell_rate) }}"{% endif %}
+                     placeholder="3.770"
+                     style="width:90px;text-align:center;font-size:16px;font-weight:700;
+                            border:1.5px solid var(--qori-gray-200);border-radius:var(--radius-lg);
+                            padding:5px 8px;color:var(--qori-gray-900);outline:none;">
+            </div>
+            <button id="masivo-btnRefrescar" title="Regenerar borrador"
+                    style="margin-top:14px;padding:6px 10px;border-radius:var(--radius-lg);
+                           border:1.5px solid var(--qori-gray-200);background:white;
+                           color:var(--qori-gray-500);cursor:pointer;font-size:13px;">
+              <i class="bi bi-arrow-clockwise"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Nota muestra -->
+        <div style="margin-top:10px;padding:6px 10px;background:rgba(0,222,168,.06);
+                    border-radius:var(--radius-md);border-left:3px solid var(--qori-primary);">
+          <span style="font-size:11px;color:var(--qori-gray-500);">
+            <i class="bi bi-info-circle" style="color:var(--qori-primary);"></i>
+            Vista previa generada con el primer cliente seleccionado.
+            Cada destinatario recibirá el email personalizado con su nombre y tipo de operación.
+          </span>
+        </div>
       </div>
+
+      <!-- Preview iframe -->
+      <div style="max-height:72vh;overflow-y:auto;">
+        <div id="masivo-loading" style="display:flex;align-items:center;justify-content:center;
+             gap:10px;padding:56px;color:var(--qori-gray-400);font-size:13px;">
+          <div class="spinner-border spinner-border-sm" style="color:var(--qori-primary);"></div>
+          Generando borrador...
+        </div>
+        <iframe id="masivo-frame" scrolling="no"
+                style="display:none;width:100%;min-width:560px;border:0;overflow:hidden;"></iframe>
+      </div>
+
+      <!-- Footer -->
       <div class="modal-footer" style="justify-content:space-between;">
         <span id="masivo-resumen" style="font-size:12px;color:var(--qori-gray-500);"></span>
-        <button class="com-btn-primary" id="btnCerrarMasivo" style="display:none;" data-bs-dismiss="modal">
-          Cerrar
-        </button>
+        <div class="d-flex gap-2">
+          <button class="com-btn-ghost" data-bs-dismiss="modal" id="btnCancelarMasivo">Cancelar</button>
+          <button class="com-btn-primary" id="btnConfirmarMasivo">
+            <i class="bi bi-send-fill"></i> <span id="masivo-btn-label">Enviar</span>
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: Progreso envío masivo ────────────────────────────── -->
+<div class="modal fade com-modal" id="modalProgresoMasivo" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:460px;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="modal-title"><i class="bi bi-send-fill"></i> <span id="prog-titulo">Enviando...</span></div>
+      </div>
+      <div class="modal-body" style="padding:16px 20px;">
+        <div id="prog-lista" style="display:flex;flex-direction:column;gap:8px;max-height:320px;overflow-y:auto;"></div>
+      </div>
+      <div class="modal-footer" style="justify-content:space-between;">
+        <span id="prog-resumen" style="font-size:12px;color:var(--qori-gray-500);"></span>
+        <button class="com-btn-primary" id="btnCerrarProgreso" style="display:none;" data-bs-dismiss="modal">Cerrar</button>
       </div>
     </div>
   </div>
@@ -803,9 +901,47 @@ document.getElementById('btnClearSel').addEventListener('click', function() {
 });
 
 // ── Envío masivo ──────────────────────────────────────────────────────────────
+var _masivoChecked  = [];   // array de checkboxes seleccionados
+var _modalMasivoBS  = null;
+var _modalProgresoBS = null;
+
+function masivoGenerarPreview() {
+  if (!_masivoChecked.length) return;
+  var firstId = _masivoChecked[0].value;
+  var compra  = document.getElementById('masivo-compra').value.trim();
+  var venta   = document.getElementById('masivo-venta').value.trim();
+  if (!compra || !venta) return;
+
+  var frame   = document.getElementById('masivo-frame');
+  var loading = document.getElementById('masivo-loading');
+  frame.style.display   = 'none';
+  loading.style.display = 'flex';
+
+  fetch('/comercial/preview-precio/' + firstId
+        + '?compra=' + encodeURIComponent(compra)
+        + '&venta='  + encodeURIComponent(venta)
+        + '&tipo='   + encodeURIComponent(_masivoChecked[0].dataset.tipo || 'Mixto'))
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    loading.style.display = 'none';
+    if (!data.ok) { return; }
+    frame.srcdoc = data.html;
+    frame.onload = function() {
+      frame.style.display = '';
+      try {
+        frame.contentDocument.designMode = 'on';
+        var h = frame.contentDocument.documentElement.scrollHeight
+             || frame.contentDocument.body.scrollHeight;
+        frame.style.height = (h + 20) + 'px';
+      } catch(e) { frame.style.height = '800px'; }
+    };
+  })
+  .catch(function() { loading.style.display = 'none'; });
+}
+
 document.getElementById('btnEnviarMasivo').addEventListener('click', function() {
-  var checked = getChecked();
-  if (!checked.length) return;
+  _masivoChecked = getChecked();
+  if (!_masivoChecked.length) return;
 
   var restantes = LIMITE_DIARIO - _enviosHoy;
   if (restantes <= 0) {
@@ -815,108 +951,123 @@ document.getElementById('btnEnviarMasivo').addEventListener('click', function() 
     return;
   }
 
-  // Pedir compra y venta
-  Swal.fire({
-    title: 'Tipo de cambio — envío masivo',
-    html:
-      '<div style="display:flex;gap:16px;justify-content:center;margin-top:8px;">' +
-        '<div><label style="font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;">Compramos</label>' +
-          '<input id="sw-compra" type="number" step="0.001" class="swal2-input" style="width:110px;font-size:18px;font-weight:700;text-align:center;"></div>' +
-        '<div><label style="font-size:11px;font-weight:700;color:#64748B;text-transform:uppercase;">Vendemos</label>' +
-          '<input id="sw-venta" type="number" step="0.001" class="swal2-input" style="width:110px;font-size:18px;font-weight:700;text-align:center;"></div>' +
-      '</div>' +
-      '<p style="margin-top:12px;font-size:12px;color:#64748B;">Se enviará a <strong>' + checked.length + ' clientes</strong>. ' +
-      'Quedan <strong>' + restantes + '</strong> de tu cuota diaria.</p>',
-    confirmButtonText: 'Enviar',
-    confirmButtonColor: '#00DEA8',
-    showCancelButton: true,
-    cancelButtonText: 'Cancelar',
-    didOpen: function() {
-      {% if rate %}
-      document.getElementById('sw-compra').value = '{{ "%.3f"|format(rate.buy_rate) }}';
-      document.getElementById('sw-venta').value  = '{{ "%.3f"|format(rate.sell_rate) }}';
-      {% endif %}
+  // Renderizar chips de destinatarios
+  var chips = document.getElementById('masivo-chips');
+  chips.innerHTML = '';
+  _masivoChecked.forEach(function(chk) {
+    var chip = document.createElement('span');
+    chip.style.cssText = 'font-size:11px;font-weight:600;padding:2px 10px;border-radius:20px;' +
+                         'background:var(--qori-primary-light);color:var(--qori-primary);white-space:nowrap;';
+    chip.textContent = chk.dataset.nombre.split(' ')[0];
+    chips.appendChild(chip);
+  });
+
+  // Label botón confirmar
+  document.getElementById('masivo-btn-label').textContent =
+    'Enviar a ' + _masivoChecked.length + ' cliente' + (_masivoChecked.length > 1 ? 's' : '');
+  document.getElementById('masivo-resumen').textContent =
+    'Quedan ' + restantes + ' de tu cuota diaria.';
+  document.getElementById('btnCancelarMasivo').style.display = '';
+  document.getElementById('btnConfirmarMasivo').disabled = false;
+  document.getElementById('btnConfirmarMasivo').innerHTML =
+    '<i class="bi bi-send-fill"></i> <span id="masivo-btn-label">Enviar a ' + _masivoChecked.length + ' cliente' + (_masivoChecked.length > 1 ? 's' : '') + '</span>';
+
+  // Resetear iframe
+  var frame = document.getElementById('masivo-frame');
+  frame.style.display = 'none';
+  frame.srcdoc = '';
+  document.getElementById('masivo-loading').style.display = 'flex';
+
+  _modalMasivoBS = new bootstrap.Modal(document.getElementById('modalMasivo'));
+  _modalMasivoBS.show();
+  masivoGenerarPreview();
+});
+
+// Refrescar borrador masivo
+document.getElementById('masivo-btnRefrescar').addEventListener('click', function() {
+  this.disabled = true;
+  this.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+  masivoGenerarPreview();
+  var btn = this;
+  setTimeout(function() {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-arrow-clockwise"></i>';
+  }, 1200);
+});
+
+// Confirmar y enviar masivo
+document.getElementById('btnConfirmarMasivo').addEventListener('click', function() {
+  var compra = document.getElementById('masivo-compra').value.trim();
+  var venta  = document.getElementById('masivo-venta').value.trim();
+  if (!compra || !venta || isNaN(compra) || isNaN(venta)) {
+    Swal.fire({ icon: 'warning', title: 'Faltan datos', text: 'Ingresa compra y venta válidos.',
+      confirmButtonColor: '#00DEA8' });
+    return;
+  }
+
+  var ids = _masivoChecked.map(function(chk) { return parseInt(chk.value); });
+
+  // Cerrar modal borrador y abrir modal progreso
+  bootstrap.Modal.getInstance(document.getElementById('modalMasivo')).hide();
+
+  document.getElementById('prog-titulo').textContent = 'Enviando a ' + ids.length + ' clientes...';
+  document.getElementById('prog-resumen').textContent = '';
+  document.getElementById('btnCerrarProgreso').style.display = 'none';
+
+  var lista = document.getElementById('prog-lista');
+  lista.innerHTML = '';
+  _masivoChecked.forEach(function(chk) {
+    var li = document.createElement('div');
+    li.id  = 'prog-row-' + chk.value;
+    li.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;background:#F8FAFC;';
+    li.innerHTML =
+      '<span style="font-size:13px;flex:1;font-weight:500;color:#0D1B2A;">' + chk.dataset.nombre + '</span>' +
+      '<span style="font-size:11px;color:#94A3B8;max-width:160px;overflow:hidden;text-overflow:ellipsis;">' + chk.dataset.email + '</span>' +
+      '<span class="spinner-border spinner-border-sm" style="color:#00DEA8;width:14px;height:14px;flex-shrink:0;"></span>';
+    lista.appendChild(li);
+  });
+
+  _modalProgresoBS = new bootstrap.Modal(document.getElementById('modalProgresoMasivo'));
+  _modalProgresoBS.show();
+
+  fetch('/comercial/enviar-masivo', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
     },
-    preConfirm: function() {
-      var c = document.getElementById('sw-compra').value.trim();
-      var v = document.getElementById('sw-venta').value.trim();
-      if (!c || !v || isNaN(c) || isNaN(v)) {
-        Swal.showValidationMessage('Ingresa compra y venta válidos');
-        return false;
-      }
-      return { compra: c, venta: v };
-    }
-  }).then(function(result) {
-    if (!result.isConfirmed) return;
-
-    var ids     = checked.map(function(chk) { return parseInt(chk.value); });
-    var compra  = result.value.compra;
-    var venta   = result.value.venta;
-
-    // Abrir modal de progreso
-    var modal = new bootstrap.Modal(document.getElementById('modalMasivo'));
-    document.getElementById('masivo-titulo').textContent = 'Enviando a ' + ids.length + ' clientes...';
-    document.getElementById('masivo-resumen').textContent = '';
-    document.getElementById('btnCerrarMasivo').style.display = 'none';
-
-    var lista = document.getElementById('masivo-lista');
-    lista.innerHTML = '';
-    checked.forEach(function(chk) {
-      var li = document.createElement('div');
-      li.id  = 'masivo-row-' + chk.value;
-      li.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;background:#F8FAFC;';
-      li.innerHTML =
-        '<span style="font-size:13px;flex:1;font-weight:500;color:#0D1B2A;">' + chk.dataset.nombre + '</span>' +
-        '<span style="font-size:11px;color:#94A3B8;">' + chk.dataset.email + '</span>' +
-        '<span class="spinner-border spinner-border-sm" style="color:#00DEA8;width:14px;height:14px;"></span>';
-      lista.appendChild(li);
+    body: JSON.stringify({ client_ids: ids, compra: compra, venta: venta }),
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    (data.resultados || []).forEach(function(r) {
+      var row = document.getElementById('prog-row-' + r.id);
+      if (!row) return;
+      var spin = row.querySelector('.spinner-border');
+      if (spin) spin.outerHTML = r.ok
+        ? '<i class="bi bi-check-circle-fill" style="color:#16a34a;font-size:15px;flex-shrink:0;"></i>'
+        : '<i class="bi bi-x-circle-fill" style="color:#dc2626;font-size:15px;flex-shrink:0;"></i>';
+      if (!r.ok) row.style.background = 'rgba(239,68,68,.05)';
     });
-    modal.show();
+    var enviados = data.enviados || 0;
+    var errores  = data.errores  || 0;
+    document.getElementById('prog-titulo').textContent = '¡Listo!';
+    document.getElementById('prog-resumen').innerHTML =
+      '<strong style="color:#16a34a;">' + enviados + ' enviados</strong>' +
+      (errores ? ' · <strong style="color:#dc2626;">' + errores + ' errores</strong>' : '') +
+      ' · Cuota hoy: ' + (data.envios_hoy || 0) + ' / ' + LIMITE_DIARIO;
+    document.getElementById('btnCerrarProgreso').style.display = '';
+    _enviosHoy = data.envios_hoy || _enviosHoy;
 
-    // Enviar request
-    fetch('/comercial/enviar-masivo', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-      },
-      body: JSON.stringify({ client_ids: ids, compra: compra, venta: venta }),
-    })
-    .then(function(r) { return r.json(); })
-    .then(function(data) {
-      // Actualizar filas con resultado
-      (data.resultados || []).forEach(function(r) {
-        var row = document.getElementById('masivo-row-' + r.id);
-        if (!row) return;
-        var icon = r.ok
-          ? '<i class="bi bi-check-circle-fill" style="color:#16a34a;font-size:15px;"></i>'
-          : '<i class="bi bi-x-circle-fill" style="color:#dc2626;font-size:15px;"></i>';
-        row.querySelector('.spinner-border').outerHTML = icon;
-        if (!r.ok) row.style.background = 'rgba(239,68,68,.05)';
-      });
-
-      // Resumen
-      var enviados = data.enviados || 0;
-      var errores  = data.errores  || 0;
-      document.getElementById('masivo-titulo').textContent = '¡Listo!';
-      document.getElementById('masivo-resumen').innerHTML =
-        '<strong style="color:#16a34a;">' + enviados + ' enviados</strong>' +
-        (errores ? ' · <strong style="color:#dc2626;">' + errores + ' errores</strong>' : '') +
-        ' · Cuota hoy: ' + (data.envios_hoy || 0) + ' / ' + LIMITE_DIARIO;
-      document.getElementById('btnCerrarMasivo').style.display = '';
-      _enviosHoy = data.envios_hoy || _enviosHoy;
-
-      // Limpiar selección
-      document.querySelectorAll('.row-check').forEach(function(c) {
-        c.checked = false; c.closest('tr').classList.remove('row-selected');
-      });
-      document.getElementById('checkAll').checked = false;
-      actualizarSelBar();
-    })
-    .catch(function() {
-      document.getElementById('masivo-titulo').textContent = 'Error de conexión';
-      document.getElementById('btnCerrarMasivo').style.display = '';
+    document.querySelectorAll('.row-check').forEach(function(c) {
+      c.checked = false; c.closest('tr').classList.remove('row-selected');
     });
+    document.getElementById('checkAll').checked = false;
+    actualizarSelBar();
+  })
+  .catch(function() {
+    document.getElementById('prog-titulo').textContent = 'Error de conexión';
+    document.getElementById('btnCerrarProgreso').style.display = '';
   });
 });
 </script>
