@@ -840,14 +840,9 @@ def get_top_clients():
     for r in results:
         client = Client.query.get(r.client_id)
         if client:
-            if client.document_type == 'RUC':
-                name = client.razon_social or f'RUC {client.dni}'
-            else:
-                parts = [client.apellido_paterno, client.apellido_materno, client.nombres]
-                name = ' '.join(p for p in parts if p) or f'Cliente {client.dni}'
             top_clients.append({
                 'client_id': r.client_id,
-                'name': name,
+                'name': client.full_name or f'Cliente {client.dni}',
                 'dni': client.dni,
                 'total_usd': float(r.total_usd),
                 'total_pen': float(r.total_pen),
@@ -975,11 +970,7 @@ def client_search():
 
     clients_data = []
     for c in clients_found:
-        if c.document_type == 'RUC':
-            name = c.razon_social or f'RUC {c.dni}'
-        else:
-            parts = [c.apellido_paterno, c.apellido_materno, c.nombres]
-            name = ' '.join(p for p in parts if p) or f'Cliente {c.dni}'
+        name = c.full_name or f'Cliente {c.dni}'
 
         op_count_q = Operation.query.filter(
             Operation.client_id == c.id,
@@ -1049,16 +1040,10 @@ def get_client_operations(client_id):
             'date': op.created_at.strftime('%d/%m/%Y %H:%M')
         })
 
-    if client.document_type == 'RUC':
-        name = client.razon_social or f'RUC {client.dni}'
-    else:
-        parts = [client.apellido_paterno, client.apellido_materno, client.nombres]
-        name = ' '.join(p for p in parts if p) or f'Cliente {client.dni}'
-
     return jsonify({
         'client': {
             'id': client.id,
-            'name': name,
+            'name': client.full_name or f'Cliente {client.dni}',
             'dni': client.dni,
             'email': client.email,
             'status': client.status
@@ -1129,11 +1114,7 @@ def get_profit_per_operation():
 
         client = op.client
         if client:
-            if client.document_type == 'RUC':
-                client_name = client.razon_social or f'RUC {client.dni}'
-            else:
-                parts = [client.apellido_paterno, client.apellido_materno, client.nombres]
-                client_name = ' '.join(p for p in parts if p) or f'Cliente {client.dni}'
+            client_name = client.full_name or f'Cliente {client.dni}'
         else:
             client_name = 'N/A'
 
@@ -1220,14 +1201,9 @@ def get_top_clients_profit():
     for cid in top_ids:
         client = Client.query.get(cid)
         if client:
-            if client.document_type == 'RUC':
-                name = client.razon_social or f'RUC {client.dni}'
-            else:
-                parts = [client.apellido_paterno, client.apellido_materno, client.nombres]
-                name = ' '.join(p for p in parts if p) or f'Cliente {client.dni}'
             top_clients.append({
                 'client_id': cid,
-                'name': name,
+                'name': client.full_name or f'Cliente {client.dni}',
                 'dni': client.dni,
                 'total_profit': round(profit_map[cid], 2),
                 'op_count': ops_map[cid],
@@ -1286,14 +1262,9 @@ def get_top_clients_ops():
     for r in results:
         client = Client.query.get(r.client_id)
         if client:
-            if client.document_type == 'RUC':
-                name = client.razon_social or f'RUC {client.dni}'
-            else:
-                parts = [client.apellido_paterno, client.apellido_materno, client.nombres]
-                name = ' '.join(p for p in parts if p) or f'Cliente {client.dni}'
             top_clients.append({
                 'client_id': r.client_id,
-                'name': name,
+                'name': client.full_name or f'Cliente {client.dni}',
                 'dni': client.dni,
                 'op_count': int(r.op_count),
                 'total_usd': float(r.total_usd),

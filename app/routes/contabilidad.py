@@ -6,6 +6,7 @@ from flask import Blueprint, render_template, request, jsonify, send_file
 from flask_login import login_required, current_user
 from app.extensions import db, csrf
 from app.utils.decorators import require_role
+from app.utils.formatters import now_peru
 from datetime import date, datetime
 from decimal import Decimal
 from io import BytesIO
@@ -252,7 +253,7 @@ def anular_asiento(entry_id):
 
         # Marcar original como anulado
         entry.status          = 'anulado'
-        entry.annulled_at     = datetime.utcnow()
+        entry.annulled_at     = now_peru()
         entry.annulled_by     = current_user.id
         entry.annulled_reason = motivo
         db.session.flush()
@@ -942,7 +943,7 @@ def crear_apertura():
         if existing and forzar:
             # Anular el asiento previo antes de crear el nuevo
             existing.status        = 'anulado'
-            existing.annulled_at   = datetime.utcnow()
+            existing.annulled_at   = now_peru()
             existing.annulled_by   = current_user.id
             existing.annulled_reason = 'Reemplazado por nuevo asiento de apertura'
             db.session.flush()

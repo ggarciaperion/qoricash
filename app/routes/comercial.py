@@ -12,7 +12,7 @@ from flask import Blueprint, render_template, request, jsonify, current_app
 from flask_login import login_required, current_user
 from sqlalchemy import func, distinct
 
-import time
+import eventlet
 from app.extensions import db, csrf
 from app.models.client import Client
 from app.models.operation import Operation
@@ -20,6 +20,7 @@ from app.models.exchange_rate import ExchangeRate
 from app.models.user import User
 from app.models.comercial_envio import ComercialEnvio
 from app.utils.decorators import require_role
+from app.utils.formatters import now_peru
 
 # ── Importar utilidades de email desde prospeccion ───────────────────────────
 from app.routes.prospeccion import (
@@ -94,7 +95,7 @@ LIMITE_DIARIO = 50   # máx. por usuario por día
 def _count_hoy(user_id: int) -> int:
     """Emails de TC enviados hoy desde Comercial por este usuario."""
     from sqlalchemy import func
-    hoy = datetime.utcnow().date()
+    hoy = now_peru().date()
     return (
         db.session.query(func.count(ComercialEnvio.id))
         .filter(
@@ -640,7 +641,7 @@ def enviar_masivo():
             current_app.logger.error(f"[Comercial Masivo] Error enviando a {c.email}: {e}")
             resultados.append({"id": cid, "nombre": c.full_name or str(cid), "ok": False, "msg": str(e)})
 
-        time.sleep(1)  # pausa entre envíos
+        eventlet.sleep(1)  # pausa cooperativa — no bloquea el worker
 
     try:
         db.session.commit()

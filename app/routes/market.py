@@ -7,6 +7,7 @@ from flask import Blueprint, render_template, jsonify, request
 from flask_login import login_required
 from app.extensions import csrf
 from app.utils.decorators import require_role as role_required
+from app.utils.formatters import now_peru
 from app.services.market.market_service import MarketService
 
 logger = logging.getLogger(__name__)
@@ -97,7 +98,6 @@ def api_macro_update():
     from flask import request
     from app.extensions import db
     from app.models.market import MacroIndicator
-    from datetime import datetime
     data = request.get_json()
     key = data.get('key')
     if not key:
@@ -112,7 +112,7 @@ def api_macro_update():
     if 'notes' in data:
         ind.notes = data['notes']
     ind.source     = 'manual'
-    ind.updated_at = datetime.utcnow()
+    ind.updated_at = now_peru()
     db.session.commit()
     return jsonify({'success': True, 'indicator': ind.to_dict()})
 
