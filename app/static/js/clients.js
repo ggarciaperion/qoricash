@@ -743,15 +743,17 @@ function editClient(clientId) {
                     // Esperar a que los departamentos estén cargados
                     setTimeout(async () => {
                         if (departamentoField) {
-                            departamentoField.value = client.departamento;
+                            // Matching case-insensitive: peru_locations.json usa MAYÚSCULAS
+                            // pero clientes registrados desde web usan title case (ubigeo.ts)
+                            setSelectValueCI(departamentoField, client.departamento);
                             await loadProvincias();
 
                             if (client.provincia && provinciaField) {
-                                provinciaField.value = client.provincia;
+                                setSelectValueCI(provinciaField, client.provincia);
                                 await loadDistritos();
 
                                 if (client.distrito && distritoField) {
-                                    distritoField.value = client.distrito;
+                                    setSelectValueCI(distritoField, client.distrito);
                                 }
                             }
                         }
@@ -2273,6 +2275,25 @@ document.addEventListener('DOMContentLoaded', function() {
  */
 
 let peruLocationsData = null;
+
+/**
+ * Seleccionar una opción en un <select> de forma case-insensitive.
+ * Necesario porque peru_locations.json usa MAYÚSCULAS pero los clientes
+ * registrados desde la web guardan valores en title case (ubigeo.ts).
+ * @param {HTMLSelectElement} select
+ * @param {string} value
+ * @returns {boolean} true si encontró y seleccionó la opción
+ */
+function setSelectValueCI(select, value) {
+    if (!select || !value) return false;
+    const upper = value.toUpperCase().trim();
+    const match = Array.from(select.options).find(o => o.value.toUpperCase() === upper);
+    if (match) {
+        select.value = match.value;
+        return true;
+    }
+    return false;
+}
 
 /**
  * Cargar datos de ubicaciones de Perú
