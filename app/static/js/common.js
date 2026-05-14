@@ -317,6 +317,59 @@ function connectSocketIO() {
             }
         }
     });
+
+    // ============================================
+    // EVENTOS DE REASIGNACIÓN DE CLIENTES
+    // ============================================
+
+    socket.on('cliente_asignado', function(data) {
+        console.log('📋 Cliente asignado recibido:', data);
+
+        const clientName = data.client_name || 'Cliente';
+        const clientDni  = data.client_dni  || '';
+
+        // Popup modal prominente para el Trader que recibe el cliente
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                icon: 'info',
+                title: '¡Cliente Asignado!',
+                html: `<p>Se te ha asignado el siguiente cliente:</p>
+                       <p style="font-size:1.1em;font-weight:700;color:#0D1B2A;">${clientName}</p>
+                       <p style="color:#64748b;font-size:0.9em;">${clientDni}</p>`,
+                confirmButtonText: 'Ver cliente',
+                showCancelButton: true,
+                cancelButtonText: 'Cerrar',
+                confirmButtonColor: '#5CB85C',
+                allowOutsideClick: false,
+            }).then(function(result) {
+                if (result.isConfirmed && data.client_id) {
+                    window.location.href = '/clients/' + data.client_id;
+                }
+            });
+        } else {
+            showNotification(`Se te asignó el cliente: ${clientName}`, 'info', 10000);
+        }
+
+        playNotificationSound();
+        if (window._menuBadgeInc) window._menuBadgeInc('clients');
+
+        if (typeof refreshClientsTable === 'function') {
+            refreshClientsTable();
+        }
+    });
+
+    socket.on('cliente_reasignado_removido', function(data) {
+        console.log('📋 Cliente reasignado removido:', data);
+
+        const clientName = data.client_name || 'Cliente';
+
+        // Notificación de aviso para el Trader que pierde el cliente
+        showNotification(`El cliente ${clientName} fue reasignado a otro ejecutivo`, 'warning', 8000);
+
+        if (typeof refreshClientsTable === 'function') {
+            refreshClientsTable();
+        }
+    });
 }
 
 /**
