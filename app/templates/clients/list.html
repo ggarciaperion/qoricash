@@ -56,6 +56,26 @@
         opacity: .7;
     }
     .text-uppercase-input { text-transform: uppercase; }
+
+    /* ── Stat cards clicables ──────────────────────────────────── */
+    .stat-filter-card {
+        cursor: pointer;
+        transition: transform .15s, box-shadow .15s;
+        user-select: none;
+    }
+    .stat-filter-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(0,0,0,.12) !important;
+    }
+    .stat-filter-card.stat-card-active {
+        box-shadow: 0 0 0 3px rgba(13,110,253,.35) !important;
+    }
+    .stat-filter-card.stat-card-active-green  { box-shadow: 0 0 0 3px rgba(25,135,84,.35)  !important; }
+    .stat-filter-card.stat-card-active-yellow { box-shadow: 0 0 0 3px rgba(255,193,7,.5)   !important; }
+    .stat-filter-card.stat-card-active-gray   { box-shadow: 0 0 0 3px rgba(108,117,125,.35)!important; }
+
+    /* ── Buscador rápido ─────────────────────────────────────────*/
+    #clientQuickSearch:focus { box-shadow: 0 0 0 .2rem rgba(13,110,253,.15); border-color: #86b7fe; }
 </style>
 {% endblock %}
 
@@ -84,10 +104,13 @@
         </div>
     </div>
 
-    <!-- Stats rápidos -->
+    <!-- Stats rápidos — clic para filtrar tabla -->
     <div class="row g-3 mb-3">
         <div class="col-6 col-md-3">
-            <div class="card border-0 shadow-sm h-100" style="border-left:4px solid #0d6efd!important;">
+            <div class="card border-0 shadow-sm h-100 stat-filter-card stat-card-active"
+                 data-filter="all" data-active-class="stat-card-active"
+                 style="border-left:4px solid #0d6efd!important;"
+                 title="Ver todos los clientes">
                 <div class="card-body py-3 px-3">
                     <div class="d-flex align-items-center gap-3">
                         <span class="fs-4 text-primary"><i class="bi bi-people-fill"></i></span>
@@ -100,7 +123,10 @@
             </div>
         </div>
         <div class="col-6 col-md-3">
-            <div class="card border-0 shadow-sm h-100" style="border-left:4px solid #198754!important;">
+            <div class="card border-0 shadow-sm h-100 stat-filter-card"
+                 data-filter="active" data-active-class="stat-card-active-green"
+                 style="border-left:4px solid #198754!important;"
+                 title="Filtrar solo activos">
                 <div class="card-body py-3 px-3">
                     <div class="d-flex align-items-center gap-3">
                         <span class="fs-4 text-success"><i class="bi bi-person-check-fill"></i></span>
@@ -113,7 +139,10 @@
             </div>
         </div>
         <div class="col-6 col-md-3">
-            <div class="card border-0 shadow-sm h-100" style="border-left:4px solid #ffc107!important;">
+            <div class="card border-0 shadow-sm h-100 stat-filter-card"
+                 data-filter="nodocs" data-active-class="stat-card-active-yellow"
+                 style="border-left:4px solid #ffc107!important;"
+                 title="Filtrar clientes sin documentos">
                 <div class="card-body py-3 px-3">
                     <div class="d-flex align-items-center gap-3">
                         <span class="fs-4 text-warning"><i class="bi bi-file-earmark-x-fill"></i></span>
@@ -126,7 +155,10 @@
             </div>
         </div>
         <div class="col-6 col-md-3">
-            <div class="card border-0 shadow-sm h-100" style="border-left:4px solid #6c757d!important;">
+            <div class="card border-0 shadow-sm h-100 stat-filter-card"
+                 data-filter="inactive" data-active-class="stat-card-active-gray"
+                 style="border-left:4px solid #6c757d!important;"
+                 title="Filtrar solo inactivos">
                 <div class="card-body py-3 px-3">
                     <div class="d-flex align-items-center gap-3">
                         <span class="fs-4 text-secondary"><i class="bi bi-person-dash-fill"></i></span>
@@ -145,21 +177,20 @@
         <div class="col-md-12">
             <div class="card">
                 <div class="card-body">
-                    <!-- Filtros rápidos -->
-                    <div class="d-flex gap-2 mb-3 flex-wrap align-items-center">
-                        <span class="text-muted small me-1"><i class="bi bi-funnel"></i></span>
-                        <button class="btn btn-sm btn-primary filter-pill" data-filter="all">
-                            Todos <span class="badge bg-white text-primary ms-1">{{ stats.total }}</span>
-                        </button>
-                        <button class="btn btn-sm btn-outline-secondary filter-pill" data-filter="active">
-                            Activos <span class="badge bg-success ms-1">{{ stats.active }}</span>
-                        </button>
-                        <button class="btn btn-sm btn-outline-secondary filter-pill" data-filter="inactive">
-                            Inactivos <span class="badge bg-secondary ms-1">{{ stats.inactive }}</span>
-                        </button>
-                        <button class="btn btn-sm btn-outline-secondary filter-pill" data-filter="nodocs">
-                            Sin Docs <span class="badge bg-warning text-dark ms-1">{{ stats.no_docs }}</span>
-                        </button>
+                    <!-- Buscador en tiempo real -->
+                    <div class="mb-3">
+                        <div class="input-group">
+                            <span class="input-group-text bg-white border-end-0 text-muted">
+                                <i class="bi bi-search"></i>
+                            </span>
+                            <input type="text" id="clientQuickSearch"
+                                   class="form-control border-start-0 ps-0"
+                                   placeholder="Buscar por nombre, documento, correo, teléfono…">
+                            <button class="btn btn-outline-secondary" id="clearQuickSearch"
+                                    type="button" style="display:none" title="Limpiar búsqueda">
+                                <i class="bi bi-x-lg"></i>
+                            </button>
+                        </div>
                     </div>
 
                     <table id="clientsTable" class="table table-hover">
@@ -738,11 +769,11 @@
 <!-- La variable window.currentUserRole ya está definida en base.html -->
 <script src="{{ url_for('static', filename='js/clients.js') }}?v=20250110_provincia"></script>
 <script>
-    // Inicializar DataTable con filtros rápidos
+    // Inicializar DataTable con filtro por cards y buscador en tiempo real
     $(document).ready(function() {
         let activeFilter = 'all';
 
-        // Extensión de búsqueda personalizada para pills
+        // Extensión de búsqueda: filtra por card activa (status / docs)
         $.fn.dataTable.ext.search.push(function(settings, data, dataIndex) {
             if (settings.nTable.id !== 'clientsTable') return true;
             if (activeFilter === 'all') return true;
@@ -755,26 +786,47 @@
         });
 
         var table = $('#clientsTable').DataTable({
-            language: {
-                url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
-            },
+            language: { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' },
             order: [[0, 'desc']],
             pageLength: 25,
-            responsive: true
+            responsive: true,
+            dom: 'lrtip'   // sin buscador nativo de DataTable (usamos el propio)
         });
 
-        // Click en pills de filtro
-        document.querySelectorAll('.filter-pill').forEach(function(pill) {
-            pill.addEventListener('click', function() {
+        // Clic en stat cards
+        document.querySelectorAll('.stat-filter-card').forEach(function(card) {
+            card.addEventListener('click', function() {
                 activeFilter = this.dataset.filter;
-                document.querySelectorAll('.filter-pill').forEach(function(p) {
-                    p.classList.remove('btn-primary', 'active');
-                    p.classList.add('btn-outline-secondary');
+                // quitar estado activo de todas las cards
+                document.querySelectorAll('.stat-filter-card').forEach(function(c) {
+                    c.classList.remove(
+                        'stat-card-active',
+                        'stat-card-active-green',
+                        'stat-card-active-yellow',
+                        'stat-card-active-gray'
+                    );
                 });
-                this.classList.remove('btn-outline-secondary');
-                this.classList.add('btn-primary', 'active');
+                // aplicar clase activa según color de la card
+                this.classList.add(this.dataset.activeClass);
                 table.draw();
             });
+        });
+
+        // Buscador en tiempo real
+        var searchTimer;
+        $('#clientQuickSearch').on('input', function() {
+            var val = $(this).val();
+            $('#clearQuickSearch').toggle(val.length > 0);
+            clearTimeout(searchTimer);
+            searchTimer = setTimeout(function() {
+                table.search(val).draw();
+            }, 200);
+        });
+
+        $('#clearQuickSearch').on('click', function() {
+            $('#clientQuickSearch').val('');
+            $(this).hide();
+            table.search('').draw();
         });
     });
 
