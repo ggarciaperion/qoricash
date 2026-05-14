@@ -393,6 +393,10 @@ class ClientService:
             logger.info(f"📦 Datos recibidos: {list(data.keys())}")
             logger.info(f"📦 Valores: {data}")
 
+            if user_role == 'Trader' and client.created_by != current_user.id:
+                logger.warning(f"⛔ Trader {current_user.username} intentó editar cliente {client_id} que no le pertenece")
+                return False, 'Solo puedes editar los clientes de tu propia cartera', None
+
             if user_role == 'Trader':
                 # Campos permitidos para Trader:
                 # 1. Cuentas bancarias
@@ -914,6 +918,8 @@ class ClientService:
 
             # Reasignar
             client.created_by = new_trader_id
+            from datetime import datetime
+            client.reassigned_at = datetime.utcnow()
 
             # Auditoría: registrar antes del commit
             try:

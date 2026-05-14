@@ -45,9 +45,27 @@ def list_clients():
         from app.models.user import User
         clients = ClientService.get_all_clients(exclude_user_id=User.get_demo_user_id())
 
+    stats = {
+        'total':      len(clients),
+        'active':     sum(1 for c in clients if c.status == 'Activo'),
+        'inactive':   sum(1 for c in clients if c.status == 'Inactivo'),
+        'no_docs':    sum(1 for c in clients if not c.has_complete_documents),
+    }
+
+    risk_map = {}
+    if clients:
+        from app.models.compliance import ClientRiskProfile
+        from sqlalchemy.orm import joinedload
+        ids = [c.id for c in clients]
+        rps = ClientRiskProfile.query.options(joinedload(ClientRiskProfile.risk_level))\
+                .filter(ClientRiskProfile.client_id.in_(ids)).all()
+        risk_map = {rp.client_id: rp for rp in rps}
+
     return render_template('clients/list.html',
                            user=current_user,
-                           clients=clients)
+                           clients=clients,
+                           stats=stats,
+                           risk_map=risk_map)
 
 
 @clients_bp.route('/api/badge_count')
