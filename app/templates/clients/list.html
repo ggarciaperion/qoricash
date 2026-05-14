@@ -89,16 +89,9 @@
         <div class="col-md-12">
             <div class="card">
                 <div class="card-body">
-                    <div class="mb-3 d-flex gap-2">
-                        <input type="text" id="clientSearch"
-                               class="form-control"
+                    <div class="mb-3">
+                        <input type="text" id="clientSearch" class="form-control"
                                placeholder="Buscar por nombre, documento, email, teléfono…">
-                        <button class="btn btn-outline-secondary" id="btnClientSearch" type="button">
-                            <i class="bi bi-search"></i> Buscar
-                        </button>
-                        <button class="btn btn-outline-danger" id="btnClientClear" type="button" style="display:none">
-                            <i class="bi bi-x"></i>
-                        </button>
                     </div>
                     <table id="clientsTable" class="table table-hover">
                         <thead>
@@ -123,7 +116,8 @@
                         </thead>
                         <tbody>
                             {% for c in clients %}
-                            <tr data-client-id="{{ c.id }}">
+                            <tr class="cliente-row" data-client-id="{{ c.id }}"
+                                data-search="{{ (c.full_name ~ ' ' ~ c.dni ~ ' ' ~ (c.email or '') ~ ' ' ~ (c.phone or ''))|lower }}">
                                 {% if current_user.role == 'Master' %}
                                 <td><input type="checkbox" class="client-checkbox" value="{{ c.id }}"></td>
                                 {% endif %}
@@ -633,33 +627,21 @@
 <!-- La variable window.currentUserRole ya está definida en base.html -->
 <script src="{{ url_for('static', filename='js/clients.js') }}?v=20250110_provincia"></script>
 <script>
-    // Inicializar DataTable + buscador en tiempo real
+    // DataTable solo para ordenamiento; paging:false mantiene todos los <tr> en el DOM
     $(document).ready(function() {
-        var table = $('#clientsTable').DataTable({
+        $('#clientsTable').DataTable({
             language: { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' },
-            order: [[0, 'desc']],
-            pageLength: 25,
-            responsive: true,
-            dom: 'lrtip'
+            order:    [[0, 'desc']],
+            paging:   false,
+            dom:      'ti'
         });
+    });
 
-        // Tiempo real al escribir (keyup — patrón oficial DataTables)
-        $('#clientSearch').on('keyup', function() {
-            table.search(this.value).draw();
-            $('#btnClientClear').toggle(this.value.length > 0);
-        });
-
-        // Botón Buscar (respaldo)
-        $('#btnClientSearch').on('click', function() {
-            table.search($('#clientSearch').val()).draw();
-            $('#btnClientClear').toggle($('#clientSearch').val().length > 0);
-        });
-
-        // Botón Limpiar
-        $('#btnClientClear').on('click', function() {
-            $('#clientSearch').val('');
-            $(this).hide();
-            table.search('').draw();
+    // Filtro en tiempo real — idéntico al menú Comercial (vanilla JS, sin DataTables)
+    document.getElementById('clientSearch').addEventListener('input', function() {
+        var q = this.value.toLowerCase();
+        document.querySelectorAll('.cliente-row').forEach(function(row) {
+            row.style.display = row.dataset.search.includes(q) ? '' : 'none';
         });
     });
 
