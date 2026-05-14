@@ -732,19 +732,12 @@
 <!-- La variable window.currentUserRole ya está definida en base.html -->
 <script src="{{ url_for('static', filename='js/clients.js') }}?v=20250110_provincia"></script>
 <script>
-    // DataTable solo para ordenamiento; paging:false mantiene todos los <tr> en el DOM
-    $(document).ready(function() {
-        $('#clientsTable').DataTable({
-            language: { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' },
-            order:    [[0, 'desc']],
-            paging:   false,
-            dom:      'ti'
-        });
-    });
-
-    // ── Estado compartido de filtros ─────────────────────────────────────────
+    // ── Estado compartido ────────────────────────────────────────────────────
     var activeCard = 'all';
+    var sortCol    = -1;   // -1 = sin orden aplicado todavía
+    var sortDir    = 'desc';
 
+    // ── Filtro ───────────────────────────────────────────────────────────────
     function applyFilters() {
         var q = document.getElementById('clientSearch').value.toLowerCase();
         document.querySelectorAll('.cliente-row').forEach(function(row) {
@@ -757,10 +750,8 @@
         });
     }
 
-    // Buscador en tiempo real
     document.getElementById('clientSearch').addEventListener('input', applyFilters);
 
-    // Clic en stat cards
     document.querySelectorAll('.stat-filter-card').forEach(function(card) {
         card.addEventListener('click', function() {
             activeCard = this.dataset.filter;
@@ -772,6 +763,51 @@
             applyFilters();
         });
     });
+
+    // ── Ordenamiento vanilla JS ──────────────────────────────────────────────
+    var tbody = document.querySelector('#clientsTable tbody');
+
+    function sortTable(colIdx) {
+        if (sortCol === colIdx) {
+            sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+        } else {
+            sortCol = colIdx;
+            sortDir = 'asc';
+        }
+
+        var rows = Array.from(document.querySelectorAll('#clientsTable tbody .cliente-row'));
+        rows.sort(function(a, b) {
+            var cellA = a.querySelectorAll('td')[colIdx];
+            var cellB = b.querySelectorAll('td')[colIdx];
+            var va = cellA ? cellA.textContent.trim() : '';
+            var vb = cellB ? cellB.textContent.trim() : '';
+            var na = parseFloat(va), nb = parseFloat(vb);
+            var cmp = (!isNaN(na) && !isNaN(nb)) ? na - nb : va.localeCompare(vb, 'es', {numeric: true});
+            return sortDir === 'asc' ? cmp : -cmp;
+        });
+
+        // Reinsertar en orden
+        rows.forEach(function(row) { tbody.appendChild(row); });
+
+        // Actualizar clases visuales en headers
+        document.querySelectorAll('#clientsTable thead th').forEach(function(th, i) {
+            th.classList.remove('sorting_asc', 'sorting_desc');
+            if (i === colIdx) th.classList.add(sortDir === 'asc' ? 'sorting_asc' : 'sorting_desc');
+        });
+
+        // Re-aplicar filtro (preserva rows ocultos)
+        applyFilters();
+    }
+
+    // Asignar click a cada <th>
+    document.querySelectorAll('#clientsTable thead th').forEach(function(th, i) {
+        th.addEventListener('click', function() { sortTable(i); });
+    });
+
+    // Orden inicial: ID descendente (primera columna visible)
+    sortTable(0);
+    sortDir = 'desc';  // forzar desc tras el primer click que deja 'asc'
+    sortTable(0);
 
     // Asegurar que al abrir el modal el foco se coloque en el primer input
     // Y aplicar restricciones si es necesario
