@@ -914,6 +914,7 @@ class ClientService:
 
             # Reasignar
             client.created_by = new_trader_id
+            client.reassigned_at = datetime.utcnow()
 
             # Auditoría: registrar antes del commit
             try:

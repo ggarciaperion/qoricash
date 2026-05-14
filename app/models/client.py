@@ -104,6 +104,7 @@ class Client(db.Model):
     created_at = db.Column(db.DateTime, default=now_peru, nullable=False)
     updated_at = db.Column(db.DateTime, default=now_peru, onupdate=now_peru)
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'))
+    reassigned_at = db.Column(db.DateTime, nullable=True)
 
     # Canal de registro: 'app' | 'web' | 'system'
     registration_canal = db.Column(db.String(20), nullable=True)
