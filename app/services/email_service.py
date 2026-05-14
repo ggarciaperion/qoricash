@@ -900,7 +900,9 @@ class EmailService:
             subject = f'Bienvenido a QoriCash - Registro en Proceso'
 
             # Contenido HTML
-            html_body = EmailService._render_new_client_template(client, trader)
+            from app.services.email_templates import EmailTemplates
+            shared_clients = EmailTemplates._get_shared_email_clients(client)
+            html_body = EmailService._render_new_client_template(client, trader, shared_clients)
 
             # Crear mensaje
             msg = Message(
@@ -1137,8 +1139,10 @@ class EmailService:
         return render_template_string(_wrap_email_svc(body), client_name=client_name, temp_password=temp_password)
 
     @staticmethod
-    def _render_new_client_template(client, trader):
+    def _render_new_client_template(client, trader, shared_clients=None):
         """Renderizar plantilla HTML para nuevo cliente registrado"""
+        from app.services.email_templates import _build_shared_email_block
+        shared_block = _build_shared_email_block(shared_clients or [])
         bank_accounts_text = "No registrado"
         if hasattr(client, 'bank_accounts') and client.bank_accounts:
             try:
@@ -1197,12 +1201,13 @@ class EmailService:
             </tr>
           </table>
 
+          {{ shared_block }}
           <div style="height:1px;background-color:#F1F5F9;margin:20px 0;"></div>
           <p style="margin:0 0 6px 0;font-size:13px;color:#334155;">Para cualquier consulta, contacte a su ejecutivo <strong>{{ trader.username }}</strong>{% if trader.email %} en <a href="mailto:{{ trader.email }}" style="color:#5CB85C;">{{ trader.email }}</a>{% endif %}.</p>
           <p style="margin:0;font-size:12px;color:#94a3b8;">Este es un correo automático.</p>
         </td>
       </tr>"""
-        return render_template_string(_wrap_email_svc(body), client=client, trader=trader, bank_accounts_text=bank_accounts_text)
+        return render_template_string(_wrap_email_svc(body), client=client, trader=trader, bank_accounts_text=bank_accounts_text, shared_block=shared_block)
 
     @staticmethod
     def _render_client_activation_template(client, trader):

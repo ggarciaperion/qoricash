@@ -79,6 +79,36 @@ _FOOTER_BLOCK = f"""
       </tr>
 """
 
+def _build_shared_email_block(shared_clients: list) -> str:
+    """
+    Genera el bloque HTML de aviso cuando el mismo correo ya está asociado
+    a otros registros existentes. Retorna string vacío si no hay otros clientes.
+    """
+    if not shared_clients:
+        return ''
+
+    rows = ''.join(
+        f'<tr><td style="padding:4px 0;font-size:12px;color:#78350F;line-height:1.5;">'
+        f'&bull;&nbsp;<strong>{c["display_name"]}</strong>'
+        f'&nbsp;&mdash;&nbsp;{c["doc_type"]}: {c["dni"]}'
+        f'</td></tr>'
+        for c in shared_clients
+    )
+
+    return (
+        f'<div style="border-radius:6px;padding:13px 16px;margin:0 0 24px 0;font-size:13px;'
+        f'line-height:1.65;background:#FEF3C7;border-left:3px solid #F59E0B;">'
+        f'<p style="margin:0 0 6px 0;font-weight:700;font-size:11px;text-transform:uppercase;'
+        f'letter-spacing:0.8px;color:#92400E;">&#9888; Este correo ya está vinculado a otros registros</p>'
+        f'<p style="margin:0 0 8px 0;font-size:12px;color:#78350F;">'
+        f'Se está creando un nuevo acceso con este correo. Los registros existentes son:</p>'
+        f'<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">'
+        f'{rows}'
+        f'</table>'
+        f'</div>'
+    )
+
+
 def _wrap_email(body_html: str) -> str:
     """Envuelve contenido HTML en el wrapper base de email QoriCash."""
     return f"""<!DOCTYPE html>
@@ -108,6 +138,29 @@ class EmailTemplates:
     """Plantillas de correo diferenciadas por origen"""
 
     @staticmethod
+    def _get_shared_email_clients(client) -> list:
+        """
+        Retorna lista de dicts con los demás clientes que comparten el mismo email.
+        Se excluye al propio cliente recién registrado.
+        """
+        try:
+            from app.models.client import Client
+            others = Client.query.filter(
+                Client.email == client.email,
+                Client.id != client.id
+            ).all()
+            return [
+                {
+                    'display_name': c.full_name or c.razon_social or 'Sin nombre',
+                    'doc_type': c.document_type,
+                    'dni': c.dni,
+                }
+                for c in others
+            ]
+        except Exception:
+            return []
+
+    @staticmethod
     def send_welcome_email_from_mobile(client):
         """
         Correo de bienvenida para clientes registrados desde app móvil
@@ -129,7 +182,8 @@ class EmailTemplates:
 
             subject = '¡Bienvenido a QoriCash!'
 
-            html_body = EmailTemplates._render_mobile_welcome_template(client)
+            shared_clients = EmailTemplates._get_shared_email_clients(client)
+            html_body = EmailTemplates._render_mobile_welcome_template(client, shared_clients)
 
             msg = Message(
                 subject=subject,
@@ -173,7 +227,8 @@ class EmailTemplates:
 
             subject = '¡Bienvenido a QoriCash!'
 
-            html_body = EmailTemplates._render_web_welcome_template(client)
+            shared_clients = EmailTemplates._get_shared_email_clients(client)
+            html_body = EmailTemplates._render_web_welcome_template(client, shared_clients)
 
             msg = Message(
                 subject=subject,
@@ -285,9 +340,10 @@ class EmailTemplates:
     # ============================================
 
     @staticmethod
-    def _render_mobile_welcome_template(client):
+    def _render_mobile_welcome_template(client, shared_clients=None):
         """Plantilla para registro desde móvil"""
         client_name = client.full_name or client.razon_social or 'Cliente'
+        shared_block = _build_shared_email_block(shared_clients or [])
 
         body = """
       <!-- BODY -->
@@ -334,6 +390,7 @@ class EmailTemplates:
             usando tu número de documento y la contraseña que registraste en la app.
           </div>
 
+          {{ shared_block }}
           <div style="height:1px;background-color:#F1F5F9;margin:20px 0;"></div>
           <p style="margin:0;font-size:12px;color:#94a3b8;">
             ¿Tienes alguna consulta? Escríbenos a
@@ -346,13 +403,15 @@ class EmailTemplates:
             _wrap_email(body),
             client_name=client_name,
             client_dni=client.dni,
-            client_email=client.email
+            client_email=client.email,
+            shared_block=shared_block
         )
 
     @staticmethod
-    def _render_web_welcome_template(client):
+    def _render_web_welcome_template(client, shared_clients=None):
         """Plantilla para registro desde web"""
         client_name = client.full_name or client.razon_social or 'Cliente'
+        shared_block = _build_shared_email_block(shared_clients or [])
 
         body = """
       <tr>
@@ -399,6 +458,7 @@ class EmailTemplates:
             Te notificaremos cuando esté disponible para descargar.
           </div>
 
+          {{ shared_block }}
           <div style="height:1px;background-color:#F1F5F9;margin:20px 0;"></div>
           <p style="margin:0;font-size:12px;color:#94a3b8;">
             ¿Tienes alguna consulta? Escríbenos a
@@ -411,7 +471,8 @@ class EmailTemplates:
             _wrap_email(body),
             client_name=client_name,
             client_dni=client.dni,
-            client_email=client.email
+            client_email=client.email,
+            shared_block=shared_block
         )
 
     @staticmethod
