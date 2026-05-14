@@ -89,6 +89,11 @@
         <div class="col-md-12">
             <div class="card">
                 <div class="card-body">
+                    <div class="mb-3">
+                        <input type="text" id="clientSearch"
+                               class="form-control"
+                               placeholder="🔍 Buscar por nombre, documento, email, teléfono…">
+                    </div>
                     <table id="clientsTable" class="table table-hover">
                         <thead>
                             <tr>
@@ -622,15 +627,21 @@
 <!-- La variable window.currentUserRole ya está definida en base.html -->
 <script src="{{ url_for('static', filename='js/clients.js') }}?v=20250110_provincia"></script>
 <script>
-    // Inicializar DataTable al cargar la página
+    // Inicializar DataTable + buscador en tiempo real
     $(document).ready(function() {
-        $('#clientsTable').DataTable({
-            language: {
-                url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
-            },
+        var table = $('#clientsTable').DataTable({
+            language: { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' },
             order: [[0, 'desc']],
             pageLength: 25,
-            responsive: true
+            responsive: true,
+            dom: 'lrtip'
+        });
+
+        var t;
+        document.getElementById('clientSearch').addEventListener('input', function() {
+            clearTimeout(t);
+            var val = this.value;
+            t = setTimeout(function() { table.search(val).draw(); }, 250);
         });
     });
 
