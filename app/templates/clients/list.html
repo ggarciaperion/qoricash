@@ -771,8 +771,34 @@
 <!-- La variable window.currentUserRole ya está definida en base.html -->
 <script src="{{ url_for('static', filename='js/clients.js') }}?v=20250110_provincia"></script>
 <script>
-    // DataTable: filtro por cards (columna oculta) + buscador libre
+    // DataTable: filtro por cards + buscador libre
     $(document).ready(function() {
+
+        // Estado compartido entre ambos filtros
+        var filterState = { status: 'all', text: '' };
+
+        // Una sola función ext.search que maneja TODO.
+        // searchData[N] = texto/HTML de cada celda en el orden del <tr>.
+        // La última celda (searchData.length - 1) es la columna oculta con el estado.
+        $.fn.dataTable.ext.search.push(function(settings, searchData) {
+            if (settings.nTable.id !== 'clientsTable') return true;
+
+            // Contenido de la celda oculta: "Activo", "Activo pendiente", "Inactivo", etc.
+            var filterCell = (searchData[searchData.length - 1] || '').trim();
+
+            // Filtro por stat card
+            if (filterState.status === 'active'   && filterCell.indexOf('Activo')    !== 0) return false;
+            if (filterState.status === 'inactive' && filterCell.indexOf('Inactivo')  !== 0) return false;
+            if (filterState.status === 'nodocs'   && filterCell.indexOf('pendiente') === -1) return false;
+
+            // Búsqueda libre sobre todas las celdas del row
+            if (filterState.text) {
+                var rowText = searchData.join(' ').toLowerCase();
+                if (rowText.indexOf(filterState.text) === -1) return false;
+            }
+
+            return true;
+        });
 
         var table = $('#clientsTable').DataTable({
             language: { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' },
@@ -780,51 +806,36 @@
             pageLength: 25,
             responsive: true,
             dom: 'lrtip',
-            columnDefs: [{
-                // Última columna: oculta visualmente pero buscable por column().search()
-                targets: -1,
-                visible: false,
-                searchable: true
-            }]
+            columnDefs: [{ targets: -1, visible: false }]
         });
 
-        // ── Clic en stat cards → column(-1).search() con patrón exacto
+        // Clic en stat cards → actualizar filterState.status y redibujar
         document.querySelectorAll('.stat-filter-card').forEach(function(card) {
             card.addEventListener('click', function() {
-                // Resaltado visual
+                filterState.status = this.dataset.filter;
                 document.querySelectorAll('.stat-filter-card').forEach(function(c) {
-                    c.classList.remove(
-                        'stat-card-active', 'stat-card-active-green',
-                        'stat-card-active-yellow', 'stat-card-active-gray'
-                    );
+                    c.classList.remove('stat-card-active', 'stat-card-active-green',
+                                       'stat-card-active-yellow', 'stat-card-active-gray');
                 });
                 this.classList.add(this.dataset.activeClass);
-
-                // Filtro por columna oculta (último índice)
-                var f = this.dataset.filter;
-                if (f === 'all')      table.column(-1).search('', false, false);
-                else if (f === 'active')   table.column(-1).search('^Activo',   true, false);
-                else if (f === 'inactive') table.column(-1).search('^Inactivo', true, false);
-                else if (f === 'nodocs')   table.column(-1).search('pendiente', false, false);
                 table.draw();
             });
         });
 
-        // ── Buscador libre → table.search() sobre las columnas visibles
+        // Buscador libre → actualizar filterState.text y redibujar
         var searchTimer;
         $('#clientQuickSearch').on('input', function() {
-            var val = $(this).val();
-            $('#clearQuickSearch').toggle(val.length > 0);
+            filterState.text = $(this).val().trim().toLowerCase();
+            $('#clearQuickSearch').toggle(filterState.text.length > 0);
             clearTimeout(searchTimer);
-            searchTimer = setTimeout(function() {
-                table.search(val).draw();
-            }, 200);
+            searchTimer = setTimeout(function() { table.draw(); }, 250);
         });
 
         $('#clearQuickSearch').on('click', function() {
+            filterState.text = '';
             $('#clientQuickSearch').val('');
             $(this).hide();
-            table.search('').draw();
+            table.draw();
         });
     });
 
