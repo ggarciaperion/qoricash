@@ -228,6 +228,36 @@ def create_app(config_name=None):
     except Exception as e:
         logging.warning(f"[Prospeccion] Error creando tablas: {e}")
 
+    # Migración: CRM avanzado — nuevas columnas en prospectos + tabla prospecto_emails
+    try:
+        with app.app_context():
+            from app.extensions import db
+            from sqlalchemy import text
+            # Nuevas columnas en prospectos (IF NOT EXISTS es idempotente en PostgreSQL)
+            for col_sql in [
+                "ALTER TABLE prospectos ADD COLUMN IF NOT EXISTS telefono_alt VARCHAR(50)",
+                "ALTER TABLE prospectos ADD COLUMN IF NOT EXISTS tamano_empresa VARCHAR(30)",
+                "ALTER TABLE prospectos ADD COLUMN IF NOT EXISTS volumen_estimado_usd NUMERIC(15,2)",
+                "ALTER TABLE prospectos ADD COLUMN IF NOT EXISTS prioridad VARCHAR(20)",
+            ]:
+                db.session.execute(text(col_sql))
+            # Tabla de emails adicionales por prospecto
+            db.session.execute(text("""
+                CREATE TABLE IF NOT EXISTS prospecto_emails (
+                    id           SERIAL PRIMARY KEY,
+                    prospecto_id INTEGER NOT NULL REFERENCES prospectos(id) ON DELETE CASCADE,
+                    email        VARCHAR(200) NOT NULL,
+                    activo       BOOLEAN NOT NULL DEFAULT TRUE,
+                    creado_en    TIMESTAMP DEFAULT NOW()
+                )
+            """))
+            db.session.execute(text(
+                "CREATE INDEX IF NOT EXISTS idx_prospecto_email_pid ON prospecto_emails(prospecto_id)"
+            ))
+            db.session.commit()
+    except Exception as e:
+        logging.warning(f"[Prospeccion CRM] Error en migración de columnas/tabla: {e}")
+
     # Migración: tabla comercial_envios
     try:
         with app.app_context():
