@@ -1,524 +1,1194 @@
 {% extends "base.html" %}
-{% block title %}Prospeccion — Base{% endblock %}
-
-{% block content %}
-<div class="container-fluid py-3">
-
-  <!-- Header -->
-  <div class="d-flex align-items-center justify-content-between mb-3">
-    <div>
-      <h5 class="mb-0 fw-bold"><i class="bi bi-people-fill text-warning me-2"></i>Base de Prospeccion</h5>
-      <small class="text-muted">{{ prospectos.total }} registros en esta vista · {{ cnt_clientes }} clientes</small>
-    </div>
-    <a href="{{ url_for('prospeccion.dashboard') }}" class="btn btn-sm btn-outline-secondary">
-      <i class="bi bi-grid"></i> Dashboard
-    </a>
-  </div>
-
-  <!-- Panel de campaña activa -->
-  <div id="campanaPanel" class="d-none card border-0 shadow-sm mb-3" style="border-left:4px solid #22c55e !important;">
-    <div class="card-body py-2 px-3">
-      <div class="d-flex align-items-center gap-3 flex-wrap">
-        <div class="spinner-border spinner-border-sm text-success flex-shrink-0" id="cpSpinner"></div>
-        <div class="flex-grow-1">
-          <div class="d-flex justify-content-between mb-1">
-            <span class="small fw-semibold" id="cpEstado">Enviando campaña...</span>
-            <span class="small text-muted" id="cpConteo">0 / 0</span>
-          </div>
-          <div class="progress" style="height:5px">
-            <div class="progress-bar bg-success" id="cpBarra" style="width:0%"></div>
-          </div>
-          <div class="small text-muted mt-1" id="cpDetalle"></div>
-        </div>
-        <div class="d-flex gap-2 flex-shrink-0">
-          <!-- Actualizar precios (solo visible si tipo=precio) -->
-          <div id="cpActualizarWrap" class="d-none d-flex gap-1 align-items-center">
-            <input type="number" step="0.001" id="cpNuevaCompra" class="form-control form-control-sm"
-                   placeholder="Compra" style="width:80px">
-            <input type="number" step="0.001" id="cpNuevaVenta" class="form-control form-control-sm"
-                   placeholder="Venta" style="width:80px">
-            <button class="btn btn-sm btn-outline-warning" id="btnActualizarPrecios">
-              <i class="bi bi-arrow-repeat"></i> Actualizar
-            </button>
-          </div>
-          <button class="btn btn-sm btn-danger" id="btnDetenerCampana">
-            <i class="bi bi-stop-circle"></i> Detener
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Pestañas pipeline -->
-  <div class="d-flex align-items-center gap-1 mb-3 flex-wrap">
-    {% set tabs = [
-      ("todos",         "Todos",          cnt_todos,         "secondary"),
-      ("sin_contactar", "Sin contactar",  cnt_sin_contactar, "secondary"),
-      ("presentado",    "Presentado",     cnt_presentado,    "primary"),
-      ("precio",        "Precio enviado", cnt_precio,        "info"),
-      ("negociando",    "Negociando",     cnt_negociando,    "warning"),
-      ("clientes",      "Clientes",       cnt_clientes,      "success"),
-      ("lfc",           "Clientes LFC",   cnt_lfc,           "success"),
-    ] %}
-    {% for t_id, t_label, t_cnt, t_color in tabs %}
-    <a href="{{ url_for('prospeccion.lista', tab=t_id, depto=filtros.depto, q=filtros.q) }}"
-       class="btn btn-sm {% if tab == t_id %}btn-{{ t_color }}{% else %}btn-outline-{{ t_color }}{% endif %} {% if tab == t_id and t_color in ['warning','info'] %}text-dark{% endif %}">
-      {{ t_label }}
-      <span class="badge ms-1 {% if tab == t_id %}bg-white text-{{ t_color }}{% else %}bg-{{ t_color }} {% if t_color in ['warning','info'] %}text-dark{% endif %}{% endif %}">{{ t_cnt }}</span>
-    </a>
-    {% endfor %}
-  </div>
-
-  <!-- Barra de filtros -->
-  <div class="card border-0 shadow-sm mb-3">
-    <div class="card-body py-2 px-3">
-      <form method="GET" id="filtroForm" class="d-flex gap-2 flex-wrap align-items-center">
-        <input type="hidden" name="tab" value="{{ tab }}">
-        <div style="flex:1;min-width:180px;max-width:320px">
-          <input type="text" name="q" id="searchInput" class="form-control form-control-sm"
-                 placeholder="Buscar empresa, email, RUC, contacto..." value="{{ filtros.q }}" autocomplete="off"/>
-        </div>
-        <select name="depto" class="form-select form-select-sm" style="max-width:160px" onchange="this.form.submit()">
-          <option value="">Todos los deptos.</option>
-          {% for d in deptos %}
-          <option value="{{ d }}" {% if filtros.depto == d %}selected{% endif %}>{{ d }}</option>
-          {% endfor %}
-        </select>
-        <button type="submit" class="btn btn-sm btn-primary"><i class="bi bi-search"></i></button>
-        {% if filtros.q or filtros.depto %}
-        <a href="{{ url_for('prospeccion.lista', tab=tab) }}" class="btn btn-sm btn-outline-secondary">
-          <i class="bi bi-x"></i> Limpiar
-        </a>
-        {% endif %}
-        <span class="text-muted small ms-auto">{{ prospectos.total }} resultados</span>
-      </form>
-    </div>
-  </div>
-
-  <!-- Tabla principal -->
-  <div class="card border-0 shadow-sm">
-    <div class="table-responsive">
-      <table class="table table-hover align-middle mb-0" style="font-size:.83rem">
-        <thead class="table-dark">
-          <tr>
-            <th style="width:36px">
-              <input type="checkbox" class="form-check-input" id="chkTodos">
-            </th>
-            <th>Empresa / Rubro</th>
-            <th>Email</th>
-            <th>Contacto</th>
-            <th>Estado</th>
-            <th>Ultimo envio</th>
-            <th>Proximo contacto</th>
-            <th style="width:80px"></th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for p in prospectos.items %}
-          <tr data-pid="{{ p.id }}">
-            <td>
-              <input type="checkbox" class="form-check-input chk-prospecto" value="{{ p.id }}"
-                     {% if not p.email %}disabled title="Sin email"{% endif %}>
-            </td>
-            <td style="max-width:200px">
-              <a href="{{ url_for('prospeccion.detalle', pid=p.id) }}"
-                 class="text-decoration-none fw-semibold text-dark d-block text-truncate">
-                {{ p.razon_social or '(Sin nombre)' }}
-              </a>
-              <div class="text-muted text-truncate" style="font-size:.71rem">
-                {% if p.rubro %}{{ p.rubro }}{% endif %}
-                {% if p.rubro and p.departamento %} &middot; {% endif %}
-                {% if p.departamento %}{{ p.departamento }}{% endif %}
-              </div>
-            </td>
-            <td style="max-width:180px">
-              {% if p.email %}
-              <a href="mailto:{{ p.email }}" class="text-decoration-none text-muted d-block text-truncate">{{ p.email }}</a>
-              {% if p.email_alt %}
-              <div class="text-muted text-truncate" style="font-size:.68rem" title="{{ p.email_alt }}">
-                <i class="bi bi-plus-circle"></i> {{ p.email_alt }}
-              </div>
-              {% endif %}
-              {% else %}
-              <span class="text-muted small">Sin email</span>
-              {% endif %}
-            </td>
-            <td style="max-width:140px">
-              <div class="text-truncate">{{ p.nombre_contacto or '—' }}</div>
-              {% if p.cargo %}<div class="text-muted text-truncate" style="font-size:.7rem">{{ p.cargo }}</div>{% endif %}
-            </td>
-            <td style="white-space:nowrap">
-              {% set bc, bl = p.estado_badge %}
-              <span class="badge bg-{{ bc }} {% if bc in ['info','warning'] %}text-dark{% endif %}">{{ bl }}</span>
-              {% if p.cliente_lfc == 'Cliente LFC' %}
-              <span class="badge bg-success-subtle text-success border border-success-subtle d-block mt-1" style="font-size:.62rem">LFC</span>
-              {% endif %}
-            </td>
-            <td style="white-space:nowrap">
-              {% if p.tipo_ultimo_envio %}
-              <span class="badge {% if p.tipo_ultimo_envio == 'precio' %}bg-warning text-dark{% else %}bg-primary{% endif %}">
-                {{ 'Precio' if p.tipo_ultimo_envio == 'precio' else 'Presentacion' }}
-              </span>
-              {% if p.fecha_ultimo_contacto %}
-              <div class="text-muted" style="font-size:.68rem">{{ p.fecha_ultimo_contacto[:10] }}</div>
-              {% endif %}
-              {% else %}
-              <span class="text-muted">—</span>
-              {% endif %}
-            </td>
-            <td>
-              {% if p.fecha_proximo_contacto %}
-              <span class="text-primary fw-semibold">
-                <i class="bi bi-calendar-event"></i> {{ p.fecha_proximo_contacto }}
-              </span>
-              {% else %}
-              <span class="text-muted">—</span>
-              {% endif %}
-            </td>
-            <td>
-              <div class="d-flex gap-1">
-                <a href="{{ url_for('prospeccion.detalle', pid=p.id) }}"
-                   class="btn btn-sm btn-outline-secondary py-0 px-2" title="Ver detalle">
-                  <i class="bi bi-eye"></i>
-                </a>
-                {% if p.email %}
-                <button class="btn btn-sm btn-outline-success py-0 px-2 btn-enviar"
-                        data-pid="{{ p.id }}"
-                        data-nombre="{{ (p.nombre_contacto or p.razon_social or '')|e }}"
-                        data-empresa="{{ (p.razon_social or '')|e }}"
-                        data-email="{{ p.email }}"
-                        title="Enviar correo">
-                  <i class="bi bi-send"></i>
-                </button>
-                {% endif %}
-              </div>
-            </td>
-          </tr>
-          {% else %}
-          <tr>
-            <td colspan="10" class="text-center py-5 text-muted">
-              <i class="bi bi-inbox fs-1 d-block mb-2 opacity-25"></i>
-              No hay registros en esta pestaña.
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-
-    <!-- Paginacion -->
-    {% if prospectos.pages > 1 %}
-    <div class="card-footer bg-transparent d-flex justify-content-between align-items-center py-2">
-      <small class="text-muted">Pag. {{ prospectos.page }} / {{ prospectos.pages }} — {{ prospectos.total }} registros</small>
-      <nav>
-        <ul class="pagination pagination-sm mb-0">
-          {% if prospectos.has_prev %}
-          <li class="page-item">
-            <a class="page-link" href="{{ url_for('prospeccion.lista', tab=tab, page=prospectos.prev_num, depto=filtros.depto, q=filtros.q) }}">‹</a>
-          </li>
-          {% endif %}
-          {% for pg in prospectos.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
-            {% if pg %}
-            <li class="page-item {% if pg == prospectos.page %}active{% endif %}">
-              <a class="page-link" href="{{ url_for('prospeccion.lista', tab=tab, page=pg, depto=filtros.depto, q=filtros.q) }}">{{ pg }}</a>
-            </li>
-            {% else %}
-            <li class="page-item disabled"><span class="page-link">…</span></li>
-            {% endif %}
-          {% endfor %}
-          {% if prospectos.has_next %}
-          <li class="page-item">
-            <a class="page-link" href="{{ url_for('prospeccion.lista', tab=tab, page=prospectos.next_num, depto=filtros.depto, q=filtros.q) }}">›</a>
-          </li>
-          {% endif %}
-        </ul>
-      </nav>
-    </div>
-    {% endif %}
-  </div>
-</div>
-
-<!-- Barra de acción masiva flotante -->
-<div id="bulkBar" class="d-none position-fixed bottom-0 start-50 translate-middle-x mb-3"
-     style="z-index:1050;min-width:580px;max-width:95vw">
-  <div class="card border-0 shadow-lg" style="border-top:3px solid #198754!important">
-    <div class="card-body py-2 px-3 d-flex align-items-center gap-3 flex-wrap">
-      <span class="fw-semibold small"><span id="bulkCount" class="badge bg-success rounded-pill">0</span> seleccionados</span>
-      <div class="vr"></div>
-      <div class="d-flex gap-3">
-        <div class="form-check mb-0">
-          <input class="form-check-input" type="radio" name="bulk_tipo" id="btPresentacion" value="presentacion" checked>
-          <label class="form-check-label small" for="btPresentacion"><i class="bi bi-file-earmark-text text-primary"></i> Presentacion</label>
-        </div>
-        <div class="form-check mb-0">
-          <input class="form-check-input" type="radio" name="bulk_tipo" id="btPrecio" value="precio">
-          <label class="form-check-label small" for="btPrecio"><i class="bi bi-currency-dollar text-success"></i> Precio</label>
-        </div>
-      </div>
-      <div id="bulkPrecioFields" class="d-none d-flex gap-1">
-        <input type="number" step="0.001" id="bulkCompra" class="form-control form-control-sm" placeholder="Compra S/." style="width:90px">
-        <input type="number" step="0.001" id="bulkVenta"  class="form-control form-control-sm" placeholder="Venta S/."  style="width:90px">
-      </div>
-      <button class="btn btn-success btn-sm ms-auto" id="btnIniciarCampana">
-        <i class="bi bi-send-fill"></i> Iniciar campaña
-      </button>
-      <button class="btn btn-outline-secondary btn-sm" id="btnDeselecAll"><i class="bi bi-x-lg"></i></button>
-    </div>
-  </div>
-</div>
-
-<!-- Modal envío individual (2 pasos) -->
-<div class="modal fade" id="modalEnvio" tabindex="-1">
-  <div class="modal-dialog modal-xl modal-dialog-scrollable">
-    <div class="modal-content border-0 shadow">
-      <div class="modal-header border-0">
-        <h6 class="modal-title fw-bold" id="modalEnvioTitulo"><i class="bi bi-send text-success me-2"></i>Enviar correo</h6>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body pt-0">
-        <div id="paso1">
-          <p class="text-muted small mb-3" id="modalDestinatario"></p>
-          <div class="mb-3">
-            <div class="d-flex gap-4">
-              <div class="form-check">
-                <input class="form-check-input" type="radio" name="tipo_correo" id="tipoPresentacion" value="presentacion" checked>
-                <label class="form-check-label" for="tipoPresentacion"><i class="bi bi-file-earmark-text text-primary"></i> Presentacion</label>
-              </div>
-              <div class="form-check">
-                <input class="form-check-input" type="radio" name="tipo_correo" id="tipoPrecio" value="precio">
-                <label class="form-check-label" for="tipoPrecio"><i class="bi bi-currency-dollar text-success"></i> Precio del dia</label>
-              </div>
-            </div>
-          </div>
-          <div id="campoPrecio" class="d-none border rounded p-3 bg-light mb-2">
-            <div class="row g-2">
-              <div class="col-6">
-                <label class="form-label small fw-semibold">Compramos (S/.)</label>
-                <input type="number" step="0.001" id="inputCompra" class="form-control form-control-sm" placeholder="3.720">
-              </div>
-              <div class="col-6">
-                <label class="form-label small fw-semibold">Vendemos (S/.)</label>
-                <input type="number" step="0.001" id="inputVenta" class="form-control form-control-sm" placeholder="3.740">
-              </div>
-            </div>
-          </div>
-        </div>
-        <div id="paso2" class="d-none">
-          <div class="alert alert-info py-2 small mb-2">
-            <i class="bi bi-pencil-square me-1"></i> Puedes editar el texto antes de enviar.
-          </div>
-          <div id="emailPreview" contenteditable="true"
-               style="border:1px solid #dee2e6;border-radius:6px;padding:12px;min-height:300px;max-height:60vh;overflow-y:auto;background:#fff;outline:none;font-size:13px;">
-          </div>
-        </div>
-      </div>
-      <div class="modal-footer border-0">
-        <button type="button" class="btn btn-outline-secondary btn-sm" id="btnCancelarModal">Cancelar</button>
-        <button type="button" class="btn btn-primary btn-sm" id="btnVerBorrador"><i class="bi bi-eye"></i> Ver borrador</button>
-        <button type="button" class="btn btn-success btn-sm d-none" id="btnEnviarModal"><i class="bi bi-send"></i> Enviar</button>
-      </div>
-    </div>
-  </div>
-</div>
-{% endblock %}
+{% block title %}Prospectos CRM — QoriCash{% endblock %}
 
 {% block styles %}
+<!-- AG Grid Community -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-grid.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-theme-alpine.css">
 <style>
-.table > tbody > tr { transition: background .1s; }
+/* ── Layout full-height ─────────────────────────────────────────── */
+.crm-wrapper { display:flex; flex-direction:column; height:calc(100vh - 58px); overflow:hidden; }
+.crm-toolbar { flex-shrink:0; padding:.6rem 1rem; background:#fff; border-bottom:1px solid #e9ecef; }
+.crm-tabs    { flex-shrink:0; padding:.3rem 1rem 0; background:#fff; border-bottom:1px solid #e9ecef; }
+.crm-filters { flex-shrink:0; padding:.5rem 1rem; background:#f8f9fa; border-bottom:1px solid #e9ecef; }
+.crm-grid    { flex:1; min-height:0; padding:.6rem 1rem .6rem; }
+#prospGrid   { height:100%; width:100%; }
+
+/* ── Tab pills ──────────────────────────────────────────────────── */
+.crm-tab { border:none; background:none; padding:.35rem .75rem; font-size:.82rem;
+           border-bottom:3px solid transparent; color:#6c757d; cursor:pointer; white-space:nowrap; }
+.crm-tab:hover { color:#0d6efd; }
+.crm-tab.active { color:#0d6efd; border-bottom-color:#0d6efd; font-weight:600; }
+.crm-tab .cnt { background:#e9ecef; color:#495057; font-size:.68rem; padding:.1rem .4rem;
+                border-radius:999px; margin-left:.3rem; }
+.crm-tab.active .cnt { background:#0d6efd; color:#fff; }
+
+/* ── AG Grid overrides ──────────────────────────────────────────── */
+.ag-theme-alpine { --ag-font-size:12px; --ag-row-height:36px; --ag-header-height:38px;
+                   --ag-border-color:#dee2e6; --ag-odd-row-background-color:#fafbfc;
+                   --ag-header-background-color:#1a1a2e; --ag-header-foreground-color:#fff;
+                   --ag-selected-row-background-color:#e8f0fe; }
+.ag-theme-alpine .ag-header-cell { font-weight:600; font-size:.77rem; letter-spacing:.03em; }
+.ag-theme-alpine .ag-cell { display:flex; align-items:center; }
+.ag-theme-alpine .ag-row-hover { background:#f0f4ff !important; }
+.ag-theme-alpine .ag-cell-inline-editing { padding:2px 4px !important; }
+
+/* ── Badge estados ──────────────────────────────────────────────── */
+.badge-estado { font-size:.68rem; padding:.2em .55em; border-radius:4px; font-weight:600; white-space:nowrap; }
+.estado-sin_contactar,.estado-  { background:#6c757d; color:#fff; }
+.estado-presentado,.estado-seguimiento,.estado-P1 { background:#0d6efd; color:#fff; }
+.estado-precio_enviado,.estado-P2 { background:#0dcaf0; color:#000; }
+.estado-negociando,.estado-negociacion,.estado-P3 { background:#ffc107; color:#000; }
+.estado-cliente,.estado-P4 { background:#198754; color:#fff; }
+
+/* ── Prioridad ──────────────────────────────────────────────────── */
+.prio-alta  { color:#dc3545; font-weight:700; }
+.prio-media { color:#fd7e14; font-weight:600; }
+.prio-baja  { color:#6c757d; }
+
+/* ── Emails cell ────────────────────────────────────────────────── */
+.email-chip { font-size:.7rem; background:#e8f0fe; color:#1a73e8; border-radius:3px;
+              padding:.1rem .35rem; max-width:160px; overflow:hidden; text-overflow:ellipsis;
+              white-space:nowrap; display:inline-block; }
+.email-add-btn { border:none; background:none; color:#0d6efd; cursor:pointer; font-size:.78rem; padding:0; }
+
+/* ── Action buttons ─────────────────────────────────────────────── */
+.act-btn { border:none; background:none; cursor:pointer; padding:2px 5px;
+           border-radius:4px; transition:background .15s; font-size:.85rem; }
+.act-btn:hover { background:#e9ecef; }
+.act-btn.send  { color:#198754; }
+.act-btn.hist  { color:#0d6efd; }
+.act-btn.call  { color:#fd7e14; }
+.act-btn.edit  { color:#6c757d; }
+
+/* ── Autosave toast ─────────────────────────────────────────────── */
+#autosaveToast { position:fixed; bottom:1.2rem; right:1.2rem; z-index:9999;
+                 background:#1a1a2e; color:#fff; padding:.45rem .9rem;
+                 border-radius:6px; font-size:.78rem; display:none;
+                 box-shadow:0 2px 12px rgba(0,0,0,.3); }
+#autosaveToast.show { display:flex; align-items:center; gap:.4rem; }
+
+/* ── Bulk action bar ────────────────────────────────────────────── */
+#bulkBar { background:#1a1a2e; color:#fff; padding:.5rem 1rem; font-size:.82rem;
+           display:none; align-items:center; gap:.75rem; flex-shrink:0; }
+#bulkBar.show { display:flex; }
+
+/* ── Campaign panel ─────────────────────────────────────────────── */
+#campanaPanel { flex-shrink:0; }
+
+/* ── Filter tags ────────────────────────────────────────────────── */
+.filter-tag { background:#e8f0fe; color:#1a73e8; border-radius:4px; padding:.15rem .5rem;
+              font-size:.72rem; display:inline-flex; align-items:center; gap:.3rem; }
+.filter-tag button { border:none; background:none; color:#1a73e8; cursor:pointer; font-size:.75rem; padding:0; line-height:1; }
 </style>
 {% endblock %}
 
+{% block content %}
+<div class="crm-wrapper">
+
+  <!-- ═══════════════════ TOOLBAR ═══════════════════ -->
+  <div class="crm-toolbar d-flex align-items-center gap-2 flex-wrap">
+    <div class="me-auto">
+      <span class="fw-bold" style="font-size:1rem"><i class="bi bi-people-fill text-warning me-2"></i>Base de Prospectos</span>
+      <span class="text-muted ms-2" style="font-size:.78rem" id="gridTotalLabel"></span>
+    </div>
+    <!-- Filtros activos -->
+    <div id="activeTags" class="d-flex gap-1 flex-wrap"></div>
+    <!-- Acciones globales -->
+    <a href="{{ url_for('prospeccion.dashboard') }}" class="btn btn-sm btn-outline-secondary">
+      <i class="bi bi-grid-3x3-gap"></i>
+    </a>
+    <button class="btn btn-sm btn-outline-secondary" id="btnRefresh" title="Recargar datos">
+      <i class="bi bi-arrow-clockwise"></i>
+    </button>
+    <button class="btn btn-sm btn-outline-primary" id="btnImport">
+      <i class="bi bi-upload me-1"></i>Importar
+    </button>
+    <button class="btn btn-sm btn-outline-success" id="btnExport">
+      <i class="bi bi-download me-1"></i>Exportar Excel
+    </button>
+    <a href="{{ url_for('prospeccion.asignar_masivo') }}" class="btn btn-sm btn-outline-secondary">
+      <i class="bi bi-person-plus me-1"></i>Asignar
+    </a>
+  </div>
+
+  <!-- ═══════════════════ TABS ═══════════════════ -->
+  <div class="crm-tabs d-flex gap-0 overflow-auto">
+    {% set tab_defs = [
+      ("todos","Todos","secondary"),("sin_contactar","Sin contactar","secondary"),
+      ("presentado","Presentado","primary"),("precio","Precio enviado","info"),
+      ("negociando","Negociando","warning"),("clientes","Clientes","success"),("lfc","LFC","success"),
+    ] %}
+    {% for tid, tlabel, _ in tab_defs %}
+    <button class="crm-tab {% if loop.first %}active{% endif %}" data-tab="{{ tid }}">
+      {{ tlabel }} <span class="cnt" id="cnt_{{ tid }}">—</span>
+    </button>
+    {% endfor %}
+  </div>
+
+  <!-- ═══════════════════ FILTERS ═══════════════════ -->
+  <div class="crm-filters d-flex gap-2 flex-wrap align-items-center">
+    <div style="flex:1;min-width:200px;max-width:320px;position:relative">
+      <i class="bi bi-search" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);color:#aaa;font-size:.8rem"></i>
+      <input type="text" id="searchInput" class="form-control form-control-sm ps-4"
+             placeholder="Buscar empresa, email, RUC, contacto..." autocomplete="off">
+    </div>
+    <select id="filterEstado" class="form-select form-select-sm" style="max-width:160px">
+      <option value="">Todos los estados</option>
+      <option value="sin_contactar">Sin contactar</option>
+      <option value="presentado">Presentado</option>
+      <option value="precio_enviado">Precio enviado</option>
+      <option value="negociando">Negociando</option>
+      <option value="cliente">Cliente</option>
+    </select>
+    <select id="filterTrader" class="form-select form-select-sm" style="max-width:150px">
+      <option value="">Todos los traders</option>
+    </select>
+    <select id="filterDepto" class="form-select form-select-sm" style="max-width:150px">
+      <option value="">Todos los dptos.</option>
+    </select>
+    <select id="filterTamano" class="form-select form-select-sm" style="max-width:130px">
+      <option value="">Tamaño empresa</option>
+      <option value="MYPE">MYPE</option>
+      <option value="Pequeña">Pequeña</option>
+      <option value="Mediana">Mediana</option>
+      <option value="Grande">Grande</option>
+    </select>
+    <select id="filterNivel" class="form-select form-select-sm" style="max-width:120px">
+      <option value="">Nivel interés</option>
+      <option value="Alto">Alto</option>
+      <option value="Medio">Medio</option>
+      <option value="Bajo">Bajo</option>
+    </select>
+    <select id="filterPrioridad" class="form-select form-select-sm" style="max-width:120px">
+      <option value="">Prioridad</option>
+      <option value="alta">Alta</option>
+      <option value="media">Media</option>
+      <option value="baja">Baja</option>
+    </select>
+    <button class="btn btn-sm btn-outline-secondary" id="btnClearFilters" title="Limpiar filtros">
+      <i class="bi bi-x-circle"></i>
+    </button>
+  </div>
+
+  <!-- ═══════════════════ CAMPAIGN PANEL ═══════════════════ -->
+  <div id="campanaPanel" class="d-none" style="flex-shrink:0;border-left:4px solid #22c55e;background:#f0fdf4;padding:.5rem 1rem">
+    <div class="d-flex align-items-center gap-3 flex-wrap">
+      <div class="spinner-border spinner-border-sm text-success flex-shrink-0" id="cpSpinner"></div>
+      <div class="flex-grow-1">
+        <div class="d-flex justify-content-between mb-1">
+          <span class="small fw-semibold" id="cpEstado">Enviando campaña...</span>
+          <span class="small text-muted" id="cpConteo">0 / 0</span>
+        </div>
+        <div class="progress" style="height:4px">
+          <div class="progress-bar bg-success" id="cpBarra" style="width:0%"></div>
+        </div>
+      </div>
+      <div class="d-flex gap-2 flex-shrink-0">
+        <div id="cpActualizarWrap" class="d-none d-flex gap-1 align-items-center">
+          <input type="number" step="0.001" id="cpNuevaCompra" class="form-control form-control-sm" placeholder="Compra" style="width:80px">
+          <input type="number" step="0.001" id="cpNuevaVenta" class="form-control form-control-sm" placeholder="Venta" style="width:80px">
+          <button class="btn btn-sm btn-outline-warning" id="btnActualizarPrecios"><i class="bi bi-arrow-repeat"></i></button>
+        </div>
+        <button class="btn btn-sm btn-danger" id="btnDetenerCampana"><i class="bi bi-stop-circle"></i> Detener</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ BULK ACTION BAR ═══════════════════ -->
+  <div id="bulkBar">
+    <span><b id="bulkCount">0</b> seleccionados</span>
+    <div class="d-flex gap-2 align-items-center">
+      <label class="mb-0 small">Enviar:</label>
+      <div class="d-flex gap-2">
+        <div class="form-check form-check-inline mb-0">
+          <input class="form-check-input" type="radio" name="bulk_tipo" id="bulkTipoPres" value="presentacion" checked>
+          <label class="form-check-label small text-white" for="bulkTipoPres">Presentación</label>
+        </div>
+        <div class="form-check form-check-inline mb-0">
+          <input class="form-check-input" type="radio" name="bulk_tipo" id="bulkTipoPrecio" value="precio">
+          <label class="form-check-label small text-white" for="bulkTipoPrecio">Precio</label>
+        </div>
+      </div>
+      <div id="bulkPrecioFields" class="d-none d-flex gap-1">
+        <input type="number" step="0.001" id="bulkCompra" class="form-control form-control-sm" placeholder="Compra" style="width:80px">
+        <input type="number" step="0.001" id="bulkVenta" class="form-control form-control-sm" placeholder="Venta" style="width:80px">
+      </div>
+      <button class="btn btn-sm btn-success" id="btnIniciarCampana"><i class="bi bi-send-fill"></i> Iniciar campaña</button>
+      <div class="vr bg-white opacity-25"></div>
+      <!-- Bulk campo update -->
+      <select id="bulkCampo" class="form-select form-select-sm" style="max-width:150px">
+        <option value="">Actualizar campo...</option>
+        <option value="estado_comercial">Estado comercial</option>
+        <option value="nivel_interes">Nivel interés</option>
+        <option value="prioridad">Prioridad</option>
+        <option value="tamano_empresa">Tamaño empresa</option>
+        <option value="trader_asignar">Asignar trader</option>
+      </select>
+      <input type="text" id="bulkValor" class="form-control form-control-sm" placeholder="Valor" style="max-width:120px">
+      <button class="btn btn-sm btn-warning" id="btnBulkUpdate"><i class="bi bi-pencil-square"></i> Aplicar</button>
+      <div class="vr bg-white opacity-25"></div>
+      <button class="btn btn-sm btn-outline-light" id="btnDeselecAll"><i class="bi bi-x"></i> Deseleccionar</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ GRID ═══════════════════ -->
+  <div class="crm-grid">
+    <div id="prospGrid" class="ag-theme-alpine"></div>
+  </div>
+
+</div><!-- /crm-wrapper -->
+
+<!-- ══════════════ AUTOSAVE TOAST ══════════════ -->
+<div id="autosaveToast">
+  <span id="autosaveIcon"></span>
+  <span id="autosaveMsg"></span>
+</div>
+
+<!-- ══════════════ MODAL: Gestionar Emails ══════════════ -->
+<div class="modal fade" id="modalEmails" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title"><i class="bi bi-envelope-fill me-2 text-primary"></i>Emails — <span id="emailModalEmpresa"></span></h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="emailList" class="mb-3"></div>
+        <div class="input-group input-group-sm">
+          <input type="email" id="newEmailInput" class="form-control" placeholder="nuevo@email.com">
+          <button class="btn btn-primary" id="btnAddEmail"><i class="bi bi-plus-lg me-1"></i>Agregar</button>
+        </div>
+        <small class="text-muted">Los emails solo pueden desactivarse, no eliminarse.</small>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ MODAL: Importar Excel ══════════════ -->
+<div class="modal fade" id="modalImport" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title"><i class="bi bi-upload me-2 text-primary"></i>Importar Prospectos desde Excel</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="importStep1">
+          <p class="text-muted small mb-3">El sistema detecta columnas automáticamente. Columnas soportadas:</p>
+          <div class="d-flex flex-wrap gap-1 mb-3">
+            {% for col in ["Razón Social","RUC","Nombre Contacto","Cargo","Email","Teléfono","Rubro","Departamento","Tamaño Empresa","Estado Comercial","Nivel Interés","Prioridad","Fuente","Canal","Notas"] %}
+            <span class="badge bg-light text-dark border" style="font-size:.7rem">{{ col }}</span>
+            {% endfor %}
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-semibold">Seleccionar archivo .xlsx</label>
+            <input type="file" class="form-control form-control-sm" id="importFile" accept=".xlsx,.xls">
+          </div>
+          <p class="small text-muted">• Registros duplicados (mismo email o RUC) serán omitidos automáticamente.<br>
+             • La primera fila debe contener los encabezados de columna.</p>
+        </div>
+        <div id="importResult" class="d-none">
+          <div id="importResultBody"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-primary btn-sm" id="btnDoImport">
+          <i class="bi bi-upload me-1"></i>Importar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ MODAL: Enviar Email ══════════════ -->
+<div class="modal fade" id="modalEnvio" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title"><i class="bi bi-send me-2 text-success"></i>Enviar Email</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-2 small text-muted">Prospecto: <b id="envioEmpresa"></b></div>
+        <div class="mb-3">
+          <label class="form-label small fw-semibold">Tipo de correo</label>
+          <div class="d-flex gap-3">
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="envio_tipo" id="envTipoPres" value="presentacion" checked>
+              <label class="form-check-label small" for="envTipoPres">Presentación</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="envio_tipo" id="envTipoPrecio" value="precio">
+              <label class="form-check-label small" for="envTipoPrecio">Precio</label>
+            </div>
+          </div>
+        </div>
+        <div id="envioPrecioFields" class="d-none row g-2 mb-3">
+          <div class="col-6">
+            <label class="form-label small">Compra</label>
+            <input type="number" step="0.001" id="envioCompra" class="form-control form-control-sm" placeholder="3.6800">
+          </div>
+          <div class="col-6">
+            <label class="form-label small">Venta</label>
+            <input type="number" step="0.001" id="envioVenta" class="form-control form-control-sm" placeholder="3.7200">
+          </div>
+        </div>
+        <div class="mb-2 small fw-semibold">Email destino: <span id="envioEmail" class="text-primary"></span></div>
+        <div id="envioMsg" class="d-none alert alert-sm p-2 small"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-success btn-sm" id="btnDoEnvio"><i class="bi bi-send me-1"></i>Enviar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ MODAL: Registrar Contacto Rápido ══════════════ -->
+<div class="modal fade" id="modalContacto" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title"><i class="bi bi-telephone-plus me-2 text-warning"></i>Registrar Contacto</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-2 small text-muted">Prospecto: <b id="contactoEmpresa"></b></div>
+        <div class="mb-3">
+          <label class="form-label small fw-semibold">Tipo</label>
+          <select id="contactoTipo" class="form-select form-select-sm">
+            <option value="llamada">Llamada</option>
+            <option value="email">Email</option>
+            <option value="reunion">Reunión</option>
+            <option value="whatsapp">WhatsApp</option>
+            <option value="nota">Nota interna</option>
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label small fw-semibold">Descripción</label>
+          <textarea id="contactoDesc" class="form-control form-control-sm" rows="2" placeholder="¿Qué ocurrió?"></textarea>
+        </div>
+        <div class="row g-2">
+          <div class="col-6">
+            <label class="form-label small fw-semibold">Nuevo estado (opcional)</label>
+            <select id="contactoEstado" class="form-select form-select-sm">
+              <option value="">Sin cambio</option>
+              <option value="presentado">Presentado</option>
+              <option value="precio_enviado">Precio enviado</option>
+              <option value="negociando">Negociando</option>
+              <option value="cliente">Cliente</option>
+            </select>
+          </div>
+          <div class="col-6">
+            <label class="form-label small fw-semibold">Próximo contacto</label>
+            <input type="date" id="contactoProximo" class="form-control form-control-sm">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-warning btn-sm" id="btnDoContacto"><i class="bi bi-check-lg me-1"></i>Registrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
 {% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/dist/ag-grid-community.min.js"></script>
 <script>
-const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+'use strict';
+const CSRF = document.querySelector('meta[name="csrf-token"]').content;
 
-// Búsqueda con debounce
-(function() {
-  const inp = document.getElementById('searchInput'), form = document.getElementById('filtroForm');
-  let t;
-  inp.addEventListener('input', () => { clearTimeout(t); t = setTimeout(() => form.submit(), 450); });
-})();
+// ══════════════════════════════════════════════
+// ESTADO GLOBAL
+// ══════════════════════════════════════════════
+let gridApi = null;
+let currentTab = 'todos';
+let activeFilters = { q: '', estado: '', trader_id: '', depto: '', tamano: '', nivel_interes: '', prioridad: '' };
+let _currentEmailPid = null;
+let _currentEnvioPid = null;
+let _currentContactoPid = null;
+let _saveTimers = {};
+let _metaCache = { traders: [], rubros: [], deptos: [] };
 
-// Checkboxes y barra masiva
-(function() {
-  const chkTodos = document.getElementById('chkTodos');
-  const bulkBar  = document.getElementById('bulkBar');
+// ══════════════════════════════════════════════
+// CELL RENDERERS
+// ══════════════════════════════════════════════
+const ESTADO_MAP = {
+  'sin_contactar':  ['estado-sin_contactar',  'Sin contactar'],
+  '':               ['estado-sin_contactar',  'Sin contactar'],
+  'presentado':     ['estado-presentado',      'Presentado'],
+  'seguimiento':    ['estado-seguimiento',     'Presentado'],
+  'P1':             ['estado-P1',              'Presentado'],
+  'precio_enviado': ['estado-precio_enviado',  'Precio enviado'],
+  'P2':             ['estado-P2',              'Precio enviado'],
+  'negociando':     ['estado-negociando',      'Negociando'],
+  'negociacion':    ['estado-negociacion',     'Negociando'],
+  'P3':             ['estado-P3',              'Negociando'],
+  'cliente':        ['estado-cliente',         'Cliente'],
+  'P4':             ['estado-P4',              'Cliente'],
+};
 
-  function getChecked() { return Array.from(document.querySelectorAll('.chk-prospecto:checked')); }
-  function updateBar() {
-    const sel = getChecked(), total = document.querySelectorAll('.chk-prospecto:not([disabled])').length;
-    sel.length > 0 ? bulkBar.classList.remove('d-none') : bulkBar.classList.add('d-none');
-    document.getElementById('bulkCount').textContent = sel.length;
-    chkTodos.checked = sel.length === total && total > 0;
-    chkTodos.indeterminate = sel.length > 0 && sel.length < total;
+function estadoRenderer(params) {
+  const v = params.value || '';
+  const [cls, label] = ESTADO_MAP[v] || ['estado-sin_contactar', v || 'Sin contactar'];
+  return `<span class="badge-estado ${cls}">${label}</span>`;
+}
+
+function prioridadRenderer(params) {
+  const v = (params.value || '').toLowerCase();
+  const map = { alta: ['prio-alta','↑ Alta'], media: ['prio-media','→ Media'], baja: ['prio-baja','↓ Baja'] };
+  const [cls, label] = map[v] || ['prio-baja', v || '—'];
+  return v ? `<span class="${cls}">${label}</span>` : '<span class="text-muted">—</span>';
+}
+
+function empresaRenderer(params) {
+  const p = params.data;
+  const nombre = p.razon_social || '(Sin nombre)';
+  const sub = [p.tipo, p.rubro].filter(Boolean).join(' · ');
+  return `<div>
+    <a href="/prospeccion/${p.id}" target="_blank" class="text-decoration-none fw-semibold text-dark" style="font-size:.8rem">${escHtml(nombre)}</a>
+    ${sub ? `<div class="text-muted" style="font-size:.68rem;line-height:1.3">${escHtml(sub)}</div>` : ''}
+  </div>`;
+}
+
+class EmailCellRenderer {
+  init(params) {
+    this.eGui = document.createElement('div');
+    this.eGui.style.cssText = 'display:flex;align-items:center;gap:4px;flex-wrap:nowrap;overflow:hidden';
+    this.refresh(params);
   }
-  chkTodos.addEventListener('change', () => {
-    document.querySelectorAll('.chk-prospecto:not([disabled])').forEach(c => c.checked = chkTodos.checked);
-    updateBar();
+  refresh(params) {
+    const emails = params.value || [];
+    const chips = emails.slice(0, 2).map(e =>
+      `<span class="email-chip" title="${escHtml(e)}">${escHtml(e)}</span>`).join('');
+    const more = emails.length > 2 ? `<span class="badge bg-secondary" style="font-size:.62rem">+${emails.length - 2}</span>` : '';
+    const btn = `<button class="email-add-btn" onclick="openEmailManager(${params.data.id})" title="Gestionar emails"><i class="bi bi-plus-circle"></i></button>`;
+    this.eGui.innerHTML = chips + more + btn;
+    return true;
+  }
+  getGui() { return this.eGui; }
+}
+
+class ActionsCellRenderer {
+  init(params) {
+    this.eGui = document.createElement('div');
+    this.eGui.style.cssText = 'display:flex;align-items:center;gap:2px';
+    const p = params.data;
+    this.eGui.innerHTML = `
+      <button class="act-btn hist" title="Ver historial" onclick="window.open('/prospeccion/${p.id}','_blank')"><i class="bi bi-clock-history"></i></button>
+      <button class="act-btn send" title="Enviar email" onclick="openSendEmail(${p.id})"><i class="bi bi-send"></i></button>
+      <button class="act-btn call" title="Registrar contacto" onclick="openQuickContact(${p.id})"><i class="bi bi-telephone-plus"></i></button>
+    `;
+  }
+  getGui() { return this.eGui; }
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ══════════════════════════════════════════════
+// COLUMN DEFINITIONS
+// ══════════════════════════════════════════════
+const SELECT_EDITOR_ESTADO = {
+  cellEditor: 'agSelectCellEditor',
+  cellEditorParams: { values: ['sin_contactar','presentado','precio_enviado','negociando','cliente'] },
+};
+const SELECT_EDITOR_NIVEL = {
+  cellEditor: 'agSelectCellEditor',
+  cellEditorParams: { values: ['','Alto','Medio','Bajo'] },
+};
+const SELECT_EDITOR_PRIORIDAD = {
+  cellEditor: 'agSelectCellEditor',
+  cellEditorParams: { values: ['','alta','media','baja'] },
+};
+const SELECT_EDITOR_TAMANO = {
+  cellEditor: 'agSelectCellEditor',
+  cellEditorParams: { values: ['','MYPE','Pequeña','Mediana','Grande'] },
+};
+
+const columnDefs = [
+  { checkboxSelection: true, headerCheckboxSelection: true, width: 40, pinned: 'left',
+    suppressHeaderMenuButton: true, resizable: false, sortable: false },
+  { field: 'id', headerName: '#', width: 65, pinned: 'left', sortable: true },
+  { field: 'razon_social', headerName: 'Empresa', width: 230, pinned: 'left', editable: true,
+    cellRenderer: empresaRenderer, autoHeight: false },
+  { field: 'ruc', headerName: 'RUC', width: 115, editable: true },
+  { field: 'nombre_contacto', headerName: 'Contacto', width: 160, editable: true },
+  { field: 'cargo', headerName: 'Cargo', width: 140, editable: true },
+  { field: 'telefono', headerName: 'Teléfono', width: 120, editable: true },
+  { field: 'telefono_alt', headerName: 'Tel. Alt', width: 115, editable: true },
+  { field: 'emails', headerName: 'Email(s)', width: 220, cellRenderer: EmailCellRenderer,
+    sortable: false, suppressHeaderMenuButton: false,
+    valueGetter: (p) => p.data.emails,
+    filterValueGetter: (p) => (p.data.emails || []).join(' ') },
+  { field: 'rubro', headerName: 'Rubro', width: 150, editable: true },
+  { field: 'departamento', headerName: 'Ciudad', width: 115, editable: true },
+  { field: 'provincia', headerName: 'Provincia', width: 110, editable: true },
+  { field: 'tamano_empresa', headerName: 'Tamaño', width: 100, editable: true, ...SELECT_EDITOR_TAMANO },
+  { field: 'volumen_estimado_usd', headerName: 'Vol. Est. USD', width: 120, editable: true, type: 'numericColumn',
+    valueFormatter: (p) => p.value ? '$' + Number(p.value).toLocaleString('es-PE') : '' },
+  { field: 'estado_comercial', headerName: 'Estado', width: 130, editable: true,
+    cellRenderer: estadoRenderer, ...SELECT_EDITOR_ESTADO },
+  { field: 'nivel_interes', headerName: 'Interés', width: 100, editable: true, ...SELECT_EDITOR_NIVEL },
+  { field: 'prioridad', headerName: 'Prioridad', width: 95, editable: true,
+    cellRenderer: prioridadRenderer, ...SELECT_EDITOR_PRIORIDAD },
+  { field: 'fecha_ultimo_contacto', headerName: 'Últ. Contacto', width: 130,
+    valueFormatter: (p) => p.value ? p.value.substring(0,10) : '—' },
+  { field: 'fecha_proximo_contacto', headerName: 'Próx. Contacto', width: 130, editable: true,
+    cellEditor: 'agTextCellEditor' },
+  { field: 'num_contactos', headerName: 'Contactos', width: 90, type: 'numericColumn' },
+  { field: 'trader', headerName: 'Trader', width: 110 },
+  { field: 'fuente', headerName: 'Fuente', width: 110, editable: true },
+  { field: 'canal', headerName: 'Canal', width: 100, editable: true },
+  { field: 'grupo', headerName: 'Grupo', width: 140, editable: true },
+  { field: 'notas', headerName: 'Notas', width: 220, editable: true,
+    cellEditor: 'agLargeTextCellEditor', cellEditorPopup: true,
+    cellEditorParams: { maxLength: 1000, rows: 4, cols: 40 } },
+  { field: 'creado_en', headerName: 'Creado', width: 100 },
+  { field: 'actualizado_en', headerName: 'Actualizado', width: 130 },
+  { headerName: '', width: 100, pinned: 'right', cellRenderer: ActionsCellRenderer,
+    suppressHeaderMenuButton: true, sortable: false, resizable: false },
+];
+
+// ══════════════════════════════════════════════
+// GRID INIT
+// ══════════════════════════════════════════════
+const gridOptions = {
+  columnDefs,
+  rowData: [],
+  defaultColDef: {
+    sortable: true,
+    resizable: true,
+    filter: true,
+    suppressHeaderMenuButton: false,
+    floatingFilter: false,
+  },
+  animateRows: true,
+  rowSelection: 'multiple',
+  suppressRowClickSelection: true,
+  enableCellTextSelection: true,
+  singleClickEdit: false,
+  stopEditingWhenCellsLoseFocus: true,
+  onCellValueChanged: onCellChanged,
+  onSelectionChanged: onSelectionChanged,
+  getRowId: (p) => String(p.data.id),
+  overlayLoadingTemplate: '<div class="spinner-border text-primary" role="status"></div>',
+  overlayNoRowsTemplate: '<span class="text-muted">No se encontraron prospectos con los filtros actuales.</span>',
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+  const el = document.getElementById('prospGrid');
+  gridApi = agGrid.createGrid(el, gridOptions);
+  loadGridData();
+  setupEventListeners();
+  checkCampanaEstado();
+});
+
+// ══════════════════════════════════════════════
+// DATA LOAD
+// ══════════════════════════════════════════════
+async function loadGridData() {
+  if (!gridApi) return;
+  gridApi.showLoadingOverlay();
+
+  const params = new URLSearchParams();
+  params.set('tab', currentTab);
+  Object.entries(activeFilters).forEach(([k, v]) => { if (v) params.set(k, v); });
+
+  try {
+    const res  = await fetch('/prospeccion/api/grid?' + params);
+    const data = await res.json();
+
+    gridApi.setGridOption('rowData', data.rows);
+
+    // Update tab counts
+    Object.entries(data.counts).forEach(([tab, cnt]) => {
+      const el = document.getElementById('cnt_' + tab);
+      if (el) el.textContent = cnt;
+    });
+    document.getElementById('gridTotalLabel').textContent =
+      `${data.rows.length} de ${data.counts.todos + data.counts.clientes} prospectos`;
+
+    // Populate filter dropdowns (once)
+    if (data.traders && !document.querySelector('#filterTrader option[value="loaded"]')) {
+      const sel = document.getElementById('filterTrader');
+      data.traders.forEach(t => {
+        const o = new Option(t.username, t.id);
+        sel.add(o);
+      });
+      sel.add(new Option('loaded', 'loaded')).style.display = 'none';
+      _metaCache.traders = data.traders;
+    }
+    if (data.deptos) {
+      const sel = document.getElementById('filterDepto');
+      if (sel.options.length <= 1) {
+        data.deptos.forEach(d => sel.add(new Option(d, d)));
+      }
+    }
+
+    if (data.rows.length === 0) gridApi.showNoRowsOverlay();
+    else gridApi.hideOverlay();
+  } catch(e) {
+    console.error(e);
+    gridApi.hideOverlay();
+  }
+}
+
+// ══════════════════════════════════════════════
+// AUTO-SAVE (debounced, per-cell)
+// ══════════════════════════════════════════════
+function onCellChanged(event) {
+  const pid   = event.data.id;
+  const campo = event.column.getColId();
+  const valor = event.newValue;
+  const key   = `${pid}_${campo}`;
+
+  clearTimeout(_saveTimers[key]);
+  _saveTimers[key] = setTimeout(async () => {
+    showAutosave('saving');
+    try {
+      const r = await fetch(`/prospeccion/api/${pid}/campo`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+        body: JSON.stringify({ campo, valor }),
+      });
+      const d = await r.json();
+      if (d.ok) {
+        showAutosave('saved');
+        // Update emails array if email field changed
+        if (campo === 'email') {
+          const node = gridApi.getRowNode(String(pid));
+          if (node) {
+            const emails = [valor, ...(node.data.emails || []).slice(1)].filter(Boolean);
+            node.setDataValue('emails', emails);
+          }
+        }
+      } else {
+        showAutosave('error', d.error);
+        // Revert cell
+        event.node.setDataValue(campo, event.oldValue);
+      }
+    } catch(e) {
+      showAutosave('error', 'Error de conexión');
+      event.node.setDataValue(campo, event.oldValue);
+    }
+  }, 600);
+}
+
+function showAutosave(state, msg = '') {
+  const toast = document.getElementById('autosaveToast');
+  const icon  = document.getElementById('autosaveIcon');
+  const msgEl = document.getElementById('autosaveMsg');
+  clearTimeout(window._autosaveHide);
+  toast.className = 'show';
+  if (state === 'saving') {
+    icon.innerHTML  = '<span class="spinner-border spinner-border-sm" style="width:.7rem;height:.7rem"></span>';
+    msgEl.textContent = 'Guardando…';
+    toast.style.background = '#1a1a2e';
+  } else if (state === 'saved') {
+    icon.innerHTML  = '✓';
+    msgEl.textContent = 'Guardado';
+    toast.style.background = '#198754';
+    window._autosaveHide = setTimeout(() => { toast.className = ''; }, 2000);
+  } else {
+    icon.innerHTML  = '✕';
+    msgEl.textContent = 'Error: ' + (msg || 'no guardado');
+    toast.style.background = '#dc3545';
+    window._autosaveHide = setTimeout(() => { toast.className = ''; }, 3500);
+  }
+}
+
+// ══════════════════════════════════════════════
+// SELECTION → BULK BAR
+// ══════════════════════════════════════════════
+function onSelectionChanged() {
+  const rows = gridApi.getSelectedRows();
+  const bar  = document.getElementById('bulkBar');
+  document.getElementById('bulkCount').textContent = rows.length;
+  bar.classList.toggle('show', rows.length > 0);
+}
+
+// ══════════════════════════════════════════════
+// FILTERS & TABS
+// ══════════════════════════════════════════════
+function setupEventListeners() {
+  // Tabs
+  document.querySelectorAll('.crm-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.crm-tab').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentTab = btn.dataset.tab;
+      loadGridData();
+    });
   });
-  document.querySelectorAll('.chk-prospecto').forEach(c => c.addEventListener('change', updateBar));
+
+  // Search (debounced)
+  let searchTimer;
+  document.getElementById('searchInput').addEventListener('input', (e) => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+      activeFilters.q = e.target.value.trim();
+      updateActiveTags();
+      loadGridData();
+    }, 350);
+  });
+
+  // Filter dropdowns
+  ['filterEstado','filterTrader','filterDepto','filterTamano','filterNivel','filterPrioridad'].forEach(id => {
+    document.getElementById(id).addEventListener('change', (e) => {
+      const map = {
+        filterEstado: 'estado', filterTrader: 'trader_id', filterDepto: 'depto',
+        filterTamano: 'tamano', filterNivel: 'nivel_interes', filterPrioridad: 'prioridad',
+      };
+      activeFilters[map[id]] = e.target.value;
+      updateActiveTags();
+      loadGridData();
+    });
+  });
+
+  // Clear filters
+  document.getElementById('btnClearFilters').addEventListener('click', () => {
+    activeFilters = { q:'', estado:'', trader_id:'', depto:'', tamano:'', nivel_interes:'', prioridad:'' };
+    document.getElementById('searchInput').value = '';
+    document.getElementById('filterEstado').value = '';
+    document.getElementById('filterTrader').value = '';
+    document.getElementById('filterDepto').value = '';
+    document.getElementById('filterTamano').value = '';
+    document.getElementById('filterNivel').value = '';
+    document.getElementById('filterPrioridad').value = '';
+    updateActiveTags();
+    loadGridData();
+  });
+
+  // Refresh
+  document.getElementById('btnRefresh').addEventListener('click', loadGridData);
+
+  // Export
+  document.getElementById('btnExport').addEventListener('click', () => {
+    window.location.href = '/prospeccion/api/export-excel';
+  });
+
+  // Import modal
+  document.getElementById('btnImport').addEventListener('click', () => {
+    document.getElementById('importStep1').classList.remove('d-none');
+    document.getElementById('importResult').classList.add('d-none');
+    document.getElementById('importFile').value = '';
+    new bootstrap.Modal(document.getElementById('modalImport')).show();
+  });
+  document.getElementById('btnDoImport').addEventListener('click', doImport);
+
+  // Email modal add
+  document.getElementById('btnAddEmail').addEventListener('click', doAddEmail);
+  document.getElementById('newEmailInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') doAddEmail();
+  });
+
+  // Envio email tipo toggle
+  document.querySelectorAll('input[name="envio_tipo"]').forEach(r => {
+    r.addEventListener('change', () => {
+      document.getElementById('envioPrecioFields').classList.toggle('d-none', r.value !== 'precio');
+    });
+  });
+  document.getElementById('btnDoEnvio').addEventListener('click', doEnvioEmail);
+
+  // Contacto rápido
+  document.getElementById('btnDoContacto').addEventListener('click', doQuickContact);
+
+  // Bulk actions
   document.getElementById('btnDeselecAll').addEventListener('click', () => {
-    document.querySelectorAll('.chk-prospecto').forEach(c => c.checked = false);
-    chkTodos.checked = false; updateBar();
+    gridApi.deselectAll();
   });
   document.querySelectorAll('input[name="bulk_tipo"]').forEach(r => {
     r.addEventListener('change', () => {
       document.getElementById('bulkPrecioFields').classList.toggle('d-none', r.value !== 'precio');
     });
   });
+  document.getElementById('btnIniciarCampana').addEventListener('click', doCampanaMasiva);
+  document.getElementById('btnBulkUpdate').addEventListener('click', doBulkUpdate);
 
-  document.getElementById('btnIniciarCampana').addEventListener('click', async function() {
-    const ids    = getChecked().map(c => c.value);
-    const tipo   = document.querySelector('input[name="bulk_tipo"]:checked').value;
-    const compra = document.getElementById('bulkCompra').value.trim();
-    const venta  = document.getElementById('bulkVenta').value.trim();
-    if (!ids.length) return;
-    if (tipo === 'precio' && (!compra || !venta)) { Swal.fire('Faltan precios', 'Ingresa COMPRA y VENTA.', 'warning'); return; }
-    const conf = await Swal.fire({
-      title: 'Iniciar campaña masiva',
-      html: `<b>${ids.length} prospectos</b> · correo de <b>${tipo === 'precio' ? 'precio' : 'presentacion'}</b><br><small class="text-muted">~7 seg entre cada correo</small>`,
-      icon: 'question', showCancelButton: true, confirmButtonText: 'Iniciar', cancelButtonText: 'Cancelar'
+  // Detener campaña
+  document.getElementById('btnDetenerCampana').addEventListener('click', async () => {
+    await fetch('/prospeccion/campana/detener', { method: 'POST', headers: { 'X-CSRFToken': CSRF } });
+  });
+  document.getElementById('btnActualizarPrecios').addEventListener('click', async () => {
+    const c = document.getElementById('cpNuevaCompra').value;
+    const v = document.getElementById('cpNuevaVenta').value;
+    if (!c || !v) return;
+    await fetch('/prospeccion/campana/actualizar-precios', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+      body: JSON.stringify({ compra: parseFloat(c), venta: parseFloat(v) }),
     });
-    if (!conf.isConfirmed) return;
-    this.disabled = true; this.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
-    const r = await fetch('/prospeccion/campana/iniciar', {
-      method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
-      body: JSON.stringify({ ids, tipo, compra, venta })
+  });
+}
+
+function updateActiveTags() {
+  const labels = {
+    q: 'Búsqueda', estado: 'Estado', trader_id: 'Trader', depto: 'Depto',
+    tamano: 'Tamaño', nivel_interes: 'Interés', prioridad: 'Prioridad',
+  };
+  const container = document.getElementById('activeTags');
+  container.innerHTML = '';
+  Object.entries(activeFilters).forEach(([k, v]) => {
+    if (!v) return;
+    const display = k === 'trader_id'
+      ? (_metaCache.traders.find(t => String(t.id) === String(v)) || {}).username || v
+      : v;
+    const tag = document.createElement('span');
+    tag.className = 'filter-tag';
+    tag.innerHTML = `${labels[k]}: <b>${display}</b> <button onclick="clearFilter('${k}')">×</button>`;
+    container.appendChild(tag);
+  });
+}
+
+window.clearFilter = function(key) {
+  activeFilters[key] = '';
+  const elMap = {
+    q: 'searchInput', estado: 'filterEstado', trader_id: 'filterTrader',
+    depto: 'filterDepto', tamano: 'filterTamano', nivel_interes: 'filterNivel', prioridad: 'filterPrioridad',
+  };
+  if (elMap[key]) document.getElementById(elMap[key]).value = '';
+  updateActiveTags();
+  loadGridData();
+};
+
+// ══════════════════════════════════════════════
+// EMAIL MANAGER
+// ══════════════════════════════════════════════
+window.openEmailManager = async function(pid) {
+  _currentEmailPid = pid;
+  document.getElementById('newEmailInput').value = '';
+  try {
+    const res  = await fetch(`/prospeccion/api/${pid}/emails`);
+    const data = await res.json();
+    document.getElementById('emailModalEmpresa').textContent = data.razon_social || '';
+    renderEmailList(data.emails);
+    new bootstrap.Modal(document.getElementById('modalEmails')).show();
+  } catch(e) {
+    Swal.fire('Error', 'No se pudo cargar la lista de emails.', 'error');
+  }
+};
+
+function renderEmailList(emails) {
+  const list = document.getElementById('emailList');
+  if (!emails.length) { list.innerHTML = '<p class="text-muted small">Sin emails registrados.</p>'; return; }
+  list.innerHTML = emails.map(e => `
+    <div class="d-flex align-items-center justify-content-between py-1 border-bottom" style="font-size:.83rem">
+      <div>
+        <i class="bi bi-envelope${e.activo ? '' : '-slash'} me-2 ${e.activo ? 'text-primary' : 'text-muted'}"></i>
+        <span class="${!e.activo ? 'text-decoration-line-through text-muted' : ''}">${escHtml(e.email)}</span>
+        ${e.es_principal ? '<span class="badge bg-primary ms-1" style="font-size:.6rem">Principal</span>' : ''}
+        ${e.es_alt ? '<span class="badge bg-secondary ms-1" style="font-size:.6rem">Alt</span>' : ''}
+      </div>
+      ${e.id ? `<button class="btn btn-link btn-sm p-0 text-${e.activo ? 'warning' : 'success'}"
+                 onclick="toggleEmail(${e.id})" title="${e.activo ? 'Desactivar' : 'Activar'}">
+                 <i class="bi bi-${e.activo ? 'eye-slash' : 'eye'}"></i>
+               </button>` : '<small class="text-muted" style="font-size:.65rem">No editable</small>'}
+    </div>`).join('');
+}
+
+window.toggleEmail = async function(eid) {
+  const r = await fetch(`/prospeccion/api/email/${eid}/toggle`, {
+    method: 'PATCH', headers: { 'X-CSRFToken': CSRF },
+  });
+  const d = await r.json();
+  if (d.ok) {
+    openEmailManager(_currentEmailPid);
+    // Refresh row
+    setTimeout(() => refreshRow(_currentEmailPid), 500);
+  }
+};
+
+async function doAddEmail() {
+  const email = document.getElementById('newEmailInput').value.trim();
+  if (!email) return;
+  const r = await fetch(`/prospeccion/api/${_currentEmailPid}/emails`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+    body: JSON.stringify({ email }),
+  });
+  const d = await r.json();
+  if (d.ok) {
+    document.getElementById('newEmailInput').value = '';
+    openEmailManager(_currentEmailPid);
+    setTimeout(() => refreshRow(_currentEmailPid), 500);
+  } else {
+    Swal.fire('', d.error, 'warning');
+  }
+}
+
+async function refreshRow(pid) {
+  try {
+    const res  = await fetch(`/prospeccion/api/grid?tab=todos&q=`);
+    // Lightweight: just reload all data
+    loadGridData();
+  } catch(e) {}
+}
+
+// ══════════════════════════════════════════════
+// ENVIAR EMAIL
+// ══════════════════════════════════════════════
+window.openSendEmail = function(pid) {
+  _currentEnvioPid = pid;
+  const node = gridApi.getRowNode(String(pid));
+  if (!node) return;
+  const p = node.data;
+  document.getElementById('envioEmpresa').textContent = p.razon_social || '';
+  document.getElementById('envioEmail').textContent = (p.emails || [])[0] || p.email || '';
+  document.getElementById('envioMsg').className = 'd-none alert alert-sm p-2 small';
+  document.getElementById('envioPrecioFields').classList.add('d-none');
+  document.querySelector('input[name="envio_tipo"][value="presentacion"]').checked = true;
+  new bootstrap.Modal(document.getElementById('modalEnvio')).show();
+};
+
+async function doEnvioEmail() {
+  const btn  = document.getElementById('btnDoEnvio');
+  const tipo = document.querySelector('input[name="envio_tipo"]:checked').value;
+  const compra = document.getElementById('envioCompra').value;
+  const venta  = document.getElementById('envioVenta').value;
+  if (tipo === 'precio' && (!compra || !venta)) {
+    Swal.fire('Faltan datos', 'Ingresa Compra y Venta.', 'warning'); return;
+  }
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Enviando...';
+  try {
+    const r = await fetch(`/prospeccion/${_currentEnvioPid}/enviar-email`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+      body: JSON.stringify({ tipo, compra: compra ? parseFloat(compra) : null, venta: venta ? parseFloat(venta) : null }),
     });
     const d = await r.json();
-    if (d.ok) { bulkBar.classList.add('d-none'); document.querySelectorAll('.chk-prospecto').forEach(c => c.checked = false); iniciarPoller(); }
-    else Swal.fire('Error', d.error, 'error');
-    this.disabled = false; this.innerHTML = '<i class="bi bi-send-fill"></i> Iniciar campaña';
-  });
-})();
+    const msgEl = document.getElementById('envioMsg');
+    if (d.ok) {
+      msgEl.className = 'alert alert-success alert-sm p-2 small';
+      msgEl.textContent = '✓ Correo enviado correctamente.';
+      msgEl.classList.remove('d-none');
+      setTimeout(() => bootstrap.Modal.getInstance(document.getElementById('modalEnvio'))?.hide(), 1500);
+    } else {
+      msgEl.className = 'alert alert-danger alert-sm p-2 small';
+      msgEl.textContent = d.error || 'Error al enviar.';
+      msgEl.classList.remove('d-none');
+    }
+  } catch(e) {
+    Swal.fire('Error', 'Error de conexión.', 'error');
+  }
+  btn.disabled = false;
+  btn.innerHTML = '<i class="bi bi-send me-1"></i>Enviar';
+}
 
-// Panel campaña activa
+// ══════════════════════════════════════════════
+// QUICK CONTACT
+// ══════════════════════════════════════════════
+window.openQuickContact = function(pid) {
+  _currentContactoPid = pid;
+  const node = gridApi.getRowNode(String(pid));
+  if (!node) return;
+  document.getElementById('contactoEmpresa').textContent = node.data.razon_social || '';
+  document.getElementById('contactoDesc').value = '';
+  document.getElementById('contactoEstado').value = '';
+  document.getElementById('contactoProximo').value = '';
+  new bootstrap.Modal(document.getElementById('modalContacto')).show();
+};
+
+async function doQuickContact() {
+  const tipo  = document.getElementById('contactoTipo').value;
+  const desc  = document.getElementById('contactoDesc').value.trim();
+  const est   = document.getElementById('contactoEstado').value;
+  const prox  = document.getElementById('contactoProximo').value;
+  if (!desc) { Swal.fire('', 'Ingresa una descripción.', 'warning'); return; }
+
+  const fd = new FormData();
+  fd.append('tipo', tipo);
+  fd.append('descripcion', desc);
+  if (est)  fd.append('nuevo_estado', est);
+  if (prox) fd.append('fecha_proximo_contacto', prox);
+
+  const btn = document.getElementById('btnDoContacto');
+  btn.disabled = true;
+  try {
+    const r = await fetch(`/prospeccion/${_currentContactoPid}/actividad`, {
+      method: 'POST',
+      headers: { 'X-CSRFToken': CSRF },
+      body: fd,
+    });
+    bootstrap.Modal.getInstance(document.getElementById('modalContacto'))?.hide();
+    Swal.fire({ icon: 'success', title: 'Contacto registrado', timer: 1500, showConfirmButton: false });
+    // Update row optimistically
+    const node = gridApi.getRowNode(String(_currentContactoPid));
+    if (node) {
+      const today = new Date().toISOString().substring(0, 16);
+      node.setDataValue('fecha_ultimo_contacto', today);
+      if (est) node.setDataValue('estado_comercial', est);
+      if (prox) node.setDataValue('fecha_proximo_contacto', prox);
+    }
+  } catch(e) {
+    Swal.fire('Error', 'No se pudo registrar el contacto.', 'error');
+  }
+  btn.disabled = false;
+}
+
+// ══════════════════════════════════════════════
+// IMPORT EXCEL
+// ══════════════════════════════════════════════
+async function doImport() {
+  const file = document.getElementById('importFile').files[0];
+  if (!file) { Swal.fire('', 'Selecciona un archivo Excel.', 'warning'); return; }
+
+  const btn = document.getElementById('btnDoImport');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Importando...';
+
+  const fd = new FormData();
+  fd.append('file', file);
+
+  try {
+    const r = await fetch('/prospeccion/api/import-excel', {
+      method: 'POST', headers: { 'X-CSRFToken': CSRF }, body: fd,
+    });
+    const d = await r.json();
+
+    document.getElementById('importStep1').classList.add('d-none');
+    const result = document.getElementById('importResult');
+    result.classList.remove('d-none');
+
+    if (d.ok) {
+      result.querySelector('#importResultBody').innerHTML = `
+        <div class="alert alert-success p-2 small mb-2">
+          <b>✓ Importación completada</b><br>
+          <b>${d.inserted}</b> registros insertados · <b>${d.skipped}</b> omitidos (duplicados)
+        </div>
+        ${d.columns_detected ? `<p class="small text-muted">Columnas detectadas: ${d.columns_detected.join(', ')}</p>` : ''}
+        ${d.warnings && d.warnings.length ? `<div class="alert alert-warning p-2 small">${d.warnings.join('<br>')}</div>` : ''}
+      `;
+      loadGridData();
+    } else {
+      result.querySelector('#importResultBody').innerHTML = `
+        <div class="alert alert-danger p-2 small"><b>Error:</b> ${escHtml(d.error)}</div>
+        ${d.detected_headers ? `<p class="small text-muted">Encabezados detectados: ${d.detected_headers.join(', ')}</p>` : ''}
+      `;
+    }
+  } catch(e) {
+    Swal.fire('Error', 'Error de conexión al importar.', 'error');
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = '<i class="bi bi-upload me-1"></i>Importar';
+}
+
+// ══════════════════════════════════════════════
+// BULK UPDATE
+// ══════════════════════════════════════════════
+async function doBulkUpdate() {
+  const rows  = gridApi.getSelectedRows();
+  const campo = document.getElementById('bulkCampo').value;
+  const valor = document.getElementById('bulkValor').value.trim();
+  if (!rows.length || !campo) return;
+
+  const conf = await Swal.fire({
+    title: `Actualizar ${rows.length} registros`,
+    html: `Campo <b>${campo}</b> → <b>${valor || '(vacío)'}</b>`,
+    icon: 'question', showCancelButton: true,
+    confirmButtonText: 'Aplicar', cancelButtonText: 'Cancelar',
+  });
+  if (!conf.isConfirmed) return;
+
+  const r = await fetch('/prospeccion/api/bulk-campo', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+    body: JSON.stringify({ ids: rows.map(r => r.id), campo, valor }),
+  });
+  const d = await r.json();
+  if (d.ok) {
+    Swal.fire({ icon: 'success', title: `${d.updated} registros actualizados`, timer: 1500, showConfirmButton: false });
+    loadGridData();
+  } else {
+    Swal.fire('Error', d.error, 'error');
+  }
+}
+
+// ══════════════════════════════════════════════
+// CAMPAIGN
+// ══════════════════════════════════════════════
+async function doCampanaMasiva() {
+  const rows  = gridApi.getSelectedRows();
+  const ids   = rows.map(r => r.id);
+  const tipo  = document.querySelector('input[name="bulk_tipo"]:checked').value;
+  const compra = document.getElementById('bulkCompra').value;
+  const venta  = document.getElementById('bulkVenta').value;
+  if (!ids.length) return;
+  if (tipo === 'precio' && (!compra || !venta)) {
+    Swal.fire('Faltan precios', 'Ingresa COMPRA y VENTA.', 'warning'); return;
+  }
+  const conf = await Swal.fire({
+    title: 'Iniciar campaña masiva',
+    html: `<b>${ids.length} prospectos</b> · correo de <b>${tipo === 'precio' ? 'precio' : 'presentación'}</b>`,
+    icon: 'question', showCancelButton: true, confirmButtonText: 'Iniciar',
+  });
+  if (!conf.isConfirmed) return;
+
+  const btn = document.getElementById('btnIniciarCampana');
+  btn.disabled = true;
+  const r = await fetch('/prospeccion/campana/iniciar', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+    body: JSON.stringify({ ids, tipo, compra, venta }),
+  });
+  const d = await r.json();
+  if (d.ok) {
+    gridApi.deselectAll();
+    iniciarPoller();
+  } else {
+    Swal.fire('Error', d.error, 'error');
+  }
+  btn.disabled = false;
+}
+
+// ══════════════════════════════════════════════
+// CAMPAIGN POLLER (preserved from original)
+// ══════════════════════════════════════════════
 let campanaPoller = null, reloadPending = false;
 
 function mostrarPanelCampana(data) {
   const panel = document.getElementById('campanaPanel');
   panel.classList.remove('d-none');
   const env = data.enviados || 0, total = data.total || 0;
-  document.getElementById('cpBarra').style.width = (total > 0 ? Math.round(env/total*100) : 0) + '%';
-  document.getElementById('cpConteo').textContent = `${env} / ${total}${data.errores ? ' · '+data.errores+' err' : ''}`;
+  document.getElementById('cpBarra').style.width = (total > 0 ? Math.round(env / total * 100) : 0) + '%';
+  document.getElementById('cpConteo').textContent = `${env} / ${total}${data.errores ? ' · ' + data.errores + ' err' : ''}`;
+  document.getElementById('cpActualizarWrap').classList.toggle('d-none', data.tipo !== 'precio');
   if (data.activa) {
-    document.getElementById('cpEstado').textContent = `Enviando campaña de ${data.tipo === 'precio' ? 'precios' : 'presentacion'}...`;
-    document.getElementById('cpDetalle').textContent = '~7 seg por correo';
-    document.getElementById('cpActualizarWrap').classList.toggle('d-none', data.tipo !== 'precio');
+    document.getElementById('cpEstado').textContent = `Enviando campaña de ${data.tipo === 'precio' ? 'precios' : 'presentación'}...`;
   } else {
-    document.getElementById('cpActualizarWrap').classList.add('d-none');
-    document.getElementById('cpEstado').textContent = data.estado === 'completada' ? `✓ Completada · ${env} enviados` : `■ Detenida · ${env}/${total}`;
-    if (data.estado === 'completada' && !reloadPending) { reloadPending = true; setTimeout(() => location.reload(), 2500); }
+    document.getElementById('cpEstado').textContent =
+      data.estado === 'completada' ? `✓ Completada · ${env} enviados` : `■ Detenida · ${env}/${total}`;
+    if (data.estado === 'completada' && !reloadPending) {
+      reloadPending = true; setTimeout(() => loadGridData(), 2500);
+    }
   }
 }
+
 async function checkCampanaEstado() {
-  const r = await fetch('/prospeccion/campana/estado');
-  const d = await r.json();
-  if (!d.estado) { document.getElementById('campanaPanel').classList.add('d-none'); if (campanaPoller) { clearInterval(campanaPoller); campanaPoller = null; } return; }
-  mostrarPanelCampana(d);
-  if (d.activa && !campanaPoller) campanaPoller = setInterval(checkCampanaEstado, 3000);
-  else if (!d.activa && campanaPoller) { clearInterval(campanaPoller); campanaPoller = null; }
+  try {
+    const r = await fetch('/prospeccion/campana/estado');
+    const d = await r.json();
+    if (!d.estado) {
+      document.getElementById('campanaPanel').classList.add('d-none');
+      if (campanaPoller) { clearInterval(campanaPoller); campanaPoller = null; }
+      return;
+    }
+    mostrarPanelCampana(d);
+    if (d.activa && !campanaPoller) campanaPoller = setInterval(checkCampanaEstado, 3000);
+    else if (!d.activa && campanaPoller) { clearInterval(campanaPoller); campanaPoller = null; }
+  } catch(e) {}
 }
-function iniciarPoller() { if (!campanaPoller) campanaPoller = setInterval(checkCampanaEstado, 3000); checkCampanaEstado(); }
-checkCampanaEstado();
 
-document.getElementById('btnDetenerCampana').addEventListener('click', async () => {
-  const c = await Swal.fire({ title:'Detener campaña?', icon:'warning', showCancelButton:true, confirmButtonText:'Detener', confirmButtonColor:'#dc3545' });
-  if (!c.isConfirmed) return;
-  await fetch('/prospeccion/campana/detener', { method:'POST', headers:{'X-CSRFToken':csrfToken} });
+function iniciarPoller() {
+  if (!campanaPoller) campanaPoller = setInterval(checkCampanaEstado, 3000);
   checkCampanaEstado();
-});
-document.getElementById('btnActualizarPrecios').addEventListener('click', async () => {
-  const compra = document.getElementById('cpNuevaCompra').value.trim(), venta = document.getElementById('cpNuevaVenta').value.trim();
-  if (!compra || !venta) { Swal.fire('Ingresa compra y venta','','warning'); return; }
-  const r = await fetch('/prospeccion/campana/actualizar-precios', { method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':csrfToken}, body:JSON.stringify({compra,venta}) });
-  const d = await r.json();
-  if (!d.ok) Swal.fire('Error', d.error, 'error');
-});
-
-// Modal envío individual
-(function() {
-  let currentPid = null, currentTipo = 'presentacion', currentAsunto = '';
-
-  function irPaso1() {
-    document.getElementById('paso1').classList.remove('d-none');
-    document.getElementById('paso2').classList.add('d-none');
-    document.getElementById('btnVerBorrador').classList.remove('d-none');
-    document.getElementById('btnEnviarModal').classList.add('d-none');
-    document.getElementById('modalEnvioTitulo').innerHTML = '<i class="bi bi-send text-success me-2"></i>Enviar correo';
-  }
-  function irPaso2(html, asunto) {
-    currentAsunto = asunto;
-    document.getElementById('emailPreview').innerHTML = html;
-    document.getElementById('paso1').classList.add('d-none');
-    document.getElementById('paso2').classList.remove('d-none');
-    document.getElementById('btnVerBorrador').classList.add('d-none');
-    document.getElementById('btnEnviarModal').classList.remove('d-none');
-    document.getElementById('modalEnvioTitulo').innerHTML = '<i class="bi bi-pencil-square text-warning me-2"></i>Revisar borrador';
-  }
-
-  document.querySelectorAll('.btn-enviar').forEach(btn => {
-    btn.addEventListener('click', function() {
-      currentPid = this.dataset.pid;
-      document.getElementById('modalDestinatario').textContent = 'Para: ' + (this.dataset.nombre || this.dataset.empresa) + ' <' + this.dataset.email + '>';
-      document.getElementById('tipoPresentacion').checked = true;
-      document.getElementById('campoPrecio').classList.add('d-none');
-      document.getElementById('inputCompra').value = '';
-      document.getElementById('inputVenta').value = '';
-      irPaso1();
-      new bootstrap.Modal(document.getElementById('modalEnvio')).show();
-    });
-  });
-
-  document.getElementById('btnCancelarModal').addEventListener('click', () => {
-    document.getElementById('paso2').classList.contains('d-none')
-      ? bootstrap.Modal.getInstance(document.getElementById('modalEnvio')).hide()
-      : irPaso1();
-  });
-  document.querySelectorAll('input[name="tipo_correo"]').forEach(r => {
-    r.addEventListener('change', () => document.getElementById('campoPrecio').classList.toggle('d-none', r.value !== 'precio'));
-  });
-
-  document.getElementById('btnVerBorrador').addEventListener('click', async function() {
-    currentTipo = document.querySelector('input[name="tipo_correo"]:checked').value;
-    const compra = document.getElementById('inputCompra').value.trim(), venta = document.getElementById('inputVenta').value.trim();
-    if (currentTipo === 'precio' && (!compra || !venta)) { Swal.fire('Faltan precios', '', 'warning'); return; }
-    this.disabled = true; this.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
-    const r = await fetch(`/prospeccion/${currentPid}/preview-email`, {
-      method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':csrfToken},
-      body: JSON.stringify({tipo:currentTipo, compra, venta})
-    });
-    const d = await r.json();
-    d.ok ? irPaso2(d.html, d.asunto) : Swal.fire('Error', d.error, 'error');
-    this.disabled = false; this.innerHTML = '<i class="bi bi-eye"></i> Ver borrador';
-  });
-
-  document.getElementById('btnEnviarModal').addEventListener('click', async function() {
-    const compra = document.getElementById('inputCompra').value.trim(), venta = document.getElementById('inputVenta').value.trim();
-    this.disabled = true; this.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
-    const r = await fetch(`/prospeccion/${currentPid}/enviar-email`, {
-      method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':csrfToken},
-      body: JSON.stringify({tipo:currentTipo, compra, venta, html_editado: document.getElementById('emailPreview').innerHTML, asunto:currentAsunto})
-    });
-    const d = await r.json();
-    bootstrap.Modal.getInstance(document.getElementById('modalEnvio')).hide();
-    if (d.ok) Swal.fire({icon:'success', title:'Enviado', text:d.msg, timer:2500, showConfirmButton:false}).then(() => location.reload());
-    else Swal.fire('Error', d.error, 'error');
-    this.disabled = false; this.innerHTML = '<i class="bi bi-send"></i> Enviar';
-  });
-})();
-
-// Solicitar extensión
-document.querySelectorAll('.btn-sol-ext').forEach(btn => {
-  btn.addEventListener('click', async function() {
-    const pid = this.dataset.pid;
-    const c = await Swal.fire({title:'¿Solicitar extension?', text:'45 días extra para este prospecto.', icon:'question', showCancelButton:true, confirmButtonText:'Solicitar'});
-    if (!c.isConfirmed) return;
-    const r = await fetch(`/prospeccion/${pid}/solicitar-extension`, { method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':csrfToken}, body:'{}' });
-    const d = await r.json();
-    if (d.ok) Swal.fire({icon:'success', title:'Solicitud enviada', timer:1800, showConfirmButton:false}).then(() => location.reload());
-    else Swal.fire('Error', d.error, 'error');
-  });
-});
+}
 </script>
 {% endblock %}

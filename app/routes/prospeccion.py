@@ -290,79 +290,8 @@ def reporte_trader(trader_id):
 @login_required
 @require_role("Master")
 def lista():
-    tab    = request.args.get("tab", "todos")       # todos | seguimiento | negociacion
-    depto  = request.args.get("depto", "")
-    q_str  = request.args.get("q", "")
-    page   = request.args.get("page", 1, type=int)
-
-    query = _base_query()
-
-    # Filtro por pestaña
-    if tab == "clientes":
-        query = query.filter(Prospecto.estado_comercial.in_(_FASE_ESTADOS["clientes"]))
-    elif tab == "presentado":
-        query = query.filter(Prospecto.estado_comercial.in_(_FASE_ESTADOS["presentado"]))
-    elif tab == "precio":
-        query = query.filter(Prospecto.estado_comercial.in_(_FASE_ESTADOS["precio"]))
-    elif tab == "negociando":
-        query = query.filter(Prospecto.estado_comercial.in_(_FASE_ESTADOS["negociando"]))
-    elif tab == "sin_contactar":
-        query = query.filter(
-            or_(Prospecto.estado_comercial == None,
-                Prospecto.estado_comercial == "",
-                Prospecto.estado_comercial == "sin_contactar")
-        )
-    elif tab == "lfc":
-        query = query.filter(
-            or_(Prospecto.grupo == "CLIENTES LFC",
-                Prospecto.cliente_lfc == "Cliente LFC")
-        )
-    else:  # todos — excluye clientes
-        query = query.filter(Prospecto.estado_comercial.notin_(_FASE_ESTADOS["clientes"]))
-
-    if depto:
-        query = query.filter(Prospecto.departamento.ilike(f"%{depto}%"))
-    if q_str:
-        like = f"%{q_str}%"
-        query = query.filter(or_(
-            Prospecto.razon_social.ilike(like),
-            Prospecto.email.ilike(like),
-            Prospecto.nombre_contacto.ilike(like),
-            Prospecto.ruc.ilike(like),
-        ))
-
-    prospectos = query.order_by(Prospecto.actualizado_en.desc()).paginate(page=page, per_page=50, error_out=False)
-    deptos = [d[0] for d in db.session.query(Prospecto.departamento).distinct().order_by(Prospecto.departamento).all() if d[0]]
-
-    # Conteos para las pestañas
-    base = _base_query()
-    cnt_todos         = base.filter(Prospecto.estado_comercial.notin_(_FASE_ESTADOS["clientes"])).count()
-    cnt_sin_contactar = base.filter(or_(
-                            Prospecto.estado_comercial == None,
-                            Prospecto.estado_comercial == "",
-                            Prospecto.estado_comercial == "sin_contactar")).count()
-    cnt_presentado    = base.filter(Prospecto.estado_comercial.in_(_FASE_ESTADOS["presentado"])).count()
-    cnt_precio        = base.filter(Prospecto.estado_comercial.in_(_FASE_ESTADOS["precio"])).count()
-    cnt_negociando    = base.filter(Prospecto.estado_comercial.in_(_FASE_ESTADOS["negociando"])).count()
-    cnt_clientes      = base.filter(Prospecto.estado_comercial.in_(_FASE_ESTADOS["clientes"])).count()
-    cnt_lfc           = base.filter(
-                            or_(Prospecto.grupo == "CLIENTES LFC",
-                                Prospecto.cliente_lfc == "Cliente LFC")).count()
-
-    return render_template(
-        "prospeccion/lista.html",
-        prospectos=prospectos,
-        deptos=deptos,
-        tab=tab,
-        filtros={"depto": depto, "q": q_str, "tab": tab},
-        cnt_todos=cnt_todos,
-        cnt_sin_contactar=cnt_sin_contactar,
-        cnt_presentado=cnt_presentado,
-        cnt_precio=cnt_precio,
-        cnt_negociando=cnt_negociando,
-        cnt_clientes=cnt_clientes,
-        cnt_lfc=cnt_lfc,
-    )
+    """Vista grid CRM — los datos se cargan vía /api/grid."""
+    return render_template("prospeccion/lista.html")
 
 
 # ── Detalle de prospecto ──────────────────────────────────────────────────────
@@ -1780,6 +1709,524 @@ def limpiar_emails_iniciar():
 def limpiar_emails_estado():
     with _limpiar_lock:
         return jsonify(dict(_limpiar_estado))
+
+
+# ── CRM Grid API ──────────────────────────────────────────────────────────────
+
+_CAMPOS_EDITABLES = {
+    "razon_social", "ruc", "tipo", "rubro", "departamento", "provincia",
+    "nombre_contacto", "cargo", "email", "email_alt", "telefono", "telefono_alt",
+    "tamano_empresa", "volumen_estimado_usd", "prioridad",
+    "cliente_lfc", "canal", "fuente", "remitente",
+    "fecha_proximo_contacto", "fecha_ultimo_contacto", "fecha_primer_contacto",
+    "estado_comercial", "nivel_interes", "grupo", "notas",
+    "tipo_ultimo_envio", "estado_email", "clasificacion", "score",
+}
+
+
+@prospeccion_bp.route("/api/grid")
+@login_required
+@require_role("Master")
+def api_grid():
+    """Retorna hasta 5000 prospectos como JSON para AG Grid."""
+    q_str     = request.args.get("q", "").strip()
+    tab       = request.args.get("tab", "todos")
+    depto     = request.args.get("depto", "")
+    rubro_f   = request.args.get("rubro", "")
+    estado_f  = request.args.get("estado", "")
+    tamano_f  = request.args.get("tamano", "")
+    nivel_f   = request.args.get("nivel_interes", "")
+    prioridad_f = request.args.get("prioridad", "")
+    trader_id_f = request.args.get("trader_id", type=int)
+
+    query = _base_query()
+
+    if tab == "clientes":
+        query = query.filter(Prospecto.estado_comercial.in_(_FASE_ESTADOS["clientes"]))
+    elif tab == "presentado":
+        query = query.filter(Prospecto.estado_comercial.in_(_FASE_ESTADOS["presentado"]))
+    elif tab == "precio":
+        query = query.filter(Prospecto.estado_comercial.in_(_FASE_ESTADOS["precio"]))
+    elif tab == "negociando":
+        query = query.filter(Prospecto.estado_comercial.in_(_FASE_ESTADOS["negociando"]))
+    elif tab == "sin_contactar":
+        query = query.filter(or_(
+            Prospecto.estado_comercial == None,
+            Prospecto.estado_comercial == "",
+            Prospecto.estado_comercial == "sin_contactar"))
+    elif tab == "lfc":
+        query = query.filter(or_(
+            Prospecto.grupo == "CLIENTES LFC",
+            Prospecto.cliente_lfc == "Cliente LFC"))
+    else:
+        query = query.filter(Prospecto.estado_comercial.notin_(_FASE_ESTADOS["clientes"]))
+
+    if q_str:
+        like = f"%{q_str}%"
+        query = query.filter(or_(
+            Prospecto.razon_social.ilike(like),
+            Prospecto.email.ilike(like),
+            Prospecto.nombre_contacto.ilike(like),
+            Prospecto.ruc.ilike(like),
+            Prospecto.telefono.ilike(like),
+        ))
+    if depto:
+        query = query.filter(Prospecto.departamento.ilike(f"%{depto}%"))
+    if rubro_f:
+        query = query.filter(Prospecto.rubro.ilike(f"%{rubro_f}%"))
+    if estado_f:
+        query = query.filter(Prospecto.estado_comercial == estado_f)
+    if tamano_f:
+        query = query.filter(Prospecto.tamano_empresa == tamano_f)
+    if nivel_f:
+        query = query.filter(Prospecto.nivel_interes == nivel_f)
+    if prioridad_f:
+        query = query.filter(Prospecto.prioridad == prioridad_f)
+    if trader_id_f:
+        query = query.join(
+            AsignacionProspecto,
+            (AsignacionProspecto.prospecto_id == Prospecto.id) &
+            (AsignacionProspecto.activo == True)
+        ).filter(AsignacionProspecto.trader_id == trader_id_f)
+
+    prospectos_list = query.order_by(Prospecto.actualizado_en.desc()).limit(5000).all()
+    ids = [p.id for p in prospectos_list]
+
+    # Asignaciones (bulk, sin N+1)
+    asigs = AsignacionProspecto.query.filter(
+        AsignacionProspecto.prospecto_id.in_(ids),
+        AsignacionProspecto.activo == True,
+    ).all() if ids else []
+    trader_map = {}
+    for a in asigs:
+        if a.prospecto_id not in trader_map and a.trader:
+            trader_map[a.prospecto_id] = a.trader.username
+
+    # Emails extra (bulk)
+    from app.models.prospecto import ProspectoEmail
+    try:
+        extras = ProspectoEmail.query.filter(
+            ProspectoEmail.prospecto_id.in_(ids),
+            ProspectoEmail.activo == True,
+        ).all() if ids else []
+        emails_map = {}
+        for e in extras:
+            emails_map.setdefault(e.prospecto_id, []).append(e.email)
+    except Exception:
+        emails_map = {}
+
+    rows = []
+    for p in prospectos_list:
+        all_emails = []
+        if p.email:
+            all_emails.append(p.email)
+        if p.email_alt and p.email_alt not in all_emails:
+            all_emails.append(p.email_alt)
+        for em in emails_map.get(p.id, []):
+            if em not in all_emails:
+                all_emails.append(em)
+
+        rows.append({
+            "id":                    p.id,
+            "razon_social":          p.razon_social or "",
+            "ruc":                   p.ruc or "",
+            "tipo":                  p.tipo or "",
+            "rubro":                 p.rubro or "",
+            "departamento":          p.departamento or "",
+            "provincia":             p.provincia or "",
+            "nombre_contacto":       p.nombre_contacto or "",
+            "cargo":                 p.cargo or "",
+            "email":                 p.email or "",
+            "emails":                all_emails,
+            "telefono":              p.telefono or "",
+            "telefono_alt":          getattr(p, "telefono_alt", "") or "",
+            "tamano_empresa":        getattr(p, "tamano_empresa", "") or "",
+            "volumen_estimado_usd":  float(getattr(p, "volumen_estimado_usd", None) or 0) or None,
+            "prioridad":             getattr(p, "prioridad", "") or "",
+            "cliente_lfc":           p.cliente_lfc or "",
+            "score":                 p.score or 0,
+            "clasificacion":         p.clasificacion or "",
+            "canal":                 p.canal or "",
+            "fuente":                p.fuente or "",
+            "remitente":             p.remitente or "",
+            "tipo_ultimo_envio":     p.tipo_ultimo_envio or "",
+            "fecha_primer_contacto": p.fecha_primer_contacto or "",
+            "fecha_ultimo_contacto": p.fecha_ultimo_contacto or "",
+            "fecha_proximo_contacto":p.fecha_proximo_contacto or "",
+            "num_contactos":         p.num_contactos or 0,
+            "estado_email":          p.estado_email or "",
+            "estado_comercial":      p.estado_comercial or "sin_contactar",
+            "nivel_interes":         p.nivel_interes or "",
+            "grupo":                 p.grupo or "",
+            "notas":                 p.notas or "",
+            "trader":                trader_map.get(p.id, ""),
+            "creado_en":             p.creado_en.strftime("%Y-%m-%d") if p.creado_en else "",
+            "actualizado_en":        p.actualizado_en.strftime("%Y-%m-%d %H:%M") if p.actualizado_en else "",
+        })
+
+    base = _base_query()
+    counts = {
+        "todos":         base.filter(Prospecto.estado_comercial.notin_(_FASE_ESTADOS["clientes"])).count(),
+        "sin_contactar": base.filter(or_(Prospecto.estado_comercial == None, Prospecto.estado_comercial == "", Prospecto.estado_comercial == "sin_contactar")).count(),
+        "presentado":    base.filter(Prospecto.estado_comercial.in_(_FASE_ESTADOS["presentado"])).count(),
+        "precio":        base.filter(Prospecto.estado_comercial.in_(_FASE_ESTADOS["precio"])).count(),
+        "negociando":    base.filter(Prospecto.estado_comercial.in_(_FASE_ESTADOS["negociando"])).count(),
+        "clientes":      base.filter(Prospecto.estado_comercial.in_(_FASE_ESTADOS["clientes"])).count(),
+        "lfc":           base.filter(or_(Prospecto.grupo == "CLIENTES LFC", Prospecto.cliente_lfc == "Cliente LFC")).count(),
+    }
+
+    traders = [{"id": u.id, "username": u.username} for u in
+               User.query.filter_by(role="Trader", status="Activo").order_by(User.username).all()]
+    rubros  = [r[0] for r in db.session.query(Prospecto.rubro).distinct().order_by(Prospecto.rubro).all() if r[0]]
+    deptos  = [d[0] for d in db.session.query(Prospecto.departamento).distinct().order_by(Prospecto.departamento).all() if d[0]]
+
+    return jsonify({
+        "rows": rows, "total": len(rows),
+        "counts": counts,
+        "traders": traders,
+        "rubros": rubros[:80],
+        "deptos": deptos,
+    })
+
+
+@prospeccion_bp.route("/api/<int:pid>/campo", methods=["PATCH"])
+@csrf.exempt
+@login_required
+@require_role("Master")
+def api_campo(pid):
+    """Actualiza un campo inline (autosave del grid)."""
+    p = db.get_or_404(Prospecto, pid)
+    data  = request.get_json() or {}
+    campo = data.get("campo", "").strip()
+    valor = data.get("valor")
+
+    if campo not in _CAMPOS_EDITABLES:
+        return jsonify({"ok": False, "error": f"Campo no permitido: {campo}"}), 400
+
+    try:
+        if campo == "volumen_estimado_usd":
+            from decimal import Decimal
+            valor = Decimal(str(valor)) if valor else None
+        elif campo == "score":
+            valor = int(valor) if valor else 0
+        elif valor == "":
+            valor = None
+
+        setattr(p, campo, valor)
+
+        if campo == "estado_comercial" and valor:
+            act = ActividadProspecto(
+                prospecto_id=p.id,
+                user_id=current_user.id,
+                tipo="estado",
+                descripcion=f"Estado cambiado a: {valor} (grid inline)",
+                nuevo_estado=valor,
+            )
+            db.session.add(act)
+
+        db.session.commit()
+        return jsonify({"ok": True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@prospeccion_bp.route("/api/<int:pid>/emails")
+@login_required
+@require_role("Master")
+def api_emails_list(pid):
+    """Lista todos los emails del prospecto."""
+    from app.models.prospecto import ProspectoEmail
+    p = db.get_or_404(Prospecto, pid)
+    result = []
+    if p.email:
+        result.append({"id": None, "email": p.email, "activo": True, "es_principal": True})
+    if p.email_alt:
+        result.append({"id": None, "email": p.email_alt, "activo": True, "es_principal": False, "es_alt": True})
+    try:
+        for e in ProspectoEmail.query.filter_by(prospecto_id=pid).order_by(ProspectoEmail.creado_en).all():
+            result.append({"id": e.id, "email": e.email, "activo": e.activo, "es_principal": False})
+    except Exception:
+        pass
+    return jsonify({"emails": result, "razon_social": p.razon_social})
+
+
+@prospeccion_bp.route("/api/<int:pid>/emails", methods=["POST"])
+@csrf.exempt
+@login_required
+@require_role("Master")
+def api_emails_add(pid):
+    """Agrega un nuevo email al prospecto."""
+    from app.models.prospecto import ProspectoEmail
+    p = db.get_or_404(Prospecto, pid)
+    data  = request.get_json() or {}
+    email = (data.get("email") or "").strip().lower()
+
+    if not email or "@" not in email or "." not in email:
+        return jsonify({"ok": False, "error": "Email inválido"}), 400
+
+    existing = ([p.email, p.email_alt] +
+                [e.email for e in ProspectoEmail.query.filter_by(prospecto_id=pid).all()])
+    if email in [e for e in existing if e]:
+        return jsonify({"ok": False, "error": "Este email ya existe para este prospecto"}), 400
+
+    nuevo = ProspectoEmail(prospecto_id=pid, email=email, activo=True)
+    db.session.add(nuevo)
+    db.session.commit()
+    return jsonify({"ok": True, "id": nuevo.id, "email": nuevo.email})
+
+
+@prospeccion_bp.route("/api/email/<int:eid>/toggle", methods=["PATCH"])
+@csrf.exempt
+@login_required
+@require_role("Master")
+def api_email_toggle(eid):
+    """Activa/desactiva un email extra."""
+    from app.models.prospecto import ProspectoEmail
+    e = db.get_or_404(ProspectoEmail, eid)
+    e.activo = not e.activo
+    db.session.commit()
+    return jsonify({"ok": True, "activo": e.activo})
+
+
+@prospeccion_bp.route("/api/export-excel")
+@login_required
+@require_role("Master")
+def api_export_excel():
+    """Exporta todos los prospectos a Excel."""
+    import openpyxl
+    from io import BytesIO
+    from openpyxl.styles import Font, PatternFill, Alignment
+
+    prospectos_list = _base_query().order_by(Prospecto.actualizado_en.desc()).all()
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Prospectos"
+
+    headers = [
+        "ID", "Razón Social", "RUC", "Tipo", "Rubro", "Departamento", "Provincia",
+        "Contacto", "Cargo", "Email", "Email Alt", "Teléfono", "Teléfono Alt",
+        "Tamaño Empresa", "Volumen Est. USD", "Prioridad",
+        "Estado Comercial", "Nivel Interés", "Grupo", "Canal", "Fuente",
+        "Tipo Último Envío", "Fecha Primer Contacto", "Fecha Último Contacto",
+        "Fecha Próximo Contacto", "N° Contactos", "Notas",
+        "Trader Asignado", "Creado En", "Actualizado En",
+    ]
+
+    header_fill = PatternFill("solid", fgColor="1a1a2e")
+    header_font = Font(bold=True, color="FFFFFF")
+    ws.append(headers)
+    for cell in ws[1]:
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal="center")
+
+    # Trader map
+    asigs = AsignacionProspecto.query.filter_by(activo=True).all()
+    tmap  = {}
+    for a in asigs:
+        if a.prospecto_id not in tmap and a.trader:
+            tmap[a.prospecto_id] = a.trader.username
+
+    for p in prospectos_list:
+        ws.append([
+            p.id, p.razon_social, p.ruc, p.tipo, p.rubro, p.departamento, p.provincia,
+            p.nombre_contacto, p.cargo, p.email, p.email_alt, p.telefono,
+            getattr(p, "telefono_alt", ""),
+            getattr(p, "tamano_empresa", ""),
+            float(getattr(p, "volumen_estimado_usd", None) or 0) or None,
+            getattr(p, "prioridad", ""),
+            p.estado_comercial, p.nivel_interes, p.grupo, p.canal, p.fuente,
+            p.tipo_ultimo_envio, p.fecha_primer_contacto, p.fecha_ultimo_contacto,
+            p.fecha_proximo_contacto, p.num_contactos, p.notas,
+            tmap.get(p.id, ""),
+            p.creado_en.strftime("%Y-%m-%d %H:%M") if p.creado_en else "",
+            p.actualizado_en.strftime("%Y-%m-%d %H:%M") if p.actualizado_en else "",
+        ])
+
+    # Ajustar anchos
+    col_widths = [6,30,14,10,20,15,12,25,20,30,30,14,14,12,14,8,16,12,20,12,12,14,16,16,16,6,40,15,16,16]
+    for i, w in enumerate(col_widths, 1):
+        ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = w
+
+    buf = BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    from datetime import date as _date
+    return current_app.response_class(
+        buf.read(),
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment;filename=prospectos_{_date.today()}.xlsx"},
+    )
+
+
+@prospeccion_bp.route("/api/import-excel", methods=["POST"])
+@csrf.exempt
+@login_required
+@require_role("Master")
+def api_import_excel():
+    """Importa prospectos desde Excel con validación y deduplicación."""
+    import openpyxl
+
+    f = request.files.get("file")
+    if not f:
+        return jsonify({"ok": False, "error": "No se envió archivo"}), 400
+
+    try:
+        wb   = openpyxl.load_workbook(f, data_only=True)
+        ws   = wb.active
+        rows = list(ws.iter_rows(values_only=True))
+    except Exception as e:
+        return jsonify({"ok": False, "error": f"No se pudo leer el archivo: {e}"}), 400
+
+    if not rows:
+        return jsonify({"ok": False, "error": "Archivo vacío"}), 400
+
+    header_lower = [str(c).strip().lower() if c else "" for c in rows[0]]
+
+    COL_ALIASES = {
+        "razon_social":         ["razón social","razon social","empresa","company","nombre empresa","razon_social"],
+        "ruc":                  ["ruc","nit","tax id"],
+        "nombre_contacto":      ["nombre contacto","contacto","nombre","contact","nombre_contacto"],
+        "cargo":                ["cargo","puesto","position","title"],
+        "email":                ["email","correo","e-mail","correo electronico","mail"],
+        "email_alt":            ["email alt","email alternativo","correo alt","email2","email_alt"],
+        "telefono":             ["telefono","teléfono","phone","tel","celular"],
+        "telefono_alt":         ["telefono alt","teléfono alt","telefono2","cel2","telefono_alt"],
+        "rubro":                ["rubro","sector","industria","industry","actividad"],
+        "departamento":         ["departamento","ciudad","city","dept","region"],
+        "provincia":            ["provincia","province","distrito"],
+        "tipo":                 ["tipo","type","persona/empresa"],
+        "tamano_empresa":       ["tamaño empresa","tamano empresa","tamaño","size","tamano_empresa"],
+        "estado_comercial":     ["estado comercial","estado","status","etapa","estado_comercial"],
+        "nivel_interes":        ["nivel interes","nivel de interés","interes","interest","nivel_interes"],
+        "prioridad":            ["prioridad","priority"],
+        "fuente":               ["fuente","origen","source","lead source"],
+        "canal":                ["canal","channel"],
+        "notas":                ["notas","observaciones","notes","comments","comentarios"],
+        "volumen_estimado_usd": ["volumen estimado","volumen usd","monto estimado","volumen_estimado_usd"],
+        "grupo":                ["grupo","group","segmento"],
+    }
+
+    col_idx = {}
+    for field, aliases in COL_ALIASES.items():
+        for alias in aliases:
+            try:
+                col_idx[field] = header_lower.index(alias)
+                break
+            except ValueError:
+                pass
+
+    if not col_idx:
+        return jsonify({
+            "ok": False,
+            "error": "No se detectaron columnas reconocibles. Usa la plantilla de importación.",
+            "detected_headers": header_lower[:15],
+        }), 400
+
+    # Pre-cargar existentes para deduplicar
+    existing_emails = set(r[0].lower() for r in db.session.query(Prospecto.email).filter(Prospecto.email != None).all())
+    existing_rucs   = set(r[0] for r in db.session.query(Prospecto.ruc).filter(Prospecto.ruc != None).all())
+
+    inserted = skipped = 0
+    warnings = []
+
+    def get_val(row, field):
+        idx = col_idx.get(field)
+        if idx is None or idx >= len(row):
+            return None
+        v = row[idx]
+        return str(v).strip() if v is not None else None
+
+    for i, row in enumerate(rows[1:], start=2):
+        if not any(c for c in row if c):
+            continue
+
+        email_v = (get_val(row, "email") or "").lower().strip()
+        ruc_v   = (get_val(row, "ruc") or "").strip()
+
+        if email_v and email_v in existing_emails:
+            skipped += 1
+            continue
+        if ruc_v and ruc_v in existing_rucs and not email_v:
+            skipped += 1
+            continue
+
+        p = Prospecto(
+            razon_social    = get_val(row, "razon_social"),
+            ruc             = ruc_v or None,
+            nombre_contacto = get_val(row, "nombre_contacto"),
+            cargo           = get_val(row, "cargo"),
+            email           = email_v or None,
+            email_alt       = get_val(row, "email_alt"),
+            telefono        = get_val(row, "telefono"),
+            rubro           = get_val(row, "rubro"),
+            departamento    = get_val(row, "departamento"),
+            provincia       = get_val(row, "provincia"),
+            tipo            = get_val(row, "tipo"),
+            notas           = get_val(row, "notas"),
+            fuente          = get_val(row, "fuente"),
+            canal           = get_val(row, "canal"),
+            nivel_interes   = get_val(row, "nivel_interes"),
+            estado_comercial= get_val(row, "estado_comercial"),
+            grupo           = get_val(row, "grupo"),
+        )
+        p.telefono_alt  = get_val(row, "telefono_alt")
+        p.tamano_empresa= get_val(row, "tamano_empresa")
+        p.prioridad     = get_val(row, "prioridad")
+        vol = get_val(row, "volumen_estimado_usd")
+        if vol:
+            try:
+                from decimal import Decimal
+                p.volumen_estimado_usd = Decimal(str(vol).replace(",", ""))
+            except Exception:
+                pass
+
+        db.session.add(p)
+        if email_v:
+            existing_emails.add(email_v)
+        if ruc_v:
+            existing_rucs.add(ruc_v)
+        inserted += 1
+
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+    return jsonify({
+        "ok": True,
+        "inserted": inserted,
+        "skipped": skipped,
+        "warnings": warnings[:20],
+        "columns_detected": list(col_idx.keys()),
+    })
+
+
+@prospeccion_bp.route("/api/bulk-campo", methods=["POST"])
+@csrf.exempt
+@login_required
+@require_role("Master")
+def api_bulk_campo():
+    """Actualiza un campo en múltiples prospectos a la vez."""
+    data  = request.get_json() or {}
+    ids   = data.get("ids", [])
+    campo = data.get("campo", "").strip()
+    valor = data.get("valor")
+
+    if not ids or campo not in _CAMPOS_EDITABLES:
+        return jsonify({"ok": False, "error": "Parámetros inválidos"}), 400
+
+    try:
+        Prospecto.query.filter(Prospecto.id.in_(ids)).update(
+            {campo: valor or None}, synchronize_session=False)
+        db.session.commit()
+        return jsonify({"ok": True, "updated": len(ids)})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"ok": False, "error": str(e)}), 500
 
 
 # ── Helper ────────────────────────────────────────────────────────────────────

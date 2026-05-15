@@ -48,6 +48,13 @@ class Prospecto(db.Model):
     grupo                  = db.Column(db.String(80))
 
     notas                  = db.Column(db.Text)
+
+    # CRM avanzado
+    telefono_alt           = db.Column(db.String(50))
+    tamano_empresa         = db.Column(db.String(30))   # MYPE | Pequeña | Mediana | Grande
+    volumen_estimado_usd   = db.Column(db.Numeric(15, 2))
+    prioridad              = db.Column(db.String(20))   # alta | media | baja
+
     creado_en              = db.Column(db.DateTime, default=now_peru)
     actualizado_en         = db.Column(db.DateTime, default=now_peru, onupdate=now_peru)
 
@@ -57,6 +64,8 @@ class Prospecto(db.Model):
     actividades   = db.relationship("ActividadProspecto", backref="prospecto",
                                     lazy="select", cascade="all, delete-orphan",
                                     order_by="ActividadProspecto.creado_en.desc()")
+    emails_extra  = db.relationship("ProspectoEmail", backref="prospecto",
+                                    lazy="select", cascade="all, delete-orphan")
 
     def to_dict(self):
         return {c.name: getattr(self, c.name) for c in self.__table__.columns}
@@ -122,6 +131,20 @@ class AsignacionProspecto(db.Model):
     __table_args__ = (
         db.UniqueConstraint("prospecto_id", "trader_id", name="uq_asignacion"),
     )
+
+
+class ProspectoEmail(db.Model):
+    """Emails adicionales por prospecto (inmutables, solo se desactivan)."""
+    __tablename__ = "prospecto_emails"
+
+    id           = db.Column(db.Integer, primary_key=True)
+    prospecto_id = db.Column(db.Integer, db.ForeignKey("prospectos.id"), nullable=False, index=True)
+    email        = db.Column(db.String(200), nullable=False)
+    activo       = db.Column(db.Boolean, default=True)
+    creado_en    = db.Column(db.DateTime, default=now_peru)
+
+    def __repr__(self):
+        return f"<ProspectoEmail {self.email} activo={self.activo}>"
 
 
 class ActividadProspecto(db.Model):
