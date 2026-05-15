@@ -31,7 +31,7 @@ class AccountingService:
         """
         query = Operation.query.options(
             joinedload(Operation.client),
-            joinedload('user'),
+            joinedload(Operation.user),
         ).filter(
             Operation.status == 'Completada'
         )
