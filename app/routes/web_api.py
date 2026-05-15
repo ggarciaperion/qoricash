@@ -372,6 +372,45 @@ def get_my_operations():
         }), 500
 
 
+@web_api_bp.route('/get-operation', methods=['OPTIONS', 'POST'])
+@csrf.exempt
+def get_operation_web():
+    """
+    Obtener una operación específica del cliente autenticado.
+
+    Request JSON:
+    {
+        "dni": "12345678",
+        "operation_id": 123
+    }
+    """
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+
+    try:
+        data = request.get_json()
+
+        if not data or 'dni' not in data or 'operation_id' not in data:
+            return jsonify({'success': False, 'message': 'dni y operation_id son requeridos'}), 400
+
+        dni = data.get('dni', '').strip()
+        operation_id = int(data.get('operation_id'))
+
+        client = Client.query.filter_by(dni=dni).first()
+        if not client:
+            return jsonify({'success': False, 'message': 'Cliente no encontrado'}), 404
+
+        operation = Operation.query.filter_by(id=operation_id, client_id=client.id).first()
+        if not operation:
+            return jsonify({'success': False, 'message': 'Operación no encontrada'}), 404
+
+        return jsonify({'success': True, 'data': operation.to_dict(include_relations=True)}), 200
+
+    except Exception as e:
+        logger.error(f"❌ Error al obtener operación: {str(e)}")
+        return jsonify({'success': False, 'message': f'Error al obtener operación: {str(e)}'}), 500
+
+
 @web_api_bp.route('/stats', methods=['OPTIONS', 'POST'])
 @csrf.exempt
 def get_client_stats():
