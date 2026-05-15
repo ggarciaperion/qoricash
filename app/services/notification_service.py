@@ -63,6 +63,38 @@ def _push_unread_count(user_id):
         logger.error(f'[NOTIF] push_unread_count error: {e}')
 
 
+def _emit_to_client_operation(operation, old_status=None):
+    """Emite actualización de operación al room del cliente web (client_{dni})."""
+    try:
+        if not operation.client or not operation.client.dni:
+            return
+        # Mapear status de Flask a formato frontend
+        status_map = {
+            'Pendiente':  'pendiente',
+            'En proceso': 'en_proceso',
+            'Completada': 'completado',
+            'Cancelada':  'cancelado',
+            'Rechazada':  'rechazado',
+        }
+        client_data = {
+            'event':        'operacion_cliente_actualizada',
+            'id':           operation.id,
+            'operation_id': operation.operation_id,
+            'status':       operation.status,
+            'status_key':   status_map.get(operation.status, 'pendiente'),
+            'old_status':   old_status,
+            'amount_usd':   float(operation.amount_usd or 0),
+            'amount_pen':   float(operation.amount_pen or 0),
+            'exchange_rate': float(operation.exchange_rate or 0),
+            'updated_at':   operation.updated_at.isoformat() if operation.updated_at else None,
+        }
+        socketio.emit('operacion_cliente_actualizada', client_data,
+                      namespace='/', room=f'client_{operation.client.dni}')
+        logger.info(f'[NOTIF] operacion_cliente_actualizada → client_{operation.client.dni}: {operation.operation_id} → {operation.status}')
+    except Exception as e:
+        logger.error(f'[NOTIF] _emit_to_client_operation error: {e}')
+
+
 def _push_unread_counts_for_roles(roles):
     try:
         from app.models.user import User
@@ -116,7 +148,7 @@ class NotificationService:
     
     @staticmethod
     def notify_operation_updated(operation, old_status=None):
-        """Operación actualizada → Master y Operador."""
+        """Operación actualizada → Master, Operador y cliente web."""
         try:
             msg = f'{operation.operation_id} → {operation.status}'
             if operation.assigned_operator:
@@ -148,6 +180,11 @@ class NotificationService:
                 'sound':                  False,
             }
             _emit_to_roles('operacion_actualizada', data, ['Master', 'Operador'])
+
+            # Notificar al cliente web en tiempo real
+            if operation.client and operation.client.dni:
+                _emit_to_client_operation(operation, old_status)
+
             logger.info(f'[NOTIF] operacion_actualizada: {operation.operation_id}')
         except Exception as e:
             logger.error(f'[NOTIF] notify_operation_updated error: {e}')
@@ -169,12 +206,14 @@ class NotificationService:
             _save_to_db(roles, title, msg, notif_type='success', category='operation',
                         link=f'/operations/{operation.id}')
             _push_unread_counts_for_roles(roles)
+            # Notificar al cliente web
+            _emit_to_client_operation(operation, 'En proceso')
         except Exception as e:
             logger.error(f'[NOTIF] notify_operation_completed error: {e}')
 
     @staticmethod
     def notify_operation_in_process(operation):
-        """Trader/Web sube comprobante → operación pasa a En proceso → Master y Operador."""
+        """Trader/Web sube comprobante → operación pasa a En proceso → Master, Operador y cliente web."""
         try:
             title = '⏳ Operación En Proceso'
             name  = operation.client.full_name if operation.client else 'N/A'
@@ -195,6 +234,8 @@ class NotificationService:
             _save_to_db(roles, title, msg, notif_type='warning', category='operation',
                         link=f'/operations/{operation.id}')
             _push_unread_counts_for_roles(roles)
+            # Notificar al cliente web
+            _emit_to_client_operation(operation, 'Pendiente')
         except Exception as e:
             logger.error(f'[NOTIF] notify_operation_in_process error: {e}')
 
@@ -213,6 +254,8 @@ class NotificationService:
             _save_to_db(roles, title, msg, notif_type='warning', category='operation',
                         link=f'/operations/{operation.id}')
             _push_unread_counts_for_roles(roles)
+            # Notificar al cliente web
+            _emit_to_client_operation(operation, None)
         except Exception as e:
             logger.error(f'[NOTIF] notify_operation_canceled error: {e}')
 
