@@ -118,7 +118,12 @@ def main():
         "Content-Type": "application/json",
     }
 
-    result = http_post(GROQ_ENDPOINT, groq_headers, groq_body)
+    try:
+        result = http_post(GROQ_ENDPOINT, groq_headers, groq_body)
+    except urllib.error.HTTPError as e:
+        body = e.read().decode("utf-8", errors="replace")
+        print(f"[noticias] Groq HTTP {e.code}: {body}", file=sys.stderr)
+        raise
     raw = result["choices"][0]["message"]["content"].strip()
 
     # Limpiar fences de markdown si Llama los incluye
