@@ -2,7 +2,7 @@
 Rutas de Compliance para Middle Office - QoriCash Trading V2
 """
 import json
-from flask import Blueprint, render_template, request, jsonify, redirect, url_for
+from flask import Blueprint, render_template, request, jsonify, redirect, url_for, current_app
 from flask_login import login_required, current_user
 from functools import wraps
 from app.extensions import db, csrf
@@ -1314,8 +1314,22 @@ def auto_screen_client(client_id):
         if not client:
             return jsonify({'success': False, 'error': 'Cliente no encontrado'}), 404
 
-        # Ejecutar screening
+        # Ejecutar screening (solo lee de BD, no descarga sincrónicamente)
         result = sss.screen_client(client_id)
+
+        # Las listas están vacías → disparar descarga en background y avisar al cliente
+        if result.get('error') == 'lists_loading':
+            status = sss.ensure_lists_loaded(current_app._get_current_object())
+            return jsonify({
+                'success': False,
+                'lists_loading': True,
+                'error': (
+                    'Las listas de sanciones se están descargando por primera vez '
+                    '(~30–60 s). Por favor vuelve a intentarlo en un momento.'
+                    if status == 'loading' else
+                    'Error iniciando descarga de listas. Contacta al administrador.'
+                ),
+            }), 202
 
         if 'error' in result:
             return jsonify({'success': False, 'error': result['error']}), 400
@@ -1389,8 +1403,39 @@ def auto_screen_client(client_id):
         })
 
     except Exception as e:
-        db.session.rollback()
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
         logger.error(f'[AutoScreen] Error: {e}', exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@compliance_bp.route('/api/screening/lists-status')
+@login_required
+@middle_office_required
+def screening_lists_status():
+    """API: Estado de las listas de sanciones cargadas en BD."""
+    try:
+        from app.services import sanctions_screening_service as sss
+        info = sss.get_lists_status()
+        ready = info['ofac'] > 0 or info['un'] > 0
+        return jsonify({'success': True, 'ready': ready, **info})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@compliance_bp.route('/api/screening/refresh-lists', methods=['POST'])
+@login_required
+@middle_office_required
+@csrf.exempt
+def screening_refresh_lists():
+    """API: Fuerza la recarga de listas de sanciones en background."""
+    try:
+        from app.services import sanctions_screening_service as sss
+        status = sss.ensure_lists_loaded(current_app._get_current_object())
+        return jsonify({'success': True, 'status': status})
+    except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
 

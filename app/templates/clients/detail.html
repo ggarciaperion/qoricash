@@ -912,7 +912,33 @@ async function autoScreenClient(clientId) {
         const data = await res.json();
 
         if (!data.success) {
-            body.innerHTML = `<div class="alert alert-danger"><i class="bi bi-x-circle"></i> ${data.error || 'Error al ejecutar búsqueda'}</div>`;
+            if (data.lists_loading) {
+                // Las listas se están descargando en background — reintentar cada 15s
+                body.innerHTML = `
+                    <div class="alert alert-info d-flex align-items-center gap-2">
+                        <span class="spinner-border spinner-border-sm flex-shrink-0"></span>
+                        <div>
+                            <strong>Cargando listas de sanciones...</strong><br>
+                            <small>Es la primera vez que se usa esta función. La descarga tarda ~60 s.
+                            La búsqueda se ejecutará automáticamente cuando termine.</small>
+                        </div>
+                    </div>`;
+                footer.innerHTML = '<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>';
+                // Reintentar automáticamente cada 15 s hasta que las listas estén listas
+                let _retryT = setInterval(async () => {
+                    try {
+                        const st = await fetch('/compliance/api/screening/lists-status');
+                        const sd = await st.json();
+                        if (sd.ready) {
+                            clearInterval(_retryT);
+                            body.innerHTML = `<div class="text-center py-3"><div class="spinner-border text-primary mb-2"></div><p class="text-muted small">Listas cargadas. Ejecutando búsqueda...</p></div>`;
+                            await autoScreenClient(clientId);
+                        }
+                    } catch(e) { /* ignore */ }
+                }, 15000);
+            } else {
+                body.innerHTML = `<div class="alert alert-danger"><i class="bi bi-x-circle me-1"></i>${data.error || 'Error al ejecutar búsqueda'}</div>`;
+            }
             return;
         }
 

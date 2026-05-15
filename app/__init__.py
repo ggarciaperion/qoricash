@@ -327,6 +327,13 @@ def create_app(config_name=None):
     except Exception as e:
         logging.warning(f"[Sanctions] Error creando tabla sanctions_entries: {e}")
 
+    # Pre-cargar listas de sanciones en background al arrancar (para que estén listas en el primer uso)
+    try:
+        from app.services import sanctions_screening_service as _sss
+        _sss.ensure_lists_loaded(app)
+    except Exception as e:
+        logging.warning(f"[Sanctions] No se pudo iniciar pre-carga: {e}")
+
     # Sembrar competidores FX (idempotente — solo inserta si no existen)
     try:
         with app.app_context():
