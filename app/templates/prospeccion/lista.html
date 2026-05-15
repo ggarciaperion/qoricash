@@ -1004,6 +1004,22 @@
             <i class="bi bi-check-circle-fill etb-check"></i>
           </button>
         </div>
+        <!-- Campos precio — solo visibles cuando se selecciona "Precio" -->
+        <div id="ePrecioFields" style="display:none;margin-top:.85rem;">
+          <div style="background:var(--qori-gray-50);border:1px solid var(--qori-gray-200);border-radius:var(--radius-lg);padding:.75rem 1rem;">
+            <p style="font-size:.72rem;font-weight:600;color:var(--qori-gray-500);text-transform:uppercase;letter-spacing:.05em;margin:0 0 .55rem;">Tipo de cambio del día</p>
+            <div class="row g-2">
+              <div class="col-6">
+                <label class="form-label-sm">Compramos (S/)</label>
+                <input type="number" step="0.001" class="form-control form-control-sm" id="eCompra" placeholder="3.710">
+              </div>
+              <div class="col-6">
+                <label class="form-label-sm">Vendemos (S/)</label>
+                <input type="number" step="0.001" class="form-control form-control-sm" id="eVenta" placeholder="3.720">
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
       <div class="modal-footer">
         <button class="btn btn-sm btn-light" data-bs-dismiss="modal">Cancelar</button>
@@ -1552,11 +1568,80 @@ async function patchCampo(id, campo, valor) {
 ───────────────────────────────────────────────────────────── */
 let _emailTipoSel = null;
 
+const FIRMA_TXT = `Gian Pierre Garcia
+Presidente de Negocios | QoriCash SAC
++51 926 011 920 | www.qoricash.pe
+Av. Brasil 2790, int. 504 — Pueblo Libre, Lima
+Regulada por la SBS · Res. N.° 00313-2026`;
+
+const CUENTAS_TXT = `Cuentas corrientes en los principales bancos del Perú:
+• BCP        PEN: 1937353150041   |  USD: 1917357790119
+• Interbank  PEN: 200-3007757571  |  USD: 200-3007757589
+• BanBif     PEN: 007000845805    |  USD: 007000845813
+
+Transferencia interbancaria (CCI) disponible desde BBVA, Scotiabank, Pichincha y cualquier banco del Perú.`;
+
 const EMAIL_SUBJECTS = {
-  presentacion: 'QoriCash - Presentación de Servicios',
-  precio:       'QoriCash - Tipo de Cambio del Día',
-  seguimiento:  'QoriCash - Seguimiento',
+  presentacion: 'QoriCash - El mejor tipo de cambio para empresas',
+  precio:       'Tipo de cambio de hoy — QoriCash',
+  seguimiento:  'Seguimiento — QoriCash',
 };
+
+const EMAIL_BODIES = {
+  presentacion:
+`Estimado/a [Nombre],
+
+Mi nombre es Gian Garcia, Presidente de Negocios de QoriCash SAC, fintech de cambio de divisas 100% digital, regulada por la Superintendencia de Banca, Seguros y AFP del Perú.
+
+Trabajamos con empresas que realizan operaciones frecuentes de compra y venta de dólares, y que en muchos casos están dejando dinero sobre la mesa al operar con el tipo de cambio que les ofrece su entidad financiera actual.
+
+Porque cada centavo cuenta, le ofrecemos tasas que superan consistentemente al sistema bancario tradicional, con ejecución inmediata y cero costos ocultos. Nuestro sistema tecnológico monitorea el mercado en tiempo real, lo que nos permite notificarle cuando es el momento ideal para operar.
+
+Le propongo algo concreto: una comparativa sin compromiso entre las tasas que recibe hoy de su proveedor actual y las que podemos ofrecerle en QoriCash, en tiempo real.
+
+Si desea conocer más, puede ver nuestra presentación institucional aquí:
+https://qoricash.pe/presentacion.pdf
+
+${CUENTAS_TXT}
+
+Quedamos atentos a su respuesta.
+
+${FIRMA_TXT}`,
+
+  seguimiento:
+`Hola [Nombre],
+
+Me comunico nuevamente desde QoriCash para darle seguimiento a la presentación que le enviamos recientemente.
+
+Quería asegurarme de que haya tenido la oportunidad de revisarla y, sobre todo, saber si tiene alguna consulta sobre cómo podemos optimizar sus operaciones de cambio de dólares.
+
+En QoriCash superamos consistentemente el tipo de cambio del sistema bancario tradicional, con operación 100% digital, en minutos y sin costos ocultos. Muchas empresas como la suya ya están ahorrando en cada transacción.
+
+¿Le parece si coordinamos una llamada breve esta semana para mostrarle en tiempo real la diferencia entre nuestras tasas y las que recibe actualmente? No toma más de 10 minutos y puede representar un ahorro significativo para su empresa.
+
+Quedo atento a su respuesta.
+
+${FIRMA_TXT}`,
+};
+
+function buildPrecioBody(compra, venta) {
+  const hoy = new Date().toLocaleDateString('es-PE', {day:'2-digit',month:'2-digit',year:'numeric'});
+  return `A continuación le compartimos las tasas del tipo de cambio de hoy, ${hoy}:
+
+   COMPRAMOS:  S/. ${compra}
+   VENDEMOS:   S/. ${venta}
+
+Operación en minutos · Sin costo de transferencia
+Precios del momento — sujetos a variación por volatilidad del mercado.
+
+QORICASH S.A.C. · RUC 20615113698 · Regulada por la SBS
+
+${CUENTAS_TXT}
+
+Para cotizar en línea: https://wa.me/51926011920
+
+${FIRMA_TXT}`;
+}
 
 function openEmailModal(id) {
   const r = _rows.find(x=>x.id===id);
@@ -1567,6 +1652,9 @@ function openEmailModal(id) {
   _emailTipoSel = null;
   document.querySelectorAll('.email-type-btn').forEach(b => b.classList.remove('selected'));
   document.getElementById('eBtnIniciar').disabled = true;
+  document.getElementById('ePrecioFields').style.display = 'none';
+  document.getElementById('eCompra').value = '';
+  document.getElementById('eVenta').value  = '';
   bootstrap.Modal.getOrCreateInstance(document.getElementById('mEmail')).show();
 }
 
@@ -1574,14 +1662,32 @@ function selectEmailTipo(btn) {
   document.querySelectorAll('.email-type-btn').forEach(b => b.classList.remove('selected'));
   btn.classList.add('selected');
   _emailTipoSel = btn.dataset.tipo;
+  document.getElementById('ePrecioFields').style.display = _emailTipoSel === 'precio' ? '' : 'none';
   document.getElementById('eBtnIniciar').disabled = false;
 }
 
 function iniciarEmail() {
   if (!_emailTipoSel) return;
-  const to  = document.getElementById('eEmailTo').value;
-  const su  = encodeURIComponent(EMAIL_SUBJECTS[_emailTipoSel] || '');
-  const url = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(to)}&su=${su}`;
+  if (_emailTipoSel === 'precio') {
+    const compra = document.getElementById('eCompra').value.trim();
+    const venta  = document.getElementById('eVenta').value.trim();
+    if (!compra || !venta) {
+      Swal.fire({icon:'warning', text:'Ingresa el tipo de cambio (compra y venta) antes de continuar.', confirmButtonColor:'#0D1B2A'});
+      return;
+    }
+  }
+  const to   = document.getElementById('eEmailTo').value;
+  const su   = encodeURIComponent(EMAIL_SUBJECTS[_emailTipoSel] || '');
+  let body;
+  if (_emailTipoSel === 'precio') {
+    body = buildPrecioBody(
+      document.getElementById('eCompra').value.trim(),
+      document.getElementById('eVenta').value.trim()
+    );
+  } else {
+    body = EMAIL_BODIES[_emailTipoSel] || '';
+  }
+  const url = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(to)}&su=${su}&body=${encodeURIComponent(body)}`;
   window.open(url, '_blank');
   bootstrap.Modal.getInstance(document.getElementById('mEmail')).hide();
 }
