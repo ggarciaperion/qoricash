@@ -21,12 +21,12 @@ from datetime import datetime, timezone
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
-GROQ_API_KEY    = os.environ["GROQ_API_KEY"]
+LLM_API_KEY     = os.environ["OPENROUTER_API_KEY"]
 UPSTASH_URL     = os.environ["UPSTASH_REDIS_REST_URL"]
 UPSTASH_TOKEN   = os.environ["UPSTASH_REDIS_REST_TOKEN"]
 REDIS_KEY       = "qoricash:noticias"
-GROQ_MODEL      = "llama-3.3-70b-versatile"
-GROQ_ENDPOINT   = "https://api.groq.com/openai/v1/chat/completions"
+LLM_MODEL       = "meta-llama/llama-3.3-70b-instruct:free"
+LLM_ENDPOINT    = "https://openrouter.ai/api/v1/chat/completions"
 
 UNSPLASH_POOL = [
     "photo-1611974789855-9c2a0a7236a3",
@@ -107,22 +107,24 @@ def main():
 
     # 1. Llamar a Groq
     prompt = build_prompt(iso_date, fecha_texto)
-    groq_body = {
-        "model": GROQ_MODEL,
+    llm_body = {
+        "model": LLM_MODEL,
         "messages": [{"role": "user", "content": prompt}],
         "temperature": 0.8,
         "max_tokens": 12000,
     }
-    groq_headers = {
-        "Authorization": f"Bearer {GROQ_API_KEY}",
+    llm_headers = {
+        "Authorization": f"Bearer {LLM_API_KEY}",
         "Content-Type": "application/json",
+        "HTTP-Referer": "https://qoricash.pe",
+        "X-Title": "QoriCash Noticias",
     }
 
     try:
-        result = http_post(GROQ_ENDPOINT, groq_headers, groq_body)
+        result = http_post(LLM_ENDPOINT, llm_headers, llm_body)
     except urllib.error.HTTPError as e:
         body = e.read().decode("utf-8", errors="replace")
-        print(f"[noticias] Groq HTTP {e.code}: {body}", file=sys.stderr)
+        print(f"[noticias] LLM HTTP {e.code}: {body}", file=sys.stderr)
         raise
     raw = result["choices"][0]["message"]["content"].strip()
 
