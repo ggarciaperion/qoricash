@@ -1,523 +1,1063 @@
 {% extends "base.html" %}
 {% block title %}Prospectos — QoriCash{% endblock %}
 
-{% block styles %}
-<meta name="csrf-token" content="{{ csrf_token() }}">
+{% block head %}
 <style>
-/* ── Layout ────────────────────────────────────────────────── */
-.crm-page { display:flex; flex-direction:column; height:calc(100vh - 58px); overflow:hidden; background:#f4f6f9; }
-.crm-top  { flex-shrink:0; }
-.crm-body { flex:1; overflow-y:auto; padding:0 1rem .75rem; }
+/* ═══════════════════════════════════════════════════════════
+   PAGE LAYOUT — full viewport minus sidebar
+═══════════════════════════════════════════════════════════ */
+.crm-root {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 0px);
+  overflow: hidden;
+  background: var(--qori-gray-100);
+}
 
-/* ── Toolbar ───────────────────────────────────────────────── */
-.crm-toolbar {
-  background:#1a1a2e; color:#fff;
-  padding:.55rem 1rem; display:flex; align-items:center; gap:.6rem; flex-wrap:wrap;
+/* ── Page header ────────────────────────────────────────── */
+.crm-header {
+  background: var(--qori-white);
+  border-bottom: 1px solid var(--qori-gray-200);
+  padding: .75rem 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  flex-shrink: 0;
+  flex-wrap: wrap;
 }
-.crm-toolbar .crm-title { font-size:1rem; font-weight:700; letter-spacing:.04em; color:#fff; margin-right:auto; }
-.crm-toolbar .btn-tool {
-  background:rgba(255,255,255,.1); color:#fff; border:1px solid rgba(255,255,255,.2);
-  font-size:.78rem; padding:.28rem .65rem; border-radius:5px; cursor:pointer;
-  transition:background .15s;
+.crm-header-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--qori-gray-900);
+  letter-spacing: -.01em;
+  white-space: nowrap;
 }
-.crm-toolbar .btn-tool:hover { background:rgba(255,255,255,.2); }
-.crm-toolbar .btn-tool.btn-campana { background:#e8b84b; color:#1a1a2e; border-color:#e8b84b; font-weight:600; }
-.crm-toolbar .btn-tool.btn-campana:hover { background:#ffd166; }
+.crm-header-title i {
+  color: var(--qori-primary);
+  margin-right: .4rem;
+}
+.crm-header-sub {
+  font-size: .75rem;
+  color: var(--qori-gray-400);
+  font-weight: 400;
+  margin-left: .25rem;
+}
+.crm-header-actions {
+  display: flex;
+  gap: .5rem;
+  margin-left: auto;
+  align-items: center;
+  flex-wrap: wrap;
+}
 
-/* ── KPI pills ────────────────────────────────────────────── */
-.kpi-strip {
-  background:#fff; border-bottom:1px solid #e0e4ea;
-  padding:.4rem 1rem; display:flex; gap:.5rem; overflow-x:auto; flex-shrink:0;
+/* Botones del header */
+.btn-crm {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  padding: .38rem .8rem;
+  border-radius: var(--radius-md);
+  font-size: .8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+  border: 1px solid transparent;
+  text-decoration: none;
 }
-.kpi-pill {
-  display:inline-flex; align-items:center; gap:.35rem;
-  padding:.25rem .7rem; border-radius:999px; font-size:.75rem; font-weight:600;
-  white-space:nowrap; border:1.5px solid transparent; cursor:pointer; transition:all .15s;
+.btn-crm-ghost {
+  background: transparent;
+  border-color: var(--qori-gray-200);
+  color: var(--qori-gray-600);
 }
-.kpi-pill .kpi-n { font-size:.88rem; font-weight:700; }
-.kpi-pill.k-sin   { background:#f0f0f0; color:#555; border-color:#ccc; }
-.kpi-pill.k-pres  { background:#e8f0fe; color:#1557b0; border-color:#c5d8f6; }
-.kpi-pill.k-prec  { background:#e0f7fa; color:#006064; border-color:#b2ebf2; }
-.kpi-pill.k-neg   { background:#fff8e1; color:#8d6708; border-color:#ffe082; }
-.kpi-pill.k-cli   { background:#e8f5e9; color:#1b5e20; border-color:#a5d6a7; }
-.kpi-pill.k-lfc   { background:#ede7f6; color:#4527a0; border-color:#ce93d8; }
-.kpi-pill:hover   { filter:brightness(.95); }
+.btn-crm-ghost:hover {
+  border-color: var(--qori-gray-300);
+  background: var(--qori-gray-50);
+  color: var(--qori-gray-800);
+}
+.btn-crm-primary {
+  background: var(--qori-primary);
+  color: var(--qori-secondary);
+  font-weight: 600;
+}
+.btn-crm-primary:hover {
+  background: var(--qori-primary-hover);
+  color: var(--qori-secondary);
+  box-shadow: 0 0 0 3px var(--qori-primary-glow);
+}
+.btn-crm-dark {
+  background: var(--qori-secondary);
+  color: var(--qori-white);
+}
+.btn-crm-dark:hover {
+  background: var(--qori-secondary-light);
+  color: var(--qori-white);
+}
 
-/* ── Tabs ─────────────────────────────────────────────────── */
-.crm-tabs {
-  background:#fff; border-bottom:1px solid #e0e4ea;
-  padding:0 1rem; display:flex; gap:0; overflow-x:auto; flex-shrink:0;
+/* ── KPI strip ──────────────────────────────────────────── */
+.crm-kpis {
+  background: var(--qori-white);
+  border-bottom: 1px solid var(--qori-gray-200);
+  padding: .5rem 1.25rem;
+  display: flex;
+  gap: .5rem;
+  flex-shrink: 0;
+  overflow-x: auto;
 }
+.crm-kpis::-webkit-scrollbar { display: none; }
+
+.kpi-card {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  padding: .45rem .9rem;
+  border-radius: var(--radius-lg);
+  border: 1.5px solid var(--qori-gray-200);
+  background: var(--qori-gray-50);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+  min-width: 0;
+}
+.kpi-card:hover {
+  border-color: var(--qori-primary);
+  background: var(--qori-primary-light);
+}
+.kpi-card.active {
+  border-color: var(--qori-primary);
+  background: var(--qori-primary-light);
+  box-shadow: 0 0 0 3px var(--qori-primary-glow);
+}
+.kpi-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: .85rem;
+  flex-shrink: 0;
+}
+.kpi-info { min-width: 0; }
+.kpi-num {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--qori-gray-900);
+  line-height: 1;
+}
+.kpi-label {
+  font-size: .68rem;
+  color: var(--qori-gray-500);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  margin-top: .05rem;
+}
+
+/* ── Tabs ───────────────────────────────────────────────── */
+.crm-tabs-bar {
+  background: var(--qori-white);
+  border-bottom: 1px solid var(--qori-gray-200);
+  padding: 0 1.25rem;
+  display: flex;
+  gap: 0;
+  flex-shrink: 0;
+  overflow-x: auto;
+}
+.crm-tabs-bar::-webkit-scrollbar { display: none; }
+
 .crm-tab {
-  padding:.5rem .9rem; font-size:.8rem; cursor:pointer; white-space:nowrap;
-  border:none; background:none; color:#6c757d;
-  border-bottom:3px solid transparent; transition:all .15s;
+  padding: .6rem 1rem;
+  font-size: .8rem;
+  font-weight: 500;
+  color: var(--qori-gray-500);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all var(--transition-fast);
+  display: flex;
+  align-items: center;
+  gap: .35rem;
 }
-.crm-tab:hover { color:#1a1a2e; }
-.crm-tab.active { color:#1a1a2e; border-bottom-color:#e8b84b; font-weight:700; }
-.tab-cnt {
-  display:inline-block; background:#e9ecef; color:#495057;
-  font-size:.67rem; font-weight:700; padding:.05rem .38rem;
-  border-radius:999px; margin-left:.25rem; vertical-align:middle;
+.crm-tab:hover { color: var(--qori-gray-800); }
+.crm-tab.active {
+  color: var(--qori-secondary);
+  border-bottom-color: var(--qori-primary);
+  font-weight: 600;
 }
-.crm-tab.active .tab-cnt { background:#1a1a2e; color:#fff; }
+.tab-pill {
+  font-size: .65rem;
+  font-weight: 700;
+  padding: .1rem .4rem;
+  border-radius: var(--radius-full);
+  background: var(--qori-gray-200);
+  color: var(--qori-gray-600);
+  line-height: 1.4;
+}
+.crm-tab.active .tab-pill {
+  background: var(--qori-secondary);
+  color: var(--qori-primary);
+}
 
-/* ── Filter bar ───────────────────────────────────────────── */
-.crm-filters {
-  background:#fff; border-bottom:1px solid #e0e4ea;
-  padding:.4rem 1rem; display:flex; gap:.4rem; align-items:center; flex-wrap:wrap;
-  flex-shrink:0;
+/* ── Toolbar: filters + bulk ────────────────────────────── */
+.crm-toolbar {
+  background: var(--qori-white);
+  border-bottom: 1px solid var(--qori-gray-200);
+  padding: .5rem 1.25rem;
+  display: flex;
+  gap: .5rem;
+  align-items: center;
+  flex-shrink: 0;
+  flex-wrap: wrap;
 }
-.crm-filters .form-control, .crm-filters .form-select {
-  font-size:.78rem; padding:.28rem .55rem; border-color:#d0d5dd; border-radius:5px;
-}
-.crm-filters .search-wrap { position:relative; flex:1; min-width:180px; max-width:280px; }
-.crm-filters .search-wrap .bi { position:absolute; left:.5rem; top:50%; transform:translateY(-50%); color:#aaa; font-size:.85rem; }
-.crm-filters .search-wrap input { padding-left:1.7rem; }
-.filter-clear { font-size:.75rem; color:#aaa; cursor:pointer; border:none; background:none; padding:0; }
-.filter-clear:hover { color:#dc3545; }
 
-/* ── Bulk bar ─────────────────────────────────────────────── */
+.search-box {
+  position: relative;
+  flex: 1;
+  min-width: 180px;
+  max-width: 260px;
+}
+.search-box .bi {
+  position: absolute;
+  left: .6rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--qori-gray-400);
+  font-size: .85rem;
+  pointer-events: none;
+}
+.search-box input {
+  padding-left: 2rem;
+  font-size: .8rem;
+  height: 34px;
+  border-color: var(--qori-gray-200);
+  border-radius: var(--radius-md);
+  background: var(--qori-gray-50);
+  transition: all var(--transition-fast);
+}
+.search-box input:focus {
+  background: var(--qori-white);
+  border-color: var(--qori-primary);
+  box-shadow: 0 0 0 3px var(--qori-primary-glow);
+}
+
+.filter-sel {
+  height: 34px;
+  font-size: .78rem;
+  border-color: var(--qori-gray-200);
+  border-radius: var(--radius-md);
+  background: var(--qori-gray-50);
+  color: var(--qori-gray-700);
+  padding: 0 .5rem;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.filter-sel:focus {
+  border-color: var(--qori-primary);
+  box-shadow: 0 0 0 3px var(--qori-primary-glow);
+  outline: none;
+}
+
+.toolbar-sep { width: 1px; height: 20px; background: var(--qori-gray-200); flex-shrink: 0; }
+.filter-count { font-size: .75rem; color: var(--qori-gray-400); white-space: nowrap; }
+.btn-clear-filters {
+  background: none;
+  border: none;
+  color: var(--qori-gray-400);
+  font-size: .75rem;
+  cursor: pointer;
+  padding: 0 .25rem;
+  transition: color var(--transition-fast);
+}
+.btn-clear-filters:hover { color: var(--qori-danger); }
+
+/* ── Bulk action bar ────────────────────────────────────── */
 #bulkBar {
-  background:#1a1a2e; color:#fff; padding:.45rem 1rem;
-  display:none; align-items:center; gap:.6rem; flex-shrink:0;
-  font-size:.8rem; border-bottom:2px solid #e8b84b;
+  background: var(--qori-secondary);
+  padding: .5rem 1.25rem;
+  display: none;
+  align-items: center;
+  gap: .75rem;
+  flex-shrink: 0;
+  border-bottom: 2px solid var(--qori-primary);
 }
-#bulkBar.show { display:flex; }
-#bulkBar .bulk-info { margin-right:auto; }
+#bulkBar.show { display: flex; }
+.bulk-label {
+  font-size: .8rem;
+  color: rgba(255,255,255,.7);
+  margin-right: auto;
+}
+.bulk-label strong { color: var(--qori-primary); }
 
-/* ── Table ────────────────────────────────────────────────── */
-.crm-table-wrap { background:#fff; border-radius:8px; box-shadow:0 1px 4px rgba(0,0,0,.08); overflow:hidden; margin-top:.75rem; }
-.crm-table { width:100%; border-collapse:collapse; font-size:.8rem; }
-.crm-table thead tr { background:#1a1a2e; color:#fff; }
+/* ── Campaign panel ─────────────────────────────────────── */
+#campanel {
+  background: var(--qori-secondary);
+  padding: .55rem 1.25rem;
+  display: none;
+  align-items: center;
+  gap: 1rem;
+  flex-shrink: 0;
+  border-top: 1px solid rgba(0,222,168,.2);
+}
+#campanel.show { display: flex; }
+.camp-title { font-size: .8rem; color: var(--qori-white); font-weight: 600; white-space: nowrap; }
+.camp-bar-track {
+  flex: 1;
+  height: 5px;
+  background: rgba(255,255,255,.15);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.camp-bar-fill {
+  height: 100%;
+  background: var(--qori-primary);
+  border-radius: 999px;
+  transition: width .4s ease;
+}
+.camp-stats { font-size: .75rem; color: rgba(255,255,255,.6); white-space: nowrap; }
+
+/* ── Scrollable body ────────────────────────────────────── */
+.crm-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem 1.25rem;
+}
+.crm-body::-webkit-scrollbar { width: 5px; }
+.crm-body::-webkit-scrollbar-track { background: transparent; }
+.crm-body::-webkit-scrollbar-thumb { background: var(--qori-gray-300); border-radius: 99px; }
+
+/* ── Table card ─────────────────────────────────────────── */
+.table-card {
+  background: var(--qori-white);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  border: 1px solid var(--qori-gray-200);
+}
+
+.crm-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .8rem;
+}
+
+/* Header */
+.crm-table thead tr {
+  background: var(--qori-gray-50);
+  border-bottom: 2px solid var(--qori-gray-200);
+}
 .crm-table thead th {
-  padding:.55rem .65rem; font-weight:600; font-size:.72rem; letter-spacing:.03em;
-  white-space:nowrap; position:sticky; top:0; z-index:2; background:#1a1a2e;
-  border:none; cursor:pointer; user-select:none;
+  padding: .6rem .85rem;
+  font-size: .7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--qori-gray-500);
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  transition: color var(--transition-fast);
+  border: none;
 }
-.crm-table thead th:hover { background:#2a2a4e; }
-.crm-table thead th .sort-icon { opacity:.4; margin-left:.2rem; font-size:.7rem; }
-.crm-table thead th.sorted-asc .sort-icon::before { content:"▲"; opacity:1; }
-.crm-table thead th.sorted-desc .sort-icon::before { content:"▼"; opacity:1; }
-.crm-table tbody tr { border-bottom:1px solid #f0f2f5; transition:background .1s; cursor:pointer; }
-.crm-table tbody tr:hover { background:#f7f9ff; }
-.crm-table tbody tr.selected { background:#e8f0fe !important; }
-.crm-table tbody td { padding:.45rem .65rem; vertical-align:middle; }
-
-/* empresa/rubro column */
-.emp-name { font-weight:600; color:#1a1a2e; line-height:1.3; font-size:.8rem; }
-.emp-sub  { font-size:.69rem; color:#888; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:200px; }
-
-/* contact chips */
-.contact-chip { font-size:.69rem; color:#555; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:170px; display:block; }
-.contact-chip.email-chip { color:#1557b0; }
-
-/* estado badge */
-.badge-estado {
-  font-size:.67rem; padding:.22em .55em; border-radius:4px; font-weight:700;
-  white-space:nowrap; cursor:pointer; transition:filter .15s;
+.crm-table thead th:hover { color: var(--qori-gray-800); }
+.crm-table thead th.sort-asc,
+.crm-table thead th.sort-desc { color: var(--qori-secondary); }
+.crm-table thead th .si {
+  display: inline-block;
+  width: 12px;
+  margin-left: 3px;
+  opacity: .3;
+  font-size: .65rem;
 }
-.badge-estado:hover { filter:brightness(.9); }
-.bs-sin  { background:#e9ecef; color:#555; }
-.bs-pres { background:#0d6efd; color:#fff; }
-.bs-prec { background:#0dcaf0; color:#000; }
-.bs-neg  { background:#ffc107; color:#000; }
-.bs-cli  { background:#198754; color:#fff; }
-.bs-lfc  { background:#6f42c1; color:#fff; }
+.crm-table thead th.sort-asc .si,
+.crm-table thead th.sort-desc .si { opacity: 1; }
 
-/* prioridad dot */
-.prio-dot { width:8px; height:8px; border-radius:50%; display:inline-block; flex-shrink:0; }
-.prio-alta  .prio-dot { background:#dc3545; }
-.prio-media .prio-dot { background:#fd7e14; }
-.prio-baja  .prio-dot { background:#adb5bd; }
-
-/* fecha próximo contacto */
-.date-overdue { color:#dc3545; font-weight:700; }
-.date-soon    { color:#fd7e14; font-weight:600; }
-.date-ok      { color:#198754; }
-.date-empty   { color:#adb5bd; font-style:italic; }
-
-/* actions column */
-.row-actions { display:flex; gap:3px; align-items:center; flex-wrap:nowrap; }
-.act { border:none; background:none; cursor:pointer; padding:3px 5px; border-radius:4px;
-       font-size:.8rem; transition:background .12s; color:#555; }
-.act:hover { background:#e9ecef; }
-.act.a-email { color:#0d6efd; }
-.act.a-contact { color:#fd7e14; }
-.act.a-hist { color:#6c757d; }
-.act.a-detail { color:#198754; }
-.act.a-campana { color:#6f42c1; }
-
-/* ── Off-canvas panel (quick detail) ─────────────────────── */
-#sidePanel {
-  position:fixed; top:58px; right:0; bottom:0; width:380px; max-width:95vw;
-  background:#fff; box-shadow:-4px 0 20px rgba(0,0,0,.15);
-  display:flex; flex-direction:column; z-index:1050;
-  transform:translateX(110%); transition:transform .25s ease;
+/* Rows */
+.crm-table tbody tr {
+  border-bottom: 1px solid var(--qori-gray-100);
+  transition: background var(--transition-fast);
+  cursor: pointer;
 }
-#sidePanel.open { transform:translateX(0); }
-.side-header { background:#1a1a2e; color:#fff; padding:.75rem 1rem; display:flex; align-items:center; gap:.5rem; }
-.side-header .side-title { font-size:.9rem; font-weight:700; flex:1; }
-.side-header .btn-close-panel { background:none; border:none; color:#fff; font-size:1.1rem; cursor:pointer; opacity:.7; }
-.side-header .btn-close-panel:hover { opacity:1; }
-.side-body { flex:1; overflow-y:auto; padding:1rem; }
-.side-section { margin-bottom:1rem; }
-.side-label { font-size:.67rem; text-transform:uppercase; letter-spacing:.08em; color:#aaa; font-weight:700; margin-bottom:.3rem; }
-.side-val { font-size:.82rem; color:#1a1a2e; }
-.side-val a { color:#0d6efd; }
-.side-grid { display:grid; grid-template-columns:1fr 1fr; gap:.5rem; }
-.side-footer { flex-shrink:0; padding:.75rem 1rem; border-top:1px solid #e0e4ea; display:flex; gap:.5rem; flex-wrap:wrap; }
-.side-footer .btn { font-size:.78rem; padding:.32rem .75rem; }
-
-/* historial items */
-.hist-item { padding:.45rem 0; border-bottom:1px solid #f0f2f5; }
-.hist-item:last-child { border:none; }
-.hist-meta { font-size:.67rem; color:#aaa; }
-.hist-desc { font-size:.77rem; color:#333; margin-top:.1rem; }
-.hist-tipo { font-size:.65rem; font-weight:700; padding:.1rem .35rem; border-radius:3px; margin-right:.3rem; }
-.ht-email   { background:#e8f0fe; color:#1557b0; }
-.ht-llamada { background:#fff3e0; color:#e65100; }
-.ht-nota    { background:#f3e5f5; color:#6a1b9a; }
-.ht-estado  { background:#e8f5e9; color:#1b5e20; }
-.ht-reunion { background:#e0f7fa; color:#006064; }
-
-/* ── Estado inline selector ──────────────────────────────── */
-.estado-menu {
-  position:absolute; background:#fff; border:1px solid #dee2e6; border-radius:6px;
-  box-shadow:0 4px 16px rgba(0,0,0,.15); z-index:2000; padding:.3rem;
-  min-width:160px; display:none;
+.crm-table tbody tr:last-child { border-bottom: none; }
+.crm-table tbody tr:hover { background: var(--qori-gray-50); }
+.crm-table tbody tr.row-selected {
+  background: var(--qori-primary-light) !important;
 }
-.estado-menu.show { display:block; }
-.estado-opt {
-  padding:.3rem .6rem; border-radius:4px; cursor:pointer; font-size:.77rem;
-  display:flex; align-items:center; gap:.4rem; transition:background .1s;
+.crm-table tbody td {
+  padding: .6rem .85rem;
+  vertical-align: middle;
+  color: var(--qori-gray-700);
 }
-.estado-opt:hover { background:#f4f6f9; }
 
-/* ── Pagination ───────────────────────────────────────────── */
-.crm-pag { display:flex; align-items:center; justify-content:space-between; padding:.5rem .25rem; font-size:.78rem; color:#6c757d; }
-.crm-pag .pag-btns { display:flex; gap:.3rem; }
-.pag-btn { border:1px solid #dee2e6; background:#fff; border-radius:4px; padding:.2rem .55rem; cursor:pointer; font-size:.75rem; color:#555; }
-.pag-btn:hover:not(:disabled) { background:#f4f6f9; }
-.pag-btn:disabled { opacity:.4; cursor:default; }
-.pag-btn.active { background:#1a1a2e; color:#fff; border-color:#1a1a2e; }
-
-/* ── Campaign panel ───────────────────────────────────────── */
-#campanaPanel {
-  background:linear-gradient(135deg,#1a1a2e,#2d2d5e); color:#fff;
-  padding:.6rem 1rem; display:none; align-items:center; gap:.75rem; flex-shrink:0;
-  font-size:.8rem; border-top:2px solid #e8b84b;
+/* Company cell */
+.cell-empresa { max-width: 220px; }
+.emp-name {
+  font-weight: 600;
+  color: var(--qori-gray-900);
+  font-size: .82rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 210px;
 }
-#campanaPanel.show { display:flex; }
-.camp-progress { flex:1; }
-.camp-bar-wrap { background:rgba(255,255,255,.2); border-radius:999px; height:6px; margin-top:.3rem; overflow:hidden; }
-.camp-bar { background:#e8b84b; height:100%; border-radius:999px; transition:width .4s; }
-
-/* ── Notas inline ─────────────────────────────────────────── */
-.notas-field { font-size:.78rem; border:1px solid #dee2e6; border-radius:4px; padding:.35rem .5rem;
-               width:100%; resize:vertical; min-height:60px; transition:border-color .15s; }
-.notas-field:focus { border-color:#0d6efd; outline:none; }
-.btn-save-notes { font-size:.72rem; margin-top:.3rem; }
-
-/* ── Autosave toast ───────────────────────────────────────── */
-#asToast {
-  position:fixed; bottom:1.2rem; right:1.2rem; z-index:9999;
-  background:#1a1a2e; color:#fff; padding:.4rem .85rem; border-radius:6px;
-  font-size:.76rem; display:none; align-items:center; gap:.4rem;
-  box-shadow:0 2px 12px rgba(0,0,0,.3);
+.emp-meta {
+  font-size: .69rem;
+  color: var(--qori-gray-400);
+  margin-top: .1rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 210px;
 }
-#asToast.show { display:flex; }
 
-/* ── Empty state ──────────────────────────────────────────── */
-.empty-state { text-align:center; padding:3rem 1rem; color:#adb5bd; }
-.empty-state .bi { font-size:2.5rem; display:block; margin-bottom:.75rem; }
+/* Contact cell */
+.cell-contact { max-width: 200px; }
+.ct-email {
+  font-size: .75rem;
+  color: var(--qori-info);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 190px;
+  display: block;
+}
+.ct-name {
+  font-size: .69rem;
+  color: var(--qori-gray-500);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 190px;
+  margin-top: .1rem;
+  display: block;
+}
+
+/* Status badge */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: .25rem;
+  padding: .2rem .55rem;
+  border-radius: var(--radius-full);
+  font-size: .68rem;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: filter var(--transition-fast);
+  letter-spacing: .02em;
+}
+.status-badge:hover { filter: brightness(.92); }
+.sb-sin  { background: var(--qori-gray-100); color: var(--qori-gray-500); border: 1px solid var(--qori-gray-200); }
+.sb-pres { background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE; }
+.sb-prec { background: #ECFEFF; color: #0E7490; border: 1px solid #A5F3FC; }
+.sb-neg  { background: #FFFBEB; color: #92400E; border: 1px solid #FDE68A; }
+.sb-cli  { background: rgba(0,222,168,.1); color: #065F46; border: 1px solid rgba(0,222,168,.3); }
+.sb-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.sb-sin .sb-dot  { background: var(--qori-gray-400); }
+.sb-pres .sb-dot { background: #3B82F6; }
+.sb-prec .sb-dot { background: #06B6D4; }
+.sb-neg .sb-dot  { background: #F59E0B; }
+.sb-cli .sb-dot  { background: var(--qori-primary); }
+
+/* Date cells */
+.date-overdue { color: var(--qori-danger); font-weight: 700; font-size: .75rem; }
+.date-soon    { color: var(--qori-warning); font-weight: 600; font-size: .75rem; }
+.date-ok      { color: var(--qori-success); font-size: .75rem; }
+.date-empty   { color: var(--qori-gray-300); font-size: .75rem; }
+
+/* Number cells */
+.cell-num { color: var(--qori-gray-500); font-size: .75rem; text-align: center; }
+
+/* Action buttons */
+.row-acts {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.row-act {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-md);
+  border: none;
+  background: transparent;
+  color: var(--qori-gray-400);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: .8rem;
+  transition: all var(--transition-fast);
+  text-decoration: none;
+  flex-shrink: 0;
+}
+.row-act:hover         { background: var(--qori-gray-100); color: var(--qori-gray-700); }
+.row-act.ra-email:hover  { background: #EFF6FF; color: #3B82F6; }
+.row-act.ra-phone:hover  { background: #FFFBEB; color: var(--qori-warning); }
+.row-act.ra-hist:hover   { background: var(--qori-gray-100); color: var(--qori-secondary); }
+.row-act.ra-open:hover   { background: rgba(0,222,168,.12); color: var(--qori-primary-active); }
+
+/* ── Empty state ────────────────────────────────────────── */
+.empty-state {
+  text-align: center;
+  padding: 3.5rem 1rem;
+  color: var(--qori-gray-400);
+}
+.empty-state i { font-size: 2.5rem; display: block; margin-bottom: .75rem; opacity: .4; }
+.empty-state p { font-size: .85rem; margin: 0; }
+
+/* ── Pagination ─────────────────────────────────────────── */
+.crm-pag {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: .75rem .5rem 0;
+  font-size: .75rem;
+  color: var(--qori-gray-400);
+}
+.pag-btns { display: flex; gap: .25rem; }
+.pag-btn {
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--qori-gray-200);
+  background: var(--qori-white);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: .75rem;
+  color: var(--qori-gray-500);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+}
+.pag-btn:hover:not(:disabled) { border-color: var(--qori-primary); color: var(--qori-secondary); }
+.pag-btn.pag-active { background: var(--qori-secondary); border-color: var(--qori-secondary); color: var(--qori-white); }
+.pag-btn:disabled { opacity: .35; cursor: default; }
+.pag-wide { width: auto; padding: 0 .65rem; }
+
+/* ── Side drawer ────────────────────────────────────────── */
+#drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 400px;
+  max-width: 96vw;
+  background: var(--qori-white);
+  box-shadow: var(--shadow-xl);
+  display: flex;
+  flex-direction: column;
+  z-index: 1050;
+  transform: translateX(110%);
+  transition: transform var(--transition-slow);
+  border-left: 1px solid var(--qori-gray-200);
+}
+#drawer.open { transform: translateX(0); }
+
+.drawer-head {
+  background: var(--qori-secondary);
+  padding: .85rem 1rem;
+  display: flex;
+  align-items: flex-start;
+  gap: .75rem;
+  flex-shrink: 0;
+}
+.drawer-head-ico {
+  width: 38px;
+  height: 38px;
+  background: rgba(0,222,168,.15);
+  border-radius: var(--radius-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  color: var(--qori-primary);
+  flex-shrink: 0;
+}
+.drawer-head-info { flex: 1; min-width: 0; }
+.drawer-head-name {
+  font-size: .9rem;
+  font-weight: 700;
+  color: var(--qori-white);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.drawer-head-sub { font-size: .72rem; color: rgba(255,255,255,.5); margin-top: .1rem; }
+.drawer-close {
+  background: rgba(255,255,255,.1);
+  border: none;
+  color: rgba(255,255,255,.7);
+  cursor: pointer;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all var(--transition-fast);
+}
+.drawer-close:hover { background: rgba(255,255,255,.2); color: var(--qori-white); }
+
+.drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem;
+}
+.drawer-body::-webkit-scrollbar { width: 4px; }
+.drawer-body::-webkit-scrollbar-thumb { background: var(--qori-gray-200); border-radius: 99px; }
+
+.drawer-sect { margin-bottom: 1.1rem; }
+.drawer-sect-label {
+  font-size: .65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--qori-gray-400);
+  margin-bottom: .45rem;
+  padding-bottom: .3rem;
+  border-bottom: 1px solid var(--qori-gray-100);
+}
+.d-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; }
+.d-item-label { font-size: .68rem; color: var(--qori-gray-400); font-weight: 500; }
+.d-item-val   { font-size: .8rem;  color: var(--qori-gray-800); font-weight: 500; margin-top: .05rem; word-break: break-all; }
+.d-item-val a { color: var(--qori-info); }
+
+.drawer-notes {
+  font-size: .78rem;
+  border: 1px solid var(--qori-gray-200);
+  border-radius: var(--radius-md);
+  padding: .5rem .65rem;
+  width: 100%;
+  resize: vertical;
+  min-height: 64px;
+  background: var(--qori-gray-50);
+  color: var(--qori-gray-700);
+  font-family: inherit;
+  transition: all var(--transition-fast);
+}
+.drawer-notes:focus {
+  background: var(--qori-white);
+  border-color: var(--qori-primary);
+  box-shadow: 0 0 0 3px var(--qori-primary-glow);
+  outline: none;
+}
+
+.drawer-foot {
+  flex-shrink: 0;
+  padding: .75rem 1rem;
+  border-top: 1px solid var(--qori-gray-200);
+  display: flex;
+  gap: .5rem;
+  flex-wrap: wrap;
+}
+.drawer-foot .btn { font-size: .78rem; padding: .35rem .75rem; }
+
+/* ── Status dropdown ────────────────────────────────────── */
+.status-dropdown {
+  position: fixed;
+  background: var(--qori-white);
+  border: 1px solid var(--qori-gray-200);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  z-index: 2000;
+  padding: .35rem;
+  min-width: 170px;
+  display: none;
+}
+.status-dropdown.open { display: block; }
+.sd-item {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .35rem .6rem;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: .78rem;
+  color: var(--qori-gray-700);
+  transition: background var(--transition-fast);
+}
+.sd-item:hover { background: var(--qori-gray-50); }
+
+/* ── Toast ──────────────────────────────────────────────── */
+#qToast {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  z-index: 9999;
+  background: var(--qori-secondary);
+  color: var(--qori-white);
+  padding: .5rem 1rem;
+  border-radius: var(--radius-lg);
+  font-size: .78rem;
+  box-shadow: var(--shadow-lg);
+  display: none;
+  align-items: center;
+  gap: .5rem;
+  border-left: 3px solid var(--qori-primary);
+}
+#qToast.show { display: flex; }
+#qToast.toast-err { border-left-color: var(--qori-danger); }
+
+/* ── Modal overrides ────────────────────────────────────── */
+.modal-header-dark {
+  background: var(--qori-secondary);
+  color: var(--qori-white);
+  border-bottom: none;
+  padding: .85rem 1.1rem;
+}
+.modal-header-dark .modal-title { font-size: .88rem; font-weight: 600; }
+.modal-header-dark .btn-close-white { filter: invert(1) grayscale(1); opacity: .6; }
+.modal-header-dark .btn-close-white:hover { opacity: 1; }
+.modal-content { border: none; border-radius: var(--radius-xl); overflow: hidden; box-shadow: var(--shadow-2xl); }
+.modal-body { font-size: .85rem; }
+.modal-footer { border-top: 1px solid var(--qori-gray-200); }
+.form-label-sm { font-size: .78rem; font-weight: 500; color: var(--qori-gray-600); margin-bottom: .3rem; }
+
+/* checkbox */
+.crm-chk { accent-color: var(--qori-primary); width: 15px; height: 15px; cursor: pointer; }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="crm-page" id="crmPage">
+<div class="crm-root">
 
-  <!-- ── Toolbar ─────────────────────────────────────────── -->
-  <div class="crm-toolbar crm-top">
-    <span class="crm-title"><i class="bi bi-people-fill me-2"></i>Prospectos</span>
-    <span id="lblTotal" class="text-white-50" style="font-size:.76rem;"></span>
-
-    <div class="d-flex align-items-center gap-1 ms-auto">
-      <button class="btn-tool" onclick="openImport()"><i class="bi bi-upload me-1"></i>Importar</button>
-      <a href="/prospeccion/api/export-excel" class="btn-tool" style="text-decoration:none"><i class="bi bi-download me-1"></i>Exportar</a>
-      <button class="btn-tool btn-campana" onclick="openCampanaModal()"><i class="bi bi-send-fill me-1"></i>Campaña masiva</button>
+  <!-- ══════════════════════════ HEADER ══════════════════════════ -->
+  <div class="crm-header">
+    <div>
+      <div class="crm-header-title">
+        <i class="bi bi-megaphone-fill"></i>Prospeccion
+        <span class="crm-header-sub" id="hdrTotal"></span>
+      </div>
+    </div>
+    <div class="crm-header-actions">
+      <button class="btn-crm btn-crm-ghost" onclick="openImport()">
+        <i class="bi bi-upload"></i> Importar
+      </button>
+      <a href="/prospeccion/api/export-excel" class="btn-crm btn-crm-ghost">
+        <i class="bi bi-download"></i> Exportar
+      </a>
+      <div class="toolbar-sep"></div>
+      <button class="btn-crm btn-crm-primary" onclick="openCampanaModal()">
+        <i class="bi bi-send-fill"></i> Nueva Campaña
+      </button>
     </div>
   </div>
 
-  <!-- ── KPI pills ───────────────────────────────────────── -->
-  <div class="kpi-strip crm-top" id="kpiStrip">
-    <div class="kpi-pill k-sin"  onclick="setTab('sin_contactar')"><span class="kpi-n" id="k-sin">—</span> Sin contactar</div>
-    <div class="kpi-pill k-pres" onclick="setTab('presentado')"><span class="kpi-n" id="k-pres">—</span> Presentados</div>
-    <div class="kpi-pill k-prec" onclick="setTab('precio')"><span class="kpi-n" id="k-prec">—</span> Precio enviado</div>
-    <div class="kpi-pill k-neg"  onclick="setTab('negociando')"><span class="kpi-n" id="k-neg">—</span> Negociando</div>
-    <div class="kpi-pill k-cli"  onclick="setTab('clientes')"><span class="kpi-n" id="k-cli">—</span> Clientes</div>
-    <div class="kpi-pill k-lfc"  onclick="setTab('lfc')"><span class="kpi-n" id="k-lfc">—</span> LFC</div>
+  <!-- ══════════════════════════ KPI STRIP ══════════════════════════ -->
+  <div class="crm-kpis" id="kpiStrip">
+    <div class="kpi-card" onclick="setTab('sin_contactar')" data-kpi="sin_contactar">
+      <div class="kpi-icon" style="background:var(--qori-gray-100);color:var(--qori-gray-400)"><i class="bi bi-circle"></i></div>
+      <div class="kpi-info">
+        <div class="kpi-num" id="k-sin">—</div>
+        <div class="kpi-label">Sin contactar</div>
+      </div>
+    </div>
+    <div class="kpi-card" onclick="setTab('presentado')" data-kpi="presentado">
+      <div class="kpi-icon" style="background:#EFF6FF;color:#3B82F6"><i class="bi bi-envelope-check"></i></div>
+      <div class="kpi-info">
+        <div class="kpi-num" id="k-pres">—</div>
+        <div class="kpi-label">Presentados</div>
+      </div>
+    </div>
+    <div class="kpi-card" onclick="setTab('precio')" data-kpi="precio">
+      <div class="kpi-icon" style="background:#ECFEFF;color:#0E7490"><i class="bi bi-currency-dollar"></i></div>
+      <div class="kpi-info">
+        <div class="kpi-num" id="k-prec">—</div>
+        <div class="kpi-label">Precio enviado</div>
+      </div>
+    </div>
+    <div class="kpi-card" onclick="setTab('negociando')" data-kpi="negociando">
+      <div class="kpi-icon" style="background:#FFFBEB;color:#D97706"><i class="bi bi-arrow-left-right"></i></div>
+      <div class="kpi-info">
+        <div class="kpi-num" id="k-neg">—</div>
+        <div class="kpi-label">Negociando</div>
+      </div>
+    </div>
+    <div class="kpi-card" onclick="setTab('clientes')" data-kpi="clientes">
+      <div class="kpi-icon" style="background:var(--qori-primary-light);color:var(--qori-primary-active)"><i class="bi bi-patch-check-fill"></i></div>
+      <div class="kpi-info">
+        <div class="kpi-num" id="k-cli">—</div>
+        <div class="kpi-label">Clientes</div>
+      </div>
+    </div>
+    <div class="kpi-card" onclick="setTab('lfc')" data-kpi="lfc">
+      <div class="kpi-icon" style="background:#F5F3FF;color:#7C3AED"><i class="bi bi-star-fill"></i></div>
+      <div class="kpi-info">
+        <div class="kpi-num" id="k-lfc">—</div>
+        <div class="kpi-label">LFC</div>
+      </div>
+    </div>
   </div>
 
-  <!-- ── Tab bar ─────────────────────────────────────────── -->
-  <div class="crm-tabs crm-top" id="tabBar">
-    <button class="crm-tab active" data-tab="todos"        onclick="setTab('todos')">Todos<span class="tab-cnt" id="tc-todos">—</span></button>
-    <button class="crm-tab"        data-tab="sin_contactar" onclick="setTab('sin_contactar')">Sin contactar<span class="tab-cnt" id="tc-sin">—</span></button>
-    <button class="crm-tab"        data-tab="presentado"   onclick="setTab('presentado')">Presentado<span class="tab-cnt" id="tc-pres">—</span></button>
-    <button class="crm-tab"        data-tab="precio"       onclick="setTab('precio')">Precio enviado<span class="tab-cnt" id="tc-prec">—</span></button>
-    <button class="crm-tab"        data-tab="negociando"   onclick="setTab('negociando')">Negociando<span class="tab-cnt" id="tc-neg">—</span></button>
-    <button class="crm-tab"        data-tab="clientes"     onclick="setTab('clientes')">Clientes<span class="tab-cnt" id="tc-cli">—</span></button>
-    <button class="crm-tab"        data-tab="lfc"          onclick="setTab('lfc')">LFC<span class="tab-cnt" id="tc-lfc">—</span></button>
+  <!-- ══════════════════════════ TABS ══════════════════════════ -->
+  <div class="crm-tabs-bar">
+    <button class="crm-tab active" data-tab="todos"         onclick="setTab('todos')">Todos <span class="tab-pill" id="tp-todos">—</span></button>
+    <button class="crm-tab"        data-tab="sin_contactar" onclick="setTab('sin_contactar')">Sin contactar <span class="tab-pill" id="tp-sin">—</span></button>
+    <button class="crm-tab"        data-tab="presentado"    onclick="setTab('presentado')">Presentado <span class="tab-pill" id="tp-pres">—</span></button>
+    <button class="crm-tab"        data-tab="precio"        onclick="setTab('precio')">Precio <span class="tab-pill" id="tp-prec">—</span></button>
+    <button class="crm-tab"        data-tab="negociando"    onclick="setTab('negociando')">Negociando <span class="tab-pill" id="tp-neg">—</span></button>
+    <button class="crm-tab"        data-tab="clientes"      onclick="setTab('clientes')">Clientes <span class="tab-pill" id="tp-cli">—</span></button>
+    <button class="crm-tab"        data-tab="lfc"           onclick="setTab('lfc')">LFC <span class="tab-pill" id="tp-lfc">—</span></button>
   </div>
 
-  <!-- ── Filter bar ──────────────────────────────────────── -->
-  <div class="crm-filters crm-top">
-    <div class="search-wrap">
+  <!-- ══════════════════════════ TOOLBAR ══════════════════════════ -->
+  <div class="crm-toolbar">
+    <div class="search-box">
       <i class="bi bi-search"></i>
-      <input type="text" class="form-control" id="fSearch" placeholder="Empresa, email, RUC…" oninput="applyFilters()">
+      <input type="text" class="form-control" id="fSearch" placeholder="Buscar empresa, email, RUC…" oninput="schedFilter()">
     </div>
-    <select class="form-select" id="fDepto" onchange="applyFilters()" style="max-width:140px">
+    <select class="filter-sel" id="fDepto" onchange="doFilter()" style="max-width:145px">
       <option value="">Departamento</option>
     </select>
-    <select class="form-select" id="fRubro" onchange="applyFilters()" style="max-width:150px">
+    <select class="filter-sel" id="fRubro" onchange="doFilter()" style="max-width:155px">
       <option value="">Rubro</option>
     </select>
-    <select class="form-select" id="fTamano" onchange="applyFilters()" style="max-width:130px">
+    <select class="filter-sel" id="fTamano" onchange="doFilter()">
       <option value="">Tamaño</option>
-      <option value="MYPE">MYPE</option>
-      <option value="Pequeña">Pequeña</option>
-      <option value="Mediana">Mediana</option>
-      <option value="Grande">Grande</option>
+      <option>MYPE</option><option>Pequeña</option><option>Mediana</option><option>Grande</option>
     </select>
-    <select class="form-select" id="fNivel" onchange="applyFilters()" style="max-width:140px">
+    <select class="filter-sel" id="fNivel" onchange="doFilter()">
       <option value="">Interés</option>
-      <option value="Alto">Alto</option>
-      <option value="Medio">Medio</option>
-      <option value="Bajo">Bajo</option>
+      <option>Alto</option><option>Medio</option><option>Bajo</option>
     </select>
-    <select class="form-select" id="fPrioridad" onchange="applyFilters()" style="max-width:120px">
-      <option value="">Prioridad</option>
-      <option value="alta">Alta</option>
-      <option value="media">Media</option>
-      <option value="baja">Baja</option>
-    </select>
-    <button class="filter-clear" onclick="clearFilters()" title="Limpiar filtros"><i class="bi bi-x-circle"></i> Limpiar</button>
-    <span id="filterInfo" class="text-muted" style="font-size:.73rem; margin-left:auto;"></span>
+    <div class="toolbar-sep"></div>
+    <span class="filter-count" id="filterCount"></span>
+    <button class="btn-clear-filters" onclick="clearFilters()" title="Limpiar filtros"><i class="bi bi-x-circle"></i></button>
   </div>
 
-  <!-- ── Bulk bar ─────────────────────────────────────────── -->
-  <div id="bulkBar" class="crm-top">
-    <span class="bulk-info"><i class="bi bi-check2-square me-1"></i><span id="bulkCount">0</span> seleccionados</span>
-    <button class="btn-tool" onclick="bulkSendCampana('presentacion')"><i class="bi bi-envelope-fill me-1"></i>Campaña Presentación</button>
-    <button class="btn-tool" style="background:rgba(255,200,60,.2);border-color:#e8b84b;color:#e8b84b;" onclick="bulkSendCampana('precio')"><i class="bi bi-currency-dollar me-1"></i>Campaña Precios</button>
-    <button class="btn-tool" style="background:rgba(220,53,69,.15);border-color:#dc3545;color:#f88;" onclick="clearSelection()"><i class="bi bi-x me-1"></i>Cancelar</button>
+  <!-- ══════════════════════════ BULK BAR ══════════════════════════ -->
+  <div id="bulkBar">
+    <span class="bulk-label"><strong id="bulkN">0</strong> seleccionados</span>
+    <button class="btn-crm btn-crm-ghost" style="color:var(--qori-white);border-color:rgba(255,255,255,.2);" onclick="bulkCampana('presentacion')">
+      <i class="bi bi-envelope-fill"></i> Campaña Presentación
+    </button>
+    <button class="btn-crm" style="background:rgba(0,222,168,.15);color:var(--qori-primary);border:1px solid rgba(0,222,168,.3);" onclick="bulkCampana('precio')">
+      <i class="bi bi-currency-dollar"></i> Campaña Precios
+    </button>
+    <button class="btn-crm btn-crm-ghost" style="color:rgba(255,255,255,.5);border-color:rgba(255,255,255,.1);margin-left:auto;" onclick="clearSel()">
+      <i class="bi bi-x"></i> Cancelar
+    </button>
   </div>
 
-  <!-- ── Campaign panel ──────────────────────────────────── -->
-  <div id="campanaPanel" class="crm-top">
-    <i class="bi bi-send-fill" style="font-size:1.1rem;color:#e8b84b;"></i>
-    <div class="camp-progress">
-      <div><strong id="campLabel">Campaña activa</strong> — <span id="campStats">0 enviados</span></div>
-      <div class="camp-bar-wrap"><div class="camp-bar" id="campBar" style="width:0%"></div></div>
-    </div>
-    <button class="btn-tool" style="background:rgba(220,53,69,.3);border-color:#dc3545;" onclick="stopCampana()"><i class="bi bi-stop-fill"></i> Detener</button>
+  <!-- ══════════════════════════ CAMPAIGN PANEL ══════════════════════════ -->
+  <div id="campanel">
+    <i class="bi bi-send-fill" style="color:var(--qori-primary);font-size:1rem;flex-shrink:0;"></i>
+    <span class="camp-title" id="campTitle">Campaña activa</span>
+    <div class="camp-bar-track"><div class="camp-bar-fill" id="campFill" style="width:0%"></div></div>
+    <span class="camp-stats" id="campStats">0 / 0</span>
+    <button class="btn-crm" style="background:rgba(239,68,68,.15);color:#FCA5A5;border:1px solid rgba(239,68,68,.3);flex-shrink:0;" onclick="stopCamp()">
+      <i class="bi bi-stop-fill"></i> Detener
+    </button>
   </div>
 
-  <!-- ── Table ────────────────────────────────────────────── -->
+  <!-- ══════════════════════════ TABLE BODY ══════════════════════════ -->
   <div class="crm-body" id="crmBody">
-    <div class="crm-table-wrap">
-      <table class="crm-table" id="prospecTable">
-        <thead>
-          <tr>
-            <th style="width:34px"><input type="checkbox" id="checkAll" onchange="toggleAll(this)"></th>
-            <th onclick="sortBy('razon_social')">Empresa / Rubro <span class="sort-icon"></span></th>
-            <th onclick="sortBy('email')">Contacto <span class="sort-icon"></span></th>
-            <th onclick="sortBy('estado_comercial')">Estado <span class="sort-icon"></span></th>
-            <th onclick="sortBy('fecha_ultimo_contacto')">Último contacto <span class="sort-icon"></span></th>
-            <th onclick="sortBy('fecha_proximo_contacto')">Próximo <span class="sort-icon"></span></th>
-            <th onclick="sortBy('num_contactos')">Contactos <span class="sort-icon"></span></th>
-            <th style="width:110px">Acciones</th>
-          </tr>
-        </thead>
-        <tbody id="tbody"></tbody>
-      </table>
-
+    <div class="table-card">
+      <div style="overflow-x:auto;">
+        <table class="crm-table" id="crmTable">
+          <thead>
+            <tr>
+              <th style="width:36px;padding-left:1rem;">
+                <input type="checkbox" class="crm-chk" id="chkAll" onchange="toggleAll(this)">
+              </th>
+              <th onclick="sortBy('razon_social')">Empresa <span class="si">↕</span></th>
+              <th onclick="sortBy('email')">Contacto <span class="si">↕</span></th>
+              <th onclick="sortBy('estado_comercial')">Estado <span class="si">↕</span></th>
+              <th onclick="sortBy('fecha_ultimo_contacto')">Últ. contacto <span class="si">↕</span></th>
+              <th onclick="sortBy('fecha_proximo_contacto')">Próximo <span class="si">↕</span></th>
+              <th onclick="sortBy('num_contactos')" style="text-align:center">N° <span class="si">↕</span></th>
+              <th style="width:104px">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
       <div id="emptyState" class="empty-state" style="display:none">
         <i class="bi bi-inbox"></i>
-        <p class="mb-0">No hay prospectos que coincidan con los filtros.</p>
+        <p>No hay prospectos que coincidan con los filtros aplicados.</p>
       </div>
     </div>
 
     <!-- Pagination -->
-    <div class="crm-pag" id="pagBar">
+    <div class="crm-pag" id="pagContainer">
       <span id="pagInfo"></span>
       <div class="pag-btns" id="pagBtns"></div>
     </div>
   </div>
 
-</div><!-- /crm-page -->
+</div><!-- /crm-root -->
 
-<!-- ── Off-canvas: Quick Detail Panel ──────────────────────────────── -->
-<div id="sidePanel">
-  <div class="side-header">
-    <span class="side-title" id="sideTitle">Detalle</span>
-    <a id="sideLinkFull" href="#" class="text-white" style="font-size:.72rem;opacity:.7;text-decoration:none;white-space:nowrap" target="_blank"><i class="bi bi-box-arrow-up-right"></i> Ver completo</a>
-    <button class="btn-close-panel" onclick="closePanel()"><i class="bi bi-x-lg"></i></button>
-  </div>
-  <div class="side-body" id="sideBody">
-    <!-- filled by JS -->
-  </div>
-  <div class="side-footer" id="sideFooter">
-    <!-- filled by JS -->
-  </div>
-</div>
-
-<!-- Backdrop for side panel -->
-<div id="sideBackdrop" style="display:none;position:fixed;inset:0;z-index:1049;background:rgba(0,0,0,.3);" onclick="closePanel()"></div>
-
-<!-- Estado inline menu -->
-<div class="estado-menu" id="estadoMenu"></div>
-
-<!-- Autosave toast -->
-<div id="asToast"><i class="bi bi-check-circle-fill" style="color:#6aff8f;"></i> <span id="asMsg">Guardado</span></div>
-
-
-<!-- ══════════════════════════════════════════════════════════
-     MODALES
-══════════════════════════════════════════════════════════ -->
-
-<!-- Modal: Log Contact -->
-<div class="modal fade" id="modalContact" tabindex="-1">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header" style="background:#1a1a2e;color:#fff;">
-        <h6 class="modal-title"><i class="bi bi-phone me-2"></i>Registrar contacto</h6>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body">
-        <input type="hidden" id="contactPid">
-        <div class="mb-2">
-          <label class="form-label" style="font-size:.8rem;">Tipo</label>
-          <select class="form-select form-select-sm" id="contactTipo">
-            <option value="llamada">Llamada telefónica</option>
-            <option value="email">Email</option>
-            <option value="reunion">Reunión</option>
-            <option value="nota">Nota interna</option>
-          </select>
-        </div>
-        <div class="mb-2">
-          <label class="form-label" style="font-size:.8rem;">Descripción *</label>
-          <textarea class="form-control form-control-sm" id="contactDesc" rows="3" placeholder="Qué se habló, qué resultado hubo…"></textarea>
-        </div>
-        <div class="mb-2">
-          <label class="form-label" style="font-size:.8rem;">Nuevo estado (opcional)</label>
-          <select class="form-select form-select-sm" id="contactEstado">
-            <option value="">Sin cambio</option>
-            <option value="presentado">Presentado</option>
-            <option value="precio_enviado">Precio enviado</option>
-            <option value="negociando">Negociando</option>
-            <option value="cliente">Cliente</option>
-          </select>
-        </div>
-        <div class="mb-2">
-          <label class="form-label" style="font-size:.8rem;">Próximo contacto</label>
-          <input type="date" class="form-control form-control-sm" id="contactProx">
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-        <button class="btn btn-sm" style="background:#1a1a2e;color:#fff;" onclick="submitContact()">Guardar</button>
-      </div>
+<!-- ══════════════════════════ DRAWER ══════════════════════════ -->
+<div id="drawer">
+  <div class="drawer-head">
+    <div class="drawer-head-ico"><i class="bi bi-building"></i></div>
+    <div class="drawer-head-info">
+      <div class="drawer-head-name" id="drName">—</div>
+      <div class="drawer-head-sub"  id="drSub">—</div>
     </div>
+    <a id="drLinkFull" href="#" target="_blank" class="btn-crm btn-crm-ghost" style="color:rgba(255,255,255,.6);border-color:rgba(255,255,255,.15);font-size:.72rem;padding:.28rem .55rem;text-decoration:none;">
+      <i class="bi bi-box-arrow-up-right"></i>
+    </a>
+    <button class="drawer-close" onclick="closeDrawer()"><i class="bi bi-x-lg"></i></button>
   </div>
+  <div class="drawer-body" id="drBody"></div>
+  <div class="drawer-foot" id="drFoot"></div>
 </div>
+<div id="drBackdrop" style="display:none;position:fixed;inset:0;z-index:1049;background:rgba(0,0,0,.25);" onclick="closeDrawer()"></div>
 
-<!-- Modal: Enviar Email -->
-<div class="modal fade" id="modalEmail" tabindex="-1">
-  <div class="modal-dialog modal-lg">
+<!-- Status dropdown -->
+<div class="status-dropdown" id="sdMenu"></div>
+
+<!-- Toast -->
+<div id="qToast"><i class="bi bi-check-circle-fill" style="color:var(--qori-primary);flex-shrink:0;"></i><span id="qToastMsg"></span></div>
+
+
+<!-- ══════════════════════════════════════════════════════════════
+     MODALES
+══════════════════════════════════════════════════════════════ -->
+
+<!-- Enviar Email -->
+<div class="modal fade" id="mEmail" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:480px">
     <div class="modal-content">
-      <div class="modal-header" style="background:#1a1a2e;color:#fff;">
+      <div class="modal-header modal-header-dark">
         <h6 class="modal-title"><i class="bi bi-envelope-fill me-2"></i>Enviar correo</h6>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
-      <div class="modal-body">
-        <input type="hidden" id="emailPid">
-        <div class="mb-2">
-          <label class="form-label" style="font-size:.8rem;">Para</label>
-          <input type="text" class="form-control form-control-sm" id="emailPara" readonly>
+      <div class="modal-body p-4">
+        <input type="hidden" id="ePid">
+        <div class="mb-3">
+          <label class="form-label-sm">Para</label>
+          <input type="text" class="form-control form-control-sm" id="ePara" readonly style="background:var(--qori-gray-50)">
         </div>
-        <div class="mb-2">
-          <label class="form-label" style="font-size:.8rem;">Tipo de correo</label>
-          <div class="d-flex gap-3">
-            <div class="form-check">
-              <input class="form-check-input" type="radio" name="emailTipo" id="emailTipoPres" value="presentacion" checked onchange="togglePrices()">
-              <label class="form-check-label" style="font-size:.8rem;" for="emailTipoPres">Presentación</label>
+        <div class="mb-3">
+          <label class="form-label-sm">Tipo de correo</label>
+          <div class="d-flex gap-3 mt-1">
+            <div class="form-check form-check-sm">
+              <input class="form-check-input" type="radio" name="eTipo" id="eTipoPres" value="presentacion" checked onchange="toggleEPrices()">
+              <label class="form-check-label" style="font-size:.8rem" for="eTipoPres">Presentación</label>
             </div>
-            <div class="form-check">
-              <input class="form-check-input" type="radio" name="emailTipo" id="emailTipoPrec" value="precio" onchange="togglePrices()">
-              <label class="form-check-label" style="font-size:.8rem;" for="emailTipoPrec">Precio del día</label>
+            <div class="form-check form-check-sm">
+              <input class="form-check-input" type="radio" name="eTipo" id="eTipoPrec" value="precio" onchange="toggleEPrices()">
+              <label class="form-check-label" style="font-size:.8rem" for="eTipoPrec">Precio del día</label>
             </div>
           </div>
         </div>
-        <div id="pricesRow" class="row mb-2" style="display:none!important">
+        <div id="ePricesRow" class="row g-2 mb-1" style="display:none!important">
           <div class="col-6">
-            <label class="form-label" style="font-size:.8rem;">Compra (S/)</label>
-            <input type="number" step="0.001" class="form-control form-control-sm" id="emailCompra" placeholder="3.710">
+            <label class="form-label-sm">Compra (S/)</label>
+            <input type="number" step="0.001" class="form-control form-control-sm" id="eCompra" placeholder="3.710">
           </div>
           <div class="col-6">
-            <label class="form-label" style="font-size:.8rem;">Venta (S/)</label>
-            <input type="number" step="0.001" class="form-control form-control-sm" id="emailVenta" placeholder="3.720">
+            <label class="form-label-sm">Venta (S/)</label>
+            <input type="number" step="0.001" class="form-control form-control-sm" id="eVenta" placeholder="3.720">
           </div>
         </div>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-        <button class="btn btn-sm" style="background:#0d6efd;color:#fff;" onclick="submitEmail()">
-          <i class="bi bi-send me-1"></i>Enviar
-        </button>
+        <button class="btn btn-sm btn-light" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-sm btn-primary" onclick="submitEmail()"><i class="bi bi-send me-1"></i>Enviar</button>
       </div>
     </div>
   </div>
 </div>
 
-<!-- Modal: Campaña masiva -->
-<div class="modal fade" id="modalCampana" tabindex="-1">
-  <div class="modal-dialog">
+<!-- Registrar contacto -->
+<div class="modal fade" id="mContact" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:460px">
     <div class="modal-content">
-      <div class="modal-header" style="background:#1a1a2e;color:#fff;">
-        <h6 class="modal-title"><i class="bi bi-megaphone-fill me-2"></i>Campaña masiva</h6>
+      <div class="modal-header modal-header-dark">
+        <h6 class="modal-title"><i class="bi bi-telephone-fill me-2"></i>Registrar contacto</h6>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
-      <div class="modal-body">
+      <div class="modal-body p-4">
+        <input type="hidden" id="cPid">
+        <div class="row g-2 mb-3">
+          <div class="col-6">
+            <label class="form-label-sm">Tipo</label>
+            <select class="form-select form-select-sm" id="cTipo">
+              <option value="llamada">Llamada</option>
+              <option value="reunion">Reunión</option>
+              <option value="email">Email</option>
+              <option value="nota">Nota interna</option>
+            </select>
+          </div>
+          <div class="col-6">
+            <label class="form-label-sm">Nuevo estado (opcional)</label>
+            <select class="form-select form-select-sm" id="cEstado">
+              <option value="">Sin cambio</option>
+              <option value="presentado">Presentado</option>
+              <option value="precio_enviado">Precio enviado</option>
+              <option value="negociando">Negociando</option>
+              <option value="cliente">Cliente</option>
+            </select>
+          </div>
+        </div>
         <div class="mb-3">
-          <label class="form-label" style="font-size:.8rem;">Tipo de campaña</label>
-          <div class="d-flex gap-3">
-            <div class="form-check">
-              <input class="form-check-input" type="radio" name="campTipo" id="campTipoPres" value="presentacion" checked onchange="toggleCampPrices()">
-              <label class="form-check-label" style="font-size:.8rem;" for="campTipoPres">Presentación</label>
-            </div>
-            <div class="form-check">
-              <input class="form-check-input" type="radio" name="campTipo" id="campTipoPrec" value="precio" onchange="toggleCampPrices()">
-              <label class="form-check-label" style="font-size:.8rem;" for="campTipoPrec">Precio del día</label>
-            </div>
-          </div>
+          <label class="form-label-sm">Descripción *</label>
+          <textarea class="form-control form-control-sm" id="cDesc" rows="3" placeholder="¿Qué se habló? ¿Qué resultado hubo?"></textarea>
         </div>
-        <div id="campPricesRow" class="row mb-3" style="display:none!important">
-          <div class="col-6">
-            <label class="form-label" style="font-size:.8rem;">Compra (S/)</label>
-            <input type="number" step="0.001" class="form-control form-control-sm" id="campCompra" placeholder="3.710">
-          </div>
-          <div class="col-6">
-            <label class="form-label" style="font-size:.8rem;">Venta (S/)</label>
-            <input type="number" step="0.001" class="form-control form-control-sm" id="campVenta" placeholder="3.720">
-          </div>
+        <div class="mb-1">
+          <label class="form-label-sm">Próximo contacto</label>
+          <input type="date" class="form-control form-control-sm" id="cProx">
         </div>
-        <div id="campTargetInfo" class="alert alert-info py-2" style="font-size:.8rem;"></div>
-        <p class="text-muted" style="font-size:.77rem;">La campaña se envía en segundo plano. Puedes seguir usando el sistema mientras corre.</p>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-        <button class="btn btn-sm" style="background:#e8b84b;color:#1a1a2e;font-weight:700;" onclick="launchCampana()">
+        <button class="btn btn-sm btn-light" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-sm" style="background:var(--qori-secondary);color:var(--qori-white);" onclick="submitContact()">Guardar actividad</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Campaña masiva -->
+<div class="modal fade" id="mCampana" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:460px">
+    <div class="modal-content">
+      <div class="modal-header modal-header-dark">
+        <h6 class="modal-title"><i class="bi bi-megaphone-fill me-2"></i>Nueva campaña</h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        <div class="mb-3">
+          <label class="form-label-sm">Tipo de campaña</label>
+          <div class="d-flex gap-3 mt-1">
+            <div class="form-check form-check-sm">
+              <input class="form-check-input" type="radio" name="campTipo" id="campTipoPres" value="presentacion" checked onchange="toggleCPrices()">
+              <label class="form-check-label" style="font-size:.8rem" for="campTipoPres">Presentación</label>
+            </div>
+            <div class="form-check form-check-sm">
+              <input class="form-check-input" type="radio" name="campTipo" id="campTipoPrec" value="precio" onchange="toggleCPrices()">
+              <label class="form-check-label" style="font-size:.8rem" for="campTipoPrec">Precio del día</label>
+            </div>
+          </div>
+        </div>
+        <div id="cPricesRow" class="row g-2 mb-3" style="display:none!important">
+          <div class="col-6">
+            <label class="form-label-sm">Compra (S/)</label>
+            <input type="number" step="0.001" class="form-control form-control-sm" id="cCompra" placeholder="3.710">
+          </div>
+          <div class="col-6">
+            <label class="form-label-sm">Venta (S/)</label>
+            <input type="number" step="0.001" class="form-control form-control-sm" id="cVenta" placeholder="3.720">
+          </div>
+        </div>
+        <div id="cTargetBox" class="rounded p-3 mb-1" style="background:var(--qori-gray-50);border:1px solid var(--qori-gray-200);font-size:.8rem;"></div>
+        <p class="text-muted mb-0 mt-2" style="font-size:.75rem;">
+          <i class="bi bi-info-circle me-1"></i>La campaña corre en segundo plano. Puedes seguir usando el sistema.
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-sm btn-light" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-sm btn-crm-primary btn-crm" onclick="launchCamp()">
           <i class="bi bi-send-fill me-1"></i>Iniciar campaña
         </button>
       </div>
@@ -525,36 +1065,21 @@
   </div>
 </div>
 
-<!-- Modal: Importar Excel -->
-<div class="modal fade" id="modalImport" tabindex="-1">
-  <div class="modal-dialog">
+<!-- Importar -->
+<div class="modal fade" id="mImport" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:420px">
     <div class="modal-content">
-      <div class="modal-header" style="background:#1a1a2e;color:#fff;">
+      <div class="modal-header modal-header-dark">
         <h6 class="modal-title"><i class="bi bi-upload me-2"></i>Importar prospectos</h6>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
-      <div class="modal-body">
-        <p style="font-size:.8rem;" class="text-muted">Selecciona un archivo Excel (.xlsx) con columnas estándar. Los registros existentes (mismo email) serán actualizados.</p>
+      <div class="modal-body p-4">
+        <p class="text-muted mb-3" style="font-size:.8rem;">Selecciona un archivo <strong>.xlsx</strong> con las columnas estándar. Los registros existentes (mismo email) se actualizarán.</p>
         <input type="file" class="form-control form-control-sm" id="importFile" accept=".xlsx,.xls">
       </div>
       <div class="modal-footer">
-        <button class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-sm btn-light" data-bs-dismiss="modal">Cancelar</button>
         <button class="btn btn-sm btn-primary" onclick="submitImport()">Importar</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Modal: Historial -->
-<div class="modal fade" id="modalHist" tabindex="-1">
-  <div class="modal-dialog modal-lg">
-    <div class="modal-content">
-      <div class="modal-header" style="background:#1a1a2e;color:#fff;">
-        <h6 class="modal-title" id="histTitle"><i class="bi bi-clock-history me-2"></i>Historial</h6>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body" id="histBody" style="max-height:60vh;overflow-y:auto;">
-        <div class="text-center py-3 text-muted">Cargando…</div>
       </div>
     </div>
   </div>
@@ -564,183 +1089,147 @@
 
 {% block scripts %}
 <script>
-/* ═══════════════════════════════════════════════════════
+/* ─────────────────────────────────────────────────────────────
    CSRF
-═══════════════════════════════════════════════════════ */
-function csrfToken() {
-  return document.querySelector('meta[name=csrf-token]')?.content || '';
-}
-function csrfHeaders(extra) {
-  return Object.assign({'Content-Type':'application/json','X-CSRFToken':csrfToken()}, extra||{});
-}
-function csrfFd(fd) {
-  fd.append('csrf_token', csrfToken()); return fd;
-}
+───────────────────────────────────────────────────────────── */
+const CSRF = () => document.querySelector('meta[name=csrf-token]')?.content || '';
+const jHeaders = () => ({'Content-Type':'application/json','X-CSRFToken':CSRF()});
+const fdWithCsrf = fd => { fd.append('csrf_token', CSRF()); return fd; };
 
-/* ═══════════════════════════════════════════════════════
+/* ─────────────────────────────────────────────────────────────
    STATE
-═══════════════════════════════════════════════════════ */
-let _allRows = [];     // all data from API
-let _filtered = [];    // after client-side filter
-let _currentTab = 'todos';
-let _page = 1;
-const PAGE_SIZE = 100;
-let _sortCol = 'actualizado_en';
-let _sortDir = -1;     // -1=desc, 1=asc
-let _selected = new Set();   // set of ids
-let _campPollTimer = null;
-let _campBulkIds = [];  // ids selected for campaign
+───────────────────────────────────────────────────────────── */
+let _rows    = [];     // all from API
+let _filt    = [];     // after filter
+let _tab     = 'todos';
+let _page    = 1;
+const PG     = 100;
+let _sCol    = 'actualizado_en';
+let _sDir    = -1;
+let _sel     = new Set();
+let _campIds = [];
+let _pollT   = null;
 
-/* ═══════════════════════════════════════════════════════
-   LOAD DATA
-═══════════════════════════════════════════════════════ */
-async function loadData() {
-  const params = new URLSearchParams({ tab: _currentTab });
+/* ─────────────────────────────────────────────────────────────
+   LOAD
+───────────────────────────────────────────────────────────── */
+async function load() {
   try {
-    const r = await fetch('/prospeccion/api/grid?' + params);
+    const r = await fetch(`/prospeccion/api/grid?tab=${_tab}`);
     const d = await r.json();
-    if (!d.ok) {
-      Swal.fire({ icon:'error', title:'Error al cargar', text: d.error || 'Error desconocido', confirmButtonColor:'#1a1a2e' });
-      return;
-    }
-    _allRows = d.rows || [];
-    updateCounts(d.counts);
-    populateFilters(d.rubros, d.deptos);
-    applyFilters();
-    checkCampanaStatus();
-  } catch(e) {
-    console.error(e);
-  }
+    if (!d.ok) { toast('Error: ' + (d.error||'desconocido'), true); return; }
+    _rows = d.rows || [];
+    setFilterOpts(d.rubros||[], d.deptos||[]);
+    updateCounts(d.counts||{});
+    filter();
+    checkCamp();
+  } catch(e) { toast('Error de red', true); }
+}
+
+function setFilterOpts(rubros, deptos) {
+  const fr = document.getElementById('fRubro');
+  const fd = document.getElementById('fDepto');
+  const cr = fr.value, cd = fd.value;
+  fr.innerHTML = '<option value="">Rubro</option>' + rubros.map(r=>`<option>${esc(r)}</option>`).join('');
+  fd.innerHTML = '<option value="">Departamento</option>' + deptos.map(d=>`<option>${esc(d)}</option>`).join('');
+  fr.value = cr; fd.value = cd;
 }
 
 function updateCounts(c) {
-  if (!c) return;
-  const map = {
-    'todos': ['tc-todos','k-sin'],
-    'sin_contactar': ['tc-sin','k-sin'],
-    'presentado':    ['tc-pres','k-pres'],
-    'precio':        ['tc-prec','k-prec'],
-    'negociando':    ['tc-neg','k-neg'],
-    'clientes':      ['tc-cli','k-cli'],
-    'lfc':           ['tc-lfc','k-lfc'],
+  const m = {
+    sin_contactar:['k-sin','tp-sin'],
+    presentado:   ['k-pres','tp-pres'],
+    precio:       ['k-prec','tp-prec'],
+    negociando:   ['k-neg','tp-neg'],
+    clientes:     ['k-cli','tp-cli'],
+    lfc:          ['k-lfc','tp-lfc'],
+    todos:        [null,'tp-todos'],
   };
-  document.getElementById('tc-todos').textContent = c.todos ?? '—';
-  document.getElementById('tc-sin').textContent   = c.sin_contactar ?? '—';
-  document.getElementById('tc-pres').textContent  = c.presentado ?? '—';
-  document.getElementById('tc-prec').textContent  = c.precio ?? '—';
-  document.getElementById('tc-neg').textContent   = c.negociando ?? '—';
-  document.getElementById('tc-cli').textContent   = c.clientes ?? '—';
-  document.getElementById('tc-lfc').textContent   = c.lfc ?? '—';
-  document.getElementById('k-sin').textContent    = c.sin_contactar ?? '—';
-  document.getElementById('k-pres').textContent   = c.presentado ?? '—';
-  document.getElementById('k-prec').textContent   = c.precio ?? '—';
-  document.getElementById('k-neg').textContent    = c.negociando ?? '—';
-  document.getElementById('k-cli').textContent    = c.clientes ?? '—';
-  document.getElementById('k-lfc').textContent    = c.lfc ?? '—';
+  for (const [k, [kpi, tab]] of Object.entries(m)) {
+    const v = c[k] ?? '—';
+    if (kpi) { const el=document.getElementById(kpi); if(el) el.textContent = v; }
+    if (tab) { const el=document.getElementById(tab); if(el) el.textContent = v; }
+  }
 }
 
-function populateFilters(rubros, deptos) {
-  const fR = document.getElementById('fRubro');
-  const fD = document.getElementById('fDepto');
-  const curR = fR.value, curD = fD.value;
-  fR.innerHTML = '<option value="">Rubro</option>' +
-    (rubros||[]).map(r=>`<option value="${esc(r)}">${esc(r)}</option>`).join('');
-  fD.innerHTML = '<option value="">Departamento</option>' +
-    (deptos||[]).map(d=>`<option value="${esc(d)}">${esc(d)}</option>`).join('');
-  fR.value = curR; fD.value = curD;
-}
-
-/* ═══════════════════════════════════════════════════════
+/* ─────────────────────────────────────────────────────────────
    TABS
-═══════════════════════════════════════════════════════ */
-function setTab(tab) {
-  _currentTab = tab;
-  _page = 1;
-  document.querySelectorAll('.crm-tab').forEach(t => {
-    t.classList.toggle('active', t.dataset.tab === tab);
-  });
-  clearSelection();
-  loadData();
+───────────────────────────────────────────────────────────── */
+function setTab(t) {
+  _tab = t; _page = 1;
+  document.querySelectorAll('.crm-tab').forEach(el => el.classList.toggle('active', el.dataset.tab===t));
+  document.querySelectorAll('[data-kpi]').forEach(el => el.classList.toggle('active', el.dataset.kpi===t));
+  clearSel();
+  load();
 }
 
-/* ═══════════════════════════════════════════════════════
-   CLIENT-SIDE FILTERING
-═══════════════════════════════════════════════════════ */
-let _filterTimer;
-function applyFilters() {
-  clearTimeout(_filterTimer);
-  _filterTimer = setTimeout(_doFilter, 120);
-}
+/* ─────────────────────────────────────────────────────────────
+   FILTER + SORT
+───────────────────────────────────────────────────────────── */
+let _ft;
+function schedFilter() { clearTimeout(_ft); _ft = setTimeout(filter, 130); }
 
-function _doFilter() {
-  const q      = document.getElementById('fSearch').value.toLowerCase().trim();
-  const depto  = document.getElementById('fDepto').value;
-  const rubro  = document.getElementById('fRubro').value;
-  const tamano = document.getElementById('fTamano').value;
-  const nivel  = document.getElementById('fNivel').value;
-  const prio   = document.getElementById('fPrioridad').value;
-  const hasFilter = q || depto || rubro || tamano || nivel || prio;
+function filter() {
+  const q  = document.getElementById('fSearch').value.toLowerCase().trim();
+  const dp = document.getElementById('fDepto').value;
+  const rb = document.getElementById('fRubro').value;
+  const sz = document.getElementById('fTamano').value;
+  const nv = document.getElementById('fNivel').value;
 
-  _filtered = _allRows.filter(r => {
+  _filt = _rows.filter(r => {
     if (q && !`${r.razon_social} ${r.email} ${r.nombre_contacto} ${r.ruc} ${r.telefono}`.toLowerCase().includes(q)) return false;
-    if (depto  && r.departamento !== depto) return false;
-    if (rubro  && r.rubro !== rubro) return false;
-    if (tamano && r.tamano_empresa !== tamano) return false;
-    if (nivel  && r.nivel_interes !== nivel) return false;
-    if (prio   && r.prioridad !== prio) return false;
+    if (dp && r.departamento !== dp) return false;
+    if (rb && r.rubro !== rb)        return false;
+    if (sz && r.tamano_empresa !== sz) return false;
+    if (nv && r.nivel_interes !== nv)  return false;
     return true;
   });
 
-  // sort
-  _filtered.sort((a,b) => {
-    const av = a[_sortCol] ?? '', bv = b[_sortCol] ?? '';
-    if (av < bv) return -1 * _sortDir;
-    if (av > bv) return  1 * _sortDir;
-    return 0;
+  _filt.sort((a,b) => {
+    const av = (a[_sCol]??'').toString(), bv = (b[_sCol]??'').toString();
+    return av < bv ? -_sDir : av > bv ? _sDir : 0;
   });
 
   _page = 1;
-  renderTable();
-  document.getElementById('filterInfo').textContent =
-    hasFilter ? `${_filtered.length.toLocaleString()} de ${_allRows.length.toLocaleString()}` : '';
+  render();
+
+  const has = q||dp||rb||sz||nv;
+  document.getElementById('filterCount').textContent = has ? `${_filt.length.toLocaleString()} / ${_rows.length.toLocaleString()}` : `${_rows.length.toLocaleString()} registros`;
+  document.getElementById('hdrTotal').textContent = '';
 }
 
 function clearFilters() {
-  ['fSearch','fDepto','fRubro','fTamano','fNivel','fPrioridad'].forEach(id => {
+  ['fSearch','fDepto','fRubro','fTamano','fNivel'].forEach(id => {
     const el = document.getElementById(id);
-    el.value = '';
+    if (el.tagName==='SELECT') el.selectedIndex=0; else el.value='';
   });
-  applyFilters();
+  filter();
 }
 
-/* ═══════════════════════════════════════════════════════
-   SORT
-═══════════════════════════════════════════════════════ */
 function sortBy(col) {
-  if (_sortCol === col) _sortDir *= -1;
-  else { _sortCol = col; _sortDir = 1; }
+  _sDir = (_sCol===col) ? -_sDir : 1;
+  _sCol = col;
   document.querySelectorAll('.crm-table thead th').forEach(th => {
-    th.classList.remove('sorted-asc','sorted-desc');
+    th.classList.remove('sort-asc','sort-desc');
+    const si = th.querySelector('.si');
+    if (!si) return;
+    if (th.getAttribute('onclick')===`sortBy('${col}')`) {
+      th.classList.add(_sDir===1?'sort-asc':'sort-desc');
+      si.textContent = _sDir===1 ? '↑' : '↓';
+    } else si.textContent = '↕';
   });
-  // find header
-  document.querySelectorAll('.crm-table thead th').forEach(th => {
-    if (th.getAttribute('onclick') === `sortBy('${col}')`) {
-      th.classList.add(_sortDir === 1 ? 'sorted-asc' : 'sorted-desc');
-    }
-  });
-  _doFilter();
+  filter();
 }
 
-/* ═══════════════════════════════════════════════════════
-   RENDER TABLE
-═══════════════════════════════════════════════════════ */
-function renderTable() {
-  const tbody = document.getElementById('tbody');
-  const empty = document.getElementById('emptyState');
-  const total = _filtered.length;
-  document.getElementById('lblTotal').textContent = total > 0 ? `${total.toLocaleString()} prospectos` : '';
+/* ─────────────────────────────────────────────────────────────
+   RENDER
+───────────────────────────────────────────────────────────── */
+function render() {
+  const tbody   = document.getElementById('tbody');
+  const empty   = document.getElementById('emptyState');
+  const total   = _filt.length;
 
-  if (total === 0) {
+  if (!total) {
     tbody.innerHTML = '';
     empty.style.display = '';
     renderPag(0);
@@ -748,604 +1237,441 @@ function renderTable() {
   }
   empty.style.display = 'none';
 
-  const start = (_page - 1) * PAGE_SIZE;
-  const slice = _filtered.slice(start, start + PAGE_SIZE);
+  const s = (_page-1)*PG;
+  const slice = _filt.slice(s, s+PG);
 
   tbody.innerHTML = slice.map(r => rowHtml(r)).join('');
   renderPag(total);
 
   // restore checkboxes
-  tbody.querySelectorAll('.row-chk').forEach(cb => {
-    cb.checked = _selected.has(parseInt(cb.value));
-    cb.closest('tr').classList.toggle('selected', cb.checked);
+  tbody.querySelectorAll('.rchk').forEach(cb => {
+    const id = parseInt(cb.value);
+    cb.checked = _sel.has(id);
+    cb.closest('tr').classList.toggle('row-selected', cb.checked);
   });
-  updateBulkBar();
 }
 
 function rowHtml(r) {
-  const badge   = estadoBadge(r.estado_comercial);
-  const emails  = (r.emails||[r.email]).filter(Boolean);
-  const emailStr = emails[0] || '—';
-  const emailMore = emails.length > 1 ? `<span class="contact-chip" style="color:#aaa;">+${emails.length-1} más</span>` : '';
-  const proxDate = formatProx(r.fecha_proximo_contacto);
-  const ultDate  = r.fecha_ultimo_contacto ? r.fecha_ultimo_contacto.slice(0,10) : '—';
-  const prioClass = r.prioridad ? `prio-${r.prioridad}` : '';
-  const prio = r.prioridad ? `<span class="prio-dot"></span>` : '';
+  const b     = badge(r.estado_comercial);
+  const email = (r.emails||[r.email]).filter(Boolean)[0] || '—';
+  const moreE = (r.emails||[]).length > 1 ? `<span style="font-size:.65rem;color:var(--qori-gray-400);">+${r.emails.length-1}</span>` : '';
+  const ult   = r.fecha_ultimo_contacto ? r.fecha_ultimo_contacto.slice(0,10) : '';
+  const prox  = fmtProx(r.fecha_proximo_contacto);
+  const prio  = r.prioridad==='alta' ? '<i class="bi bi-circle-fill" style="font-size:.45rem;color:var(--qori-danger);vertical-align:middle;margin-right:3px;" title="Alta prioridad"></i>' : '';
 
-  return `<tr data-id="${r.id}" onclick="openPanel(${r.id})" class="${_selected.has(r.id)?'selected':''}">
+  return `<tr data-id="${r.id}" onclick="openDrawer(${r.id})">
+    <td style="padding-left:1rem;" onclick="event.stopPropagation()">
+      <input type="checkbox" class="crm-chk rchk" value="${r.id}" onchange="toggleRow(this,${r.id})">
+    </td>
+    <td class="cell-empresa">
+      <div class="emp-name">${prio}${esc(r.razon_social||'Sin nombre')}</div>
+      <div class="emp-meta">${esc(r.rubro||'')}${r.departamento?' · '+esc(r.departamento):''}</div>
+    </td>
+    <td class="cell-contact">
+      <span class="ct-email" title="${esc(email)}">${esc(email)} ${moreE}</span>
+      ${r.nombre_contacto?`<span class="ct-name">${esc(r.nombre_contacto)}</span>`:''}
+    </td>
     <td onclick="event.stopPropagation()">
-      <input type="checkbox" class="row-chk" value="${r.id}" onchange="toggleRow(this,${r.id})">
+      <span class="${b.cls} status-badge" onclick="openStatusMenu(event,${r.id},this)">
+        <span class="sb-dot"></span>${b.label}
+      </span>
     </td>
-    <td>
-      <div class="emp-name ${prioClass}">${prio} ${esc(r.razon_social||'Sin nombre')}</div>
-      <div class="emp-sub">${esc(r.rubro||'')} ${r.departamento?'· '+esc(r.departamento):''}</div>
-    </td>
-    <td>
-      <div class="contact-chip email-chip" title="${esc(emailStr)}">${esc(emailStr)}</div>
-      ${r.nombre_contacto ? `<div class="contact-chip">${esc(r.nombre_contacto)}</div>` : ''}
-      ${emailMore}
-    </td>
+    <td style="font-size:.75rem;color:var(--qori-gray-500);">${ult||'—'}</td>
+    <td>${prox}</td>
+    <td class="cell-num">${r.num_contactos||0}</td>
     <td onclick="event.stopPropagation()">
-      <span class="${badge.cls} badge-estado" onclick="openEstadoMenu(event,${r.id},this)" title="Clic para cambiar estado">${badge.label}</span>
-    </td>
-    <td style="color:#6c757d;font-size:.75rem;">${ultDate}</td>
-    <td>${proxDate}</td>
-    <td style="text-align:center;color:#6c757d;font-size:.75rem;">${r.num_contactos||0}</td>
-    <td onclick="event.stopPropagation()">
-      <div class="row-actions">
-        <button class="act a-email" onclick="openEmailModal(${r.id})" title="Enviar email"><i class="bi bi-envelope-fill"></i></button>
-        <button class="act a-contact" onclick="openContactModal(${r.id})" title="Registrar contacto"><i class="bi bi-telephone-fill"></i></button>
-        <button class="act a-hist" onclick="openHistModal(${r.id},event)" title="Ver historial"><i class="bi bi-clock-history"></i></button>
-        <a class="act a-detail" href="/prospeccion/${r.id}" title="Ver completo" onclick="event.stopPropagation()"><i class="bi bi-box-arrow-up-right"></i></a>
+      <div class="row-acts">
+        <button class="row-act ra-email" onclick="openEmailModal(${r.id})" data-bs-toggle="tooltip" title="Enviar email"><i class="bi bi-envelope-fill"></i></button>
+        <button class="row-act ra-phone" onclick="openContactModal(${r.id})" data-bs-toggle="tooltip" title="Registrar contacto"><i class="bi bi-telephone-fill"></i></button>
+        <button class="row-act ra-hist"  onclick="openHistPage(${r.id},event)"  data-bs-toggle="tooltip" title="Ver historial"><i class="bi bi-clock-history"></i></button>
+        <a      class="row-act ra-open"  href="/prospeccion/${r.id}" data-bs-toggle="tooltip" title="Abrir perfil" onclick="event.stopPropagation()"><i class="bi bi-box-arrow-up-right"></i></a>
       </div>
     </td>
   </tr>`;
 }
 
-function estadoBadge(ec) {
-  const map = {
-    'presentado':     {cls:'badge-estado bs-pres', label:'Presentado'},
-    'seguimiento':    {cls:'badge-estado bs-pres', label:'Presentado'},
-    'P1':             {cls:'badge-estado bs-pres', label:'Presentado'},
-    'precio_enviado': {cls:'badge-estado bs-prec', label:'Precio enviado'},
-    'P2':             {cls:'badge-estado bs-prec', label:'Precio enviado'},
-    'negociando':     {cls:'badge-estado bs-neg',  label:'Negociando'},
-    'negociacion':    {cls:'badge-estado bs-neg',  label:'Negociando'},
-    'P3':             {cls:'badge-estado bs-neg',  label:'Negociando'},
-    'cliente':        {cls:'badge-estado bs-cli',  label:'Cliente'},
-    'P4':             {cls:'badge-estado bs-cli',  label:'Cliente'},
+function badge(ec) {
+  const m = {
+    'presentado':     {cls:'sb-pres',label:'Presentado'},
+    'seguimiento':    {cls:'sb-pres',label:'Presentado'},
+    'P1':             {cls:'sb-pres',label:'Presentado'},
+    'precio_enviado': {cls:'sb-prec',label:'Precio enviado'},
+    'P2':             {cls:'sb-prec',label:'Precio enviado'},
+    'negociando':     {cls:'sb-neg', label:'Negociando'},
+    'negociacion':    {cls:'sb-neg', label:'Negociando'},
+    'P3':             {cls:'sb-neg', label:'Negociando'},
+    'cliente':        {cls:'sb-cli', label:'Cliente'},
+    'P4':             {cls:'sb-cli', label:'Cliente'},
   };
-  return map[ec] || {cls:'badge-estado bs-sin', label:'Sin contactar'};
+  return m[ec] || {cls:'sb-sin', label:'Sin contactar'};
 }
 
-function formatProx(d) {
+function fmtProx(d) {
   if (!d) return `<span class="date-empty">—</span>`;
-  const date = new Date(d.slice(0,10));
-  const today = new Date(); today.setHours(0,0,0,0);
-  const diff = Math.floor((date - today) / 86400000);
-  let cls = 'date-ok';
-  if (diff < 0) cls = 'date-overdue';
-  else if (diff <= 3) cls = 'date-soon';
+  const dt   = new Date(d.slice(0,10));
+  const now  = new Date(); now.setHours(0,0,0,0);
+  const diff = Math.round((dt-now)/86400000);
+  const cls  = diff < 0 ? 'date-overdue' : diff <= 3 ? 'date-soon' : 'date-ok';
   return `<span class="${cls}">${d.slice(0,10)}</span>`;
 }
 
-/* ═══════════════════════════════════════════════════════
+/* ─────────────────────────────────────────────────────────────
    PAGINATION
-═══════════════════════════════════════════════════════ */
+───────────────────────────────────────────────────────────── */
 function renderPag(total) {
-  const pages = Math.ceil(total / PAGE_SIZE);
-  const pi = document.getElementById('pagInfo');
+  const pg = document.getElementById('pagInfo');
   const pb = document.getElementById('pagBtns');
-  if (total === 0) { pi.textContent=''; pb.innerHTML=''; return; }
-  const start = (_page-1)*PAGE_SIZE+1, end = Math.min(_page*PAGE_SIZE, total);
-  pi.textContent = `Mostrando ${start}–${end} de ${total.toLocaleString()}`;
-  if (pages <= 1) { pb.innerHTML=''; return; }
+  if (!total) { pg.textContent=''; pb.innerHTML=''; return; }
+  const pages = Math.ceil(total/PG);
+  const s = (_page-1)*PG+1, e = Math.min(_page*PG, total);
+  pg.textContent = `${s}–${e} de ${total.toLocaleString()}`;
+  if (pages<=1) { pb.innerHTML=''; return; }
 
-  let html = `<button class="pag-btn" onclick="goPage(${_page-1})" ${_page===1?'disabled':''}>‹</button>`;
-  for (let p=1; p<=pages; p++) {
+  let h = `<button class="pag-btn" onclick="goPage(${_page-1})" ${_page===1?'disabled':''}>‹</button>`;
+  for (let p=1;p<=pages;p++) {
     if (p===1||p===pages||Math.abs(p-_page)<=2)
-      html += `<button class="pag-btn ${p===_page?'active':''}" onclick="goPage(${p})">${p}</button>`;
-    else if (Math.abs(p-_page)===3) html += `<span style="padding:0 .2rem;color:#aaa">…</span>`;
+      h += `<button class="pag-btn pag-wide ${p===_page?'pag-active':''}" onclick="goPage(${p})">${p}</button>`;
+    else if (Math.abs(p-_page)===3) h += `<span style="color:var(--qori-gray-400);padding:0 2px">…</span>`;
   }
-  html += `<button class="pag-btn" onclick="goPage(${_page+1})" ${_page===pages?'disabled':''}>›</button>`;
-  pb.innerHTML = html;
+  h += `<button class="pag-btn" onclick="goPage(${_page+1})" ${_page===pages?'disabled':''}>›</button>`;
+  pb.innerHTML = h;
 }
-
 function goPage(p) {
-  const pages = Math.ceil(_filtered.length / PAGE_SIZE);
-  _page = Math.max(1, Math.min(p, pages));
-  renderTable();
-  document.getElementById('crmBody').scrollTop = 0;
+  const pages = Math.ceil(_filt.length/PG);
+  _page = Math.max(1, Math.min(p,pages));
+  render();
+  document.getElementById('crmBody').scrollTop=0;
 }
 
-/* ═══════════════════════════════════════════════════════
+/* ─────────────────────────────────────────────────────────────
    SELECTION
-═══════════════════════════════════════════════════════ */
+───────────────────────────────────────────────────────────── */
 function toggleRow(cb, id) {
-  if (cb.checked) _selected.add(id); else _selected.delete(id);
-  cb.closest('tr').classList.toggle('selected', cb.checked);
+  if (cb.checked) _sel.add(id); else _sel.delete(id);
+  cb.closest('tr').classList.toggle('row-selected', cb.checked);
   updateBulkBar();
 }
 function toggleAll(cb) {
-  const start = (_page-1)*PAGE_SIZE;
-  const slice = _filtered.slice(start, start+PAGE_SIZE);
-  slice.forEach(r => { if (cb.checked) _selected.add(r.id); else _selected.delete(r.id); });
-  renderTable();
+  const slice = _filt.slice((_page-1)*PG, _page*PG);
+  slice.forEach(r => { if (cb.checked) _sel.add(r.id); else _sel.delete(r.id); });
+  render();
   updateBulkBar();
 }
-function clearSelection() {
-  _selected.clear();
-  document.querySelectorAll('.row-chk').forEach(c=>c.checked=false);
-  document.querySelectorAll('tr.selected').forEach(tr=>tr.classList.remove('selected'));
-  const ca = document.getElementById('checkAll');
-  if (ca) ca.checked = false;
+function clearSel() {
+  _sel.clear();
+  document.querySelectorAll('.rchk').forEach(c=>c.checked=false);
+  document.querySelectorAll('.row-selected').forEach(tr=>tr.classList.remove('row-selected'));
+  const ca = document.getElementById('chkAll'); if(ca) ca.checked=false;
   updateBulkBar();
 }
 function updateBulkBar() {
-  const bar = document.getElementById('bulkBar');
-  const n = _selected.size;
-  if (n > 0) {
-    bar.classList.add('show');
-    document.getElementById('bulkCount').textContent = n;
-  } else {
-    bar.classList.remove('show');
-  }
+  const n = _sel.size;
+  const bb = document.getElementById('bulkBar');
+  bb.classList.toggle('show', n>0);
+  document.getElementById('bulkN').textContent = n;
 }
 
-/* ═══════════════════════════════════════════════════════
-   SIDE PANEL
-═══════════════════════════════════════════════════════ */
-function openPanel(id) {
-  const r = _allRows.find(x => x.id === id);
+/* ─────────────────────────────────────────────────────────────
+   DRAWER
+───────────────────────────────────────────────────────────── */
+function openDrawer(id) {
+  const r = _rows.find(x=>x.id===id);
   if (!r) return;
+  const b = badge(r.estado_comercial);
+  const emails = (r.emails||[r.email]).filter(Boolean);
 
-  document.getElementById('sideTitle').textContent = r.razon_social || 'Sin nombre';
-  document.getElementById('sideLinkFull').href = `/prospeccion/${id}`;
+  document.getElementById('drName').textContent = r.razon_social||'Sin nombre';
+  document.getElementById('drSub').textContent  = [r.rubro, r.departamento].filter(Boolean).join(' · ')||'—';
+  document.getElementById('drLinkFull').href     = `/prospeccion/${id}`;
 
-  const badge = estadoBadge(r.estado_comercial);
-  const emails = (r.emails || [r.email]).filter(Boolean);
-
-  document.getElementById('sideBody').innerHTML = `
-    <div class="side-section">
-      <div class="side-grid">
-        <div>
-          <div class="side-label">Empresa</div>
-          <div class="side-val fw-bold">${esc(r.razon_social||'—')}</div>
-        </div>
-        <div>
-          <div class="side-label">RUC</div>
-          <div class="side-val">${esc(r.ruc||'—')}</div>
-        </div>
-        <div>
-          <div class="side-label">Rubro</div>
-          <div class="side-val">${esc(r.rubro||'—')}</div>
-        </div>
-        <div>
-          <div class="side-label">Tamaño</div>
-          <div class="side-val">${esc(r.tamano_empresa||'—')}</div>
-        </div>
-        <div>
-          <div class="side-label">Departamento</div>
-          <div class="side-val">${esc(r.departamento||'—')}</div>
-        </div>
-        <div>
-          <div class="side-label">Prioridad</div>
-          <div class="side-val">${r.prioridad ? `<span class="badge bg-secondary" style="font-size:.68rem;">${r.prioridad}</span>` : '—'}</div>
-        </div>
+  document.getElementById('drBody').innerHTML = `
+    <div class="drawer-sect">
+      <div class="drawer-sect-label">Empresa</div>
+      <div class="d-grid-2">
+        <div><div class="d-item-label">RUC</div><div class="d-item-val">${esc(r.ruc||'—')}</div></div>
+        <div><div class="d-item-label">Tipo</div><div class="d-item-val">${esc(r.tipo||'—')}</div></div>
+        <div><div class="d-item-label">Tamaño</div><div class="d-item-val">${esc(r.tamano_empresa||'—')}</div></div>
+        <div><div class="d-item-label">Prioridad</div><div class="d-item-val">${r.prioridad?`<span class="badge rounded-pill" style="background:var(--qori-gray-100);color:var(--qori-gray-700);font-size:.65rem;">${r.prioridad}</span>`:'—'}</div></div>
       </div>
     </div>
-
-    <hr class="my-2">
-
-    <div class="side-section">
-      <div class="side-label">Contacto</div>
-      <div class="side-val fw-semibold">${esc(r.nombre_contacto||'—')} ${r.cargo?`<span class="text-muted fw-normal">(${esc(r.cargo)})</span>`:''}</div>
-      <div class="side-val mt-1">
-        ${emails.map(e=>`<a href="mailto:${esc(e)}" onclick="event.stopPropagation()">${esc(e)}</a>`).join('<br>')}
+    <div class="drawer-sect">
+      <div class="drawer-sect-label">Contacto</div>
+      <div class="mb-2"><span class="d-item-label">Nombre</span>
+        <div class="d-item-val">${esc(r.nombre_contacto||'—')}${r.cargo?` <span style="color:var(--qori-gray-400);font-weight:400">· ${esc(r.cargo)}</span>`:''}</div>
       </div>
-      <div class="side-val mt-1">${r.telefono?`<i class="bi bi-telephone"></i> ${esc(r.telefono)}`:''} ${r.telefono_alt?` / ${esc(r.telefono_alt)}`:''}</div>
-    </div>
-
-    <hr class="my-2">
-
-    <div class="side-section">
-      <div class="side-label">Estado comercial</div>
-      <div class="d-flex align-items-center gap-2 mt-1">
-        <span class="${badge.cls} badge-estado" onclick="openEstadoMenu(event,${id},this)">${badge.label}</span>
-        <span class="text-muted" style="font-size:.72rem;">Clic para cambiar</span>
+      <div class="mb-2"><span class="d-item-label">Email${emails.length>1?'s':''}</span>
+        <div class="d-item-val">${emails.map(e=>`<a href="mailto:${esc(e)}">${esc(e)}</a>`).join('<br>')||'—'}</div>
       </div>
-      <div class="side-grid mt-2">
-        <div>
-          <div class="side-label">Último contacto</div>
-          <div class="side-val">${r.fecha_ultimo_contacto||'—'}</div>
-        </div>
-        <div>
-          <div class="side-label">Próximo contacto</div>
-          <div class="side-val">${r.fecha_proximo_contacto||'—'}</div>
-        </div>
-        <div>
-          <div class="side-label">Nro. contactos</div>
-          <div class="side-val">${r.num_contactos||0}</div>
-        </div>
-        <div>
-          <div class="side-label">Interés</div>
-          <div class="side-val">${r.nivel_interes||'—'}</div>
-        </div>
+      <div class="d-grid-2">
+        <div><div class="d-item-label">Teléfono</div><div class="d-item-val">${esc(r.telefono||'—')}</div></div>
+        <div><div class="d-item-label">Tel. alt.</div><div class="d-item-val">${esc(r.telefono_alt||'—')}</div></div>
       </div>
     </div>
-
-    ${r.notas ? `<hr class="my-2"><div class="side-section">
-      <div class="side-label">Notas</div>
-      <textarea class="notas-field" id="notasField${id}" onchange="saveNota(${id})">${esc(r.notas)}</textarea>
-      <button class="btn btn-sm btn-outline-secondary btn-save-notes" onclick="saveNota(${id})"><i class="bi bi-floppy me-1"></i>Guardar nota</button>
-    </div>` : `<div class="side-section">
-      <div class="side-label">Notas</div>
-      <textarea class="notas-field" id="notasField${id}" placeholder="Agregar nota…" onchange="saveNota(${id})"></textarea>
-      <button class="btn btn-sm btn-outline-secondary btn-save-notes" onclick="saveNota(${id})"><i class="bi bi-floppy me-1"></i>Guardar nota</button>
-    </div>`}
-
-    <hr class="my-2">
-
-    <div class="side-section">
-      <div class="side-label">Historial reciente</div>
-      <div id="sideHistWrap"><div class="text-muted" style="font-size:.75rem;">Cargando…</div></div>
+    <div class="drawer-sect">
+      <div class="drawer-sect-label">Pipeline</div>
+      <div class="d-flex align-items-center gap-2 mb-2">
+        <span class="${b.cls} status-badge" onclick="openStatusMenu(event,${id},this)"><span class="sb-dot"></span>${b.label}</span>
+        <span style="font-size:.68rem;color:var(--qori-gray-400)">Clic para cambiar</span>
+      </div>
+      <div class="d-grid-2">
+        <div><div class="d-item-label">Nivel interés</div><div class="d-item-val">${esc(r.nivel_interes||'—')}</div></div>
+        <div><div class="d-item-label">Nro. contactos</div><div class="d-item-val">${r.num_contactos||0}</div></div>
+        <div><div class="d-item-label">Último contacto</div><div class="d-item-val">${esc(r.fecha_ultimo_contacto||'—')}</div></div>
+        <div><div class="d-item-label">Próximo</div><div class="d-item-val">${esc(r.fecha_proximo_contacto||'—')}</div></div>
+      </div>
+    </div>
+    <div class="drawer-sect">
+      <div class="drawer-sect-label">Notas</div>
+      <textarea class="drawer-notes" id="drNotes${id}">${esc(r.notas||'')}</textarea>
+      <button class="btn btn-sm btn-outline-secondary mt-1" style="font-size:.72rem;" onclick="saveNotes(${id})">
+        <i class="bi bi-floppy me-1"></i>Guardar nota
+      </button>
     </div>
   `;
 
-  document.getElementById('sideFooter').innerHTML = `
-    <button class="btn btn-sm btn-outline-primary" onclick="openEmailModal(${id})" title="Enviar email"><i class="bi bi-envelope me-1"></i>Email</button>
-    <button class="btn btn-sm btn-outline-warning" onclick="openContactModal(${id})" title="Registrar contacto"><i class="bi bi-telephone me-1"></i>Contacto</button>
-    <button class="btn btn-sm btn-outline-secondary" onclick="openHistModal(${id},null)"><i class="bi bi-clock-history me-1"></i>Historial completo</button>
-    <a class="btn btn-sm btn-outline-success" href="/prospeccion/${id}"><i class="bi bi-box-arrow-up-right me-1"></i>Ver completo</a>
+  document.getElementById('drFoot').innerHTML = `
+    <button class="btn btn-sm btn-outline-primary" onclick="openEmailModal(${id})"><i class="bi bi-envelope me-1"></i>Email</button>
+    <button class="btn btn-sm btn-outline-warning"  onclick="openContactModal(${id})"><i class="bi bi-telephone me-1"></i>Contacto</button>
+    <a class="btn btn-sm btn-outline-secondary" href="/prospeccion/${id}" target="_blank"><i class="bi bi-box-arrow-up-right me-1"></i>Perfil completo</a>
   `;
 
-  document.getElementById('sidePanel').classList.add('open');
-  document.getElementById('sideBackdrop').style.display = '';
-  loadSideHist(id);
+  document.getElementById('drawer').classList.add('open');
+  document.getElementById('drBackdrop').style.display = '';
+}
+function closeDrawer() {
+  document.getElementById('drawer').classList.remove('open');
+  document.getElementById('drBackdrop').style.display = 'none';
+}
+async function saveNotes(id) {
+  const ta = document.getElementById(`drNotes${id}`);
+  if (!ta) return;
+  await patchCampo(id,'notas',ta.value);
+  const row = _rows.find(r=>r.id===id); if(row) row.notas=ta.value;
 }
 
-async function loadSideHist(id) {
-  try {
-    const r = await fetch(`/prospeccion/${id}`);
-    // We'll use the actividades from the detail page API — for now use a mini fetch approach
-    // Actually, we don't have a dedicated activities JSON endpoint, so let's inline-fetch detail page
-    // and parse. Instead, use the existing api_emails which gives us basic info.
-    // For history we need a separate endpoint — show note to user.
-    document.getElementById('sideHistWrap').innerHTML =
-      `<p style="font-size:.73rem;color:#aaa;">Ver historial completo →</p>`;
-  } catch(e) {}
-}
-
-function closePanel() {
-  document.getElementById('sidePanel').classList.remove('open');
-  document.getElementById('sideBackdrop').style.display = 'none';
-}
-
-async function saveNota(id) {
-  const field = document.getElementById(`notasField${id}`);
-  if (!field) return;
-  const val = field.value;
-  await patchCampo(id, 'notas', val);
-  // update local cache
-  const row = _allRows.find(r => r.id === id);
-  if (row) row.notas = val;
-}
-
-/* ═══════════════════════════════════════════════════════
-   ESTADO INLINE MENU
-═══════════════════════════════════════════════════════ */
-const _estadoOpts = [
-  {val:'', label:'Sin contactar', cls:'bs-sin'},
-  {val:'presentado', label:'Presentado', cls:'bs-pres'},
-  {val:'precio_enviado', label:'Precio enviado', cls:'bs-prec'},
-  {val:'negociando', label:'Negociando', cls:'bs-neg'},
-  {val:'cliente', label:'Cliente', cls:'bs-cli'},
+/* ─────────────────────────────────────────────────────────────
+   STATUS MENU
+───────────────────────────────────────────────────────────── */
+const STATUS_OPTS = [
+  {val:'',              cls:'sb-sin', label:'Sin contactar'},
+  {val:'presentado',    cls:'sb-pres',label:'Presentado'},
+  {val:'precio_enviado',cls:'sb-prec',label:'Precio enviado'},
+  {val:'negociando',    cls:'sb-neg', label:'Negociando'},
+  {val:'cliente',       cls:'sb-cli', label:'Cliente'},
 ];
+let _sdCtx = null;
 
-let _estadoCtx = null;
-
-function openEstadoMenu(e, id, badgeEl) {
+function openStatusMenu(e, id, el) {
   e.stopPropagation();
-  const menu = document.getElementById('estadoMenu');
-  _estadoCtx = {id, badgeEl};
-
-  menu.innerHTML = _estadoOpts.map(o =>
-    `<div class="estado-opt" onclick="setEstado('${o.val}','${o.label}','${o.cls}')">
-       <span class="badge-estado ${o.cls}" style="pointer-events:none">${o.label}</span>
+  _sdCtx = {id, el};
+  const menu = document.getElementById('sdMenu');
+  menu.innerHTML = STATUS_OPTS.map(o=>
+    `<div class="sd-item" onclick="applyStatus('${o.val}','${o.cls}','${o.label}')">
+       <span class="${o.cls} status-badge" style="pointer-events:none"><span class="sb-dot"></span>${o.label}</span>
      </div>`
   ).join('');
-
-  const rect = badgeEl.getBoundingClientRect();
-  menu.style.left = rect.left + 'px';
-  menu.style.top  = (rect.bottom + window.scrollY + 4) + 'px';
-  menu.style.position = 'fixed';
-  menu.style.top  = (rect.bottom + 4) + 'px';
-  menu.classList.add('show');
+  const rc = el.getBoundingClientRect();
+  menu.style.left = rc.left + 'px';
+  menu.style.top  = (rc.bottom + 6) + 'px';
+  menu.classList.add('open');
 }
 
-async function setEstado(val, label, cls) {
-  document.getElementById('estadoMenu').classList.remove('show');
-  if (!_estadoCtx) return;
-  const {id, badgeEl} = _estadoCtx;
-  badgeEl.textContent = label;
-  badgeEl.className = `badge-estado ${cls}`;
+async function applyStatus(val, cls, label) {
+  document.getElementById('sdMenu').classList.remove('open');
+  if (!_sdCtx) return;
+  const {id, el} = _sdCtx;
+  el.className = `${cls} status-badge`;
+  el.innerHTML = `<span class="sb-dot"></span>${label}`;
   await patchCampo(id, 'estado_comercial', val);
-  const row = _allRows.find(r => r.id === id);
-  if (row) row.estado_comercial = val;
+  const row = _rows.find(r=>r.id===id); if(row) row.estado_comercial=val;
 }
 
-document.addEventListener('click', () => {
-  document.getElementById('estadoMenu').classList.remove('show');
-});
+document.addEventListener('click', () => document.getElementById('sdMenu').classList.remove('open'));
 
-/* ═══════════════════════════════════════════════════════
-   PATCH CAMPO (autosave)
-═══════════════════════════════════════════════════════ */
+/* ─────────────────────────────────────────────────────────────
+   PATCH CAMPO
+───────────────────────────────────────────────────────────── */
 async function patchCampo(id, campo, valor) {
-  showToast('Guardando…');
-  try {
-    const r = await fetch(`/prospeccion/api/${id}/campo`, {
-      method:'PATCH',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({campo, valor}),
-    });
-    const d = await r.json();
-    if (d.ok) showToast('Guardado', true);
-    else { showToast('Error: ' + (d.error||''), false, true); }
-  } catch(e) {
-    showToast('Error de red', false, true);
-  }
+  toast('Guardando…');
+  const r = await fetch(`/prospeccion/api/${id}/campo`,{
+    method:'PATCH', headers:jHeaders(),
+    body: JSON.stringify({campo, valor}),
+  });
+  const d = await r.json();
+  if (d.ok) toast('Guardado');
+  else toast('Error: '+(d.error||''), true);
 }
 
-/* ═══════════════════════════════════════════════════════
+/* ─────────────────────────────────────────────────────────────
    EMAIL MODAL
-═══════════════════════════════════════════════════════ */
+───────────────────────────────────────────────────────────── */
 function openEmailModal(id) {
-  const r = _allRows.find(x => x.id === id);
-  document.getElementById('emailPid').value = id;
-  document.getElementById('emailPara').value = r ? (r.emails||[r.email]).filter(Boolean).join(', ') : '';
-  document.getElementById('emailTipoPres').checked = true;
-  document.getElementById('pricesRow').style.setProperty('display','none','important');
-  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalEmail')).show();
+  const r = _rows.find(x=>x.id===id);
+  document.getElementById('ePid').value  = id;
+  document.getElementById('ePara').value = r ? (r.emails||[r.email]).filter(Boolean).join(', ') : '';
+  document.getElementById('eTipoPres').checked = true;
+  document.getElementById('ePricesRow').style.setProperty('display','none','important');
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('mEmail')).show();
 }
-
-function togglePrices() {
-  const isPrecio = document.getElementById('emailTipoPrec').checked;
-  document.getElementById('pricesRow').style.setProperty('display', isPrecio ? 'flex' : 'none', 'important');
+function toggleEPrices() {
+  document.getElementById('ePricesRow').style.setProperty('display', document.getElementById('eTipoPrec').checked?'flex':'none','important');
 }
-
 async function submitEmail() {
-  const id     = document.getElementById('emailPid').value;
-  const tipo   = document.querySelector('input[name=emailTipo]:checked').value;
-  const compra = document.getElementById('emailCompra').value;
-  const venta  = document.getElementById('emailVenta').value;
-
-  if (tipo === 'precio' && (!compra || !venta)) {
-    Swal.fire({icon:'warning', text:'Ingresa compra y venta.', confirmButtonColor:'#1a1a2e'}); return;
-  }
-  bootstrap.Modal.getInstance(document.getElementById('modalEmail')).hide();
-  const r = await fetch(`/prospeccion/${id}/enviar-email`, {
-    method:'POST',
-    headers: csrfHeaders(),
-    body: JSON.stringify({tipo, compra, venta}),
-  });
+  const id     = document.getElementById('ePid').value;
+  const tipo   = document.querySelector('input[name=eTipo]:checked').value;
+  const compra = document.getElementById('eCompra').value;
+  const venta  = document.getElementById('eVenta').value;
+  if (tipo==='precio'&&(!compra||!venta)) { Swal.fire({icon:'warning',text:'Ingresa compra y venta.',confirmButtonColor:'#0D1B2A'}); return; }
+  bootstrap.Modal.getInstance(document.getElementById('mEmail')).hide();
+  const r = await fetch(`/prospeccion/${id}/enviar-email`,{method:'POST',headers:jHeaders(),body:JSON.stringify({tipo,compra,venta})});
   const d = await r.json();
-  if (d.ok) {
-    Swal.fire({icon:'success', text: d.msg || 'Correo enviado.', timer:2500, showConfirmButton:false});
-    loadData();
-  } else {
-    Swal.fire({icon:'error', title:'Error al enviar', text: d.error || '', confirmButtonColor:'#1a1a2e'});
-  }
+  if (d.ok) { Swal.fire({icon:'success',text:d.msg||'Correo enviado.',timer:2200,showConfirmButton:false}); load(); }
+  else Swal.fire({icon:'error',title:'Error al enviar',text:d.error||'',confirmButtonColor:'#0D1B2A'});
 }
 
-/* ═══════════════════════════════════════════════════════
+/* ─────────────────────────────────────────────────────────────
    CONTACT MODAL
-═══════════════════════════════════════════════════════ */
+───────────────────────────────────────────────────────────── */
 function openContactModal(id) {
-  document.getElementById('contactPid').value = id;
-  document.getElementById('contactDesc').value = '';
-  document.getElementById('contactTipo').value = 'llamada';
-  document.getElementById('contactEstado').value = '';
-  document.getElementById('contactProx').value = '';
-  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalContact')).show();
+  document.getElementById('cPid').value = id;
+  document.getElementById('cDesc').value = '';
+  document.getElementById('cTipo').value = 'llamada';
+  document.getElementById('cEstado').value = '';
+  document.getElementById('cProx').value = '';
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('mContact')).show();
 }
-
 async function submitContact() {
-  const id   = document.getElementById('contactPid').value;
-  const desc = document.getElementById('contactDesc').value.trim();
-  if (!desc) { Swal.fire({icon:'warning', text:'La descripción es obligatoria.', confirmButtonColor:'#1a1a2e'}); return; }
-
+  const id   = document.getElementById('cPid').value;
+  const desc = document.getElementById('cDesc').value.trim();
+  if (!desc) { Swal.fire({icon:'warning',text:'La descripción es obligatoria.',confirmButtonColor:'#0D1B2A'}); return; }
   const fd = new FormData();
-  fd.append('tipo',         document.getElementById('contactTipo').value);
+  fd.append('tipo',         document.getElementById('cTipo').value);
   fd.append('descripcion',  desc);
-  fd.append('nuevo_estado', document.getElementById('contactEstado').value);
-  fd.append('fecha_proximo_contacto', document.getElementById('contactProx').value);
-  csrfFd(fd);
-
-  bootstrap.Modal.getInstance(document.getElementById('modalContact')).hide();
-  const r = await fetch(`/prospeccion/${id}/actividad`, { method:'POST', body: fd });
-  if (r.redirected || r.ok) {
-    Swal.fire({icon:'success', text:'Actividad registrada.', timer:2000, showConfirmButton:false});
-    loadData();
-  } else {
-    Swal.fire({icon:'error', text:'Error al registrar.', confirmButtonColor:'#1a1a2e'});
-  }
+  fd.append('nuevo_estado', document.getElementById('cEstado').value);
+  fd.append('fecha_proximo_contacto', document.getElementById('cProx').value);
+  fdWithCsrf(fd);
+  bootstrap.Modal.getInstance(document.getElementById('mContact')).hide();
+  const r = await fetch(`/prospeccion/${id}/actividad`,{method:'POST',body:fd});
+  if (r.ok||r.redirected) { Swal.fire({icon:'success',text:'Actividad registrada.',timer:1800,showConfirmButton:false}); load(); }
+  else Swal.fire({icon:'error',text:'Error al guardar.',confirmButtonColor:'#0D1B2A'});
 }
 
-/* ═══════════════════════════════════════════════════════
-   HISTORIAL MODAL
-═══════════════════════════════════════════════════════ */
-async function openHistModal(id, e) {
-  if (e) e.stopPropagation();
-  const r = _allRows.find(x => x.id === id);
-  document.getElementById('histTitle').innerHTML = `<i class="bi bi-clock-history me-2"></i>Historial — ${esc(r?.razon_social||'Prospecto')}`;
-  document.getElementById('histBody').innerHTML = `<div class="text-center py-3 text-muted"><i class="bi bi-hourglass-split"></i> Cargando…</div>`;
-  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalHist')).show();
-
-  // Fetch from detail page as JSON via the HTML page isn't ideal.
-  // Load the detail page and extract activities (fallback: just redirect)
-  document.getElementById('histBody').innerHTML = `
-    <div class="text-center py-3">
-      <p class="text-muted">Para ver el historial completo, abre el perfil del prospecto.</p>
-      <a href="/prospeccion/${id}" target="_blank" class="btn btn-sm btn-outline-primary">
-        <i class="bi bi-box-arrow-up-right me-1"></i>Abrir perfil
-      </a>
-    </div>`;
+function openHistPage(id,e) {
+  e.stopPropagation();
+  window.open(`/prospeccion/${id}#historial`,'_blank');
 }
 
-/* ═══════════════════════════════════════════════════════
-   CAMPAÑA MASIVA
-═══════════════════════════════════════════════════════ */
+/* ─────────────────────────────────────────────────────────────
+   CAMPAÑA
+───────────────────────────────────────────────────────────── */
 function openCampanaModal() {
-  // Use filtered rows (all) or selected
-  _campBulkIds = _selected.size > 0 ? [..._selected] : _filtered.map(r => r.id);
-  const info = document.getElementById('campTargetInfo');
-  if (_campBulkIds.length === 0) {
-    Swal.fire({icon:'warning', text:'No hay prospectos para enviar.', confirmButtonColor:'#1a1a2e'}); return;
-  }
-  info.innerHTML = `<i class="bi bi-people-fill me-1"></i> Se enviará a <strong>${_campBulkIds.length.toLocaleString()}</strong> prospecto${_campBulkIds.length!==1?'s':''} ${_selected.size>0?'(seleccionados)':'(filtrados)'}`;
+  _campIds = _sel.size>0 ? [..._sel] : _filt.map(r=>r.id);
+  if (!_campIds.length) { Swal.fire({icon:'warning',text:'No hay prospectos.',confirmButtonColor:'#0D1B2A'}); return; }
+  const src = _sel.size>0 ? 'seleccionados' : 'filtrados';
+  document.getElementById('cTargetBox').innerHTML =
+    `<i class="bi bi-people-fill me-2" style="color:var(--qori-primary)"></i>Se enviará a <strong>${_campIds.length.toLocaleString()}</strong> prospecto${_campIds.length!==1?'s':''} <span style="color:var(--qori-gray-400)">(${src})</span>`;
   document.getElementById('campTipoPres').checked = true;
-  document.getElementById('campPricesRow').style.setProperty('display','none','important');
-  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalCampana')).show();
+  document.getElementById('cPricesRow').style.setProperty('display','none','important');
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('mCampana')).show();
 }
-
-function bulkSendCampana(tipo) {
-  _campBulkIds = [..._selected];
-  const info = document.getElementById('campTargetInfo');
-  info.innerHTML = `<i class="bi bi-people-fill me-1"></i> Se enviará a <strong>${_campBulkIds.length.toLocaleString()}</strong> prospecto${_campBulkIds.length!==1?'s':''}`;
+function bulkCampana(tipo) {
+  _campIds = [..._sel];
   document.getElementById(tipo==='precio'?'campTipoPrec':'campTipoPres').checked = true;
-  toggleCampPrices();
-  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalCampana')).show();
+  toggleCPrices();
+  openCampanaModal();
 }
-
-function toggleCampPrices() {
-  const isPrecio = document.getElementById('campTipoPrec').checked;
-  document.getElementById('campPricesRow').style.setProperty('display', isPrecio ? 'flex' : 'none', 'important');
+function toggleCPrices() {
+  document.getElementById('cPricesRow').style.setProperty('display',document.getElementById('campTipoPrec').checked?'flex':'none','important');
 }
-
-async function launchCampana() {
+async function launchCamp() {
   const tipo   = document.querySelector('input[name=campTipo]:checked').value;
-  const compra = document.getElementById('campCompra').value;
-  const venta  = document.getElementById('campVenta').value;
-
-  if (tipo === 'precio' && (!compra || !venta)) {
-    Swal.fire({icon:'warning', text:'Ingresa compra y venta para la campaña de precios.', confirmButtonColor:'#1a1a2e'}); return;
-  }
-  if (_campBulkIds.length === 0) {
-    Swal.fire({icon:'warning', text:'Sin prospectos seleccionados.', confirmButtonColor:'#1a1a2e'}); return;
-  }
-
-  bootstrap.Modal.getInstance(document.getElementById('modalCampana')).hide();
-  const r = await fetch('/prospeccion/campana/iniciar', {
-    method:'POST',
-    headers: csrfHeaders(),
-    body: JSON.stringify({ids: _campBulkIds, tipo, compra, venta}),
-  });
+  const compra = document.getElementById('cCompra').value;
+  const venta  = document.getElementById('cVenta').value;
+  if (tipo==='precio'&&(!compra||!venta)) { Swal.fire({icon:'warning',text:'Ingresa compra y venta.',confirmButtonColor:'#0D1B2A'}); return; }
+  if (!_campIds.length) { Swal.fire({icon:'warning',text:'Sin prospectos.',confirmButtonColor:'#0D1B2A'}); return; }
+  bootstrap.Modal.getInstance(document.getElementById('mCampana')).hide();
+  const r = await fetch('/prospeccion/campana/iniciar',{method:'POST',headers:jHeaders(),body:JSON.stringify({ids:_campIds,tipo,compra,venta})});
   const d = await r.json();
-  if (d.ok) {
-    showCampanaPanel(true, tipo, 0, d.total);
-    startCampanaPoller();
-    clearSelection();
-  } else {
-    Swal.fire({icon:'error', title:'Error al iniciar campaña', text: d.error||'', confirmButtonColor:'#1a1a2e'});
-  }
+  if (d.ok) { showCampPanel(true,tipo,0,d.total); startPoll(); clearSel(); }
+  else Swal.fire({icon:'error',title:'Error al iniciar',text:d.error||'',confirmButtonColor:'#0D1B2A'});
 }
-
-function showCampanaPanel(show, tipo='', enviados=0, total=0) {
-  const panel = document.getElementById('campanaPanel');
-  if (!show) { panel.classList.remove('show'); return; }
-  panel.classList.add('show');
-  const tipoLabel = tipo === 'precio' ? 'Campaña Precios' : 'Campaña Presentación';
-  document.getElementById('campLabel').textContent = tipoLabel;
-  document.getElementById('campStats').textContent = `${enviados} / ${total} enviados`;
-  const pct = total > 0 ? Math.round(enviados/total*100) : 0;
-  document.getElementById('campBar').style.width = pct + '%';
+function showCampPanel(show,tipo='',env=0,tot=0) {
+  const p = document.getElementById('campanel');
+  p.classList.toggle('show',show);
+  if (!show) return;
+  document.getElementById('campTitle').textContent = tipo==='precio'?'Campaña Precios':'Campaña Presentación';
+  document.getElementById('campStats').textContent = `${env} / ${tot} enviados`;
+  document.getElementById('campFill').style.width  = tot>0?`${Math.round(env/tot*100)}%`:'0%';
 }
-
-function startCampanaPoller() {
-  clearInterval(_campPollTimer);
-  _campPollTimer = setInterval(checkCampanaStatus, 3000);
-}
-
-async function checkCampanaStatus() {
+function startPoll() { clearInterval(_pollT); _pollT = setInterval(checkCamp,3000); }
+async function checkCamp() {
   try {
     const r = await fetch('/prospeccion/campana/estado');
     const d = await r.json();
-    if (!d.activa && !d.estado) { showCampanaPanel(false); clearInterval(_campPollTimer); return; }
-    if (d.estado === 'activa') {
-      showCampanaPanel(true, d.tipo, d.enviados, d.total);
-    } else if (d.estado === 'completada') {
-      showCampanaPanel(false);
-      clearInterval(_campPollTimer);
-      Swal.fire({icon:'success', title:'Campaña completada', text:`${d.enviados} correos enviados. ${d.errores} errores.`, confirmButtonColor:'#1a1a2e'});
-      loadData();
-    } else if (d.estado === 'detenida') {
-      showCampanaPanel(false);
-      clearInterval(_campPollTimer);
-      Swal.fire({icon:'info', text:`Campaña detenida. ${d.enviados} enviados.`, confirmButtonColor:'#1a1a2e'});
+    if (!d.activa && !d.estado) { showCampPanel(false); clearInterval(_pollT); return; }
+    if (d.estado==='activa') { showCampPanel(true,d.tipo,d.enviados,d.total); }
+    else if (d.estado==='completada') {
+      showCampPanel(false); clearInterval(_pollT);
+      Swal.fire({icon:'success',title:'Campaña completada',text:`${d.enviados} correos enviados. ${d.errores} errores.`,confirmButtonColor:'#0D1B2A'});
+      load();
+    } else if (d.estado==='detenida') {
+      showCampPanel(false); clearInterval(_pollT);
+      Swal.fire({icon:'info',text:`Detenida. ${d.enviados} enviados.`,confirmButtonColor:'#0D1B2A'});
     }
-  } catch(e) {}
+  } catch(e){}
 }
-
-async function stopCampana() {
-  const r = await fetch('/prospeccion/campana/detener', {method:'POST', headers:{'X-CSRFToken':csrfToken()}});
+async function stopCamp() {
+  const r = await fetch('/prospeccion/campana/detener',{method:'POST',headers:{'X-CSRFToken':CSRF()}});
   const d = await r.json();
-  if (!d.ok) Swal.fire({icon:'warning', text: d.error||'', confirmButtonColor:'#1a1a2e'});
+  if (!d.ok) Swal.fire({icon:'warning',text:d.error||'',confirmButtonColor:'#0D1B2A'});
 }
 
-/* ═══════════════════════════════════════════════════════
-   IMPORT / EXPORT
-═══════════════════════════════════════════════════════ */
+/* ─────────────────────────────────────────────────────────────
+   IMPORT
+───────────────────────────────────────────────────────────── */
 function openImport() {
-  document.getElementById('importFile').value = '';
-  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalImport')).show();
+  document.getElementById('importFile').value='';
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('mImport')).show();
 }
-
 async function submitImport() {
   const file = document.getElementById('importFile').files[0];
-  if (!file) { Swal.fire({icon:'warning', text:'Selecciona un archivo.', confirmButtonColor:'#1a1a2e'}); return; }
-  bootstrap.Modal.getInstance(document.getElementById('modalImport')).hide();
-  const fd = new FormData(); fd.append('file', file); csrfFd(fd);
-  Swal.fire({title:'Importando…', allowOutsideClick:false, didOpen:()=>Swal.showLoading()});
+  if (!file) { Swal.fire({icon:'warning',text:'Selecciona un archivo.',confirmButtonColor:'#0D1B2A'}); return; }
+  bootstrap.Modal.getInstance(document.getElementById('mImport')).hide();
+  const fd = new FormData(); fd.append('file',file); fdWithCsrf(fd);
+  Swal.fire({title:'Importando…',allowOutsideClick:false,didOpen:()=>Swal.showLoading()});
   try {
-    const r = await fetch('/prospeccion/api/import-excel', {method:'POST', body:fd});
+    const r = await fetch('/prospeccion/api/import-excel',{method:'POST',body:fd});
     const d = await r.json();
-    if (d.ok || d.insertados !== undefined) {
-      Swal.fire({icon:'success', title:'Importación completa', text:`${d.insertados||d.actualizados||0} registros procesados.`, confirmButtonColor:'#1a1a2e'});
-      loadData();
-    } else {
-      Swal.fire({icon:'error', title:'Error al importar', text: d.error||'', confirmButtonColor:'#1a1a2e'});
-    }
-  } catch(e) {
-    Swal.fire({icon:'error', text:'Error de red.', confirmButtonColor:'#1a1a2e'});
-  }
+    if (d.ok||d.insertados!=null) {
+      Swal.fire({icon:'success',title:'Importación completa',text:`${d.insertados||d.actualizados||0} registros procesados.`,confirmButtonColor:'#0D1B2A'});
+      load();
+    } else Swal.fire({icon:'error',title:'Error',text:d.error||'',confirmButtonColor:'#0D1B2A'});
+  } catch(e) { Swal.fire({icon:'error',text:'Error de red.',confirmButtonColor:'#0D1B2A'}); }
 }
 
-/* ═══════════════════════════════════════════════════════
+/* ─────────────────────────────────────────────────────────────
    TOAST
-═══════════════════════════════════════════════════════ */
-let _toastTimer;
-function showToast(msg, ok=true, isErr=false) {
-  const t = document.getElementById('asToast');
-  document.getElementById('asMsg').textContent = msg;
-  t.style.background = isErr ? '#b91c1c' : '#1a1a2e';
+───────────────────────────────────────────────────────────── */
+let _tt;
+function toast(msg, err=false) {
+  const t = document.getElementById('qToast');
+  document.getElementById('qToastMsg').textContent = msg;
+  t.classList.toggle('toast-err', err);
   t.classList.add('show');
-  clearTimeout(_toastTimer);
-  _toastTimer = setTimeout(()=>t.classList.remove('show'), 2000);
+  clearTimeout(_tt);
+  _tt = setTimeout(()=>t.classList.remove('show'), 2000);
 }
 
-/* ═══════════════════════════════════════════════════════
+/* ─────────────────────────────────────────────────────────────
    UTILS
-═══════════════════════════════════════════════════════ */
+───────────────────────────────────────────────────────────── */
 function esc(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-/* ═══════════════════════════════════════════════════════
+/* ─────────────────────────────────────────────────────────────
    INIT
-═══════════════════════════════════════════════════════ */
-document.addEventListener('DOMContentLoaded', () => {
-  loadData();
-});
+───────────────────────────────────────────────────────────── */
+document.addEventListener('DOMContentLoaded', load);
 </script>
 {% endblock %}
