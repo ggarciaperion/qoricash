@@ -109,7 +109,7 @@ def _send_via_gmail_api(sender_email, to_email, subject, html_body):
 
 
 def _crear_borrador_gmail(sender_email, to_email, subject, html_body):
-    """Crea un borrador HTML en Gmail API. Retorna el draft_id."""
+    """Crea un borrador HTML en Gmail API. Retorna (draft_id, message_id)."""
     service = _get_gmail_service(sender_email)
 
     msg = MIMEMultipart("alternative")
@@ -123,7 +123,9 @@ def _crear_borrador_gmail(sender_email, to_email, subject, html_body):
         userId="me",
         body={"message": {"raw": raw}},
     ).execute()
-    return draft.get("id", "")
+    draft_id   = draft.get("id", "")
+    message_id = draft.get("message", {}).get("id", "")
+    return draft_id, message_id
 
 prospeccion_bp = Blueprint("prospeccion", __name__, url_prefix="/prospeccion")
 
@@ -1164,11 +1166,22 @@ def crear_borrador(pid):
 
     try:
         html, asunto, _ = _construir_email(p, tipo, compra, venta, sender_email, nombre_completo, cargo)
-        draft_id        = _crear_borrador_gmail(sender_email, p.email, asunto, html)
+        draft_id, message_id = _crear_borrador_gmail(sender_email, p.email, asunto, html)
+
+        # URL directa al borrador en la cuenta correcta.
+        # Google Workspace → mail/a/{dominio}/#drafts/{message_id}
+        # Gmail personal   → mail/u/0/#drafts/{message_id}
+        domain = sender_email.split("@")[-1] if "@" in sender_email else ""
+        if domain and domain != "gmail.com":
+            base = f"https://mail.google.com/mail/a/{domain}/#drafts"
+        else:
+            base = "https://mail.google.com/mail/u/0/#drafts"
+        url = f"{base}/{message_id}" if message_id else base
+
         return jsonify({
-            "ok":       True,
-            "draft_id": draft_id,
-            "url":      "https://mail.google.com/mail/#drafts",
+            "ok":        True,
+            "draft_id":  draft_id,
+            "url":       url,
         })
     except ValueError as exc:
         return jsonify({"ok": False, "error": str(exc)}), 400
