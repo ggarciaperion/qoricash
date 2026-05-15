@@ -28,7 +28,7 @@ _HEADER_BLOCK = f"""
                 <table cellpadding="0" cellspacing="0" border="0">
                   <tr>
                     <td style="vertical-align:middle;padding-right:12px;">
-                      <img src="{_LOGO_URL}" alt="QoriCash" style="height:44px;width:auto;display:block;">
+                      <img src="{_LOGO_URL}" alt="QoriCash" class="email-logo" style="height:44px;width:auto;display:block;">
                     </td>
                     <td style="vertical-align:middle;">
                       <span style="font-size:22px;font-weight:800;color:{_DARK};letter-spacing:2px;font-family:Arial,sans-serif;">QORICASH</span>
@@ -67,8 +67,19 @@ _FOOTER_BLOCK = f"""
 
 _EMAIL_CSS = """
     @media only screen and (max-width: 620px) {
-        .email-body-cell { padding: 24px 20px !important; }
-        .email-footer-cell { padding: 20px !important; }
+        .email-outer-wrap { padding: 8px 0 !important; }
+        .email-body-cell  { padding: 22px 16px !important; }
+        .email-footer-cell{ padding: 16px !important; }
+        /* Cajas de métricas: apilar verticalmente en móvil */
+        .metric-cell   { display:block !important; width:100% !important; box-sizing:border-box !important; margin-bottom:8px !important; }
+        .metric-spacer { display:none  !important; }
+        /* Tabla de cuentas bancarias: reducir texto, ocultar CCI */
+        .bank-td   { font-size:10px !important; padding:6px 6px !important; }
+        .hide-mob  { display:none !important; }
+        /* Filas detalle (Código/Tipo/Estado/Fecha): ajustar ancho de etiqueta */
+        .ops-label { width:38% !important; font-size:11px !important; }
+        /* Encabezado email: reducir logo */
+        .email-logo { height:32px !important; }
     }
 """
 
@@ -83,7 +94,7 @@ def _wrap_email_svc(body_html: str) -> str:
     <style>{_EMAIL_CSS}</style>
 </head>
 <body style="margin:0;padding:0;background-color:#f5f7fa;font-family:Arial,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f5f7fa;padding:28px 16px;">
+<table width="100%" cellpadding="0" cellspacing="0" class="email-outer-wrap" style="background-color:#f5f7fa;padding:28px 16px;">
   <tr><td align="center">
     <table width="600" cellpadding="0" cellspacing="0"
            style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;
@@ -351,9 +362,9 @@ class EmailService:
 
           <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #E2E8F0;border-radius:8px;overflow:hidden;margin:0 0 24px 0;">
             <tr style="border-bottom:1px solid #F1F5F9;">
-              <td style="padding:11px 14px;width:70px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle;">Código</td>
+              <td class="ops-label" style="padding:11px 14px;width:70px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle;">Código</td>
               <td style="padding:11px 14px;color:#0D1B2A;font-size:14px;font-weight:700;vertical-align:middle;border-right:1px solid #F1F5F9;">{{ operation.operation_id }}</td>
-              <td style="padding:11px 14px;width:50px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle;">Tipo</td>
+              <td class="ops-label" style="padding:11px 14px;width:50px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle;">Tipo</td>
               <td style="padding:11px 14px;font-size:14px;vertical-align:middle;">
                 {% if operation.operation_type == 'Compra' %}
                   <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:#DCFCE7;color:#15803D;letter-spacing:0.3px;">COMPRA USD</span>
@@ -363,20 +374,20 @@ class EmailService:
               </td>
             </tr>
             <tr style="border-bottom:1px solid #F1F5F9;">
-              <td colspan="4" style="padding:12px 18px;">
+              <td colspan="4" style="padding:12px 14px;">
                 <table width="100%" cellspacing="0" cellpadding="0">
                   <tr>
-                    <td style="text-align:center;padding:13px 8px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;">
+                    <td class="metric-cell" style="text-align:center;padding:13px 8px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;">
                       <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Monto USD</div>
                       <div style="font-size:17px;font-weight:800;color:#0D1B2A;">$ {{ "{:,.2f}".format(operation.amount_usd) }}</div>
                     </td>
-                    <td width="8">&nbsp;</td>
-                    <td style="text-align:center;padding:13px 8px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;">
+                    <td class="metric-spacer" width="8">&nbsp;</td>
+                    <td class="metric-cell" style="text-align:center;padding:13px 8px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;">
                       <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Tipo de Cambio</div>
                       <div style="font-size:15px;font-weight:700;color:#1e293b;">{{ "%.4f"|format(operation.exchange_rate) }}</div>
                     </td>
-                    <td width="8">&nbsp;</td>
-                    <td style="text-align:center;padding:13px 8px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;">
+                    <td class="metric-spacer" width="8">&nbsp;</td>
+                    <td class="metric-cell" style="text-align:center;padding:13px 8px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;">
                       <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Monto PEN</div>
                       <div style="font-size:17px;font-weight:800;color:#0D1B2A;">S/ {{ "{:,.2f}".format(operation.amount_pen) }}</div>
                     </td>
@@ -385,9 +396,9 @@ class EmailService:
               </td>
             </tr>
             <tr>
-              <td style="padding:11px 14px;width:70px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle;">Estado</td>
+              <td class="ops-label" style="padding:11px 14px;width:70px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle;">Estado</td>
               <td style="padding:11px 14px;color:#d97706;font-size:13px;font-weight:600;vertical-align:middle;border-right:1px solid #F1F5F9;">{{ operation.status }}</td>
-              <td style="padding:11px 14px;width:50px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle;">Fecha</td>
+              <td class="ops-label" style="padding:11px 14px;width:50px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle;">Fecha</td>
               <td style="padding:11px 14px;color:#1e293b;font-size:13px;font-weight:500;vertical-align:middle;">{{ operation.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
             </tr>
           </table>
@@ -401,19 +412,19 @@ class EmailService:
               </td>
             </tr>
             <tr style="background-color:#0D1B2A;">
-              <td style="padding:8px 12px;color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Banco</td>
-              <td style="padding:8px 12px;color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Tipo</td>
-              <td style="padding:8px 12px;color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Moneda</td>
-              <td style="padding:8px 12px;color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">N° Cuenta</td>
-              <td style="padding:8px 12px;color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">CCI</td>
+              <td class="bank-td" style="padding:8px 10px;color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Banco</td>
+              <td class="bank-td hide-mob" style="padding:8px 10px;color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Tipo</td>
+              <td class="bank-td hide-mob" style="padding:8px 10px;color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Moneda</td>
+              <td class="bank-td" style="padding:8px 10px;color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">N° Cuenta</td>
+              <td class="bank-td" style="padding:8px 10px;color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">CCI</td>
             </tr>
             {% for acc in usd_accounts %}
             <tr style="border-top:1px solid #F1F5F9;">
-              <td style="padding:9px 12px;color:#1e293b;font-weight:700;">{{ acc.banco }}</td>
-              <td style="padding:9px 12px;color:#334155;">{{ acc.tipo }}</td>
-              <td style="padding:9px 12px;color:#334155;">USD</td>
-              <td style="padding:9px 12px;font-family:'Courier New',monospace;color:#0D1B2A;font-weight:600;font-size:11px;white-space:nowrap;">{{ acc.numero }}</td>
-              <td style="padding:9px 12px;font-family:'Courier New',monospace;color:#0D1B2A;font-weight:600;font-size:11px;white-space:nowrap;word-break:break-all;">{{ acc.cci }}</td>
+              <td class="bank-td" style="padding:9px 10px;color:#1e293b;font-weight:700;">{{ acc.banco }}</td>
+              <td class="bank-td hide-mob" style="padding:9px 10px;color:#334155;">{{ acc.tipo }}</td>
+              <td class="bank-td hide-mob" style="padding:9px 10px;color:#334155;">USD</td>
+              <td class="bank-td" style="padding:9px 10px;font-family:'Courier New',monospace;color:#0D1B2A;font-weight:600;font-size:11px;word-break:break-all;">{{ acc.numero }}</td>
+              <td class="bank-td" style="padding:9px 10px;font-family:'Courier New',monospace;color:#0D1B2A;font-weight:600;font-size:11px;word-break:break-all;">{{ acc.cci }}</td>
             </tr>
             {% endfor %}
           </table>
@@ -426,19 +437,19 @@ class EmailService:
               </td>
             </tr>
             <tr style="background-color:#0D1B2A;">
-              <td style="padding:8px 12px;color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Banco</td>
-              <td style="padding:8px 12px;color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Tipo</td>
-              <td style="padding:8px 12px;color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Moneda</td>
-              <td style="padding:8px 12px;color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">N° Cuenta</td>
-              <td style="padding:8px 12px;color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">CCI</td>
+              <td class="bank-td" style="padding:8px 10px;color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Banco</td>
+              <td class="bank-td hide-mob" style="padding:8px 10px;color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Tipo</td>
+              <td class="bank-td hide-mob" style="padding:8px 10px;color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Moneda</td>
+              <td class="bank-td" style="padding:8px 10px;color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">N° Cuenta</td>
+              <td class="bank-td" style="padding:8px 10px;color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">CCI</td>
             </tr>
             {% for acc in pen_accounts %}
             <tr style="border-top:1px solid #F1F5F9;">
-              <td style="padding:9px 12px;color:#1e293b;font-weight:700;">{{ acc.banco }}</td>
-              <td style="padding:9px 12px;color:#334155;">{{ acc.tipo }}</td>
-              <td style="padding:9px 12px;color:#334155;">PEN</td>
-              <td style="padding:9px 12px;font-family:'Courier New',monospace;color:#0D1B2A;font-weight:600;font-size:11px;white-space:nowrap;">{{ acc.numero }}</td>
-              <td style="padding:9px 12px;font-family:'Courier New',monospace;color:#0D1B2A;font-weight:600;font-size:11px;white-space:nowrap;word-break:break-all;">{{ acc.cci }}</td>
+              <td class="bank-td" style="padding:9px 10px;color:#1e293b;font-weight:700;">{{ acc.banco }}</td>
+              <td class="bank-td hide-mob" style="padding:9px 10px;color:#334155;">{{ acc.tipo }}</td>
+              <td class="bank-td hide-mob" style="padding:9px 10px;color:#334155;">PEN</td>
+              <td class="bank-td" style="padding:9px 10px;font-family:'Courier New',monospace;color:#0D1B2A;font-weight:600;font-size:11px;word-break:break-all;">{{ acc.numero }}</td>
+              <td class="bank-td" style="padding:9px 10px;font-family:'Courier New',monospace;color:#0D1B2A;font-weight:600;font-size:11px;word-break:break-all;">{{ acc.cci }}</td>
             </tr>
             {% endfor %}
           </table>
@@ -482,9 +493,9 @@ class EmailService:
 
           <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #E2E8F0;border-radius:8px;overflow:hidden;margin:0 0 24px 0;">
             <tr style="border-bottom:1px solid #F1F5F9;">
-              <td style="padding:11px 14px;width:70px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle;">Código</td>
+              <td class="ops-label" style="padding:11px 14px;width:70px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle;">Código</td>
               <td style="padding:11px 14px;color:#0D1B2A;font-size:14px;font-weight:700;vertical-align:middle;border-right:1px solid #F1F5F9;">{{ operation.operation_id }}</td>
-              <td style="padding:11px 14px;width:50px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle;">Tipo</td>
+              <td class="ops-label" style="padding:11px 14px;width:50px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle;">Tipo</td>
               <td style="padding:11px 14px;vertical-align:middle;">
                 {% if operation.operation_type == 'Compra' %}
                   <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:#DCFCE7;color:#15803D;letter-spacing:0.3px;">COMPRA USD</span>
@@ -494,20 +505,20 @@ class EmailService:
               </td>
             </tr>
             <tr style="border-bottom:1px solid #F1F5F9;">
-              <td colspan="4" style="padding:12px 18px;">
+              <td colspan="4" style="padding:12px 14px;">
                 <table width="100%" cellspacing="0" cellpadding="0">
                   <tr>
-                    <td style="text-align:center;padding:13px 8px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;">
+                    <td class="metric-cell" style="text-align:center;padding:13px 8px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;">
                       <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Monto USD</div>
                       <div style="font-size:17px;font-weight:800;color:#0D1B2A;">$ {{ "{:,.2f}".format(operation.amount_usd) }}</div>
                     </td>
-                    <td width="8">&nbsp;</td>
-                    <td style="text-align:center;padding:13px 8px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;">
+                    <td class="metric-spacer" width="8">&nbsp;</td>
+                    <td class="metric-cell" style="text-align:center;padding:13px 8px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;">
                       <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Tipo de Cambio</div>
                       <div style="font-size:15px;font-weight:700;color:#1e293b;">{{ "%.4f"|format(operation.exchange_rate) }}</div>
                     </td>
-                    <td width="8">&nbsp;</td>
-                    <td style="text-align:center;padding:13px 8px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;">
+                    <td class="metric-spacer" width="8">&nbsp;</td>
+                    <td class="metric-cell" style="text-align:center;padding:13px 8px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;">
                       <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Monto PEN</div>
                       <div style="font-size:17px;font-weight:800;color:#0D1B2A;">S/ {{ "{:,.2f}".format(operation.amount_pen) }}</div>
                     </td>
@@ -516,9 +527,9 @@ class EmailService:
               </td>
             </tr>
             <tr>
-              <td style="padding:11px 14px;width:70px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle;">Creación</td>
+              <td class="ops-label" style="padding:11px 14px;width:70px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle;">Creación</td>
               <td style="padding:11px 14px;color:#1e293b;font-size:13px;font-weight:500;vertical-align:middle;border-right:1px solid #F1F5F9;">{{ operation.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
-              <td style="padding:11px 14px;width:70px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle;">Completado</td>
+              <td class="ops-label" style="padding:11px 14px;width:70px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle;">Completado</td>
               <td style="padding:11px 14px;color:#1e293b;font-size:13px;font-weight:600;vertical-align:middle;">{{ operation.completed_at.strftime('%d/%m/%Y %H:%M') if operation.completed_at else '-' }}</td>
             </tr>
           </table>
@@ -726,19 +737,19 @@ class EmailService:
               </td>
             </tr>
             <tr style="background-color:#0D1B2A;">
-              <td style="padding:8px 12px;color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Banco</td>
-              <td style="padding:8px 12px;color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Tipo</td>
-              <td style="padding:8px 12px;color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Moneda</td>
-              <td style="padding:8px 12px;color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">N° Cuenta</td>
-              <td style="padding:8px 12px;color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">CCI</td>
+              <td class="bank-td" style="padding:8px 10px;color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Banco</td>
+              <td class="bank-td hide-mob" style="padding:8px 10px;color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Tipo</td>
+              <td class="bank-td hide-mob" style="padding:8px 10px;color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Moneda</td>
+              <td class="bank-td" style="padding:8px 10px;color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">N° Cuenta</td>
+              <td class="bank-td" style="padding:8px 10px;color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">CCI</td>
             </tr>
             {% for acc in usd_accounts %}
             <tr style="border-top:1px solid #F1F5F9;">
-              <td style="padding:9px 12px;color:#1e293b;font-weight:700;">{{ acc.banco }}</td>
-              <td style="padding:9px 12px;color:#334155;">{{ acc.tipo }}</td>
-              <td style="padding:9px 12px;color:#334155;">USD</td>
-              <td style="padding:9px 12px;font-family:'Courier New',monospace;color:#0D1B2A;font-weight:600;font-size:11px;white-space:nowrap;">{{ acc.numero }}</td>
-              <td style="padding:9px 12px;font-family:'Courier New',monospace;color:#0D1B2A;font-weight:600;font-size:11px;white-space:nowrap;word-break:break-all;">{{ acc.cci }}</td>
+              <td class="bank-td" style="padding:9px 10px;color:#1e293b;font-weight:700;">{{ acc.banco }}</td>
+              <td class="bank-td hide-mob" style="padding:9px 10px;color:#334155;">{{ acc.tipo }}</td>
+              <td class="bank-td hide-mob" style="padding:9px 10px;color:#334155;">USD</td>
+              <td class="bank-td" style="padding:9px 10px;font-family:'Courier New',monospace;color:#0D1B2A;font-weight:600;font-size:11px;word-break:break-all;">{{ acc.numero }}</td>
+              <td class="bank-td" style="padding:9px 10px;font-family:'Courier New',monospace;color:#0D1B2A;font-weight:600;font-size:11px;word-break:break-all;">{{ acc.cci }}</td>
             </tr>
             {% endfor %}
           </table>
@@ -751,19 +762,19 @@ class EmailService:
               </td>
             </tr>
             <tr style="background-color:#0D1B2A;">
-              <td style="padding:8px 12px;color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Banco</td>
-              <td style="padding:8px 12px;color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Tipo</td>
-              <td style="padding:8px 12px;color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Moneda</td>
-              <td style="padding:8px 12px;color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">N° Cuenta</td>
-              <td style="padding:8px 12px;color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">CCI</td>
+              <td class="bank-td" style="padding:8px 10px;color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Banco</td>
+              <td class="bank-td hide-mob" style="padding:8px 10px;color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Tipo</td>
+              <td class="bank-td hide-mob" style="padding:8px 10px;color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Moneda</td>
+              <td class="bank-td" style="padding:8px 10px;color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">N° Cuenta</td>
+              <td class="bank-td" style="padding:8px 10px;color:#94a3b8;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">CCI</td>
             </tr>
             {% for acc in pen_accounts %}
             <tr style="border-top:1px solid #F1F5F9;">
-              <td style="padding:9px 12px;color:#1e293b;font-weight:700;">{{ acc.banco }}</td>
-              <td style="padding:9px 12px;color:#334155;">{{ acc.tipo }}</td>
-              <td style="padding:9px 12px;color:#334155;">PEN</td>
-              <td style="padding:9px 12px;font-family:'Courier New',monospace;color:#0D1B2A;font-weight:600;font-size:11px;white-space:nowrap;">{{ acc.numero }}</td>
-              <td style="padding:9px 12px;font-family:'Courier New',monospace;color:#0D1B2A;font-weight:600;font-size:11px;white-space:nowrap;word-break:break-all;">{{ acc.cci }}</td>
+              <td class="bank-td" style="padding:9px 10px;color:#1e293b;font-weight:700;">{{ acc.banco }}</td>
+              <td class="bank-td hide-mob" style="padding:9px 10px;color:#334155;">{{ acc.tipo }}</td>
+              <td class="bank-td hide-mob" style="padding:9px 10px;color:#334155;">PEN</td>
+              <td class="bank-td" style="padding:9px 10px;font-family:'Courier New',monospace;color:#0D1B2A;font-weight:600;font-size:11px;word-break:break-all;">{{ acc.numero }}</td>
+              <td class="bank-td" style="padding:9px 10px;font-family:'Courier New',monospace;color:#0D1B2A;font-weight:600;font-size:11px;word-break:break-all;">{{ acc.cci }}</td>
             </tr>
             {% endfor %}
           </table>
@@ -806,9 +817,9 @@ class EmailService:
 
           <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #E2E8F0;border-radius:8px;overflow:hidden;margin:0 0 24px 0;">
             <tr style="border-bottom:1px solid #F1F5F9;">
-              <td style="padding:11px 14px;width:70px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle;">Código</td>
+              <td class="ops-label" style="padding:11px 14px;width:70px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle;">Código</td>
               <td style="padding:11px 14px;color:#0D1B2A;font-size:14px;font-weight:700;vertical-align:middle;border-right:1px solid #F1F5F9;">{{ operation.operation_id }}</td>
-              <td style="padding:11px 14px;width:50px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle;">Tipo</td>
+              <td class="ops-label" style="padding:11px 14px;width:50px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle;">Tipo</td>
               <td style="padding:11px 14px;vertical-align:middle;">
                 {% if operation.operation_type == 'Compra' %}
                   <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:#DCFCE7;color:#15803D;letter-spacing:0.3px;">COMPRA USD</span>
@@ -818,20 +829,20 @@ class EmailService:
               </td>
             </tr>
             <tr style="border-bottom:1px solid #F1F5F9;">
-              <td colspan="4" style="padding:12px 18px;">
+              <td colspan="4" style="padding:12px 14px;">
                 <table width="100%" cellspacing="0" cellpadding="0">
                   <tr>
-                    <td style="text-align:center;padding:13px 8px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;">
+                    <td class="metric-cell" style="text-align:center;padding:13px 8px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;">
                       <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Monto USD</div>
                       <div style="font-size:17px;font-weight:800;color:#0D1B2A;">$ {{ "{:,.2f}".format(operation.amount_usd) }}</div>
                     </td>
-                    <td width="8">&nbsp;</td>
-                    <td style="text-align:center;padding:13px 8px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;">
+                    <td class="metric-spacer" width="8">&nbsp;</td>
+                    <td class="metric-cell" style="text-align:center;padding:13px 8px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;">
                       <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Tipo de Cambio</div>
                       <div style="font-size:15px;font-weight:700;color:#1e293b;">{{ "%.4f"|format(operation.exchange_rate) }}</div>
                     </td>
-                    <td width="8">&nbsp;</td>
-                    <td style="text-align:center;padding:13px 8px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;">
+                    <td class="metric-spacer" width="8">&nbsp;</td>
+                    <td class="metric-cell" style="text-align:center;padding:13px 8px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:6px;">
                       <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Monto PEN</div>
                       <div style="font-size:17px;font-weight:800;color:#0D1B2A;">S/ {{ "{:,.2f}".format(operation.amount_pen) }}</div>
                     </td>
@@ -840,9 +851,9 @@ class EmailService:
               </td>
             </tr>
             <tr>
-              <td style="padding:11px 14px;width:50px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle;">Fecha</td>
+              <td class="ops-label" style="padding:11px 14px;width:50px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle;">Fecha</td>
               <td style="padding:11px 14px;color:#1e293b;font-size:13px;font-weight:500;vertical-align:middle;border-right:1px solid #F1F5F9;">{{ operation.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
-              <td style="padding:11px 14px;width:50px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle;">Estado</td>
+              <td class="ops-label" style="padding:11px 14px;width:50px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle;">Estado</td>
               <td style="padding:11px 14px;vertical-align:middle;">
                 <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:#FEE2E2;color:#991B1B;letter-spacing:0.3px;">CANCELADO</span>
               </td>
