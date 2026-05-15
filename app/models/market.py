@@ -253,7 +253,7 @@ class EconomicEvent(db.Model):
     )
 
     def to_dict(self):
-        from datetime import timezone, timedelta
+        from datetime import datetime, timezone, timedelta
         _LIMA_TZ = timezone(timedelta(hours=-5))
         _DAYS_ES = {0: 'Lun', 1: 'Mar', 2: 'Mié', 3: 'Jue', 4: 'Vie', 5: 'Sáb', 6: 'Dom'}
         dt_utc  = self.event_date.replace(tzinfo=timezone.utc)
