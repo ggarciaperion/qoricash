@@ -7,10 +7,12 @@ Fuentes:
 
 Estrategia de caché:
   - Los datos se descargan y guardan en la tabla `sanctions_entries`.
-  - Se recargan automáticamente si tienen más de 7 días.
+  - La descarga ocurre en un hilo de fondo para no bloquear requests HTTP.
+  - El endpoint de screening lee SOLO de la BD (nunca descarga sincrónicamente).
 """
 import json
 import logging
+import threading
 import unicodedata
 import urllib.request
 import xml.etree.ElementTree as ET
@@ -18,6 +20,10 @@ from datetime import timedelta
 from app.utils.formatters import now_peru
 
 logger = logging.getLogger(__name__)
+
+# ── Estado de descarga en background ─────────────────────────────────────────
+_dl_lock   = threading.Lock()
+_dl_status = {'running': False, 'done': False, 'error': None}   # global, thread-safe
 
 # ── Umbrales de coincidencia ──────────────────────────────────────────────────
 SCORE_MATCH          = 88   # ≥88 → Match (🔴)
@@ -326,12 +332,87 @@ def screen_name(query_name: str, sources=('OFAC', 'UN'), top_n: int = 5) -> list
     return results[:top_n * len(sources)]
 
 
+def _background_refresh(app):
+    """Descarga OFAC y ONU en un hilo daemon. Nunca bloquea requests HTTP."""
+    global _dl_status
+    with _dl_lock:
+        if _dl_status['running']:
+            return
+        _dl_status = {'running': True, 'done': False, 'error': None}
+
+    try:
+        with app.app_context():
+            logger.info('[Sanctions] Iniciando descarga en background...')
+            ofac = load_ofac()
+            un   = load_un()
+            logger.info(f'[Sanctions] Descarga completada — OFAC:{ofac.get("loaded",0)} UN:{un.get("loaded",0)}')
+            with _dl_lock:
+                _dl_status = {'running': False, 'done': True, 'error': None}
+    except Exception as e:
+        logger.error(f'[Sanctions] Error en descarga background: {e}', exc_info=True)
+        with _dl_lock:
+            _dl_status = {'running': False, 'done': False, 'error': str(e)}
+
+
+def ensure_lists_loaded(app=None):
+    """
+    Garantiza que las listas están cargadas en BD.
+    - Si ya hay datos y no son viejos, no hace nada.
+    - Si la tabla está vacía o necesita refresco, dispara un hilo de descarga.
+    Returns: 'ok' | 'loading' | 'error'
+    """
+    global _dl_status
+    try:
+        from app.models.sanctions import SanctionsEntry
+        count = SanctionsEntry.query.filter_by(source='OFAC').count()
+        needs = count == 0 or _needs_refresh('OFAC')
+    except Exception:
+        needs = True
+
+    if not needs:
+        return 'ok'
+
+    with _dl_lock:
+        if _dl_status['running']:
+            return 'loading'
+        if _dl_status['done']:
+            # Ya descargó en esta sesión
+            return 'ok'
+
+    # Disparar descarga en hilo daemon
+    if app is None:
+        try:
+            from flask import current_app
+            app = current_app._get_current_object()
+        except Exception:
+            return 'error'
+
+    t = threading.Thread(target=_background_refresh, args=(app,), daemon=True)
+    t.start()
+    return 'loading'
+
+
+def get_lists_status() -> dict:
+    """Retorna estado de las listas: entradas cargadas por fuente."""
+    try:
+        from app.models.sanctions import SanctionsEntry
+        ofac_n = SanctionsEntry.query.filter_by(source='OFAC').count()
+        un_n   = SanctionsEntry.query.filter_by(source='UN').count()
+        with _dl_lock:
+            running = _dl_status['running']
+            error   = _dl_status['error']
+        return {'ofac': ofac_n, 'un': un_n, 'running': running, 'error': error}
+    except Exception as e:
+        return {'ofac': 0, 'un': 0, 'running': False, 'error': str(e)}
+
+
 def screen_client(client_id: int) -> dict:
     """
     Ejecuta screening completo para un cliente.
-
+    Lee SOLO de la BD local — nunca descarga listas sincrónicamente.
     Returns dict con resultados por fuente y resumen general.
     """
+    from app.extensions import db
     from app.models.client import Client
 
     client = db.session.get(Client, client_id)
@@ -362,9 +443,19 @@ def screen_client(client_id: int) -> dict:
     if not names_to_search:
         return {'error': 'El cliente no tiene nombre registrado'}
 
-    # Asegurar datos cargados (descarga si es necesario)
-    ofac_info = load_ofac()
-    un_info   = load_un()
+    # Contar entradas disponibles en BD (sin descargar sincrónicamente)
+    try:
+        from app.models.sanctions import SanctionsEntry
+        ofac_count = SanctionsEntry.query.filter_by(source='OFAC').count()
+        un_count   = SanctionsEntry.query.filter_by(source='UN').count()
+    except Exception:
+        ofac_count = un_count = 0
+
+    if ofac_count == 0 and un_count == 0:
+        return {'error': 'lists_loading'}   # señal especial → caller debe iniciar descarga
+
+    ofac_info = {'loaded': ofac_count, 'skipped': True}
+    un_info   = {'loaded': un_count,   'skipped': True}
 
     all_matches  = []
     ofac_matches = []

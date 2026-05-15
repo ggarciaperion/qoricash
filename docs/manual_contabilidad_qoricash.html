@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de Contabilidad — QoriCash</title>
+<style>
+  /* ── Reset y base ── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    font-size: 14px;
+    line-height: 1.65;
+    color: #1a1a1a;
+    background: #fff;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 40px 32px 80px;
+  }
+
+  /* ── Tipografía ── */
+  h1 { font-size: 26px; font-weight: 700; color: #111; margin-bottom: 6px; }
+  h2 { font-size: 18px; font-weight: 700; color: #111; margin: 40px 0 14px;
+       padding-bottom: 6px; border-bottom: 2px solid #111; }
+  h3 { font-size: 14px; font-weight: 700; color: #333; margin: 24px 0 10px; }
+  p  { margin-bottom: 10px; color: #333; }
+  a  { color: #1a56db; }
+
+  /* ── Portada ── */
+  .cover {
+    border: 1.5px solid #ddd;
+    padding: 36px 32px;
+    margin-bottom: 48px;
+    border-radius: 4px;
+  }
+  .cover .subtitle { font-size: 13px; color: #666; margin-top: 4px; }
+  .cover .meta { margin-top: 20px; font-size: 12px; color: #888; border-top: 1px solid #eee; padding-top: 14px; }
+  .cover .meta span { margin-right: 24px; }
+
+  /* ── Callouts ── */
+  .note, .warning, .tip {
+    padding: 12px 16px;
+    border-radius: 3px;
+    margin: 14px 0;
+    font-size: 13px;
+    border-left: 3px solid;
+  }
+  .note    { border-color: #1a56db; background: #f5f8ff; }
+  .warning { border-color: #d97706; background: #fffbf0; }
+  .tip     { border-color: #059669; background: #f0fdf8; }
+  .note strong, .warning strong, .tip strong { display: block; margin-bottom: 3px; }
+
+  /* ── Tablas ── */
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 13px; }
+  thead th {
+    background: #111;
+    color: #fff;
+    text-align: left;
+    padding: 9px 12px;
+    font-weight: 600;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+  tbody td { padding: 8px 12px; border-bottom: 1px solid #e8e8e8; vertical-align: top; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: #fafafa; }
+  .center { text-align: center; }
+  .mono   { font-family: 'Courier New', monospace; font-size: 12px; }
+
+  /* ── Checklist ── */
+  .checklist { list-style: none; padding: 0; margin: 12px 0; }
+  .checklist li {
+    padding: 7px 0 7px 28px;
+    position: relative;
+    border-bottom: 1px solid #f0f0f0;
+    font-size: 13px;
+  }
+  .checklist li:last-child { border-bottom: none; }
+  .checklist li::before {
+    content: '☐';
+    position: absolute;
+    left: 0;
+    color: #999;
+    font-size: 15px;
+    line-height: 1.4;
+  }
+  .checklist li strong { color: #111; }
+  .checklist li .sub { display: block; font-size: 12px; color: #666; margin-top: 2px; }
+
+  /* ── Pasos numerados ── */
+  .steps { counter-reset: step; list-style: none; padding: 0; margin: 12px 0; }
+  .steps li {
+    counter-increment: step;
+    padding: 10px 12px 10px 40px;
+    position: relative;
+    margin-bottom: 6px;
+    background: #fafafa;
+    border-radius: 3px;
+    font-size: 13px;
+  }
+  .steps li::before {
+    content: counter(step);
+    position: absolute;
+    left: 12px;
+    top: 10px;
+    width: 20px;
+    height: 20px;
+    background: #111;
+    color: #fff;
+    border-radius: 50%;
+    font-size: 11px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 20px;
+    text-align: center;
+  }
+  .steps li strong { color: #111; }
+  .steps li .detail { display: block; font-size: 12px; color: #666; margin-top: 3px; }
+
+  /* ── Asiento contable ── */
+  .entry {
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    background: #f8f8f8;
+    border: 1px solid #ddd;
+    padding: 12px 16px;
+    border-radius: 3px;
+    margin: 10px 0;
+    line-height: 1.8;
+  }
+  .entry .debe  { color: #1a56db; }
+  .entry .haber { color: #059669; padding-left: 32px; }
+  .entry .label { color: #888; font-size: 11px; }
+
+  /* ── Badge ── */
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .02em;
+  }
+  .badge-auto   { background: #e8f5e9; color: #1b5e20; border: 1px solid #c8e6c9; }
+  .badge-manual { background: #fff3e0; color: #e65100; border: 1px solid #ffe0b2; }
+  .badge-sunat  { background: #fce4ec; color: #880e4f; border: 1px solid #f8bbd0; }
+
+  /* ── Sección índice ── */
+  .toc { margin: 0 0 40px; padding: 20px 24px; border: 1px solid #ddd; border-radius: 3px; }
+  .toc h3 { margin: 0 0 12px; font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: #666; }
+  .toc ol { margin: 0; padding-left: 20px; }
+  .toc li { margin: 5px 0; font-size: 13px; }
+  .toc a { color: #333; text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+
+  /* ── Separador ── */
+  hr { border: none; border-top: 1px solid #e8e8e8; margin: 32px 0; }
+
+  /* ── Fechas calendario ── */
+  .calendar-row { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
+  .calendar-item {
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    padding: 8px 14px;
+    text-align: center;
+    min-width: 80px;
+    font-size: 12px;
+  }
+  .calendar-item .day { font-size: 20px; font-weight: 700; color: #111; line-height: 1.2; }
+  .calendar-item .desc { color: #666; font-size: 11px; }
+
+  /* ── Print ── */
+  @media print {
+    body { padding: 20px; font-size: 12px; }
+    h2 { page-break-before: auto; }
+    .no-print { display: none; }
+    a { color: #000; text-decoration: none; }
+    .cover { border: 1px solid #ccc; }
+  }
+
+  /* ── Botón imprimir ── */
+  .print-btn {
+    position: fixed;
+    bottom: 28px;
+    right: 28px;
+    background: #111;
+    color: #fff;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: .03em;
+    box-shadow: 0 2px 8px rgba(0,0,0,.25);
+  }
+  .print-btn:hover { background: #333; }
+</style>
+</head>
+<body>
+
+<!-- PORTADA -->
+<div class="cover">
+  <h1>Manual de Contabilidad</h1>
+  <div class="subtitle">QoriCash — Casa de Cambio · Régimen MYPE Tributario · Perú</div>
+  <div class="meta">
+    <span>Versión 1.0 — Mayo 2026</span>
+    <span>RUC: 20615113698</span>
+    <span>Sistema: app.qoricash.pe</span>
+  </div>
+</div>
+
+<!-- ÍNDICE -->
+<div class="toc">
+  <h3>Contenido</h3>
+  <ol>
+    <li><a href="#s1">Marco legal y régimen tributario</a></li>
+    <li><a href="#s2">Cómo funciona el sistema contable</a></li>
+    <li><a href="#s3">Operaciones diarias</a></li>
+    <li><a href="#s4">Gastos, facturas y pagos</a></li>
+    <li><a href="#s5">Activos fijos y depreciación</a></li>
+    <li><a href="#s6">Cierre mensual — checklist</a></li>
+    <li><a href="#s7">Obligaciones SUNAT y fechas clave</a></li>
+    <li><a href="#s8">Libros contables obligatorios</a></li>
+    <li><a href="#s9">Reportes disponibles en QoriCash</a></li>
+    <li><a href="#s10">Cuentas PCGE más usadas</a></li>
+    <li><a href="#s11">Glosario básico</a></li>
+  </ol>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════ -->
+<h2 id="s1">1. Marco legal y régimen tributario</h2>
+
+<h3>¿Qué régimen aplica?</h3>
+<table>
+  <thead><tr><th>Concepto</th><th>Detalle</th></tr></thead>
+  <tbody>
+    <tr><td>Régimen</td><td>MYPE Tributario (D.Leg. 1269)</td></tr>
+    <tr><td>Impuesto a la Renta mensual</td><td>1% de ingresos netos hasta 300 UIT acumuladas en el año · 1.5% si excede</td></tr>
+    <tr><td>Tasa IR anual</td><td>10% sobre renta neta hasta 15 UIT · 29.5% sobre el exceso</td></tr>
+    <tr><td>IGV</td><td><strong>Exonerado</strong> en la actividad de cambio de moneda (Art. 2 TUO Ley IGV). El IGV pagado en compras NO es crédito fiscal — se activa como costo.</td></tr>
+    <tr><td>UIT 2026</td><td>S/ 5,350</td></tr>
+    <tr><td>300 UIT (límite pago a cuenta 1%)</td><td>S/ 1,605,000 de ingresos netos anuales</td></tr>
+  </tbody>
+</table>
+
+<div class="note">
+  <strong>Importante — IGV en gastos</strong>
+  Como casa de cambio exonerada de IGV, el impuesto pagado en facturas de proveedores (luz, teléfono, honorarios) NO se recupera. Se registra como parte del costo del gasto. Esto es correcto y está reflejado en el sistema.
+</div>
+
+<h3>Libros electrónicos según ingresos anuales</h3>
+<table>
+  <thead><tr><th>Ingresos anuales</th><th>Libros obligatorios</th><th>Sistema</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>Hasta 150 UIT<br><small>(S/ 802,500)</small></td>
+      <td>Registro de Ventas · Registro de Compras · Libro Diario Simplificado</td>
+      <td>SLE-PLE o SLE-PORTAL</td>
+    </tr>
+    <tr>
+      <td>150–500 UIT<br><small>(S/ 802,500 – S/ 2,675,000)</small></td>
+      <td>Registro de Ventas · Registro de Compras · Libro Diario · Libro Mayor</td>
+      <td>SLE-PLE</td>
+    </tr>
+    <tr>
+      <td>Más de 500 UIT</td>
+      <td>Contabilidad completa</td>
+      <td>SLE-PLE</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="tip">
+  <strong>Para QoriCash (volumen pequeño)</strong>
+  Con ingresos bajo 150 UIT anuales, solo necesitas Libro Diario Simplificado + Registro de Ventas + Registro de Compras. QoriCash ya genera estos libros automáticamente.
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════ -->
+<h2 id="s2">2. Cómo funciona el sistema contable</h2>
+
+<p>El sistema usa <strong>partida doble</strong>: cada movimiento genera un asiento con al menos una cuenta en el DEBE y una en el HABER, siempre por el mismo importe total. La suma del DEBE siempre debe igualar la suma del HABER.</p>
+
+<table>
+  <thead><tr><th>Tipo de evento</th><th>¿Automático?</th><th>Asiento generado</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>Operación de cambio completada</td>
+      <td><span class="badge badge-auto">Automático</span></td>
+      <td>Caja recibe / Caja entrega / Ganancia 7711</td>
+    </tr>
+    <tr>
+      <td>Calce (netting) cerrado</td>
+      <td><span class="badge badge-auto">Automático</span></td>
+      <td>Ganancia diferencial del lote</td>
+    </tr>
+    <tr>
+      <td>Gasto registrado (factura)</td>
+      <td><span class="badge badge-auto">Al guardar</span></td>
+      <td>DEBE 63xx / HABER 4211 (Facturas por pagar)</td>
+    </tr>
+    <tr>
+      <td>Gasto registrado (boleta/recibo)</td>
+      <td><span class="badge badge-auto">Al guardar</span></td>
+      <td>DEBE 63xx / HABER 4699</td>
+    </tr>
+    <tr>
+      <td>Planilla registrada</td>
+      <td><span class="badge badge-auto">Al guardar</span></td>
+      <td>DEBE 62x / HABER 4111 (Sueldos por pagar)</td>
+    </tr>
+    <tr>
+      <td>Pago de factura / planilla</td>
+      <td><span class="badge badge-auto">Al confirmar</span></td>
+      <td>DEBE 4211 o 4111 / HABER cuenta banco</td>
+    </tr>
+    <tr>
+      <td>Compra de activo fijo</td>
+      <td><span class="badge badge-auto">Al guardar</span></td>
+      <td>DEBE 33xx / HABER 4211 + crea registro en Activos Fijos</td>
+    </tr>
+    <tr>
+      <td>Depreciación mensual</td>
+      <td><span class="badge badge-manual">1 clic/mes</span></td>
+      <td>DEBE 6814 / HABER 3951/3961/3962</td>
+    </tr>
+    <tr>
+      <td>Ajuste tipo de cambio cierre</td>
+      <td><span class="badge badge-manual">1 clic/mes</span></td>
+      <td>DEBE 1012 / HABER 7761 (ganancia) o inverso</td>
+    </tr>
+    <tr>
+      <td>Asiento de apertura (inicio de año)</td>
+      <td><span class="badge badge-manual">Manual/año</span></td>
+      <td>DEBE cuentas activo / HABER capital</td>
+    </tr>
+  </tbody>
+</table>
+
+
+<!-- ══════════════════════════════════════════════════════ -->
+<h2 id="s3">3. Operaciones diarias</h2>
+
+<p>Las operaciones de cambio son el core del negocio. No requieren ninguna acción contable de tu parte — se registran solas al completar la operación.</p>
+
+<h3>¿Qué pasa cuando completas una operación?</h3>
+<ol class="steps">
+  <li>
+    <strong>La operación pasa a estado "Completada"</strong>
+    <span class="detail">El sistema detecta el cambio de estado automáticamente.</span>
+  </li>
+  <li>
+    <strong>Se crea el asiento en el Libro Diario</strong>
+    <span class="detail">Partida doble: caja recibe el dinero del cliente / caja entrega el cambio.</span>
+  </li>
+  <li>
+    <strong>Si hay ganancia por tipo de cambio, se registra en cuenta 7711</strong>
+    <span class="detail">La diferencia entre el tipo de compra y venta es tu ingreso.</span>
+  </li>
+  <li>
+    <strong>El saldo de caja se actualiza en Caja y Bancos</strong>
+    <span class="detail">Visible en /contabilidad/caja.</span>
+  </li>
+</ol>
+
+<h3>Ejemplo de asiento — Compra de USD</h3>
+<p>Cliente vende USD 1,000 a TC 3.70. Tú pagas S/ 3,700 y recibes USD 1,000.</p>
+<div class="entry">
+  <span class="label">DEBE  (lo que entra)</span><br>
+  <span class="debe">  1012  Caja Moneda Extranjera ............. USD 1,000 / S/ 3,700.00</span><br>
+  <span class="label">HABER (lo que sale)</span><br>
+  <span class="haber">1011  Caja Moneda Nacional ................. S/ 3,700.00</span>
+</div>
+
+<h3>Ejemplo de asiento — Venta de USD (calce)</h3>
+<p>Comprado a 3.70, vendido a 3.75. Ganancia S/ 50 por cada USD 1,000.</p>
+<div class="entry">
+  <span class="label">DEBE</span><br>
+  <span class="debe">  1011  Caja Moneda Nacional ............... S/ 3,750.00</span><br>
+  <span class="label">HABER</span><br>
+  <span class="haber">1012  Caja Moneda Extranjera ............... S/ 3,700.00</span><br>
+  <span class="haber">7711  Ganancia diferencial cambiario ........ S/ 50.00</span>
+</div>
+
+<div class="note">
+  <strong>Revisión diaria recomendada (5 minutos)</strong>
+  Verificar en <a href="https://app.qoricash.pe/contabilidad/diario">Libro Diario</a> que todas las operaciones completadas del día tienen asiento. Si alguna aparece sin asiento, usar el botón "Generar asientos" en Períodos.
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════ -->
+<h2 id="s4">4. Gastos, facturas y pagos</h2>
+
+<h3>Tipos de gasto y cómo registrarlos</h3>
+<table>
+  <thead><tr><th>Tipo</th><th>Ejemplos</th><th>Categoría PCGE</th><th>Comprobante</th></tr></thead>
+  <tbody>
+    <tr><td>Servicios de terceros</td><td>Contador, abogado, consultor</td><td>6391 / 6392</td><td>Recibo x honorarios o Factura</td></tr>
+    <tr><td>Telecomunicaciones</td><td>Internet, teléfono, celular</td><td>6381</td><td>Factura</td></tr>
+    <tr><td>Alquiler de local</td><td>Oficina, local comercial</td><td>6352</td><td>Factura</td></tr>
+    <tr><td>Servicios básicos</td><td>Luz, agua</td><td>6361</td><td>Recibo / Factura</td></tr>
+    <tr><td>Gastos bancarios</td><td>ITF, comisiones, mantenimiento</td><td>6391</td><td>Estado de cuenta</td></tr>
+    <tr><td>Seguros</td><td>Seguro de local, seguro de vida</td><td>6511</td><td>Póliza / Factura</td></tr>
+    <tr><td>Planilla</td><td>Sueldo, gratificación, CTS</td><td>621</td><td>Boleta de pago</td></tr>
+    <tr><td>EsSalud / AFP</td><td>Aporte empleador 9% + AFP</td><td>627</td><td>Constancia de pago</td></tr>
+    <tr><td>IR pago a cuenta</td><td>PDT 621 mensual</td><td>6411</td><td>Constancia SUNAT</td></tr>
+    <tr><td>Activo fijo</td><td>Computadora, escritorio, cámara</td><td>3361 / 3351</td><td>Factura</td></tr>
+  </tbody>
+</table>
+
+<h3>Flujo completo de un gasto con factura</h3>
+<ol class="steps">
+  <li>
+    <strong>Recibes la factura del proveedor</strong>
+    <span class="detail">Puede ser electrónica (PDF) o física.</span>
+  </li>
+  <li>
+    <strong>La registras en: Gastos → Registrar Gasto</strong>
+    <span class="detail">Completas: fecha, categoría, monto, tipo "Factura", RUC y nombre del proveedor.</span>
+  </li>
+  <li>
+    <strong>El sistema genera automáticamente el asiento</strong>
+    <span class="detail">DEBE 63xx (gasto) / HABER 4211 (factura pendiente de pago).</span>
+  </li>
+  <li>
+    <strong>Cuando pagas la factura, presionas "Pagar"</strong>
+    <span class="detail">Seleccionas la cuenta bancaria desde donde sale el dinero y la fecha de pago.</span>
+  </li>
+  <li>
+    <strong>El sistema genera el asiento de cancelación</strong>
+    <span class="detail">DEBE 4211 / HABER cuenta banco. El pasivo queda en cero.</span>
+  </li>
+</ol>
+
+<div class="warning">
+  <strong>No olvides registrar el pago</strong>
+  Si solo registras el gasto pero no el pago, la cuenta 4211 (Facturas por pagar) quedará con saldo pendiente y el Balance General mostrará una deuda que ya pagaste. Siempre completar el ciclo.
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════ -->
+<h2 id="s5">5. Activos fijos y depreciación</h2>
+
+<h3>¿Qué es un activo fijo?</h3>
+<p>Un bien de uso (no para venta) con vida útil mayor a un año y costo significativo. Ejemplos: computadora, escritorio, cámara de seguridad, aire acondicionado.</p>
+
+<h3>Vidas útiles según SUNAT</h3>
+<table>
+  <thead><tr><th>Categoría</th><th>Cuenta</th><th>Vida útil</th><th>Deprec. anual máx.</th></tr></thead>
+  <tbody>
+    <tr><td>Muebles y enseres</td><td>3351</td><td>10 años (120 meses)</td><td>10%</td></tr>
+    <tr><td>Equipos de cómputo</td><td>3361</td><td>4 años (48 meses)</td><td>25%</td></tr>
+    <tr><td>Equipos de oficina</td><td>3362</td><td>5 años (60 meses)</td><td>20%</td></tr>
+    <tr><td>Instalaciones</td><td>3321</td><td>10 años (120 meses)</td><td>10%</td></tr>
+  </tbody>
+</table>
+
+<h3>¿Cómo se registra un activo fijo?</h3>
+<p>Al registrar un gasto en el módulo de Gastos, seleccionas el tipo <strong>"Activo Fijo"</strong>. El sistema crea automáticamente el registro en el módulo Activos Fijos con su cuota de depreciación mensual calculada.</p>
+
+<h3>Depreciación mensual</h3>
+<p>Una vez al mes, en el cierre, ir a <strong>Activos Fijos → "Depreciar mes actual"</strong>. El sistema genera el asiento para todos los activos activos:</p>
+<div class="entry">
+  <span class="debe">  6814  Depreciación – Inmuebles, maq. y equipo ..... S/ XXX.XX</span><br>
+  <span class="haber">3951/3961/3962  Depreciación acumulada .............. S/ XXX.XX</span>
+</div>
+<p>El sistema previene que se registre dos veces el mismo mes.</p>
+
+
+<!-- ══════════════════════════════════════════════════════ -->
+<h2 id="s6">6. Cierre mensual — checklist</h2>
+
+<p>Ejecutar el <strong>último día del mes</strong> o dentro de los primeros <strong>10 días del mes siguiente</strong>.</p>
+
+<ul class="checklist">
+  <li>
+    <strong>Verificar operaciones completadas</strong>
+    <span class="sub">app.qoricash.pe/operaciones → confirmar que todas estén en "Completada" y tengan asiento generado.</span>
+  </li>
+  <li>
+    <strong>Registrar todos los gastos del mes</strong>
+    <span class="sub">/contabilidad/gastos → facturas, recibos, servicios pendientes de ingreso.</span>
+  </li>
+  <li>
+    <strong>Registrar planilla (si aplica)</strong>
+    <span class="sub">Gasto tipo "planilla" con la categoría 621 (sueldos) + 627 (EsSalud/AFP).</span>
+  </li>
+  <li>
+    <strong>Pagar facturas pendientes</strong>
+    <span class="sub">/contabilidad/gastos → botón "Pagar" para cada factura ya pagada en el banco. Esto cancela la cuenta 4211.</span>
+  </li>
+  <li>
+    <strong>Pagar planilla</strong>
+    <span class="sub">/contabilidad/gastos → botón "Pagar" en la planilla. Cancela la cuenta 4111 (sueldos por pagar).</span>
+  </li>
+  <li>
+    <strong>Registrar IR pago a cuenta</strong>
+    <span class="sub">Gasto tipo "tributo", categoría 6411, con el monto del PDT 621 pagado a SUNAT.</span>
+  </li>
+  <li>
+    <strong>Depreciar activos fijos</strong>
+    <span class="sub">/contabilidad/activos-fijos → botón "Depreciar mes actual". Un clic, no duplica.</span>
+  </li>
+  <li>
+    <strong>Ajuste por diferencia de tipo de cambio</strong>
+    <span class="sub">/contabilidad/periodos → botón "Ajuste FX". Ingresar TC SBS del último día del mes (sbs.gob.pe).</span>
+  </li>
+  <li>
+    <strong>Revisar Balance General</strong>
+    <span class="sub">/contabilidad/balance-general → verificar que ACTIVO = PASIVO + PATRIMONIO. Si hay diferencia, revisar asientos faltantes.</span>
+  </li>
+  <li>
+    <strong>Revisar Estado de Resultados</strong>
+    <span class="sub">/contabilidad/resultados → confirmar que la utilidad/pérdida es coherente con las operaciones del mes.</span>
+  </li>
+  <li>
+    <strong>Exportar Excel del mes</strong>
+    <span class="sub">/contabilidad/exportar-excel → guardar el archivo con Libro Diario, Balance, Activos y Cuadre. Archivar en carpeta del mes.</span>
+  </li>
+  <li>
+    <strong>Cerrar el período</strong>
+    <span class="sub">/contabilidad/periodos → botón "Cerrar período". Irreversible sin motivo auditado. Hacerlo solo cuando todo esté verificado.</span>
+  </li>
+</ul>
+
+<div class="tip">
+  <strong>Tiempo estimado de cierre</strong>
+  Con todas las operaciones ya completadas: 20–35 minutos. La mayor parte del tiempo es revisar que no falte ninguna factura.
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════ -->
+<h2 id="s7">7. Obligaciones SUNAT y fechas clave</h2>
+
+<h3>Calendario mensual — PDT 621 (IR Pago a Cuenta)</h3>
+<p>Vence según el <strong>último dígito del RUC</strong>, durante los primeros 20 días hábiles del mes siguiente. Consultar el cronograma exacto en <a href="https://www.sunat.gob.pe">sunat.gob.pe</a> cada año.</p>
+
+<table>
+  <thead><tr><th>Último dígito RUC</th><th>Vencimiento aproximado</th></tr></thead>
+  <tbody>
+    <tr><td class="center">0</td><td>~Día 10 del mes siguiente</td></tr>
+    <tr><td class="center">1</td><td>~Día 11 del mes siguiente</td></tr>
+    <tr><td class="center">2</td><td>~Día 12 del mes siguiente</td></tr>
+    <tr><td class="center">3</td><td>~Día 13 del mes siguiente</td></tr>
+    <tr><td class="center">4</td><td>~Día 14 del mes siguiente</td></tr>
+    <tr><td class="center">5</td><td>~Día 15 del mes siguiente</td></tr>
+    <tr><td class="center">6</td><td>~Día 16 del mes siguiente</td></tr>
+    <tr><td class="center">7</td><td>~Día 17 del mes siguiente</td></tr>
+    <tr><td class="center">8</td><td>~Día 18 del mes siguiente</td></tr>
+    <tr><td class="center">9</td><td>~Día 19 del mes siguiente</td></tr>
+  </tbody>
+</table>
+
+<h3>¿Cómo calcular el IR pago a cuenta?</h3>
+<table>
+  <thead><tr><th>Ingresos netos acumulados en el año</th><th>Tasa mensual</th></tr></thead>
+  <tbody>
+    <tr><td>Hasta S/ 1,605,000 (300 UIT)</td><td><strong>1%</strong> de los ingresos netos del mes</td></tr>
+    <tr><td>Exceso de S/ 1,605,000</td><td><strong>1.5%</strong> de los ingresos netos del mes</td></tr>
+  </tbody>
+</table>
+
+<div class="note">
+  <strong>¿Qué son "ingresos netos" para la casa de cambio?</strong>
+  Es la <strong>ganancia por diferencia de cambio</strong> (spread) más cualquier otro ingreso del período. NO es el monto total de divisas transadas. Por ejemplo, si compraste y vendiste USD 100,000 con ganancia de S/ 3,000, el pago a cuenta es 1% × S/ 3,000 = S/ 30.
+</div>
+
+<h3>Calendario anual — obligaciones clave</h3>
+<table>
+  <thead><tr><th>Mes</th><th>Obligación</th><th>Dónde</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>Cada mes</td>
+      <td>PDT 621 — IR pago a cuenta mensual</td>
+      <td>SUNAT Online · SOL</td>
+    </tr>
+    <tr>
+      <td>Enero</td>
+      <td>Libros electrónicos diciembre anterior (si aplica PLE)</td>
+      <td>SLE-PLE o SLE-PORTAL</td>
+    </tr>
+    <tr>
+      <td>Enero–Febrero</td>
+      <td>Boletas de venta / Registro de Ventas anual (si llevas)</td>
+      <td>SLE-PLE</td>
+    </tr>
+    <tr>
+      <td>Marzo–Abril</td>
+      <td><strong>DJ Anual — Declaración Jurada de Renta</strong> (Formulario Virtual 710)</td>
+      <td>SUNAT SOL · cronograma por RUC</td>
+    </tr>
+    <tr>
+      <td>Mayo (año siguiente)</td>
+      <td>Pago de IR anual si hay saldo a favor de SUNAT</td>
+      <td>Según DJ Anual</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Libros electrónicos — envío mensual (SLE-PLE)</h3>
+<p>Si estás obligado al PLE, debes enviar mensualmente:</p>
+<table>
+  <thead><tr><th>Libro</th><th>Código PLE</th><th>Vencimiento</th></tr></thead>
+  <tbody>
+    <tr><td>Registro de Ventas e Ingresos</td><td>LE140100</td><td>Igual que PDT 621</td></tr>
+    <tr><td>Registro de Compras</td><td>LE080100</td><td>Igual que PDT 621</td></tr>
+    <tr><td>Libro Diario (si &gt; 150 UIT)</td><td>LE050100</td><td>3er mes siguiente al cierre</td></tr>
+    <tr><td>Libro Mayor (si &gt; 150 UIT)</td><td>LE060100</td><td>3er mes siguiente al cierre</td></tr>
+  </tbody>
+</table>
+
+<div class="tip">
+  <strong>QoriCash genera el formato PLE del LIG</strong>
+  En /contabilidad/lig → "Exportar PLE" genera el archivo txt con el formato exacto que requiere SUNAT para el Libro de Ingresos y Gastos.
+</div>
+
+<h3>Declaración Jurada Anual — pasos</h3>
+<ol class="steps">
+  <li>
+    <strong>Preparar el Estado de Resultados del año completo</strong>
+    <span class="detail">Exportar Excel de todos los meses o usar el reporte anual.</span>
+  </li>
+  <li>
+    <strong>Calcular la Renta Neta Imponible</strong>
+    <span class="detail">Ingresos totales − Gastos deducibles = Renta neta. Aplicar escala: 10% hasta 15 UIT, 29.5% el exceso.</span>
+  </li>
+  <li>
+    <strong>Deducir pagos a cuenta realizados durante el año</strong>
+    <span class="detail">La suma de los 12 PDT 621 pagados se descuenta del IR anual calculado.</span>
+  </li>
+  <li>
+    <strong>Presentar el Formulario Virtual 710 en SUNAT SOL</strong>
+    <span class="detail">Plazo: según cronograma SUNAT (generalmente marzo/abril).</span>
+  </li>
+  <li>
+    <strong>Pagar el saldo resultante (si lo hay)</strong>
+    <span class="detail">Si los pagos a cuenta superaron el IR anual, SUNAT devuelve o aplica a siguiente período.</span>
+  </li>
+</ol>
+
+
+<!-- ══════════════════════════════════════════════════════ -->
+<h2 id="s8">8. Libros contables obligatorios</h2>
+
+<table>
+  <thead><tr><th>Libro</th><th>¿Dónde en QoriCash?</th><th>Contenido</th><th>Obligatorio</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>Libro Diario</strong></td>
+      <td>/contabilidad/diario</td>
+      <td>Todos los asientos de partida doble, ordenados por fecha</td>
+      <td>Sí (si &gt;150 UIT)</td>
+    </tr>
+    <tr>
+      <td><strong>Libro Diario Simplificado</strong></td>
+      <td>/contabilidad/diario</td>
+      <td>Versión simplificada del diario (si &lt;150 UIT)</td>
+      <td>Sí (si &lt;150 UIT)</td>
+    </tr>
+    <tr>
+      <td><strong>Libro Mayor</strong></td>
+      <td>/contabilidad/mayor</td>
+      <td>Saldo acumulado por cuenta PCGE</td>
+      <td>Sí (si &gt;150 UIT)</td>
+    </tr>
+    <tr>
+      <td><strong>Libro de Ingresos y Gastos (LIG)</strong></td>
+      <td>/contabilidad/lig</td>
+      <td>Ingresos y gastos del período, formato SUNAT RS 234-2006</td>
+      <td>Sí (MYPE Tributario)</td>
+    </tr>
+    <tr>
+      <td><strong>Registro de Ventas</strong></td>
+      <td>Pendiente de implementar</td>
+      <td>Comprobantes emitidos (si los hay)</td>
+      <td>Sí</td>
+    </tr>
+    <tr>
+      <td><strong>Registro de Compras</strong></td>
+      <td>/contabilidad/gastos (Excel)</td>
+      <td>Facturas recibidas de proveedores</td>
+      <td>Sí</td>
+    </tr>
+    <tr>
+      <td><strong>Balance de Comprobación</strong></td>
+      <td>/contabilidad/balance</td>
+      <td>Sumas y saldos de todas las cuentas</td>
+      <td>Interno</td>
+    </tr>
+    <tr>
+      <td><strong>Balance General</strong></td>
+      <td>/contabilidad/balance-general</td>
+      <td>Activo / Pasivo / Patrimonio a fecha de corte</td>
+      <td>DJ Anual</td>
+    </tr>
+    <tr>
+      <td><strong>Estado de Resultados</strong></td>
+      <td>/contabilidad/resultados</td>
+      <td>Ingresos − Gastos = Utilidad/Pérdida</td>
+      <td>DJ Anual</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Archivado físico recomendado</h3>
+<p>Aunque los libros son electrónicos, conserva:</p>
+<ul style="padding-left:20px; margin:10px 0; font-size:13px; color:#333;">
+  <li style="margin:5px 0">Facturas físicas o PDFs de proveedores (mínimo 5 años)</li>
+  <li style="margin:5px 0">Constancias de pago PDT 621 (mínimo 4 años)</li>
+  <li style="margin:5px 0">Boletas de pago de planilla</li>
+  <li style="margin:5px 0">Excel mensual exportado de QoriCash</li>
+  <li style="margin:5px 0">DJ Anual y sus constancias de presentación</li>
+</ul>
+
+
+<!-- ══════════════════════════════════════════════════════ -->
+<h2 id="s9">9. Reportes disponibles en QoriCash</h2>
+
+<table>
+  <thead><tr><th>Reporte</th><th>Ruta</th><th>Para qué sirve</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>Libro Diario</strong></td>
+      <td>/contabilidad/diario</td>
+      <td>Ver todos los asientos del mes. Verificar que cuadren DEBE = HABER. Exporta Excel.</td>
+    </tr>
+    <tr>
+      <td><strong>Libro de Ingresos y Gastos (LIG)</strong></td>
+      <td>/contabilidad/lig</td>
+      <td>Reporte oficial SUNAT. Exporta Excel y TXT (formato PLE).</td>
+    </tr>
+    <tr>
+      <td><strong>Caja y Bancos</strong></td>
+      <td>/contabilidad/caja</td>
+      <td>Movimientos por cuenta, saldos acumulados. Conciliación.</td>
+    </tr>
+    <tr>
+      <td><strong>Balance de Comprobación</strong></td>
+      <td>/contabilidad/balance</td>
+      <td>Sumas y saldos de todas las cuentas. Detecta descuadres.</td>
+    </tr>
+    <tr>
+      <td><strong>Libro Mayor</strong></td>
+      <td>/contabilidad/mayor</td>
+      <td>Movimientos y saldo de cada cuenta individual.</td>
+    </tr>
+    <tr>
+      <td><strong>Estado de Resultados</strong></td>
+      <td>/contabilidad/resultados</td>
+      <td>Ingresos vs gastos. Estimación de IR MYPE Tributario.</td>
+    </tr>
+    <tr>
+      <td><strong>Balance General</strong></td>
+      <td>/contabilidad/balance-general</td>
+      <td>Estado de Situación Financiera. Activo = Pasivo + Patrimonio.</td>
+    </tr>
+    <tr>
+      <td><strong>Activos Fijos</strong></td>
+      <td>/contabilidad/activos-fijos</td>
+      <td>Lista de bienes, depreciación acumulada, valor neto en libros.</td>
+    </tr>
+    <tr>
+      <td><strong>Gastos del mes</strong></td>
+      <td>/contabilidad/gastos</td>
+      <td>Todos los egresos registrados. Estado de pago por factura.</td>
+    </tr>
+    <tr>
+      <td><strong>Exportar Excel completo</strong></td>
+      <td>/contabilidad/exportar-excel</td>
+      <td>6 hojas: Diario, Balance, Resultados, Compras, Activos, Cuadre diario.</td>
+    </tr>
+  </tbody>
+</table>
+
+
+<!-- ══════════════════════════════════════════════════════ -->
+<h2 id="s10">10. Cuentas PCGE más usadas</h2>
+
+<table>
+  <thead><tr><th>Cuenta</th><th>Nombre</th><th>Tipo</th><th>Cuándo se usa</th></tr></thead>
+  <tbody>
+    <tr><td class="mono">1011</td><td>Caja Moneda Nacional</td><td>Activo</td><td>Efectivo PEN en caja</td></tr>
+    <tr><td class="mono">1012</td><td>Caja Moneda Extranjera</td><td>Activo</td><td>Efectivo USD en caja</td></tr>
+    <tr><td class="mono">1041</td><td>BCP — Cta. Cte. PEN</td><td>Activo</td><td>Banco BCP en soles</td></tr>
+    <tr><td class="mono">1044</td><td>BCP — Cta. Cte. USD</td><td>Activo</td><td>Banco BCP en dólares</td></tr>
+    <tr><td class="mono">3351</td><td>Muebles y enseres</td><td>Activo</td><td>Compra de muebles</td></tr>
+    <tr><td class="mono">3361</td><td>Equipos de cómputo</td><td>Activo</td><td>Compra de computadoras</td></tr>
+    <tr><td class="mono">3951</td><td>Deprec. acum. — Muebles</td><td>Activo (-)</td><td>Depreciación mensual muebles</td></tr>
+    <tr><td class="mono">3961</td><td>Deprec. acum. — Equipos cómputo</td><td>Activo (-)</td><td>Depreciación mensual cómputo</td></tr>
+    <tr><td class="mono">4111</td><td>Remuneraciones por pagar</td><td>Pasivo</td><td>Planilla pendiente de pago</td></tr>
+    <tr><td class="mono">4211</td><td>Facturas por pagar</td><td>Pasivo</td><td>Facturas recibidas y no pagadas</td></tr>
+    <tr><td class="mono">4017</td><td>IR — Pago a cuenta mensual</td><td>Pasivo</td><td>PDT 621 por pagar a SUNAT</td></tr>
+    <tr><td class="mono">4699</td><td>Otras cuentas por pagar</td><td>Pasivo</td><td>Boletas, recibos pendientes</td></tr>
+    <tr><td class="mono">621</td><td>Remuneraciones al personal</td><td>Gasto</td><td>Sueldos del mes</td></tr>
+    <tr><td class="mono">627</td><td>EsSalud / AFP</td><td>Gasto</td><td>Aportes sociales</td></tr>
+    <tr><td class="mono">6381</td><td>Telecomunicaciones</td><td>Gasto</td><td>Internet, teléfono</td></tr>
+    <tr><td class="mono">6391</td><td>Servicios de terceros</td><td>Gasto</td><td>Honorarios, comisiones bancarias</td></tr>
+    <tr><td class="mono">6411</td><td>IR pago a cuenta</td><td>Gasto</td><td>PDT 621 pagado</td></tr>
+    <tr><td class="mono">6511</td><td>Seguros</td><td>Gasto</td><td>Pólizas de seguro</td></tr>
+    <tr><td class="mono">6814</td><td>Depreciación</td><td>Gasto</td><td>Cuota mensual de depreciación</td></tr>
+    <tr><td class="mono">6762</td><td>Pérdida diferencia de cambio</td><td>Gasto</td><td>USD depreciado al cierre</td></tr>
+    <tr><td class="mono">7711</td><td>Ganancia diferencial cambiario</td><td>Ingreso</td><td>Spread de operaciones de cambio</td></tr>
+    <tr><td class="mono">7761</td><td>Ganancia diferencia TC — ajuste</td><td>Ingreso</td><td>USD apreciado al cierre</td></tr>
+  </tbody>
+</table>
+
+
+<!-- ══════════════════════════════════════════════════════ -->
+<h2 id="s11">11. Glosario básico</h2>
+
+<table>
+  <thead><tr><th>Término</th><th>Significado</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Partida doble</strong></td><td>Principio contable: todo movimiento tiene un DEBE y un HABER de igual importe.</td></tr>
+    <tr><td><strong>DEBE</strong></td><td>Columna izquierda del asiento. Aumenta activos y gastos. Disminuye pasivos e ingresos.</td></tr>
+    <tr><td><strong>HABER</strong></td><td>Columna derecha del asiento. Aumenta pasivos e ingresos. Disminuye activos y gastos.</td></tr>
+    <tr><td><strong>PCGE</strong></td><td>Plan Contable General Empresarial. Catálogo oficial de cuentas contables en Perú.</td></tr>
+    <tr><td><strong>Período contable</strong></td><td>Mes calendario. Se abre al inicio y se cierra al final para congelar los asientos.</td></tr>
+    <tr><td><strong>Balance General</strong></td><td>Foto del negocio en un momento: qué tienes (activo), qué debes (pasivo) y cuánto es tuyo (patrimonio).</td></tr>
+    <tr><td><strong>Estado de Resultados</strong></td><td>Ingresos menos gastos del período = utilidad o pérdida.</td></tr>
+    <tr><td><strong>Depreciación</strong></td><td>Reducción anual del valor de un activo fijo por desgaste o uso. Se registra mensualmente.</td></tr>
+    <tr><td><strong>Valor en libros neto</strong></td><td>Costo original del activo menos la depreciación acumulada.</td></tr>
+    <tr><td><strong>PDT 621</strong></td><td>Programa de Declaración Telemática. Formulario mensual para declarar y pagar el IR.</td></tr>
+    <tr><td><strong>MYPE Tributario</strong></td><td>Régimen tributario para micro y pequeñas empresas con beneficios de tasa reducida de IR.</td></tr>
+    <tr><td><strong>UIT</strong></td><td>Unidad Impositiva Tributaria. Referencia para calcular límites y sanciones. En 2026: S/ 5,350.</td></tr>
+    <tr><td><strong>Spread</strong></td><td>Diferencia entre el tipo de cambio de compra y venta. Es el ingreso principal de una casa de cambio.</td></tr>
+    <tr><td><strong>Calce (netting)</strong></td><td>Cruzar una compra de USD con una venta de USD. La ganancia es el spread multiplicado por el volumen.</td></tr>
+    <tr><td><strong>Ajuste FX</strong></td><td>Revaluación de los saldos en USD al tipo de cambio de cierre del período (NIC 21 / CPC 14).</td></tr>
+    <tr><td><strong>PLE</strong></td><td>Programa de Libros Electrónicos. Software SUNAT para enviar libros contables digitalmente.</td></tr>
+    <tr><td><strong>Crédito fiscal</strong></td><td>IGV pagado en compras que puede descontarse del IGV de ventas. No aplica a casas de cambio.</td></tr>
+    <tr><td><strong>DJ Anual</strong></td><td>Declaración Jurada Anual del Impuesto a la Renta. Se presenta en marzo/abril del año siguiente.</td></tr>
+  </tbody>
+</table>
+
+<hr>
+
+<p style="font-size:12px; color:#999; text-align:center; margin-top:32px;">
+  Manual de Contabilidad QoriCash · Versión 1.0 · Mayo 2026<br>
+  Para uso interno. No reemplaza asesoría de un contador certificado para obligaciones formales ante SUNAT.
+</p>
+
+<button class="print-btn no-print" onclick="window.print()">Imprimir / Guardar PDF</button>
+
+</body>
+</html>

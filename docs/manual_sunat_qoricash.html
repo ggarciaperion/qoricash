@@ -1,0 +1,964 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual SUNAT — QoriCash</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    font-size: 14px;
+    line-height: 1.65;
+    color: #1a1a1a;
+    background: #fff;
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 40px 32px 80px;
+  }
+
+  h1 { font-size: 26px; font-weight: 700; color: #111; margin-bottom: 6px; }
+  h2 { font-size: 17px; font-weight: 700; color: #111; margin: 44px 0 14px;
+       padding-bottom: 7px; border-bottom: 2px solid #111; }
+  h3 { font-size: 13.5px; font-weight: 700; color: #222; margin: 22px 0 10px; text-transform: uppercase; letter-spacing: .04em; }
+  p  { margin-bottom: 10px; color: #333; font-size: 13px; }
+
+  /* Portada */
+  .cover { border: 1.5px solid #ddd; padding: 36px 32px; margin-bottom: 48px; border-radius: 4px; }
+  .cover .sub  { font-size: 13px; color: #666; margin-top: 5px; }
+  .cover .meta { margin-top: 20px; font-size: 12px; color: #999; border-top: 1px solid #eee; padding-top: 14px; display: flex; gap: 24px; flex-wrap: wrap; }
+
+  /* Índice */
+  .toc { margin: 0 0 44px; padding: 20px 24px; border: 1px solid #ddd; border-radius: 3px; }
+  .toc .toc-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: #888; margin-bottom: 12px; }
+  .toc ol { margin: 0; padding-left: 18px; columns: 2; column-gap: 32px; }
+  .toc li { margin: 5px 0; font-size: 13px; break-inside: avoid; }
+  .toc a  { color: #333; text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+
+  /* Callouts */
+  .note, .warn, .ok, .critical {
+    padding: 11px 16px; border-radius: 3px; margin: 14px 0;
+    font-size: 13px; border-left: 3px solid;
+  }
+  .note     { border-color: #3b82f6; background: #eff6ff; }
+  .warn     { border-color: #f59e0b; background: #fffbeb; }
+  .ok       { border-color: #10b981; background: #ecfdf5; }
+  .critical { border-color: #ef4444; background: #fef2f2; }
+  .note strong, .warn strong, .ok strong, .critical strong { display: block; margin-bottom: 3px; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+
+  /* Tablas */
+  table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 13px; }
+  thead th {
+    background: #111; color: #fff; text-align: left;
+    padding: 9px 12px; font-weight: 600; font-size: 11.5px;
+    text-transform: uppercase; letter-spacing: .05em;
+  }
+  tbody td { padding: 8px 12px; border-bottom: 1px solid #ebebeb; vertical-align: top; color: #333; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: #fafafa; }
+  .c { text-align: center; }
+  .mono { font-family: 'Courier New', monospace; font-size: 12px; }
+  .pill {
+    display: inline-block; padding: 2px 9px; border-radius: 10px;
+    font-size: 11px; font-weight: 600; white-space: nowrap;
+  }
+  .pill-red    { background: #fee2e2; color: #991b1b; }
+  .pill-amber  { background: #fef3c7; color: #92400e; }
+  .pill-green  { background: #d1fae5; color: #065f46; }
+  .pill-blue   { background: #dbeafe; color: #1e40af; }
+  .pill-gray   { background: #f3f4f6; color: #374151; border: 1px solid #e5e7eb; }
+
+  /* Steps */
+  .steps { counter-reset: st; list-style: none; padding: 0; margin: 12px 0; }
+  .steps li {
+    counter-increment: st; padding: 10px 12px 10px 42px;
+    position: relative; margin-bottom: 6px;
+    background: #fafafa; border-radius: 3px; font-size: 13px;
+  }
+  .steps li::before {
+    content: counter(st); position: absolute; left: 12px; top: 10px;
+    width: 20px; height: 20px; background: #111; color: #fff;
+    border-radius: 50%; font-size: 11px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .steps li .d { display: block; font-size: 12px; color: #666; margin-top: 3px; }
+
+  /* Checklist */
+  .check { list-style: none; padding: 0; margin: 12px 0; }
+  .check li { padding: 7px 0 7px 28px; position: relative; border-bottom: 1px solid #f0f0f0; font-size: 13px; }
+  .check li:last-child { border-bottom: none; }
+  .check li::before { content: '☐'; position: absolute; left: 0; color: #bbb; font-size: 15px; line-height: 1.4; }
+  .check li .d { display: block; font-size: 12px; color: #666; margin-top: 2px; }
+
+  /* Calendario visual */
+  .months { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin: 16px 0; }
+  .month-card { border: 1px solid #ddd; border-radius: 3px; padding: 10px 8px; text-align: center; font-size: 12px; }
+  .month-card .mn { font-weight: 700; font-size: 13px; color: #111; }
+  .month-card .mt { font-size: 11px; color: #666; margin-top: 4px; line-height: 1.4; }
+  .month-card.alert { border-color: #f59e0b; }
+  .month-card.alert .mn { color: #92400e; }
+
+  /* Sección RUC digits */
+  .ruc-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin: 12px 0; }
+  .ruc-cell { border: 1px solid #ddd; border-radius: 3px; padding: 8px; text-align: center; font-size: 12px; }
+  .ruc-cell .digit { font-size: 18px; font-weight: 700; color: #111; }
+  .ruc-cell .day   { color: #666; font-size: 11px; }
+
+  hr { border: none; border-top: 1px solid #e8e8e8; margin: 36px 0; }
+
+  @media print {
+    body { padding: 20px; font-size: 12px; }
+    .no-print { display: none; }
+    h2 { page-break-before: auto; }
+    .months { grid-template-columns: repeat(4, 1fr); }
+    .toc ol { columns: 1; }
+  }
+
+  .print-btn {
+    position: fixed; bottom: 28px; right: 28px;
+    background: #111; color: #fff; border: none;
+    padding: 10px 20px; border-radius: 4px; cursor: pointer;
+    font-size: 13px; font-weight: 600; letter-spacing: .03em;
+    box-shadow: 0 2px 8px rgba(0,0,0,.25);
+  }
+  .print-btn:hover { background: #333; }
+
+  .tag { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: #888; }
+  .big-num { font-size: 22px; font-weight: 700; color: #111; }
+
+  /* Resumen de plazos */
+  .deadline-row { display: flex; align-items: baseline; gap: 12px; padding: 9px 0; border-bottom: 1px solid #f0f0f0; font-size: 13px; }
+  .deadline-row:last-child { border-bottom: none; }
+  .deadline-row .dl-date { min-width: 140px; font-weight: 700; color: #111; }
+  .deadline-row .dl-desc { color: #444; flex: 1; }
+  .deadline-row .dl-badge { flex-shrink: 0; }
+</style>
+</head>
+<body>
+
+<!-- PORTADA -->
+<div class="cover">
+  <h1>Manual de Obligaciones SUNAT</h1>
+  <div class="sub">QoriCash SAC — Casa de Cambio · RUC 20615113698 · Régimen MYPE Tributario · Perú 2026</div>
+  <div class="meta">
+    <span>UIT 2026: S/ 5,350</span>
+    <span>Régimen: MYPE Tributario (D.Leg. 1269)</span>
+    <span>Actividad: Casa de cambio — exonerada de IGV</span>
+    <span>Versión: Mayo 2026</span>
+  </div>
+</div>
+
+<!-- ÍNDICE -->
+<div class="toc">
+  <div class="toc-title">Contenido</div>
+  <ol>
+    <li><a href="#s1">Perfil tributario de QoriCash</a></li>
+    <li><a href="#s2">Resumen de obligaciones — de un vistazo</a></li>
+    <li><a href="#s3">PDT 621 — IR pago a cuenta mensual</a></li>
+    <li><a href="#s4">PLAME — Planilla electrónica mensual</a></li>
+    <li><a href="#s5">Libros electrónicos (PLE / SLE-PORTAL)</a></li>
+    <li><a href="#s6">Declaración Jurada Anual de Renta</a></li>
+    <li><a href="#s7">Comprobantes de pago</a></li>
+    <li><a href="#s8">Cronograma de vencimientos</a></li>
+    <li><a href="#s9">Obligaciones SBS y UIF (casa de cambio)</a></li>
+    <li><a href="#s10">Multas y sanciones frecuentes</a></li>
+    <li><a href="#s11">Checklist anual completo</a></li>
+    <li><a href="#s12">Cómo usar SUNAT SOL — paso a paso</a></li>
+  </ol>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="s1">1. Perfil tributario de QoriCash</h2>
+
+<table>
+  <thead><tr><th>Dato</th><th>Detalle</th></tr></thead>
+  <tbody>
+    <tr><td>Razón social</td><td>QORICASH SAC</td></tr>
+    <tr><td>RUC</td><td>20615113698</td></tr>
+    <tr><td>Régimen tributario</td><td>MYPE Tributario — D. Leg. 1269</td></tr>
+    <tr><td>Actividad principal</td><td>Casa de cambio (cambio de moneda extranjera)</td></tr>
+    <tr><td>IGV</td><td><strong>Exonerado</strong> en actividad principal · Art. 2 inciso r) TUO Ley IGV</td></tr>
+    <tr><td>Impuesto a la Renta</td><td>Pago a cuenta mensual: 1% (hasta 300 UIT) · Anual: 10% hasta 15 UIT / 29.5% exceso</td></tr>
+    <tr><td>Libros obligatorios mínimos</td><td>LIG + Diario Simplificado + Reg. Ventas + Reg. Compras (si &lt; 150 UIT)</td></tr>
+    <tr><td>Supervisión adicional</td><td>SBS — Registro de Empresas de Cambio de Moneda · UIF — Prevención LAFT</td></tr>
+  </tbody>
+</table>
+
+<div class="warn">
+  <strong>Importante sobre el IGV</strong>
+  La exoneración cubre el servicio de cambio de moneda. Si QoriCash presta otros servicios gravados (consultoría, alquiler, etc.), esos sí generarían IGV. Actualmente no aplica.
+</div>
+
+<div class="note">
+  <strong>¿Qué son los ingresos netos para QoriCash?</strong>
+  Para calcular el pago a cuenta IR, el ingreso neto es la <strong>ganancia por diferencia de cambio (spread)</strong>, no el monto total de divisas transadas. Ejemplo: si transaste USD 500,000 pero tu spread fue S/ 15,000, el pago a cuenta es S/ 150 (1% × S/ 15,000).
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="s2">2. Resumen de obligaciones — de un vistazo</h2>
+
+<table>
+  <thead><tr><th>Frecuencia</th><th>Obligación</th><th>Formulario</th><th>Dónde</th><th>Prioridad</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>Mensual</td>
+      <td>IR pago a cuenta mensual</td>
+      <td>PDT 621</td>
+      <td>SUNAT SOL</td>
+      <td><span class="pill pill-red">Obligatorio</span></td>
+    </tr>
+    <tr>
+      <td>Mensual (si tienes trabajadores)</td>
+      <td>Declaración y pago de planilla</td>
+      <td>PDT 601 / T-REGISTRO + PLAME</td>
+      <td>SUNAT SOL</td>
+      <td><span class="pill pill-red">Obligatorio</span></td>
+    </tr>
+    <tr>
+      <td>Mensual</td>
+      <td>Libros electrónicos (si estás obligado al PLE)</td>
+      <td>SLE-PLE o SLE-PORTAL</td>
+      <td>SUNAT SOL</td>
+      <td><span class="pill pill-amber">Según ingresos</span></td>
+    </tr>
+    <tr>
+      <td>Mensual (SBS)</td>
+      <td>Registro de operaciones de cambio</td>
+      <td>Libro de Registro SBS</td>
+      <td>Sistema SBS</td>
+      <td><span class="pill pill-red">Obligatorio</span></td>
+    </tr>
+    <tr>
+      <td>Anual</td>
+      <td>Declaración Jurada Anual de Renta</td>
+      <td>FV 710</td>
+      <td>SUNAT SOL</td>
+      <td><span class="pill pill-red">Obligatorio</span></td>
+    </tr>
+    <tr>
+      <td>Anual</td>
+      <td>DAOT — Operaciones con terceros</td>
+      <td>PDT 3500</td>
+      <td>SUNAT SOL</td>
+      <td><span class="pill pill-amber">Si superas umbral</span></td>
+    </tr>
+    <tr>
+      <td>Anual (SBS)</td>
+      <td>Informe de cumplimiento LAFT</td>
+      <td>Sistema SBS</td>
+      <td>sbs.gob.pe</td>
+      <td><span class="pill pill-red">Obligatorio</span></td>
+    </tr>
+    <tr>
+      <td>Cuando ocurra</td>
+      <td>Reporte de Operación Sospechosa (ROS)</td>
+      <td>Sistema UIF-SUNAT</td>
+      <td>uif.sunat.gob.pe</td>
+      <td><span class="pill pill-red">Obligatorio</span></td>
+    </tr>
+  </tbody>
+</table>
+
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="s3">3. PDT 621 — IR pago a cuenta mensual</h2>
+
+<p>Es la declaración mensual más importante. Aunque no tengas impuesto que pagar (porque tuviste pérdida), <strong>debes presentarla de todas formas</strong>.</p>
+
+<h3>¿Qué se declara?</h3>
+<table>
+  <thead><tr><th>Campo</th><th>Qué poner</th><th>En QoriCash</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>Ingresos netos del mes</td>
+      <td>Ganancia por diferencia de cambio (spread total del mes)</td>
+      <td>Estado de Resultados → cuenta 7711</td>
+    </tr>
+    <tr>
+      <td>Pago a cuenta IR (1%)</td>
+      <td>1% × ingresos netos (hasta 300 UIT acumulado en el año)</td>
+      <td>Calculado automáticamente en /contabilidad/resultados</td>
+    </tr>
+    <tr>
+      <td>Retenciones recibidas</td>
+      <td>Si algún cliente te retuvo IR (poco común en casa de cambio)</td>
+      <td>—</td>
+    </tr>
+    <tr>
+      <td>IGV ventas</td>
+      <td>S/ 0.00 (exonerado)</td>
+      <td>—</td>
+    </tr>
+    <tr>
+      <td>IGV compras</td>
+      <td>S/ 0.00 (sin crédito fiscal)</td>
+      <td>—</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Cómo calcular el pago a cuenta</h3>
+<table>
+  <thead><tr><th>Ingresos netos acumulados en el año</th><th>Tasa mensual</th><th>Ejemplo (mes con S/ 8,000 spread)</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>Hasta S/ 1,605,000 (300 UIT)</td>
+      <td><strong>1%</strong></td>
+      <td>S/ 8,000 × 1% = <strong>S/ 80</strong></td>
+    </tr>
+    <tr>
+      <td>Exceso de S/ 1,605,000</td>
+      <td><strong>1.5%</strong></td>
+      <td>Solo sobre el exceso</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="ok">
+  <strong>Dónde obtener el número</strong>
+  En QoriCash: /contabilidad/resultados → columna "Total Ingresos (7711)". Ese monto va en el PDT 621 como ingresos netos.
+</div>
+
+<h3>Pasos para presentar el PDT 621</h3>
+<ol class="steps">
+  <li>
+    <strong>Obtener el monto de ingresos netos del mes</strong>
+    <span class="d">QoriCash → /contabilidad/resultados → ver total cuenta 7711 del mes.</span>
+  </li>
+  <li>
+    <strong>Ingresar a SUNAT SOL</strong>
+    <span class="d">sol.sunat.gob.pe → con tu clave SOL (RUC + usuario + clave).</span>
+  </li>
+  <li>
+    <strong>Ir a: Declaración y Pago → Renta → PDT 621</strong>
+    <span class="d">Seleccionar el período tributario (mes/año a declarar).</span>
+  </li>
+  <li>
+    <strong>Llenar el formulario</strong>
+    <span class="d">Casilla 100 (ingresos netos) → el sistema calcula el 1% automáticamente. IGV = 0.</span>
+  </li>
+  <li>
+    <strong>Pagar</strong>
+    <span class="d">Se puede pagar en línea con tarjeta, cargo a cuenta bancaria, o generar un NPS para pagar en banco.</span>
+  </li>
+  <li>
+    <strong>Guardar la constancia de presentación</strong>
+    <span class="d">Descargar el PDF con número de orden. Archivar en carpeta del mes.</span>
+  </li>
+  <li>
+    <strong>Registrar en QoriCash como gasto</strong>
+    <span class="d">/contabilidad/gastos → tipo "tributo", categoría 6411, descripción "IR pago a cuenta YYYY-MM", monto pagado.</span>
+  </li>
+</ol>
+
+<div class="critical">
+  <strong>No presentar el PDT 621 genera multa automática</strong>
+  Incluso si el monto a pagar es S/ 0.00, debes presentarlo. La multa por no presentar es el 50% de la UIT (S/ 2,675 en 2026), reducible al 80% con subsanación voluntaria.
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="s4">4. PLAME — Planilla electrónica mensual</h2>
+
+<p>Obligatorio si tienes <strong>trabajadores en planilla</strong> (en relación de dependencia). Si solo tienes recibos por honorarios (trabajadores independientes), no hay PLAME pero sí retención de 4ta categoría si supera el mínimo.</p>
+
+<h3>Si tienes trabajadores en planilla</h3>
+<table>
+  <thead><tr><th>Sistema</th><th>Qué hacer</th><th>Cuándo</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>T-REGISTRO</strong></td>
+      <td>Registrar al trabajador (alta, modificaciones, baja)</td>
+      <td>Antes del primer día de trabajo</td>
+    </tr>
+    <tr>
+      <td><strong>PLAME</strong> (PDT 601)</td>
+      <td>Declarar sueldos, EsSalud, AFP/ONP, 5ta categoría</td>
+      <td>Mensual — mismo vencimiento que PDT 621</td>
+    </tr>
+    <tr>
+      <td><strong>EsSalud</strong></td>
+      <td>9% de la remuneración bruta (paga el empleador)</td>
+      <td>Con la PLAME</td>
+    </tr>
+    <tr>
+      <td><strong>AFP / ONP</strong></td>
+      <td>Retener del trabajador y declarar en PLAME</td>
+      <td>Con la PLAME</td>
+    </tr>
+    <tr>
+      <td><strong>5ta categoría</strong></td>
+      <td>Retener el IR de 5ta si el trabajador supera S/ 2,563 mensuales</td>
+      <td>Con la PLAME</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Si pagas con recibos por honorarios (4ta categoría)</h3>
+<table>
+  <thead><tr><th>Concepto</th><th>Detalle</th></tr></thead>
+  <tbody>
+    <tr><td>Monto mínimo sujeto a retención</td><td>Si el recibo supera S/ 1,500 en el mes, debes retener el 8% de IR de 4ta</td></tr>
+    <tr><td>Cómo retener</td><td>Pagas el 92% al trabajador y el 8% lo declaras y pagas a SUNAT vía PDT 616</td></tr>
+    <tr><td>Si el emisor no quiere retención</td><td>Puede presentar una "suspensión de retenciones" ante SUNAT si proyecta no superar S/ 36,313 en el año</td></tr>
+    <tr><td>El trabajador declara anualmente</td><td>En la DJ Anual de 4ta categoría (Formulario Virtual 709)</td></tr>
+  </tbody>
+</table>
+
+<div class="note">
+  <strong>En QoriCash</strong>
+  Registra cada planilla como gasto tipo "planilla" → el sistema genera el asiento DEBE 621 (sueldos) + DEBE 627 (EsSalud/AFP) / HABER 4111 (por pagar). Luego pagas con el botón "Pagar".
+</div>
+
+<h3>Beneficios laborales obligatorios (referencia)</h3>
+<table>
+  <thead><tr><th>Beneficio</th><th>Monto</th><th>Frecuencia</th></tr></thead>
+  <tbody>
+    <tr><td>Gratificaciones</td><td>1 sueldo en julio y 1 en diciembre</td><td>Julio y diciembre</td></tr>
+    <tr><td>CTS</td><td>~1/12 del sueldo + 1/6 de gratificaciones por mes</td><td>Mayo y noviembre</td></tr>
+    <tr><td>Vacaciones</td><td>30 días por año</td><td>Cuando corresponda</td></tr>
+    <tr><td>Asignación familiar</td><td>S/ 107.00 (10% RMV) si tiene hijos menores</td><td>Mensual</td></tr>
+    <tr><td>Utilidades</td><td>Aplica si superas 20 trabajadores</td><td>Abril del año siguiente</td></tr>
+  </tbody>
+</table>
+
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="s5">5. Libros electrónicos (PLE / SLE-PORTAL)</h2>
+
+<h3>¿Estás obligado al PLE?</h3>
+<table>
+  <thead><tr><th>Ingresos anuales</th><th>Sistema</th><th>Libros a enviar mensualmente</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>Hasta 75 UIT (S/ 401,250)</td>
+      <td>SLE-PORTAL (más simple)</td>
+      <td>Registro de Ventas · Registro de Compras</td>
+    </tr>
+    <tr>
+      <td>75 – 150 UIT (S/ 401,250 – S/ 802,500)</td>
+      <td>SLE-PORTAL</td>
+      <td>Registro de Ventas · Registro de Compras · Libro Diario Simplificado</td>
+    </tr>
+    <tr>
+      <td>150 – 500 UIT (S/ 802,500 – S/ 2,675,000)</td>
+      <td>SLE-PLE (software)</td>
+      <td>Registro de Ventas · Registro de Compras · Libro Diario · Libro Mayor</td>
+    </tr>
+    <tr>
+      <td>Más de 500 UIT</td>
+      <td>SLE-PLE</td>
+      <td>Todos los libros contables</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Libros y su contenido para QoriCash</h3>
+<table>
+  <thead><tr><th>Libro electrónico</th><th>Código PLE</th><th>Qué registra</th><th>QoriCash</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>Registro de Ventas e Ingresos</td>
+      <td class="mono">LE140100</td>
+      <td>Comprobantes emitidos (facturas, boletas). Para casa de cambio: constancias de operación si emite.</td>
+      <td>Pendiente implementar</td>
+    </tr>
+    <tr>
+      <td>Registro de Compras</td>
+      <td class="mono">LE080100</td>
+      <td>Facturas recibidas de proveedores (luz, teléfono, honorarios, etc.)</td>
+      <td>/contabilidad/gastos → Excel</td>
+    </tr>
+    <tr>
+      <td>Libro de Ingresos y Gastos (LIG)</td>
+      <td class="mono">LE050100 aprox.</td>
+      <td>Ingresos y egresos del período. Formato RS 234-2006/SUNAT.</td>
+      <td>/contabilidad/lig → Exportar PLE</td>
+    </tr>
+    <tr>
+      <td>Libro Diario</td>
+      <td class="mono">LE050100</td>
+      <td>Todos los asientos de partida doble (si &gt; 150 UIT).</td>
+      <td>/contabilidad/diario → Excel</td>
+    </tr>
+    <tr>
+      <td>Libro Mayor</td>
+      <td class="mono">LE060100</td>
+      <td>Saldos por cuenta PCGE (si &gt; 150 UIT).</td>
+      <td>/contabilidad/mayor</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Pasos para enviar libros electrónicos vía SLE-PORTAL</h3>
+<ol class="steps">
+  <li>
+    <strong>Ingresar a SUNAT SOL → Empresas → SLE-PORTAL</strong>
+    <span class="d">sol.sunat.gob.pe</span>
+  </li>
+  <li>
+    <strong>Seleccionar el período y el libro a registrar</strong>
+    <span class="d">Ejemplo: Registro de Compras → Marzo 2026</span>
+  </li>
+  <li>
+    <strong>Ingresar las operaciones (o importar desde Excel)</strong>
+    <span class="d">Para el Registro de Compras: RUC proveedor, número de factura, fecha, base, IGV (0 para CdC), total.</span>
+  </li>
+  <li>
+    <strong>Generar y cerrar el período</strong>
+    <span class="d">El sistema SUNAT genera un resumen y lo valida.</span>
+  </li>
+  <li>
+    <strong>Descargar la constancia de cierre</strong>
+    <span class="d">Guardar el PDF con el hash de validación.</span>
+  </li>
+</ol>
+
+<div class="warn">
+  <strong>Plazo de envío</strong>
+  Registro de Ventas y Compras: mismo cronograma que el PDT 621 (según último dígito de RUC). Libro Diario y Mayor: hasta el tercer mes siguiente al período (más holgado).
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="s6">6. Declaración Jurada Anual de Renta</h2>
+
+<p>Se presenta <strong>una vez al año</strong>, entre marzo y abril del año siguiente. Es la liquidación final del Impuesto a la Renta del ejercicio.</p>
+
+<h3>Escala del IR anual — MYPE Tributario</h3>
+<table>
+  <thead><tr><th>Renta neta imponible</th><th>Tasa</th><th>Ejemplo</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>Hasta 15 UIT (S/ 80,250)</td>
+      <td><strong>10%</strong></td>
+      <td>Renta neta S/ 50,000 → IR S/ 5,000</td>
+    </tr>
+    <tr>
+      <td>Exceso de 15 UIT</td>
+      <td><strong>29.5%</strong></td>
+      <td>Renta neta S/ 100,000 → S/ 8,025 + (S/ 19,750 × 29.5%) = S/ 13,846</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Cómo se calcula la renta neta imponible</h3>
+<table>
+  <thead><tr><th>Concepto</th><th>Origen en QoriCash</th></tr></thead>
+  <tbody>
+    <tr><td>(+) Ingresos brutos del año</td><td>Suma anual de cuenta 7711 — Estado de Resultados</td></tr>
+    <tr><td>(−) Gastos deducibles</td><td>Suma anual de cuentas 6xxx — gastos con comprobante válido</td></tr>
+    <tr><td>(−) Depreciación</td><td>Suma anual de cuenta 6814 — Activos Fijos</td></tr>
+    <tr><td><strong>= Renta neta imponible</strong></td><td>Aplicar escala IR</td></tr>
+    <tr><td>(−) Pagos a cuenta realizados</td><td>Suma de los 12 PDT 621 pagados en el año</td></tr>
+    <tr><td><strong>= IR a regularizar (pagar o devolver)</strong></td><td></td></tr>
+  </tbody>
+</table>
+
+<h3>Gastos deducibles más comunes (casa de cambio)</h3>
+<table>
+  <thead><tr><th>Gasto</th><th>Condición para deducir</th></tr></thead>
+  <tbody>
+    <tr><td>Alquiler de local</td><td>Con contrato y factura electrónica</td></tr>
+    <tr><td>Servicios de internet y teléfono</td><td>A nombre de la empresa, con factura</td></tr>
+    <tr><td>Honorarios de contador</td><td>Con recibo por honorarios o factura</td></tr>
+    <tr><td>Sueldos y planilla</td><td>Con PLAME presentada y pagos a EsSalud/AFP al día</td></tr>
+    <tr><td>Seguros</td><td>Con póliza y factura</td></tr>
+    <tr><td>Depreciación de activos fijos</td><td>Con registro en libros y dentro de tasas SUNAT</td></tr>
+    <tr><td>Gastos bancarios (ITF, comisiones)</td><td>Con estado de cuenta bancario</td></tr>
+    <tr><td>Útiles de oficina y materiales</td><td>Con boleta (hasta 6% del total comprobantes, máx. 200 UIT) o factura</td></tr>
+  </tbody>
+</table>
+
+<div class="critical">
+  <strong>Gastos NO deducibles (no reducen el IR)</strong>
+  Gastos personales · Multas, recargos e intereses a SUNAT · Gastos sin comprobante de pago · Gastos de representación que excedan el 0.5% de ingresos (máx. 40 UIT)
+</div>
+
+<h3>Pasos para presentar la DJ Anual</h3>
+<ol class="steps">
+  <li>
+    <strong>Generar el Estado de Resultados anual en QoriCash</strong>
+    <span class="d">Exportar Excel → hoja "Estado de Resultados" sumando los 12 meses.</span>
+  </li>
+  <li>
+    <strong>Calcular la Renta Neta Imponible</strong>
+    <span class="d">Ingresos − Gastos deducibles = RNI. Aplicar escala 10%/29.5%.</span>
+  </li>
+  <li>
+    <strong>Sumar los 12 pagos a cuenta del PDT 621</strong>
+    <span class="d">Cada constancia de pago tiene el monto exacto abonado.</span>
+  </li>
+  <li>
+    <strong>Ingresar a SUNAT SOL → Formulario Virtual 710</strong>
+    <span class="d">En el período tributario poner el año fiscal (ej. 2025 para declarar en 2026).</span>
+  </li>
+  <li>
+    <strong>Completar el formulario y enviar</strong>
+    <span class="d">El sistema calcula automáticamente el IR a pagar o el crédito a favor.</span>
+  </li>
+  <li>
+    <strong>Pagar el saldo (si corresponde)</strong>
+    <span class="d">En línea o en banco con el NPS generado. Antes del vencimiento según cronograma.</span>
+  </li>
+</ol>
+
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="s7">7. Comprobantes de pago</h2>
+
+<h3>¿Qué comprobantes debe emitir QoriCash?</h3>
+<table>
+  <thead><tr><th>Situación</th><th>Comprobante</th><th>Requisito</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>Servicio de cambio de moneda a clientes</td>
+      <td>Constancia de operación o Boleta electrónica</td>
+      <td>SUNAT permite constancia de operación para casas de cambio (Art. 7 Reglamento CP)</td>
+    </tr>
+    <tr>
+      <td>Si el cliente pide factura</td>
+      <td>Factura electrónica</td>
+      <td>Requiere RUC del cliente, obligatoriamente electrónica</td>
+    </tr>
+    <tr>
+      <td>Operaciones en efectivo &gt; USD 10,000</td>
+      <td>Registro adicional en libro SBS</td>
+      <td>Ver sección 9 — Obligaciones SBS/UIF</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Emisión electrónica</h3>
+<table>
+  <thead><tr><th>Sistema</th><th>Para qué</th><th>Costo</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>SEE-SOL (SUNAT gratuito)</td>
+      <td>Boletas y facturas electrónicas básicas</td>
+      <td>Gratuito</td>
+    </tr>
+    <tr>
+      <td>OSE / PSE (proveedor privado)</td>
+      <td>Mayor volumen, integración API</td>
+      <td>Desde S/ 30/mes</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="note">
+  <strong>Registro de Ventas para casa de cambio</strong>
+  Si emites constancias de operación en lugar de boletas, igual debes registrar el total de ingresos en el Registro de Ventas electrónico. Puedes hacerlo como una sola línea diaria con el total de operaciones del día.
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="s8">8. Cronograma de vencimientos</h2>
+
+<h3>Vencimiento mensual según último dígito de RUC</h3>
+<p>El RUC de QoriCash termina en <strong>8</strong>. Consultar el cronograma exacto en sunat.gob.pe cada año.</p>
+
+<div class="ruc-grid">
+  <div class="ruc-cell"><div class="digit">0</div><div class="day">~Día 10</div></div>
+  <div class="ruc-cell"><div class="digit">1</div><div class="day">~Día 11</div></div>
+  <div class="ruc-cell"><div class="digit">2</div><div class="day">~Día 12</div></div>
+  <div class="ruc-cell"><div class="digit">3</div><div class="day">~Día 13</div></div>
+  <div class="ruc-cell"><div class="digit">4</div><div class="day">~Día 14</div></div>
+  <div class="ruc-cell" style="border:2px solid #111;"><div class="digit" style="color:#111;">5</div><div class="day" style="font-weight:700;">~Día 15</div></div>
+  <div class="ruc-cell"><div class="digit">6</div><div class="day">~Día 16</div></div>
+  <div class="ruc-cell"><div class="digit">7</div><div class="day">~Día 17</div></div>
+  <div class="ruc-cell" style="border:2px solid #111;"><div class="digit" style="color:#111;">8</div><div class="day" style="font-weight:700;">~Día 18</div></div>
+  <div class="ruc-cell"><div class="digit">9</div><div class="day">~Día 19</div></div>
+</div>
+
+<p style="font-size:12px; color:#666; margin-top:4px;">RUC 20615113698 termina en 8 → vence aproximadamente el día 18 de cada mes siguiente. Verificar cronograma oficial en sunat.gob.pe.</p>
+
+<h3>Calendario de obligaciones — año completo</h3>
+<table>
+  <thead><tr><th>Mes</th><th>Qué hacer</th><th>Plazo</th></tr></thead>
+  <tbody>
+    <tr><td>Cada mes</td><td>PDT 621 — IR pago a cuenta · PLAME (si tienes planilla) · Libros electrónicos R.Compras y R.Ventas</td><td>Día ~18 del mes siguiente</td></tr>
+    <tr><td>Enero</td><td>DAOT (PDT 3500) si tus operaciones con un tercero superaron 2 UIT en el año anterior</td><td>Según cronograma SUNAT (~marzo)</td></tr>
+    <tr><td>Mayo</td><td>CTS de trabajadores (depósito en banco)</td><td>15 de mayo</td></tr>
+    <tr><td>Julio</td><td>Gratificación de Fiestas Patrias + CTS proporcional</td><td>15 de julio (gratif.)</td></tr>
+    <tr><td>Noviembre</td><td>CTS de trabajadores (segundo depósito)</td><td>15 de noviembre</td></tr>
+    <tr><td>Diciembre</td><td>Gratificación Navidad + hacer proyección IR anual</td><td>15 de diciembre (gratif.)</td></tr>
+    <tr><td>Marzo–Abril (año sig.)</td><td>Declaración Jurada Anual IR · Formulario Virtual 710</td><td>Según cronograma SUNAT</td></tr>
+    <tr><td>Abril (año sig.)</td><td>Utilidades a trabajadores (si superas 20 empleados)</td><td>30 días después de DJ Anual</td></tr>
+  </tbody>
+</table>
+
+<h3>Vencimientos de la DJ Anual 2025 (a presentar en 2026)</h3>
+<p>SUNAT publica el cronograma en diciembre. Referencia aproximada:</p>
+<table>
+  <thead><tr><th>Último dígito RUC</th><th>Fecha aprox. vencimiento</th></tr></thead>
+  <tbody>
+    <tr><td>0 y 1</td><td>24 de marzo 2026</td></tr>
+    <tr><td>2 y 3</td><td>25 de marzo 2026</td></tr>
+    <tr><td>4 y 5</td><td>26 de marzo 2026</td></tr>
+    <tr><td>6 y 7</td><td>27 de marzo 2026</td></tr>
+    <tr><td><strong>8 y 9</strong></td><td><strong>30 de marzo 2026</strong></td></tr>
+  </tbody>
+</table>
+
+<div class="warn">
+  <strong>Siempre verificar en sunat.gob.pe</strong>
+  Los cronogramas cambian cada año. Este manual usa fechas de referencia — consultar el cronograma oficial publicado por SUNAT en diciembre de cada año.
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="s9">9. Obligaciones SBS y UIF (casa de cambio)</h2>
+
+<p>Las casas de cambio son sujetos obligados a informar ante la <strong>UIF-Perú</strong> (Unidad de Inteligencia Financiera) y están supervisadas por la <strong>SBS</strong>. Esto va más allá de SUNAT — son obligaciones de prevención de lavado de activos.</p>
+
+<h3>Obligaciones ante la SBS</h3>
+<table>
+  <thead><tr><th>Obligación</th><th>Detalle</th><th>Frecuencia</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>Inscripción en el Registro SBS</td>
+      <td>Todas las casas de cambio deben estar inscritas en el Registro de Empresas y Personas que Efectúan Operaciones de Cambio de Moneda</td>
+      <td>Una sola vez (renovación anual)</td>
+    </tr>
+    <tr>
+      <td>Libro de Registro de Operaciones</td>
+      <td>Registrar cada operación: fecha, cliente, documento de identidad, monto en USD, monto en PEN, tipo de cambio utilizado</td>
+      <td>Por cada operación</td>
+    </tr>
+    <tr>
+      <td>Identificación del cliente (KYC)</td>
+      <td>Solicitar DNI/pasaporte para operaciones desde ciertos umbrales</td>
+      <td>Por cada operación (según umbral)</td>
+    </tr>
+    <tr>
+      <td>Informe de cumplimiento LAFT</td>
+      <td>Reporte anual del Programa de Cumplimiento (PCN-LAFT)</td>
+      <td>Anual</td>
+    </tr>
+    <tr>
+      <td>Oficial de Cumplimiento</td>
+      <td>Designar un responsable de cumplimiento LAFT (puede ser el propio titular en empresas pequeñas)</td>
+      <td>Permanente</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Obligaciones ante la UIF-Perú</h3>
+<table>
+  <thead><tr><th>Reporte</th><th>Cuándo</th><th>Umbral / Condición</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>RO — Reporte de Operaciones</strong> (en efectivo)</td>
+      <td>Mensual</td>
+      <td>Operaciones en efectivo ≥ USD 10,000 o su equivalente en un mes por el mismo cliente</td>
+    </tr>
+    <tr>
+      <td><strong>ROS — Reporte de Operación Sospechosa</strong></td>
+      <td>Cuando ocurra (30 días desde detección)</td>
+      <td>Operaciones que generen sospecha de lavado de activos, sin importar el monto</td>
+    </tr>
+    <tr>
+      <td><strong>Registro de operaciones</strong></td>
+      <td>Por cada operación</td>
+      <td>Operaciones ≥ USD 1,000 (deben contar con identidad del cliente)</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="critical">
+  <strong>Señales de alerta que generan ROS (obligatorio reportar)</strong>
+  · Cliente que opera montos elevados sin justificación aparente
+  · Misma persona con múltiples operaciones para fragmentar umbrales
+  · Cliente que se niega a identificarse o da datos falsos
+  · Operaciones inusuales fuera del perfil del cliente
+  · Pago con billetes en mal estado o de distintas denominaciones sospechosas
+</div>
+
+<div class="ok">
+  <strong>QoriCash ya tiene módulo de cumplimiento</strong>
+  El sistema cuenta con KYC de clientes, alertas de cumplimiento y registro de operaciones. Asegúrate de completar el perfil de riesgo de cada cliente antes de operar.
+</div>
+
+<h3>Programa de Cumplimiento Normativo (PCN-LAFT) mínimo</h3>
+<ul style="padding-left:20px; font-size:13px; color:#333; margin:12px 0;">
+  <li style="margin:6px 0"><strong>Manual de prevención LAFT</strong> — documento interno con políticas y procedimientos</li>
+  <li style="margin:6px 0"><strong>Código de conducta</strong> — reglas para empleados sobre transacciones sospechosas</li>
+  <li style="margin:6px 0"><strong>Capacitación anual</strong> — al menos una capacitación al año sobre prevención LAFT</li>
+  <li style="margin:6px 0"><strong>Señales de alerta documentadas</strong> — lista actualizada de red flags</li>
+  <li style="margin:6px 0"><strong>Expediente de clientes</strong> — perfil de riesgo por cliente (QoriCash lo gestiona)</li>
+</ul>
+
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="s10">10. Multas y sanciones frecuentes</h2>
+
+<table>
+  <thead><tr><th>Infracción</th><th>Base legal</th><th>Multa</th><th>Rebaja por subsanación</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>No presentar declaración (PDT 621)</td>
+      <td>Art. 176 C.T.</td>
+      <td>50% UIT = S/ 2,675</td>
+      <td>80% si es voluntaria antes de SUNAT · 50% si es voluntaria después</td>
+    </tr>
+    <tr>
+      <td>No pagar el impuesto declarado</td>
+      <td>Art. 178 C.T.</td>
+      <td>50% del tributo omitido</td>
+      <td>95% antes de notificación · 70% después</td>
+    </tr>
+    <tr>
+      <td>Declarar ingresos inferiores a los reales</td>
+      <td>Art. 178 C.T.</td>
+      <td>50% del tributo omitido</td>
+      <td>95% voluntaria · 70% post-notificación</td>
+    </tr>
+    <tr>
+      <td>No llevar libros contables</td>
+      <td>Art. 175 C.T.</td>
+      <td>0.6% de ingresos netos (mín. 10% UIT, máx. 25 UIT)</td>
+      <td>80% rebaja voluntaria</td>
+    </tr>
+    <tr>
+      <td>Llevar libros con atraso</td>
+      <td>Art. 175 C.T.</td>
+      <td>0.3% de ingresos netos (mín. 10% UIT, máx. 12 UIT)</td>
+      <td>80% rebaja voluntaria</td>
+    </tr>
+    <tr>
+      <td>No emitir comprobante de pago</td>
+      <td>Art. 174 C.T.</td>
+      <td>1ª vez: cierre temporal 3–10 días · luego multa</td>
+      <td>—</td>
+    </tr>
+    <tr>
+      <td>No registrar operaciones en libro SBS</td>
+      <td>Ley 26702 / Regl. SBS</td>
+      <td>Multa SBS desde 1 UIT hasta cancelación de licencia</td>
+      <td>—</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="note">
+  <strong>Intereses por deuda tributaria</strong>
+  Además de la multa, toda deuda con SUNAT genera intereses moratorios del 1.2% mensual (TIM). Es fundamental pagar a tiempo o acoger a un fraccionamiento (art. 36 C.T.) si no puedes pagar el total.
+</div>
+
+<h3>Fraccionamiento y aplazamiento (Art. 36 C.T.)</h3>
+<p>Si no puedes pagar una deuda tributaria al contado, puedes solicitar:</p>
+<ul style="padding-left:20px; font-size:13px; color:#333; margin:10px 0;">
+  <li style="margin:5px 0"><strong>Fraccionamiento:</strong> hasta 72 cuotas mensuales con tasa de interés del 80% de la TIM</li>
+  <li style="margin:5px 0"><strong>Aplazamiento:</strong> hasta 6 meses para pagar en una sola cuota</li>
+  <li style="margin:5px 0">Requisito: estar al día en las obligaciones corrientes al momento de solicitar</li>
+</ul>
+
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="s11">11. Checklist anual completo</h2>
+
+<h3>Cada mes (día ~18 del mes siguiente)</h3>
+<ul class="check">
+  <li><strong>Obtener ingresos netos del mes en QoriCash</strong><span class="d">/contabilidad/resultados → total cuenta 7711</span></li>
+  <li><strong>Presentar y pagar PDT 621</strong><span class="d">SUNAT SOL → Declaración y Pago → Renta → PDT 621. Guardar constancia PDF.</span></li>
+  <li><strong>Presentar PLAME (si tienes trabajadores)</strong><span class="d">SUNAT SOL → T-REGISTRO + PDT 601. Pagar EsSalud y AFP.</span></li>
+  <li><strong>Actualizar libros electrónicos en SLE-PLE / SLE-PORTAL</strong><span class="d">Registro de Ventas + Registro de Compras del mes.</span></li>
+  <li><strong>Registrar el pago del PDT 621 en QoriCash como gasto</strong><span class="d">/contabilidad/gastos → categoría 6411 → monto pagado a SUNAT.</span></li>
+  <li><strong>Cerrar el período en QoriCash</strong><span class="d">/contabilidad/periodos → Cerrar período.</span></li>
+  <li><strong>Exportar y archivar Excel del mes</strong><span class="d">/contabilidad/exportar-excel → guardar en carpeta mes/año.</span></li>
+</ul>
+
+<h3>Mayo y Noviembre — CTS</h3>
+<ul class="check">
+  <li><strong>Calcular CTS de cada trabajador</strong><span class="d">Remuneración computable ÷ 12 × meses trabajados desde el depósito anterior.</span></li>
+  <li><strong>Depositar en la cuenta CTS del trabajador</strong><span class="d">Hasta el 15 de mayo y 15 de noviembre.</span></li>
+  <li><strong>Registrar como gasto en QoriCash</strong><span class="d">Categoría 627 (beneficios sociales).</span></li>
+</ul>
+
+<h3>Julio y Diciembre — Gratificaciones</h3>
+<ul class="check">
+  <li><strong>Pagar 1 sueldo completo de gratificación</strong><span class="d">Hasta el 15 de julio (Fiestas Patrias) y 15 de diciembre (Navidad).</span></li>
+  <li><strong>Bonificación extraordinaria</strong><span class="d">9% adicional sobre la gratificación (equivale al EsSalud que no se paga sobre gratif.).</span></li>
+  <li><strong>Registrar en QoriCash</strong><span class="d">Gasto tipo planilla, categoría 621.</span></li>
+</ul>
+
+<h3>Diciembre — Cierre del ejercicio</h3>
+<ul class="check">
+  <li><strong>Proyectar la renta neta anual</strong><span class="d">Revisar Estado de Resultados acumulado. Estimar si habrá IR a regularizar.</span></li>
+  <li><strong>Verificar que todos los meses del año tienen período cerrado</strong><span class="d">/contabilidad/periodos → todos deben estar cerrados.</span></li>
+  <li><strong>Preparar listado de activos fijos con depreciación acumulada</strong><span class="d">/contabilidad/activos-fijos → exportar para la DJ Anual.</span></li>
+  <li><strong>Verificar saldos bancarios vs libros</strong><span class="d">Conciliación bancaria de todas las cuentas.</span></li>
+</ul>
+
+<h3>Marzo–Abril — Declaración Jurada Anual</h3>
+<ul class="check">
+  <li><strong>Exportar Estado de Resultados anual completo</strong><span class="d">Suma de los 12 meses desde QoriCash.</span></li>
+  <li><strong>Reunir constancias de los 12 PDT 621 pagados</strong><span class="d">Carpeta anual de SUNAT.</span></li>
+  <li><strong>Calcular Renta Neta Imponible</strong><span class="d">Ingresos − gastos deducibles. Aplicar escala 10%/29.5%.</span></li>
+  <li><strong>Presentar Formulario Virtual 710 en SUNAT SOL</strong><span class="d">Antes del vencimiento según cronograma (RUC termina en 8 → ~30 de marzo).</span></li>
+  <li><strong>Pagar IR a regularizar (si corresponde)</strong><span class="d">O solicitar devolución/aplicación si hay crédito a favor.</span></li>
+  <li><strong>Presentar Registro de Ventas e Ingresos anual (si aplica)</strong><span class="d">SLE-PLE → cierre anual.</span></li>
+</ul>
+
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="s12">12. Cómo usar SUNAT SOL — paso a paso</h2>
+
+<h3>Acceso</h3>
+<ol class="steps">
+  <li>
+    <strong>Ir a sol.sunat.gob.pe</strong>
+    <span class="d">Usar Chrome o Edge actualizado. Evitar Firefox en algunos trámites.</span>
+  </li>
+  <li>
+    <strong>Ingresar: RUC 20615113698 + Usuario SOL + Clave SOL</strong>
+    <span class="d">Si olvidaste la clave: ir a un Centro de Servicios SUNAT con DNI del representante legal.</span>
+  </li>
+</ol>
+
+<h3>Navegación clave en SUNAT SOL</h3>
+<table>
+  <thead><tr><th>Trámite</th><th>Ruta en SUNAT SOL</th></tr></thead>
+  <tbody>
+    <tr><td>PDT 621 mensual</td><td>Declaración y Pago → Renta → Formulario 621</td></tr>
+    <tr><td>PDT 601 PLAME</td><td>Declaración y Pago → Planilla → PDT 601</td></tr>
+    <tr><td>DJ Anual Renta</td><td>Declaración y Pago → Renta Anual → FV 710</td></tr>
+    <tr><td>Libros electrónicos</td><td>Empresas → SLE-PORTAL o Descargar PLE</td></tr>
+    <tr><td>Constancias de pago</td><td>Consultas → Declaraciones y Pagos</td></tr>
+    <tr><td>Estado de deuda</td><td>Consultas → Estado de Adeudo</td></tr>
+    <tr><td>Fraccionamiento</td><td>Trámites → Aplazamiento y Fraccionamiento</td></tr>
+    <tr><td>Buzón electrónico SUNAT</td><td>Inicio → Buzón Electrónico (revisar mensualmente)</td></tr>
+  </tbody>
+</table>
+
+<div class="critical">
+  <strong>Revisa el Buzón Electrónico de SUNAT mensualmente</strong>
+  SUNAT notifica resoluciones, esquelas y requerimientos por el buzón SOL. Si no los atiendes en plazo, las deudas quedan firmes y se inicia cobranza coactiva. Es obligatorio revisar el buzón.
+</div>
+
+<h3>Documentos que siempre debes tener a la mano</h3>
+<ul style="padding-left:20px; font-size:13px; color:#333; margin:12px 0;">
+  <li style="margin:5px 0">Clave SOL actualizada (cambiarla si alguien externo la conoce)</li>
+  <li style="margin:5px 0">Cronograma de vencimientos SUNAT del año vigente (descargar de sunat.gob.pe)</li>
+  <li style="margin:5px 0">Constancias de presentación de los últimos 12 PDT 621</li>
+  <li style="margin:5px 0">Constancia de inscripción SBS (renovada)</li>
+  <li style="margin:5px 0">Último informe de cumplimiento LAFT enviado a SBS</li>
+</ul>
+
+<hr>
+
+<p style="font-size:12px; color:#999; text-align:center; margin-top:28px;">
+  Manual de Obligaciones SUNAT · QoriCash SAC · Versión 1.0 · Mayo 2026<br>
+  Elaborado con base en normativa vigente. Siempre verificar actualizaciones en sunat.gob.pe y sbs.gob.pe.<br>
+  Este documento no reemplaza la asesoría de un contador certificado para casos específicos.
+</p>
+
+<button class="print-btn no-print" onclick="window.print()">Imprimir / Guardar PDF</button>
+
+</body>
+</html>
