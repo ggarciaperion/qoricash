@@ -723,6 +723,44 @@
 
 /* checkbox */
 .crm-chk { accent-color: var(--qori-primary); width: 15px; height: 15px; cursor: pointer; }
+
+/* ── Email type selector ────────────────────────────────── */
+.email-type-btn {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  padding: .75rem 1rem;
+  border-radius: var(--radius-lg);
+  border: 1.5px solid var(--qori-gray-200);
+  background: var(--qori-gray-50);
+  color: var(--qori-gray-700);
+  cursor: pointer;
+  text-align: left;
+  transition: all var(--transition-fast);
+  width: 100%;
+}
+.email-type-btn:hover {
+  border-color: var(--qori-primary);
+  background: var(--qori-primary-light);
+}
+.email-type-btn.selected {
+  border-color: var(--qori-primary);
+  background: var(--qori-primary-light);
+  box-shadow: 0 0 0 3px var(--qori-primary-glow);
+  color: var(--qori-secondary);
+}
+.email-type-btn > .bi:first-child {
+  font-size: 1.25rem;
+  flex-shrink: 0;
+  color: var(--qori-gray-400);
+  width: 26px;
+  text-align: center;
+}
+.email-type-btn.selected > .bi:first-child { color: var(--qori-primary); }
+.etb-title { font-size: .82rem; font-weight: 600; line-height: 1.2; }
+.etb-sub { font-size: .71rem; color: var(--qori-gray-500); margin-top: .12rem; }
+.etb-check { margin-left: auto; color: var(--qori-primary); opacity: 0; font-size: .95rem; flex-shrink: 0; transition: opacity var(--transition-fast); }
+.email-type-btn.selected .etb-check { opacity: 1; }
 </style>
 {% endblock %}
 
@@ -926,7 +964,7 @@
 
 <!-- Enviar Email -->
 <div class="modal fade" id="mEmail" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered" style="max-width:480px">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:400px">
     <div class="modal-content">
       <div class="modal-header modal-header-dark">
         <h6 class="modal-title"><i class="bi bi-envelope-fill me-2"></i>Enviar correo</h6>
@@ -934,37 +972,44 @@
       </div>
       <div class="modal-body p-4">
         <input type="hidden" id="ePid">
-        <div class="mb-3">
-          <label class="form-label-sm">Para</label>
-          <input type="text" class="form-control form-control-sm" id="ePara" readonly style="background:var(--qori-gray-50)">
+        <input type="hidden" id="eEmailTo">
+        <div class="mb-3 d-flex align-items-center gap-2" style="font-size:.78rem;color:var(--qori-gray-500);">
+          <i class="bi bi-person-fill" style="color:var(--qori-primary);font-size:.9rem;"></i>
+          <span id="eParaLabel" style="word-break:break-all;">—</span>
         </div>
-        <div class="mb-3">
-          <label class="form-label-sm">Tipo de correo</label>
-          <div class="d-flex gap-3 mt-1">
-            <div class="form-check form-check-sm">
-              <input class="form-check-input" type="radio" name="eTipo" id="eTipoPres" value="presentacion" checked onchange="toggleEPrices()">
-              <label class="form-check-label" style="font-size:.8rem" for="eTipoPres">Presentación</label>
+        <p class="mb-3" style="font-size:.78rem;color:var(--qori-gray-500);font-weight:500;">Selecciona el tipo de correo:</p>
+        <div class="d-flex flex-column gap-2">
+          <button type="button" class="email-type-btn" data-tipo="presentacion" onclick="selectEmailTipo(this)">
+            <i class="bi bi-file-earmark-person-fill"></i>
+            <div>
+              <div class="etb-title">Presentación</div>
+              <div class="etb-sub">Presentar los servicios de QoriCash</div>
             </div>
-            <div class="form-check form-check-sm">
-              <input class="form-check-input" type="radio" name="eTipo" id="eTipoPrec" value="precio" onchange="toggleEPrices()">
-              <label class="form-check-label" style="font-size:.8rem" for="eTipoPrec">Precio del día</label>
+            <i class="bi bi-check-circle-fill etb-check"></i>
+          </button>
+          <button type="button" class="email-type-btn" data-tipo="precio" onclick="selectEmailTipo(this)">
+            <i class="bi bi-currency-dollar"></i>
+            <div>
+              <div class="etb-title">Precio</div>
+              <div class="etb-sub">Enviar tipo de cambio del día</div>
             </div>
-          </div>
-        </div>
-        <div id="ePricesRow" class="row g-2 mb-1" style="display:none!important">
-          <div class="col-6">
-            <label class="form-label-sm">Compra (S/)</label>
-            <input type="number" step="0.001" class="form-control form-control-sm" id="eCompra" placeholder="3.710">
-          </div>
-          <div class="col-6">
-            <label class="form-label-sm">Venta (S/)</label>
-            <input type="number" step="0.001" class="form-control form-control-sm" id="eVenta" placeholder="3.720">
-          </div>
+            <i class="bi bi-check-circle-fill etb-check"></i>
+          </button>
+          <button type="button" class="email-type-btn" data-tipo="seguimiento" onclick="selectEmailTipo(this)">
+            <i class="bi bi-arrow-repeat"></i>
+            <div>
+              <div class="etb-title">Seguimiento</div>
+              <div class="etb-sub">Hacer seguimiento al prospecto</div>
+            </div>
+            <i class="bi bi-check-circle-fill etb-check"></i>
+          </button>
         </div>
       </div>
       <div class="modal-footer">
         <button class="btn btn-sm btn-light" data-bs-dismiss="modal">Cancelar</button>
-        <button class="btn btn-sm btn-primary" onclick="submitEmail()"><i class="bi bi-send me-1"></i>Enviar</button>
+        <button class="btn btn-sm btn-crm-primary btn-crm" id="eBtnIniciar" onclick="iniciarEmail()" disabled>
+          <i class="bi bi-box-arrow-up-right me-1"></i>Iniciar
+        </button>
       </div>
     </div>
   </div>
@@ -1505,28 +1550,40 @@ async function patchCampo(id, campo, valor) {
 /* ─────────────────────────────────────────────────────────────
    EMAIL MODAL
 ───────────────────────────────────────────────────────────── */
+let _emailTipoSel = null;
+
+const EMAIL_SUBJECTS = {
+  presentacion: 'QoriCash - Presentación de Servicios',
+  precio:       'QoriCash - Tipo de Cambio del Día',
+  seguimiento:  'QoriCash - Seguimiento',
+};
+
 function openEmailModal(id) {
   const r = _rows.find(x=>x.id===id);
-  document.getElementById('ePid').value  = id;
-  document.getElementById('ePara').value = r ? (r.emails||[r.email]).filter(Boolean).join(', ') : '';
-  document.getElementById('eTipoPres').checked = true;
-  document.getElementById('ePricesRow').style.setProperty('display','none','important');
+  const emails = r ? (r.emails||[r.email]).filter(Boolean) : [];
+  document.getElementById('ePid').value      = id;
+  document.getElementById('eEmailTo').value  = emails.join(',');
+  document.getElementById('eParaLabel').textContent = emails.join(', ') || '—';
+  _emailTipoSel = null;
+  document.querySelectorAll('.email-type-btn').forEach(b => b.classList.remove('selected'));
+  document.getElementById('eBtnIniciar').disabled = true;
   bootstrap.Modal.getOrCreateInstance(document.getElementById('mEmail')).show();
 }
-function toggleEPrices() {
-  document.getElementById('ePricesRow').style.setProperty('display', document.getElementById('eTipoPrec').checked?'flex':'none','important');
+
+function selectEmailTipo(btn) {
+  document.querySelectorAll('.email-type-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  _emailTipoSel = btn.dataset.tipo;
+  document.getElementById('eBtnIniciar').disabled = false;
 }
-async function submitEmail() {
-  const id     = document.getElementById('ePid').value;
-  const tipo   = document.querySelector('input[name=eTipo]:checked').value;
-  const compra = document.getElementById('eCompra').value;
-  const venta  = document.getElementById('eVenta').value;
-  if (tipo==='precio'&&(!compra||!venta)) { Swal.fire({icon:'warning',text:'Ingresa compra y venta.',confirmButtonColor:'#0D1B2A'}); return; }
+
+function iniciarEmail() {
+  if (!_emailTipoSel) return;
+  const to  = document.getElementById('eEmailTo').value;
+  const su  = encodeURIComponent(EMAIL_SUBJECTS[_emailTipoSel] || '');
+  const url = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(to)}&su=${su}`;
+  window.open(url, '_blank');
   bootstrap.Modal.getInstance(document.getElementById('mEmail')).hide();
-  const r = await fetch(`/prospeccion/${id}/enviar-email`,{method:'POST',headers:jHeaders(),body:JSON.stringify({tipo,compra,venta})});
-  const d = await r.json();
-  if (d.ok) { Swal.fire({icon:'success',text:d.msg||'Correo enviado.',timer:2200,showConfirmButton:false}); load(); }
-  else Swal.fire({icon:'error',title:'Error al enviar',text:d.error||'',confirmButtonColor:'#0D1B2A'});
 }
 
 /* ─────────────────────────────────────────────────────────────

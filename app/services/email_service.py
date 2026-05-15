@@ -923,14 +923,18 @@ class EmailService:
             return False, f'Error al enviar email: {str(e)}'
 
     @staticmethod
-    def send_client_activation_email(client, trader):
+    def send_client_activation_email(client, trader, temporary_password=None):
         """
-        Enviar correo de notificación de cliente activado
-        Usa credenciales separadas del email de confirmación con Flask-Mail
+        Enviar correo de notificación de cliente activado.
+
+        Envía DOS correos separados:
+          1. Al cliente (TO): incluye la contraseña temporal si se proporciona.
+          2. Al trader + gerencia (TO/BCC): sin contraseña, solo notificación de activación.
 
         Args:
             client: Objeto Client
             trader: Objeto User (trader que registró al cliente)
+            temporary_password: Contraseña temporal generada (solo visible para el cliente)
 
         Returns:
             tuple: (success: bool, message: str)
@@ -941,37 +945,11 @@ class EmailService:
 
             logger.info(f'[EMAIL] Iniciando envio de email de cliente activado {client.id}')
 
-            # Destinatario principal: Cliente
-            to = [client.email] if client.email else []
-
-            # Copia: Trader que registró al cliente (solo si es distinto al cliente)
-            cc = []
-            if trader and trader.email and trader.email not in to:
-                cc.append(trader.email)
-
-            # Copia oculta: Solo Master (excluir emails ya en to o cc)
-            seen = set(to) | set(cc)
-            bcc = []
-            masters = User.query.filter(
-                User.role == 'Master',
-                User.status == 'Activo',
-                User.email.isnot(None)
-            ).all()
-
-            for master in masters:
-                if master.email and master.email not in seen:
-                    bcc.append(master.email)
-                    seen.add(master.email)
-
-            logger.info(f'[EMAIL] Destinatarios - TO: {to}, CC: {cc}')
-
-            # Validar que haya al menos un destinatario
-            if not to and not cc and not bcc:
-                logger.warning(f'No hay destinatarios para el cliente activado {client.id}')
-                return False, 'No hay destinatarios configurados'
+            if not client.email:
+                logger.warning(f'Cliente {client.id} no tiene email registrado')
+                return False, 'El cliente no tiene email registrado'
 
             # Obtener credenciales del email de confirmación
-            # Si no están configuradas, usar las credenciales regulares como fallback
             confirmation_username = current_app.config.get('MAIL_CONFIRMATION_USERNAME') or current_app.config.get('MAIL_USERNAME')
             confirmation_password = current_app.config.get('MAIL_CONFIRMATION_PASSWORD') or current_app.config.get('MAIL_PASSWORD')
             confirmation_sender = current_app.config.get('MAIL_CONFIRMATION_SENDER') or current_app.config.get('MAIL_DEFAULT_SENDER')
@@ -993,33 +971,56 @@ class EmailService:
             current_app.config['MAIL_DEFAULT_SENDER'] = confirmation_sender
 
             try:
-                # Crear un nuevo objeto Mail con la configuración actualizada
                 from app.extensions import mail
                 mail.init_app(current_app)
 
-                # Asunto
-                subject = f'Cuenta Activada - Bienvenido a QoriCash'
+                subject = 'Cuenta Activada - Bienvenido a QoriCash'
 
-                # Contenido HTML
-                logger.info(f'[EMAIL] Generando plantilla HTML')
-                html_body = EmailService._render_client_activation_template(client, trader)
-
-                # Crear mensaje usando Flask-Mail
-                logger.info(f'[EMAIL] Creando mensaje Flask-Mail')
-                msg = Message(
+                # ── EMAIL 1: al cliente, CON contraseña temporal ──────────────
+                logger.info(f'[EMAIL] Enviando correo al cliente {client.email} (con contraseña)')
+                html_cliente = EmailService._render_client_activation_template(client, trader, temporary_password=temporary_password)
+                msg_cliente = Message(
                     subject=subject,
                     sender=confirmation_sender,
-                    recipients=to,
-                    cc=cc if cc else None,
-                    bcc=bcc if bcc else None,
-                    html=html_body
+                    recipients=[client.email],
+                    html=html_cliente
                 )
+                EmailService._send_async(msg_cliente, timeout=15)
+                logger.info(f'[EMAIL] Correo al cliente programado: {client.email}')
 
-                # Enviar ASÍNCRONO para no bloquear el worker
-                logger.info(f'[EMAIL] Programando envío de email a TO: {to}, CC: {cc}')
-                EmailService._send_async(msg, timeout=15)
+                # ── EMAIL 2: al trader + masters, SIN contraseña temporal ─────
+                internal_to = []
+                internal_bcc = []
+                seen = {client.email}
 
-                logger.info(f'[EMAIL] Email de cliente activado programado para envío desde {confirmation_sender}: {client.id}')
+                if trader and trader.email and trader.email not in seen:
+                    internal_to.append(trader.email)
+                    seen.add(trader.email)
+
+                masters = User.query.filter(
+                    User.role == 'Master',
+                    User.status == 'Activo',
+                    User.email.isnot(None)
+                ).all()
+                for master in masters:
+                    if master.email and master.email not in seen:
+                        internal_bcc.append(master.email)
+                        seen.add(master.email)
+
+                if internal_to or internal_bcc:
+                    logger.info(f'[EMAIL] Enviando correo interno a TO: {internal_to}, BCC: {internal_bcc} (sin contraseña)')
+                    html_interno = EmailService._render_client_activation_template(client, trader, temporary_password=None)
+                    msg_interno = Message(
+                        subject=subject,
+                        sender=confirmation_sender,
+                        recipients=internal_to if internal_to else internal_bcc[:1],
+                        bcc=internal_bcc if internal_to else internal_bcc[1:],
+                        html=html_interno
+                    )
+                    EmailService._send_async(msg_interno, timeout=15)
+                    logger.info(f'[EMAIL] Correo interno programado para trader/gerencia')
+
+                logger.info(f'[EMAIL] Emails de activación programados para cliente {client.id}')
                 return True, 'Email programado para envío'
 
             finally:
@@ -1027,7 +1028,6 @@ class EmailService:
                 current_app.config['MAIL_USERNAME'] = original_username
                 current_app.config['MAIL_PASSWORD'] = original_password
                 current_app.config['MAIL_DEFAULT_SENDER'] = original_sender
-                # Reinicializar mail con configuración original
                 mail.init_app(current_app)
 
         except Exception as e:
@@ -1210,7 +1210,7 @@ class EmailService:
         return render_template_string(_wrap_email_svc(body), client=client, trader=trader, bank_accounts_text=bank_accounts_text, shared_block=shared_block)
 
     @staticmethod
-    def _render_client_activation_template(client, trader):
+    def _render_client_activation_template(client, trader, temporary_password=None):
         """Renderizar plantilla HTML para cliente activado"""
         body = """
       <tr>
@@ -1248,6 +1248,22 @@ class EmailService:
             </tr>
           </table>
 
+          {% if temporary_password %}
+          <p style="margin:0 0 10px 0;font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1.2px;">Acceso inicial</p>
+          <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#0D1B2A;border-radius:10px;overflow:hidden;margin:0 0 12px 0;">
+            <tr>
+              <td style="padding:22px 24px;text-align:center;">
+                <p style="margin:0 0 10px 0;color:rgba(255,255,255,0.50);font-size:10px;letter-spacing:0.8px;text-transform:uppercase;">Contraseña temporal de acceso</p>
+                <p style="margin:0 0 10px 0;color:#5CB85C;font-size:28px;font-family:'Courier New',Courier,monospace;font-weight:700;letter-spacing:4px;">{{ temporary_password }}</p>
+                <p style="margin:0;color:rgba(255,255,255,0.35);font-size:11px;">Cópiela exactamente como aparece</p>
+              </td>
+            </tr>
+          </table>
+          <div style="border-radius:6px;padding:13px 16px;margin:0 0 24px 0;font-size:13px;line-height:1.65;background:#FEF2F2;border-left:3px solid #EF4444;color:#7f1d1d;">
+            <strong>Seguridad:</strong> Deberá cambiar esta contraseña al iniciar sesión por primera vez. No la comparta con nadie.
+          </div>
+          {% endif %}
+
           <p style="margin:0 0 10px 0;font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1.2px;">¿Qué puede hacer ahora?</p>
           <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #E2E8F0;border-radius:8px;overflow:hidden;margin:0 0 24px 0;">
             <tr style="border-bottom:1px solid #F1F5F9;">
@@ -1279,7 +1295,7 @@ class EmailService:
           <p style="margin:0;font-size:12px;color:#94a3b8;">Para su primera operación, contacte a <strong>{{ trader.username }}</strong>{% if trader.email %} en <a href="mailto:{{ trader.email }}" style="color:#5CB85C;">{{ trader.email }}</a>{% endif %}. Gracias por confiar en QoriCash.</p>
         </td>
       </tr>"""
-        return render_template_string(_wrap_email_svc(body), client=client, trader=trader)
+        return render_template_string(_wrap_email_svc(body), client=client, trader=trader, temporary_password=temporary_password)
 
     @staticmethod
     def send_complaint_email(complaint_data):
