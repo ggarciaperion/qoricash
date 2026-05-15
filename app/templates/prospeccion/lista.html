@@ -1,395 +1,560 @@
 {% extends "base.html" %}
-{% block title %}Prospectos CRM — QoriCash{% endblock %}
+{% block title %}Prospectos — QoriCash{% endblock %}
 
 {% block styles %}
-<!-- AG Grid Community -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-grid.css">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-theme-alpine.css">
+<meta name="csrf-token" content="{{ csrf_token() }}">
 <style>
-/* ── Layout full-height ─────────────────────────────────────────── */
-.crm-wrapper { display:flex; flex-direction:column; height:calc(100vh - 58px); overflow:hidden; }
-.crm-toolbar { flex-shrink:0; padding:.6rem 1rem; background:#fff; border-bottom:1px solid #e9ecef; }
-.crm-tabs    { flex-shrink:0; padding:.3rem 1rem 0; background:#fff; border-bottom:1px solid #e9ecef; }
-.crm-filters { flex-shrink:0; padding:.5rem 1rem; background:#f8f9fa; border-bottom:1px solid #e9ecef; }
-.crm-grid    { flex:1; min-height:0; padding:.6rem 1rem .6rem; }
-#prospGrid   { height:100%; width:100%; }
+/* ── Layout ────────────────────────────────────────────────── */
+.crm-page { display:flex; flex-direction:column; height:calc(100vh - 58px); overflow:hidden; background:#f4f6f9; }
+.crm-top  { flex-shrink:0; }
+.crm-body { flex:1; overflow-y:auto; padding:0 1rem .75rem; }
 
-/* ── Tab pills ──────────────────────────────────────────────────── */
-.crm-tab { border:none; background:none; padding:.35rem .75rem; font-size:.82rem;
-           border-bottom:3px solid transparent; color:#6c757d; cursor:pointer; white-space:nowrap; }
-.crm-tab:hover { color:#0d6efd; }
-.crm-tab.active { color:#0d6efd; border-bottom-color:#0d6efd; font-weight:600; }
-.crm-tab .cnt { background:#e9ecef; color:#495057; font-size:.68rem; padding:.1rem .4rem;
-                border-radius:999px; margin-left:.3rem; }
-.crm-tab.active .cnt { background:#0d6efd; color:#fff; }
+/* ── Toolbar ───────────────────────────────────────────────── */
+.crm-toolbar {
+  background:#1a1a2e; color:#fff;
+  padding:.55rem 1rem; display:flex; align-items:center; gap:.6rem; flex-wrap:wrap;
+}
+.crm-toolbar .crm-title { font-size:1rem; font-weight:700; letter-spacing:.04em; color:#fff; margin-right:auto; }
+.crm-toolbar .btn-tool {
+  background:rgba(255,255,255,.1); color:#fff; border:1px solid rgba(255,255,255,.2);
+  font-size:.78rem; padding:.28rem .65rem; border-radius:5px; cursor:pointer;
+  transition:background .15s;
+}
+.crm-toolbar .btn-tool:hover { background:rgba(255,255,255,.2); }
+.crm-toolbar .btn-tool.btn-campana { background:#e8b84b; color:#1a1a2e; border-color:#e8b84b; font-weight:600; }
+.crm-toolbar .btn-tool.btn-campana:hover { background:#ffd166; }
 
-/* ── AG Grid overrides ──────────────────────────────────────────── */
-.ag-theme-alpine { --ag-font-size:12px; --ag-row-height:36px; --ag-header-height:38px;
-                   --ag-border-color:#dee2e6; --ag-odd-row-background-color:#fafbfc;
-                   --ag-header-background-color:#1a1a2e; --ag-header-foreground-color:#fff;
-                   --ag-selected-row-background-color:#e8f0fe; }
-.ag-theme-alpine .ag-header-cell { font-weight:600; font-size:.77rem; letter-spacing:.03em; }
-.ag-theme-alpine .ag-cell { display:flex; align-items:center; }
-.ag-theme-alpine .ag-row-hover { background:#f0f4ff !important; }
-.ag-theme-alpine .ag-cell-inline-editing { padding:2px 4px !important; }
+/* ── KPI pills ────────────────────────────────────────────── */
+.kpi-strip {
+  background:#fff; border-bottom:1px solid #e0e4ea;
+  padding:.4rem 1rem; display:flex; gap:.5rem; overflow-x:auto; flex-shrink:0;
+}
+.kpi-pill {
+  display:inline-flex; align-items:center; gap:.35rem;
+  padding:.25rem .7rem; border-radius:999px; font-size:.75rem; font-weight:600;
+  white-space:nowrap; border:1.5px solid transparent; cursor:pointer; transition:all .15s;
+}
+.kpi-pill .kpi-n { font-size:.88rem; font-weight:700; }
+.kpi-pill.k-sin   { background:#f0f0f0; color:#555; border-color:#ccc; }
+.kpi-pill.k-pres  { background:#e8f0fe; color:#1557b0; border-color:#c5d8f6; }
+.kpi-pill.k-prec  { background:#e0f7fa; color:#006064; border-color:#b2ebf2; }
+.kpi-pill.k-neg   { background:#fff8e1; color:#8d6708; border-color:#ffe082; }
+.kpi-pill.k-cli   { background:#e8f5e9; color:#1b5e20; border-color:#a5d6a7; }
+.kpi-pill.k-lfc   { background:#ede7f6; color:#4527a0; border-color:#ce93d8; }
+.kpi-pill:hover   { filter:brightness(.95); }
 
-/* ── Badge estados ──────────────────────────────────────────────── */
-.badge-estado { font-size:.68rem; padding:.2em .55em; border-radius:4px; font-weight:600; white-space:nowrap; }
-.estado-sin_contactar,.estado-  { background:#6c757d; color:#fff; }
-.estado-presentado,.estado-seguimiento,.estado-P1 { background:#0d6efd; color:#fff; }
-.estado-precio_enviado,.estado-P2 { background:#0dcaf0; color:#000; }
-.estado-negociando,.estado-negociacion,.estado-P3 { background:#ffc107; color:#000; }
-.estado-cliente,.estado-P4 { background:#198754; color:#fff; }
+/* ── Tabs ─────────────────────────────────────────────────── */
+.crm-tabs {
+  background:#fff; border-bottom:1px solid #e0e4ea;
+  padding:0 1rem; display:flex; gap:0; overflow-x:auto; flex-shrink:0;
+}
+.crm-tab {
+  padding:.5rem .9rem; font-size:.8rem; cursor:pointer; white-space:nowrap;
+  border:none; background:none; color:#6c757d;
+  border-bottom:3px solid transparent; transition:all .15s;
+}
+.crm-tab:hover { color:#1a1a2e; }
+.crm-tab.active { color:#1a1a2e; border-bottom-color:#e8b84b; font-weight:700; }
+.tab-cnt {
+  display:inline-block; background:#e9ecef; color:#495057;
+  font-size:.67rem; font-weight:700; padding:.05rem .38rem;
+  border-radius:999px; margin-left:.25rem; vertical-align:middle;
+}
+.crm-tab.active .tab-cnt { background:#1a1a2e; color:#fff; }
 
-/* ── Prioridad ──────────────────────────────────────────────────── */
-.prio-alta  { color:#dc3545; font-weight:700; }
-.prio-media { color:#fd7e14; font-weight:600; }
-.prio-baja  { color:#6c757d; }
+/* ── Filter bar ───────────────────────────────────────────── */
+.crm-filters {
+  background:#fff; border-bottom:1px solid #e0e4ea;
+  padding:.4rem 1rem; display:flex; gap:.4rem; align-items:center; flex-wrap:wrap;
+  flex-shrink:0;
+}
+.crm-filters .form-control, .crm-filters .form-select {
+  font-size:.78rem; padding:.28rem .55rem; border-color:#d0d5dd; border-radius:5px;
+}
+.crm-filters .search-wrap { position:relative; flex:1; min-width:180px; max-width:280px; }
+.crm-filters .search-wrap .bi { position:absolute; left:.5rem; top:50%; transform:translateY(-50%); color:#aaa; font-size:.85rem; }
+.crm-filters .search-wrap input { padding-left:1.7rem; }
+.filter-clear { font-size:.75rem; color:#aaa; cursor:pointer; border:none; background:none; padding:0; }
+.filter-clear:hover { color:#dc3545; }
 
-/* ── Emails cell ────────────────────────────────────────────────── */
-.email-chip { font-size:.7rem; background:#e8f0fe; color:#1a73e8; border-radius:3px;
-              padding:.1rem .35rem; max-width:160px; overflow:hidden; text-overflow:ellipsis;
-              white-space:nowrap; display:inline-block; }
-.email-add-btn { border:none; background:none; color:#0d6efd; cursor:pointer; font-size:.78rem; padding:0; }
-
-/* ── Action buttons ─────────────────────────────────────────────── */
-.act-btn { border:none; background:none; cursor:pointer; padding:2px 5px;
-           border-radius:4px; transition:background .15s; font-size:.85rem; }
-.act-btn:hover { background:#e9ecef; }
-.act-btn.send  { color:#198754; }
-.act-btn.hist  { color:#0d6efd; }
-.act-btn.call  { color:#fd7e14; }
-.act-btn.edit  { color:#6c757d; }
-
-/* ── Autosave toast ─────────────────────────────────────────────── */
-#autosaveToast { position:fixed; bottom:1.2rem; right:1.2rem; z-index:9999;
-                 background:#1a1a2e; color:#fff; padding:.45rem .9rem;
-                 border-radius:6px; font-size:.78rem; display:none;
-                 box-shadow:0 2px 12px rgba(0,0,0,.3); }
-#autosaveToast.show { display:flex; align-items:center; gap:.4rem; }
-
-/* ── Bulk action bar ────────────────────────────────────────────── */
-#bulkBar { background:#1a1a2e; color:#fff; padding:.5rem 1rem; font-size:.82rem;
-           display:none; align-items:center; gap:.75rem; flex-shrink:0; }
+/* ── Bulk bar ─────────────────────────────────────────────── */
+#bulkBar {
+  background:#1a1a2e; color:#fff; padding:.45rem 1rem;
+  display:none; align-items:center; gap:.6rem; flex-shrink:0;
+  font-size:.8rem; border-bottom:2px solid #e8b84b;
+}
 #bulkBar.show { display:flex; }
+#bulkBar .bulk-info { margin-right:auto; }
 
-/* ── Campaign panel ─────────────────────────────────────────────── */
-#campanaPanel { flex-shrink:0; }
+/* ── Table ────────────────────────────────────────────────── */
+.crm-table-wrap { background:#fff; border-radius:8px; box-shadow:0 1px 4px rgba(0,0,0,.08); overflow:hidden; margin-top:.75rem; }
+.crm-table { width:100%; border-collapse:collapse; font-size:.8rem; }
+.crm-table thead tr { background:#1a1a2e; color:#fff; }
+.crm-table thead th {
+  padding:.55rem .65rem; font-weight:600; font-size:.72rem; letter-spacing:.03em;
+  white-space:nowrap; position:sticky; top:0; z-index:2; background:#1a1a2e;
+  border:none; cursor:pointer; user-select:none;
+}
+.crm-table thead th:hover { background:#2a2a4e; }
+.crm-table thead th .sort-icon { opacity:.4; margin-left:.2rem; font-size:.7rem; }
+.crm-table thead th.sorted-asc .sort-icon::before { content:"▲"; opacity:1; }
+.crm-table thead th.sorted-desc .sort-icon::before { content:"▼"; opacity:1; }
+.crm-table tbody tr { border-bottom:1px solid #f0f2f5; transition:background .1s; cursor:pointer; }
+.crm-table tbody tr:hover { background:#f7f9ff; }
+.crm-table tbody tr.selected { background:#e8f0fe !important; }
+.crm-table tbody td { padding:.45rem .65rem; vertical-align:middle; }
 
-/* ── Filter tags ────────────────────────────────────────────────── */
-.filter-tag { background:#e8f0fe; color:#1a73e8; border-radius:4px; padding:.15rem .5rem;
-              font-size:.72rem; display:inline-flex; align-items:center; gap:.3rem; }
-.filter-tag button { border:none; background:none; color:#1a73e8; cursor:pointer; font-size:.75rem; padding:0; line-height:1; }
+/* empresa/rubro column */
+.emp-name { font-weight:600; color:#1a1a2e; line-height:1.3; font-size:.8rem; }
+.emp-sub  { font-size:.69rem; color:#888; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:200px; }
+
+/* contact chips */
+.contact-chip { font-size:.69rem; color:#555; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:170px; display:block; }
+.contact-chip.email-chip { color:#1557b0; }
+
+/* estado badge */
+.badge-estado {
+  font-size:.67rem; padding:.22em .55em; border-radius:4px; font-weight:700;
+  white-space:nowrap; cursor:pointer; transition:filter .15s;
+}
+.badge-estado:hover { filter:brightness(.9); }
+.bs-sin  { background:#e9ecef; color:#555; }
+.bs-pres { background:#0d6efd; color:#fff; }
+.bs-prec { background:#0dcaf0; color:#000; }
+.bs-neg  { background:#ffc107; color:#000; }
+.bs-cli  { background:#198754; color:#fff; }
+.bs-lfc  { background:#6f42c1; color:#fff; }
+
+/* prioridad dot */
+.prio-dot { width:8px; height:8px; border-radius:50%; display:inline-block; flex-shrink:0; }
+.prio-alta  .prio-dot { background:#dc3545; }
+.prio-media .prio-dot { background:#fd7e14; }
+.prio-baja  .prio-dot { background:#adb5bd; }
+
+/* fecha próximo contacto */
+.date-overdue { color:#dc3545; font-weight:700; }
+.date-soon    { color:#fd7e14; font-weight:600; }
+.date-ok      { color:#198754; }
+.date-empty   { color:#adb5bd; font-style:italic; }
+
+/* actions column */
+.row-actions { display:flex; gap:3px; align-items:center; flex-wrap:nowrap; }
+.act { border:none; background:none; cursor:pointer; padding:3px 5px; border-radius:4px;
+       font-size:.8rem; transition:background .12s; color:#555; }
+.act:hover { background:#e9ecef; }
+.act.a-email { color:#0d6efd; }
+.act.a-contact { color:#fd7e14; }
+.act.a-hist { color:#6c757d; }
+.act.a-detail { color:#198754; }
+.act.a-campana { color:#6f42c1; }
+
+/* ── Off-canvas panel (quick detail) ─────────────────────── */
+#sidePanel {
+  position:fixed; top:58px; right:0; bottom:0; width:380px; max-width:95vw;
+  background:#fff; box-shadow:-4px 0 20px rgba(0,0,0,.15);
+  display:flex; flex-direction:column; z-index:1050;
+  transform:translateX(110%); transition:transform .25s ease;
+}
+#sidePanel.open { transform:translateX(0); }
+.side-header { background:#1a1a2e; color:#fff; padding:.75rem 1rem; display:flex; align-items:center; gap:.5rem; }
+.side-header .side-title { font-size:.9rem; font-weight:700; flex:1; }
+.side-header .btn-close-panel { background:none; border:none; color:#fff; font-size:1.1rem; cursor:pointer; opacity:.7; }
+.side-header .btn-close-panel:hover { opacity:1; }
+.side-body { flex:1; overflow-y:auto; padding:1rem; }
+.side-section { margin-bottom:1rem; }
+.side-label { font-size:.67rem; text-transform:uppercase; letter-spacing:.08em; color:#aaa; font-weight:700; margin-bottom:.3rem; }
+.side-val { font-size:.82rem; color:#1a1a2e; }
+.side-val a { color:#0d6efd; }
+.side-grid { display:grid; grid-template-columns:1fr 1fr; gap:.5rem; }
+.side-footer { flex-shrink:0; padding:.75rem 1rem; border-top:1px solid #e0e4ea; display:flex; gap:.5rem; flex-wrap:wrap; }
+.side-footer .btn { font-size:.78rem; padding:.32rem .75rem; }
+
+/* historial items */
+.hist-item { padding:.45rem 0; border-bottom:1px solid #f0f2f5; }
+.hist-item:last-child { border:none; }
+.hist-meta { font-size:.67rem; color:#aaa; }
+.hist-desc { font-size:.77rem; color:#333; margin-top:.1rem; }
+.hist-tipo { font-size:.65rem; font-weight:700; padding:.1rem .35rem; border-radius:3px; margin-right:.3rem; }
+.ht-email   { background:#e8f0fe; color:#1557b0; }
+.ht-llamada { background:#fff3e0; color:#e65100; }
+.ht-nota    { background:#f3e5f5; color:#6a1b9a; }
+.ht-estado  { background:#e8f5e9; color:#1b5e20; }
+.ht-reunion { background:#e0f7fa; color:#006064; }
+
+/* ── Estado inline selector ──────────────────────────────── */
+.estado-menu {
+  position:absolute; background:#fff; border:1px solid #dee2e6; border-radius:6px;
+  box-shadow:0 4px 16px rgba(0,0,0,.15); z-index:2000; padding:.3rem;
+  min-width:160px; display:none;
+}
+.estado-menu.show { display:block; }
+.estado-opt {
+  padding:.3rem .6rem; border-radius:4px; cursor:pointer; font-size:.77rem;
+  display:flex; align-items:center; gap:.4rem; transition:background .1s;
+}
+.estado-opt:hover { background:#f4f6f9; }
+
+/* ── Pagination ───────────────────────────────────────────── */
+.crm-pag { display:flex; align-items:center; justify-content:space-between; padding:.5rem .25rem; font-size:.78rem; color:#6c757d; }
+.crm-pag .pag-btns { display:flex; gap:.3rem; }
+.pag-btn { border:1px solid #dee2e6; background:#fff; border-radius:4px; padding:.2rem .55rem; cursor:pointer; font-size:.75rem; color:#555; }
+.pag-btn:hover:not(:disabled) { background:#f4f6f9; }
+.pag-btn:disabled { opacity:.4; cursor:default; }
+.pag-btn.active { background:#1a1a2e; color:#fff; border-color:#1a1a2e; }
+
+/* ── Campaign panel ───────────────────────────────────────── */
+#campanaPanel {
+  background:linear-gradient(135deg,#1a1a2e,#2d2d5e); color:#fff;
+  padding:.6rem 1rem; display:none; align-items:center; gap:.75rem; flex-shrink:0;
+  font-size:.8rem; border-top:2px solid #e8b84b;
+}
+#campanaPanel.show { display:flex; }
+.camp-progress { flex:1; }
+.camp-bar-wrap { background:rgba(255,255,255,.2); border-radius:999px; height:6px; margin-top:.3rem; overflow:hidden; }
+.camp-bar { background:#e8b84b; height:100%; border-radius:999px; transition:width .4s; }
+
+/* ── Notas inline ─────────────────────────────────────────── */
+.notas-field { font-size:.78rem; border:1px solid #dee2e6; border-radius:4px; padding:.35rem .5rem;
+               width:100%; resize:vertical; min-height:60px; transition:border-color .15s; }
+.notas-field:focus { border-color:#0d6efd; outline:none; }
+.btn-save-notes { font-size:.72rem; margin-top:.3rem; }
+
+/* ── Autosave toast ───────────────────────────────────────── */
+#asToast {
+  position:fixed; bottom:1.2rem; right:1.2rem; z-index:9999;
+  background:#1a1a2e; color:#fff; padding:.4rem .85rem; border-radius:6px;
+  font-size:.76rem; display:none; align-items:center; gap:.4rem;
+  box-shadow:0 2px 12px rgba(0,0,0,.3);
+}
+#asToast.show { display:flex; }
+
+/* ── Empty state ──────────────────────────────────────────── */
+.empty-state { text-align:center; padding:3rem 1rem; color:#adb5bd; }
+.empty-state .bi { font-size:2.5rem; display:block; margin-bottom:.75rem; }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="crm-wrapper">
+<div class="crm-page" id="crmPage">
 
-  <!-- ═══════════════════ TOOLBAR ═══════════════════ -->
-  <div class="crm-toolbar d-flex align-items-center gap-2 flex-wrap">
-    <div class="me-auto">
-      <span class="fw-bold" style="font-size:1rem"><i class="bi bi-people-fill text-warning me-2"></i>Base de Prospectos</span>
-      <span class="text-muted ms-2" style="font-size:.78rem" id="gridTotalLabel"></span>
+  <!-- ── Toolbar ─────────────────────────────────────────── -->
+  <div class="crm-toolbar crm-top">
+    <span class="crm-title"><i class="bi bi-people-fill me-2"></i>Prospectos</span>
+    <span id="lblTotal" class="text-white-50" style="font-size:.76rem;"></span>
+
+    <div class="d-flex align-items-center gap-1 ms-auto">
+      <button class="btn-tool" onclick="openImport()"><i class="bi bi-upload me-1"></i>Importar</button>
+      <a href="/prospeccion/api/export-excel" class="btn-tool" style="text-decoration:none"><i class="bi bi-download me-1"></i>Exportar</a>
+      <button class="btn-tool btn-campana" onclick="openCampanaModal()"><i class="bi bi-send-fill me-1"></i>Campaña masiva</button>
     </div>
-    <!-- Filtros activos -->
-    <div id="activeTags" class="d-flex gap-1 flex-wrap"></div>
-    <!-- Acciones globales -->
-    <a href="{{ url_for('prospeccion.dashboard') }}" class="btn btn-sm btn-outline-secondary">
-      <i class="bi bi-grid-3x3-gap"></i>
-    </a>
-    <button class="btn btn-sm btn-outline-secondary" id="btnRefresh" title="Recargar datos">
-      <i class="bi bi-arrow-clockwise"></i>
-    </button>
-    <button class="btn btn-sm btn-outline-primary" id="btnImport">
-      <i class="bi bi-upload me-1"></i>Importar
-    </button>
-    <button class="btn btn-sm btn-outline-success" id="btnExport">
-      <i class="bi bi-download me-1"></i>Exportar Excel
-    </button>
-    <a href="{{ url_for('prospeccion.asignar_masivo') }}" class="btn btn-sm btn-outline-secondary">
-      <i class="bi bi-person-plus me-1"></i>Asignar
-    </a>
   </div>
 
-  <!-- ═══════════════════ TABS ═══════════════════ -->
-  <div class="crm-tabs d-flex gap-0 overflow-auto">
-    {% set tab_defs = [
-      ("todos","Todos","secondary"),("sin_contactar","Sin contactar","secondary"),
-      ("presentado","Presentado","primary"),("precio","Precio enviado","info"),
-      ("negociando","Negociando","warning"),("clientes","Clientes","success"),("lfc","LFC","success"),
-    ] %}
-    {% for tid, tlabel, _ in tab_defs %}
-    <button class="crm-tab {% if loop.first %}active{% endif %}" data-tab="{{ tid }}">
-      {{ tlabel }} <span class="cnt" id="cnt_{{ tid }}">—</span>
-    </button>
-    {% endfor %}
+  <!-- ── KPI pills ───────────────────────────────────────── -->
+  <div class="kpi-strip crm-top" id="kpiStrip">
+    <div class="kpi-pill k-sin"  onclick="setTab('sin_contactar')"><span class="kpi-n" id="k-sin">—</span> Sin contactar</div>
+    <div class="kpi-pill k-pres" onclick="setTab('presentado')"><span class="kpi-n" id="k-pres">—</span> Presentados</div>
+    <div class="kpi-pill k-prec" onclick="setTab('precio')"><span class="kpi-n" id="k-prec">—</span> Precio enviado</div>
+    <div class="kpi-pill k-neg"  onclick="setTab('negociando')"><span class="kpi-n" id="k-neg">—</span> Negociando</div>
+    <div class="kpi-pill k-cli"  onclick="setTab('clientes')"><span class="kpi-n" id="k-cli">—</span> Clientes</div>
+    <div class="kpi-pill k-lfc"  onclick="setTab('lfc')"><span class="kpi-n" id="k-lfc">—</span> LFC</div>
   </div>
 
-  <!-- ═══════════════════ FILTERS ═══════════════════ -->
-  <div class="crm-filters d-flex gap-2 flex-wrap align-items-center">
-    <div style="flex:1;min-width:200px;max-width:320px;position:relative">
-      <i class="bi bi-search" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);color:#aaa;font-size:.8rem"></i>
-      <input type="text" id="searchInput" class="form-control form-control-sm ps-4"
-             placeholder="Buscar empresa, email, RUC, contacto..." autocomplete="off">
+  <!-- ── Tab bar ─────────────────────────────────────────── -->
+  <div class="crm-tabs crm-top" id="tabBar">
+    <button class="crm-tab active" data-tab="todos"        onclick="setTab('todos')">Todos<span class="tab-cnt" id="tc-todos">—</span></button>
+    <button class="crm-tab"        data-tab="sin_contactar" onclick="setTab('sin_contactar')">Sin contactar<span class="tab-cnt" id="tc-sin">—</span></button>
+    <button class="crm-tab"        data-tab="presentado"   onclick="setTab('presentado')">Presentado<span class="tab-cnt" id="tc-pres">—</span></button>
+    <button class="crm-tab"        data-tab="precio"       onclick="setTab('precio')">Precio enviado<span class="tab-cnt" id="tc-prec">—</span></button>
+    <button class="crm-tab"        data-tab="negociando"   onclick="setTab('negociando')">Negociando<span class="tab-cnt" id="tc-neg">—</span></button>
+    <button class="crm-tab"        data-tab="clientes"     onclick="setTab('clientes')">Clientes<span class="tab-cnt" id="tc-cli">—</span></button>
+    <button class="crm-tab"        data-tab="lfc"          onclick="setTab('lfc')">LFC<span class="tab-cnt" id="tc-lfc">—</span></button>
+  </div>
+
+  <!-- ── Filter bar ──────────────────────────────────────── -->
+  <div class="crm-filters crm-top">
+    <div class="search-wrap">
+      <i class="bi bi-search"></i>
+      <input type="text" class="form-control" id="fSearch" placeholder="Empresa, email, RUC…" oninput="applyFilters()">
     </div>
-    <select id="filterEstado" class="form-select form-select-sm" style="max-width:160px">
-      <option value="">Todos los estados</option>
-      <option value="sin_contactar">Sin contactar</option>
-      <option value="presentado">Presentado</option>
-      <option value="precio_enviado">Precio enviado</option>
-      <option value="negociando">Negociando</option>
-      <option value="cliente">Cliente</option>
+    <select class="form-select" id="fDepto" onchange="applyFilters()" style="max-width:140px">
+      <option value="">Departamento</option>
     </select>
-    <select id="filterTrader" class="form-select form-select-sm" style="max-width:150px">
-      <option value="">Todos los traders</option>
+    <select class="form-select" id="fRubro" onchange="applyFilters()" style="max-width:150px">
+      <option value="">Rubro</option>
     </select>
-    <select id="filterDepto" class="form-select form-select-sm" style="max-width:150px">
-      <option value="">Todos los dptos.</option>
-    </select>
-    <select id="filterTamano" class="form-select form-select-sm" style="max-width:130px">
-      <option value="">Tamaño empresa</option>
+    <select class="form-select" id="fTamano" onchange="applyFilters()" style="max-width:130px">
+      <option value="">Tamaño</option>
       <option value="MYPE">MYPE</option>
       <option value="Pequeña">Pequeña</option>
       <option value="Mediana">Mediana</option>
       <option value="Grande">Grande</option>
     </select>
-    <select id="filterNivel" class="form-select form-select-sm" style="max-width:120px">
-      <option value="">Nivel interés</option>
+    <select class="form-select" id="fNivel" onchange="applyFilters()" style="max-width:140px">
+      <option value="">Interés</option>
       <option value="Alto">Alto</option>
       <option value="Medio">Medio</option>
       <option value="Bajo">Bajo</option>
     </select>
-    <select id="filterPrioridad" class="form-select form-select-sm" style="max-width:120px">
+    <select class="form-select" id="fPrioridad" onchange="applyFilters()" style="max-width:120px">
       <option value="">Prioridad</option>
       <option value="alta">Alta</option>
       <option value="media">Media</option>
       <option value="baja">Baja</option>
     </select>
-    <button class="btn btn-sm btn-outline-secondary" id="btnClearFilters" title="Limpiar filtros">
-      <i class="bi bi-x-circle"></i>
-    </button>
+    <button class="filter-clear" onclick="clearFilters()" title="Limpiar filtros"><i class="bi bi-x-circle"></i> Limpiar</button>
+    <span id="filterInfo" class="text-muted" style="font-size:.73rem; margin-left:auto;"></span>
   </div>
 
-  <!-- ═══════════════════ CAMPAIGN PANEL ═══════════════════ -->
-  <div id="campanaPanel" class="d-none" style="flex-shrink:0;border-left:4px solid #22c55e;background:#f0fdf4;padding:.5rem 1rem">
-    <div class="d-flex align-items-center gap-3 flex-wrap">
-      <div class="spinner-border spinner-border-sm text-success flex-shrink-0" id="cpSpinner"></div>
-      <div class="flex-grow-1">
-        <div class="d-flex justify-content-between mb-1">
-          <span class="small fw-semibold" id="cpEstado">Enviando campaña...</span>
-          <span class="small text-muted" id="cpConteo">0 / 0</span>
-        </div>
-        <div class="progress" style="height:4px">
-          <div class="progress-bar bg-success" id="cpBarra" style="width:0%"></div>
-        </div>
+  <!-- ── Bulk bar ─────────────────────────────────────────── -->
+  <div id="bulkBar" class="crm-top">
+    <span class="bulk-info"><i class="bi bi-check2-square me-1"></i><span id="bulkCount">0</span> seleccionados</span>
+    <button class="btn-tool" onclick="bulkSendCampana('presentacion')"><i class="bi bi-envelope-fill me-1"></i>Campaña Presentación</button>
+    <button class="btn-tool" style="background:rgba(255,200,60,.2);border-color:#e8b84b;color:#e8b84b;" onclick="bulkSendCampana('precio')"><i class="bi bi-currency-dollar me-1"></i>Campaña Precios</button>
+    <button class="btn-tool" style="background:rgba(220,53,69,.15);border-color:#dc3545;color:#f88;" onclick="clearSelection()"><i class="bi bi-x me-1"></i>Cancelar</button>
+  </div>
+
+  <!-- ── Campaign panel ──────────────────────────────────── -->
+  <div id="campanaPanel" class="crm-top">
+    <i class="bi bi-send-fill" style="font-size:1.1rem;color:#e8b84b;"></i>
+    <div class="camp-progress">
+      <div><strong id="campLabel">Campaña activa</strong> — <span id="campStats">0 enviados</span></div>
+      <div class="camp-bar-wrap"><div class="camp-bar" id="campBar" style="width:0%"></div></div>
+    </div>
+    <button class="btn-tool" style="background:rgba(220,53,69,.3);border-color:#dc3545;" onclick="stopCampana()"><i class="bi bi-stop-fill"></i> Detener</button>
+  </div>
+
+  <!-- ── Table ────────────────────────────────────────────── -->
+  <div class="crm-body" id="crmBody">
+    <div class="crm-table-wrap">
+      <table class="crm-table" id="prospecTable">
+        <thead>
+          <tr>
+            <th style="width:34px"><input type="checkbox" id="checkAll" onchange="toggleAll(this)"></th>
+            <th onclick="sortBy('razon_social')">Empresa / Rubro <span class="sort-icon"></span></th>
+            <th onclick="sortBy('email')">Contacto <span class="sort-icon"></span></th>
+            <th onclick="sortBy('estado_comercial')">Estado <span class="sort-icon"></span></th>
+            <th onclick="sortBy('fecha_ultimo_contacto')">Último contacto <span class="sort-icon"></span></th>
+            <th onclick="sortBy('fecha_proximo_contacto')">Próximo <span class="sort-icon"></span></th>
+            <th onclick="sortBy('num_contactos')">Contactos <span class="sort-icon"></span></th>
+            <th style="width:110px">Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+
+      <div id="emptyState" class="empty-state" style="display:none">
+        <i class="bi bi-inbox"></i>
+        <p class="mb-0">No hay prospectos que coincidan con los filtros.</p>
       </div>
-      <div class="d-flex gap-2 flex-shrink-0">
-        <div id="cpActualizarWrap" class="d-none d-flex gap-1 align-items-center">
-          <input type="number" step="0.001" id="cpNuevaCompra" class="form-control form-control-sm" placeholder="Compra" style="width:80px">
-          <input type="number" step="0.001" id="cpNuevaVenta" class="form-control form-control-sm" placeholder="Venta" style="width:80px">
-          <button class="btn btn-sm btn-outline-warning" id="btnActualizarPrecios"><i class="bi bi-arrow-repeat"></i></button>
-        </div>
-        <button class="btn btn-sm btn-danger" id="btnDetenerCampana"><i class="bi bi-stop-circle"></i> Detener</button>
-      </div>
+    </div>
+
+    <!-- Pagination -->
+    <div class="crm-pag" id="pagBar">
+      <span id="pagInfo"></span>
+      <div class="pag-btns" id="pagBtns"></div>
     </div>
   </div>
 
-  <!-- ═══════════════════ BULK ACTION BAR ═══════════════════ -->
-  <div id="bulkBar">
-    <span><b id="bulkCount">0</b> seleccionados</span>
-    <div class="d-flex gap-2 align-items-center">
-      <label class="mb-0 small">Enviar:</label>
-      <div class="d-flex gap-2">
-        <div class="form-check form-check-inline mb-0">
-          <input class="form-check-input" type="radio" name="bulk_tipo" id="bulkTipoPres" value="presentacion" checked>
-          <label class="form-check-label small text-white" for="bulkTipoPres">Presentación</label>
-        </div>
-        <div class="form-check form-check-inline mb-0">
-          <input class="form-check-input" type="radio" name="bulk_tipo" id="bulkTipoPrecio" value="precio">
-          <label class="form-check-label small text-white" for="bulkTipoPrecio">Precio</label>
-        </div>
-      </div>
-      <div id="bulkPrecioFields" class="d-none d-flex gap-1">
-        <input type="number" step="0.001" id="bulkCompra" class="form-control form-control-sm" placeholder="Compra" style="width:80px">
-        <input type="number" step="0.001" id="bulkVenta" class="form-control form-control-sm" placeholder="Venta" style="width:80px">
-      </div>
-      <button class="btn btn-sm btn-success" id="btnIniciarCampana"><i class="bi bi-send-fill"></i> Iniciar campaña</button>
-      <div class="vr bg-white opacity-25"></div>
-      <!-- Bulk campo update -->
-      <select id="bulkCampo" class="form-select form-select-sm" style="max-width:150px">
-        <option value="">Actualizar campo...</option>
-        <option value="estado_comercial">Estado comercial</option>
-        <option value="nivel_interes">Nivel interés</option>
-        <option value="prioridad">Prioridad</option>
-        <option value="tamano_empresa">Tamaño empresa</option>
-        <option value="trader_asignar">Asignar trader</option>
-      </select>
-      <input type="text" id="bulkValor" class="form-control form-control-sm" placeholder="Valor" style="max-width:120px">
-      <button class="btn btn-sm btn-warning" id="btnBulkUpdate"><i class="bi bi-pencil-square"></i> Aplicar</button>
-      <div class="vr bg-white opacity-25"></div>
-      <button class="btn btn-sm btn-outline-light" id="btnDeselecAll"><i class="bi bi-x"></i> Deseleccionar</button>
-    </div>
+</div><!-- /crm-page -->
+
+<!-- ── Off-canvas: Quick Detail Panel ──────────────────────────────── -->
+<div id="sidePanel">
+  <div class="side-header">
+    <span class="side-title" id="sideTitle">Detalle</span>
+    <a id="sideLinkFull" href="#" class="text-white" style="font-size:.72rem;opacity:.7;text-decoration:none;white-space:nowrap" target="_blank"><i class="bi bi-box-arrow-up-right"></i> Ver completo</a>
+    <button class="btn-close-panel" onclick="closePanel()"><i class="bi bi-x-lg"></i></button>
   </div>
-
-  <!-- ═══════════════════ GRID ═══════════════════ -->
-  <div class="crm-grid">
-    <div id="prospGrid" class="ag-theme-alpine"></div>
+  <div class="side-body" id="sideBody">
+    <!-- filled by JS -->
   </div>
-
-</div><!-- /crm-wrapper -->
-
-<!-- ══════════════ AUTOSAVE TOAST ══════════════ -->
-<div id="autosaveToast">
-  <span id="autosaveIcon"></span>
-  <span id="autosaveMsg"></span>
+  <div class="side-footer" id="sideFooter">
+    <!-- filled by JS -->
+  </div>
 </div>
 
-<!-- ══════════════ MODAL: Gestionar Emails ══════════════ -->
-<div class="modal fade" id="modalEmails" tabindex="-1">
+<!-- Backdrop for side panel -->
+<div id="sideBackdrop" style="display:none;position:fixed;inset:0;z-index:1049;background:rgba(0,0,0,.3);" onclick="closePanel()"></div>
+
+<!-- Estado inline menu -->
+<div class="estado-menu" id="estadoMenu"></div>
+
+<!-- Autosave toast -->
+<div id="asToast"><i class="bi bi-check-circle-fill" style="color:#6aff8f;"></i> <span id="asMsg">Guardado</span></div>
+
+
+<!-- ══════════════════════════════════════════════════════════
+     MODALES
+══════════════════════════════════════════════════════════ -->
+
+<!-- Modal: Log Contact -->
+<div class="modal fade" id="modalContact" tabindex="-1">
   <div class="modal-dialog">
     <div class="modal-content">
-      <div class="modal-header">
-        <h6 class="modal-title"><i class="bi bi-envelope-fill me-2 text-primary"></i>Emails — <span id="emailModalEmpresa"></span></h6>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      <div class="modal-header" style="background:#1a1a2e;color:#fff;">
+        <h6 class="modal-title"><i class="bi bi-phone me-2"></i>Registrar contacto</h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
-        <div id="emailList" class="mb-3"></div>
-        <div class="input-group input-group-sm">
-          <input type="email" id="newEmailInput" class="form-control" placeholder="nuevo@email.com">
-          <button class="btn btn-primary" id="btnAddEmail"><i class="bi bi-plus-lg me-1"></i>Agregar</button>
+        <input type="hidden" id="contactPid">
+        <div class="mb-2">
+          <label class="form-label" style="font-size:.8rem;">Tipo</label>
+          <select class="form-select form-select-sm" id="contactTipo">
+            <option value="llamada">Llamada telefónica</option>
+            <option value="email">Email</option>
+            <option value="reunion">Reunión</option>
+            <option value="nota">Nota interna</option>
+          </select>
         </div>
-        <small class="text-muted">Los emails solo pueden desactivarse, no eliminarse.</small>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- ══════════════ MODAL: Importar Excel ══════════════ -->
-<div class="modal fade" id="modalImport" tabindex="-1">
-  <div class="modal-dialog modal-lg">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h6 class="modal-title"><i class="bi bi-upload me-2 text-primary"></i>Importar Prospectos desde Excel</h6>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body">
-        <div id="importStep1">
-          <p class="text-muted small mb-3">El sistema detecta columnas automáticamente. Columnas soportadas:</p>
-          <div class="d-flex flex-wrap gap-1 mb-3">
-            {% for col in ["Razón Social","RUC","Nombre Contacto","Cargo","Email","Teléfono","Rubro","Departamento","Tamaño Empresa","Estado Comercial","Nivel Interés","Prioridad","Fuente","Canal","Notas"] %}
-            <span class="badge bg-light text-dark border" style="font-size:.7rem">{{ col }}</span>
-            {% endfor %}
-          </div>
-          <div class="mb-3">
-            <label class="form-label small fw-semibold">Seleccionar archivo .xlsx</label>
-            <input type="file" class="form-control form-control-sm" id="importFile" accept=".xlsx,.xls">
-          </div>
-          <p class="small text-muted">• Registros duplicados (mismo email o RUC) serán omitidos automáticamente.<br>
-             • La primera fila debe contener los encabezados de columna.</p>
+        <div class="mb-2">
+          <label class="form-label" style="font-size:.8rem;">Descripción *</label>
+          <textarea class="form-control form-control-sm" id="contactDesc" rows="3" placeholder="Qué se habló, qué resultado hubo…"></textarea>
         </div>
-        <div id="importResult" class="d-none">
-          <div id="importResultBody"></div>
+        <div class="mb-2">
+          <label class="form-label" style="font-size:.8rem;">Nuevo estado (opcional)</label>
+          <select class="form-select form-select-sm" id="contactEstado">
+            <option value="">Sin cambio</option>
+            <option value="presentado">Presentado</option>
+            <option value="precio_enviado">Precio enviado</option>
+            <option value="negociando">Negociando</option>
+            <option value="cliente">Cliente</option>
+          </select>
+        </div>
+        <div class="mb-2">
+          <label class="form-label" style="font-size:.8rem;">Próximo contacto</label>
+          <input type="date" class="form-control form-control-sm" id="contactProx">
         </div>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
-        <button class="btn btn-primary btn-sm" id="btnDoImport">
-          <i class="bi bi-upload me-1"></i>Importar
+        <button class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-sm" style="background:#1a1a2e;color:#fff;" onclick="submitContact()">Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Enviar Email -->
+<div class="modal fade" id="modalEmail" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header" style="background:#1a1a2e;color:#fff;">
+        <h6 class="modal-title"><i class="bi bi-envelope-fill me-2"></i>Enviar correo</h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="emailPid">
+        <div class="mb-2">
+          <label class="form-label" style="font-size:.8rem;">Para</label>
+          <input type="text" class="form-control form-control-sm" id="emailPara" readonly>
+        </div>
+        <div class="mb-2">
+          <label class="form-label" style="font-size:.8rem;">Tipo de correo</label>
+          <div class="d-flex gap-3">
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="emailTipo" id="emailTipoPres" value="presentacion" checked onchange="togglePrices()">
+              <label class="form-check-label" style="font-size:.8rem;" for="emailTipoPres">Presentación</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="emailTipo" id="emailTipoPrec" value="precio" onchange="togglePrices()">
+              <label class="form-check-label" style="font-size:.8rem;" for="emailTipoPrec">Precio del día</label>
+            </div>
+          </div>
+        </div>
+        <div id="pricesRow" class="row mb-2" style="display:none!important">
+          <div class="col-6">
+            <label class="form-label" style="font-size:.8rem;">Compra (S/)</label>
+            <input type="number" step="0.001" class="form-control form-control-sm" id="emailCompra" placeholder="3.710">
+          </div>
+          <div class="col-6">
+            <label class="form-label" style="font-size:.8rem;">Venta (S/)</label>
+            <input type="number" step="0.001" class="form-control form-control-sm" id="emailVenta" placeholder="3.720">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-sm" style="background:#0d6efd;color:#fff;" onclick="submitEmail()">
+          <i class="bi bi-send me-1"></i>Enviar
         </button>
       </div>
     </div>
   </div>
 </div>
 
-<!-- ══════════════ MODAL: Enviar Email ══════════════ -->
-<div class="modal fade" id="modalEnvio" tabindex="-1">
+<!-- Modal: Campaña masiva -->
+<div class="modal fade" id="modalCampana" tabindex="-1">
   <div class="modal-dialog">
     <div class="modal-content">
-      <div class="modal-header">
-        <h6 class="modal-title"><i class="bi bi-send me-2 text-success"></i>Enviar Email</h6>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      <div class="modal-header" style="background:#1a1a2e;color:#fff;">
+        <h6 class="modal-title"><i class="bi bi-megaphone-fill me-2"></i>Campaña masiva</h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
-        <div class="mb-2 small text-muted">Prospecto: <b id="envioEmpresa"></b></div>
         <div class="mb-3">
-          <label class="form-label small fw-semibold">Tipo de correo</label>
+          <label class="form-label" style="font-size:.8rem;">Tipo de campaña</label>
           <div class="d-flex gap-3">
             <div class="form-check">
-              <input class="form-check-input" type="radio" name="envio_tipo" id="envTipoPres" value="presentacion" checked>
-              <label class="form-check-label small" for="envTipoPres">Presentación</label>
+              <input class="form-check-input" type="radio" name="campTipo" id="campTipoPres" value="presentacion" checked onchange="toggleCampPrices()">
+              <label class="form-check-label" style="font-size:.8rem;" for="campTipoPres">Presentación</label>
             </div>
             <div class="form-check">
-              <input class="form-check-input" type="radio" name="envio_tipo" id="envTipoPrecio" value="precio">
-              <label class="form-check-label small" for="envTipoPrecio">Precio</label>
+              <input class="form-check-input" type="radio" name="campTipo" id="campTipoPrec" value="precio" onchange="toggleCampPrices()">
+              <label class="form-check-label" style="font-size:.8rem;" for="campTipoPrec">Precio del día</label>
             </div>
           </div>
         </div>
-        <div id="envioPrecioFields" class="d-none row g-2 mb-3">
+        <div id="campPricesRow" class="row mb-3" style="display:none!important">
           <div class="col-6">
-            <label class="form-label small">Compra</label>
-            <input type="number" step="0.001" id="envioCompra" class="form-control form-control-sm" placeholder="3.6800">
+            <label class="form-label" style="font-size:.8rem;">Compra (S/)</label>
+            <input type="number" step="0.001" class="form-control form-control-sm" id="campCompra" placeholder="3.710">
           </div>
           <div class="col-6">
-            <label class="form-label small">Venta</label>
-            <input type="number" step="0.001" id="envioVenta" class="form-control form-control-sm" placeholder="3.7200">
+            <label class="form-label" style="font-size:.8rem;">Venta (S/)</label>
+            <input type="number" step="0.001" class="form-control form-control-sm" id="campVenta" placeholder="3.720">
           </div>
         </div>
-        <div class="mb-2 small fw-semibold">Email destino: <span id="envioEmail" class="text-primary"></span></div>
-        <div id="envioMsg" class="d-none alert alert-sm p-2 small"></div>
+        <div id="campTargetInfo" class="alert alert-info py-2" style="font-size:.8rem;"></div>
+        <p class="text-muted" style="font-size:.77rem;">La campaña se envía en segundo plano. Puedes seguir usando el sistema mientras corre.</p>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
-        <button class="btn btn-success btn-sm" id="btnDoEnvio"><i class="bi bi-send me-1"></i>Enviar</button>
+        <button class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-sm" style="background:#e8b84b;color:#1a1a2e;font-weight:700;" onclick="launchCampana()">
+          <i class="bi bi-send-fill me-1"></i>Iniciar campaña
+        </button>
       </div>
     </div>
   </div>
 </div>
 
-<!-- ══════════════ MODAL: Registrar Contacto Rápido ══════════════ -->
-<div class="modal fade" id="modalContacto" tabindex="-1">
+<!-- Modal: Importar Excel -->
+<div class="modal fade" id="modalImport" tabindex="-1">
   <div class="modal-dialog">
     <div class="modal-content">
-      <div class="modal-header">
-        <h6 class="modal-title"><i class="bi bi-telephone-plus me-2 text-warning"></i>Registrar Contacto</h6>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      <div class="modal-header" style="background:#1a1a2e;color:#fff;">
+        <h6 class="modal-title"><i class="bi bi-upload me-2"></i>Importar prospectos</h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
-        <div class="mb-2 small text-muted">Prospecto: <b id="contactoEmpresa"></b></div>
-        <div class="mb-3">
-          <label class="form-label small fw-semibold">Tipo</label>
-          <select id="contactoTipo" class="form-select form-select-sm">
-            <option value="llamada">Llamada</option>
-            <option value="email">Email</option>
-            <option value="reunion">Reunión</option>
-            <option value="whatsapp">WhatsApp</option>
-            <option value="nota">Nota interna</option>
-          </select>
-        </div>
-        <div class="mb-3">
-          <label class="form-label small fw-semibold">Descripción</label>
-          <textarea id="contactoDesc" class="form-control form-control-sm" rows="2" placeholder="¿Qué ocurrió?"></textarea>
-        </div>
-        <div class="row g-2">
-          <div class="col-6">
-            <label class="form-label small fw-semibold">Nuevo estado (opcional)</label>
-            <select id="contactoEstado" class="form-select form-select-sm">
-              <option value="">Sin cambio</option>
-              <option value="presentado">Presentado</option>
-              <option value="precio_enviado">Precio enviado</option>
-              <option value="negociando">Negociando</option>
-              <option value="cliente">Cliente</option>
-            </select>
-          </div>
-          <div class="col-6">
-            <label class="form-label small fw-semibold">Próximo contacto</label>
-            <input type="date" id="contactoProximo" class="form-control form-control-sm">
-          </div>
-        </div>
+        <p style="font-size:.8rem;" class="text-muted">Selecciona un archivo Excel (.xlsx) con columnas estándar. Los registros existentes (mismo email) serán actualizados.</p>
+        <input type="file" class="form-control form-control-sm" id="importFile" accept=".xlsx,.xls">
       </div>
       <div class="modal-footer">
-        <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
-        <button class="btn btn-warning btn-sm" id="btnDoContacto"><i class="bi bi-check-lg me-1"></i>Registrar</button>
+        <button class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-sm btn-primary" onclick="submitImport()">Importar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Historial -->
+<div class="modal fade" id="modalHist" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header" style="background:#1a1a2e;color:#fff;">
+        <h6 class="modal-title" id="histTitle"><i class="bi bi-clock-history me-2"></i>Historial</h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="histBody" style="max-height:60vh;overflow-y:auto;">
+        <div class="text-center py-3 text-muted">Cargando…</div>
       </div>
     </div>
   </div>
@@ -398,804 +563,789 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/dist/ag-grid-community.min.js"></script>
 <script>
-'use strict';
-const CSRF = document.querySelector('meta[name="csrf-token"]').content;
-
-// ══════════════════════════════════════════════
-// ESTADO GLOBAL
-// ══════════════════════════════════════════════
-let gridApi = null;
-let currentTab = 'todos';
-let activeFilters = { q: '', estado: '', trader_id: '', depto: '', tamano: '', nivel_interes: '', prioridad: '' };
-let _currentEmailPid = null;
-let _currentEnvioPid = null;
-let _currentContactoPid = null;
-let _saveTimers = {};
-let _metaCache = { traders: [], rubros: [], deptos: [] };
-
-// ══════════════════════════════════════════════
-// CELL RENDERERS
-// ══════════════════════════════════════════════
-const ESTADO_MAP = {
-  'sin_contactar':  ['estado-sin_contactar',  'Sin contactar'],
-  '':               ['estado-sin_contactar',  'Sin contactar'],
-  'presentado':     ['estado-presentado',      'Presentado'],
-  'seguimiento':    ['estado-seguimiento',     'Presentado'],
-  'P1':             ['estado-P1',              'Presentado'],
-  'precio_enviado': ['estado-precio_enviado',  'Precio enviado'],
-  'P2':             ['estado-P2',              'Precio enviado'],
-  'negociando':     ['estado-negociando',      'Negociando'],
-  'negociacion':    ['estado-negociacion',     'Negociando'],
-  'P3':             ['estado-P3',              'Negociando'],
-  'cliente':        ['estado-cliente',         'Cliente'],
-  'P4':             ['estado-P4',              'Cliente'],
-};
-
-function estadoRenderer(params) {
-  const v = params.value || '';
-  const [cls, label] = ESTADO_MAP[v] || ['estado-sin_contactar', v || 'Sin contactar'];
-  return `<span class="badge-estado ${cls}">${label}</span>`;
+/* ═══════════════════════════════════════════════════════
+   CSRF
+═══════════════════════════════════════════════════════ */
+function csrfToken() {
+  return document.querySelector('meta[name=csrf-token]')?.content || '';
+}
+function csrfHeaders(extra) {
+  return Object.assign({'Content-Type':'application/json','X-CSRFToken':csrfToken()}, extra||{});
+}
+function csrfFd(fd) {
+  fd.append('csrf_token', csrfToken()); return fd;
 }
 
-function prioridadRenderer(params) {
-  const v = (params.value || '').toLowerCase();
-  const map = { alta: ['prio-alta','↑ Alta'], media: ['prio-media','→ Media'], baja: ['prio-baja','↓ Baja'] };
-  const [cls, label] = map[v] || ['prio-baja', v || '—'];
-  return v ? `<span class="${cls}">${label}</span>` : '<span class="text-muted">—</span>';
-}
+/* ═══════════════════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════════════════ */
+let _allRows = [];     // all data from API
+let _filtered = [];    // after client-side filter
+let _currentTab = 'todos';
+let _page = 1;
+const PAGE_SIZE = 100;
+let _sortCol = 'actualizado_en';
+let _sortDir = -1;     // -1=desc, 1=asc
+let _selected = new Set();   // set of ids
+let _campPollTimer = null;
+let _campBulkIds = [];  // ids selected for campaign
 
-function empresaRenderer(params) {
-  const p = params.data;
-  const nombre = p.razon_social || '(Sin nombre)';
-  const sub = [p.tipo, p.rubro].filter(Boolean).join(' · ');
-  return `<div>
-    <a href="/prospeccion/${p.id}" target="_blank" class="text-decoration-none fw-semibold text-dark" style="font-size:.8rem">${escHtml(nombre)}</a>
-    ${sub ? `<div class="text-muted" style="font-size:.68rem;line-height:1.3">${escHtml(sub)}</div>` : ''}
-  </div>`;
-}
-
-class EmailCellRenderer {
-  init(params) {
-    this.eGui = document.createElement('div');
-    this.eGui.style.cssText = 'display:flex;align-items:center;gap:4px;flex-wrap:nowrap;overflow:hidden';
-    this.refresh(params);
-  }
-  refresh(params) {
-    const emails = params.value || [];
-    const chips = emails.slice(0, 2).map(e =>
-      `<span class="email-chip" title="${escHtml(e)}">${escHtml(e)}</span>`).join('');
-    const more = emails.length > 2 ? `<span class="badge bg-secondary" style="font-size:.62rem">+${emails.length - 2}</span>` : '';
-    const btn = `<button class="email-add-btn" onclick="openEmailManager(${params.data.id})" title="Gestionar emails"><i class="bi bi-plus-circle"></i></button>`;
-    this.eGui.innerHTML = chips + more + btn;
-    return true;
-  }
-  getGui() { return this.eGui; }
-}
-
-class ActionsCellRenderer {
-  init(params) {
-    this.eGui = document.createElement('div');
-    this.eGui.style.cssText = 'display:flex;align-items:center;gap:2px';
-    const p = params.data;
-    this.eGui.innerHTML = `
-      <button class="act-btn hist" title="Ver historial" onclick="window.open('/prospeccion/${p.id}','_blank')"><i class="bi bi-clock-history"></i></button>
-      <button class="act-btn send" title="Enviar email" onclick="openSendEmail(${p.id})"><i class="bi bi-send"></i></button>
-      <button class="act-btn call" title="Registrar contacto" onclick="openQuickContact(${p.id})"><i class="bi bi-telephone-plus"></i></button>
-    `;
-  }
-  getGui() { return this.eGui; }
-}
-
-function escHtml(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
-// ══════════════════════════════════════════════
-// COLUMN DEFINITIONS
-// ══════════════════════════════════════════════
-const SELECT_EDITOR_ESTADO = {
-  cellEditor: 'agSelectCellEditor',
-  cellEditorParams: { values: ['sin_contactar','presentado','precio_enviado','negociando','cliente'] },
-};
-const SELECT_EDITOR_NIVEL = {
-  cellEditor: 'agSelectCellEditor',
-  cellEditorParams: { values: ['','Alto','Medio','Bajo'] },
-};
-const SELECT_EDITOR_PRIORIDAD = {
-  cellEditor: 'agSelectCellEditor',
-  cellEditorParams: { values: ['','alta','media','baja'] },
-};
-const SELECT_EDITOR_TAMANO = {
-  cellEditor: 'agSelectCellEditor',
-  cellEditorParams: { values: ['','MYPE','Pequeña','Mediana','Grande'] },
-};
-
-const columnDefs = [
-  { checkboxSelection: true, headerCheckboxSelection: true, width: 40, pinned: 'left',
-    suppressHeaderMenuButton: true, resizable: false, sortable: false },
-  { field: 'id', headerName: '#', width: 65, pinned: 'left', sortable: true },
-  { field: 'razon_social', headerName: 'Empresa', width: 230, pinned: 'left', editable: true,
-    cellRenderer: empresaRenderer, autoHeight: false },
-  { field: 'ruc', headerName: 'RUC', width: 115, editable: true },
-  { field: 'nombre_contacto', headerName: 'Contacto', width: 160, editable: true },
-  { field: 'cargo', headerName: 'Cargo', width: 140, editable: true },
-  { field: 'telefono', headerName: 'Teléfono', width: 120, editable: true },
-  { field: 'telefono_alt', headerName: 'Tel. Alt', width: 115, editable: true },
-  { field: 'emails', headerName: 'Email(s)', width: 220, cellRenderer: EmailCellRenderer,
-    sortable: false, suppressHeaderMenuButton: false,
-    valueGetter: (p) => p.data.emails,
-    filterValueGetter: (p) => (p.data.emails || []).join(' ') },
-  { field: 'rubro', headerName: 'Rubro', width: 150, editable: true },
-  { field: 'departamento', headerName: 'Ciudad', width: 115, editable: true },
-  { field: 'provincia', headerName: 'Provincia', width: 110, editable: true },
-  { field: 'tamano_empresa', headerName: 'Tamaño', width: 100, editable: true, ...SELECT_EDITOR_TAMANO },
-  { field: 'volumen_estimado_usd', headerName: 'Vol. Est. USD', width: 120, editable: true, type: 'numericColumn',
-    valueFormatter: (p) => p.value ? '$' + Number(p.value).toLocaleString('es-PE') : '' },
-  { field: 'estado_comercial', headerName: 'Estado', width: 130, editable: true,
-    cellRenderer: estadoRenderer, ...SELECT_EDITOR_ESTADO },
-  { field: 'nivel_interes', headerName: 'Interés', width: 100, editable: true, ...SELECT_EDITOR_NIVEL },
-  { field: 'prioridad', headerName: 'Prioridad', width: 95, editable: true,
-    cellRenderer: prioridadRenderer, ...SELECT_EDITOR_PRIORIDAD },
-  { field: 'fecha_ultimo_contacto', headerName: 'Últ. Contacto', width: 130,
-    valueFormatter: (p) => p.value ? p.value.substring(0,10) : '—' },
-  { field: 'fecha_proximo_contacto', headerName: 'Próx. Contacto', width: 130, editable: true,
-    cellEditor: 'agTextCellEditor' },
-  { field: 'num_contactos', headerName: 'Contactos', width: 90, type: 'numericColumn' },
-  { field: 'trader', headerName: 'Trader', width: 110 },
-  { field: 'fuente', headerName: 'Fuente', width: 110, editable: true },
-  { field: 'canal', headerName: 'Canal', width: 100, editable: true },
-  { field: 'grupo', headerName: 'Grupo', width: 140, editable: true },
-  { field: 'notas', headerName: 'Notas', width: 220, editable: true,
-    cellEditor: 'agLargeTextCellEditor', cellEditorPopup: true,
-    cellEditorParams: { maxLength: 1000, rows: 4, cols: 40 } },
-  { field: 'creado_en', headerName: 'Creado', width: 100 },
-  { field: 'actualizado_en', headerName: 'Actualizado', width: 130 },
-  { headerName: '', width: 100, pinned: 'right', cellRenderer: ActionsCellRenderer,
-    suppressHeaderMenuButton: true, sortable: false, resizable: false },
-];
-
-// ══════════════════════════════════════════════
-// GRID INIT
-// ══════════════════════════════════════════════
-const gridOptions = {
-  columnDefs,
-  rowData: [],
-  defaultColDef: {
-    sortable: true,
-    resizable: true,
-    filter: true,
-    suppressHeaderMenuButton: false,
-    floatingFilter: false,
-  },
-  animateRows: true,
-  rowSelection: 'multiple',
-  suppressRowClickSelection: true,
-  enableCellTextSelection: true,
-  singleClickEdit: false,
-  stopEditingWhenCellsLoseFocus: true,
-  onCellValueChanged: onCellChanged,
-  onSelectionChanged: onSelectionChanged,
-  getRowId: (p) => String(p.data.id),
-  overlayLoadingTemplate: '<div class="spinner-border text-primary" role="status"></div>',
-  overlayNoRowsTemplate: '<span class="text-muted">No se encontraron prospectos con los filtros actuales.</span>',
-};
-
-document.addEventListener('DOMContentLoaded', () => {
-  const el = document.getElementById('prospGrid');
-  gridApi = agGrid.createGrid(el, gridOptions);
-  loadGridData();
-  setupEventListeners();
-  checkCampanaEstado();
-});
-
-// ══════════════════════════════════════════════
-// DATA LOAD
-// ══════════════════════════════════════════════
-async function loadGridData() {
-  if (!gridApi) return;
-  gridApi.showLoadingOverlay();
-
-  const params = new URLSearchParams();
-  params.set('tab', currentTab);
-  Object.entries(activeFilters).forEach(([k, v]) => { if (v) params.set(k, v); });
-
+/* ═══════════════════════════════════════════════════════
+   LOAD DATA
+═══════════════════════════════════════════════════════ */
+async function loadData() {
+  const params = new URLSearchParams({ tab: _currentTab });
   try {
-    const res  = await fetch('/prospeccion/api/grid?' + params);
-    const data = await res.json();
-
-    if (!res.ok || data.error) {
-      gridApi.hideOverlay();
-      gridApi.setGridOption('rowData', []);
-      Swal.fire('Error al cargar prospectos', data.error || 'Error del servidor', 'error');
+    const r = await fetch('/prospeccion/api/grid?' + params);
+    const d = await r.json();
+    if (!d.ok) {
+      Swal.fire({ icon:'error', title:'Error al cargar', text: d.error || 'Error desconocido', confirmButtonColor:'#1a1a2e' });
       return;
     }
-
-    gridApi.setGridOption('rowData', data.rows);
-
-    // Update tab counts
-    Object.entries(data.counts).forEach(([tab, cnt]) => {
-      const el = document.getElementById('cnt_' + tab);
-      if (el) el.textContent = cnt;
-    });
-    document.getElementById('gridTotalLabel').textContent =
-      `${data.rows.length} de ${data.counts.todos + data.counts.clientes} prospectos`;
-
-    // Populate filter dropdowns (once)
-    if (data.traders && !document.querySelector('#filterTrader option[value="loaded"]')) {
-      const sel = document.getElementById('filterTrader');
-      data.traders.forEach(t => {
-        const o = new Option(t.username, t.id);
-        sel.add(o);
-      });
-      sel.add(new Option('loaded', 'loaded')).style.display = 'none';
-      _metaCache.traders = data.traders;
-    }
-    if (data.deptos) {
-      const sel = document.getElementById('filterDepto');
-      if (sel.options.length <= 1) {
-        data.deptos.forEach(d => sel.add(new Option(d, d)));
-      }
-    }
-
-    if (data.rows.length === 0) gridApi.showNoRowsOverlay();
-    else gridApi.hideOverlay();
+    _allRows = d.rows || [];
+    updateCounts(d.counts);
+    populateFilters(d.rubros, d.deptos);
+    applyFilters();
+    checkCampanaStatus();
   } catch(e) {
     console.error(e);
-    gridApi.hideOverlay();
   }
 }
 
-// ══════════════════════════════════════════════
-// AUTO-SAVE (debounced, per-cell)
-// ══════════════════════════════════════════════
-function onCellChanged(event) {
-  const pid   = event.data.id;
-  const campo = event.column.getColId();
-  const valor = event.newValue;
-  const key   = `${pid}_${campo}`;
+function updateCounts(c) {
+  if (!c) return;
+  const map = {
+    'todos': ['tc-todos','k-sin'],
+    'sin_contactar': ['tc-sin','k-sin'],
+    'presentado':    ['tc-pres','k-pres'],
+    'precio':        ['tc-prec','k-prec'],
+    'negociando':    ['tc-neg','k-neg'],
+    'clientes':      ['tc-cli','k-cli'],
+    'lfc':           ['tc-lfc','k-lfc'],
+  };
+  document.getElementById('tc-todos').textContent = c.todos ?? '—';
+  document.getElementById('tc-sin').textContent   = c.sin_contactar ?? '—';
+  document.getElementById('tc-pres').textContent  = c.presentado ?? '—';
+  document.getElementById('tc-prec').textContent  = c.precio ?? '—';
+  document.getElementById('tc-neg').textContent   = c.negociando ?? '—';
+  document.getElementById('tc-cli').textContent   = c.clientes ?? '—';
+  document.getElementById('tc-lfc').textContent   = c.lfc ?? '—';
+  document.getElementById('k-sin').textContent    = c.sin_contactar ?? '—';
+  document.getElementById('k-pres').textContent   = c.presentado ?? '—';
+  document.getElementById('k-prec').textContent   = c.precio ?? '—';
+  document.getElementById('k-neg').textContent    = c.negociando ?? '—';
+  document.getElementById('k-cli').textContent    = c.clientes ?? '—';
+  document.getElementById('k-lfc').textContent    = c.lfc ?? '—';
+}
 
-  clearTimeout(_saveTimers[key]);
-  _saveTimers[key] = setTimeout(async () => {
-    showAutosave('saving');
-    try {
-      const r = await fetch(`/prospeccion/api/${pid}/campo`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
-        body: JSON.stringify({ campo, valor }),
-      });
-      const d = await r.json();
-      if (d.ok) {
-        showAutosave('saved');
-        // Update emails array if email field changed
-        if (campo === 'email') {
-          const node = gridApi.getRowNode(String(pid));
-          if (node) {
-            const emails = [valor, ...(node.data.emails || []).slice(1)].filter(Boolean);
-            node.setDataValue('emails', emails);
-          }
-        }
-      } else {
-        showAutosave('error', d.error);
-        // Revert cell
-        event.node.setDataValue(campo, event.oldValue);
-      }
-    } catch(e) {
-      showAutosave('error', 'Error de conexión');
-      event.node.setDataValue(campo, event.oldValue);
+function populateFilters(rubros, deptos) {
+  const fR = document.getElementById('fRubro');
+  const fD = document.getElementById('fDepto');
+  const curR = fR.value, curD = fD.value;
+  fR.innerHTML = '<option value="">Rubro</option>' +
+    (rubros||[]).map(r=>`<option value="${esc(r)}">${esc(r)}</option>`).join('');
+  fD.innerHTML = '<option value="">Departamento</option>' +
+    (deptos||[]).map(d=>`<option value="${esc(d)}">${esc(d)}</option>`).join('');
+  fR.value = curR; fD.value = curD;
+}
+
+/* ═══════════════════════════════════════════════════════
+   TABS
+═══════════════════════════════════════════════════════ */
+function setTab(tab) {
+  _currentTab = tab;
+  _page = 1;
+  document.querySelectorAll('.crm-tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.tab === tab);
+  });
+  clearSelection();
+  loadData();
+}
+
+/* ═══════════════════════════════════════════════════════
+   CLIENT-SIDE FILTERING
+═══════════════════════════════════════════════════════ */
+let _filterTimer;
+function applyFilters() {
+  clearTimeout(_filterTimer);
+  _filterTimer = setTimeout(_doFilter, 120);
+}
+
+function _doFilter() {
+  const q      = document.getElementById('fSearch').value.toLowerCase().trim();
+  const depto  = document.getElementById('fDepto').value;
+  const rubro  = document.getElementById('fRubro').value;
+  const tamano = document.getElementById('fTamano').value;
+  const nivel  = document.getElementById('fNivel').value;
+  const prio   = document.getElementById('fPrioridad').value;
+  const hasFilter = q || depto || rubro || tamano || nivel || prio;
+
+  _filtered = _allRows.filter(r => {
+    if (q && !`${r.razon_social} ${r.email} ${r.nombre_contacto} ${r.ruc} ${r.telefono}`.toLowerCase().includes(q)) return false;
+    if (depto  && r.departamento !== depto) return false;
+    if (rubro  && r.rubro !== rubro) return false;
+    if (tamano && r.tamano_empresa !== tamano) return false;
+    if (nivel  && r.nivel_interes !== nivel) return false;
+    if (prio   && r.prioridad !== prio) return false;
+    return true;
+  });
+
+  // sort
+  _filtered.sort((a,b) => {
+    const av = a[_sortCol] ?? '', bv = b[_sortCol] ?? '';
+    if (av < bv) return -1 * _sortDir;
+    if (av > bv) return  1 * _sortDir;
+    return 0;
+  });
+
+  _page = 1;
+  renderTable();
+  document.getElementById('filterInfo').textContent =
+    hasFilter ? `${_filtered.length.toLocaleString()} de ${_allRows.length.toLocaleString()}` : '';
+}
+
+function clearFilters() {
+  ['fSearch','fDepto','fRubro','fTamano','fNivel','fPrioridad'].forEach(id => {
+    const el = document.getElementById(id);
+    el.value = '';
+  });
+  applyFilters();
+}
+
+/* ═══════════════════════════════════════════════════════
+   SORT
+═══════════════════════════════════════════════════════ */
+function sortBy(col) {
+  if (_sortCol === col) _sortDir *= -1;
+  else { _sortCol = col; _sortDir = 1; }
+  document.querySelectorAll('.crm-table thead th').forEach(th => {
+    th.classList.remove('sorted-asc','sorted-desc');
+  });
+  // find header
+  document.querySelectorAll('.crm-table thead th').forEach(th => {
+    if (th.getAttribute('onclick') === `sortBy('${col}')`) {
+      th.classList.add(_sortDir === 1 ? 'sorted-asc' : 'sorted-desc');
     }
-  }, 600);
+  });
+  _doFilter();
 }
 
-function showAutosave(state, msg = '') {
-  const toast = document.getElementById('autosaveToast');
-  const icon  = document.getElementById('autosaveIcon');
-  const msgEl = document.getElementById('autosaveMsg');
-  clearTimeout(window._autosaveHide);
-  toast.className = 'show';
-  if (state === 'saving') {
-    icon.innerHTML  = '<span class="spinner-border spinner-border-sm" style="width:.7rem;height:.7rem"></span>';
-    msgEl.textContent = 'Guardando…';
-    toast.style.background = '#1a1a2e';
-  } else if (state === 'saved') {
-    icon.innerHTML  = '✓';
-    msgEl.textContent = 'Guardado';
-    toast.style.background = '#198754';
-    window._autosaveHide = setTimeout(() => { toast.className = ''; }, 2000);
-  } else {
-    icon.innerHTML  = '✕';
-    msgEl.textContent = 'Error: ' + (msg || 'no guardado');
-    toast.style.background = '#dc3545';
-    window._autosaveHide = setTimeout(() => { toast.className = ''; }, 3500);
+/* ═══════════════════════════════════════════════════════
+   RENDER TABLE
+═══════════════════════════════════════════════════════ */
+function renderTable() {
+  const tbody = document.getElementById('tbody');
+  const empty = document.getElementById('emptyState');
+  const total = _filtered.length;
+  document.getElementById('lblTotal').textContent = total > 0 ? `${total.toLocaleString()} prospectos` : '';
+
+  if (total === 0) {
+    tbody.innerHTML = '';
+    empty.style.display = '';
+    renderPag(0);
+    return;
   }
+  empty.style.display = 'none';
+
+  const start = (_page - 1) * PAGE_SIZE;
+  const slice = _filtered.slice(start, start + PAGE_SIZE);
+
+  tbody.innerHTML = slice.map(r => rowHtml(r)).join('');
+  renderPag(total);
+
+  // restore checkboxes
+  tbody.querySelectorAll('.row-chk').forEach(cb => {
+    cb.checked = _selected.has(parseInt(cb.value));
+    cb.closest('tr').classList.toggle('selected', cb.checked);
+  });
+  updateBulkBar();
 }
 
-// ══════════════════════════════════════════════
-// SELECTION → BULK BAR
-// ══════════════════════════════════════════════
-function onSelectionChanged() {
-  const rows = gridApi.getSelectedRows();
-  const bar  = document.getElementById('bulkBar');
-  document.getElementById('bulkCount').textContent = rows.length;
-  bar.classList.toggle('show', rows.length > 0);
-}
+function rowHtml(r) {
+  const badge   = estadoBadge(r.estado_comercial);
+  const emails  = (r.emails||[r.email]).filter(Boolean);
+  const emailStr = emails[0] || '—';
+  const emailMore = emails.length > 1 ? `<span class="contact-chip" style="color:#aaa;">+${emails.length-1} más</span>` : '';
+  const proxDate = formatProx(r.fecha_proximo_contacto);
+  const ultDate  = r.fecha_ultimo_contacto ? r.fecha_ultimo_contacto.slice(0,10) : '—';
+  const prioClass = r.prioridad ? `prio-${r.prioridad}` : '';
+  const prio = r.prioridad ? `<span class="prio-dot"></span>` : '';
 
-// ══════════════════════════════════════════════
-// FILTERS & TABS
-// ══════════════════════════════════════════════
-function setupEventListeners() {
-  // Tabs
-  document.querySelectorAll('.crm-tab').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.crm-tab').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      currentTab = btn.dataset.tab;
-      loadGridData();
-    });
-  });
-
-  // Search (debounced)
-  let searchTimer;
-  document.getElementById('searchInput').addEventListener('input', (e) => {
-    clearTimeout(searchTimer);
-    searchTimer = setTimeout(() => {
-      activeFilters.q = e.target.value.trim();
-      updateActiveTags();
-      loadGridData();
-    }, 350);
-  });
-
-  // Filter dropdowns
-  ['filterEstado','filterTrader','filterDepto','filterTamano','filterNivel','filterPrioridad'].forEach(id => {
-    document.getElementById(id).addEventListener('change', (e) => {
-      const map = {
-        filterEstado: 'estado', filterTrader: 'trader_id', filterDepto: 'depto',
-        filterTamano: 'tamano', filterNivel: 'nivel_interes', filterPrioridad: 'prioridad',
-      };
-      activeFilters[map[id]] = e.target.value;
-      updateActiveTags();
-      loadGridData();
-    });
-  });
-
-  // Clear filters
-  document.getElementById('btnClearFilters').addEventListener('click', () => {
-    activeFilters = { q:'', estado:'', trader_id:'', depto:'', tamano:'', nivel_interes:'', prioridad:'' };
-    document.getElementById('searchInput').value = '';
-    document.getElementById('filterEstado').value = '';
-    document.getElementById('filterTrader').value = '';
-    document.getElementById('filterDepto').value = '';
-    document.getElementById('filterTamano').value = '';
-    document.getElementById('filterNivel').value = '';
-    document.getElementById('filterPrioridad').value = '';
-    updateActiveTags();
-    loadGridData();
-  });
-
-  // Refresh
-  document.getElementById('btnRefresh').addEventListener('click', loadGridData);
-
-  // Export
-  document.getElementById('btnExport').addEventListener('click', () => {
-    window.location.href = '/prospeccion/api/export-excel';
-  });
-
-  // Import modal
-  document.getElementById('btnImport').addEventListener('click', () => {
-    document.getElementById('importStep1').classList.remove('d-none');
-    document.getElementById('importResult').classList.add('d-none');
-    document.getElementById('importFile').value = '';
-    new bootstrap.Modal(document.getElementById('modalImport')).show();
-  });
-  document.getElementById('btnDoImport').addEventListener('click', doImport);
-
-  // Email modal add
-  document.getElementById('btnAddEmail').addEventListener('click', doAddEmail);
-  document.getElementById('newEmailInput').addEventListener('keydown', e => {
-    if (e.key === 'Enter') doAddEmail();
-  });
-
-  // Envio email tipo toggle
-  document.querySelectorAll('input[name="envio_tipo"]').forEach(r => {
-    r.addEventListener('change', () => {
-      document.getElementById('envioPrecioFields').classList.toggle('d-none', r.value !== 'precio');
-    });
-  });
-  document.getElementById('btnDoEnvio').addEventListener('click', doEnvioEmail);
-
-  // Contacto rápido
-  document.getElementById('btnDoContacto').addEventListener('click', doQuickContact);
-
-  // Bulk actions
-  document.getElementById('btnDeselecAll').addEventListener('click', () => {
-    gridApi.deselectAll();
-  });
-  document.querySelectorAll('input[name="bulk_tipo"]').forEach(r => {
-    r.addEventListener('change', () => {
-      document.getElementById('bulkPrecioFields').classList.toggle('d-none', r.value !== 'precio');
-    });
-  });
-  document.getElementById('btnIniciarCampana').addEventListener('click', doCampanaMasiva);
-  document.getElementById('btnBulkUpdate').addEventListener('click', doBulkUpdate);
-
-  // Detener campaña
-  document.getElementById('btnDetenerCampana').addEventListener('click', async () => {
-    await fetch('/prospeccion/campana/detener', { method: 'POST', headers: { 'X-CSRFToken': CSRF } });
-  });
-  document.getElementById('btnActualizarPrecios').addEventListener('click', async () => {
-    const c = document.getElementById('cpNuevaCompra').value;
-    const v = document.getElementById('cpNuevaVenta').value;
-    if (!c || !v) return;
-    await fetch('/prospeccion/campana/actualizar-precios', {
-      method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
-      body: JSON.stringify({ compra: parseFloat(c), venta: parseFloat(v) }),
-    });
-  });
-}
-
-function updateActiveTags() {
-  const labels = {
-    q: 'Búsqueda', estado: 'Estado', trader_id: 'Trader', depto: 'Depto',
-    tamano: 'Tamaño', nivel_interes: 'Interés', prioridad: 'Prioridad',
-  };
-  const container = document.getElementById('activeTags');
-  container.innerHTML = '';
-  Object.entries(activeFilters).forEach(([k, v]) => {
-    if (!v) return;
-    const display = k === 'trader_id'
-      ? (_metaCache.traders.find(t => String(t.id) === String(v)) || {}).username || v
-      : v;
-    const tag = document.createElement('span');
-    tag.className = 'filter-tag';
-    tag.innerHTML = `${labels[k]}: <b>${display}</b> <button onclick="clearFilter('${k}')">×</button>`;
-    container.appendChild(tag);
-  });
-}
-
-window.clearFilter = function(key) {
-  activeFilters[key] = '';
-  const elMap = {
-    q: 'searchInput', estado: 'filterEstado', trader_id: 'filterTrader',
-    depto: 'filterDepto', tamano: 'filterTamano', nivel_interes: 'filterNivel', prioridad: 'filterPrioridad',
-  };
-  if (elMap[key]) document.getElementById(elMap[key]).value = '';
-  updateActiveTags();
-  loadGridData();
-};
-
-// ══════════════════════════════════════════════
-// EMAIL MANAGER
-// ══════════════════════════════════════════════
-window.openEmailManager = async function(pid) {
-  _currentEmailPid = pid;
-  document.getElementById('newEmailInput').value = '';
-  try {
-    const res  = await fetch(`/prospeccion/api/${pid}/emails`);
-    const data = await res.json();
-    document.getElementById('emailModalEmpresa').textContent = data.razon_social || '';
-    renderEmailList(data.emails);
-    new bootstrap.Modal(document.getElementById('modalEmails')).show();
-  } catch(e) {
-    Swal.fire('Error', 'No se pudo cargar la lista de emails.', 'error');
-  }
-};
-
-function renderEmailList(emails) {
-  const list = document.getElementById('emailList');
-  if (!emails.length) { list.innerHTML = '<p class="text-muted small">Sin emails registrados.</p>'; return; }
-  list.innerHTML = emails.map(e => `
-    <div class="d-flex align-items-center justify-content-between py-1 border-bottom" style="font-size:.83rem">
-      <div>
-        <i class="bi bi-envelope${e.activo ? '' : '-slash'} me-2 ${e.activo ? 'text-primary' : 'text-muted'}"></i>
-        <span class="${!e.activo ? 'text-decoration-line-through text-muted' : ''}">${escHtml(e.email)}</span>
-        ${e.es_principal ? '<span class="badge bg-primary ms-1" style="font-size:.6rem">Principal</span>' : ''}
-        ${e.es_alt ? '<span class="badge bg-secondary ms-1" style="font-size:.6rem">Alt</span>' : ''}
+  return `<tr data-id="${r.id}" onclick="openPanel(${r.id})" class="${_selected.has(r.id)?'selected':''}">
+    <td onclick="event.stopPropagation()">
+      <input type="checkbox" class="row-chk" value="${r.id}" onchange="toggleRow(this,${r.id})">
+    </td>
+    <td>
+      <div class="emp-name ${prioClass}">${prio} ${esc(r.razon_social||'Sin nombre')}</div>
+      <div class="emp-sub">${esc(r.rubro||'')} ${r.departamento?'· '+esc(r.departamento):''}</div>
+    </td>
+    <td>
+      <div class="contact-chip email-chip" title="${esc(emailStr)}">${esc(emailStr)}</div>
+      ${r.nombre_contacto ? `<div class="contact-chip">${esc(r.nombre_contacto)}</div>` : ''}
+      ${emailMore}
+    </td>
+    <td onclick="event.stopPropagation()">
+      <span class="${badge.cls} badge-estado" onclick="openEstadoMenu(event,${r.id},this)" title="Clic para cambiar estado">${badge.label}</span>
+    </td>
+    <td style="color:#6c757d;font-size:.75rem;">${ultDate}</td>
+    <td>${proxDate}</td>
+    <td style="text-align:center;color:#6c757d;font-size:.75rem;">${r.num_contactos||0}</td>
+    <td onclick="event.stopPropagation()">
+      <div class="row-actions">
+        <button class="act a-email" onclick="openEmailModal(${r.id})" title="Enviar email"><i class="bi bi-envelope-fill"></i></button>
+        <button class="act a-contact" onclick="openContactModal(${r.id})" title="Registrar contacto"><i class="bi bi-telephone-fill"></i></button>
+        <button class="act a-hist" onclick="openHistModal(${r.id},event)" title="Ver historial"><i class="bi bi-clock-history"></i></button>
+        <a class="act a-detail" href="/prospeccion/${r.id}" title="Ver completo" onclick="event.stopPropagation()"><i class="bi bi-box-arrow-up-right"></i></a>
       </div>
-      ${e.id ? `<button class="btn btn-link btn-sm p-0 text-${e.activo ? 'warning' : 'success'}"
-                 onclick="toggleEmail(${e.id})" title="${e.activo ? 'Desactivar' : 'Activar'}">
-                 <i class="bi bi-${e.activo ? 'eye-slash' : 'eye'}"></i>
-               </button>` : '<small class="text-muted" style="font-size:.65rem">No editable</small>'}
-    </div>`).join('');
+    </td>
+  </tr>`;
 }
 
-window.toggleEmail = async function(eid) {
-  const r = await fetch(`/prospeccion/api/email/${eid}/toggle`, {
-    method: 'PATCH', headers: { 'X-CSRFToken': CSRF },
-  });
-  const d = await r.json();
-  if (d.ok) {
-    openEmailManager(_currentEmailPid);
-    // Refresh row
-    setTimeout(() => refreshRow(_currentEmailPid), 500);
-  }
-};
+function estadoBadge(ec) {
+  const map = {
+    'presentado':     {cls:'badge-estado bs-pres', label:'Presentado'},
+    'seguimiento':    {cls:'badge-estado bs-pres', label:'Presentado'},
+    'P1':             {cls:'badge-estado bs-pres', label:'Presentado'},
+    'precio_enviado': {cls:'badge-estado bs-prec', label:'Precio enviado'},
+    'P2':             {cls:'badge-estado bs-prec', label:'Precio enviado'},
+    'negociando':     {cls:'badge-estado bs-neg',  label:'Negociando'},
+    'negociacion':    {cls:'badge-estado bs-neg',  label:'Negociando'},
+    'P3':             {cls:'badge-estado bs-neg',  label:'Negociando'},
+    'cliente':        {cls:'badge-estado bs-cli',  label:'Cliente'},
+    'P4':             {cls:'badge-estado bs-cli',  label:'Cliente'},
+  };
+  return map[ec] || {cls:'badge-estado bs-sin', label:'Sin contactar'};
+}
 
-async function doAddEmail() {
-  const email = document.getElementById('newEmailInput').value.trim();
-  if (!email) return;
-  const r = await fetch(`/prospeccion/api/${_currentEmailPid}/emails`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
-    body: JSON.stringify({ email }),
-  });
-  const d = await r.json();
-  if (d.ok) {
-    document.getElementById('newEmailInput').value = '';
-    openEmailManager(_currentEmailPid);
-    setTimeout(() => refreshRow(_currentEmailPid), 500);
+function formatProx(d) {
+  if (!d) return `<span class="date-empty">—</span>`;
+  const date = new Date(d.slice(0,10));
+  const today = new Date(); today.setHours(0,0,0,0);
+  const diff = Math.floor((date - today) / 86400000);
+  let cls = 'date-ok';
+  if (diff < 0) cls = 'date-overdue';
+  else if (diff <= 3) cls = 'date-soon';
+  return `<span class="${cls}">${d.slice(0,10)}</span>`;
+}
+
+/* ═══════════════════════════════════════════════════════
+   PAGINATION
+═══════════════════════════════════════════════════════ */
+function renderPag(total) {
+  const pages = Math.ceil(total / PAGE_SIZE);
+  const pi = document.getElementById('pagInfo');
+  const pb = document.getElementById('pagBtns');
+  if (total === 0) { pi.textContent=''; pb.innerHTML=''; return; }
+  const start = (_page-1)*PAGE_SIZE+1, end = Math.min(_page*PAGE_SIZE, total);
+  pi.textContent = `Mostrando ${start}–${end} de ${total.toLocaleString()}`;
+  if (pages <= 1) { pb.innerHTML=''; return; }
+
+  let html = `<button class="pag-btn" onclick="goPage(${_page-1})" ${_page===1?'disabled':''}>‹</button>`;
+  for (let p=1; p<=pages; p++) {
+    if (p===1||p===pages||Math.abs(p-_page)<=2)
+      html += `<button class="pag-btn ${p===_page?'active':''}" onclick="goPage(${p})">${p}</button>`;
+    else if (Math.abs(p-_page)===3) html += `<span style="padding:0 .2rem;color:#aaa">…</span>`;
+  }
+  html += `<button class="pag-btn" onclick="goPage(${_page+1})" ${_page===pages?'disabled':''}>›</button>`;
+  pb.innerHTML = html;
+}
+
+function goPage(p) {
+  const pages = Math.ceil(_filtered.length / PAGE_SIZE);
+  _page = Math.max(1, Math.min(p, pages));
+  renderTable();
+  document.getElementById('crmBody').scrollTop = 0;
+}
+
+/* ═══════════════════════════════════════════════════════
+   SELECTION
+═══════════════════════════════════════════════════════ */
+function toggleRow(cb, id) {
+  if (cb.checked) _selected.add(id); else _selected.delete(id);
+  cb.closest('tr').classList.toggle('selected', cb.checked);
+  updateBulkBar();
+}
+function toggleAll(cb) {
+  const start = (_page-1)*PAGE_SIZE;
+  const slice = _filtered.slice(start, start+PAGE_SIZE);
+  slice.forEach(r => { if (cb.checked) _selected.add(r.id); else _selected.delete(r.id); });
+  renderTable();
+  updateBulkBar();
+}
+function clearSelection() {
+  _selected.clear();
+  document.querySelectorAll('.row-chk').forEach(c=>c.checked=false);
+  document.querySelectorAll('tr.selected').forEach(tr=>tr.classList.remove('selected'));
+  const ca = document.getElementById('checkAll');
+  if (ca) ca.checked = false;
+  updateBulkBar();
+}
+function updateBulkBar() {
+  const bar = document.getElementById('bulkBar');
+  const n = _selected.size;
+  if (n > 0) {
+    bar.classList.add('show');
+    document.getElementById('bulkCount').textContent = n;
   } else {
-    Swal.fire('', d.error, 'warning');
+    bar.classList.remove('show');
   }
 }
 
-async function refreshRow(pid) {
+/* ═══════════════════════════════════════════════════════
+   SIDE PANEL
+═══════════════════════════════════════════════════════ */
+function openPanel(id) {
+  const r = _allRows.find(x => x.id === id);
+  if (!r) return;
+
+  document.getElementById('sideTitle').textContent = r.razon_social || 'Sin nombre';
+  document.getElementById('sideLinkFull').href = `/prospeccion/${id}`;
+
+  const badge = estadoBadge(r.estado_comercial);
+  const emails = (r.emails || [r.email]).filter(Boolean);
+
+  document.getElementById('sideBody').innerHTML = `
+    <div class="side-section">
+      <div class="side-grid">
+        <div>
+          <div class="side-label">Empresa</div>
+          <div class="side-val fw-bold">${esc(r.razon_social||'—')}</div>
+        </div>
+        <div>
+          <div class="side-label">RUC</div>
+          <div class="side-val">${esc(r.ruc||'—')}</div>
+        </div>
+        <div>
+          <div class="side-label">Rubro</div>
+          <div class="side-val">${esc(r.rubro||'—')}</div>
+        </div>
+        <div>
+          <div class="side-label">Tamaño</div>
+          <div class="side-val">${esc(r.tamano_empresa||'—')}</div>
+        </div>
+        <div>
+          <div class="side-label">Departamento</div>
+          <div class="side-val">${esc(r.departamento||'—')}</div>
+        </div>
+        <div>
+          <div class="side-label">Prioridad</div>
+          <div class="side-val">${r.prioridad ? `<span class="badge bg-secondary" style="font-size:.68rem;">${r.prioridad}</span>` : '—'}</div>
+        </div>
+      </div>
+    </div>
+
+    <hr class="my-2">
+
+    <div class="side-section">
+      <div class="side-label">Contacto</div>
+      <div class="side-val fw-semibold">${esc(r.nombre_contacto||'—')} ${r.cargo?`<span class="text-muted fw-normal">(${esc(r.cargo)})</span>`:''}</div>
+      <div class="side-val mt-1">
+        ${emails.map(e=>`<a href="mailto:${esc(e)}" onclick="event.stopPropagation()">${esc(e)}</a>`).join('<br>')}
+      </div>
+      <div class="side-val mt-1">${r.telefono?`<i class="bi bi-telephone"></i> ${esc(r.telefono)}`:''} ${r.telefono_alt?` / ${esc(r.telefono_alt)}`:''}</div>
+    </div>
+
+    <hr class="my-2">
+
+    <div class="side-section">
+      <div class="side-label">Estado comercial</div>
+      <div class="d-flex align-items-center gap-2 mt-1">
+        <span class="${badge.cls} badge-estado" onclick="openEstadoMenu(event,${id},this)">${badge.label}</span>
+        <span class="text-muted" style="font-size:.72rem;">Clic para cambiar</span>
+      </div>
+      <div class="side-grid mt-2">
+        <div>
+          <div class="side-label">Último contacto</div>
+          <div class="side-val">${r.fecha_ultimo_contacto||'—'}</div>
+        </div>
+        <div>
+          <div class="side-label">Próximo contacto</div>
+          <div class="side-val">${r.fecha_proximo_contacto||'—'}</div>
+        </div>
+        <div>
+          <div class="side-label">Nro. contactos</div>
+          <div class="side-val">${r.num_contactos||0}</div>
+        </div>
+        <div>
+          <div class="side-label">Interés</div>
+          <div class="side-val">${r.nivel_interes||'—'}</div>
+        </div>
+      </div>
+    </div>
+
+    ${r.notas ? `<hr class="my-2"><div class="side-section">
+      <div class="side-label">Notas</div>
+      <textarea class="notas-field" id="notasField${id}" onchange="saveNota(${id})">${esc(r.notas)}</textarea>
+      <button class="btn btn-sm btn-outline-secondary btn-save-notes" onclick="saveNota(${id})"><i class="bi bi-floppy me-1"></i>Guardar nota</button>
+    </div>` : `<div class="side-section">
+      <div class="side-label">Notas</div>
+      <textarea class="notas-field" id="notasField${id}" placeholder="Agregar nota…" onchange="saveNota(${id})"></textarea>
+      <button class="btn btn-sm btn-outline-secondary btn-save-notes" onclick="saveNota(${id})"><i class="bi bi-floppy me-1"></i>Guardar nota</button>
+    </div>`}
+
+    <hr class="my-2">
+
+    <div class="side-section">
+      <div class="side-label">Historial reciente</div>
+      <div id="sideHistWrap"><div class="text-muted" style="font-size:.75rem;">Cargando…</div></div>
+    </div>
+  `;
+
+  document.getElementById('sideFooter').innerHTML = `
+    <button class="btn btn-sm btn-outline-primary" onclick="openEmailModal(${id})" title="Enviar email"><i class="bi bi-envelope me-1"></i>Email</button>
+    <button class="btn btn-sm btn-outline-warning" onclick="openContactModal(${id})" title="Registrar contacto"><i class="bi bi-telephone me-1"></i>Contacto</button>
+    <button class="btn btn-sm btn-outline-secondary" onclick="openHistModal(${id},null)"><i class="bi bi-clock-history me-1"></i>Historial completo</button>
+    <a class="btn btn-sm btn-outline-success" href="/prospeccion/${id}"><i class="bi bi-box-arrow-up-right me-1"></i>Ver completo</a>
+  `;
+
+  document.getElementById('sidePanel').classList.add('open');
+  document.getElementById('sideBackdrop').style.display = '';
+  loadSideHist(id);
+}
+
+async function loadSideHist(id) {
   try {
-    const res  = await fetch(`/prospeccion/api/grid?tab=todos&q=`);
-    // Lightweight: just reload all data
-    loadGridData();
+    const r = await fetch(`/prospeccion/${id}`);
+    // We'll use the actividades from the detail page API — for now use a mini fetch approach
+    // Actually, we don't have a dedicated activities JSON endpoint, so let's inline-fetch detail page
+    // and parse. Instead, use the existing api_emails which gives us basic info.
+    // For history we need a separate endpoint — show note to user.
+    document.getElementById('sideHistWrap').innerHTML =
+      `<p style="font-size:.73rem;color:#aaa;">Ver historial completo →</p>`;
   } catch(e) {}
 }
 
-// ══════════════════════════════════════════════
-// ENVIAR EMAIL
-// ══════════════════════════════════════════════
-window.openSendEmail = function(pid) {
-  _currentEnvioPid = pid;
-  const node = gridApi.getRowNode(String(pid));
-  if (!node) return;
-  const p = node.data;
-  document.getElementById('envioEmpresa').textContent = p.razon_social || '';
-  document.getElementById('envioEmail').textContent = (p.emails || [])[0] || p.email || '';
-  document.getElementById('envioMsg').className = 'd-none alert alert-sm p-2 small';
-  document.getElementById('envioPrecioFields').classList.add('d-none');
-  document.querySelector('input[name="envio_tipo"][value="presentacion"]').checked = true;
-  new bootstrap.Modal(document.getElementById('modalEnvio')).show();
-};
+function closePanel() {
+  document.getElementById('sidePanel').classList.remove('open');
+  document.getElementById('sideBackdrop').style.display = 'none';
+}
 
-async function doEnvioEmail() {
-  const btn  = document.getElementById('btnDoEnvio');
-  const tipo = document.querySelector('input[name="envio_tipo"]:checked').value;
-  const compra = document.getElementById('envioCompra').value;
-  const venta  = document.getElementById('envioVenta').value;
+async function saveNota(id) {
+  const field = document.getElementById(`notasField${id}`);
+  if (!field) return;
+  const val = field.value;
+  await patchCampo(id, 'notas', val);
+  // update local cache
+  const row = _allRows.find(r => r.id === id);
+  if (row) row.notas = val;
+}
+
+/* ═══════════════════════════════════════════════════════
+   ESTADO INLINE MENU
+═══════════════════════════════════════════════════════ */
+const _estadoOpts = [
+  {val:'', label:'Sin contactar', cls:'bs-sin'},
+  {val:'presentado', label:'Presentado', cls:'bs-pres'},
+  {val:'precio_enviado', label:'Precio enviado', cls:'bs-prec'},
+  {val:'negociando', label:'Negociando', cls:'bs-neg'},
+  {val:'cliente', label:'Cliente', cls:'bs-cli'},
+];
+
+let _estadoCtx = null;
+
+function openEstadoMenu(e, id, badgeEl) {
+  e.stopPropagation();
+  const menu = document.getElementById('estadoMenu');
+  _estadoCtx = {id, badgeEl};
+
+  menu.innerHTML = _estadoOpts.map(o =>
+    `<div class="estado-opt" onclick="setEstado('${o.val}','${o.label}','${o.cls}')">
+       <span class="badge-estado ${o.cls}" style="pointer-events:none">${o.label}</span>
+     </div>`
+  ).join('');
+
+  const rect = badgeEl.getBoundingClientRect();
+  menu.style.left = rect.left + 'px';
+  menu.style.top  = (rect.bottom + window.scrollY + 4) + 'px';
+  menu.style.position = 'fixed';
+  menu.style.top  = (rect.bottom + 4) + 'px';
+  menu.classList.add('show');
+}
+
+async function setEstado(val, label, cls) {
+  document.getElementById('estadoMenu').classList.remove('show');
+  if (!_estadoCtx) return;
+  const {id, badgeEl} = _estadoCtx;
+  badgeEl.textContent = label;
+  badgeEl.className = `badge-estado ${cls}`;
+  await patchCampo(id, 'estado_comercial', val);
+  const row = _allRows.find(r => r.id === id);
+  if (row) row.estado_comercial = val;
+}
+
+document.addEventListener('click', () => {
+  document.getElementById('estadoMenu').classList.remove('show');
+});
+
+/* ═══════════════════════════════════════════════════════
+   PATCH CAMPO (autosave)
+═══════════════════════════════════════════════════════ */
+async function patchCampo(id, campo, valor) {
+  showToast('Guardando…');
+  try {
+    const r = await fetch(`/prospeccion/api/${id}/campo`, {
+      method:'PATCH',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({campo, valor}),
+    });
+    const d = await r.json();
+    if (d.ok) showToast('Guardado', true);
+    else { showToast('Error: ' + (d.error||''), false, true); }
+  } catch(e) {
+    showToast('Error de red', false, true);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   EMAIL MODAL
+═══════════════════════════════════════════════════════ */
+function openEmailModal(id) {
+  const r = _allRows.find(x => x.id === id);
+  document.getElementById('emailPid').value = id;
+  document.getElementById('emailPara').value = r ? (r.emails||[r.email]).filter(Boolean).join(', ') : '';
+  document.getElementById('emailTipoPres').checked = true;
+  document.getElementById('pricesRow').style.setProperty('display','none','important');
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalEmail')).show();
+}
+
+function togglePrices() {
+  const isPrecio = document.getElementById('emailTipoPrec').checked;
+  document.getElementById('pricesRow').style.setProperty('display', isPrecio ? 'flex' : 'none', 'important');
+}
+
+async function submitEmail() {
+  const id     = document.getElementById('emailPid').value;
+  const tipo   = document.querySelector('input[name=emailTipo]:checked').value;
+  const compra = document.getElementById('emailCompra').value;
+  const venta  = document.getElementById('emailVenta').value;
+
   if (tipo === 'precio' && (!compra || !venta)) {
-    Swal.fire('Faltan datos', 'Ingresa Compra y Venta.', 'warning'); return;
+    Swal.fire({icon:'warning', text:'Ingresa compra y venta.', confirmButtonColor:'#1a1a2e'}); return;
   }
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Enviando...';
-  try {
-    const r = await fetch(`/prospeccion/${_currentEnvioPid}/enviar-email`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
-      body: JSON.stringify({ tipo, compra: compra ? parseFloat(compra) : null, venta: venta ? parseFloat(venta) : null }),
-    });
-    const d = await r.json();
-    const msgEl = document.getElementById('envioMsg');
-    if (d.ok) {
-      msgEl.className = 'alert alert-success alert-sm p-2 small';
-      msgEl.textContent = '✓ Correo enviado correctamente.';
-      msgEl.classList.remove('d-none');
-      setTimeout(() => bootstrap.Modal.getInstance(document.getElementById('modalEnvio'))?.hide(), 1500);
-    } else {
-      msgEl.className = 'alert alert-danger alert-sm p-2 small';
-      msgEl.textContent = d.error || 'Error al enviar.';
-      msgEl.classList.remove('d-none');
-    }
-  } catch(e) {
-    Swal.fire('Error', 'Error de conexión.', 'error');
-  }
-  btn.disabled = false;
-  btn.innerHTML = '<i class="bi bi-send me-1"></i>Enviar';
-}
-
-// ══════════════════════════════════════════════
-// QUICK CONTACT
-// ══════════════════════════════════════════════
-window.openQuickContact = function(pid) {
-  _currentContactoPid = pid;
-  const node = gridApi.getRowNode(String(pid));
-  if (!node) return;
-  document.getElementById('contactoEmpresa').textContent = node.data.razon_social || '';
-  document.getElementById('contactoDesc').value = '';
-  document.getElementById('contactoEstado').value = '';
-  document.getElementById('contactoProximo').value = '';
-  new bootstrap.Modal(document.getElementById('modalContacto')).show();
-};
-
-async function doQuickContact() {
-  const tipo  = document.getElementById('contactoTipo').value;
-  const desc  = document.getElementById('contactoDesc').value.trim();
-  const est   = document.getElementById('contactoEstado').value;
-  const prox  = document.getElementById('contactoProximo').value;
-  if (!desc) { Swal.fire('', 'Ingresa una descripción.', 'warning'); return; }
-
-  const fd = new FormData();
-  fd.append('tipo', tipo);
-  fd.append('descripcion', desc);
-  if (est)  fd.append('nuevo_estado', est);
-  if (prox) fd.append('fecha_proximo_contacto', prox);
-
-  const btn = document.getElementById('btnDoContacto');
-  btn.disabled = true;
-  try {
-    const r = await fetch(`/prospeccion/${_currentContactoPid}/actividad`, {
-      method: 'POST',
-      headers: { 'X-CSRFToken': CSRF },
-      body: fd,
-    });
-    bootstrap.Modal.getInstance(document.getElementById('modalContacto'))?.hide();
-    Swal.fire({ icon: 'success', title: 'Contacto registrado', timer: 1500, showConfirmButton: false });
-    // Update row optimistically
-    const node = gridApi.getRowNode(String(_currentContactoPid));
-    if (node) {
-      const today = new Date().toISOString().substring(0, 16);
-      node.setDataValue('fecha_ultimo_contacto', today);
-      if (est) node.setDataValue('estado_comercial', est);
-      if (prox) node.setDataValue('fecha_proximo_contacto', prox);
-    }
-  } catch(e) {
-    Swal.fire('Error', 'No se pudo registrar el contacto.', 'error');
-  }
-  btn.disabled = false;
-}
-
-// ══════════════════════════════════════════════
-// IMPORT EXCEL
-// ══════════════════════════════════════════════
-async function doImport() {
-  const file = document.getElementById('importFile').files[0];
-  if (!file) { Swal.fire('', 'Selecciona un archivo Excel.', 'warning'); return; }
-
-  const btn = document.getElementById('btnDoImport');
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Importando...';
-
-  const fd = new FormData();
-  fd.append('file', file);
-
-  try {
-    const r = await fetch('/prospeccion/api/import-excel', {
-      method: 'POST', headers: { 'X-CSRFToken': CSRF }, body: fd,
-    });
-    const d = await r.json();
-
-    document.getElementById('importStep1').classList.add('d-none');
-    const result = document.getElementById('importResult');
-    result.classList.remove('d-none');
-
-    if (d.ok) {
-      result.querySelector('#importResultBody').innerHTML = `
-        <div class="alert alert-success p-2 small mb-2">
-          <b>✓ Importación completada</b><br>
-          <b>${d.inserted}</b> registros insertados · <b>${d.skipped}</b> omitidos (duplicados)
-        </div>
-        ${d.columns_detected ? `<p class="small text-muted">Columnas detectadas: ${d.columns_detected.join(', ')}</p>` : ''}
-        ${d.warnings && d.warnings.length ? `<div class="alert alert-warning p-2 small">${d.warnings.join('<br>')}</div>` : ''}
-      `;
-      loadGridData();
-    } else {
-      result.querySelector('#importResultBody').innerHTML = `
-        <div class="alert alert-danger p-2 small"><b>Error:</b> ${escHtml(d.error)}</div>
-        ${d.detected_headers ? `<p class="small text-muted">Encabezados detectados: ${d.detected_headers.join(', ')}</p>` : ''}
-      `;
-    }
-  } catch(e) {
-    Swal.fire('Error', 'Error de conexión al importar.', 'error');
-  }
-
-  btn.disabled = false;
-  btn.innerHTML = '<i class="bi bi-upload me-1"></i>Importar';
-}
-
-// ══════════════════════════════════════════════
-// BULK UPDATE
-// ══════════════════════════════════════════════
-async function doBulkUpdate() {
-  const rows  = gridApi.getSelectedRows();
-  const campo = document.getElementById('bulkCampo').value;
-  const valor = document.getElementById('bulkValor').value.trim();
-  if (!rows.length || !campo) return;
-
-  const conf = await Swal.fire({
-    title: `Actualizar ${rows.length} registros`,
-    html: `Campo <b>${campo}</b> → <b>${valor || '(vacío)'}</b>`,
-    icon: 'question', showCancelButton: true,
-    confirmButtonText: 'Aplicar', cancelButtonText: 'Cancelar',
-  });
-  if (!conf.isConfirmed) return;
-
-  const r = await fetch('/prospeccion/api/bulk-campo', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
-    body: JSON.stringify({ ids: rows.map(r => r.id), campo, valor }),
+  bootstrap.Modal.getInstance(document.getElementById('modalEmail')).hide();
+  const r = await fetch(`/prospeccion/${id}/enviar-email`, {
+    method:'POST',
+    headers: csrfHeaders(),
+    body: JSON.stringify({tipo, compra, venta}),
   });
   const d = await r.json();
   if (d.ok) {
-    Swal.fire({ icon: 'success', title: `${d.updated} registros actualizados`, timer: 1500, showConfirmButton: false });
-    loadGridData();
+    Swal.fire({icon:'success', text: d.msg || 'Correo enviado.', timer:2500, showConfirmButton:false});
+    loadData();
   } else {
-    Swal.fire('Error', d.error, 'error');
+    Swal.fire({icon:'error', title:'Error al enviar', text: d.error || '', confirmButtonColor:'#1a1a2e'});
   }
 }
 
-// ══════════════════════════════════════════════
-// CAMPAIGN
-// ══════════════════════════════════════════════
-async function doCampanaMasiva() {
-  const rows  = gridApi.getSelectedRows();
-  const ids   = rows.map(r => r.id);
-  const tipo  = document.querySelector('input[name="bulk_tipo"]:checked').value;
-  const compra = document.getElementById('bulkCompra').value;
-  const venta  = document.getElementById('bulkVenta').value;
-  if (!ids.length) return;
-  if (tipo === 'precio' && (!compra || !venta)) {
-    Swal.fire('Faltan precios', 'Ingresa COMPRA y VENTA.', 'warning'); return;
-  }
-  const conf = await Swal.fire({
-    title: 'Iniciar campaña masiva',
-    html: `<b>${ids.length} prospectos</b> · correo de <b>${tipo === 'precio' ? 'precio' : 'presentación'}</b>`,
-    icon: 'question', showCancelButton: true, confirmButtonText: 'Iniciar',
-  });
-  if (!conf.isConfirmed) return;
+/* ═══════════════════════════════════════════════════════
+   CONTACT MODAL
+═══════════════════════════════════════════════════════ */
+function openContactModal(id) {
+  document.getElementById('contactPid').value = id;
+  document.getElementById('contactDesc').value = '';
+  document.getElementById('contactTipo').value = 'llamada';
+  document.getElementById('contactEstado').value = '';
+  document.getElementById('contactProx').value = '';
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalContact')).show();
+}
 
-  const btn = document.getElementById('btnIniciarCampana');
-  btn.disabled = true;
+async function submitContact() {
+  const id   = document.getElementById('contactPid').value;
+  const desc = document.getElementById('contactDesc').value.trim();
+  if (!desc) { Swal.fire({icon:'warning', text:'La descripción es obligatoria.', confirmButtonColor:'#1a1a2e'}); return; }
+
+  const fd = new FormData();
+  fd.append('tipo',         document.getElementById('contactTipo').value);
+  fd.append('descripcion',  desc);
+  fd.append('nuevo_estado', document.getElementById('contactEstado').value);
+  fd.append('fecha_proximo_contacto', document.getElementById('contactProx').value);
+  csrfFd(fd);
+
+  bootstrap.Modal.getInstance(document.getElementById('modalContact')).hide();
+  const r = await fetch(`/prospeccion/${id}/actividad`, { method:'POST', body: fd });
+  if (r.redirected || r.ok) {
+    Swal.fire({icon:'success', text:'Actividad registrada.', timer:2000, showConfirmButton:false});
+    loadData();
+  } else {
+    Swal.fire({icon:'error', text:'Error al registrar.', confirmButtonColor:'#1a1a2e'});
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   HISTORIAL MODAL
+═══════════════════════════════════════════════════════ */
+async function openHistModal(id, e) {
+  if (e) e.stopPropagation();
+  const r = _allRows.find(x => x.id === id);
+  document.getElementById('histTitle').innerHTML = `<i class="bi bi-clock-history me-2"></i>Historial — ${esc(r?.razon_social||'Prospecto')}`;
+  document.getElementById('histBody').innerHTML = `<div class="text-center py-3 text-muted"><i class="bi bi-hourglass-split"></i> Cargando…</div>`;
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalHist')).show();
+
+  // Fetch from detail page as JSON via the HTML page isn't ideal.
+  // Load the detail page and extract activities (fallback: just redirect)
+  document.getElementById('histBody').innerHTML = `
+    <div class="text-center py-3">
+      <p class="text-muted">Para ver el historial completo, abre el perfil del prospecto.</p>
+      <a href="/prospeccion/${id}" target="_blank" class="btn btn-sm btn-outline-primary">
+        <i class="bi bi-box-arrow-up-right me-1"></i>Abrir perfil
+      </a>
+    </div>`;
+}
+
+/* ═══════════════════════════════════════════════════════
+   CAMPAÑA MASIVA
+═══════════════════════════════════════════════════════ */
+function openCampanaModal() {
+  // Use filtered rows (all) or selected
+  _campBulkIds = _selected.size > 0 ? [..._selected] : _filtered.map(r => r.id);
+  const info = document.getElementById('campTargetInfo');
+  if (_campBulkIds.length === 0) {
+    Swal.fire({icon:'warning', text:'No hay prospectos para enviar.', confirmButtonColor:'#1a1a2e'}); return;
+  }
+  info.innerHTML = `<i class="bi bi-people-fill me-1"></i> Se enviará a <strong>${_campBulkIds.length.toLocaleString()}</strong> prospecto${_campBulkIds.length!==1?'s':''} ${_selected.size>0?'(seleccionados)':'(filtrados)'}`;
+  document.getElementById('campTipoPres').checked = true;
+  document.getElementById('campPricesRow').style.setProperty('display','none','important');
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalCampana')).show();
+}
+
+function bulkSendCampana(tipo) {
+  _campBulkIds = [..._selected];
+  const info = document.getElementById('campTargetInfo');
+  info.innerHTML = `<i class="bi bi-people-fill me-1"></i> Se enviará a <strong>${_campBulkIds.length.toLocaleString()}</strong> prospecto${_campBulkIds.length!==1?'s':''}`;
+  document.getElementById(tipo==='precio'?'campTipoPrec':'campTipoPres').checked = true;
+  toggleCampPrices();
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalCampana')).show();
+}
+
+function toggleCampPrices() {
+  const isPrecio = document.getElementById('campTipoPrec').checked;
+  document.getElementById('campPricesRow').style.setProperty('display', isPrecio ? 'flex' : 'none', 'important');
+}
+
+async function launchCampana() {
+  const tipo   = document.querySelector('input[name=campTipo]:checked').value;
+  const compra = document.getElementById('campCompra').value;
+  const venta  = document.getElementById('campVenta').value;
+
+  if (tipo === 'precio' && (!compra || !venta)) {
+    Swal.fire({icon:'warning', text:'Ingresa compra y venta para la campaña de precios.', confirmButtonColor:'#1a1a2e'}); return;
+  }
+  if (_campBulkIds.length === 0) {
+    Swal.fire({icon:'warning', text:'Sin prospectos seleccionados.', confirmButtonColor:'#1a1a2e'}); return;
+  }
+
+  bootstrap.Modal.getInstance(document.getElementById('modalCampana')).hide();
   const r = await fetch('/prospeccion/campana/iniciar', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
-    body: JSON.stringify({ ids, tipo, compra, venta }),
+    method:'POST',
+    headers: csrfHeaders(),
+    body: JSON.stringify({ids: _campBulkIds, tipo, compra, venta}),
   });
   const d = await r.json();
   if (d.ok) {
-    gridApi.deselectAll();
-    iniciarPoller();
+    showCampanaPanel(true, tipo, 0, d.total);
+    startCampanaPoller();
+    clearSelection();
   } else {
-    Swal.fire('Error', d.error, 'error');
+    Swal.fire({icon:'error', title:'Error al iniciar campaña', text: d.error||'', confirmButtonColor:'#1a1a2e'});
   }
-  btn.disabled = false;
 }
 
-// ══════════════════════════════════════════════
-// CAMPAIGN POLLER (preserved from original)
-// ══════════════════════════════════════════════
-let campanaPoller = null, reloadPending = false;
-
-function mostrarPanelCampana(data) {
+function showCampanaPanel(show, tipo='', enviados=0, total=0) {
   const panel = document.getElementById('campanaPanel');
-  panel.classList.remove('d-none');
-  const env = data.enviados || 0, total = data.total || 0;
-  document.getElementById('cpBarra').style.width = (total > 0 ? Math.round(env / total * 100) : 0) + '%';
-  document.getElementById('cpConteo').textContent = `${env} / ${total}${data.errores ? ' · ' + data.errores + ' err' : ''}`;
-  document.getElementById('cpActualizarWrap').classList.toggle('d-none', data.tipo !== 'precio');
-  if (data.activa) {
-    document.getElementById('cpEstado').textContent = `Enviando campaña de ${data.tipo === 'precio' ? 'precios' : 'presentación'}...`;
-  } else {
-    document.getElementById('cpEstado').textContent =
-      data.estado === 'completada' ? `✓ Completada · ${env} enviados` : `■ Detenida · ${env}/${total}`;
-    if (data.estado === 'completada' && !reloadPending) {
-      reloadPending = true; setTimeout(() => loadGridData(), 2500);
-    }
-  }
+  if (!show) { panel.classList.remove('show'); return; }
+  panel.classList.add('show');
+  const tipoLabel = tipo === 'precio' ? 'Campaña Precios' : 'Campaña Presentación';
+  document.getElementById('campLabel').textContent = tipoLabel;
+  document.getElementById('campStats').textContent = `${enviados} / ${total} enviados`;
+  const pct = total > 0 ? Math.round(enviados/total*100) : 0;
+  document.getElementById('campBar').style.width = pct + '%';
 }
 
-async function checkCampanaEstado() {
+function startCampanaPoller() {
+  clearInterval(_campPollTimer);
+  _campPollTimer = setInterval(checkCampanaStatus, 3000);
+}
+
+async function checkCampanaStatus() {
   try {
     const r = await fetch('/prospeccion/campana/estado');
     const d = await r.json();
-    if (!d.estado) {
-      document.getElementById('campanaPanel').classList.add('d-none');
-      if (campanaPoller) { clearInterval(campanaPoller); campanaPoller = null; }
-      return;
+    if (!d.activa && !d.estado) { showCampanaPanel(false); clearInterval(_campPollTimer); return; }
+    if (d.estado === 'activa') {
+      showCampanaPanel(true, d.tipo, d.enviados, d.total);
+    } else if (d.estado === 'completada') {
+      showCampanaPanel(false);
+      clearInterval(_campPollTimer);
+      Swal.fire({icon:'success', title:'Campaña completada', text:`${d.enviados} correos enviados. ${d.errores} errores.`, confirmButtonColor:'#1a1a2e'});
+      loadData();
+    } else if (d.estado === 'detenida') {
+      showCampanaPanel(false);
+      clearInterval(_campPollTimer);
+      Swal.fire({icon:'info', text:`Campaña detenida. ${d.enviados} enviados.`, confirmButtonColor:'#1a1a2e'});
     }
-    mostrarPanelCampana(d);
-    if (d.activa && !campanaPoller) campanaPoller = setInterval(checkCampanaEstado, 3000);
-    else if (!d.activa && campanaPoller) { clearInterval(campanaPoller); campanaPoller = null; }
   } catch(e) {}
 }
 
-function iniciarPoller() {
-  if (!campanaPoller) campanaPoller = setInterval(checkCampanaEstado, 3000);
-  checkCampanaEstado();
+async function stopCampana() {
+  const r = await fetch('/prospeccion/campana/detener', {method:'POST', headers:{'X-CSRFToken':csrfToken()}});
+  const d = await r.json();
+  if (!d.ok) Swal.fire({icon:'warning', text: d.error||'', confirmButtonColor:'#1a1a2e'});
 }
+
+/* ═══════════════════════════════════════════════════════
+   IMPORT / EXPORT
+═══════════════════════════════════════════════════════ */
+function openImport() {
+  document.getElementById('importFile').value = '';
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('modalImport')).show();
+}
+
+async function submitImport() {
+  const file = document.getElementById('importFile').files[0];
+  if (!file) { Swal.fire({icon:'warning', text:'Selecciona un archivo.', confirmButtonColor:'#1a1a2e'}); return; }
+  bootstrap.Modal.getInstance(document.getElementById('modalImport')).hide();
+  const fd = new FormData(); fd.append('file', file); csrfFd(fd);
+  Swal.fire({title:'Importando…', allowOutsideClick:false, didOpen:()=>Swal.showLoading()});
+  try {
+    const r = await fetch('/prospeccion/api/import-excel', {method:'POST', body:fd});
+    const d = await r.json();
+    if (d.ok || d.insertados !== undefined) {
+      Swal.fire({icon:'success', title:'Importación completa', text:`${d.insertados||d.actualizados||0} registros procesados.`, confirmButtonColor:'#1a1a2e'});
+      loadData();
+    } else {
+      Swal.fire({icon:'error', title:'Error al importar', text: d.error||'', confirmButtonColor:'#1a1a2e'});
+    }
+  } catch(e) {
+    Swal.fire({icon:'error', text:'Error de red.', confirmButtonColor:'#1a1a2e'});
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   TOAST
+═══════════════════════════════════════════════════════ */
+let _toastTimer;
+function showToast(msg, ok=true, isErr=false) {
+  const t = document.getElementById('asToast');
+  document.getElementById('asMsg').textContent = msg;
+  t.style.background = isErr ? '#b91c1c' : '#1a1a2e';
+  t.classList.add('show');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(()=>t.classList.remove('show'), 2000);
+}
+
+/* ═══════════════════════════════════════════════════════
+   UTILS
+═══════════════════════════════════════════════════════ */
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/* ═══════════════════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════════════════ */
+document.addEventListener('DOMContentLoaded', () => {
+  loadData();
+});
 </script>
 {% endblock %}
