@@ -70,10 +70,9 @@ _EMAIL_CSS = """
         .email-outer-wrap { padding: 8px 0 !important; }
         .email-body-cell  { padding: 22px 16px !important; }
         .email-footer-cell{ padding: 16px !important; }
-        /* Cajas de métricas: apilar verticalmente en móvil */
-        .metric-cell   { display:block !important; width:100% !important; box-sizing:border-box !important; margin-bottom:8px !important; }
-        .metric-spacer { display:none  !important; }
-        /* Tabla de cuentas bancarias: reducir texto, ocultar CCI */
+        /* Cajas de métricas: reducir padding en móvil pero mantener horizontal */
+        .metric-cell   { padding: 10px 4px !important; }
+        /* Tabla de cuentas bancarias: reducir texto, ocultar columnas secundarias */
         .bank-td   { font-size:10px !important; padding:6px 6px !important; }
         .hide-mob  { display:none !important; }
         /* Filas detalle (Código/Tipo/Estado/Fecha): ajustar ancho de etiqueta */
@@ -367,9 +366,9 @@ class EmailService:
               <td class="ops-label" style="padding:11px 14px;width:50px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle;">Tipo</td>
               <td style="padding:11px 14px;font-size:14px;vertical-align:middle;">
                 {% if operation.operation_type == 'Compra' %}
-                  <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:#DCFCE7;color:#15803D;letter-spacing:0.3px;">COMPRA USD</span>
+                  <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:#DCFCE7;color:#15803D;letter-spacing:0.3px;white-space:nowrap;">COMPRA USD</span>
                 {% else %}
-                  <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:#DBEAFE;color:#1D4ED8;letter-spacing:0.3px;">VENTA USD</span>
+                  <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:#DBEAFE;color:#1D4ED8;letter-spacing:0.3px;white-space:nowrap;">VENTA USD</span>
                 {% endif %}
               </td>
             </tr>
@@ -498,9 +497,9 @@ class EmailService:
               <td class="ops-label" style="padding:11px 14px;width:50px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle;">Tipo</td>
               <td style="padding:11px 14px;vertical-align:middle;">
                 {% if operation.operation_type == 'Compra' %}
-                  <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:#DCFCE7;color:#15803D;letter-spacing:0.3px;">COMPRA USD</span>
+                  <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:#DCFCE7;color:#15803D;letter-spacing:0.3px;white-space:nowrap;">COMPRA USD</span>
                 {% else %}
-                  <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:#DBEAFE;color:#1D4ED8;letter-spacing:0.3px;">VENTA USD</span>
+                  <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:#DBEAFE;color:#1D4ED8;letter-spacing:0.3px;white-space:nowrap;">VENTA USD</span>
                 {% endif %}
               </td>
             </tr>
@@ -822,9 +821,9 @@ class EmailService:
               <td class="ops-label" style="padding:11px 14px;width:50px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle;">Tipo</td>
               <td style="padding:11px 14px;vertical-align:middle;">
                 {% if operation.operation_type == 'Compra' %}
-                  <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:#DCFCE7;color:#15803D;letter-spacing:0.3px;">COMPRA USD</span>
+                  <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:#DCFCE7;color:#15803D;letter-spacing:0.3px;white-space:nowrap;">COMPRA USD</span>
                 {% else %}
-                  <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:#DBEAFE;color:#1D4ED8;letter-spacing:0.3px;">VENTA USD</span>
+                  <span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:#DBEAFE;color:#1D4ED8;letter-spacing:0.3px;white-space:nowrap;">VENTA USD</span>
                 {% endif %}
               </td>
             </tr>
