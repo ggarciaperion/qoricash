@@ -158,7 +158,7 @@ Devuelve ÚNICAMENTE el array JSON. Sin texto antes ni después. Sin bloques de 
     try:
         gemini_url = (
             "https://generativelanguage.googleapis.com/v1beta/models/"
-            f"gemini-2.0-flash:generateContent?key={gemini_key}"
+            f"gemini-1.5-flash:generateContent?key={gemini_key}"
         )
         resp = http_requests.post(
             gemini_url,
