@@ -32,13 +32,15 @@ def _get_accounts_catalog():
 def _get_all_periods():
     """Retorna todos los períodos contables ordenados desc (para selectores)."""
     from app.models.accounting_period import AccountingPeriod
-    return _get_all_periods()
+    return AccountingPeriod.query.order_by(
+        AccountingPeriod.year.desc(), AccountingPeriod.month.desc()
+    ).all()
 
 
 def _get_period(year, month):
     """Retorna el AccountingPeriod de year/month, o None si no existe."""
     from app.models.accounting_period import AccountingPeriod
-    return _get_period(year, month)
+    return AccountingPeriod.query.filter_by(year=year, month=month).first()
 
 
 def _company_info() -> dict:
