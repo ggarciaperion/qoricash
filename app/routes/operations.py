@@ -32,6 +32,7 @@ def get_operator_name(operator_id):
     if not operator_id:
         return 'N/A'
 
+    from app.extensions import db
     from app.models.user import User
     operator = db.session.get(User, operator_id)
     return operator.username if operator else 'N/A'
