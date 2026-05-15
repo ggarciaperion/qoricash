@@ -1695,8 +1695,17 @@ async function iniciarEmail() {
       Swal.fire({icon:'error', title:'Error', text: d.error || 'No se pudo crear el borrador.', confirmButtonColor:'#0D1B2A'});
       return;
     }
-    window.open(d.url, '_blank');
     bootstrap.Modal.getInstance(document.getElementById('mEmail')).hide();
+    window.open(d.url, '_blank');
+    Swal.fire({
+      icon: 'success',
+      title: 'Borrador listo',
+      html: `El correo fue guardado en Gmail.<br>
+             <small style="color:#6c757d;">Para: <b>${d.para}</b><br>${d.asunto}</small><br><br>
+             <span style="font-size:13px;">Busca el borrador en la parte superior de tu carpeta <b>Borradores</b> y haz clic para enviarlo.</span>`,
+      confirmButtonText: 'Entendido',
+      confirmButtonColor: '#0D1B2A',
+    });
   } catch(e) {
     Swal.fire({icon:'error', text:'Error de conexión.', confirmButtonColor:'#0D1B2A'});
   } finally {

@@ -1179,9 +1179,11 @@ def crear_borrador(pid):
         url = f"{base}/{message_id}" if message_id else base
 
         return jsonify({
-            "ok":        True,
-            "draft_id":  draft_id,
-            "url":       url,
+            "ok":       True,
+            "draft_id": draft_id,
+            "url":      url,
+            "asunto":   asunto,
+            "para":     p.email,
         })
     except ValueError as exc:
         return jsonify({"ok": False, "error": str(exc)}), 400
