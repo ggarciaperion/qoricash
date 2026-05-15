@@ -605,6 +605,13 @@ async function loadGridData() {
     const res  = await fetch('/prospeccion/api/grid?' + params);
     const data = await res.json();
 
+    if (!res.ok || data.error) {
+      gridApi.hideOverlay();
+      gridApi.setGridOption('rowData', []);
+      Swal.fire('Error al cargar prospectos', data.error || 'Error del servidor', 'error');
+      return;
+    }
+
     gridApi.setGridOption('rowData', data.rows);
 
     // Update tab counts

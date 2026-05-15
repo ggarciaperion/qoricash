@@ -142,54 +142,8 @@ def _base_query():
 @login_required
 @require_role("Master")
 def dashboard():
-    q = _base_query()
-    total        = q.filter(Prospecto.estado_comercial.notin_(["cliente","P4"])).count()
-    presentados  = q.filter(Prospecto.estado_comercial.in_(_FASE_ESTADOS["presentado"])).count()
-    precio_env   = q.filter(Prospecto.estado_comercial.in_(_FASE_ESTADOS["precio"])).count()
-    en_negoc     = q.filter(Prospecto.estado_comercial.in_(_FASE_ESTADOS["negociando"])).count()
-    clientes     = q.filter(Prospecto.estado_comercial.in_(_FASE_ESTADOS["clientes"])).count()
-    en_seguim    = presentados + precio_env   # para compatibilidad con template existente
-    lfc          = q.filter(
-                       or_(Prospecto.grupo == "CLIENTES LFC",
-                           Prospecto.cliente_lfc == "Cliente LFC")).count()
-
-    # Metricas de campana
-    env_presentacion = q.filter(Prospecto.tipo_ultimo_envio == "presentacion").count()
-    env_precio       = q.filter(Prospecto.tipo_ultimo_envio == "precio").count()
-    bounces          = q.filter(Prospecto.estado_email == "Hard Bounce").count()
-    sin_email        = q.filter(or_(Prospecto.email == None, Prospecto.email == "")).count()
-    lfc_contactados  = q.filter(
-                           or_(Prospecto.grupo == "CLIENTES LFC",
-                               Prospecto.cliente_lfc == "Cliente LFC"),
-                           Prospecto.tipo_ultimo_envio.isnot(None)
-                       ).count()
-
-    # Envios por dia (ultimos 30 dias con actividad)
-    envios_por_dia = (
-        db.session.query(
-            func.left(Prospecto.fecha_ultimo_contacto, 10).label("dia"),
-            func.count(Prospecto.id).label("cnt")
-        )
-        .filter(
-            Prospecto.fecha_ultimo_contacto.isnot(None),
-            Prospecto.fecha_ultimo_contacto != ""
-        )
-        .group_by("dia")
-        .order_by("dia")
-        .limit(30).all()
-    )
-
-    return render_template(
-        "prospeccion/dashboard.html",
-        total=total, en_seguim=en_seguim, clientes=clientes,
-        en_negoc=en_negoc, lfc=lfc,
-        env_presentacion=env_presentacion,
-        env_precio=env_precio,
-        bounces=bounces,
-        sin_email=sin_email,
-        lfc_contactados=lfc_contactados,
-        envios_por_dia=envios_por_dia,
-    )
+    """Redirige al grid CRM (dashboard eliminado)."""
+    return redirect(url_for("prospeccion.lista"))
 
 
 # ── Reporte por trader (Master) ───────────────────────────────────────────────
@@ -1729,6 +1683,14 @@ _CAMPOS_EDITABLES = {
 @require_role("Master")
 def api_grid():
     """Retorna hasta 5000 prospectos como JSON para AG Grid."""
+    try:
+     return _api_grid_impl()
+    except Exception as e:
+        import traceback; traceback.print_exc()
+        return jsonify({"ok": False, "error": str(e), "rows": [], "total": 0, "counts": {}, "traders": [], "rubros": [], "deptos": []}), 500
+
+
+def _api_grid_impl():
     q_str     = request.args.get("q", "").strip()
     tab       = request.args.get("tab", "todos")
     depto     = request.args.get("depto", "")
@@ -1741,8 +1703,9 @@ def api_grid():
 
     query = _base_query()
 
+    _clientes_vals = _FASE_ESTADOS["clientes"]
     if tab == "clientes":
-        query = query.filter(Prospecto.estado_comercial.in_(_FASE_ESTADOS["clientes"]))
+        query = query.filter(Prospecto.estado_comercial.in_(_clientes_vals))
     elif tab == "presentado":
         query = query.filter(Prospecto.estado_comercial.in_(_FASE_ESTADOS["presentado"]))
     elif tab == "precio":
@@ -1759,7 +1722,12 @@ def api_grid():
             Prospecto.grupo == "CLIENTES LFC",
             Prospecto.cliente_lfc == "Cliente LFC"))
     else:
-        query = query.filter(Prospecto.estado_comercial.notin_(_FASE_ESTADOS["clientes"]))
+        # "todos": excluye clientes pero incluye NULLs (sin_contactar)
+        query = query.filter(or_(
+            Prospecto.estado_comercial == None,
+            Prospecto.estado_comercial == "",
+            Prospecto.estado_comercial.notin_(_clientes_vals),
+        ))
 
     if q_str:
         like = f"%{q_str}%"
@@ -1881,6 +1849,7 @@ def api_grid():
     deptos  = [d[0] for d in db.session.query(Prospecto.departamento).distinct().order_by(Prospecto.departamento).all() if d[0]]
 
     return jsonify({
+        "ok": True,
         "rows": rows, "total": len(rows),
         "counts": counts,
         "traders": traders,
