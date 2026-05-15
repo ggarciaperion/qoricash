@@ -298,6 +298,35 @@ def create_app(config_name=None):
     except Exception as e:
         logging.warning(f"[Clients] Error añadiendo columna reassigned_at: {e}")
 
+    # Migración: tabla sanctions_entries (screening OFAC/ONU)
+    try:
+        with app.app_context():
+            from app.extensions import db
+            from sqlalchemy import text
+            db.session.execute(text("""
+                CREATE TABLE IF NOT EXISTS sanctions_entries (
+                    id              SERIAL PRIMARY KEY,
+                    source          VARCHAR(20)  NOT NULL,
+                    entity_type     VARCHAR(20),
+                    uid             VARCHAR(100),
+                    name            VARCHAR(400) NOT NULL,
+                    name_normalized VARCHAR(400),
+                    aliases_json    TEXT,
+                    nationality     VARCHAR(100),
+                    program         VARCHAR(300),
+                    loaded_at       TIMESTAMP DEFAULT NOW()
+                )
+            """))
+            db.session.execute(text(
+                "CREATE INDEX IF NOT EXISTS ix_sanctions_entries_source ON sanctions_entries(source)"
+            ))
+            db.session.execute(text(
+                "CREATE INDEX IF NOT EXISTS ix_sanctions_entries_name_normalized ON sanctions_entries(name_normalized)"
+            ))
+            db.session.commit()
+    except Exception as e:
+        logging.warning(f"[Sanctions] Error creando tabla sanctions_entries: {e}")
+
     # Sembrar competidores FX (idempotente — solo inserta si no existen)
     try:
         with app.app_context():
