@@ -83,9 +83,14 @@
       </div>
     </div>
     {% if current_user.role == 'Master' %}
-    <button class="btn btn-sm btn-primary px-3" id="btnScrapeNow">
-      <i class="bi bi-arrow-clockwise me-1"></i>Actualizar ahora
-    </button>
+    <div class="d-flex gap-2">
+      <button class="btn btn-sm btn-primary px-3" id="btnScrapeNow">
+        <i class="bi bi-arrow-clockwise me-1"></i>Actualizar ahora
+      </button>
+      <button class="btn btn-sm btn-outline-secondary px-3" id="btnUpdateNoticias" title="Genera y publica 15 noticias financieras del día en qoricash.pe">
+        <i class="bi bi-newspaper me-1"></i>Publicar noticias
+      </button>
+    </div>
     {% endif %}
   </div>
 
@@ -753,6 +758,35 @@ if (btnNow) {
       btnNow.disabled = false;
       btnNow.innerHTML = '<i class="bi bi-arrow-clockwise me-1"></i>Actualizar ahora';
       loadCurrentRates();
+    });
+  });
+}
+
+// ── Botón publicar noticias ───────────────────────────────────────────────
+const btnNoticias = document.getElementById('btnUpdateNoticias');
+if (btnNoticias) {
+  btnNoticias.addEventListener('click', () => {
+    if (!confirm('¿Generar y publicar 15 noticias financieras de hoy en qoricash.pe?')) return;
+    btnNoticias.disabled = true;
+    btnNoticias.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Generando...';
+    fetch("{{ url_for('fx_monitor.api_update_noticias') }}", {
+      method: 'POST',
+      headers: { 'X-CSRFToken': document.querySelector('meta[name=csrf-token]').content }
+    })
+    .then(r => r.json())
+    .then(res => {
+      btnNoticias.disabled = false;
+      btnNoticias.innerHTML = '<i class="bi bi-newspaper me-1"></i>Publicar noticias';
+      if (res.success) {
+        alert(`✓ ${res.count} noticias publicadas en qoricash.pe`);
+      } else {
+        alert('Error: ' + (res.error || 'desconocido'));
+      }
+    })
+    .catch(err => {
+      btnNoticias.disabled = false;
+      btnNoticias.innerHTML = '<i class="bi bi-newspaper me-1"></i>Publicar noticias';
+      alert('Error de red: ' + err);
     });
   });
 }
