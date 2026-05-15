@@ -107,6 +107,24 @@ def _send_via_gmail_api(sender_email, to_email, subject, html_body):
     raw = base64.urlsafe_b64encode(msg.as_bytes()).decode()
     service.users().messages().send(userId="me", body={"raw": raw}).execute()
 
+
+def _crear_borrador_gmail(sender_email, to_email, subject, html_body):
+    """Crea un borrador HTML en Gmail API. Retorna el draft_id."""
+    service = _get_gmail_service(sender_email)
+
+    msg = MIMEMultipart("alternative")
+    msg["To"]      = to_email
+    msg["From"]    = sender_email
+    msg["Subject"] = subject
+    msg.attach(MIMEText(html_body, "html"))
+
+    raw   = base64.urlsafe_b64encode(msg.as_bytes()).decode()
+    draft = service.users().drafts().create(
+        userId="me",
+        body={"message": {"raw": raw}},
+    ).execute()
+    return draft.get("id", "")
+
 prospeccion_bp = Blueprint("prospeccion", __name__, url_prefix="/prospeccion")
 
 DIAS_VIGENCIA = 45  # días de vigencia de un prospecto asignado a un trader
@@ -984,6 +1002,60 @@ def _build_ticker(compra, venta):
 </tr>"""
 
 
+MENSAJE_SEG_HTML = """\
+<tr>
+  <td style="padding:28px 28px 8px;">
+    <p style="margin:0 0 16px;font-size:14px;color:#1E293B;line-height:1.7;">
+      Estimado(a) <strong>{nombre}</strong>,
+    </p>
+    <p style="margin:0 0 16px;font-size:13px;color:#475569;line-height:1.7;text-align:justify;">
+      Me comunico nuevamente desde QoriCash para darle seguimiento a la presentaci&oacute;n que le enviamos
+      recientemente. Quiero asegurarme de que haya tenido la oportunidad de revisarla y, sobre todo,
+      saber si tiene alguna consulta sobre c&oacute;mo podemos optimizar sus operaciones de cambio de d&oacute;lares.
+    </p>
+    <div style="background:#F0FDF4;border-left:4px solid #5CB85C;border-radius:4px;padding:16px 20px;margin:20px 0;">
+      <p style="margin:0 0 8px;font-weight:700;font-size:13px;color:#0D1B2A;">En QoriCash ofrecemos:</p>
+      <p style="margin:0;font-size:13px;color:#4A5568;line-height:1.85;">
+        &#10003;&nbsp; Tasas que superan consistentemente al sistema bancario<br>
+        &#10003;&nbsp; Operaci&oacute;n 100% digital, en minutos y sin costos ocultos<br>
+        &#10003;&nbsp; Atenci&oacute;n personalizada con su ejecutivo asignado
+      </p>
+    </div>
+    <p style="margin:0 0 22px;font-size:13px;color:#475569;line-height:1.7;text-align:justify;">
+      &iquest;Le parece si coordinamos una llamada breve esta semana para mostrarle en tiempo real la diferencia
+      entre nuestras tasas y las que recibe actualmente? No toma m&aacute;s de 10 minutos y puede representar
+      un ahorro significativo para su empresa.
+    </p>
+    <table cellpadding="0" cellspacing="0" border="0" style="margin-bottom:28px;">
+      <tr><td style="border-radius:7px;background:#5CB85C;box-shadow:0 4px 14px rgba(92,184,92,.3);">
+        <a href="https://wa.me/51926011920"
+           style="display:inline-block;padding:12px 28px;color:#FFFFFF;text-decoration:none;font-size:13px;font-weight:700;letter-spacing:0.5px;">
+          Coordinar llamada &nbsp;&rarr;
+        </a>
+      </td></tr>
+    </table>
+  </td>
+</tr>"""
+
+CUERPO_SEGUIMIENTO = """\
+<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#F4F6F8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#F4F6F8;padding:32px 0;">
+<tr><td align="center">
+<table width="560" cellpadding="0" cellspacing="0" border="0"
+  style="max-width:560px;width:100%;background:#FFFFFF;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.07);">
+  {header_seg}
+  {cuerpo_seg}
+  {firma}
+  {pie}
+</table>
+</td></tr>
+</table>
+</body></html>"""
+
+
 def _construir_email(p, tipo, compra, venta, sender_email, nombre_completo, cargo, firma_pre=None):
     """Construye el HTML y asunto. Sin dependencia en current_user (usable en hilos)."""
     nombre_saludo = (p.nombre_contacto or p.razon_social or "estimado cliente").split()[0].capitalize()
@@ -1009,9 +1081,29 @@ def _construir_email(p, tipo, compra, venta, sender_email, nombre_completo, carg
         ticker = _build_ticker(compra, venta)
         html   = CUERPO_PRECIO.format(
             header=header,
+            mensaje="",   # placeholder requerido por la plantilla
             ticker=ticker, bancos=BANCOS_HTML, firma=firma, pie=PIE,
         )
         return html, "Tipo de cambio QORICASH", "precio_enviado"
+    elif tipo == "seguimiento":
+        header_seg = (
+            f'<tr><td style="background:#0D1B2A;padding:18px 28px;">'
+            f'<table width="100%" cellpadding="0" cellspacing="0" border="0"><tr>'
+            f'<td><img src="{LOGO_URL}" alt="QoriCash" height="32" style="display:block;height:32px;"></td>'
+            f'<td style="padding-left:6px;vertical-align:middle;">'
+            f'<span style="font-size:14px;font-weight:800;color:#FFFFFF;letter-spacing:2px;">QORICASH</span></td>'
+            f'<td align="right"><span style="font-size:10px;font-weight:700;color:#5CB85C;text-transform:uppercase;'
+            f'letter-spacing:1.5px;background:rgba(92,184,92,.12);padding:4px 10px;border-radius:20px;'
+            f'border:1px solid rgba(92,184,92,.3);">{fecha}</span></td>'
+            f'</tr></table></td></tr>'
+        )
+        cuerpo_seg = MENSAJE_SEG_HTML.replace("{nombre}", nombre_saludo)
+        html = CUERPO_SEGUIMIENTO.format(
+            header_seg=header_seg,
+            cuerpo_seg=cuerpo_seg,
+            firma=firma, pie=PIE,
+        )
+        return html, "Seguimiento — QoriCash", "presentado"
     else:
         html = CUERPO_PRESENTACION.format(
             header=HEADER_HTML.replace("{fecha}", fecha).replace("{nombre}", nombre_saludo),
@@ -1045,6 +1137,43 @@ def preview_email(pid):
     nombre_completo, cargo  = _get_trader_info(sender_email, current_user.role)
     html, asunto, _         = _construir_email(p, tipo, compra, venta, sender_email, nombre_completo, cargo)
     return jsonify({"ok": True, "html": html, "asunto": asunto, "para": p.email})
+
+
+@prospeccion_bp.route("/<int:pid>/crear-borrador", methods=["POST"])
+@login_required
+@require_role("Master")
+@csrf.exempt
+def crear_borrador(pid):
+    """Genera el HTML del correo y lo guarda como borrador en Gmail del trader."""
+    p = db.get_or_404(Prospecto, pid)
+    _verificar_acceso(p)
+
+    if not p.email:
+        return jsonify({"ok": False, "error": "El prospecto no tiene email registrado."}), 400
+
+    data   = request.get_json(force=True)
+    tipo   = data.get("tipo", "presentacion")
+    compra = data.get("compra", "")
+    venta  = data.get("venta", "")
+
+    if tipo == "precio" and (not compra or not venta):
+        return jsonify({"ok": False, "error": "Debes indicar compra y venta para enviar precio."}), 400
+
+    sender_email           = (getattr(current_user, "email", "") or "").lower()
+    nombre_completo, cargo = _get_trader_info(sender_email, current_user.role)
+
+    try:
+        html, asunto, _ = _construir_email(p, tipo, compra, venta, sender_email, nombre_completo, cargo)
+        draft_id        = _crear_borrador_gmail(sender_email, p.email, asunto, html)
+        return jsonify({
+            "ok":       True,
+            "draft_id": draft_id,
+            "url":      "https://mail.google.com/mail/#drafts",
+        })
+    except ValueError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
 
 
 @prospeccion_bp.route("/<int:pid>/enviar-email", methods=["POST"])

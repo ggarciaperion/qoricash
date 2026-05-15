@@ -1666,7 +1666,7 @@ function selectEmailTipo(btn) {
   document.getElementById('eBtnIniciar').disabled = false;
 }
 
-function iniciarEmail() {
+async function iniciarEmail() {
   if (!_emailTipoSel) return;
   if (_emailTipoSel === 'precio') {
     const compra = document.getElementById('eCompra').value.trim();
@@ -1676,20 +1676,33 @@ function iniciarEmail() {
       return;
     }
   }
-  const to   = document.getElementById('eEmailTo').value;
-  const su   = encodeURIComponent(EMAIL_SUBJECTS[_emailTipoSel] || '');
-  let body;
-  if (_emailTipoSel === 'precio') {
-    body = buildPrecioBody(
-      document.getElementById('eCompra').value.trim(),
-      document.getElementById('eVenta').value.trim()
-    );
-  } else {
-    body = EMAIL_BODIES[_emailTipoSel] || '';
+  const id  = document.getElementById('ePid').value;
+  const btn = document.getElementById('eBtnIniciar');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span>Creando borrador…';
+  try {
+    const r = await fetch(`/prospeccion/${id}/crear-borrador`, {
+      method:  'POST',
+      headers: jHeaders(),
+      body: JSON.stringify({
+        tipo:   _emailTipoSel,
+        compra: document.getElementById('eCompra').value.trim(),
+        venta:  document.getElementById('eVenta').value.trim(),
+      }),
+    });
+    const d = await r.json();
+    if (!d.ok) {
+      Swal.fire({icon:'error', title:'Error', text: d.error || 'No se pudo crear el borrador.', confirmButtonColor:'#0D1B2A'});
+      return;
+    }
+    window.open(d.url, '_blank');
+    bootstrap.Modal.getInstance(document.getElementById('mEmail')).hide();
+  } catch(e) {
+    Swal.fire({icon:'error', text:'Error de conexión.', confirmButtonColor:'#0D1B2A'});
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-box-arrow-up-right me-1"></i>Iniciar';
   }
-  const url = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(to)}&su=${su}&body=${encodeURIComponent(body)}`;
-  window.open(url, '_blank');
-  bootstrap.Modal.getInstance(document.getElementById('mEmail')).hide();
 }
 
 /* ─────────────────────────────────────────────────────────────
