@@ -90,7 +90,7 @@ def validate_referral_code():
                 if client:
                     # Verificar que sea el propietario del código
                     if client.id != reward_code.client_id:
-                        owner = Client.query.get(reward_code.client_id)
+                        owner = db.session.get(Client, reward_code.client_id)
                         logger.warning(
                             f"Cliente {client.dni} intentó usar código de recompensa {code} "
                             f"que pertenece a {owner.dni if owner else 'desconocido'}"

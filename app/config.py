@@ -1,5 +1,12 @@
 """
-Configuración de la aplicación QoriCash Trading V2
+ARCHIVO INACTIVO — QoriCash Trading V2
+
+Este archivo (app/config.py) es código muerto.
+Python resuelve `from app.config import ...` al paquete app/config/__init__.py,
+que toma precedencia sobre este módulo plano cuando ambos existen.
+
+Toda la configuración activa está en app/config/__init__.py.
+Este archivo puede eliminarse de forma segura en cualquier momento.
 """
 import os
 from datetime import timedelta

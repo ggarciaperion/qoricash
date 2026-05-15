@@ -15,7 +15,7 @@ IGV en gastos (casa de cambio):
   usarse como crédito fiscal y se activa como COSTO del gasto.
   Si en el futuro se genera IGV deducible (prorrata), activar credito_fiscal=True.
 """
-from datetime import datetime
+from app.utils.formatters import now_peru
 from app.extensions import db
 
 
@@ -23,7 +23,7 @@ class ExpenseRecord(db.Model):
     __tablename__ = 'expense_records'
 
     id               = db.Column(db.Integer, primary_key=True)
-    period_id        = db.Column(db.Integer, db.ForeignKey('accounting_periods.id'), nullable=False)
+    period_id        = db.Column(db.Integer, db.ForeignKey('accounting_periods.id'), nullable=False, index=True)
     expense_date     = db.Column(db.Date, nullable=False)
     # Código PCGE de la cuenta de gasto: '6391', '6381', '621', '3361', etc.
     category         = db.Column(db.String(50), nullable=False)
@@ -49,9 +49,9 @@ class ExpenseRecord(db.Model):
     # URL Cloudinary del comprobante escaneado
     voucher_url      = db.Column(db.Text, nullable=True)
     # Asiento generado automáticamente al guardar
-    journal_entry_id = db.Column(db.Integer, db.ForeignKey('journal_entries.id'), nullable=True)
+    journal_entry_id = db.Column(db.Integer, db.ForeignKey('journal_entries.id'), nullable=True, index=True)
     created_by       = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
-    created_at       = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at       = db.Column(db.DateTime, default=now_peru)
 
     period        = db.relationship('AccountingPeriod', foreign_keys=[period_id])
     journal_entry = db.relationship('JournalEntry', foreign_keys=[journal_entry_id])

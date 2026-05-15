@@ -6,7 +6,7 @@ Respuesta: {"status":200,"data":[{"tc_compra":3.446,"tc_venta":3.47,...}]}
 """
 import time
 import requests
-from datetime import datetime
+from app.utils.formatters import now_peru
 from .base import BaseScraper, RateResult
 
 
@@ -38,4 +38,4 @@ class TuCambioScraper(BaseScraper):
         sell = self._parse_rate(row.get("tc_venta")  or row.get("venta")  or row.get("sell"))
 
         return RateResult(slug=self.slug, buy_rate=buy, sell_rate=sell,
-                          scraped_at=datetime.utcnow(), response_ms=ms)
+                          scraped_at=now_peru(), response_ms=ms)

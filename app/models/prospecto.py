@@ -1,7 +1,6 @@
 """
 Modelos del modulo de Prospeccion para QoriCash Trading V2
 """
-from datetime import datetime
 from app.extensions import db
 from app.utils.formatters import now_peru
 
@@ -54,9 +53,9 @@ class Prospecto(db.Model):
 
     # Relaciones
     asignaciones  = db.relationship("AsignacionProspecto", backref="prospecto",
-                                    lazy="dynamic", cascade="all, delete-orphan")
+                                    lazy="select", cascade="all, delete-orphan")
     actividades   = db.relationship("ActividadProspecto", backref="prospecto",
-                                    lazy="dynamic", cascade="all, delete-orphan",
+                                    lazy="select", cascade="all, delete-orphan",
                                     order_by="ActividadProspecto.creado_en.desc()")
 
     def to_dict(self):
@@ -97,7 +96,7 @@ class Prospecto(db.Model):
     @property
     def trader_asignado(self):
         """Retorna el primer trader activo asignado, o None."""
-        asig = self.asignaciones.filter_by(activo=True).first()
+        asig = next((a for a in self.asignaciones if a.activo), None)
         return asig.trader if asig else None
 
     def __repr__(self):

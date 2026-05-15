@@ -361,7 +361,7 @@ class NotificationService:
     def notify_client_reassignment(client, reassigned_by_user, new_trader_id):
         try:
             from app.models.user import User
-            new_trader = User.query.get(new_trader_id)
+            new_trader = db.session.get(User, new_trader_id)
             if not new_trader:
                 return
             old_trader = client.creator if hasattr(client, 'creator') else None

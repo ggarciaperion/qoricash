@@ -14,7 +14,8 @@ import logging
 import unicodedata
 import urllib.request
 import xml.etree.ElementTree as ET
-from datetime import datetime, timedelta
+from datetime import timedelta
+from app.utils.formatters import now_peru
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +72,7 @@ def _needs_refresh(source: str) -> bool:
     ).first()
     if not latest:
         return True
-    cutoff = datetime.utcnow() - timedelta(days=CACHE_DAYS)
+    cutoff = now_peru() - timedelta(days=CACHE_DAYS)
     return latest.loaded_at < cutoff
 
 
@@ -108,7 +109,7 @@ def load_ofac(force: bool = False) -> dict:
         db.session.flush()
 
         loaded    = 0
-        now       = datetime.utcnow()
+        now       = now_peru()
         batch     = []
 
         for entry in root.findall('.//sdnEntry', ns) or root.findall('.//sdnEntry'):
@@ -187,7 +188,7 @@ def load_un(force: bool = False) -> dict:
         db.session.flush()
 
         loaded = 0
-        now    = datetime.utcnow()
+        now    = now_peru()
         batch  = []
 
         # Individuos
@@ -333,7 +334,7 @@ def screen_client(client_id: int) -> dict:
     """
     from app.models.client import Client
 
-    client = Client.query.get(client_id)
+    client = db.session.get(Client, client_id)
     if not client:
         return {'error': 'Cliente no encontrado'}
 

@@ -5,7 +5,7 @@ import logging
 import os
 from flask import Blueprint, render_template, jsonify, request
 from flask_login import login_required
-from app.extensions import csrf
+from app.extensions import csrf, limiter
 from app.utils.decorators import require_role as role_required
 from app.utils.formatters import now_peru
 from app.services.market.market_service import MarketService
@@ -118,6 +118,7 @@ def api_macro_update():
 
 
 @market_bp.route('/api/ticker')
+@limiter.limit("120 per minute")  # público: máx 2 rps por IP (CDN o scraper)
 def api_ticker_public():
     """
     Endpoint público para la cinta de mercado en qoricash.pe.

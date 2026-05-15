@@ -67,7 +67,7 @@ class ClientService:
         Returns:
             Client: Cliente encontrado o None
         """
-        return Client.query.get(client_id)
+        return db.session.get(Client, client_id)
 
     @staticmethod
     def get_client_by_dni(dni):
@@ -629,7 +629,7 @@ class ClientService:
                 return False, 'Cliente no encontrado'
 
             # Verificar si tiene operaciones
-            if hasattr(client, 'operations') and client.operations.count() > 0:
+            if Operation.query.filter_by(client_id=client.id).count() > 0:
                 return False, 'No se puede eliminar un cliente con operaciones registradas'
 
             client_name = client.full_name or client.razon_social or client.dni
@@ -779,7 +779,7 @@ class ClientService:
         if not client:
             return None
 
-        operations = client.operations.all() if hasattr(client, 'operations') else []
+        operations = Operation.query.filter_by(client_id=client.id).all()
         completed_operations = [op for op in operations if op.status == 'Completada']
 
         total_usd = sum(getattr(op, 'amount_usd', 0) for op in completed_operations)
@@ -901,7 +901,7 @@ class ClientService:
                 return False, 'Cliente no encontrado', None
 
             # Verificar que el nuevo trader existe y es trader activo
-            new_trader = User.query.get(new_trader_id)
+            new_trader = db.session.get(User, new_trader_id)
             if not new_trader:
                 return False, 'Trader no encontrado', None
 
@@ -913,13 +913,12 @@ class ClientService:
 
             # Guardar trader anterior para auditoría
             old_trader_id = client.created_by
-            old_trader = User.query.get(old_trader_id) if old_trader_id else None
+            old_trader = db.session.get(User, old_trader_id) if old_trader_id else None
             old_trader_name = old_trader.username if old_trader else 'Sin asignar'
 
             # Reasignar
             client.created_by = new_trader_id
-            from datetime import datetime
-            client.reassigned_at = datetime.utcnow()
+            client.reassigned_at = now_peru()
 
             # Auditoría: registrar antes del commit
             try:
@@ -981,7 +980,7 @@ class ClientService:
                 return False, 'Debe proporcionar una lista de clientes', None
 
             # Verificar que el nuevo trader existe y es trader activo
-            new_trader = User.query.get(new_trader_id)
+            new_trader = db.session.get(User, new_trader_id)
             if not new_trader:
                 return False, 'Trader no encontrado', None
 

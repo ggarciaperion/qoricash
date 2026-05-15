@@ -34,7 +34,7 @@ class UserService:
         Returns:
             User: Usuario o None
         """
-        return User.query.get(user_id)
+        return db.session.get(User, user_id)
     
     @staticmethod
     def get_active_users():
@@ -157,7 +157,7 @@ class UserService:
             return False, 'Solo el Master puede actualizar usuarios', None
         
         # Obtener usuario
-        user = User.query.get(user_id)
+        user = db.session.get(User, user_id)
         if not user:
             return False, 'Usuario no encontrado', None
         
@@ -230,7 +230,7 @@ class UserService:
             return False, 'Solo el Master puede cambiar el estado de usuarios', None
         
         # Obtener usuario
-        user = User.query.get(user_id)
+        user = db.session.get(User, user_id)
         if not user:
             return False, 'Usuario no encontrado', None
         
@@ -274,7 +274,7 @@ class UserService:
             return False, 'Solo el Master puede eliminar usuarios'
         
         # Obtener usuario
-        user = User.query.get(user_id)
+        user = db.session.get(User, user_id)
         if not user:
             return False, 'Usuario no encontrado'
         
@@ -311,14 +311,15 @@ class UserService:
         Returns:
             dict: Estadísticas del usuario
         """
-        user = User.query.get(user_id)
+        user = db.session.get(User, user_id)
         if not user:
             return None
         
+        from app.models.operation import Operation
         return {
-            'total_operations': user.operations.count(),
-            'completed_operations': user.operations.filter_by(status='Completada').count(),
-            'pending_operations': user.operations.filter_by(status='Pendiente').count(),
-            'in_process_operations': user.operations.filter_by(status='En proceso').count(),
-            'canceled_operations': user.operations.filter_by(status='Cancelado').count()
+            'total_operations': Operation.query.filter_by(user_id=user.id).count(),
+            'completed_operations': Operation.query.filter_by(user_id=user.id, status='Completada').count(),
+            'pending_operations': Operation.query.filter_by(user_id=user.id, status='Pendiente').count(),
+            'in_process_operations': Operation.query.filter_by(user_id=user.id, status='En proceso').count(),
+            'canceled_operations': Operation.query.filter_by(user_id=user.id, status='Cancelado').count()
         }

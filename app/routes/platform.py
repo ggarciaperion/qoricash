@@ -928,7 +928,7 @@ def cancel_expired_operation(operation_id):
         logger.info(f"⏱️ [CLIENT] Solicitud de cancelación por expiración: operación {operation_id}")
 
         # Buscar la operación
-        operation = Operation.query.get(operation_id)
+        operation = db.session.get(Operation, operation_id)
 
         if not operation:
             logger.warning(f"⚠️ [CLIENT] Operación {operation_id} no encontrada")

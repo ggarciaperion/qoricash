@@ -99,7 +99,7 @@ class ReferralService:
                 return False
 
             # Obtener el propietario del código (referidor)
-            referrer = Client.query.get(client.referred_by)
+            referrer = db.session.get(Client, client.referred_by)
             if not referrer:
                 logger.error(f"Propietario del código no encontrado (ID: {client.referred_by})")
                 return False
@@ -157,7 +157,7 @@ class ReferralService:
                 return False
 
             # Obtener el cliente de la operación
-            client = Client.query.get(operation.client_id)
+            client = db.session.get(Client, operation.client_id)
             if not client:
                 logger.error(f"Cliente no encontrado para operación {operation.operation_id}")
                 return False
@@ -168,7 +168,7 @@ class ReferralService:
                 return False
 
             # Obtener el propietario del código (referidor)
-            referrer = Client.query.get(client.referred_by)
+            referrer = db.session.get(Client, client.referred_by)
             if not referrer:
                 logger.error(f"Propietario del código no encontrado (ID: {client.referred_by})")
                 return False
@@ -230,7 +230,7 @@ class ReferralService:
             # Construir historial de usos
             referral_history = []
             for op in completed_operations:
-                referred_client = Client.query.get(op.client_id)
+                referred_client = db.session.get(Client, op.client_id)
                 referral_history.append({
                     'operation_id': op.operation_id,
                     'client_name': referred_client.full_name,

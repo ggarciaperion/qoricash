@@ -6,7 +6,7 @@ Los tipos de cambio están en la página /tc con elementos id="valcompra" y id="
 import time
 import requests
 from bs4 import BeautifulSoup
-from datetime import datetime
+from app.utils.formatters import now_peru
 from .base import BaseScraper, RateResult
 
 
@@ -33,4 +33,4 @@ class KambistaScraper(BaseScraper):
         sell = self._parse_rate(sell_el.get_text(strip=True))
 
         return RateResult(slug=self.slug, buy_rate=buy, sell_rate=sell,
-                          scraped_at=datetime.utcnow(), response_ms=ms)
+                          scraped_at=now_peru(), response_ms=ms)

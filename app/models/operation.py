@@ -1,7 +1,6 @@
 """
 Modelo de Operación para QoriCash Trading V2
 """
-from datetime import datetime
 from app.extensions import db
 from app.utils.formatters import now_peru
 import json
@@ -26,7 +25,8 @@ class Operation(db.Model):
     # Tipo de operación
     operation_type = db.Column(
         db.String(20),
-        nullable=False
+        nullable=False,
+        index=True
     )  # Compra, Venta
 
     # Origen de la operación
@@ -94,7 +94,7 @@ class Operation(db.Model):
     # Timestamps
     created_at = db.Column(db.DateTime, default=now_peru, nullable=False, index=True)
     updated_at = db.Column(db.DateTime, default=now_peru, onupdate=now_peru)
-    completed_at = db.Column(db.DateTime)
+    completed_at = db.Column(db.DateTime, index=True)
     in_process_since = db.Column(db.DateTime)  # Cuando pasó a "En proceso"
 
     # REMOVIDO: Campo en_observacion eliminado por petición del usuario
@@ -378,7 +378,7 @@ class Operation(db.Model):
             # Obtener nombre del operador asignado
             if self.assigned_operator_id:
                 from app.models.user import User
-                assigned_operator = User.query.get(self.assigned_operator_id)
+                assigned_operator = db.session.get(User, self.assigned_operator_id)
                 data['assigned_operator_name'] = assigned_operator.username if assigned_operator else None
             else:
                 data['assigned_operator_name'] = None

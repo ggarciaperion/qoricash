@@ -580,7 +580,7 @@ def get_bank_reconciliation():
             try:
                 if bank.updated_by:
                     from app.models.user import User
-                    updater = User.query.get(bank.updated_by)
+                    updater = db.session.get(User, bank.updated_by)
                     updated_by_name = updater.username if updater else None
             except:
                 updated_by_name = None

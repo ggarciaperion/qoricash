@@ -3,6 +3,7 @@ MarketService — orquesta ciclos de fetch, persistencia y análisis.
 """
 import logging
 from datetime import datetime, timezone, timedelta
+from app.utils.formatters import now_peru
 
 from app.extensions import db
 from app.models.market import MarketSnapshot, MarketSignal, MarketNews, MacroIndicator, EconomicEvent, DailyAnalysis
@@ -78,7 +79,7 @@ class MarketService:
             db.session.add(snap)
 
             # Noticias de las últimas 4h para enriquecer la señal
-            recent_since = datetime.utcnow() - timedelta(hours=4)
+            recent_since = now_peru() - timedelta(hours=4)
             recent_news = [
                 n.to_dict() for n in
                 MarketNews.query
@@ -112,7 +113,7 @@ class MarketService:
                 exists = MarketNews.query.filter_by(url_hash=art['url_hash']).first()
                 if not exists:
                     db.session.add(MarketNews(
-                        fetched_at      = datetime.utcnow(),
+                        fetched_at      = now_peru(),
                         source          = art['source'],
                         source_country  = art['source_country'],
                         title           = art['title'],
@@ -150,9 +151,9 @@ class MarketService:
                     existing.source     = ind['source']
                     existing.direction  = ind['direction']
                     existing.notes      = ind['notes']
-                    existing.updated_at = datetime.utcnow()
+                    existing.updated_at = now_peru()
                 else:
-                    db.session.add(MacroIndicator(**ind, updated_at=datetime.utcnow()))
+                    db.session.add(MacroIndicator(**ind, updated_at=now_peru()))
                 updated += 1
             db.session.commit()
             logger.info(f"[Macro] {updated} indicadores actualizados")
@@ -175,7 +176,7 @@ class MarketService:
                     existing.actual   = ev['actual']
                     existing.forecast = ev['forecast']
                     existing.previous = ev['previous']
-                    existing.fetched_at = datetime.utcnow()
+                    existing.fetched_at = now_peru()
                 else:
                     db.session.add(EconomicEvent(
                         event_key  = ev['event_key'],
@@ -188,7 +189,7 @@ class MarketService:
                         forecast   = ev['forecast'],
                         previous   = ev['previous'],
                         source     = ev['source'],
-                        fetched_at = datetime.utcnow(),
+                        fetched_at = now_peru(),
                     ))
                 upserted += 1
             db.session.commit()
@@ -255,7 +256,7 @@ class MarketService:
         signal = MarketSignal.query.order_by(MarketSignal.generated_at.desc()).first()
 
         # Noticias: last 48h, ordenadas por más reciente primero
-        since_news = datetime.utcnow() - timedelta(hours=48)
+        since_news = now_peru() - timedelta(hours=48)
         news_rows = (
             MarketNews.query
             .filter(MarketNews.fetched_at >= since_news)
@@ -265,7 +266,7 @@ class MarketService:
         )
 
         # Histórico USD/PEN últimas 24h
-        since_hist = datetime.utcnow() - timedelta(hours=24)
+        since_hist = now_peru() - timedelta(hours=24)
         history = (
             MarketSnapshot.query
             .filter(MarketSnapshot.captured_at >= since_hist)

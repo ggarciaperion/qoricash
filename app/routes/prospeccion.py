@@ -198,7 +198,7 @@ def dashboard():
 @login_required
 @require_role("Master")
 def reporte_trader(trader_id):
-    trader = User.query.get_or_404(trader_id)
+    trader = db.get_or_404(User, trader_id)
     hoy    = now_peru().date()
     hace7  = now_peru() - timedelta(days=7)
     hace30 = now_peru() - timedelta(days=30)
@@ -371,8 +371,8 @@ def lista():
 @login_required
 @require_role("Master")
 def detalle(pid):
-    p = Prospecto.query.get_or_404(pid)
-    actividades = p.actividades.limit(50).all()
+    p = db.get_or_404(Prospecto, pid)
+    actividades = ActividadProspecto.query.filter_by(prospecto_id=p.id).order_by(ActividadProspecto.creado_en.desc()).limit(50).all()
 
     return render_template(
         "prospeccion/detalle.html",
@@ -386,7 +386,7 @@ def detalle(pid):
 @login_required
 @require_role("Master")
 def agregar_actividad(pid):
-    p = Prospecto.query.get_or_404(pid)
+    p = db.get_or_404(Prospecto, pid)
     _verificar_acceso(p)
 
     tipo        = request.form.get("tipo", "nota")
@@ -426,7 +426,7 @@ def agregar_actividad(pid):
 @login_required
 @require_role("Master")
 def editar(pid):
-    p = Prospecto.query.get_or_404(pid)
+    p = db.get_or_404(Prospecto, pid)
     _verificar_acceso(p)
 
     if request.method == "POST":
@@ -455,20 +455,20 @@ def editar(pid):
 @login_required
 @require_role("Master")
 def asignar(pid):
-    p          = Prospecto.query.get_or_404(pid)
+    p          = db.get_or_404(Prospecto, pid)
     trader_id  = request.form.get("trader_id", type=int)
 
     if not trader_id:
         # Quitar asignacion
-        p.asignaciones.filter_by(activo=True).update({"activo": False})
+        AsignacionProspecto.query.filter_by(prospecto_id=p.id, activo=True).update({"activo": False})
         db.session.commit()
         flash("Asignacion eliminada.", "info")
         return redirect(url_for("prospeccion.detalle", pid=pid))
 
-    trader = User.query.get_or_404(trader_id)
+    trader = db.get_or_404(User, trader_id)
 
     # Desactivar asignacion anterior
-    p.asignaciones.filter_by(activo=True).update({"activo": False})
+    AsignacionProspecto.query.filter_by(prospecto_id=p.id, activo=True).update({"activo": False})
 
     # Buscar si ya existe (inactiva)
     existente = AsignacionProspecto.query.filter_by(
@@ -528,7 +528,8 @@ def asignar_masivo():
             asignados += 1
 
         db.session.commit()
-        flash(f"{asignados} prospectos asignados a {User.query.get(trader_id).username}.", "success")
+        trader = db.session.get(User, trader_id)
+        flash(f"{asignados} prospectos asignados a {trader.username if trader else trader_id}.", "success")
         return redirect(url_for("prospeccion.asignar_masivo"))
 
     # Conteo por grupo sin asignar
@@ -555,7 +556,7 @@ def pipeline():
 @login_required
 @require_role("Master")
 def mover_pipeline(pid):
-    p = Prospecto.query.get_or_404(pid)
+    p = db.get_or_404(Prospecto, pid)
     _verificar_acceso(p)
     nuevo = request.form.get("estado")
     validos = {"presentado","precio_enviado","negociando","cliente","P1","P2","P3","P4"}
@@ -825,7 +826,7 @@ def asignar_por_remitente():
     if accion == "preview":
         ya_asignados = sum(
             1 for p in prospectos
-            if p.asignaciones.filter_by(trader_id=usuario.id, activo=True).first()
+            if next((a for a in p.asignaciones if a.trader_id == usuario.id and a.activo), None)
         )
         return jsonify({
             "remitente":      remitente,
@@ -1143,7 +1144,7 @@ def _construir_email(p, tipo, compra, venta, sender_email, nombre_completo, carg
 @require_role("Master")
 def preview_email(pid):
     """Genera el borrador HTML sin enviarlo."""
-    p = Prospecto.query.get_or_404(pid)
+    p = db.get_or_404(Prospecto, pid)
     _verificar_acceso(p)
 
     if not p.email:
@@ -1167,7 +1168,7 @@ def preview_email(pid):
 @login_required
 @require_role("Master")
 def enviar_email(pid):
-    p = Prospecto.query.get_or_404(pid)
+    p = db.get_or_404(Prospecto, pid)
     _verificar_acceso(p)
 
     if not p.email:
@@ -1245,7 +1246,7 @@ def enviar_email(pid):
 @login_required
 @require_role("Master")
 def cambiar_estado(pid):
-    p = Prospecto.query.get_or_404(pid)
+    p = db.get_or_404(Prospecto, pid)
     _verificar_acceso(p)
 
     nuevo = request.get_json(force=True).get("estado", "")
@@ -1274,7 +1275,7 @@ def registrar_cliente(pid):
     from werkzeug.security import generate_password_hash
     import secrets
 
-    p = Prospecto.query.get_or_404(pid)
+    p = db.get_or_404(Prospecto, pid)
     _verificar_acceso(p)
 
     # 1. Buscar cliente existente por RUC o email
@@ -1356,7 +1357,7 @@ def _campana_worker(app, trader_id, prospecto_ids, tipo, sender_email,
                     compra = _campanas[trader_id]["compra"]
                     venta  = _campanas[trader_id]["venta"]
 
-                p = Prospecto.query.get(pid)
+                p = db.session.get(Prospecto, pid)
                 if not p or not p.email:
                     with _campanas_lock:
                         if trader_id in _campanas:
@@ -1512,14 +1513,14 @@ def campana_detener():
 @require_role("Trader")
 def solicitar_extension(pid):
     """Trader solicita 45 días extra para un prospecto en negociación."""
-    p = Prospecto.query.get_or_404(pid)
+    p = db.get_or_404(Prospecto, pid)
     _verificar_acceso(p)
 
     if p.estado_comercial not in ("negociacion", "P2", "P3"):
         return jsonify({"ok": False,
                         "error": "Solo puedes solicitar extensión para prospectos En Negociacion."}), 400
 
-    asig = p.asignaciones.filter_by(trader_id=current_user.id, activo=True).first()
+    asig = next((a for a in p.asignaciones if a.trader_id == current_user.id and a.activo), None)
     if not asig:
         return jsonify({"ok": False, "error": "No tienes este prospecto asignado."}), 400
     if asig.extension_solicitada:
@@ -1545,7 +1546,7 @@ def resolver_extension(pid):
     accion  = data.get("accion")          # "aprobar" | "rechazar"
     asig_id = int(data.get("asig_id", 0))
 
-    asig = AsignacionProspecto.query.get(asig_id)
+    asig = db.session.get(AsignacionProspecto, asig_id)
     if not asig or asig.prospecto_id != pid:
         return jsonify({"ok": False, "error": "Asignacion no encontrada."}), 404
 
@@ -1600,7 +1601,7 @@ def reasignar_vencidos():
     if not ids or not nuevo_trader_id:
         return jsonify({"ok": False, "error": "Faltan parámetros."}), 400
 
-    nuevo_trader = User.query.get(nuevo_trader_id)
+    nuevo_trader = db.session.get(User, nuevo_trader_id)
     if not nuevo_trader:
         return jsonify({"ok": False, "error": "Trader no encontrado."}), 404
 
@@ -1608,12 +1609,12 @@ def reasignar_vencidos():
     reasignados = 0
 
     for pid in ids:
-        p = Prospecto.query.get(pid)
+        p = db.session.get(Prospecto, pid)
         if not p:
             continue
 
         # Desactivar asignación actual
-        p.asignaciones.filter_by(activo=True).update({"activo": False})
+        AsignacionProspecto.query.filter_by(prospecto_id=p.id, activo=True).update({"activo": False})
 
         # Crear o reactivar asignación al nuevo trader
         existente = AsignacionProspecto.query.filter_by(
@@ -1787,7 +1788,7 @@ def _verificar_acceso(p):
     """Trader solo puede ver sus prospectos asignados."""
     if current_user.role == "Master":
         return
-    asig = p.asignaciones.filter_by(trader_id=current_user.id, activo=True).first()
+    asig = next((a for a in p.asignaciones if a.trader_id == current_user.id and a.activo), None)
     if not asig:
         flash("No tienes acceso a este prospecto.", "danger")
         redirect(url_for("prospeccion.lista"))

@@ -322,7 +322,7 @@ def initialize_extensions(flask_app):
 
     @login_manager.user_loader
     def load_user(user_id):
-        return User.query.get(int(user_id))
+        return db.session.get(User, int(user_id))
 
     @login_manager.unauthorized_handler
     def unauthorized():
@@ -433,16 +433,25 @@ def register_error_handlers(app):
         import traceback, logging as _log
         tb = traceback.format_exc()
         _log.error(f'[500] {request.path}\n{tb}')
-        # JSON solo para peticiones AJAX / API
+        # JSON para peticiones AJAX / API
         if (request.is_json or
                 request.path.startswith('/api/') or
                 request.headers.get('X-Requested-With') == 'XMLHttpRequest'):
             return jsonify({'success': False, 'error': 'Error interno del servidor'}), 500
-        # Páginas HTML: mostrar el traceback para facilitar diagnóstico
+        # Páginas HTML: solo mostrar traceback en modo debug (nunca en producción)
+        if app.debug:
+            return (
+                f'<h2 style="color:red">Error 500 — {request.path}</h2>'
+                f'<pre style="background:#f8f8f8;padding:16px;border-radius:6px">'
+                f'{tb}</pre>',
+                500,
+            )
         return (
-            f'<h2 style="color:red">Error 500 — {request.path}</h2>'
-            f'<pre style="background:#f8f8f8;padding:16px;border-radius:6px">'
-            f'{tb}</pre>',
+            '<div style="font-family:sans-serif;text-align:center;padding:60px 20px">'
+            '<h2 style="color:#c0392b">Error interno del servidor</h2>'
+            '<p style="color:#555">Ocurrió un problema inesperado. El equipo técnico ha sido notificado.</p>'
+            '<a href="/" style="color:#2980b9">Volver al inicio</a>'
+            '</div>',
             500,
         )
 
@@ -578,7 +587,6 @@ def start_operation_expiry_scheduler(app):
 
     def scheduler_loop():
         """Loop infinito que expira operaciones cada 60 segundos"""
-        import time
         logging.info("[SCHEDULER] ✅ Scheduler de expiración de operaciones iniciado")
 
         while True:
@@ -702,7 +710,7 @@ def register_cli_commands(app):
             db.create_all()
             # Seed parámetros fiscales por defecto (idempotente)
             # UIT: solo insertar si no existe (puede ser actualizada manualmente)
-            if not SystemConfig.query.get('UIT'):
+            if not db.session.get(SystemConfig, 'UIT'):
                 db.session.add(SystemConfig(key='UIT', value='5350',
                                             description='Unidad Impositiva Tributaria vigente (S/)'))
 
@@ -712,7 +720,7 @@ def register_cli_commands(app):
                 ('RAZON_SOCIAL', 'QORICASH SAC', 'Razón social de la empresa'),
             ]
             for key, value, desc in company_defaults:
-                existing = SystemConfig.query.get(key)
+                existing = db.session.get(SystemConfig, key)
                 if existing:
                     existing.value = value
                     existing.description = desc

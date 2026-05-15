@@ -1,7 +1,6 @@
 """
 Modelos para el sistema de monitoreo de tipos de cambio de la competencia (FX Monitor)
 """
-from datetime import datetime
 from app.extensions import db
 from app.utils.formatters import now_peru
 
@@ -19,7 +18,7 @@ class Competitor(db.Model):
     created_at   = db.Column(db.DateTime, default=now_peru)
 
     # Relaciones
-    rates_history = db.relationship('CompetitorRateHistory', backref='competitor', lazy='dynamic')
+    rates_history = db.relationship('CompetitorRateHistory', backref='competitor', lazy='select')
     current_rate  = db.relationship('CompetitorRateCurrent', backref='competitor', uselist=False)
 
     def __repr__(self):

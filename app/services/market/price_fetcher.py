@@ -7,6 +7,7 @@ import logging
 import requests
 from dataclasses import dataclass, field
 from datetime import datetime
+from app.utils.formatters import now_peru
 from typing import Optional
 
 logger = logging.getLogger(__name__)
@@ -73,7 +74,7 @@ class AssetPrice:
 
 @dataclass
 class MarketPrices:
-    fetched_at:   datetime = field(default_factory=datetime.utcnow)
+    fetched_at:   datetime = field(default_factory=now_peru)
     usdpen:       AssetPrice = field(default_factory=lambda: AssetPrice('usdpen'))
     gold:         AssetPrice = field(default_factory=lambda: AssetPrice('gold'))
     oil:          AssetPrice = field(default_factory=lambda: AssetPrice('oil'))

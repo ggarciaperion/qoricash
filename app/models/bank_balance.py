@@ -1,7 +1,6 @@
 """
 Modelo de Saldos Bancarios para QoriCash Trading V2
 """
-from datetime import datetime
 from app.extensions import db
 from app.utils.formatters import now_peru
 

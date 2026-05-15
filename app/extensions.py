@@ -28,9 +28,14 @@ login_manager.login_message_category = 'warning'
 csrf = CSRFProtect()
 
 # Rate Limiting
+# Sin límites globales — cada endpoint sensible tiene su propio @limiter.limit().
+# Los endpoints internos (dashboard, operaciones) están protegidos por @login_required
+# y no necesitan rate limiting adicional. Sí aplica en: auth.login, client_auth.*,
+# web_api.register y web_api.create_operation.
+# Si REDIS_URL está configurado en Render, usa Redis automáticamente.
 limiter = Limiter(
     key_func=get_remote_address,
-    default_limits=["200 per day", "50 per hour"],
+    default_limits=[],
     storage_uri=os.environ.get('REDIS_URL', 'memory://')
 )
 

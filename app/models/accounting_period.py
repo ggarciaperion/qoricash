@@ -2,7 +2,6 @@
 Períodos contables mensuales.
 Un período cerrado no acepta nuevos asientos.
 """
-from datetime import datetime
 from app.extensions import db
 
 

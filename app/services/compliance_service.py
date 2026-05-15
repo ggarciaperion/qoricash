@@ -48,7 +48,7 @@ class ComplianceService:
         """
         from app.models.client import Client
 
-        client = Client.query.get(client_id)
+        client = db.session.get(Client, client_id)
         if not client:
             return 0
 
@@ -311,7 +311,7 @@ class ComplianceService:
         Returns:
             tuple: (alerts_generated, risk_score)
         """
-        operation = Operation.query.get(operation_id)
+        operation = db.session.get(Operation, operation_id)
         if not operation:
             return [], 0
 
@@ -473,7 +473,7 @@ class ComplianceService:
     def resolve_alert(alert_id, user_id, resolution, notes):
         """Resolver una alerta"""
         try:
-            alert = ComplianceAlert.query.get(alert_id)
+            alert = db.session.get(ComplianceAlert, alert_id)
             if not alert:
                 return False, 'Alerta no encontrada'
 

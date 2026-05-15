@@ -9,7 +9,7 @@ Estado 2026-03: Requiere investigación adicional del flujo de autenticación.
 import re
 import time
 import requests
-from datetime import datetime
+from app.utils.formatters import now_peru
 from .base import BaseScraper, RateResult
 
 _API_BASE = "https://apibcprod01.azure-api.net/cambix/"
@@ -48,7 +48,7 @@ class CambixScraper(BaseScraper):
                         if buy and sell:
                             ms = int((time.monotonic() - t0) * 1000)
                             return RateResult(slug=self.slug, buy_rate=buy, sell_rate=sell,
-                                              scraped_at=datetime.utcnow(), response_ms=ms)
+                                              scraped_at=now_peru(), response_ms=ms)
                 except Exception:
                     continue
 
@@ -68,7 +68,7 @@ class CambixScraper(BaseScraper):
             rates = sorted(set(rates))
             if len(rates) >= 2:
                 return RateResult(slug=self.slug, buy_rate=rates[0], sell_rate=rates[-1],
-                                  scraped_at=datetime.utcnow(), response_ms=ms)
+                                  scraped_at=now_peru(), response_ms=ms)
         except Exception:
             pass
 

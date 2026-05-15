@@ -6,6 +6,7 @@ import random
 import logging
 from dataclasses import dataclass
 from datetime import datetime
+from app.utils.formatters import now_peru
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +67,7 @@ class BaseScraper:
                 slug=self.slug,
                 buy_rate=0.0,
                 sell_rate=0.0,
-                scraped_at=datetime.utcnow(),
+                scraped_at=now_peru(),
                 response_ms=ms,
                 success=False,
                 error=str(e)[:255],

@@ -7,7 +7,7 @@ output[0] = compra, output[1] = venta  (para USD/PEN)
 import time
 import requests
 from bs4 import BeautifulSoup
-from datetime import datetime
+from app.utils.formatters import now_peru
 from .base import BaseScraper, RateResult
 
 
@@ -31,4 +31,4 @@ class TuCambistaScraper(BaseScraper):
         sell = self._parse_rate(outputs[1].get_text(strip=True))
 
         return RateResult(slug=self.slug, buy_rate=buy, sell_rate=sell,
-                          scraped_at=datetime.utcnow(), response_ms=ms)
+                          scraped_at=now_peru(), response_ms=ms)

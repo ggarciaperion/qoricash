@@ -448,8 +448,8 @@ $(document).ready(function() {
     setCurrentPeriod();
     initDatePicker();
 
-    // Actualizar cada 60 segundos (reducido para evitar error 429)
-    setInterval(loadDashboardData, 60000);
+    // Polling adaptativo: 5 min con WS activo, 60 s como fallback
+    startDashboardPolling(loadDashboardData);
 
     // Conectar a SocketIO para actualizaciones en tiempo real
     connectSocketIO();

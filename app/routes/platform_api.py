@@ -7,13 +7,11 @@ from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
 from app.services.client_service import ClientService
 from app.services.operation_service import OperationService
-from app.services.file_service import FileService
 from app.services.notification_service import NotificationService
 from app.utils.decorators import require_role
 from app.utils.formatters import now_peru
 from app.models.client import Client
-from app.models.operation import Operation
-from app.extensions import db, csrf
+from app.extensions import csrf
 import logging
 
 logger = logging.getLogger(__name__)
@@ -470,23 +468,10 @@ def health_check():
     Returns:
         JSON: {"status": "ok"}
     """
-    from flask import current_app
-
-    # Lista de rutas registradas (para debug)
-    routes = []
-    for rule in current_app.url_map.iter_rules():
-        if 'platform' in rule.rule or 'exchange' in rule.rule:
-            routes.append({
-                'endpoint': rule.endpoint,
-                'methods': list(rule.methods - {'HEAD', 'OPTIONS'}),
-                'path': rule.rule
-            })
-
     return jsonify({
         'status': 'ok',
         'service': 'QoriCash Platform API',
         'version': '1.0.1',
-        'registered_routes': routes[:10]  # Primeras 10 rutas para debug
     }), 200
 
 

@@ -40,7 +40,6 @@ class Config:
 
     # Rate Limiting
     RATELIMIT_ENABLED = os.environ.get('RATELIMIT_ENABLED', 'True') == 'True'
-    RATELIMIT_STORAGE_URL = "memory://"
 
     # Logging
     LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO')

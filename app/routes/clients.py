@@ -8,7 +8,7 @@ from app.services.file_service import FileService
 from app.services.notification_service import NotificationService
 from app.utils.decorators import require_role
 from app.utils.formatters import now_peru
-from app.extensions import csrf
+from app.extensions import db, csrf
 import io
 import csv
 from datetime import datetime
@@ -966,7 +966,7 @@ def reassign_clients_bulk():
             # Enviar notificación al nuevo trader
             try:
                 from app.models.user import User
-                new_trader = User.query.get(new_trader_id)
+                new_trader = db.session.get(User, new_trader_id)
                 if new_trader and results:
                     NotificationService.notify_bulk_client_reassignment(
                         new_trader,
@@ -1319,7 +1319,7 @@ def export_client_history(client_id):
     from app.models.operation import Operation
     from app.routes.operations import get_bank_account_info
 
-    client = Client.query.get_or_404(client_id)
+    client = db.get_or_404(Client, client_id)
 
     start_date = request.args.get('start_date')
     end_date   = request.args.get('end_date')
@@ -1406,52 +1406,6 @@ def export_client_history(client_id):
     )
 
 
-
-
-@clients_bp.route('/api/repair/assign-app-canal', methods=['GET', 'POST'])
-@login_required
-@require_role('Master')
-def repair_assign_app_canal():
-    """
-    Ruta de mantenimiento (solo Master).
-    Repara registration_canal en todos los clientes que no lo tienen.
-    - created_by NULL → 'app'
-    - creator email = web@qoricash.pe → 'web'
-    - creator email = app@qoricash.pe → 'app'
-    """
-    from app.models.client import Client
-    from app.models.user import User
-    from sqlalchemy import text
-
-    updated = []
-
-    # Clientes sin registration_canal
-    clients = Client.query.filter(Client.registration_canal == None).all()
-
-    web_emails = {'web@qoricash.pe'}
-    app_emails = {'app@qoricash.pe'}
-
-    for c in clients:
-        if c.created_by is None:
-            c.registration_canal = 'app'
-        elif c.creator and c.creator.email in web_emails:
-            c.registration_canal = 'web'
-        elif c.creator and c.creator.email in app_emails:
-            c.registration_canal = 'app'
-        else:
-            c.registration_canal = 'system'
-        updated.append({'id': c.id, 'dni': c.dni, 'canal': c.registration_canal})
-
-    if updated:
-        db.session.commit()
-
-    return jsonify({
-        'success': True,
-        'message': f'{len(updated)} clientes actualizados con registration_canal',
-        'updated_clients': updated
-    })
-
-
 @clients_bp.route('/<int:client_id>/download-ficha-ruc')
 @login_required
 def download_ficha_ruc(client_id):
@@ -1460,7 +1414,7 @@ def download_ficha_ruc(client_id):
     from flask import Response
     from app.models.client import Client
 
-    client = Client.query.get_or_404(client_id)
+    client = db.get_or_404(Client, client_id)
     url = client.ficha_ruc_url
     if not url:
         return "Ficha RUC no encontrada. Sube el archivo nuevamente.", 404

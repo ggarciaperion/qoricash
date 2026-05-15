@@ -4,6 +4,7 @@ Rutas del módulo FX Monitor — /monitor
 import logging
 from flask import Blueprint, render_template, jsonify, request
 from flask_login import login_required, current_user
+from app.extensions import db
 from app.utils.decorators import require_role as role_required
 from app.services.fx_monitor.monitor_service import FXMonitorService
 from app.models.competitor_rate import Competitor
@@ -80,8 +81,7 @@ def api_competitors():
 @role_required("Master")
 def api_toggle_competitor(comp_id):
     """Activa/desactiva un competidor."""
-    from app.extensions import db
-    comp = Competitor.query.get_or_404(comp_id)
+    comp = db.get_or_404(Competitor, comp_id)
     comp.is_active = not comp.is_active
     db.session.commit()
     return jsonify({"success": True, "is_active": comp.is_active})

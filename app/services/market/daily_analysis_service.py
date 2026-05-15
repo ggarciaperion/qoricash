@@ -11,6 +11,7 @@ Ciclo de vida:
 import json
 import logging
 from datetime import datetime, timezone, timedelta
+from app.utils.formatters import now_peru
 
 from app.extensions import db
 from app.models.market import (
@@ -160,7 +161,7 @@ class DailyAnalysisService:
 
             analysis = DailyAnalysis(
                 analysis_date        = today_date,
-                generated_at         = datetime.utcnow(),
+                generated_at         = now_peru(),
                 trend                = trend,
                 confidence           = confidence,
                 title                = title,
@@ -284,7 +285,7 @@ class DailyAnalysisService:
 
             analysis = DailyAnalysis(
                 analysis_date        = today_date,
-                generated_at         = datetime.utcnow(),
+                generated_at         = now_peru(),
                 trend                = trend,
                 confidence           = confidence,
                 title                = title,

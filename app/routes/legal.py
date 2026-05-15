@@ -4,13 +4,11 @@ Blueprint para páginas legales (Política de Privacidad, Términos y Condicione
 Rutas públicas sin autenticación requerida para cumplir con requisitos de App Store y Play Store
 """
 from flask import Blueprint, render_template
-from app.extensions import limiter
 from datetime import datetime
 
 legal_bp = Blueprint('legal', __name__)
 
 @legal_bp.route('/privacy-policy')
-@limiter.exempt
 def privacy_policy():
     """
     Política de Privacidad de QoriCash
@@ -30,7 +28,6 @@ def privacy_policy():
     )
 
 @legal_bp.route('/terms-of-service')
-@limiter.exempt
 def terms_of_service():
     """
     Términos y Condiciones de Uso de QoriCash
@@ -51,7 +48,6 @@ def terms_of_service():
 
 # Alias compatibles (por si acaso)
 @legal_bp.route('/privacy')
-@limiter.exempt
 def privacy_alias():
     """Alias para /privacy-policy"""
     now = datetime.now()
@@ -62,7 +58,6 @@ def privacy_alias():
     )
 
 @legal_bp.route('/terms')
-@limiter.exempt
 def terms_alias():
     """Alias para /terms-of-service"""
     now = datetime.now()
@@ -74,7 +69,6 @@ def terms_alias():
 
 # Rutas adicionales para mayor compatibilidad
 @legal_bp.route('/legal/privacy')
-@limiter.exempt
 def legal_privacy():
     """Ruta /legal/privacy para compatibilidad con app stores"""
     now = datetime.now()
@@ -85,7 +79,6 @@ def legal_privacy():
     )
 
 @legal_bp.route('/legal/terms')
-@limiter.exempt
 def legal_terms():
     """Ruta /legal/terms para compatibilidad con app stores"""
     now = datetime.now()

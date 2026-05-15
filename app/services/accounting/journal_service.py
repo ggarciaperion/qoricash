@@ -12,7 +12,8 @@ Principio de aislamiento:
   - Un fallo contable NO afecta el flujo de la operación
 """
 import logging
-from datetime import datetime, date as date_type
+from datetime import date as date_type
+from app.utils.formatters import now_peru
 from decimal import Decimal
 
 from app.extensions import db
@@ -145,7 +146,7 @@ class JournalService:
             return False, 'El período ya está cerrado'
 
         period.status = 'cerrado'
-        period.closed_at = datetime.utcnow()
+        period.closed_at = now_peru()
         period.closed_by = user_id
         db.session.commit()
         logger.info(f'[Accounting] Período cerrado: {year}/{month:02d} por user_id={user_id}')

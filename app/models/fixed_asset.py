@@ -15,7 +15,8 @@ Vida útil SII / SUNAT:
   Equipos de cómputo      :  4 años  (48 meses)
   Equipos de oficina      :  5 años  (60 meses)
 """
-from datetime import datetime, date
+from datetime import date
+from app.utils.formatters import now_peru
 from decimal import Decimal
 from app.extensions import db
 
@@ -76,7 +77,7 @@ class FixedAsset(db.Model):
         nullable=True,
     )
     created_by        = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
-    created_at        = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at        = db.Column(db.DateTime, default=now_peru)
 
     expense_record    = db.relationship('ExpenseRecord', back_populates='fixed_asset')
 

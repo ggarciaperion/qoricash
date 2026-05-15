@@ -4,7 +4,7 @@ Rutas de Autenticación para QoriCash Trading V2
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import login_required, current_user, logout_user
 from app.services.auth_service import AuthService
-from app.extensions import limiter
+from app.extensions import db, limiter
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -122,7 +122,7 @@ def reset_user_password(user_id):
         return jsonify({'success': False, 'message': 'La contraseña es requerida'}), 400
     
     # Obtener usuario objetivo
-    target_user = User.query.get(user_id)
+    target_user = db.session.get(User, user_id)
     if not target_user:
         return jsonify({'success': False, 'message': 'Usuario no encontrado'}), 404
     

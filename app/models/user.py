@@ -1,7 +1,6 @@
 """
 Modelo de Usuario para QoriCash Trading V2
 """
-from datetime import datetime
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 from app.extensions import db
@@ -47,7 +46,7 @@ class User(UserMixin, db.Model):
         'Operation',
         foreign_keys='Operation.user_id',
         backref='user',
-        lazy='dynamic'
+        lazy='select'
     )
 
     # Operaciones asignadas a este operador
@@ -55,10 +54,10 @@ class User(UserMixin, db.Model):
         'Operation',
         foreign_keys='Operation.assigned_operator_id',
         backref='assigned_operator',
-        lazy='dynamic'
+        lazy='select'
     )
 
-    audit_logs = db.relationship('AuditLog', backref='user', lazy='dynamic')
+    audit_logs = db.relationship('AuditLog', backref='user', lazy='select')
     
     # Constraints
     __table_args__ = (
@@ -117,7 +116,8 @@ class User(UserMixin, db.Model):
         }
         
         if include_relations:
-            data['operations_count'] = self.operations.count()
+            from app.models.operation import Operation as _Op
+            data['operations_count'] = _Op.query.filter_by(user_id=self.id).count()
         
         return data
     

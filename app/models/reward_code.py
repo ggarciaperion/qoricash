@@ -22,7 +22,7 @@ class RewardCode(db.Model):
     code = db.Column(db.String(6), unique=True, nullable=False, index=True)
 
     # Cliente propietario del código
-    client_id = db.Column(db.Integer, db.ForeignKey('clients.id'), nullable=False)
+    client_id = db.Column(db.Integer, db.ForeignKey('clients.id'), nullable=False, index=True)
 
     # Pips canjeados para generar este código
     pips_redeemed = db.Column(db.Float, nullable=False, default=0.0030)  # 30 pips = 0.003

@@ -212,7 +212,7 @@ def get_batches():
 def get_batch(batch_id):
     """API: Obtener detalles de un batch"""
     try:
-        batch = AccountingBatch.query.get(batch_id)
+        batch = db.session.get(AccountingBatch, batch_id)
         if not batch:
             return jsonify({'success': False, 'error': 'Batch no encontrado'}), 404
 

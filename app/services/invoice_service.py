@@ -87,7 +87,7 @@ class InvoiceService:
                 return False, 'Facturación electrónica no habilitada', None
 
             # Obtener operación
-            operation = Operation.query.get(operation_id)
+            operation = db.session.get(Operation, operation_id)
             if not operation:
                 return False, 'Operación no encontrada', None
 
@@ -454,7 +454,7 @@ class InvoiceService:
         Returns:
             str: URL del PDF o None
         """
-        invoice = Invoice.query.get(invoice_id)
+        invoice = db.session.get(Invoice, invoice_id)
         if invoice and invoice.nubefact_enlace_pdf:
             return invoice.nubefact_enlace_pdf
         return None
@@ -470,7 +470,7 @@ class InvoiceService:
         Returns:
             list: Lista de facturas
         """
-        operation = Operation.query.get(operation_id)
+        operation = db.session.get(Operation, operation_id)
         if not operation:
             return []
 

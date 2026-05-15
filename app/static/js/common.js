@@ -10,6 +10,38 @@ console.log('🔔 QoriCash Common.js cargado - Versión: 20251219_v7_simple (Ale
 let socket = null;
 
 /**
+ * startDashboardPolling(fn)
+ *
+ * Inicia un polling adaptativo para el dashboard:
+ *   - WebSocket conectado  → cada 5 minutos (heartbeat de seguridad)
+ *   - WebSocket caído      → cada 60 segundos (modo degradado)
+ *
+ * Llama a fn() inmediatamente si el socket está desconectado al arrancar.
+ * Los eventos del socket (nueva_operacion, operacion_actualizada) ya llaman
+ * a loadDashboardData() directamente, por lo que el polling es solo fallback.
+ */
+function startDashboardPolling(fn) {
+    var INTERVAL_WS  = 5 * 60 * 1000;  // 5 minutos cuando WS activo
+    var INTERVAL_FB  = 60 * 1000;       // 60 s cuando WS caído
+    var _timer = null;
+
+    function _schedule() {
+        if (_timer) clearTimeout(_timer);
+        var connected = socket && socket.connected;
+        _timer = setTimeout(function() {
+            fn();
+            _schedule();
+        }, connected ? INTERVAL_WS : INTERVAL_FB);
+    }
+
+    // Rescheduler cuando cambia el estado del socket
+    document.addEventListener('socketConnected',    _schedule);
+    document.addEventListener('socketDisconnected', _schedule);
+
+    _schedule();
+}
+
+/**
  * Conectar a SocketIO para actualizaciones en tiempo real
  */
 function connectSocketIO() {
@@ -31,11 +63,13 @@ function connectSocketIO() {
         console.log('🔌 Socket ID:', socket.id);
         console.log('👤 Usuario actual:', window.currentUserRole);
         // No mostrar notificación de conexión
+        document.dispatchEvent(new Event('socketConnected'));
     });
 
     socket.on('disconnect', function() {
         console.log('⚠️  SocketIO desconectado');
         // No mostrar notificación de desconexión
+        document.dispatchEvent(new Event('socketDisconnected'));
     });
 
     socket.on('connection_established', function(data) {

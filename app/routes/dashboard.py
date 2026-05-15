@@ -618,7 +618,7 @@ def save_goals():
             goal_amount = goal_data.get('goal_amount_pen', 0)
 
             # Validar que el trader exista y sea un Trader
-            trader = User.query.get(trader_id)
+            trader = db.session.get(User, trader_id)
             if not trader or trader.role != 'Trader':
                 continue
 
@@ -678,7 +678,7 @@ def get_profits():
         return jsonify({'error': 'Se requiere mes y año'}), 400
 
     # Validar que el trader exista
-    trader = User.query.get(trader_id)
+    trader = db.session.get(User, trader_id)
     if not trader or trader.role != 'Trader':
         return jsonify({'error': 'Trader no encontrado'}), 404
 
@@ -743,7 +743,7 @@ def save_profit():
         return jsonify({'error': 'Se requiere trader_id y profit_date'}), 400
 
     # Validar que el trader exista y sea un Trader
-    trader = User.query.get(trader_id)
+    trader = db.session.get(User, trader_id)
     if not trader or trader.role != 'Trader':
         return jsonify({'error': 'Trader no encontrado'}), 404
 
@@ -836,9 +836,12 @@ def get_top_clients():
         func.sum(Operation.amount_usd).desc()
     ).limit(10).all()
 
+    client_ids = [r.client_id for r in results]
+    clients_map = {c.id: c for c in Client.query.filter(Client.id.in_(client_ids)).all()}
+
     top_clients = []
     for r in results:
-        client = Client.query.get(r.client_id)
+        client = clients_map.get(r.client_id)
         if client:
             top_clients.append({
                 'client_id': r.client_id,
@@ -1001,7 +1004,7 @@ def get_client_operations(client_id):
 
     trader_id = request.args.get('trader_id', type=int)
 
-    client = Client.query.get_or_404(client_id)
+    client = db.get_or_404(Client, client_id)
 
     query = Operation.query.filter(
         Operation.client_id == client_id,
@@ -1082,7 +1085,7 @@ def get_profit_per_operation():
     else:
         end_date = datetime(year, month + 1, 1)
 
-    query = Operation.query.filter(
+    query = Operation.query.options(db.joinedload(Operation.client)).filter(
         Operation.status == 'Completada',
         Operation.created_at >= start_date,
         Operation.created_at < end_date
@@ -1197,9 +1200,11 @@ def get_top_clients_profit():
     # Ordenar por utilidad desc, tomar top 10
     top_ids = sorted(profit_map, key=lambda x: profit_map[x], reverse=True)[:10]
 
+    clients_map = {c.id: c for c in Client.query.filter(Client.id.in_(top_ids)).all()}
+
     top_clients = []
     for cid in top_ids:
-        client = Client.query.get(cid)
+        client = clients_map.get(cid)
         if client:
             top_clients.append({
                 'client_id': cid,
@@ -1258,9 +1263,12 @@ def get_top_clients_ops():
         func.count(Operation.id).desc()
     ).limit(10).all()
 
+    client_ids = [r.client_id for r in results]
+    clients_map = {c.id: c for c in Client.query.filter(Client.id.in_(client_ids)).all()}
+
     top_clients = []
     for r in results:
-        client = Client.query.get(r.client_id)
+        client = clients_map.get(r.client_id)
         if client:
             top_clients.append({
                 'client_id': r.client_id,
@@ -1271,29 +1279,3 @@ def get_top_clients_ops():
             })
 
     return jsonify({'top_clients': top_clients})
-
-
-@dashboard_bp.route('/test-activacion-trader')
-@login_required
-@require_role('Master')
-def test_activacion_trader():
-    """TEMPORAL — Prueba del correo de activación con contraseña temporal"""
-    try:
-        from app.services.email_templates import EmailTemplates
-
-        class FakeClient:
-            full_name = 'Cliente Prueba'
-            razon_social = None
-            dni = '12345678'
-            email = 'ggarcia@qoricash.pe'
-
-        class FakeTrader:
-            username = 'Gian Garcia'
-            email = 'info@qoricash.pe'  # distinto al cliente para verificar CC
-
-        success, msg = EmailTemplates.send_activation_with_temp_password(
-            FakeClient(), FakeTrader(), 'Qori@2026'
-        )
-        return jsonify({'ok': success, 'mensaje': msg, 'to': FakeClient.email, 'cc_trader': FakeTrader.email, 'cc_gerencia': 'gerencia@qoricash.pe'})
-    except Exception as e:
-        return jsonify({'ok': False, 'error': str(e)}), 500

@@ -8,7 +8,7 @@ class JournalEntryLine(db.Model):
     __tablename__ = 'journal_entry_lines'
 
     id               = db.Column(db.Integer, primary_key=True)
-    journal_entry_id = db.Column(db.Integer, db.ForeignKey('journal_entries.id'), nullable=False)
+    journal_entry_id = db.Column(db.Integer, db.ForeignKey('journal_entries.id'), nullable=False, index=True)
     # Código del PCGE: '1041', '7711', etc.
     account_code     = db.Column(db.String(10), nullable=False, index=True)
     description      = db.Column(db.Text, nullable=True)

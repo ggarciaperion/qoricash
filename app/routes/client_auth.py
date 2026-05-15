@@ -1,6 +1,5 @@
 """
 Rutas de Autenticación para Clientes (Mobile App)
-TEMPORAL - Solo DNI sin contraseña para pruebas
 """
 from flask import Blueprint, request, jsonify, make_response
 from app.models.client import Client
@@ -940,7 +939,7 @@ def create_operation():
         # Obtener el usuario que creó el cliente (puede ser Master, Trader, Plataforma, etc.)
         creator_user = None
         if client.created_by:
-            creator_user = User.query.get(client.created_by)
+            creator_user = db.session.get(User, client.created_by)
 
         # Si no hay usuario creador (clientes viejos o error), usar usuario App Móvil
         if not creator_user:
@@ -1091,7 +1090,7 @@ def get_operation_detail(operation_id):
     try:
         from app.models.operation import Operation
 
-        operation = Operation.query.get(operation_id)
+        operation = db.session.get(Operation, operation_id)
         if not operation:
             return jsonify({
                 'success': False,
@@ -1124,7 +1123,7 @@ def upload_deposit_proof(operation_id):
         from app.extensions import socketio
         from app.utils.formatters import now_peru
 
-        operation = Operation.query.get(operation_id)
+        operation = db.session.get(Operation, operation_id)
         if not operation:
             return jsonify({'success': False, 'message': 'Operación no encontrada'}), 404
 
@@ -1191,7 +1190,7 @@ def upload_deposit_proof(operation_id):
 
                     # Notificar al operador específicamente
                     try:
-                        operator_user = User.query.get(operator_id)
+                        operator_user = db.session.get(User, operator_id)
                         if operator_user:
                             from app.services.notification_service import NotificationService
                             NotificationService.notify_operation_assigned(operation, operator_user)
@@ -1267,7 +1266,7 @@ def cancel_operation(operation_id):
             }), 400
 
         # Buscar la operación
-        operation = Operation.query.get(operation_id)
+        operation = db.session.get(Operation, operation_id)
 
         if not operation:
             return jsonify({
@@ -1624,5 +1623,5 @@ def health():
     return jsonify({
         'status': 'ok',
         'service': 'QoriCash Client Auth API',
-        'version': '1.0.0-temporal'
+        'version': '1.0.0'
     }), 200

@@ -6,7 +6,7 @@ Los tipos de cambio están en <span class="value-rate"> (primero=compra, segundo
 import time
 import requests
 from bs4 import BeautifulSoup
-from datetime import datetime
+from app.utils.formatters import now_peru
 from .base import BaseScraper, RateResult
 
 
@@ -32,4 +32,4 @@ class CambioSeguroScraper(BaseScraper):
             raise ValueError(f"Se esperaban ≥2 span.value-rate, se encontraron {len(rate_els)}")
 
         return RateResult(slug=self.slug, buy_rate=buy, sell_rate=sell,
-                          scraped_at=datetime.utcnow(), response_ms=ms)
+                          scraped_at=now_peru(), response_ms=ms)

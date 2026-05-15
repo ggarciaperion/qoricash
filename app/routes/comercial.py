@@ -10,7 +10,7 @@ from email.mime.text import MIMEText
 
 from flask import Blueprint, render_template, request, jsonify, current_app
 from flask_login import login_required, current_user
-from sqlalchemy import func, distinct
+from sqlalchemy import func, distinct, case as sa_case
 
 import eventlet
 from app.extensions import db, csrf
@@ -140,54 +140,93 @@ def _get_cartera(trader_id=None, tipo_filtro=None):
     Devuelve lista de clientes con operaciones completadas.
     - trader_id=None → Master ve todos.
     - tipo_filtro: 'Compra' | 'Venta' | 'Mixto' | None (todos)
-    """
-    # Subconsulta: clientes con al menos 1 operación completada (del trader si aplica)
-    q = (
-        db.session.query(Client)
-        .join(Operation, Operation.client_id == Client.id)
-        .filter(Operation.status == 'Completada')
-    )
-    if trader_id:
-        q = q.filter(Operation.user_id == trader_id)
 
-    clientes = q.distinct().all()
+    Optimizado: 3 queries fijas en lugar de N+1 (1 por cliente).
+    Query 1: agregación de stats por cliente (GROUP BY)
+    Query 2: batch load de objetos Client (IN)
+    Query 3: batch load de último envío de TC (IN)
+    """
+    op_filters = [Operation.status == 'Completada']
+    if trader_id:
+        op_filters.append(Operation.user_id == trader_id)
+
+    # Expresión para pips: usa pips si existe, si no calcula de exchange_rate y base_rate
+    pips_expr = sa_case(
+        (Operation.pips.isnot(None), Operation.pips),
+        else_=sa_case(
+            (
+                (Operation.exchange_rate.isnot(None)) & (Operation.base_rate.isnot(None)),
+                func.abs(Operation.exchange_rate - Operation.base_rate) * 1000
+            ),
+            else_=None
+        )
+    )
+
+    # Query 1: una sola pasada con GROUP BY — stats + tipo en SQL
+    agg = db.session.query(
+        Operation.client_id,
+        func.count(Operation.id).label('total_ops'),
+        func.sum(Operation.amount_usd).label('total_usd'),
+        func.max(Operation.created_at).label('ultima_op'),
+        func.avg(pips_expr).label('avg_spread'),
+        func.bool_or(Operation.operation_type == 'Compra').label('has_compra'),
+        func.bool_or(Operation.operation_type == 'Venta').label('has_venta'),
+    ).filter(*op_filters).group_by(Operation.client_id).all()
+
+    if not agg:
+        return []
+
+    # Clasificar tipo en Python (evita subconsulta adicional)
+    def _tipo(row):
+        if row.has_compra and row.has_venta:
+            return 'Mixto'
+        if row.has_compra:
+            return 'Compra'
+        if row.has_venta:
+            return 'Venta'
+        return 'Mixto'
+
+    # Aplicar filtro de tipo antes de cargar clientes
+    if tipo_filtro and tipo_filtro != 'Todos':
+        agg = [r for r in agg if _tipo(r) == tipo_filtro]
+
+    if not agg:
+        return []
+
+    # Query 2: batch load de todos los clientes necesarios
+    client_ids = [r.client_id for r in agg]
+    clients_map = {c.id: c for c in Client.query.filter(Client.id.in_(client_ids)).all()}
+
+    # Query 3: batch load de último envío de TC
+    tc_rows = (
+        db.session.query(
+            ComercialEnvio.client_id,
+            func.max(ComercialEnvio.sent_at).label('ultimo'),
+        )
+        .filter(ComercialEnvio.client_id.in_(client_ids))
+        .group_by(ComercialEnvio.client_id)
+        .all()
+    )
+    tc_map = {r.client_id: r.ultimo for r in tc_rows}
 
     resultado = []
-    for c in clientes:
-        ops_q = c.operations.filter_by(status='Completada')
-        if trader_id:
-            ops_q = ops_q.filter_by(user_id=trader_id)
-        ops = ops_q.all()
-
-        if not ops:
+    for r in agg:
+        c = clients_map.get(r.client_id)
+        if not c:
             continue
 
-        tipo = _clasificar_cliente(ops)
-
-        if tipo_filtro and tipo_filtro != 'Todos' and tipo != tipo_filtro:
-            continue
-
-        ultima_op = max(ops, key=lambda o: o.created_at)
-        total_usd = sum(float(o.amount_usd or 0) for o in ops)
-
-        # Promedio de pips (spread) de operaciones completadas
-        pips_list = []
-        for op in ops:
-            if op.pips is not None:
-                pips_list.append(float(op.pips))
-            elif op.exchange_rate is not None and op.base_rate is not None:
-                pips_list.append(abs(float(op.exchange_rate) - float(op.base_rate)) * 1000)
-        avg_spread = round(sum(pips_list) / len(pips_list)) if pips_list else None
+        tipo = _tipo(r)
 
         # Teléfonos: puede haber múltiples separados por ;
         phones = [p.strip() for p in (c.phone or '').split(';') if p.strip()]
-        # Limpiar a solo dígitos para wa.me (primer número)
         wa_number = ''
         if phones:
             digits = ''.join(filter(str.isdigit, phones[0]))
             if digits and not digits.startswith('51'):
                 digits = '51' + digits
             wa_number = digits
+
+        avg_spread = round(float(r.avg_spread)) if r.avg_spread is not None else None
 
         resultado.append({
             'id': c.id,
@@ -199,31 +238,12 @@ def _get_cartera(trader_id=None, tipo_filtro=None):
             'phones': phones,
             'wa_number': wa_number,
             'tipo': tipo,
-            'total_ops': len(ops),
-            'total_usd': total_usd,
-            'ultima_op': ultima_op.created_at,
+            'total_ops': int(r.total_ops),
+            'total_usd': float(r.total_usd or 0),
+            'ultima_op': r.ultima_op,
             'avg_spread': avg_spread,
+            'ultimo_tc': tc_map.get(c.id),
         })
-
-    # Enriquecer con último envío de TC desde Comercial
-    ids = [r['id'] for r in resultado]
-    utc_map = _ultimo_tc_map(ids, trader_id or 0) if trader_id else _ultimo_tc_map(ids, 0)
-    # Para Master ver todos los envíos independientemente del trader
-    if not trader_id:
-        from sqlalchemy import func as _func
-        rows = (
-            db.session.query(
-                ComercialEnvio.client_id,
-                _func.max(ComercialEnvio.sent_at).label('ultimo'),
-            )
-            .filter(ComercialEnvio.client_id.in_(ids))
-            .group_by(ComercialEnvio.client_id)
-            .all()
-        )
-        utc_map = {r.client_id: r.ultimo for r in rows}
-
-    for r in resultado:
-        r['ultimo_tc'] = utc_map.get(r['id'])
 
     # Ordenar: más reciente primero
     resultado.sort(key=lambda x: x['ultima_op'], reverse=True)
@@ -242,9 +262,7 @@ def index():
 
     trader_id = None if current_user.role == "Master" else current_user.id
 
-    clientes = _get_cartera(trader_id=trader_id, tipo_filtro=tipo_filtro)
-
-    # Conteos para las pestañas
+    # Una sola llamada: filtramos en Python para evitar la segunda query completa
     todos = _get_cartera(trader_id=trader_id)
     cnt = {
         "Todos": len(todos),
@@ -252,6 +270,10 @@ def index():
         "Venta":  sum(1 for c in todos if c["tipo"] == "Venta"),
         "Mixto":  sum(1 for c in todos if c["tipo"] == "Mixto"),
     }
+    if tipo_filtro != "Todos":
+        clientes = [c for c in todos if c["tipo"] == tipo_filtro]
+    else:
+        clientes = todos
 
     # Tipo de cambio actual
     rate = ExchangeRate.query.order_by(ExchangeRate.updated_at.desc()).first()
@@ -517,7 +539,7 @@ def _build_email_html(c, compra, venta, sender_email, nombre_completo, cargo="Tr
 @login_required
 @require_role("Master", "Trader")
 def preview_precio(client_id):
-    c = Client.query.get_or_404(client_id)
+    c = db.get_or_404(Client, client_id)
 
     compra = request.args.get("compra", "").strip()
     venta  = request.args.get("venta", "").strip()
@@ -546,7 +568,7 @@ def preview_precio(client_id):
 @require_role("Master", "Trader")
 @csrf.exempt
 def enviar_precio(client_id):
-    c = Client.query.get_or_404(client_id)
+    c = db.get_or_404(Client, client_id)
 
     data   = request.json or {}
     compra = data.get("compra", "").strip()
@@ -618,7 +640,7 @@ def enviar_masivo():
 
     resultados = []
     for cid in client_ids:
-        c = Client.query.get(cid)
+        c = db.session.get(Client, cid)
         if not c:
             resultados.append({"id": cid, "nombre": "—", "ok": False, "msg": "Cliente no encontrado"})
             continue
@@ -627,7 +649,7 @@ def enviar_masivo():
             continue
 
         tipo = _clasificar_cliente(
-            c.operations.filter_by(status='Completada').all()
+            Operation.query.filter_by(client_id=c.id, status='Completada').all()
         )
 
         try:

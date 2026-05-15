@@ -52,7 +52,7 @@ class OperationService:
         Returns:
             Operation: Operación o None
         """
-        return Operation.query.get(operation_id)
+        return db.session.get(Operation, operation_id)
     
     @staticmethod
     def get_operation_by_operation_id(operation_id_str):
@@ -161,7 +161,7 @@ class OperationService:
             return False, 'No tienes permiso para crear operaciones', None
         
         # Validar cliente
-        client = Client.query.get(client_id)
+        client = db.session.get(Client, client_id)
         if not client:
             return False, 'Cliente no encontrado', None
 
@@ -304,7 +304,7 @@ class OperationService:
             tuple: (success: bool, message: str, operation: Operation|None)
         """
         # Obtener operación
-        operation = Operation.query.get(operation_id)
+        operation = db.session.get(Operation, operation_id)
         if not operation:
             return False, 'Operación no encontrada', None
         
@@ -459,7 +459,7 @@ class OperationService:
             tuple: (success: bool, message: str, operation: Operation|None)
         """
         # Obtener operación
-        operation = Operation.query.get(operation_id)
+        operation = db.session.get(Operation, operation_id)
         if not operation:
             return False, 'Operación no encontrada', None
         
@@ -500,7 +500,7 @@ class OperationService:
             tuple: (success: bool, message: str, operation: Operation|None)
         """
         # Obtener operación
-        operation = Operation.query.get(operation_id)
+        operation = db.session.get(Operation, operation_id)
         if not operation:
             return False, 'Operación no encontrada', None
         

@@ -10,7 +10,7 @@ import re
 import time
 import requests
 from bs4 import BeautifulSoup
-from datetime import datetime
+from app.utils.formatters import now_peru
 from .base import BaseScraper, RateResult
 
 
@@ -33,7 +33,7 @@ class InkaMoneyPeru(BaseScraper):
             sell = self._parse_rate(el.get(":sale-price", ""))
             if buy and sell:
                 return RateResult(slug=self.slug, buy_rate=buy, sell_rate=sell,
-                                  scraped_at=datetime.utcnow(), response_ms=ms)
+                                  scraped_at=now_peru(), response_ms=ms)
 
         # Fallback: regex sobre atributos
         m_buy  = re.search(r':buy-price=["\']([0-9.]+)["\']',  resp.text)
@@ -42,6 +42,6 @@ class InkaMoneyPeru(BaseScraper):
             return RateResult(slug=self.slug,
                               buy_rate=self._parse_rate(m_buy.group(1)),
                               sell_rate=self._parse_rate(m_sell.group(1)),
-                              scraped_at=datetime.utcnow(), response_ms=ms)
+                              scraped_at=now_peru(), response_ms=ms)
 
         raise ValueError("InkaMoney: no se encontró inka-conversor-home con :buy-price/:sale-price")

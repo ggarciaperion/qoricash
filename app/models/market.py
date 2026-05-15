@@ -1,7 +1,8 @@
 """
 Modelos para el módulo de Mercado — análisis macro y tipo de cambio
 """
-from datetime import datetime, date
+from datetime import date
+from app.utils.formatters import now_peru
 from app.extensions import db
 
 
@@ -10,7 +11,7 @@ class MarketSnapshot(db.Model):
     __tablename__ = 'market_snapshots'
 
     id              = db.Column(db.Integer, primary_key=True)
-    captured_at     = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    captured_at     = db.Column(db.DateTime, nullable=False, default=now_peru)
 
     # Tipo de cambio
     usdpen          = db.Column(db.Numeric(8, 4))
@@ -135,7 +136,7 @@ class MacroIndicator(db.Model):
     period        = db.Column(db.String(30))            # "Mar 2026", "Feb 2026"
     source        = db.Column(db.String(50))            # "FRED", "BLS", "BCRP", "manual"
     direction     = db.Column(db.String(10))            # "up", "down", "flat"
-    updated_at    = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at    = db.Column(db.DateTime, default=now_peru)
     notes         = db.Column(db.String(200))           # contexto adicional
 
     def to_dict(self):
@@ -158,7 +159,7 @@ class MarketNews(db.Model):
     __tablename__ = 'market_news'
 
     id              = db.Column(db.Integer, primary_key=True)
-    fetched_at      = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    fetched_at      = db.Column(db.DateTime, nullable=False, default=now_peru)
     source          = db.Column(db.String(80))                        # 'BBC Business', 'Gestión'
     source_country  = db.Column(db.String(2))                         # 'PE', 'US', 'GB'
     title           = db.Column(db.String(300), nullable=False)
@@ -211,7 +212,7 @@ class MarketSignal(db.Model):
     __tablename__ = 'market_signals'
 
     id              = db.Column(db.Integer, primary_key=True)
-    generated_at    = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    generated_at    = db.Column(db.DateTime, nullable=False, default=now_peru)
     signal_type     = db.Column(db.String(20), nullable=False)   # bullish | bearish | volatile | lateral
     confidence      = db.Column(db.Integer, default=0)           # 0-100
     title           = db.Column(db.String(200))
@@ -245,7 +246,7 @@ class EconomicEvent(db.Model):
     forecast    = db.Column(db.String(30))
     previous    = db.Column(db.String(30))
     source      = db.Column(db.String(50), default='ForexFactory')
-    fetched_at  = db.Column(db.DateTime, default=datetime.utcnow)
+    fetched_at  = db.Column(db.DateTime, default=now_peru)
 
     __table_args__ = (
         db.Index('idx_events_date', 'event_date'),
@@ -281,7 +282,7 @@ class DailyAnalysis(db.Model):
 
     id                   = db.Column(db.Integer, primary_key=True)
     analysis_date        = db.Column(db.Date, nullable=False)       # Fecha de la jornada (Lima)
-    generated_at         = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    generated_at         = db.Column(db.DateTime, nullable=False, default=now_peru)
 
     # Veredicto principal
     trend                = db.Column(db.String(10), nullable=False)  # 'alza' | 'baja' | 'estable'

@@ -3,6 +3,7 @@ FX Monitor Service — orquesta un ciclo completo de scraping, persistencia y al
 """
 import logging
 from datetime import datetime, timezone, timedelta
+from app.utils.formatters import now_peru
 
 # Zona horaria de Lima/Perú (UTC-5, sin cambio de horario de verano)
 _LIMA_TZ = timezone(timedelta(hours=-5))
@@ -226,7 +227,7 @@ class FXMonitorService:
         """Histórico de precios de un competidor (últimas N horas)."""
         from datetime import timedelta
         comp = Competitor.query.filter_by(slug=slug).first_or_404()
-        since = datetime.utcnow() - timedelta(hours=hours)
+        since = now_peru() - timedelta(hours=hours)
         rows = (
             CompetitorRateHistory.query
             .filter_by(competitor_id=comp.id)
@@ -248,7 +249,7 @@ class FXMonitorService:
         from app.models.exchange_rate import ExchangeRate
         from collections import defaultdict
 
-        since_utc = datetime.utcnow() - timedelta(hours=hours)
+        since_utc = now_peru() - timedelta(hours=hours)
 
         # Tamaño de bucket según el rango solicitado
         if hours <= 24:

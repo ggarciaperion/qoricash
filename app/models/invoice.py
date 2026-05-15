@@ -2,7 +2,6 @@
 Modelo de Factura Electrónica para QoriCash Trading V2
 Integración con NubeFact API
 """
-from datetime import datetime
 from app.extensions import db
 from app.utils.formatters import now_peru
 

@@ -33,7 +33,7 @@ def get_operator_name(operator_id):
         return 'N/A'
 
     from app.models.user import User
-    operator = User.query.get(operator_id)
+    operator = db.session.get(User, operator_id)
     return operator.username if operator else 'N/A'
 
 
@@ -786,7 +786,7 @@ def update_operation(operation_id):
     from app.models.audit_log import AuditLog
 
     data = request.get_json()
-    operation = Operation.query.get(operation_id)
+    operation = db.session.get(Operation, operation_id)
 
     if not operation:
         return jsonify({'success': False, 'message': 'Operación no encontrada'}), 404
@@ -919,7 +919,7 @@ def send_to_process(operation_id):
     from app.models.operation import Operation
     from app.models.audit_log import AuditLog
 
-    operation = Operation.query.get(operation_id)
+    operation = db.session.get(Operation, operation_id)
 
     if not operation:
         return jsonify({'success': False, 'message': 'Operación no encontrada'}), 404
@@ -983,7 +983,7 @@ def send_to_process(operation_id):
         # Notificar al operador asignado
         if assigned_operator_id:
             from app.models.user import User
-            assigned_operator = User.query.get(assigned_operator_id)
+            assigned_operator = db.session.get(User, assigned_operator_id)
             if assigned_operator:
                 NotificationService.notify_operation_assigned(operation, assigned_operator)
 
@@ -1015,7 +1015,7 @@ def return_to_pending(operation_id):
     data = request.get_json() or {}
     reason = data.get('reason', '').strip()
 
-    operation = Operation.query.get(operation_id)
+    operation = db.session.get(Operation, operation_id)
 
     if not operation:
         return jsonify({'success': False, 'message': 'Operación no encontrada'}), 404
@@ -1093,7 +1093,7 @@ def complete_operation(operation_id):
     data = request.get_json() or {}
     logger.info(f'[COMPLETE-ENDPOINT] Data recibida: {data}')
 
-    operation = Operation.query.get(operation_id)
+    operation = db.session.get(Operation, operation_id)
 
     if not operation:
         logger.warning(f'[COMPLETE-ENDPOINT] Operación {operation_id} no encontrada')
@@ -1243,7 +1243,7 @@ def upload_deposit_proof(operation_id):
 
     logger.debug(f"upload_deposit_proof llamado para operación {operation_id}")
 
-    operation = Operation.query.get(operation_id)
+    operation = db.session.get(Operation, operation_id)
     if not operation:
         return jsonify({'success': False, 'message': 'Operación no encontrada'}), 404
 
@@ -1300,7 +1300,7 @@ def upload_operator_proof_new(operation_id):
     from app.extensions import db
     from app.models.operation import Operation
 
-    operation = Operation.query.get(operation_id)
+    operation = db.session.get(Operation, operation_id)
     if not operation:
         return jsonify({'success': False, 'message': 'Operación no encontrada'}), 404
 
@@ -1357,7 +1357,7 @@ def delete_operator_proof(operation_id, proof_id):
     from app.extensions import db
     from app.models.operation import Operation
 
-    operation = Operation.query.get(operation_id)
+    operation = db.session.get(Operation, operation_id)
     if not operation:
         return jsonify({'success': False, 'message': 'Operación no encontrada'}), 404
 
@@ -1411,7 +1411,7 @@ def mark_notes_read(operation_id):
     from app.extensions import db
     from app.models.operation import Operation
 
-    operation = Operation.query.get(operation_id)
+    operation = db.session.get(Operation, operation_id)
     if not operation:
         return jsonify({'success': False, 'message': 'Operación no encontrada'}), 404
 
@@ -1530,7 +1530,7 @@ def reassign_operator(operation_id):
     if not new_operator_id:
         return jsonify({'success': False, 'message': 'Debe especificar el nuevo operador'}), 400
 
-    operation = Operation.query.get(operation_id)
+    operation = db.session.get(Operation, operation_id)
     if not operation:
         return jsonify({'success': False, 'message': 'Operación no encontrada'}), 404
 
@@ -1539,7 +1539,7 @@ def reassign_operator(operation_id):
         return jsonify({'success': False, 'message': 'Solo se pueden reasignar operaciones en proceso'}), 400
 
     # Validar que el nuevo operador exista y esté activo
-    new_operator = User.query.get(new_operator_id)
+    new_operator = db.session.get(User, new_operator_id)
     if not new_operator:
         return jsonify({'success': False, 'message': 'Operador no encontrado'}), 404
 
@@ -1553,7 +1553,7 @@ def reassign_operator(operation_id):
     old_operator_id = operation.assigned_operator_id
     old_operator_name = 'No asignado'
     if old_operator_id:
-        old_operator = User.query.get(old_operator_id)
+        old_operator = db.session.get(User, old_operator_id)
         old_operator_name = old_operator.username if old_operator else 'Desconocido'
 
     try:
@@ -1575,7 +1575,7 @@ def reassign_operator(operation_id):
         NotificationService.notify_operation_updated(operation, 'En proceso')
 
         # Notificar reasignación al operador anterior y al nuevo
-        old_operator_obj = User.query.get(old_operator_id) if old_operator_id else None
+        old_operator_obj = db.session.get(User, old_operator_id) if old_operator_id else None
         NotificationService.notify_operation_reassigned(
             operation=operation,
             old_operator=old_operator_obj,
@@ -1650,38 +1650,3 @@ def get_version():
         'timestamp': '2025-12-17 16:30'
     })
 
-
-@operations_bp.route('/api/debug/nubefact_config', methods=['GET'])
-@login_required
-@require_role('Master')
-def debug_nubefact_config():
-    """
-    API: Diagnóstico de configuración de NubeFact (Solo Master)
-
-    Returns:
-        JSON con información de configuración de facturación
-    """
-    from flask import current_app
-    from app.services.invoice_service import InvoiceService
-
-    config_info = {
-        'nubefact_enabled': current_app.config.get('NUBEFACT_ENABLED', False),
-        'nubefact_api_url': current_app.config.get('NUBEFACT_API_URL', 'NO CONFIGURADO'),
-        'nubefact_token_configured': bool(current_app.config.get('NUBEFACT_TOKEN')),
-        'nubefact_ruc': current_app.config.get('NUBEFACT_RUC', 'NO CONFIGURADO'),
-        'company_ruc': current_app.config.get('COMPANY_RUC', 'NO CONFIGURADO'),
-        'company_name': current_app.config.get('COMPANY_NAME', 'NO CONFIGURADO'),
-        'invoice_service_enabled': InvoiceService.is_enabled(),
-        'flask_env': current_app.config.get('FLASK_ENV', 'NO CONFIGURADO')
-    }
-
-    # Ocultar token completo por seguridad
-    if current_app.config.get('NUBEFACT_TOKEN'):
-        token = current_app.config.get('NUBEFACT_TOKEN')
-        config_info['nubefact_token_preview'] = f"{token[:10]}...{token[-10:]}" if len(token) > 20 else "TOKEN_CORTO"
-
-    return jsonify({
-        'success': True,
-        'config': config_info,
-        'message': 'Configuración de NubeFact'
-    })

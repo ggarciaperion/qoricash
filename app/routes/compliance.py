@@ -130,7 +130,7 @@ def api_alerts():
 @middle_office_required
 def alert_detail(alert_id):
     """Detalle de una alerta"""
-    alert = ComplianceAlert.query.get_or_404(alert_id)
+    alert = db.get_or_404(ComplianceAlert, alert_id)
     return render_template('compliance/alert_detail.html', alert=alert)
 
 
@@ -289,12 +289,10 @@ def risk_profile_detail(client_id):
     """Detalle de perfil de riesgo de un cliente"""
     from app.models.operation import Operation
 
-    client = Client.query.get_or_404(client_id)
+    client = db.get_or_404(Client, client_id)
     profile = ClientRiskProfile.query.filter_by(client_id=client_id).first()
 
-    # Cargar operaciones manualmente (client.operations es dynamic y no soporta joinedload)
-    # Convertir la query a lista para pasarla al template
-    operations = client.operations.order_by(Operation.created_at.desc()).all()
+    operations = Operation.query.filter_by(client_id=client.id).order_by(Operation.created_at.desc()).all()
 
     return render_template('compliance/risk_profile_detail.html',
                          client=client,
@@ -454,7 +452,7 @@ def approve_kyc(client_id):
         notes = data.get('notes', '')
 
         # Obtener cliente
-        client = Client.query.get_or_404(client_id)
+        client = db.get_or_404(Client, client_id)
 
         # Guardar estado anterior para saber si estaba inactivo
         was_inactive = (client.status == 'Inactivo')
@@ -603,7 +601,7 @@ def reject_kyc(client_id):
             }), 400
 
         # Obtener cliente
-        client = Client.query.get_or_404(client_id)
+        client = db.get_or_404(Client, client_id)
 
         # Obtener o crear perfil de riesgo
         profile = ClientRiskProfile.query.filter_by(client_id=client_id).first()
@@ -661,7 +659,7 @@ def reset_kyc(client_id):
     """API: Reiniciar KYC rechazado para nueva revisión"""
     try:
         # Obtener cliente
-        client = Client.query.get_or_404(client_id)
+        client = db.get_or_404(Client, client_id)
 
         # Obtener perfil de riesgo
         profile = ClientRiskProfile.query.filter_by(client_id=client_id).first()
@@ -732,7 +730,7 @@ def change_client_status(client_id):
             }), 400
 
         # Obtener cliente
-        client = Client.query.get_or_404(client_id)
+        client = db.get_or_404(Client, client_id)
         old_status = client.status
 
         # Cambiar estado
@@ -848,7 +846,7 @@ def update_pep_status(client_id):
         data = request.get_json()
 
         # Obtener cliente
-        client = Client.query.get_or_404(client_id)
+        client = db.get_or_404(Client, client_id)
 
         # Obtener o crear perfil de riesgo
         profile = ClientRiskProfile.query.filter_by(client_id=client_id).first()
@@ -1057,7 +1055,7 @@ def check_restrictive_lists():
                 'error': 'client_id es requerido'
             }), 400
 
-        client = Client.query.get_or_404(int(client_id))
+        client = db.get_or_404(Client, int(client_id))
 
         # Determinar resultado general
         has_match = False
@@ -1176,7 +1174,7 @@ def get_last_restrictive_check(client_id):
         import logging
         logger = logging.getLogger(__name__)
 
-        client = Client.query.get_or_404(client_id)
+        client = db.get_or_404(Client, client_id)
 
         # Buscar última verificación manual
         last_check = RestrictiveListCheck.query.filter_by(
@@ -1240,7 +1238,7 @@ def get_last_restrictive_check(client_id):
 def restrictive_lists_history(client_id):
     """API: Historial de verificaciones de listas restrictivas de un cliente"""
     try:
-        client = Client.query.get_or_404(client_id)
+        client = db.get_or_404(Client, client_id)
 
         checks = RestrictiveListCheck.query.filter_by(
             client_id=client_id
@@ -1312,7 +1310,7 @@ def auto_screen_client(client_id):
         from app.models.audit_log import AuditLog
         from app.services import sanctions_screening_service as sss
 
-        client = Client.query.get(client_id)
+        client = db.session.get(Client, client_id)
         if not client:
             return jsonify({'success': False, 'error': 'Cliente no encontrado'}), 404
 
@@ -1465,7 +1463,7 @@ def save_screening_decisions(check_id):
         decisions     = payload.get('decisions', [])
         analyst_notes = payload.get('analyst_notes', '').strip()
 
-        check = RestrictiveListCheck.query.get_or_404(check_id)
+        check = db.get_or_404(RestrictiveListCheck, check_id)
 
         # Parsear detalles existentes
         details = {}
@@ -1664,7 +1662,7 @@ def delete_screening_history(check_id):
     """API: Eliminar una entrada del historial de búsquedas en listas restrictivas."""
     try:
         from app.models.compliance import RestrictiveListCheck
-        check = RestrictiveListCheck.query.get_or_404(check_id)
+        check = db.get_or_404(RestrictiveListCheck, check_id)
         db.session.delete(check)
         db.session.commit()
         return jsonify({'success': True, 'message': 'Entrada eliminada correctamente'})
@@ -1682,8 +1680,8 @@ def screening_report(check_id):
     from app.models.compliance import RestrictiveListCheck
     from app.models.client import Client
 
-    check  = RestrictiveListCheck.query.get_or_404(check_id)
-    client = Client.query.get_or_404(check.client_id)
+    check  = db.get_or_404(RestrictiveListCheck, check_id)
+    client = db.get_or_404(Client, check.client_id)
 
     details   = {}
     if check.details:

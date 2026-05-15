@@ -9,6 +9,7 @@ Fuentes:
 import logging
 import os
 from datetime import datetime, timedelta
+from app.utils.formatters import now_peru
 from typing import Optional
 
 import requests
@@ -31,7 +32,7 @@ def _fetch_bls() -> dict:
         payload = {
             'seriesid':  [_BLS_CPI, _BLS_NFP, _BLS_UNRATE],
             'startyear': '2025',
-            'endyear':   str(datetime.utcnow().year),
+            'endyear':   str(now_peru().year),
         }
         r = requests.post(_BLS_URL, json=payload, headers=_HEADERS, timeout=12)
         data = r.json()
@@ -113,7 +114,7 @@ def _parse_bcrp_period(name: str) -> str:
 
 def _fetch_bcrp() -> dict:
     result = {}
-    now       = datetime.utcnow()
+    now       = now_peru()
     date_from = (now - timedelta(days=30)).strftime('%Y-%m-%d')
     date_to   = now.strftime('%Y-%m-%d')
 
@@ -194,7 +195,7 @@ def _fetch_bcrp_rate() -> dict:
         result['rate']      = float(last_val)
         result['prev']      = float(prev_val) if prev_val else None
         # Mostrar mes actual como período vigente (la tasa puede mantenerse meses sin cambio)
-        result['period']    = datetime.utcnow().strftime('%b %Y')
+        result['period']    = now_peru().strftime('%b %Y')
         result['notes']     = f'Sin cambios desde {last_date[:7]}'
         logger.info(f"[Macro] BCRP rate OK — {last_val}% (desde {last_date})")
     except Exception as e:
@@ -289,7 +290,7 @@ def fetch_macro_data() -> list[dict]:
         if proxy:
             _add('fed_rate', 'Tasa FED (T-Bill 13W proxy)',
                  proxy, rates_yf.get('fed_proxy_prev'), '%',
-                 datetime.utcnow().strftime('%b %Y'), 'yfinance',
+                 now_peru().strftime('%b %Y'), 'yfinance',
                  'Proxy via T-Bill 13 semanas (^IRX)')
 
     # ── 3. BCRP — TC oficial ─────────────────────────────────────────────────

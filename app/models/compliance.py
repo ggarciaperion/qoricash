@@ -1,7 +1,6 @@
 """
 Modelos de Compliance para AML/KYC/PLAFT - QoriCash Trading V2
 """
-from datetime import datetime
 from app.extensions import db
 from app.utils.formatters import now_peru
 
@@ -121,8 +120,8 @@ class ComplianceAlert(db.Model):
     severity = db.Column(db.String(20), nullable=False)  # Baja, Media, Alta, Crítica
 
     # Entidad relacionada
-    client_id = db.Column(db.Integer, db.ForeignKey('clients.id'))
-    operation_id = db.Column(db.Integer, db.ForeignKey('operations.id'))
+    client_id = db.Column(db.Integer, db.ForeignKey('clients.id'), index=True)
+    operation_id = db.Column(db.Integer, db.ForeignKey('operations.id'), index=True)
 
     # Regla que generó la alerta
     rule_id = db.Column(db.Integer, db.ForeignKey('compliance_rules.id'))
@@ -161,7 +160,7 @@ class RestrictiveListCheck(db.Model):
     __tablename__ = 'restrictive_list_checks'
 
     id = db.Column(db.Integer, primary_key=True)
-    client_id = db.Column(db.Integer, db.ForeignKey('clients.id'), nullable=False)
+    client_id = db.Column(db.Integer, db.ForeignKey('clients.id'), nullable=False, index=True)
 
     # Tipo de lista consultada
     list_type = db.Column(db.String(50), nullable=False)  # OFAC, ONU, UIF, PEP, Interpol
@@ -228,8 +227,8 @@ class TransactionMonitoring(db.Model):
     __tablename__ = 'transaction_monitoring'
 
     id = db.Column(db.Integer, primary_key=True)
-    operation_id = db.Column(db.Integer, db.ForeignKey('operations.id'), nullable=False)
-    client_id = db.Column(db.Integer, db.ForeignKey('clients.id'), nullable=False)
+    operation_id = db.Column(db.Integer, db.ForeignKey('operations.id'), nullable=False, index=True)
+    client_id = db.Column(db.Integer, db.ForeignKey('clients.id'), nullable=False, index=True)
 
     # Análisis automático
     risk_score = db.Column(db.Integer, default=0)  # 0-100

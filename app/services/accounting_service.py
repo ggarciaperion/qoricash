@@ -7,6 +7,7 @@ from app.extensions import db
 from app.models import Operation, AccountingMatch, AccountingBatch, Client
 from app.utils.formatters import now_peru
 from sqlalchemy import func, and_, or_
+from sqlalchemy.orm import joinedload
 from datetime import datetime, date
 from decimal import Decimal
 
@@ -28,7 +29,10 @@ class AccountingService:
         Returns:
             list: Lista de operaciones disponibles
         """
-        query = Operation.query.filter(
+        query = Operation.query.options(
+            joinedload(Operation.client),
+            joinedload('user'),
+        ).filter(
             Operation.status == 'Completada'
         )
 
@@ -84,7 +88,7 @@ class AccountingService:
         Returns:
             Decimal: Monto USD disponible
         """
-        operation = Operation.query.get(operation_id)
+        operation = db.session.get(Operation, operation_id)
         if not operation:
             return Decimal('0')
 
@@ -110,8 +114,8 @@ class AccountingService:
         """
         try:
             # Validar operaciones
-            buy_op = Operation.query.get(buy_operation_id)
-            sell_op = Operation.query.get(sell_operation_id)
+            buy_op = db.session.get(Operation, buy_operation_id)
+            sell_op = db.session.get(Operation, sell_operation_id)
 
             if not buy_op or not sell_op:
                 return False, 'Operación no encontrada', None
@@ -216,12 +220,12 @@ class AccountingService:
             tuple: (success, message)
         """
         try:
-            match = AccountingMatch.query.get(match_id)
+            match = db.session.get(AccountingMatch, match_id)
             if not match:
                 return False, 'Match no encontrado'
 
             if match.batch_id:
-                batch = AccountingBatch.query.get(match.batch_id)
+                batch = db.session.get(AccountingBatch, match.batch_id)
                 if batch and batch.status == 'Cerrado':
                     return False, 'No se puede eliminar un match de un batch cerrado'
 
@@ -234,7 +238,7 @@ class AccountingService:
 
             # Si pertenecía a un batch, recalcular totales
             if match.batch_id:
-                batch = AccountingBatch.query.get(match.batch_id)
+                batch = db.session.get(AccountingBatch, match.batch_id)
                 if batch:
                     batch.calculate_totals()
                     db.session.commit()
@@ -537,7 +541,7 @@ class AccountingService:
             tuple: (success, message)
         """
         try:
-            batch = AccountingBatch.query.get(batch_id)
+            batch = db.session.get(AccountingBatch, batch_id)
             if not batch:
                 return False, 'Batch no encontrado'
 
@@ -722,7 +726,10 @@ class AccountingService:
         Returns:
             list: Lista de matches
         """
-        query = AccountingMatch.query
+        query = AccountingMatch.query.options(
+            joinedload(AccountingMatch.buy_operation).joinedload(Operation.client),
+            joinedload(AccountingMatch.sell_operation).joinedload(Operation.client),
+        )
 
         if status:
             query = query.filter(AccountingMatch.status == status)

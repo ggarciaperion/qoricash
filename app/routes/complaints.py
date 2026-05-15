@@ -83,7 +83,7 @@ def detail_complaint(id):
 
     Roles permitidos: Master, Middle Office
     """
-    complaint = Complaint.query.get_or_404(id)
+    complaint = db.get_or_404(Complaint, id)
 
     return render_template(
         'complaints/detail.html',
@@ -106,7 +106,7 @@ def update_complaint_status(id):
         response: Respuesta del equipo
     """
     try:
-        complaint = Complaint.query.get_or_404(id)
+        complaint = db.get_or_404(Complaint, id)
 
         # Prevenir edición si ya está resuelto
         if complaint.status == 'Resuelto':
@@ -297,7 +297,7 @@ def upload_resolution_image(id):
         }), 403
 
     try:
-        complaint = Complaint.query.get(id)
+        complaint = db.session.get(Complaint, id)
         if not complaint:
             return jsonify({
                 'success': False,
@@ -386,7 +386,7 @@ def upload_resolution_image(id):
 def remove_resolution_image(id):
     """Eliminar imagen de resolución"""
     try:
-        complaint = Complaint.query.get_or_404(id)
+        complaint = db.get_or_404(Complaint, id)
 
         complaint.resolution_image_url = None
         complaint.updated_at = now_peru()

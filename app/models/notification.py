@@ -2,7 +2,6 @@
 Modelo de Notificación persistente para QoriCash.
 Permite historial, contador de no leídas y auditoría.
 """
-from datetime import datetime
 from app.extensions import db
 from app.utils.formatters import now_peru
 
@@ -21,7 +20,7 @@ class Notification(db.Model):
     created_at  = db.Column(db.DateTime, default=now_peru, nullable=False, index=True)
     read_at     = db.Column(db.DateTime)
 
-    user = db.relationship('User', backref=db.backref('notifications', lazy='dynamic'))
+    user = db.relationship('User', backref=db.backref('notifications', lazy='select'))
 
     def mark_read(self):
         self.is_read = True

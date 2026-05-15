@@ -47,7 +47,7 @@ def configure_security_headers(app):
         # Ajustado para permitir CDNs usados en templates (Bootstrap, FontAwesome, etc.)
         csp = (
             "default-src 'self'; "
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval' "
+            "script-src 'self' 'unsafe-inline' "
             "    https://cdn.jsdelivr.net https://cdnjs.cloudflare.com "
             "    https://code.jquery.com https://cdn.socket.io; "
             "style-src 'self' 'unsafe-inline' "

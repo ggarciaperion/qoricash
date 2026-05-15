@@ -5,6 +5,7 @@ Fuentes: BBC Business, CNBC Economy, Bloomberg, Investing.com, MarketWatch, Gest
 import hashlib
 import logging
 from datetime import datetime, timezone
+from app.utils.formatters import now_peru
 from email.utils import parsedate_to_datetime
 from typing import Optional
 
@@ -167,7 +168,7 @@ def _parse_date(entry) -> Optional[datetime]:
             return datetime(*entry.published_parsed[:6])
         except Exception:
             pass
-    return datetime.utcnow()
+    return now_peru()
 
 
 def _url_hash(url: str) -> str:

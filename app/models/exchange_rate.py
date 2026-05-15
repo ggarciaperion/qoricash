@@ -1,7 +1,6 @@
 """
 Modelo para tipos de cambio
 """
-from datetime import datetime
 from app.extensions import db
 from app.utils.formatters import now_peru
 

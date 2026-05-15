@@ -3,6 +3,7 @@ Rutas del módulo contable QoriCash — Libro Diario, Gastos, Períodos.
 Solo accesible por rol Master.
 """
 from flask import Blueprint, render_template, request, jsonify, send_file
+from sqlalchemy.orm import joinedload
 from flask_login import login_required, current_user
 from app.extensions import db, csrf
 from app.utils.decorators import require_role
@@ -20,6 +21,24 @@ def _current_period_defaults():
     """Retorna year y month del período activo (hoy)."""
     today = date.today()
     return today.year, today.month
+
+
+def _get_accounts_catalog():
+    """Retorna dict {code: AccountingAccount} con todas las cuentas contables."""
+    from app.models.contabilidad import AccountingAccount
+    return {a.code: a for a in AccountingAccount.query.all()}
+
+
+def _get_all_periods():
+    """Retorna todos los períodos contables ordenados desc (para selectores)."""
+    from app.models.accounting_period import AccountingPeriod
+    return _get_all_periods()
+
+
+def _get_period(year, month):
+    """Retorna el AccountingPeriod de year/month, o None si no existe."""
+    from app.models.accounting_period import AccountingPeriod
+    return _get_period(year, month)
 
 
 def _company_info() -> dict:
@@ -41,7 +60,6 @@ def _company_info() -> dict:
 @login_required
 @require_role('Master')
 def dashboard():
-    from app.models.accounting_period import AccountingPeriod
     from app.models.journal_entry import JournalEntry
     from app.models.expense_record import ExpenseRecord
     from sqlalchemy import func, extract
@@ -49,7 +67,7 @@ def dashboard():
     year, month = _current_period_defaults()
 
     # Período actual
-    current_period = AccountingPeriod.query.filter_by(year=year, month=month).first()
+    current_period = _get_period(year, month)
 
     # Asientos del mes actual
     entries_this_month = JournalEntry.query.filter(
@@ -78,9 +96,7 @@ def dashboard():
     ).scalar() or Decimal('0')
 
     # Todos los períodos para el selector
-    periods = AccountingPeriod.query.order_by(
-        AccountingPeriod.year.desc(), AccountingPeriod.month.desc()
-    ).all()
+    periods = _get_all_periods()
 
     return render_template(
         'contabilidad/dashboard.html',
@@ -104,7 +120,6 @@ def dashboard():
 @require_role('Master')
 def diario():
     from app.models.journal_entry import JournalEntry
-    from app.models.accounting_period import AccountingPeriod
 
     year  = request.args.get('year',  type=int, default=date.today().year)
     month = request.args.get('month', type=int, default=date.today().month)
@@ -124,9 +139,7 @@ def diario():
 
     entries = q.order_by(JournalEntry.entry_date.asc(), JournalEntry.id.asc()).all()
 
-    periods = AccountingPeriod.query.order_by(
-        AccountingPeriod.year.desc(), AccountingPeriod.month.desc()
-    ).all()
+    periods = _get_all_periods()
 
     return render_template(
         'contabilidad/diario.html',
@@ -236,7 +249,7 @@ def anular_asiento(entry_id):
     if not motivo:
         return jsonify({'success': False, 'error': 'Se requiere motivo de anulación'}), 400
 
-    entry = JournalEntry.query.get_or_404(entry_id)
+    entry = db.get_or_404(JournalEntry, entry_id)
 
     if entry.status == 'anulado':
         return jsonify({'success': False, 'error': 'El asiento ya está anulado'}), 400
@@ -259,7 +272,7 @@ def anular_asiento(entry_id):
         db.session.flush()
 
         # Crear asiento inverso en la misma fecha del original (M-05)
-        lines = entry.lines.all() if hasattr(entry.lines, 'all') else list(entry.lines)
+        lines = entry.lines
         inverse_lines = [{
             'account_code': l.account_code,
             'description':  f'Reversión: {l.description or entry.description}',
@@ -300,8 +313,8 @@ def entry_lines(entry_id):
     """API: líneas de un asiento (para el acordeón del diario)."""
     from app.models.journal_entry import JournalEntry
 
-    entry = JournalEntry.query.get_or_404(entry_id)
-    lines = entry.lines.all() if hasattr(entry.lines, 'all') else list(entry.lines)
+    entry = db.get_or_404(JournalEntry, entry_id)
+    lines = entry.lines
 
     return jsonify([{
         'account_code': l.account_code,
@@ -325,7 +338,9 @@ def export_diario():
     year  = request.args.get('year',  type=int, default=date.today().year)
     month = request.args.get('month', type=int, default=date.today().month)
 
-    entries = JournalEntry.query.filter(
+    entries = JournalEntry.query.options(
+        joinedload(JournalEntry.lines),
+    ).filter(
         extract('year',  JournalEntry.entry_date) == year,
         extract('month', JournalEntry.entry_date) == month,
         JournalEntry.status == 'activo',
@@ -367,7 +382,7 @@ def export_diario():
     border = Border(left=thin, right=thin, top=thin, bottom=thin)
 
     for entry in entries:
-        lines = entry.lines.all() if hasattr(entry.lines, 'all') else list(entry.lines)
+        lines = entry.lines
         first_line = True
         for line in lines:
             ws.cell(row=row, column=1, value=entry.entry_number if first_line else '').border = border
@@ -408,7 +423,6 @@ def export_diario():
 @require_role('Master')
 def gastos():
     from app.models.expense_record import ExpenseRecord
-    from app.models.accounting_period import AccountingPeriod
     from app.models.journal_entry import JournalEntry
     from sqlalchemy import extract
 
@@ -429,9 +443,7 @@ def gastos():
         ).all()
     ) if records else set()
 
-    periods = AccountingPeriod.query.order_by(
-        AccountingPeriod.year.desc(), AccountingPeriod.month.desc()
-    ).all()
+    periods = _get_all_periods()
 
     return render_template(
         'contabilidad/gastos.html',
@@ -616,7 +628,7 @@ def pagar_proveedor(record_id):
     bank_account  = data.get('bank_account', '1041')   # cuenta desde donde se paga
     bank_label    = data.get('bank_label', bank_account)
 
-    record = ExpenseRecord.query.get_or_404(record_id)
+    record = db.get_or_404(ExpenseRecord, record_id)
 
     # Verificar que sea una factura o planilla (que generó un pasivo)
     es_factura = (record.voucher_type or '').lower() in ('factura', 'factura electrónica')
@@ -1013,10 +1025,7 @@ def crear_apertura():
 @login_required
 @require_role('Master')
 def periodos():
-    from app.models.accounting_period import AccountingPeriod
-    periods = AccountingPeriod.query.order_by(
-        AccountingPeriod.year.desc(), AccountingPeriod.month.desc()
-    ).all()
+    periods = _get_all_periods()
     return render_template(
         'contabilidad/periodos.html',
         periods=periods,
@@ -1046,7 +1055,6 @@ def reabrir_periodo():
     Reabre un período contable cerrado.
     Requiere motivo obligatorio — queda registrado en AuditLog.
     """
-    from app.models.accounting_period import AccountingPeriod
     from app.models.audit_log import AuditLog
 
     data   = request.get_json() or {}
@@ -1057,7 +1065,7 @@ def reabrir_periodo():
     if not motivo:
         return jsonify({'success': False, 'message': 'El motivo de reapertura es obligatorio.'}), 400
 
-    period = AccountingPeriod.query.filter_by(year=year, month=month).first()
+    period = _get_period(year, month)
     if not period:
         return jsonify({'success': False, 'message': 'Período no encontrado.'}), 404
     if period.status == 'abierto':
@@ -1261,7 +1269,6 @@ def _caja_movimientos(year: int, month: int, account_code: str):
 @require_role('Master')
 def caja():
     from app.models.bank_balance import BankBalance
-    from app.models.accounting_period import AccountingPeriod
     from app.models.journal_entry_line import JournalEntryLine
     from app.models.journal_entry import JournalEntry
     from sqlalchemy import func, extract
@@ -1286,9 +1293,7 @@ def caja():
     # Saldos reales del módulo de posición (para conciliación)
     bank_balances = {b.bank_name.upper(): b for b in BankBalance.query.all()}
 
-    periods = AccountingPeriod.query.order_by(
-        AccountingPeriod.year.desc(), AccountingPeriod.month.desc()
-    ).all()
+    periods = _get_all_periods()
 
     return render_template(
         'contabilidad/caja.html',
@@ -1437,7 +1442,6 @@ def lig():
     from app.models.journal_entry import JournalEntry
     from app.models.journal_entry_line import JournalEntryLine
     from app.models.expense_record import ExpenseRecord
-    from app.models.accounting_period import AccountingPeriod
     from sqlalchemy import extract, func
 
     year  = request.args.get('year',  type=int, default=date.today().year)
@@ -1483,9 +1487,7 @@ def lig():
     total_ingresos = sum(float(i['importe']) for i in ingresos)
     total_gastos   = sum(float(g.amount_pen or 0) for g in gastos)
 
-    periods = AccountingPeriod.query.order_by(
-        AccountingPeriod.year.desc(), AccountingPeriod.month.desc()
-    ).all()
+    periods = _get_all_periods()
 
     return render_template(
         'contabilidad/lig.html',
@@ -1783,13 +1785,12 @@ def mayor():
     from app.models.journal_entry import JournalEntry
     from app.models.journal_entry_line import JournalEntryLine
     from app.models.accounting_account import AccountingAccount
-    from app.models.accounting_period import AccountingPeriod
     from sqlalchemy import func, extract
 
     year  = request.args.get('year',  type=int, default=date.today().year)
     month = request.args.get('month', type=int, default=date.today().month)
 
-    current_period = AccountingPeriod.query.filter_by(year=year, month=month).first()
+    current_period = _get_period(year, month)
 
     # Todas las cuentas con movimientos en el período
     active_codes = [
@@ -1803,7 +1804,7 @@ def mayor():
         ).distinct().order_by(JournalEntryLine.account_code).all()
     ]
 
-    catalog = {a.code: a for a in AccountingAccount.query.all()}
+    catalog = _get_accounts_catalog()
     first_day = date(year, month, 1)
 
     cuentas = []
@@ -1904,7 +1905,7 @@ def export_mayor():
         ).distinct().order_by(JournalEntryLine.account_code).all()
     ]
 
-    catalog   = {a.code: a for a in AccountingAccount.query.all()}
+    catalog = _get_accounts_catalog()
     first_day = date(year, month, 1)
 
     wb = openpyxl.Workbook()
@@ -2011,7 +2012,6 @@ def balance():
     from app.models.journal_entry import JournalEntry
     from app.models.journal_entry_line import JournalEntryLine
     from app.models.accounting_account import AccountingAccount
-    from app.models.accounting_period import AccountingPeriod
     from sqlalchemy import func, extract
 
     year  = request.args.get('year',  type=int, default=date.today().year)
@@ -2035,7 +2035,7 @@ def balance():
     ).all()
 
     # Catálogo para nombres y tipo
-    catalog = {a.code: a for a in AccountingAccount.query.all()}
+    catalog = _get_accounts_catalog()
 
     accounts = []
     grand_debe = Decimal('0')
@@ -2074,9 +2074,7 @@ def balance():
         grand_debe  += td
         grand_haber += th
 
-    periods = AccountingPeriod.query.order_by(
-        AccountingPeriod.year.desc(), AccountingPeriod.month.desc()
-    ).all()
+    periods = _get_all_periods()
 
     return render_template(
         'contabilidad/balance.html',
@@ -2116,7 +2114,7 @@ def export_balance():
     ).group_by(JournalEntryLine.account_code
     ).order_by(JournalEntryLine.account_code).all()
 
-    catalog = {a.code: a for a in AccountingAccount.query.all()}
+    catalog = _get_accounts_catalog()
 
     wb = openpyxl.Workbook()
     ws = wb.active
@@ -2214,7 +2212,6 @@ def resultados():
     from app.models.journal_entry import JournalEntry
     from app.models.journal_entry_line import JournalEntryLine
     from app.models.accounting_account import AccountingAccount
-    from app.models.accounting_period import AccountingPeriod
     from sqlalchemy import func, extract
 
     year  = request.args.get('year',  type=int, default=date.today().year)
@@ -2232,7 +2229,7 @@ def resultados():
     ).group_by(JournalEntryLine.account_code
     ).order_by(JournalEntryLine.account_code).all()
 
-    catalog = {a.code: a for a in AccountingAccount.query.all()}
+    catalog = _get_accounts_catalog()
 
     # Clasificar por tipo para P&L
     ingresos = []
@@ -2264,9 +2261,7 @@ def resultados():
     ir_estimado = _ir_mype(utilidad_antes_ir)
     utilidad_neta = utilidad_antes_ir - ir_estimado
 
-    periods = AccountingPeriod.query.order_by(
-        AccountingPeriod.year.desc(), AccountingPeriod.month.desc()
-    ).all()
+    periods = _get_all_periods()
 
     return render_template(
         'contabilidad/resultados.html',
@@ -2310,7 +2305,7 @@ def export_resultados():
     ).group_by(JournalEntryLine.account_code
     ).order_by(JournalEntryLine.account_code).all()
 
-    catalog = {a.code: a for a in AccountingAccount.query.all()}
+    catalog = _get_accounts_catalog()
 
     ingresos, gastos = [], []
     for r in rows:
@@ -2447,7 +2442,6 @@ def balance_general():
     Balance General (Estado de Situación Financiera) a una fecha de corte.
     Presenta saldos acumulados (no solo del mes) en formato ACTIVO / PASIVO / PATRIMONIO.
     """
-    from app.models.accounting_period import AccountingPeriod
     from app.models.fixed_asset import FixedAsset
     import calendar
 
@@ -2499,9 +2493,7 @@ def balance_general():
     resultado_ejercicio = ingresos_ac - gastos_ac
     total_patrimonio = capital + utilidades_acc - perdidas_acc + resultado_ejercicio
 
-    periods = AccountingPeriod.query.order_by(
-        AccountingPeriod.year.desc(), AccountingPeriod.month.desc()
-    ).all()
+    periods = _get_all_periods()
 
     return render_template(
         'contabilidad/balance_general.html',
@@ -2669,7 +2661,7 @@ def depreciar_activos():
 def dar_baja_activo(asset_id):
     """Da de baja un activo fijo (status = 'baja')."""
     from app.models.fixed_asset import FixedAsset
-    asset = FixedAsset.query.get_or_404(asset_id)
+    asset = db.get_or_404(FixedAsset, asset_id)
     data  = request.get_json() or {}
     asset.status     = 'baja'
     asset.baja_date  = date.today()
@@ -2723,7 +2715,6 @@ def exportar_excel():
     from app.models.journal_entry_line import JournalEntryLine
     from app.models.expense_record import ExpenseRecord
     from app.models.fixed_asset import FixedAsset
-    from app.models.accounting_period import AccountingPeriod
     from sqlalchemy import func, extract
     import calendar
 
@@ -2783,7 +2774,9 @@ def exportar_excel():
     ]
     header_row(ws1, cols1, row=6)
 
-    entries = JournalEntry.query.filter(
+    entries = JournalEntry.query.options(
+        joinedload(JournalEntry.lines),
+    ).filter(
         extract('year',  JournalEntry.entry_date) == year,
         extract('month', JournalEntry.entry_date) == month,
         JournalEntry.status == 'activo',
@@ -2798,8 +2791,7 @@ def exportar_excel():
     alt_fill = PatternFill('solid', fgColor='EFF3FB')
 
     for entry in entries:
-        lines = JournalEntryLine.query.filter_by(journal_entry_id=entry.id).all()
-        for i, line in enumerate(lines):
+        for i, line in enumerate(entry.lines):
             row_fill = alt_fill if (entry.id % 2 == 0) else None
             cells = [
                 entry.entry_number or '',
@@ -3295,7 +3287,7 @@ def lotes_detalle(batch_id):
     """API: detalle de un lote."""
     from app.models import AccountingBatch
     try:
-        batch = AccountingBatch.query.get(batch_id)
+        batch = db.session.get(AccountingBatch, batch_id)
         if not batch:
             return jsonify({'success': False, 'error': 'Lote no encontrado'}), 404
         return jsonify({'success': True, 'batch': batch.to_dict(include_matches=True)})

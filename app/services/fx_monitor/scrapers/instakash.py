@@ -8,7 +8,7 @@ import re
 import time
 import requests
 from bs4 import BeautifulSoup
-from datetime import datetime
+from app.utils.formatters import now_peru
 from .base import BaseScraper, RateResult
 
 # Endpoints conocidos para intentar en orden
@@ -42,7 +42,7 @@ class InstakashScraper(BaseScraper):
                     if buy and sell:
                         ms = int((time.monotonic() - t0) * 1000)
                         return RateResult(slug=self.slug, buy_rate=buy, sell_rate=sell,
-                                          scraped_at=datetime.utcnow(), response_ms=ms)
+                                          scraped_at=now_peru(), response_ms=ms)
             except Exception:
                 continue
 
@@ -62,7 +62,7 @@ class InstakashScraper(BaseScraper):
             sell = nums[1] if len(nums) > 1 else 0.0
 
         return RateResult(slug=self.slug, buy_rate=buy, sell_rate=sell,
-                          scraped_at=datetime.utcnow(), response_ms=ms)
+                          scraped_at=now_peru(), response_ms=ms)
 
     # ── helpers ──────────────────────────────────────────────────────────
     def _pick(self, data, keys):

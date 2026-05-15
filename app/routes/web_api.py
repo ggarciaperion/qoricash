@@ -4,7 +4,6 @@ Este módulo proporciona endpoints específicos para la página web pública
 Actualizado: 2026-01-12 - Force redeploy para activar servicio en Render
 """
 from flask import Blueprint, request, jsonify, current_app
-from flask_login import login_required
 from app.models.client import Client
 from app.models.user import User
 from app.models.operation import Operation
@@ -12,7 +11,6 @@ from app.extensions import db, csrf, limiter
 from werkzeug.security import generate_password_hash
 from app.utils.formatters import now_peru
 from app.utils.referral import generate_referral_code
-from app.utils.decorators import require_role
 import logging
 
 logger = logging.getLogger(__name__)
@@ -357,7 +355,6 @@ def get_my_operations():
             }), 404
 
         # Obtener operaciones
-        from app.models.operation import Operation
         operations = Operation.query.filter_by(
             client_id=client.id
         ).order_by(Operation.created_at.desc()).limit(50).all()
@@ -422,9 +419,6 @@ def get_client_stats():
             }), 404
 
         # Calcular estadísticas
-        from app.models.operation import Operation
-        from sqlalchemy import func
-
         operations = Operation.query.filter_by(client_id=client.id).all()
 
         # Solo contar operaciones completadas en total_operations
@@ -551,7 +545,6 @@ def create_operation_web():
             }), 404
 
         # Verificar si el cliente ya tiene una operación activa (Pendiente o En proceso)
-        from app.models.operation import Operation
         active_operation = Operation.query.filter(
             Operation.client_id == client.id,
             Operation.status.in_(['Pendiente', 'En proceso'])
@@ -641,8 +634,6 @@ def create_operation_web():
                 break
 
         # Crear operación con campos correctos del modelo
-        from app.models.operation import Operation
-
         # Generar operation_id usando el método del modelo (mantiene correlativo único)
         operation_id = Operation.generate_operation_id()
 
@@ -783,8 +774,7 @@ def cancel_operation_web():
             }), 400
 
         # Obtener operación
-        from app.models.operation import Operation
-        operation = Operation.query.get(operation_id)
+        operation = db.session.get(Operation, operation_id)
 
         if not operation:
             return jsonify({
@@ -870,8 +860,7 @@ def submit_proof_web():
             }), 400
 
         # Buscar operación
-        from app.models.operation import Operation
-        operation = Operation.query.get(operation_id)
+        operation = db.session.get(Operation, operation_id)
 
         if not operation:
             return jsonify({
@@ -1002,8 +991,7 @@ def submit_proof_web():
 
             # Notificar al operador asignado
             if assigned_operator_id:
-                from app.models.user import User
-                assigned_operator = User.query.get(assigned_operator_id)
+                assigned_operator = db.session.get(User, assigned_operator_id)
                 if assigned_operator:
                     NotificationService.notify_operation_assigned(operation, assigned_operator)
         except Exception as notify_error:
@@ -1043,388 +1031,6 @@ def health_check():
         'version': '1.0.0'
     }), 200
 
-
-@web_api_bp.route('/fix-referral-73733737', methods=['POST'])
-@csrf.exempt
-@login_required
-@require_role('Master')
-def fix_referral_code_temp():
-    """
-    ENDPOINT TEMPORAL: Actualizar cliente 73733737 que usó código 3NEFUG antes del fix
-    Este endpoint se puede eliminar después de ejecutarlo una vez
-    """
-    try:
-        # Buscar el cliente con DNI 73733737
-        client = Client.query.filter_by(dni='73733737').first()
-
-        if not client:
-            return jsonify({
-                'success': False,
-                'message': 'Cliente con DNI 73733737 no encontrado'
-            }), 404
-
-        # Verificar si ya fue actualizado
-        if client.used_referral_code == '3NEFUG':
-            return jsonify({
-                'success': True,
-                'message': 'Cliente ya fue actualizado previamente',
-                'already_fixed': True
-            }), 200
-
-        # Buscar el dueño del código 3NEFUG
-        referrer = Client.query.filter_by(referral_code='3NEFUG').first()
-
-        if not referrer:
-            return jsonify({
-                'success': False,
-                'message': 'No se encontró el dueño del código 3NEFUG'
-            }), 404
-
-        # Actualizar el cliente
-        client.used_referral_code = '3NEFUG'
-        client.referred_by = referrer.id
-
-        # Guardar cambios
-        db.session.commit()
-
-        logger.info(f"✅ Fix aplicado: Cliente {client.dni} marcado como que usó código {client.used_referral_code}")
-
-        return jsonify({
-            'success': True,
-            'message': 'Cliente actualizado exitosamente',
-            'data': {
-                'client_dni': client.dni,
-                'client_name': client.full_name,
-                'used_referral_code': client.used_referral_code,
-                'referrer_name': referrer.full_name,
-                'referrer_code': referrer.referral_code
-            }
-        }), 200
-
-    except Exception as e:
-        db.session.rollback()
-        logger.error(f"❌ Error al aplicar fix de referral code: {str(e)}")
-        return jsonify({
-            'success': False,
-            'message': f'Error al aplicar fix: {str(e)}'
-        }), 500
-
-
-@web_api_bp.route('/run-migration-reward-codes', methods=['POST'])
-@csrf.exempt
-@login_required
-@require_role('Master')
-def run_migration_reward_codes():
-    """
-    ENDPOINT TEMPORAL: Crear tabla reward_codes y agregar columna referral_total_uses
-    Este endpoint se puede eliminar después de ejecutarlo una vez
-    """
-    try:
-        # Verificar si la tabla reward_codes ya existe
-        result = db.session.execute(db.text("""
-            SELECT table_name
-            FROM information_schema.tables
-            WHERE table_name = 'reward_codes'
-        """))
-        table_exists = result.fetchone() is not None
-
-        # Verificar si la columna referral_total_uses ya existe
-        result = db.session.execute(db.text("""
-            SELECT column_name
-            FROM information_schema.columns
-            WHERE table_name = 'clients'
-            AND column_name = 'referral_total_uses'
-        """))
-        column_exists = result.fetchone() is not None
-
-        if table_exists and column_exists:
-            return jsonify({
-                'success': True,
-                'message': 'La tabla y columna ya existen. Migración no necesaria.',
-                'already_migrated': True
-            }), 200
-
-        logger.info(f"📝 Ejecutando migración de reward_codes y referral_total_uses")
-        changes_made = []
-
-        # Crear tabla reward_codes si no existe
-        if not table_exists:
-            db.session.execute(db.text("""
-                CREATE TABLE reward_codes (
-                    id SERIAL PRIMARY KEY,
-                    code VARCHAR(6) UNIQUE NOT NULL,
-                    client_id INTEGER NOT NULL REFERENCES clients(id),
-                    pips_redeemed FLOAT NOT NULL DEFAULT 0.003,
-                    is_used BOOLEAN DEFAULT FALSE,
-                    used_at TIMESTAMP,
-                    used_in_operation_id INTEGER REFERENCES operations(id),
-                    created_at TIMESTAMP NOT NULL
-                )
-            """))
-            changes_made.append('Tabla reward_codes creada')
-            logger.info("✅ Tabla reward_codes creada")
-
-        # Agregar columna referral_total_uses si no existe
-        if not column_exists:
-            db.session.execute(db.text(
-                "ALTER TABLE clients ADD COLUMN referral_total_uses INTEGER DEFAULT 0"
-            ))
-            db.session.execute(db.text("""
-                UPDATE clients
-                SET referral_total_uses = 0
-                WHERE referral_total_uses IS NULL
-            """))
-            changes_made.append('Columna referral_total_uses agregada')
-            logger.info("✅ Columna referral_total_uses agregada")
-
-        # Commit cambios
-        db.session.commit()
-
-        logger.info("✅ Migración de reward_codes completada exitosamente")
-
-        return jsonify({
-            'success': True,
-            'message': 'Migración completada exitosamente',
-            'changes_made': changes_made
-        }), 200
-
-    except Exception as e:
-        db.session.rollback()
-        logger.error(f"❌ Error al ejecutar migración: {str(e)}", exc_info=True)
-        return jsonify({
-            'success': False,
-            'message': f'Error al ejecutar migración: {str(e)}'
-        }), 500
-
-
-@web_api_bp.route('/run-migration-referral-benefits', methods=['POST'])
-@csrf.exempt
-@login_required
-@require_role('Master')
-def run_migration_referral_benefits():
-    """
-    ENDPOINT TEMPORAL: Ejecutar migración para agregar columnas de beneficios por referidos
-    Este endpoint se puede eliminar después de ejecutarlo una vez
-    """
-    try:
-        # Verificar si las columnas ya existen
-        result = db.session.execute(db.text("""
-            SELECT column_name
-            FROM information_schema.columns
-            WHERE table_name = 'clients'
-            AND column_name IN ('referral_pips_earned', 'referral_pips_available', 'referral_completed_uses')
-        """))
-        existing_columns = [row[0] for row in result]
-
-        if len(existing_columns) == 3:
-            return jsonify({
-                'success': True,
-                'message': 'Las columnas ya existen. Migración no necesaria.',
-                'already_migrated': True,
-                'existing_columns': existing_columns
-            }), 200
-
-        logger.info(f"📝 Ejecutando migración de beneficios por referidos. Columnas existentes: {existing_columns}")
-
-        # Agregar columnas si no existen
-        columns_added = []
-
-        if 'referral_pips_earned' not in existing_columns:
-            db.session.execute(db.text(
-                "ALTER TABLE clients ADD COLUMN referral_pips_earned FLOAT DEFAULT 0.0"
-            ))
-            columns_added.append('referral_pips_earned')
-            logger.info("✅ Agregada columna: referral_pips_earned")
-
-        if 'referral_pips_available' not in existing_columns:
-            db.session.execute(db.text(
-                "ALTER TABLE clients ADD COLUMN referral_pips_available FLOAT DEFAULT 0.0"
-            ))
-            columns_added.append('referral_pips_available')
-            logger.info("✅ Agregada columna: referral_pips_available")
-
-        if 'referral_completed_uses' not in existing_columns:
-            db.session.execute(db.text(
-                "ALTER TABLE clients ADD COLUMN referral_completed_uses INTEGER DEFAULT 0"
-            ))
-            columns_added.append('referral_completed_uses')
-            logger.info("✅ Agregada columna: referral_completed_uses")
-
-        # Actualizar valores NULL a defaults
-        db.session.execute(db.text("""
-            UPDATE clients
-            SET referral_pips_earned = 0.0
-            WHERE referral_pips_earned IS NULL
-        """))
-        db.session.execute(db.text("""
-            UPDATE clients
-            SET referral_pips_available = 0.0
-            WHERE referral_pips_available IS NULL
-        """))
-        db.session.execute(db.text("""
-            UPDATE clients
-            SET referral_completed_uses = 0
-            WHERE referral_completed_uses IS NULL
-        """))
-
-        # Commit cambios
-        db.session.commit()
-
-        logger.info("✅ Migración de beneficios por referidos completada exitosamente")
-
-        return jsonify({
-            'success': True,
-            'message': 'Migración completada exitosamente',
-            'columns_added': columns_added,
-            'total_columns': len(columns_added)
-        }), 200
-
-    except Exception as e:
-        db.session.rollback()
-        logger.error(f"❌ Error al ejecutar migración: {str(e)}", exc_info=True)
-        return jsonify({
-            'success': False,
-            'message': f'Error al ejecutar migración: {str(e)}'
-        }), 500
-
-
-@web_api_bp.route('/grant-pips-to-73733737', methods=['POST'])
-@csrf.exempt
-@login_required
-@require_role('Master')
-def grant_pips_to_73733737():
-    """
-    ENDPOINT TEMPORAL: Otorgar manualmente 15 pips al cliente 73733737 (dueño del código 2A5YQH)
-    por la operación completada del cliente 15979715
-
-    Este endpoint se puede eliminar después de ejecutarlo una vez
-    """
-    try:
-        # Buscar el cliente con DNI 73733737 (dueño del código)
-        referrer = Client.query.filter_by(dni='73733737').first()
-
-        if not referrer:
-            return jsonify({
-                'success': False,
-                'message': 'Cliente con DNI 73733737 no encontrado'
-            }), 404
-
-        # Buscar el cliente que usó el código (15979715)
-        referred_client = Client.query.filter_by(dni='15979715').first()
-
-        if not referred_client:
-            return jsonify({
-                'success': False,
-                'message': 'Cliente con DNI 15979715 no encontrado'
-            }), 404
-
-        # Verificar que usó el código correcto
-        if referred_client.used_referral_code != '2A5YQH':
-            return jsonify({
-                'success': False,
-                'message': f'El cliente 15979715 no usó el código 2A5YQH (usó: {referred_client.used_referral_code})'
-            }), 400
-
-        # Buscar la operación completada
-        completed_op = Operation.query.filter_by(
-            client_id=referred_client.id,
-            status='Completada'
-        ).order_by(Operation.created_at.desc()).first()
-
-        if not completed_op:
-            return jsonify({
-                'success': False,
-                'message': 'No se encontró operación completada para el cliente 15979715'
-            }), 404
-
-        # Otorgar 15 pips (0.0015)
-        PIPS_TO_GRANT = 0.0015
-
-        # Guardar valores anteriores
-        old_pips_earned = referrer.referral_pips_earned or 0.0
-        old_pips_available = referrer.referral_pips_available or 0.0
-        old_completed_uses = referrer.referral_completed_uses or 0
-
-        # Otorgar beneficio
-        referrer.referral_pips_earned = old_pips_earned + PIPS_TO_GRANT
-        referrer.referral_pips_available = old_pips_available + PIPS_TO_GRANT
-        referrer.referral_completed_uses = old_completed_uses + 1
-
-        # Guardar cambios
-        db.session.commit()
-
-        logger.info(f"✅ Pips otorgados manualmente: {PIPS_TO_GRANT} pips al cliente {referrer.dni} por operación {completed_op.operation_id}")
-
-        return jsonify({
-            'success': True,
-            'message': 'Pips otorgados exitosamente',
-            'data': {
-                'referrer_dni': referrer.dni,
-                'referrer_name': referrer.full_name,
-                'referrer_code': referrer.referral_code,
-                'referred_client_dni': referred_client.dni,
-                'referred_client_name': referred_client.full_name,
-                'operation_id': completed_op.operation_id,
-                'pips_granted': PIPS_TO_GRANT,
-                'old_values': {
-                    'pips_earned': old_pips_earned,
-                    'pips_available': old_pips_available,
-                    'completed_uses': old_completed_uses
-                },
-                'new_values': {
-                    'pips_earned': float(referrer.referral_pips_earned),
-                    'pips_available': float(referrer.referral_pips_available),
-                    'completed_uses': referrer.referral_completed_uses
-                }
-            }
-        }), 200
-
-    except Exception as e:
-        db.session.rollback()
-        logger.error(f"❌ Error al otorgar pips manualmente: {str(e)}", exc_info=True)
-        return jsonify({
-            'success': False,
-            'message': f'Error al otorgar pips: {str(e)}'
-        }), 500
-
-
-@web_api_bp.route('/debug-client/<string:dni>', methods=['GET'])
-@csrf.exempt
-@login_required
-@require_role('Master')
-def debug_client_operations(dni):
-    """Endpoint temporal de diagnóstico para verificar operaciones de un cliente"""
-    try:
-        client = Client.query.filter_by(dni=dni).first()
-        if not client:
-            return jsonify({'success': False, 'message': 'Cliente no encontrado'}), 404
-
-        operations = Operation.query.filter_by(client_id=client.id).order_by(Operation.created_at.asc()).all()
-
-        return jsonify({
-            'success': True,
-            'client': {
-                'id': client.id,
-                'dni': client.dni,
-                'name': client.full_name,
-                'used_referral_code': client.used_referral_code,
-                'referred_by': client.referred_by
-            },
-            'operations': [
-                {
-                    'operation_id': op.operation_id,
-                    'status': op.status,
-                    'created_at': op.created_at.isoformat() if op.created_at else None,
-                    'operation_type': op.operation_type
-                }
-                for op in operations
-            ],
-            'total_operations': len(operations)
-        }), 200
-
-    except Exception as e:
-        logger.error(f"❌ Error en debug: {str(e)}", exc_info=True)
-        return jsonify({'success': False, 'message': str(e)}), 500
 
 
 @web_api_bp.route('/complaints', methods=['OPTIONS', 'POST'])

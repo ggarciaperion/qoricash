@@ -1,7 +1,7 @@
 """
 Formateadores para QoriCash Trading V2
 """
-from datetime import datetime
+from datetime import datetime, timezone
 import pytz
 from app.utils.constants import TIMEZONE, DATETIME_FORMAT_DISPLAY
 
@@ -23,8 +23,7 @@ def now_peru():
     """
     # Obtener hora actual de Perú sin timezone info
     peru_tz = get_peru_timezone()
-    now_utc = datetime.utcnow()
-    now_utc_aware = pytz.utc.localize(now_utc)
+    now_utc_aware = datetime.now(timezone.utc)
     now_peru = now_utc_aware.astimezone(peru_tz)
     # Retornar naive datetime (sin timezone info)
     return now_peru.replace(tzinfo=None)

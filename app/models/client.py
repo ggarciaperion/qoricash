@@ -5,7 +5,6 @@ Modelo de Cliente ACTUALIZADO para QoriCash Trading V2
 - full_name devuelve None si no hay datos (la plantilla mostrará fallback '-')
 - get/set para bank_accounts (JSON) y compatibilidad con campos legacy
 """
-from datetime import datetime
 from app.extensions import db
 from app.utils.formatters import now_peru
 import json
@@ -103,14 +102,14 @@ class Client(db.Model):
     # Timestamps
     created_at = db.Column(db.DateTime, default=now_peru, nullable=False)
     updated_at = db.Column(db.DateTime, default=now_peru, onupdate=now_peru)
-    created_by = db.Column(db.Integer, db.ForeignKey('users.id'))
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), index=True)
     reassigned_at = db.Column(db.DateTime, nullable=True)
 
     # Canal de registro: 'app' | 'web' | 'system'
     registration_canal = db.Column(db.String(20), nullable=True)
 
     # Relaciones
-    operations = db.relationship('Operation', backref='client', lazy='dynamic')
+    operations = db.relationship('Operation', backref='client', lazy='select')
     creator = db.relationship('User', foreign_keys=[created_by])
 
     @property
@@ -321,14 +320,10 @@ class Client(db.Model):
 
         if include_stats:
             try:
-                if hasattr(self, 'operations') and self.operations is not None:
-                    # Usar count() si es una relación dynamic, o len() si es una lista
-                    if hasattr(self.operations, 'count'):
-                        data['total_operations'] = self.operations.count()
-                        completed_operations = self.operations.filter_by(status='Completada').all()
-                    else:
-                        data['total_operations'] = len(self.operations) if self.operations else 0
-                        completed_operations = [op for op in self.operations if op.status == 'Completada']
+                if self.id:
+                    from app.models.operation import Operation as _Op
+                    data['total_operations'] = _Op.query.filter_by(client_id=self.id).count()
+                    completed_operations = _Op.query.filter_by(client_id=self.id, status='Completada').all()
 
                     data['total_usd_traded'] = sum(float(op.amount_usd or 0) for op in completed_operations)
                 else:
@@ -350,11 +345,13 @@ class Client(db.Model):
 
     def get_total_operations(self):
         """Obtener total de operaciones"""
-        return self.operations.count() if hasattr(self, 'operations') else 0
+        from app.models.operation import Operation as _Op
+        return _Op.query.filter_by(client_id=self.id).count()
 
     def get_completed_operations(self):
         """Obtener operaciones completadas"""
-        return self.operations.filter_by(status='Completada').count() if hasattr(self, 'operations') else 0
+        from app.models.operation import Operation as _Op
+        return _Op.query.filter_by(client_id=self.id, status='Completada').count()
 
     def set_password(self, password):
         """
@@ -426,10 +423,8 @@ class Client(db.Model):
 
         try:
             # Obtener operaciones completadas
-            if hasattr(self.operations, 'filter_by'):
-                completed_ops = self.operations.filter_by(status='Completada').all()
-            else:
-                completed_ops = [op for op in self.operations if op.status == 'Completada']
+            from app.models.operation import Operation as _Op
+            completed_ops = _Op.query.filter_by(client_id=self.id, status='Completada').all()
 
             # Sumar montos en USD
             total = sum(float(op.amount_usd or 0) for op in completed_ops)

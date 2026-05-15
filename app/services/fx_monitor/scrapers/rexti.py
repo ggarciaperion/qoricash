@@ -10,7 +10,7 @@ import re
 import time
 import requests
 from bs4 import BeautifulSoup
-from datetime import datetime
+from app.utils.formatters import now_peru
 from .base import BaseScraper, RateResult
 
 
@@ -50,6 +50,6 @@ class RextiScraper(BaseScraper):
 
         if buy and sell:
             return RateResult(slug=self.slug, buy_rate=buy, sell_rate=sell,
-                              scraped_at=datetime.utcnow(), response_ms=ms)
+                              scraped_at=now_peru(), response_ms=ms)
 
         raise ValueError("Rextie: no se encontraron tasas Compra/Venta en el HTML")

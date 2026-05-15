@@ -2,8 +2,8 @@
 Catálogo de cuentas contables — Plan Contable General Empresarial (PCGE)
 Adaptado para QoriCash (Casa de Cambio)
 """
-from datetime import datetime
 from app.extensions import db
+from app.utils.formatters import now_peru
 
 
 class AccountingAccount(db.Model):
@@ -20,7 +20,7 @@ class AccountingAccount(db.Model):
     currency    = db.Column(db.String(5), default='PEN')
     is_active   = db.Column(db.Boolean, default=True)
     parent_code = db.Column(db.String(10), nullable=True)
-    created_at  = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at  = db.Column(db.DateTime, default=now_peru)
 
     def __repr__(self):
         return f'<AccountingAccount {self.code} – {self.name}>'

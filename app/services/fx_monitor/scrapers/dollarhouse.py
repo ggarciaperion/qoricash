@@ -8,7 +8,7 @@ Campos: <input name="purchaseprice"> = compra, <input name="op_saleprice"> = ven
 import time
 import requests
 from bs4 import BeautifulSoup
-from datetime import datetime
+from app.utils.formatters import now_peru
 from .base import BaseScraper, RateResult
 
 _CALC_URL = "https://app.dollarhouse.pe/calculadorav2"
@@ -46,4 +46,4 @@ class DollarHouseScraper(BaseScraper):
         sell = self._parse_rate(sell_el.get("value", ""))
 
         return RateResult(slug=self.slug, buy_rate=buy, sell_rate=sell,
-                          scraped_at=datetime.utcnow(), response_ms=ms)
+                          scraped_at=now_peru(), response_ms=ms)

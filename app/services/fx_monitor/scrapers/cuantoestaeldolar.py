@@ -9,7 +9,7 @@ en cuantoestaeldolar.pe (atributo "path" en el JSON).
 import re
 import time
 import requests
-from datetime import datetime
+from app.utils.formatters import now_peru
 from .base import BaseScraper, RateResult
 
 _CED_URL = "https://cuantoestaeldolar.pe"
@@ -71,4 +71,4 @@ class CedBaseScraper(BaseScraper):
         buy, sell = _fetch_ced_rates(sess, self.get_headers(), self.ced_path)
         ms   = int((time.monotonic() - t0) * 1000)
         return RateResult(slug=self.slug, buy_rate=buy, sell_rate=sell,
-                          scraped_at=datetime.utcnow(), response_ms=ms)
+                          scraped_at=now_peru(), response_ms=ms)

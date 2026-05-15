@@ -9,7 +9,7 @@ Autenticación en 2 pasos:
 """
 import time
 import requests
-from datetime import datetime
+from app.utils.formatters import now_peru
 from .base import BaseScraper, RateResult
 
 _TOKEN_URL = "https://jetperu.com.pe/wp-admin/admin-ajax.php"
@@ -63,7 +63,7 @@ class JetperuScraper(BaseScraper):
                 buy  = self._parse_rate(item["tipoCompra"])
                 sell = self._parse_rate(item["tipoVenta"])
                 return RateResult(slug=self.slug, buy_rate=buy, sell_rate=sell,
-                                  scraped_at=datetime.utcnow(), response_ms=ms)
+                                  scraped_at=now_peru(), response_ms=ms)
 
         # Si no está USDO, intentar con USD genérico
         for item in (data.get("dato") or []):
@@ -71,6 +71,6 @@ class JetperuScraper(BaseScraper):
                 buy  = self._parse_rate(item["tipoCompra"])
                 sell = self._parse_rate(item["tipoVenta"])
                 return RateResult(slug=self.slug, buy_rate=buy, sell_rate=sell,
-                                  scraped_at=datetime.utcnow(), response_ms=ms)
+                                  scraped_at=now_peru(), response_ms=ms)
 
         raise ValueError(f"JetPerú: no se encontró monedaDestinoId USD/USDO en {list(i.get('monedaDestinoId') for i in data.get('dato',[]))}")
