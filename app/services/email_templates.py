@@ -279,17 +279,27 @@ class EmailTemplates:
 
             subject = '✅ Cuenta Activada — ¡Ya puedes operar! | QoriCash'
 
-            html_body = EmailTemplates._render_trader_activation_template(client, trader, temporary_password)
-
-            msg = Message(
+            # Email 1: al cliente CON contraseña temporal
+            html_cliente = EmailTemplates._render_trader_activation_template(client, trader, temporary_password)
+            msg_cliente = Message(
                 subject=subject,
                 recipients=to,
-                cc=cc,
-                html=html_body
+                html=html_cliente
             )
+            mail.send(msg_cliente)
+            logger.info(f'✅ [EMAIL-TRADER] Email con contraseña enviado al cliente {client.dni}')
 
-            mail.send(msg)
-            logger.info(f'✅ [EMAIL-TRADER] Email enviado a {client.dni}')
+            # Email 2: al trader y gerencia SIN contraseña
+            if cc:
+                html_cc = EmailTemplates._render_auto_activation_template(client)
+                msg_cc = Message(
+                    subject=subject,
+                    recipients=cc,
+                    html=html_cc
+                )
+                mail.send(msg_cc)
+                logger.info(f'✅ [EMAIL-TRADER] Email sin contraseña enviado a CC: {cc}')
+
             return True, 'Email enviado'
 
         except Exception as e:
