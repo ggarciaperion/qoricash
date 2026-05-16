@@ -39,6 +39,8 @@ COMPETITORS_SEED = [
     {"slug": "westernunion",  "name": "Western Union",  "website": "https://westernunionperu.pe/cambiodemoneda"},
     {"slug": "cambiafx",      "name": "CambiaFX",       "website": "https://cambiafx.pe"},
     {"slug": "cambiomundial", "name": "Cambio Mundial", "website": "https://www.cambiomundial.com"},
+    {"slug": "instakash",     "name": "Instakash",      "website": "https://instakash.net"},
+    {"slug": "tkambio",       "name": "TKambio",        "website": "https://tkambio.com"},
 ]
 
 

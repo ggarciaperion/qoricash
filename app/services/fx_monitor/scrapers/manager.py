@@ -18,6 +18,8 @@ from .dichikash     import DichikashScraper
 from .westernunion  import WesternUnionScraper
 from .cambiafx      import CambiaFXScraper
 from .cambiomundial import CambioMundialScraper
+from .instakash     import InstakashScraper
+from .tkambio       import TKambioScraper
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +38,8 @@ ALL_SCRAPERS = [
     WesternUnionScraper(),
     CambiaFXScraper(),
     CambioMundialScraper(),
+    InstakashScraper(),
+    TKambioScraper(),
 ]
 
 
