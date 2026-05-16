@@ -202,9 +202,9 @@ class EmailTemplates:
     @staticmethod
     def send_welcome_email_from_web(client):
         """
-        Correo de bienvenida para clientes registrados desde página web
+        Correo de bienvenida para clientes registrados desde página web.
         - NO incluye contraseña (definida por el usuario)
-        - Para Persona Jurídica (RUC): CC a gerencia@qoricash.pe
+        - CC a gerencia@qoricash.pe en todos los registros web
 
         Args:
             client: Objeto Client
@@ -219,11 +219,9 @@ class EmailTemplates:
             if not to:
                 return False, 'Cliente sin email'
 
-            # CC a gerencia para Persona Jurídica (requiere revisión KYC especial)
-            cc = []
-            if getattr(client, 'document_type', None) == 'RUC':
-                cc.append('gerencia@qoricash.pe')
-                logger.info(f'📧 [EMAIL-WEB] CC a gerencia por registro Jurídica: {client.dni}')
+            # CC a gerencia en todos los registros web (DNI y RUC)
+            cc = ['gerencia@qoricash.pe']
+            logger.info(f'📧 [EMAIL-WEB] CC a gerencia — registro web: {client.dni}')
 
             subject = '¡Bienvenido a QoriCash!'
 
@@ -233,12 +231,12 @@ class EmailTemplates:
             msg = Message(
                 subject=subject,
                 recipients=to,
-                cc=cc if cc else None,
+                cc=cc,
                 html=html_body
             )
 
             mail.send(msg)
-            logger.info(f'✅ [EMAIL-WEB] Email enviado a {client.dni}' + (' + gerencia' if cc else ''))
+            logger.info(f'✅ [EMAIL-WEB] Email enviado a {client.dni} + gerencia')
             return True, 'Email enviado'
 
         except Exception as e:
