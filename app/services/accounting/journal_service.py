@@ -27,12 +27,16 @@ logger = logging.getLogger(__name__)
 _PEN_ACCOUNTS = {
     'BCP':       '1041',
     'INTERBANK': '1048',
+    'IBK':       '1048',
     'BANBIF':    '1049',
+    'BIF':       '1049',
 }
 _USD_ACCOUNTS = {
     'BCP':       '1044',
     'INTERBANK': '1047',
+    'IBK':       '1047',
     'BANBIF':    '1050',
+    'BIF':       '1050',
 }
 
 
