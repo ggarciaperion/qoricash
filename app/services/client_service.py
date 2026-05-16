@@ -8,6 +8,7 @@ from sqlalchemy import or_
 from app.extensions import db, socketio
 from app.models.client import Client
 from app.models.audit_log import AuditLog
+from app.models.operation import Operation
 from app.utils.validators import validate_dni, validate_email, validate_phone
 from app.utils.formatters import now_peru
 from datetime import datetime
