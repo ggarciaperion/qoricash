@@ -20,6 +20,8 @@ from .cambiafx      import CambiaFXScraper
 from .cambiomundial import CambioMundialScraper
 from .instakash     import InstakashScraper
 from .tkambio       import TKambioScraper
+from .cambiosol     import CambiosolScraper
+from .okane         import OkaneScraper
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +42,8 @@ ALL_SCRAPERS = [
     CambioMundialScraper(),
     InstakashScraper(),
     TKambioScraper(),
+    CambiosolScraper(),
+    OkaneScraper(),
 ]
 
 
