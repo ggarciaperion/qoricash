@@ -1,17 +1,22 @@
 """
 Scraper para Rextie — www.rextie.com
-(Nota: el dominio anterior rexti.com era incorrecto — el correcto es rextie.com)
-La página es Angular con SSR — las tasas se renderizan en el HTML estático.
-Estructura: <div class="text-xs text-gray-200">Compra:</div>
-             <div class="font-semibold text-xs"> s/ 3.4535 <!-- --></div>
-(verificado con inspección real del HTML, 2026-03)
+La página es Astro — los tipos de cambio se cargan vía GraphQL desde app.rextie.com.
+Endpoint: POST https://app.rextie.com/api/graphql/
+Query: currentFxRates(sources: [REXTIE]) { source ask bid }
+  bid = compra (lo que pagan por USD), ask = venta (lo que cobran por USD)
+(verificado 2026-05)
 """
-import re
 import time
 import requests
-from bs4 import BeautifulSoup
 from app.utils.formatters import now_peru
 from .base import BaseScraper, RateResult
+
+_GQL_URL = "https://app.rextie.com/api/graphql/"
+_GQL_QUERY = """
+query GetFxRates($sources: [FXRateSource!]!) {
+    currentFxRates(sources: $sources) { source ask bid }
+}
+"""
 
 
 class RextiScraper(BaseScraper):
@@ -19,37 +24,34 @@ class RextiScraper(BaseScraper):
     url  = "https://www.rextie.com"
 
     def fetch(self) -> RateResult:
-        t0   = time.monotonic()
-        resp = requests.get(self.url, headers=self.get_headers(), timeout=12, verify=False)
-        ms   = int((time.monotonic() - t0) * 1000)
+        t0 = time.monotonic()
+
+        headers = self.get_json_headers()
+        headers.update({
+            "Content-Type":        "application/json",
+            "rextie-country":      "pe",
+            "rextie-language":     "es",
+            "rextie-app-platform": "rextie-web",
+            "rextie-app-version":  "6.0.20",
+        })
+
+        resp = requests.post(
+            _GQL_URL,
+            headers=headers,
+            json={"query": _GQL_QUERY, "variables": {"sources": ["REXTIE"]}},
+            timeout=12,
+            verify=False,
+        )
+        ms = int((time.monotonic() - t0) * 1000)
         resp.raise_for_status()
 
-        # Angular SSR — decode as UTF-8 (page declares ISO-8859-1 but is actually UTF-8)
-        html = resp.content.decode("utf-8", errors="replace")
-        soup = BeautifulSoup(html, "lxml")
+        data = resp.json()
+        rates = data.get("data", {}).get("currentFxRates", [])
+        for entry in rates:
+            if entry.get("source") == "REXTIE":
+                buy  = self._parse_rate(entry["bid"])   # bid = compra
+                sell = self._parse_rate(entry["ask"])   # ask = venta
+                return RateResult(slug=self.slug, buy_rate=buy, sell_rate=sell,
+                                  scraped_at=now_peru(), response_ms=ms)
 
-        buy  = None
-        sell = None
-
-        # Find label divs "Compra:" / "Venta:" and read the following sibling div
-        for label_el in soup.find_all("div", class_=lambda c: c and "text-gray-200" in c):
-            label = label_el.get_text(strip=True)
-            sibling = label_el.find_next_sibling("div")
-            if not sibling:
-                continue
-            raw = sibling.get_text(strip=True)
-            # Strip "s/" prefix and any Angular comments
-            m = re.search(r'[\d]+\.[\d]+', raw)
-            if not m:
-                continue
-            rate = self._parse_rate(m.group())
-            if "Compra" in label:
-                buy = rate
-            elif "Venta" in label:
-                sell = rate
-
-        if buy and sell:
-            return RateResult(slug=self.slug, buy_rate=buy, sell_rate=sell,
-                              scraped_at=now_peru(), response_ms=ms)
-
-        raise ValueError("Rextie: no se encontraron tasas Compra/Venta en el HTML")
+        raise ValueError("Rextie: no se encontró source REXTIE en la respuesta GraphQL")
