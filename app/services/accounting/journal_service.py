@@ -21,17 +21,18 @@ from app.extensions import db
 logger = logging.getLogger(__name__)
 
 # ── Mapeo banco → código PCGE ─────────────────────────────────────────────────
+# QoriCash solo tiene cuentas en BCP, INTERBANK y BANBIF.
+# Cualquier banco externo (BBVA, Scotiabank, etc.) se opera vía transferencia
+# interbancaria desde INTERBANK → fallback siempre apunta a INTERBANK.
 _PEN_ACCOUNTS = {
     'BCP':       '1041',
     'INTERBANK': '1048',
     'BANBIF':    '1049',
-    'PICHINCHA': '1051',    # en proceso de apertura
 }
 _USD_ACCOUNTS = {
     'BCP':       '1044',
     'INTERBANK': '1047',
     'BANBIF':    '1050',
-    'PICHINCHA': '1052',    # en proceso de apertura
 }
 
 
@@ -39,16 +40,17 @@ def _map_bank(bank_str: str, currency: str) -> str:
     """
     Convierte un nombre de banco al código de cuenta PCGE.
     Acepta nombre directo ('BCP', 'BBVA', ...) o cualquier string con el nombre embebido.
-    Fallback: '1041' (PEN) o '1044' (USD).
+    Fallback: INTERBANK (1048 PEN / 1047 USD) — cualquier banco distinto de BCP/BANBIF
+    se opera vía interbancario desde las cuentas INTERBANK de QoriCash.
     """
     if not bank_str:
-        return '1041' if currency == 'PEN' else '1044'
+        return '1048' if currency == 'PEN' else '1047'
     s = bank_str.upper()
     mapping = _PEN_ACCOUNTS if currency == 'PEN' else _USD_ACCOUNTS
     for key, code in mapping.items():
         if key in s:
             return code
-    return '1041' if currency == 'PEN' else '1044'
+    return '1048' if currency == 'PEN' else '1047'
 
 
 def _bank_from_client_accounts(client, account_number: str) -> str | None:

@@ -491,11 +491,14 @@ def get_bank_reconciliation():
         }
 
         def _normalize_banco(name):
+            # QoriCash solo tiene cuentas en BCP, INTERBANK y BANBIF.
+            # Cualquier otro banco (BBVA, Scotiabank, etc.) usa interbancario
+            # desde INTERBANK → se mapea a INTERBANK.
             u = (name or '').upper()
             for alias, banco in _BANK_ALIASES.items():
                 if alias in u:
                     return banco
-            return None
+            return 'INTERBANK'  # fallback: banco externo = cobro/pago vía INTERBANK
 
         # acct_mvmt: { full_bank_name: { 'USD': float, 'PEN': float } }
         acct_mvmt = {}
@@ -630,7 +633,6 @@ def get_bank_reconciliation():
             'BCP':       {'PEN': '1041', 'USD': '1044'},
             'INTERBANK': {'PEN': '1048', 'USD': '1047'},
             'BANBIF':    {'PEN': '1049', 'USD': '1050'},
-            'PICHINCHA': {'PEN': '1051', 'USD': '1052'},
         }
         _LEDGER_THRESHOLD_PEN = 1.00   # S/ 1.00
         _LEDGER_THRESHOLD_USD = 0.50   # $ 0.50
