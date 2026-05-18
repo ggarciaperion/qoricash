@@ -3209,6 +3209,7 @@ def amarres_crear():
 
 
 @contabilidad_bp.route('/amarres/<int:match_id>/anular', methods=['DELETE'])
+@csrf.exempt
 @login_required
 @require_role('Master')
 def amarres_anular(match_id):
