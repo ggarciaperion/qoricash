@@ -3230,7 +3230,7 @@ def amarres_anular(match_id):
 @require_role('Master')
 def amarres_recalcular_tipos():
     """Util: reclasifica match_type de todos los amarres existentes según rol del creador."""
-    from app.models import Operation
+    from app.models import Operation, AccountingMatch
     try:
         matches = AccountingMatch.query.all()
         updated = 0
