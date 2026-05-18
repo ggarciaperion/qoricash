@@ -3224,6 +3224,44 @@ def amarres_anular(match_id):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@contabilidad_bp.route('/amarres/recalcular-tipos', methods=['POST'])
+@csrf.exempt
+@login_required
+@require_role('Master')
+def amarres_recalcular_tipos():
+    """Util: reclasifica match_type de todos los amarres existentes según rol del creador."""
+    from app.models import Operation
+    try:
+        matches = AccountingMatch.query.all()
+        updated = 0
+        log = []
+        for m in matches:
+            buy_op = db.session.get(Operation, m.buy_operation_id)
+            sell_op = db.session.get(Operation, m.sell_operation_id)
+            if not buy_op or not sell_op:
+                continue
+            buy_user = buy_op.user
+            sell_user = sell_op.user
+            is_self = (buy_op.user_id is not None and buy_op.user_id == sell_op.user_id)
+            buy_master = buy_user and buy_user.role == 'Master'
+            sell_master = sell_user and sell_user.role == 'Master'
+            if is_self:
+                new_type = 'self_match'
+            elif buy_master or sell_master:
+                new_type = 'market_hedge'
+            else:
+                new_type = 'client_to_client'
+            if m.match_type != new_type:
+                log.append(f'#{m.id}: {m.match_type} → {new_type}')
+                m.match_type = new_type
+                updated += 1
+        db.session.commit()
+        return jsonify({'success': True, 'actualizados': updated, 'total': len(matches), 'detalle': log})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @contabilidad_bp.route('/amarres/lista')
 @login_required
 @require_role('Master')
