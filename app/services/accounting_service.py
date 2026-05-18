@@ -152,40 +152,34 @@ class AccountingService:
             profit_percentage = ((sell_tc - buy_tc) / buy_tc) * Decimal('100') if buy_tc > 0 else Decimal('0')
 
             # ── Desglose de utilidad por actor ────────────────────────────────
-            # Determinar tipo de match
-            is_self_match = (buy_op.user_id is not None and
-                             buy_op.user_id == sell_op.user_id)
+            # El Master SIEMPRE representa al mercado (tiene prioridad sobre todo)
+            buy_user  = buy_op.user  if buy_op  else None
+            sell_user = sell_op.user if sell_op else None
+            buy_is_market  = buy_user  and buy_user.role  == 'Master'
+            sell_is_market = sell_user and sell_user.role == 'Master'
 
-            if is_self_match:
-                # Trader cruza sus propias operaciones → toda la utilidad es suya
+            # Calcular márgenes (fórmula común para todos los tipos):
+            #   trader_buy  = (base_compra - tc_compra) × USD  ← margen del trader compra
+            #   trader_sell = (tc_venta - base_venta)   × USD  ← margen del trader venta
+            #   house       = (base_venta - base_compra) × USD ← spread entre bases (QoriCash)
+            trader_buy_profit  = (buy_base  - buy_tc)   * matched_amount
+            trader_sell_profit = (sell_tc   - sell_base) * matched_amount
+            house_profit       = (sell_base - buy_base)  * matched_amount
+
+            if buy_is_market or sell_is_market:
+                # Master en cualquier lado = contraparte de mercado → Hedge
+                # El lado mercado no tiene margen propio (base_rate = exchange_rate)
+                # QoriCash gana el spread entre precio de mercado y base del trader
+                match_type = 'market_hedge'
+            elif buy_op.user_id is not None and buy_op.user_id == sell_op.user_id:
+                # Mismo trader en ambos lados → Auto (toda la utilidad es del trader)
                 trader_buy_profit  = profit_pen
                 trader_sell_profit = Decimal('0')
                 house_profit       = Decimal('0')
                 match_type         = 'self_match'
             else:
-                # Calcular márgenes de cada lado (fórmula común):
-                #   trader_buy  = (base_compra - tc_compra) × USD  ← margen sobre base
-                #   trader_sell = (tc_venta - base_venta)   × USD  ← margen sobre base
-                #   house       = (base_venta - base_compra) × USD ← spread entre bases
-                # Verificación: trader_buy + trader_sell + house = profit_pen
-                trader_buy_profit  = (buy_base  - buy_tc)   * matched_amount
-                trader_sell_profit = (sell_tc   - sell_base) * matched_amount
-                house_profit       = (sell_base - buy_base)  * matched_amount
-
-                # Detectar si una de las operaciones es del mercado (creada por Master):
-                # El Master genera contrapartes de mercado (Cambio Seguro, Qapaq, etc.)
-                buy_user  = buy_op.user  if buy_op  else None
-                sell_user = sell_op.user if sell_op else None
-                buy_is_market  = buy_user  and buy_user.role  == 'Master'
-                sell_is_market = sell_user and sell_user.role == 'Master'
-
-                if buy_is_market or sell_is_market:
-                    # Una parte es el mercado → market_hedge
-                    # La utilidad del lado mercado es 0 (base_rate = exchange_rate)
-                    # La utilidad de QoriCash = spread entre precio de mercado y base del trader
-                    match_type = 'market_hedge'
-                else:
-                    match_type = 'client_to_client'
+                # Dos traders distintos → C2C
+                match_type = 'client_to_client'
 
             # ── Crear match ───────────────────────────────────────────────────
             match = AccountingMatch(

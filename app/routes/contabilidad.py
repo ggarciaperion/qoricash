@@ -3242,13 +3242,13 @@ def amarres_recalcular_tipos():
                 continue
             buy_user = buy_op.user
             sell_user = sell_op.user
-            is_self = (buy_op.user_id is not None and buy_op.user_id == sell_op.user_id)
             buy_master = buy_user and buy_user.role == 'Master'
             sell_master = sell_user and sell_user.role == 'Master'
-            if is_self:
-                new_type = 'self_match'
-            elif buy_master or sell_master:
+            is_self = (buy_op.user_id is not None and buy_op.user_id == sell_op.user_id)
+            if buy_master or sell_master:
                 new_type = 'market_hedge'
+            elif is_self:
+                new_type = 'self_match'
             else:
                 new_type = 'client_to_client'
             if m.match_type != new_type:
