@@ -163,7 +163,7 @@ class AccountingService:
                 house_profit       = Decimal('0')
                 match_type         = 'self_match'
             else:
-                # Dos traders distintos (o trader vs mercado):
+                # Calcular márgenes de cada lado (fórmula común):
                 #   trader_buy  = (base_compra - tc_compra) × USD  ← margen sobre base
                 #   trader_sell = (tc_venta - base_venta)   × USD  ← margen sobre base
                 #   house       = (base_venta - base_compra) × USD ← spread entre bases
@@ -171,7 +171,21 @@ class AccountingService:
                 trader_buy_profit  = (buy_base  - buy_tc)   * matched_amount
                 trader_sell_profit = (sell_tc   - sell_base) * matched_amount
                 house_profit       = (sell_base - buy_base)  * matched_amount
-                match_type         = 'client_to_client'
+
+                # Detectar si una de las operaciones es del mercado (creada por Master):
+                # El Master genera contrapartes de mercado (Cambio Seguro, Qapaq, etc.)
+                buy_user  = buy_op.user  if buy_op  else None
+                sell_user = sell_op.user if sell_op else None
+                buy_is_market  = buy_user  and buy_user.role  == 'Master'
+                sell_is_market = sell_user and sell_user.role == 'Master'
+
+                if buy_is_market or sell_is_market:
+                    # Una parte es el mercado → market_hedge
+                    # La utilidad del lado mercado es 0 (base_rate = exchange_rate)
+                    # La utilidad de QoriCash = spread entre precio de mercado y base del trader
+                    match_type = 'market_hedge'
+                else:
+                    match_type = 'client_to_client'
 
             # ── Crear match ───────────────────────────────────────────────────
             match = AccountingMatch(
@@ -450,10 +464,23 @@ class AccountingService:
                 # house_profit_pen queda en QoriCash — no se asigna a ningún trader
 
             elif match_type == 'market_hedge':
-                _add_profit(
-                    buy_op.user_id if buy_op else None,
-                    sign * Decimal(str(match.trader_buy_profit_pen or 0)),
+                # Identificar qué lado es el mercado (Master) y cuál es el trader
+                buy_user_role  = buy_op.user.role  if buy_op  and buy_op.user  else None
+                sell_user_role = sell_op.user.role if sell_op and sell_op.user else None
+
+                if buy_user_role == 'Master':
+                    # Compra es mercado → trader está en el lado venta
+                    _add_profit(
+                        sell_op.user_id if sell_op else None,
+                        sign * Decimal(str(match.trader_sell_profit_pen or 0)),
+                    )
+                else:
+                    # Venta es mercado (caso típico) → trader está en el lado compra
+                    _add_profit(
+                        buy_op.user_id if buy_op else None,
+                        sign * Decimal(str(match.trader_buy_profit_pen or 0)),
                 )
+                # house_profit_pen = margen QoriCash sobre precio de mercado vs base del trader
 
         except Exception as exc:
             import logging
