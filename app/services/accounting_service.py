@@ -229,6 +229,7 @@ class AccountingService:
                 if batch and batch.status == 'Cerrado':
                     return False, 'No se puede eliminar un match de un batch cerrado'
 
+            batch_id = match.batch_id
             match.status = 'Anulado'
 
             # Revertir TraderDailyProfit antes del commit
@@ -236,14 +237,15 @@ class AccountingService:
 
             db.session.commit()
 
-            # Si pertenecía a un batch, recalcular totales
-            if match.batch_id:
-                batch = db.session.get(AccountingBatch, match.batch_id)
+            # Si pertenecía a un batch, recalcular totales y regenerar asiento contable
+            if batch_id:
+                batch = db.session.get(AccountingBatch, batch_id)
                 if batch:
                     batch.calculate_totals()
+                    AccountingService.generate_accounting_entry(batch)
                     db.session.commit()
 
-            return True, 'Match eliminado exitosamente'
+            return True, 'Match anulado. Las operaciones están disponibles para un nuevo amarre.'
 
         except Exception as e:
             db.session.rollback()
