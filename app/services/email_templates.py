@@ -296,7 +296,7 @@ class EmailTemplates:
                     html=html_cc
                 )
                 mail.send(msg_cc)
-                logger.info(f'✅ [EMAIL-TRADER] Email sin contraseña enviado a CC: {cc}')
+                logger.info(f'✅ [EMAIL-TRADER] Email sin contraseña enviado a trader/gerencia: {cc}')
 
             return True, 'Email enviado'
 
@@ -332,11 +332,12 @@ class EmailTemplates:
             msg = Message(
                 subject=subject,
                 recipients=to,
+                cc=['gerencia@qoricash.pe'],
                 html=html_body
             )
 
             mail.send(msg)
-            logger.info(f'✅ [EMAIL-ACTIVATION] Email enviado a {client.dni}')
+            logger.info(f'✅ [EMAIL-ACTIVATION] Email enviado a {client.dni}, CC: gerencia@qoricash.pe')
             return True, 'Email enviado'
 
         except Exception as e:
