@@ -118,6 +118,12 @@ function loadRiskProfiles() {
                 allProfiles = response.data;
                 console.log('Total perfiles cargados:', allProfiles.length);
                 initDataTable(allProfiles);
+                // Auto-generar si hay clientes sin perfil
+                const sinPerfil = allProfiles.filter(p => !p.has_profile).length;
+                if (sinPerfil > 0) {
+                    console.log(`${sinPerfil} clientes sin perfil — generando automáticamente...`);
+                    generateAllProfiles(true);
+                }
             } else {
                 console.error('Error en respuesta:', response.error);
                 showNotification('Error al cargar perfiles: ' + response.error, 'error');
@@ -274,7 +280,7 @@ function recalculateRisk(clientId) {
     });
 }
 
-function generateAllProfiles() {
+function generateAllProfiles(silent) {
     const btn = document.getElementById('btnGenerateAll');
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Calculando...';
@@ -282,11 +288,12 @@ function generateAllProfiles() {
     $.ajax({
         url: '/compliance/api/risk-profiles/generate-all',
         method: 'POST',
+        headers: { 'X-CSRFToken': $('meta[name=csrf-token]').attr('content') },
         success: function(response) {
             btn.disabled = false;
             btn.innerHTML = '<i class="bi bi-arrow-repeat me-1"></i>Generar / Recalcular todos';
             if (response.success) {
-                showNotification(response.message, 'success');
+                if (!silent) showNotification(response.message, 'success');
                 loadRiskProfiles();
             } else {
                 showNotification(response.error || 'Error al generar perfiles', 'error');
