@@ -203,83 +203,80 @@ def risk_profiles():
 @login_required
 @middle_office_required
 def api_risk_profiles():
-    """API: Lista TODOS los clientes con sus perfiles de riesgo"""
+    """API: Lista TODOS los clientes con sus perfiles de riesgo (LEFT JOIN — siempre muestra todos)"""
     try:
         import logging
         logger = logging.getLogger(__name__)
-
-        logger.info("=== INICIO api_risk_profiles (versión simplificada) ===")
-
-        # 1. Obtener TODOS los clientes (excluir demo_trader)
         from app.models.user import User
+
         _demo_id = User.get_demo_user_id()
-        _cq = Client.query.filter(Client.created_by != _demo_id) if _demo_id else Client.query
-        all_clients = _cq.all()
-        logger.info(f"Total clientes en BD: {len(all_clients)}")
 
-        # 2. Generar perfiles faltantes automáticamente
-        generated_count = 0
-        for client in all_clients:
-            existing_profile = ClientRiskProfile.query.filter_by(client_id=client.id).first()
-            if not existing_profile:
-                try:
-                    logger.info(f"Generando perfil para cliente {client.id} - {client.full_name}")
-                    success, score, level = ComplianceService.update_client_risk_profile(client.id, current_user.id)
-                    if success:
-                        generated_count += 1
-                        logger.info(f"  -> Perfil creado: Score={score}, Level={level}")
-                except Exception as e:
-                    logger.error(f"  -> Error al generar perfil: {str(e)}")
-
-        if generated_count > 0:
-            db.session.commit()
-            logger.info(f"COMMIT: Generados {generated_count} perfiles nuevos")
-
-        # 3. Obtener TODOS los perfiles con sus clientes (INNER JOIN, excluir demo_trader)
-        profiles_q = db.session.query(ClientRiskProfile, Client).join(
-            Client, ClientRiskProfile.client_id == Client.id
+        # LEFT JOIN: todos los clientes, tengan o no perfil calculado
+        q = db.session.query(Client, ClientRiskProfile).outerjoin(
+            ClientRiskProfile, ClientRiskProfile.client_id == Client.id
         )
         if _demo_id:
-            profiles_q = profiles_q.filter(Client.created_by != _demo_id)
-        profiles = profiles_q.all()
+            q = q.filter(Client.created_by != _demo_id)
+        rows = q.order_by(Client.full_name).all()
 
-        logger.info(f"Total perfiles recuperados: {len(profiles)}")
-
-        # 4. Construir respuesta simple
         data = []
-        for profile, client in profiles:
+        for client, profile in rows:
             data.append({
-                'id': profile.id,
-                'client_id': client.id,
-                'client_name': client.full_name,
-                'client_dni': client.dni,
-                'risk_score': profile.risk_score,
-                'risk_level': ComplianceService.assign_risk_level(profile.risk_score),
-                'is_pep': profile.is_pep,
-                'kyc_status': profile.kyc_status,
-                'dd_level': profile.dd_level if profile.dd_level else '-',
-                'in_restrictive_lists': profile.in_restrictive_lists,
-                'has_legal_issues': profile.has_legal_issues,
-                'updated_at': profile.updated_at.strftime('%Y-%m-%d %H:%M') if profile.updated_at else '-'
+                'id':                  profile.id if profile else None,
+                'client_id':           client.id,
+                'client_name':         client.full_name,
+                'client_dni':          client.dni,
+                'has_profile':         profile is not None,
+                'risk_score':          profile.risk_score if profile else None,
+                'risk_level':          ComplianceService.assign_risk_level(profile.risk_score) if profile else 'Sin calcular',
+                'is_pep':              profile.is_pep if profile else False,
+                'kyc_status':          profile.kyc_status if profile else 'Pendiente',
+                'dd_level':            (profile.dd_level or '-') if profile else '-',
+                'in_restrictive_lists': profile.in_restrictive_lists if profile else False,
+                'has_legal_issues':    profile.has_legal_issues if profile else False,
+                'updated_at':          profile.updated_at.strftime('%Y-%m-%d %H:%M') if (profile and profile.updated_at) else 'Nunca',
             })
 
-        logger.info(f"Retornando {len(data)} perfiles al frontend")
-        logger.info("=== FIN api_risk_profiles ===")
-
-        return jsonify({
-            'success': True,
-            'data': data
-        })
+        logger.info(f"[RiskProfiles] {len(data)} clientes listados")
+        return jsonify({'success': True, 'data': data, 'total': len(data)})
 
     except Exception as e:
-        import traceback
-        logger = logging.getLogger(__name__)
-        logger.error(f"ERROR en api_risk_profiles: {str(e)}")
-        logger.error(traceback.format_exc())
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
+        import traceback, logging
+        logging.getLogger(__name__).error(f"ERROR api_risk_profiles: {e}\n{traceback.format_exc()}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@compliance_bp.route('/api/risk-profiles/generate-all', methods=['POST'])
+@login_required
+@middle_office_required
+@csrf.exempt
+def generate_all_risk_profiles():
+    """Genera/recalcula perfiles de riesgo para TODOS los clientes."""
+    import logging
+    logger = logging.getLogger(__name__)
+    try:
+        from app.models.user import User
+        _demo_id = User.get_demo_user_id()
+        clients_q = Client.query.filter(Client.created_by != _demo_id) if _demo_id else Client.query
+        all_clients = clients_q.all()
+
+        generated = 0
+        errors = 0
+        for client in all_clients:
+            try:
+                ComplianceService.update_client_risk_profile(client.id, current_user.id, auto_commit=True)
+                generated += 1
+            except Exception as e:
+                errors += 1
+                logger.warning(f'[Risk] Error generando perfil cliente {client.id}: {e}')
+
+        msg = f'{generated} perfiles generados/actualizados'
+        if errors:
+            msg += f', {errors} errores'
+        return jsonify({'success': True, 'generated': generated, 'errors': errors, 'message': msg})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @compliance_bp.route('/risk-profiles/<int:client_id>')
