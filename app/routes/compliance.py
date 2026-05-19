@@ -217,7 +217,7 @@ def api_risk_profiles():
         )
         if _demo_id:
             q = q.filter(Client.created_by != _demo_id)
-        rows = q.order_by(Client.full_name).all()
+        rows = q.order_by(Client.apellido_paterno, Client.nombres, Client.razon_social).all()
 
         data = []
         for client, profile in rows:
