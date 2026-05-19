@@ -6,6 +6,7 @@ from flask_login import login_required, current_user
 from app.services.operation_service import OperationService
 from app.services.file_service import FileService
 from app.services.notification_service import NotificationService
+from app.services.compliance_service import ComplianceService
 from app.utils.decorators import require_role
 from app.utils.formatters import now_peru
 import openpyxl
@@ -555,6 +556,15 @@ def update_status(operation_id):
 
         if new_status == 'Completada':
             NotificationService.notify_operation_completed(operation)
+            # Recalcular perfil de riesgo automáticamente al completar la operación
+            try:
+                ComplianceService.update_client_risk_profile(
+                    operation.client_id,
+                    user_id=None,
+                    auto_commit=True
+                )
+            except Exception as e:
+                logger.warning(f'[Risk] No se pudo recalcular perfil cliente {operation.client_id}: {e}')
 
         NotificationService.notify_dashboard_update()
         NotificationService.notify_position_update()
