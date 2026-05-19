@@ -133,16 +133,10 @@
             {% if current_user.role in ['Master', 'Middle Office'] %}
             <div class="sidebar-section-label">Compliance</div>
 
-            <a class="sidebar-link {% if request.endpoint == 'compliance.alerts' %}active{% endif %}"
+            <a class="sidebar-link {% if request.endpoint in ['compliance.alerts', 'compliance.risk_profiles'] %}active{% endif %}"
                href="{{ url_for('compliance.alerts') }}">
-                <i class="bi bi-exclamation-triangle"></i>
-                <span class="sidebar-link-text">Alertas</span>
-            </a>
-
-            <a class="sidebar-link {% if request.endpoint == 'compliance.risk_profiles' %}active{% endif %}"
-               href="{{ url_for('compliance.risk_profiles') }}">
-                <i class="bi bi-shield-check"></i>
-                <span class="sidebar-link-text">Perfiles de Riesgo</span>
+                <i class="bi bi-shield-exclamation"></i>
+                <span class="sidebar-link-text">Riesgo &amp; Alertas</span>
             </a>
 
             <a class="sidebar-link {% if request.endpoint == 'compliance.kyc' %}active{% endif %}"
