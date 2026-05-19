@@ -69,6 +69,20 @@
 {% block content %}
 <div class="container-fluid py-3 px-3">
 
+  <!-- ══ TABS: Inteligencia de Mercado ════════════════════════════════════════ -->
+  <ul class="nav nav-tabs mb-3" style="border-bottom:1px solid #e5e7eb">
+    <li class="nav-item">
+      <a class="nav-link text-secondary" href="{{ url_for('market.dashboard') }}" style="font-size:.82rem">
+        <i class="bi bi-globe-americas me-1"></i>Mercado Global
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link active fw-semibold" href="{{ url_for('fx_monitor.dashboard') }}" style="font-size:.82rem">
+        <i class="bi bi-graph-up-arrow me-1"></i>Competidores
+      </a>
+    </li>
+  </ul>
+
   <!-- ═══════════════════════════════════════════════════════════
        ENCABEZADO
   ═══════════════════════════════════════════════════════════ -->
