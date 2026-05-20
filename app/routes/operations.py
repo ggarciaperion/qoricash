@@ -1671,13 +1671,16 @@ def revert_completed_operation(operation_id):
     """
     EMERGENCIA: Revierte una operacion de 'Completada' a 'En proceso'.
     Solo Master. Anula el asiento contable y crea el contra-asiento.
+    Todo se ejecuta en una sola transaccion atomica.
     """
     from app.extensions import db
     from app.models.operation import Operation
     from app.models.journal_entry import JournalEntry
     from app.models.journal_entry_line import JournalEntryLine
     from app.models.audit_log import AuditLog
-    from app.services.accounting.journal_service import JournalService
+    from app.models.journal_sequence import JournalSequence
+    from app.models.accounting_period import AccountingPeriod
+    from decimal import Decimal
     from datetime import date as date_type
 
     operation = db.session.get(Operation, operation_id)
@@ -1691,6 +1694,11 @@ def revert_completed_operation(operation_id):
         }), 400
 
     try:
+        journal_anulado_number = None
+        reversal_entry_number = None
+        today = date_type.today()
+
+        # 1. Buscar asiento activo asociado a la operacion
         journal_entry = JournalEntry.query.filter_by(
             source_type='operation',
             source_id=operation.id,
@@ -1698,45 +1706,82 @@ def revert_completed_operation(operation_id):
             status='activo'
         ).order_by(JournalEntry.id.desc()).first()
 
-        reversal_entry_number = None
-
         if journal_entry:
+            # 2. Marcar asiento original como anulado
             journal_entry.status = 'anulado'
+            journal_anulado_number = journal_entry.entry_number
             db.session.flush()
 
+            # 3. Obtener lineas originales
             original_lines = JournalEntryLine.query.filter_by(
                 journal_entry_id=journal_entry.id
             ).order_by(JournalEntryLine.line_order).all()
 
-            reversal_lines = []
-            for line in original_lines:
-                rline = {
-                    'account_code': line.account_code,
-                    'description':  'REVERSAL ' + (line.description or ''),
-                    'debe':         line.haber,
-                    'haber':        line.debe,
-                    'currency':     line.currency or 'PEN',
-                }
-                if line.amount_usd:
-                    rline['amount_usd'] = line.amount_usd
-                    rline['exchange_rate'] = line.exchange_rate
-                reversal_lines.append(rline)
+            # 4. Obtener o crear periodo contable
+            period = AccountingPeriod.query.filter_by(
+                year=today.year, month=today.month
+            ).first()
+            if not period:
+                period = AccountingPeriod(
+                    year=today.year, month=today.month, status='abierto'
+                )
+                db.session.add(period)
+                db.session.flush()
 
-            reversal = JournalService.create_entry(
-                entry_type='reversal_operacion',
+            # 5. Generar numero de asiento (SELECT FOR UPDATE para evitar duplicados)
+            seq = (
+                db.session.query(JournalSequence)
+                .filter_by(year=today.year)
+                .with_for_update()
+                .first()
+            )
+            if not seq:
+                seq = JournalSequence(year=today.year, last_number=0)
+                db.session.add(seq)
+                db.session.flush()
+            seq.last_number += 1
+            reversal_entry_number = 'AS-' + str(today.year) + '-' + str(seq.last_number).zfill(4)
+
+            # 6. Crear el contra-asiento (DEBE/HABER invertidos)
+            total_debe  = sum(l.haber or Decimal('0') for l in original_lines)
+            total_haber = sum(l.debe  or Decimal('0') for l in original_lines)
+
+            reversal_entry = JournalEntry(
+                entry_number=reversal_entry_number,
+                period_id=period.id,
+                entry_date=today,
                 description='ANULACION ' + journal_entry.description,
-                lines=reversal_lines,
+                entry_type='reversal_operacion',
                 source_type='operation',
                 source_id=operation.id,
-                entry_date=date_type.today(),
+                total_debe=total_debe,
+                total_haber=total_haber,
+                status='activo',
                 created_by=current_user.id,
             )
-            reversal_entry_number = reversal.entry_number if reversal else None
+            db.session.add(reversal_entry)
+            db.session.flush()
 
+            for i, line in enumerate(original_lines, start=1):
+                rline = JournalEntryLine(
+                    journal_entry_id=reversal_entry.id,
+                    account_code=line.account_code,
+                    description='REVERSAL ' + (line.description or ''),
+                    debe=line.haber or Decimal('0'),
+                    haber=line.debe or Decimal('0'),
+                    currency=line.currency or 'PEN',
+                    amount_usd=line.amount_usd,
+                    exchange_rate=line.exchange_rate,
+                    line_order=i,
+                )
+                db.session.add(rline)
+
+        # 7. Revertir estado de la operacion
         operation.status = 'En proceso'
         operation.completed_at = None
         operation.in_process_since = now_peru()
 
+        # 8. Registrar en audit log
         AuditLog.log_action(
             user_id=current_user.id,
             action='REVERT_COMPLETED',
@@ -1745,22 +1790,23 @@ def revert_completed_operation(operation_id):
             details=(
                 'Operacion ' + operation.operation_id +
                 ' revertida Completada->En proceso. ' +
-                'Asiento anulado: ' + (journal_entry.entry_number if journal_entry else 'ninguno') +
+                'Asiento anulado: ' + (journal_anulado_number or 'ninguno') +
                 '. Contra-asiento: ' + (reversal_entry_number or 'no creado') + '.'
             )
         )
 
+        # 9. Un solo commit atomico
         db.session.commit()
 
         return jsonify({
             'success': True,
             'message': 'Operacion ' + operation.operation_id + ' revertida a "En proceso".',
-            'journal_anulado': journal_entry.entry_number if journal_entry else None,
+            'journal_anulado': journal_anulado_number,
             'contra_asiento': reversal_entry_number,
             'operation': operation.to_dict()
         })
 
     except Exception as e:
         db.session.rollback()
-        logger.error('[REVERT] Error al revertir: ' + str(e))
+        logger.error('[REVERT] Error al revertir ' + getattr(operation, 'operation_id', '?') + ': ' + str(e))
         return jsonify({'success': False, 'message': 'Error: ' + str(e)}), 500
