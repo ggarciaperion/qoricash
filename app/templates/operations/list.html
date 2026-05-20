@@ -366,6 +366,9 @@
                 <button type="button" class="btn btn-sm btn-primary px-3" id="btnComplete" style="display:none;" onclick="completeOperation()">
                     <i class="bi bi-check-circle me-1"></i>Finalizar
                 </button>
+                <button type="button" class="btn btn-sm btn-warning px-3" id="btnRevertCompleted" style="display:none;" onclick="revertCompletedOperation()">
+                    <i class="bi bi-arrow-counterclockwise me-1"></i>Revertir operación
+                </button>
             </div>
         </div>
     </div>
@@ -1258,6 +1261,7 @@ function loadEditModal() {
     $('#btnSendToProcess').toggle(canEdit && isPending);
     $('#btnReturnToPending').toggle((isOperatorProcessing || isMasterProcessing));
     $('#btnComplete').toggle((isOperatorProcessing || isMasterProcessing));
+    $('#btnRevertCompleted').toggle(currentUserRole === 'Master' && isCompleted && !isCanceled);
     $('#btnAddOperatorProof').toggle((isOperatorProcessing || isMasterProcessing));
 
     // Título del modal
@@ -1859,6 +1863,50 @@ function returnToPending() {
         showNotification(response.message, 'success');
         $('#editOperationModal').modal('hide');
         setTimeout(() => location.reload(), 1000);
+    });
+}
+
+function revertCompletedOperation() {
+    const operationId = $('#edit_operation_id').val();
+    const opCode = $('#edit_op_id').text();
+
+    Swal.fire({
+        title: '¿Revertir ' + opCode + '?',
+        html: 'La operación volverá a <strong>En proceso</strong>.<br>El asiento contable será <strong>anulado</strong> y se creará un contra-asiento.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#f59e0b',
+        confirmButtonText: 'Sí, revertir',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (!result.isConfirmed) return;
+
+        ajaxRequest(
+            '/operations/api/revert_completed/' + operationId,
+            'POST',
+            null,
+            function(response) {
+                if (response.success) {
+                    Swal.fire({
+                        title: 'Operación revertida',
+                        html:
+                            '<b>' + opCode + '</b> está ahora <b>En proceso</b>.<br>' +
+                            'Asiento anulado: <b>' + (response.journal_anulado || '—') + '</b><br>' +
+                            'Contra-asiento: <b>' + (response.contra_asiento || '—') + '</b>',
+                        icon: 'success',
+                        confirmButtonText: 'OK'
+                    }).then(() => {
+                        $('#editOperationModal').modal('hide');
+                        loadOperations();
+                    });
+                } else {
+                    showNotification(response.message || 'Error al revertir', 'danger');
+                }
+            },
+            function() {
+                showNotification('Error al conectar con el servidor', 'danger');
+            }
+        );
     });
 }
 
