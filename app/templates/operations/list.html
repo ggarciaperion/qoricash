@@ -142,22 +142,22 @@
                                     <div class="btn-group btn-group-sm">
                                         {# === BOTONES SEGÚN ROL Y ESTADO === #}
 
-                                        {# COMPLETADA o CANCELADO: Solo ver (todos los roles) #}
-                                        {% if op.status in ['Completada', 'Cancelado'] %}
-                                            <button class="btn btn-outline-info" onclick="viewOperation({{ op.id }})" title="Ver Detalles">
-                                                <i class="bi bi-eye"></i>
-                                            </button>
-
-                                        {# MASTER: Ve todo, puede editar siempre #}
-                                        {% elif user.role == 'Master' %}
-                                            <button class="btn btn-outline-primary" onclick="editOperation({{ op.id }})" title="Editar">
-                                                <i class="bi bi-pencil"></i>
+                                        {# MASTER: siempre editOperation (incluye Completada para poder revertir) #}
+                                        {% if user.role == 'Master' %}
+                                            <button class="btn btn-outline-{{ 'warning' if op.status == 'Completada' else 'primary' }}" onclick="editOperation({{ op.id }})" title="{{ 'Ver / Revertir' if op.status == 'Completada' else 'Editar' }}">
+                                                <i class="bi bi-{{ 'arrow-counterclockwise' if op.status == 'Completada' else 'pencil' }}"></i>
                                             </button>
                                             {% if op.status == 'Pendiente' %}
                                             <button class="btn btn-outline-danger" onclick="cancelOperation({{ op.id }})" title="Cancelar">
                                                 <i class="bi bi-x-circle"></i>
                                             </button>
                                             {% endif %}
+
+                                        {# COMPLETADA o CANCELADO: Solo ver (otros roles) #}
+                                        {% elif op.status in ['Completada', 'Cancelado'] %}
+                                            <button class="btn btn-outline-info" onclick="viewOperation({{ op.id }})" title="Ver Detalles">
+                                                <i class="bi bi-eye"></i>
+                                            </button>
 
                                         {# TRADER: Editar solo en Pendiente, ver en otros estados #}
                                         {% elif user.role == 'Trader' %}
