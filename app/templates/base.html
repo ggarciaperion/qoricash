@@ -130,15 +130,18 @@
             </a>
             {% endif %}
 
-            {% if current_user.role in ['Master', 'Middle Office'] %}
+            {% if current_user.role in ['Master', 'Middle Office', 'Trader', 'Operador'] %}
             <div class="sidebar-section-label">Compliance</div>
 
-            <a class="sidebar-link {% if request.endpoint in ['compliance.alerts', 'compliance.risk_profiles'] %}active{% endif %}"
-               href="{{ url_for('compliance.alerts') }}">
+            <a class="sidebar-link {% if request.endpoint in ['compliance.compliance_index', 'compliance.alerts', 'compliance.risk_profiles'] %}active{% endif %}"
+               href="{{ url_for('compliance.compliance_index') }}">
                 <i class="bi bi-shield-exclamation"></i>
                 <span class="sidebar-link-text">Riesgo &amp; Alertas</span>
+                <span id="complianceBadge" class="sidebar-badge" style="display:none;">0</span>
             </a>
+            {% endif %}
 
+            {% if current_user.role in ['Master', 'Middle Office'] %}
             <a class="sidebar-link {% if request.endpoint == 'compliance.kyc' %}active{% endif %}"
                href="{{ url_for('compliance.kyc') }}">
                 <i class="bi bi-person-check"></i>
@@ -633,6 +636,28 @@
     document.addEventListener('DOMContentLoaded', function() {
         updateUnmatchedBadge();
         setInterval(updateUnmatchedBadge, 120000);
+    });
+    {% endif %}
+
+    {% if current_user.is_authenticated and current_user.role in ['Master', 'Middle Office', 'Trader', 'Operador'] %}
+    function updateComplianceBadge() {
+        fetch('/compliance/api/alert-count')
+            .then(r => r.json())
+            .then(data => {
+                if (data.success !== undefined) {
+                    const count = data.count || 0;
+                    const badge = document.getElementById('complianceBadge');
+                    if (badge) {
+                        badge.textContent = count;
+                        badge.style.display = count > 0 ? 'inline-flex' : 'none';
+                    }
+                }
+            })
+            .catch(() => {});
+    }
+    document.addEventListener('DOMContentLoaded', function() {
+        updateComplianceBadge();
+        setInterval(updateComplianceBadge, 60000);
     });
     {% endif %}
 

@@ -1,0 +1,343 @@
+{% extends "base.html" %}
+
+{% block title %}Riesgo &amp; Alertas - QoriCash Trading{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="page-header">
+        <div class="page-header-info">
+            <h2><i class="bi bi-shield-exclamation"></i> Riesgo &amp; Alertas</h2>
+            <p>Score AML/KYC y alertas PLAFT de todos los clientes</p>
+        </div>
+        <div class="page-header-actions">
+            {% if current_user.role in ['Master', 'Middle Office'] %}
+            <button id="btnGenerateAll" class="btn btn-outline-primary" onclick="generateAllProfiles()">
+                <i class="bi bi-arrow-repeat me-1"></i>Recalcular todos
+            </button>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Stats rápidas -->
+    <div class="row g-3 mb-3" id="statsRow" style="display:none;">
+        <div class="col-6 col-md-3">
+            <div class="card text-center py-2">
+                <div class="fw-bold fs-5 text-danger" id="statCritico">-</div>
+                <div class="text-muted" style="font-size:.78rem">Crítico</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card text-center py-2">
+                <div class="fw-bold fs-5 text-warning" id="statAlto">-</div>
+                <div class="text-muted" style="font-size:.78rem">Alto</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card text-center py-2">
+                <div class="fw-bold fs-5 text-info" id="statAlertas">-</div>
+                <div class="text-muted" style="font-size:.78rem">Con alertas pendientes</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card text-center py-2">
+                <div class="fw-bold fs-5" id="statTotal">-</div>
+                <div class="text-muted" style="font-size:.78rem">Total clientes</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla unificada -->
+    <div class="card">
+        <div class="card-body p-0 pt-3 px-3">
+            <div class="table-responsive">
+                <table id="dashboardTable" class="table table-hover" style="width:100%">
+                    <thead>
+                        <tr>
+                            <th>Cliente</th>
+                            <th>DNI/RUC</th>
+                            <th>Score</th>
+                            <th>Nivel</th>
+                            <th>PEP</th>
+                            <th>KYC</th>
+                            <th>Alertas</th>
+                            <th>Due Diligence</th>
+                            <th>Actualizado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="dashboardBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Resolver Alerta -->
+<div class="modal fade" id="resolveAlertModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Resolver Alerta</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="resolveAlertId">
+                <div class="mb-3">
+                    <label class="form-label">Resolución</label>
+                    <select id="resolveResolution" class="form-select" required>
+                        <option value="">Seleccionar...</option>
+                        <option value="Aprobado">Aprobado</option>
+                        <option value="Rechazado">Rechazado</option>
+                        <option value="Falsa Alarma">Falsa Alarma</option>
+                        <option value="Reportado a UIF">Reportado a UIF</option>
+                        <option value="Requiere Investigación">Requiere Investigación</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Notas</label>
+                    <textarea id="resolveNotes" class="form-control" rows="4" placeholder="Detalles de la resolución..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="submitResolveAlert()">Resolver</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let dashboardTable = null;
+let allData = [];
+
+$(document).ready(function() {
+    loadDashboard();
+});
+
+function loadDashboard() {
+    $.ajax({
+        url: '/compliance/api/dashboard',
+        method: 'GET',
+        success: function(response) {
+            if (response.success) {
+                allData = response.data;
+                renderStats(allData);
+                renderTable(allData);
+                // Auto-generar si hay clientes sin perfil (solo MO/Master)
+                {% if current_user.role in ['Master', 'Middle Office'] %}
+                const sinPerfil = allData.filter(p => !p.has_profile).length;
+                if (sinPerfil > 0) {
+                    generateAllProfiles(true);
+                }
+                {% endif %}
+            } else {
+                showNotification('Error al cargar datos: ' + (response.error || ''), 'error');
+            }
+        },
+        error: function() {
+            showNotification('Error al cargar datos de compliance', 'error');
+        }
+    });
+}
+
+function renderStats(data) {
+    const critico = data.filter(d => d.risk_level === 'Crítico').length;
+    const alto = data.filter(d => d.risk_level === 'Alto').length;
+    const conAlertas = data.filter(d => d.has_alerts).length;
+    $('#statCritico').text(critico);
+    $('#statAlto').text(alto);
+    $('#statAlertas').text(conAlertas);
+    $('#statTotal').text(data.length);
+    if (data.length > 0) $('#statsRow').show();
+}
+
+function renderTable(data) {
+    if (dashboardTable) {
+        dashboardTable.destroy();
+        $('#dashboardBody').empty();
+    }
+
+    dashboardTable = $('#dashboardTable').DataTable({
+        data: data,
+        columns: [
+            {
+                data: 'client_name',
+                render: function(val, type, row) {
+                    if (type !== 'display') return val;
+                    if (row.has_alerts) {
+                        return `<span class="fw-semibold text-danger"><i class="bi bi-exclamation-circle-fill me-1"></i>${val}</span>`;
+                    }
+                    return val;
+                }
+            },
+            { data: 'client_dni' },
+            {
+                data: 'risk_score',
+                render: function(data) {
+                    if (data === null || data === undefined) {
+                        return '<span class="badge bg-secondary">Sin calcular</span>';
+                    }
+                    let color = 'success';
+                    if (data >= 76) color = 'danger';
+                    else if (data >= 51) color = 'warning';
+                    else if (data >= 26) color = 'info';
+                    return `<span class="badge bg-${color}" style="font-size:.9em;">${data}</span>`;
+                }
+            },
+            {
+                data: 'risk_level',
+                render: function(data) {
+                    const badges = { 'Crítico':'danger','Alto':'warning','Medio':'info','Bajo':'success','Sin calcular':'secondary' };
+                    return `<span class="badge bg-${badges[data]||'secondary'}">${data}</span>`;
+                }
+            },
+            {
+                data: 'is_pep',
+                render: function(data) {
+                    return data ? '<i class="bi bi-check-circle-fill text-warning"></i> Sí' : 'No';
+                }
+            },
+            {
+                data: 'kyc_status',
+                render: function(data) {
+                    const badges = { 'Pendiente':'warning','En Proceso':'info','Aprobado':'success','Rechazado':'danger' };
+                    return `<span class="badge bg-${badges[data]||'secondary'}">${data}</span>`;
+                }
+            },
+            {
+                data: 'pending_alerts',
+                render: function(data) {
+                    if (!data) return '<span class="text-muted">—</span>';
+                    return `<span class="badge bg-danger">${data} pendiente${data > 1 ? 's' : ''}</span>`;
+                }
+            },
+            { data: 'dd_level' },
+            { data: 'updated_at' },
+            {
+                data: null,
+                orderable: false,
+                render: function(data, type, row) {
+                    let btns = `
+                        <a href="/compliance/risk-profiles/${row.client_id}" class="btn btn-sm btn-info" title="Ver Detalle">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                        <button class="btn btn-sm btn-primary" onclick="recalculate(${row.client_id})" title="Recalcular score">
+                            <i class="bi bi-calculator"></i>
+                        </button>`;
+                    if (row.has_alerts) {
+                        btns += `
+                        <a href="/compliance/alerts/${row.client_id}" class="btn btn-sm btn-danger" title="Ver alertas pendientes">
+                            <i class="bi bi-bell-fill"></i>
+                        </a>`;
+                    }
+                    return btns;
+                }
+            }
+        ],
+        order: [[0, 'asc']],  // ya viene ordenado desde el server (alertas primero)
+        pageLength: 25,
+        language: { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' },
+        createdRow: function(row, data) {
+            if (data.has_alerts) {
+                $(row).addClass('table-danger').css('border-left', '3px solid var(--bs-danger)');
+            }
+        }
+    });
+}
+
+function recalculate(clientId) {
+    Swal.fire({
+        title: '¿Recalcular Score?',
+        text: 'Se recalculará el score basado en las operaciones y datos actuales',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, recalcular',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (!result.isConfirmed) return;
+        $.ajax({
+            url: `/compliance/api/risk-profiles/${clientId}/recalculate`,
+            method: 'POST',
+            success: function(response) {
+                if (response.success) {
+                    const d = response.data;
+                    showNotification(`Score actualizado: ${d.level} (${d.score} pts)`, 'success');
+                    loadDashboard();
+                } else {
+                    showNotification(response.error || 'Error al recalcular', 'error');
+                }
+            },
+            error: function() { showNotification('Error al recalcular', 'error'); }
+        });
+    });
+}
+
+function generateAllProfiles(silent) {
+    const btn = document.getElementById('btnGenerateAll');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Calculando...';
+    }
+    $.ajax({
+        url: '/compliance/api/risk-profiles/generate-all',
+        method: 'POST',
+        headers: { 'X-CSRFToken': $('meta[name=csrf-token]').attr('content') },
+        success: function(response) {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-arrow-repeat me-1"></i>Recalcular todos';
+            }
+            if (response.success) {
+                if (!silent) showNotification(response.message, 'success');
+                loadDashboard();
+            } else {
+                showNotification(response.error || 'Error al generar perfiles', 'error');
+            }
+        },
+        error: function() {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-arrow-repeat me-1"></i>Recalcular todos';
+            }
+            showNotification('Error al generar perfiles', 'error');
+        }
+    });
+}
+
+function openResolveModal(alertId) {
+    $('#resolveAlertId').val(alertId);
+    $('#resolveResolution').val('');
+    $('#resolveNotes').val('');
+    $('#resolveAlertModal').modal('show');
+}
+
+function submitResolveAlert() {
+    const alertId = $('#resolveAlertId').val();
+    const resolution = $('#resolveResolution').val();
+    const notes = $('#resolveNotes').val();
+    if (!resolution) {
+        showNotification('Debe seleccionar una resolución', 'warning');
+        return;
+    }
+    ajaxRequest(
+        `/compliance/api/alerts/${alertId}/resolve`,
+        'POST',
+        { resolution, notes },
+        function(response) {
+            if (response.success) {
+                showNotification('Alerta resuelta correctamente', 'success');
+                $('#resolveAlertModal').modal('hide');
+                loadDashboard();
+            } else {
+                showNotification(response.error || 'Error al resolver alerta', 'error');
+            }
+        },
+        function() { showNotification('Error al resolver alerta', 'error'); }
+    );
+}
+</script>
+{% endblock %}
