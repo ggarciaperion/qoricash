@@ -771,15 +771,15 @@ function buildOperationRow(op) {
     const isPending = normalizedStatus === 'pendiente';
     const isInProcess = normalizedStatus === 'en proceso' || normalizedStatus === 'en_proceso';
 
-    if (isCompleted) {
-        // Solo ver detalles
+    if (isCompleted && currentUserRole !== 'Master') {
+        // Solo ver detalles (no-Master)
         buttons = `<button class="btn btn-outline-info btn-sm" onclick="viewOperation(${op.id})" title="Ver Detalles">
                       <i class="bi bi-eye"></i>
                    </button>`;
     } else if (currentUserRole === 'Master') {
-        // Master puede editar siempre
-        buttons = `<button class="btn btn-outline-primary btn-sm" onclick="editOperation(${op.id})" title="Editar">
-                      <i class="bi bi-pencil"></i>
+        // Master abre editOperation siempre (incluye Completada para poder revertir)
+        buttons = `<button class="btn btn-outline-primary btn-sm" onclick="editOperation(${op.id})" title="${isCompleted ? 'Ver / Revertir' : 'Editar'}">
+                      <i class="bi bi-${isCompleted ? 'arrow-counterclockwise' : 'pencil'}"></i>
                    </button>`;
         if (isPending) {
             buttons += ` <button class="btn btn-outline-danger btn-sm" onclick="cancelOperation(${op.id})" title="Cancelar">
