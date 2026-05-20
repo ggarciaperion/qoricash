@@ -1436,7 +1436,7 @@ function loadOperatorProofs(proofs) {
                 </a>
                 <span class="text-success"><i class="bi bi-check-circle"></i> Subido</span>
             </div>
-            <button type="button" class="btn btn-sm btn-outline-danger" onclick="deleteOperatorProof(${p.id}, ${i})" title="Eliminar comprobante">
+            <button type="button" class="btn btn-sm btn-outline-danger" onclick="deleteOperatorProof(${i})" title="Eliminar comprobante">
                 <i class="bi bi-trash"></i>
             </button>
         </div>`;
@@ -1534,7 +1534,7 @@ function addOperatorProof() {
     addOperatorProofInput();
 }
 
-function deleteOperatorProof(proofId, index) {
+function deleteOperatorProof(proofId) {
     if (!confirm('¿Estás seguro de eliminar este comprobante?')) {
         return;
     }
