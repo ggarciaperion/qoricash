@@ -1661,3 +1661,106 @@ def get_version():
         'timestamp': '2025-12-17 16:30'
     })
 
+
+
+
+@operations_bp.route('/api/revert_completed/<int:operation_id>', methods=['POST'])
+@login_required
+@require_role('Master')
+def revert_completed_operation(operation_id):
+    """
+    EMERGENCIA: Revierte una operacion de 'Completada' a 'En proceso'.
+    Solo Master. Anula el asiento contable y crea el contra-asiento.
+    """
+    from app.extensions import db
+    from app.models.operation import Operation
+    from app.models.journal_entry import JournalEntry
+    from app.models.journal_entry_line import JournalEntryLine
+    from app.models.audit_log import AuditLog
+    from app.services.accounting.journal_service import JournalService
+    from datetime import date as date_type
+
+    operation = db.session.get(Operation, operation_id)
+    if not operation:
+        return jsonify({'success': False, 'message': 'Operacion no encontrada'}), 404
+
+    if operation.status != 'Completada':
+        return jsonify({
+            'success': False,
+            'message': 'La operacion esta en estado "' + operation.status + '", no "Completada"'
+        }), 400
+
+    try:
+        journal_entry = JournalEntry.query.filter_by(
+            source_type='operation',
+            source_id=operation.id,
+            entry_type='operacion_completada',
+            status='activo'
+        ).order_by(JournalEntry.id.desc()).first()
+
+        reversal_entry_number = None
+
+        if journal_entry:
+            journal_entry.status = 'anulado'
+            db.session.flush()
+
+            original_lines = JournalEntryLine.query.filter_by(
+                journal_entry_id=journal_entry.id
+            ).order_by(JournalEntryLine.line_order).all()
+
+            reversal_lines = []
+            for line in original_lines:
+                rline = {
+                    'account_code': line.account_code,
+                    'description':  'REVERSAL ' + (line.description or ''),
+                    'debe':         line.haber,
+                    'haber':        line.debe,
+                    'currency':     line.currency or 'PEN',
+                }
+                if line.amount_usd:
+                    rline['amount_usd'] = line.amount_usd
+                    rline['exchange_rate'] = line.exchange_rate
+                reversal_lines.append(rline)
+
+            reversal = JournalService.create_entry(
+                entry_type='reversal_operacion',
+                description='ANULACION ' + journal_entry.description,
+                lines=reversal_lines,
+                source_type='operation',
+                source_id=operation.id,
+                entry_date=date_type.today(),
+                created_by=current_user.id,
+            )
+            reversal_entry_number = reversal.entry_number if reversal else None
+
+        operation.status = 'En proceso'
+        operation.completed_at = None
+        operation.in_process_since = now_peru()
+
+        AuditLog.log_action(
+            user_id=current_user.id,
+            action='REVERT_COMPLETED',
+            entity='Operation',
+            entity_id=operation.id,
+            details=(
+                'Operacion ' + operation.operation_id +
+                ' revertida Completada->En proceso. ' +
+                'Asiento anulado: ' + (journal_entry.entry_number if journal_entry else 'ninguno') +
+                '. Contra-asiento: ' + (reversal_entry_number or 'no creado') + '.'
+            )
+        )
+
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': 'Operacion ' + operation.operation_id + ' revertida a "En proceso".',
+            'journal_anulado': journal_entry.entry_number if journal_entry else None,
+            'contra_asiento': reversal_entry_number,
+            'operation': operation.to_dict()
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        logger.error('[REVERT] Error al revertir: ' + str(e))
+        return jsonify({'success': False, 'message': 'Error: ' + str(e)}), 500
