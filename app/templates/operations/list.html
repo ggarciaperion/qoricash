@@ -142,22 +142,22 @@
                                     <div class="btn-group btn-group-sm">
                                         {# === BOTONES SEGÚN ROL Y ESTADO === #}
 
-                                        {# MASTER: siempre editOperation (incluye Completada para poder revertir) #}
-                                        {% if user.role == 'Master' %}
-                                            <button class="btn btn-outline-{{ 'warning' if op.status == 'Completada' else 'primary' }}" onclick="editOperation({{ op.id }})" title="{{ 'Ver / Revertir' if op.status == 'Completada' else 'Editar' }}">
-                                                <i class="bi bi-{{ 'arrow-counterclockwise' if op.status == 'Completada' else 'pencil' }}"></i>
+                                        {# COMPLETADA o CANCELADO: Solo ver (todos los roles) #}
+                                        {% if op.status in ['Completada', 'Cancelado'] %}
+                                            <button class="btn btn-outline-info" onclick="viewOperation({{ op.id }})" title="Ver Detalles">
+                                                <i class="bi bi-eye"></i>
+                                            </button>
+
+                                        {# MASTER: Ve todo, puede editar siempre #}
+                                        {% elif user.role == 'Master' %}
+                                            <button class="btn btn-outline-primary" onclick="editOperation({{ op.id }})" title="Editar">
+                                                <i class="bi bi-pencil"></i>
                                             </button>
                                             {% if op.status == 'Pendiente' %}
                                             <button class="btn btn-outline-danger" onclick="cancelOperation({{ op.id }})" title="Cancelar">
                                                 <i class="bi bi-x-circle"></i>
                                             </button>
                                             {% endif %}
-
-                                        {# COMPLETADA o CANCELADO: Solo ver (otros roles) #}
-                                        {% elif op.status in ['Completada', 'Cancelado'] %}
-                                            <button class="btn btn-outline-info" onclick="viewOperation({{ op.id }})" title="Ver Detalles">
-                                                <i class="bi bi-eye"></i>
-                                            </button>
 
                                         {# TRADER: Editar solo en Pendiente, ver en otros estados #}
                                         {% elif user.role == 'Trader' %}
@@ -228,6 +228,9 @@
                 <!-- Cargado dinámicamente -->
             </div>
             <div class="modal-footer border-top px-4 py-3" style="background:#f8fafc;">
+                <button type="button" class="btn btn-sm btn-warning px-3 me-auto" id="btnRevertFromView" style="display:none;" onclick="revertCompletedOperation()">
+                    <i class="bi bi-arrow-counterclockwise me-1"></i>Revertir operación
+                </button>
                 <button type="button" class="btn btn-sm btn-light border" data-bs-dismiss="modal">Cerrar</button>
             </div>
         </div>
@@ -771,15 +774,15 @@ function buildOperationRow(op) {
     const isPending = normalizedStatus === 'pendiente';
     const isInProcess = normalizedStatus === 'en proceso' || normalizedStatus === 'en_proceso';
 
-    if (isCompleted && currentUserRole !== 'Master') {
-        // Solo ver detalles (no-Master)
+    if (isCompleted) {
+        // Solo ver detalles
         buttons = `<button class="btn btn-outline-info btn-sm" onclick="viewOperation(${op.id})" title="Ver Detalles">
                       <i class="bi bi-eye"></i>
                    </button>`;
     } else if (currentUserRole === 'Master') {
-        // Master abre editOperation siempre (incluye Completada para poder revertir)
-        buttons = `<button class="btn btn-outline-primary btn-sm" onclick="editOperation(${op.id})" title="${isCompleted ? 'Ver / Revertir' : 'Editar'}">
-                      <i class="bi bi-${isCompleted ? 'arrow-counterclockwise' : 'pencil'}"></i>
+        // Master puede editar siempre
+        buttons = `<button class="btn btn-outline-primary btn-sm" onclick="editOperation(${op.id})" title="Editar">
+                      <i class="bi bi-pencil"></i>
                    </button>`;
         if (isPending) {
             buttons += ` <button class="btn btn-outline-danger btn-sm" onclick="cancelOperation(${op.id})" title="Cancelar">
@@ -887,6 +890,18 @@ function viewOperation(operationId) {
         console.log('=== DEBUG operación completa ===', op);
         let html = buildViewHTML(op, true);
         $('#operationDetails').html(html);
+
+        // Botón revertir: solo Master en Completadas
+        const status = (op.status || '').toLowerCase();
+        const isCompletada = (status === 'completada' || status === 'completado');
+        if (currentUserRole === 'Master' && isCompletada) {
+            $('#btnRevertFromView').show();
+            $('#edit_operation_id').val(operationId);
+            $('#edit_op_id').text(op.operation_id);
+        } else {
+            $('#btnRevertFromView').hide();
+        }
+
         $('#viewOperationModal').modal('show');
 
         // Si es Operador y hay notas, marcarlas como leídas
@@ -1897,6 +1912,7 @@ function revertCompletedOperation() {
                         confirmButtonText: 'OK'
                     }).then(() => {
                         $('#editOperationModal').modal('hide');
+                        $('#viewOperationModal').modal('hide');
                         loadOperations();
                     });
                 } else {
