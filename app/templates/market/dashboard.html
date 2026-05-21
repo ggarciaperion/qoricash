@@ -278,9 +278,37 @@
 .dir-bull { font-size: .66rem; font-weight: 800; color: #ef4444; }
 .dir-bear { font-size: .66rem; font-weight: 800; color: #10b981; }
 
+/* ── Presión USD/PEN — semáforo de señales ── */
+.pressure-strip {
+  background: linear-gradient(135deg, #0D1B2A 0%, #162435 100%);
+  border-radius: .65rem;
+  padding: .48rem .9rem;
+  display: flex; align-items: center; gap: .65rem; flex-wrap: wrap;
+  border: 1px solid rgba(0,222,168,.15);
+}
+.pressure-label { font-size: .57rem; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; color: #00DEA8; white-space: nowrap; flex-shrink: 0; }
+.pressure-badge { font-size: .72rem; font-weight: 900; padding: .14rem .58rem; border-radius: 20px; white-space: nowrap; flex-shrink: 0; }
+.pb-bull { background: rgba(239,68,68,.18); color: #f87171; border: 1px solid rgba(239,68,68,.35); }
+.pb-bear { background: rgba(16,185,129,.18); color: #34d399; border: 1px solid rgba(16,185,129,.35); }
+.pb-neut { background: rgba(156,163,175,.14); color: #9ca3af; border: 1px solid rgba(156,163,175,.3); }
+.pressure-bar-wrap { width: 90px; height: 5px; background: rgba(255,255,255,.1); border-radius: 3px; flex-shrink: 0; }
+.pressure-bar { height: 100%; border-radius: 3px; transition: width .7s; }
+.pb-bar-bull { background: linear-gradient(90deg,#ef4444,#f87171); }
+.pb-bar-bear { background: linear-gradient(90deg,#10b981,#34d399); }
+.pb-bar-neut { background: #6b7280; }
+.pressure-pct { font-size: .72rem; font-weight: 800; color: #fff; min-width: 2.3rem; flex-shrink: 0; }
+.pressure-factors { display: flex; gap: .28rem; flex-wrap: wrap; flex: 1; }
+.pf-chip { font-size: .59rem; font-weight: 700; padding: .08rem .36rem; border-radius: 4px; white-space: nowrap; }
+.pf-bull { background: rgba(239,68,68,.14); color: #f87171; }
+.pf-bear { background: rgba(16,185,129,.14); color: #34d399; }
+.pf-neut { background: rgba(156,163,175,.11); color: #9ca3af; }
+
 /* ── Refresh bar ── */
 .mkt-progress { height: 2px; background: #e5e7eb; border-radius: 1px; margin-bottom: .9rem; }
 .mkt-pbar     { height: 2px; background: #00DEA8; border-radius: 1px; transition: width 1s linear; }
+
+/* ── Noticias bajo impacto: muted ── */
+.news-item.ni-low { opacity: .6; }
 </style>
 {% endblock %}
 
@@ -305,6 +333,15 @@
     </div>
   </div>
   <div class="mkt-progress"><div class="mkt-pbar" id="refreshBar" style="width:0%"></div></div>
+
+  <!-- ══ PRESIÓN USD/PEN — semáforo computable en tiempo real ════════════════ -->
+  <div class="pressure-strip mb-2" id="pressureStrip">
+    <span class="pressure-label">⚡ Presión USD/PEN</span>
+    <div class="pressure-badge pb-neut" id="psBadge">Calculando…</div>
+    <div class="pressure-bar-wrap"><div class="pressure-bar pb-bar-neut" id="psBar" style="width:0%"></div></div>
+    <span class="pressure-pct mkt-flat" id="psPct">—</span>
+    <div class="pressure-factors" id="psFactors"><span class="pf-chip pf-neut" style="opacity:.45">esperando datos…</span></div>
+  </div>
 
   <!-- ══ BAND: Mercados Globales ══════════════════════════════════════════════ -->
   <div class="mkt-section-title">
@@ -380,7 +417,7 @@
           ('t10y',   'Bono 10Y',      '%.3f%%', snapshot.treasury_10y if snapshot else None,  snapshot.treasury_10y_chg if snapshot else None),
           ('eurusd', 'EUR / USD',     '%.4f',   snapshot.eurusd if snapshot else None,        snapshot.eurusd_chg if snapshot else None),
           ('eem',    'ETF Emergentes','$%.2f',   snapshot.eem if snapshot else None,           snapshot.eem_chg if snapshot else None),
-          ('epu',    'ETF Perú',      '$%.2f',   snapshot.epu if snapshot else None,           snapshot.epu_chg if snapshot else None),
+          ('usdjpy', 'USD / JPY',    '%.3f',    snapshot.usdjpy if snapshot else None,         snapshot.usdjpy_chg if snapshot else None),
         ] %}
         {% for key, label, fmt, val, chg in rchips %}
         <div class="col-6 col-md-4 col-xl-2">
@@ -616,7 +653,7 @@
                   <div class="mr-meta">{{ ind.period }} · {{ ind.source }}</div>
                 {% else %}
                   <div class="mr-value" style="color:#d1d5db;font-size:1rem">—</div>
-                  <div class="mr-meta" style="color:#d1d5db">Sin datos · clic Act. Macro</div>
+                  <div class="mr-meta" style="color:#d1d5db">Sin datos · clic Actualizar</div>
                 {% endif %}
               </div>
             </div>
@@ -677,11 +714,12 @@
           {% if calendar %}
           <table class="cal-table">
             <colgroup>
-              <col style="width:90px">
-              <col style="width:26px">
-              <col style="width:160px">
-              <col style="width:60px">
-              <col style="width:68px">
+              <col style="width:85px">
+              <col style="width:24px">
+              <col>
+              <col style="width:52px">
+              <col style="width:58px">
+              <col style="width:58px">
             </colgroup>
             <thead>
               <tr>
@@ -689,7 +727,8 @@
                 <th></th>
                 <th>Evento</th>
                 <th class="text-end">Anterior</th>
-                <th class="text-end pe-2" style="color:#3b82f6;background:#eff6ff">Esperado</th>
+                <th class="text-end" style="color:#3b82f6;background:#eff6ff">Esperado</th>
+                <th class="text-end pe-2" style="color:#16a34a;background:#ecfdf5">Real</th>
               </tr>
             </thead>
             <tbody id="calendarBody">
@@ -707,7 +746,8 @@
                   <span class="imp-{{ ev.impact }}">●</span> {{ ev.event_name }}
                 </td>
                 <td class="text-end cal-pending" style="font-size:.7rem">{{ ev.previous or '—' }}</td>
-                <td class="text-end pe-2" style="font-size:.7rem;{% if ev.forecast %}color:#3b82f6;font-weight:700;background:#f0f7ff{% else %}color:#d1d5db{% endif %}">{{ ev.forecast or '—' }}</td>
+                <td class="text-end" style="font-size:.7rem;{% if ev.forecast %}color:#3b82f6;font-weight:700;background:#f0f7ff{% else %}color:#d1d5db{% endif %}">{{ ev.forecast or '—' }}</td>
+                <td class="text-end pe-2" style="font-size:.7rem;{% if ev.actual %}color:#16a34a;font-weight:800;background:#f0fdf4{% else %}color:#d1d5db{% endif %}">{{ ev.actual or '—' }}</td>
               </tr>
               {% endfor %}
             </tbody>
@@ -794,11 +834,12 @@ async function fetchData() {
       // en rango largo, no sobreescribir (el usuario verá datos del rango seleccionado)
       if (SHORT_RANGES[chartRange] != null) renderChart();
     }
-    if (d.news)             renderNews(d.news);
+    if (d.news)             { _latestNews = d.news; renderNews(d.news); }
     if (d.macro)            updateMacro(d.macro);
     if (d.calendar)         updateCalendar(d.calendar);
     if (d.daily_analysis)   updateDailyAnalysis(d.daily_analysis);
     if (d.last_update)      document.getElementById('lastUpdate').textContent = d.last_update;
+    if (d.snapshot)         renderPressureStrip(d.snapshot, _latestNews);
   } catch(e) { console.warn('[Mercado]', e); }
 }
 
@@ -848,7 +889,7 @@ function updateCards(s) {
   setKpi('t10y',   s.treasury_10y ? s.treasury_10y.toFixed(3)+'%':'—', s.treasury_10y_chg,'r-chg');
   setKpi('eurusd', s.eurusd  ? s.eurusd.toFixed(4)     :'—', s.eurusd_chg, 'r-chg');
   setKpi('eem',    s.eem     ? '$'+s.eem.toFixed(2)    :'—', s.eem_chg,    'r-chg');
-  setKpi('epu',    s.epu     ? '$'+s.epu.toFixed(2)    :'—', s.epu_chg,    'r-chg');
+  setKpi('usdjpy', s.usdjpy  ? s.usdjpy.toFixed(3)     :'—', s.usdjpy_chg, 'r-chg');
 }
 
 // ── Señal ─────────────────────────────────────────────────────────────────────
@@ -1021,15 +1062,19 @@ document.querySelectorAll('.chart-btn[data-asset]').forEach(b=>b.addEventListene
 // ── Noticias ──────────────────────────────────────────────────────────────────
 const NBADGE = { high:'<span class="impact-pill ip-high">ALTO</span>', medium:'<span class="impact-pill ip-medium">MED</span>', low:'<span class="impact-pill ip-low">BAJO</span>' };
 const FLAGS  = { PE:'🇵🇪',US:'🇺🇸',GB:'🇬🇧',EU:'🇪🇺',DE:'🇩🇪',MX:'🇲🇽',JP:'🇯🇵',AU:'🇦🇺',CA:'🇨🇦' };
+const _IMP_ORDER = { high:0, medium:1, low:2 };
 function renderNews(news) {
   const c = document.getElementById('newsContainer');
   if (!c) return;
   if (!news||!news.length) { c.innerHTML='<div class="text-center py-4" style="color:#d1d5db;font-size:.8rem">Sin noticias disponibles</div>'; return; }
-  c.innerHTML = news.map(n => {
+  // Ordenar: HIGH primero, luego MEDIUM, luego LOW (respetando orden cronológico dentro de cada grupo)
+  const sorted = [...news].sort((a,b) => (_IMP_ORDER[a.impact_level]||2) - (_IMP_ORDER[b.impact_level]||2));
+  c.innerHTML = sorted.map(n => {
+    const low = n.impact_level === 'low';
     const dir = n.direction==='bullish_usd'?'<div class="dir-bull">▲ USD</div>':n.direction==='bearish_usd'?'<div class="dir-bear">▼ USD</div>':'';
-    const sum = n.summary?`<div class="news-summary">${n.summary.substring(0,160)}${n.summary.length>160?'…':''}</div>`:'';
+    const sum = (!low && n.summary)?`<div class="news-summary">${n.summary.substring(0,160)}${n.summary.length>160?'…':''}</div>`:'';
     const ts  = n.published_lima||n.fetched_lima||'';
-    return `<div class="news-item">
+    return `<div class="news-item${low?' ni-low':''}">
       <div>${NBADGE[n.impact_level]||NBADGE.low}</div>
       <div class="flex-grow-1 overflow-hidden">
         <div class="d-flex justify-content-between gap-2 align-items-start">
@@ -1093,12 +1138,14 @@ function updateCalendar(events) {
       dayHtml=`<div style="font-size:.68rem;font-weight:700;color:#1f2937;white-space:nowrap">${ev.day_es} ${p[2]}/${p[1]}</div>`;
     }
     const foreStyle = ev.forecast?'color:#3b82f6;font-weight:700;background:#f0f7ff':'color:#d1d5db';
+    const actStyle  = ev.actual ?'color:#16a34a;font-weight:800;background:#f0fdf4':'color:#d1d5db';
     return `<tr class="${rowCls}">
       <td style="padding-left:.6rem">${dayHtml}<div style="font-size:.64rem;color:#9ca3af">${ev.time_lima}</div></td>
       <td style="font-size:.9rem;text-align:center">${ev.flag}</td>
       <td class="cal-event-name"><span class="imp-${ev.impact}">●</span> ${ev.event_name}</td>
       <td class="text-end cal-pending" style="font-size:.7rem">${ev.previous||'—'}</td>
-      <td class="text-end pe-2" style="font-size:.7rem;${foreStyle}">${ev.forecast||'—'}</td>
+      <td class="text-end" style="font-size:.7rem;${foreStyle}">${ev.forecast||'—'}</td>
+      <td class="text-end pe-2" style="font-size:.7rem;${actStyle}">${ev.actual||'—'}</td>
     </tr>`;
   }).join('');
   scrollCalToToday();
@@ -1225,16 +1272,102 @@ async function updateIntradayAnalysis() {
   }
 }
 
+// ── Presión USD/PEN — semáforo computable desde snapshot + noticias ──────────
+let _latestNews = {{ news | tojson }};
+
+function computePressure(snap, newsArr) {
+  if (!snap) return null;
+  let score = 0;
+  const factors = [];
+  const sv = v => (v != null && isFinite(parseFloat(v))) ? parseFloat(v) : null;
+
+  const dxy_chg    = sv(snap.dxy_chg);
+  const vix        = sv(snap.vix);
+  const vix_chg    = sv(snap.vix_chg);
+  const copper_chg = sv(snap.copper_chg);
+  const t10y_chg   = sv(snap.treasury_10y_chg);
+  const eurusd_chg = sv(snap.eurusd_chg);
+  const gold_chg   = sv(snap.gold_chg);
+
+  // DXY ↑ → USD global fuerte → alcista (peso 3)
+  if (dxy_chg != null) {
+    if      (dxy_chg >  0.2) { score += 3; factors.push({label:'DXY ↑', dir:'bull'}); }
+    else if (dxy_chg < -0.2) { score -= 3; factors.push({label:'DXY ↓', dir:'bear'}); }
+  }
+  // VIX alto → riesgo → capitales a USD → alcista (peso 2)
+  if (vix != null) {
+    if      (vix > 25)                                     { score += 2; factors.push({label:'VIX alto', dir:'bull'}); }
+    else if (vix < 15 && vix_chg != null && vix_chg < -0.5){ score -= 1; factors.push({label:'VIX bajo', dir:'bear'}); }
+  }
+  // Cobre ↑ → fortalece PEN (Perú exportador) → bajista USD/PEN (peso 2)
+  if (copper_chg != null) {
+    if      (copper_chg >  1.2) { score -= 2; factors.push({label:'Cobre ↑', dir:'bear'}); }
+    else if (copper_chg < -1.2) { score += 2; factors.push({label:'Cobre ↓', dir:'bull'}); }
+  }
+  // Bono 10Y ↑ → rendimientos EE.UU. → atrae USD → alcista (peso 1)
+  if (t10y_chg != null) {
+    if      (t10y_chg >  0.04) { score += 1; factors.push({label:'Bono10Y ↑', dir:'bull'}); }
+    else if (t10y_chg < -0.04) { score -= 1; factors.push({label:'Bono10Y ↓', dir:'bear'}); }
+  }
+  // EUR/USD ↑ → DXY débil → bajista USD (peso 1)
+  if (eurusd_chg != null) {
+    if      (eurusd_chg >  0.3) { score -= 1; factors.push({label:'EUR ↑', dir:'bear'}); }
+    else if (eurusd_chg < -0.3) { score += 1; factors.push({label:'EUR ↓', dir:'bull'}); }
+  }
+  // Oro ↑ → activo refugio → presión bajista USD (peso 1)
+  if (gold_chg != null) {
+    if (gold_chg > 1.0) { score -= 1; factors.push({label:'Oro ↑', dir:'bear'}); }
+  }
+  // Noticias recientes high/medium
+  if (newsArr && newsArr.length) {
+    const recent = newsArr.slice(0, 25);
+    const bull_n = recent.filter(n => n.direction==='bullish_usd' && n.impact_level!=='low').length;
+    const bear_n = recent.filter(n => n.direction==='bearish_usd' && n.impact_level!=='low').length;
+    const net_n  = bull_n - bear_n;
+    if      (net_n >=  2) { score += 1; factors.push({label:`Noticias +${net_n}`, dir:'bull'}); }
+    else if (net_n <= -2) { score -= 1; factors.push({label:`Noticias ${net_n}`, dir:'bear'}); }
+  }
+
+  const maxPossible = 11;
+  const confidence  = Math.min(100, Math.round(Math.abs(score) / maxPossible * 100));
+  const direction   = score > 0.4 ? 'bull' : score < -0.4 ? 'bear' : 'neut';
+  return { direction, confidence, factors: factors.slice(0, 5), score };
+}
+
+function renderPressureStrip(snap, newsArr) {
+  const p = computePressure(snap, newsArr);
+  if (!p) return;
+  const badge = document.getElementById('psBadge');
+  const bar   = document.getElementById('psBar');
+  const pct   = document.getElementById('psPct');
+  const fcts  = document.getElementById('psFactors');
+  if (!badge) return;
+  const LABELS = { bull:'ALCISTA', bear:'BAJISTA', neut:'NEUTRAL' };
+  badge.textContent = LABELS[p.direction] || '—';
+  badge.className   = 'pressure-badge pb-' + p.direction;
+  bar.style.width   = p.confidence + '%';
+  bar.className     = 'pressure-bar pb-bar-' + p.direction;
+  pct.textContent   = p.confidence + '%';
+  pct.className     = 'pressure-pct ' + (p.direction==='bull'?'mkt-down':p.direction==='bear'?'mkt-up':'mkt-flat');
+  fcts.innerHTML    = p.factors.length
+    ? p.factors.map(f=>`<span class="pf-chip pf-${f.dir}">${f.label}</span>`).join('')
+    : '<span class="pf-chip pf-neut">sin señales claras</span>';
+}
+
 // ── Init ──────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   if (allHistory.length) renderChart();
 
-  const initNews = {{ news | tojson }};
+  const initNews = _latestNews;
   if (initNews.length) renderNews(initNews);
 
   // Corregir hora de señal: convertir UTC→Lima en carga inicial
   const initSignal = {{ signal | tojson if signal else 'null' }};
   if (initSignal) updateSignal(initSignal);
+
+  // Semáforo de presión USD/PEN con datos iniciales SSR
+  const initSnap = {{ snapshot | tojson if snapshot else 'null' }};
+  if (initSnap) renderPressureStrip(initSnap, initNews);
 
   scrollCalToToday();
 });
