@@ -215,13 +215,14 @@ class MarketService:
         """Devuelve el análisis diario activo del día."""
         return DailyAnalysisService.get_today_analysis()
 
-    # Botón "Actualizar" del dashboard — ejecuta los 3 ciclos
+    # Botón "Actualizar" del dashboard — ejecuta todos los ciclos
     @staticmethod
     def run_cycle() -> dict:
         r_news     = MarketService.run_news_cycle()
         r_prices   = MarketService.run_price_cycle()
         r_calendar = MarketService.run_calendar_cycle()
-        return {'ok': r_prices['ok'], 'prices': r_prices, 'news': r_news, 'calendar': r_calendar}
+        r_macro    = MarketService.run_macro_cycle()
+        return {'ok': r_prices['ok'], 'prices': r_prices, 'news': r_news, 'calendar': r_calendar, 'macro': r_macro}
 
     @staticmethod
     def get_history_range(range_key: str) -> list:
