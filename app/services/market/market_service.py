@@ -230,11 +230,12 @@ class MarketService:
         from sqlalchemy import text
         # captured_at is stored as Lima-naive (UTC-5). SQLite datetime('now') returns UTC,
         # so we subtract 5h to align the cutoff with Lima-naive stored timestamps.
+        # Grouping: 1w/1m → por día (%Y-%m-%d), 6m/1y → por mes (%Y-%m)
         ranges = {
-            '1w': ("datetime('now', '-5 hours', '-7 days')",  '%Y-%m-%d %H:00'),
-            '1m': ("datetime('now', '-5 hours', '-30 days')", '%Y-%m-%d %H:00'),
-            '6m': ("datetime('now', '-5 hours', '-180 days')",'%Y-%m-%d'),
-            '1y': ("datetime('now', '-5 hours', '-365 days')",'%Y-%m-%d'),
+            '1w': ("datetime('now', '-5 hours', '-7 days')",  '%Y-%m-%d'),
+            '1m': ("datetime('now', '-5 hours', '-30 days')", '%Y-%m-%d'),
+            '6m': ("datetime('now', '-5 hours', '-180 days')",'%Y-%m'),
+            '1y': ("datetime('now', '-5 hours', '-365 days')",'%Y-%m'),
         }
         since_expr, fmt = ranges.get(range_key, ranges['1w'])
         sql = text(f"""

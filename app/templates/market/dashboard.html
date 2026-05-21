@@ -889,6 +889,50 @@ const CHART_CFG = {
 };
 const SHORT_RANGES = { '6h': 6*12, '12h': 12*12, '24h': 24*12 };
 
+// ── Normalización temporal del eje X ─────────────────────────────────────────
+const _DIAS_ES  = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+const _MESES_ES = ['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+
+// Intradía: agrupa puntos de 5 min en buckets de 30 min (promedio)
+function bucketToHalfHour(pts) {
+  const buckets = {}, order = [];
+  pts.forEach(d => {
+    const [hStr, mStr] = d.time.split(':');
+    const slot = hStr.padStart(2,'0') + ':' + (parseInt(mStr) < 30 ? '00' : '30');
+    if (!buckets[slot]) { buckets[slot] = { n:0, usdpen:0, gold:0, vix:0 }; order.push(slot); }
+    const b = buckets[slot]; b.n++;
+    if (d.usdpen != null) b.usdpen += d.usdpen;
+    if (d.gold   != null) b.gold   += d.gold;
+    if (d.vix    != null) b.vix    += d.vix;
+  });
+  return order.map(slot => {
+    const b = buckets[slot];
+    return { time: slot,
+      usdpen: b.n ? +(b.usdpen / b.n).toFixed(4) : null,
+      gold:   b.n ? +(b.gold   / b.n).toFixed(2) : null,
+      vix:    b.n ? +(b.vix    / b.n).toFixed(2) : null };
+  });
+}
+
+// Rangos largos: formatea el campo 't' (YYYY-MM-DD o YYYY-MM) según rango
+function fmtRangeLabel(t, range) {
+  if (range === '1w') {
+    // 'YYYY-MM-DD' → 'Lun 19'
+    const d = new Date(t + 'T12:00:00');
+    return _DIAS_ES[d.getDay()] + ' ' + d.getDate();
+  }
+  if (range === '1m') {
+    // 'YYYY-MM-DD' → '19 may'
+    const d = new Date(t + 'T12:00:00');
+    return d.getDate() + ' ' + _MESES_ES[d.getMonth()+1].toLowerCase();
+  }
+  if (range === '6m' || range === '1y') {
+    // 'YYYY-MM' → 'Ene', 'Feb', …
+    return _MESES_ES[parseInt(t.split('-')[1])] || t;
+  }
+  return t;
+}
+
 function _chartSetLoading(on) {
   const ld = document.getElementById('chartLoading');
   const cv = document.getElementById('marketChart');
@@ -909,8 +953,12 @@ function renderChart(pts) {
   const cv = document.getElementById('marketChart');
   if (!cv) return;
 
-  // Filtrar puntos nulos para el activo seleccionado
-  const validPts = pts.filter(d => d[chartAsset] != null);
+  // Normalización temporal según rango
+  const displayPts = SHORT_RANGES[chartRange] != null
+    ? bucketToHalfHour(pts)
+    : pts.map(d => ({ ...d, label: fmtRangeLabel(d.time, chartRange) }));
+
+  const validPts = displayPts.filter(d => d[chartAsset] != null);
   if (validPts.length === 0) {
     if (em) { em.style.display = 'block'; }
     cv.style.display = 'none';
@@ -920,12 +968,13 @@ function renderChart(pts) {
   if (em) em.style.display = 'none';
   cv.style.display = 'block';
 
+  const maxTicks = { '1w':7, '1m':10, '6m':6, '1y':12 }[chartRange] || 8;
   const cfg = CHART_CFG[chartAsset] || CHART_CFG.usdpen;
   if (marketChart) marketChart.destroy();
   marketChart = new Chart(cv.getContext('2d'), {
     type: 'line',
     data: {
-      labels: validPts.map(d=>d.time),
+      labels: validPts.map(d => d.label ?? d.time),
       datasets:[{ label:cfg.label, data:validPts.map(d=>d[chartAsset]),
         borderColor:cfg.color, backgroundColor: cfg.fill ? cfg.color+'22':'transparent',
         borderWidth:2, pointRadius:0, pointHoverRadius:4, fill:cfg.fill, tension:0.3, spanGaps:true }]
@@ -934,7 +983,7 @@ function renderChart(pts) {
       responsive:true, interaction:{mode:'index',intersect:false},
       plugins:{ legend:{display:false}, tooltip:{callbacks:{label:c=>`${cfg.label}: ${c.parsed.y?.toFixed(cfg.decimals)??'—'}`}} },
       scales:{
-        x:{ticks:{maxTicksLimit:8,font:{size:11},color:'#9ca3af'},grid:{display:false}},
+        x:{ticks:{maxTicksLimit:maxTicks,font:{size:11},color:'#9ca3af'},grid:{display:false}},
         y:{ticks:{font:{size:11},color:'#9ca3af',callback:v=>v.toFixed(cfg.decimals)},grid:{color:'#f3f4f6'}}
       }
     }
