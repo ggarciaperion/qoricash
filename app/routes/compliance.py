@@ -57,10 +57,55 @@ def compliance_access_required(f):
 @compliance_bp.route('/dashboard')
 @login_required
 def compliance_index():
-    """Dashboard unificado: scores + alertas en una sola tabla"""
+    """Dashboard unificado: scores + alertas en una sola tabla (server-side render)"""
     if current_user.role not in ['Master', 'Middle Office', 'Trader', 'Operador']:
         return redirect(url_for('dashboard.index'))
-    return render_template('compliance/dashboard.html')
+
+    from sqlalchemy import func
+    from app.models.user import User
+
+    try:
+        _demo_id = User.get_demo_user_id()
+        q = db.session.query(Client, ClientRiskProfile).outerjoin(
+            ClientRiskProfile, ClientRiskProfile.client_id == Client.id
+        )
+        if _demo_id:
+            q = q.filter(Client.created_by != _demo_id)
+        if current_user.role == 'Trader':
+            q = q.filter(Client.created_by == current_user.id)
+
+        rows = q.order_by(Client.apellido_paterno, Client.nombres, Client.razon_social).all()
+
+        alert_counts = db.session.query(
+            ComplianceAlert.client_id,
+            func.count(ComplianceAlert.id).label('cnt')
+        ).filter(ComplianceAlert.status == 'Pendiente').group_by(ComplianceAlert.client_id).all()
+        alert_map = {row.client_id: row.cnt for row in alert_counts}
+
+        clients_data = []
+        for client, profile in rows:
+            pending = alert_map.get(client.id, 0)
+            clients_data.append({
+                'client_id':     client.id,
+                'client_name':   client.full_name or client.dni,
+                'client_dni':    client.dni,
+                'has_profile':   profile is not None,
+                'risk_score':    profile.risk_score if profile else None,
+                'risk_level':    ComplianceService.assign_risk_level(profile.risk_score) if profile else 'Sin calcular',
+                'is_pep':        profile.is_pep if profile else False,
+                'kyc_status':    profile.kyc_status if profile else 'Pendiente',
+                'dd_level':      (profile.dd_level or '—') if profile else '—',
+                'updated_at':    profile.updated_at.strftime('%d/%m/%Y') if (profile and profile.updated_at) else 'Nunca',
+                'pending_alerts': pending,
+                'has_alerts':    pending > 0,
+            })
+
+        clients_data.sort(key=lambda x: (0 if x['has_alerts'] else 1, -(x['risk_score'] or 0)))
+
+    except Exception:
+        clients_data = []
+
+    return render_template('compliance/dashboard.html', clients=clients_data)
 
 
 @compliance_bp.route('/api/dashboard')
