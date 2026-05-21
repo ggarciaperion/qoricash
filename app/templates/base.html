@@ -106,14 +106,6 @@
             </a>
             {% endif %}
 
-            {% if current_user.role in ['Master', 'Operador'] %}
-            <a class="sidebar-link {% if request.endpoint == 'position.position_view' %}active{% endif %}"
-               href="{{ url_for('position.position_view') }}">
-                <i class="bi bi-bank"></i>
-                <span class="sidebar-link-text">Posición</span>
-            </a>
-            {% endif %}
-
             {% if current_user.role in ['Master', 'Trader'] %}
             <a class="sidebar-link {% if request.endpoint and request.endpoint.startswith('comercial') %}active{% endif %}"
                href="{{ url_for('comercial.index') }}">
@@ -128,22 +120,24 @@
                 <i class="bi bi-bell-fill"></i>
                 <span class="sidebar-link-text">Alertas TC</span>
             </a>
-
-            <a class="sidebar-link {% if request.endpoint and 'users' in request.endpoint %}active{% endif %}"
-               href="{{ url_for('users.manage') }}">
-                <i class="bi bi-person-gear"></i>
-                <span class="sidebar-link-text">Usuarios</span>
-            </a>
             {% endif %}
 
             {% if current_user.role in ['Master', 'Middle Office', 'Trader', 'Operador'] %}
             <div class="sidebar-section-label">Compliance</div>
+            {% endif %}
 
-            <a class="sidebar-link {% if request.endpoint in ['compliance.compliance_index', 'compliance.alerts', 'compliance.risk_profiles'] %}active{% endif %}"
-               href="{{ url_for('compliance.compliance_index') }}">
-                <i class="bi bi-shield-exclamation"></i>
-                <span class="sidebar-link-text">Riesgo &amp; Alertas</span>
-                <span id="complianceBadge" class="sidebar-badge" style="display:none;">0</span>
+            {% if current_user.role in ['Master', 'Operador'] %}
+            <a class="sidebar-link {% if request.endpoint == 'position.position_view' %}active{% endif %}"
+               href="{{ url_for('position.position_view') }}">
+                <i class="bi bi-bank"></i>
+                <span class="sidebar-link-text">Posición</span>
+            </a>
+
+            <a class="sidebar-link {% if request.endpoint and request.endpoint.startswith('contabilidad') %}active{% endif %}"
+               href="{{ url_for('contabilidad.dashboard') }}">
+                <i class="bi bi-calculator"></i>
+                <span class="sidebar-link-text">Contabilidad</span>
+                <span id="unmatchedBadge" class="sidebar-badge sidebar-badge-warning" style="display:none;">0</span>
             </a>
             {% endif %}
 
@@ -154,7 +148,18 @@
                 <span class="sidebar-link-text">KYC</span>
                 <span id="kycBadge" class="sidebar-badge" style="display:none;">0</span>
             </a>
+            {% endif %}
 
+            {% if current_user.role in ['Master', 'Middle Office', 'Trader', 'Operador'] %}
+            <a class="sidebar-link {% if request.endpoint in ['compliance.compliance_index', 'compliance.alerts', 'compliance.risk_profiles'] %}active{% endif %}"
+               href="{{ url_for('compliance.compliance_index') }}">
+                <i class="bi bi-shield-exclamation"></i>
+                <span class="sidebar-link-text">Riesgo &amp; Alertas</span>
+                <span id="complianceBadge" class="sidebar-badge" style="display:none;">0</span>
+            </a>
+            {% endif %}
+
+            {% if current_user.role in ['Master', 'Middle Office'] %}
             <a class="sidebar-link {% if request.endpoint and 'complaints' in request.endpoint %}active{% endif %}"
                href="{{ url_for('complaints.list_complaints') }}">
                 <i class="bi bi-file-earmark-text"></i>
@@ -163,12 +168,12 @@
             </a>
             {% endif %}
 
-            {% if current_user.role in ['Master', 'Operador'] %}
-            <a class="sidebar-link {% if request.endpoint and request.endpoint.startswith('contabilidad') %}active{% endif %}"
-               href="{{ url_for('contabilidad.dashboard') }}">
-                <i class="bi bi-calculator"></i>
-                <span class="sidebar-link-text">Contabilidad</span>
-                <span id="unmatchedBadge" class="sidebar-badge sidebar-badge-warning" style="display:none;">0</span>
+            {% if current_user.role == 'Master' %}
+            <div class="sidebar-section-label">Admin</div>
+            <a class="sidebar-link {% if request.endpoint and 'users' in request.endpoint %}active{% endif %}"
+               href="{{ url_for('users.manage') }}">
+                <i class="bi bi-person-gear"></i>
+                <span class="sidebar-link-text">Usuarios</span>
             </a>
             {% endif %}
         </nav>
