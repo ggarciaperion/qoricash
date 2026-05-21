@@ -609,6 +609,137 @@ def nuevo_gasto():
         return jsonify({'success': False, 'error': str(e)}), 400
 
 
+# ── Cuota de Préstamo ─────────────────────────────────────────────────────────
+
+@contabilidad_bp.route('/gastos/cuota-prestamo', methods=['POST'])
+@csrf.exempt
+@login_required
+@require_role('Master')
+def cuota_prestamo():
+    """
+    Registra el pago de una cuota de préstamo bancario.
+
+    Asiento:
+        DEBE  4551  Préstamos bancarios CP    capital
+        DEBE  6711  Intereses de préstamos    intereses
+        DEBE  6791  ITF                       itf (si aplica)
+        HABER 104x  Cuenta bancaria           capital + intereses + itf
+    """
+    from app.models.expense_record import ExpenseRecord
+    from app.models.journal_entry import JournalEntry
+    from app.models.journal_entry_line import JournalEntryLine
+    from app.models.journal_sequence import JournalSequence
+    from app.models.accounting_period import AccountingPeriod
+    from app.services.accounting.journal_service import JournalService
+
+    data = request.get_json() or request.form
+
+    try:
+        expense_date = date.fromisoformat(data.get('expense_date', str(date.today())))
+        capital      = Decimal(str(data.get('capital', 0) or 0))
+        intereses    = Decimal(str(data.get('intereses', 0) or 0))
+        itf_raw      = data.get('itf')
+        itf          = Decimal(str(itf_raw)) if itf_raw else Decimal('0')
+        bank_account = data.get('bank_account', '1041')
+        bank_label   = data.get('bank_label', 'Cuenta bancaria')
+        description  = (data.get('description') or '').strip() or 'Cuota préstamo bancario'
+
+        if capital <= 0 and intereses <= 0:
+            return jsonify({'success': False, 'error': 'Debe ingresar capital o intereses.'}), 400
+
+        total = capital + intereses + itf
+
+        period = JournalService.get_or_create_period(expense_date)
+        if period.status == 'cerrado':
+            return jsonify({
+                'success': False,
+                'error': f'El período {expense_date.strftime("%m/%Y")} está cerrado.'
+            }), 409
+
+        # ExpenseRecord solo por los gastos financieros (intereses + ITF)
+        gasto_pen = intereses + itf
+        record = ExpenseRecord(
+            expense_date=expense_date,
+            category='6711',
+            description=description,
+            amount_pen=gasto_pen,
+            expense_type='servicio',
+            voucher_type=None,
+            created_by=current_user.id,
+            period_id=period.id,
+        )
+        db.session.add(record)
+        db.session.flush()
+
+        # Líneas del asiento (inline para atomicidad — sin JournalService.create_entry)
+        lines = []
+        if capital > 0:
+            lines.append({'account_code': '4551',
+                          'description': f'Capital cuota – {description}',
+                          'debe': capital, 'haber': Decimal('0')})
+        if intereses > 0:
+            lines.append({'account_code': '6711',
+                          'description': f'Intereses préstamo – {description}',
+                          'debe': intereses, 'haber': Decimal('0')})
+        if itf > 0:
+            lines.append({'account_code': '6791',
+                          'description': f'ITF – {description}',
+                          'debe': itf, 'haber': Decimal('0')})
+        lines.append({'account_code': bank_account,
+                      'description': f'Pago cuota – {description}',
+                      'debe': Decimal('0'), 'haber': total})
+
+        # Secuencia de asiento (SELECT FOR UPDATE evita huecos)
+        seq = db.session.query(JournalSequence).filter_by(
+            year=expense_date.year).with_for_update().first()
+        if not seq:
+            seq = JournalSequence(year=expense_date.year, last_number=0)
+            db.session.add(seq)
+            db.session.flush()
+        seq.last_number += 1
+        entry_number = f'AS-{expense_date.year}-{str(seq.last_number).zfill(4)}'
+
+        entry = JournalEntry(
+            entry_number=entry_number,
+            period_id=period.id,
+            entry_date=expense_date,
+            description=f'Cuota préstamo: {description}',
+            entry_type='cuota_prestamo',
+            source_type='expense',
+            source_id=record.id,
+            total_debe=total,
+            total_haber=total,
+            status='activo',
+            created_by=current_user.id,
+        )
+        db.session.add(entry)
+        db.session.flush()
+
+        for i, ln in enumerate(lines, start=1):
+            db.session.add(JournalEntryLine(
+                journal_entry_id=entry.id,
+                account_code=ln['account_code'],
+                description=ln['description'],
+                debe=ln['debe'],
+                haber=ln['haber'],
+                currency='PEN',
+                line_order=i,
+            ))
+
+        record.journal_entry_id = entry.id
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': f'Cuota registrada. Asiento {entry_number} generado.',
+            'entry_number': entry_number,
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+
 # ── Pago de Proveedores ────────────────────────────────────────────────────────
 
 @contabilidad_bp.route('/gastos/<int:record_id>/pagar', methods=['POST'])

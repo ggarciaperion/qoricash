@@ -14,9 +14,14 @@
         <small class="text-muted">Registro de egresos — genera asiento contable automático</small>
       </div>
     </div>
-    <button class="btn btn-primary" onclick="nuevoGastoModal()">
-      <i class="bi bi-plus-circle me-1"></i>Registrar Gasto
-    </button>
+    <div class="d-flex gap-2">
+      <button class="btn btn-outline-secondary" onclick="nuevaCuotaModal()">
+        <i class="bi bi-bank me-1"></i>Cuota de Préstamo
+      </button>
+      <button class="btn btn-primary" onclick="nuevoGastoModal()">
+        <i class="bi bi-plus-circle me-1"></i>Registrar Gasto
+      </button>
+    </div>
   </div>
 
   <!-- Filtros -->
@@ -287,6 +292,67 @@
     </div>
   </div>
 </div>
+<!-- Modal Cuota de Préstamo -->
+<div class="modal fade" id="prestamoModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-bank me-2"></i>Cuota de Préstamo Bancario</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="alert alert-info small py-2">
+          <i class="bi bi-info-circle me-1"></i>
+          Asiento: <strong>DEBE 4551 (capital) + 6711 (intereses) + 6791 (ITF) / HABER cuenta bancaria</strong>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Fecha <span class="text-danger">*</span></label>
+          <input type="date" id="pFecha" class="form-control"
+                 value="{{ selected_year }}-{{ '%02d'|format(selected_month) }}-01">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Entidad / Banco <span class="text-danger">*</span></label>
+          <input type="text" id="pDescripcion" class="form-control" placeholder="Ej: BCP Préstamo comercial">
+        </div>
+        <div class="row">
+          <div class="col-md-4 mb-3">
+            <label class="form-label">Capital (S/) <span class="text-danger">*</span></label>
+            <input type="number" id="pCapital" class="form-control" step="0.01" min="0" oninput="calcTotal()" placeholder="0.00">
+          </div>
+          <div class="col-md-4 mb-3">
+            <label class="form-label">Intereses (S/) <span class="text-danger">*</span></label>
+            <input type="number" id="pIntereses" class="form-control" step="0.01" min="0" oninput="calcTotal()" placeholder="0.00">
+          </div>
+          <div class="col-md-4 mb-3">
+            <label class="form-label">ITF (S/)</label>
+            <input type="number" id="pITF" class="form-control" step="0.01" min="0" oninput="calcTotal()" placeholder="0.00">
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Total cuota</label>
+          <input type="text" id="pTotal" class="form-control bg-light fw-bold" readonly placeholder="S/ 0.00">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Cuenta débito (banco) <span class="text-danger">*</span></label>
+          <select id="pCuentaBanco" class="form-select">
+            <option value="1011">1011 — Caja Moneda Nacional</option>
+            <option value="1041" selected>1041 — BCP Cta. Cte. PEN</option>
+            <option value="1048">1048 — Interbank Cta. Cte. PEN</option>
+            <option value="1049">1049 — BanBif Cta. Cte. PEN</option>
+            <option value="1051">1051 — Pichincha Cta. Cte. PEN</option>
+          </select>
+        </div>
+        <div id="prestamoError" class="alert alert-danger d-none"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary" onclick="guardarCuotaPrestamo()" id="btnGuardarPrestamo">
+          <i class="bi bi-save me-1"></i>Registrar cuota
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -406,6 +472,76 @@ function confirmarPago() {
   })
   .catch(() => { errDiv.textContent = 'Error de conexión.'; errDiv.classList.remove('d-none'); })
   .finally(() => { btn.disabled = false; btn.innerHTML = '<i class="bi bi-cash me-1"></i>Registrar pago'; });
+}
+
+function nuevaCuotaModal() {
+  document.getElementById('prestamoError').classList.add('d-none');
+  document.getElementById('pTotal').value = '';
+  new bootstrap.Modal(document.getElementById('prestamoModal')).show();
+}
+
+function calcTotal() {
+  const capital   = parseFloat(document.getElementById('pCapital').value)   || 0;
+  const intereses = parseFloat(document.getElementById('pIntereses').value) || 0;
+  const itf       = parseFloat(document.getElementById('pITF').value)       || 0;
+  const total     = capital + intereses + itf;
+  document.getElementById('pTotal').value = total > 0 ? 'S/ ' + total.toFixed(2) : '';
+}
+
+function guardarCuotaPrestamo() {
+  const btn    = document.getElementById('btnGuardarPrestamo');
+  const errDiv = document.getElementById('prestamoError');
+  errDiv.classList.add('d-none');
+
+  const capital   = parseFloat(document.getElementById('pCapital').value)   || 0;
+  const intereses = parseFloat(document.getElementById('pIntereses').value) || 0;
+  const itf       = parseFloat(document.getElementById('pITF').value)       || 0;
+  const desc      = document.getElementById('pDescripcion').value.trim();
+  const fecha     = document.getElementById('pFecha').value;
+  const sel       = document.getElementById('pCuentaBanco');
+  const account   = sel.value;
+  const label     = sel.options[sel.selectedIndex].text;
+
+  if (!desc) {
+    errDiv.textContent = 'Ingresa el nombre de la entidad / banco.';
+    errDiv.classList.remove('d-none'); return;
+  }
+  if (capital <= 0 && intereses <= 0) {
+    errDiv.textContent = 'Ingresa al menos el capital o los intereses.';
+    errDiv.classList.remove('d-none'); return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Guardando…';
+
+  const payload = {
+    expense_date: fecha,
+    description:  desc,
+    capital:      capital,
+    intereses:    intereses,
+    itf:          itf || null,
+    bank_account: account,
+    bank_label:   label,
+  };
+
+  fetch('/contabilidad/gastos/cuota-prestamo', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content},
+    body: JSON.stringify(payload),
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.success) {
+      bootstrap.Modal.getInstance(document.getElementById('prestamoModal')).hide();
+      Swal.fire({icon:'success', title:'Cuota registrada', text: data.message, timer: 2500, showConfirmButton: false});
+      setTimeout(() => location.reload(), 2000);
+    } else {
+      errDiv.textContent = data.error || 'Error desconocido';
+      errDiv.classList.remove('d-none');
+    }
+  })
+  .catch(() => { errDiv.textContent = 'Error de conexión.'; errDiv.classList.remove('d-none'); })
+  .finally(() => { btn.disabled = false; btn.innerHTML = '<i class="bi bi-save me-1"></i>Registrar cuota'; });
 }
 </script>
 {% endblock %}
