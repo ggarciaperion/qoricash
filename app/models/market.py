@@ -309,9 +309,9 @@ class DailyAnalysis(db.Model):
 
     def to_dict(self):
         import json
-        from datetime import timezone, timedelta
-        _LIMA = timezone(timedelta(hours=-5))
-        gen_lima = self.generated_at.replace(tzinfo=timezone.utc).astimezone(_LIMA)
+        # generated_at es guardado por now_peru() como datetime naive en hora Lima
+        # No aplicar conversión UTC→Lima (ya está en Lima)
+        gen_lima = self.generated_at
         meses = ['', 'ene', 'feb', 'mar', 'abr', 'may', 'jun',
                  'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
         gen_str = f"{gen_lima.day} {meses[gen_lima.month]}, {gen_lima.strftime('%H:%M')} Lima"
