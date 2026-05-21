@@ -1,127 +1,179 @@
 {% extends "base.html" %}
 {% block title %}Contabilidad — QoriCash{% endblock %}
 
+{% block head %}
+<style>
+.conta-card {
+    transition: transform .15s ease, box-shadow .15s ease;
+    color: inherit;
+}
+.conta-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0,0,0,.1) !important;
+    color: inherit;
+}
+.conta-card-icon {
+    width: 44px; height: 44px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.3rem; flex-shrink: 0;
+}
+.section-label {
+    font-size: .7rem; font-weight: 700; letter-spacing: .08em;
+    text-transform: uppercase; color: #6c757d;
+    display: flex; align-items: center; gap: 8px;
+    margin-bottom: .75rem; margin-top: 1.75rem;
+}
+.section-label::after {
+    content: ''; flex: 1; height: 1px; background: #e9ecef;
+}
+.admin-card {
+    opacity: .75;
+    transition: opacity .15s;
+}
+.admin-card:hover { opacity: 1; }
+.kpi-label { font-size: .75rem; color: #6c757d; margin-bottom: 2px; }
+.kpi-value { font-size: 1.45rem; font-weight: 700; line-height: 1.1; }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container-fluid">
 
   <!-- Header -->
-  <div class="d-flex justify-content-between align-items-center mb-4">
+  <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
     <div>
       <h2 class="mb-0"><i class="bi bi-calculator me-2"></i>Contabilidad</h2>
-      <small class="text-muted">Régimen MYPE Tributario · PCGE · {{ ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][selected_month-1] }} {{ selected_year }}</small>
+      <small class="text-muted">
+        Régimen MYPE Tributario · PCGE ·
+        {{ ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][selected_month-1] }}
+        {{ selected_year }}
+      </small>
     </div>
-    {% if current_period %}
-      {% if current_period.status == 'abierto' %}
-        <span class="badge bg-success fs-6 px-3 py-2">Período {{ current_period.label }} — Abierto</span>
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+      {% if current_period %}
+        {% if current_period.status == 'abierto' %}
+          <span class="badge bg-success fs-6 px-3 py-2">{{ current_period.label }} — Abierto</span>
+        {% else %}
+          <span class="badge bg-secondary fs-6 px-3 py-2">{{ current_period.label }} — Cerrado</span>
+        {% endif %}
       {% else %}
-        <span class="badge bg-secondary fs-6 px-3 py-2">Período {{ current_period.label }} — Cerrado</span>
+        <span class="badge bg-warning text-dark fs-6 px-3 py-2">Sin período activo</span>
       {% endif %}
-    {% else %}
-      <span class="badge bg-warning text-dark fs-6 px-3 py-2">Sin período activo</span>
-    {% endif %}
-  </div>
-
-  <!-- KPIs del período -->
-  <div class="row g-3 mb-5">
-    <div class="col-sm-6 col-xl-3">
-      <div class="card border-0 shadow-sm h-100">
-        <div class="card-body">
-          <div class="d-flex justify-content-between align-items-start">
-            <div>
-              <div class="text-muted small mb-1">Asientos este mes</div>
-              <div class="fs-2 fw-bold text-primary">{{ entries_count }}</div>
-            </div>
-            <i class="bi bi-list-ol fs-1 text-primary opacity-25"></i>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="col-sm-6 col-xl-3">
-      <div class="card border-0 shadow-sm h-100">
-        <div class="card-body">
-          <div class="d-flex justify-content-between align-items-start">
-            <div>
-              <div class="text-muted small mb-1">Total DEBE (S/)</div>
-              <div class="fs-4 fw-bold">{{ "%.2f"|format(total_debe|float) }}</div>
-            </div>
-            <i class="bi bi-arrow-down-circle fs-1 text-success opacity-25"></i>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="col-sm-6 col-xl-3">
-      <div class="card border-0 shadow-sm h-100">
-        <div class="card-body">
-          <div class="d-flex justify-content-between align-items-start">
-            <div>
-              <div class="text-muted small mb-1">Total HABER (S/)</div>
-              <div class="fs-4 fw-bold">{{ "%.2f"|format(total_haber|float) }}</div>
-            </div>
-            <i class="bi bi-arrow-up-circle fs-1 text-danger opacity-25"></i>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="col-sm-6 col-xl-3">
-      <div class="card border-0 shadow-sm h-100">
-        <div class="card-body">
-          <div class="d-flex justify-content-between align-items-start">
-            <div>
-              <div class="text-muted small mb-1">Gastos registrados (S/)</div>
-              <div class="fs-4 fw-bold text-warning">{{ "%.2f"|format(gastos_total|float) }}</div>
-            </div>
-            <i class="bi bi-receipt fs-1 text-warning opacity-25"></i>
-          </div>
-        </div>
-      </div>
+      <a href="{{ url_for('contabilidad.exportar_excel', year=selected_year, month=selected_month) }}"
+         class="btn btn-sm btn-outline-success">
+        <i class="bi bi-file-earmark-excel me-1"></i>Exportar Excel
+      </a>
     </div>
   </div>
 
-  <!-- Carteles de acceso -->
-  <h5 class="text-muted fw-semibold mb-3 text-uppercase" style="font-size:.75rem;letter-spacing:.08em;">Libros y reportes</h5>
-  <div class="row g-3 mb-5">
+  <!-- KPIs -->
+  <div class="row g-3 mb-2">
+    <div class="col-6 col-xl-3">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body d-flex align-items-center gap-3">
+          <i class="bi bi-list-ol fs-2 text-primary opacity-25"></i>
+          <div>
+            <div class="kpi-label">Asientos del mes</div>
+            <div class="kpi-value text-primary">{{ entries_count }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-xl-3">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body d-flex align-items-center gap-3">
+          <i class="bi bi-receipt fs-2 text-warning opacity-25"></i>
+          <div>
+            <div class="kpi-label">Gastos registrados</div>
+            <div class="kpi-value text-warning">
+              S/ {{ "%.0f"|format(gastos_total|float) }}
+              <small class="text-muted fw-normal" style="font-size:.75rem;">({{ gastos_count }})</small>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-xl-3">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body d-flex align-items-center gap-3">
+          <i class="bi bi-arrow-left-right fs-2 {% if unmatched_count > 0 %}text-danger{% else %}text-success{% endif %} opacity-25"></i>
+          <div>
+            <div class="kpi-label">Ops. sin amarrar</div>
+            <div class="kpi-value {% if unmatched_count > 0 %}text-danger{% else %}text-success{% endif %}">
+              {{ unmatched_count }}
+              {% if unmatched_count == 0 %}
+                <small class="text-success fw-normal" style="font-size:.75rem;">✓ al día</small>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-xl-3">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body d-flex align-items-center gap-3">
+          <i class="bi bi-arrow-down-up fs-2 text-secondary opacity-25"></i>
+          <div>
+            <div class="kpi-label">Movimiento total</div>
+            <div class="kpi-value" style="font-size:1.1rem;">
+              S/ {{ "%.0f"|format(total_debe|float) }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
-    <div class="col-md-6 col-xl-4">
-      <a href="{{ url_for('contabilidad.diario', year=selected_year, month=selected_month) }}"
+  <!-- ══ SECCIÓN 1: USO DIARIO ══════════════════════════════════════════════ -->
+  <div class="section-label"><i class="bi bi-lightning-charge text-primary"></i>Uso diario</div>
+  <div class="row g-3">
+
+    <div class="col-md-6 col-xl-3">
+      <a href="{{ url_for('contabilidad.gastos', year=selected_year, month=selected_month) }}"
          class="card conta-card border-0 shadow-sm h-100 text-decoration-none">
-        <div class="card-body d-flex align-items-center gap-3 p-4">
-          <div class="conta-card-icon bg-primary bg-opacity-10 text-primary">
-            <i class="bi bi-journal-text"></i>
+        <div class="card-body d-flex align-items-center gap-3">
+          <div class="conta-card-icon bg-warning bg-opacity-10 text-warning">
+            <i class="bi bi-receipt"></i>
           </div>
           <div>
-            <div class="fw-semibold fs-6">Libro Diario</div>
-            <div class="text-muted small">Asientos de partida doble · exporta Excel</div>
+            <div class="fw-semibold">Gastos</div>
+            <div class="text-muted small">Registro de egresos · asiento automático</div>
           </div>
           <i class="bi bi-chevron-right ms-auto text-muted opacity-50"></i>
         </div>
       </a>
     </div>
 
-    <div class="col-md-6 col-xl-4">
-      <div class="card border-0 shadow-sm h-100 opacity-50" style="cursor:not-allowed;"
-           title="No aplica para Régimen MYPE Tributario">
-        <div class="card-body d-flex align-items-center gap-3 p-4">
-          <div class="conta-card-icon bg-secondary bg-opacity-10 text-secondary">
-            <i class="bi bi-book"></i>
+    <div class="col-md-6 col-xl-3">
+      <a href="{{ url_for('contabilidad.amarres') }}"
+         class="card conta-card border-0 shadow-sm h-100 text-decoration-none">
+        <div class="card-body d-flex align-items-center gap-3">
+          <div class="conta-card-icon bg-danger bg-opacity-10 text-danger">
+            <i class="bi bi-arrow-left-right"></i>
           </div>
           <div>
-            <div class="fw-semibold fs-6 text-muted">Libro Ingresos y Gastos</div>
-            <div class="text-muted small">No aplica · Régimen RER</div>
+            <div class="fw-semibold">Amarres y Neteo</div>
+            <div class="text-muted small">Cruce compra/venta · utilidad por operación</div>
           </div>
-          <span class="badge bg-secondary ms-auto">Inactivo</span>
+          {% if unmatched_count > 0 %}
+          <span class="badge bg-danger ms-auto">{{ unmatched_count }}</span>
+          {% else %}
+          <i class="bi bi-chevron-right ms-auto text-muted opacity-50"></i>
+          {% endif %}
         </div>
-      </div>
+      </a>
     </div>
 
-    <div class="col-md-6 col-xl-4">
+    <div class="col-md-6 col-xl-3">
       <a href="{{ url_for('contabilidad.caja', year=selected_year, month=selected_month) }}"
          class="card conta-card border-0 shadow-sm h-100 text-decoration-none">
-        <div class="card-body d-flex align-items-center gap-3 p-4">
+        <div class="card-body d-flex align-items-center gap-3">
           <div class="conta-card-icon bg-info bg-opacity-10 text-info">
             <i class="bi bi-bank2"></i>
           </div>
           <div>
-            <div class="fw-semibold fs-6">Caja y Bancos</div>
+            <div class="fw-semibold">Caja y Bancos</div>
             <div class="text-muted small">Movimientos por cuenta · conciliación</div>
           </div>
           <i class="bi bi-chevron-right ms-auto text-muted opacity-50"></i>
@@ -129,16 +181,38 @@
       </a>
     </div>
 
-    <div class="col-md-6 col-xl-4">
-      <a href="{{ url_for('contabilidad.gastos', year=selected_year, month=selected_month) }}"
+    <div class="col-md-6 col-xl-3">
+      <a href="{{ url_for('contabilidad.diario', year=selected_year, month=selected_month) }}"
          class="card conta-card border-0 shadow-sm h-100 text-decoration-none">
-        <div class="card-body d-flex align-items-center gap-3 p-4">
-          <div class="conta-card-icon bg-warning bg-opacity-10 text-warning">
-            <i class="bi bi-receipt"></i>
+        <div class="card-body d-flex align-items-center gap-3">
+          <div class="conta-card-icon bg-primary bg-opacity-10 text-primary">
+            <i class="bi bi-journal-text"></i>
           </div>
           <div>
-            <div class="fw-semibold fs-6">Gastos</div>
-            <div class="text-muted small">Registro de egresos · genera asiento automático</div>
+            <div class="fw-semibold">Libro Diario</div>
+            <div class="text-muted small">Asientos de partida doble · exporta Excel</div>
+          </div>
+          <i class="bi bi-chevron-right ms-auto text-muted opacity-50"></i>
+        </div>
+      </a>
+    </div>
+
+  </div>
+
+  <!-- ══ SECCIÓN 2: REPORTES ════════════════════════════════════════════════ -->
+  <div class="section-label"><i class="bi bi-bar-chart-line text-secondary"></i>Reportes</div>
+  <div class="row g-3">
+
+    <div class="col-md-6 col-xl-4">
+      <a href="{{ url_for('contabilidad.resultados', year=selected_year, month=selected_month) }}"
+         class="card conta-card border-0 shadow-sm h-100 text-decoration-none">
+        <div class="card-body d-flex align-items-center gap-3">
+          <div class="conta-card-icon bg-danger bg-opacity-10 text-danger">
+            <i class="bi bi-graph-up-arrow"></i>
+          </div>
+          <div>
+            <div class="fw-semibold">Estado de Resultados</div>
+            <div class="text-muted small">P&amp;L · estimación IR MYPE</div>
           </div>
           <i class="bi bi-chevron-right ms-auto text-muted opacity-50"></i>
         </div>
@@ -148,77 +222,13 @@
     <div class="col-md-6 col-xl-4">
       <a href="{{ url_for('contabilidad.balance', year=selected_year, month=selected_month) }}"
          class="card conta-card border-0 shadow-sm h-100 text-decoration-none">
-        <div class="card-body d-flex align-items-center gap-3 p-4">
+        <div class="card-body d-flex align-items-center gap-3">
           <div class="conta-card-icon bg-secondary bg-opacity-10 text-secondary">
             <i class="bi bi-bar-chart-steps"></i>
           </div>
           <div>
-            <div class="fw-semibold fs-6">Balance de Comprobación</div>
+            <div class="fw-semibold">Balance de Comprobación</div>
             <div class="text-muted small">Sumas y saldos por cuenta · exporta Excel</div>
-          </div>
-          <i class="bi bi-chevron-right ms-auto text-muted opacity-50"></i>
-        </div>
-      </a>
-    </div>
-
-    <div class="col-md-6 col-xl-4">
-      <a href="{{ url_for('contabilidad.resultados', year=selected_year, month=selected_month) }}"
-         class="card conta-card border-0 shadow-sm h-100 text-decoration-none">
-        <div class="card-body d-flex align-items-center gap-3 p-4">
-          <div class="conta-card-icon bg-danger bg-opacity-10 text-danger">
-            <i class="bi bi-graph-up-arrow"></i>
-          </div>
-          <div>
-            <div class="fw-semibold fs-6">Estado de Resultados</div>
-            <div class="text-muted small">P&amp;L · estimación IR MYPE Tributario</div>
-          </div>
-          <i class="bi bi-chevron-right ms-auto text-muted opacity-50"></i>
-        </div>
-      </a>
-    </div>
-
-    <div class="col-md-6 col-xl-4">
-      <a href="{{ url_for('contabilidad.mayor', year=selected_year, month=selected_month) }}"
-         class="card conta-card border-0 shadow-sm h-100 text-decoration-none">
-        <div class="card-body d-flex align-items-center gap-3 p-4">
-          <div class="conta-card-icon bg-primary bg-opacity-10 text-primary">
-            <i class="bi bi-journals"></i>
-          </div>
-          <div>
-            <div class="fw-semibold fs-6">Libro Mayor</div>
-            <div class="text-muted small">Saldo acumulado por cuenta PCGE · exporta Excel</div>
-          </div>
-          <i class="bi bi-chevron-right ms-auto text-muted opacity-50"></i>
-        </div>
-      </a>
-    </div>
-
-    <div class="col-md-6 col-xl-4">
-      <a href="{{ url_for('contabilidad.apertura', year=selected_year) }}"
-         class="card conta-card border-0 shadow-sm h-100 text-decoration-none">
-        <div class="card-body d-flex align-items-center gap-3 p-4">
-          <div class="conta-card-icon bg-warning bg-opacity-10 text-warning">
-            <i class="bi bi-bank"></i>
-          </div>
-          <div>
-            <div class="fw-semibold fs-6">Asiento de Apertura</div>
-            <div class="text-muted small">Saldos iniciales de caja y bancos</div>
-          </div>
-          <i class="bi bi-chevron-right ms-auto text-muted opacity-50"></i>
-        </div>
-      </a>
-    </div>
-
-    <div class="col-md-6 col-xl-4">
-      <a href="{{ url_for('contabilidad.periodos') }}"
-         class="card conta-card border-0 shadow-sm h-100 text-decoration-none">
-        <div class="card-body d-flex align-items-center gap-3 p-4">
-          <div class="conta-card-icon bg-dark bg-opacity-10 text-dark">
-            <i class="bi bi-calendar3"></i>
-          </div>
-          <div>
-            <div class="fw-semibold fs-6">Períodos Contables</div>
-            <div class="text-muted small">Abrir y cerrar períodos mensuales</div>
           </div>
           <i class="bi bi-chevron-right ms-auto text-muted opacity-50"></i>
         </div>
@@ -228,12 +238,12 @@
     <div class="col-md-6 col-xl-4">
       <a href="{{ url_for('contabilidad.balance_general', year=selected_year, month=selected_month) }}"
          class="card conta-card border-0 shadow-sm h-100 text-decoration-none">
-        <div class="card-body d-flex align-items-center gap-3 p-4">
+        <div class="card-body d-flex align-items-center gap-3">
           <div class="conta-card-icon bg-primary bg-opacity-10 text-primary">
             <i class="bi bi-bar-chart-line"></i>
           </div>
           <div>
-            <div class="fw-semibold fs-6">Balance General</div>
+            <div class="fw-semibold">Balance General</div>
             <div class="text-muted small">Estado de Situación Financiera · PCGE</div>
           </div>
           <i class="bi bi-chevron-right ms-auto text-muted opacity-50"></i>
@@ -242,15 +252,15 @@
     </div>
 
     <div class="col-md-6 col-xl-4">
-      <a href="{{ url_for('contabilidad.activos_fijos') }}"
+      <a href="{{ url_for('contabilidad.mayor', year=selected_year, month=selected_month) }}"
          class="card conta-card border-0 shadow-sm h-100 text-decoration-none">
-        <div class="card-body d-flex align-items-center gap-3 p-4">
-          <div class="conta-card-icon bg-warning bg-opacity-10 text-warning">
-            <i class="bi bi-building"></i>
+        <div class="card-body d-flex align-items-center gap-3">
+          <div class="conta-card-icon bg-primary bg-opacity-10 text-primary">
+            <i class="bi bi-journals"></i>
           </div>
           <div>
-            <div class="fw-semibold fs-6">Activos Fijos</div>
-            <div class="text-muted small">Depreciación mensual · vida útil SUNAT</div>
+            <div class="fw-semibold">Libro Mayor</div>
+            <div class="text-muted small">Saldo acumulado por cuenta PCGE</div>
           </div>
           <i class="bi bi-chevron-right ms-auto text-muted opacity-50"></i>
         </div>
@@ -258,31 +268,15 @@
     </div>
 
     <div class="col-md-6 col-xl-4">
-      <a href="{{ url_for('contabilidad.amarres') }}"
+      <a href="{{ url_for('contabilidad.lig', year=selected_year, month=selected_month) }}"
          class="card conta-card border-0 shadow-sm h-100 text-decoration-none">
-        <div class="card-body d-flex align-items-center gap-3 p-4">
-          <div class="conta-card-icon bg-danger bg-opacity-10 text-danger">
-            <i class="bi bi-arrow-left-right"></i>
+        <div class="card-body d-flex align-items-center gap-3">
+          <div class="conta-card-icon bg-secondary bg-opacity-10 text-secondary">
+            <i class="bi bi-file-earmark-ruled"></i>
           </div>
           <div>
-            <div class="fw-semibold fs-6">Amarres y Neteo</div>
-            <div class="text-muted small">Cruce compra/venta · lotes · utilidad trader</div>
-          </div>
-          <i class="bi bi-chevron-right ms-auto text-muted opacity-50"></i>
-        </div>
-      </a>
-    </div>
-
-    <div class="col-md-6 col-xl-4">
-      <a href="{{ url_for('contabilidad.exportar_excel', year=selected_year, month=selected_month) }}"
-         class="card conta-card border-0 shadow-sm h-100 text-decoration-none">
-        <div class="card-body d-flex align-items-center gap-3 p-4">
-          <div class="conta-card-icon bg-success bg-opacity-10 text-success">
-            <i class="bi bi-file-earmark-excel"></i>
-          </div>
-          <div>
-            <div class="fw-semibold fs-6">Exportar a Excel</div>
-            <div class="text-muted small">Multi-hoja · Diario, Balance, Activos, Cuadre</div>
+            <div class="fw-semibold">Libro de Ingresos y Gastos</div>
+            <div class="text-muted small">Formato SUNAT · ingresos y egresos del mes</div>
           </div>
           <i class="bi bi-chevron-right ms-auto text-muted opacity-50"></i>
         </div>
@@ -291,8 +285,62 @@
 
   </div>
 
-  <!-- Últimos asientos (compacto) -->
-  <h5 class="text-muted fw-semibold mb-3 text-uppercase" style="font-size:.75rem;letter-spacing:.08em;">Últimos asientos del período</h5>
+  <!-- ══ SECCIÓN 3: ADMINISTRACIÓN ══════════════════════════════════════════ -->
+  <div class="section-label"><i class="bi bi-gear text-secondary"></i>Administración</div>
+  <div class="row g-3">
+
+    <div class="col-md-6 col-xl-4">
+      <a href="{{ url_for('contabilidad.periodos') }}"
+         class="card conta-card admin-card border-0 shadow-sm h-100 text-decoration-none">
+        <div class="card-body d-flex align-items-center gap-3">
+          <div class="conta-card-icon bg-dark bg-opacity-10 text-dark">
+            <i class="bi bi-calendar3"></i>
+          </div>
+          <div>
+            <div class="fw-semibold">Períodos Contables</div>
+            <div class="text-muted small">Cerrar períodos · ajuste FX · generar asientos</div>
+          </div>
+          <i class="bi bi-chevron-right ms-auto text-muted opacity-50"></i>
+        </div>
+      </a>
+    </div>
+
+    <div class="col-md-6 col-xl-4">
+      <a href="{{ url_for('contabilidad.apertura', year=selected_year) }}"
+         class="card conta-card admin-card border-0 shadow-sm h-100 text-decoration-none">
+        <div class="card-body d-flex align-items-center gap-3">
+          <div class="conta-card-icon bg-warning bg-opacity-10 text-warning">
+            <i class="bi bi-bank"></i>
+          </div>
+          <div>
+            <div class="fw-semibold">Asiento de Apertura</div>
+            <div class="text-muted small">Saldos iniciales de caja y bancos</div>
+          </div>
+          <i class="bi bi-chevron-right ms-auto text-muted opacity-50"></i>
+        </div>
+      </a>
+    </div>
+
+    <div class="col-md-6 col-xl-4">
+      <a href="{{ url_for('contabilidad.activos_fijos') }}"
+         class="card conta-card admin-card border-0 shadow-sm h-100 text-decoration-none">
+        <div class="card-body d-flex align-items-center gap-3">
+          <div class="conta-card-icon bg-warning bg-opacity-10 text-warning">
+            <i class="bi bi-building"></i>
+          </div>
+          <div>
+            <div class="fw-semibold">Activos Fijos</div>
+            <div class="text-muted small">Depreciación mensual · vida útil SUNAT</div>
+          </div>
+          <i class="bi bi-chevron-right ms-auto text-muted opacity-50"></i>
+        </div>
+      </a>
+    </div>
+
+  </div>
+
+  <!-- Últimos asientos -->
+  <div class="section-label mt-4"><i class="bi bi-clock-history text-secondary"></i>Últimos asientos del período</div>
   <div class="card border-0 shadow-sm">
     <div class="card-body p-0">
       <div class="table-responsive">
@@ -312,7 +360,7 @@
             <tr>
               <td><code class="text-primary">{{ e.entry_number }}</code></td>
               <td>{{ e.entry_date.strftime('%d/%m/%Y') }}</td>
-              <td><span class="badge bg-light text-dark">{{ e.entry_type }}</span></td>
+              <td><span class="badge bg-light text-dark border">{{ e.entry_type }}</span></td>
               <td class="text-truncate" style="max-width:260px;" title="{{ e.description }}">{{ e.description }}</td>
               <td class="text-end">{{ "%.2f"|format(e.total_debe|float) }}</td>
               <td class="text-end">{{ "%.2f"|format(e.total_haber|float) }}</td>
@@ -335,28 +383,4 @@
   </div>
 
 </div>
-{% endblock %}
-
-{% block head %}
-<style>
-.conta-card {
-    transition: transform .15s ease, box-shadow .15s ease;
-    color: inherit;
-}
-.conta-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(0,0,0,.1) !important;
-    color: inherit;
-}
-.conta-card-icon {
-    width: 48px;
-    height: 48px;
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.4rem;
-    flex-shrink: 0;
-}
-</style>
 {% endblock %}

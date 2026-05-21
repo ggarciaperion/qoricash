@@ -90,12 +90,45 @@ def dashboard():
     ).first()
 
     # Gastos del mes
-    gastos_total = db.session.query(
-        func.sum(ExpenseRecord.amount_pen)
+    gastos_q = db.session.query(
+        func.sum(ExpenseRecord.amount_pen).label('total'),
+        func.count(ExpenseRecord.id).label('count'),
     ).filter(
         extract('year', ExpenseRecord.expense_date) == year,
         extract('month', ExpenseRecord.expense_date) == month,
-    ).scalar() or Decimal('0')
+    ).first()
+    gastos_total = gastos_q.total or Decimal('0')
+    gastos_count = gastos_q.count or 0
+
+    # Operaciones del mes sin amarrar (para KPI de alerta)
+    try:
+        from datetime import datetime as _dt
+        from app.models.accounting_match import AccountingMatch
+        from app.models.operation import Operation as _Op
+        from app.models.user import User as _User
+        _start = date(year, month, 1)
+        import calendar as _cal
+        _last  = _cal.monthrange(year, month)[1]
+        _end   = date(year, month, _last)
+        _ops   = _Op.query.filter(
+            _Op.status == 'Completada',
+            func.date(_Op.created_at) >= _start,
+            func.date(_Op.created_at) <= _end,
+        ).all()
+        _demo_id = _User.query.filter_by(username='demo_trader').with_entities(_User.id).scalar()
+        _unmatched = 0
+        for _op in _ops:
+            if _demo_id and _op.user_id == _demo_id:
+                continue
+            _buy  = db.session.query(func.sum(AccountingMatch.matched_amount_usd)).filter(
+                AccountingMatch.buy_operation_id  == _op.id, AccountingMatch.status == 'Activo').scalar() or 0
+            _sell = db.session.query(func.sum(AccountingMatch.matched_amount_usd)).filter(
+                AccountingMatch.sell_operation_id == _op.id, AccountingMatch.status == 'Activo').scalar() or 0
+            if float(max(_buy, _sell)) < float(_op.amount_usd) - 0.01:
+                _unmatched += 1
+        unmatched_count = _unmatched
+    except Exception:
+        unmatched_count = 0
 
     # Todos los períodos para el selector
     periods = _get_all_periods()
@@ -108,6 +141,8 @@ def dashboard():
         total_haber=totals.haber or Decimal('0'),
         entries_count=totals.count or 0,
         gastos_total=gastos_total,
+        gastos_count=gastos_count,
+        unmatched_count=unmatched_count,
         periods=periods,
         selected_year=year,
         selected_month=month,
