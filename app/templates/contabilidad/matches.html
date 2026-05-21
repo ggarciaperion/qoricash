@@ -373,8 +373,8 @@ function cargarAmarres() {
         const editBaseBtn = m.status === 'Activo'
           ? `<button class="btn btn-xs btn-outline-warning" title="Editar base"
                onclick="abrirEditarBase(${m.id},
-                 ${m.buy_base_rate !== null && m.buy_base_rate !== undefined ? m.buy_base_rate : 'null'},
-                 ${m.sell_base_rate !== null && m.sell_base_rate !== undefined ? m.sell_base_rate : 'null'},
+                 ${m.buy_op_base_rate != null ? m.buy_op_base_rate : 'null'},
+                 ${m.sell_op_base_rate != null ? m.sell_op_base_rate : 'null'},
                  '${m.buy_operation_code || m.buy_operation_id}',
                  '${m.sell_operation_code || m.sell_operation_id}')">
                <i class="bi bi-pencil-square"></i></button>`
@@ -393,11 +393,11 @@ function cargarAmarres() {
           <td class="text-end fw-semibold">${fmt2(m.matched_amount_usd)}</td>
           <td class="text-end">
             ${fmt4(m.buy_exchange_rate)}<br>
-            <small class="text-muted">${m.buy_base_rate != null ? 'Base: ' + fmt4(m.buy_base_rate) : '<span class="text-warning">sin base</span>'}</small>
+            <small class="${m.buy_op_base_rate != null ? 'text-muted' : 'text-warning'}">${m.buy_op_base_rate != null ? 'Base: ' + fmt4(m.buy_op_base_rate) : 'sin base'}</small>
           </td>
           <td class="text-end">
             ${fmt4(m.sell_exchange_rate)}<br>
-            <small class="text-muted">${m.sell_base_rate != null ? 'Base: ' + fmt4(m.sell_base_rate) : '<span class="text-warning">sin base</span>'}</small>
+            <small class="${m.sell_op_base_rate != null ? 'text-muted' : 'text-warning'}">${m.sell_op_base_rate != null ? 'Base: ' + fmt4(m.sell_op_base_rate) : 'sin base'}</small>
           </td>
           <td class="text-end fw-semibold text-success">${fmtPen(m.profit_pen)}</td>
           <td class="text-end">${fmtPen(m.trader_buy_profit_pen)}</td>

@@ -89,6 +89,9 @@ class AccountingMatch(db.Model):
             'sell_client_name': self.sell_operation.client.full_name if self.sell_operation and self.sell_operation.client else None,
             'buy_trader_id': self.buy_operation.user_id if self.buy_operation else None,
             'sell_trader_id': self.sell_operation.user_id if self.sell_operation else None,
+            # Base rate actual de la operación (fuente canónica)
+            'buy_op_base_rate': float(self.buy_operation.base_rate) if self.buy_operation and self.buy_operation.base_rate else None,
+            'sell_op_base_rate': float(self.sell_operation.base_rate) if self.sell_operation and self.sell_operation.base_rate else None,
         }
 
     def __repr__(self):
