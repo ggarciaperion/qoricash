@@ -1227,6 +1227,20 @@ def complete_operation(operation_id):
         NotificationService.notify_operation_completed(operation)
         NotificationService.notify_dashboard_update()
 
+        # Recalcular score de riesgo del cliente automáticamente
+        try:
+            ComplianceService.update_client_risk_profile(
+                operation.client_id,
+                user_id=None,
+                auto_commit=True
+            )
+        except Exception as e_risk:
+            import logging
+            logging.getLogger(__name__).warning(
+                f'[COMPLETE] No se pudo actualizar score de riesgo para cliente '
+                f'{operation.client_id}: {e_risk}'
+            )
+
         return jsonify({
             'success': True,
             'message': 'Operación completada exitosamente',
