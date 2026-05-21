@@ -32,8 +32,7 @@
     transition: opacity .15s;
 }
 .admin-card:hover { opacity: 1; }
-.kpi-label { font-size: .75rem; color: #6c757d; margin-bottom: 2px; }
-.kpi-value { font-size: 1.45rem; font-weight: 700; line-height: 1.1; }
+
 </style>
 {% endblock %}
 
@@ -64,64 +63,6 @@
          class="btn btn-sm btn-outline-success">
         <i class="bi bi-file-earmark-excel me-1"></i>Exportar Excel
       </a>
-    </div>
-  </div>
-
-  <!-- KPIs -->
-  <div class="row g-3 mb-2">
-    <div class="col-6 col-xl-3">
-      <div class="card border-0 shadow-sm h-100">
-        <div class="card-body d-flex align-items-center gap-3">
-          <i class="bi bi-list-ol fs-2 text-primary opacity-25"></i>
-          <div>
-            <div class="kpi-label">Asientos del mes</div>
-            <div class="kpi-value text-primary">{{ entries_count }}</div>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="col-6 col-xl-3">
-      <div class="card border-0 shadow-sm h-100">
-        <div class="card-body d-flex align-items-center gap-3">
-          <i class="bi bi-receipt fs-2 text-warning opacity-25"></i>
-          <div>
-            <div class="kpi-label">Gastos registrados</div>
-            <div class="kpi-value text-warning">
-              S/ {{ "%.0f"|format(gastos_total|float) }}
-              <small class="text-muted fw-normal" style="font-size:.75rem;">({{ gastos_count }})</small>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="col-6 col-xl-3">
-      <div class="card border-0 shadow-sm h-100">
-        <div class="card-body d-flex align-items-center gap-3">
-          <i class="bi bi-arrow-left-right fs-2 {% if unmatched_count > 0 %}text-danger{% else %}text-success{% endif %} opacity-25"></i>
-          <div>
-            <div class="kpi-label">Ops. sin amarrar</div>
-            <div class="kpi-value {% if unmatched_count > 0 %}text-danger{% else %}text-success{% endif %}">
-              {{ unmatched_count }}
-              {% if unmatched_count == 0 %}
-                <small class="text-success fw-normal" style="font-size:.75rem;">✓ al día</small>
-              {% endif %}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="col-6 col-xl-3">
-      <div class="card border-0 shadow-sm h-100">
-        <div class="card-body d-flex align-items-center gap-3">
-          <i class="bi bi-arrow-down-up fs-2 text-secondary opacity-25"></i>
-          <div>
-            <div class="kpi-label">Movimiento total</div>
-            <div class="kpi-value" style="font-size:1.1rem;">
-              S/ {{ "%.0f"|format(total_debe|float) }}
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
   </div>
 
