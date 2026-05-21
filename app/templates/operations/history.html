@@ -440,7 +440,21 @@
 
     <!-- ─── Tabla ───────────────────────────────────────────────────────── -->
     <div class="card">
-        <div class="card-body p-2">
+        <div class="card-body p-0">
+            <!-- ─── Barra de búsqueda ──────────────────────────────────── -->
+            <div class="px-3 pt-3 pb-2" style="border-bottom:1px solid #e9ecef;">
+                <div class="input-group">
+                    <span class="input-group-text bg-white border-end-0" style="border-radius:8px 0 0 8px;">
+                        <i class="bi bi-search text-muted"></i>
+                    </span>
+                    <input type="text" id="historySearch" class="form-control border-start-0 ps-0"
+                           placeholder="Buscar por cliente, documento, ID, estado..."
+                           style="border-radius:0 8px 8px 0; font-size:.875rem;">
+                    <button class="btn btn-outline-secondary ms-2" id="clearSearch" style="border-radius:8px;display:none;">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </div>
+            </div>
             <table id="historyTable" class="table table-hover table-sm mb-0">
                 <thead>
                     <tr>
@@ -594,11 +608,23 @@ $(document).ready(function() {
         order: [[dateColumnIndex, 'desc']],
         pageLength: 25,
         responsive: true,
-        dom: '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>rtip',
+        dom: '<"row"<"col-sm-12 col-md-6"l>>rtip',
         columnDefs: [
             { type: 'num', targets: dateColumnIndex },
             { orderable: false, targets: -1 }
         ]
+    });
+
+    // ── Búsqueda en tiempo real ────────────────────────────────────────────
+    $('#historySearch').on('keyup input', function() {
+        var val = $(this).val();
+        historyTable.search(val).draw();
+        $('#clearSearch').toggle(val.length > 0);
+    });
+    $('#clearSearch').on('click', function() {
+        $('#historySearch').val('');
+        historyTable.search('').draw();
+        $(this).hide();
     });
 });
 
