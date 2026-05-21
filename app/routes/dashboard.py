@@ -23,12 +23,7 @@ def _demo_user_id():
 
 
 def _total_profit_from_matches(start_dt, end_dt, exclude_user_id=None):
-    """
-    Utilidad total QoriCash = suma de profit_pen de amarres activos en el rango.
-    Filtra por la fecha de la operación de compra (created_at de buy_operation),
-    no por la fecha del amarre — así las operaciones de abril cuentan en abril
-    aunque el amarre se haya creado en mayo.
-    """
+    """Utilidad total (profit_pen) de amarres activos en el rango — fuente para Master."""
     from app.models.accounting_match import AccountingMatch
     buy_op = db.aliased(Operation, name='buy_op')
     q = db.session.query(func.sum(AccountingMatch.profit_pen))\
@@ -43,18 +38,69 @@ def _total_profit_from_matches(start_dt, end_dt, exclude_user_id=None):
     return float(q.scalar() or 0)
 
 
-def _trader_profit_from_matches(trader_id, start_dt, end_dt):
+def _profit_breakdown_from_matches(start_dt, end_dt, exclude_user_id=None):
     """
-    Calcula la utilidad real del trader sumando trader_buy_profit_pen
-    y trader_sell_profit_pen de los AccountingMatch activos cuyas
-    operaciones pertenecen a clientes del trader, dentro del rango de fechas.
-    Esta es la fuente de verdad: los amarres ya calculan el split correcto
-    incluso cuando las operaciones del Master no tienen base_rate.
+    Desglose de utilidad desde amarres para el dashboard Master:
+      - total    : profit_pen (spread total cliente vs cliente)
+      - traders  : trader_buy_profit_pen + trader_sell_profit_pen (margen traders)
+      - house    : house_profit_pen (margen QoriCash entre bases)
+    Los tres suman: total = traders + house.
     """
     from app.models.accounting_match import AccountingMatch
-    from app.models.client import Client as _C
+    buy_op = db.aliased(Operation, name='buy_op_bd')
+    row = db.session.query(
+        func.sum(AccountingMatch.profit_pen).label('total'),
+        func.sum(AccountingMatch.trader_buy_profit_pen + AccountingMatch.trader_sell_profit_pen).label('traders'),
+        func.sum(AccountingMatch.house_profit_pen).label('house'),
+    ).join(buy_op, AccountingMatch.buy_operation_id == buy_op.id)\
+     .filter(
+         AccountingMatch.status == 'Activo',
+         buy_op.created_at >= start_dt,
+         buy_op.created_at < end_dt,
+     )
+    if exclude_user_id:
+        row = row.filter(buy_op.user_id != exclude_user_id)
+    row = row.first()
+    return {
+        'total':   round(float(row.total   or 0), 2),
+        'traders': round(float(row.traders or 0), 2),
+        'house':   round(float(row.house   or 0), 2),
+    }
 
-    # Filtrar por fecha de la operación (no del amarre) para que abril → abril, mayo → mayo
+
+def _trader_profit_from_ops(trader_id, start_dt, end_dt):
+    """
+    Utilidad del trader directamente desde operaciones completadas usando base_rate.
+    No requiere amarre — se calcula en tiempo real desde cada operación.
+      Compra: margen = (base_rate - exchange_rate) × amount_usd
+      Venta:  margen = (exchange_rate - base_rate) × amount_usd
+    Solo considera ops con base_rate definido.
+    """
+    from app.models.client import Client as _C
+    from decimal import Decimal as _D
+    ops = Operation.query.join(_C, Operation.client_id == _C.id).filter(
+        _C.created_by == trader_id,
+        Operation.status == 'Completada',
+        Operation.base_rate.isnot(None),
+        Operation.created_at >= start_dt,
+        Operation.created_at < end_dt,
+    ).all()
+    total = _D('0')
+    for op in ops:
+        tc   = _D(str(op.exchange_rate))
+        base = _D(str(op.base_rate))
+        usd  = _D(str(op.amount_usd))
+        if op.operation_type == 'Compra':
+            total += (base - tc) * usd   # compró barato → ganancia positiva
+        else:
+            total += (tc - base) * usd   # vendió caro   → ganancia positiva
+    return round(float(total), 2)
+
+
+def _trader_profit_from_matches(trader_id, start_dt, end_dt):
+    """Utilidad del trader desde amarres (legacy — no usar en dashboard)."""
+    from app.models.accounting_match import AccountingMatch
+    from app.models.client import Client as _C
     buy_op = db.aliased(Operation, name='buy_op_trader')
     buy_profit = db.session.query(func.sum(AccountingMatch.trader_buy_profit_pen))\
         .join(buy_op, AccountingMatch.buy_operation_id == buy_op.id)\
@@ -65,7 +111,6 @@ def _trader_profit_from_matches(trader_id, start_dt, end_dt):
             buy_op.created_at >= start_dt,
             buy_op.created_at < end_dt,
         ).scalar() or 0
-
     sell_op = db.aliased(Operation, name='sell_op_trader')
     sell_profit = db.session.query(func.sum(AccountingMatch.trader_sell_profit_pen))\
         .join(sell_op, AccountingMatch.sell_operation_id == sell_op.id)\
@@ -76,7 +121,6 @@ def _trader_profit_from_matches(trader_id, start_dt, end_dt):
             sell_op.created_at >= start_dt,
             sell_op.created_at < end_dt,
         ).scalar() or 0
-
     return float(buy_profit) + float(sell_profit)
 
 
@@ -211,11 +255,15 @@ def get_all_dashboard_data():
     all_operations_today = query_today.all()
     completed_today = [op for op in all_operations_today if op.status == 'Completada']
 
-    # Utilidad del día: siempre desde amarres activos del período.
+    # Utilidad del día
     if trader_id:
-        profit_today_spread = _trader_profit_from_matches(trader_id, start_of_day, end_of_day)
+        # Trader: utilidad directa desde ops completadas (base_rate vs exchange_rate)
+        profit_today_spread = _trader_profit_from_ops(trader_id, start_of_day, end_of_day + timedelta(seconds=1))
+        profit_breakdown_today = None
     else:
-        profit_today_spread = _total_profit_from_matches(start_of_day, end_of_day, exclude_user_id=demo_id)
+        # Master: desglose desde amarres (total / traders / house)
+        profit_breakdown_today = _profit_breakdown_from_matches(start_of_day, end_of_day, exclude_user_id=demo_id)
+        profit_today_spread = profit_breakdown_today['total']
     profit_today = profit_today_spread
 
     stats_today = {
@@ -228,7 +276,9 @@ def get_all_dashboard_data():
         'total_pen': float(sum(op.amount_pen for op in completed_today)),
         'unique_clients': len(set(op.client_id for op in completed_today)),
         'profit_today': round(profit_today, 2),
-        'profit_today_spread': round(profit_today_spread, 2)
+        'profit_today_spread': round(profit_today_spread, 2),
+        'profit_traders_today': profit_breakdown_today['traders'] if profit_breakdown_today else None,
+        'profit_house_today': profit_breakdown_today['house'] if profit_breakdown_today else None,
     }
 
     # ========================================
@@ -292,11 +342,13 @@ def get_all_dashboard_data():
         ).all() if demo_id else TraderGoal.query.filter_by(month=month, year=year).all()
         goal_amount = sum(float(g.goal_amount_pen) for g in all_goals)
 
-    # Utilidad del mes: siempre desde amarres activos del período.
+    # Utilidad del mes
     if trader_id:
-        profit_month_spread = _trader_profit_from_matches(trader_id, start_date, end_date)
+        profit_month_spread = _trader_profit_from_ops(trader_id, start_date, end_date)
+        profit_breakdown_month = None
     else:
-        profit_month_spread = _total_profit_from_matches(start_date, end_date, exclude_user_id=demo_id)
+        profit_breakdown_month = _profit_breakdown_from_matches(start_date, end_date, exclude_user_id=demo_id)
+        profit_month_spread = profit_breakdown_month['total']
     profit_month = profit_month_spread
 
     # Clientes activos (excluir demo)
@@ -317,6 +369,8 @@ def get_all_dashboard_data():
         'active_clients': active_clients,
         'profit_month': round(profit_month, 2),
         'profit_month_spread': round(profit_month_spread, 2),
+        'profit_traders_month': profit_breakdown_month['traders'] if profit_breakdown_month else None,
+        'profit_house_month': profit_breakdown_month['house'] if profit_breakdown_month else None,
         'goal_amount': round(goal_amount, 2)
     }
 

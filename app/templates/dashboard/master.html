@@ -121,7 +121,16 @@
                 <div class="card-body">
                     <h6 class="card-subtitle mb-2">Utilidad del Día</h6>
                     <h3 class="card-title mb-0 counter-pen" id="profitToday">S/ 0.00</h3>
-                    <small>Spread acumulado hoy</small>
+                    <div class="mt-2 d-flex flex-column gap-1" id="profitTodayBreakdown">
+                        <div class="d-flex justify-content-between" style="font-size:.75rem;color:#6c757d;">
+                            <span><i class="bi bi-person-fill me-1"></i>Traders</span>
+                            <span id="profitTradersToday">—</span>
+                        </div>
+                        <div class="d-flex justify-content-between" style="font-size:.75rem;color:#6c757d;">
+                            <span><i class="bi bi-building me-1"></i>QoriCash</span>
+                            <span id="profitHouseToday">—</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -131,7 +140,16 @@
                 <div class="card-body">
                     <h6 class="card-subtitle mb-2">Utilidad Acumulada del Mes</h6>
                     <h3 class="card-title mb-0 counter-pen" id="profitMonth">S/ 0.00</h3>
-                    <small>Spread acumulado del mes</small>
+                    <div class="mt-2 d-flex flex-column gap-1" id="profitMonthBreakdown">
+                        <div class="d-flex justify-content-between" style="font-size:.75rem;color:#6c757d;">
+                            <span><i class="bi bi-person-fill me-1"></i>Traders</span>
+                            <span id="profitTradersMonth">—</span>
+                        </div>
+                        <div class="d-flex justify-content-between" style="font-size:.75rem;color:#6c757d;">
+                            <span><i class="bi bi-building me-1"></i>QoriCash</span>
+                            <span id="profitHouseMonth">—</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -794,6 +812,10 @@ function loadDashboardData() {
         updateCounterValue('#usdToday', today.total_usd || 0, '$', 2);
         updateCounterValue('#penToday', today.total_pen || 0, 'S/', 2);
         updateCounterValue('#profitToday', today.profit_today_spread || 0, 'S/', 2);
+        // Desglose Traders / QoriCash (solo cuando hay datos de amarre)
+        function fmtPen(v) { return v !== null && v !== undefined ? 'S/ ' + parseFloat(v).toFixed(2) : '—'; }
+        document.getElementById('profitTradersToday').textContent = fmtPen(today.profit_traders_today);
+        document.getElementById('profitHouseToday').textContent   = fmtPen(today.profit_house_today);
 
         // Estadísticas del MES (con animación de contador)
         const month = response.month || {};
@@ -803,6 +825,9 @@ function loadDashboardData() {
         updateCounterValue('#completedMonth', month.completed_count || 0);
         updateCounterValue('#usdMonth', month.total_usd || 0, '$', 2);
         updateCounterValue('#penMonth', month.total_pen || 0, 'S/', 2);
+
+        document.getElementById('profitTradersMonth').textContent = fmtPen(month.profit_traders_month);
+        document.getElementById('profitHouseMonth').textContent   = fmtPen(month.profit_house_month);
 
         // Utilidad del mes por spread (con animación de contador)
         updateCounterValue('#profitMonth', month.profit_month_spread || 0, 'S/', 2);

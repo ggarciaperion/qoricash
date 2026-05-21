@@ -549,7 +549,7 @@ function loadDashboardData() {
         updateCounterValue('#usdToday', today.total_usd || 0, '$', 2);
         updateCounterValue('#penToday', today.total_pen || 0, 'S/', 2);
 
-        // Utilidad del Día (spread × monto USD de operaciones completadas hoy)
+        // Utilidad del Día — calculada desde ops completadas (base_rate vs exchange_rate)
         updateCounterValue('#profitToday', today.profit_today_spread || 0, 'S/', 2);
 
         // Estadísticas del MES (del trader) (con animación de contador)
@@ -559,7 +559,7 @@ function loadDashboardData() {
         updateCounterValue('#usdMonth', month.total_usd || 0, '$', 2);
         updateCounterValue('#penMonth', month.total_pen || 0, 'S/', 2);
 
-        // Utilidad Acumulada del Mes (sumatoria de spread × monto USD del mes)
+        // Utilidad Acumulada del Mes — calculada desde ops completadas (base_rate vs exchange_rate)
         updateCounterValue('#profitMonth', month.profit_month_spread || 0, 'S/', 2);
 
         // Meta Mensual y Progreso
