@@ -61,7 +61,7 @@
                         <span class="input-group-text bg-white"><i class="bi bi-search text-muted"></i></span>
                         <input type="text" id="filtroRiesgo" class="form-control"
                                placeholder="Buscar por nombre, DNI/RUC, nivel de riesgo, KYC…">
-                        <button class="btn btn-outline-secondary" onclick="document.getElementById('filtroRiesgo').value=''; window._riskTable && window._riskTable.search('').draw();" title="Limpiar">
+                        <button class="btn btn-outline-secondary" id="btnLimpiarFiltro" title="Limpiar">
                             <i class="bi bi-x-lg"></i>
                         </button>
                     </div>
@@ -156,36 +156,54 @@
 
 {% block scripts %}
 <style>
-/* Triángulos de ordenamiento visibles */
-#dashboardTable thead th { cursor: pointer; white-space: nowrap; user-select: none; }
+/* Triángulos de ordenamiento */
+#dashboardTable thead th { white-space: nowrap; user-select: none; }
 #dashboardTable thead th.sorting::after,
 #dashboardTable thead th.sorting_asc::after,
-#dashboardTable thead th.sorting_desc::after { font-family: "bootstrap-icons"; margin-left: .35rem; font-size: .75rem; opacity: .5; }
-#dashboardTable thead th.sorting::after       { content: "\F127\F126"; letter-spacing: -4px; }
-#dashboardTable thead th.sorting_asc::after   { content: "\F126"; opacity: 1; color: var(--bs-primary); }
-#dashboardTable thead th.sorting_desc::after  { content: "\F127"; opacity: 1; color: var(--bs-primary); }
-#dashboardTable thead th:last-child { cursor: default; }
+#dashboardTable thead th.sorting_desc::after { font-family: "bootstrap-icons"; margin-left: .35rem; font-size: .72rem; opacity: .45; }
+#dashboardTable thead th.sorting::after      { content: "\F127\F126"; letter-spacing: -4px; }
+#dashboardTable thead th.sorting_asc::after  { content: "\F126"; opacity: 1; color: var(--bs-primary); }
+#dashboardTable thead th.sorting_desc::after { content: "\F127"; opacity: 1; color: var(--bs-primary); }
 </style>
 <script>
-$(document).ready(function() {
-    const hasRows = $('#dashboardTable tbody tr:not(:has(td[colspan]))').length > 0;
-    if (hasRows) {
-        window._riskTable = $('#dashboardTable').DataTable({
-            order: [[2, 'desc']],   // Score desc por defecto
-            pageLength: 25,
-            dom: 'tip',             // solo tabla + info + paginación (sin search box nativo)
-            language: { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' },
-            columnDefs: [
-                { orderable: false, targets: -1 },   // Acciones no ordenable
-                { type: 'num',  targets: 2 },        // Score numérico
-            ]
-        });
+// Filtro custom: DataTable lo llama en cada redibujado — funciona con paginación
+$.fn.dataTable.ext.search.push(function(settings, rowData) {
+    if (settings.nTable.id !== 'dashboardTable') return true;
+    var q = (document.getElementById('filtroRiesgo').value || '').toLowerCase().trim();
+    if (!q) return true;
+    return rowData.some(function(cell) {
+        return (cell || '').toString().toLowerCase().indexOf(q) !== -1;
+    });
+});
 
-        // Filtro en tiempo real conectado al input personalizado
-        $('#filtroRiesgo').on('input', function() {
-            window._riskTable.search(this.value).draw();
-        });
-    }
+$(document).ready(function() {
+    window._riskTable = $('#dashboardTable').DataTable({
+        order:      [[2, 'desc']],
+        pageLength: 25,
+        dom:        'tip',
+        language: {
+            info:           'Mostrando _START_ a _END_ de _TOTAL_ clientes',
+            infoEmpty:      'Sin clientes',
+            infoFiltered:   '(filtrado de _MAX_ total)',
+            zeroRecords:    'No se encontraron coincidencias',
+            paginate: { previous: '‹', next: '›' }
+        },
+        columnDefs: [
+            { orderable: false, targets: -1 },
+            { type: 'num', targets: 2 }
+        ]
+    });
+
+    // Disparar redibujado en cada pulsación
+    document.getElementById('filtroRiesgo').addEventListener('input', function() {
+        window._riskTable.draw();
+    });
+
+    // Botón limpiar
+    document.getElementById('btnLimpiarFiltro').addEventListener('click', function() {
+        document.getElementById('filtroRiesgo').value = '';
+        window._riskTable.draw();
+    });
 });
 
 function recalculate(clientId) {
