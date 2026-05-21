@@ -476,7 +476,7 @@
                 </thead>
                 <tbody>
                     {% for op in operations %}
-                    <tr data-search="{{ (op.operation_id|string ~ ' ' ~ (op.client.full_name if op.client else '') ~ ' ' ~ (op.client.dni if op.client else '') ~ ' ' ~ op.status ~ ' ' ~ (op.created_at.strftime('%d/%m/%Y') if op.created_at else ''))|lower }}">
+                    <tr class="historial-row" data-search="{{ (op.operation_id|string ~ ' ' ~ (op.client.full_name if op.client else '') ~ ' ' ~ (op.client.dni if op.client else '') ~ ' ' ~ op.status ~ ' ' ~ (op.created_at.strftime('%d/%m/%Y') if op.created_at else ''))|lower }}">
                         <td><strong>{{ op.operation_id }}</strong></td>
                         <td>{{ op.client.dni if op.client else '-' }}</td>
                         <td>{{ op.client.full_name if op.client else '-' }}</td>
@@ -598,42 +598,22 @@
 
 {% block scripts %}
 <script>
-// ── DataTable ──────────────────────────────────────────────────────────────
-let historyTable;
-var _historyQ = '';   // variable de módulo — misma técnica que Clientes (data-search)
+// ── Filtro en tiempo real — patrón exacto de Clientes ─────────────────────
+function applyHistoryFilter() {
+    var q = document.getElementById('historySearch').value.toLowerCase();
+    document.querySelectorAll('.historial-row').forEach(function(row) {
+        row.style.display = (q === '' || row.dataset.search.includes(q)) ? '' : 'none';
+    });
+}
 
-// Registrar el filtro aquí (fuera de ready) para que esté activo antes del primer draw
-$.fn.dataTable.ext.search.push(function(settings, data) {
-    if (settings.nTable.id !== 'historyTable') return true;
-    if (!_historyQ) return true;
-    return data.join(' ').toLowerCase().indexOf(_historyQ) !== -1;
+document.getElementById('historySearch').addEventListener('input', function() {
+    document.getElementById('clearSearch').style.display = this.value ? 'inline-block' : 'none';
+    applyHistoryFilter();
 });
-
-$(document).ready(function() {
-    var dateColumnIndex = 9;
-    historyTable = $('#historyTable').DataTable({
-        language: { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' },
-        order: [[dateColumnIndex, 'desc']],
-        pageLength: 25,
-        dom: '<"row"<"col-sm-12 col-md-6"l>>rtip',
-        columnDefs: [
-            { type: 'num', targets: dateColumnIndex },
-            { orderable: false, targets: -1 }
-        ]
-    });
-
-    // ── Búsqueda en tiempo real — mismo patrón que Clientes ──────────────
-    document.getElementById('historySearch').addEventListener('input', function() {
-        _historyQ = this.value.toLowerCase().trim();
-        document.getElementById('clearSearch').style.display = _historyQ ? 'inline-block' : 'none';
-        historyTable.draw();
-    });
-    document.getElementById('clearSearch').addEventListener('click', function() {
-        document.getElementById('historySearch').value = '';
-        _historyQ = '';
-        this.style.display = 'none';
-        historyTable.draw();
-    });
+document.getElementById('clearSearch').addEventListener('click', function() {
+    document.getElementById('historySearch').value = '';
+    this.style.display = 'none';
+    applyHistoryFilter();
 });
 
 // ── Exportar Excel ─────────────────────────────────────────────────────────
