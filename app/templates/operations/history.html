@@ -602,7 +602,7 @@
 let historyTable;
 
 $(document).ready(function() {
-    const dateColumnIndex = 7;
+    const dateColumnIndex = 9;
     historyTable = $('#historyTable').DataTable({
         language: { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' },
         order: [[dateColumnIndex, 'desc']],
@@ -615,15 +615,22 @@ $(document).ready(function() {
         ]
     });
 
-    // ── Búsqueda en tiempo real ────────────────────────────────────────────
+    // ── Búsqueda en tiempo real (hook interno DataTables) ─────────────────
+    $.fn.dataTable.ext.search.push(function(settings, data, dataIndex) {
+        if (settings.nTable.id !== 'historyTable') return true;
+        var q = ($('#historySearch').val() || '').toLowerCase().trim();
+        if (!q) return true;
+        return data.join(' ').toLowerCase().includes(q);
+    });
+
     $('#historySearch').on('keyup input', function() {
         var val = $(this).val();
-        historyTable.search(val).draw();
+        historyTable.draw();
         $('#clearSearch').toggle(val.length > 0);
     });
     $('#clearSearch').on('click', function() {
         $('#historySearch').val('');
-        historyTable.search('').draw();
+        historyTable.draw();
         $(this).hide();
     });
 });
