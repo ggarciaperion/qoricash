@@ -476,7 +476,7 @@
                 </thead>
                 <tbody>
                     {% for op in operations %}
-                    <tr>
+                    <tr data-search="{{ (op.operation_id|string ~ ' ' ~ (op.client.full_name if op.client else '') ~ ' ' ~ (op.client.dni if op.client else '') ~ ' ' ~ op.status ~ ' ' ~ (op.created_at.strftime('%d/%m/%Y') if op.created_at else ''))|lower }}">
                         <td><strong>{{ op.operation_id }}</strong></td>
                         <td>{{ op.client.dni if op.client else '-' }}</td>
                         <td>{{ op.client.full_name if op.client else '-' }}</td>
@@ -600,14 +600,21 @@
 <script>
 // ── DataTable ──────────────────────────────────────────────────────────────
 let historyTable;
+var _historyQ = '';   // variable de módulo — misma técnica que Clientes (data-search)
+
+// Registrar el filtro aquí (fuera de ready) para que esté activo antes del primer draw
+$.fn.dataTable.ext.search.push(function(settings, data) {
+    if (settings.nTable.id !== 'historyTable') return true;
+    if (!_historyQ) return true;
+    return data.join(' ').toLowerCase().indexOf(_historyQ) !== -1;
+});
 
 $(document).ready(function() {
-    const dateColumnIndex = 9;
+    var dateColumnIndex = 9;
     historyTable = $('#historyTable').DataTable({
         language: { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' },
         order: [[dateColumnIndex, 'desc']],
         pageLength: 25,
-        responsive: true,
         dom: '<"row"<"col-sm-12 col-md-6"l>>rtip',
         columnDefs: [
             { type: 'num', targets: dateColumnIndex },
@@ -616,15 +623,16 @@ $(document).ready(function() {
     });
 
     // ── Búsqueda en tiempo real — mismo patrón que Clientes ──────────────
-    $('#historySearch').on('input', function() {
-        var q = $(this).val();
-        historyTable.search(q, false, false).draw();
-        $('#clearSearch').toggle(q.length > 0);
+    document.getElementById('historySearch').addEventListener('input', function() {
+        _historyQ = this.value.toLowerCase().trim();
+        document.getElementById('clearSearch').style.display = _historyQ ? 'inline-block' : 'none';
+        historyTable.draw();
     });
-    $('#clearSearch').on('click', function() {
-        $('#historySearch').val('');
-        historyTable.search('', false, false).draw();
-        $(this).hide();
+    document.getElementById('clearSearch').addEventListener('click', function() {
+        document.getElementById('historySearch').value = '';
+        _historyQ = '';
+        this.style.display = 'none';
+        historyTable.draw();
     });
 });
 
