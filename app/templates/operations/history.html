@@ -615,22 +615,15 @@ $(document).ready(function() {
         ]
     });
 
-    // ── Búsqueda en tiempo real (hook interno DataTables) ─────────────────
-    $.fn.dataTable.ext.search.push(function(settings, data, dataIndex) {
-        if (settings.nTable.id !== 'historyTable') return true;
-        var q = ($('#historySearch').val() || '').toLowerCase().trim();
-        if (!q) return true;
-        return data.join(' ').toLowerCase().includes(q);
-    });
-
-    $('#historySearch').on('keyup input', function() {
-        var val = $(this).val();
-        historyTable.draw();
-        $('#clearSearch').toggle(val.length > 0);
+    // ── Búsqueda en tiempo real — mismo patrón que Clientes ──────────────
+    $('#historySearch').on('input', function() {
+        var q = $(this).val();
+        historyTable.search(q, false, false).draw();
+        $('#clearSearch').toggle(q.length > 0);
     });
     $('#clearSearch').on('click', function() {
         $('#historySearch').val('');
-        historyTable.draw();
+        historyTable.search('', false, false).draw();
         $(this).hide();
     });
 });
