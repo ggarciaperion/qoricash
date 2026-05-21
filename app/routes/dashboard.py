@@ -255,13 +255,11 @@ def get_all_dashboard_data():
     all_operations_today = query_today.all()
     completed_today = [op for op in all_operations_today if op.status == 'Completada']
 
-    # Utilidad del día
+    # Utilidad del día — fuente única: amarres (consistente para todos los roles)
     if trader_id:
-        # Trader: utilidad directa desde ops completadas (base_rate vs exchange_rate)
-        profit_today_spread = _trader_profit_from_ops(trader_id, start_of_day, end_of_day + timedelta(seconds=1))
+        profit_today_spread = _trader_profit_from_matches(trader_id, start_of_day, end_of_day)
         profit_breakdown_today = None
     else:
-        # Master: desglose desde amarres (total / traders / house)
         profit_breakdown_today = _profit_breakdown_from_matches(start_of_day, end_of_day, exclude_user_id=demo_id)
         profit_today_spread = profit_breakdown_today['total']
     profit_today = profit_today_spread
@@ -342,9 +340,9 @@ def get_all_dashboard_data():
         ).all() if demo_id else TraderGoal.query.filter_by(month=month, year=year).all()
         goal_amount = sum(float(g.goal_amount_pen) for g in all_goals)
 
-    # Utilidad del mes
+    # Utilidad del mes — fuente única: amarres
     if trader_id:
-        profit_month_spread = _trader_profit_from_ops(trader_id, start_date, end_date)
+        profit_month_spread = _trader_profit_from_matches(trader_id, start_date, end_date)
         profit_breakdown_month = None
     else:
         profit_breakdown_month = _profit_breakdown_from_matches(start_date, end_date, exclude_user_id=demo_id)
@@ -516,7 +514,7 @@ def get_month_stats():
     operations = query.all()
     completed = [op for op in operations if op.status == 'Completada']
 
-    # Utilidad del mes: siempre desde amarres activos del período.
+    # Utilidad del mes — fuente única: amarres
     if trader_id:
         profit_month = _trader_profit_from_matches(trader_id, start_date, end_date)
     else:
