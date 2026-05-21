@@ -818,7 +818,7 @@ document.getElementById('btnRefresh').addEventListener('click', async () => {
     b.disabled = false; b.innerHTML = '<i class="bi bi-arrow-clockwise me-1"></i>Actualizar';
   }
 });
-function getCsrf() { const m = document.cookie.match(/csrf_token=([^;]+)/); return m?m[1]:''; }
+function getCsrf() { const m = document.querySelector('meta[name="csrf-token"]'); return m ? m.content : ''; }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function chgCls(v)  { return v==null?'mkt-flat': v>0?'mkt-up': v<0?'mkt-down':'mkt-flat'; }
@@ -1154,16 +1154,25 @@ async function updateIntradayAnalysis() {
   if (overlay) { overlay.style.display = 'flex'; }
   try {
     const r = await fetch('{{ url_for("market.api_daily_analysis_update") }}', {
-      method: 'POST', headers: { 'X-CSRFToken': getCsrf() }
+      method: 'POST', headers: { 'X-CSRFToken': getCsrf(), 'Content-Type': 'application/json' }
     });
+    if (!r.ok) { throw new Error('HTTP ' + r.status); }
     const j = await r.json();
     if (j.success) {
       const dr = await fetch('{{ url_for("market.api_daily_analysis") }}');
+      if (!dr.ok) { throw new Error('HTTP ' + dr.status); }
       const dj = await dr.json();
-      if (dj.success && dj.data) updateDailyAnalysis(dj.data);
+      if (dj.success && dj.data) {
+        updateDailyAnalysis(dj.data);
+        if (typeof showNotification === 'function') showNotification('Análisis actualizado correctamente', 'success');
+      }
+    } else {
+      if (typeof showNotification === 'function') showNotification('Error al actualizar el análisis', 'danger');
     }
-  } catch(e) { console.warn('[DailyAnalysis intraday]', e); }
-  finally {
+  } catch(e) {
+    console.warn('[DailyAnalysis intraday]', e);
+    if (typeof showNotification === 'function') showNotification('Error de conexión al actualizar el análisis', 'danger');
+  } finally {
     if (overlay) { overlay.style.display = 'none'; }
     if (btn)     { btn.disabled = false; }
   }
