@@ -13,10 +13,10 @@
     color: inherit;
 }
 .conta-card-icon {
-    width: 44px; height: 44px;
-    border-radius: 10px;
+    width: 40px; height: 40px;
     display: flex; align-items: center; justify-content: center;
-    font-size: 1.3rem; flex-shrink: 0;
+    font-size: 1.5rem; flex-shrink: 0;
+    color: #6c757d;
 }
 .section-label {
     font-size: .7rem; font-weight: 700; letter-spacing: .08em;
@@ -133,8 +133,8 @@
       <a href="{{ url_for('contabilidad.gastos', year=selected_year, month=selected_month) }}"
          class="card conta-card border-0 shadow-sm h-100 text-decoration-none">
         <div class="card-body d-flex align-items-center gap-3">
-          <div class="conta-card-icon bg-warning bg-opacity-10 text-warning">
-            <i class="bi bi-receipt"></i>
+          <div class="conta-card-icon">
+            <i class="bi bi-receipt-cutoff"></i>
           </div>
           <div>
             <div class="fw-semibold">Gastos</div>
@@ -149,8 +149,8 @@
       <a href="{{ url_for('contabilidad.amarres') }}"
          class="card conta-card border-0 shadow-sm h-100 text-decoration-none">
         <div class="card-body d-flex align-items-center gap-3">
-          <div class="conta-card-icon bg-danger bg-opacity-10 text-danger">
-            <i class="bi bi-arrow-left-right"></i>
+          <div class="conta-card-icon">
+            <i class="bi bi-intersect"></i>
           </div>
           <div>
             <div class="fw-semibold">Amarres y Neteo</div>
@@ -169,7 +169,7 @@
       <a href="{{ url_for('contabilidad.caja', year=selected_year, month=selected_month) }}"
          class="card conta-card border-0 shadow-sm h-100 text-decoration-none">
         <div class="card-body d-flex align-items-center gap-3">
-          <div class="conta-card-icon bg-info bg-opacity-10 text-info">
+          <div class="conta-card-icon">
             <i class="bi bi-bank2"></i>
           </div>
           <div>
@@ -185,8 +185,8 @@
       <a href="{{ url_for('contabilidad.diario', year=selected_year, month=selected_month) }}"
          class="card conta-card border-0 shadow-sm h-100 text-decoration-none">
         <div class="card-body d-flex align-items-center gap-3">
-          <div class="conta-card-icon bg-primary bg-opacity-10 text-primary">
-            <i class="bi bi-journal-text"></i>
+          <div class="conta-card-icon">
+            <i class="bi bi-journal-bookmark-fill"></i>
           </div>
           <div>
             <div class="fw-semibold">Libro Diario</div>
@@ -207,7 +207,7 @@
       <a href="{{ url_for('contabilidad.resultados', year=selected_year, month=selected_month) }}"
          class="card conta-card border-0 shadow-sm h-100 text-decoration-none">
         <div class="card-body d-flex align-items-center gap-3">
-          <div class="conta-card-icon bg-danger bg-opacity-10 text-danger">
+          <div class="conta-card-icon">
             <i class="bi bi-graph-up-arrow"></i>
           </div>
           <div>
@@ -223,7 +223,7 @@
       <a href="{{ url_for('contabilidad.balance', year=selected_year, month=selected_month) }}"
          class="card conta-card border-0 shadow-sm h-100 text-decoration-none">
         <div class="card-body d-flex align-items-center gap-3">
-          <div class="conta-card-icon bg-secondary bg-opacity-10 text-secondary">
+          <div class="conta-card-icon">
             <i class="bi bi-bar-chart-steps"></i>
           </div>
           <div>
@@ -239,8 +239,8 @@
       <a href="{{ url_for('contabilidad.balance_general', year=selected_year, month=selected_month) }}"
          class="card conta-card border-0 shadow-sm h-100 text-decoration-none">
         <div class="card-body d-flex align-items-center gap-3">
-          <div class="conta-card-icon bg-primary bg-opacity-10 text-primary">
-            <i class="bi bi-bar-chart-line"></i>
+          <div class="conta-card-icon">
+            <i class="bi bi-clipboard2-data"></i>
           </div>
           <div>
             <div class="fw-semibold">Balance General</div>
@@ -255,7 +255,7 @@
       <a href="{{ url_for('contabilidad.mayor', year=selected_year, month=selected_month) }}"
          class="card conta-card border-0 shadow-sm h-100 text-decoration-none">
         <div class="card-body d-flex align-items-center gap-3">
-          <div class="conta-card-icon bg-primary bg-opacity-10 text-primary">
+          <div class="conta-card-icon">
             <i class="bi bi-journals"></i>
           </div>
           <div>
@@ -271,7 +271,7 @@
       <a href="{{ url_for('contabilidad.lig', year=selected_year, month=selected_month) }}"
          class="card conta-card border-0 shadow-sm h-100 text-decoration-none">
         <div class="card-body d-flex align-items-center gap-3">
-          <div class="conta-card-icon bg-secondary bg-opacity-10 text-secondary">
+          <div class="conta-card-icon">
             <i class="bi bi-file-earmark-ruled"></i>
           </div>
           <div>
@@ -293,8 +293,8 @@
       <a href="{{ url_for('contabilidad.periodos') }}"
          class="card conta-card admin-card border-0 shadow-sm h-100 text-decoration-none">
         <div class="card-body d-flex align-items-center gap-3">
-          <div class="conta-card-icon bg-dark bg-opacity-10 text-dark">
-            <i class="bi bi-calendar3"></i>
+          <div class="conta-card-icon">
+            <i class="bi bi-calendar3-range"></i>
           </div>
           <div>
             <div class="fw-semibold">Períodos Contables</div>
@@ -309,8 +309,8 @@
       <a href="{{ url_for('contabilidad.apertura', year=selected_year) }}"
          class="card conta-card admin-card border-0 shadow-sm h-100 text-decoration-none">
         <div class="card-body d-flex align-items-center gap-3">
-          <div class="conta-card-icon bg-warning bg-opacity-10 text-warning">
-            <i class="bi bi-bank"></i>
+          <div class="conta-card-icon">
+            <i class="bi bi-door-open"></i>
           </div>
           <div>
             <div class="fw-semibold">Asiento de Apertura</div>
@@ -325,8 +325,8 @@
       <a href="{{ url_for('contabilidad.activos_fijos') }}"
          class="card conta-card admin-card border-0 shadow-sm h-100 text-decoration-none">
         <div class="card-body d-flex align-items-center gap-3">
-          <div class="conta-card-icon bg-warning bg-opacity-10 text-warning">
-            <i class="bi bi-building"></i>
+          <div class="conta-card-icon">
+            <i class="bi bi-pc-display"></i>
           </div>
           <div>
             <div class="fw-semibold">Activos Fijos</div>
