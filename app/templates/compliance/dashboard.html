@@ -199,7 +199,7 @@
             sortDir = sortDir === 'asc' ? 'desc' : 'asc';
         } else {
             sortCol = colIdx;
-            sortDir = colIdx === 2 ? 'desc' : 'asc';  // Score: desc por defecto
+            sortDir = (colIdx === 2 || colIdx === 7) ? 'desc' : 'asc';  // Score y Fecha: desc por defecto
         }
 
         var rows = Array.from(document.querySelectorAll('#dashboardTable tbody tr.risk-row'));
@@ -208,15 +208,24 @@
             var cellB = b.querySelectorAll('td')[colIdx];
             var va = cellA ? cellA.textContent.trim() : '';
             var vb = cellB ? cellB.textContent.trim() : '';
+            var cmp;
             // Columna Score: usar data-score para orden numérico correcto
             if (colIdx === 2) {
-                va = parseFloat(a.dataset.score);
-                vb = parseFloat(b.dataset.score);
-                var cmp = va - vb;
+                cmp = parseFloat(a.dataset.score) - parseFloat(b.dataset.score);
+                return sortDir === 'asc' ? cmp : -cmp;
+            }
+            // Columna Actualizado: parsear dd/mm/yyyy
+            if (colIdx === 7) {
+                function parseDate(s) {
+                    if (!s || s === 'Nunca') return 0;
+                    var p = s.split('/');
+                    return p.length === 3 ? new Date(p[2], p[1] - 1, p[0]).getTime() : 0;
+                }
+                cmp = parseDate(va) - parseDate(vb);
                 return sortDir === 'asc' ? cmp : -cmp;
             }
             var na = parseFloat(va), nb = parseFloat(vb);
-            var cmp = (!isNaN(na) && !isNaN(nb)) ? na - nb : va.localeCompare(vb, 'es', {numeric: true});
+            cmp = (!isNaN(na) && !isNaN(nb)) ? na - nb : va.localeCompare(vb, 'es', {numeric: true});
             return sortDir === 'asc' ? cmp : -cmp;
         });
 
