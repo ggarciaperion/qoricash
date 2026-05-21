@@ -97,6 +97,34 @@ def _trader_profit_from_ops(trader_id, start_dt, end_dt):
     return round(float(total), 2)
 
 
+def _total_profit_from_ops(start_dt, end_dt, exclude_user_id=None):
+    """
+    Nivel 1 — Utilidad operativa total desde operaciones completadas con base_rate.
+    Suma el margen (base_rate vs exchange_rate) de TODAS las ops del rango.
+    No requiere amarre — refleja la utilidad en tiempo real.
+    """
+    from app.models.client import Client as _C
+    from decimal import Decimal as _D
+    q = Operation.query.join(_C, Operation.client_id == _C.id).filter(
+        Operation.status == 'Completada',
+        Operation.base_rate.isnot(None),
+        Operation.created_at >= start_dt,
+        Operation.created_at < end_dt,
+    )
+    if exclude_user_id:
+        q = q.filter(_C.created_by != exclude_user_id)
+    total = _D('0')
+    for op in q.all():
+        tc   = _D(str(op.exchange_rate))
+        base = _D(str(op.base_rate))
+        usd  = _D(str(op.amount_usd))
+        if op.operation_type == 'Compra':
+            total += (base - tc) * usd
+        else:
+            total += (tc - base) * usd
+    return round(float(total), 2)
+
+
 def _trader_profit_from_matches(trader_id, start_dt, end_dt):
     """Utilidad del trader desde amarres (legacy — no usar en dashboard)."""
     from app.models.accounting_match import AccountingMatch
@@ -255,14 +283,19 @@ def get_all_dashboard_data():
     all_operations_today = query_today.all()
     completed_today = [op for op in all_operations_today if op.status == 'Completada']
 
-    # Utilidad del día — fuente única: amarres (consistente para todos los roles)
+    # ── OPCIÓN B: Modelo Híbrido ─────────────────────────────────────────────
+    # Nivel 1 (Operativa): desde ops completadas con base_rate → refleja inmediato
+    # Nivel 2 (Confirmada): desde amarres → refleja utilidad real tras neteo
     if trader_id:
-        profit_today_spread = _trader_profit_from_matches(trader_id, start_of_day, end_of_day)
+        profit_today = _trader_profit_from_ops(trader_id, start_of_day, end_of_day)
+        profit_today_spread = profit_today  # backward compat
+        profit_confirmed_today = _trader_profit_from_matches(trader_id, start_of_day, end_of_day)
         profit_breakdown_today = None
     else:
+        profit_today = _total_profit_from_ops(start_of_day, end_of_day, exclude_user_id=demo_id)
+        profit_today_spread = profit_today  # backward compat
         profit_breakdown_today = _profit_breakdown_from_matches(start_of_day, end_of_day, exclude_user_id=demo_id)
-        profit_today_spread = profit_breakdown_today['total']
-    profit_today = profit_today_spread
+        profit_confirmed_today = profit_breakdown_today['total']
 
     stats_today = {
         'operations_count': len(completed_today),
@@ -275,6 +308,7 @@ def get_all_dashboard_data():
         'unique_clients': len(set(op.client_id for op in completed_today)),
         'profit_today': round(profit_today, 2),
         'profit_today_spread': round(profit_today_spread, 2),
+        'profit_confirmed_today': round(profit_confirmed_today, 2),
         'profit_traders_today': profit_breakdown_today['traders'] if profit_breakdown_today else None,
         'profit_house_today': profit_breakdown_today['house'] if profit_breakdown_today else None,
     }
@@ -340,14 +374,17 @@ def get_all_dashboard_data():
         ).all() if demo_id else TraderGoal.query.filter_by(month=month, year=year).all()
         goal_amount = sum(float(g.goal_amount_pen) for g in all_goals)
 
-    # Utilidad del mes — fuente única: amarres
+    # ── OPCIÓN B: Modelo Híbrido (mes) ──────────────────────────────────────
     if trader_id:
-        profit_month_spread = _trader_profit_from_matches(trader_id, start_date, end_date)
+        profit_month = _trader_profit_from_ops(trader_id, start_date, end_date)
+        profit_month_spread = profit_month  # backward compat
+        profit_confirmed_month = _trader_profit_from_matches(trader_id, start_date, end_date)
         profit_breakdown_month = None
     else:
+        profit_month = _total_profit_from_ops(start_date, end_date, exclude_user_id=demo_id)
+        profit_month_spread = profit_month  # backward compat
         profit_breakdown_month = _profit_breakdown_from_matches(start_date, end_date, exclude_user_id=demo_id)
-        profit_month_spread = profit_breakdown_month['total']
-    profit_month = profit_month_spread
+        profit_confirmed_month = profit_breakdown_month['total']
 
     # Clientes activos (excluir demo)
     from app.models.client import Client
@@ -367,6 +404,7 @@ def get_all_dashboard_data():
         'active_clients': active_clients,
         'profit_month': round(profit_month, 2),
         'profit_month_spread': round(profit_month_spread, 2),
+        'profit_confirmed_month': round(profit_confirmed_month, 2),
         'profit_traders_month': profit_breakdown_month['traders'] if profit_breakdown_month else None,
         'profit_house_month': profit_breakdown_month['house'] if profit_breakdown_month else None,
         'goal_amount': round(goal_amount, 2)

@@ -3390,6 +3390,85 @@ def amarres_anular(match_id):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@contabilidad_bp.route('/amarres/<int:match_id>/editar-base', methods=['POST'])
+@csrf.exempt
+@login_required
+@require_role('Master')
+def amarres_editar_base(match_id):
+    """
+    API: editar base_rate de las operaciones de un amarre y recalcular
+    automáticamente las utilidades (trader_buy/sell_profit_pen, house_profit_pen)
+    de todos los amarres activos que involucran esas operaciones.
+    """
+    from app.models.accounting_match import AccountingMatch
+    from app.models.operation import Operation as _Op
+    from decimal import Decimal as _D
+
+    data   = request.get_json() or {}
+    motivo = data.get('motivo', '').strip()
+    if not motivo:
+        return jsonify({'success': False, 'error': 'El motivo es obligatorio'}), 400
+
+    match = db.session.get(AccountingMatch, match_id)
+    if not match or match.status != 'Activo':
+        return jsonify({'success': False, 'error': 'Amarre no encontrado o anulado'}), 404
+
+    buy_op  = db.session.get(_Op, match.buy_operation_id)
+    sell_op = db.session.get(_Op, match.sell_operation_id)
+    if not buy_op or not sell_op:
+        return jsonify({'success': False, 'error': 'Operaciones del amarre no encontradas'}), 404
+
+    try:
+        new_buy_base  = _D(str(data['buy_base_rate']))  if data.get('buy_base_rate')  is not None else None
+        new_sell_base = _D(str(data['sell_base_rate'])) if data.get('sell_base_rate') is not None else None
+
+        # Actualizar base_rate en las operaciones
+        if new_buy_base is not None:
+            buy_op.base_rate = new_buy_base
+        if new_sell_base is not None:
+            sell_op.base_rate = new_sell_base
+
+        updated_ids = set()
+
+        # Recalcular todos los amarres activos donde buy_op participa como compra
+        if new_buy_base is not None:
+            for m in AccountingMatch.query.filter_by(buy_operation_id=buy_op.id, status='Activo').all():
+                usd        = _D(str(m.matched_amount_usd))
+                buy_tc     = _D(str(m.buy_exchange_rate))
+                m.buy_base_rate          = new_buy_base
+                m.trader_buy_profit_pen  = (new_buy_base - buy_tc) * usd
+                if m.sell_base_rate is not None:
+                    sb = _D(str(m.sell_base_rate))
+                    sell_tc = _D(str(m.sell_exchange_rate))
+                    m.trader_sell_profit_pen = (sell_tc - sb) * usd
+                    m.house_profit_pen       = (sb - new_buy_base) * usd
+                updated_ids.add(m.id)
+
+        # Recalcular todos los amarres activos donde sell_op participa como venta
+        if new_sell_base is not None:
+            for m in AccountingMatch.query.filter_by(sell_operation_id=sell_op.id, status='Activo').all():
+                usd        = _D(str(m.matched_amount_usd))
+                sell_tc    = _D(str(m.sell_exchange_rate))
+                m.sell_base_rate         = new_sell_base
+                m.trader_sell_profit_pen = (sell_tc - new_sell_base) * usd
+                if m.buy_base_rate is not None:
+                    bb = _D(str(m.buy_base_rate))
+                    buy_tc = _D(str(m.buy_exchange_rate))
+                    m.trader_buy_profit_pen = (bb - buy_tc) * usd
+                    m.house_profit_pen      = (new_sell_base - bb) * usd
+                updated_ids.add(m.id)
+
+        db.session.commit()
+        return jsonify({
+            'success': True,
+            'message': f'Base actualizada. {len(updated_ids)} amarre(s) recalculados.',
+            'updated_matches': list(updated_ids),
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @contabilidad_bp.route('/amarres/recalcular-tipos', methods=['POST'])
 @csrf.exempt
 @login_required

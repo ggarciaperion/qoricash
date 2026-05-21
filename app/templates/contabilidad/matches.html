@@ -370,6 +370,15 @@ function cargarAmarres() {
           ? `<button class="btn btn-xs btn-outline-danger" onclick="anularAmarre(${m.id})"
                title="Anular"><i class="bi bi-x-circle"></i></button>`
           : '';
+        const editBaseBtn = m.status === 'Activo'
+          ? `<button class="btn btn-xs btn-outline-warning" title="Editar base"
+               onclick="abrirEditarBase(${m.id},
+                 ${m.buy_base_rate !== null && m.buy_base_rate !== undefined ? m.buy_base_rate : 'null'},
+                 ${m.sell_base_rate !== null && m.sell_base_rate !== undefined ? m.sell_base_rate : 'null'},
+                 '${m.buy_operation_code || m.buy_operation_id}',
+                 '${m.sell_operation_code || m.sell_operation_id}')">
+               <i class="bi bi-pencil-square"></i></button>`
+          : '';
         return `<tr>
           <td class="text-muted small">#${m.id}</td>
           <td>${tipo}</td>
@@ -390,7 +399,7 @@ function cargarAmarres() {
           <td class="text-end">${fmtPenColor(m.house_profit_pen)}</td>
           <td class="text-muted small">${m.batch_id ? '#' + m.batch_id : '—'}</td>
           <td>${statusBadge(m.status)}</td>
-          <td>${anularBtn}</td>
+          <td class="d-flex gap-1">${editBaseBtn}${anularBtn}</td>
         </tr>`;
       }).join('');
       document.getElementById('footerAmarres').innerHTML =
@@ -423,6 +432,69 @@ function anularAmarre(id) {
           Swal.fire({icon:'error', title:'Error', text: data.error});
         }
       });
+  });
+}
+
+// ── Editar Base Rate ─────────────────────────────────────────────────────────
+
+function abrirEditarBase(matchId, buyBase, sellBase, buyCode, sellCode) {
+  Swal.fire({
+    title: 'Editar Base Rate',
+    html: `
+      <p class="text-muted small mb-3">Amarre <b>#${matchId}</b> — <code class="text-primary">${buyCode}</code> ↔ <code class="text-danger">${sellCode}</code></p>
+      <div class="row g-3 text-start">
+        <div class="col-12">
+          <label class="form-label small fw-semibold">Base Compra (${buyCode})</label>
+          <input type="number" id="swalBuyBase" class="swal2-input" step="0.0001" placeholder="Sin base"
+            value="${buyBase !== null ? buyBase : ''}" style="width:100%;margin:0;">
+          <div class="form-text">Dejar vacío para no modificar</div>
+        </div>
+        <div class="col-12 mt-2">
+          <label class="form-label small fw-semibold">Base Venta (${sellCode})</label>
+          <input type="number" id="swalSellBase" class="swal2-input" step="0.0001" placeholder="Sin base"
+            value="${sellBase !== null ? sellBase : ''}" style="width:100%;margin:0;">
+          <div class="form-text">Dejar vacío para no modificar</div>
+        </div>
+        <div class="col-12 mt-2">
+          <label class="form-label small fw-semibold">Motivo <span class="text-danger">*</span></label>
+          <textarea id="swalMotivo" class="swal2-textarea" rows="2"
+            placeholder="Ej: Corrección de base por acuerdo con trader..." style="width:100%;margin:0;"></textarea>
+        </div>
+      </div>`,
+    showCancelButton: true,
+    confirmButtonText: 'Guardar y recalcular',
+    cancelButtonText: 'Cancelar',
+    confirmButtonColor: '#fd7e14',
+    preConfirm: () => {
+      const buyVal  = document.getElementById('swalBuyBase').value.trim();
+      const sellVal = document.getElementById('swalSellBase').value.trim();
+      const motivo  = document.getElementById('swalMotivo').value.trim();
+      if (!motivo) { Swal.showValidationMessage('El motivo es obligatorio'); return false; }
+      if (!buyVal && !sellVal) { Swal.showValidationMessage('Ingresa al menos una base a modificar'); return false; }
+      return {
+        buy_base_rate:  buyVal  ? parseFloat(buyVal)  : null,
+        sell_base_rate: sellVal ? parseFloat(sellVal) : null,
+        motivo,
+      };
+    },
+  }).then(result => {
+    if (!result.isConfirmed) return;
+    Swal.fire({title: 'Recalculando...', allowOutsideClick: false, didOpen: () => Swal.showLoading()});
+    fetch(`/contabilidad/amarres/${matchId}/editar-base`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(result.value),
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) {
+        Swal.fire({icon: 'success', title: 'Base actualizada', text: data.message, timer: 2200, showConfirmButton: false});
+        setTimeout(cargarAmarres, 1500);
+      } else {
+        Swal.fire({icon: 'error', title: 'Error', text: data.error});
+      }
+    })
+    .catch(() => Swal.fire({icon: 'error', title: 'Error de red'}));
   });
 }
 

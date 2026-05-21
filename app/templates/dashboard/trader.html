@@ -117,7 +117,7 @@
                 <div class="card-body">
                     <h6 class="card-subtitle mb-2">Utilidad del Día</h6>
                     <h3 class="card-title mb-0 counter-pen" id="profitToday">S/ 0.00</h3>
-                    <small>Spread acumulado hoy</small>
+                    <small class="text-muted">Margen operativo hoy</small>
                 </div>
             </div>
         </div>
@@ -127,7 +127,7 @@
                 <div class="card-body">
                     <h6 class="card-subtitle mb-2">Utilidad Acumulada del Mes</h6>
                     <h3 class="card-title mb-0 counter-pen" id="profitMonth">S/ 0.00</h3>
-                    <small>Spread acumulado del mes</small>
+                    <small class="text-muted">Margen operativo del mes</small>
                 </div>
             </div>
         </div>
@@ -549,8 +549,8 @@ function loadDashboardData() {
         updateCounterValue('#usdToday', today.total_usd || 0, '$', 2);
         updateCounterValue('#penToday', today.total_pen || 0, 'S/', 2);
 
-        // Utilidad del Día — calculada desde ops completadas (base_rate vs exchange_rate)
-        updateCounterValue('#profitToday', today.profit_today_spread || 0, 'S/', 2);
+        // Nivel 1 — Utilidad operativa desde ops con base_rate (inmediata)
+        updateCounterValue('#profitToday', today.profit_today || 0, 'S/', 2);
 
         // Estadísticas del MES (del trader) (con animación de contador)
         const month = response.month || {};
@@ -559,8 +559,8 @@ function loadDashboardData() {
         updateCounterValue('#usdMonth', month.total_usd || 0, '$', 2);
         updateCounterValue('#penMonth', month.total_pen || 0, 'S/', 2);
 
-        // Utilidad Acumulada del Mes — calculada desde ops completadas (base_rate vs exchange_rate)
-        updateCounterValue('#profitMonth', month.profit_month_spread || 0, 'S/', 2);
+        // Nivel 1 — Utilidad operativa acumulada del mes
+        updateCounterValue('#profitMonth', month.profit_month || 0, 'S/', 2);
 
         // Meta Mensual y Progreso
         const goalAmount = month.goal_amount || 0;
