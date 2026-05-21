@@ -52,6 +52,24 @@
     </div>
     {% endif %}
 
+    <!-- Filtro en tiempo real -->
+    <div class="card mb-3">
+        <div class="card-body py-2 px-3">
+            <div class="row g-2 align-items-center">
+                <div class="col">
+                    <div class="input-group">
+                        <span class="input-group-text bg-white"><i class="bi bi-search text-muted"></i></span>
+                        <input type="text" id="filtroRiesgo" class="form-control"
+                               placeholder="Buscar por nombre, DNI/RUC, nivel de riesgo, KYC…">
+                        <button class="btn btn-outline-secondary" onclick="document.getElementById('filtroRiesgo').value=''; window._riskTable && window._riskTable.search('').draw();" title="Limpiar">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Tabla -->
     <div class="card">
         <div class="card-body p-0 pt-3 px-3">
@@ -137,15 +155,35 @@
 {% endblock %}
 
 {% block scripts %}
+<style>
+/* Triángulos de ordenamiento visibles */
+#dashboardTable thead th { cursor: pointer; white-space: nowrap; user-select: none; }
+#dashboardTable thead th.sorting::after,
+#dashboardTable thead th.sorting_asc::after,
+#dashboardTable thead th.sorting_desc::after { font-family: "bootstrap-icons"; margin-left: .35rem; font-size: .75rem; opacity: .5; }
+#dashboardTable thead th.sorting::after       { content: "\F127\F126"; letter-spacing: -4px; }
+#dashboardTable thead th.sorting_asc::after   { content: "\F126"; opacity: 1; color: var(--bs-primary); }
+#dashboardTable thead th.sorting_desc::after  { content: "\F127"; opacity: 1; color: var(--bs-primary); }
+#dashboardTable thead th:last-child { cursor: default; }
+</style>
 <script>
 $(document).ready(function() {
-    if ($('#dashboardTable tbody tr').length > 1 ||
-        ($('#dashboardTable tbody tr').length === 1 && !$('#dashboardTable tbody tr td[colspan]').length)) {
-        $('#dashboardTable').DataTable({
-            order: [],
+    const hasRows = $('#dashboardTable tbody tr:not(:has(td[colspan]))').length > 0;
+    if (hasRows) {
+        window._riskTable = $('#dashboardTable').DataTable({
+            order: [[2, 'desc']],   // Score desc por defecto
             pageLength: 25,
+            dom: 'tip',             // solo tabla + info + paginación (sin search box nativo)
             language: { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' },
-            columnDefs: [{ orderable: false, targets: -1 }]
+            columnDefs: [
+                { orderable: false, targets: -1 },   // Acciones no ordenable
+                { type: 'num',  targets: 2 },        // Score numérico
+            ]
+        });
+
+        // Filtro en tiempo real conectado al input personalizado
+        $('#filtroRiesgo').on('input', function() {
+            window._riskTable.search(this.value).draw();
         });
     }
 });
