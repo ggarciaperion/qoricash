@@ -391,8 +391,14 @@ function cargarAmarres() {
             <small class="text-muted">${m.sell_client_name || ''}</small>
           </td>
           <td class="text-end fw-semibold">${fmt2(m.matched_amount_usd)}</td>
-          <td class="text-end">${fmt4(m.buy_exchange_rate)}</td>
-          <td class="text-end">${fmt4(m.sell_exchange_rate)}</td>
+          <td class="text-end">
+            ${fmt4(m.buy_exchange_rate)}<br>
+            <small class="text-muted">${m.buy_base_rate != null ? 'Base: ' + fmt4(m.buy_base_rate) : '<span class="text-warning">sin base</span>'}</small>
+          </td>
+          <td class="text-end">
+            ${fmt4(m.sell_exchange_rate)}<br>
+            <small class="text-muted">${m.sell_base_rate != null ? 'Base: ' + fmt4(m.sell_base_rate) : '<span class="text-warning">sin base</span>'}</small>
+          </td>
           <td class="text-end fw-semibold text-success">${fmtPen(m.profit_pen)}</td>
           <td class="text-end">${fmtPen(m.trader_buy_profit_pen)}</td>
           <td class="text-end">${fmtPen(m.trader_sell_profit_pen)}</td>
@@ -528,6 +534,9 @@ function _opCard(op, side) {
     </div>
     <div class="d-flex align-items-center gap-2 mt-1">
       <span class="text-muted" style="font-size:.7rem;">TC ${fmt4(op.exchange_rate)}</span>
+      <span style="font-size:.7rem;" class="${op.base_rate != null ? 'text-secondary' : 'text-warning'}">
+        ${op.base_rate != null ? '· Base ' + fmt4(op.base_rate) : '· sin base'}
+      </span>
       <div class="progress flex-grow-1" style="height:3px;">
         <div class="progress-bar bg-${color}" style="width:${pct}%"></div>
       </div>
