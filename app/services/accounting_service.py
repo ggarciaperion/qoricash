@@ -171,14 +171,16 @@ class AccountingService:
                 # El lado mercado no tiene margen propio (base_rate = exchange_rate)
                 # QoriCash gana el spread entre precio de mercado y base del trader
                 match_type = 'market_hedge'
-            elif buy_op.user_id is not None and buy_op.user_id == sell_op.user_id:
-                # Mismo trader en ambos lados → Auto (toda la utilidad es del trader)
-                trader_buy_profit  = profit_pen
-                trader_sell_profit = Decimal('0')
-                house_profit       = Decimal('0')
-                match_type         = 'self_match'
+            elif (buy_op.client_id is not None
+                  and buy_op.client_id == sell_op.client_id
+                  and buy_base == sell_base):
+                # Mismo cliente + misma base → el trader solicitó amarrar estas operaciones
+                # house_profit = 0 por definición (sell_base - buy_base = 0)
+                match_type = 'self_match'
             else:
-                # Dos traders distintos → C2C
+                # Clientes distintos O mismo cliente con bases diferentes
+                # En ambos casos aplica la fórmula estándar:
+                #   house gana el spread entre bases (puede ser 0 si bases son iguales)
                 match_type = 'client_to_client'
 
             # ── Crear match ───────────────────────────────────────────────────
@@ -398,7 +400,9 @@ class AccountingService:
         Actualiza TraderDailyProfit en tiempo real al crear o anular un match.
 
         Reglas de distribución:
-          self_match          → 100% de profit_pen al trader (buy_op.user_id)
+          self_match          → trader_buy_profit_pen al trader compra
+                                trader_sell_profit_pen al trader venta
+                                house_profit_pen = 0 (misma base → sin spread para QoriCash)
           client_to_client    → trader_buy_profit_pen al trader compra
                                 trader_sell_profit_pen al trader venta
                                 house_profit_pen queda en QoriCash (no se asigna)
@@ -440,10 +444,14 @@ class AccountingService:
             match_type = match.match_type or 'client_to_client'
 
             if match_type == 'self_match':
-                # Todo el profit va al trader (buy_op.user_id == sell_op.user_id)
+                # Mismo cliente + misma base → house = 0, cada trader cobra su margen
                 _add_profit(
                     buy_op.user_id if buy_op else None,
-                    sign * Decimal(str(match.profit_pen or 0)),
+                    sign * Decimal(str(match.trader_buy_profit_pen or 0)),
+                )
+                _add_profit(
+                    sell_op.user_id if sell_op else None,
+                    sign * Decimal(str(match.trader_sell_profit_pen or 0)),
                 )
 
             elif match_type == 'client_to_client':

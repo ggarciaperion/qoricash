@@ -3485,11 +3485,18 @@ def amarres_recalcular_tipos():
             sell_op = db.session.get(Operation, m.sell_operation_id)
             if not buy_op or not sell_op:
                 continue
+            from decimal import Decimal as _D
             buy_user = buy_op.user
             sell_user = sell_op.user
             buy_master = buy_user and buy_user.role == 'Master'
             sell_master = sell_user and sell_user.role == 'Master'
-            is_self = (buy_op.user_id is not None and buy_op.user_id == sell_op.user_id)
+            buy_base  = _D(str(buy_op.base_rate))  if buy_op.base_rate  else _D(str(buy_op.exchange_rate))
+            sell_base = _D(str(sell_op.base_rate)) if sell_op.base_rate else _D(str(sell_op.exchange_rate))
+            is_self = (
+                buy_op.client_id is not None
+                and buy_op.client_id == sell_op.client_id
+                and buy_base == sell_base
+            )
             if buy_master or sell_master:
                 new_type = 'market_hedge'
             elif is_self:
