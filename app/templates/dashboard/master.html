@@ -811,11 +811,15 @@ function loadDashboardData() {
         updateCounterValue('#operationsToday', today.operations_count || 0);
         updateCounterValue('#usdToday', today.total_usd || 0, '$', 2);
         updateCounterValue('#penToday', today.total_pen || 0, 'S/', 2);
-        // Utilidad del día — fuente única: amarres (para que desglose cuadre con total)
-        updateCounterValue('#profitToday', today.profit_confirmed_today || 0, 'S/', 2);
+        // Utilidad del día:
+        //   Sin filtro de trader → amarres (total = traders + QoriCash)
+        //   Con filtro de trader → ops (igual que el dashboard del propio trader)
         function fmtPen(v) { return v !== null && v !== undefined ? 'S/ ' + parseFloat(v).toFixed(2) : '—'; }
-        document.getElementById('profitTradersToday').textContent = fmtPen(today.profit_traders_today);
-        document.getElementById('profitHouseToday').textContent   = fmtPen(today.profit_house_today);
+        const isTraderFilter = !!currentFilters.trader_id;
+        const profitTodayVal = isTraderFilter ? (today.profit_today || 0) : (today.profit_confirmed_today || 0);
+        updateCounterValue('#profitToday', profitTodayVal, 'S/', 2);
+        document.getElementById('profitTradersToday').textContent = isTraderFilter ? '—' : fmtPen(today.profit_traders_today);
+        document.getElementById('profitHouseToday').textContent   = isTraderFilter ? '—' : fmtPen(today.profit_house_today);
 
         // Estadísticas del MES (con animación de contador)
         const month = response.month || {};
@@ -826,14 +830,15 @@ function loadDashboardData() {
         updateCounterValue('#usdMonth', month.total_usd || 0, '$', 2);
         updateCounterValue('#penMonth', month.total_pen || 0, 'S/', 2);
 
-        // Utilidad del mes — fuente única: amarres (para que desglose cuadre con total)
-        updateCounterValue('#profitMonth', month.profit_confirmed_month || 0, 'S/', 2);
-        document.getElementById('profitTradersMonth').textContent = fmtPen(month.profit_traders_month);
-        document.getElementById('profitHouseMonth').textContent   = fmtPen(month.profit_house_month);
+        // Utilidad del mes (misma lógica que hoy)
+        const profitMonthVal = isTraderFilter ? (month.profit_month || 0) : (month.profit_confirmed_month || 0);
+        updateCounterValue('#profitMonth', profitMonthVal, 'S/', 2);
+        document.getElementById('profitTradersMonth').textContent = isTraderFilter ? '—' : fmtPen(month.profit_traders_month);
+        document.getElementById('profitHouseMonth').textContent   = isTraderFilter ? '—' : fmtPen(month.profit_house_month);
 
         // Meta mensual
         const goalAmount = month.goal_amount || 0;
-        const profitMonth = month.profit_confirmed_month || 0;
+        const profitMonth = profitMonthVal;
         const percentage = goalAmount > 0 ? Math.min((profitMonth / goalAmount) * 100, 100) : 0;
 
         updateCounterValue('#goalMonthAmount', goalAmount, 'S/', 2);
