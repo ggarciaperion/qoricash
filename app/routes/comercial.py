@@ -4,7 +4,7 @@ Cartera de clientes por trader con acciones de contacto rápido.
 Visible para: Master, Trader
 """
 import base64
-from datetime import datetime
+from datetime import datetime, timedelta
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
@@ -135,7 +135,49 @@ def _clasificar_cliente(ops_completadas):
     return 'Mixto'
 
 
-def _get_cartera(trader_id=None, tipo_filtro=None):
+def _calcular_score(total_ops, total_usd, dias_inactivo, dias_sin_contacto,
+                    avg_spread, tipo, tc_subiendo=False, tc_bajando=False):
+    """Score comercial 0-100 para priorización automática de clientes."""
+    score = 20
+
+    # Recurrencia operativa (max +25)
+    if total_ops >= 2:   score += 8
+    if total_ops >= 5:   score += 9
+    if total_ops >= 12:  score += 8
+
+    # Volumen operado USD (max +20)
+    if total_usd >= 3_000:   score += 5
+    if total_usd >= 15_000:  score += 8
+    if total_usd >= 60_000:  score += 7
+
+    # Recencia operativa (max +15, min -10)
+    if   dias_inactivo <= 7:   score += 15
+    elif dias_inactivo <= 21:  score += 9
+    elif dias_inactivo <= 45:  score += 4
+    elif dias_inactivo > 180:  score -= 10
+    elif dias_inactivo > 90:   score -= 5
+
+    # Margen/spread generado (max +8)
+    if avg_spread is not None:
+        if avg_spread >= 20: score += 8
+        elif avg_spread >= 8: score += 4
+
+    # Penalizar si fue contactado hoy o ayer (dar espacio al cliente)
+    if dias_sin_contacto is not None and dias_sin_contacto < 2:
+        score -= 5
+
+    # Bonus contextual de mercado (max +10)
+    if tc_subiendo and tipo == 'Venta':
+        score += 10   # TC sube → cliente vendedor tiene oportunidad
+    elif tc_bajando and tipo == 'Compra':
+        score += 10   # TC baja → cliente comprador tiene oportunidad
+    elif tipo == 'Mixto' and (tc_subiendo or tc_bajando):
+        score += 3
+
+    return max(5, min(100, score))
+
+
+def _get_cartera(trader_id=None, tipo_filtro=None, tc_subiendo=False, tc_bajando=False):
     """
     Devuelve lista de clientes con operaciones completadas.
     - trader_id=None → Master ve todos.
@@ -209,6 +251,7 @@ def _get_cartera(trader_id=None, tipo_filtro=None):
     )
     tc_map = {r.client_id: r.ultimo for r in tc_rows}
 
+    now_local = now_peru().date()
     resultado = []
     for r in agg:
         c = clients_map.get(r.client_id)
@@ -226,27 +269,58 @@ def _get_cartera(trader_id=None, tipo_filtro=None):
                 digits = '51' + digits
             wa_number = digits
 
-        avg_spread = round(float(r.avg_spread)) if r.avg_spread is not None else None
+        avg_spread  = round(float(r.avg_spread)) if r.avg_spread is not None else None
+        total_usd   = float(r.total_usd or 0)
+        total_ops   = int(r.total_ops)
+
+        # Días desde última operación
+        ultima_date   = r.ultima_op.date() if r.ultima_op and hasattr(r.ultima_op, 'date') else None
+        dias_inactivo = (now_local - ultima_date).days if ultima_date else 9999
+
+        # Días desde último envío de TC
+        ultimo_tc_dt      = tc_map.get(c.id)
+        tc_date           = ultimo_tc_dt.date() if ultimo_tc_dt and hasattr(ultimo_tc_dt, 'date') else None
+        dias_sin_contacto = (now_local - tc_date).days if tc_date else None
+
+        # Ticket promedio
+        ticket_promedio = round(total_usd / total_ops) if total_ops else 0
+
+        # Score comercial y urgencia
+        score = _calcular_score(
+            total_ops, total_usd, dias_inactivo, dias_sin_contacto,
+            avg_spread, tipo, tc_subiendo=tc_subiendo, tc_bajando=tc_bajando,
+        )
+        if score >= 68:
+            urgencia = 'hot'
+        elif score >= 42:
+            urgencia = 'warm'
+        else:
+            urgencia = 'cold'
 
         resultado.append({
-            'id': c.id,
-            'full_name': c.full_name or c.razon_social or c.dni,
-            'document_type': c.document_type,
-            'dni': c.dni,
-            'email': c.email,
-            'phone': phones[0] if phones else '',
-            'phones': phones,
-            'wa_number': wa_number,
-            'tipo': tipo,
-            'total_ops': int(r.total_ops),
-            'total_usd': float(r.total_usd or 0),
-            'ultima_op': r.ultima_op,
-            'avg_spread': avg_spread,
-            'ultimo_tc': tc_map.get(c.id),
+            'id':               c.id,
+            'full_name':        c.full_name or c.razon_social or c.dni,
+            'document_type':    c.document_type,
+            'dni':              c.dni,
+            'email':            c.email,
+            'phone':            phones[0] if phones else '',
+            'phones':           phones,
+            'wa_number':        wa_number,
+            'tipo':             tipo,
+            'total_ops':        total_ops,
+            'total_usd':        total_usd,
+            'ticket_promedio':  ticket_promedio,
+            'ultima_op':        r.ultima_op,
+            'dias_inactivo':    dias_inactivo,
+            'avg_spread':       avg_spread,
+            'ultimo_tc':        ultimo_tc_dt,
+            'dias_sin_contacto': dias_sin_contacto,
+            'score':            score,
+            'urgencia':         urgencia,
         })
 
-    # Ordenar: más reciente primero
-    resultado.sort(key=lambda x: x['ultima_op'], reverse=True)
+    # Ordenar por score descendente — clientes prioritarios al tope
+    resultado.sort(key=lambda x: x['score'], reverse=True)
     return resultado
 
 
@@ -262,10 +336,25 @@ def index():
 
     trader_id = None if current_user.role == "Master" else current_user.id
 
-    # Una sola llamada: filtramos en Python para evitar la segunda query completa
-    todos = _get_cartera(trader_id=trader_id)
+    # Detectar dirección del TC comparando los 2 registros más recientes
+    rates_hist   = ExchangeRate.query.order_by(ExchangeRate.updated_at.desc()).limit(2).all()
+    rate         = rates_hist[0] if rates_hist else None
+    tc_direction = 'estable'
+    tc_delta     = 0.0
+    if len(rates_hist) >= 2:
+        diff     = float(rates_hist[0].buy_rate) - float(rates_hist[1].buy_rate)
+        tc_delta = round(diff, 4)
+        if diff > 0.0001:
+            tc_direction = 'sube'
+        elif diff < -0.0001:
+            tc_direction = 'baja'
+    tc_subiendo = (tc_direction == 'sube')
+    tc_bajando  = (tc_direction == 'baja')
+
+    # Cartera con score contextual al mercado
+    todos = _get_cartera(trader_id=trader_id, tc_subiendo=tc_subiendo, tc_bajando=tc_bajando)
     cnt = {
-        "Todos": len(todos),
+        "Todos":  len(todos),
         "Compra": sum(1 for c in todos if c["tipo"] == "Compra"),
         "Venta":  sum(1 for c in todos if c["tipo"] == "Venta"),
         "Mixto":  sum(1 for c in todos if c["tipo"] == "Mixto"),
@@ -275,8 +364,16 @@ def index():
     else:
         clientes = todos
 
-    # Tipo de cambio actual
-    rate = ExchangeRate.query.order_by(ExchangeRate.updated_at.desc()).first()
+    # Insights comerciales derivados de la cartera completa
+    insights = {
+        "activos_7d":  sum(1 for c in todos if c["dias_inactivo"] <= 7),
+        "activos_30d": sum(1 for c in todos if c["dias_inactivo"] <= 30),
+        "calientes":   sum(1 for c in todos if c["urgencia"] == "hot"),
+        "sin_tc_7d":   sum(1 for c in todos if c["dias_sin_contacto"] is None or c["dias_sin_contacto"] >= 7),
+        "vol_total":   sum(c["total_usd"] for c in todos),
+        "compradores": cnt["Compra"],
+        "vendedores":  cnt["Venta"],
+    }
 
     envios_hoy = _count_hoy(current_user.id)
 
@@ -286,6 +383,9 @@ def index():
         tipo_filtro=tipo_filtro,
         cnt=cnt,
         rate=rate,
+        tc_direction=tc_direction,
+        tc_delta=tc_delta,
+        insights=insights,
         envios_hoy=envios_hoy,
         limite_diario=LIMITE_DIARIO,
         limite_lote=LIMITE_LOTE,
