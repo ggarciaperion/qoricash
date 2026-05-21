@@ -58,7 +58,7 @@ def api_history():
 
 @market_bp.route('/api/macro/refresh', methods=['POST'])
 @login_required
-@role_required('Master')
+@role_required(*_WRITE)
 def api_macro_refresh():
     result = MarketService.run_macro_cycle()
     return jsonify({'success': result['ok'], 'result': result})

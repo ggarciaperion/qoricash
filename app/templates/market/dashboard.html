@@ -812,8 +812,18 @@ document.getElementById('btnRefresh').addEventListener('click', async () => {
   const b = document.getElementById('btnRefresh');
   b.disabled = true; b.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Actualizando…';
   try {
-    await fetch('{{ url_for("market.api_refresh") }}', {method:'POST', headers:{'X-CSRFToken':getCsrf()}});
+    const r = await fetch('{{ url_for("market.api_refresh") }}', {method:'POST', headers:{'X-CSRFToken':getCsrf()}});
+    if (!r.ok) { throw new Error('HTTP ' + r.status); }
+    const j = await r.json();
     await fetchData();
+    if (j.success) {
+      if (typeof showNotification === 'function') showNotification('Mercado actualizado correctamente', 'success');
+    } else {
+      if (typeof showNotification === 'function') showNotification('Error al actualizar datos de mercado', 'danger');
+    }
+  } catch(e) {
+    console.warn('[btnRefresh]', e);
+    if (typeof showNotification === 'function') showNotification('Error de conexión al actualizar', 'danger');
   } finally {
     b.disabled = false; b.innerHTML = '<i class="bi bi-arrow-clockwise me-1"></i>Actualizar';
   }
@@ -871,9 +881,8 @@ function updateSignal(sig) {
   if (confBar) { confBar.style.width = sig.confidence+'%'; confBar.className = `sig-fill sig-${t}`; }
   if (reason)  reason.textContent = sig.reasoning;
   // No mostrar triggers técnicos de la señal RT — solo el análisis diario muestra factores
-  if (sigTime && sig.generated_at) {
-    const dt = new Date(sig.generated_at + 'Z');
-    sigTime.textContent = 'Generado: ' + dt.toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit',timeZone:'America/Lima'}) + ' hora Lima';
+  if (sigTime && sig.generated_at_lima) {
+    sigTime.textContent = 'Generado: ' + sig.generated_at_lima + ' hora Lima';
   }
 }
 
@@ -1028,8 +1037,22 @@ function updateMacro(macro) {
 const btnMR = document.getElementById('btnMacroRefresh');
 if (btnMR) btnMR.addEventListener('click', async()=>{
   btnMR.disabled=true; btnMR.innerHTML='<span class="spinner-border spinner-border-sm me-1"></span>…';
-  try { const r=await fetch('{{ url_for("market.api_macro_refresh") }}',{method:'POST',headers:{'X-CSRFToken':getCsrf()}}); const j=await r.json(); if(j.success) await fetchData(); }
-  finally { btnMR.disabled=false; btnMR.innerHTML='<i class="bi bi-bank me-1"></i>Act. Macro'; }
+  try {
+    const r = await fetch('{{ url_for("market.api_macro_refresh") }}',{method:'POST',headers:{'X-CSRFToken':getCsrf()}});
+    if (!r.ok) { throw new Error('HTTP ' + r.status); }
+    const j = await r.json();
+    if (j.success) {
+      await fetchData();
+      if (typeof showNotification === 'function') showNotification('Indicadores macro actualizados', 'success');
+    } else {
+      if (typeof showNotification === 'function') showNotification('Error al actualizar indicadores macro', 'danger');
+    }
+  } catch(e) {
+    console.warn('[btnMacroRefresh]', e);
+    if (typeof showNotification === 'function') showNotification('Error de conexión al actualizar macro', 'danger');
+  } finally {
+    btnMR.disabled=false; btnMR.innerHTML='<i class="bi bi-bank me-1"></i>Act. Macro';
+  }
 });
 
 // ── Calendario ────────────────────────────────────────────────────────────────

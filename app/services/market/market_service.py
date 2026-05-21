@@ -227,11 +227,13 @@ class MarketService:
     def get_history_range(range_key: str) -> list:
         """Historial de precios agrupado por rango. Devuelve puntos para el gráfico."""
         from sqlalchemy import text
+        # captured_at is stored as Lima-naive (UTC-5). SQLite datetime('now') returns UTC,
+        # so we subtract 5h to align the cutoff with Lima-naive stored timestamps.
         ranges = {
-            '1w': ("datetime('now', '-7 days')",  '%Y-%m-%d %H:00'),
-            '1m': ("datetime('now', '-30 days')", '%Y-%m-%d %H:00'),
-            '6m': ("datetime('now', '-180 days')",'%Y-%m-%d'),
-            '1y': ("datetime('now', '-365 days')",'%Y-%m-%d'),
+            '1w': ("datetime('now', '-5 hours', '-7 days')",  '%Y-%m-%d %H:00'),
+            '1m': ("datetime('now', '-5 hours', '-30 days')", '%Y-%m-%d %H:00'),
+            '6m': ("datetime('now', '-5 hours', '-180 days')",'%Y-%m-%d'),
+            '1y': ("datetime('now', '-5 hours', '-365 days')",'%Y-%m-%d'),
         }
         since_expr, fmt = ranges.get(range_key, ranges['1w'])
         sql = text(f"""
@@ -279,7 +281,7 @@ class MarketService:
 
         history_data = [
             {
-                'time':   _to_lima(r.captured_at).strftime('%H:%M'),
+                'time':   r.captured_at.strftime('%H:%M'),
                 'usdpen': _f(r.usdpen),
                 'gold':   _f(r.gold),
                 'vix':    _f(r.vix),
@@ -287,7 +289,7 @@ class MarketService:
             for r in history
         ]
 
-        last_update = _to_lima(snap.captured_at).strftime('%H:%M') if snap else None
+        last_update = snap.captured_at.strftime('%H:%M') if snap else None
 
         # Indicadores macro
         macro_rows = MacroIndicator.query.order_by(MacroIndicator.key).all()

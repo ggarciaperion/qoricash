@@ -180,17 +180,21 @@ class MarketNews(db.Model):
     def to_dict(self):
         from datetime import timezone, timedelta
         _LIMA = timezone(timedelta(hours=-5))
+        _MESES = ['', 'ene', 'feb', 'mar', 'abr', 'may', 'jun',
+                  'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
 
-        def _fmt_lima(dt):
+        def _fmt_utc_to_lima(dt):
             """Convierte datetime UTC (naive) a string legible en hora Lima."""
             if not dt:
                 return None
-            dt_utc  = dt.replace(tzinfo=timezone.utc)
-            dt_lima = dt_utc.astimezone(_LIMA)
-            # Formato: "25 mar 20:20"
-            meses = ['', 'ene', 'feb', 'mar', 'abr', 'may', 'jun',
-                     'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
-            return f"{dt_lima.day} {meses[dt_lima.month]} {dt_lima.strftime('%H:%M')}"
+            dt_lima = dt.replace(tzinfo=timezone.utc).astimezone(_LIMA)
+            return f"{dt_lima.day} {_MESES[dt_lima.month]} {dt_lima.strftime('%H:%M')}"
+
+        def _fmt_lima_naive(dt):
+            """Formatea datetime ya en hora Lima (naive, desde now_peru()) sin conversión."""
+            if not dt:
+                return None
+            return f"{dt.day} {_MESES[dt.month]} {dt.strftime('%H:%M')}"
 
         return {
             'id':             self.id,
@@ -199,8 +203,8 @@ class MarketNews(db.Model):
             'title':          self.title,
             'summary':        self.summary,
             'url':            self.url,
-            'published_lima': _fmt_lima(self.published_at),
-            'fetched_lima':   _fmt_lima(self.fetched_at),
+            'published_lima': _fmt_utc_to_lima(self.published_at),
+            'fetched_lima':   _fmt_lima_naive(self.fetched_at),
             'impact_level':   self.impact_level,
             'direction':      self.direction,
             'sentiment':      float(self.sentiment_score) if self.sentiment_score else 0,
@@ -222,12 +226,13 @@ class MarketSignal(db.Model):
     def to_dict(self):
         import json
         return {
-            'generated_at': self.generated_at.isoformat(),
-            'signal_type':  self.signal_type,
-            'confidence':   self.confidence,
-            'title':        self.title,
-            'reasoning':    self.reasoning,
-            'triggered_by': json.loads(self.triggered_by) if self.triggered_by else [],
+            'generated_at':       self.generated_at.isoformat(),
+            'generated_at_lima':  self.generated_at.strftime('%H:%M'),
+            'signal_type':        self.signal_type,
+            'confidence':         self.confidence,
+            'title':              self.title,
+            'reasoning':          self.reasoning,
+            'triggered_by':       json.loads(self.triggered_by) if self.triggered_by else [],
         }
 
 
