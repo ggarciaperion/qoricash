@@ -166,27 +166,17 @@
 #dashboardTable thead th.sorting_desc::after { content: "\F127"; opacity: 1; color: var(--bs-primary); }
 </style>
 <script>
-// Filtro custom: DataTable lo llama en cada redibujado — funciona con paginación
-$.fn.dataTable.ext.search.push(function(settings, rowData) {
-    if (settings.nTable.id !== 'dashboardTable') return true;
-    var q = (document.getElementById('filtroRiesgo').value || '').toLowerCase().trim();
-    if (!q) return true;
-    return rowData.some(function(cell) {
-        return (cell || '').toString().toLowerCase().indexOf(q) !== -1;
-    });
-});
-
 $(document).ready(function() {
     window._riskTable = $('#dashboardTable').DataTable({
         order:      [[2, 'desc']],
         pageLength: 25,
         dom:        'tip',
         language: {
-            info:           'Mostrando _START_ a _END_ de _TOTAL_ clientes',
-            infoEmpty:      'Sin clientes',
-            infoFiltered:   '(filtrado de _MAX_ total)',
-            zeroRecords:    'No se encontraron coincidencias',
-            paginate: { previous: '‹', next: '›' }
+            info:         'Mostrando _START_ a _END_ de _TOTAL_ clientes',
+            infoEmpty:    'Sin clientes',
+            infoFiltered: '(filtrado de _MAX_ total)',
+            zeroRecords:  'No se encontraron coincidencias',
+            paginate:     { previous: '‹', next: '›' }
         },
         columnDefs: [
             { orderable: false, targets: -1 },
@@ -194,15 +184,17 @@ $(document).ready(function() {
         ]
     });
 
-    // Disparar redibujado en cada pulsación
-    document.getElementById('filtroRiesgo').addEventListener('input', function() {
-        window._riskTable.draw();
-    });
+    // Filtro en tiempo real — usa la API nativa de DataTables (.search → .draw)
+    function aplicarFiltro() {
+        var q = document.getElementById('filtroRiesgo').value || '';
+        window._riskTable.search(q).draw();
+    }
 
-    // Botón limpiar
+    document.getElementById('filtroRiesgo').addEventListener('input', aplicarFiltro);
+
     document.getElementById('btnLimpiarFiltro').addEventListener('click', function() {
         document.getElementById('filtroRiesgo').value = '';
-        window._riskTable.draw();
+        window._riskTable.search('').draw();
     });
 });
 
