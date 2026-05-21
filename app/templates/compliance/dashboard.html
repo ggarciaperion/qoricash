@@ -93,7 +93,12 @@
                     {% set score_color = 'danger' if c.risk_score and c.risk_score >= 76 else ('warning' if c.risk_score and c.risk_score >= 51 else ('info' if c.risk_score and c.risk_score >= 26 else 'success')) %}
                     {% set level_color = {'Crítico':'danger','Alto':'warning','Medio':'info','Bajo':'success','Sin calcular':'secondary'} %}
                     {% set kyc_color = {'Pendiente':'warning','En Proceso':'info','Aprobado':'success','Rechazado':'danger'} %}
-                    <tr {% if c.has_alerts %}class="table-danger" style="border-left:3px solid var(--bs-danger)"{% endif %}>
+                    <tr class="risk-row{% if c.has_alerts %} table-danger{% endif %}"
+                        {% if c.has_alerts %}style="border-left:3px solid var(--bs-danger)"{% endif %}
+                        data-search="{{ (c.client_name ~ ' ' ~ c.client_dni ~ ' ' ~ (c.risk_level or '') ~ ' ' ~ (c.kyc_status or '') ~ ' ' ~ (c.risk_score|string if c.risk_score is not none else ''))|lower }}"
+                        data-score="{{ c.risk_score if c.risk_score is not none else -1 }}"
+                        data-name="{{ c.client_name|lower }}"
+                        data-updated="{{ c.updated_at }}">
                         <td>
                             {% if c.has_alerts %}
                             <span class="fw-semibold text-danger">
@@ -156,8 +161,9 @@
 
 {% block scripts %}
 <style>
-/* Triángulos de ordenamiento */
-#dashboardTable thead th { white-space: nowrap; user-select: none; }
+/* Triángulos de ordenamiento — vanilla JS, sin DataTables */
+#dashboardTable thead th { white-space: nowrap; user-select: none; cursor: pointer; }
+#dashboardTable thead th:last-child { cursor: default; }
 #dashboardTable thead th.sorting::after,
 #dashboardTable thead th.sorting_asc::after,
 #dashboardTable thead th.sorting_desc::after { font-family: "bootstrap-icons"; margin-left: .35rem; font-size: .72rem; opacity: .45; }
@@ -166,37 +172,80 @@
 #dashboardTable thead th.sorting_desc::after { content: "\F127"; opacity: 1; color: var(--bs-primary); }
 </style>
 <script>
-$(document).ready(function() {
-    window._riskTable = $('#dashboardTable').DataTable({
-        order:      [[2, 'desc']],
-        pageLength: 25,
-        dom:        'tip',
-        language: {
-            info:         'Mostrando _START_ a _END_ de _TOTAL_ clientes',
-            infoEmpty:    'Sin clientes',
-            infoFiltered: '(filtrado de _MAX_ total)',
-            zeroRecords:  'No se encontraron coincidencias',
-            paginate:     { previous: '‹', next: '›' }
-        },
-        columnDefs: [
-            { orderable: false, targets: -1 },
-            { type: 'num', targets: 2 }
-        ]
-    });
+(function() {
+    // ── Estado ────────────────────────────────────────────────────────────────
+    var sortCol = 2;   // Score por defecto
+    var sortDir = 'desc';
 
-    // Filtro en tiempo real — usa la API nativa de DataTables (.search → .draw)
+    // ── Filtro en tiempo real (mismo patrón que Clientes) ────────────────────
     function aplicarFiltro() {
-        var q = document.getElementById('filtroRiesgo').value || '';
-        window._riskTable.search(q).draw();
+        var q = (document.getElementById('filtroRiesgo').value || '').toLowerCase().trim();
+        document.querySelectorAll('#dashboardTable tbody tr.risk-row').forEach(function(row) {
+            row.style.display = (q === '' || row.dataset.search.includes(q)) ? '' : 'none';
+        });
     }
 
     document.getElementById('filtroRiesgo').addEventListener('input', aplicarFiltro);
-
     document.getElementById('btnLimpiarFiltro').addEventListener('click', function() {
         document.getElementById('filtroRiesgo').value = '';
-        window._riskTable.search('').draw();
+        aplicarFiltro();
     });
-});
+
+    // ── Ordenamiento vanilla JS ───────────────────────────────────────────────
+    var tbody = document.querySelector('#dashboardTable tbody');
+
+    function sortTable(colIdx) {
+        if (sortCol === colIdx) {
+            sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+        } else {
+            sortCol = colIdx;
+            sortDir = colIdx === 2 ? 'desc' : 'asc';  // Score: desc por defecto
+        }
+
+        var rows = Array.from(document.querySelectorAll('#dashboardTable tbody tr.risk-row'));
+        rows.sort(function(a, b) {
+            var cellA = a.querySelectorAll('td')[colIdx];
+            var cellB = b.querySelectorAll('td')[colIdx];
+            var va = cellA ? cellA.textContent.trim() : '';
+            var vb = cellB ? cellB.textContent.trim() : '';
+            // Columna Score: usar data-score para orden numérico correcto
+            if (colIdx === 2) {
+                va = parseFloat(a.dataset.score);
+                vb = parseFloat(b.dataset.score);
+                var cmp = va - vb;
+                return sortDir === 'asc' ? cmp : -cmp;
+            }
+            var na = parseFloat(va), nb = parseFloat(vb);
+            var cmp = (!isNaN(na) && !isNaN(nb)) ? na - nb : va.localeCompare(vb, 'es', {numeric: true});
+            return sortDir === 'asc' ? cmp : -cmp;
+        });
+
+        rows.forEach(function(row) { tbody.appendChild(row); });
+
+        // Indicadores visuales en headers
+        document.querySelectorAll('#dashboardTable thead th').forEach(function(th, i) {
+            th.classList.remove('sorting', 'sorting_asc', 'sorting_desc');
+            if (i === colIdx) {
+                th.classList.add(sortDir === 'asc' ? 'sorting_asc' : 'sorting_desc');
+            } else if (i !== 8) {  // No marcar columna Acciones
+                th.classList.add('sorting');
+            }
+        });
+
+        // Re-aplicar filtro para preservar filas ocultas
+        aplicarFiltro();
+    }
+
+    // Asignar click a headers (excepto Acciones, última columna)
+    document.querySelectorAll('#dashboardTable thead th').forEach(function(th, i) {
+        if (i < 8) {
+            th.addEventListener('click', function() { sortTable(i); });
+        }
+    });
+
+    // Orden inicial: Score descendente
+    sortTable(2);
+})();
 
 function recalculate(clientId) {
     Swal.fire({
