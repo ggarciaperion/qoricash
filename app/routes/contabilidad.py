@@ -25,7 +25,7 @@ def _current_period_defaults():
 
 def _get_accounts_catalog():
     """Retorna dict {code: AccountingAccount} con todas las cuentas contables."""
-    from app.models.contabilidad import AccountingAccount
+    from app.models.accounting_account import AccountingAccount
     return {a.code: a for a in AccountingAccount.query.all()}
 
 
