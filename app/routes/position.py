@@ -116,6 +116,8 @@ def get_bank_balances():
         compras_pendientes_usd = 0.0
         ventas_completadas_usd = 0.0
         ventas_pendientes_usd = 0.0
+        compras_completadas_pen = 0.0
+        ventas_completadas_pen = 0.0
 
         for op in all_ops_today:
             # Calcular tiempo transcurrido desde creación
@@ -162,6 +164,7 @@ def get_bank_balances():
                 # Subtotales por estado
                 if op.status == 'Completada':
                     compras_completadas_usd += float(op.amount_usd)
+                    compras_completadas_pen += float(op.amount_pen)
                 else:
                     compras_pendientes_usd += float(op.amount_usd)
 
@@ -175,12 +178,14 @@ def get_bank_balances():
                 # Subtotales por estado
                 if op.status == 'Completada':
                     ventas_completadas_usd += float(op.amount_usd)
+                    ventas_completadas_pen += float(op.amount_pen)
                 else:
                     ventas_pendientes_usd += float(op.amount_usd)
 
         # Calcular diferencia y utilidad
         diferencia_usd = total_ventas_usd - total_compras_usd
         utilidad_pen = contravalor_ventas_pen - contravalor_compras_pen
+        utilidad_completadas_pen = ventas_completadas_pen - compras_completadas_pen
 
         # Determinar etiqueta dinámica
         if diferencia_usd > 0:
@@ -219,7 +224,10 @@ def get_bank_balances():
                 'compras_completadas_usd': round(compras_completadas_usd, 2),
                 'compras_pendientes_usd': round(compras_pendientes_usd, 2),
                 'ventas_completadas_usd': round(ventas_completadas_usd, 2),
-                'ventas_pendientes_usd': round(ventas_pendientes_usd, 2)
+                'ventas_pendientes_usd': round(ventas_pendientes_usd, 2),
+                'compras_completadas_pen': round(compras_completadas_pen, 2),
+                'ventas_completadas_pen': round(ventas_completadas_pen, 2),
+                'utilidad_completadas_pen': round(utilidad_completadas_pen, 2)
             },
             'compras': compras_list,
             'ventas': ventas_list
@@ -440,7 +448,17 @@ def get_bank_reconciliation():
             rec_query = rec_query.filter(Operation.user_id != demo_id)
         completed_ops = rec_query.all()
 
-        logger.debug(f'Reconciliación {fecha_consulta}: {len(completed_ops)} operaciones completadas')
+        # Obtener operaciones PENDIENTES / EN PROCESO del día
+        pend_query = Operation.query.filter(
+            Operation.status.in_(['Pendiente', 'En proceso']),
+            Operation.created_at >= inicio_dia,
+            Operation.created_at <= fin_dia
+        )
+        if demo_id:
+            pend_query = pend_query.filter(Operation.user_id != demo_id)
+        pending_ops = pend_query.all()
+
+        logger.debug(f'Reconciliación {fecha_consulta}: {len(completed_ops)} operaciones completadas, {len(pending_ops)} pendientes')
 
         # Calcular movimientos del día (solo COMPLETADAS)
         total_usd_in = 0.0  # USD que entró (Ventas)
@@ -536,6 +554,35 @@ def get_bank_reconciliation():
                 # QoriCash paga USD → desde la cuenta USD de QoriCash en ese banco
                 _add_mvmt(_banco_accts.get(_banco, {}).get('PEN'), 0.0, +_pen)
                 _add_mvmt(_banco_accts.get(_banco, {}).get('USD'), -_usd, 0.0)
+        # Movimientos proyectados de operaciones pendientes / en proceso
+        acct_mvmt_pend = {}
+
+        def _add_mvmt_pend(full_name, usd_delta, pen_delta):
+            if not full_name:
+                return
+            if full_name not in acct_mvmt_pend:
+                acct_mvmt_pend[full_name] = {'USD': 0.0, 'PEN': 0.0}
+            acct_mvmt_pend[full_name]['USD'] += usd_delta
+            acct_mvmt_pend[full_name]['PEN'] += pen_delta
+
+        for op in pending_ops:
+            _usd = float(op.amount_usd)
+            _pen = float(op.amount_pen)
+            _banco = None
+            try:
+                if op.source_account and op.client:
+                    for _acct in (op.client.bank_accounts or []):
+                        if _acct.get('account_number') == op.source_account:
+                            _banco = _normalize_banco(_acct.get('bank_name', ''))
+                            break
+            except Exception:
+                pass
+            if op.operation_type == 'Compra':
+                _add_mvmt_pend(_banco_accts.get(_banco, {}).get('USD'), +_usd, 0.0)
+                _add_mvmt_pend(_banco_accts.get(_banco, {}).get('PEN'), 0.0, -_pen)
+            else:
+                _add_mvmt_pend(_banco_accts.get(_banco, {}).get('PEN'), 0.0, +_pen)
+                _add_mvmt_pend(_banco_accts.get(_banco, {}).get('USD'), -_usd, 0.0)
         # ─────────────────────────────────────────────────────────────────────
 
         # Calcular totales esperados y diferencias usando movimientos por cuenta
@@ -565,18 +612,27 @@ def get_bank_reconciliation():
             actual_usd = float(bank.balance_usd or 0)
             actual_pen = float(bank.balance_pen or 0)
 
-            # Movimientos atribuidos a este banco específico
+            # Movimientos atribuidos a este banco específico (Completadas)
             _mvmt = acct_mvmt.get(bank.bank_name, {'USD': 0.0, 'PEN': 0.0})
             movement_usd = _mvmt['USD']
             movement_pen = _mvmt['PEN']
 
-            # Saldo esperado = inicial + movimientos del día
+            # Saldo real = inicial + movimientos completados
             expected_usd = initial_usd + movement_usd
             expected_pen = initial_pen + movement_pen
 
-            # Diferencia = real - esperado
+            # Diferencia = manual - esperado (completadas)
             diff_usd = actual_usd - expected_usd
             diff_pen = actual_pen - expected_pen
+
+            # Movimientos pendientes proyectados
+            _mvmt_pend = acct_mvmt_pend.get(bank.bank_name, {'USD': 0.0, 'PEN': 0.0})
+            pend_movement_usd = _mvmt_pend['USD']
+            pend_movement_pen = _mvmt_pend['PEN']
+
+            # Saldo esperado total (incluye pendientes)
+            saldo_esp_pend_usd = expected_usd + pend_movement_usd
+            saldo_esp_pend_pen = expected_pen + pend_movement_pen
 
             # Obtener nombre del usuario que actualizó (con try-except por si hay error en la relación)
             updated_by_name = None
@@ -595,6 +651,8 @@ def get_bank_reconciliation():
                     'initial': initial_usd,
                     'movements': round(movement_usd, 2),
                     'expected': round(expected_usd, 2),
+                    'pend_movements': round(pend_movement_usd, 2),
+                    'saldo_esp_pend': round(saldo_esp_pend_usd, 2),
                     'actual': actual_usd,
                     'difference': round(diff_usd, 2)
                 },
@@ -602,6 +660,8 @@ def get_bank_reconciliation():
                     'initial': initial_pen,
                     'movements': round(movement_pen, 2),
                     'expected': round(expected_pen, 2),
+                    'pend_movements': round(pend_movement_pen, 2),
+                    'saldo_esp_pend': round(saldo_esp_pend_pen, 2),
                     'actual': actual_pen,
                     'difference': round(diff_pen, 2)
                 },
@@ -657,7 +717,8 @@ def get_bank_reconciliation():
                 return round(float(debe) - float(haber), 2)
 
             for bank_dict in banks_data:
-                bank_key = bank_dict['bank_name'].upper()
+                # bank_name = "BCP USD (xxx)" → extract first word = "BCP"
+                bank_key = bank_dict['bank_name'].split()[0].upper()
                 pcge_map = _BANK_PCGE.get(bank_key, {})
 
                 ledger_pen = _ledger_balance(pcge_map['PEN']) if 'PEN' in pcge_map else None
