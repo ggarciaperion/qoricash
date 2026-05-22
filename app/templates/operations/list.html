@@ -107,7 +107,7 @@
                                     {% if op.operation_type == 'Compra' %}
                                         <span class="badge bg-success">Compra</span>
                                     {% else %}
-                                        <span class="badge bg-primary">Venta</span>
+                                        <span class="badge" style="background:#00bcd4;color:#fff;">Venta</span>
                                     {% endif %}
                                 </td>
                                 <td class="text-end">$ {{ op.amount_usd|format_currency(2) }}</td>
