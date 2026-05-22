@@ -295,26 +295,7 @@
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body pt-0" id="operationDetails">Cargando…</div>
-      <div class="modal-footer flex-wrap gap-2">
-        <div class="me-auto d-flex gap-2 flex-wrap align-items-center" id="statusChangeButtons">
-          <small class="text-muted">Cambiar estado:</small>
-          <button class="btn btn-sm btn-warning text-dark"
-                  onclick="cambiarEstadoOperacion('Pendiente')">
-            <i class="bi bi-clock me-1"></i>Pendiente
-          </button>
-          <button class="btn btn-sm btn-info"
-                  onclick="cambiarEstadoOperacion('En proceso')">
-            <i class="bi bi-arrow-repeat me-1"></i>En proceso
-          </button>
-          <button class="btn btn-sm btn-success"
-                  onclick="cambiarEstadoOperacion('Completada')">
-            <i class="bi bi-check-circle me-1"></i>Completada
-          </button>
-          <button class="btn btn-sm btn-danger"
-                  onclick="cambiarEstadoOperacion('Cancelado')">
-            <i class="bi bi-x-circle me-1"></i>Cancelado
-          </button>
-        </div>
+      <div class="modal-footer">
         <button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
       </div>
     </div>
