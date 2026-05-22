@@ -15,6 +15,21 @@
     {% endif %}
 {% endmacro %}
 
+{% block head %}
+<style>
+#operationsTable th,
+#operationsTable td {
+    white-space: nowrap;
+    vertical-align: middle;
+}
+#operationsTable .col-cliente {
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container-fluid">
     <!-- Header -->
@@ -87,7 +102,7 @@
                             {% for op in operations %}
                             <tr data-operation-id="{{ op.id }}" data-status="{{ op.status }}" data-origen="{{ op.origen }}">
                                 <td><strong>{{ op.operation_id }}</strong></td>
-                                <td>{{ op.client.full_name or '-' }}</td>
+                                <td class="col-cliente" title="{{ op.client.full_name or '-' }}">{{ op.client.full_name or '-' }}</td>
                                 <td>
                                     {% if op.operation_type == 'Compra' %}
                                         <span class="badge bg-success">Compra</span>

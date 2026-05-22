@@ -385,6 +385,18 @@
     color: #374151;
 }
 
+/* ── Tabla historial — sin wrapping ─────────────────────────────────────── */
+#historyTable th,
+#historyTable td {
+    white-space: nowrap;
+    vertical-align: middle;
+}
+#historyTable .col-cliente {
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 /* Lightbox overlay */
 #voucherLightbox {
     display: none;
@@ -490,7 +502,7 @@
                     <tr class="historial-row" data-search="{{ (op.operation_id|string ~ ' ' ~ (op.client.full_name if op.client else '') ~ ' ' ~ (op.client.dni if op.client else '') ~ ' ' ~ op.status ~ ' ' ~ (op.created_at.strftime('%d/%m/%Y') if op.created_at else ''))|lower }}">
                         <td><strong>{{ op.operation_id }}</strong></td>
                         <td>{{ op.client.dni if op.client else '-' }}</td>
-                        <td>{{ op.client.full_name if op.client else '-' }}</td>
+                        <td class="col-cliente" title="{{ op.client.full_name if op.client else '-' }}">{{ op.client.full_name if op.client else '-' }}</td>
                         <td class="text-end">$ {{ op.amount_usd|format_currency(2) }}</td>
                         <td class="text-center">{{ "%.4f"|format(op.exchange_rate) }}</td>
                         <td class="text-center">{{ "%.4f"|format(op.base_rate) if op.base_rate else '—' }}</td>
