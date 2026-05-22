@@ -227,7 +227,7 @@
             <div class="card mb-4">
                 <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
                     <span><i class="bi bi-bank"></i> Cuentas Bancarias</span>
-                    {% if current_user.role in ['Master', 'Trader', 'Operador'] %}
+                    {% if current_user.role in ['Master', 'Trader'] %}
                     <button class="btn btn-sm btn-light" onclick="abrirModalCuentas()" title="Gestionar cuentas bancarias">
                         <i class="bi bi-pencil-square me-1"></i>Gestionar
                     </button>
@@ -780,7 +780,7 @@
 </div>
 
 <!-- Modal: Gestionar Cuentas Bancarias -->
-{% if current_user.role in ['Master', 'Trader', 'Operador'] %}
+{% if current_user.role in ['Master', 'Trader'] %}
 <div class="modal fade" id="cuentasModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
     <div class="modal-dialog modal-lg">
         <div class="modal-content border-0 shadow" style="border-radius:10px;overflow:hidden;">
