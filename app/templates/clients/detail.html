@@ -8,7 +8,11 @@
         <div class="page-header-info">
             <nav aria-label="breadcrumb">
                 <ol class="breadcrumb mb-1">
+                    {% if from_page == 'kyc' %}
+                    <li class="breadcrumb-item"><a href="/compliance/kyc">KYC</a></li>
+                    {% else %}
                     <li class="breadcrumb-item"><a href="/clients/list">Clientes</a></li>
+                    {% endif %}
                     <li class="breadcrumb-item active">{{ client.full_name or client.dni }}</li>
                 </ol>
             </nav>
@@ -23,7 +27,7 @@
             </p>
         </div>
         <div class="page-header-actions">
-            <a href="/clients/list" class="btn btn-secondary btn-sm">
+            <a href="{{ back_url }}" class="btn btn-secondary btn-sm">
                 <i class="bi bi-arrow-left"></i> Volver
             </a>
         </div>

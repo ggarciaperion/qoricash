@@ -1076,11 +1076,16 @@ def client_detail(client_id):
             else:
                 restrictive_status['partial'] = True
 
+    from_page = request.args.get('from', 'clients')
+    back_url = '/compliance/kyc' if from_page == 'kyc' else '/clients/list'
+
     return render_template('clients/detail.html',
                          client=client,
                          risk_profile=risk_profile,
                          recent_operations=recent_operations,
-                         restrictive_status=restrictive_status)
+                         restrictive_status=restrictive_status,
+                         back_url=back_url,
+                         from_page=from_page)
 
 
 @clients_bp.route('/api/trader/<int:trader_id>/clients')
