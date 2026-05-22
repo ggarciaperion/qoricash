@@ -2,7 +2,6 @@
 Plantillas de correos diferenciados por canal de registro
 Según especificaciones de correos transaccionales de QoriCash
 """
-import re
 import logging
 from flask import render_template_string
 from flask_mail import Message
@@ -12,65 +11,17 @@ from app.models.user import User
 logger = logging.getLogger(__name__)
 
 
-def _html_to_text(html: str) -> str:
-    text = re.sub(r'<br\s*/?>', '\n', html, flags=re.IGNORECASE)
-    text = re.sub(r'</p>', '\n\n', text, flags=re.IGNORECASE)
-    text = re.sub(r'</tr>', '\n', text, flags=re.IGNORECASE)
-    text = re.sub(r'<[^>]+>', '', text)
-    text = re.sub(r'&nbsp;', ' ', text)
-    text = re.sub(r'&mdash;', '—', text)
-    text = re.sub(r'&middot;', '·', text)
-    text = re.sub(r'&copy;', '©', text)
-    text = re.sub(r'&ordm;', 'º', text)
-    text = re.sub(r'&amp;', '&', text)
-    text = re.sub(r'&[a-z]+;', '', text)
-    text = re.sub(r'\n{3,}', '\n\n', text)
-    return text.strip()
-
-
 def _send_email(msg: Message) -> bool:
-    """
-    Envía un correo priorizando Resend; cae a SMTP si falla o no hay API key.
-    Agrega plain-text automáticamente.
-    """
-    from flask import current_app
-    app = current_app._get_current_object()
-
+    """Envía un correo via Gmail/Google Workspace (Flask-Mail). Agrega plain-text automáticamente."""
+    from app.services.email_service import EmailService
     if not msg.body and msg.html:
-        msg.body = _html_to_text(msg.html)
-
-    resend_key = app.config.get('RESEND_API_KEY')
-    if resend_key:
-        try:
-            import resend
-            resend.api_key = resend_key
-            from_addr = app.config.get('MAIL_DEFAULT_SENDER') or app.config.get('MAIL_USERNAME') or 'info@qoricash.pe'
-            if '<' not in from_addr:
-                from_addr = f'QoriCash <{from_addr}>'
-            params = {
-                'from': from_addr,
-                'to': msg.recipients,
-                'subject': msg.subject,
-                'html': msg.html or '',
-            }
-            if msg.body:
-                params['text'] = msg.body
-            if msg.cc:
-                params['cc'] = msg.cc
-            if msg.reply_to:
-                params['reply_to'] = [msg.reply_to] if isinstance(msg.reply_to, str) else msg.reply_to
-            result = resend.Emails.send(params)
-            logger.info(f'[EMAIL-RESEND] OK id={result.get("id")} to={msg.recipients}')
-            return True
-        except Exception as e:
-            logger.warning(f'[EMAIL-RESEND] Fallo, usando SMTP: {str(e)}')
-
+        msg.body = EmailService._html_to_text(msg.html)
     try:
         mail.send(msg)
-        logger.info(f'[EMAIL-SMTP] OK to={msg.recipients}')
+        logger.info(f'[EMAIL] OK to={msg.recipients}')
         return True
     except Exception as e:
-        logger.error(f'[EMAIL-SMTP] Error: {str(e)}')
+        logger.error(f'[EMAIL] Error: {str(e)}')
         return False
 
 # ============================================

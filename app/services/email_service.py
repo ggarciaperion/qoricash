@@ -139,130 +139,51 @@ class EmailService:
 
     @staticmethod
     def _html_to_text(html: str) -> str:
-        """Convierte HTML a texto plano básico para el fallback plain-text del correo."""
+        """Genera plain-text desde HTML para el fallback multipart del correo."""
         text = re.sub(r'<br\s*/?>', '\n', html, flags=re.IGNORECASE)
         text = re.sub(r'</p>', '\n\n', text, flags=re.IGNORECASE)
         text = re.sub(r'</tr>', '\n', text, flags=re.IGNORECASE)
         text = re.sub(r'<[^>]+>', '', text)
-        text = re.sub(r'&nbsp;', ' ', text)
-        text = re.sub(r'&mdash;', '—', text)
-        text = re.sub(r'&middot;', '·', text)
-        text = re.sub(r'&copy;', '©', text)
-        text = re.sub(r'&ordm;', 'º', text)
-        text = re.sub(r'&amp;', '&', text)
-        text = re.sub(r'&lt;', '<', text)
-        text = re.sub(r'&gt;', '>', text)
+        for ent, rep in [('&nbsp;', ' '), ('&mdash;', '—'), ('&middot;', '·'),
+                         ('&copy;', '©'), ('&ordm;', 'º'), ('&amp;', '&'),
+                         ('&lt;', '<'), ('&gt;', '>')]:
+            text = text.replace(ent, rep)
         text = re.sub(r'&[a-z]+;', '', text)
         text = re.sub(r'\n{3,}', '\n\n', text)
         return text.strip()
 
     @staticmethod
-    def _send_via_resend(msg, app) -> bool:
-        """
-        Envía un email usando la API de Resend (proveedor primario).
-        Retorna True si el envío fue exitoso.
-        """
-        try:
-            import resend
-            api_key = app.config.get('RESEND_API_KEY')
-            if not api_key:
-                return False
-            resend.api_key = api_key
-
-            from_addr = (
-                app.config.get('MAIL_DEFAULT_SENDER') or
-                app.config.get('MAIL_USERNAME') or
-                'info@qoricash.pe'
-            )
-            if '<' not in from_addr:
-                from_addr = f'QoriCash <{from_addr}>'
-
-            params = {
-                'from': from_addr,
-                'to': msg.recipients,
-                'subject': msg.subject,
-                'html': msg.html or '',
-            }
-            if msg.body:
-                params['text'] = msg.body
-            if msg.cc:
-                params['cc'] = msg.cc
-            if msg.bcc:
-                params['bcc'] = msg.bcc
-            if msg.reply_to:
-                params['reply_to'] = [msg.reply_to] if isinstance(msg.reply_to, str) else msg.reply_to
-            if getattr(msg, 'extra_headers', None):
-                params['headers'] = msg.extra_headers
-
-            result = resend.Emails.send(params)
-            logger.info(f'[EMAIL-RESEND] Enviado OK id={result.get("id")} to={msg.recipients}')
-            return True
-
-        except Exception as e:
-            logger.warning(f'[EMAIL-RESEND] Fallo: {str(e)}')
-            return False
-
-    @staticmethod
-    def _send_via_smtp(msg, app, timeout=15) -> bool:
-        """
-        Envía un email usando Flask-Mail / SMTP (fallback).
-        Retorna True si el envío fue exitoso.
-        """
-        try:
-            with app.app_context():
-                with eventlet.Timeout(timeout):
-                    mail.send(msg)
-            logger.info(f'[EMAIL-SMTP] Enviado OK to={msg.recipients}')
-            return True
-        except eventlet.Timeout:
-            logger.warning(f'[EMAIL-SMTP] Timeout ({timeout}s) to={msg.recipients}')
-            return False
-        except Exception as e:
-            logger.error(f'[EMAIL-SMTP] Error: {str(e)}')
-            return False
-
-    @staticmethod
     def _send_async(msg, timeout=15, max_retries=2):
         """
-        Envía un email de forma asíncrona.
-        Estrategia: Resend (primario) → SMTP/Flask-Mail (fallback).
+        Envía un email de forma asíncrona via Gmail/Google Workspace (Flask-Mail).
         Reintenta hasta max_retries veces con backoff exponencial.
         Agrega plain-text automáticamente si no se proporcionó.
         """
         from flask import current_app
         app = current_app._get_current_object()
 
-        # Asegurar plain-text fallback
         if not msg.body and msg.html:
             msg.body = EmailService._html_to_text(msg.html)
 
         def _send():
             with app.app_context():
-                resend_key = app.config.get('RESEND_API_KEY')
                 for attempt in range(1, max_retries + 2):
                     try:
-                        if resend_key:
-                            ok = EmailService._send_via_resend(msg, app)
-                            if ok:
-                                return
-                            logger.warning(f'[EMAIL] Resend falló (intento {attempt}), usando SMTP fallback')
-                            ok = EmailService._send_via_smtp(msg, app, timeout)
-                        else:
-                            ok = EmailService._send_via_smtp(msg, app, timeout)
-
-                        if ok:
-                            return
-
-                        if attempt <= max_retries:
-                            wait = 2 ** attempt
-                            logger.warning(f'[EMAIL] Reintento {attempt}/{max_retries} en {wait}s')
-                            time.sleep(wait)
-                        else:
-                            logger.error(f'[EMAIL] Todos los intentos fallaron to={msg.recipients}')
+                        with eventlet.Timeout(timeout):
+                            mail.send(msg)
+                        logger.info(f'[EMAIL] Enviado OK to={msg.recipients}')
+                        return
+                    except eventlet.Timeout:
+                        logger.warning(f'[EMAIL] Timeout ({timeout}s) intento {attempt} to={msg.recipients}')
                     except Exception as e:
-                        logger.error(f'[EMAIL] Error inesperado intento {attempt}: {str(e)}')
-                        if attempt <= max_retries:
-                            time.sleep(2 ** attempt)
+                        logger.error(f'[EMAIL] Error intento {attempt}: {str(e)}')
+
+                    if attempt <= max_retries:
+                        wait = 2 ** attempt
+                        logger.warning(f'[EMAIL] Reintento {attempt}/{max_retries} en {wait}s')
+                        time.sleep(wait)
+                    else:
+                        logger.error(f'[EMAIL] Todos los intentos fallaron to={msg.recipients}')
 
         eventlet.spawn_n(_send)
 
