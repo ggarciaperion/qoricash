@@ -199,11 +199,17 @@ def update_client(client_id):
     API: Actualizar cliente existente
     """
     data = request.get_json() or {}
-    # Operador solo puede modificar cuentas bancarias
+    # Operador tiene los mismos permisos que Trader: solo cuentas bancarias y documentos adjuntos
     if current_user.role == 'Operador':
-        data = {k: v for k, v in data.items() if k == 'bank_accounts'}
+        _allowed = {
+            'bank_accounts', 'origen', 'bank_name', 'account_type',
+            'currency', 'bank_account_number', 'bank_accounts_json',
+            'dni_front_url', 'dni_back_url',
+            'dni_representante_front_url', 'dni_representante_back_url', 'ficha_ruc_url'
+        }
+        data = {k: v for k, v in data.items() if k in _allowed}
         if not data:
-            return jsonify({'success': False, 'message': 'Operador solo puede modificar cuentas bancarias'}), 403
+            return jsonify({'success': False, 'message': 'Operador solo puede modificar cuentas bancarias y documentos'}), 403
     success, message, client = ClientService.update_client(current_user=current_user, client_id=client_id, data=data)
     if success:
         return jsonify({'success': True, 'message': message, 'client': client.to_dict()})

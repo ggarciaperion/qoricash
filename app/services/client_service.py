@@ -450,8 +450,8 @@ class ClientService:
                 logger.warning(f"⛔ Trader {current_user.username} intentó editar cliente {client_id} que no le pertenece")
                 return False, 'Solo puedes editar los clientes de tu propia cartera', None
 
-            if user_role == 'Trader':
-                # Campos permitidos para Trader:
+            if user_role in ('Trader', 'Operador'):
+                # Campos permitidos para Trader y Operador:
                 # 1. Cuentas bancarias
                 # 2. Documentos adjuntos (URLs de documentos)
                 allowed_fields = {
@@ -467,20 +467,18 @@ class ClientService:
                 # Si hay campos que no están permitidos, rechazar
                 forbidden_fields = set(data.keys()) - allowed_fields
                 if forbidden_fields:
-                    logger.warning(f"❌ Trader {current_user.username} intentó modificar campos prohibidos: {forbidden_fields}")
-                    logger.warning(f"❌ Campos permitidos: {allowed_fields}")
-                    logger.warning(f"❌ Campos recibidos: {set(data.keys())}")
+                    logger.warning(f"❌ {user_role} {current_user.username} intentó modificar campos prohibidos: {forbidden_fields}")
                     return False, f'No tienes permisos para modificar estos campos: {", ".join(forbidden_fields)}. Solo puedes editar cuentas bancarias y documentos adjuntos.', None
 
-                logger.info(f"✅ Trader {current_user.username} - Validación de permisos OK")
+                logger.info(f"✅ {user_role} {current_user.username} - Validación de permisos OK")
 
             # Guardar valores anteriores para auditoría
             old_values = client.to_dict()
 
-            # IMPORTANTE: Si es Trader, SOLO procesar bank_accounts y documentos
+            # IMPORTANTE: Si es Trader u Operador, SOLO procesar bank_accounts y documentos
             # NO modificar otros campos (email, phone, dirección, etc.)
-            if user_role != 'Trader':
-                # Validar email si cambió (solo para no-Traders)
+            if user_role not in ('Trader', 'Operador'):
+                # Validar email si cambió (solo para Master y Middle Office)
                 new_email = (data.get('email') or '').strip()
                 if new_email and new_email != client.email:
                     if not validate_email(new_email):
@@ -491,17 +489,17 @@ class ClientService:
 
                     client.email = new_email.lower()
 
-                # Validar teléfono (solo para no-Traders)
+                # Validar teléfono (solo para Master y Middle Office)
                 phone = (data.get('phone') or '').strip()
                 if phone and not validate_phone(phone):
                     return False, 'Teléfono inválido', None
                 client.phone = phone if phone else None
             else:
-                logger.info(f"🔒 Trader: Campos personales (email, phone) NO se modificarán")
+                logger.info(f"🔒 {user_role}: Campos personales (email, phone) NO se modificarán")
 
-            # Actualizar campos según tipo de documento (solo para no-Traders)
-            # Los Traders SOLO pueden actualizar documentos mediante URLs
-            if user_role != 'Trader':
+            # Actualizar campos según tipo de documento (solo para Master y Middle Office)
+            # Trader y Operador SOLO pueden actualizar documentos mediante URLs
+            if user_role not in ('Trader', 'Operador'):
                 if client.document_type == 'RUC':
                     razon_social = (data.get('razon_social') or '').strip()
                     if razon_social:
