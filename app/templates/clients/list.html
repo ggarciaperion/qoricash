@@ -212,7 +212,7 @@
                                 {% if current_user.role == 'Master' %}
                                 <td><input type="checkbox" class="client-checkbox" value="{{ c.id }}"></td>
                                 {% endif %}
-                                <td>{{ loop.index }}</td>
+                                <td class="text-muted" style="font-size:.8rem;">{{ c.id }}</td>
                                 <td>
                                     <span class="badge bg-info">{{ c.document_type }}</span>
                                 </td>

@@ -1079,11 +1079,20 @@ def client_detail(client_id):
     from_page = request.args.get('from', 'clients')
     back_url = '/compliance/kyc' if from_page == 'kyc' else '/clients/list'
 
+    # Historial de reasignaciones
+    from app.models.audit_log import AuditLog
+    reassignment_history = AuditLog.query.filter_by(
+        action='REASSIGN_CLIENT',
+        entity='Client',
+        entity_id=client_id
+    ).order_by(AuditLog.created_at.desc()).all()
+
     return render_template('clients/detail.html',
                          client=client,
                          risk_profile=risk_profile,
                          recent_operations=recent_operations,
                          restrictive_status=restrictive_status,
+                         reassignment_history=reassignment_history,
                          back_url=back_url,
                          from_page=from_page)
 

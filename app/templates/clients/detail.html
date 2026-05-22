@@ -353,6 +353,32 @@
                 </div>
             </div>
 
+            {% if reassignment_history %}
+            <!-- Historial de Reasignaciones -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white d-flex align-items-center gap-2">
+                    <i class="bi bi-arrow-left-right"></i> Historial de Reasignaciones
+                    <span class="badge bg-light text-dark ms-auto">{{ reassignment_history|length }}</span>
+                </div>
+                <div class="card-body p-0">
+                    <ul class="list-group list-group-flush">
+                        {% for log in reassignment_history %}
+                        <li class="list-group-item px-3 py-2">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <span class="badge bg-secondary me-1" style="font-size:.68rem;">
+                                        {{ log.created_at.strftime('%d/%m/%Y %H:%M') if log.created_at else '-' }}
+                                    </span>
+                                    <small class="text-muted d-block mt-1">{{ log.details }}</small>
+                                </div>
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+            {% endif %}
+
             <!-- Perfil KYC y Compliance -->
             <div class="card mb-4">
                 <div class="card-header bg-danger text-white">
