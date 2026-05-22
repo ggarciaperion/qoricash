@@ -834,8 +834,8 @@
                 }, 100);
             }
 
-            // Foco en primer input (solo si no es Trader o es un campo editable)
-            if (window.currentUserRole !== 'Trader') {
+            // Foco en primer input (solo si no es Trader/Operador)
+            if (window.currentUserRole !== 'Trader' && window.currentUserRole !== 'Operador') {
                 var firstInput = modalElement.querySelector('input, select, textarea, [autofocus]');
                 if (firstInput) {
                     try { firstInput.focus(); } catch(e) { /* ignore */ }
