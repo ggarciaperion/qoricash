@@ -331,41 +331,6 @@ tr.row-selected { background: rgba(0,222,168,.06) !important; }
   </div>
 </div>
 
-<!-- ── KPI Strip ───────────────────────────────────────────────── -->
-<div class="kpi-strip">
-  <div class="kpi-card">
-    <div class="kpi-icon kpi-icon-blue"><i class="bi bi-people-fill"></i></div>
-    <div>
-      <p class="kpi-label">Cartera total</p>
-      <p class="kpi-value">{{ cnt.Todos }}</p>
-      <p class="kpi-sub">{{ insights.compradores }} compra · {{ insights.vendedores }} venta</p>
-    </div>
-  </div>
-  <div class="kpi-card">
-    <div class="kpi-icon kpi-icon-green"><i class="bi bi-activity"></i></div>
-    <div>
-      <p class="kpi-label">Activos esta semana</p>
-      <p class="kpi-value">{{ insights.activos_7d }}</p>
-      <p class="kpi-sub">{{ insights.activos_30d }} en los últimos 30d</p>
-    </div>
-  </div>
-  <div class="kpi-card">
-    <div class="kpi-icon kpi-icon-amber"><i class="bi bi-lightning-charge-fill"></i></div>
-    <div>
-      <p class="kpi-label">Calientes hoy</p>
-      <p class="kpi-value">{{ insights.calientes }}</p>
-      <p class="kpi-sub">score 68+ · contactar primero</p>
-    </div>
-  </div>
-  <div class="kpi-card">
-    <div class="kpi-icon kpi-icon-purple"><i class="bi bi-bell-fill"></i></div>
-    <div>
-      <p class="kpi-label">Sin TC reciente</p>
-      <p class="kpi-value">{{ insights.sin_tc_7d }}</p>
-      <p class="kpi-sub">no recibieron TC en 7+ días</p>
-    </div>
-  </div>
-</div>
 
 <!-- ── TC Direction Context (dinámico) ────────────────────────── -->
 {% if rate %}
