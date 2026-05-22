@@ -127,9 +127,31 @@
                                 <td class="text-center d-none d-xl-table-cell">{{ "%+.1f"|format(op.pips) if op.pips else '—' }}</td>
                                 <td class="text-end">S/ {{ op.amount_pen|format_currency(2) }}</td>
                                 <td class="text-center d-none d-lg-table-cell">
-                                    {% set source_bank = get_bank_name(op, op.source_account) %}
-                                    {% set dest_bank = get_bank_name(op, op.destination_account) %}
-                                    <small>{{ source_bank|trim or 'N/A' }} / {{ dest_bank|trim or 'N/A' }}</small>
+                                    {%- set pay_banks = [] -%}
+                                    {%- set dep_banks = [] -%}
+                                    {%- for p in op.client_payments -%}
+                                        {%- if p.qc_bank and p.qc_bank not in pay_banks -%}
+                                            {%- set _ = pay_banks.append(p.qc_bank) -%}
+                                        {%- endif -%}
+                                    {%- endfor -%}
+                                    {%- for d in op.client_deposits -%}
+                                        {%- if d.qc_bank and d.qc_bank not in dep_banks -%}
+                                            {%- set _ = dep_banks.append(d.qc_bank) -%}
+                                        {%- endif -%}
+                                    {%- endfor -%}
+                                    {%- if pay_banks or dep_banks -%}
+                                        {%- set out_str = pay_banks | join(' + ') -%}
+                                        {%- set in_str = dep_banks | join(' + ') -%}
+                                        <small>
+                                        {%- if out_str and in_str -%}{{ out_str }} → {{ in_str }}
+                                        {%- elif out_str -%}{{ out_str }}
+                                        {%- else -%}{{ in_str }}{%- endif -%}
+                                        </small>
+                                    {%- else -%}
+                                        {% set source_bank = get_bank_name(op, op.source_account) %}
+                                        {% set dest_bank = get_bank_name(op, op.destination_account) %}
+                                        <small>{{ source_bank|trim or 'N/A' }} / {{ dest_bank|trim or 'N/A' }}</small>
+                                    {%- endif -%}
                                 </td>
                                 <td class="text-center d-none d-md-table-cell">
                                     {% if op.origen == 'plataforma' or op.origen == 'web' %}
@@ -865,10 +887,8 @@ function buildOperationRow(op) {
         }
     }
 
-    // Obtener nombres de bancos
-    const sourceBankName = op.source_bank_name || 'N/A';
-    const destBankName = op.destination_bank_name || 'N/A';
-    const banksText = `${sourceBankName} / ${destBankName}`;
+    // Obtener nombres de bancos — derivado de pagos/depósitos reales (qc_bank)
+    const banksText = op.banks_display || `${op.source_bank_name || 'N/A'} / ${op.destination_bank_name || 'N/A'}`;
 
     // Badge de canal (origen)
     // DEBUG: Log para verificar el valor de origen
@@ -1347,6 +1367,10 @@ function addDepositRow(data, index, editable) {
     const defaultAccount = data.cuenta_cargo || currentOperation.source_account;
     const accountOptions = buildAccountOptions(currentOperation.operation_type === 'Compra' ? '$' : 'S/', defaultAccount);
     const comprobanteUrl = data.comprobante_url || '';
+    const qcBankVal = data.qc_bank || '';
+    const qcBankOptions = ['BCP', 'INTERBANK', 'BANBIF'].map(b =>
+        `<option value="${b}" ${qcBankVal === b ? 'selected' : ''}>${b}</option>`
+    ).join('');
 
     const html = `
     <div class="deposit-row border rounded p-2 mb-2" data-index="${index}" data-comprobante-url="${comprobanteUrl}">
@@ -1360,11 +1384,20 @@ function addDepositRow(data, index, editable) {
                 <label class="form-label small">Código Op.</label>
                 <input type="text" class="form-control form-control-sm deposit-codigo" value="${data.codigo_operacion || ''}" ${editable ? '' : 'readonly'}>
             </div>
-            <div class="col-md-3">
+            <div class="col-md-2">
                 <label class="form-label small">Cuenta Cargo</label>
                 ${editable
                     ? `<select class="form-select form-select-sm deposit-cuenta">${accountOptions}</select>`
                     : getAccountInfoDisplay(data.cuenta_cargo || currentOperation.source_account, false)}
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small">Banco QoriCash</label>
+                ${editable
+                    ? `<select class="form-select form-select-sm deposit-qc-bank">
+                        <option value="">Banco...</option>
+                        ${qcBankOptions}
+                       </select>`
+                    : `<span class="badge bg-secondary">${qcBankVal || '—'}</span>`}
             </div>
             <div class="col-md-3">
                 <label class="form-label small">Comprobante</label>
@@ -1378,7 +1411,7 @@ function addDepositRow(data, index, editable) {
                         : (editable ? `<input type="file" class="form-control form-control-sm deposit-file" accept="image/*,.pdf" onchange="uploadDepositProof(this, ${index})">` : '<span class="text-muted">Sin comprobante</span>')}
                 </div>
             </div>
-            <div class="col-md-2 d-flex align-items-end">
+            <div class="col-md-1 d-flex align-items-end">
                 ${editable ? `<button type="button" class="btn btn-sm btn-outline-danger w-100" onclick="removeDeposit(${index})"><i class="bi bi-trash"></i></button>` : ''}
             </div>
         </div>
@@ -1423,6 +1456,10 @@ function addPayment() {
 function addPaymentRow(data, index, editable) {
     const defaultAccount = data.cuenta_destino || currentOperation.destination_account;
     const accountOptions = buildAccountOptions(currentOperation.operation_type === 'Venta' ? '$' : 'S/', defaultAccount);
+    const qcBankVal = data.qc_bank || '';
+    const qcBankOptions = ['BCP', 'INTERBANK', 'BANBIF'].map(b =>
+        `<option value="${b}" ${qcBankVal === b ? 'selected' : ''}>${b}</option>`
+    ).join('');
 
     // Auto-llenar importe con el monto total si es el primer pago y no tiene importe
     let defaultImporte = data.importe || '';
@@ -1437,13 +1474,22 @@ function addPaymentRow(data, index, editable) {
     const html = `
     <div class="payment-row border rounded p-2 mb-2" data-index="${index}">
         <div class="row">
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <label class="form-label small">Importe</label>
                 <input type="number" class="form-control form-control-sm payment-importe" value="${defaultImporte}"
                     step="0.01" min="0" ${editable ? '' : 'readonly'} onchange="updateTotals()">
             </div>
-            <div class="col-md-6">
-                <label class="form-label small">Cuenta Destino</label>
+            <div class="col-md-3">
+                <label class="form-label small">Banco QoriCash</label>
+                ${editable
+                    ? `<select class="form-select form-select-sm payment-qc-bank">
+                        <option value="">Banco...</option>
+                        ${qcBankOptions}
+                       </select>`
+                    : `<span class="badge bg-secondary">${qcBankVal || '—'}</span>`}
+            </div>
+            <div class="col-md-4">
+                <label class="form-label small">Cuenta Destino Cliente</label>
                 ${editable
                     ? `<div class="d-flex align-items-center gap-1">
                         <select class="form-select form-select-sm payment-cuenta flex-grow-1">${accountOptions}</select>
@@ -1781,6 +1827,7 @@ function collectDeposits() {
             importe: parseFloat($(this).find('.deposit-importe').val()) || 0,
             codigo_operacion: $(this).find('.deposit-codigo').val() || '',
             cuenta_cargo: $(this).find('.deposit-cuenta').val() || '',
+            qc_bank: $(this).find('.deposit-qc-bank').val() || '',
             comprobante_url: comprobanteUrl
         });
     });
@@ -1870,6 +1917,7 @@ function collectPayments() {
     $('.payment-row').each(function() {
         payments.push({
             importe: parseFloat($(this).find('.payment-importe').val()) || 0,
+            qc_bank: $(this).find('.payment-qc-bank').val() || '',
             cuenta_destino: $(this).find('.payment-cuenta').val() || ''
         });
     });
@@ -1968,16 +2016,32 @@ function completeOperation() {
         return;
     }
 
-    // VALIDACIÓN 3: Cada pago debe tener importe y cuenta destino
+    // VALIDACIÓN 3: Cada pago debe tener importe, banco QoriCash y cuenta destino
     for (let i = 0; i < payments.length; i++) {
         if (!payments[i].importe || payments[i].importe <= 0) {
             showNotification(`El pago ${i + 1} debe tener un importe mayor a 0`, 'warning');
+            return;
+        }
+        if (!payments[i].qc_bank) {
+            showNotification(`El pago ${i + 1} debe indicar el banco QoriCash utilizado`, 'warning');
             return;
         }
         if (!payments[i].cuenta_destino) {
             showNotification(`El pago ${i + 1} debe tener una cuenta de destino`, 'warning');
             return;
         }
+    }
+
+    // VALIDACIÓN 4: Suma de pagos debe coincidir con el total esperado
+    const totalPagado = payments.reduce((sum, p) => sum + (p.importe || 0), 0);
+    const expectedPayment = currentOperation.operation_type === 'Venta'
+        ? parseFloat(currentOperation.amount_usd)
+        : parseFloat(currentOperation.amount_pen);
+    if (Math.abs(totalPagado - expectedPayment) > 0.05) {
+        const diff = (expectedPayment - totalPagado).toFixed(2);
+        const signo = diff > 0 ? 'Falta' : 'Exceso';
+        showNotification(`${signo}: ${Math.abs(diff)} — la suma de pagos debe igualar el total de la operación`, 'warning');
+        return;
     }
 
     const comments = $('#operator_comments').val();

@@ -530,36 +530,65 @@ def get_bank_reconciliation():
             acct_mvmt[full_name]['USD'] += usd_delta
             acct_mvmt[full_name]['PEN'] += pen_delta
 
-        for op in completed_ops:
-            _usd = float(op.amount_usd)
-            _pen = float(op.amount_pen)
-
-            # Determinar banco: (1) lookup por número de cuenta, (2) nombre almacenado,
-            # (3) fallback INTERBANK (pagos interbancarios se canalizan por INTERBANK).
-            _banco = None
+        def _fallback_banco(op):
+            """Banco fallback cuando no hay qc_bank en los pagos/depósitos."""
             try:
                 if op.source_account and op.client:
                     for _acct in (op.client.bank_accounts or []):
                         if _acct.get('account_number') == op.source_account:
-                            _banco = _normalize_banco(_acct.get('bank_name', ''))
-                            break
-                if _banco is None and op.source_bank_name:
-                    _banco = _normalize_banco(op.source_bank_name)
-                if _banco is None:
-                    _banco = 'INTERBANK'
+                            return _normalize_banco(_acct.get('bank_name', ''))
+                if op.source_bank_name:
+                    return _normalize_banco(op.source_bank_name)
             except Exception:
-                _banco = 'INTERBANK'
+                pass
+            return 'INTERBANK'
+
+        for op in completed_ops:
+            _usd = float(op.amount_usd)
+            _pen = float(op.amount_pen)
+            _payments = op.client_payments or []
+            _deposits = op.client_deposits or []
+            _has_pay_banks = any(p.get('qc_bank') for p in _payments)
+            _has_dep_banks = any(d.get('qc_bank') for d in _deposits)
 
             if op.operation_type == 'Compra':
-                # Cliente transfiere USD → cuenta USD de QoriCash en ese banco
-                # QoriCash paga PEN → desde la cuenta PEN de QoriCash en ese banco
-                _add_mvmt(_banco_accts.get(_banco, {}).get('USD'), +_usd, 0.0)
-                _add_mvmt(_banco_accts.get(_banco, {}).get('PEN'), 0.0, -_pen)
+                # Depósitos: cliente → QoriCash en USD
+                if _has_dep_banks:
+                    for dep in _deposits:
+                        _b = _normalize_banco(dep.get('qc_bank', ''))
+                        _amt = float(dep.get('importe', 0))
+                        if _b and _amt > 0:
+                            _add_mvmt(_banco_accts.get(_b, {}).get('USD'), +_amt, 0.0)
+                else:
+                    _add_mvmt(_banco_accts.get(_fallback_banco(op), {}).get('USD'), +_usd, 0.0)
+                # Pagos: QoriCash → cliente en PEN
+                if _has_pay_banks:
+                    for pay in _payments:
+                        _b = _normalize_banco(pay.get('qc_bank', ''))
+                        _amt = float(pay.get('importe', 0))
+                        if _b and _amt > 0:
+                            _add_mvmt(_banco_accts.get(_b, {}).get('PEN'), 0.0, -_amt)
+                else:
+                    _add_mvmt(_banco_accts.get(_fallback_banco(op), {}).get('PEN'), 0.0, -_pen)
             else:  # Venta
-                # Cliente transfiere PEN → cuenta PEN de QoriCash en ese banco
-                # QoriCash paga USD → desde la cuenta USD de QoriCash en ese banco
-                _add_mvmt(_banco_accts.get(_banco, {}).get('PEN'), 0.0, +_pen)
-                _add_mvmt(_banco_accts.get(_banco, {}).get('USD'), -_usd, 0.0)
+                # Depósitos: cliente → QoriCash en PEN
+                if _has_dep_banks:
+                    for dep in _deposits:
+                        _b = _normalize_banco(dep.get('qc_bank', ''))
+                        _amt = float(dep.get('importe', 0))
+                        if _b and _amt > 0:
+                            _add_mvmt(_banco_accts.get(_b, {}).get('PEN'), 0.0, +_amt)
+                else:
+                    _add_mvmt(_banco_accts.get(_fallback_banco(op), {}).get('PEN'), 0.0, +_pen)
+                # Pagos: QoriCash → cliente en USD
+                if _has_pay_banks:
+                    for pay in _payments:
+                        _b = _normalize_banco(pay.get('qc_bank', ''))
+                        _amt = float(pay.get('importe', 0))
+                        if _b and _amt > 0:
+                            _add_mvmt(_banco_accts.get(_b, {}).get('USD'), -_amt, 0.0)
+                else:
+                    _add_mvmt(_banco_accts.get(_fallback_banco(op), {}).get('USD'), -_usd, 0.0)
         # Movimientos proyectados de operaciones pendientes / en proceso
         acct_mvmt_pend = {}
 
@@ -574,25 +603,45 @@ def get_bank_reconciliation():
         for op in pending_ops:
             _usd = float(op.amount_usd)
             _pen = float(op.amount_pen)
-            _banco = None
-            try:
-                if op.source_account and op.client:
-                    for _acct in (op.client.bank_accounts or []):
-                        if _acct.get('account_number') == op.source_account:
-                            _banco = _normalize_banco(_acct.get('bank_name', ''))
-                            break
-                if _banco is None and op.source_bank_name:
-                    _banco = _normalize_banco(op.source_bank_name)
-                if _banco is None:
-                    _banco = 'INTERBANK'
-            except Exception:
-                _banco = 'INTERBANK'
+            _payments = op.client_payments or []
+            _deposits = op.client_deposits or []
+            _has_pay_banks = any(p.get('qc_bank') for p in _payments)
+            _has_dep_banks = any(d.get('qc_bank') for d in _deposits)
+
             if op.operation_type == 'Compra':
-                _add_mvmt_pend(_banco_accts.get(_banco, {}).get('USD'), +_usd, 0.0)
-                _add_mvmt_pend(_banco_accts.get(_banco, {}).get('PEN'), 0.0, -_pen)
+                if _has_dep_banks:
+                    for dep in _deposits:
+                        _b = _normalize_banco(dep.get('qc_bank', ''))
+                        _amt = float(dep.get('importe', 0))
+                        if _b and _amt > 0:
+                            _add_mvmt_pend(_banco_accts.get(_b, {}).get('USD'), +_amt, 0.0)
+                else:
+                    _add_mvmt_pend(_banco_accts.get(_fallback_banco(op), {}).get('USD'), +_usd, 0.0)
+                if _has_pay_banks:
+                    for pay in _payments:
+                        _b = _normalize_banco(pay.get('qc_bank', ''))
+                        _amt = float(pay.get('importe', 0))
+                        if _b and _amt > 0:
+                            _add_mvmt_pend(_banco_accts.get(_b, {}).get('PEN'), 0.0, -_amt)
+                else:
+                    _add_mvmt_pend(_banco_accts.get(_fallback_banco(op), {}).get('PEN'), 0.0, -_pen)
             else:
-                _add_mvmt_pend(_banco_accts.get(_banco, {}).get('PEN'), 0.0, +_pen)
-                _add_mvmt_pend(_banco_accts.get(_banco, {}).get('USD'), -_usd, 0.0)
+                if _has_dep_banks:
+                    for dep in _deposits:
+                        _b = _normalize_banco(dep.get('qc_bank', ''))
+                        _amt = float(dep.get('importe', 0))
+                        if _b and _amt > 0:
+                            _add_mvmt_pend(_banco_accts.get(_b, {}).get('PEN'), 0.0, +_amt)
+                else:
+                    _add_mvmt_pend(_banco_accts.get(_fallback_banco(op), {}).get('PEN'), 0.0, +_pen)
+                if _has_pay_banks:
+                    for pay in _payments:
+                        _b = _normalize_banco(pay.get('qc_bank', ''))
+                        _amt = float(pay.get('importe', 0))
+                        if _b and _amt > 0:
+                            _add_mvmt_pend(_banco_accts.get(_b, {}).get('USD'), -_amt, 0.0)
+                else:
+                    _add_mvmt_pend(_banco_accts.get(_fallback_banco(op), {}).get('USD'), -_usd, 0.0)
         # ─────────────────────────────────────────────────────────────────────
 
         # Calcular totales esperados y diferencias usando movimientos por cuenta

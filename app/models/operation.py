@@ -332,6 +332,29 @@ class Operation(db.Model):
             'assigned_operator_id': self.assigned_operator_id,
         }
 
+        # Campo calculado: bancos involucrados, derivado de los pagos/depósitos reales.
+        # Prioridad: qc_bank en client_payments/deposits → fallback source/destination_bank_name.
+        try:
+            _pay_banks = list(dict.fromkeys(
+                p.get('qc_bank') for p in self.client_payments if p.get('qc_bank')
+            ))
+            _dep_banks = list(dict.fromkeys(
+                d.get('qc_bank') for d in self.client_deposits if d.get('qc_bank')
+            ))
+            if _pay_banks or _dep_banks:
+                _out = ' + '.join(_pay_banks) if _pay_banks else None
+                _in = ' + '.join(_dep_banks) if _dep_banks else None
+                if _out and _in:
+                    data['banks_display'] = f"{_out} → {_in}"
+                else:
+                    data['banks_display'] = _out or _in
+            else:
+                _src = self.source_bank_name or 'N/A'
+                _dst = self.destination_bank_name or 'N/A'
+                data['banks_display'] = f"{_src} / {_dst}"
+        except Exception:
+            data['banks_display'] = f"{self.source_bank_name or 'N/A'} / {self.destination_bank_name or 'N/A'}"
+
         if include_relations:
             # Obtener nombre del cliente según su tipo (con manejo defensivo)
             if self.client:
