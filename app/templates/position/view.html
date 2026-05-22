@@ -1080,7 +1080,7 @@ function loadReconciliation(fecha) {
       } else {
         $('#reconciliationTableBody').html(
           `<tr><td colspan="11" class="text-center py-3 text-muted">
-            <i class="bi bi-exclamation-circle text-warning me-1"></i>No se pudo cargar.
+            <i class="bi bi-exclamation-circle text-warning me-1"></i>Error del servidor: ${r.error || 'desconocido'}
             <button class="btn btn-sm btn-outline-secondary ms-2"
                     onclick="loadReconciliation($('#fechaSelector').val())">
               <i class="bi bi-arrow-clockwise"></i> Reintentar
@@ -1088,13 +1088,16 @@ function loadReconciliation(fecha) {
         );
       }
     },
-    function() {
+    function(xhr) {
+      const errMsg = xhr.responseJSON?.error || xhr.statusText || 'Error de conexión';
+      const errStatus = xhr.status || '';
       $('#reconciliationTableBody').html(
         `<tr><td colspan="11" class="text-center py-3 text-danger">
-          Error de conexión.
+          <i class="bi bi-exclamation-triangle-fill me-1"></i>
+          <strong>Error ${errStatus}:</strong> ${errMsg}
           <button class="btn btn-sm btn-outline-danger ms-2"
                   onclick="loadReconciliation($('#fechaSelector').val())">
-            <i class="bi bi-arrow-clockwise"></i>
+            <i class="bi bi-arrow-clockwise"></i> Reintentar
           </button></td></tr>`
       );
     }
