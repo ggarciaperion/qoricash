@@ -280,6 +280,9 @@
                 <button type="button" class="btn btn-sm btn-warning px-3 me-auto" id="btnRevertFromView" style="display:none;" onclick="revertCompletedOperation()">
                     <i class="bi bi-arrow-counterclockwise me-1"></i>Revertir operación
                 </button>
+                <button type="button" class="btn btn-sm btn-success px-3" id="btnSaveBankFlows" style="display:none;" onclick="saveBankFlows()">
+                    <i class="bi bi-save me-1"></i>Guardar bancos QoriCash
+                </button>
                 <button type="button" class="btn btn-sm btn-light border" data-bs-dismiss="modal">Cerrar</button>
             </div>
         </div>
@@ -638,6 +641,7 @@
 <script>
 // Variables globales
 let currentOperation = null;
+let currentViewOperation = null;
 let currentUserRole = '{{ user.role }}';
 let clientBankAccounts = [];
 
@@ -932,9 +936,7 @@ function buildOperationRow(op) {
 function viewOperation(operationId) {
     ajaxRequest(`/operations/api/${operationId}`, 'GET', null, function(response) {
         const op = response.operation;
-        // DEBUG: Ver qué datos tiene client_deposits
-        console.log('=== DEBUG client_deposits ===', op.client_deposits);
-        console.log('=== DEBUG operación completa ===', op);
+        currentViewOperation = op;
         let html = buildViewHTML(op, true);
         $('#operationDetails').html(html);
 
@@ -947,6 +949,15 @@ function viewOperation(operationId) {
             $('#edit_op_id').text(op.operation_id);
         } else {
             $('#btnRevertFromView').hide();
+        }
+
+        // Botón guardar bancos: solo Master cuando hay flujos con qc_bank editable
+        const hasFlows = ((op.client_payments && op.client_payments.length > 0) ||
+                          (op.client_deposits && op.client_deposits.length > 0));
+        if (currentUserRole === 'Master' && hasFlows) {
+            $('#btnSaveBankFlows').show();
+        } else {
+            $('#btnSaveBankFlows').hide();
         }
 
         $('#viewOperationModal').modal('show');
@@ -1099,6 +1110,90 @@ function buildViewHTML(op, readonly) {
 
     html += `</div></div></div></div>`;
 
+    // Flujos Bancarios QoriCash
+    const payments = op.client_payments || [];
+    const deposits = op.client_deposits || [];
+    const isMasterView = (currentUserRole === 'Master');
+    const bankOptions = ['BCP', 'INTERBANK', 'BANBIF'];
+    function qcBankSelect(cssClass, currentVal) {
+        let opts = bankOptions.map(b =>
+            `<option value="${b}" ${b === currentVal ? 'selected' : ''}>${b}</option>`
+        ).join('');
+        return `<select class="form-select form-select-sm ${cssClass}" style="width:auto;min-width:110px;">${opts}</select>`;
+    }
+    function qcBankBadge(val) {
+        if (!val) return '<span class="text-muted">—</span>';
+        const colors = {BCP: 'primary', INTERBANK: 'warning', BANBIF: 'info'};
+        return `<span class="badge bg-${colors[val] || 'secondary'}">${val}</span>`;
+    }
+
+    if (payments.length > 0 || deposits.length > 0) {
+        const isVenta = op.operation_type === 'Venta';
+        html += `<hr><h6><i class="bi bi-arrow-left-right text-secondary me-1"></i>Flujos Bancarios QoriCash</h6>`;
+
+        // Pagos QoriCash → Cliente
+        if (payments.length > 0) {
+            const payTitle = isVenta ? 'QoriCash pagó USD al cliente' : 'QoriCash pagó PEN al cliente';
+            const payCurrency = isVenta ? 'USD' : 'PEN';
+            const paySymbol = isVenta ? '$' : 'S/';
+            html += `<div class="mb-3">
+                <div class="small fw-semibold text-uppercase mb-2" style="color:#b45309;letter-spacing:.5px;">
+                    <i class="bi bi-arrow-up-right-circle me-1"></i>${payTitle}
+                </div>
+                <table class="table table-sm table-bordered mb-0" style="font-size:13px;">
+                    <thead class="table-light"><tr>
+                        <th>Importe ${payCurrency}</th>
+                        <th>Cuenta destino cliente</th>
+                        <th>Banco QoriCash origen</th>
+                    </tr></thead><tbody>`;
+            payments.forEach((p, i) => {
+                const importe = p.importe ? `${paySymbol} ${parseFloat(p.importe).toFixed(2)}` : '—';
+                const cta = p.cuenta_destino || '—';
+                const bankCell = isMasterView
+                    ? qcBankSelect(`view-payment-qc-bank`, p.qc_bank || '')
+                    : qcBankBadge(p.qc_bank);
+                html += `<tr data-pay-idx="${i}"><td class="fw-semibold">${importe}</td><td>${cta}</td><td>${bankCell}</td></tr>`;
+            });
+            html += `</tbody></table></div>`;
+        }
+
+        // Depósitos Cliente → QoriCash
+        if (deposits.length > 0) {
+            const depTitle = isVenta ? 'Cliente depositó PEN a QoriCash' : 'Cliente depositó USD a QoriCash';
+            const depCurrency = isVenta ? 'PEN' : 'USD';
+            const depSymbol = isVenta ? 'S/' : '$';
+            html += `<div class="mb-3">
+                <div class="small fw-semibold text-uppercase mb-2" style="color:#16a34a;letter-spacing:.5px;">
+                    <i class="bi bi-arrow-down-left-circle me-1"></i>${depTitle}
+                </div>
+                <table class="table table-sm table-bordered mb-0" style="font-size:13px;">
+                    <thead class="table-light"><tr>
+                        <th>Importe ${depCurrency}</th>
+                        <th>Cuenta cargo cliente</th>
+                        <th>Banco QoriCash destino</th>
+                        <th>Cód. operación</th>
+                        <th>Comprobante</th>
+                    </tr></thead><tbody>`;
+            deposits.forEach((d, i) => {
+                const importe = d.importe ? `${depSymbol} ${parseFloat(d.importe).toFixed(2)}` : '—';
+                const cta = d.cuenta_cargo || '—';
+                const bankCell = isMasterView
+                    ? qcBankSelect(`view-deposit-qc-bank`, d.qc_bank || '')
+                    : qcBankBadge(d.qc_bank);
+                const cod = d.codigo_operacion || '—';
+                const comp = d.comprobante_url
+                    ? `<a href="${d.comprobante_url}" target="_blank" class="btn btn-xs btn-outline-primary" style="font-size:11px;padding:1px 6px;"><i class="bi bi-download"></i></a>`
+                    : '—';
+                html += `<tr data-dep-idx="${i}"><td class="fw-semibold">${importe}</td><td>${cta}</td><td>${bankCell}</td><td>${cod}</td><td>${comp}</td></tr>`;
+            });
+            html += `</tbody></table></div>`;
+        }
+
+        if (!isMasterView) {
+            html += `<div class="small text-muted mb-2"><i class="bi bi-info-circle me-1"></i>Solo Master puede editar los bancos QoriCash.</div>`;
+        }
+    }
+
     // Comprobantes del operador
     if (op.operator_proofs && op.operator_proofs.length > 0) {
         html += `<hr><h6><i class="bi bi-file-earmark-check text-secondary me-1"></i>Comprobantes del Operador</h6>
@@ -1204,6 +1299,46 @@ function buildViewHTML(op, readonly) {
     }
 
     return html;
+}
+
+// === GUARDAR BANCOS QORICASH (flujos retroactivos) ===
+function saveBankFlows() {
+    if (!currentViewOperation) return;
+    const op = currentViewOperation;
+
+    // Rebuild payments preserving all fields, updating qc_bank from selects
+    const updatedPayments = (op.client_payments || []).map((p, i) => {
+        const row = $(`#operationDetails tr[data-pay-idx="${i}"]`);
+        const qcBank = row.find('.view-payment-qc-bank').val() || p.qc_bank || '';
+        return Object.assign({}, p, { qc_bank: qcBank });
+    });
+
+    // Rebuild deposits preserving all fields, updating qc_bank from selects
+    const updatedDeposits = (op.client_deposits || []).map((d, i) => {
+        const row = $(`#operationDetails tr[data-dep-idx="${i}"]`);
+        const qcBank = row.find('.view-deposit-qc-bank').val() || d.qc_bank || '';
+        return Object.assign({}, d, { qc_bank: qcBank });
+    });
+
+    const payload = {
+        client_payments: updatedPayments,
+        client_deposits: updatedDeposits
+    };
+
+    $('#btnSaveBankFlows').prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span>Guardando...');
+
+    ajaxRequest(`/operations/api/update/${op.id}`, 'PATCH', payload, function(response) {
+        $('#btnSaveBankFlows').prop('disabled', false).html('<i class="bi bi-save me-1"></i>Guardar bancos QoriCash');
+        if (response.success) {
+            Swal.fire({ icon: 'success', title: 'Bancos actualizados', text: 'Los bancos QoriCash han sido guardados correctamente.', timer: 2000, showConfirmButton: false });
+            loadOperations();
+        } else {
+            Swal.fire({ icon: 'error', title: 'Error', text: response.error || 'No se pudo guardar.' });
+        }
+    }, function(err) {
+        $('#btnSaveBankFlows').prop('disabled', false).html('<i class="bi bi-save me-1"></i>Guardar bancos QoriCash');
+        Swal.fire({ icon: 'error', title: 'Error de conexión', text: 'No se pudo conectar al servidor.' });
+    });
 }
 
 // === EDITAR OPERACIÓN ===
