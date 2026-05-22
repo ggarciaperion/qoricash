@@ -2,6 +2,7 @@
 Plantillas de correos diferenciados por canal de registro
 Según especificaciones de correos transaccionales de QoriCash
 """
+import re
 import logging
 from flask import render_template_string
 from flask_mail import Message
@@ -9,6 +10,68 @@ from app.extensions import mail
 from app.models.user import User
 
 logger = logging.getLogger(__name__)
+
+
+def _html_to_text(html: str) -> str:
+    text = re.sub(r'<br\s*/?>', '\n', html, flags=re.IGNORECASE)
+    text = re.sub(r'</p>', '\n\n', text, flags=re.IGNORECASE)
+    text = re.sub(r'</tr>', '\n', text, flags=re.IGNORECASE)
+    text = re.sub(r'<[^>]+>', '', text)
+    text = re.sub(r'&nbsp;', ' ', text)
+    text = re.sub(r'&mdash;', '—', text)
+    text = re.sub(r'&middot;', '·', text)
+    text = re.sub(r'&copy;', '©', text)
+    text = re.sub(r'&ordm;', 'º', text)
+    text = re.sub(r'&amp;', '&', text)
+    text = re.sub(r'&[a-z]+;', '', text)
+    text = re.sub(r'\n{3,}', '\n\n', text)
+    return text.strip()
+
+
+def _send_email(msg: Message) -> bool:
+    """
+    Envía un correo priorizando Resend; cae a SMTP si falla o no hay API key.
+    Agrega plain-text automáticamente.
+    """
+    from flask import current_app
+    app = current_app._get_current_object()
+
+    if not msg.body and msg.html:
+        msg.body = _html_to_text(msg.html)
+
+    resend_key = app.config.get('RESEND_API_KEY')
+    if resend_key:
+        try:
+            import resend
+            resend.api_key = resend_key
+            from_addr = app.config.get('MAIL_DEFAULT_SENDER') or app.config.get('MAIL_USERNAME') or 'info@qoricash.pe'
+            if '<' not in from_addr:
+                from_addr = f'QoriCash <{from_addr}>'
+            params = {
+                'from': from_addr,
+                'to': msg.recipients,
+                'subject': msg.subject,
+                'html': msg.html or '',
+            }
+            if msg.body:
+                params['text'] = msg.body
+            if msg.cc:
+                params['cc'] = msg.cc
+            if msg.reply_to:
+                params['reply_to'] = [msg.reply_to] if isinstance(msg.reply_to, str) else msg.reply_to
+            result = resend.Emails.send(params)
+            logger.info(f'[EMAIL-RESEND] OK id={result.get("id")} to={msg.recipients}')
+            return True
+        except Exception as e:
+            logger.warning(f'[EMAIL-RESEND] Fallo, usando SMTP: {str(e)}')
+
+    try:
+        mail.send(msg)
+        logger.info(f'[EMAIL-SMTP] OK to={msg.recipients}')
+        return True
+    except Exception as e:
+        logger.error(f'[EMAIL-SMTP] Error: {str(e)}')
+        return False
 
 # ============================================
 # CONSTANTES DE MARCA
@@ -180,7 +243,7 @@ class EmailTemplates:
             if not to:
                 return False, 'Cliente sin email'
 
-            subject = '¡Bienvenido a QoriCash!'
+            subject = 'Bienvenido a QoriCash'
 
             shared_clients = EmailTemplates._get_shared_email_clients(client)
             html_body = EmailTemplates._render_mobile_welcome_template(client, shared_clients)
@@ -191,9 +254,9 @@ class EmailTemplates:
                 html=html_body
             )
 
-            mail.send(msg)
-            logger.info(f'✅ [EMAIL-MOBILE] Email enviado a {client.dni}')
-            return True, 'Email enviado'
+            ok = _send_email(msg)
+            logger.info(f'[EMAIL-MOBILE] Resultado={ok} para {client.dni}')
+            return ok, 'Email enviado' if ok else 'Error al enviar'
 
         except Exception as e:
             logger.error(f'❌ [EMAIL-MOBILE] Error: {str(e)}')
@@ -223,7 +286,7 @@ class EmailTemplates:
             cc = ['gerencia@qoricash.pe']
             logger.info(f'📧 [EMAIL-WEB] CC a gerencia — registro web: {client.dni}')
 
-            subject = '¡Bienvenido a QoriCash!'
+            subject = 'Bienvenido a QoriCash'
 
             shared_clients = EmailTemplates._get_shared_email_clients(client)
             html_body = EmailTemplates._render_web_welcome_template(client, shared_clients)
@@ -235,9 +298,9 @@ class EmailTemplates:
                 html=html_body
             )
 
-            mail.send(msg)
-            logger.info(f'✅ [EMAIL-WEB] Email enviado a {client.dni} + gerencia')
-            return True, 'Email enviado'
+            ok = _send_email(msg)
+            logger.info(f'[EMAIL-WEB] Resultado={ok} para {client.dni} + gerencia')
+            return ok, 'Email enviado' if ok else 'Error al enviar'
 
         except Exception as e:
             logger.error(f'❌ [EMAIL-WEB] Error: {str(e)}')
@@ -275,7 +338,7 @@ class EmailTemplates:
             if 'gerencia@qoricash.pe' not in seen:
                 cc.append('gerencia@qoricash.pe')
 
-            subject = '✅ Cuenta Activada — ¡Ya puedes operar! | QoriCash'
+            subject = 'Cuenta Activada - Ya puedes operar | QoriCash'
 
             # Email 1: al cliente CON contraseña temporal
             html_cliente = EmailTemplates._render_trader_activation_template(client, trader, temporary_password)
@@ -284,10 +347,11 @@ class EmailTemplates:
                 recipients=to,
                 html=html_cliente
             )
-            mail.send(msg_cliente)
-            logger.info(f'✅ [EMAIL-TRADER] Email con contraseña enviado al cliente {client.dni}')
+            ok1 = _send_email(msg_cliente)
+            logger.info(f'[EMAIL-TRADER] Resultado={ok1} cliente {client.dni}')
 
             # Email 2: al trader y gerencia SIN contraseña
+            ok2 = True
             if cc:
                 html_cc = EmailTemplates._render_auto_activation_template(client)
                 msg_cc = Message(
@@ -295,10 +359,11 @@ class EmailTemplates:
                     recipients=cc,
                     html=html_cc
                 )
-                mail.send(msg_cc)
-                logger.info(f'✅ [EMAIL-TRADER] Email sin contraseña enviado a trader/gerencia: {cc}')
+                ok2 = _send_email(msg_cc)
+                logger.info(f'[EMAIL-TRADER] Resultado={ok2} trader/gerencia: {cc}')
 
-            return True, 'Email enviado'
+            ok = ok1 and ok2
+            return ok, 'Email enviado' if ok else 'Error parcial al enviar'
 
         except Exception as e:
             logger.error(f'❌ [EMAIL-TRADER] Error: {str(e)}')
@@ -325,7 +390,7 @@ class EmailTemplates:
             if not to:
                 return False, 'Cliente sin email'
 
-            subject = '✅ Cuenta Activada - ¡Ya puedes operar! | QoriCash'
+            subject = 'Cuenta Activada - Ya puedes operar | QoriCash'
 
             html_body = EmailTemplates._render_auto_activation_template(client)
 
@@ -336,9 +401,9 @@ class EmailTemplates:
                 html=html_body
             )
 
-            mail.send(msg)
-            logger.info(f'✅ [EMAIL-ACTIVATION] Email enviado a {client.dni}, CC: gerencia@qoricash.pe')
-            return True, 'Email enviado'
+            ok = _send_email(msg)
+            logger.info(f'[EMAIL-ACTIVATION] Resultado={ok} para {client.dni}')
+            return ok, 'Email enviado' if ok else 'Error al enviar'
 
         except Exception as e:
             logger.error(f'❌ [EMAIL-ACTIVATION] Error: {str(e)}')

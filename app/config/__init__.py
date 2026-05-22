@@ -61,7 +61,13 @@ class Config:
     MAIL_USE_SSL = os.environ.get('MAIL_USE_SSL', 'False') == 'True'
     MAIL_USERNAME = os.environ.get('MAIL_USERNAME')
     MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD')
-    MAIL_DEFAULT_SENDER = os.environ.get('MAIL_DEFAULT_SENDER') or os.environ.get('MAIL_USERNAME')
+    _sender_raw = os.environ.get('MAIL_DEFAULT_SENDER') or os.environ.get('MAIL_USERNAME')
+    MAIL_DEFAULT_SENDER = (
+        f'QoriCash <{_sender_raw}>' if _sender_raw and '<' not in _sender_raw else _sender_raw
+    )
+
+    # Resend API (primary transactional provider)
+    RESEND_API_KEY = os.environ.get('RESEND_API_KEY')
     MAIL_MAX_EMAILS = None
     MAIL_ASCII_ATTACHMENTS = False
 
