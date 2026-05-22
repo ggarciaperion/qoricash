@@ -455,6 +455,76 @@ def cleanup_web_users():
         print(f"✗ Error: {e}")
 
 
+@app.cli.command("backfill-bank-names")
+def backfill_bank_names():
+    """
+    Agrega columnas source_bank_name / destination_bank_name (si no existen)
+    y rellena el banco para todas las operaciones históricas que tengan NULL.
+
+    Fallback cuando no se encuentra la cuenta en el cliente: INTERBANK
+    (los pagos interbancarios se canalizan siempre por INTERBANK).
+
+    Uso en Render Shell:  flask backfill-bank-names
+    """
+    from app.extensions import db
+    from app.models.operation import Operation
+    from sqlalchemy import text, inspect as sa_inspect
+    import traceback
+
+    try:
+        inspector = sa_inspect(db.engine)
+        existing_cols = [c['name'] for c in inspector.get_columns('operations')]
+
+        for col in ('source_bank_name', 'destination_bank_name'):
+            if col not in existing_cols:
+                db.session.execute(
+                    text(f"ALTER TABLE operations ADD COLUMN IF NOT EXISTS {col} VARCHAR(100)")
+                )
+                db.session.commit()
+                print(f"✓ Columna {col} creada")
+            else:
+                print(f"  Columna {col} ya existe")
+
+        # Obtener todas las operaciones con algún campo de banco nulo
+        ops = Operation.query.filter(
+            (Operation.source_bank_name == None) | (Operation.destination_bank_name == None)  # noqa
+        ).all()
+        print(f"  Operaciones a procesar: {len(ops)}")
+
+        updated = 0
+        for op in ops:
+            src_bank = op.source_bank_name
+            dst_bank = op.destination_bank_name
+
+            if op.client:
+                try:
+                    for acct in (op.client.bank_accounts or []):
+                        if src_bank is None and acct.get('account_number') == op.source_account:
+                            src_bank = acct.get('bank_name')
+                        if dst_bank is None and acct.get('account_number') == op.destination_account:
+                            dst_bank = acct.get('bank_name')
+                except Exception:
+                    pass
+
+            # Fallback: si sigue sin encontrarse, usar INTERBANK
+            if src_bank is None and op.source_account:
+                src_bank = 'INTERBANK'
+            if dst_bank is None and op.destination_account:
+                dst_bank = 'INTERBANK'
+
+            op.source_bank_name = src_bank
+            op.destination_bank_name = dst_bank
+            updated += 1
+
+        db.session.commit()
+        print(f"✓ {updated} operaciones actualizadas con nombres de banco")
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"✗ Error: {e}")
+        traceback.print_exc()
+
+
 def start_operation_expiry_scheduler():
     """
     Tarea periódica para expirar operaciones automáticamente

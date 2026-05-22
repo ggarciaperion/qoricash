@@ -218,6 +218,18 @@ class OperationService:
                 base_rate = None
                 pips = None
 
+        # Resolver nombres de banco desde las cuentas actuales del cliente
+        _src_bank = None
+        _dst_bank = None
+        try:
+            for _acct in (client.bank_accounts or []):
+                if _acct.get('account_number') == source_account:
+                    _src_bank = _acct.get('bank_name')
+                if _acct.get('account_number') == destination_account:
+                    _dst_bank = _acct.get('bank_name')
+        except Exception:
+            pass
+
         # Crear operación
         operation = Operation(
             operation_id=operation_id,
@@ -231,6 +243,8 @@ class OperationService:
             amount_pen=amount_pen,
             source_account=source_account,
             destination_account=destination_account,
+            source_bank_name=_src_bank,
+            destination_bank_name=_dst_bank,
             notes=notes,
             origen=origen,
             status='Pendiente',

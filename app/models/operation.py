@@ -49,6 +49,11 @@ class Operation(db.Model):
     source_account = db.Column(db.String(100))
     destination_account = db.Column(db.String(100))
 
+    # Nombre del banco almacenado en el momento de crear la operación.
+    # Evita que el campo "Bancos" muestre N/A cuando el cliente cambia sus cuentas.
+    source_bank_name = db.Column(db.String(100), nullable=True)
+    destination_bank_name = db.Column(db.String(100), nullable=True)
+
     # === NUEVOS CAMPOS ===
 
     # Abonos del cliente (JSON array)
@@ -347,7 +352,8 @@ class Operation(db.Model):
                 except Exception:
                     data['client_bank_accounts'] = []
 
-                # Obtener nombres de bancos de origen y destino con manejo defensivo
+                # Obtener nombres de bancos de origen y destino con manejo defensivo.
+                # Prioridad: (1) nombre almacenado en la operación, (2) lookup por número de cuenta.
                 try:
                     bank_accounts = self.client.bank_accounts or []
                     source_bank = None
@@ -355,15 +361,22 @@ class Operation(db.Model):
 
                     for account in bank_accounts:
                         if account.get('account_number') == self.source_account:
-                            source_bank = account.get('bank_name', 'N/A')
+                            source_bank = account.get('bank_name')
                         if account.get('account_number') == self.destination_account:
-                            destination_bank = account.get('bank_name', 'N/A')
+                            destination_bank = account.get('bank_name')
+
+                    # Fallback al nombre almacenado cuando el lookup falla
+                    # (ocurre cuando el cliente actualiza sus cuentas bancarias)
+                    if not source_bank:
+                        source_bank = self.source_bank_name
+                    if not destination_bank:
+                        destination_bank = self.destination_bank_name
 
                     data['source_bank_name'] = source_bank or 'N/A'
                     data['destination_bank_name'] = destination_bank or 'N/A'
                 except Exception:
-                    data['source_bank_name'] = 'N/A'
-                    data['destination_bank_name'] = 'N/A'
+                    data['source_bank_name'] = self.source_bank_name or 'N/A'
+                    data['destination_bank_name'] = self.destination_bank_name or 'N/A'
             else:
                 data['client_name'] = None
                 data['client_bank_accounts'] = []

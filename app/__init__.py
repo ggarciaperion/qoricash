@@ -139,6 +139,21 @@ def create_app(config_name=None):
     except Exception as e:
         logging.warning(f"[Migration] operations columnas faltantes: {e}")
 
+    # Migración: columnas de nombre de banco en operations (source_bank_name, destination_bank_name)
+    try:
+        with app.app_context():
+            from app.extensions import db
+            from sqlalchemy import text
+            db.session.execute(text(
+                "ALTER TABLE operations ADD COLUMN IF NOT EXISTS source_bank_name VARCHAR(100)"
+            ))
+            db.session.execute(text(
+                "ALTER TABLE operations ADD COLUMN IF NOT EXISTS destination_bank_name VARCHAR(100)"
+            ))
+            db.session.commit()
+    except Exception as e:
+        logging.warning(f"[Migration] operations bank name columns: {e}")
+
     # Migracion: tabla notifications si no existe
     try:
         with app.app_context():

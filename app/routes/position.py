@@ -534,7 +534,8 @@ def get_bank_reconciliation():
             _usd = float(op.amount_usd)
             _pen = float(op.amount_pen)
 
-            # Determinar banco del cliente buscando source_account en sus cuentas
+            # Determinar banco: (1) lookup por número de cuenta, (2) nombre almacenado,
+            # (3) fallback INTERBANK (pagos interbancarios se canalizan por INTERBANK).
             _banco = None
             try:
                 if op.source_account and op.client:
@@ -542,8 +543,12 @@ def get_bank_reconciliation():
                         if _acct.get('account_number') == op.source_account:
                             _banco = _normalize_banco(_acct.get('bank_name', ''))
                             break
+                if _banco is None and op.source_bank_name:
+                    _banco = _normalize_banco(op.source_bank_name)
+                if _banco is None:
+                    _banco = 'INTERBANK'
             except Exception:
-                pass
+                _banco = 'INTERBANK'
 
             if op.operation_type == 'Compra':
                 # Cliente transfiere USD → cuenta USD de QoriCash en ese banco
@@ -576,8 +581,12 @@ def get_bank_reconciliation():
                         if _acct.get('account_number') == op.source_account:
                             _banco = _normalize_banco(_acct.get('bank_name', ''))
                             break
+                if _banco is None and op.source_bank_name:
+                    _banco = _normalize_banco(op.source_bank_name)
+                if _banco is None:
+                    _banco = 'INTERBANK'
             except Exception:
-                pass
+                _banco = 'INTERBANK'
             if op.operation_type == 'Compra':
                 _add_mvmt_pend(_banco_accts.get(_banco, {}).get('USD'), +_usd, 0.0)
                 _add_mvmt_pend(_banco_accts.get(_banco, {}).get('PEN'), 0.0, -_pen)

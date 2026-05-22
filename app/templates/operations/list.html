@@ -2,17 +2,27 @@
 
 {% block title %}Operaciones - QoriCash Trading{% endblock %}
 
-{# Macro para obtener nombre del banco desde número de cuenta #}
+{# Macro para obtener nombre del banco desde número de cuenta.
+   Prioridad: (1) lookup en cuentas actuales del cliente,
+              (2) nombre almacenado en la operación (cuando las cuentas cambiaron). #}
 {% macro get_bank_name(operation, account_number) %}
-    {% if operation.client and operation.client.bank_accounts %}
-        {% for account in operation.client.bank_accounts %}
-            {% if account.account_number == account_number %}
-                {{ account.bank_name }}
-            {% endif %}
-        {% endfor %}
-    {% else %}
+    {%- set found = namespace(bank=None) -%}
+    {%- if operation.client and operation.client.bank_accounts -%}
+        {%- for account in operation.client.bank_accounts -%}
+            {%- if account.account_number == account_number -%}
+                {%- set found.bank = account.bank_name -%}
+            {%- endif -%}
+        {%- endfor -%}
+    {%- endif -%}
+    {%- if found.bank -%}
+        {{ found.bank }}
+    {%- elif account_number == operation.source_account and operation.source_bank_name -%}
+        {{ operation.source_bank_name }}
+    {%- elif account_number == operation.destination_account and operation.destination_bank_name -%}
+        {{ operation.destination_bank_name }}
+    {%- else -%}
         N/A
-    {% endif %}
+    {%- endif -%}
 {% endmacro %}
 
 {% block head %}
