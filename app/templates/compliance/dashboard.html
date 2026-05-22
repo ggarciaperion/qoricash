@@ -8,7 +8,7 @@
     <div class="page-header">
         <div class="page-header-info">
             <h2><i class="bi bi-shield-exclamation"></i> Riesgo &amp; Alertas</h2>
-            <p>Score AML/KYC de {{ clients|length }} cliente{{ 's' if clients|length != 1 else '' }}</p>
+            <p>Centro AML/KYC · {{ clients|length }} cliente{{ 's' if clients|length != 1 else '' }}</p>
         </div>
         <div class="page-header-actions">
             {% if current_user.role in ['Master', 'Middle Office'] %}
@@ -19,53 +19,56 @@
         </div>
     </div>
 
-    {% if clients %}
-    <!-- Stats rápidas -->
-    {% set criticos = clients | selectattr('risk_level', 'equalto', 'Crítico') | list %}
-    {% set altos = clients | selectattr('risk_level', 'equalto', 'Alto') | list %}
-    {% set con_alertas = clients | selectattr('has_alerts') | list %}
-    <div class="row g-3 mb-3">
-        <div class="col-6 col-md-3">
-            <div class="card text-center py-2">
-                <div class="fw-bold fs-5 text-danger">{{ criticos|length }}</div>
-                <div class="text-muted" style="font-size:.78rem">Crítico</div>
+    <!-- Radar de Riesgo -->
+    <div class="row g-2 mb-3">
+        <div class="col-6 col-md-2">
+            <div class="card radar-card text-center py-2 px-1 active" data-filter="all" style="cursor:pointer">
+                <div class="fw-bold fs-5">{{ op_counts.total }}</div>
+                <div class="text-muted" style="font-size:.72rem">Total</div>
             </div>
         </div>
-        <div class="col-6 col-md-3">
-            <div class="card text-center py-2">
-                <div class="fw-bold fs-5 text-warning">{{ altos|length }}</div>
-                <div class="text-muted" style="font-size:.78rem">Alto</div>
+        <div class="col-6 col-md-2">
+            <div class="card radar-card text-center py-2 px-1" data-filter="operable" style="cursor:pointer;border-top:3px solid var(--bs-success)">
+                <div class="fw-bold fs-5 text-success">{{ op_counts.operable }}</div>
+                <div class="text-muted" style="font-size:.72rem">Operable</div>
             </div>
         </div>
-        <div class="col-6 col-md-3">
-            <div class="card text-center py-2">
-                <div class="fw-bold fs-5 text-info">{{ con_alertas|length }}</div>
-                <div class="text-muted" style="font-size:.78rem">Con alertas pendientes</div>
+        <div class="col-6 col-md-2">
+            <div class="card radar-card text-center py-2 px-1" data-filter="review" style="cursor:pointer;border-top:3px solid var(--bs-info)">
+                <div class="fw-bold fs-5 text-info">{{ op_counts.review }}</div>
+                <div class="text-muted" style="font-size:.72rem">Revisar</div>
             </div>
         </div>
-        <div class="col-6 col-md-3">
-            <div class="card text-center py-2">
-                <div class="fw-bold fs-5">{{ clients|length }}</div>
-                <div class="text-muted" style="font-size:.78rem">Total clientes</div>
+        <div class="col-6 col-md-2">
+            <div class="card radar-card text-center py-2 px-1" data-filter="evaluate" style="cursor:pointer;border-top:3px solid var(--bs-warning)">
+                <div class="fw-bold fs-5 text-warning">{{ op_counts.evaluate }}</div>
+                <div class="text-muted" style="font-size:.72rem">Evaluar</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-2">
+            <div class="card radar-card text-center py-2 px-1" data-filter="block" style="cursor:pointer;border-top:3px solid var(--bs-danger)">
+                <div class="fw-bold fs-5 text-danger">{{ op_counts.block }}</div>
+                <div class="text-muted" style="font-size:.72rem">No atender</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-2">
+            <div class="card radar-card text-center py-2 px-1" data-filter="alerts" style="cursor:pointer;border-top:3px solid #6f42c1">
+                <div class="fw-bold fs-5" style="color:#6f42c1">{{ op_counts.with_alerts }}</div>
+                <div class="text-muted" style="font-size:.72rem">Con alertas</div>
             </div>
         </div>
     </div>
-    {% endif %}
 
-    <!-- Filtro en tiempo real -->
+    <!-- Barra de búsqueda -->
     <div class="card mb-3">
         <div class="card-body py-2 px-3">
-            <div class="row g-2 align-items-center">
-                <div class="col">
-                    <div class="input-group">
-                        <span class="input-group-text bg-white"><i class="bi bi-search text-muted"></i></span>
-                        <input type="text" id="filtroRiesgo" class="form-control"
-                               placeholder="Buscar por nombre, DNI/RUC, nivel de riesgo, KYC…">
-                        <button class="btn btn-outline-secondary" id="btnLimpiarFiltro" title="Limpiar">
-                            <i class="bi bi-x-lg"></i>
-                        </button>
-                    </div>
-                </div>
+            <div class="input-group">
+                <span class="input-group-text bg-white"><i class="bi bi-search text-muted"></i></span>
+                <input type="text" id="filtroRiesgo" class="form-control"
+                       placeholder="Buscar por nombre o DNI/RUC…">
+                <button class="btn btn-outline-secondary" id="btnLimpiarFiltro" title="Limpiar">
+                    <i class="bi bi-x-lg"></i>
+                </button>
             </div>
         </div>
     </div>
@@ -77,11 +80,10 @@
                 <table id="dashboardTable" class="table table-hover" style="width:100%">
                     <thead>
                         <tr>
+                            <th>Estado</th>
                             <th>Cliente</th>
-                            <th>DNI/RUC</th>
                             <th>Score</th>
-                            <th>Nivel</th>
-                            <th>PEP</th>
+                            <th>Flags</th>
                             <th>KYC</th>
                             <th>Alertas</th>
                             <th>Actualizado</th>
@@ -90,49 +92,73 @@
                     </thead>
                     <tbody>
                     {% for c in clients %}
-                    {% set score_color = 'danger' if c.risk_score and c.risk_score >= 76 else ('warning' if c.risk_score and c.risk_score >= 51 else ('info' if c.risk_score and c.risk_score >= 26 else 'success')) %}
-                    {% set level_color = {'Crítico':'danger','Alto':'warning','Medio':'info','Bajo':'success','Sin calcular':'secondary'} %}
+                    {% set op = c.op_status %}
                     {% set kyc_color = {'Pendiente':'warning','En Proceso':'info','Aprobado':'success','Rechazado':'danger'} %}
-                    <tr class="risk-row{% if c.has_alerts %} table-danger{% endif %}"
-                        {% if c.has_alerts %}style="border-left:3px solid var(--bs-danger)"{% endif %}
-                        data-search="{{ (c.client_name ~ ' ' ~ c.client_dni ~ ' ' ~ (c.risk_level or '') ~ ' ' ~ (c.kyc_status or '') ~ ' ' ~ (c.risk_score|string if c.risk_score is not none else ''))|lower }}"
+                    {% if c.risk_score is not none %}
+                        {% set score_color = 'danger' if c.risk_score >= 76 else ('warning' if c.risk_score >= 51 else ('info' if c.risk_score >= 26 else 'success')) %}
+                    {% else %}
+                        {% set score_color = 'secondary' %}
+                    {% endif %}
+                    <tr class="risk-row"
+                        data-search="{{ (c.client_name ~ ' ' ~ c.client_dni)|lower }}"
                         data-score="{{ c.risk_score if c.risk_score is not none else -1 }}"
-                        data-name="{{ c.client_name|lower }}"
+                        data-op="{{ op }}"
+                        data-alerts="{{ c.pending_alerts }}"
                         data-updated="{{ c.updated_at }}">
                         <td>
-                            {% if c.has_alerts %}
-                            <span class="fw-semibold text-danger">
-                                <i class="bi bi-exclamation-circle-fill me-1"></i>{{ c.client_name }}
-                            </span>
+                            {% if op == 'block' %}
+                                <span class="badge bg-danger">No atender</span>
+                            {% elif op == 'evaluate' %}
+                                <span class="badge bg-warning text-dark">Evaluar</span>
+                            {% elif op == 'review' %}
+                                <span class="badge bg-info text-dark">Revisar</span>
+                            {% elif op == 'operable' %}
+                                <span class="badge bg-success">Operable</span>
                             {% else %}
-                            {{ c.client_name }}
+                                <span class="badge bg-secondary">Sin perfil</span>
                             {% endif %}
                         </td>
-                        <td>{{ c.client_dni }}</td>
+                        <td>
+                            <div class="fw-semibold" style="line-height:1.2">{{ c.client_name }}</div>
+                            <div class="text-muted" style="font-size:.76rem">{{ c.client_dni }}</div>
+                        </td>
                         <td>
                             {% if c.risk_score is not none %}
-                            <span class="badge bg-{{ score_color }}" style="font-size:.9em;">{{ c.risk_score }}</span>
-                            {% else %}
-                            <span class="badge bg-secondary">Sin calcular</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            <span class="badge bg-{{ level_color.get(c.risk_level, 'secondary') }}">{{ c.risk_level }}</span>
-                        </td>
-                        <td>
-                            {% if c.is_pep %}<i class="bi bi-check-circle-fill text-warning"></i> Sí{% else %}No{% endif %}
-                        </td>
-                        <td>
-                            <span class="badge bg-{{ kyc_color.get(c.kyc_status, 'secondary') }}">{{ c.kyc_status }}</span>
-                        </td>
-                        <td>
-                            {% if c.pending_alerts %}
-                            <span class="badge bg-danger">{{ c.pending_alerts }} pendiente{{ 's' if c.pending_alerts > 1 else '' }}</span>
+                            <span class="fw-semibold text-{{ score_color }}">{{ c.risk_score }}</span>
+                            <div style="height:4px;background:#e9ecef;border-radius:2px;margin-top:3px;width:56px">
+                                <div style="height:4px;border-radius:2px;width:{{ c.risk_score }}%;background:var(--bs-{{ score_color }})"></div>
+                            </div>
                             {% else %}
                             <span class="text-muted">—</span>
                             {% endif %}
                         </td>
-                        <td>{{ c.updated_at }}</td>
+                        <td>
+                            {% if c.is_pep %}
+                                <span class="badge bg-warning text-dark me-1" title="Persona Expuesta Políticamente">PEP</span>
+                            {% endif %}
+                            {% if c.in_restrictive_lists %}
+                                <span class="badge bg-danger me-1" title="En listas restrictivas">Lista</span>
+                            {% endif %}
+                            {% if c.has_legal_issues %}
+                                <span class="badge bg-danger" title="Problemas legales">Legal</span>
+                            {% endif %}
+                            {% if not c.is_pep and not c.in_restrictive_lists and not c.has_legal_issues %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="badge bg-{{ kyc_color.get(c.kyc_status, 'secondary') }}" style="font-size:.74rem">{{ c.kyc_status }}</span>
+                        </td>
+                        <td>
+                            {% if c.pending_alerts %}
+                            <span class="badge bg-danger">{{ c.pending_alerts }}</span>
+                            {% else %}
+                            <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td class="rel-time" data-raw="{{ c.updated_at }}" title="{{ c.updated_at }}">
+                            {{ c.updated_at }}
+                        </td>
                         <td>
                             <a href="/compliance/risk-profiles/{{ c.client_id }}" class="btn btn-sm btn-info" title="Ver Detalle">
                                 <i class="bi bi-eye"></i>
@@ -146,7 +172,7 @@
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="9" class="text-center text-muted py-5">
+                        <td colspan="8" class="text-center text-muted py-5">
                             No hay clientes registrados.
                         </td>
                     </tr>
@@ -161,7 +187,6 @@
 
 {% block scripts %}
 <style>
-/* Triángulos de ordenamiento — vanilla JS, sin DataTables */
 #dashboardTable thead th { white-space: nowrap; user-select: none; cursor: pointer; }
 #dashboardTable thead th:last-child { cursor: default; }
 #dashboardTable thead th.sorting::after,
@@ -170,18 +195,46 @@
 #dashboardTable thead th.sorting::after      { content: "\F127\F126"; letter-spacing: -4px; }
 #dashboardTable thead th.sorting_asc::after  { content: "\F126"; opacity: 1; color: var(--bs-primary); }
 #dashboardTable thead th.sorting_desc::after { content: "\F127"; opacity: 1; color: var(--bs-primary); }
+.radar-card { transition: transform .12s, box-shadow .12s; }
+.radar-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,.1); }
+.radar-card.active { box-shadow: 0 0 0 2px var(--bs-primary); }
 </style>
 <script>
 (function() {
-    // ── Estado ────────────────────────────────────────────────────────────────
-    var sortCol = 2;   // Score por defecto
-    var sortDir = 'desc';
+    var activeFilter = 'all';
+    var OP_ORDER = { block: 0, evaluate: 1, review: 2, operable: 3, unknown: 4 };
 
-    // ── Filtro en tiempo real (mismo patrón que Clientes) ────────────────────
+    // Tiempos relativos
+    function relTime(s) {
+        if (!s || s === 'Nunca') return 'Nunca';
+        var p = s.split('/');
+        if (p.length !== 3) return s;
+        var d = new Date(parseInt(p[2]), parseInt(p[1]) - 1, parseInt(p[0]));
+        var days = Math.floor((Date.now() - d.getTime()) / 86400000);
+        if (days === 0) return 'hoy';
+        if (days === 1) return 'ayer';
+        if (days < 7)  return 'hace ' + days + ' días';
+        if (days < 30) return 'hace ' + Math.floor(days / 7) + ' sem.';
+        if (days < 365) { var m = Math.floor(days / 30); return 'hace ' + m + ' mes' + (m > 1 ? 'es' : ''); }
+        var y = Math.floor(days / 365); return 'hace ' + y + ' año' + (y > 1 ? 's' : '');
+    }
+
+    document.querySelectorAll('.rel-time').forEach(function(td) {
+        var raw = td.dataset.raw;
+        td.textContent = relTime(raw);
+        td.title = raw;
+    });
+
+    // Filtro combinado texto + radar
     function aplicarFiltro() {
         var q = (document.getElementById('filtroRiesgo').value || '').toLowerCase().trim();
         document.querySelectorAll('#dashboardTable tbody tr.risk-row').forEach(function(row) {
-            row.style.display = (q === '' || row.dataset.search.includes(q)) ? '' : 'none';
+            var textMatch = q === '' || row.dataset.search.includes(q);
+            var opMatch;
+            if (activeFilter === 'all') opMatch = true;
+            else if (activeFilter === 'alerts') opMatch = parseInt(row.dataset.alerts) > 0;
+            else opMatch = row.dataset.op === activeFilter;
+            row.style.display = (textMatch && opMatch) ? '' : 'none';
         });
     }
 
@@ -191,69 +244,75 @@
         aplicarFiltro();
     });
 
-    // ── Ordenamiento vanilla JS ───────────────────────────────────────────────
+    // Radar click → filtro
+    document.querySelectorAll('.radar-card').forEach(function(card) {
+        card.addEventListener('click', function() {
+            activeFilter = this.dataset.filter;
+            document.querySelectorAll('.radar-card').forEach(function(c) { c.classList.remove('active'); });
+            this.classList.add('active');
+            aplicarFiltro();
+        });
+    });
+
+    // Ordenamiento
+    var sortCol = 0;
+    var sortDir = 'asc';
     var tbody = document.querySelector('#dashboardTable tbody');
+
+    function parseDate(s) {
+        if (!s || s === 'Nunca') return 0;
+        var p = s.split('/');
+        return p.length === 3 ? new Date(p[2], p[1] - 1, p[0]).getTime() : 0;
+    }
 
     function sortTable(colIdx) {
         if (sortCol === colIdx) {
             sortDir = sortDir === 'asc' ? 'desc' : 'asc';
         } else {
             sortCol = colIdx;
-            sortDir = (colIdx === 2 || colIdx === 7) ? 'desc' : 'asc';  // Score y Fecha: desc por defecto
+            sortDir = (colIdx === 2 || colIdx === 5 || colIdx === 6) ? 'desc' : 'asc';
         }
 
         var rows = Array.from(document.querySelectorAll('#dashboardTable tbody tr.risk-row'));
         rows.sort(function(a, b) {
-            var cellA = a.querySelectorAll('td')[colIdx];
-            var cellB = b.querySelectorAll('td')[colIdx];
-            var va = cellA ? cellA.textContent.trim() : '';
-            var vb = cellB ? cellB.textContent.trim() : '';
             var cmp;
-            // Columna Score: usar data-score para orden numérico correcto
-            if (colIdx === 2) {
+            if (colIdx === 0) {
+                cmp = (OP_ORDER[a.dataset.op] || 4) - (OP_ORDER[b.dataset.op] || 4);
+            } else if (colIdx === 2) {
                 cmp = parseFloat(a.dataset.score) - parseFloat(b.dataset.score);
-                return sortDir === 'asc' ? cmp : -cmp;
+            } else if (colIdx === 5) {
+                cmp = parseInt(a.dataset.alerts) - parseInt(b.dataset.alerts);
+            } else if (colIdx === 6) {
+                cmp = parseDate(a.dataset.updated) - parseDate(b.dataset.updated);
+            } else {
+                var va = (a.querySelectorAll('td')[colIdx] || {}).textContent || '';
+                var vb = (b.querySelectorAll('td')[colIdx] || {}).textContent || '';
+                va = va.trim(); vb = vb.trim();
+                var na = parseFloat(va), nb = parseFloat(vb);
+                cmp = (!isNaN(na) && !isNaN(nb)) ? na - nb : va.localeCompare(vb, 'es', {numeric: true});
             }
-            // Columna Actualizado: parsear dd/mm/yyyy
-            if (colIdx === 7) {
-                function parseDate(s) {
-                    if (!s || s === 'Nunca') return 0;
-                    var p = s.split('/');
-                    return p.length === 3 ? new Date(p[2], p[1] - 1, p[0]).getTime() : 0;
-                }
-                cmp = parseDate(va) - parseDate(vb);
-                return sortDir === 'asc' ? cmp : -cmp;
-            }
-            var na = parseFloat(va), nb = parseFloat(vb);
-            cmp = (!isNaN(na) && !isNaN(nb)) ? na - nb : va.localeCompare(vb, 'es', {numeric: true});
             return sortDir === 'asc' ? cmp : -cmp;
         });
 
         rows.forEach(function(row) { tbody.appendChild(row); });
 
-        // Indicadores visuales en headers
         document.querySelectorAll('#dashboardTable thead th').forEach(function(th, i) {
             th.classList.remove('sorting', 'sorting_asc', 'sorting_desc');
             if (i === colIdx) {
                 th.classList.add(sortDir === 'asc' ? 'sorting_asc' : 'sorting_desc');
-            } else if (i !== 8) {  // No marcar columna Acciones
+            } else if (i < 7) {
                 th.classList.add('sorting');
             }
         });
 
-        // Re-aplicar filtro para preservar filas ocultas
         aplicarFiltro();
     }
 
-    // Asignar click a headers (excepto Acciones, última columna)
     document.querySelectorAll('#dashboardTable thead th').forEach(function(th, i) {
-        if (i < 8) {
-            th.addEventListener('click', function() { sortTable(i); });
-        }
+        if (i < 7) th.addEventListener('click', function() { sortTable(i); });
     });
 
-    // Orden inicial: Score descendente
-    sortTable(2);
+    sortTable(0);  // orden inicial: Estado (block primero)
 })();
 
 function recalculate(clientId) {
@@ -264,50 +323,43 @@ function recalculate(clientId) {
         showCancelButton: true,
         confirmButtonText: 'Sí, recalcular',
         cancelButtonText: 'Cancelar'
-    }).then((result) => {
+    }).then(function(result) {
         if (!result.isConfirmed) return;
-        $.ajax({
-            url: `/compliance/api/risk-profiles/${clientId}/recalculate`,
+        fetch('/compliance/api/risk-profiles/' + clientId + '/recalculate', {
             method: 'POST',
-            headers: { 'X-CSRFToken': $('meta[name=csrf-token]').attr('content') },
-            success: function(response) {
-                if (response.success) {
-                    const d = response.data;
-                    showNotification(`Score actualizado: ${d.level} (${d.score} pts)`, 'success');
-                    setTimeout(() => location.reload(), 1200);
-                } else {
-                    showNotification(response.error || 'Error al recalcular', 'error');
-                }
-            },
-            error: function() { showNotification('Error al recalcular', 'error'); }
-        });
+            headers: { 'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content }
+        }).then(function(r) { return r.json(); }).then(function(resp) {
+            if (resp.success) {
+                showNotification('Score actualizado: ' + resp.data.level + ' (' + resp.data.score + ' pts)', 'success');
+                setTimeout(function() { location.reload(); }, 1200);
+            } else {
+                showNotification(resp.error || 'Error al recalcular', 'error');
+            }
+        }).catch(function() { showNotification('Error al recalcular', 'error'); });
     });
 }
 
 {% if current_user.role in ['Master', 'Middle Office'] %}
 function generateAllProfiles() {
-    const btn = document.getElementById('btnGenerateAll');
+    var btn = document.getElementById('btnGenerateAll');
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Calculando...';
-    $.ajax({
-        url: '/compliance/api/risk-profiles/generate-all',
+    fetch('/compliance/api/risk-profiles/generate-all', {
         method: 'POST',
-        headers: { 'X-CSRFToken': $('meta[name=csrf-token]').attr('content') },
-        success: function(response) {
-            btn.disabled = false;
-            btn.innerHTML = '<i class="bi bi-arrow-repeat me-1"></i>Recalcular todos';
-            if (response.success) {
-                showNotification(response.message || 'Perfiles recalculados', 'success');
-                setTimeout(() => location.reload(), 1200);
-            } else {
-                showNotification(response.error || 'Error al generar perfiles', 'error');
-            }
-        },
-        error: function() {
-            btn.disabled = false;
-            btn.innerHTML = '<i class="bi bi-arrow-repeat me-1"></i>Recalcular todos';
-            showNotification('Error al generar perfiles', 'error');
+        headers: { 'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content }
+    }).then(function(r) { return r.json(); }).then(function(resp) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-arrow-repeat me-1"></i>Recalcular todos';
+        if (resp.success) {
+            showNotification(resp.message || 'Perfiles recalculados', 'success');
+            setTimeout(function() { location.reload(); }, 1200);
+        } else {
+            showNotification(resp.error || 'Error al generar perfiles', 'error');
         }
+    }).catch(function() {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-arrow-repeat me-1"></i>Recalcular todos';
+        showNotification('Error al generar perfiles', 'error');
     });
 }
 {% endif %}

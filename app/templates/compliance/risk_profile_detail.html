@@ -14,11 +14,46 @@
             <button class="btn btn-primary" onclick="recalculateRisk()">
                 <i class="bi bi-calculator"></i> Recalcular Perfil
             </button>
-            <a href="/compliance/risk-profiles" class="btn btn-secondary">
+            <a href="/compliance" class="btn btn-secondary">
                 <i class="bi bi-arrow-left"></i> Volver
             </a>
         </div>
     </div>
+
+    <!-- Veredicto Operacional -->
+    {% if profile %}
+    {% set op_level = profile.risk_level %}
+    {% set op_kyc   = profile.kyc_status %}
+    {% set op_block = (op_level == 'Crítico') or profile.is_pep or profile.in_restrictive_lists or profile.has_legal_issues or (op_kyc == 'Rechazado') %}
+    {% set op_eval  = (not op_block) and ((op_level == 'Alto') or (op_kyc == 'En Proceso')) %}
+    {% set op_rev   = (not op_block) and (not op_eval) and (op_level == 'Medio') %}
+    {% set op_ok    = (not op_block) and (not op_eval) and (not op_rev) and (op_level == 'Bajo') and (op_kyc == 'Aprobado') %}
+    <div class="alert {% if op_block %}alert-danger{% elif op_eval %}alert-warning{% elif op_rev %}alert-info{% else %}alert-success{% endif %} d-flex align-items-center gap-3 mb-4" style="border-radius:.5rem">
+        <i class="bi {% if op_block %}bi-slash-circle-fill fs-3{% elif op_eval %}bi-exclamation-triangle-fill fs-3{% elif op_rev %}bi-eye-fill fs-3{% else %}bi-check-circle-fill fs-3{% endif %}"></i>
+        <div>
+            <div class="fw-bold" style="font-size:1.05rem">
+                Veredicto operacional:
+                {% if op_block %}NO ATENDER{% elif op_eval %}EVALUAR{% elif op_rev %}REVISAR{% else %}OPERABLE{% endif %}
+            </div>
+            <div style="font-size:.85rem">
+                {% if op_block %}
+                    {% if profile.is_pep %}PEP activo · {% endif %}
+                    {% if profile.in_restrictive_lists %}En listas restrictivas · {% endif %}
+                    {% if profile.has_legal_issues %}Problemas legales · {% endif %}
+                    {% if op_level == 'Crítico' %}Score crítico · {% endif %}
+                    {% if op_kyc == 'Rechazado' %}KYC rechazado · {% endif %}
+                    No operar hasta resolución formal.
+                {% elif op_eval %}
+                    Requiere revisión profunda antes de operar.
+                {% elif op_rev %}
+                    Operar con precaución — seguimiento activo requerido.
+                {% else %}
+                    Cliente habilitado para operar con normalidad.
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
 
     <!-- Información del Cliente -->
     <div class="row mb-4">

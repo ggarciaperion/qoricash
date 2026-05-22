@@ -82,30 +82,65 @@ def compliance_index():
         ).filter(ComplianceAlert.status == 'Pendiente').group_by(ComplianceAlert.client_id).all()
         alert_map = {row.client_id: row.cnt for row in alert_counts}
 
+        def _op_status(has_profile, risk_level, is_pep, in_lists, has_legal, kyc_status, pending):
+            if not has_profile:
+                return 'unknown'
+            if risk_level == 'Crítico' or is_pep or in_lists or has_legal or kyc_status == 'Rechazado':
+                return 'block'
+            if risk_level == 'Alto' or kyc_status == 'En Proceso':
+                return 'evaluate'
+            if risk_level == 'Medio' or pending > 0:
+                return 'review'
+            if risk_level == 'Bajo' and kyc_status == 'Aprobado':
+                return 'operable'
+            return 'review'
+
         clients_data = []
         for client, profile in rows:
             pending = alert_map.get(client.id, 0)
+            hp = profile is not None
+            rl = ComplianceService.assign_risk_level(profile.risk_score) if profile else 'Sin calcular'
+            kyc = profile.kyc_status if profile else 'Pendiente'
+            in_lists = profile.in_restrictive_lists if profile else False
+            has_legal = profile.has_legal_issues if profile else False
+            is_pep = profile.is_pep if profile else False
+            op = _op_status(hp, rl, is_pep, in_lists, has_legal, kyc, pending)
             clients_data.append({
-                'client_id':     client.id,
-                'client_name':   client.full_name or client.dni,
-                'client_dni':    client.dni,
-                'has_profile':   profile is not None,
-                'risk_score':    profile.risk_score if profile else None,
-                'risk_level':    ComplianceService.assign_risk_level(profile.risk_score) if profile else 'Sin calcular',
-                'is_pep':        profile.is_pep if profile else False,
-                'kyc_status':    profile.kyc_status if profile else 'Pendiente',
-                'dd_level':      (profile.dd_level or '—') if profile else '—',
-                'updated_at':    profile.updated_at.strftime('%d/%m/%Y') if (profile and profile.updated_at) else 'Nunca',
-                'pending_alerts': pending,
-                'has_alerts':    pending > 0,
+                'client_id':           client.id,
+                'client_name':         client.full_name or client.dni,
+                'client_dni':          client.dni,
+                'has_profile':         hp,
+                'risk_score':          profile.risk_score if profile else None,
+                'risk_level':          rl,
+                'is_pep':              is_pep,
+                'in_restrictive_lists': in_lists,
+                'has_legal_issues':    has_legal,
+                'kyc_status':          kyc,
+                'dd_level':            (profile.dd_level or '—') if profile else '—',
+                'updated_at':          profile.updated_at.strftime('%d/%m/%Y') if (profile and profile.updated_at) else 'Nunca',
+                'pending_alerts':      pending,
+                'has_alerts':          pending > 0,
+                'op_status':           op,
             })
 
-        clients_data.sort(key=lambda x: (0 if x['has_alerts'] else 1, -(x['risk_score'] or 0)))
+        _OP_ORDER = {'block': 0, 'evaluate': 1, 'review': 2, 'operable': 3, 'unknown': 4}
+        clients_data.sort(key=lambda x: (_OP_ORDER.get(x['op_status'], 4), -(x['risk_score'] or 0)))
+
+        op_counts = {
+            'total':       len(clients_data),
+            'operable':    sum(1 for c in clients_data if c['op_status'] == 'operable'),
+            'review':      sum(1 for c in clients_data if c['op_status'] == 'review'),
+            'evaluate':    sum(1 for c in clients_data if c['op_status'] == 'evaluate'),
+            'block':       sum(1 for c in clients_data if c['op_status'] == 'block'),
+            'unknown':     sum(1 for c in clients_data if c['op_status'] == 'unknown'),
+            'with_alerts': sum(1 for c in clients_data if c['pending_alerts'] > 0),
+        }
 
     except Exception:
         clients_data = []
+        op_counts = {'total': 0, 'operable': 0, 'review': 0, 'evaluate': 0, 'block': 0, 'unknown': 0, 'with_alerts': 0}
 
-    return render_template('compliance/dashboard.html', clients=clients_data)
+    return render_template('compliance/dashboard.html', clients=clients_data, op_counts=op_counts)
 
 
 @compliance_bp.route('/api/dashboard')
