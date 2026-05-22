@@ -3918,3 +3918,80 @@ def unmatched_count():
         return jsonify({'success': True, 'count': count})
     except Exception as e:
         return jsonify({'success': False, 'count': 0, 'error': str(e)}), 500
+
+
+@contabilidad_bp.route('/api/rollover_position')
+@login_required
+@require_role('Master', 'Operador')
+def rollover_position():
+    """
+    API: Posición de días anteriores sin amarrar (rollover).
+
+    Devuelve operaciones Completadas de ANTES de hoy que tienen monto sin amarrar,
+    con el neto en USD y el tipo (COMPRADOS / VENDIDOS).
+    """
+    try:
+        from app.models.accounting_match import AccountingMatch
+        from app.models.operation import Operation as _Op
+        from app.models.user import User as _User
+        from app.utils.formatters import now_peru
+        from sqlalchemy import func
+        from datetime import datetime as dt, time
+
+        hoy = now_peru().date()
+        inicio_hoy = dt.combine(hoy, time.min)
+
+        demo_id = _User.query.filter_by(username='demo_trader')\
+            .with_entities(_User.id).scalar()
+
+        # Ops completadas de días ANTERIORES a hoy
+        ops = _Op.query.filter(
+            _Op.status == 'Completada',
+            _Op.created_at < inicio_hoy,
+        ).all()
+
+        compras_usd = 0.0
+        ventas_usd  = 0.0
+        count       = 0
+
+        for op in ops:
+            if demo_id and op.user_id == demo_id:
+                continue
+            amount = float(op.amount_usd)
+            buy_matched = db.session.query(func.sum(AccountingMatch.matched_amount_usd))\
+                .filter(AccountingMatch.buy_operation_id == op.id,
+                        AccountingMatch.status == 'Activo').scalar() or 0
+            sell_matched = db.session.query(func.sum(AccountingMatch.matched_amount_usd))\
+                .filter(AccountingMatch.sell_operation_id == op.id,
+                        AccountingMatch.status == 'Activo').scalar() or 0
+            matched = float(max(buy_matched, sell_matched))
+            remanente = amount - matched
+            if remanente > 0.01:
+                count += 1
+                if op.operation_type == 'Compra':
+                    compras_usd += remanente
+                else:
+                    ventas_usd += remanente
+
+        net = compras_usd - ventas_usd
+        if net > 0.01:
+            tipo = 'COMPRADOS'
+            net_usd = net
+        elif net < -0.01:
+            tipo = 'VENDIDOS'
+            net_usd = abs(net)
+        else:
+            tipo = None
+            net_usd = 0.0
+
+        return jsonify({
+            'success': True,
+            'count': count,
+            'compras_usd': round(compras_usd, 2),
+            'ventas_usd':  round(ventas_usd, 2),
+            'net_usd':     round(net_usd, 2),
+            'tipo':        tipo,          # 'COMPRADOS' | 'VENDIDOS' | None
+        })
+
+    except Exception as e:
+        return jsonify({'success': False, 'count': 0, 'error': str(e)}), 500

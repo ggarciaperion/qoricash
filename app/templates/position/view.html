@@ -107,6 +107,7 @@
         <span id="neteoCompletadasHoy" class="text-muted">— ops completadas hoy</span>
         <span class="vr opacity-25"></span>
         <span id="neteoSinAmarrar" class="text-muted">Cargando estado de amarre…</span>
+        <span id="neteoRollover" style="display:none;" class="d-flex align-items-center"></span>
         <a href="/contabilidad/amarres" class="ms-auto btn btn-outline-secondary"
            style="font-size:.72rem;padding:.15rem .55rem;border-radius:4px;">
           Ir a Amarres <i class="bi bi-arrow-right ms-1"></i>
@@ -925,11 +926,8 @@ function filterVentas(filtro) {
    TIRA DE NETEO
 ===================================================================== */
 function loadNeteo() {
+  // 1. Conteo del mes (sin amarrar en general)
   $.get('/contabilidad/api/unmatched_count', function(r) {
-    if (!r.success && r.count === undefined) {
-      $('#neteoSinAmarrar').html('<span class="text-muted">No disponible</span>');
-      return;
-    }
     const n = r.count || 0;
     if (n === 0) {
       $('#neteoSinAmarrar').html(
@@ -938,12 +936,35 @@ function loadNeteo() {
     } else {
       $('#neteoSinAmarrar').html(
         `<span class="text-warning fw-semibold">
-           <i class="bi bi-exclamation-circle me-1"></i>${n} op${n!==1?'s':''} sin amarrar este mes
+           <i class="bi bi-exclamation-circle me-1"></i>${n} op${n!==1?'s':''} sin amarrar
          </span>`
       );
     }
   }).fail(function() {
     $('#neteoSinAmarrar').html('<span class="text-muted">—</span>');
+  });
+
+  // 2. Posición de días anteriores (rollover)
+  $.get('/contabilidad/api/rollover_position', function(r) {
+    if (!r.success || r.count === 0) {
+      $('#neteoRollover').hide();
+      return;
+    }
+    const tipo     = r.tipo;       // 'COMPRADOS' | 'VENDIDOS'
+    const netUsd   = r.net_usd;
+    const cnt      = r.count;
+    const color    = tipo === 'VENDIDOS' ? '#dc3545' : '#fd7e14';
+    const icon     = tipo === 'VENDIDOS' ? 'bi-arrow-up-circle' : 'bi-arrow-down-circle';
+    $('#neteoRollover').show().html(
+      `<span class="vr opacity-25 me-3"></span>
+       <span style="color:${color};font-weight:600;">
+         <i class="bi ${icon} me-1"></i>
+         Ayer: ${tipo} ${fmtUSD(netUsd)}
+         <small class="fw-normal opacity-75 ms-1">(${cnt} op${cnt!==1?'s':''} pendientes de netear)</small>
+       </span>`
+    );
+  }).fail(function() {
+    $('#neteoRollover').hide();
   });
 }
 
