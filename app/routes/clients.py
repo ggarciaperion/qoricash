@@ -820,7 +820,7 @@ def get_active():
 
 @clients_bp.route('/api/upload_validation_oc/<int:client_id>', methods=['POST'])
 @login_required
-@require_role('Master', 'Operador')
+@require_role('Master')
 def upload_validation_oc(client_id):
     """
     API: Subir documento de validación del Oficial de Cumplimiento (OC)

@@ -281,9 +281,15 @@
 
                                         <!-- Editar -->
                                         {% if current_user.role in ['Master', 'Trader', 'Operador', 'Plataforma', 'Middle Office'] %}
+                                        {% if current_user.role == 'Operador' %}
+                                        <button class="btn btn-warning" onclick="editClient({{ c.id }})" title="Gestionar Cuentas Bancarias">
+                                            <i class="bi bi-bank"></i> <span class="btn-label">Cuentas</span>
+                                        </button>
+                                        {% else %}
                                         <button class="btn btn-warning" onclick="editClient({{ c.id }})" title="Editar">
                                             <i class="bi bi-pencil"></i> <span class="btn-label">Editar</span>
                                         </button>
+                                        {% endif %}
                                         {% endif %}
 
                                         <!-- Reasignar (solo Master) -->

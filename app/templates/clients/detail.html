@@ -225,8 +225,13 @@
 
             <!-- Cuentas Bancarias -->
             <div class="card mb-4">
-                <div class="card-header bg-success text-white">
-                    <i class="bi bi-bank"></i> Cuentas Bancarias
+                <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-bank"></i> Cuentas Bancarias</span>
+                    {% if current_user.role in ['Master', 'Trader', 'Operador'] %}
+                    <button class="btn btn-sm btn-light" onclick="abrirModalCuentas()" title="Gestionar cuentas bancarias">
+                        <i class="bi bi-pencil-square me-1"></i>Gestionar
+                    </button>
+                    {% endif %}
                 </div>
                 <div class="card-body">
                     {% if client.bank_accounts %}
@@ -773,6 +778,40 @@
         </div>
     </div>
 </div>
+
+<!-- Modal: Gestionar Cuentas Bancarias -->
+{% if current_user.role in ['Master', 'Trader', 'Operador'] %}
+<div class="modal fade" id="cuentasModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content border-0 shadow" style="border-radius:10px;overflow:hidden;">
+            <div class="modal-header border-0 px-4 pt-4 pb-3" style="background:#f0fdf4;">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="d-flex align-items-center justify-content-center rounded-circle bg-success bg-opacity-20" style="width:36px;height:36px;">
+                        <i class="bi bi-bank text-success"></i>
+                    </span>
+                    <div>
+                        <h5 class="modal-title fw-semibold mb-0" style="font-size:15px;">Gestionar Cuentas Bancarias</h5>
+                        <div class="small text-muted">{{ client.full_name or client.dni }}</div>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body px-4 py-3">
+                <div id="cuentasContainer"></div>
+                <button type="button" class="btn btn-sm btn-outline-success mt-2" onclick="agregarCuenta()">
+                    <i class="bi bi-plus-circle me-1"></i>Agregar cuenta
+                </button>
+            </div>
+            <div class="modal-footer border-top px-4 py-3" style="background:#f0fdf4;">
+                <button type="button" class="btn btn-sm btn-light border" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-sm btn-success px-3" onclick="guardarCuentas()">
+                    <i class="bi bi-save me-1"></i>Guardar Cuentas
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
 
 {% endblock %}
 
@@ -1435,6 +1474,115 @@ function descargarHistorial() {
     // Cerrar modal y disparar descarga directa
     bootstrap.Modal.getInstance(document.getElementById('exportHistorialModal')).hide();
     window.location.href = url;
+}
+
+// ── Gestión de Cuentas Bancarias (Master / Trader / Operador) ─────────────────
+const _cuentasIniciales = {{ (client.bank_accounts or []) | tojson }};
+let _cuentas = [];
+
+function abrirModalCuentas() {
+    _cuentas = JSON.parse(JSON.stringify(_cuentasIniciales));
+    renderCuentas();
+    new bootstrap.Modal(document.getElementById('cuentasModal')).show();
+}
+
+function renderCuentas() {
+    const container = document.getElementById('cuentasContainer');
+    if (!container) return;
+
+    if (_cuentas.length === 0) {
+        container.innerHTML = '<p class="text-muted small mb-2"><i class="bi bi-info-circle me-1"></i>No hay cuentas bancarias registradas.</p>';
+        return;
+    }
+
+    container.innerHTML = _cuentas.map((acc, i) => `
+        <div class="border rounded p-3 mb-2" style="background:#f8fffe;">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="fw-semibold small text-success"><i class="bi bi-bank me-1"></i>Cuenta ${i + 1}</span>
+                <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2" onclick="eliminarCuenta(${i})" title="Eliminar">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </div>
+            <div class="row g-2">
+                <div class="col-md-6">
+                    <label class="form-label form-label-sm mb-1">Banco <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control form-control-sm" placeholder="Ej: BCP, Interbank..."
+                           value="${acc.bank_name || ''}"
+                           onchange="_cuentas[${i}].bank_name = this.value">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label form-label-sm mb-1">Número de Cuenta <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control form-control-sm" placeholder="Número de cuenta"
+                           value="${acc.account_number || ''}"
+                           onchange="_cuentas[${i}].account_number = this.value">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label form-label-sm mb-1">Tipo</label>
+                    <select class="form-select form-select-sm" onchange="_cuentas[${i}].account_type = this.value">
+                        <option value="Ahorros" ${acc.account_type === 'Ahorros' ? 'selected' : ''}>Ahorros</option>
+                        <option value="Corriente" ${acc.account_type === 'Corriente' ? 'selected' : ''}>Corriente</option>
+                        <option value="CTS" ${acc.account_type === 'CTS' ? 'selected' : ''}>CTS</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label form-label-sm mb-1">Moneda</label>
+                    <select class="form-select form-select-sm" onchange="_cuentas[${i}].currency = this.value">
+                        <option value="PEN" ${acc.currency === 'PEN' ? 'selected' : ''}>PEN (Soles)</option>
+                        <option value="USD" ${acc.currency === 'USD' ? 'selected' : ''}>USD (Dólares)</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label form-label-sm mb-1">Origen</label>
+                    <input type="text" class="form-control form-control-sm" placeholder="Ej: Cliente"
+                           value="${acc.origen || ''}"
+                           onchange="_cuentas[${i}].origen = this.value">
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+function agregarCuenta() {
+    _cuentas.push({ bank_name: '', account_number: '', account_type: 'Ahorros', currency: 'PEN', origen: '' });
+    renderCuentas();
+}
+
+function eliminarCuenta(idx) {
+    _cuentas.splice(idx, 1);
+    renderCuentas();
+}
+
+async function guardarCuentas() {
+    for (const acc of _cuentas) {
+        if (!acc.bank_name || !acc.account_number) {
+            Swal.fire({ icon: 'warning', title: 'Datos incompletos', text: 'Completa el banco y número de todas las cuentas.' });
+            return;
+        }
+    }
+
+    const btn = document.querySelector('#cuentasModal .btn-success');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Guardando...'; }
+
+    try {
+        const res = await fetch('/clients/api/update/{{ client.id }}', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ bank_accounts: _cuentas })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+            bootstrap.Modal.getInstance(document.getElementById('cuentasModal')).hide();
+            Swal.fire({ icon: 'success', title: 'Cuentas guardadas', timer: 1800, showConfirmButton: false })
+                .then(() => location.reload());
+        } else {
+            Swal.fire({ icon: 'error', title: 'Error', text: data.message || 'No se pudo guardar.' });
+        }
+    } catch (err) {
+        Swal.fire({ icon: 'error', title: 'Error de conexión', text: err.message });
+    } finally {
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-save me-1"></i>Guardar Cuentas'; }
+    }
 }
 </script>
 {% endblock %}

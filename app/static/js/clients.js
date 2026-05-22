@@ -523,18 +523,13 @@ function applyRoleRestrictions(role) {
         return; // No aplicar restricciones al crear
     }
 
-    console.log('🔒 Trader EDITANDO cliente - Bloqueando campos excepto cuentas bancarias y documentos...');
+    const isOperador = role === 'Operador';
 
     const form = document.getElementById('clientForm');
-    if (!form) {
-        console.error('Formulario no encontrado');
-        return;
-    }
+    if (!form) return;
 
     // PASO 1: Bloquear TODOS los campos del formulario primero
     const allFields = form.querySelectorAll('input, select, textarea');
-    console.log('Total de campos encontrados:', allFields.length);
-
     allFields.forEach(field => {
         field.disabled = true;
         field.readOnly = true;
@@ -542,9 +537,7 @@ function applyRoleRestrictions(role) {
         field.style.backgroundColor = '#e9ecef';
         field.style.cursor = 'not-allowed';
         field.style.opacity = '0.7';
-        if (field.type === 'file') {
-            field.style.pointerEvents = 'none';
-        }
+        if (field.type === 'file') field.style.pointerEvents = 'none';
     });
 
     // PASO 2: Deshabilitar botones de búsqueda SUNAT y RENIEC
@@ -558,49 +551,62 @@ function applyRoleRestrictions(role) {
         }
     });
 
-    // PASO 3: Bloquear completamente las secciones de documentos de identidad
+    // PASO 3: Ocultar completamente las secciones de documentos (Operador) o bloquear (Trader)
     document.querySelectorAll('.document-section').forEach(section => {
-        section.style.pointerEvents = 'none';
-        section.style.opacity = '0.55';
-        section.style.cursor = 'not-allowed';
-        // Deshabilitar todos los inputs dentro por si acaso
-        section.querySelectorAll('input, button').forEach(el => {
-            el.disabled = true;
-            el.style.pointerEvents = 'none';
-        });
+        if (isOperador) {
+            section.style.display = 'none';
+        } else {
+            section.style.pointerEvents = 'none';
+            section.style.opacity = '0.55';
+            section.style.cursor = 'not-allowed';
+            section.querySelectorAll('input, button').forEach(el => {
+                el.disabled = true;
+                el.style.pointerEvents = 'none';
+            });
+        }
     });
 
-    // PASO 4: Desbloquear SOLO los campos de cuentas bancarias
-    unlockBankFields();
-
-    // PASO 5: Configurar MutationObserver para desbloquear campos bancarios nuevos
-    const bankAccountsContainer = document.getElementById('bankAccountsContainer');
-    if (bankAccountsContainer) {
-        // Desconectar observer anterior si existe
-        if (window.bankAccountsObserver) {
-            window.bankAccountsObserver.disconnect();
-        }
-
-        // Crear nuevo observer
-        window.bankAccountsObserver = new MutationObserver(function(mutations) {
-            console.log('MutationObserver detectó cambios en cuentas bancarias');
-            // Usar setTimeout para asegurar que los elementos están completamente renderizados
-            setTimeout(() => {
-                unlockBankFields();
-            }, 50);
+    // PASO 4: Para Operador — ocultar secciones de datos personales y contacto también
+    if (isOperador) {
+        // Ocultar todas las form-section-title + su contenido excepto la bancaria
+        document.querySelectorAll('.form-section-title').forEach(title => {
+            const text = title.textContent.trim().toLowerCase();
+            // Mantener solo la sección bancaria
+            if (!text.includes('bancaria') && !text.includes('banco')) {
+                // Ocultar el título y su siguiente contenido
+                let next = title.nextElementSibling;
+                title.style.display = 'none';
+                while (next && !next.classList.contains('form-section-title')) {
+                    next.style.display = 'none';
+                    next = next.nextElementSibling;
+                }
+            }
         });
 
-        window.bankAccountsObserver.observe(bankAccountsContainer, {
-            childList: true,
-            subtree: true,
-            attributes: true,
-            attributeFilter: ['disabled', 'readonly']
-        });
+        // Cambiar título del modal para indicar que solo se editan cuentas bancarias
+        const modalTitle = document.querySelector('#createClientModal .modal-title');
+        if (modalTitle) modalTitle.textContent = 'Gestionar Cuentas Bancarias';
 
-        console.log('MutationObserver configurado para cuentas bancarias');
+        // Cambiar texto del botón guardar
+        const saveBtn = document.getElementById('saveClientBtn');
+        if (saveBtn) saveBtn.innerHTML = '<i class="bi bi-save me-1"></i>Guardar Cuentas';
     }
 
-    console.log('Restricciones aplicadas completamente');
+    // PASO 5: Desbloquear SOLO los campos de cuentas bancarias
+    unlockBankFields();
+
+    // PASO 6: MutationObserver para mantener desbloqueados los campos bancarios nuevos
+    const bankAccountsContainer = document.getElementById('bankAccountsContainer');
+    if (bankAccountsContainer) {
+        if (window.bankAccountsObserver) window.bankAccountsObserver.disconnect();
+        window.bankAccountsObserver = new MutationObserver(() => {
+            setTimeout(() => { unlockBankFields(); }, 50);
+        });
+        window.bankAccountsObserver.observe(bankAccountsContainer, {
+            childList: true, subtree: true, attributes: true,
+            attributeFilter: ['disabled', 'readonly']
+        });
+    }
 }
 
 /**
@@ -1760,8 +1766,8 @@ function toggleValidationOcSection(userRole) {
     const section = document.getElementById('validationOcSection');
     if (!section) return;
 
-    // Solo mostrar para Master y Operador
-    if (userRole === 'Master' || userRole === 'Operador') {
+    // Solo mostrar para Master
+    if (userRole === 'Master') {
         section.style.display = 'block';
     } else {
         section.style.display = 'none';
