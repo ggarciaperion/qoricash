@@ -384,7 +384,36 @@ class JournalService:
                 return result
 
             if op_type == 'Compra':
-                # ── DEBE: PEN que ingresaron (abonos del cliente) ─────────
+                # COMPRA = QoriCash compra USD (recibe USD, entrega PEN)
+                # ── DEBE: USD que ingresaron a QoriCash (cliente abona USD) ──
+                if deposits:
+                    lines += _debe_lines(deposits, 'cuenta_cargo', 'USD')
+                else:
+                    bank    = _bank_from_client_accounts(client, operation.source_account)
+                    qc_bank = getattr(operation, 'source_bank_name', None)
+                    pcge    = _map_bank(qc_bank or bank or operation.source_account, 'USD')
+                    lines.append({'account_code': pcge,
+                                  'description':  f'Ingreso USD – {op_id}',
+                                  'debe': amount_pen, 'haber': Decimal('0'),
+                                  'currency': 'USD',
+                                  'amount_usd': amount_usd, 'exchange_rate': tc})
+
+                # ── HABER: PEN que salieron de QoriCash (QoriCash paga PEN) ─
+                if payments:
+                    lines += _haber_lines(payments, 'cuenta_destino', 'PEN')
+                else:
+                    bank = _bank_from_client_accounts(client, operation.destination_account)
+                    pcge = _map_bank(bank or operation.destination_account, 'PEN')
+                    lines.append({'account_code': pcge,
+                                  'description':  f'Egreso PEN – {op_id}',
+                                  'debe': Decimal('0'), 'haber': amount_pen,
+                                  'currency': 'PEN'})
+
+                description = f'Compra USD – {op_id} – {client_name}'
+
+            else:  # VENTA
+                # VENTA = QoriCash vende USD (entrega USD, recibe PEN)
+                # ── DEBE: PEN que ingresaron a QoriCash (cliente abona PEN) ──
                 if deposits:
                     lines += _debe_lines(deposits, 'cuenta_cargo', 'PEN')
                 else:
@@ -395,7 +424,7 @@ class JournalService:
                                   'debe': amount_pen, 'haber': Decimal('0'),
                                   'currency': 'PEN'})
 
-                # ── HABER: USD que salieron (pagos al cliente) ────────────
+                # ── HABER: USD que salieron de QoriCash (QoriCash paga USD) ─
                 if payments:
                     lines += _haber_lines(payments, 'cuenta_destino', 'USD')
                 else:
@@ -407,32 +436,6 @@ class JournalService:
                                   'debe': Decimal('0'), 'haber': amount_pen,
                                   'currency': 'USD',
                                   'amount_usd': usd_amt, 'exchange_rate': tc})
-
-                description = f'Compra USD – {op_id} – {client_name}'
-
-            else:  # VENTA
-                # ── DEBE: USD que ingresaron (abonos del cliente) ─────────
-                if deposits:
-                    lines += _debe_lines(deposits, 'cuenta_cargo', 'USD')
-                else:
-                    bank = _bank_from_client_accounts(client, operation.source_account)
-                    pcge = _map_bank(bank or operation.source_account, 'USD')
-                    lines.append({'account_code': pcge,
-                                  'description':  f'Ingreso USD – {op_id}',
-                                  'debe': amount_pen, 'haber': Decimal('0'),
-                                  'currency': 'USD',
-                                  'amount_usd': amount_usd, 'exchange_rate': tc})
-
-                # ── HABER: PEN que salieron (pagos al cliente) ────────────
-                if payments:
-                    lines += _haber_lines(payments, 'cuenta_destino', 'PEN')
-                else:
-                    bank = _bank_from_client_accounts(client, operation.destination_account)
-                    pcge = _map_bank(bank or operation.destination_account, 'PEN')
-                    lines.append({'account_code': pcge,
-                                  'description':  f'Egreso PEN – {op_id}',
-                                  'debe': Decimal('0'), 'haber': amount_pen,
-                                  'currency': 'PEN'})
 
                 description = f'Venta USD – {op_id} – {client_name}'
 

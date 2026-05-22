@@ -265,7 +265,7 @@
                 <th class="text-end" style="background:#d1fae5;color:#065f46;" title="Saldo Esperado incluyendo pendientes">S. Esperado</th>
                 <th class="text-end" title="Saldo manual ingresado">Manual</th>
                 <th class="text-end" title="Diferencia: Manual − Saldo Real">Dif.</th>
-                <th class="text-end" title="Saldo según Libro Mayor (C-02)">Contable</th>
+                <th class="text-end" title="Flujo neto en el Libro Mayor del día (Σ DEBE–HABER en asientos activos de la fecha). Verde = cuadra con movimientos operativos.">Flujo Libro</th>
                 <th style="width:36px;"></th>
               </tr>
             </thead>
@@ -1150,19 +1150,22 @@ function renderReconciliationTable(banks, hasCritical, hasLedger) {
     // Saldo esperado con pendientes
     const saldoEspPend = d.saldo_esp_pend ?? d.expected;
 
-    // Ledger column — muestra saldo del Libro Mayor del día (filtrado por fecha)
+    // Ledger column — flujo neto contable del día (DEBE–HABER en asientos de hoy)
     let ledgerCell = '—';
     if (d.ledger_balance != null) {
-      const thr = cur === 'USD' ? 0.50 : 1.00;
-      const diffVal = d.ledger_diff ?? 0;
-      const diffAbs = Math.abs(diffVal);
-      const matchOk = diffAbs <= thr;
-      const lc = matchOk ? 'text-success' : 'text-danger fw-semibold';
-      const diffSign = diffVal >= 0 ? '+' : '';
-      const tipDiff = diffAbs > thr
-        ? ` · Δ ${diffSign}${sym}${fmtN(diffVal)} vs Manual`
-        : ' · Cuadra con Manual';
-      ledgerCell = `<span class="${lc}" title="Libro Mayor hoy${tipDiff}">${sym}${fmtN(d.ledger_balance)}</span>`;
+      const sign = d.ledger_balance >= 0 ? '+' : '';
+      const thr  = cur === 'USD' ? 0.50 : 1.00;
+      const diff = d.ledger_diff ?? 0;  // flujo_contable − movimientos_operativos
+      const matchOk = Math.abs(diff) <= thr;
+      const col = d.ledger_balance === 0 ? '#6b7280'
+                : (matchOk ? '#065f46' : '#b45309');
+      const tipDiff = matchOk
+        ? '✓ Cuadra con movimientos del día'
+        : `Δ vs movimientos: ${diff >= 0 ? '+' : ''}${sym}${fmtN(diff)}`;
+      ledgerCell = `<span style="color:${col};font-weight:600;"
+                         title="Flujo contable hoy · ${tipDiff}">
+                     ${sign}${sym}${fmtN(Math.abs(d.ledger_balance))}
+                   </span>`;
     }
 
     const auditHtml = (!isTotal && bank.updated_at)

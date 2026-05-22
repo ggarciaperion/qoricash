@@ -848,6 +848,66 @@ def register_cli_commands(app):
             print(f"✗ Error: {e}")
             traceback.print_exc()
 
+    @app.cli.command("regenerate-journal-entries")
+    def regenerate_journal_entries():
+        """
+        Anula y regenera asientos contables de operaciones COMPLETADAS de hoy.
+        Usar después de corregir qc_bank en los flujos o cuando los asientos
+        tengan códigos PCGE incorrectos.
+        Uso: flask regenerate-journal-entries
+        """
+        from app.extensions import db
+        from app.models.operation import Operation
+        from app.models.journal_entry import JournalEntry
+        from app.services.accounting.journal_service import JournalService
+        from app.utils.formatters import now_peru
+        from datetime import datetime, time
+        import traceback
+
+        try:
+            hoy = now_peru().date()
+            inicio = datetime.combine(hoy, time.min)
+            fin    = datetime.combine(hoy, time.max)
+
+            ops = Operation.query.filter(
+                Operation.status == 'Completada',
+                Operation.created_at >= inicio,
+                Operation.created_at <= fin,
+            ).all()
+            print(f"  Operaciones completadas hoy ({hoy}): {len(ops)}")
+
+            anulados = 0
+            recreados = 0
+
+            for op in ops:
+                # Anular asientos existentes de esta operación
+                existing = JournalEntry.query.filter_by(
+                    source_type='operation',
+                    source_id=op.id,
+                    status='activo'
+                ).all()
+                for entry in existing:
+                    entry.status = 'anulado'
+                    entry.annulled_at = now_peru()
+                    entry.annulled_reason = 'Regenerado vía flask regenerate-journal-entries'
+                    anulados += 1
+                db.session.flush()
+
+                # Recrear asiento con lógica corregida
+                nuevo = JournalService.create_entry_for_completed_operation(op)
+                if nuevo:
+                    recreados += 1
+                    print(f"  ✓ {op.operation_id} → {nuevo.entry_number}")
+                else:
+                    print(f"  ✗ {op.operation_id} — asiento no generado (sin amount_pen?)")
+
+            print(f"✓ Anulados: {anulados}  |  Recreados: {recreados}")
+
+        except Exception as e:
+            db.session.rollback()
+            print(f"✗ Error: {e}")
+            traceback.print_exc()
+
     @app.cli.command("create-tables")
     def create_tables():
         """Crea todas las tablas faltantes usando db.create_all() (seguro, idempotente)."""
