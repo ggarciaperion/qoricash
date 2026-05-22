@@ -620,6 +620,10 @@ def register_template_filters(flask_app):
     # Registrar el filtro en el entorno de Jinja2
     flask_app.jinja_env.filters['format_currency'] = format_currency_filter
 
+    # Exponer now_peru() como global de templates
+    from app.utils.formatters import now_peru
+    flask_app.jinja_env.globals['now_peru'] = now_peru
+
 
 def register_shell_context(app):
     """Registrar contexto para flask shell"""

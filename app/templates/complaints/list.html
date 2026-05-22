@@ -52,15 +52,23 @@
         transition: all 0.2s;
         border: 1.5px solid transparent;
     }
-    .filter-nav .nav-link:hover {
-        color: #1f2937;
-        background: #f3f4f6;
+    .filter-nav .nav-link:hover { color: #1f2937; background: #f3f4f6; }
+    .filter-nav .nav-link.active { background: #0D1B2A; color: white; border-color: #0D1B2A; }
+
+    /* Urgency row tinting */
+    tr.row-urgent  > td { background-color: #fff7ed !important; }
+    tr.row-overdue > td { background-color: #fef2f2 !important; }
+
+    .age-badge {
+        font-size: 0.7rem;
+        font-weight: 600;
+        padding: 2px 7px;
+        border-radius: 10px;
+        white-space: nowrap;
     }
-    .filter-nav .nav-link.active {
-        background: #0D1B2A;
-        color: white;
-        border-color: #0D1B2A;
-    }
+    .age-ok      { background: #f0fdf4; color: #166534; }
+    .age-warn    { background: #fffbeb; color: #92400e; }
+    .age-danger  { background: #fef2f2; color: #991b1b; }
 </style>
 {% endblock %}
 
@@ -123,11 +131,15 @@
             </li>
             <li class="nav-item">
                 <a class="nav-link {% if status_filter == 'Pendiente' %}active{% endif %}"
-                   href="{{ url_for('complaints.list_complaints', status='Pendiente') }}">Pendientes</a>
+                   href="{{ url_for('complaints.list_complaints', status='Pendiente') }}">
+                    Pendientes {% if pending_count > 0 %}<span class="badge bg-warning text-dark ms-1">{{ pending_count }}</span>{% endif %}
+                </a>
             </li>
             <li class="nav-item">
                 <a class="nav-link {% if status_filter == 'En Revisión' %}active{% endif %}"
-                   href="{{ url_for('complaints.list_complaints', status='En Revisión') }}">En Revisión</a>
+                   href="{{ url_for('complaints.list_complaints', status='En Revisión') }}">
+                    En Revisión {% if in_review_count > 0 %}<span class="badge bg-info ms-1">{{ in_review_count }}</span>{% endif %}
+                </a>
             </li>
             <li class="nav-item">
                 <a class="nav-link {% if status_filter == 'Resuelto' %}active{% endif %}"
@@ -140,64 +152,89 @@
     <div class="row">
         <div class="col-md-12">
             <div class="card">
-                <div class="card-body">
-                    <table id="complaintsTable" class="table table-hover">
+                <div class="card-body p-0">
+                    <table id="complaintsTable" class="table table-hover mb-0">
                         <thead>
                             <tr>
-                                <th>Número</th>
+                                <th>N° Reclamo</th>
                                 <th>Fecha</th>
-                                <th>Tipo Doc</th>
-                                <th>Documento</th>
+                                <th>Antigüedad</th>
                                 <th>Cliente</th>
                                 <th>Email</th>
+                                <th>Teléfono</th>
                                 <th>Tipo</th>
                                 <th>Estado</th>
-                                <th>Acciones</th>
+                                <th>Acción</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for complaint in complaints %}
-                            <tr>
-                                <td><strong>{{ complaint.complaint_number }}</strong></td>
+                            {% set now_dt = now_peru() %}
+                            {% set age_days = ((now_dt - complaint.created_at).total_seconds() / 86400) | int if complaint.created_at else 0 %}
+                            {% set is_open = complaint.status != 'Resuelto' %}
+                            <tr class="{% if is_open and age_days >= 3 %}row-overdue{% elif is_open and age_days >= 2 %}row-urgent{% endif %}">
+                                <td>
+                                    <strong>{{ complaint.complaint_number }}</strong>
+                                    {% if complaint.evidence_image_url %}
+                                    <i class="bi bi-paperclip text-muted ms-1" title="Tiene evidencia adjunta"></i>
+                                    {% endif %}
+                                </td>
                                 <td>
                                     {% if complaint.created_at %}
-                                        <small>{{ complaint.created_at.strftime('%d/%m/%Y') }}</small><br>
+                                        <span>{{ complaint.created_at.strftime('%d/%m/%Y') }}</span><br>
                                         <small class="text-muted">{{ complaint.created_at.strftime('%H:%M') }}</small>
                                     {% else %}
                                         <span class="text-muted">-</span>
                                     {% endif %}
                                 </td>
                                 <td>
-                                    <span class="badge bg-info">{{ complaint.document_type }}</span>
-                                </td>
-                                <td>{{ complaint.document_number }}</td>
-                                <td>
-                                    <strong>{{ complaint.display_name }}</strong>
-                                    {% if complaint.document_type == 'RUC' and complaint.contact_person %}
-                                        <br><small class="text-muted">Contacto: {{ complaint.contact_person }}</small>
+                                    {% if is_open %}
+                                        {% if age_days == 0 %}
+                                            <span class="age-badge age-ok">Hoy</span>
+                                        {% elif age_days == 1 %}
+                                            <span class="age-badge age-ok">1 día</span>
+                                        {% elif age_days < 3 %}
+                                            <span class="age-badge age-warn">{{ age_days }} días</span>
+                                        {% else %}
+                                            <span class="age-badge age-danger"><i class="bi bi-exclamation-triangle-fill"></i> {{ age_days }} días</span>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="age-badge age-ok"><i class="bi bi-check"></i> Resuelto</span>
                                     {% endif %}
                                 </td>
-                                <td>{{ complaint.email }}</td>
+                                <td>
+                                    <strong>{{ complaint.display_name }}</strong>
+                                    <br><small class="text-muted">
+                                        <span class="badge bg-secondary" style="font-size:.65rem;">{{ complaint.document_type }}</span>
+                                        {{ complaint.document_number }}
+                                    </small>
+                                    {% if complaint.document_type == 'RUC' and complaint.contact_person %}
+                                        <br><small class="text-muted">{{ complaint.contact_person }}</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a href="mailto:{{ complaint.email }}" class="text-decoration-none" style="font-size:.85rem;">{{ complaint.email }}</a>
+                                </td>
+                                <td>
+                                    <a href="https://wa.me/51{{ complaint.phone | replace(' ','') | replace('+51','') | replace('-','') }}"
+                                       target="_blank" class="text-decoration-none text-success" style="font-size:.85rem;">
+                                        <i class="bi bi-whatsapp"></i> {{ complaint.phone }}
+                                    </a>
+                                </td>
                                 <td>
                                     {% if complaint.complaint_type == 'Reclamo' %}
                                         <span class="badge bg-danger">Reclamo</span>
                                     {% else %}
-                                        <span class="badge bg-warning">Queja</span>
+                                        <span class="badge bg-warning text-dark">Queja</span>
                                     {% endif %}
                                 </td>
                                 <td>
                                     {% if complaint.status == 'Pendiente' %}
-                                        <span class="badge badge-status bg-warning text-dark">
-                                            <i class="bi bi-clock"></i> Pendiente
-                                        </span>
+                                        <span class="badge bg-warning text-dark"><i class="bi bi-clock"></i> Pendiente</span>
                                     {% elif complaint.status == 'En Revisión' %}
-                                        <span class="badge badge-status bg-info">
-                                            <i class="bi bi-eye"></i> En Revisión
-                                        </span>
+                                        <span class="badge bg-info"><i class="bi bi-eye"></i> En Revisión</span>
                                     {% elif complaint.status == 'Resuelto' %}
-                                        <span class="badge badge-status bg-success">
-                                            <i class="bi bi-check-circle"></i> Resuelto
-                                        </span>
+                                        <span class="badge bg-success"><i class="bi bi-check-circle"></i> Resuelto</span>
                                     {% endif %}
                                 </td>
                                 <td>
@@ -218,23 +255,19 @@
 {% endblock %}
 
 {% block scripts %}
-<!-- jQuery -->
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-
-<!-- DataTables JS -->
 <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.4/js/dataTables.bootstrap5.min.js"></script>
-
 <script>
 $(document).ready(function() {
-    // Inicializar DataTable
     $('#complaintsTable').DataTable({
-        language: {
-            url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
-        },
-        order: [[1, 'desc']], // Ordenar por fecha (más reciente primero)
+        language: { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' },
+        order: [[1, 'desc']],
         pageLength: 25,
-        responsive: true
+        responsive: true,
+        columnDefs: [
+            { orderable: false, targets: [8] }
+        ]
     });
 });
 </script>

@@ -1,343 +1,308 @@
 {% extends "base.html" %}
 
-{% block title %}Detalle Reclamo {{ complaint.complaint_number }} - QoriCash Trading{% endblock %}
+{% block title %}{{ complaint.complaint_number }} — Reclamo - QoriCash Trading{% endblock %}
 
 {% block head %}
 <style>
-    .detail-card {
-        border-radius: 10px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        margin-bottom: 20px;
-    }
-    .detail-card-header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        padding: 20px;
-        border-radius: 10px 10px 0 0;
-    }
-    .detail-card-body {
-        padding: 25px;
-    }
-    .info-label {
-        font-weight: 600;
-        color: #6c757d;
-        font-size: 0.85rem;
-        text-transform: uppercase;
-        margin-bottom: 5px;
-    }
-    .info-value {
-        font-size: 1rem;
-        color: #212529;
-        margin-bottom: 20px;
-    }
-    .badge-status-large {
-        padding: 10px 20px;
-        font-size: 1rem;
-        border-radius: 20px;
-    }
-    .detail-text {
-        background-color: #f8f9fa;
-        padding: 15px;
-        border-radius: 8px;
-        border-left: 4px solid #007bff;
-    }
-    .response-form {
-        background-color: #fff3cd;
-        padding: 20px;
-        border-radius: 8px;
-        border: 2px solid #ffc107;
-    }
-    .timeline-item {
-        padding: 15px;
-        border-left: 3px solid #007bff;
-        margin-bottom: 15px;
-        background-color: #f8f9fa;
-        border-radius: 5px;
-    }
+    .info-row { display:flex; flex-direction:column; margin-bottom:1rem; }
+    .info-row .lbl { font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:#94a3b8; margin-bottom:2px; }
+    .info-row .val { font-size:.9375rem; color:#1e293b; }
+    .detail-box { background:#f8fafc; border-left:3px solid #3b82f6; border-radius:0 6px 6px 0; padding:14px 16px; font-size:.9rem; line-height:1.7; color:#334155; white-space:pre-wrap; }
+    .response-box { background:#f0fdf4; border-left:3px solid #10b981; border-radius:0 6px 6px 0; padding:14px 16px; font-size:.9rem; line-height:1.7; color:#166534; white-space:pre-wrap; }
+    .tl-item { display:flex; gap:14px; margin-bottom:0; }
+    .tl-item:not(:last-child) .tl-line { flex:1; }
+    .tl-dot { width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:.8rem; flex-shrink:0; margin-top:2px; }
+    .tl-connector { width:2px; background:#e2e8f0; flex:1; min-height:20px; margin:4px 0 4px 13px; }
+    .evidence-thumb { width:100%; max-height:240px; object-fit:contain; border-radius:8px; border:1px solid #e2e8f0; background:#f8fafc; cursor:pointer; transition:opacity .15s; }
+    .evidence-thumb:hover { opacity:.85; }
 </style>
 {% endblock %}
 
 {% block content %}
+{% set now_dt = now_peru() %}
+{% set age_days = ((now_dt - complaint.created_at).total_seconds() / 86400) | int if complaint.created_at else 0 %}
+
 <div class="container-fluid">
-    <!-- Header con botón volver -->
-    <div class="row mb-4">
-        <div class="col-md-6">
-            <a href="{{ url_for('complaints.list_complaints') }}" class="btn btn-outline-secondary mb-3">
-                <i class="bi bi-arrow-left"></i> Volver a la lista
-            </a>
-            <h2><i class="bi bi-file-earmark-text"></i> Detalle del Reclamo</h2>
-            <p class="text-muted">{{ complaint.complaint_number }}</p>
+
+    <!-- Page header -->
+    <div class="page-header mb-4">
+        <div class="page-header-info">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-1">
+                    <li class="breadcrumb-item"><a href="{{ url_for('complaints.list_complaints') }}">Reclamos</a></li>
+                    <li class="breadcrumb-item active">{{ complaint.complaint_number }}</li>
+                </ol>
+            </nav>
+            <h2><i class="bi bi-file-earmark-text"></i> {{ complaint.complaint_number }}</h2>
+            <p class="mb-0">
+                {% if complaint.complaint_type == 'Reclamo' %}
+                    <span class="badge bg-danger">Reclamo</span>
+                {% else %}
+                    <span class="badge bg-warning text-dark">Queja</span>
+                {% endif %}
+                &nbsp;
+                {% if complaint.status == 'Pendiente' %}
+                    <span class="badge bg-warning text-dark"><i class="bi bi-clock"></i> Pendiente</span>
+                {% elif complaint.status == 'En Revisión' %}
+                    <span class="badge bg-info"><i class="bi bi-eye"></i> En Revisión</span>
+                {% else %}
+                    <span class="badge bg-success"><i class="bi bi-check-circle"></i> Resuelto</span>
+                {% endif %}
+                {% if complaint.status != 'Resuelto' %}
+                    &nbsp;
+                    {% if age_days == 0 %}
+                        <span class="badge" style="background:#f0fdf4;color:#166534;">Ingresado hoy</span>
+                    {% elif age_days == 1 %}
+                        <span class="badge" style="background:#fffbeb;color:#92400e;">1 día sin resolver</span>
+                    {% else %}
+                        <span class="badge bg-danger">{{ age_days }} días sin resolver</span>
+                    {% endif %}
+                {% endif %}
+            </p>
         </div>
-        <div class="col-md-6 text-end">
-            {% if complaint.status == 'Pendiente' %}
-                <span class="badge badge-status-large bg-warning text-dark">
-                    <i class="bi bi-clock"></i> Pendiente
-                </span>
-            {% elif complaint.status == 'En Revisión' %}
-                <span class="badge badge-status-large bg-info">
-                    <i class="bi bi-eye"></i> En Revisión
-                </span>
-            {% elif complaint.status == 'Resuelto' %}
-                <span class="badge badge-status-large bg-success">
-                    <i class="bi bi-check-circle"></i> Resuelto
-                </span>
-            {% endif %}
+        <div class="page-header-actions">
+            <a href="{{ url_for('complaints.list_complaints') }}" class="btn btn-secondary btn-sm">
+                <i class="bi bi-arrow-left"></i> Volver
+            </a>
         </div>
     </div>
 
-    <div class="row">
-        <!-- Información del Reclamante -->
-        <div class="col-md-6">
-            <div class="card detail-card">
-                <div class="detail-card-header">
-                    <h5 class="mb-0"><i class="bi bi-person-circle"></i> Información del Reclamante</h5>
-                </div>
-                <div class="detail-card-body">
-                    <div class="info-label">Tipo de Documento</div>
-                    <div class="info-value">
-                        <span class="badge bg-info">{{ complaint.document_type }}</span>
-                    </div>
+    <div class="row g-4">
 
-                    <div class="info-label">Número de Documento</div>
-                    <div class="info-value">{{ complaint.document_number }}</div>
+        <!-- ══ COLUMNA IZQUIERDA ══ -->
+        <div class="col-lg-5">
+
+            <!-- Datos del reclamante -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <i class="bi bi-person-circle"></i> Datos del Reclamante
+                </div>
+                <div class="card-body">
+                    <div class="info-row">
+                        <span class="lbl">Documento</span>
+                        <span class="val">
+                            <span class="badge bg-info me-1">{{ complaint.document_type }}</span>
+                            {{ complaint.document_number }}
+                        </span>
+                    </div>
 
                     {% if complaint.document_type == 'RUC' %}
-                        <div class="info-label">Razón Social</div>
-                        <div class="info-value">{{ complaint.company_name }}</div>
-
-                        <div class="info-label">Persona de Contacto</div>
-                        <div class="info-value">{{ complaint.contact_person }}</div>
+                    <div class="info-row">
+                        <span class="lbl">Razón Social</span>
+                        <span class="val fw-semibold">{{ complaint.company_name }}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="lbl">Persona de Contacto</span>
+                        <span class="val">{{ complaint.contact_person }}</span>
+                    </div>
                     {% else %}
-                        <div class="info-label">Nombre Completo</div>
-                        <div class="info-value">{{ complaint.full_name }}</div>
+                    <div class="info-row">
+                        <span class="lbl">Nombre Completo</span>
+                        <span class="val fw-semibold">{{ complaint.full_name }}</span>
+                    </div>
                     {% endif %}
 
-                    <div class="info-label">Correo Electrónico</div>
-                    <div class="info-value">
-                        <i class="bi bi-envelope"></i> {{ complaint.email }}
+                    <div class="info-row">
+                        <span class="lbl">Correo</span>
+                        <span class="val">
+                            <a href="mailto:{{ complaint.email }}" class="text-decoration-none">
+                                <i class="bi bi-envelope me-1"></i>{{ complaint.email }}
+                            </a>
+                        </span>
                     </div>
 
-                    <div class="info-label">Teléfono</div>
-                    <div class="info-value">
-                        <i class="bi bi-telephone"></i> {{ complaint.phone }}
+                    <div class="info-row mb-0">
+                        <span class="lbl">Teléfono</span>
+                        <span class="val">
+                            <a href="https://wa.me/51{{ complaint.phone | replace(' ','') | replace('+51','') | replace('-','') }}"
+                               target="_blank" class="text-decoration-none text-success fw-semibold">
+                                <i class="bi bi-whatsapp me-1"></i>{{ complaint.phone }}
+                            </a>
+                        </span>
                     </div>
 
                     {% if complaint.address %}
-                    <div class="info-label">Dirección</div>
-                    <div class="info-value">
-                        <i class="bi bi-geo-alt"></i> {{ complaint.address }}
+                    <div class="info-row mb-0 mt-3">
+                        <span class="lbl">Dirección</span>
+                        <span class="val"><i class="bi bi-geo-alt me-1 text-muted"></i>{{ complaint.address }}</span>
                     </div>
                     {% endif %}
                 </div>
             </div>
-        </div>
 
-        <!-- Información del Reclamo -->
-        <div class="col-md-6">
-            <div class="card detail-card">
-                <div class="detail-card-header">
-                    <h5 class="mb-0"><i class="bi bi-file-text"></i> Información del Reclamo</h5>
+            <!-- Timeline -->
+            <div class="card">
+                <div class="card-header bg-secondary text-white">
+                    <i class="bi bi-clock-history"></i> Historial
                 </div>
-                <div class="detail-card-body">
-                    <div class="info-label">Número de Reclamo</div>
-                    <div class="info-value">
-                        <strong>{{ complaint.complaint_number }}</strong>
+                <div class="card-body pb-2">
+                    <!-- Creación -->
+                    <div class="tl-item">
+                        <div>
+                            <div class="tl-dot" style="background:#eff6ff;color:#3b82f6;"><i class="bi bi-calendar-plus"></i></div>
+                            <div class="tl-connector"></div>
+                        </div>
+                        <div class="pb-3">
+                            <div class="fw-semibold" style="font-size:.85rem;">Reclamo registrado</div>
+                            <div style="font-size:.78rem;color:#64748b;">{{ complaint.created_at.strftime('%d/%m/%Y %H:%M') if complaint.created_at else '-' }}</div>
+                            <div style="font-size:.8rem;color:#475569;margin-top:2px;">Formulario web — www.qoricash.pe</div>
+                        </div>
                     </div>
 
-                    <div class="info-label">Tipo de Solicitud</div>
-                    <div class="info-value">
-                        {% if complaint.complaint_type == 'Reclamo' %}
-                            <span class="badge bg-danger">Reclamo</span>
-                        {% else %}
-                            <span class="badge bg-warning">Queja</span>
-                        {% endif %}
+                    {% if complaint.updated_at and complaint.updated_at != complaint.created_at %}
+                    <div class="tl-item">
+                        <div>
+                            <div class="tl-dot" style="background:#fefce8;color:#ca8a04;"><i class="bi bi-pencil"></i></div>
+                            <div class="tl-connector"></div>
+                        </div>
+                        <div class="pb-3">
+                            <div class="fw-semibold" style="font-size:.85rem;">Última actualización</div>
+                            <div style="font-size:.78rem;color:#64748b;">{{ complaint.updated_at.strftime('%d/%m/%Y %H:%M') }}</div>
+                        </div>
                     </div>
-
-                    <div class="info-label">Fecha de Registro</div>
-                    <div class="info-value">
-                        {% if complaint.created_at %}
-                            <i class="bi bi-calendar"></i> {{ complaint.created_at.strftime('%d/%m/%Y %H:%M') }}
-                        {% else %}
-                            -
-                        {% endif %}
-                    </div>
+                    {% endif %}
 
                     {% if complaint.resolved_at %}
-                    <div class="info-label">Fecha de Resolución</div>
-                    <div class="info-value">
-                        <i class="bi bi-check-circle"></i> {{ complaint.resolved_at.strftime('%d/%m/%Y %H:%M') }}
-                    </div>
-                    {% endif %}
-
-                    {% if complaint.resolver %}
-                    <div class="info-label">Resuelto Por</div>
-                    <div class="info-value">
-                        <i class="bi bi-person-badge"></i> {{ complaint.resolver.username }} ({{ complaint.resolver.email }})
-                    </div>
-                    {% endif %}
-
-                    <div class="info-label">Detalle del Reclamo</div>
-                    <div class="detail-text">
-                        {{ complaint.detail }}
-                    </div>
-
-                    {% if complaint.evidence_image_url %}
-                    <div class="mt-3">
-                        <a href="{{ complaint.evidence_image_url }}" target="_blank" class="btn btn-primary">
-                            <i class="bi bi-image"></i> Ver Imagen de Evidencia
-                        </a>
-                    </div>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Formulario de Actualización (Estado, Respuesta e Imagen) -->
-    <div class="row">
-        <div class="col-md-12">
-            <div class="card detail-card">
-                <div class="card-body">
-                    <h5 class="mb-3">
-                        <i class="bi bi-{% if complaint.status == 'Resuelto' %}eye{% else %}pencil-square{% endif %}"></i>
-                        {% if complaint.status == 'Resuelto' %}Información de Resolución{% else %}Actualizar Estado y Respuesta{% endif %}
-                    </h5>
-
-                    {% if complaint.status == 'Resuelto' %}
-                    <!-- Modo solo lectura cuando está resuelto -->
-                    <div class="alert alert-success">
-                        <i class="bi bi-check-circle-fill"></i> Este reclamo ha sido resuelto y no puede editarse.
-                    </div>
-
-                    <div class="row">
-                        <div class="col-md-4 mb-3">
-                            <label class="form-label">Estado</label>
-                            <div class="form-control-plaintext">
-                                <span class="badge bg-success"><i class="bi bi-check-circle"></i> Resuelto</span>
-                            </div>
+                    <div class="tl-item">
+                        <div>
+                            <div class="tl-dot" style="background:#f0fdf4;color:#16a34a;"><i class="bi bi-check-circle-fill"></i></div>
                         </div>
-
-                        <div class="col-md-12 mb-3">
-                            <label class="form-label">Respuesta del Equipo</label>
-                            <div class="detail-text" style="border-left-color: #28a745;">
-                                {{ complaint.response or 'No se proporcionó respuesta' }}
-                            </div>
+                        <div class="pb-2">
+                            <div class="fw-semibold text-success" style="font-size:.85rem;">Resuelto</div>
+                            <div style="font-size:.78rem;color:#64748b;">{{ complaint.resolved_at.strftime('%d/%m/%Y %H:%M') }}</div>
+                            {% if complaint.resolver %}
+                            <div style="font-size:.8rem;color:#475569;margin-top:2px;">Por {{ complaint.resolver.username }}</div>
+                            {% endif %}
                         </div>
                     </div>
                     {% else %}
-                    <!-- Modo edición cuando NO está resuelto -->
+                    <div class="tl-item">
+                        <div>
+                            <div class="tl-dot" style="background:#f1f5f9;color:#94a3b8;"><i class="bi bi-hourglass-split"></i></div>
+                        </div>
+                        <div class="pb-2">
+                            <div style="font-size:.85rem;color:#94a3b8;">Pendiente de resolución</div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+        </div>
+
+        <!-- ══ COLUMNA DERECHA ══ -->
+        <div class="col-lg-7">
+
+            <!-- Detalle del reclamo -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <i class="bi bi-chat-text"></i> Detalle del {{ complaint.complaint_type }}
+                </div>
+                <div class="card-body">
+                    <div class="detail-box">{{ complaint.detail }}</div>
+
+                    {% if complaint.evidence_image_url %}
+                    <div class="mt-3">
+                        <div class="lbl mb-2" style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;">Evidencia adjunta</div>
+                        <a href="{{ complaint.evidence_image_url }}" target="_blank">
+                            <img src="{{ complaint.evidence_image_url }}" alt="Evidencia" class="evidence-thumb">
+                        </a>
+                        <div class="mt-1">
+                            <a href="{{ complaint.evidence_image_url }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-arrows-fullscreen"></i> Ver en tamaño completo
+                            </a>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Panel de gestión -->
+            <div class="card">
+                <div class="card-header {% if complaint.status == 'Resuelto' %}bg-success{% else %}bg-warning text-dark{% endif %}">
+                    <i class="bi bi-{% if complaint.status == 'Resuelto' %}check-circle{% else %}pencil-square{% endif %}"></i>
+                    {% if complaint.status == 'Resuelto' %}Resolución{% else %}Gestionar Reclamo{% endif %}
+                </div>
+                <div class="card-body">
+                    {% if complaint.status == 'Resuelto' %}
+
+                    <div class="alert alert-success py-2 mb-3">
+                        <i class="bi bi-lock-fill me-1"></i> Este reclamo fue resuelto y ya no puede editarse.
+                    </div>
+                    {% if complaint.response %}
+                    <div class="lbl mb-2" style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;">Respuesta enviada al cliente</div>
+                    <div class="response-box">{{ complaint.response }}</div>
+                    {% endif %}
+
+                    {% else %}
+
                     <form id="formUpdateComplaint" method="POST" action="{{ url_for('complaints.update_complaint_status', id=complaint.id) }}">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
-                        <div class="row">
-                            <div class="col-md-4 mb-3">
-                                <label class="form-label">Estado</label>
-                                <select class="form-select" name="status" id="complaintStatus" required>
-                                    <option value="Pendiente" {% if complaint.status == 'Pendiente' %}selected{% endif %}>
-                                        Pendiente
-                                    </option>
-                                    <option value="En Revisión" {% if complaint.status == 'En Revisión' %}selected{% endif %}>
-                                        En Revisión
-                                    </option>
-                                    <option value="Resuelto" {% if complaint.status == 'Resuelto' %}selected{% endif %}>
-                                        Resuelto
-                                    </option>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold" style="font-size:.85rem;">Estado</label>
+                                <select class="form-select form-select-sm" name="status" id="complaintStatus" required>
+                                    <option value="Pendiente" {% if complaint.status == 'Pendiente' %}selected{% endif %}>⏳ Pendiente</option>
+                                    <option value="En Revisión" {% if complaint.status == 'En Revisión' %}selected{% endif %}>🔍 En Revisión</option>
+                                    <option value="Resuelto">✅ Resuelto</option>
                                 </select>
                             </div>
 
-                            <div class="col-md-12 mb-3">
-                                <label class="form-label">Respuesta del Equipo</label>
+                            <div class="col-12">
+                                <label class="form-label fw-semibold" style="font-size:.85rem;">
+                                    Respuesta al cliente
+                                    <span class="text-muted fw-normal">(obligatoria al marcar como Resuelto)</span>
+                                </label>
                                 <textarea class="form-control" name="response" id="complaintResponse" rows="5"
-                                          placeholder="Ingrese la respuesta al cliente...">{{ complaint.response or '' }}</textarea>
-                                <small class="form-text text-muted">
-                                    Al cambiar el estado, se enviará un correo automático al cliente notificando el cambio.
-                                </small>
+                                          placeholder="Redacta aquí la respuesta que recibirá el cliente por correo...">{{ complaint.response or '' }}</textarea>
+                                <small class="text-muted">Al cambiar el estado se enviará un email automático al cliente.</small>
                             </div>
-
                         </div>
 
-                        <div class="d-flex justify-content-end gap-2">
-                            <a href="{{ url_for('complaints.list_complaints') }}" class="btn btn-secondary">
-                                <i class="bi bi-x-circle"></i> Cancelar
-                            </a>
-                            <button type="submit" class="btn btn-primary">
-                                <i class="bi bi-check-circle"></i> Guardar Cambios
-                            </button>
+                        <div class="d-flex justify-content-between align-items-center mt-3">
+                            <div class="d-flex gap-2">
+                                <!-- Acceso directo WhatsApp -->
+                                <a href="https://wa.me/51{{ complaint.phone | replace(' ','') | replace('+51','') | replace('-','') }}?text=Hola+{{ complaint.display_name | urlencode }}%2C+le+contactamos+de+QoriCash+respecto+a+su+reclamo+{{ complaint.complaint_number }}."
+                                   target="_blank" class="btn btn-sm btn-outline-success">
+                                    <i class="bi bi-whatsapp"></i> WhatsApp
+                                </a>
+                                <a href="mailto:{{ complaint.email }}?subject=Reclamo+{{ complaint.complaint_number }}"
+                                   class="btn btn-sm btn-outline-secondary">
+                                    <i class="bi bi-envelope"></i> Email
+                                </a>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <a href="{{ url_for('complaints.list_complaints') }}" class="btn btn-sm btn-secondary">
+                                    <i class="bi bi-x"></i> Cancelar
+                                </a>
+                                <button type="submit" class="btn btn-sm btn-primary">
+                                    <i class="bi bi-check2"></i> Guardar
+                                </button>
+                            </div>
                         </div>
                     </form>
 
                     <script>
-                    // Validación para estado "Resuelto"
                     document.getElementById('formUpdateComplaint').addEventListener('submit', function(e) {
-                        const status = document.getElementById('complaintStatus').value;
+                        const status   = document.getElementById('complaintStatus').value;
                         const response = document.getElementById('complaintResponse').value.trim();
-
-                        if (status === 'Resuelto') {
-                            if (!response) {
-                                e.preventDefault();
-                                alert('Para marcar como "Resuelto" debe proporcionar una respuesta del equipo');
-                                return false;
-                            }
+                        if (status === 'Resuelto' && !response) {
+                            e.preventDefault();
+                            alert('Para marcar como "Resuelto" debe proporcionar una respuesta del equipo');
                         }
                     });
-
-                    // ──────────────────────────────────────────────────────────
-                    // KEEPALIVE: mantiene la sesión activa mientras el usuario
-                    // redacta una respuesta (evita CSRF "tokens do not match"
-                    // causado por timeout de sesión de 5 minutos).
-                    // Pinga /health cada 2 minutos — endpoint sin costo de BD.
-                    // ──────────────────────────────────────────────────────────
-                    (function startSessionKeepalive() {
-                        const INTERVAL_MS = 2 * 60 * 1000; // 2 minutos
+                    (function() {
                         setInterval(function() {
-                            fetch('/health', { method: 'GET', credentials: 'same-origin' })
-                                .catch(function() { /* silencioso — no interrumpir al usuario */ });
-                        }, INTERVAL_MS);
+                            fetch('/health', { method:'GET', credentials:'same-origin' }).catch(function(){});
+                        }, 2 * 60 * 1000);
                     })();
                     </script>
+
                     {% endif %}
                 </div>
             </div>
-        </div>
-    </div>
 
-    <!-- Historial de Cambios -->
-    <div class="row">
-        <div class="col-md-12">
-            <div class="card detail-card">
-                <div class="card-body">
-                    <h5 class="mb-3"><i class="bi bi-clock-history"></i> Historial</h5>
-
-                    <div class="timeline-item">
-                        <strong><i class="bi bi-calendar-plus"></i> Creación</strong><br>
-                        <small class="text-muted">
-                            {{ complaint.created_at.strftime('%d/%m/%Y %H:%M') if complaint.created_at else '-' }}
-                        </small>
-                        <p class="mb-0 mt-2">Reclamo registrado desde el formulario web</p>
-                    </div>
-
-                    {% if complaint.updated_at and complaint.updated_at != complaint.created_at %}
-                    <div class="timeline-item">
-                        <strong><i class="bi bi-pencil"></i> Última Actualización</strong><br>
-                        <small class="text-muted">
-                            {{ complaint.updated_at.strftime('%d/%m/%Y %H:%M') }}
-                        </small>
-                    </div>
-                    {% endif %}
-
-                    {% if complaint.resolved_at %}
-                    <div class="timeline-item" style="border-left-color: #28a745;">
-                        <strong><i class="bi bi-check-circle-fill text-success"></i> Resolución</strong><br>
-                        <small class="text-muted">
-                            {{ complaint.resolved_at.strftime('%d/%m/%Y %H:%M') }}
-                        </small>
-                        {% if complaint.resolver %}
-                        <p class="mb-0 mt-2">Resuelto por {{ complaint.resolver.username }}</p>
-                        {% endif %}
-                    </div>
-                    {% endif %}
-                </div>
-            </div>
         </div>
     </div>
 </div>

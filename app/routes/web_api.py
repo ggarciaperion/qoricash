@@ -1182,113 +1182,93 @@ def submit_complaint():
                     'success': False,
                     'message': 'DNI debe tener 8 dígitos'
                 }), 400
-            elif tipo_documento == 'CE' and len(numero_documento) != 9:
+            elif tipo_documento == 'CE' and (len(numero_documento) < 6 or len(numero_documento) > 12):
                 return jsonify({
                     'success': False,
-                    'message': 'Carné de Extranjería debe tener 9 dígitos'
+                    'message': 'Carné de Extranjería debe tener entre 6 y 12 caracteres'
                 }), 400
 
-        # Generar número de reclamo ANTES de enviar email
         from app.models.complaint import Complaint
-        complaint_number = Complaint.generate_complaint_number()
 
-        # Preparar datos para el email
-        complaint_data = {
-            'complaint_number': complaint_number,
-            'tipo_documento': tipo_documento,
-            'numero_documento': numero_documento,
-            'email': email,
-            'telefono': telefono,
-            'direccion': data.get('direccion', '').strip(),
-            'tipo_solicitud': tipo_solicitud,
-            'detalle': detalle
-        }
-
-        # Agregar campos según tipo de documento
+        # ── 1. Preparar campos por tipo de documento ──────────────────────────
         if tipo_documento == 'RUC':
-            complaint_data['razon_social'] = data.get('razonSocial', '').strip()
-            complaint_data['persona_contacto'] = data.get('personaContacto', '').strip()
+            full_name_value    = None
+            company_name_value = data.get('razonSocial', '').strip()
+            contact_person_value = data.get('personaContacto', '').strip()
         else:
-            complaint_data['nombres'] = data.get('nombres', '').strip()
-            complaint_data['apellidos'] = data.get('apellidos', '').strip()
+            nombres  = data.get('nombres', '').strip()
+            apellidos = data.get('apellidos', '').strip()
+            full_name_value      = f"{nombres} {apellidos}".strip()
+            company_name_value   = None
+            contact_person_value = None
 
-        # Enviar email
-        from app.services.email_service import EmailService
-
-        success, message = EmailService.send_complaint_email(complaint_data)
-
-        if success:
-            logger.info(f"✅ {tipo_solicitud} enviado exitosamente desde libro de reclamaciones: {email}")
-
-            # Después de enviar el email exitosamente, guardar en la base de datos
+        # ── 2. Subir imagen de evidencia si existe ────────────────────────────
+        evidence_image_url = None
+        if evidence_file:
             try:
-
-                # Preparar datos según tipo de documento
-                if tipo_documento == 'RUC':
-                    full_name_value = None
-                    company_name_value = complaint_data.get('razon_social', '')
-                    contact_person_value = complaint_data.get('persona_contacto', '')
+                from app.services.file_service import FileService
+                file_service = FileService()
+                img_ok, img_msg, img_url = file_service.upload_file(evidence_file, folder='complaints/evidence')
+                if img_ok:
+                    evidence_image_url = img_url
+                    logger.info(f"✅ Imagen de evidencia subida: {evidence_image_url}")
                 else:
-                    # Concatenar nombres y apellidos
-                    nombres = complaint_data.get('nombres', '')
-                    apellidos = complaint_data.get('apellidos', '')
-                    full_name_value = f"{nombres} {apellidos}".strip()
-                    company_name_value = None
-                    contact_person_value = None
+                    logger.error(f"❌ Error al subir imagen de evidencia: {img_msg}")
+            except Exception as upload_error:
+                logger.error(f"❌ Error al subir imagen de evidencia: {str(upload_error)}")
 
-                # Subir imagen de evidencia si existe
-                evidence_image_url = None
-                if evidence_file:
-                    try:
-                        from app.services.file_service import FileService
-                        file_service = FileService()
-                        success, message, url = file_service.upload_file(evidence_file, folder='complaints/evidence')
-                        if success:
-                            evidence_image_url = url
-                            logger.info(f"✅ Imagen de evidencia subida: {evidence_image_url}")
-                        else:
-                            logger.error(f"❌ Error al subir imagen de evidencia: {message}")
-                    except Exception as upload_error:
-                        logger.error(f"❌ Error al subir imagen de evidencia: {str(upload_error)}")
-                        # Continuar sin imagen si falla el upload
+        # ── 3. Guardar en BD PRIMERO (número se genera aquí de forma atómica) ─
+        complaint_number = Complaint.generate_complaint_number()
+        new_complaint = Complaint(
+            complaint_number=complaint_number,
+            document_type=tipo_documento,
+            document_number=numero_documento,
+            full_name=full_name_value,
+            company_name=company_name_value,
+            contact_person=contact_person_value,
+            email=email,
+            phone=telefono,
+            address=data.get('direccion', '').strip(),
+            complaint_type=tipo_solicitud,
+            detail=detalle,
+            evidence_image_url=evidence_image_url,
+            status='Pendiente',
+            created_at=now_peru()
+        )
+        db.session.add(new_complaint)
+        db.session.commit()
+        logger.info(f"✅ {tipo_solicitud} {complaint_number} guardado en BD")
 
-                # Crear registro de reclamo
-                new_complaint = Complaint(
-                    complaint_number=complaint_number,
-                    document_type=tipo_documento,
-                    document_number=numero_documento,
-                    full_name=full_name_value,
-                    company_name=company_name_value,
-                    contact_person=contact_person_value,
-                    email=email,
-                    phone=telefono,
-                    address=complaint_data.get('direccion', ''),
-                    complaint_type=tipo_solicitud,
-                    detail=detalle,
-                    evidence_image_url=evidence_image_url if evidence_image_url else None,
-                    status='Pendiente',
-                    created_at=now_peru()
-                )
+        # ── 4. Enviar email de forma asíncrona (no bloquea si falla) ──────────
+        try:
+            from app.services.email_service import EmailService
+            complaint_data = {
+                'complaint_number': complaint_number,
+                'tipo_documento': tipo_documento,
+                'numero_documento': numero_documento,
+                'email': email,
+                'telefono': telefono,
+                'direccion': data.get('direccion', '').strip(),
+                'tipo_solicitud': tipo_solicitud,
+                'detalle': detalle,
+            }
+            if tipo_documento == 'RUC':
+                complaint_data['razon_social']    = company_name_value
+                complaint_data['persona_contacto'] = contact_person_value
+            else:
+                complaint_data['nombres']   = data.get('nombres', '').strip()
+                complaint_data['apellidos'] = data.get('apellidos', '').strip()
+            EmailService.send_complaint_email(complaint_data)
+            logger.info(f"✅ Email de confirmación enviado para {complaint_number}")
+        except Exception as email_error:
+            logger.error(f"❌ Error al enviar email de confirmación {complaint_number}: {str(email_error)}")
+            # El reclamo ya está guardado — el email es secundario
 
-                db.session.add(new_complaint)
-                db.session.commit()
-
-                logger.info(f"✅ {tipo_solicitud} {complaint_number} guardado en BD")
-
-            except Exception as db_error:
-                logger.error(f"❌ Error al guardar {tipo_solicitud} en BD: {str(db_error)}")
-                # No bloquear la respuesta exitosa si falla el guardado en BD
-
-            return jsonify({
-                'success': True,
-                'message': f'{tipo_solicitud} enviado exitosamente. Recibirás una respuesta en tu correo dentro de 24-48 horas hábiles.'
-            }), 200
-        else:
-            logger.error(f"❌ Error al enviar {tipo_solicitud}: {message}")
-            return jsonify({
-                'success': False,
-                'message': f'Error al enviar {tipo_solicitud.lower()}: {message}'
-            }), 500
+        return jsonify({
+            'success': True,
+            'complaint_number': complaint_number,
+            'message': f'{tipo_solicitud} registrado exitosamente con el número {complaint_number}. Recibirás una respuesta en tu correo dentro de 24-48 horas hábiles.'
+        }), 200
 
     except Exception as e:
         logger.error(f"❌ Error en endpoint de complaints: {str(e)}")
