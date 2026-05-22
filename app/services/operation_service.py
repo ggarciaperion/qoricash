@@ -442,6 +442,15 @@ class OperationService:
                     f'para {operation.operation_id}: {str(e)}'
                 )
 
+        # SALDOS BANCARIOS: Actualizar balance automáticamente al completar
+        if new_status == 'Completada':
+            try:
+                from app.models.bank_balance import BankBalance
+                BankBalance.apply_operation(operation)
+            except Exception as e:
+                import logging
+                logging.error(f'[BankBalance] Error en auto-update para {operation.operation_id}: {str(e)}')
+
         return True, f'Estado actualizado a {new_status}', operation
     
     @staticmethod

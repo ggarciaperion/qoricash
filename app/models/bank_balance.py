@@ -66,6 +66,97 @@ class BankBalance(db.Model):
         }
 
     @staticmethod
+    def apply_operation(operation):
+        """
+        Actualiza balance_usd / balance_pen automáticamente al completar una operación.
+
+        Compra:  QoriCash recibe USD del cliente  → banco_usd.balance_usd += amount_usd
+                 QoriCash entrega PEN al cliente  → banco_pen.balance_pen -= amount_pen
+
+        Venta:   QoriCash recibe PEN del cliente  → banco_pen.balance_pen += amount_pen
+                 QoriCash entrega USD al cliente  → banco_usd.balance_usd -= amount_usd
+
+        El banco se determina por source_account → client.bank_accounts (misma lógica
+        que get_bank_reconciliation).  Si no hay registro BankBalance para ese banco,
+        se omite silenciosamente (el operador debe agregarlo primero desde el UI).
+        """
+        import logging
+        _log = logging.getLogger(__name__)
+
+        try:
+            from app.config.bank_accounts import QORICASH_ACCOUNTS
+
+            _banco_accts = {}
+            for _b, _monedas in QORICASH_ACCOUNTS.items():
+                _banco_accts[_b] = {}
+                for _m, _d in _monedas.items():
+                    _banco_accts[_b][_m] = f"{_b} {_m} ({_d['numero']})"
+
+            _ALIASES = {
+                'BCP': 'BCP', 'CREDITO': 'BCP', 'CRÉDITO': 'BCP',
+                'INTERBANK': 'INTERBANK', 'IBK': 'INTERBANK',
+                'BANBIF': 'BANBIF', 'BIF': 'BANBIF',
+            }
+
+            def _normalize(name):
+                u = (name or '').upper()
+                for alias, banco in _ALIASES.items():
+                    if alias in u:
+                        return banco
+                return 'INTERBANK'
+
+            # Determinar banco por cuenta origen del cliente
+            banco = None
+            try:
+                if operation.source_account and operation.client:
+                    for acct in (operation.client.bank_accounts or []):
+                        if acct.get('account_number') == operation.source_account:
+                            banco = _normalize(acct.get('bank_name', ''))
+                            break
+            except Exception:
+                pass
+
+            if banco is None:
+                _log.debug(f'[BankBalance] Op {operation.operation_id}: banco no determinado, omitiendo auto-update.')
+                return
+
+            usd_acct = _banco_accts.get(banco, {}).get('USD')
+            pen_acct = _banco_accts.get(banco, {}).get('PEN')
+            usd = float(operation.amount_usd)
+            pen = float(operation.amount_pen)
+
+            def _update(acct_name, usd_delta, pen_delta):
+                if not acct_name:
+                    return
+                bb = BankBalance.query.filter_by(bank_name=acct_name).first()
+                if bb is None:
+                    _log.debug(f'[BankBalance] {acct_name} no registrada, omitiendo.')
+                    return
+                if usd_delta:
+                    bb.balance_usd = max(float(bb.balance_usd) + usd_delta, 0.0)
+                if pen_delta:
+                    bb.balance_pen = max(float(bb.balance_pen) + pen_delta, 0.0)
+                bb.updated_at = now_peru()
+
+            if operation.operation_type == 'Compra':
+                _update(usd_acct, +usd, 0.0)
+                _update(pen_acct, 0.0, -pen)
+            else:  # Venta
+                _update(pen_acct, 0.0, +pen)
+                _update(usd_acct, -usd, 0.0)
+
+            db.session.commit()
+            _log.info(f'[BankBalance] Op {operation.operation_id} ({operation.operation_type}) '
+                      f'aplicada a {banco}: USD{usd:+.2f} / PEN{pen:+.2f}')
+
+        except Exception as exc:
+            _log.error(f'[BankBalance] Error en apply_operation para {getattr(operation, "operation_id", "?")} : {exc}')
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
+
+    @staticmethod
     def get_or_create_balance(bank_name, balance_usd=0, balance_pen=0):
         """
         Obtener o crear saldo para un banco

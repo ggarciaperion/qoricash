@@ -1167,6 +1167,13 @@ def complete_operation(operation_id):
                 f'para {operation.operation_id}: {str(e)}'
             )
 
+        # SALDOS BANCARIOS: Actualizar balance automáticamente al completar
+        try:
+            from app.models.bank_balance import BankBalance
+            BankBalance.apply_operation(operation)
+        except Exception as e:
+            logger.error(f'[BankBalance] Error en auto-update para {operation.operation_id}: {str(e)}')
+
         # Otorgar beneficio de referido si aplica
         try:
             from app.services.referral_service import referral_service
