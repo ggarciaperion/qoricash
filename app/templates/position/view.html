@@ -1150,11 +1150,19 @@ function renderReconciliationTable(banks, hasCritical, hasLedger) {
     // Saldo esperado con pendientes
     const saldoEspPend = d.saldo_esp_pend ?? d.expected;
 
-    // Ledger column
+    // Ledger column — muestra saldo del Libro Mayor del día (filtrado por fecha)
     let ledgerCell = '—';
-    if (d.ledger_diff != null) {
-      const lc = d.ledger_diff === 0 ? 'text-success' : 'text-danger fw-semibold';
-      ledgerCell = `<span class="${lc}">${sym}${fmtN(d.ledger_diff)}</span>`;
+    if (d.ledger_balance != null) {
+      const thr = cur === 'USD' ? 0.50 : 1.00;
+      const diffVal = d.ledger_diff ?? 0;
+      const diffAbs = Math.abs(diffVal);
+      const matchOk = diffAbs <= thr;
+      const lc = matchOk ? 'text-success' : 'text-danger fw-semibold';
+      const diffSign = diffVal >= 0 ? '+' : '';
+      const tipDiff = diffAbs > thr
+        ? ` · Δ ${diffSign}${sym}${fmtN(diffVal)} vs Manual`
+        : ' · Cuadra con Manual';
+      ledgerCell = `<span class="${lc}" title="Libro Mayor hoy${tipDiff}">${sym}${fmtN(d.ledger_balance)}</span>`;
     }
 
     const auditHtml = (!isTotal && bank.updated_at)
@@ -1205,6 +1213,7 @@ function renderReconciliationTable(banks, hasCritical, hasLedger) {
         saldo_esp_pend: list.reduce((s,b)=>s+(b[k].saldo_esp_pend??b[k].expected),0),
         actual:         list.reduce((s,b)=>s+b[k].actual,0),
         difference:     list.reduce((s,b)=>s+b[k].difference,0),
+        ledger_balance: null,
         ledger_diff: null,
       }
     };

@@ -334,6 +334,8 @@ class JournalService:
                 """
                 Crea líneas DEBE distribuyendo amount_pen entre los ítems.
                 currency_in: 'PEN' o 'USD' (determina el código PCGE a usar).
+                Prioriza qc_bank (banco QoriCash usado) sobre la cuenta del cliente
+                para determinar el código PCGE correcto.
                 """
                 pen_parts = _distribute_pen(items, amount_pen)
                 result = []
@@ -341,7 +343,10 @@ class JournalService:
                     if pen_amt <= 0:
                         continue
                     acct_num = item.get(account_key, '')
-                    bank     = _bank_from_client_accounts(client, acct_num)
+                    # qc_bank = banco de QoriCash que recibió/pagó; tiene prioridad sobre
+                    # la cuenta del cliente para elegir el código PCGE correcto.
+                    qc_bank  = item.get('qc_bank') or ''
+                    bank     = qc_bank or _bank_from_client_accounts(client, acct_num)
                     pcge     = _map_bank(bank or acct_num, currency_in)
                     usd_amt  = (pen_amt / tc).quantize(Decimal('0.01')) if tc > 0 else Decimal('0')
                     result.append({
@@ -363,7 +368,8 @@ class JournalService:
                     if pen_amt <= 0:
                         continue
                     acct_num = item.get(account_key, '')
-                    bank     = _bank_from_client_accounts(client, acct_num)
+                    qc_bank  = item.get('qc_bank') or ''
+                    bank     = qc_bank or _bank_from_client_accounts(client, acct_num)
                     pcge     = _map_bank(bank or acct_num, currency_out)
                     usd_amt  = (pen_amt / tc).quantize(Decimal('0.01')) if tc > 0 else Decimal('0')
                     result.append({

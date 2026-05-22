@@ -105,25 +105,26 @@ class BankBalance(db.Model):
                         return banco
                 return 'INTERBANK'
 
-            # Determinar banco por cuenta origen del cliente
-            banco = None
-            try:
-                if operation.source_account and operation.client:
-                    for acct in (operation.client.bank_accounts or []):
-                        if acct.get('account_number') == operation.source_account:
-                            banco = _normalize(acct.get('bank_name', ''))
-                            break
-            except Exception:
-                pass
+            def _fallback_banco():
+                """Banco fallback cuando no hay qc_bank: usa source_account → client.bank_accounts."""
+                try:
+                    if operation.source_account and operation.client:
+                        for acct in (operation.client.bank_accounts or []):
+                            if acct.get('account_number') == operation.source_account:
+                                return _normalize(acct.get('bank_name', ''))
+                    if getattr(operation, 'source_bank_name', None):
+                        return _normalize(operation.source_bank_name)
+                except Exception:
+                    pass
+                return None
 
-            if banco is None:
-                _log.debug(f'[BankBalance] Op {operation.operation_id}: banco no determinado, omitiendo auto-update.')
-                return
-
-            usd_acct = _banco_accts.get(banco, {}).get('USD')
-            pen_acct = _banco_accts.get(banco, {}).get('PEN')
             usd = float(operation.amount_usd)
             pen = float(operation.amount_pen)
+
+            _payments = operation.client_payments or []
+            _deposits = operation.client_deposits or []
+            _has_pay_banks = any(p.get('qc_bank') for p in _payments)
+            _has_dep_banks = any(d.get('qc_bank') for d in _deposits)
 
             def _update(acct_name, usd_delta, pen_delta):
                 if not acct_name:
@@ -133,21 +134,67 @@ class BankBalance(db.Model):
                     _log.debug(f'[BankBalance] {acct_name} no registrada, omitiendo.')
                     return
                 if usd_delta:
-                    bb.balance_usd = max(float(bb.balance_usd) + usd_delta, 0.0)
+                    new_usd = float(bb.balance_usd) + usd_delta
+                    bb.balance_usd = max(new_usd, 0.0)
                 if pen_delta:
-                    bb.balance_pen = max(float(bb.balance_pen) + pen_delta, 0.0)
+                    new_pen = float(bb.balance_pen) + pen_delta
+                    bb.balance_pen = max(new_pen, 0.0)
                 bb.updated_at = now_peru()
 
             if operation.operation_type == 'Compra':
-                _update(usd_acct, +usd, 0.0)
-                _update(pen_acct, 0.0, -pen)
+                # Depósitos: cliente → QoriCash en USD (inflows)
+                if _has_dep_banks:
+                    for dep in _deposits:
+                        _b = _normalize(dep.get('qc_bank', ''))
+                        _amt = float(dep.get('importe', 0))
+                        if _b and _amt > 0:
+                            _update(_banco_accts.get(_b, {}).get('USD'), +_amt, 0.0)
+                else:
+                    _b = _fallback_banco()
+                    if _b:
+                        _update(_banco_accts.get(_b, {}).get('USD'), +usd, 0.0)
+
+                # Pagos: QoriCash → cliente en PEN (outflows)
+                if _has_pay_banks:
+                    for pay in _payments:
+                        _b = _normalize(pay.get('qc_bank', ''))
+                        _amt = float(pay.get('importe', 0))
+                        if _b and _amt > 0:
+                            _update(_banco_accts.get(_b, {}).get('PEN'), 0.0, -_amt)
+                else:
+                    _b = _fallback_banco()
+                    if _b:
+                        _update(_banco_accts.get(_b, {}).get('PEN'), 0.0, -pen)
+
             else:  # Venta
-                _update(pen_acct, 0.0, +pen)
-                _update(usd_acct, -usd, 0.0)
+                # Depósitos: cliente → QoriCash en PEN (inflows)
+                if _has_dep_banks:
+                    for dep in _deposits:
+                        _b = _normalize(dep.get('qc_bank', ''))
+                        _amt = float(dep.get('importe', 0))
+                        if _b and _amt > 0:
+                            _update(_banco_accts.get(_b, {}).get('PEN'), 0.0, +_amt)
+                else:
+                    _b = _fallback_banco()
+                    if _b:
+                        _update(_banco_accts.get(_b, {}).get('PEN'), 0.0, +pen)
+
+                # Pagos: QoriCash → cliente en USD (outflows)
+                if _has_pay_banks:
+                    for pay in _payments:
+                        _b = _normalize(pay.get('qc_bank', ''))
+                        _amt = float(pay.get('importe', 0))
+                        if _b and _amt > 0:
+                            _update(_banco_accts.get(_b, {}).get('USD'), -_amt, 0.0)
+                else:
+                    _b = _fallback_banco()
+                    if _b:
+                        _update(_banco_accts.get(_b, {}).get('USD'), -usd, 0.0)
 
             db.session.commit()
             _log.info(f'[BankBalance] Op {operation.operation_id} ({operation.operation_type}) '
-                      f'aplicada a {banco}: USD{usd:+.2f} / PEN{pen:+.2f}')
+                      f'aplicada (qc_bank multibank={_has_pay_banks or _has_dep_banks}): '
+                      f'USD{usd:+.2f} / PEN{pen:+.2f}')
 
         except Exception as exc:
             _log.error(f'[BankBalance] Error en apply_operation para {getattr(operation, "operation_id", "?")} : {exc}')

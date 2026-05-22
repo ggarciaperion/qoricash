@@ -762,15 +762,21 @@ def get_bank_reconciliation():
             from app.models.journal_entry import JournalEntry as JE
             from sqlalchemy import func as sqlfunc
 
-            def _ledger_balance(pcge_code: str) -> float:
-                """Saldo contable = Σ DEBE - Σ HABER en JournalEntryLine (asientos activos)."""
+            def _ledger_balance(pcge_code: str, entry_date) -> float:
+                """
+                Saldo contable del día = Σ DEBE - Σ HABER en JournalEntryLine
+                para asientos activos con entry_date == entry_date.
+                Se filtra por fecha para no contaminar con asientos históricos erróneos.
+                """
                 debe = db.session.query(sqlfunc.sum(JournalEntryLine.debe)).join(JE).filter(
                     JournalEntryLine.account_code == pcge_code,
-                    JE.status == 'activo'
+                    JE.status == 'activo',
+                    JE.entry_date == entry_date
                 ).scalar() or 0
                 haber = db.session.query(sqlfunc.sum(JournalEntryLine.haber)).join(JE).filter(
                     JournalEntryLine.account_code == pcge_code,
-                    JE.status == 'activo'
+                    JE.status == 'activo',
+                    JE.entry_date == entry_date
                 ).scalar() or 0
                 return round(float(debe) - float(haber), 2)
 
@@ -779,26 +785,31 @@ def get_bank_reconciliation():
                 bank_key = bank_dict['bank_name'].split()[0].upper()
                 pcge_map = _BANK_PCGE.get(bank_key, {})
 
-                ledger_pen = _ledger_balance(pcge_map['PEN']) if 'PEN' in pcge_map else None
-                ledger_usd = _ledger_balance(pcge_map['USD']) if 'USD' in pcge_map else None
+                ledger_pen = _ledger_balance(pcge_map['PEN'], fecha_consulta) if 'PEN' in pcge_map else None
+                ledger_usd = _ledger_balance(pcge_map['USD'], fecha_consulta) if 'USD' in pcge_map else None
 
                 bank_dict['ledger_pen'] = ledger_pen
                 bank_dict['ledger_usd'] = ledger_usd
 
                 if ledger_pen is not None:
-                    diff_ledger_pen = abs(ledger_pen - bank_dict['pen']['actual'])
+                    # Diferencia contable: libro - manual (signo positivo = libro mayor que real)
+                    diff_ledger_pen = ledger_pen - bank_dict['pen']['actual']
+                    bank_dict['pen']['ledger_balance'] = ledger_pen
                     bank_dict['pen']['ledger_diff'] = round(diff_ledger_pen, 2)
-                    if diff_ledger_pen > _LEDGER_THRESHOLD_PEN:
+                    if abs(diff_ledger_pen) > _LEDGER_THRESHOLD_PEN:
                         has_ledger_discrepancy = True
                 else:
+                    bank_dict['pen']['ledger_balance'] = None
                     bank_dict['pen']['ledger_diff'] = None
 
                 if ledger_usd is not None:
-                    diff_ledger_usd = abs(ledger_usd - bank_dict['usd']['actual'])
+                    diff_ledger_usd = ledger_usd - bank_dict['usd']['actual']
+                    bank_dict['usd']['ledger_balance'] = ledger_usd
                     bank_dict['usd']['ledger_diff'] = round(diff_ledger_usd, 2)
-                    if diff_ledger_usd > _LEDGER_THRESHOLD_USD:
+                    if abs(diff_ledger_usd) > _LEDGER_THRESHOLD_USD:
                         has_ledger_discrepancy = True
                 else:
+                    bank_dict['usd']['ledger_balance'] = None
                     bank_dict['usd']['ledger_diff'] = None
 
         except Exception as exc:
