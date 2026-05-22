@@ -509,8 +509,8 @@ function unlockBankFields() {
 function applyRoleRestrictions(role) {
     console.log('Aplicando restricciones para rol:', role);
 
-    if (role !== 'Trader') {
-        console.log('No es Trader, permitir todo');
+    if (role !== 'Trader' && role !== 'Operador') {
+        console.log('No es Trader ni Operador, permitir todo');
         return;
     }
 

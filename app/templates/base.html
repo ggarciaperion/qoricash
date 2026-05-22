@@ -132,7 +132,9 @@
                 <i class="bi bi-bank"></i>
                 <span class="sidebar-link-text">Posición</span>
             </a>
+            {% endif %}
 
+            {% if current_user.role == 'Master' %}
             <a class="sidebar-link {% if request.endpoint and request.endpoint.startswith('contabilidad') %}active{% endif %}"
                href="{{ url_for('contabilidad.dashboard') }}">
                 <i class="bi bi-calculator"></i>
@@ -631,7 +633,7 @@
 
     <!-- KYC & Complaints Badge Script -->
     <script>
-    {% if current_user.is_authenticated and current_user.role in ['Master', 'Operador'] %}
+    {% if current_user.is_authenticated and current_user.role == 'Master' %}
     function updateUnmatchedBadge() {
         fetch('/contabilidad/api/unmatched_count', {headers: {'X-Requested-With': 'XMLHttpRequest'}})
             .then(r => r.json())
