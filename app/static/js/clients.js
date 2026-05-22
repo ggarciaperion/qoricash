@@ -506,70 +506,92 @@ function unlockBankFields() {
  * El rol Trader SOLO puede editar la sección de cuentas bancarias.
  * Todos los demás campos están en modo lectura.
  */
-function applyRoleRestrictions(role) {
-    console.log('Aplicando restricciones para rol:', role);
-
-    if (role !== 'Trader' && role !== 'Operador') {
-        return;
+/**
+ * Desbloquea los campos DENTRO del contenedor bancario para Trader/Operador.
+ * Llamado internamente por applyRoleRestrictions y por el MutationObserver.
+ */
+function _unlockBankContainer() {
+    const bankContainer = document.getElementById('bankAccountsContainer');
+    if (!bankContainer) return;
+    bankContainer.style.pointerEvents = 'auto';
+    bankContainer.querySelectorAll('input, select, textarea, button').forEach(el => {
+        el.disabled = false;
+        el.removeAttribute('readonly');
+        el.setAttribute('tabindex', '0');
+        el.classList.remove('bg-light');
+        el.style.backgroundColor = '';
+        el.style.cursor = '';
+        el.style.pointerEvents = 'auto';
+        el.style.opacity = '';
+    });
+    // Botón "Agregar Cuenta Bancaria"
+    const addBtn = document.getElementById('addBankAccountBtn');
+    if (addBtn) {
+        addBtn.disabled = false;
+        addBtn.style.pointerEvents = 'auto';
+        addBtn.style.opacity = '';
     }
+}
 
-    // Solo aplicar restricciones al EDITAR, no al crear
+function applyRoleRestrictions(role) {
+    if (role !== 'Trader' && role !== 'Operador') return;
+
+    // Solo al EDITAR, no al crear
     const clientId = document.getElementById('clientId')?.value;
-    const isEditing = clientId && clientId.trim() !== '';
-    if (!isEditing) return;
+    if (!clientId || clientId.trim() === '') return;
 
     const form = document.getElementById('clientForm');
     if (!form) return;
 
-    // PASO 1: Bloquear TODOS los campos del formulario
-    const allFields = form.querySelectorAll('input, select, textarea');
-    allFields.forEach(field => {
+    // ── CAPA 1: pointer-events:none sobre el formulario completo ─────────────
+    // Impide cualquier click/touch sobre cualquier campo fuera del banco.
+    form.style.pointerEvents = 'none';
+
+    // ── CAPA 2: disabled + tabindex:-1 en TODOS los inputs ──────────────────
+    // Impide interacción por teclado (tab + escritura) en cualquier campo.
+    form.querySelectorAll('input, select, textarea').forEach(field => {
         field.disabled = true;
-        field.readOnly = true;
+        field.setAttribute('readonly', '');
+        field.setAttribute('tabindex', '-1');
         field.classList.add('bg-light');
         field.style.backgroundColor = '#e9ecef';
         field.style.cursor = 'not-allowed';
+        field.style.pointerEvents = 'none';
         field.style.opacity = '0.7';
-        if (field.type === 'file') field.style.pointerEvents = 'none';
     });
 
-    // PASO 2: Deshabilitar botones de búsqueda SUNAT y RENIEC
-    ['btnDniLookup', 'btnRucLookup'].forEach(btnId => {
-        const btn = document.getElementById(btnId);
-        if (btn) {
+    // ── CAPA 3: Bloquear botones fuera del banco ─────────────────────────────
+    form.querySelectorAll('button').forEach(btn => {
+        if (!btn.closest('#bankAccountsContainer')) {
             btn.disabled = true;
-            btn.style.opacity = '0.5';
-            btn.style.cursor = 'not-allowed';
             btn.style.pointerEvents = 'none';
+            btn.style.opacity = '0.5';
         }
     });
 
-    // PASO 3: Bloquear secciones de documentos (Trader y Operador tienen el mismo comportamiento)
-    document.querySelectorAll('.document-section').forEach(section => {
-        section.style.pointerEvents = 'none';
-        section.style.opacity = '0.55';
-        section.style.cursor = 'not-allowed';
-        section.querySelectorAll('input, button').forEach(el => {
-            el.disabled = true;
-            el.style.pointerEvents = 'none';
-        });
-    });
+    // ── CAPA 4: Desbloquear TODO el contenedor bancario ──────────────────────
+    _unlockBankContainer();
 
-    // PASO 4: Desbloquear SOLO los campos de cuentas bancarias
-    unlockBankFields();
+    // ── CAPA 5: Habilitar botón Guardar del modal ────────────────────────────
+    const saveBtn = document.getElementById('btnSaveClient');
+    if (saveBtn) {
+        saveBtn.disabled = false;
+        saveBtn.style.pointerEvents = 'auto';
+        saveBtn.style.opacity = '';
+    }
 
-    // PASO 5: MutationObserver para mantener desbloqueados los campos bancarios al agregar cuentas
-    const bankAccountsContainer = document.getElementById('bankAccountsContainer');
-    if (bankAccountsContainer) {
+    // ── CAPA 6: MutationObserver — re-desbloquea banco al agregar cuentas ────
+    const bankContainer = document.getElementById('bankAccountsContainer');
+    if (bankContainer) {
         if (window.bankAccountsObserver) window.bankAccountsObserver.disconnect();
         window.bankAccountsObserver = new MutationObserver(() => {
-            setTimeout(() => { unlockBankFields(); }, 50);
+            setTimeout(_unlockBankContainer, 30);
         });
-        window.bankAccountsObserver.observe(bankAccountsContainer, {
-            childList: true, subtree: true, attributes: true,
-            attributeFilter: ['disabled', 'readonly']
-        });
+        window.bankAccountsObserver.observe(bankContainer, { childList: true, subtree: true });
     }
+
+    // Marcar el formulario con atributo para limpieza posterior
+    form.setAttribute('data-role-restricted', role);
 }
 
 /**
@@ -771,10 +793,8 @@ function editClient(clientId) {
                 }
 
                 // Actualizar sección de Validación OC
-                if (typeof currentUserRole !== 'undefined') {
-                    toggleValidationOcSection(currentUserRole);
-                    updateValidationOcStatus(client.validation_oc_url);
-                }
+                toggleValidationOcSection(window.currentUserRole);
+                updateValidationOcStatus(client.validation_oc_url);
 
                 // Mostrar modal
                 const modalElement = document.getElementById('createClientModal');
@@ -782,12 +802,12 @@ function editClient(clientId) {
                     const modal = new bootstrap.Modal(modalElement);
                     modal.show();
 
-                    // Aplicar restricciones de rol después de que el modal se muestre
-                    if (typeof currentUserRole !== 'undefined') {
-                        // Esperar un momento para que el modal esté completamente renderizado
-                        setTimeout(() => {
-                            applyRoleRestrictions(currentUserRole);
-                        }, 100);
+                    // Aplicar restricciones INMEDIATAMENTE antes de que el modal sea visible
+                    // y de nuevo a 150ms para cubrir campos cargados dinámicamente
+                    if (window.currentUserRole === 'Trader' || window.currentUserRole === 'Operador') {
+                        applyRoleRestrictions(window.currentUserRole);
+                        setTimeout(() => applyRoleRestrictions(window.currentUserRole), 150);
+                        setTimeout(() => applyRoleRestrictions(window.currentUserRole), 400);
                     }
                 }
             } else {
@@ -1434,15 +1454,26 @@ if (createClientModal) {
             traderNote.remove();
         }
 
-        // Habilitar todos los campos y remover estilos
+        // Habilitar todos los campos y remover estilos (limpiar restricciones de rol)
         if (form) {
+            form.style.pointerEvents = '';
+            form.removeAttribute('data-role-restricted');
+            if (window.bankAccountsObserver) {
+                window.bankAccountsObserver.disconnect();
+                window.bankAccountsObserver = null;
+            }
             const allInputs = form.querySelectorAll('input, select, textarea');
             allInputs.forEach(input => {
                 input.disabled = false;
                 input.readOnly = false;
+                input.removeAttribute('readonly');
+                input.removeAttribute('tabindex');
                 input.classList.remove('bg-light');
                 input.style.cursor = '';
                 input.style.display = '';
+                input.style.pointerEvents = '';
+                input.style.opacity = '';
+                input.style.backgroundColor = '';
             });
 
             // Restaurar labels de archivos

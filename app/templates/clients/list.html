@@ -845,27 +845,22 @@
 
         // Limpiar restricciones cuando el modal se cierra
         modalElement.addEventListener('hidden.bs.modal', function (event) {
-            // Eliminar nota de restricción
-            const restrictionNote = document.getElementById('traderRestrictionNote');
-            if (restrictionNote) {
-                restrictionNote.remove();
-            }
-
-            // Habilitar todos los campos nuevamente (excepto documentType y dni que siempre están disabled al editar)
             const form = document.getElementById('clientForm');
             if (form) {
-                const allFields = form.querySelectorAll('input, select, textarea');
-                allFields.forEach(field => {
-                    // No reactivar documentType y dni ya que siempre deben estar disabled al editar
-                    if (field.id === 'documentType' || field.id === 'dni') {
-                        return;
-                    }
+                // Restaurar pointer-events del formulario
+                form.style.pointerEvents = '';
+                form.removeAttribute('data-role-restricted');
+                // Re-habilitar todos los campos
+                form.querySelectorAll('input, select, textarea, button').forEach(field => {
                     field.disabled = false;
                     field.readOnly = false;
+                    field.removeAttribute('readonly');
+                    field.removeAttribute('tabindex');
                     field.classList.remove('bg-light');
                     field.style.backgroundColor = '';
                     field.style.cursor = '';
                     field.style.opacity = '';
+                    field.style.pointerEvents = '';
                 });
             }
         });
