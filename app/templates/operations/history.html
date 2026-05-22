@@ -441,18 +441,29 @@
     <!-- ─── Tabla ───────────────────────────────────────────────────────── -->
     <div class="card">
         <div class="card-body p-0">
-            <!-- ─── Barra de búsqueda ──────────────────────────────────── -->
+            <!-- ─── Barra de búsqueda + control de paginación ─────────── -->
             <div class="px-3 pt-3 pb-2" style="border-bottom:1px solid #e9ecef;">
-                <div class="input-group">
-                    <span class="input-group-text bg-white border-end-0" style="border-radius:8px 0 0 8px;">
-                        <i class="bi bi-search text-muted"></i>
-                    </span>
-                    <input type="text" id="historySearch" class="form-control border-start-0 ps-0"
-                           placeholder="Buscar por cliente, documento, ID, estado..."
-                           style="border-radius:0 8px 8px 0; font-size:.875rem;">
-                    <button class="btn btn-outline-secondary ms-2" id="clearSearch" style="border-radius:8px;display:none;">
-                        <i class="bi bi-x-lg"></i>
-                    </button>
+                <div class="d-flex gap-2 align-items-center flex-wrap">
+                    <div class="input-group flex-grow-1" style="min-width:220px;">
+                        <span class="input-group-text bg-white border-end-0" style="border-radius:8px 0 0 8px;">
+                            <i class="bi bi-search text-muted"></i>
+                        </span>
+                        <input type="text" id="historySearch" class="form-control border-start-0 ps-0"
+                               placeholder="Buscar por cliente, documento, ID, estado..."
+                               style="border-radius:0 8px 8px 0; font-size:.875rem;">
+                        <button class="btn btn-outline-secondary ms-2" id="clearSearch" style="border-radius:8px;display:none;">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 ms-auto text-muted" style="font-size:.85rem;white-space:nowrap;">
+                        <span>Mostrar</span>
+                        <select id="pageSizeSelect" class="form-select form-select-sm" style="width:80px;">
+                            <option value="25" selected>25</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                        </select>
+                        <span>registros</span>
+                    </div>
                 </div>
             </div>
             <table id="historyTable" class="table table-hover table-sm mb-0">
@@ -513,6 +524,13 @@
                     {% endfor %}
                 </tbody>
             </table>
+            <!-- ─── Paginación ────────────────────────────────────────── -->
+            <div class="d-flex align-items-center justify-content-between px-3 py-2 border-top" id="paginationBar">
+                <div class="text-muted" style="font-size:.82rem;" id="paginationInfo"></div>
+                <nav>
+                    <ul class="pagination pagination-sm mb-0" id="paginationControls"></ul>
+                </nav>
+            </div>
         </div>
     </div>
 
@@ -598,12 +616,87 @@
 
 {% block scripts %}
 <script>
-// ── Filtro en tiempo real — patrón exacto de Clientes ─────────────────────
+// ── Paginación ─────────────────────────────────────────────────────────────
+var _allRows     = Array.from(document.querySelectorAll('.historial-row'));
+var _filtered    = _allRows.slice();
+var _currentPage = 1;
+var _pageSize    = 25;
+
+function _getPageSize() {
+    return parseInt(document.getElementById('pageSizeSelect').value, 10) || 25;
+}
+
+function renderPage() {
+    _pageSize = _getPageSize();
+    var total      = _filtered.length;
+    var totalPages = Math.max(1, Math.ceil(total / _pageSize));
+    if (_currentPage > totalPages) _currentPage = totalPages;
+
+    var start = (_currentPage - 1) * _pageSize;
+    var end   = start + _pageSize;
+
+    _allRows.forEach(function(r) { r.style.display = 'none'; });
+    _filtered.slice(start, end).forEach(function(r) { r.style.display = ''; });
+
+    // Info text
+    var infoEl = document.getElementById('paginationInfo');
+    if (total === 0) {
+        infoEl.textContent = 'Sin resultados';
+    } else {
+        infoEl.textContent = 'Mostrando ' + (start + 1) + '–' + Math.min(end, total) + ' de ' + total + ' registros';
+    }
+
+    // Pagination controls
+    var ul = document.getElementById('paginationControls');
+    ul.innerHTML = '';
+
+    // Prev
+    var liPrev = document.createElement('li');
+    liPrev.className = 'page-item' + (_currentPage === 1 ? ' disabled' : '');
+    liPrev.innerHTML = '<a class="page-link" href="#">&laquo;</a>';
+    liPrev.addEventListener('click', function(e) {
+        e.preventDefault();
+        if (_currentPage > 1) { _currentPage--; renderPage(); }
+    });
+    ul.appendChild(liPrev);
+
+    // Page numbers (window of 5)
+    var winStart = Math.max(1, _currentPage - 2);
+    var winEnd   = Math.min(totalPages, winStart + 4);
+    if (winEnd - winStart < 4) winStart = Math.max(1, winEnd - 4);
+
+    for (var p = winStart; p <= winEnd; p++) {
+        (function(page) {
+            var li = document.createElement('li');
+            li.className = 'page-item' + (page === _currentPage ? ' active' : '');
+            li.innerHTML = '<a class="page-link" href="#">' + page + '</a>';
+            li.addEventListener('click', function(e) {
+                e.preventDefault();
+                _currentPage = page;
+                renderPage();
+            });
+            ul.appendChild(li);
+        })(p);
+    }
+
+    // Next
+    var liNext = document.createElement('li');
+    liNext.className = 'page-item' + (_currentPage === totalPages ? ' disabled' : '');
+    liNext.innerHTML = '<a class="page-link" href="#">&raquo;</a>';
+    liNext.addEventListener('click', function(e) {
+        e.preventDefault();
+        if (_currentPage < totalPages) { _currentPage++; renderPage(); }
+    });
+    ul.appendChild(liNext);
+}
+
 function applyHistoryFilter() {
     var q = document.getElementById('historySearch').value.toLowerCase();
-    document.querySelectorAll('.historial-row').forEach(function(row) {
-        row.style.display = (q === '' || row.dataset.search.includes(q)) ? '' : 'none';
+    _filtered = q === '' ? _allRows.slice() : _allRows.filter(function(r) {
+        return r.dataset.search.includes(q);
     });
+    _currentPage = 1;
+    renderPage();
 }
 
 document.getElementById('historySearch').addEventListener('input', function() {
@@ -615,6 +708,13 @@ document.getElementById('clearSearch').addEventListener('click', function() {
     this.style.display = 'none';
     applyHistoryFilter();
 });
+document.getElementById('pageSizeSelect').addEventListener('change', function() {
+    _currentPage = 1;
+    renderPage();
+});
+
+// Init
+renderPage();
 
 // ── Exportar Excel ─────────────────────────────────────────────────────────
 function downloadExcelWithDates() {
