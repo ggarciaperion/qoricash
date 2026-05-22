@@ -478,21 +478,22 @@
                     </div>
                 </div>
             </div>
+            <div class="table-responsive">
             <table id="historyTable" class="table table-hover table-sm mb-0">
                 <thead>
                     <tr>
                         <th>ID Op.</th>
-                        <th>Documento</th>
+                        <th class="d-none d-md-table-cell">Documento</th>
                         <th>Cliente</th>
                         <th>USD</th>
-                        <th>T.C.</th>
-                        <th>Base</th>
-                        <th>Pips</th>
+                        <th class="d-none d-lg-table-cell">T.C.</th>
+                        <th class="d-none d-xl-table-cell">Base</th>
+                        <th class="d-none d-xl-table-cell">Pips</th>
                         <th>PEN</th>
                         <th>Estado</th>
-                        <th>Fecha</th>
+                        <th class="d-none d-md-table-cell">Fecha</th>
                         {% if user.role in ['Master', 'Operador'] %}
-                        <th>Usuario</th>
+                        <th class="d-none d-lg-table-cell">Usuario</th>
                         {% endif %}
                         <th>Acciones</th>
                     </tr>
@@ -501,12 +502,12 @@
                     {% for op in operations %}
                     <tr class="historial-row" data-search="{{ (op.operation_id|string ~ ' ' ~ (op.client.full_name if op.client else '') ~ ' ' ~ (op.client.dni if op.client else '') ~ ' ' ~ op.status ~ ' ' ~ (op.created_at.strftime('%d/%m/%Y') if op.created_at else ''))|lower }}">
                         <td><strong>{{ op.operation_id }}</strong></td>
-                        <td>{{ op.client.dni if op.client else '-' }}</td>
+                        <td class="d-none d-md-table-cell">{{ op.client.dni if op.client else '-' }}</td>
                         <td class="col-cliente" title="{{ op.client.full_name if op.client else '-' }}">{{ op.client.full_name if op.client else '-' }}</td>
                         <td class="text-end">$ {{ op.amount_usd|format_currency(2) }}</td>
-                        <td class="text-center">{{ "%.4f"|format(op.exchange_rate) }}</td>
-                        <td class="text-center">{{ "%.4f"|format(op.base_rate) if op.base_rate else '—' }}</td>
-                        <td class="text-center">{{ "%+.1f"|format(op.pips) if op.pips else '—' }}</td>
+                        <td class="text-center d-none d-lg-table-cell">{{ "%.4f"|format(op.exchange_rate) }}</td>
+                        <td class="text-center d-none d-xl-table-cell">{{ "%.4f"|format(op.base_rate) if op.base_rate else '—' }}</td>
+                        <td class="text-center d-none d-xl-table-cell">{{ "%+.1f"|format(op.pips) if op.pips else '—' }}</td>
                         <td class="text-end">S/ {{ op.amount_pen|format_currency(2) }}</td>
                         <td>
                             {% if op.status == 'Pendiente' %}
@@ -519,9 +520,9 @@
                                 <span class="badge bg-danger">Cancelado</span>
                             {% endif %}
                         </td>
-                        <td data-order="{{ op.created_at.timestamp()|int if op.created_at else 0 }}">{{ op.created_at.strftime('%d/%m/%Y %H:%M') if op.created_at else '-' }}</td>
+                        <td class="d-none d-md-table-cell" data-order="{{ op.created_at.timestamp()|int if op.created_at else 0 }}">{{ op.created_at.strftime('%d/%m/%Y %H:%M') if op.created_at else '-' }}</td>
                         {% if user.role in ['Master', 'Operador'] %}
-                        <td>{{ op.user.email if op.user else '-' }}</td>
+                        <td class="d-none d-lg-table-cell">{{ op.user.email if op.user else '-' }}</td>
                         {% endif %}
                         <td>
                             {% if op.status == 'Completada' %}
@@ -536,6 +537,7 @@
                     {% endfor %}
                 </tbody>
             </table>
+            </div><!-- /.table-responsive -->
             <!-- ─── Paginación ────────────────────────────────────────── -->
             <div class="d-flex align-items-center justify-content-between px-3 py-2 border-top" id="paginationBar">
                 <div class="text-muted" style="font-size:.82rem;" id="paginationInfo"></div>

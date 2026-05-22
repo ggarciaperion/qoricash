@@ -518,26 +518,39 @@
 }
 
 @media (max-width: 768px) {
-    .stat-card .card-title {
-        font-size: 1.375rem;
-    }
+    .stat-card .card-title { font-size: 1.375rem; }
+    .stat-icon { font-size: 1.75rem; }
+    .status-grid { grid-template-columns: repeat(2, 1fr); gap: 0.625rem; }
+    .dashboard-filters .form-select { max-width: 100%; margin-bottom: 0.5rem; }
+    .quick-access-card i { font-size: 2.5rem; }
+    .quick-access-card { padding: 1.25rem 1rem; }
+    .stat-card .card-body { padding: 1rem; }
+    .metric-card .card-body { padding: 1rem; }
+    .metric-card .card-title { font-size: 1.75rem; }
+    .sistema-card { padding: 1.25rem; }
+    .sistema-card h4 { font-size: 1.75rem; }
+    .dashboard-header h2 { font-size: 1.25rem; }
+    .status-item { padding: 1rem 0.625rem; }
+    .status-item h4 { font-size: 1.75rem; }
+}
 
-    .stat-icon {
-        font-size: 1.75rem;
-    }
-
-    .status-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .dashboard-filters .form-select {
-        max-width: 100%;
-        margin-bottom: 0.5rem;
-    }
-
-    .quick-access-card i {
-        font-size: 2.5rem;
-    }
+@media (max-width: 480px) {
+    .stat-card .card-title { font-size: 1.125rem; }
+    .stat-icon { font-size: 1.5rem; }
+    .status-grid { grid-template-columns: repeat(2, 1fr); gap: 0.5rem; }
+    .stat-card .card-body { padding: 0.75rem; }
+    .stat-card .card-subtitle { font-size: 0.5625rem; margin-bottom: 0.25rem; }
+    .metric-card .card-title { font-size: 1.375rem; }
+    .metric-card .card-body { padding: 0.875rem; }
+    .quick-access-card { padding: 1rem 0.75rem; }
+    .quick-access-card i { font-size: 2rem; margin-bottom: 0.625rem; }
+    .quick-access-card h6 { font-size: 0.8125rem; }
+    .section-header h5 { font-size: 0.75rem; }
+    .status-item { padding: 0.75rem 0.5rem; }
+    .status-item h4 { font-size: 1.5rem; }
+    .status-item small { font-size: 0.65rem; }
+    .dashboard-header h2 { font-size: 1.125rem; }
+    .dashboard-header .text-muted { font-size: 0.75rem; }
 }
 
 /* Loading State */

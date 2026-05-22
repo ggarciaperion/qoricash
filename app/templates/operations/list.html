@@ -78,6 +78,7 @@
         <div class="col-md-12">
             <div class="card">
                 <div class="card-body">
+                    <div class="table-responsive">
                     <table id="operationsTable" class="table table-hover table-sm">
                         <thead>
                             <tr>
@@ -85,14 +86,14 @@
                                 <th>Cliente</th>
                                 <th>Tipo</th>
                                 <th>USD</th>
-                                <th>T.C.</th>
-                                <th>Base</th>
-                                <th>Pips</th>
+                                <th class="d-none d-lg-table-cell">T.C.</th>
+                                <th class="d-none d-xl-table-cell">Base</th>
+                                <th class="d-none d-xl-table-cell">Pips</th>
                                 <th>PEN</th>
-                                <th>Bancos</th>
-                                <th>Canal</th>
+                                <th class="d-none d-lg-table-cell">Bancos</th>
+                                <th class="d-none d-md-table-cell">Canal</th>
                                 <th>Estado</th>
-                                <th>Fecha</th>
+                                <th class="d-none d-md-table-cell">Fecha</th>
                                 {% if current_user.role != 'Middle Office' %}
                                 <th>Acciones</th>
                                 {% endif %}
@@ -111,16 +112,16 @@
                                     {% endif %}
                                 </td>
                                 <td class="text-end">$ {{ op.amount_usd|format_currency(2) }}</td>
-                                <td class="text-center">{{ "%.4f"|format(op.exchange_rate) }}</td>
-                                <td class="text-center">{{ "%.4f"|format(op.base_rate) if op.base_rate else '—' }}</td>
-                                <td class="text-center">{{ "%+.1f"|format(op.pips) if op.pips else '—' }}</td>
+                                <td class="text-center d-none d-lg-table-cell">{{ "%.4f"|format(op.exchange_rate) }}</td>
+                                <td class="text-center d-none d-xl-table-cell">{{ "%.4f"|format(op.base_rate) if op.base_rate else '—' }}</td>
+                                <td class="text-center d-none d-xl-table-cell">{{ "%+.1f"|format(op.pips) if op.pips else '—' }}</td>
                                 <td class="text-end">S/ {{ op.amount_pen|format_currency(2) }}</td>
-                                <td class="text-center">
+                                <td class="text-center d-none d-lg-table-cell">
                                     {% set source_bank = get_bank_name(op, op.source_account) %}
                                     {% set dest_bank = get_bank_name(op, op.destination_account) %}
                                     <small>{{ source_bank|trim or 'N/A' }} / {{ dest_bank|trim or 'N/A' }}</small>
                                 </td>
-                                <td class="text-center">
+                                <td class="text-center d-none d-md-table-cell">
                                     {% if op.origen == 'plataforma' or op.origen == 'web' %}
                                         <span class="badge bg-purple" style="background-color: #6f42c1;">Web</span>
                                     {% elif op.origen == 'app' %}
@@ -151,7 +152,7 @@
                                         <span class="badge bg-danger">Cancelado</span>
                                     {% endif %}
                                 </td>
-                                <td>{{ op.created_at.strftime('%d/%m/%Y %H:%M') if op.created_at else '-' }}</td>
+                                <td class="d-none d-md-table-cell">{{ op.created_at.strftime('%d/%m/%Y %H:%M') if op.created_at else '-' }}</td>
                                 {% if current_user.role != 'Middle Office' %}
                                 <td>
                                     <div class="btn-group btn-group-sm">
@@ -220,6 +221,7 @@
                             {% endfor %}
                         </tbody>
                     </table>
+                    </div><!-- /.table-responsive -->
                 </div>
             </div>
         </div>
