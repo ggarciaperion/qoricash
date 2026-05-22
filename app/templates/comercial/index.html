@@ -429,7 +429,7 @@ tr.row-selected { background: rgba(0,222,168,.06) !important; }
             <input type="checkbox" id="checkAll" title="Seleccionar todos">
           </th>
           <th>Cliente</th>
-          <th title="Score comercial: recurrencia + volumen + recencia + contexto de mercado">Score</th>
+          <th title="Promedio de pips (spread) de las operaciones completadas del cliente">Spread</th>
           <th>Tipo</th>
           <th>Ops · Volumen</th>
           <th>Última op.</th>
@@ -463,17 +463,14 @@ tr.row-selected { background: rgba(0,222,168,.06) !important; }
             </div>
           </td>
 
-          <!-- Score + Urgencia -->
+          <!-- Spread -->
           <td>
-            <div class="score-cell">
-              <div class="score-num {{ c.urgencia }}">{{ c.score }}</div>
-              <div class="score-bar-bg">
-                <div class="score-bar-fill {{ c.urgencia }}" style="width:{{ c.score }}%;"></div>
-              </div>
-              <span class="score-tag {{ c.urgencia }}">
-                {% if c.urgencia == 'hot' %}Caliente{% elif c.urgencia == 'warm' %}Activo{% else %}Frío{% endif %}
-              </span>
-            </div>
+            {% if c.avg_spread is not none %}
+              <span style="font-weight:700;color:var(--qori-gray-800);">{{ c.avg_spread }}</span>
+              <span style="font-size:10px;color:var(--qori-gray-400);margin-left:2px;">pips</span>
+            {% else %}
+              <span style="font-size:11px;color:var(--qori-gray-300);">—</span>
+            {% endif %}
           </td>
 
           <!-- Tipo -->
