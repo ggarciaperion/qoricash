@@ -148,6 +148,7 @@ def get_bank_balances():
                 'amount_pen': float(op.amount_pen),
                 'status': op.status,
                 'created_at': op.created_at.isoformat(),
+                'completed_at': op.completed_at.isoformat() if op.completed_at else None,
                 'horas_transcurridas': round(tiempo_transcurrido, 1),
                 'es_critica': es_critica,
                 'razon_critica': ', '.join(razon_critica) if razon_critica else None

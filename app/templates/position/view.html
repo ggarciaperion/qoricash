@@ -16,7 +16,6 @@
       </h2>
       <p class="mb-0 text-muted small">
         <span id="subtituloFecha">Cargando…</span>
-        &nbsp;<span id="aperturaStatus" class="badge bg-secondary">Sin apertura</span>
       </p>
     </div>
     <div class="page-header-actions gap-2">
@@ -26,13 +25,9 @@
         <input type="date" id="fechaSelector" class="form-control form-control-sm"
                style="width:140px;border-radius:0 4px 4px 0;">
       </div>
-      <button id="btnAperturaCierre" class="btn btn-sm btn-outline-secondary"
-              onclick="registrarApertura()" style="display:none;">
-        <i class="bi bi-door-open"></i> Abrir día
-      </button>
       <button class="btn btn-sm btn-outline-secondary" onclick="copiarResumen()"
               title="Copiar resumen al portapapeles">
-        <i class="bi bi-clipboard"></i>
+        <i class="bi bi-clipboard"></i> Copiar
       </button>
       <div class="dropdown">
         <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
@@ -87,9 +82,6 @@
         <span class="text-muted" id="tcBar">TC C: — · V: —</span>
         <span class="vr opacity-25"></span>
         <span id="completadasBar" class="text-muted">…</span>
-        <small class="text-muted ms-auto d-none d-lg-block" style="font-size:.68rem;">
-          🟢 ≤ $1 000 · 🟡 ≤ $3 000 · 🔴 > $3 000
-        </small>
       </div>
     </div>
   </div>
@@ -100,17 +92,17 @@
   <div class="card border-0 shadow-sm mb-3" id="neteoStrip">
     <div class="card-body py-2 px-3">
       <div class="d-flex align-items-center gap-3 flex-wrap small">
-        <span class="fw-semibold text-muted text-uppercase" style="font-size:.7rem;letter-spacing:.05em;">
+        <span class="fw-bold text-uppercase" style="font-size:.68rem;letter-spacing:.08em;color:#6c757d;">
           <i class="bi bi-arrow-left-right me-1"></i>Neteo
         </span>
         <span class="vr opacity-25"></span>
-        <span id="neteoCompletadasHoy" class="text-muted">— ops completadas hoy</span>
+        <span id="neteoCompletadasHoy" class="text-muted" style="font-size:.78rem;">—</span>
         <span class="vr opacity-25"></span>
-        <span id="neteoSinAmarrar" class="text-muted">Cargando estado de amarre…</span>
-        <span id="neteoRollover" style="display:none;" class="d-flex align-items-center"></span>
-        <a href="/contabilidad/amarres" class="ms-auto btn btn-outline-secondary"
-           style="font-size:.72rem;padding:.15rem .55rem;border-radius:4px;">
-          Ir a Amarres <i class="bi bi-arrow-right ms-1"></i>
+        <span id="neteoSinAmarrar" class="text-muted" style="font-size:.78rem;">…</span>
+        <span id="neteoRollover" style="display:none;font-size:.78rem;" class="d-flex align-items-center gap-2"></span>
+        <a href="/contabilidad/amarres" class="ms-auto btn btn-sm btn-outline-primary"
+           style="font-size:.72rem;padding:.2rem .65rem;border-radius:5px;">
+          <i class="bi bi-arrow-left-right me-1"></i>Ir a Amarres
         </a>
       </div>
     </div>
@@ -268,9 +260,9 @@
                 <th class="text-center" style="width:52px;">Mon.</th>
                 <th class="text-end">Inicial</th>
                 <th class="text-end" title="Movimientos de operaciones Completadas">+ Complet.</th>
-                <th class="text-end" style="background:#1a3a5c;" title="Saldo Real = Inicial + Completadas">Saldo Real</th>
+                <th class="text-end" style="background:#dbeafe;color:#1e3a5f;" title="Saldo Real = Inicial + Completadas">Saldo Real</th>
                 <th class="text-end" title="Movimientos proyectados de ops Pendientes/En Proceso">+ Pend.</th>
-                <th class="text-end" style="background:#1a4a2e;" title="Saldo Esperado incluyendo pendientes">S. Esperado</th>
+                <th class="text-end" style="background:#d1fae5;color:#065f46;" title="Saldo Esperado incluyendo pendientes">S. Esperado</th>
                 <th class="text-end" title="Saldo manual ingresado">Manual</th>
                 <th class="text-end" title="Diferencia: Manual − Saldo Real">Dif.</th>
                 <th class="text-end" title="Saldo según Libro Mayor (C-02)">Contable</th>
@@ -468,12 +460,19 @@ function getPeruDate(daysToSubtract = 0) {
     String(dt.getDate()).padStart(2,'0')].join('-');
 }
 
-function timeBadge(horas) {
-  if (horas == null) return '';
-  const h = parseFloat(horas);
-  if (h < 0.5) return '<span class="badge bg-success bg-opacity-15 text-success" style="font-size:.65rem;">Reciente</span>';
-  if (h < 2)   return `<span class="badge bg-warning bg-opacity-15 text-warning" style="font-size:.65rem;">${h.toFixed(1)}h</span>`;
-  return `<span class="badge bg-danger bg-opacity-15 text-danger fw-semibold" style="font-size:.65rem;">${h.toFixed(1)}h</span>`;
+function timeBadge(op) {
+  // Completada → muestra hora de completado
+  if (op.status === 'Completada' && op.completed_at) {
+    const hora = new Date(op.completed_at)
+      .toLocaleTimeString('es-PE', {timeZone:'America/Lima', hour:'2-digit', minute:'2-digit', hour12:false});
+    return `<span class="text-muted font-monospace" style="font-size:.72rem;">${hora}</span>`;
+  }
+  // Pendiente / En proceso → muestra horas transcurridas con color de alerta
+  const h = parseFloat(op.horas_transcurridas);
+  if (isNaN(h)) return '';
+  if (h < 2)  return `<span class="text-muted" style="font-size:.72rem;">${h.toFixed(1)}h</span>`;
+  if (h < 6)  return `<span class="text-warning fw-semibold" style="font-size:.72rem;">${h.toFixed(1)}h</span>`;
+  return `<span class="text-danger fw-bold" style="font-size:.72rem;">${h.toFixed(1)}h</span>`;
 }
 
 /* =====================================================================
@@ -589,7 +588,7 @@ function renderKPIs(p) {
             <i class="bi bi-arrow-down-circle me-1 text-primary"></i>Compras del Día
           </div>
           <div class="fw-bold text-primary mb-1" style="font-size:1.6rem;line-height:1.1;">${fmtUSD(p.total_compras_usd)}</div>
-          <div class="text-muted" style="font-size:.7rem;margin-top:-2px;">S/ ${fmtN(p.contravalor_compras_pen)}</div>
+          <div class="text-muted" style="font-size:.82rem;margin-top:-1px;font-weight:500;">S/ ${fmtN(p.contravalor_compras_pen)}</div>
           <div class="d-flex gap-2 mt-2" style="font-size:.72rem;">
             <span class="text-success">✓ ${fmtUSD(p.compras_completadas_usd)}</span>
             <span class="text-muted">·</span>
@@ -611,7 +610,7 @@ function renderKPIs(p) {
             <i class="bi bi-arrow-up-circle me-1 text-success"></i>Ventas del Día
           </div>
           <div class="fw-bold text-success mb-1" style="font-size:1.6rem;line-height:1.1;">${fmtUSD(p.total_ventas_usd)}</div>
-          <div class="text-muted" style="font-size:.7rem;margin-top:-2px;">S/ ${fmtN(p.contravalor_ventas_pen)}</div>
+          <div class="text-muted" style="font-size:.82rem;margin-top:-1px;font-weight:500;">S/ ${fmtN(p.contravalor_ventas_pen)}</div>
           <div class="d-flex gap-2 mt-2" style="font-size:.72rem;">
             <span class="text-success">✓ ${fmtUSD(p.ventas_completadas_usd)}</span>
             <span class="text-muted">·</span>
@@ -854,7 +853,7 @@ function _opRow(op) {
     <td class="text-end fw-semibold font-monospace">${fmtUSD(op.amount_usd)}</td>
     <td class="text-end font-monospace text-muted">${fmtTC(op.exchange_rate)}</td>
     <td class="text-center">${getStatusBadge(op.status)}</td>
-    <td class="text-center">${timeBadge(op.horas_transcurridas)}</td>
+    <td class="text-center">${timeBadge(op)}</td>
     <td class="text-center">
       <button class="btn btn-outline-secondary" style="padding:.1rem .3rem;font-size:.7rem;border-radius:3px;"
               onclick="verDetallesOperacion(${op.id})" title="Ver detalle">
@@ -1202,11 +1201,11 @@ function renderReconciliationTable(banks, hasCritical, hasLedger) {
       <td class="text-end font-monospace text-info" style="font-size:.78rem;">
         ${d.movements>=0?'+':''}${sym}${fmtN(d.movements)}
       </td>
-      <td class="text-end font-monospace fw-semibold" style="font-size:.78rem;background:#1a3a5c22;">${sym}${fmtN(d.expected)}</td>
+      <td class="text-end font-monospace fw-semibold" style="font-size:.78rem;background:#eff6ff;color:#1e3a5f;">${sym}${fmtN(d.expected)}</td>
       <td class="text-end font-monospace ${pendCls}" style="font-size:.78rem;">
         ${pendMvmt!==0?pendSign:''}${pendMvmt!==0?sym:''}${pendMvmt!==0?fmtN(Math.abs(pendMvmt)):'—'}
       </td>
-      <td class="text-end font-monospace fw-semibold" style="font-size:.78rem;background:#1a4a2e22;">${sym}${fmtN(saldoEspPend)}</td>
+      <td class="text-end font-monospace fw-semibold" style="font-size:.78rem;background:#f0fdf4;color:#065f46;">${sym}${fmtN(saldoEspPend)}</td>
       <td class="text-end font-monospace fw-semibold" style="font-size:.78rem;">${sym}${fmtN(d.actual)}</td>
       <td class="text-end ${diffCls}" style="font-size:.78rem;">${diffIcon} ${sym}${fmtN(diff)}</td>
       <td class="text-end" style="font-size:.78rem;">${ledgerCell}</td>
@@ -1455,23 +1454,39 @@ function exportarExcel() {
    COPIAR RESUMEN
 ===================================================================== */
 function copiarResumen() {
-  const fecha  = currentDate || getPeruDate();
-  const cUSD   = allCompras.reduce((s,o)=>s+o.amount_usd,0);
-  const vUSD   = allVentas.reduce((s,o)=>s+o.amount_usd,0);
-  const cPEN   = allCompras.reduce((s,o)=>s+o.amount_pen,0);
-  const vPEN   = allVentas.reduce((s,o)=>s+o.amount_pen,0);
-  const diff   = vUSD - cUSD;
-  const etiq   = diff >= 0 ? 'VENDIDOS EN' : 'COMPRADOS EN';
-  const pend   = [...allCompras,...allVentas].filter(o=>o.status==='Pendiente'||o.status==='En proceso').length;
+  const fecha   = currentDate || getPeruDate();
+  const cUSD    = allCompras.reduce((s,o)=>s+o.amount_usd,0);
+  const vUSD    = allVentas.reduce((s,o)=>s+o.amount_usd,0);
+  const cPEN    = allCompras.reduce((s,o)=>s+o.amount_pen,0);
+  const vPEN    = allVentas.reduce((s,o)=>s+o.amount_pen,0);
+  const diff    = vUSD - cUSD;
+  const etiq    = diff > 0.01 ? 'VENDIDOS EN' : diff < -0.01 ? 'COMPRADOS EN' : 'NETEADOS';
+  const pend    = [...allCompras,...allVentas].filter(o=>o.status==='Pendiente'||o.status==='En proceso').length;
+  const compOps = allCompras.filter(o=>o.status==='Completada');
+  const ventOps = allVentas.filter(o=>o.status==='Completada');
+  const cCompUSD = compOps.reduce((s,o)=>s+o.amount_usd,0);
+  const vCompUSD = ventOps.reduce((s,o)=>s+o.amount_usd,0);
+  const cCompPEN = compOps.reduce((s,o)=>s+o.amount_pen,0);
+  const vCompPEN = ventOps.reduce((s,o)=>s+o.amount_pen,0);
+  const utilidad = vCompPEN - cCompPEN;
+  const utilSign = utilidad >= 0 ? '+' : '';
 
+  const linea = '─'.repeat(38);
   const txt = [
-    `POSICIÓN QORICASH — ${fecha}`,
+    `📊 POSICIÓN QORICASH — ${fecha}`,
+    linea,
+    `Compras:   ${fmtUSD(cUSD).padStart(14)}  (S/ ${fmtN(cPEN)})`,
+    `Ventas:    ${fmtUSD(vUSD).padStart(14)}  (S/ ${fmtN(vPEN)})`,
+    linea,
+    etiq === 'NETEADOS'
+      ? `Posición:  NETEADOS ✓`
+      : `Posición:  ${etiq} ${fmtUSD(Math.abs(diff))}`,
     ``,
-    `Compras:    ${fmtUSD(cUSD)}  (${fmtPEN(cPEN)})`,
-    `Ventas:     ${fmtUSD(vUSD)}  (${fmtPEN(vPEN)})`,
-    `Diferencia: ${fmtUSD(Math.abs(diff))} (${etiq})`,
-    ``,
-    `Pendientes/En proceso: ${pend}`,
+    `── Completadas (${compOps.length+ventOps.length} ops) ──`,
+    `  Compras:  ${fmtUSD(cCompUSD).padStart(12)}  S/ ${fmtN(cCompPEN)}`,
+    `  Ventas:   ${fmtUSD(vCompUSD).padStart(12)}  S/ ${fmtN(vCompPEN)}`,
+    `  Utilidad: ${utilSign}S/ ${fmtN(Math.abs(utilidad))}`,
+    pend > 0 ? `\n⏳ Pendientes/En proceso: ${pend}` : `\n✅ Sin pendientes`,
   ].join('\n');
 
   if (navigator.clipboard) {
