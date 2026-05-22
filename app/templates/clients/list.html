@@ -279,7 +279,7 @@
                                         {% endif %}
 
                                         <!-- Editar -->
-                                        {% if current_user.role in ['Master', 'Trader', 'Operador', 'Plataforma'] %}
+                                        {% if current_user.role in ['Master', 'Trader', 'Operador', 'Plataforma', 'Middle Office'] %}
                                         <button class="btn btn-warning" onclick="editClient({{ c.id }})" title="Editar">
                                             <i class="bi bi-pencil"></i> <span class="btn-label">Editar</span>
                                         </button>

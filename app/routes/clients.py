@@ -193,7 +193,7 @@ def create_client():
 
 @clients_bp.route('/api/update/<int:client_id>', methods=['PUT', 'PATCH'])
 @login_required
-@require_role('Master', 'Trader', 'Operador')
+@require_role('Master', 'Trader', 'Operador', 'Middle Office')
 def update_client(client_id):
     """
     API: Actualizar cliente existente
@@ -1092,12 +1092,20 @@ def client_detail(client_id):
         entity_id=client_id
     ).order_by(AuditLog.created_at.desc()).all()
 
+    # Historial completo de modificaciones del cliente
+    modification_history = AuditLog.query.filter(
+        AuditLog.entity == 'Client',
+        AuditLog.entity_id == client_id,
+        AuditLog.action.in_(['UPDATE_CLIENT', 'UPDATE_CLIENT_DOCUMENTS', 'REASSIGN_CLIENT'])
+    ).order_by(AuditLog.created_at.desc()).limit(50).all()
+
     return render_template('clients/detail.html',
                          client=client,
                          risk_profile=risk_profile,
                          recent_operations=recent_operations,
                          restrictive_status=restrictive_status,
                          reassignment_history=reassignment_history,
+                         modification_history=modification_history,
                          back_url=back_url,
                          from_page=from_page)
 

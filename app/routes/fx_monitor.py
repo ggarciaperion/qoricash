@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 fx_monitor_bp = Blueprint("fx_monitor", __name__, url_prefix="/monitor")
 
 
-_MON = ("Master", "Operador", "Trader")
+_MON = ("Master", "Operador", "Trader", "Middle Office")
 
 
 @fx_monitor_bp.route("/")

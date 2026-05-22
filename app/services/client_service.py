@@ -19,6 +19,58 @@ logger = logging.getLogger(__name__)
 
 
 class ClientService:
+
+    @staticmethod
+    def _build_update_diff(old: dict, new: dict) -> str:
+        """Genera descripción legible de los campos que cambiaron en una actualización de cliente."""
+        field_labels = {
+            'nombres':           'Nombres',
+            'apellido_paterno':  'Apellido paterno',
+            'apellido_materno':  'Apellido materno',
+            'email':             'Email',
+            'phone':             'Teléfono',
+            'razon_social':      'Razón social',
+            'persona_contacto':  'Persona de contacto',
+            'direccion':         'Dirección',
+            'distrito':          'Distrito',
+            'provincia':         'Provincia',
+            'departamento':      'Departamento',
+            'status':            'Estado',
+        }
+        doc_labels = {
+            'dni_front_url':                'DNI frente',
+            'dni_back_url':                 'DNI reverso',
+            'dni_representante_front_url':  'DNI representante frente',
+            'dni_representante_back_url':   'DNI representante reverso',
+            'ficha_ruc_url':                'Ficha RUC',
+        }
+        changes = []
+
+        for key, label in field_labels.items():
+            o = str(old.get(key) or '').strip()
+            n = str(new.get(key) or '').strip()
+            if o != n:
+                if o and n:
+                    changes.append(f'{label}: "{o}" → "{n}"')
+                elif n:
+                    changes.append(f'{label}: agregado ("{n}")')
+                else:
+                    changes.append(f'{label}: eliminado')
+
+        for key, label in doc_labels.items():
+            had = bool(old.get(key))
+            has = bool(new.get(key))
+            if not had and has:
+                changes.append(f'{label}: subido')
+            elif had and not has:
+                changes.append(f'{label}: eliminado')
+            elif had and has and old.get(key) != new.get(key):
+                changes.append(f'{label}: reemplazado')
+
+        if old.get('bank_accounts_json') != new.get('bank_accounts_json'):
+            changes.append('Cuentas bancarias: actualizadas')
+
+        return ' | '.join(changes) if changes else 'Sin cambios de campos detectados'
     """Servicio de gestión de clientes"""
 
     @staticmethod
@@ -523,14 +575,16 @@ class ClientService:
             if 'bank_account_number' in data:
                 client.bank_account_number = (data.get('bank_account_number') or '').strip() or None
 
-            # Auditoría: registrar antes del commit
+            # Auditoría con diff detallado de campos cambiados
             try:
+                new_values = client.to_dict()
+                diff_text = ClientService._build_update_diff(old_values, new_values)
                 AuditLog.log_action(
                     user_id=getattr(current_user, 'id', None),
                     action='UPDATE_CLIENT',
                     entity='Client',
                     entity_id=client.id,
-                    details=f'Cliente actualizado: {client.full_name or client.razon_social or client.dni}'
+                    details=diff_text
                 )
             except Exception:
                 logger.exception("Fallo al registrar auditoría de actualización")
