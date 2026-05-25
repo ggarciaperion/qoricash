@@ -399,11 +399,70 @@ def asignar(pid):
         db.session.add(nueva)
 
     db.session.commit()
+    # Responder JSON si viene del drawer (fetch), redirect si viene de form HTML
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest" or "application/json" in request.headers.get("Accept",""):
+        return jsonify({"ok": True, "trader": trader.username})
     flash(f"Prospecto asignado a {trader.username}.", "success")
     return redirect(url_for("prospeccion.detalle", pid=pid))
 
 
-# ── Asignacion masiva (solo Master) ──────────────────────────────────────────
+# ── Asignacion masiva JSON (solo Master) ──────────────────────────────────────
+
+@prospeccion_bp.route("/api/asignar-masivo", methods=["POST"])
+@csrf.exempt
+@login_required
+@require_role("Master")
+def api_asignar_masivo():
+    """Asigna N prospectos sin trader al trader seleccionado."""
+    data      = request.get_json(force=True) or {}
+    trader_id = data.get("trader_id")
+    cantidad  = min(int(data.get("cantidad") or 50), 500)
+    estado    = (data.get("estado") or "").strip()
+
+    if not trader_id:
+        return jsonify({"ok": False, "error": "Selecciona un trader."}), 400
+
+    trader = db.session.get(User, trader_id)
+    if not trader:
+        return jsonify({"ok": False, "error": "Trader no encontrado."}), 400
+
+    active_count = AsignacionProspecto.query.filter_by(trader_id=trader_id, activo=True).count()
+    if active_count >= 500:
+        return jsonify({"ok": False, "error": f"{trader.username} ya tiene 500 prospectos asignados."}), 400
+    cantidad = min(cantidad, 500 - active_count)
+
+    ya_asignados = db.session.query(AsignacionProspecto.prospecto_id).filter_by(activo=True)
+    q = Prospecto.query.filter(~Prospecto.id.in_(ya_asignados))
+    if estado:
+        _FASE_MAP = {
+            "sin_contactar":  [None, "", "sin_contactar"],
+            "presentado":     ["presentado", "seguimiento", "P1"],
+            "precio_enviado": ["precio_enviado", "P2"],
+            "negociando":     ["negociando", "negociacion", "P3"],
+        }
+        vals = _FASE_MAP.get(estado, [estado])
+        from sqlalchemy import or_ as _or
+        q = q.filter(_or(*[Prospecto.estado_comercial == v for v in vals]))
+    prospectos = q.limit(cantidad).all()
+
+    asignados = 0
+    for p in prospectos:
+        existente = AsignacionProspecto.query.filter_by(prospecto_id=p.id, trader_id=trader_id).first()
+        if existente:
+            existente.activo = True
+            existente.asignado_por = current_user.id
+            existente.asignado_en  = now_peru()
+        else:
+            db.session.add(AsignacionProspecto(
+                prospecto_id=p.id, trader_id=trader_id, asignado_por=current_user.id
+            ))
+        asignados += 1
+
+    db.session.commit()
+    return jsonify({"ok": True, "asignados": asignados, "trader": trader.username})
+
+
+# ── Asignacion masiva por grupo (solo Master) ──────────────────────────────────────────
 
 @prospeccion_bp.route("/asignar-masivo", methods=["GET", "POST"])
 @login_required

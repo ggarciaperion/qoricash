@@ -784,6 +784,10 @@
         <i class="bi bi-download"></i> Exportar
       </a>
       <div class="toolbar-sep"></div>
+      <button class="btn-crm btn-crm-ghost" onclick="openAsignarMasivoModal()">
+        <i class="bi bi-people-fill"></i> Asignar masivo
+      </button>
+      <div class="toolbar-sep"></div>
       <button class="btn-crm btn-crm-ghost" style="color:#dc2626;border-color:#dc2626;" onclick="confirmarLimpiarTodo()">
         <i class="bi bi-trash3"></i> Limpiar todo
       </button>
@@ -830,15 +834,6 @@
     </div>
   </div>
 
-  <!-- ══════════════════════════ TABS ══════════════════════════ -->
-  <div class="crm-tabs-bar">
-    <button class="crm-tab active" data-tab="todos"         onclick="setTab('todos')">Todos <span class="tab-pill" id="tp-todos">—</span></button>
-    <button class="crm-tab"        data-tab="sin_contactar" onclick="setTab('sin_contactar')">Sin contactar <span class="tab-pill" id="tp-sin">—</span></button>
-    <button class="crm-tab"        data-tab="presentado"    onclick="setTab('presentado')">Presentado <span class="tab-pill" id="tp-pres">—</span></button>
-    <button class="crm-tab"        data-tab="precio"        onclick="setTab('precio')">Precio <span class="tab-pill" id="tp-prec">—</span></button>
-    <button class="crm-tab"        data-tab="negociando"    onclick="setTab('negociando')">Negociando <span class="tab-pill" id="tp-neg">—</span></button>
-    <button class="crm-tab"        data-tab="clientes"      onclick="setTab('clientes')">Clientes <span class="tab-pill" id="tp-cli">—</span></button>
-  </div>
 
   <!-- ══════════════════════════ TOOLBAR ══════════════════════════ -->
   <div class="crm-toolbar">
@@ -1168,6 +1163,45 @@
   </div>
 </div>
 
+<!-- Modal Asignar Masivo -->
+{% if is_master %}
+<div class="modal fade" id="mAsignarMasivo" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:420px">
+    <div class="modal-content">
+      <div class="modal-header modal-header-dark">
+        <h6 class="modal-title"><i class="bi bi-people-fill me-2"></i>Asignación masiva</h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        <div class="mb-3">
+          <label class="form-label fw-semibold" style="font-size:.8rem;">Trader</label>
+          <select class="form-select form-select-sm" id="amTrader"></select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold" style="font-size:.8rem;">Cantidad a asignar</label>
+          <input type="number" class="form-control form-control-sm" id="amCantidad" value="50" min="1" max="500">
+          <div class="form-text" style="font-size:.72rem;">Solo se asignarán prospectos sin trader activo.</div>
+        </div>
+        <div class="mb-2">
+          <label class="form-label fw-semibold" style="font-size:.8rem;">Filtrar por estado (opcional)</label>
+          <select class="form-select form-select-sm" id="amEstado">
+            <option value="">Todos sin asignar</option>
+            <option value="sin_contactar">Sin contactar</option>
+            <option value="presentado">Presentado</option>
+            <option value="precio_enviado">Precio enviado</option>
+            <option value="negociando">Negociando</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-sm btn-light" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-sm btn-primary" onclick="submitAsignarMasivo()">Asignar</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
 {% endblock %}
 
 {% block scripts %}
@@ -1187,6 +1221,7 @@ const IS_MASTER = {{ is_master | tojson }};
 let _rows    = [];     // all from API
 let _filt    = [];     // after filter
 let _tab     = 'todos';
+let _traders = [];     // traders activos
 let _page    = 1;
 const PG     = 100;
 let _sCol    = 'actualizado_en';
@@ -1203,7 +1238,8 @@ async function load() {
     const r = await fetch(`/prospeccion/api/grid?tab=${_tab}`);
     const d = await r.json();
     if (!d.ok) { toast('Error: ' + (d.error||'desconocido'), true); return; }
-    _rows = d.rows || [];
+    _rows    = d.rows || [];
+    _traders = d.traders || [];
     setFilterOpts(d.rubros||[], d.deptos||[]);
     updateCounts(d.counts||{});
     filter();
@@ -1506,6 +1542,22 @@ function openDrawer(id) {
         <div><div class="d-item-label">Próximo</div><div class="d-item-val">${esc(r.fecha_proximo_contacto||'—')}</div></div>
       </div>
     </div>
+    ${IS_MASTER ? `
+    <div class="drawer-sect">
+      <div class="drawer-sect-label">Asignación</div>
+      <div style="font-size:.75rem;color:var(--qori-gray-600);margin-bottom:.5rem;">
+        Trader actual: <strong>${esc(r.trader||'Sin asignar')}</strong>
+      </div>
+      <div class="d-flex gap-2 align-items-center">
+        <select class="form-select form-select-sm" id="drTraderSel${id}" style="font-size:.75rem;">
+          <option value="">— Seleccionar trader —</option>
+          ${_traders.map(t=>`<option value="${t.id}"${r.trader===t.username?' selected':''}>${esc(t.username)}</option>`).join('')}
+        </select>
+        <button class="btn btn-sm btn-primary" style="white-space:nowrap;font-size:.73rem;" onclick="asignarDesdeDrawer(${id})">
+          <i class="bi bi-person-check"></i> Asignar
+        </button>
+      </div>
+    </div>` : ''}
     <div class="drawer-sect">
       <div class="drawer-sect-label">Notas</div>
       <textarea class="drawer-notes" id="drNotes${id}">${esc(r.notas||'')}</textarea>
@@ -1952,6 +2004,56 @@ function toast(msg, err=false) {
 ───────────────────────────────────────────────────────────── */
 function esc(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/* ─────────────────────────────────────────────────────────────
+   ASIGNACIÓN
+───────────────────────────────────────────────────────────── */
+async function asignarDesdeDrawer(pid) {
+  const sel = document.getElementById(`drTraderSel${pid}`);
+  if (!sel || !sel.value) { toast('Selecciona un trader.', true); return; }
+  const fd = new FormData();
+  fd.append('trader_id', sel.value);
+  fd.append('csrf_token', CSRF());
+  toast('Asignando…');
+  const r = await fetch(`/prospeccion/${pid}/asignar`, {method:'POST', body:fd});
+  const d = await r.json().catch(()=>({}));
+  if (r.ok || d.ok) {
+    const t = _traders.find(t=>t.id==sel.value);
+    const row = _rows.find(x=>x.id===pid);
+    if (row && t) row.trader = t.username;
+    toast('Asignado ✓');
+  } else {
+    Swal.fire({icon:'error', text: d.error||'Error al asignar.', confirmButtonColor:'#0D1B2A'});
+  }
+}
+
+function openAsignarMasivoModal() {
+  const sel = document.getElementById('amTrader');
+  sel.innerHTML = '<option value="">— Seleccionar trader —</option>' +
+    _traders.map(t=>`<option value="${t.id}">${esc(t.username)}</option>`).join('');
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('mAsignarMasivo')).show();
+}
+
+async function submitAsignarMasivo() {
+  const trader_id = document.getElementById('amTrader').value;
+  const cantidad  = parseInt(document.getElementById('amCantidad').value) || 50;
+  const estado    = document.getElementById('amEstado').value;
+  if (!trader_id) { Swal.fire({icon:'warning', text:'Selecciona un trader.', confirmButtonColor:'#0D1B2A'}); return; }
+  bootstrap.Modal.getInstance(document.getElementById('mAsignarMasivo')).hide();
+  Swal.fire({title:'Asignando…', allowOutsideClick:false, didOpen:()=>Swal.showLoading()});
+  const r = await fetch('/prospeccion/api/asignar-masivo', {
+    method:'POST', headers:jHeaders(),
+    body: JSON.stringify({trader_id: parseInt(trader_id), cantidad, estado})
+  });
+  const d = await r.json();
+  if (d.ok) {
+    Swal.fire({icon:'success', title:'Asignación completada',
+      text:`${d.asignados} prospecto(s) asignados a ${d.trader}.`, confirmButtonColor:'#0D1B2A'});
+    load();
+  } else {
+    Swal.fire({icon:'error', text: d.error||'Error.', confirmButtonColor:'#0D1B2A'});
+  }
 }
 
 /* ─────────────────────────────────────────────────────────────
