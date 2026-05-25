@@ -2245,12 +2245,30 @@ def api_import_excel():
             return jsonify({"ok": False, "error": "URL no reconocida. Debe ser un link de Google Sheets o Google Drive."}), 400
         try:
             import requests as _req
-            resp = _req.get(download_url, timeout=30, allow_redirects=True)
+            _headers = {
+                "User-Agent": (
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/124.0.0.0 Safari/537.36"
+                )
+            }
+            resp = _req.get(download_url, timeout=30, allow_redirects=True, headers=_headers)
             if resp.status_code != 200:
-                return jsonify({"ok": False, "error": f"No se pudo descargar el archivo (HTTP {resp.status_code}). Verifica que el link sea público."}), 400
+                return jsonify({"ok": False, "error": (
+                    f"Google no permitió la descarga (HTTP {resp.status_code}). "
+                    "Verifica que la hoja esté compartida como 'Cualquier persona con el enlace puede ver'."
+                )}), 400
+            # Verificar que la respuesta es xlsx y no HTML (página de error/login de Google)
+            ct = resp.headers.get("Content-Type", "")
+            if "html" in ct or resp.content[:2] != b"PK":
+                return jsonify({"ok": False, "error": (
+                    "Google devolvió una página web en lugar del archivo. "
+                    "Asegúrate de que la hoja esté compartida públicamente: "
+                    "Archivo → Compartir → 'Cualquier persona con el enlace' → Ver."
+                )}), 400
             file_bytes = BytesIO(resp.content)
         except Exception as e:
-            return jsonify({"ok": False, "error": f"Error al descargar: {e}"}), 400
+            return jsonify({"ok": False, "error": f"Error al descargar desde Google: {e}"}), 400
     else:
         f = request.files.get("file")
         if not f:
