@@ -2368,15 +2368,25 @@ def api_import_excel():
         v = row[idx]
         return str(v).strip() if v is not None else None
 
+    from app.models.prospecto import ProspectoEmail
+
     inserted = skipped = 0
+    # Acumular (prospecto, emails_extra) para insertar emails extra post-flush
+    pending_extras: list = []
 
     for i, row in enumerate(rows[1:], start=2):
         if not any(c for c in row if c):
             continue
 
-        ruc_v   = (cell(row, 0) or "").strip()
-        email_v = (cell(row, 9) or "").lower().strip()
+        ruc_v = (cell(row, 0) or "").strip()
 
+        # Separar emails mergeados (pueden venir con ";" del archivo limpio)
+        raw_email_field = (cell(row, 9) or "")
+        all_emails = [e.strip().lower() for e in raw_email_field.split(";") if e.strip()]
+        email_v = all_emails[0] if all_emails else ""
+        extra_emails = all_emails[1:]
+
+        # Deduplicación: saltar si el primer email ya existe
         if email_v and email_v in existing_emails:
             skipped += 1
             continue
@@ -2385,9 +2395,9 @@ def api_import_excel():
             continue
 
         # Combinar NOMBRES + APELLIDO PATERNO + APELLIDO MATERNO
-        nombres   = cell(row, 12) or ""
-        ap_pat    = cell(row, 13) or ""
-        ap_mat    = cell(row, 14) or ""
+        nombres = cell(row, 12) or ""
+        ap_pat  = cell(row, 13) or ""
+        ap_mat  = cell(row, 14) or ""
         nombre_completo = " ".join(filter(None, [nombres, ap_pat, ap_mat])) or None
 
         p = Prospecto(
@@ -2407,6 +2417,8 @@ def api_import_excel():
         )
 
         db.session.add(p)
+        if extra_emails:
+            pending_extras.append((p, extra_emails))
         if email_v:
             existing_emails.add(email_v)
         if ruc_v:
@@ -2414,6 +2426,14 @@ def api_import_excel():
         inserted += 1
 
     try:
+        # Flush para obtener IDs antes de insertar emails extra
+        db.session.flush()
+        for p, extras in pending_extras:
+            seen = {p.email.lower()} if p.email else set()
+            for em in extras:
+                if em and em not in seen and em not in existing_emails:
+                    db.session.add(ProspectoEmail(prospecto_id=p.id, email=em))
+                    seen.add(em)
         db.session.commit()
     except Exception as e:
         db.session.rollback()
