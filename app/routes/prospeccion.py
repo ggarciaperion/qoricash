@@ -2238,8 +2238,8 @@ def api_import_excel():
     # ── Resolver fuente: archivo subido o URL ──────────────────────────────────
     file_bytes = None
 
-    if request.content_type and "application/json" in request.content_type:
-        data = request.get_json(force=True) or {}
+    if request.is_json or (request.content_type or "").startswith("application/json"):
+        data = request.get_json(force=True, silent=True) or {}
         raw_url = (data.get("url") or "").strip()
         if not raw_url:
             return jsonify({"ok": False, "error": "No se proporcionó URL"}), 400
