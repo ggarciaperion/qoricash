@@ -2229,9 +2229,36 @@ def api_export_excel():
 @login_required
 @require_role("Master")
 def api_import_excel():
-    """Importa prospectos desde Excel. Validación estricta: 15 columnas en orden exacto."""
+    """Importa prospectos desde Excel (archivo o link Google Sheets/Drive).
+    Validación estricta: 15 columnas en orden exacto."""
     import unicodedata
     import openpyxl
+    from io import BytesIO
+
+    # ── Resolver fuente: archivo subido o URL ──────────────────────────────────
+    file_bytes = None
+
+    if request.content_type and "application/json" in request.content_type:
+        data = request.get_json(force=True) or {}
+        raw_url = (data.get("url") or "").strip()
+        if not raw_url:
+            return jsonify({"ok": False, "error": "No se proporcionó URL"}), 400
+        download_url = _resolve_import_url(raw_url)
+        if not download_url:
+            return jsonify({"ok": False, "error": "URL no reconocida. Debe ser Google Sheets o Google Drive."}), 400
+        try:
+            import requests as _req
+            resp = _req.get(download_url, timeout=30, allow_redirects=True)
+            if resp.status_code != 200:
+                return jsonify({"ok": False, "error": f"No se pudo descargar el archivo (HTTP {resp.status_code}). Verifica que el link sea público."}), 400
+            file_bytes = BytesIO(resp.content)
+        except Exception as e:
+            return jsonify({"ok": False, "error": f"Error al descargar: {e}"}), 400
+    else:
+        f = request.files.get("file")
+        if not f:
+            return jsonify({"ok": False, "error": "No se envió archivo"}), 400
+        file_bytes = f
 
     # Columnas esperadas en ORDEN EXACTO (posición 0-14)
     EXPECTED_COLS = [
@@ -2269,7 +2296,7 @@ def api_import_excel():
         return jsonify({"ok": False, "error": "No se envió archivo"}), 400
 
     try:
-        wb   = openpyxl.load_workbook(f, data_only=True)
+        wb   = openpyxl.load_workbook(file_bytes, data_only=True)
         ws   = wb.active
         rows = list(ws.iter_rows(values_only=True))
     except Exception as e:
@@ -2408,7 +2435,32 @@ def api_bulk_campo():
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
-# ── Helper ────────────────────────────────────────────────────────────────────
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+def _resolve_import_url(raw_url: str):
+    """Convierte un link de Google Sheets o Drive a una URL de descarga directa en xlsx.
+    Retorna None si el formato no es reconocido.
+    """
+    import re
+    # Google Sheets: https://docs.google.com/spreadsheets/d/{ID}/...
+    m = re.search(r"docs\.google\.com/spreadsheets/d/([^/\?&]+)", raw_url)
+    if m:
+        sheet_id = m.group(1)
+        # Detectar gid (hoja específica)
+        gid_m = re.search(r"[#&?]gid=(\d+)", raw_url)
+        gid = f"&gid={gid_m.group(1)}" if gid_m else ""
+        return f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=xlsx{gid}"
+    # Google Drive file: https://drive.google.com/file/d/{ID}/view
+    m = re.search(r"drive\.google\.com/file/d/([^/\?&]+)", raw_url)
+    if m:
+        file_id = m.group(1)
+        return f"https://drive.google.com/uc?export=download&id={file_id}"
+    # Google Drive open: https://drive.google.com/open?id={ID}
+    m = re.search(r"drive\.google\.com/open\?id=([^&]+)", raw_url)
+    if m:
+        return f"https://drive.google.com/uc?export=download&id={m.group(1)}"
+    return None
+
 
 def _verificar_acceso(p):
     """Trader solo puede ver sus prospectos asignados. Llama abort(403) si no tiene acceso."""

@@ -1129,16 +1129,38 @@
         <h6 class="modal-title"><i class="bi bi-upload me-2"></i>Importar prospectos</h6>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
-      <div class="modal-body p-4">
-        <p class="text-muted mb-1" style="font-size:.8rem;">El archivo <strong>.xlsx</strong> debe tener exactamente estas <strong>15 columnas en este orden</strong>:</p>
-        <ol class="mb-3" style="font-size:.72rem;color:#374151;padding-left:1.2rem;line-height:1.8;">
-          <li>RUC</li><li>RAZÓN SOCIAL</li><li>SECTOR</li><li>TAMAÑO EMPRESA</li>
-          <li>DEPARTAMENTO</li><li>PROVINCIA</li><li>DISTRITO</li>
-          <li>CELULAR 1</li><li>CELULAR 2</li><li>EMAIL</li><li>WEB</li>
-          <li>CARGO</li><li>NOMBRES</li><li>APELLIDO PATERNO</li><li>APELLIDO MATERNO</li>
-        </ol>
-        <p class="text-muted mb-3" style="font-size:.75rem;">Los prospectos con el mismo RUC o email ya existentes se omiten.</p>
-        <input type="file" class="form-control form-control-sm" id="importFile" accept=".xlsx,.xls">
+      <div class="modal-body p-3">
+        <!-- Tabs -->
+        <div style="display:flex;gap:0;border-bottom:1px solid #e5e7eb;margin-bottom:1rem;">
+          <button id="iTab-file" onclick="switchImportTab('file')"
+            style="flex:1;padding:.45rem;font-size:.78rem;font-weight:600;border:none;background:none;border-bottom:2px solid #0D1B2A;color:#0D1B2A;cursor:pointer;">
+            <i class="bi bi-file-earmark-excel me-1"></i>Archivo Excel
+          </button>
+          <button id="iTab-link" onclick="switchImportTab('link')"
+            style="flex:1;padding:.45rem;font-size:.78rem;font-weight:600;border:none;background:none;border-bottom:2px solid transparent;color:#6b7280;cursor:pointer;">
+            <i class="bi bi-link-45deg me-1"></i>Google Sheets / Drive
+          </button>
+        </div>
+
+        <!-- Panel: archivo -->
+        <div id="iPanel-file">
+          <input type="file" class="form-control form-control-sm mb-2" id="importFile" accept=".xlsx,.xls">
+        </div>
+
+        <!-- Panel: link -->
+        <div id="iPanel-link" style="display:none;">
+          <input type="url" class="form-control form-control-sm mb-2" id="importUrl"
+            placeholder="https://docs.google.com/spreadsheets/d/… o link de Drive">
+          <p class="text-muted mb-0" style="font-size:.72rem;">
+            <i class="bi bi-info-circle me-1"></i>La hoja debe estar compartida como <strong>"Cualquier persona con el enlace puede ver"</strong>.
+          </p>
+        </div>
+
+        <!-- Columnas requeridas -->
+        <p class="text-muted mb-1 mt-2" style="font-size:.75rem;font-weight:600;">15 columnas requeridas en este orden exacto:</p>
+        <p style="font-size:.7rem;color:#374151;line-height:1.7;margin:0;">
+          RUC · RAZÓN SOCIAL · SECTOR · TAMAÑO EMPRESA · DEPARTAMENTO · PROVINCIA · DISTRITO · CELULAR 1 · CELULAR 2 · EMAIL · WEB · CARGO · NOMBRES · APELLIDO PATERNO · APELLIDO MATERNO
+        </p>
       </div>
       <div class="modal-footer">
         <button class="btn btn-sm btn-light" data-bs-dismiss="modal">Cancelar</button>
@@ -1819,23 +1841,48 @@ async function stopCamp() {
 /* ─────────────────────────────────────────────────────────────
    IMPORT
 ───────────────────────────────────────────────────────────── */
+let _importTab = 'file';
+function switchImportTab(tab) {
+  _importTab = tab;
+  document.getElementById('iPanel-file').style.display = tab==='file'?'':'none';
+  document.getElementById('iPanel-link').style.display = tab==='link'?'':'none';
+  document.getElementById('iTab-file').style.borderBottomColor = tab==='file'?'#0D1B2A':'transparent';
+  document.getElementById('iTab-file').style.color = tab==='file'?'#0D1B2A':'#6b7280';
+  document.getElementById('iTab-link').style.borderBottomColor = tab==='link'?'#0D1B2A':'transparent';
+  document.getElementById('iTab-link').style.color = tab==='link'?'#0D1B2A':'#6b7280';
+}
 function openImport() {
   document.getElementById('importFile').value='';
+  document.getElementById('importUrl').value='';
+  switchImportTab('file');
   bootstrap.Modal.getOrCreateInstance(document.getElementById('mImport')).show();
 }
 async function submitImport() {
-  const file = document.getElementById('importFile').files[0];
-  if (!file) { Swal.fire({icon:'warning',text:'Selecciona un archivo.',confirmButtonColor:'#0D1B2A'}); return; }
   bootstrap.Modal.getInstance(document.getElementById('mImport')).hide();
-  const fd = new FormData(); fd.append('file',file); fdWithCsrf(fd);
   Swal.fire({title:'Importando…',allowOutsideClick:false,didOpen:()=>Swal.showLoading()});
   try {
-    const r = await fetch('/prospeccion/api/import-excel',{method:'POST',body:fd});
+    let r;
+    if (_importTab === 'link') {
+      const url = document.getElementById('importUrl').value.trim();
+      if (!url) { Swal.fire({icon:'warning',text:'Pega el link de Google Sheets o Drive.',confirmButtonColor:'#0D1B2A'}); return; }
+      r = await fetch('/prospeccion/api/import-excel', {
+        method:'POST',
+        headers:{'Content-Type':'application/json','X-CSRFToken':CSRF()},
+        body: JSON.stringify({url})
+      });
+    } else {
+      const file = document.getElementById('importFile').files[0];
+      if (!file) { Swal.fire({icon:'warning',text:'Selecciona un archivo.',confirmButtonColor:'#0D1B2A'}); return; }
+      const fd = new FormData(); fd.append('file',file); fdWithCsrf(fd);
+      r = await fetch('/prospeccion/api/import-excel',{method:'POST',body:fd});
+    }
     const d = await r.json();
-    if (d.ok||d.insertados!=null) {
-      Swal.fire({icon:'success',title:'Importación completa',text:`${d.insertados||d.actualizados||0} registros procesados.`,confirmButtonColor:'#0D1B2A'});
+    if (d.ok) {
+      Swal.fire({icon:'success',title:'Importación completa',
+        text:`${d.inserted} registro(s) importado(s). ${d.skipped} omitido(s) (duplicados).`,
+        confirmButtonColor:'#0D1B2A'});
       load();
-    } else Swal.fire({icon:'error',title:'Error',text:d.error||'',confirmButtonColor:'#0D1B2A'});
+    } else Swal.fire({icon:'error',title:'Error en importación',html:`<pre style="font-size:.75rem;text-align:left;white-space:pre-wrap;">${d.error||''}</pre>`,confirmButtonColor:'#0D1B2A'});
   } catch(e) { Swal.fire({icon:'error',text:'Error de red.',confirmButtonColor:'#0D1B2A'}); }
 }
 
