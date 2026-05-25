@@ -2030,6 +2030,8 @@ def _api_grid_impl():
             "rubro":                 p.rubro or "",
             "departamento":          p.departamento or "",
             "provincia":             p.provincia or "",
+            "distrito":              getattr(p, "distrito", "") or "",
+            "web":                   getattr(p, "web", "") or "",
             "nombre_contacto":       p.nombre_contacto or "",
             "cargo":                 p.cargo or "",
             "email":                 p.email or "",

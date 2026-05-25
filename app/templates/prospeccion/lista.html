@@ -895,6 +895,7 @@
               <th style="width:16px;padding-left:1rem;"></th>
               <th onclick="sortBy('razon_social')">Empresa <span class="si">↕</span></th>
               <th onclick="sortBy('email')">Contacto <span class="si">↕</span></th>
+              <th onclick="sortBy('telefono')">Celular <span class="si">↕</span></th>
               <th onclick="sortBy('estado_comercial')">Estado <span class="si">↕</span></th>
               <th onclick="sortBy('fecha_ultimo_contacto')">Últ. contacto <span class="si">↕</span></th>
               <th onclick="sortBy('fecha_proximo_contacto')">Próximo <span class="si">↕</span></th>
@@ -1390,6 +1391,10 @@ function rowHtml(r) {
       <span class="ct-email" title="${esc(email)}">${esc(email)} ${moreE}</span>
       ${r.nombre_contacto?`<span class="ct-name">${esc(r.nombre_contacto)}</span>`:''}
     </td>
+    <td onclick="event.stopPropagation()" style="white-space:nowrap;">
+      ${r.telefono ? `<span style="font-size:.78rem;color:var(--qori-gray-700);">${esc(r.telefono)}</span>
+      <button class="row-act" style="padding:2px 4px;margin-left:3px;" onclick="copyPhone('${esc(r.telefono)}')" data-bs-toggle="tooltip" title="Copiar celular"><i class="bi bi-clipboard" style="font-size:.7rem;"></i></button>` : '<span style="color:var(--qori-gray-400);font-size:.78rem;">—</span>'}
+    </td>
     <td onclick="event.stopPropagation()">
       <span class="${b.cls} status-badge" onclick="openStatusMenu(event,${r.id},this)">
         <span class="sb-dot"></span>${b.label}
@@ -1731,6 +1736,14 @@ ${CUENTAS_TXT}
 Para cotizar en línea: https://wa.me/51926011920
 
 ${FIRMA_TXT}`;
+}
+
+function copyPhone(phone) {
+  navigator.clipboard.writeText(phone).then(() => {
+    Swal.fire({ toast: true, position: 'bottom-end', icon: 'success', title: 'Copiado: ' + phone, showConfirmButton: false, timer: 1800 });
+  }).catch(() => {
+    prompt('Copia el número:', phone);
+  });
 }
 
 function openEmailModal(id) {
