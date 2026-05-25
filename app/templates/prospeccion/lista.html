@@ -1861,21 +1861,17 @@ async function submitImport() {
   bootstrap.Modal.getInstance(document.getElementById('mImport')).hide();
   Swal.fire({title:'Importando…',allowOutsideClick:false,didOpen:()=>Swal.showLoading()});
   try {
-    let r;
+    const fd = new FormData(); fdWithCsrf(fd);
     if (_importTab === 'link') {
       const url = document.getElementById('importUrl').value.trim();
       if (!url) { Swal.fire({icon:'warning',text:'Pega el link de Google Sheets o Drive.',confirmButtonColor:'#0D1B2A'}); return; }
-      r = await fetch('/prospeccion/api/import-excel', {
-        method:'POST',
-        headers:{'Content-Type':'application/json','X-CSRFToken':CSRF()},
-        body: JSON.stringify({url})
-      });
+      fd.append('url', url);
     } else {
       const file = document.getElementById('importFile').files[0];
       if (!file) { Swal.fire({icon:'warning',text:'Selecciona un archivo.',confirmButtonColor:'#0D1B2A'}); return; }
-      const fd = new FormData(); fd.append('file',file); fdWithCsrf(fd);
-      r = await fetch('/prospeccion/api/import-excel',{method:'POST',body:fd});
+      fd.append('file', file);
     }
+    const r = await fetch('/prospeccion/api/import-excel',{method:'POST',body:fd});
     const d = await r.json();
     if (d.ok) {
       Swal.fire({icon:'success',title:'Importación completa',

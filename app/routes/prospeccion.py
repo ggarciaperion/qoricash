@@ -2238,14 +2238,11 @@ def api_import_excel():
     # ── Resolver fuente: archivo subido o URL ──────────────────────────────────
     file_bytes = None
 
-    if request.is_json or (request.content_type or "").startswith("application/json"):
-        data = request.get_json(force=True, silent=True) or {}
-        raw_url = (data.get("url") or "").strip()
-        if not raw_url:
-            return jsonify({"ok": False, "error": "No se proporcionó URL"}), 400
+    raw_url = (request.form.get("url") or "").strip()
+    if raw_url:
         download_url = _resolve_import_url(raw_url)
         if not download_url:
-            return jsonify({"ok": False, "error": "URL no reconocida. Debe ser Google Sheets o Google Drive."}), 400
+            return jsonify({"ok": False, "error": "URL no reconocida. Debe ser un link de Google Sheets o Google Drive."}), 400
         try:
             import requests as _req
             resp = _req.get(download_url, timeout=30, allow_redirects=True)
@@ -2257,7 +2254,7 @@ def api_import_excel():
     else:
         f = request.files.get("file")
         if not f:
-            return jsonify({"ok": False, "error": "No se envió archivo"}), 400
+            return jsonify({"ok": False, "error": "No se envió archivo ni URL"}), 400
         file_bytes = f
 
     # Columnas esperadas en ORDEN EXACTO (posición 0-14)
