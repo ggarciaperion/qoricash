@@ -776,6 +776,7 @@
       </div>
     </div>
     <div class="crm-header-actions">
+      {% if is_master %}
       <button class="btn-crm btn-crm-ghost" onclick="openImport()">
         <i class="bi bi-upload"></i> Importar
       </button>
@@ -786,6 +787,7 @@
       <button class="btn-crm btn-crm-primary" onclick="openCampanaModal()">
         <i class="bi bi-send-fill"></i> Nueva Campaña
       </button>
+      {% endif %}
     </div>
   </div>
 
@@ -912,6 +914,7 @@
               <th onclick="sortBy('fecha_ultimo_contacto')">Últ. contacto <span class="si">↕</span></th>
               <th onclick="sortBy('fecha_proximo_contacto')">Próximo <span class="si">↕</span></th>
               <th onclick="sortBy('num_contactos')" style="text-align:center">N° <span class="si">↕</span></th>
+              {% if is_master %}<th onclick="sortBy('trader')">Trader <span class="si">↕</span></th>{% endif %}
               <th style="width:104px">Acciones</th>
             </tr>
           </thead>
@@ -1135,7 +1138,14 @@
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body p-4">
-        <p class="text-muted mb-3" style="font-size:.8rem;">Selecciona un archivo <strong>.xlsx</strong> con las columnas estándar. Los registros existentes (mismo email) se actualizarán.</p>
+        <p class="text-muted mb-1" style="font-size:.8rem;">El archivo <strong>.xlsx</strong> debe tener exactamente estas <strong>15 columnas en este orden</strong>:</p>
+        <ol class="mb-3" style="font-size:.72rem;color:#374151;padding-left:1.2rem;line-height:1.8;">
+          <li>RUC</li><li>RAZÓN SOCIAL</li><li>SECTOR</li><li>TAMAÑO EMPRESA</li>
+          <li>DEPARTAMENTO</li><li>PROVINCIA</li><li>DISTRITO</li>
+          <li>CELULAR 1</li><li>CELULAR 2</li><li>EMAIL</li><li>WEB</li>
+          <li>CARGO</li><li>NOMBRES</li><li>APELLIDO PATERNO</li><li>APELLIDO MATERNO</li>
+        </ol>
+        <p class="text-muted mb-3" style="font-size:.75rem;">Los prospectos con el mismo RUC o email ya existentes se omiten.</p>
         <input type="file" class="form-control form-control-sm" id="importFile" accept=".xlsx,.xls">
       </div>
       <div class="modal-footer">
@@ -1160,6 +1170,8 @@ const fdWithCsrf = fd => { fd.append('csrf_token', CSRF()); return fd; };
 /* ─────────────────────────────────────────────────────────────
    STATE
 ───────────────────────────────────────────────────────────── */
+const IS_MASTER = {{ is_master | tojson }};
+
 let _rows    = [];     // all from API
 let _filt    = [];     // after filter
 let _tab     = 'todos';
@@ -1340,6 +1352,7 @@ function rowHtml(r) {
     <td style="font-size:.75rem;color:var(--qori-gray-500);">${ult||'—'}</td>
     <td>${prox}</td>
     <td class="cell-num">${r.num_contactos||0}</td>
+    ${IS_MASTER ? `<td style="font-size:.73rem;color:var(--qori-gray-500);">${esc(r.trader||'—')}</td>` : ''}
     <td onclick="event.stopPropagation()">
       <div class="row-acts">
         <button class="row-act ra-email" onclick="openEmailModal(${r.id})" data-bs-toggle="tooltip" title="Enviar email"><i class="bi bi-envelope-fill"></i></button>

@@ -114,6 +114,14 @@
             </a>
             {% endif %}
 
+            {% if current_user.role in ['Master', 'Trader'] %}
+            <a class="sidebar-link {% if request.endpoint and request.endpoint.startswith('prospeccion') %}active{% endif %}"
+               href="{{ url_for('prospeccion.lista') }}">
+                <i class="bi bi-person-lines-fill"></i>
+                <span class="sidebar-link-text">Prospección</span>
+            </a>
+            {% endif %}
+
             {% if current_user.role == 'Master' %}
             <a class="sidebar-link {% if request.endpoint and request.endpoint.startswith('alertas_tc') %}active{% endif %}"
                href="{{ url_for('alertas_tc.index') }}">

@@ -262,17 +262,18 @@ def reporte_trader(trader_id):
 
 @prospeccion_bp.route("/lista")
 @login_required
-@require_role("Master")
+@require_role("Master", "Trader")
 def lista():
     """Vista grid CRM — los datos se cargan vía /api/grid."""
-    return render_template("prospeccion/lista.html")
+    return render_template("prospeccion/lista.html",
+                           is_master=(current_user.role == "Master"))
 
 
 # ── Detalle de prospecto ──────────────────────────────────────────────────────
 
 @prospeccion_bp.route("/<int:pid>")
 @login_required
-@require_role("Master")
+@require_role("Master", "Trader")
 def detalle(pid):
     p = db.get_or_404(Prospecto, pid)
     actividades = ActividadProspecto.query.filter_by(prospecto_id=p.id).order_by(ActividadProspecto.creado_en.desc()).limit(50).all()
@@ -287,7 +288,7 @@ def detalle(pid):
 
 @prospeccion_bp.route("/<int:pid>/actividad", methods=["POST"])
 @login_required
-@require_role("Master")
+@require_role("Master", "Trader")
 def agregar_actividad(pid):
     p = db.get_or_404(Prospecto, pid)
     _verificar_acceso(p)
@@ -370,6 +371,14 @@ def asignar(pid):
 
     trader = db.get_or_404(User, trader_id)
 
+    # Verificar límite de 500 prospectos activos por trader
+    active_count = AsignacionProspecto.query.filter_by(trader_id=trader_id, activo=True).count()
+    if active_count >= 500:
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest" or request.is_json:
+            return jsonify({"ok": False, "error": f"{trader.username} ya tiene 500 prospectos asignados (máximo permitido). Libera prospectos antes de asignar nuevos."}), 400
+        flash(f"{trader.username} ya tiene 500 prospectos asignados (máximo permitido). Libera prospectos antes de asignar nuevos.", "warning")
+        return redirect(request.referrer or url_for("prospeccion.detalle", pid=pid))
+
     # Desactivar asignacion anterior
     AsignacionProspecto.query.filter_by(prospecto_id=p.id, activo=True).update({"activo": False})
 
@@ -410,6 +419,15 @@ def asignar_masivo():
         if not trader_id or not grupo:
             flash("Selecciona trader y segmento.", "warning")
             return redirect(url_for("prospeccion.asignar_masivo"))
+
+        # Verificar límite de 500 prospectos activos por trader
+        active_count = AsignacionProspecto.query.filter_by(trader_id=trader_id, activo=True).count()
+        if active_count >= 500:
+            trader_obj = db.session.get(User, trader_id)
+            nombre_t   = trader_obj.username if trader_obj else str(trader_id)
+            flash(f"{nombre_t} ya tiene 500 prospectos asignados (máximo permitido). Libera prospectos antes de asignar nuevos.", "warning")
+            return redirect(url_for("prospeccion.asignar_masivo"))
+        cantidad = min(cantidad, 500 - active_count)
 
         # Prospectos sin asignacion activa del grupo seleccionado
         ya_asignados = db.session.query(AsignacionProspecto.prospecto_id).filter_by(activo=True)
@@ -1824,11 +1842,11 @@ _CAMPOS_EDITABLES = {
 
 @prospeccion_bp.route("/api/grid")
 @login_required
-@require_role("Master")
+@require_role("Master", "Trader")
 def api_grid():
     """Retorna hasta 5000 prospectos como JSON para AG Grid."""
     try:
-     return _api_grid_impl()
+        return _api_grid_impl()
     except Exception as e:
         import traceback; traceback.print_exc()
         return jsonify({"ok": False, "error": str(e), "rows": [], "total": 0, "counts": {}, "traders": [], "rubros": [], "deptos": []}), 500
@@ -1846,6 +1864,15 @@ def _api_grid_impl():
     trader_id_f = request.args.get("trader_id", type=int)
 
     query = _base_query()
+
+    # Trader solo ve sus prospectos asignados activos
+    if current_user.role == "Trader":
+        query = query.join(
+            AsignacionProspecto,
+            (AsignacionProspecto.prospecto_id == Prospecto.id) &
+            (AsignacionProspecto.activo == True) &
+            (AsignacionProspecto.trader_id == current_user.id)
+        )
 
     _clientes_vals = _FASE_ESTADOS["clientes"]
     if tab == "clientes":
@@ -2118,13 +2145,16 @@ def api_export_excel():
     ws.title = "Prospectos"
 
     headers = [
-        "ID", "Razón Social", "RUC", "Tipo", "Rubro", "Departamento", "Provincia",
+        "ID", "Razón Social", "RUC", "Tipo", "Rubro",
+        "Departamento", "Provincia", "Distrito", "Web",
         "Contacto", "Cargo", "Email", "Email Alt", "Teléfono", "Teléfono Alt",
         "Tamaño Empresa", "Volumen Est. USD", "Prioridad",
         "Estado Comercial", "Nivel Interés", "Grupo", "Canal", "Fuente",
         "Tipo Último Envío", "Fecha Primer Contacto", "Fecha Último Contacto",
         "Fecha Próximo Contacto", "N° Contactos", "Notas",
-        "Trader Asignado", "Creado En", "Actualizado En",
+        "Trader Asignado",
+        "Última Actividad Tipo", "Última Actividad Fecha", "Última Actividad Descripción",
+        "Creado En", "Actualizado En",
     ]
 
     header_fill = PatternFill("solid", fgColor="1a1a2e")
@@ -2142,24 +2172,49 @@ def api_export_excel():
         if a.prospecto_id not in tmap and a.trader:
             tmap[a.prospecto_id] = a.trader.username
 
+    # Última actividad por prospecto
+    from sqlalchemy import select as sa_select
+    latest_act_subq = (
+        db.session.query(
+            ActividadProspecto.prospecto_id,
+            func.max(ActividadProspecto.creado_en).label("max_ts"),
+        )
+        .group_by(ActividadProspecto.prospecto_id)
+        .subquery()
+    )
+    act_rows = (
+        db.session.query(ActividadProspecto)
+        .join(latest_act_subq, (ActividadProspecto.prospecto_id == latest_act_subq.c.prospecto_id) &
+              (ActividadProspecto.creado_en == latest_act_subq.c.max_ts))
+        .all()
+    )
+    amap = {a.prospecto_id: a for a in act_rows}
+
     for p in prospectos_list:
+        ult = amap.get(p.id)
         ws.append([
-            p.id, p.razon_social, p.ruc, p.tipo, p.rubro, p.departamento, p.provincia,
+            p.id, p.razon_social, p.ruc, p.tipo, p.rubro,
+            p.departamento, p.provincia,
+            getattr(p, "distrito", "") or "",
+            getattr(p, "web", "") or "",
             p.nombre_contacto, p.cargo, p.email, p.email_alt, p.telefono,
-            getattr(p, "telefono_alt", ""),
-            getattr(p, "tamano_empresa", ""),
+            getattr(p, "telefono_alt", "") or "",
+            getattr(p, "tamano_empresa", "") or "",
             float(getattr(p, "volumen_estimado_usd", None) or 0) or None,
-            getattr(p, "prioridad", ""),
+            getattr(p, "prioridad", "") or "",
             p.estado_comercial, p.nivel_interes, p.grupo, p.canal, p.fuente,
             p.tipo_ultimo_envio, p.fecha_primer_contacto, p.fecha_ultimo_contacto,
             p.fecha_proximo_contacto, p.num_contactos, p.notas,
             tmap.get(p.id, ""),
+            ult.tipo if ult else "",
+            ult.creado_en.strftime("%Y-%m-%d %H:%M") if ult and ult.creado_en else "",
+            (ult.descripcion or "")[:200] if ult else "",
             p.creado_en.strftime("%Y-%m-%d %H:%M") if p.creado_en else "",
             p.actualizado_en.strftime("%Y-%m-%d %H:%M") if p.actualizado_en else "",
         ])
 
     # Ajustar anchos
-    col_widths = [6,30,14,10,20,15,12,25,20,30,30,14,14,12,14,8,16,12,20,12,12,14,16,16,16,6,40,15,16,16]
+    col_widths = [6,30,14,10,20,15,12,12,25,25,20,30,30,14,14,12,14,8,16,12,20,12,12,14,16,16,16,6,40,15,14,16,40,16,16]
     for i, w in enumerate(col_widths, 1):
         ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = w
 
@@ -2179,8 +2234,40 @@ def api_export_excel():
 @login_required
 @require_role("Master")
 def api_import_excel():
-    """Importa prospectos desde Excel con validación y deduplicación."""
+    """Importa prospectos desde Excel. Validación estricta: 15 columnas en orden exacto."""
+    import unicodedata
     import openpyxl
+
+    # Columnas esperadas en ORDEN EXACTO (posición 0-14)
+    EXPECTED_COLS = [
+        "RUC",
+        "RAZÓN SOCIAL",
+        "SECTOR",
+        "TAMAÑO EMPRESA",
+        "DEPARTAMENTO",
+        "PROVINCIA",
+        "DISTRITO",
+        "CELULAR 1",
+        "CELULAR 2",
+        "EMAIL",
+        "WEB",
+        "CARGO",
+        "NOMBRES",
+        "APELLIDO PATERNO",
+        "APELLIDO MATERNO",
+    ]
+
+    def _norm(s):
+        """Normaliza a mayúsculas sin tildes ni espacios extra."""
+        if not s:
+            return ""
+        s = str(s).strip().upper()
+        return "".join(
+            c for c in unicodedata.normalize("NFD", s)
+            if unicodedata.category(c) != "Mn"
+        )
+
+    EXPECTED_NORM = [_norm(c) for c in EXPECTED_COLS]
 
     f = request.files.get("file")
     if not f:
@@ -2196,68 +2283,62 @@ def api_import_excel():
     if not rows:
         return jsonify({"ok": False, "error": "Archivo vacío"}), 400
 
-    header_lower = [str(c).strip().lower() if c else "" for c in rows[0]]
+    # ── Validación estricta de encabezados ─────────────────────────────────────
+    raw_header = [str(c).strip() if c is not None else "" for c in rows[0]]
+    actual_norm = [_norm(c) for c in raw_header]
 
-    COL_ALIASES = {
-        "razon_social":         ["razón social","razon social","empresa","company","nombre empresa","razon_social"],
-        "ruc":                  ["ruc","nit","tax id"],
-        "nombre_contacto":      ["nombre contacto","contacto","nombre","contact","nombre_contacto"],
-        "cargo":                ["cargo","puesto","position","title"],
-        "email":                ["email","correo","e-mail","correo electronico","mail"],
-        "email_alt":            ["email alt","email alternativo","correo alt","email2","email_alt"],
-        "telefono":             ["telefono","teléfono","phone","tel","celular"],
-        "telefono_alt":         ["telefono alt","teléfono alt","telefono2","cel2","telefono_alt"],
-        "rubro":                ["rubro","sector","industria","industry","actividad"],
-        "departamento":         ["departamento","ciudad","city","dept","region"],
-        "provincia":            ["provincia","province","distrito"],
-        "tipo":                 ["tipo","type","persona/empresa"],
-        "tamano_empresa":       ["tamaño empresa","tamano empresa","tamaño","size","tamano_empresa"],
-        "estado_comercial":     ["estado comercial","estado","status","etapa","estado_comercial"],
-        "nivel_interes":        ["nivel interes","nivel de interés","interes","interest","nivel_interes"],
-        "prioridad":            ["prioridad","priority"],
-        "fuente":               ["fuente","origen","source","lead source"],
-        "canal":                ["canal","channel"],
-        "notas":                ["notas","observaciones","notes","comments","comentarios"],
-        "volumen_estimado_usd": ["volumen estimado","volumen usd","monto estimado","volumen_estimado_usd"],
-        "grupo":                ["grupo","group","segmento"],
-    }
-
-    col_idx = {}
-    for field, aliases in COL_ALIASES.items():
-        for alias in aliases:
-            try:
-                col_idx[field] = header_lower.index(alias)
-                break
-            except ValueError:
-                pass
-
-    if not col_idx:
+    # Debe tener al menos 15 columnas
+    if len(actual_norm) < 15:
         return jsonify({
-            "ok": False,
-            "error": "No se detectaron columnas reconocibles. Usa la plantilla de importación.",
-            "detected_headers": header_lower[:15],
+            "ok":    False,
+            "error": (
+                f"El archivo tiene {len(actual_norm)} columna(s) pero se requieren exactamente 15. "
+                "Descarga la plantilla oficial e inténtalo de nuevo."
+            ),
+            "columnas_esperadas": EXPECTED_COLS,
+            "columnas_recibidas": raw_header,
         }), 400
 
-    # Pre-cargar existentes para deduplicar
-    existing_emails = set(r[0].lower() for r in db.session.query(Prospecto.email).filter(Prospecto.email != None).all())
-    existing_rucs   = set(r[0] for r in db.session.query(Prospecto.ruc).filter(Prospecto.ruc != None).all())
+    # Verificar cada columna en su posición exacta
+    errores_col = []
+    for i, (exp, act) in enumerate(zip(EXPECTED_NORM, actual_norm[:15])):
+        if exp != act:
+            errores_col.append(
+                f"Columna {i+1}: esperada '{EXPECTED_COLS[i]}', recibida '{raw_header[i] or '(vacía)'}'"
+            )
 
-    inserted = skipped = 0
-    warnings = []
+    if errores_col:
+        return jsonify({
+            "ok":    False,
+            "error": "El archivo no tiene el formato correcto. " + "; ".join(errores_col),
+            "columnas_esperadas": EXPECTED_COLS,
+            "columnas_recibidas": raw_header[:15],
+        }), 400
 
-    def get_val(row, field):
-        idx = col_idx.get(field)
-        if idx is None or idx >= len(row):
+    # ── Deduplicación previa ───────────────────────────────────────────────────
+    existing_emails = set(
+        r[0].lower() for r in
+        db.session.query(Prospecto.email).filter(Prospecto.email != None).all()
+    )
+    existing_rucs = set(
+        r[0] for r in
+        db.session.query(Prospecto.ruc).filter(Prospecto.ruc != None).all()
+    )
+
+    def cell(row, idx):
+        if idx >= len(row):
             return None
         v = row[idx]
         return str(v).strip() if v is not None else None
+
+    inserted = skipped = 0
 
     for i, row in enumerate(rows[1:], start=2):
         if not any(c for c in row if c):
             continue
 
-        email_v = (get_val(row, "email") or "").lower().strip()
-        ruc_v   = (get_val(row, "ruc") or "").strip()
+        ruc_v   = (cell(row, 0) or "").strip()
+        email_v = (cell(row, 9) or "").lower().strip()
 
         if email_v and email_v in existing_emails:
             skipped += 1
@@ -2266,35 +2347,27 @@ def api_import_excel():
             skipped += 1
             continue
 
+        # Combinar NOMBRES + APELLIDO PATERNO + APELLIDO MATERNO
+        nombres   = cell(row, 12) or ""
+        ap_pat    = cell(row, 13) or ""
+        ap_mat    = cell(row, 14) or ""
+        nombre_completo = " ".join(filter(None, [nombres, ap_pat, ap_mat])) or None
+
         p = Prospecto(
-            razon_social    = get_val(row, "razon_social"),
             ruc             = ruc_v or None,
-            nombre_contacto = get_val(row, "nombre_contacto"),
-            cargo           = get_val(row, "cargo"),
+            razon_social    = cell(row, 1),
+            rubro           = cell(row, 2),
+            tamano_empresa  = cell(row, 3),
+            departamento    = cell(row, 4),
+            provincia       = cell(row, 5),
+            distrito        = cell(row, 6),
+            telefono        = cell(row, 7),
+            telefono_alt    = cell(row, 8),
             email           = email_v or None,
-            email_alt       = get_val(row, "email_alt"),
-            telefono        = get_val(row, "telefono"),
-            rubro           = get_val(row, "rubro"),
-            departamento    = get_val(row, "departamento"),
-            provincia       = get_val(row, "provincia"),
-            tipo            = get_val(row, "tipo"),
-            notas           = get_val(row, "notas"),
-            fuente          = get_val(row, "fuente"),
-            canal           = get_val(row, "canal"),
-            nivel_interes   = get_val(row, "nivel_interes"),
-            estado_comercial= get_val(row, "estado_comercial"),
-            grupo           = get_val(row, "grupo"),
+            web             = cell(row, 10),
+            cargo           = cell(row, 11),
+            nombre_contacto = nombre_completo,
         )
-        p.telefono_alt  = get_val(row, "telefono_alt")
-        p.tamano_empresa= get_val(row, "tamano_empresa")
-        p.prioridad     = get_val(row, "prioridad")
-        vol = get_val(row, "volumen_estimado_usd")
-        if vol:
-            try:
-                from decimal import Decimal
-                p.volumen_estimado_usd = Decimal(str(vol).replace(",", ""))
-            except Exception:
-                pass
 
         db.session.add(p)
         if email_v:
@@ -2310,11 +2383,9 @@ def api_import_excel():
         return jsonify({"ok": False, "error": str(e)}), 500
 
     return jsonify({
-        "ok": True,
+        "ok":       True,
         "inserted": inserted,
-        "skipped": skipped,
-        "warnings": warnings[:20],
-        "columns_detected": list(col_idx.keys()),
+        "skipped":  skipped,
     })
 
 
@@ -2345,10 +2416,10 @@ def api_bulk_campo():
 # ── Helper ────────────────────────────────────────────────────────────────────
 
 def _verificar_acceso(p):
-    """Trader solo puede ver sus prospectos asignados."""
+    """Trader solo puede ver sus prospectos asignados. Llama abort(403) si no tiene acceso."""
     if current_user.role == "Master":
         return
     asig = next((a for a in p.asignaciones if a.trader_id == current_user.id and a.activo), None)
     if not asig:
-        flash("No tienes acceso a este prospecto.", "danger")
-        redirect(url_for("prospeccion.lista"))
+        from flask import abort
+        abort(403)

@@ -18,6 +18,8 @@ class Prospecto(db.Model):
     rubro                  = db.Column(db.String(150))
     departamento           = db.Column(db.String(100))
     provincia              = db.Column(db.String(100))
+    distrito               = db.Column(db.String(100))
+    web                    = db.Column(db.String(300))
 
     # Contacto
     nombre_contacto        = db.Column(db.String(200))
