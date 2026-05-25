@@ -1888,10 +1888,6 @@ def _api_grid_impl():
             Prospecto.estado_comercial == None,
             Prospecto.estado_comercial == "",
             Prospecto.estado_comercial == "sin_contactar"))
-    elif tab == "lfc":
-        query = query.filter(or_(
-            Prospecto.grupo == "CLIENTES LFC",
-            Prospecto.cliente_lfc == "Cliente LFC"))
     else:
         # "todos": excluye clientes pero incluye NULLs (sin_contactar)
         query = query.filter(or_(
@@ -2011,7 +2007,6 @@ def _api_grid_impl():
         "precio":        base.filter(Prospecto.estado_comercial.in_(_FASE_ESTADOS["precio"])).count(),
         "negociando":    base.filter(Prospecto.estado_comercial.in_(_FASE_ESTADOS["negociando"])).count(),
         "clientes":      base.filter(Prospecto.estado_comercial.in_(_FASE_ESTADOS["clientes"])).count(),
-        "lfc":           base.filter(or_(Prospecto.grupo == "CLIENTES LFC", Prospecto.cliente_lfc == "Cliente LFC")).count(),
     }
 
     traders = [{"id": u.id, "username": u.username} for u in

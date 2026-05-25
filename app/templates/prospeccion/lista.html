@@ -828,13 +828,6 @@
         <div class="kpi-label">Clientes</div>
       </div>
     </div>
-    <div class="kpi-card" onclick="setTab('lfc')" data-kpi="lfc">
-      <div class="kpi-icon" style="background:#F5F3FF;color:#7C3AED"><i class="bi bi-star-fill"></i></div>
-      <div class="kpi-info">
-        <div class="kpi-num" id="k-lfc">—</div>
-        <div class="kpi-label">LFC</div>
-      </div>
-    </div>
   </div>
 
   <!-- ══════════════════════════ TABS ══════════════════════════ -->
@@ -845,7 +838,6 @@
     <button class="crm-tab"        data-tab="precio"        onclick="setTab('precio')">Precio <span class="tab-pill" id="tp-prec">—</span></button>
     <button class="crm-tab"        data-tab="negociando"    onclick="setTab('negociando')">Negociando <span class="tab-pill" id="tp-neg">—</span></button>
     <button class="crm-tab"        data-tab="clientes"      onclick="setTab('clientes')">Clientes <span class="tab-pill" id="tp-cli">—</span></button>
-    <button class="crm-tab"        data-tab="lfc"           onclick="setTab('lfc')">LFC <span class="tab-pill" id="tp-lfc">—</span></button>
   </div>
 
   <!-- ══════════════════════════ TOOLBAR ══════════════════════════ -->
@@ -1215,7 +1207,7 @@ function updateCounts(c) {
     precio:       ['k-prec','tp-prec'],
     negociando:   ['k-neg','tp-neg'],
     clientes:     ['k-cli','tp-cli'],
-    lfc:          ['k-lfc','tp-lfc'],
+
     todos:        [null,'tp-todos'],
   };
   for (const [k, [kpi, tab]] of Object.entries(m)) {
