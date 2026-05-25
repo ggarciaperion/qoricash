@@ -784,10 +784,6 @@
         <i class="bi bi-download"></i> Exportar
       </a>
       <div class="toolbar-sep"></div>
-      <button class="btn-crm btn-crm-primary" onclick="openCampanaModal()">
-        <i class="bi bi-send-fill"></i> Nueva Campaña
-      </button>
-      <div class="toolbar-sep"></div>
       <button class="btn-crm btn-crm-ghost" style="color:#dc2626;border-color:#dc2626;" onclick="confirmarLimpiarTodo()">
         <i class="bi bi-trash3"></i> Limpiar todo
       </button>
@@ -901,9 +897,7 @@
         <table class="crm-table" id="crmTable">
           <thead>
             <tr>
-              <th style="width:36px;padding-left:1rem;">
-                <input type="checkbox" class="crm-chk" id="chkAll" onchange="toggleAll(this)">
-              </th>
+              <th style="width:16px;padding-left:1rem;"></th>
               <th onclick="sortBy('razon_social')">Empresa <span class="si">↕</span></th>
               <th onclick="sortBy('email')">Contacto <span class="si">↕</span></th>
               <th onclick="sortBy('estado_comercial')">Estado <span class="si">↕</span></th>
@@ -1351,9 +1345,7 @@ function rowHtml(r) {
   const prio  = r.prioridad==='alta' ? '<i class="bi bi-circle-fill" style="font-size:.45rem;color:var(--qori-danger);vertical-align:middle;margin-right:3px;" title="Alta prioridad"></i>' : '';
 
   return `<tr data-id="${r.id}" onclick="openDrawer(${r.id})">
-    <td style="padding-left:1rem;" onclick="event.stopPropagation()">
-      <input type="checkbox" class="crm-chk rchk" value="${r.id}" onchange="toggleRow(this,${r.id})">
-    </td>
+    <td style="padding-left:1rem;"></td>
     <td class="cell-empresa">
       <div class="emp-name">${prio}${esc(r.razon_social||'Sin nombre')}</div>
       <div class="emp-meta">${esc(r.rubro||'')}${r.departamento?' · '+esc(r.departamento):''}</div>
@@ -1498,6 +1490,8 @@ function openDrawer(id) {
         <div><div class="d-item-label">Teléfono</div><div class="d-item-val">${esc(r.telefono||'—')}</div></div>
         <div><div class="d-item-label">Tel. alt.</div><div class="d-item-val">${esc(r.telefono_alt||'—')}</div></div>
       </div>
+      ${r.web?`<div class="mt-1"><span class="d-item-label">Web</span><div class="d-item-val"><a href="${esc(r.web.startsWith('http')?r.web:'https://'+r.web)}" target="_blank" rel="noopener">${esc(r.web)}</a></div></div>`:''}
+    </div>
     </div>
     <div class="drawer-sect">
       <div class="drawer-sect-label">Pipeline</div>
@@ -1521,11 +1515,7 @@ function openDrawer(id) {
     </div>
   `;
 
-  document.getElementById('drFoot').innerHTML = `
-    <button class="btn btn-sm btn-outline-primary" onclick="openEmailModal(${id})"><i class="bi bi-envelope me-1"></i>Email</button>
-    <button class="btn btn-sm btn-outline-warning"  onclick="openContactModal(${id})"><i class="bi bi-telephone me-1"></i>Contacto</button>
-    <a class="btn btn-sm btn-outline-secondary" href="/prospeccion/${id}" target="_blank"><i class="bi bi-box-arrow-up-right me-1"></i>Perfil completo</a>
-  `;
+  document.getElementById('drFoot').innerHTML = '';
 
   document.getElementById('drawer').classList.add('open');
   document.getElementById('drBackdrop').style.display = '';
@@ -1574,8 +1564,25 @@ async function applyStatus(val, cls, label) {
   const {id, el} = _sdCtx;
   el.className = `${cls} status-badge`;
   el.innerHTML = `<span class="sb-dot"></span>${label}`;
-  await patchCampo(id, 'estado_comercial', val);
-  const row = _rows.find(r=>r.id===id); if(row) row.estado_comercial=val;
+  toast('Guardando…');
+  const r2 = await fetch(`/prospeccion/${id}/cambiar-estado`, {
+    method:'POST', headers:jHeaders(), body:JSON.stringify({estado:val})
+  });
+  const d = await r2.json();
+  if (d.ok) {
+    toast('Guardado');
+    const row = _rows.find(r=>r.id===id);
+    if (row) {
+      row.estado_comercial = val;
+      if (d.fecha_ultimo_contacto) row.fecha_ultimo_contacto = d.fecha_ultimo_contacto;
+    }
+    // Actualizar celda Últ. contacto en la fila visible
+    const tr = document.querySelector(`tr[data-id="${id}"]`);
+    if (tr && d.fecha_ultimo_contacto) {
+      const cells = tr.querySelectorAll('td');
+      if (cells[4]) cells[4].textContent = d.fecha_ultimo_contacto.slice(0,10);
+    }
+  } else toast('Error: '+(d.error||''), true);
 }
 
 document.addEventListener('click', () => document.getElementById('sdMenu').classList.remove('open'));

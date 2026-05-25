@@ -1300,14 +1300,16 @@ def cambiar_estado(pid):
     if nuevo not in validos:
         return jsonify({"ok": False, "error": "Estado invalido."}), 400
 
+    ahora = now_peru().strftime("%Y-%m-%d %H:%M")
     act = ActividadProspecto(
         prospecto_id=p.id, user_id=current_user.id, tipo="estado",
         descripcion=f"Estado cambiado a {nuevo}.", nuevo_estado=nuevo,
     )
     db.session.add(act)
-    p.estado_comercial = nuevo
+    p.estado_comercial      = nuevo
+    p.fecha_ultimo_contacto = ahora
     db.session.commit()
-    return jsonify({"ok": True})
+    return jsonify({"ok": True, "fecha_ultimo_contacto": ahora})
 
 
 # ── Registrar como cliente ────────────────────────────────────────────────────
