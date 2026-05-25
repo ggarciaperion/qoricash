@@ -22,11 +22,11 @@ class Prospecto(db.Model):
     web                    = db.Column(db.String(300))
 
     # Contacto
-    nombre_contacto        = db.Column(db.String(200))
+    nombre_contacto        = db.Column(db.Text)
     cargo                  = db.Column(db.String(150))
     email                  = db.Column(db.String(200), index=True)
     email_alt              = db.Column(db.String(200))
-    telefono               = db.Column(db.String(50))
+    telefono               = db.Column(db.String(200))
 
     # Clasificacion
     cliente_lfc            = db.Column(db.String(50))
@@ -52,7 +52,7 @@ class Prospecto(db.Model):
     notas                  = db.Column(db.Text)
 
     # CRM avanzado
-    telefono_alt           = db.Column(db.String(50))
+    telefono_alt           = db.Column(db.String(200))
     tamano_empresa         = db.Column(db.String(30))   # MYPE | Pequeña | Mediana | Grande
     volumen_estimado_usd   = db.Column(db.Numeric(15, 2))
     prioridad              = db.Column(db.String(20))   # alta | media | baja
