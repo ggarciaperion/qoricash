@@ -2426,6 +2426,27 @@ def api_import_excel():
     })
 
 
+@prospeccion_bp.route("/api/limpiar-todo", methods=["POST"])
+@login_required
+@require_role("Master")
+def api_limpiar_todo():
+    """Elimina TODOS los prospectos y datos relacionados. Solo Master."""
+    try:
+        deleted_act  = db.session.query(ActividadProspecto).delete()
+        from app.models.prospecto import ProspectoEmail
+        deleted_em   = db.session.query(ProspectoEmail).delete()
+        deleted_asig = db.session.query(AsignacionProspecto).delete()
+        deleted_pros = db.session.query(Prospecto).delete()
+        db.session.commit()
+        total = deleted_pros + deleted_asig + deleted_act + deleted_em
+        return jsonify({"ok": True, "deleted": deleted_pros,
+                        "detail": {"prospectos": deleted_pros, "asignaciones": deleted_asig,
+                                   "actividades": deleted_act, "emails_extra": deleted_em}})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
 @prospeccion_bp.route("/api/bulk-campo", methods=["POST"])
 @csrf.exempt
 @login_required

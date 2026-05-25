@@ -787,6 +787,10 @@
       <button class="btn-crm btn-crm-primary" onclick="openCampanaModal()">
         <i class="bi bi-send-fill"></i> Nueva Campaña
       </button>
+      <div class="toolbar-sep"></div>
+      <button class="btn-crm btn-crm-ghost" style="color:#dc2626;border-color:#dc2626;" onclick="confirmarLimpiarTodo()">
+        <i class="bi bi-trash3"></i> Limpiar todo
+      </button>
       {% endif %}
     </div>
   </div>
@@ -1851,6 +1855,47 @@ function switchImportTab(tab) {
   document.getElementById('iTab-link').style.borderBottomColor = tab==='link'?'#0D1B2A':'transparent';
   document.getElementById('iTab-link').style.color = tab==='link'?'#0D1B2A':'#6b7280';
 }
+async function confirmarLimpiarTodo() {
+  const r1 = await Swal.fire({
+    icon: 'warning',
+    title: '¿Eliminar todos los prospectos?',
+    text: 'Se borrarán todos los registros, asignaciones y actividades. Esta acción no se puede deshacer.',
+    showCancelButton: true,
+    confirmButtonText: 'Sí, eliminar todo',
+    cancelButtonText: 'Cancelar',
+    confirmButtonColor: '#dc2626',
+  });
+  if (!r1.isConfirmed) return;
+
+  const r2 = await Swal.fire({
+    icon: 'error',
+    title: 'Confirma la eliminación',
+    html: 'Escribe <strong>ELIMINAR</strong> para continuar.',
+    input: 'text',
+    inputPlaceholder: 'ELIMINAR',
+    showCancelButton: true,
+    confirmButtonText: 'Eliminar definitivamente',
+    cancelButtonText: 'Cancelar',
+    confirmButtonColor: '#dc2626',
+    preConfirm: (val) => {
+      if (val !== 'ELIMINAR') { Swal.showValidationMessage('Escribe exactamente ELIMINAR'); return false; }
+    }
+  });
+  if (!r2.isConfirmed) return;
+
+  Swal.fire({title:'Eliminando…',allowOutsideClick:false,didOpen:()=>Swal.showLoading()});
+  try {
+    const res = await fetch('/prospeccion/api/limpiar-todo', {method:'POST', headers:{'X-CSRFToken':CSRF()}});
+    const d = await res.json();
+    if (d.ok) {
+      Swal.fire({icon:'success', title:'Listo', text:`Se eliminaron ${d.deleted} registros.`, confirmButtonColor:'#0D1B2A'});
+      load();
+    } else {
+      Swal.fire({icon:'error', text: d.error||'Error al eliminar.', confirmButtonColor:'#0D1B2A'});
+    }
+  } catch(e) { Swal.fire({icon:'error', text:'Error de red.', confirmButtonColor:'#0D1B2A'}); }
+}
+
 function openImport() {
   document.getElementById('importFile').value='';
   document.getElementById('importUrl').value='';
