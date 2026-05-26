@@ -2129,6 +2129,53 @@ def api_campo(pid):
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
+@prospeccion_bp.route("/api/<int:pid>/notas")
+@login_required
+@require_role("Master", "Trader")
+def api_notas_get(pid):
+    """Lista todas las notas (actividades tipo nota) del prospecto."""
+    db.get_or_404(Prospecto, pid)
+    acts = (ActividadProspecto.query
+            .filter_by(prospecto_id=pid, tipo="nota")
+            .order_by(ActividadProspecto.creado_en.desc())
+            .limit(100).all())
+    return jsonify({"ok": True, "notas": [
+        {
+            "id": a.id,
+            "texto": a.descripcion,
+            "fecha": a.creado_en.strftime("%d/%m/%Y %H:%M") if a.creado_en else "",
+            "usuario": a.usuario.username if a.usuario else "",
+        } for a in acts
+    ]})
+
+
+@prospeccion_bp.route("/api/<int:pid>/nota", methods=["POST"])
+@csrf.exempt
+@login_required
+@require_role("Master", "Trader")
+def api_nota_add(pid):
+    """Agrega una nota al prospecto como actividad."""
+    db.get_or_404(Prospecto, pid)
+    data  = request.get_json() or {}
+    texto = data.get("texto", "").strip()
+    if not texto:
+        return jsonify({"ok": False, "error": "Texto requerido"}), 400
+    act = ActividadProspecto(
+        prospecto_id=pid,
+        user_id=current_user.id,
+        tipo="nota",
+        descripcion=texto,
+    )
+    db.session.add(act)
+    db.session.commit()
+    return jsonify({"ok": True, "nota": {
+        "id": act.id,
+        "texto": act.descripcion,
+        "fecha": act.creado_en.strftime("%d/%m/%Y %H:%M") if act.creado_en else "",
+        "usuario": current_user.username,
+    }})
+
+
 @prospeccion_bp.route("/api/<int:pid>/emails")
 @login_required
 @require_role("Master")

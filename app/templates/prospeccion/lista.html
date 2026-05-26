@@ -1561,12 +1561,16 @@ function openDrawer(id) {
     </div>` : ''}
     <div class="drawer-sect">
       <div class="drawer-sect-label">Notas</div>
-      <textarea class="drawer-notes" id="drNotes${id}">${esc(r.notas||'')}</textarea>
+      <div id="drNotasList${id}" style="margin-bottom:.75rem;display:flex;flex-direction:column;gap:.5rem;">
+        <div style="font-size:.72rem;color:var(--qori-gray-400);">Cargando...</div>
+      </div>
+      <textarea class="drawer-notes" id="drNotesInput${id}" placeholder="Escribe una nota..." style="min-height:72px;"></textarea>
       <button class="btn btn-sm btn-outline-secondary mt-1" style="font-size:.72rem;" onclick="saveNotes(${id})">
         <i class="bi bi-floppy me-1"></i>Guardar nota
       </button>
     </div>
   `;
+  loadNotas(id);
 
   document.getElementById('drFoot').innerHTML = '';
 
@@ -1577,11 +1581,57 @@ function closeDrawer() {
   document.getElementById('drawer').classList.remove('open');
   document.getElementById('drBackdrop').style.display = 'none';
 }
+async function loadNotas(id) {
+  const list = document.getElementById(`drNotasList${id}`);
+  if (!list) return;
+  try {
+    const r = await fetch(`/prospeccion/api/${id}/notas`);
+    const d = await r.json();
+    if (d.ok) renderNotasList(id, d.notas);
+    else list.innerHTML = `<span style="font-size:.72rem;color:var(--qori-gray-400);">Sin notas aún.</span>`;
+  } catch { list.innerHTML = `<span style="font-size:.72rem;color:var(--qori-danger);">Error al cargar.</span>`; }
+}
+
+function renderNotasList(id, notas) {
+  const list = document.getElementById(`drNotasList${id}`);
+  if (!list) return;
+  if (!notas.length) {
+    list.innerHTML = `<span style="font-size:.72rem;color:var(--qori-gray-400);">Sin notas aún.</span>`;
+    return;
+  }
+  list.innerHTML = notas.map(n => notaHtml(n)).join('');
+}
+
+function notaHtml(n) {
+  return `<div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:.5rem .65rem;">
+    <div style="font-size:.68rem;color:var(--qori-gray-400);margin-bottom:.25rem;">
+      <i class="bi bi-clock" style="margin-right:3px;"></i>${n.fecha}
+      ${n.usuario ? `<span style="margin-left:.4rem;color:var(--qori-gray-500);">· ${esc(n.usuario)}</span>` : ''}
+    </div>
+    <div style="font-size:.78rem;color:var(--qori-gray-200);white-space:pre-wrap;">${esc(n.texto)}</div>
+  </div>`;
+}
+
 async function saveNotes(id) {
-  const ta = document.getElementById(`drNotes${id}`);
+  const ta = document.getElementById(`drNotesInput${id}`);
   if (!ta) return;
-  await patchCampo(id,'notas',ta.value);
-  const row = _rows.find(r=>r.id===id); if(row) row.notas=ta.value;
+  const texto = ta.value.trim();
+  if (!texto) { toast('Escribe algo antes de guardar.', true); return; }
+  toast('Guardando…');
+  const r = await fetch(`/prospeccion/api/${id}/nota`, {
+    method: 'POST', headers: jHeaders(), body: JSON.stringify({texto})
+  });
+  const d = await r.json();
+  if (d.ok) {
+    ta.value = '';
+    const list = document.getElementById(`drNotasList${id}`);
+    if (list) {
+      const placeholder = list.querySelector('span');
+      if (placeholder) placeholder.remove();
+      list.insertAdjacentHTML('afterbegin', notaHtml(d.nota));
+    }
+    toast('Nota guardada');
+  } else toast('Error: ' + (d.error || ''), true);
 }
 
 /* ─────────────────────────────────────────────────────────────
