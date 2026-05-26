@@ -349,6 +349,28 @@ def create_app(config_name=None):
     except Exception as e:
         logging.warning(f"[Sanctions] No se pudo iniciar pre-carga: {e}")
 
+    # Migración: tabla datatec_entries (audit log TC Live — Pricing Engine)
+    try:
+        with app.app_context():
+            from app.extensions import db
+            from sqlalchemy import text
+            db.session.execute(text("""
+                CREATE TABLE IF NOT EXISTS datatec_entries (
+                    id         SERIAL PRIMARY KEY,
+                    compra     NUMERIC(10,4) NOT NULL,
+                    venta      NUMERIC(10,4) NOT NULL,
+                    created_at TIMESTAMP     NOT NULL DEFAULT NOW(),
+                    user_id    INTEGER       REFERENCES users(id),
+                    notes      VARCHAR(300)
+                )
+            """))
+            db.session.execute(text(
+                "CREATE INDEX IF NOT EXISTS idx_datatec_entries_created ON datatec_entries(created_at)"
+            ))
+            db.session.commit()
+    except Exception as e:
+        logging.warning(f"[TCLive] Error creando tabla datatec_entries: {e}")
+
     # Sembrar competidores FX (idempotente — solo inserta si no existen)
     try:
         with app.app_context():
@@ -473,6 +495,9 @@ def register_blueprints(app):
     app.register_blueprint(comercial_bp)       # Modulo Comercial — cartera de clientes
     from app.routes.alertas_tc import alertas_tc_bp
     app.register_blueprint(alertas_tc_bp)      # Modulo Alertas TC — leads desde qoricash.pe
+
+    from app.routes.fx_live import fx_live_bp
+    app.register_blueprint(fx_live_bp)         # TC Live — Pricing Engine interno (Master only)
 
     # Service Worker debe servirse desde la raíz del dominio (scope /)
     import os

@@ -130,6 +130,15 @@
             </a>
             {% endif %}
 
+            {% if current_user.role == 'Master' %}
+            <a class="sidebar-link {% if request.endpoint and request.endpoint.startswith('fx_live') %}active{% endif %}"
+               href="{{ url_for('fx_live.dashboard') }}"
+               style="{% if request.endpoint and request.endpoint.startswith('fx_live') %}background:rgba(0,222,168,.08);border-left:2px solid var(--qori-primary);{% endif %}">
+                <i class="bi bi-cpu-fill" style="{% if request.endpoint and request.endpoint.startswith('fx_live') %}color:var(--qori-primary);{% endif %}"></i>
+                <span class="sidebar-link-text">TC Live</span>
+            </a>
+            {% endif %}
+
             {% if current_user.role in ['Master', 'Middle Office', 'Trader', 'Operador'] %}
             <div class="sidebar-section-label">Compliance</div>
             {% endif %}

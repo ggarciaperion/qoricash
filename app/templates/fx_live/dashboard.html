@@ -1,0 +1,1040 @@
+{% extends "base.html" %}
+
+{% block title %}TC Live — Pricing Engine · QoriCash{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+/* ══════════════════════════════════════════════════════
+   TC LIVE — PRICING ENGINE DASHBOARD
+   Dark terminal aesthetic · Fintech institutional
+══════════════════════════════════════════════════════ */
+
+:root {
+  --tc-bg:          #080e1a;
+  --tc-surface:     #0d1623;
+  --tc-border:      rgba(255,255,255,.07);
+  --tc-border-soft: rgba(255,255,255,.04);
+  --tc-text:        #e2e8f0;
+  --tc-muted:       #64748b;
+  --tc-label:       #94a3b8;
+  --tc-green:       #00DEA8;
+  --tc-green-dim:   rgba(0,222,168,.12);
+  --tc-red:         #ef4444;
+  --tc-red-dim:     rgba(239,68,68,.12);
+  --tc-amber:       #f59e0b;
+  --tc-blue:        #3b82f6;
+  --tc-radius:      12px;
+  --tc-radius-sm:   8px;
+}
+
+/* ── Layout principal ── */
+.tc-root {
+  min-height: 100vh;
+  background: var(--tc-bg);
+  padding: 1.5rem;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'SF Mono', monospace;
+}
+
+/* ── Header ── */
+.tc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  gap: .75rem;
+}
+.tc-header-left { display: flex; align-items: center; gap: .75rem; }
+.tc-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: -.01em;
+}
+.tc-subtitle { font-size: .72rem; color: var(--tc-muted); }
+.tc-live-dot {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  font-size: .68rem;
+  color: var(--tc-green);
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  background: var(--tc-green-dim);
+  border: 1px solid rgba(0,222,168,.2);
+  padding: .25rem .55rem;
+  border-radius: 99px;
+}
+.tc-live-dot::before {
+  content: '';
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--tc-green);
+  box-shadow: 0 0 8px var(--tc-green);
+  animation: pulse-dot 1.6s ease-in-out infinite;
+}
+@keyframes pulse-dot {
+  0%,100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: .55; transform: scale(.75); }
+}
+.tc-clock {
+  font-size: .75rem;
+  color: var(--tc-muted);
+  font-variant-numeric: tabular-nums;
+  min-width: 70px;
+}
+
+/* ── Card base ── */
+.tc-card {
+  background: var(--tc-surface);
+  border: 1px solid var(--tc-border);
+  border-radius: var(--tc-radius);
+  padding: 1.25rem 1.4rem;
+  transition: border-color 220ms;
+}
+.tc-card:hover { border-color: rgba(255,255,255,.12); }
+
+.tc-card-label {
+  font-size: .62rem;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--tc-muted);
+  margin-bottom: .6rem;
+}
+
+/* ── Grid principal ── */
+.tc-grid-top {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+@media (max-width: 700px) { .tc-grid-top { grid-template-columns: 1fr; } }
+
+/* ── Precio DATATEC ── */
+.tc-price-row {
+  display: flex;
+  gap: 1.5rem;
+  align-items: flex-end;
+  margin: .35rem 0 .6rem;
+}
+.tc-price-block { display: flex; flex-direction: column; gap: .15rem; }
+.tc-price-key {
+  font-size: .6rem;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--tc-muted);
+}
+.tc-price-val {
+  font-size: 2.1rem;
+  font-weight: 800;
+  color: var(--tc-text);
+  letter-spacing: -.03em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  transition: color 400ms;
+}
+.tc-price-val.updated-up   { color: var(--tc-green) !important; }
+.tc-price-val.updated-down { color: var(--tc-red) !important; }
+
+.tc-divider-v {
+  width: 1px;
+  height: 44px;
+  background: var(--tc-border);
+  align-self: center;
+}
+
+/* ── Freshness badge ── */
+.tc-freshness {
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+  font-size: .68rem;
+  color: var(--tc-muted);
+  margin-top: .1rem;
+}
+.tc-freshness.stale { color: var(--tc-amber); }
+.tc-freshness.stale::before {
+  content: '';
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--tc-amber);
+  flex-shrink: 0;
+}
+
+/* ── Live estimate — desviación ── */
+.tc-dev {
+  font-size: .72rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.tc-dev.pos { color: var(--tc-green); }
+.tc-dev.neg { color: var(--tc-red); }
+.tc-dev.neu { color: var(--tc-muted); }
+
+/* ── Signal strip ── */
+.tc-signal-strip {
+  display: flex;
+  gap: .75rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+.tc-signal-chip {
+  display: flex;
+  align-items: center;
+  gap: .45rem;
+  background: var(--tc-surface);
+  border: 1px solid var(--tc-border);
+  border-radius: 99px;
+  padding: .35rem .85rem .35rem .6rem;
+  font-size: .72rem;
+  color: var(--tc-text);
+  font-weight: 500;
+}
+.tc-signal-chip .chip-icon { font-size: .85rem; }
+.tc-signal-chip .chip-label { color: var(--tc-muted); font-size: .65rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+
+/* ── Confidence ring ── */
+.tc-conf-ring-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .4rem;
+}
+.tc-conf-ring { position: relative; width: 80px; height: 80px; }
+.tc-conf-ring svg { transform: rotate(-90deg); }
+.tc-conf-circle-bg { fill: none; stroke: rgba(255,255,255,.06); stroke-width: 7; }
+.tc-conf-circle-fg {
+  fill: none;
+  stroke-width: 7;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 800ms cubic-bezier(.4,0,.2,1), stroke 600ms;
+}
+.tc-conf-value {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--tc-text);
+  font-variant-numeric: tabular-nums;
+}
+.tc-conf-label { font-size: .6rem; color: var(--tc-muted); text-transform: uppercase; letter-spacing: .08em; font-weight: 700; }
+
+/* ── Badges inline ── */
+.tc-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+  font-size: .68rem;
+  font-weight: 600;
+  padding: .25rem .65rem;
+  border-radius: 99px;
+  border: 1px solid;
+}
+
+/* ── Signals grid ── */
+.tc-signals-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: .75rem;
+}
+@media (max-width: 700px) { .tc-signals-grid { grid-template-columns: 1fr 1fr; } }
+
+.tc-signal-tile {
+  background: var(--tc-surface);
+  border: 1px solid var(--tc-border);
+  border-radius: var(--tc-radius-sm);
+  padding: .85rem 1rem;
+}
+.tc-signal-tile .st-sym  { font-size: .6rem; font-weight: 700; letter-spacing: .1em; color: var(--tc-muted); text-transform: uppercase; }
+.tc-signal-tile .st-name { font-size: .68rem; color: var(--tc-label); margin: .1rem 0 .4rem; }
+.tc-signal-tile .st-val  { font-size: 1.2rem; font-weight: 700; color: var(--tc-text); font-variant-numeric: tabular-nums; line-height: 1.1; }
+.tc-signal-tile .st-chg  { font-size: .7rem; font-weight: 600; margin-top: .15rem; font-variant-numeric: tabular-nums; }
+.st-chg.up   { color: var(--tc-green); }
+.st-chg.down { color: var(--tc-red); }
+.st-chg.flat { color: var(--tc-muted); }
+.tc-signal-tile .st-contrib { font-size: .62rem; color: var(--tc-muted); margin-top: .3rem; padding-top: .3rem; border-top: 1px solid var(--tc-border-soft); }
+
+/* ── Chart ── */
+.tc-chart-wrap {
+  position: relative;
+  height: 160px;
+  margin-top: .75rem;
+}
+.tc-tf-btns {
+  display: flex;
+  gap: .3rem;
+}
+.tc-tf-btn {
+  background: none;
+  border: 1px solid var(--tc-border);
+  color: var(--tc-muted);
+  font-size: .65rem;
+  font-weight: 700;
+  padding: .2rem .55rem;
+  border-radius: var(--tc-radius-sm);
+  cursor: pointer;
+  transition: all 150ms;
+}
+.tc-tf-btn.active, .tc-tf-btn:hover {
+  background: var(--tc-green-dim);
+  border-color: rgba(0,222,168,.3);
+  color: var(--tc-green);
+}
+
+/* ── Insight strip ── */
+.tc-insights { display: flex; flex-direction: column; gap: .4rem; }
+.tc-insight-item {
+  display: flex;
+  align-items: flex-start;
+  gap: .55rem;
+  font-size: .73rem;
+  color: var(--tc-label);
+  padding: .5rem .75rem;
+  background: rgba(255,255,255,.02);
+  border-left: 2px solid var(--tc-green);
+  border-radius: 0 6px 6px 0;
+}
+.tc-insight-item.stale { border-color: var(--tc-amber); }
+.tc-insight-item.danger { border-color: var(--tc-red); }
+
+/* ── Update form ── */
+.tc-form-row {
+  display: flex;
+  gap: .6rem;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+.tc-input-group { display: flex; flex-direction: column; gap: .3rem; }
+.tc-input-label { font-size: .62rem; font-weight: 700; color: var(--tc-muted); letter-spacing: .07em; text-transform: uppercase; }
+.tc-input {
+  background: rgba(255,255,255,.04);
+  border: 1px solid var(--tc-border);
+  color: var(--tc-text);
+  border-radius: var(--tc-radius-sm);
+  padding: .5rem .75rem;
+  font-size: .95rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  width: 110px;
+  transition: border-color 150ms, box-shadow 150ms;
+  outline: none;
+}
+.tc-input:focus {
+  border-color: rgba(0,222,168,.4);
+  box-shadow: 0 0 0 3px rgba(0,222,168,.08);
+}
+.tc-input::placeholder { color: var(--tc-muted); font-weight: 400; }
+.tc-input-notes {
+  flex: 1;
+  min-width: 180px;
+  max-width: 260px;
+}
+.tc-btn-save {
+  background: var(--tc-green);
+  color: #061210;
+  border: none;
+  border-radius: var(--tc-radius-sm);
+  padding: .55rem 1.25rem;
+  font-size: .78rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 150ms, transform 80ms;
+  letter-spacing: .02em;
+  align-self: flex-end;
+}
+.tc-btn-save:hover   { background: #00ffaa; }
+.tc-btn-save:active  { transform: scale(.97); }
+.tc-btn-save:disabled { opacity: .45; cursor: not-allowed; }
+
+/* ── Audit history table ── */
+.tc-history-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .72rem;
+  font-variant-numeric: tabular-nums;
+}
+.tc-history-table th {
+  font-size: .6rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--tc-muted);
+  padding: .35rem .5rem;
+  border-bottom: 1px solid var(--tc-border);
+  text-align: left;
+}
+.tc-history-table td {
+  padding: .4rem .5rem;
+  color: var(--tc-label);
+  border-bottom: 1px solid var(--tc-border-soft);
+}
+.tc-history-table tr:last-child td { border-bottom: none; }
+.tc-history-table td.mono { font-weight: 700; color: var(--tc-text); }
+.tc-history-table tr:first-child td { color: var(--tc-text); }
+.tc-history-table tr:first-child td.mono { color: var(--tc-green); }
+
+/* ── Skeleton loading ── */
+.tc-skeleton {
+  background: linear-gradient(90deg, rgba(255,255,255,.04) 25%, rgba(255,255,255,.08) 50%, rgba(255,255,255,.04) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.4s infinite;
+  border-radius: 4px;
+  display: inline-block;
+}
+@keyframes skeleton-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ── Layout grid secundario ── */
+.tc-grid-mid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+.tc-grid-bot { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+@media (max-width: 900px) {
+  .tc-grid-mid, .tc-grid-bot { grid-template-columns: 1fr; }
+}
+
+/* ── Spread indicator ── */
+.tc-spread {
+  font-size: .68rem;
+  color: var(--tc-muted);
+  margin-top: .4rem;
+  font-variant-numeric: tabular-nums;
+}
+.tc-spread span { color: var(--tc-label); font-weight: 600; }
+
+/* ── Toast ── */
+#tcToast {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  background: #0d2520;
+  border: 1px solid rgba(0,222,168,.3);
+  color: var(--tc-green);
+  padding: .55rem 1rem;
+  border-radius: 8px;
+  font-size: .75rem;
+  font-weight: 600;
+  z-index: 9999;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 200ms, transform 200ms;
+  pointer-events: none;
+}
+#tcToast.show { opacity: 1; transform: translateY(0); }
+#tcToast.error { background: #1f0d0d; border-color: rgba(239,68,68,.3); color: var(--tc-red); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="tc-root">
+
+  <!-- ══════════════════════════════ HEADER ══════════════════════════════ -->
+  <div class="tc-header">
+    <div class="tc-header-left">
+      <div>
+        <div class="tc-title">TC Live <span style="color:var(--tc-muted);font-weight:400;font-size:.85em;">/ Pricing Engine</span></div>
+        <div class="tc-subtitle">USD/PEN · Estimación interna · Solo Master</div>
+      </div>
+      <span class="tc-live-dot">Live</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:1rem;">
+      <div class="tc-clock" id="tcClock">—</div>
+      <div style="font-size:.65rem;color:var(--tc-muted);">Polling <span id="tcNextPoll" style="color:var(--tc-label);font-weight:600;">15s</span></div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════ GRID TOP — PRECIOS ══════════════════════════ -->
+  <div class="tc-grid-top">
+
+    <!-- DATATEC -->
+    <div class="tc-card" id="cardDatatec">
+      <div class="tc-card-label">DATATEC — Referencia manual</div>
+      <div class="tc-price-row">
+        <div class="tc-price-block">
+          <div class="tc-price-key">Compra</div>
+          <div class="tc-price-val" id="dtCompra"><span class="tc-skeleton" style="width:90px;height:30px;"></span></div>
+        </div>
+        <div class="tc-divider-v"></div>
+        <div class="tc-price-block">
+          <div class="tc-price-key">Venta</div>
+          <div class="tc-price-val" id="dtVenta"><span class="tc-skeleton" style="width:90px;height:30px;"></span></div>
+        </div>
+      </div>
+      <div class="tc-spread">Spread: <span id="dtSpread">—</span></div>
+      <div style="margin-top:.6rem;">
+        <div class="tc-freshness" id="dtFreshness">Cargando...</div>
+      </div>
+    </div>
+
+    <!-- LIVE ESTIMADO -->
+    <div class="tc-card" id="cardLive" style="border-color:rgba(0,222,168,.15);background:linear-gradient(135deg,#0d1623 60%,rgba(0,222,168,.04));">
+      <div class="tc-card-label" style="color:var(--tc-green);opacity:.8;">LIVE ESTIMADO — Motor interno</div>
+      <div class="tc-price-row">
+        <div class="tc-price-block">
+          <div class="tc-price-key">Compra est.</div>
+          <div class="tc-price-val" id="liveCompra"><span class="tc-skeleton" style="width:90px;height:30px;"></span></div>
+          <div class="tc-dev" id="devCompra">—</div>
+        </div>
+        <div class="tc-divider-v"></div>
+        <div class="tc-price-block">
+          <div class="tc-price-key">Venta est.</div>
+          <div class="tc-price-val" id="liveVenta"><span class="tc-skeleton" style="width:90px;height:30px;"></span></div>
+          <div class="tc-dev" id="devVenta">—</div>
+        </div>
+        <div style="margin-left:auto;align-self:center;">
+          <div class="tc-conf-ring-wrap">
+            <div class="tc-conf-ring">
+              <svg viewBox="0 0 80 80" width="80" height="80">
+                <circle class="tc-conf-circle-bg" cx="40" cy="40" r="33"/>
+                <circle class="tc-conf-circle-fg" id="confCircle" cx="40" cy="40" r="33"
+                        stroke="#00DEA8"
+                        stroke-dasharray="207.3"
+                        stroke-dashoffset="207.3"/>
+              </svg>
+              <div class="tc-conf-value" id="confValue">—</div>
+            </div>
+            <div class="tc-conf-label">Confianza</div>
+          </div>
+        </div>
+      </div>
+      <div class="tc-spread">Ajuste: <span id="liveAdj" style="font-weight:700;color:var(--tc-label);">—</span></div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════ SIGNAL STRIP ══════════════════════════ -->
+  <div class="tc-signal-strip" id="signalStrip">
+    <div class="tc-signal-chip">
+      <i class="bi bi-arrow-right chip-icon" id="trendIcon" style="color:#94a3b8;"></i>
+      <div><div class="chip-label">Tendencia</div><div id="trendLabel" style="font-weight:700;">—</div></div>
+    </div>
+    <div class="tc-signal-chip">
+      <i class="bi bi-activity chip-icon" style="color:#94a3b8;"></i>
+      <div><div class="chip-label">Volatilidad</div><div id="volLabel" style="font-weight:700;">—</div></div>
+    </div>
+    <div class="tc-signal-chip">
+      <i class="bi bi-clock-history chip-icon" style="color:#94a3b8;"></i>
+      <div><div class="chip-label">Señales activas</div><div id="signalsCount" style="font-weight:700;">—</div></div>
+    </div>
+    <div class="tc-signal-chip" id="staleChip" style="display:none;border-color:rgba(245,158,11,.3);background:rgba(245,158,11,.06);">
+      <i class="bi bi-exclamation-triangle chip-icon" style="color:#f59e0b;"></i>
+      <div style="color:#f59e0b;font-size:.7rem;font-weight:600;">DATATEC posiblemente rezagado</div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════ GRID MEDIO ══════════════════════════ -->
+  <div class="tc-grid-mid">
+
+    <!-- Chart USD/PEN -->
+    <div class="tc-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem;">
+        <div class="tc-card-label" style="margin:0;">USD/PEN Interbancario — Yahoo Finance</div>
+        <div class="tc-tf-btns">
+          <button class="tc-tf-btn" data-tf="30m">30m</button>
+          <button class="tc-tf-btn active" data-tf="1h">1h</button>
+          <button class="tc-tf-btn" data-tf="2h">2h</button>
+          <button class="tc-tf-btn" data-tf="4h">4h</button>
+        </div>
+      </div>
+      <div class="tc-chart-wrap">
+        <canvas id="priceChart"></canvas>
+      </div>
+    </div>
+
+    <!-- Señales individuales -->
+    <div class="tc-card">
+      <div class="tc-card-label">Señales del motor</div>
+      <div class="tc-signals-grid" id="signalsGrid">
+        <!-- Se rellena por JS -->
+        <div class="tc-signal-tile"><div class="tc-skeleton" style="width:100%;height:60px;border-radius:6px;"></div></div>
+        <div class="tc-signal-tile"><div class="tc-skeleton" style="width:100%;height:60px;border-radius:6px;"></div></div>
+        <div class="tc-signal-tile"><div class="tc-skeleton" style="width:100%;height:60px;border-radius:6px;"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════ INSIGHTS + UPDATE ══════════════════════════ -->
+  <div class="tc-grid-bot">
+
+    <!-- Insights -->
+    <div class="tc-card">
+      <div class="tc-card-label">Análisis del motor</div>
+      <div class="tc-insights" id="insightsList">
+        <div style="font-size:.73rem;color:var(--tc-muted);">Cargando análisis...</div>
+      </div>
+    </div>
+
+    <!-- Update form -->
+    <div class="tc-card">
+      <div class="tc-card-label">Actualizar DATATEC</div>
+      <div class="tc-form-row">
+        <div class="tc-input-group">
+          <label class="tc-input-label">Compra</label>
+          <input type="number" id="fCompra" class="tc-input" step="0.0001" min="3" max="5" placeholder="3.4190">
+        </div>
+        <div class="tc-input-group">
+          <label class="tc-input-label">Venta</label>
+          <input type="number" id="fVenta" class="tc-input" step="0.0001" min="3" max="5" placeholder="3.4280">
+        </div>
+        <div class="tc-input-group tc-input-notes">
+          <label class="tc-input-label">Nota (opcional)</label>
+          <input type="text" id="fNotes" class="tc-input" style="width:100%;" placeholder="ej. Apertura mercado" maxlength="200">
+        </div>
+        <button class="tc-btn-save" id="btnSaveDatatec" onclick="saveDatatec()">
+          <i class="bi bi-send-fill" style="margin-right:.3rem;font-size:.8rem;"></i>Guardar
+        </button>
+      </div>
+
+      <!-- Historial -->
+      <div style="margin-top:1.25rem;">
+        <div class="tc-card-label" style="margin-bottom:.5rem;">Historial reciente</div>
+        <div style="overflow-x:auto;">
+          <table class="tc-history-table" id="historyTable">
+            <thead>
+              <tr>
+                <th>Hora</th>
+                <th>Compra</th>
+                <th>Venta</th>
+                <th>Spread</th>
+                <th>Usuario</th>
+                <th>Nota</th>
+              </tr>
+            </thead>
+            <tbody id="historyBody">
+              <tr><td colspan="6" style="color:var(--tc-muted);padding:.75rem .5rem;">Cargando...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div><!-- /tc-root -->
+
+<div id="tcToast"></div>
+
+<script>
+/* ══════════════════════════════════════════════════════════════════
+   TC LIVE — Client Application Layer
+   Responsabilidades: polling, rendering, chart, form
+   NO contiene lógica financiera — solo UI binding
+══════════════════════════════════════════════════════════════════ */
+'use strict';
+
+// ── Estado de la app ────────────────────────────────────────────
+let _state        = null;
+let _chart        = null;
+let _tf           = '1h';
+let _pollTimer    = null;
+let _pollCountdown = 15;
+let _prevCompra   = null;
+let _prevVenta    = null;
+let _datatecAgeS  = 0;
+let _freshnessTimer = null;
+
+const POLL_INTERVAL_S = 15;
+const CONF_CIRC_R     = 33;
+const CONF_CIRC_C     = 2 * Math.PI * CONF_CIRC_R;   // ≈ 207.3
+
+// ── Helpers ─────────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+
+function fmt4(v) {
+  if (v == null) return '—';
+  return Number(v).toFixed(4);
+}
+
+function fmtChg(v) {
+  if (v == null) return '';
+  const sign = v >= 0 ? '+' : '';
+  return `${sign}${Number(v).toFixed(2)}%`;
+}
+
+function fmtDev(v) {
+  if (v == null) return '—';
+  const sign = v >= 0 ? '+' : '';
+  return `${sign}${Number(v).toFixed(4)}`;
+}
+
+function devClass(v) {
+  if (v == null || Math.abs(v) < 0.00005) return 'neu';
+  return v > 0 ? 'pos' : 'neg';
+}
+
+function esc(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function toast(msg, isError = false) {
+  const el = $('tcToast');
+  el.textContent = msg;
+  el.className = isError ? 'error show' : 'show';
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => { el.classList.remove('show', 'error'); }, 2800);
+}
+
+// ── Reloj ────────────────────────────────────────────────────────
+function tickClock() {
+  const now = new Date();
+  $('tcClock').textContent = now.toLocaleTimeString('es-PE', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+setInterval(tickClock, 1000);
+tickClock();
+
+// ── Freshness timer (actualiza cada segundo con el age local) ────
+function formatAge(s) {
+  if (s < 60)  return `hace ${s} seg`;
+  if (s < 3600) return `hace ${Math.floor(s/60)} min ${s%60} seg`;
+  return `hace ${Math.floor(s/3600)}h ${Math.floor((s%3600)/60)}m`;
+}
+
+function tickFreshness() {
+  _datatecAgeS++;
+  const el = $('dtFreshness');
+  if (!el) return;
+  const stale = _datatecAgeS > 180;
+  el.className = 'tc-freshness' + (stale ? ' stale' : '');
+  el.innerHTML = stale
+    ? `<i class="bi bi-exclamation-circle" style="font-size:.8rem;margin-right:2px;"></i>Posiblemente desactualizado (${formatAge(_datatecAgeS)})`
+    : `<i class="bi bi-check-circle" style="font-size:.75rem;margin-right:2px;color:var(--tc-green);"></i>Actualizado ${formatAge(_datatecAgeS)}`;
+
+  $('staleChip').style.display = stale ? 'flex' : 'none';
+}
+
+// ── Countdown al próximo poll ────────────────────────────────────
+function tickCountdown() {
+  _pollCountdown = Math.max(0, _pollCountdown - 1);
+  $('tcNextPoll').textContent = _pollCountdown + 's';
+  if (_pollCountdown === 0) { _pollCountdown = POLL_INTERVAL_S; poll(); }
+}
+
+// ── Flash animado en precios ─────────────────────────────────────
+function flashPrice(el, newVal, prevVal) {
+  if (prevVal == null || newVal == null) return;
+  const cls = newVal > prevVal ? 'updated-up' : newVal < prevVal ? 'updated-down' : null;
+  if (!cls) return;
+  el.classList.add(cls);
+  setTimeout(() => el.classList.remove(cls), 900);
+}
+
+// ── Render — precios DATATEC ─────────────────────────────────────
+function renderDatatec(datatec, age_s) {
+  const cEl = $('dtCompra');
+  const vEl = $('dtVenta');
+
+  flashPrice(cEl, datatec.compra, _prevCompra);
+  flashPrice(vEl, datatec.venta, _prevVenta);
+
+  cEl.textContent = fmt4(datatec.compra);
+  vEl.textContent = fmt4(datatec.venta);
+  $('dtSpread').textContent = fmt4(datatec.venta - datatec.compra);
+
+  _prevCompra = datatec.compra;
+  _prevVenta  = datatec.venta;
+  _datatecAgeS = age_s;
+  tickFreshness();
+}
+
+// ── Render — estimación live ─────────────────────────────────────
+function renderEstimate(est) {
+  if (!est.ok) {
+    $('liveCompra').textContent = '—';
+    $('liveVenta').textContent  = '—';
+    $('devCompra').textContent  = '—';
+    $('devVenta').textContent   = '—';
+    $('confValue').textContent  = '—';
+    $('liveAdj').textContent    = '—';
+    return;
+  }
+
+  $('liveCompra').textContent = fmt4(est.live_compra);
+  $('liveVenta').textContent  = fmt4(est.live_venta);
+
+  const dcEl = $('devCompra');
+  const dvEl = $('devVenta');
+  dcEl.textContent = fmtDev(est.dev_compra);
+  dvEl.textContent = fmtDev(est.dev_venta);
+  dcEl.className = 'tc-dev ' + devClass(est.dev_compra);
+  dvEl.className = 'tc-dev ' + devClass(est.dev_venta);
+
+  const adjSign = (est.adj_pct >= 0 ? '+' : '');
+  $('liveAdj').textContent = est.adj_pct != null
+    ? `${adjSign}${Number(est.adj_pct).toFixed(4)}%`
+    : '—';
+
+  // Confidence ring
+  const conf    = est.confidence || 0;
+  const offset  = CONF_CIRC_C * (1 - conf / 100);
+  const circ    = $('confCircle');
+  circ.style.strokeDashoffset = offset;
+  const confColor = conf >= 75 ? '#00DEA8' : conf >= 50 ? '#f59e0b' : '#ef4444';
+  circ.style.stroke = confColor;
+  $('confValue').textContent = conf + '%';
+  $('confValue').style.color = confColor;
+}
+
+// ── Render — signal strip ────────────────────────────────────────
+function renderSignalStrip(est) {
+  if (!est.ok) return;
+  const trend = est.trend;
+  const vol   = est.volatility;
+
+  const tIcon  = $('trendIcon');
+  tIcon.className   = 'bi ' + trend.icon + ' chip-icon';
+  tIcon.style.color = trend.color;
+  $('trendLabel').textContent  = trend.label;
+  $('trendLabel').style.color  = trend.color;
+  $('volLabel').textContent    = vol.label;
+  $('volLabel').style.color    = vol.color;
+  $('signalsCount').textContent = (est.signals || []).filter(s => Math.abs(s.contrib) > 0.0001).length + ' activas';
+}
+
+// ── Render — señales del motor ───────────────────────────────────
+function renderSignals(signals) {
+  const grid = $('signalsGrid');
+  if (!signals || !signals.length) return;
+
+  grid.innerHTML = signals.map(s => {
+    const chgVal  = s.chg_pct;
+    const chgCls  = chgVal == null ? 'flat' : chgVal > 0 ? 'up' : chgVal < 0 ? 'down' : 'flat';
+    const chgTxt  = chgVal != null ? fmtChg(chgVal) : '—';
+    const contTxt = s.contrib != null ? `Peso en ajuste: ${s.contrib >= 0 ? '+' : ''}${Number(s.contrib).toFixed(4)}%` : '';
+    const valFmt  = s.current != null
+      ? (s.symbol === 'DXY' ? Number(s.current).toFixed(3)
+       : s.symbol === 'USDPEN' ? Number(s.current).toFixed(4)
+       : Number(s.current).toFixed(4))
+      : '—';
+
+    return `<div class="tc-signal-tile">
+      <div class="st-sym">${esc(s.symbol)}</div>
+      <div class="st-name">${esc(s.name)}</div>
+      <div class="st-val">${valFmt}</div>
+      <div class="st-chg ${chgCls}">${chgTxt}</div>
+      ${contTxt ? `<div class="st-contrib">${esc(contTxt)}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+// ── Render — insights ─────────────────────────────────────────────
+function renderInsights(insights, est) {
+  const el = $('insightsList');
+  if (!insights || !insights.length) {
+    el.innerHTML = `<div style="font-size:.73rem;color:var(--tc-muted);">Sin señales relevantes en este momento.</div>`;
+    return;
+  }
+
+  const isStale = est && est.is_stale;
+  const isHigh  = est && est.volatility && est.volatility.key === 'alta';
+
+  el.innerHTML = insights.map((ins, i) => {
+    let cls = '';
+    if (isStale && i === 0) cls = 'stale';
+    if (isHigh && ins.toLowerCase().includes('volatil')) cls = 'danger';
+    return `<div class="tc-insight-item ${cls}">
+      <i class="bi bi-circle-fill" style="font-size:.4rem;margin-top:.35rem;flex-shrink:0;"></i>
+      ${esc(ins)}
+    </div>`;
+  }).join('');
+}
+
+// ── Render — history table ───────────────────────────────────────
+function renderHistory(entries) {
+  const body = $('historyBody');
+  if (!entries || !entries.length) {
+    body.innerHTML = `<tr><td colspan="6" style="color:var(--tc-muted);padding:.75rem .5rem;">Sin entradas aún.</td></tr>`;
+    return;
+  }
+
+  body.innerHTML = entries.map(e => `
+    <tr>
+      <td>${esc(e.created_fmt)}</td>
+      <td class="mono">${fmt4(e.compra)}</td>
+      <td class="mono">${fmt4(e.venta)}</td>
+      <td class="mono">${fmt4(e.spread)}</td>
+      <td>${esc(e.user)}</td>
+      <td style="color:var(--tc-muted);font-style:italic;">${esc(e.notes) || '—'}</td>
+    </tr>
+  `).join('');
+}
+
+// ── Chart ─────────────────────────────────────────────────────────
+async function loadChart(tf) {
+  try {
+    const res  = await fetch(`/tc-live/api/chart?tf=${tf}`);
+    const data = await res.json();
+    if (!data.ok) return;
+
+    const labels  = data.points.map(p => p.ts);
+    const values  = data.points.map(p => p.usdpen);
+
+    const ctx = $('priceChart').getContext('2d');
+
+    if (_chart) { _chart.destroy(); _chart = null; }
+
+    const grad = ctx.createLinearGradient(0, 0, 0, 160);
+    grad.addColorStop(0,   'rgba(0,222,168,.20)');
+    grad.addColorStop(1,   'rgba(0,222,168,.00)');
+
+    _chart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: 'USD/PEN Interbancario',
+          data: values,
+          borderColor: '#00DEA8',
+          borderWidth: 1.5,
+          backgroundColor: grad,
+          fill: true,
+          tension: 0.35,
+          pointRadius: 0,
+          pointHoverRadius: 4,
+          pointHoverBackgroundColor: '#00DEA8',
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#0d1623',
+            borderColor: 'rgba(0,222,168,.2)',
+            borderWidth: 1,
+            titleColor: '#94a3b8',
+            bodyColor: '#00DEA8',
+            bodyFont: { weight: '700', size: 13 },
+            padding: 8,
+            callbacks: {
+              label: ctx => ' ' + Number(ctx.raw).toFixed(4),
+            }
+          }
+        },
+        scales: {
+          x: {
+            grid: { color: 'rgba(255,255,255,.04)' },
+            ticks: { color: '#64748b', font: { size: 10 }, maxTicksLimit: 8 },
+          },
+          y: {
+            grid: { color: 'rgba(255,255,255,.04)' },
+            ticks: {
+              color: '#64748b',
+              font: { size: 10 },
+              callback: v => Number(v).toFixed(4),
+            },
+            position: 'right',
+          }
+        },
+        animation: { duration: 500, easing: 'easeInOutQuart' },
+      }
+    });
+  } catch (e) {
+    console.warn('[TCLive] Chart error:', e);
+  }
+}
+
+// Timeframe buttons
+document.querySelectorAll('.tc-tf-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tc-tf-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    _tf = btn.dataset.tf;
+    loadChart(_tf);
+  });
+});
+
+// ── Poll principal ────────────────────────────────────────────────
+async function poll() {
+  try {
+    const res  = await fetch('/tc-live/api/state');
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'Error de estado');
+
+    _state = data;
+
+    renderDatatec(data.datatec, data.datatec_age_s);
+    renderEstimate(data.estimate);
+    renderSignalStrip(data.estimate);
+    renderSignals(data.estimate.signals);
+    renderInsights(data.estimate.insights, data.estimate);
+
+    // History solo al primer load o cada 3 polls
+    if (!poll._count || poll._count % 3 === 0) {
+      const hr = await fetch('/tc-live/api/history');
+      const hd = await hr.json();
+      if (hd.ok) renderHistory(hd.entries);
+      loadChart(_tf);
+    }
+    poll._count = (poll._count || 0) + 1;
+
+  } catch (e) {
+    console.error('[TCLive] Poll error:', e);
+  }
+}
+poll._count = 0;
+
+// ── Guardar DATATEC ───────────────────────────────────────────────
+async function saveDatatec() {
+  const compra = parseFloat($('fCompra').value);
+  const venta  = parseFloat($('fVenta').value);
+  const notes  = $('fNotes').value.trim();
+
+  if (!compra || !venta || isNaN(compra) || isNaN(venta)) {
+    toast('Ingresa compra y venta válidos', true); return;
+  }
+  if (venta <= compra) {
+    toast('Venta debe ser mayor que Compra', true); return;
+  }
+
+  const btn = $('btnSaveDatatec');
+  btn.disabled = true;
+  btn.textContent = 'Guardando...';
+
+  try {
+    const res  = await fetch('/tc-live/api/datatec', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken() },
+      body: JSON.stringify({ compra, venta, notes }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      toast('DATATEC actualizado correctamente');
+      $('fCompra').value = '';
+      $('fVenta').value  = '';
+      $('fNotes').value  = '';
+      _pollCountdown = 0;  // forzar re-poll inmediato
+    } else {
+      toast(data.error || 'Error al guardar', true);
+    }
+  } catch (e) {
+    toast('Error de conexión', true);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-send-fill" style="margin-right:.3rem;font-size:.8rem;"></i>Guardar';
+  }
+}
+
+function csrfToken() {
+  return document.querySelector('meta[name="csrf-token"]')?.content || '';
+}
+
+// ── Arranque ──────────────────────────────────────────────────────
+function startPolling() {
+  poll();
+  setInterval(tickCountdown, 1000);
+  if (_freshnessTimer) clearInterval(_freshnessTimer);
+  _freshnessTimer = setInterval(tickFreshness, 1000);
+}
+
+document.addEventListener('DOMContentLoaded', startPolling);
+</script>
+{% endblock %}
