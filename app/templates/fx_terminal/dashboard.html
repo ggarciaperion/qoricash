@@ -1,0 +1,920 @@
+{% extends "base.html" %}
+{% block title %}FX Terminal · USD/PEN · QoriCash{% endblock %}
+
+{% block head %}
+<style>
+/* ═══════════════════════════════════════════════════════════════════
+   FX TERMINAL — QoriCash Market Intelligence
+   Design: Institutional fintech · Dark · Minimal · Premium
+═══════════════════════════════════════════════════════════════════ */
+:root {
+  --t-bg:        #07101f;
+  --t-s1:        #0c1628;
+  --t-s2:        #111e35;
+  --t-border:    rgba(255,255,255,.07);
+  --t-border2:   rgba(255,255,255,.12);
+  --t-text:      #e2e8f0;
+  --t-muted:     #64748b;
+  --t-label:     #94a3b8;
+  --t-green:     #00c896;
+  --t-green-dim: rgba(0,200,150,.10);
+  --t-red:       #f04f5a;
+  --t-red-dim:   rgba(240,79,90,.10);
+  --t-amber:     #f59e0b;
+  --t-amber-dim: rgba(245,158,11,.10);
+  --t-blue:      #3b82f6;
+  --t-blue-dim:  rgba(59,130,246,.10);
+  --t-r:         10px;
+  --t-r-sm:      7px;
+}
+
+/* ── Layout root ── */
+.fxt { min-height:100vh; background:var(--t-bg); padding:1.25rem 1.5rem 3rem; }
+
+/* ── Header ── */
+.fxt-header {
+  display:flex; align-items:center; justify-content:space-between;
+  margin-bottom:1.25rem; gap:1rem; flex-wrap:wrap;
+}
+.fxt-header-left { display:flex; align-items:center; gap:.75rem; }
+.fxt-logo {
+  width:28px; height:28px; background:var(--t-green); border-radius:6px;
+  display:flex; align-items:center; justify-content:center;
+}
+.fxt-logo i { font-size:.9rem; color:#061a13; }
+.fxt-title { font-size:1rem; font-weight:700; color:#fff; letter-spacing:-.01em; }
+.fxt-title small { color:var(--t-muted); font-weight:400; font-size:.78em; margin-left:.35rem; }
+.fxt-header-right { display:flex; align-items:center; gap:1rem; flex-wrap:wrap; }
+.fxt-clock {
+  font-size:.78rem; color:var(--t-label); font-variant-numeric:tabular-nums;
+  font-weight:600; letter-spacing:.01em;
+}
+.fxt-poll { font-size:.62rem; color:var(--t-muted); }
+.fxt-poll span { color:var(--t-label); font-weight:700; }
+
+/* ── Market status badges ── */
+.fxt-badge {
+  display:inline-flex; align-items:center; gap:.35rem; padding:.22rem .6rem;
+  border-radius:99px; font-size:.65rem; font-weight:700; letter-spacing:.06em;
+  text-transform:uppercase; border:1px solid;
+}
+.fxt-badge-open   { color:var(--t-green); background:var(--t-green-dim); border-color:rgba(0,200,150,.25); }
+.fxt-badge-closed { color:var(--t-amber); background:var(--t-amber-dim); border-color:rgba(245,158,11,.25); }
+.fxt-badge-open::before, .fxt-badge-closed::before {
+  content:''; width:5px; height:5px; border-radius:50%; background:currentColor;
+  box-shadow:0 0 6px currentColor;
+}
+.fxt-badge-open::before { animation:fxt-pulse 1.8s ease infinite; }
+@keyframes fxt-pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(.7)} }
+.fxt-market-msg { font-size:.65rem; color:var(--t-muted); }
+.fxt-market-msg span { color:var(--t-amber); font-weight:700; }
+
+/* ── Card base ── */
+.fxt-card {
+  background:var(--t-s1); border:1px solid var(--t-border);
+  border-radius:var(--t-r); padding:1.1rem 1.25rem;
+  transition:border-color 200ms;
+}
+
+/* ── Consensus strip ── */
+.fxt-consensus {
+  display:grid; grid-template-columns:repeat(4,1fr); gap:.75rem;
+  margin-bottom:1rem;
+}
+@media(max-width:900px){ .fxt-consensus{ grid-template-columns:repeat(2,1fr); } }
+@media(max-width:500px){ .fxt-consensus{ grid-template-columns:1fr; } }
+
+.fxt-source-card { position:relative; overflow:hidden; }
+.fxt-source-card::before {
+  content:''; position:absolute; top:0; left:0; right:0; height:2px;
+}
+.fxt-src-yahoo::before   { background:var(--t-blue); }
+.fxt-src-fintechs::before{ background:var(--t-green); }
+.fxt-src-datatec::before { background:var(--t-amber); }
+.fxt-src-diff::before    { background:var(--t-red); }
+
+.fxt-src-label {
+  font-size:.58rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase;
+  color:var(--t-muted); margin-bottom:.4rem;
+}
+.fxt-src-price {
+  font-size:1.7rem; font-weight:800; color:var(--t-text);
+  font-variant-numeric:tabular-nums; letter-spacing:-.03em; line-height:1;
+}
+.fxt-src-price.loading { color:var(--t-s2); }
+.fxt-src-sub { font-size:.68rem; color:var(--t-muted); margin-top:.3rem; font-variant-numeric:tabular-nums; }
+.fxt-src-sub .up   { color:var(--t-green); font-weight:600; }
+.fxt-src-sub .down { color:var(--t-red);   font-weight:600; }
+.fxt-src-sub .neu  { color:var(--t-muted); }
+
+/* Diff card special */
+.fxt-diff-price { font-size:1.5rem; font-weight:800; font-variant-numeric:tabular-nums; letter-spacing:-.03em; line-height:1; }
+.fxt-diff-price.pos { color:var(--t-amber); }
+.fxt-diff-price.neg { color:var(--t-green); }
+.fxt-diff-price.neu { color:var(--t-muted); }
+
+/* ── TradingView section ── */
+.fxt-chart-section { margin-bottom:1rem; }
+.fxt-chart-header {
+  display:flex; align-items:center; justify-content:space-between;
+  margin-bottom:.6rem;
+}
+.fxt-section-label {
+  font-size:.6rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase;
+  color:var(--t-muted);
+}
+.fxt-chart-container {
+  background:var(--t-s1); border:1px solid var(--t-border);
+  border-radius:var(--t-r); overflow:hidden; height:440px;
+}
+.fxt-tv-loading {
+  height:100%; display:flex; align-items:center; justify-content:center;
+  flex-direction:column; gap:.75rem; color:var(--t-muted); font-size:.8rem;
+}
+.fxt-tv-spinner {
+  width:28px; height:28px; border:2px solid var(--t-border2);
+  border-top-color:var(--t-green); border-radius:50%;
+  animation:fxt-spin 800ms linear infinite;
+}
+@keyframes fxt-spin { to{transform:rotate(360deg)} }
+
+/* ── Mid row: Market signals + External refs ── */
+.fxt-mid-grid {
+  display:grid; grid-template-columns:1fr 1fr; gap:.75rem;
+  margin-bottom:1rem;
+}
+@media(max-width:800px){ .fxt-mid-grid{ grid-template-columns:1fr; } }
+
+/* Market signals table */
+.fxt-signals-table { width:100%; border-collapse:collapse; }
+.fxt-signals-table tr { border-bottom:1px solid var(--t-border); }
+.fxt-signals-table tr:last-child { border-bottom:none; }
+.fxt-signals-table td { padding:.45rem .1rem; font-size:.78rem; font-variant-numeric:tabular-nums; }
+.fxt-signals-table .sig-name { color:var(--t-label); width:40%; }
+.fxt-signals-table .sig-val  { color:var(--t-text); font-weight:700; text-align:right; }
+.fxt-signals-table .sig-chg  { font-size:.7rem; font-weight:600; text-align:right; width:25%; }
+.sig-chg.up   { color:var(--t-green); }
+.sig-chg.down { color:var(--t-red); }
+.sig-chg.flat { color:var(--t-muted); }
+
+/* External references */
+.fxt-ext-grid { display:grid; grid-template-columns:1fr 1fr; gap:.5rem; }
+.fxt-ext-link {
+  display:flex; align-items:center; gap:.6rem;
+  padding:.55rem .75rem; border-radius:var(--t-r-sm);
+  background:var(--t-s2); border:1px solid var(--t-border);
+  text-decoration:none; transition:border-color 150ms, background 150ms;
+  cursor:pointer;
+}
+.fxt-ext-link:hover { border-color:var(--t-border2); background:#162038; }
+.fxt-ext-icon {
+  width:26px; height:26px; border-radius:5px;
+  display:flex; align-items:center; justify-content:center;
+  font-size:.75rem; font-weight:800; flex-shrink:0;
+  font-family:Georgia, serif;
+}
+.fxt-ext-info .ext-name { font-size:.7rem; font-weight:700; color:var(--t-text); }
+.fxt-ext-info .ext-desc { font-size:.6rem; color:var(--t-muted); margin-top:.05rem; }
+.fxt-ext-arrow { margin-left:auto; color:var(--t-muted); font-size:.65rem; }
+
+/* ── Fintechs section ── */
+.fxt-fintechs-section { margin-bottom:1rem; }
+.fxt-fintechs-header {
+  display:flex; align-items:center; justify-content:space-between;
+  margin-bottom:.6rem;
+}
+.fxt-fintech-count {
+  font-size:.65rem; color:var(--t-muted);
+  background:var(--t-s2); border:1px solid var(--t-border);
+  border-radius:99px; padding:.15rem .55rem;
+}
+.fxt-fintech-count span { color:var(--t-green); font-weight:700; }
+
+.fxt-fintech-grid {
+  display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr));
+  gap:.5rem;
+}
+.fxt-fintech-card {
+  background:var(--t-s1); border:1px solid var(--t-border);
+  border-radius:var(--t-r-sm); padding:.7rem .85rem;
+  transition:border-color 180ms, transform 120ms;
+  position:relative;
+}
+.fxt-fintech-card:hover { border-color:var(--t-border2); transform:translateY(-1px); }
+.fxt-fintech-card.best-sell { border-color:rgba(0,200,150,.3); }
+.fxt-fintech-card.best-sell::after {
+  content:'mejor'; position:absolute; top:.35rem; right:.45rem;
+  font-size:.5rem; font-weight:800; letter-spacing:.07em; text-transform:uppercase;
+  color:var(--t-green); opacity:.7;
+}
+.ftc-name { font-size:.65rem; font-weight:700; color:var(--t-label); margin-bottom:.4rem;
+            white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ftc-rates { display:flex; gap:.75rem; margin-bottom:.25rem; }
+.ftc-rate-block { display:flex; flex-direction:column; gap:.05rem; }
+.ftc-rate-key { font-size:.52rem; font-weight:700; text-transform:uppercase;
+                letter-spacing:.07em; color:var(--t-muted); }
+.ftc-rate-val { font-size:.95rem; font-weight:800; font-variant-numeric:tabular-nums;
+                letter-spacing:-.02em; color:var(--t-text); }
+.ftc-rate-val.buy  { color:#e2e8f0; }
+.ftc-rate-val.sell { color:var(--t-green); }
+.ftc-spread { font-size:.58rem; color:var(--t-muted); padding-top:.25rem;
+              border-top:1px solid var(--t-border); margin-top:.15rem; }
+.ftc-updated { font-size:.55rem; color:var(--t-muted); margin-top:.15rem; }
+
+.fxt-fintech-empty {
+  grid-column:1/-1; text-align:center; padding:2rem;
+  font-size:.78rem; color:var(--t-muted);
+}
+
+/* ── DATATEC section ── */
+.fxt-datatec-grid {
+  display:grid; grid-template-columns:1fr 1.4fr; gap:.75rem;
+  margin-bottom:1rem;
+}
+@media(max-width:800px){ .fxt-datatec-grid{ grid-template-columns:1fr; } }
+
+/* Form */
+.fxt-form-row { display:flex; gap:.5rem; align-items:flex-end; flex-wrap:wrap; }
+.fxt-input-group { display:flex; flex-direction:column; gap:.25rem; }
+.fxt-input-label { font-size:.58rem; font-weight:700; text-transform:uppercase;
+                   letter-spacing:.08em; color:var(--t-muted); }
+.fxt-input {
+  background:rgba(255,255,255,.04); border:1px solid var(--t-border);
+  color:var(--t-text); border-radius:var(--t-r-sm); padding:.5rem .7rem;
+  font-size:.92rem; font-weight:700; font-variant-numeric:tabular-nums;
+  width:100px; outline:none; transition:border-color 150ms, box-shadow 150ms;
+}
+.fxt-input:focus { border-color:rgba(0,200,150,.4); box-shadow:0 0 0 3px rgba(0,200,150,.07); }
+.fxt-input::placeholder { color:var(--t-muted); font-weight:400; }
+.fxt-input-notes { width:160px; }
+.fxt-btn-save {
+  background:var(--t-green); color:#061a13; border:none;
+  border-radius:var(--t-r-sm); padding:.52rem 1.1rem;
+  font-size:.75rem; font-weight:800; cursor:pointer; letter-spacing:.02em;
+  transition:background 150ms, transform 80ms; align-self:flex-end;
+  white-space:nowrap;
+}
+.fxt-btn-save:hover   { background:#00e8b0; }
+.fxt-btn-save:active  { transform:scale(.97); }
+.fxt-btn-save:disabled{ opacity:.4; cursor:not-allowed; }
+
+.fxt-datatec-current {
+  display:flex; gap:1.5rem; align-items:flex-end; margin:1rem 0 .75rem;
+}
+.fxt-dc-block { display:flex; flex-direction:column; gap:.1rem; }
+.fxt-dc-key { font-size:.58rem; font-weight:700; text-transform:uppercase;
+              letter-spacing:.08em; color:var(--t-muted); }
+.fxt-dc-val { font-size:1.9rem; font-weight:800; font-variant-numeric:tabular-nums;
+              letter-spacing:-.03em; color:var(--t-text); line-height:1; }
+.fxt-dc-divider { width:1px; height:36px; background:var(--t-border); align-self:center; }
+.fxt-freshness {
+  display:inline-flex; align-items:center; gap:.3rem;
+  font-size:.65rem; color:var(--t-muted);
+}
+.fxt-freshness.stale { color:var(--t-amber); }
+.fxt-freshness.stale::before {
+  content:''; width:5px; height:5px; border-radius:50%;
+  background:var(--t-amber); flex-shrink:0;
+}
+
+/* History table */
+.fxt-hist-table { width:100%; border-collapse:collapse; font-size:.7rem;
+                  font-variant-numeric:tabular-nums; }
+.fxt-hist-table th {
+  font-size:.57rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
+  color:var(--t-muted); padding:.3rem .4rem; border-bottom:1px solid var(--t-border);
+  text-align:left;
+}
+.fxt-hist-table td { padding:.38rem .4rem; color:var(--t-label);
+                     border-bottom:1px solid rgba(255,255,255,.03); }
+.fxt-hist-table td.mono { font-weight:700; color:var(--t-text); }
+.fxt-hist-table tr:first-child td.mono { color:var(--t-green); }
+.fxt-hist-table tr:last-child td { border-bottom:none; }
+
+/* ── Skeleton ── */
+.fxt-skeleton {
+  background:linear-gradient(90deg,rgba(255,255,255,.04) 25%,rgba(255,255,255,.08) 50%,rgba(255,255,255,.04) 75%);
+  background-size:200% 100%; animation:fxt-shimmer 1.4s infinite;
+  border-radius:4px; display:inline-block;
+}
+@keyframes fxt-shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+
+/* ── Toast ── */
+#fxtToast {
+  position:fixed; bottom:1.5rem; right:1.5rem; z-index:9999;
+  padding:.5rem 1rem; border-radius:8px; font-size:.74rem; font-weight:600;
+  opacity:0; transform:translateY(8px); transition:opacity 200ms, transform 200ms;
+  pointer-events:none;
+}
+#fxtToast.show-ok    { opacity:1; transform:translateY(0); background:#0a2018; border:1px solid rgba(0,200,150,.3); color:var(--t-green); }
+#fxtToast.show-err   { opacity:1; transform:translateY(0); background:#1f080a; border:1px solid rgba(240,79,90,.3);  color:var(--t-red); }
+
+/* ── Responsive ── */
+@media(max-width:600px){
+  .fxt { padding:.75rem; }
+  .fxt-input { width:85px; }
+  .fxt-input-notes { width:120px; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="fxt">
+
+  <!-- ══════════ HEADER ══════════ -->
+  <div class="fxt-header">
+    <div class="fxt-header-left">
+      <div class="fxt-logo"><i class="bi bi-activity"></i></div>
+      <div>
+        <div class="fxt-title">FX Terminal <small>· USD/PEN</small></div>
+        <div style="font-size:.6rem;color:var(--t-muted);margin-top:.05rem;">Mesa de dinero · Solo Master</div>
+      </div>
+    </div>
+    <div class="fxt-header-right">
+      <div id="fxtMarketBadge" class="fxt-badge fxt-badge-open">Cargando...</div>
+      <div class="fxt-market-msg" id="fxtMarketMsg" style="display:none;"></div>
+      <div class="fxt-clock" id="fxtClock">—</div>
+      <div class="fxt-poll">Actualiza en <span id="fxtPoll">30s</span></div>
+    </div>
+  </div>
+
+  <!-- ══════════ CONSENSUS STRIP ══════════ -->
+  <div class="fxt-consensus">
+
+    <!-- Yahoo Finance -->
+    <div class="fxt-card fxt-source-card fxt-src-yahoo">
+      <div class="fxt-src-label">Yahoo Finance · USD/PEN</div>
+      <div class="fxt-src-price" id="yahooPrice"><span class="fxt-skeleton" style="width:90px;height:26px;"></span></div>
+      <div class="fxt-src-sub" id="yahooSub">Cargando...</div>
+    </div>
+
+    <!-- Fintechs Peru -->
+    <div class="fxt-card fxt-source-card fxt-src-fintechs">
+      <div class="fxt-src-label">Mediana Retail Peru</div>
+      <div class="fxt-src-price" id="fintechPrice"><span class="fxt-skeleton" style="width:90px;height:26px;"></span></div>
+      <div class="fxt-src-sub" id="fintechSub">Cargando...</div>
+    </div>
+
+    <!-- DATATEC -->
+    <div class="fxt-card fxt-source-card fxt-src-datatec">
+      <div class="fxt-src-label">DATATEC Manual</div>
+      <div class="fxt-src-price" id="datatecPrice"><span class="fxt-skeleton" style="width:90px;height:26px;"></span></div>
+      <div class="fxt-src-sub" id="datatecSub">Cargando...</div>
+    </div>
+
+    <!-- Diferencia -->
+    <div class="fxt-card fxt-source-card fxt-src-diff">
+      <div class="fxt-src-label">Diferencia Mercado vs DATATEC</div>
+      <div class="fxt-diff-price neu" id="diffPrice"><span class="fxt-skeleton" style="width:70px;height:26px;"></span></div>
+      <div class="fxt-src-sub" id="diffSub">Cargando...</div>
+    </div>
+
+  </div>
+
+  <!-- ══════════ TRADINGVIEW CHART ══════════ -->
+  <div class="fxt-chart-section">
+    <div class="fxt-chart-header">
+      <div class="fxt-section-label">Gráfico USD/PEN · TradingView · FX_IDC:USDPEN</div>
+      <div style="font-size:.62rem;color:var(--t-muted);">Datos: TradingView · Tipo de cambio interbancario</div>
+    </div>
+    <div class="fxt-chart-container" id="tvChartContainer">
+      <div class="fxt-tv-loading" id="tvLoading">
+        <div class="fxt-tv-spinner"></div>
+        <span>Cargando gráfico TradingView...</span>
+      </div>
+      <div id="fxt_tv_chart" style="height:100%;width:100%;display:none;"></div>
+    </div>
+  </div>
+
+  <!-- ══════════ MID ROW: SIGNALS + EXTERNAL REFS ══════════ -->
+  <div class="fxt-mid-grid">
+
+    <!-- Market Signals (Yahoo data) -->
+    <div class="fxt-card">
+      <div class="fxt-section-label" style="margin-bottom:.75rem;">Señales de mercado · Yahoo Finance</div>
+      <table class="fxt-signals-table" id="signalsTable">
+        <tr><td class="sig-name">Cargando...</td><td class="sig-val"></td><td class="sig-chg"></td></tr>
+      </table>
+      <div style="font-size:.58rem;color:var(--t-muted);margin-top:.6rem;" id="yahooCapTime">—</div>
+    </div>
+
+    <!-- External References -->
+    <div class="fxt-card">
+      <div class="fxt-section-label" style="margin-bottom:.75rem;">Referencias externas</div>
+      <div class="fxt-ext-grid">
+        <a class="fxt-ext-link" href="https://www.bloomberg.com/quote/USDPEN:CUR" target="_blank" rel="noopener">
+          <div class="fxt-ext-icon" style="background:#000;color:#f59e0b;">B</div>
+          <div class="fxt-ext-info">
+            <div class="ext-name">Bloomberg</div>
+            <div class="ext-desc">USDPEN:CUR</div>
+          </div>
+          <i class="bi bi-arrow-up-right fxt-ext-arrow"></i>
+        </a>
+        <a class="fxt-ext-link" href="https://www.reuters.com/markets/currencies/" target="_blank" rel="noopener">
+          <div class="fxt-ext-icon" style="background:#f63;color:#fff;">R</div>
+          <div class="fxt-ext-info">
+            <div class="ext-name">Reuters</div>
+            <div class="ext-desc">FX Markets</div>
+          </div>
+          <i class="bi bi-arrow-up-right fxt-ext-arrow"></i>
+        </a>
+        <a class="fxt-ext-link" href="https://es.investing.com/currencies/usd-pen" target="_blank" rel="noopener">
+          <div class="fxt-ext-icon" style="background:#e85d04;color:#fff;">IN</div>
+          <div class="fxt-ext-info">
+            <div class="ext-name">Investing.com</div>
+            <div class="ext-desc">USD/PEN live</div>
+          </div>
+          <i class="bi bi-arrow-up-right fxt-ext-arrow"></i>
+        </a>
+        <a class="fxt-ext-link" href="https://www.google.com/finance/quote/USD-PEN" target="_blank" rel="noopener">
+          <div class="fxt-ext-icon" style="background:#4285f4;color:#fff;">G</div>
+          <div class="fxt-ext-info">
+            <div class="ext-name">Google Finance</div>
+            <div class="ext-desc">USD → PEN</div>
+          </div>
+          <i class="bi bi-arrow-up-right fxt-ext-arrow"></i>
+        </a>
+        <a class="fxt-ext-link" href="https://cuantoestaeldolar.pe" target="_blank" rel="noopener">
+          <div class="fxt-ext-icon" style="background:#0f9d58;color:#fff;">$</div>
+          <div class="fxt-ext-info">
+            <div class="ext-name">¿Cuánto Está?</div>
+            <div class="ext-desc">Fintechs Peru</div>
+          </div>
+          <i class="bi bi-arrow-up-right fxt-ext-arrow"></i>
+        </a>
+        <a class="fxt-ext-link" href="https://www.bcrp.gob.pe/estadisticas/cuadros-de-la-nota-semanal.html" target="_blank" rel="noopener">
+          <div class="fxt-ext-icon" style="background:#1d3461;color:#fff;">BC</div>
+          <div class="fxt-ext-info">
+            <div class="ext-name">BCRP</div>
+            <div class="ext-desc">TC Oficial</div>
+          </div>
+          <i class="bi bi-arrow-up-right fxt-ext-arrow"></i>
+        </a>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ══════════ FINTECHS PERU ══════════ -->
+  <div class="fxt-fintechs-section">
+    <div class="fxt-fintechs-header">
+      <div class="fxt-section-label">Casas de Cambio Online Peru · Cuánto Está El Dólar</div>
+      <div class="fxt-fintech-count" id="fintechCountBadge">
+        <span id="fintechCountNum">—</span> activas
+      </div>
+    </div>
+    <div class="fxt-fintech-grid" id="fintechGrid">
+      <!-- skeleton -->
+      {% for _ in range(8) %}
+      <div class="fxt-fintech-card">
+        <div class="fxt-skeleton" style="width:70%;height:10px;margin-bottom:.5rem;"></div>
+        <div class="fxt-skeleton" style="width:100%;height:40px;border-radius:6px;"></div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- ══════════ DATATEC MANUAL ══════════ -->
+  <div class="fxt-datatec-grid">
+
+    <!-- Update form -->
+    <div class="fxt-card">
+      <div class="fxt-section-label" style="margin-bottom:.5rem;">DATATEC — Referencia manual</div>
+
+      <!-- Precio actual -->
+      <div class="fxt-datatec-current">
+        <div class="fxt-dc-block">
+          <div class="fxt-dc-key">Compra</div>
+          <div class="fxt-dc-val" id="dcCompra">—</div>
+        </div>
+        <div class="fxt-dc-divider"></div>
+        <div class="fxt-dc-block">
+          <div class="fxt-dc-key">Venta</div>
+          <div class="fxt-dc-val" id="dcVenta">—</div>
+        </div>
+      </div>
+      <div class="fxt-freshness" id="dcFreshness">Cargando...</div>
+
+      <!-- Form -->
+      <div style="border-top:1px solid var(--t-border);margin-top:.9rem;padding-top:.9rem;">
+        <div class="fxt-section-label" style="margin-bottom:.6rem;">Actualizar precio</div>
+        <div class="fxt-form-row">
+          <div class="fxt-input-group">
+            <label class="fxt-input-label">Compra</label>
+            <input type="number" id="fCompra" class="fxt-input" step="0.0001" min="3" max="5" placeholder="3.4190">
+          </div>
+          <div class="fxt-input-group">
+            <label class="fxt-input-label">Venta</label>
+            <input type="number" id="fVenta" class="fxt-input" step="0.0001" min="3" max="5" placeholder="3.4280">
+          </div>
+          <div class="fxt-input-group">
+            <label class="fxt-input-label">Nota</label>
+            <input type="text" id="fNotes" class="fxt-input fxt-input-notes" placeholder="ej. Apertura" maxlength="200">
+          </div>
+          <button class="fxt-btn-save" id="btnSave" onclick="saveDatatec()">
+            <i class="bi bi-send-fill" style="margin-right:.3rem;font-size:.75rem;"></i>Guardar
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Audit history -->
+    <div class="fxt-card">
+      <div class="fxt-section-label" style="margin-bottom:.6rem;">Historial DATATEC</div>
+      <div style="overflow-x:auto;">
+        <table class="fxt-hist-table">
+          <thead>
+            <tr>
+              <th>Hora</th><th>Compra</th><th>Venta</th><th>Spread</th><th>Usuario</th><th>Nota</th>
+            </tr>
+          </thead>
+          <tbody id="histBody">
+            <tr><td colspan="6" style="color:var(--t-muted);padding:.75rem .4rem;">Cargando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+</div><!-- /fxt -->
+
+<div id="fxtToast"></div>
+
+<!-- ══════════════════════════════════════════════════════
+     TradingView Widget (async, non-blocking)
+══════════════════════════════════════════════════════ -->
+<script>
+(function() {
+  var script = document.createElement('script');
+  script.src = 'https://s3.tradingview.com/tv.js';
+  script.async = true;
+  script.onload = function() {
+    try {
+      new TradingView.widget({
+        container_id: 'fxt_tv_chart',
+        autosize: true,
+        symbol: 'FX_IDC:USDPEN',
+        interval: '5',
+        timezone: 'America/Lima',
+        theme: 'dark',
+        style: '1',
+        locale: 'es',
+        toolbar_bg: '#0c1628',
+        enable_publishing: false,
+        hide_side_toolbar: false,
+        allow_symbol_change: false,
+        hide_legend: false,
+        save_image: false,
+        hide_volume: false,
+        withdateranges: true,
+        backgroundColor: '#07101f',
+        gridColor: 'rgba(255,255,255,0.04)',
+        support_host: 'https://www.tradingview.com',
+      });
+      document.getElementById('tvLoading').style.display = 'none';
+      document.getElementById('fxt_tv_chart').style.display = 'block';
+    } catch(e) {
+      document.getElementById('tvLoading').innerHTML =
+        '<i class="bi bi-exclamation-triangle" style="font-size:1.2rem;color:#f59e0b;"></i>' +
+        '<span style="font-size:.72rem;">No se pudo cargar TradingView — <a href="https://www.tradingview.com/symbols/USDPEN/" target="_blank" style="color:#3b82f6;">ver en TradingView.com</a></span>';
+    }
+  };
+  script.onerror = function() {
+    document.getElementById('tvLoading').innerHTML =
+      '<i class="bi bi-wifi-off" style="font-size:1.2rem;color:#64748b;"></i>' +
+      '<span style="font-size:.72rem;color:#64748b;">TradingView no disponible — <a href="https://www.tradingview.com/symbols/USDPEN/" target="_blank" style="color:#3b82f6;">abrir en nueva pestaña</a></span>';
+  };
+  document.head.appendChild(script);
+})();
+</script>
+
+<!-- ══════════════════════════════════════════════════════
+     FX Terminal — Client App
+══════════════════════════════════════════════════════ -->
+<script>
+'use strict';
+
+// ── State ────────────────────────────────────────────────────────
+let _pollCountdown   = 30;
+let _marketOpen      = true;
+let _prevDtCompra    = null;
+let _prevDtVenta     = null;
+let _datatecAgeS     = 0;
+
+const POLL_OPEN   = 30;
+const POLL_CLOSED = 90;
+
+// ── Helpers ──────────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+
+function fmt4(v)  { return v != null ? Number(v).toFixed(4) : '—'; }
+function fmt2(v)  { return v != null ? Number(v).toFixed(2) : '—'; }
+function fmt3(v)  { return v != null ? Number(v).toFixed(3) : '—'; }
+function pct(v)   { if (v == null) return null; return (v >= 0 ? '+' : '') + Number(v).toFixed(2) + '%'; }
+function esc(s)   { return s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : ''; }
+
+function chgClass(v) {
+  if (v == null || Math.abs(v) < 0.005) return 'flat';
+  return v > 0 ? 'up' : 'down';
+}
+
+function formatAge(s) {
+  if (s < 60)   return `hace ${s}s`;
+  if (s < 3600) return `hace ${Math.floor(s/60)}m ${s%60}s`;
+  return `hace ${Math.floor(s/3600)}h ${Math.floor((s%3600)/60)}m`;
+}
+
+function toast(msg, isErr) {
+  const el = $('fxtToast');
+  el.textContent = msg;
+  el.className = isErr ? 'show-err' : 'show-ok';
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => { el.className = ''; }, 2800);
+}
+
+// ── Clock ────────────────────────────────────────────────────────
+function tickClock() {
+  $('fxtClock').textContent = new Date().toLocaleTimeString('es-PE',
+    {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+}
+setInterval(tickClock, 1000);
+tickClock();
+
+// ── Countdown ────────────────────────────────────────────────────
+function tickCountdown() {
+  _pollCountdown = Math.max(0, _pollCountdown - 1);
+  $('fxtPoll').textContent = _pollCountdown + 's';
+  if (_pollCountdown === 0) {
+    _pollCountdown = _marketOpen ? POLL_OPEN : POLL_CLOSED;
+    poll();
+  }
+}
+
+// ── Freshness timer ──────────────────────────────────────────────
+function tickFreshness() {
+  _datatecAgeS++;
+  const el = $('dcFreshness');
+  if (!el) return;
+  const stale = _datatecAgeS > 300;
+  el.className = 'fxt-freshness' + (stale ? ' stale' : '');
+  el.textContent = stale
+    ? `⚠ Posible delay (${formatAge(_datatecAgeS)})`
+    : formatAge(_datatecAgeS);
+}
+
+// ── Render: Market ───────────────────────────────────────────────
+function renderMarket(m) {
+  if (!m) return;
+  _marketOpen = m.open;
+  const badge = $('fxtMarketBadge');
+  const msg   = $('fxtMarketMsg');
+
+  if (m.open) {
+    badge.className = 'fxt-badge fxt-badge-open';
+    badge.textContent = 'Mercado Abierto';
+    if (m.mins_to_event <= 20) {
+      msg.style.display = 'block';
+      msg.innerHTML = `Cierra en <span>${m.mins_to_event} min</span>`;
+    } else {
+      msg.style.display = 'none';
+    }
+  } else {
+    badge.className = 'fxt-badge fxt-badge-closed';
+    badge.textContent = 'Mercado Cerrado';
+    const hrs  = Math.floor(m.mins_to_event / 60);
+    const mins = m.mins_to_event % 60;
+    const timeStr = hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`;
+    msg.style.display = 'block';
+    msg.innerHTML = m.weekday >= 5 || (m.weekday === 4 && !m.open)
+      ? `Reabre el <span>lunes ${m.next_event_hm}</span>`
+      : `Reabre en <span>${timeStr}</span>`;
+  }
+}
+
+// ── Render: Consensus ────────────────────────────────────────────
+function renderConsensus(yahoo, fintechs, datatec, consensus) {
+  // Yahoo
+  const yp = yahoo && yahoo.usdpen;
+  $('yahooPrice').textContent = yp ? fmt4(yp) : '—';
+  if (yp) {
+    const chg = yahoo.usdpen_chg_pct;
+    const cls = chgClass(chg);
+    $('yahooSub').innerHTML = chg != null
+      ? `<span class="${cls}">${pct(chg)} hoy</span> · cap. ${esc(yahoo.captured_at)}`
+      : `cap. ${esc(yahoo.captured_at)}`;
+  } else {
+    $('yahooSub').textContent = 'Sin datos disponibles';
+  }
+
+  // Fintechs
+  const fs = fintechs && fintechs.median_sell;
+  $('fintechPrice').textContent = fs ? fmt4(fs) : '—';
+  $('fintechSub').textContent = fintechs && fintechs.count > 0
+    ? `${fintechs.count} casas de cambio · compra ${fmt4(fintechs.median_buy)}`
+    : 'Sin datos disponibles';
+
+  // DATATEC
+  const dc = datatec && datatec.is_configured;
+  $('datatecPrice').textContent = dc ? fmt4(datatec.compra) + ' / ' + fmt4(datatec.venta) : 'No configurado';
+  if (dc) {
+    $('datatecSub').textContent = datatec.updated_by
+      ? `${formatAge(datatec.age_s)} · ${datatec.updated_by}`
+      : formatAge(datatec.age_s);
+    _datatecAgeS = datatec.age_s;
+    tickFreshness();
+    $('dcCompra').textContent = fmt4(datatec.compra);
+    $('dcVenta').textContent  = fmt4(datatec.venta);
+  } else {
+    $('datatecSub').textContent = 'Ingresa compra y venta abajo';
+    $('dcCompra').textContent = '—';
+    $('dcVenta').textContent  = '—';
+  }
+
+  // Diff
+  const diff = consensus && consensus.diff_venta != null ? consensus.diff_venta : null;
+  const dp = $('diffPrice');
+  if (diff == null) {
+    dp.textContent = '—';
+    dp.className = 'fxt-diff-price neu';
+    $('diffSub').textContent = 'Sin referencia disponible';
+  } else {
+    const abs_diff = Math.abs(diff);
+    dp.textContent = (diff >= 0 ? '+' : '') + fmt4(diff);
+    if (abs_diff < 0.0005) {
+      dp.className = 'fxt-diff-price neu';
+      $('diffSub').textContent = 'DATATEC alineado con mercado';
+    } else if (diff > 0) {
+      // mercado por encima de DATATEC venta → DATATEC bajo
+      dp.className = 'fxt-diff-price pos';
+      $('diffSub').textContent = 'Mercado sobre DATATEC · posible delay';
+    } else {
+      // DATATEC por encima de mercado → inusual
+      dp.className = 'fxt-diff-price neg';
+      $('diffSub').textContent = 'DATATEC sobre mercado';
+    }
+  }
+}
+
+// ── Render: Yahoo Signals Table ──────────────────────────────────
+function renderSignals(yahoo) {
+  const tbl = $('signalsTable');
+  if (!yahoo) {
+    tbl.innerHTML = '<tr><td class="sig-name" colspan="3" style="color:var(--t-muted);">Sin datos Yahoo Finance</td></tr>';
+    return;
+  }
+
+  const rows = [
+    { name: 'USD/PEN Interbancario', val: fmt4(yahoo.usdpen),  chg: yahoo.usdpen_chg_pct },
+    { name: 'Índice Dólar (DXY)',    val: fmt3(yahoo.dxy),     chg: yahoo.dxy_chg_pct    },
+    { name: 'Cobre (USD/lb)',        val: fmt4(yahoo.copper),  chg: yahoo.copper_chg_pct },
+    { name: 'Oro (USD/oz)',          val: fmt2(yahoo.gold),    chg: yahoo.gold_chg_pct   },
+    { name: 'VIX',                   val: fmt2(yahoo.vix),     chg: yahoo.vix_chg_pct    },
+  ];
+
+  tbl.innerHTML = rows.map(r => {
+    const chg  = r.chg;
+    const cls  = chgClass(chg);
+    const chgTxt = chg != null ? pct(chg) : '—';
+    return `<tr>
+      <td class="sig-name">${esc(r.name)}</td>
+      <td class="sig-val">${esc(r.val)}</td>
+      <td class="sig-chg ${cls}">${esc(chgTxt)}</td>
+    </tr>`;
+  }).join('');
+
+  $('yahooCapTime').textContent = yahoo.captured_at
+    ? `Última captura Yahoo: ${yahoo.captured_at} Lima`
+    : '';
+}
+
+// ── Render: Fintech Grid ─────────────────────────────────────────
+function renderFintechs(fintechs) {
+  const grid = $('fintechGrid');
+  $('fintechCountNum').textContent = fintechs ? fintechs.count : '—';
+
+  if (!fintechs || !fintechs.list || !fintechs.list.length) {
+    grid.innerHTML = '<div class="fxt-fintech-empty">Sin datos de casas de cambio disponibles en este momento.</div>';
+    return;
+  }
+
+  const minSell = fintechs.min_sell;
+
+  grid.innerHTML = fintechs.list.map(f => {
+    const isBest = f.sell === minSell;
+    return `<div class="fxt-fintech-card${isBest ? ' best-sell' : ''}">
+      <div class="ftc-name" title="${esc(f.name)}">${esc(f.name)}</div>
+      <div class="ftc-rates">
+        <div class="ftc-rate-block">
+          <div class="ftc-rate-key">Compra</div>
+          <div class="ftc-rate-val buy">${fmt4(f.buy)}</div>
+        </div>
+        <div class="ftc-rate-block">
+          <div class="ftc-rate-key">Venta</div>
+          <div class="ftc-rate-val sell">${fmt4(f.sell)}</div>
+        </div>
+      </div>
+      <div class="ftc-spread">Spread: ${f.spread != null ? fmt4(f.spread) : '—'}</div>
+      <div class="ftc-updated">${esc(f.updated)}</div>
+    </div>`;
+  }).join('');
+}
+
+// ── Render: History ──────────────────────────────────────────────
+function renderHistory(entries) {
+  const body = $('histBody');
+  if (!entries || !entries.length) {
+    body.innerHTML = '<tr><td colspan="6" style="color:var(--t-muted);padding:.75rem .4rem;">Sin entradas aún.</td></tr>';
+    return;
+  }
+  body.innerHTML = entries.map(e => `
+    <tr>
+      <td>${esc(e.created_fmt)}</td>
+      <td class="mono">${fmt4(e.compra)}</td>
+      <td class="mono">${fmt4(e.venta)}</td>
+      <td class="mono">${fmt4(e.spread)}</td>
+      <td>${esc(e.user)}</td>
+      <td style="color:var(--t-muted);font-style:italic;">${esc(e.notes) || '—'}</td>
+    </tr>`).join('');
+}
+
+// ── Poll ─────────────────────────────────────────────────────────
+async function poll() {
+  try {
+    const res  = await fetch('/fx-terminal/api/snap');
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'Error del servidor');
+
+    renderMarket(data.market);
+    renderConsensus(data.yahoo, data.fintechs, data.datatec, data.consensus);
+    renderSignals(data.yahoo);
+    renderFintechs(data.fintechs);
+
+  } catch(e) {
+    console.error('[FXTerminal] poll error:', e);
+    toast('Error al conectar: ' + e.message, true);
+  }
+
+  // History en primer load y cada 4 polls
+  if (!poll._n || poll._n % 4 === 0) {
+    fetch('/fx-terminal/api/history')
+      .then(r => r.json())
+      .then(d => { if (d.ok) renderHistory(d.entries); })
+      .catch(() => {});
+  }
+  poll._n = (poll._n || 0) + 1;
+}
+poll._n = 0;
+
+// ── Save DATATEC ─────────────────────────────────────────────────
+async function saveDatatec() {
+  const compra = parseFloat($('fCompra').value);
+  const venta  = parseFloat($('fVenta').value);
+  const notes  = $('fNotes').value.trim();
+
+  if (!compra || !venta || isNaN(compra) || isNaN(venta)) {
+    toast('Ingresa compra y venta válidos', true); return;
+  }
+  if (venta <= compra) {
+    toast('Venta debe ser mayor que Compra', true); return;
+  }
+
+  const btn = $('btnSave');
+  btn.disabled = true;
+  btn.textContent = 'Guardando...';
+
+  try {
+    const res  = await fetch('/fx-terminal/api/datatec', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.content || '',
+      },
+      body: JSON.stringify({ compra, venta, notes }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      toast('DATATEC actualizado');
+      $('fCompra').value = '';
+      $('fVenta').value  = '';
+      $('fNotes').value  = '';
+      _pollCountdown = 0;
+    } else {
+      toast(data.error || 'Error al guardar', true);
+    }
+  } catch(e) {
+    toast('Error de conexión', true);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-send-fill" style="margin-right:.3rem;font-size:.75rem;"></i>Guardar';
+  }
+}
+
+// ── Start ────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', function() {
+  poll();
+  setInterval(tickCountdown, 1000);
+  setInterval(tickFreshness, 1000);
+});
+</script>
+{% endblock %}

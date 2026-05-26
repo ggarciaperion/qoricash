@@ -131,11 +131,11 @@
             {% endif %}
 
             {% if current_user.role == 'Master' %}
-            <a class="sidebar-link {% if request.endpoint and request.endpoint.startswith('fx_live') %}active{% endif %}"
-               href="{{ url_for('fx_live.dashboard') }}"
-               style="{% if request.endpoint and request.endpoint.startswith('fx_live') %}background:rgba(0,222,168,.08);border-left:2px solid var(--qori-primary);{% endif %}">
-                <i class="bi bi-cpu-fill" style="{% if request.endpoint and request.endpoint.startswith('fx_live') %}color:var(--qori-primary);{% endif %}"></i>
-                <span class="sidebar-link-text">TC Live</span>
+            <a class="sidebar-link {% if request.endpoint and request.endpoint.startswith('fx_terminal') %}active{% endif %}"
+               href="{{ url_for('fx_terminal.dashboard') }}"
+               style="{% if request.endpoint and request.endpoint.startswith('fx_terminal') %}background:rgba(0,222,168,.08);border-left:2px solid var(--qori-primary);{% endif %}">
+                <i class="bi bi-activity" style="{% if request.endpoint and request.endpoint.startswith('fx_terminal') %}color:var(--qori-primary);{% endif %}"></i>
+                <span class="sidebar-link-text">FX Terminal</span>
             </a>
             {% endif %}
 

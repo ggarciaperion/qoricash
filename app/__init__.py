@@ -568,8 +568,8 @@ def register_blueprints(app):
     from app.routes.alertas_tc import alertas_tc_bp
     app.register_blueprint(alertas_tc_bp)      # Modulo Alertas TC — leads desde qoricash.pe
 
-    from app.routes.fx_live import fx_live_bp
-    app.register_blueprint(fx_live_bp)         # TC Live — Pricing Engine interno (Master only)
+    from app.routes.fx_terminal import fx_terminal_bp
+    app.register_blueprint(fx_terminal_bp)     # FX Terminal — Market Intelligence (Master only)
 
     # Service Worker debe servirse desde la raíz del dominio (scope /)
     import os
