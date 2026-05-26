@@ -31,7 +31,10 @@ def login():
     # Si ya está autenticado, redirigir al dashboard
     if current_user.is_authenticated:
         return redirect(url_for('dashboard.index'))
-    
+
+    if request.args.get('kicked'):
+        flash('Tu sesión fue cerrada porque se detectó un inicio de sesión en otro dispositivo o ventana.', 'warning')
+
     if request.method == 'POST':
         username = request.form.get('username', '').strip()
         password = request.form.get('password', '')

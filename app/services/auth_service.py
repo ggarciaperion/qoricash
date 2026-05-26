@@ -3,6 +3,8 @@ Servicio de Autenticación para QoriCash Trading V2
 
 Maneja login, logout, verificación de credenciales y sesiones.
 """
+import uuid
+from flask import session
 from flask_login import login_user, logout_user
 from app.extensions import db
 from app.models.user import User
@@ -86,7 +88,13 @@ class AuthService:
 
         # Login exitoso — resetear contador de intentos
         reset_failed_attempts(user, db)
+
+        # Generar token de sesión único: invalida cualquier sesión previa del mismo usuario
+        token = str(uuid.uuid4())
+        user.session_token = token
         login_user(user, remember=False)
+        session['_session_token'] = token
+
         user.last_login = now_peru()
 
         AuditLog.log_action(
@@ -111,8 +119,9 @@ class AuthService:
         if not user or not user.is_authenticated:
             return False, 'No hay sesión activa'
         
-        # Actualizar last_logout
+        # Actualizar last_logout y limpiar token de sesión
         user.last_logout = now_peru()
+        user.session_token = None
 
         # Registrar en auditoría
         AuditLog.log_action(

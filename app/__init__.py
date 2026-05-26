@@ -349,6 +349,18 @@ def create_app(config_name=None):
     except Exception as e:
         logging.warning(f"[Sanctions] No se pudo iniciar pre-carga: {e}")
 
+    # Migración: columna session_token en users (sesión única por usuario)
+    try:
+        with app.app_context():
+            from app.extensions import db
+            from sqlalchemy import text
+            db.session.execute(text(
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS session_token VARCHAR(36)"
+            ))
+            db.session.commit()
+    except Exception as e:
+        logging.warning(f"[Auth] Error añadiendo session_token a users: {e}")
+
     # Migración: tabla datatec_rates (precio DATATEC — fila única, source of truth)
     try:
         with app.app_context():
@@ -454,6 +466,46 @@ def initialize_extensions(flask_app):
         if request.is_json or request.headers.get('X-CSRFToken') or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             return jsonify({'success': False, 'message': 'Sesión expirada. Por favor recarga la página e inicia sesión nuevamente.', 'session_expired': True}), 401
         return redirect(url_for('auth.login'))
+
+    @flask_app.before_request
+    def enforce_single_session():
+        """
+        Sesión única por usuario: si el token de sesión en la cookie no coincide
+        con el token en la base de datos, significa que el usuario inició sesión
+        en otro dispositivo o ventana → cerrar esta sesión automáticamente.
+        """
+        from flask import request, session as flask_session, redirect, url_for, jsonify
+        from flask_login import current_user, logout_user
+
+        # Solo verificar rutas de usuario autenticado (no login, static, sw.js, etc.)
+        if request.path.startswith('/static') or request.path == '/sw.js':
+            return
+
+        if not current_user.is_authenticated:
+            return
+
+        token_in_session = flask_session.get('_session_token')
+        token_in_db      = current_user.session_token
+
+        # Si no hay token en DB (usuario logueado antes de esta feature) → asignar uno nuevo
+        if not token_in_db:
+            import uuid
+            current_user.session_token = str(uuid.uuid4())
+            flask_session['_session_token'] = current_user.session_token
+            db.session.commit()
+            return
+
+        if token_in_session != token_in_db:
+            # Sesión invalidada por nuevo login en otro lugar
+            logout_user()
+            flask_session.clear()
+            if request.is_json or request.headers.get('X-CSRFToken') or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return jsonify({
+                    'success': False,
+                    'session_expired': True,
+                    'message': 'Tu sesión fue cerrada porque iniciaste sesión en otro dispositivo.',
+                }), 401
+            return redirect(url_for('auth.login') + '?kicked=1')
 
     # Importar eventos de Socket.IO
     with flask_app.app_context():

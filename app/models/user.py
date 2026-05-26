@@ -39,6 +39,9 @@ class User(UserMixin, db.Model):
     updated_at = db.Column(db.DateTime, default=now_peru, onupdate=now_peru)
     last_login = db.Column(db.DateTime)
     last_logout = db.Column(db.DateTime)
+
+    # Token de sesión única — se regenera en cada login para invalidar sesiones previas
+    session_token = db.Column(db.String(36), nullable=True)
     
     # Relaciones
     # Operaciones creadas por este usuario
