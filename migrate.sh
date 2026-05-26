@@ -62,7 +62,7 @@ fi
 # Si la DB tiene solo algunos de los 5 heads, el merge migration z9merge_all_heads
 # no puede aplicarse. Stampeamos cada uno de forma idempotente (si ya existe, no falla).
 echo "🔧 Registrando heads de ramas independientes (idempotente)..."
-for HEAD_REV in a1b2c3d4e5f6 d2a3t4e5c6r7 l1s2o3u4r5c6 p1r2o3s4p5e6 t1e2m3p4l5a6; do
+for HEAD_REV in a1b2c3d4e5f6 d2a3t4e5c6r7 l1s2o3u4r5c6 p1r2o3s4p5e6 t1e2m3p4l5a6 z9merge_all_heads w1p2r3o4s5p6; do
     flask db stamp "$HEAD_REV" 2>/dev/null || true
 done
 echo "   ✅ Heads registrados."

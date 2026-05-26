@@ -14,7 +14,7 @@ from sqlalchemy import inspect
 
 
 revision = 'pb1r2e3c4i5o'
-down_revision = 'z9merge_all_heads'
+down_revision = ('z9merge_all_heads', 'w1p2r3o4s5p6')
 branch_labels = None
 depends_on = None
 
