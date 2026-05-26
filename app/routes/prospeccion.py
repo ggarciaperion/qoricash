@@ -2090,7 +2090,7 @@ def _api_grid_impl():
 @prospeccion_bp.route("/api/<int:pid>/campo", methods=["PATCH"])
 @csrf.exempt
 @login_required
-@require_role("Master")
+@require_role("Master", "Trader")
 def api_campo(pid):
     """Actualiza un campo inline (autosave del grid)."""
     p = db.get_or_404(Prospecto, pid)
