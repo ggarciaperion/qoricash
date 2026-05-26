@@ -1348,7 +1348,7 @@ def enviar_email(pid):
 
 @prospeccion_bp.route("/<int:pid>/cambiar-estado", methods=["POST"])
 @login_required
-@require_role("Master")
+@require_role("Master", "Trader")
 def cambiar_estado(pid):
     p = db.get_or_404(Prospecto, pid)
     _verificar_acceso(p)
