@@ -1603,12 +1603,12 @@ function renderNotasList(id, notas) {
 }
 
 function notaHtml(n) {
-  return `<div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:.5rem .65rem;">
-    <div style="font-size:.68rem;color:var(--qori-gray-400);margin-bottom:.25rem;">
+  return `<div style="background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;padding:.5rem .65rem;">
+    <div style="font-size:.68rem;color:#64748b;margin-bottom:.25rem;">
       <i class="bi bi-clock" style="margin-right:3px;"></i>${n.fecha}
-      ${n.usuario ? `<span style="margin-left:.4rem;color:var(--qori-gray-500);">· ${esc(n.usuario)}</span>` : ''}
+      ${n.usuario ? `<span style="margin-left:.4rem;color:#94a3b8;">· ${esc(n.usuario)}</span>` : ''}
     </div>
-    <div style="font-size:.78rem;color:var(--qori-gray-200);white-space:pre-wrap;">${esc(n.texto)}</div>
+    <div style="font-size:.78rem;color:#1e293b;white-space:pre-wrap;">${esc(n.texto)}</div>
   </div>`;
 }
 
