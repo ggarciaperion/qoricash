@@ -57,6 +57,7 @@ function connectSocketIO() {
         reconnectionDelay: 2000,
         reconnectionAttempts: 10
     });
+    window._qoriSocket = socket;
 
     socket.on('connect', function() {
         console.log('✅ SocketIO conectado exitosamente');

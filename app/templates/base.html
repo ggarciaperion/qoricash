@@ -25,14 +25,14 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css">
 
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}?v=5.0m">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}?v=5.1">
 
     <!-- Meta CSRF Token -->
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
     {% block head %}{% endblock %}
 </head>
-<body class="{% if current_user.is_authenticated %}has-sidebar{% endif %}">
+<body class="{% if current_user.is_authenticated %}has-sidebar{% endif %}{% if current_user.is_authenticated and current_user.role in ['Master','Trader','Operador'] %} has-price-bar{% endif %}">
 
 <!-- Page Loader -->
 <div id="pageLoader"><div id="pageLoaderBar"></div></div>
@@ -51,7 +51,27 @@
             </button>
         </div>
 
-        <!-- ── DATATEC Rate Widget ── -->
+        <!-- ── Sidebar Rate Widget (desktop/tablet) ── -->
+        {% if current_user.role in ['Master','Trader','Operador'] %}
+        <div class="sidebar-rate-widget" id="sidebarRateWidget">
+            <div class="srw-live">
+                <span class="srw-dot" id="srwDot"></span>
+                <span class="srw-live-label">LIVE</span>
+                <span class="srw-age" id="srwAge">—</span>
+            </div>
+            <div class="srw-rates">
+                <div class="srw-rate-item">
+                    <span class="srw-label">COMPRA</span>
+                    <span class="srw-value srw-buy" id="srwBuy">—</span>
+                </div>
+                <div class="srw-divider"></div>
+                <div class="srw-rate-item">
+                    <span class="srw-label">VENTA</span>
+                    <span class="srw-value srw-sell" id="srwSell">—</span>
+                </div>
+            </div>
+        </div>
+        {% endif %}
         <!-- Navigation -->
         <nav class="sidebar-nav">
             {% if current_user.role in ['Master', 'Trader', 'Operador', 'Middle Office', 'Plataforma'] %}
@@ -241,6 +261,21 @@
             <span class="badge-role">{{ current_user.role }}</span>
         </div>
     </header>
+
+    <!-- Mobile Price Bar (visible only on mobile for Master/Trader/Operador) -->
+    {% if current_user.role in ['Master','Trader','Operador'] %}
+    <div class="mobile-price-bar" id="mobilePriceBar">
+        <span class="mpb-dot" id="mpbDot"></span>
+        <span class="mpb-label">TC</span>
+        <span class="mpb-sep">·</span>
+        <span class="mpb-tag">C</span>
+        <span class="mpb-val" id="mpbBuy">—</span>
+        <span class="mpb-sep">·</span>
+        <span class="mpb-tag">V</span>
+        <span class="mpb-val" id="mpbSell">—</span>
+        <span class="mpb-age" id="mpbAge"></span>
+    </div>
+    {% endif %}
     {% endif %}
 
     <!-- ═══════════════════════════════ MAIN WRAPPER ═══════════════════════════════ -->
@@ -461,7 +496,7 @@
     </script>
 
     <!-- Common JS -->
-    <script src="{{ url_for('static', filename='js/common.js') }}?v=20260511_v11"></script>
+    <script src="{{ url_for('static', filename='js/common.js') }}?v=20260526_v12"></script>
 
     <!-- ── SOCKET GLOBAL + NOTIFICATION CENTER ─────────────────────────────── -->
     {% if current_user.is_authenticated %}
@@ -732,6 +767,95 @@
     });
     {% endif %}
     </script>
+
+    <!-- ── Price Widget JS ─────────────────────────────────────────────────── -->
+    {% if current_user.is_authenticated and current_user.role in ['Master','Trader','Operador'] %}
+    <script>
+    (function() {
+        var _lastUpdated = null;
+
+        function _fmt(v) {
+            if (v == null) return '—';
+            return parseFloat(v).toFixed(4);
+        }
+
+        function _fmtAge(iso) {
+            if (!iso) return '';
+            var diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+            if (diff < 60)  return diff + 's';
+            if (diff < 3600) return Math.floor(diff/60) + 'm';
+            return Math.floor(diff/3600) + 'h';
+        }
+
+        function _flash(el) {
+            if (!el) return;
+            el.classList.remove('pw-flash');
+            void el.offsetWidth; // reflow
+            el.classList.add('pw-flash');
+        }
+
+        function _setRates(compra, venta, updatedAt, fromSocket) {
+            _lastUpdated = updatedAt || _lastUpdated;
+            var buyTxt = _fmt(compra);
+            var sellTxt = _fmt(venta);
+
+            // Sidebar widget
+            var sb = document.getElementById('srwBuy');
+            var ss = document.getElementById('srwSell');
+            if (sb && sb.textContent !== buyTxt)  { sb.textContent = buyTxt; if (fromSocket) _flash(sb); }
+            if (ss && ss.textContent !== sellTxt) { ss.textContent = sellTxt; if (fromSocket) _flash(ss); }
+
+            // Mobile bar
+            var mb = document.getElementById('mpbBuy');
+            var ms = document.getElementById('mpbSell');
+            if (mb && mb.textContent !== buyTxt)  { mb.textContent = buyTxt; if (fromSocket) _flash(mb); }
+            if (ms && ms.textContent !== sellTxt) { ms.textContent = sellTxt; if (fromSocket) _flash(ms); }
+
+            // Live dot → green when data present
+            ['srwDot','mpbDot'].forEach(function(id) {
+                var dot = document.getElementById(id);
+                if (dot) dot.classList.toggle('pw-live', !!(compra || venta));
+            });
+        }
+
+        function _updateAge() {
+            var age = _fmtAge(_lastUpdated);
+            var sa = document.getElementById('srwAge');
+            var ma = document.getElementById('mpbAge');
+            if (sa) sa.textContent = age ? 'hace ' + age : '';
+            if (ma) ma.textContent = age ? age : '';
+        }
+
+        function _fetchRates() {
+            fetch('/platform-api/public/exchange-rates')
+                .then(function(r) { return r.ok ? r.json() : null; })
+                .then(function(data) {
+                    if (!data || !data.success || !data.data) return;
+                    _setRates(data.data.tipo_compra, data.data.tipo_venta, data.data.fecha_actualizacion, false);
+                })
+                .catch(function() {});
+        }
+
+        // Initial fetch
+        document.addEventListener('DOMContentLoaded', function() {
+            _fetchRates();
+            setInterval(_updateAge, 10000);
+        });
+
+        // Socket listener (reuse global socket from common.js)
+        document.addEventListener('DOMContentLoaded', function() {
+            var _poll = setInterval(function() {
+                if (!window._qoriSocket) return;
+                clearInterval(_poll);
+                window._qoriSocket.on('tipos_cambio_actualizados', function(d) {
+                    _setRates(d.compra, d.venta, d.updated_at, true);
+                    _updateAge();
+                });
+            }, 200);
+        });
+    })();
+    </script>
+    {% endif %}
 
     {% block scripts %}{% endblock %}
 
