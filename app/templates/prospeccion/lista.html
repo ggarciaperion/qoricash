@@ -2031,6 +2031,15 @@ async function asignarDesdeDrawer(pid) {
     const t = _traders.find(t=>t.id==sel.value);
     const row = _rows.find(x=>x.id===pid);
     if (row && t) row.trader = t.username;
+    // Actualizar celda Trader en la fila visible de la tabla
+    const tr = document.querySelector(`tr[data-id="${pid}"]`);
+    if (tr && t) {
+      const cells = tr.querySelectorAll('td');
+      if (cells[6]) cells[6].textContent = t.username;
+    }
+    // Actualizar texto "Trader actual" dentro del drawer
+    const drTraderLabel = document.querySelector(`#drBody strong`);
+    if (drTraderLabel && t) drTraderLabel.textContent = t.username;
     toast('Asignado ✓');
   } else {
     Swal.fire({icon:'error', text: d.error||'Error al asignar.', confirmButtonColor:'#0D1B2A'});
