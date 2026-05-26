@@ -23,13 +23,12 @@ class Config:
     SESSION_COOKIE_SECURE = os.environ.get('SESSION_COOKIE_SECURE', 'True') == 'True'
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = 'Strict'
-    # Timeout de inactividad del servidor: 10 minutos (fintech)
-    PERMANENT_SESSION_LIFETIME = timedelta(minutes=10)
-    # Sesión NO permanente: se cierra al cerrar navegador (cookie de sesión)
-    SESSION_PERMANENT = False
-    # Cookie de sesión temporal: se borra al cerrar el navegador
+    # Sesión persistente: 30 días sin actividad para cerrar sesión automáticamente
+    PERMANENT_SESSION_LIFETIME = timedelta(days=30)
+    # Sesión permanente: la cookie sobrevive al cerrar el navegador
+    SESSION_PERMANENT = True
     SESSION_COOKIE_NAME = 'session'
-    SESSION_REFRESH_EACH_REQUEST = True  # Refrescar sesión en cada petición
+    SESSION_REFRESH_EACH_REQUEST = True  # Refrescar el plazo en cada petición
 
     # File Upload (Cloudinary)
     CLOUDINARY_URL = os.environ.get('CLOUDINARY_URL')

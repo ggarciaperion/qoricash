@@ -86,7 +86,7 @@ class AuthService:
 
         # Login exitoso — resetear contador de intentos
         reset_failed_attempts(user, db)
-        login_user(user, remember=False)
+        login_user(user, remember=True)
         user.last_login = now_peru()
 
         AuditLog.log_action(
