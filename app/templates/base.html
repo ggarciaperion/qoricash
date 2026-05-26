@@ -490,10 +490,13 @@
         window.currentUserRole = '{{ current_user.role }}';
         window.currentUserId = {{ current_user.id }};
         window.currentUserName = '{{ current_user.username }}';
+        // true si este usuario puede ver el widget Precio Base (y por ende auto-llenar Base)
+        window._pbAccess = {{ 'true' if (current_user.role in ['Master','Operador'] or (current_user.role == 'Trader' and pb_access)) else 'false' }};
         {% else %}
         window.currentUserRole = null;
         window.currentUserId = null;
         window.currentUserName = null;
+        window._pbAccess = false;
         {% endif %}
     </script>
 

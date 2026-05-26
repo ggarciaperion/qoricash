@@ -537,11 +537,11 @@
                         </div>
                         <div class="d-flex gap-3 flex-wrap">
                             <label class="d-flex align-items-center gap-2 rounded px-3 py-2 cursor-pointer" style="border:1px solid #e5e7eb;background:#fff;cursor:pointer;">
-                                <input class="form-check-input m-0" type="radio" name="operation_type_modal" id="typeCompraModal" value="Compra" checked onchange="calcularPipsModal()">
+                                <input class="form-check-input m-0" type="radio" name="operation_type_modal" id="typeCompraModal" value="Compra" checked onchange="calcularPipsModal(); _autoFillBase();">
                                 <span><span class="badge bg-success me-1">Compra USD</span><span class="small text-muted">Cliente vende dólares</span></span>
                             </label>
                             <label class="d-flex align-items-center gap-2 rounded px-3 py-2 cursor-pointer" style="border:1px solid #e5e7eb;background:#fff;cursor:pointer;">
-                                <input class="form-check-input m-0" type="radio" name="operation_type_modal" id="typeVentaModal" value="Venta" onchange="calcularPipsModal()">
+                                <input class="form-check-input m-0" type="radio" name="operation_type_modal" id="typeVentaModal" value="Venta" onchange="calcularPipsModal(); _autoFillBase();">
                                 <span><span class="badge bg-primary me-1">Venta USD</span><span class="small text-muted">Cliente compra dólares</span></span>
                             </label>
                         </div>
@@ -2278,12 +2278,30 @@ function calcularPipsModal() {
     preview.html(`<span style="color:${color};font-weight:600;">${sign}${pips.toFixed(1)} pips</span>`);
 }
 
+// ── Auto-llenado de Base desde el widget Precio Base ──────────────────────
+function _autoFillBase() {
+    if (!window._pbAccess) return;         // sin acceso al widget → no auto-llenar
+    const tipo = $('input[name="operation_type_modal"]:checked').val() || 'Compra';
+    const precio = tipo === 'Compra'
+        ? document.getElementById('pbBuy')?.textContent?.trim()
+        : document.getElementById('pbSell')?.textContent?.trim();
+    if (!precio || precio === '—') return; // widget sin datos aún
+    const val = parseFloat(precio);
+    if (isNaN(val) || val <= 0) return;
+    const campo = document.getElementById('base_rate_modal');
+    if (!campo) return;
+    campo.value = val.toFixed(4);
+    calcularPipsModal();
+}
+
 // Resetear formulario completo del modal
 function resetCreateForm() {
     $('#createOperationFormModal')[0].reset();
     clearSelectedClientModal();
     $('#amount_pen_display_modal').val('');
     $('#pips_preview_modal').html('');
+    // Auto-llenar base si tiene acceso al widget
+    setTimeout(_autoFillBase, 50);
 }
 
 // Limpiar cliente seleccionado del modal
