@@ -729,6 +729,17 @@ function flashPrice(el, newVal, prevVal) {
 function renderDatatec(datatec, age_s) {
   const cEl = $('dtCompra');
   const vEl = $('dtVenta');
+  const noConfig = !datatec.compra || datatec.compra === 0;
+
+  if (noConfig) {
+    cEl.innerHTML = `<span style="font-size:1rem;color:var(--tc-amber);font-weight:600;">No configurado</span>`;
+    vEl.innerHTML = `<span style="font-size:1rem;color:var(--tc-amber);font-weight:600;">No configurado</span>`;
+    $('dtSpread').textContent = '—';
+    $('dtFreshness').className = 'tc-freshness stale';
+    $('dtFreshness').innerHTML = `<i class="bi bi-exclamation-circle" style="font-size:.8rem;margin-right:2px;"></i>Ingresa Compra y Venta para activar el motor`;
+    $('staleChip').style.display = 'flex';
+    return;
+  }
 
   flashPrice(cEl, datatec.compra, _prevCompra);
   flashPrice(vEl, datatec.venta, _prevVenta);
@@ -746,12 +757,17 @@ function renderDatatec(datatec, age_s) {
 // ── Render — estimación live ─────────────────────────────────────
 function renderEstimate(est) {
   if (!est.ok) {
-    $('liveCompra').textContent = '—';
+    const reason = est.reason || 'Motor sin datos suficientes';
+    $('liveCompra').innerHTML = `<span style="font-size:.85rem;color:var(--tc-amber);font-weight:600;">${esc(reason)}</span>`;
     $('liveVenta').textContent  = '—';
-    $('devCompra').textContent  = '—';
-    $('devVenta').textContent   = '—';
-    $('confValue').textContent  = '—';
+    $('devCompra').textContent  = '';
+    $('devVenta').textContent   = '';
+    $('confValue').textContent  = '0%';
     $('liveAdj').textContent    = '—';
+    const circ = $('confCircle');
+    circ.style.strokeDashoffset = CONF_CIRC_C;
+    circ.style.stroke = '#ef4444';
+    $('confValue').style.color = '#ef4444';
     return;
   }
 
@@ -783,7 +799,12 @@ function renderEstimate(est) {
 
 // ── Render — signal strip ────────────────────────────────────────
 function renderSignalStrip(est) {
-  if (!est.ok) return;
+  if (!est.ok) {
+    $('trendLabel').textContent  = 'Sin datos';
+    $('volLabel').textContent    = 'Sin datos';
+    $('signalsCount').textContent = '0 activas';
+    return;
+  }
   const trend = est.trend;
   const vol   = est.volatility;
 
@@ -800,7 +821,10 @@ function renderSignalStrip(est) {
 // ── Render — señales del motor ───────────────────────────────────
 function renderSignals(signals) {
   const grid = $('signalsGrid');
-  if (!signals || !signals.length) return;
+  if (!signals || !signals.length) {
+    grid.innerHTML = `<div style="grid-column:1/-1;font-size:.73rem;color:var(--tc-muted);padding:.5rem 0;">Sin datos de mercado disponibles aún.</div>`;
+    return;
+  }
 
   grid.innerHTML = signals.map(s => {
     const chgVal  = s.chg_pct;
@@ -826,6 +850,19 @@ function renderSignals(signals) {
 // ── Render — insights ─────────────────────────────────────────────
 function renderInsights(insights, est) {
   const el = $('insightsList');
+  if (est && !est.ok) {
+    const reason = est.reason || 'Motor sin datos';
+    el.innerHTML = `
+      <div class="tc-insight-item stale">
+        <i class="bi bi-circle-fill" style="font-size:.4rem;margin-top:.35rem;flex-shrink:0;"></i>
+        ${esc(reason)}
+      </div>
+      <div class="tc-insight-item" style="border-color:var(--tc-blue);">
+        <i class="bi bi-circle-fill" style="font-size:.4rem;margin-top:.35rem;flex-shrink:0;"></i>
+        Ingresa Compra y Venta en el formulario de abajo para activar el motor de estimación.
+      </div>`;
+    return;
+  }
   if (!insights || !insights.length) {
     el.innerHTML = `<div style="font-size:.73rem;color:var(--tc-muted);">Sin señales relevantes en este momento.</div>`;
     return;
@@ -967,17 +1004,28 @@ async function poll() {
     renderSignals(data.estimate.signals);
     renderInsights(data.estimate.insights, data.estimate);
 
-    // History solo al primer load o cada 3 polls
+    // History y chart: solo al primer load o cada 3 polls, con manejo de error propio
     if (!poll._count || poll._count % 3 === 0) {
-      const hr = await fetch('/tc-live/api/history');
-      const hd = await hr.json();
-      if (hd.ok) renderHistory(hd.entries);
+      fetch('/tc-live/api/history')
+        .then(r => r.json())
+        .then(hd => { if (hd.ok) renderHistory(hd.entries); })
+        .catch(e => console.warn('[TCLive] History error:', e));
       loadChart(_tf);
     }
     poll._count = (poll._count || 0) + 1;
 
   } catch (e) {
     console.error('[TCLive] Poll error:', e);
+    // Mostrar error visible en lugar de dejarlo en skeleton para siempre
+    const msg = e.message || 'Error de conexión con el servidor';
+    $('dtCompra').innerHTML = `<span style="font-size:.85rem;color:var(--tc-red);">Error API</span>`;
+    $('dtVenta').innerHTML  = `<span style="font-size:.85rem;color:var(--tc-red);">—</span>`;
+    $('liveCompra').innerHTML = `<span style="font-size:.8rem;color:var(--tc-muted);">${esc(msg)}</span>`;
+    $('liveVenta').textContent = '—';
+    $('confValue').textContent = '—';
+    $('signalsGrid').innerHTML = `<div style="grid-column:1/-1;font-size:.73rem;color:var(--tc-red);padding:.5rem 0;">Error al cargar señales: ${esc(msg)}</div>`;
+    $('insightsList').innerHTML = `<div class="tc-insight-item danger"><i class="bi bi-circle-fill" style="font-size:.4rem;margin-top:.35rem;flex-shrink:0;"></i>Error al conectar con el motor: ${esc(msg)} — Revisa la consola del servidor.</div>`;
+    toast('Error al conectar con el motor TC Live', true);
   }
 }
 poll._count = 0;

@@ -140,7 +140,7 @@ def api_state():
         })
     except Exception as exc:
         logger.error('[TCLive] Error en api_state: %s', exc, exc_info=True)
-        return jsonify({'ok': False, 'error': 'Error interno'}), 500
+        return jsonify({'ok': False, 'error': str(exc)}), 500
 
 
 # ─────────────────────────────────────────────────────────────────────────────
