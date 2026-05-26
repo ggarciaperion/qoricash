@@ -641,6 +641,23 @@
         </div>
     </div>
 </div>
+
+<!-- ── Panel: Acceso al Widget Precio Base ─────────────────────────────── -->
+<div class="card mt-4" style="border-top:3px solid var(--qori-primary);">
+    <div class="card-header d-flex align-items-center gap-2">
+        <i class="bi bi-currency-dollar" style="color:var(--qori-primary);font-size:1rem;"></i>
+        <span style="font-size:.875rem;font-weight:600;">Widget Precio Base — Acceso por Trader</span>
+        <span class="badge bg-light text-secondary ms-auto" style="font-size:.65rem;font-weight:500;">Solo visible para Master</span>
+    </div>
+    <div class="card-body">
+        <p class="text-muted mb-3" style="font-size:.8rem;">
+            Activa o desactiva qué traders pueden ver el widget de Precio Base en el sidebar.
+        </p>
+        <div id="precioBaseTraderList" class="d-flex flex-wrap gap-2">
+            <span class="text-muted" style="font-size:.8rem;">Cargando traders...</span>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -1226,5 +1243,69 @@ function updateExchangeRates() {
         showNotification(message, 'danger');
     });
 }
+
+// ── Widget Precio Base — gestión de acceso por trader ──────────────────────
+(function() {
+    function loadTraderList() {
+        fetch('/dashboard/api/precio-base/traders')
+            .then(r => r.json())
+            .then(data => {
+                if (!data.ok) return;
+                const container = document.getElementById('precioBaseTraderList');
+                if (!container) return;
+                if (!data.traders.length) {
+                    container.innerHTML = '<span class="text-muted" style="font-size:.8rem;">No hay traders activos.</span>';
+                    return;
+                }
+                container.innerHTML = data.traders.map(t => `
+                    <div class="d-flex align-items-center gap-2 px-3 py-2 rounded border"
+                         style="background:${t.ver_precio_base ? 'rgba(0,222,168,.06)' : 'var(--qori-gray-50)'};
+                                border-color:${t.ver_precio_base ? 'rgba(0,222,168,.3)' : 'var(--qori-gray-200)'} !important;
+                                min-width:180px;">
+                        <i class="bi bi-person-circle" style="color:${t.ver_precio_base ? 'var(--qori-primary)' : 'var(--qori-gray-400)'}; font-size:1.1rem;"></i>
+                        <span style="font-size:.8125rem;font-weight:600;flex:1;">${t.username}</span>
+                        <div class="form-check form-switch mb-0">
+                            <input class="form-check-input pb-trader-toggle" type="checkbox"
+                                   data-user-id="${t.id}" ${t.ver_precio_base ? 'checked' : ''}
+                                   style="cursor:pointer;">
+                        </div>
+                    </div>`).join('');
+
+                // Bind toggles
+                container.querySelectorAll('.pb-trader-toggle').forEach(cb => {
+                    cb.addEventListener('change', function() {
+                        const userId = parseInt(this.dataset.userId);
+                        const enabled = this.checked;
+                        const card = this.closest('.d-flex');
+                        this.disabled = true;
+
+                        fetch('/dashboard/api/precio-base/traders', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ user_id: userId, enabled: enabled })
+                        })
+                        .then(r => r.json())
+                        .then(d => {
+                            this.disabled = false;
+                            if (d.ok) {
+                                card.style.background = enabled ? 'rgba(0,222,168,.06)' : 'var(--qori-gray-50)';
+                                card.style.borderColor = enabled ? 'rgba(0,222,168,.3)' : 'var(--qori-gray-200)';
+                                const icon = card.querySelector('i');
+                                if (icon) icon.style.color = enabled ? 'var(--qori-primary)' : 'var(--qori-gray-400)';
+                            } else {
+                                this.checked = !enabled; // revert
+                                Swal.fire({ toast: true, position: 'top-end', icon: 'error',
+                                    title: d.error || 'Error', timer: 3000, showConfirmButton: false });
+                            }
+                        })
+                        .catch(() => { this.disabled = false; this.checked = !enabled; });
+                    });
+                });
+            })
+            .catch(() => {});
+    }
+
+    document.addEventListener('DOMContentLoaded', loadTraderList);
+})();
 </script>
 {% endblock %}

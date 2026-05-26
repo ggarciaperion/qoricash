@@ -1425,3 +1425,38 @@ def api_set_precio_base():
     except Exception as exc:
         db.session.rollback()
         return jsonify({'ok': False, 'error': 'Error interno al guardar'}), 500
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Precio Base — gestión de acceso por trader (solo Master)
+# GET  /dashboard/api/precio-base/traders     lista traders con su estado
+# POST /dashboard/api/precio-base/traders     toggle ver_precio_base de un user
+# ─────────────────────────────────────────────────────────────────────────────
+
+@dashboard_bp.route('/api/precio-base/traders', methods=['GET'])
+@login_required
+@require_role('Master')
+def api_precio_base_traders():
+    traders = User.query.filter_by(role='Trader', status='Activo').order_by(User.username).all()
+    return jsonify({'ok': True, 'traders': [
+        {'id': t.id, 'username': t.username, 'ver_precio_base': bool(t.ver_precio_base)}
+        for t in traders
+    ]})
+
+
+@dashboard_bp.route('/api/precio-base/traders', methods=['POST'])
+@csrf.exempt
+@login_required
+@require_role('Master')
+def api_toggle_precio_base_trader():
+    data = request.get_json(silent=True) or {}
+    user_id = data.get('user_id')
+    enabled = data.get('enabled')
+    if user_id is None or enabled is None:
+        return jsonify({'ok': False, 'error': 'Faltan parámetros'}), 400
+    trader = User.query.filter_by(id=user_id, role='Trader').first()
+    if not trader:
+        return jsonify({'ok': False, 'error': 'Trader no encontrado'}), 404
+    trader.ver_precio_base = bool(enabled)
+    db.session.commit()
+    return jsonify({'ok': True, 'user_id': trader.id, 'ver_precio_base': trader.ver_precio_base})
