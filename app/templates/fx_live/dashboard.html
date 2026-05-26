@@ -242,10 +242,10 @@
 /* ── Signals grid ── */
 .tc-signals-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: .75rem;
 }
-@media (max-width: 700px) { .tc-signals-grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 900px) { .tc-signals-grid { grid-template-columns: 1fr 1fr; } }
 
 .tc-signal-tile {
   background: var(--tc-surface);
@@ -556,6 +556,7 @@
         <div class="tc-signal-tile"><div class="tc-skeleton" style="width:100%;height:60px;border-radius:6px;"></div></div>
         <div class="tc-signal-tile"><div class="tc-skeleton" style="width:100%;height:60px;border-radius:6px;"></div></div>
         <div class="tc-signal-tile"><div class="tc-skeleton" style="width:100%;height:60px;border-radius:6px;"></div></div>
+        <div class="tc-signal-tile"><div class="tc-skeleton" style="width:100%;height:60px;border-radius:6px;"></div></div>
       </div>
     </div>
   </div>
@@ -832,8 +833,10 @@ function renderSignals(signals) {
     const chgTxt  = chgVal != null ? fmtChg(chgVal) : '—';
     const contTxt = s.contrib != null ? `Peso en ajuste: ${s.contrib >= 0 ? '+' : ''}${Number(s.contrib).toFixed(4)}%` : '';
     const valFmt  = s.current != null
-      ? (s.symbol === 'DXY' ? Number(s.current).toFixed(3)
+      ? (s.symbol === 'DXY'    ? Number(s.current).toFixed(3)
        : s.symbol === 'USDPEN' ? Number(s.current).toFixed(4)
+       : s.symbol === 'RETAIL' ? `S/ ${Number(s.current).toFixed(4)}`
+       : s.symbol === 'COPPER' ? `$${Number(s.current).toFixed(4)}`
        : Number(s.current).toFixed(4))
       : '—';
 

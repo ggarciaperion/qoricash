@@ -15,6 +15,8 @@ Seguridad:
   - Rate limiting heredado del limiter global
 """
 import logging
+import statistics
+from datetime import timedelta
 from flask import Blueprint, render_template, request, jsonify
 from flask_login import login_required, current_user
 from sqlalchemy import text
@@ -25,11 +27,91 @@ from app.utils.formatters import now_peru
 from app.models.datatec_rate import DatatecRate
 from app.models.market import MarketSnapshot
 from app.models.live_pricing import DatatecEntry
+from app.models.competitor_rate import CompetitorRateCurrent, CompetitorRateHistory
 from app.services.pricing_engine import PricingEngine
 
 logger = logging.getLogger(__name__)
 
 fx_live_bp = Blueprint('fx_live', __name__, url_prefix='/tc-live')
+
+_RETAIL_STALE_MIN   = 30   # ignorar casas de cambio sin actualizar en más de N minutos
+_RETAIL_MIN_SAMPLE  = 3    # mínimo de fintechs para considerar la señal válida
+_RETAIL_BASELINE_W  = 20   # ventana en minutos para buscar baseline alrededor del update DATATEC
+
+
+def _get_retail_context(datatec_updated_at):
+    """
+    Retorna un dict con el promedio de venta/compra del mercado retail peruano
+    (casas de cambio online monitoreadas) en este momento y en el momento del
+    último update de DATATEC.
+
+    Usa la mediana (no el promedio) para ser robusto frente a outliers.
+    Retorna None si no hay suficientes datos frescos.
+    """
+    try:
+        # ── 1. Precios actuales frescos ─────────────────────────────────────
+        stale_cutoff = now_peru() - timedelta(minutes=_RETAIL_STALE_MIN)
+        currents = (
+            CompetitorRateCurrent.query
+            .filter(CompetitorRateCurrent.scrape_ok == True)   # noqa: E712
+            .filter(CompetitorRateCurrent.updated_at >= stale_cutoff)
+            .all()
+        )
+        if len(currents) < _RETAIL_MIN_SAMPLE:
+            return None
+
+        sell_now = [float(c.sell_rate) for c in currents if c.sell_rate]
+        buy_now  = [float(c.buy_rate)  for c in currents if c.buy_rate]
+        if len(sell_now) < _RETAIL_MIN_SAMPLE:
+            return None
+
+        avg_sell_now = statistics.median(sell_now)
+        avg_buy_now  = statistics.median(buy_now)
+
+        # ── 2. Precios baseline (al momento del update DATATEC) ─────────────
+        if not datatec_updated_at:
+            return None
+
+        window_start = datatec_updated_at - timedelta(minutes=_RETAIL_BASELINE_W)
+        window_end   = datatec_updated_at + timedelta(minutes=_RETAIL_BASELINE_W)
+
+        histories = (
+            CompetitorRateHistory.query
+            .filter(CompetitorRateHistory.scraped_at >= window_start)
+            .filter(CompetitorRateHistory.scraped_at <= window_end)
+            .filter(CompetitorRateHistory.error == None)        # noqa: E711
+            .all()
+        )
+
+        if not histories:
+            return None
+
+        # Por cada competidor, tomar la entrada más cercana al update DATATEC
+        best_by_comp = {}
+        for h in histories:
+            cid   = h.competitor_id
+            delta = abs((h.scraped_at - datatec_updated_at).total_seconds())
+            if cid not in best_by_comp or delta < best_by_comp[cid][1]:
+                best_by_comp[cid] = (h, delta)
+
+        base_sells = [h.sell_rate for h, _ in best_by_comp.values() if h.sell_rate]
+        base_sells = [float(v) for v in base_sells]
+
+        if len(base_sells) < _RETAIL_MIN_SAMPLE:
+            return None
+
+        avg_sell_base = statistics.median(base_sells)
+
+        return {
+            'avg_sell_now':  avg_sell_now,
+            'avg_sell_base': avg_sell_base,
+            'avg_buy_now':   avg_buy_now,
+            'count':         len(sell_now),
+        }
+
+    except Exception as exc:
+        logger.warning('[TCLive] Error calculando señal retail: %s', exc)
+        return None
 
 _MASTER_ONLY = ('Master',)
 
@@ -122,7 +204,8 @@ def api_state():
             .limit(24)
             .all()
         )
-        estimate = PricingEngine.compute(datatec, snaps)
+        retail   = _get_retail_context(datatec.updated_at)
+        estimate = PricingEngine.compute(datatec, snaps, retail=retail)
 
         datatec_dict = datatec.to_dict()
 

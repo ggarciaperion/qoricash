@@ -33,6 +33,7 @@ class EngineConfig:
     DXY_BETA     =  0.60   # DXY 1% up → USD/PEN ~+0.60%
     YAHOO_BETA   =  0.40   # Yahoo interbank 1% drift → retail ~+0.40%
     COPPER_BETA  = -0.20   # Cobre 1% up → USD/PEN ~-0.20% (PEN se aprecia)
+    RETAIL_BETA  =  0.25   # Retail Peru 1% up → ajuste +0.25% (confirma movimiento interbancario)
 
     # Freshness y confianza
     FULL_CONF_WINDOW_S  =  60    # segundos antes de empezar a penalizar confianza
@@ -219,7 +220,15 @@ class PricingEngine:
     """
 
     @staticmethod
-    def compute(datatec, snaps: list) -> LiveEstimate:
+    def compute(datatec, snaps: list, retail: dict | None = None) -> LiveEstimate:
+        """
+        retail (opcional): {
+            'avg_sell_now':  float  — promedio venta competidores actual,
+            'avg_sell_base': float  — promedio venta competidores al momento del último update DATATEC,
+            'avg_buy_now':   float,
+            'count':         int    — cantidad de casas de cambio en la muestra,
+        }
+        """
         cfg = EngineConfig
 
         # ── 0. Validar datos mínimos ──────────────────────────────────────────
@@ -300,6 +309,26 @@ class PricingEngine:
             contrib_pct=round(copper_contrib * 100, 4),
         ))
 
+        # --- Retail Peru (promedio casas de cambio online) ---
+        retail_drift   = 0.0
+        retail_contrib = 0.0
+        retail_sell_now  = retail.get('avg_sell_now')  if retail else None
+        retail_sell_base = retail.get('avg_sell_base') if retail else None
+        retail_count     = retail.get('count', 0)      if retail else 0
+        if retail_sell_now and retail_sell_base and retail_sell_base != 0:
+            retail_drift   = (retail_sell_now - retail_sell_base) / retail_sell_base
+            retail_contrib = retail_drift * cfg.RETAIL_BETA
+            adj_total     += retail_contrib
+        # chg_pct relativo al precio base (cuánto movió el retail desde baseline)
+        retail_chg = round(retail_drift * 100, 3) if retail_sell_now and retail_sell_base else None
+        signals.append(SignalDetail(
+            name=f'Retail Peru ({retail_count} fintechs)',
+            symbol='RETAIL',
+            current=retail_sell_now,
+            chg_pct=retail_chg,
+            contrib_pct=round(retail_contrib * 100, 4),
+        ))
+
         # ── 5. Aplicar ajuste a los precios DATATEC ───────────────────────────
         live_compra = round(compra_anchor * (1 + adj_total), 4)
         live_venta  = round(venta_anchor  * (1 + adj_total), 4)
@@ -339,6 +368,7 @@ class PricingEngine:
         elif volatility.key == 'media': confidence -= 6
         if not baseline:               confidence -= 15  # sin baseline confiable
         if not ypen_now:               confidence -= 10  # Yahoo no disponible
+        if not retail_sell_now:        confidence -= 5   # sin datos retail
         confidence = max(cfg.CONF_MIN, min(cfg.CONF_MAX, int(confidence)))
 
         # ── 8. Generar insights ───────────────────────────────────────────────
@@ -352,6 +382,12 @@ class PricingEngine:
             insights.append(f'DXY moviéndose {direction} ({dxy_drift*100:+.2f}%) — presión sobre el sol')
         if trend.key in ('alcista_moderado', 'bajista_moderado'):
             insights.append(f'Mercado en tendencia {trend.label.lower()} sostenida')
+        if retail_sell_now and retail_sell_base and abs(retail_drift) > 0.001:
+            direction = 'al alza' if retail_drift > 0 else 'a la baja'
+            insights.append(
+                f'Mercado retail moviéndose {direction} ({retail_drift*100:+.2f}%) '
+                f'— {retail_count} casas de cambio online confirman el movimiento'
+            )
         if abs(adj_total) < 0.00005 and not is_stale:
             insights.append('Mercado estable — DATATEC alineado con señales actuales')
 
