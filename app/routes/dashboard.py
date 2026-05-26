@@ -6,7 +6,9 @@ from flask_login import login_required, current_user
 from app.services.operation_service import OperationService
 from app.utils.formatters import now_peru
 from app.utils.decorators import require_role
-from app.extensions import db
+from app.extensions import db, csrf, socketio
+from app.models.datatec_rate import DatatecRate
+from app.models.live_pricing import DatatecEntry
 from app.models.trader_goal import TraderGoal
 from app.models.trader_daily_profit import TraderDailyProfit
 from app.models.user import User
@@ -1367,3 +1369,59 @@ def get_top_clients_ops():
             })
 
     return jsonify({'top_clients': top_clients})
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Precio Base Trader — widget interno
+# GET  /dashboard/api/precio-base          Master / Trader / Operador
+# POST /dashboard/api/precio-base          Master / Operador
+# ─────────────────────────────────────────────────────────────────────────────
+
+@dashboard_bp.route('/api/precio-base', methods=['GET'])
+@login_required
+@require_role('Master', 'Trader', 'Operador')
+def api_get_precio_base():
+    row = DatatecRate.get()
+    return jsonify({
+        'ok': True,
+        'compra':     float(row.compra),
+        'venta':      float(row.venta),
+        'updated_at': row.updated_at.isoformat() if row.updated_at else None,
+        'updated_by': row.updater.username if row.updater else None,
+    })
+
+
+@dashboard_bp.route('/api/precio-base', methods=['POST'])
+@csrf.exempt
+@login_required
+@require_role('Master', 'Operador')
+def api_set_precio_base():
+    data = request.get_json(silent=True) or {}
+    try:
+        compra = float(data.get('compra', 0))
+        venta  = float(data.get('venta',  0))
+    except (TypeError, ValueError):
+        return jsonify({'ok': False, 'error': 'Valores inválidos'}), 400
+
+    if compra <= 0 or venta <= 0:
+        return jsonify({'ok': False, 'error': 'Compra y Venta deben ser mayores a cero'}), 400
+    if venta <= compra:
+        return jsonify({'ok': False, 'error': 'Venta debe ser mayor que Compra'}), 400
+    if not (3.0 <= compra <= 5.0) or not (3.0 <= venta <= 5.0):
+        return jsonify({'ok': False, 'error': 'Valores fuera de rango (3.00 – 5.00)'}), 400
+
+    try:
+        DatatecRate.update(compra, venta, None, None, current_user.id)
+        db.session.add(DatatecEntry(compra=compra, venta=venta, user_id=current_user.id))
+        db.session.commit()
+        now_iso = now_peru().isoformat()
+        socketio.emit('precio_base_actualizado', {
+            'compra':     compra,
+            'venta':      venta,
+            'updated_by': current_user.username,
+            'updated_at': now_iso,
+        })
+        return jsonify({'ok': True, 'compra': compra, 'venta': venta, 'updated_at': now_iso})
+    except Exception as exc:
+        db.session.rollback()
+        return jsonify({'ok': False, 'error': 'Error interno al guardar'}), 500

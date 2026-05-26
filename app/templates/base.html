@@ -25,7 +25,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css">
 
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}?v=5.1">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}?v=5.2">
 
     <!-- Meta CSRF Token -->
     <meta name="csrf-token" content="{{ csrf_token() }}">
@@ -50,6 +50,51 @@
                 <i class="bi bi-layout-sidebar-reverse"></i>
             </button>
         </div>
+
+        <!-- ── Precio Base Widget ── -->
+        {% if current_user.role in ['Master','Trader','Operador'] %}
+        <div class="pb-widget" id="pbWidget">
+            <div class="pb-header">
+                <span class="pb-dot" id="pbDot"></span>
+                <span class="pb-title">Precio Base</span>
+                <span class="pb-age" id="pbAge"></span>
+                {% if current_user.role in ['Master','Operador'] %}
+                <button class="pb-edit-btn" id="pbEditBtn" title="Actualizar precios">
+                    <i class="bi bi-pencil-fill"></i>
+                </button>
+                {% endif %}
+            </div>
+            <div class="pb-rates" id="pbRates">
+                <div class="pb-rate-item">
+                    <span class="pb-label">COMPRA</span>
+                    <span class="pb-value pb-buy" id="pbBuy">—</span>
+                </div>
+                <div class="pb-divider"></div>
+                <div class="pb-rate-item">
+                    <span class="pb-label">VENTA</span>
+                    <span class="pb-value pb-sell" id="pbSell">—</span>
+                </div>
+            </div>
+            {% if current_user.role in ['Master','Operador'] %}
+            <div class="pb-form" id="pbForm" style="display:none;">
+                <div class="pb-inputs">
+                    <div class="pb-input-group">
+                        <label class="pb-input-label">COMPRA</label>
+                        <input type="number" class="pb-input" id="pbInputCompra" step="0.0001" min="3" max="5" placeholder="0.0000">
+                    </div>
+                    <div class="pb-input-group">
+                        <label class="pb-input-label">VENTA</label>
+                        <input type="number" class="pb-input" id="pbInputVenta" step="0.0001" min="3" max="5" placeholder="0.0000">
+                    </div>
+                </div>
+                <div class="pb-form-actions">
+                    <button class="pb-btn-save" id="pbBtnSave"><i class="bi bi-check-lg"></i> Guardar</button>
+                    <button class="pb-btn-cancel" id="pbBtnCancel">Cancelar</button>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
 
         <!-- Navigation -->
         <nav class="sidebar-nav">
@@ -724,6 +769,156 @@
     });
     {% endif %}
     </script>
+
+    <!-- ── Precio Base Widget JS ──────────────────────────────────────────── -->
+    {% if current_user.is_authenticated and current_user.role in ['Master','Trader','Operador'] %}
+    <script>
+    (function() {
+        var _lastAt = null;
+        var _canEdit = {% if current_user.role in ['Master','Operador'] %}true{% else %}false{% endif %};
+
+        function _fmt(v) { return (v == null || v === 0) ? '—' : parseFloat(v).toFixed(4); }
+
+        function _fmtAge(iso) {
+            if (!iso) return '';
+            var s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+            if (s < 60)    return s + 's';
+            if (s < 3600)  return Math.floor(s / 60) + 'm';
+            return Math.floor(s / 3600) + 'h';
+        }
+
+        function _flash(el) {
+            if (!el) return;
+            el.classList.remove('pb-flash'); void el.offsetWidth;
+            el.classList.add('pb-flash');
+        }
+
+        function _setRates(compra, venta, updatedAt, animate) {
+            _lastAt = updatedAt || _lastAt;
+            var bTxt = _fmt(compra), sTxt = _fmt(venta);
+            var eb = document.getElementById('pbBuy'),
+                es = document.getElementById('pbSell');
+            if (eb && eb.textContent !== bTxt) { eb.textContent = bTxt; if (animate) _flash(eb); }
+            if (es && es.textContent !== sTxt) { es.textContent = sTxt; if (animate) _flash(es); }
+            var dot = document.getElementById('pbDot');
+            if (dot) dot.classList.toggle('pb-dot-live', !!(compra > 0));
+            _updateAge();
+        }
+
+        function _updateAge() {
+            var el = document.getElementById('pbAge');
+            if (!el) return;
+            el.textContent = _lastAt ? 'hace ' + _fmtAge(_lastAt) : '';
+        }
+
+        function _fetchRates() {
+            fetch('/dashboard/api/precio-base')
+                .then(function(r) { return r.ok ? r.json() : null; })
+                .then(function(d) { if (d && d.ok) _setRates(d.compra, d.venta, d.updated_at, false); })
+                .catch(function() {});
+        }
+
+        // Edit toggle (Master/Operador only)
+        if (_canEdit) {
+            document.addEventListener('DOMContentLoaded', function() {
+                var btnEdit   = document.getElementById('pbEditBtn');
+                var btnSave   = document.getElementById('pbBtnSave');
+                var btnCancel = document.getElementById('pbBtnCancel');
+                var form      = document.getElementById('pbForm');
+                var rates     = document.getElementById('pbRates');
+                var iC        = document.getElementById('pbInputCompra');
+                var iV        = document.getElementById('pbInputVenta');
+
+                if (!btnEdit) return;
+
+                btnEdit.addEventListener('click', function() {
+                    var bVal = document.getElementById('pbBuy').textContent;
+                    var sVal = document.getElementById('pbSell').textContent;
+                    iC.value = (bVal !== '—') ? bVal : '';
+                    iV.value = (sVal !== '—') ? sVal : '';
+                    rates.style.display = 'none';
+                    form.style.display  = 'block';
+                    iC.focus();
+                });
+
+                function _closeForm() {
+                    form.style.display  = 'none';
+                    rates.style.display = 'flex';
+                }
+
+                btnCancel.addEventListener('click', _closeForm);
+
+                btnSave.addEventListener('click', function() {
+                    var c = parseFloat(iC.value), v = parseFloat(iV.value);
+                    if (!c || !v || isNaN(c) || isNaN(v)) {
+                        iC.style.borderColor = (!c || isNaN(c)) ? '#ef4444' : '';
+                        iV.style.borderColor = (!v || isNaN(v)) ? '#ef4444' : '';
+                        return;
+                    }
+                    iC.style.borderColor = ''; iV.style.borderColor = '';
+                    btnSave.disabled = true;
+                    btnSave.innerHTML = '<i class="bi bi-hourglass-split"></i>';
+
+                    fetch('/dashboard/api/precio-base', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ compra: c, venta: v })
+                    })
+                    .then(function(r) { return r.json(); })
+                    .then(function(d) {
+                        btnSave.disabled = false;
+                        btnSave.innerHTML = '<i class="bi bi-check-lg"></i> Guardar';
+                        if (d.ok) {
+                            _setRates(d.compra, d.venta, d.updated_at, true);
+                            _closeForm();
+                        } else {
+                            Swal.fire({ toast: true, position: 'top-end', icon: 'error',
+                                title: d.error || 'Error al guardar', timer: 3000,
+                                showConfirmButton: false });
+                        }
+                    })
+                    .catch(function() {
+                        btnSave.disabled = false;
+                        btnSave.innerHTML = '<i class="bi bi-check-lg"></i> Guardar';
+                    });
+                });
+
+                // Enter key on inputs
+                [iC, iV].forEach(function(el) {
+                    el.addEventListener('keydown', function(e) {
+                        if (e.key === 'Enter') btnSave.click();
+                        if (e.key === 'Escape') _closeForm();
+                    });
+                });
+            });
+        }
+
+        // Initial load + age counter
+        document.addEventListener('DOMContentLoaded', function() {
+            _fetchRates();
+            setInterval(_updateAge, 15000);
+        });
+
+        // Socket live updates
+        document.addEventListener('DOMContentLoaded', function() {
+            var _poll = setInterval(function() {
+                if (!window._qoriSocket) return;
+                clearInterval(_poll);
+                window._qoriSocket.on('precio_base_actualizado', function(d) {
+                    _setRates(d.compra, d.venta, d.updated_at, true);
+                    // Close form if open on another session
+                    var form = document.getElementById('pbForm');
+                    var rates = document.getElementById('pbRates');
+                    if (form && form.style.display !== 'none') {
+                        form.style.display = 'none';
+                        if (rates) rates.style.display = 'flex';
+                    }
+                });
+            }, 200);
+        });
+    })();
+    </script>
+    {% endif %}
 
     {% block scripts %}{% endblock %}
 

@@ -1659,3 +1659,191 @@ tr[data-status="Cancelado"] {
     .neteo-strip .vr { display: none; }
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   29. PRECIO BASE WIDGET (sidebar)
+   ═══════════════════════════════════════════════════════════════════════════ */
+@keyframes pb-flash {
+    0%   { background: rgba(0,222,168,.22); }
+    100% { background: transparent; }
+}
+.pb-flash { animation: pb-flash 700ms ease-out forwards; border-radius: 3px; padding: 0 2px; }
+
+@keyframes pb-pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%       { opacity: .4; transform: scale(.7); }
+}
+
+.pb-widget {
+    margin: 0 10px 8px;
+    background: rgba(0,0,0,.28);
+    border: 1px solid rgba(0,222,168,.15);
+    border-radius: 8px;
+    padding: 9px 11px 8px;
+    flex-shrink: 0;
+}
+
+.sidebar.collapsed .pb-widget { display: none; }
+
+.pb-header {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-bottom: 8px;
+}
+
+.pb-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--qori-gray-600);
+    flex-shrink: 0;
+}
+
+.pb-dot.pb-dot-live {
+    background: #22c55e;
+    animation: pb-pulse 2.2s ease-in-out infinite;
+}
+
+.pb-title {
+    font-size: 0.5625rem;
+    font-weight: 700;
+    letter-spacing: .09em;
+    color: rgba(255,255,255,.35);
+    text-transform: uppercase;
+}
+
+.pb-age {
+    font-size: 0.5rem;
+    color: rgba(255,255,255,.22);
+    margin-left: auto;
+    white-space: nowrap;
+}
+
+.pb-edit-btn {
+    background: none;
+    border: none;
+    color: rgba(255,255,255,.3);
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 4px;
+    font-size: 0.625rem;
+    line-height: 1;
+    transition: color var(--transition-fast), background var(--transition-fast);
+    flex-shrink: 0;
+}
+.pb-edit-btn:hover { color: var(--qori-primary); background: rgba(0,222,168,.1); }
+
+.pb-rates {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.pb-rate-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.pb-label {
+    font-size: 0.5rem;
+    font-weight: 700;
+    letter-spacing: .08em;
+    color: rgba(255,255,255,.28);
+    text-transform: uppercase;
+}
+
+.pb-value {
+    font-size: 0.9375rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.pb-buy  { color: #34d399; }
+.pb-sell { color: #60a5fa; }
+
+.pb-divider {
+    width: 1px;
+    height: 26px;
+    background: rgba(255,255,255,.09);
+    flex-shrink: 0;
+}
+
+/* Inline edit form */
+.pb-form { margin-top: 6px; }
+
+.pb-inputs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 6px;
+}
+
+.pb-input-group {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.pb-input-label {
+    font-size: 0.475rem;
+    font-weight: 700;
+    letter-spacing: .08em;
+    color: rgba(255,255,255,.28);
+    text-transform: uppercase;
+}
+
+.pb-input {
+    background: rgba(255,255,255,.07);
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: 5px;
+    color: var(--qori-white);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    padding: 4px 6px;
+    width: 100%;
+    outline: none;
+    transition: border-color var(--transition-fast);
+}
+.pb-input:focus { border-color: var(--qori-primary); }
+.pb-input::placeholder { color: rgba(255,255,255,.2); }
+/* Hide browser spinners */
+.pb-input::-webkit-inner-spin-button,
+.pb-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.pb-input[type=number] { -moz-appearance: textfield; }
+
+.pb-form-actions {
+    display: flex;
+    gap: 5px;
+}
+
+.pb-btn-save {
+    flex: 1;
+    background: var(--qori-primary);
+    border: none;
+    border-radius: 5px;
+    color: var(--qori-secondary);
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 5px 0;
+    cursor: pointer;
+    transition: background var(--transition-fast);
+}
+.pb-btn-save:hover { background: var(--qori-primary-hover); }
+.pb-btn-save:disabled { opacity: .6; cursor: not-allowed; }
+
+.pb-btn-cancel {
+    background: rgba(255,255,255,.07);
+    border: 1px solid rgba(255,255,255,.1);
+    border-radius: 5px;
+    color: rgba(255,255,255,.5);
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 5px 8px;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+.pb-btn-cancel:hover { background: rgba(255,255,255,.12); color: var(--qori-white); }
+
