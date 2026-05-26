@@ -125,11 +125,12 @@
 }
 .fxt-chart-container {
   background:var(--t-s1); border:1px solid var(--t-border);
-  border-radius:var(--t-r); overflow:hidden; height:440px;
+  border-radius:var(--t-r); overflow:hidden; height:440px; position:relative;
 }
 .fxt-tv-loading {
-  height:100%; display:flex; align-items:center; justify-content:center;
+  position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
   flex-direction:column; gap:.75rem; color:var(--t-muted); font-size:.8rem;
+  background:var(--t-s1); pointer-events:none;
 }
 .fxt-tv-spinner {
   width:28px; height:28px; border:2px solid var(--t-border2);
@@ -378,11 +379,20 @@
       <div style="font-size:.62rem;color:var(--t-muted);">Datos: TradingView · Tipo de cambio interbancario</div>
     </div>
     <div class="fxt-chart-container" id="tvChartContainer">
+      <iframe
+        id="tvIframe"
+        src="https://s.tradingview.com/widgetembed/?frameElementId=tvIframe&symbol=FX_IDC%3AUSDPEN&interval=5&hidesidetoolbar=0&symboledit=0&saveimage=0&toolbarbg=0c1628&theme=dark&style=1&timezone=America%2FLima&withdateranges=1&locale=es&hide_top_toolbar=0&hide_legend=0&showpopupbutton=0"
+        style="width:100%;height:100%;border:none;display:block;"
+        allowtransparency="true"
+        scrolling="no"
+        allowfullscreen
+        onload="document.getElementById('tvLoading').style.display='none';"
+        onerror="document.getElementById('tvLoading').innerHTML='<i class=\'bi bi-wifi-off\' style=\'font-size:1.2rem;color:#64748b;\'></i><span style=\'font-size:.72rem;color:#64748b;\'>TradingView no disponible — <a href=\'https://www.tradingview.com/symbols/USDPEN/\' target=\'_blank\' style=\'color:#3b82f6;\'>abrir en TradingView.com</a></span>';">
+      </iframe>
       <div class="fxt-tv-loading" id="tvLoading">
         <div class="fxt-tv-spinner"></div>
-        <span>Cargando gráfico TradingView...</span>
+        <span>Cargando gráfico...</span>
       </div>
-      <div id="fxt_tv_chart" style="height:100%;width:100%;display:none;"></div>
     </div>
   </div>
 
@@ -541,53 +551,6 @@
 
 <div id="fxtToast"></div>
 
-<!-- ══════════════════════════════════════════════════════
-     TradingView Widget (async, non-blocking)
-══════════════════════════════════════════════════════ -->
-<script>
-(function() {
-  var script = document.createElement('script');
-  script.src = 'https://s3.tradingview.com/tv.js';
-  script.async = true;
-  script.onload = function() {
-    try {
-      new TradingView.widget({
-        container_id: 'fxt_tv_chart',
-        autosize: true,
-        symbol: 'FX_IDC:USDPEN',
-        interval: '5',
-        timezone: 'America/Lima',
-        theme: 'dark',
-        style: '1',
-        locale: 'es',
-        toolbar_bg: '#0c1628',
-        enable_publishing: false,
-        hide_side_toolbar: false,
-        allow_symbol_change: false,
-        hide_legend: false,
-        save_image: false,
-        hide_volume: false,
-        withdateranges: true,
-        backgroundColor: '#07101f',
-        gridColor: 'rgba(255,255,255,0.04)',
-        support_host: 'https://www.tradingview.com',
-      });
-      document.getElementById('tvLoading').style.display = 'none';
-      document.getElementById('fxt_tv_chart').style.display = 'block';
-    } catch(e) {
-      document.getElementById('tvLoading').innerHTML =
-        '<i class="bi bi-exclamation-triangle" style="font-size:1.2rem;color:#f59e0b;"></i>' +
-        '<span style="font-size:.72rem;">No se pudo cargar TradingView — <a href="https://www.tradingview.com/symbols/USDPEN/" target="_blank" style="color:#3b82f6;">ver en TradingView.com</a></span>';
-    }
-  };
-  script.onerror = function() {
-    document.getElementById('tvLoading').innerHTML =
-      '<i class="bi bi-wifi-off" style="font-size:1.2rem;color:#64748b;"></i>' +
-      '<span style="font-size:.72rem;color:#64748b;">TradingView no disponible — <a href="https://www.tradingview.com/symbols/USDPEN/" target="_blank" style="color:#3b82f6;">abrir en nueva pestaña</a></span>';
-  };
-  document.head.appendChild(script);
-})();
-</script>
 
 <!-- ══════════════════════════════════════════════════════
      FX Terminal — Client App
