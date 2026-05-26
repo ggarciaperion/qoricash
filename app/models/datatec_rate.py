@@ -68,12 +68,35 @@ class PrecioBaseAccess(db.Model):
     user = db.relationship('User', foreign_keys=[user_id])
 
     @staticmethod
+    def _ensure_table():
+        """Crea la tabla si no existe (fallback por si la migración aún no corrió)."""
+        try:
+            from sqlalchemy import text
+            db.session.execute(text(
+                "CREATE TABLE IF NOT EXISTS precio_base_access "
+                "(id SERIAL PRIMARY KEY, user_id INTEGER UNIQUE NOT NULL REFERENCES users(id))"
+            ))
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+
+    @staticmethod
     def has_access(user_id):
-        return PrecioBaseAccess.query.filter_by(user_id=user_id).first() is not None
+        try:
+            return PrecioBaseAccess.query.filter_by(user_id=user_id).first() is not None
+        except Exception:
+            db.session.rollback()
+            PrecioBaseAccess._ensure_table()
+            return False
 
     @staticmethod
     def set_access(user_id, enabled):
-        existing = PrecioBaseAccess.query.filter_by(user_id=user_id).first()
+        try:
+            existing = PrecioBaseAccess.query.filter_by(user_id=user_id).first()
+        except Exception:
+            db.session.rollback()
+            PrecioBaseAccess._ensure_table()
+            existing = None
         if enabled and not existing:
             db.session.add(PrecioBaseAccess(user_id=user_id))
             db.session.commit()

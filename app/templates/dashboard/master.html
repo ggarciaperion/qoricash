@@ -1250,7 +1250,11 @@ function updateExchangeRates() {
         fetch('/dashboard/api/precio-base/traders')
             .then(r => r.json())
             .then(data => {
-                if (!data.ok) return;
+                if (!data.ok) {
+                    const container = document.getElementById('precioBaseTraderList');
+                    if (container) container.innerHTML = `<span class="text-danger" style="font-size:.8rem;"><i class="bi bi-exclamation-triangle me-1"></i>${data.error || 'Error al cargar traders'}</span>`;
+                    return;
+                }
                 const container = document.getElementById('precioBaseTraderList');
                 if (!container) return;
                 if (!data.traders.length) {
@@ -1302,7 +1306,10 @@ function updateExchangeRates() {
                     });
                 });
             })
-            .catch(() => {});
+            .catch(err => {
+                const container = document.getElementById('precioBaseTraderList');
+                if (container) container.innerHTML = '<span class="text-danger" style="font-size:.8rem;"><i class="bi bi-exclamation-triangle me-1"></i>No se pudo conectar con el servidor.</span>';
+            });
     }
 
     document.addEventListener('DOMContentLoaded', loadTraderList);

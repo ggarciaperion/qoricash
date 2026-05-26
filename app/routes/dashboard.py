@@ -1437,12 +1437,20 @@ def api_set_precio_base():
 @login_required
 @require_role('Master')
 def api_precio_base_traders():
-    traders = User.query.filter_by(role='Trader', status='Activo').order_by(User.username).all()
-    access_ids = {a.user_id for a in PrecioBaseAccess.query.all()}
-    return jsonify({'ok': True, 'traders': [
-        {'id': t.id, 'username': t.username, 'ver_precio_base': t.id in access_ids}
-        for t in traders
-    ]})
+    try:
+        traders = User.query.filter_by(role='Trader', status='Activo').order_by(User.username).all()
+        try:
+            access_ids = {a.user_id for a in PrecioBaseAccess.query.all()}
+        except Exception:
+            db.session.rollback()
+            access_ids = set()
+        return jsonify({'ok': True, 'traders': [
+            {'id': t.id, 'username': t.username, 'ver_precio_base': t.id in access_ids}
+            for t in traders
+        ]})
+    except Exception as exc:
+        db.session.rollback()
+        return jsonify({'ok': False, 'error': str(exc)}), 500
 
 
 @dashboard_bp.route('/api/precio-base/traders', methods=['POST'])
@@ -1458,5 +1466,9 @@ def api_toggle_precio_base_trader():
     trader = User.query.filter_by(id=user_id, role='Trader').first()
     if not trader:
         return jsonify({'ok': False, 'error': 'Trader no encontrado'}), 404
-    PrecioBaseAccess.set_access(trader.id, bool(enabled))
+    try:
+        PrecioBaseAccess.set_access(trader.id, bool(enabled))
+    except Exception as exc:
+        db.session.rollback()
+        return jsonify({'ok': False, 'error': str(exc)}), 500
     return jsonify({'ok': True, 'user_id': trader.id, 'ver_precio_base': bool(enabled)})
