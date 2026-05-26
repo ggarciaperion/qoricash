@@ -903,12 +903,51 @@
         });
 
         // Socket live updates
+        // --- Toast notification + chime ---
+        function _pbChime() {
+            try {
+                var ctx = new (window.AudioContext || window.webkitAudioContext)();
+                var notes = [523.25, 659.25, 783.99];  // C5 E5 G5
+                notes.forEach(function(freq, i) {
+                    var osc  = ctx.createOscillator();
+                    var gain = ctx.createGain();
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.type      = 'sine';
+                    osc.frequency.value = freq;
+                    var t = ctx.currentTime + i * 0.13;
+                    gain.gain.setValueAtTime(0, t);
+                    gain.gain.linearRampToValueAtTime(0.18, t + 0.02);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.38);
+                    osc.start(t);
+                    osc.stop(t + 0.4);
+                });
+            } catch(e) {}
+        }
+
+        var _pbToastTimer = null;
+        function _pbToast(compra, venta) {
+            var toast = document.getElementById('pbToast');
+            if (!toast) return;
+            toast.querySelector('.pb-toast-val.buy').textContent  = parseFloat(compra).toFixed(4);
+            toast.querySelector('.pb-toast-val.sell').textContent = parseFloat(venta).toFixed(4);
+            toast.classList.remove('pb-toast-hide');
+            toast.classList.add('pb-toast-show');
+            clearTimeout(_pbToastTimer);
+            _pbToastTimer = setTimeout(function() {
+                toast.classList.remove('pb-toast-show');
+                toast.classList.add('pb-toast-hide');
+            }, 4500);
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
             var _poll = setInterval(function() {
                 if (!window._qoriSocket) return;
                 clearInterval(_poll);
                 window._qoriSocket.on('precio_base_actualizado', function(d) {
                     _setRates(d.compra, d.venta, d.updated_at, true);
+                    _pbChime();
+                    _pbToast(d.compra, d.venta);
                     // Close form if open on another session
                     var form = document.getElementById('pbForm');
                     var rates = document.getElementById('pbRates');
@@ -921,6 +960,26 @@
         });
     })();
     </script>
+    {% endif %}
+
+    <!-- Precio Base toast (visible to everyone who has the widget) -->
+    {% if current_user.is_authenticated and (current_user.role in ['Master','Operador'] or (current_user.role == 'Trader' and pb_access)) %}
+    <div id="pbToast">
+        <div class="pb-toast-icon"><i class="bi bi-arrow-left-right"></i></div>
+        <div class="pb-toast-body">
+            <div class="pb-toast-title">Precio Base actualizado</div>
+            <div class="pb-toast-rates">
+                <div class="pb-toast-rate">
+                    <span class="pb-toast-label">Compra</span>
+                    <span class="pb-toast-val buy">—</span>
+                </div>
+                <div class="pb-toast-rate">
+                    <span class="pb-toast-label">Venta</span>
+                    <span class="pb-toast-val sell">—</span>
+                </div>
+            </div>
+        </div>
+    </div>
     {% endif %}
 
     {% block scripts %}{% endblock %}
