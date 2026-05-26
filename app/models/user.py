@@ -42,9 +42,6 @@ class User(UserMixin, db.Model):
 
     # Token de sesión única — se regenera en cada login para invalidar sesiones previas
     session_token = db.Column(db.String(36), nullable=True)
-
-    # Widget de Precio Base — controlado por Master
-    ver_precio_base = db.Column(db.Boolean, default=False, nullable=False)
     
     # Relaciones
     # Operaciones creadas por este usuario

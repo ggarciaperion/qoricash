@@ -1,12 +1,11 @@
-"""Add ver_precio_base column to users table
+"""Add precio_base_access table for trader widget access control
 
 Revision ID: pb1r2e3c4i5o
-Revises: z9merge_all_heads
+Revises: z9merge_all_heads, w1p2r3o4s5p6
 Create Date: 2026-05-26
 
-Agrega columna booleana ver_precio_base a la tabla users.
-Controlada por Master desde el dashboard para decidir qué traders
-pueden ver el widget de Precio Base.
+Crea tabla precio_base_access para controlar qué traders pueden ver
+el widget de Precio Base. No modifica ninguna tabla existente.
 """
 from alembic import op
 import sqlalchemy as sa
@@ -19,19 +18,22 @@ branch_labels = None
 depends_on = None
 
 
-def _column_exists(conn, table, column):
-    return column in [c['name'] for c in inspect(conn).get_columns(table)]
+def _table_exists(conn, table):
+    return inspect(conn).has_table(table)
 
 
 def upgrade():
     conn = op.get_bind()
-    if not _column_exists(conn, 'users', 'ver_precio_base'):
-        op.add_column('users', sa.Column(
-            'ver_precio_base', sa.Boolean(), nullable=False, server_default='false'
-        ))
+    if not _table_exists(conn, 'precio_base_access'):
+        op.create_table(
+            'precio_base_access',
+            sa.Column('id',      sa.Integer(), primary_key=True),
+            sa.Column('user_id', sa.Integer(), sa.ForeignKey('users.id'),
+                      unique=True, nullable=False, index=True),
+        )
 
 
 def downgrade():
     conn = op.get_bind()
-    if _column_exists(conn, 'users', 'ver_precio_base'):
-        op.drop_column('users', 'ver_precio_base')
+    if _table_exists(conn, 'precio_base_access'):
+        op.drop_table('precio_base_access')

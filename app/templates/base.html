@@ -52,7 +52,7 @@
         </div>
 
         <!-- ── Precio Base Widget ── -->
-        {% if current_user.role in ['Master','Operador'] or (current_user.role == 'Trader' and current_user.ver_precio_base) %}
+        {% if current_user.role in ['Master','Operador'] or (current_user.role == 'Trader' and pb_access) %}
         <div class="pb-widget" id="pbWidget">
             <div class="pb-header">
                 <span class="pb-dot" id="pbDot"></span>
@@ -771,7 +771,7 @@
     </script>
 
     <!-- ── Precio Base Widget JS ──────────────────────────────────────────── -->
-    {% if current_user.is_authenticated and (current_user.role in ['Master','Operador'] or (current_user.role == 'Trader' and current_user.ver_precio_base)) %}
+    {% if current_user.is_authenticated and (current_user.role in ['Master','Operador'] or (current_user.role == 'Trader' and pb_access)) %}
     <script>
     (function() {
         var _lastAt = null;

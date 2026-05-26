@@ -4,6 +4,9 @@ Siempre hay un único registro activo — se actualiza in-place.
 Campos:
   compra / venta       → precio de cierre
   compra_tarde / venta_tarde → precios tarde (indicativos)
+
+PrecioBaseAccess: tabla simple que registra qué traders pueden ver
+el widget de Precio Base (gestionado por Master desde el dashboard).
 """
 from app.extensions import db
 from app.utils.formatters import now_peru
@@ -53,3 +56,27 @@ class DatatecRate(db.Model):
         row.updated_at   = now_peru()
         db.session.commit()
         return row
+
+
+class PrecioBaseAccess(db.Model):
+    """Traders autorizados a ver el widget Precio Base (tabla nueva, no toca users)."""
+    __tablename__ = 'precio_base_access'
+
+    id      = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), unique=True, nullable=False, index=True)
+
+    user = db.relationship('User', foreign_keys=[user_id])
+
+    @staticmethod
+    def has_access(user_id):
+        return PrecioBaseAccess.query.filter_by(user_id=user_id).first() is not None
+
+    @staticmethod
+    def set_access(user_id, enabled):
+        existing = PrecioBaseAccess.query.filter_by(user_id=user_id).first()
+        if enabled and not existing:
+            db.session.add(PrecioBaseAccess(user_id=user_id))
+            db.session.commit()
+        elif not enabled and existing:
+            db.session.delete(existing)
+            db.session.commit()

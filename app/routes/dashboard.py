@@ -7,7 +7,7 @@ from app.services.operation_service import OperationService
 from app.utils.formatters import now_peru
 from app.utils.decorators import require_role
 from app.extensions import db, csrf, socketio
-from app.models.datatec_rate import DatatecRate
+from app.models.datatec_rate import DatatecRate, PrecioBaseAccess
 from app.models.live_pricing import DatatecEntry
 from app.models.trader_goal import TraderGoal
 from app.models.trader_daily_profit import TraderDailyProfit
@@ -1438,8 +1438,9 @@ def api_set_precio_base():
 @require_role('Master')
 def api_precio_base_traders():
     traders = User.query.filter_by(role='Trader', status='Activo').order_by(User.username).all()
+    access_ids = {a.user_id for a in PrecioBaseAccess.query.all()}
     return jsonify({'ok': True, 'traders': [
-        {'id': t.id, 'username': t.username, 'ver_precio_base': bool(t.ver_precio_base)}
+        {'id': t.id, 'username': t.username, 'ver_precio_base': t.id in access_ids}
         for t in traders
     ]})
 
@@ -1457,6 +1458,5 @@ def api_toggle_precio_base_trader():
     trader = User.query.filter_by(id=user_id, role='Trader').first()
     if not trader:
         return jsonify({'ok': False, 'error': 'Trader no encontrado'}), 404
-    trader.ver_precio_base = bool(enabled)
-    db.session.commit()
-    return jsonify({'ok': True, 'user_id': trader.id, 'ver_precio_base': trader.ver_precio_base})
+    PrecioBaseAccess.set_access(trader.id, bool(enabled))
+    return jsonify({'ok': True, 'user_id': trader.id, 'ver_precio_base': bool(enabled)})
