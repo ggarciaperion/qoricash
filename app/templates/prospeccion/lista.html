@@ -898,8 +898,6 @@
               <th onclick="sortBy('telefono')">Celular <span class="si">↕</span></th>
               <th onclick="sortBy('estado_comercial')">Estado <span class="si">↕</span></th>
               <th onclick="sortBy('fecha_ultimo_contacto')">Últ. contacto <span class="si">↕</span></th>
-              <th onclick="sortBy('fecha_proximo_contacto')">Próximo <span class="si">↕</span></th>
-              <th onclick="sortBy('num_contactos')" style="text-align:center">N° <span class="si">↕</span></th>
               {% if is_master %}<th onclick="sortBy('trader')">Trader <span class="si">↕</span></th>{% endif %}
               <th style="width:104px">Acciones</th>
             </tr>
@@ -1401,8 +1399,6 @@ function rowHtml(r) {
       </span>
     </td>
     <td style="font-size:.75rem;color:var(--qori-gray-500);">${ult||'—'}</td>
-    <td>${prox}</td>
-    <td class="cell-num">${r.num_contactos||0}</td>
     ${IS_MASTER ? `<td style="font-size:.73rem;color:var(--qori-gray-500);">${esc(r.trader||'—')}</td>` : ''}
     <td onclick="event.stopPropagation()">
       <div class="row-acts">
@@ -1637,7 +1633,7 @@ async function applyStatus(val, cls, label) {
     const tr = document.querySelector(`tr[data-id="${id}"]`);
     if (tr && d.fecha_ultimo_contacto) {
       const cells = tr.querySelectorAll('td');
-      if (cells[4]) cells[4].textContent = d.fecha_ultimo_contacto.slice(0,10);
+      if (cells[5]) cells[5].textContent = d.fecha_ultimo_contacto.slice(0,10);
     }
   } else toast('Error: '+(d.error||''), true);
 }
