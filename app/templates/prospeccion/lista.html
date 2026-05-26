@@ -454,6 +454,7 @@
 .sb-prec { background: #ECFEFF; color: #0E7490; border: 1px solid #A5F3FC; }
 .sb-neg  { background: #FFFBEB; color: #92400E; border: 1px solid #FDE68A; }
 .sb-cli  { background: rgba(0,222,168,.1); color: #065F46; border: 1px solid rgba(0,222,168,.3); }
+.sb-nocon{ background: #FEF2F2; color: #B91C1C; border: 1px solid #FECACA; }
 .sb-dot {
   width: 6px;
   height: 6px;
@@ -465,6 +466,7 @@
 .sb-prec .sb-dot { background: #06B6D4; }
 .sb-neg .sb-dot  { background: #F59E0B; }
 .sb-cli .sb-dot  { background: var(--qori-primary); }
+.sb-nocon .sb-dot{ background: #DC2626; }
 
 /* Date cells */
 .date-overdue { color: var(--qori-danger); font-weight: 700; font-size: .75rem; }
@@ -830,6 +832,13 @@
       <div class="kpi-info">
         <div class="kpi-num" id="k-cli">—</div>
         <div class="kpi-label">Clientes</div>
+      </div>
+    </div>
+    <div class="kpi-card" onclick="setTab('no_contactar')" data-kpi="no_contactar">
+      <div class="kpi-icon" style="background:#FEF2F2;color:#DC2626"><i class="bi bi-slash-circle"></i></div>
+      <div class="kpi-info">
+        <div class="kpi-num" id="k-nocon">—</div>
+        <div class="kpi-label">No contactar</div>
       </div>
     </div>
   </div>
@@ -1262,6 +1271,7 @@ function updateCounts(c) {
     precio:       ['k-prec','tp-prec'],
     negociando:   ['k-neg','tp-neg'],
     clientes:     ['k-cli','tp-cli'],
+    no_contactar: ['k-nocon', null],
 
     todos:        [null,'tp-todos'],
   };
@@ -1421,8 +1431,9 @@ function badge(ec) {
     'negociando':     {cls:'sb-neg', label:'Negociando'},
     'negociacion':    {cls:'sb-neg', label:'Negociando'},
     'P3':             {cls:'sb-neg', label:'Negociando'},
-    'cliente':        {cls:'sb-cli', label:'Cliente'},
-    'P4':             {cls:'sb-cli', label:'Cliente'},
+    'cliente':        {cls:'sb-cli',   label:'Cliente'},
+    'P4':             {cls:'sb-cli',   label:'Cliente'},
+    'no_contactar':   {cls:'sb-nocon', label:'No contactar'},
   };
   return m[ec] || {cls:'sb-sin', label:'Sin contactar'};
 }
@@ -1638,11 +1649,12 @@ async function saveNotes(id) {
    STATUS MENU
 ───────────────────────────────────────────────────────────── */
 const STATUS_OPTS = [
-  {val:'',              cls:'sb-sin', label:'Sin contactar'},
-  {val:'presentado',    cls:'sb-pres',label:'Presentado'},
-  {val:'precio_enviado',cls:'sb-prec',label:'Precio enviado'},
-  {val:'negociando',    cls:'sb-neg', label:'Negociando'},
-  {val:'cliente',       cls:'sb-cli', label:'Cliente'},
+  {val:'',              cls:'sb-sin',   label:'Sin contactar'},
+  {val:'presentado',    cls:'sb-pres',  label:'Presentado'},
+  {val:'precio_enviado',cls:'sb-prec',  label:'Precio enviado'},
+  {val:'negociando',    cls:'sb-neg',   label:'Negociando'},
+  {val:'cliente',       cls:'sb-cli',   label:'Cliente'},
+  {val:'no_contactar',  cls:'sb-nocon', label:'No contactar', motivo:true},
 ];
 let _sdCtx = null;
 
@@ -1651,7 +1663,7 @@ function openStatusMenu(e, id, el) {
   _sdCtx = {id, el};
   const menu = document.getElementById('sdMenu');
   menu.innerHTML = STATUS_OPTS.map(o=>
-    `<div class="sd-item" onclick="applyStatus('${o.val}','${o.cls}','${o.label}')">
+    `<div class="sd-item" onclick="${o.motivo ? `askMotivo()` : `applyStatus('${o.val}','${o.cls}','${o.label}')`}">
        <span class="${o.cls} status-badge" style="pointer-events:none"><span class="sb-dot"></span>${o.label}</span>
      </div>`
   ).join('');
@@ -1661,15 +1673,44 @@ function openStatusMenu(e, id, el) {
   menu.classList.add('open');
 }
 
-async function applyStatus(val, cls, label) {
+const MOTIVOS_NO_CONTACTAR = [
+  'No desea ser contactado',
+  'Sin respuesta reiterada',
+  'Datos de contacto incorrectos o inexistentes',
+  'Ya tiene proveedor y no está interesado',
+  'Número / email no válido',
+  'Otro',
+];
+
+function askMotivo() {
+  document.getElementById('sdMenu').classList.remove('open');
+  if (!_sdCtx) return;
+  Swal.fire({
+    title: 'Motivo para No Contactar',
+    html: `<select id="swal-motivo" class="swal2-select" style="width:100%;margin-top:.5rem;">
+      ${MOTIVOS_NO_CONTACTAR.map(m=>`<option value="${m}">${m}</option>`).join('')}
+    </select>`,
+    confirmButtonText: 'Confirmar',
+    confirmButtonColor: '#DC2626',
+    showCancelButton: true,
+    cancelButtonText: 'Cancelar',
+    preConfirm: () => document.getElementById('swal-motivo').value,
+  }).then(res => {
+    if (res.isConfirmed) applyStatus('no_contactar', 'sb-nocon', 'No contactar', res.value);
+  });
+}
+
+async function applyStatus(val, cls, label, motivo) {
   document.getElementById('sdMenu').classList.remove('open');
   if (!_sdCtx) return;
   const {id, el} = _sdCtx;
   el.className = `${cls} status-badge`;
   el.innerHTML = `<span class="sb-dot"></span>${label}`;
   toast('Guardando…');
+  const body = {estado: val};
+  if (motivo) body.motivo = motivo;
   const r2 = await fetch(`/prospeccion/${id}/cambiar-estado`, {
-    method:'POST', headers:jHeaders(), body:JSON.stringify({estado:val})
+    method:'POST', headers:jHeaders(), body:JSON.stringify(body)
   });
   const d = await r2.json();
   if (d.ok) {

@@ -138,6 +138,7 @@ _FASE_ESTADOS = {
     "precio":        ["precio_enviado","P2"],
     "negociando":    ["negociando",    "negociacion", "P3"],
     "clientes":      ["cliente",       "P4"],
+    "no_contactar":  ["no_contactar"],
 }
 # Estados que NO son cliente (para conteo "activos")
 _ESTADOS_NO_CLIENTE = (
@@ -1353,16 +1354,22 @@ def cambiar_estado(pid):
     p = db.get_or_404(Prospecto, pid)
     _verificar_acceso(p)
 
-    nuevo = request.get_json(force=True).get("estado", "")
+    data  = request.get_json(force=True)
+    nuevo = data.get("estado", "")
+    motivo = data.get("motivo", "").strip()
     validos = {"presentado","precio_enviado","negociando","cliente",
-               "seguimiento","negociacion","P1","P2","P3","P4"}
+               "seguimiento","negociacion","P1","P2","P3","P4","no_contactar"}
     if nuevo not in validos:
         return jsonify({"ok": False, "error": "Estado invalido."}), 400
 
     ahora = now_peru().strftime("%Y-%m-%d %H:%M")
+    if nuevo == "no_contactar" and motivo:
+        descripcion = f"Marcado como No Contactar. Motivo: {motivo}"
+    else:
+        descripcion = f"Estado cambiado a {nuevo}."
     act = ActividadProspecto(
         prospecto_id=p.id, user_id=current_user.id, tipo="estado",
-        descripcion=f"Estado cambiado a {nuevo}.", nuevo_estado=nuevo,
+        descripcion=descripcion, nuevo_estado=nuevo,
     )
     db.session.add(act)
     p.estado_comercial      = nuevo
@@ -1949,12 +1956,14 @@ def _api_grid_impl():
             Prospecto.estado_comercial == None,
             Prospecto.estado_comercial == "",
             Prospecto.estado_comercial == "sin_contactar"))
+    elif tab == "no_contactar":
+        query = query.filter(Prospecto.estado_comercial == "no_contactar")
     else:
-        # "todos": excluye clientes pero incluye NULLs (sin_contactar)
+        # "todos": excluye clientes y no_contactar
         query = query.filter(or_(
             Prospecto.estado_comercial == None,
             Prospecto.estado_comercial == "",
-            Prospecto.estado_comercial.notin_(_clientes_vals),
+            Prospecto.estado_comercial.notin_(_clientes_vals + ["no_contactar"]),
         ))
 
     if q_str:
@@ -2064,12 +2073,13 @@ def _api_grid_impl():
 
     base = _base_query()
     counts = {
-        "todos":         base.filter(Prospecto.estado_comercial.notin_(_FASE_ESTADOS["clientes"])).count(),
+        "todos":         base.filter(or_(Prospecto.estado_comercial == None, Prospecto.estado_comercial == "", Prospecto.estado_comercial.notin_(_FASE_ESTADOS["clientes"] + ["no_contactar"]))).count(),
         "sin_contactar": base.filter(or_(Prospecto.estado_comercial == None, Prospecto.estado_comercial == "", Prospecto.estado_comercial == "sin_contactar")).count(),
         "presentado":    base.filter(Prospecto.estado_comercial.in_(_FASE_ESTADOS["presentado"])).count(),
         "precio":        base.filter(Prospecto.estado_comercial.in_(_FASE_ESTADOS["precio"])).count(),
         "negociando":    base.filter(Prospecto.estado_comercial.in_(_FASE_ESTADOS["negociando"])).count(),
         "clientes":      base.filter(Prospecto.estado_comercial.in_(_FASE_ESTADOS["clientes"])).count(),
+        "no_contactar":  base.filter(Prospecto.estado_comercial == "no_contactar").count(),
     }
 
     traders = [{"id": u.id, "username": u.username} for u in
