@@ -15,7 +15,7 @@ from datetime import timedelta, time as dt_time
 from flask import Blueprint, render_template, request, jsonify
 from flask_login import login_required, current_user
 
-from app.extensions import db, csrf
+from app.extensions import db, csrf, socketio
 from app.utils.decorators import require_role
 from app.utils.formatters import now_peru
 from app.models.datatec_rate import DatatecRate
@@ -203,6 +203,21 @@ def api_snap():
 # API — Actualizar DATATEC
 # ─────────────────────────────────────────────────────────────────────────────
 
+@fx_terminal_bp.route('/api/datatec', methods=['GET'])
+@login_required
+@require_role('Master', 'Trader', 'Operador')
+def api_get_datatec():
+    """Precio DATATEC actual — lectura para Master/Trader/Operador."""
+    row = DatatecRate.get()
+    return jsonify({
+        'ok': True,
+        'compra':     float(row.compra),
+        'venta':      float(row.venta),
+        'updated_at': row.updated_at.isoformat() if row.updated_at else None,
+        'updated_by': row.updater.username if row.updater else None,
+    })
+
+
 @fx_terminal_bp.route('/api/datatec', methods=['POST'])
 @csrf.exempt
 @login_required
@@ -233,6 +248,12 @@ def api_update_datatec():
         db.session.commit()
         logger.info('[FXTerminal] DATATEC → compra=%.4f venta=%.4f por %s',
                     compra, venta, current_user.username)
+        socketio.emit('datatec_actualizado', {
+            'compra':     compra,
+            'venta':      venta,
+            'updated_by': current_user.username,
+            'updated_at': now_peru().isoformat(),
+        })
         return jsonify({'ok': True, 'compra': compra, 'venta': venta})
     except Exception as exc:
         db.session.rollback()

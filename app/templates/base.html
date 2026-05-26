@@ -819,11 +819,11 @@
         }
 
         function _fetchRates() {
-            fetch('/platform-api/public/exchange-rates')
+            fetch('/fx-terminal/api/datatec')
                 .then(function(r) { return r.ok ? r.json() : null; })
                 .then(function(data) {
-                    if (!data || !data.success || !data.data) return;
-                    _setRates(data.data.tipo_compra, data.data.tipo_venta, data.data.fecha_actualizacion, false);
+                    if (!data || !data.ok) return;
+                    _setRates(data.compra, data.venta, data.updated_at, false);
                 })
                 .catch(function() {});
         }
@@ -834,12 +834,12 @@
             setInterval(_updateAge, 10000);
         });
 
-        // Socket listener (reuse global socket from common.js)
+        // Socket listener — evento datatec_actualizado
         document.addEventListener('DOMContentLoaded', function() {
             var _poll = setInterval(function() {
                 if (!window._qoriSocket) return;
                 clearInterval(_poll);
-                window._qoriSocket.on('tipos_cambio_actualizados', function(d) {
+                window._qoriSocket.on('datatec_actualizado', function(d) {
                     _setRates(d.compra, d.venta, d.updated_at, true);
                     _updateAge();
                 });
