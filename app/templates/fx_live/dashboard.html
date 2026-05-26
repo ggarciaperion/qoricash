@@ -410,6 +410,50 @@
 }
 .tc-spread span { color: var(--tc-label); font-weight: 600; }
 
+/* ── Market closed badge ── */
+.tc-market-closed-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  font-size: .68rem;
+  color: var(--tc-amber);
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  background: rgba(245,158,11,.1);
+  border: 1px solid rgba(245,158,11,.3);
+  padding: .25rem .65rem;
+  border-radius: 99px;
+}
+.tc-market-closed-badge::before {
+  content: '';
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--tc-amber);
+  flex-shrink: 0;
+}
+.tc-market-event {
+  font-size: .65rem;
+  color: var(--tc-muted);
+  font-variant-numeric: tabular-nums;
+}
+.tc-market-event span { color: var(--tc-amber); font-weight: 700; }
+
+/* ── Market closed overlay en cards ── */
+.tc-closed-note {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  font-size: .72rem;
+  color: var(--tc-amber);
+  font-weight: 600;
+  background: rgba(245,158,11,.06);
+  border: 1px solid rgba(245,158,11,.2);
+  border-radius: var(--tc-radius-sm);
+  padding: .45rem .75rem;
+  margin-top: .75rem;
+}
+
 /* ── Toast ── */
 #tcToast {
   position: fixed;
@@ -443,9 +487,11 @@
         <div class="tc-title">TC Live <span style="color:var(--tc-muted);font-weight:400;font-size:.85em;">/ Pricing Engine</span></div>
         <div class="tc-subtitle">USD/PEN · Estimación interna · Solo Master</div>
       </div>
-      <span class="tc-live-dot">Live</span>
+      <span class="tc-live-dot" id="liveDot">Live</span>
+      <span class="tc-market-closed-badge" id="marketClosedBadge" style="display:none;">MERCADO CERRADO</span>
     </div>
     <div style="display:flex;align-items:center;gap:1rem;">
+      <div class="tc-market-event" id="marketEvent" style="display:none;"></div>
       <div class="tc-clock" id="tcClock">—</div>
       <div style="font-size:.65rem;color:var(--tc-muted);">Polling <span id="tcNextPoll" style="color:var(--tc-label);font-weight:600;">15s</span></div>
     </div>
@@ -630,17 +676,19 @@
 'use strict';
 
 // ── Estado de la app ────────────────────────────────────────────
-let _state        = null;
-let _chart        = null;
-let _tf           = '1h';
-let _pollTimer    = null;
-let _pollCountdown = 15;
-let _prevCompra   = null;
-let _prevVenta    = null;
-let _datatecAgeS  = 0;
+let _state          = null;
+let _chart          = null;
+let _tf             = '1h';
+let _pollTimer      = null;
+let _pollCountdown  = 15;
+let _prevCompra     = null;
+let _prevVenta      = null;
+let _datatecAgeS    = 0;
 let _freshnessTimer = null;
+let _marketOpen     = true;   // se actualiza en cada poll
 
-const POLL_INTERVAL_S = 15;
+const POLL_INTERVAL_S        = 15;
+const POLL_INTERVAL_CLOSED_S = 60;  // cuando el mercado está cerrado, polling cada 60s
 const CONF_CIRC_R     = 33;
 const CONF_CIRC_C     = 2 * Math.PI * CONF_CIRC_R;   // ≈ 207.3
 
@@ -714,7 +762,10 @@ function tickFreshness() {
 function tickCountdown() {
   _pollCountdown = Math.max(0, _pollCountdown - 1);
   $('tcNextPoll').textContent = _pollCountdown + 's';
-  if (_pollCountdown === 0) { _pollCountdown = POLL_INTERVAL_S; poll(); }
+  if (_pollCountdown === 0) {
+    _pollCountdown = _marketOpen ? POLL_INTERVAL_S : POLL_INTERVAL_CLOSED_S;
+    poll();
+  }
 }
 
 // ── Flash animado en precios ─────────────────────────────────────
@@ -724,6 +775,57 @@ function flashPrice(el, newVal, prevVal) {
   if (!cls) return;
   el.classList.add(cls);
   setTimeout(() => el.classList.remove(cls), 900);
+}
+
+// ── Render — estado del mercado ──────────────────────────────────
+function renderMarket(market) {
+  if (!market) return;
+  _marketOpen = market.open;
+
+  const dot    = $('liveDot');
+  const badge  = $('marketClosedBadge');
+  const evtEl  = $('marketEvent');
+
+  if (market.open) {
+    dot.style.display   = 'inline-flex';
+    badge.style.display = 'none';
+
+    // Aviso cuando queda poco para el cierre
+    if (market.mins_to_event <= 15) {
+      evtEl.style.display = 'block';
+      evtEl.innerHTML = `Cierre en <span>${market.mins_to_event} min</span>`;
+    } else {
+      evtEl.style.display = 'none';
+    }
+
+    // Quitar nota de cerrado en cards si existía
+    document.querySelectorAll('.tc-closed-note').forEach(el => el.remove());
+
+  } else {
+    dot.style.display   = 'none';
+    badge.style.display = 'inline-flex';
+
+    // Mostrar tiempo hasta apertura
+    const hrs  = Math.floor(market.mins_to_event / 60);
+    const mins = market.mins_to_event % 60;
+    const timeStr = hrs > 0 ? `${hrs}h ${mins}m` : `${mins} min`;
+    const dayMsg  = market.weekday >= 4   // viernes tarde o fin de semana
+      ? `Reabre el lunes a las <span>${market.next_event_hm}</span>`
+      : `Reabre a las <span>${market.next_event_hm}</span> (en ${timeStr})`;
+
+    evtEl.style.display = 'block';
+    evtEl.innerHTML = dayMsg;
+
+    // Añadir nota en card live si no existe
+    const cardLive = $('cardLive');
+    if (cardLive && !cardLive.querySelector('.tc-closed-note')) {
+      const note = document.createElement('div');
+      note.className = 'tc-closed-note';
+      note.innerHTML = `<i class="bi bi-moon-stars-fill" style="font-size:.8rem;"></i>
+        Mercado cerrado — precios son referencia del último cierre (13:30 Lima)`;
+      cardLive.appendChild(note);
+    }
+  }
 }
 
 // ── Render — precios DATATEC ─────────────────────────────────────
@@ -1001,6 +1103,7 @@ async function poll() {
 
     _state = data;
 
+    renderMarket(data.market);
     renderDatatec(data.datatec, data.datatec_age_s);
     renderEstimate(data.estimate);
     renderSignalStrip(data.estimate);

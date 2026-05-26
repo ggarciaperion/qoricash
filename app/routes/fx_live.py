@@ -16,7 +16,7 @@ Seguridad:
 """
 import logging
 import statistics
-from datetime import timedelta
+from datetime import timedelta, time as dt_time
 from flask import Blueprint, render_template, request, jsonify
 from flask_login import login_required, current_user
 from sqlalchemy import text
@@ -34,9 +34,61 @@ logger = logging.getLogger(__name__)
 
 fx_live_bp = Blueprint('fx_live', __name__, url_prefix='/tc-live')
 
+_MARKET_OPEN  = dt_time(9,  0)   # 09:00 Lima
+_MARKET_CLOSE = dt_time(13, 30)  # 13:30 Lima
+
 _RETAIL_STALE_MIN   = 30   # ignorar casas de cambio sin actualizar en más de N minutos
 _RETAIL_MIN_SAMPLE  = 3    # mínimo de fintechs para considerar la señal válida
 _RETAIL_BASELINE_W  = 20   # ventana en minutos para buscar baseline alrededor del update DATATEC
+
+
+def _market_status() -> dict:
+    """
+    Retorna el estado del mercado cambiario peruano (lunes–viernes 09:00–13:30 Lima).
+    Incluye minutos para cierre/apertura y mensaje para el frontend.
+    """
+    now  = now_peru()
+    t    = now.time()
+    wday = now.weekday()   # 0=lun … 6=dom
+
+    is_open = (wday < 5) and (_MARKET_OPEN <= t < _MARKET_CLOSE)
+
+    # ── Calcular minutos hasta próximo evento ────────────────────────────
+    if is_open:
+        # Minutos hasta cierre
+        close_dt = now.replace(hour=13, minute=30, second=0, microsecond=0)
+        mins_to_event = int((close_dt - now).total_seconds() / 60)
+        next_event    = 'cierre'
+        next_event_hm = '13:30'
+    else:
+        # Minutos hasta próxima apertura (hoy o lunes)
+        if wday < 5 and t < _MARKET_OPEN:
+            # Hoy abre antes de las 9
+            open_dt = now.replace(hour=9, minute=0, second=0, microsecond=0)
+        else:
+            # Buscar el próximo lunes (o día hábil siguiente)
+            days_ahead = (7 - wday) % 7 or 7   # días hasta próximo lunes si ya pasó el viernes
+            if wday >= 5:
+                days_ahead = 7 - wday           # sábado→2, domingo→1
+            else:
+                days_ahead = 1                  # ya pasó la hora, abrir mañana
+            from datetime import datetime, timedelta as _td
+            next_day = (now + _td(days=days_ahead)).replace(
+                hour=9, minute=0, second=0, microsecond=0)
+            open_dt = next_day
+        mins_to_event = int((open_dt - now).total_seconds() / 60)
+        next_event    = 'apertura'
+        next_event_hm = '09:00'
+
+    return {
+        'open':           is_open,
+        'open_time':      '09:00',
+        'close_time':     '13:30',
+        'mins_to_event':  max(0, mins_to_event),
+        'next_event':     next_event,       # 'cierre' | 'apertura'
+        'next_event_hm':  next_event_hm,
+        'weekday':        wday,
+    }
 
 
 def _get_retail_context(datatec_updated_at):
@@ -215,11 +267,12 @@ def api_state():
             age_s = int((now_peru() - datatec.updated_at).total_seconds())
 
         return jsonify({
-            'ok':          True,
-            'datatec':     datatec_dict,
+            'ok':            True,
+            'datatec':       datatec_dict,
             'datatec_age_s': age_s,
-            'estimate':    estimate.to_dict(),
-            'server_time': now_peru().isoformat(),
+            'estimate':      estimate.to_dict(),
+            'market':        _market_status(),
+            'server_time':   now_peru().isoformat(),
         })
     except Exception as exc:
         logger.error('[TCLive] Error en api_state: %s', exc, exc_info=True)
