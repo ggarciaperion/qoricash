@@ -349,6 +349,26 @@ def create_app(config_name=None):
     except Exception as e:
         logging.warning(f"[Sanctions] No se pudo iniciar pre-carga: {e}")
 
+    # Migración: tabla datatec_rates (precio DATATEC — fila única, source of truth)
+    try:
+        with app.app_context():
+            from app.extensions import db
+            from sqlalchemy import text
+            db.session.execute(text("""
+                CREATE TABLE IF NOT EXISTS datatec_rates (
+                    id           SERIAL PRIMARY KEY,
+                    compra       NUMERIC(10,4) NOT NULL DEFAULT 0,
+                    venta        NUMERIC(10,4) NOT NULL DEFAULT 0,
+                    compra_tarde NUMERIC(10,4),
+                    venta_tarde  NUMERIC(10,4),
+                    updated_by   INTEGER REFERENCES users(id),
+                    updated_at   TIMESTAMP NOT NULL DEFAULT NOW()
+                )
+            """))
+            db.session.commit()
+    except Exception as e:
+        logging.warning(f"[TCLive] Error creando tabla datatec_rates: {e}")
+
     # Migración: tabla datatec_entries (audit log TC Live — Pricing Engine)
     try:
         with app.app_context():
