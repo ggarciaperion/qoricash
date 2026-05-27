@@ -63,6 +63,9 @@ deep-translator==1.11.4
 # RSS feed parser (noticias de mercado)
 feedparser==6.0.11
 
+# Web Push Notifications (VAPID)
+pywebpush==2.1.2
+
 # HTML scraping (fx_monitor scrapers)
 beautifulsoup4==4.12.3
 lxml==5.2.2

@@ -76,6 +76,29 @@ def create_app(config_name=None):
             'Configura REDIS_URL en Render para rate limiting efectivo en producción.'
         )
 
+    # Migración: tabla web push subscriptions (idempotente)
+    try:
+        with app.app_context():
+            from app.extensions import db
+            from sqlalchemy import text
+            db.session.execute(text("""
+                CREATE TABLE IF NOT EXISTS push_subscriptions (
+                    id         SERIAL PRIMARY KEY,
+                    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    endpoint   TEXT    NOT NULL UNIQUE,
+                    p256dh     TEXT    NOT NULL,
+                    auth       VARCHAR(100) NOT NULL,
+                    user_agent VARCHAR(250),
+                    created_at TIMESTAMP DEFAULT NOW()
+                )
+            """))
+            db.session.execute(text(
+                "CREATE INDEX IF NOT EXISTS idx_push_sub_user ON push_subscriptions(user_id)"
+            ))
+            db.session.commit()
+    except Exception as e:
+        logging.warning(f"[Migration] push_subscriptions: {e}")
+
     # Aplicar migraciones de columnas nuevas (idempotente — usa ADD COLUMN IF NOT EXISTS)
     try:
         with app.app_context():
@@ -580,6 +603,8 @@ def register_blueprints(app):
     app.register_blueprint(comercial_bp)       # Modulo Comercial — cartera de clientes
     from app.routes.alertas_tc import alertas_tc_bp
     app.register_blueprint(alertas_tc_bp)      # Modulo Alertas TC — leads desde qoricash.pe
+    from app.routes.push import push_bp
+    app.register_blueprint(push_bp)            # Web Push: /api/push/*
 
 # Service Worker debe servirse desde la raíz del dominio (scope /)
     import os

@@ -14,6 +14,24 @@ logger = logging.getLogger(__name__)
 
 # ─── Utilidades internas ───────────────────────────────────────────────────────
 
+def _web_push_to_roles(roles, payload):
+    """Envía web push a todos los dispositivos suscritos de los roles indicados."""
+    try:
+        from app.services.web_push_service import send_to_roles
+        send_to_roles(roles, payload)
+    except Exception as e:
+        logger.error(f'[NOTIF] web_push_to_roles error: {e}')
+
+
+def _web_push_to_user(user_id, payload):
+    """Envía web push a todos los dispositivos suscritos de un usuario."""
+    try:
+        from app.services.web_push_service import send_to_users
+        send_to_users([user_id], payload)
+    except Exception as e:
+        logger.error(f'[NOTIF] web_push_to_user error: {e}')
+
+
 def _emit_to_role(event, data, role):
     """Emite a todos los usuarios de un rol. Room correcto: role_{role}."""
     try:
@@ -138,6 +156,13 @@ class NotificationService:
                         notif_type='info', category='operation',
                         link=f'/operations/{operation.id}')
             _push_unread_counts_for_roles(roles)
+            _web_push_to_roles(roles, {
+                'title': '📋 Nueva Operación',
+                'body': f'{operation.operation_id} — {name}',
+                'type': 'info',
+                'url': f'/operations/{operation.id}',
+                'tag': f'op-{operation.operation_id}',
+            })
         except Exception as e:
             logger.error(f'[NOTIF] notify_new_operation error: {e}')
 
@@ -206,8 +231,15 @@ class NotificationService:
             _save_to_db(roles, title, msg, notif_type='success', category='operation',
                         link=f'/operations/{operation.id}')
             _push_unread_counts_for_roles(roles)
-            # Notificar al cliente web
             _emit_to_client_operation(operation, 'En proceso')
+            _web_push_to_roles(roles, {
+                'title': title,
+                'body': msg,
+                'type': 'success',
+                'url': f'/operations/{operation.id}',
+                'tag': f'op-completada-{operation.operation_id}',
+                'priority': 'high',
+            })
         except Exception as e:
             logger.error(f'[NOTIF] notify_operation_completed error: {e}')
 
@@ -234,8 +266,15 @@ class NotificationService:
             _save_to_db(roles, title, msg, notif_type='warning', category='operation',
                         link=f'/operations/{operation.id}')
             _push_unread_counts_for_roles(roles)
-            # Notificar al cliente web
             _emit_to_client_operation(operation, 'Pendiente')
+            _web_push_to_roles(roles, {
+                'title': title,
+                'body': msg,
+                'type': 'warning',
+                'url': f'/operations/{operation.id}',
+                'tag': f'op-enproceso-{operation.operation_id}',
+                'priority': 'high',
+            })
         except Exception as e:
             logger.error(f'[NOTIF] notify_operation_in_process error: {e}')
 
@@ -254,8 +293,14 @@ class NotificationService:
             _save_to_db(roles, title, msg, notif_type='warning', category='operation',
                         link=f'/operations/{operation.id}')
             _push_unread_counts_for_roles(roles)
-            # Notificar al cliente web
             _emit_to_client_operation(operation, None)
+            _web_push_to_roles(roles, {
+                'title': title,
+                'body': msg,
+                'type': 'warning',
+                'url': f'/operations/{operation.id}',
+                'tag': f'op-cancelada-{operation.operation_id}',
+            })
         except Exception as e:
             logger.error(f'[NOTIF] notify_operation_canceled error: {e}')
 
@@ -303,6 +348,14 @@ class NotificationService:
             _save_to_db(roles, title, msg, notif_type='info', category='client',
                         link=f'/clients/{client.id}')
             _push_unread_counts_for_roles(roles)
+            _web_push_to_roles(roles, {
+                'title': title,
+                'body': msg,
+                'type': 'info',
+                'url': f'/clients/{client.id}',
+                'tag': f'cliente-{client.id}',
+                'priority': 'high',
+            })
         except Exception as e:
             logger.error(f'[NOTIF] notify_new_client error: {e}')
 
@@ -331,6 +384,13 @@ class NotificationService:
             _save_to_db(['Master'], title, msg, notif_type='info', category='user',
                         link=f'/users/{user.id}')
             _push_unread_counts_for_roles(['Master'])
+            _web_push_to_roles(['Master'], {
+                'title': title,
+                'body': msg,
+                'type': 'info',
+                'url': f'/users/{user.id}',
+                'tag': f'usuario-{user.id}',
+            })
         except Exception as e:
             logger.error(f'[NOTIF] notify_new_user error: {e}')
 
@@ -365,6 +425,13 @@ class NotificationService:
             _save_to_db_user(operator_user.id, title, msg, notif_type='info', category='operation',
                              link=f'/operations/{operation.id}')
             _push_unread_count(operator_user.id)
+            _web_push_to_user(operator_user.id, {
+                'title': title,
+                'body': msg,
+                'type': 'info',
+                'url': f'/operations/{operation.id}',
+                'tag': f'op-asignada-{operation.operation_id}',
+            })
         except Exception as e:
             logger.error(f'[NOTIF] notify_operation_assigned error: {e}')
 
