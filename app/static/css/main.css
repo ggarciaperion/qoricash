@@ -2051,6 +2051,60 @@ tr[data-status="Cancelado"] {
     100% { background: transparent; }
 }
 
+/* Botón lápiz edición móvil */
+.mb-pb-edit-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255,255,255,.08);
+    border: 1px solid rgba(255,255,255,.15);
+    color: rgba(255,255,255,.7);
+    border-radius: 8px;
+    width: 32px;
+    height: 32px;
+    font-size: .8rem;
+    cursor: pointer;
+    flex-shrink: 0;
+    margin-left: 6px;
+}
+.mb-pb-edit-btn:active { background: rgba(255,255,255,.18); }
+
+/* Formulario edición móvil */
+.mb-pb-form {
+    display: none;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+}
+.mb-pb-input {
+    flex: 1;
+    min-width: 0;
+    background: rgba(255,255,255,.08);
+    border: 1px solid rgba(255,255,255,.2);
+    color: #fff;
+    border-radius: 8px;
+    padding: 4px 8px;
+    font-size: .82rem;
+    text-align: center;
+    -moz-appearance: textfield;
+}
+.mb-pb-input::-webkit-outer-spin-button,
+.mb-pb-input::-webkit-inner-spin-button { -webkit-appearance: none; }
+.mb-pb-input:focus { outline: none; border-color: #34d399; }
+.mb-pb-btn-save {
+    background: #34d399; color: #0d1b2a; border: none;
+    border-radius: 8px; width: 34px; height: 34px;
+    font-size: .9rem; cursor: pointer; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+}
+.mb-pb-btn-cancel {
+    background: rgba(255,255,255,.08); color: rgba(255,255,255,.6);
+    border: 1px solid rgba(255,255,255,.15);
+    border-radius: 8px; width: 34px; height: 34px;
+    font-size: .85rem; cursor: pointer; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+}
+
 
 /* ═══════════════════════════════════════════════════════════════════════════
    31. DESKTOP PRECIO BASE BAR (encabezado fijo — solo escritorio)

@@ -33,7 +33,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css">
 
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}?v=6.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}?v=6.1">
 
     <!-- Meta CSRF Token -->
     <meta name="csrf-token" content="{{ csrf_token() }}">
@@ -296,20 +296,33 @@
     <!-- Mobile Precio Base Bar — barra fija solo en móvil, debajo del topbar -->
     {% if current_user.is_authenticated and (current_user.role in ['Master','Operador'] or (current_user.role == 'Trader' and pb_access)) %}
     <div class="mobile-pb-bar" id="mobilePbBar">
-        <div class="mb-pb-brand">
+        <!-- Vista normal -->
+        <div class="mb-pb-brand" id="mbPbBrand">
             <span class="mb-pb-dot" id="mbPbDot"></span>
             <span class="mb-pb-brand-text">Mercado en vivo</span>
         </div>
-        <div class="mb-pb-pills">
-            <div class="mb-pb-pill mb-pb-pill-buy">
+        <div class="mb-pb-pills" id="mbPbPills">
+            <div class="mb-pb-pill mb-pb-pill-buy" {% if current_user.role in ['Master','Operador'] %}style="cursor:pointer" onclick="mbPbOpenEdit()"{% endif %}>
                 <span class="mb-pb-pill-label">COMPRA</span>
                 <span class="mb-pb-pill-value" id="mbPbBuy">—</span>
             </div>
-            <div class="mb-pb-pill mb-pb-pill-sell">
+            <div class="mb-pb-pill mb-pb-pill-sell" {% if current_user.role in ['Master','Operador'] %}style="cursor:pointer" onclick="mbPbOpenEdit()"{% endif %}>
                 <span class="mb-pb-pill-label">VENTA</span>
                 <span class="mb-pb-pill-value" id="mbPbSell">—</span>
             </div>
         </div>
+        {% if current_user.role in ['Master','Operador'] %}
+        <button class="mb-pb-edit-btn" id="mbPbEditBtn" onclick="mbPbOpenEdit()">
+            <i class="bi bi-pencil-fill"></i>
+        </button>
+        <!-- Formulario de edición móvil -->
+        <div class="mb-pb-form" id="mbPbForm" style="display:none">
+            <input type="number" class="mb-pb-input" id="mbPbInputCompra" step="0.0001" min="3" max="5" placeholder="Compra">
+            <input type="number" class="mb-pb-input" id="mbPbInputVenta"  step="0.0001" min="3" max="5" placeholder="Venta">
+            <button class="mb-pb-btn-save"   id="mbPbBtnSave"><i class="bi bi-check-lg"></i></button>
+            <button class="mb-pb-btn-cancel" id="mbPbBtnCancel"><i class="bi bi-x-lg"></i></button>
+        </div>
+        {% endif %}
     </div>
     {% endif %}
 
@@ -945,6 +958,73 @@
                     el.addEventListener('keydown', function(e) {
                         if (e.key === 'Enter')  btnSave.click();
                         if (e.key === 'Escape') _closeForm();
+                    });
+                });
+            });
+        }
+
+        // ── Mobile bar edit (Master/Operador) ────────────────────────────────
+        if (_canEdit) {
+            window.mbPbOpenEdit = function() {
+                var bVal = document.getElementById('mbPbBuy').textContent.trim();
+                var sVal = document.getElementById('mbPbSell').textContent.trim();
+                document.getElementById('mbPbInputCompra').value = (bVal !== '—') ? bVal : '';
+                document.getElementById('mbPbInputVenta').value  = (sVal !== '—') ? sVal : '';
+                document.getElementById('mbPbPills').style.display  = 'none';
+                document.getElementById('mbPbBrand').style.display  = 'none';
+                document.getElementById('mbPbEditBtn').style.display = 'none';
+                document.getElementById('mbPbForm').style.display   = 'flex';
+                document.getElementById('mbPbInputCompra').focus();
+            };
+
+            document.addEventListener('DOMContentLoaded', function() {
+                var iC = document.getElementById('mbPbInputCompra');
+                var iV = document.getElementById('mbPbInputVenta');
+                if (!iC) return;
+
+                function mbClose() {
+                    document.getElementById('mbPbForm').style.display    = 'none';
+                    document.getElementById('mbPbPills').style.display   = 'flex';
+                    document.getElementById('mbPbBrand').style.display   = 'flex';
+                    document.getElementById('mbPbEditBtn').style.display = 'flex';
+                }
+
+                document.getElementById('mbPbBtnCancel').addEventListener('click', mbClose);
+
+                document.getElementById('mbPbBtnSave').addEventListener('click', function() {
+                    var c = parseFloat(iC.value), v = parseFloat(iV.value);
+                    if (!c || !v || isNaN(c) || isNaN(v)) {
+                        iC.style.borderColor = (!c || isNaN(c)) ? '#ef4444' : '';
+                        iV.style.borderColor = (!v || isNaN(v)) ? '#ef4444' : '';
+                        return;
+                    }
+                    iC.style.borderColor = ''; iV.style.borderColor = '';
+                    var btn = document.getElementById('mbPbBtnSave');
+                    btn.disabled = true;
+                    fetch('/dashboard/api/precio-base', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ compra: c, venta: v })
+                    })
+                    .then(function(r) { return r.json(); })
+                    .then(function(d) {
+                        btn.disabled = false;
+                        if (d.ok) {
+                            _setRates(d.compra, d.venta, d.updated_at, true);
+                            mbClose();
+                        } else {
+                            Swal.fire({ toast: true, position: 'top-end', icon: 'error',
+                                title: d.error || 'Error al guardar', timer: 3000,
+                                showConfirmButton: false });
+                        }
+                    })
+                    .catch(function() { btn.disabled = false; });
+                });
+
+                [iC, iV].forEach(function(el) {
+                    el.addEventListener('keydown', function(e) {
+                        if (e.key === 'Enter')  document.getElementById('mbPbBtnSave').click();
+                        if (e.key === 'Escape') mbClose();
                     });
                 });
             });
