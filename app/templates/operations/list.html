@@ -2267,8 +2267,8 @@ function _autoFillBase() {
     if (!window._pbAccess) return;         // sin acceso al widget → no auto-llenar
     const tipo = $('input[name="operation_type_modal"]:checked').val() || 'Compra';
     const precio = tipo === 'Compra'
-        ? document.getElementById('pbBuy')?.textContent?.trim()
-        : document.getElementById('pbSell')?.textContent?.trim();
+        ? document.getElementById('deskPbBuy')?.textContent?.trim()
+        : document.getElementById('deskPbSell')?.textContent?.trim();
     if (!precio || precio === '—') return; // widget sin datos aún
     const val = parseFloat(precio);
     if (isNaN(val) || val <= 0) return;
