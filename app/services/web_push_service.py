@@ -130,7 +130,8 @@ def send_to_users(user_ids: List[int], payload: dict) -> int:
                 _send_one(sub.to_sub_info(), payload)
                 sent += 1
             except WebPushException as e:
-                if e.response is not None and e.response.status_code in (404, 410):
+                code = e.response.status_code if e.response is not None else 0
+                if code in (400, 403, 404, 410):
                     stale.append(sub.id)
                 else:
                     logger.warning(f'[WEB-PUSH] sub={sub.id} error: {e}')
