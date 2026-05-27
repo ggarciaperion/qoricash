@@ -105,6 +105,12 @@ class BankBalance(db.Model):
                         return banco
                 return 'INTERBANK'
 
+            def _fallback_banco_from_account(account_str):
+                """Deriva banco de QoriCash desde el string de cuenta del cliente."""
+                if not account_str:
+                    return None
+                return _normalize(account_str) or None
+
             def _fallback_banco():
                 """Banco fallback cuando no hay qc_bank: usa source_account → client.bank_accounts."""
                 try:
@@ -145,7 +151,7 @@ class BankBalance(db.Model):
                 # Depósitos: cliente → QoriCash en USD (inflows)
                 if _has_dep_banks:
                     for dep in _deposits:
-                        _b = _normalize(dep.get('qc_bank', ''))
+                        _b = _normalize(dep.get('qc_bank', '')) or _normalize(dep.get('cuenta_cargo', ''))
                         _amt = float(dep.get('importe', 0))
                         if _b and _amt > 0:
                             _update(_banco_accts.get(_b, {}).get('USD'), +_amt, 0.0)

@@ -19,6 +19,27 @@ logger = logging.getLogger(__name__)
 
 operations_bp = Blueprint('operations', __name__)
 
+def _derive_bank_from_account(account_str: str) -> str:
+    """
+    Deriva el banco de QoriCash a partir del label/número de cuenta del cliente.
+    En Perú se usan transferencias intrabancarias: banco cliente = banco QoriCash.
+    """
+    if not account_str:
+        return ''
+    u = account_str.upper()
+    if 'BCP' in u or 'CREDITO' in u or 'CRÉDITO' in u:
+        return 'BCP'
+    if 'INTERBANK' in u or 'IBK' in u:
+        return 'INTERBANK'
+    if 'BANBIF' in u or 'BIF' in u:
+        return 'BANBIF'
+    if 'BBVA' in u or 'CONTINENTAL' in u:
+        return 'BBVA'
+    if 'SCOTIABANK' in u or 'SCOTIA' in u:
+        return 'SCOTIABANK'
+    return ''
+
+
 
 def get_operator_name(operator_id):
     """
@@ -863,6 +884,9 @@ def update_operation(operation_id):
                 if i < len(existing_deposits) and existing_deposits[i].get('comprobante_url'):
                     if not dep.get('comprobante_url'):
                         dep['comprobante_url'] = existing_deposits[i]['comprobante_url']
+                # Fallback: derivar qc_bank del banco de la cuenta cargo si no viene del frontend
+                if not dep.get('qc_bank') and dep.get('cuenta_cargo'):
+                    dep['qc_bank'] = _derive_bank_from_account(dep['cuenta_cargo'])
 
             operation.client_deposits = new_deposits
 
@@ -873,6 +897,10 @@ def update_operation(operation_id):
                 return jsonify({'success': False, 'message': 'client_payments debe ser un array'}), 400
             if len(payments) > 4:
                 return jsonify({'success': False, 'message': 'Máximo 4 pagos permitidos'}), 400
+            # Fallback: derivar qc_bank del banco de la cuenta destino del cliente
+            for pay in payments:
+                if not pay.get('qc_bank') and pay.get('cuenta_destino'):
+                    pay['qc_bank'] = _derive_bank_from_account(pay['cuenta_destino'])
             operation.client_payments = payments
 
         db.session.commit()

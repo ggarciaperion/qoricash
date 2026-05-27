@@ -951,14 +951,8 @@ function viewOperation(operationId) {
             $('#btnRevertFromView').hide();
         }
 
-        // Botón guardar bancos: solo Master cuando hay flujos con qc_bank editable
-        const hasFlows = ((op.client_payments && op.client_payments.length > 0) ||
-                          (op.client_deposits && op.client_deposits.length > 0));
-        if (currentUserRole === 'Master' && hasFlows) {
-            $('#btnSaveBankFlows').show();
-        } else {
-            $('#btnSaveBankFlows').hide();
-        }
+        // Banks are auto-derived from client accounts — no manual save needed
+        $('#btnSaveBankFlows').hide();
 
         $('#viewOperationModal').modal('show');
 
@@ -1144,14 +1138,13 @@ function buildViewHTML(op, readonly) {
                     <thead class="table-light"><tr>
                         <th>Importe ${payCurrency}</th>
                         <th>Cuenta destino cliente</th>
-                        <th>Banco QoriCash origen</th>
+                        <th>Banco QoriCash</th>
                     </tr></thead><tbody>`;
             payments.forEach((p, i) => {
                 const importe = p.importe ? `${paySymbol} ${parseFloat(p.importe).toFixed(2)}` : '—';
                 const cta = p.cuenta_destino || '—';
-                const bankCell = isMasterView
-                    ? qcBankSelect(`view-payment-qc-bank`, p.qc_bank || '')
-                    : qcBankBadge(p.qc_bank);
+                const derivedBank = p.qc_bank || deriveBankFromAccount(p.cuenta_destino) || '';
+                const bankCell = qcBankBadge(derivedBank);
                 html += `<tr data-pay-idx="${i}"><td class="fw-semibold">${importe}</td><td>${cta}</td><td>${bankCell}</td></tr>`;
             });
             html += `</tbody></table></div>`;
@@ -1170,16 +1163,15 @@ function buildViewHTML(op, readonly) {
                     <thead class="table-light"><tr>
                         <th>Importe ${depCurrency}</th>
                         <th>Cuenta cargo cliente</th>
-                        <th>Banco QoriCash destino</th>
+                        <th>Banco QoriCash</th>
                         <th>Cód. operación</th>
                         <th>Comprobante</th>
                     </tr></thead><tbody>`;
             deposits.forEach((d, i) => {
                 const importe = d.importe ? `${depSymbol} ${parseFloat(d.importe).toFixed(2)}` : '—';
                 const cta = d.cuenta_cargo || '—';
-                const bankCell = isMasterView
-                    ? qcBankSelect(`view-deposit-qc-bank`, d.qc_bank || '')
-                    : qcBankBadge(d.qc_bank);
+                const derivedBank = d.qc_bank || deriveBankFromAccount(d.cuenta_cargo) || '';
+                const bankCell = qcBankBadge(derivedBank);
                 const cod = d.codigo_operacion || '—';
                 const comp = d.comprobante_url
                     ? `<a href="${d.comprobante_url}" target="_blank" class="btn btn-xs btn-outline-primary" style="font-size:11px;padding:1px 6px;"><i class="bi bi-download"></i></a>`
@@ -1189,9 +1181,7 @@ function buildViewHTML(op, readonly) {
             html += `</tbody></table></div>`;
         }
 
-        if (!isMasterView) {
-            html += `<div class="small text-muted mb-2"><i class="bi bi-info-circle me-1"></i>Solo Master puede editar los bancos QoriCash.</div>`;
-        }
+
     }
 
     // Comprobantes del operador
@@ -1306,18 +1296,16 @@ function saveBankFlows() {
     if (!currentViewOperation) return;
     const op = currentViewOperation;
 
-    // Rebuild payments preserving all fields, updating qc_bank from selects
+    // Rebuild payments preserving all fields, qc_bank auto-derived
     const updatedPayments = (op.client_payments || []).map((p, i) => {
         const row = $(`#operationDetails tr[data-pay-idx="${i}"]`);
-        const qcBank = row.find('.view-payment-qc-bank').val() || p.qc_bank || '';
-        return Object.assign({}, p, { qc_bank: qcBank });
+        return Object.assign({}, p, { qc_bank: p.qc_bank || deriveBankFromAccount(p.cuenta_destino) });
     });
 
-    // Rebuild deposits preserving all fields, updating qc_bank from selects
+    // Rebuild deposits preserving all fields, qc_bank auto-derived
     const updatedDeposits = (op.client_deposits || []).map((d, i) => {
         const row = $(`#operationDetails tr[data-dep-idx="${i}"]`);
-        const qcBank = row.find('.view-deposit-qc-bank').val() || d.qc_bank || '';
-        return Object.assign({}, d, { qc_bank: qcBank });
+        return Object.assign({}, d, { qc_bank: d.qc_bank || deriveBankFromAccount(d.cuenta_cargo) });
     });
 
     const payload = {
@@ -1502,10 +1490,6 @@ function addDepositRow(data, index, editable) {
     const defaultAccount = data.cuenta_cargo || currentOperation.source_account;
     const accountOptions = buildAccountOptions(currentOperation.operation_type === 'Compra' ? '$' : 'S/', defaultAccount);
     const comprobanteUrl = data.comprobante_url || '';
-    const qcBankVal = data.qc_bank || '';
-    const qcBankOptions = ['BCP', 'INTERBANK', 'BANBIF'].map(b =>
-        `<option value="${b}" ${qcBankVal === b ? 'selected' : ''}>${b}</option>`
-    ).join('');
 
     const html = `
     <div class="deposit-row border rounded p-2 mb-2" data-index="${index}" data-comprobante-url="${comprobanteUrl}">
@@ -1519,22 +1503,13 @@ function addDepositRow(data, index, editable) {
                 <label class="form-label small">Código Op.</label>
                 <input type="text" class="form-control form-control-sm deposit-codigo" value="${data.codigo_operacion || ''}" ${editable ? '' : 'readonly'}>
             </div>
-            <div class="col-md-2">
+            <div class="col-md-3">
                 <label class="form-label small">Cuenta Cargo</label>
                 ${editable
-                    ? `<select class="form-select form-select-sm deposit-cuenta">${accountOptions}</select>`
+                    ? `<select class="form-select form-select-sm deposit-cuenta" onchange="updateTotals()">${accountOptions}</select>`
                     : getAccountInfoDisplay(data.cuenta_cargo || currentOperation.source_account, false)}
             </div>
-            <div class="col-md-2">
-                <label class="form-label small">Banco QoriCash</label>
-                ${editable
-                    ? `<select class="form-select form-select-sm deposit-qc-bank">
-                        <option value="">Banco...</option>
-                        ${qcBankOptions}
-                       </select>`
-                    : `<span class="badge bg-secondary">${qcBankVal || '—'}</span>`}
-            </div>
-            <div class="col-md-3">
+            <div class="col-md-4">
                 <label class="form-label small">Comprobante</label>
                 <div class="deposit-comprobante-container">
                     ${comprobanteUrl
@@ -1591,10 +1566,6 @@ function addPayment() {
 function addPaymentRow(data, index, editable) {
     const defaultAccount = data.cuenta_destino || currentOperation.destination_account;
     const accountOptions = buildAccountOptions(currentOperation.operation_type === 'Venta' ? '$' : 'S/', defaultAccount);
-    const qcBankVal = data.qc_bank || '';
-    const qcBankOptions = ['BCP', 'INTERBANK', 'BANBIF'].map(b =>
-        `<option value="${b}" ${qcBankVal === b ? 'selected' : ''}>${b}</option>`
-    ).join('');
 
     // Auto-llenar importe con el monto total si es el primer pago y no tiene importe
     let defaultImporte = data.importe || '';
@@ -1614,16 +1585,7 @@ function addPaymentRow(data, index, editable) {
                 <input type="number" class="form-control form-control-sm payment-importe" value="${defaultImporte}"
                     step="0.01" min="0" ${editable ? '' : 'readonly'} onchange="updateTotals()">
             </div>
-            <div class="col-md-3">
-                <label class="form-label small">Banco QoriCash</label>
-                ${editable
-                    ? `<select class="form-select form-select-sm payment-qc-bank">
-                        <option value="">Banco...</option>
-                        ${qcBankOptions}
-                       </select>`
-                    : `<span class="badge bg-secondary">${qcBankVal || '—'}</span>`}
-            </div>
-            <div class="col-md-4">
+            <div class="col-md-7">
                 <label class="form-label small">Cuenta Destino Cliente</label>
                 ${editable
                     ? `<div class="d-flex align-items-center gap-1">
@@ -1795,6 +1757,30 @@ function buildAccountOptions(currency, selected) {
     return options;
 }
 
+// Deriva el banco de QoriCash a partir del banco de la cuenta del cliente.
+// En Perú la práctica es usar transferencias intrabancarias (mismo banco),
+// por lo que el banco de la cuenta del cliente = banco de QoriCash involucrado.
+function deriveBankFromAccount(accountNumberOrLabel) {
+    if (!accountNumberOrLabel) return '';
+    const u = accountNumberOrLabel.toUpperCase();
+    if (u.includes('BCP') || u.includes('CREDITO') || u.includes('CRÉDITO')) return 'BCP';
+    if (u.includes('INTERBANK') || u.includes('IBK')) return 'INTERBANK';
+    if (u.includes('BANBIF') || u.includes('BIF')) return 'BANBIF';
+    if (u.includes('BBVA') || u.includes('CONTINENTAL')) return 'BBVA';
+    if (u.includes('SCOTIABANK') || u.includes('SCOTIA')) return 'SCOTIABANK';
+    // Buscar en el listado de cuentas del cliente cargadas en memoria
+    const acct = clientBankAccounts.find(a => a.account_number === accountNumberOrLabel);
+    if (acct) {
+        const bn = (acct.bank_name || '').toUpperCase();
+        if (bn.includes('BCP') || bn.includes('CREDITO')) return 'BCP';
+        if (bn.includes('INTERBANK') || bn.includes('IBK')) return 'INTERBANK';
+        if (bn.includes('BANBIF') || bn.includes('BIF')) return 'BANBIF';
+        if (bn.includes('BBVA')) return 'BBVA';
+        if (bn.includes('SCOTIABANK') || bn.includes('SCOTIA')) return 'SCOTIABANK';
+    }
+    return '';
+}
+
 function getAccountInfoDisplay(accountNumber, withCopyBtn) {
     if (!accountNumber) return '<span class="text-muted small">No asignada</span>';
     const account = clientBankAccounts.find(acc => acc.account_number === accountNumber);
@@ -1958,11 +1944,12 @@ function collectDeposits() {
             dataVal: $(this).data('comprobante-url'),
             attrVal: $(this).attr('data-comprobante-url')
         });
+        const depCuenta = $(this).find('.deposit-cuenta').val() || '';
         deposits.push({
             importe: parseFloat($(this).find('.deposit-importe').val()) || 0,
             codigo_operacion: $(this).find('.deposit-codigo').val() || '',
-            cuenta_cargo: $(this).find('.deposit-cuenta').val() || '',
-            qc_bank: $(this).find('.deposit-qc-bank').val() || '',
+            cuenta_cargo: depCuenta,
+            qc_bank: deriveBankFromAccount(depCuenta),
             comprobante_url: comprobanteUrl
         });
     });
@@ -2050,10 +2037,11 @@ function removeDepositProof(depositIndex) {
 function collectPayments() {
     const payments = [];
     $('.payment-row').each(function() {
+        const payCuenta = $(this).find('.payment-cuenta').val() || '';
         payments.push({
             importe: parseFloat($(this).find('.payment-importe').val()) || 0,
-            qc_bank: $(this).find('.payment-qc-bank').val() || '',
-            cuenta_destino: $(this).find('.payment-cuenta').val() || ''
+            qc_bank: deriveBankFromAccount(payCuenta),
+            cuenta_destino: payCuenta
         });
     });
     return payments;
@@ -2155,10 +2143,6 @@ function completeOperation() {
     for (let i = 0; i < payments.length; i++) {
         if (!payments[i].importe || payments[i].importe <= 0) {
             showNotification(`El pago ${i + 1} debe tener un importe mayor a 0`, 'warning');
-            return;
-        }
-        if (!payments[i].qc_bank) {
-            showNotification(`El pago ${i + 1} debe indicar el banco QoriCash utilizado`, 'warning');
             return;
         }
         if (!payments[i].cuenta_destino) {
