@@ -96,16 +96,16 @@ class UserService:
         if role not in ['Master', 'Trader', 'Operador', 'Middle Office', 'App', 'Web']:
             return False, 'Rol inválido', None
         
-        # Validar que username no existe
-        if User.query.filter_by(username=username).first():
+        # Validar que username no existe (solo entre usuarios activos)
+        if User.query.filter_by(username=username, status='Activo').first():
             return False, 'El nombre de usuario ya existe', None
-        
-        # Validar que email no existe
-        if User.query.filter_by(email=email).first():
+
+        # Validar que email no existe (solo entre usuarios activos)
+        if User.query.filter_by(email=email, status='Activo').first():
             return False, 'El email ya está registrado', None
-        
-        # Validar que DNI no existe
-        if User.query.filter_by(dni=dni).first():
+
+        # Validar que DNI no existe (solo entre usuarios activos)
+        if User.query.filter_by(dni=dni, status='Activo').first():
             return False, 'El DNI ya está registrado', None
         
         # Crear usuario
@@ -167,8 +167,8 @@ class UserService:
             if not is_valid:
                 return False, error, None
             
-            # Verificar que no existe
-            if User.query.filter_by(email=email).first():
+            # Verificar que no existe (solo usuarios activos)
+            if User.query.filter(User.email == email, User.status == 'Activo', User.id != user.id).first():
                 return False, 'El email ya está registrado', None
             
             user.email = email
@@ -179,8 +179,8 @@ class UserService:
             if not is_valid:
                 return False, error, None
             
-            # Verificar que no existe
-            if User.query.filter_by(dni=dni).first():
+            # Verificar que no existe (solo usuarios activos)
+            if User.query.filter(User.dni == dni, User.status == 'Activo', User.id != user.id).first():
                 return False, 'El DNI ya está registrado', None
             
             user.dni = dni
@@ -282,8 +282,11 @@ class UserService:
         if user.id == current_user.id:
             return False, 'No puedes eliminar tu propio usuario'
         
-        # Soft delete (marcar como inactivo)
+        # Soft delete (marcar como inactivo + liberar email/username/dni para reutilización)
         user.status = 'Inactivo'
+        user.email = f"deleted_{user.id}_{user.email}"
+        user.username = f"deleted_{user.id}_{user.username}"
+        user.dni = f"deleted_{user.id}_{user.dni}"
         user.updated_at = now_peru()
 
         # Registrar en auditoría
