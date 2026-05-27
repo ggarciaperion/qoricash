@@ -102,7 +102,7 @@ body.has-sidebar.sidebar-collapsed .main-wrapper {
 
 /* Desktop Precio Base Bar — empuja el contenido hacia abajo en escritorio */
 body.has-pb-bar.has-sidebar .main-wrapper {
-    padding-top: 56px;
+    padding-top: 64px;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -2061,7 +2061,7 @@ tr[data-status="Cancelado"] {
     top: 0;
     left: var(--sidebar-width);
     right: 0;
-    height: 56px;
+    height: 64px;
     background: linear-gradient(135deg, #08121e 0%, #0d1b2e 100%);
     z-index: 1029;
     padding: 0 28px;
@@ -2132,21 +2132,22 @@ body.has-sidebar.sidebar-collapsed .desk-pb-bar {
 .dpb-rates {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 16px;
     flex: 1;
+    justify-content: center;   /* centra las pills en el espacio disponible */
 }
 .dpb-pill {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 6px 18px;
-    border-radius: 10px;
+    gap: 12px;
+    padding: 8px 24px;
+    border-radius: 12px;
 }
-.dpb-pill-buy  { background: rgba(52,211,153,.1);  border: 1px solid rgba(52,211,153,.22); }
-.dpb-pill-sell { background: rgba(96,165,250,.1);  border: 1px solid rgba(96,165,250,.22); }
+.dpb-pill-buy  { background: rgba(52,211,153,.1);  border: 1px solid rgba(52,211,153,.25); }
+.dpb-pill-sell { background: rgba(96,165,250,.1);  border: 1px solid rgba(96,165,250,.25); }
 
 .dpb-pill-label {
-    font-size: 0.6rem;
+    font-size: 0.65rem;
     font-weight: 800;
     letter-spacing: .14em;
     text-transform: uppercase;
@@ -2156,7 +2157,7 @@ body.has-sidebar.sidebar-collapsed .desk-pb-bar {
 .dpb-pill-sell .dpb-pill-label { color: rgba(96,165,250,.65); }
 
 .dpb-pill-value {
-    font-size: 1.45rem;
+    font-size: 1.7rem;
     font-weight: 800;
     font-variant-numeric: tabular-nums;
     letter-spacing: -.02em;
