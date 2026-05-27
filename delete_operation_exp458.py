@@ -17,7 +17,8 @@ TARGET_CLIENT = 'VILCHEZ OSORIO POUL'
 
 with app.app_context():
     row = db.session.execute(
-        text("SELECT o.id, o.operation_id, o.status, c.full_name "
+        text("SELECT o.id, o.operation_id, o.status, "
+             "COALESCE(c.apellido_paterno,'') || ' ' || COALESCE(c.apellido_materno,'') || ' ' || COALESCE(c.nombres,'') AS nombre "
              "FROM operations o JOIN clients c ON c.id = o.client_id "
              "WHERE o.operation_id = :oid"),
         {'oid': TARGET_OP}
@@ -28,6 +29,7 @@ with app.app_context():
         sys.exit(1)
 
     op_id, op_code, status, full_name = row
+    full_name = full_name.strip()
     print(f"\nOperación encontrada:")
     print(f"  ID interno : {op_id}")
     print(f"  Código     : {op_code}")
