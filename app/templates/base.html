@@ -33,7 +33,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css">
 
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}?v=5.9">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}?v=6.0">
 
     <!-- Meta CSRF Token -->
     <meta name="csrf-token" content="{{ csrf_token() }}">
@@ -1083,23 +1083,50 @@
                 .catch(function(e) { console.warn('[PUSH] Subscribe error:', e); });
         }
 
+        function _isPWA() {
+            return window.navigator.standalone === true ||
+                   window.matchMedia('(display-mode: standalone)').matches;
+        }
+
+        function showPushBanner(reg) {
+            if (document.getElementById('qori-push-banner')) return;
+            var b = document.createElement('div');
+            b.id = 'qori-push-banner';
+            b.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);' +
+                'background:#0d1b2a;border:1px solid rgba(52,211,153,.4);border-radius:14px;' +
+                'padding:14px 18px;display:flex;align-items:center;gap:12px;z-index:9999;' +
+                'box-shadow:0 4px 24px rgba(0,0,0,.5);max-width:92vw;';
+            b.innerHTML =
+                '<span style="font-size:1.3rem">🔔</span>' +
+                '<span style="color:#e2e8f0;font-size:.85rem;flex:1">Activa las alertas de precios en tiempo real</span>' +
+                '<button id="qori-push-allow" style="background:#34d399;color:#0d1b2a;border:none;' +
+                'border-radius:8px;padding:7px 14px;font-weight:700;font-size:.8rem;cursor:pointer;white-space:nowrap">Activar</button>' +
+                '<button id="qori-push-dismiss" style="background:transparent;border:none;color:#94a3b8;' +
+                'font-size:1.2rem;cursor:pointer;padding:0 4px;line-height:1">×</button>';
+            document.body.appendChild(b);
+            document.getElementById('qori-push-allow').addEventListener('click', function() {
+                Notification.requestPermission().then(function(p) {
+                    if (p === 'granted') subscribeToPush(reg);
+                    b.remove();
+                });
+            });
+            document.getElementById('qori-push-dismiss').addEventListener('click', function() {
+                b.remove();
+            });
+        }
+
         function initPush(reg) {
             if (Notification.permission === 'denied') return;
             reg.pushManager.getSubscription().then(function(existingSub) {
                 if (existingSub) {
-                    // Ya suscrito — re-registrar en servidor (por si cambió el usuario)
                     sendSubToServer(existingSub);
                     return;
                 }
                 if (Notification.permission === 'granted') {
                     subscribeToPush(reg);
                 } else {
-                    // Solicitar permiso tras 4 segundos en la primera visita
-                    setTimeout(function() {
-                        Notification.requestPermission().then(function(p) {
-                            if (p === 'granted') subscribeToPush(reg);
-                        });
-                    }, 4000);
+                    // iOS requiere gesto real — mostramos banner con botón
+                    setTimeout(function() { showPushBanner(reg); }, 2000);
                 }
             });
         }

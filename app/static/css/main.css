@@ -102,7 +102,7 @@ body.has-sidebar.sidebar-collapsed .main-wrapper {
 
 /* Desktop Precio Base Bar — empuja el contenido hacia abajo en escritorio */
 body.has-pb-bar.has-sidebar .main-wrapper {
-    padding-top: 88px;
+    padding-top: calc(88px + env(safe-area-inset-top, 0px));
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -113,6 +113,7 @@ body.has-pb-bar.has-sidebar .main-wrapper {
     top: 0;
     left: 0;
     height: 100vh;
+    padding-top: env(safe-area-inset-top, 0px);
     width: var(--sidebar-width);
     background: linear-gradient(180deg, var(--qori-secondary) 0%, #0f2236 100%);
     display: flex;
@@ -2061,10 +2062,10 @@ tr[data-status="Cancelado"] {
     top: 0;
     left: var(--sidebar-width);
     right: 0;
-    height: 88px;
+    height: calc(88px + env(safe-area-inset-top, 0px));
     background: linear-gradient(135deg, #08121e 0%, #0d1b2e 100%);
     z-index: 1029;
-    padding: 0 28px;
+    padding: env(safe-area-inset-top, 0px) 28px 0;
     gap: 24px;
     border-bottom: 1px solid rgba(52,211,153,.2);
     box-shadow: 0 2px 18px rgba(0,0,0,.45);
