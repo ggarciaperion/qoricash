@@ -25,7 +25,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css">
 
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}?v=5.4">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}?v=5.5">
 
     <!-- Meta CSRF Token -->
     <meta name="csrf-token" content="{{ csrf_token() }}">
@@ -50,51 +50,6 @@
                 <i class="bi bi-layout-sidebar-reverse"></i>
             </button>
         </div>
-
-        <!-- ── Precio Base Widget ── -->
-        {% if current_user.role in ['Master','Operador'] or (current_user.role == 'Trader' and pb_access) %}
-        <div class="pb-widget" id="pbWidget">
-            <div class="pb-header">
-                <span class="pb-dot" id="pbDot"></span>
-                <span class="pb-title">Precio Base</span>
-                <span class="pb-age" id="pbAge"></span>
-                {% if current_user.role in ['Master','Operador'] %}
-                <button class="pb-edit-btn" id="pbEditBtn" title="Actualizar precios">
-                    <i class="bi bi-pencil-fill"></i>
-                </button>
-                {% endif %}
-            </div>
-            <div class="pb-rates" id="pbRates">
-                <div class="pb-rate-item">
-                    <span class="pb-label">COMPRA</span>
-                    <span class="pb-value pb-buy" id="pbBuy">—</span>
-                </div>
-                <div class="pb-divider"></div>
-                <div class="pb-rate-item">
-                    <span class="pb-label">VENTA</span>
-                    <span class="pb-value pb-sell" id="pbSell">—</span>
-                </div>
-            </div>
-            {% if current_user.role in ['Master','Operador'] %}
-            <div class="pb-form" id="pbForm" style="display:none;">
-                <div class="pb-inputs">
-                    <div class="pb-input-group">
-                        <label class="pb-input-label">COMPRA</label>
-                        <input type="number" class="pb-input" id="pbInputCompra" step="0.0001" min="3" max="5" placeholder="0.0000">
-                    </div>
-                    <div class="pb-input-group">
-                        <label class="pb-input-label">VENTA</label>
-                        <input type="number" class="pb-input" id="pbInputVenta" step="0.0001" min="3" max="5" placeholder="0.0000">
-                    </div>
-                </div>
-                <div class="pb-form-actions">
-                    <button class="pb-btn-save" id="pbBtnSave"><i class="bi bi-check-lg"></i> Guardar</button>
-                    <button class="pb-btn-cancel" id="pbBtnCancel">Cancelar</button>
-                </div>
-            </div>
-            {% endif %}
-        </div>
-        {% endif %}
 
         <!-- Navigation -->
         <nav class="sidebar-nav">
@@ -265,6 +220,54 @@
 
     <!-- Mobile overlay -->
     <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <!-- Desktop Precio Base Bar — encabezado fijo solo en escritorio -->
+    {% if current_user.is_authenticated and (current_user.role in ['Master','Operador'] or (current_user.role == 'Trader' and pb_access)) %}
+    <div class="desk-pb-bar" id="deskPbBar">
+        <div class="dpb-brand">
+            <span class="dpb-dot" id="deskPbDot"></span>
+            <span class="dpb-brand-text">Mercado en vivo</span>
+        </div>
+
+        <div class="dpb-rates" id="deskPbRates">
+            <div class="dpb-pill dpb-pill-buy">
+                <span class="dpb-pill-label">COMPRA</span>
+                <span class="dpb-pill-value" id="deskPbBuy">—</span>
+            </div>
+            <div class="dpb-sep"></div>
+            <div class="dpb-pill dpb-pill-sell">
+                <span class="dpb-pill-label">VENTA</span>
+                <span class="dpb-pill-value" id="deskPbSell">—</span>
+            </div>
+        </div>
+
+        {% if current_user.role in ['Master','Operador'] %}
+        <div class="dpb-form" id="deskPbForm">
+            <div class="dpb-form-inner">
+                <div class="dpb-input-group">
+                    <label class="dpb-input-label">COMPRA</label>
+                    <input type="number" class="dpb-input" id="deskPbInputCompra" step="0.0001" min="3" max="5" placeholder="0.0000">
+                </div>
+                <div class="dpb-input-group">
+                    <label class="dpb-input-label">VENTA</label>
+                    <input type="number" class="dpb-input" id="deskPbInputVenta" step="0.0001" min="3" max="5" placeholder="0.0000">
+                </div>
+                <button class="dpb-btn-save" id="deskPbBtnSave"><i class="bi bi-check-lg"></i> Guardar</button>
+                <button class="dpb-btn-cancel" id="deskPbBtnCancel">Cancelar</button>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="dpb-meta">
+            <span class="dpb-age" id="deskPbAge"></span>
+            {% if current_user.role in ['Master','Operador'] %}
+            <button class="dpb-edit-btn" id="deskPbEditBtn">
+                <i class="bi bi-pencil-fill"></i> Actualizar
+            </button>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
 
     <!-- Mobile topbar -->
     <header class="mobile-topbar">
@@ -821,31 +824,31 @@
         function _setRates(compra, venta, updatedAt, animate) {
             _lastAt = updatedAt || _lastAt;
             var bTxt = _fmt(compra), sTxt = _fmt(venta);
-            var eb = document.getElementById('pbBuy'),
-                es = document.getElementById('pbSell');
-            if (eb && eb.textContent !== bTxt) { eb.textContent = bTxt; if (animate) _flash(eb); }
-            if (es && es.textContent !== sTxt) { es.textContent = sTxt; if (animate) _flash(es); }
-            var mbBuy = document.getElementById('mbPbBuy');
+            var live = !!(compra > 0);
+
+            // Desktop bar
+            var deskBuy  = document.getElementById('deskPbBuy');
+            var deskSell = document.getElementById('deskPbSell');
+            if (deskBuy  && deskBuy.textContent  !== bTxt) { deskBuy.textContent  = bTxt; if (animate) { deskBuy.classList.remove('dpb-flash');  void deskBuy.offsetWidth;  deskBuy.classList.add('dpb-flash'); } }
+            if (deskSell && deskSell.textContent !== sTxt) { deskSell.textContent = sTxt; if (animate) { deskSell.classList.remove('dpb-flash'); void deskSell.offsetWidth; deskSell.classList.add('dpb-flash'); } }
+            var deskDot = document.getElementById('deskPbDot');
+            if (deskDot) deskDot.classList.toggle('dpb-dot-live', live);
+
+            // Mobile bar
+            var mbBuy  = document.getElementById('mbPbBuy');
             var mbSell = document.getElementById('mbPbSell');
-            if (mbBuy && mbBuy.textContent !== bTxt) {
-                mbBuy.textContent = bTxt;
-                if (animate) { mbBuy.classList.remove('mb-pb-flash'); void mbBuy.offsetWidth; mbBuy.classList.add('mb-pb-flash'); }
-            }
-            if (mbSell && mbSell.textContent !== sTxt) {
-                mbSell.textContent = sTxt;
-                if (animate) { mbSell.classList.remove('mb-pb-flash'); void mbSell.offsetWidth; mbSell.classList.add('mb-pb-flash'); }
-            }
+            if (mbBuy  && mbBuy.textContent  !== bTxt) { mbBuy.textContent  = bTxt; if (animate) { mbBuy.classList.remove('mb-pb-flash');  void mbBuy.offsetWidth;  mbBuy.classList.add('mb-pb-flash'); } }
+            if (mbSell && mbSell.textContent !== sTxt) { mbSell.textContent = sTxt; if (animate) { mbSell.classList.remove('mb-pb-flash'); void mbSell.offsetWidth; mbSell.classList.add('mb-pb-flash'); } }
             var mbDot = document.getElementById('mbPbDot');
-            if (mbDot) mbDot.classList.toggle('mb-pb-dot-live', !!(compra > 0));
-            var dot = document.getElementById('pbDot');
-            if (dot) dot.classList.toggle('pb-dot-live', !!(compra > 0));
+            if (mbDot) mbDot.classList.toggle('mb-pb-dot-live', live);
+
             _updateAge();
         }
 
         function _updateAge() {
-            var el = document.getElementById('pbAge');
-            if (!el) return;
-            el.textContent = _lastAt ? 'hace ' + _fmtAge(_lastAt) : '';
+            var age = _lastAt ? 'hace ' + _fmtAge(_lastAt) : '';
+            var deskAge = document.getElementById('deskPbAge');
+            if (deskAge) deskAge.textContent = age;
         }
 
         function _fetchRates() {
@@ -855,32 +858,35 @@
                 .catch(function() {});
         }
 
-        // Edit toggle (Master/Operador only)
+        // Edit toggle — Desktop bar (Master/Operador only)
         if (_canEdit) {
             document.addEventListener('DOMContentLoaded', function() {
-                var btnEdit   = document.getElementById('pbEditBtn');
-                var btnSave   = document.getElementById('pbBtnSave');
-                var btnCancel = document.getElementById('pbBtnCancel');
-                var form      = document.getElementById('pbForm');
-                var rates     = document.getElementById('pbRates');
-                var iC        = document.getElementById('pbInputCompra');
-                var iV        = document.getElementById('pbInputVenta');
+                var btnEdit   = document.getElementById('deskPbEditBtn');
+                var btnSave   = document.getElementById('deskPbBtnSave');
+                var btnCancel = document.getElementById('deskPbBtnCancel');
+                var form      = document.getElementById('deskPbForm');
+                var rates     = document.getElementById('deskPbRates');
+                var iC        = document.getElementById('deskPbInputCompra');
+                var iV        = document.getElementById('deskPbInputVenta');
+                var meta      = document.querySelector('.dpb-meta');
 
                 if (!btnEdit) return;
 
                 btnEdit.addEventListener('click', function() {
-                    var bVal = document.getElementById('pbBuy').textContent;
-                    var sVal = document.getElementById('pbSell').textContent;
+                    var bVal = document.getElementById('deskPbBuy').textContent;
+                    var sVal = document.getElementById('deskPbSell').textContent;
                     iC.value = (bVal !== '—') ? bVal : '';
                     iV.value = (sVal !== '—') ? sVal : '';
                     rates.style.display = 'none';
-                    form.style.display  = 'block';
+                    form.style.display  = 'flex';
+                    if (meta) meta.style.display = 'none';
                     iC.focus();
                 });
 
                 function _closeForm() {
                     form.style.display  = 'none';
                     rates.style.display = 'flex';
+                    if (meta) meta.style.display = 'flex';
                 }
 
                 btnCancel.addEventListener('click', _closeForm);
@@ -920,10 +926,9 @@
                     });
                 });
 
-                // Enter key on inputs
                 [iC, iV].forEach(function(el) {
                     el.addEventListener('keydown', function(e) {
-                        if (e.key === 'Enter') btnSave.click();
+                        if (e.key === 'Enter')  btnSave.click();
                         if (e.key === 'Escape') _closeForm();
                     });
                 });
@@ -982,12 +987,14 @@
                     _setRates(d.compra, d.venta, d.updated_at, true);
                     _pbChime();
                     _pbToast(d.compra, d.venta);
-                    // Close form if open on another session
-                    var form = document.getElementById('pbForm');
-                    var rates = document.getElementById('pbRates');
-                    if (form && form.style.display !== 'none') {
-                        form.style.display = 'none';
-                        if (rates) rates.style.display = 'flex';
+                    // Cerrar formulario si estaba abierto en otra sesión (desktop bar)
+                    var deskForm  = document.getElementById('deskPbForm');
+                    var deskRates = document.getElementById('deskPbRates');
+                    var meta      = document.querySelector('.dpb-meta');
+                    if (deskForm && deskForm.style.display !== 'none') {
+                        deskForm.style.display  = 'none';
+                        if (deskRates) deskRates.style.display = 'flex';
+                        if (meta) meta.style.display = 'flex';
                     }
                 });
             }, 200);

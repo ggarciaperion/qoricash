@@ -100,6 +100,11 @@ body.has-sidebar.sidebar-collapsed .main-wrapper {
     margin-left: var(--sidebar-collapsed-width);
 }
 
+/* Desktop Precio Base Bar — empuja el contenido hacia abajo en escritorio */
+body.has-pb-bar.has-sidebar .main-wrapper {
+    padding-top: 56px;
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════
    4. SIDEBAR
    ═══════════════════════════════════════════════════════════════════════════ */
@@ -2044,3 +2049,226 @@ tr[data-status="Cancelado"] {
     0%   { background: rgba(255,255,255,.18); }
     100% { background: transparent; }
 }
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   31. DESKTOP PRECIO BASE BAR (encabezado fijo — solo escritorio)
+   ═══════════════════════════════════════════════════════════════════════════ */
+.desk-pb-bar {
+    display: flex;
+    align-items: center;
+    position: fixed;
+    top: 0;
+    left: var(--sidebar-width);
+    right: 0;
+    height: 56px;
+    background: linear-gradient(135deg, #08121e 0%, #0d1b2e 100%);
+    z-index: 1029;
+    padding: 0 28px;
+    gap: 24px;
+    border-bottom: 1px solid rgba(52,211,153,.2);
+    box-shadow: 0 2px 18px rgba(0,0,0,.45);
+    transition: left var(--transition-base);
+}
+body.has-sidebar.sidebar-collapsed .desk-pb-bar {
+    left: var(--sidebar-collapsed-width);
+}
+/* Ocultar en móvil (el mobile-pb-bar lo cubre) */
+@media (max-width: 768px) {
+    .desk-pb-bar { display: none; }
+    /* anular padding-top desktop en móvil (la regla @media anterior ya lo hace) */
+    body.has-pb-bar.has-sidebar .main-wrapper {
+        padding-top: calc(var(--topbar-height) + 50px);
+    }
+}
+/* Ocultar el widget del sidebar en escritorio cuando está la barra */
+@media (min-width: 769px) {
+    body.has-pb-bar .pb-widget { display: none !important; }
+}
+
+/* ── Brand izquierda ───────────────────────────────────── */
+.dpb-brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+.dpb-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: rgba(255,255,255,.2);
+    flex-shrink: 0;
+    transition: background .3s;
+}
+.dpb-dot.dpb-dot-live {
+    background: #34d399;
+    box-shadow: 0 0 0 0 rgba(52,211,153,.6);
+    animation: dpb-pulse 2s infinite;
+}
+@keyframes dpb-pulse {
+    0%   { box-shadow: 0 0 0 0   rgba(52,211,153,.6); }
+    70%  { box-shadow: 0 0 0 7px rgba(52,211,153,0); }
+    100% { box-shadow: 0 0 0 0   rgba(52,211,153,0); }
+}
+.dpb-brand-text {
+    font-size: 0.65rem;
+    font-weight: 800;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,.35);
+    white-space: nowrap;
+}
+
+/* ── Separador vertical ────────────────────────────────── */
+.dpb-sep {
+    width: 1px;
+    height: 28px;
+    background: rgba(255,255,255,.1);
+    flex-shrink: 0;
+}
+
+/* ── Pills de precios ──────────────────────────────────── */
+.dpb-rates {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+}
+.dpb-pill {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 18px;
+    border-radius: 10px;
+}
+.dpb-pill-buy  { background: rgba(52,211,153,.1);  border: 1px solid rgba(52,211,153,.22); }
+.dpb-pill-sell { background: rgba(96,165,250,.1);  border: 1px solid rgba(96,165,250,.22); }
+
+.dpb-pill-label {
+    font-size: 0.6rem;
+    font-weight: 800;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    line-height: 1;
+}
+.dpb-pill-buy  .dpb-pill-label { color: rgba(52,211,153,.65); }
+.dpb-pill-sell .dpb-pill-label { color: rgba(96,165,250,.65); }
+
+.dpb-pill-value {
+    font-size: 1.45rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -.02em;
+    line-height: 1;
+}
+.dpb-pill-buy  .dpb-pill-value { color: #34d399; }
+.dpb-pill-sell .dpb-pill-value { color: #60a5fa; }
+
+/* Flash al actualizar */
+.dpb-flash { animation: dpb-flash-anim 700ms ease-out forwards; border-radius: 4px; }
+@keyframes dpb-flash-anim {
+    0%   { background: rgba(255,255,255,.2); }
+    100% { background: transparent; }
+}
+
+/* ── Meta (derecha): edad + botón editar ───────────────── */
+.dpb-meta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+    margin-left: auto;
+}
+.dpb-age {
+    font-size: 0.65rem;
+    color: rgba(255,255,255,.3);
+    font-weight: 500;
+    white-space: nowrap;
+}
+.dpb-edit-btn {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 14px;
+    border-radius: 7px;
+    border: 1px solid rgba(255,255,255,.15);
+    background: rgba(255,255,255,.06);
+    color: rgba(255,255,255,.65);
+    font-size: 0.72rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .15s, color .15s, border-color .15s;
+    white-space: nowrap;
+}
+.dpb-edit-btn:hover {
+    background: rgba(255,255,255,.12);
+    color: #fff;
+    border-color: rgba(255,255,255,.3);
+}
+
+/* ── Formulario de edición inline ──────────────────────── */
+.dpb-form { display: none; align-items: center; gap: 12px; flex: 1; }
+.dpb-form-inner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.dpb-input-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.dpb-input-label {
+    font-size: 0.6rem;
+    font-weight: 800;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,.45);
+    white-space: nowrap;
+}
+.dpb-input {
+    width: 90px;
+    padding: 5px 10px;
+    border-radius: 7px;
+    border: 1px solid rgba(255,255,255,.2);
+    background: rgba(255,255,255,.07);
+    color: #fff;
+    font-size: 0.9rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    outline: none;
+    transition: border-color .15s, background .15s;
+}
+.dpb-input:focus { border-color: #34d399; background: rgba(52,211,153,.08); }
+.dpb-input::placeholder { color: rgba(255,255,255,.2); }
+.dpb-btn-save {
+    padding: 5px 14px;
+    border-radius: 7px;
+    border: none;
+    background: #16a34a;
+    color: #fff;
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    transition: background .15s;
+    white-space: nowrap;
+}
+.dpb-btn-save:hover:not(:disabled) { background: #15803d; }
+.dpb-btn-save:disabled { opacity: .6; cursor: not-allowed; }
+.dpb-btn-cancel {
+    padding: 5px 12px;
+    border-radius: 7px;
+    border: 1px solid rgba(255,255,255,.15);
+    background: transparent;
+    color: rgba(255,255,255,.5);
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: color .15s, border-color .15s;
+    white-space: nowrap;
+}
+.dpb-btn-cancel:hover { color: #fff; border-color: rgba(255,255,255,.3); }
