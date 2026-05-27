@@ -984,6 +984,14 @@
 
     {% block scripts %}{% endblock %}
 
+    <!-- Evict any previously installed service workers (cleanup from past PWA experiments) -->
+    <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function(regs) {
+        regs.forEach(function(reg) { reg.unregister(); });
+      });
+    }
+    </script>
 
 </body>
 </html>
