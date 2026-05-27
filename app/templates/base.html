@@ -25,14 +25,14 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css">
 
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}?v=5.2">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}?v=5.3">
 
     <!-- Meta CSRF Token -->
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
     {% block head %}{% endblock %}
 </head>
-<body class="{% if current_user.is_authenticated %}has-sidebar{% endif %}">
+<body class="{% if current_user.is_authenticated %}has-sidebar{% endif %}{% if current_user.is_authenticated and (current_user.role in ['Master','Operador'] or (current_user.role == 'Trader' and pb_access)) %} has-pb-bar{% endif %}">
 
 <!-- Page Loader -->
 <div id="pageLoader"><div id="pageLoaderBar"></div></div>
@@ -277,6 +277,21 @@
             <span class="badge-role">{{ current_user.role }}</span>
         </div>
     </header>
+
+    <!-- Mobile Precio Base Bar — barra fija solo en móvil, debajo del topbar -->
+    {% if current_user.is_authenticated and (current_user.role in ['Master','Operador'] or (current_user.role == 'Trader' and pb_access)) %}
+    <div class="mobile-pb-bar" id="mobilePbBar">
+        <div class="mb-pb-item">
+            <span class="mb-pb-label">COMPRA</span>
+            <span class="mb-pb-value mb-pb-buy" id="mbPbBuy">—</span>
+        </div>
+        <div class="mb-pb-sep"></div>
+        <div class="mb-pb-item">
+            <span class="mb-pb-label">VENTA</span>
+            <span class="mb-pb-value mb-pb-sell" id="mbPbSell">—</span>
+        </div>
+    </div>
+    {% endif %}
 
     {% endif %}
 
@@ -803,6 +818,10 @@
                 es = document.getElementById('pbSell');
             if (eb && eb.textContent !== bTxt) { eb.textContent = bTxt; if (animate) _flash(eb); }
             if (es && es.textContent !== sTxt) { es.textContent = sTxt; if (animate) _flash(es); }
+            var mbBuy = document.getElementById('mbPbBuy');
+            var mbSell = document.getElementById('mbPbSell');
+            if (mbBuy && mbBuy.textContent !== bTxt) { mbBuy.textContent = bTxt; if (animate) _flash(mbBuy); }
+            if (mbSell && mbSell.textContent !== sTxt) { mbSell.textContent = sTxt; if (animate) _flash(mbSell); }
             var dot = document.getElementById('pbDot');
             if (dot) dot.classList.toggle('pb-dot-live', !!(compra > 0));
             _updateAge();

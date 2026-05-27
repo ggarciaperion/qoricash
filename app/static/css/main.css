@@ -1128,6 +1128,11 @@ tr[data-status="En proceso"] {
         padding-top: var(--topbar-height);
     }
 
+    /* Empuja el contenido extra hacia abajo cuando hay barra de precios */
+    body.has-pb-bar.has-sidebar .main-wrapper {
+        padding-top: calc(var(--topbar-height) + 36px);
+    }
+
     .mobile-topbar { display: flex; }
 
     .flash-container { padding: 10px 14px 0; }
@@ -1910,3 +1915,70 @@ tr[data-status="Cancelado"] {
 .pb-toast-val       { font-size: 17px; font-weight: 700; letter-spacing: .02em; color: #ffffff; }
 .pb-toast-val.buy   { color: #ffffff; }
 .pb-toast-val.sell  { color: #16a34a; }
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   30. MOBILE PRECIO BASE BAR (solo versión teléfono)
+   ═══════════════════════════════════════════════════════════════════════════ */
+.mobile-pb-bar {
+    display: none;                          /* oculta en desktop */
+    position: fixed;
+    top: var(--topbar-height);
+    left: 0;
+    right: 0;
+    height: 36px;
+    background: #060e1b;
+    z-index: 1034;
+    align-items: center;
+    justify-content: center;
+    gap: 28px;
+    border-bottom: 1px solid rgba(0,222,168,.12);
+    box-shadow: 0 2px 6px rgba(0,0,0,.3);
+}
+
+@media (max-width: 768px) {
+    .mobile-pb-bar { display: flex; }
+}
+
+/* Notched phones: empujar la barra por debajo del notch */
+@supports (padding-top: env(safe-area-inset-top)) {
+    .mobile-pb-bar {
+        top: calc(var(--topbar-height) + env(safe-area-inset-top));
+    }
+    body.has-pb-bar.has-sidebar .main-wrapper {
+        padding-top: calc(var(--topbar-height) + 36px + env(safe-area-inset-top));
+    }
+}
+
+.mb-pb-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+}
+
+.mb-pb-label {
+    font-size: 0.45rem;
+    font-weight: 700;
+    letter-spacing: .1em;
+    color: rgba(255,255,255,.35);
+    text-transform: uppercase;
+    line-height: 1;
+}
+
+.mb-pb-value {
+    font-size: 0.875rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.2;
+}
+
+.mb-pb-buy  { color: #34d399; }
+.mb-pb-sell { color: #60a5fa; }
+
+.mb-pb-sep {
+    width: 1px;
+    height: 22px;
+    background: rgba(255,255,255,.1);
+    flex-shrink: 0;
+}
