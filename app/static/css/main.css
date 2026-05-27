@@ -102,7 +102,7 @@ body.has-sidebar.sidebar-collapsed .main-wrapper {
 
 /* Desktop Precio Base Bar — empuja el contenido hacia abajo en escritorio */
 body.has-pb-bar.has-sidebar .main-wrapper {
-    padding-top: 64px;
+    padding-top: 88px;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -2061,7 +2061,7 @@ tr[data-status="Cancelado"] {
     top: 0;
     left: var(--sidebar-width);
     right: 0;
-    height: 64px;
+    height: 88px;
     background: linear-gradient(135deg, #08121e 0%, #0d1b2e 100%);
     z-index: 1029;
     padding: 0 28px;
