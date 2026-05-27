@@ -2247,10 +2247,11 @@ body.has-sidebar.sidebar-collapsed .desk-pb-bar {
     margin-left: auto;
 }
 .dpb-age {
-    font-size: 0.65rem;
-    color: rgba(255,255,255,.3);
+    font-size: 0.62rem;
+    color: rgba(255,255,255,.45);
     font-weight: 500;
     white-space: nowrap;
+    letter-spacing: .02em;
 }
 .dpb-edit-btn {
     display: flex;

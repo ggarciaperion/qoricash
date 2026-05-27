@@ -33,7 +33,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css">
 
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}?v=6.1">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}?v=6.2">
 
     <!-- Meta CSRF Token -->
     <meta name="csrf-token" content="{{ csrf_token() }}">
@@ -236,6 +236,7 @@
             <div class="dpb-brand">
                 <span class="dpb-dot" id="deskPbDot"></span>
                 <span class="dpb-brand-text">Mercado en vivo</span>
+                <span class="dpb-age" id="deskPbAge"></span>
             </div>
 
             <div class="dpb-rates" id="deskPbRates">
@@ -269,7 +270,6 @@
         {% endif %}
 
         <div class="dpb-meta">
-            <span class="dpb-age" id="deskPbAge"></span>
             {% if current_user.role in ['Master','Operador'] %}
             <button class="dpb-edit-btn" id="deskPbEditBtn">
                 <i class="bi bi-pencil-fill"></i> Actualizar
@@ -832,10 +832,12 @@
 
         function _fmtAge(iso) {
             if (!iso) return '';
-            var s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
-            if (s < 60)    return s + 's';
-            if (s < 3600)  return Math.floor(s / 60) + 'm';
-            return Math.floor(s / 3600) + 'h';
+            var d = new Date(iso);
+            var dd  = String(d.getDate()).padStart(2,'0');
+            var mm  = String(d.getMonth()+1).padStart(2,'0');
+            var hh  = String(d.getHours()).padStart(2,'0');
+            var min = String(d.getMinutes()).padStart(2,'0');
+            return dd + '/' + mm + ' ' + hh + ':' + min;
         }
 
         function _flash(el) {
@@ -869,7 +871,7 @@
         }
 
         function _updateAge() {
-            var age = _lastAt ? 'hace ' + _fmtAge(_lastAt) : '';
+            var age = _lastAt ? _fmtAge(_lastAt) : '';
             var deskAge = document.getElementById('deskPbAge');
             if (deskAge) deskAge.textContent = age;
         }
