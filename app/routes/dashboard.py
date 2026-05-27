@@ -1441,6 +1441,24 @@ def api_set_precio_base():
             'updated_at': now_iso,
         }, namespace='/')
 
+        # Web Push a todos los usuarios activos (excepto quien actualizó)
+        try:
+            from app.services.web_push_service import send_to_roles, is_configured
+            if is_configured():
+                send_to_roles(
+                    ['Master', 'Operador', 'Trader', 'Middle Office'],
+                    {
+                        'title': 'Precio Base actualizado',
+                        'body': f'Compra S/ {compra:.4f}  ·  Venta S/ {venta:.4f}',
+                        'type': 'info',
+                        'url': '/dashboard',
+                        'tag': 'precio-base',
+                        'priority': 'high',
+                    }
+                )
+        except Exception as _wp_err:
+            logger.warning(f'[PB] web push precio error: {_wp_err}')
+
         return jsonify({
             'ok': True,
             'compra': compra, 'venta': venta, 'updated_at': now_iso,
