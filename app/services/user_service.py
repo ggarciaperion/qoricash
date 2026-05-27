@@ -282,11 +282,9 @@ class UserService:
         if user.id == current_user.id:
             return False, 'No puedes eliminar tu propio usuario'
         
-        # Soft delete (marcar como inactivo + liberar email/username/dni para reutilización)
+        # Soft delete — solo marcar como Inactivo; email/username/dni se conservan
+        # La unicidad se gestiona a nivel BD con índices parciales (WHERE status = 'Activo')
         user.status = 'Inactivo'
-        user.email = f"deleted_{user.id}_{user.email}"
-        user.username = f"deleted_{user.id}_{user.username}"
-        user.dni = f"deleted_{user.id}_{user.dni}"
         user.updated_at = now_peru()
 
         # Registrar en auditoría

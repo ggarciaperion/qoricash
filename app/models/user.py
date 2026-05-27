@@ -16,10 +16,10 @@ class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     
     # Información básica
-    username = db.Column(db.String(100), unique=True, nullable=False, index=True)
-    email = db.Column(db.String(120), unique=True, nullable=False, index=True)
+    username = db.Column(db.String(100), nullable=False, index=True)
+    email = db.Column(db.String(120), nullable=False, index=True)
     password_hash = db.Column(db.String(200), nullable=False)
-    dni = db.Column(db.String(20), unique=True, nullable=False)  # 20 chars para soportar RUC (11 dígitos)
+    dni = db.Column(db.String(20), nullable=False)  # 20 chars para soportar RUC (11 dígitos)
     
     # Rol y estado
     role = db.Column(
