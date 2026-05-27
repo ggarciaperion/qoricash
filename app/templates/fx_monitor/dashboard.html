@@ -1238,6 +1238,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
   startRefreshBar();
   loadChart();
+
+  // Actualización en tiempo real — escucha cuando el widget Precio Base cambia
+  if (typeof io !== 'undefined') {
+    const _sock = io();
+    _sock.on('tipos_cambio_actualizados', function(data) {
+      const buyEl  = document.getElementById('tcBuyRate');
+      const sellEl = document.getElementById('tcSellRate');
+      if (!buyEl || !sellEl) return;
+      const buy  = parseFloat(data.compra).toFixed(3);
+      const sell = parseFloat(data.venta).toFixed(3);
+      buyEl.textContent  = 'S/ ' + buy;
+      sellEl.textContent = 'S/ ' + sell;
+      document.getElementById('tcNewBuy').value  = buy;
+      document.getElementById('tcNewSell').value = sell;
+      document.getElementById('kpiBuy').textContent    = 'S/ ' + parseFloat(data.compra).toFixed(4);
+      document.getElementById('kpiSell').textContent   = 'S/ ' + parseFloat(data.venta).toFixed(4);
+      document.getElementById('kpiSpread').textContent = 'S/ ' + (parseFloat(data.venta) - parseFloat(data.compra)).toFixed(4);
+      if (data.updated_by) document.getElementById('tcUpdatedBy').textContent = data.updated_by;
+      document.getElementById('tcLastUpdate').textContent = new Date().toLocaleString('es-PE');
+    });
+  }
 });
 </script>
 {% endblock %}
