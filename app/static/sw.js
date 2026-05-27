@@ -1,68 +1,65 @@
 /**
- * QoriCash Service Worker v3.0
+ * QoriCash Service Worker v3.2
  * Push notifications + PWA caching + offline support
+ *
+ * Caching strategy:
+ *  - CSS/HTML: NEVER cached by SW (browser HTTP cache handles it — avoids stale layout)
+ *  - Images/fonts/audio: Cache-First (immutable assets)
+ *  - JS: Cache-First only for versioned static JS
+ *  - Navigation: Network-First with offline fallback
+ *  - API/auth: Never cached
  */
 
-const CACHE_VERSION = 'v3.1';
+const CACHE_VERSION = 'v3.2';
 const CACHE_STATIC  = `qoricash-static-${CACHE_VERSION}`;
 const CACHE_PAGES   = `qoricash-pages-${CACHE_VERSION}`;
-const OFFLINE_URL   = '/static/offline.html';
+const OFFLINE_URL   = '/offline';
 
-// Assets to pre-cache on install
+// Pre-cache only immutable binary assets (no CSS — avoids desktop layout regression)
 const PRECACHE_ASSETS = [
-  '/static/offline.html',
-  '/static/manifest.json',
   '/static/images/pwa/icon-192x192.png',
   '/static/images/pwa/icon-512x512.png',
   '/static/images/pwa/apple-touch-icon.png',
   '/static/images/finalfinal.png',
-  // Core CSS
-  'https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css',
-  'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css',
 ];
 
-// Routes that should NEVER be cached (auth/operations/API)
+// Routes that must NEVER be cached (auth, operations, API)
 const NEVER_CACHE = [
   '/api/',
   '/operations/api/',
   '/dashboard/api/',
   '/platform-api/',
+  '/datatec/',
   '/login',
   '/logout',
   '/auth/',
   '/register',
 ];
 
-// Routes that are dynamic (network-first, short cache)
-const NETWORK_FIRST = [
-  '/dashboard',
-  '/operations',
-  '/clients',
-  '/position',
-];
-
 // ─── Install ─────────────────────────────────────────────────────────────────
 self.addEventListener('install', event => {
   self.skipWaiting();
   event.waitUntil(
-    caches.open(CACHE_STATIC).then(cache => {
-      return Promise.allSettled(
+    caches.open(CACHE_STATIC).then(cache =>
+      Promise.allSettled(
         PRECACHE_ASSETS.map(url => cache.add(url).catch(() => {}))
-      );
-    })
+      )
+    )
   );
 });
 
-// ─── Activate — cleanup old caches ───────────────────────────────────────────
+// ─── Activate — flush all previous caches ────────────────────────────────────
 self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(
-        keys
-          .filter(k => k.startsWith('qoricash-') && k !== CACHE_STATIC && k !== CACHE_PAGES)
-          .map(k => caches.delete(k))
+    caches.keys()
+      .then(keys =>
+        Promise.all(
+          keys
+            .filter(k => k.startsWith('qoricash-') && k !== CACHE_STATIC && k !== CACHE_PAGES)
+            .map(k => caches.delete(k))
+        )
       )
-    ).then(() => self.clients.claim())
+      .then(() => self.clients.claim())
   );
 });
 
@@ -71,33 +68,45 @@ self.addEventListener('fetch', event => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Only handle same-origin + CDN requests
+  // Only handle HTTP(S) GET requests
   if (request.method !== 'GET') return;
   if (!['https:', 'http:'].includes(url.protocol)) return;
 
   // 1. NEVER CACHE — API calls, auth, sensitive routes
   if (NEVER_CACHE.some(p => url.pathname.startsWith(p))) return;
 
-  // 2. Static assets — Cache First (fast load)
-  if (isStaticAsset(url)) {
+  // 2. CSS files — always network (never SW-cache; avoids stale desktop layout)
+  if (url.pathname.endsWith('.css') || url.pathname.includes('.css?')) return;
+
+  // 3. Layout-critical HTML — never cache (always fresh from server)
+  if (url.pathname === '/' || url.pathname === '/login' || url.pathname === '/dashboard') return;
+
+  // 4. Immutable binary assets — Cache First
+  if (isImmutableAsset(url)) {
     event.respondWith(cacheFirst(request, CACHE_STATIC));
     return;
   }
 
-  // 3. Navigation/pages — Network First with offline fallback
+  // 5. Navigation — Network First with offline fallback
   if (request.mode === 'navigate') {
     event.respondWith(networkFirstWithOffline(request));
     return;
   }
 });
 
-function isStaticAsset(url) {
-  const ext = url.pathname.split('.').pop();
-  const staticExts = ['css','js','png','jpg','jpeg','gif','svg','ico','woff','woff2','ttf','mp3','mp4'];
-  if (staticExts.includes(ext)) return true;
-  if (url.pathname.startsWith('/static/')) return true;
-  if (url.hostname.includes('cdn.jsdelivr.net')) return true;
-  if (url.hostname.includes('cdnjs.cloudflare.com')) return true;
+/**
+ * Cache-first only for truly immutable assets: images, fonts, audio, icons.
+ * CSS and JS that affect layout are NOT cached here.
+ */
+function isImmutableAsset(url) {
+  const p = url.pathname;
+  // Images / fonts / audio
+  if (/\.(png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot|mp3|mp4|webp)(\?|$)/.test(p)) return true;
+  // PWA-specific static paths (only binary assets)
+  if (p.startsWith('/static/images/')) return true;
+  if (p.startsWith('/static/sounds/')) return true;
+  // Apple touch icon served from root
+  if (p === '/apple-touch-icon.png' || p === '/apple-touch-icon-precomposed.png') return true;
   return false;
 }
 
@@ -106,7 +115,7 @@ async function cacheFirst(request, cacheName) {
   if (cached) return cached;
   try {
     const response = await fetch(request);
-    if (response.ok) {
+    if (response.ok && response.status !== 0) {
       const cache = await caches.open(cacheName);
       cache.put(request, response.clone());
     }
@@ -127,8 +136,18 @@ async function networkFirstWithOffline(request) {
   } catch {
     const cached = await cache.match(request);
     if (cached) return cached;
-    const offline = await caches.match(OFFLINE_URL);
-    return offline || new Response('Sin conexión', { status: 503 });
+    // Serve offline page
+    const offlinePage = await caches.match(OFFLINE_URL);
+    if (offlinePage) return offlinePage;
+    // Try to fetch offline page fresh
+    try {
+      return await fetch(OFFLINE_URL);
+    } catch {
+      return new Response('<html><body><h2>Sin conexión</h2></body></html>', {
+        status: 503,
+        headers: { 'Content-Type': 'text/html' },
+      });
+    }
   }
 }
 
@@ -140,16 +159,9 @@ self.addEventListener('push', event => {
   try { payload = event.data.json(); }
   catch (e) { payload = { title: 'QoriCash', body: event.data.text(), type: 'info' }; }
 
-  const iconMap = {
-    success: '/static/images/pwa/icon-192x192.png',
-    warning: '/static/images/pwa/icon-192x192.png',
-    danger:  '/static/images/pwa/icon-192x192.png',
-    info:    '/static/images/pwa/icon-192x192.png',
-  };
-
   const options = {
     body:    payload.body || payload.message || '',
-    icon:    iconMap[payload.type] || '/static/images/pwa/icon-192x192.png',
+    icon:    '/static/images/pwa/icon-192x192.png',
     badge:   '/static/images/pwa/badge-72.png',
     tag:     payload.tag || 'qoricash-' + Date.now(),
     data:    { url: payload.url || '/dashboard', ...payload },
