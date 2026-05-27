@@ -1130,7 +1130,7 @@ tr[data-status="En proceso"] {
 
     /* Empuja el contenido extra hacia abajo cuando hay barra de precios */
     body.has-pb-bar.has-sidebar .main-wrapper {
-        padding-top: calc(var(--topbar-height) + 36px);
+        padding-top: calc(var(--topbar-height) + 50px);
     }
 
     .mobile-topbar { display: flex; }
@@ -1926,59 +1926,121 @@ tr[data-status="Cancelado"] {
     top: var(--topbar-height);
     left: 0;
     right: 0;
-    height: 36px;
-    background: #060e1b;
+    height: 50px;
+    background: linear-gradient(135deg, #08121e 0%, #0d1f35 100%);
     z-index: 1034;
     align-items: center;
-    justify-content: center;
-    gap: 28px;
-    border-bottom: 1px solid rgba(0,222,168,.12);
-    box-shadow: 0 2px 6px rgba(0,0,0,.3);
+    justify-content: space-between;
+    padding: 0 16px;
+    border-bottom: 1px solid rgba(52,211,153,.18);
+    box-shadow: 0 3px 12px rgba(0,0,0,.45);
 }
 
 @media (max-width: 768px) {
     .mobile-pb-bar { display: flex; }
+    body.has-pb-bar.has-sidebar .main-wrapper {
+        padding-top: calc(var(--topbar-height) + 50px);
+    }
 }
 
-/* Notched phones: empujar la barra por debajo del notch */
+/* Notched phones */
 @supports (padding-top: env(safe-area-inset-top)) {
     .mobile-pb-bar {
         top: calc(var(--topbar-height) + env(safe-area-inset-top));
     }
     body.has-pb-bar.has-sidebar .main-wrapper {
-        padding-top: calc(var(--topbar-height) + 36px + env(safe-area-inset-top));
+        padding-top: calc(var(--topbar-height) + 50px + env(safe-area-inset-top));
     }
 }
 
-.mb-pb-item {
+/* ── Brand (izquierda) ─────────────────────────────────── */
+.mb-pb-brand {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.mb-pb-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: rgba(255,255,255,.2);
+    flex-shrink: 0;
+}
+
+.mb-pb-dot.mb-pb-dot-live {
+    background: #34d399;
+    box-shadow: 0 0 0 0 rgba(52,211,153,.6);
+    animation: mb-pb-pulse 2s infinite;
+}
+
+@keyframes mb-pb-pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(52,211,153,.6); }
+    70%  { box-shadow: 0 0 0 5px rgba(52,211,153,0); }
+    100% { box-shadow: 0 0 0 0 rgba(52,211,153,0); }
+}
+
+.mb-pb-brand-text {
+    font-size: 0.625rem;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,.4);
+}
+
+/* ── Pills (derecha) ───────────────────────────────────── */
+.mb-pb-pills {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.mb-pb-pill {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0;
+    padding: 5px 14px;
+    border-radius: 8px;
+    min-width: 80px;
+    gap: 1px;
 }
 
-.mb-pb-label {
-    font-size: 0.45rem;
-    font-weight: 700;
-    letter-spacing: .1em;
-    color: rgba(255,255,255,.35);
+.mb-pb-pill-buy {
+    background: rgba(52,211,153,.12);
+    border: 1px solid rgba(52,211,153,.25);
+}
+
+.mb-pb-pill-sell {
+    background: rgba(96,165,250,.12);
+    border: 1px solid rgba(96,165,250,.25);
+}
+
+.mb-pb-pill-label {
+    font-size: 0.5rem;
+    font-weight: 800;
+    letter-spacing: .12em;
     text-transform: uppercase;
     line-height: 1;
 }
 
-.mb-pb-value {
-    font-size: 0.875rem;
-    font-weight: 700;
+.mb-pb-pill-buy  .mb-pb-pill-label { color: rgba(52,211,153,.7); }
+.mb-pb-pill-sell .mb-pb-pill-label { color: rgba(96,165,250,.7); }
+
+.mb-pb-pill-value {
+    font-size: 1rem;
+    font-weight: 800;
     font-variant-numeric: tabular-nums;
-    line-height: 1.2;
+    letter-spacing: -.01em;
+    line-height: 1.1;
 }
 
-.mb-pb-buy  { color: #34d399; }
-.mb-pb-sell { color: #60a5fa; }
+.mb-pb-pill-buy  .mb-pb-pill-value { color: #34d399; }
+.mb-pb-pill-sell .mb-pb-pill-value { color: #60a5fa; }
 
-.mb-pb-sep {
-    width: 1px;
-    height: 22px;
-    background: rgba(255,255,255,.1);
-    flex-shrink: 0;
+/* Flash animation al actualizar */
+.mb-pb-flash { animation: mb-pb-flash-anim 600ms ease-out forwards; border-radius: 3px; }
+@keyframes mb-pb-flash-anim {
+    0%   { background: rgba(255,255,255,.18); }
+    100% { background: transparent; }
 }

@@ -25,7 +25,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css">
 
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}?v=5.3">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}?v=5.4">
 
     <!-- Meta CSRF Token -->
     <meta name="csrf-token" content="{{ csrf_token() }}">
@@ -281,14 +281,19 @@
     <!-- Mobile Precio Base Bar — barra fija solo en móvil, debajo del topbar -->
     {% if current_user.is_authenticated and (current_user.role in ['Master','Operador'] or (current_user.role == 'Trader' and pb_access)) %}
     <div class="mobile-pb-bar" id="mobilePbBar">
-        <div class="mb-pb-item">
-            <span class="mb-pb-label">COMPRA</span>
-            <span class="mb-pb-value mb-pb-buy" id="mbPbBuy">—</span>
+        <div class="mb-pb-brand">
+            <span class="mb-pb-dot" id="mbPbDot"></span>
+            <span class="mb-pb-brand-text">Precio Base</span>
         </div>
-        <div class="mb-pb-sep"></div>
-        <div class="mb-pb-item">
-            <span class="mb-pb-label">VENTA</span>
-            <span class="mb-pb-value mb-pb-sell" id="mbPbSell">—</span>
+        <div class="mb-pb-pills">
+            <div class="mb-pb-pill mb-pb-pill-buy">
+                <span class="mb-pb-pill-label">COMPRA</span>
+                <span class="mb-pb-pill-value" id="mbPbBuy">—</span>
+            </div>
+            <div class="mb-pb-pill mb-pb-pill-sell">
+                <span class="mb-pb-pill-label">VENTA</span>
+                <span class="mb-pb-pill-value" id="mbPbSell">—</span>
+            </div>
         </div>
     </div>
     {% endif %}
@@ -820,8 +825,16 @@
             if (es && es.textContent !== sTxt) { es.textContent = sTxt; if (animate) _flash(es); }
             var mbBuy = document.getElementById('mbPbBuy');
             var mbSell = document.getElementById('mbPbSell');
-            if (mbBuy && mbBuy.textContent !== bTxt) { mbBuy.textContent = bTxt; if (animate) _flash(mbBuy); }
-            if (mbSell && mbSell.textContent !== sTxt) { mbSell.textContent = sTxt; if (animate) _flash(mbSell); }
+            if (mbBuy && mbBuy.textContent !== bTxt) {
+                mbBuy.textContent = bTxt;
+                if (animate) { mbBuy.classList.remove('mb-pb-flash'); void mbBuy.offsetWidth; mbBuy.classList.add('mb-pb-flash'); }
+            }
+            if (mbSell && mbSell.textContent !== sTxt) {
+                mbSell.textContent = sTxt;
+                if (animate) { mbSell.classList.remove('mb-pb-flash'); void mbSell.offsetWidth; mbSell.classList.add('mb-pb-flash'); }
+            }
+            var mbDot = document.getElementById('mbPbDot');
+            if (mbDot) mbDot.classList.toggle('mb-pb-dot-live', !!(compra > 0));
             var dot = document.getElementById('pbDot');
             if (dot) dot.classList.toggle('pb-dot-live', !!(compra > 0));
             _updateAge();
