@@ -50,6 +50,65 @@ def create_app(config_name=None):
     
     # Registrar blueprints
     register_blueprints(app)
+
+    @app.route('/manifest.json')
+    def pwa_manifest():
+        """Serve PWA manifest from root URL for browser compatibility."""
+        from flask import send_from_directory
+        import os
+        return send_from_directory(
+            os.path.join(app.root_path, 'static'),
+            'manifest.json',
+            mimetype='application/manifest+json'
+        )
+
+    @app.route('/sw.js')
+    def pwa_sw():
+        """Service Worker must be served from root scope."""
+        from flask import send_from_directory, make_response
+        import os
+        resp = make_response(send_from_directory(
+            os.path.join(app.root_path, 'static'),
+            'sw.js',
+            mimetype='application/javascript'
+        ))
+        resp.headers['Service-Worker-Allowed'] = '/'
+        resp.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        return resp
+
+    @app.route('/offline')
+    def pwa_offline():
+        """PWA offline fallback page."""
+        from flask import send_from_directory
+        import os
+        return send_from_directory(
+            os.path.join(app.root_path, 'static'),
+            'offline.html'
+        )
+
+    # Safari iOS looks for apple-touch-icon at root before reading HTML tags.
+    # Serving it here ensures the correct icon even on HTTP-redirect pages.
+    @app.route('/apple-touch-icon.png')
+    @app.route('/apple-touch-icon-precomposed.png')
+    def pwa_apple_touch_icon():
+        from flask import send_from_directory
+        import os
+        return send_from_directory(
+            os.path.join(app.root_path, 'static', 'images', 'pwa'),
+            'apple-touch-icon.png',
+            mimetype='image/png'
+        )
+
+    @app.route('/favicon.ico')
+    def pwa_favicon():
+        from flask import send_from_directory
+        import os
+        return send_from_directory(
+            os.path.join(app.root_path, 'static'),
+            'favicon.ico',
+            mimetype='image/x-icon'
+        )
+
     
     # Configurar logging
     configure_logging(app)
@@ -581,16 +640,6 @@ def register_blueprints(app):
     from app.routes.alertas_tc import alertas_tc_bp
     app.register_blueprint(alertas_tc_bp)      # Modulo Alertas TC — leads desde qoricash.pe
 
-# Service Worker debe servirse desde la raíz del dominio (scope /)
-    import os
-    from flask import send_from_directory
-    @app.route('/sw.js')
-    def service_worker():
-        return send_from_directory(
-            os.path.join(app.root_path, 'static'),
-            'sw.js',
-            mimetype='application/javascript',
-        )
 
 
 def configure_logging(app):

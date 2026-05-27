@@ -5,9 +5,32 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>{% block title %}QoriCash Trading{% endblock %}</title>
 
-    <!-- Favicon -->
-    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
-    <link rel="shortcut icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+    <!-- ═══ PWA — Manifest + Icons ═══ -->
+    <link rel="manifest" href="/manifest.json?v=2">
+
+    <!-- Favicon — cache-busted v2 -->
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}?v=2">
+    <link rel="icon" type="image/png" sizes="192x192" href="{{ url_for('static', filename='images/pwa/icon-192x192.png') }}?v=2">
+    <link rel="icon" type="image/png" sizes="512x512" href="{{ url_for('static', filename='images/pwa/icon-512x512.png') }}?v=2">
+
+    <!-- Apple PWA — cache-busted v2 (Safari reads these tags for Add to Home Screen) -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="QoriCash">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">
+    <link rel="apple-touch-icon" sizes="152x152" href="{{ url_for('static', filename='images/pwa/icon-152x152.png') }}?v=2">
+    <link rel="apple-touch-icon" sizes="167x167" href="{{ url_for('static', filename='images/pwa/icon-167x167.png') }}?v=2">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=2">
+
+    <!-- Android / Chrome -->
+    <meta name="theme-color" content="#0D1B2A" media="(prefers-color-scheme: dark)">
+    <meta name="theme-color" content="#0D1B2A">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="application-name" content="QoriCash">
+
+    <!-- Microsoft -->
+    <meta name="msapplication-TileColor" content="#0D1B2A">
+    <meta name="msapplication-TileImage" content="{{ url_for('static', filename='images/pwa/icon-144x144.png') }}?v=2">
 
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -984,6 +1007,147 @@
 
     {% block scripts %}{% endblock %}
 
+    <!-- ═══ PWA Service Worker + Install Prompt ═══ -->
+    <script>
+    (function() {
+      // ── Service Worker registration ──────────────────────────────────────
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function() {
+          navigator.serviceWorker.register('/sw.js', { scope: '/' })
+            .then(function(reg) {
+              // Check for SW updates every 30 min
+              setInterval(function() { reg.update(); }, 30 * 60 * 1000);
+              reg.addEventListener('updatefound', function() {
+                var newSW = reg.installing;
+                if (!newSW) return;
+                newSW.addEventListener('statechange', function() {
+                  if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
+                    _showUpdateBanner();
+                  }
+                });
+              });
+            })
+            .catch(function() {});
+        });
+      }
+
+      // ── Detect iOS ────────────────────────────────────────────────────────
+      var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+      var isStandalone = window.matchMedia('(display-mode: standalone)').matches
+                      || window.navigator.standalone === true;
+      var isMobile = /android|iphone|ipad|ipod/i.test(navigator.userAgent);
+
+      // ── Android / Chrome install prompt ──────────────────────────────────
+      var _deferredPrompt = null;
+      window.addEventListener('beforeinstallprompt', function(e) {
+        e.preventDefault();
+        _deferredPrompt = e;
+        if (!isStandalone && !_installDismissed()) {
+          setTimeout(function() { _showInstallBanner('android'); }, 3000);
+        }
+      });
+
+      // ── iOS install guide ─────────────────────────────────────────────────
+      if (isIOS && !isStandalone && !_installDismissed()) {
+        setTimeout(function() { _showInstallBanner('ios'); }, 4000);
+      }
+
+      function _installDismissed() {
+        try { return localStorage.getItem('qc_pwa_dismissed') === '1'; } catch(e) { return false; }
+      }
+      function _dismissInstall() {
+        try { localStorage.setItem('qc_pwa_dismissed', '1'); } catch(e) {}
+        var b = document.getElementById('pwaInstallBanner');
+        if (b) { b.style.opacity='0'; b.style.transform='translateY(20px)'; setTimeout(function(){b.remove();},400); }
+      }
+
+      function _showInstallBanner(type) {
+        if (document.getElementById('pwaInstallBanner')) return;
+        var banner = document.createElement('div');
+        banner.id = 'pwaInstallBanner';
+        banner.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);z-index:99999;max-width:360px;width:calc(100% - 32px);opacity:0;transition:all .35s cubic-bezier(.22,.68,0,1.2);';
+
+        if (type === 'ios') {
+          banner.innerHTML = '<div style="background:#0D1B2A;border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:16px 18px;box-shadow:0 16px 48px rgba(0,0,0,.5);display:flex;flex-direction:column;gap:12px;">' +
+            '<div style="display:flex;align-items:center;gap:12px;">' +
+              '<img src="/static/images/pwa/icon-72x72.png" style="width:44px;height:44px;border-radius:10px;" alt="">' +
+              '<div style="flex:1;"><div style="color:#fff;font-weight:700;font-size:14px;font-family:-apple-system,sans-serif;">Instala QoriCash</div>' +
+              '<div style="color:rgba(255,255,255,.5);font-size:12px;margin-top:2px;font-family:-apple-system,sans-serif;">Acceso rápido desde tu pantalla de inicio</div></div>' +
+              '<button onclick="(function(){try{localStorage.setItem('qc_pwa_dismissed','1')}catch(e){}; var b=document.getElementById('pwaInstallBanner');if(b){b.style.opacity='0';setTimeout(function(){b.remove()},400)}})()" style="background:none;border:none;color:rgba(255,255,255,.4);font-size:20px;cursor:pointer;line-height:1;padding:4px;">×</button>' +
+            '</div>' +
+            '<div style="background:rgba(255,255,255,.06);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:8px;">' +
+              '<div style="display:flex;align-items:center;gap:10px;color:rgba(255,255,255,.8);font-size:13px;font-family:-apple-system,sans-serif;">' +
+                '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.6)" stroke-width="2" stroke-linecap="round"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>' +
+                '<span>Toca <strong>Compartir</strong> en Safari</span>' +
+              '</div>' +
+              '<div style="display:flex;align-items:center;gap:10px;color:rgba(255,255,255,.8);font-size:13px;font-family:-apple-system,sans-serif;">' +
+                '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.6)" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>' +
+                '<span>Selecciona <strong>Añadir a inicio</strong></span>' +
+              '</div>' +
+            '</div>' +
+          '</div>';
+        } else {
+          banner.innerHTML = '<div style="background:#0D1B2A;border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:16px 18px;box-shadow:0 16px 48px rgba(0,0,0,.5);display:flex;align-items:center;gap:12px;">' +
+            '<img src="/static/images/pwa/icon-72x72.png" style="width:44px;height:44px;border-radius:10px;flex-shrink:0;" alt="">' +
+            '<div style="flex:1;">' +
+              '<div style="color:#fff;font-weight:700;font-size:14px;font-family:-apple-system,sans-serif;">Instala QoriCash</div>' +
+              '<div style="color:rgba(255,255,255,.5);font-size:12px;margin-top:2px;font-family:-apple-system,sans-serif;">Añade a tu pantalla de inicio</div>' +
+            '</div>' +
+            '<button id="pwaInstallBtn" style="background:#16A34A;border:none;color:#fff;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;font-family:-apple-system,sans-serif;">Instalar</button>' +
+            '<button onclick="(function(){try{localStorage.setItem('qc_pwa_dismissed','1')}catch(e){}; var b=document.getElementById('pwaInstallBanner');if(b){b.style.opacity='0';setTimeout(function(){b.remove()},400)}})()" style="background:none;border:none;color:rgba(255,255,255,.4);font-size:20px;cursor:pointer;line-height:1;padding:4px 4px 4px 8px;">×</button>' +
+          '</div>';
+        }
+
+        document.body.appendChild(banner);
+        requestAnimationFrame(function() {
+          requestAnimationFrame(function() {
+            banner.style.opacity = '1';
+            banner.style.transform = 'translateX(-50%) translateY(0)';
+          });
+        });
+
+        if (type === 'android') {
+          var btn = document.getElementById('pwaInstallBtn');
+          if (btn && _deferredPrompt) {
+            btn.addEventListener('click', function() {
+              _deferredPrompt.prompt();
+              _deferredPrompt.userChoice.then(function(r) {
+                _deferredPrompt = null;
+                _dismissInstall();
+              });
+            });
+          }
+        }
+      }
+
+      // ── Update banner ─────────────────────────────────────────────────────
+      function _showUpdateBanner() {
+        var b = document.createElement('div');
+        b.style.cssText = 'position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:99999;background:#0D1B2A;border:1px solid rgba(22,163,74,.4);border-radius:10px;padding:12px 18px;display:flex;align-items:center;gap:12px;box-shadow:0 8px 24px rgba(0,0,0,.4);font-family:-apple-system,sans-serif;font-size:13px;color:#fff;white-space:nowrap;';
+        b.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.56"/></svg><span>Nueva versión disponible</span>' +
+          '<button onclick="navigator.serviceWorker.controller&&navigator.serviceWorker.controller.postMessage({type:'SKIP_WAITING'});window.location.reload();" ' +
+          'style="background:#16A34A;border:none;color:#fff;padding:5px 12px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;margin-left:4px;">Actualizar</button>';
+        document.body.appendChild(b);
+      }
+
+      // ── Online/Offline indicator ──────────────────────────────────────────
+      function _handleOnline() {
+        var el = document.getElementById('offlineBadge');
+        if (el) { el.style.opacity='0'; setTimeout(function(){el.remove();},400); }
+      }
+      function _handleOffline() {
+        if (document.getElementById('offlineBadge')) return;
+        var el = document.createElement('div');
+        el.id = 'offlineBadge';
+        el.style.cssText = 'position:fixed;top:12px;right:12px;z-index:99998;background:#1f2937;border:1px solid rgba(239,68,68,.4);border-radius:8px;padding:8px 14px;display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:#f87171;font-family:-apple-system,sans-serif;transition:opacity .3s;box-shadow:0 4px 16px rgba(0,0,0,.3);';
+        el.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.56 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>Sin conexión';
+        document.body.appendChild(el);
+      }
+      window.addEventListener('online',  _handleOnline);
+      window.addEventListener('offline', _handleOffline);
+      if (!navigator.onLine) _handleOffline();
+    })();
+    </script>
 
 </body>
 </html>
