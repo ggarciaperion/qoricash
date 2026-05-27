@@ -2086,12 +2086,21 @@ body.has-sidebar.sidebar-collapsed .desk-pb-bar {
     body.has-pb-bar .pb-widget { display: none !important; }
 }
 
-/* ── Brand izquierda ───────────────────────────────────── */
+/* ── Bloque central (label + pills apilados) ───────────── */
+.dpb-center {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+}
+
+/* ── Brand (ahora dentro del centro) ──────────────────── */
 .dpb-brand {
     display: flex;
     align-items: center;
-    gap: 8px;
-    flex-shrink: 0;
+    gap: 6px;
 }
 .dpb-dot {
     width: 8px;
@@ -2133,8 +2142,6 @@ body.has-sidebar.sidebar-collapsed .desk-pb-bar {
     display: flex;
     align-items: center;
     gap: 16px;
-    flex: 1;
-    justify-content: center;   /* centra las pills en el espacio disponible */
 }
 .dpb-pill {
     display: flex;

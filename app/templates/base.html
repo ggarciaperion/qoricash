@@ -25,7 +25,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css">
 
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}?v=5.7">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}?v=5.8">
 
     <!-- Meta CSRF Token -->
     <meta name="csrf-token" content="{{ csrf_token() }}">
@@ -224,20 +224,22 @@
     <!-- Desktop Precio Base Bar — encabezado fijo solo en escritorio -->
     {% if current_user.is_authenticated and (current_user.role in ['Master','Operador'] or (current_user.role == 'Trader' and pb_access)) %}
     <div class="desk-pb-bar" id="deskPbBar">
-        <div class="dpb-brand">
-            <span class="dpb-dot" id="deskPbDot"></span>
-            <span class="dpb-brand-text">Mercado en vivo</span>
-        </div>
-
-        <div class="dpb-rates" id="deskPbRates">
-            <div class="dpb-pill dpb-pill-buy">
-                <span class="dpb-pill-label">COMPRA</span>
-                <span class="dpb-pill-value" id="deskPbBuy">—</span>
+        <div class="dpb-center">
+            <div class="dpb-brand">
+                <span class="dpb-dot" id="deskPbDot"></span>
+                <span class="dpb-brand-text">Mercado en vivo</span>
             </div>
-            <div class="dpb-sep"></div>
-            <div class="dpb-pill dpb-pill-sell">
-                <span class="dpb-pill-label">VENTA</span>
-                <span class="dpb-pill-value" id="deskPbSell">—</span>
+
+            <div class="dpb-rates" id="deskPbRates">
+                <div class="dpb-pill dpb-pill-buy">
+                    <span class="dpb-pill-label">COMPRA</span>
+                    <span class="dpb-pill-value" id="deskPbBuy">—</span>
+                </div>
+                <div class="dpb-sep"></div>
+                <div class="dpb-pill dpb-pill-sell">
+                    <span class="dpb-pill-label">VENTA</span>
+                    <span class="dpb-pill-value" id="deskPbSell">—</span>
+                </div>
             </div>
         </div>
 
