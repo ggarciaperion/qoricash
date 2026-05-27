@@ -25,7 +25,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css">
 
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}?v=5.8">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}?v=5.9">
 
     <!-- Meta CSRF Token -->
     <meta name="csrf-token" content="{{ csrf_token() }}">
@@ -873,6 +873,11 @@
                 var meta      = document.querySelector('.dpb-meta');
 
                 if (!btnEdit) return;
+
+                // Click on price pill also opens edit form
+                document.querySelectorAll('.dpb-pill').forEach(function(pill) {
+                    pill.addEventListener('click', function() { btnEdit.click(); });
+                });
 
                 btnEdit.addEventListener('click', function() {
                     var bVal = document.getElementById('deskPbBuy').textContent;

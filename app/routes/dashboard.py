@@ -14,7 +14,7 @@ from app.models.trader_daily_profit import TraderDailyProfit
 from app.models.user import User
 from app.models.operation import Operation
 from datetime import datetime, timedelta, date
-from sqlalchemy import and_, func
+from sqlalchemy import and_, func, or_
 
 dashboard_bp = Blueprint('dashboard', __name__)
 
@@ -81,7 +81,7 @@ def _trader_profit_from_ops(trader_id, start_dt, end_dt):
     from app.models.client import Client as _C
     from decimal import Decimal as _D
     ops = Operation.query.join(_C, Operation.client_id == _C.id).filter(
-        _C.created_by == trader_id,
+        or_(Operation.user_id == trader_id, and_(Operation.user_id == None, _C.created_by == trader_id)),
         Operation.status == 'Completada',
         Operation.base_rate.isnot(None),
         Operation.created_at >= start_dt,
@@ -136,7 +136,7 @@ def _trader_profit_from_matches(trader_id, start_dt, end_dt):
         .join(buy_op, AccountingMatch.buy_operation_id == buy_op.id)\
         .join(_C, buy_op.client_id == _C.id)\
         .filter(
-            _C.created_by == trader_id,
+            or_(buy_op.user_id == trader_id, and_(buy_op.user_id == None, _C.created_by == trader_id)),
             AccountingMatch.status == 'Activo',
             buy_op.created_at >= start_dt,
             buy_op.created_at < end_dt,
@@ -146,7 +146,7 @@ def _trader_profit_from_matches(trader_id, start_dt, end_dt):
         .join(sell_op, AccountingMatch.sell_operation_id == sell_op.id)\
         .join(_C, sell_op.client_id == _C.id)\
         .filter(
-            _C.created_by == trader_id,
+            or_(sell_op.user_id == trader_id, and_(sell_op.user_id == None, _C.created_by == trader_id)),
             AccountingMatch.status == 'Activo',
             sell_op.created_at >= start_dt,
             sell_op.created_at < end_dt,
@@ -278,7 +278,7 @@ def get_all_dashboard_data():
     if trader_id:
         query_today = query_today.join(
             _Client, Operation.client_id == _Client.id
-        ).filter(_Client.created_by == trader_id)
+        ).filter(or_(Operation.user_id == trader_id, and_(Operation.user_id == None, _Client.created_by == trader_id)))
     elif demo_id:
         query_today = query_today.filter(Operation.user_id != demo_id)
 
@@ -348,7 +348,7 @@ def get_all_dashboard_data():
     if trader_id:
         query_month = query_month.join(
             _Client, Operation.client_id == _Client.id
-        ).filter(_Client.created_by == trader_id)
+        ).filter(or_(Operation.user_id == trader_id, and_(Operation.user_id == None, _Client.created_by == trader_id)))
     elif demo_id:
         query_month = query_month.filter(Operation.user_id != demo_id)
 
@@ -457,7 +457,7 @@ def get_today_stats():
     )
     if trader_id:
         query = query.join(_Client2, Operation.client_id == _Client2.id)\
-                     .filter(_Client2.created_by == trader_id)
+                     .filter(or_(Operation.user_id == trader_id, and_(Operation.user_id == None, _Client2.created_by == trader_id)))
     else:
         demo_id = _demo_user_id()
         if demo_id:
@@ -545,7 +545,7 @@ def get_month_stats():
     )
     if trader_id:
         query = query.join(_Client3, Operation.client_id == _Client3.id)\
-                     .filter(_Client3.created_by == trader_id)
+                     .filter(or_(Operation.user_id == trader_id, and_(Operation.user_id == None, _Client3.created_by == trader_id)))
     else:
         _demo_id = _demo_user_id()
         if _demo_id:
@@ -599,7 +599,7 @@ def get_month_stats():
     )
     if trader_id:
         query_today = query_today.join(_Client4, Operation.client_id == _Client4.id)\
-                                 .filter(_Client4.created_by == trader_id)
+                                 .filter(or_(Operation.user_id == trader_id, and_(Operation.user_id == None, _Client4.created_by == trader_id)))
     elif _demo_id_c:
         query_today = query_today.filter(Operation.user_id != _demo_id_c)
 
@@ -918,9 +918,8 @@ def get_top_clients():
 
     if trader_id:
         from app.models.client import Client as _ClientTop
-        trader_client_ids = db.session.query(_ClientTop.id)\
-            .filter(_ClientTop.created_by == trader_id).subquery()
-        query = query.filter(Operation.client_id.in_(trader_client_ids))
+        query = query.outerjoin(_ClientTop, Operation.client_id == _ClientTop.id)\
+            .filter(or_(Operation.user_id == trader_id, and_(Operation.user_id == None, _ClientTop.created_by == trader_id)))
 
     results = query.group_by(Operation.client_id).order_by(
         func.sum(Operation.amount_usd).desc()
@@ -970,9 +969,8 @@ def get_inactive_clients():
 
     if trader_id:
         from app.models.client import Client as _ClientInact
-        trader_client_ids2 = db.session.query(_ClientInact.id)\
-            .filter(_ClientInact.created_by == trader_id).subquery()
-        subq = subq.filter(Operation.client_id.in_(trader_client_ids2))
+        subq = subq.outerjoin(_ClientInact, Operation.client_id == _ClientInact.id)\
+            .filter(or_(Operation.user_id == trader_id, and_(Operation.user_id == None, _ClientInact.created_by == trader_id)))
 
     subq = subq.group_by(Operation.client_id).subquery()
 
@@ -1187,9 +1185,8 @@ def get_profit_per_operation():
 
     if trader_id:
         from app.models.client import Client as _ClientProfit
-        trader_client_ids3 = db.session.query(_ClientProfit.id)\
-            .filter(_ClientProfit.created_by == trader_id).subquery()
-        query = query.filter(Operation.client_id.in_(trader_client_ids3))
+        query = query.join(_ClientProfit, Operation.client_id == _ClientProfit.id)\
+            .filter(or_(Operation.user_id == trader_id, and_(Operation.user_id == None, _ClientProfit.created_by == trader_id)))
 
     operations = query.order_by(Operation.created_at.desc()).limit(25).all()
 
@@ -1269,9 +1266,9 @@ def get_top_clients_profit():
         if _demo:
             query = query.filter(Operation.user_id != _demo)
     if trader_id:
-        trader_client_ids = db.session.query(Client.id)\
-            .filter(Client.created_by == trader_id).subquery()
-        query = query.filter(Operation.client_id.in_(trader_client_ids))
+        from app.models.client import Client as _ClientTProfit
+        query = query.join(_ClientTProfit, Operation.client_id == _ClientTProfit.id)\
+            .filter(or_(Operation.user_id == trader_id, and_(Operation.user_id == None, _ClientTProfit.created_by == trader_id)))
 
     operations = query.all()
 
@@ -1345,9 +1342,9 @@ def get_top_clients_ops():
     ).filter(*_filters)
 
     if trader_id:
-        trader_client_ids = db.session.query(Client.id)\
-            .filter(Client.created_by == trader_id).subquery()
-        query = query.filter(Operation.client_id.in_(trader_client_ids))
+        from app.models.client import Client as _ClientTOps
+        query = query.outerjoin(_ClientTOps, Operation.client_id == _ClientTOps.id)\
+            .filter(or_(Operation.user_id == trader_id, and_(Operation.user_id == None, _ClientTOps.created_by == trader_id)))
 
     results = query.group_by(Operation.client_id).order_by(
         func.count(Operation.id).desc()
@@ -1411,19 +1408,46 @@ def api_set_precio_base():
         return jsonify({'ok': False, 'error': 'Valores fuera de rango (3.00 – 5.00)'}), 400
 
     try:
+        import math
         DatatecRate.update(compra, venta, None, None, current_user.id)
         db.session.add(DatatecEntry(compra=compra, venta=venta, user_id=current_user.id))
+
+        # Actualizar "Mis Tipos de Cambio" automáticamente:
+        # widget + 50 pips, redondeado siempre a favor de QoriCash.
+        PIPS = 0.0050
+        mtc_compra = math.floor((compra + PIPS) * 1000) / 1000
+        mtc_venta  = math.ceil( (venta  + PIPS) * 1000) / 1000
+        from app.models.exchange_rate import ExchangeRate
+        new_rate = ExchangeRate.update_rates(
+            buy_rate=mtc_compra,
+            sell_rate=mtc_venta,
+            user_id=current_user.id,
+        )
+
         db.session.commit()
         now_iso = now_peru().isoformat()
+
         socketio.emit('precio_base_actualizado', {
             'compra':     compra,
             'venta':      venta,
             'updated_by': current_user.username,
             'updated_at': now_iso,
         })
-        return jsonify({'ok': True, 'compra': compra, 'venta': venta, 'updated_at': now_iso})
+        socketio.emit('tipos_cambio_actualizados', {
+            'compra':     mtc_compra,
+            'venta':      mtc_venta,
+            'updated_by': current_user.username,
+            'updated_at': now_iso,
+        }, namespace='/')
+
+        return jsonify({
+            'ok': True,
+            'compra': compra, 'venta': venta, 'updated_at': now_iso,
+            'mtc_compra': mtc_compra, 'mtc_venta': mtc_venta,
+        })
     except Exception as exc:
         db.session.rollback()
+        logger.error(f'[PB] api_set_precio_base error: {exc}')
         return jsonify({'ok': False, 'error': 'Error interno al guardar'}), 500
 
 

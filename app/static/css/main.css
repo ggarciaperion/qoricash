@@ -2149,7 +2149,10 @@ body.has-sidebar.sidebar-collapsed .desk-pb-bar {
     gap: 12px;
     padding: 8px 24px;
     border-radius: 12px;
+    cursor: pointer;
+    transition: filter 0.15s ease;
 }
+.dpb-pill:hover { filter: brightness(1.2); }
 .dpb-pill-buy  { background: rgba(52,211,153,.1);  border: 1px solid rgba(52,211,153,.25); }
 .dpb-pill-sell { background: rgba(96,165,250,.1);  border: 1px solid rgba(96,165,250,.25); }
 
