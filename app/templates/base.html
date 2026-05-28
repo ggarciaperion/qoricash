@@ -253,7 +253,7 @@
             </div>
         </div>
 
-        {% if current_user.role in ['Master', 'Presidente de Negocios','Operador'] %}
+        {% if current_user.role in ['Master', 'Presidente de Negocios','Operador'] or current_user.is_trading_desk() %}
         <div class="dpb-form" id="deskPbForm">
             <div class="dpb-form-inner">
                 <div class="dpb-input-group">
@@ -271,7 +271,7 @@
         {% endif %}
 
         <div class="dpb-meta">
-            {% if current_user.role in ['Master', 'Presidente de Negocios','Operador'] %}
+            {% if current_user.role in ['Master', 'Presidente de Negocios','Operador'] or current_user.is_trading_desk() %}
             <button class="dpb-edit-btn" id="deskPbEditBtn">
                 <i class="bi bi-pencil-fill"></i> Actualizar
             </button>
@@ -303,16 +303,16 @@
             <span class="mb-pb-brand-text">Mercado en vivo</span>
         </div>
         <div class="mb-pb-pills" id="mbPbPills">
-            <div class="mb-pb-pill mb-pb-pill-buy" {% if current_user.role in ['Master', 'Presidente de Negocios','Operador'] %}style="cursor:pointer" onclick="mbPbOpenEdit()"{% endif %}>
+            <div class="mb-pb-pill mb-pb-pill-buy" {% if current_user.role in ['Master', 'Presidente de Negocios','Operador'] or current_user.is_trading_desk() %}style="cursor:pointer" onclick="mbPbOpenEdit()"{% endif %}>
                 <span class="mb-pb-pill-label">COMPRA</span>
                 <span class="mb-pb-pill-value" id="mbPbBuy">—</span>
             </div>
-            <div class="mb-pb-pill mb-pb-pill-sell" {% if current_user.role in ['Master', 'Presidente de Negocios','Operador'] %}style="cursor:pointer" onclick="mbPbOpenEdit()"{% endif %}>
+            <div class="mb-pb-pill mb-pb-pill-sell" {% if current_user.role in ['Master', 'Presidente de Negocios','Operador'] or current_user.is_trading_desk() %}style="cursor:pointer" onclick="mbPbOpenEdit()"{% endif %}>
                 <span class="mb-pb-pill-label">VENTA</span>
                 <span class="mb-pb-pill-value" id="mbPbSell">—</span>
             </div>
         </div>
-        {% if current_user.role in ['Master', 'Presidente de Negocios','Operador'] %}
+        {% if current_user.role in ['Master', 'Presidente de Negocios','Operador'] or current_user.is_trading_desk() %}
         <button class="mb-pb-edit-btn" id="mbPbEditBtn" onclick="mbPbOpenEdit()">
             <i class="bi bi-pencil-fill"></i>
         </button>
@@ -827,7 +827,7 @@
     <script>
     (function() {
         var _lastAt = null;
-        var _canEdit = {% if current_user.role in ['Master', 'Presidente de Negocios','Operador'] %}true{% else %}false{% endif %};
+        var _canEdit = {% if current_user.role in ['Master', 'Presidente de Negocios','Operador'] or current_user.is_trading_desk() %}true{% else %}false{% endif %};
 
         function _fmt(v) { return (v == null || v === 0) ? '—' : parseFloat(v).toFixed(4); }
 

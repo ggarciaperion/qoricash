@@ -379,6 +379,61 @@
         </div>
     </div>
 
+    {% if current_user.is_trading_desk() %}
+    <!-- Mis Tipos de Cambio (solo trading desk) -->
+    <div class="section-header mb-3 mt-2">
+        <i class="bi bi-currency-exchange"></i>
+        <h5>Mis Tipos de Cambio</h5>
+    </div>
+    <div class="row mb-4">
+        <div class="col-md-4 col-lg-3">
+            <div class="card shadow-sm h-100">
+                <div class="card-body p-3">
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <div class="rounded-3 p-2 text-center" style="background:#eafaf1;border:1px solid #b7e4c7">
+                                <div style="font-size:.65rem;color:#059669;font-weight:600;text-transform:uppercase;letter-spacing:.05em">COMPRA</div>
+                                <div class="fw-bold text-success mt-1" style="font-size:1.25rem" id="currentBuyRate">S/ --</div>
+                                <div style="font-size:.65rem" class="text-muted">Cliente vende</div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="rounded-3 p-2 text-center" style="background:#e8f0fe;border:1px solid #b6d0fb">
+                                <div style="font-size:.65rem;color:#2563eb;font-weight:600;text-transform:uppercase;letter-spacing:.05em">VENTA</div>
+                                <div class="fw-bold text-primary mt-1" style="font-size:1.25rem" id="currentSellRate">S/ --</div>
+                                <div style="font-size:.65rem" class="text-muted">Cliente compra</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row g-2 mb-2">
+                        <div class="col-6">
+                            <label class="form-label mb-1" style="font-size:.7rem;font-weight:600;color:#059669">Nueva compra</label>
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text">S/</span>
+                                <input type="number" class="form-control" id="newBuyRate" step="0.001" min="0" placeholder="0.000">
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label mb-1" style="font-size:.7rem;font-weight:600;color:#2563eb">Nueva venta</label>
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text">S/</span>
+                                <input type="number" class="form-control" id="newSellRate" step="0.001" min="0" placeholder="0.000">
+                            </div>
+                        </div>
+                    </div>
+                    <button class="btn btn-primary btn-sm w-100 mb-2" onclick="updateExchangeRates()">
+                        <i class="bi bi-send me-1"></i>Guardar y publicar en qoricash.pe
+                    </button>
+                    <div class="text-center text-muted" style="font-size:.68rem">
+                        <i class="bi bi-clock me-1"></i>
+                        <span id="lastUpdate">--</span> · por <span id="updatedBy">--</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Accesos Rápidos -->
     <div class="section-header mb-3 mt-2">
         <i class="bi bi-lightning"></i>
@@ -478,6 +533,10 @@ $(document).ready(function() {
     loadInactiveClients();
     loadTopProfit();
     loadTopOps();
+
+    {% if current_user.is_trading_desk() %}
+    loadExchangeRates();
+    {% endif %}
 });
 
 // Inicializar calendario (Flatpickr)
@@ -723,5 +782,52 @@ function escapeHtml(str) {
     if (!str) return '';
     return str.replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
+
+{% if current_user.is_trading_desk() %}
+// ==================== TIPOS DE CAMBIO (trading desk) ====================
+
+function loadExchangeRates() {
+    ajaxRequest('/api/platform/exchange-rates', 'GET', null, function(response) {
+        if (response.success && response.rates) {
+            const rates = response.rates;
+            $('#currentBuyRate').text('S/ ' + parseFloat(rates.compra).toFixed(3));
+            $('#currentSellRate').text('S/ ' + parseFloat(rates.venta).toFixed(3));
+            $('#newBuyRate').val(parseFloat(rates.compra).toFixed(3));
+            $('#newSellRate').val(parseFloat(rates.venta).toFixed(3));
+            if (rates.updated_at && rates.updated_by) {
+                $('#lastUpdate').text(new Date(rates.updated_at).toLocaleString('es-PE'));
+                $('#updatedBy').text(rates.updated_by);
+            } else {
+                $('#lastUpdate').text('Sin actualizar');
+                $('#updatedBy').text('Sistema');
+            }
+        }
+    }, function(error) {
+        console.error('Error al cargar tipos de cambio:', error);
+    });
+}
+
+function updateExchangeRates() {
+    const buyRate  = parseFloat($('#newBuyRate').val());
+    const sellRate = parseFloat($('#newSellRate').val());
+    if (!buyRate || !sellRate) { showNotification('Debe ingresar ambos tipos de cambio', 'warning'); return; }
+    if (buyRate <= 0 || sellRate <= 0) { showNotification('Los tipos de cambio deben ser mayores a 0', 'warning'); return; }
+    if (sellRate < buyRate) { showNotification('El tipo de cambio de venta debe ser mayor o igual al de compra', 'warning'); return; }
+    if (Math.abs(sellRate - buyRate) > 0.5) {
+        if (!confirm('La diferencia entre compra y venta es mayor a 0.5. ¿Desea continuar?')) return;
+    }
+    if (!confirm(`¿Actualizar tipos de cambio?\n\nCompra: S/ ${buyRate.toFixed(3)}\nVenta: S/ ${sellRate.toFixed(3)}`)) return;
+    ajaxRequest('/api/platform/exchange-rates', 'POST', { buy_rate: buyRate, sell_rate: sellRate }, function(response) {
+        if (response.success) {
+            showNotification('Tipos de cambio actualizados exitosamente', 'success');
+            loadExchangeRates();
+        } else {
+            showNotification(response.message || 'Error al actualizar tipos de cambio', 'danger');
+        }
+    }, function(error) {
+        showNotification(error.responseJSON?.message || 'Error al actualizar tipos de cambio', 'danger');
+    });
+}
+{% endif %}
 </script>
 {% endblock %}

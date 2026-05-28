@@ -313,8 +313,13 @@ def get_client_by_dni(dni):
 
 @platform_api_bp.route('/exchange-rates', methods=['GET', 'POST'])
 @login_required
-@require_role('Master', 'Operador')
 def manage_exchange_rates():
+    if not (current_user.is_master() or current_user.is_operador() or current_user.is_trading_desk()):
+        if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'error': 'No autorizado'}), 403
+        from flask import flash, redirect, url_for
+        flash('No tienes permiso para acceder a esta función', 'danger')
+        return redirect(url_for('dashboard.index'))
     """
     API: Obtener o actualizar tipos de cambio (Master y Operador)
 

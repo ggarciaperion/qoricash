@@ -1298,6 +1298,7 @@ function setTab(t) {
 ───────────────────────────────────────────────────────────── */
 let _ft;
 function schedFilter() { clearTimeout(_ft); _ft = setTimeout(filter, 130); }
+function doFilter() { filter(); }
 
 function filter() {
   const q  = document.getElementById('fSearch').value.toLowerCase().trim();

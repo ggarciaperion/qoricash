@@ -447,9 +447,12 @@ def create_app(config_name=None):
         from flask_login import current_user
         pb = False
         try:
-            if current_user.is_authenticated and current_user.role == 'Trader':
-                from app.models.datatec_rate import PrecioBaseAccess
-                pb = PrecioBaseAccess.has_access(current_user.id)
+            if current_user.is_authenticated:
+                if current_user.is_trading_desk():
+                    pb = True
+                elif current_user.role == 'Trader':
+                    from app.models.datatec_rate import PrecioBaseAccess
+                    pb = PrecioBaseAccess.has_access(current_user.id)
         except Exception:
             pb = False
         return dict(pb_access=pb)
