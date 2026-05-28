@@ -882,7 +882,9 @@ def start_market_schedulers(app):
     # Nivel 2 — watchdog: si el greenlet muere por cualquier razón, lo respawnea.
     def _fx_monitor_loop():
         import eventlet as _ev
-        _log = logging.getLogger(__name__)
+        from datetime import datetime, timezone, timedelta
+        _LIMA = timezone(timedelta(hours=-5))
+        _log  = logging.getLogger(__name__)
         _log.info('[FX-WATCH] Loop iniciado')
         _ev.sleep(30)  # delay inicial
         consecutive_errors = 0
@@ -891,6 +893,15 @@ def start_market_schedulers(app):
                 with app.app_context():
                     _fx_monitor()
                 consecutive_errors = 0
+                # ── Horario de mercado Lima ──────────────────────────────
+                # 09:00–13:30 → back-to-back (tiempo real, cada ~5–10s)
+                # Fuera de horario → cada 30 minutos (ahorro de recursos)
+                t = datetime.now(_LIMA).time()
+                from datetime import time as _time
+                in_market = _time(9, 0) <= t < _time(13, 30)
+                if not in_market:
+                    _log.info('[FX-WATCH] Fuera de horario — próximo ciclo en 30 min')
+                    _ev.sleep(1800)
             except Exception as e:
                 import traceback
                 consecutive_errors += 1

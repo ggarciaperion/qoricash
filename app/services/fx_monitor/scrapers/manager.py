@@ -44,10 +44,10 @@ def _cb_record(slug: str, success: bool):
     entry = _cb.setdefault(slug, {"fails": 0, "open_until": 0.0})
     entry["fails"] += 1
     fails = entry["fails"]
-    # Backoff progresivo: 5 fallas → 60s · 10 fallas → 5min · 20 fallas → 30min
-    if   fails >= 20: cooldown = 1800
-    elif fails >= 10: cooldown = 300
-    elif fails >= 5:  cooldown = 60
+    # Backoff progresivo: 5 fallas → 30s · 10 fallas → 2min · 20 fallas → 5min (máx)
+    if   fails >= 20: cooldown = 300
+    elif fails >= 10: cooldown = 120
+    elif fails >= 5:  cooldown = 30
     else:             cooldown = 0
     if cooldown:
         entry["open_until"] = time.monotonic() + cooldown
