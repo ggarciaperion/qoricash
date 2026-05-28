@@ -71,10 +71,6 @@ with engine.begin() as conn:
         conn.execute(text(f"DELETE FROM invoices WHERE operation_id IN ({ids_str})"))
         print(f"  → invoices eliminados")
 
-    # 6. notifications relacionadas
-    conn.execute(text("DELETE FROM notifications WHERE client_id = :cid"), {'cid': cid})
-    print(f"  → notifications eliminados")
-
     # 7. operaciones
     conn.execute(text("DELETE FROM operations WHERE client_id = :cid"), {'cid': cid})
     print(f"  → operaciones eliminadas")
