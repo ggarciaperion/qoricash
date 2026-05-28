@@ -49,7 +49,7 @@ ALL_SCRAPERS = [
 ]
 
 
-def scrape_all(active_slugs=None, max_workers=6):
+def scrape_all(active_slugs=None, max_workers=18):
     """
     Ejecuta todos los scrapers activos en paralelo.
 

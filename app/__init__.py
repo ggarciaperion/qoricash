@@ -871,7 +871,22 @@ def start_market_schedulers(app):
     _run_every(5  * 60, 'Precios de mercado',   _prices)
     _run_every(15 * 60, 'Noticias RSS',          _news)
     _run_every(6  * 3600, 'Indicadores macro',   _macro)
-    _run_every(90,      'FX Monitor scraping',   _fx_monitor)
+    # FX Monitor: loop continuo — espera solo 5s después de que termina cada ciclo.
+    # Con 18 workers en paralelo el ciclo dura ~5-8s → precios frescos cada ~10-13s.
+    def _fx_monitor_loop():
+        import eventlet as _ev
+        logger = logging.getLogger(__name__)
+        logger.info('[MARKET] ✅ FX Monitor scraping iniciado (loop continuo, ~10s)')
+        _ev.sleep(30)  # delay inicial igual que los demás jobs
+        while True:
+            try:
+                with app.app_context():
+                    _fx_monitor()
+            except Exception as e:
+                import traceback
+                logger.error(f'[MARKET] ❌ FX Monitor: {e}\n{traceback.format_exc()}')
+            _ev.sleep(5)  # pausa mínima entre ciclos
+    eventlet.spawn(_fx_monitor_loop)
     _run_every(24 * 3600, 'Calendario económico', _calendar)
 
     # Análisis diario a las 8:30 AM Lima, lunes a viernes
