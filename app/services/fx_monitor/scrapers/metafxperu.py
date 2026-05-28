@@ -65,7 +65,12 @@ class MetaFXPeruScraper(BaseScraper):
         buy = sell = None
         for item in payload.get("data", []):
             tipo = item.get("tipo", "").lower()
-            if item.get("modo_fijo") == 1:
+            # mh_auto=1 → sistema usa rango automático (valor_min/max) incluso si modo_fijo=1
+            if item.get("mh_auto") == 1:
+                vmin = self._parse_rate(item.get("valor_min", 0))
+                vmax = self._parse_rate(item.get("valor_max", 0))
+                price = round((vmin + vmax) / 2, 4)
+            elif item.get("modo_fijo") == 1:
                 price = self._parse_rate(item.get("valor_fijo", 0))
             else:
                 vmin = self._parse_rate(item.get("valor_min", 0))

@@ -215,7 +215,7 @@ class FXMonitorService:
                 "vs_own_sell":    round(sell - own_sell, 4),
                 "prev_buy":       float(current.prev_buy_rate)  if current.prev_buy_rate  else None,
                 "prev_sell":      float(current.prev_sell_rate) if current.prev_sell_rate else None,
-                "updated_at":     _to_lima(current.updated_at).strftime("%H:%M"),
+                "updated_at":     current.updated_at.strftime("%H:%M"),
                 "scrape_ok":      current.scrape_ok,
             })
 

@@ -144,7 +144,7 @@ def api_live():
         if rate and rate.updated_at:
             ts = rate.updated_at
             if ts.tzinfo is None:
-                ts = ts.replace(tzinfo=timezone.utc)
+                ts = ts.replace(tzinfo=_LIMA)  # DB guarda hora Lima naive
             own_updated_epoch = int(ts.timestamp())
     except Exception:
         pass
@@ -163,7 +163,7 @@ def api_live():
         for curr, comp in rows:
             ts = curr.updated_at
             if ts.tzinfo is None:
-                ts = ts.replace(tzinfo=timezone.utc)
+                ts = ts.replace(tzinfo=_LIMA)  # DB guarda hora Lima naive
             slug_epoch[comp.slug] = int(ts.timestamp())
     except Exception:
         pass
