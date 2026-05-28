@@ -172,9 +172,13 @@ def api_live():
         c["updated_epoch"] = slug_epoch.get(c["slug"], 0)
 
     # Rankings — solo entidades con AMBOS precios válidos y frescos
-    # Stale threshold: dato > 10 min sin actualizar = no confiable
-    STALE_SECS = 10 * 60
-    server_now  = int(datetime.now(_LIMA).timestamp())
+    # Stale threshold: durante horario de mercado (9:00-13:30) = 10 min
+    # Fuera de horario el scraper duerme 30 min — no aplicar stale check
+    now_lima    = datetime.now(_LIMA)
+    server_now  = int(now_lima.timestamp())
+    from datetime import time as _dtime
+    _in_market  = _dtime(9, 0) <= now_lima.time() < _dtime(13, 30)
+    STALE_SECS  = 10 * 60 if _in_market else None   # None = sin límite fuera de horario
 
     valid   = []
     invalid = []
@@ -185,7 +189,8 @@ def api_live():
             invalid.append(c)
             continue
         ep = slug_epoch.get(c["slug"], 0)
-        if ep > 0 and (server_now - ep) > STALE_SECS:
+        is_stale = STALE_SECS and ep > 0 and (server_now - ep) > STALE_SECS
+        if is_stale:
             c["is_valid"] = False
             c["is_stale"] = True
             invalid.append(c)
