@@ -19,6 +19,9 @@ from .base import BaseScraper, RateResult
 
 _API_URL = "https://metafxperu.com/obtener_tasas.php"
 
+# Cache de último resultado exitoso — se devuelve cuando la API retorna 429
+_cache: dict = {"buy": None, "sell": None, "ts": 0}
+
 
 class MetaFXPeruScraper(BaseScraper):
     slug = "metafxperu"
@@ -27,18 +30,33 @@ class MetaFXPeruScraper(BaseScraper):
     def fetch(self) -> RateResult:
         t0   = time.monotonic()
         sess = requests.Session()
-        resp = sess.get(
-            _API_URL,
-            headers={
-                **self.get_json_headers(),
-                "Referer": "https://metafxperu.com/",
-                "Origin":  "https://metafxperu.com",
-            },
-            timeout=10,
-            verify=False,
-        )
+        try:
+            resp = sess.get(
+                _API_URL,
+                headers={
+                    **self.get_json_headers(),
+                    "Referer": "https://metafxperu.com/",
+                    "Origin":  "https://metafxperu.com",
+                },
+                timeout=10,
+                verify=False,
+            )
+            resp.raise_for_status()
+        except requests.HTTPError as e:
+            ms = int((time.monotonic() - t0) * 1000)
+            if e.response is not None and e.response.status_code == 429 and _cache["buy"]:
+                # Rate-limited — devolver último precio válido en cache
+                return RateResult(
+                    slug=self.slug,
+                    buy_rate=_cache["buy"],
+                    sell_rate=_cache["sell"],
+                    scraped_at=now_peru(),
+                    response_ms=ms,
+                    success=True,
+                )
+            raise
         ms = int((time.monotonic() - t0) * 1000)
-        resp.raise_for_status()
+        resp.raise_for_status()  # re-raise si hubo otro error HTTP
 
         payload = resp.json()
         if not payload.get("ok"):
@@ -61,6 +79,11 @@ class MetaFXPeruScraper(BaseScraper):
 
         if not buy or not sell:
             raise ValueError(f"MetaFX Peru: tasas incompletas buy={buy} sell={sell}")
+
+        # Actualizar cache con precios frescos
+        _cache["buy"] = buy
+        _cache["sell"] = sell
+        _cache["ts"] = time.time()
 
         return RateResult(
             slug=self.slug,

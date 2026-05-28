@@ -171,10 +171,11 @@ def api_live():
     for c in competitors:
         c["updated_epoch"] = slug_epoch.get(c["slug"], 0)
 
-    # Rankings
+    # Rankings — activos primero (ordenados por precio), errores al final
     active = [c for c in competitors if c.get("scrape_ok") and c.get("buy", 0) > 0]
-    buy_ranked  = sorted(active, key=lambda c: c["buy"],  reverse=True)
-    sell_ranked = sorted(active, key=lambda c: c["sell"])
+    errors = [c for c in competitors if not c.get("scrape_ok") or c.get("buy", 0) == 0]
+    buy_ranked  = sorted(active, key=lambda c: c["buy"],  reverse=True) + errors
+    sell_ranked = sorted(active, key=lambda c: c["sell"]) + errors
 
     best_buy  = buy_ranked[0]  if buy_ranked  else None
     best_sell = sell_ranked[0] if sell_ranked else None
