@@ -51,12 +51,17 @@ class FXMonitorService:
 
     @staticmethod
     def seed_competitors():
-        """Inserta los competidores base si no existen aún."""
+        """Upsert de competidores base — inserta los que faltan y activa los que están inactivos."""
         for data in COMPETITORS_SEED:
-            if not Competitor.query.filter_by(slug=data["slug"]).first():
+            comp = Competitor.query.filter_by(slug=data["slug"]).first()
+            if not comp:
                 db.session.add(Competitor(**data))
+                logger.info(f"[FX] Competidor nuevo insertado: {data['slug']}")
+            elif not comp.is_active:
+                comp.is_active = True
+                logger.info(f"[FX] Competidor reactivado: {data['slug']}")
         db.session.commit()
-        logger.info("[FX] Competidores inicializados.")
+        logger.info("[FX] Competidores sincronizados.")
 
     @staticmethod
     def run_scrape_cycle():
@@ -109,10 +114,21 @@ class FXMonitorService:
 
                 if not result.success or result.buy_rate == 0:
                     error_count += 1
-                    # Marcar current como error pero no pisar el último precio válido
                     prev = slug_to_current.get(result.slug)
                     if prev:
+                        # Marcar error pero conservar último precio válido
                         prev.scrape_ok = False
+                    else:
+                        # Primera vez que falla — crear fila placeholder para que aparezca en el dashboard
+                        placeholder = CompetitorRateCurrent(
+                            competitor_id=comp.id,
+                            buy_rate=0,
+                            sell_rate=0,
+                            updated_at=result.scraped_at,
+                            scrape_ok=False,
+                        )
+                        db.session.add(placeholder)
+                        slug_to_current[result.slug] = placeholder
                     continue
 
                 ok_count += 1
