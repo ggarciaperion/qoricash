@@ -171,14 +171,36 @@ def api_live():
     for c in competitors:
         c["updated_epoch"] = slug_epoch.get(c["slug"], 0)
 
-    # Rankings — activos primero (ordenados por precio), errores al final
-    active = [c for c in competitors if c.get("scrape_ok") and c.get("buy", 0) > 0]
-    errors = [c for c in competitors if not c.get("scrape_ok") or c.get("buy", 0) == 0]
+    # Rankings — solo entidades con AMBOS precios válidos y frescos
+    # Stale threshold: dato > 10 min sin actualizar = no confiable
+    STALE_SECS = 10 * 60
+    server_now  = int(datetime.now(_LIMA).timestamp())
+
+    valid   = []
+    invalid = []
+    for c in competitors:
+        has_data = c.get("scrape_ok") and c.get("buy", 0) > 0 and c.get("sell", 0) > 0
+        if not has_data:
+            c["is_valid"] = False
+            invalid.append(c)
+            continue
+        ep = slug_epoch.get(c["slug"], 0)
+        if ep > 0 and (server_now - ep) > STALE_SECS:
+            c["is_valid"] = False
+            c["is_stale"] = True
+            invalid.append(c)
+        else:
+            c["is_valid"] = True
+            valid.append(c)
+
+    active = valid
+    errors = invalid
     buy_ranked  = sorted(active, key=lambda c: c["buy"],  reverse=True) + errors
     sell_ranked = sorted(active, key=lambda c: c["sell"]) + errors
 
-    best_buy  = buy_ranked[0]  if buy_ranked  else None
-    best_sell = sell_ranked[0] if sell_ranked else None
+    # best_buy / best_sell SOLO de entradas válidas (nunca de errores)
+    best_buy  = buy_ranked[0]  if active else None
+    best_sell = sell_ranked[0] if active else None
 
     # Market stats
     avg_buy  = round(sum(c["buy"]  for c in active) / len(active), 4) if active else 0
@@ -203,6 +225,6 @@ def api_live():
         "market_avg_sell": avg_sell,
         "market_spread":   round(avg_sell - avg_buy, 4) if avg_buy and avg_sell else 0,
         "total_active":      len(active),
-        "total_errors":      len([c for c in competitors if not c.get("scrape_ok")]),
+        "total_errors":      len(errors),
         "own_updated_epoch": own_updated_epoch,
     })

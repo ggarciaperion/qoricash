@@ -388,7 +388,17 @@ body.has-trading-monitor {
 .rank-1 { background: rgba(255,214,0,0.15); color: var(--tm-gold); border: 1px solid rgba(255,214,0,0.3); }
 .rank-2 { background: rgba(0,230,118,0.1);  color: var(--tm-buy);  border: 1px solid rgba(0,230,118,0.2); }
 .rank-3 { background: rgba(41,121,255,0.1); color: var(--tm-sell); border: 1px solid rgba(41,121,255,0.2); }
-.rank-n { background: rgba(74,106,133,0.1); color: var(--tm-muted); border: 1px solid var(--tm-border); }
+.rank-n  { background: rgba(74,106,133,0.1); color: var(--tm-muted); border: 1px solid var(--tm-border); }
+.rank-nd { background: transparent; color: var(--tm-label); border: 1px solid var(--tm-border); }
+.row-err  { opacity: 0.32; pointer-events: none; }
+.row-stale { opacity: 0.40; }
+.row-stale .row-time { color: var(--tm-amber) !important; }
+.row-separator {
+  height: 1px;
+  background: var(--tm-border);
+  margin: 4px 8px;
+  opacity: 0.5;
+}
 
 .row-entity {
   font-size: 13px;
@@ -981,15 +991,18 @@ function createRowEl(item, rank, mode, ownBuy, ownSell) {
   const delta  = prevDb != null ? price - prevDb : null;
   const vsOwn  = mode === 'buy' ? item.vs_own_buy : item.vs_own_sell;
 
+  const isValid = item.is_valid !== false && price > 0 && item.scrape_ok !== false;
+  const isStale = !!item.is_stale;
+  const rowCls  = 'list-row' + (!isValid ? ' row-err' : isStale ? ' row-stale' : '');
   const row = document.createElement('div');
-  row.className  = 'list-row' + (item.scrape_ok ? '' : ' row-err');
+  row.className    = rowCls;
   row.dataset.slug = item.slug;
 
-  // Rank badge
-  const rankCls = rank <= 3 ? 'rank-' + rank : 'rank-n';
+  // Rank badge — "—" for invalid/error entries
+  const rankCls = !isValid ? 'rank-nd' : rank <= 3 ? 'rank-' + rank : 'rank-n';
   const badge   = document.createElement('div');
-  badge.className = 'rank-badge ' + rankCls;
-  badge.textContent = String(rank);
+  badge.className   = 'rank-badge ' + rankCls;
+  badge.textContent = isValid ? String(rank) : '—';
 
   // Entity name
   const nameEl = document.createElement('div');
@@ -1034,8 +1047,19 @@ function createRowEl(item, rank, mode, ownBuy, ownSell) {
 function buildListDOM(container, items, mode, ownBuy, ownSell) {
   const frag = document.createDocumentFragment();
   state.rowMap[mode] = {};
-  items.forEach((item, i) => {
-    const els = createRowEl(item, i + 1, mode, ownBuy, ownSell);
+  let separatorInserted = false;
+  let validRank = 0;
+  items.forEach((item) => {
+    const isInvalid = item.is_valid === false || (mode==='buy' ? item.buy : item.sell) <= 0 || item.scrape_ok === false;
+    // Insert visual separator between valid and invalid sections
+    if (isInvalid && !separatorInserted) {
+      separatorInserted = true;
+      const sep = document.createElement('div');
+      sep.className = 'row-separator';
+      frag.appendChild(sep);
+    }
+    const rank = isInvalid ? 999 : ++validRank;
+    const els = createRowEl(item, rank, mode, ownBuy, ownSell);
     frag.appendChild(els.row);
     state.rowMap[mode][item.slug] = els;
   });
@@ -1055,11 +1079,17 @@ function updateListInPlace(items, mode) {
     const prevDb = mode === 'buy' ? item.prev_buy : item.prev_sell;
     const delta  = prevDb != null ? price - prevDb : null;
 
+    // Update row validity class
+    const isNowValid = item.is_valid !== false && price > 0 && item.scrape_ok !== false;
+    const wasErr = entry.row.classList.contains('row-err');
+    if (!isNowValid && !wasErr) entry.row.classList.add('row-err');
+    if (isNowValid  &&  wasErr) entry.row.classList.remove('row-err');
+
     // Price — update + flash only if changed
     const str = fmt4(price);
     if (entry.priceEl.textContent !== str) {
       entry.priceEl.textContent = str;
-      if (prevP != null && Math.abs(price - prevP) > 0.00005) {
+      if (isNowValid && prevP != null && Math.abs(price - prevP) > 0.00005) {
         const cls = price > prevP ? 'flash-up' : 'flash-down';
         entry.row.classList.add(cls);
         setTimeout(() => entry.row.classList.remove(cls), 700);
@@ -1080,6 +1110,22 @@ function updateListInPlace(items, mode) {
   });
 }
 
+// ── Insert QoriCash in correct rank position without disturbing error entries ──
+function buildRankedList(serverRanked, own, mode) {
+  const key = mode === 'buy' ? 'buy' : 'sell';
+  // Strict separation: valid = has data + price > 0 + not stale
+  const valid   = serverRanked.filter(c => c.is_valid !== false && c[key] > 0 && c.scrape_ok !== false);
+  const invalid = serverRanked.filter(c => c.is_valid === false  || c[key] <= 0 || c.scrape_ok === false);
+  // Insert QoriCash among valid at correct rank (never mix with invalid section)
+  const ownP = own[key];
+  let pos = valid.length;
+  for (let i = 0; i < valid.length; i++) {
+    const p = valid[i][key];
+    if (mode === 'buy' ? ownP >= p : ownP <= p) { pos = i; break; }
+  }
+  return [...valid.slice(0, pos), own, ...valid.slice(pos), ...invalid];
+}
+
 // ── Smart list update (diff-based) ───────────────────────────
 function updateLists(data, forceRebuild) {
   const ownEntry = {
@@ -1087,10 +1133,10 @@ function updateLists(data, forceRebuild) {
     buy: data.own_buy, sell: data.own_sell,
     prev_buy: null, prev_sell: null,
     vs_own_buy: 0, vs_own_sell: 0,
-    scrape_ok: true, updated_epoch: 0, updated_at: 'propio',
+    scrape_ok: true, is_valid: true, updated_epoch: 0, updated_at: 'propio',
   };
-  const buyList  = [...data.buy_ranked,  ownEntry].sort((a,b) => b.buy  - a.buy);
-  const sellList = [...data.sell_ranked, ownEntry].sort((a,b) => a.sell - b.sell);
+  const buyList  = buildRankedList(data.buy_ranked,  ownEntry, 'buy');
+  const sellList = buildRankedList(data.sell_ranked, ownEntry, 'sell');
 
   const newBuyOrder  = buyList.map(c=>c.slug).join(',');
   const newSellOrder = sellList.map(c=>c.slug).join(',');
