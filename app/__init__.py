@@ -860,7 +860,10 @@ def start_market_schedulers(app):
 
     def _fx_monitor():
         from app.services.fx_monitor.monitor_service import FXMonitorService
+        from app.services.fx_monitor import live_cache
         r = FXMonitorService.run_scrape_cycle()
+        # Notificar a clientes SSE inmediatamente — latencia <500ms hasta pantalla
+        live_cache.notify()
         logging.info(f"[MARKET] FX Monitor: {r}")
 
     def _calendar():
@@ -871,13 +874,14 @@ def start_market_schedulers(app):
     _run_every(5  * 60, 'Precios de mercado',   _prices)
     _run_every(15 * 60, 'Noticias RSS',          _news)
     _run_every(6  * 3600, 'Indicadores macro',   _macro)
-    # FX Monitor: loop continuo — espera solo 5s después de que termina cada ciclo.
-    # Con 18 workers en paralelo el ciclo dura ~5-8s → precios frescos cada ~10-13s.
+    # FX Monitor: loop back-to-back sin pausa entre ciclos.
+    # Ciclo dura ~5-7s (18 scrapers en paralelo) → DB actualizada cada ~5-7s.
+    # SSE notifica al browser inmediatamente → latencia total ≤7s end-to-end.
     def _fx_monitor_loop():
         import eventlet as _ev
         logger = logging.getLogger(__name__)
-        logger.info('[MARKET] ✅ FX Monitor scraping iniciado (loop continuo, ~10s)')
-        _ev.sleep(30)  # delay inicial igual que los demás jobs
+        logger.info('[MARKET] ✅ FX Monitor scraping iniciado (SSE + loop back-to-back)')
+        _ev.sleep(30)  # delay inicial
         while True:
             try:
                 with app.app_context():
@@ -885,7 +889,7 @@ def start_market_schedulers(app):
             except Exception as e:
                 import traceback
                 logger.error(f'[MARKET] ❌ FX Monitor: {e}\n{traceback.format_exc()}')
-            _ev.sleep(5)  # pausa mínima entre ciclos
+                _ev.sleep(2)  # solo duerme si hay error
     eventlet.spawn(_fx_monitor_loop)
     _run_every(24 * 3600, 'Calendario económico', _calendar)
 

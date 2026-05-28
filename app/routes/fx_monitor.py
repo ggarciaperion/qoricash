@@ -3,7 +3,7 @@ Rutas del módulo FX Monitor — /monitor
 """
 import logging
 from datetime import datetime, timezone, timedelta
-from flask import Blueprint, render_template, jsonify, request
+from flask import Blueprint, render_template, jsonify, request, Response
 from flask_login import login_required, current_user
 from app.extensions import db
 from app.utils.decorators import require_role as role_required
@@ -228,3 +228,45 @@ def api_live():
         "total_errors":      len(errors),
         "own_updated_epoch": own_updated_epoch,
     })
+
+
+# ─── Server-Sent Events — push inmediato al browser ──────────────────────────
+
+@fx_monitor_bp.route("/api/stream")
+@login_required
+@role_required(*_MON)
+def api_stream():
+    """
+    SSE: envía un evento cada vez que el scraping loop completa un ciclo.
+    El cliente recibe la señal y hace fetch inmediato de /api/live.
+    Latencia end-to-end: ciclo (~5-7s) + fetch (<300ms) = <8s total.
+    """
+    from app.services.fx_monitor import live_cache
+
+    def generate():
+        import eventlet.queue
+        # Enviar versión actual inmediatamente al conectar
+        yield f"data: {{\"v\":{live_cache.get_version()}}}\n\n"
+
+        q = live_cache.subscribe()
+        try:
+            while True:
+                try:
+                    v = q.get(timeout=20)
+                    yield f"data: {{\"v\":{v}}}\n\n"
+                except eventlet.queue.Empty:
+                    yield ": ping\n\n"  # keepalive para evitar timeout de proxy
+        except GeneratorExit:
+            pass
+        finally:
+            live_cache.unsubscribe(q)
+
+    return Response(
+        generate(),
+        mimetype="text/event-stream",
+        headers={
+            "Cache-Control":     "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection":        "keep-alive",
+        },
+    )
