@@ -18,7 +18,6 @@ from .dichikash     import DichikashScraper
 from .westernunion  import WesternUnionScraper
 from .cambiafx      import CambiaFXScraper
 from .cambiomundial import CambioMundialScraper
-from .instakash     import InstakashScraper
 from .tkambio       import TKambioScraper
 from .cambiosol     import CambiosolScraper
 from .okane         import OkaneScraper
@@ -42,7 +41,6 @@ ALL_SCRAPERS = [
     WesternUnionScraper(),
     CambiaFXScraper(),
     CambioMundialScraper(),
-    InstakashScraper(),
     TKambioScraper(),
     CambiosolScraper(),
     OkaneScraper(),
