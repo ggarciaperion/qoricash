@@ -806,440 +806,386 @@ body.has-trading-monitor {
 {% block scripts %}
 <script>
 // ═══════════════════════════════════════════════════════════════
-// QORICASH TRADING MONITOR FX
-// Production-grade real-time FX dashboard
+// QORICASH TRADING MONITOR FX — Optimized Engine v2
+// In-place DOM updates · 8s poll · Zero layout thrash
 // ═══════════════════════════════════════════════════════════════
 
 (function () {
 'use strict';
 
 // ── Constants ─────────────────────────────────────────────────
-const POLL_MS       = 12000;  // 12s polling interval
-const CHART_RANGE_H = 4;      // default chart range hours
+const POLL_MS       = 8000;   // 8s polling interval
+const CHART_RANGE_H = 4;
 const LIVE_API      = '/monitor/api/live';
 const CHART_API     = '/monitor/api/price-evolution';
-const OWN_NAME      = 'QoriCash';
-const OWN_SLUG      = '_own';
+const CHART_AUTO_MS = 5 * 60 * 1000; // auto-reload chart every 5 min
 
 // ── State ─────────────────────────────────────────────────────
-let state = {
-  data:        null,
-  prevPrices:  {},     // slug -> {buy, sell}
-  pollTimer:   null,
-  clockTimer:  null,
-  chartHours:  CHART_RANGE_H,
-  evoChart:    null,
-  lastFetch:   0,
-  nextFetch:   0,
-  abortCtrl:   null,
+const state = {
+  data:          null,
+  prevPrices:    {},        // slug -> {buy, sell}
+  rowMap:        {buy:{}, sell:{}},   // slug -> {row,priceEl,deltaEl,timeEl}
+  lastBuyOrder:  null,
+  lastSellOrder: null,
+  pollTimer:     null,
+  clockTimer:    null,
+  chartTimer:    null,
+  chartHours:    CHART_RANGE_H,
+  evoChart:      null,
+  lastFetch:     0,
+  nextFetch:     0,
+  abortCtrl:     null,
+  initialized:   false,
 };
 
-// ── DOM ───────────────────────────────────────────────────────
+// ── DOM helpers ───────────────────────────────────────────────
 const $ = id => document.getElementById(id);
 
-// ── Utility ───────────────────────────────────────────────────
-function fmt4(n)  { return n != null ? Number(n).toFixed(4) : '—'; }
-function fmt3(n)  { return n != null ? Number(n).toFixed(3) : '—'; }
+function setText(id, val) {
+  const el = $(id);
+  if (el && el.textContent !== val) el.textContent = val;
+}
+
+// ── Formatters ────────────────────────────────────────────────
+const fmt4 = n => n != null ? Number(n).toFixed(4) : '—';
 
 function secsAgo(epoch) {
   if (!epoch) return null;
   const diff = Math.floor(Date.now() / 1000) - epoch;
-  if (diff < 0)   return 'ahora';
-  if (diff < 60)  return diff + 's';
-  if (diff < 3600) return Math.floor(diff / 60) + 'm ' + (diff % 60) + 's';
-  return Math.floor(diff / 3600) + 'h ' + Math.floor((diff % 3600) / 60) + 'm';
+  if (diff < 0)    return 'ahora';
+  if (diff < 60)   return diff + 's';
+  if (diff < 3600) return Math.floor(diff/60) + 'm ' + (diff%60) + 's';
+  return Math.floor(diff/3600) + 'h ' + Math.floor((diff%3600)/60) + 'm';
 }
 
-function deltaClass(delta) {
-  if (delta == null) return 'delta-flat';
-  if (delta > 0.0001)  return 'delta-up';
-  if (delta < -0.0001) return 'delta-down';
+function deltaClass(d) {
+  if (d == null)     return 'delta-flat';
+  if (d >  0.0001)   return 'delta-up';
+  if (d < -0.0001)   return 'delta-down';
   return 'delta-flat';
 }
-function deltaArrow(delta) {
-  if (delta == null) return '—';
-  if (delta > 0.0001)  return '▲ +' + Math.abs(delta).toFixed(4);
-  if (delta < -0.0001) return '▼ −' + Math.abs(delta).toFixed(4);
+function deltaArrow(d) {
+  if (d == null)   return '—';
+  if (d >  0.0001) return '▲ +' + Math.abs(d).toFixed(4);
+  if (d < -0.0001) return '▼ −' + Math.abs(d).toFixed(4);
   return '─ 0.0000';
 }
-
 function vsQcClass(d) {
-  if (d == null) return 'vs-zero';
-  if (d > 0.0001)  return 'vs-pos';
+  if (d == null)   return 'vs-zero';
+  if (d >  0.0001) return 'vs-pos';
   if (d < -0.0001) return 'vs-neg';
   return 'vs-zero';
 }
 function vsQcLabel(d) {
   if (d == null) return '─';
-  const sign = d > 0 ? '+' : d < 0 ? '−' : '';
-  return sign + Math.abs(d).toFixed(4);
+  return (d > 0 ? '+' : d < 0 ? '−' : '') + Math.abs(d).toFixed(4);
 }
 
 // ── Clock ─────────────────────────────────────────────────────
 function startClock() {
   function tick() {
     const now = new Date();
-    const h = String(now.getHours()).padStart(2,'0');
-    const m = String(now.getMinutes()).padStart(2,'0');
-    const s = String(now.getSeconds()).padStart(2,'0');
-    $('tmClock').textContent = h + ':' + m + ':' + s;
+    const pad = n => String(n).padStart(2,'0');
+    setText('tmClock', pad(now.getHours())+':'+pad(now.getMinutes())+':'+pad(now.getSeconds()));
 
-    // Update "last scan ago" and "next refresh"
-    if (state.lastFetch > 0) {
-      const secsSince = Math.floor(Date.now()/1000 - state.lastFetch);
-      const el = $('stScanAgo');
-      el.textContent = secsAgo(state.lastFetch);
-      el.className = secsSince < 60 ? 'scan-ok' : secsSince < 400 ? '' : 'scan-err';
+    if (state.lastFetch) {
+      const ago = Math.floor(Date.now()/1000 - state.lastFetch);
+      const el  = $('stScanAgo');
+      if (el) {
+        el.textContent = secsAgo(state.lastFetch);
+        el.className   = ago < 60 ? 'scan-ok' : ago < 400 ? '' : 'scan-err';
+      }
     }
-    if (state.nextFetch > 0) {
-      const secsLeft = Math.ceil((state.nextFetch - Date.now()) / 1000);
-      $('stNextRefresh').textContent = secsLeft > 0 ? secsLeft + 's' : '—';
+    if (state.nextFetch) {
+      const left = Math.ceil((state.nextFetch - Date.now()) / 1000);
+      setText('stNextRefresh', left > 0 ? left + 's' : '—');
     }
 
-    // Update "ago" timers in rows every tick
-    document.querySelectorAll('[data-epoch]').forEach(el => {
-      const ep = parseInt(el.dataset.epoch);
-      if (ep) el.textContent = secsAgo(ep) + ' ago';
-    });
-
-    // Update hero meta
+    // Update "ago" on hero (cheap: just two elements)
     if (state.data) {
-      const bb = state.data.best_buy;
-      const bs = state.data.best_sell;
-      if (bb) $('heroBuyMeta').textContent  = 'Actualizado hace ' + secsAgo(bb.epoch);
-      if (bs) $('heroSellMeta').textContent = 'Actualizado hace ' + secsAgo(bs.epoch);
+      const bb = state.data.best_buy, bs = state.data.best_sell;
+      if (bb) setText('heroBuyMeta',  'Actualizado hace ' + secsAgo(bb.epoch));
+      if (bs) setText('heroSellMeta', 'Actualizado hace ' + secsAgo(bs.epoch));
     }
+
+    // Update time cells via rowMap (no DOM query)
+    ['buy','sell'].forEach(mode => {
+      Object.values(state.rowMap[mode]).forEach(({timeEl}) => {
+        const ep = parseInt(timeEl.dataset.epoch);
+        if (ep) timeEl.textContent = secsAgo(ep) + ' ago';
+      });
+    });
   }
   tick();
   state.clockTimer = setInterval(tick, 1000);
 }
 
-// ── Hero update ───────────────────────────────────────────────
+// ── Hero ──────────────────────────────────────────────────────
 function updateHero(data) {
-  const bb = data.best_buy;
-  const bs = data.best_sell;
-
-  if (bb) {
-    const prev = state.prevPrices[bb.slug]?.buy;
-    const cur  = bb.price;
-    const priceEl = $('heroBuyPrice');
-    priceEl.textContent = fmt4(cur);
-    if (prev != null && Math.abs(cur - prev) > 0.00005) {
-      priceEl.classList.remove('price-flash-up','price-flash-down');
-      void priceEl.offsetWidth;
-      priceEl.classList.add(cur > prev ? 'price-flash-up' : 'price-flash-down');
+  function applyHero(best, priceId, entityId, metaId, vsId, ownRef, mode) {
+    if (!best) { setText(priceId,'—'); setText(entityId,'Sin datos'); return; }
+    const priceEl = $(priceId);
+    const prev    = state.prevPrices[best.slug]?.[mode];
+    const cur     = best.price;
+    const str     = fmt4(cur);
+    if (priceEl && priceEl.textContent !== str) {
+      priceEl.textContent = str;
+      if (prev != null && Math.abs(cur - prev) > 0.00005) {
+        priceEl.classList.remove('price-flash-up','price-flash-down');
+        // micro-task to force animation restart
+        requestAnimationFrame(() => {
+          priceEl.classList.add(cur > prev ? 'price-flash-up' : 'price-flash-down');
+        });
+      }
     }
-    $('heroBuyEntity').textContent = bb.name;
-    const vsDiff = (cur - data.own_buy).toFixed(4);
-    const vsSign = vsDiff > 0 ? '+' : '';
-    $('heroBuyVsOwn').textContent = 'vs QoriCash: ' + vsSign + vsDiff;
-  } else {
-    $('heroBuyPrice').textContent  = '—';
-    $('heroBuyEntity').textContent = 'Sin datos';
-    $('heroBuyVsOwn').textContent  = '';
+    setText(entityId, best.name);
+    const d = (cur - ownRef).toFixed(4);
+    setText(vsId, 'vs QoriCash: ' + (d > 0 ? '+' : '') + d);
   }
-
-  if (bs) {
-    const prev = state.prevPrices[bs.slug]?.sell;
-    const cur  = bs.price;
-    const priceEl = $('heroSellPrice');
-    priceEl.textContent = fmt4(cur);
-    if (prev != null && Math.abs(cur - prev) > 0.00005) {
-      priceEl.classList.remove('price-flash-up','price-flash-down');
-      void priceEl.offsetWidth;
-      priceEl.classList.add(cur > prev ? 'price-flash-up' : 'price-flash-down');
-    }
-    $('heroSellEntity').textContent = bs.name;
-    const vsDiff = (cur - data.own_sell).toFixed(4);
-    const vsSign = vsDiff > 0 ? '+' : '';
-    $('heroSellVsOwn').textContent = 'vs QoriCash: ' + vsSign + vsDiff;
-  } else {
-    $('heroSellPrice').textContent  = '—';
-    $('heroSellEntity').textContent = 'Sin datos';
-    $('heroSellVsOwn').textContent  = '';
-  }
+  applyHero(data.best_buy,  'heroBuyPrice',  'heroBuyEntity',  'heroBuyMeta',  'heroBuyVsOwn',  data.own_buy,  'buy');
+  applyHero(data.best_sell, 'heroSellPrice', 'heroSellEntity', 'heroSellMeta', 'heroSellVsOwn', data.own_sell, 'sell');
 }
 
-// ── QC bar update ─────────────────────────────────────────────
+// ── QC bar ────────────────────────────────────────────────────
 function updateQCBar(data) {
-  $('qcBuy').textContent    = fmt4(data.own_buy);
-  $('qcSell').textContent   = fmt4(data.own_sell);
-  $('qcSpread').textContent = fmt4(data.own_spread);
-  $('mktAvgBuy').textContent  = fmt4(data.market_avg_buy);
-  $('mktAvgSell').textContent = fmt4(data.market_avg_sell);
-  $('mktSpread').textContent  = fmt4(data.market_spread);
-  $('stActive').textContent = data.total_active;
-  $('stErrors').textContent = data.total_errors;
+  setText('qcBuy',      fmt4(data.own_buy));
+  setText('qcSell',     fmt4(data.own_sell));
+  setText('qcSpread',   fmt4(data.own_spread));
+  setText('mktAvgBuy',  fmt4(data.market_avg_buy));
+  setText('mktAvgSell', fmt4(data.market_avg_sell));
+  setText('mktSpread',  fmt4(data.market_spread));
+  setText('stActive',   String(data.total_active));
+  setText('stErrors',   String(data.total_errors));
 }
 
-// ── Build a ranked list row ────────────────────────────────────
-function buildRow(item, rank, mode, ownBuy, ownSell) {
+// ── Build a row element (initial render only) ─────────────────
+function createRowEl(item, rank, mode, ownBuy, ownSell) {
   const isOwn = item.slug === '_own';
   const price = mode === 'buy' ? item.buy : item.sell;
-  const prev  = mode === 'buy'
-    ? (state.prevPrices[item.slug]?.buy)
-    : (state.prevPrices[item.slug]?.sell);
-  const prevPrice = mode === 'buy' ? item.prev_buy : item.prev_sell;
-  const delta = prevPrice != null ? price - prevPrice : null;
-  const vsOwn = mode === 'buy' ? item.vs_own_buy : item.vs_own_sell;
+  const prevDb = mode === 'buy' ? item.prev_buy : item.prev_sell;
+  const delta  = prevDb != null ? price - prevDb : null;
+  const vsOwn  = mode === 'buy' ? item.vs_own_buy : item.vs_own_sell;
 
-  const flashClass = prev != null && Math.abs(price - prev) > 0.00005
-    ? (price > prev ? 'flash-up' : 'flash-down')
-    : '';
+  const row = document.createElement('div');
+  row.className  = 'list-row' + (item.scrape_ok ? '' : ' row-err');
+  row.dataset.slug = item.slug;
 
-  let rankBadge;
-  if      (rank === 1) rankBadge = `<div class="rank-badge rank-1">1</div>`;
-  else if (rank === 2) rankBadge = `<div class="rank-badge rank-2">2</div>`;
-  else if (rank === 3) rankBadge = `<div class="rank-badge rank-3">3</div>`;
-  else                 rankBadge = `<div class="rank-badge rank-n">${rank}</div>`;
+  // Rank badge
+  const rankCls = rank <= 3 ? 'rank-' + rank : 'rank-n';
+  const badge   = document.createElement('div');
+  badge.className = 'rank-badge ' + rankCls;
+  badge.textContent = String(rank);
 
-  const okClass    = item.scrape_ok ? '' : 'row-err';
-  const ownCls     = isOwn ? 'qc-own' : '';
-  const epochAttr  = item.updated_epoch ? `data-epoch="${item.updated_epoch}"` : '';
-  const timeStr    = item.updated_epoch ? secsAgo(item.updated_epoch) + ' ago' : item.updated_at || '—';
+  // Entity name
+  const nameEl = document.createElement('div');
+  nameEl.className = 'row-entity' + (isOwn ? ' qc-own' : '');
+  nameEl.title     = item.name;
+  if (vsOwn != null && !isOwn) {
+    nameEl.innerHTML = item.name + ' <span class="vs-badge ' + vsQcClass(vsOwn) + '">' + vsQcLabel(vsOwn) + '</span>';
+  } else {
+    nameEl.textContent = item.name;
+  }
 
-  const vsBadge = vsOwn != null
-    ? `<span class="vs-badge ${vsQcClass(vsOwn)}">${vsQcLabel(vsOwn)}</span>`
-    : '';
+  // Price
+  const priceEl = document.createElement('div');
+  priceEl.className   = 'row-price' + (isOwn ? ' qc-own' : '');
+  priceEl.textContent = fmt4(price);
 
-  return `
-    <div class="list-row ${flashClass} ${okClass}" data-slug="${item.slug}">
-      ${rankBadge}
-      <div class="row-entity ${ownCls}" title="${item.name}">${item.name}${vsBadge ? ' ' + vsBadge : ''}</div>
-      <div class="row-price ${ownCls}">${fmt4(price)}</div>
-      <div class="row-delta ${deltaClass(delta)}">${deltaArrow(delta)}</div>
-      <div class="row-time" ${epochAttr}>${timeStr}</div>
-    </div>`;
+  // Delta
+  const deltaEl = document.createElement('div');
+  deltaEl.className   = 'row-delta ' + deltaClass(delta);
+  deltaEl.textContent = deltaArrow(delta);
+
+  // Time
+  const timeEl = document.createElement('div');
+  timeEl.className = 'row-time';
+  if (item.updated_epoch) {
+    timeEl.dataset.epoch = item.updated_epoch;
+    timeEl.textContent   = secsAgo(item.updated_epoch) + ' ago';
+  } else {
+    timeEl.textContent = item.updated_at || '—';
+  }
+
+  row.appendChild(badge);
+  row.appendChild(nameEl);
+  row.appendChild(priceEl);
+  row.appendChild(deltaEl);
+  row.appendChild(timeEl);
+
+  return { row, priceEl, deltaEl, timeEl, nameEl, badge };
 }
 
-// ── Build ranked lists ────────────────────────────────────────
-function updateLists(data) {
-  const own_buy  = data.own_buy;
-  const own_sell = data.own_sell;
+// ── Build list DOM (full rebuild — only on order change) ───────
+function buildListDOM(container, items, mode, ownBuy, ownSell) {
+  const frag = document.createDocumentFragment();
+  state.rowMap[mode] = {};
+  items.forEach((item, i) => {
+    const els = createRowEl(item, i + 1, mode, ownBuy, ownSell);
+    frag.appendChild(els.row);
+    state.rowMap[mode][item.slug] = els;
+  });
+  container.innerHTML = '';
+  container.appendChild(frag);
+}
 
-  // Inject QoriCash as a reference row
+// ── Update values in-place (no DOM rebuild) ───────────────────
+function updateListInPlace(items, mode) {
+  const map = state.rowMap[mode];
+  items.forEach(item => {
+    const entry = map[item.slug];
+    if (!entry) return;
+
+    const price  = mode === 'buy' ? item.buy : item.sell;
+    const prevP  = state.prevPrices[item.slug]?.[mode === 'buy' ? 'buy' : 'sell'];
+    const prevDb = mode === 'buy' ? item.prev_buy : item.prev_sell;
+    const delta  = prevDb != null ? price - prevDb : null;
+
+    // Price — update + flash only if changed
+    const str = fmt4(price);
+    if (entry.priceEl.textContent !== str) {
+      entry.priceEl.textContent = str;
+      if (prevP != null && Math.abs(price - prevP) > 0.00005) {
+        const cls = price > prevP ? 'flash-up' : 'flash-down';
+        entry.row.classList.add(cls);
+        setTimeout(() => entry.row.classList.remove(cls), 700);
+      }
+    }
+
+    // Delta — update only if changed
+    const dStr = deltaArrow(delta);
+    if (entry.deltaEl.textContent !== dStr) {
+      entry.deltaEl.textContent = dStr;
+      entry.deltaEl.className   = 'row-delta ' + deltaClass(delta);
+    }
+
+    // Time epoch
+    if (item.updated_epoch && entry.timeEl.dataset.epoch !== String(item.updated_epoch)) {
+      entry.timeEl.dataset.epoch = item.updated_epoch;
+    }
+  });
+}
+
+// ── Smart list update (diff-based) ───────────────────────────
+function updateLists(data, forceRebuild) {
   const ownEntry = {
-    slug:       '_own',
-    name:       'QoriCash ★',
-    buy:        own_buy,
-    sell:       own_sell,
-    prev_buy:   null,
-    prev_sell:  null,
-    vs_own_buy:  0,
-    vs_own_sell: 0,
-    scrape_ok:  true,
-    updated_epoch: 0,
-    updated_at: 'propio',
+    slug:'_own', name:'QoriCash ★',
+    buy: data.own_buy, sell: data.own_sell,
+    prev_buy: null, prev_sell: null,
+    vs_own_buy: 0, vs_own_sell: 0,
+    scrape_ok: true, updated_epoch: 0, updated_at: 'propio',
   };
-
   const buyList  = [...data.buy_ranked,  ownEntry].sort((a,b) => b.buy  - a.buy);
   const sellList = [...data.sell_ranked, ownEntry].sort((a,b) => a.sell - b.sell);
 
-  // Render buy list
-  let buyHTML = '';
-  buyList.forEach((item, i) => {
-    buyHTML += buildRow(item, i + 1, 'buy', own_buy, own_sell);
-  });
-  $('buyList').innerHTML = buyHTML || '<div class="tm-no-data">Sin datos disponibles</div>';
+  const newBuyOrder  = buyList.map(c=>c.slug).join(',');
+  const newSellOrder = sellList.map(c=>c.slug).join(',');
 
-  // Render sell list
-  let sellHTML = '';
-  sellList.forEach((item, i) => {
-    sellHTML += buildRow(item, i + 1, 'sell', own_buy, own_sell);
-  });
-  $('sellList').innerHTML = sellHTML || '<div class="tm-no-data">Sin datos disponibles</div>';
+  if (forceRebuild || newBuyOrder !== state.lastBuyOrder) {
+    buildListDOM($('buyList'),  buyList,  'buy',  data.own_buy, data.own_sell);
+    state.lastBuyOrder = newBuyOrder;
+  } else {
+    updateListInPlace(buyList, 'buy');
+  }
+
+  if (forceRebuild || newSellOrder !== state.lastSellOrder) {
+    buildListDOM($('sellList'), sellList, 'sell', data.own_buy, data.own_sell);
+    state.lastSellOrder = newSellOrder;
+  } else {
+    updateListInPlace(sellList, 'sell');
+  }
 }
 
-// ── Spread stats panel ─────────────────────────────────────────
+// ── Spread panel ──────────────────────────────────────────────
+let _lastSpreadSig = '';
 function updateSpreadPanel(data) {
   const active = data.competitors.filter(c => c.scrape_ok && c.buy > 0);
   if (!active.length) return;
-
-  const spreads = active.map(c => ({name: c.name, spread: c.spread}))
+  const spreads = active.map(c => ({name:c.name, spread:c.spread, slug:c.slug}))
                         .sort((a,b) => a.spread - b.spread);
-  const minSpread = spreads[0].spread;
-  const maxSpread = spreads[spreads.length - 1].spread;
-  const avgSpread = spreads.reduce((s,c) => s + c.spread, 0) / spreads.length;
+  const sig = spreads.map(s=>s.slug+':'+s.spread).join('|');
+  if (sig === _lastSpreadSig) return;  // nothing changed — skip
+  _lastSpreadSig = sig;
 
-  $('statMinSpread').textContent = fmt4(minSpread);
-  $('statMaxSpread').textContent = fmt4(maxSpread);
-  $('statAvgSpread').textContent = fmt4(avgSpread);
+  const minS = spreads[0].spread;
+  const maxS = spreads[spreads.length-1].spread;
+  const avgS = spreads.reduce((s,c)=>s+c.spread,0) / spreads.length;
 
-  const html = spreads.map(s => {
-    const pct = maxSpread > 0 ? (s.spread / maxSpread * 100).toFixed(1) : 0;
-    const hue = 120 - (pct * 1.2); // green→red
-    return `
-      <div class="spread-entity-row">
-        <div class="spread-entity-name" title="${s.name}">${s.name}</div>
-        <div class="spread-bar-track">
-          <div class="spread-bar-fill" style="width:${pct}%;background:hsl(${hue},80%,45%)"></div>
-        </div>
-        <div class="spread-val">${fmt4(s.spread)}</div>
-      </div>`;
-  }).join('');
-  $('spreadBars').innerHTML = html;
+  setText('statMinSpread', fmt4(minS));
+  setText('statMaxSpread', fmt4(maxS));
+  setText('statAvgSpread', fmt4(avgS));
+
+  const frag = document.createDocumentFragment();
+  spreads.forEach(s => {
+    const pct = maxS > 0 ? (s.spread / maxS * 100) : 0;
+    const hue = Math.round(120 - pct * 1.2);
+    const div = document.createElement('div');
+    div.className = 'spread-entity-row';
+    div.innerHTML =
+      `<div class="spread-entity-name" title="${s.name}">${s.name}</div>` +
+      `<div class="spread-bar-track"><div class="spread-bar-fill" style="width:${pct.toFixed(1)}%;background:hsl(${hue},80%,45%)"></div></div>` +
+      `<div class="spread-val">${fmt4(s.spread)}</div>`;
+    frag.appendChild(div);
+  });
+  const el = $('spreadBars');
+  el.innerHTML = '';
+  el.appendChild(frag);
 }
 
-// ── Evolution Chart ───────────────────────────────────────────
-async function loadChart(hours) {
-  state.chartHours = hours;
-  // Update button states
-  ['rng1','rng4','rng8','rng24'].forEach(id => {
-    const btn = $(id);
-    if (!btn) return;
-    btn.classList.toggle('active', btn.getAttribute('onclick').includes(hours));
-  });
-
+// ── Chart ─────────────────────────────────────────────────────
+async function loadChartData(hours) {
   try {
     const resp = await fetch(`${CHART_API}?hours=${hours}`);
     const json = await resp.json();
-    if (!json.success) return;
-    renderEvoChart(json.data);
-  } catch(e) {
-    console.warn('[TM] Chart load error:', e);
-  }
+    if (json.success) renderEvoChart(json.data);
+  } catch(e) { /* silent fail — chart is non-critical */ }
 }
 
 function renderEvoChart(chartData) {
   const canvas = $('evoChart');
   if (!canvas) return;
   const ctx = canvas.getContext('2d');
+  if (state.evoChart) { state.evoChart.destroy(); state.evoChart = null; }
 
-  if (state.evoChart) {
-    state.evoChart.destroy();
-    state.evoChart = null;
-  }
-
-  const labels    = chartData.labels    || [];
-  const compBuy   = chartData.comp_buy  || [];
-  const compSell  = chartData.comp_sell || [];
-  const ownBuy    = chartData.own_buy   || [];
-  const ownSell   = chartData.own_sell  || [];
-
+  const { labels=[], comp_buy=[], comp_sell=[], own_buy=[], own_sell=[] } = chartData;
   if (!labels.length) return;
 
-  // Gradient fills
-  const buyGrad = ctx.createLinearGradient(0,0,0,200);
-  buyGrad.addColorStop(0,  'rgba(0,230,118,0.25)');
-  buyGrad.addColorStop(1,  'rgba(0,230,118,0)');
+  const all  = [...comp_buy,...comp_sell,...own_buy,...own_sell].filter(v=>v!=null);
+  const minY = all.length ? Math.min(...all) - 0.002 : 3.4;
+  const maxY = all.length ? Math.max(...all) + 0.002 : 3.8;
 
+  const buyGrad  = ctx.createLinearGradient(0,0,0,200);
+  buyGrad.addColorStop(0,'rgba(0,230,118,0.22)');
+  buyGrad.addColorStop(1,'rgba(0,230,118,0)');
   const sellGrad = ctx.createLinearGradient(0,0,0,200);
-  sellGrad.addColorStop(0,  'rgba(41,121,255,0.2)');
-  sellGrad.addColorStop(1,  'rgba(41,121,255,0)');
-
-  const allVals = [...compBuy, ...compSell, ...ownBuy, ...ownSell]
-    .filter(v => v != null);
-  const minY = allVals.length ? Math.min(...allVals) - 0.002 : 3.4;
-  const maxY = allVals.length ? Math.max(...allVals) + 0.002 : 3.8;
+  sellGrad.addColorStop(0,'rgba(41,121,255,0.18)');
+  sellGrad.addColorStop(1,'rgba(41,121,255,0)');
 
   state.evoChart = new Chart(ctx, {
     type: 'line',
     data: {
       labels,
       datasets: [
-        {
-          label: 'Mkt Compra avg',
-          data: compBuy,
-          borderColor: '#00E676',
-          backgroundColor: buyGrad,
-          borderWidth: 2,
-          pointRadius: 2,
-          pointHoverRadius: 4,
-          fill: true,
-          tension: 0.4,
-          spanGaps: true,
-        },
-        {
-          label: 'Mkt Venta avg',
-          data: compSell,
-          borderColor: '#2979FF',
-          backgroundColor: sellGrad,
-          borderWidth: 2,
-          pointRadius: 2,
-          pointHoverRadius: 4,
-          fill: true,
-          tension: 0.4,
-          spanGaps: true,
-        },
-        {
-          label: 'QoriCash Compra',
-          data: ownBuy,
-          borderColor: '#FFD600',
-          backgroundColor: 'transparent',
-          borderWidth: 1.5,
-          borderDash: [4,3],
-          pointRadius: 0,
-          fill: false,
-          tension: 0,
-          spanGaps: true,
-        },
-        {
-          label: 'QoriCash Venta',
-          data: ownSell,
-          borderColor: '#FF9800',
-          backgroundColor: 'transparent',
-          borderWidth: 1.5,
-          borderDash: [4,3],
-          pointRadius: 0,
-          fill: false,
-          tension: 0,
-          spanGaps: true,
-        },
+        { label:'Mkt Compra avg', data:comp_buy,  borderColor:'#00E676', backgroundColor:buyGrad,  borderWidth:2, pointRadius:2, fill:true,  tension:0.4, spanGaps:true },
+        { label:'Mkt Venta avg',  data:comp_sell, borderColor:'#2979FF', backgroundColor:sellGrad, borderWidth:2, pointRadius:2, fill:true,  tension:0.4, spanGaps:true },
+        { label:'QoriCash Compra',data:own_buy,   borderColor:'#FFD600', backgroundColor:'transparent', borderWidth:1.5, borderDash:[4,3], pointRadius:0, fill:false, tension:0, spanGaps:true },
+        { label:'QoriCash Venta', data:own_sell,  borderColor:'#FF9800', backgroundColor:'transparent', borderWidth:1.5, borderDash:[4,3], pointRadius:0, fill:false, tension:0, spanGaps:true },
       ]
     },
     options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: { mode: 'index', intersect: false },
-      plugins: {
-        legend: {
-          position: 'top',
-          align: 'end',
-          labels: {
-            color: '#8AABCC',
-            font: { size: 10, family: "'IBM Plex Mono'" },
-            boxWidth: 12,
-            padding: 10,
-          }
-        },
-        tooltip: {
-          backgroundColor: '#0C1829',
-          borderColor: '#162944',
-          borderWidth: 1,
-          titleColor: '#D6E8FF',
-          bodyColor: '#8AABCC',
-          titleFont: { family: "'IBM Plex Mono'", size: 11 },
-          bodyFont:  { family: "'IBM Plex Mono'", size: 11 },
-          callbacks: {
-            label: ctx => ' ' + ctx.dataset.label + ': ' + (ctx.raw != null ? ctx.raw.toFixed(4) : '—'),
-          }
+      responsive:true, maintainAspectRatio:false,
+      interaction:{ mode:'index', intersect:false },
+      animation:{ duration:400 },
+      plugins:{
+        legend:{ position:'top', align:'end', labels:{ color:'#8AABCC', font:{size:10,family:"'IBM Plex Mono'"}, boxWidth:12, padding:10 } },
+        tooltip:{ backgroundColor:'#0C1829', borderColor:'#162944', borderWidth:1, titleColor:'#D6E8FF', bodyColor:'#8AABCC',
+          titleFont:{family:"'IBM Plex Mono'",size:11}, bodyFont:{family:"'IBM Plex Mono'",size:11},
+          callbacks:{ label: ctx => ' '+ctx.dataset.label+': '+(ctx.raw!=null?ctx.raw.toFixed(4):'—') }
         }
       },
-      scales: {
-        x: {
-          ticks: {
-            color: '#4A6A85',
-            font: { size: 9, family: "'IBM Plex Mono'" },
-            maxTicksLimit: 8,
-            maxRotation: 0,
-          },
-          grid: { color: 'rgba(22,41,68,0.6)' },
-          border: { color: '#162944' },
-        },
-        y: {
-          min: minY,
-          max: maxY,
-          ticks: {
-            color: '#4A6A85',
-            font: { size: 9, family: "'IBM Plex Mono'" },
-            callback: v => v.toFixed(4),
-            maxTicksLimit: 6,
-          },
-          grid: { color: 'rgba(22,41,68,0.6)' },
-          border: { color: '#162944' },
-        }
-      },
-      animation: { duration: 400 },
+      scales:{
+        x:{ ticks:{color:'#4A6A85',font:{size:9,family:"'IBM Plex Mono'"},maxTicksLimit:8,maxRotation:0}, grid:{color:'rgba(22,41,68,0.6)'}, border:{color:'#162944'} },
+        y:{ min:minY, max:maxY, ticks:{color:'#4A6A85',font:{size:9,family:"'IBM Plex Mono'"},callback:v=>v.toFixed(4),maxTicksLimit:6}, grid:{color:'rgba(22,41,68,0.6)'}, border:{color:'#162944'} }
+      }
     }
   });
 }
@@ -1248,37 +1194,33 @@ function renderEvoChart(chartData) {
 async function fetchAndRender() {
   if (state.abortCtrl) state.abortCtrl.abort();
   state.abortCtrl = new AbortController();
-
   try {
-    const resp = await fetch(LIVE_API, {
-      signal: state.abortCtrl.signal,
-      cache:  'no-store',
-    });
-    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const resp = await fetch(LIVE_API, { signal:state.abortCtrl.signal, cache:'no-store' });
+    if (!resp.ok) throw new Error('HTTP '+resp.status);
     const json = await resp.json();
     if (!json.success) throw new Error('API error');
 
-    // Status bar pulse
+    // Status bar pulse (cheap class add/remove)
     const statusEl = $('tmStatus');
     statusEl.classList.add('refreshing');
     setTimeout(() => statusEl.classList.remove('refreshing'), 700);
 
-    // Save previous prices for delta detection
+    // Save prev prices for delta detection
     if (state.data?.competitors) {
       state.data.competitors.forEach(c => {
-        state.prevPrices[c.slug] = { buy: c.buy, sell: c.sell };
+        state.prevPrices[c.slug] = { buy:c.buy, sell:c.sell };
       });
     }
 
     state.data      = json;
-    state.lastFetch = Math.floor(Date.now() / 1000);
+    state.lastFetch = Math.floor(Date.now()/1000);
     state.nextFetch = Date.now() + POLL_MS;
 
-    // Render all sections
     updateHero(json);
     updateQCBar(json);
-    updateLists(json);
+    updateLists(json, !state.initialized);
     updateSpreadPanel(json);
+    state.initialized = true;
 
   } catch(e) {
     if (e.name === 'AbortError') return;
@@ -1286,42 +1228,50 @@ async function fetchAndRender() {
   }
 }
 
-// ── Poll loop ─────────────────────────────────────────────────
+// ── Poll ──────────────────────────────────────────────────────
 function startPolling() {
   fetchAndRender();
   state.pollTimer = setInterval(fetchAndRender, POLL_MS);
 }
 
-// ── Visibility API — pause when tab hidden ────────────────────
+// ── Chart auto-reload every 5 min ─────────────────────────────
+function startChartAutoRefresh() {
+  loadChartData(state.chartHours);
+  state.chartTimer = setInterval(() => loadChartData(state.chartHours), CHART_AUTO_MS);
+}
+
+// ── Visibility API ────────────────────────────────────────────
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
     clearInterval(state.pollTimer);
+    clearInterval(state.chartTimer);
   } else {
     fetchAndRender();
-    state.pollTimer = setInterval(fetchAndRender, POLL_MS);
+    state.pollTimer  = setInterval(fetchAndRender,  POLL_MS);
+    state.chartTimer = setInterval(() => loadChartData(state.chartHours), CHART_AUTO_MS);
   }
 });
 
-// ── Cleanup on unload ─────────────────────────────────────────
+// ── Cleanup ───────────────────────────────────────────────────
 window.addEventListener('beforeunload', () => {
   clearInterval(state.pollTimer);
   clearInterval(state.clockTimer);
-  if (state.evoChart) { state.evoChart.destroy(); state.evoChart = null; }
+  clearInterval(state.chartTimer);
+  if (state.evoChart)  { state.evoChart.destroy(); state.evoChart = null; }
   if (state.abortCtrl) state.abortCtrl.abort();
 });
 
-// ── Fullscreen toggle ─────────────────────────────────────────
+// ── Public: fullscreen & chart range ─────────────────────────
 window.toggleFullscreen = function() {
   if (!document.fullscreenElement) {
-    document.documentElement.requestFullscreen().catch(() => {});
+    document.documentElement.requestFullscreen().catch(()=>{});
     $('btnFullscreen').textContent = '⛶ EXIT FS';
   } else {
-    document.exitFullscreen().catch(() => {});
+    document.exitFullscreen().catch(()=>{});
     $('btnFullscreen').textContent = '⛶ FULLSCREEN';
   }
 };
 
-// ── Chart range listeners ─────────────────────────────────────
 window.loadChart = function(hours) {
   state.chartHours = hours;
   ['rng1','rng4','rng8','rng24'].forEach(id => {
@@ -1331,26 +1281,14 @@ window.loadChart = function(hours) {
   loadChartData(hours);
 };
 
-async function loadChartData(hours) {
-  try {
-    const resp = await fetch(`${CHART_API}?hours=${hours}`);
-    const json = await resp.json();
-    if (json.success) renderEvoChart(json.data);
-  } catch(e) { console.warn('[TM] Chart error:', e); }
-}
-
 // ── Init ──────────────────────────────────────────────────────
 function init() {
-  // Tag body for CSS override
   document.body.classList.add('has-trading-monitor');
-
   startClock();
   startPolling();
-  // Load default chart after a short delay
-  setTimeout(() => loadChartData(CHART_RANGE_H), 1500);
+  setTimeout(startChartAutoRefresh, 1200);
 }
 
-// Start when DOM ready
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', init);
 } else {
@@ -1360,3 +1298,4 @@ if (document.readyState === 'loading') {
 })(); // end IIFE
 </script>
 {% endblock %}
+
