@@ -870,7 +870,7 @@ def get_active_traders():
     Solo Master puede acceder
     """
     # Verificar rol manualmente
-    if current_user.role != 'Master':
+    if current_user.role not in ('Master', 'Presidente de Negocios'):
         return jsonify({'success': False, 'message': 'No autorizado'}), 403
 
     try:
@@ -902,7 +902,7 @@ def reassign_client(client_id):
     Solo Master puede reasignar
     """
     # Verificar rol manualmente
-    if current_user.role != 'Master':
+    if current_user.role not in ('Master', 'Presidente de Negocios'):
         return jsonify({'success': False, 'message': 'No autorizado. Solo Master puede reasignar clientes'}), 403
 
     try:
@@ -950,7 +950,7 @@ def reassign_clients_bulk():
     Solo Master puede reasignar
     """
     # Verificar rol manualmente para mejor control
-    if current_user.role != 'Master':
+    if current_user.role not in ('Master', 'Presidente de Negocios'):
         return jsonify({'success': False, 'message': 'No autorizado. Solo Master puede reasignar clientes'}), 403
 
     try:
@@ -1125,7 +1125,7 @@ def get_trader_clients(trader_id):
     Solo Master puede acceder
     """
     # Verificar rol manualmente
-    if current_user.role != 'Master':
+    if current_user.role not in ('Master', 'Presidente de Negocios'):
         return jsonify({'success': False, 'message': 'No autorizado'}), 403
 
     try:
@@ -1383,7 +1383,7 @@ def export_client_history(client_id):
     header_font      = Font(color="FFFFFF", bold=True)
     header_alignment = Alignment(horizontal="center", vertical="center")
 
-    if current_user.role in ['Master', 'Operador']:
+    if current_user.role in ['Master', 'Presidente de Negocios', 'Operador']:
         headers = ['ID OP.', 'DOCUMENTO', 'CLIENTE', 'USD', 'T.C.', 'PEN',
                    'CUENTA CARGO', 'CUENTA DESTINO', 'CANAL', 'ESTADO', 'FECHA', 'USUARIO']
     else:
@@ -1408,7 +1408,7 @@ def export_client_history(client_id):
         ws.cell(row=row_num, column=9, value='Web' if op.origen == 'plataforma' else 'Sistema')
         ws.cell(row=row_num, column=10, value=op.status)
         ws.cell(row=row_num, column=11, value=op.created_at.strftime('%d/%m/%Y %H:%M') if op.created_at else '-')
-        if current_user.role in ['Master', 'Operador']:
+        if current_user.role in ['Master', 'Presidente de Negocios', 'Operador']:
             ws.cell(row=row_num, column=12, value=op.user.email if op.user else '-')
 
     ws.column_dimensions['A'].width = 12
@@ -1422,7 +1422,7 @@ def export_client_history(client_id):
     ws.column_dimensions['I'].width = 12
     ws.column_dimensions['J'].width = 15
     ws.column_dimensions['K'].width = 18
-    if current_user.role in ['Master', 'Operador']:
+    if current_user.role in ['Master', 'Presidente de Negocios', 'Operador']:
         ws.column_dimensions['L'].width = 30
 
     excel_file = BytesIO()

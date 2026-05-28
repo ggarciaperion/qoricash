@@ -155,8 +155,8 @@ class AccountingService:
             # El Master SIEMPRE representa al mercado (tiene prioridad sobre todo)
             buy_user  = buy_op.user  if buy_op  else None
             sell_user = sell_op.user if sell_op else None
-            buy_is_market  = buy_user  and buy_user.role  == 'Master'
-            sell_is_market = sell_user and sell_user.role == 'Master'
+            buy_is_market  = buy_user  and buy_user.role in ('Master', 'Presidente de Negocios')
+            sell_is_market = sell_user and sell_user.role in ('Master', 'Presidente de Negocios')
 
             # Calcular márgenes (fórmula común para todos los tipos):
             #   trader_buy  = (base_compra - tc_compra) × USD  ← margen del trader compra

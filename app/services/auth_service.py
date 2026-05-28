@@ -212,7 +212,7 @@ class AuthService:
             tuple: (success: bool, message: str)
         """
         # Validar que el admin es Master
-        if not admin_user or admin_user.role != 'Master':
+        if not admin_user or admin_user.role not in ('Master', 'Presidente de Negocios'):
             return False, 'Solo el Master puede restablecer contraseñas'
         
         # Validar nueva contraseña (política reforzada)

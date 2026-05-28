@@ -40,7 +40,7 @@
 
     {% block head %}{% endblock %}
 </head>
-<body class="{% if current_user.is_authenticated %}has-sidebar{% endif %}{% if current_user.is_authenticated and (current_user.role in ['Master','Operador'] or (current_user.role == 'Trader' and pb_access)) %} has-pb-bar{% endif %}">
+<body class="{% if current_user.is_authenticated %}has-sidebar{% endif %}{% if current_user.is_authenticated and (current_user.role in ['Master', 'Presidente de Negocios','Operador'] or (current_user.role == 'Trader' and pb_access)) %} has-pb-bar{% endif %}">
 
 <!-- Page Loader -->
 <div id="pageLoader"><div id="pageLoaderBar"></div></div>
@@ -61,7 +61,7 @@
 
         <!-- Navigation -->
         <nav class="sidebar-nav">
-            {% if current_user.role in ['Master', 'Trader', 'Operador', 'Middle Office', 'Plataforma'] %}
+            {% if current_user.role in ['Master', 'Presidente de Negocios', 'Trader', 'Operador', 'Middle Office', 'Plataforma'] %}
             <div class="sidebar-section-label">Principal</div>
             {% endif %}
 
@@ -73,12 +73,12 @@
             </a>
             {% endif %}
 
-            {% if current_user.role in ['Master', 'Trader', 'Operador', 'Middle Office', 'Plataforma'] %}
+            {% if current_user.role in ['Master', 'Presidente de Negocios', 'Trader', 'Operador', 'Middle Office', 'Plataforma'] %}
             <a class="sidebar-link {% if request.endpoint and 'clients' in request.endpoint %}active{% endif %}"
                href="{{ url_for('clients.list_clients') }}">
                 <i class="bi bi-people"></i>
                 <span class="sidebar-link-text">Clientes</span>
-                {% if current_user.role in ['Master', 'Operador', 'Middle Office'] %}
+                {% if current_user.role in ['Master', 'Presidente de Negocios', 'Operador', 'Middle Office'] %}
                 <span id="clientsBadge" class="sidebar-badge" style="display:none;">0</span>
                 {% endif %}
             </a>
@@ -87,7 +87,7 @@
                href="{{ url_for('operations.operations_list') }}">
                 <i class="bi bi-list-ul"></i>
                 <span class="sidebar-link-text">Operaciones</span>
-                {% if current_user.role in ['Master', 'Operador'] %}
+                {% if current_user.role in ['Master', 'Presidente de Negocios', 'Operador'] %}
                 <span id="opsBadge" class="sidebar-badge" style="display:none;">0</span>
                 {% endif %}
             </a>
@@ -99,7 +99,7 @@
             </a>
             {% endif %}
 
-            {% if current_user.role in ['Master', 'Trader', 'Operador', 'Middle Office'] %}
+            {% if current_user.role in ['Master', 'Presidente de Negocios', 'Trader', 'Operador', 'Middle Office'] %}
             <div class="sidebar-section-label">Inteligencia de Mercado</div>
             <a class="sidebar-link {% if request.endpoint and 'market' in request.endpoint %}active{% endif %}"
                href="{{ url_for('market.dashboard') }}">
@@ -107,7 +107,7 @@
                 <span class="sidebar-link-text">Mercado Global</span>
             </a>
             {% endif %}
-            {% if current_user.role in ['Master', 'Trader', 'Operador'] %}
+            {% if current_user.role in ['Master', 'Presidente de Negocios', 'Trader', 'Operador'] %}
             <a class="sidebar-link {% if request.endpoint == 'fx_monitor.trading_monitor' %}active{% endif %}"
                href="{{ url_for('fx_monitor.trading_monitor') }}"
                title="Trading Monitor — pantalla completa para trading desk">
@@ -116,7 +116,7 @@
             </a>
             {% endif %}
 
-            {% if current_user.role in ['Master', 'Trader'] %}
+            {% if current_user.role in ['Master', 'Presidente de Negocios', 'Trader'] %}
             <a class="sidebar-link {% if request.endpoint and request.endpoint.startswith('comercial') %}active{% endif %}"
                href="{{ url_for('comercial.index') }}">
                 <i class="bi bi-briefcase"></i>
@@ -124,7 +124,7 @@
             </a>
             {% endif %}
 
-            {% if current_user.role in ['Master', 'Trader'] %}
+            {% if current_user.role in ['Master', 'Presidente de Negocios', 'Trader'] %}
             <a class="sidebar-link {% if request.endpoint and request.endpoint.startswith('prospeccion') %}active{% endif %}"
                href="{{ url_for('prospeccion.lista') }}">
                 <i class="bi bi-person-lines-fill"></i>
@@ -132,7 +132,7 @@
             </a>
             {% endif %}
 
-            {% if current_user.role == 'Master' %}
+            {% if current_user.role in ('Master', 'Presidente de Negocios') %}
             <a class="sidebar-link {% if request.endpoint and request.endpoint.startswith('alertas_tc') %}active{% endif %}"
                href="{{ url_for('alertas_tc.index') }}">
                 <i class="bi bi-bell-fill"></i>
@@ -141,11 +141,11 @@
             {% endif %}
 
 
-            {% if current_user.role in ['Master', 'Middle Office', 'Trader', 'Operador'] %}
+            {% if current_user.role in ['Master', 'Presidente de Negocios', 'Middle Office', 'Trader', 'Operador'] %}
             <div class="sidebar-section-label">Compliance</div>
             {% endif %}
 
-            {% if current_user.role in ['Master', 'Operador'] %}
+            {% if current_user.role in ['Master', 'Presidente de Negocios', 'Operador'] %}
             <a class="sidebar-link {% if request.endpoint == 'position.position_view' %}active{% endif %}"
                href="{{ url_for('position.position_view') }}">
                 <i class="bi bi-bank"></i>
@@ -153,7 +153,7 @@
             </a>
             {% endif %}
 
-            {% if current_user.role == 'Master' %}
+            {% if current_user.role in ('Master', 'Presidente de Negocios') %}
             <a class="sidebar-link {% if request.endpoint and request.endpoint.startswith('contabilidad') %}active{% endif %}"
                href="{{ url_for('contabilidad.dashboard') }}">
                 <i class="bi bi-calculator"></i>
@@ -162,7 +162,7 @@
             </a>
             {% endif %}
 
-            {% if current_user.role in ['Master', 'Middle Office'] %}
+            {% if current_user.role in ['Master', 'Presidente de Negocios', 'Middle Office'] %}
             <a class="sidebar-link {% if request.endpoint == 'compliance.kyc' %}active{% endif %}"
                href="{{ url_for('compliance.kyc') }}">
                 <i class="bi bi-person-check"></i>
@@ -171,7 +171,7 @@
             </a>
             {% endif %}
 
-            {% if current_user.role in ['Master', 'Middle Office', 'Trader', 'Operador'] %}
+            {% if current_user.role in ['Master', 'Presidente de Negocios', 'Middle Office', 'Trader', 'Operador'] %}
             <a class="sidebar-link {% if request.endpoint in ['compliance.compliance_index', 'compliance.alerts', 'compliance.risk_profiles'] %}active{% endif %}"
                href="{{ url_for('compliance.compliance_index') }}">
                 <i class="bi bi-shield-exclamation"></i>
@@ -180,7 +180,7 @@
             </a>
             {% endif %}
 
-            {% if current_user.role in ['Master', 'Middle Office'] %}
+            {% if current_user.role in ['Master', 'Presidente de Negocios', 'Middle Office'] %}
             <a class="sidebar-link {% if request.endpoint and 'complaints' in request.endpoint %}active{% endif %}"
                href="{{ url_for('complaints.list_complaints') }}">
                 <i class="bi bi-file-earmark-text"></i>
@@ -189,7 +189,7 @@
             </a>
             {% endif %}
 
-            {% if current_user.role == 'Master' %}
+            {% if current_user.role in ('Master', 'Presidente de Negocios') %}
             <div class="sidebar-section-label">Admin</div>
             <a class="sidebar-link {% if request.endpoint and 'users' in request.endpoint %}active{% endif %}"
                href="{{ url_for('users.manage') }}">
@@ -231,7 +231,7 @@
     <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
     <!-- Desktop Precio Base Bar — encabezado fijo solo en escritorio -->
-    {% if current_user.is_authenticated and (current_user.role in ['Master','Operador'] or (current_user.role == 'Trader' and pb_access)) %}
+    {% if current_user.is_authenticated and (current_user.role in ['Master', 'Presidente de Negocios','Operador'] or (current_user.role == 'Trader' and pb_access)) %}
     <div class="desk-pb-bar" id="deskPbBar">
         <div class="dpb-center">
             <div class="dpb-brand">
@@ -253,7 +253,7 @@
             </div>
         </div>
 
-        {% if current_user.role in ['Master','Operador'] %}
+        {% if current_user.role in ['Master', 'Presidente de Negocios','Operador'] %}
         <div class="dpb-form" id="deskPbForm">
             <div class="dpb-form-inner">
                 <div class="dpb-input-group">
@@ -271,7 +271,7 @@
         {% endif %}
 
         <div class="dpb-meta">
-            {% if current_user.role in ['Master','Operador'] %}
+            {% if current_user.role in ['Master', 'Presidente de Negocios','Operador'] %}
             <button class="dpb-edit-btn" id="deskPbEditBtn">
                 <i class="bi bi-pencil-fill"></i> Actualizar
             </button>
@@ -295,7 +295,7 @@
     </header>
 
     <!-- Mobile Precio Base Bar — barra fija solo en móvil, debajo del topbar -->
-    {% if current_user.is_authenticated and (current_user.role in ['Master','Operador'] or (current_user.role == 'Trader' and pb_access)) %}
+    {% if current_user.is_authenticated and (current_user.role in ['Master', 'Presidente de Negocios','Operador'] or (current_user.role == 'Trader' and pb_access)) %}
     <div class="mobile-pb-bar" id="mobilePbBar">
         <!-- Vista normal -->
         <div class="mb-pb-brand" id="mbPbBrand">
@@ -303,16 +303,16 @@
             <span class="mb-pb-brand-text">Mercado en vivo</span>
         </div>
         <div class="mb-pb-pills" id="mbPbPills">
-            <div class="mb-pb-pill mb-pb-pill-buy" {% if current_user.role in ['Master','Operador'] %}style="cursor:pointer" onclick="mbPbOpenEdit()"{% endif %}>
+            <div class="mb-pb-pill mb-pb-pill-buy" {% if current_user.role in ['Master', 'Presidente de Negocios','Operador'] %}style="cursor:pointer" onclick="mbPbOpenEdit()"{% endif %}>
                 <span class="mb-pb-pill-label">COMPRA</span>
                 <span class="mb-pb-pill-value" id="mbPbBuy">—</span>
             </div>
-            <div class="mb-pb-pill mb-pb-pill-sell" {% if current_user.role in ['Master','Operador'] %}style="cursor:pointer" onclick="mbPbOpenEdit()"{% endif %}>
+            <div class="mb-pb-pill mb-pb-pill-sell" {% if current_user.role in ['Master', 'Presidente de Negocios','Operador'] %}style="cursor:pointer" onclick="mbPbOpenEdit()"{% endif %}>
                 <span class="mb-pb-pill-label">VENTA</span>
                 <span class="mb-pb-pill-value" id="mbPbSell">—</span>
             </div>
         </div>
-        {% if current_user.role in ['Master','Operador'] %}
+        {% if current_user.role in ['Master', 'Presidente de Negocios','Operador'] %}
         <button class="mb-pb-edit-btn" id="mbPbEditBtn" onclick="mbPbOpenEdit()">
             <i class="bi bi-pencil-fill"></i>
         </button>
@@ -540,7 +540,7 @@
         window.currentUserId = {{ current_user.id }};
         window.currentUserName = '{{ current_user.username }}';
         // true si este usuario puede ver el widget Precio Base (y por ende auto-llenar Base)
-        window._pbAccess = {{ 'true' if (current_user.role in ['Master','Operador'] or (current_user.role == 'Trader' and pb_access)) else 'false' }};
+        window._pbAccess = {{ 'true' if (current_user.role in ['Master', 'Presidente de Negocios','Operador'] or (current_user.role == 'Trader' and pb_access)) else 'false' }};
         {% else %}
         window.currentUserRole = null;
         window.currentUserId = null;
@@ -739,7 +739,7 @@
 
     <!-- KYC & Complaints Badge Script -->
     <script>
-    {% if current_user.is_authenticated and current_user.role == 'Master' %}
+    {% if current_user.is_authenticated and current_user.role in ('Master', 'Presidente de Negocios') %}
     function updateUnmatchedBadge() {
         fetch('/contabilidad/api/unmatched_count', {headers: {'X-Requested-With': 'XMLHttpRequest'}})
             .then(r => r.json())
@@ -758,7 +758,7 @@
     });
     {% endif %}
 
-    {% if current_user.is_authenticated and current_user.role in ['Master', 'Middle Office', 'Trader', 'Operador'] %}
+    {% if current_user.is_authenticated and current_user.role in ['Master', 'Presidente de Negocios', 'Middle Office', 'Trader', 'Operador'] %}
     function updateComplianceBadge() {
         fetch('/compliance/api/alert-count')
             .then(r => r.json())
@@ -780,7 +780,7 @@
     });
     {% endif %}
 
-    {% if current_user.is_authenticated and current_user.role in ['Master', 'Middle Office'] %}
+    {% if current_user.is_authenticated and current_user.role in ['Master', 'Presidente de Negocios', 'Middle Office'] %}
     function updateKycBadge() {
         fetch('/compliance/api/kyc/pending')
             .then(r => r.json())
@@ -823,11 +823,11 @@
     </script>
 
     <!-- ── Precio Base Widget JS ──────────────────────────────────────────── -->
-    {% if current_user.is_authenticated and (current_user.role in ['Master','Operador'] or (current_user.role == 'Trader' and pb_access)) %}
+    {% if current_user.is_authenticated and (current_user.role in ['Master', 'Presidente de Negocios','Operador'] or (current_user.role == 'Trader' and pb_access)) %}
     <script>
     (function() {
         var _lastAt = null;
-        var _canEdit = {% if current_user.role in ['Master','Operador'] %}true{% else %}false{% endif %};
+        var _canEdit = {% if current_user.role in ['Master', 'Presidente de Negocios','Operador'] %}true{% else %}false{% endif %};
 
         function _fmt(v) { return (v == null || v === 0) ? '—' : parseFloat(v).toFixed(4); }
 
@@ -1107,7 +1107,7 @@
     {% endif %}
 
     <!-- Precio Base toast (visible to everyone who has the widget) -->
-    {% if current_user.is_authenticated and (current_user.role in ['Master','Operador'] or (current_user.role == 'Trader' and pb_access)) %}
+    {% if current_user.is_authenticated and (current_user.role in ['Master', 'Presidente de Negocios','Operador'] or (current_user.role == 'Trader' and pb_access)) %}
     <div id="pbToast">
         <div class="pb-toast-icon"><i class="bi bi-arrow-left-right"></i></div>
         <div class="pb-toast-body">

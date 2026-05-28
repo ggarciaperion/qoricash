@@ -3488,8 +3488,8 @@ def amarres_recalcular_tipos():
             from decimal import Decimal as _D
             buy_user = buy_op.user
             sell_user = sell_op.user
-            buy_master = buy_user and buy_user.role == 'Master'
-            sell_master = sell_user and sell_user.role == 'Master'
+            buy_master = buy_user and buy_user.role in ('Master', 'Presidente de Negocios')
+            sell_master = sell_user and sell_user.role in ('Master', 'Presidente de Negocios')
             buy_base  = _D(str(buy_op.base_rate))  if buy_op.base_rate  else _D(str(buy_op.exchange_rate))
             sell_base = _D(str(sell_op.base_rate)) if sell_op.base_rate else _D(str(sell_op.exchange_rate))
             is_self = (

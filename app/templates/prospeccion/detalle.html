@@ -17,7 +17,7 @@
       <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalEnviarEmail">
         <i class="bi bi-envelope"></i> Enviar email
       </button>
-      {% if current_user.role == 'Master' %}
+      {% if current_user.role in ('Master', 'Presidente de Negocios') %}
       <a href="{{ url_for('prospeccion.editar', pid=p.id) }}" class="btn btn-sm btn-outline-secondary">
         <i class="bi bi-pencil"></i> Editar
       </a>

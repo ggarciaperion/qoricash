@@ -65,7 +65,7 @@ class User(UserMixin, db.Model):
     # Constraints
     __table_args__ = (
         db.CheckConstraint(
-            role.in_(['Master', 'Trader', 'Operador', 'Middle Office', 'App', 'Web']),
+            role.in_(['Master', 'Trader', 'Operador', 'Middle Office', 'App', 'Web', 'Presidente de Negocios']),
             name='check_user_role'
         ),
         db.CheckConstraint(
@@ -125,8 +125,8 @@ class User(UserMixin, db.Model):
         return data
     
     def is_master(self):
-        """Verificar si es Master"""
-        return self.role == 'Master'
+        """Verificar si es Master o equivalente"""
+        return self.role in ('Master', 'Presidente de Negocios')
     
     def is_trader(self):
         """Verificar si es Trader"""

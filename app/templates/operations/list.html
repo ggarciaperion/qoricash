@@ -52,7 +52,7 @@
             <a href="/operations/api/export_today" class="btn btn-success">
                 <i class="bi bi-file-earmark-excel"></i> Exportar Excel
             </a>
-            {% if user.role in ['Master', 'Trader', 'Plataforma'] %}
+            {% if user.role in ['Master', 'Presidente de Negocios', 'Trader', 'Plataforma'] %}
             <button type="button" class="btn btn-primary" onclick="openCreateOperationModal()">
                 <i class="bi bi-plus-circle"></i> Nueva Operación
             </button>
@@ -71,7 +71,7 @@
                 <button type="button" class="btn btn-outline-success" onclick="filterByStatus('Completada')">Completadas</button>
                 <button type="button" class="btn btn-outline-danger" onclick="filterByStatus('Cancelado')">Canceladas</button>
             </div>
-            {% if current_user.role in ['Master', 'Operador'] %}
+            {% if current_user.role in ['Master', 'Presidente de Negocios', 'Operador'] %}
             <span class="filter-bar-label ms-2">Canal</span>
             <div class="btn-group" role="group">
                 <button type="button" class="btn btn-outline-secondary active" onclick="filterByCanal('all')">Todos</button>
@@ -174,7 +174,7 @@
                                                 {% else %}
                                                     <br><small class="badge bg-secondary mt-1">Otro operador</small>
                                                 {% endif %}
-                                            {% elif user.role == 'Master' %}
+                                            {% elif user.role in ('Master', 'Presidente de Negocios') %}
                                                 <br><small class="badge bg-secondary mt-1 text-truncate" style="max-width: 120px;" title="{{ get_operator_name(op.assigned_operator_id) }}">{{ get_operator_name(op.assigned_operator_id) }}</small>
                                             {% endif %}
                                         {% endif %}
@@ -197,7 +197,7 @@
                                             </button>
 
                                         {# MASTER: Ve todo, puede editar siempre #}
-                                        {% elif user.role == 'Master' %}
+                                        {% elif user.role in ('Master', 'Presidente de Negocios') %}
                                             <button class="btn btn-outline-primary" onclick="editOperation({{ op.id }})" title="Editar">
                                                 <i class="bi bi-pencil"></i>
                                             </button>

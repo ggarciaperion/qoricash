@@ -267,7 +267,7 @@ def reporte_trader(trader_id):
 def lista():
     """Vista grid CRM — los datos se cargan vía /api/grid."""
     return render_template("prospeccion/lista.html",
-                           is_master=(current_user.role == "Master"))
+                           is_master=(current_user.role in ('Master', 'Presidente de Negocios')))
 
 
 # ── Detalle de prospecto ──────────────────────────────────────────────────────
@@ -2640,7 +2640,7 @@ def _resolve_import_url(raw_url: str):
 
 def _verificar_acceso(p):
     """Trader solo puede ver sus prospectos asignados. Llama abort(403) si no tiene acceso."""
-    if current_user.role == "Master":
+    if current_user.role in ('Master', 'Presidente de Negocios'):
         return
     asig = next((a for a in p.asignaciones if a.trader_id == current_user.id and a.activo), None)
     if not asig:

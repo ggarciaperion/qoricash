@@ -302,7 +302,7 @@ tr.row-selected { background: rgba(0,222,168,.06) !important; }
     <div>
       <h1 class="com-title">Comercial</h1>
       <p class="com-subtitle">
-        {% if current_user.role == 'Master' %}Inteligencia comercial · todos los clientes{% else %}Tu radar comercial · priorización en tiempo real{% endif %}
+        {% if current_user.role in ('Master', 'Presidente de Negocios') %}Inteligencia comercial · todos los clientes{% else %}Tu radar comercial · priorización en tiempo real{% endif %}
       </p>
     </div>
   </div>

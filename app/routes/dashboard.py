@@ -166,7 +166,7 @@ def index():
     from flask import redirect, url_for
 
     # Verificar rol y mostrar dashboard correspondiente
-    if current_user.role == 'Master':
+    if current_user.role in ('Master', 'Presidente de Negocios'):
         return render_template('dashboard/master.html', user=current_user)
     elif current_user.role == 'Trader':
         return render_template('dashboard/trader.html', user=current_user)
@@ -201,7 +201,7 @@ def get_dashboard_data():
     stats = OperationService.get_dashboard_stats(month, year)
 
     # Agregar datos adicionales según rol
-    if current_user.role == 'Master':
+    if current_user.role in ('Master', 'Presidente de Negocios'):
         # Master ve todo
         from app.models.user import User
         from app.models.client import Client
@@ -416,7 +416,7 @@ def get_all_dashboard_data():
     # DATOS DEL SISTEMA (solo Master)
     # ========================================
     stats_system = {}
-    if current_user.role == 'Master':
+    if current_user.role in ('Master', 'Presidente de Negocios'):
         stats_system['total_users'] = User.query.count()
         stats_system['active_users'] = User.query.filter_by(status='Activo').count()
 

@@ -227,7 +227,7 @@
             <div class="card mb-4">
                 <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
                     <span><i class="bi bi-bank"></i> Cuentas Bancarias</span>
-                    {% if current_user.role in ['Master', 'Trader'] %}
+                    {% if current_user.role in ['Master', 'Presidente de Negocios', 'Trader'] %}
                     <button class="btn btn-sm btn-light" onclick="abrirModalCuentas()" title="Gestionar cuentas bancarias">
                         <i class="bi bi-pencil-square me-1"></i>Gestionar
                     </button>
@@ -483,7 +483,7 @@
                             <p class="mb-0">
                                 {% if risk_profile and risk_profile.is_pep %}
                                     <span class="badge bg-warning text-dark">SÍ</span>
-                                    {% if current_user.role in ['Master', 'Middle Office'] %}
+                                    {% if current_user.role in ['Master', 'Presidente de Negocios', 'Middle Office'] %}
                                         <button class="btn btn-warning btn-sm ms-2" onclick="abrirModalPEP()" title="Editar información PEP">
                                             <i class="bi bi-pencil"></i> Editar
                                         </button>
@@ -498,7 +498,7 @@
                                 {% else %}
                                     <span class="badge bg-success">NO</span>
                                     <span class="text-muted ms-2">El cliente no es una Persona Expuesta Políticamente</span>
-                                    {% if current_user.role in ['Master', 'Middle Office'] %}
+                                    {% if current_user.role in ['Master', 'Presidente de Negocios', 'Middle Office'] %}
                                         <button class="btn btn-outline-warning btn-sm ms-2" onclick="abrirModalPEP()" title="Marcar como PEP">
                                             <i class="bi bi-plus-circle"></i> Marcar PEP
                                         </button>
@@ -516,7 +516,7 @@
                                     <span class="badge bg-success">No encontrado</span>
                                 {% endif %}
                             </p>
-                            {% if current_user.role in ['Master', 'Middle Office'] %}
+                            {% if current_user.role in ['Master', 'Presidente de Negocios', 'Middle Office'] %}
                             <button class="btn btn-outline-primary btn-sm w-100 mt-1"
                                     onclick="autoScreenClient({{ client.id }})"
                                     id="btnAutoScreen">
@@ -556,7 +556,7 @@
                     {% endif %}
 
                     <!-- Botón para Middle Office -->
-                    {% if current_user.role in ['Master', 'Middle Office'] %}
+                    {% if current_user.role in ['Master', 'Presidente de Negocios', 'Middle Office'] %}
                         <hr>
                         {% if risk_profile and risk_profile.kyc_status == 'Rechazado' %}
                             <button class="btn btn-warning btn-sm w-100 mb-2" onclick="reiniciarKYC()">
@@ -780,7 +780,7 @@
 </div>
 
 <!-- Modal: Gestionar Cuentas Bancarias -->
-{% if current_user.role in ['Master', 'Trader'] %}
+{% if current_user.role in ['Master', 'Presidente de Negocios', 'Trader'] %}
 <div class="modal fade" id="cuentasModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
     <div class="modal-dialog modal-lg">
         <div class="modal-content border-0 shadow" style="border-radius:10px;overflow:hidden;">

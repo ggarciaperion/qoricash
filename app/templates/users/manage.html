@@ -43,7 +43,7 @@
                                 <td>{{ u.email }}</td>
                                 <td>{{ u.dni }}</td>
                                 <td>
-                                    {% if u.role == 'Master' %}
+                                    {% if u.role in ('Master', 'Presidente de Negocios') %}
                                         <span class="badge bg-danger">Master</span>
                                     {% elif u.role == 'Trader' %}
                                         <span class="badge bg-primary">Trader</span>

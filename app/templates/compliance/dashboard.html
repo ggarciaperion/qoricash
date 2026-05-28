@@ -11,7 +11,7 @@
             <p>Centro AML/KYC · {{ clients|length }} cliente{{ 's' if clients|length != 1 else '' }}</p>
         </div>
         <div class="page-header-actions">
-            {% if current_user.role in ['Master', 'Middle Office'] %}
+            {% if current_user.role in ['Master', 'Presidente de Negocios', 'Middle Office'] %}
             <button id="btnGenerateAll" class="btn btn-outline-primary" onclick="generateAllProfiles()">
                 <i class="bi bi-arrow-repeat me-1"></i>Recalcular todos
             </button>
@@ -163,7 +163,7 @@
                             <a href="/compliance/risk-profiles/{{ c.client_id }}" class="btn btn-sm btn-info" title="Ver Detalle">
                                 <i class="bi bi-eye"></i>
                             </a>
-                            {% if current_user.role in ['Master', 'Middle Office'] %}
+                            {% if current_user.role in ['Master', 'Presidente de Negocios', 'Middle Office'] %}
                             <button class="btn btn-sm btn-primary" onclick="recalculate({{ c.client_id }})" title="Recalcular score">
                                 <i class="bi bi-calculator"></i>
                             </button>
@@ -339,7 +339,7 @@ function recalculate(clientId) {
     });
 }
 
-{% if current_user.role in ['Master', 'Middle Office'] %}
+{% if current_user.role in ['Master', 'Presidente de Negocios', 'Middle Office'] %}
 function generateAllProfiles() {
     var btn = document.getElementById('btnGenerateAll');
     btn.disabled = true;

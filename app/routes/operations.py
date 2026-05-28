@@ -210,7 +210,7 @@ def export_today():
     header_alignment = Alignment(horizontal="center", vertical="center")
 
     # Definir encabezados según el rol
-    if current_user.role in ['Master', 'Operador']:
+    if current_user.role in ['Master', 'Presidente de Negocios', 'Operador']:
         headers = ['ID OP.', 'DOCUMENTO', 'CLIENTE', 'USD', 'T.C.', 'BASE', 'PIPS', 'PEN', 'CUENTA CARGO', 'CUENTA DESTINO', 'CANAL', 'ESTADO', 'FECHA', 'USUARIO']
     else:
         headers = ['ID OP.', 'DOCUMENTO', 'CLIENTE', 'USD', 'T.C.', 'BASE', 'PIPS', 'PEN', 'CUENTA CARGO', 'CUENTA DESTINO', 'CANAL', 'ESTADO', 'FECHA']
@@ -239,7 +239,7 @@ def export_today():
         ws.cell(row=row_num, column=13, value=op.created_at.strftime('%d/%m/%Y %H:%M') if op.created_at else '-')
 
         # Solo agregar columna de usuario para Master y Operador
-        if current_user.role in ['Master', 'Operador']:
+        if current_user.role in ['Master', 'Presidente de Negocios', 'Operador']:
             ws.cell(row=row_num, column=14, value=op.user.email if op.user else '-')
 
     # Ajustar ancho de columnas
@@ -256,7 +256,7 @@ def export_today():
     ws.column_dimensions['K'].width = 12  # CANAL
     ws.column_dimensions['L'].width = 15  # ESTADO
     ws.column_dimensions['M'].width = 18  # FECHA
-    if current_user.role in ['Master', 'Operador']:
+    if current_user.role in ['Master', 'Presidente de Negocios', 'Operador']:
         ws.column_dimensions['N'].width = 30  # USUARIO
 
     # Guardar en memoria
@@ -333,7 +333,7 @@ def export_history():
     header_alignment = Alignment(horizontal="center", vertical="center")
 
     # Definir encabezados según el rol
-    if current_user.role in ['Master', 'Operador']:
+    if current_user.role in ['Master', 'Presidente de Negocios', 'Operador']:
         headers = ['ID OP.', 'DOCUMENTO', 'CLIENTE', 'USD', 'T.C.', 'BASE', 'PIPS', 'PEN', 'CUENTA CARGO', 'CUENTA DESTINO', 'CANAL', 'ESTADO', 'FECHA', 'USUARIO']
     else:
         headers = ['ID OP.', 'DOCUMENTO', 'CLIENTE', 'USD', 'T.C.', 'BASE', 'PIPS', 'PEN', 'CUENTA CARGO', 'CUENTA DESTINO', 'CANAL', 'ESTADO', 'FECHA']
@@ -362,7 +362,7 @@ def export_history():
         ws.cell(row=row_num, column=13, value=op.created_at.strftime('%d/%m/%Y %H:%M') if op.created_at else '-')
 
         # Solo agregar columna de usuario para Master y Operador
-        if current_user.role in ['Master', 'Operador']:
+        if current_user.role in ['Master', 'Presidente de Negocios', 'Operador']:
             ws.cell(row=row_num, column=14, value=op.user.email if op.user else '-')
 
     # Ajustar ancho de columnas
@@ -379,7 +379,7 @@ def export_history():
     ws.column_dimensions['K'].width = 12  # CANAL
     ws.column_dimensions['L'].width = 15  # ESTADO
     ws.column_dimensions['M'].width = 18  # FECHA
-    if current_user.role in ['Master', 'Operador']:
+    if current_user.role in ['Master', 'Presidente de Negocios', 'Operador']:
         ws.column_dimensions['N'].width = 30  # USUARIO
 
     # Guardar en memoria

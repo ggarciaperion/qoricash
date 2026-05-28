@@ -32,7 +32,10 @@ def require_role(*roles):
             # Normalizar roles (aceptar lista o argumentos múltiples)
             allowed_roles = roles[0] if len(roles) == 1 and isinstance(roles[0], list) else roles
 
-            if current_user.role not in allowed_roles:
+            # "Presidente de Negocios" tiene acceso equivalente a "Master"
+            effective_role = 'Master' if current_user.role == 'Presidente de Negocios' else current_user.role
+
+            if effective_role not in allowed_roles:
                 # Detectar si es una petición JSON o AJAX
                 if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                     return jsonify({'error': 'No autorizado'}), 403

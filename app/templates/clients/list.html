@@ -105,7 +105,7 @@
             <p>Administra la base de clientes</p>
         </div>
         <div class="page-header-actions">
-            {% if current_user.role == 'Master' %}
+            {% if current_user.role in ('Master', 'Presidente de Negocios') %}
             <button class="btn btn-success" onclick="exportClients()">
                 <i class="bi bi-file-earmark-excel"></i> Exportar
             </button>
@@ -113,7 +113,7 @@
                 <i class="bi bi-arrow-left-right"></i> Reasignar
             </button>
             {% endif %}
-            {% if current_user.role in ['Master', 'Trader', 'Plataforma'] %}
+            {% if current_user.role in ['Master', 'Presidente de Negocios', 'Trader', 'Plataforma'] %}
             <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createClientModal">
                 <i class="bi bi-person-plus"></i> Nuevo Cliente
             </button>
@@ -186,7 +186,7 @@
                     <table id="clientsTable" class="table table-hover">
                         <thead>
                             <tr>
-                                {% if current_user.role == 'Master' %}
+                                {% if current_user.role in ('Master', 'Presidente de Negocios') %}
                                 <th><input type="checkbox" id="selectAllClients" title="Seleccionar todos"></th>
                                 {% endif %}
                                 <th>ID</th>
@@ -195,7 +195,7 @@
                                 <th>Nombre Completo</th>
                                 <th>Email</th>
                                 <th>Teléfono</th>
-                                {% if current_user.role in ['Master', 'Operador'] %}
+                                {% if current_user.role in ['Master', 'Presidente de Negocios', 'Operador'] %}
                                 <th>Usuario</th>
                                 {% endif %}
                                 <th>Estado</th>
@@ -210,7 +210,7 @@
                                 data-status="{{ c.status }}"
                                 data-docs="{{ 'pendiente' if not c.has_complete_documents else 'completo' }}"
                                 data-search="{{ (c.full_name ~ ' ' ~ c.dni ~ ' ' ~ (c.email or '') ~ ' ' ~ (c.phone or ''))|lower }}">
-                                {% if current_user.role == 'Master' %}
+                                {% if current_user.role in ('Master', 'Presidente de Negocios') %}
                                 <td><input type="checkbox" class="client-checkbox" value="{{ c.id }}"></td>
                                 {% endif %}
                                 <td class="text-muted" style="font-size:.8rem;">{{ loop.revindex }}</td>
@@ -221,7 +221,7 @@
                                 <td><strong>{{ c.full_name or '-' }}</strong></td>
                                 <td>{{ c.email }}</td>
                                 <td>{{ c.phone or '-' }}</td>
-                                {% if current_user.role in ['Master', 'Operador'] %}
+                                {% if current_user.role in ['Master', 'Presidente de Negocios', 'Operador'] %}
                                 <td>
                                     {% if c.registration_canal == 'app' %}
                                         <span class="badge bg-primary" title="Registro desde App Móvil">
@@ -280,21 +280,21 @@
                                         {% endif %}
 
                                         <!-- Editar -->
-                                        {% if current_user.role in ['Master', 'Trader', 'Plataforma', 'Middle Office'] %}
+                                        {% if current_user.role in ['Master', 'Presidente de Negocios', 'Trader', 'Plataforma', 'Middle Office'] %}
                                         <button class="btn btn-warning" onclick="editClient({{ c.id }})" title="Editar">
                                             <i class="bi bi-pencil"></i> <span class="btn-label">Editar</span>
                                         </button>
                                         {% endif %}
 
                                         <!-- Reasignar (solo Master) -->
-                                        {% if current_user.role == 'Master' %}
+                                        {% if current_user.role in ('Master', 'Presidente de Negocios') %}
                                         <button class="btn btn-primary" onclick="showReassignModal({{ c.id }})" title="Reasignar">
                                             <i class="bi bi-arrow-left-right"></i> <span class="btn-label">Reasignar</span>
                                         </button>
                                         {% endif %}
 
                                         <!-- Cambiar Estado -->
-                                        {% if current_user.role in ['Master', 'Middle Office'] %}
+                                        {% if current_user.role in ['Master', 'Presidente de Negocios', 'Middle Office'] %}
                                         <button class="btn btn-{% if c.status == 'Activo' %}secondary{% else %}success{% endif %}"
                                                 onclick="toggleClientStatus({{ c.id }}, '{{ c.status }}')"
                                                 title="{% if c.status == 'Activo' %}Desactivar{% else %}Activar{% endif %}">
@@ -303,7 +303,7 @@
                                         {% endif %}
 
                                         <!-- Eliminar (solo Master) -->
-                                        {% if current_user.role == 'Master' %}
+                                        {% if current_user.role in ('Master', 'Presidente de Negocios') %}
                                         <button class="btn btn-danger" onclick="deleteClient({{ c.id }})" title="Eliminar">
                                             <i class="bi bi-trash"></i> <span class="btn-label">Eliminar</span>
                                         </button>

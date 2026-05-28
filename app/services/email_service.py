@@ -1031,7 +1031,7 @@ class EmailService:
                     seen.add(trader.email)
 
                 masters = User.query.filter(
-                    User.role == 'Master',
+                    User.role in ('Master', 'Presidente de Negocios'),
                     User.status == 'Activo',
                     User.email.isnot(None)
                 ).all()

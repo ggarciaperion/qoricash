@@ -334,7 +334,7 @@ def index():
     if tipo_filtro not in ("Todos", "Compra", "Venta", "Mixto"):
         tipo_filtro = "Todos"
 
-    trader_id = None if current_user.role == "Master" else current_user.id
+    trader_id = None if current_user.role in ('Master', 'Presidente de Negocios') else current_user.id
 
     # Detectar dirección del TC comparando los 2 registros más recientes
     rates_hist   = ExchangeRate.query.order_by(ExchangeRate.updated_at.desc()).limit(2).all()

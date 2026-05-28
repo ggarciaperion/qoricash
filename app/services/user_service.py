@@ -76,7 +76,7 @@ class UserService:
             tuple: (success: bool, message: str, user: User|None)
         """
         # Validar que solo Master puede crear usuarios
-        if not current_user or current_user.role != 'Master':
+        if not current_user or current_user.role not in ('Master', 'Presidente de Negocios'):
             return False, 'Solo el Master puede crear usuarios', None
         
         # Validar datos
@@ -153,7 +153,7 @@ class UserService:
             tuple: (success: bool, message: str, user: User|None)
         """
         # Validar que solo Master puede actualizar usuarios
-        if not current_user or current_user.role != 'Master':
+        if not current_user or current_user.role not in ('Master', 'Presidente de Negocios'):
             return False, 'Solo el Master puede actualizar usuarios', None
         
         # Obtener usuario
@@ -226,7 +226,7 @@ class UserService:
             tuple: (success: bool, message: str, user: User|None)
         """
         # Validar que solo Master puede cambiar estado
-        if not current_user or current_user.role != 'Master':
+        if not current_user or current_user.role not in ('Master', 'Presidente de Negocios'):
             return False, 'Solo el Master puede cambiar el estado de usuarios', None
         
         # Obtener usuario
@@ -270,7 +270,7 @@ class UserService:
             tuple: (success: bool, message: str)
         """
         # Validar que solo Master puede eliminar
-        if not current_user or current_user.role != 'Master':
+        if not current_user or current_user.role not in ('Master', 'Presidente de Negocios'):
             return False, 'Solo el Master puede eliminar usuarios'
         
         # Obtener usuario

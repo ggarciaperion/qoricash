@@ -492,7 +492,7 @@
                         <th>PEN</th>
                         <th>Estado</th>
                         <th class="d-none d-md-table-cell">Fecha</th>
-                        {% if user.role in ['Master', 'Operador'] %}
+                        {% if user.role in ['Master', 'Presidente de Negocios', 'Operador'] %}
                         <th class="d-none d-lg-table-cell">Usuario</th>
                         {% endif %}
                         <th>Acciones</th>
@@ -521,7 +521,7 @@
                             {% endif %}
                         </td>
                         <td class="d-none d-md-table-cell" data-order="{{ op.created_at.timestamp()|int if op.created_at else 0 }}">{{ op.created_at.strftime('%d/%m/%Y %H:%M') if op.created_at else '-' }}</td>
-                        {% if user.role in ['Master', 'Operador'] %}
+                        {% if user.role in ['Master', 'Presidente de Negocios', 'Operador'] %}
                         <td class="d-none d-lg-table-cell">{{ op.user.email if op.user else '-' }}</td>
                         {% endif %}
                         <td>
