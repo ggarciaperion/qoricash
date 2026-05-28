@@ -2568,6 +2568,63 @@ def api_import_excel():
     })
 
 
+@prospeccion_bp.route("/api/normalize-deptos", methods=["POST"])
+@csrf.exempt
+@login_required
+@require_role("Master")
+def api_normalize_deptos():
+    """Normaliza departamento y tamano_empresa en todos los prospectos (solo Master)."""
+    import unicodedata
+
+    DEPTOS = [
+        "Amazonas", "Áncash", "Apurímac", "Arequipa", "Ayacucho",
+        "Cajamarca", "Callao", "Cusco", "Huancavelica", "Huánuco",
+        "Ica", "Junín", "La Libertad", "Lambayeque", "Lima",
+        "Loreto", "Madre de Dios", "Moquegua", "Pasco", "Piura",
+        "Puno", "San Martín", "Tacna", "Tumbes", "Ucayali",
+    ]
+    TAMANOS = ["MYPE", "Pequeña", "Mediana", "Grande"]
+
+    def _key(s):
+        s = s.strip()
+        s = unicodedata.normalize("NFD", s)
+        s = "".join(c for c in s if unicodedata.category(c) != "Mn")
+        return s.lower()
+
+    depto_map  = {_key(d): d for d in DEPTOS}
+    tamano_map = {_key(t): t for t in TAMANOS}
+    depto_map.update({
+        "ancash": "Áncash", "apurimac": "Apurímac", "huanuco": "Huánuco",
+        "junin": "Junín", "san martin": "San Martín",
+        "madre de dios": "Madre de Dios", "la libertad": "La Libertad",
+    })
+    tamano_map.update({
+        "micro": "MYPE", "microempresa": "MYPE",
+        "pequena empresa": "Pequeña", "pequena": "Pequeña",
+        "mediana empresa": "Mediana", "grande empresa": "Grande",
+    })
+
+    try:
+        prospectos = Prospecto.query.all()
+        d_up = t_up = 0
+        for p in prospectos:
+            if p.departamento:
+                canon = depto_map.get(_key(p.departamento))
+                if canon and canon != p.departamento:
+                    p.departamento = canon
+                    d_up += 1
+            if p.tamano_empresa:
+                canon = tamano_map.get(_key(p.tamano_empresa))
+                if canon and canon != p.tamano_empresa:
+                    p.tamano_empresa = canon
+                    t_up += 1
+        db.session.commit()
+        return jsonify({"ok": True, "departamentos_normalizados": d_up, "tamanos_normalizados": t_up})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
 @prospeccion_bp.route("/api/limpiar-todo", methods=["POST"])
 @login_required
 @require_role("Master")

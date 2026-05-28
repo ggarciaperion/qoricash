@@ -790,6 +790,10 @@
         <i class="bi bi-people-fill"></i> Asignar masivo
       </button>
       <div class="toolbar-sep"></div>
+      <button class="btn-crm btn-crm-ghost" onclick="normalizarDeptos()" title="Unifica departamentos y tamaños con variantes de mayúsculas/tildes">
+        <i class="bi bi-magic"></i> Normalizar
+      </button>
+      <div class="toolbar-sep"></div>
       <button class="btn-crm btn-crm-ghost" style="color:#dc2626;border-color:#dc2626;" onclick="confirmarLimpiarTodo()">
         <i class="bi bi-trash3"></i> Limpiar todo
       </button>
@@ -2056,6 +2060,29 @@ async function confirmarLimpiarTodo() {
       load();
     } else {
       Swal.fire({icon:'error', text: d.error||'Error al eliminar.', confirmButtonColor:'#0D1B2A'});
+    }
+  } catch(e) { Swal.fire({icon:'error', text:'Error de red.', confirmButtonColor:'#0D1B2A'}); }
+}
+
+async function normalizarDeptos() {
+  const r = await Swal.fire({
+    title: 'Normalizar departamentos y tamaños',
+    text: 'Unificará variantes (mayúsculas, tildes, espacios) al nombre canónico. No se eliminan datos.',
+    icon: 'question',
+    showCancelButton: true, confirmButtonText: 'Normalizar', cancelButtonText: 'Cancelar',
+    confirmButtonColor: '#0D1B2A',
+  });
+  if (!r.isConfirmed) return;
+  Swal.fire({title:'Normalizando…', allowOutsideClick:false, didOpen:()=>Swal.showLoading()});
+  try {
+    const res = await fetch('/prospeccion/api/normalize-deptos', {method:'POST', headers:{'X-CSRFToken':CSRF()}});
+    const d = await res.json();
+    if (d.ok) {
+      Swal.fire({icon:'success', title:'Listo', confirmButtonColor:'#0D1B2A',
+        html:`Departamentos normalizados: <b>${d.departamentos_normalizados}</b><br>Tamaños normalizados: <b>${d.tamanos_normalizados}</b>`});
+      load();
+    } else {
+      Swal.fire({icon:'error', text: d.error||'Error al normalizar.', confirmButtonColor:'#0D1B2A'});
     }
   } catch(e) { Swal.fire({icon:'error', text:'Error de red.', confirmButtonColor:'#0D1B2A'}); }
 }

@@ -2085,3 +2085,86 @@ def register_cli_commands(app):
 
         ok = sum(1 for _, s in results if s)
         print(f"\n{ok}/{len(results)} correos enviados correctamente\n")
+
+    @app.cli.command("normalize-prospectos")
+    def normalize_prospectos():
+        """
+        Normaliza departamento y tamano_empresa en todos los prospectos.
+        Unifica variantes en mayúsculas/minúsculas/sin tilde al nombre canónico.
+        Uso: flask normalize-prospectos
+        """
+        import unicodedata
+        from app.extensions import db
+        from app.models.prospecto import Prospecto
+
+        # ── Departamentos canónicos del Perú ──────────────────────────────────
+        DEPTOS = [
+            "Amazonas", "Áncash", "Apurímac", "Arequipa", "Ayacucho",
+            "Cajamarca", "Callao", "Cusco", "Huancavelica", "Huánuco",
+            "Ica", "Junín", "La Libertad", "Lambayeque", "Lima",
+            "Loreto", "Madre de Dios", "Moquegua", "Pasco", "Piura",
+            "Puno", "San Martín", "Tacna", "Tumbes", "Ucayali",
+        ]
+
+        # ── Tamaños canónicos ─────────────────────────────────────────────────
+        TAMANOS = ["MYPE", "Pequeña", "Mediana", "Grande"]
+
+        def _key(s):
+            """Clave de comparación: sin tildes, sin espacios extra, minúsculas."""
+            s = s.strip()
+            s = unicodedata.normalize("NFD", s)
+            s = "".join(c for c in s if unicodedata.category(c) != "Mn")
+            return s.lower()
+
+        depto_map  = {_key(d): d for d in DEPTOS}
+        tamano_map = {_key(t): t for t in TAMANOS}
+
+        # Alias adicionales frecuentes
+        depto_map.update({
+            "ancash":          "Áncash",
+            "apurimac":        "Apurímac",
+            "huanuco":         "Huánuco",
+            "junin":           "Junín",
+            "san martin":      "San Martín",
+            "madre de dios":   "Madre de Dios",
+            "la libertad":     "La Libertad",
+        })
+        tamano_map.update({
+            "mype":            "MYPE",
+            "micro":           "MYPE",
+            "microempresa":    "MYPE",
+            "pequena empresa": "Pequeña",
+            "pequena":         "Pequeña",
+            "mediana empresa": "Mediana",
+            "grande empresa":  "Grande",
+        })
+
+        prospectos = Prospecto.query.all()
+        d_updated = d_skipped = t_updated = t_skipped = 0
+
+        for p in prospectos:
+            # Departamento
+            if p.departamento:
+                canonical = depto_map.get(_key(p.departamento))
+                if canonical and canonical != p.departamento:
+                    p.departamento = canonical
+                    d_updated += 1
+                else:
+                    d_skipped += 1
+
+            # Tamaño empresa
+            if p.tamano_empresa:
+                canonical = tamano_map.get(_key(p.tamano_empresa))
+                if canonical and canonical != p.tamano_empresa:
+                    p.tamano_empresa = canonical
+                    t_updated += 1
+                else:
+                    t_skipped += 1
+
+        try:
+            db.session.commit()
+            print(f"✓ Departamentos: {d_updated} normalizados, {d_skipped} ya correctos")
+            print(f"✓ Tamaños:       {t_updated} normalizados, {t_skipped} ya correctos")
+        except Exception as e:
+            db.session.rollback()
+            print(f"✗ Error: {e}")
