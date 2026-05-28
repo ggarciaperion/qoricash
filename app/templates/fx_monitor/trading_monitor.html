@@ -725,6 +725,8 @@ body.has-trading-monitor {
       Mkt avg venta: <span id="mktAvgSell">—</span> &nbsp;·&nbsp;
       Spread mercado: <span id="mktSpread">—</span>
     </div>
+    <div class="qc-sep"></div>
+    <span id="widgetSync" style="font-size:0.72rem;font-family:'IBM Plex Mono',monospace;letter-spacing:.04em;opacity:.8;cursor:default">● WIDGET —</span>
   </div>
 
   <!-- ══════════════════════════════════════════════════════
@@ -806,15 +808,15 @@ body.has-trading-monitor {
 {% block scripts %}
 <script>
 // ═══════════════════════════════════════════════════════════════
-// QORICASH TRADING MONITOR FX — Optimized Engine v2
-// In-place DOM updates · 8s poll · Zero layout thrash
+// QORICASH TRADING MONITOR FX — Optimized Engine v3
+// In-place DOM updates · 5s poll · 90s scrape cycle · Zero layout thrash
 // ═══════════════════════════════════════════════════════════════
 
 (function () {
 'use strict';
 
 // ── Constants ─────────────────────────────────────────────────
-const POLL_MS       = 8000;   // 8s polling interval
+const POLL_MS       = 5000;   // 5s polling interval
 const CHART_RANGE_H = 4;
 const LIVE_API      = '/monitor/api/live';
 const CHART_API     = '/monitor/api/price-evolution';
@@ -901,11 +903,24 @@ function startClock() {
       setText('stNextRefresh', left > 0 ? left + 's' : '—');
     }
 
-    // Update "ago" on hero (cheap: just two elements)
+    // Update "ago" on hero + widget sync badge (cheap: fixed elements)
     if (state.data) {
       const bb = state.data.best_buy, bs = state.data.best_sell;
       if (bb) setText('heroBuyMeta',  'Actualizado hace ' + secsAgo(bb.epoch));
       if (bs) setText('heroSellMeta', 'Actualizado hace ' + secsAgo(bs.epoch));
+      const ep = state.data.own_updated_epoch;
+      if (ep) {
+        const el = $('widgetSync');
+        if (el) {
+          const a = Math.floor(Date.now()/1000) - ep;
+          const lbl = a < 60 ? a + 's' : Math.floor(a/60) + 'm';
+          const txt = '● WIDGET ' + lbl;
+          if (el.textContent !== txt) {
+            el.textContent = txt;
+            el.style.color = a < 300 ? '#00E676' : '#FF9800';
+          }
+        }
+      }
     }
 
     // Update time cells via rowMap (no DOM query)

@@ -121,6 +121,19 @@ def api_live():
         logger.error(f'[FXMonitor] api_live error: {e}', exc_info=True)
         data = FXMonitorService.empty_dashboard_data()
 
+    # Own rate update timestamp (same as widget)
+    own_updated_epoch = 0
+    try:
+        from app.models.exchange_rate import ExchangeRate
+        rate = ExchangeRate.query.order_by(ExchangeRate.updated_at.desc()).first()
+        if rate and rate.updated_at:
+            ts = rate.updated_at
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=timezone.utc)
+            own_updated_epoch = int(ts.timestamp())
+    except Exception:
+        pass
+
     competitors = data["competitors"]
 
     # Enrich with epoch timestamp for "X ago" display
@@ -173,6 +186,7 @@ def api_live():
         "market_avg_buy":  avg_buy,
         "market_avg_sell": avg_sell,
         "market_spread":   round(avg_sell - avg_buy, 4) if avg_buy and avg_sell else 0,
-        "total_active":  len(active),
-        "total_errors":  len([c for c in competitors if not c.get("scrape_ok")]),
+        "total_active":      len(active),
+        "total_errors":      len([c for c in competitors if not c.get("scrape_ok")]),
+        "own_updated_epoch": own_updated_epoch,
     })

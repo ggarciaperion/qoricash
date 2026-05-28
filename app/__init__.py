@@ -871,7 +871,7 @@ def start_market_schedulers(app):
     _run_every(5  * 60, 'Precios de mercado',   _prices)
     _run_every(15 * 60, 'Noticias RSS',          _news)
     _run_every(6  * 3600, 'Indicadores macro',   _macro)
-    _run_every(5  * 60, 'FX Monitor scraping',   _fx_monitor)
+    _run_every(90,      'FX Monitor scraping',   _fx_monitor)
     _run_every(24 * 3600, 'Calendario económico', _calendar)
 
     # Análisis diario a las 8:30 AM Lima, lunes a viernes
