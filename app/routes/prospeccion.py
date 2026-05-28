@@ -2086,6 +2086,7 @@ def _api_grid_impl():
                User.query.filter_by(role="Trader", status="Activo").order_by(User.username).all()]
     rubros  = [r[0] for r in db.session.query(Prospecto.rubro).distinct().order_by(Prospecto.rubro).all() if r[0]]
     deptos  = [d[0] for d in db.session.query(Prospecto.departamento).distinct().order_by(Prospecto.departamento).all() if d[0]]
+    tamanos = [t[0] for t in db.session.query(Prospecto.tamano_empresa).distinct().order_by(Prospecto.tamano_empresa).all() if t[0]]
 
     return jsonify({
         "ok": True,
@@ -2094,6 +2095,7 @@ def _api_grid_impl():
         "traders": traders,
         "rubros": rubros[:80],
         "deptos": deptos,
+        "tamanos": tamanos,
     })
 
 

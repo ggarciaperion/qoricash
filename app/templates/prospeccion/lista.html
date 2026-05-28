@@ -1248,20 +1248,24 @@ async function load() {
     if (!d.ok) { toast('Error: ' + (d.error||'desconocido'), true); return; }
     _rows    = d.rows || [];
     _traders = d.traders || [];
-    setFilterOpts(d.rubros||[], d.deptos||[]);
+    setFilterOpts(d.rubros||[], d.deptos||[], d.tamanos||[]);
     updateCounts(d.counts||{});
     filter();
     checkCamp();
   } catch(e) { toast('Error de red', true); }
 }
 
-function setFilterOpts(rubros, deptos) {
+function setFilterOpts(rubros, deptos, tamanos) {
   const fr = document.getElementById('fRubro');
   const fd = document.getElementById('fDepto');
-  const cr = fr.value, cd = fd.value;
+  const ft = document.getElementById('fTamano');
+  const cr = fr.value, cd = fd.value, ct = ft.value;
   fr.innerHTML = '<option value="">Rubro</option>' + rubros.map(r=>`<option>${esc(r)}</option>`).join('');
   fd.innerHTML = '<option value="">Departamento</option>' + deptos.map(d=>`<option>${esc(d)}</option>`).join('');
-  fr.value = cr; fd.value = cd;
+  if (tamanos && tamanos.length) {
+    ft.innerHTML = '<option value="">Tamaño</option>' + tamanos.map(t=>`<option>${esc(t)}</option>`).join('');
+  }
+  fr.value = cr; fd.value = cd; ft.value = ct;
 }
 
 function updateCounts(c) {
@@ -1311,7 +1315,7 @@ function filter() {
     if (q && !`${r.razon_social} ${r.email} ${r.nombre_contacto} ${r.ruc} ${r.telefono}`.toLowerCase().includes(q)) return false;
     if (dp && r.departamento !== dp) return false;
     if (rb && r.rubro !== rb)        return false;
-    if (sz && r.tamano_empresa !== sz) return false;
+    if (sz && (r.tamano_empresa||'').toLowerCase() !== sz.toLowerCase()) return false;
     if (nv && r.nivel_interes !== nv)  return false;
     return true;
   });
