@@ -230,11 +230,18 @@ class OperationService:
         except Exception:
             pass
 
+        # Si el creador es Master, atribuir la operación al trader dueño del cliente.
+        # El audit log sigue registrando que el Master la generó.
+        if current_user.role == 'Master' and client.created_by:
+            attributed_user_id = client.created_by
+        else:
+            attributed_user_id = current_user.id
+
         # Crear operación
         operation = Operation(
             operation_id=operation_id,
             client_id=client_id,
-            user_id=current_user.id,
+            user_id=attributed_user_id,
             operation_type=operation_type,
             amount_usd=amount_usd,
             exchange_rate=exchange_rate,
