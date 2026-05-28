@@ -23,7 +23,6 @@ from .cambiomundial import CambioMundialScraper
 from .tkambio       import TKambioScraper
 from .cambiosol     import CambiosolScraper
 from .okane         import OkaneScraper
-from .metafxperu    import MetaFXPeruScraper
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +55,6 @@ def _cb_record(slug: str, success: bool):
 
 
 ALL_SCRAPERS = [
-    MetaFXPeruScraper(),
     KambistaScraper(),
     CambixScraper(),
     CambioSeguroScraper(),

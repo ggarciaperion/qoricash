@@ -25,7 +25,6 @@ logger = logging.getLogger(__name__)
 
 # Datos iniciales de competidores
 COMPETITORS_SEED = [
-    {"slug": "metafxperu",   "name": "MetaFX Peru",  "website": "https://metafxperu.com"},
     {"slug": "kambista",     "name": "Kambista",     "website": "https://kambista.com"},
     {"slug": "cambix",       "name": "Cambix",       "website": "https://cambix.pe"},
     {"slug": "cambioseguro", "name": "Cambio Seguro","website": "https://cambioseguro.com"},
