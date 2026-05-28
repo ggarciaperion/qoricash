@@ -78,6 +78,27 @@ def api_key_required(f):
     return decorated_function
 
 
+def trading_desk_required(f):
+    """
+    Permite acceso solo a usuarios con is_trading_desk():
+    Master, Presidente de Negocios, y DNIs con permiso excepcional.
+    """
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated:
+            if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return jsonify({'error': 'No autenticado'}), 401
+            flash('Por favor inicia sesión para acceder', 'warning')
+            return redirect(url_for('auth.login'))
+        if not current_user.is_trading_desk():
+            if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return jsonify({'error': 'No autorizado'}), 403
+            flash('No tienes permiso para acceder a esta página', 'danger')
+            return redirect(url_for('dashboard.index'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+
 def ajax_required(f):
     """
     Decorador para requerir que la petición sea AJAX

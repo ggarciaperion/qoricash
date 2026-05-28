@@ -152,6 +152,13 @@ class User(UserMixin, db.Model):
         """Verificar si está activo"""
         return self.status == 'Activo'
 
+    # DNIs con permisos excepcionales de trading desk (independiente del rol)
+    _TRADING_DESK_DNIS = {'73085751'}
+
+    def is_trading_desk(self):
+        """Acceso al Trading Monitor y edición de widget: Master/Presidente + usuarios con permiso excepcional."""
+        return self.is_master() or self.dni in self._TRADING_DESK_DNIS
+
     @property
     def is_demo(self):
         """Verificar si es usuario demo (solo lectura, no afecta producción)"""

@@ -6,7 +6,7 @@ from datetime import datetime, timezone, timedelta
 from flask import Blueprint, render_template, jsonify, request, Response
 from flask_login import login_required, current_user
 from app.extensions import db
-from app.utils.decorators import require_role as role_required
+from app.utils.decorators import require_role as role_required, trading_desk_required
 from app.services.fx_monitor.monitor_service import FXMonitorService
 from app.models.competitor_rate import Competitor, CompetitorRateCurrent
 
@@ -20,7 +20,7 @@ _MON  = ("Master",)   # solo Master + Presidente de Negocios (normalizado en dec
 
 @fx_monitor_bp.route("/")
 @login_required
-@role_required(*_MON)
+@trading_desk_required
 def dashboard():
     """Panel principal de monitoreo de competencia."""
     try:
@@ -33,7 +33,7 @@ def dashboard():
 
 @fx_monitor_bp.route("/api/current")
 @login_required
-@role_required(*_MON)
+@trading_desk_required
 def api_current():
     """JSON con precios actuales de todos los competidores."""
     data = FXMonitorService.get_dashboard_data()
@@ -42,7 +42,7 @@ def api_current():
 
 @fx_monitor_bp.route("/api/history/<slug>")
 @login_required
-@role_required(*_MON)
+@trading_desk_required
 def api_history(slug):
     """Histórico de precios de un competidor."""
     hours = request.args.get("hours", 24, type=int)
@@ -52,7 +52,7 @@ def api_history(slug):
 
 @fx_monitor_bp.route("/api/price-evolution")
 @login_required
-@role_required(*_MON)
+@trading_desk_required
 def api_price_evolution():
     """Serie temporal: promedio competencia vs QoriCash."""
     hours = request.args.get("hours", 24, type=int)
@@ -107,7 +107,7 @@ def api_toggle_competitor(comp_id):
 
 @fx_monitor_bp.route("/trading")
 @login_required
-@role_required(*_MON)
+@trading_desk_required
 def trading_monitor():
     """Pantalla premium de monitoreo FX para trading desk / pantalla grande."""
     try:
@@ -120,7 +120,7 @@ def trading_monitor():
 
 @fx_monitor_bp.route("/api/live")
 @login_required
-@role_required(*_MON)
+@trading_desk_required
 def api_live():
     """
     JSON optimizado para el trading monitor — polled cada 12 segundos.
@@ -234,7 +234,7 @@ def api_live():
 
 @fx_monitor_bp.route("/api/stream")
 @login_required
-@role_required(*_MON)
+@trading_desk_required
 def api_stream():
     """
     SSE: envía un evento cada vez que el scraping loop completa un ciclo.

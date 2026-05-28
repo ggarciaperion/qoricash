@@ -1391,8 +1391,9 @@ def api_get_precio_base():
 @dashboard_bp.route('/api/precio-base', methods=['POST'])
 @csrf.exempt
 @login_required
-@require_role('Master', 'Operador')
 def api_set_precio_base():
+    if not (current_user.is_master() or current_user.is_operador() or current_user.is_trading_desk()):
+        return jsonify({'ok': False, 'error': 'No autorizado'}), 403
     data = request.get_json(silent=True) or {}
     try:
         compra = float(data.get('compra', 0))
