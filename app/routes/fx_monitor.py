@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 fx_monitor_bp = Blueprint("fx_monitor", __name__, url_prefix="/monitor")
 
 _LIMA = timezone(timedelta(hours=-5))
-_MON  = ("Master", "Operador", "Trader", "Middle Office")
+_MON  = ("Master",)   # solo Master + Presidente de Negocios (normalizado en decorator)
 
 
 @fx_monitor_bp.route("/")

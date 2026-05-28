@@ -107,7 +107,7 @@
                 <span class="sidebar-link-text">Mercado Global</span>
             </a>
             {% endif %}
-            {% if current_user.role in ['Master', 'Presidente de Negocios', 'Trader', 'Operador'] %}
+            {% if current_user.is_master() %}
             <a class="sidebar-link {% if request.endpoint == 'fx_monitor.trading_monitor' %}active{% endif %}"
                href="{{ url_for('fx_monitor.trading_monitor') }}"
                title="Trading Monitor — pantalla completa para trading desk">
