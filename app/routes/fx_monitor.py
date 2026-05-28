@@ -178,7 +178,7 @@ def api_live():
     server_now  = int(now_lima.timestamp())
     from datetime import time as _dtime
     _in_market  = _dtime(9, 0) <= now_lima.time() < _dtime(13, 30)
-    STALE_SECS  = 10 * 60 if _in_market else None   # None = sin límite fuera de horario
+    STALE_SECS  = 3 * 60 if _in_market else None    # None = sin límite fuera de horario
 
     valid   = []
     invalid = []
