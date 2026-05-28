@@ -1,7 +1,7 @@
 /**
  * QoriCash Trading V2 - Common JavaScript Functions
  * Funciones comunes reutilizables en todo el sistema
- * VERSION: 20260511_v11
+ * VERSION: 20260527_v13
  */
 
 console.log('🔔 QoriCash Common.js cargado - Versión: 20251219_v7_simple (Alertas cada 10min)');
@@ -40,6 +40,82 @@ function startDashboardPolling(fn) {
 
     _schedule();
 }
+
+/**
+ * qoriToast — Motor centralizado de notificaciones en tiempo real.
+ * Reutiliza el mismo diseño, animación y timing que #pbToast.
+ *
+ * @param {object} opts
+ *   title   {string}  — Etiqueta superior (uppercase, muted)
+ *   message {string}  — Texto principal
+ *   type    {string}  — 'success' | 'warning' | 'danger' | 'info'  (default: 'info')
+ *   url     {string}  — Si se indica, el toast es clickable y navega a esa URL
+ *   sound   {boolean} — Reproducir chime (default: true para success, false para el resto)
+ *   duration {number} — ms antes de auto-dismiss (default: 4500)
+ */
+window.qoriToast = function(opts) {
+    const stack = document.getElementById('qoriToastStack');
+    if (!stack) return;
+
+    const type     = opts.type     || 'info';
+    const duration = opts.duration || 4500;
+    const url      = opts.url      || '';
+
+    const icons = {
+        success: 'bi bi-check-circle-fill',
+        warning: 'bi bi-exclamation-triangle-fill',
+        danger:  'bi bi-x-circle-fill',
+        info:    'bi bi-bell-fill',
+    };
+
+    const el = document.createElement('div');
+    el.className = `qori-toast qt-${type}${url ? ' qt-clickable' : ''}`;
+
+    el.innerHTML =
+        `<div class="qt-icon"><i class="${icons[type] || icons.info}"></i></div>` +
+        `<div class="qt-body">` +
+            `<div class="qt-title">${opts.title || 'Notificación'}</div>` +
+            `<div class="qt-message">${opts.message || ''}</div>` +
+        `</div>` +
+        `<button class="qt-close" aria-label="Cerrar"><i class="bi bi-x"></i></button>`;
+
+    if (url) {
+        el.addEventListener('click', function(e) {
+            if (!e.target.closest('.qt-close')) window.location.href = url;
+        });
+    }
+
+    const dismiss = function() {
+        el.classList.remove('qt-show');
+        el.classList.add('qt-hide');
+        el.addEventListener('transitionend', function() { el.remove(); }, { once: true });
+    };
+
+    el.querySelector('.qt-close').addEventListener('click', function(e) {
+        e.stopPropagation();
+        dismiss();
+    });
+
+    stack.appendChild(el);
+
+    // Trigger enter animation (next frame to allow paint)
+    requestAnimationFrame(function() {
+        requestAnimationFrame(function() { el.classList.add('qt-show'); });
+    });
+
+    var timer = setTimeout(dismiss, duration);
+
+    // Pause on hover
+    el.addEventListener('mouseenter', function() { clearTimeout(timer); });
+    el.addEventListener('mouseleave', function() { timer = setTimeout(dismiss, 2000); });
+
+    // Sound
+    var playSound = (opts.sound !== undefined) ? opts.sound : (type === 'success');
+    if (playSound && typeof playCompletedSound === 'function') playCompletedSound();
+    else if (typeof playNotificationSound === 'function') {
+        if (opts.sound === true) playNotificationSound();
+    }
+};
 
 /**
  * Conectar a SocketIO para actualizaciones en tiempo real
@@ -84,8 +160,12 @@ function connectSocketIO() {
     socket.on('nueva_operacion', function(data) {
         // Solo mostrar notificación a Master y Operador
         if (window.currentUserRole === 'Master' || window.currentUserRole === 'Operador') {
-            showNotification(`Nueva operación: ${data.operation_id} - ${data.client_name}`, 'info');
-            playNotificationSound();
+            qoriToast({
+                title:   '📋 Nueva Operación',
+                message: `${data.operation_id} · ${data.client_name}${data.amount_usd ? ' · $' + parseFloat(data.amount_usd).toLocaleString('en-US', {minimumFractionDigits:2,maximumFractionDigits:2}) : ''}`,
+                type:    'info',
+                sound:   true,
+            });
             if (window._menuBadgeInc) window._menuBadgeInc('ops');
         }
 
@@ -106,11 +186,10 @@ function connectSocketIO() {
 
         // Solo mostrar notificación a Master y Operador
         if (window.currentUserRole === 'Master' || window.currentUserRole === 'Operador') {
-            const message = data.assigned_operator_name
-                ? `Operación ${data.operation_id} actualizada a: ${data.status} - Asignado a: ${data.assigned_operator_name}`
-                : `Operación ${data.operation_id} actualizada a: ${data.status}`;
-            showNotification(message, 'info');
-            if (data.sound) playNotificationSound();
+            const msg = data.assigned_operator_name
+                ? `${data.operation_id} → ${data.status} · ${data.assigned_operator_name}`
+                : `${data.operation_id} → ${data.status}`;
+            qoriToast({ title: '🔄 Operación Actualizada', message: msg, type: 'info', sound: !!data.sound });
         }
 
         // Actualizar dashboard para todos
@@ -131,8 +210,7 @@ function connectSocketIO() {
     socket.on('operacion_completada', function(data) {
         // Solo mostrar notificación a Master y Operador
         if (window.currentUserRole === 'Master' || window.currentUserRole === 'Operador') {
-            showNotification(`Operación ${data.operation_id} completada exitosamente`, 'success');
-            playCompletedSound();
+            qoriToast({ title: '✅ Operación Completada', message: `${data.operation_id}${data.client_name ? ' · ' + data.client_name : ''}`, type: 'success', sound: true });
         }
 
         // Actualizar dashboard para todos
@@ -149,8 +227,7 @@ function connectSocketIO() {
     socket.on('operacion_cancelada', function(data) {
         // Solo mostrar notificación a Master y Operador
         if (window.currentUserRole === 'Master' || window.currentUserRole === 'Operador') {
-            showNotification(`Operación ${data.operation_id} cancelada`, 'warning');
-            playNotificationSound();
+            qoriToast({ title: '❌ Operación Cancelada', message: `${data.operation_id}${data.client_name ? ' · ' + data.client_name : ''}`, type: 'warning', sound: true });
         }
 
         // Actualizar dashboard para todos
@@ -166,21 +243,13 @@ function connectSocketIO() {
 
     socket.on('operacion_en_proceso', function(data) {
         if (window.currentUserRole === 'Master' || window.currentUserRole === 'Operador') {
-            playNotificationSound();
-            if (typeof Swal !== 'undefined') {
-                Swal.fire({
-                    toast: true,
-                    position: 'top-end',
-                    icon: 'warning',
-                    title: data.title || '⏳ Operación En Proceso',
-                    text: data.message || `${data.operation_id} — comprobante subido`,
-                    showConfirmButton: false,
-                    timer: 6000,
-                    timerProgressBar: true,
-                });
-            } else {
-                showNotification(data.message || `Operación ${data.operation_id} en proceso`, 'warning');
-            }
+            qoriToast({
+                title:   '⏳ Comprobante Subido',
+                message: data.message || `${data.operation_id} — pendiente de verificar`,
+                type:    'warning',
+                sound:   true,
+                duration: 6000,
+            });
             if (typeof window._menuBadgeInc === 'function') {
                 window._menuBadgeInc('ops');
             }
@@ -200,9 +269,13 @@ function connectSocketIO() {
         const canal = data.created_by  || '';
 
         if (window.currentUserRole === 'Master' || window.currentUserRole === 'Operador' || window.currentUserRole === 'Middle Office') {
-            const canalLabel = canal === 'App Móvil' ? ' 📱 App' : (canal === 'Web' || canal === 'web' ? ' 🌐 Web' : (canal ? ` (${canal})` : ''));
-            showNotification(`Nuevo cliente${canalLabel}: ${name} ${dni}`, 'info');
-            playNotificationSound();
+            const canalLabel = canal === 'App Móvil' ? '📱 App' : (canal === 'Web' || canal === 'web' ? '🌐 Web' : (canal || ''));
+            qoriToast({
+                title:   '👤 Nuevo Cliente' + (canalLabel ? ' · ' + canalLabel : ''),
+                message: `${name}${dni ? ' · ' + dni : ''}`,
+                type:    'info',
+                sound:   true,
+            });
             if (window._menuBadgeInc) window._menuBadgeInc('clients');
         }
         if (typeof refreshClientsTable === 'function') {
@@ -219,7 +292,7 @@ function connectSocketIO() {
     socket.on('client_updated', function(data) {
         // Solo mostrar notificación a Master y Operador
         if (window.currentUserRole === 'Master' || window.currentUserRole === 'Operador') {
-            showNotification(`Cliente actualizado: ${data.client_name}`, 'info');
+            qoriToast({ title: '✏️ Cliente Actualizado', message: data.client_name || '', type: 'info' });
         }
 
         // Actualizar tabla de clientes si existe
@@ -231,7 +304,7 @@ function connectSocketIO() {
     socket.on('client_deleted', function(data) {
         // Solo mostrar notificación a Master y Operador
         if (window.currentUserRole === 'Master' || window.currentUserRole === 'Operador') {
-            showNotification(`Cliente eliminado: ${data.client_name}`, 'warning');
+            qoriToast({ title: '🗑️ Cliente Eliminado', message: data.client_name || '', type: 'warning' });
         }
 
         // Actualizar tabla de clientes si existe
@@ -250,7 +323,7 @@ function connectSocketIO() {
     // ============================================
 
     socket.on('nuevo_usuario', function(data) {
-        showNotification(`Nuevo usuario: ${data.username} (${data.role})`, 'info');
+        qoriToast({ title: '🧑‍💼 Nuevo Usuario', message: `${data.username} · ${data.role}`, type: 'info' });
 
         // Actualizar tabla de usuarios si existe
         if (typeof refreshUsersTable === 'function') {
@@ -264,7 +337,7 @@ function connectSocketIO() {
     });
 
     socket.on('user_updated', function(data) {
-        showNotification(`Usuario actualizado: ${data.username}`, 'info');
+        qoriToast({ title: '✏️ Usuario Actualizado', message: data.username || '', type: 'info' });
 
         // Actualizar tabla de usuarios si existe
         if (typeof refreshUsersTable === 'function') {
@@ -273,7 +346,7 @@ function connectSocketIO() {
     });
 
     socket.on('user_deleted', function(data) {
-        showNotification(`Usuario eliminado: ${data.username}`, 'warning');
+        qoriToast({ title: '🗑️ Usuario Eliminado', message: data.username || '', type: 'warning' });
 
         // Actualizar tabla de usuarios si existe
         if (typeof refreshUsersTable === 'function') {
@@ -302,7 +375,7 @@ function connectSocketIO() {
     // ============================================
 
     socket.on('notification', function(data) {
-        showNotification(data.message, data.type || 'info');
+        qoriToast({ title: data.title || 'Notificación', message: data.message || '', type: data.type || 'info' });
     });
 
     // ============================================
@@ -313,8 +386,7 @@ function connectSocketIO() {
         console.log('Operación asignada recibida:', data);
 
         // Mostrar notificación al operador
-        showNotification(data.message, 'info', 8000);
-        playNotificationSound();
+        qoriToast({ title: '📌 Operación Asignada', message: data.message || '', type: 'info', sound: true, duration: 8000 });
         if (window._menuBadgeInc) window._menuBadgeInc('ops');
 
         // Si estamos en la página de operaciones, refrescar la tabla
@@ -335,7 +407,7 @@ function connectSocketIO() {
         console.log('Operación reasignada removida:', data);
 
         // Mostrar notificación al operador anterior
-        showNotification(data.message, 'warning', 8000);
+        qoriToast({ title: '↩️ Operación Reasignada', message: data.message || '', type: 'warning', duration: 8000 });
 
         // Si estamos en la página de operaciones, refrescar la tabla
         if (typeof refreshOperationsTable === 'function') {
@@ -382,7 +454,7 @@ function connectSocketIO() {
                 }
             });
         } else {
-            showNotification(`Se te asignó el cliente: ${clientName}`, 'info', 10000);
+            qoriToast({ title: '📋 Cliente Asignado', message: `${clientName}${clientDni ? ' · ' + clientDni : ''}`, type: 'info', duration: 10000 });
         }
 
         playNotificationSound();
@@ -399,7 +471,7 @@ function connectSocketIO() {
         const clientName = data.client_name || 'Cliente';
 
         // Notificación de aviso para el Trader que pierde el cliente
-        showNotification(`El cliente ${clientName} fue reasignado a otro ejecutivo`, 'warning', 8000);
+        qoriToast({ title: '↩️ Cliente Reasignado', message: `${clientName} fue asignado a otro ejecutivo`, type: 'warning', duration: 8000 });
 
         if (typeof refreshClientsTable === 'function') {
             refreshClientsTable();
@@ -408,29 +480,15 @@ function connectSocketIO() {
 }
 
 /**
- * Mostrar notificación toast moderna
+ * Mostrar notificación toast moderna — delega a qoriToast (motor centralizado)
  */
 function showNotification(message, type = 'info', duration = 5000) {
-    // Usar SweetAlert2 Toast si está disponible
-    if (typeof Swal !== 'undefined') {
-        const Toast = Swal.mixin({
-            toast: true,
-            position: 'top-end',
-            showConfirmButton: false,
-            timer: duration,
-            timerProgressBar: true,
-            didOpen: (toast) => {
-                toast.addEventListener('mouseenter', Swal.stopTimer)
-                toast.addEventListener('mouseleave', Swal.resumeTimer)
-            }
-        });
-
-        Toast.fire({
-            icon: type === 'danger' ? 'error' : type,
-            title: message
-        });
+    if (typeof window.qoriToast === 'function') {
+        window.qoriToast({ title: 'Notificación', message: message, type: type === 'danger' ? 'danger' : type, duration: duration });
+    } else if (typeof Swal !== 'undefined') {
+        Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: duration, timerProgressBar: true })
+            .fire({ icon: type === 'danger' ? 'error' : type, title: message });
     } else {
-        // Fallback a showAlert
         showAlert(message, type);
     }
 }
