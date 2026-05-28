@@ -65,8 +65,23 @@ def api_price_evolution():
 @role_required("Master")
 def api_scrape_now():
     """Fuerza un ciclo de scraping inmediato (solo Master)."""
+    FXMonitorService.seed_competitors()   # garantiza que todos los competidores estén activos
     result = FXMonitorService.run_scrape_cycle()
     return jsonify({"success": True, "result": result})
+
+
+@fx_monitor_bp.route("/api/seed", methods=["POST"])
+@login_required
+@role_required("Master")
+def api_seed():
+    """Inserta/activa competidores faltantes y ejecuta un ciclo de scraping (solo Master)."""
+    try:
+        FXMonitorService.seed_competitors()
+        result = FXMonitorService.run_scrape_cycle()
+        return jsonify({"success": True, "seeded": True, "scrape": result})
+    except Exception as e:
+        logger.error(f"[FXMonitor] api_seed error: {e}", exc_info=True)
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
 @fx_monitor_bp.route("/api/competitors", methods=["GET"])
