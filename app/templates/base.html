@@ -107,13 +107,6 @@
                 <span class="sidebar-link-text">Mercado Global</span>
             </a>
             {% endif %}
-            {% if current_user.role in ['Master', 'Operador', 'Middle Office'] %}
-            <a class="sidebar-link {% if request.endpoint and 'fx_monitor' in request.endpoint and request.endpoint != 'fx_monitor.trading_monitor' %}active{% endif %}"
-               href="{{ url_for('fx_monitor.dashboard') }}">
-                <i class="bi bi-graph-up-arrow"></i>
-                <span class="sidebar-link-text">Monitor FX</span>
-            </a>
-            {% endif %}
             {% if current_user.role in ['Master', 'Trader', 'Operador'] %}
             <a class="sidebar-link {% if request.endpoint == 'fx_monitor.trading_monitor' %}active{% endif %}"
                href="{{ url_for('fx_monitor.trading_monitor') }}"

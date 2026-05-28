@@ -219,6 +219,59 @@
         </div>
     </div>
 
+    <!-- Mis Tipos de Cambio -->
+    <div class="section-header mb-3 mt-2">
+        <i class="bi bi-currency-exchange"></i>
+        <h5>Mis Tipos de Cambio</h5>
+    </div>
+    <div class="row mb-4">
+        <div class="col-md-4 col-lg-3">
+            <div class="card shadow-sm h-100">
+                <div class="card-body p-3">
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <div class="rounded-3 p-2 text-center" style="background:#eafaf1;border:1px solid #b7e4c7">
+                                <div style="font-size:.65rem;color:#059669;font-weight:600;text-transform:uppercase;letter-spacing:.05em">COMPRA</div>
+                                <div class="fw-bold text-success mt-1" style="font-size:1.25rem" id="currentBuyRate">S/ --</div>
+                                <div style="font-size:.65rem" class="text-muted">Cliente vende</div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="rounded-3 p-2 text-center" style="background:#e8f0fe;border:1px solid #b6d0fb">
+                                <div style="font-size:.65rem;color:#2563eb;font-weight:600;text-transform:uppercase;letter-spacing:.05em">VENTA</div>
+                                <div class="fw-bold text-primary mt-1" style="font-size:1.25rem" id="currentSellRate">S/ --</div>
+                                <div style="font-size:.65rem" class="text-muted">Cliente compra</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row g-2 mb-2">
+                        <div class="col-6">
+                            <label class="form-label mb-1" style="font-size:.7rem;font-weight:600;color:#059669">Nueva compra</label>
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text">S/</span>
+                                <input type="number" class="form-control" id="newBuyRate" step="0.001" min="0" placeholder="0.000">
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label mb-1" style="font-size:.7rem;font-weight:600;color:#2563eb">Nueva venta</label>
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text">S/</span>
+                                <input type="number" class="form-control" id="newSellRate" step="0.001" min="0" placeholder="0.000">
+                            </div>
+                        </div>
+                    </div>
+                    <button class="btn btn-primary btn-sm w-100 mb-2" onclick="updateExchangeRates()">
+                        <i class="bi bi-send me-1"></i>Guardar y publicar en qoricash.pe
+                    </button>
+                    <div class="text-center text-muted" style="font-size:.68rem">
+                        <i class="bi bi-clock me-1"></i>
+                        <span id="lastUpdate">--</span> · por <span id="updatedBy">--</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Accesos Rápidos -->
     <div class="section-header mb-3 mt-2">
         <i class="bi bi-lightning"></i>
@@ -793,5 +846,45 @@ function updateGoalProgress(profit, goal) {
         .removeClass('bg-danger bg-warning bg-success')
         .addClass(colorClass);
 }
+
+// ── Tipos de Cambio ───────────────────────────────────────────
+function loadExchangeRates() {
+    fetch('/api/platform/exchange-rates')
+        .then(r => r.json())
+        .then(res => {
+            if (!res.success || !res.rates) return;
+            const { compra, venta, updated_at, updated_by } = res.rates;
+            $('#currentBuyRate').text('S/ ' + parseFloat(compra).toFixed(3));
+            $('#currentSellRate').text('S/ ' + parseFloat(venta).toFixed(3));
+            $('#newBuyRate').val(parseFloat(compra).toFixed(3));
+            $('#newSellRate').val(parseFloat(venta).toFixed(3));
+            if (updated_at) $('#lastUpdate').text(new Date(updated_at).toLocaleString('es-PE'));
+            if (updated_by)  $('#updatedBy').text(updated_by);
+        })
+        .catch(err => console.error('[TC]', err));
+}
+
+function updateExchangeRates() {
+    const buy  = parseFloat($('#newBuyRate').val());
+    const sell = parseFloat($('#newSellRate').val());
+    if (!buy || !sell) { showNotification('Ingresa ambos tipos de cambio', 'warning'); return; }
+    if (sell < buy)    { showNotification('La venta debe ser mayor o igual a la compra', 'warning'); return; }
+    if (!confirm(`¿Actualizar tipos de cambio?\n\nCompra: S/ ${buy.toFixed(3)}\nVenta:  S/ ${sell.toFixed(3)}`)) return;
+    const csrf = document.querySelector('meta[name=csrf-token]');
+    fetch('/api/platform/exchange-rates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(csrf ? { 'X-CSRFToken': csrf.content } : {}) },
+        body: JSON.stringify({ buy_rate: buy, sell_rate: sell })
+    })
+    .then(r => r.json())
+    .then(res => {
+        if (res.success) { showNotification('Tipos de cambio actualizados', 'success'); loadExchangeRates(); }
+        else showNotification(res.message || 'Error al actualizar', 'danger');
+    })
+    .catch(() => showNotification('Error de conexión', 'danger'));
+}
+
+// Cargar TC al iniciar
+loadExchangeRates();
 </script>
 {% endblock %}
