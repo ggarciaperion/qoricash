@@ -1292,49 +1292,24 @@ async function fetchAndRender() {
   }
 }
 
-// ── SSE — recibe push del servidor cuando termina el scrape ───
+// ── SSE — push extra cuando el scrape termina (bonus sobre polling) ───
 function startSSE() {
   if (state.sse) { state.sse.close(); state.sse = null; }
-
-  const es = new EventSource(STREAM_API);
-  state.sse = es;
-
-  es.onopen = () => {
-    state.sseLive = true;
-    // Cancelar fallback polling si SSE está activo
-    clearInterval(state.pollTimer);
-    state.pollTimer = null;
-    const dot = document.querySelector('.live-dot');
-    if (dot) dot.style.background = 'var(--tm-buy)';
-  };
-
-  es.onmessage = (e) => {
-    // Servidor indica nuevo ciclo completado → fetch inmediato
-    fetchAndRender();
-  };
-
-  es.onerror = () => {
-    state.sseLive = false;
-    // Fallback: polling cada 3s mientras SSE no esté disponible
-    if (!state.pollTimer) {
-      state.pollTimer = setInterval(fetchAndRender, POLL_MS);
-    }
-    // Intentar reconectar SSE en 5s
-    es.close();
-    state.sse = null;
-    setTimeout(startSSE, 5000);
-    const dot = document.querySelector('.live-dot');
-    if (dot) dot.style.background = 'var(--tm-amber)';
-  };
+  try {
+    const es = new EventSource(STREAM_API);
+    state.sse = es;
+    es.onmessage = () => fetchAndRender(); // fetch inmediato al recibir push
+    es.onerror   = () => {
+      es.close();
+      state.sse = null;
+      setTimeout(startSSE, 10000); // reintentar en 10s
+    };
+  } catch(e) { /* SSE no disponible — el polling cubre */ }
 }
 
-// ── Poll (fallback cuando SSE no está disponible) ─────────────
+// ── Poll — corre SIEMPRE, es la fuente principal de actualizaciones ─────────
 function startPolling() {
-  fetchAndRender();
-  // Solo iniciar polling si SSE no está activo
-  if (!state.sseLive) {
-    state.pollTimer = setInterval(fetchAndRender, POLL_MS);
-  }
+  state.pollTimer = setInterval(fetchAndRender, POLL_MS);
 }
 
 // ── Chart auto-reload every 5 min ─────────────────────────────
@@ -1349,9 +1324,10 @@ document.addEventListener('visibilitychange', () => {
     clearInterval(state.pollTimer);
     clearInterval(state.chartTimer);
     state.pollTimer = null;
-    if (state.sse) { state.sse.close(); state.sse = null; state.sseLive = false; }
+    if (state.sse) { state.sse.close(); state.sse = null; }
   } else {
     fetchAndRender();
+    startPolling();
     startSSE();
     state.chartTimer = setInterval(() => loadChartData(state.chartHours), CHART_AUTO_MS);
   }
@@ -1391,9 +1367,9 @@ window.loadChart = function(hours) {
 function init() {
   document.body.classList.add('has-trading-monitor');
   startClock();
-  // Fetch inicial inmediato, luego SSE toma el control
-  fetchAndRender();
-  startSSE();
+  fetchAndRender();   // fetch inmediato al cargar
+  startPolling();     // polling constante cada 3s — garantizado
+  startSSE();         // SSE encima del polling para updates extra-rápidos
   setTimeout(startChartAutoRefresh, 1200);
 }
 
