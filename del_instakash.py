@@ -11,9 +11,18 @@ with app.app_context():
         db.session.execute(db.text(f"DELETE FROM fx_competitors WHERE slug='{slug}'"))
         print(f'Competidor {slug} eliminado')
 
-    # Ampliar columna role a 50 chars (era 20, insuficiente para 'Presidente de Negocios')
+    # Ampliar columna role a 50 chars
     db.session.execute(db.text("ALTER TABLE users ALTER COLUMN role TYPE VARCHAR(50)"))
     print('Columna role ampliada a VARCHAR(50)')
+
+    # Reemplazar check constraint para incluir 'Presidente de Negocios'
+    db.session.execute(db.text("ALTER TABLE users DROP CONSTRAINT IF EXISTS check_user_role"))
+    db.session.execute(db.text("""
+        ALTER TABLE users ADD CONSTRAINT check_user_role CHECK (
+            role IN ('Master','Trader','Operador','Middle Office','App','Web','Presidente de Negocios')
+        )
+    """))
+    print('Constraint check_user_role actualizado')
 
     # Cambiar rol de Gian Pierre a Presidente de Negocios
     result = db.session.execute(db.text(
