@@ -22,10 +22,12 @@ from .instakash     import InstakashScraper
 from .tkambio       import TKambioScraper
 from .cambiosol     import CambiosolScraper
 from .okane         import OkaneScraper
+from .metafxperu    import MetaFXPeruScraper
 
 logger = logging.getLogger(__name__)
 
 ALL_SCRAPERS = [
+    MetaFXPeruScraper(),
     KambistaScraper(),
     CambixScraper(),
     CambioSeguroScraper(),
