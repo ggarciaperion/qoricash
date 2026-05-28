@@ -681,9 +681,13 @@ class ClientService:
             if not client:
                 return False, 'Cliente no encontrado'
 
-            # Verificar si tiene operaciones
-            if Operation.query.filter_by(client_id=client.id).count() > 0:
-                return False, 'No se puede eliminar un cliente con operaciones registradas'
+            # Verificar si tiene operaciones activas o completadas (canceladas sí se permite)
+            non_cancelled = Operation.query.filter(
+                Operation.client_id == client.id,
+                Operation.status != 'Cancelado'
+            ).count()
+            if non_cancelled > 0:
+                return False, 'No se puede eliminar un cliente con operaciones activas o completadas'
 
             client_name = client.full_name or client.razon_social or client.dni
 
@@ -703,10 +707,16 @@ class ClientService:
                 logger.exception("Fallo al registrar auditoría de eliminación")
 
             # Eliminar registros relacionados antes de eliminar el cliente
-            from app.models.compliance import ClientRiskProfile
+            from app.models.compliance import ClientRiskProfile, RestrictiveListCheck
             risk_profile = ClientRiskProfile.query.filter_by(client_id=client.id).first()
             if risk_profile:
                 db.session.delete(risk_profile)
+            # RestrictiveListCheck tiene client_id NOT NULL → debe borrarse antes
+            for rlc in RestrictiveListCheck.query.filter_by(client_id=client.id).all():
+                db.session.delete(rlc)
+            # Operaciones canceladas: desasociar o eliminar
+            for op in Operation.query.filter_by(client_id=client.id).all():
+                db.session.delete(op)
 
             db.session.delete(client)
             # Commit único para delete y audit_log juntos
