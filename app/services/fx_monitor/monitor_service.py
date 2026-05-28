@@ -179,6 +179,9 @@ class FXMonitorService:
             db.session.rollback()
             logger.error(f"[FX] Error en ciclo: {e}", exc_info=True)
             return {"ok": 0, "errors": -1, "exception": str(e)}
+        finally:
+            # Devolver la conexión al pool — crítico para jobs de background
+            db.session.remove()
 
     @staticmethod
     def get_dashboard_data():

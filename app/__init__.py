@@ -874,23 +874,40 @@ def start_market_schedulers(app):
     _run_every(5  * 60, 'Precios de mercado',   _prices)
     _run_every(15 * 60, 'Noticias RSS',          _news)
     _run_every(6  * 3600, 'Indicadores macro',   _macro)
-    # FX Monitor: loop back-to-back sin pausa entre ciclos.
-    # Ciclo dura ~5-7s (18 scrapers en paralelo) → DB actualizada cada ~5-7s.
-    # SSE notifica al browser inmediatamente → latencia total ≤7s end-to-end.
+    # FX Monitor: loop back-to-back con watchdog de dos niveles.
+    # Nivel 1 — inner loop: captura errores por ciclo, reintenta en 2s.
+    # Nivel 2 — watchdog: si el greenlet muere por cualquier razón, lo respawnea.
     def _fx_monitor_loop():
         import eventlet as _ev
-        logger = logging.getLogger(__name__)
-        logger.info('[MARKET] ✅ FX Monitor scraping iniciado (SSE + loop back-to-back)')
+        _log = logging.getLogger(__name__)
+        _log.info('[FX-WATCH] Loop iniciado')
         _ev.sleep(30)  # delay inicial
+        consecutive_errors = 0
         while True:
             try:
                 with app.app_context():
                     _fx_monitor()
+                consecutive_errors = 0
             except Exception as e:
                 import traceback
-                logger.error(f'[MARKET] ❌ FX Monitor: {e}\n{traceback.format_exc()}')
-                _ev.sleep(2)  # solo duerme si hay error
-    eventlet.spawn(_fx_monitor_loop)
+                consecutive_errors += 1
+                _log.error(f'[FX-WATCH] ❌ Error #{consecutive_errors}: {e}\n{traceback.format_exc()}')
+                # Backoff progresivo ante errores repetidos
+                backoff = min(2 * consecutive_errors, 30)
+                _ev.sleep(backoff)
+
+    def _fx_monitor_watchdog():
+        import eventlet as _ev
+        _log = logging.getLogger(__name__)
+        gt = eventlet.spawn(_fx_monitor_loop)
+        _log.info('[FX-WATCH] Watchdog activo')
+        while True:
+            _ev.sleep(15)
+            if gt.dead:
+                _log.critical('[FX-WATCH] 🚨 Loop muerto — respawneando automáticamente')
+                gt = eventlet.spawn(_fx_monitor_loop)
+
+    eventlet.spawn(_fx_monitor_watchdog)
     _run_every(24 * 3600, 'Calendario económico', _calendar)
 
     # Análisis diario a las 8:30 AM Lima, lunes a viernes
