@@ -11,6 +11,10 @@ with app.app_context():
         db.session.execute(db.text(f"DELETE FROM fx_competitors WHERE slug='{slug}'"))
         print(f'Competidor {slug} eliminado')
 
+    # Ampliar columna role a 50 chars (era 20, insuficiente para 'Presidente de Negocios')
+    db.session.execute(db.text("ALTER TABLE users ALTER COLUMN role TYPE VARCHAR(50)"))
+    print('Columna role ampliada a VARCHAR(50)')
+
     # Cambiar rol de Gian Pierre a Presidente de Negocios
     result = db.session.execute(db.text(
         "UPDATE users SET role='Presidente de Negocios' WHERE dni='73085751'"

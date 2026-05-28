@@ -23,7 +23,7 @@ class User(UserMixin, db.Model):
     
     # Rol y estado
     role = db.Column(
-        db.String(20),
+        db.String(50),
         nullable=False,
         default='Trader'
     )  # Master, Trader, Operador, Middle Office, App, Web
