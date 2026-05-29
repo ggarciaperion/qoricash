@@ -645,6 +645,112 @@ body.has-trading-monitor {
   width: 44px; height: 18px;
   opacity: 0.7;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   RESPONSIVE — PHONE (≤ 768px)
+═══════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+
+  /* Permitir scroll vertical en la página */
+  body.has-trading-monitor .main-content {
+    overflow: auto !important;
+  }
+
+  /* Root: altura automática, sin overflow hidden */
+  .tm {
+    height: auto;
+    min-height: 100vh;
+    grid-template-rows: auto auto auto auto auto;
+    overflow: visible;
+  }
+
+  /* ── 1. Status bar ──────────────────────────────────────────── */
+  .tm-status {
+    flex-wrap: wrap;
+    height: auto;
+    padding: 8px 12px;
+    gap: 4px 10px;
+  }
+  .tm-status-left  { flex-wrap: wrap; gap: 6px 12px; }
+  .tm-status-right { flex-wrap: wrap; gap: 6px 10px; }
+  .tm-status-info  { display: none; }
+  #btnFullscreen   { display: none; }
+  .tm-clock        { min-width: auto; font-size: 12px; }
+  .tm-scan-info    { font-size: 9px; }
+
+  /* ── 2. Hero — compra / venta ───────────────────────────────── */
+  .tm-hero {
+    grid-template-columns: 1fr;
+  }
+  .hero-card {
+    padding: 14px 16px 12px;
+  }
+  .hero-price {
+    font-size: clamp(2.8rem, 14vw, 3.6rem) !important;
+  }
+  .hero-entity { font-size: 1rem; }
+  .hero-meta, .hero-sub { font-size: 10px; }
+  .hero-badge { top: 10px; right: 12px; }
+
+  /* ── 3. QoriCash reference bar ──────────────────────────────── */
+  .tm-qc-bar {
+    flex-wrap: wrap;
+    height: auto;
+    min-height: 44px;
+    padding: 8px 12px;
+    gap: 6px 20px;
+    justify-content: flex-start;
+  }
+  .qc-sep     { display: none; }
+  .qc-mkt     { display: none; }
+  #widgetSync { display: none; }
+  .qc-value   { font-size: 16px; }
+  .qc-label   { font-size: 8px; }
+
+  /* ── 4. Ranked lists — apiladas verticalmente ───────────────── */
+  .tm-lists {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+  .list-divider {
+    width: 100%;
+    height: 1px;
+    background: var(--tm-border);
+  }
+  .list-col { height: auto; }
+  .list-body { max-height: 280px; overflow-y: auto; }
+
+  .list-col.buy-col  .list-row,
+  .list-col.sell-col .list-row {
+    grid-template-columns: 22px 1fr 80px 46px;
+    gap: 6px;
+    height: 40px;
+    padding: 0 10px;
+  }
+  /* Ocultar columna de tiempo (5.ª celda) */
+  .list-col .list-row > :nth-child(5) { display: none; }
+
+  .list-header     { padding: 7px 12px 5px; font-size: 8px; letter-spacing: 0.12em; }
+  .list-header-cnt { display: none; }
+  .row-entity      { font-size: 12px; }
+  .row-price       { font-size: 14px; }
+  .row-delta       { font-size: 10px; }
+  .rank-badge      { width: 20px; height: 20px; font-size: 9px; }
+
+  /* ── 5. Charts — apilados verticalmente ────────────────────── */
+  .tm-charts {
+    grid-template-columns: 1fr;
+    height: auto;
+    gap: 1px;
+  }
+  .chart-panel        { height: 200px; }
+  .chart-panel-title  { font-size: 8px; letter-spacing: 0.1em; }
+  .stats-panel        { height: auto; padding: 10px 12px; }
+  .stat-block-value   { font-size: 18px; }
+  .stats-panel-title  { font-size: 8px; }
+  .spread-entity-name { font-size: 9px; }
+  .spread-val         { font-size: 9px; }
+}
 </style>
 {% endblock %}
 
