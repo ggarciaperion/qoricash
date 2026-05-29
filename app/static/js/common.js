@@ -258,6 +258,42 @@ function connectSocketIO() {
         if (typeof loadDashboardData     === 'function') loadDashboardData();
     });
 
+    socket.on('comprobante_deposito', function(data) {
+        if (window.currentUserRole === 'Master' || window.currentUserRole === 'Operador') {
+            qoriToast({
+                title:   '📎 Comprobante de Abono',
+                message: data.message || data.operation_id,
+                type:    'info',
+                duration: 5000,
+            });
+        }
+        if (typeof refreshOperationsTable === 'function') refreshOperationsTable();
+    });
+
+    socket.on('comprobante_pago', function(data) {
+        if (window.currentUserRole === 'Master' || window.currentUserRole === 'Trader' || window.currentUserRole === 'Operador') {
+            qoriToast({
+                title:   '💳 Comprobante de Pago',
+                message: data.message || data.operation_id,
+                type:    'info',
+                duration: 5000,
+            });
+        }
+        if (typeof refreshOperationsTable === 'function') refreshOperationsTable();
+    });
+
+    socket.on('cliente_activado', function(data) {
+        qoriToast({
+            title:   '✅ Cliente Activado',
+            message: data.message || data.client_name,
+            type:    'success',
+            sound:   true,
+            duration: 7000,
+        });
+        if (window._menuBadgeInc) window._menuBadgeInc('clients');
+        if (typeof refreshClientsTable === 'function') refreshClientsTable();
+    });
+
     // ============================================
     // EVENTOS DE CLIENTES
     // ============================================

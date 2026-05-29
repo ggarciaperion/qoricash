@@ -1338,6 +1338,12 @@ def upload_deposit_proof(operation_id):
     operation.client_deposits = deposits
     db.session.commit()
 
+    try:
+        from app.services.notification_service import NotificationService
+        NotificationService.notify_deposit_proof_uploaded(operation, current_user)
+    except Exception as ne:
+        current_app.logger.warning(f'[upload_deposit_proof] notify error: {ne}')
+
     return jsonify({
         'success': True,
         'message': 'Comprobante subido correctamente',
@@ -1396,6 +1402,12 @@ def upload_operator_proof_new(operation_id):
     })
     operation.operator_proofs = proofs
     db.session.commit()
+
+    try:
+        from app.services.notification_service import NotificationService
+        NotificationService.notify_operator_proof_uploaded(operation, current_user)
+    except Exception as ne:
+        current_app.logger.warning(f'[upload_operator_proof] notify error: {ne}')
 
     return jsonify({
         'success': True,

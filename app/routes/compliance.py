@@ -730,6 +730,13 @@ def approve_kyc(client_id):
             logger.error(f'❌ [KYC APPROVE] Error al enviar notificación Socket.IO al cliente: {str(e)}')
             logger.exception(e)
 
+        # NOTIFICAR AL STAFF INTERNO (Master, Middle Office, Trader)
+        try:
+            from app.services.notification_service import NotificationService
+            NotificationService.notify_client_activated_kyc(client, current_user)
+        except Exception as e:
+            logger.warning(f'Error al enviar notificación interna KYC: {str(e)}')
+
         return jsonify({
             'success': True,
             'message': 'KYC aprobado - Cliente ACTIVADO para operar'

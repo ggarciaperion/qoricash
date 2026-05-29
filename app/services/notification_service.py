@@ -533,6 +533,85 @@ class NotificationService:
             logger.error(f'[NOTIF] notify_client_documents_approved error: {e}')
 
     @staticmethod
+    def notify_deposit_proof_uploaded(operation, uploaded_by=None):
+        """Trader/Master sube comprobante de abono del cliente → Master y Operador."""
+        try:
+            name = operation.client.full_name if operation.client else 'N/A'
+            who  = uploaded_by.username if uploaded_by else 'Usuario'
+            msg  = f'{operation.operation_id} — {name} · por {who}'
+            data = {
+                'event':          'comprobante_deposito',
+                'operation_id':   operation.operation_id,
+                'operation_db_id': operation.id,
+                'client_name':    name,
+                'uploaded_by':    who,
+                'title':          '📎 Comprobante de Abono',
+                'message':        msg,
+                'type':           'info',
+                'sound':          False,
+            }
+            _emit_to_roles('comprobante_deposito', data, ['Master', 'Operador'])
+        except Exception as e:
+            logger.error(f'[NOTIF] notify_deposit_proof_uploaded error: {e}')
+
+    @staticmethod
+    def notify_operator_proof_uploaded(operation, uploaded_by=None):
+        """Operador sube comprobante de pago al cliente → Master y Trader de la operación."""
+        try:
+            name = operation.client.full_name if operation.client else 'N/A'
+            who  = uploaded_by.username if uploaded_by else 'Operador'
+            msg  = f'{operation.operation_id} — {name} · por {who}'
+            data = {
+                'event':          'comprobante_pago',
+                'operation_id':   operation.operation_id,
+                'operation_db_id': operation.id,
+                'client_name':    name,
+                'uploaded_by':    who,
+                'title':          '💳 Comprobante de Pago',
+                'message':        msg,
+                'type':           'info',
+                'sound':          False,
+            }
+            _emit_to_role('comprobante_pago', data, 'Master')
+            if operation.user_id:
+                _emit_to_user('comprobante_pago', data, operation.user_id)
+        except Exception as e:
+            logger.error(f'[NOTIF] notify_operator_proof_uploaded error: {e}')
+
+    @staticmethod
+    def notify_client_activated_kyc(client, activated_by=None):
+        """KYC aprobado / cliente activado → Master, Middle Office y Trader asignado."""
+        try:
+            name  = client.full_name or getattr(client, 'razon_social', None) or client.dni
+            who   = activated_by.username if activated_by else 'Sistema'
+            title = '✅ Cliente Activado'
+            msg   = f'{name} ({client.dni}) — KYC aprobado por {who}'
+            data  = {
+                'event':       'cliente_activado',
+                'client_id':   client.id,
+                'client_name': name,
+                'client_dni':  client.dni,
+                'activated_by': who,
+                'title':       title,
+                'message':     msg,
+                'type':        'success',
+                'sound':       True,
+            }
+            roles = ['Master', 'Middle Office']
+            _emit_to_roles('cliente_activado', data, roles)
+            _save_to_db(roles, title, msg, notif_type='success', category='client',
+                        link=f'/clients/{client.id}')
+            _push_unread_counts_for_roles(roles)
+            trader = getattr(client, 'creator', None)
+            if trader:
+                _emit_to_user('cliente_activado', data, trader.id)
+                _save_to_db_user(trader.id, title, msg, notif_type='success', category='client',
+                                 link=f'/clients/{client.id}')
+                _push_unread_count(trader.id)
+        except Exception as e:
+            logger.error(f'[NOTIF] notify_client_activated_kyc error: {e}')
+
+    @staticmethod
     def notify_operation_expired(operation):
         try:
             if not operation.client:
