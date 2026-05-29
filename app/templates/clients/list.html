@@ -200,7 +200,7 @@
                                 {% endif %}
                                 <th>Estado</th>
                                 <th>Origen</th>
-                                <th>Operaciones</th>
+                                <th id="thRegistro">Registro</th>
                                 <th>Acciones</th>
                             </tr>
                         </thead>
@@ -261,8 +261,8 @@
                                         <span class="text-muted small">—</span>
                                     {% endif %}
                                 </td>
-                                <td>
-                                    <span class="badge bg-primary">{{ c.get_total_operations() }}</span>
+                                <td data-sort="{{ c.created_at.strftime('%Y%m%d%H%M%S') if c.created_at else '0' }}">
+                                    <span class="text-muted small">{{ c.created_at.strftime('%d/%m/%Y') if c.created_at else '—' }}</span>
                                 </td>
                                 <td>
                                     <div class="btn-group btn-group-sm" role="group">
@@ -781,8 +781,8 @@
         rows.sort(function(a, b) {
             var cellA = a.querySelectorAll('td')[colIdx];
             var cellB = b.querySelectorAll('td')[colIdx];
-            var va = cellA ? cellA.textContent.trim() : '';
-            var vb = cellB ? cellB.textContent.trim() : '';
+            var va = cellA ? (cellA.dataset.sort !== undefined ? cellA.dataset.sort : cellA.textContent.trim()) : '';
+            var vb = cellB ? (cellB.dataset.sort !== undefined ? cellB.dataset.sort : cellB.textContent.trim()) : '';
             var na = parseFloat(va), nb = parseFloat(vb);
             var cmp = (!isNaN(na) && !isNaN(nb)) ? na - nb : va.localeCompare(vb, 'es', {numeric: true});
             return sortDir === 'asc' ? cmp : -cmp;
@@ -806,10 +806,14 @@
         th.addEventListener('click', function() { sortTable(i); });
     });
 
-    // Orden inicial: ID descendente (más reciente primero)
-    sortCol = 1;
-    sortDir = 'asc';
-    sortTable(1);
+    // Orden inicial: Registro descendente (más reciente primero)
+    var thRegistro = document.getElementById('thRegistro');
+    var registroIdx = thRegistro ? Array.from(document.querySelectorAll('#clientsTable thead th')).indexOf(thRegistro) : -1;
+    if (registroIdx >= 0) {
+        sortCol = registroIdx;
+        sortDir = 'asc'; // sortTable lo toggleará a 'desc'
+        sortTable(registroIdx);
+    }
 
     // Asegurar que al abrir el modal el foco se coloque en el primer input
     // Y aplicar restricciones si es necesario
