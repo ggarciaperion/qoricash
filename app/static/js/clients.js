@@ -2380,10 +2380,7 @@ async function loadProvincias() {
         return;
     }
 
-    // Habilitar selector de provincias (solo si el rol lo permite, y solo al editar)
-    const _isEditing = (document.getElementById('clientId')?.value || '') !== '';
-    const _restrictedRole = _isEditing && (window.currentUserRole === 'Trader' || window.currentUserRole === 'Operador');
-    provinciaSelect.disabled = _restrictedRole;
+    provinciaSelect.disabled = false;
 
     // Agregar provincias
     departamento.provincias.forEach(prov => {
@@ -2440,10 +2437,7 @@ async function loadDistritos() {
         return;
     }
 
-    // Habilitar selector de distritos (solo si el rol lo permite, y solo al editar)
-    const _isEditingDist = (document.getElementById('clientId')?.value || '') !== '';
-    const _restrictedRoleDist = _isEditingDist && (window.currentUserRole === 'Trader' || window.currentUserRole === 'Operador');
-    distritoSelect.disabled = _restrictedRoleDist;
+    distritoSelect.disabled = false;
 
     // Agregar distritos
     provincia.distritos.forEach(dist => {
