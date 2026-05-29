@@ -2380,8 +2380,9 @@ async function loadProvincias() {
         return;
     }
 
-    // Habilitar selector de provincias (solo si el rol lo permite)
-    const _restrictedRole = window.currentUserRole === 'Trader' || window.currentUserRole === 'Operador';
+    // Habilitar selector de provincias (solo si el rol lo permite, y solo al editar)
+    const _isEditing = (document.getElementById('clientId')?.value || '') !== '';
+    const _restrictedRole = _isEditing && (window.currentUserRole === 'Trader' || window.currentUserRole === 'Operador');
     provinciaSelect.disabled = _restrictedRole;
 
     // Agregar provincias
@@ -2439,8 +2440,9 @@ async function loadDistritos() {
         return;
     }
 
-    // Habilitar selector de distritos (solo si el rol lo permite)
-    const _restrictedRoleDist = window.currentUserRole === 'Trader' || window.currentUserRole === 'Operador';
+    // Habilitar selector de distritos (solo si el rol lo permite, y solo al editar)
+    const _isEditingDist = (document.getElementById('clientId')?.value || '') !== '';
+    const _restrictedRoleDist = _isEditingDist && (window.currentUserRole === 'Trader' || window.currentUserRole === 'Operador');
     distritoSelect.disabled = _restrictedRoleDist;
 
     // Agregar distritos
