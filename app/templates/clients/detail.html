@@ -24,7 +24,47 @@
                 {% else %}
                     <span class="badge bg-secondary">Inactivo</span>
                 {% endif %}
+                &nbsp;
+                {% set kyc = client.kyc_status or 'pendiente' %}
+                {% if kyc == 'bloqueado' %}
+                    <span class="badge bg-danger"><i class="bi bi-shield-x"></i> KYC Bloqueado</span>
+                {% elif kyc == 'completo' %}
+                    <span class="badge bg-success"><i class="bi bi-shield-check"></i> KYC Completo</span>
+                {% else %}
+                    <span class="badge bg-warning text-dark"><i class="bi bi-clock"></i> KYC Pendiente</span>
+                {% endif %}
             </p>
+
+            {# Banner KYC Bloqueado #}
+            {% if (client.kyc_status or 'pendiente') == 'bloqueado' %}
+            <div class="alert alert-danger d-flex align-items-start gap-2 mt-2 mb-0 py-2 px-3" style="font-size:.85rem;">
+                <i class="bi bi-shield-exclamation fs-5 flex-shrink-0 mt-1"></i>
+                <div>
+                    <strong>Cuenta con restricción KYC.</strong>
+                    Este cliente alcanzó el límite operativo sin documentación completa
+                    ({% if client.document_type == 'RUC' %}$30,000 USD{% else %}$10,000 USD{% endif %} o 2 operaciones).
+                    {% if client.inactive_reason %}
+                    <br><span class="text-muted">{{ client.inactive_reason }}</span>
+                    {% endif %}
+                    <br>
+                    {% if current_user.role in ['Master', 'Middle Office'] %}
+                    <a href="#documentosKyc" class="alert-link">Revisar documentos subidos →</a>
+                    {% else %}
+                    Para continuar operando, debe completar la verificación de identidad.
+                    {% endif %}
+                </div>
+            </div>
+            {% elif (client.kyc_status or 'pendiente') == 'pendiente' and not client.has_complete_documents %}
+            <div class="alert alert-warning d-flex align-items-start gap-2 mt-2 mb-0 py-2 px-3" style="font-size:.85rem;">
+                <i class="bi bi-clock-history fs-5 flex-shrink-0 mt-1"></i>
+                <div>
+                    <strong>KYC en progreso.</strong>
+                    Operaciones realizadas sin docs: <strong>{{ client.operations_without_docs_count or 0 }}/2</strong>.
+                    Límite: <strong>{% if client.document_type == 'RUC' %}$30,000 USD{% else %}$10,000 USD{% endif %}</strong>.
+                    Los documentos de identidad son requeridos para operar sin restricciones.
+                </div>
+            </div>
+            {% endif %}
         </div>
         <div class="page-header-actions">
             <a href="{{ back_url }}" class="btn btn-secondary btn-sm">

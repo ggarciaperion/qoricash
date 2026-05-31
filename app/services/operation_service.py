@@ -284,7 +284,24 @@ class OperationService:
                     client.disable_for_missing_documents()
                     db.session.commit()
 
-                    logger.warning(f'Cliente {client.id} deshabilitado automáticamente por alcanzar límite de operaciones sin documentos')
+                    logger.warning(f'Cliente {client.id} KYC bloqueado por alcanzar límite operativo sin documentos')
+
+                    # Emitir alerta en tiempo real a Master y Middle Office
+                    try:
+                        from app.extensions import socketio as _sio
+                        payload = {
+                            'client_id': client.id,
+                            'client_name': client.full_name or client.razon_social or client.dni,
+                            'document_type': client.document_type,
+                            'kyc_limit_usd': client.kyc_limit_usd,
+                            'ops_count': client.operations_without_docs_count,
+                            'operation_id': operation.operation_id,
+                            'trader': getattr(current_user, 'username', ''),
+                        }
+                        _sio.emit('kyc_client_blocked', payload, room='role_Master')
+                        _sio.emit('kyc_client_blocked', payload, room='role_Middle Office')
+                    except Exception as sio_err:
+                        logger.debug(f'Socket.IO emit kyc_client_blocked falló (no crítico): {sio_err}')
 
                     # Enviar alertas por email a roles relevantes
                     try:
@@ -295,7 +312,7 @@ class OperationService:
                             trader=current_user
                         )
                     except Exception as email_err:
-                        logger.error(f'Error al enviar alerta de deshabilitación: {str(email_err)}')
+                        logger.error(f'Error al enviar alerta de KYC bloqueado: {str(email_err)}')
                 else:
                     # Aún puede operar pero actualizar contador
                     db.session.commit()

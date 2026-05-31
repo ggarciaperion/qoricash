@@ -175,10 +175,19 @@ function mostrarClientes(clientes) {
             ? '<span class="badge bg-success">Activo</span>'
             : '<span class="badge bg-secondary">Inactivo</span>';
 
+        // Badge KYC operativo (nuevo sistema Progressive KYC)
+        const kycOpStatus = cliente.kyc_op_status || 'pendiente';
+        const kycOpBadgeMap = {
+            'completo':  '<span class="badge bg-success ms-1" style="font-size:.65rem"><i class="bi bi-shield-check"></i> Sin límite</span>',
+            'pendiente': `<span class="badge bg-warning text-dark ms-1" style="font-size:.65rem"><i class="bi bi-clock"></i> ${cliente.ops_without_docs || 0}/2 ops</span>`,
+            'bloqueado': '<span class="badge bg-danger ms-1" style="font-size:.65rem"><i class="bi bi-shield-x"></i> BLOQUEADO</span>'
+        };
+        const kycOpBadge = kycOpBadgeMap[kycOpStatus] || kycOpBadgeMap['pendiente'];
+
         // Indicador de validación de documentos (se validará con AJAX)
         const validacionBadge = `<span class="badge bg-warning text-dark" id="validation-${cliente.client_id}">
             <i class="bi bi-hourglass-split"></i> Verificando...
-        </span>`;
+        </span>${kycOpBadge}`;
 
         const row = `
             <tr id="row-${cliente.client_id}">

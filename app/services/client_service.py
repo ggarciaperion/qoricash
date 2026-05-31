@@ -338,17 +338,25 @@ class ClientService:
                 client.has_complete_documents = has_complete_docs
 
                 if not has_complete_docs:
-                    # Cliente sin documentos completos: límite $1,000 USD
-                    client.operations_without_docs_limit = 10
-                    client.max_amount_without_docs = 1000
+                    # Progressive KYC: límites diferenciados por tipo de documento
+                    is_pj = (client.document_type == 'RUC')
+                    limit_usd = 30000 if is_pj else 10000
+                    client.kyc_status = 'pendiente'
+                    client.operations_without_docs_limit = 2
+                    client.max_amount_without_docs = limit_usd
                     client.operations_without_docs_count = 0
-                    logger.info(f'Cliente {client.id} creado sin documentos completos. Límite: $1,000 USD')
+                    client.documents_pending_since = now_peru()
+                    logger.info(
+                        f'Cliente {client.id} creado sin documentos (KYC pendiente). '
+                        f'Límite: ${limit_usd:,} USD / 2 ops'
+                    )
                 else:
-                    # Cliente con documentos completos: sin límites
+                    # Documentos completos desde el inicio: KYC completo, sin restricciones
+                    client.kyc_status = 'completo'
                     client.operations_without_docs_limit = None
                     client.max_amount_without_docs = None
                     client.operations_without_docs_count = 0
-                    logger.info(f'Cliente {client.id} creado con documentos completos')
+                    logger.info(f'Cliente {client.id} creado con documentos completos (KYC completo)')
 
                 # Auditoría: registrar antes del commit
                 AuditLog.log_action(

@@ -580,6 +580,8 @@ def api_kyc_pending():
                 'client_status': client.status,
                 'document_type': client.document_type,
                 'kyc_status': kyc_status,
+                'kyc_op_status': client.kyc_status or 'pendiente',  # Estado operativo KYC del cliente
+                'ops_without_docs': client.operations_without_docs_count or 0,
                 'created_at': client.created_at.strftime('%d/%m/%Y %H:%M') if client.created_at else '-'
             })
 

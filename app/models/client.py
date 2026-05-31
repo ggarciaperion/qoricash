@@ -99,6 +99,13 @@ class Client(db.Model):
     inactive_reason = db.Column(db.String(200))
     documents_pending_since = db.Column(db.DateTime)
 
+    # Progressive KYC
+    # 'pendiente': sin docs, dentro de límites
+    # 'completo':  docs aprobados, sin restricciones
+    # 'bloqueado': alcanzó límite operativo sin docs
+    kyc_status = db.Column(db.String(20), default='pendiente', nullable=False)
+    kyc_blocked_at = db.Column(db.DateTime, nullable=True)
+
     # Timestamps
     created_at = db.Column(db.DateTime, default=now_peru, nullable=False)
     updated_at = db.Column(db.DateTime, default=now_peru, onupdate=now_peru)
@@ -264,6 +271,10 @@ class Client(db.Model):
             'phone': self.phone,
             'status': self.status,
             'has_complete_documents': self.has_complete_documents,
+            'kyc_status': self.kyc_status or 'pendiente',
+            'kyc_badge': self.kyc_badge,
+            'kyc_limit_usd': self.kyc_limit_usd,
+            'operations_without_docs_count': self.operations_without_docs_count or 0,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
             'bank_accounts': self.bank_accounts,
@@ -408,6 +419,9 @@ class Client(db.Model):
         Este método se llama cuando middle office aprueba el KYC.
         """
         self.has_complete_documents = True
+        self.kyc_status = 'completo'
+        self.kyc_blocked_at = None
+        self.inactive_reason = None
         self.operations_without_docs_count = 0
         # No necesitamos hacer commit aquí, el llamador lo hará
 
@@ -432,12 +446,61 @@ class Client(db.Model):
         except Exception:
             return 0.0
 
+    @property
+    def kyc_badge(self):
+        """Badge visual para el estado KYC."""
+        status = self.kyc_status or 'pendiente'
+        if status == 'completo':
+            return {'label': 'KYC Completo', 'color': 'success', 'icon': 'bi-shield-check', 'text_color': 'white'}
+        elif status == 'bloqueado':
+            return {'label': 'KYC Bloqueado', 'color': 'danger', 'icon': 'bi-shield-x', 'text_color': 'white'}
+        else:
+            return {'label': 'KYC Pendiente', 'color': 'warning', 'icon': 'bi-clock', 'text_color': 'dark'}
+
+    @property
+    def kyc_limit_usd(self):
+        """Límite USD según tipo de documento."""
+        return 30000 if self.document_type == 'RUC' else 10000
+
+    def increment_operations_without_docs(self):
+        """
+        Incrementa el contador de operaciones sin docs.
+        Retorna True si el cliente alcanzó el límite (debe ser bloqueado).
+        """
+        self.operations_without_docs_count = (self.operations_without_docs_count or 0) + 1
+
+        # Límite por cantidad de operaciones (2)
+        if self.operations_without_docs_count >= 2:
+            return True
+
+        # Límite por monto acumulado
+        total_usd = self.get_total_operations_usd()
+        if total_usd >= self.kyc_limit_usd:
+            return True
+
+        return False
+
+    def disable_for_missing_documents(self):
+        """
+        Bloquea la capacidad operativa del cliente por KYC incompleto.
+        No inactiva la cuenta — solo bloquea nuevas operaciones (soft block).
+        """
+        from app.utils.formatters import now_peru
+        self.kyc_status = 'bloqueado'
+        self.kyc_blocked_at = now_peru()
+        limit_txt = f'${self.kyc_limit_usd:,} USD o 2 operaciones'
+        self.inactive_reason = (
+            f'KYC bloqueado automáticamente: límite operativo sin documentación alcanzado ({limit_txt}). '
+            f'Completa la verificación de identidad para continuar operando.'
+        )
+
     def can_create_operation(self, amount_usd):
         """
-        Verificar si el cliente puede crear una operación con el monto especificado
+        Verificar si el cliente puede crear una operación con el monto especificado.
 
-        Valida límites de operaciones sin documentos completos:
-        - Clientes sin documentos completos: máximo $1,000 USD total
+        Límites Progressive KYC:
+        - PN (DNI/CE): USD 10,000 acumulados O 2 operaciones (lo que ocurra primero)
+        - PJ (RUC):    USD 30,000 acumulados O 2 operaciones (lo que ocurra primero)
 
         Args:
             amount_usd: Monto en USD de la operación a crear
@@ -445,14 +508,36 @@ class Client(db.Model):
         Returns:
             tuple: (can_operate: bool, error_message: str or None)
         """
-        # Si tiene documentos completos, puede operar sin límite
+        # KYC bloqueado: bloqueo duro hasta que se complete la documentación
+        if (self.kyc_status or 'pendiente') == 'bloqueado':
+            limit_txt = f'${self.kyc_limit_usd:,} USD o 2 operaciones'
+            return False, (
+                f'Cuenta con restricción KYC activa. Has alcanzado el límite operativo '
+                f'sin documentación completa ({limit_txt}). '
+                f'Para continuar operando, sube tus documentos de identidad y aguarda la aprobación.'
+            )
+
+        # Con documentos completos: sin restricción
         if self.has_complete_documents:
             return True, None
 
-        # Sin documentos completos, verificar límite de $1,000
+        # Sin docs: verificar límite de operaciones (2 ops)
+        ops_count = self.operations_without_docs_count or 0
+        if ops_count >= 2:
+            return False, (
+                f'Has alcanzado el límite de 2 operaciones sin documentación completa. '
+                f'Sube tus documentos para continuar operando sin restricciones.'
+            )
+
+        # Sin docs: verificar límite USD acumulado
+        limit_usd = self.kyc_limit_usd
         total_usd = self.get_total_operations_usd()
-        if total_usd + amount_usd > 1000:
-            return False, f'Has alcanzado el límite de $1,000 USD sin documentación completa. Total actual: ${total_usd:.2f}. Completa tu documentación para operar sin límites.'
+        if total_usd + float(amount_usd) > limit_usd:
+            return False, (
+                f'Esta operación excedería el límite de ${limit_usd:,} USD permitido sin documentación completa. '
+                f'Acumulado actual: ${total_usd:,.2f} USD. '
+                f'Completa tu verificación KYC para operar sin límites.'
+            )
 
         return True, None
 

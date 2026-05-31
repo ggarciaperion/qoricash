@@ -46,10 +46,12 @@ def list_clients():
         clients = ClientService.get_all_clients(exclude_user_id=User.get_demo_user_id())
 
     stats = {
-        'total':      len(clients),
-        'active':     sum(1 for c in clients if c.status == 'Activo'),
-        'inactive':   sum(1 for c in clients if c.status == 'Inactivo'),
-        'no_docs':    sum(1 for c in clients if not c.has_complete_documents),
+        'total':         len(clients),
+        'active':        sum(1 for c in clients if c.status == 'Activo'),
+        'inactive':      sum(1 for c in clients if c.status == 'Inactivo'),
+        'no_docs':       sum(1 for c in clients if not c.has_complete_documents),
+        'kyc_pendiente': sum(1 for c in clients if (c.kyc_status or 'pendiente') == 'pendiente' and not c.has_complete_documents),
+        'kyc_bloqueado': sum(1 for c in clients if (c.kyc_status or 'pendiente') == 'bloqueado'),
     }
 
     risk_map = {}

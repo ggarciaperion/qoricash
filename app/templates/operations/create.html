@@ -56,14 +56,23 @@
                                 <div class="d-flex justify-content-between align-items-start">
                                     <div>
                                         <strong><i class="bi bi-person-check"></i> Cliente seleccionado:</strong><br>
-                                        <span id="clientName" class="fw-bold"></span><br>
+                                        <span id="clientName" class="fw-bold"></span>
+                                        <span id="clientKycBadge" class="ms-2"></span><br>
                                         <small><i class="bi bi-card-text"></i> <span id="clientDNI"></span></small><br>
-                                        <small><i class="bi bi-envelope"></i> <span id="clientEmail"></span></small>
+                                        <small><i class="bi bi-envelope"></i> <span id="clientEmail"></span></small><br>
+                                        <small id="clientKycInfo" class="text-muted"></small>
                                     </div>
                                     <button type="button" class="btn btn-sm btn-outline-danger" onclick="clearSelectedClient()">
                                         <i class="bi bi-x"></i> Cambiar
                                     </button>
                                 </div>
+                            </div>
+                            <!-- Advertencia KYC Bloqueado -->
+                            <div id="kycBlockedAlert" class="alert alert-danger" style="display:none;">
+                                <i class="bi bi-shield-x me-1"></i>
+                                <strong>Cliente con restricción KYC activa.</strong>
+                                Ha alcanzado el límite operativo sin documentación completa.
+                                No es posible crear una nueva operación hasta que complete la verificación de identidad.
                             </div>
                         </div>
 
@@ -257,7 +266,10 @@ function clearSelectedClient() {
     selectedClient = null;
     clientBankAccounts = [];
     $('#client_id').val('');
-    $('#clientInfo').hide();
+    $('#clientInfo').hide().removeClass('alert-warning').addClass('alert-success');
+    $('#kycBlockedAlert').hide();
+    $('#clientKycBadge').html('');
+    $('#clientKycInfo').text('');
     $('#searchClientInput').val('').prop('disabled', false).show();
     $('#clearSearchBtn').hide();
     $('#searchResults').hide();
@@ -316,13 +328,20 @@ function performSearch(query) {
             const statusClass = client.status === 'Activo' ? 'success' : 'secondary';
             const statusText = client.status === 'Activo' ? 'Activo' : 'Inactivo';
             const bankCount = client.bank_accounts ? client.bank_accounts.length : 0;
+            const kycStatus = client.kyc_status || 'pendiente';
+            const kycBadgeMap = {
+                'completo':  '<span class="badge ms-1" style="background:#198754;color:#fff;font-size:.58rem"><i class="bi bi-shield-check"></i> KYC OK</span>',
+                'pendiente': '<span class="badge ms-1" style="background:#fd7e14;color:#fff;font-size:.58rem"><i class="bi bi-clock"></i> KYC Pendiente</span>',
+                'bloqueado': '<span class="badge ms-1" style="background:#dc3545;color:#fff;font-size:.58rem"><i class="bi bi-shield-x"></i> KYC Bloqueado</span>'
+            };
+            const kycBadge = kycBadgeMap[kycStatus] || kycBadgeMap['pendiente'];
 
             html += `
                 <a href="#" class="list-group-item list-group-item-action py-2" onclick="selectClient(${client.id}, event)">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
                             <strong>${client.full_name || 'Sin nombre'}</strong>
-                            <span class="badge bg-${statusClass} ms-2">${statusText}</span><br>
+                            <span class="badge bg-${statusClass} ms-2">${statusText}</span>${kycBadge}<br>
                             <small class="text-muted">
                                 <i class="bi bi-card-text"></i> ${client.dni} |
                                 <i class="bi bi-envelope"></i> ${client.email} |
@@ -357,6 +376,33 @@ function selectClient(clientId, event) {
         $('#clientName').text(selectedClient.full_name || 'Sin nombre');
         $('#clientDNI').text(selectedClient.dni);
         $('#clientEmail').text(selectedClient.email);
+
+        // KYC badge
+        const kycStatus = selectedClient.kyc_status || 'pendiente';
+        const kycBadges = {
+            'completo':  '<span class="badge bg-success" style="font-size:.65rem"><i class="bi bi-shield-check"></i> KYC OK</span>',
+            'pendiente': '<span class="badge bg-warning text-dark" style="font-size:.65rem"><i class="bi bi-clock"></i> KYC Pendiente</span>',
+            'bloqueado': '<span class="badge bg-danger" style="font-size:.65rem"><i class="bi bi-shield-x"></i> KYC Bloqueado</span>'
+        };
+        $('#clientKycBadge').html(kycBadges[kycStatus] || kycBadges['pendiente']);
+
+        // KYC info line
+        if (kycStatus !== 'completo') {
+            const opsCount = selectedClient.operations_without_docs_count || 0;
+            const limitUsd = selectedClient.kyc_limit_usd || 10000;
+            $('#clientKycInfo').text(`Operaciones sin docs: ${opsCount}/2 · Límite: $${limitUsd.toLocaleString('es-PE')} USD`);
+        } else {
+            $('#clientKycInfo').text('');
+        }
+
+        // Mostrar/ocultar alerta de bloqueo KYC
+        if (kycStatus === 'bloqueado') {
+            $('#clientInfo').removeClass('alert-success').addClass('alert-warning');
+            $('#kycBlockedAlert').show();
+        } else {
+            $('#clientInfo').removeClass('alert-warning').addClass('alert-success');
+            $('#kycBlockedAlert').hide();
+        }
 
         // Mostrar cliente seleccionado y ocultar búsqueda
         $('#searchResults').hide();
