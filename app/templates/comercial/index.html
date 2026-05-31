@@ -3,416 +3,581 @@
 
 {% block content %}
 <style>
-/* ── Comercial v2 ─────────────────────────────────────────── */
-.com-header {
+/* ================================================================
+   COMERCIAL v3 — Commercial Intelligence Center
+   Light Premium · Enterprise Fintech · QoriCash
+================================================================ */
+
+/* ── Header ───────────────────────────────────────────────────── */
+.ci-header {
   display: flex; align-items: center; justify-content: space-between;
-  flex-wrap: wrap; gap: 12px; margin-bottom: 16px;
+  flex-wrap: wrap; gap: 12px; margin-bottom: 22px;
 }
-.com-title {
-  font-size: 1.25rem; font-weight: 700; color: var(--qori-gray-900);
-  margin: 0 0 2px; display: flex; align-items: center; gap: 10px;
+.ci-header-left { display: flex; align-items: center; gap: 14px; }
+.ci-header-icon {
+  width: 46px; height: 46px; flex-shrink: 0;
+  background: linear-gradient(135deg, rgba(0,222,168,.16) 0%, rgba(0,222,168,.05) 100%);
+  border: 1px solid rgba(0,222,168,.22);
+  border-radius: 13px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; color: var(--qori-primary);
 }
-.com-title-icon {
-  width: 34px; height: 34px; background: var(--qori-primary-light);
-  border-radius: var(--radius-lg); display: flex; align-items: center;
-  justify-content: center; color: var(--qori-primary); font-size: 15px; flex-shrink: 0;
+.ci-title {
+  font-size: 1.2rem; font-weight: 800; color: var(--qori-gray-900);
+  margin: 0 0 2px; letter-spacing: -.4px;
 }
-.com-subtitle { font-size: 11px; color: var(--qori-gray-500); margin: 0; }
+.ci-subtitle { font-size: 11px; color: var(--qori-gray-400); margin: 0; font-weight: 500; }
+.ci-header-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 
-/* TC Widget */
-.tc-widget {
-  display: flex; align-items: center; gap: 10px;
-  background: var(--qori-secondary); border-radius: var(--radius-xl);
-  padding: 8px 16px; box-shadow: var(--shadow-md);
+/* ── Cuota pill ───────────────────────────────────────────────── */
+.ci-cuota {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11px; font-weight: 600; padding: 5px 13px;
+  border-radius: var(--radius-full);
+  background: var(--qori-gray-100); color: var(--qori-gray-600);
+  border: 1px solid var(--qori-gray-200);
 }
-.tc-live-dot {
-  width: 6px; height: 6px; background: var(--qori-primary);
-  border-radius: 50%; animation: tcPulse 2s ease-in-out infinite; flex-shrink: 0;
+.ci-cuota.warn { background: rgba(245,158,11,.08); color: #92400e; border-color: rgba(245,158,11,.2); }
+.ci-cuota.full { background: rgba(239,68,68,.08);  color: #991b1b; border-color: rgba(239,68,68,.2); }
+
+/* ── TC Signal (header — compacto) ───────────────────────────── */
+.ci-tc-signal {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 11px; font-weight: 700; padding: 5px 13px;
+  border-radius: var(--radius-full); letter-spacing: .1px;
 }
-@keyframes tcPulse {
-  0%,100% { box-shadow: 0 0 0 0 rgba(0,222,168,.5); }
-  50%      { box-shadow: 0 0 0 5px rgba(0,222,168,0); }
+.ci-tc-signal-sube    { background: #fffbeb; color: #92400e; border: 1px solid #fde68a; }
+.ci-tc-signal-baja    { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
+.ci-tc-signal-estable { background: var(--qori-primary-light); color: #047857; border: 1px solid rgba(0,222,168,.22); }
+.ci-tc-signal span { font-weight: 500; opacity: .85; }
+
+/* ── KPI Strip ────────────────────────────────────────────────── */
+.ci-kpi-strip {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px; margin-bottom: 18px;
 }
-.tc-label { font-size: 9px; text-transform: uppercase; letter-spacing: .8px; color: rgba(255,255,255,.45); }
-.tc-value { font-size: 17px; font-weight: 700; line-height: 1; }
-.tc-buy   { color: var(--qori-primary); }
-.tc-sell  { color: #f87171; }
-.tc-divider { width: 1px; height: 28px; background: rgba(255,255,255,.1); }
-.tc-badge {
-  font-size: 9px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase;
-  background: rgba(0,222,168,.15); color: var(--qori-primary);
-  border-radius: var(--radius-full); padding: 2px 8px;
+@media (max-width: 1100px) { .ci-kpi-strip { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 640px)  { .ci-kpi-strip { grid-template-columns: repeat(2, 1fr); } }
+
+.ci-kpi {
+  background: #ffffff;
+  border: 1px solid #E8EEF4;
+  border-radius: 14px;
+  padding: 15px 16px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.055), 0 1px 2px rgba(0,0,0,.04);
+  display: flex; align-items: flex-start; gap: 12px;
+  cursor: default;
+  animation: kpiFadeUp .42s cubic-bezier(0.4,0,0.2,1) both;
+  transition: transform .2s cubic-bezier(0.4,0,0.2,1),
+              box-shadow .2s cubic-bezier(0.4,0,0.2,1),
+              border-color .2s;
+}
+.ci-kpi:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(0,0,0,.1), 0 2px 6px rgba(0,0,0,.06);
+  border-color: rgba(0,222,168,.28);
+}
+.ci-kpi:nth-child(1) { animation-delay: .00s; }
+.ci-kpi:nth-child(2) { animation-delay: .05s; }
+.ci-kpi:nth-child(3) { animation-delay: .10s; }
+.ci-kpi:nth-child(4) { animation-delay: .15s; }
+.ci-kpi:nth-child(5) { animation-delay: .20s; }
+
+@keyframes kpiFadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
-/* Cuota */
-.com-cuota {
-  display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600;
-  padding: 4px 11px; border-radius: var(--radius-full);
-  background: var(--qori-gray-100); color: var(--qori-gray-600); border: 1px solid var(--qori-gray-200);
+.ci-kpi-icon {
+  width: 38px; height: 38px; flex-shrink: 0;
+  border-radius: 11px; display: flex; align-items: center;
+  justify-content: center; font-size: 16px;
 }
-.com-cuota.warn { background: rgba(245,158,11,.1); color: var(--qori-warning); border-color: rgba(245,158,11,.25); }
-.com-cuota.full { background: rgba(239,68,68,.08); color: #dc2626; border-color: rgba(239,68,68,.2); }
+.ci-kpi-icon-teal   { background: rgba(0,222,168,.1);   color: var(--qori-primary); }
+.ci-kpi-icon-green  { background: rgba(22,163,74,.1);   color: #16a34a; }
+.ci-kpi-icon-amber  { background: rgba(245,158,11,.1);  color: #d97706; }
+.ci-kpi-icon-violet { background: rgba(139,92,246,.1);  color: #7c3aed; }
+.ci-kpi-icon-blue   { background: rgba(6,182,212,.1);   color: #0891b2; }
 
-/* KPI Strip */
-.kpi-strip {
-  display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px;
+.ci-kpi-label {
+  font-size: 10px; color: var(--qori-gray-400); font-weight: 600;
+  text-transform: uppercase; letter-spacing: .55px; margin: 0 0 5px;
 }
-@media (max-width: 860px) { .kpi-strip { grid-template-columns: repeat(2, 1fr); } }
-.kpi-card {
-  background: white; border: 1px solid var(--qori-gray-200); border-radius: var(--radius-lg);
-  padding: 12px 16px; box-shadow: var(--shadow-sm); display: flex; align-items: center; gap: 12px;
+.ci-kpi-value {
+  font-size: 23px; font-weight: 800; color: var(--qori-gray-900);
+  line-height: 1; margin: 0 0 4px; letter-spacing: -.6px;
 }
-.kpi-icon {
-  width: 32px; height: 32px; flex-shrink: 0; border-radius: var(--radius-md);
-  display: flex; align-items: center; justify-content: center; font-size: 14px;
-}
-.kpi-icon-blue   { background: rgba(6,182,212,.1);  color: var(--qori-info); }
-.kpi-icon-green  { background: rgba(22,163,74,.1);  color: #16a34a; }
-.kpi-icon-amber  { background: rgba(217,119,6,.1);  color: #d97706; }
-.kpi-icon-purple { background: rgba(139,92,246,.1); color: #7c3aed; }
-.kpi-label { font-size: 10px; color: var(--qori-gray-500); margin: 0 0 2px; font-weight: 500; }
-.kpi-value { font-size: 20px; font-weight: 800; color: var(--qori-gray-900); line-height: 1; margin: 0; }
-.kpi-sub   { font-size: 10px; color: var(--qori-gray-400); margin: 2px 0 0; }
+.ci-kpi-sub { font-size: 10px; color: var(--qori-gray-400); margin: 0; line-height: 1.45; }
+.ci-kpi-sub b { color: var(--qori-gray-600); font-weight: 600; }
 
-/* TC Direction Context */
-.tc-context {
-  display: flex; align-items: center; gap: 14px;
-  border-radius: var(--radius-lg); padding: 12px 18px;
-  margin-bottom: 14px; border-left: 4px solid;
+/* ── Controls: filtros + búsqueda ────────────────────────────── */
+.ci-controls {
+  display: flex; align-items: center; gap: 7px; flex-wrap: wrap; margin-bottom: 14px;
 }
-.tc-context-sube    { background: #fffbeb; border-color: #d97706; }
-.tc-context-baja    { background: #eff6ff; border-color: #2563eb; }
-.tc-context-estable { background: rgba(0,222,168,.05); border-color: var(--qori-primary); }
-.tc-ctx-arrow {
-  width: 36px; height: 36px; flex-shrink: 0; border-radius: var(--radius-md);
-  display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 900;
-}
-.tc-ctx-arrow-sube    { background: rgba(217,119,6,.12); color: #d97706; }
-.tc-ctx-arrow-baja    { background: rgba(37,99,235,.12); color: #2563eb; }
-.tc-ctx-arrow-estable { background: var(--qori-primary-light); color: var(--qori-primary); }
-.tc-ctx-title { font-size: 12px; font-weight: 700; margin-bottom: 3px; }
-.tc-ctx-title-sube    { color: #92400e; }
-.tc-ctx-title-baja    { color: #1e3a8a; }
-.tc-ctx-title-estable { color: var(--qori-primary); }
-.tc-ctx-text  { font-size: 12px; color: var(--qori-gray-600); line-height: 1.55; margin: 0; }
-.tc-ctx-badge {
-  display: inline-flex; align-items: center; gap: 4px;
-  font-size: 11px; font-weight: 700; padding: 4px 12px; border-radius: var(--radius-full);
-  margin-left: auto; flex-shrink: 0; white-space: nowrap;
-}
-.tc-ctx-badge-sube    { background: rgba(217,119,6,.12);  color: #92400e; }
-.tc-ctx-badge-baja    { background: rgba(37,99,235,.12);  color: #1e3a8a; }
-.tc-ctx-badge-estable { background: var(--qori-primary-light); color: var(--qori-primary); }
 
-/* Filter pills */
-.com-filters { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
-.com-pill {
-  display: inline-flex; align-items: center; gap: 5px; padding: 5px 13px;
-  border-radius: var(--radius-full); font-size: 11px; font-weight: 500;
+.ci-pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 6px 14px; border-radius: var(--radius-full);
+  font-size: 11px; font-weight: 600;
   text-decoration: none; border: 1px solid var(--qori-gray-200);
-  background: white; color: var(--qori-gray-600); transition: all var(--transition-base); cursor: pointer;
+  background: white; color: var(--qori-gray-500);
+  transition: all .18s cubic-bezier(0.4,0,0.2,1);
+  cursor: pointer;
 }
-.com-pill:hover { border-color: var(--qori-primary); color: var(--qori-primary); background: var(--qori-primary-light); }
-.com-pill.active { background: var(--qori-secondary); color: white; border-color: var(--qori-secondary); }
-.com-pill .pill-count {
-  background: rgba(255,255,255,.2); color: inherit;
-  font-size: 10px; font-weight: 700; border-radius: var(--radius-full);
+.ci-pill:hover {
+  border-color: var(--qori-primary); color: var(--qori-primary);
+  background: var(--qori-primary-light);
+  transform: translateY(-1px);
+}
+.ci-pill.active {
+  background: linear-gradient(135deg, #0D1B2A 0%, #1a2f3f 100%);
+  color: var(--qori-primary); border-color: #0D1B2A;
+  box-shadow: 0 2px 8px rgba(13,27,42,.22);
+}
+.ci-pill .pill-cnt {
+  font-size: 10px; font-weight: 700; border-radius: 99px;
   padding: 1px 6px; min-width: 18px; text-align: center;
+  background: rgba(255,255,255,.18); color: inherit;
 }
-.com-pill:not(.active) .pill-count { background: var(--qori-gray-100); color: var(--qori-gray-500); }
+.ci-pill:not(.active) .pill-cnt { background: var(--qori-gray-100); color: var(--qori-gray-400); }
 
-/* Search */
-.com-search { position: relative; }
-.com-search input {
-  padding-left: 30px; font-size: 12px; border-radius: var(--radius-full);
-  border: 1px solid var(--qori-gray-200); background: white; height: 32px;
-  min-width: 200px; transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+.ci-search { position: relative; margin-left: auto; }
+.ci-search input {
+  padding: 7px 12px 7px 32px; font-size: 12px; font-weight: 500;
+  border-radius: var(--radius-full); height: 34px;
+  border: 1px solid var(--qori-gray-200); background: white;
+  min-width: 220px; color: var(--qori-gray-800);
+  transition: border-color .18s, box-shadow .18s;
 }
-.com-search input:focus {
-  border-color: var(--qori-primary); box-shadow: 0 0 0 3px rgba(0,222,168,.12); outline: none;
+.ci-search input:focus {
+  border-color: var(--qori-primary);
+  box-shadow: 0 0 0 3px rgba(0,222,168,.1); outline: none;
 }
-.com-search-icon {
-  position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+.ci-search-icon {
+  position: absolute; left: 11px; top: 50%; transform: translateY(-50%);
   color: var(--qori-gray-400); font-size: 12px; pointer-events: none;
 }
 
-/* Table */
-.com-table-card {
-  background: white; border-radius: var(--radius-xl);
-  border: 1px solid var(--qori-gray-200); box-shadow: var(--shadow-sm); overflow: hidden;
+/* ── Table card ───────────────────────────────────────────────── */
+.ci-table-card {
+  background: white; border-radius: 16px;
+  border: 1px solid #E8EEF4;
+  box-shadow: 0 1px 3px rgba(0,0,0,.055), 0 1px 2px rgba(0,0,0,.04);
+  overflow: hidden;
 }
-.com-table { width: 100%; border-collapse: collapse; }
-.com-table thead th {
-  background: var(--qori-gray-50); border-bottom: 1px solid var(--qori-gray-200);
-  padding: 9px 14px; font-size: 10px; font-weight: 700;
-  text-transform: uppercase; letter-spacing: .7px; color: var(--qori-gray-500); white-space: nowrap;
-}
-.com-table thead th:first-child { padding-left: 20px; }
-.com-table thead th:last-child  { padding-right: 20px; text-align: center; }
-.com-table tbody tr {
-  border-bottom: 1px solid var(--qori-gray-100);
-  transition: background var(--transition-fast); animation: rowFadeIn .3s ease both;
-}
-.com-table tbody tr:last-child { border-bottom: none; }
-.com-table tbody tr:hover { background: rgba(0,222,168,.025); }
-@keyframes rowFadeIn {
-  from { opacity: 0; transform: translateY(5px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-.com-table td { padding: 10px 14px; vertical-align: middle; font-size: 12px; color: var(--qori-gray-800); }
-.com-table td:first-child { padding-left: 20px; }
-.com-table td:last-child  { padding-right: 20px; }
 
-/* Avatar */
-.com-avatar {
-  width: 34px; height: 34px; flex-shrink: 0; border-radius: var(--radius-lg);
-  background: linear-gradient(135deg, var(--qori-primary-light), rgba(0,222,168,.05));
-  border: 1.5px solid rgba(0,222,168,.2);
+.ci-table { width: 100%; border-collapse: collapse; }
+.ci-table thead th {
+  background: #FAFBFC; border-bottom: 1px solid #EEF2F7;
+  padding: 10px 14px; font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .6px;
+  color: var(--qori-gray-400); white-space: nowrap;
+}
+.ci-table thead th:first-child { padding-left: 20px; }
+.ci-table thead th:last-child  { padding-right: 20px; text-align: center; }
+
+.ci-table tbody tr {
+  border-bottom: 1px solid #F2F5F9;
+  transition: background .14s;
+  animation: rowSlide .32s cubic-bezier(0.4,0,0.2,1) both;
+  position: relative;
+}
+.ci-table tbody tr:last-child { border-bottom: none; }
+.ci-table tbody tr:hover {
+  background: linear-gradient(90deg, rgba(0,222,168,.03) 0%, transparent 40%);
+}
+.ci-table tbody tr:hover .ci-avatar {
+  background: linear-gradient(135deg, rgba(0,222,168,.22), rgba(0,222,168,.07));
+  border-color: rgba(0,222,168,.38);
+}
+@keyframes rowSlide {
+  from { opacity: 0; transform: translateX(-5px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.ci-table td {
+  padding: 11px 14px; vertical-align: middle;
+  font-size: 12px; color: var(--qori-gray-700);
+}
+.ci-table td:first-child { padding-left: 20px; }
+.ci-table td:last-child  { padding-right: 20px; }
+
+/* ── Avatar ───────────────────────────────────────────────────── */
+.ci-avatar {
+  width: 36px; height: 36px; flex-shrink: 0; border-radius: 10px;
+  background: linear-gradient(135deg, rgba(0,222,168,.13), rgba(0,222,168,.04));
+  border: 1.5px solid rgba(0,222,168,.18);
   display: flex; align-items: center; justify-content: center;
-  font-weight: 700; font-size: 12px; color: var(--qori-primary); text-transform: uppercase;
+  font-weight: 800; font-size: 13px; color: var(--qori-primary);
+  text-transform: uppercase; letter-spacing: -.3px;
+  transition: all .18s;
 }
-.com-client-name { font-weight: 600; font-size: 13px; color: var(--qori-gray-900); line-height: 1.2; }
-.com-client-doc  { font-size: 10px; color: var(--qori-gray-400); margin-top: 1px; }
+.ci-client-name { font-weight: 700; font-size: 13px; color: var(--qori-gray-900); line-height: 1.25; }
+.ci-client-doc  { font-size: 10px; color: var(--qori-gray-400); margin-top: 2px; font-weight: 500; }
 
-/* Score cell */
-.score-cell { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; min-width: 66px; }
-.score-num  { font-size: 17px; font-weight: 800; line-height: 1; letter-spacing: -.5px; }
-.score-num.hot  { color: #16a34a; }
-.score-num.warm { color: #d97706; }
-.score-num.cold { color: #94a3b8; }
-.score-bar-bg   { width: 50px; height: 3px; background: var(--qori-gray-200); border-radius: 999px; overflow: hidden; }
-.score-bar-fill { height: 100%; border-radius: 999px; }
-.score-bar-fill.hot  { background: #16a34a; }
-.score-bar-fill.warm { background: #d97706; }
-.score-bar-fill.cold { background: #94a3b8; }
-.score-tag {
-  font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px;
-  padding: 1px 7px; border-radius: var(--radius-full);
+/* ── Score ────────────────────────────────────────────────────── */
+.ci-score-cell {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 60px;
 }
-.score-tag.hot  { background: rgba(22,163,74,.1);  color: #16a34a; }
-.score-tag.warm { background: rgba(217,119,6,.1);  color: #d97706; }
-.score-tag.cold { background: var(--qori-gray-100); color: #94a3b8; }
+.ci-score-num {
+  font-size: 18px; font-weight: 800; line-height: 1; letter-spacing: -.8px;
+}
+.ci-score-num.hot  { color: #16a34a; }
+.ci-score-num.warm { color: #d97706; }
+.ci-score-num.cold { color: #94a3b8; }
 
-/* Type badges */
-.com-badge {
+.ci-score-bar {
+  width: 50px; height: 3px; background: var(--qori-gray-100);
+  border-radius: 99px; overflow: hidden;
+}
+.ci-score-fill {
+  height: 100%; border-radius: 99px;
+  transition: width .7s cubic-bezier(0.4,0,0.2,1) .3s;
+}
+.ci-score-fill.hot  { background: linear-gradient(90deg,#4ade80,#16a34a); }
+.ci-score-fill.warm { background: linear-gradient(90deg,#fbbf24,#d97706); }
+.ci-score-fill.cold { background: #94a3b8; }
+
+.ci-score-tag {
+  font-size: 9px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .5px; padding: 1px 7px; border-radius: 99px;
+}
+.ci-score-tag.hot  { background: rgba(22,163,74,.1);  color: #16a34a; }
+.ci-score-tag.warm { background: rgba(217,119,6,.1);  color: #d97706; }
+.ci-score-tag.cold { background: var(--qori-gray-100); color: #94a3b8; }
+
+/* ── Type badge ───────────────────────────────────────────────── */
+.ci-type {
   display: inline-flex; align-items: center; gap: 4px;
-  font-size: 10px; font-weight: 700; padding: 2px 9px; border-radius: var(--radius-full);
-  text-transform: uppercase; letter-spacing: .3px;
+  font-size: 10px; font-weight: 700; padding: 3px 10px;
+  border-radius: 99px; text-transform: uppercase; letter-spacing: .3px;
 }
-.com-badge-compra { background: rgba(6,182,212,.1);  color: var(--qori-info); }
-.com-badge-venta  { background: rgba(245,158,11,.1); color: var(--qori-warning); }
-.com-badge-mixto  { background: var(--qori-primary-light); color: var(--qori-primary); }
+.ci-type-compra { background: rgba(6,182,212,.07);  color: #0891b2; border: 1px solid rgba(6,182,212,.16); }
+.ci-type-venta  { background: rgba(245,158,11,.07); color: #b45309; border: 1px solid rgba(245,158,11,.16); }
+.ci-type-mixto  { background: var(--qori-primary-light); color: #047857; border: 1px solid rgba(0,222,168,.18); }
 
-/* Ops/Vol cell */
-.ops-vol-cell { line-height: 1.35; }
-.ops-num    { font-weight: 700; color: var(--qori-gray-800); font-size: 13px; }
-.ops-usd    { font-weight: 700; color: var(--qori-gray-900); font-size: 12px; }
-.ops-ticket { font-size: 10px; color: var(--qori-gray-400); margin-top: 1px; }
+/* ── Volume cell ──────────────────────────────────────────────── */
+.ci-vol-primary { font-size: 13px; font-weight: 700; color: var(--qori-gray-900); line-height: 1.2; }
+.ci-vol-ops     { font-size: 10px; color: var(--qori-gray-400); margin-top: 2px; font-weight: 500; }
 
-/* Recency cell */
-.rec-date { font-size: 12px; color: var(--qori-gray-600); font-weight: 500; }
-.rec-dias  { display: inline-block; font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: var(--radius-full); margin-top: 2px; }
-.rec-dias.fresh  { background: rgba(22,163,74,.1); color: #16a34a; }
-.rec-dias.recent { background: rgba(245,158,11,.1); color: #d97706; }
-.rec-dias.old    { background: var(--qori-gray-100); color: #94a3b8; }
+/* ── Spread ───────────────────────────────────────────────────── */
+.ci-spread-val   { font-weight: 700; color: var(--qori-gray-800); font-size: 13px; }
+.ci-spread-label { font-size: 10px; color: var(--qori-gray-400); margin-left: 2px; }
 
-/* Último TC cell */
-.tc-last-never  {
+/* ── Recency ──────────────────────────────────────────────────── */
+.ci-rec-date { font-size: 12px; color: var(--qori-gray-600); font-weight: 500; }
+.ci-rec-tag  {
+  display: inline-block; font-size: 10px; font-weight: 600;
+  padding: 1px 7px; border-radius: 99px; margin-top: 2px;
+}
+.ci-rec-tag.fresh  { background: rgba(22,163,74,.08);  color: #16a34a; }
+.ci-rec-tag.recent { background: rgba(245,158,11,.08); color: #d97706; }
+.ci-rec-tag.old    { background: var(--qori-gray-100); color: #94a3b8; }
+
+/* ── Last TC ──────────────────────────────────────────────────── */
+.ci-tc-never {
   display: inline-flex; align-items: center; gap: 4px;
-  font-size: 10px; font-weight: 600; color: var(--qori-primary);
-  background: var(--qori-primary-light); padding: 2px 8px; border-radius: var(--radius-full);
+  font-size: 10px; font-weight: 700; color: var(--qori-primary);
+  background: var(--qori-primary-light); padding: 2px 9px; border-radius: 99px;
+  border: 1px solid rgba(0,222,168,.2);
 }
-.tc-last-recent { color: var(--qori-gray-400); font-size: 11px; }
-.tc-last-old    { color: var(--qori-gray-600); font-size: 11px; }
+.ci-tc-recent { color: var(--qori-gray-400); font-size: 11px; font-weight: 500; }
+.ci-tc-old    { color: var(--qori-gray-600); font-size: 11px; font-weight: 500; }
 
-/* Action buttons */
-.com-btn-wa {
-  display: inline-flex; align-items: center; gap: 4px; padding: 5px 10px;
-  border-radius: var(--radius-full); font-size: 11px; font-weight: 600;
-  background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0;
-  text-decoration: none; transition: all var(--transition-fast); cursor: pointer;
+/* ── Action buttons ───────────────────────────────────────────── */
+.ci-action-wa, .ci-action-email {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 5px 12px; border-radius: 8px;
+  font-size: 11px; font-weight: 600; cursor: pointer;
+  transition: all .18s cubic-bezier(0.4,0,0.2,1);
+  white-space: nowrap; text-decoration: none;
 }
-.com-btn-wa:hover { background: #16a34a; color: white; border-color: #16a34a; }
-.com-btn-wa.disabled { background: var(--qori-gray-100); color: var(--qori-gray-400); border-color: var(--qori-gray-200); cursor: not-allowed; }
-.com-btn-email {
-  display: inline-flex; align-items: center; gap: 4px; padding: 5px 10px;
-  border-radius: var(--radius-full); font-size: 11px; font-weight: 600;
-  background: var(--qori-primary-light); color: var(--qori-primary);
-  border: 1px solid rgba(0,222,168,.3); cursor: pointer; transition: all var(--transition-fast);
+.ci-action-wa {
+  background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0;
 }
-.com-btn-email:hover { background: var(--qori-primary); color: var(--qori-secondary); }
+.ci-action-wa:hover {
+  background: #16a34a; color: white; border-color: #16a34a;
+  transform: translateY(-1px); box-shadow: 0 3px 8px rgba(22,163,74,.25);
+}
+.ci-action-wa.disabled {
+  background: var(--qori-gray-100); color: var(--qori-gray-300);
+  border-color: var(--qori-gray-200); cursor: not-allowed; pointer-events: none;
+}
+.ci-action-email {
+  background: var(--qori-primary-light); color: #047857;
+  border: 1px solid rgba(0,222,168,.22);
+}
+.ci-action-email:hover {
+  background: var(--qori-primary); color: var(--qori-secondary);
+  border-color: var(--qori-primary);
+  transform: translateY(-1px); box-shadow: 0 3px 8px rgba(0,222,168,.3);
+}
 
-/* Checkbox */
-.com-check-col { width: 36px; text-align: center; }
-.com-check-col input[type=checkbox] { width: 15px; height: 15px; cursor: pointer; accent-color: var(--qori-primary); }
-tr.row-selected { background: rgba(0,222,168,.06) !important; }
+/* ── Checkbox ─────────────────────────────────────────────────── */
+.ci-check-col { width: 36px; text-align: center; }
+.ci-check-col input[type=checkbox] {
+  width: 15px; height: 15px; cursor: pointer; accent-color: var(--qori-primary);
+}
+tr.row-selected {
+  background: rgba(0,222,168,.045) !important;
+}
+tr.row-selected td:first-child {
+  border-left: 3px solid rgba(0,222,168,.6);
+}
 
-/* Selection bar flotante */
-.com-sel-bar {
-  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
+/* ── Empty state ──────────────────────────────────────────────── */
+.ci-empty {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 64px 24px; color: var(--qori-gray-400);
+}
+.ci-empty-icon {
+  width: 68px; height: 68px; background: var(--qori-gray-100);
+  border-radius: 20px; display: flex; align-items: center;
+  justify-content: center; font-size: 30px; margin-bottom: 16px;
+}
+
+/* ── Floating selection bar ───────────────────────────────────── */
+.ci-sel-bar {
+  position: fixed; bottom: 24px; left: 50%;
+  transform: translateX(-50%) translateY(90px);
   display: flex; align-items: center; gap: 12px;
-  background: var(--qori-secondary); color: white; padding: 10px 18px;
-  border-radius: var(--radius-full); box-shadow: 0 8px 30px rgba(0,0,0,.25);
-  transition: transform .25s cubic-bezier(.34,1.56,.64,1); z-index: 1050; white-space: nowrap;
+  background: linear-gradient(135deg, #0D1B2A 0%, #1a2f3f 100%);
+  color: white; padding: 11px 20px; border-radius: var(--radius-full);
+  box-shadow: 0 8px 32px rgba(0,0,0,.28), 0 0 0 1px rgba(0,222,168,.14);
+  transition: transform .28s cubic-bezier(.34,1.56,.64,1);
+  z-index: 1050; white-space: nowrap;
 }
-.com-sel-bar.visible { transform: translateX(-50%) translateY(0); }
-.com-sel-count {
+.ci-sel-bar.visible { transform: translateX(-50%) translateY(0); }
+.ci-sel-count {
   font-size: 13px; font-weight: 700; color: var(--qori-primary);
-  background: rgba(0,222,168,.15); border-radius: var(--radius-full); padding: 2px 10px;
+  background: rgba(0,222,168,.12); border-radius: 99px; padding: 2px 10px;
 }
-.com-sel-clear { background: none; border: none; color: rgba(255,255,255,.5); cursor: pointer; font-size: 18px; line-height: 1; padding: 0; }
-.com-sel-clear:hover { color: white; }
+.ci-sel-clear {
+  background: none; border: none; color: rgba(255,255,255,.45);
+  cursor: pointer; font-size: 18px; line-height: 1; padding: 0;
+  transition: color var(--transition-fast);
+}
+.ci-sel-clear:hover { color: white; }
 
-/* Empty */
-.com-empty { display: flex; flex-direction: column; align-items: center; padding: 60px 24px; color: var(--qori-gray-400); }
-.com-empty-icon { width: 64px; height: 64px; background: var(--qori-gray-100); border-radius: var(--radius-2xl); display: flex; align-items: center; justify-content: center; font-size: 28px; margin-bottom: 16px; }
+/* ── Buttons ──────────────────────────────────────────────────── */
+.ci-btn-primary {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 20px; font-size: 12px; font-weight: 700;
+  background: var(--qori-primary); color: var(--qori-secondary);
+  border: none; border-radius: 8px; cursor: pointer;
+  transition: all .18s cubic-bezier(0.4,0,0.2,1); letter-spacing: .1px;
+}
+.ci-btn-primary:hover {
+  background: var(--qori-primary-hover);
+  transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,222,168,.35);
+}
+.ci-btn-primary:disabled { opacity: .6; cursor: not-allowed; transform: none; box-shadow: none; }
 
-/* Modals */
-.com-modal .modal-content { border: none; border-radius: var(--radius-xl); box-shadow: var(--shadow-2xl); overflow: hidden; }
-.com-modal .modal-header  { background: var(--qori-secondary); padding: 14px 20px; border-bottom: none; }
-.com-modal .modal-title   { color: white; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.ci-btn-ghost {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 16px; font-size: 12px; font-weight: 600;
+  background: none; color: var(--qori-gray-600);
+  border: 1px solid var(--qori-gray-200); border-radius: 8px;
+  cursor: pointer; transition: all .18s;
+}
+.ci-btn-ghost:hover {
+  border-color: var(--qori-gray-400); color: var(--qori-gray-800);
+  background: var(--qori-gray-50);
+}
+
+/* ── Modals ───────────────────────────────────────────────────── */
+.com-modal .modal-content {
+  border: none; border-radius: 18px;
+  box-shadow: 0 24px 60px rgba(0,0,0,.2); overflow: hidden;
+}
+.com-modal .modal-header {
+  background: linear-gradient(135deg, #0D1B2A 0%, #1a2f3f 100%);
+  padding: 14px 20px; border-bottom: none;
+}
+.com-modal .modal-title {
+  color: white; font-size: 14px; font-weight: 600;
+  display: flex; align-items: center; gap: 8px;
+}
 .com-modal .modal-title i { color: var(--qori-primary); }
-.com-modal .btn-close     { filter: invert(1) brightness(1.5); opacity: .7; }
-.com-modal .modal-body    { padding: 20px; }
-.com-modal .modal-footer  { padding: 12px 20px; border-top: 1px solid var(--qori-gray-100); background: var(--qori-gray-50); }
-.com-modal-client { display: flex; align-items: center; gap: 12px; background: var(--qori-gray-50); border: 1px solid var(--qori-gray-200); border-radius: var(--radius-lg); padding: 12px 14px; margin-bottom: 18px; }
-.com-modal-client-name  { font-size: 13px; font-weight: 600; color: var(--qori-gray-900); }
-.com-modal-client-email { font-size: 11px; color: var(--qori-gray-500); }
+.com-modal .btn-close { filter: invert(1) brightness(1.5); opacity: .7; }
+.com-modal .modal-body { padding: 20px; }
+.com-modal .modal-footer {
+  padding: 12px 20px; border-top: 1px solid var(--qori-gray-100); background: var(--qori-gray-50);
+}
 
-/* Buttons */
-.com-btn-primary {
-  display: inline-flex; align-items: center; gap: 6px; padding: 7px 18px; font-size: 12px; font-weight: 600;
-  background: var(--qori-primary); color: var(--qori-secondary); border: none;
-  border-radius: var(--radius-full); cursor: pointer; transition: all var(--transition-fast);
+/* ── Responsive ───────────────────────────────────────────────── */
+@media (max-width: 900px) {
+  /* hide: Spread (col 4), Último TC (col 8) */
+  .ci-table thead th:nth-child(4),
+  .ci-table td:nth-child(4),
+  .ci-table thead th:nth-child(8),
+  .ci-table td:nth-child(8) { display: none; }
+  .ci-search { margin-left: 0; width: 100%; }
+  .ci-search input { min-width: unset; width: 100%; }
 }
-.com-btn-primary:hover    { background: var(--qori-primary-hover); box-shadow: 0 4px 12px rgba(0,222,168,.3); }
-.com-btn-primary:disabled { opacity: .6; cursor: not-allowed; }
-.com-btn-ghost {
-  display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; font-size: 12px; font-weight: 500;
-  background: none; color: var(--qori-gray-600); border: 1px solid var(--qori-gray-200);
-  border-radius: var(--radius-full); cursor: pointer; transition: all var(--transition-fast);
+@media (max-width: 600px) {
+  /* also hide: Ops·Vol (col 6), Última op (col 7) */
+  .ci-table thead th:nth-child(6),
+  .ci-table td:nth-child(6),
+  .ci-table thead th:nth-child(7),
+  .ci-table td:nth-child(7) { display: none; }
+  .ci-kpi-strip { grid-template-columns: repeat(2, 1fr); }
 }
-.com-btn-ghost:hover { border-color: var(--qori-gray-400); color: var(--qori-gray-800); }
 </style>
 
-<!-- ── Header ──────────────────────────────────────────────────── -->
-<div class="com-header">
-  <div class="d-flex align-items-center gap-3">
-    <div class="com-title-icon"><i class="bi bi-briefcase-fill"></i></div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     HEADER
+══════════════════════════════════════════════════════════════════ -->
+<div class="ci-header">
+  <div class="ci-header-left">
+    <div class="ci-header-icon"><i class="bi bi-briefcase-fill"></i></div>
     <div>
-      <h1 class="com-title">Comercial</h1>
-      <p class="com-subtitle">
-        {% if current_user.role in ('Master', 'Presidente de Negocios') %}Inteligencia comercial · todos los clientes{% else %}Tu radar comercial · priorización en tiempo real{% endif %}
+      <h1 class="ci-title">Centro Comercial</h1>
+      <p class="ci-subtitle">
+        {% if current_user.role in ('Master', 'Presidente de Negocios') %}
+          Inteligencia comercial · cartera global
+        {% else %}
+          Tu radar comercial · priorización en tiempo real
+        {% endif %}
       </p>
     </div>
   </div>
-  <div class="d-flex align-items-center gap-2 flex-wrap">
+  <div class="ci-header-right">
     {% set cuota_pct = (envios_hoy / limite_diario * 100)|int %}
-    <div class="com-cuota {% if cuota_pct >= 100 %}full{% elif cuota_pct >= 70 %}warn{% endif %}"
+    <div class="ci-cuota {% if cuota_pct >= 100 %}full{% elif cuota_pct >= 70 %}warn{% endif %}"
          title="Emails de TC enviados hoy">
       <i class="bi bi-send"></i> {{ envios_hoy }} / {{ limite_diario }} hoy
     </div>
     {% if rate %}
-    <div class="tc-widget">
-      <div class="tc-live-dot"></div>
-      <span class="tc-badge">TC Live</span>
-      <div class="tc-divider"></div>
-      <div>
-        <div class="tc-label">Compramos</div>
-        <div class="tc-value tc-buy">{{ "%.3f"|format(rate.buy_rate) }}</div>
-      </div>
-      <div class="tc-divider"></div>
-      <div>
-        <div class="tc-label">Vendemos</div>
-        <div class="tc-value tc-sell">{{ "%.3f"|format(rate.sell_rate) }}</div>
-      </div>
+    <div class="ci-tc-signal ci-tc-signal-{{ tc_direction }}">
+      {% if tc_direction == 'sube' %}<i class="bi bi-arrow-up-short"></i> TC alza
+      {% elif tc_direction == 'baja' %}<i class="bi bi-arrow-down-short"></i> TC baja
+      {% else %}<i class="bi bi-dash"></i> TC estable{% endif %}
+      <span>· C {{ "%.3f"|format(rate.buy_rate) }} / V {{ "%.3f"|format(rate.sell_rate) }}</span>
     </div>
     {% endif %}
   </div>
 </div>
 
 
-<!-- ── TC Direction Context (dinámico) ────────────────────────── -->
-{% if rate %}
-<div class="tc-context tc-context-{{ tc_direction }}">
-  <div class="tc-ctx-arrow tc-ctx-arrow-{{ tc_direction }}">
-    {% if tc_direction == 'sube' %}↑{% elif tc_direction == 'baja' %}↓{% else %}→{% endif %}
-  </div>
-  <div style="flex:1; min-width:0;">
-    <div class="tc-ctx-title tc-ctx-title-{{ tc_direction }}">
-      {% if tc_direction == 'sube' %}
-        Dólar subiendo — Prioriza clientes <strong>VENDEDORES</strong>
-      {% elif tc_direction == 'baja' %}
-        Dólar bajando — Prioriza clientes <strong>COMPRADORES</strong>
-      {% else %}
-        Tipo de cambio estable — Activa tu cartera
-      {% endif %}
-    </div>
-    <p class="tc-ctx-text">
-      {% if tc_direction == 'sube' %}
-        El TC está al alza. Momento ideal para contactar a los <strong>{{ insights.vendedores }} clientes vendedores</strong> de tu cartera — obtendrán más soles por cada dólar ahora.
-      {% elif tc_direction == 'baja' %}
-        El TC está bajando. Contacta a los <strong>{{ insights.compradores }} clientes compradores</strong> — conseguirán dólares más baratos antes de que el mercado corrija.
-      {% else %}
-        Envía el tipo de cambio del día. <strong>{{ insights.sin_tc_7d }}</strong> clientes en cartera no han recibido el TC en los últimos 7 días.
-      {% endif %}
-    </p>
-  </div>
-  <div class="tc-ctx-badge tc-ctx-badge-{{ tc_direction }}">
-    {% if tc_direction == 'sube' %}<i class="bi bi-arrow-up-short"></i> TC en alza
-    {% elif tc_direction == 'baja' %}<i class="bi bi-arrow-down-short"></i> TC a la baja
-    {% else %}<i class="bi bi-dash"></i> TC estable
-    {% endif %}
-  </div>
-</div>
-{% endif %}
+<!-- ══════════════════════════════════════════════════════════════
+     KPI STRIP — Intelligence Surface
+══════════════════════════════════════════════════════════════════ -->
+<div class="ci-kpi-strip">
 
-<!-- ── Filtros + Buscador ──────────────────────────────────────── -->
-<div class="com-filters">
-  {% set icons = {"Todos":"people", "Compra":"arrow-down-circle", "Venta":"arrow-up-circle", "Mixto":"arrow-left-right"} %}
+  <div class="ci-kpi">
+    <div class="ci-kpi-icon ci-kpi-icon-teal"><i class="bi bi-people-fill"></i></div>
+    <div>
+      <div class="ci-kpi-label">Cartera</div>
+      <div class="ci-kpi-value">{{ cnt.Todos }}</div>
+      <div class="ci-kpi-sub">{{ cnt.Compra }} comp · {{ cnt.Venta }} vend · {{ cnt.Mixto }} mix</div>
+    </div>
+  </div>
+
+  <div class="ci-kpi">
+    <div class="ci-kpi-icon ci-kpi-icon-green"><i class="bi bi-activity"></i></div>
+    <div>
+      <div class="ci-kpi-label">Activos 30d</div>
+      <div class="ci-kpi-value">{{ insights.activos_30d }}</div>
+      <div class="ci-kpi-sub"><b>{{ insights.activos_7d }}</b> últimos 7 días</div>
+    </div>
+  </div>
+
+  <div class="ci-kpi">
+    <div class="ci-kpi-icon ci-kpi-icon-amber"><i class="bi bi-fire"></i></div>
+    <div>
+      <div class="ci-kpi-label">Score HOT</div>
+      <div class="ci-kpi-value" style="color:#d97706;">{{ insights.calientes }}</div>
+      <div class="ci-kpi-sub">prioridad máxima</div>
+    </div>
+  </div>
+
+  <div class="ci-kpi">
+    <div class="ci-kpi-icon ci-kpi-icon-violet"><i class="bi bi-bell-fill"></i></div>
+    <div>
+      <div class="ci-kpi-label">Sin TC 7d</div>
+      <div class="ci-kpi-value" style="color:#7c3aed;">{{ insights.sin_tc_7d }}</div>
+      <div class="ci-kpi-sub">oportunidad activa</div>
+    </div>
+  </div>
+
+  <div class="ci-kpi">
+    <div class="ci-kpi-icon ci-kpi-icon-blue"><i class="bi bi-currency-dollar"></i></div>
+    <div>
+      <div class="ci-kpi-label">Vol. Total</div>
+      {% set vol = insights.vol_total %}
+      {% if vol >= 1000000 %}
+        <div class="ci-kpi-value">${{ "%.1f"|format(vol / 1000000) }}M</div>
+      {% elif vol >= 1000 %}
+        <div class="ci-kpi-value">${{ "%.0f"|format(vol / 1000) }}K</div>
+      {% else %}
+        <div class="ci-kpi-value">${{ "{:,.0f}".format(vol) }}</div>
+      {% endif %}
+      <div class="ci-kpi-sub">cartera acumulada</div>
+    </div>
+  </div>
+
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════
+     FILTER PILLS + SEARCH
+══════════════════════════════════════════════════════════════════ -->
+<div class="ci-controls">
+  {% set icons = {"Todos":"people","Compra":"arrow-down-circle","Venta":"arrow-up-circle","Mixto":"arrow-left-right"} %}
   {% for t in ["Todos", "Compra", "Venta", "Mixto"] %}
   <a href="{{ url_for('comercial.index', tipo=t) }}"
-     class="com-pill {% if tipo_filtro == t %}active{% endif %}">
+     class="ci-pill {% if tipo_filtro == t %}active{% endif %}">
     <i class="bi bi-{{ icons[t] }}"></i> {{ t }}
-    <span class="pill-count">{{ cnt[t] }}</span>
+    <span class="pill-cnt">{{ cnt[t] }}</span>
   </a>
   {% endfor %}
-  <div class="com-search ms-auto">
-    <i class="bi bi-search com-search-icon"></i>
+  <div class="ci-search ms-auto">
+    <i class="bi bi-search ci-search-icon"></i>
     <input type="search" id="buscadorCliente" placeholder="Buscar cliente...">
   </div>
 </div>
 
-<!-- ── Tabla de clientes ───────────────────────────────────────── -->
-<div class="com-table-card">
+
+<!-- ══════════════════════════════════════════════════════════════
+     CLIENT TABLE
+══════════════════════════════════════════════════════════════════ -->
+<div class="ci-table-card">
   {% if clientes %}
   <div class="table-responsive">
-    <table class="com-table" id="tablaClientes">
+    <table class="ci-table" id="tablaClientes">
       <thead>
         <tr>
-          <th class="com-check-col">
+          <th class="ci-check-col">
             <input type="checkbox" id="checkAll" title="Seleccionar todos">
           </th>
           <th>Cliente</th>
-          <th title="Promedio de pips (spread) de las operaciones completadas del cliente">Spread</th>
+          <th>Score</th>
+          <th title="Spread promedio (pips)">Spread</th>
           <th>Tipo</th>
           <th>Ops · Volumen</th>
           <th>Última op.</th>
-          <th title="Días desde el último email de tipo de cambio enviado">Último TC</th>
+          <th title="Días desde el último email de TC enviado">Último TC</th>
           <th style="text-align:center;">Contacto</th>
         </tr>
       </thead>
       <tbody>
         {% for c in clientes %}
-        <tr class="cliente-row" data-nombre="{{ c.full_name|lower }}"
-            data-id="{{ c.id }}" data-email="{{ c.email or '' }}"
-            style="animation-delay: {{ loop.index0 * 0.03 }}s;">
+        <tr class="cliente-row"
+            data-nombre="{{ c.full_name|lower }}"
+            data-id="{{ c.id }}"
+            data-email="{{ c.email or '' }}"
+            style="animation-delay: {{ loop.index0 * 0.025 }}s;">
 
           <!-- Checkbox -->
-          <td class="com-check-col">
+          <td class="ci-check-col">
             {% if c.email %}
-            <input type="checkbox" class="row-check" value="{{ c.id }}"
-                   data-nombre="{{ c.full_name }}" data-email="{{ c.email }}"
+            <input type="checkbox" class="row-check"
+                   value="{{ c.id }}"
+                   data-nombre="{{ c.full_name }}"
+                   data-email="{{ c.email }}"
                    data-tipo="{{ c.tipo }}">
             {% endif %}
           </td>
@@ -420,19 +585,32 @@ tr.row-selected { background: rgba(0,222,168,.06) !important; }
           <!-- Cliente -->
           <td>
             <div class="d-flex align-items-center gap-3">
-              <div class="com-avatar">{{ c.full_name[0] if c.full_name else '?' }}</div>
+              <div class="ci-avatar">{{ c.full_name[0] if c.full_name else '?' }}</div>
               <div>
-                <div class="com-client-name">{{ c.full_name }}</div>
-                <div class="com-client-doc">{{ c.document_type }} · {{ c.dni }}</div>
+                <div class="ci-client-name">{{ c.full_name }}</div>
+                <div class="ci-client-doc">{{ c.document_type }} · {{ c.dni }}</div>
               </div>
+            </div>
+          </td>
+
+          <!-- Score -->
+          <td>
+            <div class="ci-score-cell">
+              <span class="ci-score-num {{ c.urgencia }}">{{ c.score }}</span>
+              <div class="ci-score-bar">
+                <div class="ci-score-fill {{ c.urgencia }}" style="width:{{ c.score }}%"></div>
+              </div>
+              <span class="ci-score-tag {{ c.urgencia }}">
+                {% if c.urgencia == 'hot' %}HOT{% elif c.urgencia == 'warm' %}WARM{% else %}COLD{% endif %}
+              </span>
             </div>
           </td>
 
           <!-- Spread -->
           <td>
             {% if c.avg_spread is not none %}
-              <span style="font-weight:700;color:var(--qori-gray-800);">{{ c.avg_spread }}</span>
-              <span style="font-size:10px;color:var(--qori-gray-400);margin-left:2px;">pips</span>
+              <span class="ci-spread-val">{{ c.avg_spread }}</span>
+              <span class="ci-spread-label">pips</span>
             {% else %}
               <span style="font-size:11px;color:var(--qori-gray-300);">—</span>
             {% endif %}
@@ -441,52 +619,46 @@ tr.row-selected { background: rgba(0,222,168,.06) !important; }
           <!-- Tipo -->
           <td>
             {% if c.tipo == 'Compra' %}
-              <span class="com-badge com-badge-compra"><i class="bi bi-arrow-down-circle-fill"></i> Compra</span>
+              <span class="ci-type ci-type-compra"><i class="bi bi-arrow-down-circle-fill"></i> Compra</span>
             {% elif c.tipo == 'Venta' %}
-              <span class="com-badge com-badge-venta"><i class="bi bi-arrow-up-circle-fill"></i> Venta</span>
+              <span class="ci-type ci-type-venta"><i class="bi bi-arrow-up-circle-fill"></i> Venta</span>
             {% else %}
-              <span class="com-badge com-badge-mixto"><i class="bi bi-arrow-left-right"></i> Mixto</span>
+              <span class="ci-type ci-type-mixto"><i class="bi bi-arrow-left-right"></i> Mixto</span>
             {% endif %}
           </td>
 
           <!-- Ops · Vol -->
           <td>
-            <div class="ops-vol-cell">
-              <div>
-                <span class="ops-num">{{ c.total_ops }}</span>
-                <span style="font-size:10px;color:var(--qori-gray-400);"> ops</span>
-              </div>
-              <div class="ops-usd">${{ "{:,.0f}".format(c.total_usd) }}</div>
-              {% if c.ticket_promedio > 0 %}
-              <div class="ops-ticket">~${{ "{:,.0f}".format(c.ticket_promedio) }}/op</div>
-              {% endif %}
+            <div class="ci-vol-primary">${{ "{:,.0f}".format(c.total_usd) }}</div>
+            <div class="ci-vol-ops">
+              {{ c.total_ops }} ops{% if c.ticket_promedio > 0 %} · ~${{ "{:,.0f}".format(c.ticket_promedio) }}{% endif %}
             </div>
           </td>
 
-          <!-- Última Op. + inactividad -->
+          <!-- Última Op. -->
           <td>
-            <div class="rec-date">{{ c.ultima_op.strftime('%d/%m/%y') }}</div>
+            <div class="ci-rec-date">{{ c.ultima_op.strftime('%d/%m/%y') }}</div>
             {% if c.dias_inactivo <= 7 %}
-              <span class="rec-dias fresh">hace {{ c.dias_inactivo }}d</span>
+              <span class="ci-rec-tag fresh">hace {{ c.dias_inactivo }}d</span>
             {% elif c.dias_inactivo <= 30 %}
-              <span class="rec-dias recent">hace {{ c.dias_inactivo }}d</span>
+              <span class="ci-rec-tag recent">hace {{ c.dias_inactivo }}d</span>
             {% elif c.dias_inactivo < 9999 %}
-              <span class="rec-dias old">hace {{ c.dias_inactivo }}d</span>
+              <span class="ci-rec-tag old">hace {{ c.dias_inactivo }}d</span>
             {% endif %}
           </td>
 
           <!-- Último TC enviado -->
           <td>
             {% if c.dias_sin_contacto is none %}
-              <span class="tc-last-never"><i class="bi bi-bell"></i> Sin contacto</span>
+              <span class="ci-tc-never"><i class="bi bi-bell-fill"></i> Sin contacto</span>
             {% elif c.dias_sin_contacto == 0 %}
-              <span class="tc-last-recent">hoy</span>
+              <span class="ci-tc-recent">hoy</span>
             {% elif c.dias_sin_contacto == 1 %}
-              <span class="tc-last-recent">ayer</span>
+              <span class="ci-tc-recent">ayer</span>
             {% elif c.dias_sin_contacto <= 7 %}
-              <span class="tc-last-recent">hace {{ c.dias_sin_contacto }}d</span>
+              <span class="ci-tc-recent">hace {{ c.dias_sin_contacto }}d</span>
             {% else %}
-              <span class="tc-last-old">hace {{ c.dias_sin_contacto }}d</span>
+              <span class="ci-tc-old">hace {{ c.dias_sin_contacto }}d</span>
             {% endif %}
           </td>
 
@@ -495,16 +667,16 @@ tr.row-selected { background: rgba(0,222,168,.06) !important; }
             <div class="d-flex align-items-center justify-content-center gap-2">
               {% if c.wa_number %}
               <a href="https://wa.me/{{ c.wa_number }}" target="_blank"
-                 class="com-btn-wa" title="WhatsApp · {{ c.phone }}">
+                 class="ci-action-wa" title="WhatsApp · {{ c.phone }}">
                 <i class="bi bi-whatsapp"></i> WA
               </a>
               {% else %}
-              <span class="com-btn-wa disabled" title="Sin teléfono registrado">
+              <span class="ci-action-wa disabled" title="Sin teléfono registrado">
                 <i class="bi bi-whatsapp"></i> WA
               </span>
               {% endif %}
 
-              <button class="com-btn-email"
+              <button class="ci-action-email"
                       title="Enviar TC a {{ c.email }}"
                       onclick="abrirModalEmail({{ c.id }}, '{{ c.full_name|replace("'", "\\'") }}', '{{ c.email }}', '{{ c.tipo }}')">
                 <i class="bi bi-envelope-fill"></i> TC
@@ -517,26 +689,37 @@ tr.row-selected { background: rgba(0,222,168,.06) !important; }
       </tbody>
     </table>
   </div>
+
   {% else %}
-  <div class="com-empty">
-    <div class="com-empty-icon"><i class="bi bi-people"></i></div>
-    <p style="font-weight:600;color:var(--qori-gray-600);margin:0 0 4px;">Sin clientes en esta categoría</p>
-    <p style="font-size:12px;margin:0;">Los clientes aparecen aquí tras completar su primera operación.</p>
+  <div class="ci-empty">
+    <div class="ci-empty-icon"><i class="bi bi-people"></i></div>
+    <p style="font-weight:700;color:var(--qori-gray-700);margin:0 0 6px;font-size:14px;">
+      Cartera sin clientes activos
+    </p>
+    <p style="font-size:12px;color:var(--qori-gray-400);margin:0;text-align:center;">
+      Los clientes aparecen aquí tras completar su primera operación.
+    </p>
   </div>
   {% endif %}
 </div>
 
-<!-- ── Barra flotante de selección ────────────────────────────── -->
-<div class="com-sel-bar" id="selBar">
-  <span class="com-sel-count" id="selCount">0</span>
-  <span style="font-size:13px;">seleccionados</span>
-  <button class="com-btn-primary" id="btnEnviarMasivo" style="padding:6px 16px;font-size:12px;">
+
+<!-- ══════════════════════════════════════════════════════════════
+     FLOATING SELECTION BAR
+══════════════════════════════════════════════════════════════════ -->
+<div class="ci-sel-bar" id="selBar">
+  <span class="ci-sel-count" id="selCount">0</span>
+  <span style="font-size:13px;font-weight:500;">seleccionados</span>
+  <button class="ci-btn-primary" id="btnEnviarMasivo" style="padding:7px 18px;">
     <i class="bi bi-send-fill"></i> Enviar TC a seleccionados
   </button>
-  <button class="com-sel-clear" id="btnClearSel" title="Limpiar selección">×</button>
+  <button class="ci-sel-clear" id="btnClearSel" title="Limpiar selección">×</button>
 </div>
 
-<!-- ── Modal: Borrador + envío masivo ─────────────────────────── -->
+
+<!-- ══════════════════════════════════════════════════════════════
+     MODAL: Borrador envío masivo
+══════════════════════════════════════════════════════════════════ -->
 <div class="modal fade com-modal" id="modalMasivo" tabindex="-1" data-bs-backdrop="static">
   <div class="modal-dialog modal-dialog-centered" style="max-width:660px;width:660px;margin:1.75rem auto;">
     <div class="modal-content">
@@ -575,8 +758,8 @@ tr.row-selected { background: rgba(0,222,168,.06) !important; }
       <div class="modal-footer" style="justify-content:space-between;">
         <span id="masivo-resumen" style="font-size:12px;color:var(--qori-gray-500);"></span>
         <div class="d-flex gap-2">
-          <button class="com-btn-ghost" data-bs-dismiss="modal" id="btnCancelarMasivo">Cancelar</button>
-          <button class="com-btn-primary" id="btnConfirmarMasivo">
+          <button class="ci-btn-ghost" data-bs-dismiss="modal" id="btnCancelarMasivo">Cancelar</button>
+          <button class="ci-btn-primary" id="btnConfirmarMasivo">
             <i class="bi bi-send-fill"></i> <span id="masivo-btn-label">Enviar</span>
           </button>
         </div>
@@ -585,7 +768,10 @@ tr.row-selected { background: rgba(0,222,168,.06) !important; }
   </div>
 </div>
 
-<!-- ── Modal: Progreso envío masivo ────────────────────────────── -->
+
+<!-- ══════════════════════════════════════════════════════════════
+     MODAL: Progreso envío masivo
+══════════════════════════════════════════════════════════════════ -->
 <div class="modal fade com-modal" id="modalProgresoMasivo" tabindex="-1" data-bs-backdrop="static">
   <div class="modal-dialog modal-dialog-centered" style="max-width:460px;">
     <div class="modal-content">
@@ -597,13 +783,16 @@ tr.row-selected { background: rgba(0,222,168,.06) !important; }
       </div>
       <div class="modal-footer" style="justify-content:space-between;">
         <span id="prog-resumen" style="font-size:12px;color:var(--qori-gray-500);"></span>
-        <button class="com-btn-primary" id="btnCerrarProgreso" style="display:none;" data-bs-dismiss="modal">Cerrar</button>
+        <button class="ci-btn-primary" id="btnCerrarProgreso" style="display:none;" data-bs-dismiss="modal">Cerrar</button>
       </div>
     </div>
   </div>
 </div>
 
-<!-- ── Modal: Enviar TC ────────────────────────────────────────── -->
+
+<!-- ══════════════════════════════════════════════════════════════
+     MODAL: Enviar TC individual
+══════════════════════════════════════════════════════════════════ -->
 <div class="modal fade com-modal" id="modalEnviarPrecio" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered" id="modalEnviarPrecioDialog"
        style="max-width:620px;width:620px;margin:1.75rem auto;">
@@ -617,10 +806,10 @@ tr.row-selected { background: rgba(0,222,168,.06) !important; }
       </div>
       <div style="padding:14px 20px;border-bottom:1px solid var(--qori-gray-100);">
         <div class="d-flex align-items-center gap-3">
-          <div class="com-avatar" style="width:38px;height:38px;font-size:14px;" id="modalAvatar">?</div>
+          <div class="ci-avatar" style="width:38px;height:38px;font-size:14px;" id="modalAvatar">?</div>
           <div>
-            <div class="com-modal-client-name" id="modalClienteNombre">—</div>
-            <div class="com-modal-client-email" id="modalClienteEmail"></div>
+            <div style="font-size:14px;font-weight:700;color:var(--qori-gray-900);" id="modalClienteNombre">—</div>
+            <div style="font-size:11px;color:var(--qori-gray-500);margin-top:2px;" id="modalClienteEmail"></div>
           </div>
           <div style="margin-left:auto;">
             <span style="font-size:10px;color:var(--qori-gray-400);">Edita el correo directamente en la vista previa</span>
@@ -636,8 +825,8 @@ tr.row-selected { background: rgba(0,222,168,.06) !important; }
                 style="display:none;width:100%;min-width:560px;border:0;overflow:hidden;"></iframe>
       </div>
       <div class="modal-footer">
-        <button type="button" class="com-btn-ghost" data-bs-dismiss="modal">Cancelar</button>
-        <button type="button" class="com-btn-primary" id="btnEnviarEmail">
+        <button type="button" class="ci-btn-ghost" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="ci-btn-primary" id="btnEnviarEmail">
           <i class="bi bi-send"></i> Enviar email
         </button>
       </div>
@@ -731,6 +920,7 @@ document.getElementById('btnEnviarEmail').addEventListener('click', function() {
   .finally(() => { btn.disabled = false; btn.innerHTML = '<i class="bi bi-send"></i> Enviar email'; });
 });
 
+/* ── Búsqueda live ───────────────────────────────────────────── */
 document.getElementById('buscadorCliente').addEventListener('input', function() {
   var q = this.value.toLowerCase();
   document.querySelectorAll('.cliente-row').forEach(function(row) {
@@ -738,6 +928,7 @@ document.getElementById('buscadorCliente').addEventListener('input', function() 
   });
 });
 
+/* ── Selección múltiple ──────────────────────────────────────── */
 var LIMITE_LOTE   = {{ limite_lote }};
 var LIMITE_DIARIO = {{ limite_diario }};
 var _enviosHoy    = {{ envios_hoy }};
@@ -794,6 +985,7 @@ document.getElementById('btnClearSel').addEventListener('click', function() {
   actualizarSelBar();
 });
 
+/* ── Envío masivo ────────────────────────────────────────────── */
 var _masivoChecked   = [];
 var _modalMasivoBS   = null;
 var _modalProgresoBS = null;
