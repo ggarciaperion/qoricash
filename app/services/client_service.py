@@ -299,17 +299,9 @@ class ClientService:
             client.currency = (data.get('currency') or '').strip() or None
             client.bank_account_number = (data.get('bank_account_number') or '').strip() or None
 
-            # Estado: Trader -> Inactivo siempre; Master/Operador -> permite 'Activo' por defecto
-            try:
-                role = getattr(current_user, 'role', None)
-            except Exception:
-                role = None
-
-            if role == 'Trader':
-                client.status = 'Inactivo'
-            else:
-                # si se pasó un estado válido en data, respetarlo; si no, default 'Activo'
-                client.status = data.get('status') if data.get('status') in ['Activo', 'Inactivo'] else 'Activo'
+            # Todo cliente nuevo inicia como Inactivo.
+            # Solo Master o Middle Office pueden activarlo posteriormente.
+            client.status = 'Inactivo'
 
             # created_by si existe
             client.created_by = getattr(current_user, 'id', None)
