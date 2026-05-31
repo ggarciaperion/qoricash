@@ -20,7 +20,7 @@ from alembic import op
 from sqlalchemy import text
 
 revision = 'k1y2c3d4e5f6'
-down_revision = 'r1e2g3i4s5t6'
+down_revision = 'z9merge_all_heads'
 branch_labels = None
 depends_on = None
 
