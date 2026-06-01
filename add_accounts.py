@@ -29,6 +29,22 @@ with app.app_context():
             currency='PEN',
             parent_code='67'
         ),
+        AccountingAccount(
+            code='6591',
+            name='Gastos de gestion bancaria',
+            type='gasto',
+            nature='deudora',
+            currency='PEN',
+            parent_code='65'
+        ),
+        AccountingAccount(
+            code='6791',
+            name='Impuesto a las Transacciones Financieras - ITF',
+            type='gasto',
+            nature='deudora',
+            currency='PEN',
+            parent_code='67'
+        ),
     ]
     for c in cuentas:
         existing = AccountingAccount.query.filter_by(code=c.code).first()
