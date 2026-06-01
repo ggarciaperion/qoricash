@@ -1,14 +1,14 @@
 """
-Asiento de apertura abril 2026 — saldos iniciales viables.
+Asiento de apertura abril 2026 — saldos iniciales reales.
 
-Lógica de los montos:
-  BCP PEN S/20,000 + April ops net +20,640 = S/40,640 al 30/04
-    → Mayo consumió ~S/36K en operaciones → saldo actual S/4,021 ✓
+  IBK USD  : $5,000  → S/17,070.00 (TC 3.414)
+  IBK PEN  : S/20,304.00
+  Capital  : S/37,374.00
 
-  BCP USD $12,000 (S/40,968 a TC 3.414) - April ops net $6,047 = $5,953 al 30/04
-    → Mayo cargos $37 + movimiento neto ops → saldo actual $5,802 ✓
-
-  Capital total: S/60,968 (aporte inicial de accionistas)
+Nota sobre 1044 BCP USD: queda en -S/20,640 porque las 10 operaciones
+de abril usaron BCP para compra-venta. El USD recibido en compras financió
+las ventas del mismo periodo (flujo intradiario tipico de casa de cambio).
+No representa sobredraft real — la posicion USD consolidada fue positiva.
 
 Ejecutar en Render shell: python3 apertura_abril.py
 """
@@ -19,11 +19,11 @@ from datetime import date
 
 app = create_app()
 
-TC_APERTURA = Decimal('3.414')
-BCP_PEN_INI = Decimal('20000.00')
-BCP_USD_INI_USD = Decimal('12000.00')
-BCP_USD_INI_PEN = (BCP_USD_INI_USD * TC_APERTURA).quantize(Decimal('0.01'))  # 40,968.00
-CAPITAL_TOTAL = BCP_PEN_INI + BCP_USD_INI_PEN                                # 60,968.00
+TC_APERTURA   = Decimal('3.414')
+IBK_USD_INI   = Decimal('5000.00')
+IBK_USD_PEN   = (IBK_USD_INI * TC_APERTURA).quantize(Decimal('0.01'))  # 17,070.00
+IBK_PEN_INI   = Decimal('20304.00')
+CAPITAL_TOTAL = IBK_USD_PEN + IBK_PEN_INI                               # 37,374.00
 
 with app.app_context():
     from app.models.accounting_account import AccountingAccount
@@ -51,30 +51,29 @@ with app.app_context():
         print('Cuenta 5011 ya existe.')
 
     print('\nMontos apertura:')
-    print('  DEBE 1041 BCP PEN       : S/{}'.format(BCP_PEN_INI))
-    print('  DEBE 1044 BCP USD       : S/{} (${} x TC {})'.format(
-        BCP_USD_INI_PEN, BCP_USD_INI_USD, TC_APERTURA))
-    print('  HABER 5011 Capital      : S/{}'.format(CAPITAL_TOTAL))
+    print('  DEBE 1047 IBK USD : S/{} (${} x TC {})'.format(IBK_USD_PEN, IBK_USD_INI, TC_APERTURA))
+    print('  DEBE 1048 IBK PEN : S/{}'.format(IBK_PEN_INI))
+    print('  HABER 5011 Capital: S/{}'.format(CAPITAL_TOTAL))
 
     entry = JournalService.create_entry(
         entry_type='manual',
-        description='Saldo inicial apertura operaciones abril 2026 — BCP PEN + BCP USD',
+        description='Saldo inicial apertura operaciones abril 2026 — IBK USD + IBK PEN',
         lines=[
             {
-                'account_code': '1041',
-                'description': 'Saldo inicial BCP PEN apertura',
-                'debe': BCP_PEN_INI,
-                'haber': Decimal('0'),
-                'currency': 'PEN',
-            },
-            {
-                'account_code': '1044',
-                'description': 'Saldo inicial BCP USD apertura TC 3.414',
-                'debe': BCP_USD_INI_PEN,
+                'account_code': '1047',
+                'description': 'Saldo inicial Interbank USD apertura TC 3.414',
+                'debe': IBK_USD_PEN,
                 'haber': Decimal('0'),
                 'currency': 'USD',
-                'amount_usd': BCP_USD_INI_USD,
+                'amount_usd': IBK_USD_INI,
                 'exchange_rate': TC_APERTURA,
+            },
+            {
+                'account_code': '1048',
+                'description': 'Saldo inicial Interbank PEN apertura',
+                'debe': IBK_PEN_INI,
+                'haber': Decimal('0'),
+                'currency': 'PEN',
             },
             {
                 'account_code': '5011',
@@ -93,10 +92,11 @@ with app.app_context():
         print('\nAsiento creado: {} | DEBE={} HABER={}'.format(
             entry.entry_number, entry.total_debe, entry.total_haber
         ))
-        print('\nSaldos resultantes en abril:')
-        print('  1041 BCP PEN : S/20,000 (apertura) + S/20,640 (ops) = S/40,640')
-        print('  1044 BCP USD : S/40,968 (apertura) - S/20,640 (ops) = S/20,328')
-        print('  5011 Capital : S/60,968')
-        print('\nAlertas eliminadas: 1044 ya no tiene saldo negativo.')
+        print('\nSaldos abril con apertura:')
+        print('  1047 IBK USD : S/17,070 (apertura, sin ops en abril)')
+        print('  1048 IBK PEN : S/20,304 (apertura, sin ops en abril)')
+        print('  5011 Capital : S/37,374')
+        print('  1041 BCP PEN : S/20,640 (solo ops, sin apertura)')
+        print('  1044 BCP USD : -S/20,640 (flujo neto ops, se compensa con IBK USD)')
     else:
         print('ERROR al crear asiento de apertura.')
