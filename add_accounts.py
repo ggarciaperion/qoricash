@@ -21,6 +21,14 @@ with app.app_context():
             currency='PEN',
             parent_code='47'
         ),
+        AccountingAccount(
+            code='6711',
+            name='Gastos financieros - intereses',
+            type='gasto',
+            nature='deudora',
+            currency='PEN',
+            parent_code='67'
+        ),
     ]
     for c in cuentas:
         existing = AccountingAccount.query.filter_by(code=c.code).first()
