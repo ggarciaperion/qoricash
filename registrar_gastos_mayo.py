@@ -62,6 +62,14 @@ ASIENTOS = [
 ]
 
 with app.app_context():
+    from app.models.user import User
+    master = User.query.filter_by(role='Master').first()
+    if not master:
+        print('ERROR: No se encontro usuario Master.')
+        exit(1)
+    print('Usuario Master: {} (id={})'.format(master.username, master.id))
+
+    ok = 0
     for a in ASIENTOS:
         entry = JournalService.create_entry(
             entry_type='manual',
@@ -69,10 +77,12 @@ with app.app_context():
             lines=a['lines'],
             source_type='manual',
             entry_date=a['date'],
-            created_by=1,
+            created_by=master.id,
         )
         if entry:
             print('OK {} -> {}'.format(entry.entry_number, a['desc'][:60]))
+            ok += 1
         else:
             print('ERROR -> {}'.format(a['desc'][:60]))
-    print('\nListo. {} asientos procesados.'.format(len(ASIENTOS)))
+
+    print('\n{}/{} asientos registrados.'.format(ok, len(ASIENTOS)))
