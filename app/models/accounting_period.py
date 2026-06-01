@@ -16,6 +16,14 @@ class AccountingPeriod(db.Model):
     closed_at  = db.Column(db.DateTime, nullable=True)
     closed_by  = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
 
+    # TC SBS de cierre (usado para el ajuste FX NIC-21)
+    tc_sbs_cierre  = db.Column(db.Numeric(10, 4), nullable=True)
+
+    # Trazabilidad de reaperturas
+    reopened_at    = db.Column(db.DateTime, nullable=True)
+    reopened_by    = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    reopen_reason  = db.Column(db.String(500), nullable=True)
+
     __table_args__ = (
         db.UniqueConstraint('year', 'month', name='uq_accounting_period_year_month'),
     )
@@ -37,4 +45,6 @@ class AccountingPeriod(db.Model):
             'label': self.label,
             'status': self.status,
             'closed_at': self.closed_at.isoformat() if self.closed_at else None,
+            'tc_sbs_cierre': float(self.tc_sbs_cierre) if self.tc_sbs_cierre else None,
+            'reopened_at': self.reopened_at.isoformat() if self.reopened_at else None,
         }

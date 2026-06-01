@@ -1022,6 +1022,13 @@ def ajuste_fx_cierre():
     if not entry:
         return jsonify({'success': False, 'error': 'Error al crear asiento.'}), 500
 
+    # Guardar TC de cierre en el período para futura referencia NIC-21
+    try:
+        period.tc_sbs_cierre = closing_rate
+        db.session.commit()
+    except Exception:
+        pass
+
     signo = 'Ganancia' if diferencia > 0 else 'Pérdida'
     return jsonify({
         'success': True,
@@ -1207,10 +1214,40 @@ def periodos():
 @require_role('Master')
 def cerrar_periodo():
     from app.services.accounting.journal_service import JournalService
-    data = request.get_json() or request.form
-    year  = int(data.get('year'))
-    month = int(data.get('month'))
+    from app.models.audit_log import AuditLog
+    from app.models.accounting_period import AccountingPeriod
+
+    data        = request.get_json() or request.form
+    year        = int(data.get('year'))
+    month       = int(data.get('month'))
+    tc_cierre   = data.get('tc_sbs_cierre')
+
     success, message = JournalService.close_period(year, month, current_user.id)
+
+    if success:
+        period = AccountingPeriod.query.filter_by(year=year, month=month).first()
+        if period:
+            if tc_cierre:
+                try:
+                    from decimal import Decimal
+                    period.tc_sbs_cierre = Decimal(str(tc_cierre))
+                except Exception:
+                    pass
+
+            AuditLog.log_action(
+                user_id    = current_user.id,
+                action     = 'CLOSE_PERIOD',
+                entity     = 'AccountingPeriod',
+                entity_id  = period.id,
+                details    = (
+                    f'Cierre del período {period.label}.'
+                    + (f' TC SBS cierre: {tc_cierre}' if tc_cierre else '')
+                ),
+                ip_address = request.remote_addr,
+                user_agent = request.headers.get('User-Agent', '')[:200],
+            )
+            db.session.commit()
+
     return jsonify({'success': success, 'message': message})
 
 
@@ -1240,9 +1277,11 @@ def reabrir_periodo():
         return jsonify({'success': False, 'message': f'El período {period.label} ya está abierto.'}), 409
 
     try:
-        period.status    = 'abierto'
-        period.closed_at = None
-        period.closed_by = None
+        from app.utils.formatters import now_peru
+        period.status        = 'abierto'
+        period.reopened_at   = now_peru()
+        period.reopened_by   = current_user.id
+        period.reopen_reason = motivo
 
         AuditLog.log_action(
             user_id    = current_user.id,

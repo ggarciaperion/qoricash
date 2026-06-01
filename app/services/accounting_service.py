@@ -211,6 +211,9 @@ class AccountingService:
 
             db.session.commit()
 
+            # ── Reconocer ingreso diferencial en el Libro Diario ─────────────
+            AccountingService._create_income_entry_for_match(match, user_id)
+
             return True, 'Match creado exitosamente', match
 
         except Exception as e:
@@ -260,6 +263,9 @@ class AccountingService:
             AccountingService._apply_trader_profits(match, reverse=True)
 
             db.session.commit()
+
+            # ── Revertir asiento de ingreso del amarre en el Libro Diario ────
+            AccountingService._reverse_income_entry_for_match(match, user_id)
 
             # Si pertenecía a un batch, recalcular totales y regenerar asiento contable
             if batch_id:
@@ -512,8 +518,8 @@ class AccountingService:
         Solo registra la ganancia/pérdida neta (spread) — los movimientos bancarios
         individuales ya están en los asientos de cada operación completada.
 
-        Ganancia: DEBE 1011 / HABER 7711
-        Pérdida:  DEBE 6762 / HABER 1011
+        Ganancia: DEBE 1041 / HABER 7711
+        Pérdida:  DEBE 6762 / HABER 1041
         """
         from app.services.accounting.journal_service import JournalService
 
@@ -524,8 +530,8 @@ class AccountingService:
         if profit > 0:
             lines = [
                 {
-                    'account_code': '1011',
-                    'description':  f'Caja PEN – diferencial cambiario {batch.batch_code}',
+                    'account_code': '1041',
+                    'description':  f'BCP PEN – diferencial cambiario {batch.batch_code}',
                     'debe':  profit,
                     'haber': Decimal('0'),
                     'currency': 'PEN',
@@ -549,8 +555,8 @@ class AccountingService:
                     'currency': 'PEN',
                 },
                 {
-                    'account_code': '1011',
-                    'description':  f'Caja PEN – diferencial cambiario {batch.batch_code}',
+                    'account_code': '1041',
+                    'description':  f'BCP PEN – diferencial cambiario {batch.batch_code}',
                     'debe':  Decimal('0'),
                     'haber': loss,
                     'currency': 'PEN',
@@ -571,6 +577,143 @@ class AccountingService:
             entry_date=entry_date,
             created_by=user_id,
         )
+
+    @staticmethod
+    def _create_income_entry_for_match(match, user_id):
+        """
+        Reconoce el ingreso por diferencial cambiario en el momento del amarre.
+
+        Ganancia: DEBE 1041 BCP PEN / HABER 7711 Ganancia diferencial
+        Pérdida:  DEBE 6762 Pérdida diferencial / HABER 1041 BCP PEN
+
+        El profit_pen representa el spread neto (sell_tc − buy_tc) × USD.
+        Se usa source_type='match' y source_id=match.id para trazabilidad.
+        """
+        from app.services.accounting.journal_service import JournalService
+
+        try:
+            profit = Decimal(str(match.profit_pen or 0))
+            if abs(profit) < Decimal('0.01'):
+                return
+
+            buy_id  = (match.buy_operation.operation_id
+                       if match.buy_operation else str(match.buy_operation_id))
+            sell_id = (match.sell_operation.operation_id
+                       if match.sell_operation else str(match.sell_operation_id))
+
+            if profit > 0:
+                lines = [
+                    {
+                        'account_code': '1041',
+                        'description':  f'Spread FX amarre #{match.id} — {buy_id}×{sell_id}',
+                        'debe':  profit,
+                        'haber': Decimal('0'),
+                        'currency': 'PEN',
+                    },
+                    {
+                        'account_code': '7711',
+                        'description':  f'Ganancia diferencial cambiario — amarre #{match.id}',
+                        'debe':  Decimal('0'),
+                        'haber': profit,
+                        'currency': 'PEN',
+                    },
+                ]
+            else:
+                loss = abs(profit)
+                lines = [
+                    {
+                        'account_code': '6762',
+                        'description':  f'Pérdida diferencial cambiario — amarre #{match.id}',
+                        'debe':  loss,
+                        'haber': Decimal('0'),
+                        'currency': 'PEN',
+                    },
+                    {
+                        'account_code': '1041',
+                        'description':  f'Spread FX amarre #{match.id} — {buy_id}×{sell_id}',
+                        'debe':  Decimal('0'),
+                        'haber': loss,
+                        'currency': 'PEN',
+                    },
+                ]
+
+            entry_date = (
+                match.created_at.date()
+                if match.created_at else date.today()
+            )
+
+            JournalService.create_entry(
+                entry_type  = 'calce_match',
+                description = f'Ganancia FX amarre #{match.id} ({buy_id} × {sell_id})',
+                lines       = lines,
+                source_type = 'match',
+                source_id   = match.id,
+                entry_date  = entry_date,
+                created_by  = user_id,
+            )
+
+        except Exception as exc:
+            import logging
+            logging.getLogger(__name__).error(
+                f'[Accounting] Error creando asiento de amarre #{match.id}: {exc}'
+            )
+
+    @staticmethod
+    def _reverse_income_entry_for_match(match, user_id):
+        """
+        Crea el asiento de reversión del ingreso reconocido al crear el amarre.
+        Se llama automáticamente al anular un match.
+        """
+        from app.services.accounting.journal_service import JournalService
+        from app.models.journal_entry import JournalEntry
+        from app.models.journal_entry_line import JournalEntryLine
+
+        try:
+            original = JournalEntry.query.filter_by(
+                source_type = 'match',
+                source_id   = match.id,
+                entry_type  = 'calce_match',
+                status      = 'activo',
+            ).first()
+
+            if not original:
+                return  # No hay asiento que revertir (match antiguo sin entrada)
+
+            lineas = JournalEntryLine.query.filter_by(
+                journal_entry_id=original.id
+            ).all()
+
+            lineas_reverso = [
+                {
+                    'account_code': l.account_code,
+                    'description':  f'Reversión amarre #{match.id} — match anulado',
+                    'debe':         l.haber,
+                    'haber':        l.debe,
+                    'currency':     l.currency,
+                }
+                for l in lineas
+            ]
+
+            entry_date = (
+                match.created_at.date()
+                if match.created_at else date.today()
+            )
+
+            JournalService.create_entry(
+                entry_type  = 'calce_match_reverso',
+                description = f'Reversión amarre #{match.id} — anulado',
+                lines       = lineas_reverso,
+                source_type = 'match',
+                source_id   = match.id,
+                entry_date  = entry_date,
+                created_by  = user_id,
+            )
+
+        except Exception as exc:
+            import logging
+            logging.getLogger(__name__).error(
+                f'[Accounting] Error revirtiendo asiento de amarre #{match.id}: {exc}'
+            )
 
     @staticmethod
     def close_batch(batch_id, user_id):
