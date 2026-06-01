@@ -5,7 +5,7 @@ import logging
 import traceback
 from flask import Blueprint, render_template, request, jsonify
 from flask_login import login_required, current_user
-from app.models import BankBalance, Operation, User
+from app.models import BankBalance, BankBalanceHistory, Operation, User
 from app.extensions import db
 from app.utils.decorators import require_role
 from app.config.bank_accounts import QORICASH_ACCOUNTS
@@ -293,6 +293,28 @@ def update_balance():
         balance.updated_by = current_user.id
         balance.updated_at = now_peru()
 
+        # Grabar snapshot diario para Libro Caja y Bancos
+        today = now_peru().date()
+        hist = BankBalanceHistory.query.filter_by(
+            snapshot_date=today, bank_name=balance.bank_name
+        ).first()
+        if not hist:
+            hist = BankBalanceHistory(
+                snapshot_date=today,
+                bank_name=balance.bank_name,
+                initial_balance_usd=float(balance.initial_balance_usd or 0),
+                initial_balance_pen=float(balance.initial_balance_pen or 0),
+                balance_usd=float(balance.balance_usd or 0),
+                balance_pen=float(balance.balance_pen or 0),
+            )
+            db.session.add(hist)
+        if currency == 'USD':
+            hist.balance_usd = amount
+        else:
+            hist.balance_pen = amount
+        hist.updated_by = current_user.id
+        hist.updated_at = now_peru()
+
         db.session.commit()
 
         logger.info(f"Saldo actual actualizado exitosamente para {bank_name}")
@@ -366,6 +388,28 @@ def update_initial_balance():
 
         balance.updated_by = current_user.id
         balance.updated_at = now_peru()
+
+        # Grabar snapshot diario para Libro Caja y Bancos
+        today = now_peru().date()
+        hist = BankBalanceHistory.query.filter_by(
+            snapshot_date=today, bank_name=balance.bank_name
+        ).first()
+        if not hist:
+            hist = BankBalanceHistory(
+                snapshot_date=today,
+                bank_name=balance.bank_name,
+                balance_usd=float(balance.balance_usd or 0),
+                balance_pen=float(balance.balance_pen or 0),
+                initial_balance_usd=float(balance.initial_balance_usd or 0),
+                initial_balance_pen=float(balance.initial_balance_pen or 0),
+            )
+            db.session.add(hist)
+        if currency == 'USD':
+            hist.initial_balance_usd = amount
+        else:
+            hist.initial_balance_pen = amount
+        hist.updated_by = current_user.id
+        hist.updated_at = now_peru()
 
         db.session.commit()
 

@@ -1416,6 +1416,28 @@ def _caja_movimientos(year: int, month: int, account_code: str):
 
     saldo_ant = Decimal(str(prev.d or 0)) - Decimal(str(prev.h or 0))
 
+    # Si no hay historial contable previo, usar snapshot de Posición como saldo anterior
+    if saldo_ant == 0:
+        try:
+            from app.models.bank_balance_history import BankBalanceHistory
+            bank_key = _CODE_TO_BANK.get(account_code)
+            currency_label = _ACCOUNT_LABELS.get(account_code, ('', 'PEN', ''))[1]
+            if bank_key:
+                snap = (BankBalanceHistory.query
+                        .filter(
+                            BankBalanceHistory.bank_name.ilike(f'%{bank_key}%{currency_label}%'),
+                            BankBalanceHistory.snapshot_date < first_day,
+                        )
+                        .order_by(BankBalanceHistory.snapshot_date.desc())
+                        .first())
+                if snap:
+                    if currency_label == 'USD':
+                        saldo_ant = Decimal(str(snap.balance_usd or snap.initial_balance_usd or 0))
+                    else:
+                        saldo_ant = Decimal(str(snap.balance_pen or snap.initial_balance_pen or 0))
+        except Exception:
+            pass
+
     # Movimientos del período
     rows = db.session.query(
         JournalEntry.entry_date,

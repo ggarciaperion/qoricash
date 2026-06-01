@@ -8,6 +8,7 @@ from app.models.audit_log import AuditLog
 from app.models.trader_goal import TraderGoal
 from app.models.trader_daily_profit import TraderDailyProfit
 from app.models.bank_balance import BankBalance
+from app.models.bank_balance_history import BankBalanceHistory
 from app.models.invoice import Invoice
 from app.models.exchange_rate import ExchangeRate
 from app.models.complaint import Complaint
@@ -39,7 +40,7 @@ from app.models.notification import Notification
 from app.models.comercial_envio import ComercialEnvio
 __all__ = [
     'User', 'Client', 'Operation', 'AuditLog', 'TraderGoal', 'TraderDailyProfit',
-    'BankBalance', 'Invoice', 'ExchangeRate', 'Complaint',
+    'BankBalance', 'BankBalanceHistory', 'Invoice', 'ExchangeRate', 'Complaint',
     'Competitor', 'CompetitorRateHistory', 'CompetitorRateCurrent', 'CompetitorRateChangeEvent',
     'SanctionsEntry',
     # Módulo contable
