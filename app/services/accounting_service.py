@@ -234,6 +234,20 @@ class AccountingService:
             if not match:
                 return False, 'Match no encontrado'
 
+            # Verificar período contable cerrado
+            from app.models.accounting_period import AccountingPeriod
+            match_date = match.created_at
+            period = AccountingPeriod.query.filter_by(
+                year=match_date.year, month=match_date.month
+            ).first()
+            if period and period.status == 'cerrado':
+                months = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
+                label = f"{months[match_date.month - 1]} {match_date.year}"
+                return False, (
+                    f'El período {label} está cerrado. '
+                    'Reabra el período contable antes de anular este amarre.'
+                )
+
             if match.batch_id:
                 batch = db.session.get(AccountingBatch, match.batch_id)
                 if batch and batch.status == 'Cerrado':

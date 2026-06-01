@@ -3520,6 +3520,7 @@ def amarres_recalcular_tipos():
 def amarres_lista():
     """API: listar amarres con filtros opcionales."""
     from app.services.accounting_service import AccountingService
+    from app.models.accounting_period import AccountingPeriod
     try:
         matches = AccountingService.get_all_matches(
             fecha_inicio=request.args.get('fecha_inicio'),
@@ -3527,7 +3528,15 @@ def amarres_lista():
             batch_id=request.args.get('batch_id'),
             status=request.args.get('status', 'Activo'),
         )
-        return jsonify({'success': True, 'matches': [m.to_dict() for m in matches]})
+        closed_periods = {
+            (p.year, p.month)
+            for p in AccountingPeriod.query.filter_by(status='cerrado').all()
+        }
+        def _to_dict(m):
+            d = m.to_dict()
+            d['period_closed'] = (m.created_at.year, m.created_at.month) in closed_periods
+            return d
+        return jsonify({'success': True, 'matches': [_to_dict(m) for m in matches]})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 

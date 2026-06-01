@@ -366,10 +366,13 @@ function cargarAmarres() {
         totalPen  += m.profit_pen || 0;
         totalHouse += m.house_profit_pen || 0;
         const tipo = TIPO_BADGE[m.match_type] || TIPO_BADGE.client_to_client;
-        const anularBtn = m.status === 'Activo'
-          ? `<button class="btn btn-xs btn-outline-danger" onclick="anularAmarre(${m.id})"
-               title="Anular"><i class="bi bi-x-circle"></i></button>`
-          : '';
+        const anularBtn = m.status !== 'Activo'
+          ? ''
+          : m.period_closed
+          ? `<span class="text-muted" title="Período contable cerrado — reabre el período para anular"
+               style="cursor:default;font-size:13px;"><i class="bi bi-lock-fill"></i></span>`
+          : `<button class="btn btn-xs btn-outline-danger" onclick="anularAmarre(${m.id})"
+               title="Anular"><i class="bi bi-x-circle"></i></button>`;
         const editBaseBtn = m.status === 'Activo'
           ? `<button class="btn btn-xs btn-outline-warning" title="Editar base"
                onclick="abrirEditarBase(${m.id},
