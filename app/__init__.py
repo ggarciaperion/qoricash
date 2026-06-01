@@ -37,7 +37,14 @@ def create_app(config_name=None):
         Flask app instance
     """
     app = Flask(__name__)
-    
+
+    # ProxyFix: Render es un reverse proxy — sin esto, request.remote_addr es la IP
+    # interna de Render (compartida por todos los usuarios), lo que hace que el
+    # rate limiter bloquee a TODOS cuando un solo bot/usuario supera el límite.
+    # x_for=1 le dice a Flask que confíe en el primer X-Forwarded-For hop de Render.
+    from werkzeug.middleware.proxy_fix import ProxyFix
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+
     # Cargar configuración
     if config_name:
         from app.config import config
