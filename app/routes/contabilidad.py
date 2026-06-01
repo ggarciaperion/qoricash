@@ -1414,29 +1414,34 @@ def _caja_movimientos(year: int, month: int, account_code: str):
         JournalEntry.status == 'activo',
     ).first()
 
-    saldo_ant = Decimal(str(prev.d or 0)) - Decimal(str(prev.h or 0))
+    saldo_ant_journal = Decimal(str(prev.d or 0)) - Decimal(str(prev.h or 0))
 
-    # Si no hay historial contable previo, usar snapshot de Posición como saldo anterior
-    if saldo_ant == 0:
-        try:
-            from app.models.bank_balance_history import BankBalanceHistory
-            bank_key = _CODE_TO_BANK.get(account_code)
-            currency_label = _ACCOUNT_LABELS.get(account_code, ('', 'PEN', ''))[1]
-            if bank_key:
-                snap = (BankBalanceHistory.query
-                        .filter(
-                            BankBalanceHistory.bank_name.ilike(f'%{bank_key}%{currency_label}%'),
-                            BankBalanceHistory.snapshot_date < first_day,
-                        )
-                        .order_by(BankBalanceHistory.snapshot_date.desc())
-                        .first())
-                if snap:
-                    if currency_label == 'USD':
-                        saldo_ant = Decimal(str(snap.balance_usd or snap.initial_balance_usd or 0))
-                    else:
-                        saldo_ant = Decimal(str(snap.balance_pen or snap.initial_balance_pen or 0))
-        except Exception:
-            pass
+    # Prioridad: snapshot real de Posición como saldo anterior.
+    # Se incluyen snapshots hasta el primer día del período (<=) para capturar
+    # el saldo inicial ingresado la mañana del día 1.
+    saldo_ant = saldo_ant_journal
+    try:
+        from app.models.bank_balance_history import BankBalanceHistory
+        bank_key = _CODE_TO_BANK.get(account_code)
+        currency_label = _ACCOUNT_LABELS.get(account_code, ('', 'PEN', ''))[1]
+        if bank_key:
+            snap = (BankBalanceHistory.query
+                    .filter(
+                        BankBalanceHistory.bank_name.ilike(f'%{bank_key}%{currency_label}%'),
+                        BankBalanceHistory.snapshot_date <= first_day,
+                    )
+                    .order_by(BankBalanceHistory.snapshot_date.desc())
+                    .first())
+            if snap:
+                if currency_label == 'USD':
+                    # Preferir saldo inicial si fue ingresado; sino usar saldo actual
+                    raw = snap.initial_balance_usd if float(snap.initial_balance_usd or 0) > 0 else snap.balance_usd
+                    saldo_ant = Decimal(str(raw or 0))
+                else:
+                    raw = snap.initial_balance_pen if float(snap.initial_balance_pen or 0) > 0 else snap.balance_pen
+                    saldo_ant = Decimal(str(raw or 0))
+    except Exception:
+        pass
 
     # Movimientos del período
     rows = db.session.query(
