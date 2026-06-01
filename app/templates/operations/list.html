@@ -2269,18 +2269,36 @@ function calcularPipsModal() {
 
 // ── Auto-llenado de Base desde el widget Precio Base ──────────────────────
 function _autoFillBase() {
-    if (!window._pbAccess) return;         // sin acceso al widget → no auto-llenar
     const tipo = $('input[name="operation_type_modal"]:checked').val() || 'Compra';
-    const precio = tipo === 'Compra'
-        ? document.getElementById('deskPbBuy')?.textContent?.trim()
-        : document.getElementById('deskPbSell')?.textContent?.trim();
-    if (!precio || precio === '—') return; // widget sin datos aún
-    const val = parseFloat(precio);
-    if (isNaN(val) || val <= 0) return;
     const campo = document.getElementById('base_rate_modal');
     if (!campo) return;
-    campo.value = val.toFixed(4);
-    calcularPipsModal();
+
+    // Ruta rápida: leer del DOM si el usuario tiene el widget visible
+    if (window._pbAccess) {
+        const precio = tipo === 'Compra'
+            ? document.getElementById('deskPbBuy')?.textContent?.trim()
+            : document.getElementById('deskPbSell')?.textContent?.trim();
+        if (precio && precio !== '—') {
+            const val = parseFloat(precio);
+            if (!isNaN(val) && val > 0) {
+                campo.value = val.toFixed(4);
+                calcularPipsModal();
+                return;
+            }
+        }
+    }
+
+    // Fallback: cualquier Trader puede llamar al endpoint
+    fetch('/dashboard/api/precio-base')
+        .then(function(r) { return r.ok ? r.json() : null; })
+        .then(function(d) {
+            if (!d || !d.ok) return;
+            const val = tipo === 'Compra' ? d.compra : d.venta;
+            if (!val || val <= 0) return;
+            campo.value = parseFloat(val).toFixed(4);
+            calcularPipsModal();
+        })
+        .catch(function() {});
 }
 
 // Resetear formulario completo del modal
