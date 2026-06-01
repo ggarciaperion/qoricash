@@ -36,21 +36,22 @@ with app.app_context():
 
     print(f'Periodo abril 2026: id={periodo.id} status={periodo.status}')
 
-    # Verificar si ya existe un asiento de ingresos FX en abril
+    # Verificar si ya existe un asiento de spread operativo en 7591 (nuestra cuenta)
+    # No filtramos 7761/7711 porque AS-2026-0107 tiene 7761 activo pero con reverso.
     from app.models.journal_entry_line import JournalEntryLine
     existing_income = (
         db.session.query(JournalEntry)
         .join(JournalEntryLine, JournalEntry.id == JournalEntryLine.journal_entry_id)
         .filter(
             JournalEntry.period_id == periodo.id,
-            JournalEntryLine.account_code.in_(['7591', '7711', '7761']),
+            JournalEntryLine.account_code == '7591',
             JournalEntryLine.haber > 0,
             JournalEntry.status == 'activo',
         )
         .first()
     )
     if existing_income:
-        print(f'Ya existe asiento de ingreso en abril: {existing_income.entry_number}')
+        print(f'Ya existe asiento de ingreso spread (7591) en abril: {existing_income.entry_number}')
         print('Si deseas registrar otro, comenta este bloque. Abortando.')
         exit(0)
 
