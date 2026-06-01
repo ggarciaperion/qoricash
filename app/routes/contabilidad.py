@@ -89,16 +89,10 @@ def dashboard():
         JournalEntry.status == 'activo',
     ).first()
 
-    # Gastos del mes
-    gastos_q = db.session.query(
-        func.sum(ExpenseRecord.amount_pen).label('total'),
-        func.count(ExpenseRecord.id).label('count'),
-    ).filter(
-        extract('year', ExpenseRecord.expense_date) == year,
-        extract('month', ExpenseRecord.expense_date) == month,
-    ).first()
-    gastos_total = gastos_q.total or Decimal('0')
-    gastos_count = gastos_q.count or 0
+    # Gastos del mes — fuente única: Libro Diario 6xxx (consistente con LIG y ER)
+    _gastos_mes  = _gastos_journal(year, month)
+    gastos_total = sum(g['amount_pen'] for g in _gastos_mes)
+    gastos_count = len(_gastos_mes)
 
     # Operaciones del mes sin amarrar (para KPI de alerta)
     try:
@@ -1623,6 +1617,79 @@ def export_caja():
 
 # ── Libro de Ingresos y Gastos (LIG) ─────────────────────────────────────────
 
+def _gastos_journal(year: int, month: int) -> list:
+    """
+    Fuente única de verdad para gastos del LIG.
+
+    Lee desde JournalEntryLine (cuentas 6xxx, status='activo') — exactamente
+    la misma fuente que usa el Estado de Resultados, garantizando consistencia.
+
+    Por cada línea 6xxx con debe > haber (gasto neto > 0):
+      - Recupera datos de comprobante desde ExpenseRecord si existe el vínculo.
+      - Cargos bancarios registrados por script no tienen ExpenseRecord →
+        muestran supplier_name=None, voucher_type=None (correcto: cargo automático).
+
+    Retorna lista de dicts con las claves que usa el template LIG y la exportación.
+    """
+    from app.models.journal_entry import JournalEntry as _JE
+    from app.models.journal_entry_line import JournalEntryLine as _JEL
+    from app.models.expense_record import ExpenseRecord as _ER
+    from sqlalchemy import func, extract as _ex
+
+    rows = db.session.query(
+        _JE.id.label('entry_id'),
+        _JE.entry_date,
+        _JE.entry_number,
+        _JEL.account_code,
+        _JEL.description.label('line_desc'),
+        _JE.description.label('entry_desc'),
+        func.sum(_JEL.debe).label('td'),
+        func.sum(_JEL.haber).label('th'),
+    ).join(_JEL, _JEL.journal_entry_id == _JE.id
+    ).filter(
+        _JEL.account_code.like('6%'),
+        _ex('year',  _JE.entry_date) == year,
+        _ex('month', _JE.entry_date) == month,
+        _JE.status == 'activo',
+    ).group_by(
+        _JE.id, _JE.entry_date, _JE.entry_number,
+        _JEL.account_code, _JEL.description, _JE.description,
+    ).having(
+        func.sum(_JEL.debe) > func.sum(_JEL.haber)
+    ).order_by(
+        _JE.entry_date.asc(), _JE.id.asc()
+    ).all()
+
+    # Mapear journal_entry_id → ExpenseRecord para datos de comprobante
+    exp_map = {
+        e.journal_entry_id: e
+        for e in _ER.query.filter(
+            _ex('year',  _ER.expense_date) == year,
+            _ex('month', _ER.expense_date) == month,
+        ).all()
+        if e.journal_entry_id
+    }
+
+    result = []
+    for r in rows:
+        neto = Decimal(str(r.td or 0)) - Decimal(str(r.th or 0))
+        if neto < Decimal('0.01'):
+            continue
+        exp = exp_map.get(r.entry_id)
+        result.append({
+            'expense_date':   r.entry_date,
+            'entry_number':   r.entry_number,
+            'category':       r.account_code,
+            'description':    r.line_desc or r.entry_desc or '',
+            'amount_pen':     neto,
+            'supplier_name':  exp.supplier_name  if exp else None,
+            'supplier_ruc':   exp.supplier_ruc   if exp else None,
+            'voucher_type':   exp.voucher_type   if exp else None,
+            'voucher_number': exp.voucher_number if exp else None,
+        })
+    return result
+
+
 _INGRESO_LABELS = {
     '70': 'Ventas',
     '71': 'Variación de inventarios',
@@ -1685,14 +1752,11 @@ def lig():
         'importe':      Decimal(str(r.haber or 0)),
     } for r in rows]
 
-    # Gastos: expense_records del período
-    gastos = ExpenseRecord.query.filter(
-        extract('year',  ExpenseRecord.expense_date) == year,
-        extract('month', ExpenseRecord.expense_date) == month,
-    ).order_by(ExpenseRecord.expense_date.asc()).all()
+    # Gastos: fuente única → Libro Diario (6xxx), misma que Estado de Resultados
+    gastos = _gastos_journal(year, month)
 
     total_ingresos = sum(float(i['importe']) for i in ingresos)
-    total_gastos   = sum(float(g.amount_pen or 0) for g in gastos)
+    total_gastos   = sum(float(g['amount_pen']) for g in gastos)
 
     periods = _get_all_periods()
 
@@ -1748,10 +1812,8 @@ def export_lig():
         'importe':      float(r.haber or 0),
     } for r in rows]
 
-    gastos = ExpenseRecord.query.filter(
-        sa_extract('year',  ExpenseRecord.expense_date) == year,
-        sa_extract('month', ExpenseRecord.expense_date) == month,
-    ).order_by(ExpenseRecord.expense_date.asc()).all()
+    # Gastos: fuente única → Libro Diario (6xxx), misma que Estado de Resultados
+    gastos = _gastos_journal(year, month)
 
     wb = openpyxl.Workbook()
 
@@ -1830,18 +1892,18 @@ def export_lig():
     row2 = 6
     for n, g in enumerate(gastos, 1):
         ws2.cell(row=row2, column=1, value=n).border = bdr
-        ws2.cell(row=row2, column=2, value=g.expense_date.strftime('%d/%m/%Y')).border = bdr
-        ws2.cell(row=row2, column=3, value=g.supplier_name or '—').border = bdr
-        ws2.cell(row=row2, column=4, value=g.supplier_ruc  or '—').border = bdr
-        ws2.cell(row=row2, column=5, value=g.voucher_type  or '—').border = bdr
-        ws2.cell(row=row2, column=6, value=g.voucher_number or '—').border = bdr
-        ws2.cell(row=row2, column=7, value=g.category).border = bdr
-        ws2.cell(row=row2, column=8, value=float(g.amount_pen)).border = bdr
-        ws2.cell(row=row2, column=9, value=g.description).border = bdr
+        ws2.cell(row=row2, column=2, value=g['expense_date'].strftime('%d/%m/%Y')).border = bdr
+        ws2.cell(row=row2, column=3, value=g['supplier_name'] or '—').border = bdr
+        ws2.cell(row=row2, column=4, value=g['supplier_ruc']  or '—').border = bdr
+        ws2.cell(row=row2, column=5, value=g['voucher_type']  or '—').border = bdr
+        ws2.cell(row=row2, column=6, value=g['voucher_number'] or '—').border = bdr
+        ws2.cell(row=row2, column=7, value=g['category']).border = bdr
+        ws2.cell(row=row2, column=8, value=float(g['amount_pen'])).border = bdr
+        ws2.cell(row=row2, column=9, value=g['description']).border = bdr
         row2 += 1
 
     ws2.cell(row=row2, column=7, value='TOTAL').font = Font(bold=True)
-    total_g = sum(float(g.amount_pen) for g in gastos)
+    total_g = sum(float(g['amount_pen']) for g in gastos)
     ws2.cell(row=row2, column=8, value=total_g).font = Font(bold=True)
     ws2.cell(row=row2, column=8).fill = PatternFill(start_color='F8D7DA', end_color='F8D7DA', fill_type='solid')
 
@@ -1885,7 +1947,7 @@ def export_lig_ple():
     periodo      = f'{year}{month:02d}00'
     ruc_clean    = ruc.replace('-', '').replace(' ', '')
 
-    # ── Ingresos: líneas JournalEntryLine con cuentas 7xxx ───────────────────
+    # ── Ingresos: líneas JournalEntryLine con cuentas 7xxx (haber neto > 0) ────
     from app.models.journal_entry_line import JournalEntryLine as JEL
     lines_7 = db.session.query(
         JournalEntry, JEL
@@ -1895,6 +1957,7 @@ def export_lig_ple():
         extract('month', JournalEntry.entry_date) == month,
         JournalEntry.status == 'activo',
         JEL.account_code.like('7%'),
+        JEL.haber > 0,                        # solo líneas con ingreso real
     ).order_by(JournalEntry.entry_date.asc(), JournalEntry.id.asc()).all()
 
     ing_lines = []
@@ -1905,55 +1968,53 @@ def export_lig_ple():
         #   NumRef|MedPago|Estado
         haber = float(line.haber or 0)
         fields = [
-            periodo,                              # 1 Período
-            f'{corr:05d}',                       # 2 Correlativo
-            entry.entry_date.strftime('%d/%m/%Y'),# 3 Fecha
-            '00',                                 # 4 Tipo comprobante (00=sin comprobante)
-            '',                                   # 5 Serie
-            entry.entry_number,                   # 6 Número correlativo comprobante
-            '',                                   # 7 Tipo doc identidad
-            '',                                   # 8 Número documento
-            '',                                   # 9 Razón social
-            '0.00',                               # 10 Valor exportación
-            f'{haber:.2f}',                       # 11 Base imponible
-            '0.00',                               # 12 Descuento
-            '0.00',                               # 13 IGV
-            '0.00',                               # 14 Inafecto
-            '0.00',                               # 15 Exonerado
-            f'{haber:.2f}',                       # 16 Total
-            'PEN',                                # 17 Moneda
-            '1.000',                              # 18 Tipo de cambio
-            '',                                   # 19 Fecha comprobante referenciado
-            '',                                   # 20 Tipo comprobante ref
-            '',                                   # 21 Serie ref
-            '',                                   # 22 Num ref
-            '',                                   # 23 Indicador medio pago
-            '1',                                  # 24 Estado (1=activo)
+            periodo,                               # 1 Período
+            f'{corr:05d}',                        # 2 Correlativo
+            entry.entry_date.strftime('%d/%m/%Y'), # 3 Fecha
+            '00',                                  # 4 Tipo comprobante (00=sin comprobante)
+            '',                                    # 5 Serie
+            entry.entry_number,                    # 6 Número correlativo comprobante
+            '',                                    # 7 Tipo doc identidad
+            '',                                    # 8 Número documento
+            '',                                    # 9 Razón social
+            '0.00',                                # 10 Valor exportación
+            f'{haber:.2f}',                        # 11 Base imponible
+            '0.00',                                # 12 Descuento
+            '0.00',                                # 13 IGV
+            '0.00',                                # 14 Inafecto
+            '0.00',                                # 15 Exonerado
+            f'{haber:.2f}',                        # 16 Total
+            'PEN',                                 # 17 Moneda
+            '1.000',                               # 18 Tipo de cambio
+            '',                                    # 19 Fecha comprobante referenciado
+            '',                                    # 20 Tipo comprobante ref
+            '',                                    # 21 Serie ref
+            '',                                    # 22 Num ref
+            '',                                    # 23 Indicador medio pago
+            '1',                                   # 24 Estado (1=activo)
         ]
         ing_lines.append('|'.join(fields) + '|\n')
 
-    # ── Gastos: expense_records del período ───────────────────────────────────
-    gastos = ExpenseRecord.query.filter(
-        extract('year',  ExpenseRecord.expense_date) == year,
-        extract('month', ExpenseRecord.expense_date) == month,
-    ).order_by(ExpenseRecord.expense_date.asc()).all()
+    # ── Gastos: fuente única → Libro Diario (6xxx) ────────────────────────────
+    gastos = _gastos_journal(year, month)
 
     gasto_lines = []
     for corr, g in enumerate(gastos, 1):
         # Formato 8.2 simplificado
+        ruc_g = g['supplier_ruc'] or ''
         fields = [
             periodo,
             f'{corr:05d}',
-            g.expense_date.strftime('%d/%m/%Y'),
-            g.voucher_type or '00',
+            g['expense_date'].strftime('%d/%m/%Y'),
+            g['voucher_type'] or '00',
             '',
-            g.voucher_number or '',
-            '6' if g.supplier_ruc and len(g.supplier_ruc) == 11 else '1',
-            g.supplier_ruc or '',
-            g.supplier_name or '',
-            f'{float(g.amount_pen):.2f}',  # Base imponible
-            '0.00',                         # IGV (casa de cambio exonerada)
-            f'{float(g.amount_pen):.2f}',   # Total
+            g['voucher_number'] or '',
+            '6' if ruc_g and len(ruc_g) == 11 else '1',
+            ruc_g,
+            g['supplier_name'] or '',
+            f'{float(g["amount_pen"]):.2f}',  # Base imponible
+            '0.00',                            # IGV (casa de cambio exonerada)
+            f'{float(g["amount_pen"]):.2f}',   # Total
             'PEN',
             '1.000',
             '1',
@@ -3134,12 +3195,15 @@ def exportar_excel():
         JournalEntry.status == 'activo',
     ).scalar() or Decimal('0')
 
-    # Gastos por categoría
+    # Gastos por categoría — fuente única: Libro Diario 6xxx
     gastos_q = db.session.query(
-        func.sum(ExpenseRecord.amount_pen).label('total'),
+        func.sum(JournalEntryLine.debe) - func.sum(JournalEntryLine.haber)
+    ).join(JournalEntry, JournalEntryLine.journal_entry_id == JournalEntry.id
     ).filter(
-        extract('year',  ExpenseRecord.expense_date) == year,
-        extract('month', ExpenseRecord.expense_date) == month,
+        JournalEntryLine.account_code.like('6%'),
+        extract('year',  JournalEntry.entry_date) == year,
+        extract('month', JournalEntry.entry_date) == month,
+        JournalEntry.status == 'activo',
     ).scalar() or Decimal('0')
 
     # Gastos de depreciación del mes
