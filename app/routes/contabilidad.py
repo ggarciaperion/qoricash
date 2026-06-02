@@ -2828,6 +2828,7 @@ def balance_general():
     from app.models.bank_balance import BankBalance
     from app.models.bank_balance_history import BankBalanceHistory
     from app.models.exchange_rate import ExchangeRate
+    from sqlalchemy import func
     import calendar
 
     year  = request.args.get('year',  type=int, default=date.today().year)
