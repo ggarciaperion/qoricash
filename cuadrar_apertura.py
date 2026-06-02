@@ -11,7 +11,6 @@ Ejecutar en Render shell:  python3 cuadrar_apertura.py [YEAR]
 import sys
 from decimal import Decimal
 from datetime import date
-import calendar
 
 from app import create_app
 from app.extensions import db
@@ -138,49 +137,30 @@ with app.app_context():
         print("Abortado.")
         sys.exit(0)
 
-    # Verificar si ya existe un asiento de apertura este año
-    existing = JournalEntry.query.filter(
-        extract('year', JournalEntry.entry_date) == year,
-        JournalEntry.entry_type == 'apertura',
-        JournalEntry.status == 'activo',
-    ).first()
+    from app.services.accounting.journal_service import JournalService
 
-    if existing:
-        entry = existing
-        print(f"Actualizando asiento de apertura existente ID={entry.id}")
-    else:
-        entry = JournalEntry(
-            entry_date=date(year, 1, 1),
-            description=f'Apertura contable {year}',
-            entry_type='apertura',
-            status='activo',
-        )
-        db.session.add(entry)
-        db.session.flush()
-        print(f"Nuevo asiento de apertura creado ID={entry.id}")
+    lines = [
+        {'account_code': debe_code, 'description': desc,
+         'debe': ajuste, 'haber': Decimal('0'), 'currency': 'PEN'},
+        {'account_code': haber_code, 'description': desc,
+         'debe': Decimal('0'), 'haber': ajuste, 'currency': 'PEN'},
+    ]
 
-    # Añadir líneas de ajuste
-    line_d = JournalEntryLine(
-        journal_entry_id=entry.id,
-        account_code=debe_code,
+    entry = JournalService.create_entry(
+        entry_type='apertura',
         description=desc,
-        debe=ajuste,
-        haber=Decimal('0'),
-        currency='PEN',
+        lines=lines,
+        source_type='manual',
+        entry_date=date(year, 1, 1),
     )
-    line_h = JournalEntryLine(
-        journal_entry_id=entry.id,
-        account_code=haber_code,
-        description=desc,
-        debe=Decimal('0'),
-        haber=ajuste,
-        currency='PEN',
-    )
-    db.session.add(line_d)
-    db.session.add(line_h)
+
+    if not entry:
+        print("\n✗ No se pudo crear el asiento. Verifica que el período esté abierto.")
+        sys.exit(1)
+
     db.session.commit()
 
-    print(f"\n✓ Asiento de ajuste registrado exitosamente.")
+    print(f"\n✓ Asiento de ajuste registrado: {entry.entry_number}")
     print(f"  DEBE  {debe_code} S/ {ajuste:.2f}")
     print(f"  HABER {haber_code} S/ {ajuste:.2f}")
     print(f"\nEjecuta nuevamente para verificar que brecha ≈ 0.00")
