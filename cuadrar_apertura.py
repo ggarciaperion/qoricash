@@ -1,14 +1,18 @@
 """
-Diagnóstica y corrige el asiento de apertura para que el Balance General cuadre.
+Diagnóstico del Balance General usando fuentes reales.
 
-Calcula:  brecha = ACTIVO - PASIVO - PATRIMONIO
-Si brecha != 0, crea (o actualiza) un asiento de apertura en cuenta 5011
-con el importe necesario para llevar la brecha a cero.
+ACTIVO:
+  - Bancos: BankBalance (Posición real, igual que balance_general())
+  - Caja:   Libro Diario (1011/1012)
+  - Fijos:  modelo FixedAsset
 
-Ejecutar en Render shell:  python3 cuadrar_apertura.py [YEAR]
-  YEAR opcional; por defecto usa el año actual.
+PASIVO + PATRIMONIO: Libro Diario (journal-based)
+
+La "brecha" es informativa — no se crea ningún asiento.
+El Balance General ya la muestra como "Diferencia a conciliar".
+
+Uso: python3 cuadrar_apertura.py
 """
-import sys
 from decimal import Decimal
 from datetime import date
 
@@ -19,22 +23,18 @@ from app.models.fixed_asset import FixedAsset
 app = create_app()
 
 with app.app_context():
-    from sqlalchemy import text, func, extract
+    from sqlalchemy import func
     from app.models.journal_entry import JournalEntry
     from app.models.journal_entry_line import JournalEntryLine
+    from app.models.bank_balance import BankBalance
+    from app.models.exchange_rate import ExchangeRate
 
-    year = int(sys.argv[1]) if len(sys.argv) > 1 else date.today().year
-
-    if date.today().year == year:
-        corte = date.today()
-    else:
-        corte = date(year, 12, 31)
+    corte = date.today()
 
     def _saldo(prefix: str, side: str) -> Decimal:
-        """Saldo acumulado de cuentas que empiezan con `prefix` hasta `corte`."""
-        lines_q = (
+        row = (
             db.session.query(
-                func.coalesce(func.sum(JournalEntryLine.debe), 0).label('d'),
+                func.coalesce(func.sum(JournalEntryLine.debe),  0).label('d'),
                 func.coalesce(func.sum(JournalEntryLine.haber), 0).label('h'),
             )
             .join(JournalEntry, JournalEntryLine.journal_entry_id == JournalEntry.id)
@@ -45,20 +45,26 @@ with app.app_context():
             )
             .one()
         )
-        d = Decimal(str(lines_q.d or 0))
-        h = Decimal(str(lines_q.h or 0))
+        d = Decimal(str(row.d or 0))
+        h = Decimal(str(row.h or 0))
         return max(d - h, Decimal('0')) if side == 'deudora' else max(h - d, Decimal('0'))
 
     def saldo_d(prefix): return _saldo(prefix, 'deudora')
     def saldo_a(prefix): return _saldo(prefix, 'acreedora')
 
-    # ── ACTIVO ──────────────────────────────────────────────────────────────
-    caja_mn    = saldo_d('1011')
-    caja_me    = saldo_d('1012')
-    bancos_pen = sum(saldo_d(c) for c in ('1041', '1048', '1049', '1051'))
-    bancos_usd = sum(saldo_d(c) for c in ('1044', '1047', '1050', '1052'))
+    # ── TC para USD → PEN ────────────────────────────────────────────────────
+    rates = ExchangeRate.get_current_rates()
+    tc = Decimal(str((rates['compra'] + rates['venta']) / 2))
+
+    # ── ACTIVO — bancos desde Posición ───────────────────────────────────────
+    all_banks      = BankBalance.query.all()
+    bancos_pen     = sum(Decimal(str(b.balance_pen or 0)) for b in all_banks)
+    bancos_usd_raw = sum(Decimal(str(b.balance_usd or 0)) for b in all_banks)
+    bancos_usd_pen = bancos_usd_raw * tc
+
+    caja_mn = saldo_d('1011')
+    caja_me = saldo_d('1012')
     ctas_cobrar = saldo_d('121')
-    activo_corriente = caja_mn + caja_me + bancos_pen + bancos_usd + ctas_cobrar
 
     fixed_assets  = FixedAsset.query.filter_by(status='activo').all()
     activos_netos = Decimal('0')
@@ -66,101 +72,53 @@ with app.app_context():
         for fa in fixed_assets:
             activos_netos += fa.net_book_value
     else:
-        costo_af    = sum(saldo_d(c) for c in ('3321', '3351', '3361', '3362'))
-        deprec_acum = sum(saldo_a(c) for c in ('3921', '3951', '3961', '3962'))
-        activos_netos = costo_af - deprec_acum
+        activos_netos = (
+            sum(saldo_d(c) for c in ('3321', '3351', '3361', '3362')) -
+            sum(saldo_a(c) for c in ('3921', '3951', '3961', '3962'))
+        )
 
-    total_activo = activo_corriente + activos_netos
+    activo_corriente = caja_mn + caja_me + bancos_pen + bancos_usd_pen + ctas_cobrar
+    total_activo     = activo_corriente + activos_netos
 
-    # ── PASIVO ──────────────────────────────────────────────────────────────
-    facturas_pagar = saldo_a('4211')
-    otras_ctas_pag = saldo_a('4699')
-    sueldos_pagar  = saldo_a('4111')
-    ir_pagar       = saldo_a('4017')
-    essalud_pagar  = saldo_a('4031')
-    afp_pagar      = saldo_a('4032')
-    prestamos      = saldo_a('4551')
-    total_pasivo   = (facturas_pagar + otras_ctas_pag + sueldos_pagar +
-                      ir_pagar + essalud_pagar + afp_pagar + prestamos)
+    # ── PASIVO ───────────────────────────────────────────────────────────────
+    total_pasivo = (
+        saldo_a('4211') + saldo_a('4699') + saldo_a('4111') +
+        saldo_a('4017') + saldo_a('4031') + saldo_a('4032') + saldo_a('4551')
+    )
 
-    # ── PATRIMONIO ──────────────────────────────────────────────────────────
+    # ── PATRIMONIO (journal) ─────────────────────────────────────────────────
     capital        = saldo_a('501') + saldo_a('311')
     utilidades_acc = saldo_a('351') + saldo_a('591')
     perdidas_acc   = saldo_d('592')
-    ingresos_ac    = saldo_a('75') + saldo_a('77')
-    gastos_ac      = saldo_d('6')
-    resultado      = ingresos_ac - gastos_ac
+    resultado      = (saldo_a('75') + saldo_a('77')) - saldo_d('6')
     total_patrimonio = capital + utilidades_acc - perdidas_acc + resultado
 
     brecha = total_activo - total_pasivo - total_patrimonio
 
-    print(f"\n{'='*60}")
-    print(f"  DIAGNÓSTICO BALANCE — corte al {corte}")
-    print(f"{'='*60}")
-    print(f"  Total Activo      : S/ {total_activo:,.2f}")
-    print(f"  Total Pasivo      : S/ {total_pasivo:,.2f}")
-    print(f"  Total Patrimonio  : S/ {total_patrimonio:,.2f}")
-    print(f"    Capital (501+311): S/ {capital:,.2f}")
-    print(f"    Utilidades(351+591): S/ {utilidades_acc:,.2f}")
-    print(f"    Resultado         : S/ {resultado:,.2f}")
-    print(f"  BRECHA (A-P-PAT)  : S/ {brecha:,.2f}")
-    print(f"{'='*60}\n")
-
-    if abs(brecha) < Decimal('0.01'):
-        print("✓ Balance cuadrado. No se requiere ajuste.")
-        sys.exit(0)
-
-    # Calcular ajuste necesario en 5011
-    # Si brecha > 0 → ACTIVO > P+PAT → necesitamos más PASIVO o PATRIMONIO
-    #   → asiento: DEBE cuenta puente (p.ej. 1099) / HABER 5011
-    #   En realidad: creamos la contrapartida necesaria
-    # Estrategia: crear asiento de apertura DEBE <puente> HABER 5011 si brecha > 0
-    #             o DEBE 5011 HABER <puente> si brecha < 0
-
-    # La contrapartida del capital es la suma de los activos iniciales ya registrados.
-    # El ajuste simplemente iguala con un asiento de apertura adicional en 5011 vs 9999.
-    ajuste = abs(brecha)
-
-    if brecha > 0:
-        # ACTIVO excede P+PAT → incrementar patrimonio
-        debe_code  = '1099'   # Cuenta transitoria / ajuste
-        haber_code = '5011'
-        desc = f'Ajuste apertura {year}: incremento capital para cuadre (brecha +{brecha:.2f})'
+    print(f"\n{'='*62}")
+    print(f"  DIAGNÓSTICO — {corte}  (TC: {tc:.4f})")
+    print(f"{'='*62}")
+    print(f"  ACTIVO REAL (Posición + Fijos)")
+    print(f"    Bancos PEN            : S/ {bancos_pen:>12,.2f}")
+    print(f"    Bancos USD {bancos_usd_raw:.2f} × {tc:.4f}: S/ {bancos_usd_pen:>12,.2f}")
+    print(f"    Caja M/N (diario)     : S/ {caja_mn:>12,.2f}")
+    print(f"    Caja M/E (diario)     : S/ {caja_me:>12,.2f}")
+    print(f"    Ctas. por cobrar      : S/ {ctas_cobrar:>12,.2f}")
+    print(f"    Activos fijos (neto)  : S/ {activos_netos:>12,.2f}")
+    print(f"  {'─'*48}")
+    print(f"  TOTAL ACTIVO            : S/ {total_activo:>12,.2f}")
+    print(f"")
+    print(f"  PASIVO (diario)         : S/ {total_pasivo:>12,.2f}")
+    print(f"  PATRIMONIO (diario)     : S/ {total_patrimonio:>12,.2f}")
+    print(f"    Capital (501+311)     : S/ {capital:>12,.2f}")
+    print(f"    Resultado             : S/ {resultado:>12,.2f}")
+    print(f"")
+    print(f"  DIFERENCIA a conciliar  : S/ {brecha:>12,.2f}")
+    print(f"{'='*62}")
+    print()
+    if abs(brecha) < Decimal('1'):
+        print("✓ Sin diferencia significativa.")
     else:
-        # P+PAT excede ACTIVO → reducir patrimonio
-        debe_code  = '5011'
-        haber_code = '1099'
-        desc = f'Ajuste apertura {year}: reducción capital para cuadre (brecha {brecha:.2f})'
-
-    confirm = input(f"\n¿Crear asiento de ajuste S/ {ajuste:.2f} ({debe_code} DEBE / {haber_code} HABER)? [s/N]: ")
-    if confirm.strip().lower() != 's':
-        print("Abortado.")
-        sys.exit(0)
-
-    from app.services.accounting.journal_service import JournalService
-
-    lines = [
-        {'account_code': debe_code, 'description': desc,
-         'debe': ajuste, 'haber': Decimal('0'), 'currency': 'PEN'},
-        {'account_code': haber_code, 'description': desc,
-         'debe': Decimal('0'), 'haber': ajuste, 'currency': 'PEN'},
-    ]
-
-    entry = JournalService.create_entry(
-        entry_type='apertura',
-        description=desc,
-        lines=lines,
-        source_type='manual',
-        entry_date=date(year, 1, 1),
-    )
-
-    if not entry:
-        print("\n✗ No se pudo crear el asiento. Verifica que el período esté abierto.")
-        sys.exit(1)
-
-    db.session.commit()
-
-    print(f"\n✓ Asiento de ajuste registrado: {entry.entry_number}")
-    print(f"  DEBE  {debe_code} S/ {ajuste:.2f}")
-    print(f"  HABER {haber_code} S/ {ajuste:.2f}")
-    print(f"\nEjecuta nuevamente para verificar que brecha ≈ 0.00")
+        print("ℹ  La diferencia representa flujos del diario no reflejados")
+        print("   en Posición. Se muestra en el Balance General como")
+        print("   'Diferencia a conciliar' — no requiere asiento de ajuste.")
