@@ -146,6 +146,12 @@
                 <td class="ps-4">4017 · IR – Pago a cuenta</td>
                 <td class="text-end pe-3">{{ "%.2f"|format(ir_pagar|float) }}</td>
               </tr>
+              {% if prestamos > 0 %}
+              <tr>
+                <td class="ps-4">4551 · Préstamos</td>
+                <td class="text-end pe-3">{{ "%.2f"|format(prestamos|float) }}</td>
+              </tr>
+              {% endif %}
               <tr class="fw-semibold bg-light">
                 <td class="ps-3">Total Pasivo</td>
                 <td class="text-end pe-3">{{ "%.2f"|format(total_pasivo|float) }}</td>
@@ -163,11 +169,11 @@
           <table class="table table-sm mb-0">
             <tbody>
               <tr>
-                <td class="ps-4">501 · Capital social</td>
+                <td class="ps-4">501/311 · Capital social</td>
                 <td class="text-end pe-3">{{ "%.2f"|format(capital|float) }}</td>
               </tr>
               <tr>
-                <td class="ps-4">591 · Utilidades acumuladas</td>
+                <td class="ps-4">351/591 · Utilidades acumuladas</td>
                 <td class="text-end pe-3">{{ "%.2f"|format(utilidades_acc|float) }}</td>
               </tr>
               {% if perdidas_acc > 0 %}
@@ -205,11 +211,10 @@
       </div>
 
       <!-- Cuadre del balance -->
-      {% set diferencia = total_activo - (total_pasivo + total_patrimonio) %}
-      {% if diferencia | abs > 0.05 %}
+      {% if brecha | abs > 0.05 %}
       <div class="alert alert-warning mt-3 mb-0">
         <i class="bi bi-exclamation-triangle me-2"></i>
-        <strong>Diferencia de cuadre:</strong> S/ {{ "%.2f"|format(diferencia|float) }} — revisar asientos pendientes.
+        <strong>Diferencia de cuadre:</strong> S/ {{ "%.2f"|format(brecha|float) }} — revisar asientos pendientes.
       </div>
       {% else %}
       <div class="alert alert-success mt-3 mb-0">

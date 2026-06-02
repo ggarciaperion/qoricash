@@ -1075,7 +1075,8 @@ _APERTURA_ACCOUNTS = [
 ]
 
 _CONTRAPARTIDA_OPTIONS = [
-    ('3111', 'Capital Social'),
+    ('5011', 'Capital Social (5011)'),
+    ('3111', 'Capital Social (3111)'),
     ('3511', 'Utilidades Acumuladas'),
     ('4511', 'Préstamos de accionistas'),
 ]
@@ -2816,12 +2817,11 @@ def _saldo_acumulado_hasta(account_prefix: str, hasta_fecha, saldo_normal: str =
 def balance_general():
     """
     Balance General (Estado de Situación Financiera) a una fecha de corte.
-    Presenta saldos acumulados (no solo del mes) en formato ACTIVO / PASIVO / PATRIMONIO.
-    Banco y caja: usa snapshots de Posición para exactitud (igual que Libro Caja).
+    100% journal-based para garantizar que ACTIVO = PASIVO + PATRIMONIO.
+    Los bancos leen del Libro Diario (asientos) — misma fuente que todo el balance.
+    BankBalance/History solo se usa en Libro Caja para conciliación operativa.
     """
     from app.models.fixed_asset import FixedAsset
-    from app.models.bank_balance import BankBalance
-    from app.models.bank_balance_history import BankBalanceHistory
     import calendar
 
     year  = request.args.get('year',  type=int, default=date.today().year)
@@ -2832,51 +2832,15 @@ def balance_general():
     def saldo_d(prefix): return _saldo_acumulado_hasta(prefix, corte, 'deudora')
     def saldo_a(prefix): return _saldo_acumulado_hasta(prefix, corte, 'acreedora')
 
-    def _banco_real(bank_key, currency):
-        """Saldo real del banco desde snapshot histórico; fallback a BankBalance actual."""
-        try:
-            snap = (BankBalanceHistory.query
-                    .filter(
-                        BankBalanceHistory.bank_name.ilike(f'%{bank_key}%{currency}%'),
-                        BankBalanceHistory.snapshot_date <= corte,
-                    )
-                    .order_by(BankBalanceHistory.snapshot_date.desc())
-                    .first())
-            if snap:
-                raw = snap.balance_usd if currency == 'USD' else snap.balance_pen
-                return Decimal(str(raw or 0))
-            # Fallback: BankBalance actual
-            bb = BankBalance.query.filter(
-                BankBalance.bank_name.ilike(f'%{bank_key}%{currency}%')
-            ).first()
-            if bb:
-                raw = bb.balance_usd if currency == 'USD' else bb.balance_pen
-                return Decimal(str(raw or 0))
-        except Exception:
-            pass
-        return Decimal('0')
-
     # ── ACTIVO ────────────────────────────────────────────────────────────────
-    # Caja (efectivo físico — sigue siendo desde asientos)
-    caja_mn = saldo_d('1011')
-    caja_me = saldo_d('1012')
-
-    # Bancos: usar saldos reales de Posición (coherente con Libro Caja y Bancos)
-    bancos_pen = (
-        _banco_real('BCP',       'PEN') +
-        _banco_real('INTERBANK', 'PEN') +
-        _banco_real('BANBIF',    'PEN')
-    )
-    bancos_usd = (
-        _banco_real('BCP',       'USD') +
-        _banco_real('INTERBANK', 'USD') +
-        _banco_real('BANBIF',    'USD')
-    )
-
+    caja_mn    = saldo_d('1011')
+    caja_me    = saldo_d('1012')
+    bancos_pen = sum(saldo_d(c) for c in ('1041', '1048', '1049', '1051'))
+    bancos_usd = sum(saldo_d(c) for c in ('1044', '1047', '1050', '1052'))
     ctas_cobrar      = saldo_d('121')
     activo_corriente = caja_mn + caja_me + bancos_pen + bancos_usd + ctas_cobrar
 
-    # Activos fijos netos (cost - deprec. acum.)
+    # Activos fijos netos
     activos_netos = Decimal('0')
     fixed_assets  = FixedAsset.query.filter_by(status='activo').all()
     for fa in fixed_assets:
@@ -2895,20 +2859,27 @@ def balance_general():
     ir_pagar       = saldo_a('4017')
     essalud_pagar  = saldo_a('4031')
     afp_pagar      = saldo_a('4032')
+    prestamos      = saldo_a('4551')
     total_pasivo   = (facturas_pagar + otras_ctas_pag + sueldos_pagar +
-                      ir_pagar + essalud_pagar + afp_pagar)
+                      ir_pagar + essalud_pagar + afp_pagar + prestamos)
 
     # ── PATRIMONIO ────────────────────────────────────────────────────────────
-    capital        = saldo_a('501')
-    utilidades_acc = saldo_a('591')
+    # Capital: cubre asientos en 501x (5011) Y en 311x (3111) — ambos usados en
+    # distintos momentos del sistema. El script cuadrar_apertura.py normaliza a 5011.
+    capital        = saldo_a('501') + saldo_a('311')
+    # Utilidades acumuladas: cubre 351x (PCGE correcto) y 591x (uso histórico)
+    utilidades_acc = saldo_a('351') + saldo_a('591')
     perdidas_acc   = saldo_d('592')
 
-    # Resultado del ejercicio: ingresos 7xxx (FX ajuste) + 75xx (spread operativo)
+    # Resultado del ejercicio: 75xx (spread operativo 7591) + 77xx (FX ajuste)
     # Consistente con Estado de Resultados y LIG
-    ingresos_ac         = saldo_a('77') + saldo_a('75')
+    ingresos_ac         = saldo_a('75') + saldo_a('77')
     gastos_ac           = saldo_d('6')
     resultado_ejercicio = ingresos_ac - gastos_ac
     total_patrimonio    = capital + utilidades_acc - perdidas_acc + resultado_ejercicio
+
+    # Brecha de cuadre (ACTIVO - PASIVO - PATRIMONIO debe ser ~0.00)
+    brecha = total_activo - total_pasivo - total_patrimonio
 
     periods = _get_all_periods()
 
@@ -2924,11 +2895,13 @@ def balance_general():
         facturas_pagar=facturas_pagar, otras_ctas_pag=otras_ctas_pag,
         sueldos_pagar=sueldos_pagar, ir_pagar=ir_pagar,
         essalud_pagar=essalud_pagar, afp_pagar=afp_pagar,
+        prestamos=prestamos,
         total_pasivo=total_pasivo,
         capital=capital, utilidades_acc=utilidades_acc,
         perdidas_acc=perdidas_acc,
         resultado_ejercicio=resultado_ejercicio,
         total_patrimonio=total_patrimonio,
+        brecha=brecha,
         periods=periods,
         selected_year=year, selected_month=month,
         user=current_user,
@@ -3271,13 +3244,18 @@ def exportar_excel():
     ir_pagar       = saldo_a('4017')
     essalud_pagar  = saldo_a('4031')
     afp_pagar      = saldo_a('4032')
-    total_pasivo   = facturas_pagar + otras_ctas_pag + sueldos_pagar + ir_pagar + essalud_pagar + afp_pagar
+    prestamos_exp  = saldo_a('4551')
+    total_pasivo   = (facturas_pagar + otras_ctas_pag + sueldos_pagar +
+                      ir_pagar + essalud_pagar + afp_pagar + prestamos_exp)
 
-    capital         = saldo_a('501')
-    utilidades_acc  = saldo_a('591')
-    perdidas_acc    = saldo_d('592')
-    resultado_ejercicio = saldo_a('77') - saldo_d('6')
-    total_patrimonio = capital + utilidades_acc - perdidas_acc + resultado_ejercicio
+    capital_exp         = saldo_a('501') + saldo_a('311')
+    utilidades_acc_exp  = saldo_a('351') + saldo_a('591')
+    perdidas_acc_exp    = saldo_d('592')
+    ingresos_ac_exp     = saldo_a('75') + saldo_a('77')
+    gastos_ac_exp       = saldo_d('6')
+    resultado_ejercicio = ingresos_ac_exp - gastos_ac_exp
+    total_patrimonio    = (capital_exp + utilidades_acc_exp -
+                           perdidas_acc_exp + resultado_ejercicio)
 
     BG_SECTION = PatternFill('solid', fgColor='D9E1F2')
 
@@ -3304,12 +3282,13 @@ def exportar_excel():
         ('4031 – EsSalud por pagar', float(essalud_pagar), False),
         ('4032 – AFP por pagar', float(afp_pagar), False),
         ('4017 – IR pago a cuenta', float(ir_pagar), False),
+        ('4551 – Préstamos', float(prestamos_exp), False),
         ('TOTAL PASIVO', float(total_pasivo), True),
         ('', '', False),
         ('PATRIMONIO', '', True),
-        ('501 – Capital social', float(capital), False),
-        ('591 – Utilidades acumuladas', float(utilidades_acc), False),
-        ('592 – Pérdidas acumuladas', float(-perdidas_acc), False),
+        ('501/311 – Capital social', float(capital_exp), False),
+        ('351/591 – Utilidades acumuladas', float(utilidades_acc_exp), False),
+        ('592 – Pérdidas acumuladas', float(-perdidas_acc_exp), False),
         ('Resultado del ejercicio', float(resultado_ejercicio), False),
         ('TOTAL PATRIMONIO', float(total_patrimonio), True),
         ('', '', False),
