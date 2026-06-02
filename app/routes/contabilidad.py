@@ -2817,11 +2817,17 @@ def _saldo_acumulado_hasta(account_prefix: str, hasta_fecha, saldo_normal: str =
 def balance_general():
     """
     Balance General (Estado de Situación Financiera) a una fecha de corte.
-    100% journal-based para garantizar que ACTIVO = PASIVO + PATRIMONIO.
-    Los bancos leen del Libro Diario (asientos) — misma fuente que todo el balance.
-    BankBalance/History solo se usa en Libro Caja para conciliación operativa.
+
+    ACTIVO bancos: fuente real = BankBalanceHistory (snapshot de Posición).
+    Fallback a BankBalance (actual) si no hay snapshot histórico.
+    PASIVO + PATRIMONIO: Libro Diario (100% journal-based).
+    La 'brecha' entre activo real y patrimonio contable se muestra
+    como 'Diferencia pendiente de conciliar' — no se oculta.
     """
     from app.models.fixed_asset import FixedAsset
+    from app.models.bank_balance import BankBalance
+    from app.models.bank_balance_history import BankBalanceHistory
+    from app.models.exchange_rate import ExchangeRate
     import calendar
 
     year  = request.args.get('year',  type=int, default=date.today().year)
@@ -2832,11 +2838,39 @@ def balance_general():
     def saldo_d(prefix): return _saldo_acumulado_hasta(prefix, corte, 'deudora')
     def saldo_a(prefix): return _saldo_acumulado_hasta(prefix, corte, 'acreedora')
 
-    # ── ACTIVO ────────────────────────────────────────────────────────────────
-    caja_mn    = saldo_d('1011')
-    caja_me    = saldo_d('1012')
-    bancos_pen = sum(saldo_d(c) for c in ('1041', '1048', '1049', '1051'))
-    bancos_usd = sum(saldo_d(c) for c in ('1044', '1047', '1050', '1052'))
+    # ── TC para conversión USD → PEN ──────────────────────────────────────────
+    rates = ExchangeRate.get_current_rates()
+    tc = Decimal(str((rates['compra'] + rates['venta']) / 2))
+
+    # ── ACTIVO — bancos desde Posición (valores reales) ───────────────────────
+    # Obtener el snapshot más reciente de cada banco hasta la fecha de corte
+    subq = (db.session.query(
+        BankBalanceHistory.bank_name,
+        func.max(BankBalanceHistory.snapshot_date).label('max_date'),
+    ).filter(BankBalanceHistory.snapshot_date <= corte)
+    .group_by(BankBalanceHistory.bank_name).subquery())
+
+    snaps = (db.session.query(BankBalanceHistory)
+        .join(subq, db.and_(
+            BankBalanceHistory.bank_name == subq.c.bank_name,
+            BankBalanceHistory.snapshot_date == subq.c.max_date,
+        )).all())
+
+    if snaps:
+        bancos_pen     = sum(Decimal(str(s.balance_pen or 0)) for s in snaps)
+        bancos_usd_raw = sum(Decimal(str(s.balance_usd or 0)) for s in snaps)
+    else:
+        # Sin historial: usar saldo actual de BankBalance
+        all_banks      = BankBalance.query.all()
+        bancos_pen     = sum(Decimal(str(b.balance_pen or 0)) for b in all_banks)
+        bancos_usd_raw = sum(Decimal(str(b.balance_usd or 0)) for b in all_banks)
+
+    bancos_usd = bancos_usd_raw * tc   # convertido a PEN para el balance
+
+    # Caja: journal-based (Posición no la rastrea aún)
+    caja_mn = saldo_d('1011')
+    caja_me = saldo_d('1012')
+
     ctas_cobrar      = saldo_d('121')
     activo_corriente = caja_mn + caja_me + bancos_pen + bancos_usd + ctas_cobrar
 
@@ -2864,21 +2898,16 @@ def balance_general():
                       ir_pagar + essalud_pagar + afp_pagar + prestamos)
 
     # ── PATRIMONIO ────────────────────────────────────────────────────────────
-    # Capital: cubre asientos en 501x (5011) Y en 311x (3111) — ambos usados en
-    # distintos momentos del sistema. El script cuadrar_apertura.py normaliza a 5011.
     capital        = saldo_a('501') + saldo_a('311')
-    # Utilidades acumuladas: cubre 351x (PCGE correcto) y 591x (uso histórico)
     utilidades_acc = saldo_a('351') + saldo_a('591')
     perdidas_acc   = saldo_d('592')
-
-    # Resultado del ejercicio: 75xx (spread operativo 7591) + 77xx (FX ajuste)
-    # Consistente con Estado de Resultados y LIG
     ingresos_ac         = saldo_a('75') + saldo_a('77')
     gastos_ac           = saldo_d('6')
     resultado_ejercicio = ingresos_ac - gastos_ac
     total_patrimonio    = capital + utilidades_acc - perdidas_acc + resultado_ejercicio
 
-    # Brecha de cuadre (ACTIVO - PASIVO - PATRIMONIO debe ser ~0.00)
+    # Brecha = diferencia entre activo real (Posición) y lo que registra el diario.
+    # No se oculta: se muestra en el balance para transparencia contable.
     brecha = total_activo - total_pasivo - total_patrimonio
 
     periods = _get_all_periods()
@@ -3224,10 +3253,30 @@ def exportar_excel():
     def saldo_d(prefix): return _saldo_acumulado_hasta(prefix, corte, 'deudora')
     def saldo_a(prefix): return _saldo_acumulado_hasta(prefix, corte, 'acreedora')
 
+    # Bancos desde Posición (misma lógica que balance_general())
+    from app.models.bank_balance import BankBalance as _BB
+    from app.models.bank_balance_history import BankBalanceHistory as _BBH
+    from app.models.exchange_rate import ExchangeRate as _ER
+    _rates = _ER.get_current_rates()
+    _tc    = Decimal(str((_rates['compra'] + _rates['venta']) / 2))
+    _subq = (db.session.query(
+        _BBH.bank_name, func.max(_BBH.snapshot_date).label('max_date'),
+    ).filter(_BBH.snapshot_date <= corte)
+    .group_by(_BBH.bank_name).subquery())
+    _snaps = (db.session.query(_BBH)
+        .join(_subq, db.and_(_BBH.bank_name == _subq.c.bank_name,
+                             _BBH.snapshot_date == _subq.c.max_date)).all())
+    if _snaps:
+        bancos_pen     = sum(Decimal(str(s.balance_pen or 0)) for s in _snaps)
+        _bancos_usd_r  = sum(Decimal(str(s.balance_usd or 0)) for s in _snaps)
+    else:
+        _all = _BB.query.all()
+        bancos_pen    = sum(Decimal(str(b.balance_pen or 0)) for b in _all)
+        _bancos_usd_r = sum(Decimal(str(b.balance_usd or 0)) for b in _all)
+    bancos_usd = _bancos_usd_r * _tc
+
     caja_mn     = saldo_d('1011')
     caja_me     = saldo_d('1012')
-    bancos_pen  = sum(saldo_d(c) for c in ('1041','1048','1049','1051'))
-    bancos_usd  = sum(saldo_d(c) for c in ('1044','1047','1050','1052'))
     ctas_cobrar = saldo_d('121')
     activo_corriente = caja_mn + caja_me + bancos_pen + bancos_usd + ctas_cobrar
 

@@ -210,16 +210,21 @@
         </div>
       </div>
 
-      <!-- Cuadre del balance -->
+      <!-- Conciliación Posición vs Diario -->
       {% if brecha | abs > 0.05 %}
-      <div class="alert alert-warning mt-3 mb-0">
-        <i class="bi bi-exclamation-triangle me-2"></i>
-        <strong>Diferencia de cuadre:</strong> S/ {{ "%.2f"|format(brecha|float) }} — revisar asientos pendientes.
+      <div class="alert alert-info mt-3 mb-0">
+        <i class="bi bi-info-circle me-2"></i>
+        <strong>Diferencia a conciliar: S/ {{ "%.2f"|format(brecha|float) }}</strong><br>
+        <small class="text-muted">
+          Los bancos vienen de Posición (saldo real).
+          El Patrimonio proviene del Libro Diario.
+          La diferencia representa flujos operativos no cuadrados en el diario.
+        </small>
       </div>
       {% else %}
       <div class="alert alert-success mt-3 mb-0">
         <i class="bi bi-check-circle me-2"></i>
-        Balance <strong>cuadrado</strong> — Activo = Pasivo + Patrimonio.
+        Activo real = Pasivo + Patrimonio contable. <strong>Sin diferencia.</strong>
       </div>
       {% endif %}
     </div>
