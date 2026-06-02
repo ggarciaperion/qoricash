@@ -48,6 +48,9 @@ class ExpenseRecord(db.Model):
     supplier_name    = db.Column(db.String(120), nullable=True)
     # URL Cloudinary del comprobante escaneado
     voucher_url      = db.Column(db.Text, nullable=True)
+    # Cuenta bancaria PCGE que absorbe el cargo directamente (ITF, comisiones, etc.)
+    # Ej: '1041' BCP PEN, '1048' Interbank PEN.  Si es None, se genera cuenta por pagar.
+    bank_account_code = db.Column(db.String(10), nullable=True)
     # Asiento generado automáticamente al guardar
     journal_entry_id = db.Column(db.Integer, db.ForeignKey('journal_entries.id'), nullable=True, index=True)
     created_by       = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
@@ -90,5 +93,6 @@ class ExpenseRecord(db.Model):
             'supplier_name': self.supplier_name,
             'supplier_ruc': self.supplier_ruc,
             'voucher_url': self.voucher_url,
+            'bank_account_code': self.bank_account_code,
             'created_at': self.created_at.isoformat() if self.created_at else None,
         }

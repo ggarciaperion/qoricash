@@ -172,7 +172,7 @@
         </div>
         <div class="mb-3">
           <label class="form-label">Categoría PCGE <span class="text-danger">*</span></label>
-          <select id="gCategory" class="form-select">
+          <select id="gCategory" class="form-select" onchange="onBankAccountChange()">
             <optgroup label="Remuneraciones">
               <option value="6211">6211 — Sueldos y salarios</option>
             </optgroup>
@@ -192,10 +192,14 @@
               <option value="3361">3361 — Mobiliario y enseres (escritorios, sillas, estantes)</option>
               <option value="3363">3363 — Equipo de oficina (computadoras, impresoras)</option>
             </optgroup>
+            <optgroup label="Gastos bancarios / tributarios (cargo directo al banco)">
+              <option value="6411">6411 — ITF (Impuesto a las Transacciones Financieras)</option>
+              <option value="6591">6591 — Mantenimiento y comisiones bancarias</option>
+              <option value="6791">6791 — ITF por operaciones (débito/crédito bancario)</option>
+            </optgroup>
             <optgroup label="Otros gastos">
-              <option value="6411">6411 — Gastos notariales / registrales</option>
               <option value="6511">6511 — Seguros</option>
-              <option value="6751">6751 — Gastos bancarios</option>
+              <option value="6762">6762 — Pérdida por diferencia de cambio</option>
             </optgroup>
           </select>
         </div>
@@ -239,6 +243,29 @@
         <div class="mb-3">
           <label class="form-label">Nombre Proveedor</label>
           <input type="text" id="gSupplierName" class="form-control">
+        </div>
+        <!-- Banco que cargó el gasto (ITF, comisión, mantenimiento) -->
+        <div id="bancoCargoDivWrapper" class="mb-3">
+          <label class="form-label fw-semibold">
+            <i class="bi bi-bank me-1 text-primary"></i>Banco que cargó este gasto
+            <span class="text-muted fw-normal small ms-1">(deja vacío si vas a pagar por separado)</span>
+          </label>
+          <select id="gBankAccountCode" class="form-select" onchange="onBankAccountChange()">
+            <option value="">— No aplica / Pagar por separado —</option>
+            <option value="1041">1041 — BCP Cta. Cte. PEN</option>
+            <option value="1044">1044 — BCP Cta. Cte. USD</option>
+            <option value="1048">1048 — Interbank Cta. Cte. PEN</option>
+            <option value="1047">1047 — Interbank Cta. Cte. USD</option>
+            <option value="1049">1049 — BanBif Cta. Cte. PEN</option>
+            <option value="1050">1050 — BanBif Cta. Cte. USD</option>
+            <option value="1011">1011 — Caja Moneda Nacional</option>
+          </select>
+          <div id="bancoCargoBadge" class="mt-1 d-none">
+            <span class="badge bg-info text-dark">
+              <i class="bi bi-lightning-fill me-1"></i>
+              Asiento: DEBE <span id="bcGastoCuenta"></span> / HABER <span id="bcBancoCuenta"></span> — cargo directo
+            </span>
+          </div>
         </div>
         <div id="gastoError" class="alert alert-danger d-none"></div>
       </div>
@@ -357,9 +384,31 @@
 
 {% block scripts %}
 <script>
+const _BANK_LABELS = {
+  '1041': 'BCP PEN', '1044': 'BCP USD',
+  '1048': 'Interbank PEN', '1047': 'Interbank USD',
+  '1049': 'BanBif PEN', '1050': 'BanBif USD',
+  '1011': 'Caja MN',
+};
+
 function nuevoGastoModal() {
   document.getElementById('gastoError').classList.add('d-none');
+  document.getElementById('gBankAccountCode').value = '';
+  document.getElementById('bancoCargoBadge').classList.add('d-none');
   new bootstrap.Modal(document.getElementById('gastoModal')).show();
+}
+
+function onBankAccountChange() {
+  const bank = document.getElementById('gBankAccountCode').value;
+  const cat  = document.getElementById('gCategory').value;
+  const badge = document.getElementById('bancoCargoBadge');
+  if (bank) {
+    document.getElementById('bcGastoCuenta').textContent = cat;
+    document.getElementById('bcBancoCuenta').textContent = _BANK_LABELS[bank] || bank;
+    badge.classList.remove('d-none');
+  } else {
+    badge.classList.add('d-none');
+  }
 }
 
 function onExpenseTypeChange() {
@@ -385,15 +434,16 @@ function guardarGasto() {
   errDiv.classList.add('d-none');
 
   const payload = {
-    expense_date:   document.getElementById('gExpenseDate').value,
-    expense_type:   document.getElementById('gExpenseType').value,
-    category:       document.getElementById('gCategory').value,
-    description:    document.getElementById('gDescription').value.trim(),
-    amount_pen:     document.getElementById('gAmount').value,
-    voucher_type:   document.getElementById('gVoucherType').value,
-    voucher_number: document.getElementById('gVoucherNumber').value.trim(),
-    supplier_ruc:   document.getElementById('gSupplierRuc').value.trim(),
-    supplier_name:  document.getElementById('gSupplierName').value.trim(),
+    expense_date:      document.getElementById('gExpenseDate').value,
+    expense_type:      document.getElementById('gExpenseType').value,
+    category:          document.getElementById('gCategory').value,
+    description:       document.getElementById('gDescription').value.trim(),
+    amount_pen:        document.getElementById('gAmount').value,
+    voucher_type:      document.getElementById('gVoucherType').value,
+    voucher_number:    document.getElementById('gVoucherNumber').value.trim(),
+    supplier_ruc:      document.getElementById('gSupplierRuc').value.trim(),
+    supplier_name:     document.getElementById('gSupplierName').value.trim(),
+    bank_account_code: document.getElementById('gBankAccountCode').value || null,
   };
 
   if (!payload.description || !payload.amount_pen || parseFloat(payload.amount_pen) <= 0) {

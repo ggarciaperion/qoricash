@@ -535,6 +535,8 @@ def nuevo_gasto():
             igv_pen  = (amount_pen / Decimal('1.18') * Decimal('0.18')).quantize(Decimal('0.01'))
             base_pen = amount_pen - igv_pen
 
+        bank_account_code = data.get('bank_account_code') or None
+
         record = ExpenseRecord(
             expense_date=expense_date,
             category=data.get('category', '6391'),
@@ -548,6 +550,7 @@ def nuevo_gasto():
             voucher_number=data.get('voucher_number') or None,
             supplier_ruc=data.get('supplier_ruc') or None,
             supplier_name=data.get('supplier_name') or None,
+            bank_account_code=bank_account_code,
             created_by=current_user.id,
         )
 
@@ -565,7 +568,25 @@ def nuevo_gasto():
         account_code = data.get('category', '6391')
         is_planilla  = expense_type == 'planilla'
 
-        if is_planilla:
+        if bank_account_code:
+            # Cargo directo al banco: ITF, mantenimiento, comisiones bancarias.
+            # DEBE 6xxx (gasto) / HABER 104x (cuenta bancaria que absorbió el cargo)
+            _bank_labels = {
+                '1011': 'Caja MN', '1012': 'Caja ME',
+                '1041': 'BCP PEN', '1044': 'BCP USD',
+                '1047': 'Interbank USD', '1048': 'Interbank PEN',
+                '1049': 'BanBif PEN', '1050': 'BanBif USD',
+            }
+            bank_label = _bank_labels.get(bank_account_code, bank_account_code)
+            lines = [
+                {'account_code': account_code,
+                 'description':  record.description,
+                 'debe': amount_pen, 'haber': Decimal('0'), 'currency': 'PEN'},
+                {'account_code': bank_account_code,
+                 'description':  f'Cargo banco {bank_label}: {record.description}',
+                 'debe': Decimal('0'), 'haber': amount_pen, 'currency': 'PEN'},
+            ]
+        elif is_planilla:
             # Planilla: cargo a remuneraciones, por pagar a 4111
             lines = [
                 {'account_code': account_code, 'description': record.description,
@@ -573,7 +594,7 @@ def nuevo_gasto():
                 {'account_code': '4111', 'description': f'Por pagar planilla: {record.description}',
                  'debe': Decimal('0'), 'haber': amount_pen, 'currency': 'PEN'},
             ]
-        elif voucher_type == 'factura' and credito_fiscal and igv_pen:
+        elif voucher_type and voucher_type.lower() == 'factura' and credito_fiscal and igv_pen:
             # Factura con crédito fiscal: separar IGV en 4011
             lines = [
                 {'account_code': account_code, 'description': record.description,
@@ -583,7 +604,7 @@ def nuevo_gasto():
                 {'account_code': '4211', 'description': f'Factura por pagar: {record.description}',
                  'debe': Decimal('0'), 'haber': amount_pen, 'currency': 'PEN'},
             ]
-        elif voucher_type == 'factura':
+        elif voucher_type and voucher_type.lower() == 'factura':
             # Factura SIN crédito fiscal: IGV es costo (cargo total a la cuenta de gasto)
             lines = [
                 {'account_code': account_code, 'description': record.description,
