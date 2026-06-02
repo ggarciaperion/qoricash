@@ -25,10 +25,7 @@ with app.app_context():
     from app.models.journal_entry_line import JournalEntryLine
 
     year = int(sys.argv[1]) if len(sys.argv) > 1 else date.today().year
-    _, last_day = calendar.monthrange(year, 12)
-    corte = date(year, last_day, 1)   # 1-dic del año para año completo
 
-    # Usamos último día del año en curso como corte si estamos dentro del año
     if date.today().year == year:
         corte = date.today()
     else:
