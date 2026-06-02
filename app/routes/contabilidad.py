@@ -2325,6 +2325,11 @@ def export_mayor():
 @login_required
 @require_role('Master')
 def balance():
+    """
+    Balance de Comprobación (Trial Balance).
+    Muestra: saldo inicial | movimientos del período | saldo final acumulado.
+    Solo incluye cuentas con movimientos en el período seleccionado.
+    """
     from app.models.journal_entry import JournalEntry
     from app.models.journal_entry_line import JournalEntryLine
     from app.models.accounting_account import AccountingAccount
@@ -2333,7 +2338,9 @@ def balance():
     year  = request.args.get('year',  type=int, default=date.today().year)
     month = request.args.get('month', type=int, default=date.today().month)
 
-    # Totales acumulados por cuenta en el período
+    first_day = date(year, month, 1)
+
+    # Cuentas con movimientos en el período
     rows = db.session.query(
         JournalEntryLine.account_code,
         func.sum(JournalEntryLine.debe).label('total_debe'),
@@ -2350,45 +2357,75 @@ def balance():
         JournalEntryLine.account_code
     ).all()
 
-    # Catálogo para nombres y tipo
     catalog = _get_accounts_catalog()
-
     accounts = []
-    grand_debe = Decimal('0')
-    grand_haber = Decimal('0')
+    grand_debe = grand_haber = Decimal('0')
+    grand_sd_ini = grand_sa_ini = Decimal('0')
+    grand_sd_fin = grand_sa_fin = Decimal('0')
 
     for r in rows:
         code = r.account_code
         acc  = catalog.get(code)
         td   = Decimal(str(r.total_debe  or 0))
         th   = Decimal(str(r.total_haber or 0))
-        # Saldo según naturaleza de la cuenta
+
+        # Saldo anterior acumulado (antes del período)
+        prev = db.session.query(
+            func.sum(JournalEntryLine.debe).label('d'),
+            func.sum(JournalEntryLine.haber).label('h'),
+        ).join(JournalEntry, JournalEntryLine.journal_entry_id == JournalEntry.id
+        ).filter(
+            JournalEntryLine.account_code == code,
+            JournalEntry.entry_date < first_day,
+            JournalEntry.status == 'activo',
+        ).first()
+        ant_d = Decimal(str(prev.d or 0))
+        ant_h = Decimal(str(prev.h or 0))
+        saldo_ant = ant_d - ant_h  # puede ser negativo para cuentas acreedoras
+
         if acc:
-            if acc.nature == 'deudora':
-                saldo_deudor  = max(td - th, Decimal('0'))
-                saldo_acreedor = max(th - td, Decimal('0'))
-            else:
-                saldo_acreedor = max(th - td, Decimal('0'))
-                saldo_deudor   = max(td - th, Decimal('0'))
-            acc_type = acc.type
-            acc_name = acc.name
+            acc_type   = acc.type
+            acc_name   = acc.name
+            is_deudora = acc.nature == 'deudora'
         else:
-            saldo_deudor   = max(td - th, Decimal('0'))
-            saldo_acreedor = max(th - td, Decimal('0'))
-            acc_type = _infer_type(code)
-            acc_name = '(sin descripción)'
+            acc_type   = _infer_type(code)
+            acc_name   = '(sin descripción)'
+            is_deudora = not code.startswith(('4', '5', '7'))
+
+        # Saldo inicial (antes del período)
+        if is_deudora:
+            sd_ini = max(saldo_ant, Decimal('0'))
+            sa_ini = max(-saldo_ant, Decimal('0'))
+        else:
+            sa_ini = max(-saldo_ant, Decimal('0'))
+            sd_ini = max(saldo_ant, Decimal('0'))
+
+        # Saldo final acumulado (incluye período)
+        saldo_final = saldo_ant + td - th
+        if is_deudora:
+            sd_fin = max(saldo_final, Decimal('0'))
+            sa_fin = max(-saldo_final, Decimal('0'))
+        else:
+            sa_fin = max(-saldo_final, Decimal('0'))
+            sd_fin = max(saldo_final, Decimal('0'))
 
         accounts.append({
-            'code':            code,
-            'name':            acc_name,
-            'type':            acc_type,
-            'total_debe':      td,
-            'total_haber':     th,
-            'saldo_deudor':    saldo_deudor,
-            'saldo_acreedor':  saldo_acreedor,
+            'code':          code,
+            'name':          acc_name,
+            'type':          acc_type,
+            'sd_ini':        sd_ini,
+            'sa_ini':        sa_ini,
+            'total_debe':    td,
+            'total_haber':   th,
+            'saldo_deudor':  sd_fin,
+            'saldo_acreedor': sa_fin,
         })
-        grand_debe  += td
-        grand_haber += th
+        grand_debe   += td
+        grand_haber  += th
+        grand_sd_ini += sd_ini
+        grand_sa_ini += sa_ini
+        grand_sd_fin += sd_fin
+        grand_sa_fin += sa_fin
 
     periods = _get_all_periods()
 
@@ -2397,8 +2434,10 @@ def balance():
         accounts=accounts,
         grand_debe=grand_debe,
         grand_haber=grand_haber,
-        grand_saldo_deudor=sum(a['saldo_deudor'] for a in accounts),
-        grand_saldo_acreedor=sum(a['saldo_acreedor'] for a in accounts),
+        grand_saldo_deudor=grand_sd_fin,
+        grand_saldo_acreedor=grand_sa_fin,
+        grand_sd_ini=grand_sd_ini,
+        grand_sa_ini=grand_sa_ini,
         periods=periods,
         selected_year=year,
         selected_month=month,
@@ -2417,6 +2456,8 @@ def export_balance():
 
     year  = request.args.get('year',  type=int, default=date.today().year)
     month = request.args.get('month', type=int, default=date.today().month)
+
+    first_day = date(year, month, 1)
 
     rows = db.session.query(
         JournalEntryLine.account_code,
@@ -2437,21 +2478,25 @@ def export_balance():
     ws.title = 'Balance Comprobación'
 
     co = _company_info()
-    # Encabezado SUNAT (M-03)
-    ws.merge_cells('A1:G1')
+    ws.merge_cells('A1:I1')
     ws['A1'] = co['razon_social']
     ws['A1'].font = Font(bold=True, size=12)
     ws['A1'].alignment = Alignment(horizontal='center')
-    ws.merge_cells('A2:G2')
+    ws.merge_cells('A2:I2')
     ws['A2'] = f'RUC: {co["ruc"]}'
     ws['A2'].alignment = Alignment(horizontal='center')
-    ws.merge_cells('A3:G3')
+    ws.merge_cells('A3:I3')
     ws['A3'] = f'BALANCE DE COMPROBACIÓN — {_month_name(month)} {year}'
     ws['A3'].font = Font(bold=True)
     ws['A3'].alignment = Alignment(horizontal='center')
 
     header_fill = PatternFill(start_color='1B3A6B', end_color='1B3A6B', fill_type='solid')
-    headers = ['Código', 'Cuenta', 'Tipo', 'DEBE (S/)', 'HABER (S/)', 'Saldo Deudor', 'Saldo Acreedor']
+    headers = [
+        'Código', 'Cuenta', 'Tipo',
+        'Saldo Ant. Deudor', 'Saldo Ant. Acreedor',
+        'DEBE (S/)', 'HABER (S/)',
+        'Saldo Final Deudor', 'Saldo Final Acreedor',
+    ]
     for col, h in enumerate(headers, 1):
         c = ws.cell(row=5, column=col, value=h)
         c.fill = header_fill
@@ -2464,21 +2509,36 @@ def export_balance():
         acc  = catalog.get(code)
         td   = float(r.total_debe  or 0)
         th   = float(r.total_haber or 0)
-        if acc and acc.nature == 'deudora':
-            sd, sa = max(td - th, 0), max(th - td, 0)
-        else:
-            sa, sd = max(th - td, 0), max(td - th, 0)
+
+        prev = db.session.query(
+            func.sum(JournalEntryLine.debe).label('d'),
+            func.sum(JournalEntryLine.haber).label('h'),
+        ).join(JournalEntry, JournalEntryLine.journal_entry_id == JournalEntry.id
+        ).filter(
+            JournalEntryLine.account_code == code,
+            JournalEntry.entry_date < first_day,
+            JournalEntry.status == 'activo',
+        ).first()
+        ant = float(prev.d or 0) - float(prev.h or 0)
+        is_deudora = (acc.nature == 'deudora') if acc else not code.startswith(('4', '5', '7'))
+        sd_ini = max(ant, 0) if is_deudora else max(ant, 0)
+        sa_ini = max(-ant, 0)
+        fin = ant + td - th
+        sd_fin = max(fin, 0) if is_deudora else max(fin, 0)
+        sa_fin = max(-fin, 0)
 
         ws.cell(row=row, column=1, value=code)
         ws.cell(row=row, column=2, value=acc.name if acc else '(sin descripción)')
         ws.cell(row=row, column=3, value=acc.type if acc else _infer_type(code))
-        ws.cell(row=row, column=4, value=td)
-        ws.cell(row=row, column=5, value=th)
-        ws.cell(row=row, column=6, value=sd)
-        ws.cell(row=row, column=7, value=sa)
+        ws.cell(row=row, column=4, value=sd_ini)
+        ws.cell(row=row, column=5, value=sa_ini)
+        ws.cell(row=row, column=6, value=td)
+        ws.cell(row=row, column=7, value=th)
+        ws.cell(row=row, column=8, value=sd_fin)
+        ws.cell(row=row, column=9, value=sa_fin)
         row += 1
 
-    for i, w in enumerate([10, 42, 12, 14, 14, 14, 14], 1):
+    for i, w in enumerate([10, 40, 12, 14, 14, 14, 14, 14, 14], 1):
         ws.column_dimensions[openpyxl.utils.get_column_letter(i)].width = w
 
     output = BytesIO()
@@ -2757,8 +2817,11 @@ def balance_general():
     """
     Balance General (Estado de Situación Financiera) a una fecha de corte.
     Presenta saldos acumulados (no solo del mes) en formato ACTIVO / PASIVO / PATRIMONIO.
+    Banco y caja: usa snapshots de Posición para exactitud (igual que Libro Caja).
     """
     from app.models.fixed_asset import FixedAsset
+    from app.models.bank_balance import BankBalance
+    from app.models.bank_balance_history import BankBalanceHistory
     import calendar
 
     year  = request.args.get('year',  type=int, default=date.today().year)
@@ -2769,12 +2832,48 @@ def balance_general():
     def saldo_d(prefix): return _saldo_acumulado_hasta(prefix, corte, 'deudora')
     def saldo_a(prefix): return _saldo_acumulado_hasta(prefix, corte, 'acreedora')
 
+    def _banco_real(bank_key, currency):
+        """Saldo real del banco desde snapshot histórico; fallback a BankBalance actual."""
+        try:
+            snap = (BankBalanceHistory.query
+                    .filter(
+                        BankBalanceHistory.bank_name.ilike(f'%{bank_key}%{currency}%'),
+                        BankBalanceHistory.snapshot_date <= corte,
+                    )
+                    .order_by(BankBalanceHistory.snapshot_date.desc())
+                    .first())
+            if snap:
+                raw = snap.balance_usd if currency == 'USD' else snap.balance_pen
+                return Decimal(str(raw or 0))
+            # Fallback: BankBalance actual
+            bb = BankBalance.query.filter(
+                BankBalance.bank_name.ilike(f'%{bank_key}%{currency}%')
+            ).first()
+            if bb:
+                raw = bb.balance_usd if currency == 'USD' else bb.balance_pen
+                return Decimal(str(raw or 0))
+        except Exception:
+            pass
+        return Decimal('0')
+
     # ── ACTIVO ────────────────────────────────────────────────────────────────
-    caja_mn     = saldo_d('1011')
-    caja_me     = saldo_d('1012')
-    bancos_pen  = sum(saldo_d(c) for c in ('1041','1048','1049','1051'))
-    bancos_usd  = sum(saldo_d(c) for c in ('1044','1047','1050','1052'))
-    ctas_cobrar = saldo_d('121')
+    # Caja (efectivo físico — sigue siendo desde asientos)
+    caja_mn = saldo_d('1011')
+    caja_me = saldo_d('1012')
+
+    # Bancos: usar saldos reales de Posición (coherente con Libro Caja y Bancos)
+    bancos_pen = (
+        _banco_real('BCP',       'PEN') +
+        _banco_real('INTERBANK', 'PEN') +
+        _banco_real('BANBIF',    'PEN')
+    )
+    bancos_usd = (
+        _banco_real('BCP',       'USD') +
+        _banco_real('INTERBANK', 'USD') +
+        _banco_real('BANBIF',    'USD')
+    )
+
+    ctas_cobrar      = saldo_d('121')
     activo_corriente = caja_mn + caja_me + bancos_pen + bancos_usd + ctas_cobrar
 
     # Activos fijos netos (cost - deprec. acum.)
@@ -2782,32 +2881,34 @@ def balance_general():
     fixed_assets  = FixedAsset.query.filter_by(status='activo').all()
     for fa in fixed_assets:
         activos_netos += fa.net_book_value
-    # Fallback desde asientos si no hay fixed_assets registrados
     if not fixed_assets:
-        costo_af     = sum(saldo_d(c) for c in ('3321','3351','3361','3362'))
-        deprec_acum  = sum(saldo_a(c) for c in ('3921','3951','3961','3962'))
+        costo_af    = sum(saldo_d(c) for c in ('3321', '3351', '3361', '3362'))
+        deprec_acum = sum(saldo_a(c) for c in ('3921', '3951', '3961', '3962'))
         activos_netos = costo_af - deprec_acum
 
     total_activo = activo_corriente + activos_netos
 
     # ── PASIVO ────────────────────────────────────────────────────────────────
-    facturas_pagar  = saldo_a('4211')
-    otras_ctas_pag  = saldo_a('4699')
-    sueldos_pagar   = saldo_a('4111')
-    ir_pagar        = saldo_a('4017')
-    essalud_pagar   = saldo_a('4031')
-    afp_pagar       = saldo_a('4032')
-    total_pasivo    = facturas_pagar + otras_ctas_pag + sueldos_pagar + ir_pagar + essalud_pagar + afp_pagar
+    facturas_pagar = saldo_a('4211')
+    otras_ctas_pag = saldo_a('4699')
+    sueldos_pagar  = saldo_a('4111')
+    ir_pagar       = saldo_a('4017')
+    essalud_pagar  = saldo_a('4031')
+    afp_pagar      = saldo_a('4032')
+    total_pasivo   = (facturas_pagar + otras_ctas_pag + sueldos_pagar +
+                      ir_pagar + essalud_pagar + afp_pagar)
 
     # ── PATRIMONIO ────────────────────────────────────────────────────────────
-    capital         = saldo_a('501')
-    utilidades_acc  = saldo_a('591')
-    perdidas_acc    = saldo_d('592')
-    # Resultado del ejercicio acumulado (ingresos - gastos hasta la fecha)
-    ingresos_ac = saldo_a('77')
-    gastos_ac   = saldo_d('6')
+    capital        = saldo_a('501')
+    utilidades_acc = saldo_a('591')
+    perdidas_acc   = saldo_d('592')
+
+    # Resultado del ejercicio: ingresos 7xxx (FX ajuste) + 75xx (spread operativo)
+    # Consistente con Estado de Resultados y LIG
+    ingresos_ac         = saldo_a('77') + saldo_a('75')
+    gastos_ac           = saldo_d('6')
     resultado_ejercicio = ingresos_ac - gastos_ac
-    total_patrimonio = capital + utilidades_acc - perdidas_acc + resultado_ejercicio
+    total_patrimonio    = capital + utilidades_acc - perdidas_acc + resultado_ejercicio
 
     periods = _get_all_periods()
 

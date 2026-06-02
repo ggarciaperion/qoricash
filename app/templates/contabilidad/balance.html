@@ -89,12 +89,19 @@
         <table class="table table-hover table-sm mb-0 align-middle">
           <thead class="table-light">
             <tr>
-              <th>Código</th>
-              <th>Cuenta</th>
-              <th class="text-end">DEBE (S/)</th>
-              <th class="text-end">HABER (S/)</th>
-              <th class="text-end">Saldo Deudor</th>
-              <th class="text-end">Saldo Acreedor</th>
+              <th rowspan="2">Código</th>
+              <th rowspan="2">Cuenta</th>
+              <th colspan="2" class="text-center border-start text-muted small">Saldo Anterior</th>
+              <th colspan="2" class="text-center border-start text-muted small">Movimientos del Período</th>
+              <th colspan="2" class="text-center border-start text-muted small fw-bold">Saldo Final Acumulado</th>
+            </tr>
+            <tr class="small text-muted">
+              <th class="text-end border-start">Deudor</th>
+              <th class="text-end">Acreedor</th>
+              <th class="text-end border-start">DEBE</th>
+              <th class="text-end">HABER</th>
+              <th class="text-end border-start fw-semibold text-dark">Deudor</th>
+              <th class="text-end fw-semibold text-dark">Acreedor</th>
             </tr>
           </thead>
           <tbody>
@@ -102,27 +109,31 @@
             <tr>
               <td><code>{{ a.code }}</code></td>
               <td>{{ a.name }}</td>
-              <td class="text-end">{{ "%.2f"|format(a.total_debe|float) }}</td>
-              <td class="text-end">{{ "%.2f"|format(a.total_haber|float) }}</td>
-              <td class="text-end">
-                {% if a.saldo_deudor > 0 %}
-                  <span class="fw-semibold">{{ "%.2f"|format(a.saldo_deudor|float) }}</span>
-                {% endif %}
+              <td class="text-end border-start text-muted small">
+                {% if a.sd_ini > 0 %}{{ "%.2f"|format(a.sd_ini|float) }}{% endif %}
               </td>
-              <td class="text-end">
-                {% if a.saldo_acreedor > 0 %}
-                  <span class="fw-semibold">{{ "%.2f"|format(a.saldo_acreedor|float) }}</span>
-                {% endif %}
+              <td class="text-end text-muted small">
+                {% if a.sa_ini > 0 %}{{ "%.2f"|format(a.sa_ini|float) }}{% endif %}
+              </td>
+              <td class="text-end border-start">{{ "%.2f"|format(a.total_debe|float) }}</td>
+              <td class="text-end">{{ "%.2f"|format(a.total_haber|float) }}</td>
+              <td class="text-end border-start fw-semibold">
+                {% if a.saldo_deudor > 0 %}{{ "%.2f"|format(a.saldo_deudor|float) }}{% endif %}
+              </td>
+              <td class="text-end fw-semibold">
+                {% if a.saldo_acreedor > 0 %}{{ "%.2f"|format(a.saldo_acreedor|float) }}{% endif %}
               </td>
             </tr>
             {% endfor %}
           </tbody>
-          <tfoot class="table-secondary fw-bold">
+          <tfoot class="table-secondary fw-bold small">
             <tr>
               <td colspan="2" class="text-end">Subtotal {{ label }}</td>
-              <td class="text-end">{{ "%.2f"|format(tipo_accounts|sum(attribute='total_debe')|float) }}</td>
+              <td class="text-end border-start">{{ "%.2f"|format(tipo_accounts|sum(attribute='sd_ini')|float) }}</td>
+              <td class="text-end">{{ "%.2f"|format(tipo_accounts|sum(attribute='sa_ini')|float) }}</td>
+              <td class="text-end border-start">{{ "%.2f"|format(tipo_accounts|sum(attribute='total_debe')|float) }}</td>
               <td class="text-end">{{ "%.2f"|format(tipo_accounts|sum(attribute='total_haber')|float) }}</td>
-              <td class="text-end">{{ "%.2f"|format(tipo_accounts|sum(attribute='saldo_deudor')|float) }}</td>
+              <td class="text-end border-start">{{ "%.2f"|format(tipo_accounts|sum(attribute='saldo_deudor')|float) }}</td>
               <td class="text-end">{{ "%.2f"|format(tipo_accounts|sum(attribute='saldo_acreedor')|float) }}</td>
             </tr>
           </tfoot>
@@ -140,11 +151,13 @@
       <table class="table table-sm mb-0 fw-bold">
         <tfoot>
           <tr class="table-dark">
-            <td class="text-end">TOTAL GENERAL</td>
-            <td class="text-end" style="width:130px;">{{ "%.2f"|format(grand_debe|float) }}</td>
-            <td class="text-end" style="width:130px;">{{ "%.2f"|format(grand_haber|float) }}</td>
-            <td class="text-end" style="width:130px;">{{ "%.2f"|format(grand_saldo_deudor|float) }}</td>
-            <td class="text-end" style="width:130px;">{{ "%.2f"|format(grand_saldo_acreedor|float) }}</td>
+            <td colspan="2" class="text-end">TOTAL GENERAL</td>
+            <td class="text-end" style="width:110px;">{{ "%.2f"|format(grand_sd_ini|float) }}</td>
+            <td class="text-end" style="width:110px;">{{ "%.2f"|format(grand_sa_ini|float) }}</td>
+            <td class="text-end" style="width:110px;">{{ "%.2f"|format(grand_debe|float) }}</td>
+            <td class="text-end" style="width:110px;">{{ "%.2f"|format(grand_haber|float) }}</td>
+            <td class="text-end" style="width:110px;">{{ "%.2f"|format(grand_saldo_deudor|float) }}</td>
+            <td class="text-end" style="width:110px;">{{ "%.2f"|format(grand_saldo_acreedor|float) }}</td>
           </tr>
         </tfoot>
       </table>
