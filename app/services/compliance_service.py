@@ -531,11 +531,8 @@ class ComplianceService:
         missing_documents = []
 
         if client.document_type == 'RUC':
-            # Validar documentos para RUC
-            if not client.dni_representante_front_url:
-                missing_documents.append('DNI Representante Legal (Frontal)')
-            if not client.dni_representante_back_url:
-                missing_documents.append('DNI Representante Legal (Reverso)')
+            # Persona jurídica: solo Ficha RUC es obligatoria.
+            # DNI del representante legal es opcional (puede agregarse después).
             if not client.ficha_ruc_url:
                 missing_documents.append('Ficha RUC')
         else:
