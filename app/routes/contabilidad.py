@@ -2831,13 +2831,36 @@ def balance_general():
     from sqlalchemy import func
     import calendar
 
+    from sqlalchemy import extract as _extract
     year  = request.args.get('year',  type=int, default=date.today().year)
     month = request.args.get('month', type=int, default=date.today().month)
     _, last_day = calendar.monthrange(year, month)
-    corte = date(year, month, last_day)
+    # Si es el mes/año actual, mostrar hasta hoy (no hasta el último día del mes)
+    end_of_month = date(year, month, last_day)
+    corte = min(end_of_month, date.today())
 
     def saldo_d(prefix): return _saldo_acumulado_hasta(prefix, corte, 'deudora')
     def saldo_a(prefix): return _saldo_acumulado_hasta(prefix, corte, 'acreedora')
+
+    # Helper filtrado por año — para P&L (6xxx, 7xxx) que no deben acumular entre años
+    def _saldo_año(prefix, side):
+        from app.models.journal_entry_line import JournalEntryLine as _JEL
+        from app.models.journal_entry import JournalEntry as _JE
+        row = db.session.query(
+            func.coalesce(func.sum(_JEL.debe),  0).label('d'),
+            func.coalesce(func.sum(_JEL.haber), 0).label('h'),
+        ).join(_JE, _JEL.journal_entry_id == _JE.id).filter(
+            _JEL.account_code.like(f'{prefix}%'),
+            _extract('year', _JE.entry_date) == year,
+            _JE.entry_date <= corte,
+            _JE.status == 'activo',
+        ).one()
+        d = Decimal(str(row.d or 0))
+        h = Decimal(str(row.h or 0))
+        return max(d - h, Decimal('0')) if side == 'deudora' else max(h - d, Decimal('0'))
+
+    def saldo_d_año(prefix): return _saldo_año(prefix, 'deudora')
+    def saldo_a_año(prefix): return _saldo_año(prefix, 'acreedora')
 
     # ── TC para conversión USD → PEN ──────────────────────────────────────────
     rates = ExchangeRate.get_current_rates()
@@ -2902,13 +2925,12 @@ def balance_general():
     capital        = saldo_a('501') + saldo_a('311')
     utilidades_acc = saldo_a('351') + saldo_a('591')
     perdidas_acc   = saldo_d('592')
-    ingresos_ac         = saldo_a('75') + saldo_a('77')
-    gastos_ac           = saldo_d('6')
+    # Resultado: solo el año seleccionado (no acumula entre ejercicios)
+    ingresos_ac         = saldo_a_año('75') + saldo_a_año('77')
+    gastos_ac           = saldo_d_año('6')
     resultado_ejercicio = ingresos_ac - gastos_ac
     total_patrimonio    = capital + utilidades_acc - perdidas_acc + resultado_ejercicio
 
-    # Brecha = diferencia entre activo real (Posición) y lo que registra el diario.
-    # No se oculta: se muestra en el balance para transparencia contable.
     brecha = total_activo - total_pasivo - total_patrimonio
 
     periods = _get_all_periods()
@@ -2918,6 +2940,8 @@ def balance_general():
         corte=corte,
         caja_mn=caja_mn, caja_me=caja_me,
         bancos_pen=bancos_pen, bancos_usd=bancos_usd,
+        bancos_usd_raw=bancos_usd_raw,
+        tc=tc,
         ctas_cobrar=ctas_cobrar,
         activo_corriente=activo_corriente,
         activos_netos=activos_netos,

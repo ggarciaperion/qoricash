@@ -68,7 +68,10 @@
                 <td class="text-end pe-3">{{ "%.2f"|format(bancos_pen|float) }}</td>
               </tr>
               <tr>
-                <td class="ps-4">104x/105x · Bancos USD</td>
+                <td class="ps-4">
+                  104x/105x · Bancos USD
+                  <small class="text-muted ms-1">($ {{ "%.2f"|format(bancos_usd_raw|float) }} × {{ "%.4f"|format(tc|float) }})</small>
+                </td>
                 <td class="text-end pe-3">{{ "%.2f"|format(bancos_usd|float) }}</td>
               </tr>
               <tr>
