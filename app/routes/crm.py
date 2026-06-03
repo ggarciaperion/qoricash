@@ -20,6 +20,7 @@ WA_PHONE_ID       = os.environ.get('WA_PHONE_NUMBER_ID', '1197587863432080')
 WA_TEMPLATE_NAME  = os.environ.get('WA_TEMPLATE_NAME',   'qoricash_precios_ok')
 WA_HEADER_IMAGE   = os.environ.get('WA_HEADER_IMAGE',    'https://www.qoricash.pe/banerwsp.png')
 WA_API_URL        = f'https://graph.facebook.com/v19.0/{WA_PHONE_ID}/messages'
+CRM_API_KEY       = os.environ.get('CRM_API_KEY',        'qoricash_crm_2026')
 
 
 # ── PANEL PRINCIPAL ───────────────────────────────────────────────
@@ -59,16 +60,42 @@ def api_conversaciones():
             .all()
         )
         no_leidos_map = {r[0]: r[1] for r in no_leidos}
+
+        # Números que tienen al menos 1 mensaje entrante (respondieron)
+        respondio_set = {
+            r[0] for r in
+            db.session.query(WaMessage.numero)
+            .filter(WaMessage.direccion == 'entrante')
+            .distinct()
+            .all()
+        }
+        # Números que solo tienen mensajes salientes (contactado, sin respuesta)
+        saliente_set = {
+            r[0] for r in
+            db.session.query(WaMessage.numero)
+            .filter(WaMessage.direccion == 'saliente')
+            .distinct()
+            .all()
+        }
+
         result = []
         for m in rows:
+            num = m.numero
+            if num in respondio_set:
+                estado = 'respondio'
+            elif num in saliente_set:
+                estado = 'contactado'
+            else:
+                estado = 'nuevo'
             result.append({
-                'numero':    m.numero,
-                'nombre':    m.nombre or m.numero,
+                'numero':    num,
+                'nombre':    m.nombre or num,
                 'empresa':   m.empresa,
                 'ultimo':    m.mensaje[:60] + ('...' if len(m.mensaje) > 60 else ''),
                 'hora':      m.created_at.strftime('%H:%M') if m.created_at else '',
                 'direccion': m.direccion,
-                'no_leidos': no_leidos_map.get(m.numero, 0),
+                'no_leidos': no_leidos_map.get(num, 0),
+                'estado':    estado,
             })
         return jsonify(result)
     except Exception as e:
@@ -135,6 +162,42 @@ def api_enviar():
     else:
         log.error(f'[CRM] Error enviando a {destino}: {resp.text}')
         return jsonify({'ok': False, 'error': resp.json().get('error', {}).get('message', 'Error API')}), 400
+
+
+# ── API — registro desde campana externa (script local) ──────────
+@crm_bp.route('/api/registro-campana', methods=['POST'])
+@csrf.exempt
+def api_registro_campana():
+    """Recibe los mensajes enviados por campana_wa_lfc.py y los guarda como salientes."""
+    api_key = request.headers.get('X-API-Key', '')
+    if api_key != CRM_API_KEY:
+        return jsonify({'ok': False, 'error': 'Unauthorized'}), 401
+
+    data    = request.get_json(silent=True) or {}
+    numero  = data.get('numero', '').strip()
+    nombre  = data.get('nombre', '').strip()
+    empresa = data.get('empresa', '').strip()
+    mensaje = data.get('mensaje', '').strip()
+
+    if not numero or not mensaje:
+        return jsonify({'ok': False, 'error': 'Faltan datos'}), 400
+
+    # Actualizar nombre/empresa en mensajes previos si estaban vacíos
+    if nombre or empresa:
+        WaMessage.query.filter_by(numero=numero, nombre='').update({'nombre': nombre})
+        WaMessage.query.filter_by(numero=numero, empresa='').update({'empresa': empresa})
+
+    db.session.add(WaMessage(
+        numero    = numero,
+        nombre    = nombre,
+        empresa   = empresa,
+        mensaje   = mensaje,
+        direccion = 'saliente',
+        leido     = True,
+    ))
+    db.session.commit()
+    log.info(f'[CRM Campaña] Registrado envío → {numero} ({nombre})')
+    return jsonify({'ok': True})
 
 
 # ── WEBHOOK — verificación (GET) ─────────────────────────────────

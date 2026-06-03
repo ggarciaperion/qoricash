@@ -100,6 +100,17 @@
     margin-top: 2px;
     display: inline-block;
   }
+  .crm-estado {
+    font-size: 0.62rem;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: 10px;
+    margin-top: 2px;
+    display: inline-block;
+  }
+  .crm-estado.respondio  { background: #dcfce7; color: #16a34a; }
+  .crm-estado.contactado { background: #fef9c3; color: #a16207; }
+  .crm-estado.nuevo      { background: #f1f5f9; color: #64748b; }
 
   /* ── Chat area ── */
   .crm-chat {
@@ -341,7 +352,10 @@ function renderConvs(convs) {
       </div>
       <div class="crm-conv-meta">
         <div class="crm-conv-time">${c.hora}</div>
-        ${c.no_leidos > 0 ? `<span class="crm-badge">${c.no_leidos}</span>` : ''}
+        ${c.no_leidos > 0
+          ? `<span class="crm-badge">${c.no_leidos}</span>`
+          : `<span class="crm-estado ${c.estado}">${estadoLabel(c.estado)}</span>`
+        }
       </div>
     </div>`).join('');
 }
@@ -428,6 +442,10 @@ function startPolling() {
 document.getElementById('searchInput').addEventListener('input', () => renderConvs(allConvs));
 
 // ── Helpers ────────────────────────────────────────────────────────
+function estadoLabel(e) {
+  return e === 'respondio' ? 'Respondió' : e === 'contactado' ? 'Contactado' : 'Nuevo';
+}
+
 function escHtml(str) {
   return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
