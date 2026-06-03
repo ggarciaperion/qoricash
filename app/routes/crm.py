@@ -390,7 +390,12 @@ def api_import_prospectos():
     action = data.get('action', 'insert')
 
     if action == 'truncate':
-        Prospecto.query.delete()
+        from app.models.prospecto import AsignacionProspecto, ActividadProspecto, ProspectoEmail
+        from sqlalchemy import text
+        db.session.execute(text("DELETE FROM actividades_prospecto"))
+        db.session.execute(text("DELETE FROM asignaciones_prospecto"))
+        db.session.execute(text("DELETE FROM prospecto_emails"))
+        db.session.execute(text("DELETE FROM prospectos"))
         db.session.commit()
         return jsonify({'ok': True, 'msg': 'Tabla limpiada'})
 
