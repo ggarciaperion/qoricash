@@ -4,7 +4,7 @@ Webhook + Panel de conversaciones para Master
 """
 import os, json, logging, requests as http_req
 from datetime import datetime
-from flask import Blueprint, render_template, request, jsonify
+from flask import Blueprint, render_template, request, jsonify, abort
 from flask_login import login_required
 from app.extensions import db, csrf
 from app.models.wa_message import WaMessage
@@ -208,3 +208,88 @@ def webhook_receive():
         log.error(f'[CRM Webhook] Error: {e}')
 
     return jsonify({'status': 'ok'})
+
+
+# ── IMPORT desde Google Sheets (uso único) ────────────────────────
+@crm_bp.route('/import-sheets')
+@login_required
+@require_role('Master')
+def import_sheets():
+    """Lee WA_Respuestas del Sheets master e importa a la BD. Idempotente por wa_id."""
+    try:
+        import gspread
+        from google.oauth2.credentials import Credentials as GCreds
+        from google.auth.transport.requests import Request as GRequest
+
+        SCOPES = [
+            'https://www.googleapis.com/auth/spreadsheets',
+            'https://www.googleapis.com/auth/drive.file',
+        ]
+        SHEETS_ID = os.environ.get('WA_SHEETS_ID', '1JERPeGFzZPkgB9of22gFGf6_ckJjAOnnR0bxDA55c-A')
+
+        creds_data = {
+            'client_id':     os.environ.get('GOOGLE_CLIENT_ID', ''),
+            'client_secret': os.environ.get('GOOGLE_CLIENT_SECRET', ''),
+            'refresh_token': os.environ.get('GOOGLE_REFRESH_TOKEN', ''),
+            'token_uri':     'https://oauth2.googleapis.com/token',
+        }
+        creds = GCreds.from_authorized_user_info(creds_data, SCOPES)
+        if creds.expired and creds.refresh_token:
+            creds.refresh(GRequest())
+
+        gc = gspread.Client(auth=creds)
+        sh = gc.open_by_key(SHEETS_ID)
+        ws = sh.worksheet('WA_Respuestas')
+        filas = ws.get_all_values()
+
+        if len(filas) <= 1:
+            return jsonify({'ok': True, 'importados': 0, 'msg': 'Hoja vacía'})
+
+        headers = [h.strip() for h in filas[0]]
+        idx = {h: i for i, h in enumerate(headers)}
+
+        importados = omitidos = 0
+        for row in filas[1:]:
+            def g(col): return row[idx[col]].strip() if col in idx and idx[col] < len(row) else ''
+
+            wa_id   = g('WA_ID')
+            numero  = g('NÚMERO')
+            nombre  = g('NOMBRE')
+            empresa = g('EMPRESA')
+            mensaje = g('MENSAJE')
+            fecha_s = g('FECHA')
+
+            if not numero or not mensaje:
+                continue
+
+            if wa_id and WaMessage.query.filter_by(wa_id=wa_id).first():
+                omitidos += 1
+                continue
+
+            created = now_peru()
+            for fmt in ('%d/%m/%Y %H:%M', '%Y-%m-%d %H:%M', '%d/%m/%Y'):
+                try:
+                    created = datetime.strptime(fecha_s[:16], fmt[:len(fecha_s[:16])])
+                    break
+                except Exception:
+                    pass
+
+            db.session.add(WaMessage(
+                numero     = numero,
+                nombre     = nombre,
+                empresa    = empresa,
+                mensaje    = mensaje,
+                direccion  = 'entrante',
+                wa_id      = wa_id,
+                leido      = False,
+                created_at = created,
+            ))
+            importados += 1
+
+        db.session.commit()
+        log.info(f'[CRM] Import Sheets: {importados} importados, {omitidos} omitidos')
+        return jsonify({'ok': True, 'importados': importados, 'omitidos': omitidos})
+
+    except Exception as e:
+        log.error(f'[CRM] import_sheets error: {e}')
+        return jsonify({'ok': False, 'error': str(e)}), 500
