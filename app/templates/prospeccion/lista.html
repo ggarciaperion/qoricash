@@ -1598,7 +1598,7 @@ function openDrawer(id) {
         ${r.fecha_ultimo_contacto?`<div><div class="d-item-label">Último contacto</div><div class="d-item-val">${esc(r.fecha_ultimo_contacto.slice(0,10))}</div></div>`:''}
         ${r.canal?`<div><div class="d-item-label">Canal</div><div class="d-item-val">${esc(r.canal)}</div></div>`:''}
         ${r.ultimo_precio?`<div><div class="d-item-label">Último precio</div><div class="d-item-val">${esc(r.ultimo_precio)}</div></div>`:''}
-        ${r.fuente?`<div><div class="d-item-label">Fuente</div><div class="d-item-val">${esc(r.fuente)}</div></div>`:''}
+
         ${r.respuesta_campana?`<div style="grid-column:span 2"><div class="d-item-label">Respuesta campaña</div><div class="d-item-val">${esc(r.respuesta_campana)}</div></div>`:''}
       </div>
     </div>
