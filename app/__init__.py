@@ -301,6 +301,21 @@ def create_app(config_name=None):
                 "ALTER TABLE prospectos ADD COLUMN IF NOT EXISTS tamano_empresa VARCHAR(30)",
                 "ALTER TABLE prospectos ADD COLUMN IF NOT EXISTS volumen_estimado_usd NUMERIC(15,2)",
                 "ALTER TABLE prospectos ADD COLUMN IF NOT EXISTS prioridad VARCHAR(20)",
+                "ALTER TABLE prospectos ADD COLUMN IF NOT EXISTS direccion VARCHAR(300)",
+                "ALTER TABLE prospectos ADD COLUMN IF NOT EXISTS subsector VARCHAR(150)",
+                "ALTER TABLE prospectos ADD COLUMN IF NOT EXISTS telefono_3 VARCHAR(50)",
+                "ALTER TABLE prospectos ADD COLUMN IF NOT EXISTS telefono_4 VARCHAR(50)",
+                "ALTER TABLE prospectos ADD COLUMN IF NOT EXISTS email_3 VARCHAR(200)",
+                "ALTER TABLE prospectos ADD COLUMN IF NOT EXISTS email_4 VARCHAR(200)",
+                "ALTER TABLE prospectos ADD COLUMN IF NOT EXISTS facebook VARCHAR(300)",
+                "ALTER TABLE prospectos ADD COLUMN IF NOT EXISTS instagram VARCHAR(300)",
+                "ALTER TABLE prospectos ADD COLUMN IF NOT EXISTS linkedin VARCHAR(300)",
+                "ALTER TABLE prospectos ADD COLUMN IF NOT EXISTS apellido_paterno VARCHAR(100)",
+                "ALTER TABLE prospectos ADD COLUMN IF NOT EXISTS apellido_materno VARCHAR(100)",
+                "ALTER TABLE prospectos ADD COLUMN IF NOT EXISTS contacto_wa VARCHAR(50)",
+                "ALTER TABLE prospectos ADD COLUMN IF NOT EXISTS ultimo_precio VARCHAR(50)",
+                "ALTER TABLE prospectos ADD COLUMN IF NOT EXISTS respuesta_campana VARCHAR(200)",
+                "ALTER TABLE prospectos ADD COLUMN IF NOT EXISTS bandeja VARCHAR(80)",
             ]:
                 db.session.execute(text(col_sql))
             # Tabla de emails adicionales por prospecto

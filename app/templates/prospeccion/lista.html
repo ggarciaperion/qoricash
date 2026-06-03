@@ -1525,30 +1525,69 @@ function openDrawer(id) {
   document.getElementById('drSub').textContent  = [r.rubro, r.departamento].filter(Boolean).join(' · ')||'—';
   document.getElementById('drLinkFull').href     = `/prospeccion/${id}`;
 
+  // Construir lista completa de emails y teléfonos
+  const allEmails = [r.email, r.email_alt, r.email_3, r.email_4].filter(Boolean);
+  const allPhones = [r.telefono, r.telefono_alt, r.telefono_3, r.telefono_4].filter(Boolean);
+
   document.getElementById('drBody').innerHTML = `
     <div class="drawer-sect">
       <div class="drawer-sect-label">Empresa</div>
       <div class="d-grid-2">
         <div><div class="d-item-label">RUC</div><div class="d-item-val">${esc(r.ruc||'—')}</div></div>
         <div><div class="d-item-label">Tipo</div><div class="d-item-val">${esc(r.tipo||'—')}</div></div>
+        <div><div class="d-item-label">Sector</div><div class="d-item-val">${esc(r.rubro||'—')}</div></div>
+        <div><div class="d-item-label">Subsector</div><div class="d-item-val">${esc(r.subsector||'—')}</div></div>
         <div><div class="d-item-label">Tamaño</div><div class="d-item-val">${esc(r.tamano_empresa||'—')}</div></div>
         <div><div class="d-item-label">Prioridad</div><div class="d-item-val">${r.prioridad?`<span class="badge rounded-pill" style="background:var(--qori-gray-100);color:var(--qori-gray-700);font-size:.65rem;">${r.prioridad}</span>`:'—'}</div></div>
+        <div><div class="d-item-label">Cliente LFC</div><div class="d-item-val">${r.cliente_lfc?`<span class="badge rounded-pill" style="background:#dcfce7;color:#166534;font-size:.65rem;">${esc(r.cliente_lfc)}</span>`:'—'}</div></div>
+        <div><div class="d-item-label">Bandeja</div><div class="d-item-val">${esc(r.bandeja||'—')}</div></div>
       </div>
+      ${(r.departamento||r.provincia||r.distrito||r.direccion)?`
+      <div style="margin-top:.5rem;">
+        ${r.direccion?`<div class="mb-1"><span class="d-item-label">Dirección</span><div class="d-item-val">${esc(r.direccion)}</div></div>`:''}
+        <div class="d-grid-2">
+          ${r.departamento?`<div><div class="d-item-label">Departamento</div><div class="d-item-val">${esc(r.departamento)}</div></div>`:''}
+          ${r.provincia?`<div><div class="d-item-label">Provincia</div><div class="d-item-val">${esc(r.provincia)}</div></div>`:''}
+          ${r.distrito?`<div><div class="d-item-label">Distrito</div><div class="d-item-val">${esc(r.distrito)}</div></div>`:''}
+        </div>
+      </div>`:''}
     </div>
     <div class="drawer-sect">
       <div class="drawer-sect-label">Contacto</div>
       <div class="mb-2"><span class="d-item-label">Nombre</span>
         <div class="d-item-val">${esc(r.nombre_contacto||'—')}${r.cargo?` <span style="color:var(--qori-gray-400);font-weight:400">· ${esc(r.cargo)}</span>`:''}</div>
       </div>
-      <div class="mb-2"><span class="d-item-label">Email${emails.length>1?'s':''}</span>
-        <div class="d-item-val">${emails.map(e=>`<a href="mailto:${esc(e)}">${esc(e)}</a>`).join('<br>')||'—'}</div>
+      ${(r.apellido_paterno||r.apellido_materno)?`<div class="d-grid-2 mb-2">
+        <div><div class="d-item-label">Ap. Paterno</div><div class="d-item-val">${esc(r.apellido_paterno||'—')}</div></div>
+        <div><div class="d-item-label">Ap. Materno</div><div class="d-item-val">${esc(r.apellido_materno||'—')}</div></div>
+      </div>`:''}
+      <div class="mb-2"><span class="d-item-label">Email${allEmails.length>1?'s ('+allEmails.length+')':''}</span>
+        <div class="d-item-val">${allEmails.map(e=>`<a href="mailto:${esc(e)}">${esc(e)}</a>`).join('<br>')||'—'}</div>
       </div>
-      <div class="d-grid-2">
-        <div><div class="d-item-label">Teléfono</div><div class="d-item-val">${esc(r.telefono||'—')}</div></div>
-        <div><div class="d-item-label">Tel. alt.</div><div class="d-item-val">${esc(r.telefono_alt||'—')}</div></div>
+      ${r.estado_email?`<div class="mb-2"><span class="d-item-label">Estado Email</span><div class="d-item-val"><span style="font-size:.72rem;color:var(--qori-gray-500);">${esc(r.estado_email)}</span></div></div>`:''}
+      <div class="mb-2"><span class="d-item-label">Teléfono${allPhones.length>1?'s ('+allPhones.length+')':''}</span>
+        <div class="d-item-val d-flex flex-wrap gap-2">
+          ${allPhones.map(p=>`<span style="font-size:.8rem;">${esc(p)} <button class="btn btn-sm p-0 ms-1" style="font-size:.65rem;line-height:1;" onclick="navigator.clipboard.writeText('${esc(p)}')"><i class="bi bi-clipboard"></i></button></span>`).join('')||'—'}
+        </div>
       </div>
-      ${r.web?`<div class="mt-1"><span class="d-item-label">Web</span><div class="d-item-val"><a href="${esc(r.web.startsWith('http')?r.web:'https://'+r.web)}" target="_blank" rel="noopener">${esc(r.web)}</a></div></div>`:''}
+      ${r.contacto_wa?`<div class="mb-1"><span class="d-item-label">Contacto WA</span><div class="d-item-val" style="font-size:.78rem;">${esc(r.contacto_wa)}</div></div>`:''}
+      <div class="d-flex gap-3 flex-wrap mt-1">
+        ${r.web?`<a href="${esc(r.web.startsWith('http')?r.web:'https://'+r.web)}" target="_blank" rel="noopener" style="font-size:.75rem;"><i class="bi bi-globe me-1"></i>Web</a>`:''}
+        ${r.facebook?`<a href="${esc(r.facebook)}" target="_blank" rel="noopener" style="font-size:.75rem;color:#1877F2;"><i class="bi bi-facebook me-1"></i>Facebook</a>`:''}
+        ${r.instagram?`<a href="${esc(r.instagram.startsWith('http')?r.instagram:'https://instagram.com/'+r.instagram)}" target="_blank" rel="noopener" style="font-size:.75rem;color:#E1306C;"><i class="bi bi-instagram me-1"></i>Instagram</a>`:''}
+        ${r.linkedin?`<a href="${esc(r.linkedin.startsWith('http')?r.linkedin:'https://linkedin.com/in/'+r.linkedin)}" target="_blank" rel="noopener" style="font-size:.75rem;color:#0A66C2;"><i class="bi bi-linkedin me-1"></i>LinkedIn</a>`:''}
+      </div>
     </div>
+    <div class="drawer-sect">
+      <div class="drawer-sect-label">Campaña</div>
+      <div class="d-grid-2">
+        <div><div class="d-item-label">Fecha envío</div><div class="d-item-val">${esc(r.fecha_primer_contacto||'—')}</div></div>
+        <div><div class="d-item-label">Último contacto</div><div class="d-item-val">${esc(r.fecha_ultimo_contacto||'—')}</div></div>
+        <div><div class="d-item-label">Último precio</div><div class="d-item-val">${esc(r.ultimo_precio||'—')}</div></div>
+        <div><div class="d-item-label">Respuesta</div><div class="d-item-val">${esc(r.respuesta_campana||'—')}</div></div>
+        <div><div class="d-item-label">Canal</div><div class="d-item-val">${esc(r.canal||'—')}</div></div>
+        <div><div class="d-item-label">Fuente</div><div class="d-item-val">${esc(r.fuente||'—')}</div></div>
+      </div>
     </div>
     <div class="drawer-sect">
       <div class="drawer-sect-label">Pipeline</div>

@@ -57,6 +57,23 @@ class Prospecto(db.Model):
     volumen_estimado_usd   = db.Column(db.Numeric(15, 2))
     prioridad              = db.Column(db.String(20))   # alta | media | baja
 
+    # Campos extendidos MASTER v2
+    direccion              = db.Column(db.String(300))
+    subsector              = db.Column(db.String(150))
+    telefono_3             = db.Column(db.String(50))
+    telefono_4             = db.Column(db.String(50))
+    email_3                = db.Column(db.String(200))
+    email_4                = db.Column(db.String(200))
+    facebook               = db.Column(db.String(300))
+    instagram              = db.Column(db.String(300))
+    linkedin               = db.Column(db.String(300))
+    apellido_paterno       = db.Column(db.String(100))
+    apellido_materno       = db.Column(db.String(100))
+    contacto_wa            = db.Column(db.String(50))
+    ultimo_precio          = db.Column(db.String(50))
+    respuesta_campana      = db.Column(db.String(200))
+    bandeja                = db.Column(db.String(80))
+
     creado_en              = db.Column(db.DateTime, default=now_peru)
     actualizado_en         = db.Column(db.DateTime, default=now_peru, onupdate=now_peru)
 
