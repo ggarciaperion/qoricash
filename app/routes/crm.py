@@ -373,3 +373,35 @@ def import_sheets():
     except Exception as e:
         log.error(f'[CRM] import_sheets error: {e}')
         return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+# ── API interna — importar prospectos en lote ─────────────────────
+@crm_bp.route('/api/import-prospectos', methods=['POST'])
+@csrf.exempt
+def api_import_prospectos():
+    """Inserta lotes de prospectos. Protegido por CRM_API_KEY."""
+    api_key = request.headers.get('X-API-Key', '')
+    if api_key != CRM_API_KEY:
+        return jsonify({'ok': False, 'error': 'Unauthorized'}), 401
+
+    from app.models.prospecto import Prospecto
+
+    data   = request.get_json(silent=True) or {}
+    action = data.get('action', 'insert')
+
+    if action == 'truncate':
+        Prospecto.query.delete()
+        db.session.commit()
+        return jsonify({'ok': True, 'msg': 'Tabla limpiada'})
+
+    if action == 'count':
+        return jsonify({'ok': True, 'total': Prospecto.query.count()})
+
+    registros = data.get('registros', [])
+    if not registros:
+        return jsonify({'ok': True, 'insertados': 0})
+
+    objs = [Prospecto(**r) for r in registros]
+    db.session.bulk_save_objects(objs)
+    db.session.commit()
+    return jsonify({'ok': True, 'insertados': len(objs)})
