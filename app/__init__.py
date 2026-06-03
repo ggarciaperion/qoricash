@@ -244,6 +244,23 @@ def create_app(config_name=None):
                 db.session.execute(text("CREATE INDEX IF NOT EXISTS ix_prospectos_ruc ON prospectos(ruc)"))
                 db.session.commit()
                 logging.info("[Prospeccion] Tabla prospectos creada.")
+            if "wa_messages" not in existing:
+                db.session.execute(text("""
+                    CREATE TABLE IF NOT EXISTS wa_messages (
+                        id         SERIAL PRIMARY KEY,
+                        numero     VARCHAR(25)  NOT NULL,
+                        nombre     VARCHAR(120) DEFAULT '',
+                        empresa    VARCHAR(200) DEFAULT '',
+                        mensaje    TEXT         NOT NULL,
+                        direccion  VARCHAR(10)  NOT NULL,
+                        wa_id      VARCHAR(120) DEFAULT '',
+                        leido      BOOLEAN      DEFAULT FALSE,
+                        created_at TIMESTAMP    DEFAULT NOW()
+                    )
+                """))
+                db.session.execute(text("CREATE INDEX IF NOT EXISTS ix_wa_messages_numero ON wa_messages(numero)"))
+                db.session.commit()
+                logging.info("[CRM] Tabla wa_messages creada.")
             if "asignaciones_prospecto" not in existing:
                 db.session.execute(text("""
                     CREATE TABLE IF NOT EXISTS asignaciones_prospecto (
