@@ -200,6 +200,23 @@ def api_registro_campana():
     return jsonify({'ok': True})
 
 
+# ── API interna — exportar documentos de clientes ────────────────
+@crm_bp.route('/api/clientes-docs', methods=['GET'])
+@csrf.exempt
+def api_clientes_docs():
+    """Devuelve lista de DNI/RUC de todos los clientes registrados. Protegido por API key."""
+    api_key = request.headers.get('X-API-Key', '')
+    if api_key != CRM_API_KEY:
+        return jsonify({'ok': False}), 401
+    try:
+        from app.models.client import Client
+        clientes = db.session.query(Client.dni, Client.document_type, Client.razon_social, Client.nombres, Client.apellido_paterno, Client.email).all()
+        result = [{'dni': c.dni, 'tipo': c.document_type, 'razon_social': c.razon_social or '', 'nombre': f"{c.nombres or ''} {c.apellido_paterno or ''}".strip(), 'email': c.email} for c in clientes]
+        return jsonify({'ok': True, 'total': len(result), 'clientes': result})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
 # ── WEBHOOK — verificación (GET) ─────────────────────────────────
 @crm_bp.route('/webhook', methods=['GET'])
 @csrf.exempt
