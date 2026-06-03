@@ -294,8 +294,19 @@ let pollTimer = null;
 
 // ── Cargar conversaciones ──────────────────────────────────────────
 async function loadConversaciones() {
-  const res  = await fetch('/crm/api/conversaciones');
-  allConvs   = await res.json();
+  try {
+    const res = await fetch('/crm/api/conversaciones', { credentials: 'same-origin' });
+    if (!res.ok) {
+      document.getElementById('convList').innerHTML =
+        `<div class="text-center text-danger py-4" style="font-size:.8rem;">Error ${res.status}: ${res.statusText}</div>`;
+      return;
+    }
+    allConvs = await res.json();
+  } catch(e) {
+    document.getElementById('convList').innerHTML =
+      `<div class="text-center text-danger py-4" style="font-size:.8rem;">Error: ${e.message}</div>`;
+    return;
+  }
   renderConvs(allConvs);
 
   const total = allConvs.reduce((s, c) => s + c.no_leidos, 0);

@@ -37,45 +37,43 @@ def whatsapp():
 def api_conversaciones():
     """Devuelve la última conversación por número, ordenada por reciente."""
     from sqlalchemy import func
-
-    # Último mensaje por número
-    sub = (
-        db.session.query(
-            WaMessage.numero,
-            func.max(WaMessage.id).label('last_id')
+    try:
+        sub = (
+            db.session.query(
+                WaMessage.numero,
+                func.max(WaMessage.id).label('last_id')
+            )
+            .group_by(WaMessage.numero)
+            .subquery()
         )
-        .group_by(WaMessage.numero)
-        .subquery()
-    )
-    rows = (
-        db.session.query(WaMessage)
-        .join(sub, WaMessage.id == sub.c.last_id)
-        .order_by(WaMessage.created_at.desc())
-        .all()
-    )
-
-    # No leídos por número
-    no_leidos = (
-        db.session.query(WaMessage.numero, func.count(WaMessage.id))
-        .filter(WaMessage.leido == False, WaMessage.direccion == 'entrante')
-        .group_by(WaMessage.numero)
-        .all()
-    )
-    no_leidos_map = {r[0]: r[1] for r in no_leidos}
-
-    result = []
-    for m in rows:
-        result.append({
-            'numero':    m.numero,
-            'nombre':    m.nombre or m.numero,
-            'empresa':   m.empresa,
-            'ultimo':    m.mensaje[:60] + ('...' if len(m.mensaje) > 60 else ''),
-            'hora':      m.created_at.strftime('%H:%M') if m.created_at else '',
-            'direccion': m.direccion,
-            'no_leidos': no_leidos_map.get(m.numero, 0),
-        })
-
-    return jsonify(result)
+        rows = (
+            db.session.query(WaMessage)
+            .join(sub, WaMessage.id == sub.c.last_id)
+            .order_by(WaMessage.created_at.desc())
+            .all()
+        )
+        no_leidos = (
+            db.session.query(WaMessage.numero, func.count(WaMessage.id))
+            .filter(WaMessage.leido == False, WaMessage.direccion == 'entrante')
+            .group_by(WaMessage.numero)
+            .all()
+        )
+        no_leidos_map = {r[0]: r[1] for r in no_leidos}
+        result = []
+        for m in rows:
+            result.append({
+                'numero':    m.numero,
+                'nombre':    m.nombre or m.numero,
+                'empresa':   m.empresa,
+                'ultimo':    m.mensaje[:60] + ('...' if len(m.mensaje) > 60 else ''),
+                'hora':      m.created_at.strftime('%H:%M') if m.created_at else '',
+                'direccion': m.direccion,
+                'no_leidos': no_leidos_map.get(m.numero, 0),
+            })
+        return jsonify(result)
+    except Exception as e:
+        log.error(f'[CRM] api_conversaciones error: {e}')
+        return jsonify({'error': str(e)}), 500
 
 
 # ── API — mensajes de una conversación ───────────────────────────
