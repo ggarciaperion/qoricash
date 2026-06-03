@@ -1589,27 +1589,17 @@ function openDrawer(id) {
       </div>
     </div>
     <div class="drawer-sect">
-      <div class="drawer-sect-label">Campaña</div>
-      <div class="d-grid-2">
-        <div><div class="d-item-label">Fecha envío</div><div class="d-item-val">${esc(r.fecha_primer_contacto||'—')}</div></div>
-        <div><div class="d-item-label">Último contacto</div><div class="d-item-val">${esc(r.fecha_ultimo_contacto||'—')}</div></div>
-        <div><div class="d-item-label">Último precio</div><div class="d-item-val">${esc(r.ultimo_precio||'—')}</div></div>
-        <div><div class="d-item-label">Respuesta</div><div class="d-item-val">${esc(r.respuesta_campana||'—')}</div></div>
-        <div><div class="d-item-label">Canal</div><div class="d-item-val">${esc(r.canal||'—')}</div></div>
-        <div><div class="d-item-label">Fuente</div><div class="d-item-val">${esc(r.fuente||'—')}</div></div>
-      </div>
-    </div>
-    <div class="drawer-sect">
-      <div class="drawer-sect-label">Pipeline</div>
-      <div class="d-flex align-items-center gap-2 mb-2">
+      <div class="drawer-sect-label">Estado comercial</div>
+      <div class="d-flex align-items-center gap-2 mb-3">
         <span class="${b.cls} status-badge" onclick="openStatusMenu(event,${id},this)"><span class="sb-dot"></span>${b.label}</span>
-        <span style="font-size:.68rem;color:var(--qori-gray-400)">Clic para cambiar</span>
+        <span style="font-size:.68rem;color:var(--qori-gray-400);">Clic para cambiar</span>
       </div>
       <div class="d-grid-2">
-        <div><div class="d-item-label">Nivel interés</div><div class="d-item-val">${esc(r.nivel_interes||'—')}</div></div>
-        <div><div class="d-item-label">Nro. contactos</div><div class="d-item-val">${r.num_contactos||0}</div></div>
-        <div><div class="d-item-label">Último contacto</div><div class="d-item-val">${esc(r.fecha_ultimo_contacto||'—')}</div></div>
-        <div><div class="d-item-label">Próximo</div><div class="d-item-val">${esc(r.fecha_proximo_contacto||'—')}</div></div>
+        ${r.fecha_ultimo_contacto?`<div><div class="d-item-label">Último contacto</div><div class="d-item-val">${esc(r.fecha_ultimo_contacto.slice(0,10))}</div></div>`:''}
+        ${r.canal?`<div><div class="d-item-label">Canal</div><div class="d-item-val">${esc(r.canal)}</div></div>`:''}
+        ${r.ultimo_precio?`<div><div class="d-item-label">Último precio</div><div class="d-item-val">${esc(r.ultimo_precio)}</div></div>`:''}
+        ${r.fuente?`<div><div class="d-item-label">Fuente</div><div class="d-item-val">${esc(r.fuente)}</div></div>`:''}
+        ${r.respuesta_campana?`<div style="grid-column:span 2"><div class="d-item-label">Respuesta campaña</div><div class="d-item-val">${esc(r.respuesta_campana)}</div></div>`:''}
       </div>
     </div>
     ${IS_MASTER ? `
