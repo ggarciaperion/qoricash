@@ -15,7 +15,7 @@ let editingClientId = null;
 let currentUserRole = null; // Se establecerá desde el HTML
 let bankAccountsCount = 0;
 const MAX_ACCOUNTS = 6;
-const MIN_ACCOUNTS = 2;
+const MIN_ACCOUNTS = 0;
 
 /**
  * Configuración de validaciones en tiempo real al cargar
@@ -45,9 +45,7 @@ function initializeBankAccounts() {
         return;
     }
 
-    // Agregar las 2 cuentas mínimas requeridas
-    addBankAccount(); // Cuenta 1
-    addBankAccount(); // Cuenta 2
+    // No agregar cuentas por defecto — son opcionales
 
     // Ocultar mensaje de validación inicialmente
     const validationMessage = document.getElementById('accountsValidationMessage');
@@ -195,51 +193,14 @@ function updateAddButton() {
 }
 
 /**
- * Validar que existan al menos 2 cuentas: una en S/ y otra en $
+ * Las cuentas bancarias son opcionales — siempre retorna true
  */
 function validateMinimumAccounts() {
-    const currencySelects = document.querySelectorAll('.bank-currency');
-
-    // Debug
-    console.log('Validando cuentas:', currencySelects.length, 'selects encontrados');
-
-    if (currencySelects.length === 0) {
-        console.warn('No se encontraron selectores de moneda');
-        return false;
-    }
-
-    const currencies = Array.from(currencySelects)
-        .map(select => select.value)
-        .filter(val => val !== '');
-
-    console.log('Monedas seleccionadas:', currencies);
-
     const message = document.getElementById('accountsValidationMessage');
-
-    if (!message) {
-        console.warn('Elemento accountsValidationMessage no encontrado');
-        return true; // Si no hay elemento de mensaje, no bloquear
-    }
-
-    // Si no hay suficientes cuentas con moneda seleccionada
-    if (currencies.length < MIN_ACCOUNTS) {
-        console.log('Faltan cuentas: se requieren', MIN_ACCOUNTS, 'pero hay', currencies.length);
-        message.style.display = 'block';
-        return false;
-    }
-
-    const hasSoles = currencies.includes('S/');
-    const hasDolares = currencies.includes('$');
-
-    console.log('Tiene Soles:', hasSoles, '| Tiene Dólares:', hasDolares);
-
-    if (hasSoles && hasDolares) {
+    if (message) {
         message.style.display = 'none';
-        return true;
-    } else {
-        message.style.display = 'block';
-        return false;
     }
+    return true;
 }
 
 /**
