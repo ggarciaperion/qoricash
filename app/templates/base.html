@@ -141,6 +141,15 @@
             {% endif %}
 
 
+            {% if current_user.role == 'Master' %}
+            <div class="sidebar-section-label">CRM</div>
+            <a class="sidebar-link {% if request.endpoint and request.endpoint.startswith('crm') %}active{% endif %}"
+               href="{{ url_for('crm.whatsapp') }}">
+                <i class="bi bi-whatsapp"></i>
+                <span class="sidebar-link-text">WhatsApp</span>
+            </a>
+            {% endif %}
+
             {% if current_user.role in ['Master', 'Presidente de Negocios', 'Middle Office', 'Trader', 'Operador'] %}
             <div class="sidebar-section-label">Compliance</div>
             {% endif %}

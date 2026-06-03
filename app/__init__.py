@@ -615,6 +615,8 @@ def register_blueprints(app):
     app.register_blueprint(alertas_tc_bp)      # Modulo Alertas TC — leads desde qoricash.pe
     from app.routes.push import push_bp
     app.register_blueprint(push_bp)            # Web Push: /api/push/*
+    from app.routes.crm import crm_bp
+    app.register_blueprint(crm_bp)             # CRM WhatsApp: /crm/*
 
 # Service Worker debe servirse desde la raíz del dominio (scope /)
     import os
