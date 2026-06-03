@@ -195,6 +195,45 @@ def api_registro_campana():
         direccion = 'saliente',
         leido     = True,
     ))
+
+    # Vincular al prospecto si hay coincidencia por teléfono
+    try:
+        from app.models.prospecto import Prospecto, ActividadProspecto
+        import re as _re
+        digits = _re.sub(r'\D', '', numero)
+        if digits.startswith('51') and len(digits) == 11:
+            digits = digits[2:]
+        if digits:
+            p = (Prospecto.query
+                 .filter(or_(
+                     Prospecto.telefono     == digits,
+                     Prospecto.telefono_alt == digits,
+                     Prospecto.telefono_3   == digits,
+                     Prospecto.telefono_4   == digits,
+                     Prospecto.contacto_wa  == digits,
+                 )).first())
+            if p:
+                from sqlalchemy import or_
+                from app.utils.formatters import now_peru as _now
+                # Buscar user_id de sistema (id=1) o primer Master
+                from app.models.user import User
+                sys_user = User.query.filter_by(role='Master').order_by(User.id).first()
+                uid = sys_user.id if sys_user else 1
+                act = ActividadProspecto(
+                    prospecto_id=p.id,
+                    user_id=uid,
+                    tipo='whatsapp',
+                    canal='whatsapp',
+                    descripcion=f'WhatsApp enviado (campaña): {mensaje[:120]}',
+                    resultado='Enviado',
+                )
+                db.session.add(act)
+                Prospecto.query.filter_by(id=p.id).update({
+                    'fecha_ultimo_contacto': _now().strftime('%Y-%m-%d %H:%M')
+                }, synchronize_session=False)
+    except Exception as _e:
+        log.warning(f'[CRM Campaña] No se pudo vincular WA a prospecto: {_e}')
+
     db.session.commit()
     log.info(f'[CRM Campaña] Registrado envío → {numero} ({nombre})')
     return jsonify({'ok': True})
@@ -280,6 +319,46 @@ def webhook_receive():
                 leido     = False,
             )
             db.session.add(wa_msg)
+
+            # Vincular respuesta WA al prospecto
+            try:
+                from app.models.prospecto import Prospecto, ActividadProspecto
+                import re as _re
+                from sqlalchemy import or_ as _or
+                from app.utils.formatters import now_peru as _now
+                digits = _re.sub(r'\D', '', numero)
+                if digits.startswith('51') and len(digits) == 11:
+                    digits = digits[2:]
+                if digits:
+                    p = (Prospecto.query
+                         .filter(_or(
+                             Prospecto.telefono     == digits,
+                             Prospecto.telefono_alt == digits,
+                             Prospecto.telefono_3   == digits,
+                             Prospecto.telefono_4   == digits,
+                             Prospecto.contacto_wa  == digits,
+                         )).first())
+                    if p:
+                        from app.models.user import User
+                        sys_user = User.query.filter_by(role='Master').order_by(User.id).first()
+                        uid = sys_user.id if sys_user else 1
+                        act_in = ActividadProspecto(
+                            prospecto_id=p.id,
+                            user_id=uid,
+                            tipo='whatsapp',
+                            canal='whatsapp',
+                            descripcion=f'WhatsApp recibido: {texto[:120]}',
+                            resultado='Respondió',
+                        )
+                        db.session.add(act_in)
+                        # Si estaba sin contactar o contactado, avanzar a interesado
+                        if p.estado_comercial in (None, '', 'sin_contactar', 'contactado'):
+                            p.estado_comercial = 'interesado'
+                        Prospecto.query.filter_by(id=p.id).update({
+                            'fecha_ultimo_contacto': _now().strftime('%Y-%m-%d %H:%M')
+                        }, synchronize_session=False)
+            except Exception as _e:
+                log.warning(f'[CRM Webhook] No se pudo vincular WA entrante a prospecto: {_e}')
 
         db.session.commit()
         log.info(f'[CRM Webhook] {len(messages)} mensaje(s) recibido(s)')

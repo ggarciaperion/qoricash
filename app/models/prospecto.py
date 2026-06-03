@@ -167,16 +167,66 @@ class ProspectoEmail(db.Model):
 
 
 class ActividadProspecto(db.Model):
-    """Registro de actividades / seguimiento por prospecto."""
+    """Registro de actividades / seguimiento por prospecto — timeline unificado."""
     __tablename__ = "actividades_prospecto"
 
     id           = db.Column(db.Integer, primary_key=True)
     prospecto_id = db.Column(db.Integer, db.ForeignKey("prospectos.id"), nullable=False, index=True)
     user_id      = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
-    tipo         = db.Column(db.String(50))   # email / llamada / reunion / nota / estado
+    tipo         = db.Column(db.String(50))    # email / whatsapp / llamada / reunion / nota / estado / bounce / sistema
+    canal        = db.Column(db.String(30))    # email / whatsapp / llamada / reunion / sistema / manual
+    bandeja      = db.Column(db.String(100))   # ggarcia@qoricash.pe / gerencia@qoricash.pe
     descripcion  = db.Column(db.Text)
     resultado    = db.Column(db.String(200))
     nuevo_estado = db.Column(db.String(80))
     creado_en    = db.Column(db.DateTime, default=now_peru)
 
     usuario = db.relationship("User", foreign_keys=[user_id])
+
+    def to_dict(self):
+        return {
+            "id":           self.id,
+            "tipo":         self.tipo or "",
+            "canal":        self.canal or "",
+            "bandeja":      self.bandeja or "",
+            "descripcion":  self.descripcion or "",
+            "resultado":    self.resultado or "",
+            "nuevo_estado": self.nuevo_estado or "",
+            "usuario":      self.usuario.username if self.usuario else "",
+            "creado_en":    self.creado_en.strftime("%d/%m/%Y %H:%M") if self.creado_en else "",
+            "creado_iso":   self.creado_en.isoformat() if self.creado_en else "",
+        }
+
+
+class SeguimientoProspecto(db.Model):
+    """Recordatorio / tarea programada para un prospecto."""
+    __tablename__ = "seguimientos_prospecto"
+
+    id               = db.Column(db.Integer, primary_key=True)
+    prospecto_id     = db.Column(db.Integer, db.ForeignKey("prospectos.id"), nullable=False, index=True)
+    user_id          = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    tipo             = db.Column(db.String(50))   # llamada / email / whatsapp / reunion / otro
+    descripcion      = db.Column(db.Text)
+    fecha_programada = db.Column(db.DateTime, nullable=False, index=True)
+    completado       = db.Column(db.Boolean, default=False, nullable=False)
+    completado_en    = db.Column(db.DateTime)
+    creado_en        = db.Column(db.DateTime, default=now_peru)
+
+    usuario   = db.relationship("User", foreign_keys=[user_id])
+    prospecto = db.relationship("Prospecto", foreign_keys=[prospecto_id],
+                                backref=db.backref("seguimientos", lazy="select",
+                                                   cascade="all, delete-orphan",
+                                                   order_by="SeguimientoProspecto.fecha_programada"))
+
+    def to_dict(self):
+        return {
+            "id":               self.id,
+            "tipo":             self.tipo or "",
+            "descripcion":      self.descripcion or "",
+            "fecha_programada": self.fecha_programada.strftime("%d/%m/%Y %H:%M") if self.fecha_programada else "",
+            "fecha_iso":        self.fecha_programada.isoformat() if self.fecha_programada else "",
+            "completado":       self.completado,
+            "completado_en":    self.completado_en.strftime("%d/%m/%Y %H:%M") if self.completado_en else "",
+            "usuario":          self.usuario.username if self.usuario else "",
+            "vencido":          (not self.completado and self.fecha_programada < now_peru()) if self.fecha_programada else False,
+        }

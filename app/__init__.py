@@ -318,6 +318,46 @@ def create_app(config_name=None):
                 "ALTER TABLE prospectos ADD COLUMN IF NOT EXISTS bandeja VARCHAR(80)",
             ]:
                 db.session.execute(text(col_sql))
+
+            # Normalizar estados legacy → canónicos
+            for old, new in [
+                ("P1", "contactado"), ("P2", "interesado"),
+                ("P3", "negociando"), ("P4", "cliente"),
+                ("seguimiento", "contactado"), ("negociacion", "negociando"),
+                ("presentado", "contactado"), ("precio_enviado", "interesado"),
+            ]:
+                db.session.execute(text(
+                    f"UPDATE prospectos SET estado_comercial = '{new}' WHERE estado_comercial = '{old}'"
+                ))
+
+            # Columnas nuevas en actividades_prospecto (timeline enriquecido)
+            for col_sql in [
+                "ALTER TABLE actividades_prospecto ADD COLUMN IF NOT EXISTS canal VARCHAR(30)",
+                "ALTER TABLE actividades_prospecto ADD COLUMN IF NOT EXISTS bandeja VARCHAR(100)",
+            ]:
+                db.session.execute(text(col_sql))
+
+            # Tabla de seguimientos programados
+            db.session.execute(text("""
+                CREATE TABLE IF NOT EXISTS seguimientos_prospecto (
+                    id               SERIAL PRIMARY KEY,
+                    prospecto_id     INTEGER NOT NULL REFERENCES prospectos(id) ON DELETE CASCADE,
+                    user_id          INTEGER NOT NULL REFERENCES users(id),
+                    tipo             VARCHAR(50),
+                    descripcion      TEXT,
+                    fecha_programada TIMESTAMP NOT NULL,
+                    completado       BOOLEAN NOT NULL DEFAULT FALSE,
+                    completado_en    TIMESTAMP,
+                    creado_en        TIMESTAMP DEFAULT NOW()
+                )
+            """))
+            db.session.execute(text(
+                "CREATE INDEX IF NOT EXISTS idx_seguimiento_pid ON seguimientos_prospecto(prospecto_id)"
+            ))
+            db.session.execute(text(
+                "CREATE INDEX IF NOT EXISTS idx_seguimiento_fecha ON seguimientos_prospecto(fecha_programada)"
+            ))
+
             # Tabla de emails adicionales por prospecto
             db.session.execute(text("""
                 CREATE TABLE IF NOT EXISTS prospecto_emails (

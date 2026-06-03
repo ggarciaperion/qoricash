@@ -10,7 +10,7 @@ from flask import Blueprint, render_template, request, jsonify, flash, redirect,
 from flask_login import login_required, current_user
 from sqlalchemy import or_, func
 from app.extensions import db, csrf
-from app.models.prospecto import Prospecto, AsignacionProspecto, ActividadProspecto
+from app.models.prospecto import Prospecto, AsignacionProspecto, ActividadProspecto, SeguimientoProspecto
 from app.models.user import User
 from app.utils.decorators import require_role
 from app.utils.formatters import now_peru
@@ -131,19 +131,29 @@ prospeccion_bp = Blueprint("prospeccion", __name__, url_prefix="/prospeccion")
 
 DIAS_VIGENCIA = 45  # días de vigencia de un prospecto asignado a un trader
 
-# Agrupacion de valores legacy + nuevos por fase canónica
+# Estados canónicos (post-normalización)
 _FASE_ESTADOS = {
-    "sin_contactar": [],          # NULL o vacío — se trata especial en queries
-    "presentado":    ["presentado",    "seguimiento", "P1"],
-    "precio":        ["precio_enviado","P2"],
-    "negociando":    ["negociando",    "negociacion", "P3"],
-    "clientes":      ["cliente",       "P4"],
+    "sin_contactar": [],
+    "contactado":    ["contactado", "presentado", "seguimiento", "P1"],
+    "interesado":    ["interesado", "precio_enviado", "P2"],
+    "negociando":    ["negociando", "negociacion", "P3"],
+    "clientes":      ["cliente", "P4"],
     "no_contactar":  ["no_contactar"],
+    "no_interesado": ["no_interesado"],
+    "inactivo":      ["inactivo"],
 }
-# Estados que NO son cliente (para conteo "activos")
-_ESTADOS_NO_CLIENTE = (
-    _FASE_ESTADOS["presentado"] + _FASE_ESTADOS["precio"] + _FASE_ESTADOS["negociando"]
-)
+
+# Mapa legacy → canónico para normalizar en escritura
+_ESTADO_NORM = {
+    "P1": "contactado", "P2": "interesado", "P3": "negociando", "P4": "cliente",
+    "seguimiento": "contactado", "negociacion": "negociando",
+    "presentado": "contactado", "precio_enviado": "interesado",
+}
+
+ESTADOS_VALIDOS = {
+    "sin_contactar", "contactado", "interesado", "negociando",
+    "cliente", "no_contactar", "no_interesado", "inactivo",
+}
 
 GRUPOS_ORDEN = [
     "PIPELINE ACTIVO", "CLIENTES LFC", "PRIORITARIOS",
@@ -153,18 +163,119 @@ GRUPOS_ORDEN = [
 
 
 def _base_query():
-    """Retorna query base de prospectos (solo Master accede al modulo)."""
+    """Retorna query base de prospectos."""
     return Prospecto.query
 
 
-# ── Dashboard prospeccion ─────────────────────────────────────────────────────
+def _log_actividad(prospecto_id, user_id, tipo, descripcion,
+                   canal=None, bandeja=None, resultado=None, nuevo_estado=None):
+    """Helper: crea una ActividadProspecto y actualiza fecha_ultimo_contacto."""
+    act = ActividadProspecto(
+        prospecto_id=prospecto_id,
+        user_id=user_id,
+        tipo=tipo,
+        canal=canal or tipo,
+        bandeja=bandeja,
+        descripcion=descripcion,
+        resultado=resultado,
+        nuevo_estado=nuevo_estado,
+    )
+    db.session.add(act)
+    # Actualizar fecha_ultimo_contacto en el prospecto
+    Prospecto.query.filter_by(id=prospecto_id).update({
+        "fecha_ultimo_contacto": now_peru().strftime("%Y-%m-%d %H:%M")
+    }, synchronize_session=False)
+
+
+# ── Dashboard CRM ─────────────────────────────────────────────────────────────
 
 @prospeccion_bp.route("/")
 @login_required
 @require_role("Master")
 def dashboard():
-    """Redirige al grid CRM (dashboard eliminado)."""
-    return redirect(url_for("prospeccion.lista"))
+    """Dashboard CRM con KPIs, embudo, timeline y seguimientos pendientes."""
+    from datetime import date as _date
+    hoy      = now_peru()
+    hace7    = hoy - timedelta(days=7)
+    hace30   = hoy - timedelta(days=30)
+    manana   = hoy + timedelta(days=1)
+    en48h    = hoy + timedelta(hours=48)
+
+    total    = Prospecto.query.count()
+
+    def _count_estado(vals):
+        if not vals:
+            return Prospecto.query.filter(or_(
+                Prospecto.estado_comercial == None,
+                Prospecto.estado_comercial == "",
+                Prospecto.estado_comercial == "sin_contactar",
+            )).count()
+        return Prospecto.query.filter(Prospecto.estado_comercial.in_(vals)).count()
+
+    kpis = {
+        "total":         total,
+        "sin_contactar": _count_estado([]),
+        "contactado":    _count_estado(_FASE_ESTADOS["contactado"]),
+        "interesado":    _count_estado(_FASE_ESTADOS["interesado"]),
+        "negociando":    _count_estado(_FASE_ESTADOS["negociando"]),
+        "cliente":       _count_estado(_FASE_ESTADOS["clientes"]),
+        "no_contactar":  _count_estado(["no_contactar"]),
+    }
+
+    # Actividades recientes (últimas 60)
+    actividades = (ActividadProspecto.query
+                   .order_by(ActividadProspecto.creado_en.desc())
+                   .limit(60).all())
+
+    # Prospectos con actividad reciente (últimos 7 días)
+    contactados_7d = (db.session.query(func.count(func.distinct(ActividadProspecto.prospecto_id)))
+                      .filter(ActividadProspecto.creado_en >= hace7)
+                      .scalar() or 0)
+
+    # Actividades por canal (últimos 30 días)
+    canal_stats = (db.session.query(ActividadProspecto.canal, func.count(ActividadProspecto.id))
+                   .filter(ActividadProspecto.creado_en >= hace30,
+                           ActividadProspecto.canal != None)
+                   .group_by(ActividadProspecto.canal)
+                   .all())
+    canales = {c: n for c, n in canal_stats}
+
+    # Seguimientos pendientes y vencidos
+    seguimientos_pendientes = (SeguimientoProspecto.query
+                                .filter_by(completado=False)
+                                .filter(SeguimientoProspecto.fecha_programada <= en48h)
+                                .order_by(SeguimientoProspecto.fecha_programada)
+                                .limit(20).all())
+
+    seguimientos_vencidos = (SeguimientoProspecto.query
+                              .filter_by(completado=False)
+                              .filter(SeguimientoProspecto.fecha_programada < hoy)
+                              .count())
+
+    # Emails enviados (últimos 7 días)
+    emails_7d = (ActividadProspecto.query
+                 .filter(ActividadProspecto.canal == "email",
+                         ActividadProspecto.creado_en >= hace7)
+                 .count())
+
+    # WA enviados (últimos 7 días)
+    wa_7d = (ActividadProspecto.query
+             .filter(ActividadProspecto.canal == "whatsapp",
+                     ActividadProspecto.creado_en >= hace7)
+             .count())
+
+    return render_template(
+        "prospeccion/dashboard.html",
+        kpis=kpis,
+        actividades=actividades,
+        contactados_7d=contactados_7d,
+        canales=canales,
+        seguimientos_pendientes=seguimientos_pendientes,
+        seguimientos_vencidos=seguimientos_vencidos,
+        emails_7d=emails_7d,
+        wa_7d=wa_7d,
+        hoy=hoy,
+    )
 
 
 # ── Reporte por trader (Master) ───────────────────────────────────────────────
@@ -294,33 +405,37 @@ def agregar_actividad(pid):
     p = db.get_or_404(Prospecto, pid)
     _verificar_acceso(p)
 
-    tipo        = request.form.get("tipo", "nota")
-    descripcion = request.form.get("descripcion", "").strip()
-    resultado   = request.form.get("resultado", "").strip()
-    nuevo_est   = request.form.get("nuevo_estado", "").strip()
-    fecha_prox  = request.form.get("fecha_proximo_contacto", "").strip()
+    is_json     = request.is_json or request.headers.get("X-Requested-With") == "XMLHttpRequest"
+    data        = request.get_json(silent=True) or request.form
+    tipo        = data.get("tipo", "nota")
+    descripcion = (data.get("descripcion") or "").strip()
+    resultado   = (data.get("resultado") or "").strip()
+    nuevo_est   = (data.get("nuevo_estado") or "").strip()
+    fecha_prox  = (data.get("fecha_proximo_contacto") or "").strip()
 
     if not descripcion:
+        if is_json:
+            return jsonify({"ok": False, "error": "La descripción es requerida."}), 400
         flash("La descripcion es requerida.", "warning")
         return redirect(url_for("prospeccion.detalle", pid=pid))
 
-    act = ActividadProspecto(
-        prospecto_id=p.id,
-        user_id=current_user.id,
-        tipo=tipo,
-        descripcion=descripcion,
-        resultado=resultado or None,
-        nuevo_estado=nuevo_est or None,
-    )
-    db.session.add(act)
+    canal_map = {"email": "email", "whatsapp": "whatsapp", "llamada": "llamada",
+                 "reunion": "reunion", "nota": "manual", "estado": "sistema"}
+    canal = canal_map.get(tipo, "manual")
 
-    p.fecha_ultimo_contacto = now_peru().strftime("%Y-%m-%d %H:%M")
+    _log_actividad(p.id, current_user.id, tipo, descripcion,
+                   canal=canal, resultado=resultado or None,
+                   nuevo_estado=nuevo_est or None)
+
     if nuevo_est:
-        p.estado_comercial = nuevo_est
+        p.estado_comercial = _ESTADO_NORM.get(nuevo_est, nuevo_est)
     if fecha_prox:
         p.fecha_proximo_contacto = fecha_prox
 
     db.session.commit()
+
+    if is_json:
+        return jsonify({"ok": True})
     flash("Actividad registrada correctamente.", "success")
     return redirect(url_for("prospeccion.detalle", pid=pid))
 
@@ -1320,22 +1435,15 @@ def enviar_email(pid):
         except Exception:
             pass  # El principal ya fue enviado; el alt falla silencioso
 
-    nuevo_estado = "precio_enviado" if tipo == "precio" else "presentado"
-    desc = f"Correo de {tipo} enviado."
+    nuevo_estado = "interesado" if tipo == "precio" else "contactado"
+    desc = f"Correo de {tipo} enviado a {p.email}."
     if enviado_alt:
-        desc += f" También enviado a email alternativo ({p.email_alt.strip()})."
-    act = ActividadProspecto(
-        prospecto_id=p.id,
-        user_id=current_user.id,
-        tipo="email",
-        descripcion=desc,
-        resultado="Enviado",
-        nuevo_estado=nuevo_estado,
-    )
-    db.session.add(act)
-    p.estado_comercial      = nuevo_estado
-    p.tipo_ultimo_envio     = tipo
-    p.fecha_ultimo_contacto = now_peru().strftime("%Y-%m-%d %H:%M")
+        desc += f" También enviado a {p.email_alt.strip()}."
+    _log_actividad(p.id, current_user.id, "email", desc,
+                   canal="email", bandeja=sender_email,
+                   resultado="Enviado", nuevo_estado=nuevo_estado)
+    p.estado_comercial  = nuevo_estado
+    p.tipo_ultimo_envio = tipo
     db.session.commit()
 
     tipo_label = "presentacion" if tipo == "presentacion" else "precio del dia"
@@ -1354,27 +1462,29 @@ def cambiar_estado(pid):
     p = db.get_or_404(Prospecto, pid)
     _verificar_acceso(p)
 
-    data  = request.get_json(force=True)
-    nuevo = data.get("estado", "")
+    data   = request.get_json(force=True)
+    nuevo  = data.get("estado", "")
     motivo = data.get("motivo", "").strip()
-    validos = {"presentado","precio_enviado","negociando","cliente",
-               "seguimiento","negociacion","P1","P2","P3","P4","no_contactar"}
-    if nuevo not in validos:
-        return jsonify({"ok": False, "error": "Estado invalido."}), 400
 
-    ahora = now_peru().strftime("%Y-%m-%d %H:%M")
+    # Normalizar legacy
+    nuevo = _ESTADO_NORM.get(nuevo, nuevo)
+    if nuevo not in ESTADOS_VALIDOS:
+        return jsonify({"ok": False, "error": "Estado inválido."}), 400
+
     if nuevo == "no_contactar" and motivo:
         descripcion = f"Marcado como No Contactar. Motivo: {motivo}"
     else:
-        descripcion = f"Estado cambiado a {nuevo}."
-    act = ActividadProspecto(
-        prospecto_id=p.id, user_id=current_user.id, tipo="estado",
-        descripcion=descripcion, nuevo_estado=nuevo,
-    )
-    db.session.add(act)
-    p.estado_comercial      = nuevo
-    p.fecha_ultimo_contacto = ahora
+        labels = {"contactado": "Contactado", "interesado": "Interesado",
+                  "negociando": "Negociando", "cliente": "Cliente",
+                  "no_interesado": "No Interesado", "no_contactar": "No Contactar",
+                  "inactivo": "Inactivo", "sin_contactar": "Sin Contactar"}
+        descripcion = f"Estado cambiado a: {labels.get(nuevo, nuevo)}."
+
+    _log_actividad(p.id, current_user.id, "estado", descripcion,
+                   canal="sistema", nuevo_estado=nuevo)
+    p.estado_comercial = nuevo
     db.session.commit()
+    ahora = p.fecha_ultimo_contacto or now_peru().strftime("%Y-%m-%d %H:%M")
     return jsonify({"ok": True, "fecha_ultimo_contacto": ahora})
 
 
@@ -1942,15 +2052,20 @@ def _api_grid_impl():
             (AsignacionProspecto.trader_id == current_user.id)
         )
 
-    _clientes_vals = _FASE_ESTADOS["clientes"]
+    _clientes_vals   = _FASE_ESTADOS["clientes"]
+    _contactado_vals = _FASE_ESTADOS["contactado"]
+    _interesado_vals = _FASE_ESTADOS["interesado"]
+    _negociando_vals = _FASE_ESTADOS["negociando"]
+    _excluir_todos   = _clientes_vals + ["no_contactar", "no_interesado", "inactivo"]
+
     if tab == "clientes":
         query = query.filter(Prospecto.estado_comercial.in_(_clientes_vals))
-    elif tab == "presentado":
-        query = query.filter(Prospecto.estado_comercial.in_(_FASE_ESTADOS["presentado"]))
-    elif tab == "precio":
-        query = query.filter(Prospecto.estado_comercial.in_(_FASE_ESTADOS["precio"]))
+    elif tab in ("presentado", "contactado"):
+        query = query.filter(Prospecto.estado_comercial.in_(_contactado_vals))
+    elif tab in ("precio", "interesado"):
+        query = query.filter(Prospecto.estado_comercial.in_(_interesado_vals))
     elif tab == "negociando":
-        query = query.filter(Prospecto.estado_comercial.in_(_FASE_ESTADOS["negociando"]))
+        query = query.filter(Prospecto.estado_comercial.in_(_negociando_vals))
     elif tab == "sin_contactar":
         query = query.filter(or_(
             Prospecto.estado_comercial == None,
@@ -1959,11 +2074,11 @@ def _api_grid_impl():
     elif tab == "no_contactar":
         query = query.filter(Prospecto.estado_comercial == "no_contactar")
     else:
-        # "todos": excluye clientes y no_contactar
+        # "todos": excluye clientes, no_contactar, no_interesado, inactivo
         query = query.filter(or_(
             Prospecto.estado_comercial == None,
             Prospecto.estado_comercial == "",
-            Prospecto.estado_comercial.notin_(_clientes_vals + ["no_contactar"]),
+            Prospecto.estado_comercial.notin_(_excluir_todos),
         ))
 
     if q_str:
@@ -2072,11 +2187,12 @@ def _api_grid_impl():
         })
 
     base = _base_query()
+    _excl = _FASE_ESTADOS["clientes"] + ["no_contactar", "no_interesado", "inactivo"]
     counts = {
-        "todos":         base.filter(or_(Prospecto.estado_comercial == None, Prospecto.estado_comercial == "", Prospecto.estado_comercial.notin_(_FASE_ESTADOS["clientes"] + ["no_contactar"]))).count(),
+        "todos":         base.filter(or_(Prospecto.estado_comercial == None, Prospecto.estado_comercial == "", Prospecto.estado_comercial.notin_(_excl))).count(),
         "sin_contactar": base.filter(or_(Prospecto.estado_comercial == None, Prospecto.estado_comercial == "", Prospecto.estado_comercial == "sin_contactar")).count(),
-        "presentado":    base.filter(Prospecto.estado_comercial.in_(_FASE_ESTADOS["presentado"])).count(),
-        "precio":        base.filter(Prospecto.estado_comercial.in_(_FASE_ESTADOS["precio"])).count(),
+        "contactado":    base.filter(Prospecto.estado_comercial.in_(_FASE_ESTADOS["contactado"])).count(),
+        "interesado":    base.filter(Prospecto.estado_comercial.in_(_FASE_ESTADOS["interesado"])).count(),
         "negociando":    base.filter(Prospecto.estado_comercial.in_(_FASE_ESTADOS["negociando"])).count(),
         "clientes":      base.filter(Prospecto.estado_comercial.in_(_FASE_ESTADOS["clientes"])).count(),
         "no_contactar":  base.filter(Prospecto.estado_comercial == "no_contactar").count(),
@@ -2125,14 +2241,11 @@ def api_campo(pid):
         setattr(p, campo, valor)
 
         if campo == "estado_comercial" and valor:
-            act = ActividadProspecto(
-                prospecto_id=p.id,
-                user_id=current_user.id,
-                tipo="estado",
-                descripcion=f"Estado cambiado a: {valor} (grid inline)",
-                nuevo_estado=valor,
-            )
-            db.session.add(act)
+            valor = _ESTADO_NORM.get(valor, valor)
+            setattr(p, campo, valor)
+            _log_actividad(p.id, current_user.id, "estado",
+                           f"Estado cambiado a: {valor} (inline)",
+                           canal="sistema", nuevo_estado=valor)
 
         db.session.commit()
         return jsonify({"ok": True})
@@ -2695,6 +2808,142 @@ def _resolve_import_url(raw_url: str):
     if m:
         return f"https://drive.google.com/uc?export=download&id={m.group(1)}"
     return None
+
+
+# ── Timeline de actividades de un prospecto ───────────────────────────────────
+
+@prospeccion_bp.route("/api/<int:pid>/timeline")
+@login_required
+@require_role("Master", "Trader")
+@csrf.exempt
+def api_timeline(pid):
+    """Retorna el timeline completo de actividades + seguimientos de un prospecto."""
+    p = db.get_or_404(Prospecto, pid)
+    actividades = (ActividadProspecto.query
+                   .filter_by(prospecto_id=pid)
+                   .order_by(ActividadProspecto.creado_en.desc())
+                   .limit(100).all())
+    seguimientos = (SeguimientoProspecto.query
+                    .filter_by(prospecto_id=pid)
+                    .order_by(SeguimientoProspecto.fecha_programada.desc())
+                    .all())
+    return jsonify({
+        "ok": True,
+        "actividades":  [a.to_dict() for a in actividades],
+        "seguimientos": [s.to_dict() for s in seguimientos],
+    })
+
+
+# ── Seguimientos (recordatorios programados) ──────────────────────────────────
+
+@prospeccion_bp.route("/api/<int:pid>/seguimientos", methods=["GET"])
+@login_required
+@require_role("Master", "Trader")
+def api_seguimientos_list(pid):
+    """Lista seguimientos de un prospecto."""
+    db.get_or_404(Prospecto, pid)
+    segs = (SeguimientoProspecto.query
+            .filter_by(prospecto_id=pid)
+            .order_by(SeguimientoProspecto.fecha_programada)
+            .all())
+    return jsonify({"ok": True, "seguimientos": [s.to_dict() for s in segs]})
+
+
+@prospeccion_bp.route("/api/<int:pid>/seguimientos", methods=["POST"])
+@csrf.exempt
+@login_required
+@require_role("Master", "Trader")
+def api_seguimientos_crear(pid):
+    """Crea un nuevo seguimiento programado."""
+    db.get_or_404(Prospecto, pid)
+    data        = request.get_json(silent=True) or {}
+    tipo        = data.get("tipo", "otro")
+    descripcion = (data.get("descripcion") or "").strip()
+    fecha_str   = (data.get("fecha_programada") or "").strip()
+
+    if not fecha_str:
+        return jsonify({"ok": False, "error": "Fecha requerida."}), 400
+
+    try:
+        for fmt in ("%Y-%m-%dT%H:%M", "%Y-%m-%d %H:%M", "%Y-%m-%d"):
+            try:
+                fecha = datetime.strptime(fecha_str[:16], fmt[:len(fecha_str[:16])])
+                break
+            except ValueError:
+                continue
+        else:
+            return jsonify({"ok": False, "error": "Formato de fecha inválido."}), 400
+    except Exception:
+        return jsonify({"ok": False, "error": "Fecha inválida."}), 400
+
+    seg = SeguimientoProspecto(
+        prospecto_id=pid,
+        user_id=current_user.id,
+        tipo=tipo,
+        descripcion=descripcion or None,
+        fecha_programada=fecha,
+    )
+    db.session.add(seg)
+    db.session.commit()
+    return jsonify({"ok": True, "seguimiento": seg.to_dict()})
+
+
+@prospeccion_bp.route("/api/seguimientos/<int:sid>/completar", methods=["POST"])
+@csrf.exempt
+@login_required
+@require_role("Master", "Trader")
+def api_seguimiento_completar(sid):
+    """Marca un seguimiento como completado y lo registra en el timeline."""
+    seg = db.get_or_404(SeguimientoProspecto, sid)
+    if not seg.completado:
+        seg.completado    = True
+        seg.completado_en = now_peru()
+        _log_actividad(seg.prospecto_id, current_user.id,
+                       seg.tipo or "seguimiento",
+                       f"Seguimiento completado: {seg.descripcion or seg.tipo}",
+                       canal=seg.tipo if seg.tipo in ("llamada","email","whatsapp","reunion") else "manual")
+        db.session.commit()
+    return jsonify({"ok": True, "seguimiento": seg.to_dict()})
+
+
+@prospeccion_bp.route("/api/seguimientos/<int:sid>", methods=["DELETE"])
+@csrf.exempt
+@login_required
+@require_role("Master", "Trader")
+def api_seguimiento_eliminar(sid):
+    """Elimina un seguimiento pendiente."""
+    seg = db.get_or_404(SeguimientoProspecto, sid)
+    db.session.delete(seg)
+    db.session.commit()
+    return jsonify({"ok": True})
+
+
+# ── Dashboard API — seguimientos pendientes ────────────────────────────────────
+
+@prospeccion_bp.route("/api/seguimientos-pendientes")
+@login_required
+@require_role("Master", "Trader")
+def api_seguimientos_pendientes():
+    """Seguimientos no completados con fecha <= ahora + 24h. Para alertas de navbar."""
+    limite = now_peru() + timedelta(hours=24)
+    segs = (SeguimientoProspecto.query
+            .filter_by(completado=False)
+            .filter(SeguimientoProspecto.fecha_programada <= limite)
+            .order_by(SeguimientoProspecto.fecha_programada)
+            .limit(50).all())
+    total_vencidos = (SeguimientoProspecto.query
+                      .filter_by(completado=False)
+                      .filter(SeguimientoProspecto.fecha_programada < now_peru())
+                      .count())
+    result = []
+    for s in segs:
+        p = db.session.get(Prospecto, s.prospecto_id)
+        result.append({
+            **s.to_dict(),
+            "empresa": p.razon_social if p else "",
+            "pid":     s.prospecto_id,
+        })
+    return jsonify({"ok": True, "pendientes": result, "vencidos": total_vencidos})
 
 
 def _verificar_acceso(p):

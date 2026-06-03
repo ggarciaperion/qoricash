@@ -763,6 +763,9 @@
 .etb-sub { font-size: .71rem; color: var(--qori-gray-500); margin-top: .12rem; }
 .etb-check { margin-left: auto; color: var(--qori-primary); opacity: 0; font-size: .95rem; flex-shrink: 0; transition: opacity var(--transition-fast); }
 .email-type-btn.selected .etb-check { opacity: 1; }
+
+/* CRM estado badges nuevos */
+.sb-prec { background:#E0F7FA; color:#006064; }
 </style>
 {% endblock %}
 
@@ -779,6 +782,10 @@
     </div>
     <div class="crm-header-actions">
       {% if is_master %}
+      <a href="{{ url_for('prospeccion.dashboard') }}" class="btn-crm btn-crm-ghost">
+        <i class="bi bi-graph-up-arrow"></i> Dashboard
+      </a>
+      <div class="toolbar-sep"></div>
       <button class="btn-crm btn-crm-ghost" onclick="openImport()">
         <i class="bi bi-upload"></i> Importar
       </button>
@@ -810,18 +817,18 @@
         <div class="kpi-label">Sin contactar</div>
       </div>
     </div>
-    <div class="kpi-card" onclick="setTab('presentado')" data-kpi="presentado">
+    <div class="kpi-card" onclick="setTab('contactado')" data-kpi="contactado">
       <div class="kpi-icon" style="background:#EFF6FF;color:#3B82F6"><i class="bi bi-envelope-check"></i></div>
       <div class="kpi-info">
         <div class="kpi-num" id="k-pres">—</div>
-        <div class="kpi-label">Presentados</div>
+        <div class="kpi-label">Contactados</div>
       </div>
     </div>
-    <div class="kpi-card" onclick="setTab('precio')" data-kpi="precio">
+    <div class="kpi-card" onclick="setTab('interesado')" data-kpi="interesado">
       <div class="kpi-icon" style="background:#ECFEFF;color:#0E7490"><i class="bi bi-currency-dollar"></i></div>
       <div class="kpi-info">
         <div class="kpi-num" id="k-prec">—</div>
-        <div class="kpi-label">Precio enviado</div>
+        <div class="kpi-label">Interesados</div>
       </div>
     </div>
     <div class="kpi-card" onclick="setTab('negociando')" data-kpi="negociando">
@@ -1274,14 +1281,13 @@ function setFilterOpts(rubros, deptos, tamanos) {
 
 function updateCounts(c) {
   const m = {
-    sin_contactar:['k-sin','tp-sin'],
-    presentado:   ['k-pres','tp-pres'],
-    precio:       ['k-prec','tp-prec'],
-    negociando:   ['k-neg','tp-neg'],
-    clientes:     ['k-cli','tp-cli'],
+    sin_contactar:['k-sin',   'tp-sin'],
+    contactado:   ['k-pres',  'tp-pres'],
+    interesado:   ['k-prec',  'tp-prec'],
+    negociando:   ['k-neg',   'tp-neg'],
+    clientes:     ['k-cli',   'tp-cli'],
     no_contactar: ['k-nocon', null],
-
-    todos:        [null,'tp-todos'],
+    todos:        [null,      'tp-todos'],
   };
   for (const [k, [kpi, tab]] of Object.entries(m)) {
     const v = c[k] ?? '—';
@@ -1432,17 +1438,21 @@ function rowHtml(r) {
 
 function badge(ec) {
   const m = {
-    'presentado':     {cls:'sb-pres',label:'Presentado'},
-    'seguimiento':    {cls:'sb-pres',label:'Presentado'},
-    'P1':             {cls:'sb-pres',label:'Presentado'},
-    'precio_enviado': {cls:'sb-prec',label:'Precio enviado'},
-    'P2':             {cls:'sb-prec',label:'Precio enviado'},
-    'negociando':     {cls:'sb-neg', label:'Negociando'},
-    'negociacion':    {cls:'sb-neg', label:'Negociando'},
-    'P3':             {cls:'sb-neg', label:'Negociando'},
-    'cliente':        {cls:'sb-cli',   label:'Cliente'},
-    'P4':             {cls:'sb-cli',   label:'Cliente'},
-    'no_contactar':   {cls:'sb-nocon', label:'No contactar'},
+    'contactado':    {cls:'sb-pres',  label:'Contactado'},
+    'presentado':    {cls:'sb-pres',  label:'Contactado'},
+    'seguimiento':   {cls:'sb-pres',  label:'Contactado'},
+    'P1':            {cls:'sb-pres',  label:'Contactado'},
+    'interesado':    {cls:'sb-prec',  label:'Interesado'},
+    'precio_enviado':{cls:'sb-prec',  label:'Interesado'},
+    'P2':            {cls:'sb-prec',  label:'Interesado'},
+    'negociando':    {cls:'sb-neg',   label:'Negociando'},
+    'negociacion':   {cls:'sb-neg',   label:'Negociando'},
+    'P3':            {cls:'sb-neg',   label:'Negociando'},
+    'cliente':       {cls:'sb-cli',   label:'Cliente'},
+    'P4':            {cls:'sb-cli',   label:'Cliente'},
+    'no_contactar':  {cls:'sb-nocon', label:'No contactar'},
+    'no_interesado': {cls:'sb-nocon', label:'No interesado'},
+    'inactivo':      {cls:'sb-nocon', label:'Inactivo'},
   };
   return m[ec] || {cls:'sb-sin', label:'Sin contactar'};
 }
@@ -1618,18 +1628,65 @@ function openDrawer(id) {
         </button>
       </div>
     </div>` : ''}
+
+    <!-- SEGUIMIENTOS PROGRAMADOS -->
     <div class="drawer-sect">
-      <div class="drawer-sect-label">Notas</div>
+      <div class="drawer-sect-label" style="display:flex;align-items:center;justify-content:space-between;">
+        <span><i class="bi bi-calendar-check" style="color:var(--qori-primary);margin-right:.3rem;"></i>Seguimientos</span>
+        <button class="btn btn-sm" style="font-size:.68rem;padding:.15rem .5rem;background:var(--qori-primary-light);color:var(--qori-primary-active);border:1px solid var(--qori-primary);" onclick="abrirNuevoSeguimiento(${id})">
+          <i class="bi bi-plus"></i> Programar
+        </button>
+      </div>
+      <div id="drSegList${id}" style="margin-top:.5rem;display:flex;flex-direction:column;gap:.35rem;">
+        <div style="font-size:.72rem;color:var(--qori-gray-400);">Cargando…</div>
+      </div>
+      <!-- Form nuevo seguimiento (oculto) -->
+      <div id="drSegForm${id}" style="display:none;margin-top:.65rem;background:var(--qori-gray-50);border:1px solid var(--qori-gray-200);border-radius:8px;padding:.65rem;">
+        <div style="font-size:.72rem;font-weight:700;color:var(--qori-gray-700);margin-bottom:.5rem;">Nuevo seguimiento</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.4rem;margin-bottom:.4rem;">
+          <select id="drSegTipo${id}" class="form-select form-select-sm" style="font-size:.72rem;">
+            <option value="llamada">Llamada</option>
+            <option value="email">Email</option>
+            <option value="whatsapp">WhatsApp</option>
+            <option value="reunion">Reunión</option>
+            <option value="otro">Otro</option>
+          </select>
+          <input type="datetime-local" id="drSegFecha${id}" class="form-control form-control-sm" style="font-size:.72rem;">
+        </div>
+        <textarea id="drSegDesc${id}" class="form-control form-control-sm" rows="2" placeholder="Observaciones…" style="font-size:.72rem;margin-bottom:.4rem;"></textarea>
+        <div style="display:flex;gap:.35rem;">
+          <button class="btn btn-sm btn-primary" style="font-size:.7rem;flex:1;" onclick="guardarSeguimiento(${id})">
+            <i class="bi bi-check2"></i> Guardar
+          </button>
+          <button class="btn btn-sm btn-outline-secondary" style="font-size:.7rem;" onclick="document.getElementById('drSegForm${id}').style.display='none'">
+            Cancelar
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TIMELINE / HISTORIAL -->
+    <div class="drawer-sect">
+      <div class="drawer-sect-label"><i class="bi bi-clock-history" style="color:var(--qori-primary);margin-right:.3rem;"></i>Historial de actividades</div>
+      <div id="drTimeline${id}" style="margin-top:.35rem;display:flex;flex-direction:column;gap:0;">
+        <div style="font-size:.72rem;color:var(--qori-gray-400);">Cargando…</div>
+      </div>
+    </div>
+
+    <!-- NOTAS -->
+    <div class="drawer-sect">
+      <div class="drawer-sect-label">Notas rápidas</div>
       <div id="drNotasList${id}" style="margin-bottom:.75rem;display:flex;flex-direction:column;gap:.5rem;">
         <div style="font-size:.72rem;color:var(--qori-gray-400);">Cargando...</div>
       </div>
-      <textarea class="drawer-notes" id="drNotesInput${id}" placeholder="Escribe una nota..." style="min-height:72px;"></textarea>
+      <textarea class="drawer-notes" id="drNotesInput${id}" placeholder="Escribe una nota..." style="min-height:60px;"></textarea>
       <button class="btn btn-sm btn-outline-secondary mt-1" style="font-size:.72rem;" onclick="saveNotes(${id})">
         <i class="bi bi-floppy me-1"></i>Guardar nota
       </button>
     </div>
   `;
   loadNotas(id);
+  loadTimeline(id);
 
   document.getElementById('drFoot').innerHTML = '';
 
@@ -1690,18 +1747,175 @@ async function saveNotes(id) {
       list.insertAdjacentHTML('afterbegin', notaHtml(d.nota));
     }
     toast('Nota guardada');
+    loadTimeline(id);
   } else toast('Error: ' + (d.error || ''), true);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   TIMELINE
+───────────────────────────────────────────────────────────── */
+const TL_ICONS = {
+  email:    {ico:'bi-envelope-fill',    bg:'#DBEAFE',color:'#2563EB'},
+  whatsapp: {ico:'bi-whatsapp',         bg:'#DCFCE7',color:'#16A34A'},
+  llamada:  {ico:'bi-telephone-fill',   bg:'#EFF6FF',color:'#3B82F6'},
+  reunion:  {ico:'bi-camera-video-fill',bg:'#FEF9C3',color:'#B45309'},
+  estado:   {ico:'bi-arrow-repeat',     bg:'#F3E8FF',color:'#7C3AED'},
+  bounce:   {ico:'bi-x-circle-fill',    bg:'#FEF2F2',color:'#DC2626'},
+  nota:     {ico:'bi-chat-left-text',   bg:'#F1F5F9',color:'#64748B'},
+  sistema:  {ico:'bi-gear-fill',        bg:'#F1F5F9',color:'#94A3B8'},
+};
+
+async function loadTimeline(id) {
+  const el = document.getElementById(`drTimeline${id}`);
+  if (!el) return;
+  try {
+    const resp = await fetch(`/prospeccion/api/${id}/timeline`);
+    const d    = await resp.json();
+    if (!d.ok) { el.innerHTML='<span style="font-size:.72rem;color:var(--qori-gray-400)">Error al cargar.</span>'; return; }
+    renderTimeline(id, d.actividades, d.seguimientos);
+  } catch { el.innerHTML='<span style="font-size:.72rem;color:var(--qori-gray-400)">Error al cargar.</span>'; }
+}
+
+function renderTimeline(id, acts, segs) {
+  const el = document.getElementById(`drTimeline${id}`);
+  if (!el) return;
+  if (!acts.length && !segs.length) {
+    el.innerHTML='<span style="font-size:.72rem;color:var(--qori-gray-400)">Sin actividad registrada.</span>';
+    return;
+  }
+  let html = '';
+  acts.slice(0,30).forEach(a => {
+    const key  = a.canal || a.tipo || 'nota';
+    const ico  = TL_ICONS[key] || TL_ICONS.nota;
+    const band = a.bandeja ? `<span style="color:#94a3b8;margin-left:.3rem;">· ${esc(a.bandeja.split('@')[0])}</span>` : '';
+    const usr  = a.usuario ? `<span style="color:#94a3b8;margin-left:.3rem;">· ${esc(a.usuario)}</span>` : '';
+    html += `<div style="display:flex;gap:.6rem;padding:.5rem 0;border-bottom:1px solid #f1f5f9;">
+      <div style="width:24px;height:24px;border-radius:50%;background:${ico.bg};color:${ico.color};display:flex;align-items:center;justify-content:center;font-size:.65rem;flex-shrink:0;margin-top:.1rem;">
+        <i class="bi ${ico.ico}"></i>
+      </div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:.77rem;color:#1e293b;line-height:1.35;">${esc(a.descripcion)}</div>
+        <div style="font-size:.68rem;color:#94a3b8;margin-top:.1rem;">${a.creado_en}${band}${usr}</div>
+      </div>
+    </div>`;
+  });
+  el.innerHTML = html || '<span style="font-size:.72rem;color:var(--qori-gray-400)">Sin actividad registrada.</span>';
+
+  // Render seguimientos
+  renderSegList(id, segs);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   SEGUIMIENTOS
+───────────────────────────────────────────────────────────── */
+const SEG_ICONS = {
+  llamada:  {ico:'bi-telephone-fill',   bg:'#EFF6FF',color:'#3B82F6'},
+  email:    {ico:'bi-envelope-fill',    bg:'#F0FDF4',color:'#22C55E'},
+  whatsapp: {ico:'bi-whatsapp',         bg:'#F0FDF4',color:'#25D366'},
+  reunion:  {ico:'bi-camera-video-fill',bg:'#FEF9C3',color:'#EAB308'},
+  otro:     {ico:'bi-bell-fill',        bg:'#F1F5F9',color:'#94A3B8'},
+};
+
+function renderSegList(id, segs) {
+  const el = document.getElementById(`drSegList${id}`);
+  if (!el) return;
+  const pendientes = segs.filter(s => !s.completado);
+  const completados = segs.filter(s => s.completado).slice(0, 3);
+  if (!pendientes.length && !completados.length) {
+    el.innerHTML = '<span style="font-size:.72rem;color:var(--qori-gray-400);">Sin seguimientos programados.</span>';
+    return;
+  }
+  let html = '';
+  pendientes.forEach(s => {
+    const ico = SEG_ICONS[s.tipo] || SEG_ICONS.otro;
+    const venc = s.vencido;
+    html += `<div style="display:flex;gap:.6rem;align-items:flex-start;padding:.45rem .55rem;border-radius:8px;background:${venc?'#fef2f2':'var(--qori-gray-50)'};border:1px solid ${venc?'#fecaca':'var(--qori-gray-200)'};">
+      <div style="width:26px;height:26px;border-radius:7px;background:${ico.bg};color:${ico.color};display:flex;align-items:center;justify-content:center;font-size:.72rem;flex-shrink:0;">
+        <i class="bi ${ico.ico}"></i>
+      </div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:.75rem;font-weight:600;color:${venc?'#dc2626':'#1e293b'};">
+          ${venc?'<i class="bi bi-exclamation-triangle-fill" style="margin-right:.2rem;font-size:.7rem;"></i>':''}
+          ${esc(s.fecha_programada)}
+        </div>
+        ${s.descripcion?`<div style="font-size:.7rem;color:#64748b;margin-top:.1rem;">${esc(s.descripcion)}</div>`:''}
+      </div>
+      <button onclick="completarSeguimiento(${s.id},${id})" title="Marcar completado"
+        style="background:none;border:none;color:#22c55e;font-size:.95rem;cursor:pointer;flex-shrink:0;padding:0;">
+        <i class="bi bi-check-circle"></i>
+      </button>
+      <button onclick="eliminarSeguimiento(${s.id},${id})" title="Eliminar"
+        style="background:none;border:none;color:#94a3b8;font-size:.85rem;cursor:pointer;flex-shrink:0;padding:0;">
+        <i class="bi bi-trash3"></i>
+      </button>
+    </div>`;
+  });
+  if (completados.length) {
+    html += `<div style="font-size:.68rem;color:#94a3b8;margin-top:.3rem;padding-top:.3rem;border-top:1px solid var(--qori-gray-100);">Completados recientes:</div>`;
+    completados.forEach(s => {
+      html += `<div style="display:flex;gap:.5rem;align-items:center;padding:.2rem 0;opacity:.6;">
+        <i class="bi bi-check2-circle" style="color:#22c55e;font-size:.75rem;"></i>
+        <div style="font-size:.7rem;color:#64748b;">${esc(s.fecha_programada)} — ${esc(s.descripcion||s.tipo)}</div>
+      </div>`;
+    });
+  }
+  el.innerHTML = html;
+}
+
+function abrirNuevoSeguimiento(id) {
+  const form = document.getElementById(`drSegForm${id}`);
+  if (form) form.style.display = form.style.display==='none' ? '' : 'none';
+  // Default fecha = mañana 09:00
+  const df = document.getElementById(`drSegFecha${id}`);
+  if (df && !df.value) {
+    const d = new Date(); d.setDate(d.getDate()+1); d.setHours(9,0,0,0);
+    df.value = d.toISOString().slice(0,16);
+  }
+}
+
+async function guardarSeguimiento(id) {
+  const tipo  = document.getElementById(`drSegTipo${id}`)?.value  || 'otro';
+  const fecha = document.getElementById(`drSegFecha${id}`)?.value || '';
+  const desc  = document.getElementById(`drSegDesc${id}`)?.value  || '';
+  if (!fecha) { toast('Selecciona una fecha', true); return; }
+  const r = await fetch(`/prospeccion/api/${id}/seguimientos`, {
+    method:'POST', headers:jHeaders(),
+    body:JSON.stringify({tipo, fecha_programada:fecha, descripcion:desc})
+  });
+  const d = await r.json();
+  if (d.ok) {
+    document.getElementById(`drSegForm${id}`).style.display = 'none';
+    document.getElementById(`drSegDesc${id}`).value = '';
+    toast('Seguimiento programado');
+    loadTimeline(id);
+  } else toast('Error: ' + (d.error||''), true);
+}
+
+async function completarSeguimiento(sid, pid) {
+  const r = await fetch(`/prospeccion/api/seguimientos/${sid}/completar`, {method:'POST',headers:jHeaders(),body:'{}'});
+  const d = await r.json();
+  if (d.ok) { toast('Completado'); loadTimeline(pid); }
+  else toast('Error', true);
+}
+
+async function eliminarSeguimiento(sid, pid) {
+  const r = await fetch(`/prospeccion/api/seguimientos/${sid}`, {method:'DELETE',headers:jHeaders()});
+  const d = await r.json();
+  if (d.ok) { toast('Eliminado'); loadTimeline(pid); }
+  else toast('Error', true);
 }
 
 /* ─────────────────────────────────────────────────────────────
    STATUS MENU
 ───────────────────────────────────────────────────────────── */
 const STATUS_OPTS = [
-  {val:'',              cls:'sb-sin',   label:'Sin contactar'},
-  {val:'presentado',    cls:'sb-pres',  label:'Presentado'},
-  {val:'precio_enviado',cls:'sb-prec',  label:'Precio enviado'},
+  {val:'sin_contactar', cls:'sb-sin',   label:'Sin contactar'},
+  {val:'contactado',    cls:'sb-pres',  label:'Contactado'},
+  {val:'interesado',    cls:'sb-prec',  label:'Interesado'},
   {val:'negociando',    cls:'sb-neg',   label:'Negociando'},
   {val:'cliente',       cls:'sb-cli',   label:'Cliente'},
+  {val:'no_interesado', cls:'sb-nocon', label:'No interesado'},
+  {val:'inactivo',      cls:'sb-nocon', label:'Inactivo'},
   {val:'no_contactar',  cls:'sb-nocon', label:'No contactar', motivo:true},
 ];
 let _sdCtx = null;

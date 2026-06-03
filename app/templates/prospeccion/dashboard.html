@@ -1,333 +1,310 @@
 {% extends "base.html" %}
-{% block title %}Prospeccion — QoriCash{% endblock %}
+{% block title %}CRM Dashboard — QoriCash{% endblock %}
 
-{% block content %}
-<div class="container-fluid py-4">
-
-  <!-- Header -->
-  <div class="d-flex align-items-center justify-content-between mb-4">
-    <div>
-      <h4 class="mb-0 fw-bold">
-        <i class="bi bi-megaphone text-warning"></i>
-        Prospeccion Comercial
-      </h4>
-      <small class="text-muted">Vista general de campana — solo Master</small>
-    </div>
-    <a href="{{ url_for('prospeccion.lista') }}" class="btn btn-outline-primary btn-sm">
-      <i class="bi bi-people"></i> Ver base completa
-    </a>
-  </div>
-
-  <!-- KPIs -->
-  <div class="row g-3 mb-4">
-    <div class="col-6 col-md-2">
-      <a href="{{ url_for('prospeccion.lista', tab='todos') }}"
-         class="text-decoration-none">
-        <div class="card border-0 shadow-sm h-100 kpi-card">
-          <div class="card-body text-center">
-            <div class="fs-2 fw-bold text-dark">{{ total }}</div>
-            <div class="text-muted small">Total prospectos</div>
-          </div>
-        </div>
-      </a>
-    </div>
-    <div class="col-6 col-md-2">
-      <a href="{{ url_for('prospeccion.lista', tab='seguimiento') }}"
-         class="text-decoration-none">
-        <div class="card border-0 shadow-sm h-100 border-start border-4 border-primary kpi-card">
-          <div class="card-body text-center">
-            <div class="fs-2 fw-bold text-primary">{{ en_seguim }}</div>
-            <div class="text-muted small">En Seguimiento</div>
-          </div>
-        </div>
-      </a>
-    </div>
-    <div class="col-6 col-md-2">
-      <a href="{{ url_for('prospeccion.lista', tab='negociacion') }}"
-         class="text-decoration-none">
-        <div class="card border-0 shadow-sm h-100 border-start border-4 border-warning kpi-card">
-          <div class="card-body text-center">
-            <div class="fs-2 fw-bold text-warning">{{ en_negoc }}</div>
-            <div class="text-muted small">En Negociacion</div>
-          </div>
-        </div>
-      </a>
-    </div>
-    <div class="col-6 col-md-2">
-      <a href="{{ url_for('prospeccion.lista', tab='clientes') }}"
-         class="text-decoration-none">
-        <div class="card border-0 shadow-sm h-100 border-start border-4 border-success kpi-card">
-          <div class="card-body text-center">
-            <div class="fs-2 fw-bold text-success">{{ clientes }}</div>
-            <div class="text-muted small">Clientes</div>
-          </div>
-        </div>
-      </a>
-    </div>
-    <div class="col-6 col-md-2">
-      <a href="{{ url_for('prospeccion.lista', tab='lfc') }}" class="text-decoration-none">
-        <div class="card border-0 shadow-sm h-100 border-start border-4 kpi-card" style="border-color:#22C55E!important">
-          <div class="card-body text-center">
-            <div class="fs-2 fw-bold" style="color:#22C55E">{{ lfc }}</div>
-            <div class="text-muted small">Clientes LFC</div>
-          </div>
-        </div>
-      </a>
-    </div>
-    <div class="col-6 col-md-2">
-      <div class="card border-0 shadow-sm h-100 bg-light">
-        <div class="card-body text-center d-flex flex-column justify-content-center">
-          <a href="{{ url_for('prospeccion.lista', grupo='PRIORITARIOS') }}"
-             class="btn btn-sm btn-danger">
-            <i class="bi bi-fire"></i> Ver prioritarios
-          </a>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Metricas de campana -->
-  <div class="row g-3 mb-3">
-    <div class="col-6 col-md">
-      <div class="card border-0 shadow-sm h-100 border-start border-4 border-primary">
-        <div class="card-body text-center py-3">
-          <div class="fs-3 fw-bold text-primary">{{ env_presentacion }}</div>
-          <div class="text-muted small">Presentacion enviada</div>
-        </div>
-      </div>
-    </div>
-    <div class="col-6 col-md">
-      <div class="card border-0 shadow-sm h-100 border-start border-4 border-info">
-        <div class="card-body text-center py-3">
-          <div class="fs-3 fw-bold text-info">{{ env_precio }}</div>
-          <div class="text-muted small">Precio enviado</div>
-        </div>
-      </div>
-    </div>
-    <div class="col-6 col-md">
-      <a href="{{ url_for('prospeccion.lista', tab='lfc') }}" class="text-decoration-none">
-        <div class="card border-0 shadow-sm h-100 border-start border-4 kpi-card" style="border-color:#22C55E!important">
-          <div class="card-body text-center py-3">
-            <div class="fs-3 fw-bold" style="color:#22C55E">{{ lfc_contactados }}</div>
-            <div class="text-muted small">LFC contactados</div>
-          </div>
-        </div>
-      </a>
-    </div>
-    <div class="col-6 col-md">
-      <div class="card border-0 shadow-sm h-100 border-start border-4 border-danger">
-        <div class="card-body text-center py-3">
-          <div class="fs-3 fw-bold text-danger">{{ bounces }}</div>
-          <div class="text-muted small">Rechazos (bounces)</div>
-        </div>
-      </div>
-    </div>
-    <div class="col-6 col-md">
-      <div class="card border-0 shadow-sm h-100 border-start border-4 border-secondary">
-        <div class="card-body text-center py-3">
-          <div class="fs-3 fw-bold text-secondary">{{ sin_email }}</div>
-          <div class="text-muted small">Sin email</div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="row g-3">
-
-    <!-- Envios por dia -->
-    <div class="col-md-7">
-      <div class="card border-0 shadow-sm h-100">
-        <div class="card-header bg-transparent border-0 pb-0">
-          <span class="fw-semibold small text-uppercase text-muted">Historial de envios por dia</span>
-        </div>
-        <div class="card-body">
-          {% if envios_por_dia %}
-          <canvas id="chartEnviosDia" height="200"></canvas>
-          {% else %}
-          <div class="text-center text-muted py-5 small">
-            <i class="bi bi-bar-chart d-block mb-2 opacity-25" style="font-size:2rem"></i>
-            Sin historial de envios aun.
-          </div>
-          {% endif %}
-        </div>
-      </div>
-    </div>
-
-    <!-- Chart segmentos -->
-    <div class="col-md-5">
-      <div class="card border-0 shadow-sm h-100">
-        <div class="card-header bg-transparent border-0 pb-0">
-          <span class="fw-semibold small text-uppercase text-muted">Distribucion por segmento</span>
-        </div>
-        <div class="card-body">
-          <canvas id="chartGrupos" height="200"></canvas>
-        </div>
-      </div>
-    </div>
-
-    <!-- Limpieza de emails -->
-    {%  if true %}
-    <div class="col-12">
-      <div class="card border-0 shadow-sm" style="border-left:4px solid #6366f1!important;">
-        <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
-          <span class="fw-semibold small text-uppercase text-muted">
-            <i class="bi bi-shield-check text-indigo me-1" style="color:#6366f1"></i>
-            Limpieza de emails invalidos
-          </span>
-          <button class="btn btn-sm btn-outline-secondary" id="btnLimpiarEmails">
-            <i class="bi bi-broom"></i> Iniciar limpieza
-          </button>
-        </div>
-        <div class="card-body py-2" id="limpiarPanel" style="display:none">
-          <div class="d-flex align-items-center gap-3">
-            <div class="flex-grow-1">
-              <div class="progress" style="height:8px">
-                <div class="progress-bar bg-indigo" id="limpiarBar" role="progressbar" style="width:0%;background:#6366f1"></div>
-              </div>
-            </div>
-            <span id="limpiarInfo" class="small text-muted" style="white-space:nowrap">—</span>
-          </div>
-          <div id="limpiarMsg" class="small text-muted mt-1"></div>
-        </div>
-      </div>
-    </div>
-    {% endif %}
-
-
-  </div>
-</div>
-{% endblock %}
-
-{% block styles %}
+{% block head %}
 <style>
-.kpi-card { transition: transform .15s, box-shadow .15s; cursor: pointer; }
-.kpi-card:hover { transform: translateY(-3px); box-shadow: 0 6px 20px rgba(0,0,0,.12) !important; }
+.crm-dash { padding: 1.25rem; background: var(--qori-gray-100); min-height: calc(100vh - 56px); }
+
+/* KPI cards */
+.kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: .75rem; margin-bottom: 1.25rem; }
+.kpi-box {
+  background: var(--qori-white); border-radius: 12px; padding: 1rem 1.1rem;
+  border: 1.5px solid var(--qori-gray-200);
+  display: flex; flex-direction: column; gap: .25rem;
+  transition: all .15s; cursor: pointer; text-decoration: none;
+}
+.kpi-box:hover { border-color: var(--qori-primary); box-shadow: 0 0 0 3px var(--qori-primary-glow); transform: translateY(-1px); }
+.kpi-box .num { font-size: 1.9rem; font-weight: 800; line-height: 1; color: var(--qori-gray-900); }
+.kpi-box .lbl { font-size: .72rem; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--qori-gray-400); }
+.kpi-box .delta { font-size: .72rem; color: var(--qori-gray-400); margin-top: .15rem; }
+.kpi-box.accent-green  { border-left: 4px solid #22C55E; }
+.kpi-box.accent-blue   { border-left: 4px solid #3B82F6; }
+.kpi-box.accent-yellow { border-left: 4px solid #F59E0B; }
+.kpi-box.accent-red    { border-left: 4px solid #EF4444; }
+.kpi-box.accent-teal   { border-left: 4px solid var(--qori-primary); }
+.kpi-box.accent-gray   { border-left: 4px solid var(--qori-gray-300); }
+
+/* Embudo */
+.funnel-row { display: flex; align-items: center; gap: .75rem; margin-bottom: .45rem; }
+.funnel-label { font-size: .78rem; font-weight: 600; color: var(--qori-gray-700); width: 110px; flex-shrink: 0; }
+.funnel-bar-wrap { flex: 1; background: var(--qori-gray-100); border-radius: 6px; height: 22px; overflow: hidden; }
+.funnel-bar { height: 100%; border-radius: 6px; transition: width .4s ease; display: flex; align-items: center; padding: 0 .5rem; }
+.funnel-bar span { font-size: .68rem; font-weight: 700; color: #fff; white-space: nowrap; }
+.funnel-n { font-size: .82rem; font-weight: 700; color: var(--qori-gray-700); width: 50px; text-align: right; flex-shrink: 0; }
+
+/* Canal stats */
+.canal-chips { display: flex; flex-wrap: wrap; gap: .5rem; }
+.canal-chip {
+  display: flex; align-items: center; gap: .4rem;
+  padding: .35rem .7rem; border-radius: 8px; font-size: .78rem; font-weight: 600;
+  background: var(--qori-gray-100); border: 1px solid var(--qori-gray-200); color: var(--qori-gray-700);
+}
+.canal-chip i { font-size: .9rem; }
+
+/* Seguimientos */
+.seg-list { display: flex; flex-direction: column; gap: .5rem; max-height: 340px; overflow-y: auto; }
+.seg-item {
+  display: flex; align-items: flex-start; gap: .7rem;
+  padding: .65rem .85rem; border-radius: 10px; background: var(--qori-gray-50);
+  border: 1px solid var(--qori-gray-200);
+}
+.seg-item.vencido { background: #FEF2F2; border-color: #FECACA; }
+.seg-ico { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: .9rem; flex-shrink: 0; }
+.seg-ico.llamada  { background: #EFF6FF; color: #3B82F6; }
+.seg-ico.email    { background: #F0FDF4; color: #22C55E; }
+.seg-ico.whatsapp { background: #F0FDF4; color: #25D366; }
+.seg-ico.reunion  { background: #FEF9C3; color: #EAB308; }
+.seg-ico.otro     { background: var(--qori-gray-100); color: var(--qori-gray-500); }
+.seg-empresa { font-size: .8rem; font-weight: 700; color: var(--qori-gray-800); line-height: 1.2; }
+.seg-desc    { font-size: .73rem; color: var(--qori-gray-500); margin-top: .1rem; }
+.seg-fecha   { font-size: .7rem; font-weight: 600; margin-top: .2rem; }
+.seg-fecha.vencido { color: #EF4444; }
+.seg-fecha.ok      { color: var(--qori-gray-400); }
+
+/* Timeline */
+.tl-list { display: flex; flex-direction: column; gap: 0; max-height: 420px; overflow-y: auto; }
+.tl-item {
+  display: flex; gap: .8rem; padding: .6rem .85rem;
+  border-bottom: 1px solid var(--qori-gray-100);
+}
+.tl-item:last-child { border-bottom: none; }
+.tl-ico { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: .75rem; flex-shrink: 0; margin-top: .1rem; }
+.tl-ico.email     { background: #DBEAFE; color: #2563EB; }
+.tl-ico.whatsapp  { background: #DCFCE7; color: #16A34A; }
+.tl-ico.llamada   { background: #EFF6FF; color: #3B82F6; }
+.tl-ico.reunion   { background: #FEF9C3; color: #B45309; }
+.tl-ico.estado    { background: #F3E8FF; color: #7C3AED; }
+.tl-ico.nota      { background: var(--qori-gray-100); color: var(--qori-gray-500); }
+.tl-ico.bounce    { background: #FEF2F2; color: #DC2626; }
+.tl-ico.sistema   { background: var(--qori-gray-100); color: var(--qori-gray-400); }
+.tl-ico.default   { background: var(--qori-gray-100); color: var(--qori-gray-400); }
+.tl-empresa { font-size: .75rem; font-weight: 700; color: var(--qori-primary); cursor: pointer; }
+.tl-empresa:hover { text-decoration: underline; }
+.tl-desc { font-size: .78rem; color: var(--qori-gray-700); line-height: 1.35; margin-top: .05rem; }
+.tl-meta { font-size: .68rem; color: var(--qori-gray-400); margin-top: .15rem; }
+
+/* Panel cards */
+.dash-card {
+  background: var(--qori-white); border-radius: 12px;
+  border: 1.5px solid var(--qori-gray-200); overflow: hidden;
+}
+.dash-card-head {
+  padding: .75rem 1rem; border-bottom: 1px solid var(--qori-gray-100);
+  font-size: .82rem; font-weight: 700; color: var(--qori-gray-800);
+  display: flex; align-items: center; gap: .5rem;
+}
+.dash-card-head i { color: var(--qori-primary); }
+.dash-card-body { padding: .85rem 1rem; }
+
+/* Alert badge */
+.badge-alert { background: #EF4444; color: #fff; border-radius: 999px; padding: .1rem .45rem; font-size: .68rem; font-weight: 700; }
 </style>
 {% endblock %}
 
-{% block scripts %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-<script>
-const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+{% block content %}
+<div class="crm-dash">
 
-// Chart: segmentos
-fetch("{{ url_for('prospeccion.api_grupos') }}")
-  .then(r => r.json())
-  .then(data => {
-    new Chart(document.getElementById("chartGrupos"), {
-      type: "doughnut",
-      data: {
-        labels:   data.map(d => d.label),
-        datasets: [{ data: data.map(d => d.value),
-                     backgroundColor: data.map(d => d.color),
-                     borderWidth: 2 }]
-      },
-      options: { plugins: { legend: { position: "bottom", labels: { font: { size: 11 } } } } }
-    });
-  });
+  <!-- Header -->
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.1rem;flex-wrap:wrap;gap:.5rem;">
+    <div>
+      <h5 style="margin:0;font-weight:800;color:var(--qori-gray-900);"><i class="bi bi-graph-up-arrow" style="color:var(--qori-primary);margin-right:.4rem;"></i>CRM Dashboard</h5>
+      <div style="font-size:.75rem;color:var(--qori-gray-400);margin-top:.1rem;">Resumen comercial en tiempo real · {{ hoy.strftime('%d/%m/%Y %H:%M') }}</div>
+    </div>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+      <a href="{{ url_for('prospeccion.lista') }}" class="btn btn-sm btn-outline-secondary" style="font-size:.78rem;">
+        <i class="bi bi-table"></i> Ver Base Completa
+      </a>
+      {% if seguimientos_vencidos > 0 %}
+      <a href="{{ url_for('prospeccion.lista') }}" class="btn btn-sm" style="background:#EF4444;color:#fff;font-size:.78rem;">
+        <i class="bi bi-alarm"></i> {{ seguimientos_vencidos }} seguimiento(s) vencido(s)
+      </a>
+      {% endif %}
+    </div>
+  </div>
 
-// Chart: envios por dia
-(function() {
-  const canvas = document.getElementById("chartEnviosDia");
-  if (!canvas) return;
-  const labels  = {{ envios_por_dia | map(attribute=0) | list | tojson }};
-  const valores = {{ envios_por_dia | map(attribute=1) | list | tojson }};
-  new Chart(canvas, {
-    type: "bar",
-    data: {
-      labels: labels,
-      datasets: [{
-        label: "Prospectos contactados",
-        data: valores,
-        backgroundColor: "rgba(13,110,253,0.7)",
-        borderColor: "rgba(13,110,253,1)",
-        borderWidth: 1,
-        borderRadius: 4,
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: { legend: { display: false } },
-      scales: {
-        x: { ticks: { font: { size: 10 }, maxRotation: 45 } },
-        y: { beginAtZero: true, ticks: { font: { size: 11 }, stepSize: 1 } }
-      }
-    }
-  });
-})();
+  <!-- KPI Strip -->
+  <div class="kpi-grid">
+    <a href="{{ url_for('prospeccion.lista', tab='todos') }}" class="kpi-box accent-gray">
+      <div class="num">{{ kpis.total }}</div>
+      <div class="lbl">Total</div>
+      <div class="delta">Base completa</div>
+    </a>
+    <a href="{{ url_for('prospeccion.lista', tab='sin_contactar') }}" class="kpi-box accent-gray">
+      <div class="num">{{ kpis.sin_contactar }}</div>
+      <div class="lbl">Sin Contactar</div>
+      <div class="delta">Pendientes</div>
+    </a>
+    <a href="{{ url_for('prospeccion.lista', tab='contactado') }}" class="kpi-box accent-blue">
+      <div class="num">{{ kpis.contactado }}</div>
+      <div class="lbl">Contactados</div>
+      <div class="delta">{{ contactados_7d }} activos 7d</div>
+    </a>
+    <a href="{{ url_for('prospeccion.lista', tab='interesado') }}" class="kpi-box accent-teal">
+      <div class="num">{{ kpis.interesado }}</div>
+      <div class="lbl">Interesados</div>
+      <div class="delta">Precio enviado</div>
+    </a>
+    <a href="{{ url_for('prospeccion.lista', tab='negociando') }}" class="kpi-box accent-yellow">
+      <div class="num">{{ kpis.negociando }}</div>
+      <div class="lbl">Negociando</div>
+      <div class="delta">En proceso</div>
+    </a>
+    <a href="{{ url_for('prospeccion.lista', tab='clientes') }}" class="kpi-box accent-green">
+      <div class="num">{{ kpis.cliente }}</div>
+      <div class="lbl">Clientes</div>
+      <div class="delta">Convertidos</div>
+    </a>
+    <div class="kpi-box" style="border-left:4px solid #F59E0B;">
+      <div class="num">{{ emails_7d }}</div>
+      <div class="lbl">Emails 7d</div>
+      <div class="delta">Últimos 7 días</div>
+    </div>
+    <div class="kpi-box" style="border-left:4px solid #25D366;">
+      <div class="num">{{ wa_7d }}</div>
+      <div class="lbl">WhatsApp 7d</div>
+      <div class="delta">Últimos 7 días</div>
+    </div>
+  </div>
 
-// ── Limpieza de emails invalidos ──────────────────────────────────────────────
-(function() {
-  const btn   = document.getElementById('btnLimpiarEmails');
-  if (!btn) return;
-  const panel = document.getElementById('limpiarPanel');
-  const bar   = document.getElementById('limpiarBar');
-  const info  = document.getElementById('limpiarInfo');
-  const msg   = document.getElementById('limpiarMsg');
-  let poller  = null;
+  <!-- Main Grid -->
+  <div style="display:grid;grid-template-columns:1fr 1fr 1.2fr;gap:.85rem;align-items:start;">
 
-  async function pollEstado() {
-    try {
-      const r = await fetch('/prospeccion/api/limpiar-emails/estado');
-      const d = await r.json();
-      if (!d.estado) return;
-      panel.style.display = '';
-      if (d.estado === 'corriendo') {
-        const pct = d.total > 0 ? Math.round(d.procesados / d.total * 100) : 0;
-        bar.style.width = pct + '%';
-        info.textContent = d.procesados + ' / ' + d.total + ' (' + d.limpiados + ' limpiados)';
-        msg.textContent  = 'Procesando... esto puede tardar varios minutos.';
-        btn.disabled = true;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Corriendo...';
-      } else if (d.estado === 'listo') {
-        clearInterval(poller);
-        bar.style.width = '100%';
-        info.textContent = d.total + ' revisados — ' + d.limpiados + ' emails nullificados';
-        msg.innerHTML = '<span class="text-success fw-semibold"><i class="bi bi-check-circle"></i> Limpieza completada.</span>';
-        btn.disabled = false;
-        btn.innerHTML = '<i class="bi bi-broom"></i> Limpiar de nuevo';
-      } else if (d.estado && d.estado.startsWith('error')) {
-        clearInterval(poller);
-        msg.innerHTML = '<span class="text-danger">' + d.estado + '</span>';
-        btn.disabled = false;
-        btn.innerHTML = '<i class="bi bi-broom"></i> Reintentar';
-      }
-    } catch(e) {}
-  }
+    <!-- Embudo de conversión -->
+    <div class="dash-card">
+      <div class="dash-card-head"><i class="bi bi-funnel-fill"></i> Embudo de Conversión</div>
+      <div class="dash-card-body">
+        {% set max_n = kpis.total if kpis.total > 0 else 1 %}
+        {% set funnel = [
+          ('Sin Contactar', kpis.sin_contactar, '#94A3B8'),
+          ('Contactados',   kpis.contactado,    '#3B82F6'),
+          ('Interesados',   kpis.interesado,    '#00DEA8'),
+          ('Negociando',    kpis.negociando,    '#F59E0B'),
+          ('Clientes',      kpis.cliente,       '#22C55E'),
+        ] %}
+        {% for label, n, color in funnel %}
+        <div class="funnel-row">
+          <div class="funnel-label">{{ label }}</div>
+          <div class="funnel-bar-wrap">
+            <div class="funnel-bar" style="width:{{ (n / max_n * 100)|round|int }}%;background:{{ color }};">
+              {% if n > 0 %}<span>{{ ((n / max_n) * 100)|round(1) }}%</span>{% endif %}
+            </div>
+          </div>
+          <div class="funnel-n">{{ n }}</div>
+        </div>
+        {% endfor %}
 
-  btn.addEventListener('click', async function() {
-    const conf = await Swal.fire({
-      title: 'Limpiar emails invalidos?',
-      html: 'Se verificara el DNS de cada dominio.<br>Los emails con dominio inexistente quedarán en <strong>NULL</strong>.<br>Los registros se conservan para prospeccion manual.',
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonText: 'Iniciar limpieza',
-      cancelButtonText: 'Cancelar',
-      confirmButtonColor: '#6366f1'
-    });
-    if (!conf.isConfirmed) return;
-    const r = await fetch('/prospeccion/api/limpiar-emails', {
-      method: 'POST',
-      headers: { 'X-CSRFToken': csrfToken }
-    });
-    const d = await r.json();
-    if (d.ok) {
-      panel.style.display = '';
-      poller = setInterval(pollEstado, 3000);
-      pollEstado();
-    } else {
-      Swal.fire('Error', d.error, 'error');
-    }
-  });
+        <div style="margin-top:1rem;padding-top:.75rem;border-top:1px solid var(--qori-gray-100);">
+          <div style="font-size:.75rem;color:var(--qori-gray-500);font-weight:600;margin-bottom:.5rem;">Actividad por canal (30 días)</div>
+          <div class="canal-chips">
+            {% if canales.get('email') %}
+            <div class="canal-chip"><i class="bi bi-envelope-fill" style="color:#3B82F6;"></i>Email <strong>{{ canales.email }}</strong></div>
+            {% endif %}
+            {% if canales.get('whatsapp') %}
+            <div class="canal-chip"><i class="bi bi-whatsapp" style="color:#25D366;"></i>WhatsApp <strong>{{ canales.whatsapp }}</strong></div>
+            {% endif %}
+            {% if canales.get('llamada') %}
+            <div class="canal-chip"><i class="bi bi-telephone-fill" style="color:#3B82F6;"></i>Llamada <strong>{{ canales.llamada }}</strong></div>
+            {% endif %}
+            {% if canales.get('manual') %}
+            <div class="canal-chip"><i class="bi bi-pencil-fill" style="color:var(--qori-gray-400);"></i>Manual <strong>{{ canales.manual }}</strong></div>
+            {% endif %}
+            {% if not canales %}
+            <div style="font-size:.75rem;color:var(--qori-gray-400);">Sin actividad registrada</div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
 
-  // Si ya hay un proceso corriendo al cargar la página
-  pollEstado().then(() => {
-    if (info.textContent !== '—') {
-      const st = info.textContent;
-      if (st.includes('/')) poller = setInterval(pollEstado, 3000);
-    }
-  });
-})();
+    <!-- Seguimientos pendientes -->
+    <div class="dash-card">
+      <div class="dash-card-head">
+        <i class="bi bi-calendar-check-fill"></i> Seguimientos Próximos
+        {% if seguimientos_vencidos > 0 %}
+        <span class="badge-alert ms-auto">{{ seguimientos_vencidos }} vencidos</span>
+        {% endif %}
+      </div>
+      <div class="dash-card-body" style="padding:.5rem;">
+        {% if seguimientos_pendientes %}
+        <div class="seg-list">
+          {% for seg in seguimientos_pendientes %}
+          {% set vencido = not seg.completado and seg.fecha_programada < hoy %}
+          <div class="seg-item {{ 'vencido' if vencido else '' }}">
+            {% set tipo = seg.tipo or 'otro' %}
+            <div class="seg-ico {{ tipo }}">
+              {% if tipo == 'llamada' %}<i class="bi bi-telephone-fill"></i>
+              {% elif tipo == 'email' %}<i class="bi bi-envelope-fill"></i>
+              {% elif tipo == 'whatsapp' %}<i class="bi bi-whatsapp"></i>
+              {% elif tipo == 'reunion' %}<i class="bi bi-camera-video-fill"></i>
+              {% else %}<i class="bi bi-bell-fill"></i>{% endif %}
+            </div>
+            <div style="flex:1;min-width:0;">
+              <a href="{{ url_for('prospeccion.lista') }}#pid={{ seg.prospecto_id }}"
+                 class="seg-empresa">{{ seg.prospecto.razon_social if seg.prospecto else 'Prospecto' }}</a>
+              {% if seg.descripcion %}
+              <div class="seg-desc">{{ seg.descripcion[:60] }}{{ '…' if seg.descripcion|length > 60 else '' }}</div>
+              {% endif %}
+              <div class="seg-fecha {{ 'vencido' if vencido else 'ok' }}">
+                {% if vencido %}<i class="bi bi-exclamation-triangle-fill"></i> Vencido · {% endif %}
+                {{ seg.fecha_programada.strftime('%d/%m/%Y %H:%M') }}
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div style="text-align:center;padding:2rem;color:var(--qori-gray-400);">
+          <i class="bi bi-check2-all" style="font-size:1.8rem;"></i>
+          <div style="margin-top:.5rem;font-size:.8rem;">Sin seguimientos pendientes</div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
 
-</script>
+    <!-- Timeline de actividades -->
+    <div class="dash-card">
+      <div class="dash-card-head"><i class="bi bi-clock-history"></i> Actividad Reciente</div>
+      <div class="dash-card-body" style="padding:0;">
+        {% if actividades %}
+        <div class="tl-list">
+          {% for act in actividades %}
+          {% set canal = act.canal or act.tipo or 'default' %}
+          <div class="tl-item">
+            <div class="tl-ico {{ canal if canal in ('email','whatsapp','llamada','reunion','estado','nota','bounce','sistema') else 'default' }}">
+              {% if canal == 'email' %}<i class="bi bi-envelope-fill"></i>
+              {% elif canal == 'whatsapp' %}<i class="bi bi-whatsapp"></i>
+              {% elif canal == 'llamada' %}<i class="bi bi-telephone-fill"></i>
+              {% elif canal == 'reunion' %}<i class="bi bi-camera-video-fill"></i>
+              {% elif act.tipo == 'estado' %}<i class="bi bi-arrow-repeat"></i>
+              {% elif act.tipo == 'bounce' %}<i class="bi bi-x-circle-fill"></i>
+              {% else %}<i class="bi bi-dot"></i>{% endif %}
+            </div>
+            <div style="flex:1;min-width:0;">
+              {% if act.prospecto %}
+              <div class="tl-empresa" onclick="window.location='{{ url_for('prospeccion.lista') }}'">
+                {{ act.prospecto.razon_social or '(sin nombre)' }}
+              </div>
+              {% endif %}
+              <div class="tl-desc">{{ act.descripcion[:90] }}{{ '…' if act.descripcion and act.descripcion|length > 90 else '' }}</div>
+              <div class="tl-meta">
+                {{ act.creado_en.strftime('%d/%m %H:%M') if act.creado_en else '' }}
+                {% if act.bandeja %} · {{ act.bandeja.split('@')[0] }}{% endif %}
+                {% if act.usuario %} · {{ act.usuario.username }}{% endif %}
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div style="text-align:center;padding:2rem;color:var(--qori-gray-400);">
+          <i class="bi bi-inbox" style="font-size:1.8rem;"></i>
+          <div style="margin-top:.5rem;font-size:.8rem;">Sin actividad registrada</div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+  </div><!-- /main grid -->
+
+</div><!-- /crm-dash -->
 {% endblock %}
