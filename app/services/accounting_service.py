@@ -167,10 +167,17 @@ class AccountingService:
             house_profit       = (sell_base - buy_base)  * matched_amount
 
             if buy_is_market or sell_is_market:
-                # Master en cualquier lado = contraparte de mercado → Hedge
-                # El lado mercado no tiene margen propio (base_rate = exchange_rate)
-                # QoriCash gana el spread entre precio de mercado y base del trader
+                # Master/Admin en cualquier lado = contraparte de mercado → Hedge
+                # El margen del lado mercado alimenta house_profit (QoriCash), no trader profit
                 match_type = 'market_hedge'
+                if buy_is_market:
+                    # La pierna compra es de QoriCash → su margen va a house
+                    house_profit       = house_profit + trader_buy_profit
+                    trader_buy_profit  = Decimal('0')
+                if sell_is_market:
+                    # La pierna venta es de QoriCash → su margen va a house
+                    house_profit       = house_profit + trader_sell_profit
+                    trader_sell_profit = Decimal('0')
             elif (buy_op.client_id is not None
                   and buy_op.client_id == sell_op.client_id
                   and buy_base == sell_base):
