@@ -241,11 +241,14 @@ class ClientService:
                 if legacy_accounts:
                     bank_accounts = legacy_accounts
 
-            # Validar cuentas si fueron enviadas (opcional)
-            if bank_accounts and isinstance(bank_accounts, (list, tuple)) and len(bank_accounts) > 0:
-                is_valid, message = Client.validate_bank_accounts(bank_accounts)
-                if not is_valid:
-                    return False, message, None
+            # Requerir mínimo 2 cuentas
+            if not bank_accounts or not isinstance(bank_accounts, (list, tuple)) or len(bank_accounts) < 2:
+                return False, 'Debes registrar al menos 2 cuentas bancarias', None
+
+            # Validar cuentas usando el método del modelo (ahora estático)
+            is_valid, message = Client.validate_bank_accounts(bank_accounts)
+            if not is_valid:
+                return False, message, None
 
             # --- Construcción del objeto cliente (no persistir todavía hasta validaciones completadas) ---
             client = Client()

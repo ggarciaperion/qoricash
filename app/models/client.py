@@ -205,7 +205,10 @@ class Client(db.Model):
             tuple: (is_valid: bool, message: str)
         """
         if not accounts_list or not isinstance(accounts_list, (list, tuple)):
-            return True, 'Sin cuentas bancarias'
+            return False, 'bank_accounts debe ser una lista de cuentas'
+
+        if len(accounts_list) < 2:
+            return False, 'Debes registrar al menos 2 cuentas bancarias'
 
         if len(accounts_list) > 6:
             return False, 'Máximo 6 cuentas bancarias permitidas'
@@ -247,6 +250,9 @@ class Client(db.Model):
             # Validar CCI (20 dígitos) para bancos que requieren CCI
             if bank in ('BBVA', 'SCOTIABANK') and len(acc_num) != 20:
                 return False, f'El CCI de {bank} (Cuenta #{idx}) debe tener exactamente 20 dígitos'
+
+        if 'S/' not in currencies_present or '$' not in currencies_present:
+            return False, 'Debes registrar al menos una cuenta en Soles (S/) y una en Dólares ($)'
 
         return True, 'Cuentas válidas'
 
