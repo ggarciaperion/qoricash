@@ -406,3 +406,94 @@ def api_import_prospectos():
     db.session.bulk_save_objects(objs)
     db.session.commit()
     return jsonify({'ok': True, 'insertados': len(objs)})
+
+
+# ── API interna — validar y limpiar teléfonos de prospectos ───────
+@crm_bp.route('/api/limpiar-telefonos', methods=['POST'])
+@csrf.exempt
+def api_limpiar_telefonos():
+    """Valida los teléfonos de todos los prospectos.
+    Conserva sólo celulares peruanos válidos (9 dígitos, comienzan con 9).
+    Elimina fijos, internacionales y formatos inválidos.
+    Protegido por CRM_API_KEY.
+    """
+    import re as _re
+
+    api_key = request.headers.get('X-API-Key', '')
+    if api_key != CRM_API_KEY:
+        return jsonify({'ok': False, 'error': 'Unauthorized'}), 401
+
+    from app.models.prospecto import Prospecto
+
+    def _normalizar(raw):
+        """Retorna 9 dígitos si es celular peruano válido, sino None."""
+        if not raw:
+            return None
+        digits = _re.sub(r'\D', '', str(raw).strip())
+        # Quitar código de país Perú si está presente
+        if len(digits) == 12 and digits.startswith('519'):
+            digits = digits[3:]
+        elif len(digits) == 11 and digits.startswith('51'):
+            digits = digits[2:]
+        # Celular peruano: 9 dígitos comenzando con 9
+        if len(digits) == 9 and digits.startswith('9'):
+            return digits
+        return None
+
+    PHONE_FIELDS = ['telefono', 'telefono_alt', 'telefono_3', 'telefono_4', 'contacto_wa']
+    stats = {f: {'revisados': 0, 'validos': 0, 'eliminados': 0} for f in PHONE_FIELDS}
+    modificados = 0
+    ejemplos_eliminados = []
+
+    try:
+        prospectos = Prospecto.query.all()
+        total = len(prospectos)
+
+        for p in prospectos:
+            cambio = False
+            for campo in PHONE_FIELDS:
+                val = getattr(p, campo, None)
+                if val:
+                    stats[campo]['revisados'] += 1
+                    cleaned = _normalizar(val)
+                    if cleaned:
+                        stats[campo]['validos'] += 1
+                        if str(val).strip() != cleaned:
+                            setattr(p, campo, cleaned)
+                            cambio = True
+                    else:
+                        stats[campo]['eliminados'] += 1
+                        if len(ejemplos_eliminados) < 20:
+                            ejemplos_eliminados.append({
+                                'id': p.id,
+                                'campo': campo,
+                                'valor': str(val).strip(),
+                                'razon_social': p.razon_social or '',
+                            })
+                        setattr(p, campo, None)
+                        cambio = True
+            if cambio:
+                modificados += 1
+
+        db.session.commit()
+        log.info(f'[CRM] limpiar-telefonos: {modificados} prospectos modificados de {total}')
+
+        total_eliminados = sum(s['eliminados'] for s in stats.values())
+        total_validos    = sum(s['validos']    for s in stats.values())
+        total_revisados  = sum(s['revisados']  for s in stats.values())
+
+        return jsonify({
+            'ok': True,
+            'total_prospectos': total,
+            'prospectos_modificados': modificados,
+            'telefonos_revisados': total_revisados,
+            'telefonos_validos': total_validos,
+            'telefonos_eliminados': total_eliminados,
+            'detalle_por_campo': stats,
+            'ejemplos_eliminados': ejemplos_eliminados,
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        log.error(f'[CRM] limpiar-telefonos error: {e}')
+        return jsonify({'ok': False, 'error': str(e)}), 500
