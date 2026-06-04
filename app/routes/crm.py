@@ -97,6 +97,13 @@ def api_conversaciones():
                 'no_leidos': no_leidos_map.get(num, 0),
                 'estado':    estado,
             })
+
+        # Ordenar: 1º no leídos, 2º respondieron (leídos), 3º solo salientes
+        result.sort(key=lambda x: (
+            0 if x['no_leidos'] > 0 else
+            1 if x['estado'] == 'respondio' else
+            2
+        ))
         return jsonify(result)
     except Exception as e:
         log.error(f'[CRM] api_conversaciones error: {e}')
