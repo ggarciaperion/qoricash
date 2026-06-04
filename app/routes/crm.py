@@ -576,6 +576,33 @@ def api_import_prospectos():
     if action == 'count':
         return jsonify({'ok': True, 'total': Prospecto.query.count()})
 
+    if action == 'list_identifiers':
+        # Devuelve RUC + razon_social de todos los prospectos
+        from app.models.client import Client
+        prosp = Prospecto.query.with_entities(
+            Prospecto.ruc, Prospecto.razon_social, Prospecto.email
+        ).all()
+        clientes = Client.query.with_entities(
+            Client.dni, Client.razon_social, Client.email,
+            Client.document_type
+        ).all()
+        return jsonify({
+            'ok': True,
+            'prospectos': [
+                {'ruc': r.ruc, 'razon_social': r.razon_social, 'email': r.email}
+                for r in prosp
+            ],
+            'clientes': [
+                {
+                    'ruc': c.dni if c.document_type == 'RUC' else None,
+                    'razon_social': c.razon_social,
+                    'email': c.email,
+                    'document_type': c.document_type
+                }
+                for c in clientes
+            ],
+        })
+
     registros = data.get('registros', [])
     if not registros:
         return jsonify({'ok': True, 'insertados': 0})
