@@ -1459,32 +1459,47 @@ function waBadgeRow(ultima_wa) {
   </span>`;
 }
 
+function _parseContactMs(s) {
+  // Parsea "YYYY-MM-DD HH:MM" o "YYYY-MM-DD" en ms UTC (hora almacenada en Peru = UTC-5, sumar 5h)
+  if (!s) return null;
+  const p = s.match(/(\d{4})-(\d{2})-(\d{2})(?:\s(\d{2}):(\d{2}))?/);
+  if (!p) return null;
+  return Date.UTC(+p[1], +p[2]-1, +p[3], (+p[4]||0)+5, +(p[5]||0));
+}
+
+function _msToDateStr(ms) {
+  const d = new Date(ms);
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`;
+}
+
 function proximoContactoBadge(r) {
-  // Si tiene fecha_proximo_contacto explícita, mostrar con canal
+  // Sin ningún contacto previo → celda en blanco
+  const hasContact = r.ultima_wa || r.ultima_email || r.fecha_ultimo_contacto;
+  if (!hasContact) return '';
+
+  // Fecha explícita configurada → mostrarla directamente
+  if (r.fecha_proximo_contacto) return fmtProx(r.fecha_proximo_contacto);
+
+  // Calcular fecha sugerida según último contacto
+  const DAY = 24 * 60 * 60 * 1000;
   const waMs = _waParseMs(r.ultima_wa);
-  const now  = Date.now();
-  const h24  = 24 * 60 * 60 * 1000;
+  let baseMs;
 
   if (waMs) {
-    const diff = now - waMs;
-    if (diff < h24) {
-      // Ventana Meta activa → próximo contacto es Email
-      const restMs  = h24 - diff;
-      const restHrs = Math.ceil(restMs / 3600000);
-      return `<span style="font-size:.63rem;font-weight:700;padding:.18rem .42rem;border-radius:4px;background:#1e3a1a;color:#86EFAC;letter-spacing:.02em;" title="Ventana Meta activa — recontactar por Email hasta que expire">✉ Email <span style="font-weight:400;opacity:.75;">(${restHrs}h)</span></span>`;
+    const sinceWa = Date.now() - waMs;
+    if (sinceWa < DAY) {
+      // Ventana Meta activa: sugerir justo cuando expire (mañana aprox)
+      baseMs = waMs + DAY;
     } else {
-      // Ventana expirada → próximo es WA
-      return `<span style="font-size:.63rem;font-weight:700;padding:.18rem .42rem;border-radius:4px;background:#14361a;color:#4ade80;letter-spacing:.02em;" title="Última ventana WA expirada — puede recontactar por WhatsApp">💬 WhatsApp</span>`;
+      // WA expirado: +3 días desde último WA
+      baseMs = waMs + 3 * DAY;
     }
+  } else {
+    const refMs = _parseContactMs(r.ultima_email) || _parseContactMs(r.fecha_ultimo_contacto);
+    baseMs = refMs ? refMs + 3 * DAY : Date.now() + 3 * DAY;
   }
 
-  // Sin WA previo: si tiene email enviado → siguiente canal es WA
-  if (r.ultima_email || r.fecha_ultimo_contacto) {
-    return `<span style="font-size:.63rem;font-weight:700;padding:.18rem .42rem;border-radius:4px;background:#14361a;color:#4ade80;letter-spacing:.02em;" title="Presentación enviada — siguiente paso: WhatsApp">💬 WhatsApp</span>`;
-  }
-
-  // Sin contacto previo → primer contacto por Email
-  return `<span style="font-size:.63rem;font-weight:700;padding:.18rem .42rem;border-radius:4px;background:#1e2a3a;color:#93C5FD;letter-spacing:.02em;" title="Sin contacto previo — iniciar por Email">✉ Email</span>`;
+  return fmtProx(_msToDateStr(baseMs));
 }
 
 function badge(ec) {
