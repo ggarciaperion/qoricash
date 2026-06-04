@@ -70,9 +70,9 @@
           <span class="badge bg-light text-dark ms-2">{{ acc.currency }}</span>
         </span>
       </div>
-      <div class="text-end small">
-        <span class="me-3">Saldo anterior: <strong>{{ "%.2f"|format(acc.saldo_ant|float) }}</strong></span>
-        <span class="me-3">Saldo final: <strong>{{ "%.2f"|format(acc.saldo_final|float) }}</strong></span>
+      <div class="text-end small d-flex align-items-center gap-2 flex-wrap justify-content-end">
+        <span>Saldo anterior: <strong>{{ "%.2f"|format(acc.saldo_ant|float) }}</strong></span>
+        <span>Saldo final: <strong>{{ "%.2f"|format(acc.saldo_final|float) }}</strong></span>
         {% if acc.code in CODE_TO_BANK and bank_balances %}
           {% set banco = CODE_TO_BANK[acc.code] %}
           {% set bb = bank_balances.get(banco) %}
@@ -84,11 +84,15 @@
             {% endif %}
             {% set diff = (acc.saldo_final|float - real)|abs %}
             <span class="badge {% if diff < 0.01 %}bg-success{% else %}bg-warning text-dark{% endif %}">
-              Real: {{ "%.2f"|format(real) }}
+              Posición: {{ "%.2f"|format(real) }}
               {% if diff >= 0.01 %} | Δ {{ "%.2f"|format(diff) }}{% endif %}
             </span>
           {% endif %}
         {% endif %}
+        <button class="btn btn-sm btn-outline-light py-0 px-2"
+                onclick="abrirConciliacion('{{ acc.code }}','{{ acc.label }}','{{ acc.currency }}',{{ acc.saldo_final|float }})">
+          <i class="bi bi-arrow-left-right"></i> Conciliar
+        </button>
       </div>
     </div>
 
@@ -102,9 +106,9 @@
               <th style="width:95px;">Fecha</th>
               <th style="width:130px;">N° Asiento</th>
               <th>Descripción</th>
-              <th class="text-end" style="width:120px;">DEBE (S/)</th>
-              <th class="text-end" style="width:120px;">HABER (S/)</th>
-              <th class="text-end" style="width:130px;">SALDO</th>
+              <th class="text-end" style="width:120px;">DEBE ({{ acc.currency }})</th>
+              <th class="text-end" style="width:120px;">HABER ({{ acc.currency }})</th>
+              <th class="text-end" style="width:130px;">SALDO ({{ acc.currency }})</th>
             </tr>
           </thead>
           <tbody>
@@ -234,4 +238,153 @@
   {% endif %}
 
 </div>
+
+<!-- Modal Conciliación Bancaria -->
+<div class="modal fade" id="modalConciliar" tabindex="-1" aria-labelledby="modalConciliarLabel" aria-hidden="true">
+  <div class="modal-dialog modal-md">
+    <div class="modal-content">
+      <div class="modal-header bg-dark text-white">
+        <h5 class="modal-title" id="modalConciliarLabel">
+          <i class="bi bi-arrow-left-right me-2"></i>Ajuste de Conciliación Bancaria
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="alert alert-info small mb-3">
+          <i class="bi bi-info-circle me-1"></i>
+          Ingresa el saldo <strong>contable</strong> según el extracto bancario. El sistema calculará
+          la diferencia y creará un asiento de ajuste. El Libro Diario y el PCGE no se modifican.
+        </div>
+        <input type="hidden" id="concil_code">
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Cuenta</label>
+          <input type="text" id="concil_label" class="form-control" readonly>
+        </div>
+        <div class="row g-2 mb-3">
+          <div class="col">
+            <label class="form-label fw-semibold">Saldo actual en el libro</label>
+            <div class="input-group">
+              <span class="input-group-text" id="concil_sym_libro">S/</span>
+              <input type="text" id="concil_saldo_libro" class="form-control bg-light" readonly>
+            </div>
+          </div>
+          <div class="col">
+            <label class="form-label fw-semibold">Saldo real (banco)</label>
+            <div class="input-group">
+              <span class="input-group-text" id="concil_sym_real">S/</span>
+              <input type="number" id="concil_saldo_real" class="form-control" step="0.01"
+                     placeholder="0.00" oninput="calcularDiff()">
+            </div>
+          </div>
+        </div>
+        <div class="mb-3" id="concil_diff_row" style="display:none;">
+          <label class="form-label fw-semibold">Diferencia (ajuste a crear)</label>
+          <div class="input-group">
+            <span class="input-group-text" id="concil_sym_diff">S/</span>
+            <input type="text" id="concil_diff" class="form-control fw-bold" readonly>
+          </div>
+          <small id="concil_diff_hint" class="text-muted"></small>
+        </div>
+        <div class="mb-2">
+          <label class="form-label fw-semibold">Descripción del ajuste</label>
+          <input type="text" id="concil_desc" class="form-control"
+                 value="Ajuste conciliación bancaria junio 2026" maxlength="120">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-dark" id="btnConciliar" onclick="ejecutarConciliacion()" disabled>
+          <i class="bi bi-check-circle me-1"></i>Crear Asiento de Ajuste
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let _concilCurrency = 'PEN';
+let _concilSaldoLibro = 0;
+
+function abrirConciliacion(code, label, currency, saldoLibro) {
+  _concilCurrency  = currency;
+  _concilSaldoLibro = saldoLibro;
+  const sym = currency === 'USD' ? '$' : 'S/';
+
+  document.getElementById('concil_code').value        = code;
+  document.getElementById('concil_label').value       = code + ' — ' + label + ' (' + currency + ')';
+  document.getElementById('concil_saldo_libro').value = saldoLibro.toFixed(2);
+  document.getElementById('concil_saldo_real').value  = '';
+  document.getElementById('concil_sym_libro').textContent = sym;
+  document.getElementById('concil_sym_real').textContent  = sym;
+  document.getElementById('concil_sym_diff').textContent  = sym;
+  document.getElementById('concil_diff_row').style.display = 'none';
+  document.getElementById('btnConciliar').disabled = true;
+
+  new bootstrap.Modal(document.getElementById('modalConciliar')).show();
+}
+
+function calcularDiff() {
+  const real = parseFloat(document.getElementById('concil_saldo_real').value);
+  if (isNaN(real)) {
+    document.getElementById('concil_diff_row').style.display = 'none';
+    document.getElementById('btnConciliar').disabled = true;
+    return;
+  }
+  const diff = real - _concilSaldoLibro;
+  const absDiff = Math.abs(diff);
+  document.getElementById('concil_diff').value = (diff >= 0 ? '+' : '') + diff.toFixed(2);
+  document.getElementById('concil_diff').className =
+    'form-control fw-bold ' + (diff > 0 ? 'text-success' : diff < 0 ? 'text-danger' : 'text-muted');
+
+  if (absDiff < 0.01) {
+    document.getElementById('concil_diff_hint').textContent = 'Los saldos ya cuadran. No se creará asiento.';
+    document.getElementById('btnConciliar').disabled = true;
+  } else {
+    const dir = diff > 0 ? 'banco tiene más que el libro → asiento DEBE cuenta' : 'libro tiene más que el banco → asiento HABER cuenta';
+    document.getElementById('concil_diff_hint').textContent = dir;
+    document.getElementById('btnConciliar').disabled = false;
+  }
+  document.getElementById('concil_diff_row').style.display = 'block';
+}
+
+function ejecutarConciliacion() {
+  const btn = document.getElementById('btnConciliar');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Creando asiento...';
+
+  const payload = {
+    account_code: document.getElementById('concil_code').value,
+    saldo_real:   parseFloat(document.getElementById('concil_saldo_real').value),
+    descripcion:  document.getElementById('concil_desc').value,
+    year:         {{ selected_year }},
+    month:        {{ selected_month }},
+  };
+
+  fetch('{{ url_for("contabilidad.conciliar_cuenta") }}', {
+    method:  'POST',
+    headers: {'Content-Type': 'application/json'},
+    body:    JSON.stringify(payload),
+  })
+  .then(r => r.json())
+  .then(data => {
+    bootstrap.Modal.getInstance(document.getElementById('modalConciliar')).hide();
+    if (data.success) {
+      const msg = data.ajuste
+        ? `✅ ${data.message}`
+        : `ℹ️ ${data.message}`;
+      alert(msg);
+      if (data.ajuste) location.reload();
+    } else {
+      alert('Error: ' + (data.error || 'Error desconocido'));
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-check-circle me-1"></i>Crear Asiento de Ajuste';
+    }
+  })
+  .catch(e => {
+    alert('Error de red: ' + e);
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-check-circle me-1"></i>Crear Asiento de Ajuste';
+  });
+}
+</script>
 {% endblock %}

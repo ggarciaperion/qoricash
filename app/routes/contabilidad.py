@@ -1617,6 +1617,139 @@ def _caja_movimientos(year: int, month: int, account_code: str):
     }
 
 
+@contabilidad_bp.route('/caja/conciliar', methods=['POST'])
+@csrf.exempt
+@login_required
+@require_role('Master')
+def conciliar_cuenta():
+    """
+    Crea un asiento de ajuste de conciliación bancaria.
+
+    Lee el saldo final actual del Libro Caja para la cuenta indicada,
+    calcula la diferencia con el saldo real provisto por el usuario (banco),
+    y genera un asiento de ajuste que cuadra ambos libros.
+
+    - Diferencia positiva (banco > libro): DEBE 104x / HABER 7699 — ingreso de ajuste.
+    - Diferencia negativa (libro > banco):  DEBE 6699 / HABER 104x — gasto de ajuste.
+    - Cuentas USD: debe/haber en PEN (PCGE); amount_usd para el Libro Caja auxiliar.
+
+    El PCGE y el Libro Diario NO se modifican — solo se agrega un asiento nuevo.
+    """
+    from app.models.exchange_rate import ExchangeRate
+    from app.services.accounting.journal_service import JournalService
+
+    data          = request.get_json() or {}
+    account_code  = data.get('account_code', '').strip()
+    saldo_real    = data.get('saldo_real')
+    descripcion   = data.get('descripcion', '').strip() or 'Ajuste conciliación bancaria'
+    year          = data.get('year',  date.today().year)
+    month         = data.get('month', date.today().month)
+
+    if account_code not in _ACCOUNT_LABELS:
+        return jsonify({'success': False, 'error': f'Código de cuenta no reconocido: {account_code}'}), 400
+    if saldo_real is None:
+        return jsonify({'success': False, 'error': 'Se requiere saldo_real'}), 400
+
+    saldo_real = Decimal(str(saldo_real))
+    currency   = _ACCOUNT_LABELS[account_code][1]   # 'PEN' | 'USD'
+    label      = _ACCOUNT_LABELS[account_code][0]
+
+    # Saldo actual según el Libro Caja
+    mov           = _caja_movimientos(year, month, account_code)
+    saldo_libro   = Decimal(str(mov['saldo_final']))
+    diferencia    = saldo_real - saldo_libro           # positivo = banco tiene más
+
+    if abs(diferencia) < Decimal('0.005'):
+        return jsonify({
+            'success':     True,
+            'ajuste':      False,
+            'message':     f'La cuenta {account_code} {label} ya está cuadrada. No se requiere ajuste.',
+            'diferencia':  0,
+            'saldo_libro': float(saldo_libro),
+            'saldo_real':  float(saldo_real),
+        })
+
+    # Para cuentas USD: expresar diferencia en PEN para el diario (PCGE intacto)
+    if currency == 'USD':
+        er = ExchangeRate.query.order_by(ExchangeRate.updated_at.desc()).first()
+        tc = Decimal(str(er.sell_rate)) if er and er.sell_rate else Decimal('3.75')
+        diferencia_pen = (abs(diferencia) * tc).quantize(Decimal('0.01'))
+        diferencia_usd = abs(diferencia)
+    else:
+        diferencia_pen = abs(diferencia)
+        diferencia_usd = None
+        tc             = None
+
+    # Cuentas contra (PCGE)
+    CONTRA_INGRESO = '7699'   # Otros ingresos de gestión (banco tiene más que el libro)
+    CONTRA_GASTO   = '6699'   # Otros gastos de gestión  (libro tiene más que el banco)
+
+    if diferencia > 0:
+        # Banco tiene más → incrementar saldo del libro
+        lines = [
+            {
+                'account_code': account_code,
+                'description':  f'{descripcion} — {label}',
+                'debe':         diferencia_pen,
+                'haber':        Decimal('0'),
+                'currency':     currency,
+                **({'amount_usd': diferencia_usd, 'exchange_rate': tc} if currency == 'USD' else {}),
+            },
+            {
+                'account_code': CONTRA_INGRESO,
+                'description':  f'{descripcion} — ajuste positivo {label}',
+                'debe':         Decimal('0'),
+                'haber':        diferencia_pen,
+                'currency':     'PEN',
+            },
+        ]
+    else:
+        # Libro tiene más → reducir saldo del libro
+        lines = [
+            {
+                'account_code': CONTRA_GASTO,
+                'description':  f'{descripcion} — ajuste negativo {label}',
+                'debe':         diferencia_pen,
+                'haber':        Decimal('0'),
+                'currency':     'PEN',
+            },
+            {
+                'account_code': account_code,
+                'description':  f'{descripcion} — {label}',
+                'debe':         Decimal('0'),
+                'haber':        diferencia_pen,
+                'currency':     currency,
+                **({'amount_usd': diferencia_usd, 'exchange_rate': tc} if currency == 'USD' else {}),
+            },
+        ]
+
+    entry = JournalService.create_entry(
+        entry_type  = 'ajuste_conciliacion',
+        description = f'Conciliación bancaria — {label}: {descripcion}',
+        lines       = lines,
+        source_type = 'conciliacion',
+        source_id   = None,
+        entry_date  = date.today(),
+        created_by  = current_user.id,
+    )
+
+    if not entry:
+        return jsonify({'success': False, 'error': 'No se pudo crear el asiento. Revisa los logs.'}), 500
+
+    signo = '+' if diferencia > 0 else ''
+    return jsonify({
+        'success':      True,
+        'ajuste':       True,
+        'entry_number': entry.entry_number,
+        'message':      (f'Asiento {entry.entry_number} creado. '
+                         f'Ajuste: {signo}{float(diferencia):.2f} {currency}'),
+        'diferencia':   float(diferencia),
+        'saldo_libro':  float(saldo_libro),
+        'saldo_real':   float(saldo_real),
+        'currency':     currency,
+    })
+
+
 @contabilidad_bp.route('/caja')
 @login_required
 @require_role('Master')
