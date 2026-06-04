@@ -1757,27 +1757,43 @@ def caja():
     from app.models.bank_balance import BankBalance
     from app.models.journal_entry_line import JournalEntryLine
     from app.models.journal_entry import JournalEntry
-    from sqlalchemy import func, extract
 
     year  = request.args.get('year',  type=int, default=date.today().year)
     month = request.args.get('month', type=int, default=date.today().month)
 
-    # Determinar qué cuentas tienen movimiento en el período o saldo anterior
-    used_codes = {r[0] for r in db.session.query(JournalEntryLine.account_code).join(
+    # Cuentas con asientos activos en el diario
+    journal_codes = {r[0] for r in db.session.query(JournalEntryLine.account_code).join(
         JournalEntry, JournalEntryLine.journal_entry_id == JournalEntry.id
     ).filter(
         JournalEntry.status == 'activo',
     ).distinct().all()} & set(_ACCOUNT_LABELS.keys())
 
-    # Si no hay nada en la DB, mostrar todas de todas formas
-    codes_to_show = sorted(used_codes) if used_codes else sorted(_ACCOUNT_LABELS.keys())
+    # Excluir Caja MN/ME (1011/1012): son cuentas auxiliares de revaluación TC,
+    # no representan caja física real en QoriCash.
+    journal_codes -= {'1011', '1012'}
+
+    # Siempre incluir cuentas bancarias (kind='banco') que estén registradas
+    # en Posición (BankBalance), aunque no tengan asientos en el diario aún.
+    # Esto garantiza que BanBif y cualquier banco nuevo aparezcan desde el inicio.
+    bb_records = BankBalance.query.all()
+    bb_names   = {b.bank_name.upper() for b in bb_records}
+    active_banco = {
+        code for code, info in _ACCOUNT_LABELS.items()
+        if info[2] == 'banco'
+        and any(_CODE_TO_BANK.get(code, '').upper() in name for name in bb_names)
+    }
+
+    codes_to_show = sorted(journal_codes | active_banco)
 
     accounts = [_caja_movimientos(year, month, code) for code in codes_to_show]
-    # Solo mostrar cuentas con saldo anterior != 0 o con movimientos en el período
-    accounts = [a for a in accounts if a['movimientos'] or a['saldo_ant'] != 0]
+    # Mostrar si: tiene movimientos, saldo anterior ≠ 0, o es cuenta banco activa
+    accounts = [
+        a for a in accounts
+        if a['movimientos'] or a['saldo_ant'] != 0 or a['kind'] == 'banco'
+    ]
 
-    # Saldos reales del módulo de posición (para conciliación)
-    bank_balances = {b.bank_name.upper(): b for b in BankBalance.query.all()}
+    # Saldos del módulo Posición (para el botón Conciliar)
+    bank_balances = {b.bank_name.upper(): b for b in bb_records}
 
     periods = _get_all_periods()
 
@@ -1804,13 +1820,21 @@ def export_caja():
     year  = request.args.get('year',  type=int, default=date.today().year)
     month = request.args.get('month', type=int, default=date.today().month)
 
-    used_codes = {r[0] for r in db.session.query(JournalEntryLine.account_code).join(
+    journal_codes = {r[0] for r in db.session.query(JournalEntryLine.account_code).join(
         JournalEntry, JournalEntryLine.journal_entry_id == JournalEntry.id
     ).filter(JournalEntry.status == 'activo').distinct().all()} & set(_ACCOUNT_LABELS.keys())
+    journal_codes -= {'1011', '1012'}
 
-    codes = sorted(used_codes) if used_codes else sorted(_ACCOUNT_LABELS.keys())
+    bb_names = {b.bank_name.upper() for b in BankBalance.query.all()}
+    active_banco = {
+        code for code, info in _ACCOUNT_LABELS.items()
+        if info[2] == 'banco'
+        and any(_CODE_TO_BANK.get(code, '').upper() in name for name in bb_names)
+    }
+
+    codes    = sorted(journal_codes | active_banco)
     accounts = [_caja_movimientos(year, month, c) for c in codes]
-    accounts = [a for a in accounts if a['movimientos'] or a['saldo_ant'] != 0]
+    accounts = [a for a in accounts if a['movimientos'] or a['saldo_ant'] != 0 or a['kind'] == 'banco']
 
     co = _company_info()
     wb = openpyxl.Workbook()
