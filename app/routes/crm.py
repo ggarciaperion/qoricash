@@ -199,13 +199,16 @@ def api_registro_campana():
     # Vincular al prospecto si hay coincidencia por teléfono
     try:
         from app.models.prospecto import Prospecto, ActividadProspecto
+        from app.models.user import User
+        from sqlalchemy import or_ as _or
+        from app.utils.formatters import now_peru as _now
         import re as _re
         digits = _re.sub(r'\D', '', numero)
         if digits.startswith('51') and len(digits) == 11:
             digits = digits[2:]
         if digits:
             p = (Prospecto.query
-                 .filter(or_(
+                 .filter(_or(
                      Prospecto.telefono     == digits,
                      Prospecto.telefono_alt == digits,
                      Prospecto.telefono_3   == digits,
@@ -213,10 +216,6 @@ def api_registro_campana():
                      Prospecto.contacto_wa  == digits,
                  )).first())
             if p:
-                from sqlalchemy import or_
-                from app.utils.formatters import now_peru as _now
-                # Buscar user_id de sistema (id=1) o primer Master
-                from app.models.user import User
                 sys_user = User.query.filter_by(role='Master').order_by(User.id).first()
                 uid = sys_user.id if sys_user else 1
                 act = ActividadProspecto(
