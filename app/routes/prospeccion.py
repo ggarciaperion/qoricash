@@ -2946,6 +2946,86 @@ def api_seguimientos_pendientes():
     return jsonify({"ok": True, "pendientes": result, "vencidos": total_vencidos})
 
 
+# ── API — elegibles para campaña WA (prospectos con email previo + teléfono válido) ──
+@prospeccion_bp.route("/api/wa-campana-elegibles")
+@csrf.exempt
+def api_wa_campana_elegibles():
+    """
+    Retorna prospectos con teléfono celular peruano válido que ya fueron
+    contactados por email (canal='email' en actividades O estado implica contacto previo).
+    Auth: X-API-Key = CRM_API_KEY.
+    """
+    import re as _re
+    api_key  = request.headers.get('X-API-Key', '')
+    crm_key  = os.environ.get('CRM_API_KEY', 'qoricash_crm_2026')
+    if api_key != crm_key:
+        return jsonify({'ok': False, 'error': 'Unauthorized'}), 401
+
+    def _valid_mobile(val):
+        if not val: return None
+        d = _re.sub(r'\D', '', str(val))
+        if d.startswith('51') and len(d) == 11: d = d[2:]
+        if len(d) == 9 and d.startswith('9'): return d
+        return None
+
+    # IDs que tienen al menos 1 actividad de canal email
+    email_act_ids = (
+        db.session.query(ActividadProspecto.prospecto_id)
+        .filter(or_(
+            ActividadProspecto.canal == 'email',
+            ActividadProspecto.tipo  == 'email',
+        ))
+        .distinct()
+        .subquery()
+    )
+
+    # Estados que implican contacto previo por email
+    _ESTADOS_CONTACTADOS = (
+        'contactado', 'interesado', 'negociando', 'cliente',
+        'P1', 'P2', 'P3', 'P4', 'presentado', 'precio_enviado', 'seguimiento',
+    )
+    _EXCLUIR = ('no_contactar',)
+
+    prospectos = (
+        Prospecto.query
+        .filter(
+            or_(
+                Prospecto.id.in_(email_act_ids),
+                Prospecto.estado_comercial.in_(_ESTADOS_CONTACTADOS),
+                Prospecto.tipo_ultimo_envio.isnot(None),
+            ),
+            ~Prospecto.estado_comercial.in_(_EXCLUIR),
+        )
+        .all()
+    )
+
+    resultado = []
+    seen_phones = set()
+    for p in prospectos:
+        phone = None
+        for campo in (p.contacto_wa, p.telefono, p.telefono_alt, p.telefono_3, p.telefono_4):
+            phone = _valid_mobile(campo)
+            if phone:
+                break
+        if not phone or phone in seen_phones:
+            continue
+        seen_phones.add(phone)
+
+        empresa = (p.razon_social or '').strip()
+        nombre  = (p.nombre_contacto or empresa or '').strip() or 'Estimado/a'
+
+        resultado.append({
+            'id':      p.id,
+            'phone':   phone,          # 9 dígitos sin prefijo
+            'nombre':  nombre,
+            'empresa': empresa,
+            'estado':  p.estado_comercial or '',
+            'email':   p.email or '',
+        })
+
+    return jsonify({'ok': True, 'total': len(resultado), 'prospectos': resultado})
+
+
 def _verificar_acceso(p):
     """Trader solo puede ver sus prospectos asignados. Llama abort(403) si no tiene acceso."""
     if current_user.role in ('Master', 'Presidente de Negocios'):
