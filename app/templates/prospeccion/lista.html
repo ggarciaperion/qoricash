@@ -1430,23 +1430,32 @@ function rowHtml(r) {
   </tr>`;
 }
 
+function _waParseMs(ultima_wa) {
+  if (!ultima_wa) return null;
+  const p = ultima_wa.match(/(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})/);
+  if (!p) return null;
+  // Peru = UTC-5: add 5h to convert stored Peru time → UTC ms
+  return Date.UTC(+p[1], +p[2]-1, +p[3], +p[4]+5, +p[5]);
+}
+function waActivo24h(ultima_wa) {
+  const ms = _waParseMs(ultima_wa);
+  if (!ms) return false;
+  return (Date.now() - ms) < 86400000;
+}
 function waBadgeRow(ultima_wa) {
   if (!ultima_wa) return '';
-  // Parse "YYYY-MM-DD HH:MM" as Peru time (UTC-5)
-  const parts = ultima_wa.match(/(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})/);
-  if (!parts) return '';
-  const dtUtc = Date.UTC(+parts[1], +parts[2]-1, +parts[3], +parts[4]+5, +parts[5]);
-  const agoMs = Date.now() - dtUtc;
-  const h24   = 24 * 3600 * 1000;
+  const ms = _waParseMs(ultima_wa);
+  if (!ms) return '';
+  const agoMs = Date.now() - ms;
+  const h24   = 86400000;
   if (agoMs < h24) {
     const hAgo = Math.round(agoMs / 3600000);
-    return `<span title="WA enviado hace ${hAgo}h — ventana Meta activa" style="display:inline-flex;align-items:center;gap:2px;margin-left:4px;padding:1px 5px;border-radius:4px;background:#dcfce7;color:#16a34a;font-size:.62rem;font-weight:700;cursor:default;">
-      <i class="bi bi-whatsapp" style="font-size:.65rem;"></i>${hAgo}h
+    return `<span title="WA enviado hace ${hAgo}h — ventana Meta activa (no recontactar)" style="display:inline-flex;align-items:center;gap:2px;margin-left:5px;padding:2px 6px;border-radius:4px;background:#dcfce7;color:#16a34a;font-size:.65rem;font-weight:700;cursor:default;border:1px solid #bbf7d0;">
+      <i class="bi bi-whatsapp"></i>${hAgo}h
     </span>`;
   }
-  // Sent but > 24h ago — neutral indicator
-  return `<span title="Último WA: ${ultima_wa}" style="display:inline-flex;align-items:center;gap:2px;margin-left:4px;padding:1px 5px;border-radius:4px;background:#f0fdf4;color:#6ee7b7;font-size:.62rem;cursor:default;">
-    <i class="bi bi-whatsapp" style="font-size:.65rem;"></i>
+  return `<span title="Último WA: ${ultima_wa} (ventana expirada)" style="display:inline-flex;align-items:center;gap:2px;margin-left:5px;padding:2px 6px;border-radius:4px;background:#f0fdf4;color:#4ade80;font-size:.65rem;cursor:default;">
+    <i class="bi bi-whatsapp"></i>
   </span>`;
 }
 
@@ -1620,11 +1629,29 @@ function openDrawer(id) {
         <span class="${b.cls} status-badge" onclick="openStatusMenu(event,${id},this)"><span class="sb-dot"></span>${b.label}</span>
         <span style="font-size:.68rem;color:var(--qori-gray-400);">Clic para cambiar</span>
       </div>
+      <!-- Contacto: email + WA con fechas y estado 24h -->
+      <div class="mb-2" style="display:flex;gap:8px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:120px;background:var(--qori-gray-50,#f8fafc);border-radius:8px;padding:8px 10px;border:1px solid var(--qori-gray-100,#f1f5f9);">
+          <div style="font-size:.62rem;font-weight:700;color:var(--qori-gray-400);text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px;"><i class="bi bi-envelope me-1"></i>Email</div>
+          ${r.fecha_ultimo_contacto
+            ? `<div style="font-size:.78rem;font-weight:600;color:var(--qori-gray-700);">${esc(r.fecha_ultimo_contacto.slice(0,10))}</div>
+               <div style="font-size:.65rem;color:var(--qori-gray-400);">${esc(r.tipo_ultimo_envio||'contacto')}</div>`
+            : `<div style="font-size:.72rem;color:var(--qori-gray-400);">Sin envío</div>`}
+        </div>
+        <div style="flex:1;min-width:120px;background:${r.ultima_wa ? (waActivo24h(r.ultima_wa)?'#f0fdf4':'#f8fafc') : '#f8fafc'};border-radius:8px;padding:8px 10px;border:1px solid ${r.ultima_wa && waActivo24h(r.ultima_wa)?'#bbf7d0':'var(--qori-gray-100,#f1f5f9)'};">
+          <div style="font-size:.62rem;font-weight:700;color:${r.ultima_wa && waActivo24h(r.ultima_wa)?'#16a34a':'var(--qori-gray-400)'};text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px;">
+            <i class="bi bi-whatsapp me-1"></i>WhatsApp
+            ${r.ultima_wa && waActivo24h(r.ultima_wa) ? '<span style="background:#16a34a;color:#fff;font-size:.55rem;padding:1px 5px;border-radius:3px;margin-left:4px;">24H ACTIVA</span>' : ''}
+          </div>
+          ${r.ultima_wa
+            ? `<div style="font-size:.78rem;font-weight:600;color:${waActivo24h(r.ultima_wa)?'#15803d':'var(--qori-gray-700)'};">${esc(r.ultima_wa)}</div>
+               ${waActivo24h(r.ultima_wa) ? `<div style="font-size:.65rem;color:#16a34a;">No recontactar — ventana Meta</div>` : `<div style="font-size:.65rem;color:var(--qori-gray-400);">Ventana expirada</div>`}`
+            : `<div style="font-size:.72rem;color:var(--qori-gray-400);">Sin envío WA</div>`}
+        </div>
+      </div>
       <div class="d-grid-2">
-        ${r.fecha_ultimo_contacto?`<div><div class="d-item-label">Último contacto</div><div class="d-item-val">${esc(r.fecha_ultimo_contacto.slice(0,10))}</div></div>`:''}
-        ${r.canal?`<div><div class="d-item-label">Canal</div><div class="d-item-val">${esc(r.canal)}</div></div>`:''}
         ${r.ultimo_precio?`<div><div class="d-item-label">Último precio</div><div class="d-item-val">${esc(r.ultimo_precio)}</div></div>`:''}
-
+        ${r.canal?`<div><div class="d-item-label">Fuente / Canal</div><div class="d-item-val">${esc(r.canal)}</div></div>`:''}
         ${r.respuesta_campana?`<div style="grid-column:span 2"><div class="d-item-label">Respuesta campaña</div><div class="d-item-val">${esc(r.respuesta_campana)}</div></div>`:''}
       </div>
     </div>
