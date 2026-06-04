@@ -1493,14 +1493,14 @@ function proximoContactoBadge(r) {
   if (waMs) {
     const sinceWa = Date.now() - waMs;
     // Ventana Meta activa → sugerir justo cuando expire; si ya expiró → +3 días
-    baseMs = sinceWa < DAY ? waMs + DAY : waMs + 3 * DAY;
+    baseMs = waMs + 7 * DAY;
   } else {
     const refMs = _parseContactMs(r.ultima_email) || _parseContactMs(r.fecha_ultimo_contacto);
-    baseMs = refMs ? refMs + 3 * DAY : today.getTime() + 3 * DAY;
+    baseMs = refMs ? refMs + 7 * DAY : today.getTime() + 7 * DAY;
   }
 
-  // Asegurar que la fecha sugerida sea siempre mañana como mínimo
-  const minMs = today.getTime() + DAY;
+  // Asegurar mínimo 7 días desde hoy
+  const minMs = today.getTime() + 7 * DAY;
   return fmtProx(_msToDateStr(Math.max(baseMs, minMs)));
 }
 
