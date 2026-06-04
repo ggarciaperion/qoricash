@@ -782,11 +782,46 @@
                 clearInterval(_poll);
                 window._qoriSocket.on('wa_message', function(d) {
                     _setWaBadge(d.unread || 0);
-                    QoriPlaySound('notification', 0.6);
+                    _waChime();
                     _showWaToast(d.nombre || d.numero, d.preview || '');
                 });
             }, 200);
         });
+
+        // Distinctive WA "pop-ding" chime: short attack + quick decay, two tones
+        function _waChime() {
+            try {
+                var ctx = new (window.AudioContext || window.webkitAudioContext)();
+                // Pop: low soft thud (60ms)
+                var bufLen = Math.floor(ctx.sampleRate * 0.06);
+                var buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+                var data = buf.getChannelData(0);
+                for (var i = 0; i < bufLen; i++) {
+                    data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufLen, 3) * 0.18;
+                }
+                var pop = ctx.createBufferSource();
+                pop.buffer = buf;
+                var popGain = ctx.createGain();
+                popGain.gain.setValueAtTime(1, ctx.currentTime);
+                pop.connect(popGain); popGain.connect(ctx.destination);
+                pop.start(ctx.currentTime);
+
+                // Ding: clean sine at 1318 Hz (E6) then 1047 Hz (C6)
+                [[1318, 0.04], [1047, 0.18]].forEach(function(pair) {
+                    var freq = pair[0], delay = pair[1];
+                    var osc = ctx.createOscillator();
+                    var g   = ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.value = freq;
+                    var t = ctx.currentTime + delay;
+                    g.gain.setValueAtTime(0, t);
+                    g.gain.linearRampToValueAtTime(0.22, t + 0.01);
+                    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.55);
+                    osc.connect(g); g.connect(ctx.destination);
+                    osc.start(t); osc.stop(t + 0.56);
+                });
+            } catch(e) {}
+        }
 
         var _waToastTimer = null;
         function _showWaToast(nombre, preview) {
