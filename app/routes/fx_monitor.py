@@ -183,9 +183,15 @@ def api_live():
     valid   = []
     invalid = []
     for c in competitors:
-        has_data = c.get("scrape_ok") and c.get("buy", 0) > 0 and c.get("sell", 0) > 0
-        if not has_data:
+        has_prices = c.get("buy", 0) > 0 and c.get("sell", 0) > 0
+        if not has_prices:
             c["is_valid"] = False
+            invalid.append(c)
+            continue
+        if not c.get("scrape_ok"):
+            # Scraper falló pero conserva precios anteriores → stale, no totalmente inválido
+            c["is_valid"] = False
+            c["is_stale"] = True
             invalid.append(c)
             continue
         ep = slug_epoch.get(c["slug"], 0)
@@ -203,13 +209,21 @@ def api_live():
     buy_ranked  = sorted(active, key=lambda c: c["buy"],  reverse=True) + errors
     sell_ranked = sorted(active, key=lambda c: c["sell"]) + errors
 
-    # best_buy / best_sell SOLO de entradas válidas (nunca de errores)
-    best_buy  = buy_ranked[0]  if active else None
-    best_sell = sell_ranked[0] if active else None
+    # best_buy / best_sell: primero frescos; si no hay, usar el mejor stale con precios
+    def _best(ranked, key):
+        fresh = [c for c in ranked if c.get("is_valid")]
+        if fresh:
+            return fresh[0]
+        stale = [c for c in ranked if c.get(key, 0) > 0]
+        return stale[0] if stale else None
 
-    # Market stats
-    avg_buy  = round(sum(c["buy"]  for c in active) / len(active), 4) if active else 0
-    avg_sell = round(sum(c["sell"] for c in active) / len(active), 4) if active else 0
+    best_buy  = _best(buy_ranked,  "buy")
+    best_sell = _best(sell_ranked, "sell")
+
+    # Market stats (solo sobre frescos; si no hay, usar stale con precios)
+    stats_pool = active or [c for c in errors if c.get("buy", 0) > 0]
+    avg_buy  = round(sum(c["buy"]  for c in stats_pool) / len(stats_pool), 4) if stats_pool else 0
+    avg_sell = round(sum(c["sell"] for c in stats_pool) / len(stats_pool), 4) if stats_pool else 0
 
     # Server time Lima
     now_lima = datetime.now(_LIMA)

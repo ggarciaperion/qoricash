@@ -783,6 +783,7 @@ body.has-trading-monitor {
         Próx.: <span id="stNextRefresh">—</span>
       </div>
       <div class="tm-clock" id="tmClock">--:--:--</div>
+      <button class="btn-fullscreen" id="btnForceRefresh" onclick="forceRefresh()" style="margin-right:6px;background:#0d2035;border-color:#1C3356;" title="Forzar ciclo de scraping ahora">⟳ FORZAR</button>
       <button class="btn-fullscreen" id="btnFullscreen" onclick="toggleFullscreen()">⛶ FULLSCREEN</button>
     </div>
   </div>
@@ -1467,6 +1468,23 @@ window.loadChart = function(hours) {
     if (btn) btn.classList.toggle('active', btn.getAttribute('onclick').includes(`(${hours})`));
   });
   loadChartData(hours);
+};
+
+// ── Force refresh ─────────────────────────────────────────────
+window.forceRefresh = async function() {
+  const btn = $('btnForceRefresh');
+  if (!btn) return;
+  btn.textContent = '⟳ ...';
+  btn.disabled = true;
+  try {
+    const r = await fetch('/monitor/api/seed', { method:'POST', cache:'no-store' });
+    const j = await r.json();
+    btn.textContent = j.success ? '⟳ OK' : '⟳ ERR';
+    setTimeout(() => fetchAndRender(), 800);
+  } catch(e) {
+    btn.textContent = '⟳ ERR';
+  }
+  setTimeout(() => { btn.textContent = '⟳ FORZAR'; btn.disabled = false; }, 3000);
 };
 
 // ── Init ──────────────────────────────────────────────────────
