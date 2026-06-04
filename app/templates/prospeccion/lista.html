@@ -1629,29 +1629,57 @@ function openDrawer(id) {
         <span class="${b.cls} status-badge" onclick="openStatusMenu(event,${id},this)"><span class="sb-dot"></span>${b.label}</span>
         <span style="font-size:.68rem;color:var(--qori-gray-400);">Clic para cambiar</span>
       </div>
-      <!-- Contacto: email + WA con fechas y estado 24h -->
+      <!-- Historial de contacto: Email + WhatsApp -->
       <div class="mb-2" style="display:flex;gap:8px;flex-wrap:wrap;">
-        <div style="flex:1;min-width:120px;background:var(--qori-gray-50,#f8fafc);border-radius:8px;padding:8px 10px;border:1px solid var(--qori-gray-100,#f1f5f9);">
-          <div style="font-size:.62rem;font-weight:700;color:var(--qori-gray-400);text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px;"><i class="bi bi-envelope me-1"></i>Email</div>
-          ${r.fecha_ultimo_contacto
-            ? `<div style="font-size:.78rem;font-weight:600;color:var(--qori-gray-700);">${esc(r.fecha_ultimo_contacto.slice(0,10))}</div>
-               <div style="font-size:.65rem;color:var(--qori-gray-400);">${esc(r.tipo_ultimo_envio||'contacto')}</div>`
-            : `<div style="font-size:.72rem;color:var(--qori-gray-400);">Sin envío</div>`}
-        </div>
-        <div style="flex:1;min-width:120px;background:${r.ultima_wa ? (waActivo24h(r.ultima_wa)?'#f0fdf4':'#f8fafc') : '#f8fafc'};border-radius:8px;padding:8px 10px;border:1px solid ${r.ultima_wa && waActivo24h(r.ultima_wa)?'#bbf7d0':'var(--qori-gray-100,#f1f5f9)'};">
-          <div style="font-size:.62rem;font-weight:700;color:${r.ultima_wa && waActivo24h(r.ultima_wa)?'#16a34a':'var(--qori-gray-400)'};text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px;">
-            <i class="bi bi-whatsapp me-1"></i>WhatsApp
-            ${r.ultima_wa && waActivo24h(r.ultima_wa) ? '<span style="background:#16a34a;color:#fff;font-size:.55rem;padding:1px 5px;border-radius:3px;margin-left:4px;">24H ACTIVA</span>' : ''}
-          </div>
-          ${r.ultima_wa
-            ? `<div style="font-size:.78rem;font-weight:600;color:${waActivo24h(r.ultima_wa)?'#15803d':'var(--qori-gray-700)'};">${esc(r.ultima_wa)}</div>
-               ${waActivo24h(r.ultima_wa) ? `<div style="font-size:.65rem;color:#16a34a;">No recontactar — ventana Meta</div>` : `<div style="font-size:.65rem;color:var(--qori-gray-400);">Ventana expirada</div>`}`
-            : `<div style="font-size:.72rem;color:var(--qori-gray-400);">Sin envío WA</div>`}
-        </div>
+        <!-- Email card -->
+        ${(function(){
+          const tieneEmail = r.ultima_email || r.fecha_ultimo_contacto;
+          const fecha      = r.ultima_email || r.fecha_ultimo_contacto || '';
+          const tipo       = r.tipo_ultimo_envio || '';
+          const remitente  = r.remitente || '';
+          if (tieneEmail) {
+            return `<div style="flex:1;min-width:120px;background:#eff6ff;border-radius:8px;padding:8px 10px;border:1px solid #bfdbfe;">
+              <div style="font-size:.62rem;font-weight:700;color:#3b82f6;text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px;"><i class="bi bi-envelope-fill me-1"></i>Email</div>
+              <div style="font-size:.78rem;font-weight:600;color:#1e40af;">${esc(fecha.slice(0,16))}</div>
+              ${tipo?`<div style="font-size:.65rem;color:#60a5fa;">${esc(tipo)}${remitente?' · '+esc(remitente.split('@')[0]):''}</div>`:''}
+            </div>`;
+          }
+          // Estado heredado de migración (tiene estado pero sin registro de actividad)
+          const estadoImplica = ['contactado','interesado','negociando','cliente','P1','P2','P3','P4','presentado','precio_enviado','seguimiento'];
+          if (estadoImplica.includes(r.estado_comercial)) {
+            return `<div style="flex:1;min-width:120px;background:#fafafa;border-radius:8px;padding:8px 10px;border:1px dashed #d1d5db;">
+              <div style="font-size:.62rem;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px;"><i class="bi bi-envelope me-1"></i>Email</div>
+              <div style="font-size:.72rem;color:#9ca3af;">Sin registro en sistema</div>
+              <div style="font-size:.6rem;color:#d1d5db;margin-top:2px;">Estado heredado de importación</div>
+            </div>`;
+          }
+          return `<div style="flex:1;min-width:120px;background:#f9fafb;border-radius:8px;padding:8px 10px;border:1px solid #f1f5f9;">
+            <div style="font-size:.62rem;font-weight:700;color:#d1d5db;text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px;"><i class="bi bi-envelope me-1"></i>Email</div>
+            <div style="font-size:.72rem;color:#d1d5db;">Sin envío</div>
+          </div>`;
+        })()}
+        <!-- WhatsApp card -->
+        ${(function(){
+          const activo = waActivo24h(r.ultima_wa);
+          if (r.ultima_wa) {
+            return `<div style="flex:1;min-width:120px;background:${activo?'#f0fdf4':'#f9fafb'};border-radius:8px;padding:8px 10px;border:1px solid ${activo?'#bbf7d0':'#e5e7eb'};">
+              <div style="font-size:.62rem;font-weight:700;color:${activo?'#16a34a':'#9ca3af'};text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px;">
+                <i class="bi bi-whatsapp me-1"></i>WhatsApp
+                ${activo?'<span style="background:#16a34a;color:#fff;font-size:.55rem;padding:1px 5px;border-radius:3px;margin-left:4px;">24H</span>':''}
+              </div>
+              <div style="font-size:.78rem;font-weight:600;color:${activo?'#15803d':'#374151'};">${esc(r.ultima_wa)}</div>
+              <div style="font-size:.65rem;color:${activo?'#16a34a':'#9ca3af'};">${activo?'No recontactar — ventana Meta activa':'Ventana expirada — puede recontactar'}</div>
+            </div>`;
+          }
+          return `<div style="flex:1;min-width:120px;background:#f9fafb;border-radius:8px;padding:8px 10px;border:1px solid #f1f5f9;">
+            <div style="font-size:.62rem;font-weight:700;color:#d1d5db;text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px;"><i class="bi bi-whatsapp me-1"></i>WhatsApp</div>
+            <div style="font-size:.72rem;color:#d1d5db;">Sin envío</div>
+          </div>`;
+        })()}
       </div>
       <div class="d-grid-2">
         ${r.ultimo_precio?`<div><div class="d-item-label">Último precio</div><div class="d-item-val">${esc(r.ultimo_precio)}</div></div>`:''}
-        ${r.canal?`<div><div class="d-item-label">Fuente / Canal</div><div class="d-item-val">${esc(r.canal)}</div></div>`:''}
+        ${r.canal?`<div><div class="d-item-label">Origen del lead <span style="font-size:.6rem;color:var(--qori-gray-300);" title="Canal por el que entró al sistema, no el último medio de contacto">(fuente)</span></div><div class="d-item-val">${esc(r.canal)}</div></div>`:''}
         ${r.respuesta_campana?`<div style="grid-column:span 2"><div class="d-item-label">Respuesta campaña</div><div class="d-item-val">${esc(r.respuesta_campana)}</div></div>`:''}
       </div>
     </div>

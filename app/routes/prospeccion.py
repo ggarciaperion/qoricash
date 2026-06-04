@@ -2150,6 +2150,21 @@ def _api_grid_impl():
     ) if ids else []
     wa_map = {r.prospecto_id: r.ultima_wa for r in wa_acts}
 
+    # Última actividad Email por prospecto (bulk)
+    email_acts = (
+        db.session.query(
+            ActividadProspecto.prospecto_id,
+            func.max(ActividadProspecto.creado_en).label('ultima_email')
+        )
+        .filter(
+            ActividadProspecto.canal == 'email',
+            ActividadProspecto.prospecto_id.in_(ids),
+        )
+        .group_by(ActividadProspecto.prospecto_id)
+        .all()
+    ) if ids else []
+    email_map = {r.prospecto_id: r.ultima_email for r in email_acts}
+
     rows = []
     for p in prospectos_list:
         all_emails = []
@@ -2200,6 +2215,7 @@ def _api_grid_impl():
             "creado_en":             p.creado_en.strftime("%Y-%m-%d") if p.creado_en else "",
             "actualizado_en":        p.actualizado_en.strftime("%Y-%m-%d %H:%M") if p.actualizado_en else "",
             "ultima_wa":             wa_map[p.id].strftime("%Y-%m-%d %H:%M") if p.id in wa_map and wa_map[p.id] else "",
+            "ultima_email":          email_map[p.id].strftime("%Y-%m-%d %H:%M") if p.id in email_map and email_map[p.id] else "",
         })
 
     base = _base_query()
