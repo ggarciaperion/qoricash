@@ -363,10 +363,47 @@ def webhook_receive():
         db.session.commit()
         log.info(f'[CRM Webhook] {len(messages)} mensaje(s) recibido(s)')
 
+        # Emitir evento real-time para cada mensaje entrante nuevo
+        if messages:
+            try:
+                from app.extensions import socketio as _sio
+                unread = WaMessage.query.filter_by(leido=False, direccion='entrante').count()
+                for msg in messages:
+                    numero_ev = f"+{msg.get('from', '')}"
+                    contacto_ev = next((c for c in contacts if c.get('wa_id') == msg.get('from')), {})
+                    nombre_ev = contacto_ev.get('profile', {}).get('name', numero_ev)
+                    tipo_ev = msg.get('type', '')
+                    if tipo_ev == 'text':
+                        preview = msg['text']['body'][:60]
+                    else:
+                        preview = f'[{tipo_ev}]'
+                    _sio.emit('wa_message', {
+                        'numero': numero_ev,
+                        'nombre': nombre_ev,
+                        'preview': preview,
+                        'unread': unread,
+                    }, namespace='/', room='role_Master')
+            except Exception as _es:
+                log.warning(f'[CRM Webhook] Socket emit error: {_es}')
+
     except Exception as e:
         log.error(f'[CRM Webhook] Error: {e}')
 
     return jsonify({'status': 'ok'})
+
+
+# ── API — contador de mensajes WA no leídos ───────────────────────
+@crm_bp.route('/api/wa-novedades')
+@login_required
+@require_role('Master')
+def api_wa_novedades():
+    """Devuelve el conteo de mensajes entrantes no leídos."""
+    try:
+        count = WaMessage.query.filter_by(leido=False, direccion='entrante').count()
+        return jsonify({'ok': True, 'unread': count})
+    except Exception as e:
+        log.error(f'[CRM] wa-novedades error: {e}')
+        return jsonify({'ok': True, 'unread': 0})
 
 
 # ── IMPORT desde Google Sheets (uso único) ────────────────────────
