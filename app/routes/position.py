@@ -607,21 +607,29 @@ def get_bank_reconciliation():
                     _add_mvmt(_banco_accts.get(_fallback_banco(op), {}).get('USD'), +_usd, 0.0)
                 # Pagos: QoriCash → cliente en PEN
                 if _has_pay_banks:
+                    _pen_attr = 0.0
                     for pay in _payments:
                         _b = _normalize_banco(pay.get('qc_bank', '')) or _normalize_banco(pay.get('cuenta_destino', ''))
                         _amt = float(pay.get('importe', 0))
                         if _b and _amt > 0:
                             _add_mvmt(_banco_accts.get(_b, {}).get('PEN'), 0.0, -_amt)
+                            _pen_attr += _amt
+                    if _pen_attr == 0 and _pen > 0:
+                        _add_mvmt(_banco_accts.get(_fallback_banco(op), {}).get('PEN'), 0.0, -_pen)
                 else:
                     _add_mvmt(_banco_accts.get(_fallback_banco(op), {}).get('PEN'), 0.0, -_pen)
             else:  # Venta
                 # Depósitos: cliente → QoriCash en PEN
                 if _has_dep_banks:
+                    _pen_attr = 0.0
                     for dep in _deposits:
                         _b = _normalize_banco(dep.get('qc_bank', '')) or _normalize_banco(dep.get('cuenta_cargo', ''))
                         _amt = float(dep.get('importe', 0))
                         if _b and _amt > 0:
                             _add_mvmt(_banco_accts.get(_b, {}).get('PEN'), 0.0, +_amt)
+                            _pen_attr += _amt
+                    if _pen_attr == 0 and _pen > 0:
+                        _add_mvmt(_banco_accts.get(_fallback_banco(op), {}).get('PEN'), 0.0, +_pen)
                 else:
                     _add_mvmt(_banco_accts.get(_fallback_banco(op), {}).get('PEN'), 0.0, +_pen)
                 # Pagos: QoriCash → cliente en USD
@@ -662,20 +670,28 @@ def get_bank_reconciliation():
                 else:
                     _add_mvmt_pend(_banco_accts.get(_fallback_banco(op), {}).get('USD'), +_usd, 0.0)
                 if _has_pay_banks:
+                    _pen_attr = 0.0
                     for pay in _payments:
                         _b = _normalize_banco(pay.get('qc_bank', '')) or _normalize_banco(pay.get('cuenta_destino', ''))
                         _amt = float(pay.get('importe', 0))
                         if _b and _amt > 0:
                             _add_mvmt_pend(_banco_accts.get(_b, {}).get('PEN'), 0.0, -_amt)
+                            _pen_attr += _amt
+                    if _pen_attr == 0 and _pen > 0:
+                        _add_mvmt_pend(_banco_accts.get(_fallback_banco(op), {}).get('PEN'), 0.0, -_pen)
                 else:
                     _add_mvmt_pend(_banco_accts.get(_fallback_banco(op), {}).get('PEN'), 0.0, -_pen)
             else:
                 if _has_dep_banks:
+                    _pen_attr = 0.0
                     for dep in _deposits:
                         _b = _normalize_banco(dep.get('qc_bank', '')) or _normalize_banco(dep.get('cuenta_cargo', ''))
                         _amt = float(dep.get('importe', 0))
                         if _b and _amt > 0:
                             _add_mvmt_pend(_banco_accts.get(_b, {}).get('PEN'), 0.0, +_amt)
+                            _pen_attr += _amt
+                    if _pen_attr == 0 and _pen > 0:
+                        _add_mvmt_pend(_banco_accts.get(_fallback_banco(op), {}).get('PEN'), 0.0, +_pen)
                 else:
                     _add_mvmt_pend(_banco_accts.get(_fallback_banco(op), {}).get('PEN'), 0.0, +_pen)
                 if _has_pay_banks:
