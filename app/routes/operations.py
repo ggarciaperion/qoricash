@@ -514,6 +514,29 @@ def create_operation():
     )
     
     if success:
+        # Guardar depósitos y pagos iniciales si se proporcionaron
+        try:
+            from app.extensions import db as _db
+            _changed = False
+            if data.get('client_deposits') and isinstance(data['client_deposits'], list):
+                deps = data['client_deposits']
+                for dep in deps:
+                    if not dep.get('qc_bank') and dep.get('cuenta_cargo'):
+                        dep['qc_bank'] = _derive_bank_from_account(dep['cuenta_cargo'])
+                operation.client_deposits = deps
+                _changed = True
+            if data.get('client_payments') and isinstance(data['client_payments'], list):
+                pays = data['client_payments']
+                for pay in pays:
+                    if not pay.get('qc_bank') and pay.get('cuenta_destino'):
+                        pay['qc_bank'] = _derive_bank_from_account(pay['cuenta_destino'])
+                operation.client_payments = pays
+                _changed = True
+            if _changed:
+                _db.session.commit()
+        except Exception as _e:
+            logger.warning(f'No se pudieron guardar depósitos/pagos iniciales: {_e}')
+
         # Notificar creación
         NotificationService.notify_new_operation(operation)
         NotificationService.notify_dashboard_update()

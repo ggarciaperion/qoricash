@@ -554,14 +554,14 @@ def get_bank_reconciliation():
         }
 
         def _normalize_banco(name):
-            # QoriCash solo tiene cuentas en BCP, INTERBANK y BANBIF.
-            # Cualquier otro banco (BBVA, Scotiabank, etc.) usa interbancario
-            # desde INTERBANK → se mapea a INTERBANK.
-            u = (name or '').upper()
+            # Cadena vacía → banco indeterminado (el caller elige fallback).
+            if not (name or '').strip():
+                return ''
+            u = name.upper()
             for alias, banco in _BANK_ALIASES.items():
                 if alias in u:
                     return banco
-            return 'INTERBANK'  # fallback: banco externo = cobro/pago vía INTERBANK
+            return 'INTERBANK'  # banco externo desconocido → cobro/pago vía INTERBANK
 
         # acct_mvmt: { full_bank_name: { 'USD': float, 'PEN': float } }
         acct_mvmt = {}
@@ -598,11 +598,15 @@ def get_bank_reconciliation():
             if op.operation_type == 'Compra':
                 # Depósitos: cliente → QoriCash en USD
                 if _has_dep_banks:
+                    _usd_attr = 0.0
                     for dep in _deposits:
                         _b = _normalize_banco(dep.get('qc_bank', '')) or _normalize_banco(dep.get('cuenta_cargo', ''))
                         _amt = float(dep.get('importe', 0))
                         if _b and _amt > 0:
                             _add_mvmt(_banco_accts.get(_b, {}).get('USD'), +_amt, 0.0)
+                            _usd_attr += _amt
+                    if _usd_attr == 0 and _usd > 0:
+                        _add_mvmt(_banco_accts.get(_fallback_banco(op), {}).get('USD'), +_usd, 0.0)
                 else:
                     _add_mvmt(_banco_accts.get(_fallback_banco(op), {}).get('USD'), +_usd, 0.0)
                 # Pagos: QoriCash → cliente en PEN
@@ -634,11 +638,15 @@ def get_bank_reconciliation():
                     _add_mvmt(_banco_accts.get(_fallback_banco(op), {}).get('PEN'), 0.0, +_pen)
                 # Pagos: QoriCash → cliente en USD
                 if _has_pay_banks:
+                    _usd_attr = 0.0
                     for pay in _payments:
                         _b = _normalize_banco(pay.get('qc_bank', '')) or _normalize_banco(pay.get('cuenta_destino', ''))
                         _amt = float(pay.get('importe', 0))
                         if _b and _amt > 0:
                             _add_mvmt(_banco_accts.get(_b, {}).get('USD'), -_amt, 0.0)
+                            _usd_attr += _amt
+                    if _usd_attr == 0 and _usd > 0:
+                        _add_mvmt(_banco_accts.get(_fallback_banco(op), {}).get('USD'), -_usd, 0.0)
                 else:
                     _add_mvmt(_banco_accts.get(_fallback_banco(op), {}).get('USD'), -_usd, 0.0)
         # Movimientos proyectados de operaciones pendientes / en proceso
@@ -662,11 +670,15 @@ def get_bank_reconciliation():
 
             if op.operation_type == 'Compra':
                 if _has_dep_banks:
+                    _usd_attr = 0.0
                     for dep in _deposits:
                         _b = _normalize_banco(dep.get('qc_bank', '')) or _normalize_banco(dep.get('cuenta_cargo', ''))
                         _amt = float(dep.get('importe', 0))
                         if _b and _amt > 0:
                             _add_mvmt_pend(_banco_accts.get(_b, {}).get('USD'), +_amt, 0.0)
+                            _usd_attr += _amt
+                    if _usd_attr == 0 and _usd > 0:
+                        _add_mvmt_pend(_banco_accts.get(_fallback_banco(op), {}).get('USD'), +_usd, 0.0)
                 else:
                     _add_mvmt_pend(_banco_accts.get(_fallback_banco(op), {}).get('USD'), +_usd, 0.0)
                 if _has_pay_banks:
@@ -695,11 +707,15 @@ def get_bank_reconciliation():
                 else:
                     _add_mvmt_pend(_banco_accts.get(_fallback_banco(op), {}).get('PEN'), 0.0, +_pen)
                 if _has_pay_banks:
+                    _usd_attr = 0.0
                     for pay in _payments:
                         _b = _normalize_banco(pay.get('qc_bank', '')) or _normalize_banco(pay.get('cuenta_destino', ''))
                         _amt = float(pay.get('importe', 0))
                         if _b and _amt > 0:
                             _add_mvmt_pend(_banco_accts.get(_b, {}).get('USD'), -_amt, 0.0)
+                            _usd_attr += _amt
+                    if _usd_attr == 0 and _usd > 0:
+                        _add_mvmt_pend(_banco_accts.get(_fallback_banco(op), {}).get('USD'), -_usd, 0.0)
                 else:
                     _add_mvmt_pend(_banco_accts.get(_fallback_banco(op), {}).get('USD'), -_usd, 0.0)
         # ─────────────────────────────────────────────────────────────────────
@@ -923,3 +939,164 @@ def get_bank_reconciliation():
             'error': str(e),
             'details': error_trace
         }), 500
+
+
+@position_bp.route('/api/sync_balances', methods=['POST'])
+@login_required
+@require_role('Master', 'Operador')
+def sync_balances():
+    """
+    Sincroniza balance_pen / balance_usd de cada banco calculando:
+        balance = initial_balance + movimientos_completados_del_dia
+
+    Corrige valores desactualizados por errores históricos de apply_operation.
+    """
+    try:
+        from app.utils.formatters import now_peru
+        from datetime import datetime as dt, time
+
+        fecha_param = request.args.get('fecha')
+        if fecha_param:
+            try:
+                fecha_consulta = dt.strptime(fecha_param, '%Y-%m-%d').date()
+            except ValueError:
+                fecha_consulta = now_peru().date()
+        else:
+            fecha_consulta = now_peru().date()
+
+        inicio_dia = dt.combine(fecha_consulta, time.min)
+        fin_dia    = dt.combine(fecha_consulta, time.max)
+
+        demo_id = User.get_demo_user_id()
+        rec_query = Operation.query.filter(
+            Operation.status == 'Completada',
+            Operation.created_at >= inicio_dia,
+            Operation.created_at <= fin_dia
+        )
+        if demo_id:
+            rec_query = rec_query.filter(Operation.user_id != demo_id)
+        completed_ops = rec_query.all()
+
+        from app.config.bank_accounts import QORICASH_ACCOUNTS
+        _banco_accts = {}
+        for _b, _monedas in QORICASH_ACCOUNTS.items():
+            _banco_accts[_b] = {}
+            for _m, _d in _monedas.items():
+                _banco_accts[_b][_m] = f"{_b} {_m} ({_d['numero']})"
+
+        _BANK_ALIASES = {
+            'BCP': 'BCP', 'CREDITO': 'BCP', 'CRÉDITO': 'BCP',
+            'INTERBANK': 'INTERBANK', 'IBK': 'INTERBANK',
+            'BANBIF': 'BANBIF', 'BIF': 'BANBIF',
+        }
+
+        def _norm(name):
+            if not (name or '').strip():
+                return ''
+            u = name.upper()
+            for alias, banco in _BANK_ALIASES.items():
+                if alias in u:
+                    return banco
+            return 'INTERBANK'
+
+        def _fallback(op):
+            try:
+                if op.source_account and op.client:
+                    for acct in (op.client.bank_accounts or []):
+                        if acct.get('account_number') == op.source_account:
+                            return _norm(acct.get('bank_name', ''))
+                if op.source_bank_name:
+                    return _norm(op.source_bank_name)
+            except Exception:
+                pass
+            return 'INTERBANK'
+
+        acct_mvmt = {}
+
+        def _add(full_name, usd_d, pen_d):
+            if not full_name:
+                return
+            if full_name not in acct_mvmt:
+                acct_mvmt[full_name] = {'USD': 0.0, 'PEN': 0.0}
+            acct_mvmt[full_name]['USD'] += usd_d
+            acct_mvmt[full_name]['PEN'] += pen_d
+
+        for op in completed_ops:
+            _usd  = float(op.amount_usd)
+            _pen  = float(op.amount_pen)
+            _pays = op.client_payments or []
+            _deps = op.client_deposits or []
+            _hp   = any(p.get('qc_bank') for p in _pays)
+            _hd   = any(d.get('qc_bank') for d in _deps)
+            _fb   = _fallback(op)
+
+            if op.operation_type == 'Compra':
+                if _hd:
+                    _ua = 0.0
+                    for d in _deps:
+                        _b = _norm(d.get('qc_bank','')) or _norm(d.get('cuenta_cargo',''))
+                        _a = float(d.get('importe', 0))
+                        if _b and _a > 0:
+                            _add(_banco_accts.get(_b,{}).get('USD'), +_a, 0.0)
+                            _ua += _a
+                    if _ua == 0 and _usd > 0:
+                        _add(_banco_accts.get(_fb,{}).get('USD'), +_usd, 0.0)
+                else:
+                    _add(_banco_accts.get(_fb,{}).get('USD'), +_usd, 0.0)
+                if _hp:
+                    _pa = 0.0
+                    for p in _pays:
+                        _b = _norm(p.get('qc_bank','')) or _norm(p.get('cuenta_destino',''))
+                        _a = float(p.get('importe', 0))
+                        if _b and _a > 0:
+                            _add(_banco_accts.get(_b,{}).get('PEN'), 0.0, -_a)
+                            _pa += _a
+                    if _pa == 0 and _pen > 0:
+                        _add(_banco_accts.get(_fb,{}).get('PEN'), 0.0, -_pen)
+                else:
+                    _add(_banco_accts.get(_fb,{}).get('PEN'), 0.0, -_pen)
+            else:  # Venta
+                if _hd:
+                    _pa = 0.0
+                    for d in _deps:
+                        _b = _norm(d.get('qc_bank','')) or _norm(d.get('cuenta_cargo',''))
+                        _a = float(d.get('importe', 0))
+                        if _b and _a > 0:
+                            _add(_banco_accts.get(_b,{}).get('PEN'), 0.0, +_a)
+                            _pa += _a
+                    if _pa == 0 and _pen > 0:
+                        _add(_banco_accts.get(_fb,{}).get('PEN'), 0.0, +_pen)
+                else:
+                    _add(_banco_accts.get(_fb,{}).get('PEN'), 0.0, +_pen)
+                if _hp:
+                    _ua = 0.0
+                    for p in _pays:
+                        _b = _norm(p.get('qc_bank','')) or _norm(p.get('cuenta_destino',''))
+                        _a = float(p.get('importe', 0))
+                        if _b and _a > 0:
+                            _add(_banco_accts.get(_b,{}).get('USD'), -_a, 0.0)
+                            _ua += _a
+                    if _ua == 0 and _usd > 0:
+                        _add(_banco_accts.get(_fb,{}).get('USD'), -_usd, 0.0)
+                else:
+                    _add(_banco_accts.get(_fb,{}).get('USD'), -_usd, 0.0)
+
+        all_banks = BankBalance.query.all()
+        updated = []
+        for bank in all_banks:
+            mvmt = acct_mvmt.get(bank.bank_name, {'USD': 0.0, 'PEN': 0.0})
+            new_usd = max(float(bank.initial_balance_usd or 0) + mvmt['USD'], 0.0)
+            new_pen = max(float(bank.initial_balance_pen or 0) + mvmt['PEN'], 0.0)
+            bank.balance_usd = new_usd
+            bank.balance_pen = new_pen
+            bank.updated_at  = now_peru()
+            updated.append({'bank_name': bank.bank_name, 'usd': round(new_usd, 2), 'pen': round(new_pen, 2)})
+
+        db.session.commit()
+        logger.info(f'[SyncBalances] {len(updated)} cuentas sincronizadas para {fecha_consulta}')
+        return jsonify({'success': True, 'updated': updated, 'fecha': fecha_consulta.isoformat()})
+
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f'ERROR EN /api/sync_balances: {traceback.format_exc()}')
+        return jsonify({'success': False, 'error': str(e)}), 500

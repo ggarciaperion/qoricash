@@ -99,7 +99,9 @@ class BankBalance(db.Model):
             }
 
             def _normalize(name):
-                u = (name or '').upper()
+                if not (name or '').strip():
+                    return ''  # empty → banco indeterminado, el caller elige fallback
+                u = name.upper()
                 for alias, banco in _ALIASES.items():
                     if alias in u:
                         return banco
@@ -150,11 +152,17 @@ class BankBalance(db.Model):
             if operation.operation_type == 'Compra':
                 # Depósitos: cliente → QoriCash en USD (inflows)
                 if _has_dep_banks:
+                    _ua = 0.0
                     for dep in _deposits:
                         _b = _normalize(dep.get('qc_bank', '')) or _normalize(dep.get('cuenta_cargo', ''))
                         _amt = float(dep.get('importe', 0))
                         if _b and _amt > 0:
                             _update(_banco_accts.get(_b, {}).get('USD'), +_amt, 0.0)
+                            _ua += _amt
+                    if _ua == 0 and usd > 0:
+                        _b = _fallback_banco()
+                        if _b:
+                            _update(_banco_accts.get(_b, {}).get('USD'), +usd, 0.0)
                 else:
                     _b = _fallback_banco()
                     if _b:
@@ -162,11 +170,17 @@ class BankBalance(db.Model):
 
                 # Pagos: QoriCash → cliente en PEN (outflows)
                 if _has_pay_banks:
+                    _pa = 0.0
                     for pay in _payments:
-                        _b = _normalize(pay.get('qc_bank', ''))
+                        _b = _normalize(pay.get('qc_bank', '')) or _normalize(pay.get('cuenta_destino', ''))
                         _amt = float(pay.get('importe', 0))
                         if _b and _amt > 0:
                             _update(_banco_accts.get(_b, {}).get('PEN'), 0.0, -_amt)
+                            _pa += _amt
+                    if _pa == 0 and pen > 0:
+                        _b = _fallback_banco()
+                        if _b:
+                            _update(_banco_accts.get(_b, {}).get('PEN'), 0.0, -pen)
                 else:
                     _b = _fallback_banco()
                     if _b:
@@ -175,11 +189,17 @@ class BankBalance(db.Model):
             else:  # Venta
                 # Depósitos: cliente → QoriCash en PEN (inflows)
                 if _has_dep_banks:
+                    _pa = 0.0
                     for dep in _deposits:
-                        _b = _normalize(dep.get('qc_bank', ''))
+                        _b = _normalize(dep.get('qc_bank', '')) or _normalize(dep.get('cuenta_cargo', ''))
                         _amt = float(dep.get('importe', 0))
                         if _b and _amt > 0:
                             _update(_banco_accts.get(_b, {}).get('PEN'), 0.0, +_amt)
+                            _pa += _amt
+                    if _pa == 0 and pen > 0:
+                        _b = _fallback_banco()
+                        if _b:
+                            _update(_banco_accts.get(_b, {}).get('PEN'), 0.0, +pen)
                 else:
                     _b = _fallback_banco()
                     if _b:
@@ -187,11 +207,17 @@ class BankBalance(db.Model):
 
                 # Pagos: QoriCash → cliente en USD (outflows)
                 if _has_pay_banks:
+                    _ua = 0.0
                     for pay in _payments:
-                        _b = _normalize(pay.get('qc_bank', ''))
+                        _b = _normalize(pay.get('qc_bank', '')) or _normalize(pay.get('cuenta_destino', ''))
                         _amt = float(pay.get('importe', 0))
                         if _b and _amt > 0:
                             _update(_banco_accts.get(_b, {}).get('USD'), -_amt, 0.0)
+                            _ua += _amt
+                    if _ua == 0 and usd > 0:
+                        _b = _fallback_banco()
+                        if _b:
+                            _update(_banco_accts.get(_b, {}).get('USD'), -usd, 0.0)
                 else:
                     _b = _fallback_banco()
                     if _b:

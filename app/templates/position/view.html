@@ -248,6 +248,13 @@
                 style="font-size:.72rem;padding:.15rem .55rem;border-radius:4px;">
           <i class="bi bi-plus"></i> Cuenta
         </button>
+        <button id="btnSyncBalances"
+                class="btn btn-outline-success"
+                onclick="syncBalances()"
+                style="font-size:.72rem;padding:.15rem .55rem;border-radius:4px;"
+                title="Recalcula balance = inicial + movimientos completados del día y actualiza los saldos manuales">
+          <i class="bi bi-arrow-repeat me-1"></i>Sincronizar saldos
+        </button>
       </div>
     </div>
     <div id="saldosBody" style="display:block;">
@@ -1106,6 +1113,28 @@ function loadReconciliation(fecha) {
 function refreshReconciliation() {
   loadReconciliation($('#fechaSelector').val());
   showNotification('Saldos actualizados', 'success');
+}
+
+function syncBalances() {
+  const fecha = $('#fechaSelector').val();
+  const url = fecha ? `/position/api/sync_balances?fecha=${fecha}` : '/position/api/sync_balances';
+  const btn = document.getElementById('btnSyncBalances');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Sincronizando…'; }
+  ajaxRequest(url, 'POST', {},
+    function(r) {
+      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-arrow-repeat me-1"></i>Sincronizar saldos'; }
+      if (r.success) {
+        showNotification(`Saldos sincronizados correctamente (${r.updated.length} cuentas)`, 'success');
+        loadReconciliation(fecha);
+      } else {
+        showNotification('Error al sincronizar: ' + (r.error || 'desconocido'), 'danger');
+      }
+    },
+    function() {
+      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-arrow-repeat me-1"></i>Sincronizar saldos'; }
+      showNotification('Error de conexión al sincronizar', 'danger');
+    }
+  );
 }
 
 function renderReconciliationTable(banks, hasCritical, hasLedger) {

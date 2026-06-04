@@ -903,6 +903,69 @@ function buildDetailsHTML(op) {
 
     html += `</div></div></div></div>`;
 
+    // ── 3b. Distribución final de liquidación ─────────────────────────
+    const allDeps  = op.client_deposits  || [];
+    const allPays  = op.client_payments  || [];
+    const isCompra = (op.operation_type || '').toLowerCase() === 'compra';
+    const depsSym  = isCompra ? '$' : 'S/';
+    const paysSym  = isCompra ? 'S/' : '$';
+    const depsLabel = isCompra ? 'Abonos recibidos (USD)' : 'Abonos recibidos (PEN)';
+    const paysLabel = isCompra ? 'Pagos realizados (PEN)' : 'Pagos realizados (USD)';
+
+    if (allDeps.length > 0 || allPays.length > 0) {
+        html += `<div class="sec-heading"><i class="bi bi-diagram-3"></i> Distribución de Liquidación</div>
+        <div class="row g-2 mb-3">`;
+
+        // Abonos del cliente
+        html += `<div class="col-md-6">
+            <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:.75rem;">
+            <div style="font-size:.72rem;font-weight:700;color:#166534;margin-bottom:.5rem;text-transform:uppercase;">
+                <i class="bi bi-arrow-down-circle-fill text-success me-1"></i>${depsLabel}
+            </div>`;
+        if (allDeps.length > 0) {
+            allDeps.forEach((d, i) => {
+                const imp  = d.importe ? `${depsSym} ${parseFloat(d.importe).toFixed(2)}` : '—';
+                const bank = d.qc_bank || '—';
+                const cta  = d.cuenta_cargo || '—';
+                const cod  = d.codigo_operacion || '';
+                html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:.3rem .4rem;
+                          background:#fff;border-radius:5px;margin-bottom:.3rem;font-size:.78rem;">
+                    <span style="font-weight:600;color:#166534;">${imp}</span>
+                    <span style="color:#374151;">${bank}</span>
+                    <span style="color:#6b7280;font-size:.7rem;">${cta}${cod ? ' · ' + cod : ''}</span>
+                </div>`;
+            });
+        } else {
+            html += `<span class="text-muted small">Sin registros</span>`;
+        }
+        html += `</div></div>`;
+
+        // Pagos al cliente
+        html += `<div class="col-md-6">
+            <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:.75rem;">
+            <div style="font-size:.72rem;font-weight:700;color:#9a3412;margin-bottom:.5rem;text-transform:uppercase;">
+                <i class="bi bi-arrow-up-circle-fill text-warning me-1"></i>${paysLabel}
+            </div>`;
+        if (allPays.length > 0) {
+            allPays.forEach((p, i) => {
+                const imp  = p.importe ? `${paysSym} ${parseFloat(p.importe).toFixed(2)}` : '—';
+                const bank = p.qc_bank || '—';
+                const cta  = p.cuenta_destino || '—';
+                html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:.3rem .4rem;
+                          background:#fff;border-radius:5px;margin-bottom:.3rem;font-size:.78rem;">
+                    <span style="font-weight:600;color:#9a3412;">${imp}</span>
+                    <span style="color:#374151;">${bank}</span>
+                    <span style="color:#6b7280;font-size:.7rem;">${cta}</span>
+                </div>`;
+            });
+        } else {
+            html += `<span class="text-muted small">Sin registros</span>`;
+        }
+        html += `</div></div>`;
+
+        html += `</div>`;
+    }
+
     // ── 4. Bouchers del Cliente ────────────────────────────────────────
     html += `<div class="sec-heading"><i class="bi bi-images"></i> Bouchers del Cliente</div>`;
 

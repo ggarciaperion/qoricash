@@ -170,6 +170,24 @@
 
                         <hr>
 
+                        <!-- Distribución de Abonos (multi-banco) -->
+                        <div class="mb-4">
+                            <h6 class="text-primary">
+                                <i class="bi bi-diagram-3"></i> Distribución de Abonos
+                                <span class="badge bg-secondary ms-1" style="font-size:.65rem;vertical-align:middle;">Opcional</span>
+                            </h6>
+                            <p class="text-muted small mb-2">
+                                Si el cliente abonará desde <strong>múltiples cuentas o bancos</strong>, registra la distribución aquí.
+                                De lo contrario, podrás editarla después de crear la operación.
+                            </p>
+                            <div id="depositsContainer"></div>
+                            <button type="button" class="btn btn-sm btn-outline-secondary mt-1" onclick="addDepositRow()">
+                                <i class="bi bi-plus"></i> Agregar abono
+                            </button>
+                        </div>
+
+                        <hr>
+
                         <!-- Notas -->
                         <div class="mb-4">
                             <h6 class="text-primary"><i class="bi bi-sticky"></i> Notas</h6>
@@ -200,6 +218,45 @@
 let selectedClient = null;
 let clientBankAccounts = [];
 let searchTimeout = null;
+
+// ── Depósitos multi-banco ─────────────────────────────────────────────────────
+function deriveBankFromCuenta(cta) {
+    if (!cta) return '';
+    const u = cta.toUpperCase();
+    if (u.includes('BCP') || u.includes('CREDITO') || u.includes('CRÉDITO')) return 'BCP';
+    if (u.includes('INTERBANK') || u.includes('IBK')) return 'INTERBANK';
+    if (u.includes('BANBIF') || u.includes('BIF')) return 'BANBIF';
+    return '';
+}
+
+function addDepositRow() {
+    const idx = $('#depositsContainer .deposit-row').length;
+    const opType = $('input[name="operation_type"]:checked').val() || 'Compra';
+    const sym = opType === 'Compra' ? 'USD' : 'S/';
+    const row = $(`<div class="deposit-row d-flex gap-2 mb-2 align-items-center">
+        <input type="number" step="0.01" min="0" class="form-control form-control-sm dep-importe"
+               placeholder="${sym} Importe" style="width:120px;">
+        <input type="text" class="form-control form-control-sm dep-cuenta"
+               placeholder="Cuenta / banco" style="flex:1;" oninput="autoTagBank(this)">
+        <input type="text" class="form-control form-control-sm dep-codigo"
+               placeholder="Cód. operación" style="width:130px;">
+        <span class="dep-bank-tag badge bg-secondary" style="min-width:70px;text-align:center;"></span>
+        <button type="button" class="btn btn-sm btn-outline-danger" onclick="$(this).closest('.deposit-row').remove()">
+            <i class="bi bi-x"></i>
+        </button>
+    </div>`);
+    $('#depositsContainer').append(row);
+}
+
+function autoTagBank(input) {
+    const bank = deriveBankFromCuenta($(input).val());
+    const tag  = $(input).closest('.deposit-row').find('.dep-bank-tag');
+    if (bank) {
+        tag.text(bank).removeClass('bg-secondary').addClass('bg-success');
+    } else {
+        tag.text('').removeClass('bg-success').addClass('bg-secondary');
+    }
+}
 
 // Auto-seleccionar cliente si viene por URL param (?client_id=X)
 $(document).ready(function() {
@@ -503,6 +560,21 @@ $('#createOperationForm').on('submit', function(e) {
     let formData;
     try {
         const baseRateVal = $('#base_rate').val();
+        // Recopilar depósitos iniciales
+        const depositRows = [];
+        $('#depositsContainer .deposit-row').each(function() {
+            const imp = parseFloat($(this).find('.dep-importe').val()) || 0;
+            const cta = $(this).find('.dep-cuenta').val().trim();
+            if (imp > 0 || cta) {
+                depositRows.push({
+                    importe: imp,
+                    cuenta_cargo: cta,
+                    qc_bank: deriveBankFromCuenta(cta),
+                    codigo_operacion: $(this).find('.dep-codigo').val().trim()
+                });
+            }
+        });
+
         formData = {
             client_id: parseInt($('#client_id').val()),
             operation_type: $('input[name="operation_type"]:checked').val(),
@@ -511,7 +583,8 @@ $('#createOperationForm').on('submit', function(e) {
             base_rate: baseRateVal ? parseFloat(baseRateVal) : null,
             source_account: $('#source_account').val(),
             destination_account: $('#destination_account').val(),
-            notes: $('textarea[name="notes"]').val()
+            notes: $('textarea[name="notes"]').val(),
+            client_deposits: depositRows.length > 0 ? depositRows : undefined
         };
     } catch (err) {
         window.isCreatingOperation = false;
