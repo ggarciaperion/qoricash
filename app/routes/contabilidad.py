@@ -1729,7 +1729,7 @@ def conciliar_cuenta():
         lines       = lines,
         source_type = 'conciliacion',
         source_id   = None,
-        entry_date  = date.today(),
+        entry_date  = now_peru().date(),
         created_by  = current_user.id,
     )
 
