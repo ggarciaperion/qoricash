@@ -2135,6 +2135,21 @@ def _api_grid_impl():
     except Exception:
         emails_map = {}
 
+    # Última actividad WhatsApp por prospecto (bulk)
+    wa_acts = (
+        db.session.query(
+            ActividadProspecto.prospecto_id,
+            func.max(ActividadProspecto.creado_en).label('ultima_wa')
+        )
+        .filter(
+            ActividadProspecto.canal == 'whatsapp',
+            ActividadProspecto.prospecto_id.in_(ids),
+        )
+        .group_by(ActividadProspecto.prospecto_id)
+        .all()
+    ) if ids else []
+    wa_map = {r.prospecto_id: r.ultima_wa for r in wa_acts}
+
     rows = []
     for p in prospectos_list:
         all_emails = []
@@ -2184,6 +2199,7 @@ def _api_grid_impl():
             "trader":                trader_map.get(p.id, ""),
             "creado_en":             p.creado_en.strftime("%Y-%m-%d") if p.creado_en else "",
             "actualizado_en":        p.actualizado_en.strftime("%Y-%m-%d %H:%M") if p.actualizado_en else "",
+            "ultima_wa":             wa_map[p.id].strftime("%Y-%m-%d %H:%M") if p.id in wa_map and wa_map[p.id] else "",
         })
 
     base = _base_query()
@@ -2979,6 +2995,18 @@ def api_wa_campana_elegibles():
         .subquery()
     )
 
+    # IDs con actividad WA en las últimas 24h (respetar ventana Meta)
+    cutoff_wa = now_peru() - timedelta(hours=24)
+    wa_recientes_ids = (
+        db.session.query(ActividadProspecto.prospecto_id)
+        .filter(
+            ActividadProspecto.canal == 'whatsapp',
+            ActividadProspecto.creado_en >= cutoff_wa,
+        )
+        .distinct()
+        .subquery()
+    )
+
     # Estados que implican contacto previo por email
     _ESTADOS_CONTACTADOS = (
         'contactado', 'interesado', 'negociando', 'cliente',
@@ -2995,6 +3023,7 @@ def api_wa_campana_elegibles():
                 Prospecto.tipo_ultimo_envio.isnot(None),
             ),
             ~Prospecto.estado_comercial.in_(_EXCLUIR),
+            ~Prospecto.id.in_(wa_recientes_ids),   # excluir contactados por WA < 24h
         )
         .all()
     )

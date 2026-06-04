@@ -1417,6 +1417,7 @@ function rowHtml(r) {
     <td onclick="event.stopPropagation()" style="white-space:nowrap;">
       ${r.telefono ? `<span style="font-size:.78rem;color:var(--qori-gray-700);">${esc(r.telefono)}</span>
       <button class="row-act" style="padding:2px 4px;margin-left:3px;" onclick="copyPhone('${esc(r.telefono)}')" data-bs-toggle="tooltip" title="Copiar celular"><i class="bi bi-clipboard" style="font-size:.7rem;"></i></button>` : '<span style="color:var(--qori-gray-400);font-size:.78rem;">—</span>'}
+      ${waBadgeRow(r.ultima_wa)}
     </td>
     <td onclick="event.stopPropagation()">
       <span class="${b.cls} status-badge" onclick="openStatusMenu(event,${r.id},this)">
@@ -1427,6 +1428,26 @@ function rowHtml(r) {
     ${IS_MASTER ? `<td style="font-size:.73rem;color:var(--qori-gray-500);">${esc(r.trader||'—')}</td>` : ''}
     <td style="white-space:nowrap;">${tamanoBadge(r.tamano_empresa)}</td>
   </tr>`;
+}
+
+function waBadgeRow(ultima_wa) {
+  if (!ultima_wa) return '';
+  // Parse "YYYY-MM-DD HH:MM" as Peru time (UTC-5)
+  const parts = ultima_wa.match(/(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})/);
+  if (!parts) return '';
+  const dtUtc = Date.UTC(+parts[1], +parts[2]-1, +parts[3], +parts[4]+5, +parts[5]);
+  const agoMs = Date.now() - dtUtc;
+  const h24   = 24 * 3600 * 1000;
+  if (agoMs < h24) {
+    const hAgo = Math.round(agoMs / 3600000);
+    return `<span title="WA enviado hace ${hAgo}h — ventana Meta activa" style="display:inline-flex;align-items:center;gap:2px;margin-left:4px;padding:1px 5px;border-radius:4px;background:#dcfce7;color:#16a34a;font-size:.62rem;font-weight:700;cursor:default;">
+      <i class="bi bi-whatsapp" style="font-size:.65rem;"></i>${hAgo}h
+    </span>`;
+  }
+  // Sent but > 24h ago — neutral indicator
+  return `<span title="Último WA: ${ultima_wa}" style="display:inline-flex;align-items:center;gap:2px;margin-left:4px;padding:1px 5px;border-radius:4px;background:#f0fdf4;color:#6ee7b7;font-size:.62rem;cursor:default;">
+    <i class="bi bi-whatsapp" style="font-size:.65rem;"></i>
+  </span>`;
 }
 
 function tamanoBadge(t) {
