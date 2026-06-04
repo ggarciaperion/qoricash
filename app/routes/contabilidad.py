@@ -285,6 +285,21 @@ def anular_asiento(entry_id):
     if entry.status == 'anulado':
         return jsonify({'success': False, 'error': 'El asiento ya está anulado'}), 400
 
+    # BUG-3 FIX: impedir anular un contra-asiento de reversión.
+    # Si se anulara un reversal_operacion o anulacion, se crearía un tercer
+    # asiento que re-introduce el efecto original — doble reversión silenciosa.
+    _REVERSAL_TYPES = ('reversal_operacion', 'anulacion')
+    if entry.entry_type in _REVERSAL_TYPES:
+        return jsonify({
+            'success': False,
+            'error': (
+                f'El asiento {entry.entry_number} es un contra-asiento de reversión '
+                f'(tipo: {entry.entry_type}). Anularlo volvería a registrar el efecto '
+                f'original en los libros. Si necesitas corregir esto, contáctate con '
+                f'soporte contable.'
+            )
+        }), 400
+
     try:
         # Validar que el período del asiento original esté abierto (M-05)
         period = JournalService.get_or_create_period(entry.entry_date)
@@ -487,6 +502,45 @@ def gastos():
     )
 
 
+def _apply_expense_to_bank_balance(account_code: str, amount_pen: Decimal) -> None:
+    """
+    Debita el saldo operativo de BankBalance cuando un gasto impacta directamente
+    una cuenta bancaria (bank_account_code presente).
+
+    El Libro Diario y el PCGE NO se tocan — este método solo actualiza la tabla
+    bank_balances que alimenta el módulo de Posición (Saldos Bancarios).
+
+    - Cuentas PEN (1041, 1048, 1049…): debita balance_pen en el importe exacto.
+    - Cuentas USD (1044, 1047, 1050…): convierte amount_pen al TC venta vigente
+      y debita balance_usd.
+    """
+    from app.models.bank_balance import BankBalance
+    from app.models.exchange_rate import ExchangeRate
+
+    # _ACCOUNT_LABELS y _CODE_TO_BANK están definidos más abajo en el módulo;
+    # se resuelven en tiempo de ejecución sin problema.
+    currency = _ACCOUNT_LABELS.get(account_code, ('', 'PEN', ''))[1]
+    bank_key = _CODE_TO_BANK.get(account_code)
+    if not bank_key:
+        return
+
+    bb = BankBalance.query.filter(
+        BankBalance.bank_name.ilike(f'%{bank_key}%{currency}%')
+    ).first()
+    if not bb:
+        return
+
+    if currency == 'PEN':
+        bb.balance_pen = max(float(bb.balance_pen) - float(amount_pen), 0.0)
+    else:
+        er = ExchangeRate.query.order_by(ExchangeRate.updated_at.desc()).first()
+        tc = float(er.sell_rate) if er and er.sell_rate else 3.75
+        amount_usd = float(amount_pen) / tc
+        bb.balance_usd = max(float(bb.balance_usd) - amount_usd, 0.0)
+
+    bb.updated_at = now_peru()
+
+
 @contabilidad_bp.route('/gastos/nuevo', methods=['POST'])
 @csrf.exempt
 @login_required
@@ -652,6 +706,20 @@ def nuevo_gasto():
             db.session.add(fixed_asset)
 
         db.session.commit()
+
+        # BUG-1 FIX: reflejar el débito en Saldos Bancarios (Posición).
+        # Solo cuando el gasto carga directamente a una cuenta bancaria.
+        # El PCGE no se altera — el asiento ya fue creado arriba.
+        if bank_account_code:
+            try:
+                _apply_expense_to_bank_balance(bank_account_code, amount_pen)
+                db.session.commit()
+            except Exception as _bb_err:
+                import logging as _lg
+                _lg.getLogger(__name__).warning(
+                    f'[BankBalance] No se pudo actualizar saldo para gasto: {_bb_err}'
+                )
+
         return jsonify({'success': True, 'message': 'Gasto registrado correctamente'})
 
     except Exception as e:
@@ -1418,25 +1486,52 @@ def _caja_movimientos(year: int, month: int, account_code: str):
     Retorna lista de movimientos de una cuenta en el período, ordenados por fecha.
     Cada item: {date, entry_number, description, debe, haber, saldo_acum}
     También retorna saldo_anterior (suma hasta fin del mes previo).
+
+    PCGE: el Libro Diario siempre está en PEN (soles). Este método NO modifica
+    ningún asiento. Para cuentas en moneda extranjera (1044, 1047, etc.) el
+    Libro Caja y Bancos AUXILIAR muestra los importes en USD usando el campo
+    JournalEntryLine.amount_usd que se graba junto a cada línea. Las columnas
+    debe/haber/saldo del diario oficial permanecen inalteradas en PEN.
     """
     from app.models.journal_entry import JournalEntry
     from app.models.journal_entry_line import JournalEntryLine
     from sqlalchemy import func, extract
-    import calendar
 
-    # Saldo anterior = todo lo contabilizado antes del período actual
+    currency_label = _ACCOUNT_LABELS.get(account_code, ('', 'PEN', ''))[1]
+    is_usd = (currency_label == 'USD')
+
+    # ── Saldo anterior (períodos previos al actual) ────────────────────────────
     first_day = date(year, month, 1)
-    prev = db.session.query(
-        func.sum(JournalEntryLine.debe).label('d'),
-        func.sum(JournalEntryLine.haber).label('h'),
-    ).join(JournalEntry, JournalEntryLine.journal_entry_id == JournalEntry.id
-    ).filter(
+
+    _prev_join    = JournalEntry, JournalEntryLine.journal_entry_id == JournalEntry.id
+    _prev_filters = [
         JournalEntryLine.account_code == account_code,
         JournalEntry.entry_date < first_day,
         JournalEntry.status == 'activo',
-    ).first()
+    ]
 
-    saldo_ant_journal = Decimal(str(prev.d or 0)) - Decimal(str(prev.h or 0))
+    if is_usd:
+        # Cuentas ME: acumular amount_usd (separando DEBE y HABER) para
+        # obtener el saldo anterior en dólares sin tocar el diario en PEN.
+        prev_d_usd = (
+            db.session.query(func.sum(JournalEntryLine.amount_usd))
+            .join(*_prev_join)
+            .filter(*_prev_filters, JournalEntryLine.debe > 0)
+            .scalar()
+        ) or 0
+        prev_h_usd = (
+            db.session.query(func.sum(JournalEntryLine.amount_usd))
+            .join(*_prev_join)
+            .filter(*_prev_filters, JournalEntryLine.haber > 0)
+            .scalar()
+        ) or 0
+        saldo_ant_journal = Decimal(str(prev_d_usd)) - Decimal(str(prev_h_usd))
+    else:
+        prev = db.session.query(
+            func.sum(JournalEntryLine.debe).label('d'),
+            func.sum(JournalEntryLine.haber).label('h'),
+        ).join(*_prev_join).filter(*_prev_filters).first()
+        saldo_ant_journal = Decimal(str(prev.d or 0)) - Decimal(str(prev.h or 0))
 
     # Prioridad: snapshot real de Posición como saldo anterior.
     # Se incluyen snapshots hasta el primer día del período (<=) para capturar
@@ -1445,7 +1540,6 @@ def _caja_movimientos(year: int, month: int, account_code: str):
     try:
         from app.models.bank_balance_history import BankBalanceHistory
         bank_key = _CODE_TO_BANK.get(account_code)
-        currency_label = _ACCOUNT_LABELS.get(account_code, ('', 'PEN', ''))[1]
         if bank_key:
             snap = (BankBalanceHistory.query
                     .filter(
@@ -1455,8 +1549,7 @@ def _caja_movimientos(year: int, month: int, account_code: str):
                     .order_by(BankBalanceHistory.snapshot_date.desc())
                     .first())
             if snap:
-                if currency_label == 'USD':
-                    # Preferir saldo inicial si fue ingresado; sino usar saldo actual
+                if is_usd:
                     raw = snap.initial_balance_usd if float(snap.initial_balance_usd or 0) > 0 else snap.balance_usd
                     saldo_ant = Decimal(str(raw or 0))
                 else:
@@ -1465,7 +1558,8 @@ def _caja_movimientos(year: int, month: int, account_code: str):
     except Exception:
         pass
 
-    # Movimientos del período
+    # ── Movimientos del período ────────────────────────────────────────────────
+    # amount_usd se incluye en el SELECT para poder expresar cuentas ME en USD.
     rows = db.session.query(
         JournalEntry.entry_date,
         JournalEntry.entry_number,
@@ -1473,6 +1567,7 @@ def _caja_movimientos(year: int, month: int, account_code: str):
         JournalEntryLine.description.label('line_desc'),
         JournalEntryLine.debe,
         JournalEntryLine.haber,
+        JournalEntryLine.amount_usd,
     ).join(JournalEntry, JournalEntryLine.journal_entry_id == JournalEntry.id
     ).filter(
         JournalEntryLine.account_code == account_code,
@@ -1486,8 +1581,16 @@ def _caja_movimientos(year: int, month: int, account_code: str):
     movs = []
     saldo = saldo_ant
     for r in rows:
-        debe  = Decimal(str(r.debe  or 0))
-        haber = Decimal(str(r.haber or 0))
+        if is_usd and r.amount_usd is not None and Decimal(str(r.amount_usd)) > 0:
+            # Libro Caja auxiliar ME: mostrar en USD usando amount_usd.
+            # El Libro Diario (PEN) permanece intacto — solo cambia la vista.
+            usd_val = Decimal(str(r.amount_usd))
+            debe  = usd_val if r.debe  and Decimal(str(r.debe))  > 0 else Decimal('0')
+            haber = usd_val if r.haber and Decimal(str(r.haber)) > 0 else Decimal('0')
+        else:
+            # Cuentas PEN, o líneas ME sin amount_usd (asientos manuales viejos).
+            debe  = Decimal(str(r.debe  or 0))
+            haber = Decimal(str(r.haber or 0))
         saldo += debe - haber
         movs.append({
             'date':         r.entry_date,
@@ -1504,7 +1607,7 @@ def _caja_movimientos(year: int, month: int, account_code: str):
     return {
         'code':        account_code,
         'label':       _ACCOUNT_LABELS.get(account_code, (f'Cta. {account_code}', 'PEN', 'otro'))[0],
-        'currency':    _ACCOUNT_LABELS.get(account_code, ('', 'PEN', ''))[1],
+        'currency':    currency_label,
         'kind':        _ACCOUNT_LABELS.get(account_code, ('', '', 'otro'))[2],
         'saldo_ant':   saldo_ant,
         'movimientos': movs,
