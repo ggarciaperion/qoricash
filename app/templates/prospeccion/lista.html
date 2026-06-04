@@ -1477,29 +1477,31 @@ function proximoContactoBadge(r) {
   const hasContact = r.ultima_wa || r.ultima_email || r.fecha_ultimo_contacto;
   if (!hasContact) return '';
 
-  // Fecha explícita configurada → mostrarla directamente
-  if (r.fecha_proximo_contacto) return fmtProx(r.fecha_proximo_contacto);
+  const DAY   = 24 * 60 * 60 * 1000;
+  const today = new Date(); today.setHours(0,0,0,0);
 
-  // Calcular fecha sugerida según último contacto
-  const DAY = 24 * 60 * 60 * 1000;
+  // Fecha explícita configurada Y está en el futuro → usarla
+  if (r.fecha_proximo_contacto) {
+    const proxMs = new Date(r.fecha_proximo_contacto.slice(0,10)).getTime();
+    if (proxMs > today.getTime()) return fmtProx(r.fecha_proximo_contacto);
+  }
+
+  // Calcular fecha sugerida: último contacto + intervalo
   const waMs = _waParseMs(r.ultima_wa);
   let baseMs;
 
   if (waMs) {
     const sinceWa = Date.now() - waMs;
-    if (sinceWa < DAY) {
-      // Ventana Meta activa: sugerir justo cuando expire (mañana aprox)
-      baseMs = waMs + DAY;
-    } else {
-      // WA expirado: +3 días desde último WA
-      baseMs = waMs + 3 * DAY;
-    }
+    // Ventana Meta activa → sugerir justo cuando expire; si ya expiró → +3 días
+    baseMs = sinceWa < DAY ? waMs + DAY : waMs + 3 * DAY;
   } else {
     const refMs = _parseContactMs(r.ultima_email) || _parseContactMs(r.fecha_ultimo_contacto);
-    baseMs = refMs ? refMs + 3 * DAY : Date.now() + 3 * DAY;
+    baseMs = refMs ? refMs + 3 * DAY : today.getTime() + 3 * DAY;
   }
 
-  return fmtProx(_msToDateStr(baseMs));
+  // Asegurar que la fecha sugerida sea siempre mañana como mínimo
+  const minMs = today.getTime() + DAY;
+  return fmtProx(_msToDateStr(Math.max(baseMs, minMs)));
 }
 
 function badge(ec) {
