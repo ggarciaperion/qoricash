@@ -289,16 +289,33 @@ def webhook_receive():
             wa_id     = msg.get('id', '')
             tipo      = msg.get('type', '')
 
+            media_id_val   = ''
+            media_tipo_val = ''
             if tipo == 'text':
                 texto = msg['text']['body']
             elif tipo == 'image':
-                texto = '[Imagen]'
+                media_id_val   = msg.get('image', {}).get('id', '')
+                media_tipo_val = 'image'
+                caption        = msg.get('image', {}).get('caption', '')
+                texto          = caption or '[Imagen]'
+            elif tipo == 'sticker':
+                media_id_val   = msg.get('sticker', {}).get('id', '')
+                media_tipo_val = 'sticker'
+                texto          = '[Sticker]'
             elif tipo == 'audio':
-                texto = '[Audio de voz]'
+                media_id_val   = msg.get('audio', {}).get('id', '')
+                media_tipo_val = 'audio'
+                texto          = '[Audio de voz]'
             elif tipo == 'video':
-                texto = '[Video]'
+                media_id_val   = msg.get('video', {}).get('id', '')
+                media_tipo_val = 'video'
+                caption        = msg.get('video', {}).get('caption', '')
+                texto          = caption or '[Video]'
             elif tipo == 'document':
-                texto = '[Documento]'
+                media_id_val   = msg.get('document', {}).get('id', '')
+                media_tipo_val = 'document'
+                filename       = msg.get('document', {}).get('filename', 'Documento')
+                texto          = filename
             else:
                 texto = f'[{tipo}]'
 
@@ -310,13 +327,15 @@ def webhook_receive():
             empresa = prev.empresa if prev else ''
 
             wa_msg = WaMessage(
-                numero    = numero,
-                nombre    = nombre,
-                empresa   = empresa,
-                mensaje   = texto,
-                direccion = 'entrante',
-                wa_id     = wa_id,
-                leido     = False,
+                numero     = numero,
+                nombre     = nombre,
+                empresa    = empresa,
+                mensaje    = texto,
+                direccion  = 'entrante',
+                wa_id      = wa_id,
+                leido      = False,
+                media_id   = media_id_val,
+                media_tipo = media_tipo_val,
             )
             db.session.add(wa_msg)
 
@@ -390,6 +409,49 @@ def webhook_receive():
         log.error(f'[CRM Webhook] Error: {e}')
 
     return jsonify({'status': 'ok'})
+
+
+# ── API — proxy de media WhatsApp ────────────────────────────────
+@crm_bp.route('/api/media/<media_id>')
+@login_required
+@require_role('Master')
+def api_media_proxy(media_id):
+    """Descarga el media de Meta y lo sirve al browser (proxy en vivo)."""
+    from flask import Response, stream_with_context
+    if not WA_ACCESS_TOKEN:
+        return 'No access token', 503
+    try:
+        # Paso 1: obtener URL de descarga
+        meta_r = http_req.get(
+            f'https://graph.facebook.com/v19.0/{media_id}',
+            headers={'Authorization': f'Bearer {WA_ACCESS_TOKEN}'},
+            timeout=10,
+        )
+        if not meta_r.ok:
+            return 'Media no disponible', 404
+        dl_url = meta_r.json().get('url', '')
+        if not dl_url:
+            return 'URL no encontrada', 404
+
+        # Paso 2: descargar el archivo
+        media_r = http_req.get(
+            dl_url,
+            headers={'Authorization': f'Bearer {WA_ACCESS_TOKEN}'},
+            stream=True,
+            timeout=20,
+        )
+        if not media_r.ok:
+            return 'Error descargando media', 502
+
+        content_type = media_r.headers.get('Content-Type', 'application/octet-stream')
+        return Response(
+            stream_with_context(media_r.iter_content(chunk_size=8192)),
+            content_type=content_type,
+            headers={'Cache-Control': 'private, max-age=86400'},
+        )
+    except Exception as e:
+        log.error(f'[CRM] media_proxy error: {e}')
+        return 'Error interno', 500
 
 
 # ── API — contador de mensajes WA no leídos ───────────────────────

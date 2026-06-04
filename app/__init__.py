@@ -261,6 +261,10 @@ def create_app(config_name=None):
                 db.session.execute(text("CREATE INDEX IF NOT EXISTS ix_wa_messages_numero ON wa_messages(numero)"))
                 db.session.commit()
                 logging.info("[CRM] Tabla wa_messages creada.")
+            # Columnas de media (si la tabla ya existía sin ellas)
+            db.session.execute(text("ALTER TABLE wa_messages ADD COLUMN IF NOT EXISTS media_id   VARCHAR(120) DEFAULT ''"))
+            db.session.execute(text("ALTER TABLE wa_messages ADD COLUMN IF NOT EXISTS media_tipo VARCHAR(20)  DEFAULT ''"))
+            db.session.commit()
             if "asignaciones_prospecto" not in existing:
                 db.session.execute(text("""
                     CREATE TABLE IF NOT EXISTS asignaciones_prospecto (

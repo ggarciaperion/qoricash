@@ -193,6 +193,41 @@
   }
   .crm-bubble.saliente + .crm-bubble-time { color: rgba(13,27,42,.5); }
 
+  /* ── Media ── */
+  .crm-media-img {
+    max-width: 240px; max-height: 280px;
+    border-radius: 10px; display: block;
+    cursor: zoom-in; object-fit: cover;
+  }
+  .crm-sticker {
+    max-width: 120px; max-height: 120px;
+    background: transparent; object-fit: contain;
+  }
+  .crm-media-caption {
+    font-size: .8rem; color: #cbd5e1; margin-top: 4px;
+  }
+  .crm-media-audio {
+    display: block; width: 220px; margin: 2px 0;
+    filter: invert(0.85) hue-rotate(180deg); /* dark theme */
+  }
+  .crm-media-video {
+    max-width: 240px; max-height: 220px;
+    border-radius: 10px; display: block;
+  }
+  .crm-media-doc {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 10px; border-radius: 8px;
+    background: rgba(255,255,255,.08); color: #e2e8f0;
+    text-decoration: none; font-size: .85rem;
+    border: 1px solid rgba(255,255,255,.12);
+  }
+  .crm-media-doc:hover { background: rgba(255,255,255,.14); color: #fff; }
+  .crm-bubble.saliente .crm-media-doc {
+    background: rgba(13,27,42,.12); color: #0d1b2a;
+    border-color: rgba(13,27,42,.2);
+  }
+  .crm-bubble.saliente .crm-media-doc:hover { background: rgba(13,27,42,.2); }
+
   /* ── Input reply ── */
   .crm-reply {
     padding: 12px 16px;
@@ -384,6 +419,37 @@ async function loadMensajes(numero) {
   await loadConversaciones(); // refrescar badges
 }
 
+function renderBubbleContent(m) {
+  const mid = m.media_id;
+  const tipo = m.media_tipo;
+  const url = mid ? `/crm/api/media/${mid}` : '';
+  if (tipo === 'image' || tipo === 'sticker') {
+    const label = m.mensaje && m.mensaje !== '[Imagen]' && m.mensaje !== '[Sticker]'
+      ? `<div class="crm-media-caption">${escHtml(m.mensaje)}</div>` : '';
+    return `<img class="crm-media-img${tipo === 'sticker' ? ' crm-sticker' : ''}"
+      src="${url}" alt="${tipo}" loading="lazy"
+      onclick="window.open('${url}','_blank')">${label}`;
+  }
+  if (tipo === 'audio') {
+    return `<audio class="crm-media-audio" controls preload="none">
+      <source src="${url}"><span style="color:#94a3b8;font-size:.8rem">🎤 Audio de voz</span>
+    </audio>`;
+  }
+  if (tipo === 'video') {
+    const caption = m.mensaje && m.mensaje !== '[Video]'
+      ? `<div class="crm-media-caption">${escHtml(m.mensaje)}</div>` : '';
+    return `<video class="crm-media-video" controls preload="none">
+      <source src="${url}">
+    </video>${caption}`;
+  }
+  if (tipo === 'document') {
+    return `<a class="crm-media-doc" href="${url}" download="${escHtml(m.mensaje)}" target="_blank">
+      <i class="bi bi-file-earmark-arrow-down"></i> ${escHtml(m.mensaje)}
+    </a>`;
+  }
+  return escHtml(m.mensaje);
+}
+
 function renderMensajes(msgs) {
   const el = document.getElementById('chatMessages');
   if (!msgs.length) {
@@ -393,7 +459,7 @@ function renderMensajes(msgs) {
   el.innerHTML = msgs.map(m => `
     <div class="crm-bubble-wrap ${m.direccion}">
       <div>
-        <div class="crm-bubble ${m.direccion}">${escHtml(m.mensaje)}</div>
+        <div class="crm-bubble ${m.direccion}">${renderBubbleContent(m)}</div>
         <div class="crm-bubble-time">${m.created_at}</div>
       </div>
     </div>`).join('');
