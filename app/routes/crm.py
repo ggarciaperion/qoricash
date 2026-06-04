@@ -228,7 +228,8 @@ def api_registro_campana():
                 )
                 db.session.add(act)
                 Prospecto.query.filter_by(id=p.id).update({
-                    'fecha_ultimo_contacto': _now().strftime('%Y-%m-%d %H:%M')
+                    'fecha_ultimo_contacto': _now().strftime('%Y-%m-%d %H:%M'),
+                    'estado_comercial': 'contactado',
                 }, synchronize_session=False)
     except Exception as _e:
         log.warning(f'[CRM Campaña] No se pudo vincular WA a prospecto: {_e}')
