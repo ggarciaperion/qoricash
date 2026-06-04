@@ -448,14 +448,18 @@ class Client(db.Model):
 
     @property
     def kyc_badge(self):
-        """Badge visual para el estado KYC."""
-        status = self.kyc_status or 'pendiente'
-        if status == 'completo':
+        """Badge visual para el estado KYC.
+
+        has_complete_documents es la fuente autoritativa: si es True el KYC
+        está completo independientemente del valor en la columna kyc_status
+        (evita inconsistencias donde la columna no se actualizó correctamente).
+        """
+        if self.has_complete_documents:
             return {'label': 'KYC Completo', 'color': 'success', 'icon': 'bi-shield-check', 'text_color': 'white'}
-        elif status == 'bloqueado':
+        status = self.kyc_status or 'pendiente'
+        if status == 'bloqueado':
             return {'label': 'KYC Bloqueado', 'color': 'danger', 'icon': 'bi-shield-x', 'text_color': 'white'}
-        else:
-            return {'label': 'KYC Pendiente', 'color': 'warning', 'icon': 'bi-clock', 'text_color': 'dark'}
+        return {'label': 'KYC Pendiente', 'color': 'warning', 'icon': 'bi-clock', 'text_color': 'dark'}
 
     @property
     def kyc_limit_usd(self):
