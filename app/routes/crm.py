@@ -316,6 +316,20 @@ def webhook_receive():
                 media_tipo_val = 'document'
                 filename       = msg.get('document', {}).get('filename', 'Documento')
                 texto          = filename
+            elif tipo == 'contacts':
+                import json as _json
+                contact_list = msg.get('contacts', [])
+                if contact_list:
+                    c0     = contact_list[0]
+                    cname  = c0.get('name', {}).get('formatted_name', 'Contacto')
+                    phones = [p.get('phone', '') for p in c0.get('phones', []) if p.get('phone')]
+                    emails = [e.get('email', '') for e in c0.get('emails', []) if e.get('email')]
+                    texto  = '[CONTACTO:' + _json.dumps(
+                        {'name': cname, 'phones': phones, 'emails': emails},
+                        ensure_ascii=False
+                    ) + ']'
+                else:
+                    texto = '[Contacto]'
             else:
                 texto = f'[{tipo}]'
 

@@ -447,6 +447,26 @@ function renderBubbleContent(m) {
       <i class="bi bi-file-earmark-arrow-down"></i> ${escHtml(m.mensaje)}
     </a>`;
   }
+  // Tarjeta de contacto compartida por WhatsApp
+  if (m.mensaje && m.mensaje.startsWith('[CONTACTO:')) {
+    try {
+      const data = JSON.parse(m.mensaje.slice(10, -1));
+      const phones = (data.phones || []).map(p =>
+        `<a href="https://wa.me/${p.replace(/\D/g,'')}" target="_blank" style="color:#4ade80;text-decoration:none;">${escHtml(p)}</a>`
+      ).join('<br>');
+      const emails = (data.emails || []).map(e =>
+        `<a href="mailto:${escHtml(e)}" style="color:#93c5fd;text-decoration:none;">${escHtml(e)}</a>`
+      ).join('<br>');
+      return `<div style="display:flex;align-items:flex-start;gap:10px;background:rgba(255,255,255,.07);border-radius:10px;padding:10px 12px;min-width:180px;">
+        <div style="font-size:1.5rem;line-height:1;">👤</div>
+        <div>
+          <div style="font-weight:700;font-size:.9rem;margin-bottom:3px;">${escHtml(data.name||'Contacto')}</div>
+          ${phones ? `<div style="font-size:.78rem;margin-bottom:2px;">${phones}</div>` : ''}
+          ${emails ? `<div style="font-size:.75rem;">${emails}</div>` : ''}
+        </div>
+      </div>`;
+    } catch(e) { /* fallback */ }
+  }
   return escHtml(m.mensaje);
 }
 
