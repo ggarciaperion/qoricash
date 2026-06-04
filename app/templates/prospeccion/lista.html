@@ -1400,7 +1400,7 @@ function rowHtml(r) {
   const b     = badge(r.estado_comercial);
   const email = (r.emails||[r.email]).filter(Boolean)[0] || '—';
   const moreE = (r.emails||[]).length > 1 ? `<span style="font-size:.65rem;color:var(--qori-gray-400);">+${r.emails.length-1}</span>` : '';
-  const ult   = r.fecha_ultimo_contacto ? r.fecha_ultimo_contacto.slice(0,10) : '';
+  const ult   = fmtDate(r.fecha_ultimo_contacto);
   const prox  = fmtProx(r.fecha_proximo_contacto);
   const prio  = r.prioridad==='alta' ? '<i class="bi bi-circle-fill" style="font-size:.45rem;color:var(--qori-danger);vertical-align:middle;margin-right:3px;" title="Alta prioridad"></i>' : '';
 
@@ -1525,13 +1525,19 @@ function badge(ec) {
   return m[ec] || {cls:'sb-sin', label:'Sin contactar'};
 }
 
+function fmtDate(s) {
+  if (!s) return '';
+  const m = s.match(/(\d{4})-(\d{2})-(\d{2})/);
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : s.slice(0,10);
+}
+
 function fmtProx(d) {
   if (!d) return `<span class="date-empty">—</span>`;
   const dt   = new Date(d.slice(0,10));
   const now  = new Date(); now.setHours(0,0,0,0);
   const diff = Math.round((dt-now)/86400000);
-  const cls  = diff < 0 ? 'date-overdue' : diff <= 3 ? 'date-soon' : 'date-ok';
-  return `<span class="${cls}">${d.slice(0,10)}</span>`;
+  const cls  = diff < 0 ? 'date-overdue' : diff <= 7 ? 'date-soon' : 'date-ok';
+  return `<span class="${cls}">${fmtDate(d)}</span>`;
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -2089,7 +2095,7 @@ async function applyStatus(val, cls, label, motivo) {
     const tr = document.querySelector(`tr[data-id="${id}"]`);
     if (tr && d.fecha_ultimo_contacto) {
       const cells = tr.querySelectorAll('td');
-      if (cells[5]) cells[5].textContent = d.fecha_ultimo_contacto.slice(0,10);
+      if (cells[5]) cells[5].textContent = fmtDate(d.fecha_ultimo_contacto);
     }
   } else toast('Error: '+(d.error||''), true);
 }
