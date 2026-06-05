@@ -572,6 +572,33 @@ def create_app(config_name=None):
     except Exception as e:
         logging.warning(f"[Migration] treasury tables (bank_movements/daily_closures): {e}")
 
+    # Migración: columnas faltantes en daily_closures (tabla creada con schema reducido)
+    try:
+        with app.app_context():
+            from app.extensions import db
+            from sqlalchemy import text
+            _alter_cols = [
+                "ALTER TABLE daily_closures ADD COLUMN IF NOT EXISTS total_bought_usd NUMERIC(14,2) DEFAULT 0",
+                "ALTER TABLE daily_closures ADD COLUMN IF NOT EXISTS total_sold_usd NUMERIC(14,2) DEFAULT 0",
+                "ALTER TABLE daily_closures ADD COLUMN IF NOT EXISTS avg_buy_rate NUMERIC(10,4) DEFAULT 0",
+                "ALTER TABLE daily_closures ADD COLUMN IF NOT EXISTS avg_sell_rate NUMERIC(10,4) DEFAULT 0",
+                "ALTER TABLE daily_closures ADD COLUMN IF NOT EXISTS gross_spread_pen NUMERIC(14,2) DEFAULT 0",
+                "ALTER TABLE daily_closures ADD COLUMN IF NOT EXISTS expenses_pen NUMERIC(14,2) DEFAULT 0",
+                "ALTER TABLE daily_closures ADD COLUMN IF NOT EXISTS net_profit_pen NUMERIC(14,2) DEFAULT 0",
+                "ALTER TABLE daily_closures ADD COLUMN IF NOT EXISTS unmatched_completed_usd NUMERIC(14,2) DEFAULT 0",
+                "ALTER TABLE daily_closures ADD COLUMN IF NOT EXISTS max_discrepancy_usd NUMERIC(14,2) DEFAULT 0",
+                "ALTER TABLE daily_closures ADD COLUMN IF NOT EXISTS max_discrepancy_pen NUMERIC(14,2) DEFAULT 0",
+                "ALTER TABLE daily_closures ADD COLUMN IF NOT EXISTS validated_by INTEGER REFERENCES users(id)",
+                "ALTER TABLE daily_closures ADD COLUMN IF NOT EXISTS validated_at TIMESTAMP",
+                "ALTER TABLE daily_closures ADD COLUMN IF NOT EXISTS created_by INTEGER REFERENCES users(id)",
+                "ALTER TABLE daily_closures ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW()",
+            ]
+            for sql in _alter_cols:
+                db.session.execute(text(sql))
+            db.session.commit()
+    except Exception as e:
+        logging.warning(f"[Migration] daily_closures alter columns: {e}")
+
     # Sembrar competidores FX (idempotente — solo inserta si no existen)
     try:
         with app.app_context():

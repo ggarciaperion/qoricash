@@ -82,32 +82,34 @@ def _get_system_balances() -> dict:
 
 def _get_open_position() -> dict:
     """
-    Calcula la posición abierta: USD completado sin amarrar por tipo de operación.
-    Retorna: {compras_usd, ventas_usd, neto_usd, ops_count}
+    Calcula la posición abierta: USD completado sin amarrar.
+    Open = total completado por tipo − total amarrado en esa pierna.
     """
-    try:
-        from app.services.accounting_service import AccountingService
-    except Exception:
-        return {'compras_usd': 0, 'ventas_usd': 0, 'neto_usd': 0, 'ops_count': 0}
+    # Total USD completado por tipo
+    compras_total = db.session.query(func.sum(Operation.amount_usd)).filter(
+        Operation.status == 'Completada',
+        Operation.operation_type == 'Compra',
+    ).scalar() or 0
 
-    ops = Operation.query.filter(Operation.status == 'Completada').all()
-    compras_open = 0.0
-    ventas_open  = 0.0
-    count        = 0
-    for op in ops:
-        avail = AccountingService.get_available_amount_for_operation(op)
-        if avail > 0.01:
-            count += 1
-            if op.operation_type == 'Compra':
-                compras_open += avail
-            else:
-                ventas_open  += avail
+    ventas_total = db.session.query(func.sum(Operation.amount_usd)).filter(
+        Operation.status == 'Completada',
+        Operation.operation_type == 'Venta',
+    ).scalar() or 0
+
+    # Total USD amarrado (cada match tiene una pierna compra y una venta por matched_amount_usd)
+    matched_total = db.session.query(func.sum(AccountingMatch.matched_amount_usd)).filter(
+        AccountingMatch.status == 'Activo',
+    ).scalar() or 0
+
+    compras_open = max(0.0, float(compras_total) - float(matched_total))
+    ventas_open  = max(0.0, float(ventas_total)  - float(matched_total))
+    neto         = compras_open - ventas_open
 
     return {
         'compras_usd': round(compras_open, 2),
         'ventas_usd':  round(ventas_open,  2),
-        'neto_usd':    round(compras_open - ventas_open, 2),
-        'ops_count':   count,
+        'neto_usd':    round(neto, 2),
+        'ops_count':   0,
     }
 
 
