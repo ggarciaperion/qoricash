@@ -63,7 +63,10 @@
     align-items: center;
     gap: 5px;
 }
-.op-status-pill.completada { background: rgba(16,185,129,.15); color: #10b981; border: 1px solid rgba(16,185,129,.3); }
+.op-status-pill.completada  { background: rgba(16,185,129,.15); color: #10b981; border: 1px solid rgba(16,185,129,.3); }
+.op-status-pill.pendiente   { background: rgba(245,158,11,.15);  color: #d97706; border: 1px solid rgba(245,158,11,.3); }
+.op-status-pill.en-proceso  { background: rgba(59,130,246,.15);  color: #3b82f6; border: 1px solid rgba(59,130,246,.3); }
+.op-status-pill.cancelada   { background: rgba(239,68,68,.15);   color: #ef4444; border: 1px solid rgba(239,68,68,.3); }
 
 /* Cifras financieras */
 .fin-grid {
@@ -529,8 +532,14 @@
                             <button class="btn btn-sm btn-primary" onclick="viewOperationDetails({{ op.id }})" title="Ver detalles completos">
                                 <i class="bi bi-eye"></i> Ver Detalles
                             </button>
+                            {% elif op.status in ['Pendiente', 'En proceso'] %}
+                            <button class="btn btn-sm btn-outline-secondary" onclick="viewOperationDetails({{ op.id }})" title="Ver detalles">
+                                <i class="bi bi-eye"></i> Ver Detalles
+                            </button>
                             {% else %}
-                            <span class="text-muted small">—</span>
+                            <button class="btn btn-sm btn-outline-danger" onclick="viewOperationDetails({{ op.id }})" title="Ver detalles">
+                                <i class="bi bi-eye"></i> Ver Detalles
+                            </button>
                             {% endif %}
                         </td>
                     </tr>
@@ -800,6 +809,20 @@ function renderOperationModal(op) {
     const typeEl = document.getElementById('opHeroType');
     typeEl.textContent = isCompra ? '⇩ Compra USD' : '⇧ Venta USD';
     typeEl.className = 'op-type-badge ' + (isCompra ? 'op-type-compra' : 'op-type-venta');
+
+    // Status pill
+    const statusEl = document.getElementById('opHeroStatus');
+    const status = op.status || 'Pendiente';
+    const statusMap = {
+        'Completada':  { cls: 'completada',  icon: 'bi-check-circle-fill',  label: 'Completada'  },
+        'En proceso':  { cls: 'en-proceso',   icon: 'bi-arrow-repeat',        label: 'En Proceso'  },
+        'Pendiente':   { cls: 'pendiente',    icon: 'bi-clock',               label: 'Pendiente'   },
+        'Cancelada':   { cls: 'cancelada',    icon: 'bi-x-circle-fill',       label: 'Cancelada'   },
+        'Cancelado':   { cls: 'cancelada',    icon: 'bi-x-circle-fill',       label: 'Cancelado'   },
+    };
+    const sm = statusMap[status] || statusMap['Pendiente'];
+    statusEl.className = 'op-status-pill ' + sm.cls;
+    statusEl.innerHTML = `<i class="bi ${sm.icon}"></i> ${sm.label}`;
 
     // Body
     document.getElementById('operationDetails').innerHTML = buildDetailsHTML(op);
