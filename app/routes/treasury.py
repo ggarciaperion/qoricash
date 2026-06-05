@@ -290,88 +290,78 @@ def libros():
 @login_required
 def api_dashboard():
     _require_master()
-    try:
-        today = date.today()
-        today_start = datetime.combine(today, datetime.min.time())
-        today_end   = today_start + timedelta(days=1)
+    errors = []
 
-        # Saldos actuales
-        system_balances = _get_system_balances()
-        total_usd = sum(v['USD'] for v in system_balances.values())
-        total_pen = sum(v['PEN'] for v in system_balances.values())
+    def safe(fn, default, label):
+        try:
+            return fn()
+        except Exception as exc:
+            _log.exception(f'[Treasury] dashboard section "{label}" falló')
+            errors.append(f'{label}: {exc}')
+            return default
 
-        # Operaciones del día
-        today_ops   = _get_today_operations(today)
-        pending_ops = _get_pending_operations()
+    today       = date.today()
+    today_start = datetime.combine(today, datetime.min.time())
 
-        # Posición abierta
-        open_pos = _get_open_position()
+    system_balances = safe(_get_system_balances,  {b: {'USD': 0.0, 'PEN': 0.0} for b in BANKS}, 'saldos')
+    total_usd = sum(v['USD'] for v in system_balances.values())
+    total_pen = sum(v['PEN'] for v in system_balances.values())
 
-        # Utilidad realizada total y del día
-        profit_all  = _get_realized_profit()
-        profit_today = _get_realized_profit(today_start, today)
+    today_ops   = safe(lambda: _get_today_operations(today),  {'date': today.isoformat(), 'total_ops': 0, 'compras_count': 0, 'ventas_count': 0, 'volume_usd': 0, 'buy_usd': 0, 'sell_usd': 0, 'avg_buy_rate': 0, 'avg_sell_rate': 0}, 'ops_hoy')
+    pending_ops = safe(_get_pending_operations, {'total': 0, 'criticas': []}, 'pendientes')
+    open_pos    = safe(_get_open_position,      {'compras_usd': 0, 'ventas_usd': 0, 'neto_usd': 0, 'ops_count': 0}, 'posicion')
 
-        # Gastos del día
-        expenses_today = _get_today_expenses(today)
+    _profit_default = {'total_profit_pen': 0, 'house_profit_pen': 0, 'trader_profit_pen': 0, 'match_count': 0}
+    profit_all   = safe(_get_realized_profit, _profit_default, 'profit_total')
+    profit_today = safe(lambda: _get_realized_profit(today_start, today), _profit_default, 'profit_hoy')
+    expenses_today = safe(lambda: _get_today_expenses(today), 0.0, 'gastos')
+    closure_status = safe(_get_closure_status, {'today_closure': None, 'last_validated': None, 'missing_days': 0, 'requires_closure': False, 'today_date': today.isoformat()}, 'cierre')
 
-        # Estado cierre
-        closure_status = _get_closure_status()
+    recent_movements = safe(
+        lambda: BankMovement.query.order_by(BankMovement.movement_date.desc()).limit(20).all(),
+        [], 'movimientos'
+    )
 
-        # Movimientos recientes (últimos 20)
-        recent_movements = BankMovement.query.order_by(
-            BankMovement.movement_date.desc()
-        ).limit(20).all()
+    alerts = []
+    if errors:
+        alerts.append({'level': 'danger', 'icon': 'bi-bug-fill',
+                       'message': 'Error interno en dashboard: ' + ' | '.join(errors)})
+    if closure_status['requires_closure']:
+        days = closure_status['missing_days']
+        alerts.append({'level': 'danger', 'icon': 'bi-exclamation-octagon-fill',
+                       'message': f'Cierre diario pendiente — {days} día(s) sin validar'})
+    if pending_ops['total'] > 0 and len(pending_ops['criticas']) > 0:
+        alerts.append({'level': 'warning', 'icon': 'bi-clock-history',
+                       'message': f"{len(pending_ops['criticas'])} operación(es) crítica(s) (>4h)"})
+    if open_pos['neto_usd'] != 0:
+        alerts.append({'level': 'info', 'icon': 'bi-currency-exchange',
+                       'message': (f"Posición neta USD: {'Compra' if open_pos['neto_usd'] > 0 else 'Venta'} "
+                                   f"${abs(open_pos['neto_usd']):,.2f} sin amarrar")})
 
-        # Alertas
-        alerts = []
-        if closure_status['requires_closure']:
-            days = closure_status['missing_days']
-            alerts.append({
-                'level':   'danger',
-                'icon':    'bi-exclamation-octagon-fill',
-                'message': f'Cierre diario pendiente — {days} día(s) sin validar',
-            })
-        if pending_ops['total'] > 0:
-            criticas = len(pending_ops['criticas'])
-            if criticas > 0:
-                alerts.append({
-                    'level':   'warning',
-                    'icon':    'bi-clock-history',
-                    'message': f'{criticas} operación(es) pendiente(s) crítica(s) (>4h)',
-                })
-        if open_pos['neto_usd'] != 0:
-            alerts.append({
-                'level':   'info',
-                'icon':    'bi-currency-exchange',
-                'message': (f"Posición neta USD: "
-                            f"{'Compra' if open_pos['neto_usd'] > 0 else 'Venta'} "
-                            f"${abs(open_pos['neto_usd']):,.2f} sin amarrar"),
-            })
+    net_today = round(profit_today['total_profit_pen'] - expenses_today, 2)
 
-        return jsonify({
-            'success': True,
-            'timestamp': now_peru().isoformat(),
-            'assets': {
-                'system_balances': system_balances,
-                'total_usd':       round(total_usd, 2),
-                'total_pen':       round(total_pen, 2),
-            },
-            'today_operations': today_ops,
-            'pending_operations': pending_ops,
-            'open_position': open_pos,
-            'profit': {
-                'all_time':  profit_all,
-                'today':     profit_today,
-                'expenses_today': round(expenses_today, 2),
-                'net_today': round(profit_today['total_profit_pen'] - expenses_today, 2),
-            },
-            'closure': closure_status,
-            'recent_movements': [m.to_dict() for m in recent_movements],
-            'alerts': alerts,
-        })
-    except Exception as e:
-        _log.exception('[Treasury] Error en api_dashboard')
-        return jsonify({'success': False, 'error': str(e)}), 500
+    return jsonify({
+        'success':   True,
+        'errors':    errors,
+        'timestamp': now_peru().isoformat(),
+        'assets': {
+            'system_balances': system_balances,
+            'total_usd':       round(total_usd, 2),
+            'total_pen':       round(total_pen, 2),
+        },
+        'today_operations':   today_ops,
+        'pending_operations': pending_ops,
+        'open_position':      open_pos,
+        'profit': {
+            'all_time':       profit_all,
+            'today':          profit_today,
+            'expenses_today': round(expenses_today, 2),
+            'net_today':      net_today,
+        },
+        'closure':          closure_status,
+        'recent_movements': [m.to_dict() for m in recent_movements],
+        'alerts':           alerts,
+    })
 
 
 # ── API: Posición ─────────────────────────────────────────────────────────────

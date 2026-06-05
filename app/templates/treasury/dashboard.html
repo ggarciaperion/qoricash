@@ -464,8 +464,12 @@ const fmtPEN = n => `S/ ${fmt(n)}`;
 async function loadDashboard() {
     try {
         const res  = await fetch('/treasury/api/dashboard');
+        if (!res.ok) {
+            const txt = await res.text();
+            throw new Error(`HTTP ${res.status}: ${txt.slice(0,200)}`);
+        }
         const data = await res.json();
-        if (!data.success) throw new Error(data.error);
+        if (!data.success) throw new Error(data.error || 'Error desconocido');
 
         // Timestamp
         const ts = new Date(data.timestamp);
@@ -520,6 +524,12 @@ async function loadDashboard() {
 
     } catch(e) {
         console.error('Treasury dashboard error:', e);
+        document.getElementById('alertsContainer').innerHTML =
+            `<div class="alert-treasury danger" style="word-break:break-all;">
+                <i class="bi bi-bug-fill"></i>
+                <strong>Error cargando dashboard:</strong> ${e.message}
+            </div>`;
+        document.getElementById('tsLabel').textContent = 'Error al cargar — ' + new Date().toLocaleTimeString('es-PE');
     }
 }
 
