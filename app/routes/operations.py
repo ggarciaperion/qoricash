@@ -9,6 +9,7 @@ from app.services.file_service import FileService
 from app.services.notification_service import NotificationService
 from app.services.compliance_service import ComplianceService
 from app.utils.decorators import require_role
+from app.extensions import csrf
 from app.utils.formatters import now_peru
 import openpyxl
 from openpyxl.styles import Font, Alignment, PatternFill
@@ -1898,6 +1899,7 @@ def revert_completed_operation(operation_id):
 
 
 @operations_bp.route('/api/<string:operation_code>/generate-invoice', methods=['POST'])
+@csrf.exempt
 @login_required
 @require_role('Master', 'Trader')
 def generate_invoice(operation_code):
