@@ -4,6 +4,7 @@ Rutas de Operaciones para QoriCash Trading V2
 from flask import Blueprint, render_template, request, jsonify, send_file
 from flask_login import login_required, current_user
 from app.services.operation_service import OperationService
+from app.services.invoice_service import InvoiceService
 from app.services.file_service import FileService
 from app.services.notification_service import NotificationService
 from app.services.compliance_service import ComplianceService
@@ -1894,3 +1895,46 @@ def revert_completed_operation(operation_id):
         db.session.rollback()
         logger.error('[REVERT] Error al revertir ' + getattr(operation, 'operation_id', '?') + ': ' + str(e))
         return jsonify({'success': False, 'message': 'Error: ' + str(e)}), 500
+
+
+@operations_bp.route('/api/<string:operation_code>/generate-invoice', methods=['POST'])
+@login_required
+@require_role('Master', 'Trader')
+def generate_invoice(operation_code):
+    """Reintenta la generación de boleta/factura NubeFact para una operación."""
+    from app.models.operation import Operation
+    from app.models.invoice import Invoice
+
+    operation = Operation.query.filter_by(operation_id=operation_code).first()
+    if not operation:
+        return jsonify({'success': False, 'message': f'Operación {operation_code} no encontrada'}), 404
+
+    # Si ya existe boleta aceptada no se regenera
+    existing = Invoice.query.filter_by(operation_id=operation.id, status='Aceptado').first()
+    if existing:
+        return jsonify({
+            'success': True,
+            'message': 'Ya existe comprobante aceptado',
+            'invoice_number': existing.invoice_number,
+            'pdf_url': existing.nubefact_enlace_pdf
+        })
+
+    if not InvoiceService.is_enabled():
+        return jsonify({'success': False, 'message': 'Facturación electrónica deshabilitada en config'}), 400
+
+    success, message, invoice = InvoiceService.generate_invoice_for_operation(operation.id)
+
+    if success and invoice:
+        return jsonify({
+            'success': True,
+            'message': 'Comprobante generado correctamente',
+            'invoice_number': invoice.invoice_number,
+            'pdf_url': invoice.nubefact_enlace_pdf
+        })
+    else:
+        return jsonify({
+            'success': False,
+            'message': message,
+            'invoice_number': invoice.invoice_number if invoice else None,
+            'error': invoice.error_message if invoice else None
+        }), 400
