@@ -1,0 +1,315 @@
+{% extends "base.html" %}
+{% block title %}Movimientos Bancarios — QoriCash{% endblock %}
+
+{% block head %}
+<style>
+.treasury-nav{display:flex;gap:4px;margin-bottom:16px;background:#f8fafc;border-radius:8px;padding:4px;}
+.treasury-nav a{flex:1;text-align:center;padding:7px 8px;border-radius:6px;font-size:.78rem;font-weight:600;color:#64748b;text-decoration:none;transition:all .15s;}
+.treasury-nav a.active,.treasury-nav a:hover{background:#fff;color:#0D1B2A;box-shadow:0 1px 4px rgba(0,0,0,.08);}
+.mv-type-badge{font-size:.68rem;font-weight:700;padding:2px 7px;border-radius:4px;text-transform:uppercase;letter-spacing:.04em;}
+.mv-type-op_entrada{background:#f0fdf4;color:#166534;}
+.mv-type-op_salida{background:#fef2f2;color:#991b1b;}
+.mv-type-ajuste_entrada,.mv-type-transfer_entrada{background:#eff6ff;color:#1e40af;}
+.mv-type-ajuste_salida,.mv-type-transfer_salida{background:#faf5ff;color:#6d28d9;}
+.mv-type-gasto{background:#fff7ed;color:#9a3412;}
+.mv-type-saldo_inicial{background:#f8fafc;color:#475569;}
+.filter-bar{background:#f8fafc;border:1px solid #e8ecf0;border-radius:8px;padding:12px 14px;margin-bottom:12px;}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-3 py-3">
+
+  <div class="treasury-nav">
+    <a href="{{ url_for('treasury.dashboard') }}"><i class="bi bi-speedometer2"></i> Dashboard</a>
+    <a href="{{ url_for('treasury.movimientos') }}" class="active"><i class="bi bi-list-ul"></i> Movimientos</a>
+    <a href="{{ url_for('treasury.cierre') }}"><i class="bi bi-calendar-check"></i> Cierre Diario</a>
+    <a href="{{ url_for('treasury.libros') }}"><i class="bi bi-journal-text"></i> Libros</a>
+  </div>
+
+  <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+    <div>
+      <h5 style="font-weight:800;color:#0D1B2A;margin:0;"><i class="bi bi-list-ul me-2 text-primary"></i>Ledger de Movimientos Bancarios</h5>
+      <p style="font-size:.8rem;color:#64748b;margin:2px 0 0;">Registro inmutable de cada entrada y salida en cuentas de QoriCash</p>
+    </div>
+    <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalAjuste">
+      <i class="bi bi-plus-lg"></i> Ajuste Manual
+    </button>
+  </div>
+
+  <!-- Filters -->
+  <div class="filter-bar">
+    <div class="row g-2 align-items-end">
+      <div class="col-6 col-md-2">
+        <label style="font-size:.72rem;font-weight:700;color:#475569;">Desde</label>
+        <input type="date" id="fFechaIni" class="form-control form-control-sm">
+      </div>
+      <div class="col-6 col-md-2">
+        <label style="font-size:.72rem;font-weight:700;color:#475569;">Hasta</label>
+        <input type="date" id="fFechaFin" class="form-control form-control-sm">
+      </div>
+      <div class="col-6 col-md-2">
+        <label style="font-size:.72rem;font-weight:700;color:#475569;">Banco</label>
+        <select id="fBanco" class="form-select form-select-sm">
+          <option value="">Todos</option>
+          <option value="BCP">BCP</option>
+          <option value="INTERBANK">Interbank</option>
+          <option value="BANBIF">BanBif</option>
+        </select>
+      </div>
+      <div class="col-6 col-md-2">
+        <label style="font-size:.72rem;font-weight:700;color:#475569;">Moneda</label>
+        <select id="fMoneda" class="form-select form-select-sm">
+          <option value="">Ambas</option>
+          <option value="USD">USD</option>
+          <option value="PEN">PEN</option>
+        </select>
+      </div>
+      <div class="col-6 col-md-2">
+        <label style="font-size:.72rem;font-weight:700;color:#475569;">Tipo</label>
+        <select id="fTipo" class="form-select form-select-sm">
+          <option value="">Todos</option>
+          <option value="op_entrada">Ingreso op.</option>
+          <option value="op_salida">Egreso op.</option>
+          <option value="ajuste_entrada">Ajuste +</option>
+          <option value="ajuste_salida">Ajuste −</option>
+          <option value="transfer_entrada">Transferencia +</option>
+          <option value="transfer_salida">Transferencia −</option>
+          <option value="gasto">Gasto</option>
+          <option value="saldo_inicial">Saldo inicial</option>
+        </select>
+      </div>
+      <div class="col-6 col-md-2 d-flex gap-1">
+        <button class="btn btn-primary btn-sm w-100" onclick="loadMovimientos(1)">
+          <i class="bi bi-search"></i> Filtrar
+        </button>
+        <button class="btn btn-outline-secondary btn-sm" onclick="resetFilters()">
+          <i class="bi bi-x"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Summary bar -->
+  <div class="d-flex gap-3 flex-wrap mb-2" id="summaryBar" style="font-size:.8rem;color:#475569;"></div>
+
+  <!-- Table -->
+  <div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+      <div style="overflow-x:auto;">
+        <table class="table table-sm table-hover mb-0" style="font-size:.82rem;">
+          <thead style="background:#f8fafc;">
+            <tr>
+              <th style="padding:10px 12px;font-weight:700;font-size:.72rem;text-transform:uppercase;color:#64748b;">Fecha/Hora</th>
+              <th>Banco</th>
+              <th>Moneda</th>
+              <th>Tipo</th>
+              <th>Descripción / Referencia</th>
+              <th class="text-end">Importe</th>
+              <th class="text-end">Saldo Post-Mov.</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="mvTableBody">
+            <tr><td colspan="8" class="text-center py-4 text-muted">Cargando…</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="d-flex justify-content-between align-items-center px-3 py-2" style="border-top:1px solid #f1f5f9;">
+        <div id="mvPagInfo" style="font-size:.78rem;color:#64748b;"></div>
+        <div id="mvPagButtons" class="d-flex gap-1"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Modal: Ajuste Manual -->
+<div class="modal fade" id="modalAjuste" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:420px;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" style="font-size:.95rem;font-weight:800;"><i class="bi bi-pencil-square me-2"></i>Ajuste Manual de Banco</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label" style="font-size:.8rem;font-weight:700;">Tipo de Ajuste</label>
+          <select id="ajTipo" class="form-select form-select-sm">
+            <option value="ajuste_entrada">Ajuste de entrada (suma al saldo)</option>
+            <option value="ajuste_salida">Ajuste de salida (resta del saldo)</option>
+            <option value="transfer_entrada">Transferencia interna (entrada)</option>
+            <option value="transfer_salida">Transferencia interna (salida)</option>
+            <option value="saldo_inicial">Establecer saldo inicial</option>
+          </select>
+        </div>
+        <div class="row g-2 mb-3">
+          <div class="col-6">
+            <label class="form-label" style="font-size:.8rem;font-weight:700;">Banco</label>
+            <select id="ajBanco" class="form-select form-select-sm">
+              <option value="BCP">BCP</option>
+              <option value="INTERBANK">Interbank</option>
+              <option value="BANBIF">BanBif</option>
+            </select>
+          </div>
+          <div class="col-6">
+            <label class="form-label" style="font-size:.8rem;font-weight:700;">Moneda</label>
+            <select id="ajMoneda" class="form-select form-select-sm">
+              <option value="USD">USD</option>
+              <option value="PEN">PEN</option>
+            </select>
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label" style="font-size:.8rem;font-weight:700;">Monto</label>
+          <input type="number" step="0.01" min="0.01" id="ajMonto" class="form-control form-control-sm" placeholder="0.00">
+        </div>
+        <div class="mb-3">
+          <label class="form-label" style="font-size:.8rem;font-weight:700;">Descripción</label>
+          <input type="text" id="ajDesc" class="form-control form-control-sm" placeholder="Motivo del ajuste">
+        </div>
+        <div class="mb-2">
+          <label class="form-label" style="font-size:.8rem;font-weight:700;">Referencia (opcional)</label>
+          <input type="text" id="ajRef" class="form-control form-control-sm" placeholder="Nro. transferencia, voucher…">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+        <button class="btn btn-primary btn-sm" onclick="guardarAjuste()">
+          <i class="bi bi-check-lg"></i> Guardar Ajuste
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const fmt    = (n, dec=2) => new Intl.NumberFormat('es-PE', {minimumFractionDigits:dec, maximumFractionDigits:dec}).format(n);
+const fmtUSD = n => `$ ${fmt(n)}`;
+const fmtPEN = n => `S/ ${fmt(n)}`;
+
+let currentPage = 1;
+
+function resetFilters() {
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('fFechaIni').value = today;
+    document.getElementById('fFechaFin').value = today;
+    document.getElementById('fBanco').value    = '';
+    document.getElementById('fMoneda').value   = '';
+    document.getElementById('fTipo').value     = '';
+    loadMovimientos(1);
+}
+
+async function loadMovimientos(page=1) {
+    currentPage = page;
+    const params = new URLSearchParams({
+        page,
+        per_page: 50,
+        fecha_ini: document.getElementById('fFechaIni').value || '',
+        fecha_fin: document.getElementById('fFechaFin').value || '',
+        banco:     document.getElementById('fBanco').value    || '',
+        moneda:    document.getElementById('fMoneda').value   || '',
+        tipo:      document.getElementById('fTipo').value     || '',
+    });
+    Object.keys(Object.fromEntries(params)).forEach(k => { if (!params.get(k)) params.delete(k); });
+
+    document.getElementById('mvTableBody').innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted"><span class="spinner-border spinner-border-sm"></span></td></tr>';
+
+    const res  = await fetch('/treasury/api/movimientos?' + params.toString());
+    const data = await res.json();
+
+    if (!data.success) {
+        document.getElementById('mvTableBody').innerHTML = `<tr><td colspan="8" class="text-center text-danger">${data.error}</td></tr>`;
+        return;
+    }
+
+    // Summary
+    const netColor = data.net_amount >= 0 ? '#16a34a' : '#dc2626';
+    document.getElementById('summaryBar').innerHTML = `
+      <span><strong>${data.total}</strong> movimiento(s)</span>
+      <span>·</span>
+      <span>Neto: <strong style="color:${netColor};">${data.net_amount >= 0 ? '+' : ''}${fmt(data.net_amount)}</strong></span>
+      <span>·</span>
+      <span>Página ${data.page}/${data.pages}</span>`;
+
+    if (!data.movimientos.length) {
+        document.getElementById('mvTableBody').innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">Sin movimientos para los filtros seleccionados</td></tr>';
+        document.getElementById('mvPagInfo').textContent  = '';
+        document.getElementById('mvPagButtons').innerHTML = '';
+        return;
+    }
+
+    let html = '';
+    data.movimientos.forEach(m => {
+        const entrada = m.amount > 0;
+        const cls     = entrada ? 'op_entrada' : 'op_salida';
+        const amtStr  = (entrada ? '+' : '') + (m.currency === 'USD' ? fmtUSD(m.amount) : fmtPEN(m.amount));
+        const amtColor = entrada ? '#16a34a' : '#dc2626';
+        const balStr  = m.balance_after !== null ? (m.currency === 'USD' ? fmtUSD(m.balance_after) : fmtPEN(m.balance_after)) : '—';
+        const dt = new Date(m.movement_date);
+        const dtStr = dt.toLocaleDateString('es-PE', {day:'2-digit',month:'2-digit',year:'numeric'}) +
+                      ' ' + dt.toLocaleTimeString('es-PE', {hour:'2-digit',minute:'2-digit'});
+        html += `<tr>
+          <td style="padding:8px 12px;color:#475569;font-size:.78rem;white-space:nowrap;">${dtStr}</td>
+          <td><strong style="font-size:.8rem;">${m.bank_key}</strong></td>
+          <td><span style="font-size:.72rem;font-weight:700;padding:1px 6px;border-radius:3px;${m.currency==='USD'?'background:#e0f2fe;color:#0369a1;':'background:#f0fdf4;color:#166534;'}">${m.currency}</span></td>
+          <td><span class="mv-type-badge mv-type-${m.movement_type}">${m.movement_label}</span></td>
+          <td>
+            <div style="font-size:.8rem;font-weight:600;color:#0D1B2A;">${m.description || '—'}</div>
+            ${m.reference_code ? `<div style="font-size:.7rem;color:#94A3B8;">${m.reference_code}</div>` : ''}
+            ${m.counterpart ? `<div style="font-size:.7rem;color:#94A3B8;">${m.counterpart}</div>` : ''}
+          </td>
+          <td class="text-end" style="font-weight:700;color:${amtColor};">${amtStr}</td>
+          <td class="text-end" style="color:#475569;font-size:.8rem;">${balStr}</td>
+          <td style="text-align:center;">
+            ${m.is_validated ? '<i class="bi bi-patch-check-fill text-success" title="Validado en cierre"></i>' : ''}
+          </td>
+        </tr>`;
+    });
+    document.getElementById('mvTableBody').innerHTML = html;
+
+    // Pagination
+    document.getElementById('mvPagInfo').textContent = `Mostrando ${(page-1)*50+1}–${Math.min(page*50, data.total)} de ${data.total}`;
+    let btns = '';
+    if (page > 1) btns += `<button class="btn btn-sm btn-outline-secondary" onclick="loadMovimientos(${page-1})">&laquo; Anterior</button>`;
+    if (page < data.pages) btns += `<button class="btn btn-sm btn-outline-secondary" onclick="loadMovimientos(${page+1})">Siguiente &raquo;</button>`;
+    document.getElementById('mvPagButtons').innerHTML = btns;
+}
+
+async function guardarAjuste() {
+    const payload = {
+        tipo:        document.getElementById('ajTipo').value,
+        banco:       document.getElementById('ajBanco').value,
+        moneda:      document.getElementById('ajMoneda').value,
+        monto:       parseFloat(document.getElementById('ajMonto').value || 0),
+        descripcion: document.getElementById('ajDesc').value,
+        referencia:  document.getElementById('ajRef').value,
+    };
+    if (payload.monto <= 0) { alert('Ingresa un monto válido'); return; }
+
+    const res  = await fetch('/treasury/api/ajuste', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json','X-CSRFToken':getCsrf()},
+        body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (data.success) {
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('modalAjuste')).hide();
+        loadMovimientos(1);
+        showNotification(data.message, 'success');
+    } else {
+        alert(data.error);
+    }
+}
+
+function getCsrf() { return document.querySelector('meta[name="csrf-token"]')?.content || ''; }
+
+// Init: default to today
+const today = new Date().toISOString().split('T')[0];
+document.getElementById('fFechaIni').value = today;
+document.getElementById('fFechaFin').value = today;
+loadMovimientos(1);
+</script>
+{% endblock %}

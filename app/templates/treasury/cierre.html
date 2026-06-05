@@ -1,0 +1,501 @@
+{% extends "base.html" %}
+{% block title %}Cierre Diario — QoriCash{% endblock %}
+
+{% block head %}
+<style>
+.treasury-nav { display:flex;gap:4px;margin-bottom:16px;background:#f8fafc;border-radius:8px;padding:4px; }
+.treasury-nav a { flex:1;text-align:center;padding:7px 8px;border-radius:6px;font-size:.78rem;font-weight:600;color:#64748b;text-decoration:none;transition:all .15s; }
+.treasury-nav a.active,.treasury-nav a:hover { background:#fff;color:#0D1B2A;box-shadow:0 1px 4px rgba(0,0,0,.08); }
+
+.step-indicator { display:flex;gap:0;margin-bottom:24px; }
+.step { flex:1;text-align:center;position:relative; }
+.step::after { content:'';position:absolute;top:16px;left:50%;width:100%;height:2px;background:#e8ecf0;z-index:0; }
+.step:last-child::after { display:none; }
+.step-dot { width:32px;height:32px;border-radius:50%;border:2px solid #e8ecf0;background:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;color:#94A3B8;position:relative;z-index:1; }
+.step.done .step-dot { background:#16a34a;border-color:#16a34a;color:#fff; }
+.step.active .step-dot { background:#0D1B2A;border-color:#0D1B2A;color:#fff; }
+.step-label { font-size:.68rem;color:#94A3B8;margin-top:4px; }
+.step.active .step-label { color:#0D1B2A;font-weight:700; }
+.step.done .step-label { color:#16a34a; }
+
+.balance-input-row { display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f1f5f9; }
+.balance-input-row:last-child { border-bottom:none; }
+.bi-label { min-width:120px;font-size:.8rem;font-weight:600;color:#0D1B2A; }
+.bi-cur { font-size:.7rem;font-weight:700;padding:1px 6px;border-radius:3px; }
+.bi-cur.usd { background:#e0f2fe;color:#0369a1; }
+.bi-cur.pen { background:#f0fdf4;color:#166534; }
+.bi-input { flex:1;border:1px solid #e8ecf0;border-radius:6px;padding:6px 10px;font-size:.85rem;font-weight:600;text-align:right; }
+.bi-sys { font-size:.82rem;font-weight:600;color:#475569;min-width:110px;text-align:right; }
+.bi-diff { font-size:.82rem;font-weight:700;min-width:80px;text-align:right; }
+.bi-diff.ok    { color:#16a34a; }
+.bi-diff.warn  { color:#d97706; }
+.bi-diff.error { color:#dc2626; }
+
+.closure-summary-item { display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f1f5f9;font-size:.83rem; }
+.closure-summary-item:last-child { border-bottom:none; }
+.closure-summary-item strong { color:#0D1B2A; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-3 py-3">
+
+  <div class="treasury-nav">
+    <a href="{{ url_for('treasury.dashboard') }}"><i class="bi bi-speedometer2"></i> Dashboard</a>
+    <a href="{{ url_for('treasury.movimientos') }}"><i class="bi bi-list-ul"></i> Movimientos</a>
+    <a href="{{ url_for('treasury.cierre') }}" class="active"><i class="bi bi-calendar-check"></i> Cierre Diario</a>
+    <a href="{{ url_for('treasury.libros') }}"><i class="bi bi-journal-text"></i> Libros</a>
+  </div>
+
+  <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+    <div>
+      <h5 style="font-weight:800;color:#0D1B2A;margin:0;">Cierre Diario de Tesorería</h5>
+      <p style="font-size:.8rem;color:#64748b;margin:2px 0 0;">Valida y confirma los saldos bancarios al cierre del día</p>
+    </div>
+    <div class="d-flex gap-2 align-items-center">
+      <input type="date" id="fechaCierre" class="form-control form-control-sm" style="width:160px;" onchange="loadCierre()">
+      <button class="btn btn-sm btn-outline-secondary" onclick="loadHistorial()"><i class="bi bi-clock-history"></i> Historial</button>
+    </div>
+  </div>
+
+  <!-- Step indicator -->
+  <div class="step-indicator" id="stepIndicator">
+    <div class="step active" id="step1">
+      <div class="step-dot">1</div>
+      <div class="step-label">Calcular</div>
+    </div>
+    <div class="step" id="step2">
+      <div class="step-dot">2</div>
+      <div class="step-label">Ingresar Saldos</div>
+    </div>
+    <div class="step" id="step3">
+      <div class="step-dot">3</div>
+      <div class="step-label">Revisar</div>
+    </div>
+    <div class="step" id="step4">
+      <div class="step-dot">4</div>
+      <div class="step-label">Confirmar</div>
+    </div>
+  </div>
+
+  <div class="row g-3">
+
+    <!-- Panel principal -->
+    <div class="col-lg-8">
+
+      <!-- Paso 1: Calcular -->
+      <div class="card border-0 shadow-sm mb-3" id="panel1">
+        <div class="card-body p-3">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <span style="font-weight:700;font-size:.9rem;color:#0D1B2A;"><i class="bi bi-calculator me-2 text-primary"></i>Paso 1 — Calcular Saldos del Sistema</span>
+            <button class="btn btn-sm btn-primary" id="btnCalcular" onclick="calcularCierre()">
+              <i class="bi bi-play-fill"></i> Calcular Cierre
+            </button>
+          </div>
+          <p style="font-size:.8rem;color:#64748b;">
+            El sistema calculará automáticamente: operaciones del día, saldos por banco,
+            utilidad bruta de amarres, gastos, posición pendiente y USD sin amarrar.
+          </p>
+          <div id="calcStatus"></div>
+        </div>
+      </div>
+
+      <!-- Paso 2: Ingresar saldos reales -->
+      <div class="card border-0 shadow-sm mb-3" id="panel2" style="display:none;">
+        <div class="card-body p-3">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <span style="font-weight:700;font-size:.9rem;color:#0D1B2A;">
+              <i class="bi bi-pencil-square me-2 text-warning"></i>Paso 2 — Ingresar Saldos Reales
+            </span>
+          </div>
+          <p style="font-size:.8rem;color:#64748b;margin-bottom:16px;">
+            Ingresa los saldos reales de cada cuenta según los estados de cuenta bancarios.
+            Compara con los saldos del sistema para detectar diferencias.
+          </p>
+          <div style="overflow-x:auto;">
+            <div style="display:grid;grid-template-columns:auto auto 1fr 1fr 1fr;gap:0;min-width:500px;">
+              <div style="font-size:.68rem;font-weight:700;color:#94A3B8;padding:6px 10px 6px 0;text-transform:uppercase;border-bottom:2px solid #e8ecf0;grid-column:1/3;">Banco / Moneda</div>
+              <div style="font-size:.68rem;font-weight:700;color:#94A3B8;padding:6px 8px;text-transform:uppercase;border-bottom:2px solid #e8ecf0;text-align:right;">Sistema</div>
+              <div style="font-size:.68rem;font-weight:700;color:#0D1B2A;padding:6px 8px;text-transform:uppercase;border-bottom:2px solid #0D1B2A;text-align:right;">Real (ingresar)</div>
+              <div style="font-size:.68rem;font-weight:700;color:#94A3B8;padding:6px 8px;text-transform:uppercase;border-bottom:2px solid #e8ecf0;text-align:right;">Diferencia</div>
+            </div>
+            <div id="balanceInputs"></div>
+          </div>
+          <div class="mt-3">
+            <label style="font-size:.8rem;font-weight:600;color:#0D1B2A;">Notas del cierre (opcional)</label>
+            <textarea id="cierreNotas" class="form-control form-control-sm mt-1" rows="2" placeholder="Observaciones, aclaraciones…" style="resize:none;font-size:.82rem;"></textarea>
+          </div>
+          <div class="mt-3 d-flex gap-2">
+            <button class="btn btn-warning btn-sm" onclick="validarSaldos()">
+              <i class="bi bi-check-lg"></i> Calcular Diferencias
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Paso 3: Revisar diferencias -->
+      <div class="card border-0 shadow-sm mb-3" id="panel3" style="display:none;">
+        <div class="card-body p-3">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <span style="font-weight:700;font-size:.9rem;color:#0D1B2A;">
+              <i class="bi bi-search me-2 text-info"></i>Paso 3 — Revisar Diferencias
+            </span>
+          </div>
+          <div id="diffsContainer"></div>
+          <div id="discrepancyReasonDiv" style="display:none;margin-top:12px;">
+            <label style="font-size:.8rem;font-weight:700;color:#dc2626;">Motivo de la diferencia (obligatorio)</label>
+            <textarea id="motivoDiscrepancia" class="form-control form-control-sm mt-1" rows="2"
+                placeholder="Explica la diferencia: error de registro, transferencia en tránsito, diferencia de redondeo…"
+                style="resize:none;border-color:#dc2626;font-size:.82rem;"></textarea>
+          </div>
+          <div class="mt-3">
+            <button class="btn btn-success btn-sm" onclick="confirmarCierre()">
+              <i class="bi bi-check-circle-fill"></i> Confirmar y Validar Cierre
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Paso 4: Confirmado -->
+      <div class="card border-0 shadow-sm" id="panel4" style="display:none;">
+        <div class="card-body p-3 text-center">
+          <div style="font-size:2.5rem;color:#16a34a;"><i class="bi bi-patch-check-fill"></i></div>
+          <h5 style="font-weight:800;color:#0D1B2A;margin:8px 0 4px;">Cierre Validado</h5>
+          <p style="font-size:.83rem;color:#64748b;" id="confirmedMsg">El cierre del día ha sido confirmado.</p>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Panel lateral: Resumen del día -->
+    <div class="col-lg-4">
+      <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body p-3">
+          <div style="font-weight:700;font-size:.85rem;color:#0D1B2A;margin-bottom:12px;">
+            <i class="bi bi-bar-chart-fill me-1 text-primary"></i>Resumen del Día
+          </div>
+          <div id="resumenDia">
+            <div style="text-align:center;color:#94A3B8;font-size:.8rem;padding:20px 0;">
+              Calcule el cierre para ver el resumen
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Posición pendiente -->
+      <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body p-3">
+          <div style="font-weight:700;font-size:.85rem;color:#0D1B2A;margin-bottom:12px;">
+            <i class="bi bi-hourglass-split me-1 text-warning"></i>Posición Pendiente al Cierre
+          </div>
+          <div id="posicionPendiente">
+            <div style="text-align:center;color:#94A3B8;font-size:.8rem;padding:20px 0;">—</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Historial de cierres -->
+  <div class="card border-0 shadow-sm mt-3" id="historialCard" style="display:none;">
+    <div class="card-body p-3">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <span style="font-weight:700;font-size:.9rem;color:#0D1B2A;"><i class="bi bi-clock-history me-2"></i>Historial de Cierres</span>
+        <button class="btn btn-sm btn-outline-secondary" onclick="document.getElementById('historialCard').style.display='none'">Cerrar</button>
+      </div>
+      <div style="overflow-x:auto;">
+        <table class="table table-sm table-hover" style="font-size:.8rem;">
+          <thead><tr>
+            <th>Fecha</th><th>Estado</th><th>Ops</th><th>Volumen USD</th>
+            <th>P&amp;L Neto</th><th>Validado por</th><th>Discrepancias</th>
+          </tr></thead>
+          <tbody id="historialBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const fmt    = (n, dec=2) => new Intl.NumberFormat('es-PE', {minimumFractionDigits:dec, maximumFractionDigits:dec}).format(n);
+const fmtUSD = n => `$ ${fmt(n)}`;
+const fmtPEN = n => `S/ ${fmt(n)}`;
+
+let currentCierre = null;
+
+// Init: set today as default date
+document.getElementById('fechaCierre').value = new Date().toISOString().split('T')[0];
+
+// Load existing closure if any
+async function loadCierre() {
+    const fecha = document.getElementById('fechaCierre').value;
+    const res   = await fetch(`/treasury/api/cierre/${fecha}`);
+    const data  = await res.json();
+    if (data.found) {
+        currentCierre = data.cierre;
+        applyCierreState(currentCierre);
+    } else {
+        currentCierre = null;
+        resetUI();
+    }
+}
+
+function resetUI() {
+    setStep(1);
+    document.getElementById('panel2').style.display = 'none';
+    document.getElementById('panel3').style.display = 'none';
+    document.getElementById('panel4').style.display = 'none';
+    document.getElementById('calcStatus').innerHTML = '';
+    document.getElementById('resumenDia').innerHTML = '<div style="text-align:center;color:#94A3B8;font-size:.8rem;padding:20px 0;">Calcule el cierre para ver el resumen</div>';
+}
+
+function applyCierreState(cierre) {
+    updateResumen(cierre);
+    updatePosicionPendiente(cierre);
+    if (cierre.is_validated) {
+        setStep(4, true);
+        showPanels(false, false, false, true);
+        document.getElementById('confirmedMsg').textContent =
+            `Validado por ${cierre.validated_by || '—'} el ${cierre.validated_at ? new Date(cierre.validated_at).toLocaleString('es-PE') : '—'}`;
+    } else if (cierre.validated_balances && Object.keys(cierre.validated_balances).length > 0) {
+        setStep(3);
+        showPanels(false, false, true, false);
+        renderDiffs(cierre.differences, cierre.has_discrepancies);
+    } else {
+        setStep(2);
+        showPanels(false, true, false, false);
+        renderBalanceInputs(cierre.system_balances);
+    }
+}
+
+function showPanels(p1, p2, p3, p4) {
+    document.getElementById('panel1').style.display = p1 ? '' : 'none';
+    document.getElementById('panel2').style.display = p2 ? '' : 'none';
+    document.getElementById('panel3').style.display = p3 ? '' : 'none';
+    document.getElementById('panel4').style.display = p4 ? '' : 'none';
+}
+
+function setStep(n, done4=false) {
+    for (let i=1;i<=4;i++) {
+        const el = document.getElementById(`step${i}`);
+        el.className = 'step ' + (i < n ? 'done' : i === n ? (done4 && i===4 ? 'done' : 'active') : '');
+    }
+}
+
+async function calcularCierre() {
+    const btn   = document.getElementById('btnCalcular');
+    const fecha = document.getElementById('fechaCierre').value;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Calculando…';
+    document.getElementById('calcStatus').innerHTML = '';
+
+    try {
+        const res  = await fetch('/treasury/api/cierre/calcular', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json', 'X-CSRFToken': getCsrf()},
+            body: JSON.stringify({fecha})
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error);
+        currentCierre = data.cierre;
+        updateResumen(currentCierre);
+        updatePosicionPendiente(currentCierre);
+        setStep(2);
+        showPanels(false, true, false, false);
+        renderBalanceInputs(currentCierre.system_balances);
+        document.getElementById('calcStatus').innerHTML = `<div class="alert alert-success py-2 mb-0" style="font-size:.8rem;">Cálculo completado — ingresa los saldos reales.</div>`;
+    } catch(e) {
+        document.getElementById('calcStatus').innerHTML = `<div class="alert alert-danger py-2 mb-0" style="font-size:.8rem;"><i class="bi bi-exclamation-triangle"></i> ${e.message}</div>`;
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-play-fill"></i> Recalcular';
+    }
+}
+
+function renderBalanceInputs(sysBalances) {
+    const banks    = ['BCP','INTERBANK','BANBIF'];
+    const curs     = ['USD','PEN'];
+    const bankColors = {BCP:'bcp', INTERBANK:'interbank', BANBIF:'banbif'};
+
+    let html = '';
+    banks.forEach(bank => {
+        curs.forEach(cur => {
+            const sysVal = (sysBalances[bank] || {})[cur] || 0;
+            const cls    = cur.toLowerCase();
+            html += `<div class="balance-input-row">
+              <span class="bi-label">${bank}</span>
+              <span class="bi-cur ${cls}">${cur}</span>
+              <div style="text-align:right;flex:1;color:#475569;font-size:.82rem;font-weight:600;padding:0 8px;">${cur==='USD' ? fmtUSD(sysVal) : fmtPEN(sysVal)}</div>
+              <input type="number" step="0.01" min="0"
+                class="bi-input"
+                id="real_${bank}_${cur}"
+                placeholder="0.00"
+                style="max-width:140px;"
+                onchange="updateDiff('${bank}','${cur}',${sysVal})">
+              <div class="bi-diff" id="diff_${bank}_${cur}">—</div>
+            </div>`;
+        });
+    });
+    document.getElementById('balanceInputs').innerHTML = html;
+}
+
+function updateDiff(bank, cur, sysVal) {
+    const input = document.getElementById(`real_${bank}_${cur}`);
+    const diffEl = document.getElementById(`diff_${bank}_${cur}`);
+    const realVal = parseFloat(input.value || 0);
+    const diff = realVal - sysVal;
+    const cls = Math.abs(diff) < 0.02 ? 'ok' : Math.abs(diff) < 100 ? 'warn' : 'error';
+    const sign = diff >= 0 ? '+' : '';
+    diffEl.textContent = `${sign}${cur==='USD' ? fmtUSD(diff) : fmtPEN(diff)}`;
+    diffEl.className = `bi-diff ${cls}`;
+}
+
+function collectRealBalances() {
+    const banks = ['BCP','INTERBANK','BANBIF'];
+    const curs  = ['USD','PEN'];
+    const result = {};
+    banks.forEach(bank => {
+        result[bank] = {};
+        curs.forEach(cur => {
+            const el = document.getElementById(`real_${bank}_${cur}`);
+            result[bank][cur] = parseFloat(el ? el.value || 0 : 0);
+        });
+    });
+    return result;
+}
+
+async function validarSaldos() {
+    const fecha      = document.getElementById('fechaCierre').value;
+    const realBal    = collectRealBalances();
+    const notas      = document.getElementById('cierreNotas').value;
+
+    const res  = await fetch('/treasury/api/cierre/validar', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json','X-CSRFToken':getCsrf()},
+        body: JSON.stringify({fecha, saldos_reales: realBal, notas})
+    });
+    const data = await res.json();
+    if (!data.success) { alert(data.error); return; }
+
+    currentCierre = data.cierre;
+    setStep(3);
+    showPanels(false, false, true, false);
+    renderDiffs(data.differences, data.has_discrepancies);
+}
+
+function renderDiffs(diffs, hasDiffs) {
+    const banks = ['BCP','INTERBANK','BANBIF'];
+    const curs  = ['USD','PEN'];
+    let html = '';
+
+    if (!hasDiffs) {
+        html = `<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:14px;text-align:center;">
+          <i class="bi bi-check-circle-fill" style="color:#16a34a;font-size:1.5rem;"></i>
+          <div style="font-weight:700;color:#166534;margin-top:6px;">Sin diferencias</div>
+          <div style="font-size:.8rem;color:#16a34a;">Los saldos reales coinciden con el sistema.</div>
+        </div>`;
+        document.getElementById('discrepancyReasonDiv').style.display = 'none';
+    } else {
+        html = `<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:12px;margin-bottom:12px;">
+          <div style="font-weight:700;color:#991b1b;font-size:.85rem;margin-bottom:8px;">
+            <i class="bi bi-exclamation-triangle-fill me-1"></i>Se detectaron diferencias — revisa y explica
+          </div>`;
+        banks.forEach(bank => {
+            curs.forEach(cur => {
+                const diff = ((diffs[bank] || {})[cur] || 0);
+                if (Math.abs(diff) > 0.01) {
+                    const sign = diff > 0 ? '+' : '';
+                    const color = diff > 0 ? '#16a34a' : '#dc2626';
+                    html += `<div style="display:flex;justify-content:space-between;font-size:.82rem;padding:4px 0;border-bottom:1px solid #fee2e2;">
+                      <span style="color:#7f1d1d;">${bank} ${cur}</span>
+                      <span style="font-weight:700;color:${color};">${sign}${cur==='USD' ? fmtUSD(diff) : fmtPEN(diff)}</span>
+                    </div>`;
+                }
+            });
+        });
+        html += '</div>';
+        document.getElementById('discrepancyReasonDiv').style.display = '';
+    }
+
+    document.getElementById('diffsContainer').innerHTML = html;
+}
+
+async function confirmarCierre() {
+    const fecha   = document.getElementById('fechaCierre').value;
+    const motivo  = document.getElementById('motivoDiscrepancia') ?
+                    document.getElementById('motivoDiscrepancia').value : '';
+
+    const res  = await fetch('/treasury/api/cierre/confirmar', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json','X-CSRFToken':getCsrf()},
+        body: JSON.stringify({fecha, motivo_discrepancia: motivo})
+    });
+    const data = await res.json();
+    if (!data.success) { alert(data.error); return; }
+
+    currentCierre = data.cierre;
+    setStep(4, true);
+    showPanels(false, false, false, true);
+    document.getElementById('confirmedMsg').textContent = data.message;
+}
+
+function updateResumen(c) {
+    const netColor = (c.net_profit_pen || 0) >= 0 ? '#16a34a' : '#dc2626';
+    document.getElementById('resumenDia').innerHTML = `
+    <div class="closure-summary-item"><span>Operaciones completadas</span><strong>${c.operations_completed}</strong></div>
+    <div class="closure-summary-item"><span>Volumen USD</span><strong>${fmtUSD(c.total_volume_usd)}</strong></div>
+    <div class="closure-summary-item"><span>Compras</span><strong>${fmtUSD(c.total_bought_usd)} @ ${c.avg_buy_rate > 0 ? c.avg_buy_rate.toFixed(4) : '—'}</strong></div>
+    <div class="closure-summary-item"><span>Ventas</span><strong>${fmtUSD(c.total_sold_usd)} @ ${c.avg_sell_rate > 0 ? c.avg_sell_rate.toFixed(4) : '—'}</strong></div>
+    <div class="closure-summary-item"><span>Utilidad bruta (amarres)</span><strong style="color:#16a34a;">${fmtPEN(c.gross_spread_pen)}</strong></div>
+    <div class="closure-summary-item"><span>Gastos del día</span><strong style="color:#dc2626;">- ${fmtPEN(c.expenses_pen)}</strong></div>
+    <div class="closure-summary-item" style="border-top:2px solid #e8ecf0;padding-top:8px;">
+      <span><strong>P&amp;L Neto del día</strong></span>
+      <strong style="color:${netColor};font-size:1rem;">${fmtPEN(c.net_profit_pen)}</strong>
+    </div>`;
+}
+
+function updatePosicionPendiente(c) {
+    document.getElementById('posicionPendiente').innerHTML = `
+    <div class="closure-summary-item"><span>Ops sin completar</span><strong style="color:${c.pending_operations > 0 ? '#d97706' : '#16a34a'};">${c.pending_operations}</strong></div>
+    <div class="closure-summary-item"><span>USD completado sin amarrar</span><strong style="color:${c.unmatched_completed_usd > 0 ? '#d97706' : '#16a34a'};">${fmtUSD(c.unmatched_completed_usd)}</strong></div>
+    <div class="closure-summary-item"><span>Amarres sin batch cerrado</span><strong style="color:${c.open_matches > 0 ? '#d97706' : '#16a34a'};">${c.open_matches}</strong></div>`;
+}
+
+async function loadHistorial() {
+    const card = document.getElementById('historialCard');
+    card.style.display = '';
+    const res  = await fetch('/treasury/api/cierre/historial?per_page=20');
+    const data = await res.json();
+    let html = '';
+    (data.cierres || []).forEach(c => {
+        const statusBadge = c.is_validated ?
+            '<span class="badge" style="background:#f0fdf4;color:#166534;border:1px solid #bbf7d0;">Validado</span>' :
+            '<span class="badge" style="background:#fffbeb;color:#92400e;border:1px solid #fed7aa;">Borrador</span>';
+        const netColor = c.net_profit_pen >= 0 ? '#16a34a' : '#dc2626';
+        const discBadge = c.has_discrepancies ?
+            '<span class="badge bg-danger">Sí</span>' :
+            '<span class="badge bg-success">No</span>';
+        html += `<tr>
+          <td><strong>${c.closure_date}</strong></td>
+          <td>${statusBadge}</td>
+          <td>${c.operations_completed}</td>
+          <td>${fmtUSD(c.total_volume_usd)}</td>
+          <td style="font-weight:700;color:${netColor};">${fmtPEN(c.net_profit_pen)}</td>
+          <td>${c.validated_by || '—'}</td>
+          <td>${discBadge}</td>
+        </tr>`;
+    });
+    document.getElementById('historialBody').innerHTML = html || '<tr><td colspan="7" class="text-muted text-center">Sin cierres registrados</td></tr>';
+}
+
+function getCsrf() {
+    return document.querySelector('meta[name="csrf-token"]')?.content || '';
+}
+
+loadCierre();
+</script>
+{% endblock %}

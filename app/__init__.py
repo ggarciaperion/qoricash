@@ -509,6 +509,69 @@ def create_app(config_name=None):
     except Exception as e:
         logging.warning(f"[TCLive] Error creando tabla datatec_entries: {e}")
 
+    # Migración: tablas de Tesorería — bank_movements y daily_closures
+    try:
+        with app.app_context():
+            from app.extensions import db
+            from sqlalchemy import text
+            db.session.execute(text("""
+                CREATE TABLE IF NOT EXISTS bank_movements (
+                    id             SERIAL PRIMARY KEY,
+                    movement_date  TIMESTAMP    NOT NULL DEFAULT NOW(),
+                    bank_name      VARCHAR(100) NOT NULL,
+                    bank_key       VARCHAR(50)  NOT NULL,
+                    currency       VARCHAR(3)   NOT NULL,
+                    amount         NUMERIC(14,2) NOT NULL,
+                    balance_after  NUMERIC(14,2),
+                    movement_type  VARCHAR(50)  NOT NULL,
+                    source_type    VARCHAR(50),
+                    source_id      INTEGER,
+                    operation_id   INTEGER      REFERENCES operations(id) ON DELETE SET NULL,
+                    description    VARCHAR(300),
+                    reference_code VARCHAR(50),
+                    counterpart    VARCHAR(200),
+                    closure_date   DATE,
+                    created_by     INTEGER      REFERENCES users(id),
+                    created_at     TIMESTAMP    DEFAULT NOW()
+                )
+            """))
+            db.session.execute(text(
+                "CREATE INDEX IF NOT EXISTS ix_bm_bank_currency_date ON bank_movements(bank_key, currency, movement_date)"
+            ))
+            db.session.execute(text(
+                "CREATE INDEX IF NOT EXISTS ix_bm_closure_date ON bank_movements(closure_date)"
+            ))
+            db.session.execute(text("""
+                CREATE TABLE IF NOT EXISTS daily_closures (
+                    id                    SERIAL PRIMARY KEY,
+                    closure_date          DATE         NOT NULL UNIQUE,
+                    status                VARCHAR(20)  NOT NULL DEFAULT 'borrador',
+                    system_balances_json  TEXT,
+                    validated_balances_json TEXT,
+                    differences_json      TEXT,
+                    operations_completed  INTEGER      DEFAULT 0,
+                    total_volume_usd      NUMERIC(14,2) DEFAULT 0,
+                    realized_profit_pen   NUMERIC(14,2) DEFAULT 0,
+                    house_profit_pen      NUMERIC(14,2) DEFAULT 0,
+                    trader_profit_pen     NUMERIC(14,2) DEFAULT 0,
+                    pending_operations    INTEGER      DEFAULT 0,
+                    unmatched_usd         NUMERIC(14,2) DEFAULT 0,
+                    open_matches          INTEGER      DEFAULT 0,
+                    has_discrepancies     BOOLEAN      DEFAULT FALSE,
+                    discrepancy_reason    TEXT,
+                    closed_by             INTEGER      REFERENCES users(id),
+                    closed_at             TIMESTAMP,
+                    notes                 TEXT,
+                    created_at            TIMESTAMP    DEFAULT NOW()
+                )
+            """))
+            db.session.execute(text(
+                "CREATE INDEX IF NOT EXISTS ix_dc_closure_date ON daily_closures(closure_date)"
+            ))
+            db.session.commit()
+    except Exception as e:
+        logging.warning(f"[Migration] treasury tables (bank_movements/daily_closures): {e}")
+
     # Sembrar competidores FX (idempotente — solo inserta si no existen)
     try:
         with app.app_context():
@@ -693,6 +756,8 @@ def register_blueprints(app):
     app.register_blueprint(push_bp)            # Web Push: /api/push/*
     from app.routes.crm import crm_bp
     app.register_blueprint(crm_bp)             # CRM WhatsApp: /crm/*
+    from app.routes.treasury import treasury_bp
+    app.register_blueprint(treasury_bp, url_prefix='/treasury')  # Tesorería
 
 # Service Worker debe servirse desde la raíz del dominio (scope /)
     import os

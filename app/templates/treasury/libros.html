@@ -1,0 +1,452 @@
+{% extends "base.html" %}
+{% block title %}Libros Financieros — QoriCash{% endblock %}
+
+{% block head %}
+<style>
+.treasury-nav{display:flex;gap:4px;margin-bottom:16px;background:#f8fafc;border-radius:8px;padding:4px;}
+.treasury-nav a{flex:1;text-align:center;padding:7px 8px;border-radius:6px;font-size:.78rem;font-weight:600;color:#64748b;text-decoration:none;transition:all .15s;}
+.treasury-nav a.active,.treasury-nav a:hover{background:#fff;color:#0D1B2A;box-shadow:0 1px 4px rgba(0,0,0,.08);}
+.libro-tab{cursor:pointer;padding:10px 16px;border-radius:8px;font-size:.82rem;font-weight:600;color:#475569;transition:all .15s;border:1px solid transparent;}
+.libro-tab:hover{background:#f1f5f9;}
+.libro-tab.active{background:#0D1B2A;color:#fff;}
+.amarre-row td{font-size:.8rem;padding:7px 10px!important;}
+.profit-pos{color:#16a34a;font-weight:700;}
+.profit-neg{color:#dc2626;font-weight:700;}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-3 py-3">
+
+  <div class="treasury-nav">
+    <a href="{{ url_for('treasury.dashboard') }}"><i class="bi bi-speedometer2"></i> Dashboard</a>
+    <a href="{{ url_for('treasury.movimientos') }}"><i class="bi bi-list-ul"></i> Movimientos</a>
+    <a href="{{ url_for('treasury.cierre') }}"><i class="bi bi-calendar-check"></i> Cierre Diario</a>
+    <a href="{{ url_for('treasury.libros') }}" class="active"><i class="bi bi-journal-text"></i> Libros</a>
+  </div>
+
+  <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+    <div>
+      <h5 style="font-weight:800;color:#0D1B2A;margin:0;"><i class="bi bi-journal-text me-2 text-primary"></i>Libros Financieros</h5>
+      <p style="font-size:.8rem;color:#64748b;margin:2px 0 0;">Registros auditables: Movimientos · Amarres · Utilidades · Reconciliación</p>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="d-flex gap-2 flex-wrap mb-3">
+    <div class="libro-tab active" id="tab-movs" onclick="showTab('movs')"><i class="bi bi-bank2 me-1"></i>Libro Bancos</div>
+    <div class="libro-tab" id="tab-amarres" onclick="showTab('amarres')"><i class="bi bi-link-45deg me-1"></i>Libro de Amarres</div>
+    <div class="libro-tab" id="tab-utilidades" onclick="showTab('utilidades')"><i class="bi bi-graph-up-arrow me-1"></i>Libro de Utilidades</div>
+    <div class="libro-tab" id="tab-reconciliacion" onclick="showTab('reconciliacion')"><i class="bi bi-check2-all me-1"></i>Reconciliación</div>
+  </div>
+
+  <!-- ── Libro Bancos ─────────────────────────────────────────────────────── -->
+  <div id="content-movs">
+    <div class="card border-0 shadow-sm mb-2">
+      <div class="card-body p-3">
+        <div class="row g-2 align-items-end mb-3">
+          <div class="col-6 col-md-2">
+            <label style="font-size:.72rem;font-weight:700;color:#475569;">Desde</label>
+            <input type="date" id="mbFini" class="form-control form-control-sm">
+          </div>
+          <div class="col-6 col-md-2">
+            <label style="font-size:.72rem;font-weight:700;color:#475569;">Hasta</label>
+            <input type="date" id="mbFfin" class="form-control form-control-sm">
+          </div>
+          <div class="col-6 col-md-2">
+            <label style="font-size:.72rem;font-weight:700;color:#475569;">Banco</label>
+            <select id="mbBanco" class="form-select form-select-sm">
+              <option value="">Todos</option>
+              <option value="BCP">BCP</option>
+              <option value="INTERBANK">Interbank</option>
+              <option value="BANBIF">BanBif</option>
+            </select>
+          </div>
+          <div class="col-6 col-md-2">
+            <label style="font-size:.72rem;font-weight:700;color:#475569;">Moneda</label>
+            <select id="mbMoneda" class="form-select form-select-sm">
+              <option value="">Ambas</option>
+              <option value="USD">USD</option>
+              <option value="PEN">PEN</option>
+            </select>
+          </div>
+          <div class="col-6 col-md-2">
+            <button class="btn btn-primary btn-sm w-100" onclick="loadLibroBancos(1)">
+              <i class="bi bi-search"></i> Buscar
+            </button>
+          </div>
+        </div>
+
+        <div style="overflow-x:auto;">
+          <table class="table table-sm table-hover" style="font-size:.8rem;">
+            <thead style="background:#f8fafc;">
+              <tr>
+                <th>Fecha</th><th>Banco</th><th>Moneda</th><th>Tipo</th>
+                <th>Descripción</th><th>Referencia</th>
+                <th class="text-end">Entrada</th><th class="text-end">Salida</th>
+                <th class="text-end">Saldo</th><th>Validado</th>
+              </tr>
+            </thead>
+            <tbody id="tBodyBancos">
+              <tr><td colspan="10" class="text-center text-muted py-4">Selecciona un rango y busca</td></tr>
+            </tbody>
+            <tfoot id="tFootBancos"></tfoot>
+          </table>
+        </div>
+        <div class="d-flex justify-content-between align-items-center" style="font-size:.75rem;color:#64748b;">
+          <span id="bancosInfo"></span>
+          <div id="bancosPag" class="d-flex gap-1"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Libro Amarres ────────────────────────────────────────────────────── -->
+  <div id="content-amarres" style="display:none;">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body p-3">
+        <div class="row g-2 align-items-end mb-3">
+          <div class="col-6 col-md-2">
+            <label style="font-size:.72rem;font-weight:700;color:#475569;">Desde</label>
+            <input type="date" id="amFini" class="form-control form-control-sm">
+          </div>
+          <div class="col-6 col-md-2">
+            <label style="font-size:.72rem;font-weight:700;color:#475569;">Hasta</label>
+            <input type="date" id="amFfin" class="form-control form-control-sm">
+          </div>
+          <div class="col-6 col-md-2">
+            <label style="font-size:.72rem;font-weight:700;color:#475569;">Estado</label>
+            <select id="amStatus" class="form-select form-select-sm">
+              <option value="Activo">Activos</option>
+              <option value="Anulado">Anulados</option>
+              <option value="">Todos</option>
+            </select>
+          </div>
+          <div class="col-6 col-md-2">
+            <button class="btn btn-primary btn-sm w-100" onclick="loadAmarres(1)">
+              <i class="bi bi-search"></i> Buscar
+            </button>
+          </div>
+        </div>
+
+        <div id="amarresTotales" class="mb-2"></div>
+
+        <div style="overflow-x:auto;">
+          <table class="table table-sm table-hover" style="font-size:.8rem;">
+            <thead style="background:#f8fafc;">
+              <tr>
+                <th>Fecha</th><th>Est.</th><th>Op. Compra</th><th>Cliente C</th>
+                <th>Op. Venta</th><th>Cliente V</th><th class="text-end">USD Amarrado</th>
+                <th class="text-end">TC Compra</th><th class="text-end">TC Venta</th>
+                <th class="text-end">Spread</th><th class="text-end">Casa</th>
+                <th class="text-end">Traders</th>
+              </tr>
+            </thead>
+            <tbody id="tBodyAmarres">
+              <tr><td colspan="12" class="text-center text-muted py-4">Busca para ver amarres</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="d-flex justify-content-between align-items-center" style="font-size:.75rem;color:#64748b;">
+          <span id="amarresInfo"></span>
+          <div id="amarresPag" class="d-flex gap-1"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Libro Utilidades ─────────────────────────────────────────────────── -->
+  <div id="content-utilidades" style="display:none;">
+    <div class="row g-3">
+      <div class="col-md-6">
+        <div class="card border-0 shadow-sm h-100">
+          <div class="card-body p-3">
+            <div style="font-weight:700;font-size:.9rem;color:#0D1B2A;margin-bottom:12px;"><i class="bi bi-graph-up-arrow me-2 text-success"></i>Utilidad Acumulada Total</div>
+            <div id="utilTotales"><div class="text-center text-muted py-4"><span class="spinner-border spinner-border-sm"></span></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="card border-0 shadow-sm h-100">
+          <div class="card-body p-3">
+            <div style="font-weight:700;font-size:.9rem;color:#0D1B2A;margin-bottom:12px;"><i class="bi bi-calendar3 me-2 text-primary"></i>Utilidad del Período Seleccionado</div>
+            <div class="row g-2 mb-3">
+              <div class="col-6">
+                <input type="date" id="utFini" class="form-control form-control-sm">
+              </div>
+              <div class="col-6">
+                <input type="date" id="utFfin" class="form-control form-control-sm">
+              </div>
+              <div class="col-12">
+                <button class="btn btn-primary btn-sm w-100" onclick="loadUtilidadPeriodo()">
+                  <i class="bi bi-search"></i> Calcular período
+                </button>
+              </div>
+            </div>
+            <div id="utilPeriodo"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Reconciliación ───────────────────────────────────────────────────── -->
+  <div id="content-reconciliacion" style="display:none;">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body p-3">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <div>
+            <span style="font-weight:700;font-size:.9rem;color:#0D1B2A;"><i class="bi bi-check2-all me-2 text-success"></i>Reconciliación de Saldos</span>
+            <p style="font-size:.78rem;color:#64748b;margin:2px 0 0;">Verifica coherencia entre BankBalance (caché) y la suma de movimientos (fuente de verdad)</p>
+          </div>
+          <button class="btn btn-sm btn-outline-primary" onclick="loadReconciliacion()">
+            <i class="bi bi-arrow-clockwise"></i> Verificar
+          </button>
+        </div>
+        <div id="reconcResult">
+          <div class="text-center text-muted py-4">Presiona "Verificar" para ejecutar la reconciliación</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const fmt    = (n, dec=2) => new Intl.NumberFormat('es-PE', {minimumFractionDigits:dec, maximumFractionDigits:dec}).format(n);
+const fmtUSD = n => `$ ${fmt(n)}`;
+const fmtPEN = n => `S/ ${fmt(n)}`;
+const today  = new Date().toISOString().split('T')[0];
+const month1 = new Date(); month1.setDate(1);
+const month1str = month1.toISOString().split('T')[0];
+
+function showTab(tab) {
+    ['movs','amarres','utilidades','reconciliacion'].forEach(t => {
+        document.getElementById(`content-${t}`).style.display = t === tab ? '' : 'none';
+        document.getElementById(`tab-${t}`).className = 'libro-tab' + (t === tab ? ' active' : '');
+    });
+    if (tab === 'amarres' && !document.getElementById('amFini').value) {
+        document.getElementById('amFini').value = month1str;
+        document.getElementById('amFfin').value = today;
+        loadAmarres(1);
+    }
+    if (tab === 'utilidades') loadUtilidadTotal();
+    if (tab === 'reconciliacion') loadReconciliacion();
+}
+
+// ── Libro Bancos ─────────────────────────────────────────────────────────────
+async function loadLibroBancos(page=1) {
+    const params = new URLSearchParams({
+        page, per_page: 100,
+        fecha_ini: document.getElementById('mbFini').value || '',
+        fecha_fin: document.getElementById('mbFfin').value || '',
+        banco:     document.getElementById('mbBanco').value || '',
+        moneda:    document.getElementById('mbMoneda').value || '',
+    });
+    const res  = await fetch('/treasury/api/movimientos?' + params);
+    const data = await res.json();
+    if (!data.success) return;
+
+    const body = document.getElementById('tBodyBancos');
+    if (!data.movimientos.length) {
+        body.innerHTML = '<tr><td colspan="10" class="text-center text-muted py-3">Sin movimientos</td></tr>';
+        return;
+    }
+
+    let inTotal=0, outTotal=0;
+    body.innerHTML = data.movimientos.map(m => {
+        const dt = new Date(m.movement_date);
+        const entrada = m.amount > 0;
+        if (entrada) inTotal += m.amount; else outTotal += Math.abs(m.amount);
+        return `<tr>
+          <td style="white-space:nowrap;">${dt.toLocaleDateString('es-PE')} ${dt.toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'})}</td>
+          <td>${m.bank_key}</td>
+          <td><span style="font-size:.68rem;font-weight:700;padding:1px 5px;border-radius:3px;${m.currency==='USD'?'background:#e0f2fe;color:#0369a1':'background:#f0fdf4;color:#166534'}">${m.currency}</span></td>
+          <td><span class="mv-type-badge mv-type-${m.movement_type}" style="font-size:.65rem;padding:1px 5px;">${m.movement_label}</span></td>
+          <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${m.description||'—'}</td>
+          <td style="font-size:.72rem;color:#94A3B8;">${m.reference_code||'—'}</td>
+          <td class="text-end ${entrada?'profit-pos':''}">${entrada ? (m.currency==='USD'?fmtUSD(m.amount):fmtPEN(m.amount)) : '—'}</td>
+          <td class="text-end ${!entrada?'profit-neg':''}">${!entrada ? (m.currency==='USD'?fmtUSD(Math.abs(m.amount)):fmtPEN(Math.abs(m.amount))) : '—'}</td>
+          <td class="text-end" style="color:#475569;">${m.balance_after!==null?(m.currency==='USD'?fmtUSD(m.balance_after):fmtPEN(m.balance_after)):'—'}</td>
+          <td style="text-align:center;">${m.is_validated?'<i class="bi bi-patch-check-fill text-success"></i>':''}</td>
+        </tr>`;
+    }).join('');
+    document.getElementById('tFootBancos').innerHTML = `<tr style="font-weight:700;background:#f8fafc;">
+        <td colspan="6" style="font-size:.78rem;padding:6px 10px;">TOTAL</td>
+        <td class="text-end profit-pos">${fmt(inTotal)}</td>
+        <td class="text-end profit-neg">${fmt(outTotal)}</td>
+        <td class="text-end">${fmt(inTotal - outTotal)}</td>
+        <td></td>
+      </tr>`;
+    document.getElementById('bancosInfo').textContent = `${data.total} movimiento(s)`;
+}
+
+// ── Libro Amarres ─────────────────────────────────────────────────────────────
+async function loadAmarres(page=1) {
+    const params = new URLSearchParams({
+        page, per_page:50,
+        fecha_ini: document.getElementById('amFini').value || '',
+        fecha_fin: document.getElementById('amFfin').value || '',
+        status:    document.getElementById('amStatus').value || '',
+    });
+    const res  = await fetch('/treasury/api/libros/amarres?' + params);
+    const data = await res.json();
+    if (!data.success) return;
+
+    const t = data.totales;
+    document.getElementById('amarresTotales').innerHTML = `
+      <div class="row g-2" style="font-size:.82rem;">
+        <div class="col-auto"><span style="background:#f0fdf4;border-radius:6px;padding:4px 10px;">
+          <i class="bi bi-link-45deg text-success me-1"></i><strong>${data.total}</strong> amarre(s) ·
+          Spread: <strong class="profit-pos">${fmtPEN(t.profit_pen)}</strong> ·
+          Casa: <strong style="color:#16a34a;">${fmtPEN(t.house_profit_pen)}</strong> ·
+          USD amarrado: <strong>${fmtUSD(t.matched_usd)}</strong>
+        </span></div>
+      </div>`;
+
+    const body = document.getElementById('tBodyAmarres');
+    if (!data.items.length) {
+        body.innerHTML = '<tr><td colspan="12" class="text-center text-muted py-3">Sin amarres</td></tr>';
+        return;
+    }
+
+    body.innerHTML = data.items.map(m => {
+        const dt = new Date(m.created_at);
+        const stBadge = m.status === 'Activo'
+            ? '<span style="background:#f0fdf4;color:#166534;border-radius:3px;font-size:.65rem;font-weight:700;padding:1px 5px;">Activo</span>'
+            : '<span style="background:#fef2f2;color:#991b1b;border-radius:3px;font-size:.65rem;font-weight:700;padding:1px 5px;">Anulado</span>';
+        const profColor = m.total_profit_pen > 0 ? '#16a34a' : m.total_profit_pen < 0 ? '#dc2626' : '#475569';
+        return `<tr class="amarre-row">
+          <td style="white-space:nowrap;">${dt.toLocaleDateString('es-PE')}</td>
+          <td>${stBadge}</td>
+          <td><strong>${m.buy_op_id||'—'}</strong></td>
+          <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${m.buy_client}</td>
+          <td><strong>${m.sell_op_id||'—'}</strong></td>
+          <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${m.sell_client}</td>
+          <td class="text-end">${fmtUSD(m.matched_usd)}</td>
+          <td class="text-end">${m.buy_tc.toFixed(4)}</td>
+          <td class="text-end">${m.sell_tc.toFixed(4)}</td>
+          <td class="text-end" style="font-weight:700;color:${profColor};">${fmtPEN(m.total_profit_pen)}</td>
+          <td class="text-end profit-pos">${fmtPEN(m.house_profit_pen)}</td>
+          <td class="text-end" style="color:#475569;">${fmtPEN(m.trader_buy_pen + m.trader_sell_pen)}</td>
+        </tr>`;
+    }).join('');
+
+    document.getElementById('amarresInfo').textContent = `Página ${data.page}/${data.pages}`;
+    let btns = '';
+    if (data.page>1) btns += `<button class="btn btn-sm btn-outline-secondary" onclick="loadAmarres(${data.page-1})">&laquo;</button>`;
+    if (data.page<data.pages) btns += `<button class="btn btn-sm btn-outline-secondary" onclick="loadAmarres(${data.page+1})">&raquo;</button>`;
+    document.getElementById('amarresPag').innerHTML = btns;
+}
+
+// ── Utilidades ────────────────────────────────────────────────────────────────
+async function loadUtilidadTotal() {
+    const res  = await fetch('/treasury/api/dashboard');
+    const data = await res.json();
+    if (!data.success) return;
+    const p = data.profit.all_time;
+    document.getElementById('utilTotales').innerHTML = `
+      <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f1f5f9;font-size:.85rem;">
+        <span>Utilidad total acumulada</span>
+        <strong class="profit-pos">${fmtPEN(p.total_profit_pen)}</strong>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f1f5f9;font-size:.85rem;">
+        <span>Casa QoriCash</span>
+        <strong class="profit-pos">${fmtPEN(p.house_profit_pen)}</strong>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f1f5f9;font-size:.85rem;">
+        <span>Traders</span>
+        <strong>${fmtPEN(p.trader_profit_pen)}</strong>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:.85rem;">
+        <span>N° de amarres</span>
+        <strong>${p.match_count}</strong>
+      </div>`;
+}
+
+async function loadUtilidadPeriodo() {
+    const fi  = document.getElementById('utFini').value;
+    const ff  = document.getElementById('utFfin').value;
+    const params = new URLSearchParams({fecha_ini: fi, fecha_fin: ff, status:'Activo'});
+    const res  = await fetch('/treasury/api/libros/amarres?' + params);
+    const data = await res.json();
+    if (!data.success) return;
+    const t = data.totales;
+    const netColor = t.profit_pen >= 0 ? '#16a34a' : '#dc2626';
+    document.getElementById('utilPeriodo').innerHTML = `
+      <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f1f5f9;font-size:.85rem;">
+        <span>Amarres en el período</span>
+        <strong>${data.total}</strong>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f1f5f9;font-size:.85rem;">
+        <span>USD amarrado</span>
+        <strong>${fmtUSD(t.matched_usd)}</strong>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:.85rem;border-top:2px solid #e8ecf0;margin-top:4px;padding-top:8px;">
+        <span><strong>Spread total</strong></span>
+        <strong style="color:${netColor};font-size:1rem;">${fmtPEN(t.profit_pen)}</strong>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:.82rem;">
+        <span style="color:#94A3B8;">Casa</span>
+        <strong class="profit-pos">${fmtPEN(t.house_profit_pen)}</strong>
+      </div>`;
+}
+
+// ── Reconciliación ────────────────────────────────────────────────────────────
+async function loadReconciliacion() {
+    document.getElementById('reconcResult').innerHTML = '<div class="text-center py-4"><span class="spinner-border spinner-border-sm"></span> Verificando…</div>';
+    const res  = await fetch('/treasury/api/reconciliacion');
+    const data = await res.json();
+    if (!data.success) { document.getElementById('reconcResult').innerHTML = `<div class="alert alert-danger">${data.error}</div>`; return; }
+
+    const allOk = data.todo_coherente;
+    let html = allOk
+        ? `<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:16px;text-align:center;">
+            <i class="bi bi-patch-check-fill" style="color:#16a34a;font-size:2rem;"></i>
+            <div style="font-weight:700;color:#166534;margin-top:8px;">Saldos Coherentes</div>
+            <div style="font-size:.8rem;color:#16a34a;">Los saldos del sistema coinciden con los movimientos registrados.</div>
+          </div>` : '';
+
+    html += `<table class="table table-sm table-hover mt-3" style="font-size:.82rem;">
+      <thead style="background:#f8fafc;"><tr>
+        <th>Banco</th><th>Moneda</th>
+        <th class="text-end">Saldo BankBalance</th>
+        <th class="text-end">Suma Movimientos</th>
+        <th class="text-end">Diferencia</th>
+        <th>Estado</th>
+      </tr></thead><tbody>`;
+
+    data.resultados.forEach(r => {
+        const cls = r.coherente ? 'success' : 'danger';
+        const icon = r.coherente ? 'bi-check-circle-fill text-success' : 'bi-exclamation-circle-fill text-danger';
+        const diffColor = r.diferencia === 0 ? '#16a34a' : r.diferencia > 0 ? '#d97706' : '#dc2626';
+        const fmtByCur = (n) => r.moneda === 'USD' ? fmtUSD(n) : fmtPEN(n);
+        html += `<tr>
+          <td><strong>${r.banco}</strong></td>
+          <td>${r.moneda}</td>
+          <td class="text-end">${fmtByCur(r.saldo_balance)}</td>
+          <td class="text-end">${fmtByCur(r.saldo_movs)}</td>
+          <td class="text-end" style="font-weight:700;color:${diffColor};">${r.diferencia >= 0 ? '+' : ''}${fmtByCur(r.diferencia)}</td>
+          <td><i class="bi ${icon}"></i> ${r.coherente ? 'OK' : 'DIFERENCIA'}</td>
+        </tr>`;
+    });
+
+    html += '</tbody></table>';
+    if (!allOk) {
+        html = `<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:12px;margin-bottom:12px;">
+          <strong style="color:#991b1b;"><i class="bi bi-exclamation-triangle-fill me-1"></i>${data.incoherentes.length} diferencia(s) detectada(s)</strong>
+          <p style="font-size:.78rem;color:#b91c1c;margin:4px 0 0;">Los saldos en BankBalance no coinciden con la suma de movimientos. Crea ajustes manuales para reconciliar.</p>
+        </div>` + html;
+    }
+    document.getElementById('reconcResult').innerHTML = html;
+}
+
+// Init: set defaults
+document.getElementById('mbFini').value = month1str;
+document.getElementById('mbFfin').value = today;
+document.getElementById('utFini').value = month1str;
+document.getElementById('utFfin').value = today;
+</script>
+{% endblock %}

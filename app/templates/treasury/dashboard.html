@@ -1,0 +1,741 @@
+{% extends "base.html" %}
+{% block title %}Tesorería — QoriCash{% endblock %}
+
+{% block head %}
+<style>
+/* ── Treasury Dashboard ─────────────────────────────────────────────────── */
+.treasury-header {
+    background: linear-gradient(135deg, #0D1B2A 0%, #0a2540 50%, #0D1B2A 100%);
+    border-radius: 12px;
+    padding: 24px 28px;
+    margin-bottom: 20px;
+    position: relative;
+    overflow: hidden;
+}
+.treasury-header::before {
+    content: '';
+    position: absolute;
+    top: -40%;
+    right: -5%;
+    width: 300px;
+    height: 300px;
+    background: radial-gradient(circle, rgba(0,222,168,.12) 0%, transparent 70%);
+    pointer-events: none;
+}
+.treasury-header-title {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: #fff;
+    margin: 0 0 4px;
+}
+.treasury-header-sub {
+    font-size: .8125rem;
+    color: rgba(255,255,255,.5);
+    margin: 0;
+}
+.treasury-ts {
+    font-size: .72rem;
+    color: rgba(255,255,255,.35);
+    margin-top: 12px;
+}
+.treasury-badge-live {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: rgba(0,222,168,.15);
+    color: #00DEA8;
+    border: 1px solid rgba(0,222,168,.3);
+    border-radius: 20px;
+    font-size: .7rem;
+    font-weight: 700;
+    padding: 2px 10px;
+    letter-spacing: .04em;
+}
+.treasury-badge-live::before {
+    content: '';
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #00DEA8;
+    animation: pulse-dot 1.5s infinite;
+}
+@keyframes pulse-dot {
+    0%,100%{opacity:1;} 50%{opacity:.3;}
+}
+
+/* ── Metric Cards ─────────────────────────────────────────────────────── */
+.metric-card {
+    background: #fff;
+    border-radius: 10px;
+    border: 1px solid #e8ecf0;
+    padding: 18px 20px;
+    height: 100%;
+}
+.metric-card.dark {
+    background: #0D1B2A;
+    border-color: transparent;
+}
+.metric-label {
+    font-size: .7rem;
+    font-weight: 700;
+    color: #94A3B8;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    margin-bottom: 6px;
+}
+.metric-label.on-dark { color: rgba(255,255,255,.45); }
+.metric-value {
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: #0D1B2A;
+    line-height: 1.15;
+}
+.metric-value.on-dark { color: #00DEA8; }
+.metric-value.profit  { color: #16a34a; }
+.metric-value.warning { color: #d97706; }
+.metric-value.danger  { color: #dc2626; }
+.metric-sub {
+    font-size: .72rem;
+    color: #94A3B8;
+    margin-top: 4px;
+}
+
+/* ── Bank Grid ────────────────────────────────────────────────────────── */
+.bank-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 12px;
+}
+.bank-card {
+    background: #fff;
+    border: 1px solid #e8ecf0;
+    border-radius: 10px;
+    padding: 14px 16px;
+}
+.bank-card-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+.bank-badge {
+    font-size: .65rem;
+    font-weight: 800;
+    letter-spacing: .08em;
+    padding: 2px 8px;
+    border-radius: 4px;
+    text-transform: uppercase;
+}
+.bank-badge.bcp       { background:#e8f5e9; color:#1b5e20; }
+.bank-badge.interbank { background:#e3f2fd; color:#0d47a1; }
+.bank-badge.banbif    { background:#fce4ec; color:#880e4f; }
+.bank-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px 0;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: .82rem;
+}
+.bank-row:last-child { border-bottom: none; }
+.bank-row .cur-tag {
+    font-size: .68rem;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 3px;
+}
+.bank-row .cur-tag.usd { background:#e0f2fe; color:#0369a1; }
+.bank-row .cur-tag.pen { background:#f0fdf4; color:#166534; }
+.bank-row .amount { font-weight: 700; color: #0D1B2A; }
+
+/* ── Section headers ──────────────────────────────────────────────────── */
+.sec-head {
+    font-size: .72rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: #64748b;
+    margin: 20px 0 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.sec-head::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: #e8ecf0;
+}
+
+/* ── Alerts ───────────────────────────────────────────────────────────── */
+.alert-treasury {
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: .82rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+    border: none;
+}
+.alert-treasury.danger  { background:#fef2f2; color:#991b1b; }
+.alert-treasury.warning { background:#fffbeb; color:#92400e; }
+.alert-treasury.info    { background:#eff6ff; color:#1e40af; }
+
+/* ── Movement list ────────────────────────────────────────────────────── */
+.mv-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: .82rem;
+}
+.mv-row:last-child { border-bottom: none; }
+.mv-icon {
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: .9rem;
+    flex-shrink: 0;
+}
+.mv-icon.entrada { background: #f0fdf4; color: #16a34a; }
+.mv-icon.salida  { background: #fef2f2; color: #dc2626; }
+.mv-info { flex: 1; min-width: 0; }
+.mv-desc { font-size: .78rem; color: #0D1B2A; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mv-meta { font-size: .7rem; color: #94A3B8; }
+.mv-amount { font-weight: 700; font-size: .85rem; white-space: nowrap; }
+.mv-amount.entrada { color: #16a34a; }
+.mv-amount.salida  { color: #dc2626; }
+
+/* ── Position ─────────────────────────────────────────────────────────── */
+.pos-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: .85rem;
+}
+.pos-row:last-child { border-bottom: none; }
+.pos-label { color: #475569; }
+.pos-val { font-weight: 700; color: #0D1B2A; }
+.pos-val.open { color: #d97706; }
+.pos-val.green { color: #16a34a; }
+
+/* ── Closure badge ────────────────────────────────────────────────────── */
+.closure-badge {
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: .75rem;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+.closure-badge.ok      { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
+.closure-badge.pending { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+
+/* ── Loading skeleton ─────────────────────────────────────────────────── */
+.skeleton {
+    background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s infinite;
+    border-radius: 6px;
+    display: inline-block;
+}
+@keyframes shimmer { to { background-position: -200% 0; } }
+
+/* ── Nav tabs ─────────────────────────────────────────────────────────── */
+.treasury-nav {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 16px;
+    background: #f8fafc;
+    border-radius: 8px;
+    padding: 4px;
+}
+.treasury-nav a {
+    flex: 1;
+    text-align: center;
+    padding: 7px 8px;
+    border-radius: 6px;
+    font-size: .78rem;
+    font-weight: 600;
+    color: #64748b;
+    text-decoration: none;
+    transition: all .15s;
+}
+.treasury-nav a.active, .treasury-nav a:hover {
+    background: #fff;
+    color: #0D1B2A;
+    box-shadow: 0 1px 4px rgba(0,0,0,.08);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-3 py-3">
+
+  <!-- Nav ─────────────────────────────────────────────────────────────────── -->
+  <div class="treasury-nav">
+    <a href="{{ url_for('treasury.dashboard') }}" class="active"><i class="bi bi-speedometer2"></i> Dashboard</a>
+    <a href="{{ url_for('treasury.movimientos') }}"><i class="bi bi-list-ul"></i> Movimientos</a>
+    <a href="{{ url_for('treasury.cierre') }}"><i class="bi bi-calendar-check"></i> Cierre Diario</a>
+    <a href="{{ url_for('treasury.libros') }}"><i class="bi bi-journal-text"></i> Libros</a>
+  </div>
+
+  <!-- Header ─────────────────────────────────────────────────────────────── -->
+  <div class="treasury-header mb-3">
+    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+      <div>
+        <p class="treasury-header-title">Control de Tesorería</p>
+        <p class="treasury-header-sub">Posición financiera en tiempo real — QoriCash SAC</p>
+      </div>
+      <div class="d-flex align-items-center gap-2 flex-wrap">
+        <span class="treasury-badge-live">EN VIVO</span>
+        <button class="btn btn-sm" style="background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.2);font-size:.75rem;" onclick="loadDashboard()">
+          <i class="bi bi-arrow-clockwise"></i> Actualizar
+        </button>
+      </div>
+    </div>
+    <p class="treasury-ts" id="tsLabel">Cargando...</p>
+  </div>
+
+  <!-- Alerts ─────────────────────────────────────────────────────────────── -->
+  <div id="alertsContainer"></div>
+
+  <!-- Top Metrics ─────────────────────────────────────────────────────────── -->
+  <div class="row g-3 mb-3" id="topMetrics">
+    <div class="col-6 col-lg-3">
+      <div class="metric-card dark">
+        <div class="metric-label on-dark">Total USD en Bancos</div>
+        <div class="metric-value on-dark" id="mtTotalUSD">—</div>
+        <div class="metric-sub" id="mtUSDSub" style="color:rgba(255,255,255,.3);">Suma todas las cuentas</div>
+      </div>
+    </div>
+    <div class="col-6 col-lg-3">
+      <div class="metric-card dark" style="background:#0a2540;">
+        <div class="metric-label on-dark">Total PEN en Bancos</div>
+        <div class="metric-value on-dark" style="color:#60a5fa;" id="mtTotalPEN">—</div>
+        <div class="metric-sub" style="color:rgba(255,255,255,.3);">Suma todas las cuentas</div>
+      </div>
+    </div>
+    <div class="col-6 col-lg-3">
+      <div class="metric-card">
+        <div class="metric-label">Utilidad Realizada Hoy</div>
+        <div class="metric-value profit" id="mtProfitHoy">—</div>
+        <div class="metric-sub" id="mtProfitHoySub">De amarres cerrados</div>
+      </div>
+    </div>
+    <div class="col-6 col-lg-3">
+      <div class="metric-card">
+        <div class="metric-label">Posición Abierta (USD)</div>
+        <div class="metric-value warning" id="mtPosAbierta">—</div>
+        <div class="metric-sub" id="mtPosAbiertaSub">USD completado sin amarrar</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3">
+
+    <!-- Left: Saldos por Banco ────────────────────────────────────────────── -->
+    <div class="col-lg-7">
+
+      <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body p-3">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <span style="font-weight:700;font-size:.9rem;color:#0D1B2A;"><i class="bi bi-bank2 me-2 text-primary"></i>Saldos por Banco</span>
+            <span style="font-size:.72rem;color:#94A3B8;">Sistema — actualizado en cada operación</span>
+          </div>
+          <div class="bank-grid" id="bankGrid">
+            <div class="skeleton" style="height:120px;width:100%;"></div>
+            <div class="skeleton" style="height:120px;width:100%;"></div>
+            <div class="skeleton" style="height:120px;width:100%;"></div>
+          </div>
+
+          <!-- Totales -->
+          <div class="mt-3 pt-2" style="border-top:2px solid #e8ecf0;">
+            <div class="d-flex justify-content-between align-items-center" style="font-size:.85rem;">
+              <strong style="color:#0D1B2A;">Total General</strong>
+              <div class="d-flex gap-4">
+                <span><span style="font-size:.7rem;color:#94A3B8;margin-right:4px;">USD</span><strong id="totalUSD">—</strong></span>
+                <span><span style="font-size:.7rem;color:#94A3B8;margin-right:4px;">PEN</span><strong id="totalPEN">—</strong></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Operaciones del día -->
+      <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body p-3">
+          <div class="sec-head"><i class="bi bi-calendar3"></i>Operaciones de Hoy</div>
+          <div class="row g-2" id="todayOpsGrid">
+            <div class="col-6"><div class="skeleton" style="height:60px;"></div></div>
+            <div class="col-6"><div class="skeleton" style="height:60px;"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Posición abierta -->
+      <div class="card border-0 shadow-sm">
+        <div class="card-body p-3">
+          <div class="sec-head"><i class="bi bi-currency-exchange"></i>Posición Abierta (no amarrada)</div>
+          <div id="openPositionGrid">
+            <div class="skeleton" style="height:80px;"></div>
+          </div>
+          <div class="mt-2">
+            <a href="{{ url_for('treasury.movimientos') }}" style="font-size:.78rem;color:#3b82f6;text-decoration:none;">
+              <i class="bi bi-arrow-right-circle"></i> Ver todos los movimientos
+            </a>
+            &nbsp;&nbsp;
+            <a href="{{ url_for('treasury.libros') }}" style="font-size:.78rem;color:#3b82f6;text-decoration:none;">
+              <i class="bi bi-journal-text"></i> Libro de Amarres
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: P&L + Cierre + Movimientos recientes ─────────────────────── -->
+    <div class="col-lg-5">
+
+      <!-- P&L -->
+      <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body p-3">
+          <div class="sec-head"><i class="bi bi-graph-up-arrow"></i>P&amp;L — Utilidades</div>
+          <div id="plGrid">
+            <div class="skeleton" style="height:100px;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Estado de Cierre -->
+      <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body p-3">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <span style="font-weight:700;font-size:.85rem;color:#0D1B2A;"><i class="bi bi-calendar-check me-1 text-success"></i>Cierre Diario</span>
+            <a href="{{ url_for('treasury.cierre') }}" class="btn btn-sm btn-outline-primary" style="font-size:.72rem;">
+              <i class="bi bi-box-arrow-right"></i> Ir al Cierre
+            </a>
+          </div>
+          <div id="closureStatus">
+            <div class="skeleton" style="height:60px;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Operaciones pendientes críticas -->
+      <div class="card border-0 shadow-sm mb-3" id="pendingCard">
+        <div class="card-body p-3">
+          <div class="sec-head"><i class="bi bi-clock-history"></i>Pendientes Críticas</div>
+          <div id="pendingList">
+            <div class="skeleton" style="height:60px;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Movimientos recientes -->
+      <div class="card border-0 shadow-sm">
+        <div class="card-body p-3">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <span style="font-weight:700;font-size:.85rem;color:#0D1B2A;">
+              <i class="bi bi-activity me-1" style="color:#6366f1;"></i>Últimos Movimientos
+            </span>
+            <a href="{{ url_for('treasury.movimientos') }}" style="font-size:.72rem;color:#3b82f6;text-decoration:none;">Ver todos</a>
+          </div>
+          <div id="recentMvs">
+            <div class="skeleton" style="height:80px;"></div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /col right -->
+  </div><!-- /row -->
+</div><!-- /container -->
+{% endblock %}
+
+{% block scripts %}
+<script>
+const fmt   = (n, dec=2) => new Intl.NumberFormat('es-PE', {minimumFractionDigits:dec, maximumFractionDigits:dec}).format(n);
+const fmtUSD = n => `$ ${fmt(n)}`;
+const fmtPEN = n => `S/ ${fmt(n)}`;
+
+async function loadDashboard() {
+    try {
+        const res  = await fetch('/treasury/api/dashboard');
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error);
+
+        // Timestamp
+        const ts = new Date(data.timestamp);
+        document.getElementById('tsLabel').textContent =
+            `Actualizado: ${ts.toLocaleTimeString('es-PE', {hour:'2-digit',minute:'2-digit',second:'2-digit'})}`;
+
+        // Alerts
+        const ac = document.getElementById('alertsContainer');
+        ac.innerHTML = '';
+        (data.alerts || []).forEach(a => {
+            ac.innerHTML += `<div class="alert-treasury ${a.level}">
+                <i class="bi ${a.icon}"></i> ${a.message}
+            </div>`;
+        });
+
+        // Top metrics
+        const assets = data.assets;
+        document.getElementById('mtTotalUSD').textContent  = fmtUSD(assets.total_usd);
+        document.getElementById('mtTotalPEN').textContent  = fmtPEN(assets.total_pen);
+        const profitHoy = data.profit.today.total_profit_pen;
+        const profitEl  = document.getElementById('mtProfitHoy');
+        profitEl.textContent = fmtPEN(profitHoy);
+        profitEl.className = 'metric-value ' + (profitHoy >= 0 ? 'profit' : 'danger');
+        document.getElementById('mtProfitHoySub').textContent =
+            `${data.profit.today.match_count} amarre(s) — Neto: ${fmtPEN(data.profit.net_today)}`;
+
+        const openPos = data.open_position;
+        document.getElementById('mtPosAbierta').textContent = fmtUSD(Math.abs(openPos.neto_usd));
+        document.getElementById('mtPosAbiertaSub').textContent =
+            `${openPos.ops_count} op(s) — C: ${fmtUSD(openPos.compras_usd)} / V: ${fmtUSD(openPos.ventas_usd)}`;
+
+        // Bank grid
+        renderBankGrid(assets.system_balances, assets.total_usd, assets.total_pen);
+
+        // Today ops
+        renderTodayOps(data.today_operations);
+
+        // Open position detail
+        renderOpenPosition(openPos);
+
+        // P&L
+        renderPL(data.profit);
+
+        // Closure status
+        renderClosureStatus(data.closure);
+
+        // Pending
+        renderPending(data.pending_operations);
+
+        // Recent movements
+        renderRecentMovements(data.recent_movements);
+
+    } catch(e) {
+        console.error('Treasury dashboard error:', e);
+    }
+}
+
+function renderBankGrid(balances, totalUSD, totalPEN) {
+    const bankColors = {BCP:'bcp', INTERBANK:'interbank', BANBIF:'banbif'};
+    let html = '';
+    for (const [bank, bal] of Object.entries(balances)) {
+        const cls = bankColors[bank] || 'bcp';
+        html += `<div class="bank-card">
+          <div class="bank-card-header">
+            <span class="bank-badge ${cls}">${bank}</span>
+          </div>
+          <div class="bank-row">
+            <span><span class="cur-tag usd">USD</span></span>
+            <span class="amount">${fmtUSD(bal.USD)}</span>
+          </div>
+          <div class="bank-row">
+            <span><span class="cur-tag pen">PEN</span></span>
+            <span class="amount">${fmtPEN(bal.PEN)}</span>
+          </div>
+        </div>`;
+    }
+    document.getElementById('bankGrid').innerHTML = html;
+    document.getElementById('totalUSD').textContent = fmtUSD(totalUSD);
+    document.getElementById('totalPEN').textContent = fmtPEN(totalPEN);
+}
+
+function renderTodayOps(ops) {
+    document.getElementById('todayOpsGrid').innerHTML = `
+    <div class="col-6 col-md-3">
+      <div style="background:#f8fafc;border-radius:8px;padding:10px 12px;">
+        <div style="font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;">Operaciones</div>
+        <div style="font-size:1.4rem;font-weight:800;color:#0D1B2A;">${ops.total_ops}</div>
+        <div style="font-size:.7rem;color:#94A3B8;">C:${ops.compras_count} V:${ops.ventas_count}</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div style="background:#f8fafc;border-radius:8px;padding:10px 12px;">
+        <div style="font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;">Volumen USD</div>
+        <div style="font-size:1.1rem;font-weight:800;color:#0D1B2A;">${fmtUSD(ops.volume_usd)}</div>
+        <div style="font-size:.7rem;color:#94A3B8;">Hoy</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div style="background:#eff6ff;border-radius:8px;padding:10px 12px;">
+        <div style="font-size:.68rem;font-weight:700;color:#1d4ed8;text-transform:uppercase;">TC Promedio Compra</div>
+        <div style="font-size:1.1rem;font-weight:800;color:#1d4ed8;">${ops.avg_buy_rate > 0 ? ops.avg_buy_rate.toFixed(4) : '—'}</div>
+        <div style="font-size:.7rem;color:#3b82f6;">${fmtUSD(ops.buy_usd)}</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div style="background:#f0fdf4;border-radius:8px;padding:10px 12px;">
+        <div style="font-size:.68rem;font-weight:700;color:#166534;text-transform:uppercase;">TC Promedio Venta</div>
+        <div style="font-size:1.1rem;font-weight:800;color:#16a34a;">${ops.avg_sell_rate > 0 ? ops.avg_sell_rate.toFixed(4) : '—'}</div>
+        <div style="font-size:.7rem;color:#22c55e;">${fmtUSD(ops.sell_usd)}</div>
+      </div>
+    </div>`;
+}
+
+function renderOpenPosition(pos) {
+    const netoLabel = pos.neto_usd > 0 ? 'Posición Compra Neta' :
+                      pos.neto_usd < 0 ? 'Posición Venta Neta'  : 'Posición Balanceada';
+    const netoColor = pos.neto_usd > 0 ? '#d97706' :
+                      pos.neto_usd < 0 ? '#7c3aed' : '#16a34a';
+    document.getElementById('openPositionGrid').innerHTML = `
+    <div class="row g-2">
+      <div class="col-4">
+        <div style="background:#fffbeb;border-radius:8px;padding:10px;text-align:center;">
+          <div style="font-size:.68rem;font-weight:700;color:#92400e;text-transform:uppercase;">Compra USD</div>
+          <div style="font-size:1.1rem;font-weight:800;color:#d97706;">${fmtUSD(pos.compras_usd)}</div>
+        </div>
+      </div>
+      <div class="col-4">
+        <div style="background:#faf5ff;border-radius:8px;padding:10px;text-align:center;">
+          <div style="font-size:.68rem;font-weight:700;color:#6d28d9;text-transform:uppercase;">Venta USD</div>
+          <div style="font-size:1.1rem;font-weight:800;color:#7c3aed;">${fmtUSD(pos.ventas_usd)}</div>
+        </div>
+      </div>
+      <div class="col-4">
+        <div style="background:#f8fafc;border-radius:8px;padding:10px;text-align:center;">
+          <div style="font-size:.68rem;font-weight:700;color:#475569;text-transform:uppercase;">${netoLabel}</div>
+          <div style="font-size:1.1rem;font-weight:800;color:${netoColor};">${fmtUSD(Math.abs(pos.neto_usd))}</div>
+        </div>
+      </div>
+    </div>
+    <div style="font-size:.75rem;color:#94A3B8;margin-top:8px;">
+      <i class="bi bi-info-circle"></i>
+      ${pos.ops_count} operación(es) completada(s) con USD disponible para amarrar.
+      El neto representa la exposición cambiaria no cubierta.
+    </div>`;
+}
+
+function renderPL(profit) {
+    const t  = profit.all_time;
+    const hoy = profit.today;
+    const net = profit.net_today;
+    const netColor = net >= 0 ? '#16a34a' : '#dc2626';
+    document.getElementById('plGrid').innerHTML = `
+    <div class="pos-row">
+      <span class="pos-label">Utilidad acumulada total (amarres)</span>
+      <span class="pos-val green">${fmtPEN(t.total_profit_pen)}</span>
+    </div>
+    <div class="pos-row">
+      <span class="pos-label">&nbsp;&nbsp;→ Casa (spread QoriCash)</span>
+      <span class="pos-val green">${fmtPEN(t.house_profit_pen)}</span>
+    </div>
+    <div class="pos-row">
+      <span class="pos-label">&nbsp;&nbsp;→ Traders</span>
+      <span class="pos-val">${fmtPEN(t.trader_profit_pen)}</span>
+    </div>
+    <div style="height:8px;"></div>
+    <div class="pos-row" style="background:#f8fafc;border-radius:6px;padding:8px 10px;border:none;">
+      <span class="pos-label" style="font-weight:700;">Utilidad HOY (amarres)</span>
+      <span class="pos-val green">${fmtPEN(hoy.total_profit_pen)}</span>
+    </div>
+    <div class="pos-row">
+      <span class="pos-label">Gastos del día</span>
+      <span class="pos-val" style="color:#dc2626;">- ${fmtPEN(profit.expenses_today)}</span>
+    </div>
+    <div class="pos-row" style="border-bottom:2px solid #e8ecf0;">
+      <span class="pos-label" style="font-weight:700;">Neto del día</span>
+      <span class="pos-val" style="color:${netColor};font-size:1rem;">${fmtPEN(net)}</span>
+    </div>`;
+}
+
+function renderClosureStatus(closure) {
+    const el = document.getElementById('closureStatus');
+    if (closure.requires_closure) {
+        el.innerHTML = `<div style="background:#fef2f2;border-radius:8px;padding:12px 14px;">
+          <div style="font-size:.78rem;font-weight:700;color:#991b1b;margin-bottom:4px;">
+            <i class="bi bi-exclamation-octagon-fill me-1"></i>Cierre pendiente
+          </div>
+          <div style="font-size:.75rem;color:#b91c1c;">${closure.missing_days} día(s) sin cierre validado</div>
+          <a href="{{ url_for('treasury.cierre') }}" class="btn btn-sm mt-2" style="background:#dc2626;color:#fff;font-size:.72rem;">
+            Realizar Cierre Ahora
+          </a>
+        </div>`;
+    } else if (closure.today_closure) {
+        const c = closure.today_closure;
+        const statusCls = c.is_validated ? 'ok' : 'pending';
+        const statusLabel = c.is_validated ? 'Validado' : 'Borrador';
+        el.innerHTML = `<div class="d-flex justify-content-between align-items-center">
+          <div>
+            <span class="closure-badge ${statusCls}"><i class="bi bi-${c.is_validated ? 'check-circle-fill' : 'clock'}"></i> ${statusLabel}</span>
+            <div style="font-size:.72rem;color:#64748b;margin-top:4px;">
+              Hoy: ${fmtUSD(c.total_volume_usd)} volumen · ${c.operations_completed} op(s)
+            </div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:.78rem;font-weight:700;color:${c.net_profit_pen >= 0 ? '#16a34a' : '#dc2626'}">
+              ${fmtPEN(c.net_profit_pen)}
+            </div>
+            <div style="font-size:.68rem;color:#94A3B8;">P&amp;L del día</div>
+          </div>
+        </div>`;
+    } else {
+        el.innerHTML = `<div style="text-align:center;padding:12px;color:#94A3B8;font-size:.8rem;">
+          <i class="bi bi-calendar-x" style="font-size:1.5rem;display:block;margin-bottom:6px;"></i>
+          Sin cierre para hoy
+        </div>`;
+    }
+}
+
+function renderPending(pending) {
+    const el = document.getElementById('pendingList');
+    if (pending.total === 0) {
+        el.innerHTML = '<div style="text-align:center;color:#94A3B8;font-size:.8rem;padding:10px;">Sin operaciones pendientes</div>';
+        document.getElementById('pendingCard').style.display = 'none';
+        return;
+    }
+    if (pending.criticas.length === 0) {
+        el.innerHTML = `<div style="color:#64748b;font-size:.82rem;">${pending.total} pendiente(s) — ninguna crítica (&lt;4h)</div>`;
+        return;
+    }
+    let html = '';
+    pending.criticas.slice(0, 5).forEach(op => {
+        html += `<div class="mv-row">
+          <div class="mv-icon salida"><i class="bi bi-clock-fill"></i></div>
+          <div class="mv-info">
+            <div class="mv-desc">${op.operation_id} — ${op.client}</div>
+            <div class="mv-meta">${op.status} · ${op.type} · ${op.horas}h transcurridas</div>
+          </div>
+          <div class="mv-amount salida">${fmtUSD(op.amount_usd)}</div>
+        </div>`;
+    });
+    el.innerHTML = html;
+}
+
+function renderRecentMovements(movements) {
+    const el = document.getElementById('recentMvs');
+    if (!movements.length) {
+        el.innerHTML = '<div style="text-align:center;color:#94A3B8;font-size:.8rem;padding:10px;">Sin movimientos registrados</div>';
+        return;
+    }
+    let html = '';
+    movements.slice(0, 10).forEach(m => {
+        const entrada = m.amount > 0;
+        const cls     = entrada ? 'entrada' : 'salida';
+        const icon    = entrada ? 'bi-arrow-down-circle-fill' : 'bi-arrow-up-circle-fill';
+        const sign    = entrada ? '+' : '';
+        const dt = new Date(m.movement_date);
+        const dtStr = dt.toLocaleTimeString('es-PE', {hour:'2-digit', minute:'2-digit'});
+        html += `<div class="mv-row">
+          <div class="mv-icon ${cls}"><i class="bi ${icon}"></i></div>
+          <div class="mv-info">
+            <div class="mv-desc">${m.description || m.movement_label}</div>
+            <div class="mv-meta">${m.bank_key} ${m.currency} · ${dtStr}</div>
+          </div>
+          <div class="mv-amount ${cls}">${sign}${m.currency === 'USD' ? fmtUSD(Math.abs(m.amount)) : fmtPEN(Math.abs(m.amount))}</div>
+        </div>`;
+    });
+    el.innerHTML = html;
+}
+
+// Auto-refresh cada 60s
+loadDashboard();
+setInterval(loadDashboard, 60000);
+</script>
+{% endblock %}

@@ -172,6 +172,14 @@
             </a>
             {% endif %}
 
+            {% if current_user.role in ('Master', 'Presidente de Negocios') %}
+            <a class="sidebar-link {% if request.endpoint and request.endpoint.startswith('treasury') %}active{% endif %}"
+               href="{{ url_for('treasury.dashboard') }}">
+                <i class="bi bi-safe2"></i>
+                <span class="sidebar-link-text">Tesorería</span>
+            </a>
+            {% endif %}
+
             {% if current_user.role in ['Master', 'Presidente de Negocios', 'Middle Office'] %}
             <a class="sidebar-link {% if request.endpoint == 'compliance.kyc' %}active{% endif %}"
                href="{{ url_for('compliance.kyc') }}">
