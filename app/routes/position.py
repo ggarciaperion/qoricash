@@ -1132,3 +1132,197 @@ def sync_balances():
         db.session.rollback()
         logger.error(f'ERROR EN /api/sync_balances: {traceback.format_exc()}')
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@position_bp.route('/api/debug_movements')
+@login_required
+@require_role('Master', 'Operador')
+def debug_movements():
+    """
+    Endpoint de diagnóstico: muestra el desglose exacto de movimientos por operación
+    sin modificar la base de datos. Útil para detectar atribuciones incorrectas de banco.
+    """
+    try:
+        from app.utils.formatters import now_peru
+        from datetime import datetime as dt, time
+
+        fecha_param = request.args.get('fecha')
+        if fecha_param:
+            try:
+                fecha_consulta = dt.strptime(fecha_param, '%Y-%m-%d').date()
+            except ValueError:
+                fecha_consulta = now_peru().date()
+        else:
+            fecha_consulta = now_peru().date()
+
+        inicio_dia = dt.combine(fecha_consulta, time.min)
+        fin_dia    = dt.combine(fecha_consulta, time.max)
+
+        demo_id = User.get_demo_user_id()
+        rec_query = Operation.query.filter(
+            Operation.status == 'Completada',
+            Operation.created_at >= inicio_dia,
+            Operation.created_at <= fin_dia
+        )
+        if demo_id:
+            rec_query = rec_query.filter(Operation.user_id != demo_id)
+        completed_ops = rec_query.all()
+
+        from app.config.bank_accounts import QORICASH_ACCOUNTS
+        _banco_accts = {}
+        for _b, _monedas in QORICASH_ACCOUNTS.items():
+            _banco_accts[_b] = {}
+            for _m, _d in _monedas.items():
+                _banco_accts[_b][_m] = f"{_b} {_m} ({_d['numero']})"
+
+        _BANK_ALIASES = {
+            'BCP': 'BCP', 'CREDITO': 'BCP', 'CRÉDITO': 'BCP',
+            'INTERBANK': 'INTERBANK', 'IBK': 'INTERBANK',
+            'BANBIF': 'BANBIF', 'BIF': 'BANBIF',
+        }
+
+        def _norm(name):
+            if not (name or '').strip():
+                return ''
+            u = name.upper()
+            for alias, banco in _BANK_ALIASES.items():
+                if alias in u:
+                    return banco
+            return 'INTERBANK'
+
+        def _fallback(op):
+            try:
+                if op.source_account and op.client:
+                    for acct in (op.client.bank_accounts or []):
+                        if acct.get('account_number') == op.source_account:
+                            return _norm(acct.get('bank_name', ''))
+                if op.source_bank_name:
+                    return _norm(op.source_bank_name)
+            except Exception:
+                pass
+            return 'INTERBANK'
+
+        def _fallback_dest(op):
+            try:
+                if op.destination_account and op.client:
+                    for acct in (op.client.bank_accounts or []):
+                        if acct.get('account_number') == op.destination_account:
+                            return _norm(acct.get('bank_name', ''))
+                if op.destination_bank_name:
+                    return _norm(op.destination_bank_name)
+            except Exception:
+                pass
+            return _fallback(op)
+
+        acct_totals = {}
+        ops_detail  = []
+
+        for op in completed_ops:
+            _usd  = float(op.amount_usd)
+            _pen  = float(op.amount_pen)
+            _pays = op.client_payments or []
+            _deps = op.client_deposits or []
+            _hp   = any(p.get('qc_bank') for p in _pays)
+            _hd   = any(d.get('qc_bank') for d in _deps)
+            _fb   = _fallback(op)
+            _fbd  = _fallback_dest(op)
+
+            movements = []
+
+            def _record(full_name, usd_d, pen_d, reason):
+                if not full_name:
+                    movements.append({'cuenta': 'DESCONOCIDA', 'usd': usd_d, 'pen': pen_d, 'razon': reason})
+                    return
+                movements.append({'cuenta': full_name, 'usd': usd_d, 'pen': pen_d, 'razon': reason})
+                if full_name not in acct_totals:
+                    acct_totals[full_name] = {'USD': 0.0, 'PEN': 0.0}
+                acct_totals[full_name]['USD'] += usd_d
+                acct_totals[full_name]['PEN'] += pen_d
+
+            if op.operation_type == 'Compra':
+                if _hd:
+                    _ua = 0.0
+                    for d in _deps:
+                        _b = _norm(d.get('qc_bank','')) or _norm(d.get('cuenta_cargo',''))
+                        _a = float(d.get('importe', 0))
+                        if _b and _a > 0:
+                            _record(_banco_accts.get(_b,{}).get('USD'), +_a, 0.0,
+                                    f"Compra dep qc_bank={d.get('qc_bank','')} cuenta={d.get('cuenta_cargo','')}")
+                            _ua += _a
+                    if _ua == 0 and _usd > 0:
+                        _record(_banco_accts.get(_fb,{}).get('USD'), +_usd, 0.0,
+                                f"Compra dep fallback src={op.source_account} src_bank={op.source_bank_name} fb={_fb}")
+                else:
+                    _record(_banco_accts.get(_fb,{}).get('USD'), +_usd, 0.0,
+                            f"Compra dep (sin qc_bank) fallback src={op.source_account} src_bank={op.source_bank_name} fb={_fb}")
+                if _hp:
+                    _pa = 0.0
+                    for p in _pays:
+                        _b = _norm(p.get('qc_bank','')) or _norm(p.get('cuenta_destino',''))
+                        _a = float(p.get('importe', 0))
+                        if _b and _a > 0:
+                            _record(_banco_accts.get(_b,{}).get('PEN'), 0.0, -_a,
+                                    f"Compra pay qc_bank={p.get('qc_bank','')} cuenta={p.get('cuenta_destino','')}")
+                            _pa += _a
+                    if _pa == 0 and _pen > 0:
+                        _record(_banco_accts.get(_fbd,{}).get('PEN'), 0.0, -_pen,
+                                f"Compra pay fallback dest={op.destination_account} dest_bank={op.destination_bank_name} fbd={_fbd}")
+                else:
+                    _record(_banco_accts.get(_fbd,{}).get('PEN'), 0.0, -_pen,
+                            f"Compra pay (sin qc_bank) fallback dest={op.destination_account} dest_bank={op.destination_bank_name} fbd={_fbd}")
+            else:  # Venta
+                if _hd:
+                    _pa = 0.0
+                    for d in _deps:
+                        _b = _norm(d.get('qc_bank','')) or _norm(d.get('cuenta_cargo',''))
+                        _a = float(d.get('importe', 0))
+                        if _b and _a > 0:
+                            _record(_banco_accts.get(_b,{}).get('PEN'), 0.0, +_a,
+                                    f"Venta dep qc_bank={d.get('qc_bank','')} cuenta={d.get('cuenta_cargo','')}")
+                            _pa += _a
+                    if _pa == 0 and _pen > 0:
+                        _record(_banco_accts.get(_fb,{}).get('PEN'), 0.0, +_pen,
+                                f"Venta dep fallback src={op.source_account} src_bank={op.source_bank_name} fb={_fb}")
+                else:
+                    _record(_banco_accts.get(_fb,{}).get('PEN'), 0.0, +_pen,
+                            f"Venta dep (sin qc_bank) fallback src={op.source_account} src_bank={op.source_bank_name} fb={_fb}")
+                if _hp:
+                    _ua = 0.0
+                    for p in _pays:
+                        _b = _norm(p.get('qc_bank','')) or _norm(p.get('cuenta_destino',''))
+                        _a = float(p.get('importe', 0))
+                        if _b and _a > 0:
+                            _record(_banco_accts.get(_b,{}).get('USD'), -_a, 0.0,
+                                    f"Venta pay qc_bank={p.get('qc_bank','')} cuenta={p.get('cuenta_destino','')}")
+                            _ua += _a
+                    if _ua == 0 and _usd > 0:
+                        _record(_banco_accts.get(_fbd,{}).get('USD'), -_usd, 0.0,
+                                f"Venta pay fallback dest={op.destination_account} dest_bank={op.destination_bank_name} fbd={_fbd}")
+                else:
+                    _record(_banco_accts.get(_fbd,{}).get('USD'), -_usd, 0.0,
+                            f"Venta pay (sin qc_bank) fallback dest={op.destination_account} dest_bank={op.destination_bank_name} fbd={_fbd}")
+
+            ops_detail.append({
+                'op_id':   op.operation_id,
+                'tipo':    op.operation_type,
+                'usd':     _usd,
+                'pen':     _pen,
+                'fb':      _fb,
+                'fbd':     _fbd,
+                'hd':      _hd,
+                'hp':      _hp,
+                'deposits': _deps,
+                'payments': _pays,
+                'movimientos': movements,
+            })
+
+        return jsonify({
+            'fecha':    fecha_consulta.isoformat(),
+            'ops':      len(ops_detail),
+            'totales':  acct_totals,
+            'detalle':  ops_detail,
+        })
+
+    except Exception as e:
+        logger.error(f'ERROR EN /api/debug_movements: {traceback.format_exc()}')
+        return jsonify({'success': False, 'error': str(e)}), 500
