@@ -774,6 +774,11 @@ document.getElementById('voucherLightbox').addEventListener('click', function(e)
 });
 
 // ── Ver Detalles ───────────────────────────────────────────────────────────
+var _viewOpModal = null;
+document.addEventListener('DOMContentLoaded', function() {
+    _viewOpModal = new bootstrap.Modal(document.getElementById('viewOperationModal'));
+});
+
 function viewOperationDetails(operationId) {
     // Reset
     document.getElementById('opHeroId').textContent     = 'Cargando...';
@@ -784,7 +789,10 @@ function viewOperationDetails(operationId) {
             <div class="spinner-border" style="color:#00DEA8;"></div>
             <p class="mt-2 text-muted small">Cargando detalles...</p>
         </div>`;
-    bootstrap.Modal.getOrCreateInstance(document.getElementById('viewOperationModal')).show();
+    if (!_viewOpModal) {
+        _viewOpModal = new bootstrap.Modal(document.getElementById('viewOperationModal'));
+    }
+    _viewOpModal.show();
 
     ajaxRequest(`/operations/api/${operationId}`, 'GET', null,
         function(response) {
