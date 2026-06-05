@@ -114,7 +114,7 @@ class BankBalance(db.Model):
                 return _normalize(account_str) or None
 
             def _fallback_banco():
-                """Banco fallback cuando no hay qc_bank: usa source_account → client.bank_accounts."""
+                """Banco origen: Compra-USD / Venta-PEN (source_account del cliente)."""
                 try:
                     if operation.source_account and operation.client:
                         for acct in (operation.client.bank_accounts or []):
@@ -125,6 +125,19 @@ class BankBalance(db.Model):
                 except Exception:
                     pass
                 return None
+
+            def _fallback_banco_dest():
+                """Banco destino: Compra-PEN / Venta-USD (destination_account del cliente)."""
+                try:
+                    if operation.destination_account and operation.client:
+                        for acct in (operation.client.bank_accounts or []):
+                            if acct.get('account_number') == operation.destination_account:
+                                return _normalize(acct.get('bank_name', ''))
+                    if getattr(operation, 'destination_bank_name', None):
+                        return _normalize(operation.destination_bank_name)
+                except Exception:
+                    pass
+                return _fallback_banco()
 
             usd = float(operation.amount_usd)
             pen = float(operation.amount_pen)
@@ -168,7 +181,7 @@ class BankBalance(db.Model):
                     if _b:
                         _update(_banco_accts.get(_b, {}).get('USD'), +usd, 0.0)
 
-                # Pagos: QoriCash → cliente en PEN (outflows)
+                # Pagos PEN: QoriCash → cliente  (banco = cuenta DESTINO del cliente)
                 if _has_pay_banks:
                     _pa = 0.0
                     for pay in _payments:
@@ -178,16 +191,16 @@ class BankBalance(db.Model):
                             _update(_banco_accts.get(_b, {}).get('PEN'), 0.0, -_amt)
                             _pa += _amt
                     if _pa == 0 and pen > 0:
-                        _b = _fallback_banco()
+                        _b = _fallback_banco_dest()
                         if _b:
                             _update(_banco_accts.get(_b, {}).get('PEN'), 0.0, -pen)
                 else:
-                    _b = _fallback_banco()
+                    _b = _fallback_banco_dest()
                     if _b:
                         _update(_banco_accts.get(_b, {}).get('PEN'), 0.0, -pen)
 
             else:  # Venta
-                # Depósitos: cliente → QoriCash en PEN (inflows)
+                # Depósitos PEN: cliente → QoriCash  (banco = cuenta ORIGEN del cliente)
                 if _has_dep_banks:
                     _pa = 0.0
                     for dep in _deposits:
@@ -205,7 +218,7 @@ class BankBalance(db.Model):
                     if _b:
                         _update(_banco_accts.get(_b, {}).get('PEN'), 0.0, +pen)
 
-                # Pagos: QoriCash → cliente en USD (outflows)
+                # Pagos USD: QoriCash → cliente  (banco = cuenta DESTINO del cliente)
                 if _has_pay_banks:
                     _ua = 0.0
                     for pay in _payments:
@@ -215,11 +228,11 @@ class BankBalance(db.Model):
                             _update(_banco_accts.get(_b, {}).get('USD'), -_amt, 0.0)
                             _ua += _amt
                     if _ua == 0 and usd > 0:
-                        _b = _fallback_banco()
+                        _b = _fallback_banco_dest()
                         if _b:
                             _update(_banco_accts.get(_b, {}).get('USD'), -usd, 0.0)
                 else:
-                    _b = _fallback_banco()
+                    _b = _fallback_banco_dest()
                     if _b:
                         _update(_banco_accts.get(_b, {}).get('USD'), -usd, 0.0)
 

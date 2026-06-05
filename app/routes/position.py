@@ -575,7 +575,7 @@ def get_bank_reconciliation():
             acct_mvmt[full_name]['PEN'] += pen_delta
 
         def _fallback_banco(op):
-            """Banco fallback cuando no hay qc_bank en los pagos/depósitos."""
+            """Banco fallback para el lado ORIGEN (Compra-USD / Venta-PEN)."""
             try:
                 if op.source_account and op.client:
                     for _acct in (op.client.bank_accounts or []):
@@ -587,6 +587,23 @@ def get_bank_reconciliation():
                 pass
             return 'INTERBANK'
 
+        def _fallback_banco_dest(op):
+            """Banco fallback para el lado DESTINO (Compra-PEN / Venta-USD).
+            Para Compra: QoriCash paga PEN a la cuenta destino del cliente.
+            Para Venta:  QoriCash paga USD a la cuenta destino del cliente.
+            La cuenta destino del cliente determina qué banco de QoriCash se usa
+            (transferencia intrabancaria mismo-banco)."""
+            try:
+                if op.destination_account and op.client:
+                    for _acct in (op.client.bank_accounts or []):
+                        if _acct.get('account_number') == op.destination_account:
+                            return _normalize_banco(_acct.get('bank_name', ''))
+                if op.destination_bank_name:
+                    return _normalize_banco(op.destination_bank_name)
+            except Exception:
+                pass
+            return _fallback_banco(op)  # último recurso: usar banco origen
+
         for op in completed_ops:
             _usd = float(op.amount_usd)
             _pen = float(op.amount_pen)
@@ -596,7 +613,7 @@ def get_bank_reconciliation():
             _has_dep_banks = any(d.get('qc_bank') for d in _deposits)
 
             if op.operation_type == 'Compra':
-                # Depósitos: cliente → QoriCash en USD
+                # Depósitos USD: cliente → QoriCash  (banco = cuenta origen del cliente)
                 if _has_dep_banks:
                     _usd_attr = 0.0
                     for dep in _deposits:
@@ -609,7 +626,7 @@ def get_bank_reconciliation():
                         _add_mvmt(_banco_accts.get(_fallback_banco(op), {}).get('USD'), +_usd, 0.0)
                 else:
                     _add_mvmt(_banco_accts.get(_fallback_banco(op), {}).get('USD'), +_usd, 0.0)
-                # Pagos: QoriCash → cliente en PEN
+                # Pagos PEN: QoriCash → cliente  (banco = cuenta DESTINO del cliente)
                 if _has_pay_banks:
                     _pen_attr = 0.0
                     for pay in _payments:
@@ -619,11 +636,11 @@ def get_bank_reconciliation():
                             _add_mvmt(_banco_accts.get(_b, {}).get('PEN'), 0.0, -_amt)
                             _pen_attr += _amt
                     if _pen_attr == 0 and _pen > 0:
-                        _add_mvmt(_banco_accts.get(_fallback_banco(op), {}).get('PEN'), 0.0, -_pen)
+                        _add_mvmt(_banco_accts.get(_fallback_banco_dest(op), {}).get('PEN'), 0.0, -_pen)
                 else:
-                    _add_mvmt(_banco_accts.get(_fallback_banco(op), {}).get('PEN'), 0.0, -_pen)
+                    _add_mvmt(_banco_accts.get(_fallback_banco_dest(op), {}).get('PEN'), 0.0, -_pen)
             else:  # Venta
-                # Depósitos: cliente → QoriCash en PEN
+                # Depósitos PEN: cliente → QoriCash  (banco = cuenta origen del cliente)
                 if _has_dep_banks:
                     _pen_attr = 0.0
                     for dep in _deposits:
@@ -636,7 +653,7 @@ def get_bank_reconciliation():
                         _add_mvmt(_banco_accts.get(_fallback_banco(op), {}).get('PEN'), 0.0, +_pen)
                 else:
                     _add_mvmt(_banco_accts.get(_fallback_banco(op), {}).get('PEN'), 0.0, +_pen)
-                # Pagos: QoriCash → cliente en USD
+                # Pagos USD: QoriCash → cliente  (banco = cuenta DESTINO del cliente)
                 if _has_pay_banks:
                     _usd_attr = 0.0
                     for pay in _payments:
@@ -646,9 +663,9 @@ def get_bank_reconciliation():
                             _add_mvmt(_banco_accts.get(_b, {}).get('USD'), -_amt, 0.0)
                             _usd_attr += _amt
                     if _usd_attr == 0 and _usd > 0:
-                        _add_mvmt(_banco_accts.get(_fallback_banco(op), {}).get('USD'), -_usd, 0.0)
+                        _add_mvmt(_banco_accts.get(_fallback_banco_dest(op), {}).get('USD'), -_usd, 0.0)
                 else:
-                    _add_mvmt(_banco_accts.get(_fallback_banco(op), {}).get('USD'), -_usd, 0.0)
+                    _add_mvmt(_banco_accts.get(_fallback_banco_dest(op), {}).get('USD'), -_usd, 0.0)
         # Movimientos proyectados de operaciones pendientes / en proceso
         acct_mvmt_pend = {}
 
@@ -690,9 +707,9 @@ def get_bank_reconciliation():
                             _add_mvmt_pend(_banco_accts.get(_b, {}).get('PEN'), 0.0, -_amt)
                             _pen_attr += _amt
                     if _pen_attr == 0 and _pen > 0:
-                        _add_mvmt_pend(_banco_accts.get(_fallback_banco(op), {}).get('PEN'), 0.0, -_pen)
+                        _add_mvmt_pend(_banco_accts.get(_fallback_banco_dest(op), {}).get('PEN'), 0.0, -_pen)
                 else:
-                    _add_mvmt_pend(_banco_accts.get(_fallback_banco(op), {}).get('PEN'), 0.0, -_pen)
+                    _add_mvmt_pend(_banco_accts.get(_fallback_banco_dest(op), {}).get('PEN'), 0.0, -_pen)
             else:
                 if _has_dep_banks:
                     _pen_attr = 0.0
@@ -715,9 +732,9 @@ def get_bank_reconciliation():
                             _add_mvmt_pend(_banco_accts.get(_b, {}).get('USD'), -_amt, 0.0)
                             _usd_attr += _amt
                     if _usd_attr == 0 and _usd > 0:
-                        _add_mvmt_pend(_banco_accts.get(_fallback_banco(op), {}).get('USD'), -_usd, 0.0)
+                        _add_mvmt_pend(_banco_accts.get(_fallback_banco_dest(op), {}).get('USD'), -_usd, 0.0)
                 else:
-                    _add_mvmt_pend(_banco_accts.get(_fallback_banco(op), {}).get('USD'), -_usd, 0.0)
+                    _add_mvmt_pend(_banco_accts.get(_fallback_banco_dest(op), {}).get('USD'), -_usd, 0.0)
         # ─────────────────────────────────────────────────────────────────────
 
         # Calcular totales esperados y diferencias usando movimientos por cuenta
@@ -1000,6 +1017,7 @@ def sync_balances():
             return 'INTERBANK'
 
         def _fallback(op):
+            """Banco origen: Compra-USD / Venta-PEN."""
             try:
                 if op.source_account and op.client:
                     for acct in (op.client.bank_accounts or []):
@@ -1010,6 +1028,19 @@ def sync_balances():
             except Exception:
                 pass
             return 'INTERBANK'
+
+        def _fallback_dest(op):
+            """Banco destino: Compra-PEN / Venta-USD."""
+            try:
+                if op.destination_account and op.client:
+                    for acct in (op.client.bank_accounts or []):
+                        if acct.get('account_number') == op.destination_account:
+                            return _norm(acct.get('bank_name', ''))
+                if op.destination_bank_name:
+                    return _norm(op.destination_bank_name)
+            except Exception:
+                pass
+            return _fallback(op)
 
         acct_mvmt = {}
 
@@ -1029,6 +1060,7 @@ def sync_balances():
             _hp   = any(p.get('qc_bank') for p in _pays)
             _hd   = any(d.get('qc_bank') for d in _deps)
             _fb   = _fallback(op)
+            _fbd  = _fallback_dest(op)
 
             if op.operation_type == 'Compra':
                 if _hd:
@@ -1052,9 +1084,9 @@ def sync_balances():
                             _add(_banco_accts.get(_b,{}).get('PEN'), 0.0, -_a)
                             _pa += _a
                     if _pa == 0 and _pen > 0:
-                        _add(_banco_accts.get(_fb,{}).get('PEN'), 0.0, -_pen)
+                        _add(_banco_accts.get(_fbd,{}).get('PEN'), 0.0, -_pen)
                 else:
-                    _add(_banco_accts.get(_fb,{}).get('PEN'), 0.0, -_pen)
+                    _add(_banco_accts.get(_fbd,{}).get('PEN'), 0.0, -_pen)
             else:  # Venta
                 if _hd:
                     _pa = 0.0
@@ -1077,9 +1109,9 @@ def sync_balances():
                             _add(_banco_accts.get(_b,{}).get('USD'), -_a, 0.0)
                             _ua += _a
                     if _ua == 0 and _usd > 0:
-                        _add(_banco_accts.get(_fb,{}).get('USD'), -_usd, 0.0)
+                        _add(_banco_accts.get(_fbd,{}).get('USD'), -_usd, 0.0)
                 else:
-                    _add(_banco_accts.get(_fb,{}).get('USD'), -_usd, 0.0)
+                    _add(_banco_accts.get(_fbd,{}).get('USD'), -_usd, 0.0)
 
         all_banks = BankBalance.query.all()
         updated = []
