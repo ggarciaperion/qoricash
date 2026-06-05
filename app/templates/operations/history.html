@@ -937,7 +937,6 @@ function buildDetailsHTML(op) {
     // ── 3b. Distribución final de liquidación ─────────────────────────
     const allDeps  = op.client_deposits  || [];
     const allPays  = op.client_payments  || [];
-    const isCompra = (op.operation_type || '').toLowerCase() === 'compra';
     const depsSym  = isCompra ? '$' : 'S/';
     const paysSym  = isCompra ? 'S/' : '$';
     const depsLabel = isCompra ? 'Abonos recibidos (USD)' : 'Abonos recibidos (PEN)';
