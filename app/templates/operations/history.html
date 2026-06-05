@@ -752,7 +752,7 @@ function downloadExcelWithDates() {
     if (startDate) params.push(`start_date=${startDate}`);
     if (endDate)   params.push(`end_date=${endDate}`);
     if (params.length) url += '?' + params.join('&');
-    $('#exportDateFilterModal').modal('hide');
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('exportDateFilterModal')).hide();
     showNotification(startDate || endDate ? 'Preparando descarga del rango seleccionado...' : 'Preparando descarga del historial completo...', 'info');
     window.location.href = url;
     setTimeout(() => { $('#export_start_date').val(''); $('#export_end_date').val(''); }, 1000);
@@ -784,7 +784,7 @@ function viewOperationDetails(operationId) {
             <div class="spinner-border" style="color:#00DEA8;"></div>
             <p class="mt-2 text-muted small">Cargando detalles...</p>
         </div>`;
-    $('#viewOperationModal').modal('show');
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('viewOperationModal')).show();
 
     ajaxRequest(`/operations/api/${operationId}`, 'GET', null,
         function(response) {
