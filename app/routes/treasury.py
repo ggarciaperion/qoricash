@@ -189,8 +189,8 @@ def _get_realized_profit(fecha_ini=None, fecha_fin=None) -> dict:
     totals = q.with_entities(
         func.sum(AccountingMatch.profit_pen),
         func.sum(AccountingMatch.house_profit_pen),
-        func.sum(AccountingMatch.trader_buy_profit),
-        func.sum(AccountingMatch.trader_sell_profit),
+        func.sum(AccountingMatch.trader_buy_profit_pen),
+        func.sum(AccountingMatch.trader_sell_profit_pen),
         func.count(AccountingMatch.id),
     ).one()
 
@@ -860,8 +860,8 @@ def api_libro_amarres():
                 'sell_base':        float(m.sell_base_rate or m.sell_exchange_rate or 0),
                 'total_profit_pen': float(m.profit_pen         or 0),
                 'house_profit_pen': float(m.house_profit_pen   or 0),
-                'trader_buy_pen':   float(m.trader_buy_profit  or 0),
-                'trader_sell_pen':  float(m.trader_sell_profit or 0),
+                'trader_buy_pen':   float(m.trader_buy_profit_pen  or 0),
+                'trader_sell_pen':  float(m.trader_sell_profit_pen or 0),
                 'batch_id':         m.batch_id,
                 'match_type':       m.match_type,
             })
