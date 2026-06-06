@@ -123,8 +123,26 @@
                                 </td>
                                 <td class="text-end">$ {{ op.amount_usd|format_currency(2) }}</td>
                                 <td class="text-center d-none d-lg-table-cell">{{ "%.4f"|format(op.exchange_rate) }}</td>
-                                <td class="text-center d-none d-xl-table-cell">{{ "%.4f"|format(op.base_rate) if op.base_rate else '—' }}</td>
-                                <td class="text-center d-none d-xl-table-cell">{{ "%+.1f"|format(op.pips) if op.pips else '—' }}</td>
+                                <td class="text-center d-none d-xl-table-cell">
+                                    {% if current_user.role == 'Master' %}
+                                    <input type="number" class="base-rate-input"
+                                           data-op-id="{{ op.id }}"
+                                           data-op-type="{{ op.operation_type }}"
+                                           data-tc="{{ op.exchange_rate }}"
+                                           value="{{ '%.4f'|format(op.base_rate) if op.base_rate else '' }}"
+                                           placeholder="—"
+                                           step="0.0001"
+                                           style="width:72px;border:1px dashed #d1d5db;border-radius:4px;text-align:center;font-size:12px;padding:2px 4px;background:transparent;outline:none;"
+                                           onchange="updateBaseRateInline(this)">
+                                    {% else %}
+                                    {{ "%.4f"|format(op.base_rate) if op.base_rate else '—' }}
+                                    {% endif %}
+                                </td>
+                                <td class="text-center d-none d-xl-table-cell" data-field="pips" data-op-id="{{ op.id }}">
+                                    {% if op.pips %}
+                                    <span style="color:{{ '#198754' if op.pips >= 0 else '#dc3545' }};font-weight:600;">{{ '%+.1f'|format(op.pips) }}</span>
+                                    {% else %}—{% endif %}
+                                </td>
                                 <td class="text-end">S/ {{ op.amount_pen|format_currency(2) }}</td>
                                 <td class="text-center d-none d-lg-table-cell">
                                     {%- set pay_banks = [] -%}
@@ -921,8 +939,22 @@ function buildOperationRow(op) {
                 <td>${typeBadge}</td>
                 <td class="text-end">$ ${formattedUSD}</td>
                 <td class="text-center">${parseFloat(op.exchange_rate).toFixed(4)}</td>
-                <td class="text-center">${op.base_rate ? parseFloat(op.base_rate).toFixed(4) : '—'}</td>
-                <td class="text-center">${op.pips != null ? (op.pips >= 0 ? '+' : '') + parseFloat(op.pips).toFixed(1) : '—'}</td>
+                <td class="text-center">${currentUserRole === 'Master'
+                    ? `<input type="number" class="base-rate-input"
+                              data-op-id="${op.id}"
+                              data-op-type="${op.operation_type}"
+                              data-tc="${op.exchange_rate}"
+                              value="${op.base_rate ? parseFloat(op.base_rate).toFixed(4) : ''}"
+                              placeholder="—"
+                              step="0.0001"
+                              style="width:72px;border:1px dashed #d1d5db;border-radius:4px;text-align:center;font-size:12px;padding:2px 4px;background:transparent;outline:none;"
+                              onchange="updateBaseRateInline(this)">`
+                    : (op.base_rate ? parseFloat(op.base_rate).toFixed(4) : '—')
+                }</td>
+                <td class="text-center" data-field="pips" data-op-id="${op.id}">${op.pips != null
+                    ? `<span style="color:${op.pips >= 0 ? '#198754' : '#dc3545'};font-weight:600;">${op.pips >= 0 ? '+' : ''}${parseFloat(op.pips).toFixed(1)}</span>`
+                    : '—'
+                }</td>
                 <td class="text-end">S/ ${formattedPEN}</td>
                 <td class="text-center"><small>${banksText}</small></td>
                 <td class="text-center">${canalBadge}</td>
@@ -2232,6 +2264,49 @@ let searchTimeoutModal = null;
 function openCreateOperationModal() {
     resetCreateForm();
     $('#createOperationModal').modal('show');
+}
+
+// === EDICIÓN INLINE BASE RATE (solo Master) ===
+function updateBaseRateInline(inputEl) {
+    const opId   = inputEl.dataset.opId;
+    const val    = inputEl.value.trim();
+    const newBase = val === '' ? null : parseFloat(val);
+
+    inputEl.style.borderColor = '#f59e0b';
+    inputEl.disabled = true;
+
+    ajaxRequest(`/operations/api/update/${opId}`, 'PATCH',
+        { base_rate: newBase },
+        function(resp) {
+            inputEl.disabled = false;
+            if (resp.success) {
+                inputEl.style.borderColor = '#22c55e';
+                setTimeout(() => { inputEl.style.borderColor = '#d1d5db'; }, 1500);
+
+                // Actualizar celda de Pips en la misma fila
+                const tr = inputEl.closest('tr');
+                const pipsCell = tr ? tr.querySelector('[data-field="pips"]') : null;
+                if (pipsCell) {
+                    const pips = resp.operation ? resp.operation.pips : null;
+                    if (pips != null) {
+                        const sign  = pips >= 0 ? '+' : '';
+                        const color = pips >= 0 ? '#198754' : '#dc3545';
+                        pipsCell.innerHTML = `<span style="color:${color};font-weight:600;">${sign}${parseFloat(pips).toFixed(1)}</span>`;
+                    } else {
+                        pipsCell.textContent = '—';
+                    }
+                }
+            } else {
+                inputEl.style.borderColor = '#ef4444';
+                showNotification(resp.message || 'Error al actualizar base', 'danger');
+            }
+        },
+        function() {
+            inputEl.disabled = false;
+            inputEl.style.borderColor = '#ef4444';
+            showNotification('Error de conexión al actualizar base', 'danger');
+        }
+    );
 }
 
 // Limitar decimales en campo numérico

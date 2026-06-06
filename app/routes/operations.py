@@ -932,9 +932,16 @@ def update_operation(operation_id):
         if 'base_rate' in data:
             new_base = data['base_rate']
             if new_base is not None:
-                operation.base_rate = float(new_base)
+                base_f = float(new_base)
+                tc_f   = float(operation.exchange_rate)
+                operation.base_rate = base_f
+                if operation.operation_type == 'Compra':
+                    operation.pips = round((base_f - tc_f) * 10000, 1)
+                else:
+                    operation.pips = round((tc_f - base_f) * 10000, 1)
             else:
                 operation.base_rate = None
+                operation.pips = None
 
         db.session.commit()
 
