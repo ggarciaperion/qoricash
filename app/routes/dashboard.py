@@ -25,18 +25,20 @@ def _demo_user_id():
 
 
 def _total_profit_from_matches(start_dt, end_dt, exclude_user_id=None):
-    """Utilidad total (profit_pen) de amarres activos en el rango — fuente para Master."""
+    """Utilidad total (profit_pen) de amarres activos en el rango — fuente para Master.
+    Filtra por AccountingMatch.created_at (fecha del amarre, no de la operación).
+    """
     from app.models.accounting_match import AccountingMatch
-    buy_op = db.aliased(Operation, name='buy_op')
     q = db.session.query(func.sum(AccountingMatch.profit_pen))\
-        .join(buy_op, AccountingMatch.buy_operation_id == buy_op.id)\
         .filter(
             AccountingMatch.status == 'Activo',
-            buy_op.created_at >= start_dt,
-            buy_op.created_at < end_dt,
+            AccountingMatch.created_at >= start_dt,
+            AccountingMatch.created_at < end_dt,
         )
     if exclude_user_id:
-        q = q.filter(buy_op.user_id != exclude_user_id)
+        buy_op = db.aliased(Operation, name='buy_op')
+        q = q.join(buy_op, AccountingMatch.buy_operation_id == buy_op.id)\
+             .filter(buy_op.user_id != exclude_user_id)
     return float(q.scalar() or 0)
 
 
@@ -47,22 +49,23 @@ def _profit_breakdown_from_matches(start_dt, end_dt, exclude_user_id=None):
       - traders  : trader_buy_profit_pen + trader_sell_profit_pen (margen traders)
       - house    : house_profit_pen (margen QoriCash entre bases)
     Los tres suman: total = traders + house.
+    Filtra por AccountingMatch.created_at (fecha del amarre, no de la operación).
     """
     from app.models.accounting_match import AccountingMatch
-    buy_op = db.aliased(Operation, name='buy_op_bd')
-    row = db.session.query(
+    q = db.session.query(
         func.sum(AccountingMatch.profit_pen).label('total'),
         func.sum(AccountingMatch.trader_buy_profit_pen + AccountingMatch.trader_sell_profit_pen).label('traders'),
         func.sum(AccountingMatch.house_profit_pen).label('house'),
-    ).join(buy_op, AccountingMatch.buy_operation_id == buy_op.id)\
-     .filter(
-         AccountingMatch.status == 'Activo',
-         buy_op.created_at >= start_dt,
-         buy_op.created_at < end_dt,
-     )
+    ).filter(
+        AccountingMatch.status == 'Activo',
+        AccountingMatch.created_at >= start_dt,
+        AccountingMatch.created_at < end_dt,
+    )
     if exclude_user_id:
-        row = row.filter(buy_op.user_id != exclude_user_id)
-    row = row.first()
+        buy_op = db.aliased(Operation, name='buy_op_bd')
+        q = q.join(buy_op, AccountingMatch.buy_operation_id == buy_op.id)\
+             .filter(buy_op.user_id != exclude_user_id)
+    row = q.first()
     return {
         'total':   round(float(row.total   or 0), 2),
         'traders': round(float(row.traders or 0), 2),
