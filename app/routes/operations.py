@@ -928,6 +928,14 @@ def update_operation(operation_id):
                     pay['qc_bank'] = _derive_bank_from_account(pay['cuenta_destino'])
             operation.client_payments = payments
 
+        # Actualizar base_rate (tasa base para cálculo de utilidad del trader)
+        if 'base_rate' in data:
+            new_base = data['base_rate']
+            if new_base is not None:
+                operation.base_rate = float(new_base)
+            else:
+                operation.base_rate = None
+
         db.session.commit()
 
         # Enviar correo si se modificó el monto
