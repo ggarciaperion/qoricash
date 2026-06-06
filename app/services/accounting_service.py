@@ -649,9 +649,10 @@ class AccountingService:
                 if match.created_at else date.today()
             )
 
+            tipo = 'Ganancia' if profit > 0 else 'Pérdida'
             JournalService.create_entry(
                 entry_type  = 'calce_match',
-                description = f'Ganancia FX amarre #{match.id} ({buy_id} × {sell_id})',
+                description = f'{tipo} FX amarre #{match.id} ({buy_id} × {sell_id})',
                 lines       = lines,
                 source_type = 'match',
                 source_id   = match.id,

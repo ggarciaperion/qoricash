@@ -785,6 +785,8 @@ def register_blueprints(app):
     app.register_blueprint(crm_bp)             # CRM WhatsApp: /crm/*
     from app.routes.treasury import treasury_bp
     app.register_blueprint(treasury_bp, url_prefix='/treasury')  # Tesorería
+    from app.routes.finanzas import finanzas_bp
+    app.register_blueprint(finanzas_bp, url_prefix='/finanzas')  # Control Financiero V2
 
 # Service Worker debe servirse desde la raíz del dominio (scope /)
     import os

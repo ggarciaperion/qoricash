@@ -180,6 +180,14 @@
             </a>
             {% endif %}
 
+            {% if current_user.role in ('Master', 'Presidente de Negocios') %}
+            <a class="sidebar-link {% if request.endpoint and request.endpoint.startswith('finanzas') %}active{% endif %}"
+               href="{{ url_for('finanzas.control') }}">
+                <i class="bi bi-pie-chart-fill"></i>
+                <span class="sidebar-link-text">Finanzas V2</span>
+            </a>
+            {% endif %}
+
             {% if current_user.role in ['Master', 'Presidente de Negocios', 'Middle Office'] %}
             <a class="sidebar-link {% if request.endpoint == 'compliance.kyc' %}active{% endif %}"
                href="{{ url_for('compliance.kyc') }}">

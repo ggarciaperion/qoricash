@@ -1,0 +1,439 @@
+"""
+Finanzas Blueprint — Control Financiero Unificado V2
+=====================================================
+Vista única que responde las preguntas clave de la operación diaria.
+
+Rutas HTML:
+  /finanzas/              — Control Financiero (dashboard principal)
+  /finanzas/auditoria/    — Auditoría, cierres, movimientos, reconciliación
+
+APIs (todas consumen FinanceEngine — fuente única de verdad):
+  GET  /finanzas/api/snapshot         — snapshot completo
+  GET  /finanzas/api/posicion         — posición abierta detallada
+  GET  /finanzas/api/movimientos      — movimientos bancarios con filtros
+  GET  /finanzas/api/amarres          — amarres con filtros
+  GET  /finanzas/api/reconciliacion   — comparación BankBalance vs ledger
+  POST /finanzas/api/ledger/activar   — registrar saldos de apertura
+  POST /finanzas/api/cierre/calcular  — calcular cierre del día
+  POST /finanzas/api/cierre/validar   — guardar saldos reales
+  POST /finanzas/api/cierre/confirmar — confirmar cierre
+  GET  /finanzas/api/cierre/<fecha>   — obtener cierre por fecha
+  GET  /finanzas/api/cierre/historial — historial de cierres
+"""
+import logging
+from datetime import date, datetime, timedelta
+
+from flask import Blueprint, render_template, jsonify, request, abort
+from flask_login import login_required, current_user
+from sqlalchemy import func
+
+from app.extensions import db
+from app.services.finance_engine import FinanceEngine
+from app.utils.formatters import now_peru
+
+_log = logging.getLogger(__name__)
+
+finanzas_bp = Blueprint('finanzas', __name__)
+
+ALLOWED_ROLES = ('Master', 'Presidente de Negocios')
+
+
+def _require_role():
+    if current_user.role not in ALLOWED_ROLES:
+        abort(403)
+
+
+# ── Vistas HTML ───────────────────────────────────────────────────────────────
+
+@finanzas_bp.route('/')
+@login_required
+def control():
+    _require_role()
+    return render_template('finanzas/control.html')
+
+
+@finanzas_bp.route('/auditoria/')
+@login_required
+def auditoria():
+    _require_role()
+    return render_template('finanzas/auditoria.html')
+
+
+# ── API: Snapshot ─────────────────────────────────────────────────────────────
+
+@finanzas_bp.route('/api/snapshot')
+@login_required
+def api_snapshot():
+    _require_role()
+    try:
+        data = FinanceEngine.get_full_snapshot()
+        return jsonify(data)
+    except Exception as exc:
+        _log.exception('[Finanzas] api_snapshot')
+        return jsonify({'ok': False, 'error': str(exc)}), 500
+
+
+# ── API: Posición detallada ───────────────────────────────────────────────────
+
+@finanzas_bp.route('/api/posicion')
+@login_required
+def api_posicion():
+    _require_role()
+    try:
+        pos = FinanceEngine.get_open_position()
+        return jsonify({'ok': True, **pos})
+    except Exception as exc:
+        _log.exception('[Finanzas] api_posicion')
+        return jsonify({'ok': False, 'error': str(exc)}), 500
+
+
+# ── API: Movimientos bancarios ────────────────────────────────────────────────
+
+@finanzas_bp.route('/api/movimientos')
+@login_required
+def api_movimientos():
+    _require_role()
+    try:
+        from app.models import BankMovement
+
+        fecha_ini = request.args.get('fecha_ini')
+        fecha_fin = request.args.get('fecha_fin')
+        banco     = request.args.get('banco')
+        moneda    = request.args.get('moneda')
+        tipo      = request.args.get('tipo')
+        page      = int(request.args.get('page', 1))
+        per_page  = int(request.args.get('per_page', 50))
+
+        q = BankMovement.query
+
+        if fecha_ini:
+            fi = datetime.combine(date.fromisoformat(fecha_ini), datetime.min.time())
+            q  = q.filter(BankMovement.movement_date >= fi)
+        if fecha_fin:
+            ff = datetime.combine(date.fromisoformat(fecha_fin), datetime.max.time())
+            q  = q.filter(BankMovement.movement_date <= ff)
+        if banco:
+            q = q.filter(BankMovement.bank_key == banco)
+        if moneda:
+            q = q.filter(BankMovement.currency == moneda)
+        if tipo:
+            q = q.filter(BankMovement.movement_type == tipo)
+
+        total = q.count()
+        movs  = q.order_by(BankMovement.movement_date.desc()).offset(
+            (page - 1) * per_page
+        ).limit(per_page).all()
+
+        net = q.with_entities(func.sum(BankMovement.amount)).scalar() or 0
+
+        return jsonify({
+            'ok':          True,
+            'total':       total,
+            'page':        page,
+            'per_page':    per_page,
+            'pages':       (total + per_page - 1) // per_page,
+            'net_amount':  round(float(net), 2),
+            'movimientos': [m.to_dict() for m in movs],
+        })
+    except Exception as exc:
+        _log.exception('[Finanzas] api_movimientos')
+        return jsonify({'ok': False, 'error': str(exc)}), 500
+
+
+# ── API: Amarres ──────────────────────────────────────────────────────────────
+
+@finanzas_bp.route('/api/amarres')
+@login_required
+def api_amarres():
+    _require_role()
+    try:
+        from app.models import AccountingMatch
+
+        fecha_ini = request.args.get('fecha_ini')
+        fecha_fin = request.args.get('fecha_fin')
+        status    = request.args.get('status', 'Activo')
+        page      = int(request.args.get('page', 1))
+        per_page  = int(request.args.get('per_page', 50))
+
+        q = AccountingMatch.query
+        if status:
+            q = q.filter(AccountingMatch.status == status)
+        if fecha_ini:
+            fi = datetime.combine(date.fromisoformat(fecha_ini), datetime.min.time())
+            q  = q.filter(AccountingMatch.created_at >= fi)
+        if fecha_fin:
+            ff = datetime.combine(date.fromisoformat(fecha_fin), datetime.max.time())
+            q  = q.filter(AccountingMatch.created_at <= ff)
+
+        total   = q.count()
+        matches = q.order_by(AccountingMatch.created_at.desc()).offset(
+            (page - 1) * per_page
+        ).limit(per_page).all()
+
+        totales = q.with_entities(
+            func.sum(AccountingMatch.profit_pen),
+            func.sum(AccountingMatch.house_profit_pen),
+            func.sum(AccountingMatch.matched_amount_usd),
+        ).one()
+
+        items = []
+        for m in matches:
+            buy_op  = m.buy_operation
+            sell_op = m.sell_operation
+            items.append({
+                'id':               m.id,
+                'created_at':       m.created_at.isoformat() if m.created_at else None,
+                'status':           m.status,
+                'match_type':       m.match_type,
+                'matched_usd':      float(m.matched_amount_usd or 0),
+                'buy_op_id':        buy_op.operation_id  if buy_op  else None,
+                'sell_op_id':       sell_op.operation_id if sell_op else None,
+                'buy_client':       buy_op.client.full_name  if buy_op  and buy_op.client  else '—',
+                'sell_client':      sell_op.client.full_name if sell_op and sell_op.client else '—',
+                'buy_tc':           float(m.buy_exchange_rate  or 0),
+                'sell_tc':          float(m.sell_exchange_rate or 0),
+                'profit_pen':       float(m.profit_pen         or 0),
+                'house_pen':        float(m.house_profit_pen   or 0),
+                'trader_buy_pen':   float(m.trader_buy_profit_pen  or 0),
+                'trader_sell_pen':  float(m.trader_sell_profit_pen or 0),
+            })
+
+        return jsonify({
+            'ok':       True,
+            'total':    total,
+            'page':     page,
+            'per_page': per_page,
+            'pages':    (total + per_page - 1) // per_page,
+            'totales': {
+                'profit_pen':   round(float(totales[0] or 0), 2),
+                'house_pen':    round(float(totales[1] or 0), 2),
+                'matched_usd':  round(float(totales[2] or 0), 2),
+            },
+            'items': items,
+        })
+    except Exception as exc:
+        _log.exception('[Finanzas] api_amarres')
+        return jsonify({'ok': False, 'error': str(exc)}), 500
+
+
+# ── API: Reconciliación ───────────────────────────────────────────────────────
+
+@finanzas_bp.route('/api/reconciliacion')
+@login_required
+def api_reconciliacion():
+    _require_role()
+    try:
+        resultados    = FinanceEngine.get_reconciliation()
+        incoherentes  = [r for r in resultados if not r['coherent']]
+        sin_ledger    = [r for r in resultados if r['ledger_empty']]
+        return jsonify({
+            'ok':             True,
+            'resultados':     resultados,
+            'incoherentes':   incoherentes,
+            'sin_ledger':     sin_ledger,
+            'todo_coherente': len(incoherentes) == 0,
+            'ledger_activo':  len(sin_ledger)   == 0,
+        })
+    except Exception as exc:
+        _log.exception('[Finanzas] api_reconciliacion')
+        return jsonify({'ok': False, 'error': str(exc)}), 500
+
+
+# ── API: Activar ledger ───────────────────────────────────────────────────────
+
+@finanzas_bp.route('/api/ledger/activar', methods=['POST'])
+@login_required
+def api_ledger_activar():
+    _require_role()
+    try:
+        result = FinanceEngine.activar_ledger(current_user.id)
+        return jsonify({'ok': True, **result})
+    except Exception as exc:
+        _log.exception('[Finanzas] api_ledger_activar')
+        return jsonify({'ok': False, 'error': str(exc)}), 500
+
+
+# ── API: Cierre — Calcular ────────────────────────────────────────────────────
+
+@finanzas_bp.route('/api/cierre/calcular', methods=['POST'])
+@login_required
+def api_cierre_calcular():
+    _require_role()
+    try:
+        from app.models import DailyClosure, Operation, AccountingMatch, AccountingBatch
+
+        data      = request.get_json() or {}
+        fecha_str = data.get('fecha', date.today().isoformat())
+        fecha     = date.fromisoformat(fecha_str)
+        start     = datetime.combine(fecha, datetime.min.time())
+        end       = start + timedelta(days=1)
+
+        # Datos del día usando FinanceEngine
+        ops_day    = FinanceEngine.get_daily_ops(fecha)
+        profit_day = FinanceEngine.get_profit(fecha, fecha)
+        position   = FinanceEngine.get_open_position()
+        balances   = FinanceEngine.get_balances()
+
+        pending_count = Operation.query.filter(
+            Operation.status.in_(['Pendiente', 'En proceso'])
+        ).count()
+
+        open_matches = AccountingMatch.query.filter(
+            AccountingMatch.status == 'Activo',
+        ).outerjoin(
+            AccountingBatch, AccountingMatch.batch_id == AccountingBatch.id, isouter=True
+        ).filter(
+            db.or_(AccountingMatch.batch_id.is_(None), AccountingBatch.status != 'Cerrado')
+        ).count()
+
+        # Obtener o crear cierre
+        closure = DailyClosure.query.filter_by(closure_date=fecha).first()
+        if not closure:
+            closure = DailyClosure(
+                closure_date=fecha,
+                status=DailyClosure.STATUS_BORRADOR,
+                created_by=current_user.id,
+            )
+            db.session.add(closure)
+
+        closure.system_balances         = balances['by_bank']
+        closure.operations_completed    = ops_day['total_ops']
+        closure.total_volume_usd        = ops_day['volume_usd']
+        closure.total_bought_usd        = ops_day['buy_usd']
+        closure.total_sold_usd          = ops_day['sell_usd']
+        closure.avg_buy_rate            = ops_day['avg_buy_rate']
+        closure.avg_sell_rate           = ops_day['avg_sell_rate']
+        closure.gross_spread_pen        = profit_day['total_pen']
+        closure.net_profit_pen          = profit_day['total_pen']
+        closure.pending_operations      = pending_count
+        closure.unmatched_completed_usd = abs(position['neto_usd'])
+        closure.open_matches            = open_matches
+        db.session.commit()
+
+        return jsonify({'ok': True, 'cierre': closure.to_dict()})
+
+    except Exception as exc:
+        db.session.rollback()
+        _log.exception('[Finanzas] api_cierre_calcular')
+        return jsonify({'ok': False, 'error': str(exc)}), 500
+
+
+# ── API: Cierre — Validar (saldos reales) ────────────────────────────────────
+
+@finanzas_bp.route('/api/cierre/validar', methods=['POST'])
+@login_required
+def api_cierre_validar():
+    _require_role()
+    try:
+        from app.models import DailyClosure
+
+        data          = request.get_json() or {}
+        fecha         = date.fromisoformat(data.get('fecha', date.today().isoformat()))
+        real_balances = data.get('saldos_reales', {})
+        notes         = data.get('notas', '')
+
+        closure = DailyClosure.query.filter_by(closure_date=fecha).first()
+        if not closure:
+            return jsonify({'ok': False, 'error': 'Primero calcule el cierre del día'}), 400
+
+        closure.validated_balances = real_balances
+        closure.notes              = notes
+        closure.compute_differences()
+        db.session.commit()
+
+        return jsonify({
+            'ok':                True,
+            'has_discrepancies': closure.has_discrepancies,
+            'differences':       closure.differences,
+            'cierre':            closure.to_dict(),
+        })
+    except Exception as exc:
+        db.session.rollback()
+        _log.exception('[Finanzas] api_cierre_validar')
+        return jsonify({'ok': False, 'error': str(exc)}), 500
+
+
+# ── API: Cierre — Confirmar ───────────────────────────────────────────────────
+
+@finanzas_bp.route('/api/cierre/confirmar', methods=['POST'])
+@login_required
+def api_cierre_confirmar():
+    _require_role()
+    try:
+        from app.models import DailyClosure, BankMovement
+
+        data   = request.get_json() or {}
+        fecha  = date.fromisoformat(data.get('fecha', date.today().isoformat()))
+        motivo = data.get('motivo_discrepancia', '')
+
+        closure = DailyClosure.query.filter_by(closure_date=fecha).first()
+        if not closure:
+            return jsonify({'ok': False, 'error': 'Cierre no encontrado'}), 404
+        if closure.is_validated:
+            return jsonify({'ok': False, 'error': 'Cierre ya confirmado'}), 400
+        if not closure.validated_balances:
+            return jsonify({'ok': False, 'error': 'Ingrese saldos reales antes de confirmar'}), 400
+        if closure.has_discrepancies and not motivo:
+            return jsonify({'ok': False, 'error': 'Hay diferencias — ingrese el motivo'}), 400
+
+        closure.status             = DailyClosure.STATUS_VALIDADO
+        closure.discrepancy_reason = motivo
+        closure.validated_by       = current_user.id
+        closure.validated_at       = now_peru()
+
+        BankMovement.query.filter_by(closure_date=fecha).update({'is_validated': True})
+        db.session.commit()
+
+        return jsonify({
+            'ok':      True,
+            'message': f'Cierre del {fecha.strftime("%d/%m/%Y")} confirmado.',
+            'cierre':  closure.to_dict(),
+        })
+    except Exception as exc:
+        db.session.rollback()
+        _log.exception('[Finanzas] api_cierre_confirmar')
+        return jsonify({'ok': False, 'error': str(exc)}), 500
+
+
+# ── API: Cierre — Historial ───────────────────────────────────────────────────
+
+@finanzas_bp.route('/api/cierre/historial')
+@login_required
+def api_cierre_historial():
+    _require_role()
+    try:
+        from app.models import DailyClosure
+
+        page     = int(request.args.get('page', 1))
+        per_page = int(request.args.get('per_page', 30))
+        cierres  = DailyClosure.query.order_by(
+            DailyClosure.closure_date.desc()
+        ).offset((page - 1) * per_page).limit(per_page).all()
+        total = DailyClosure.query.count()
+
+        return jsonify({
+            'ok':      True,
+            'total':   total,
+            'page':    page,
+            'cierres': [c.to_dict() for c in cierres],
+        })
+    except Exception as exc:
+        return jsonify({'ok': False, 'error': str(exc)}), 500
+
+
+# ── API: Cierre — Por fecha ───────────────────────────────────────────────────
+
+@finanzas_bp.route('/api/cierre/<fecha_str>')
+@login_required
+def api_cierre_get(fecha_str):
+    _require_role()
+    try:
+        from app.models import DailyClosure
+
+        fecha   = date.fromisoformat(fecha_str)
+        closure = DailyClosure.query.filter_by(closure_date=fecha).first()
+        if not closure:
+            return jsonify({'ok': True, 'found': False}), 200
+        return jsonify({'ok': True, 'found': True, 'cierre': closure.to_dict()})
+    except Exception as exc:
+        return jsonify({'ok': False, 'error': str(exc)}), 500

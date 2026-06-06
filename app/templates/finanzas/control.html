@@ -1,0 +1,431 @@
+{% extends "base.html" %}
+{% block title %}Control Financiero — QoriCash{% endblock %}
+
+{% block head %}
+<style>
+.fin-header {
+    background: #0D1B2A;
+    border-radius: 10px;
+    padding: 18px 22px;
+    margin-bottom: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+.fin-header-title { font-size: 1.1rem; font-weight: 800; color: #fff; margin: 0; }
+.fin-header-sub   { font-size: .75rem; color: rgba(255,255,255,.45); margin: 2px 0 0; }
+.fin-ts           { font-size: .72rem; color: rgba(255,255,255,.3); }
+
+/* Nav */
+.fin-nav { display:flex; gap:4px; margin-bottom:14px; background:#f8fafc; border-radius:8px; padding:4px; }
+.fin-nav a {
+    flex:1; text-align:center; padding:7px 6px; border-radius:6px;
+    font-size:.78rem; font-weight:600; color:#64748b; text-decoration:none; transition:all .15s;
+}
+.fin-nav a.active, .fin-nav a:hover { background:#fff; color:#0D1B2A; box-shadow:0 1px 4px rgba(0,0,0,.08); }
+
+/* Quick answer cards */
+.qa-card {
+    background:#fff; border:1px solid #e8ecf0; border-radius:10px;
+    padding:14px 16px; height:100%;
+}
+.qa-label { font-size:.68rem; font-weight:700; color:#94A3B8; text-transform:uppercase; letter-spacing:.07em; margin-bottom:4px; }
+.qa-value { font-size:1.45rem; font-weight:800; color:#0D1B2A; line-height:1.2; }
+.qa-value.green  { color:#16a34a; }
+.qa-value.amber  { color:#d97706; }
+.qa-value.blue   { color:#2563eb; }
+.qa-sub { font-size:.7rem; color:#94A3B8; margin-top:3px; }
+
+/* Section title */
+.sec-title {
+    font-size:.72rem; font-weight:800; text-transform:uppercase; letter-spacing:.08em;
+    color:#64748b; margin:16px 0 8px; display:flex; align-items:center; gap:6px;
+}
+.sec-title::after { content:''; flex:1; height:1px; background:#e8ecf0; }
+
+/* Saldos table */
+.saldos-table { width:100%; border-collapse:collapse; font-size:.84rem; }
+.saldos-table th { font-size:.67rem; font-weight:700; color:#94A3B8; text-transform:uppercase;
+                   letter-spacing:.06em; padding:4px 8px; border-bottom:2px solid #f1f5f9; }
+.saldos-table td { padding:7px 8px; border-bottom:1px solid #f8fafc; color:#0D1B2A; font-weight:600; }
+.saldos-table tr:last-child td { border-bottom:none; font-weight:800; background:#f8fafc; }
+.tag-bk { font-size:.65rem; font-weight:800; padding:2px 7px; border-radius:4px; text-transform:uppercase; }
+.tag-bk.bcp       { background:#e8f5e9; color:#1b5e20; }
+.tag-bk.interbank { background:#e3f2fd; color:#0d47a1; }
+.tag-bk.banbif    { background:#fce4ec; color:#880e4f; }
+.tag-cur { font-size:.65rem; font-weight:700; padding:1px 5px; border-radius:3px; }
+.tag-cur.usd { background:#e0f2fe; color:#0369a1; }
+.tag-cur.pen { background:#f0fdf4; color:#166534; }
+
+/* Posición table */
+.pos-table { width:100%; border-collapse:collapse; font-size:.82rem; }
+.pos-table th { font-size:.67rem; font-weight:700; color:#94A3B8; text-transform:uppercase;
+                letter-spacing:.06em; padding:4px 8px; border-bottom:2px solid #f1f5f9; }
+.pos-table td { padding:7px 8px; border-bottom:1px solid #f8fafc; }
+.pos-table tr:last-child td { border-bottom:none; }
+.aged-badge { font-size:.65rem; font-weight:700; background:#fef3c7; color:#92400e;
+              padding:1px 6px; border-radius:10px; white-space:nowrap; }
+.ok-badge   { font-size:.65rem; font-weight:700; background:#f0fdf4; color:#166534;
+              padding:1px 6px; border-radius:10px; white-space:nowrap; }
+
+/* Utilidad rows */
+.util-row { display:flex; justify-content:space-between; align-items:center;
+            padding:6px 0; border-bottom:1px solid #f1f5f9; font-size:.83rem; }
+.util-row:last-child { border-bottom:none; }
+.util-label { color:#475569; }
+.util-val   { font-weight:700; color:#0D1B2A; }
+.util-val.green { color:#16a34a; }
+.util-val.muted { color:#94A3B8; }
+
+/* Cierre */
+.cierre-badge { display:inline-flex; align-items:center; gap:5px; padding:5px 12px;
+                border-radius:20px; font-size:.74rem; font-weight:700; }
+.cierre-badge.ok      { background:#f0fdf4; color:#166534; border:1px solid #bbf7d0; }
+.cierre-badge.pending { background:#fef2f2; color:#991b1b; border:1px solid #fecaca; }
+.cierre-badge.partial { background:#fffbeb; color:#92400e; border:1px solid #fde68a; }
+
+/* Alertas */
+.fin-alert { border-radius:8px; padding:9px 13px; font-size:.81rem;
+             display:flex; align-items:flex-start; gap:9px; margin-bottom:6px; }
+.fin-alert.danger  { background:#fef2f2; color:#991b1b; }
+.fin-alert.warning { background:#fffbeb; color:#92400e; }
+.fin-alert.info    { background:#eff6ff; color:#1e40af; }
+
+/* Ops hoy mini-grid */
+.ops-mini { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.ops-mini-card { background:#f8fafc; border-radius:8px; padding:9px 11px; }
+.ops-mini-label { font-size:.66rem; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.06em; }
+.ops-mini-val   { font-size:1.1rem; font-weight:800; color:#0D1B2A; }
+.ops-mini-sub   { font-size:.68rem; color:#94A3B8; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-3 py-3">
+
+  <!-- Nav -->
+  <div class="fin-nav">
+    <a href="{{ url_for('finanzas.control') }}" class="active"><i class="bi bi-speedometer2"></i> Control</a>
+    <a href="{{ url_for('finanzas.auditoria') }}"><i class="bi bi-journal-text"></i> Auditoría & Cierre</a>
+  </div>
+
+  <!-- Header -->
+  <div class="fin-header">
+    <div>
+      <p class="fin-header-title">Control Financiero</p>
+      <p class="fin-header-sub">QoriCash SAC · Posición en tiempo real</p>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <span class="fin-ts" id="tsLabel">Cargando…</span>
+      <button class="btn btn-sm" style="background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.2);font-size:.74rem;"
+              onclick="loadSnapshot()">
+        <i class="bi bi-arrow-clockwise"></i> Actualizar
+      </button>
+    </div>
+  </div>
+
+  <!-- Alertas -->
+  <div id="alertsZone"></div>
+
+  <!-- 4 respuestas rápidas -->
+  <div class="row g-2 mb-3" id="qaCards">
+    <div class="col-6 col-lg-3"><div class="qa-card"><div class="qa-label">Total USD en bancos</div><div class="qa-value blue" id="qaTotalUSD">—</div><div class="qa-sub">Suma BCP + IBK + BANBIF</div></div></div>
+    <div class="col-6 col-lg-3"><div class="qa-card"><div class="qa-label">Total PEN en bancos</div><div class="qa-value" id="qaTotalPEN" style="color:#2563eb;">—</div><div class="qa-sub">Suma BCP + IBK + BANBIF</div></div></div>
+    <div class="col-6 col-lg-3"><div class="qa-card"><div class="qa-label">Utilidad realizada hoy</div><div class="qa-value green" id="qaUtilHoy">—</div><div class="qa-sub" id="qaUtilHoySub">De amarres cerrados hoy</div></div></div>
+    <div class="col-6 col-lg-3"><div class="qa-card"><div class="qa-label">Posición abierta (USD)</div><div class="qa-value amber" id="qaPosAbierta">—</div><div class="qa-sub" id="qaPosSub">USD completado sin amarrar</div></div></div>
+  </div>
+
+  <div class="row g-3">
+
+    <!-- Columna izquierda -->
+    <div class="col-lg-7">
+
+      <!-- Saldos bancarios -->
+      <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body p-3">
+          <div class="sec-title"><i class="bi bi-bank2 text-primary"></i> Saldos Bancarios</div>
+          <table class="saldos-table" id="saldosTable">
+            <thead><tr>
+              <th>Banco</th><th>Moneda</th><th class="text-end">Saldo</th>
+            </tr></thead>
+            <tbody id="saldosBody"><tr><td colspan="3" class="text-center text-muted py-3" style="font-size:.8rem;">Cargando…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Posición abierta -->
+      <div class="card border-0 shadow-sm">
+        <div class="card-body p-3">
+          <div class="sec-title"><i class="bi bi-currency-exchange text-warning"></i> Posición Abierta</div>
+          <div id="posicionZone">
+            <div class="text-center text-muted py-3" style="font-size:.8rem;">Cargando…</div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /col left -->
+
+    <!-- Columna derecha -->
+    <div class="col-lg-5">
+
+      <!-- Utilidad -->
+      <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body p-3">
+          <div class="sec-title"><i class="bi bi-graph-up-arrow text-success"></i> Utilidad Realizada</div>
+          <div id="utilZone">
+            <div class="text-center text-muted py-3" style="font-size:.8rem;">Cargando…</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Operaciones del día -->
+      <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body p-3">
+          <div class="sec-title"><i class="bi bi-calendar3"></i> Operaciones de Hoy</div>
+          <div class="ops-mini" id="opsHoyZone">
+            <div class="ops-mini-card"><div class="ops-mini-label">Completadas</div><div class="ops-mini-val" id="opTotal">—</div></div>
+            <div class="ops-mini-card"><div class="ops-mini-label">Volumen USD</div><div class="ops-mini-val" id="opVol">—</div></div>
+            <div class="ops-mini-card" style="background:#eff6ff;"><div class="ops-mini-label" style="color:#1d4ed8;">TC Compra</div><div class="ops-mini-val" id="opTCBuy" style="color:#2563eb;">—</div></div>
+            <div class="ops-mini-card" style="background:#f0fdf4;"><div class="ops-mini-label" style="color:#166534;">TC Venta</div><div class="ops-mini-val" id="opTCSell" style="color:#16a34a;">—</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Estado cierre -->
+      <div class="card border-0 shadow-sm">
+        <div class="card-body p-3">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <div class="sec-title mb-0"><i class="bi bi-calendar-check"></i> Cierre Diario</div>
+            <a href="{{ url_for('finanzas.auditoria') }}#cierre" class="btn btn-sm btn-outline-primary" style="font-size:.72rem;">
+              Ir al Cierre →
+            </a>
+          </div>
+          <div id="cierreZone">
+            <div class="text-center text-muted py-2" style="font-size:.8rem;">Cargando…</div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /col right -->
+  </div><!-- /row -->
+
+</div><!-- /container -->
+{% endblock %}
+
+{% block scripts %}
+<script>
+const fmtN   = (n, d=2) => new Intl.NumberFormat('es-PE',{minimumFractionDigits:d,maximumFractionDigits:d}).format(n);
+const fmtUSD = n => `$ ${fmtN(n)}`;
+const fmtPEN = n => `S/ ${fmtN(n)}`;
+const fmtTC  = n => n > 0 ? fmtN(n, 4) : '—';
+
+async function loadSnapshot() {
+    try {
+        const res  = await fetch('/finanzas/api/snapshot');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const d    = await res.json();
+        if (!d.ok)  throw new Error(d.error || 'Error en snapshot');
+
+        // Timestamp
+        const ts = new Date(d.timestamp);
+        document.getElementById('tsLabel').textContent =
+            'Actualizado: ' + ts.toLocaleTimeString('es-PE');
+
+        // Alertas
+        renderAlertas(d.alerts || []);
+
+        // QA cards
+        const bal = d.balances;
+        document.getElementById('qaTotalUSD').textContent  = fmtUSD(bal.total_usd);
+        document.getElementById('qaTotalPEN').textContent  = fmtPEN(bal.total_pen);
+
+        const pt = d.profit.today;
+        const ptEl = document.getElementById('qaUtilHoy');
+        ptEl.textContent = fmtPEN(pt.total_pen);
+        ptEl.className = 'qa-value ' + (pt.total_pen >= 0 ? 'green' : '');
+        ptEl.style.color = pt.total_pen < 0 ? '#dc2626' : '';
+        document.getElementById('qaUtilHoySub').textContent =
+            `${pt.match_count} amarre(s) — Casa: ${fmtPEN(pt.house_pen)}`;
+
+        const pos = d.position;
+        document.getElementById('qaPosAbierta').textContent = fmtUSD(Math.abs(pos.neto_usd));
+        document.getElementById('qaPosSub').textContent =
+            `${pos.total_items} op(s) — C: ${fmtUSD(pos.total_compras_open)} / V: ${fmtUSD(pos.total_ventas_open)}`;
+
+        // Saldos bancarios
+        renderSaldos(bal.by_bank, bal.total_usd, bal.total_pen);
+
+        // Posición
+        renderPosicion(pos);
+
+        // Utilidad
+        renderUtilidad(d.profit);
+
+        // Ops hoy
+        const ops = d.daily_ops;
+        document.getElementById('opTotal').textContent = ops.total_ops;
+        document.getElementById('opVol').textContent   = fmtUSD(ops.volume_usd);
+        document.getElementById('opTCBuy').textContent  = fmtTC(ops.avg_buy_rate);
+        document.getElementById('opTCSell').textContent = fmtTC(ops.avg_sell_rate);
+
+        // Cierre
+        renderCierre(d.closure);
+
+    } catch(e) {
+        console.error('Control Financiero:', e);
+        document.getElementById('alertsZone').innerHTML =
+            `<div class="fin-alert danger"><i class="bi bi-bug-fill"></i><span><strong>Error al cargar datos:</strong> ${e.message}</span></div>`;
+        document.getElementById('tsLabel').textContent = 'Error — ' + new Date().toLocaleTimeString('es-PE');
+    }
+}
+
+function renderAlertas(alerts) {
+    const z = document.getElementById('alertsZone');
+    if (!alerts.length) { z.innerHTML = ''; return; }
+    z.innerHTML = alerts.map(a =>
+        `<div class="fin-alert ${a.level}"><i class="bi bi-exclamation-circle-fill"></i><span>${a.msg}</span></div>`
+    ).join('');
+}
+
+function renderSaldos(byBank, totalUSD, totalPEN) {
+    const bankCls = {BCP:'bcp', INTERBANK:'interbank', BANBIF:'banbif'};
+    const order   = ['BCP','INTERBANK','BANBIF'];
+    let rows = '';
+    for (const bk of order) {
+        const bal = byBank[bk] || {USD:0, PEN:0};
+        rows += `
+        <tr>
+          <td rowspan="2"><span class="tag-bk ${bankCls[bk]}">${bk}</span></td>
+          <td><span class="tag-cur usd">USD</span></td>
+          <td class="text-end">${fmtUSD(bal.USD)}</td>
+        </tr>
+        <tr>
+          <td><span class="tag-cur pen">PEN</span></td>
+          <td class="text-end">${fmtPEN(bal.PEN)}</td>
+        </tr>`;
+    }
+    rows += `<tr>
+      <td colspan="2"><strong>Total</strong></td>
+      <td class="text-end">
+        <span style="font-size:.8rem;color:#94A3B8;margin-right:4px;">USD</span>${fmtUSD(totalUSD)}<br>
+        <span style="font-size:.8rem;color:#94A3B8;margin-right:4px;">PEN</span>${fmtPEN(totalPEN)}
+      </td>
+    </tr>`;
+    document.getElementById('saldosBody').innerHTML = rows;
+}
+
+function renderPosicion(pos) {
+    const z = document.getElementById('posicionZone');
+    if (!pos.items.length) {
+        z.innerHTML = '<div style="text-align:center;color:#16a34a;font-size:.85rem;padding:12px;"><i class="bi bi-check-circle-fill"></i> Sin posición abierta — todas las operaciones están amarradas</div>';
+        return;
+    }
+    const rows = pos.items.map(p => {
+        const ageBadge = p.is_aged
+            ? `<span class="aged-badge">⚠ ${p.days_open}d</span>`
+            : `<span class="ok-badge">${p.days_open}d</span>`;
+        const typeCls = p.type === 'Compra' ? 'color:#2563eb;' : 'color:#7c3aed;';
+        return `<tr>
+          <td><a href="/operations/${p.id}" style="color:#0D1B2A;font-weight:700;text-decoration:none;">${p.operation_id}</a></td>
+          <td><span style="${typeCls}font-weight:700;">${p.type}</span></td>
+          <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.client}</td>
+          <td class="text-end">${fmtUSD(p.open_usd)}</td>
+          <td class="text-end">${ageBadge}</td>
+        </tr>`;
+    }).join('');
+
+    // Totales
+    const neto = pos.neto_usd;
+    const netoColor = neto > 0 ? '#d97706' : neto < 0 ? '#7c3aed' : '#16a34a';
+    const netoLabel = neto > 0 ? 'Compra neta' : neto < 0 ? 'Venta neta' : 'Balanceado';
+
+    z.innerHTML = `
+    <table class="pos-table">
+      <thead><tr>
+        <th>Operación</th><th>Tipo</th><th>Cliente</th>
+        <th class="text-end">USD Abierto</th><th class="text-end">Antigüedad</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div class="d-flex justify-content-between align-items-center mt-2 pt-2" style="border-top:1px solid #f1f5f9;font-size:.82rem;">
+      <span style="color:#64748b;">${pos.total_items} posición(es) — ${netoLabel}</span>
+      <strong style="color:${netoColor};">${fmtUSD(Math.abs(neto))} neto</strong>
+    </div>`;
+}
+
+function renderUtilidad(profit) {
+    const all = profit.all_time;
+    const hoy = profit.today;
+    document.getElementById('utilZone').innerHTML = `
+    <div class="util-row">
+      <span class="util-label">Utilidad total acumulada</span>
+      <span class="util-val green">${fmtPEN(all.total_pen)}</span>
+    </div>
+    <div class="util-row">
+      <span class="util-label" style="padding-left:12px;">↳ Casa (QoriCash)</span>
+      <span class="util-val green">${fmtPEN(all.house_pen)}</span>
+    </div>
+    <div class="util-row">
+      <span class="util-label" style="padding-left:12px;">↳ Traders</span>
+      <span class="util-val">${fmtPEN(all.trader_total_pen)}</span>
+    </div>
+    <div class="util-row" style="margin-top:6px;padding-top:6px;border-top:2px solid #f1f5f9;">
+      <span class="util-label" style="font-weight:700;">Hoy (${all.match_count > 0 ? hoy.match_count : 0} amarre/s)</span>
+      <span class="util-val ${hoy.total_pen >= 0 ? 'green' : ''}" style="${hoy.total_pen < 0 ? 'color:#dc2626' : ''}">${fmtPEN(hoy.total_pen)}</span>
+    </div>
+    <div class="util-row">
+      <span class="util-label" style="padding-left:12px;">↳ Casa hoy</span>
+      <span class="util-val muted">${fmtPEN(hoy.house_pen)}</span>
+    </div>`;
+}
+
+function renderCierre(closure) {
+    const z = document.getElementById('cierreZone');
+    if (closure.requires_closure) {
+        const d = closure.missing_days;
+        z.innerHTML = `
+        <div style="background:#fef2f2;border-radius:8px;padding:10px 13px;">
+          <div style="font-size:.8rem;font-weight:700;color:#991b1b;margin-bottom:2px;">
+            <i class="bi bi-exclamation-octagon-fill me-1"></i>${d} día(s) sin cierre validado
+          </div>
+          <div style="font-size:.75rem;color:#b91c1c;margin-bottom:8px;">El cierre diario es obligatorio para conciliar saldos.</div>
+          <a href="${window.location.origin}/finanzas/auditoria/" class="btn btn-sm" style="background:#dc2626;color:#fff;font-size:.72rem;">
+            Realizar Cierre Ahora
+          </a>
+        </div>`;
+        return;
+    }
+    if (closure.today_closure) {
+        const c  = closure.today_closure;
+        const cl = c.is_validated ? 'ok' : 'partial';
+        const lb = c.is_validated ? 'Validado' : 'Borrador';
+        const ic = c.is_validated ? 'bi-check-circle-fill' : 'bi-clock-fill';
+        z.innerHTML = `
+        <div class="d-flex justify-content-between align-items-center">
+          <div>
+            <span class="cierre-badge ${cl}"><i class="bi ${ic}"></i> ${lb}</span>
+            <div style="font-size:.72rem;color:#64748b;margin-top:4px;">${c.operations_completed} op(s) · ${fmtUSD(c.total_volume_usd)} volumen</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-weight:800;color:${c.net_profit_pen >= 0 ? '#16a34a' : '#dc2626'};font-size:.9rem;">${fmtPEN(c.net_profit_pen)}</div>
+            <div style="font-size:.68rem;color:#94A3B8;">P&L del día</div>
+          </div>
+        </div>`;
+        return;
+    }
+    // Sin cierre hoy
+    z.innerHTML = `
+    <div class="d-flex justify-content-between align-items-center">
+      <div>
+        <span class="cierre-badge pending"><i class="bi bi-circle"></i> Sin cierre hoy</span>
+        ${closure.last_date ? `<div style="font-size:.72rem;color:#64748b;margin-top:4px;">Último validado: ${closure.last_date}</div>` : ''}
+      </div>
+      <a href="/finanzas/auditoria/" style="font-size:.75rem;color:#3b82f6;text-decoration:none;">Cerrar día →</a>
+    </div>`;
+}
+
+loadSnapshot();
+</script>
+{% endblock %}

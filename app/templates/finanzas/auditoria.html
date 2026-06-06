@@ -1,0 +1,712 @@
+{% extends "base.html" %}
+{% block title %}Auditoría & Cierre — QoriCash{% endblock %}
+
+{% block head %}
+<style>
+.fin-nav { display:flex; gap:4px; margin-bottom:14px; background:#f8fafc; border-radius:8px; padding:4px; }
+.fin-nav a {
+    flex:1; text-align:center; padding:7px 6px; border-radius:6px;
+    font-size:.78rem; font-weight:600; color:#64748b; text-decoration:none; transition:all .15s;
+}
+.fin-nav a.active, .fin-nav a:hover { background:#fff; color:#0D1B2A; box-shadow:0 1px 4px rgba(0,0,0,.08); }
+
+.audit-tabs { display:flex; gap:3px; border-bottom:2px solid #e8ecf0; margin-bottom:16px; }
+.audit-tab  { padding:7px 14px; font-size:.8rem; font-weight:600; color:#64748b;
+              cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-2px;
+              white-space:nowrap; }
+.audit-tab.active { color:#0D1B2A; border-bottom-color:#0D1B2A; }
+.audit-panel { display:none; }
+.audit-panel.active { display:block; }
+
+/* Filtros */
+.filter-bar { background:#f8fafc; border-radius:8px; padding:10px 14px;
+              display:flex; flex-wrap:wrap; gap:8px; align-items:flex-end; margin-bottom:12px; }
+.filter-bar .form-select, .filter-bar .form-control { font-size:.8rem; height:32px; }
+.filter-bar label { font-size:.7rem; font-weight:700; color:#64748b; display:block; margin-bottom:2px; }
+
+/* Tablas de auditoría */
+.aud-table { width:100%; border-collapse:collapse; font-size:.81rem; }
+.aud-table th { font-size:.67rem; font-weight:700; color:#94A3B8; text-transform:uppercase;
+                letter-spacing:.05em; padding:6px 8px; border-bottom:2px solid #f1f5f9;
+                background:#fafafa; white-space:nowrap; }
+.aud-table td { padding:7px 8px; border-bottom:1px solid #f8fafc; vertical-align:middle; }
+.aud-table tr:hover td { background:#fafafa; }
+.aud-table tr:last-child td { border-bottom:none; }
+
+/* Badges */
+.mv-type { font-size:.65rem; font-weight:700; padding:2px 7px; border-radius:4px; white-space:nowrap; }
+.mv-type.entrada { background:#f0fdf4; color:#166534; }
+.mv-type.salida  { background:#fef2f2; color:#991b1b; }
+.mv-type.ajuste  { background:#eff6ff; color:#1e40af; }
+.mv-type.inicial { background:#faf5ff; color:#6d28d9; }
+
+.amount-pos { color:#16a34a; font-weight:700; }
+.amount-neg { color:#dc2626; font-weight:700; }
+
+/* Cierre steps */
+.step-bar { display:flex; gap:0; margin-bottom:20px; }
+.step { flex:1; text-align:center; padding:8px 4px; font-size:.72rem; font-weight:700;
+        background:#f1f5f9; color:#64748b; border:1px solid #e2e8f0; }
+.step:first-child { border-radius:6px 0 0 6px; }
+.step:last-child  { border-radius:0 6px 6px 0; }
+.step.active { background:#0D1B2A; color:#fff; border-color:#0D1B2A; }
+.step.done   { background:#f0fdf4; color:#166534; border-color:#bbf7d0; }
+
+/* Reconciliación */
+.rec-row { display:flex; justify-content:space-between; align-items:center;
+           padding:8px 12px; border-radius:8px; margin-bottom:6px; font-size:.82rem; }
+.rec-row.ok      { background:#f0fdf4; }
+.rec-row.diff    { background:#fef2f2; }
+.rec-row.empty   { background:#fffbeb; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-3 py-3">
+
+  <!-- Nav top -->
+  <div class="fin-nav">
+    <a href="{{ url_for('finanzas.control') }}"><i class="bi bi-speedometer2"></i> Control</a>
+    <a href="{{ url_for('finanzas.auditoria') }}" class="active"><i class="bi bi-journal-text"></i> Auditoría & Cierre</a>
+  </div>
+
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+      <h6 class="mb-0" style="font-weight:800;color:#0D1B2A;">Auditoría & Cierre</h6>
+      <div style="font-size:.75rem;color:#94A3B8;">Movimientos · Amarres · Cierre diario · Reconciliación</div>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="audit-tabs">
+    <div class="audit-tab active" data-tab="movimientos">Movimientos bancarios</div>
+    <div class="audit-tab" data-tab="amarres">Amarres</div>
+    <div class="audit-tab" data-tab="cierre">Cierre diario</div>
+    <div class="audit-tab" data-tab="reconciliacion">Reconciliación</div>
+  </div>
+
+  <!-- ── Tab: Movimientos ──────────────────────────────────────────────────── -->
+  <div class="audit-panel active" id="panel-movimientos">
+    <div class="filter-bar">
+      <div><label>Desde</label><input type="date" class="form-control" id="mvFechaIni"></div>
+      <div><label>Hasta</label><input type="date" class="form-control" id="mvFechaFin"></div>
+      <div>
+        <label>Banco</label>
+        <select class="form-select" id="mvBanco">
+          <option value="">Todos</option>
+          <option>BCP</option><option>INTERBANK</option><option>BANBIF</option>
+        </select>
+      </div>
+      <div>
+        <label>Moneda</label>
+        <select class="form-select" id="mvMoneda">
+          <option value="">Ambas</option>
+          <option>USD</option><option>PEN</option>
+        </select>
+      </div>
+      <div>
+        <label>Tipo</label>
+        <select class="form-select" id="mvTipo">
+          <option value="">Todos</option>
+          <option value="op_entrada">Op Entrada</option>
+          <option value="op_salida">Op Salida</option>
+          <option value="ajuste_entrada">Ajuste Entrada</option>
+          <option value="ajuste_salida">Ajuste Salida</option>
+          <option value="saldo_inicial">Saldo Inicial</option>
+        </select>
+      </div>
+      <div><button class="btn btn-sm btn-dark" style="height:32px;" onclick="loadMovimientos()">Filtrar</button></div>
+    </div>
+
+    <div id="mvSummary" class="mb-2" style="font-size:.78rem;color:#64748b;"></div>
+
+    <div style="overflow-x:auto;">
+      <table class="aud-table">
+        <thead><tr>
+          <th>Fecha</th><th>Banco</th><th>Mon.</th><th>Tipo</th>
+          <th class="text-end">Entrada</th><th class="text-end">Salida</th>
+          <th class="text-end">Saldo tras mov.</th>
+          <th>Descripción</th><th>Referencia</th>
+        </tr></thead>
+        <tbody id="mvBody">
+          <tr><td colspan="9" class="text-center text-muted py-4">Aplica filtros y presiona Filtrar</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div id="mvPager" class="mt-2 d-flex justify-content-between align-items-center" style="font-size:.78rem;"></div>
+  </div>
+
+  <!-- ── Tab: Amarres ──────────────────────────────────────────────────────── -->
+  <div class="audit-panel" id="panel-amarres">
+    <div class="filter-bar">
+      <div><label>Desde</label><input type="date" class="form-control" id="amFechaIni"></div>
+      <div><label>Hasta</label><input type="date" class="form-control" id="amFechaFin"></div>
+      <div>
+        <label>Estado</label>
+        <select class="form-select" id="amStatus">
+          <option value="Activo">Activos</option>
+          <option value="Anulado">Anulados</option>
+          <option value="">Todos</option>
+        </select>
+      </div>
+      <div><button class="btn btn-sm btn-dark" style="height:32px;" onclick="loadAmarres()">Filtrar</button></div>
+    </div>
+
+    <div id="amTotales" class="mb-2"></div>
+
+    <div style="overflow-x:auto;">
+      <table class="aud-table">
+        <thead><tr>
+          <th>#</th><th>Fecha</th><th>Op Compra</th><th>Op Venta</th>
+          <th class="text-end">USD Amarrado</th>
+          <th class="text-end">TC Compra</th><th class="text-end">TC Venta</th>
+          <th class="text-end">Utilidad Total</th>
+          <th class="text-end">Casa</th><th class="text-end">Traders</th>
+          <th>Tipo</th>
+        </tr></thead>
+        <tbody id="amBody">
+          <tr><td colspan="11" class="text-center text-muted py-4">Aplica filtros y presiona Filtrar</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div id="amPager" class="mt-2 d-flex justify-content-between align-items-center" style="font-size:.78rem;"></div>
+  </div>
+
+  <!-- ── Tab: Cierre ───────────────────────────────────────────────────────── -->
+  <div class="audit-panel" id="panel-cierre">
+    <div class="row g-3">
+
+      <!-- Workflow -->
+      <div class="col-lg-8">
+        <div class="card border-0 shadow-sm">
+          <div class="card-body p-3">
+
+            <!-- Selector de fecha -->
+            <div class="d-flex align-items-center gap-2 mb-3">
+              <label style="font-size:.8rem;font-weight:700;color:#64748b;white-space:nowrap;">Fecha del cierre:</label>
+              <input type="date" class="form-control form-control-sm" id="cierreFecha" style="max-width:160px;">
+              <button class="btn btn-sm btn-outline-secondary" onclick="verificarCierre()" style="font-size:.75rem;">Verificar</button>
+            </div>
+
+            <!-- Step bar -->
+            <div class="step-bar" id="stepBar">
+              <div class="step active" id="step1">1. Calcular</div>
+              <div class="step" id="step2">2. Ingresar saldos</div>
+              <div class="step" id="step3">3. Revisar</div>
+              <div class="step" id="step4">4. Confirmar</div>
+            </div>
+
+            <!-- Paso 1: Calcular -->
+            <div id="panel-step1">
+              <p style="font-size:.83rem;color:#475569;">El sistema calculará las operaciones del día, saldos del sistema y estado de posición para la fecha seleccionada.</p>
+              <button class="btn btn-dark btn-sm" onclick="calcularCierre()">
+                <i class="bi bi-calculator me-1"></i> Calcular cierre
+              </button>
+              <div id="calcResult" class="mt-3"></div>
+            </div>
+
+            <!-- Paso 2: Ingresar saldos reales -->
+            <div id="panel-step2" style="display:none;">
+              <p style="font-size:.83rem;color:#475569;">Ingrese los saldos reales de cada cuenta bancaria según el estado de cuenta o app del banco.</p>
+              <div id="saldosRealesGrid" class="mb-3"></div>
+              <input type="text" class="form-control form-control-sm mb-2" id="cierreNotas" placeholder="Notas opcionales…" style="font-size:.8rem;">
+              <button class="btn btn-dark btn-sm" onclick="validarCierre()">
+                <i class="bi bi-check2 me-1"></i> Guardar saldos reales
+              </button>
+            </div>
+
+            <!-- Paso 3: Revisar diferencias -->
+            <div id="panel-step3" style="display:none;">
+              <div id="diffsZone"></div>
+              <div id="motivoZone" style="display:none;" class="mt-2">
+                <label style="font-size:.78rem;font-weight:700;color:#dc2626;">Hay diferencias — ingrese el motivo obligatoriamente:</label>
+                <textarea class="form-control form-control-sm mt-1" id="motivoDiscrepancia" rows="2"
+                          placeholder="Explique las diferencias detectadas…" style="font-size:.8rem;"></textarea>
+              </div>
+              <button class="btn btn-dark btn-sm mt-3" onclick="confirmarCierre()">
+                <i class="bi bi-lock-fill me-1"></i> Confirmar y cerrar el día
+              </button>
+            </div>
+
+            <!-- Paso 4: Confirmado -->
+            <div id="panel-step4" style="display:none;">
+              <div style="text-align:center;padding:20px;">
+                <i class="bi bi-check-circle-fill" style="font-size:2.5rem;color:#16a34a;display:block;margin-bottom:8px;"></i>
+                <div style="font-weight:800;color:#0D1B2A;font-size:1rem;">Cierre confirmado</div>
+                <div id="cierreConfirmMsg" style="font-size:.8rem;color:#64748b;margin-top:4px;"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Historial -->
+      <div class="col-lg-4">
+        <div class="card border-0 shadow-sm">
+          <div class="card-body p-3">
+            <div style="font-weight:700;font-size:.85rem;color:#0D1B2A;margin-bottom:10px;">Historial de Cierres</div>
+            <div id="cierreHistorial" style="font-size:.8rem;">
+              <div class="text-center text-muted py-3">Cargando…</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── Tab: Reconciliación ───────────────────────────────────────────────── -->
+  <div class="audit-panel" id="panel-reconciliacion">
+
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-body p-3">
+        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+          <div>
+            <div style="font-weight:700;font-size:.9rem;color:#0D1B2A;">Reconciliación Bancaria</div>
+            <div style="font-size:.75rem;color:#64748b;">Compara BankBalance (caché) vs suma de movimientos en el ledger</div>
+          </div>
+          <div class="d-flex gap-2">
+            <button class="btn btn-sm btn-outline-secondary" onclick="loadReconciliacion()" style="font-size:.75rem;">
+              <i class="bi bi-arrow-clockwise"></i> Actualizar
+            </button>
+            <button class="btn btn-sm btn-warning" id="btnActivarLedger" onclick="activarLedger()" style="font-size:.75rem;display:none;">
+              <i class="bi bi-play-circle"></i> Activar ledger
+            </button>
+          </div>
+        </div>
+
+        <div id="recAlerta" class="mb-3"></div>
+        <div id="recGrid">
+          <div class="text-center text-muted py-4">Cargando…</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+      <div class="card-body p-3">
+        <div style="font-weight:700;font-size:.85rem;color:#0D1B2A;margin-bottom:6px;">¿Qué significa cada estado?</div>
+        <div class="rec-row ok"><span><i class="bi bi-check-circle-fill text-success me-2"></i><strong>Coherente</strong></span><span style="font-size:.78rem;color:#475569;">BankBalance == suma del ledger (diferencia &lt; S/0.02)</span></div>
+        <div class="rec-row diff"><span><i class="bi bi-exclamation-circle-fill text-danger me-2"></i><strong>Diferencia</strong></span><span style="font-size:.78rem;color:#475569;">Los saldos no coinciden. Revisar movimientos manuales o ajustes.</span></div>
+        <div class="rec-row empty"><span><i class="bi bi-info-circle-fill text-warning me-2"></i><strong>Ledger sin apertura</strong></span><span style="font-size:.78rem;color:#475569;">El ledger está vacío. Use "Activar ledger" para registrar saldos de apertura.</span></div>
+      </div>
+    </div>
+
+  </div>
+
+</div><!-- /container -->
+{% endblock %}
+
+{% block scripts %}
+<script>
+const fmtN   = (n,d=2) => new Intl.NumberFormat('es-PE',{minimumFractionDigits:d,maximumFractionDigits:d}).format(n);
+const fmtUSD = n => `$ ${fmtN(n)}`;
+const fmtPEN = n => `S/ ${fmtN(n)}`;
+const fmtAmt = (n, cur) => cur === 'USD' ? fmtUSD(n) : fmtPEN(n);
+
+// ── Tabs ────────────────────────────────────────────────────────────────────
+document.querySelectorAll('.audit-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+        document.querySelectorAll('.audit-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.audit-panel').forEach(p => p.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
+        if (tab.dataset.tab === 'reconciliacion') loadReconciliacion();
+        if (tab.dataset.tab === 'cierre') loadHistorial();
+    });
+});
+
+// Activar tab por hash
+if (window.location.hash === '#cierre') {
+    document.querySelector('[data-tab="cierre"]').click();
+}
+
+// ── Movimientos ─────────────────────────────────────────────────────────────
+let mvPage = 1;
+async function loadMovimientos(page = 1) {
+    mvPage = page;
+    const fi    = document.getElementById('mvFechaIni').value;
+    const ff    = document.getElementById('mvFechaFin').value;
+    const banco = document.getElementById('mvBanco').value;
+    const mon   = document.getElementById('mvMoneda').value;
+    const tipo  = document.getElementById('mvTipo').value;
+
+    const params = new URLSearchParams({page, per_page: 50});
+    if (fi)    params.set('fecha_ini', fi);
+    if (ff)    params.set('fecha_fin', ff);
+    if (banco) params.set('banco', banco);
+    if (mon)   params.set('moneda', mon);
+    if (tipo)  params.set('tipo', tipo);
+
+    const res  = await fetch('/finanzas/api/movimientos?' + params);
+    const data = await res.json();
+
+    if (!data.ok) {
+        document.getElementById('mvBody').innerHTML =
+            `<tr><td colspan="9" class="text-center text-danger">${data.error}</td></tr>`;
+        return;
+    }
+
+    document.getElementById('mvSummary').textContent =
+        `${data.total} movimiento(s) — Neto: ${fmtN(data.net_amount)}`;
+
+    const mvTypeClass = {
+        op_entrada: 'entrada', op_salida: 'salida',
+        ajuste_entrada: 'ajuste', ajuste_salida: 'ajuste',
+        transfer_entrada: 'entrada', transfer_salida: 'salida',
+        saldo_inicial: 'inicial',
+    };
+    const rows = data.movimientos.map(m => {
+        const entrada = m.amount >= 0;
+        const amtHTML = entrada
+            ? `<td class="text-end amount-pos">${fmtAmt(m.amount, m.currency)}</td><td></td>`
+            : `<td></td><td class="text-end amount-neg">${fmtAmt(Math.abs(m.amount), m.currency)}</td>`;
+        const balAfter = m.balance_after != null ? fmtAmt(m.balance_after, m.currency) : '—';
+        const dt = new Date(m.movement_date);
+        const dtStr = dt.toLocaleDateString('es-PE') + ' ' + dt.toLocaleTimeString('es-PE', {hour:'2-digit',minute:'2-digit'});
+        const cls = mvTypeClass[m.movement_type] || 'ajuste';
+        return `<tr>
+          <td style="white-space:nowrap;font-size:.75rem;color:#64748b;">${dtStr}</td>
+          <td><strong>${m.bank_key}</strong></td>
+          <td>${m.currency}</td>
+          <td><span class="mv-type ${cls}">${m.movement_label || m.movement_type}</span></td>
+          ${amtHTML}
+          <td class="text-end" style="color:#64748b;">${balAfter}</td>
+          <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.75rem;">${m.description || '—'}</td>
+          <td style="font-size:.73rem;color:#94A3B8;">${m.reference_code || '—'}</td>
+        </tr>`;
+    }).join('');
+
+    document.getElementById('mvBody').innerHTML = rows || `<tr><td colspan="9" class="text-center text-muted py-3">Sin resultados</td></tr>`;
+
+    // Pager
+    const pager = document.getElementById('mvPager');
+    if (data.pages > 1) {
+        pager.innerHTML = `
+          <button class="btn btn-sm btn-outline-secondary" onclick="loadMovimientos(${page-1})" ${page<=1?'disabled':''}>← Anterior</button>
+          <span style="color:#64748b;">Pág ${page} de ${data.pages}</span>
+          <button class="btn btn-sm btn-outline-secondary" onclick="loadMovimientos(${page+1})" ${page>=data.pages?'disabled':''}>Siguiente →</button>`;
+    } else {
+        pager.innerHTML = '';
+    }
+}
+
+// ── Amarres ─────────────────────────────────────────────────────────────────
+let amPage = 1;
+async function loadAmarres(page = 1) {
+    amPage = page;
+    const fi  = document.getElementById('amFechaIni').value;
+    const ff  = document.getElementById('amFechaFin').value;
+    const st  = document.getElementById('amStatus').value;
+
+    const params = new URLSearchParams({page, per_page: 50});
+    if (fi) params.set('fecha_ini', fi);
+    if (ff) params.set('fecha_fin', ff);
+    if (st) params.set('status', st);
+
+    const res  = await fetch('/finanzas/api/amarres?' + params);
+    const data = await res.json();
+    if (!data.ok) {
+        document.getElementById('amBody').innerHTML =
+            `<tr><td colspan="11" class="text-danger text-center">${data.error}</td></tr>`;
+        return;
+    }
+
+    const t = data.totales;
+    document.getElementById('amTotales').innerHTML = `
+      <div style="font-size:.78rem;color:#64748b;display:flex;gap:20px;flex-wrap:wrap;">
+        <span>${data.total} amarre(s)</span>
+        <span>USD amarrado: <strong>${fmtUSD(t.matched_usd)}</strong></span>
+        <span>Utilidad: <strong class="text-success">${fmtPEN(t.profit_pen)}</strong></span>
+        <span>Casa: <strong>${fmtPEN(t.house_pen)}</strong></span>
+      </div>`;
+
+    const rows = data.items.map(m => {
+        const dt = new Date(m.created_at);
+        const dtStr = dt.toLocaleDateString('es-PE');
+        const traderPen = (m.trader_buy_pen || 0) + (m.trader_sell_pen || 0);
+        const mtLabel = {client_to_client:'C2C', self_match:'Self', market_hedge:'Hedge'}[m.match_type] || m.match_type;
+        return `<tr>
+          <td style="color:#94A3B8;font-size:.75rem;">${m.id}</td>
+          <td style="white-space:nowrap;font-size:.75rem;">${dtStr}</td>
+          <td style="font-size:.75rem;">${m.buy_op_id || '—'}</td>
+          <td style="font-size:.75rem;">${m.sell_op_id || '—'}</td>
+          <td class="text-end">${fmtUSD(m.matched_usd)}</td>
+          <td class="text-end">${fmtN(m.buy_tc, 4)}</td>
+          <td class="text-end">${fmtN(m.sell_tc, 4)}</td>
+          <td class="text-end amount-pos">${fmtPEN(m.profit_pen)}</td>
+          <td class="text-end">${fmtPEN(m.house_pen)}</td>
+          <td class="text-end" style="color:#64748b;">${fmtPEN(traderPen)}</td>
+          <td><span style="font-size:.68rem;background:#f1f5f9;padding:1px 6px;border-radius:3px;">${mtLabel}</span></td>
+        </tr>`;
+    }).join('');
+
+    document.getElementById('amBody').innerHTML = rows || `<tr><td colspan="11" class="text-center text-muted py-3">Sin resultados</td></tr>`;
+
+    const pager = document.getElementById('amPager');
+    if (data.pages > 1) {
+        pager.innerHTML = `
+          <button class="btn btn-sm btn-outline-secondary" onclick="loadAmarres(${page-1})" ${page<=1?'disabled':''}>← Anterior</button>
+          <span style="color:#64748b;">Pág ${page} de ${data.pages}</span>
+          <button class="btn btn-sm btn-outline-secondary" onclick="loadAmarres(${page+1})" ${page>=data.pages?'disabled':''}>Siguiente →</button>`;
+    } else {
+        pager.innerHTML = '';
+    }
+}
+
+// ── Cierre ───────────────────────────────────────────────────────────────────
+let _cierreData = null;
+const today = new Date().toISOString().split('T')[0];
+document.getElementById('cierreFecha').value = today;
+
+function setStep(n) {
+    [1,2,3,4].forEach(i => {
+        const s = document.getElementById(`step${i}`);
+        const p = document.getElementById(`panel-step${i}`);
+        s.className = 'step' + (i < n ? ' done' : i === n ? ' active' : '');
+        p.style.display = i === n ? '' : 'none';
+    });
+}
+
+async function verificarCierre() {
+    const fecha = document.getElementById('cierreFecha').value;
+    if (!fecha) return;
+    const res  = await fetch(`/finanzas/api/cierre/${fecha}`);
+    const data = await res.json();
+    if (data.found && data.cierre.is_validated) {
+        setStep(4);
+        document.getElementById('cierreConfirmMsg').textContent =
+            `Fecha ${fecha} ya tiene cierre validado.`;
+    } else {
+        setStep(1);
+        document.getElementById('calcResult').innerHTML = '';
+    }
+}
+
+async function calcularCierre() {
+    const fecha = document.getElementById('cierreFecha').value;
+    const res  = await fetch('/finanzas/api/cierre/calcular', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({fecha})
+    });
+    const data = await res.json();
+    if (!data.ok) {
+        document.getElementById('calcResult').innerHTML =
+            `<div class="alert alert-danger py-2 mt-2" style="font-size:.8rem;">${data.error}</div>`;
+        return;
+    }
+    _cierreData = data.cierre;
+    const c = data.cierre;
+    document.getElementById('calcResult').innerHTML = `
+      <div style="background:#f8fafc;border-radius:8px;padding:12px;font-size:.82rem;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+          <div><span style="color:#64748b;">Operaciones completadas:</span> <strong>${c.operations_completed}</strong></div>
+          <div><span style="color:#64748b;">Volumen USD:</span> <strong>$ ${fmtN(c.total_volume_usd)}</strong></div>
+          <div><span style="color:#64748b;">Utilidad bruta:</span> <strong>S/ ${fmtN(c.gross_spread_pen)}</strong></div>
+          <div><span style="color:#64748b;">Pendientes:</span> <strong>${c.pending_operations}</strong></div>
+          <div><span style="color:#64748b;">USD sin amarrar:</span> <strong>$ ${fmtN(c.unmatched_completed_usd)}</strong></div>
+          <div><span style="color:#64748b;">Amarres abiertos:</span> <strong>${c.open_matches}</strong></div>
+        </div>
+      </div>`;
+
+    // Construir grid de saldos reales
+    const banks = ['BCP','INTERBANK','BANBIF'];
+    const sysBal = c.system_balances || {};
+    let grid = '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:12px;">';
+    for (const bk of banks) {
+        for (const cur of ['USD','PEN']) {
+            const sys = ((sysBal[bk] || {})[cur] || 0);
+            grid += `
+            <div style="background:#f8fafc;border-radius:8px;padding:10px;">
+              <div style="font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;">${bk} ${cur}</div>
+              <div style="font-size:.72rem;color:#94A3B8;margin-bottom:4px;">Sistema: ${cur==='USD'?fmtUSD(sys):fmtPEN(sys)}</div>
+              <input type="number" step="0.01" min="0"
+                     class="form-control form-control-sm"
+                     id="real_${bk}_${cur}"
+                     placeholder="${cur==='USD'? '0.00 USD':'0.00 PEN'}"
+                     style="font-size:.8rem;">
+            </div>`;
+        }
+    }
+    grid += '</div>';
+    document.getElementById('saldosRealesGrid').innerHTML = grid;
+
+    setStep(2);
+}
+
+async function validarCierre() {
+    const fecha = document.getElementById('cierreFecha').value;
+    const banks = ['BCP','INTERBANK','BANBIF'];
+    const saldos = {};
+    for (const bk of banks) {
+        saldos[bk] = {};
+        for (const cur of ['USD','PEN']) {
+            const val = parseFloat(document.getElementById(`real_${bk}_${cur}`).value || '0');
+            saldos[bk][cur] = val;
+        }
+    }
+    const notas = document.getElementById('cierreNotas').value;
+
+    const res  = await fetch('/finanzas/api/cierre/validar', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({fecha, saldos_reales: saldos, notas})
+    });
+    const data = await res.json();
+    if (!data.ok) { alert(data.error); return; }
+
+    _cierreData = data.cierre;
+    renderDiffs(data.differences, data.has_discrepancies);
+    setStep(3);
+}
+
+function renderDiffs(diffs, hasDiff) {
+    const banks = ['BCP','INTERBANK','BANBIF'];
+    const c = _cierreData;
+    const sys = c.system_balances || {};
+    const val = c.validated_balances || {};
+    const fmtA = (n, cur) => cur === 'USD' ? fmtUSD(n) : fmtPEN(n);
+
+    let rows = '';
+    for (const bk of banks) {
+        for (const cur of ['USD','PEN']) {
+            const sysV = ((sys[bk]||{})[cur]||0);
+            const valV = ((val[bk]||{})[cur]||0);
+            const diff = ((diffs[bk]||{})[cur]||0);
+            const ok   = Math.abs(diff) < 0.02;
+            const icon = ok ? '✓' : (diff > 0 ? '↑' : '↓');
+            const cls  = ok ? 'color:#16a34a;' : 'color:#dc2626;font-weight:700;';
+            rows += `<tr>
+              <td><strong>${bk}</strong></td>
+              <td>${cur}</td>
+              <td class="text-end">${fmtA(sysV, cur)}</td>
+              <td class="text-end">${fmtA(valV, cur)}</td>
+              <td class="text-end" style="${cls}">${icon} ${fmtA(Math.abs(diff), cur)}</td>
+            </tr>`;
+        }
+    }
+
+    document.getElementById('diffsZone').innerHTML = `
+      <table class="aud-table">
+        <thead><tr>
+          <th>Banco</th><th>Mon.</th>
+          <th class="text-end">Saldo sistema</th>
+          <th class="text-end">Saldo real</th>
+          <th class="text-end">Diferencia</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <div class="mt-2" style="font-size:.8rem;${hasDiff?'color:#dc2626;font-weight:700;':'color:#16a34a;'}">
+        ${hasDiff ? '⚠ Existen diferencias — ingrese el motivo para confirmar.' : '✓ Sin diferencias — puede confirmar el cierre.'}
+      </div>`;
+
+    document.getElementById('motivoZone').style.display = hasDiff ? '' : 'none';
+}
+
+async function confirmarCierre() {
+    const fecha  = document.getElementById('cierreFecha').value;
+    const motivo = document.getElementById('motivoDiscrepancia').value;
+    const res    = await fetch('/finanzas/api/cierre/confirmar', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({fecha, motivo_discrepancia: motivo})
+    });
+    const data = await res.json();
+    if (!data.ok) { alert(data.error); return; }
+
+    document.getElementById('cierreConfirmMsg').textContent = data.message;
+    setStep(4);
+    loadHistorial();
+}
+
+async function loadHistorial() {
+    const res  = await fetch('/finanzas/api/cierre/historial?per_page=10');
+    const data = await res.json();
+    if (!data.ok) return;
+
+    const rows = data.cierres.map(c => {
+        const fecha = c.closure_date;
+        const cls   = c.is_validated ? 'color:#16a34a;' : 'color:#d97706;';
+        const label = c.is_validated ? 'Validado' : 'Borrador';
+        const disc  = c.has_discrepancies ? ' <span style="color:#dc2626;">⚠</span>' : '';
+        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #f1f5f9;font-size:.8rem;">
+          <div><strong>${fecha}</strong>${disc}</div>
+          <div style="display:flex;gap:10px;align-items:center;">
+            <span style="${cls}font-weight:700;">${label}</span>
+            <span style="color:#94A3B8;">${c.operations_completed} op(s)</span>
+          </div>
+        </div>`;
+    }).join('');
+    document.getElementById('cierreHistorial').innerHTML =
+        rows || '<div class="text-center text-muted py-2">Sin cierres registrados</div>';
+}
+
+// ── Reconciliación ───────────────────────────────────────────────────────────
+async function loadReconciliacion() {
+    const res  = await fetch('/finanzas/api/reconciliacion');
+    const data = await res.json();
+    if (!data.ok) {
+        document.getElementById('recGrid').innerHTML =
+            `<div class="text-danger">${data.error}</div>`;
+        return;
+    }
+
+    document.getElementById('btnActivarLedger').style.display =
+        data.sin_ledger.length > 0 ? '' : 'none';
+
+    const alertEl = document.getElementById('recAlerta');
+    if (data.todo_coherente && data.ledger_activo) {
+        alertEl.innerHTML = `<div class="rec-row ok"><i class="bi bi-check-circle-fill text-success me-2"></i><strong>Todo coherente</strong> — BankBalance y ledger coinciden en todas las cuentas.</div>`;
+    } else if (!data.ledger_activo) {
+        alertEl.innerHTML = `<div class="rec-row empty"><i class="bi bi-info-circle-fill text-warning me-2"></i>
+          El ledger no tiene saldos de apertura. Presione <strong>"Activar ledger"</strong> para establecer el punto de inicio.
+          Esto registrará los saldos actuales de BankBalance como apertura del ledger.
+        </div>`;
+    } else {
+        alertEl.innerHTML = `<div class="rec-row diff"><i class="bi bi-exclamation-circle-fill text-danger me-2"></i>
+          <strong>${data.incoherentes.length} cuenta(s) con diferencias</strong> entre BankBalance y el ledger.
+        </div>`;
+    }
+
+    const rows = data.resultados.map(r => {
+        let cls, icon, diffStr;
+        if (r.ledger_empty) {
+            cls = 'empty'; icon = 'bi-info-circle-fill text-warning';
+            diffStr = 'Sin apertura de ledger';
+        } else if (r.coherent) {
+            cls = 'ok'; icon = 'bi-check-circle-fill text-success';
+            diffStr = 'Coherente';
+        } else {
+            cls = 'diff'; icon = 'bi-exclamation-circle-fill text-danger';
+            diffStr = `Diferencia: ${r.currency==='USD'?fmtUSD(Math.abs(r.diff)):fmtPEN(Math.abs(r.diff))}`;
+        }
+        return `<div class="rec-row ${cls}">
+          <div>
+            <i class="bi ${icon} me-2"></i>
+            <strong>${r.account_name}</strong>
+          </div>
+          <div style="text-align:right;font-size:.79rem;">
+            <div>Cache: <strong>${r.currency==='USD'?fmtUSD(r.balance_cache):fmtPEN(r.balance_cache)}</strong></div>
+            <div style="color:#64748b;">Ledger: ${r.currency==='USD'?fmtUSD(r.balance_ledger):fmtPEN(r.balance_ledger)}</div>
+            <div style="${!r.coherent&&!r.ledger_empty?'color:#dc2626;font-weight:700;':''}">${diffStr}</div>
+          </div>
+        </div>`;
+    }).join('');
+
+    document.getElementById('recGrid').innerHTML = rows;
+}
+
+async function activarLedger() {
+    if (!confirm('¿Registrar los saldos actuales de BankBalance como saldos de apertura del ledger?\n\nEsto solo actúa sobre cuentas que aún no tienen movimientos en el ledger.')) return;
+    const res  = await fetch('/finanzas/api/ledger/activar', {method:'POST'});
+    const data = await res.json();
+    if (!data.ok) { alert(data.error); return; }
+
+    let msg = `Activadas: ${data.activated.length}\nOmitidas: ${data.skipped.length}`;
+    if (data.errors.length) msg += `\nErrores: ${data.errors.join(', ')}`;
+    alert(msg);
+    loadReconciliacion();
+}
+
+// Inicialización
+loadHistorial();
+</script>
+{% endblock %}
