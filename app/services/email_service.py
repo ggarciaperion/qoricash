@@ -114,6 +114,17 @@ class EmailService:
     """Servicio para envío de correos electrónicos"""
 
     @staticmethod
+    def _parse_client_emails(email_str):
+        """
+        Parsea un campo de email que puede contener múltiples direcciones
+        separadas por ';' y retorna una lista limpia de emails válidos.
+        Ej: "a@x.com; b@x.com" → ["a@x.com", "b@x.com"]
+        """
+        if not email_str:
+            return []
+        return [e.strip() for e in email_str.split(';') if e.strip() and '@' in e]
+
+    @staticmethod
     def build_email_html(title: str, body_html: str, subtitle: str = '') -> str:
         """
         Template base corporativo para todos los correos de QoriCash.
@@ -198,7 +209,7 @@ class EmailService:
                 - cc: trader que creó la operación + gerencia@qoricash.pe
                 - bcc: vacío
         """
-        to = [operation.client.email] if operation.client and operation.client.email else []
+        to = EmailService._parse_client_emails(operation.client.email) if operation.client else []
         seen = set(to)
         cc = []
         trader_email = operation.user.email if operation.user and getattr(operation.user, 'email', None) else None
@@ -221,7 +232,7 @@ class EmailService:
                 - cc: trader que creó la operación + gerencia@qoricash.pe
                 - bcc: vacío
         """
-        to = [operation.client.email] if operation.client and operation.client.email else []
+        to = EmailService._parse_client_emails(operation.client.email) if operation.client else []
         seen = set(to)
         cc = []
         trader_email = operation.user.email if operation.user and getattr(operation.user, 'email', None) else None
@@ -611,7 +622,7 @@ class EmailService:
             tuple: (success: bool, message: str)
         """
         try:
-            to = [operation.client.email] if operation.client and operation.client.email else []
+            to = EmailService._parse_client_emails(operation.client.email) if operation.client else []
             seen = set(to)
             cc = []
             trader_email = operation.user.email if operation.user and getattr(operation.user, 'email', None) else None
@@ -659,7 +670,7 @@ class EmailService:
             tuple: (success: bool, message: str)
         """
         try:
-            to = [operation.client.email] if operation.client and operation.client.email else []
+            to = EmailService._parse_client_emails(operation.client.email) if operation.client else []
             seen = set(to)
             cc = []
             trader_email = operation.user.email if operation.user and getattr(operation.user, 'email', None) else None
@@ -912,8 +923,8 @@ class EmailService:
             tuple: (success: bool, message: str)
         """
         try:
-            # Destinatario principal: Cliente
-            to = [client.email] if client.email else []
+            # Destinatario principal: Cliente (soporta múltiples emails separados por ";")
+            to = EmailService._parse_client_emails(client.email)
 
             # CC: Trader que registró al cliente + gerencia
             seen = set(to)
@@ -1012,19 +1023,20 @@ class EmailService:
                 # ── EMAIL 1: al cliente, CON contraseña temporal ──────────────
                 logger.info(f'[EMAIL] Enviando correo al cliente {client.email} (con contraseña)')
                 html_cliente = EmailService._render_client_activation_template(client, trader, temporary_password=temporary_password)
+                client_emails = EmailService._parse_client_emails(client.email)
                 msg_cliente = Message(
                     subject=subject,
                     sender=confirmation_sender,
-                    recipients=[client.email],
+                    recipients=client_emails,
                     html=html_cliente
                 )
                 EmailService._send_async(msg_cliente, timeout=15)
-                logger.info(f'[EMAIL] Correo al cliente programado: {client.email}')
+                logger.info(f'[EMAIL] Correo al cliente programado: {client_emails}')
 
                 # ── EMAIL 2: al trader + masters, SIN contraseña temporal ─────
                 internal_to = []
                 internal_bcc = []
-                seen = {client.email}
+                seen = set(client_emails)
 
                 if trader and trader.email and trader.email not in seen:
                     internal_to.append(trader.email)
