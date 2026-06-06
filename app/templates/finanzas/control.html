@@ -327,10 +327,13 @@ function renderPosicion(pos) {
             ? `<span class="aged-badge">⚠ ${p.days_open}d</span>`
             : `<span class="ok-badge">${p.days_open}d</span>`;
         const typeCls = p.type === 'Compra' ? 'color:#2563eb;' : 'color:#7c3aed;';
+        const tcStr   = p.exchange_rate ? p.exchange_rate.toFixed(4) : '—';
+        const baseStr = p.base_rate    ? p.base_rate.toFixed(4)    : '—';
         return `<tr>
           <td><a href="/operations/${p.id}" style="color:#0D1B2A;font-weight:700;text-decoration:none;">${p.operation_id}</a></td>
           <td><span style="${typeCls}font-weight:700;">${p.type}</span></td>
-          <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.client}</td>
+          <td style="max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.client}</td>
+          <td class="text-end" style="font-size:.8rem;">${tcStr}<br><span style="color:#94a3b8;font-size:.73rem;">base ${baseStr}</span></td>
           <td class="text-end">${fmtUSD(p.open_usd)}</td>
           <td class="text-end">${ageBadge}</td>
         </tr>`;
@@ -345,6 +348,7 @@ function renderPosicion(pos) {
     <table class="pos-table">
       <thead><tr>
         <th>Operación</th><th>Tipo</th><th>Cliente</th>
+        <th class="text-end">TC / Base</th>
         <th class="text-end">USD Abierto</th><th class="text-end">Antigüedad</th>
       </tr></thead>
       <tbody>${rows}</tbody>

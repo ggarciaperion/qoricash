@@ -24,6 +24,7 @@ from datetime import date, datetime, timedelta
 from sqlalchemy import func
 
 from app.extensions import db
+from app.utils.formatters import now_peru
 
 _log = logging.getLogger(__name__)
 
@@ -144,7 +145,7 @@ class FinanceEngine:
             Operation.completed_at.asc()
         ).all()
 
-        today = date.today()
+        today = now_peru().date()
         items          = []
         total_compras  = 0.0
         total_ventas   = 0.0
@@ -167,6 +168,7 @@ class FinanceEngine:
                 'matched_usd':  round(matched, 2),
                 'open_usd':     open_usd,
                 'exchange_rate':float(op.exchange_rate or 0),
+                'base_rate':    float(op.base_rate or 0) if op.base_rate else None,
                 'completed_at': op.completed_at.isoformat() if op.completed_at else None,
                 'days_open':    days_open,
                 'is_aged':      days_open >= 5,
@@ -248,7 +250,7 @@ class FinanceEngine:
         from app.models import Operation
 
         if fecha is None:
-            fecha = date.today()
+            fecha = now_peru().date()
         start = datetime.combine(fecha, datetime.min.time())
         end   = start + timedelta(days=1)
 
@@ -322,7 +324,7 @@ class FinanceEngine:
         """Estado del cierre diario más reciente."""
         from app.models import DailyClosure
 
-        today     = date.today()
+        today     = now_peru().date()
         last      = DailyClosure.query.order_by(DailyClosure.closure_date.desc()).first()
         today_cls = DailyClosure.query.filter_by(closure_date=today).first()
 
@@ -387,7 +389,7 @@ class FinanceEngine:
         Snapshot completo para el dashboard de Control Financiero.
         Cada sección es independiente: un error no rompe el resto.
         """
-        today = date.today()
+        today = now_peru().date()
 
         _profit_default = {
             'total_pen': 0, 'house_pen': 0,
@@ -444,7 +446,7 @@ class FinanceEngine:
 
         return {
             'ok':        True,
-            'timestamp': datetime.now().isoformat(),
+            'timestamp': now_peru().isoformat(),
             'balances':  balances,
             'position':  position,
             'profit':    {'all_time': profit_all, 'today': profit_today},
@@ -506,9 +508,9 @@ class FinanceEngine:
                     amount         = round(bal_cache, 2),
                     movement_type  = BankMovement.TYPE_SALDO_INICIAL,
                     source_type    = 'ledger_activation',
-                    description    = f'Saldo de apertura al activar el ledger — {date.today().isoformat()}',
+                    description    = f'Saldo de apertura al activar el ledger — {now_peru().date().isoformat()}',
                     balance_after  = round(bal_cache, 2),
-                    closure_date   = date.today(),
+                    closure_date   = now_peru().date(),
                     created_by     = user_id,
                 )
                 db.session.add(mv)
