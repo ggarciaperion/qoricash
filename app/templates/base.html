@@ -155,36 +155,20 @@
             <div class="sidebar-section-label">Compliance</div>
             {% endif %}
 
-            {% if current_user.role in ['Master', 'Presidente de Negocios', 'Operador'] %}
-            <a class="sidebar-link {% if request.endpoint == 'position.position_view' %}active{% endif %}"
-               href="{{ url_for('position.position_view') }}">
-                <i class="bi bi-bank"></i>
-                <span class="sidebar-link-text">Posición</span>
+            {% if current_user.role in ('Master', 'Presidente de Negocios') %}
+            <a class="sidebar-link {% if request.endpoint and request.endpoint.startswith('finanzas') %}active{% endif %}"
+               href="{{ url_for('finanzas.control') }}">
+                <i class="bi bi-pie-chart-fill"></i>
+                <span class="sidebar-link-text">Finanzas</span>
             </a>
             {% endif %}
 
             {% if current_user.role in ('Master', 'Presidente de Negocios') %}
             <a class="sidebar-link {% if request.endpoint and request.endpoint.startswith('contabilidad') %}active{% endif %}"
-               href="{{ url_for('contabilidad.dashboard') }}">
+               href="{{ url_for('contabilidad.gastos') }}">
                 <i class="bi bi-calculator"></i>
                 <span class="sidebar-link-text">Contabilidad</span>
                 <span id="unmatchedBadge" class="sidebar-badge sidebar-badge-warning" style="display:none;">0</span>
-            </a>
-            {% endif %}
-
-            {% if current_user.role in ('Master', 'Presidente de Negocios') %}
-            <a class="sidebar-link {% if request.endpoint and request.endpoint.startswith('treasury') %}active{% endif %}"
-               href="{{ url_for('treasury.dashboard') }}">
-                <i class="bi bi-safe2"></i>
-                <span class="sidebar-link-text">Tesorería</span>
-            </a>
-            {% endif %}
-
-            {% if current_user.role in ('Master', 'Presidente de Negocios') %}
-            <a class="sidebar-link {% if request.endpoint and request.endpoint.startswith('finanzas') %}active{% endif %}"
-               href="{{ url_for('finanzas.control') }}">
-                <i class="bi bi-pie-chart-fill"></i>
-                <span class="sidebar-link-text">Finanzas V2</span>
             </a>
             {% endif %}
 

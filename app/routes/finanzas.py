@@ -437,3 +437,66 @@ def api_cierre_get(fecha_str):
         return jsonify({'ok': True, 'found': True, 'cierre': closure.to_dict()})
     except Exception as exc:
         return jsonify({'ok': False, 'error': str(exc)}), 500
+
+
+@finanzas_bp.route('/api/saldo/corregir', methods=['POST'])
+@login_required
+def api_saldo_corregir():
+    """Corrección manual de saldo bancario — fuente única reemplaza position.update_balance."""
+    _require_role()
+    try:
+        from app.models.bank_balance import BankBalance
+        from app.models.bank_movement import BankMovement
+
+        data      = request.get_json() or {}
+        bank_name = data.get('bank_name', '').strip()
+        currency  = data.get('currency', '').upper()
+        amount    = data.get('amount')
+        motivo    = data.get('motivo', 'Corrección manual').strip()
+
+        if not bank_name or currency not in ('USD', 'PEN'):
+            return jsonify({'ok': False, 'error': 'Faltan datos o moneda inválida'}), 400
+        try:
+            amount = float(amount)
+            if amount < 0:
+                return jsonify({'ok': False, 'error': 'El saldo no puede ser negativo'}), 400
+        except (TypeError, ValueError):
+            return jsonify({'ok': False, 'error': 'Monto inválido'}), 400
+
+        balance = BankBalance.get_or_create_balance(bank_name)
+        anterior = float(balance.balance_usd if currency == 'USD' else balance.balance_pen)
+        diferencia = amount - anterior
+
+        if currency == 'USD':
+            balance.balance_usd = amount
+        else:
+            balance.balance_pen = amount
+        balance.updated_by = current_user.id
+        balance.updated_at = now_peru()
+
+        # Registrar movimiento de corrección en el ledger
+        if abs(diferencia) >= 0.01:
+            tipo = 'ajuste_positivo' if diferencia > 0 else 'ajuste_negativo'
+            mv = BankMovement(
+                bank_name=bank_name,
+                currency=currency,
+                amount=abs(diferencia),
+                movement_type=tipo,
+                description=f'{motivo} (anterior: {anterior:.2f})',
+                reference=f'CORR-{now_peru().strftime("%Y%m%d%H%M%S")}',
+                created_by=current_user.id,
+                movement_date=now_peru().date(),
+            )
+            db.session.add(mv)
+
+        db.session.commit()
+        return jsonify({
+            'ok': True,
+            'message': f'Saldo {bank_name} {currency} corregido a {amount:.2f}',
+            'anterior': anterior,
+            'nuevo': amount,
+            'diferencia': diferencia,
+        })
+    except Exception as exc:
+        db.session.rollback()
+        return jsonify({'ok': False, 'error': str(exc)}), 500

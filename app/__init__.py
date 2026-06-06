@@ -740,7 +740,7 @@ def register_blueprints(app):
     from app.routes.users import users_bp
     from app.routes.clients import clients_bp
     from app.routes.operations import operations_bp
-    from app.routes.position import position_bp
+    # position_bp eliminado — reemplazado por Finanzas
     from app.routes.platform import platform_bp
     from app.routes.platform_api import platform_api_bp
     from app.routes.client_auth import client_auth_bp
@@ -758,7 +758,7 @@ def register_blueprints(app):
     app.register_blueprint(users_bp, url_prefix='/users')
     app.register_blueprint(clients_bp, url_prefix='/clients')
     app.register_blueprint(operations_bp, url_prefix='/operations')
-    app.register_blueprint(position_bp, url_prefix='/position')
+    # position_bp desregistrado — reemplazado por Finanzas
     app.register_blueprint(platform_bp)  # Sin prefijo, las rutas ya tienen /api/platform
     app.register_blueprint(platform_api_bp)  # API pública plataforma: /api/platform/*
     app.register_blueprint(client_auth_bp)  # Autenticación de clientes: /api/client/* (web + móvil)
@@ -783,10 +783,8 @@ def register_blueprints(app):
     app.register_blueprint(push_bp)            # Web Push: /api/push/*
     from app.routes.crm import crm_bp
     app.register_blueprint(crm_bp)             # CRM WhatsApp: /crm/*
-    from app.routes.treasury import treasury_bp
-    app.register_blueprint(treasury_bp, url_prefix='/treasury')  # Tesorería
     from app.routes.finanzas import finanzas_bp
-    app.register_blueprint(finanzas_bp, url_prefix='/finanzas')  # Control Financiero V2
+    app.register_blueprint(finanzas_bp, url_prefix='/finanzas')  # Control Financiero
 
 # Service Worker debe servirse desde la raíz del dominio (scope /)
     import os
