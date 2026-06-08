@@ -474,21 +474,6 @@ def api_saldo_corregir():
         balance.updated_by = current_user.id
         balance.updated_at = now_peru()
 
-        # Registrar movimiento de corrección en el ledger
-        if abs(diferencia) >= 0.01:
-            tipo = 'ajuste_positivo' if diferencia > 0 else 'ajuste_negativo'
-            mv = BankMovement(
-                bank_name=bank_name,
-                currency=currency,
-                amount=abs(diferencia),
-                movement_type=tipo,
-                description=f'{motivo} (anterior: {anterior:.2f})',
-                reference_code=f'CORR-{now_peru().strftime("%Y%m%d%H%M%S")}',
-                created_by=current_user.id,
-                movement_date=now_peru().date(),
-            )
-            db.session.add(mv)
-
         db.session.commit()
         return jsonify({
             'ok': True,
