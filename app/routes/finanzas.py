@@ -465,6 +465,7 @@ def api_saldo_corregir():
 
         balance = BankBalance.get_or_create_balance(bank_name)
         anterior = float(balance.balance_usd if currency == 'USD' else balance.balance_pen)
+        diferencia = amount - anterior
 
         if currency == 'USD':
             balance.balance_usd         = amount
