@@ -465,12 +465,13 @@ def api_saldo_corregir():
 
         balance = BankBalance.get_or_create_balance(bank_name)
         anterior = float(balance.balance_usd if currency == 'USD' else balance.balance_pen)
-        diferencia = amount - anterior
 
         if currency == 'USD':
-            balance.balance_usd = amount
+            balance.balance_usd         = amount
+            balance.initial_balance_usd = amount  # base para sync_balances
         else:
-            balance.balance_pen = amount
+            balance.balance_pen         = amount
+            balance.initial_balance_pen = amount  # base para sync_balances
         balance.updated_by = current_user.id
         balance.updated_at = now_peru()
 

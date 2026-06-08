@@ -155,7 +155,7 @@ class BankBalance(db.Model):
                     _log.debug(f'[BankBalance] {acct_name} no registrada, omitiendo.')
                     return
 
-                # ── 1. Actualizar BankBalance (saldo rápido) ─────────────
+                # Actualizar BankBalance (saldo rápido)
                 if usd_delta:
                     new_usd = float(bb.balance_usd) + usd_delta
                     bb.balance_usd = max(new_usd, 0.0)
@@ -163,60 +163,6 @@ class BankBalance(db.Model):
                     new_pen = float(bb.balance_pen) + pen_delta
                     bb.balance_pen = max(new_pen, 0.0)
                 bb.updated_at = now_peru()
-
-                # ── 2. Registrar BankMovement (auditoría inmutable) ───────
-                try:
-                    from app.models.bank_movement import BankMovement
-                    _bkey = _normalize(acct_name.split()[0])  # extrae "BCP", "INTERBANK", etc.
-                    op_type_label = operation.operation_type   # Compra | Venta
-
-                    if usd_delta:
-                        mv_type = BankMovement.TYPE_OP_ENTRADA if usd_delta > 0 else BankMovement.TYPE_OP_SALIDA
-                        desc = (f"{'Depósito recibido' if usd_delta > 0 else 'Pago realizado'} "
-                                f"USD — Op {operation.operation_id} ({op_type_label})")
-                        bal_after = float(bb.balance_usd)
-                        mv = BankMovement(
-                            movement_date  = now_peru(),
-                            bank_name      = acct_name,
-                            bank_key       = _bkey,
-                            currency       = 'USD',
-                            amount         = round(usd_delta, 2),
-                            movement_type  = mv_type,
-                            source_type    = 'operation',
-                            source_id      = operation.id,
-                            operation_id   = operation.id,
-                            description    = desc,
-                            reference_code = ref_code or operation.operation_id,
-                            counterpart    = counterpart or (operation.client.full_name if operation.client else None),
-                            balance_after  = bal_after,
-                            closure_date   = (operation.completed_at or now_peru()).date(),
-                        )
-                        db.session.add(mv)
-
-                    if pen_delta:
-                        mv_type = BankMovement.TYPE_OP_ENTRADA if pen_delta > 0 else BankMovement.TYPE_OP_SALIDA
-                        desc = (f"{'Depósito recibido' if pen_delta > 0 else 'Pago realizado'} "
-                                f"PEN — Op {operation.operation_id} ({op_type_label})")
-                        bal_after = float(bb.balance_pen)
-                        mv = BankMovement(
-                            movement_date  = now_peru(),
-                            bank_name      = acct_name,
-                            bank_key       = _bkey,
-                            currency       = 'PEN',
-                            amount         = round(pen_delta, 2),
-                            movement_type  = mv_type,
-                            source_type    = 'operation',
-                            source_id      = operation.id,
-                            operation_id   = operation.id,
-                            description    = desc,
-                            reference_code = ref_code or operation.operation_id,
-                            counterpart    = counterpart or (operation.client.full_name if operation.client else None),
-                            balance_after  = bal_after,
-                            closure_date   = (operation.completed_at or now_peru()).date(),
-                        )
-                        db.session.add(mv)
-                except Exception as _mve:
-                    _log.warning(f'[BankMovement] No se pudo registrar movimiento: {_mve}')
 
             if operation.operation_type == 'Compra':
                 # Depósitos: cliente → QoriCash en USD (inflows)
