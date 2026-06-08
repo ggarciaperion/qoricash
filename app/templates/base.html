@@ -165,7 +165,7 @@
 
             {% if current_user.role in ('Master', 'Presidente de Negocios') %}
             <a class="sidebar-link {% if request.endpoint and request.endpoint.startswith('contabilidad') %}active{% endif %}"
-               href="{{ url_for('contabilidad.gastos') }}">
+               href="{{ url_for('contabilidad.dashboard') }}">
                 <i class="bi bi-calculator"></i>
                 <span class="sidebar-link-text">Contabilidad</span>
                 <span id="unmatchedBadge" class="sidebar-badge sidebar-badge-warning" style="display:none;">0</span>
