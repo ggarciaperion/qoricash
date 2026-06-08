@@ -486,3 +486,135 @@ def api_saldo_corregir():
     except Exception as exc:
         db.session.rollback()
         return jsonify({'ok': False, 'error': str(exc)}), 500
+
+
+# ── DIAGNÓSTICO TEMPORAL ───────────────────────────────────────────────────────
+@finanzas_bp.route('/api/diagnostico/saldos')
+@login_required
+def api_diagnostico_saldos():
+    """Diagnóstico: BankBalance records + operaciones completadas hoy con sus movimientos."""
+    _require_role()
+    from app.models.bank_balance import BankBalance
+    from app.models import Operation
+    from app.config.bank_accounts import QORICASH_ACCOUNTS, ALLOWED_BANK_NAMES
+    from datetime import datetime as dt, time, timedelta
+
+    # 1. Todos los registros BankBalance
+    all_bb = []
+    for bb in BankBalance.query.order_by(BankBalance.bank_name).all():
+        all_bb.append({
+            'bank_name':           bb.bank_name,
+            'balance_usd':         float(bb.balance_usd),
+            'balance_pen':         float(bb.balance_pen),
+            'initial_balance_usd': float(bb.initial_balance_usd),
+            'initial_balance_pen': float(bb.initial_balance_pen),
+            'in_allowed':          bb.bank_name in ALLOWED_BANK_NAMES,
+            'updated_at':          bb.updated_at.isoformat() if bb.updated_at else None,
+        })
+
+    # 2. Operaciones completadas hoy → bank detection + deltas
+    today = now_peru().date()
+    ops_today = Operation.query.filter(
+        Operation.status == 'Completada',
+        Operation.completed_at >= dt.combine(today, time.min),
+        Operation.completed_at <= dt.combine(today, time.max),
+    ).order_by(Operation.completed_at.desc()).all()
+
+    _ALIASES = {'BCP':'BCP','CREDITO':'BCP','CRÉDITO':'BCP','INTERBANK':'INTERBANK','IBK':'INTERBANK','BANBIF':'BANBIF','BIF':'BANBIF'}
+    _banco_accts = {b: {m: f"{b} {m} ({d['numero']})" for m, d in ms.items()} for b, ms in QORICASH_ACCOUNTS.items()}
+
+    def _norm(name):
+        if not (name or '').strip(): return ''
+        u = name.upper()
+        for alias, banco in _ALIASES.items():
+            if alias in u: return banco
+        return 'INTERBANK'
+
+    ops_info = []
+    for op in ops_today:
+        _pays = op.client_payments or []
+        _deps = op.client_deposits or []
+        _hp = any(p.get('qc_bank') for p in _pays)
+        _hd = any(d.get('qc_bank') for d in _deps)
+
+        # Detectar banco origen (USD para Compra / PEN para Venta)
+        src_bank = ''
+        try:
+            if op.source_account and op.client:
+                for a in (op.client.bank_accounts or []):
+                    if a.get('account_number') == op.source_account:
+                        src_bank = _norm(a.get('bank_name', ''))
+            if not src_bank and getattr(op, 'source_bank_name', None):
+                src_bank = _norm(op.source_bank_name)
+        except Exception: pass
+
+        dst_bank = ''
+        try:
+            if op.destination_account and op.client:
+                for a in (op.client.bank_accounts or []):
+                    if a.get('account_number') == op.destination_account:
+                        dst_bank = _norm(a.get('bank_name', ''))
+            if not dst_bank and getattr(op, 'destination_bank_name', None):
+                dst_bank = _norm(op.destination_bank_name)
+        except Exception: pass
+        if not dst_bank: dst_bank = src_bank or 'INTERBANK'
+
+        # Calcular deltas esperados
+        usd = float(op.amount_usd or 0)
+        pen = float(op.amount_pen or 0)
+        movements = []
+        if op.operation_type == 'Compra':
+            usd_bank = src_bank or 'INTERBANK'
+            pen_bank = dst_bank
+            if _hd:
+                for d in _deps:
+                    b = _norm(d.get('qc_bank','')) or _norm(d.get('cuenta_cargo',''))
+                    a = float(d.get('importe', 0))
+                    if b and a > 0:
+                        movements.append({'acct': _banco_accts.get(b,{}).get('USD','?'), 'delta_usd': +a, 'delta_pen': 0})
+            else:
+                movements.append({'acct': _banco_accts.get(usd_bank,{}).get('USD','?'), 'delta_usd': +usd, 'delta_pen': 0})
+            if _hp:
+                for p in _pays:
+                    b = _norm(p.get('qc_bank','')) or _norm(p.get('cuenta_destino',''))
+                    a = float(p.get('importe', 0))
+                    if b and a > 0:
+                        movements.append({'acct': _banco_accts.get(b,{}).get('PEN','?'), 'delta_usd': 0, 'delta_pen': -a})
+            else:
+                movements.append({'acct': _banco_accts.get(pen_bank,{}).get('PEN','?'), 'delta_usd': 0, 'delta_pen': -pen})
+        else:  # Venta
+            pen_bank = src_bank or 'INTERBANK'
+            usd_bank = dst_bank
+            if _hd:
+                for d in _deps:
+                    b = _norm(d.get('qc_bank','')) or _norm(d.get('cuenta_cargo',''))
+                    a = float(d.get('importe', 0))
+                    if b and a > 0:
+                        movements.append({'acct': _banco_accts.get(b,{}).get('PEN','?'), 'delta_usd': 0, 'delta_pen': +a})
+            else:
+                movements.append({'acct': _banco_accts.get(pen_bank,{}).get('PEN','?'), 'delta_usd': 0, 'delta_pen': +pen})
+            if _hp:
+                for p in _pays:
+                    b = _norm(p.get('qc_bank','')) or _norm(p.get('cuenta_destino',''))
+                    a = float(p.get('importe', 0))
+                    if b and a > 0:
+                        movements.append({'acct': _banco_accts.get(b,{}).get('USD','?'), 'delta_usd': -a, 'delta_pen': 0})
+            else:
+                movements.append({'acct': _banco_accts.get(usd_bank,{}).get('USD','?'), 'delta_usd': -usd, 'delta_pen': 0})
+
+        ops_info.append({
+            'op_id':      op.operation_id,
+            'type':       op.operation_type,
+            'amount_usd': usd,
+            'amount_pen': pen,
+            'completed_at': op.completed_at.isoformat() if op.completed_at else None,
+            'src_bank':   src_bank,
+            'dst_bank':   dst_bank,
+            'has_qc_deposits': _hd,
+            'has_qc_payments': _hp,
+            'deposits':   _deps,
+            'payments':   _pays,
+            'movements':  movements,
+        })
+
+    return jsonify({'ok': True, 'bank_balances': all_bb, 'ops_today': ops_info})
