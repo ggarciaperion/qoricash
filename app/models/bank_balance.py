@@ -155,13 +155,11 @@ class BankBalance(db.Model):
                     _log.debug(f'[BankBalance] {acct_name} no registrada, omitiendo.')
                     return
 
-                # Actualizar BankBalance (saldo rápido)
+                # Actualizar BankBalance — sin capping a 0 para preservar déficit
                 if usd_delta:
-                    new_usd = float(bb.balance_usd) + usd_delta
-                    bb.balance_usd = max(new_usd, 0.0)
+                    bb.balance_usd = round(float(bb.balance_usd) + usd_delta, 2)
                 if pen_delta:
-                    new_pen = float(bb.balance_pen) + pen_delta
-                    bb.balance_pen = max(new_pen, 0.0)
+                    bb.balance_pen = round(float(bb.balance_pen) + pen_delta, 2)
                 bb.updated_at = now_peru()
 
             if operation.operation_type == 'Compra':

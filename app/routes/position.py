@@ -1117,12 +1117,12 @@ def sync_balances():
         updated = []
         for bank in all_banks:
             mvmt = acct_mvmt.get(bank.bank_name, {'USD': 0.0, 'PEN': 0.0})
-            new_usd = max(float(bank.initial_balance_usd or 0) + mvmt['USD'], 0.0)
-            new_pen = max(float(bank.initial_balance_pen or 0) + mvmt['PEN'], 0.0)
+            new_usd = round(float(bank.initial_balance_usd or 0) + mvmt['USD'], 2)
+            new_pen = round(float(bank.initial_balance_pen or 0) + mvmt['PEN'], 2)
             bank.balance_usd = new_usd
             bank.balance_pen = new_pen
             bank.updated_at  = now_peru()
-            updated.append({'bank_name': bank.bank_name, 'usd': round(new_usd, 2), 'pen': round(new_pen, 2)})
+            updated.append({'bank_name': bank.bank_name, 'usd': new_usd, 'pen': new_pen})
 
         db.session.commit()
         logger.info(f'[SyncBalances] {len(updated)} cuentas sincronizadas para {fecha_consulta}')
