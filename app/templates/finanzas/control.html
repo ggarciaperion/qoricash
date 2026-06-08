@@ -524,9 +524,10 @@ async function guardarSaldos() {
                 return;
             }
             // bank_name tal como los conoce BankBalance: "BCP USD", "INTERBANK PEN", etc.
+            const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
             tasks.push(fetch('/finanzas/api/saldo/corregir', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
                 body: JSON.stringify({ bank_name: `${bk} ${cur}`, currency: cur, amount: val, motivo: 'Corrección manual desde Control Financiero' })
             }).then(r => r.json()));
         }
