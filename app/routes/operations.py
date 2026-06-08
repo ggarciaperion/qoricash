@@ -1965,3 +1965,24 @@ def generate_invoice(operation_code):
             'invoice_number': invoice.invoice_number if invoice else None,
             'error': invoice.error_message if invoice else None
         }), 400
+
+
+@operations_bp.route('/api/<string:operation_code>/resend-email', methods=['POST'])
+@csrf.exempt
+@login_required
+@require_role('Master', 'Trader')
+def resend_email(operation_code):
+    """Reenvía el email de operación completada."""
+    from app.models.operation import Operation
+    from app.services.email_service import EmailService
+
+    operation = Operation.query.filter_by(operation_id=operation_code).first()
+    if not operation:
+        return jsonify({'success': False, 'message': f'Operación {operation_code} no encontrada'}), 404
+
+    if operation.status != 'Completada':
+        return jsonify({'success': False, 'message': f'La operación no está completada (estado: {operation.status})'}), 400
+
+    success, message = EmailService.send_completed_operation_email(operation)
+
+    return jsonify({'success': success, 'message': message})
