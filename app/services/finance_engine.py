@@ -62,11 +62,12 @@ class FinanceEngine:
             accounts:   lista plana de cuentas con detalle
         """
         from app.models import BankBalance
+        from app.config.bank_accounts import ALLOWED_BANK_NAMES
 
         by_bank  = {b: {'USD': 0.0, 'PEN': 0.0} for b in BANKS}
         accounts = []
 
-        for bb in BankBalance.query.all():
+        for bb in BankBalance.query.filter(BankBalance.bank_name.in_(ALLOWED_BANK_NAMES)).all():
             for bk in BANKS:
                 if not bb.bank_name.startswith(bk):
                     continue

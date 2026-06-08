@@ -440,17 +440,24 @@ loadSnapshot();
 
 // ── Modal Editar Saldos ────────────────────────────────────────────────────
 function abrirModalSaldos() {
-    // Pre-cargar valores actuales desde snapshot
     const snap = window._lastSnapshot;
-    const byBank = snap ? snap.balances.by_bank : {};
+    const accounts = snap ? (snap.balances.accounts || []) : [];
+
+    // Agrupar por banco → {BCP: {USD: {balance, account_name}, PEN: {...}}, ...}
+    const byBank = {};
+    for (const a of accounts) {
+        if (!byBank[a.bank]) byBank[a.bank] = {};
+        byBank[a.bank][a.currency] = { balance: a.balance, account_name: a.account_name };
+    }
+
     const banks = [
         { key: 'BCP',       name: 'BCP' },
         { key: 'INTERBANK', name: 'Interbank (IBK)' },
         { key: 'BANBIF',    name: 'BANBIF' },
     ];
     const rows = banks.map(b => {
-        const usd = (byBank[b.key] || {}).USD || 0;
-        const pen = (byBank[b.key] || {}).PEN || 0;
+        const usdData = (byBank[b.key] || {}).USD || { balance: 0, account_name: '' };
+        const penData = (byBank[b.key] || {}).PEN || { balance: 0, account_name: '' };
         return `
         <tr>
           <td style="font-weight:700;font-size:.85rem;vertical-align:middle;">${b.name}</td>
@@ -458,14 +465,18 @@ function abrirModalSaldos() {
             <div class="input-group input-group-sm">
               <span class="input-group-text" style="font-size:.75rem;">$</span>
               <input type="number" step="0.01" min="0" class="form-control"
-                     id="saldo_${b.key}_USD" value="${usd.toFixed(2)}" placeholder="0.00">
+                     id="saldo_${b.key}_USD"
+                     data-account="${usdData.account_name}"
+                     value="${usdData.balance.toFixed(2)}" placeholder="0.00">
             </div>
           </td>
           <td>
             <div class="input-group input-group-sm">
               <span class="input-group-text" style="font-size:.75rem;">S/</span>
               <input type="number" step="0.01" min="0" class="form-control"
-                     id="saldo_${b.key}_PEN" value="${pen.toFixed(2)}" placeholder="0.00">
+                     id="saldo_${b.key}_PEN"
+                     data-account="${penData.account_name}"
+                     value="${penData.balance.toFixed(2)}" placeholder="0.00">
             </div>
           </td>
         </tr>`;
@@ -513,22 +524,24 @@ async function guardarSaldos() {
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Guardando…';
 
+    const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
     const tasks = [];
     for (const bk of banks) {
         for (const cur of currencies) {
-            const val = parseFloat(document.getElementById(`saldo_${bk}_${cur}`).value);
+            const input = document.getElementById(`saldo_${bk}_${cur}`);
+            const val = parseFloat(input.value);
+            const accountName = input.dataset.account;
             if (isNaN(val) || val < 0) {
                 msg.innerHTML = `<span style="color:#dc2626;">Valor inválido en ${bk} ${cur}</span>`;
                 btn.disabled = false;
                 btn.innerHTML = '<i class="bi bi-check-lg"></i> Guardar';
                 return;
             }
-            // bank_name tal como los conoce BankBalance: "BCP USD", "INTERBANK PEN", etc.
-            const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
+            if (!accountName) continue; // cuenta no existe en DB, saltar
             tasks.push(fetch('/finanzas/api/saldo/corregir', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
-                body: JSON.stringify({ bank_name: `${bk} ${cur}`, currency: cur, amount: val, motivo: 'Corrección manual desde Control Financiero' })
+                body: JSON.stringify({ bank_name: accountName, currency: cur, amount: val, motivo: 'Corrección manual desde Control Financiero' })
             }).then(r => r.json()));
         }
     }
