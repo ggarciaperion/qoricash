@@ -35,8 +35,6 @@ class BankBalance(db.Model):
     # Constraints: un banco solo puede tener un registro
     __table_args__ = (
         db.UniqueConstraint('bank_name', name='uq_bank_name'),
-        db.CheckConstraint('balance_usd >= 0', name='check_balance_usd_positive'),
-        db.CheckConstraint('balance_pen >= 0', name='check_balance_pen_positive'),
     )
 
     def to_dict(self):
