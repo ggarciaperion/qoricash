@@ -1234,6 +1234,10 @@ def complete_operation(operation_id):
                 f'[Accounting] Error al registrar asiento contable '
                 f'para {operation.operation_id}: {str(e)}'
             )
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
 
         # SALDOS BANCARIOS: Actualizar balance automáticamente al completar
         try:
@@ -1241,6 +1245,12 @@ def complete_operation(operation_id):
             BankBalance.apply_operation(operation)
         except Exception as e:
             logger.error(f'[BankBalance] Error en auto-update para {operation.operation_id}: {str(e)}')
+        finally:
+            # Limpiar sesión siempre antes de continuar con factura y email
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
 
         # Otorgar beneficio de referido si aplica
         try:
