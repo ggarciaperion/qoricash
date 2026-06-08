@@ -483,7 +483,7 @@ def api_saldo_corregir():
                 amount=abs(diferencia),
                 movement_type=tipo,
                 description=f'{motivo} (anterior: {anterior:.2f})',
-                reference=f'CORR-{now_peru().strftime("%Y%m%d%H%M%S")}',
+                reference_code=f'CORR-{now_peru().strftime("%Y%m%d%H%M%S")}',
                 created_by=current_user.id,
                 movement_date=now_peru().date(),
             )
