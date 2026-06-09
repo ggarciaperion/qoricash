@@ -529,12 +529,11 @@ class FinanceEngine:
             total_ini_pen = round(sum(v['PEN'] for v in saldo_ini.values()), 2)
             ini_source    = 'saldo_actual_sistema'
 
-        # ── Movimientos del día (solo flujos de operaciones completadas) ──
-        # source_type='operation' garantiza que solo se contabilizan ingresos/
-        # egresos generados al completar operaciones (apply_operation), excluyendo
-        # ajustes manuales, transferencias y saldos iniciales que distorsionarían
-        # el cuadre de caja diario.
-        _OP_TYPES = (BankMovement.TYPE_OP_ENTRADA, BankMovement.TYPE_OP_SALIDA)
+        # ── Movimientos del día ────────────────────────────────────────────
+        # Ingresos: solo op_entrada (operaciones completadas)
+        # Egresos:  op_salida + gasto (operaciones + ITF/comisiones bancarias)
+        _ING_TYPES = (BankMovement.TYPE_OP_ENTRADA,)
+        _EGR_TYPES = (BankMovement.TYPE_OP_SALIDA, BankMovement.TYPE_GASTO)
 
         ing_rows = db.session.query(
             BankMovement.bank_key, BankMovement.currency,
@@ -543,7 +542,7 @@ class FinanceEngine:
             BankMovement.movement_date >= start,
             BankMovement.movement_date <  end,
             BankMovement.amount > 0,
-            BankMovement.movement_type.in_(_OP_TYPES),
+            BankMovement.movement_type.in_(_ING_TYPES),
         ).group_by(BankMovement.bank_key, BankMovement.currency).all()
 
         egr_rows = db.session.query(
@@ -553,7 +552,7 @@ class FinanceEngine:
             BankMovement.movement_date >= start,
             BankMovement.movement_date <  end,
             BankMovement.amount < 0,
-            BankMovement.movement_type.in_(_OP_TYPES),
+            BankMovement.movement_type.in_(_EGR_TYPES),
         ).group_by(BankMovement.bank_key, BankMovement.currency).all()
 
         ingresos = {b: {'USD': 0.0, 'PEN': 0.0} for b in BANKS}

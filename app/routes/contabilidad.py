@@ -502,23 +502,24 @@ def gastos():
     )
 
 
-def _apply_expense_to_bank_balance(account_code: str, amount_pen: Decimal) -> None:
+def _apply_expense_to_bank_balance(account_code: str, amount_pen: Decimal, record=None) -> None:
     """
     Debita el saldo operativo de BankBalance cuando un gasto impacta directamente
     una cuenta bancaria (bank_account_code presente).
 
     El Libro Diario y el PCGE NO se tocan — este método solo actualiza la tabla
     bank_balances que alimenta el módulo de Posición (Saldos Bancarios).
+    También crea un BankMovement tipo 'gasto' para que el Control de Apertura y
+    Cierre refleje el egreso correctamente en la columna Egresos.
 
     - Cuentas PEN (1041, 1048, 1049…): debita balance_pen en el importe exacto.
     - Cuentas USD (1044, 1047, 1050…): convierte amount_pen al TC venta vigente
       y debita balance_usd.
     """
     from app.models.bank_balance import BankBalance
+    from app.models.bank_movement import BankMovement
     from app.models.exchange_rate import ExchangeRate
 
-    # _ACCOUNT_LABELS y _CODE_TO_BANK están definidos más abajo en el módulo;
-    # se resuelven en tiempo de ejecución sin problema.
     currency = _ACCOUNT_LABELS.get(account_code, ('', 'PEN', ''))[1]
     bank_key = _CODE_TO_BANK.get(account_code)
     if not bank_key:
@@ -531,14 +532,36 @@ def _apply_expense_to_bank_balance(account_code: str, amount_pen: Decimal) -> No
         return
 
     if currency == 'PEN':
-        bb.balance_pen = max(float(bb.balance_pen) - float(amount_pen), 0.0)
+        amount_cur = float(amount_pen)
+        bb.balance_pen = round(max(float(bb.balance_pen) - amount_cur, 0.0), 2)
+        bal_after = float(bb.balance_pen)
     else:
         er = ExchangeRate.query.order_by(ExchangeRate.updated_at.desc()).first()
         tc = float(er.sell_rate) if er and er.sell_rate else 3.75
-        amount_usd = float(amount_pen) / tc
-        bb.balance_usd = max(float(bb.balance_usd) - amount_usd, 0.0)
+        amount_cur = round(float(amount_pen) / tc, 2)
+        bb.balance_usd = round(max(float(bb.balance_usd) - amount_cur, 0.0), 2)
+        bal_after = float(bb.balance_usd)
 
     bb.updated_at = now_peru()
+
+    # Crear BankMovement para reflejar el egreso en Control de Apertura y Cierre
+    desc = record.description if record else f'Gasto {bank_key} {currency}'
+    mv = BankMovement(
+        movement_date  = now_peru(),
+        bank_name      = bb.bank_name,
+        bank_key       = bank_key,
+        currency       = currency,
+        amount         = round(-amount_cur, 2),
+        movement_type  = BankMovement.TYPE_GASTO,
+        source_type    = 'expense',
+        source_id      = record.id if record else None,
+        description    = desc,
+        reference_code = str(record.id) if record else None,
+        balance_after  = round(bal_after, 2),
+        closure_date   = now_peru().date(),
+        created_by     = record.created_by if record else None,
+    )
+    db.session.add(mv)
 
 
 @contabilidad_bp.route('/gastos/nuevo', methods=['POST'])
@@ -712,7 +735,7 @@ def nuevo_gasto():
         # El PCGE no se altera — el asiento ya fue creado arriba.
         if bank_account_code:
             try:
-                _apply_expense_to_bank_balance(bank_account_code, amount_pen)
+                _apply_expense_to_bank_balance(bank_account_code, amount_pen, record)
                 db.session.commit()
             except Exception as _bb_err:
                 import logging as _lg
