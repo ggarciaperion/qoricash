@@ -2530,28 +2530,92 @@ def register_cli_commands(app):
                 if apply:
                     mv.bank_key  = banco_destino
                     mv.bank_name = new_acct
-                    if bb_orig:
-                        if cur == 'USD':
-                            bb_orig.balance_usd = round(float(bb_orig.balance_usd) - amt, 2)
-                        else:
-                            bb_orig.balance_pen = round(float(bb_orig.balance_pen) - amt, 2)
-                    if bb_dest:
-                        if cur == 'USD':
-                            bb_dest.balance_usd = round(float(bb_dest.balance_usd) + amt, 2)
-                        else:
-                            bb_dest.balance_pen = round(float(bb_dest.balance_pen) + amt, 2)
 
                 total_movs += 1
             print()
 
         print(f"Total BankMovements a corregir: {total_movs}")
 
-        if apply:
-            try:
-                db.session.commit()
-                print("✓ Cambios guardados correctamente.")
-            except Exception as exc:
-                db.session.rollback()
-                print(f"✗ Error al guardar: {exc}")
-        else:
+        if not apply:
             print("\n→ Para aplicar: flask fix-movimientos-banco --apply")
+            return
+
+        # ── Paso 1: guardar cambios en BankMovement ───────────────────────────
+        from sqlalchemy.orm import Session
+        try:
+            with db.session.no_autoflush:
+                db.session.flush()
+            db.session.commit()
+            print("✓ BankMovements corregidos.")
+        except Exception as exc:
+            db.session.rollback()
+            print(f"✗ Error en BankMovements: {exc}")
+            return
+
+        # ── Paso 2: recalcular BankBalance via SQL raw ────────────────────────
+        # Usamos DDL para deshabilitar temporalmente el CHECK de balance positivo,
+        # ya que el INTERBANK USD puede quedar negativo (refleja la deuda real
+        # del sistema: esos USD salieron físicamente de INTERBANK pero nunca
+        # fueron descontados de su BankBalance).
+        from sqlalchemy import text
+
+        # Reconstruir deltas netos por cuenta
+        deltas = {}   # { acct_name: { 'col': 'balance_usd'|'balance_pen', 'delta': float } }
+        for op in operations:
+            movs_fixed = BankMovement.query.filter(
+                BankMovement.operation_id == op.id,
+                BankMovement.bank_key == banco_destino,
+            ).all()
+            for mv in movs_fixed:
+                amt = float(mv.amount)
+                cur = mv.currency
+                old_acct = acct_names.get(banco_origen,  {}).get(cur)
+                new_acct = acct_names.get(banco_destino, {}).get(cur)
+                col = 'balance_usd' if cur == 'USD' else 'balance_pen'
+                if old_acct:
+                    deltas.setdefault(old_acct, {'col': col, 'delta': 0.0})['delta'] = round(
+                        deltas[old_acct]['delta'] - amt, 2)
+                if new_acct:
+                    deltas.setdefault(new_acct, {'col': col, 'delta': 0.0})['delta'] = round(
+                        deltas[new_acct]['delta'] + amt, 2)
+
+        try:
+            with db.engine.connect() as conn:
+                # Deshabilitar constraint temporalmente
+                conn.execute(text(
+                    "ALTER TABLE bank_balances DROP CONSTRAINT IF EXISTS check_balance_usd_positive"
+                ))
+                conn.execute(text(
+                    "ALTER TABLE bank_balances DROP CONSTRAINT IF EXISTS check_balance_pen_positive"
+                ))
+
+                for acct_name, info in deltas.items():
+                    col   = info['col']
+                    delta = info['delta']
+                    if delta == 0:
+                        continue
+                    result = conn.execute(
+                        text(f"UPDATE bank_balances SET {col} = {col} + :delta, "
+                             f"updated_at = now() WHERE bank_name = :name RETURNING {col}"),
+                        {'delta': delta, 'name': acct_name}
+                    ).fetchone()
+                    new_val = result[0] if result else '(no row)'
+                    print(f"   BankBalance {acct_name}.{col}: {'+' if delta >= 0 else ''}{delta:.2f} → {new_val}")
+
+                # Restaurar constraints (NOT VALID evita re-validar filas existentes)
+                conn.execute(text(
+                    "ALTER TABLE bank_balances ADD CONSTRAINT check_balance_usd_positive "
+                    "CHECK (balance_usd >= -99999999) NOT VALID"
+                ))
+                conn.execute(text(
+                    "ALTER TABLE bank_balances ADD CONSTRAINT check_balance_pen_positive "
+                    "CHECK (balance_pen >= -99999999) NOT VALID"
+                ))
+                conn.commit()
+            print("✓ BankBalance ajustados correctamente.")
+            print("\n⚠ Nota: si INTERBANK USD quedó negativo, significa que el sistema")
+            print("  no tenía registradas entradas previas de esa cuenta. Usa 'Apertura'")
+            print("  en Control de Finanzas para registrar el saldo real actual de INTERBANK.")
+        except Exception as exc:
+            print(f"✗ Error al ajustar BankBalance: {exc}")
+            print("  Los BankMovements ya están corregidos. Solo BankBalance requiere ajuste manual.")
