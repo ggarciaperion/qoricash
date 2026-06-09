@@ -28,7 +28,7 @@ from flask import Blueprint, render_template, jsonify, request, abort
 from flask_login import login_required, current_user
 from sqlalchemy import func
 
-from app.extensions import db
+from app.extensions import db, csrf
 from app.services.finance_engine import FinanceEngine
 from app.utils.formatters import now_peru
 
@@ -244,6 +244,7 @@ def api_reconciliacion():
 # ── API: Activar ledger ───────────────────────────────────────────────────────
 
 @finanzas_bp.route('/api/ledger/activar', methods=['POST'])
+@csrf.exempt
 @login_required
 def api_ledger_activar():
     _require_role()
@@ -258,6 +259,7 @@ def api_ledger_activar():
 # ── API: Backfill histórico del ledger ────────────────────────────────────────
 
 @finanzas_bp.route('/api/ledger/backfill', methods=['POST'])
+@csrf.exempt
 @login_required
 def api_ledger_backfill():
     """
@@ -284,6 +286,7 @@ def api_ledger_backfill():
 # ── API: Cierre — Calcular ────────────────────────────────────────────────────
 
 @finanzas_bp.route('/api/cierre/calcular', methods=['POST'])
+@csrf.exempt
 @login_required
 def api_cierre_calcular():
     _require_role()
@@ -349,6 +352,7 @@ def api_cierre_calcular():
 # ── API: Cierre — Validar (saldos reales) ────────────────────────────────────
 
 @finanzas_bp.route('/api/cierre/validar', methods=['POST'])
+@csrf.exempt
 @login_required
 def api_cierre_validar():
     _require_role()
@@ -384,6 +388,7 @@ def api_cierre_validar():
 # ── API: Cierre — Confirmar ───────────────────────────────────────────────────
 
 @finanzas_bp.route('/api/cierre/confirmar', methods=['POST'])
+@csrf.exempt
 @login_required
 def api_cierre_confirmar():
     _require_role()
@@ -468,6 +473,7 @@ def api_cierre_get(fecha_str):
 
 
 @finanzas_bp.route('/api/saldo/corregir', methods=['POST'])
+@csrf.exempt
 @login_required
 def api_saldo_corregir():
     """Corrección manual de saldo bancario — fuente única reemplaza position.update_balance."""
@@ -522,6 +528,7 @@ def api_saldo_corregir():
 # ── API: Apertura / Cierre simplificado (2 inputs: USD total + PEN total) ─────
 
 @finanzas_bp.route('/api/dia/apertura', methods=['POST'])
+@csrf.exempt
 @login_required
 def api_dia_apertura():
     """
@@ -602,6 +609,7 @@ def api_dia_apertura():
 
 
 @finanzas_bp.route('/api/dia/cierre', methods=['POST'])
+@csrf.exempt
 @login_required
 def api_dia_cierre():
     """
@@ -678,6 +686,7 @@ def api_dia_cierre():
 # ── API: Caja Diaria — Registrar Apertura ─────────────────────────────────────
 
 @finanzas_bp.route('/api/caja/apertura', methods=['POST'])
+@csrf.exempt
 @login_required
 def api_caja_apertura():
     """
@@ -756,6 +765,7 @@ def api_caja_apertura():
 # ── API: Caja Diaria — Registrar Cierre ──────────────────────────────────────
 
 @finanzas_bp.route('/api/caja/cierre', methods=['POST'])
+@csrf.exempt
 @login_required
 def api_caja_cierre():
     """
