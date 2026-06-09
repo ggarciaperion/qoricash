@@ -251,6 +251,10 @@
     </div>
     <div class="fn-header-actions">
       <span style="font-size:.69rem;color:rgba(255,255,255,.3);" id="tsLabel">Cargando…</span>
+      <button class="fn-btn-ghost" onclick="runBackfill(true)" id="btnBackfill"
+              title="Reconstruir movimientos bancarios para operaciones sin registro">
+        <i class="bi bi-database-fill-gear"></i> Reconstruir Ledger
+      </button>
       <button class="fn-btn-ghost" onclick="loadDashboard()">
         <i class="bi bi-arrow-clockwise"></i> Actualizar
       </button>
@@ -1020,6 +1024,49 @@ function _modal(html, wide = false) {
 }
 function _closeModal() { document.getElementById('fnOverlay')?.remove(); }
 document.addEventListener('keydown', e => { if (e.key==='Escape') _closeModal(); });
+
+// ── Backfill ledger ───────────────────────────────────────────────────────────
+async function runBackfill(dryRun) {
+  const btn = document.getElementById('btnBackfill');
+  if (btn) { btn.disabled = true; btn.textContent = dryRun ? 'Verificando…' : 'Procesando…'; }
+
+  try {
+    const res  = await fetch('/finanzas/api/ledger/backfill', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({dry_run: dryRun, recalc: !dryRun})
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'Error en backfill');
+
+    const msg = dryRun
+      ? `Vista previa: ${data.movements_created} movimientos a crear para ${data.ops_processed} operaciones (${data.ops_skipped} ya tienen movimientos).`
+      : `Backfill completado: ${data.movements_created} movimientos creados para ${data.ops_processed} operaciones.${data.errors?.length ? ' Errores: ' + data.errors.join(', ') : ''}`;
+
+    _modal(`
+      <h6><i class="bi bi-database-fill-gear me-2" style="color:var(--blue);"></i>Backfill Ledger</h6>
+      <div class="fn-modal-info" style="margin-bottom:12px;">
+        <div class="row-info"><span class="lbl">Ops procesadas:</span><span class="val">${data.ops_processed}</span></div>
+        <div class="row-info"><span class="lbl">Ya tenían movimientos:</span><span class="val">${data.ops_skipped}</span></div>
+        <div class="row-info"><span class="lbl">Sin banco determinable:</span><span class="val">${data.ops_no_bank ?? 0}</span></div>
+        <div class="row-info"><span class="lbl">Movimientos ${dryRun ? 'a crear' : 'creados'}:</span>
+          <span class="val" style="color:${dryRun ? 'var(--blue)' : 'var(--green)'};">${data.movements_created}</span></div>
+        ${data.errors?.length ? `<div class="row-info" style="color:var(--red);font-size:.72rem;">${data.errors.slice(0,3).join('<br>')}</div>` : ''}
+      </div>
+      ${dryRun ? `<p style="font-size:.75rem;color:var(--muted);">Esto es una vista previa. Haz clic en Aplicar para grabar los movimientos.</p>` : ''}
+      <div class="fn-modal-actions">
+        <button class="btn-cancel" onclick="_closeModal();loadDashboard();">Cerrar</button>
+        ${dryRun && data.ops_processed > 0
+          ? `<button class="btn-confirm" onclick="_closeModal();runBackfill(false);">
+               <i class="bi bi-lightning-fill me-1"></i>Aplicar (${data.movements_created} mov.)
+             </button>` : ''}
+      </div>
+    `);
+  } catch(e) {
+    alert('Error en backfill: ' + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Reconstruir Ledger'; }
+  }
+}
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 loadDashboard();

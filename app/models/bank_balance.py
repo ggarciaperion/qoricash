@@ -149,50 +149,52 @@ class BankBalance(db.Model):
             def _update(acct_name, usd_delta, pen_delta, ref_code=None, counterpart=None):
                 if not acct_name:
                     return
-                bb = BankBalance.query.filter_by(bank_name=acct_name).first()
-                if bb is None:
-                    _log.debug(f'[BankBalance] {acct_name} no registrada, omitiendo.')
-                    return
-
-                # Actualizar BankBalance (sin clamping a 0 — déficit se trackea correctamente)
-                if usd_delta:
-                    bb.balance_usd = round(float(bb.balance_usd) + usd_delta, 2)
-                if pen_delta:
-                    bb.balance_pen = round(float(bb.balance_pen) + pen_delta, 2)
-                bb.updated_at = now_peru()
-
-                # Crear BankMovement (ledger inmutable — fuente de verdad para cuadre)
                 _parts = acct_name.split()
                 _bk    = _parts[0]   # BCP | INTERBANK | BANBIF
                 _cur   = _parts[1]   # USD | PEN
                 _delta = usd_delta if _cur == 'USD' else pen_delta
-                if _delta:
-                    _mv_type = (BankMovement.TYPE_OP_ENTRADA
-                                if _delta > 0 else BankMovement.TYPE_OP_SALIDA)
-                    _client_name = '—'
-                    try:
-                        _client_name = (operation.client.full_name or '—') if operation.client else '—'
-                    except Exception:
-                        pass
+                if not _delta:
+                    return
+
+                # ── Actualizar BankBalance si existe (no bloquea la creación del ledger) ──
+                bb = BankBalance.query.filter_by(bank_name=acct_name).first()
+                _bal_after = None
+                if bb is not None:
+                    if usd_delta:
+                        bb.balance_usd = round(float(bb.balance_usd) + usd_delta, 2)
+                    if pen_delta:
+                        bb.balance_pen = round(float(bb.balance_pen) + pen_delta, 2)
+                    bb.updated_at = now_peru()
                     _bal_after = float(bb.balance_usd if _cur == 'USD' else bb.balance_pen)
-                    mv = BankMovement(
-                        movement_date  = now_peru(),
-                        bank_name      = acct_name,
-                        bank_key       = _bk,
-                        currency       = _cur,
-                        amount         = round(_delta, 2),
-                        movement_type  = _mv_type,
-                        source_type    = 'operation',
-                        source_id      = operation.id,
-                        operation_id   = operation.id,
-                        description    = (f'{operation.operation_type} — {operation.operation_id}'
-                                          f' — {_client_name}'),
-                        reference_code = ref_code or operation.operation_id,
-                        counterpart    = counterpart or _client_name,
-                        balance_after  = round(_bal_after, 2),
-                        closure_date   = now_peru().date(),
-                    )
-                    db.session.add(mv)
+                else:
+                    _log.debug(f'[BankBalance] {acct_name} no registrada — solo ledger')
+
+                # ── Crear BankMovement SIEMPRE (ledger inmutable — fuente de verdad) ──
+                _mv_type = (BankMovement.TYPE_OP_ENTRADA
+                            if _delta > 0 else BankMovement.TYPE_OP_SALIDA)
+                _client_name = '—'
+                try:
+                    _client_name = (operation.client.full_name or '—') if operation.client else '—'
+                except Exception:
+                    pass
+                mv = BankMovement(
+                    movement_date  = now_peru(),
+                    bank_name      = acct_name,
+                    bank_key       = _bk,
+                    currency       = _cur,
+                    amount         = round(_delta, 2),
+                    movement_type  = _mv_type,
+                    source_type    = 'operation',
+                    source_id      = operation.id,
+                    operation_id   = operation.id,
+                    description    = (f'{operation.operation_type} — {operation.operation_id}'
+                                      f' — {_client_name}'),
+                    reference_code = ref_code or operation.operation_id,
+                    counterpart    = counterpart or _client_name,
+                    balance_after  = round(_bal_after, 2) if _bal_after is not None else None,
+                    closure_date   = now_peru().date(),
+                )
+                db.session.add(mv)
 
             if operation.operation_type == 'Compra':
                 # Depósitos: cliente → QoriCash en USD (inflows)
