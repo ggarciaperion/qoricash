@@ -59,6 +59,20 @@
 .rec-row.diff    { background:#fef2f2; }
 .rec-row.empty   { background:#fffbeb; }
 
+/* Cuadre automático */
+.cuadre-badge { display:inline-flex; align-items:center; gap:5px; padding:6px 16px;
+                border-radius:20px; font-size:.8rem; font-weight:800; }
+.cuadre-badge.cuadrado  { background:#f0fdf4; color:#166534; border:1px solid #bbf7d0; }
+.cuadre-badge.excedente { background:#fffbeb; color:#92400e; border:1px solid #fde68a; }
+.cuadre-badge.faltante  { background:#fef2f2; color:#991b1b; border:1px solid #fecaca; }
+.cuadre-badge.pendiente { background:#f1f5f9; color:#475569; border:1px solid #e2e8f0; }
+.cq-ing  { color:#16a34a; font-weight:700; }
+.cq-egr  { color:#dc2626; font-weight:700; }
+.cq-teo  { color:#2563eb; font-weight:700; }
+.cq-diff-ok   { color:#16a34a; font-weight:700; }
+.cq-diff-warn { color:#dc2626; font-weight:700; }
+.cq-diff-exceso { color:#d97706; font-weight:700; }
+
 /* Caja Diaria — cards métricas */
 .qa-card  { background:#fff; border:1px solid #e8ecf0; border-radius:10px;
             padding:12px 14px; height:100%; }
@@ -434,6 +448,44 @@
       </div>
     </div>
 
+    <!-- Cuadre Automático del Día -->
+    <div class="card border-0 shadow-sm mb-3" id="cajaCuadreCard" style="display:none;">
+      <div class="card-body p-3">
+        <div class="sec-title"><i class="bi bi-calculator text-primary"></i> Cuadre Automático del Día</div>
+        <div style="font-size:.73rem;color:#64748b;margin-bottom:10px;">
+          Saldo inicial + ingresos − egresos = saldo teórico · comparado con saldo final registrado
+        </div>
+
+        <!-- Tabla cuadre totales -->
+        <div class="table-responsive mb-2">
+          <table class="aud-table" id="cuadreTotalesTable">
+            <thead>
+              <tr>
+                <th>Concepto</th>
+                <th class="text-end">USD</th>
+                <th class="text-end">PEN</th>
+              </tr>
+            </thead>
+            <tbody id="cuadreTotalesBody"></tbody>
+          </table>
+        </div>
+
+        <!-- Estado cuadre -->
+        <div id="cuadreEstado" style="text-align:center;padding:8px 0;"></div>
+
+        <!-- Toggle detalle por banco -->
+        <div style="text-align:center;margin-top:6px;">
+          <button class="btn btn-sm btn-outline-secondary" style="font-size:.73rem;"
+                  onclick="toggleCuadreDetalle()">
+            <i class="bi bi-chevron-down" id="cuadreDetalleIcon"></i> Ver detalle por banco
+          </button>
+        </div>
+        <div id="cuadreDetalle" style="display:none;margin-top:10px;">
+          <div id="cuadreDetalleCuerpo"></div>
+        </div>
+      </div>
+    </div>
+
     <!-- Breakdown por banco del día actual -->
     <div id="cajaBreakdown" style="display:none;" class="mb-3">
       <div class="sec-title">Detalle por banco</div>
@@ -723,16 +775,43 @@ async function calcularCierre() {
     }
     _cierreData = data.cierre;
     const c = data.cierre;
+
+    // Cargar también el cuadre para mostrarlo en paso 1
+    let cuadreHtml = '';
+    try {
+      const cRes = await fetch(`/finanzas/api/caja/cuadre?fecha=${fecha}`);
+      const cData = await cRes.json();
+      if (cData.ok && cData.has_opening) {
+        const ESTADO_CLS = { cuadrado:'color:#16a34a', excedente:'color:#d97706', faltante:'color:#dc2626', pendiente:'color:#475569' };
+        const ESTADO_LBL = { cuadrado:'Cuadrado', excedente:'Excedente', faltante:'Faltante', pendiente:'Pendiente' };
+        const diffPenStr = cData.diff_pen !== null
+          ? `<strong style="${ESTADO_CLS[cData.estado_cuadre] || ''}">${(cData.diff_pen >= 0 ? '+' : '') + fmtPEN(cData.diff_pen)} (${ESTADO_LBL[cData.estado_cuadre] || '—'})</strong>`
+          : '<em style="color:#94A3B8;">Sin cierre final</em>';
+        cuadreHtml = `
+        <div style="margin-top:10px;background:#eff6ff;border-radius:8px;padding:10px 12px;font-size:.81rem;">
+          <div style="font-weight:700;color:#1e40af;margin-bottom:6px;"><i class="bi bi-calculator me-1"></i>Cuadre de Caja</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">
+            <div><span style="color:#64748b;">Saldo inicial:</span> <strong>${fmtPEN(cData.total_ini_pen)}</strong></div>
+            <div><span style="color:#64748b;">Ingresos:</span> <strong style="color:#16a34a;">+${fmtPEN(cData.total_ing_pen)}</strong></div>
+            <div><span style="color:#64748b;">Egresos:</span> <strong style="color:#dc2626;">−${fmtPEN(cData.total_egr_pen)}</strong></div>
+            <div><span style="color:#64748b;">Teórico:</span> <strong style="color:#2563eb;">${fmtPEN(cData.total_teo_pen)}</strong></div>
+            <div colspan="2"><span style="color:#64748b;">Diferencia PEN:</span> ${diffPenStr}</div>
+          </div>
+        </div>`;
+      }
+    } catch(e) { /* cuadre no crítico */ }
+
     document.getElementById('calcResult').innerHTML = `
       <div style="background:#f8fafc;border-radius:8px;padding:12px;font-size:.82rem;">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
-          <div><span style="color:#64748b;">Operaciones completadas:</span> <strong>${c.operations_completed}</strong></div>
-          <div><span style="color:#64748b;">Volumen USD:</span> <strong>$ ${fmtN(c.total_volume_usd)}</strong></div>
-          <div><span style="color:#64748b;">Utilidad bruta:</span> <strong>S/ ${fmtN(c.gross_spread_pen)}</strong></div>
+          <div><span style="color:#64748b;">Ops completadas:</span> <strong>${c.operations_completed}</strong></div>
+          <div><span style="color:#64748b;">Volumen USD:</span> <strong>${fmtUSD(c.total_volume_usd)}</strong></div>
+          <div><span style="color:#64748b;">Utilidad bruta:</span> <strong>${fmtPEN(c.gross_spread_pen)}</strong></div>
           <div><span style="color:#64748b;">Pendientes:</span> <strong>${c.pending_operations}</strong></div>
-          <div><span style="color:#64748b;">USD sin amarrar:</span> <strong>$ ${fmtN(c.unmatched_completed_usd)}</strong></div>
+          <div><span style="color:#64748b;">USD sin amarrar:</span> <strong>${fmtUSD(c.unmatched_completed_usd)}</strong></div>
           <div><span style="color:#64748b;">Amarres abiertos:</span> <strong>${c.open_matches}</strong></div>
         </div>
+        ${cuadreHtml}
       </div>`;
 
     // Construir grid de saldos reales
@@ -1133,7 +1212,9 @@ async function cargarCaja() {
       document.getElementById('cajaCierreStatus').textContent = '';
       document.getElementById('btnApertura').innerHTML = '<i class="bi bi-sunrise me-1"></i>Registrar apertura';
       document.getElementById('btnCierre').innerHTML = '<i class="bi bi-sunset me-1"></i>Registrar cierre';
+      document.getElementById('cajaCuadreCard').style.display = 'none';
     }
+    cargarCuadre();
   } catch(e) { console.error(e); }
 }
 
@@ -1155,7 +1236,7 @@ async function guardarApertura() {
       status.innerHTML = '<span class="text-success">✓ Apertura guardada</span>';
       renderCajaCards(d.cierre);
       cajaDatos = d.cierre;
-      // Cargar historial para reflejar cambio
+      cargarCuadre();
       cargarHistorial();
     } else {
       status.innerHTML = `<span class="text-danger">${d.error}</span>`;
@@ -1185,6 +1266,7 @@ async function guardarCierre() {
       status.innerHTML = '<span class="text-success">✓ Cierre guardado</span>';
       renderCajaCards(d.cierre);
       cajaDatos = d.cierre;
+      cargarCuadre();
       cargarHistorial();
     } else {
       status.innerHTML = `<span class="text-danger">${d.error}</span>`;
@@ -1254,12 +1336,128 @@ async function cargarHistorial(page = 1) {
   } catch(e) { console.error(e); }
 }
 
+// ── Cuadre automático ────────────────────────────────────────────────────────
+let _cuadreDetallOpen = false;
+
+async function cargarCuadre() {
+  const fecha = document.getElementById('cajaFecha').value;
+  if (!fecha) return;
+  try {
+    const res = await fetch(`/finanzas/api/caja/cuadre?fecha=${fecha}`);
+    const d   = await res.json();
+    if (!d.ok) return;
+    renderCuadreAuditoria(d);
+  } catch(e) { console.error('[cuadre]', e); }
+}
+
+function renderCuadreAuditoria(cf) {
+  const card = document.getElementById('cajaCuadreCard');
+  if (!cf || !cf.has_opening) {
+    card.style.display = 'none';
+    return;
+  }
+  card.style.display = '';
+
+  // Tabla totales
+  const rows = [
+    { lbl: 'Saldo inicial', usd: cf.total_ini_usd, pen: cf.total_ini_pen, cls: '' },
+    { lbl: '+ Ingresos del día', usd: cf.total_ing_usd, pen: cf.total_ing_pen, cls: 'cq-ing', prefix: '+' },
+    { lbl: '− Egresos del día',  usd: cf.total_egr_usd, pen: cf.total_egr_pen, cls: 'cq-egr', prefix: '−' },
+    { lbl: '= Saldo Teórico',    usd: cf.total_teo_usd, pen: cf.total_teo_pen, cls: 'cq-teo bold' },
+  ];
+  if (cf.has_closing) {
+    rows.push({ lbl: 'Saldo Final (real)', usd: cf.total_fin_usd, pen: cf.total_fin_pen, cls: '' });
+    const diffCls = n => Math.abs(n) < 0.02 ? 'cq-diff-ok' : (n > 0 ? 'cq-diff-exceso' : 'cq-diff-warn');
+    rows.push({
+      lbl: 'Diferencia (real − teórico)',
+      usd: cf.diff_usd, pen: cf.diff_pen,
+      cls: diffCls(cf.diff_pen || 0), prefix: cf.diff_pen >= 0 ? '+' : '', total: true,
+    });
+  }
+
+  const tbody = document.getElementById('cuadreTotalesBody');
+  tbody.innerHTML = rows.map(r => {
+    const u = r.usd !== null && r.usd !== undefined ? fmtUSD(Math.abs(r.usd)) : '—';
+    const p = r.pen !== null && r.pen !== undefined ? fmtPEN(Math.abs(r.pen)) : '—';
+    const px = r.prefix || '';
+    const bold = r.total ? 'style="font-weight:800;"' : '';
+    return `<tr ${r.total ? 'style="border-top:2px solid #e8ecf0;"' : ''}>
+      <td ${bold}>${r.lbl}</td>
+      <td class="text-end ${r.cls}" ${bold}>${px}${u}</td>
+      <td class="text-end ${r.cls}" ${bold}>${px}${p}</td>
+    </tr>`;
+  }).join('');
+
+  // Estado
+  const ESTADO = {
+    cuadrado:  { cls:'cuadrado',  icon:'bi-check-circle-fill', txt:'Cuadrado' },
+    excedente: { cls:'excedente', icon:'bi-arrow-up-circle-fill', txt:'Excedente de caja' },
+    faltante:  { cls:'faltante',  icon:'bi-exclamation-circle-fill', txt:'Faltante de caja' },
+    pendiente: { cls:'pendiente', icon:'bi-clock', txt:'Pendiente de cierre final' },
+  };
+  const es = ESTADO[cf.estado_cuadre] || ESTADO.pendiente;
+  document.getElementById('cuadreEstado').innerHTML =
+    `<span class="cuadre-badge ${es.cls}"><i class="bi ${es.icon}"></i> ${es.txt}</span>`;
+
+  // Detalle por banco (lazy render)
+  if (_cuadreDetallOpen) renderCuadreDetalle(cf.by_bank);
+}
+
+function renderCuadreDetalle(byBank) {
+  const html = BANCOS.map(banco => {
+    const rows = MONEDAS.map(cur => {
+      const d = (byBank[banco] || {})[cur] || {};
+      const diffCls = d.diferencia !== null && d.diferencia !== undefined
+        ? (Math.abs(d.diferencia) < 0.02 ? 'cq-diff-ok' : (d.diferencia > 0 ? 'cq-diff-exceso' : 'cq-diff-warn'))
+        : '';
+      const fmtA = v => cur === 'USD' ? fmtUSD(v || 0) : fmtPEN(v || 0);
+      return `<tr>
+        <td><span class="tag-bk ${banco.toLowerCase()}">${banco}</span></td>
+        <td><span class="tag-cur ${cur.toLowerCase()}">${cur}</span></td>
+        <td class="text-end">${fmtA(d.inicial)}</td>
+        <td class="text-end cq-ing">+${fmtA(d.ingresos)}</td>
+        <td class="text-end cq-egr">−${fmtA(d.egresos)}</td>
+        <td class="text-end cq-teo">${fmtA(d.teorico)}</td>
+        <td class="text-end">${d.final !== null && d.final !== undefined ? fmtA(d.final) : '—'}</td>
+        <td class="text-end ${diffCls}">${d.diferencia !== null && d.diferencia !== undefined ? (d.diferencia >= 0 ? '+' : '') + fmtA(Math.abs(d.diferencia)) : '—'}</td>
+      </tr>`;
+    }).join('');
+    return rows;
+  }).join('');
+
+  document.getElementById('cuadreDetalleCuerpo').innerHTML = `
+    <table class="aud-table">
+      <thead><tr>
+        <th>Banco</th><th>Mon.</th>
+        <th class="text-end">Inicial</th>
+        <th class="text-end">+Ingresos</th>
+        <th class="text-end">−Egresos</th>
+        <th class="text-end">Teórico</th>
+        <th class="text-end">Final</th>
+        <th class="text-end">Diferencia</th>
+      </tr></thead>
+      <tbody>${html}</tbody>
+    </table>`;
+}
+
+function toggleCuadreDetalle() {
+  _cuadreDetallOpen = !_cuadreDetallOpen;
+  document.getElementById('cuadreDetalle').style.display = _cuadreDetallOpen ? '' : 'none';
+  document.getElementById('cuadreDetalleIcon').className = _cuadreDetallOpen
+    ? 'bi bi-chevron-up' : 'bi bi-chevron-down';
+  if (_cuadreDetallOpen) {
+    // Need current data — reload
+    cargarCuadre();
+  }
+}
+
 // Activar carga cuando se abre el tab Caja
 document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('.audit-tab').forEach(tab => {
     tab.addEventListener('click', () => {
       if (tab.dataset.tab === 'caja') {
         cargarCaja();
+        cargarCuadre();
         cargarHistorial();
       }
     });

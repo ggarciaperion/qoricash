@@ -721,6 +721,27 @@ def api_caja_historial():
         _log.exception('[Finanzas] api_caja_historial')
         return jsonify({'ok': False, 'error': str(exc)}), 500
 
+# ── API: Caja — Cuadre automático ─────────────────────────────────────────────
+
+@finanzas_bp.route('/api/caja/cuadre')
+@login_required
+def api_caja_cuadre():
+    """
+    Cuadre de caja del día:
+      saldo_inicial + ingresos − egresos = saldo_teórico vs saldo_final
+    Params: fecha (YYYY-MM-DD, default: hoy)
+    """
+    _require_role()
+    try:
+        fecha_str = request.args.get('fecha', date.today().isoformat())
+        fecha = date.fromisoformat(fecha_str)
+        result = FinanceEngine.get_daily_cashflow(fecha)
+        return jsonify({'ok': True, **result})
+    except Exception as exc:
+        _log.exception('[Finanzas] api_caja_cuadre')
+        return jsonify({'ok': False, 'error': str(exc)}), 500
+
+
 # ── DIAGNÓSTICO TEMPORAL ───────────────────────────────────────────────────────
 @finanzas_bp.route('/api/diagnostico/saldos')
 @login_required

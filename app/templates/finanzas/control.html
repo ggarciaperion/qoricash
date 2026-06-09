@@ -3,22 +3,7 @@
 
 {% block head %}
 <style>
-.fin-header {
-    background: #0D1B2A;
-    border-radius: 10px;
-    padding: 18px 22px;
-    margin-bottom: 16px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 10px;
-}
-.fin-header-title { font-size: 1.1rem; font-weight: 800; color: #fff; margin: 0; }
-.fin-header-sub   { font-size: .75rem; color: rgba(255,255,255,.45); margin: 2px 0 0; }
-.fin-ts           { font-size: .72rem; color: rgba(255,255,255,.3); }
-
-/* Nav */
+/* ── Layout ──────────────────────────────────────────────────────────────── */
 .fin-nav { display:flex; gap:4px; margin-bottom:14px; background:#f8fafc; border-radius:8px; padding:4px; }
 .fin-nav a {
     flex:1; text-align:center; padding:7px 6px; border-radius:6px;
@@ -26,22 +11,41 @@
 }
 .fin-nav a.active, .fin-nav a:hover { background:#fff; color:#0D1B2A; box-shadow:0 1px 4px rgba(0,0,0,.08); }
 
-/* Quick answer cards */
-.qa-card {
-    background:#fff; border:1px solid #e8ecf0; border-radius:10px;
-    padding:14px 16px; height:100%;
+/* Header bar */
+.ctrl-header {
+    background:#0D1B2A; border-radius:10px; padding:14px 18px;
+    display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap;
+    gap:8px; margin-bottom:14px;
 }
+.ctrl-header-title { font-size:1rem; font-weight:800; color:#fff; margin:0; }
+.ctrl-header-sub   { font-size:.72rem; color:rgba(255,255,255,.4); margin:2px 0 0; }
+
+/* Period selector */
+.period-bar {
+    display:flex; align-items:center; gap:4px; margin-bottom:14px;
+    background:#f8fafc; border-radius:8px; padding:4px; width:fit-content;
+}
+.period-btn {
+    padding:5px 14px; border-radius:6px; font-size:.77rem; font-weight:700;
+    color:#64748b; background:transparent; border:none; cursor:pointer; transition:all .12s;
+    white-space:nowrap;
+}
+.period-btn.active { background:#0D1B2A; color:#fff; }
+
+/* QA cards */
+.qa-card { background:#fff; border:1px solid #e8ecf0; border-radius:10px; padding:14px 16px; height:100%; }
 .qa-label { font-size:.68rem; font-weight:700; color:#94A3B8; text-transform:uppercase; letter-spacing:.07em; margin-bottom:4px; }
-.qa-value { font-size:1.45rem; font-weight:800; color:#0D1B2A; line-height:1.2; }
-.qa-value.green  { color:#16a34a; }
-.qa-value.amber  { color:#d97706; }
-.qa-value.blue   { color:#2563eb; }
+.qa-value { font-size:1.35rem; font-weight:800; color:#0D1B2A; line-height:1.2; }
+.qa-value.green { color:#16a34a; }
+.qa-value.amber { color:#d97706; }
+.qa-value.blue  { color:#2563eb; }
+.qa-value.red   { color:#dc2626; }
 .qa-sub { font-size:.7rem; color:#94A3B8; margin-top:3px; }
 
-/* Section title */
+/* Section titles */
 .sec-title {
-    font-size:.72rem; font-weight:800; text-transform:uppercase; letter-spacing:.08em;
-    color:#64748b; margin:16px 0 8px; display:flex; align-items:center; gap:6px;
+    font-size:.7rem; font-weight:800; text-transform:uppercase; letter-spacing:.08em;
+    color:#64748b; margin:14px 0 8px; display:flex; align-items:center; gap:6px;
 }
 .sec-title::after { content:''; flex:1; height:1px; background:#e8ecf0; }
 
@@ -65,26 +69,22 @@
                 letter-spacing:.06em; padding:4px 8px; border-bottom:2px solid #f1f5f9; }
 .pos-table td { padding:7px 8px; border-bottom:1px solid #f8fafc; }
 .pos-table tr:last-child td { border-bottom:none; }
-.aged-badge { font-size:.65rem; font-weight:700; background:#fef3c7; color:#92400e;
-              padding:1px 6px; border-radius:10px; white-space:nowrap; }
-.ok-badge   { font-size:.65rem; font-weight:700; background:#f0fdf4; color:#166534;
-              padding:1px 6px; border-radius:10px; white-space:nowrap; }
+.aged-badge { font-size:.65rem; font-weight:700; background:#fef3c7; color:#92400e; padding:1px 6px; border-radius:10px; white-space:nowrap; }
+.ok-badge   { font-size:.65rem; font-weight:700; background:#f0fdf4; color:#166534; padding:1px 6px; border-radius:10px; white-space:nowrap; }
 
-/* Utilidad rows */
-.util-row { display:flex; justify-content:space-between; align-items:center;
-            padding:6px 0; border-bottom:1px solid #f1f5f9; font-size:.83rem; }
-.util-row:last-child { border-bottom:none; }
-.util-label { color:#475569; }
-.util-val   { font-weight:700; color:#0D1B2A; }
-.util-val.green { color:#16a34a; }
-.util-val.muted { color:#94A3B8; }
-
-/* Cierre */
-.cierre-badge { display:inline-flex; align-items:center; gap:5px; padding:5px 12px;
-                border-radius:20px; font-size:.74rem; font-weight:700; }
-.cierre-badge.ok      { background:#f0fdf4; color:#166534; border:1px solid #bbf7d0; }
-.cierre-badge.pending { background:#fef2f2; color:#991b1b; border:1px solid #fecaca; }
-.cierre-badge.partial { background:#fffbeb; color:#92400e; border:1px solid #fde68a; }
+/* Caja diaria — cuadre */
+.cuadre-row { display:flex; justify-content:space-between; align-items:center;
+              padding:5px 0; border-bottom:1px solid #f1f5f9; font-size:.83rem; }
+.cuadre-row:last-child { border-bottom:none; }
+.cuadre-row.total { font-weight:800; padding-top:8px; border-top:2px solid #e8ecf0; border-bottom:none; }
+.cuadre-lbl { color:#475569; }
+.cuadre-val { font-weight:700; text-align:right; min-width:120px; }
+.cuadre-val.ing  { color:#16a34a; }
+.cuadre-val.egr  { color:#dc2626; }
+.cuadre-val.teo  { color:#2563eb; }
+.cuadre-val.diff.ok     { color:#16a34a; }
+.cuadre-val.diff.warn   { color:#dc2626; }
+.cuadre-val.diff.exceso { color:#d97706; }
 
 /* Alertas */
 .fin-alert { border-radius:8px; padding:9px 13px; font-size:.81rem;
@@ -93,12 +93,26 @@
 .fin-alert.warning { background:#fffbeb; color:#92400e; }
 .fin-alert.info    { background:#eff6ff; color:#1e40af; }
 
-/* Ops hoy mini-grid */
+/* Ops mini */
 .ops-mini { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
 .ops-mini-card { background:#f8fafc; border-radius:8px; padding:9px 11px; }
 .ops-mini-label { font-size:.66rem; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.06em; }
 .ops-mini-val   { font-size:1.1rem; font-weight:800; color:#0D1B2A; }
-.ops-mini-sub   { font-size:.68rem; color:#94A3B8; }
+
+/* Cierre badge */
+.cierre-badge { display:inline-flex; align-items:center; gap:5px; padding:5px 12px;
+                border-radius:20px; font-size:.74rem; font-weight:700; }
+.cierre-badge.ok      { background:#f0fdf4; color:#166534; border:1px solid #bbf7d0; }
+.cierre-badge.pending { background:#fef2f2; color:#991b1b; border:1px solid #fecaca; }
+.cierre-badge.partial { background:#fffbeb; color:#92400e; border:1px solid #fde68a; }
+
+/* Estado cuadre badge */
+.cuadre-badge { display:inline-flex; align-items:center; gap:5px; padding:6px 14px;
+                border-radius:20px; font-size:.8rem; font-weight:800; margin-top:8px; }
+.cuadre-badge.cuadrado  { background:#f0fdf4; color:#166534; border:1px solid #bbf7d0; }
+.cuadre-badge.excedente { background:#fffbeb; color:#92400e; border:1px solid #fde68a; }
+.cuadre-badge.faltante  { background:#fef2f2; color:#991b1b; border:1px solid #fecaca; }
+.cuadre-badge.pendiente { background:#f1f5f9; color:#475569; border:1px solid #e2e8f0; }
 </style>
 {% endblock %}
 
@@ -112,13 +126,13 @@
   </div>
 
   <!-- Header -->
-  <div class="fin-header">
+  <div class="ctrl-header">
     <div>
-      <p class="fin-header-title">Control Financiero</p>
-      <p class="fin-header-sub">QoriCash SAC · Posición en tiempo real</p>
+      <p class="ctrl-header-title">Control Financiero</p>
+      <p class="ctrl-header-sub">QoriCash SAC · Estado en tiempo real</p>
     </div>
     <div class="d-flex align-items-center gap-2">
-      <span class="fin-ts" id="tsLabel">Cargando…</span>
+      <span style="font-size:.72rem;color:rgba(255,255,255,.3);" id="tsLabel">Cargando…</span>
       <button class="btn btn-sm" style="background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.2);font-size:.74rem;"
               onclick="loadSnapshot()">
         <i class="bi bi-arrow-clockwise"></i> Actualizar
@@ -129,12 +143,45 @@
   <!-- Alertas -->
   <div id="alertsZone"></div>
 
-  <!-- 4 respuestas rápidas -->
-  <div class="row g-2 mb-3" id="qaCards">
-    <div class="col-6 col-lg-3"><div class="qa-card"><div class="qa-label">Total USD en bancos</div><div class="qa-value blue" id="qaTotalUSD">—</div><div class="qa-sub">Suma BCP + IBK + BANBIF</div></div></div>
-    <div class="col-6 col-lg-3"><div class="qa-card"><div class="qa-label">Total PEN en bancos</div><div class="qa-value" id="qaTotalPEN" style="color:#2563eb;">—</div><div class="qa-sub">Suma BCP + IBK + BANBIF</div></div></div>
-    <div class="col-6 col-lg-3"><div class="qa-card"><div class="qa-label">Utilidad realizada hoy</div><div class="qa-value green" id="qaUtilHoy">—</div><div class="qa-sub" id="qaUtilHoySub">De amarres cerrados hoy</div></div></div>
-    <div class="col-6 col-lg-3"><div class="qa-card"><div class="qa-label">Posición abierta (USD)</div><div class="qa-value amber" id="qaPosAbierta">—</div><div class="qa-sub" id="qaPosSub">USD completado sin amarrar</div></div></div>
+  <!-- Selector de período (para utilidad) -->
+  <div class="d-flex align-items-center gap-3 mb-3 flex-wrap">
+    <div class="period-bar">
+      <button class="period-btn active" onclick="setPeriod('hoy', this)">Hoy</button>
+      <button class="period-btn"        onclick="setPeriod('mes', this)">Este mes</button>
+    </div>
+    <span style="font-size:.73rem;color:#94A3B8;" id="periodLabel">Mostrando: hoy</span>
+  </div>
+
+  <!-- 4 QA cards -->
+  <div class="row g-2 mb-3">
+    <div class="col-6 col-lg-3">
+      <div class="qa-card">
+        <div class="qa-label">Total USD en bancos</div>
+        <div class="qa-value blue" id="qaTotalUSD">—</div>
+        <div class="qa-sub">BCP + IBK + BANBIF</div>
+      </div>
+    </div>
+    <div class="col-6 col-lg-3">
+      <div class="qa-card">
+        <div class="qa-label">Total PEN en bancos</div>
+        <div class="qa-value blue" id="qaTotalPEN">—</div>
+        <div class="qa-sub">BCP + IBK + BANBIF</div>
+      </div>
+    </div>
+    <div class="col-6 col-lg-3">
+      <div class="qa-card">
+        <div class="qa-label" id="utilCardLabel">Utilidad realizada — Hoy</div>
+        <div class="qa-value green" id="qaUtilidad">—</div>
+        <div class="qa-sub" id="qaUtilidadSub">—</div>
+      </div>
+    </div>
+    <div class="col-6 col-lg-3">
+      <div class="qa-card">
+        <div class="qa-label">Posición abierta (USD)</div>
+        <div class="qa-value amber" id="qaPosAbierta">—</div>
+        <div class="qa-sub" id="qaPosSub">USD sin amarrar</div>
+      </div>
+    </div>
   </div>
 
   <div class="row g-3">
@@ -151,12 +198,25 @@
               <i class="bi bi-pencil-square"></i> Editar saldos
             </button>
           </div>
-          <table class="saldos-table" id="saldosTable">
-            <thead><tr>
-              <th>Banco</th><th>Moneda</th><th class="text-end">Saldo</th>
-            </tr></thead>
+          <table class="saldos-table">
+            <thead><tr><th>Banco</th><th>Moneda</th><th class="text-end">Saldo actual</th></tr></thead>
             <tbody id="saldosBody"><tr><td colspan="3" class="text-center text-muted py-3" style="font-size:.8rem;">Cargando…</td></tr></tbody>
           </table>
+        </div>
+      </div>
+
+      <!-- Caja del día — Cuadre automático -->
+      <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body p-3">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <div class="sec-title mb-0"><i class="bi bi-cash-stack text-success"></i> Caja del Día — Cuadre</div>
+            <a href="{{ url_for('finanzas.auditoria') }}" class="btn btn-sm btn-outline-secondary" style="font-size:.72rem;">
+              Registrar →
+            </a>
+          </div>
+          <div id="cuadreZone">
+            <div class="text-center text-muted py-3" style="font-size:.8rem;">Cargando…</div>
+          </div>
         </div>
       </div>
 
@@ -175,10 +235,10 @@
     <!-- Columna derecha -->
     <div class="col-lg-5">
 
-      <!-- Utilidad -->
+      <!-- Utilidad del período -->
       <div class="card border-0 shadow-sm mb-3">
         <div class="card-body p-3">
-          <div class="sec-title"><i class="bi bi-graph-up-arrow text-success"></i> Utilidad Realizada</div>
+          <div class="sec-title"><i class="bi bi-graph-up-arrow text-success"></i> Utilidad <span id="utilPanelPeriodLabel">de Hoy</span></div>
           <div id="utilZone">
             <div class="text-center text-muted py-3" style="font-size:.8rem;">Cargando…</div>
           </div>
@@ -189,20 +249,33 @@
       <div class="card border-0 shadow-sm mb-3">
         <div class="card-body p-3">
           <div class="sec-title"><i class="bi bi-calendar3"></i> Operaciones de Hoy</div>
-          <div class="ops-mini" id="opsHoyZone">
-            <div class="ops-mini-card"><div class="ops-mini-label">Completadas</div><div class="ops-mini-val" id="opTotal">—</div></div>
-            <div class="ops-mini-card"><div class="ops-mini-label">Volumen USD</div><div class="ops-mini-val" id="opVol">—</div></div>
-            <div class="ops-mini-card" style="background:#eff6ff;"><div class="ops-mini-label" style="color:#1d4ed8;">TC Compra</div><div class="ops-mini-val" id="opTCBuy" style="color:#2563eb;">—</div></div>
-            <div class="ops-mini-card" style="background:#f0fdf4;"><div class="ops-mini-label" style="color:#166534;">TC Venta</div><div class="ops-mini-val" id="opTCSell" style="color:#16a34a;">—</div></div>
+          <div class="ops-mini">
+            <div class="ops-mini-card">
+              <div class="ops-mini-label">Completadas</div>
+              <div class="ops-mini-val" id="opTotal">—</div>
+              <div style="font-size:.7rem;color:#94A3B8;" id="opTipos">—</div>
+            </div>
+            <div class="ops-mini-card">
+              <div class="ops-mini-label">Volumen USD</div>
+              <div class="ops-mini-val" id="opVol">—</div>
+            </div>
+            <div class="ops-mini-card" style="background:#eff6ff;">
+              <div class="ops-mini-label" style="color:#1d4ed8;">TC Compra prom.</div>
+              <div class="ops-mini-val" id="opTCBuy" style="color:#2563eb;">—</div>
+            </div>
+            <div class="ops-mini-card" style="background:#f0fdf4;">
+              <div class="ops-mini-label" style="color:#166534;">TC Venta prom.</div>
+              <div class="ops-mini-val" id="opTCSell" style="color:#16a34a;">—</div>
+            </div>
           </div>
         </div>
       </div>
 
-      <!-- Estado cierre -->
+      <!-- Estado cierre formal -->
       <div class="card border-0 shadow-sm">
         <div class="card-body p-3">
           <div class="d-flex justify-content-between align-items-center mb-2">
-            <div class="sec-title mb-0"><i class="bi bi-calendar-check"></i> Cierre Diario</div>
+            <div class="sec-title mb-0"><i class="bi bi-calendar-check"></i> Cierre Formal del Día</div>
             <a href="{{ url_for('finanzas.auditoria') }}#cierre" class="btn btn-sm btn-outline-primary" style="font-size:.72rem;">
               Ir al Cierre →
             </a>
@@ -221,69 +294,89 @@
 
 {% block scripts %}
 <script>
-const fmtN   = (n, d=2) => new Intl.NumberFormat('es-PE',{minimumFractionDigits:d,maximumFractionDigits:d}).format(n);
+const fmtN   = (n, d=2) => new Intl.NumberFormat('es-PE', {minimumFractionDigits:d, maximumFractionDigits:d}).format(n);
 const fmtUSD = n => `$ ${fmtN(n)}`;
 const fmtPEN = n => `S/ ${fmtN(n)}`;
 const fmtTC  = n => n > 0 ? fmtN(n, 4) : '—';
+const pm     = (n) => (n >= 0 ? '+' : '') + fmtPEN(n);
+const pu     = (n) => (n >= 0 ? '+' : '') + fmtUSD(n);
+
+let _period = 'hoy';
+let _snap   = null;
+
+function setPeriod(p, btn) {
+    _period = p;
+    document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+
+    const labels = { hoy: 'hoy', mes: 'este mes' };
+    document.getElementById('periodLabel').textContent = 'Mostrando: ' + labels[p];
+    document.getElementById('utilCardLabel').textContent = 'Utilidad realizada — ' + (p === 'hoy' ? 'Hoy' : 'Este mes');
+    document.getElementById('utilPanelPeriodLabel').textContent = p === 'hoy' ? 'de Hoy' : 'del Mes';
+
+    if (_snap) {
+        renderUtilidad(_snap.profit, p);
+        const profit = p === 'hoy' ? _snap.profit.today : _snap.profit.month;
+        const el = document.getElementById('qaUtilidad');
+        el.textContent = fmtPEN(profit.total_pen);
+        el.className   = 'qa-value ' + (profit.total_pen >= 0 ? 'green' : 'red');
+        document.getElementById('qaUtilidadSub').textContent =
+            `${profit.match_count} amarre(s) · Casa: ${fmtPEN(profit.house_pen)}`;
+    }
+}
 
 async function loadSnapshot() {
     try {
-        const res  = await fetch('/finanzas/api/snapshot');
+        const res = await fetch('/finanzas/api/snapshot');
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const d    = await res.json();
-        if (!d.ok)  throw new Error(d.error || 'Error en snapshot');
-        window._lastSnapshot = d;
+        const d   = await res.json();
+        if (!d.ok) throw new Error(d.error || 'Error en snapshot');
+        _snap = d;
 
-        // Timestamp
-        const ts = new Date(d.timestamp);
         document.getElementById('tsLabel').textContent =
-            'Actualizado: ' + ts.toLocaleTimeString('es-PE');
+            'Actualizado: ' + new Date(d.timestamp).toLocaleTimeString('es-PE');
 
-        // Alertas
         renderAlertas(d.alerts || []);
 
-        // QA cards
+        // QA cards — saldos
         const bal = d.balances;
-        document.getElementById('qaTotalUSD').textContent  = fmtUSD(bal.total_usd);
-        document.getElementById('qaTotalPEN').textContent  = fmtPEN(bal.total_pen);
+        document.getElementById('qaTotalUSD').textContent = fmtUSD(bal.total_usd);
+        document.getElementById('qaTotalPEN').textContent = fmtPEN(bal.total_pen);
 
-        const pt = d.profit.today;
-        const ptEl = document.getElementById('qaUtilHoy');
-        ptEl.textContent = fmtPEN(pt.total_pen);
-        ptEl.className = 'qa-value ' + (pt.total_pen >= 0 ? 'green' : '');
-        ptEl.style.color = pt.total_pen < 0 ? '#dc2626' : '';
-        document.getElementById('qaUtilHoySub').textContent =
-            `${pt.match_count} amarre(s) — Casa: ${fmtPEN(pt.house_pen)}`;
+        // QA card — utilidad del período activo
+        const profit = _period === 'hoy' ? d.profit.today : d.profit.month;
+        const ptEl   = document.getElementById('qaUtilidad');
+        ptEl.textContent = fmtPEN(profit.total_pen);
+        ptEl.className   = 'qa-value ' + (profit.total_pen >= 0 ? 'green' : 'red');
+        document.getElementById('qaUtilidadSub').textContent =
+            `${profit.match_count} amarre(s) · Casa: ${fmtPEN(profit.house_pen)}`;
 
+        // QA card — posición
         const pos = d.position;
         document.getElementById('qaPosAbierta').textContent = fmtUSD(Math.abs(pos.neto_usd));
         document.getElementById('qaPosSub').textContent =
-            `${pos.total_items} op(s) — C: ${fmtUSD(pos.total_compras_open)} / V: ${fmtUSD(pos.total_ventas_open)}`;
+            `${pos.total_items} op(s) · C: ${fmtUSD(pos.total_compras_open)} / V: ${fmtUSD(pos.total_ventas_open)}`;
 
-        // Saldos bancarios
         renderSaldos(bal.by_bank, bal.total_usd, bal.total_pen);
-
-        // Posición
+        renderCuadre(d.cashflow);
         renderPosicion(pos);
+        renderUtilidad(d.profit, _period);
 
-        // Utilidad
-        renderUtilidad(d.profit);
-
-        // Ops hoy
         const ops = d.daily_ops;
-        document.getElementById('opTotal').textContent = ops.total_ops;
-        document.getElementById('opVol').textContent   = fmtUSD(ops.volume_usd);
-        document.getElementById('opTCBuy').textContent  = fmtTC(ops.avg_buy_rate);
-        document.getElementById('opTCSell').textContent = fmtTC(ops.avg_sell_rate);
+        document.getElementById('opTotal').textContent   = ops.total_ops;
+        document.getElementById('opVol').textContent     = fmtUSD(ops.volume_usd);
+        document.getElementById('opTipos').textContent   =
+            `C: ${ops.compras_count}  V: ${ops.ventas_count}`;
+        document.getElementById('opTCBuy').textContent   = fmtTC(ops.avg_buy_rate);
+        document.getElementById('opTCSell').textContent  = fmtTC(ops.avg_sell_rate);
 
-        // Cierre
         renderCierre(d.closure);
 
     } catch(e) {
-        console.error('Control Financiero:', e);
+        console.error('[Control]', e);
         document.getElementById('alertsZone').innerHTML =
             `<div class="fin-alert danger"><i class="bi bi-bug-fill"></i><span><strong>Error al cargar datos:</strong> ${e.message}</span></div>`;
-        document.getElementById('tsLabel').textContent = 'Error — ' + new Date().toLocaleTimeString('es-PE');
+        document.getElementById('tsLabel').textContent = 'Error';
     }
 }
 
@@ -315,17 +408,103 @@ function renderSaldos(byBank, totalUSD, totalPEN) {
     rows += `<tr>
       <td colspan="2"><strong>Total</strong></td>
       <td class="text-end">
-        <span style="font-size:.8rem;color:#94A3B8;margin-right:4px;">USD</span>${fmtUSD(totalUSD)}<br>
-        <span style="font-size:.8rem;color:#94A3B8;margin-right:4px;">PEN</span>${fmtPEN(totalPEN)}
+        <div>${fmtUSD(totalUSD)}</div>
+        <div>${fmtPEN(totalPEN)}</div>
       </td>
     </tr>`;
     document.getElementById('saldosBody').innerHTML = rows;
 }
 
+function renderCuadre(cf) {
+    const z = document.getElementById('cuadreZone');
+    if (!cf) {
+        z.innerHTML = '<div class="text-muted" style="font-size:.8rem;">Sin datos de caja</div>';
+        return;
+    }
+
+    const hasOpen = cf.has_opening;
+    const hasClose = cf.has_closing;
+
+    if (!hasOpen) {
+        z.innerHTML = `
+        <div style="background:#f8fafc;border-radius:8px;padding:12px;font-size:.83rem;color:#64748b;">
+          <i class="bi bi-info-circle me-2"></i>Apertura no registrada.
+          <a href="/finanzas/auditoria/" style="color:#2563eb;font-weight:700;text-decoration:none;"> Registrar apertura →</a>
+        </div>`;
+        return;
+    }
+
+    const ingNote = (cf.total_ing_usd + cf.total_ing_pen === 0)
+        ? ' <span style="font-size:.7rem;color:#94A3B8;">(sin movimientos aún)</span>' : '';
+
+    // Estado cuadre badge
+    const ESTADO = {
+        cuadrado:  { cls:'cuadrado',  icon:'bi-check-circle-fill', txt:'Cuadrado' },
+        excedente: { cls:'excedente', icon:'bi-arrow-up-circle-fill', txt:'Excedente' },
+        faltante:  { cls:'faltante',  icon:'bi-exclamation-circle-fill', txt:'Faltante' },
+        pendiente: { cls:'pendiente', icon:'bi-clock', txt:'Esperando cierre final' },
+    };
+    const es = ESTADO[cf.estado_cuadre] || ESTADO.pendiente;
+
+    const diffHtml = hasClose
+        ? `<div class="cuadre-row total">
+            <span class="cuadre-lbl">Diferencia (real − teórico)</span>
+            <div>
+              <div class="cuadre-val ${cf.diff_usd > 0.01 ? 'diff exceso' : cf.diff_usd < -0.01 ? 'diff warn' : 'diff ok'}">${pu(cf.diff_usd || 0)}</div>
+              <div class="cuadre-val ${cf.diff_pen > 0.01 ? 'diff exceso' : cf.diff_pen < -0.01 ? 'diff warn' : 'diff ok'}">${pm(cf.diff_pen || 0)}</div>
+            </div>
+          </div>` : '';
+
+    z.innerHTML = `
+    <div style="font-size:.8rem;">
+      <div class="cuadre-row">
+        <span class="cuadre-lbl">Saldo inicial</span>
+        <div>
+          <div class="cuadre-val">${fmtUSD(cf.total_ini_usd)}</div>
+          <div class="cuadre-val">${fmtPEN(cf.total_ini_pen)}</div>
+        </div>
+      </div>
+      <div class="cuadre-row">
+        <span class="cuadre-lbl">+ Ingresos del día${ingNote}</span>
+        <div>
+          <div class="cuadre-val ing">+${fmtUSD(cf.total_ing_usd)}</div>
+          <div class="cuadre-val ing">+${fmtPEN(cf.total_ing_pen)}</div>
+        </div>
+      </div>
+      <div class="cuadre-row">
+        <span class="cuadre-lbl">− Egresos del día</span>
+        <div>
+          <div class="cuadre-val egr">−${fmtUSD(cf.total_egr_usd)}</div>
+          <div class="cuadre-val egr">−${fmtPEN(cf.total_egr_pen)}</div>
+        </div>
+      </div>
+      <div class="cuadre-row">
+        <span class="cuadre-lbl" style="font-weight:700;color:#0D1B2A;">= Saldo Teórico</span>
+        <div>
+          <div class="cuadre-val teo">${fmtUSD(cf.total_teo_usd)}</div>
+          <div class="cuadre-val teo">${fmtPEN(cf.total_teo_pen)}</div>
+        </div>
+      </div>
+      ${hasClose ? `<div class="cuadre-row">
+        <span class="cuadre-lbl" style="font-weight:700;color:#0D1B2A;">Saldo Final (real)</span>
+        <div>
+          <div class="cuadre-val">${fmtUSD(cf.total_fin_usd)}</div>
+          <div class="cuadre-val">${fmtPEN(cf.total_fin_pen)}</div>
+        </div>
+      </div>` : ''}
+      ${diffHtml}
+      <div style="text-align:center;margin-top:10px;">
+        <span class="cuadre-badge ${es.cls}">
+          <i class="bi ${es.icon}"></i> ${es.txt}
+        </span>
+      </div>
+    </div>`;
+}
+
 function renderPosicion(pos) {
     const z = document.getElementById('posicionZone');
     if (!pos.items.length) {
-        z.innerHTML = '<div style="text-align:center;color:#16a34a;font-size:.85rem;padding:12px;"><i class="bi bi-check-circle-fill"></i> Sin posición abierta — todas las operaciones están amarradas</div>';
+        z.innerHTML = '<div style="text-align:center;color:#16a34a;font-size:.85rem;padding:12px;"><i class="bi bi-check-circle-fill"></i> Sin posición abierta</div>';
         return;
     }
     const rows = pos.items.map(p => {
@@ -334,18 +513,16 @@ function renderPosicion(pos) {
             : `<span class="ok-badge">${p.days_open}d</span>`;
         const typeCls = p.type === 'Compra' ? 'color:#2563eb;' : 'color:#7c3aed;';
         const tcStr   = p.exchange_rate ? p.exchange_rate.toFixed(4) : '—';
-        const baseStr = p.base_rate    ? p.base_rate.toFixed(4)    : '—';
         return `<tr>
           <td><a href="/operations/${p.id}" style="color:#0D1B2A;font-weight:700;text-decoration:none;">${p.operation_id}</a></td>
           <td><span style="${typeCls}font-weight:700;">${p.type}</span></td>
           <td style="max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.client}</td>
-          <td class="text-end" style="font-size:.8rem;">${tcStr}<br><span style="color:#94a3b8;font-size:.73rem;">base ${baseStr}</span></td>
+          <td class="text-end" style="font-size:.8rem;">${tcStr}</td>
           <td class="text-end">${fmtUSD(p.open_usd)}</td>
           <td class="text-end">${ageBadge}</td>
         </tr>`;
     }).join('');
 
-    // Totales
     const neto = pos.neto_usd;
     const netoColor = neto > 0 ? '#d97706' : neto < 0 ? '#7c3aed' : '#16a34a';
     const netoLabel = neto > 0 ? 'Compra neta' : neto < 0 ? 'Venta neta' : 'Balanceado';
@@ -354,8 +531,8 @@ function renderPosicion(pos) {
     <table class="pos-table">
       <thead><tr>
         <th>Operación</th><th>Tipo</th><th>Cliente</th>
-        <th class="text-end">TC / Base</th>
-        <th class="text-end">USD Abierto</th><th class="text-end">Antigüedad</th>
+        <th class="text-end">TC</th>
+        <th class="text-end">USD Abierto</th><th class="text-end">Días</th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>
@@ -365,30 +542,36 @@ function renderPosicion(pos) {
     </div>`;
 }
 
-function renderUtilidad(profit) {
-    const all = profit.all_time;
-    const hoy = profit.today;
-    document.getElementById('utilZone').innerHTML = `
-    <div class="util-row">
-      <span class="util-label">Utilidad total acumulada</span>
-      <span class="util-val green">${fmtPEN(all.total_pen)}</span>
+function renderUtilidad(profit, period) {
+    const p    = period === 'mes' ? profit.month : profit.today;
+    const pOld = period === 'mes' ? profit.today : null;
+    const pLbl = period === 'mes' ? 'del mes' : 'de hoy';
+
+    let html = `
+    <div class="cuadre-row">
+      <span class="cuadre-lbl">Utilidad bruta ${pLbl}</span>
+      <span class="cuadre-val ${p.total_pen >= 0 ? 'ing' : 'egr'}">${fmtPEN(p.total_pen)}</span>
     </div>
-    <div class="util-row">
-      <span class="util-label" style="padding-left:12px;">↳ Casa (QoriCash)</span>
-      <span class="util-val green">${fmtPEN(all.house_pen)}</span>
+    <div class="cuadre-row">
+      <span class="cuadre-lbl" style="padding-left:12px;">↳ Casa (QoriCash)</span>
+      <span class="cuadre-val ing">${fmtPEN(p.house_pen)}</span>
     </div>
-    <div class="util-row">
-      <span class="util-label" style="padding-left:12px;">↳ Traders</span>
-      <span class="util-val">${fmtPEN(all.trader_total_pen)}</span>
+    <div class="cuadre-row">
+      <span class="cuadre-lbl" style="padding-left:12px;">↳ Traders</span>
+      <span class="cuadre-val">${fmtPEN(p.trader_total_pen)}</span>
     </div>
-    <div class="util-row" style="margin-top:6px;padding-top:6px;border-top:2px solid #f1f5f9;">
-      <span class="util-label" style="font-weight:700;">Hoy (${all.match_count > 0 ? hoy.match_count : 0} amarre/s)</span>
-      <span class="util-val ${hoy.total_pen >= 0 ? 'green' : ''}" style="${hoy.total_pen < 0 ? 'color:#dc2626' : ''}">${fmtPEN(hoy.total_pen)}</span>
-    </div>
-    <div class="util-row">
-      <span class="util-label" style="padding-left:12px;">↳ Casa hoy</span>
-      <span class="util-val muted">${fmtPEN(hoy.house_pen)}</span>
+    <div class="cuadre-row" style="margin-top:4px;">
+      <span class="cuadre-lbl">${p.match_count} amarre(s)</span>
+      <span style="font-size:.7rem;color:#94A3B8;">Casa: ${fmtPEN(p.house_pen)}</span>
     </div>`;
+
+    if (pOld && period === 'mes') {
+        html += `<div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:.78rem;color:#64748b;">
+          Hoy: <strong>${fmtPEN(pOld.total_pen)}</strong> · ${pOld.match_count} amarre(s)
+        </div>`;
+    }
+
+    document.getElementById('utilZone').innerHTML = html;
 }
 
 function renderCierre(closure) {
@@ -401,8 +584,8 @@ function renderCierre(closure) {
             <i class="bi bi-exclamation-octagon-fill me-1"></i>${d} día(s) sin cierre validado
           </div>
           <div style="font-size:.75rem;color:#b91c1c;margin-bottom:8px;">El cierre diario es obligatorio para conciliar saldos.</div>
-          <a href="${window.location.origin}/finanzas/auditoria/" class="btn btn-sm" style="background:#dc2626;color:#fff;font-size:.72rem;">
-            Realizar Cierre Ahora
+          <a href="/finanzas/auditoria/" class="btn btn-sm" style="background:#dc2626;color:#fff;font-size:.72rem;">
+            Realizar Cierre
           </a>
         </div>`;
         return;
@@ -416,16 +599,18 @@ function renderCierre(closure) {
         <div class="d-flex justify-content-between align-items-center">
           <div>
             <span class="cierre-badge ${cl}"><i class="bi ${ic}"></i> ${lb}</span>
-            <div style="font-size:.72rem;color:#64748b;margin-top:4px;">${c.operations_completed} op(s) · ${fmtUSD(c.total_volume_usd)} volumen</div>
+            <div style="font-size:.72rem;color:#64748b;margin-top:4px;">
+              ${c.operations_completed} op(s) · ${fmtUSD(c.total_volume_usd)} volumen
+              ${c.has_discrepancies ? '<span style="color:#dc2626;font-weight:700;"> · ⚠ Diferencias</span>' : ''}
+            </div>
           </div>
           <div style="text-align:right;">
             <div style="font-weight:800;color:${c.net_profit_pen >= 0 ? '#16a34a' : '#dc2626'};font-size:.9rem;">${fmtPEN(c.net_profit_pen)}</div>
-            <div style="font-size:.68rem;color:#94A3B8;">P&L del día</div>
+            <div style="font-size:.68rem;color:#94A3B8;">P&L calculado</div>
           </div>
         </div>`;
         return;
     }
-    // Sin cierre hoy
     z.innerHTML = `
     <div class="d-flex justify-content-between align-items-center">
       <div>
@@ -440,10 +625,9 @@ loadSnapshot();
 
 // ── Modal Editar Saldos ────────────────────────────────────────────────────
 function abrirModalSaldos() {
-    const snap = window._lastSnapshot;
+    const snap = _snap;
     const accounts = snap ? (snap.balances.accounts || []) : [];
 
-    // Agrupar por banco → {BCP: {USD: {balance, account_name}, PEN: {...}}, ...}
     const byBank = {};
     for (const a of accounts) {
         if (!byBank[a.bank]) byBank[a.bank] = {};
@@ -452,7 +636,7 @@ function abrirModalSaldos() {
 
     const banks = [
         { key: 'BCP',       name: 'BCP' },
-        { key: 'INTERBANK', name: 'Interbank (IBK)' },
+        { key: 'INTERBANK', name: 'Interbank' },
         { key: 'BANBIF',    name: 'BANBIF' },
     ];
     const rows = banks.map(b => {
@@ -465,8 +649,7 @@ function abrirModalSaldos() {
             <div class="input-group input-group-sm">
               <span class="input-group-text" style="font-size:.75rem;">$</span>
               <input type="number" step="0.01" min="0" class="form-control"
-                     id="saldo_${b.key}_USD"
-                     data-account="${usdData.account_name}"
+                     id="saldo_${b.key}_USD" data-account="${usdData.account_name}"
                      value="${usdData.balance.toFixed(2)}" placeholder="0.00">
             </div>
           </td>
@@ -474,15 +657,14 @@ function abrirModalSaldos() {
             <div class="input-group input-group-sm">
               <span class="input-group-text" style="font-size:.75rem;">S/</span>
               <input type="number" step="0.01" min="0" class="form-control"
-                     id="saldo_${b.key}_PEN"
-                     data-account="${penData.account_name}"
+                     id="saldo_${b.key}_PEN" data-account="${penData.account_name}"
                      value="${penData.balance.toFixed(2)}" placeholder="0.00">
             </div>
           </td>
         </tr>`;
     }).join('');
 
-    const html = `
+    document.body.insertAdjacentHTML('beforeend', `
     <div id="modalSaldosOverlay" style="position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;">
       <div style="background:#fff;border-radius:14px;padding:24px;width:100%;max-width:480px;box-shadow:0 20px 60px rgba(0,0,0,.25);">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
@@ -507,13 +689,11 @@ function abrirModalSaldos() {
           </button>
         </div>
       </div>
-    </div>`;
-    document.body.insertAdjacentHTML('beforeend', html);
+    </div>`);
 }
 
 function cerrarModalSaldos() {
-    const el = document.getElementById('modalSaldosOverlay');
-    if (el) el.remove();
+    document.getElementById('modalSaldosOverlay')?.remove();
 }
 
 async function guardarSaldos() {
@@ -523,40 +703,40 @@ async function guardarSaldos() {
     const msg = document.getElementById('saldosMsgZone');
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Guardando…';
-
     const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
+
     const tasks = [];
     for (const bk of banks) {
         for (const cur of currencies) {
             const input = document.getElementById(`saldo_${bk}_${cur}`);
-            const val = parseFloat(input.value);
-            const accountName = input.dataset.account;
+            const val   = parseFloat(input.value);
+            const acct  = input.dataset.account;
             if (isNaN(val) || val < 0) {
                 msg.innerHTML = `<span style="color:#dc2626;">Valor inválido en ${bk} ${cur}</span>`;
                 btn.disabled = false;
                 btn.innerHTML = '<i class="bi bi-check-lg"></i> Guardar';
                 return;
             }
-            if (!accountName) continue; // cuenta no existe en DB, saltar
+            if (!acct) continue;
             tasks.push(fetch('/finanzas/api/saldo/corregir', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
-                body: JSON.stringify({ bank_name: accountName, currency: cur, amount: val, motivo: 'Corrección manual desde Control Financiero' })
+                body: JSON.stringify({ bank_name: acct, currency: cur, amount: val, motivo: 'Corrección manual desde Control Financiero' })
             }).then(r => r.json()));
         }
     }
 
     try {
         const results = await Promise.all(tasks);
-        const errors = results.filter(r => !r.ok);
+        const errors  = results.filter(r => !r.ok);
         if (errors.length) {
             msg.innerHTML = `<span style="color:#dc2626;">Error: ${errors[0].error}</span>`;
             btn.disabled = false;
             btn.innerHTML = '<i class="bi bi-check-lg"></i> Guardar';
             return;
         }
-        msg.innerHTML = `<span style="color:#16a34a;"><i class="bi bi-check-circle-fill"></i> Saldos actualizados correctamente</span>`;
-        setTimeout(() => { cerrarModalSaldos(); loadSnapshot(); }, 1000);
+        msg.innerHTML = `<span style="color:#16a34a;"><i class="bi bi-check-circle-fill"></i> Guardado correctamente</span>`;
+        setTimeout(() => { cerrarModalSaldos(); loadSnapshot(); }, 800);
     } catch(e) {
         msg.innerHTML = `<span style="color:#dc2626;">Error de red: ${e.message}</span>`;
         btn.disabled = false;

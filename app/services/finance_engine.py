@@ -404,6 +404,20 @@ class FinanceEngine:
             'avg_buy_rate': 0, 'avg_sell_rate': 0,
         }
 
+        first_of_month = today.replace(day=1)
+
+        _cashflow_default = {
+            'fecha': today.isoformat(), 'has_opening': False, 'has_closing': False,
+            'ini_source': 'sin_datos',
+            'total_ini_usd': 0, 'total_ini_pen': 0,
+            'total_ing_usd': 0, 'total_ing_pen': 0,
+            'total_egr_usd': 0, 'total_egr_pen': 0,
+            'total_teo_usd': 0, 'total_teo_pen': 0,
+            'total_fin_usd': None, 'total_fin_pen': None,
+            'diff_usd': None, 'diff_pen': None,
+            'estado_cuadre': 'pendiente', 'by_bank': {},
+        }
+
         balances    = _safe(FinanceEngine.get_balances,
                             {'by_bank': {}, 'total_usd': 0, 'total_pen': 0, 'accounts': []},
                             'balances')
@@ -411,9 +425,10 @@ class FinanceEngine:
                             {'items': [], 'total_compras_open': 0, 'total_ventas_open': 0,
                              'neto_usd': 0, 'total_items': 0},
                             'position')
-        profit_all  = _safe(FinanceEngine.get_profit, _profit_default, 'profit_all')
-        profit_today = _safe(lambda: FinanceEngine.get_profit(today, today),
-                             _profit_default, 'profit_today')
+        profit_today  = _safe(lambda: FinanceEngine.get_profit(today, today),
+                              _profit_default, 'profit_today')
+        profit_month  = _safe(lambda: FinanceEngine.get_profit(first_of_month, today),
+                              _profit_default, 'profit_month')
         daily_ops   = _safe(lambda: FinanceEngine.get_daily_ops(today), _ops_default, 'daily_ops')
         pending     = _safe(FinanceEngine.get_pending_ops,
                             {'total': 0, 'criticas': [], 'items': []}, 'pending')
@@ -422,6 +437,8 @@ class FinanceEngine:
                              'missing_days': 0, 'requires_closure': False,
                              'today_date': today.isoformat()},
                             'closure')
+        cashflow    = _safe(lambda: FinanceEngine.get_daily_cashflow(today),
+                            _cashflow_default, 'cashflow')
 
         # Alertas consolidadas
         alerts = []
@@ -450,14 +467,172 @@ class FinanceEngine:
             'timestamp': now_peru().isoformat(),
             'balances':  balances,
             'position':  position,
-            'profit':    {'all_time': profit_all, 'today': profit_today},
+            'profit':    {'today': profit_today, 'month': profit_month},
             'daily_ops': daily_ops,
             'pending':   pending,
             'closure':   closure,
+            'cashflow':  cashflow,
             'alerts':    alerts,
         }
 
-    # ── 9. Activar ledger (saldo inicial) ─────────────────────────────────────
+    # ── 9. Cashflow diario (cuadre de caja) ──────────────────────────────────
+
+    @staticmethod
+    def get_daily_cashflow(fecha: date = None) -> dict:
+        """
+        Flujo de caja del día para el cuadre:
+          saldo_inicial + ingresos − egresos = saldo_teórico
+          saldo_teórico  vs  saldo_final → diferencia / estado
+
+        Fuentes:
+          saldo_inicial → DailyClosure.opening_balance si existe; si no, BankBalance actual
+          movimientos   → BankMovement del día (excluye saldo_inicial)
+          saldo_final   → DailyClosure.closing_balance si existe
+
+        Returns:
+          has_opening, has_closing, ini_source, totales USD/PEN por concepto,
+          estado_cuadre (cuadrado|excedente|faltante|pendiente),
+          by_bank: {BCP: {USD: {inicial, ingresos, egresos, teorico, final, diferencia}}}
+        """
+        from app.models import DailyClosure, BankMovement
+
+        if fecha is None:
+            fecha = now_peru().date()
+
+        start = datetime.combine(fecha, datetime.min.time())
+        end   = start + timedelta(days=1)
+
+        closure     = DailyClosure.query.filter_by(closure_date=fecha).first()
+        has_opening = bool(closure and closure.opening_balance_json and closure.opening_balance_json != '{}')
+        has_closing = bool(closure and closure.closing_balance_json and closure.closing_balance_json != '{}')
+
+        # ── Saldo inicial ──────────────────────────────────────────────────
+        if has_opening:
+            saldo_ini    = closure.opening_balance
+            total_ini_usd = float(closure.opening_total_usd or 0)
+            total_ini_pen = float(closure.opening_total_pen or 0)
+            ini_source   = 'apertura_registrada'
+        else:
+            from app.models import BankBalance
+            from app.config.bank_accounts import ALLOWED_BANK_NAMES
+            saldo_ini = {b: {'USD': 0.0, 'PEN': 0.0} for b in BANKS}
+            for acct in ALLOWED_BANK_NAMES:
+                bb = BankBalance.query.filter_by(bank_name=acct).first()
+                if not bb:
+                    continue
+                parts = acct.split()
+                bk, cur = parts[0], parts[1]
+                val = float(bb.balance_usd if cur == 'USD' else bb.balance_pen)
+                saldo_ini[bk][cur] = val
+            total_ini_usd = round(sum(v['USD'] for v in saldo_ini.values()), 2)
+            total_ini_pen = round(sum(v['PEN'] for v in saldo_ini.values()), 2)
+            ini_source    = 'saldo_actual_sistema'
+
+        # ── Movimientos del día ────────────────────────────────────────────
+        ing_rows = db.session.query(
+            BankMovement.bank_key, BankMovement.currency,
+            func.sum(BankMovement.amount).label('total'),
+        ).filter(
+            BankMovement.movement_date >= start,
+            BankMovement.movement_date <  end,
+            BankMovement.amount > 0,
+            BankMovement.movement_type != BankMovement.TYPE_SALDO_INICIAL,
+        ).group_by(BankMovement.bank_key, BankMovement.currency).all()
+
+        egr_rows = db.session.query(
+            BankMovement.bank_key, BankMovement.currency,
+            func.sum(BankMovement.amount).label('total'),
+        ).filter(
+            BankMovement.movement_date >= start,
+            BankMovement.movement_date <  end,
+            BankMovement.amount < 0,
+            BankMovement.movement_type != BankMovement.TYPE_SALDO_INICIAL,
+        ).group_by(BankMovement.bank_key, BankMovement.currency).all()
+
+        ingresos = {b: {'USD': 0.0, 'PEN': 0.0} for b in BANKS}
+        egresos  = {b: {'USD': 0.0, 'PEN': 0.0} for b in BANKS}
+
+        for r in ing_rows:
+            if r.bank_key in ingresos:
+                ingresos[r.bank_key][r.currency] = round(float(r.total or 0), 2)
+        for r in egr_rows:
+            if r.bank_key in egresos:
+                egresos[r.bank_key][r.currency]  = round(abs(float(r.total or 0)), 2)
+
+        # ── Saldo teórico ──────────────────────────────────────────────────
+        teorico = {b: {'USD': 0.0, 'PEN': 0.0} for b in BANKS}
+        for bk in BANKS:
+            for cur in CURRENCIES:
+                ini = (saldo_ini.get(bk) or {}).get(cur, 0)
+                teorico[bk][cur] = round(ini + ingresos[bk][cur] - egresos[bk][cur], 2)
+
+        total_ing_usd = round(sum(v['USD'] for v in ingresos.values()), 2)
+        total_ing_pen = round(sum(v['PEN'] for v in ingresos.values()), 2)
+        total_egr_usd = round(sum(v['USD'] for v in egresos.values()),  2)
+        total_egr_pen = round(sum(v['PEN'] for v in egresos.values()),  2)
+        total_teo_usd = round(sum(v['USD'] for v in teorico.values()),  2)
+        total_teo_pen = round(sum(v['PEN'] for v in teorico.values()),  2)
+
+        # ── Saldo final y diferencia ───────────────────────────────────────
+        if has_closing:
+            saldo_fin     = closure.closing_balance
+            total_fin_usd = float(closure.closing_total_usd or 0)
+            total_fin_pen = float(closure.closing_total_pen or 0)
+            diff_usd      = round(total_fin_usd - total_teo_usd, 2)
+            diff_pen      = round(total_fin_pen - total_teo_pen, 2)
+            if abs(diff_pen) < 0.02 and abs(diff_usd) < 0.02:
+                estado = 'cuadrado'
+            elif diff_pen > 0.01 or diff_usd > 0.01:
+                estado = 'excedente'
+            else:
+                estado = 'faltante'
+        else:
+            saldo_fin     = None
+            total_fin_usd = None
+            total_fin_pen = None
+            diff_usd      = None
+            diff_pen      = None
+            estado        = 'pendiente'
+
+        # ── Detalle por banco ─────────────────────────────────────────────
+        by_bank = {}
+        for bk in BANKS:
+            by_bank[bk] = {}
+            for cur in CURRENCIES:
+                ini     = (saldo_ini.get(bk) or {}).get(cur, 0)
+                fin_val = ((saldo_fin or {}).get(bk) or {}).get(cur, None) if has_closing else None
+                dif_val = round(fin_val - teorico[bk][cur], 2) if fin_val is not None else None
+                by_bank[bk][cur] = {
+                    'inicial':    round(ini, 2),
+                    'ingresos':   ingresos[bk][cur],
+                    'egresos':    egresos[bk][cur],
+                    'teorico':    teorico[bk][cur],
+                    'final':      round(fin_val, 2) if fin_val is not None else None,
+                    'diferencia': dif_val,
+                }
+
+        return {
+            'fecha':          fecha.isoformat(),
+            'has_opening':    has_opening,
+            'has_closing':    has_closing,
+            'ini_source':     ini_source,
+            'total_ini_usd':  round(total_ini_usd, 2),
+            'total_ini_pen':  round(total_ini_pen, 2),
+            'total_ing_usd':  total_ing_usd,
+            'total_ing_pen':  total_ing_pen,
+            'total_egr_usd':  total_egr_usd,
+            'total_egr_pen':  total_egr_pen,
+            'total_teo_usd':  total_teo_usd,
+            'total_teo_pen':  total_teo_pen,
+            'total_fin_usd':  total_fin_usd,
+            'total_fin_pen':  total_fin_pen,
+            'diff_usd':       diff_usd,
+            'diff_pen':       diff_pen,
+            'estado_cuadre':  estado,
+            'by_bank':        by_bank,
+        }
+
+    # ── 10. Activar ledger (saldo inicial) ────────────────────────────────────
 
     @staticmethod
     def activar_ledger(user_id: int) -> dict:
