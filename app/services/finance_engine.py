@@ -413,6 +413,7 @@ class FinanceEngine:
             'total_ing_usd': 0, 'total_ing_pen': 0,
             'total_egr_usd': 0, 'total_egr_pen': 0,
             'total_teo_usd': 0, 'total_teo_pen': 0,
+            'total_actual_usd': 0, 'total_actual_pen': 0,
             'total_fin_usd': None, 'total_fin_pen': None,
             'diff_usd': None, 'diff_pen': None,
             'estado_cuadre': 'pendiente', 'by_bank': {},
@@ -528,7 +529,13 @@ class FinanceEngine:
             total_ini_pen = round(sum(v['PEN'] for v in saldo_ini.values()), 2)
             ini_source    = 'saldo_actual_sistema'
 
-        # ── Movimientos del día ────────────────────────────────────────────
+        # ── Movimientos del día (solo flujos de operaciones completadas) ──
+        # source_type='operation' garantiza que solo se contabilizan ingresos/
+        # egresos generados al completar operaciones (apply_operation), excluyendo
+        # ajustes manuales, transferencias y saldos iniciales que distorsionarían
+        # el cuadre de caja diario.
+        _OP_TYPES = (BankMovement.TYPE_OP_ENTRADA, BankMovement.TYPE_OP_SALIDA)
+
         ing_rows = db.session.query(
             BankMovement.bank_key, BankMovement.currency,
             func.sum(BankMovement.amount).label('total'),
@@ -536,7 +543,7 @@ class FinanceEngine:
             BankMovement.movement_date >= start,
             BankMovement.movement_date <  end,
             BankMovement.amount > 0,
-            BankMovement.movement_type != BankMovement.TYPE_SALDO_INICIAL,
+            BankMovement.movement_type.in_(_OP_TYPES),
         ).group_by(BankMovement.bank_key, BankMovement.currency).all()
 
         egr_rows = db.session.query(
@@ -546,7 +553,7 @@ class FinanceEngine:
             BankMovement.movement_date >= start,
             BankMovement.movement_date <  end,
             BankMovement.amount < 0,
-            BankMovement.movement_type != BankMovement.TYPE_SALDO_INICIAL,
+            BankMovement.movement_type.in_(_OP_TYPES),
         ).group_by(BankMovement.bank_key, BankMovement.currency).all()
 
         ingresos = {b: {'USD': 0.0, 'PEN': 0.0} for b in BANKS}
@@ -594,6 +601,22 @@ class FinanceEngine:
             diff_pen      = None
             estado        = 'pendiente'
 
+        # ── Saldos actuales (BankBalance) para comparar vs teórico ───────
+        from app.models import BankBalance
+        from app.config.bank_accounts import ALLOWED_BANK_NAMES
+        actual_bal = {b: {'USD': 0.0, 'PEN': 0.0} for b in BANKS}
+        for acct_name in ALLOWED_BANK_NAMES:
+            bb = BankBalance.query.filter_by(bank_name=acct_name).first()
+            if not bb:
+                continue
+            parts = acct_name.split()
+            bk_a, cur_a = parts[0], parts[1]
+            if bk_a in actual_bal:
+                actual_bal[bk_a][cur_a] = float(bb.balance_usd if cur_a == 'USD' else bb.balance_pen)
+
+        total_actual_usd = round(sum(v['USD'] for v in actual_bal.values()), 2)
+        total_actual_pen = round(sum(v['PEN'] for v in actual_bal.values()), 2)
+
         # ── Detalle por banco ─────────────────────────────────────────────
         by_bank = {}
         for bk in BANKS:
@@ -602,11 +625,13 @@ class FinanceEngine:
                 ini     = (saldo_ini.get(bk) or {}).get(cur, 0)
                 fin_val = ((saldo_fin or {}).get(bk) or {}).get(cur, None) if has_closing else None
                 dif_val = round(fin_val - teorico[bk][cur], 2) if fin_val is not None else None
+                act_val = actual_bal[bk][cur]
                 by_bank[bk][cur] = {
                     'inicial':    round(ini, 2),
                     'ingresos':   ingresos[bk][cur],
                     'egresos':    egresos[bk][cur],
                     'teorico':    teorico[bk][cur],
+                    'actual':     round(act_val, 2),
                     'final':      round(fin_val, 2) if fin_val is not None else None,
                     'diferencia': dif_val,
                 }
@@ -628,8 +653,10 @@ class FinanceEngine:
             'total_fin_pen':  total_fin_pen,
             'diff_usd':       diff_usd,
             'diff_pen':       diff_pen,
-            'estado_cuadre':  estado,
-            'by_bank':        by_bank,
+            'estado_cuadre':    estado,
+            'total_actual_usd': total_actual_usd,
+            'total_actual_pen': total_actual_pen,
+            'by_bank':          by_bank,
         }
 
     # ── 10. Activar ledger (saldo inicial) ────────────────────────────────────
