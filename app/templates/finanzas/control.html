@@ -514,6 +514,8 @@ function renderDiaBtn(cf) {
 }
 
 // ── Control de Apertura/Cierre ────────────────────────────────────────────────
+const _IS_MASTER = {{ 'true' if current_user.role == 'Master' else 'false' }};
+
 function renderControlSection(cf) {
   const el = document.getElementById('controlSection');
   const BANKS = ['BCP','INTERBANK','BANBIF'];
@@ -620,13 +622,18 @@ function renderControlSection(cf) {
          <i class="bi bi-sunset-fill"></i> Cerrar día
        </button>` : '';
 
+  const modBtn = _IS_MASTER
+    ? `<button onclick="abrirModificarApertura()" style="padding:5px 11px;font-size:.72rem;border:1px solid #cbd5e1;background:#f8fafc;color:#475569;border-radius:5px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;">
+         <i class="bi bi-pencil-fill" style="font-size:.65rem;"></i> Modificar Apertura
+       </button>` : '';
+
   el.innerHTML = `
     <div class="ctrl-card">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
         <span style="font-size:.8rem;font-weight:800;color:var(--navy);">
           <i class="bi bi-bank2 me-1" style="color:var(--blue);"></i> Control de Apertura y Cierre
         </span>
-        <div style="display:flex;align-items:center;gap:6px;">${badge}${cBtn}</div>
+        <div style="display:flex;align-items:center;gap:6px;">${badge}${modBtn}${cBtn}</div>
       </div>
       <div style="overflow-x:auto;">
         <table class="ctrl-tbl">
@@ -928,6 +935,75 @@ async function _confirmarApertura() {
     const data = await res.json();
     if (!data.ok) { msg.innerHTML = `<span style="color:var(--red);">${data.error}</span>`; return; }
     msg.innerHTML = `<span style="color:var(--green);font-weight:700;">✓ ${data.message}</span>`;
+    setTimeout(() => { _closeModal(); loadDashboard(); }, 800);
+  } catch(e) {
+    msg.innerHTML = `<span style="color:var(--red);">Error: ${e.message}</span>`;
+  }
+}
+
+// ── Modal Modificar Apertura ──────────────────────────────────────────────────
+function abrirModificarApertura() {
+  const cf    = _snap?.cashflow;
+  const byCls = {BCP:'bcp', INTERBANK:'interbank', BANBIF:'banbif'};
+  const BANKS = ['BCP','INTERBANK','BANBIF'];
+
+  let rows = '';
+  for (const bk of BANKS) {
+    for (const [cur, ci] of [['USD',0],['PEN',1]]) {
+      // Pre-cargar con los saldos iniciales registrados
+      const iniVal   = (((cf?.by_bank || {})[bk] || {})[cur] || {}).inicial ?? 0;
+      const bankCell = ci === 0 ? `<td rowspan="2"><span class="tag-bk ${byCls[bk]}">${bk}</span></td>` : '';
+      rows += `<tr>
+        ${bankCell}
+        <td><span class="tag-cur ${cur.toLowerCase()}">${cur}</span></td>
+        <td class="text-end">
+          <input class="inp-bank" type="number" step="0.01" min="0"
+            id="mod_${bk}_${cur}" value="${iniVal.toFixed(2)}" placeholder="0.00">
+        </td>
+      </tr>`;
+    }
+  }
+
+  _modal(`
+    <h6><i class="bi bi-pencil-fill me-2" style="color:#475569;"></i>Modificar Saldos Iniciales</h6>
+    <p style="font-size:.75rem;color:var(--muted);margin:-8px 0 12px;">Corrige los saldos iniciales registrados en la apertura del día. Solo Masters pueden realizar esta acción.</p>
+    <div style="overflow-x:auto;">
+      <table class="ctrl-tbl" style="margin-bottom:12px;">
+        <thead><tr><th>Banco</th><th>Mon.</th><th class="text-end">Saldo Inicial</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <div class="fn-modal-msg" id="modMsg"></div>
+    <div class="fn-modal-actions">
+      <button class="btn-cancel" onclick="_closeModal()">Cancelar</button>
+      <button class="btn-confirm" onclick="_confirmarModificarApertura()"><i class="bi bi-check-lg me-1"></i>Guardar Cambios</button>
+    </div>
+  `, true);
+  setTimeout(() => document.getElementById('mod_BCP_USD')?.focus(), 50);
+}
+
+async function _confirmarModificarApertura() {
+  const BANKS    = ['BCP','INTERBANK','BANBIF'];
+  const msg      = document.getElementById('modMsg');
+  const balances = {};
+  for (const bk of BANKS) {
+    const usd = parseFloat(document.getElementById(`mod_${bk}_USD`).value);
+    const pen = parseFloat(document.getElementById(`mod_${bk}_PEN`).value);
+    if (isNaN(usd) || isNaN(pen) || usd < 0 || pen < 0) {
+      msg.innerHTML = `<span style="color:var(--red);">Ingresa valores válidos en todos los campos.</span>`;
+      return;
+    }
+    balances[bk] = {USD: usd, PEN: pen};
+  }
+  msg.innerHTML = '<span style="color:var(--muted);">Guardando…</span>';
+  try {
+    const res  = await fetch('/finanzas/api/caja/apertura', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({balances})
+    });
+    const data = await res.json();
+    if (!data.ok) { msg.innerHTML = `<span style="color:var(--red);">${data.error}</span>`; return; }
+    msg.innerHTML = `<span style="color:var(--green);font-weight:700;">✓ Saldos iniciales actualizados.</span>`;
     setTimeout(() => { _closeModal(); loadDashboard(); }, 800);
   } catch(e) {
     msg.innerHTML = `<span style="color:var(--red);">Error: ${e.message}</span>`;
