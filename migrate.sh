@@ -24,6 +24,50 @@ echo ""
 
 cd "$(dirname "$0")" || exit 1
 
+# ── Patch directo: is_validated en bank_movements ────────────────────────────
+# Ejecuta SQL puro con psycopg2 ANTES de Alembic.
+# Totalmente idempotente (IF NOT EXISTS). No depende del historial de migraciones.
+echo "⚡ Garantizando columna is_validated en bank_movements..."
+python3 - <<'PYEOF'
+import os, sys
+try:
+    import psycopg2
+except ImportError:
+    print("   psycopg2 no disponible — saltando patch directo")
+    sys.exit(0)
+
+url = os.environ.get('DATABASE_URL', '')
+if not url:
+    print("   DATABASE_URL no definida — saltando patch directo")
+    sys.exit(0)
+
+try:
+    conn = psycopg2.connect(url)
+    conn.autocommit = True
+    cur = conn.cursor()
+    cur.execute(
+        "ALTER TABLE bank_movements "
+        "ADD COLUMN IF NOT EXISTS is_validated BOOLEAN NOT NULL DEFAULT false"
+    )
+    cur.execute(
+        "SELECT column_name FROM information_schema.columns "
+        "WHERE table_name='bank_movements' AND column_name='is_validated'"
+    )
+    exists = cur.fetchone()
+    conn.close()
+    if exists:
+        print("   ✅ is_validated: confirmada en PostgreSQL")
+    else:
+        print("   ❌ is_validated: NO se pudo crear la columna")
+        sys.exit(1)
+except psycopg2.errors.UndefinedTable:
+    print("   ⏭  bank_movements aún no existe — se creará en upgrade")
+except Exception as e:
+    print(f"   ⚠️  Error en patch directo: {e}")
+    # No abortar — dejar que Alembic intente igualmente
+PYEOF
+echo ""
+
 # ── Detección de estado actual de la DB ──────────────────────────────────────
 # Si la versión en alembic_version NO existe en nuestro historial,
 # es una DB con migraciones antiguas → stampeamos al baseline sin borrar datos.
