@@ -1066,3 +1066,86 @@ def api_diagnostico_saldos():
         })
 
     return jsonify({'ok': True, 'bank_balances': all_bb, 'ops_today': ops_info})
+
+
+# ── Diagnóstico de base de datos — verificación de columnas en daily_closures ─
+
+@finanzas_bp.route('/api/db-diagnostico')
+@csrf.exempt
+def api_db_diagnostico():
+    """
+    Endpoint de diagnóstico: verifica que las columnas de daily_closures existan en
+    la base de datos real en PostgreSQL. Requiere X-Cron-Secret para acceso.
+    """
+    import os
+    from sqlalchemy import text
+    secret = os.environ.get('CRON_SECRET', '')
+    if not secret or request.headers.get('X-Cron-Secret') != secret:
+        return jsonify({'ok': False, 'error': 'Unauthorized'}), 401
+
+    result = {}
+    try:
+        # 1. Identificar la base de datos activa
+        row = db.session.execute(text("SELECT current_database(), current_schema(), version()")).fetchone()
+        result['db_info'] = {
+            'current_database': row[0],
+            'current_schema':   row[1],
+            'version':          row[2][:80],
+        }
+
+        # 2. Todos los schemas que contienen daily_closures
+        schemas = db.session.execute(text(
+            "SELECT schemaname, tablename FROM pg_tables WHERE tablename='daily_closures'"
+        )).fetchall()
+        result['daily_closures_schemas'] = [{'schema': r[0], 'table': r[1]} for r in schemas]
+
+        # 3. Columnas reales en daily_closures (todos los schemas)
+        cols = db.session.execute(text(
+            "SELECT table_schema, column_name, data_type, column_default, is_nullable "
+            "FROM information_schema.columns "
+            "WHERE table_name='daily_closures' "
+            "ORDER BY table_schema, ordinal_position"
+        )).fetchall()
+        result['columns'] = [
+            {'schema': r[0], 'column': r[1], 'type': r[2], 'default': r[3], 'nullable': r[4]}
+            for r in cols
+        ]
+
+        # 4. Verificar las 13 columnas requeridas
+        existing_cols = {r[1] for r in cols}
+        required = [
+            'opening_balance_json', 'opening_total_usd', 'opening_total_pen',
+            'opening_registered_at', 'opening_registered_by',
+            'closing_balance_json', 'closing_total_usd', 'closing_total_pen',
+            'closing_registered_at', 'closing_registered_by',
+            'result_usd', 'result_pen', 'result_label',
+        ]
+        result['required_columns_check'] = {
+            col: ('OK' if col in existing_cols else 'MISSING')
+            for col in required
+        }
+        result['all_required_present'] = all(col in existing_cols for col in required)
+
+        # 5. Estado de alembic_version
+        try:
+            av = db.session.execute(text("SELECT version_num FROM alembic_version")).fetchall()
+            result['alembic_version'] = [r[0] for r in av]
+        except Exception as e:
+            result['alembic_version'] = f'error: {e}'
+
+        # 6. DATABASE_URL (solo host+db, sin credenciales)
+        db_url = os.environ.get('DATABASE_URL', '')
+        if db_url:
+            try:
+                from urllib.parse import urlparse
+                p = urlparse(db_url)
+                result['db_connection'] = f'{p.scheme}://*****@{p.hostname}:{p.port}{p.path}'
+            except Exception:
+                result['db_connection'] = 'parse error'
+        else:
+            result['db_connection'] = 'DATABASE_URL not set'
+
+    except Exception as exc:
+        result['error'] = str(exc)
+
+    return jsonify(result)

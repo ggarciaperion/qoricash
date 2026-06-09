@@ -599,6 +599,34 @@ def create_app(config_name=None):
     except Exception as e:
         logging.warning(f"[Migration] daily_closures alter columns: {e}")
 
+    # Migración: columnas apertura/cierre/resultado en daily_closures
+    # Corrección definitiva: b1c2a3j4a5d6 fue stampeado sin ejecutar upgrade().
+    try:
+        with app.app_context():
+            from app.extensions import db
+            from sqlalchemy import text
+            _dc_cols = [
+                "ALTER TABLE daily_closures ADD COLUMN IF NOT EXISTS opening_balance_json TEXT NOT NULL DEFAULT '{}'",
+                "ALTER TABLE daily_closures ADD COLUMN IF NOT EXISTS opening_total_usd NUMERIC(15,2) NOT NULL DEFAULT 0",
+                "ALTER TABLE daily_closures ADD COLUMN IF NOT EXISTS opening_total_pen NUMERIC(15,2) NOT NULL DEFAULT 0",
+                "ALTER TABLE daily_closures ADD COLUMN IF NOT EXISTS opening_registered_at TIMESTAMP WITHOUT TIME ZONE",
+                "ALTER TABLE daily_closures ADD COLUMN IF NOT EXISTS opening_registered_by INTEGER REFERENCES users(id)",
+                "ALTER TABLE daily_closures ADD COLUMN IF NOT EXISTS closing_balance_json TEXT NOT NULL DEFAULT '{}'",
+                "ALTER TABLE daily_closures ADD COLUMN IF NOT EXISTS closing_total_usd NUMERIC(15,2) NOT NULL DEFAULT 0",
+                "ALTER TABLE daily_closures ADD COLUMN IF NOT EXISTS closing_total_pen NUMERIC(15,2) NOT NULL DEFAULT 0",
+                "ALTER TABLE daily_closures ADD COLUMN IF NOT EXISTS closing_registered_at TIMESTAMP WITHOUT TIME ZONE",
+                "ALTER TABLE daily_closures ADD COLUMN IF NOT EXISTS closing_registered_by INTEGER REFERENCES users(id)",
+                "ALTER TABLE daily_closures ADD COLUMN IF NOT EXISTS result_usd NUMERIC(15,2)",
+                "ALTER TABLE daily_closures ADD COLUMN IF NOT EXISTS result_pen NUMERIC(15,2)",
+                "ALTER TABLE daily_closures ADD COLUMN IF NOT EXISTS result_label VARCHAR(20)",
+            ]
+            for sql in _dc_cols:
+                db.session.execute(text(sql))
+            db.session.commit()
+            logging.info("[Migration] daily_closures apertura/cierre/resultado columns ensured")
+    except Exception as e:
+        logging.warning(f"[Migration] daily_closures apertura/cierre columns: {e}")
+
     # Sembrar competidores FX (idempotente — solo inserta si no existen)
     try:
         with app.app_context():
