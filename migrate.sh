@@ -68,6 +68,80 @@ except Exception as e:
 PYEOF
 echo ""
 
+# ── Patch directo: columnas apertura/cierre/resultado en daily_closures ──────
+# Ejecuta SQL puro con psycopg2 ANTES de Alembic.
+# Totalmente idempotente (IF NOT EXISTS). Soluciona el caso donde migrate.sh
+# stampeó b1c2a3j4a5d6 sin ejecutar su upgrade() → columnas nunca creadas.
+echo "⚡ Garantizando columnas apertura/cierre/resultado en daily_closures..."
+python3 - <<'PYEOF'
+import os, sys
+try:
+    import psycopg2
+except ImportError:
+    print("   psycopg2 no disponible — saltando patch directo")
+    sys.exit(0)
+
+url = os.environ.get('DATABASE_URL', '')
+if not url:
+    print("   DATABASE_URL no definida — saltando patch directo")
+    sys.exit(0)
+
+COLS = [
+    ("opening_balance_json",     "TEXT NOT NULL DEFAULT '{}'"),
+    ("opening_total_usd",        "NUMERIC(15,2) NOT NULL DEFAULT 0"),
+    ("opening_total_pen",        "NUMERIC(15,2) NOT NULL DEFAULT 0"),
+    ("opening_registered_at",    "TIMESTAMP WITHOUT TIME ZONE"),
+    ("opening_registered_by",    "INTEGER REFERENCES users(id)"),
+    ("closing_balance_json",     "TEXT NOT NULL DEFAULT '{}'"),
+    ("closing_total_usd",        "NUMERIC(15,2) NOT NULL DEFAULT 0"),
+    ("closing_total_pen",        "NUMERIC(15,2) NOT NULL DEFAULT 0"),
+    ("closing_registered_at",    "TIMESTAMP WITHOUT TIME ZONE"),
+    ("closing_registered_by",    "INTEGER REFERENCES users(id)"),
+    ("result_usd",               "NUMERIC(15,2)"),
+    ("result_pen",               "NUMERIC(15,2)"),
+    ("result_label",             "VARCHAR(20)"),
+]
+
+try:
+    conn = psycopg2.connect(url)
+    conn.autocommit = True
+    cur = conn.cursor()
+    # Check if daily_closures table exists first
+    cur.execute(
+        "SELECT 1 FROM information_schema.tables "
+        "WHERE table_name='daily_closures'"
+    )
+    if not cur.fetchone():
+        print("   ⏭  daily_closures aún no existe — se creará en upgrade")
+        conn.close()
+        sys.exit(0)
+
+    added = []
+    for col, col_def in COLS:
+        cur.execute(
+            f"ALTER TABLE daily_closures ADD COLUMN IF NOT EXISTS {col} {col_def}"
+        )
+        cur.execute(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_name='daily_closures' AND column_name=%s",
+            (col,)
+        )
+        if cur.fetchone():
+            added.append(col)
+        else:
+            print(f"   ❌ {col}: NO se pudo crear la columna")
+            conn.close()
+            sys.exit(1)
+    conn.close()
+    print(f"   ✅ {len(added)}/13 columnas confirmadas en daily_closures")
+except psycopg2.errors.UndefinedTable:
+    print("   ⏭  daily_closures aún no existe — se creará en upgrade")
+except Exception as e:
+    print(f"   ⚠️  Error en patch directo daily_closures: {e}")
+    # No abortar — dejar que Alembic intente igualmente
+PYEOF
+echo ""
+
 # ── Detección de estado actual de la DB ──────────────────────────────────────
 # Si la versión en alembic_version NO existe en nuestro historial,
 # es una DB con migraciones antiguas → stampeamos al baseline sin borrar datos.
@@ -99,7 +173,7 @@ if [ -n "$CURRENT" ]; then
         # Registrar todas las ramas conocidas para que flask db upgrade heads
         # pueda arrancar desde el estado correcto en DBs con historial antiguo.
         echo "🔧 Registrando heads de ramas conocidas (solo para DB con historial antiguo)..."
-        for HEAD_REV in a1b2c3d4e5f6 d2a3t4e5c6r7 l1s2o3u4r5c6 p1r2o3s4p5e6 t1e2m3p4l5a6 z9merge_all_heads w1p2r3o4s5p6 pb1r2e3c4i5o b1a2n3k4b5a6 k1y2c3d4e5f6 p1e2r3i4o5d6 a1u2d3i4t5o6 b1c2a3j4a5d6 c1m2e3r4g5e6 p1a2t3c4h5b6; do
+        for HEAD_REV in a1b2c3d4e5f6 d2a3t4e5c6r7 l1s2o3u4r5c6 p1r2o3s4p5e6 t1e2m3p4l5a6 z9merge_all_heads w1p2r3o4s5p6 pb1r2e3c4i5o b1a2n3k4b5a6 k1y2c3d4e5f6 p1e2r3i4o5d6 a1u2d3i4t5o6 b1c2a3j4a5d6 c1m2e3r4g5e6 p1a2t3c4h5b6 v1a2l3i4d5a6 d1c2a3j4a5d6; do
             flask db stamp "$HEAD_REV" 2>/dev/null || true
         done
         echo "   ✅ Heads registrados."
