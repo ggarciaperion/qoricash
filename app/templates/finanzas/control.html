@@ -430,6 +430,12 @@ function switchTab(id, btn) {
 
   // Lazy-load on first open
   if (id === 'movimientos') {
+    if (!_movLoadedUSD && !_movLoadedPEN) {
+      const today = new Date().toLocaleDateString('en-CA', {timeZone: 'America/Lima'});
+      ['movUsdFechaIni','movUsdFechaFin','movPenFechaIni','movPenFechaFin'].forEach(fid => {
+        document.getElementById(fid).value = today;
+      });
+    }
     if (!_movLoadedUSD) loadMovimientosUSD(1);
     if (!_movLoadedPEN) loadMovimientosPEN(1);
   }
