@@ -2192,6 +2192,8 @@ def _api_grid_impl():
             "emails":                all_emails,
             "telefono":              p.telefono or "",
             "telefono_alt":          getattr(p, "telefono_alt", "") or "",
+            "telefono_3":            getattr(p, "telefono_3", "") or "",
+            "telefono_4":            getattr(p, "telefono_4", "") or "",
             "tamano_empresa":        getattr(p, "tamano_empresa", "") or "",
             "volumen_estimado_usd":  float(getattr(p, "volumen_estimado_usd", None) or 0) or None,
             "prioridad":             getattr(p, "prioridad", "") or "",

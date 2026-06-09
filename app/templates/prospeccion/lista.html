@@ -1415,8 +1415,12 @@ function rowHtml(r) {
       ${r.nombre_contacto?`<span class="ct-name">${esc(r.nombre_contacto)}</span>`:''}
     </td>
     <td onclick="event.stopPropagation()" style="white-space:nowrap;">
-      ${r.telefono ? `<span style="font-size:.78rem;color:var(--qori-gray-700);">${esc(r.telefono)}</span>
-      <button class="row-act" style="padding:2px 4px;margin-left:3px;" onclick="copyPhone('${esc(r.telefono)}')" data-bs-toggle="tooltip" title="Copiar celular"><i class="bi bi-clipboard" style="font-size:.7rem;"></i></button>` : '<span style="color:var(--qori-gray-400);font-size:.78rem;">—</span>'}
+      ${(()=>{ const ph = r.telefono || r.telefono_alt || r.telefono_3 || r.telefono_4 || '';
+        return ph
+          ? `<span style="font-size:.78rem;color:var(--qori-gray-700);">${esc(ph)}</span>
+      <button class="row-act" style="padding:2px 4px;margin-left:3px;" onclick="copyPhone('${esc(ph)}')" data-bs-toggle="tooltip" title="Copiar celular"><i class="bi bi-clipboard" style="font-size:.7rem;"></i></button>`
+          : '<span style="color:var(--qori-gray-400);font-size:.78rem;">—</span>';
+      })()}
       ${waBadgeRow(r.ultima_wa)}
     </td>
     <td onclick="event.stopPropagation()">
@@ -1477,31 +1481,34 @@ function proximoContactoBadge(r) {
   const hasContact = r.ultima_wa || r.ultima_email || r.fecha_ultimo_contacto;
   if (!hasContact) return '';
 
-  const DAY   = 24 * 60 * 60 * 1000;
-  const today = new Date(); today.setHours(0,0,0,0);
+  const DAY = 24 * 60 * 60 * 1000;
 
-  // Fecha explícita configurada Y está en el futuro → usarla
+  // Usar fecha local (Peru) para evitar desfase UTC-5
+  const todayStr = new Date().toLocaleDateString('en-CA'); // "YYYY-MM-DD" en hora local
+  const todayMs  = new Date(todayStr + 'T00:00:00').getTime();
+
+  // Fecha explícita guardada Y es estrictamente futura → usarla
   if (r.fecha_proximo_contacto) {
-    const proxMs = new Date(r.fecha_proximo_contacto.slice(0,10)).getTime();
-    if (proxMs > today.getTime()) return fmtProx(r.fecha_proximo_contacto);
+    const storedStr = r.fecha_proximo_contacto.slice(0, 10);
+    if (storedStr > todayStr) return fmtProx(r.fecha_proximo_contacto);
   }
 
-  // Calcular fecha sugerida: último contacto + intervalo
+  // Calcular fecha sugerida: último contacto + 7 días
   const waMs = _waParseMs(r.ultima_wa);
   let baseMs;
 
   if (waMs) {
-    const sinceWa = Date.now() - waMs;
-    // Ventana Meta activa → sugerir justo cuando expire; si ya expiró → +3 días
     baseMs = waMs + 7 * DAY;
   } else {
     const refMs = _parseContactMs(r.ultima_email) || _parseContactMs(r.fecha_ultimo_contacto);
-    baseMs = refMs ? refMs + 7 * DAY : today.getTime() + 7 * DAY;
+    baseMs = refMs ? refMs + 7 * DAY : todayMs + 7 * DAY;
   }
 
-  // Asegurar mínimo 7 días desde hoy
-  const minMs = today.getTime() + 7 * DAY;
-  return fmtProx(_msToDateStr(Math.max(baseMs, minMs)));
+  // Garantizar mínimo hoy+7 días (siempre fecha futura)
+  const minMs    = todayMs + 7 * DAY;
+  const resultStr = _msToDateStr(Math.max(baseMs, minMs));
+  // Doble seguro: si por alguna razón el resultado no es futuro, forzar hoy+7
+  return fmtProx(resultStr > todayStr ? resultStr : _msToDateStr(minMs));
 }
 
 function badge(ec) {
@@ -1533,9 +1540,12 @@ function fmtDate(s) {
 
 function fmtProx(d) {
   if (!d) return `<span class="date-empty">—</span>`;
-  const dt   = new Date(d.slice(0,10));
-  const now  = new Date(); now.setHours(0,0,0,0);
-  const diff = Math.round((dt-now)/86400000);
+  // Usar hora local para evitar desfase UTC vs Peru (UTC-5)
+  const todayStr = new Date().toLocaleDateString('en-CA'); // "YYYY-MM-DD" en hora local
+  const dateStr  = d.slice(0,10);
+  const dt  = new Date(dateStr  + 'T00:00:00');
+  const now = new Date(todayStr + 'T00:00:00');
+  const diff = Math.round((dt - now) / 86400000);
   const cls  = diff < 0 ? 'date-overdue' : diff <= 7 ? 'date-soon' : 'date-ok';
   return `<span class="${cls}">${fmtDate(d)}</span>`;
 }
