@@ -352,12 +352,64 @@
       </div>
     </div>
 
-    <div class="card border-0 shadow-sm">
+    <div class="card border-0 shadow-sm mb-3">
       <div class="card-body p-3">
         <div style="font-weight:700;font-size:.85rem;color:#0D1B2A;margin-bottom:6px;">¿Qué significa cada estado?</div>
         <div class="rec-row ok"><span><i class="bi bi-check-circle-fill text-success me-2"></i><strong>Coherente</strong></span><span style="font-size:.78rem;color:#475569;">BankBalance == suma del ledger (diferencia &lt; S/0.02)</span></div>
         <div class="rec-row diff"><span><i class="bi bi-exclamation-circle-fill text-danger me-2"></i><strong>Diferencia</strong></span><span style="font-size:.78rem;color:#475569;">Los saldos no coinciden. Revisar movimientos manuales o ajustes.</span></div>
         <div class="rec-row empty"><span><i class="bi bi-info-circle-fill text-warning me-2"></i><strong>Ledger sin apertura</strong></span><span style="font-size:.78rem;color:#475569;">El ledger está vacío. Use "Activar ledger" para registrar saldos de apertura.</span></div>
+      </div>
+    </div>
+
+    <!-- Backfill histórico -->
+    <div class="card border-0 shadow-sm" style="border-left:3px solid #7c3aed!important;">
+      <div class="card-body p-3">
+        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-2">
+          <div>
+            <div style="font-weight:700;font-size:.9rem;color:#0D1B2A;">
+              <i class="bi bi-clock-history me-1" style="color:#7c3aed;"></i> Reconstrucción Histórica del Ledger
+            </div>
+            <div style="font-size:.75rem;color:#64748b;margin-top:2px;">
+              Genera BankMovements para todas las operaciones completadas que aún no tienen entradas en el ledger.
+              Idempotente — salta operaciones que ya están registradas.
+            </div>
+          </div>
+          <div class="d-flex gap-2">
+            <button class="btn btn-sm btn-outline-secondary" onclick="backfillDryRun()" style="font-size:.75rem;">
+              <i class="bi bi-eye"></i> Previsualizar
+            </button>
+            <button class="btn btn-sm" onclick="backfillApply()"
+                    style="font-size:.75rem;background:#7c3aed;color:#fff;border:none;">
+              <i class="bi bi-lightning-charge-fill"></i> Aplicar backfill
+            </button>
+          </div>
+        </div>
+
+        <div id="backfillStatus" style="display:none;" class="mb-2">
+          <div class="d-flex gap-4 flex-wrap" style="font-size:.8rem;color:#475569;">
+            <span>Total ops: <strong id="bfTotal">—</strong></span>
+            <span>Ya en ledger: <strong id="bfSkipped">—</strong></span>
+            <span>Sin banco: <strong id="bfNoBanco">—</strong></span>
+            <span>Procesadas: <strong id="bfProcessed">—</strong></span>
+            <span>Movimientos: <strong id="bfCreated" style="color:#7c3aed;">—</strong></span>
+          </div>
+        </div>
+
+        <div id="backfillErrors" style="display:none;font-size:.75rem;color:#dc2626;" class="mb-2"></div>
+
+        <div id="backfillPreview" style="display:none;">
+          <div style="font-size:.75rem;font-weight:600;color:#475569;margin-bottom:4px;">Preview (primeras 20 entradas):</div>
+          <div style="overflow-x:auto;">
+            <table class="table table-sm mb-0" style="font-size:.72rem;">
+              <thead><tr>
+                <th>Fecha</th><th>Operación</th><th>Cuenta</th><th>Mon.</th><th class="text-end">Monto</th><th>Cliente</th>
+              </tr></thead>
+              <tbody id="backfillPreviewBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div id="backfillMsg" style="font-size:.78rem;margin-top:6px;"></div>
       </div>
     </div>
 
@@ -1009,6 +1061,84 @@ async function activarLedger() {
     if (data.errors.length) msg += `\nErrores: ${data.errors.join(', ')}`;
     alert(msg);
     loadReconciliacion();
+}
+
+// ── Backfill histórico del ledger ─────────────────────────────────────────────
+async function _runBackfill(dry_run) {
+    const statusEl  = document.getElementById('backfillStatus');
+    const errorsEl  = document.getElementById('backfillErrors');
+    const previewEl = document.getElementById('backfillPreview');
+    const msgEl     = document.getElementById('backfillMsg');
+
+    msgEl.innerHTML = '<span style="color:#64748b;">Procesando…</span>';
+    statusEl.style.display  = 'none';
+    errorsEl.style.display  = 'none';
+    previewEl.style.display = 'none';
+
+    try {
+        const res  = await fetch('/finanzas/api/ledger/backfill', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({dry_run, recalc: true})
+        });
+        const data = await res.json();
+        if (!data.ok) { msgEl.innerHTML = `<span style="color:#dc2626;">Error: ${data.error}</span>`; return; }
+
+        document.getElementById('bfTotal').textContent     = data.ops_total;
+        document.getElementById('bfSkipped').textContent   = data.ops_skipped;
+        document.getElementById('bfNoBanco').textContent   = data.ops_no_bank;
+        document.getElementById('bfProcessed').textContent = data.ops_processed;
+        document.getElementById('bfCreated').textContent   = data.movements_created;
+        statusEl.style.display = '';
+
+        if (data.errors && data.errors.length) {
+            errorsEl.innerHTML     = data.errors.map(e => `<div>⚠ ${e}</div>`).join('');
+            errorsEl.style.display = '';
+        }
+
+        if (dry_run && data.preview && data.preview.length) {
+            const tbody = document.getElementById('backfillPreviewBody');
+            tbody.innerHTML = data.preview.slice(0,20).map(p => {
+                const sign  = p.delta > 0 ? '+' : '';
+                const color = p.delta > 0 ? '#16a34a' : '#dc2626';
+                return `<tr>
+                  <td>${(p.fecha||'').slice(0,10)}</td>
+                  <td>${p.op}</td>
+                  <td style="font-size:.7rem;">${p.acct_name}</td>
+                  <td>${p.currency}</td>
+                  <td class="text-end" style="color:${color};font-weight:600;">${sign}${Number(p.delta).toLocaleString('es-PE',{minimumFractionDigits:2})}</td>
+                  <td style="font-size:.7rem;color:#64748b;">${p.client}</td>
+                </tr>`;
+            }).join('');
+            previewEl.style.display = '';
+        }
+
+        if (dry_run) {
+            msgEl.innerHTML = `<span style="color:#7c3aed;font-weight:600;">
+              Preview listo — ${data.movements_created} movimiento(s) serían creados para ${data.ops_processed} operación(es).
+              Presiona <strong>"Aplicar backfill"</strong> para ejecutar.
+            </span>`;
+        } else {
+            let recalcMsg = '';
+            if (data.recalc_result) {
+                recalcMsg = ` · balance_after recalculado en ${data.recalc_result.updated} registros`;
+            }
+            msgEl.innerHTML = `<span style="color:#16a34a;font-weight:700;">
+              ✓ Backfill completado: ${data.movements_created} BankMovements creados${recalcMsg}
+            </span>`;
+            loadReconciliacion();
+        }
+    } catch(e) {
+        msgEl.innerHTML = `<span style="color:#dc2626;">Error de red: ${e.message}</span>`;
+    }
+}
+
+async function backfillDryRun()  { await _runBackfill(true);  }
+async function backfillApply() {
+    if (!confirm('¿Ejecutar el backfill histórico del ledger?\n\n' +
+                 'Se crearán BankMovements para todas las operaciones completadas ' +
+                 'sin entradas en el ledger.\n\nEsta acción es idempotente y no modifica saldos.')) return;
+    await _runBackfill(false);
 }
 
 // ── Corrección manual de saldo ───────────────────────────────────────────────

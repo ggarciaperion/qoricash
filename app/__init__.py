@@ -1144,6 +1144,62 @@ def start_market_schedulers(app):
 def register_cli_commands(app):
     """Registra CLI commands dentro del factory para que siempre estén disponibles."""
 
+    # ── backfill-ledger ──────────────────────────────────────────────────────
+    import click
+
+    @app.cli.command("backfill-ledger")
+    @click.option('--apply', is_flag=True, default=False,
+                  help='Ejecuta el backfill real. Sin este flag corre en dry-run.')
+    @click.option('--no-recalc', is_flag=True, default=False,
+                  help='Omite el recálculo de balance_after al finalizar.')
+    def backfill_ledger(apply, no_recalc):
+        """
+        Reconstruye el ledger BankMovement a partir de operaciones históricas.
+
+        Por defecto corre en DRY-RUN (sólo reporta).
+        Para aplicar cambios: flask backfill-ledger --apply
+
+        Seguro, idempotente: salta operaciones que ya tienen BankMovements.
+        """
+        from app.services.ledger_backfill import run_backfill
+        dry_run = not apply
+        recalc  = not no_recalc
+
+        if dry_run:
+            print('\n[DRY-RUN] No se escribirá nada. Usa --apply para aplicar.\n')
+        else:
+            print('\n[APPLY] Iniciando backfill real...\n')
+
+        result = run_backfill(dry_run=dry_run, recalc=recalc, user_id=None)
+
+        print(f"  Operaciones completadas totales : {result['ops_total']}")
+        print(f"  Ya en ledger (skipped)          : {result['ops_skipped']}")
+        print(f"  Sin banco determinable (no_bank): {result['ops_no_bank']}")
+        print(f"  Procesadas                      : {result['ops_processed']}")
+        print(f"  BankMovements {'a crear' if dry_run else 'creados'}          : {result['movements_created']}")
+
+        if result.get('recalc_result'):
+            r = result['recalc_result']
+            print(f"  Recalc balance_after            : {r['updated']} registros en {r['pairs']} cuentas")
+
+        if result['errors']:
+            print(f"\n  ERRORES ({len(result['errors'])}):")
+            for e in result['errors']:
+                print(f"    - {e}")
+
+        if dry_run and result.get('preview'):
+            print(f"\n  Preview (primeras 20 entradas):")
+            for p in result['preview'][:20]:
+                sign = '+' if p['delta'] > 0 else ''
+                print(f"    [{p['fecha'][:10]}] {p['op']:10} {p['acct_name']:35} "
+                      f"{p['currency']} {sign}{p['delta']:>12,.2f}  ({p['client']})")
+
+        print()
+        if dry_run:
+            print("→ Para aplicar: flask backfill-ledger --apply\n")
+        else:
+            print("✓ Backfill completado.\n")
+
     @app.cli.command("backfill-bank-names")
     def backfill_bank_names():
         """

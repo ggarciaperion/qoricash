@@ -14,6 +14,7 @@ APIs (todas consumen FinanceEngine — fuente única de verdad):
   GET  /finanzas/api/amarres          — amarres con filtros
   GET  /finanzas/api/reconciliacion   — comparación BankBalance vs ledger
   POST /finanzas/api/ledger/activar   — registrar saldos de apertura
+  POST /finanzas/api/ledger/backfill  — reconstruir ledger histórico desde operaciones
   POST /finanzas/api/cierre/calcular  — calcular cierre del día
   POST /finanzas/api/cierre/validar   — guardar saldos reales
   POST /finanzas/api/cierre/confirmar — confirmar cierre
@@ -250,6 +251,32 @@ def api_ledger_activar():
         return jsonify({'ok': True, **result})
     except Exception as exc:
         _log.exception('[Finanzas] api_ledger_activar')
+        return jsonify({'ok': False, 'error': str(exc)}), 500
+
+
+# ── API: Backfill histórico del ledger ────────────────────────────────────────
+
+@finanzas_bp.route('/api/ledger/backfill', methods=['POST'])
+@login_required
+def api_ledger_backfill():
+    """
+    Reconstruye el ledger BankMovement a partir de operaciones históricas.
+
+    Body JSON:
+      dry_run   (bool, default true)  — si true, sólo reporta sin escribir
+      recalc    (bool, default true)  — recalcula balance_after al finalizar
+    """
+    _require_role()
+    try:
+        from app.services.ledger_backfill import run_backfill
+        data    = request.get_json() or {}
+        dry_run = data.get('dry_run', True)
+        recalc  = data.get('recalc', True)
+        result  = run_backfill(dry_run=dry_run, recalc=recalc,
+                               user_id=current_user.id)
+        return jsonify({'ok': True, **result})
+    except Exception as exc:
+        _log.exception('[Finanzas] api_ledger_backfill')
         return jsonify({'ok': False, 'error': str(exc)}), 500
 
 
