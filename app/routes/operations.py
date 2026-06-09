@@ -1258,6 +1258,10 @@ def complete_operation(operation_id):
             referral_service.grant_referral_benefit(operation)
         except Exception as e:
             logger.warning(f"⚠️ Error al otorgar beneficio de referido: {str(e)}")
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
 
         # Generar factura electrónica
         invoice_generated = False
@@ -1325,11 +1329,27 @@ def complete_operation(operation_id):
                 f'[COMPLETE] No se pudo actualizar score de riesgo para cliente '
                 f'{operation.client_id}: {e_risk}'
             )
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
+
+        # Limpiar sesión antes del to_dict para evitar transacción abortada
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+
+        try:
+            op_dict = operation.to_dict(include_relations=True)
+        except Exception as e_dict:
+            logger.error(f'[COMPLETE] Error en to_dict para {operation.operation_id}: {e_dict}')
+            op_dict = {'id': operation.id, 'operation_id': operation.operation_id, 'status': 'completado'}
 
         return jsonify({
             'success': True,
             'message': 'Operación completada exitosamente',
-            'operation': operation.to_dict(include_relations=True)
+            'operation': op_dict
         })
 
     except Exception as e:
