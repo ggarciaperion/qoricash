@@ -77,7 +77,7 @@ class BaseScraper:
         """Convierte string de precio a float de forma robusta."""
         if isinstance(value, (int, float)):
             return float(value)
-        cleaned = str(value).strip().replace(",", ".").replace(" ", "")
+        cleaned = str(value).strip().replace("\xa0", "").replace(",", ".").replace(" ", "")
         # Si tiene más de un punto, quitar los separadores de miles
         parts = cleaned.split(".")
         if len(parts) > 2:
