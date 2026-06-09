@@ -11,6 +11,15 @@ eventlet.monkey_patch()
 import os
 import multiprocessing
 
+# Zona horaria: forzar America/Lima para que datetime.now() sea consistente
+# aunque now_peru() ya maneja la conversión, esto es un seguro a nivel de proceso
+os.environ.setdefault('TZ', 'America/Lima')
+try:
+    import time
+    time.tzset()
+except AttributeError:
+    pass  # Windows no soporta tzset(), ignorar
+
 # Bind
 bind = f"0.0.0.0:{os.environ.get('PORT', '10000')}"
 

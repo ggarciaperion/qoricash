@@ -1164,7 +1164,7 @@ CUERPO_PRECIO = """\
 
 
 def _build_ticker(compra, venta):
-    hoy = datetime.now().strftime("%d/%m/%Y")
+    hoy = now_peru().strftime("%d/%m/%Y")
     return f"""\
 <tr>
   <td style="padding:20px 28px;">
@@ -1261,7 +1261,7 @@ def _construir_email(p, tipo, compra, venta, sender_email, nombre_completo, carg
         "regulada por la Superintendencia de Banca, Seguros y AFP del Peru."
     )
 
-    fecha = datetime.now().strftime("%d/%m/%Y")
+    fecha = now_peru().strftime("%d/%m/%Y")
 
     # firma_pre: firma ya obtenida (evita llamada extra a Gmail API en campañas masivas)
     firma_gmail = firma_pre if firma_pre is not None else _get_firma_gmail(sender_email)

@@ -4113,10 +4113,10 @@ def amarres_lista():
 def lotes_crear():
     """API: crear lote de neteo."""
     from app.services.accounting_service import AccountingService
-    from datetime import datetime as dt
+    from app.utils.formatters import now_peru as _now_contab
     try:
         data = request.get_json() or {}
-        netting_date = data.get('netting_date') or dt.now().strftime('%Y-%m-%d')
+        netting_date = data.get('netting_date') or _now_contab().strftime('%Y-%m-%d')
         success, message, batch = AccountingService.create_batch(
             match_ids=data.get('match_ids', []),
             description=data.get('description', ''),

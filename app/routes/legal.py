@@ -4,7 +4,7 @@ Blueprint para páginas legales (Política de Privacidad, Términos y Condicione
 Rutas públicas sin autenticación requerida para cumplir con requisitos de App Store y Play Store
 """
 from flask import Blueprint, render_template
-from datetime import datetime
+from app.utils.formatters import now_peru
 
 legal_bp = Blueprint('legal', __name__)
 
@@ -20,7 +20,7 @@ def privacy_policy():
 
     URL: https://app.qoricash.pe/privacy-policy
     """
-    now = datetime.now()
+    now = now_peru()
     return render_template(
         'legal/privacy-policy.html',
         current_date=now.strftime('%d de %B de %Y'),
@@ -39,7 +39,7 @@ def terms_of_service():
 
     URL: https://app.qoricash.pe/terms-of-service
     """
-    now = datetime.now()
+    now = now_peru()
     return render_template(
         'legal/terms-of-service.html',
         current_date=now.strftime('%d de %B de %Y'),
@@ -50,7 +50,7 @@ def terms_of_service():
 @legal_bp.route('/privacy')
 def privacy_alias():
     """Alias para /privacy-policy"""
-    now = datetime.now()
+    now = now_peru()
     return render_template(
         'legal/privacy-policy.html',
         current_date=now.strftime('%d de %B de %Y'),
@@ -60,7 +60,7 @@ def privacy_alias():
 @legal_bp.route('/terms')
 def terms_alias():
     """Alias para /terms-of-service"""
-    now = datetime.now()
+    now = now_peru()
     return render_template(
         'legal/terms-of-service.html',
         current_date=now.strftime('%d de %B de %Y'),
@@ -71,7 +71,7 @@ def terms_alias():
 @legal_bp.route('/legal/privacy')
 def legal_privacy():
     """Ruta /legal/privacy para compatibilidad con app stores"""
-    now = datetime.now()
+    now = now_peru()
     return render_template(
         'legal/privacy-policy.html',
         current_date=now.strftime('%d de %B de %Y'),
@@ -81,7 +81,7 @@ def legal_privacy():
 @legal_bp.route('/legal/terms')
 def legal_terms():
     """Ruta /legal/terms para compatibilidad con app stores"""
-    now = datetime.now()
+    now = now_peru()
     return render_template(
         'legal/terms-of-service.html',
         current_date=now.strftime('%d de %B de %Y'),

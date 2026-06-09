@@ -14,3 +14,5 @@ services:
         value: run.py
       - key: FLASK_ENV
         value: production
+      - key: TZ
+        value: America/Lima

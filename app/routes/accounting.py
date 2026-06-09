@@ -11,6 +11,7 @@ from io import BytesIO
 import openpyxl
 from openpyxl.styles import Font, Alignment, PatternFill
 from datetime import datetime
+from app.utils.formatters import now_peru
 
 accounting_bp = Blueprint('accounting', __name__)
 
@@ -163,7 +164,7 @@ def create_batch():
         netting_date = data.get('netting_date')
 
         if not netting_date:
-            netting_date = datetime.now().strftime('%Y-%m-%d')
+            netting_date = now_peru().strftime('%Y-%m-%d')
 
         success, message, batch = AccountingService.create_batch(
             match_ids=match_ids,
@@ -343,7 +344,7 @@ def export_libro_diario():
             output,
             mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             as_attachment=True,
-            download_name=f'libro_diario_{datetime.now().strftime("%Y%m%d")}.xlsx'
+            download_name=f'libro_diario_{now_peru().strftime("%Y%m%d")}.xlsx'
         )
 
     except Exception as e:

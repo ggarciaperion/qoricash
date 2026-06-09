@@ -602,8 +602,8 @@ def _build_mensaje_personalizado(tipo):
 
 def _build_email_html(c, compra, venta, sender_email, nombre_completo, cargo="Trader", tipo="Mixto"):
     """Construye el HTML del correo de precios para un cliente."""
-    from datetime import datetime as _dt
-    fecha = _dt.now().strftime("%d/%m/%Y")
+    from app.utils.formatters import now_peru as _now_peru
+    fecha = _now_peru().strftime("%d/%m/%Y")
 
     firma_gmail = _get_firma_gmail(sender_email)
     if firma_gmail:
