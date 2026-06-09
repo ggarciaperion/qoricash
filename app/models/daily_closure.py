@@ -67,6 +67,26 @@ class DailyClosure(db.Model):
     # ── Notas ─────────────────────────────────────────────────────────────
     notes = db.Column(db.Text)
 
+    # ── Saldo Inicial del Día (apertura) ──────────────────────────────────────
+    # Se registra una vez al inicio de la jornada. No sobreescribible.
+    opening_balance_json   = db.Column(db.Text, default='{}')
+    opening_total_usd      = db.Column(db.Numeric(15, 2), default=0)
+    opening_total_pen      = db.Column(db.Numeric(15, 2), default=0)
+    opening_registered_at  = db.Column(db.DateTime, nullable=True)
+    opening_registered_by  = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+
+    # ── Saldo Final del Día (cierre de caja) ─────────────────────────────────
+    closing_balance_json   = db.Column(db.Text, default='{}')
+    closing_total_usd      = db.Column(db.Numeric(15, 2), default=0)
+    closing_total_pen      = db.Column(db.Numeric(15, 2), default=0)
+    closing_registered_at  = db.Column(db.DateTime, nullable=True)
+    closing_registered_by  = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+
+    # ── Resultado del día (closing - opening) ─────────────────────────────────
+    result_usd    = db.Column(db.Numeric(15, 2), nullable=True)
+    result_pen    = db.Column(db.Numeric(15, 2), nullable=True)
+    result_label  = db.Column(db.String(20), nullable=True)  # utilidad | perdida | cuadre
+
     # ── Validación ────────────────────────────────────────────────────────
     validated_by  = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
     validated_at  = db.Column(db.DateTime, nullable=True)
@@ -77,10 +97,34 @@ class DailyClosure(db.Model):
     updated_at = db.Column(db.DateTime, default=now_peru, onupdate=now_peru)
 
     # ── Relaciones ────────────────────────────────────────────────────────
-    validator = db.relationship('User', foreign_keys=[validated_by])
-    creator   = db.relationship('User', foreign_keys=[created_by])
+    validator      = db.relationship('User', foreign_keys=[validated_by])
+    creator        = db.relationship('User', foreign_keys=[created_by])
+    opener         = db.relationship('User', foreign_keys=[opening_registered_by])
+    closer         = db.relationship('User', foreign_keys=[closing_registered_by])
 
     # ── Propiedades de conveniencia ───────────────────────────────────────
+    @property
+    def opening_balance(self):
+        try:
+            return json.loads(self.opening_balance_json or '{}')
+        except Exception:
+            return {}
+
+    @opening_balance.setter
+    def opening_balance(self, val):
+        self.opening_balance_json = json.dumps(val)
+
+    @property
+    def closing_balance(self):
+        try:
+            return json.loads(self.closing_balance_json or '{}')
+        except Exception:
+            return {}
+
+    @closing_balance.setter
+    def closing_balance(self, val):
+        self.closing_balance_json = json.dumps(val)
+
     @property
     def system_balances(self):
         try:
@@ -117,6 +161,38 @@ class DailyClosure(db.Model):
     @property
     def is_validated(self):
         return self.status == self.STATUS_VALIDADO
+
+    def compute_result(self):
+        """
+        Calcula resultado = saldo final - saldo inicial.
+        Actualiza result_usd, result_pen, result_label.
+        """
+        if not self.opening_balance_json or self.opening_balance_json == '{}':
+            return None
+        if not self.closing_balance_json or self.closing_balance_json == '{}':
+            return None
+
+        op_usd = float(self.opening_total_usd or 0)
+        op_pen = float(self.opening_total_pen or 0)
+        cl_usd = float(self.closing_total_usd or 0)
+        cl_pen = float(self.closing_total_pen or 0)
+
+        self.result_usd = round(cl_usd - op_usd, 2)
+        self.result_pen = round(cl_pen - op_pen, 2)
+
+        r_pen = float(self.result_pen)
+        if abs(r_pen) < 0.01:
+            self.result_label = 'cuadre'
+        elif r_pen > 0:
+            self.result_label = 'utilidad'
+        else:
+            self.result_label = 'perdida'
+
+        return {
+            'result_usd':   float(self.result_usd),
+            'result_pen':   float(self.result_pen),
+            'result_label': self.result_label,
+        }
 
     def compute_differences(self):
         """
@@ -177,6 +253,22 @@ class DailyClosure(db.Model):
             'validated_by':              self.validator.username if self.validator else None,
             'validated_at':              self.validated_at.isoformat() if self.validated_at else None,
             'created_at':                self.created_at.isoformat() if self.created_at else None,
+            # Saldo inicial / final / resultado
+            'opening_balance':           self.opening_balance,
+            'opening_total_usd':         float(self.opening_total_usd or 0),
+            'opening_total_pen':         float(self.opening_total_pen or 0),
+            'opening_registered_at':     self.opening_registered_at.isoformat() if self.opening_registered_at else None,
+            'opening_registered_by':     self.opener.username if self.opener else None,
+            'has_opening':               bool(self.opening_balance_json and self.opening_balance_json != '{}'),
+            'closing_balance':           self.closing_balance,
+            'closing_total_usd':         float(self.closing_total_usd or 0),
+            'closing_total_pen':         float(self.closing_total_pen or 0),
+            'closing_registered_at':     self.closing_registered_at.isoformat() if self.closing_registered_at else None,
+            'closing_registered_by':     self.closer.username if self.closer else None,
+            'has_closing':               bool(self.closing_balance_json and self.closing_balance_json != '{}'),
+            'result_usd':                float(self.result_usd) if self.result_usd is not None else None,
+            'result_pen':                float(self.result_pen) if self.result_pen is not None else None,
+            'result_label':              self.result_label,
         }
 
     def __repr__(self):

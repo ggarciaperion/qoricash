@@ -489,6 +489,238 @@ def api_saldo_corregir():
         return jsonify({'ok': False, 'error': str(exc)}), 500
 
 
+
+
+# ── API: Caja Diaria — Registrar Apertura ─────────────────────────────────────
+
+@finanzas_bp.route('/api/caja/apertura', methods=['POST'])
+@login_required
+def api_caja_apertura():
+    """
+    Registra el saldo inicial del día.
+    Solo se puede registrar una vez por fecha (a menos que sea Master).
+    Body: { fecha, balances: {BCP:{USD,PEN}, INTERBANK:{USD,PEN}, BANBIF:{USD,PEN}}, notas }
+    """
+    _require_role()
+    try:
+        from app.models import DailyClosure
+
+        data   = request.get_json() or {}
+        fecha  = date.fromisoformat(data.get('fecha', date.today().isoformat()))
+        bals   = data.get('balances', {})
+
+        # Validar que sea dict con bancos/monedas
+        if not isinstance(bals, dict):
+            return jsonify({'ok': False, 'error': 'Formato de saldos inválido'}), 400
+
+        # Validar numéricos
+        total_usd = 0.0
+        total_pen = 0.0
+        for banco, monedas in bals.items():
+            for cur, amt in monedas.items():
+                try:
+                    v = float(amt)
+                    if v < 0:
+                        return jsonify({'ok': False, 'error': f'Monto negativo en {banco}/{cur}'}), 400
+                    if cur == 'USD':
+                        total_usd += v
+                    elif cur == 'PEN':
+                        total_pen += v
+                except (TypeError, ValueError):
+                    return jsonify({'ok': False, 'error': f'Monto inválido en {banco}/{cur}'}), 400
+
+        # Obtener o crear cierre del día
+        closure = DailyClosure.query.filter_by(closure_date=fecha).first()
+        if not closure:
+            closure = DailyClosure(
+                closure_date=fecha,
+                status=DailyClosure.STATUS_BORRADOR,
+                created_by=current_user.id,
+            )
+            db.session.add(closure)
+
+        # Validar: no sobreescribir apertura existente (salvo Master)
+        if closure.opening_balance_json and closure.opening_balance_json != '{}':
+            if current_user.role != 'Master':
+                return jsonify({
+                    'ok': False,
+                    'error': 'El saldo inicial ya fue registrado para esta fecha. Solo un Master puede modificarlo.',
+                }), 409
+
+        closure.opening_balance      = bals
+        closure.opening_total_usd    = round(total_usd, 2)
+        closure.opening_total_pen    = round(total_pen, 2)
+        closure.opening_registered_at = now_peru()
+        closure.opening_registered_by = current_user.id
+
+        # Si ya existe cierre, recalcular resultado
+        if closure.closing_balance_json and closure.closing_balance_json != '{}':
+            closure.compute_result()
+
+        db.session.commit()
+        return jsonify({
+            'ok':      True,
+            'message': f'Saldo inicial del {fecha.strftime("%d/%m/%Y")} registrado.',
+            'cierre':  closure.to_dict(),
+        })
+    except Exception as exc:
+        db.session.rollback()
+        _log.exception('[Finanzas] api_caja_apertura')
+        return jsonify({'ok': False, 'error': str(exc)}), 500
+
+
+# ── API: Caja Diaria — Registrar Cierre ──────────────────────────────────────
+
+@finanzas_bp.route('/api/caja/cierre', methods=['POST'])
+@login_required
+def api_caja_cierre():
+    """
+    Registra el saldo final del día y calcula resultado.
+    Body: { fecha, balances: {BCP:{USD,PEN}, ...}, notas }
+    """
+    _require_role()
+    try:
+        from app.models import DailyClosure
+
+        data   = request.get_json() or {}
+        fecha  = date.fromisoformat(data.get('fecha', date.today().isoformat()))
+        bals   = data.get('balances', {})
+        notas  = data.get('notas', '').strip()
+
+        if not isinstance(bals, dict):
+            return jsonify({'ok': False, 'error': 'Formato de saldos inválido'}), 400
+
+        total_usd = 0.0
+        total_pen = 0.0
+        for banco, monedas in bals.items():
+            for cur, amt in monedas.items():
+                try:
+                    v = float(amt)
+                    if v < 0:
+                        return jsonify({'ok': False, 'error': f'Monto negativo en {banco}/{cur}'}), 400
+                    if cur == 'USD':
+                        total_usd += v
+                    elif cur == 'PEN':
+                        total_pen += v
+                except (TypeError, ValueError):
+                    return jsonify({'ok': False, 'error': f'Monto inválido en {banco}/{cur}'}), 400
+
+        closure = DailyClosure.query.filter_by(closure_date=fecha).first()
+        if not closure:
+            return jsonify({'ok': False, 'error': 'Registre primero el saldo inicial del día'}), 400
+
+        # Validar: no reemplazar cierre confirmado (salvo Master)
+        if closure.is_validated and current_user.role != 'Master':
+            return jsonify({'ok': False, 'error': 'El cierre ya fue validado. Solo un Master puede modificarlo.'}), 409
+
+        closure.closing_balance      = bals
+        closure.closing_total_usd    = round(total_usd, 2)
+        closure.closing_total_pen    = round(total_pen, 2)
+        closure.closing_registered_at = now_peru()
+        closure.closing_registered_by = current_user.id
+        if notas:
+            closure.notes = notas
+
+        result = closure.compute_result()
+        db.session.commit()
+
+        return jsonify({
+            'ok':      True,
+            'message': f'Saldo final del {fecha.strftime("%d/%m/%Y")} registrado.',
+            'result':  result,
+            'cierre':  closure.to_dict(),
+        })
+    except Exception as exc:
+        db.session.rollback()
+        _log.exception('[Finanzas] api_caja_cierre')
+        return jsonify({'ok': False, 'error': str(exc)}), 500
+
+
+# ── API: Caja Diaria — Estado del día ────────────────────────────────────────
+
+@finanzas_bp.route('/api/caja/hoy')
+@login_required
+def api_caja_hoy():
+    """Estado actual de caja para la fecha indicada (default: hoy)."""
+    _require_role()
+    try:
+        from app.models import DailyClosure
+        fecha_str = request.args.get('fecha', date.today().isoformat())
+        fecha = date.fromisoformat(fecha_str)
+        closure = DailyClosure.query.filter_by(closure_date=fecha).first()
+        if not closure:
+            # Devolver saldos actuales del sistema como referencia
+            balances = FinanceEngine.get_balances()
+            return jsonify({
+                'ok':       True,
+                'found':    False,
+                'fecha':    fecha.isoformat(),
+                'balances_actuales': balances['by_bank'],
+                'total_usd_actual':  balances['total_usd'],
+                'total_pen_actual':  balances['total_pen'],
+            })
+        return jsonify({'ok': True, 'found': True, 'cierre': closure.to_dict()})
+    except Exception as exc:
+        return jsonify({'ok': False, 'error': str(exc)}), 500
+
+
+# ── API: Caja Diaria — Historial ─────────────────────────────────────────────
+
+@finanzas_bp.route('/api/caja/historial')
+@login_required
+def api_caja_historial():
+    """
+    Historial de cierres con saldo inicial/final y resultado.
+    Params: fecha_ini, fecha_fin, page, per_page
+    """
+    _require_role()
+    try:
+        from app.models import DailyClosure
+        from sqlalchemy import and_
+
+        page     = int(request.args.get('page', 1))
+        per_page = int(request.args.get('per_page', 30))
+        fecha_ini = request.args.get('fecha_ini')
+        fecha_fin = request.args.get('fecha_fin')
+
+        q = DailyClosure.query
+        if fecha_ini:
+            q = q.filter(DailyClosure.closure_date >= date.fromisoformat(fecha_ini))
+        if fecha_fin:
+            q = q.filter(DailyClosure.closure_date <= date.fromisoformat(fecha_fin))
+
+        total   = q.count()
+        cierres = q.order_by(DailyClosure.closure_date.desc()).offset(
+            (page - 1) * per_page
+        ).limit(per_page).all()
+
+        # Calcular acumulados
+        total_utilidad_pen = sum(
+            float(c.result_pen or 0) for c in cierres
+            if c.result_label in ('utilidad', 'perdida', 'cuadre') and c.result_pen is not None
+        )
+        dias_utilidad = sum(1 for c in cierres if c.result_label == 'utilidad')
+        dias_perdida  = sum(1 for c in cierres if c.result_label == 'perdida')
+        dias_cuadre   = sum(1 for c in cierres if c.result_label == 'cuadre')
+
+        return jsonify({
+            'ok':       True,
+            'total':    total,
+            'page':     page,
+            'per_page': per_page,
+            'pages':    (total + per_page - 1) // per_page,
+            'resumen': {
+                'total_result_pen': round(total_utilidad_pen, 2),
+                'dias_utilidad':    dias_utilidad,
+                'dias_perdida':     dias_perdida,
+                'dias_cuadre':      dias_cuadre,
+            },
+            'cierres': [c.to_dict() for c in cierres],
+        })
+    except Exception as exc:
+        _log.exception('[Finanzas] api_caja_historial')
+        return jsonify({'ok': False, 'error': str(exc)}), 500
+
 # ── DIAGNÓSTICO TEMPORAL ───────────────────────────────────────────────────────
 @finanzas_bp.route('/api/diagnostico/saldos')
 @login_required

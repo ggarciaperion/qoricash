@@ -83,6 +83,7 @@
     <div class="audit-tab" data-tab="amarres">Amarres</div>
     <div class="audit-tab" data-tab="cierre">Cierre diario</div>
     <div class="audit-tab" data-tab="reconciliacion">Reconciliación</div>
+    <div class="audit-tab" data-tab="caja">Caja Diaria</div>
   </div>
 
   <!-- ── Tab: Movimientos ──────────────────────────────────────────────────── -->
@@ -325,6 +326,176 @@
 
   </div>
 
+
+  <!-- ── Tab: Caja Diaria ─────────────────────────────────────────────────── -->
+  <div class="audit-panel" id="panel-caja">
+
+    <!-- Cards resumen del día -->
+    <div class="row g-2 mb-3" id="cajaCards">
+      <div class="col-6 col-md-3">
+        <div class="qa-card">
+          <div class="qa-label">Saldo Inicial</div>
+          <div class="qa-value" id="cajaOpenUSD">—</div>
+          <div class="qa-sub" id="cajaOpenPEN">—</div>
+          <div style="font-size:.65rem;color:#94A3B8;margin-top:4px;" id="cajaOpenAt"></div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="qa-card">
+          <div class="qa-label">Saldo Final</div>
+          <div class="qa-value" id="cajaCloseUSD">—</div>
+          <div class="qa-sub" id="cajaClosePEN">—</div>
+          <div style="font-size:.65rem;color:#94A3B8;margin-top:4px;" id="cajaCloseAt"></div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="qa-card">
+          <div class="qa-label">Diferencia</div>
+          <div class="qa-value" id="cajaDiffUSD">—</div>
+          <div class="qa-sub" id="cajaDiffPEN">—</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="qa-card">
+          <div class="qa-label">Resultado</div>
+          <div class="qa-value" id="cajaResultLabel" style="font-size:1.15rem;">—</div>
+          <div class="qa-sub" id="cajaResultBy"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Selector fecha -->
+    <div class="filter-bar mb-3">
+      <div>
+        <label>Fecha</label>
+        <input type="date" class="form-control" id="cajaFecha" style="max-width:160px;">
+      </div>
+      <button class="btn btn-sm btn-outline-secondary" onclick="cargarCaja()">
+        <i class="bi bi-arrow-clockwise me-1"></i>Actualizar
+      </button>
+    </div>
+
+    <!-- Acciones -->
+    <div class="row g-2 mb-3">
+      <!-- Apertura -->
+      <div class="col-md-6">
+        <div class="qa-card">
+          <div class="qa-label mb-2">Registrar Saldo Inicial</div>
+          <div id="cajaAperturaForm">
+            <div class="row g-1 mb-2" id="cajaAperturaInputs"></div>
+            <div class="d-flex gap-2 align-items-center">
+              <button class="btn btn-sm btn-dark" onclick="guardarApertura()" id="btnApertura">
+                <i class="bi bi-sunrise me-1"></i>Registrar apertura
+              </button>
+              <span class="text-muted" style="font-size:.75rem;" id="cajaAperturaStatus"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- Cierre -->
+      <div class="col-md-6">
+        <div class="qa-card">
+          <div class="qa-label mb-2">Registrar Saldo Final</div>
+          <div id="cajaCierreForm">
+            <div class="row g-1 mb-2" id="cajaCierreInputs"></div>
+            <input type="text" class="form-control form-control-sm mb-2" id="cajaCierreNotas"
+                   placeholder="Notas opcionales…" style="font-size:.8rem;">
+            <div class="d-flex gap-2 align-items-center">
+              <button class="btn btn-sm btn-success" onclick="guardarCierre()" id="btnCierre">
+                <i class="bi bi-sunset me-1"></i>Registrar cierre
+              </button>
+              <span class="text-muted" style="font-size:.75rem;" id="cajaCierreStatus"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Breakdown por banco del día actual -->
+    <div id="cajaBreakdown" style="display:none;" class="mb-3">
+      <div class="sec-title">Detalle por banco</div>
+      <div class="table-responsive">
+        <table class="aud-table">
+          <thead>
+            <tr>
+              <th>Banco</th><th>Moneda</th>
+              <th class="text-end">Inicial</th>
+              <th class="text-end">Final</th>
+              <th class="text-end">Diferencia</th>
+            </tr>
+          </thead>
+          <tbody id="cajaBreakdownBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Historial -->
+    <div class="sec-title">Historial de cierres</div>
+    <div class="filter-bar mb-2">
+      <div>
+        <label>Desde</label>
+        <input type="date" class="form-control" id="histFechaIni" style="max-width:140px;">
+      </div>
+      <div>
+        <label>Hasta</label>
+        <input type="date" class="form-control" id="histFechaFin" style="max-width:140px;">
+      </div>
+      <button class="btn btn-sm btn-outline-secondary" onclick="cargarHistorial()">Filtrar</button>
+    </div>
+
+    <!-- Cards resumen historial -->
+    <div class="row g-2 mb-2" id="histResumen" style="display:none;">
+      <div class="col-auto">
+        <div style="background:#f0fdf4;border-radius:6px;padding:6px 12px;font-size:.78rem;">
+          <span style="font-weight:700;color:#16a34a;" id="histUtilDias">0</span>
+          <span style="color:#475569;"> días utilidad</span>
+        </div>
+      </div>
+      <div class="col-auto">
+        <div style="background:#fef2f2;border-radius:6px;padding:6px 12px;font-size:.78rem;">
+          <span style="font-weight:700;color:#dc2626;" id="histPerdDias">0</span>
+          <span style="color:#475569;"> días pérdida</span>
+        </div>
+      </div>
+      <div class="col-auto">
+        <div style="background:#f8fafc;border-radius:6px;padding:6px 12px;font-size:.78rem;">
+          <span style="font-weight:700;color:#475569;" id="histCuadreDias">0</span>
+          <span style="color:#475569;"> cuadre exacto</span>
+        </div>
+      </div>
+      <div class="col-auto">
+        <div style="background:#f0fdf4;border-radius:6px;padding:6px 12px;font-size:.78rem;">
+          <span>PEN total:</span>
+          <span style="font-weight:700;color:#0D1B2A;" id="histTotalPEN">S/ 0.00</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="table-responsive">
+      <table class="aud-table">
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th class="text-end">S. Inicial USD</th>
+            <th class="text-end">S. Inicial PEN</th>
+            <th class="text-end">S. Final USD</th>
+            <th class="text-end">S. Final PEN</th>
+            <th class="text-end">Diff. USD</th>
+            <th class="text-end">Diff. PEN</th>
+            <th class="text-center">Resultado</th>
+            <th>Registrado por</th>
+          </tr>
+        </thead>
+        <tbody id="historialBody">
+          <tr><td colspan="9" class="text-center text-muted py-4">Cargando…</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div id="histPagination" class="d-flex gap-2 justify-content-center mt-2"></div>
+
+  </div><!-- /panel-caja -->
+
+
 </div><!-- /container -->
 {% endblock %}
 
@@ -334,6 +505,7 @@ const fmtN   = (n,d=2) => new Intl.NumberFormat('es-PE',{minimumFractionDigits:d
 const fmtUSD = n => `$ ${fmtN(n)}`;
 const fmtPEN = n => `S/ ${fmtN(n)}`;
 const fmtAmt = (n, cur) => cur === 'USD' ? fmtUSD(n) : fmtPEN(n);
+const getCSRF = () => (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
 
 // ── Tabs ────────────────────────────────────────────────────────────────────
 document.querySelectorAll('.audit-tab').forEach(tab => {
@@ -774,5 +946,305 @@ async function corregirSaldo() {
 
 // Inicialización
 loadHistorial();
+
+// ══════════════════════════════════════════════════════
+// CAJA DIARIA
+// ══════════════════════════════════════════════════════
+
+const BANCOS  = ['BCP', 'INTERBANK', 'BANBIF'];
+const MONEDAS = ['USD', 'PEN'];
+
+let cajaDatos = null;  // cierre actual cargado
+let cajaHistPage = 1;
+
+// Inicializar fecha con hoy
+(function initCajaFecha() {
+  const today = new Date().toISOString().slice(0, 10);
+  document.getElementById('cajaFecha').value = today;
+  const fi = document.getElementById('histFechaIni');
+  const ff = document.getElementById('histFechaFin');
+  // Último 30 días por defecto
+  const d30 = new Date(); d30.setDate(d30.getDate() - 30);
+  if (fi) fi.value = d30.toISOString().slice(0, 10);
+  if (ff) ff.value = today;
+})();
+
+function buildBalanceInputs(containerId, prefillData) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  container.innerHTML = '';
+  BANCOS.forEach(banco => {
+    MONEDAS.forEach(cur => {
+      const key = `${banco}_${cur}`;
+      const val = (prefillData && prefillData[banco]) ? (prefillData[banco][cur] || '') : '';
+      container.innerHTML += `
+        <div class="col-6 col-md-3">
+          <label style="font-size:.65rem;font-weight:700;color:#64748b;display:block;margin-bottom:1px;">
+            ${banco} ${cur}
+          </label>
+          <input type="number" step="0.01" min="0" id="${containerId}_${key}"
+                 class="form-control form-control-sm" style="font-size:.78rem;"
+                 placeholder="0.00" value="${val}">
+        </div>`;
+    });
+  });
+}
+
+function readBalanceInputs(containerId) {
+  const result = {};
+  BANCOS.forEach(banco => {
+    result[banco] = {};
+    MONEDAS.forEach(cur => {
+      const el = document.getElementById(`${containerId}_${banco}_${cur}`);
+      result[banco][cur] = el ? (parseFloat(el.value) || 0) : 0;
+    });
+  });
+  return result;
+}
+
+function renderCajaCards(cierre) {
+  const hasOpen  = cierre && cierre.has_opening;
+  const hasClose = cierre && cierre.has_closing;
+
+  // USD / PEN iniciales
+  document.getElementById('cajaOpenUSD').textContent = hasOpen ? fmtUSD(cierre.opening_total_usd) : '—';
+  document.getElementById('cajaOpenPEN').textContent = hasOpen ? fmtPEN(cierre.opening_total_pen) : '—';
+  document.getElementById('cajaOpenAt').textContent  = hasOpen && cierre.opening_registered_at
+    ? `por ${cierre.opening_registered_by || '—'} · ${cierre.opening_registered_at.slice(11,16)}` : '';
+
+  document.getElementById('cajaCloseUSD').textContent = hasClose ? fmtUSD(cierre.closing_total_usd) : '—';
+  document.getElementById('cajaClosePEN').textContent = hasClose ? fmtPEN(cierre.closing_total_pen) : '—';
+  document.getElementById('cajaCloseAt').textContent  = hasClose && cierre.closing_registered_at
+    ? `por ${cierre.closing_registered_by || '—'} · ${cierre.closing_registered_at.slice(11,16)}` : '';
+
+  // Diferencia
+  if (hasOpen && hasClose) {
+    const dUSD = cierre.result_usd || 0;
+    const dPEN = cierre.result_pen || 0;
+    const el_usd = document.getElementById('cajaDiffUSD');
+    const el_pen = document.getElementById('cajaDiffPEN');
+    el_usd.textContent = (dUSD >= 0 ? '+' : '') + fmtUSD(dUSD);
+    el_pen.textContent = (dPEN >= 0 ? '+' : '') + fmtPEN(dPEN);
+    el_usd.className = `qa-value ${dUSD > 0 ? 'green' : (dUSD < 0 ? 'text-danger' : '')}`;
+    el_pen.className = `qa-sub  ${dPEN > 0 ? 'text-success' : (dPEN < 0 ? 'text-danger' : '')}`;
+  } else {
+    document.getElementById('cajaDiffUSD').textContent = '—';
+    document.getElementById('cajaDiffUSD').className = 'qa-value';
+    document.getElementById('cajaDiffPEN').textContent = '—';
+  }
+
+  // Resultado
+  const labelEl = document.getElementById('cajaResultLabel');
+  const byEl    = document.getElementById('cajaResultBy');
+  if (hasOpen && hasClose && cierre.result_label) {
+    const LABELS = { utilidad: '✓ Utilidad', perdida: '✗ Pérdida', cuadre: '= Cuadre exacto' };
+    const COLORS = { utilidad: '#16a34a',     perdida: '#dc2626',    cuadre: '#475569' };
+    labelEl.textContent = LABELS[cierre.result_label] || cierre.result_label;
+    labelEl.style.color = COLORS[cierre.result_label] || '#0D1B2A';
+    byEl.textContent = cierre.closing_registered_by ? `Cerrado por ${cierre.closing_registered_by}` : '';
+  } else {
+    labelEl.textContent = hasOpen ? 'Pendiente de cierre' : 'Sin apertura';
+    labelEl.style.color = '#94A3B8';
+    byEl.textContent = '';
+  }
+
+  // Breakdown tabla
+  const breakdown = document.getElementById('cajaBreakdown');
+  const tbody = document.getElementById('cajaBreakdownBody');
+  if (hasOpen || hasClose) {
+    breakdown.style.display = '';
+    tbody.innerHTML = '';
+    BANCOS.forEach(banco => {
+      MONEDAS.forEach(cur => {
+        const openVal  = hasOpen  ? ((cierre.opening_balance[banco] || {})[cur] || 0) : null;
+        const closeVal = hasClose ? ((cierre.closing_balance[banco] || {})[cur] || 0) : null;
+        const diff     = (openVal !== null && closeVal !== null) ? (closeVal - openVal) : null;
+        const diffStr  = diff !== null ? ((diff >= 0 ? '+' : '') + (cur === 'USD' ? fmtUSD(diff) : fmtPEN(diff))) : '—';
+        const diffCls  = diff !== null ? (diff > 0.01 ? 'text-success fw-bold' : diff < -0.01 ? 'text-danger fw-bold' : 'text-muted') : '';
+        tbody.innerHTML += `<tr>
+          <td><span class="tag-bk ${banco.toLowerCase()}">${banco}</span></td>
+          <td><span class="tag-cur ${cur.toLowerCase()}">${cur}</span></td>
+          <td class="text-end">${openVal !== null ? (cur === 'USD' ? fmtUSD(openVal) : fmtPEN(openVal)) : '—'}</td>
+          <td class="text-end">${closeVal !== null ? (cur === 'USD' ? fmtUSD(closeVal) : fmtPEN(closeVal)) : '—'}</td>
+          <td class="text-end ${diffCls}">${diffStr}</td>
+        </tr>`;
+      });
+    });
+  } else {
+    breakdown.style.display = 'none';
+  }
+}
+
+async function cargarCaja() {
+  const fecha = document.getElementById('cajaFecha').value;
+  if (!fecha) return;
+  try {
+    const res = await fetch(`/finanzas/api/caja/hoy?fecha=${fecha}`);
+    const d   = await res.json();
+    if (!d.ok) { alert(d.error); return; }
+
+    if (d.found) {
+      cajaDatos = d.cierre;
+      renderCajaCards(d.cierre);
+      // Pre-rellenar formularios con datos existentes
+      buildBalanceInputs('cajaAperturaInputs', d.cierre.has_opening ? d.cierre.opening_balance : (d.balances_actuales || null));
+      buildBalanceInputs('cajaCierreInputs',   d.cierre.has_closing ? d.cierre.closing_balance  : (d.balances_actuales || null));
+
+      const ap = document.getElementById('cajaAperturaStatus');
+      const cl = document.getElementById('cajaCierreStatus');
+      if (d.cierre.has_opening) {
+        ap.innerHTML = `<span class="text-success">✓ Registrado a las ${(d.cierre.opening_registered_at||'').slice(11,16)}</span>`;
+        document.getElementById('btnApertura').textContent = 'Modificar apertura (Master)';
+      } else { ap.textContent = ''; document.getElementById('btnApertura').innerHTML = '<i class="bi bi-sunrise me-1"></i>Registrar apertura'; }
+      if (d.cierre.has_closing) {
+        cl.innerHTML = `<span class="text-success">✓ Registrado a las ${(d.cierre.closing_registered_at||'').slice(11,16)}</span>`;
+        document.getElementById('btnCierre').textContent = 'Modificar cierre (Master)';
+      } else { cl.textContent = ''; document.getElementById('btnCierre').innerHTML = '<i class="bi bi-sunset me-1"></i>Registrar cierre'; }
+    } else {
+      cajaDatos = null;
+      // Sin registro aún: pre-llenar con saldos actuales del sistema
+      renderCajaCards(null);
+      buildBalanceInputs('cajaAperturaInputs', d.balances_actuales || null);
+      buildBalanceInputs('cajaCierreInputs',   d.balances_actuales || null);
+      document.getElementById('cajaAperturaStatus').textContent = '';
+      document.getElementById('cajaCierreStatus').textContent = '';
+      document.getElementById('btnApertura').innerHTML = '<i class="bi bi-sunrise me-1"></i>Registrar apertura';
+      document.getElementById('btnCierre').innerHTML = '<i class="bi bi-sunset me-1"></i>Registrar cierre';
+    }
+  } catch(e) { console.error(e); }
+}
+
+async function guardarApertura() {
+  const fecha    = document.getElementById('cajaFecha').value;
+  const balances = readBalanceInputs('cajaAperturaInputs');
+  const btn      = document.getElementById('btnApertura');
+  const status   = document.getElementById('cajaAperturaStatus');
+  btn.disabled   = true;
+  status.textContent = 'Guardando…';
+  try {
+    const res = await fetch('/finanzas/api/caja/apertura', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRF() },
+      body: JSON.stringify({ fecha, balances }),
+    });
+    const d = await res.json();
+    if (d.ok) {
+      status.innerHTML = '<span class="text-success">✓ Apertura guardada</span>';
+      renderCajaCards(d.cierre);
+      cajaDatos = d.cierre;
+      // Cargar historial para reflejar cambio
+      cargarHistorial();
+    } else {
+      status.innerHTML = `<span class="text-danger">${d.error}</span>`;
+    }
+  } catch(e) {
+    status.innerHTML = '<span class="text-danger">Error de red</span>';
+  }
+  btn.disabled = false;
+}
+
+async function guardarCierre() {
+  const fecha    = document.getElementById('cajaFecha').value;
+  const balances = readBalanceInputs('cajaCierreInputs');
+  const notas    = document.getElementById('cajaCierreNotas').value;
+  const btn      = document.getElementById('btnCierre');
+  const status   = document.getElementById('cajaCierreStatus');
+  btn.disabled   = true;
+  status.textContent = 'Guardando…';
+  try {
+    const res = await fetch('/finanzas/api/caja/cierre', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRF() },
+      body: JSON.stringify({ fecha, balances, notas }),
+    });
+    const d = await res.json();
+    if (d.ok) {
+      status.innerHTML = '<span class="text-success">✓ Cierre guardado</span>';
+      renderCajaCards(d.cierre);
+      cajaDatos = d.cierre;
+      cargarHistorial();
+    } else {
+      status.innerHTML = `<span class="text-danger">${d.error}</span>`;
+    }
+  } catch(e) {
+    status.innerHTML = '<span class="text-danger">Error de red</span>';
+  }
+  btn.disabled = false;
+}
+
+async function cargarHistorial(page = 1) {
+  cajaHistPage = page;
+  const fi = document.getElementById('histFechaIni')?.value || '';
+  const ff = document.getElementById('histFechaFin')?.value || '';
+  let url = `/finanzas/api/caja/historial?page=${page}&per_page=20`;
+  if (fi) url += `&fecha_ini=${fi}`;
+  if (ff) url += `&fecha_fin=${ff}`;
+  try {
+    const res  = await fetch(url);
+    const data = await res.json();
+    if (!data.ok) return;
+
+    // Resumen
+    const rs = data.resumen;
+    document.getElementById('histResumen').style.display = '';
+    document.getElementById('histUtilDias').textContent  = rs.dias_utilidad;
+    document.getElementById('histPerdDias').textContent  = rs.dias_perdida;
+    document.getElementById('histCuadreDias').textContent = rs.dias_cuadre;
+    document.getElementById('histTotalPEN').textContent  = (rs.total_result_pen >= 0 ? '+' : '') + fmtPEN(rs.total_result_pen);
+
+    // Tabla
+    const tbody = document.getElementById('historialBody');
+    tbody.innerHTML = '';
+    if (!data.cierres.length) {
+      tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-3">Sin registros</td></tr>';
+    } else {
+      const RESULT_CSS = { utilidad: 'text-success fw-bold', perdida: 'text-danger fw-bold', cuadre: 'text-muted' };
+      const RESULT_LBL = { utilidad: '✓ Utilidad', perdida: '✗ Pérdida', cuadre: '= Cuadre' };
+      data.cierres.forEach(c => {
+        const fecha = c.closure_date ? c.closure_date.slice(0,10) : '—';
+        const rPEN  = c.result_pen !== null ? c.result_pen : null;
+        const rUSD  = c.result_usd !== null ? c.result_usd : null;
+        const rowBg = c.result_label === 'utilidad' ? 'style="background:#f0fdf4;"'
+                    : c.result_label === 'perdida'   ? 'style="background:#fef2f2;"' : '';
+        tbody.innerHTML += `<tr ${rowBg}>
+          <td><strong>${fecha}</strong></td>
+          <td class="text-end">${c.has_opening ? fmtUSD(c.opening_total_usd) : '<span class="text-muted">—</span>'}</td>
+          <td class="text-end">${c.has_opening ? fmtPEN(c.opening_total_pen) : '<span class="text-muted">—</span>'}</td>
+          <td class="text-end">${c.has_closing ? fmtUSD(c.closing_total_usd) : '<span class="text-muted">—</span>'}</td>
+          <td class="text-end">${c.has_closing ? fmtPEN(c.closing_total_pen) : '<span class="text-muted">—</span>'}</td>
+          <td class="text-end ${rUSD !== null ? (rUSD > 0 ? 'text-success' : rUSD < 0 ? 'text-danger' : '') : ''}">${rUSD !== null ? (rUSD >= 0 ? '+' : '') + fmtUSD(rUSD) : '—'}</td>
+          <td class="text-end ${rPEN !== null ? (rPEN > 0.01 ? 'text-success fw-bold' : rPEN < -0.01 ? 'text-danger fw-bold' : '') : ''}">${rPEN !== null ? (rPEN >= 0 ? '+' : '') + fmtPEN(rPEN) : '—'}</td>
+          <td class="text-center"><span class="${RESULT_CSS[c.result_label] || 'text-muted'}">${RESULT_LBL[c.result_label] || '—'}</span></td>
+          <td style="font-size:.72rem;color:#64748b;">${c.closing_registered_by || c.opening_registered_by || '—'}</td>
+        </tr>`;
+      });
+    }
+
+    // Paginación
+    const pgDiv = document.getElementById('histPagination');
+    pgDiv.innerHTML = '';
+    if (data.pages > 1) {
+      for (let p = 1; p <= data.pages; p++) {
+        pgDiv.innerHTML += `<button class="btn btn-sm ${p === page ? 'btn-dark' : 'btn-outline-secondary'}" onclick="cargarHistorial(${p})">${p}</button>`;
+      }
+    }
+  } catch(e) { console.error(e); }
+}
+
+// Activar carga cuando se abre el tab Caja
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.audit-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      if (tab.dataset.tab === 'caja') {
+        cargarCaja();
+        cargarHistorial();
+      }
+    });
+  });
+  // Construir inputs vacíos por defecto
+  buildBalanceInputs('cajaAperturaInputs', null);
+  buildBalanceInputs('cajaCierreInputs',   null);
+});
+
 </script>
 {% endblock %}
