@@ -1,747 +1,921 @@
 {% extends "base.html" %}
-{% block title %}Control Financiero — QoriCash{% endblock %}
+{% block title %}Finanzas — QoriCash{% endblock %}
 
 {% block head %}
 <style>
-/* ── Layout ──────────────────────────────────────────────────────────────── */
-.fin-nav { display:flex; gap:4px; margin-bottom:14px; background:#f8fafc; border-radius:8px; padding:4px; }
-.fin-nav a {
-    flex:1; text-align:center; padding:7px 6px; border-radius:6px;
-    font-size:.78rem; font-weight:600; color:#64748b; text-decoration:none; transition:all .15s;
+/* ─── Reset & tokens ──────────────────────────────────────────────────── */
+:root {
+  --navy:  #0D1B2A;
+  --green: #16a34a;
+  --red:   #dc2626;
+  --amber: #d97706;
+  --blue:  #2563eb;
+  --muted: #64748b;
+  --bg:    #f8fafc;
+  --bdr:   #e8ecf0;
 }
-.fin-nav a.active, .fin-nav a:hover { background:#fff; color:#0D1B2A; box-shadow:0 1px 4px rgba(0,0,0,.08); }
 
-/* Header bar */
-.ctrl-header {
-    background:#0D1B2A; border-radius:10px; padding:14px 18px;
-    display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap;
-    gap:8px; margin-bottom:14px;
+/* ─── Header ──────────────────────────────────────────────────────────── */
+.fn-header {
+  background: var(--navy); border-radius: 10px;
+  padding: 13px 18px; margin-bottom: 14px;
+  display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;
 }
-.ctrl-header-title { font-size:1rem; font-weight:800; color:#fff; margin:0; }
-.ctrl-header-sub   { font-size:.72rem; color:rgba(255,255,255,.4); margin:2px 0 0; }
-
-/* Period selector */
-.period-bar {
-    display:flex; align-items:center; gap:4px; margin-bottom:14px;
-    background:#f8fafc; border-radius:8px; padding:4px; width:fit-content;
+.fn-header-title { font-size: .95rem; font-weight: 800; color: #fff; margin: 0; }
+.fn-header-sub   { font-size: .7rem; color: rgba(255,255,255,.35); margin: 1px 0 0; }
+.fn-header-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.fn-btn-ghost {
+  background: rgba(255,255,255,.1); color: #fff;
+  border: 1px solid rgba(255,255,255,.2); border-radius: 7px;
+  padding: 5px 12px; font-size: .73rem; font-weight: 600; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 5px; transition: background .15s;
+  text-decoration: none;
 }
-.period-btn {
-    padding:5px 14px; border-radius:6px; font-size:.77rem; font-weight:700;
-    color:#64748b; background:transparent; border:none; cursor:pointer; transition:all .12s;
-    white-space:nowrap;
+.fn-btn-ghost:hover { background: rgba(255,255,255,.18); color: #fff; }
+.fn-btn-apertura {
+  background: #16a34a; color: #fff;
+  border: none; border-radius: 7px;
+  padding: 6px 14px; font-size: .74rem; font-weight: 700; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 5px; transition: background .15s;
 }
-.period-btn.active { background:#0D1B2A; color:#fff; }
-
-/* QA cards */
-.qa-card { background:#fff; border:1px solid #e8ecf0; border-radius:10px; padding:14px 16px; height:100%; }
-.qa-label { font-size:.68rem; font-weight:700; color:#94A3B8; text-transform:uppercase; letter-spacing:.07em; margin-bottom:4px; }
-.qa-value { font-size:1.35rem; font-weight:800; color:#0D1B2A; line-height:1.2; }
-.qa-value.green { color:#16a34a; }
-.qa-value.amber { color:#d97706; }
-.qa-value.blue  { color:#2563eb; }
-.qa-value.red   { color:#dc2626; }
-.qa-sub { font-size:.7rem; color:#94A3B8; margin-top:3px; }
-
-/* Section titles */
-.sec-title {
-    font-size:.7rem; font-weight:800; text-transform:uppercase; letter-spacing:.08em;
-    color:#64748b; margin:14px 0 8px; display:flex; align-items:center; gap:6px;
+.fn-btn-apertura:hover { background: #15803d; }
+.fn-btn-cierre {
+  background: #f59e0b; color: var(--navy);
+  border: none; border-radius: 7px;
+  padding: 6px 14px; font-size: .74rem; font-weight: 700; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 5px;
 }
-.sec-title::after { content:''; flex:1; height:1px; background:#e8ecf0; }
+.fn-btn-cierre:hover { background: #d97706; }
 
-/* Saldos table */
-.saldos-table { width:100%; border-collapse:collapse; font-size:.84rem; }
-.saldos-table th { font-size:.67rem; font-weight:700; color:#94A3B8; text-transform:uppercase;
-                   letter-spacing:.06em; padding:4px 8px; border-bottom:2px solid #f1f5f9; }
-.saldos-table td { padding:7px 8px; border-bottom:1px solid #f8fafc; color:#0D1B2A; font-weight:600; }
-.saldos-table tr:last-child td { border-bottom:none; font-weight:800; background:#f8fafc; }
-.tag-bk { font-size:.65rem; font-weight:800; padding:2px 7px; border-radius:4px; text-transform:uppercase; }
-.tag-bk.bcp       { background:#e8f5e9; color:#1b5e20; }
-.tag-bk.interbank { background:#e3f2fd; color:#0d47a1; }
-.tag-bk.banbif    { background:#fce4ec; color:#880e4f; }
-.tag-cur { font-size:.65rem; font-weight:700; padding:1px 5px; border-radius:3px; }
-.tag-cur.usd { background:#e0f2fe; color:#0369a1; }
-.tag-cur.pen { background:#f0fdf4; color:#166534; }
+/* ─── Alertas ────────────────────────────────────────────────────────── */
+.fn-alert {
+  border-radius: 8px; padding: 9px 13px; font-size: .81rem;
+  display: flex; align-items: flex-start; gap: 9px; margin-bottom: 6px;
+}
+.fn-alert.danger  { background: #fef2f2; color: #991b1b; }
+.fn-alert.warning { background: #fffbeb; color: #92400e; }
+.fn-alert.info    { background: #eff6ff; color: #1e40af; }
 
-/* Posición table */
-.pos-table { width:100%; border-collapse:collapse; font-size:.82rem; }
-.pos-table th { font-size:.67rem; font-weight:700; color:#94A3B8; text-transform:uppercase;
-                letter-spacing:.06em; padding:4px 8px; border-bottom:2px solid #f1f5f9; }
-.pos-table td { padding:7px 8px; border-bottom:1px solid #f8fafc; }
-.pos-table tr:last-child td { border-bottom:none; }
-.aged-badge { font-size:.65rem; font-weight:700; background:#fef3c7; color:#92400e; padding:1px 6px; border-radius:10px; white-space:nowrap; }
-.ok-badge   { font-size:.65rem; font-weight:700; background:#f0fdf4; color:#166534; padding:1px 6px; border-radius:10px; white-space:nowrap; }
+/* ─── KPI cards ──────────────────────────────────────────────────────── */
+.kpi-card {
+  background: #fff; border: 1px solid var(--bdr); border-radius: 10px;
+  padding: 13px 15px; height: 100%;
+}
+.kpi-label {
+  font-size: .66rem; font-weight: 700; color: #94A3B8;
+  text-transform: uppercase; letter-spacing: .07em; margin-bottom: 3px;
+}
+.kpi-value { font-size: 1.3rem; font-weight: 800; color: var(--navy); line-height: 1.2; }
+.kpi-value.green { color: var(--green); }
+.kpi-value.red   { color: var(--red);   }
+.kpi-value.blue  { color: var(--blue);  }
+.kpi-value.amber { color: var(--amber); }
+.kpi-sub  { font-size: .69rem; color: #94A3B8; margin-top: 3px; }
 
-/* Caja diaria — cuadre */
-.cuadre-row { display:flex; justify-content:space-between; align-items:center;
-              padding:5px 0; border-bottom:1px solid #f1f5f9; font-size:.83rem; }
-.cuadre-row:last-child { border-bottom:none; }
-.cuadre-row.total { font-weight:800; padding-top:8px; border-top:2px solid #e8ecf0; border-bottom:none; }
-.cuadre-lbl { color:#475569; }
-.cuadre-val { font-weight:700; text-align:right; min-width:120px; }
-.cuadre-val.ing  { color:#16a34a; }
-.cuadre-val.egr  { color:#dc2626; }
-.cuadre-val.teo  { color:#2563eb; }
-.cuadre-val.diff.ok     { color:#16a34a; }
-.cuadre-val.diff.warn   { color:#dc2626; }
-.cuadre-val.diff.exceso { color:#d97706; }
+/* ─── Cuadre strip ───────────────────────────────────────────────────── */
+.cuadre-strip {
+  background: #fff; border: 1px solid var(--bdr); border-radius: 10px;
+  padding: 11px 16px; margin-bottom: 14px;
+  display: flex; align-items: center; gap: 0; flex-wrap: wrap;
+}
+.cs-block { display: flex; flex-direction: column; align-items: center; min-width: 90px; flex: 1; padding: 0 8px; }
+.cs-label { font-size: .63rem; font-weight: 700; color: #94A3B8; text-transform: uppercase; letter-spacing: .06em; }
+.cs-usd   { font-size: .85rem; font-weight: 800; color: var(--navy); }
+.cs-pen   { font-size: .75rem; font-weight: 600; color: var(--muted); }
+.cs-arrow { color: #cbd5e1; font-size: 1rem; align-self: center; padding: 0 4px; flex: 0; }
+.cs-block.teo .cs-usd { color: var(--blue); }
+.cs-block.fin .cs-usd { color: var(--navy); }
+.cs-block.diff .cs-usd { color: var(--red); }
+.cs-block.diff.ok .cs-usd  { color: var(--green); }
+.cuadre-badge-sm {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 10px; border-radius: 12px; font-size: .72rem; font-weight: 700;
+}
+.cuadre-badge-sm.cuadrado  { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
+.cuadre-badge-sm.excedente { background: #fffbeb; color: #92400e; border: 1px solid #fde68a; }
+.cuadre-badge-sm.faltante  { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+.cuadre-badge-sm.pendiente { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+.cs-divider { width: 1px; background: var(--bdr); height: 36px; align-self: center; margin: 0 6px; flex: 0; }
 
-/* Alertas */
-.fin-alert { border-radius:8px; padding:9px 13px; font-size:.81rem;
-             display:flex; align-items:flex-start; gap:9px; margin-bottom:6px; }
-.fin-alert.danger  { background:#fef2f2; color:#991b1b; }
-.fin-alert.warning { background:#fffbeb; color:#92400e; }
-.fin-alert.info    { background:#eff6ff; color:#1e40af; }
+/* ─── Saldos table ───────────────────────────────────────────────────── */
+.saldos-tbl { width: 100%; border-collapse: collapse; font-size: .83rem; }
+.saldos-tbl th {
+  font-size: .65rem; font-weight: 700; color: #94A3B8;
+  text-transform: uppercase; letter-spacing: .06em;
+  padding: 4px 8px; border-bottom: 2px solid #f1f5f9;
+}
+.saldos-tbl td { padding: 7px 8px; border-bottom: 1px solid #f8fafc; color: var(--navy); font-weight: 600; }
+.saldos-tbl tr.total-row td { font-weight: 800; background: var(--bg); border-bottom: none; }
+.tag-bk { font-size: .64rem; font-weight: 800; padding: 2px 7px; border-radius: 4px; text-transform: uppercase; }
+.tag-bk.bcp       { background: #e8f5e9; color: #1b5e20; }
+.tag-bk.interbank { background: #e3f2fd; color: #0d47a1; }
+.tag-bk.banbif    { background: #fce4ec; color: #880e4f; }
+.tag-cur { font-size: .64rem; font-weight: 700; padding: 1px 5px; border-radius: 3px; }
+.tag-cur.usd { background: #e0f2fe; color: #0369a1; }
+.tag-cur.pen { background: #f0fdf4; color: #166534; }
 
-/* Ops mini */
-.ops-mini { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
-.ops-mini-card { background:#f8fafc; border-radius:8px; padding:9px 11px; }
-.ops-mini-label { font-size:.66rem; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.06em; }
-.ops-mini-val   { font-size:1.1rem; font-weight:800; color:#0D1B2A; }
+/* ─── Tabs ───────────────────────────────────────────────────────────── */
+.fn-tabs { display: flex; gap: 3px; background: #f1f5f9; border-radius: 8px; padding: 3px; margin-bottom: 12px; }
+.fn-tab {
+  flex: 1; text-align: center; padding: 7px 4px; border-radius: 6px;
+  font-size: .77rem; font-weight: 700; color: var(--muted);
+  cursor: pointer; border: none; background: transparent; transition: all .12s;
+}
+.fn-tab.active, .fn-tab:hover { background: #fff; color: var(--navy); box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+.fn-panel { display: none; }
+.fn-panel.active { display: block; }
 
-/* Cierre badge */
-.cierre-badge { display:inline-flex; align-items:center; gap:5px; padding:5px 12px;
-                border-radius:20px; font-size:.74rem; font-weight:700; }
-.cierre-badge.ok      { background:#f0fdf4; color:#166534; border:1px solid #bbf7d0; }
-.cierre-badge.pending { background:#fef2f2; color:#991b1b; border:1px solid #fecaca; }
-.cierre-badge.partial { background:#fffbeb; color:#92400e; border:1px solid #fde68a; }
+/* ─── Posición table ─────────────────────────────────────────────────── */
+.pos-tbl { width: 100%; border-collapse: collapse; font-size: .82rem; }
+.pos-tbl th { font-size: .65rem; font-weight: 700; color: #94A3B8; text-transform: uppercase;
+              letter-spacing: .06em; padding: 4px 8px; border-bottom: 2px solid #f1f5f9; }
+.pos-tbl td { padding: 7px 8px; border-bottom: 1px solid #f8fafc; }
+.pos-tbl tr:last-child td { border-bottom: none; }
+.aged-badge { font-size: .63rem; font-weight: 700; background: #fef3c7; color: #92400e; padding: 1px 6px; border-radius: 10px; }
+.ok-badge   { font-size: .63rem; font-weight: 700; background: #f0fdf4; color: #166534; padding: 1px 6px; border-radius: 10px; }
 
-/* Estado cuadre badge */
-.cuadre-badge { display:inline-flex; align-items:center; gap:5px; padding:6px 14px;
-                border-radius:20px; font-size:.8rem; font-weight:800; margin-top:8px; }
-.cuadre-badge.cuadrado  { background:#f0fdf4; color:#166534; border:1px solid #bbf7d0; }
-.cuadre-badge.excedente { background:#fffbeb; color:#92400e; border:1px solid #fde68a; }
-.cuadre-badge.faltante  { background:#fef2f2; color:#991b1b; border:1px solid #fecaca; }
-.cuadre-badge.pendiente { background:#f1f5f9; color:#475569; border:1px solid #e2e8f0; }
+/* ─── Movimientos / Amarres tables ───────────────────────────────────── */
+.mov-tbl, .amar-tbl { width: 100%; border-collapse: collapse; font-size: .8rem; }
+.mov-tbl th, .amar-tbl th {
+  font-size: .64rem; font-weight: 700; color: #94A3B8; text-transform: uppercase;
+  letter-spacing: .05em; padding: 4px 8px; border-bottom: 2px solid #f1f5f9; background: var(--bg);
+}
+.mov-tbl td, .amar-tbl td { padding: 6px 8px; border-bottom: 1px solid #f8fafc; vertical-align: middle; }
+.mov-tbl tr:hover td, .amar-tbl tr:hover td { background: #fafbfc; }
+.tipo-entrada { color: var(--green); font-weight: 700; }
+.tipo-salida  { color: var(--red);   font-weight: 700; }
+.filter-bar { display: flex; gap: 6px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 10px; }
+.filter-bar select, .filter-bar input {
+  font-size: .78rem; padding: 4px 8px; border: 1px solid #d1d5db; border-radius: 6px;
+  background: #fff; color: var(--navy); height: 30px;
+}
+.filter-bar .btn-filter {
+  padding: 4px 12px; font-size: .76rem; font-weight: 700; border: none; border-radius: 6px;
+  background: var(--navy); color: #fff; cursor: pointer; height: 30px;
+}
+.pag-bar { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; font-size: .75rem; color: var(--muted); }
+.pag-bar button { padding: 3px 10px; font-size: .74rem; border: 1px solid var(--bdr); border-radius: 6px; background: #fff; cursor: pointer; }
+.pag-bar button:disabled { opacity: .4; cursor: default; }
+
+/* ─── Estado día badge ───────────────────────────────────────────────── */
+.dia-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 12px; border-radius: 20px; font-size: .73rem; font-weight: 700;
+}
+.dia-badge.abierto   { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+.dia-badge.cerrado   { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
+.dia-badge.pendiente { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+.dia-badge.sin-apertura { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+
+/* ─── Modal ──────────────────────────────────────────────────────────── */
+.fn-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,.45);
+  z-index: 9999; display: flex; align-items: center; justify-content: center;
+}
+.fn-modal {
+  background: #fff; border-radius: 14px; padding: 24px;
+  width: 100%; max-width: 380px; box-shadow: 0 20px 60px rgba(0,0,0,.2);
+}
+.fn-modal h6 { margin: 0 0 16px; font-weight: 800; color: var(--navy); font-size: 1rem; }
+.fn-input-group { margin-bottom: 14px; }
+.fn-input-group label { font-size: .74rem; font-weight: 700; color: var(--muted); display: block; margin-bottom: 5px; }
+.fn-input-group input {
+  width: 100%; padding: 9px 12px; font-size: .95rem; font-weight: 700;
+  border: 1.5px solid #d1d5db; border-radius: 8px; color: var(--navy);
+}
+.fn-input-group input:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(37,99,235,.1); }
+.fn-modal-info {
+  background: var(--bg); border-radius: 8px; padding: 10px 13px;
+  font-size: .78rem; margin-bottom: 14px;
+}
+.fn-modal-info .row-info { display: flex; justify-content: space-between; padding: 3px 0; }
+.fn-modal-info .lbl { color: var(--muted); }
+.fn-modal-info .val { font-weight: 700; color: var(--navy); }
+.fn-modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px; }
+.fn-modal-actions .btn-cancel {
+  padding: 7px 16px; font-size: .8rem; border: 1px solid #d1d5db; border-radius: 7px;
+  background: #fff; cursor: pointer; color: var(--muted);
+}
+.fn-modal-actions .btn-confirm {
+  padding: 7px 18px; font-size: .8rem; font-weight: 700; border: none; border-radius: 7px;
+  background: var(--navy); color: #fff; cursor: pointer;
+}
+.fn-modal-msg { font-size: .78rem; margin-top: 10px; min-height: 18px; }
+
+/* ─── Totales row ────────────────────────────────────────────────────── */
+.totales-row {
+  background: var(--bg); border-radius: 8px; padding: 9px 12px;
+  display: flex; gap: 20px; flex-wrap: wrap; font-size: .8rem; margin-bottom: 10px;
+}
+.totales-row span { color: var(--muted); }
+.totales-row strong { color: var(--navy); }
+.totales-row .profit { color: var(--green); }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="container-fluid px-3 py-3">
 
-  <!-- Nav -->
-  <div class="fin-nav">
-    <a href="{{ url_for('finanzas.control') }}" class="active"><i class="bi bi-speedometer2"></i> Control</a>
-    <a href="{{ url_for('finanzas.auditoria') }}"><i class="bi bi-journal-text"></i> Auditoría & Cierre</a>
-  </div>
-
-  <!-- Header -->
-  <div class="ctrl-header">
+  <!-- ── Header ──────────────────────────────────────────────────────── -->
+  <div class="fn-header">
     <div>
-      <p class="ctrl-header-title">Control Financiero</p>
-      <p class="ctrl-header-sub">QoriCash SAC · Estado en tiempo real</p>
+      <p class="fn-header-title"><i class="bi bi-bar-chart-fill me-2" style="color:#60a5fa;"></i>Finanzas</p>
+      <p class="fn-header-sub" id="fnDate">—</p>
     </div>
-    <div class="d-flex align-items-center gap-2">
-      <span style="font-size:.72rem;color:rgba(255,255,255,.3);" id="tsLabel">Cargando…</span>
-      <button class="btn btn-sm" style="background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.2);font-size:.74rem;"
-              onclick="loadSnapshot()">
+    <div class="fn-header-actions">
+      <span style="font-size:.69rem;color:rgba(255,255,255,.3);" id="tsLabel">Cargando…</span>
+      <button class="fn-btn-ghost" onclick="loadDashboard()">
         <i class="bi bi-arrow-clockwise"></i> Actualizar
       </button>
+      <div id="diaBtn"><!-- apertura / cierre button injected here --></div>
     </div>
   </div>
 
-  <!-- Alertas -->
+  <!-- ── Alertas ──────────────────────────────────────────────────────── -->
   <div id="alertsZone"></div>
 
-  <!-- Selector de período (para utilidad) -->
-  <div class="d-flex align-items-center gap-3 mb-3 flex-wrap">
-    <div class="period-bar">
-      <button class="period-btn active" onclick="setPeriod('hoy', this)">Hoy</button>
-      <button class="period-btn"        onclick="setPeriod('mes', this)">Este mes</button>
+  <!-- ── KPI row ─────────────────────────────────────────────────────── -->
+  <div class="row g-2 mb-3" id="kpiRow">
+    <div class="col-6 col-md-4 col-lg-2">
+      <div class="kpi-card">
+        <div class="kpi-label">USD Disponible</div>
+        <div class="kpi-value blue" id="kpiUSD">—</div>
+        <div class="kpi-sub">BCP + IBK + BANBIF</div>
+      </div>
     </div>
-    <span style="font-size:.73rem;color:#94A3B8;" id="periodLabel">Mostrando: hoy</span>
+    <div class="col-6 col-md-4 col-lg-2">
+      <div class="kpi-card">
+        <div class="kpi-label">PEN Disponible</div>
+        <div class="kpi-value blue" id="kpiPEN">—</div>
+        <div class="kpi-sub">BCP + IBK + BANBIF</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-4 col-lg-2">
+      <div class="kpi-card">
+        <div class="kpi-label">Utilidad Hoy</div>
+        <div class="kpi-value green" id="kpiUtilHoy">—</div>
+        <div class="kpi-sub" id="kpiUtilHoySub">—</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-4 col-lg-2">
+      <div class="kpi-card">
+        <div class="kpi-label">Utilidad Mes</div>
+        <div class="kpi-value green" id="kpiUtilMes">—</div>
+        <div class="kpi-sub" id="kpiUtilMesSub">—</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-4 col-lg-2">
+      <div class="kpi-card">
+        <div class="kpi-label">Posición Neta USD</div>
+        <div class="kpi-value amber" id="kpiPos">—</div>
+        <div class="kpi-sub" id="kpiPosSub">sin amarrar</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-4 col-lg-2">
+      <div class="kpi-card">
+        <div class="kpi-label">Estado del Día</div>
+        <div id="kpiEstado" style="margin-top:4px;">—</div>
+      </div>
+    </div>
   </div>
 
-  <!-- 4 QA cards -->
-  <div class="row g-2 mb-3">
-    <div class="col-6 col-lg-3">
-      <div class="qa-card">
-        <div class="qa-label">Total USD en bancos</div>
-        <div class="qa-value blue" id="qaTotalUSD">—</div>
-        <div class="qa-sub">BCP + IBK + BANBIF</div>
-      </div>
-    </div>
-    <div class="col-6 col-lg-3">
-      <div class="qa-card">
-        <div class="qa-label">Total PEN en bancos</div>
-        <div class="qa-value blue" id="qaTotalPEN">—</div>
-        <div class="qa-sub">BCP + IBK + BANBIF</div>
-      </div>
-    </div>
-    <div class="col-6 col-lg-3">
-      <div class="qa-card">
-        <div class="qa-label" id="utilCardLabel">Utilidad realizada — Hoy</div>
-        <div class="qa-value green" id="qaUtilidad">—</div>
-        <div class="qa-sub" id="qaUtilidadSub">—</div>
-      </div>
-    </div>
-    <div class="col-6 col-lg-3">
-      <div class="qa-card">
-        <div class="qa-label">Posición abierta (USD)</div>
-        <div class="qa-value amber" id="qaPosAbierta">—</div>
-        <div class="qa-sub" id="qaPosSub">USD sin amarrar</div>
-      </div>
-    </div>
-  </div>
+  <!-- ── Cuadre strip (visible solo con apertura) ──────────────────── -->
+  <div class="cuadre-strip" id="cuadreStrip" style="display:none;"></div>
 
+  <!-- ── Main row ────────────────────────────────────────────────────── -->
   <div class="row g-3">
 
-    <!-- Columna izquierda -->
-    <div class="col-lg-7">
-
-      <!-- Saldos bancarios -->
-      <div class="card border-0 shadow-sm mb-3">
+    <!-- Saldos (col izquierda) -->
+    <div class="col-lg-4">
+      <div class="card border-0 shadow-sm h-100">
         <div class="card-body p-3">
-          <div class="d-flex justify-content-between align-items-center mb-2">
-            <div class="sec-title mb-0"><i class="bi bi-bank2 text-primary"></i> Saldos Bancarios</div>
-            <button class="btn btn-sm btn-outline-primary" style="font-size:.72rem;" onclick="abrirModalSaldos()">
-              <i class="bi bi-pencil-square"></i> Editar saldos
-            </button>
+          <div style="font-size:.8rem;font-weight:800;color:var(--navy);margin-bottom:10px;">
+            <i class="bi bi-bank2 text-primary me-1"></i> Saldos por Banco
           </div>
-          <table class="saldos-table">
-            <thead><tr><th>Banco</th><th>Moneda</th><th class="text-end">Saldo actual</th></tr></thead>
-            <tbody id="saldosBody"><tr><td colspan="3" class="text-center text-muted py-3" style="font-size:.8rem;">Cargando…</td></tr></tbody>
+          <table class="saldos-tbl">
+            <thead><tr><th>Banco</th><th>Mon.</th><th class="text-end">Saldo actual</th></tr></thead>
+            <tbody id="saldosTbody"><tr><td colspan="3" class="text-center text-muted py-3" style="font-size:.8rem;">Cargando…</td></tr></tbody>
           </table>
         </div>
       </div>
+    </div>
 
-      <!-- Caja del día — Cuadre automático -->
-      <div class="card border-0 shadow-sm mb-3">
-        <div class="card-body p-3">
-          <div class="d-flex justify-content-between align-items-center mb-2">
-            <div class="sec-title mb-0"><i class="bi bi-cash-stack text-success"></i> Caja del Día — Cuadre</div>
-            <a href="{{ url_for('finanzas.auditoria') }}" class="btn btn-sm btn-outline-secondary" style="font-size:.72rem;">
-              Registrar →
-            </a>
-          </div>
-          <div id="cuadreZone">
-            <div class="text-center text-muted py-3" style="font-size:.8rem;">Cargando…</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Posición abierta -->
+    <!-- Tabs (col derecha) -->
+    <div class="col-lg-8">
       <div class="card border-0 shadow-sm">
         <div class="card-body p-3">
-          <div class="sec-title"><i class="bi bi-currency-exchange text-warning"></i> Posición Abierta</div>
-          <div id="posicionZone">
-            <div class="text-center text-muted py-3" style="font-size:.8rem;">Cargando…</div>
+
+          <div class="fn-tabs">
+            <button class="fn-tab active" onclick="switchTab('posicion', this)"><i class="bi bi-currency-exchange me-1"></i>Posición</button>
+            <button class="fn-tab" onclick="switchTab('movimientos', this)"><i class="bi bi-list-ul me-1"></i>Movimientos</button>
+            <button class="fn-tab" onclick="switchTab('amarres', this)"><i class="bi bi-link-45deg me-1"></i>Amarres</button>
           </div>
-        </div>
-      </div>
 
-    </div><!-- /col left -->
-
-    <!-- Columna derecha -->
-    <div class="col-lg-5">
-
-      <!-- Utilidad del período -->
-      <div class="card border-0 shadow-sm mb-3">
-        <div class="card-body p-3">
-          <div class="sec-title"><i class="bi bi-graph-up-arrow text-success"></i> Utilidad <span id="utilPanelPeriodLabel">de Hoy</span></div>
-          <div id="utilZone">
-            <div class="text-center text-muted py-3" style="font-size:.8rem;">Cargando…</div>
+          <!-- Panel: Posición -->
+          <div class="fn-panel active" id="panel-posicion">
+            <div id="posicionZone"><div class="text-center text-muted py-4" style="font-size:.85rem;">Cargando…</div></div>
           </div>
-        </div>
-      </div>
 
-      <!-- Operaciones del día -->
-      <div class="card border-0 shadow-sm mb-3">
-        <div class="card-body p-3">
-          <div class="sec-title"><i class="bi bi-calendar3"></i> Operaciones de Hoy</div>
-          <div class="ops-mini">
-            <div class="ops-mini-card">
-              <div class="ops-mini-label">Completadas</div>
-              <div class="ops-mini-val" id="opTotal">—</div>
-              <div style="font-size:.7rem;color:#94A3B8;" id="opTipos">—</div>
+          <!-- Panel: Movimientos -->
+          <div class="fn-panel" id="panel-movimientos">
+            <div class="filter-bar">
+              <select id="movBanco"><option value="">Todos los bancos</option><option>BCP</option><option>INTERBANK</option><option>BANBIF</option></select>
+              <select id="movMoneda"><option value="">USD + PEN</option><option>USD</option><option>PEN</option></select>
+              <input type="date" id="movFechaIni" placeholder="Desde">
+              <input type="date" id="movFechaFin" placeholder="Hasta">
+              <button class="btn-filter" onclick="loadMovimientos(1)">Buscar</button>
             </div>
-            <div class="ops-mini-card">
-              <div class="ops-mini-label">Volumen USD</div>
-              <div class="ops-mini-val" id="opVol">—</div>
-            </div>
-            <div class="ops-mini-card" style="background:#eff6ff;">
-              <div class="ops-mini-label" style="color:#1d4ed8;">TC Compra prom.</div>
-              <div class="ops-mini-val" id="opTCBuy" style="color:#2563eb;">—</div>
-            </div>
-            <div class="ops-mini-card" style="background:#f0fdf4;">
-              <div class="ops-mini-label" style="color:#166534;">TC Venta prom.</div>
-              <div class="ops-mini-val" id="opTCSell" style="color:#16a34a;">—</div>
+            <div id="movZone"><div class="text-center text-muted py-4" style="font-size:.85rem;">Cargando…</div></div>
+            <div class="pag-bar" id="movPag" style="display:none;">
+              <button onclick="loadMovimientos(_movPage-1)" id="movPrev">← Anterior</button>
+              <span id="movPagInfo"></span>
+              <button onclick="loadMovimientos(_movPage+1)" id="movNext">Siguiente →</button>
             </div>
           </div>
+
+          <!-- Panel: Amarres -->
+          <div class="fn-panel" id="panel-amarres">
+            <div class="filter-bar">
+              <input type="date" id="amarFechaIni" placeholder="Desde">
+              <input type="date" id="amarFechaFin" placeholder="Hasta">
+              <button class="btn-filter" onclick="loadAmarres(1)">Buscar</button>
+            </div>
+            <div id="totalesAmar" class="totales-row" style="display:none;"></div>
+            <div id="amarZone"><div class="text-center text-muted py-4" style="font-size:.85rem;">Cargando…</div></div>
+            <div class="pag-bar" id="amarPag" style="display:none;">
+              <button onclick="loadAmarres(_amarPage-1)" id="amarPrev">← Anterior</button>
+              <span id="amarPagInfo"></span>
+              <button onclick="loadAmarres(_amarPage+1)" id="amarNext">Siguiente →</button>
+            </div>
+          </div>
+
         </div>
       </div>
+    </div>
 
-      <!-- Estado cierre formal -->
-      <div class="card border-0 shadow-sm">
-        <div class="card-body p-3">
-          <div class="d-flex justify-content-between align-items-center mb-2">
-            <div class="sec-title mb-0"><i class="bi bi-calendar-check"></i> Cierre Formal del Día</div>
-            <a href="{{ url_for('finanzas.auditoria') }}#cierre" class="btn btn-sm btn-outline-primary" style="font-size:.72rem;">
-              Ir al Cierre →
-            </a>
-          </div>
-          <div id="cierreZone">
-            <div class="text-center text-muted py-2" style="font-size:.8rem;">Cargando…</div>
-          </div>
-        </div>
-      </div>
-
-    </div><!-- /col right -->
-  </div><!-- /row -->
+  </div><!-- /main row -->
 
 </div><!-- /container -->
 {% endblock %}
 
 {% block scripts %}
 <script>
-const fmtN   = (n, d=2) => new Intl.NumberFormat('es-PE', {minimumFractionDigits:d, maximumFractionDigits:d}).format(n);
+// ── Formateadores ─────────────────────────────────────────────────────────────
+const fmtN   = (n, d=2) => new Intl.NumberFormat('es-PE', {minimumFractionDigits:d, maximumFractionDigits:d}).format(n ?? 0);
 const fmtUSD = n => `$ ${fmtN(n)}`;
 const fmtPEN = n => `S/ ${fmtN(n)}`;
-const fmtTC  = n => n > 0 ? fmtN(n, 4) : '—';
-const pm     = (n) => (n >= 0 ? '+' : '') + fmtPEN(n);
-const pu     = (n) => (n >= 0 ? '+' : '') + fmtUSD(n);
+const fmtTC  = n => (n && n > 0) ? fmtN(n, 4) : '—';
+const pm = n => (n >= 0 ? '+' : '') + fmtPEN(n);
+const pu = n => (n >= 0 ? '+' : '') + fmtUSD(n);
 
-let _period = 'hoy';
-let _snap   = null;
+// ── Estado global ─────────────────────────────────────────────────────────────
+let _snap     = null;
+let _movPage  = 1;
+let _amarPage = 1;
 
-function setPeriod(p, btn) {
-    _period = p;
-    document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+function switchTab(id, btn) {
+  document.querySelectorAll('.fn-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.fn-tab').forEach(b => b.classList.remove('active'));
+  document.getElementById('panel-' + id).classList.add('active');
+  btn.classList.add('active');
 
-    const labels = { hoy: 'hoy', mes: 'este mes' };
-    document.getElementById('periodLabel').textContent = 'Mostrando: ' + labels[p];
-    document.getElementById('utilCardLabel').textContent = 'Utilidad realizada — ' + (p === 'hoy' ? 'Hoy' : 'Este mes');
-    document.getElementById('utilPanelPeriodLabel').textContent = p === 'hoy' ? 'de Hoy' : 'del Mes';
-
-    if (_snap) {
-        renderUtilidad(_snap.profit, p);
-        const profit = p === 'hoy' ? _snap.profit.today : _snap.profit.month;
-        const el = document.getElementById('qaUtilidad');
-        el.textContent = fmtPEN(profit.total_pen);
-        el.className   = 'qa-value ' + (profit.total_pen >= 0 ? 'green' : 'red');
-        document.getElementById('qaUtilidadSub').textContent =
-            `${profit.match_count} amarre(s) · Casa: ${fmtPEN(profit.house_pen)}`;
-    }
+  // Lazy-load on first open
+  if (id === 'movimientos' && _movPage === 1) loadMovimientos(1);
+  if (id === 'amarres'     && _amarPage === 1) loadAmarres(1);
 }
 
-async function loadSnapshot() {
-    try {
-        const res = await fetch('/finanzas/api/snapshot');
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const d   = await res.json();
-        if (!d.ok) throw new Error(d.error || 'Error en snapshot');
-        _snap = d;
+// ── Dashboard principal ───────────────────────────────────────────────────────
+async function loadDashboard() {
+  try {
+    const res = await fetch('/finanzas/api/snapshot');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const d   = await res.json();
+    if (!d.ok) throw new Error(d.error || 'Error en snapshot');
+    _snap = d;
 
-        document.getElementById('tsLabel').textContent =
-            'Actualizado: ' + new Date(d.timestamp).toLocaleTimeString('es-PE');
+    // Header
+    const now = new Date();
+    document.getElementById('fnDate').textContent =
+      now.toLocaleDateString('es-PE', {weekday:'long', day:'numeric', month:'long', year:'numeric'});
+    document.getElementById('tsLabel').textContent =
+      'Actualizado: ' + now.toLocaleTimeString('es-PE', {hour:'2-digit', minute:'2-digit'});
 
-        renderAlertas(d.alerts || []);
+    renderAlertas(d.alerts || []);
+    renderKPIs(d);
+    renderCuadreStrip(d.cashflow);
+    renderSaldos(d.balances);
+    renderPosicion(d.position);
+    renderDiaBtn(d.cashflow);
 
-        // QA cards — saldos
-        const bal = d.balances;
-        document.getElementById('qaTotalUSD').textContent = fmtUSD(bal.total_usd);
-        document.getElementById('qaTotalPEN').textContent = fmtPEN(bal.total_pen);
-
-        // QA card — utilidad del período activo
-        const profit = _period === 'hoy' ? d.profit.today : d.profit.month;
-        const ptEl   = document.getElementById('qaUtilidad');
-        ptEl.textContent = fmtPEN(profit.total_pen);
-        ptEl.className   = 'qa-value ' + (profit.total_pen >= 0 ? 'green' : 'red');
-        document.getElementById('qaUtilidadSub').textContent =
-            `${profit.match_count} amarre(s) · Casa: ${fmtPEN(profit.house_pen)}`;
-
-        // QA card — posición
-        const pos = d.position;
-        document.getElementById('qaPosAbierta').textContent = fmtUSD(Math.abs(pos.neto_usd));
-        document.getElementById('qaPosSub').textContent =
-            `${pos.total_items} op(s) · C: ${fmtUSD(pos.total_compras_open)} / V: ${fmtUSD(pos.total_ventas_open)}`;
-
-        renderSaldos(bal.by_bank, bal.total_usd, bal.total_pen);
-        renderCuadre(d.cashflow);
-        renderPosicion(pos);
-        renderUtilidad(d.profit, _period);
-
-        const ops = d.daily_ops;
-        document.getElementById('opTotal').textContent   = ops.total_ops;
-        document.getElementById('opVol').textContent     = fmtUSD(ops.volume_usd);
-        document.getElementById('opTipos').textContent   =
-            `C: ${ops.compras_count}  V: ${ops.ventas_count}`;
-        document.getElementById('opTCBuy').textContent   = fmtTC(ops.avg_buy_rate);
-        document.getElementById('opTCSell').textContent  = fmtTC(ops.avg_sell_rate);
-
-        renderCierre(d.closure);
-
-    } catch(e) {
-        console.error('[Control]', e);
-        document.getElementById('alertsZone').innerHTML =
-            `<div class="fin-alert danger"><i class="bi bi-bug-fill"></i><span><strong>Error al cargar datos:</strong> ${e.message}</span></div>`;
-        document.getElementById('tsLabel').textContent = 'Error';
-    }
+  } catch(e) {
+    console.error('[Finanzas]', e);
+    document.getElementById('alertsZone').innerHTML =
+      `<div class="fn-alert danger"><i class="bi bi-bug-fill"></i><span><strong>Error al cargar:</strong> ${e.message}</span></div>`;
+    document.getElementById('tsLabel').textContent = 'Error';
+  }
 }
 
+// ── Alertas ────────────────────────────────────────────────────────────────────
 function renderAlertas(alerts) {
-    const z = document.getElementById('alertsZone');
-    if (!alerts.length) { z.innerHTML = ''; return; }
-    z.innerHTML = alerts.map(a =>
-        `<div class="fin-alert ${a.level}"><i class="bi bi-exclamation-circle-fill"></i><span>${a.msg}</span></div>`
-    ).join('');
+  const z = document.getElementById('alertsZone');
+  z.innerHTML = alerts.map(a =>
+    `<div class="fn-alert ${a.level}"><i class="bi bi-exclamation-circle-fill"></i><span>${a.msg}</span></div>`
+  ).join('');
 }
 
-function renderSaldos(byBank, totalUSD, totalPEN) {
-    const bankCls = {BCP:'bcp', INTERBANK:'interbank', BANBIF:'banbif'};
-    const order   = ['BCP','INTERBANK','BANBIF'];
-    let rows = '';
-    for (const bk of order) {
-        const bal = byBank[bk] || {USD:0, PEN:0};
-        rows += `
-        <tr>
-          <td rowspan="2"><span class="tag-bk ${bankCls[bk]}">${bk}</span></td>
-          <td><span class="tag-cur usd">USD</span></td>
-          <td class="text-end">${fmtUSD(bal.USD)}</td>
-        </tr>
-        <tr>
-          <td><span class="tag-cur pen">PEN</span></td>
-          <td class="text-end">${fmtPEN(bal.PEN)}</td>
-        </tr>`;
-    }
-    rows += `<tr>
-      <td colspan="2"><strong>Total</strong></td>
-      <td class="text-end">
-        <div>${fmtUSD(totalUSD)}</div>
-        <div>${fmtPEN(totalPEN)}</div>
-      </td>
+// ── KPIs ──────────────────────────────────────────────────────────────────────
+function renderKPIs(d) {
+  const bal  = d.balances;
+  const phy  = d.profit.today;
+  const phm  = d.profit.month;
+  const pos  = d.position;
+  const cf   = d.cashflow;
+
+  document.getElementById('kpiUSD').textContent = fmtUSD(bal.total_usd);
+  document.getElementById('kpiPEN').textContent = fmtPEN(bal.total_pen);
+
+  const uhEl  = document.getElementById('kpiUtilHoy');
+  uhEl.textContent = fmtPEN(phy.total_pen);
+  uhEl.className = 'kpi-value ' + (phy.total_pen >= 0 ? 'green' : 'red');
+  document.getElementById('kpiUtilHoySub').textContent = `${phy.match_count} amarre(s)`;
+
+  const umEl  = document.getElementById('kpiUtilMes');
+  umEl.textContent = fmtPEN(phm.total_pen);
+  umEl.className = 'kpi-value ' + (phm.total_pen >= 0 ? 'green' : 'red');
+  document.getElementById('kpiUtilMesSub').textContent = `${phm.match_count} amarre(s)`;
+
+  document.getElementById('kpiPos').textContent = fmtUSD(Math.abs(pos.neto_usd));
+  document.getElementById('kpiPosSub').textContent =
+    `C: ${fmtUSD(pos.total_compras_open)} / V: ${fmtUSD(pos.total_ventas_open)}`;
+
+  // Estado del día badge
+  const estEl = document.getElementById('kpiEstado');
+  if (!cf.has_opening) {
+    estEl.innerHTML = `<span class="dia-badge sin-apertura"><i class="bi bi-circle"></i> Sin apertura</span>`;
+  } else if (!cf.has_closing) {
+    estEl.innerHTML = `<span class="dia-badge abierto"><i class="bi bi-play-circle-fill"></i> En operación</span>`;
+  } else {
+    const estado = cf.estado_cuadre;
+    const cfg = {
+      cuadrado:  { cls:'cerrado',   icon:'bi-check-circle-fill', txt:'Cuadrado' },
+      excedente: { cls:'abierto',   icon:'bi-arrow-up-circle',   txt:'Excedente' },
+      faltante:  { cls:'pendiente', icon:'bi-exclamation-circle',txt:'Faltante' },
+    }[estado] || { cls:'cerrado', icon:'bi-check-circle-fill', txt:'Cerrado' };
+    estEl.innerHTML = `<span class="dia-badge ${cfg.cls}"><i class="bi ${cfg.icon}"></i> ${cfg.txt}</span>`;
+  }
+}
+
+// ── Botón apertura / cierre ───────────────────────────────────────────────────
+function renderDiaBtn(cf) {
+  const z = document.getElementById('diaBtn');
+  if (!cf.has_opening) {
+    z.innerHTML = `<button class="fn-btn-apertura" onclick="abrirApertura()">
+      <i class="bi bi-sunrise-fill"></i> Apertura del día
+    </button>`;
+  } else if (!cf.has_closing) {
+    z.innerHTML = `<button class="fn-btn-cierre" onclick="abrirCierre()">
+      <i class="bi bi-sunset-fill"></i> Cierre del día
+    </button>`;
+  } else {
+    const estado = cf.estado_cuadre;
+    const map = { cuadrado:'Cuadrado ✓', faltante:'Faltante ⚠', excedente:'Excedente ⚠' };
+    z.innerHTML = `<span class="fn-btn-ghost" style="cursor:default;opacity:.7;">
+      <i class="bi bi-check-circle-fill" style="color:#86efac;"></i> ${map[estado] || 'Día cerrado'}
+    </span>`;
+  }
+}
+
+// ── Cuadre strip ──────────────────────────────────────────────────────────────
+function renderCuadreStrip(cf) {
+  const el = document.getElementById('cuadreStrip');
+  if (!cf || !cf.has_opening) { el.style.display = 'none'; return; }
+
+  const diffClass = cf.has_closing
+    ? (Math.abs(cf.diff_usd||0) < 0.02 && Math.abs(cf.diff_pen||0) < 0.02 ? 'ok' : '')
+    : '';
+
+  const ESTADO = {
+    cuadrado:  { cls:'cuadrado',  icon:'bi-check-circle-fill', txt:'Cuadrado' },
+    excedente: { cls:'excedente', icon:'bi-arrow-up-circle',   txt:'Excedente' },
+    faltante:  { cls:'faltante',  icon:'bi-exclamation-circle',txt:'Faltante' },
+    pendiente: { cls:'pendiente', icon:'bi-clock',             txt:'Pendiente' },
+  };
+  const es = ESTADO[cf.estado_cuadre] || ESTADO.pendiente;
+
+  const finHtml = cf.has_closing
+    ? `<span class="cs-arrow">→</span>
+       <div class="cs-block fin">
+         <span class="cs-label">Final</span>
+         <span class="cs-usd">${fmtUSD(cf.total_fin_usd)}</span>
+         <span class="cs-pen">${fmtPEN(cf.total_fin_pen)}</span>
+       </div>
+       <div class="cs-divider"></div>
+       <div class="cs-block diff ${diffClass}">
+         <span class="cs-label">Diferencia</span>
+         <span class="cs-usd">${pu(cf.diff_usd||0)}</span>
+         <span class="cs-pen">${pm(cf.diff_pen||0)}</span>
+       </div>
+       <div class="cs-divider"></div>
+       <div style="align-self:center;padding:0 8px;">
+         <span class="cuadre-badge-sm ${es.cls}"><i class="bi ${es.icon}"></i> ${es.txt}</span>
+       </div>` : `
+       <div style="align-self:center;padding:0 12px;">
+         <span class="cuadre-badge-sm pendiente"><i class="bi bi-clock"></i> Cierre pendiente</span>
+         <button class="fn-btn-cierre" style="margin-left:8px;padding:4px 10px;font-size:.7rem;" onclick="abrirCierre()">
+           <i class="bi bi-sunset-fill"></i> Cerrar día
+         </button>
+       </div>`;
+
+  const ingNote = (cf.total_ing_usd + cf.total_ing_pen === 0)
+    ? `<span style="font-size:.6rem;color:#94A3B8;"> (sin movs.)</span>` : '';
+
+  el.style.display = 'flex';
+  el.innerHTML = `
+    <div class="cs-block">
+      <span class="cs-label">Saldo Inicial</span>
+      <span class="cs-usd">${fmtUSD(cf.total_ini_usd)}</span>
+      <span class="cs-pen">${fmtPEN(cf.total_ini_pen)}</span>
+    </div>
+    <span class="cs-arrow">+</span>
+    <div class="cs-block">
+      <span class="cs-label">Ingresos${ingNote}</span>
+      <span class="cs-usd" style="color:var(--green);">+${fmtUSD(cf.total_ing_usd)}</span>
+      <span class="cs-pen" style="color:var(--green);">+${fmtPEN(cf.total_ing_pen)}</span>
+    </div>
+    <span class="cs-arrow">−</span>
+    <div class="cs-block">
+      <span class="cs-label">Egresos</span>
+      <span class="cs-usd" style="color:var(--red);">${fmtUSD(cf.total_egr_usd)}</span>
+      <span class="cs-pen" style="color:var(--red);">${fmtPEN(cf.total_egr_pen)}</span>
+    </div>
+    <span class="cs-arrow">=</span>
+    <div class="cs-block teo">
+      <span class="cs-label">Teórico</span>
+      <span class="cs-usd">${fmtUSD(cf.total_teo_usd)}</span>
+      <span class="cs-pen">${fmtPEN(cf.total_teo_pen)}</span>
+    </div>
+    ${finHtml}`;
+}
+
+// ── Saldos ────────────────────────────────────────────────────────────────────
+function renderSaldos(bal) {
+  const byCls = {BCP:'bcp', INTERBANK:'interbank', BANBIF:'banbif'};
+  let rows = '';
+  let totUSD = 0, totPEN = 0;
+  for (const bk of ['BCP','INTERBANK','BANBIF']) {
+    const b = bal.by_bank[bk] || {USD:0,PEN:0};
+    totUSD += b.USD; totPEN += b.PEN;
+    rows += `
+    <tr>
+      <td rowspan="2"><span class="tag-bk ${byCls[bk]}">${bk}</span></td>
+      <td><span class="tag-cur usd">USD</span></td>
+      <td class="text-end">${fmtUSD(b.USD)}</td>
+    </tr>
+    <tr>
+      <td><span class="tag-cur pen">PEN</span></td>
+      <td class="text-end">${fmtPEN(b.PEN)}</td>
     </tr>`;
-    document.getElementById('saldosBody').innerHTML = rows;
+  }
+  rows += `<tr class="total-row">
+    <td colspan="2"><strong>Total</strong></td>
+    <td class="text-end">
+      <div>${fmtUSD(bal.total_usd)}</div>
+      <div>${fmtPEN(bal.total_pen)}</div>
+    </td>
+  </tr>`;
+  document.getElementById('saldosTbody').innerHTML = rows;
 }
 
-function renderCuadre(cf) {
-    const z = document.getElementById('cuadreZone');
-    if (!cf) {
-        z.innerHTML = '<div class="text-muted" style="font-size:.8rem;">Sin datos de caja</div>';
-        return;
-    }
-
-    const hasOpen = cf.has_opening;
-    const hasClose = cf.has_closing;
-
-    if (!hasOpen) {
-        z.innerHTML = `
-        <div style="background:#f8fafc;border-radius:8px;padding:12px;font-size:.83rem;color:#64748b;">
-          <i class="bi bi-info-circle me-2"></i>Apertura no registrada.
-          <a href="/finanzas/auditoria/" style="color:#2563eb;font-weight:700;text-decoration:none;"> Registrar apertura →</a>
-        </div>`;
-        return;
-    }
-
-    const ingNote = (cf.total_ing_usd + cf.total_ing_pen === 0)
-        ? ' <span style="font-size:.7rem;color:#94A3B8;">(sin movimientos aún)</span>' : '';
-
-    // Estado cuadre badge
-    const ESTADO = {
-        cuadrado:  { cls:'cuadrado',  icon:'bi-check-circle-fill', txt:'Cuadrado' },
-        excedente: { cls:'excedente', icon:'bi-arrow-up-circle-fill', txt:'Excedente' },
-        faltante:  { cls:'faltante',  icon:'bi-exclamation-circle-fill', txt:'Faltante' },
-        pendiente: { cls:'pendiente', icon:'bi-clock', txt:'Esperando cierre final' },
-    };
-    const es = ESTADO[cf.estado_cuadre] || ESTADO.pendiente;
-
-    const diffHtml = hasClose
-        ? `<div class="cuadre-row total">
-            <span class="cuadre-lbl">Diferencia (real − teórico)</span>
-            <div>
-              <div class="cuadre-val ${cf.diff_usd > 0.01 ? 'diff exceso' : cf.diff_usd < -0.01 ? 'diff warn' : 'diff ok'}">${pu(cf.diff_usd || 0)}</div>
-              <div class="cuadre-val ${cf.diff_pen > 0.01 ? 'diff exceso' : cf.diff_pen < -0.01 ? 'diff warn' : 'diff ok'}">${pm(cf.diff_pen || 0)}</div>
-            </div>
-          </div>` : '';
-
-    z.innerHTML = `
-    <div style="font-size:.8rem;">
-      <div class="cuadre-row">
-        <span class="cuadre-lbl">Saldo inicial</span>
-        <div>
-          <div class="cuadre-val">${fmtUSD(cf.total_ini_usd)}</div>
-          <div class="cuadre-val">${fmtPEN(cf.total_ini_pen)}</div>
-        </div>
-      </div>
-      <div class="cuadre-row">
-        <span class="cuadre-lbl">+ Ingresos del día${ingNote}</span>
-        <div>
-          <div class="cuadre-val ing">+${fmtUSD(cf.total_ing_usd)}</div>
-          <div class="cuadre-val ing">+${fmtPEN(cf.total_ing_pen)}</div>
-        </div>
-      </div>
-      <div class="cuadre-row">
-        <span class="cuadre-lbl">− Egresos del día</span>
-        <div>
-          <div class="cuadre-val egr">−${fmtUSD(cf.total_egr_usd)}</div>
-          <div class="cuadre-val egr">−${fmtPEN(cf.total_egr_pen)}</div>
-        </div>
-      </div>
-      <div class="cuadre-row">
-        <span class="cuadre-lbl" style="font-weight:700;color:#0D1B2A;">= Saldo Teórico</span>
-        <div>
-          <div class="cuadre-val teo">${fmtUSD(cf.total_teo_usd)}</div>
-          <div class="cuadre-val teo">${fmtPEN(cf.total_teo_pen)}</div>
-        </div>
-      </div>
-      ${hasClose ? `<div class="cuadre-row">
-        <span class="cuadre-lbl" style="font-weight:700;color:#0D1B2A;">Saldo Final (real)</span>
-        <div>
-          <div class="cuadre-val">${fmtUSD(cf.total_fin_usd)}</div>
-          <div class="cuadre-val">${fmtPEN(cf.total_fin_pen)}</div>
-        </div>
-      </div>` : ''}
-      ${diffHtml}
-      <div style="text-align:center;margin-top:10px;">
-        <span class="cuadre-badge ${es.cls}">
-          <i class="bi ${es.icon}"></i> ${es.txt}
-        </span>
-      </div>
-    </div>`;
-}
-
+// ── Posición ──────────────────────────────────────────────────────────────────
 function renderPosicion(pos) {
-    const z = document.getElementById('posicionZone');
-    if (!pos.items.length) {
-        z.innerHTML = '<div style="text-align:center;color:#16a34a;font-size:.85rem;padding:12px;"><i class="bi bi-check-circle-fill"></i> Sin posición abierta</div>';
-        return;
-    }
-    const rows = pos.items.map(p => {
-        const ageBadge = p.is_aged
-            ? `<span class="aged-badge">⚠ ${p.days_open}d</span>`
-            : `<span class="ok-badge">${p.days_open}d</span>`;
-        const typeCls = p.type === 'Compra' ? 'color:#2563eb;' : 'color:#7c3aed;';
-        const tcStr   = p.exchange_rate ? p.exchange_rate.toFixed(4) : '—';
-        return `<tr>
-          <td><a href="/operations/${p.id}" style="color:#0D1B2A;font-weight:700;text-decoration:none;">${p.operation_id}</a></td>
-          <td><span style="${typeCls}font-weight:700;">${p.type}</span></td>
-          <td style="max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.client}</td>
-          <td class="text-end" style="font-size:.8rem;">${tcStr}</td>
-          <td class="text-end">${fmtUSD(p.open_usd)}</td>
-          <td class="text-end">${ageBadge}</td>
-        </tr>`;
-    }).join('');
+  const z = document.getElementById('posicionZone');
+  if (!pos.items.length) {
+    z.innerHTML = `<div style="text-align:center;color:var(--green);font-size:.85rem;padding:24px;">
+      <i class="bi bi-check-circle-fill" style="font-size:1.4rem;"></i>
+      <div style="margin-top:6px;font-weight:700;">Sin posición abierta</div>
+      <div style="font-size:.75rem;color:var(--muted);">Todas las operaciones están amarradas</div>
+    </div>`;
+    return;
+  }
 
-    const neto = pos.neto_usd;
-    const netoColor = neto > 0 ? '#d97706' : neto < 0 ? '#7c3aed' : '#16a34a';
-    const netoLabel = neto > 0 ? 'Compra neta' : neto < 0 ? 'Venta neta' : 'Balanceado';
+  const rows = pos.items.map(p => {
+    const badge = p.is_aged
+      ? `<span class="aged-badge">⚠ ${p.days_open}d</span>`
+      : `<span class="ok-badge">${p.days_open}d</span>`;
+    const typeCss = p.type==='Compra' ? 'color:var(--blue);' : 'color:#7c3aed;';
+    return `<tr>
+      <td><a href="/operations/${p.id}" style="color:var(--navy);font-weight:700;text-decoration:none;font-size:.8rem;">${p.operation_id}</a></td>
+      <td><span style="${typeCss}font-weight:700;font-size:.8rem;">${p.type}</span></td>
+      <td style="font-size:.78rem;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.client}</td>
+      <td class="text-end" style="font-size:.78rem;">${fmtTC(p.exchange_rate)}</td>
+      <td class="text-end" style="font-weight:700;font-size:.8rem;">${fmtUSD(p.open_usd)}</td>
+      <td class="text-end">${badge}</td>
+    </tr>`;
+  }).join('');
 
-    z.innerHTML = `
-    <table class="pos-table">
+  const neto = pos.neto_usd;
+  const netoLbl = neto > 0 ? 'Compra neta' : neto < 0 ? 'Venta neta' : 'Balanceado';
+  const netoClr = neto > 0 ? 'var(--amber)' : neto < 0 ? '#7c3aed' : 'var(--green)';
+
+  z.innerHTML = `
+  <div style="overflow-x:auto;">
+    <table class="pos-tbl">
       <thead><tr>
         <th>Operación</th><th>Tipo</th><th>Cliente</th>
-        <th class="text-end">TC</th>
-        <th class="text-end">USD Abierto</th><th class="text-end">Días</th>
+        <th class="text-end">TC</th><th class="text-end">USD Abierto</th><th class="text-end">Días</th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>
-    <div class="d-flex justify-content-between align-items-center mt-2 pt-2" style="border-top:1px solid #f1f5f9;font-size:.82rem;">
-      <span style="color:#64748b;">${pos.total_items} posición(es) — ${netoLabel}</span>
-      <strong style="color:${netoColor};">${fmtUSD(Math.abs(neto))} neto</strong>
-    </div>`;
+  </div>
+  <div class="d-flex justify-content-between align-items-center mt-2 pt-2" style="border-top:1px solid #f1f5f9;font-size:.8rem;">
+    <span style="color:var(--muted);">${pos.total_items} posición(es) · ${netoLbl}</span>
+    <strong style="color:${netoClr};">${fmtUSD(Math.abs(neto))} neto</strong>
+  </div>`;
 }
 
-function renderUtilidad(profit, period) {
-    const p    = period === 'mes' ? profit.month : profit.today;
-    const pOld = period === 'mes' ? profit.today : null;
-    const pLbl = period === 'mes' ? 'del mes' : 'de hoy';
+// ── Movimientos ───────────────────────────────────────────────────────────────
+async function loadMovimientos(page) {
+  _movPage = page;
+  const banco  = document.getElementById('movBanco').value;
+  const moneda = document.getElementById('movMoneda').value;
+  const fi     = document.getElementById('movFechaIni').value;
+  const ff     = document.getElementById('movFechaFin').value;
 
-    let html = `
-    <div class="cuadre-row">
-      <span class="cuadre-lbl">Utilidad bruta ${pLbl}</span>
-      <span class="cuadre-val ${p.total_pen >= 0 ? 'ing' : 'egr'}">${fmtPEN(p.total_pen)}</span>
-    </div>
-    <div class="cuadre-row">
-      <span class="cuadre-lbl" style="padding-left:12px;">↳ Casa (QoriCash)</span>
-      <span class="cuadre-val ing">${fmtPEN(p.house_pen)}</span>
-    </div>
-    <div class="cuadre-row">
-      <span class="cuadre-lbl" style="padding-left:12px;">↳ Traders</span>
-      <span class="cuadre-val">${fmtPEN(p.trader_total_pen)}</span>
-    </div>
-    <div class="cuadre-row" style="margin-top:4px;">
-      <span class="cuadre-lbl">${p.match_count} amarre(s)</span>
-      <span style="font-size:.7rem;color:#94A3B8;">Casa: ${fmtPEN(p.house_pen)}</span>
-    </div>`;
+  const params = new URLSearchParams({page, per_page:30});
+  if (banco)  params.set('banco', banco);
+  if (moneda) params.set('moneda', moneda);
+  if (fi)     params.set('fecha_ini', fi);
+  if (ff)     params.set('fecha_fin', ff);
 
-    if (pOld && period === 'mes') {
-        html += `<div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:.78rem;color:#64748b;">
-          Hoy: <strong>${fmtPEN(pOld.total_pen)}</strong> · ${pOld.match_count} amarre(s)
-        </div>`;
+  const z = document.getElementById('movZone');
+  z.innerHTML = '<div class="text-center text-muted py-4" style="font-size:.82rem;">Cargando…</div>';
+
+  try {
+    const res  = await fetch('/finanzas/api/movimientos?' + params);
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error);
+
+    if (!data.movimientos.length) {
+      z.innerHTML = '<div class="text-center text-muted py-4" style="font-size:.82rem;">Sin movimientos en el período seleccionado</div>';
+      document.getElementById('movPag').style.display = 'none';
+      return;
     }
 
-    document.getElementById('utilZone').innerHTML = html;
-}
+    const TYPE_LABELS = {
+      op_entrada:'Op. Entrada', op_salida:'Op. Salida',
+      ajuste_entrada:'Ajuste +', ajuste_salida:'Ajuste −',
+      transfer_entrada:'Transfer +', transfer_salida:'Transfer −',
+      gasto:'Gasto', saldo_inicial:'Saldo inicial',
+    };
 
-function renderCierre(closure) {
-    const z = document.getElementById('cierreZone');
-    if (closure.requires_closure) {
-        const d = closure.missing_days;
-        z.innerHTML = `
-        <div style="background:#fef2f2;border-radius:8px;padding:10px 13px;">
-          <div style="font-size:.8rem;font-weight:700;color:#991b1b;margin-bottom:2px;">
-            <i class="bi bi-exclamation-octagon-fill me-1"></i>${d} día(s) sin cierre validado
-          </div>
-          <div style="font-size:.75rem;color:#b91c1c;margin-bottom:8px;">El cierre diario es obligatorio para conciliar saldos.</div>
-          <a href="/finanzas/auditoria/" class="btn btn-sm" style="background:#dc2626;color:#fff;font-size:.72rem;">
-            Realizar Cierre
-          </a>
-        </div>`;
-        return;
-    }
-    if (closure.today_closure) {
-        const c  = closure.today_closure;
-        const cl = c.is_validated ? 'ok' : 'partial';
-        const lb = c.is_validated ? 'Validado' : 'Borrador';
-        const ic = c.is_validated ? 'bi-check-circle-fill' : 'bi-clock-fill';
-        z.innerHTML = `
-        <div class="d-flex justify-content-between align-items-center">
-          <div>
-            <span class="cierre-badge ${cl}"><i class="bi ${ic}"></i> ${lb}</span>
-            <div style="font-size:.72rem;color:#64748b;margin-top:4px;">
-              ${c.operations_completed} op(s) · ${fmtUSD(c.total_volume_usd)} volumen
-              ${c.has_discrepancies ? '<span style="color:#dc2626;font-weight:700;"> · ⚠ Diferencias</span>' : ''}
-            </div>
-          </div>
-          <div style="text-align:right;">
-            <div style="font-weight:800;color:${c.net_profit_pen >= 0 ? '#16a34a' : '#dc2626'};font-size:.9rem;">${fmtPEN(c.net_profit_pen)}</div>
-            <div style="font-size:.68rem;color:#94A3B8;">P&L calculado</div>
-          </div>
-        </div>`;
-        return;
-    }
-    z.innerHTML = `
-    <div class="d-flex justify-content-between align-items-center">
-      <div>
-        <span class="cierre-badge pending"><i class="bi bi-circle"></i> Sin cierre hoy</span>
-        ${closure.last_date ? `<div style="font-size:.72rem;color:#64748b;margin-top:4px;">Último validado: ${closure.last_date}</div>` : ''}
-      </div>
-      <a href="/finanzas/auditoria/" style="font-size:.75rem;color:#3b82f6;text-decoration:none;">Cerrar día →</a>
-    </div>`;
-}
-
-loadSnapshot();
-
-// ── Modal Editar Saldos ────────────────────────────────────────────────────
-function abrirModalSaldos() {
-    const snap = _snap;
-    const accounts = snap ? (snap.balances.accounts || []) : [];
-
-    const byBank = {};
-    for (const a of accounts) {
-        if (!byBank[a.bank]) byBank[a.bank] = {};
-        byBank[a.bank][a.currency] = { balance: a.balance, account_name: a.account_name };
-    }
-
-    const banks = [
-        { key: 'BCP',       name: 'BCP' },
-        { key: 'INTERBANK', name: 'Interbank' },
-        { key: 'BANBIF',    name: 'BANBIF' },
-    ];
-    const rows = banks.map(b => {
-        const usdData = (byBank[b.key] || {}).USD || { balance: 0, account_name: '' };
-        const penData = (byBank[b.key] || {}).PEN || { balance: 0, account_name: '' };
-        return `
-        <tr>
-          <td style="font-weight:700;font-size:.85rem;vertical-align:middle;">${b.name}</td>
-          <td>
-            <div class="input-group input-group-sm">
-              <span class="input-group-text" style="font-size:.75rem;">$</span>
-              <input type="number" step="0.01" min="0" class="form-control"
-                     id="saldo_${b.key}_USD" data-account="${usdData.account_name}"
-                     value="${usdData.balance.toFixed(2)}" placeholder="0.00">
-            </div>
-          </td>
-          <td>
-            <div class="input-group input-group-sm">
-              <span class="input-group-text" style="font-size:.75rem;">S/</span>
-              <input type="number" step="0.01" min="0" class="form-control"
-                     id="saldo_${b.key}_PEN" data-account="${penData.account_name}"
-                     value="${penData.balance.toFixed(2)}" placeholder="0.00">
-            </div>
-          </td>
-        </tr>`;
+    const rows = data.movimientos.map(m => {
+      const isPos   = m.amount >= 0;
+      const amtCls  = isPos ? 'tipo-entrada' : 'tipo-salida';
+      const amtTxt  = (isPos ? '+' : '') + (m.currency === 'USD' ? fmtUSD(Math.abs(m.amount)) : fmtPEN(Math.abs(m.amount)));
+      const bkCls   = {BCP:'bcp', INTERBANK:'interbank', BANBIF:'banbif'}[m.bank_key] || 'bcp';
+      const fecha   = (m.movement_date || '').slice(0,10);
+      return `<tr>
+        <td style="font-size:.74rem;color:var(--muted);">${fecha}</td>
+        <td><span class="tag-bk ${bkCls}">${m.bank_key}</span></td>
+        <td><span class="tag-cur ${m.currency.toLowerCase()}">${m.currency}</span></td>
+        <td style="font-size:.74rem;color:var(--muted);">${TYPE_LABELS[m.movement_type] || m.movement_type}</td>
+        <td class="text-end ${amtCls}">${amtTxt}</td>
+        <td style="font-size:.72rem;color:var(--muted);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${m.description||''}">${m.description || '—'}</td>
+      </tr>`;
     }).join('');
 
-    document.body.insertAdjacentHTML('beforeend', `
-    <div id="modalSaldosOverlay" style="position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;">
-      <div style="background:#fff;border-radius:14px;padding:24px;width:100%;max-width:480px;box-shadow:0 20px 60px rgba(0,0,0,.25);">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-          <h6 style="margin:0;font-weight:800;color:#0D1B2A;font-size:1rem;"><i class="bi bi-bank2 me-2 text-primary"></i>Editar Saldos Bancarios</h6>
-          <button onclick="cerrarModalSaldos()" style="background:none;border:none;font-size:1.2rem;color:#94a3b8;cursor:pointer;">&times;</button>
-        </div>
-        <table style="width:100%;border-collapse:collapse;">
-          <thead>
-            <tr style="font-size:.68rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;">
-              <th style="padding:4px 6px;">Banco</th>
-              <th style="padding:4px 6px;">USD</th>
-              <th style="padding:4px 6px;">PEN</th>
-            </tr>
-          </thead>
-          <tbody>${rows}</tbody>
-        </table>
-        <div id="saldosMsgZone" style="min-height:20px;margin-top:10px;font-size:.78rem;"></div>
-        <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end;">
-          <button onclick="cerrarModalSaldos()" class="btn btn-sm btn-outline-secondary">Cancelar</button>
-          <button onclick="guardarSaldos()" class="btn btn-sm btn-primary" id="btnGuardarSaldos">
-            <i class="bi bi-check-lg"></i> Guardar
-          </button>
-        </div>
+    z.innerHTML = `<div style="overflow-x:auto;">
+      <table class="mov-tbl">
+        <thead><tr><th>Fecha</th><th>Banco</th><th>Mon.</th><th>Tipo</th><th class="text-end">Monto</th><th>Descripción</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+
+    // Paginación
+    const pag = document.getElementById('movPag');
+    pag.style.display = data.pages > 1 ? 'flex' : 'none';
+    document.getElementById('movPagInfo').textContent = `Pág ${data.page} de ${data.pages} (${data.total} registros)`;
+    document.getElementById('movPrev').disabled = data.page <= 1;
+    document.getElementById('movNext').disabled = data.page >= data.pages;
+
+  } catch(e) {
+    z.innerHTML = `<div class="text-danger py-3" style="font-size:.82rem;">Error: ${e.message}</div>`;
+  }
+}
+
+// ── Amarres ───────────────────────────────────────────────────────────────────
+async function loadAmarres(page) {
+  _amarPage = page;
+  const fi = document.getElementById('amarFechaIni').value;
+  const ff = document.getElementById('amarFechaFin').value;
+
+  const params = new URLSearchParams({page, per_page:30, status:'Activo'});
+  if (fi) params.set('fecha_ini', fi);
+  if (ff) params.set('fecha_fin', ff);
+
+  const z = document.getElementById('amarZone');
+  z.innerHTML = '<div class="text-center text-muted py-4" style="font-size:.82rem;">Cargando…</div>';
+
+  try {
+    const res  = await fetch('/finanzas/api/amarres?' + params);
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error);
+
+    // Totales
+    const totEl = document.getElementById('totalesAmar');
+    if (data.totales) {
+      totEl.style.display = 'flex';
+      totEl.innerHTML = `
+        <span>USD amarrado: <strong>${fmtUSD(data.totales.matched_usd)}</strong></span>
+        <span>Utilidad total: <strong class="profit">${fmtPEN(data.totales.profit_pen)}</strong></span>
+        <span>Casa: <strong class="profit">${fmtPEN(data.totales.house_pen)}</strong></span>
+        <span>${data.total} amarre(s)</span>`;
+    }
+
+    if (!data.items.length) {
+      z.innerHTML = '<div class="text-center text-muted py-4" style="font-size:.82rem;">Sin amarres en el período seleccionado</div>';
+      document.getElementById('amarPag').style.display = 'none';
+      return;
+    }
+
+    const rows = data.items.map(m => {
+      const profCls = m.profit_pen >= 0 ? 'tipo-entrada' : 'tipo-salida';
+      const fecha   = (m.created_at || '').slice(0,10);
+      return `<tr>
+        <td style="font-size:.74rem;color:var(--muted);">${fecha}</td>
+        <td style="font-size:.8rem;">
+          <div style="font-weight:700;color:var(--blue);">${m.buy_op_id || '—'}</div>
+          <div style="font-size:.71rem;color:var(--muted);">${m.buy_client}</div>
+        </td>
+        <td class="text-center" style="font-size:.75rem;color:var(--muted);">${fmtTC(m.buy_tc)}</td>
+        <td style="font-size:.8rem;">
+          <div style="font-weight:700;color:#7c3aed;">${m.sell_op_id || '—'}</div>
+          <div style="font-size:.71rem;color:var(--muted);">${m.sell_client}</div>
+        </td>
+        <td class="text-center" style="font-size:.75rem;color:var(--muted);">${fmtTC(m.sell_tc)}</td>
+        <td class="text-end" style="font-weight:700;">${fmtUSD(m.matched_usd)}</td>
+        <td class="text-end ${profCls}" style="font-weight:800;">${fmtPEN(m.profit_pen)}</td>
+      </tr>`;
+    }).join('');
+
+    z.innerHTML = `<div style="overflow-x:auto;">
+      <table class="amar-tbl">
+        <thead><tr>
+          <th>Fecha</th>
+          <th>Compra</th><th class="text-center">TC C</th>
+          <th>Venta</th><th class="text-center">TC V</th>
+          <th class="text-end">USD</th><th class="text-end">Utilidad</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+
+    const pag = document.getElementById('amarPag');
+    pag.style.display = data.pages > 1 ? 'flex' : 'none';
+    document.getElementById('amarPagInfo').textContent = `Pág ${data.page} de ${data.pages} (${data.total} registros)`;
+    document.getElementById('amarPrev').disabled = data.page <= 1;
+    document.getElementById('amarNext').disabled = data.page >= data.pages;
+
+  } catch(e) {
+    z.innerHTML = `<div class="text-danger py-3" style="font-size:.82rem;">Error: ${e.message}</div>`;
+  }
+}
+
+// ── Modal Apertura ────────────────────────────────────────────────────────────
+function abrirApertura() {
+  const bal = _snap?.balances;
+  const usdDef = bal ? bal.total_usd.toFixed(2) : '0.00';
+  const penDef = bal ? bal.total_pen.toFixed(2) : '0.00';
+
+  _modal(`
+    <h6><i class="bi bi-sunrise-fill me-2" style="color:#16a34a;"></i>Apertura del Día</h6>
+    <div class="fn-modal-info">
+      <div class="row-info"><span class="lbl">Saldos actuales en sistema</span></div>
+      <div class="row-info"><span class="lbl">USD:</span><span class="val">${fmtUSD(bal?.total_usd||0)}</span></div>
+      <div class="row-info"><span class="lbl">PEN:</span><span class="val">${fmtPEN(bal?.total_pen||0)}</span></div>
+    </div>
+    <div class="fn-input-group">
+      <label>Saldo inicial USD (contado físicamente)</label>
+      <input type="number" id="apUSD" step="0.01" min="0" value="${usdDef}" placeholder="0.00">
+    </div>
+    <div class="fn-input-group">
+      <label>Saldo inicial PEN (contado físicamente)</label>
+      <input type="number" id="apPEN" step="0.01" min="0" value="${penDef}" placeholder="0.00">
+    </div>
+    <div class="fn-modal-msg" id="apMsg"></div>
+    <div class="fn-modal-actions">
+      <button class="btn-cancel" onclick="_closeModal()">Cancelar</button>
+      <button class="btn-confirm" onclick="_confirmarApertura()"><i class="bi bi-check-lg me-1"></i>Confirmar Apertura</button>
+    </div>
+  `);
+  setTimeout(() => document.getElementById('apUSD')?.focus(), 50);
+}
+
+async function _confirmarApertura() {
+  const usd = parseFloat(document.getElementById('apUSD').value);
+  const pen = parseFloat(document.getElementById('apPEN').value);
+  const msg = document.getElementById('apMsg');
+  if (isNaN(usd) || isNaN(pen) || usd < 0 || pen < 0) {
+    msg.innerHTML = '<span style="color:var(--red);">Ingresa valores válidos.</span>';
+    return;
+  }
+  msg.innerHTML = '<span style="color:var(--muted);">Guardando…</span>';
+  try {
+    const res  = await fetch('/finanzas/api/dia/apertura', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({usd, pen})
+    });
+    const data = await res.json();
+    if (!data.ok) { msg.innerHTML = `<span style="color:var(--red);">${data.error}</span>`; return; }
+    msg.innerHTML = `<span style="color:var(--green);font-weight:700;">✓ ${data.message}</span>`;
+    setTimeout(() => { _closeModal(); loadDashboard(); }, 800);
+  } catch(e) {
+    msg.innerHTML = `<span style="color:var(--red);">Error: ${e.message}</span>`;
+  }
+}
+
+// ── Modal Cierre ──────────────────────────────────────────────────────────────
+function abrirCierre() {
+  const cf  = _snap?.cashflow;
+  const bal = _snap?.balances;
+  const usdDef = bal ? bal.total_usd.toFixed(2) : '0.00';
+  const penDef = bal ? bal.total_pen.toFixed(2) : '0.00';
+
+  const teorico = cf ? `
+    <div class="fn-modal-info">
+      <div class="row-info" style="margin-bottom:4px;"><span class="lbl" style="font-weight:700;color:var(--navy);">Cuadre calculado</span></div>
+      <div class="row-info"><span class="lbl">Inicial USD:</span><span class="val">${fmtUSD(cf.total_ini_usd)}</span></div>
+      <div class="row-info"><span class="lbl">Inicial PEN:</span><span class="val">${fmtPEN(cf.total_ini_pen)}</span></div>
+      <div class="row-info" style="border-top:1px solid var(--bdr);margin-top:4px;padding-top:4px;">
+        <span class="lbl">Teórico USD:</span><span class="val" style="color:var(--blue);">${fmtUSD(cf.total_teo_usd)}</span>
       </div>
-    </div>`);
+      <div class="row-info"><span class="lbl">Teórico PEN:</span><span class="val" style="color:var(--blue);">${fmtPEN(cf.total_teo_pen)}</span></div>
+    </div>` : '';
+
+  _modal(`
+    <h6><i class="bi bi-sunset-fill me-2" style="color:#f59e0b;"></i>Cierre del Día</h6>
+    ${teorico}
+    <div class="fn-input-group">
+      <label>Saldo final USD (contado físicamente)</label>
+      <input type="number" id="clUSD" step="0.01" min="0" value="${usdDef}" placeholder="0.00">
+    </div>
+    <div class="fn-input-group">
+      <label>Saldo final PEN (contado físicamente)</label>
+      <input type="number" id="clPEN" step="0.01" min="0" value="${penDef}" placeholder="0.00">
+    </div>
+    <div class="fn-modal-msg" id="clMsg"></div>
+    <div class="fn-modal-actions">
+      <button class="btn-cancel" onclick="_closeModal()">Cancelar</button>
+      <button class="btn-confirm" onclick="_confirmarCierre()"><i class="bi bi-check-lg me-1"></i>Confirmar Cierre</button>
+    </div>
+  `);
+  setTimeout(() => document.getElementById('clUSD')?.focus(), 50);
 }
 
-function cerrarModalSaldos() {
-    document.getElementById('modalSaldosOverlay')?.remove();
-}
-
-async function guardarSaldos() {
-    const banks = ['BCP', 'INTERBANK', 'BANBIF'];
-    const currencies = ['USD', 'PEN'];
-    const btn = document.getElementById('btnGuardarSaldos');
-    const msg = document.getElementById('saldosMsgZone');
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Guardando…';
-    const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
-
-    const tasks = [];
-    for (const bk of banks) {
-        for (const cur of currencies) {
-            const input = document.getElementById(`saldo_${bk}_${cur}`);
-            const val   = parseFloat(input.value);
-            const acct  = input.dataset.account;
-            if (isNaN(val) || val < 0) {
-                msg.innerHTML = `<span style="color:#dc2626;">Valor inválido en ${bk} ${cur}</span>`;
-                btn.disabled = false;
-                btn.innerHTML = '<i class="bi bi-check-lg"></i> Guardar';
-                return;
-            }
-            if (!acct) continue;
-            tasks.push(fetch('/finanzas/api/saldo/corregir', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
-                body: JSON.stringify({ bank_name: acct, currency: cur, amount: val, motivo: 'Corrección manual desde Control Financiero' })
-            }).then(r => r.json()));
-        }
+async function _confirmarCierre() {
+  const usd = parseFloat(document.getElementById('clUSD').value);
+  const pen = parseFloat(document.getElementById('clPEN').value);
+  const msg = document.getElementById('clMsg');
+  if (isNaN(usd) || isNaN(pen) || usd < 0 || pen < 0) {
+    msg.innerHTML = '<span style="color:var(--red);">Ingresa valores válidos.</span>';
+    return;
+  }
+  msg.innerHTML = '<span style="color:var(--muted);">Guardando…</span>';
+  try {
+    const res  = await fetch('/finanzas/api/dia/cierre', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({usd, pen})
+    });
+    const data = await res.json();
+    if (!data.ok) { msg.innerHTML = `<span style="color:var(--red);">${data.error}</span>`; return; }
+    const r = data.result;
+    if (r) {
+      const lbl = {cuadre:'✓ Cuadrado', utilidad:'↑ Excedente', perdida:'⚠ Faltante'}[r.result_label] || '—';
+      const clr = r.result_label === 'perdida' ? 'var(--red)' : 'var(--green)';
+      msg.innerHTML = `<div style="color:${clr};font-weight:700;margin-bottom:4px;">${lbl}</div>
+        <div style="font-size:.75rem;color:var(--muted);">Δ USD: ${pu(r.result_usd||0)} · Δ PEN: ${pm(r.result_pen||0)}</div>`;
+    } else {
+      msg.innerHTML = `<span style="color:var(--green);font-weight:700;">✓ ${data.message}</span>`;
     }
-
-    try {
-        const results = await Promise.all(tasks);
-        const errors  = results.filter(r => !r.ok);
-        if (errors.length) {
-            msg.innerHTML = `<span style="color:#dc2626;">Error: ${errors[0].error}</span>`;
-            btn.disabled = false;
-            btn.innerHTML = '<i class="bi bi-check-lg"></i> Guardar';
-            return;
-        }
-        msg.innerHTML = `<span style="color:#16a34a;"><i class="bi bi-check-circle-fill"></i> Guardado correctamente</span>`;
-        setTimeout(() => { cerrarModalSaldos(); loadSnapshot(); }, 800);
-    } catch(e) {
-        msg.innerHTML = `<span style="color:#dc2626;">Error de red: ${e.message}</span>`;
-        btn.disabled = false;
-        btn.innerHTML = '<i class="bi bi-check-lg"></i> Guardar';
-    }
+    setTimeout(() => { _closeModal(); loadDashboard(); }, 1500);
+  } catch(e) {
+    msg.innerHTML = `<span style="color:var(--red);">Error: ${e.message}</span>`;
+  }
 }
+
+// ── Modal helpers ─────────────────────────────────────────────────────────────
+function _modal(html) {
+  _closeModal();
+  document.body.insertAdjacentHTML('beforeend',
+    `<div id="fnOverlay" class="fn-overlay" onclick="e=>e.target.id==='fnOverlay'&&_closeModal()">
+       <div class="fn-modal">${html}</div>
+     </div>`);
+}
+function _closeModal() { document.getElementById('fnOverlay')?.remove(); }
+document.addEventListener('keydown', e => { if (e.key==='Escape') _closeModal(); });
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+loadDashboard();
 </script>
 {% endblock %}

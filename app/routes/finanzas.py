@@ -57,7 +57,8 @@ def control():
 @login_required
 def auditoria():
     _require_role()
-    return render_template('finanzas/auditoria.html')
+    from flask import redirect, url_for
+    return redirect(url_for('finanzas.control'))
 
 
 # ── API: Snapshot ─────────────────────────────────────────────────────────────
@@ -516,6 +517,162 @@ def api_saldo_corregir():
         return jsonify({'ok': False, 'error': str(exc)}), 500
 
 
+
+
+# ── API: Apertura / Cierre simplificado (2 inputs: USD total + PEN total) ─────
+
+@finanzas_bp.route('/api/dia/apertura', methods=['POST'])
+@login_required
+def api_dia_apertura():
+    """
+    Registra el saldo inicial del día con sólo dos valores: USD total y PEN total.
+    Distribuye proporcionalmente entre bancos usando los saldos actuales de BankBalance.
+    Body: { usd: float, pen: float, fecha: 'YYYY-MM-DD' (opcional) }
+    """
+    _require_role()
+    try:
+        from app.models import DailyClosure, BankBalance
+        from app.config.bank_accounts import QORICASH_ACCOUNTS
+
+        data   = request.get_json() or {}
+        fecha  = date.fromisoformat(data.get('fecha', date.today().isoformat()))
+        usd_in = float(data.get('usd', 0))
+        pen_in = float(data.get('pen', 0))
+
+        if usd_in < 0 or pen_in < 0:
+            return jsonify({'ok': False, 'error': 'Los saldos no pueden ser negativos'}), 400
+
+        # Construir dict per-bank distribuyendo proporcionalmente desde BankBalance actual
+        BANKS = ['BCP', 'INTERBANK', 'BANBIF']
+        cur_usd = {bk: 0.0 for bk in BANKS}
+        cur_pen = {bk: 0.0 for bk in BANKS}
+        for bk in BANKS:
+            for cur in ('USD', 'PEN'):
+                numero  = QORICASH_ACCOUNTS.get(bk, {}).get(cur, {}).get('numero', '')
+                acct    = f"{bk} {cur} ({numero})"
+                bb      = BankBalance.query.filter_by(bank_name=acct).first()
+                if bb:
+                    if cur == 'USD':
+                        cur_usd[bk] = float(bb.balance_usd or 0)
+                    else:
+                        cur_pen[bk] = float(bb.balance_pen or 0)
+
+        total_sys_usd = sum(cur_usd.values()) or 1.0
+        total_sys_pen = sum(cur_pen.values()) or 1.0
+
+        bals = {}
+        for bk in BANKS:
+            bals[bk] = {
+                'USD': round(usd_in * (cur_usd[bk] / total_sys_usd), 2),
+                'PEN': round(pen_in * (cur_pen[bk] / total_sys_pen), 2),
+            }
+        # Fix rounding residuals: assign remainder to BCP
+        bals['BCP']['USD'] = round(bals['BCP']['USD'] + usd_in - sum(v['USD'] for v in bals.values()), 2)
+        bals['BCP']['PEN'] = round(bals['BCP']['PEN'] + pen_in - sum(v['PEN'] for v in bals.values()), 2)
+
+        closure = DailyClosure.query.filter_by(closure_date=fecha).first()
+        if not closure:
+            closure = DailyClosure(
+                closure_date=fecha,
+                status=DailyClosure.STATUS_BORRADOR,
+                created_by=current_user.id,
+            )
+            db.session.add(closure)
+
+        if closure.opening_balance_json and closure.opening_balance_json != '{}':
+            if current_user.role != 'Master':
+                return jsonify({'ok': False, 'error': 'Apertura ya registrada. Solo un Master puede modificarla.'}), 409
+
+        closure.opening_balance       = bals
+        closure.opening_total_usd     = round(usd_in, 2)
+        closure.opening_total_pen     = round(pen_in, 2)
+        closure.opening_registered_at = now_peru()
+        closure.opening_registered_by = current_user.id
+
+        if closure.closing_balance_json and closure.closing_balance_json != '{}':
+            closure.compute_result()
+
+        db.session.commit()
+        return jsonify({'ok': True, 'message': f'Apertura del {fecha.strftime("%d/%m/%Y")} registrada.',
+                        'cierre': closure.to_dict()})
+    except Exception as exc:
+        db.session.rollback()
+        _log.exception('[Finanzas] api_dia_apertura')
+        return jsonify({'ok': False, 'error': str(exc)}), 500
+
+
+@finanzas_bp.route('/api/dia/cierre', methods=['POST'])
+@login_required
+def api_dia_cierre():
+    """
+    Registra el saldo final del día con sólo dos valores: USD total y PEN total.
+    Body: { usd: float, pen: float, fecha: 'YYYY-MM-DD' (opcional), notas: str }
+    """
+    _require_role()
+    try:
+        from app.models import DailyClosure, BankBalance
+        from app.config.bank_accounts import QORICASH_ACCOUNTS
+
+        data   = request.get_json() or {}
+        fecha  = date.fromisoformat(data.get('fecha', date.today().isoformat()))
+        usd_in = float(data.get('usd', 0))
+        pen_in = float(data.get('pen', 0))
+        notas  = data.get('notas', '').strip()
+
+        if usd_in < 0 or pen_in < 0:
+            return jsonify({'ok': False, 'error': 'Los saldos no pueden ser negativos'}), 400
+
+        closure = DailyClosure.query.filter_by(closure_date=fecha).first()
+        if not closure or not closure.opening_balance_json or closure.opening_balance_json == '{}':
+            return jsonify({'ok': False, 'error': 'Registre primero la apertura del día'}), 400
+
+        if closure.is_validated and current_user.role != 'Master':
+            return jsonify({'ok': False, 'error': 'El cierre ya fue validado. Solo un Master puede modificarlo.'}), 409
+
+        # Distribute closing balance proportionally (same logic as apertura)
+        BANKS = ['BCP', 'INTERBANK', 'BANBIF']
+        cur_usd = {bk: 0.0 for bk in BANKS}
+        cur_pen = {bk: 0.0 for bk in BANKS}
+        from app.config.bank_accounts import QORICASH_ACCOUNTS
+        for bk in BANKS:
+            for cur in ('USD', 'PEN'):
+                numero = QORICASH_ACCOUNTS.get(bk, {}).get(cur, {}).get('numero', '')
+                acct   = f"{bk} {cur} ({numero})"
+                bb     = BankBalance.query.filter_by(bank_name=acct).first()
+                if bb:
+                    if cur == 'USD':
+                        cur_usd[bk] = float(bb.balance_usd or 0)
+                    else:
+                        cur_pen[bk] = float(bb.balance_pen or 0)
+
+        total_sys_usd = sum(cur_usd.values()) or 1.0
+        total_sys_pen = sum(cur_pen.values()) or 1.0
+
+        bals = {}
+        for bk in BANKS:
+            bals[bk] = {
+                'USD': round(usd_in * (cur_usd[bk] / total_sys_usd), 2),
+                'PEN': round(pen_in * (cur_pen[bk] / total_sys_pen), 2),
+            }
+        bals['BCP']['USD'] = round(bals['BCP']['USD'] + usd_in - sum(v['USD'] for v in bals.values()), 2)
+        bals['BCP']['PEN'] = round(bals['BCP']['PEN'] + pen_in - sum(v['PEN'] for v in bals.values()), 2)
+
+        closure.closing_balance       = bals
+        closure.closing_total_usd     = round(usd_in, 2)
+        closure.closing_total_pen     = round(pen_in, 2)
+        closure.closing_registered_at = now_peru()
+        closure.closing_registered_by = current_user.id
+        if notas:
+            closure.notes = notas
+
+        result = closure.compute_result()
+        db.session.commit()
+        return jsonify({'ok': True, 'message': f'Cierre del {fecha.strftime("%d/%m/%Y")} registrado.',
+                        'result': result, 'cierre': closure.to_dict()})
+    except Exception as exc:
+        db.session.rollback()
+        _log.exception('[Finanzas] api_dia_cierre')
+        return jsonify({'ok': False, 'error': str(exc)}), 500
 
 
 # ── API: Caja Diaria — Registrar Apertura ─────────────────────────────────────
