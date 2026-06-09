@@ -106,6 +106,7 @@ class BankMovement(db.Model):
             'reference_code': self.reference_code,
             'counterpart':    self.counterpart,
             'balance_after':  float(self.balance_after) if self.balance_after is not None else None,
+            'created_by_name': self.creator.username if self.creator else None,
             'created_at':     self.created_at.isoformat() if self.created_at else None,
             'is_validated':   self.is_validated,
         }

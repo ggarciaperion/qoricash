@@ -334,19 +334,47 @@
 
           <!-- Panel: Movimientos -->
           <div class="fn-panel" id="panel-movimientos">
-            <div class="filter-bar">
-              <select id="movBanco"><option value="">Todos los bancos</option><option>BCP</option><option>INTERBANK</option><option>BANBIF</option></select>
-              <select id="movMoneda"><option value="">USD + PEN</option><option>USD</option><option>PEN</option></select>
-              <input type="date" id="movFechaIni" placeholder="Desde">
-              <input type="date" id="movFechaFin" placeholder="Hasta">
-              <button class="btn-filter" onclick="loadMovimientos(1)">Buscar</button>
+
+            <!-- USD -->
+            <div style="margin-bottom:22px;">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                <span class="tag-cur usd" style="font-size:.79rem;padding:2px 9px;">USD</span>
+                <span style="font-size:.82rem;font-weight:700;color:var(--navy);">Movimientos en Dólares</span>
+              </div>
+              <div class="filter-bar">
+                <select id="movUsdBanco"><option value="">Todos los bancos</option><option>BCP</option><option>INTERBANK</option><option>BANBIF</option></select>
+                <input type="date" id="movUsdFechaIni">
+                <input type="date" id="movUsdFechaFin">
+                <button class="btn-filter" onclick="loadMovimientosUSD(1)">Buscar</button>
+              </div>
+              <div id="movZoneUSD"><div class="text-center text-muted py-4" style="font-size:.85rem;">Cargando…</div></div>
+              <div class="pag-bar" id="movPagUSD" style="display:none;">
+                <button onclick="loadMovimientosUSD(_movPageUSD-1)" id="movPrevUSD">← Anterior</button>
+                <span id="movPagInfoUSD"></span>
+                <button onclick="loadMovimientosUSD(_movPageUSD+1)" id="movNextUSD">Siguiente →</button>
+              </div>
             </div>
-            <div id="movZone"><div class="text-center text-muted py-4" style="font-size:.85rem;">Cargando…</div></div>
-            <div class="pag-bar" id="movPag" style="display:none;">
-              <button onclick="loadMovimientos(_movPage-1)" id="movPrev">← Anterior</button>
-              <span id="movPagInfo"></span>
-              <button onclick="loadMovimientos(_movPage+1)" id="movNext">Siguiente →</button>
+
+            <!-- PEN -->
+            <div>
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                <span class="tag-cur pen" style="font-size:.79rem;padding:2px 9px;">PEN</span>
+                <span style="font-size:.82rem;font-weight:700;color:var(--navy);">Movimientos en Soles</span>
+              </div>
+              <div class="filter-bar">
+                <select id="movPenBanco"><option value="">Todos los bancos</option><option>BCP</option><option>INTERBANK</option><option>BANBIF</option></select>
+                <input type="date" id="movPenFechaIni">
+                <input type="date" id="movPenFechaFin">
+                <button class="btn-filter" onclick="loadMovimientosPEN(1)">Buscar</button>
+              </div>
+              <div id="movZonePEN"><div class="text-center text-muted py-4" style="font-size:.85rem;">Cargando…</div></div>
+              <div class="pag-bar" id="movPagPEN" style="display:none;">
+                <button onclick="loadMovimientosPEN(_movPagePEN-1)" id="movPrevPEN">← Anterior</button>
+                <span id="movPagInfoPEN"></span>
+                <button onclick="loadMovimientosPEN(_movPagePEN+1)" id="movNextPEN">Siguiente →</button>
+              </div>
             </div>
+
           </div>
 
           <!-- Panel: Amarres -->
@@ -387,7 +415,10 @@ const round2 = n => Math.round(n * 100) / 100;
 
 // ── Estado global ─────────────────────────────────────────────────────────────
 let _snap     = null;
-let _movPage  = 1;
+let _movPageUSD   = 1;
+let _movPagePEN   = 1;
+let _movLoadedUSD = false;
+let _movLoadedPEN = false;
 let _amarPage = 1;
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────
@@ -398,7 +429,10 @@ function switchTab(id, btn) {
   btn.classList.add('active');
 
   // Lazy-load on first open
-  if (id === 'movimientos' && _movPage === 1) loadMovimientos(1);
+  if (id === 'movimientos') {
+    if (!_movLoadedUSD) loadMovimientosUSD(1);
+    if (!_movLoadedPEN) loadMovimientosPEN(1);
+  }
   if (id === 'amarres'     && _amarPage === 1) loadAmarres(1);
 }
 
@@ -663,6 +697,7 @@ function renderPosicion(pos) {
       <td><span style="${typeCss}font-weight:700;font-size:.8rem;">${p.type}</span></td>
       <td style="font-size:.78rem;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.client}</td>
       <td class="text-end" style="font-size:.78rem;">${fmtTC(p.exchange_rate)}</td>
+      <td class="text-end" style="font-size:.78rem;color:var(--muted);">${fmtTC(p.base_rate)}</td>
       <td class="text-end" style="font-weight:700;font-size:.8rem;">${fmtUSD(p.open_usd)}</td>
       <td class="text-end">${badge}</td>
     </tr>`;
@@ -677,7 +712,7 @@ function renderPosicion(pos) {
     <table class="pos-tbl">
       <thead><tr>
         <th>Operación</th><th>Tipo</th><th>Cliente</th>
-        <th class="text-end">TC</th><th class="text-end">USD Abierto</th><th class="text-end">Días</th>
+        <th class="text-end">TC</th><th class="text-end">Base</th><th class="text-end">USD Abierto</th><th class="text-end">Días</th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>
@@ -689,20 +724,18 @@ function renderPosicion(pos) {
 }
 
 // ── Movimientos ───────────────────────────────────────────────────────────────
-async function loadMovimientos(page) {
-  _movPage = page;
-  const banco  = document.getElementById('movBanco').value;
-  const moneda = document.getElementById('movMoneda').value;
-  const fi     = document.getElementById('movFechaIni').value;
-  const ff     = document.getElementById('movFechaFin').value;
+async function _loadMovimientosCurrency({page, moneda, bancoId, fechaIniId, fechaFinId, zoneId, pagId, pagInfoId, prevId, nextId}) {
+  const banco = document.getElementById(bancoId).value;
+  const fi    = document.getElementById(fechaIniId).value;
+  const ff    = document.getElementById(fechaFinId).value;
 
-  const params = new URLSearchParams({page, per_page:30});
-  if (banco)  params.set('banco', banco);
-  if (moneda) params.set('moneda', moneda);
-  if (fi)     params.set('fecha_ini', fi);
-  if (ff)     params.set('fecha_fin', ff);
+  const params = new URLSearchParams({page, per_page:30, moneda});
+  if (banco) params.set('banco', banco);
+  if (fi)    params.set('fecha_ini', fi);
+  if (ff)    params.set('fecha_fin', ff);
 
-  const z = document.getElementById('movZone');
+  const z   = document.getElementById(zoneId);
+  const fmt = moneda === 'USD' ? fmtUSD : fmtPEN;
   z.innerHTML = '<div class="text-center text-muted py-4" style="font-size:.82rem;">Cargando…</div>';
 
   try {
@@ -712,50 +745,70 @@ async function loadMovimientos(page) {
 
     if (!data.movimientos.length) {
       z.innerHTML = '<div class="text-center text-muted py-4" style="font-size:.82rem;">Sin movimientos en el período seleccionado</div>';
-      document.getElementById('movPag').style.display = 'none';
+      document.getElementById(pagId).style.display = 'none';
       return;
     }
 
-    const TYPE_LABELS = {
-      op_entrada:'Op. Entrada', op_salida:'Op. Salida',
-      ajuste_entrada:'Ajuste +', ajuste_salida:'Ajuste −',
-      transfer_entrada:'Transfer +', transfer_salida:'Transfer −',
-      gasto:'Gasto', saldo_inicial:'Saldo inicial',
-    };
-
     const rows = data.movimientos.map(m => {
-      const isPos   = m.amount >= 0;
-      const amtCls  = isPos ? 'tipo-entrada' : 'tipo-salida';
-      const amtTxt  = (isPos ? '+' : '') + (m.currency === 'USD' ? fmtUSD(Math.abs(m.amount)) : fmtPEN(Math.abs(m.amount)));
-      const bkCls   = {BCP:'bcp', INTERBANK:'interbank', BANBIF:'banbif'}[m.bank_key] || 'bcp';
-      const fecha   = (m.movement_date || '').slice(0,10);
+      const isPos  = m.amount >= 0;
+      const amtCls = isPos ? 'tipo-entrada' : 'tipo-salida';
+      const amtTxt = (isPos ? '+' : '') + fmt(Math.abs(m.amount));
+      const bkCls  = {BCP:'bcp', INTERBANK:'interbank', BANBIF:'banbif'}[m.bank_key] || 'bcp';
+      const fecha  = m.movement_date ? m.movement_date.slice(0,16).replace('T', ' ') : '—';
+      const saldo  = m.balance_after != null ? fmt(m.balance_after) : '—';
+      const user   = m.created_by_name || '—';
       return `<tr>
-        <td style="font-size:.74rem;color:var(--muted);">${fecha}</td>
+        <td style="font-size:.73rem;color:var(--muted);white-space:nowrap;">${fecha}</td>
         <td><span class="tag-bk ${bkCls}">${m.bank_key}</span></td>
-        <td><span class="tag-cur ${m.currency.toLowerCase()}">${m.currency}</span></td>
-        <td style="font-size:.74rem;color:var(--muted);">${TYPE_LABELS[m.movement_type] || m.movement_type}</td>
-        <td class="text-end ${amtCls}">${amtTxt}</td>
-        <td style="font-size:.72rem;color:var(--muted);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${m.description||''}">${m.description || '—'}</td>
+        <td style="font-size:.73rem;color:var(--muted);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${m.description||''}">${m.description || '—'}</td>
+        <td style="font-size:.73rem;">${m.movement_label || m.movement_type}</td>
+        <td class="text-end ${amtCls}" style="font-weight:700;">${amtTxt}</td>
+        <td class="text-end" style="font-size:.73rem;color:var(--muted);">${saldo}</td>
+        <td style="font-size:.72rem;color:var(--muted);">${user}</td>
       </tr>`;
     }).join('');
 
     z.innerHTML = `<div style="overflow-x:auto;">
       <table class="mov-tbl">
-        <thead><tr><th>Fecha</th><th>Banco</th><th>Mon.</th><th>Tipo</th><th class="text-end">Monto</th><th>Descripción</th></tr></thead>
+        <thead><tr>
+          <th>Fecha/Hora</th><th>Banco</th><th>Descripción</th><th>Tipo</th>
+          <th class="text-end">Monto</th><th class="text-end">Saldo</th><th>Usuario</th>
+        </tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>`;
 
-    // Paginación
-    const pag = document.getElementById('movPag');
+    const pag = document.getElementById(pagId);
     pag.style.display = data.pages > 1 ? 'flex' : 'none';
-    document.getElementById('movPagInfo').textContent = `Pág ${data.page} de ${data.pages} (${data.total} registros)`;
-    document.getElementById('movPrev').disabled = data.page <= 1;
-    document.getElementById('movNext').disabled = data.page >= data.pages;
+    document.getElementById(pagInfoId).textContent = `Pág ${data.page} de ${data.pages} (${data.total} registros)`;
+    document.getElementById(prevId).disabled = data.page <= 1;
+    document.getElementById(nextId).disabled = data.page >= data.pages;
 
   } catch(e) {
     z.innerHTML = `<div class="text-danger py-3" style="font-size:.82rem;">Error: ${e.message}</div>`;
   }
+}
+
+async function loadMovimientosUSD(page) {
+  _movPageUSD   = page;
+  _movLoadedUSD = true;
+  await _loadMovimientosCurrency({
+    page, moneda: 'USD',
+    bancoId: 'movUsdBanco', fechaIniId: 'movUsdFechaIni', fechaFinId: 'movUsdFechaFin',
+    zoneId: 'movZoneUSD', pagId: 'movPagUSD', pagInfoId: 'movPagInfoUSD',
+    prevId: 'movPrevUSD', nextId: 'movNextUSD',
+  });
+}
+
+async function loadMovimientosPEN(page) {
+  _movPagePEN   = page;
+  _movLoadedPEN = true;
+  await _loadMovimientosCurrency({
+    page, moneda: 'PEN',
+    bancoId: 'movPenBanco', fechaIniId: 'movPenFechaIni', fechaFinId: 'movPenFechaFin',
+    zoneId: 'movZonePEN', pagId: 'movPagPEN', pagInfoId: 'movPagInfoPEN',
+    prevId: 'movPrevPEN', nextId: 'movNextPEN',
+  });
 }
 
 // ── Amarres ───────────────────────────────────────────────────────────────────
