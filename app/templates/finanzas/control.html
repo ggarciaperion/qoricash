@@ -210,6 +210,33 @@
 .totales-row span { color: var(--muted); }
 .totales-row strong { color: var(--navy); }
 .totales-row .profit { color: var(--green); }
+
+/* ─── Control section card ───────────────────────────────────────── */
+.ctrl-card {
+  background: #fff; border: 1px solid var(--bdr); border-radius: 10px;
+  padding: 13px 16px; margin-bottom: 14px;
+}
+.ctrl-no-ap { text-align: center; padding: 18px 0 6px; color: var(--muted); font-size: .82rem; }
+
+/* ─── Control table (per-bank breakdown) ─────────────────────────── */
+.ctrl-tbl { width: 100%; border-collapse: collapse; font-size: .79rem; }
+.ctrl-tbl th {
+  font-size: .62rem; font-weight: 700; color: #94A3B8;
+  text-transform: uppercase; letter-spacing: .05em;
+  padding: 4px 7px; border-bottom: 2px solid #f1f5f9; background: var(--bg);
+  white-space: nowrap;
+}
+.ctrl-tbl td { padding: 5px 7px; border-bottom: 1px solid #f8fafc; white-space: nowrap; vertical-align: middle; }
+.ctrl-tbl tr.ctrl-total td { font-weight: 800; background: #f8fafc; border-top: 2px solid #e2e8f0; border-bottom: none; }
+
+/* ─── Modal wide + bank input ────────────────────────────────────── */
+.fn-modal-wide { max-width: 500px !important; }
+.inp-bank {
+  width: 115px; padding: 5px 8px; font-size: .87rem; font-weight: 700;
+  border: 1.5px solid #d1d5db; border-radius: 6px; color: var(--navy);
+  text-align: right;
+}
+.inp-bank:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(37,99,235,.1); }
 </style>
 {% endblock %}
 
@@ -279,8 +306,8 @@
     </div>
   </div>
 
-  <!-- ── Cuadre strip (visible solo con apertura) ──────────────────── -->
-  <div class="cuadre-strip" id="cuadreStrip" style="display:none;"></div>
+  <!-- ── Control de Apertura/Cierre ────────────────────────────────── -->
+  <div id="controlSection"></div>
 
   <!-- ── Main row ────────────────────────────────────────────────────── -->
   <div class="row g-3">
@@ -293,7 +320,7 @@
             <i class="bi bi-bank2 text-primary me-1"></i> Saldos por Banco
           </div>
           <table class="saldos-tbl">
-            <thead><tr><th>Banco</th><th>Mon.</th><th class="text-end">Saldo actual</th></tr></thead>
+            <thead id="saldosThead"><tr><th>Banco</th><th>Mon.</th><th class="text-end">Actual</th></tr></thead>
             <tbody id="saldosTbody"><tr><td colspan="3" class="text-center text-muted py-3" style="font-size:.8rem;">Cargando…</td></tr></tbody>
           </table>
         </div>
@@ -365,8 +392,9 @@ const fmtN   = (n, d=2) => new Intl.NumberFormat('es-PE', {minimumFractionDigits
 const fmtUSD = n => `$ ${fmtN(n)}`;
 const fmtPEN = n => `S/ ${fmtN(n)}`;
 const fmtTC  = n => (n && n > 0) ? fmtN(n, 4) : '—';
-const pm = n => (n >= 0 ? '+' : '') + fmtPEN(n);
-const pu = n => (n >= 0 ? '+' : '') + fmtUSD(n);
+const pm     = n => (n >= 0 ? '+' : '') + fmtPEN(n);
+const pu     = n => (n >= 0 ? '+' : '') + fmtUSD(n);
+const round2 = n => Math.round(n * 100) / 100;
 
 // ── Estado global ─────────────────────────────────────────────────────────────
 let _snap     = null;
@@ -403,8 +431,8 @@ async function loadDashboard() {
 
     renderAlertas(d.alerts || []);
     renderKPIs(d);
-    renderCuadreStrip(d.cashflow);
-    renderSaldos(d.balances);
+    renderControlSection(d.cashflow);
+    renderSaldos(d.balances, d.cashflow);
     renderPosicion(d.position);
     renderDiaBtn(d.cashflow);
 
@@ -466,119 +494,171 @@ function renderKPIs(d) {
   }
 }
 
-// ── Botón apertura / cierre ───────────────────────────────────────────────────
+// ── Indicador de estado en header ────────────────────────────────────────────
 function renderDiaBtn(cf) {
   const z = document.getElementById('diaBtn');
   if (!cf.has_opening) {
-    z.innerHTML = `<button class="fn-btn-apertura" onclick="abrirApertura()">
-      <i class="bi bi-sunrise-fill"></i> Apertura del día
-    </button>`;
+    z.innerHTML = `<span class="fn-btn-ghost" style="cursor:default;opacity:.55;"><i class="bi bi-circle"></i> Sin apertura</span>`;
   } else if (!cf.has_closing) {
-    z.innerHTML = `<button class="fn-btn-cierre" onclick="abrirCierre()">
-      <i class="bi bi-sunset-fill"></i> Cierre del día
-    </button>`;
+    z.innerHTML = `<span class="fn-btn-ghost" style="cursor:default;opacity:.7;"><i class="bi bi-play-circle-fill" style="color:#86efac;"></i> En operación</span>`;
   } else {
-    const estado = cf.estado_cuadre;
     const map = { cuadrado:'Cuadrado ✓', faltante:'Faltante ⚠', excedente:'Excedente ⚠' };
     z.innerHTML = `<span class="fn-btn-ghost" style="cursor:default;opacity:.7;">
-      <i class="bi bi-check-circle-fill" style="color:#86efac;"></i> ${map[estado] || 'Día cerrado'}
+      <i class="bi bi-check-circle-fill" style="color:#86efac;"></i> ${map[cf.estado_cuadre] || 'Día cerrado'}
     </span>`;
   }
 }
 
-// ── Cuadre strip ──────────────────────────────────────────────────────────────
-function renderCuadreStrip(cf) {
-  const el = document.getElementById('cuadreStrip');
-  if (!cf || !cf.has_opening) { el.style.display = 'none'; return; }
+// ── Control de Apertura/Cierre ────────────────────────────────────────────────
+function renderControlSection(cf) {
+  const el = document.getElementById('controlSection');
+  const BANKS = ['BCP','INTERBANK','BANBIF'];
+  const byCls = {BCP:'bcp', INTERBANK:'interbank', BANBIF:'banbif'};
 
-  const diffClass = cf.has_closing
-    ? (Math.abs(cf.diff_usd||0) < 0.02 && Math.abs(cf.diff_pen||0) < 0.02 ? 'ok' : '')
-    : '';
+  if (!cf || !cf.has_opening) {
+    el.innerHTML = `
+      <div class="ctrl-card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <span style="font-size:.8rem;font-weight:800;color:var(--navy);">
+            <i class="bi bi-bank2 me-1" style="color:var(--blue);"></i> Control de Apertura y Cierre
+          </span>
+          <button class="fn-btn-apertura" onclick="abrirApertura()">
+            <i class="bi bi-sunrise-fill"></i> Apertura del día
+          </button>
+        </div>
+        <div class="ctrl-no-ap">
+          <div style="font-size:1.3rem;margin-bottom:5px;">📋</div>
+          <div style="font-weight:700;color:var(--navy);margin-bottom:3px;">Sin apertura registrada</div>
+          <div style="font-size:.75rem;">Registra los saldos iniciales de cada banco y moneda para comenzar el control.</div>
+        </div>
+      </div>`;
+    return;
+  }
 
-  const ESTADO = {
-    cuadrado:  { cls:'cuadrado',  icon:'bi-check-circle-fill', txt:'Cuadrado' },
-    excedente: { cls:'excedente', icon:'bi-arrow-up-circle',   txt:'Excedente' },
-    faltante:  { cls:'faltante',  icon:'bi-exclamation-circle',txt:'Faltante' },
-    pendiente: { cls:'pendiente', icon:'bi-clock',             txt:'Pendiente' },
-  };
-  const es = ESTADO[cf.estado_cuadre] || ESTADO.pendiente;
+  const hasCierre = cf.has_closing;
 
-  const finHtml = cf.has_closing
-    ? `<span class="cs-arrow">→</span>
-       <div class="cs-block fin">
-         <span class="cs-label">Final</span>
-         <span class="cs-usd">${fmtUSD(cf.total_fin_usd)}</span>
-         <span class="cs-pen">${fmtPEN(cf.total_fin_pen)}</span>
-       </div>
-       <div class="cs-divider"></div>
-       <div class="cs-block diff ${diffClass}">
-         <span class="cs-label">Diferencia</span>
-         <span class="cs-usd">${pu(cf.diff_usd||0)}</span>
-         <span class="cs-pen">${pm(cf.diff_pen||0)}</span>
-       </div>
-       <div class="cs-divider"></div>
-       <div style="align-self:center;padding:0 8px;">
-         <span class="cuadre-badge-sm ${es.cls}"><i class="bi ${es.icon}"></i> ${es.txt}</span>
-       </div>` : `
-       <div style="align-self:center;padding:0 12px;">
-         <span class="cuadre-badge-sm pendiente"><i class="bi bi-clock"></i> Cierre pendiente</span>
-         <button class="fn-btn-cierre" style="margin-left:8px;padding:4px 10px;font-size:.7rem;" onclick="abrirCierre()">
-           <i class="bi bi-sunset-fill"></i> Cerrar día
-         </button>
-       </div>`;
+  // ── Encabezado de columnas ──────────────────────────────────────────
+  let headCols = `<th>Banco</th><th>Mon.</th>
+    <th class="text-end">Saldo Inicial</th>
+    <th class="text-end">Ingresos</th>
+    <th class="text-end">Egresos</th>
+    <th class="text-end" style="color:var(--blue);">Teórico</th>`;
+  if (hasCierre) headCols += `<th class="text-end">Saldo Final</th><th class="text-end">Diferencia</th>`;
 
-  const ingNote = (cf.total_ing_usd + cf.total_ing_pen === 0)
-    ? `<span style="font-size:.6rem;color:#94A3B8;"> (sin movs.)</span>` : '';
+  // ── Filas por banco/moneda ──────────────────────────────────────────
+  let rows = '';
+  for (const bk of BANKS) {
+    const CURS = ['USD','PEN'];
+    for (let ci = 0; ci < CURS.length; ci++) {
+      const cur = CURS[ci];
+      const d   = ((cf.by_bank || {})[bk] || {})[cur] || {};
+      const fmt = cur === 'USD' ? fmtUSD : fmtPEN;
+      const ingTxt = `<span style="color:var(--green);">+${fmt(d.ingresos ?? 0)}</span>`;
+      const egrTxt = `<span style="color:var(--red);">${fmt(d.egresos ?? 0)}</span>`;
+      const teoTxt = `<span style="color:var(--blue);font-weight:700;">${fmt(d.teorico ?? 0)}</span>`;
+      const bankCell = ci === 0
+        ? `<td rowspan="2"><span class="tag-bk ${byCls[bk]}">${bk}</span></td>` : '';
+      let finCell = '', difCell = '';
+      if (hasCierre) {
+        finCell = `<td class="text-end">${fmt(d.final ?? 0)}</td>`;
+        const dv = d.diferencia;
+        if      (dv == null)          difCell = `<td class="text-end" style="color:#94A3B8;">—</td>`;
+        else if (Math.abs(dv) < 0.02) difCell = `<td class="text-end"><span style="color:var(--green);font-weight:700;">✓</span></td>`;
+        else if (dv > 0)              difCell = `<td class="text-end"><span style="color:var(--amber);font-weight:700;">+${fmt(dv)}</span></td>`;
+        else                          difCell = `<td class="text-end"><span style="color:var(--red);font-weight:700;">${fmt(dv)}</span></td>`;
+      }
+      rows += `<tr>
+        ${bankCell}
+        <td><span class="tag-cur ${cur.toLowerCase()}">${cur}</span></td>
+        <td class="text-end">${fmt(d.inicial ?? 0)}</td>
+        <td class="text-end">${ingTxt}</td>
+        <td class="text-end">${egrTxt}</td>
+        <td class="text-end">${teoTxt}</td>
+        ${finCell}${difCell}
+      </tr>`;
+    }
+  }
 
-  el.style.display = 'flex';
+  // ── Filas totales ────────────────────────────────────────────────────
+  for (const cur of ['USD','PEN']) {
+    const fmt  = cur === 'USD' ? fmtUSD : fmtPEN;
+    const iniT = cur === 'USD' ? cf.total_ini_usd : cf.total_ini_pen;
+    const ingT = cur === 'USD' ? cf.total_ing_usd : cf.total_ing_pen;
+    const egrT = cur === 'USD' ? cf.total_egr_usd : cf.total_egr_pen;
+    const teoT = cur === 'USD' ? cf.total_teo_usd : cf.total_teo_pen;
+    let finTCell = '', difTCell = '';
+    if (hasCierre) {
+      const finT = cur === 'USD' ? cf.total_fin_usd : cf.total_fin_pen;
+      const difT = cur === 'USD' ? cf.diff_usd      : cf.diff_pen;
+      finTCell = `<td class="text-end"><strong>${fmt(finT ?? 0)}</strong></td>`;
+      if      (difT == null)          difTCell = `<td class="text-end">—</td>`;
+      else if (Math.abs(difT) < 0.02) difTCell = `<td class="text-end"><span style="color:var(--green);font-weight:800;">✓ cuadrado</span></td>`;
+      else if (difT > 0)              difTCell = `<td class="text-end"><span style="color:var(--amber);font-weight:800;">+${fmt(difT)}</span></td>`;
+      else                            difTCell = `<td class="text-end"><span style="color:var(--red);font-weight:800;">${fmt(difT)}</span></td>`;
+    }
+    rows += `<tr class="ctrl-total">
+      <td colspan="2"><strong>Total ${cur}</strong></td>
+      <td class="text-end">${fmt(iniT)}</td>
+      <td class="text-end"><span style="color:var(--green);">+${fmt(ingT)}</span></td>
+      <td class="text-end"><span style="color:var(--red);">${fmt(egrT)}</span></td>
+      <td class="text-end"><span style="color:var(--blue);font-weight:800;">${fmt(teoT)}</span></td>
+      ${finTCell}${difTCell}
+    </tr>`;
+  }
+
+  // ── Estado + botón ────────────────────────────────────────────────────
+  const ICON = {cuadrado:'bi-check-circle-fill', excedente:'bi-arrow-up-circle', faltante:'bi-exclamation-circle', pendiente:'bi-clock'};
+  const TXT  = {cuadrado:'Cuadrado', excedente:'Excedente', faltante:'Faltante', pendiente:'Cierre pendiente'};
+  const es   = cf.estado_cuadre in ICON ? cf.estado_cuadre : 'pendiente';
+  const badge = `<span class="cuadre-badge-sm ${es}"><i class="bi ${ICON[es]}"></i> ${TXT[es]}</span>`;
+  const cBtn  = !hasCierre
+    ? `<button class="fn-btn-cierre" style="margin-left:6px;padding:5px 11px;font-size:.72rem;" onclick="abrirCierre()">
+         <i class="bi bi-sunset-fill"></i> Cerrar día
+       </button>` : '';
+
   el.innerHTML = `
-    <div class="cs-block">
-      <span class="cs-label">Saldo Inicial</span>
-      <span class="cs-usd">${fmtUSD(cf.total_ini_usd)}</span>
-      <span class="cs-pen">${fmtPEN(cf.total_ini_pen)}</span>
-    </div>
-    <span class="cs-arrow">+</span>
-    <div class="cs-block">
-      <span class="cs-label">Ingresos${ingNote}</span>
-      <span class="cs-usd" style="color:var(--green);">+${fmtUSD(cf.total_ing_usd)}</span>
-      <span class="cs-pen" style="color:var(--green);">+${fmtPEN(cf.total_ing_pen)}</span>
-    </div>
-    <span class="cs-arrow">−</span>
-    <div class="cs-block">
-      <span class="cs-label">Egresos</span>
-      <span class="cs-usd" style="color:var(--red);">${fmtUSD(cf.total_egr_usd)}</span>
-      <span class="cs-pen" style="color:var(--red);">${fmtPEN(cf.total_egr_pen)}</span>
-    </div>
-    <span class="cs-arrow">=</span>
-    <div class="cs-block teo">
-      <span class="cs-label">Teórico</span>
-      <span class="cs-usd">${fmtUSD(cf.total_teo_usd)}</span>
-      <span class="cs-pen">${fmtPEN(cf.total_teo_pen)}</span>
-    </div>
-    ${finHtml}`;
+    <div class="ctrl-card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <span style="font-size:.8rem;font-weight:800;color:var(--navy);">
+          <i class="bi bi-bank2 me-1" style="color:var(--blue);"></i> Control de Apertura y Cierre
+        </span>
+        <div style="display:flex;align-items:center;gap:6px;">${badge}${cBtn}</div>
+      </div>
+      <div style="overflow-x:auto;">
+        <table class="ctrl-tbl">
+          <thead><tr>${headCols}</tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>`;
 }
 
 // ── Saldos ────────────────────────────────────────────────────────────────────
-function renderSaldos(bal) {
-  const byCls = {BCP:'bcp', INTERBANK:'interbank', BANBIF:'banbif'};
+function renderSaldos(bal, cf) {
+  const byCls  = {BCP:'bcp', INTERBANK:'interbank', BANBIF:'banbif'};
+  const hasIni = cf && cf.has_opening;
+
+  // Update thead dynamically
+  document.getElementById('saldosThead').innerHTML = hasIni
+    ? '<tr><th>Banco</th><th>Mon.</th><th class="text-end">Inicial</th><th class="text-end">Actual</th></tr>'
+    : '<tr><th>Banco</th><th>Mon.</th><th class="text-end">Actual</th></tr>';
+
   let rows = '';
-  let totUSD = 0, totPEN = 0;
   for (const bk of ['BCP','INTERBANK','BANBIF']) {
-    const b = bal.by_bank[bk] || {USD:0,PEN:0};
-    totUSD += b.USD; totPEN += b.PEN;
-    rows += `
-    <tr>
-      <td rowspan="2"><span class="tag-bk ${byCls[bk]}">${bk}</span></td>
-      <td><span class="tag-cur usd">USD</span></td>
-      <td class="text-end">${fmtUSD(b.USD)}</td>
-    </tr>
-    <tr>
-      <td><span class="tag-cur pen">PEN</span></td>
-      <td class="text-end">${fmtPEN(b.PEN)}</td>
-    </tr>`;
+    const b = bal.by_bank[bk] || {USD:0, PEN:0};
+    for (const [cur, ci] of [['USD',0],['PEN',1]]) {
+      const fmt      = cur === 'USD' ? fmtUSD : fmtPEN;
+      const actVal   = b[cur];
+      const iniVal   = hasIni ? (((cf.by_bank || {})[bk] || {})[cur] || {}).inicial ?? 0 : null;
+      const bankCell = ci === 0 ? `<td rowspan="2"><span class="tag-bk ${byCls[bk]}">${bk}</span></td>` : '';
+      const iniCell  = hasIni ? `<td class="text-end" style="color:var(--muted);">${fmt(iniVal)}</td>` : '';
+      rows += `<tr>${bankCell}<td><span class="tag-cur ${cur.toLowerCase()}">${cur}</span></td>${iniCell}<td class="text-end">${fmt(actVal)}</td></tr>`;
+    }
   }
+  const iniTotCell = hasIni ? '<td></td>' : '';
   rows += `<tr class="total-row">
     <td colspan="2"><strong>Total</strong></td>
+    ${iniTotCell}
     <td class="text-end">
       <div>${fmtUSD(bal.total_usd)}</div>
       <div>${fmtPEN(bal.total_pen)}</div>
@@ -784,47 +864,62 @@ async function loadAmarres(page) {
 
 // ── Modal Apertura ────────────────────────────────────────────────────────────
 function abrirApertura() {
-  const bal = _snap?.balances;
-  const usdDef = bal ? bal.total_usd.toFixed(2) : '0.00';
-  const penDef = bal ? bal.total_pen.toFixed(2) : '0.00';
+  const byBank = _snap?.balances?.by_bank || {};
+  const byCls  = {BCP:'bcp', INTERBANK:'interbank', BANBIF:'banbif'};
+  const BANKS  = ['BCP','INTERBANK','BANBIF'];
+
+  let rows = '';
+  for (const bk of BANKS) {
+    for (const [cur, ci] of [['USD',0],['PEN',1]]) {
+      const def      = ((byBank[bk] || {})[cur] || 0).toFixed(2);
+      const bankCell = ci === 0 ? `<td rowspan="2"><span class="tag-bk ${byCls[bk]}">${bk}</span></td>` : '';
+      rows += `<tr>
+        ${bankCell}
+        <td><span class="tag-cur ${cur.toLowerCase()}">${cur}</span></td>
+        <td class="text-end">
+          <input class="inp-bank" type="number" step="0.01" min="0"
+            id="ap_${bk}_${cur}" value="${def}" placeholder="0.00">
+        </td>
+      </tr>`;
+    }
+  }
 
   _modal(`
     <h6><i class="bi bi-sunrise-fill me-2" style="color:#16a34a;"></i>Apertura del Día</h6>
-    <div class="fn-modal-info">
-      <div class="row-info"><span class="lbl">Saldos actuales en sistema</span></div>
-      <div class="row-info"><span class="lbl">USD:</span><span class="val">${fmtUSD(bal?.total_usd||0)}</span></div>
-      <div class="row-info"><span class="lbl">PEN:</span><span class="val">${fmtPEN(bal?.total_pen||0)}</span></div>
-    </div>
-    <div class="fn-input-group">
-      <label>Saldo inicial USD (contado físicamente)</label>
-      <input type="number" id="apUSD" step="0.01" min="0" value="${usdDef}" placeholder="0.00">
-    </div>
-    <div class="fn-input-group">
-      <label>Saldo inicial PEN (contado físicamente)</label>
-      <input type="number" id="apPEN" step="0.01" min="0" value="${penDef}" placeholder="0.00">
+    <p style="font-size:.75rem;color:var(--muted);margin:-8px 0 12px;">Ingresa el saldo inicial contado físicamente en cada banco y moneda.</p>
+    <div style="overflow-x:auto;">
+      <table class="ctrl-tbl" style="margin-bottom:12px;">
+        <thead><tr><th>Banco</th><th>Mon.</th><th class="text-end">Saldo Inicial</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
     </div>
     <div class="fn-modal-msg" id="apMsg"></div>
     <div class="fn-modal-actions">
       <button class="btn-cancel" onclick="_closeModal()">Cancelar</button>
       <button class="btn-confirm" onclick="_confirmarApertura()"><i class="bi bi-check-lg me-1"></i>Confirmar Apertura</button>
     </div>
-  `);
-  setTimeout(() => document.getElementById('apUSD')?.focus(), 50);
+  `, true);
+  setTimeout(() => document.getElementById('ap_BCP_USD')?.focus(), 50);
 }
 
 async function _confirmarApertura() {
-  const usd = parseFloat(document.getElementById('apUSD').value);
-  const pen = parseFloat(document.getElementById('apPEN').value);
-  const msg = document.getElementById('apMsg');
-  if (isNaN(usd) || isNaN(pen) || usd < 0 || pen < 0) {
-    msg.innerHTML = '<span style="color:var(--red);">Ingresa valores válidos.</span>';
-    return;
+  const BANKS   = ['BCP','INTERBANK','BANBIF'];
+  const msg     = document.getElementById('apMsg');
+  const balances = {};
+  for (const bk of BANKS) {
+    const usd = parseFloat(document.getElementById(`ap_${bk}_USD`).value);
+    const pen = parseFloat(document.getElementById(`ap_${bk}_PEN`).value);
+    if (isNaN(usd) || isNaN(pen) || usd < 0 || pen < 0) {
+      msg.innerHTML = `<span style="color:var(--red);">Ingresa valores válidos en todos los campos.</span>`;
+      return;
+    }
+    balances[bk] = {USD: usd, PEN: pen};
   }
   msg.innerHTML = '<span style="color:var(--muted);">Guardando…</span>';
   try {
-    const res  = await fetch('/finanzas/api/dia/apertura', {
+    const res  = await fetch('/finanzas/api/caja/apertura', {
       method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({usd, pen})
+      body: JSON.stringify({balances})
     });
     const data = await res.json();
     if (!data.ok) { msg.innerHTML = `<span style="color:var(--red);">${data.error}</span>`; return; }
@@ -837,55 +932,66 @@ async function _confirmarApertura() {
 
 // ── Modal Cierre ──────────────────────────────────────────────────────────────
 function abrirCierre() {
-  const cf  = _snap?.cashflow;
-  const bal = _snap?.balances;
-  const usdDef = bal ? bal.total_usd.toFixed(2) : '0.00';
-  const penDef = bal ? bal.total_pen.toFixed(2) : '0.00';
+  const cf     = _snap?.cashflow;
+  const byBank = _snap?.balances?.by_bank || {};
+  const byCls  = {BCP:'bcp', INTERBANK:'interbank', BANBIF:'banbif'};
+  const BANKS  = ['BCP','INTERBANK','BANBIF'];
 
-  const teorico = cf ? `
-    <div class="fn-modal-info">
-      <div class="row-info" style="margin-bottom:4px;"><span class="lbl" style="font-weight:700;color:var(--navy);">Cuadre calculado</span></div>
-      <div class="row-info"><span class="lbl">Inicial USD:</span><span class="val">${fmtUSD(cf.total_ini_usd)}</span></div>
-      <div class="row-info"><span class="lbl">Inicial PEN:</span><span class="val">${fmtPEN(cf.total_ini_pen)}</span></div>
-      <div class="row-info" style="border-top:1px solid var(--bdr);margin-top:4px;padding-top:4px;">
-        <span class="lbl">Teórico USD:</span><span class="val" style="color:var(--blue);">${fmtUSD(cf.total_teo_usd)}</span>
-      </div>
-      <div class="row-info"><span class="lbl">Teórico PEN:</span><span class="val" style="color:var(--blue);">${fmtPEN(cf.total_teo_pen)}</span></div>
-    </div>` : '';
+  let rows = '';
+  for (const bk of BANKS) {
+    for (const [cur, ci] of [['USD',0],['PEN',1]]) {
+      const def      = ((byBank[bk] || {})[cur] || 0).toFixed(2);
+      const teo      = ((cf?.by_bank?.[bk] || {})[cur] || {}).teorico ?? 0;
+      const fmt      = cur === 'USD' ? fmtUSD : fmtPEN;
+      const bankCell = ci === 0 ? `<td rowspan="2"><span class="tag-bk ${byCls[bk]}">${bk}</span></td>` : '';
+      rows += `<tr>
+        ${bankCell}
+        <td><span class="tag-cur ${cur.toLowerCase()}">${cur}</span></td>
+        <td class="text-end" style="color:var(--blue);font-weight:700;">${fmt(teo)}</td>
+        <td class="text-end">
+          <input class="inp-bank" type="number" step="0.01" min="0"
+            id="cl_${bk}_${cur}" value="${def}" placeholder="0.00">
+        </td>
+      </tr>`;
+    }
+  }
 
   _modal(`
     <h6><i class="bi bi-sunset-fill me-2" style="color:#f59e0b;"></i>Cierre del Día</h6>
-    ${teorico}
-    <div class="fn-input-group">
-      <label>Saldo final USD (contado físicamente)</label>
-      <input type="number" id="clUSD" step="0.01" min="0" value="${usdDef}" placeholder="0.00">
-    </div>
-    <div class="fn-input-group">
-      <label>Saldo final PEN (contado físicamente)</label>
-      <input type="number" id="clPEN" step="0.01" min="0" value="${penDef}" placeholder="0.00">
+    <p style="font-size:.75rem;color:var(--muted);margin:-8px 0 12px;">Ingresa el saldo final contado físicamente. El teórico es el esperado según las operaciones del día.</p>
+    <div style="overflow-x:auto;">
+      <table class="ctrl-tbl" style="margin-bottom:12px;">
+        <thead><tr><th>Banco</th><th>Mon.</th><th class="text-end" style="color:var(--blue);">Teórico</th><th class="text-end">Saldo Final</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
     </div>
     <div class="fn-modal-msg" id="clMsg"></div>
     <div class="fn-modal-actions">
       <button class="btn-cancel" onclick="_closeModal()">Cancelar</button>
       <button class="btn-confirm" onclick="_confirmarCierre()"><i class="bi bi-check-lg me-1"></i>Confirmar Cierre</button>
     </div>
-  `);
-  setTimeout(() => document.getElementById('clUSD')?.focus(), 50);
+  `, true);
+  setTimeout(() => document.getElementById('cl_BCP_USD')?.focus(), 50);
 }
 
 async function _confirmarCierre() {
-  const usd = parseFloat(document.getElementById('clUSD').value);
-  const pen = parseFloat(document.getElementById('clPEN').value);
-  const msg = document.getElementById('clMsg');
-  if (isNaN(usd) || isNaN(pen) || usd < 0 || pen < 0) {
-    msg.innerHTML = '<span style="color:var(--red);">Ingresa valores válidos.</span>';
-    return;
+  const BANKS    = ['BCP','INTERBANK','BANBIF'];
+  const msg      = document.getElementById('clMsg');
+  const balances = {};
+  for (const bk of BANKS) {
+    const usd = parseFloat(document.getElementById(`cl_${bk}_USD`).value);
+    const pen = parseFloat(document.getElementById(`cl_${bk}_PEN`).value);
+    if (isNaN(usd) || isNaN(pen) || usd < 0 || pen < 0) {
+      msg.innerHTML = `<span style="color:var(--red);">Ingresa valores válidos en todos los campos.</span>`;
+      return;
+    }
+    balances[bk] = {USD: usd, PEN: pen};
   }
   msg.innerHTML = '<span style="color:var(--muted);">Guardando…</span>';
   try {
-    const res  = await fetch('/finanzas/api/dia/cierre', {
+    const res  = await fetch('/finanzas/api/caja/cierre', {
       method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({usd, pen})
+      body: JSON.stringify({balances})
     });
     const data = await res.json();
     if (!data.ok) { msg.innerHTML = `<span style="color:var(--red);">${data.error}</span>`; return; }
@@ -905,11 +1011,11 @@ async function _confirmarCierre() {
 }
 
 // ── Modal helpers ─────────────────────────────────────────────────────────────
-function _modal(html) {
+function _modal(html, wide = false) {
   _closeModal();
   document.body.insertAdjacentHTML('beforeend',
     `<div id="fnOverlay" class="fn-overlay" onclick="e=>e.target.id==='fnOverlay'&&_closeModal()">
-       <div class="fn-modal">${html}</div>
+       <div class="fn-modal${wide ? ' fn-modal-wide' : ''}">${html}</div>
      </div>`);
 }
 function _closeModal() { document.getElementById('fnOverlay')?.remove(); }
