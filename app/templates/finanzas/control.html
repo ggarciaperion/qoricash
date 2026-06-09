@@ -572,8 +572,7 @@ function renderControlSection(cf) {
     <th class="text-end">Saldo Inicial</th>
     <th class="text-end">Ingresos</th>
     <th class="text-end">Egresos</th>
-    <th class="text-end" style="color:var(--blue);">Teórico</th>
-    <th class="text-end" style="color:#475569;">Actual</th>`;
+    <th class="text-end" style="color:var(--blue);">Teórico</th>`;
   if (hasCierre) headCols += `<th class="text-end">Saldo Final</th><th class="text-end">Diferencia</th>`;
 
   // ── Filas por banco/moneda ──────────────────────────────────────────
@@ -587,11 +586,6 @@ function renderControlSection(cf) {
       const ingTxt = `<span style="color:var(--green);">+${fmt(d.ingresos ?? 0)}</span>`;
       const egrTxt = `<span style="color:var(--red);">${fmt(d.egresos ?? 0)}</span>`;
       const teoTxt = `<span style="color:var(--blue);font-weight:700;">${fmt(d.teorico ?? 0)}</span>`;
-      const actVal = d.actual ?? 0;
-      const actDif = actVal - (d.teorico ?? 0);
-      const actTxt = Math.abs(actDif) < 0.02
-        ? `<span style="color:#475569;">${fmt(actVal)}</span>`
-        : `<span style="color:var(--amber);font-weight:600;" title="Dif. vs teórico: ${fmt(actDif)}">${fmt(actVal)} <i class="bi bi-exclamation-triangle-fill" style="font-size:.65rem;"></i></span>`;
       const bankCell = ci === 0
         ? `<td rowspan="2"><span class="tag-bk ${byCls[bk]}">${bk}</span></td>` : '';
       let finCell = '', difCell = '';
@@ -610,7 +604,6 @@ function renderControlSection(cf) {
         <td class="text-end">${ingTxt}</td>
         <td class="text-end">${egrTxt}</td>
         <td class="text-end">${teoTxt}</td>
-        <td class="text-end">${actTxt}</td>
         ${finCell}${difCell}
       </tr>`;
     }
@@ -623,11 +616,6 @@ function renderControlSection(cf) {
     const ingT  = cur === 'USD' ? cf.total_ing_usd    : cf.total_ing_pen;
     const egrT  = cur === 'USD' ? cf.total_egr_usd    : cf.total_egr_pen;
     const teoT  = cur === 'USD' ? cf.total_teo_usd    : cf.total_teo_pen;
-    const actT  = cur === 'USD' ? cf.total_actual_usd : cf.total_actual_pen;
-    const actDT = (actT ?? 0) - (teoT ?? 0);
-    const actTotalTxt = Math.abs(actDT) < 0.02
-      ? `<strong>${fmt(actT ?? 0)}</strong>`
-      : `<strong style="color:var(--amber);" title="Dif. vs teórico: ${fmt(actDT)}">${fmt(actT ?? 0)} <i class="bi bi-exclamation-triangle-fill" style="font-size:.65rem;"></i></strong>`;
     let finTCell = '', difTCell = '';
     if (hasCierre) {
       const finT = cur === 'USD' ? cf.total_fin_usd : cf.total_fin_pen;
@@ -644,7 +632,6 @@ function renderControlSection(cf) {
       <td class="text-end"><span style="color:var(--green);">+${fmt(ingT)}</span></td>
       <td class="text-end"><span style="color:var(--red);">${fmt(egrT)}</span></td>
       <td class="text-end"><span style="color:var(--blue);font-weight:800;">${fmt(teoT)}</span></td>
-      <td class="text-end">${actTotalTxt}</td>
       ${finTCell}${difTCell}
     </tr>`;
   }
