@@ -2440,3 +2440,118 @@ def register_cli_commands(app):
         except Exception as e:
             db.session.rollback()
             print(f"✗ Error: {e}")
+
+    # ── fix-movimientos-banco ─────────────────────────────────────────────────
+    @app.cli.command("fix-movimientos-banco")
+    @click.option('--ops', default='EXP-526,EXP-528',
+                  help='Códigos de operación separados por coma.')
+    @click.option('--de', 'banco_origen', default='BCP',
+                  help='Banco incorrecto registrado (origen).')
+    @click.option('--a', 'banco_destino', default='INTERBANK',
+                  help='Banco correcto real (destino).')
+    @click.option('--apply', is_flag=True, default=False,
+                  help='Sin este flag corre en dry-run (solo muestra cambios).')
+    def fix_movimientos_banco(ops, banco_origen, banco_destino, apply):
+        """
+        Corrige el banco de BankMovements de operaciones ya completadas.
+
+        Dry-run por defecto. Para aplicar: flask fix-movimientos-banco --apply
+
+        Ejemplo:
+          flask fix-movimientos-banco --ops EXP-526,EXP-528 --de BCP --a INTERBANK --apply
+        """
+        from app.models import Operation
+        from app.models.bank_movement import BankMovement
+        from app.models.bank_balance  import BankBalance
+        from app.config.bank_accounts import QORICASH_ACCOUNTS
+
+        # Construir mapa de nombres de cuenta: { 'BCP': { 'USD': 'BCP USD (...)', 'PEN': '...' } }
+        acct_names = {}
+        for banco, monedas in QORICASH_ACCOUNTS.items():
+            acct_names[banco] = {}
+            for moneda, data in monedas.items():
+                acct_names[banco][moneda] = f"{banco} {moneda} ({data['numero']})"
+
+        target_ops = [o.strip() for o in ops.split(',') if o.strip()]
+        print(f"\n{'[DRY-RUN] ' if not apply else '[APPLY] '}Corrigiendo movimientos: {target_ops}")
+        print(f"  Banco incorrecto : {banco_origen}")
+        print(f"  Banco correcto   : {banco_destino}\n")
+
+        operations = Operation.query.filter(
+            Operation.operation_id.in_(target_ops)
+        ).all()
+
+        if not operations:
+            print("ERROR: No se encontraron las operaciones indicadas.")
+            return
+
+        total_movs = 0
+        for op in operations:
+            print(f"── {op.operation_id} (id={op.id}, tipo={op.operation_type}, estado={op.status})")
+            movs = BankMovement.query.filter(
+                BankMovement.operation_id == op.id,
+                BankMovement.bank_key == banco_origen,
+            ).all()
+
+            if not movs:
+                print(f"   Sin BankMovements con bank_key={banco_origen}\n")
+                continue
+
+            for mv in movs:
+                amt   = float(mv.amount)
+                cur   = mv.currency
+                old_acct = acct_names.get(banco_origen, {}).get(cur)
+                new_acct = acct_names.get(banco_destino, {}).get(cur)
+                print(f"   MOV id={mv.id}  {cur}  {mv.movement_type}  amt={amt:+.2f}")
+                print(f"     bank_name: {mv.bank_name} → {new_acct}")
+
+                if not old_acct or not new_acct:
+                    print(f"     ⚠ Cuenta no encontrada para {banco_origen}/{banco_destino} {cur}")
+                    continue
+
+                # BankBalance: revertir en origen y aplicar en destino
+                bb_orig = BankBalance.query.filter_by(bank_name=old_acct).first()
+                bb_dest = BankBalance.query.filter_by(bank_name=new_acct).first()
+
+                if bb_orig:
+                    old_bal = float(bb_orig.balance_usd if cur == 'USD' else bb_orig.balance_pen)
+                    new_bal = round(old_bal - amt, 2)
+                    print(f"     BankBalance {old_acct}: {old_bal:+.2f} → {new_bal:+.2f}")
+                else:
+                    print(f"     ⚠ Sin BankBalance para {old_acct}")
+
+                if bb_dest:
+                    old_bal2 = float(bb_dest.balance_usd if cur == 'USD' else bb_dest.balance_pen)
+                    new_bal2 = round(old_bal2 + amt, 2)
+                    print(f"     BankBalance {new_acct}: {old_bal2:+.2f} → {new_bal2:+.2f}")
+                else:
+                    print(f"     ⚠ Sin BankBalance para {new_acct}")
+
+                if apply:
+                    mv.bank_key  = banco_destino
+                    mv.bank_name = new_acct
+                    if bb_orig:
+                        if cur == 'USD':
+                            bb_orig.balance_usd = round(float(bb_orig.balance_usd) - amt, 2)
+                        else:
+                            bb_orig.balance_pen = round(float(bb_orig.balance_pen) - amt, 2)
+                    if bb_dest:
+                        if cur == 'USD':
+                            bb_dest.balance_usd = round(float(bb_dest.balance_usd) + amt, 2)
+                        else:
+                            bb_dest.balance_pen = round(float(bb_dest.balance_pen) + amt, 2)
+
+                total_movs += 1
+            print()
+
+        print(f"Total BankMovements a corregir: {total_movs}")
+
+        if apply:
+            try:
+                db.session.commit()
+                print("✓ Cambios guardados correctamente.")
+            except Exception as exc:
+                db.session.rollback()
+                print(f"✗ Error al guardar: {exc}")
+        else:
+            print("\n→ Para aplicar: flask fix-movimientos-banco --apply")
