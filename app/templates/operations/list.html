@@ -662,6 +662,7 @@ let currentOperation = null;
 let currentViewOperation = null;
 let currentUserRole = '{{ user.role }}';
 let clientBankAccounts = [];
+let pendingUploads = 0;  // Contador de subidas de comprobante en curso
 
 $(document).ready(function() {
     window.operationsDataTable = $('#operationsTable').DataTable({
@@ -1438,6 +1439,7 @@ function loadEditModal() {
 
     // Sección operador
     if (isOperatorProcessing || isMasterProcessing) {
+        pendingUploads = 0;  // Resetear contador al abrir modal
         $('#section_operator').show();
         loadOperatorProofs(op.operator_proofs || []);
         $('#operator_comments').val(op.operator_comments || '');
@@ -1707,6 +1709,17 @@ function updateOperatorProofHint() {
     }
 }
 
+function _syncFinalizeButton() {
+    // Deshabilitar "Finalizar" si hay subidas pendientes
+    const $btn = $('#btnComplete');
+    if (pendingUploads > 0) {
+        $btn.prop('disabled', true)
+            .attr('title', 'Espera a que termine de subir el comprobante');
+    } else {
+        $btn.prop('disabled', false).removeAttr('title');
+    }
+}
+
 function uploadOperatorProof(input, index) {
     if (!input.files || !input.files[0]) return;
 
@@ -1716,6 +1729,10 @@ function uploadOperatorProof(input, index) {
     formData.append('proof_index', index);
 
     const $row = $(input).closest('.operator-proof-row');
+
+    // Bloquear Finalizar mientras sube
+    pendingUploads++;
+    _syncFinalizeButton();
 
     // Mostrar loading
     $row.html('<span class="text-muted"><i class="bi bi-hourglass-split"></i> Subiendo...</span>');
@@ -1730,6 +1747,8 @@ function uploadOperatorProof(input, index) {
             'X-CSRFToken': $('meta[name="csrf-token"]').attr('content')
         },
         success: function(response) {
+            pendingUploads = Math.max(0, pendingUploads - 1);
+            _syncFinalizeButton();
             if (response.success) {
                 currentOperation.operator_proofs = response.proofs;
                 loadOperatorProofs(response.proofs);
@@ -1740,6 +1759,8 @@ function uploadOperatorProof(input, index) {
             }
         },
         error: function(xhr) {
+            pendingUploads = Math.max(0, pendingUploads - 1);
+            _syncFinalizeButton();
             let errorMsg = 'Error al subir el comprobante';
             try {
                 const response = JSON.parse(xhr.responseText);

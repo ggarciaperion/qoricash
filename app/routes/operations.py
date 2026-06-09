@@ -1191,6 +1191,10 @@ def complete_operation(operation_id):
                 'message': 'Esta operación está asignada a otro operador. Solo puedes editar operaciones asignadas a ti.'
             }), 403
 
+    # Guardar el ID como int antes de cualquier rollback para acceso seguro post-commit
+    operation_db_id = operation.id
+    operation_code = operation.operation_id
+
     try:
         # Guardar comprobantes del operador
         if 'operator_proofs' in data:
@@ -1202,6 +1206,11 @@ def complete_operation(operation_id):
         # Guardar comentarios
         if 'operator_comments' in data:
             operation.operator_comments = data['operator_comments']
+
+        # Validar que existen comprobantes del operador (guardia backend — la UI ya lo verifica)
+        effective_proofs = operation.operator_proofs or []
+        if not effective_proofs:
+            return jsonify({'success': False, 'message': 'Debes subir al menos un comprobante antes de finalizar la operación'}), 400
 
         # Si no tiene operador asignado, asignar el usuario actual que está completando
         if not operation.assigned_operator_id:
@@ -1216,8 +1225,8 @@ def complete_operation(operation_id):
             user_id=current_user.id,
             action='COMPLETE_OPERATION',
             entity='Operation',
-            entity_id=operation.id,
-            details=f'Operación {operation.operation_id} completada'
+            entity_id=operation_db_id,
+            details=f'Operación {operation_code} completada'
         )
 
         db.session.commit()
@@ -1232,7 +1241,7 @@ def complete_operation(operation_id):
         except Exception as e:
             logger.error(
                 f'[Accounting] Error al registrar asiento contable '
-                f'para {operation.operation_id}: {str(e)}'
+                f'para {operation_code}: {str(e)}'
             )
             try:
                 db.session.rollback()
@@ -1244,7 +1253,7 @@ def complete_operation(operation_id):
             from app.models.bank_balance import BankBalance
             BankBalance.apply_operation(operation)
         except Exception as e:
-            logger.error(f'[BankBalance] Error en auto-update para {operation.operation_id}: {str(e)}')
+            logger.error(f'[BankBalance] Error en auto-update para {operation_code}: {str(e)}')
         finally:
             # Limpiar sesión siempre antes de continuar con factura y email
             try:
@@ -1268,67 +1277,67 @@ def complete_operation(operation_id):
         try:
             from app.services.invoice_service import InvoiceService
 
-            logger.info(f'[OPERATION-{operation.operation_id}] ========== INICIANDO PROCESO DE FACTURACIÓN ==========')
+            logger.info(f'[OPERATION-{operation_code}] ========== INICIANDO PROCESO DE FACTURACIÓN ==========')
 
             if InvoiceService.is_enabled():
-                logger.info(f'[OPERATION-{operation.operation_id}] ✅ Facturación electrónica HABILITADA')
-                logger.info(f'[OPERATION-{operation.operation_id}] Generando factura electrónica...')
+                logger.info(f'[OPERATION-{operation_code}] Facturacion electronica HABILITADA — generando...')
 
-                success_invoice, message_invoice, invoice = InvoiceService.generate_invoice_for_operation(operation.id)
+                success_invoice, message_invoice, invoice = InvoiceService.generate_invoice_for_operation(operation_db_id)
 
                 if success_invoice and invoice:
-                    logger.info(f'[OPERATION-{operation.operation_id}] ✅ ÉXITO: Factura generada: {invoice.invoice_number}')
-                    logger.info(f'[OPERATION-{operation.operation_id}] PDF URL: {invoice.nubefact_enlace_pdf}')
+                    logger.info(f'[OPERATION-{operation_code}] Factura generada: {invoice.invoice_number}')
                     invoice_generated = True
                 else:
-                    logger.error(f'[OPERATION-{operation.operation_id}] ❌ ERROR al generar factura: {message_invoice}')
+                    logger.error(f'[OPERATION-{operation_code}] ERROR al generar factura: {message_invoice}')
             else:
-                logger.warning(f'[OPERATION-{operation.operation_id}] ⚠️ Facturación electrónica DESHABILITADA en configuración')
-                logger.warning(f'[OPERATION-{operation.operation_id}] Verifica NUBEFACT_ENABLED en variables de entorno')
+                logger.warning(f'[OPERATION-{operation_code}] Facturacion electronica DESHABILITADA en configuracion')
 
-            logger.info(f'[OPERATION-{operation.operation_id}] ========== FIN PROCESO DE FACTURACIÓN ==========')
+            logger.info(f'[OPERATION-{operation_code}] ========== FIN PROCESO DE FACTURACIÓN ==========')
 
         except Exception as e:
-            logger.error(f'[OPERATION-{operation.operation_id}] ❌ EXCEPCIÓN al generar factura: {str(e)}')
+            logger.error(f'[OPERATION-{operation_code}] Excepcion al generar factura: {str(e)}')
             logger.exception(e)
+
+        # Recargar operación fresca desde DB para email/notificaciones
+        # (evita acceso a atributos sobre objeto expirado tras múltiples rollbacks)
+        try:
+            fresh_op = db.session.get(Operation, operation_db_id)
+        except Exception:
+            fresh_op = operation
 
         # Enviar email de confirmación
         try:
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.info(f'[COMPLETE] Operacion {operation.operation_id} completada, enviando email...')
-
+            logger.info(f'[COMPLETE] Enviando email para {operation_code}...')
             from app.services.email_service import EmailService
-            success, message = EmailService.send_completed_operation_email(operation)
-
+            success, message = EmailService.send_completed_operation_email(fresh_op or operation)
             if success:
-                logger.info(f'[COMPLETE] Email enviado exitosamente para {operation.operation_id}')
+                logger.info(f'[COMPLETE] Email enviado para {operation_code}')
             else:
-                logger.warning(f'[COMPLETE] Error al enviar email para {operation.operation_id}: {message}')
+                logger.warning(f'[COMPLETE] Error email para {operation_code}: {message}')
         except Exception as e:
-            # Log el error pero no falla la operación completada
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.error(f'[COMPLETE] Excepcion al enviar email para {operation.operation_id}: {str(e)}')
+            logger.error(f'[COMPLETE] Excepcion email para {operation_code}: {str(e)}')
             logger.exception(e)
 
         # Notificar
-        NotificationService.notify_operation_completed(operation)
-        NotificationService.notify_dashboard_update()
+        try:
+            NotificationService.notify_operation_completed(fresh_op or operation)
+        except Exception as e_notif:
+            logger.warning(f'[COMPLETE] Error notificacion completada {operation_code}: {e_notif}')
+        try:
+            NotificationService.notify_dashboard_update()
+        except Exception as e_dash:
+            logger.warning(f'[COMPLETE] Error notificacion dashboard {operation_code}: {e_dash}')
 
         # Recalcular score de riesgo del cliente automáticamente
         try:
+            client_id = (fresh_op or operation).client_id
             ComplianceService.update_client_risk_profile(
-                operation.client_id,
+                client_id,
                 user_id=None,
                 auto_commit=True
             )
         except Exception as e_risk:
-            import logging
-            logging.getLogger(__name__).warning(
-                f'[COMPLETE] No se pudo actualizar score de riesgo para cliente '
-                f'{operation.client_id}: {e_risk}'
-            )
+            logger.warning(f'[COMPLETE] No se pudo actualizar score de riesgo: {e_risk}')
             try:
                 db.session.rollback()
             except Exception:
@@ -1341,10 +1350,10 @@ def complete_operation(operation_id):
             pass
 
         try:
-            op_dict = operation.to_dict(include_relations=True)
+            op_dict = (fresh_op or operation).to_dict(include_relations=True)
         except Exception as e_dict:
-            logger.error(f'[COMPLETE] Error en to_dict para {operation.operation_id}: {e_dict}')
-            op_dict = {'id': operation.id, 'operation_id': operation.operation_id, 'status': 'completado'}
+            logger.error(f'[COMPLETE] Error en to_dict para {operation_code}: {e_dict}')
+            op_dict = {'id': operation_db_id, 'operation_id': operation_code, 'status': 'completado'}
 
         return jsonify({
             'success': True,
