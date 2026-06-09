@@ -49,8 +49,17 @@ if [ -n "$CURRENT" ]; then
 
         echo "✅ DB stampeada a baseline 85a767945dcc"
         echo ""
+
+        # Registrar todas las ramas conocidas para que flask db upgrade heads
+        # pueda arrancar desde el estado correcto en DBs con historial antiguo.
+        echo "🔧 Registrando heads de ramas conocidas (solo para DB con historial antiguo)..."
+        for HEAD_REV in a1b2c3d4e5f6 d2a3t4e5c6r7 l1s2o3u4r5c6 p1r2o3s4p5e6 t1e2m3p4l5a6 z9merge_all_heads w1p2r3o4s5p6 pb1r2e3c4i5o b1a2n3k4b5a6 k1y2c3d4e5f6 p1e2r3i4o5d6; do
+            flask db stamp "$HEAD_REV" 2>/dev/null || true
+        done
+        echo "   ✅ Heads registrados."
+        echo ""
     else
-        echo "   ✅ Revisión reconocida."
+        echo "   ✅ Revisión reconocida — sin stamp (evitar downgrade)."
         echo ""
     fi
 else
@@ -58,21 +67,13 @@ else
     echo ""
 fi
 
-# ── Asegurar todos los heads de ramas independientes ──────────────────────────
-# Si la DB tiene solo algunos de los 5 heads, el merge migration z9merge_all_heads
-# no puede aplicarse. Stampeamos cada uno de forma idempotente (si ya existe, no falla).
-echo "🔧 Registrando heads de ramas independientes (idempotente)..."
-for HEAD_REV in a1b2c3d4e5f6 d2a3t4e5c6r7 l1s2o3u4r5c6 p1r2o3s4p5e6 t1e2m3p4l5a6 z9merge_all_heads w1p2r3o4s5p6; do
-    flask db stamp "$HEAD_REV" 2>/dev/null || true
-done
-echo "   ✅ Heads registrados."
-echo ""
-
 # ── Upgrade ───────────────────────────────────────────────────────────────────
-echo "🚀 Ejecutando flask db upgrade..."
+# Usar "heads" (plural) para correr TODAS las ramas pendientes independientemente.
+# Esto es necesario porque el grafo tiene múltiples heads sin merge.
+echo "🚀 Ejecutando flask db upgrade heads..."
 echo ""
 
-flask db upgrade
+flask db upgrade heads
 
 echo ""
 echo "✅ MIGRACIONES COMPLETADAS"
