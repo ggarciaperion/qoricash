@@ -2682,4 +2682,78 @@ def register_cli_commands(app):
         print("-" * 75)
         print(f"{'TOTAL':>58} {float(total):>12,.2f}")
         print(f"\nOperaciones con margen negativo significativo (< -50): {negativas}")
-        print(f"Utilidad total del mes: S/ {float(total):,.2f}")
+        print(f"Utilidad total del mes (TC vs Base): S/ {float(total):,.2f}")
+
+        # ── Cálculo alternativo desde amarres ─────────────────────────────────
+        print("\n" + "=" * 75)
+        print("UTILIDAD DESDE AMARRES (fuente real)")
+        print("=" * 75)
+        from app.models.accounting_match import AccountingMatch
+        from sqlalchemy import or_, and_
+        buy_op  = db.aliased(Operation, name='buy_op_a')
+        sell_op = db.aliased(Operation, name='sell_op_a')
+        Client2 = __import__('app.models.client', fromlist=['Client']).Client
+
+        buy_matches = db.session.query(
+            AccountingMatch.id,
+            AccountingMatch.buy_operation_id,
+            AccountingMatch.sell_operation_id,
+            AccountingMatch.matched_usd,
+            AccountingMatch.trader_buy_profit_pen,
+            AccountingMatch.trader_sell_profit_pen,
+            AccountingMatch.profit_pen,
+            AccountingMatch.created_at,
+        ).join(buy_op, AccountingMatch.buy_operation_id == buy_op.id)\
+         .join(Client2, buy_op.client_id == Client2.id)\
+         .filter(
+            or_(buy_op.user_id == user.id, and_(buy_op.user_id == None, Client2.created_by == user.id)),
+            AccountingMatch.status == 'Activo',
+            buy_op.created_at >= start,
+            buy_op.created_at < end,
+        ).all()
+
+        sell_matches = db.session.query(
+            AccountingMatch.id,
+            AccountingMatch.buy_operation_id,
+            AccountingMatch.sell_operation_id,
+            AccountingMatch.matched_usd,
+            AccountingMatch.trader_buy_profit_pen,
+            AccountingMatch.trader_sell_profit_pen,
+            AccountingMatch.profit_pen,
+            AccountingMatch.created_at,
+        ).join(sell_op, AccountingMatch.sell_operation_id == sell_op.id)\
+         .join(Client2, sell_op.client_id == Client2.id)\
+         .filter(
+            or_(sell_op.user_id == user.id, and_(sell_op.user_id == None, Client2.created_by == user.id)),
+            AccountingMatch.status == 'Activo',
+            sell_op.created_at >= start,
+            sell_op.created_at < end,
+        ).all()
+
+        seen_ids = set()
+        all_matches = []
+        for row in buy_matches + sell_matches:
+            if row.id not in seen_ids:
+                seen_ids.add(row.id)
+                all_matches.append(row)
+        all_matches.sort(key=lambda r: r.created_at)
+
+        print(f"Amarres relacionados al trader este mes: {len(all_matches)}\n")
+        print(f"{'Fecha Amarre':<14} {'Buy Op':<10} {'Sell Op':<10} {'USD':>10} {'T.Buy PEN':>12} {'T.Sell PEN':>12} {'Total PEN':>12}")
+        print("-" * 85)
+
+        total_buy  = Decimal('0')
+        total_sell = Decimal('0')
+        total_amar = Decimal('0')
+        for r in all_matches:
+            tb = Decimal(str(r.trader_buy_profit_pen or 0))
+            ts = Decimal(str(r.trader_sell_profit_pen or 0))
+            tp = tb + ts
+            total_buy  += tb
+            total_sell += ts
+            total_amar += tp
+            print(f"{r.created_at.strftime('%d/%m %H:%M'):<14} {str(r.buy_operation_id):<10} {str(r.sell_operation_id):<10} {float(r.matched_usd or 0):>10,.0f} {float(tb):>12,.2f} {float(ts):>12,.2f} {float(tp):>12,.2f}")
+
+        print("-" * 85)
+        print(f"{'TOTAL':>44} {float(total_buy):>12,.2f} {float(total_sell):>12,.2f} {float(total_amar):>12,.2f}")
+        print(f"\n✓ Utilidad real del mes desde amarres: S/ {float(total_amar):,.2f}")
