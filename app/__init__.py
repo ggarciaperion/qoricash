@@ -2677,7 +2677,7 @@ def register_cli_commands(app):
             flag = ' <<<' if m_val < -50 else ''
             if m_val < -50:
                 negativas += 1
-            print(f"{op.created_at.strftime('%d/%m %H:%M'):<14} {op.operation_code or str(op.id):<10} {op.operation_type:<8} {float(usd):>10,.0f} {float(tc):>8.4f} {float(base):>8.4f} {float(m_val):>12,.2f}{flag}")
+            print(f"{op.created_at.strftime('%d/%m %H:%M'):<14} {op.operation_id or str(op.id):<10} {op.operation_type:<8} {float(usd):>10,.0f} {float(tc):>8.4f} {float(base):>8.4f} {float(m_val):>12,.2f}{flag}")
 
         print("-" * 75)
         print(f"{'TOTAL':>58} {float(total):>12,.2f}")
