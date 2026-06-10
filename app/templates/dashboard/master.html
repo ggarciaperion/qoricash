@@ -989,6 +989,7 @@ function updateGoalProgress(profit, goal) {
 }
 
 function fmt(n, d) { return parseFloat(n).toLocaleString('es-PE',{minimumFractionDigits:d,maximumFractionDigits:d}); }
+function formatNumber(n, d) { return fmt(n, d); }
 function escapeHtml(s) { return s ? s.replace(/'/g,"\\'").replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : ''; }
 
 // ─── Tipos de Cambio ──────────────────────────────────────────────
