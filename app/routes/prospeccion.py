@@ -2216,7 +2216,6 @@ def _api_grid_impl():
             "trader":                trader_map.get(p.id, ""),
             "creado_en":             p.creado_en.strftime("%Y-%m-%d") if p.creado_en else "",
             "actualizado_en":        p.actualizado_en.strftime("%Y-%m-%d %H:%M") if p.actualizado_en else "",
-            "sin_whatsapp":          bool(getattr(p, 'sin_whatsapp', False)),
             "ultima_wa":             wa_map[p.id].strftime("%Y-%m-%d %H:%M") if p.id in wa_map and wa_map[p.id] else "",
             "ultima_email":          email_map[p.id].strftime("%Y-%m-%d %H:%M") if p.id in email_map and email_map[p.id] else "",
         })
@@ -3019,24 +3018,6 @@ def api_registrar_email(pid):
 
     db.session.commit()
     return jsonify({"ok": True, "ultima_email": ts, "fecha_ultimo_contacto": ts, "estado_comercial": p.estado_comercial})
-
-
-@prospeccion_bp.route("/api/<int:pid>/sin-wa", methods=["POST"])
-@csrf.exempt
-@login_required
-@require_role("Master", "Trader")
-def api_sin_wa(pid):
-    """Marca el número del prospecto como sin WhatsApp y deja una nota."""
-    p = db.get_or_404(Prospecto, pid)
-    p.sin_whatsapp = True
-    _log_actividad(
-        p.id, current_user.id,
-        tipo='nota',
-        descripcion='Número registrado no tiene WhatsApp',
-        canal='sistema',
-    )
-    db.session.commit()
-    return jsonify({"ok": True})
 
 
 # ── Dashboard API — seguimientos pendientes ────────────────────────────────────

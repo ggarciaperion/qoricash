@@ -70,7 +70,6 @@ class Prospecto(db.Model):
     apellido_paterno       = db.Column(db.String(100))
     apellido_materno       = db.Column(db.String(100))
     contacto_wa            = db.Column(db.String(50))
-    sin_whatsapp           = db.Column(db.Boolean, default=False)
     ultimo_precio          = db.Column(db.String(50))
     respuesta_campana      = db.Column(db.String(200))
     bandeja                = db.Column(db.String(80))
