@@ -875,6 +875,9 @@
       <option value="">Interés</option>
       <option>Alto</option><option>Medio</option><option>Bajo</option>
     </select>
+    <button id="fLFC" onclick="toggleLFC()" title="Solo ex-clientes LFC" style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:6px;font-size:.72rem;font-weight:700;border:1px solid #d1d5db;background:#fff;color:#64748b;cursor:pointer;transition:background .15s,color .15s,border-color .15s;">
+      <i class="bi bi-star-fill" style="font-size:.65rem;"></i>LFC
+    </button>
     <div class="toolbar-sep"></div>
     <span class="filter-count" id="filterCount"></span>
     <button class="btn-clear-filters" onclick="clearFilters()" title="Limpiar filtros"><i class="bi bi-x-circle"></i></button>
@@ -1312,6 +1315,19 @@ function setTab(t) {
 ───────────────────────────────────────────────────────────── */
 let _ft;
 function schedFilter() { clearTimeout(_ft); _ft = setTimeout(filter, 130); }
+let _filterLFC = false;
+
+function toggleLFC() {
+  _filterLFC = !_filterLFC;
+  const btn = document.getElementById('fLFC');
+  if (_filterLFC) {
+    btn.style.background = '#fef9c3'; btn.style.color = '#854d0e'; btn.style.borderColor = '#fbbf24';
+  } else {
+    btn.style.background = '#fff'; btn.style.color = '#64748b'; btn.style.borderColor = '#d1d5db';
+  }
+  filter();
+}
+
 function doFilter() { filter(); }
 
 function filter() {
@@ -1327,6 +1343,7 @@ function filter() {
     if (rb && r.rubro !== rb)        return false;
     if (sz && (r.tamano_empresa||'').toLowerCase() !== sz.toLowerCase()) return false;
     if (nv && r.nivel_interes !== nv)  return false;
+    if (_filterLFC && !r.cliente_lfc)  return false;
     return true;
   });
 
@@ -1338,7 +1355,7 @@ function filter() {
   _page = 1;
   render();
 
-  const has = q||dp||rb||sz||nv;
+  const has = q||dp||rb||sz||nv||_filterLFC;
   document.getElementById('filterCount').textContent = has ? `${_filt.length.toLocaleString()} / ${_rows.length.toLocaleString()}` : `${_rows.length.toLocaleString()} registros`;
   document.getElementById('hdrTotal').textContent = '';
 }
@@ -1348,7 +1365,8 @@ function clearFilters() {
     const el = document.getElementById(id);
     if (el.tagName==='SELECT') el.selectedIndex=0; else el.value='';
   });
-  filter();
+  if (_filterLFC) toggleLFC();
+  else filter();
 }
 
 function sortBy(col) {
