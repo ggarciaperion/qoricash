@@ -621,9 +621,13 @@ def api_import_prospectos():
 
     if action == 'update_contacto_batch':
         from app.models.prospecto import ActividadProspecto
+        from app.models.user import User
         ids     = data.get('ids', [])
         ts      = now_peru()
         ts_str  = ts.strftime("%Y-%m-%d %H:%M")
+        # Usar el primer usuario admin disponible para actividades automáticas
+        sistema_user = User.query.order_by(User.id.asc()).first()
+        sistema_uid  = sistema_user.id if sistema_user else None
         updated = 0
         for pid in ids:
             p = db.session.get(Prospecto, pid)
@@ -634,14 +638,15 @@ def api_import_prospectos():
             if not p.fecha_primer_contacto:
                 p.fecha_primer_contacto = ts_str
             p.num_contactos = (p.num_contactos or 0) + 1
-            act = ActividadProspecto(
-                prospecto_id=p.id, user_id=1,
-                tipo='email', canal='email',
-                bandeja='ggarcia@qoricash.pe',
-                descripcion='Correo de precios LFC enviado (campaña automática)',
-                resultado='Enviado',
-            )
-            db.session.add(act)
+            if sistema_uid:
+                act = ActividadProspecto(
+                    prospecto_id=p.id, user_id=sistema_uid,
+                    tipo='email', canal='email',
+                    bandeja='ggarcia@qoricash.pe',
+                    descripcion='Correo de precios LFC enviado (campaña automática)',
+                    resultado='Enviado',
+                )
+                db.session.add(act)
             updated += 1
         db.session.commit()
         return jsonify({'ok': True, 'updated': updated})
