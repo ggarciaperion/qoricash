@@ -1435,8 +1435,8 @@ function rowHtml(r) {
     <td onclick="event.stopPropagation()" style="white-space:nowrap;">
       ${(()=>{ const ph = r.telefono || r.telefono_alt || r.telefono_3 || r.telefono_4 || '';
         return ph
-          ? `<span style="font-size:.78rem;color:var(--qori-gray-700);">${esc(ph)}</span>
-      <button class="row-act" style="padding:2px 4px;margin-left:3px;" onclick="copyPhone('${esc(ph)}')" data-bs-toggle="tooltip" title="Copiar celular"><i class="bi bi-clipboard" style="font-size:.7rem;"></i></button>`
+          ? `<span style="font-size:.78rem;color:var(--qori-gray-700);cursor:pointer;" onclick="togglePhoneColor(this)" title="Clic para marcar sin WA">${esc(ph)}</span>
+      <button class="row-act" style="padding:2px 4px;margin-left:3px;" onclick="event.stopPropagation();copyPhone('${esc(ph)}')" data-bs-toggle="tooltip" title="Copiar celular"><i class="bi bi-clipboard" style="font-size:.7rem;"></i></button>`
           : '<span style="color:var(--qori-gray-400);font-size:.78rem;">—</span>';
       })()}
       ${waBadgeRow(r.ultima_wa)}
@@ -1679,7 +1679,7 @@ function openDrawer(id) {
       ${r.estado_email?`<div class="mb-2"><span class="d-item-label">Estado Email</span><div class="d-item-val"><span style="font-size:.72rem;color:var(--qori-gray-500);">${esc(r.estado_email)}</span></div></div>`:''}
       <div class="mb-2"><span class="d-item-label">Teléfono${allPhones.length>1?'s ('+allPhones.length+')':''}</span>
         <div class="d-item-val d-flex flex-wrap gap-2">
-          ${allPhones.map(p=>`<span style="font-size:.8rem;">${esc(p)} <button class="btn btn-sm p-0 ms-1" style="font-size:.65rem;line-height:1;" onclick="navigator.clipboard.writeText('${esc(p)}')"><i class="bi bi-clipboard"></i></button></span>`).join('')||'—'}
+          ${allPhones.map(p=>`<span style="font-size:.8rem;cursor:pointer;" onclick="togglePhoneColor(this)" title="Clic para marcar sin WA">${esc(p)} <button class="btn btn-sm p-0 ms-1" style="font-size:.65rem;line-height:1;" onclick="event.stopPropagation();navigator.clipboard.writeText('${esc(p)}')"><i class="bi bi-clipboard"></i></button></span>`).join('')||'—'}
         </div>
       </div>
       ${r.contacto_wa?`<div class="mb-1"><span class="d-item-label">Contacto WA</span><div class="d-item-val" style="font-size:.78rem;">${esc(r.contacto_wa)}</div></div>`:''}
@@ -2212,6 +2212,18 @@ ${CUENTAS_TXT}
 Para cotizar en línea: https://wa.me/51926011920
 
 ${FIRMA_TXT}`;
+}
+
+function togglePhoneColor(el) {
+  if (el.dataset.toggled) {
+    el.style.color = el.dataset.origColor || '';
+    delete el.dataset.toggled;
+    delete el.dataset.origColor;
+  } else {
+    el.dataset.origColor = el.style.color || '';
+    el.dataset.toggled = '1';
+    el.style.color = '#dc2626';
+  }
 }
 
 function copyPhone(phone) {

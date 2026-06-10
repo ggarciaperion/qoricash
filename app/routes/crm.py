@@ -597,6 +597,26 @@ def api_import_prospectos():
     if action == 'count':
         return jsonify({'ok': True, 'total': Prospecto.query.count()})
 
+    if action == 'lfc_stats':
+        from sqlalchemy import func
+        total_lfc = Prospecto.query.filter(
+            Prospecto.cliente_lfc.isnot(None), Prospecto.cliente_lfc != ''
+        ).count()
+        con_email = Prospecto.query.filter(
+            Prospecto.cliente_lfc.isnot(None), Prospecto.cliente_lfc != '',
+            Prospecto.email.isnot(None), Prospecto.email != ''
+        ).count()
+        valores = db.session.query(Prospecto.cliente_lfc, func.count()).filter(
+            Prospecto.cliente_lfc.isnot(None), Prospecto.cliente_lfc != ''
+        ).group_by(Prospecto.cliente_lfc).order_by(func.count().desc()).all()
+        return jsonify({
+            'ok': True,
+            'total_lfc': total_lfc,
+            'con_email': con_email,
+            'sin_email': total_lfc - con_email,
+            'valores': [{'valor': v, 'cantidad': c} for v, c in valores],
+        })
+
     if action == 'list_identifiers':
         # Devuelve RUC + razon_social de todos los prospectos
         from app.models.client import Client
