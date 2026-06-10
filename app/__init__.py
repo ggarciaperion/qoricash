@@ -2658,6 +2658,7 @@ def register_cli_commands(app):
             or_(Operation.user_id == user.id, and_(Operation.user_id == None, Client.created_by == user.id)),
             Operation.status == 'Completada',
             Operation.base_rate.isnot(None),
+            Operation.base_rate > 0,
             Operation.created_at >= start,
             Operation.created_at < end,
         ).order_by(Operation.created_at).all()
@@ -2698,7 +2699,7 @@ def register_cli_commands(app):
             AccountingMatch.id,
             AccountingMatch.buy_operation_id,
             AccountingMatch.sell_operation_id,
-            AccountingMatch.matched_usd,
+            AccountingMatch.matched_amount_usd,
             AccountingMatch.trader_buy_profit_pen,
             AccountingMatch.trader_sell_profit_pen,
             AccountingMatch.profit_pen,
@@ -2716,7 +2717,7 @@ def register_cli_commands(app):
             AccountingMatch.id,
             AccountingMatch.buy_operation_id,
             AccountingMatch.sell_operation_id,
-            AccountingMatch.matched_usd,
+            AccountingMatch.matched_amount_usd,
             AccountingMatch.trader_buy_profit_pen,
             AccountingMatch.trader_sell_profit_pen,
             AccountingMatch.profit_pen,
@@ -2752,7 +2753,7 @@ def register_cli_commands(app):
             total_buy  += tb
             total_sell += ts
             total_amar += tp
-            print(f"{r.created_at.strftime('%d/%m %H:%M'):<14} {str(r.buy_operation_id):<10} {str(r.sell_operation_id):<10} {float(r.matched_usd or 0):>10,.0f} {float(tb):>12,.2f} {float(ts):>12,.2f} {float(tp):>12,.2f}")
+            print(f"{r.created_at.strftime('%d/%m %H:%M'):<14} {str(r.buy_operation_id):<10} {str(r.sell_operation_id):<10} {float(r.matched_amount_usd or 0):>10,.0f} {float(tb):>12,.2f} {float(ts):>12,.2f} {float(tp):>12,.2f}")
 
         print("-" * 85)
         print(f"{'TOTAL':>44} {float(total_buy):>12,.2f} {float(total_sell):>12,.2f} {float(total_amar):>12,.2f}")

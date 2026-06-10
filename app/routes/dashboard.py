@@ -87,6 +87,7 @@ def _trader_profit_from_ops(trader_id, start_dt, end_dt):
         or_(Operation.user_id == trader_id, and_(Operation.user_id == None, _C.created_by == trader_id)),
         Operation.status == 'Completada',
         Operation.base_rate.isnot(None),
+        Operation.base_rate > 0,
         Operation.created_at >= start_dt,
         Operation.created_at < end_dt,
     ).all()
@@ -113,6 +114,7 @@ def _total_profit_from_ops(start_dt, end_dt, exclude_user_id=None):
     q = Operation.query.join(_C, Operation.client_id == _C.id).filter(
         Operation.status == 'Completada',
         Operation.base_rate.isnot(None),
+        Operation.base_rate > 0,
         Operation.created_at >= start_dt,
         Operation.created_at < end_dt,
     )
