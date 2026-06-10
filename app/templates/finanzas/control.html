@@ -58,19 +58,65 @@
 
 /* ─── KPI cards ──────────────────────────────────────────────────────── */
 .kpi-card {
-  background: #fff; border: 1px solid var(--bdr); border-radius: 10px;
-  padding: 13px 15px; height: 100%;
+  background: #fff;
+  border: 1px solid var(--bdr);
+  border-radius: 12px;
+  padding: 14px 16px 13px;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+  transition: box-shadow .18s, transform .18s;
+}
+.kpi-card:hover {
+  box-shadow: 0 6px 20px rgba(13,27,42,.08);
+  transform: translateY(-1px);
+}
+.kpi-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  border-radius: 12px 12px 0 0;
+  background: var(--bdr);
+}
+.kpi-card.ac-blue::before  { background: var(--blue); }
+.kpi-card.ac-green::before { background: var(--green); }
+.kpi-card.ac-amber::before { background: var(--amber); }
+.kpi-card.ac-navy::before  { background: var(--navy); }
+.kpi-card.ac-indigo::before { background: #6366f1; }
+.kpi-card.ac-teal::before  { background: #0d9488; }
+
+.kpi-header {
+  display: flex; align-items: center; justify-content: space-between; margin-bottom: 7px;
 }
 .kpi-label {
-  font-size: .66rem; font-weight: 700; color: #94A3B8;
-  text-transform: uppercase; letter-spacing: .07em; margin-bottom: 3px;
+  font-size: .61rem; font-weight: 700; color: #94A3B8;
+  text-transform: uppercase; letter-spacing: .09em;
 }
-.kpi-value { font-size: 1.3rem; font-weight: 800; color: var(--navy); line-height: 1.2; }
-.kpi-value.green { color: var(--green); }
-.kpi-value.red   { color: var(--red);   }
-.kpi-value.blue  { color: var(--blue);  }
-.kpi-value.amber { color: var(--amber); }
-.kpi-sub  { font-size: .69rem; color: #94A3B8; margin-top: 3px; }
+.kpi-icon {
+  width: 26px; height: 26px; border-radius: 7px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: .8rem; flex-shrink: 0;
+}
+.kpi-icon.ic-blue   { background: #eff6ff; color: var(--blue); }
+.kpi-icon.ic-green  { background: #f0fdf4; color: var(--green); }
+.kpi-icon.ic-amber  { background: #fffbeb; color: var(--amber); }
+.kpi-icon.ic-navy   { background: #f1f5f9; color: var(--navy); }
+.kpi-icon.ic-indigo { background: #eef2ff; color: #6366f1; }
+.kpi-icon.ic-teal   { background: #f0fdfa; color: #0d9488; }
+
+.kpi-value { font-size: 1.22rem; font-weight: 800; color: var(--navy); line-height: 1.1; }
+.kpi-value.green  { color: var(--green); }
+.kpi-value.red    { color: var(--red);   }
+.kpi-value.blue   { color: var(--blue);  }
+.kpi-value.amber  { color: var(--amber); }
+.kpi-value.teal   { color: #0d9488; }
+.kpi-value.indigo { color: #6366f1; }
+
+.kpi-sub {
+  font-size: .67rem; color: #94A3B8; margin-top: 5px;
+  line-height: 1.55; border-top: 1px solid #f1f5f9; padding-top: 5px;
+}
 
 /* ─── Cuadre strip ───────────────────────────────────────────────────── */
 .cuadre-strip {
@@ -264,61 +310,102 @@
 
   <!-- ── KPI row ─────────────────────────────────────────────────────── -->
   <div class="row g-2 mb-3" id="kpiRow">
-    <div class="col-6 col-md-4 col-lg-2">
-      <div class="kpi-card">
-        <div class="kpi-label">USD Disponible</div>
+
+    <!-- USD Disponible -->
+    <div class="col-6 col-md-4 col-lg-3">
+      <div class="kpi-card ac-blue">
+        <div class="kpi-header">
+          <div class="kpi-label">USD Disponible</div>
+          <div class="kpi-icon ic-blue"><i class="bi bi-bank"></i></div>
+        </div>
         <div class="kpi-value blue" id="kpiUSD">—</div>
-        <div class="kpi-sub" id="kpiUSDSub" style="line-height:1.6;">—</div>
+        <div class="kpi-sub" id="kpiUSDSub">—</div>
       </div>
     </div>
-    <div class="col-6 col-md-4 col-lg-2">
-      <div class="kpi-card">
-        <div class="kpi-label">PEN Disponible</div>
-        <div class="kpi-value blue" id="kpiPEN">—</div>
-        <div class="kpi-sub" id="kpiPENSub" style="line-height:1.6;">—</div>
+
+    <!-- PEN Disponible -->
+    <div class="col-6 col-md-4 col-lg-3">
+      <div class="kpi-card ac-navy">
+        <div class="kpi-header">
+          <div class="kpi-label">PEN Disponible</div>
+          <div class="kpi-icon ic-navy"><i class="bi bi-cash-stack"></i></div>
+        </div>
+        <div class="kpi-value" id="kpiPEN">—</div>
+        <div class="kpi-sub" id="kpiPENSub">—</div>
       </div>
     </div>
-    <div class="col-6 col-md-4 col-lg-2">
-      <div class="kpi-card">
-        <div class="kpi-label">Utilidad Hoy</div>
+
+    <!-- Compra Total -->
+    <div class="col-6 col-md-4 col-lg-3">
+      <div class="kpi-card ac-indigo">
+        <div class="kpi-header">
+          <div class="kpi-label">Compra Total</div>
+          <div class="kpi-icon ic-indigo"><i class="bi bi-arrow-down-circle"></i></div>
+        </div>
+        <div class="kpi-value indigo" id="kpiCompraUSD">—</div>
+        <div class="kpi-sub" id="kpiCompraSub">—</div>
+      </div>
+    </div>
+
+    <!-- Venta Total -->
+    <div class="col-6 col-md-4 col-lg-3">
+      <div class="kpi-card ac-teal">
+        <div class="kpi-header">
+          <div class="kpi-label">Venta Total</div>
+          <div class="kpi-icon ic-teal"><i class="bi bi-arrow-up-circle"></i></div>
+        </div>
+        <div class="kpi-value teal" id="kpiVentaUSD">—</div>
+        <div class="kpi-sub" id="kpiVentaSub">—</div>
+      </div>
+    </div>
+
+    <!-- Utilidad Hoy -->
+    <div class="col-6 col-md-4 col-lg-3">
+      <div class="kpi-card ac-green">
+        <div class="kpi-header">
+          <div class="kpi-label">Utilidad Hoy</div>
+          <div class="kpi-icon ic-green"><i class="bi bi-graph-up-arrow"></i></div>
+        </div>
         <div class="kpi-value green" id="kpiUtilHoy">—</div>
         <div class="kpi-sub" id="kpiUtilHoySub">—</div>
       </div>
     </div>
-    <div class="col-6 col-md-4 col-lg-2">
-      <div class="kpi-card">
-        <div class="kpi-label">Compra Total USD</div>
-        <div class="kpi-value blue" id="kpiCompraUSD">—</div>
-        <div class="kpi-sub" id="kpiCompraSub">—</div>
-      </div>
-    </div>
-    <div class="col-6 col-md-4 col-lg-2">
-      <div class="kpi-card">
-        <div class="kpi-label">Venta Total USD</div>
-        <div class="kpi-value blue" id="kpiVentaUSD">—</div>
-        <div class="kpi-sub" id="kpiVentaSub">—</div>
-      </div>
-    </div>
-    <div class="col-6 col-md-4 col-lg-2">
-      <div class="kpi-card">
-        <div class="kpi-label">Utilidad Mes</div>
+
+    <!-- Utilidad Mes -->
+    <div class="col-6 col-md-4 col-lg-3">
+      <div class="kpi-card ac-green">
+        <div class="kpi-header">
+          <div class="kpi-label">Utilidad Mes</div>
+          <div class="kpi-icon ic-green"><i class="bi bi-bar-chart-fill"></i></div>
+        </div>
         <div class="kpi-value green" id="kpiUtilMes">—</div>
         <div class="kpi-sub" id="kpiUtilMesSub">—</div>
       </div>
     </div>
-    <div class="col-6 col-md-4 col-lg-2">
-      <div class="kpi-card">
-        <div class="kpi-label">Posición Abierta</div>
+
+    <!-- Posición Abierta -->
+    <div class="col-6 col-md-4 col-lg-3">
+      <div class="kpi-card ac-amber">
+        <div class="kpi-header">
+          <div class="kpi-label">Posición Abierta</div>
+          <div class="kpi-icon ic-amber"><i class="bi bi-arrow-left-right"></i></div>
+        </div>
         <div class="kpi-value amber" id="kpiPos">—</div>
         <div class="kpi-sub" id="kpiPosSub">sin amarrar</div>
       </div>
     </div>
-    <div class="col-6 col-md-4 col-lg-2">
-      <div class="kpi-card">
-        <div class="kpi-label">Estado del Día</div>
-        <div id="kpiEstado" style="margin-top:4px;">—</div>
+
+    <!-- Estado del Día -->
+    <div class="col-6 col-md-4 col-lg-3">
+      <div class="kpi-card ac-navy">
+        <div class="kpi-header">
+          <div class="kpi-label">Estado del Día</div>
+          <div class="kpi-icon ic-navy"><i class="bi bi-calendar2-check"></i></div>
+        </div>
+        <div id="kpiEstado" style="margin-top:2px;">—</div>
       </div>
     </div>
+
   </div>
 
   <!-- ── Control de Apertura/Cierre ────────────────────────────────── -->
