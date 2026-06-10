@@ -3,7 +3,7 @@ CRM WhatsApp — QoriCash Trading V2
 Webhook + Panel de conversaciones para Master
 """
 import os, json, logging, requests as http_req
-from datetime import datetime
+from datetime import datetime, timedelta
 from flask import Blueprint, render_template, request, jsonify, abort
 from flask_login import login_required
 from app.extensions import db, csrf
@@ -629,7 +629,8 @@ def api_import_prospectos():
             p = Prospecto.query.get(pid)
             if not p:
                 continue
-            p.fecha_ultimo_contacto = ts_str
+            p.fecha_ultimo_contacto  = ts_str
+            p.fecha_proximo_contacto = (ts + timedelta(days=3)).strftime("%Y-%m-%d %H:%M")
             if not p.fecha_primer_contacto:
                 p.fecha_primer_contacto = ts_str
             p.num_contactos = (p.num_contactos or 0) + 1
