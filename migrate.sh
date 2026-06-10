@@ -142,6 +142,37 @@ except Exception as e:
 PYEOF
 echo ""
 
+# ── Patch directo: columna sin_whatsapp en prospectos ────────────────────────
+echo "⚡ Garantizando columna sin_whatsapp en prospectos..."
+python3 - <<'PYEOF'
+import os, sys
+try:
+    import psycopg2
+except ImportError:
+    print("   psycopg2 no disponible — saltando patch directo")
+    sys.exit(0)
+url = os.environ.get('DATABASE_URL', '')
+if not url:
+    print("   DATABASE_URL no definida — saltando patch directo")
+    sys.exit(0)
+try:
+    conn = psycopg2.connect(url)
+    conn.autocommit = True
+    cur = conn.cursor()
+    cur.execute("ALTER TABLE prospectos ADD COLUMN IF NOT EXISTS sin_whatsapp BOOLEAN NOT NULL DEFAULT false")
+    cur.execute("SELECT column_name FROM information_schema.columns WHERE table_name='prospectos' AND column_name='sin_whatsapp'")
+    exists = cur.fetchone()
+    conn.close()
+    if exists:
+        print("   ✅ sin_whatsapp: confirmada en PostgreSQL")
+    else:
+        print("   ❌ sin_whatsapp: NO se pudo crear")
+        sys.exit(1)
+except Exception as e:
+    print(f"   ⚠️  Error en patch directo sin_whatsapp: {e}")
+PYEOF
+echo ""
+
 # ── Detección de estado actual de la DB ──────────────────────────────────────
 # Si la versión en alembic_version NO existe en nuestro historial,
 # es una DB con migraciones antiguas → stampeamos al baseline sin borrar datos.
