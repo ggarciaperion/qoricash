@@ -271,14 +271,14 @@
       <div class="kpi-card">
         <div class="kpi-label">USD Disponible</div>
         <div class="kpi-value blue" id="kpiUSD">—</div>
-        <div class="kpi-sub">BCP + IBK + BANBIF</div>
+        <div class="kpi-sub" id="kpiUSDSub" style="line-height:1.6;">—</div>
       </div>
     </div>
     <div class="col-6 col-md-4 col-lg-2">
       <div class="kpi-card">
         <div class="kpi-label">PEN Disponible</div>
         <div class="kpi-value blue" id="kpiPEN">—</div>
-        <div class="kpi-sub">BCP + IBK + BANBIF</div>
+        <div class="kpi-sub" id="kpiPENSub" style="line-height:1.6;">—</div>
       </div>
     </div>
     <div class="col-6 col-md-4 col-lg-2">
@@ -290,6 +290,20 @@
     </div>
     <div class="col-6 col-md-4 col-lg-2">
       <div class="kpi-card">
+        <div class="kpi-label">Compra Total USD</div>
+        <div class="kpi-value blue" id="kpiCompraUSD">—</div>
+        <div class="kpi-sub" id="kpiCompraSub">—</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-4 col-lg-2">
+      <div class="kpi-card">
+        <div class="kpi-label">Venta Total USD</div>
+        <div class="kpi-value blue" id="kpiVentaUSD">—</div>
+        <div class="kpi-sub" id="kpiVentaSub">—</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-4 col-lg-2">
+      <div class="kpi-card">
         <div class="kpi-label">Utilidad Mes</div>
         <div class="kpi-value green" id="kpiUtilMes">—</div>
         <div class="kpi-sub" id="kpiUtilMesSub">—</div>
@@ -297,7 +311,7 @@
     </div>
     <div class="col-6 col-md-4 col-lg-2">
       <div class="kpi-card">
-        <div class="kpi-label">Posición Neta USD</div>
+        <div class="kpi-label">Posición Abierta</div>
         <div class="kpi-value amber" id="kpiPos">—</div>
         <div class="kpi-sub" id="kpiPosSub">sin amarrar</div>
       </div>
@@ -487,14 +501,48 @@ function renderKPIs(d) {
   const phm  = d.profit.month;
   const pos  = d.position;
   const cf   = d.cashflow;
+  const ops  = d.daily_ops || {};
 
   document.getElementById('kpiUSD').textContent = fmtUSD(bal.total_usd);
   document.getElementById('kpiPEN').textContent = fmtPEN(bal.total_pen);
+
+  // Bank breakdown for USD
+  const usdLines = [];
+  const byBank = bal.by_bank || {};
+  for (const bk of ['BCP', 'INTERBANK', 'BANBIF']) {
+    const v = byBank[bk] ? byBank[bk]['USD'] : 0;
+    if (v > 0.005) usdLines.push(`${bk}: ${fmtUSD(v)}`);
+  }
+  document.getElementById('kpiUSDSub').innerHTML =
+    usdLines.length ? usdLines.join('<br>') : '—';
+
+  // Bank breakdown for PEN
+  const penLines = [];
+  for (const bk of ['BCP', 'INTERBANK', 'BANBIF']) {
+    const v = byBank[bk] ? byBank[bk]['PEN'] : 0;
+    if (v > 0.005) penLines.push(`${bk}: ${fmtPEN(v)}`);
+  }
+  document.getElementById('kpiPENSub').innerHTML =
+    penLines.length ? penLines.join('<br>') : '—';
 
   const uhEl  = document.getElementById('kpiUtilHoy');
   uhEl.textContent = fmtPEN(phy.total_pen);
   uhEl.className = 'kpi-value ' + (phy.total_pen >= 0 ? 'green' : 'red');
   document.getElementById('kpiUtilHoySub').textContent = `${phy.match_count} amarre(s)`;
+
+  // Compra Total USD
+  const buyUSD = ops.buy_usd || 0;
+  const buyPEN = ops.buy_pen || 0;
+  document.getElementById('kpiCompraUSD').textContent = fmtUSD(buyUSD);
+  document.getElementById('kpiCompraSub').textContent =
+    buyPEN > 0 ? `≈ ${fmtPEN(buyPEN)}` : `${ops.compras_count || 0} op(s)`;
+
+  // Venta Total USD
+  const sellUSD = ops.sell_usd || 0;
+  const sellPEN = ops.sell_pen || 0;
+  document.getElementById('kpiVentaUSD').textContent = fmtUSD(sellUSD);
+  document.getElementById('kpiVentaSub').textContent =
+    sellPEN > 0 ? `≈ ${fmtPEN(sellPEN)}` : `${ops.ventas_count || 0} op(s)`;
 
   const umEl  = document.getElementById('kpiUtilMes');
   umEl.textContent = fmtPEN(phm.total_pen);

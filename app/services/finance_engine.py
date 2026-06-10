@@ -272,6 +272,10 @@ class FinanceEngine:
         avg_sell = (sum(float(o.exchange_rate or 0) * float(o.amount_usd or 0) for o in ventas) / sell_usd
                     if sell_usd > 0 else 0)
 
+        # Contravalor PEN: compra = cliente entrega PEN, venta = cliente entrega USD
+        buy_pen  = round(sum(float(o.exchange_rate or 0) * float(o.amount_usd or 0) for o in compras), 2)
+        sell_pen = round(sum(float(o.exchange_rate or 0) * float(o.amount_usd or 0) for o in ventas), 2)
+
         return {
             'fecha':         fecha.isoformat(),
             'total_ops':     len(ops),
@@ -280,6 +284,8 @@ class FinanceEngine:
             'volume_usd':    round(vol_usd,  2),
             'buy_usd':       round(buy_usd,  2),
             'sell_usd':      round(sell_usd, 2),
+            'buy_pen':       buy_pen,
+            'sell_pen':      sell_pen,
             'avg_buy_rate':  round(avg_buy,  4),
             'avg_sell_rate': round(avg_sell, 4),
         }
@@ -401,6 +407,7 @@ class FinanceEngine:
             'fecha': today.isoformat(), 'total_ops': 0,
             'compras_count': 0, 'ventas_count': 0,
             'volume_usd': 0, 'buy_usd': 0, 'sell_usd': 0,
+            'buy_pen': 0, 'sell_pen': 0,
             'avg_buy_rate': 0, 'avg_sell_rate': 0,
         }
 
