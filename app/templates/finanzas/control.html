@@ -883,15 +883,33 @@ async function loadAmarres(page) {
 }
 
 // ── Modal Apertura ────────────────────────────────────────────────────────────
-function abrirApertura() {
-  const byBank = _snap?.balances?.by_bank || {};
+async function abrirApertura() {
   const byCls  = {BCP:'bcp', INTERBANK:'interbank', BANBIF:'banbif'};
   const BANKS  = ['BCP','INTERBANK','BANBIF'];
+
+  // Intentar cargar cierre del día anterior
+  const hoyLima = new Date().toLocaleDateString('en-CA', {timeZone: 'America/Lima'});
+  const ayerDate = new Date(hoyLima + 'T00:00:00');
+  ayerDate.setDate(ayerDate.getDate() - 1);
+  const ayerStr = ayerDate.toISOString().slice(0, 10);
+
+  let prevCierre = null;
+  let prevFecha  = null;
+  try {
+    const r = await fetch(`/finanzas/api/caja/hoy?fecha=${ayerStr}`);
+    const d = await r.json();
+    if (d.ok && d.found && d.cierre?.has_closing) {
+      prevCierre = d.cierre.closing_balance || {};
+      prevFecha  = ayerStr;
+    }
+  } catch(_) {}
+
+  const defaults = prevCierre || (_snap?.balances?.by_bank || {});
 
   let rows = '';
   for (const bk of BANKS) {
     for (const [cur, ci] of [['USD',0],['PEN',1]]) {
-      const def      = ((byBank[bk] || {})[cur] || 0).toFixed(2);
+      const def      = ((defaults[bk] || {})[cur] || 0).toFixed(2);
       const bankCell = ci === 0 ? `<td rowspan="2"><span class="tag-bk ${byCls[bk]}">${bk}</span></td>` : '';
       rows += `<tr>
         ${bankCell}
@@ -904,9 +922,16 @@ function abrirApertura() {
     }
   }
 
+  const notaCierre = prevFecha
+    ? `<div style="font-size:.72rem;color:#16a34a;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:6px 10px;margin-bottom:10px;">
+        <i class="bi bi-check-circle-fill me-1"></i>Pre-cargado desde el cierre del ${prevFecha}. Ajusta si es necesario.
+      </div>`
+    : '';
+
   _modal(`
     <h6><i class="bi bi-sunrise-fill me-2" style="color:#16a34a;"></i>Apertura del Día</h6>
     <p style="font-size:.75rem;color:var(--muted);margin:-8px 0 12px;">Ingresa el saldo inicial contado físicamente en cada banco y moneda.</p>
+    ${notaCierre}
     <div style="overflow-x:auto;">
       <table class="ctrl-tbl" style="margin-bottom:12px;">
         <thead><tr><th>Banco</th><th>Mon.</th><th class="text-end">Saldo Inicial</th></tr></thead>
