@@ -118,6 +118,26 @@
   line-height: 1.55; border-top: 1px solid #f1f5f9; padding-top: 5px;
 }
 
+/* ─── USD/PEN card — banco como protagonista ──────────────────────── */
+.kpi-bank-list { margin-top: 2px; }
+.kpi-bank-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 4px 0; border-bottom: 1px solid #f8fafc;
+}
+.kpi-bank-row:last-child { border-bottom: none; }
+.kpi-bank-name {
+  font-size: .62rem; font-weight: 800; text-transform: uppercase;
+  letter-spacing: .07em; color: #94a3b8;
+}
+.kpi-bank-amount {
+  font-size: .88rem; font-weight: 800; color: var(--navy);
+}
+.kpi-bank-total {
+  font-size: .65rem; color: #b0bec5; margin-top: 6px;
+  border-top: 1px solid #f1f5f9; padding-top: 5px;
+  text-align: right; letter-spacing: .02em;
+}
+
 /* ─── Cuadre strip ───────────────────────────────────────────────────── */
 .cuadre-strip {
   background: #fff; border: 1px solid var(--bdr); border-radius: 10px;
@@ -311,32 +331,55 @@
   <!-- ── KPI row ─────────────────────────────────────────────────────── -->
   <div class="row g-2 mb-3" id="kpiRow">
 
-    <!-- USD Disponible -->
-    <div class="col-6 col-md-4 col-lg-3">
+    <!-- USD Disponible — bancos como protagonistas -->
+    <div class="col-6 col-md-3">
       <div class="kpi-card ac-blue">
         <div class="kpi-header">
           <div class="kpi-label">USD Disponible</div>
           <div class="kpi-icon ic-blue"><i class="bi bi-bank"></i></div>
         </div>
-        <div class="kpi-value blue" id="kpiUSD">—</div>
-        <div class="kpi-sub" id="kpiUSDSub">—</div>
+        <div class="kpi-bank-list" id="kpiUSDSub">—</div>
+        <div class="kpi-bank-total" id="kpiUSD">—</div>
       </div>
     </div>
 
-    <!-- PEN Disponible -->
-    <div class="col-6 col-md-4 col-lg-3">
+    <!-- PEN Disponible — bancos como protagonistas -->
+    <div class="col-6 col-md-3">
       <div class="kpi-card ac-navy">
         <div class="kpi-header">
           <div class="kpi-label">PEN Disponible</div>
           <div class="kpi-icon ic-navy"><i class="bi bi-cash-stack"></i></div>
         </div>
-        <div class="kpi-value" id="kpiPEN">—</div>
-        <div class="kpi-sub" id="kpiPENSub">—</div>
+        <div class="kpi-bank-list" id="kpiPENSub">—</div>
+        <div class="kpi-bank-total" id="kpiPEN">—</div>
+      </div>
+    </div>
+
+    <!-- Utilidad Mes -->
+    <div class="col-6 col-md-3">
+      <div class="kpi-card ac-green">
+        <div class="kpi-header">
+          <div class="kpi-label">Utilidad Mes</div>
+          <div class="kpi-icon ic-green"><i class="bi bi-bar-chart-fill"></i></div>
+        </div>
+        <div class="kpi-value green" id="kpiUtilMes">—</div>
+        <div class="kpi-sub" id="kpiUtilMesSub">—</div>
+      </div>
+    </div>
+
+    <!-- Estado del Día -->
+    <div class="col-6 col-md-3">
+      <div class="kpi-card ac-navy">
+        <div class="kpi-header">
+          <div class="kpi-label">Estado del Día</div>
+          <div class="kpi-icon ic-navy"><i class="bi bi-calendar2-check"></i></div>
+        </div>
+        <div id="kpiEstado" style="margin-top:2px;">—</div>
       </div>
     </div>
 
     <!-- Compra Total -->
-    <div class="col-6 col-md-4 col-lg-3">
+    <div class="col-6 col-md-3">
       <div class="kpi-card ac-indigo">
         <div class="kpi-header">
           <div class="kpi-label">Compra Total</div>
@@ -348,7 +391,7 @@
     </div>
 
     <!-- Venta Total -->
-    <div class="col-6 col-md-4 col-lg-3">
+    <div class="col-6 col-md-3">
       <div class="kpi-card ac-teal">
         <div class="kpi-header">
           <div class="kpi-label">Venta Total</div>
@@ -360,7 +403,7 @@
     </div>
 
     <!-- Utilidad Hoy -->
-    <div class="col-6 col-md-4 col-lg-3">
+    <div class="col-6 col-md-3">
       <div class="kpi-card ac-green">
         <div class="kpi-header">
           <div class="kpi-label">Utilidad Hoy</div>
@@ -371,20 +414,8 @@
       </div>
     </div>
 
-    <!-- Utilidad Mes -->
-    <div class="col-6 col-md-4 col-lg-3">
-      <div class="kpi-card ac-green">
-        <div class="kpi-header">
-          <div class="kpi-label">Utilidad Mes</div>
-          <div class="kpi-icon ic-green"><i class="bi bi-bar-chart-fill"></i></div>
-        </div>
-        <div class="kpi-value green" id="kpiUtilMes">—</div>
-        <div class="kpi-sub" id="kpiUtilMesSub">—</div>
-      </div>
-    </div>
-
     <!-- Posición Abierta -->
-    <div class="col-6 col-md-4 col-lg-3">
+    <div class="col-6 col-md-3">
       <div class="kpi-card ac-amber">
         <div class="kpi-header">
           <div class="kpi-label">Posición Abierta</div>
@@ -392,17 +423,6 @@
         </div>
         <div class="kpi-value amber" id="kpiPos">—</div>
         <div class="kpi-sub" id="kpiPosSub">sin amarrar</div>
-      </div>
-    </div>
-
-    <!-- Estado del Día -->
-    <div class="col-6 col-md-4 col-lg-3">
-      <div class="kpi-card ac-navy">
-        <div class="kpi-header">
-          <div class="kpi-label">Estado del Día</div>
-          <div class="kpi-icon ic-navy"><i class="bi bi-calendar2-check"></i></div>
-        </div>
-        <div id="kpiEstado" style="margin-top:2px;">—</div>
       </div>
     </div>
 
@@ -587,27 +607,36 @@ function renderKPIs(d) {
   const cf   = d.cashflow;
   const ops  = d.daily_ops || {};
 
-  document.getElementById('kpiUSD').textContent = fmtUSD(bal.total_usd);
-  document.getElementById('kpiPEN').textContent = fmtPEN(bal.total_pen);
-
-  // Bank breakdown for USD
-  const usdLines = [];
+  // USD: bancos como protagonistas, total como pie de card
   const byBank = bal.by_bank || {};
+  const BK_LABEL = { BCP: 'BCP', INTERBANK: 'Interbank', BANBIF: 'BanBif' };
+
+  const usdRows = [];
   for (const bk of ['BCP', 'INTERBANK', 'BANBIF']) {
     const v = byBank[bk] ? byBank[bk]['USD'] : 0;
-    if (v > 0.005) usdLines.push(`${bk}: ${fmtUSD(v)}`);
+    if (v > 0.005) usdRows.push(
+      `<div class="kpi-bank-row">
+        <span class="kpi-bank-name">${BK_LABEL[bk]}</span>
+        <span class="kpi-bank-amount" style="color:var(--blue);">${fmtUSD(v)}</span>
+      </div>`
+    );
   }
-  document.getElementById('kpiUSDSub').innerHTML =
-    usdLines.length ? usdLines.join('<br>') : '—';
+  document.getElementById('kpiUSDSub').innerHTML = usdRows.length ? usdRows.join('') : '<span style="color:#cbd5e1;font-size:.8rem;">Sin saldo</span>';
+  document.getElementById('kpiUSD').textContent = `Total: ${fmtUSD(bal.total_usd)}`;
 
-  // Bank breakdown for PEN
-  const penLines = [];
+  // PEN: bancos como protagonistas, total como pie de card
+  const penRows = [];
   for (const bk of ['BCP', 'INTERBANK', 'BANBIF']) {
     const v = byBank[bk] ? byBank[bk]['PEN'] : 0;
-    if (v > 0.005) penLines.push(`${bk}: ${fmtPEN(v)}`);
+    if (v > 0.005) penRows.push(
+      `<div class="kpi-bank-row">
+        <span class="kpi-bank-name">${BK_LABEL[bk]}</span>
+        <span class="kpi-bank-amount" style="color:var(--navy);">${fmtPEN(v)}</span>
+      </div>`
+    );
   }
-  document.getElementById('kpiPENSub').innerHTML =
-    penLines.length ? penLines.join('<br>') : '—';
+  document.getElementById('kpiPENSub').innerHTML = penRows.length ? penRows.join('') : '<span style="color:#cbd5e1;font-size:.8rem;">Sin saldo</span>';
+  document.getElementById('kpiPEN').textContent = `Total: ${fmtPEN(bal.total_pen)}`;
 
   const uhEl  = document.getElementById('kpiUtilHoy');
   uhEl.textContent = fmtPEN(phy.total_pen);
