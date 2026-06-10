@@ -2988,6 +2988,38 @@ def api_registrar_wa(pid):
     return jsonify({"ok": True, "ultima_wa": ts, "fecha_ultimo_contacto": ts, "estado_comercial": p.estado_comercial})
 
 
+@prospeccion_bp.route("/api/<int:pid>/registrar-email", methods=["POST"])
+@csrf.exempt
+@login_required
+@require_role("Master", "Trader")
+def api_registrar_email(pid):
+    """Registra un contacto manual por email desde el drawer del prospecto."""
+    p = db.get_or_404(Prospecto, pid)
+    ts = now_peru().strftime("%Y-%m-%d %H:%M")
+
+    _log_actividad(
+        p.id, current_user.id,
+        tipo='email',
+        descripcion='Email registrado manualmente desde CRM',
+        canal='email',
+        resultado='Enviado',
+    )
+
+    estados_sin_contacto = (None, '', 'sin_contactar')
+    if p.estado_comercial in estados_sin_contacto:
+        p.estado_comercial = 'contactado'
+        _log_actividad(
+            p.id, current_user.id,
+            tipo='estado',
+            descripcion='Estado cambiado a: contactado (email manual)',
+            canal='sistema',
+            nuevo_estado='contactado',
+        )
+
+    db.session.commit()
+    return jsonify({"ok": True, "ultima_email": ts, "fecha_ultimo_contacto": ts, "estado_comercial": p.estado_comercial})
+
+
 # ── Dashboard API — seguimientos pendientes ────────────────────────────────────
 
 @prospeccion_bp.route("/api/seguimientos-pendientes")

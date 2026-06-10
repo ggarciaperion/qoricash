@@ -1700,29 +1700,28 @@ function openDrawer(id) {
       <div class="mb-2" style="display:flex;gap:8px;flex-wrap:wrap;">
         <!-- Email card -->
         ${(function(){
-          const tieneEmail = r.ultima_email || r.fecha_ultimo_contacto;
-          const fecha      = r.ultima_email || r.fecha_ultimo_contacto || '';
-          const tipo       = r.tipo_ultimo_envio || '';
-          const remitente  = r.remitente || '';
-          if (tieneEmail) {
-            return `<div style="flex:1;min-width:120px;background:#eff6ff;border-radius:8px;padding:8px 10px;border:1px solid #bfdbfe;">
+          const fecha     = r.ultima_email || r.fecha_ultimo_contacto || '';
+          const tipo      = r.tipo_ultimo_envio || '';
+          const remitente = r.remitente || '';
+          if (fecha) {
+            return `<div onclick="registrarEmail(${r.id})" id="emailDrCard${r.id}" style="flex:1;min-width:120px;background:#eff6ff;border-radius:8px;padding:8px 10px;border:1px solid #bfdbfe;cursor:pointer;transition:background .15s,border-color .15s;" onmouseenter="this.style.background='#dbeafe';this.style.borderColor='#93c5fd';" onmouseleave="this.style.background='#eff6ff';this.style.borderColor='#bfdbfe';">
               <div style="font-size:.62rem;font-weight:700;color:#3b82f6;text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px;"><i class="bi bi-envelope-fill me-1"></i>Email</div>
               <div style="font-size:.78rem;font-weight:600;color:#1e40af;">${esc(fecha.slice(0,16))}</div>
               ${tipo?`<div style="font-size:.65rem;color:#60a5fa;">${esc(tipo)}${remitente?' · '+esc(remitente.split('@')[0]):''}</div>`:''}
+              <div style="font-size:.6rem;color:#93c5fd;margin-top:2px;">Clic para registrar nuevo envío</div>
             </div>`;
           }
-          // Estado heredado de migración (tiene estado pero sin registro de actividad)
+          // Estado heredado de migración
           const estadoImplica = ['contactado','interesado','negociando','cliente','P1','P2','P3','P4','presentado','precio_enviado','seguimiento'];
           if (estadoImplica.includes(r.estado_comercial)) {
-            return `<div style="flex:1;min-width:120px;background:#fafafa;border-radius:8px;padding:8px 10px;border:1px dashed #d1d5db;">
-              <div style="font-size:.62rem;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px;"><i class="bi bi-envelope me-1"></i>Email</div>
-              <div style="font-size:.72rem;color:#9ca3af;">Sin registro en sistema</div>
-              <div style="font-size:.6rem;color:#d1d5db;margin-top:2px;">Estado heredado de importación</div>
+            return `<div onclick="registrarEmail(${r.id})" id="emailDrCard${r.id}" style="flex:1;min-width:120px;background:#fafafa;border-radius:8px;padding:8px 10px;border:1px dashed #bfdbfe;cursor:pointer;transition:background .15s;" onmouseenter="this.style.background='#eff6ff';" onmouseleave="this.style.background='#fafafa';">
+              <div style="font-size:.62rem;font-weight:700;color:#60a5fa;text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px;"><i class="bi bi-envelope me-1"></i>Email</div>
+              <div style="font-size:.72rem;color:#93c5fd;font-weight:600;">Registrar envío</div>
             </div>`;
           }
-          return `<div style="flex:1;min-width:120px;background:#f9fafb;border-radius:8px;padding:8px 10px;border:1px solid #f1f5f9;">
-            <div style="font-size:.62rem;font-weight:700;color:#d1d5db;text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px;"><i class="bi bi-envelope me-1"></i>Email</div>
-            <div style="font-size:.72rem;color:#d1d5db;">Sin envío</div>
+          return `<div onclick="registrarEmail(${r.id})" id="emailDrCard${r.id}" style="flex:1;min-width:120px;background:#f9fafb;border-radius:8px;padding:8px 10px;border:1px dashed #bfdbfe;cursor:pointer;transition:background .15s;" onmouseenter="this.style.background='#eff6ff';" onmouseleave="this.style.background='#f9fafb';">
+            <div style="font-size:.62rem;font-weight:700;color:#60a5fa;text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px;"><i class="bi bi-envelope me-1"></i>Email</div>
+            <div style="font-size:.72rem;color:#93c5fd;font-weight:600;">Registrar envío</div>
           </div>`;
         })()}
         <!-- WhatsApp card -->
@@ -2584,6 +2583,57 @@ async function registrarWA(pid) {
   }
 
   toast('WhatsApp registrado ✓');
+}
+
+async function registrarEmail(pid) {
+  const card = document.getElementById(`emailDrCard${pid}`);
+  if (card) { card.style.pointerEvents = 'none'; card.style.opacity = '.6'; }
+
+  const res = await fetch(`/prospeccion/api/${pid}/registrar-email`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF() },
+  });
+  const d = await res.json().catch(() => ({}));
+
+  if (card) { card.style.pointerEvents = ''; card.style.opacity = '1'; }
+
+  if (!res.ok || !d.ok) {
+    Swal.fire({ icon: 'error', text: d.error || 'Error al registrar email.', confirmButtonColor: '#0D1B2A' });
+    return;
+  }
+
+  // Actualizar datos locales
+  const row = _rows.find(x => x.id === pid);
+  if (row) {
+    row.ultima_email          = d.ultima_email;
+    row.fecha_ultimo_contacto = d.fecha_ultimo_contacto;
+    if (d.estado_comercial) row.estado_comercial = d.estado_comercial;
+  }
+
+  // Reemplazar fila en tabla
+  const tr = document.querySelector(`tr[data-id="${pid}"]`);
+  if (tr && row) {
+    tr.outerHTML = rowHtml(row);
+    if (_sel.has(pid)) {
+      const newTr = document.querySelector(`tr[data-id="${pid}"]`);
+      if (newTr) {
+        newTr.classList.add('row-selected');
+        const cb = newTr.querySelector('.rchk');
+        if (cb) cb.checked = true;
+      }
+    }
+  }
+
+  // Actualizar card del drawer
+  if (card) {
+    card.outerHTML = `<div id="emailDrCard${pid}" onclick="registrarEmail(${pid})" style="flex:1;min-width:120px;background:#eff6ff;border-radius:8px;padding:8px 10px;border:1px solid #bfdbfe;cursor:pointer;transition:background .15s;" onmouseenter="this.style.background='#dbeafe';this.style.borderColor='#93c5fd';" onmouseleave="this.style.background='#eff6ff';this.style.borderColor='#bfdbfe';">
+      <div style="font-size:.62rem;font-weight:700;color:#3b82f6;text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px;"><i class="bi bi-envelope-fill me-1"></i>Email</div>
+      <div style="font-size:.78rem;font-weight:600;color:#1e40af;">${d.ultima_email}</div>
+      <div style="font-size:.6rem;color:#93c5fd;margin-top:2px;">Clic para registrar nuevo envío</div>
+    </div>`;
+  }
+
+  toast('Email registrado ✓');
 }
 
 async function asignarDesdeDrawer(pid) {
