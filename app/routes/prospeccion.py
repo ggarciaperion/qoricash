@@ -2985,7 +2985,7 @@ def api_registrar_wa(pid):
         )
 
     db.session.commit()
-    return jsonify({"ok": True, "ultima_wa": ts, "estado_comercial": p.estado_comercial})
+    return jsonify({"ok": True, "ultima_wa": ts, "fecha_ultimo_contacto": ts, "estado_comercial": p.estado_comercial})
 
 
 # ── Dashboard API — seguimientos pendientes ────────────────────────────────────

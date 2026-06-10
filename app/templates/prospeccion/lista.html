@@ -2533,7 +2533,8 @@ async function registrarWA(pid) {
   // Actualizar datos locales
   const row = _rows.find(x => x.id === pid);
   if (row) {
-    row.ultima_wa = d.ultima_wa;
+    row.ultima_wa             = d.ultima_wa;
+    row.fecha_ultimo_contacto = d.fecha_ultimo_contacto;
     if (d.estado_comercial) row.estado_comercial = d.estado_comercial;
   }
 
