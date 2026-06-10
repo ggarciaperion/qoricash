@@ -626,7 +626,7 @@ def api_import_prospectos():
         ts_str  = ts.strftime("%Y-%m-%d %H:%M")
         updated = 0
         for pid in ids:
-            p = Prospecto.query.get(pid)
+            p = db.session.get(Prospecto, pid)
             if not p:
                 continue
             p.fecha_ultimo_contacto  = ts_str
