@@ -601,12 +601,49 @@ def api_import_prospectos():
         rows = Prospecto.query.filter(
             Prospecto.cliente_lfc.isnot(None), Prospecto.cliente_lfc != '',
             Prospecto.email.isnot(None), Prospecto.email != ''
-        ).with_entities(Prospecto.id, Prospecto.razon_social, Prospecto.email, Prospecto.estado_comercial).all()
+        ).with_entities(
+            Prospecto.id, Prospecto.razon_social, Prospecto.email,
+            Prospecto.estado_comercial, Prospecto.estado_email,
+            Prospecto.fecha_ultimo_contacto
+        ).all()
         return jsonify({
             'ok': True,
             'total': len(rows),
-            'emails': [{'id': r.id, 'razon_social': r.razon_social or '', 'email': r.email, 'estado': r.estado_comercial or ''} for r in rows],
+            'emails': [{
+                'id':                   r.id,
+                'razon_social':         r.razon_social or '',
+                'email':                r.email,
+                'estado':               r.estado_comercial or '',
+                'estado_email':         r.estado_email or '',
+                'fecha_ultimo_contacto': r.fecha_ultimo_contacto or '',
+            } for r in rows],
         })
+
+    if action == 'update_contacto_batch':
+        from app.models.prospecto import ActividadProspecto
+        ids     = data.get('ids', [])
+        ts      = now_peru()
+        ts_str  = ts.strftime("%Y-%m-%d %H:%M")
+        updated = 0
+        for pid in ids:
+            p = Prospecto.query.get(pid)
+            if not p:
+                continue
+            p.fecha_ultimo_contacto = ts_str
+            if not p.fecha_primer_contacto:
+                p.fecha_primer_contacto = ts_str
+            p.num_contactos = (p.num_contactos or 0) + 1
+            act = ActividadProspecto(
+                prospecto_id=p.id, user_id=1,
+                tipo='email', canal='email',
+                bandeja='ggarcia@lfc.pe',
+                descripcion='Correo de precios LFC enviado (campaña automática)',
+                resultado='Enviado',
+            )
+            db.session.add(act)
+            updated += 1
+        db.session.commit()
+        return jsonify({'ok': True, 'updated': updated})
 
     if action == 'lfc_stats':
         from sqlalchemy import func
