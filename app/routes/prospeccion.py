@@ -2243,7 +2243,7 @@ def _api_grid_impl():
         "rows": rows, "total": len(rows),
         "counts": counts,
         "traders": traders,
-        "rubros": rubros[:80],
+        "rubros": rubros,
         "deptos": deptos,
         "tamanos": tamanos,
     })
