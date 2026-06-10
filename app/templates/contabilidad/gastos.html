@@ -267,6 +267,15 @@
             </span>
           </div>
         </div>
+        <!-- Campo USD: aparece solo cuando se selecciona cuenta en dólares -->
+        <div id="amountUsdDiv" class="mb-3 d-none">
+          <label class="form-label fw-semibold text-success">
+            <i class="bi bi-currency-dollar me-1"></i>Monto en USD <span class="text-danger">*</span>
+          </label>
+          <input type="number" id="gAmountUsd" class="form-control" step="0.01" min="0.001"
+                 placeholder="Ej: 2.50">
+          <div class="form-text">Importe exacto en dólares cargado por el banco. El monto S/ de arriba se usa solo para el asiento contable.</div>
+        </div>
         <div id="gastoError" class="alert alert-danger d-none"></div>
       </div>
       <div class="modal-footer">
@@ -391,23 +400,34 @@ const _BANK_LABELS = {
   '1011': 'Caja MN',
 };
 
+const _USD_ACCOUNTS = new Set(['1044', '1047', '1050']);
+
 function nuevoGastoModal() {
   document.getElementById('gastoError').classList.add('d-none');
   document.getElementById('gBankAccountCode').value = '';
   document.getElementById('bancoCargoBadge').classList.add('d-none');
+  document.getElementById('amountUsdDiv').classList.add('d-none');
+  document.getElementById('gAmountUsd').value = '';
   new bootstrap.Modal(document.getElementById('gastoModal')).show();
 }
 
 function onBankAccountChange() {
-  const bank = document.getElementById('gBankAccountCode').value;
-  const cat  = document.getElementById('gCategory').value;
+  const bank  = document.getElementById('gBankAccountCode').value;
+  const cat   = document.getElementById('gCategory').value;
   const badge = document.getElementById('bancoCargoBadge');
+  const usdDiv = document.getElementById('amountUsdDiv');
   if (bank) {
     document.getElementById('bcGastoCuenta').textContent = cat;
     document.getElementById('bcBancoCuenta').textContent = _BANK_LABELS[bank] || bank;
     badge.classList.remove('d-none');
   } else {
     badge.classList.add('d-none');
+  }
+  if (_USD_ACCOUNTS.has(bank)) {
+    usdDiv.classList.remove('d-none');
+  } else {
+    usdDiv.classList.add('d-none');
+    document.getElementById('gAmountUsd').value = '';
   }
 }
 
@@ -433,6 +453,9 @@ function guardarGasto() {
   const errDiv = document.getElementById('gastoError');
   errDiv.classList.add('d-none');
 
+  const bankCode = document.getElementById('gBankAccountCode').value || null;
+  const amountUsdRaw = document.getElementById('gAmountUsd').value;
+
   const payload = {
     expense_date:      document.getElementById('gExpenseDate').value,
     expense_type:      document.getElementById('gExpenseType').value,
@@ -443,11 +466,17 @@ function guardarGasto() {
     voucher_number:    document.getElementById('gVoucherNumber').value.trim(),
     supplier_ruc:      document.getElementById('gSupplierRuc').value.trim(),
     supplier_name:     document.getElementById('gSupplierName').value.trim(),
-    bank_account_code: document.getElementById('gBankAccountCode').value || null,
+    bank_account_code: bankCode,
+    amount_usd:        (bankCode && _USD_ACCOUNTS.has(bankCode) && amountUsdRaw) ? parseFloat(amountUsdRaw) : null,
   };
 
   if (!payload.description || !payload.amount_pen || parseFloat(payload.amount_pen) <= 0) {
-    errDiv.textContent = 'Completa los campos obligatorios (descripción y monto).';
+    errDiv.textContent = 'Completa los campos obligatorios (descripción y monto S/).';
+    errDiv.classList.remove('d-none');
+    return;
+  }
+  if (bankCode && _USD_ACCOUNTS.has(bankCode) && !(payload.amount_usd > 0)) {
+    errDiv.textContent = 'Ingresa el monto en USD cobrado por el banco.';
     errDiv.classList.remove('d-none');
     return;
   }

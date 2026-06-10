@@ -502,7 +502,7 @@ def gastos():
     )
 
 
-def _apply_expense_to_bank_balance(account_code: str, amount_pen: Decimal, record=None) -> None:
+def _apply_expense_to_bank_balance(account_code: str, amount_pen: Decimal, record=None, amount_usd: float = None) -> None:
     """
     Debita el saldo operativo de BankBalance cuando un gasto impacta directamente
     una cuenta bancaria (bank_account_code presente).
@@ -536,9 +536,13 @@ def _apply_expense_to_bank_balance(account_code: str, amount_pen: Decimal, recor
         bb.balance_pen = round(max(float(bb.balance_pen) - amount_cur, 0.0), 2)
         bal_after = float(bb.balance_pen)
     else:
-        er = ExchangeRate.query.order_by(ExchangeRate.updated_at.desc()).first()
-        tc = float(er.sell_rate) if er and er.sell_rate else 3.75
-        amount_cur = round(float(amount_pen) / tc, 2)
+        # Usar el monto USD exacto si fue provisto; si no, convertir desde PEN (fallback)
+        if amount_usd and amount_usd > 0:
+            amount_cur = round(float(amount_usd), 2)
+        else:
+            er = ExchangeRate.query.order_by(ExchangeRate.updated_at.desc()).first()
+            tc = float(er.sell_rate) if er and er.sell_rate else 3.75
+            amount_cur = round(float(amount_pen) / tc, 2)
         bb.balance_usd = round(max(float(bb.balance_usd) - amount_cur, 0.0), 2)
         bal_after = float(bb.balance_usd)
 
@@ -613,6 +617,8 @@ def nuevo_gasto():
             base_pen = amount_pen - igv_pen
 
         bank_account_code = data.get('bank_account_code') or None
+        amount_usd_raw    = data.get('amount_usd')
+        amount_usd        = float(amount_usd_raw) if amount_usd_raw and float(amount_usd_raw) > 0 else None
 
         record = ExpenseRecord(
             expense_date=expense_date,
@@ -735,7 +741,7 @@ def nuevo_gasto():
         # El PCGE no se altera — el asiento ya fue creado arriba.
         if bank_account_code:
             try:
-                _apply_expense_to_bank_balance(bank_account_code, amount_pen, record)
+                _apply_expense_to_bank_balance(bank_account_code, amount_pen, record, amount_usd=amount_usd)
                 db.session.commit()
             except Exception as _bb_err:
                 import logging as _lg
