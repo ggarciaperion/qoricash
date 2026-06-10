@@ -2619,3 +2619,67 @@ def register_cli_commands(app):
         except Exception as exc:
             print(f"✗ Error al ajustar BankBalance: {exc}")
             print("  Los BankMovements ya están corregidos. Solo BankBalance requiere ajuste manual.")
+
+    # ── analizar-utilidad-trader ──────────────────────────────────────────────
+    @app.cli.command("analizar-utilidad-trader")
+    @click.option('--username', default='gian', help='Parte del username a buscar.')
+    @click.option('--mes', default=None, help='Mes en formato YYYY-MM (default: mes actual).')
+    def analizar_utilidad_trader(username, mes):
+        """
+        Analiza las operaciones del mes de un trader y muestra el detalle
+        de margen por operación para identificar por qué la utilidad es incorrecta.
+
+        Ejemplo:
+          flask analizar-utilidad-trader --username gian --mes 2026-06
+        """
+        from app.models.user import User
+        from app.models.operation import Operation
+        from app.models.client import Client
+        from sqlalchemy import or_, and_
+        from decimal import Decimal
+        from datetime import datetime
+
+        user = User.query.filter(User.username.ilike(f'%{username}%')).first()
+        if not user:
+            print(f"✗ Usuario con username '%{username}%' no encontrado.")
+            return
+        print(f"Usuario: {user.username} | ID: {user.id} | Rol: {user.role}")
+
+        if mes:
+            y, m = int(mes.split('-')[0]), int(mes.split('-')[1])
+        else:
+            now = datetime.now()
+            y, m = now.year, now.month
+        start = datetime(y, m, 1)
+        end   = datetime(y, m+1, 1) if m < 12 else datetime(y+1, 1, 1)
+        print(f"Período: {start.date()} → {end.date()}\n")
+
+        ops = Operation.query.join(Client, Operation.client_id == Client.id).filter(
+            or_(Operation.user_id == user.id, and_(Operation.user_id == None, Client.created_by == user.id)),
+            Operation.status == 'Completada',
+            Operation.base_rate.isnot(None),
+            Operation.created_at >= start,
+            Operation.created_at < end,
+        ).order_by(Operation.created_at).all()
+
+        print(f"Operaciones completadas con base_rate: {len(ops)}\n")
+        print(f"{'Fecha':<14} {'ID':<10} {'Tipo':<8} {'USD':>10} {'TC':>8} {'Base':>8} {'Margen PEN':>12}")
+        print("-" * 75)
+
+        total = Decimal('0')
+        negativas = 0
+        for op in ops:
+            tc   = Decimal(str(op.exchange_rate))
+            base = Decimal(str(op.base_rate))
+            usd  = Decimal(str(op.amount_usd))
+            m_val = (base - tc) * usd if op.operation_type == 'Compra' else (tc - base) * usd
+            total += m_val
+            flag = ' <<<' if m_val < -50 else ''
+            if m_val < -50:
+                negativas += 1
+            print(f"{op.created_at.strftime('%d/%m %H:%M'):<14} {op.operation_code or str(op.id):<10} {op.operation_type:<8} {float(usd):>10,.0f} {float(tc):>8.4f} {float(base):>8.4f} {float(m_val):>12,.2f}{flag}")
+
+        print("-" * 75)
+        print(f"{'TOTAL':>58} {float(total):>12,.2f}")
+        print(f"\nOperaciones con margen negativo significativo (< -50): {negativas}")
+        print(f"Utilidad total del mes: S/ {float(total):,.2f}")
