@@ -597,6 +597,17 @@ def api_import_prospectos():
     if action == 'count':
         return jsonify({'ok': True, 'total': Prospecto.query.count()})
 
+    if action == 'lfc_emails':
+        rows = Prospecto.query.filter(
+            Prospecto.cliente_lfc.isnot(None), Prospecto.cliente_lfc != '',
+            Prospecto.email.isnot(None), Prospecto.email != ''
+        ).with_entities(Prospecto.id, Prospecto.razon_social, Prospecto.email, Prospecto.estado_comercial).all()
+        return jsonify({
+            'ok': True,
+            'total': len(rows),
+            'emails': [{'id': r.id, 'razon_social': r.razon_social or '', 'email': r.email, 'estado': r.estado_comercial or ''} for r in rows],
+        })
+
     if action == 'lfc_stats':
         from sqlalchemy import func
         total_lfc = Prospecto.query.filter(
