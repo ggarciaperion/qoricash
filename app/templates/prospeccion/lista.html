@@ -1730,7 +1730,7 @@ function openDrawer(id) {
           return `<div onclick="registrarWA(${r.id})" id="waDrCard${r.id}" style="flex:1;min-width:120px;background:${r.ultima_wa?'#f0fdf4':'#f9fafb'};border-radius:8px;padding:8px 10px;border:1px ${r.ultima_wa?'solid #bbf7d0':'dashed #d1fae5'};cursor:pointer;transition:background .15s,border-color .15s;" onmouseenter="this.style.background='#dcfce7';" onmouseleave="this.style.background='${r.ultima_wa?'#f0fdf4':'#f9fafb'}';">
             <div style="font-size:.62rem;font-weight:700;color:#16a34a;text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px;"><i class="bi bi-whatsapp me-1"></i>WhatsApp</div>
             ${r.ultima_wa ? `<div style="font-size:.78rem;font-weight:600;color:#15803d;">${esc(r.ultima_wa)}</div>
-            <div style="font-size:.6rem;color:${activo?'#f59e0b':'#86efac'};margin-top:1px;">${activo?'⚠ Ventana Meta activa':'Registrar nuevo envío'}</div>` : `<div style="font-size:.72rem;color:#16a34a;font-weight:600;">Registrar envío</div>`}
+            <div style="font-size:.6rem;color:#86efac;margin-top:1px;">Registrar nuevo envío</div>` : `<div style="font-size:.72rem;color:#16a34a;font-weight:600;">Registrar envío</div>`}
           </div>`;
         })()}
       </div>
@@ -2566,7 +2566,7 @@ async function registrarWA(pid) {
     card.outerHTML = `<div onclick="registrarWA(${pid})" id="waDrCard${pid}" style="flex:1;min-width:120px;background:#f0fdf4;border-radius:8px;padding:8px 10px;border:1px solid #bbf7d0;cursor:pointer;transition:background .15s;" onmouseenter="this.style.background='#dcfce7';" onmouseleave="this.style.background='#f0fdf4';">
       <div style="font-size:.62rem;font-weight:700;color:#16a34a;text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px;"><i class="bi bi-whatsapp me-1"></i>WhatsApp</div>
       <div style="font-size:.78rem;font-weight:600;color:#15803d;">${d.ultima_wa}</div>
-      <div style="font-size:.6rem;color:#f59e0b;margin-top:1px;">⚠ Ventana Meta activa</div>
+      <div style="font-size:.6rem;color:#86efac;margin-top:1px;">Registrar nuevo envío</div>
     </div>`;
   }
 
