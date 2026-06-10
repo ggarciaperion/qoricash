@@ -3,322 +3,326 @@
 {% block title %}Dashboard Master - QoriCash Trading{% endblock %}
 
 {% block head %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}?v=4">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 {% endblock %}
 
 {% block content %}
 <div class="container-fluid">
 
-    <!-- Header -->
+    <!-- ════════════════════════════
+         HEADER (minimal)
+    ════════════════════════════ -->
     <div class="dashboard-header mb-3">
-        <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
             <div>
-                <h2 class="mb-1"><i class="bi bi-speedometer2 text-primary me-2"></i>Dashboard</h2>
-                <p class="text-muted mb-0">Bienvenido, <strong>{{ user.username }}</strong> &mdash; Acceso completo al sistema</p>
-                <small class="text-muted" id="lastUpdated"><i class="bi bi-clock me-1"></i>Cargando...</small>
-                <span id="filterIndicator" class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 ms-2 d-none" style="font-size:.72rem;">
-                    <i class="bi bi-funnel-fill me-1"></i><span id="filterText"></span>
-                </span>
+                <h2 class="mb-0"><i class="bi bi-speedometer2 me-2" style="color:#4f46e5;"></i>Dashboard</h2>
+                <small style="color:#94a3b8;font-size:.78rem;">
+                    <i class="bi bi-clock me-1"></i><span id="lastUpdated">Cargando...</span>
+                    <span id="filterIndicator" class="badge ms-2 d-none" style="background:rgba(79,70,229,.12);color:#4f46e5;border:1px solid rgba(79,70,229,.2);font-size:.68rem;">
+                        <i class="bi bi-funnel-fill me-1"></i><span id="filterText"></span>
+                    </span>
+                </small>
             </div>
-            <div class="d-flex gap-2 align-items-center flex-wrap">
-                <button class="btn btn-outline-secondary btn-sm" onclick="refreshDashboard()" title="Actualizar datos">
-                    <i class="bi bi-arrow-clockwise"></i>
-                </button>
-                <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#filterDateModal" title="Filtrar por fecha">
-                    <i class="bi bi-calendar3 me-1"></i>Fecha
-                </button>
-                <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#filterTraderModal" onclick="loadTraders()" title="Filtrar por trader">
-                    <i class="bi bi-person-circle me-1"></i>Trader
-                </button>
-                <button class="btn btn-primary btn-sm" onclick="openGoalsModal()">
-                    <i class="bi bi-bullseye me-1"></i>Metas
-                </button>
-            </div>
+            <button class="btn btn-sm btn-outline-secondary" onclick="refreshDashboard()" title="Actualizar">
+                <i class="bi bi-arrow-clockwise"></i>
+            </button>
         </div>
     </div>
 
-    <!-- ══════════════════════════════════════
-         HERO — UTILIDAD (Día + Mes)
-    ══════════════════════════════════════ -->
-    <div class="utility-hero mb-4">
-        <div class="row g-0 align-items-start">
+    <!-- ════════════════════════════
+         COMMAND CENTER HERO
+         Utilidad del Día + Mes
+    ════════════════════════════ -->
+    <div class="cmd-hero mb-4">
+        <div class="d-flex gap-0 align-items-stretch flex-wrap gap-3">
+
             <!-- Utilidad del Día -->
-            <div class="col-12 col-md-auto pe-md-4 mb-3 mb-md-0" style="min-width:220px;">
-                <div class="utility-hero-label">
-                    <i class="bi bi-sun" style="font-size:.7rem;"></i> Utilidad del Día
-                </div>
-                <div class="utility-hero-value counter-pen" id="profitToday">S/ 0.00</div>
-                <div class="utility-hero-breakdown">
-                    <div class="utility-hero-breakdown-item">
-                        <span><i class="bi bi-person-fill me-1" style="font-size:.65rem;"></i>Traders</span>
-                        <span id="profitTradersToday">—</span>
+            <div style="min-width:200px;">
+                <div class="cmd-kpi-label"><i class="bi bi-sun-fill" style="font-size:.65rem;"></i> Utilidad del Día</div>
+                <div class="cmd-kpi-value" id="profitToday">S/ 0.00</div>
+                <div class="cmd-kpi-detail">
+                    <div class="cmd-kpi-row">
+                        <span class="lbl"><i class="bi bi-person-fill me-1" style="font-size:.65rem;"></i>Traders</span>
+                        <span class="val" id="profitTradersToday">—</span>
                     </div>
-                    <div class="utility-hero-breakdown-item">
-                        <span><i class="bi bi-building me-1" style="font-size:.65rem;"></i>QoriCash</span>
-                        <span id="profitHouseToday">—</span>
+                    <div class="cmd-kpi-row">
+                        <span class="lbl"><i class="bi bi-building me-1" style="font-size:.65rem;"></i>QoriCash</span>
+                        <span class="val" id="profitHouseToday">—</span>
                     </div>
                 </div>
             </div>
 
-            <!-- Divider -->
-            <div class="utility-hero-divider d-none d-md-block me-4"></div>
+            <div class="cmd-hero-vdiv mx-4 d-none d-md-block"></div>
 
-            <!-- Utilidad Acumulada del Mes -->
-            <div class="col-12 col-md-auto mb-3 mb-md-0" style="min-width:220px;">
-                <div class="utility-hero-label">
-                    <i class="bi bi-calendar-month" style="font-size:.7rem;"></i> Acumulado del Mes
-                </div>
-                <div class="utility-hero-value counter-pen" id="profitMonth">S/ 0.00</div>
-                <div class="utility-hero-breakdown">
-                    <div class="utility-hero-breakdown-item">
-                        <span><i class="bi bi-person-fill me-1" style="font-size:.65rem;"></i>Traders</span>
-                        <span id="profitTradersMonth">—</span>
+            <!-- Acumulado del Mes -->
+            <div style="min-width:200px;">
+                <div class="cmd-kpi-label"><i class="bi bi-calendar-month" style="font-size:.65rem;"></i> Acumulado del Mes</div>
+                <div class="cmd-kpi-value" id="profitMonth">S/ 0.00</div>
+                <div class="cmd-kpi-detail">
+                    <div class="cmd-kpi-row">
+                        <span class="lbl"><i class="bi bi-person-fill me-1" style="font-size:.65rem;"></i>Traders</span>
+                        <span class="val" id="profitTradersMonth">—</span>
                     </div>
-                    <div class="utility-hero-breakdown-item">
-                        <span><i class="bi bi-building me-1" style="font-size:.65rem;"></i>QoriCash</span>
-                        <span id="profitHouseMonth">—</span>
+                    <div class="cmd-kpi-row">
+                        <span class="lbl"><i class="bi bi-building me-1" style="font-size:.65rem;"></i>QoriCash</span>
+                        <span class="val" id="profitHouseMonth">—</span>
                     </div>
                 </div>
             </div>
 
-            <!-- Spacer + Badge -->
-            <div class="col ms-md-auto d-flex align-items-start justify-content-start justify-content-md-end mt-2 mt-md-0">
-                <span class="utility-hero-badge">
-                    <i class="bi bi-bar-chart-line" style="font-size:.75rem;"></i>
-                    <span id="analyticsBadgeTrader">Todos los traders</span>
-                </span>
+            <div class="cmd-hero-vdiv mx-4 d-none d-lg-block"></div>
+
+            <!-- Tipo de Cambio vigente -->
+            <div class="d-none d-lg-block" style="min-width:160px;">
+                <div class="cmd-kpi-label"><i class="bi bi-currency-exchange" style="font-size:.65rem;"></i> Tipo de Cambio</div>
+                <div class="d-flex gap-2 mt-2">
+                    <div style="text-align:center;">
+                        <div style="font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:rgba(255,255,255,.4);">COMPRA</div>
+                        <div style="font-size:1.625rem;font-weight:800;color:#00e5a0;letter-spacing:-.02em;" id="heroCompra">—</div>
+                    </div>
+                    <div style="width:1px;background:rgba(255,255,255,.1);margin:0 .5rem;"></div>
+                    <div style="text-align:center;">
+                        <div style="font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:rgba(255,255,255,.4);">VENTA</div>
+                        <div style="font-size:1.625rem;font-weight:800;color:#93c5fd;letter-spacing:-.02em;" id="heroVenta">—</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Controles (derecha) -->
+            <div class="ms-auto d-flex flex-column align-items-end justify-content-between gap-2">
+                <div class="d-flex gap-2 flex-wrap justify-content-end">
+                    <button class="cmd-btn" data-bs-toggle="modal" data-bs-target="#filterDateModal" title="Filtrar por fecha">
+                        <i class="bi bi-calendar3"></i> Fecha
+                    </button>
+                    <button class="cmd-btn" data-bs-toggle="modal" data-bs-target="#filterTraderModal" onclick="loadTraders()">
+                        <i class="bi bi-person-circle"></i> Trader
+                    </button>
+                    <button class="cmd-btn cmd-btn-primary" onclick="openGoalsModal()">
+                        <i class="bi bi-bullseye"></i> Metas
+                    </button>
+                </div>
+                <div>
+                    <span class="cmd-hero-badge" id="analyticsBadgeTrader">
+                        <i class="bi bi-bar-chart-line" style="font-size:.75rem;"></i> Todos los traders
+                    </span>
+                </div>
             </div>
         </div>
 
-        <!-- Hidden: meta mensual (IDs needed by JS) -->
+        <!-- Hidden IDs requeridos por JS -->
         <div class="d-none">
-            <span id="goalMonthAmount">0</span>
+            <span id="goalMonthAmount"></span>
             <div id="goalProgress" class="progress-bar"></div>
             <span id="goalText"></span>
         </div>
     </div>
 
-    <!-- ══════════════════════════════════════
-         ESTADÍSTICAS DE HOY
-    ══════════════════════════════════════ -->
-    <div class="section-header mb-3">
-        <i class="bi bi-calendar-day"></i>
-        <h5>Estadísticas de Hoy</h5>
+    <!-- ════════════════════════════
+         STAT CHIPS — Estadísticas de Hoy
+    ════════════════════════════ -->
+    <div class="sec-label mb-2">
+        <span class="sec-label-text">Estadísticas de Hoy</span>
+        <div class="sec-label-line"></div>
     </div>
 
+    <div class="stat-chip-row mb-4">
+        <div class="stat-chip" style="--chip-color:#4f46e5;--chip-icon-bg:rgba(79,70,229,.08);">
+            <div class="stat-chip-icon"><i class="bi bi-people-fill"></i></div>
+            <div class="stat-chip-value counter" id="clientsToday">0</div>
+            <div class="stat-chip-label">Clientes atendidos</div>
+        </div>
+        <div class="stat-chip" style="--chip-color:#059669;--chip-icon-bg:rgba(5,150,105,.08);">
+            <div class="stat-chip-icon"><i class="bi bi-list-check"></i></div>
+            <div class="stat-chip-value counter" id="operationsToday">0</div>
+            <div class="stat-chip-label">Operaciones</div>
+        </div>
+        <div class="stat-chip" style="--chip-color:#2563eb;--chip-icon-bg:rgba(37,99,235,.08);">
+            <div class="stat-chip-icon"><i class="bi bi-currency-dollar"></i></div>
+            <div class="stat-chip-value counter-usd" id="usdToday">$ 0</div>
+            <div class="stat-chip-label">Total USD</div>
+        </div>
+        <div class="stat-chip" style="--chip-color:#d97706;--chip-icon-bg:rgba(217,119,6,.08);">
+            <div class="stat-chip-icon"><i class="bi bi-cash-coin"></i></div>
+            <div class="stat-chip-value counter-pen" id="penToday">S/ 0</div>
+            <div class="stat-chip-label">Total PEN</div>
+        </div>
+    </div>
+
+    <!-- ════════════════════════════
+         CENTRO: Estado Ops + Mes
+    ════════════════════════════ -->
     <div class="row g-3 mb-4">
-        <div class="col-6 col-md-3">
-            <div class="card stat-card bg-primary text-white">
-                <div class="card-body">
-                    <h6 class="card-subtitle">Clientes Atendidos</h6>
-                    <h2 class="card-title mb-0 counter" id="clientsToday">0</h2>
-                    <div class="stat-icon"><i class="bi bi-people"></i></div>
-                </div>
-            </div>
-        </div>
-        <div class="col-6 col-md-3">
-            <div class="card stat-card bg-success text-white">
-                <div class="card-body">
-                    <h6 class="card-subtitle">Operaciones</h6>
-                    <h2 class="card-title mb-0 counter" id="operationsToday">0</h2>
-                    <div class="stat-icon"><i class="bi bi-list-check"></i></div>
-                </div>
-            </div>
-        </div>
-        <div class="col-6 col-md-3">
-            <div class="card stat-card bg-info text-white">
-                <div class="card-body">
-                    <h6 class="card-subtitle">Total USD</h6>
-                    <h2 class="card-title mb-0 counter-usd" id="usdToday">$ 0</h2>
-                    <div class="stat-icon"><i class="bi bi-currency-dollar"></i></div>
-                </div>
-            </div>
-        </div>
-        <div class="col-6 col-md-3">
-            <div class="card stat-card bg-warning text-white">
-                <div class="card-body">
-                    <h6 class="card-subtitle">Total PEN</h6>
-                    <h2 class="card-title mb-0 counter-pen" id="penToday">S/ 0</h2>
-                    <div class="stat-icon"><i class="bi bi-cash-coin"></i></div>
-                </div>
-            </div>
-        </div>
-    </div>
 
-    <!-- ══════════════════════════════════════
-         ESTADÍSTICAS DEL MES
-    ══════════════════════════════════════ -->
-    <div class="section-header mb-3">
-        <i class="bi bi-calendar-month"></i>
-        <h5>Este Mes</h5>
-    </div>
+        <!-- Estado de Operaciones (izquierda) -->
+        <div class="col-md-5">
+            <div class="ops-card">
+                <div class="card-head">
+                    <span class="card-head-title">
+                        <i class="bi bi-pie-chart-fill" style="color:#4f46e5;"></i>
+                        Estado — Hoy
+                    </span>
+                    <small style="font-size:.7rem;color:#94a3b8;" id="totalOpsToday"></small>
+                </div>
 
-    <div class="row g-3 mb-4">
-        <div class="col-6 col-md-3">
-            <div class="card h-100" style="border-top:3px solid #6366f1;border-radius:var(--card-radius);box-shadow:var(--card-shadow);">
-                <div class="card-body">
-                    <h6 class="text-muted mb-1" style="font-size:.6875rem;text-transform:uppercase;letter-spacing:.07em;font-weight:700;">Clientes</h6>
-                    <h3 class="fw-bold mb-0 counter" id="clientsMonth" style="font-size:1.875rem;letter-spacing:-.02em;">0</h3>
-                    <small class="text-muted"><span class="counter" id="activeClientsMonth">0</span> activos</small>
-                </div>
-            </div>
-        </div>
-        <div class="col-6 col-md-3">
-            <div class="card h-100" style="border-top:3px solid #10b981;border-radius:var(--card-radius);box-shadow:var(--card-shadow);">
-                <div class="card-body">
-                    <h6 class="text-muted mb-1" style="font-size:.6875rem;text-transform:uppercase;letter-spacing:.07em;font-weight:700;">Operaciones</h6>
-                    <h3 class="fw-bold mb-0 counter" id="operationsMonth" style="font-size:1.875rem;letter-spacing:-.02em;">0</h3>
-                    <small class="text-success"><i class="bi bi-check-circle me-1"></i><span class="counter" id="completedMonth">0</span> completadas</small>
-                </div>
-            </div>
-        </div>
-        <div class="col-6 col-md-3">
-            <div class="card h-100" style="border-top:3px solid #3b82f6;border-radius:var(--card-radius);box-shadow:var(--card-shadow);">
-                <div class="card-body">
-                    <h6 class="text-muted mb-1" style="font-size:.6875rem;text-transform:uppercase;letter-spacing:.07em;font-weight:700;">Total USD</h6>
-                    <h3 class="fw-bold mb-0 counter-usd text-primary" id="usdMonth" style="font-size:1.875rem;letter-spacing:-.02em;">$ 0</h3>
-                    <small class="text-muted">Completadas</small>
-                </div>
-            </div>
-        </div>
-        <div class="col-6 col-md-3">
-            <div class="card h-100" style="border-top:3px solid #f59e0b;border-radius:var(--card-radius);box-shadow:var(--card-shadow);">
-                <div class="card-body">
-                    <h6 class="text-muted mb-1" style="font-size:.6875rem;text-transform:uppercase;letter-spacing:.07em;font-weight:700;">Total PEN</h6>
-                    <h3 class="fw-bold mb-0 counter-pen text-warning" id="penMonth" style="font-size:1.875rem;letter-spacing:-.02em;">S/ 0</h3>
-                    <small class="text-muted">Completadas</small>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- ══════════════════════════════════════
-         ESTADO DE OPERACIONES + SISTEMA
-    ══════════════════════════════════════ -->
-    <div class="section-header mb-3">
-        <i class="bi bi-pie-chart"></i>
-        <h5>Estado de Operaciones — Hoy</h5>
-    </div>
-    <div class="row g-3 mb-4">
-        <div class="col-md-8 mb-3 mb-md-0">
-            <div class="status-grid">
-                <div class="status-item status-pending">
-                    <h4 class="counter" id="pendingCount">0</h4>
-                    <small>Pendientes</small>
-                </div>
-                <div class="status-item status-process">
-                    <h4 class="counter" id="inProcessCount">0</h4>
-                    <small>En Proceso</small>
-                </div>
-                <div class="status-item status-completed">
-                    <h4 class="counter" id="completedCount">0</h4>
-                    <small>Completadas</small>
-                </div>
-                <div class="status-item status-canceled">
-                    <h4 class="counter" id="canceledCount">0</h4>
-                    <small>Canceladas</small>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="sistema-card text-center">
-                <h6 class="text-muted mb-3" style="font-size:.6875rem;text-transform:uppercase;letter-spacing:.07em;font-weight:700;">
-                    <i class="bi bi-people me-1" style="color:#8b5cf6;"></i>Sistema
-                </h6>
-                <div class="d-flex justify-content-around">
-                    <div>
-                        <h4 class="fw-bold counter mb-0" id="totalUsers" style="letter-spacing:-.02em;">0</h4>
-                        <small class="text-muted">Usuarios</small>
+                <!-- Mini donut chart -->
+                <div class="ops-donut-wrap">
+                    <canvas id="opsDonut" width="90" height="90" class="ops-donut-canvas"></canvas>
+                    <div class="ops-donut-legend">
+                        <div class="ops-donut-legend-item">
+                            <div class="ops-donut-dot" style="background:#f59e0b;"></div>
+                            <span class="ops-donut-legend-label">Pendientes</span>
+                            <span class="ops-donut-legend-count" id="pendingCount">0</span>
+                        </div>
+                        <div class="ops-donut-legend-item">
+                            <div class="ops-donut-dot" style="background:#3b82f6;"></div>
+                            <span class="ops-donut-legend-label">En Proceso</span>
+                            <span class="ops-donut-legend-count" id="inProcessCount">0</span>
+                        </div>
+                        <div class="ops-donut-legend-item">
+                            <div class="ops-donut-dot" style="background:#10b981;"></div>
+                            <span class="ops-donut-legend-label">Completadas</span>
+                            <span class="ops-donut-legend-count" id="completedCount">0</span>
+                        </div>
+                        <div class="ops-donut-legend-item">
+                            <div class="ops-donut-dot" style="background:#ef4444;"></div>
+                            <span class="ops-donut-legend-label">Canceladas</span>
+                            <span class="ops-donut-legend-count" id="canceledCount">0</span>
+                        </div>
                     </div>
-                    <div>
-                        <h4 class="fw-bold counter mb-0 text-success" id="activeUsers" style="letter-spacing:-.02em;">0</h4>
-                        <small class="text-muted">Activos</small>
+                </div>
+
+                <!-- Lista con mini barras -->
+                <div class="ops-list">
+                    <div class="ops-list-item">
+                        <div class="ops-dot" style="--dot-c:#f59e0b;"></div>
+                        <span class="ops-list-label">Pendientes</span>
+                        <div class="ops-list-bar-wrap">
+                            <div class="ops-list-bar"><div class="ops-list-bar-fill" id="barPending" style="--dot-c:#f59e0b;width:0%;"></div></div>
+                        </div>
+                    </div>
+                    <div class="ops-list-item">
+                        <div class="ops-dot" style="--dot-c:#3b82f6;"></div>
+                        <span class="ops-list-label">En Proceso</span>
+                        <div class="ops-list-bar-wrap">
+                            <div class="ops-list-bar"><div class="ops-list-bar-fill" id="barProcess" style="--dot-c:#3b82f6;width:0%;"></div></div>
+                        </div>
+                    </div>
+                    <div class="ops-list-item">
+                        <div class="ops-dot" style="--dot-c:#10b981;"></div>
+                        <span class="ops-list-label">Completadas</span>
+                        <div class="ops-list-bar-wrap">
+                            <div class="ops-list-bar"><div class="ops-list-bar-fill" id="barCompleted" style="--dot-c:#10b981;width:0%;"></div></div>
+                        </div>
+                    </div>
+                    <div class="ops-list-item">
+                        <div class="ops-dot" style="--dot-c:#ef4444;"></div>
+                        <span class="ops-list-label">Canceladas</span>
+                        <div class="ops-list-bar-wrap">
+                            <div class="ops-list-bar"><div class="ops-list-bar-fill" id="barCanceled" style="--dot-c:#ef4444;width:0%;"></div></div>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
+
+        <!-- Estadísticas del Mes (derecha) -->
+        <div class="col-md-7">
+            <div class="sec-label mb-2">
+                <span class="sec-label-text">Este Mes</span>
+                <div class="sec-label-line"></div>
+            </div>
+            <div class="month-grid">
+                <div class="month-kpi" style="--kpi-c:#6366f1;">
+                    <i class="bi bi-people-fill month-kpi-icon"></i>
+                    <div class="month-kpi-label">Clientes del Mes</div>
+                    <div class="month-kpi-value counter" id="clientsMonth">0</div>
+                    <div class="month-kpi-sub"><span class="counter" id="activeClientsMonth">0</span> activos</div>
+                </div>
+                <div class="month-kpi" style="--kpi-c:#10b981;">
+                    <i class="bi bi-list-check month-kpi-icon"></i>
+                    <div class="month-kpi-label">Operaciones del Mes</div>
+                    <div class="month-kpi-value counter" id="operationsMonth">0</div>
+                    <div class="month-kpi-sub" style="color:#059669;"><i class="bi bi-check-circle me-1"></i><span class="counter" id="completedMonth">0</span> completadas</div>
+                </div>
+                <div class="month-kpi" style="--kpi-c:#3b82f6;">
+                    <i class="bi bi-currency-dollar month-kpi-icon"></i>
+                    <div class="month-kpi-label">Volumen USD</div>
+                    <div class="month-kpi-value counter-usd" id="usdMonth" style="color:#2563eb;">$ 0</div>
+                    <div class="month-kpi-sub">Completadas</div>
+                </div>
+                <div class="month-kpi" style="--kpi-c:#f59e0b;">
+                    <i class="bi bi-cash-coin month-kpi-icon"></i>
+                    <div class="month-kpi-label">Volumen PEN</div>
+                    <div class="month-kpi-value counter-pen" id="penMonth" style="color:#d97706;">S/ 0</div>
+                    <div class="month-kpi-sub">Completadas</div>
+                </div>
+            </div>
+
+            <!-- Sistema (usuarios) debajo del grid -->
+            <div class="mt-3 d-flex gap-3">
+                <div class="sistema-badge flex-fill" style="padding:.875rem 1rem;">
+                    <div class="sistema-badge-num" id="totalUsers">0</div>
+                    <div style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#94a3b8;margin-top:.25rem;">Usuarios</div>
+                </div>
+                <div class="sistema-badge flex-fill" style="padding:.875rem 1rem;border-top-color:#10b981;">
+                    <div class="sistema-badge-num text-success" id="activeUsers">0</div>
+                    <div style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#94a3b8;margin-top:.25rem;">Activos</div>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <!-- ══════════════════════════════════════
+    <!-- ════════════════════════════
          ANÁLISIS DE GESTIÓN
-    ══════════════════════════════════════ -->
-    <div class="section-header mb-3 mt-2">
-        <i class="bi bi-bar-chart-line"></i>
-        <h5>Análisis de Gestión</h5>
+    ════════════════════════════ -->
+    <div class="sec-label mb-3">
+        <span class="sec-label-text">Análisis de Gestión</span>
+        <div class="sec-label-line"></div>
     </div>
 
-    <!-- Top Clientes -->
     <div class="row g-3 mb-4">
         <div class="col-md-4">
-            <div class="card h-100" style="border-radius:var(--card-radius);box-shadow:var(--card-shadow);">
-                <div class="card-header d-flex justify-content-between align-items-center" style="border-radius:var(--card-radius) var(--card-radius) 0 0;background:white;border-bottom:1px solid #f1f5f9;">
-                    <h6 class="mb-0 fw-semibold" style="font-size:.875rem;"><i class="bi bi-trophy text-warning me-1"></i> Mayor Volumen</h6>
-                    <span class="badge bg-secondary" id="topClientsCount">-</span>
+            <div class="analytics-card">
+                <div class="card-head">
+                    <span class="card-head-title"><i class="bi bi-trophy-fill" style="color:#f59e0b;"></i> Mayor Volumen USD</span>
+                    <span class="badge bg-secondary" style="font-size:.65rem;" id="topClientsCount">-</span>
                 </div>
-                <div class="card-body p-0">
+                <div class="card-body">
                     <div id="topClientsList" class="list-group list-group-flush">
-                        <div class="px-3 py-2">
-                            <div class="skeleton skeleton-line mb-2" style="width:75%"></div>
-                            <div class="skeleton skeleton-line sm" style="width:50%"></div>
-                        </div>
-                        <div class="px-3 py-2">
-                            <div class="skeleton skeleton-line mb-2" style="width:65%"></div>
-                            <div class="skeleton skeleton-line sm" style="width:45%"></div>
-                        </div>
-                        <div class="px-3 py-2">
-                            <div class="skeleton skeleton-line mb-2" style="width:70%"></div>
-                            <div class="skeleton skeleton-line sm" style="width:40%"></div>
-                        </div>
+                        <div class="px-3 py-2"><div class="skeleton skeleton-line mb-2" style="width:72%"></div><div class="skeleton skeleton-line sm" style="width:48%"></div></div>
+                        <div class="px-3 py-2"><div class="skeleton skeleton-line mb-2" style="width:60%"></div><div class="skeleton skeleton-line sm" style="width:40%"></div></div>
+                        <div class="px-3 py-2"><div class="skeleton skeleton-line mb-2" style="width:68%"></div><div class="skeleton skeleton-line sm" style="width:45%"></div></div>
                     </div>
                 </div>
             </div>
         </div>
-
         <div class="col-md-4">
-            <div class="card h-100" style="border-radius:var(--card-radius);box-shadow:var(--card-shadow);">
-                <div class="card-header d-flex justify-content-between align-items-center" style="border-radius:var(--card-radius) var(--card-radius) 0 0;background:white;border-bottom:1px solid #f1f5f9;">
-                    <h6 class="mb-0 fw-semibold" style="font-size:.875rem;"><i class="bi bi-graph-up text-success me-1"></i> Mayor Utilidad</h6>
-                    <span class="badge bg-success" id="topProfitCount">-</span>
+            <div class="analytics-card">
+                <div class="card-head">
+                    <span class="card-head-title"><i class="bi bi-graph-up" style="color:#10b981;"></i> Mayor Utilidad</span>
+                    <span class="badge bg-success" style="font-size:.65rem;" id="topProfitCount">-</span>
                 </div>
-                <div class="card-body p-0">
+                <div class="card-body">
                     <div id="topProfitList" class="list-group list-group-flush">
-                        <div class="px-3 py-2">
-                            <div class="skeleton skeleton-line mb-2" style="width:70%"></div>
-                            <div class="skeleton skeleton-line sm" style="width:50%"></div>
-                        </div>
-                        <div class="px-3 py-2">
-                            <div class="skeleton skeleton-line mb-2" style="width:60%"></div>
-                            <div class="skeleton skeleton-line sm" style="width:40%"></div>
-                        </div>
-                        <div class="px-3 py-2">
-                            <div class="skeleton skeleton-line mb-2" style="width:75%"></div>
-                            <div class="skeleton skeleton-line sm" style="width:45%"></div>
-                        </div>
+                        <div class="px-3 py-2"><div class="skeleton skeleton-line mb-2" style="width:66%"></div><div class="skeleton skeleton-line sm" style="width:50%"></div></div>
+                        <div class="px-3 py-2"><div class="skeleton skeleton-line mb-2" style="width:78%"></div><div class="skeleton skeleton-line sm" style="width:42%"></div></div>
+                        <div class="px-3 py-2"><div class="skeleton skeleton-line mb-2" style="width:55%"></div><div class="skeleton skeleton-line sm" style="width:38%"></div></div>
                     </div>
                 </div>
             </div>
         </div>
-
         <div class="col-md-4">
-            <div class="card h-100" style="border-radius:var(--card-radius);box-shadow:var(--card-shadow);">
-                <div class="card-header d-flex justify-content-between align-items-center" style="border-radius:var(--card-radius) var(--card-radius) 0 0;background:white;border-bottom:1px solid #f1f5f9;">
-                    <h6 class="mb-0 fw-semibold" style="font-size:.875rem;"><i class="bi bi-lightning-charge text-primary me-1"></i> Más Operaciones</h6>
-                    <span class="badge bg-primary" id="topOpsCount">-</span>
+            <div class="analytics-card">
+                <div class="card-head">
+                    <span class="card-head-title"><i class="bi bi-lightning-charge-fill" style="color:#4f46e5;"></i> Más Operaciones</span>
+                    <span class="badge bg-primary" style="font-size:.65rem;" id="topOpsCount">-</span>
                 </div>
-                <div class="card-body p-0">
+                <div class="card-body">
                     <div id="topOpsList" class="list-group list-group-flush">
-                        <div class="px-3 py-2">
-                            <div class="skeleton skeleton-line mb-2" style="width:65%"></div>
-                            <div class="skeleton skeleton-line sm" style="width:45%"></div>
-                        </div>
-                        <div class="px-3 py-2">
-                            <div class="skeleton skeleton-line mb-2" style="width:80%"></div>
-                            <div class="skeleton skeleton-line sm" style="width:35%"></div>
-                        </div>
-                        <div class="px-3 py-2">
-                            <div class="skeleton skeleton-line mb-2" style="width:55%"></div>
-                            <div class="skeleton skeleton-line sm" style="width:50%"></div>
-                        </div>
+                        <div class="px-3 py-2"><div class="skeleton skeleton-line mb-2" style="width:62%"></div><div class="skeleton skeleton-line sm" style="width:44%"></div></div>
+                        <div class="px-3 py-2"><div class="skeleton skeleton-line mb-2" style="width:75%"></div><div class="skeleton skeleton-line sm" style="width:36%"></div></div>
+                        <div class="px-3 py-2"><div class="skeleton skeleton-line mb-2" style="width:58%"></div><div class="skeleton skeleton-line sm" style="width:52%"></div></div>
                     </div>
                 </div>
             </div>
@@ -326,135 +330,111 @@
     </div>
 
     <!-- Clientes Inactivos -->
-    <div class="row g-3 mb-4">
-        <div class="col-12">
-            <div class="card" style="border-radius:var(--card-radius);box-shadow:var(--card-shadow);">
-                <div class="card-header d-flex justify-content-between align-items-center" style="background:white;border-bottom:1px solid #f1f5f9;border-radius:var(--card-radius) var(--card-radius) 0 0;">
-                    <h6 class="mb-0 fw-semibold" style="font-size:.875rem;"><i class="bi bi-person-dash text-danger me-1"></i> Clientes sin Operar</h6>
-                    <div class="d-flex gap-2">
-                        <span class="badge bg-warning text-dark" id="badge30d">30d: -</span>
-                        <span class="badge bg-danger" id="badge60d">60d: -</span>
-                        <span class="badge bg-dark" id="badge90d">90d+: -</span>
-                    </div>
-                </div>
-                <div class="card-body">
-                    <ul class="nav nav-tabs nav-sm mb-3" id="inactiveTabs">
-                        <li class="nav-item">
-                            <button class="nav-link active small py-1" data-tab="30" onclick="showInactiveTab('30')">
-                                1 Mes <span class="badge bg-warning text-dark ms-1" id="tab30Count">0</span>
-                            </button>
-                        </li>
-                        <li class="nav-item">
-                            <button class="nav-link small py-1" data-tab="60" onclick="showInactiveTab('60')">
-                                2 Meses <span class="badge bg-danger ms-1" id="tab60Count">0</span>
-                            </button>
-                        </li>
-                        <li class="nav-item">
-                            <button class="nav-link small py-1" data-tab="90" onclick="showInactiveTab('90')">
-                                3+ Meses <span class="badge bg-dark ms-1" id="tab90Count">0</span>
-                            </button>
-                        </li>
-                    </ul>
-                    <div id="inactiveClientsContent">
-                        <div class="py-2">
-                            <div class="skeleton skeleton-line mb-2" style="width:60%"></div>
-                            <div class="skeleton skeleton-line mb-2" style="width:45%"></div>
-                            <div class="skeleton skeleton-line" style="width:55%"></div>
-                        </div>
-                    </div>
+    <div class="analytics-card mb-4">
+        <div class="card-head">
+            <span class="card-head-title"><i class="bi bi-person-dash" style="color:#ef4444;"></i> Clientes sin Operar</span>
+            <div class="d-flex gap-2">
+                <span class="badge bg-warning text-dark" style="font-size:.65rem;" id="badge30d">30d: -</span>
+                <span class="badge bg-danger" style="font-size:.65rem;" id="badge60d">60d: -</span>
+                <span class="badge bg-dark" style="font-size:.65rem;" id="badge90d">90d+: -</span>
+            </div>
+        </div>
+        <div style="padding: 1rem 1.25rem;">
+            <ul class="nav nav-tabs nav-sm mb-3" id="inactiveTabs">
+                <li class="nav-item">
+                    <button class="nav-link active small py-1" data-tab="30" onclick="showInactiveTab('30')">
+                        1 Mes <span class="badge bg-warning text-dark ms-1" id="tab30Count">0</span>
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link small py-1" data-tab="60" onclick="showInactiveTab('60')">
+                        2 Meses <span class="badge bg-danger ms-1" id="tab60Count">0</span>
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link small py-1" data-tab="90" onclick="showInactiveTab('90')">
+                        3+ Meses <span class="badge bg-dark ms-1" id="tab90Count">0</span>
+                    </button>
+                </li>
+            </ul>
+            <div id="inactiveClientsContent">
+                <div class="py-1">
+                    <div class="skeleton skeleton-line mb-2" style="width:58%"></div>
+                    <div class="skeleton skeleton-line mb-2" style="width:43%"></div>
+                    <div class="skeleton skeleton-line" style="width:52%"></div>
                 </div>
             </div>
         </div>
     </div>
 
     <!-- Buscador de Clientes -->
-    <div class="row g-3 mb-4">
-        <div class="col-12">
-            <div class="card" style="border-radius:var(--card-radius);box-shadow:var(--card-shadow);">
-                <div class="card-header" style="background:white;border-bottom:1px solid #f1f5f9;border-radius:var(--card-radius) var(--card-radius) 0 0;">
-                    <h6 class="mb-0 fw-semibold" style="font-size:.875rem;"><i class="bi bi-search me-1"></i> Buscar Cliente — Historial de Operaciones</h6>
+    <div class="analytics-card mb-4">
+        <div class="card-head">
+            <span class="card-head-title"><i class="bi bi-search" style="color:#4f46e5;"></i> Buscar Cliente — Historial</span>
+        </div>
+        <div style="padding:1rem 1.25rem;">
+            <div class="row g-2 mb-3">
+                <div class="col-md-8">
+                    <input type="text" class="form-control" id="clientSearchInput"
+                        placeholder="Buscar por nombre, apellido o DNI..."
+                        oninput="onClientSearch(this.value)">
                 </div>
-                <div class="card-body">
-                    <div class="row g-2 mb-3">
-                        <div class="col-md-8">
-                            <input type="text" class="form-control" id="clientSearchInput"
-                                placeholder="Buscar por nombre, apellido o DNI..."
-                                oninput="onClientSearch(this.value)">
-                        </div>
-                        <div class="col-md-4">
-                            <div id="clientSearchResults" class="list-group" style="position:relative; z-index:10;"></div>
-                        </div>
+                <div class="col-md-4">
+                    <div id="clientSearchResults" class="list-group" style="position:relative;z-index:10;"></div>
+                </div>
+            </div>
+            <div id="clientHistoryPanel" class="d-none">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <div>
+                        <h6 class="mb-0 fw-semibold" id="selectedClientName">-</h6>
+                        <small class="text-muted" id="selectedClientInfo">-</small>
                     </div>
-                    <div id="clientHistoryPanel" class="d-none">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <div>
-                                <h6 class="mb-0" id="selectedClientName">-</h6>
-                                <small class="text-muted" id="selectedClientInfo">-</small>
-                            </div>
-                            <div class="d-flex gap-3 text-center">
-                                <div>
-                                    <div class="fw-bold text-info" id="clientTotalOps">0</div>
-                                    <small class="text-muted">Operaciones</small>
-                                </div>
-                                <div>
-                                    <div class="fw-bold text-primary" id="clientTotalUsd">$ 0</div>
-                                    <small class="text-muted">Total USD</small>
-                                </div>
-                                <div>
-                                    <div class="fw-bold text-success" id="clientTotalProfit">S/ 0</div>
-                                    <small class="text-muted">Utilidad</small>
-                                </div>
-                            </div>
-                        </div>
-                        <div style="max-height:280px;overflow-y:auto;">
-                            <table class="table table-sm table-hover mb-0">
-                                <thead class="table-light sticky-top">
-                                    <tr>
-                                        <th class="small">Fecha</th>
-                                        <th class="small">Op.</th>
-                                        <th class="small">Tipo</th>
-                                        <th class="small text-end">USD</th>
-                                        <th class="small text-end">PEN</th>
-                                        <th class="small text-end">TC</th>
-                                        <th class="small text-end">Utilidad</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="clientHistoryBody"></tbody>
-                            </table>
-                        </div>
-                    </div>
-                    <div id="clientHistoryEmpty" class="text-center text-muted py-3 d-none">
-                        <i class="bi bi-inbox display-6"></i>
-                        <p class="mt-2 small">Busca un cliente para ver su historial</p>
+                    <div class="d-flex gap-3 text-center">
+                        <div><div class="fw-bold text-info" id="clientTotalOps">0</div><small class="text-muted">Operaciones</small></div>
+                        <div><div class="fw-bold text-primary" id="clientTotalUsd">$ 0</div><small class="text-muted">USD</small></div>
+                        <div><div class="fw-bold text-success" id="clientTotalProfit">S/ 0</div><small class="text-muted">Utilidad</small></div>
                     </div>
                 </div>
+                <div style="max-height:280px;overflow-y:auto;">
+                    <table class="table table-sm table-hover mb-0">
+                        <thead class="table-light sticky-top">
+                            <tr>
+                                <th class="small">Fecha</th><th class="small">Op.</th><th class="small">Tipo</th>
+                                <th class="small text-end">USD</th><th class="small text-end">PEN</th>
+                                <th class="small text-end">TC</th><th class="small text-end">Utilidad</th>
+                            </tr>
+                        </thead>
+                        <tbody id="clientHistoryBody"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div id="clientHistoryEmpty" class="text-center text-muted py-3 d-none">
+                <i class="bi bi-inbox display-6 d-block mb-2"></i>
+                <small>Busca un cliente para ver su historial</small>
             </div>
         </div>
     </div>
 
-    <!-- TC + Accesos Rápidos (fila combinada) -->
+    <!-- ════════════════════════════
+         TC WIDGET + ACCESOS RÁPIDOS
+    ════════════════════════════ -->
     <div class="row g-3 mb-4 align-items-start">
-        <!-- Widget TC -->
-        <div class="col-md-3 col-lg-3">
-            <div class="card h-100" style="border-radius:var(--card-radius);box-shadow:var(--card-shadow);border-top:3px solid #059669;">
+        <div class="col-md-3">
+            <div class="tc-card">
                 <div class="card-body p-3">
-                    <h6 class="text-muted mb-3" style="font-size:.6875rem;text-transform:uppercase;letter-spacing:.07em;font-weight:700;">
-                        <i class="bi bi-currency-exchange me-1 text-success"></i>Tipo de Cambio
-                    </h6>
-                    <div class="row g-2 mb-3">
-                        <div class="col-6">
-                            <div class="rounded-3 p-2 text-center" style="background:#ecfdf5;border:1px solid #a7f3d0;">
-                                <div style="font-size:.6rem;color:#059669;font-weight:700;text-transform:uppercase;letter-spacing:.05em;">COMPRA</div>
-                                <div class="fw-bold text-success mt-1" style="font-size:1.25rem;letter-spacing:-.01em;" id="currentBuyRate">S/ --</div>
-                                <div style="font-size:.6rem;" class="text-muted">Cliente vende</div>
-                            </div>
+                    <div class="card-head-title mb-3" style="padding:0;">
+                        <i class="bi bi-currency-exchange" style="color:#059669;"></i> Tipo de Cambio
+                    </div>
+                    <div class="d-flex gap-2 mb-3">
+                        <div class="tc-pill buy flex-fill">
+                            <div class="tc-pill-label">COMPRA</div>
+                            <div class="tc-pill-value" id="currentBuyRate">--</div>
+                            <div class="tc-pill-sub">Cliente vende</div>
                         </div>
-                        <div class="col-6">
-                            <div class="rounded-3 p-2 text-center" style="background:#eff6ff;border:1px solid #bfdbfe;">
-                                <div style="font-size:.6rem;color:#2563eb;font-weight:700;text-transform:uppercase;letter-spacing:.05em;">VENTA</div>
-                                <div class="fw-bold text-primary mt-1" style="font-size:1.25rem;letter-spacing:-.01em;" id="currentSellRate">S/ --</div>
-                                <div style="font-size:.6rem;" class="text-muted">Cliente compra</div>
-                            </div>
+                        <div class="tc-pill sell flex-fill">
+                            <div class="tc-pill-label">VENTA</div>
+                            <div class="tc-pill-value" id="currentSellRate">--</div>
+                            <div class="tc-pill-sub">Cliente compra</div>
                         </div>
                     </div>
                     <div class="row g-2 mb-2">
@@ -476,69 +456,65 @@
                     <button class="btn btn-success btn-sm w-100 mb-2" onclick="updateExchangeRates()">
                         <i class="bi bi-send me-1"></i>Publicar en qoricash.pe
                     </button>
-                    <div class="text-center text-muted" style="font-size:.65rem;">
-                        <i class="bi bi-clock me-1"></i>
-                        <span id="lastUpdate">--</span> · <span id="updatedBy">--</span>
+                    <div class="text-center" style="font-size:.65rem;color:#94a3b8;">
+                        <i class="bi bi-clock me-1"></i><span id="lastUpdate">--</span> · <span id="updatedBy">--</span>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Accesos Rápidos -->
         <div class="col-md-9">
-            <div class="section-header mb-3">
-                <i class="bi bi-lightning"></i>
-                <h5>Accesos Rápidos</h5>
+            <div class="sec-label mb-3">
+                <span class="sec-label-text">Accesos Rápidos</span>
+                <div class="sec-label-line"></div>
             </div>
-            <div class="d-flex gap-3 flex-wrap">
-                <a href="{{ url_for('operations.create_page') }}" class="quick-access-card access-primary flex-fill" style="min-width:120px;max-width:180px;">
-                    <i class="bi bi-plus-circle"></i>
+            <div class="qa-grid">
+                <a href="{{ url_for('operations.create_page') }}" class="qa-card">
+                    <i class="bi bi-plus-circle" style="color:#4f46e5;"></i>
                     <h6>Nueva Operación</h6>
                 </a>
-                <a href="{{ url_for('operations.operations_list') }}" class="quick-access-card access-success flex-fill" style="min-width:120px;max-width:180px;">
-                    <i class="bi bi-list-ul"></i>
-                    <h6>Operaciones del Día</h6>
+                <a href="{{ url_for('operations.operations_list') }}" class="qa-card">
+                    <i class="bi bi-list-ul" style="color:#10b981;"></i>
+                    <h6>Ops del Día</h6>
                 </a>
-                <a href="{{ url_for('clients.list_clients') }}" class="quick-access-card access-info flex-fill" style="min-width:120px;max-width:180px;">
-                    <i class="bi bi-people"></i>
-                    <h6>Gestionar Clientes</h6>
+                <a href="{{ url_for('clients.list_clients') }}" class="qa-card">
+                    <i class="bi bi-people" style="color:#3b82f6;"></i>
+                    <h6>Clientes</h6>
                 </a>
-                <a href="{{ url_for('operations.history') }}" class="quick-access-card flex-fill" style="min-width:120px;max-width:180px;">
+                <a href="{{ url_for('operations.history') }}" class="qa-card">
                     <i class="bi bi-clock-history" style="color:#8b5cf6;"></i>
                     <h6>Historial</h6>
                 </a>
-                <a href="{{ url_for('users.manage') }}" class="quick-access-card flex-fill" style="min-width:120px;max-width:180px;">
+                <a href="{{ url_for('users.manage') }}" class="qa-card">
                     <i class="bi bi-person-gear" style="color:#f59e0b;"></i>
-                    <h6>Gestionar Usuarios</h6>
+                    <h6>Usuarios</h6>
                 </a>
             </div>
         </div>
     </div>
 
-    <!-- Widget Precio Base — Acceso por Trader -->
-    <div class="card mb-4" style="border-radius:var(--card-radius);border-top:3px solid var(--qori-primary,#4f46e5);box-shadow:var(--card-shadow);">
-        <div class="card-header d-flex align-items-center gap-2" style="background:white;border-bottom:1px solid #f1f5f9;border-radius:var(--card-radius) var(--card-radius) 0 0;">
-            <i class="bi bi-currency-dollar" style="color:var(--qori-primary,#4f46e5);font-size:1rem;"></i>
-            <span style="font-size:.875rem;font-weight:600;">Widget Precio Base — Acceso por Trader</span>
-            <span class="badge bg-light text-secondary ms-auto" style="font-size:.65rem;font-weight:500;">Solo visible para Master</span>
+    <!-- Widget Precio Base -->
+    <div class="analytics-card mb-4">
+        <div class="card-head">
+            <span class="card-head-title"><i class="bi bi-toggles" style="color:#4f46e5;"></i> Widget Precio Base — Acceso por Trader</span>
+            <span class="badge bg-light text-secondary" style="font-size:.65rem;">Solo Master</span>
         </div>
-        <div class="card-body">
-            <p class="text-muted mb-3" style="font-size:.8rem;">
-                Activa o desactiva qué traders pueden ver el widget de Precio Base en el sidebar.
-            </p>
+        <div style="padding:.875rem 1.25rem;">
             <div id="precioBaseTraderList" class="d-flex flex-wrap gap-2">
-                <div class="skeleton skeleton-line" style="width:120px;height:36px;border-radius:8px;"></div>
-                <div class="skeleton skeleton-line" style="width:120px;height:36px;border-radius:8px;"></div>
+                <div class="skeleton" style="width:140px;height:38px;border-radius:8px;"></div>
+                <div class="skeleton" style="width:140px;height:38px;border-radius:8px;"></div>
             </div>
         </div>
     </div>
 
-</div>
+</div><!-- /container-fluid -->
 
-<!-- Modal: Filtro de Fecha -->
+<!-- ════ MODALS ════ -->
+
+<!-- Filtro Fecha -->
 <div class="modal fade" id="filterDateModal" tabindex="-1">
     <div class="modal-dialog">
-        <div class="modal-content border-0 shadow" style="border-radius:12px;overflow:hidden;">
+        <div class="modal-content border-0 shadow" style="border-radius:14px;overflow:hidden;">
             <div class="modal-header border-0 px-4 pt-4 pb-3" style="background:#f8fafc;">
                 <div class="d-flex align-items-center gap-2">
                     <span class="d-flex align-items-center justify-content-center rounded-circle bg-primary bg-opacity-10" style="width:36px;height:36px;">
@@ -549,33 +525,24 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body px-4">
-                <div class="mb-3">
-                    <label class="form-label small text-uppercase fw-semibold" style="letter-spacing:.5px;color:#6b7280;">Selecciona una fecha</label>
-                    <input type="text" class="form-control" id="datePicker" placeholder="Haz clic para abrir el calendario">
-                    <small class="form-text text-muted">Cualquier fecha pasada o presente</small>
-                </div>
+                <label class="form-label small text-uppercase fw-semibold" style="letter-spacing:.5px;color:#6b7280;">Selecciona una fecha</label>
+                <input type="text" class="form-control mb-2" id="datePicker" placeholder="Haz clic para abrir el calendario">
                 <div class="rounded p-3" style="background:#eff6ff;border:1px solid #bfdbfe;">
-                    <div class="small text-primary">
-                        <i class="bi bi-info-circle-fill me-1"></i>Las estadísticas mostrarán operaciones de la fecha seleccionada y el acumulado del mes hasta esa fecha.
-                    </div>
+                    <small class="text-primary"><i class="bi bi-info-circle-fill me-1"></i>Muestra operaciones de la fecha y acumulado del mes hasta esa fecha.</small>
                 </div>
             </div>
             <div class="modal-footer border-top px-4 py-3" style="background:#f8fafc;">
-                <button type="button" class="btn btn-sm btn-light border" onclick="clearDateFilter()">
-                    <i class="bi bi-x-circle me-1"></i>Limpiar
-                </button>
-                <button type="button" class="btn btn-sm btn-primary px-3" onclick="applyDateFilter()">
-                    <i class="bi bi-check-circle me-1"></i>Aplicar
-                </button>
+                <button type="button" class="btn btn-sm btn-light border" onclick="clearDateFilter()"><i class="bi bi-x-circle me-1"></i>Limpiar</button>
+                <button type="button" class="btn btn-sm btn-primary px-3" onclick="applyDateFilter()"><i class="bi bi-check-circle me-1"></i>Aplicar</button>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Modal: Filtro de Trader -->
+<!-- Filtro Trader -->
 <div class="modal fade" id="filterTraderModal" tabindex="-1">
     <div class="modal-dialog">
-        <div class="modal-content border-0 shadow" style="border-radius:12px;overflow:hidden;">
+        <div class="modal-content border-0 shadow" style="border-radius:14px;overflow:hidden;">
             <div class="modal-header border-0 px-4 pt-4 pb-3" style="background:#f8fafc;">
                 <div class="d-flex align-items-center gap-2">
                     <span class="d-flex align-items-center justify-content-center rounded-circle bg-primary bg-opacity-10" style="width:36px;height:36px;">
@@ -586,34 +553,24 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body px-4">
-                <div class="mb-3">
-                    <label class="form-label small text-uppercase fw-semibold" style="letter-spacing:.5px;color:#6b7280;">Selecciona un Trader</label>
-                    <select class="form-select" id="filterTrader">
-                        <option value="">Todos los Traders</option>
-                    </select>
-                </div>
+                <label class="form-label small text-uppercase fw-semibold" style="letter-spacing:.5px;color:#6b7280;">Selecciona un Trader</label>
+                <select class="form-select mb-2" id="filterTrader"><option value="">Todos los Traders</option></select>
                 <div class="rounded p-3" style="background:#eff6ff;border:1px solid #bfdbfe;">
-                    <div class="small text-primary">
-                        <i class="bi bi-info-circle-fill me-1"></i>Al seleccionar un trader verás solo sus operaciones y utilidades.
-                    </div>
+                    <small class="text-primary"><i class="bi bi-info-circle-fill me-1"></i>Filtra por trader para ver solo sus operaciones y utilidades.</small>
                 </div>
             </div>
             <div class="modal-footer border-top px-4 py-3" style="background:#f8fafc;">
-                <button type="button" class="btn btn-sm btn-light border" onclick="clearTraderFilter()">
-                    <i class="bi bi-x-circle me-1"></i>Limpiar
-                </button>
-                <button type="button" class="btn btn-sm btn-primary px-3" onclick="applyTraderFilter()">
-                    <i class="bi bi-check-circle me-1"></i>Aplicar
-                </button>
+                <button type="button" class="btn btn-sm btn-light border" onclick="clearTraderFilter()"><i class="bi bi-x-circle me-1"></i>Limpiar</button>
+                <button type="button" class="btn btn-sm btn-primary px-3" onclick="applyTraderFilter()"><i class="bi bi-check-circle me-1"></i>Aplicar</button>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Modal: Configurar Metas y Utilidades -->
+<!-- Metas -->
 <div class="modal fade" id="goalsModal" tabindex="-1">
     <div class="modal-dialog modal-xl">
-        <div class="modal-content border-0 shadow" style="border-radius:12px;overflow:hidden;">
+        <div class="modal-content border-0 shadow" style="border-radius:14px;overflow:hidden;">
             <div class="modal-header border-0 px-4 pt-4 pb-3" style="background:#f8fafc;">
                 <div class="d-flex align-items-center gap-2">
                     <span class="d-flex align-items-center justify-content-center rounded-circle bg-success bg-opacity-10" style="width:36px;height:36px;">
@@ -626,9 +583,7 @@
             <div class="modal-body px-4">
                 <div class="mb-4">
                     <label class="form-label small text-uppercase fw-semibold" style="letter-spacing:.5px;color:#6b7280;">Seleccionar Trader</label>
-                    <select class="form-select" id="modalTraderSelect">
-                        <option value="">— Seleccione un trader —</option>
-                    </select>
+                    <select class="form-select" id="modalTraderSelect"><option value="">— Seleccione un trader —</option></select>
                 </div>
                 <div id="traderDataContainer" style="display:none;">
                     <div class="border-top pt-4">
@@ -645,9 +600,7 @@
                                 </div>
                                 <div class="col-md-6">
                                     <select class="form-select" id="goalYear">
-                                        <option value="2026">2026</option>
-                                        <option value="2025">2025</option>
-                                        <option value="2024">2024</option>
+                                        <option value="2026">2026</option><option value="2025">2025</option><option value="2024">2024</option>
                                     </select>
                                 </div>
                             </div>
@@ -656,20 +609,14 @@
                             <div class="col-md-4">
                                 <div class="rounded p-3 h-100" style="background:#eff6ff;border:1px solid #bfdbfe;">
                                     <div class="small text-uppercase fw-semibold mb-2" style="letter-spacing:.5px;color:#3b82f6;">Meta Mensual</div>
-                                    <div class="input-group input-group-sm">
-                                        <span class="input-group-text bg-white">S/</span>
-                                        <input type="number" class="form-control" id="traderGoalAmount" min="0" step="0.01" placeholder="0.00">
-                                    </div>
+                                    <div class="input-group input-group-sm"><span class="input-group-text bg-white">S/</span><input type="number" class="form-control" id="traderGoalAmount" min="0" step="0.01" placeholder="0.00"></div>
                                     <small class="text-muted">Meta asignada al periodo</small>
                                 </div>
                             </div>
                             <div class="col-md-4">
                                 <div class="rounded p-3 h-100" style="background:#f0fdf4;border:1px solid #bbf7d0;">
                                     <div class="small text-uppercase fw-semibold mb-2" style="letter-spacing:.5px;color:#16a34a;">Utilidad del Día</div>
-                                    <div class="input-group input-group-sm">
-                                        <span class="input-group-text bg-white">S/</span>
-                                        <input type="number" class="form-control" id="traderProfitToday" min="0" step="0.01" placeholder="0.00">
-                                    </div>
+                                    <div class="input-group input-group-sm"><span class="input-group-text bg-white">S/</span><input type="number" class="form-control" id="traderProfitToday" min="0" step="0.01" placeholder="0.00"></div>
                                     <small class="text-muted">Ingreso manual diario</small>
                                 </div>
                             </div>
@@ -682,44 +629,33 @@
                             </div>
                         </div>
                         <div class="rounded p-3" style="background:#f8fafc;border:1px solid #e2e8f0;">
-                            <div class="small text-muted">
-                                <i class="bi bi-info-circle me-1"></i>La <strong>Utilidad del Día</strong> debe ingresarse manualmente cada día. El acumulado se calcula automáticamente.
-                            </div>
+                            <small class="text-muted"><i class="bi bi-info-circle me-1"></i>La <strong>Utilidad del Día</strong> debe ingresarse manualmente cada día. El acumulado se calcula automáticamente.</small>
                         </div>
                     </div>
                 </div>
             </div>
             <div class="modal-footer border-top px-4 py-3" style="background:#f8fafc;">
                 <button type="button" class="btn btn-sm btn-light border" data-bs-dismiss="modal">Cerrar</button>
-                <button type="button" class="btn btn-sm btn-success px-3" id="saveTraderDataBtn" onclick="saveTraderData()" style="display:none;">
-                    <i class="bi bi-check-circle me-1"></i>Guardar Datos
-                </button>
+                <button type="button" class="btn btn-sm btn-success px-3" id="saveTraderDataBtn" onclick="saveTraderData()" style="display:none;"><i class="bi bi-check-circle me-1"></i>Guardar</button>
             </div>
         </div>
     </div>
 </div>
-
 {% endblock %}
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
 <script src="{{ url_for('static', filename='js/dashboard_analysis.js') }}"></script>
 <script>
-// Variables globales
-let currentFilters = {
-    trader_id: null,
-    month: null,
-    year: null,
-    day: null
-};
-
-// Datos de inactividad globales
+// ─── Estado global ───────────────────────────────────────────────
+let currentFilters = { trader_id: null, month: null, year: null, day: null };
 let inactiveData = { inactive_30: [], inactive_60: [], inactive_90: [] };
-// Timer para búsqueda de clientes
 let clientSearchTimer = null;
+let opsChart = null;
 
-// Cargar datos al iniciar
+// ─── Init ────────────────────────────────────────────────────────
 $(document).ready(function() {
+    initOpsChart();
     loadDashboardData();
     loadTraders();
     setCurrentPeriod();
@@ -729,86 +665,111 @@ $(document).ready(function() {
     loadInactiveClients();
     loadTopProfit();
     loadTopOps();
-
-    // Polling adaptativo: 5 min con WS activo, 60 s como fallback
     startDashboardPolling(loadDashboardData);
-
-    // Conectar a SocketIO para actualizaciones en tiempo real
     connectSocketIO();
 });
 
-// Inicializar calendario (Flatpickr)
-function initDatePicker() {
-    flatpickr("#datePicker", {
-        locale: "es",
-        dateFormat: "Y-m-d",
-        maxDate: "today",
-        defaultDate: null,
-        onChange: function(selectedDates, dateStr, instance) {
-            console.log('Fecha seleccionada:', dateStr);
+// ─── Chart.js donut ──────────────────────────────────────────────
+function initOpsChart() {
+    const ctx = document.getElementById('opsDonut');
+    if (!ctx || typeof Chart === 'undefined') return;
+    opsChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Pendientes', 'En Proceso', 'Completadas', 'Canceladas'],
+            datasets: [{
+                data: [0, 0, 0, 0],
+                backgroundColor: ['#f59e0b', '#3b82f6', '#10b981', '#ef4444'],
+                borderWidth: 0,
+                hoverOffset: 5
+            }]
+        },
+        options: {
+            cutout: '68%',
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => ` ${ctx.label}: ${ctx.raw} ops`
+                    }
+                }
+            },
+            animation: { animateRotate: true, duration: 900 }
         }
     });
 }
 
+function updateOpsChart(pending, inProcess, completed, canceled) {
+    if (!opsChart) return;
+    const total = pending + inProcess + completed + canceled;
+    // si total=0 mostrar gris placeholder
+    if (total === 0) {
+        opsChart.data.datasets[0].data = [1];
+        opsChart.data.datasets[0].backgroundColor = ['#e8ecf0'];
+    } else {
+        opsChart.data.datasets[0].data = [pending, inProcess, completed, canceled];
+        opsChart.data.datasets[0].backgroundColor = ['#f59e0b', '#3b82f6', '#10b981', '#ef4444'];
+    }
+    opsChart.update();
+    // Update mini bars
+    if (total > 0) {
+        document.getElementById('barPending').style.width   = (pending   / total * 100) + '%';
+        document.getElementById('barProcess').style.width   = (inProcess / total * 100) + '%';
+        document.getElementById('barCompleted').style.width = (completed / total * 100) + '%';
+        document.getElementById('barCanceled').style.width  = (canceled  / total * 100) + '%';
+    }
+    const totalEl = document.getElementById('totalOpsToday');
+    if (totalEl) totalEl.textContent = total > 0 ? total + ' ops' : '';
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────
+function applyProfitColor(id, value) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.classList.remove('is-positive', 'is-negative');
+    if (value > 0) el.classList.add('is-positive');
+    else if (value < 0) el.classList.add('is-negative');
+}
+
+function initDatePicker() {
+    flatpickr('#datePicker', { locale:'es', dateFormat:'Y-m-d', maxDate:'today' });
+}
+
 function setCurrentPeriod() {
     const now = new Date();
-    const currentMonth = now.getMonth() + 1;
-    const currentYear = now.getFullYear();
-
-    $('#goalMonth').val(currentMonth);
-    $('#goalYear').val(currentYear);
+    $('#goalMonth').val(now.getMonth() + 1);
+    $('#goalYear').val(now.getFullYear());
 }
 
 function loadTraders() {
-    ajaxRequest('/dashboard/api/traders', 'GET', null, function(response) {
+    ajaxRequest('/dashboard/api/traders', 'GET', null, function(r) {
         let html = '<option value="">Todos los Traders</option>';
-        response.traders.forEach(function(trader) {
-            html += `<option value="${trader.id}">${trader.username} - ${trader.email}</option>`;
-        });
+        r.traders.forEach(t => { html += `<option value="${t.id}">${t.username} - ${t.email}</option>`; });
         $('#filterTrader').html(html);
     });
 }
 
 function refreshDashboard() {
     loadDashboardData();
-    loadTopClients();
-    loadInactiveClients();
-    loadTopProfit();
-    loadTopOps();
+    loadTopClients(); loadInactiveClients(); loadTopProfit(); loadTopOps();
     showNotification('Dashboard actualizado', 'success');
 }
 
-// ============================================
-// FUNCIONES DE FILTROS
-// ============================================
+function getTraderIdFilter() { return currentFilters.trader_id || ''; }
 
+// ─── Filtros ─────────────────────────────────────────────────────
 function applyDateFilter() {
-    const selectedDate = $('#datePicker').val();
-
-    if (!selectedDate) {
-        showNotification('Por favor selecciona una fecha del calendario', 'warning');
-        return;
-    }
-
-    const parts = selectedDate.split('-');
-    const year = parseInt(parts[0]);
-    const month = parseInt(parts[1]);
-    const day = parseInt(parts[2]);
-
-    currentFilters.year = year;
-    currentFilters.month = month;
-    currentFilters.day = day;
-
+    const v = $('#datePicker').val();
+    if (!v) { showNotification('Selecciona una fecha', 'warning'); return; }
+    const p = v.split('-');
+    currentFilters.year = +p[0]; currentFilters.month = +p[1]; currentFilters.day = +p[2];
     loadDashboardData();
     $('#filterDateModal').modal('hide');
-    showNotification(`Filtro aplicado: ${day}/${month}/${year}`, 'success');
+    showNotification(`Filtro: ${p[2]}/${p[1]}/${p[0]}`, 'success');
 }
 
 function clearDateFilter() {
-    currentFilters.year = null;
-    currentFilters.month = null;
-    currentFilters.day = null;
-
+    currentFilters.year = currentFilters.month = currentFilters.day = null;
     $('#datePicker').val('');
     loadDashboardData();
     $('#filterDateModal').modal('hide');
@@ -816,440 +777,270 @@ function clearDateFilter() {
 }
 
 function applyTraderFilter() {
-    const traderId = $('#filterTrader').val();
-
-    if (!traderId) {
-        showNotification('Por favor selecciona un trader', 'warning');
-        return;
-    }
-
-    currentFilters.trader_id = parseInt(traderId);
-
-    const traderName = $('#filterTrader option:selected').text().split(' - ')[0];
-    $('#analyticsBadgeTrader').text(traderName);
-
-    loadDashboardData();
-    loadTopClients();
-    loadInactiveClients();
-    loadTopProfit();
-    loadTopOps();
+    const tid = $('#filterTrader').val();
+    if (!tid) { showNotification('Selecciona un trader', 'warning'); return; }
+    currentFilters.trader_id = +tid;
+    const name = $('#filterTrader option:selected').text().split(' - ')[0];
+    $('#analyticsBadgeTrader').html(`<i class="bi bi-person-fill me-1"></i>${name}`);
+    loadDashboardData(); loadTopClients(); loadInactiveClients(); loadTopProfit(); loadTopOps();
     $('#filterTraderModal').modal('hide');
-    showNotification(`Filtro aplicado: ${traderName}`, 'success');
+    showNotification(`Trader: ${name}`, 'success');
 }
 
 function clearTraderFilter() {
     currentFilters.trader_id = null;
-
     $('#filterTrader').val('');
-    $('#analyticsBadgeTrader').text('Todos los traders');
-
-    loadDashboardData();
-    loadTopClients();
-    loadInactiveClients();
-    loadTopProfit();
-    loadTopOps();
+    $('#analyticsBadgeTrader').html('<i class="bi bi-bar-chart-line me-1"></i>Todos los traders');
+    loadDashboardData(); loadTopClients(); loadInactiveClients(); loadTopProfit(); loadTopOps();
     $('#filterTraderModal').modal('hide');
     showNotification('Filtro de trader eliminado', 'info');
 }
 
+// ─── Dashboard Data ───────────────────────────────────────────────
 function loadDashboardData() {
-    const params = new URLSearchParams();
+    const p = new URLSearchParams();
+    if (currentFilters.trader_id) p.append('trader_id', currentFilters.trader_id);
+    if (currentFilters.month) p.append('month', currentFilters.month);
+    if (currentFilters.year)  p.append('year',  currentFilters.year);
+    if (currentFilters.day)   p.append('day',   currentFilters.day);
 
-    if (currentFilters.trader_id) params.append('trader_id', currentFilters.trader_id);
-    if (currentFilters.month) params.append('month', currentFilters.month);
-    if (currentFilters.year) params.append('year', currentFilters.year);
-    if (currentFilters.day) params.append('day', currentFilters.day);
+    ajaxRequest(`/dashboard/api/dashboard/all?${p}`, 'GET', null, function(r) {
+        const today = r.today || {};
+        const month = r.month || {};
+        const system = r.system || {};
 
-    ajaxRequest(`/dashboard/api/dashboard/all?${params.toString()}`, 'GET', null, function(response) {
-        // HOY
-        const today = response.today || {};
-        updateCounterValue('#clientsToday', today.unique_clients || 0);
-        updateCounterValue('#operationsToday', today.operations_count || 0);
-        updateCounterValue('#usdToday', today.total_usd || 0, '$', 2);
-        updateCounterValue('#penToday', today.total_pen || 0, 'S/', 2);
+        // Hoy
+        updateCounterValue('#clientsToday',    today.unique_clients    || 0);
+        updateCounterValue('#operationsToday', today.operations_count  || 0);
+        updateCounterValue('#usdToday',        today.total_usd         || 0, '$', 2);
+        updateCounterValue('#penToday',        today.total_pen         || 0, 'S/', 2);
 
-        function fmtPen(v) { return v !== null && v !== undefined ? 'S/ ' + parseFloat(v).toFixed(2) : '—'; }
-        const isTraderFilter = !!currentFilters.trader_id;
-        const profitTodayVal = isTraderFilter ? (today.profit_today || 0) : (today.profit_confirmed_today || 0);
-        updateCounterValue('#profitToday', profitTodayVal, 'S/', 2);
-        document.getElementById('profitTradersToday').textContent = isTraderFilter ? '—' : fmtPen(today.profit_traders_today);
-        document.getElementById('profitHouseToday').textContent   = isTraderFilter ? '—' : fmtPen(today.profit_house_today);
+        // Utilidades (hero)
+        function fmtPen(v) { return v != null ? 'S/ ' + parseFloat(v).toFixed(2) : '—'; }
+        const isTF = !!currentFilters.trader_id;
+        const ptv  = isTF ? (today.profit_today || 0) : (today.profit_confirmed_today || 0);
+        const pmv  = isTF ? (month.profit_month || 0) : (month.profit_confirmed_month || 0);
 
-        // MES
-        const month = response.month || {};
-        updateCounterValue('#clientsMonth', month.unique_clients || 0);
-        updateCounterValue('#activeClientsMonth', month.active_clients || 0);
-        updateCounterValue('#operationsMonth', month.operations_count || 0);
-        updateCounterValue('#completedMonth', month.completed_count || 0);
-        updateCounterValue('#usdMonth', month.total_usd || 0, '$', 2);
-        updateCounterValue('#penMonth', month.total_pen || 0, 'S/', 2);
+        updateCounterValue('#profitToday', ptv, 'S/', 2);
+        updateCounterValue('#profitMonth', pmv, 'S/', 2);
+        applyProfitColor('profitToday', ptv);
+        applyProfitColor('profitMonth', pmv);
 
-        const profitMonthVal = isTraderFilter ? (month.profit_month || 0) : (month.profit_confirmed_month || 0);
-        updateCounterValue('#profitMonth', profitMonthVal, 'S/', 2);
-        document.getElementById('profitTradersMonth').textContent = isTraderFilter ? '—' : fmtPen(month.profit_traders_month);
-        document.getElementById('profitHouseMonth').textContent   = isTraderFilter ? '—' : fmtPen(month.profit_house_month);
+        document.getElementById('profitTradersToday').textContent = isTF ? '—' : fmtPen(today.profit_traders_today);
+        document.getElementById('profitHouseToday').textContent   = isTF ? '—' : fmtPen(today.profit_house_today);
+        document.getElementById('profitTradersMonth').textContent = isTF ? '—' : fmtPen(month.profit_traders_month);
+        document.getElementById('profitHouseMonth').textContent   = isTF ? '—' : fmtPen(month.profit_house_month);
 
-        // Meta mensual (en DOM oculto)
-        const goalAmount = month.goal_amount || 0;
-        updateCounterValue('#goalMonthAmount', goalAmount, 'S/', 2);
-        updateGoalProgress(profitMonthVal, goalAmount);
-        updateLastUpdated();
+        // Mes
+        updateCounterValue('#clientsMonth',       month.unique_clients   || 0);
+        updateCounterValue('#activeClientsMonth', month.active_clients   || 0);
+        updateCounterValue('#operationsMonth',    month.operations_count || 0);
+        updateCounterValue('#completedMonth',     month.completed_count  || 0);
+        updateCounterValue('#usdMonth',           month.total_usd        || 0, '$', 2);
+        updateCounterValue('#penMonth',           month.total_pen        || 0, 'S/', 2);
 
-        // Estado de operaciones
-        updateCounterValue('#pendingCount', month.pending_count || 0);
-        updateCounterValue('#inProcessCount', month.in_process_count || 0);
-        updateCounterValue('#completedCount', month.completed_count_today || 0);
-        updateCounterValue('#canceledCount', month.canceled_count || 0);
+        // Meta (hidden)
+        updateCounterValue('#goalMonthAmount', month.goal_amount || 0, 'S/', 2);
+        updateGoalProgress(pmv, month.goal_amount || 0);
+
+        // Estado ops
+        const pending   = today.pending_count   || 0;
+        const inProcess = today.in_process_count || 0;
+        const completed = today.completed_count  || 0;
+        const canceled  = today.canceled_count   || 0;
+
+        document.getElementById('pendingCount').textContent   = pending;
+        document.getElementById('inProcessCount').textContent = inProcess;
+        document.getElementById('completedCount').textContent = completed;
+        document.getElementById('canceledCount').textContent  = canceled;
+
+        updateOpsChart(pending, inProcess, completed, canceled);
 
         // Sistema
-        const system = response.system || {};
-        updateCounterValue('#totalUsers', system.total_users || 0);
+        updateCounterValue('#totalUsers',  system.total_users  || 0);
         updateCounterValue('#activeUsers', system.active_users || 0);
 
+        updateLastUpdated();
         updateFilterIndicator();
     });
 }
 
+// ─── Filter indicator ────────────────────────────────────────────
 function updateFilterIndicator() {
-    const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-                        'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-    let filterParts = [];
-
-    if (currentFilters.day && currentFilters.month && currentFilters.year) {
-        filterParts.push(`📅 Fecha: ${currentFilters.day} de ${monthNames[currentFilters.month - 1]}, ${currentFilters.year}`);
-    }
+    const mNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    const parts = [];
+    if (currentFilters.day)       parts.push(`📅 ${currentFilters.day}/${currentFilters.month}/${currentFilters.year}`);
     if (currentFilters.trader_id) {
-        const traderSelect = $('#filterTrader option:selected').text();
-        if (traderSelect && traderSelect !== 'Todos los Traders') {
-            filterParts.push(`👤 Trader: ${traderSelect}`);
-        }
+        const n = $('#filterTrader option:selected').text().split(' - ')[0];
+        if (n && n !== 'Todos los Traders') parts.push(`👤 ${n}`);
     }
-
-    if (filterParts.length > 0) {
-        $('#filterText').html(filterParts.join(' &nbsp;|&nbsp; '));
-        $('#filterIndicator').removeClass('d-none');
-    } else {
-        $('#filterIndicator').addClass('d-none');
-    }
+    if (parts.length) { $('#filterText').html(parts.join(' | ')); $('#filterIndicator').removeClass('d-none'); }
+    else              { $('#filterIndicator').addClass('d-none'); }
 }
 
-// ============================================
-// METAS Y UTILIDADES
-// ============================================
-
+// ─── Goals Modal ────────────────────────────────────────────────
 function openGoalsModal() {
-    loadTradersForModal();
+    ajaxRequest('/dashboard/api/traders', 'GET', null, function(r) {
+        let html = '<option value="">— Seleccione un trader —</option>';
+        r.traders.forEach(t => { html += `<option value="${t.id}">${t.username} - ${t.email}</option>`; });
+        $('#modalTraderSelect').html(html);
+    });
     setCurrentPeriod();
     $('#goalsModal').modal('show');
 }
 
-function loadTradersForModal() {
-    ajaxRequest('/dashboard/api/traders', 'GET', null, function(response) {
-        let html = '<option value="">-- Seleccione un trader --</option>';
-        response.traders.forEach(function(trader) {
-            html += `<option value="${trader.id}">${trader.username} - ${trader.email}</option>`;
-        });
-        $('#modalTraderSelect').html(html);
-    });
-}
-
 $(document).on('change', '#modalTraderSelect', function() {
-    const traderId = $(this).val();
-    if (!traderId) {
-        $('#traderDataContainer').hide();
-        $('#saveTraderDataBtn').hide();
-        return;
-    }
-    $('#traderDataContainer').show();
-    $('#saveTraderDataBtn').show();
-    loadTraderData(traderId);
+    const tid = $(this).val();
+    if (!tid) { $('#traderDataContainer').hide(); $('#saveTraderDataBtn').hide(); return; }
+    $('#traderDataContainer').show(); $('#saveTraderDataBtn').show();
+    loadTraderData(tid);
 });
 
 $(document).on('change', '#goalMonth, #goalYear', function() {
-    const traderId = $('#modalTraderSelect').val();
-    if (traderId) loadTraderData(traderId);
+    const tid = $('#modalTraderSelect').val();
+    if (tid) loadTraderData(tid);
 });
 
 function loadTraderData(traderId) {
-    const month = $('#goalMonth').val();
-    const year = $('#goalYear').val();
+    const month = $('#goalMonth').val(); const year = $('#goalYear').val();
     if (!traderId || !month || !year) return;
-
-    ajaxRequest(`/dashboard/api/goals?month=${month}&year=${year}`, 'GET', null, function(response) {
-        const trader = response.traders.find(t => t.id == traderId);
-        $('#traderGoalAmount').val(trader ? (trader.goal_amount || 0) : 0);
+    ajaxRequest(`/dashboard/api/goals?month=${month}&year=${year}`, 'GET', null, function(r) {
+        const t = r.traders.find(x => x.id == traderId);
+        $('#traderGoalAmount').val(t ? (t.goal_amount || 0) : 0);
     });
-
-    ajaxRequest(`/dashboard/api/profits?trader_id=${traderId}&month=${month}&year=${year}`, 'GET', null, function(response) {
-        $('#traderProfitToday').val(response.profit_today || 0);
-        updateCounterValue('#traderProfitMonth', response.accumulated_profit || 0, 'S/', 2);
+    ajaxRequest(`/dashboard/api/profits?trader_id=${traderId}&month=${month}&year=${year}`, 'GET', null, function(r) {
+        $('#traderProfitToday').val(r.profit_today || 0);
+        updateCounterValue('#traderProfitMonth', r.accumulated_profit || 0, 'S/', 2);
     });
 }
 
 function saveTraderData() {
-    const traderId = $('#modalTraderSelect').val();
-    const month = $('#goalMonth').val();
-    const year = $('#goalYear').val();
-    const goalAmount = parseFloat($('#traderGoalAmount').val()) || 0;
-    const profitToday = parseFloat($('#traderProfitToday').val()) || 0;
-
-    if (!traderId) { showNotification('Selecciona un trader', 'warning'); return; }
-    if (!month || !year) { showNotification('Selecciona un periodo válido', 'warning'); return; }
-
+    const tid = $('#modalTraderSelect').val(); const month = $('#goalMonth').val(); const year = $('#goalYear').val();
+    if (!tid) { showNotification('Selecciona un trader','warning'); return; }
     const today = new Date();
-    const todayStr = today.getFullYear() + '-' +
-                     String(today.getMonth() + 1).padStart(2, '0') + '-' +
-                     String(today.getDate()).padStart(2, '0');
-
-    const goalData = { goals: [{ trader_id: parseInt(traderId), month: parseInt(month), year: parseInt(year), goal_amount_pen: goalAmount }] };
-    const profitData = { trader_id: parseInt(traderId), profit_date: todayStr, profit_amount_pen: profitToday };
-
+    const dateStr = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
     Promise.all([
-        new Promise((resolve, reject) => { ajaxRequest('/dashboard/api/goals/save', 'POST', goalData, resolve, reject); }),
-        new Promise((resolve, reject) => { ajaxRequest('/dashboard/api/profits/save', 'POST', profitData, resolve, reject); })
-    ]).then(() => {
-        showNotification('Datos guardados exitosamente', 'success');
-        $('#goalsModal').modal('hide');
-        loadDashboardData();
-    }).catch(error => {
-        showNotification('Error al guardar datos: ' + (error.responseJSON?.error || 'Error desconocido'), 'danger');
-    });
+        new Promise((res,rej) => ajaxRequest('/dashboard/api/goals/save','POST',{goals:[{trader_id:+tid,month:+month,year:+year,goal_amount_pen:parseFloat($('#traderGoalAmount').val())||0}]},res,rej)),
+        new Promise((res,rej) => ajaxRequest('/dashboard/api/profits/save','POST',{trader_id:+tid,profit_date:dateStr,profit_amount_pen:parseFloat($('#traderProfitToday').val())||0},res,rej))
+    ]).then(() => { showNotification('Guardado exitosamente','success'); $('#goalsModal').modal('hide'); loadDashboardData(); })
+      .catch(e => { showNotification('Error: '+(e.responseJSON?.error||'desconocido'),'danger'); });
 }
 
-// ============================================
-// ANALYTICS
-// ============================================
-
-function getTraderIdFilter() {
-    return currentFilters.trader_id || '';
-}
-
-// loadTopClients, loadInactiveClients, showInactiveTab, loadTopProfit, loadTopOps
-// → en dashboard_analysis.js (compartido con trader.html)
-
+// ─── Client Search ───────────────────────────────────────────────
 function onClientSearch(value) {
     clearTimeout(clientSearchTimer);
     if (value.length < 2) { $('#clientSearchResults').empty(); return; }
     clientSearchTimer = setTimeout(function() {
-        const params = new URLSearchParams({ q: value });
+        const p = new URLSearchParams({ q: value });
         const tid = getTraderIdFilter();
-        if (tid) params.append('trader_id', tid);
-        ajaxRequest(`/dashboard/api/dashboard/client-search?${params.toString()}`, 'GET', null, function(response) {
-            const clients = response.clients || [];
+        if (tid) p.append('trader_id', tid);
+        ajaxRequest(`/dashboard/api/dashboard/client-search?${p}`, 'GET', null, function(r) {
+            const clients = r.clients || [];
             const container = $('#clientSearchResults');
-            if (clients.length === 0) {
-                container.html('<a class="list-group-item text-muted small">Sin resultados</a>');
-                return;
-            }
-            let html = '';
-            clients.forEach(function(c) {
-                const statusBadge = c.status === 'Activo' ? '<span class="badge bg-success ms-1" style="font-size:0.6rem">Activo</span>' : '<span class="badge bg-secondary ms-1" style="font-size:0.6rem">Inactivo</span>';
-                html += `<a class="list-group-item list-group-item-action small py-1 px-2" style="cursor:pointer"
-                            onclick="loadClientHistory(${c.id}, '${escapeHtml(c.name)}', '${c.dni}')">
-                            <span class="fw-semibold">${escapeHtml(c.name)}</span>${statusBadge}
-                            <span class="text-muted ms-1">${c.dni}</span>
-                            <span class="float-end text-info">${c.op_count} ops</span>
-                        </a>`;
-            });
-            container.html(html);
+            if (!clients.length) { container.html('<a class="list-group-item text-muted small">Sin resultados</a>'); return; }
+            container.html(clients.map(c => `<a class="list-group-item list-group-item-action small py-1 px-2" style="cursor:pointer" onclick="loadClientHistory(${c.id},'${escapeHtml(c.name)}','${c.dni}')"><span class="fw-semibold">${escapeHtml(c.name)}</span><span class="text-muted ms-1">${c.dni}</span><span class="float-end text-info">${c.op_count} ops</span></a>`).join(''));
         });
     }, 350);
 }
 
 function loadClientHistory(clientId, clientName, clientDni) {
-    $('#clientSearchResults').empty();
-    $('#clientSearchInput').val('');
-    $('#clientHistoryPanel').removeClass('d-none');
-    $('#clientHistoryEmpty').addClass('d-none');
-    $('#selectedClientName').text(clientName);
-    $('#selectedClientInfo').text(`DNI/RUC: ${clientDni}`);
+    $('#clientSearchResults').empty(); $('#clientSearchInput').val('');
+    $('#clientHistoryPanel').removeClass('d-none'); $('#clientHistoryEmpty').addClass('d-none');
+    $('#selectedClientName').text(clientName); $('#selectedClientInfo').text(`DNI/RUC: ${clientDni}`);
     $('#clientHistoryBody').html('<tr><td colspan="7" class="text-center py-3"><div class="spinner-border spinner-border-sm"></div></td></tr>');
-
-    const params = new URLSearchParams();
-    const tid = getTraderIdFilter();
-    if (tid) params.append('trader_id', tid);
-    ajaxRequest(`/dashboard/api/dashboard/client-operations/${clientId}?${params.toString()}`, 'GET', null, function(response) {
-        const ops = response.operations || [];
-        const summary = response.summary || {};
-
-        $('#clientTotalOps').text(summary.total_ops || 0);
-        $('#clientTotalUsd').text(`$ ${formatNumber(summary.total_usd || 0, 0)}`);
-        $('#clientTotalProfit').text(`S/ ${formatNumber(summary.total_profit || 0, 2)}`);
-
-        if (ops.length === 0) {
-            $('#clientHistoryBody').html('<tr><td colspan="7" class="text-center text-muted py-3 small">Sin operaciones registradas</td></tr>');
-            return;
-        }
-
-        let html = '';
-        ops.forEach(function(op) {
-            let profitHtml = '<span class="text-muted small">-</span>';
-            if (op.profit_pen !== null && op.profit_pen !== undefined) {
-                const pClass = op.profit_pen >= 0 ? 'text-success' : 'text-danger';
-                profitHtml = `<span class="${pClass} fw-bold small">S/ ${formatNumber(op.profit_pen, 2)}</span>`;
-            }
-            html += `<tr>
-                <td class="small text-muted">${op.date}</td>
-                <td class="small">${op.operation_id}</td>
-                <td><span class="badge ${op.type === 'Compra' ? 'bg-info' : 'bg-warning text-dark'}" style="font-size:0.65rem">${op.type}</span></td>
-                <td class="small text-end">$ ${formatNumber(op.amount_usd, 2)}</td>
-                <td class="small text-end">S/ ${formatNumber(op.amount_pen, 2)}</td>
-                <td class="small text-end">${op.exchange_rate.toFixed(4)}</td>
-                <td class="text-end">${profitHtml}</td>
-            </tr>`;
-        });
-        $('#clientHistoryBody').html(html);
+    const p = new URLSearchParams(); const tid = getTraderIdFilter();
+    if (tid) p.append('trader_id', tid);
+    ajaxRequest(`/dashboard/api/dashboard/client-operations/${clientId}?${p}`, 'GET', null, function(r) {
+        const ops = r.operations || []; const s = r.summary || {};
+        $('#clientTotalOps').text(s.total_ops || 0);
+        $('#clientTotalUsd').text(`$ ${fmt(s.total_usd||0,0)}`);
+        $('#clientTotalProfit').text(`S/ ${fmt(s.total_profit||0,2)}`);
+        if (!ops.length) { $('#clientHistoryBody').html('<tr><td colspan="7" class="text-center text-muted py-3 small">Sin operaciones registradas</td></tr>'); return; }
+        $('#clientHistoryBody').html(ops.map(op => {
+            let ph = '<span class="text-muted small">-</span>';
+            if (op.profit_pen != null) ph = `<span class="${op.profit_pen>=0?'text-success':'text-danger'} fw-bold small">S/ ${fmt(op.profit_pen,2)}</span>`;
+            return `<tr><td class="small text-muted">${op.date}</td><td class="small">${op.operation_id}</td><td><span class="badge ${op.type==='Compra'?'bg-info':'bg-warning text-dark'}" style="font-size:.65rem">${op.type}</span></td><td class="small text-end">$ ${fmt(op.amount_usd,2)}</td><td class="small text-end">S/ ${fmt(op.amount_pen,2)}</td><td class="small text-end">${op.exchange_rate.toFixed(4)}</td><td class="text-end">${ph}</td></tr>`;
+        }).join(''));
     });
 }
 
-function formatNumber(n, decimals) {
-    return parseFloat(n).toLocaleString('es-PE', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
-}
-
-function escapeHtml(str) {
-    if (!str) return '';
-    return str.replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
-
-// ==================== TIPOS DE CAMBIO ====================
-
-function loadExchangeRates() {
-    ajaxRequest('/api/platform/exchange-rates', 'GET', null, function(response) {
-        if (response.success && response.rates) {
-            const rates = response.rates;
-            $('#currentBuyRate').text('S/ ' + parseFloat(rates.compra).toFixed(3));
-            $('#currentSellRate').text('S/ ' + parseFloat(rates.venta).toFixed(3));
-            $('#newBuyRate').val(parseFloat(rates.compra).toFixed(3));
-            $('#newSellRate').val(parseFloat(rates.venta).toFixed(3));
-            if (rates.updated_at && rates.updated_by) {
-                const updateDate = new Date(rates.updated_at);
-                $('#lastUpdate').text(updateDate.toLocaleString('es-PE'));
-                $('#updatedBy').text(rates.updated_by);
-            } else {
-                $('#lastUpdate').text('Sin actualizar');
-                $('#updatedBy').text('Sistema');
-            }
-        }
-    }, function(error) {
-        console.error('Error al cargar tipos de cambio:', error);
-    });
-}
-
+// ─── Helpers ─────────────────────────────────────────────────────
 function updateLastUpdated() {
-    const now = new Date();
-    const timeStr = now.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
-    $('#lastUpdated').html(`<i class="bi bi-clock me-1"></i>Actualizado: ${timeStr}`);
+    const t = new Date().toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'});
+    document.getElementById('lastUpdated').textContent = `Actualizado: ${t}`;
 }
 
 function updateGoalProgress(profit, goal) {
-    const percentage = goal > 0 ? Math.min((profit / goal) * 100, 100) : 0;
-    let colorClass = 'bg-danger';
-    if (percentage >= 80) colorClass = 'bg-success';
-    else if (percentage >= 50) colorClass = 'bg-warning';
-    $('#goalProgress')
-        .css('width', percentage + '%')
-        .attr('aria-valuenow', percentage.toFixed(0))
-        .text(percentage.toFixed(0) + '%')
-        .removeClass('bg-danger bg-warning bg-success')
-        .addClass(colorClass);
-    if (goal > 0) {
-        const remaining = Math.max(goal - profit, 0);
-        $('#goalText').text('Faltan S/ ' + remaining.toFixed(2) + ' para alcanzar la meta');
-    } else {
-        $('#goalText').text('Sin meta asignada');
-    }
+    const pct = goal > 0 ? Math.min(profit/goal*100, 100) : 0;
+    let cls = 'bg-danger';
+    if (pct >= 80) cls = 'bg-success'; else if (pct >= 50) cls = 'bg-warning';
+    $('#goalProgress').css('width', pct+'%').attr('aria-valuenow', pct.toFixed(0)).text(pct.toFixed(0)+'%').removeClass('bg-danger bg-warning bg-success').addClass(cls);
+    $('#goalText').text(goal > 0 ? `Faltan S/ ${Math.max(goal-profit,0).toFixed(2)} para la meta` : 'Sin meta asignada');
 }
 
-function updateExchangeRates() {
-    const buyRate  = parseFloat($('#newBuyRate').val());
-    const sellRate = parseFloat($('#newSellRate').val());
-    if (!buyRate || !sellRate) { showNotification('Debe ingresar ambos tipos de cambio', 'warning'); return; }
-    if (buyRate <= 0 || sellRate <= 0) { showNotification('Los tipos de cambio deben ser mayores a 0', 'warning'); return; }
-    if (sellRate < buyRate) { showNotification('El tipo de cambio de venta debe ser mayor o igual al de compra', 'warning'); return; }
-    if (Math.abs(sellRate - buyRate) > 0.5) {
-        if (!confirm('La diferencia entre compra y venta es mayor a 0.5. ¿Desea continuar?')) return;
-    }
-    if (!confirm(`¿Actualizar tipos de cambio?\n\nCompra: S/ ${buyRate.toFixed(3)}\nVenta: S/ ${sellRate.toFixed(3)}`)) return;
+function fmt(n, d) { return parseFloat(n).toLocaleString('es-PE',{minimumFractionDigits:d,maximumFractionDigits:d}); }
+function escapeHtml(s) { return s ? s.replace(/'/g,"\\'").replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : ''; }
 
-    ajaxRequest('/api/platform/exchange-rates', 'POST', { buy_rate: buyRate, sell_rate: sellRate }, function(response) {
-        if (response.success) {
-            showNotification('Tipos de cambio actualizados exitosamente', 'success');
-            loadExchangeRates();
-        } else {
-            showNotification(response.message || 'Error al actualizar tipos de cambio', 'danger');
+// ─── Tipos de Cambio ──────────────────────────────────────────────
+function loadExchangeRates() {
+    ajaxRequest('/api/platform/exchange-rates', 'GET', null, function(r) {
+        if (r.success && r.rates) {
+            const c = parseFloat(r.rates.compra).toFixed(3);
+            const v = parseFloat(r.rates.venta).toFixed(3);
+            $('#currentBuyRate').text('S/ ' + c);
+            $('#currentSellRate').text('S/ ' + v);
+            $('#newBuyRate').val(c); $('#newSellRate').val(v);
+            // también hero
+            const hc = document.getElementById('heroCompra');
+            const hv = document.getElementById('heroVenta');
+            if (hc) hc.textContent = c;
+            if (hv) hv.textContent = v;
+            if (r.rates.updated_at) { $('#lastUpdate').text(new Date(r.rates.updated_at).toLocaleString('es-PE')); $('#updatedBy').text(r.rates.updated_by || 'Sistema'); }
+            else { $('#lastUpdate').text('Sin actualizar'); $('#updatedBy').text('Sistema'); }
         }
-    }, function(error) {
-        showNotification(error.responseJSON?.message || 'Error al actualizar tipos de cambio', 'danger');
     });
 }
 
-// ── Widget Precio Base ──────────────────────────────────────────────────────
+function updateExchangeRates() {
+    const buy = parseFloat($('#newBuyRate').val()), sell = parseFloat($('#newSellRate').val());
+    if (!buy || !sell) { showNotification('Ingresa ambos tipos de cambio','warning'); return; }
+    if (sell < buy) { showNotification('Venta debe ser ≥ Compra','warning'); return; }
+    if (!confirm(`¿Actualizar TC?\nCompra: S/ ${buy.toFixed(3)}\nVenta: S/ ${sell.toFixed(3)}`)) return;
+    ajaxRequest('/api/platform/exchange-rates','POST',{buy_rate:buy,sell_rate:sell}, function(r) {
+        if (r.success) { showNotification('TC actualizados','success'); loadExchangeRates(); }
+        else showNotification(r.message||'Error','danger');
+    }, e => showNotification(e.responseJSON?.message||'Error','danger'));
+}
+
+// ─── Widget Precio Base ───────────────────────────────────────────
 (function() {
-    function loadTraderList() {
-        fetch('/dashboard/api/precio-base/traders')
-            .then(r => r.json())
-            .then(data => {
-                if (!data.ok) {
-                    const container = document.getElementById('precioBaseTraderList');
-                    if (container) container.innerHTML = `<span class="text-danger" style="font-size:.8rem;"><i class="bi bi-exclamation-triangle me-1"></i>${data.error || 'Error al cargar traders'}</span>`;
-                    return;
-                }
-                const container = document.getElementById('precioBaseTraderList');
-                if (!container) return;
-                if (!data.traders.length) {
-                    container.innerHTML = '<span class="text-muted" style="font-size:.8rem;">No hay traders activos.</span>';
-                    return;
-                }
-                container.innerHTML = data.traders.map(t => `
-                    <div class="d-flex align-items-center gap-2 px-3 py-2 rounded border"
-                         style="background:${t.ver_precio_base ? 'rgba(0,222,168,.06)' : 'var(--qori-gray-50)'};
-                                border-color:${t.ver_precio_base ? 'rgba(0,222,168,.3)' : 'var(--qori-gray-200)'} !important;
-                                min-width:180px;">
-                        <i class="bi bi-person-circle" style="color:${t.ver_precio_base ? 'var(--qori-primary)' : 'var(--qori-gray-400)'}; font-size:1.1rem;"></i>
-                        <span style="font-size:.8125rem;font-weight:600;flex:1;">${t.username}</span>
-                        <div class="form-check form-switch mb-0">
-                            <input class="form-check-input pb-trader-toggle" type="checkbox"
-                                   data-user-id="${t.id}" ${t.ver_precio_base ? 'checked' : ''}
-                                   style="cursor:pointer;">
-                        </div>
-                    </div>`).join('');
-
-                container.querySelectorAll('.pb-trader-toggle').forEach(cb => {
-                    cb.addEventListener('change', function() {
-                        const userId = parseInt(this.dataset.userId);
-                        const enabled = this.checked;
-                        const card = this.closest('.d-flex');
-                        this.disabled = true;
-                        fetch('/dashboard/api/precio-base/traders', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ user_id: userId, enabled: enabled })
-                        })
-                        .then(r => r.json())
-                        .then(d => {
-                            this.disabled = false;
-                            if (d.ok) {
-                                card.style.background = enabled ? 'rgba(0,222,168,.06)' : 'var(--qori-gray-50)';
-                                card.style.borderColor = enabled ? 'rgba(0,222,168,.3)' : 'var(--qori-gray-200)';
-                                const icon = card.querySelector('i');
-                                if (icon) icon.style.color = enabled ? 'var(--qori-primary)' : 'var(--qori-gray-400)';
-                            } else {
-                                this.checked = !enabled;
-                                Swal.fire({ toast: true, position: 'top-end', icon: 'error',
-                                    title: d.error || 'Error', timer: 3000, showConfirmButton: false });
-                            }
-                        })
-                        .catch(() => { this.disabled = false; this.checked = !enabled; });
-                    });
+    function loadList() {
+        fetch('/dashboard/api/precio-base/traders').then(r=>r.json()).then(data=>{
+            const el = document.getElementById('precioBaseTraderList');
+            if (!el) return;
+            if (!data.ok) { el.innerHTML=`<span class="text-danger small"><i class="bi bi-exclamation-triangle me-1"></i>${data.error||'Error'}</span>`; return; }
+            if (!data.traders.length) { el.innerHTML='<span class="text-muted small">No hay traders activos.</span>'; return; }
+            el.innerHTML = data.traders.map(t=>`
+                <div class="d-flex align-items-center gap-2 px-3 py-2 rounded border" style="background:${t.ver_precio_base?'rgba(0,200,150,.06)':'#fafafa'};border-color:${t.ver_precio_base?'rgba(0,200,150,.3)':'#e4e9f0'} !important;min-width:170px;">
+                    <i class="bi bi-person-circle" style="color:${t.ver_precio_base?'#059669':'#94a3b8'};font-size:1.1rem;"></i>
+                    <span style="font-size:.8125rem;font-weight:600;flex:1;">${t.username}</span>
+                    <div class="form-check form-switch mb-0"><input class="form-check-input pb-trader-toggle" type="checkbox" data-user-id="${t.id}" ${t.ver_precio_base?'checked':''} style="cursor:pointer;"></div>
+                </div>`).join('');
+            el.querySelectorAll('.pb-trader-toggle').forEach(cb=>{
+                cb.addEventListener('change',function(){
+                    const uid=+this.dataset.userId, en=this.checked, card=this.closest('.d-flex');
+                    this.disabled=true;
+                    fetch('/dashboard/api/precio-base/traders',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user_id:uid,enabled:en})})
+                    .then(r=>r.json()).then(d=>{
+                        this.disabled=false;
+                        if(d.ok){card.style.background=en?'rgba(0,200,150,.06)':'#fafafa';card.style.borderColor=en?'rgba(0,200,150,.3)':'#e4e9f0';card.querySelector('i').style.color=en?'#059669':'#94a3b8';}
+                        else{this.checked=!en;Swal.fire({toast:true,position:'top-end',icon:'error',title:d.error||'Error',timer:3000,showConfirmButton:false});}
+                    }).catch(()=>{this.disabled=false;this.checked=!en;});
                 });
-            })
-            .catch(err => {
-                const container = document.getElementById('precioBaseTraderList');
-                if (container) container.innerHTML = '<span class="text-danger" style="font-size:.8rem;"><i class="bi bi-exclamation-triangle me-1"></i>No se pudo conectar con el servidor.</span>';
             });
+        }).catch(()=>{const el=document.getElementById('precioBaseTraderList');if(el)el.innerHTML='<span class="text-danger small">Error de conexión</span>';});
     }
-
-    document.addEventListener('DOMContentLoaded', loadTraderList);
+    document.addEventListener('DOMContentLoaded', loadList);
 })();
 </script>
 {% endblock %}

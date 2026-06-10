@@ -3,73 +3,76 @@
 {% block title %}Dashboard Trader - QoriCash Trading{% endblock %}
 
 {% block head %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}?v=4">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 {% endblock %}
 
 {% block content %}
 <div class="container-fluid">
 
-    <!-- Header -->
+    <!-- ════════════════════════════
+         HEADER (minimal)
+    ════════════════════════════ -->
     <div class="dashboard-header mb-3">
-        <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
             <div>
-                <h2 class="mb-1"><i class="bi bi-speedometer2 text-primary me-2"></i>Dashboard</h2>
-                <p class="text-muted mb-0">Bienvenido, <strong>{{ user.username }}</strong> &mdash; Panel de operaciones</p>
-                <small class="text-muted" id="lastUpdated"><i class="bi bi-clock me-1"></i>Cargando...</small>
-                <span id="filterIndicator" class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 ms-2 d-none" style="font-size:.72rem;">
-                    <i class="bi bi-funnel-fill me-1"></i><span id="filterText"></span>
-                </span>
+                <h2 class="mb-0"><i class="bi bi-speedometer2 me-2" style="color:#4f46e5;"></i>Dashboard</h2>
+                <small style="color:#94a3b8;font-size:.78rem;">
+                    Bienvenido, <strong style="color:#64748b;">{{ user.username }}</strong>
+                    &nbsp;·&nbsp;<i class="bi bi-clock me-1"></i><span id="lastUpdated">Cargando...</span>
+                    <span id="filterIndicator" class="badge ms-2 d-none" style="background:rgba(79,70,229,.12);color:#4f46e5;border:1px solid rgba(79,70,229,.2);font-size:.68rem;">
+                        <i class="bi bi-funnel-fill me-1"></i><span id="filterText"></span>
+                    </span>
+                </small>
             </div>
-            <div class="d-flex gap-2 align-items-center flex-wrap">
+            <div class="d-flex gap-2 align-items-center">
                 <a href="{{ url_for('operations.create_page') }}" class="btn btn-primary btn-sm">
                     <i class="bi bi-plus-circle me-1"></i>Nueva Operación
                 </a>
-                <button class="btn btn-outline-secondary btn-sm" onclick="refreshDashboard()" title="Actualizar datos">
+                <button class="btn btn-sm btn-outline-secondary" onclick="refreshDashboard()" title="Actualizar">
                     <i class="bi bi-arrow-clockwise"></i>
                 </button>
-                <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#filterDateModal" title="Filtrar por fecha">
+                <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#filterDateModal" title="Filtrar por fecha">
                     <i class="bi bi-calendar3"></i>
                 </button>
             </div>
         </div>
     </div>
 
-    <!-- ══════════════════════════════════════
-         HERO — UTILIDAD (Día + Mes)
-    ══════════════════════════════════════ -->
-    <div class="utility-hero mb-4">
-        <div class="row g-0 align-items-start">
+    <!-- ════════════════════════════
+         COMMAND CENTER HERO
+         Utilidad del Día + Mes
+    ════════════════════════════ -->
+    <div class="cmd-hero mb-4">
+        <div class="d-flex align-items-stretch flex-wrap gap-3">
+
             <!-- Utilidad del Día -->
-            <div class="col-12 col-sm-6 pe-sm-4 mb-3 mb-sm-0" style="min-width:180px;">
-                <div class="utility-hero-label">
-                    <i class="bi bi-sun" style="font-size:.7rem;"></i> Utilidad del Día
-                </div>
-                <div class="utility-hero-value counter-pen" id="profitToday">S/ 0.00</div>
-                <div class="utility-hero-breakdown">
-                    <div class="utility-hero-breakdown-item">
-                        <span><i class="bi bi-graph-up me-1" style="font-size:.65rem;"></i>Margen operativo hoy</span>
+            <div style="min-width:200px;">
+                <div class="cmd-kpi-label"><i class="bi bi-sun-fill" style="font-size:.65rem;"></i> Utilidad del Día</div>
+                <div class="cmd-kpi-value" id="profitToday">S/ 0.00</div>
+                <div class="cmd-kpi-detail">
+                    <div class="cmd-kpi-row">
+                        <span class="lbl"><i class="bi bi-graph-up me-1" style="font-size:.65rem;"></i>Margen operativo hoy</span>
                     </div>
                 </div>
             </div>
 
-            <!-- Divider -->
-            <div class="utility-hero-divider d-none d-sm-block me-4"></div>
+            <div class="cmd-hero-vdiv mx-4 d-none d-md-block"></div>
 
-            <!-- Utilidad Acumulada del Mes -->
-            <div class="col-12 col-sm-6" style="min-width:180px;">
-                <div class="utility-hero-label">
-                    <i class="bi bi-calendar-month" style="font-size:.7rem;"></i> Acumulado del Mes
-                </div>
-                <div class="utility-hero-value counter-pen" id="profitMonth">S/ 0.00</div>
-                <div class="utility-hero-breakdown">
-                    <div class="utility-hero-breakdown-item">
-                        <span><i class="bi bi-graph-up me-1" style="font-size:.65rem;"></i>Margen operativo del mes</span>
+            <!-- Acumulado del Mes -->
+            <div style="min-width:200px;">
+                <div class="cmd-kpi-label"><i class="bi bi-calendar-month" style="font-size:.65rem;"></i> Acumulado del Mes</div>
+                <div class="cmd-kpi-value" id="profitMonth">S/ 0.00</div>
+                <div class="cmd-kpi-detail">
+                    <div class="cmd-kpi-row">
+                        <span class="lbl"><i class="bi bi-graph-up me-1" style="font-size:.65rem;"></i>Margen operativo del mes</span>
                     </div>
                 </div>
             </div>
+
         </div>
 
-        <!-- Hidden: meta mensual (IDs requeridos por JS) -->
+        <!-- Hidden IDs requeridos por JS -->
         <div class="d-none">
             <span id="goalMonth">0</span>
             <div id="goalProgress" class="progress-bar"></div>
@@ -77,216 +80,220 @@
         </div>
     </div>
 
-    <!-- ══════════════════════════════════════
-         ESTADÍSTICAS DE HOY
-    ══════════════════════════════════════ -->
-    <div class="section-header mb-3">
-        <i class="bi bi-calendar-day"></i>
-        <h5>Estadísticas de Hoy</h5>
+    <!-- ════════════════════════════
+         STAT CHIPS — Hoy
+    ════════════════════════════ -->
+    <div class="sec-label mb-2">
+        <span class="sec-label-text">Estadísticas de Hoy</span>
+        <div class="sec-label-line"></div>
     </div>
 
+    <div class="stat-chip-row mb-4">
+        <div class="stat-chip" style="--chip-color:#4f46e5;--chip-icon-bg:rgba(79,70,229,.08);">
+            <div class="stat-chip-icon"><i class="bi bi-people-fill"></i></div>
+            <div class="stat-chip-value counter" id="clientsToday">0</div>
+            <div class="stat-chip-label">Clientes atendidos</div>
+        </div>
+        <div class="stat-chip" style="--chip-color:#059669;--chip-icon-bg:rgba(5,150,105,.08);">
+            <div class="stat-chip-icon"><i class="bi bi-list-check"></i></div>
+            <div class="stat-chip-value counter" id="operationsToday">0</div>
+            <div class="stat-chip-label">Operaciones</div>
+        </div>
+        <div class="stat-chip" style="--chip-color:#2563eb;--chip-icon-bg:rgba(37,99,235,.08);">
+            <div class="stat-chip-icon"><i class="bi bi-currency-dollar"></i></div>
+            <div class="stat-chip-value counter-usd" id="usdToday">$ 0</div>
+            <div class="stat-chip-label">Total USD</div>
+        </div>
+        <div class="stat-chip" style="--chip-color:#d97706;--chip-icon-bg:rgba(217,119,6,.08);">
+            <div class="stat-chip-icon"><i class="bi bi-cash-coin"></i></div>
+            <div class="stat-chip-value counter-pen" id="penToday">S/ 0</div>
+            <div class="stat-chip-label">Total PEN</div>
+        </div>
+    </div>
+
+    <!-- ════════════════════════════
+         CENTRO: Estado Ops + Mes
+    ════════════════════════════ -->
     <div class="row g-3 mb-4">
-        <div class="col-6 col-md-3">
-            <div class="card stat-card bg-primary text-white">
-                <div class="card-body">
-                    <h6 class="card-subtitle">Clientes</h6>
-                    <h2 class="card-title mb-0 counter" id="clientsToday">0</h2>
-                    <div class="stat-icon"><i class="bi bi-people"></i></div>
+
+        <!-- Estado de Operaciones (izquierda) -->
+        <div class="col-md-5">
+            <div class="ops-card">
+                <div class="card-head">
+                    <span class="card-head-title">
+                        <i class="bi bi-pie-chart-fill" style="color:#4f46e5;"></i>
+                        Estado — Hoy
+                    </span>
+                    <small style="font-size:.7rem;color:#94a3b8;" id="totalOpsToday"></small>
+                </div>
+
+                <!-- Mini donut chart -->
+                <div class="ops-donut-wrap">
+                    <canvas id="opsDonut" width="90" height="90" class="ops-donut-canvas"></canvas>
+                    <div class="ops-donut-legend">
+                        <div class="ops-donut-legend-item">
+                            <div class="ops-donut-dot" style="background:#f59e0b;"></div>
+                            <span class="ops-donut-legend-label">Pendientes</span>
+                            <span class="ops-donut-legend-count" id="pendingCount">0</span>
+                        </div>
+                        <div class="ops-donut-legend-item">
+                            <div class="ops-donut-dot" style="background:#3b82f6;"></div>
+                            <span class="ops-donut-legend-label">En Proceso</span>
+                            <span class="ops-donut-legend-count" id="inProcessCount">0</span>
+                        </div>
+                        <div class="ops-donut-legend-item">
+                            <div class="ops-donut-dot" style="background:#10b981;"></div>
+                            <span class="ops-donut-legend-label">Completadas</span>
+                            <span class="ops-donut-legend-count" id="completedCount">0</span>
+                        </div>
+                        <div class="ops-donut-legend-item">
+                            <div class="ops-donut-dot" style="background:#ef4444;"></div>
+                            <span class="ops-donut-legend-label">Canceladas</span>
+                            <span class="ops-donut-legend-count" id="canceledCount">0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Lista con mini barras -->
+                <div class="ops-list">
+                    <div class="ops-list-item">
+                        <div class="ops-dot" style="--dot-c:#f59e0b;"></div>
+                        <span class="ops-list-label">Pendientes</span>
+                        <div class="ops-list-bar-wrap">
+                            <div class="ops-list-bar"><div class="ops-list-bar-fill" id="barPending" style="--dot-c:#f59e0b;width:0%;"></div></div>
+                        </div>
+                    </div>
+                    <div class="ops-list-item">
+                        <div class="ops-dot" style="--dot-c:#3b82f6;"></div>
+                        <span class="ops-list-label">En Proceso</span>
+                        <div class="ops-list-bar-wrap">
+                            <div class="ops-list-bar"><div class="ops-list-bar-fill" id="barProcess" style="--dot-c:#3b82f6;width:0%;"></div></div>
+                        </div>
+                    </div>
+                    <div class="ops-list-item">
+                        <div class="ops-dot" style="--dot-c:#10b981;"></div>
+                        <span class="ops-list-label">Completadas</span>
+                        <div class="ops-list-bar-wrap">
+                            <div class="ops-list-bar"><div class="ops-list-bar-fill" id="barCompleted" style="--dot-c:#10b981;width:0%;"></div></div>
+                        </div>
+                    </div>
+                    <div class="ops-list-item">
+                        <div class="ops-dot" style="--dot-c:#ef4444;"></div>
+                        <span class="ops-list-label">Canceladas</span>
+                        <div class="ops-list-bar-wrap">
+                            <div class="ops-list-bar"><div class="ops-list-bar-fill" id="barCanceled" style="--dot-c:#ef4444;width:0%;"></div></div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
-        <div class="col-6 col-md-3">
-            <div class="card stat-card bg-success text-white">
-                <div class="card-body">
-                    <h6 class="card-subtitle">Operaciones</h6>
-                    <h2 class="card-title mb-0 counter" id="operationsToday">0</h2>
-                    <div class="stat-icon"><i class="bi bi-list-check"></i></div>
-                </div>
+
+        <!-- Estadísticas del Mes (derecha) -->
+        <div class="col-md-7">
+            <div class="sec-label mb-2">
+                <span class="sec-label-text">Este Mes</span>
+                <div class="sec-label-line"></div>
             </div>
-        </div>
-        <div class="col-6 col-md-3">
-            <div class="card stat-card bg-info text-white">
-                <div class="card-body">
-                    <h6 class="card-subtitle">Total USD</h6>
-                    <h2 class="card-title mb-0 counter-usd" id="usdToday">$ 0</h2>
-                    <div class="stat-icon"><i class="bi bi-currency-dollar"></i></div>
+            <div class="month-grid">
+                <div class="month-kpi" style="--kpi-c:#6366f1;">
+                    <i class="bi bi-people-fill month-kpi-icon"></i>
+                    <div class="month-kpi-label">Clientes del Mes</div>
+                    <div class="month-kpi-value counter" id="clientsMonth">0</div>
+                    <div class="month-kpi-sub">atendidos</div>
                 </div>
-            </div>
-        </div>
-        <div class="col-6 col-md-3">
-            <div class="card stat-card bg-warning text-white">
-                <div class="card-body">
-                    <h6 class="card-subtitle">Total PEN</h6>
-                    <h2 class="card-title mb-0 counter-pen" id="penToday">S/ 0</h2>
-                    <div class="stat-icon"><i class="bi bi-cash-coin"></i></div>
+                <div class="month-kpi" style="--kpi-c:#10b981;">
+                    <i class="bi bi-list-check month-kpi-icon"></i>
+                    <div class="month-kpi-label">Operaciones del Mes</div>
+                    <div class="month-kpi-value counter" id="operationsMonth">0</div>
+                    <div class="month-kpi-sub" style="color:#059669;"><i class="bi bi-check-circle me-1"></i><span class="counter" id="completedMonth">0</span> completadas</div>
+                </div>
+                <div class="month-kpi" style="--kpi-c:#3b82f6;">
+                    <i class="bi bi-currency-dollar month-kpi-icon"></i>
+                    <div class="month-kpi-label">Volumen USD</div>
+                    <div class="month-kpi-value counter-usd" id="usdMonth" style="color:#2563eb;">$ 0</div>
+                    <div class="month-kpi-sub">Completadas</div>
+                </div>
+                <div class="month-kpi" style="--kpi-c:#f59e0b;">
+                    <i class="bi bi-cash-coin month-kpi-icon"></i>
+                    <div class="month-kpi-label">Volumen PEN</div>
+                    <div class="month-kpi-value counter-pen" id="penMonth" style="color:#d97706;">S/ 0</div>
+                    <div class="month-kpi-sub">Completadas</div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- ══════════════════════════════════════
-         ESTADÍSTICAS DEL MES
-    ══════════════════════════════════════ -->
-    <div class="section-header mb-3">
-        <i class="bi bi-calendar-month"></i>
-        <h5>Este Mes</h5>
-    </div>
-
-    <div class="row g-3 mb-4">
-        <div class="col-6 col-md-4">
-            <div class="card h-100" style="border-top:3px solid #6366f1;border-radius:var(--card-radius);box-shadow:var(--card-shadow);">
-                <div class="card-body">
-                    <h6 class="text-muted mb-1" style="font-size:.6875rem;text-transform:uppercase;letter-spacing:.07em;font-weight:700;">Operaciones</h6>
-                    <h3 class="fw-bold mb-0 counter" id="operationsMonth" style="font-size:1.875rem;letter-spacing:-.02em;">0</h3>
-                    <small class="text-success"><i class="bi bi-check-circle me-1"></i><span class="counter" id="completedMonth">0</span> completadas</small>
-                </div>
-            </div>
-        </div>
-        <div class="col-6 col-md-4">
-            <div class="card h-100" style="border-top:3px solid #3b82f6;border-radius:var(--card-radius);box-shadow:var(--card-shadow);">
-                <div class="card-body">
-                    <h6 class="text-muted mb-1" style="font-size:.6875rem;text-transform:uppercase;letter-spacing:.07em;font-weight:700;">Total USD</h6>
-                    <h3 class="fw-bold mb-0 counter-usd text-primary" id="usdMonth" style="font-size:1.875rem;letter-spacing:-.02em;">$ 0</h3>
-                    <small class="text-muted">Completadas</small>
-                </div>
-            </div>
-        </div>
-        <div class="col-6 col-md-4">
-            <div class="card h-100" style="border-top:3px solid #f59e0b;border-radius:var(--card-radius);box-shadow:var(--card-shadow);">
-                <div class="card-body">
-                    <h6 class="text-muted mb-1" style="font-size:.6875rem;text-transform:uppercase;letter-spacing:.07em;font-weight:700;">Total PEN</h6>
-                    <h3 class="fw-bold mb-0 counter-pen text-warning" id="penMonth" style="font-size:1.875rem;letter-spacing:-.02em;">S/ 0</h3>
-                    <small class="text-muted">Completadas</small>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- ══════════════════════════════════════
-         ESTADO DE OPERACIONES
-    ══════════════════════════════════════ -->
-    <div class="section-header mb-3">
-        <i class="bi bi-pie-chart"></i>
-        <h5>Estado de Operaciones — Hoy</h5>
-    </div>
-    <div class="status-grid mb-4">
-        <div class="status-item status-pending">
-            <h4 class="counter" id="pendingCount">0</h4>
-            <small>Pendientes</small>
-        </div>
-        <div class="status-item status-process">
-            <h4 class="counter" id="inProcessCount">0</h4>
-            <small>En Proceso</small>
-        </div>
-        <div class="status-item status-completed">
-            <h4 class="counter" id="completedCount">0</h4>
-            <small>Completadas</small>
-        </div>
-        <div class="status-item status-canceled">
-            <h4 class="counter" id="canceledCount">0</h4>
-            <small>Canceladas</small>
-        </div>
-    </div>
-
-    <!-- ══════════════════════════════════════
+    <!-- ════════════════════════════
          ANÁLISIS DE GESTIÓN
-    ══════════════════════════════════════ -->
-    <div class="section-header mb-3 mt-2">
-        <i class="bi bi-bar-chart-line"></i>
-        <h5>Análisis de Gestión</h5>
+    ════════════════════════════ -->
+    <div class="sec-label mb-3">
+        <span class="sec-label-text">Análisis de Gestión</span>
+        <div class="sec-label-line"></div>
     </div>
 
-    <!-- Top Clientes -->
     <div class="row g-3 mb-4">
         <div class="col-md-4">
-            <div class="card h-100" style="border-radius:var(--card-radius);box-shadow:var(--card-shadow);">
-                <div class="card-header d-flex justify-content-between align-items-center" style="border-radius:var(--card-radius) var(--card-radius) 0 0;background:white;border-bottom:1px solid #f1f5f9;">
-                    <h6 class="mb-0 fw-semibold" style="font-size:.875rem;"><i class="bi bi-trophy text-warning me-1"></i> Mayor Volumen</h6>
-                    <span class="badge bg-secondary" id="topClientsCount">-</span>
+            <div class="analytics-card">
+                <div class="card-head">
+                    <span class="card-head-title"><i class="bi bi-trophy-fill" style="color:#f59e0b;"></i> Mayor Volumen</span>
+                    <span class="badge bg-secondary" style="font-size:.65rem;" id="topClientsCount">-</span>
                 </div>
-                <div class="card-body p-0">
+                <div class="card-body">
                     <div id="topClientsList" class="list-group list-group-flush">
-                        <div class="px-3 py-2">
-                            <div class="skeleton skeleton-line mb-2" style="width:75%"></div>
-                            <div class="skeleton skeleton-line sm" style="width:50%"></div>
-                        </div>
-                        <div class="px-3 py-2">
-                            <div class="skeleton skeleton-line mb-2" style="width:60%"></div>
-                            <div class="skeleton skeleton-line sm" style="width:40%"></div>
-                        </div>
-                        <div class="px-3 py-2">
-                            <div class="skeleton skeleton-line mb-2" style="width:70%"></div>
-                            <div class="skeleton skeleton-line sm" style="width:45%"></div>
-                        </div>
+                        <div class="px-3 py-2"><div class="skeleton skeleton-line mb-2" style="width:75%"></div><div class="skeleton skeleton-line sm" style="width:50%"></div></div>
+                        <div class="px-3 py-2"><div class="skeleton skeleton-line mb-2" style="width:60%"></div><div class="skeleton skeleton-line sm" style="width:40%"></div></div>
+                        <div class="px-3 py-2"><div class="skeleton skeleton-line mb-2" style="width:70%"></div><div class="skeleton skeleton-line sm" style="width:45%"></div></div>
                     </div>
                 </div>
             </div>
         </div>
-
         <div class="col-md-4">
-            <div class="card h-100" style="border-radius:var(--card-radius);box-shadow:var(--card-shadow);">
-                <div class="card-header d-flex justify-content-between align-items-center" style="border-radius:var(--card-radius) var(--card-radius) 0 0;background:white;border-bottom:1px solid #f1f5f9;">
-                    <h6 class="mb-0 fw-semibold" style="font-size:.875rem;"><i class="bi bi-graph-up text-success me-1"></i> Mayor Utilidad</h6>
-                    <span class="badge bg-success" id="topProfitCount">-</span>
+            <div class="analytics-card">
+                <div class="card-head">
+                    <span class="card-head-title"><i class="bi bi-graph-up" style="color:#10b981;"></i> Mayor Utilidad</span>
+                    <span class="badge bg-success" style="font-size:.65rem;" id="topProfitCount">-</span>
                 </div>
-                <div class="card-body p-0">
+                <div class="card-body">
                     <div id="topProfitList" class="list-group list-group-flush">
-                        <div class="px-3 py-2">
-                            <div class="skeleton skeleton-line mb-2" style="width:70%"></div>
-                            <div class="skeleton skeleton-line sm" style="width:50%"></div>
-                        </div>
-                        <div class="px-3 py-2">
-                            <div class="skeleton skeleton-line mb-2" style="width:60%"></div>
-                            <div class="skeleton skeleton-line sm" style="width:35%"></div>
-                        </div>
-                        <div class="px-3 py-2">
-                            <div class="skeleton skeleton-line mb-2" style="width:75%"></div>
-                            <div class="skeleton skeleton-line sm" style="width:45%"></div>
-                        </div>
+                        <div class="px-3 py-2"><div class="skeleton skeleton-line mb-2" style="width:70%"></div><div class="skeleton skeleton-line sm" style="width:50%"></div></div>
+                        <div class="px-3 py-2"><div class="skeleton skeleton-line mb-2" style="width:60%"></div><div class="skeleton skeleton-line sm" style="width:35%"></div></div>
+                        <div class="px-3 py-2"><div class="skeleton skeleton-line mb-2" style="width:75%"></div><div class="skeleton skeleton-line sm" style="width:45%"></div></div>
                     </div>
                 </div>
             </div>
         </div>
-
         <div class="col-md-4">
-            <div class="card h-100" style="border-radius:var(--card-radius);box-shadow:var(--card-shadow);">
-                <div class="card-header d-flex justify-content-between align-items-center" style="border-radius:var(--card-radius) var(--card-radius) 0 0;background:white;border-bottom:1px solid #f1f5f9;">
-                    <h6 class="mb-0 fw-semibold" style="font-size:.875rem;"><i class="bi bi-lightning-charge text-primary me-1"></i> Más Operaciones</h6>
-                    <span class="badge bg-primary" id="topOpsCount">-</span>
+            <div class="analytics-card">
+                <div class="card-head">
+                    <span class="card-head-title"><i class="bi bi-lightning-charge-fill" style="color:#4f46e5;"></i> Más Operaciones</span>
+                    <span class="badge bg-primary" style="font-size:.65rem;" id="topOpsCount">-</span>
                 </div>
-                <div class="card-body p-0">
+                <div class="card-body">
                     <div id="topOpsList" class="list-group list-group-flush">
-                        <div class="px-3 py-2">
-                            <div class="skeleton skeleton-line mb-2" style="width:65%"></div>
-                            <div class="skeleton skeleton-line sm" style="width:45%"></div>
-                        </div>
-                        <div class="px-3 py-2">
-                            <div class="skeleton skeleton-line mb-2" style="width:80%"></div>
-                            <div class="skeleton skeleton-line sm" style="width:35%"></div>
-                        </div>
-                        <div class="px-3 py-2">
-                            <div class="skeleton skeleton-line mb-2" style="width:55%"></div>
-                            <div class="skeleton skeleton-line sm" style="width:50%"></div>
-                        </div>
+                        <div class="px-3 py-2"><div class="skeleton skeleton-line mb-2" style="width:65%"></div><div class="skeleton skeleton-line sm" style="width:45%"></div></div>
+                        <div class="px-3 py-2"><div class="skeleton skeleton-line mb-2" style="width:80%"></div><div class="skeleton skeleton-line sm" style="width:35%"></div></div>
+                        <div class="px-3 py-2"><div class="skeleton skeleton-line mb-2" style="width:55%"></div><div class="skeleton skeleton-line sm" style="width:50%"></div></div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Clientes Inactivos -->
+    <!-- ════════════════════════════
+         CLIENTES INACTIVOS
+    ════════════════════════════ -->
     <div class="row g-3 mb-4">
         <div class="col-12">
-            <div class="card" style="border-radius:var(--card-radius);box-shadow:var(--card-shadow);">
-                <div class="card-header d-flex justify-content-between align-items-center" style="background:white;border-bottom:1px solid #f1f5f9;border-radius:var(--card-radius) var(--card-radius) 0 0;">
-                    <h6 class="mb-0 fw-semibold" style="font-size:.875rem;"><i class="bi bi-person-dash text-danger me-1"></i> Clientes sin Operar</h6>
+            <div class="analytics-card">
+                <div class="card-head">
+                    <span class="card-head-title"><i class="bi bi-person-dash" style="color:#ef4444;"></i> Clientes sin Operar</span>
                     <div class="d-flex gap-2">
-                        <span class="badge bg-warning text-dark" id="badge30d">30d: -</span>
-                        <span class="badge bg-danger" id="badge60d">60d: -</span>
-                        <span class="badge bg-dark" id="badge90d">90d+: -</span>
+                        <span class="badge bg-warning text-dark" style="font-size:.65rem;" id="badge30d">30d: -</span>
+                        <span class="badge bg-danger" style="font-size:.65rem;" id="badge60d">60d: -</span>
+                        <span class="badge bg-dark" style="font-size:.65rem;" id="badge90d">90d+: -</span>
                     </div>
                 </div>
-                <div class="card-body">
+                <div class="card-body p-3">
                     <ul class="nav nav-tabs nav-sm mb-3" id="inactiveTabs">
                         <li class="nav-item">
                             <button class="nav-link active small py-1" data-tab="30" onclick="showInactiveTab('30')">
@@ -316,14 +323,16 @@
         </div>
     </div>
 
-    <!-- Buscador de Clientes -->
+    <!-- ════════════════════════════
+         BUSCADOR DE CLIENTES
+    ════════════════════════════ -->
     <div class="row g-3 mb-4">
         <div class="col-12">
-            <div class="card" style="border-radius:var(--card-radius);box-shadow:var(--card-shadow);">
-                <div class="card-header" style="background:white;border-bottom:1px solid #f1f5f9;border-radius:var(--card-radius) var(--card-radius) 0 0;">
-                    <h6 class="mb-0 fw-semibold" style="font-size:.875rem;"><i class="bi bi-search me-1"></i> Buscar Cliente — Historial de Operaciones</h6>
+            <div class="analytics-card">
+                <div class="card-head">
+                    <span class="card-head-title"><i class="bi bi-search" style="color:#64748b;"></i> Buscar Cliente — Historial de Operaciones</span>
                 </div>
-                <div class="card-body">
+                <div class="card-body p-3">
                     <div class="row g-2 mb-3">
                         <div class="col-md-8">
                             <input type="text" class="form-control" id="clientSearchInput"
@@ -381,55 +390,55 @@
         </div>
     </div>
 
-    <!-- TC + Accesos Rápidos (fila combinada) -->
+    <!-- ════════════════════════════
+         TC + ACCESOS RÁPIDOS
+    ════════════════════════════ -->
     <div class="row g-3 mb-4 align-items-start">
+
         {% if current_user.is_trading_desk() %}
-        <!-- Widget TC -->
         <div class="col-md-3">
-            <div class="card h-100" style="border-radius:var(--card-radius);box-shadow:var(--card-shadow);border-top:3px solid #059669;">
-                <div class="card-body p-3">
-                    <h6 class="text-muted mb-3" style="font-size:.6875rem;text-transform:uppercase;letter-spacing:.07em;font-weight:700;">
-                        <i class="bi bi-currency-exchange me-1 text-success"></i>Tipo de Cambio
-                    </h6>
-                    <div class="row g-2 mb-3">
-                        <div class="col-6">
-                            <div class="rounded-3 p-2 text-center" style="background:#ecfdf5;border:1px solid #a7f3d0;">
-                                <div style="font-size:.6rem;color:#059669;font-weight:700;text-transform:uppercase;letter-spacing:.05em;">COMPRA</div>
-                                <div class="fw-bold text-success mt-1" style="font-size:1.25rem;letter-spacing:-.01em;" id="currentBuyRate">S/ --</div>
-                                <div style="font-size:.6rem;" class="text-muted">Cliente vende</div>
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <div class="rounded-3 p-2 text-center" style="background:#eff6ff;border:1px solid #bfdbfe;">
-                                <div style="font-size:.6rem;color:#2563eb;font-weight:700;text-transform:uppercase;letter-spacing:.05em;">VENTA</div>
-                                <div class="fw-bold text-primary mt-1" style="font-size:1.25rem;letter-spacing:-.01em;" id="currentSellRate">S/ --</div>
-                                <div style="font-size:.6rem;" class="text-muted">Cliente compra</div>
-                            </div>
+            <div class="tc-card p-3">
+                <div style="font-size:.6875rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#64748b;margin-bottom:.875rem;">
+                    <i class="bi bi-currency-exchange me-1 text-success"></i>Tipo de Cambio
+                </div>
+                <div class="row g-2 mb-3">
+                    <div class="col-6">
+                        <div class="tc-pill buy">
+                            <div class="tc-pill-label">COMPRA</div>
+                            <div class="tc-pill-value" id="currentBuyRate">S/ --</div>
+                            <div class="tc-pill-sub">Cliente vende</div>
                         </div>
                     </div>
-                    <div class="row g-2 mb-2">
-                        <div class="col-6">
-                            <label class="form-label mb-1" style="font-size:.675rem;font-weight:600;color:#059669;">Nueva compra</label>
-                            <div class="input-group input-group-sm">
-                                <span class="input-group-text">S/</span>
-                                <input type="number" class="form-control" id="newBuyRate" step="0.001" min="0" placeholder="0.000">
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <label class="form-label mb-1" style="font-size:.675rem;font-weight:600;color:#2563eb;">Nueva venta</label>
-                            <div class="input-group input-group-sm">
-                                <span class="input-group-text">S/</span>
-                                <input type="number" class="form-control" id="newSellRate" step="0.001" min="0" placeholder="0.000">
-                            </div>
+                    <div class="col-6">
+                        <div class="tc-pill sell">
+                            <div class="tc-pill-label">VENTA</div>
+                            <div class="tc-pill-value" id="currentSellRate">S/ --</div>
+                            <div class="tc-pill-sub">Cliente compra</div>
                         </div>
                     </div>
-                    <button class="btn btn-success btn-sm w-100 mb-2" onclick="updateExchangeRates()">
-                        <i class="bi bi-send me-1"></i>Publicar en qoricash.pe
-                    </button>
-                    <div class="text-center text-muted" style="font-size:.65rem;">
-                        <i class="bi bi-clock me-1"></i>
-                        <span id="lastUpdate">--</span> · <span id="updatedBy">--</span>
+                </div>
+                <div class="row g-2 mb-2">
+                    <div class="col-6">
+                        <label class="form-label mb-1" style="font-size:.675rem;font-weight:600;color:#059669;">Nueva compra</label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text">S/</span>
+                            <input type="number" class="form-control" id="newBuyRate" step="0.001" min="0" placeholder="0.000">
+                        </div>
                     </div>
+                    <div class="col-6">
+                        <label class="form-label mb-1" style="font-size:.675rem;font-weight:600;color:#2563eb;">Nueva venta</label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text">S/</span>
+                            <input type="number" class="form-control" id="newSellRate" step="0.001" min="0" placeholder="0.000">
+                        </div>
+                    </div>
+                </div>
+                <button class="btn btn-success btn-sm w-100 mb-2" onclick="updateExchangeRates()">
+                    <i class="bi bi-send me-1"></i>Publicar en qoricash.pe
+                </button>
+                <div class="text-center text-muted" style="font-size:.65rem;">
+                    <i class="bi bi-clock me-1"></i>
+                    <span id="lastUpdate">--</span> · <span id="updatedBy">--</span>
                 </div>
             </div>
         </div>
@@ -437,24 +446,24 @@
 
         <!-- Accesos Rápidos -->
         <div class="col">
-            <div class="section-header mb-3">
-                <i class="bi bi-lightning"></i>
-                <h5>Accesos Rápidos</h5>
+            <div class="sec-label mb-3">
+                <span class="sec-label-text">Accesos Rápidos</span>
+                <div class="sec-label-line"></div>
             </div>
-            <div class="d-flex gap-3 flex-wrap">
-                <a href="{{ url_for('operations.create_page') }}" class="quick-access-card access-primary flex-fill" style="min-width:120px;max-width:180px;">
-                    <i class="bi bi-plus-circle"></i>
+            <div class="qa-grid">
+                <a href="{{ url_for('operations.create_page') }}" class="qa-card" style="--qa-color:#4f46e5;">
+                    <i class="bi bi-plus-circle" style="color:#4f46e5;"></i>
                     <h6>Nueva Operación</h6>
                 </a>
-                <a href="{{ url_for('operations.operations_list') }}" class="quick-access-card access-success flex-fill" style="min-width:120px;max-width:180px;">
-                    <i class="bi bi-list-ul"></i>
+                <a href="{{ url_for('operations.operations_list') }}" class="qa-card" style="--qa-color:#059669;">
+                    <i class="bi bi-list-ul" style="color:#059669;"></i>
                     <h6>Operaciones del Día</h6>
                 </a>
-                <a href="{{ url_for('clients.list_clients') }}" class="quick-access-card access-info flex-fill" style="min-width:120px;max-width:180px;">
-                    <i class="bi bi-people"></i>
+                <a href="{{ url_for('clients.list_clients') }}" class="qa-card" style="--qa-color:#2563eb;">
+                    <i class="bi bi-people" style="color:#2563eb;"></i>
                     <h6>Gestionar Clientes</h6>
                 </a>
-                <a href="{{ url_for('operations.history') }}" class="quick-access-card flex-fill" style="min-width:120px;max-width:180px;">
+                <a href="{{ url_for('operations.history') }}" class="qa-card" style="--qa-color:#8b5cf6;">
                     <i class="bi bi-clock-history" style="color:#8b5cf6;"></i>
                     <h6>Historial</h6>
                 </a>
@@ -511,29 +520,71 @@
 const CURRENT_TRADER_ID = {{ user.id }};
 
 // Variables de filtro
-let currentFilters = {
-    year: null,
-    month: null,
-    day: null
-};
+let currentFilters = { year: null, month: null, day: null };
 
 // Datos de inactividad globales
 let inactiveData = { inactive_30: [], inactive_60: [], inactive_90: [] };
-// Timer para búsqueda de clientes
 let clientSearchTimer = null;
 
-// Cargar datos al iniciar
+// Chart.js donut
+let opsChart = null;
+
+function initOpsChart() {
+    const ctx = document.getElementById('opsDonut');
+    if (!ctx) return;
+    opsChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Pendientes', 'En Proceso', 'Completadas', 'Canceladas'],
+            datasets: [{
+                data: [0, 0, 0, 0],
+                backgroundColor: ['#f59e0b', '#3b82f6', '#10b981', '#ef4444'],
+                borderWidth: 0,
+                hoverOffset: 4
+            }]
+        },
+        options: {
+            cutout: '68%',
+            responsive: false,
+            plugins: { legend: { display: false }, tooltip: { callbacks: {
+                label: function(ctx) { return ` ${ctx.label}: ${ctx.raw}`; }
+            }}}
+        }
+    });
+}
+
+function updateOpsChart(pending, inProcess, completed, canceled) {
+    const total = pending + inProcess + completed + canceled;
+    const totalEl = document.getElementById('totalOpsToday');
+    if (totalEl) totalEl.textContent = total > 0 ? `${total} ops hoy` : '';
+    if (opsChart) {
+        opsChart.data.datasets[0].data = [pending, inProcess, completed, canceled];
+        opsChart.update('none');
+    }
+    const setBar = (id, val) => {
+        const el = document.getElementById(id);
+        if (el) el.style.width = (total > 0 ? (val / total * 100) : 0) + '%';
+    };
+    setBar('barPending', pending);
+    setBar('barProcess', inProcess);
+    setBar('barCompleted', completed);
+    setBar('barCanceled', canceled);
+}
+
+function applyProfitColor(id, value) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.classList.remove('is-positive', 'is-negative');
+    if (value > 0) el.classList.add('is-positive');
+    else if (value < 0) el.classList.add('is-negative');
+}
+
 $(document).ready(function() {
+    initOpsChart();
     loadDashboardData();
     initDatePicker();
-
-    // Polling adaptativo
     startDashboardPolling(loadDashboardData);
-
-    // Conectar a SocketIO
     connectSocketIO();
-
-    // Secciones de análisis
     loadTopClients();
     loadInactiveClients();
     loadTopProfit();
@@ -544,7 +595,6 @@ $(document).ready(function() {
     {% endif %}
 });
 
-// Inicializar calendario (Flatpickr)
 function initDatePicker() {
     flatpickr("#datePicker", {
         locale: "es",
@@ -557,26 +607,20 @@ function initDatePicker() {
 // ============================================
 // FILTROS
 // ============================================
-
 function applyDateFilter() {
     const selectedDate = $('#datePicker').val();
     if (!selectedDate) { showNotification('Por favor selecciona una fecha del calendario', 'warning'); return; }
-
     const parts = selectedDate.split('-');
     currentFilters.year  = parseInt(parts[0]);
     currentFilters.month = parseInt(parts[1]);
     currentFilters.day   = parseInt(parts[2]);
-
     loadDashboardData();
     $('#filterDateModal').modal('hide');
     showNotification(`Filtro aplicado: ${currentFilters.day}/${currentFilters.month}/${currentFilters.year}`, 'success');
 }
 
 function clearDateFilter() {
-    currentFilters.year = null;
-    currentFilters.month = null;
-    currentFilters.day = null;
-
+    currentFilters = { year: null, month: null, day: null };
     $('#datePicker').val('');
     loadDashboardData();
     $('#filterDateModal').modal('hide');
@@ -586,7 +630,6 @@ function clearDateFilter() {
 function loadDashboardData() {
     const params = new URLSearchParams();
     params.append('trader_id', CURRENT_TRADER_ID);
-
     if (currentFilters.year)  params.append('year', currentFilters.year);
     if (currentFilters.month) params.append('month', currentFilters.month);
     if (currentFilters.day)   params.append('day', currentFilters.day);
@@ -598,41 +641,46 @@ function loadDashboardData() {
         updateCounterValue('#usdToday', today.total_usd || 0, '$', 2);
         updateCounterValue('#penToday', today.total_pen || 0, 'S/', 2);
 
-        // Utilidad del día
-        updateCounterValue('#profitToday', today.profit_today || 0, 'S/', 2);
+        const profitTodayVal = today.profit_today || 0;
+        updateCounterValue('#profitToday', profitTodayVal, 'S/', 2);
+        applyProfitColor('profitToday', profitTodayVal);
 
         const month = response.month || {};
+        updateCounterValue('#clientsMonth', month.unique_clients || 0);
         updateCounterValue('#operationsMonth', month.operations_count || 0);
         updateCounterValue('#completedMonth', month.completed_count || 0);
         updateCounterValue('#usdMonth', month.total_usd || 0, '$', 2);
         updateCounterValue('#penMonth', month.total_pen || 0, 'S/', 2);
 
-        // Utilidad acumulada del mes
-        updateCounterValue('#profitMonth', month.profit_month || 0, 'S/', 2);
+        const profitMonthVal = month.profit_month || 0;
+        updateCounterValue('#profitMonth', profitMonthVal, 'S/', 2);
+        applyProfitColor('profitMonth', profitMonthVal);
 
-        // Meta mensual (DOM oculto)
         const goalAmount = month.goal_amount || 0;
-        const profitMonth = month.profit_month || 0;
         updateCounterValue('#goalMonth', goalAmount, 'S/', 2);
-        updateGoalProgress(profitMonth, goalAmount);
+        updateGoalProgress(profitMonthVal, goalAmount);
 
         updateLastUpdated();
 
-        // Estado operaciones
-        updateCounterValue('#pendingCount', today.pending_count || 0);
-        updateCounterValue('#inProcessCount', today.in_process_count || 0);
-        updateCounterValue('#completedCount', today.completed_count || 0);
-        updateCounterValue('#canceledCount', today.canceled_count || 0);
+        const pending   = today.pending_count    || 0;
+        const inProcess = today.in_process_count || 0;
+        const completed = today.completed_count  || 0;
+        const canceled  = today.canceled_count   || 0;
+        updateCounterValue('#pendingCount',   pending);
+        updateCounterValue('#inProcessCount', inProcess);
+        updateCounterValue('#completedCount', completed);
+        updateCounterValue('#canceledCount',  canceled);
+        updateOpsChart(pending, inProcess, completed, canceled);
 
         updateFilterIndicator();
     });
 }
 
 function updateFilterIndicator() {
-    const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-                        'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+    const monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
+                        'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
     if (currentFilters.day && currentFilters.month && currentFilters.year) {
-        $('#filterText').html(`📅 Fecha: ${currentFilters.day} de ${monthNames[currentFilters.month - 1]}, ${currentFilters.year}`);
+        $('#filterText').html(`${currentFilters.day} de ${monthNames[currentFilters.month - 1]}, ${currentFilters.year}`);
         $('#filterIndicator').removeClass('d-none');
     } else {
         $('#filterIndicator').addClass('d-none');
@@ -665,7 +713,9 @@ function onClientSearch(value) {
             }
             let html = '';
             clients.forEach(function(c) {
-                const statusBadge = c.status === 'Activo' ? '<span class="badge bg-success ms-1" style="font-size:0.6rem">Activo</span>' : '<span class="badge bg-secondary ms-1" style="font-size:0.6rem">Inactivo</span>';
+                const statusBadge = c.status === 'Activo'
+                    ? '<span class="badge bg-success ms-1" style="font-size:0.6rem">Activo</span>'
+                    : '<span class="badge bg-secondary ms-1" style="font-size:0.6rem">Inactivo</span>';
                 html += `<a class="list-group-item list-group-item-action small py-1 px-2" style="cursor:pointer"
                             onclick="loadClientHistory(${c.id}, '${escapeHtml(c.name)}', '${c.dni}')">
                             <span class="fw-semibold">${escapeHtml(c.name)}</span>${statusBadge}
@@ -689,9 +739,8 @@ function loadClientHistory(clientId, clientName, clientDni) {
 
     const params = new URLSearchParams({ trader_id: CURRENT_TRADER_ID });
     ajaxRequest(`/dashboard/api/dashboard/client-operations/${clientId}?${params.toString()}`, 'GET', null, function(response) {
-        const ops = response.operations || [];
+        const ops     = response.operations || [];
         const summary = response.summary || {};
-
         $('#clientTotalOps').text(summary.total_ops || 0);
         $('#clientTotalUsd').text(`$ ${formatNumber(summary.total_usd || 0, 0)}`);
         $('#clientTotalProfit').text(`S/ ${formatNumber(summary.total_profit || 0, 2)}`);
@@ -700,7 +749,6 @@ function loadClientHistory(clientId, clientName, clientDni) {
             $('#clientHistoryBody').html('<tr><td colspan="7" class="text-center text-muted py-3 small">Sin operaciones registradas</td></tr>');
             return;
         }
-
         let html = '';
         ops.forEach(function(op) {
             let profitHtml = '<span class="text-muted small">-</span>';
@@ -726,9 +774,8 @@ function loadClientHistory(clientId, clientName, clientDni) {
 // HELPERS
 // ============================================
 function updateLastUpdated() {
-    const now = new Date();
-    const t = now.toLocaleTimeString('es-PE', {hour:'2-digit', minute:'2-digit'});
-    $('#lastUpdated').html(`<i class="bi bi-clock me-1"></i>Actualizado: ${t}`);
+    const t = new Date().toLocaleTimeString('es-PE', {hour:'2-digit', minute:'2-digit'});
+    $('#lastUpdated').html(`Actualizado: ${t}`);
 }
 
 function updateGoalProgress(profit, goal) {
@@ -754,16 +801,12 @@ function escapeHtml(str) {
     return str.replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-// loadTopClients, loadInactiveClients, showInactiveTab, loadTopProfit, loadTopOps
-// → en dashboard_analysis.js (compartido)
-
 function getTraderIdFilter() {
     return CURRENT_TRADER_ID;
 }
 
 {% if current_user.is_trading_desk() %}
 // ==================== TIPOS DE CAMBIO (trading desk) ====================
-
 function loadExchangeRates() {
     ajaxRequest('/api/platform/exchange-rates', 'GET', null, function(response) {
         if (response.success && response.rates) {
@@ -780,8 +823,6 @@ function loadExchangeRates() {
                 $('#updatedBy').text('Sistema');
             }
         }
-    }, function(error) {
-        console.error('Error al cargar tipos de cambio:', error);
     });
 }
 
