@@ -433,6 +433,109 @@ def get_all_dashboard_data():
     })
 
 
+@dashboard_bp.route('/api/growth-chart')
+@login_required
+def get_growth_chart():
+    """
+    API: Datos para el gráfico de barras de crecimiento mensual.
+
+    Query params:
+        trader_id : ID del trader (opcional)
+        months    : Cuántos meses hacia atrás incluir (default 6)
+        same_period: 1 → devuelve comparación mismo período mes anterior
+    """
+    trader_id   = request.args.get('trader_id', type=int)
+    n_months    = request.args.get('months', default=6, type=int)
+    same_period = request.args.get('same_period', default=0, type=int)
+
+    now      = now_peru()
+    demo_id  = _demo_user_id()
+
+    month_names = ['Ene','Feb','Mar','Abr','May','Jun',
+                   'Jul','Ago','Sep','Oct','Nov','Dic']
+
+    def _month_data(year, month, end_day=None):
+        """Utilidad + ops + clientes para un mes completo o hasta end_day."""
+        start_dt = datetime(year, month, 1)
+        if end_day:
+            import calendar
+            max_day = calendar.monthrange(year, month)[1]
+            d = min(end_day, max_day)
+            end_dt = datetime(year, month, d, 23, 59, 59)
+        else:
+            if month == 12:
+                end_dt = datetime(year + 1, 1, 1)
+            else:
+                end_dt = datetime(year, month + 1, 1)
+
+        from app.models.client import Client as _C
+        q = Operation.query.filter(
+            Operation.created_at >= start_dt,
+            Operation.created_at <= end_dt,
+            Operation.status == 'Completada',
+        )
+        if trader_id:
+            q = q.join(_C, Operation.client_id == _C.id).filter(
+                or_(Operation.user_id == trader_id,
+                    and_(Operation.user_id == None, _C.created_by == trader_id))
+            )
+        elif demo_id:
+            q = q.filter(Operation.user_id != demo_id)
+
+        ops = q.all()
+        if trader_id:
+            profit = _trader_profit_from_ops(trader_id, start_dt, end_dt)
+        else:
+            profit = _total_profit_from_ops(start_dt, end_dt, exclude_user_id=demo_id)
+
+        return {
+            'profit':  round(profit, 2),
+            'ops':     len(ops),
+            'clients': len(set(op.client_id for op in ops)),
+        }
+
+    # ── Build last n_months + current month bars ───────────────────────
+    bars = []
+    cur_year, cur_month = now.year, now.month
+    for i in range(n_months, -1, -1):
+        m = cur_month - i
+        y = cur_year
+        while m <= 0:
+            m += 12
+            y -= 1
+        data = _month_data(y, m)
+        bars.append({
+            'label':    month_names[m - 1],
+            'year':     y,
+            'month':    m,
+            'is_current': (y == cur_year and m == cur_month),
+            **data,
+        })
+
+    result = {'bars': bars}
+
+    # ── Same period comparison ─────────────────────────────────────────
+    if same_period:
+        today_day = now.day
+        # Current month up to today
+        cm_data = _month_data(cur_year, cur_month, end_day=today_day)
+        # Previous month up to same day
+        pm = cur_month - 1
+        py = cur_year
+        if pm == 0:
+            pm = 12
+            py -= 1
+        pm_data = _month_data(py, pm, end_day=today_day)
+        pm_label = f'{month_names[pm - 1]} (1–{today_day})'
+        cm_label = f'{month_names[cur_month - 1]} (1–{today_day})'
+        result['comparison'] = {
+            'prev': {**pm_data, 'label': pm_label},
+            'curr': {**cm_data, 'label': cm_label},
+        }
+
+    return jsonify(result)
+
+
 @dashboard_bp.route('/api/stats/today')
 @login_required
 def get_today_stats():

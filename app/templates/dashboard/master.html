@@ -154,74 +154,33 @@
     ════════════════════════════ -->
     <div class="row g-3 mb-4">
 
-        <!-- Estado de Operaciones (izquierda) -->
+        <!-- Gráfico de Crecimiento (izquierda) -->
         <div class="col-md-5">
             <div class="ops-card">
                 <div class="card-head">
                     <span class="card-head-title">
-                        <i class="bi bi-pie-chart-fill" style="color:#4f46e5;"></i>
-                        Estado — Hoy
+                        <i class="bi bi-bar-chart-fill" style="color:#4f46e5;"></i>
+                        Crecimiento Mensual
                     </span>
-                    <small style="font-size:.7rem;color:#94a3b8;" id="totalOpsToday"></small>
+                    <button id="btnSamePeriod" class="growth-period-btn" onclick="toggleSamePeriod()">
+                        <i class="bi bi-arrow-left-right"></i> Mismo periodo
+                    </button>
                 </div>
-
-                <!-- Mini donut chart -->
-                <div class="ops-donut-wrap">
-                    <canvas id="opsDonut" width="90" height="90" class="ops-donut-canvas"></canvas>
-                    <div class="ops-donut-legend">
-                        <div class="ops-donut-legend-item">
-                            <div class="ops-donut-dot" style="background:#f59e0b;"></div>
-                            <span class="ops-donut-legend-label">Pendientes</span>
-                            <span class="ops-donut-legend-count" id="pendingCount">0</span>
-                        </div>
-                        <div class="ops-donut-legend-item">
-                            <div class="ops-donut-dot" style="background:#3b82f6;"></div>
-                            <span class="ops-donut-legend-label">En Proceso</span>
-                            <span class="ops-donut-legend-count" id="inProcessCount">0</span>
-                        </div>
-                        <div class="ops-donut-legend-item">
-                            <div class="ops-donut-dot" style="background:#10b981;"></div>
-                            <span class="ops-donut-legend-label">Completadas</span>
-                            <span class="ops-donut-legend-count" id="completedCount">0</span>
-                        </div>
-                        <div class="ops-donut-legend-item">
-                            <div class="ops-donut-dot" style="background:#ef4444;"></div>
-                            <span class="ops-donut-legend-label">Canceladas</span>
-                            <span class="ops-donut-legend-count" id="canceledCount">0</span>
-                        </div>
+                <div style="padding:.75rem 1.25rem .25rem;flex:1;display:flex;flex-direction:column;min-height:0;">
+                    <div id="growthChartLabel" style="font-size:.68rem;color:#94a3b8;margin-bottom:.375rem;letter-spacing:.04em;text-transform:uppercase;font-weight:600;">Utilidad mensual · S/</div>
+                    <div style="flex:1;min-height:190px;position:relative;">
+                        <canvas id="growthChart"></canvas>
                     </div>
                 </div>
-
-                <!-- Lista con mini barras -->
-                <div class="ops-list">
-                    <div class="ops-list-item">
-                        <div class="ops-dot" style="--dot-c:#f59e0b;"></div>
-                        <span class="ops-list-label">Pendientes</span>
-                        <div class="ops-list-bar-wrap">
-                            <div class="ops-list-bar"><div class="ops-list-bar-fill" id="barPending" style="--dot-c:#f59e0b;width:0%;"></div></div>
-                        </div>
-                    </div>
-                    <div class="ops-list-item">
-                        <div class="ops-dot" style="--dot-c:#3b82f6;"></div>
-                        <span class="ops-list-label">En Proceso</span>
-                        <div class="ops-list-bar-wrap">
-                            <div class="ops-list-bar"><div class="ops-list-bar-fill" id="barProcess" style="--dot-c:#3b82f6;width:0%;"></div></div>
-                        </div>
-                    </div>
-                    <div class="ops-list-item">
-                        <div class="ops-dot" style="--dot-c:#10b981;"></div>
-                        <span class="ops-list-label">Completadas</span>
-                        <div class="ops-list-bar-wrap">
-                            <div class="ops-list-bar"><div class="ops-list-bar-fill" id="barCompleted" style="--dot-c:#10b981;width:0%;"></div></div>
-                        </div>
-                    </div>
-                    <div class="ops-list-item">
-                        <div class="ops-dot" style="--dot-c:#ef4444;"></div>
-                        <span class="ops-list-label">Canceladas</span>
-                        <div class="ops-list-bar-wrap">
-                            <div class="ops-list-bar"><div class="ops-list-bar-fill" id="barCanceled" style="--dot-c:#ef4444;width:0%;"></div></div>
-                        </div>
-                    </div>
+                <!-- IDs requeridos por JS (hidden) -->
+                <div class="d-none" aria-hidden="true">
+                    <span id="pendingCount">0</span>
+                    <span id="inProcessCount">0</span>
+                    <span id="completedCount">0</span>
+                    <span id="canceledCount">0</span>
+                    <span id="totalOpsToday"></span>
+                    <div id="barPending"></div><div id="barProcess"></div>
+                    <div id="barCompleted"></div><div id="barCanceled"></div>
                 </div>
             </div>
         </div>
@@ -651,11 +610,12 @@
 let currentFilters = { trader_id: null, month: null, year: null, day: null };
 let inactiveData = { inactive_30: [], inactive_60: [], inactive_90: [] };
 let clientSearchTimer = null;
-let opsChart = null;
+let growthChart = null;
+let samePeriodMode = false;
 
 // ─── Init ────────────────────────────────────────────────────────
 $(document).ready(function() {
-    initOpsChart();
+    initGrowthChart();
     loadDashboardData();
     loadTraders();
     setCurrentPeriod();
@@ -669,57 +629,108 @@ $(document).ready(function() {
     connectSocketIO();
 });
 
-// ─── Chart.js donut ──────────────────────────────────────────────
-function initOpsChart() {
-    const ctx = document.getElementById('opsDonut');
+// ─── Chart.js Bar — Crecimiento Mensual ──────────────────────────
+function initGrowthChart() {
+    const ctx = document.getElementById('growthChart');
     if (!ctx || typeof Chart === 'undefined') return;
-    opsChart = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels: ['Pendientes', 'En Proceso', 'Completadas', 'Canceladas'],
-            datasets: [{
-                data: [0, 0, 0, 0],
-                backgroundColor: ['#f59e0b', '#3b82f6', '#10b981', '#ef4444'],
-                borderWidth: 0,
-                hoverOffset: 5
-            }]
-        },
+    growthChart = new Chart(ctx, {
+        type: 'bar',
+        data: { labels: [], datasets: [] },
         options: {
-            cutout: '68%',
+            responsive: true,
+            maintainAspectRatio: false,
             plugins: {
                 legend: { display: false },
                 tooltip: {
+                    backgroundColor: '#0a1628',
+                    titleFont: { size: 12, weight: '600' },
+                    bodyFont: { size: 12 },
+                    padding: 10,
                     callbacks: {
-                        label: ctx => ` ${ctx.label}: ${ctx.raw} ops`
+                        label: function(ctx) {
+                            const v = ctx.raw;
+                            return ' S/ ' + parseFloat(v).toLocaleString('es-PE', {minimumFractionDigits:2, maximumFractionDigits:2});
+                        },
+                        afterLabel: function(ctx) {
+                            const d = ctx.dataset._meta && ctx.dataset._meta[ctx.dataIndex];
+                            return d ? `  ${d.ops} ops · ${d.clients} clientes` : '';
+                        }
                     }
                 }
             },
-            animation: { animateRotate: true, duration: 900 }
+            scales: {
+                x: {
+                    grid: { display: false },
+                    ticks: { font: { size: 11, weight: '600' }, color: '#64748b' }
+                },
+                y: {
+                    beginAtZero: true,
+                    grid: { color: '#f1f5f9', lineWidth: 1 },
+                    ticks: {
+                        font: { size: 10 },
+                        color: '#94a3b8',
+                        callback: function(v) {
+                            if (v >= 1000) return 'S/' + (v/1000).toFixed(v%1000===0?0:1) + 'k';
+                            return 'S/' + v;
+                        }
+                    },
+                    border: { display: false }
+                }
+            },
+            animation: { duration: 700, easing: 'easeInOutQuart' }
         }
+    });
+    loadGrowthChart(false);
+}
+
+function loadGrowthChart(sp) {
+    const params = new URLSearchParams({ months: 6 });
+    if (sp) params.append('same_period', 1);
+    const tid = getTraderIdFilter ? getTraderIdFilter() : '';
+    if (tid) params.append('trader_id', tid);
+
+    ajaxRequest(`/dashboard/api/growth-chart?${params}`, 'GET', null, function(r) {
+        if (!growthChart) return;
+        const label = document.getElementById('growthChartLabel');
+        if (sp && r.comparison) {
+            const c = r.comparison;
+            growthChart.data.labels = [c.prev.label, c.curr.label];
+            growthChart.data.datasets = [{
+                data: [c.prev.profit, c.curr.profit],
+                backgroundColor: ['rgba(148,163,184,.45)', '#4f46e5'],
+                hoverBackgroundColor: ['rgba(148,163,184,.65)', '#6366f1'],
+                borderRadius: 7,
+                borderSkipped: false,
+                _meta: [
+                    {ops: c.prev.ops, clients: c.prev.clients},
+                    {ops: c.curr.ops, clients: c.curr.clients}
+                ]
+            }];
+            if (label) label.textContent = 'Comparación · mismo periodo mes anterior';
+        } else {
+            const bars = r.bars || [];
+            growthChart.data.labels = bars.map(b => b.label);
+            growthChart.data.datasets = [{
+                data: bars.map(b => b.profit),
+                backgroundColor: bars.map(b => b.is_current ? '#4f46e5' : 'rgba(79,70,229,.18)'),
+                hoverBackgroundColor: bars.map(b => b.is_current ? '#6366f1' : 'rgba(79,70,229,.35)'),
+                borderRadius: 7,
+                borderSkipped: false,
+                _meta: bars.map(b => ({ops: b.ops, clients: b.clients}))
+            }];
+            if (label) label.textContent = 'Utilidad mensual · S/';
+        }
+        growthChart.update();
     });
 }
 
-function updateOpsChart(pending, inProcess, completed, canceled) {
-    if (!opsChart) return;
-    const total = pending + inProcess + completed + canceled;
-    // si total=0 mostrar gris placeholder
-    if (total === 0) {
-        opsChart.data.datasets[0].data = [1];
-        opsChart.data.datasets[0].backgroundColor = ['#e8ecf0'];
-    } else {
-        opsChart.data.datasets[0].data = [pending, inProcess, completed, canceled];
-        opsChart.data.datasets[0].backgroundColor = ['#f59e0b', '#3b82f6', '#10b981', '#ef4444'];
+function toggleSamePeriod() {
+    samePeriodMode = !samePeriodMode;
+    const btn = document.getElementById('btnSamePeriod');
+    if (btn) {
+        btn.classList.toggle('active', samePeriodMode);
     }
-    opsChart.update();
-    // Update mini bars
-    if (total > 0) {
-        document.getElementById('barPending').style.width   = (pending   / total * 100) + '%';
-        document.getElementById('barProcess').style.width   = (inProcess / total * 100) + '%';
-        document.getElementById('barCompleted').style.width = (completed / total * 100) + '%';
-        document.getElementById('barCanceled').style.width  = (canceled  / total * 100) + '%';
-    }
-    const totalEl = document.getElementById('totalOpsToday');
-    if (totalEl) totalEl.textContent = total > 0 ? total + ' ops' : '';
+    loadGrowthChart(samePeriodMode);
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────
@@ -751,6 +762,7 @@ function loadTraders() {
 
 function refreshDashboard() {
     loadDashboardData();
+    loadGrowthChart(samePeriodMode);
     loadTopClients(); loadInactiveClients(); loadTopProfit(); loadTopOps();
     showNotification('Dashboard actualizado', 'success');
 }
@@ -782,7 +794,7 @@ function applyTraderFilter() {
     currentFilters.trader_id = +tid;
     const name = $('#filterTrader option:selected').text().split(' - ')[0];
     $('#analyticsBadgeTrader').html(`<i class="bi bi-person-fill me-1"></i>${name}`);
-    loadDashboardData(); loadTopClients(); loadInactiveClients(); loadTopProfit(); loadTopOps();
+    loadDashboardData(); loadGrowthChart(samePeriodMode); loadTopClients(); loadInactiveClients(); loadTopProfit(); loadTopOps();
     $('#filterTraderModal').modal('hide');
     showNotification(`Trader: ${name}`, 'success');
 }
@@ -791,7 +803,7 @@ function clearTraderFilter() {
     currentFilters.trader_id = null;
     $('#filterTrader').val('');
     $('#analyticsBadgeTrader').html('<i class="bi bi-bar-chart-line me-1"></i>Todos los traders');
-    loadDashboardData(); loadTopClients(); loadInactiveClients(); loadTopProfit(); loadTopOps();
+    loadDashboardData(); loadGrowthChart(samePeriodMode); loadTopClients(); loadInactiveClients(); loadTopProfit(); loadTopOps();
     $('#filterTraderModal').modal('hide');
     showNotification('Filtro de trader eliminado', 'info');
 }
@@ -853,8 +865,6 @@ function loadDashboardData() {
         document.getElementById('inProcessCount').textContent = inProcess;
         document.getElementById('completedCount').textContent = completed;
         document.getElementById('canceledCount').textContent  = canceled;
-
-        updateOpsChart(pending, inProcess, completed, canceled);
 
         // Sistema
         updateCounterValue('#totalUsers',  system.total_users  || 0);
