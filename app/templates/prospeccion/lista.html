@@ -1714,7 +1714,6 @@ function openDrawer(id) {
             return `<div style="flex:1;min-width:120px;background:${activo?'#f0fdf4':'#f9fafb'};border-radius:8px;padding:8px 10px;border:1px solid ${activo?'#bbf7d0':'#e5e7eb'};">
               <div style="font-size:.62rem;font-weight:700;color:${activo?'#16a34a':'#9ca3af'};text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px;">
                 <i class="bi bi-whatsapp me-1"></i>WhatsApp
-                ${activo?'<span style="background:#16a34a;color:#fff;font-size:.55rem;padding:1px 5px;border-radius:3px;margin-left:4px;">24H</span>':''}
               </div>
               <div style="font-size:.78rem;font-weight:600;color:${activo?'#15803d':'#374151'};">${esc(r.ultima_wa)}</div>
               <div style="font-size:.65rem;color:${activo?'#16a34a':'#9ca3af'};">${activo?'No recontactar — ventana Meta activa':'Ventana expirada — puede recontactar'}</div>
@@ -2558,7 +2557,6 @@ async function registrarWA(pid) {
     card.outerHTML = `<div style="flex:1;min-width:120px;background:#f0fdf4;border-radius:8px;padding:8px 10px;border:1px solid #bbf7d0;">
       <div style="font-size:.62rem;font-weight:700;color:#16a34a;text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px;">
         <i class="bi bi-whatsapp me-1"></i>WhatsApp
-        <span style="background:#16a34a;color:#fff;font-size:.55rem;padding:1px 5px;border-radius:3px;margin-left:4px;">24H</span>
       </div>
       <div style="font-size:.78rem;font-weight:600;color:#15803d;">${d.ultima_wa}</div>
       <div style="font-size:.65rem;color:#16a34a;">No recontactar — ventana Meta activa</div>
