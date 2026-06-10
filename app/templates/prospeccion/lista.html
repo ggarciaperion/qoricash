@@ -1720,9 +1720,10 @@ function openDrawer(id) {
               <div style="font-size:.65rem;color:${activo?'#16a34a':'#9ca3af'};">${activo?'No recontactar — ventana Meta activa':'Ventana expirada — puede recontactar'}</div>
             </div>`;
           }
-          return `<div style="flex:1;min-width:120px;background:#f9fafb;border-radius:8px;padding:8px 10px;border:1px solid #f1f5f9;">
-            <div style="font-size:.62rem;font-weight:700;color:#d1d5db;text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px;"><i class="bi bi-whatsapp me-1"></i>WhatsApp</div>
-            <div style="font-size:.72rem;color:#d1d5db;">Sin envío</div>
+          return `<div onclick="registrarWA(${r.id})" id="waDrCard${r.id}" style="flex:1;min-width:120px;background:#f9fafb;border-radius:8px;padding:8px 10px;border:1px dashed #d1fae5;cursor:pointer;transition:background .15s,border-color .15s;" onmouseenter="this.style.background='#f0fdf4';this.style.borderColor='#6ee7b7';" onmouseleave="this.style.background='#f9fafb';this.style.borderColor='#d1fae5';">
+            <div style="font-size:.62rem;font-weight:700;color:#16a34a;text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px;"><i class="bi bi-whatsapp me-1"></i>WhatsApp</div>
+            <div style="font-size:.72rem;color:#16a34a;font-weight:600;">Registrar envío</div>
+            <div style="font-size:.6rem;color:#86efac;margin-top:1px;">Clic para marcar como contactado</div>
           </div>`;
         })()}
       </div>
@@ -2513,6 +2514,60 @@ function esc(s) {
 /* ─────────────────────────────────────────────────────────────
    ASIGNACIÓN
 ───────────────────────────────────────────────────────────── */
+async function registrarWA(pid) {
+  const card = document.getElementById(`waDrCard${pid}`);
+  if (card) { card.style.pointerEvents = 'none'; card.style.opacity = '.6'; }
+
+  const res = await fetch(`/prospeccion/api/${pid}/registrar-wa`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF() },
+  });
+  const d = await res.json().catch(() => ({}));
+
+  if (card) { card.style.pointerEvents = ''; card.style.opacity = '1'; }
+
+  if (!res.ok || !d.ok) {
+    Swal.fire({ icon: 'error', text: d.error || 'Error al registrar WA.', confirmButtonColor: '#0D1B2A' });
+    return;
+  }
+
+  // Actualizar datos locales
+  const row = _rows.find(x => x.id === pid);
+  if (row) {
+    row.ultima_wa = d.ultima_wa;
+    if (d.estado_comercial) row.estado_comercial = d.estado_comercial;
+  }
+
+  // Reemplazar la fila entera en la tabla
+  const tr = document.querySelector(`tr[data-id="${pid}"]`);
+  if (tr && row) {
+    tr.outerHTML = rowHtml(row);
+    // Restaurar checkbox si estaba seleccionado
+    if (_sel.has(pid)) {
+      const newTr = document.querySelector(`tr[data-id="${pid}"]`);
+      if (newTr) {
+        newTr.classList.add('row-selected');
+        const cb = newTr.querySelector('.rchk');
+        if (cb) cb.checked = true;
+      }
+    }
+  }
+
+  // Reemplazar la card del drawer con el estado activo
+  if (card) {
+    card.outerHTML = `<div style="flex:1;min-width:120px;background:#f0fdf4;border-radius:8px;padding:8px 10px;border:1px solid #bbf7d0;">
+      <div style="font-size:.62rem;font-weight:700;color:#16a34a;text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px;">
+        <i class="bi bi-whatsapp me-1"></i>WhatsApp
+        <span style="background:#16a34a;color:#fff;font-size:.55rem;padding:1px 5px;border-radius:3px;margin-left:4px;">24H</span>
+      </div>
+      <div style="font-size:.78rem;font-weight:600;color:#15803d;">${d.ultima_wa}</div>
+      <div style="font-size:.65rem;color:#16a34a;">No recontactar — ventana Meta activa</div>
+    </div>`;
+  }
+
+  toast('WhatsApp registrado ✓');
+}
+
 async function asignarDesdeDrawer(pid) {
   const sel = document.getElementById(`drTraderSel${pid}`);
   if (!sel || !sel.value) { toast('Selecciona un trader.', true); return; }

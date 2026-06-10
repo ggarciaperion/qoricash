@@ -2952,6 +2952,42 @@ def api_seguimiento_eliminar(sid):
     return jsonify({"ok": True})
 
 
+# ── API — Registrar contacto manual por WhatsApp ──────────────────────────────
+
+@prospeccion_bp.route("/api/<int:pid>/registrar-wa", methods=["POST"])
+@csrf.exempt
+@login_required
+@require_role("Master", "Trader")
+def api_registrar_wa(pid):
+    """Registra un contacto manual por WhatsApp desde el drawer del prospecto."""
+    p = db.get_or_404(Prospecto, pid)
+    ahora = now_peru()
+    ts = ahora.strftime("%Y-%m-%d %H:%M")
+
+    _log_actividad(
+        p.id, current_user.id,
+        tipo='whatsapp',
+        descripcion='WhatsApp enviado (manual desde CRM)',
+        canal='whatsapp',
+        resultado='Enviado',
+    )
+
+    # Avanzar estado solo si aún no ha sido contactado
+    estados_sin_contacto = (None, '', 'sin_contactar')
+    if p.estado_comercial in estados_sin_contacto:
+        p.estado_comercial = 'contactado'
+        _log_actividad(
+            p.id, current_user.id,
+            tipo='estado',
+            descripcion='Estado cambiado a: contactado (WhatsApp manual)',
+            canal='sistema',
+            nuevo_estado='contactado',
+        )
+
+    db.session.commit()
+    return jsonify({"ok": True, "ultima_wa": ts, "estado_comercial": p.estado_comercial})
+
+
 # ── Dashboard API — seguimientos pendientes ────────────────────────────────────
 
 @prospeccion_bp.route("/api/seguimientos-pendientes")
