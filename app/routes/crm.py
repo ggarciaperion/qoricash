@@ -636,7 +636,7 @@ def api_import_prospectos():
             act = ActividadProspecto(
                 prospecto_id=p.id, user_id=1,
                 tipo='email', canal='email',
-                bandeja='ggarcia@lfc.pe',
+                bandeja='ggarcia@qoricash.pe',
                 descripcion='Correo de precios LFC enviado (campaña automática)',
                 resultado='Enviado',
             )
