@@ -369,47 +369,50 @@
          TC WIDGET + ACCESOS RÁPIDOS
     ════════════════════════════ -->
     <div class="row g-3 mb-4 align-items-start">
+        <!-- Punto de Equilibrio -->
         <div class="col-md-3">
-            <div class="tc-card">
-                <div class="card-body p-3">
-                    <div class="card-head-title mb-3" style="padding:0;">
-                        <i class="bi bi-currency-exchange" style="color:#059669;"></i> Tipo de Cambio
-                    </div>
-                    <div class="d-flex gap-2 mb-3">
-                        <div class="tc-pill buy flex-fill">
-                            <div class="tc-pill-label">COMPRA</div>
-                            <div class="tc-pill-value" id="currentBuyRate">--</div>
-                            <div class="tc-pill-sub">Cliente vende</div>
-                        </div>
-                        <div class="tc-pill sell flex-fill">
-                            <div class="tc-pill-label">VENTA</div>
-                            <div class="tc-pill-value" id="currentSellRate">--</div>
-                            <div class="tc-pill-sub">Cliente compra</div>
-                        </div>
-                    </div>
-                    <div class="row g-2 mb-2">
-                        <div class="col-6">
-                            <label class="form-label mb-1" style="font-size:.675rem;font-weight:600;color:#059669;">Nueva compra</label>
-                            <div class="input-group input-group-sm">
-                                <span class="input-group-text">S/</span>
-                                <input type="number" class="form-control" id="newBuyRate" step="0.001" min="0" placeholder="0.000">
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <label class="form-label mb-1" style="font-size:.675rem;font-weight:600;color:#2563eb;">Nueva venta</label>
-                            <div class="input-group input-group-sm">
-                                <span class="input-group-text">S/</span>
-                                <input type="number" class="form-control" id="newSellRate" step="0.001" min="0" placeholder="0.000">
-                            </div>
-                        </div>
-                    </div>
-                    <button class="btn btn-success btn-sm w-100 mb-2" onclick="updateExchangeRates()">
-                        <i class="bi bi-send me-1"></i>Publicar en qoricash.pe
+            <div class="be-card">
+                <div class="card-head">
+                    <span class="card-head-title">
+                        <i class="bi bi-bullseye" style="color:#ef4444;"></i> Punto de Equilibrio
+                    </span>
+                    <button class="growth-period-btn" onclick="editBreakeven()" title="Editar costos fijos">
+                        <i class="bi bi-pencil"></i>
                     </button>
-                    <div class="text-center" style="font-size:.65rem;color:#94a3b8;">
-                        <i class="bi bi-clock me-1"></i><span id="lastUpdate">--</span> · <span id="updatedBy">--</span>
-                    </div>
                 </div>
+                <div class="p-3">
+                    <div class="be-row-label">Costos fijos del mes</div>
+                    <div class="be-target" id="beTarget">S/ 5,200.00</div>
+
+                    <div class="be-progress-wrap">
+                        <div class="be-progress-track">
+                            <div class="be-progress-fill" id="beProgressFill"></div>
+                        </div>
+                        <div class="d-flex justify-content-between mt-1">
+                            <span class="be-pct-label" id="bePct">0%</span>
+                            <span class="be-pct-label">100%</span>
+                        </div>
+                    </div>
+
+                    <div class="be-amounts">
+                        <div>
+                            <div class="be-row-label">Acumulado</div>
+                            <div class="be-amount" id="beProfit">S/ 0.00</div>
+                        </div>
+                        <div style="text-align:right;">
+                            <div class="be-row-label">Falta</div>
+                            <div class="be-amount" id="beRemaining">S/ 5,200.00</div>
+                        </div>
+                    </div>
+
+                    <div id="beStatus" class="mt-2"></div>
+                </div>
+            </div>
+            <!-- Hidden TC IDs — loadExchangeRates sigue corriendo para el hero -->
+            <div class="d-none">
+                <span id="currentBuyRate"></span><span id="currentSellRate"></span>
+                <input id="newBuyRate"><input id="newSellRate">
+                <span id="lastUpdate"></span><span id="updatedBy"></span>
             </div>
         </div>
 
@@ -829,6 +832,10 @@ function loadDashboardData() {
         applyProfitColor('profitToday', ptv);
         applyProfitColor('profitMonth', pmv);
 
+        // Punto de equilibrio
+        window._lastProfitMonth = pmv;
+        updateBreakeven(pmv);
+
         document.getElementById('profitTradersToday').textContent = isTF ? '—' : fmtPen(today.profit_traders_today);
         document.getElementById('profitHouseToday').textContent   = isTF ? '—' : fmtPen(today.profit_house_today);
         document.getElementById('profitTradersMonth').textContent = isTF ? '—' : fmtPen(month.profit_traders_month);
@@ -982,6 +989,73 @@ function updateGoalProgress(profit, goal) {
 function fmt(n, d) { return parseFloat(n).toLocaleString('es-PE',{minimumFractionDigits:d,maximumFractionDigits:d}); }
 function formatNumber(n, d) { return fmt(n, d); }
 function escapeHtml(s) { return s ? s.replace(/'/g,"\\'").replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : ''; }
+
+// ─── Punto de Equilibrio ──────────────────────────────────────────
+const BE_KEY = 'qc_breakeven';
+let beTarget = parseFloat(localStorage.getItem(BE_KEY) || '5200');
+
+function updateBreakeven(profitMonth) {
+    const profit  = parseFloat(profitMonth) || 0;
+    const target  = beTarget;
+    const remaining = Math.max(0, target - profit);
+    const pct     = target > 0 ? Math.min((profit / target) * 100, 100) : 0;
+    const exceeded = profit >= target;
+
+    document.getElementById('beTarget').textContent    = 'S/ ' + fmt(target, 2);
+    document.getElementById('beProfit').textContent    = 'S/ ' + fmt(profit, 2);
+    document.getElementById('bePct').textContent       = pct.toFixed(0) + '%';
+    document.getElementById('beRemaining').textContent = exceeded ? '¡Cubierto!' : 'S/ ' + fmt(remaining, 2);
+
+    const fill = document.getElementById('beProgressFill');
+    if (fill) {
+        fill.style.width = pct + '%';
+        fill.style.background = exceeded ? '#10b981' : pct >= 75 ? '#f59e0b' : '#ef4444';
+    }
+
+    const profitEl = document.getElementById('beProfit');
+    if (profitEl) profitEl.style.color = exceeded ? '#059669' : pct >= 75 ? '#d97706' : '#dc2626';
+
+    const remEl = document.getElementById('beRemaining');
+    if (remEl) remEl.style.color = exceeded ? '#059669' : '#0a1628';
+
+    const statusEl = document.getElementById('beStatus');
+    if (statusEl) {
+        if (exceeded) {
+            statusEl.innerHTML = '<span class="be-badge be-badge-ok"><i class="bi bi-check-circle-fill me-1"></i>Punto de equilibrio alcanzado</span>';
+        } else if (pct >= 75) {
+            statusEl.innerHTML = '<span class="be-badge be-badge-warn"><i class="bi bi-lightning-fill me-1"></i>Casi listo — ' + (100-pct).toFixed(0) + '% restante</span>';
+        } else {
+            statusEl.innerHTML = '';
+        }
+    }
+}
+
+function editBreakeven() {
+    Swal.fire({
+        title: 'Costos fijos del mes',
+        html: '<p style="font-size:.875rem;color:#64748b;margin-bottom:.75rem;">Ingresa el total de costos fijos mensuales (sueldos, alquiler, servicios, etc.)</p>',
+        input: 'number',
+        inputLabel: 'Monto en soles (S/)',
+        inputValue: beTarget,
+        inputAttributes: { min: 0, step: 100, placeholder: '5200' },
+        showCancelButton: true,
+        confirmButtonText: 'Guardar',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#4f46e5',
+        inputValidator: v => !v || parseFloat(v) <= 0 ? 'Ingresa un monto válido' : null
+    }).then(res => {
+        if (res.isConfirmed && res.value) {
+            beTarget = parseFloat(res.value);
+            localStorage.setItem(BE_KEY, beTarget);
+            // Re-render con el profit actual
+            const profitText = document.getElementById('beProfit')?.textContent || '0';
+            const currentProfit = parseFloat(profitText.replace(/[^0-9.]/g, '')) || 0;
+            // Refresh desde la última respuesta del dashboard
+            updateBreakeven(window._lastProfitMonth || currentProfit);
+            showNotification('Costos fijos actualizados: S/ ' + fmt(beTarget, 2), 'success');
+        }
+    });
+}
 
 // ─── Tipos de Cambio ──────────────────────────────────────────────
 function loadExchangeRates() {
