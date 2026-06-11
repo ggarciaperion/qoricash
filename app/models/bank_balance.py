@@ -118,9 +118,19 @@ class BankBalance(db.Model):
                     if operation.source_account and operation.client:
                         for acct in (operation.client.bank_accounts or []):
                             if acct.get('account_number') == operation.source_account:
-                                return _normalize(acct.get('bank_name', ''))
+                                b = _normalize(acct.get('bank_name', ''))
+                                if b:
+                                    return b
                     if getattr(operation, 'source_bank_name', None):
-                        return _normalize(operation.source_bank_name)
+                        b = _normalize(operation.source_bank_name)
+                        if b:
+                            return b
+                    # Último recurso: derivar banco desde cuenta_cargo de los depósitos
+                    for dep in (_deposits or []):
+                        for key in ('cuenta_cargo', 'qc_bank', 'banco'):
+                            b = _normalize(dep.get(key, ''))
+                            if b:
+                                return b
                 except Exception:
                     pass
                 return None
@@ -131,9 +141,19 @@ class BankBalance(db.Model):
                     if operation.destination_account and operation.client:
                         for acct in (operation.client.bank_accounts or []):
                             if acct.get('account_number') == operation.destination_account:
-                                return _normalize(acct.get('bank_name', ''))
+                                b = _normalize(acct.get('bank_name', ''))
+                                if b:
+                                    return b
                     if getattr(operation, 'destination_bank_name', None):
-                        return _normalize(operation.destination_bank_name)
+                        b = _normalize(operation.destination_bank_name)
+                        if b:
+                            return b
+                    # Último recurso: derivar banco desde cuenta_destino de los pagos
+                    for pay in (_payments or []):
+                        for key in ('cuenta_destino', 'qc_bank', 'banco'):
+                            b = _normalize(pay.get(key, ''))
+                            if b:
+                                return b
                 except Exception:
                     pass
                 return _fallback_banco()

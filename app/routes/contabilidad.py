@@ -528,31 +528,35 @@ def _apply_expense_to_bank_balance(account_code: str, amount_pen: Decimal, recor
     bb = BankBalance.query.filter(
         BankBalance.bank_name.ilike(f'%{bank_key}%{currency}%')
     ).first()
-    if not bb:
-        return
 
+    # Calcular monto en la moneda correcta
     if currency == 'PEN':
         amount_cur = float(amount_pen)
-        bb.balance_pen = round(max(float(bb.balance_pen) - amount_cur, 0.0), 2)
-        bal_after = float(bb.balance_pen)
     else:
-        # Usar el monto USD exacto si fue provisto; si no, convertir desde PEN (fallback)
         if amount_usd and amount_usd > 0:
             amount_cur = round(float(amount_usd), 2)
         else:
             er = ExchangeRate.query.order_by(ExchangeRate.updated_at.desc()).first()
             tc = float(er.sell_rate) if er and er.sell_rate else 3.75
             amount_cur = round(float(amount_pen) / tc, 2)
-        bb.balance_usd = round(max(float(bb.balance_usd) - amount_cur, 0.0), 2)
-        bal_after = float(bb.balance_usd)
 
-    bb.updated_at = now_peru()
+    # Actualizar BankBalance solo si el registro existe
+    bal_after = None
+    if bb is not None:
+        if currency == 'PEN':
+            bb.balance_pen = round(max(float(bb.balance_pen) - amount_cur, 0.0), 2)
+            bal_after = float(bb.balance_pen)
+        else:
+            bb.balance_usd = round(max(float(bb.balance_usd) - amount_cur, 0.0), 2)
+            bal_after = float(bb.balance_usd)
+        bb.updated_at = now_peru()
 
-    # Crear BankMovement para reflejar el egreso en Control de Apertura y Cierre
+    # Crear BankMovement SIEMPRE — ledger inmutable independiente de si BankBalance existe
+    bank_name_mv = bb.bank_name if bb else f'{bank_key} {currency}'
     desc = record.description if record else f'Gasto {bank_key} {currency}'
     mv = BankMovement(
         movement_date  = now_peru(),
-        bank_name      = bb.bank_name,
+        bank_name      = bank_name_mv,
         bank_key       = bank_key,
         currency       = currency,
         amount         = round(-amount_cur, 2),
@@ -561,7 +565,7 @@ def _apply_expense_to_bank_balance(account_code: str, amount_pen: Decimal, recor
         source_id      = record.id if record else None,
         description    = desc,
         reference_code = str(record.id) if record else None,
-        balance_after  = round(bal_after, 2),
+        balance_after  = round(bal_after, 2) if bal_after is not None else None,
         closure_date   = now_peru().date(),
         created_by     = record.created_by if record else None,
     )
@@ -875,6 +879,18 @@ def cuota_prestamo():
 
         record.journal_entry_id = entry.id
         db.session.commit()
+
+        # Reflejar débito en BankBalance + crear BankMovement para Tesorería
+        gasto_a_banco = intereses + itf  # el capital solo reclasifica pasivo, no es gasto
+        if gasto_a_banco > 0:
+            try:
+                _apply_expense_to_bank_balance(bank_account, gasto_a_banco, record)
+                db.session.commit()
+            except Exception as _bb_err:
+                import logging as _lg
+                _lg.getLogger(__name__).warning(
+                    f'[BankBalance] No se pudo actualizar saldo para cuota: {_bb_err}'
+                )
 
         return jsonify({
             'success': True,
