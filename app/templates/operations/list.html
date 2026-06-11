@@ -716,31 +716,22 @@ function refreshOperationsTable() {
     // Obtener operaciones actualizadas desde el servidor
     ajaxRequest('/operations/api/list', 'GET', null, function(response) {
         if (response.success && response.operations) {
-            // Destruir DataTable actual
-            if (window.operationsDataTable) {
-                window.operationsDataTable.destroy();
-            }
-
-            // Limpiar tbody
-            $('#operationsTable tbody').empty();
-
             // Ordenar operaciones: "En proceso" primero, luego el resto por fecha
             const sortedOperations = sortOperationsByPriority(response.operations);
 
-            // Renderizar nuevas filas
+            // Usar la API nativa de DataTables: clear() + row.add() + draw()
+            // Evitamos destroy()/re-init que rompe el ancho del contenedor
+            // table-responsive y causa que las columnas se desborden de la página
+            window.operationsDataTable.clear();
+
             sortedOperations.forEach(function(op) {
                 const row = buildOperationRow(op);
-                $('#operationsTable tbody').append(row);
+                window.operationsDataTable.row.add($(row)[0]);
             });
 
-            // Reinicializar DataTable
-            window.operationsDataTable = $('#operationsTable').DataTable({
-                language: { url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json' },
-                order: [],  // No ordenar automáticamente, preservar orden del DOM
-                pageLength: 50,
-                ordering: false,  // Deshabilitar ordenamiento para preservar prioridad "En proceso"
-                retrieve: true
-            });
+            // draw(false) preserva la página actual; columns.adjust() recalcula anchos
+            window.operationsDataTable.draw(false);
+            window.operationsDataTable.columns.adjust();
 
             console.log('Tabla de operaciones actualizada');
         }
