@@ -518,6 +518,121 @@
 }
 
 /* ═══════════════════════════════════════════
+   HERO — BREAKEVEN PANEL (inside cmd-hero)
+═══════════════════════════════════════════ */
+.hero-be-panel {
+  background: rgba(255,255,255,.055);
+  border: 1px solid rgba(255,255,255,.11);
+  border-radius: 14px;
+  padding: 1.1rem 1.25rem 1rem;
+  position: relative;
+  overflow: hidden;
+  backdrop-filter: blur(6px);
+  transition: border-color .3s;
+}
+
+.hero-be-panel:hover {
+  border-color: rgba(255,255,255,.18);
+}
+
+.hero-be-accent {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #ef4444 0%, #f97316 60%, transparent 100%);
+  transition: background .5s var(--ease);
+  border-radius: 14px 14px 0 0;
+}
+
+.hero-be-edit-btn {
+  padding: .22rem .6rem !important;
+  font-size: .62rem !important;
+  gap: .25rem !important;
+  opacity: .6;
+  transition: opacity .2s, background .2s;
+}
+.hero-be-edit-btn:hover { opacity: 1; }
+
+/* ── Progress bar ── */
+.hero-be-bar-wrap { margin-bottom: .2rem; }
+
+.hero-be-track {
+  height: 9px;
+  background: rgba(255,255,255,.08);
+  border-radius: 5px;
+  overflow: hidden;
+  position: relative;
+}
+
+.hero-be-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 5px;
+  background: linear-gradient(90deg, #ef4444, #f97316);
+  box-shadow: 0 0 12px rgba(239,68,68,.5);
+  transition: width 1.2s cubic-bezier(.4,0,.2,1), background .5s, box-shadow .5s;
+  position: relative;
+  overflow: hidden;
+}
+
+.hero-be-fill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,.3) 50%, transparent 100%);
+  animation: heroBeShimmer 2.4s ease-in-out infinite;
+}
+
+@keyframes heroBeShimmer {
+  0%   { transform: translateX(-150%); }
+  100% { transform: translateX(250%); }
+}
+
+.hero-be-bar-labels {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: .3rem;
+}
+
+.hero-be-pct {
+  font-size: .72rem;
+  font-weight: 800;
+  color: rgba(255,255,255,.65);
+  transition: color .4s;
+}
+
+.hero-be-meta {
+  font-size: .6rem;
+  font-weight: 600;
+  color: rgba(255,255,255,.28);
+}
+
+/* ── Status badges (dark-bg appropriate) ── */
+.hero-be-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  font-size: .65rem;
+  font-weight: 700;
+  padding: .28rem .75rem;
+  border-radius: 100px;
+  letter-spacing: .01em;
+}
+
+.hero-be-badge-ok {
+  background: rgba(16,185,129,.14);
+  border: 1px solid rgba(52,211,153,.35);
+  color: #34d399;
+}
+
+.hero-be-badge-warn {
+  background: rgba(245,158,11,.12);
+  border: 1px solid rgba(251,191,36,.3);
+  color: #fbbf24;
+}
+
+/* ═══════════════════════════════════════════
    BREAKEVEN WIDGET
 ═══════════════════════════════════════════ */
 .be-card {
