@@ -73,21 +73,44 @@
 
             <div class="cmd-hero-vdiv mx-4 d-none d-lg-block"></div>
 
-            <!-- Tipo de Cambio vigente -->
-            <div class="d-none d-lg-block" style="min-width:160px;">
-                <div class="cmd-kpi-label"><i class="bi bi-currency-exchange" style="font-size:.65rem;"></i> Tipo de Cambio</div>
-                <div class="d-flex gap-2 mt-2">
-                    <div style="text-align:center;">
-                        <div style="font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:rgba(255,255,255,.4);">COMPRA</div>
-                        <div style="font-size:1.625rem;font-weight:800;color:#00e5a0;letter-spacing:-.02em;" id="heroCompra">—</div>
+            <!-- Punto de Equilibrio (hero) -->
+            <div class="d-none d-lg-block" style="min-width:200px;">
+                <div class="cmd-kpi-label">
+                    <i class="bi bi-bullseye" style="font-size:.65rem;"></i> Punto de Equilibrio
+                    <button onclick="editBreakeven()" style="background:none;border:none;padding:0;margin-left:.4rem;color:rgba(255,255,255,.35);cursor:pointer;font-size:.7rem;line-height:1;" title="Editar costos fijos">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                </div>
+
+                <!-- Barra de progreso -->
+                <div style="margin:.45rem 0 .6rem;">
+                    <div style="height:6px;background:rgba(255,255,255,.1);border-radius:3px;overflow:hidden;">
+                        <div id="heroBeBar" style="height:100%;width:0%;border-radius:3px;background:#ef4444;transition:width 1s cubic-bezier(.4,0,.2,1),background .4s;"></div>
                     </div>
-                    <div style="width:1px;background:rgba(255,255,255,.1);margin:0 .5rem;"></div>
-                    <div style="text-align:center;">
-                        <div style="font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:rgba(255,255,255,.4);">VENTA</div>
-                        <div style="font-size:1.625rem;font-weight:800;color:#93c5fd;letter-spacing:-.02em;" id="heroVenta">—</div>
+                    <div style="display:flex;justify-content:space-between;margin-top:.25rem;">
+                        <span style="font-size:.6rem;color:rgba(255,255,255,.35);" id="heroBePct">0%</span>
+                        <span style="font-size:.6rem;color:rgba(255,255,255,.35);" id="beTargetLabel">meta S/ 5,200</span>
                     </div>
                 </div>
+
+                <!-- Acumulado / Falta -->
+                <div style="display:flex;gap:1.25rem;align-items:flex-start;">
+                    <div>
+                        <div style="font-size:.55rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:rgba(255,255,255,.35);margin-bottom:.15rem;">Acumulado</div>
+                        <div style="font-size:1.375rem;font-weight:800;letter-spacing:-.025em;color:white;" id="heroBeProfit">S/ 0.00</div>
+                    </div>
+                    <div>
+                        <div style="font-size:.55rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:rgba(255,255,255,.35);margin-bottom:.15rem;">Falta</div>
+                        <div style="font-size:1.375rem;font-weight:800;letter-spacing:-.025em;" id="heroBeRemaining">S/ 5,200</div>
+                    </div>
+                </div>
+
+                <!-- Badge estado -->
+                <div id="heroBeStatus" style="margin-top:.5rem;"></div>
             </div>
+
+            <!-- Hidden heroCompra/heroVenta (loadExchangeRates los sigue actualizando) -->
+            <div class="d-none"><span id="heroCompra"></span><span id="heroVenta"></span></div>
 
             <!-- Controles (derecha) -->
             <div class="ms-auto d-flex flex-column align-items-end justify-content-between gap-2">
@@ -366,57 +389,19 @@
     </div>
 
     <!-- ════════════════════════════
-         TC WIDGET + ACCESOS RÁPIDOS
+         ACCESOS RÁPIDOS
     ════════════════════════════ -->
+    <!-- Hidden IDs requeridos por JS -->
+    <div class="d-none">
+        <span id="currentBuyRate"></span><span id="currentSellRate"></span>
+        <input id="newBuyRate"><input id="newSellRate">
+        <span id="lastUpdate"></span><span id="updatedBy"></span>
+        <span id="beTarget"></span><span id="beProfit"></span>
+        <span id="bePct"></span><span id="beRemaining"></span>
+        <div id="beProgressFill"></div><div id="beStatus"></div>
+    </div>
     <div class="row g-3 mb-4 align-items-start">
-        <!-- Punto de Equilibrio -->
-        <div class="col-md-3">
-            <div class="be-card">
-                <div class="card-head">
-                    <span class="card-head-title">
-                        <i class="bi bi-bullseye" style="color:#ef4444;"></i> Punto de Equilibrio
-                    </span>
-                    <button class="growth-period-btn" onclick="editBreakeven()" title="Editar costos fijos">
-                        <i class="bi bi-pencil"></i>
-                    </button>
-                </div>
-                <div class="p-3">
-                    <div class="be-row-label">Costos fijos del mes</div>
-                    <div class="be-target" id="beTarget">S/ 5,200.00</div>
-
-                    <div class="be-progress-wrap">
-                        <div class="be-progress-track">
-                            <div class="be-progress-fill" id="beProgressFill"></div>
-                        </div>
-                        <div class="d-flex justify-content-between mt-1">
-                            <span class="be-pct-label" id="bePct">0%</span>
-                            <span class="be-pct-label">100%</span>
-                        </div>
-                    </div>
-
-                    <div class="be-amounts">
-                        <div>
-                            <div class="be-row-label">Acumulado</div>
-                            <div class="be-amount" id="beProfit">S/ 0.00</div>
-                        </div>
-                        <div style="text-align:right;">
-                            <div class="be-row-label">Falta</div>
-                            <div class="be-amount" id="beRemaining">S/ 5,200.00</div>
-                        </div>
-                    </div>
-
-                    <div id="beStatus" class="mt-2"></div>
-                </div>
-            </div>
-            <!-- Hidden TC IDs — loadExchangeRates sigue corriendo para el hero -->
-            <div class="d-none">
-                <span id="currentBuyRate"></span><span id="currentSellRate"></span>
-                <input id="newBuyRate"><input id="newSellRate">
-                <span id="lastUpdate"></span><span id="updatedBy"></span>
-            </div>
-        </div>
-
-        <div class="col-md-9">
+        <div class="col-12">
             <div class="sec-label mb-3">
                 <span class="sec-label-text">Accesos Rápidos</span>
                 <div class="sec-label-line"></div>
@@ -995,37 +980,45 @@ const BE_KEY = 'qc_breakeven';
 let beTarget = parseFloat(localStorage.getItem(BE_KEY) || '5200');
 
 function updateBreakeven(profitMonth) {
-    const profit  = parseFloat(profitMonth) || 0;
-    const target  = beTarget;
+    const profit    = parseFloat(profitMonth) || 0;
+    const target    = beTarget;
     const remaining = Math.max(0, target - profit);
-    const pct     = target > 0 ? Math.min((profit / target) * 100, 100) : 0;
-    const exceeded = profit >= target;
+    const pct       = target > 0 ? Math.min((profit / target) * 100, 100) : 0;
+    const exceeded  = profit >= target;
+    const barColor  = exceeded ? '#10b981' : pct >= 75 ? '#f59e0b' : '#ef4444';
 
-    document.getElementById('beTarget').textContent    = 'S/ ' + fmt(target, 2);
-    document.getElementById('beProfit').textContent    = 'S/ ' + fmt(profit, 2);
-    document.getElementById('bePct').textContent       = pct.toFixed(0) + '%';
-    document.getElementById('beRemaining').textContent = exceeded ? '¡Cubierto!' : 'S/ ' + fmt(remaining, 2);
+    // ── Hero elements ──────────────────────────────────────
+    const heroBar = document.getElementById('heroBeBar');
+    if (heroBar) {
+        heroBar.style.width      = pct + '%';
+        heroBar.style.background = barColor;
+    }
+    const heroPct = document.getElementById('heroBePct');
+    if (heroPct) heroPct.textContent = pct.toFixed(0) + '%';
 
-    const fill = document.getElementById('beProgressFill');
-    if (fill) {
-        fill.style.width = pct + '%';
-        fill.style.background = exceeded ? '#10b981' : pct >= 75 ? '#f59e0b' : '#ef4444';
+    const heroLabel = document.getElementById('beTargetLabel');
+    if (heroLabel) heroLabel.textContent = 'meta S/ ' + fmt(target, 0);
+
+    const heroProfit = document.getElementById('heroBeProfit');
+    if (heroProfit) {
+        heroProfit.textContent = 'S/ ' + fmt(profit, 2);
+        heroProfit.style.color = exceeded ? '#10b981' : pct >= 75 ? '#f59e0b' : 'white';
     }
 
-    const profitEl = document.getElementById('beProfit');
-    if (profitEl) profitEl.style.color = exceeded ? '#059669' : pct >= 75 ? '#d97706' : '#dc2626';
+    const heroRem = document.getElementById('heroBeRemaining');
+    if (heroRem) {
+        heroRem.textContent = exceeded ? '¡Cubierto!' : 'S/ ' + fmt(remaining, 2);
+        heroRem.style.color = exceeded ? '#10b981' : 'rgba(255,255,255,.7)';
+    }
 
-    const remEl = document.getElementById('beRemaining');
-    if (remEl) remEl.style.color = exceeded ? '#059669' : '#0a1628';
-
-    const statusEl = document.getElementById('beStatus');
-    if (statusEl) {
+    const heroStatus = document.getElementById('heroBeStatus');
+    if (heroStatus) {
         if (exceeded) {
-            statusEl.innerHTML = '<span class="be-badge be-badge-ok"><i class="bi bi-check-circle-fill me-1"></i>Punto de equilibrio alcanzado</span>';
+            heroStatus.innerHTML = '<span style="font-size:.65rem;font-weight:700;color:#10b981;"><i class="bi bi-check-circle-fill me-1"></i>¡Equilibrio alcanzado!</span>';
         } else if (pct >= 75) {
-            statusEl.innerHTML = '<span class="be-badge be-badge-warn"><i class="bi bi-lightning-fill me-1"></i>Casi listo — ' + (100-pct).toFixed(0) + '% restante</span>';
+            heroStatus.innerHTML = '<span style="font-size:.65rem;font-weight:700;color:#f59e0b;"><i class="bi bi-lightning-fill me-1"></i>Casi — ' + (100-pct).toFixed(0) + '% restante</span>';
         } else {
-            statusEl.innerHTML = '';
+            heroStatus.innerHTML = '';
         }
     }
 }
@@ -1047,11 +1040,7 @@ function editBreakeven() {
         if (res.isConfirmed && res.value) {
             beTarget = parseFloat(res.value);
             localStorage.setItem(BE_KEY, beTarget);
-            // Re-render con el profit actual
-            const profitText = document.getElementById('beProfit')?.textContent || '0';
-            const currentProfit = parseFloat(profitText.replace(/[^0-9.]/g, '')) || 0;
-            // Refresh desde la última respuesta del dashboard
-            updateBreakeven(window._lastProfitMonth || currentProfit);
+            updateBreakeven(window._lastProfitMonth || 0);
             showNotification('Costos fijos actualizados: S/ ' + fmt(beTarget, 2), 'success');
         }
     });
