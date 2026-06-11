@@ -518,40 +518,21 @@
 }
 
 /* ═══════════════════════════════════════════
-   HERO — BREAKEVEN PANEL (inside cmd-hero)
+   HERO — BREAKEVEN BAR (inside cmd-hero)
 ═══════════════════════════════════════════ */
-.hero-be-panel {
-  background: rgba(255,255,255,.055);
-  border: 1px solid rgba(255,255,255,.11);
-  border-radius: 14px;
-  padding: 1.1rem 1.25rem 1rem;
-  position: relative;
-  overflow: hidden;
-  backdrop-filter: blur(6px);
-  transition: border-color .3s;
-}
-
-.hero-be-panel:hover {
-  border-color: rgba(255,255,255,.18);
-}
-
-.hero-be-accent {
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 2px;
-  background: linear-gradient(90deg, #ef4444 0%, #f97316 60%, transparent 100%);
-  transition: background .5s var(--ease);
-  border-radius: 14px 14px 0 0;
-}
-
 .hero-be-edit-btn {
-  padding: .22rem .6rem !important;
-  font-size: .62rem !important;
-  gap: .25rem !important;
-  opacity: .6;
-  transition: opacity .2s, background .2s;
+  background: none;
+  border: none;
+  padding: 0;
+  margin-left: .35rem;
+  color: rgba(255,255,255,.3);
+  cursor: pointer;
+  font-size: .7rem;
+  line-height: 1;
+  vertical-align: middle;
+  transition: color .2s;
 }
-.hero-be-edit-btn:hover { opacity: 1; }
+.hero-be-edit-btn:hover { color: rgba(255,255,255,.8); }
 
 /* ── Progress bar ── */
 .hero-be-bar-wrap { margin-bottom: .2rem; }
