@@ -772,6 +772,45 @@ def api_cierre_confirmar():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+# ── API: Cierre — Reabrir (solo Master) ──────────────────────────────────────
+
+@treasury_bp.route('/api/cierre/reabrir', methods=['POST'])
+@login_required
+def api_cierre_reabrir():
+    """Revierte un cierre validado a borrador (solo rol Master)."""
+    if current_user.role != 'Master':
+        return jsonify({'success': False, 'error': 'Solo el rol Master puede reabrir un cierre'}), 403
+    try:
+        data      = request.get_json() or {}
+        fecha_str = data.get('fecha', date.today().isoformat())
+        fecha     = date.fromisoformat(fecha_str)
+
+        closure = DailyClosure.query.filter_by(closure_date=fecha).first()
+        if not closure:
+            return jsonify({'success': False, 'error': 'Cierre no encontrado'}), 404
+        if not closure.is_validated:
+            return jsonify({'success': False, 'error': 'El cierre ya está en borrador'}), 400
+
+        closure.status       = DailyClosure.STATUS_BORRADOR
+        closure.validated_by = None
+        closure.validated_at = None
+
+        BankMovement.query.filter_by(closure_date=fecha).update({'is_validated': False})
+
+        db.session.commit()
+        _log.info(f'[Treasury] Cierre {fecha} reabierto por user {current_user.id}')
+
+        return jsonify({
+            'success': True,
+            'message': f'Cierre del {fecha.strftime("%d/%m/%Y")} reabierto. Puedes volver a validarlo.',
+            'cierre':  closure.to_dict(),
+        })
+    except Exception as e:
+        db.session.rollback()
+        _log.exception('[Treasury] Error en api_cierre_reabrir')
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 # ── API: Cierre — Obtener por fecha ──────────────────────────────────────────
 
 @treasury_bp.route('/api/cierre/<fecha_str>')

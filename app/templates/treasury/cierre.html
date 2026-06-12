@@ -162,6 +162,12 @@
           <div style="font-size:2.5rem;color:#16a34a;"><i class="bi bi-patch-check-fill"></i></div>
           <h5 style="font-weight:800;color:#0D1B2A;margin:8px 0 4px;">Cierre Validado</h5>
           <p style="font-size:.83rem;color:#64748b;" id="confirmedMsg">El cierre del día ha sido confirmado.</p>
+          {% if current_user.role == 'Master' %}
+          <button class="btn btn-sm btn-outline-danger mt-2" onclick="reabrirCierre()"
+                  style="font-size:.75rem;">
+            <i class="bi bi-lock-fill me-1"></i>Reabrir día
+          </button>
+          {% endif %}
         </div>
       </div>
 
@@ -490,6 +496,33 @@ async function loadHistorial() {
         </tr>`;
     });
     document.getElementById('historialBody').innerHTML = html || '<tr><td colspan="7" class="text-muted text-center">Sin cierres registrados</td></tr>';
+}
+
+async function reabrirCierre() {
+    const fecha = document.getElementById('fechaCierre').value;
+    const confirm = await Swal.fire({
+        title: '¿Reabrir cierre?',
+        html: `El cierre del <strong>${fecha}</strong> volverá a estado borrador.<br>
+               Podrás volver a validarlo cuando sea correcto.`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, reabrir',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#dc2626',
+    });
+    if (!confirm.isConfirmed) return;
+
+    const res  = await fetch('/treasury/api/cierre/reabrir', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json','X-CSRFToken':getCsrf()},
+        body: JSON.stringify({fecha})
+    });
+    const data = await res.json();
+    if (!data.success) { Swal.fire('Error', data.error, 'error'); return; }
+
+    currentCierre = data.cierre;
+    Swal.fire({icon:'success', title:'Cierre reabierto', text: data.message, timer:2000, showConfirmButton:false});
+    applyCierreState(currentCierre);
 }
 
 function getCsrf() {
