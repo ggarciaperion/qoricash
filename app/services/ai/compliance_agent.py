@@ -143,14 +143,19 @@ def analyze_batch_alerts() -> dict:
         # Clientes con operaciones en los últimos 30 días
         cutoff = now_peru() - timedelta(days=30)
         active = db.session.query(
-            Client.id, Client.full_name, Client.razon_social,
+            Client.id,
+            Client.nombres,
+            Client.apellido_paterno,
+            Client.razon_social,
             func.count(Operation.id).label('ops'),
             func.sum(Operation.amount_usd).label('vol'),
             func.max(Operation.amount_usd).label('max_op'),
         ).join(Operation, Operation.client_id == Client.id).filter(
             Operation.status == 'Completada',
             Operation.completed_at >= cutoff,
-        ).group_by(Client.id, Client.full_name, Client.razon_social).all()
+        ).group_by(
+            Client.id, Client.nombres, Client.apellido_paterno, Client.razon_social
+        ).all()
 
         # Detectar outliers (vol o max_op muy por encima del promedio)
         if not active:
@@ -160,10 +165,16 @@ def analyze_batch_alerts() -> dict:
         avg_vol = sum(vols) / len(vols)
         threshold = avg_vol * 3  # 3x el promedio = outlier
 
+        def _nombre(r):
+            if r.razon_social:
+                return r.razon_social
+            parts = [r.nombres, r.apellido_paterno]
+            return ' '.join(p for p in parts if p) or '—'
+
         outliers = [
             {
                 'client_id':    r.id,
-                'nombre':       r.full_name or r.razon_social,
+                'nombre':       _nombre(r),
                 'ops_30d':      int(r.ops),
                 'vol_usd_30d':  round(float(r.vol or 0), 2),
                 'max_op_usd':   round(float(r.max_op or 0), 2),

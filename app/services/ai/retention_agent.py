@@ -29,7 +29,8 @@ def _get_client_activity() -> list:
 
     stats = db.session.query(
         Client.id,
-        Client.full_name,
+        Client.nombres,
+        Client.apellido_paterno,
         Client.razon_social,
         Client.email,
         Client.status,
@@ -43,8 +44,14 @@ def _get_client_activity() -> list:
     ).filter(
         Client.status == 'Activo',
     ).group_by(
-        Client.id, Client.full_name, Client.razon_social, Client.email, Client.status
+        Client.id, Client.nombres, Client.apellido_paterno, Client.razon_social, Client.email, Client.status
     ).all()
+
+    def _nombre(r):
+        if r.razon_social:
+            return r.razon_social
+        parts = [r.nombres, r.apellido_paterno]
+        return ' '.join(p for p in parts if p) or '—'
 
     result = []
     for r in stats:
@@ -68,7 +75,7 @@ def _get_client_activity() -> list:
 
         result.append({
             'id':             r.id,
-            'nombre':         r.full_name or r.razon_social or '—',
+            'nombre':         _nombre(r),
             'email':          r.email or '—',
             'segmento':       segmento,
             'dias_inactivo':  dias_inactivo if dias_inactivo < 9999 else None,
