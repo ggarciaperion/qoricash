@@ -113,7 +113,26 @@ PRECIOS ACTUALES:
         from datetime import datetime, timezone, timedelta
         hora_lima = datetime.now(timezone(timedelta(hours=-5))).strftime('%H:%M')
 
-        prompt = f"""Eres el analista senior de FX de QoriCash, casa de cambio digital en Lima Perú.
+        # Prompt completo para análisis base; compacto para intradía (velocidad)
+        if mode == 'intraday':
+            prompt = f"""Trader FX senior de QoriCash Lima. Actualización intradía {hora_lima}.
+Tendencia: {trend.upper()} | Confianza: {confidence}% | Score: {net_score:+d} | Bull:{bull_count} Bear:{bear_count}
+{mkt}
+Noticias recientes:
+{news_txt if news_txt else '  (sin noticias nuevas)'}
+
+Responde SOLO JSON:
+{{
+  "title": "<titular breve con hora y sesgo, máx 80 chars>",
+  "summary": "<actualización en 2-3 párrafos: qué cambió, por qué, qué esperar en próximas 2h>",
+  "alertas": ["<alerta 1 si aplica>", "<alerta 2 si aplica>"],
+  "niveles_clave": {{"soporte_usdpen": "<S/>", "resistencia_usdpen": "<S/>", "nivel_critico": "<S/>"}},
+  "recomendacion_trader": "<instrucción operativa concreta para próximas 2h>",
+  "sesion": "<contexto de sesión actual>",
+  "riesgo_principal": "<riesgo principal>"
+}}"""
+        else:
+            prompt = f"""Eres el analista senior de FX de QoriCash, casa de cambio digital en Lima Perú.
 Hora Lima actual: {hora_lima} | Modo: {mode_label}
 
 SCORING ENGINE (reglas cuantitativas):
@@ -139,24 +158,27 @@ Si hay evento de alto impacto hoy, explica exactamente cómo puede mover el USD/
 Responde SOLO JSON:
 {{
   "title": "<titular ejecutivo con sesgo y nivel spot, máx 100 chars>",
-  "summary": "<análisis completo en 4-5 párrafos. Párrafo 1: diagnóstico y sesgo. Párrafo 2: drivers principales con números específicos. Párrafo 3: correlaciones cross-asset relevantes. Párrafo 4: niveles y zonas de interés en USD/PEN. Párrafo 5: implicaciones operativas para QoriCash (en qué momento ajustar TC, qué esperar de los clientes)>",
+  "summary": "<análisis completo en 4-5 párrafos. Párrafo 1: diagnóstico y sesgo. Párrafo 2: drivers principales con números específicos. Párrafo 3: correlaciones cross-asset relevantes. Párrafo 4: niveles y zonas de interés en USD/PEN. Párrafo 5: implicaciones operativas para QoriCash>",
   "alertas": [
-    "<alerta accionable específica — ej: 'DXY rompió 104.5 — vigilar presión alcista en sol', 'VIX >30 activa modo risk-off — clientes buscarán cobertura en USD'>",
+    "<alerta accionable específica>",
     "<alerta 2>",
     "<alerta 3 si aplica>"
   ],
   "niveles_clave": {{
-    "soporte_usdpen": "<nivel en S/ — ej: 3.7250>",
-    "resistencia_usdpen": "<nivel en S/ — ej: 3.7800>",
-    "zona_neutral": "<rango lateral — ej: 3.74–3.76>",
-    "nivel_critico": "<nivel que si rompe cambia el sesgo completamente>"
+    "soporte_usdpen": "<nivel S/>",
+    "resistencia_usdpen": "<nivel S/>",
+    "zona_neutral": "<rango lateral>",
+    "nivel_critico": "<nivel que cambia el sesgo>"
   }},
-  "recomendacion_trader": "<instrucción operativa concreta para las próximas 4h: cuándo ajustar TC, hacia dónde, qué señal esperar>",
-  "sesion": "<contexto de sesión: London close / NY session / Lima apertura / cierre local — y qué implica para la liquidez>",
-  "riesgo_principal": "<el principal riesgo o catalizador que podría invalidar el análisis>"
+  "recomendacion_trader": "<instrucción operativa concreta para las próximas 4h>",
+  "sesion": "<contexto de sesión y liquidez>",
+  "riesgo_principal": "<principal riesgo que invalida el análisis>"
 }}"""
 
-        result = ask_json(prompt, model=SONNET, max_tokens=2000)
+        # Intraday usa Haiku (rápido, <5s) — base usa Sonnet (profundo, scheduler)
+        model     = HAIKU if mode == 'intraday' else SONNET
+        max_tok   = 1000  if mode == 'intraday' else 1800
+        result = ask_json(prompt, model=model, max_tokens=max_tok)
         return {'ok': True, **result}
 
     except Exception as e:
