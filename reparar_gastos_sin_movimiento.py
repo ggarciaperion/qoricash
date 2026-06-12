@@ -1,21 +1,28 @@
 """
 Repara gastos (ExpenseRecord) que no tienen BankMovement.
 
-Cubre dos casos:
+Cubre tres casos:
   CASO A — bank_account_code presente en el ExpenseRecord
             (nuevo_gasto registrado antes del fix fcfa49b8).
   CASO B — bank_account_code NULL pero el JournalEntry tiene línea HABER en
-            cuenta 104x (pago_cuota registrado antes del fix fcfa49b8, donde
-            la ruta no llamaba a _apply_expense_to_bank_balance).
+            cuenta 104x (pago_cuota registrado antes del fix fcfa49b8).
+  CASO C — categoría bancaria (6411 ITF, 6791) sin bank_account_code ni 104x en
+            el asiento (registrado con banco vacío por error en el formulario).
+            Requiere --banco-itf=XXXX para indicar la cuenta (ej. 1041 = BCP PEN).
 
 Uso:
-  python3 reparar_gastos_sin_movimiento.py           -> DRY RUN
-  python3 reparar_gastos_sin_movimiento.py --apply   -> aplica
+  python3 reparar_gastos_sin_movimiento.py                        -> DRY RUN
+  python3 reparar_gastos_sin_movimiento.py --apply                -> aplica A+B
+  python3 reparar_gastos_sin_movimiento.py --banco-itf=1041       -> DRY RUN + lista caso C
+  python3 reparar_gastos_sin_movimiento.py --apply --banco-itf=1041 -> aplica A+B+C
 """
 import os
 import sys
 
 DRY_RUN = '--apply' not in sys.argv
+
+# Cuenta bancaria para caso C (6411/6791 sin banco): ej. --banco-itf=1041
+_banco_itf_arg = next((a.split('=',1)[1] for a in sys.argv if a.startswith('--banco-itf=')), None)
 os.environ.setdefault('FLASK_ENV', 'production')
 
 from app import create_app
@@ -73,6 +80,7 @@ with app.app_context():
 
     # Caso B: bank_account_code NULL → buscar línea HABER en 104x del JournalEntry
     caso_b = []
+    caso_b_ids = set()
     for g in todos_gastos:
         if g.id in existing_ids:
             continue
@@ -93,6 +101,22 @@ with app.app_context():
         """), {'je_id': g.journal_entry_id, 'codes': list(_BANK_ACCOUNTS)}).fetchone()
         if row:
             caso_b.append((g, row[0]))  # (ExpenseRecord, account_code)
+            caso_b_ids.add(g.id)
+
+    # Caso C: categoría bancaria (6411 ITF / 6791) sin bank_account_code ni 104x
+    #         Registrado con banco vacío desde el formulario. Requiere --banco-itf=XXXX.
+    _BANK_CATS = {'6411', '6791'}
+    caso_c = []
+    for g in todos_gastos:
+        if g.id in existing_ids:
+            continue
+        if g.bank_account_code:
+            continue
+        if g.id in caso_b_ids:
+            continue
+        if g.category not in _BANK_CATS:
+            continue
+        caso_c.append(g)
 
     pendientes = caso_a + caso_b
 
@@ -104,6 +128,20 @@ with app.app_context():
         tag = 'A' if g.bank_account_code else 'B'
         print(f"  [{tag}] ID={g.id}  {g.expense_date}  {g.description}  "
               f"S/{g.amount_pen}  cuenta={acct}")
+
+    # Caso C: listar siempre, procesar solo si --banco-itf fue provisto
+    if caso_c:
+        print(f"\n{'[DRY RUN] ' if DRY_RUN else ''}Caso C — gastos ITF/bancarios sin banco asignado: {len(caso_c)}")
+        for g in caso_c:
+            print(f"  [C] ID={g.id}  {g.expense_date}  {g.description}  S/{g.amount_pen}  cat={g.category}")
+        if _banco_itf_arg:
+            print(f"  → Se usará cuenta={_banco_itf_arg} para reparar estos gastos")
+        else:
+            print("  → Para reparar estos, agrega: --banco-itf=XXXX (ej. --banco-itf=1041 para BCP PEN)")
+
+    if _banco_itf_arg and _banco_itf_arg in _BANK_ACCOUNTS:
+        for g in caso_c:
+            pendientes.append((g, _banco_itf_arg))
 
     if DRY_RUN:
         print("\nModo DRY RUN — usa --apply para crear los movimientos.")
@@ -138,26 +176,28 @@ with app.app_context():
             bank_name_mv = bb.bank_name if bb else f'{bank_key} {currency}'
             mv_date = g.expense_date if g.expense_date else now_peru()
 
-            # Actualizar BankBalance si existe (solo para caso B — en caso A ya fue debitado
-            # por la versión antigua del código si bb existía).
-            # Para estar seguros, solo actualizamos BankBalance en caso B (bank_account_code NULL).
+            # Actualizar BankBalance según caso:
+            #   Caso A (bank_account_code presente): saldo ya fue debitado por código antiguo
+            #           si bb existía. No volvemos a debitar — solo leemos bal_after.
+            #   Caso B (pago_cuota pre-fix):         saldo NUNCA fue debitado. Debitar ahora.
+            #   Caso C (6411/6791 sin banco):        asiento fue contra 4699, BankBalance
+            #           NUNCA fue tocado. Debitar ahora.
+            is_caso_b = (g.bank_account_code is None and g.id in caso_b_ids)
+            is_caso_c = (g.bank_account_code is None and g.id not in caso_b_ids)
             bal_after = None
-            if bb is not None and g.bank_account_code is None:
-                # Caso B: el saldo NUNCA fue debitado (pago_cuota pre-fix)
-                if currency == 'PEN':
-                    bb.balance_pen = round(max(float(bb.balance_pen) - amount_cur, 0.0), 2)
-                    bal_after = float(bb.balance_pen)
+            if bb is not None:
+                if is_caso_b or is_caso_c:
+                    # BankBalance nunca fue debitado → debitar ahora
+                    if currency == 'PEN':
+                        bb.balance_pen = round(max(float(bb.balance_pen) - amount_cur, 0.0), 2)
+                        bal_after = float(bb.balance_pen)
+                    else:
+                        bb.balance_usd = round(max(float(bb.balance_usd) - amount_cur, 0.0), 2)
+                        bal_after = float(bb.balance_usd)
+                    bb.updated_at = now_peru()
                 else:
-                    bb.balance_usd = round(max(float(bb.balance_usd) - amount_cur, 0.0), 2)
-                    bal_after = float(bb.balance_usd)
-                bb.updated_at = now_peru()
-            elif bb is not None and g.bank_account_code is not None:
-                # Caso A: el saldo YA fue debitado por la versión antigua (si bb existía),
-                # solo calculamos balance_after para el movimiento — sin volver a debitar.
-                if currency == 'PEN':
-                    bal_after = float(bb.balance_pen)
-                else:
-                    bal_after = float(bb.balance_usd)
+                    # Caso A: ya debitado, solo leer saldo actual
+                    bal_after = float(bb.balance_pen if currency == 'PEN' else bb.balance_usd)
 
             mv = BankMovement(
                 movement_date  = mv_date,
@@ -176,7 +216,12 @@ with app.app_context():
             )
             db.session.add(mv)
             db.session.commit()
-            tag = 'A' if g.bank_account_code else 'B'
+            if g.bank_account_code:
+                tag = 'A'
+            elif g.id in caso_b_ids:
+                tag = 'B'
+            else:
+                tag = 'C'
             print(f"  + [{tag}] ID={g.id}: BankMovement creado ({bank_key} {currency} -{amount_cur})")
             ok += 1
 

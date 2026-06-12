@@ -172,7 +172,7 @@
         </div>
         <div class="mb-3">
           <label class="form-label">Categoría PCGE <span class="text-danger">*</span></label>
-          <select id="gCategory" class="form-select" onchange="onBankAccountChange()">
+          <select id="gCategory" class="form-select" onchange="onCategoryChange()">
             <optgroup label="Remuneraciones">
               <option value="6211">6211 — Sueldos y salarios</option>
             </optgroup>
@@ -246,9 +246,10 @@
         </div>
         <!-- Banco que cargó el gasto (ITF, comisión, mantenimiento) -->
         <div id="bancoCargoDivWrapper" class="mb-3">
-          <label class="form-label fw-semibold">
+          <label class="form-label fw-semibold" id="bancoCargo__label">
             <i class="bi bi-bank me-1 text-primary"></i>Banco que cargó este gasto
-            <span class="text-muted fw-normal small ms-1">(deja vacío si vas a pagar por separado)</span>
+            <span id="bancoCargo__req" class="text-danger d-none"> *</span>
+            <span id="bancoCargo__opt" class="text-muted fw-normal small ms-1">(deja vacío si vas a pagar por separado)</span>
           </label>
           <select id="gBankAccountCode" class="form-select" onchange="onBankAccountChange()">
             <option value="">— No aplica / Pagar por separado —</option>
@@ -402,13 +403,36 @@ const _BANK_LABELS = {
 
 const _USD_ACCOUNTS = new Set(['1044', '1047', '1050']);
 
+// Categorías que SIEMPRE deben vincularse a una cuenta bancaria
+const _BANK_REQUIRED_CATS = new Set(['6411', '6791']);
+
 function nuevoGastoModal() {
   document.getElementById('gastoError').classList.add('d-none');
   document.getElementById('gBankAccountCode').value = '';
   document.getElementById('bancoCargoBadge').classList.add('d-none');
   document.getElementById('amountUsdDiv').classList.add('d-none');
   document.getElementById('gAmountUsd').value = '';
+  _updateBankRequiredUI();
   new bootstrap.Modal(document.getElementById('gastoModal')).show();
+}
+
+function onCategoryChange() {
+  _updateBankRequiredUI();
+  onBankAccountChange();
+}
+
+function _updateBankRequiredUI() {
+  const cat = document.getElementById('gCategory').value;
+  const required = _BANK_REQUIRED_CATS.has(cat);
+  document.getElementById('bancoCargo__req').classList.toggle('d-none', !required);
+  document.getElementById('bancoCargo__opt').classList.toggle('d-none', required);
+  const sel = document.getElementById('gBankAccountCode');
+  // Highlight the select in warning if required and empty
+  if (required && !sel.value) {
+    sel.classList.add('border-warning');
+  } else {
+    sel.classList.remove('border-warning');
+  }
 }
 
 function onBankAccountChange() {
@@ -429,6 +453,7 @@ function onBankAccountChange() {
     usdDiv.classList.add('d-none');
     document.getElementById('gAmountUsd').value = '';
   }
+  _updateBankRequiredUI();
 }
 
 function onExpenseTypeChange() {
@@ -473,6 +498,12 @@ function guardarGasto() {
   if (!payload.description || !payload.amount_pen || parseFloat(payload.amount_pen) <= 0) {
     errDiv.textContent = 'Completa los campos obligatorios (descripción y monto S/).';
     errDiv.classList.remove('d-none');
+    return;
+  }
+  if (_BANK_REQUIRED_CATS.has(payload.category) && !bankCode) {
+    errDiv.textContent = 'Los gastos bancarios (ITF, comisiones) requieren seleccionar el banco que realizó el cargo.';
+    errDiv.classList.remove('d-none');
+    document.getElementById('gBankAccountCode').focus();
     return;
   }
   if (bankCode && _USD_ACCOUNTS.has(bankCode) && !(payload.amount_usd > 0)) {
