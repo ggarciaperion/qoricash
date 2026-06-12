@@ -565,17 +565,16 @@
   animation: rankingFadeIn .22s ease;
 }
 
-/* Grid: items en 2 columnas en pantallas anchas */
-.ranking-list {
-  display: grid !important;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-}
-
-.ranking-list .list-group-item {
-  border-top: none !important;
-  border-left: none !important;
-  border-right: none !important;
-  border-radius: 0 !important;
+/* Items en 2 columnas en pantallas anchas via CSS columns */
+@media (min-width: 768px) {
+  .ranking-list {
+    columns: 2;
+    column-gap: 0;
+  }
+  .ranking-list .list-group-item {
+    break-inside: avoid;
+    display: block;
+  }
 }
 
 /* ═══════════════════════════════════════════

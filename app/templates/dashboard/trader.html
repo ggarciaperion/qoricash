@@ -3,7 +3,7 @@
 {% block title %}Dashboard Trader - QoriCash Trading{% endblock %}
 
 {% block head %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}?v=4">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}?v=7">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 {% endblock %}
 
@@ -476,7 +476,7 @@
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
-<script src="{{ url_for('static', filename='js/dashboard_analysis.js') }}"></script>
+<script src="{{ url_for('static', filename='js/dashboard_analysis.js') }}?v=3"></script>
 <script>
 // ID del trader actual
 const CURRENT_TRADER_ID = {{ user.id }};
