@@ -671,6 +671,34 @@ def api_import_prospectos():
             'valores': [{'valor': v, 'cantidad': c} for v, c in valores],
         })
 
+    if action == 'update_email_prospecto':
+        # Actualiza el email de un prospecto y agrega nota de cambio
+        from app.models.prospecto import ActividadProspecto
+        from app.models.user import User
+        email_viejo = (data.get('email_viejo') or '').strip().lower()
+        email_nuevo = (data.get('email_nuevo') or '').strip().lower()
+        if not email_viejo or not email_nuevo:
+            return jsonify({'ok': False, 'error': 'email_viejo y email_nuevo requeridos'}), 400
+        p = Prospecto.query.filter(db.func.lower(Prospecto.email) == email_viejo).first()
+        if not p:
+            return jsonify({'ok': False, 'error': f'Prospecto no encontrado: {email_viejo}'}), 404
+        sistema_user = User.query.order_by(User.id.asc()).first()
+        sistema_uid  = sistema_user.id if sistema_user else None
+        p.email = email_nuevo
+        if sistema_uid:
+            act = ActividadProspecto(
+                prospecto_id=p.id,
+                user_id=sistema_uid,
+                tipo='sistema',
+                canal='email',
+                bandeja='ggarcia@qoricash.pe',
+                descripcion=f'Email actualizado automáticamente: {email_viejo} → {email_nuevo} (notificación de cambio de dirección recibida)',
+                resultado='Email actualizado',
+            )
+            db.session.add(act)
+        db.session.commit()
+        return jsonify({'ok': True, 'razon_social': p.razon_social, 'email_nuevo': email_nuevo})
+
     if action == 'marcar_bounces':
         # Marca emails rebotados en prospectos y agrega nota en ActividadProspecto
         from app.models.prospecto import ActividadProspecto
