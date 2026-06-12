@@ -671,6 +671,69 @@ def api_import_prospectos():
             'valores': [{'valor': v, 'cantidad': c} for v, c in valores],
         })
 
+    if action == 'prospeccion_emails':
+        # Prospectos NO-LFC con email válido, para campaña de precios
+        rows = Prospecto.query.filter(
+            db.or_(Prospecto.cliente_lfc.is_(None), Prospecto.cliente_lfc == ''),
+            Prospecto.email.isnot(None), Prospecto.email != '',
+            db.or_(
+                Prospecto.estado_comercial.is_(None),
+                ~Prospecto.estado_comercial.in_(['no_contactar', 'no contactar']),
+            ),
+            db.or_(
+                Prospecto.estado_email.is_(None),
+                ~Prospecto.estado_email.in_(['rebote', 'bounce', 'no_contactar', 'no contactar', 'rechazado']),
+            ),
+        ).with_entities(
+            Prospecto.id, Prospecto.razon_social, Prospecto.email,
+            Prospecto.estado_comercial, Prospecto.estado_email,
+            Prospecto.fecha_ultimo_contacto
+        ).all()
+        return jsonify({
+            'ok': True,
+            'total': len(rows),
+            'emails': [{
+                'id':                    r.id,
+                'razon_social':          r.razon_social or '',
+                'email':                 r.email,
+                'estado':                r.estado_comercial or '',
+                'estado_email':          r.estado_email or '',
+                'fecha_ultimo_contacto': r.fecha_ultimo_contacto or '',
+            } for r in rows],
+        })
+
+    if action == 'update_prospeccion_batch':
+        from app.models.prospecto import ActividadProspecto
+        from app.models.user import User
+        ids     = data.get('ids', [])
+        bandeja = data.get('bandeja', 'ggarcia@qoricash.pe')
+        ts      = now_peru()
+        ts_str  = ts.strftime("%Y-%m-%d %H:%M")
+        sistema_user = User.query.order_by(User.id.asc()).first()
+        sistema_uid  = sistema_user.id if sistema_user else None
+        updated = 0
+        for pid in ids:
+            p = db.session.get(Prospecto, pid)
+            if not p:
+                continue
+            p.fecha_ultimo_contacto  = ts_str
+            p.fecha_proximo_contacto = (ts + timedelta(days=3)).strftime("%Y-%m-%d %H:%M")
+            if not p.fecha_primer_contacto:
+                p.fecha_primer_contacto = ts_str
+            p.num_contactos = (p.num_contactos or 0) + 1
+            if sistema_uid:
+                act = ActividadProspecto(
+                    prospecto_id=p.id, user_id=sistema_uid,
+                    tipo='email', canal='email',
+                    bandeja=bandeja,
+                    descripcion='Correo de precios enviado (campaña automática)',
+                    resultado='Enviado',
+                )
+                db.session.add(act)
+            updated += 1
+        db.session.commit()
+        return jsonify({'ok': True, 'updated': updated})
+
     if action == 'list_identifiers':
         # Devuelve RUC + razon_social de todos los prospectos
         from app.models.client import Client
