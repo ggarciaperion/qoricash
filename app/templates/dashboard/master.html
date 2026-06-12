@@ -257,87 +257,113 @@
         <div class="sec-label-line"></div>
     </div>
 
-    <div class="row g-3 mb-4">
-        <div class="col-md-4">
-            <div class="analytics-card">
-                <div class="card-head">
-                    <span class="card-head-title"><i class="bi bi-trophy-fill" style="color:#f59e0b;"></i> Mayor Volumen USD</span>
-                    <span class="badge bg-secondary" style="font-size:.65rem;" id="topClientsCount">-</span>
-                </div>
-                <div class="card-body">
-                    <div id="topClientsList" class="list-group list-group-flush">
-                        <div class="px-3 py-2"><div class="skeleton skeleton-line mb-2" style="width:72%"></div><div class="skeleton skeleton-line sm" style="width:48%"></div></div>
-                        <div class="px-3 py-2"><div class="skeleton skeleton-line mb-2" style="width:60%"></div><div class="skeleton skeleton-line sm" style="width:40%"></div></div>
-                        <div class="px-3 py-2"><div class="skeleton skeleton-line mb-2" style="width:68%"></div><div class="skeleton skeleton-line sm" style="width:45%"></div></div>
-                    </div>
-                </div>
+    <!-- ════════════════════════════
+         RANKING DE CLIENTES (card unificada)
+    ════════════════════════════ -->
+    <div class="analytics-card ranking-master-card mb-4">
+        <div class="ranking-card-head">
+            <span class="card-head-title">
+                <i class="bi bi-bar-chart-steps me-1" style="color:#4f46e5;"></i> Ranking de Clientes
+            </span>
+            <div class="ranking-tabs">
+                <button class="ranking-tab-btn active" data-tab="volume" onclick="switchRankingTab('volume')">
+                    <i class="bi bi-trophy-fill" style="color:#f59e0b;"></i>
+                    <span class="ranking-tab-label">Mayor Volumen</span>
+                    <span class="badge bg-secondary ms-1" style="font-size:.6rem;" id="topClientsCount">-</span>
+                </button>
+                <button class="ranking-tab-btn" data-tab="profit" onclick="switchRankingTab('profit')">
+                    <i class="bi bi-graph-up" style="color:#10b981;"></i>
+                    <span class="ranking-tab-label">Mayor Utilidad</span>
+                    <span class="badge bg-success ms-1" style="font-size:.6rem;" id="topProfitCount">-</span>
+                </button>
+                <button class="ranking-tab-btn" data-tab="ops" onclick="switchRankingTab('ops')">
+                    <i class="bi bi-lightning-charge-fill" style="color:#4f46e5;"></i>
+                    <span class="ranking-tab-label">Más Operaciones</span>
+                    <span class="badge bg-primary ms-1" style="font-size:.6rem;" id="topOpsCount">-</span>
+                </button>
             </div>
         </div>
-        <div class="col-md-4">
-            <div class="analytics-card">
-                <div class="card-head">
-                    <span class="card-head-title"><i class="bi bi-graph-up" style="color:#10b981;"></i> Mayor Utilidad</span>
-                    <span class="badge bg-success" style="font-size:.65rem;" id="topProfitCount">-</span>
-                </div>
-                <div class="card-body">
-                    <div id="topProfitList" class="list-group list-group-flush">
-                        <div class="px-3 py-2"><div class="skeleton skeleton-line mb-2" style="width:66%"></div><div class="skeleton skeleton-line sm" style="width:50%"></div></div>
-                        <div class="px-3 py-2"><div class="skeleton skeleton-line mb-2" style="width:78%"></div><div class="skeleton skeleton-line sm" style="width:42%"></div></div>
-                        <div class="px-3 py-2"><div class="skeleton skeleton-line mb-2" style="width:55%"></div><div class="skeleton skeleton-line sm" style="width:38%"></div></div>
-                    </div>
+        <div class="ranking-panels-container">
+            <div class="ranking-panel active" id="rankingPanel-volume">
+                <div id="topClientsList" class="list-group list-group-flush ranking-list">
+                    <div class="px-3 py-2"><div class="skeleton skeleton-line mb-2" style="width:72%"></div><div class="skeleton skeleton-line sm" style="width:48%"></div></div>
+                    <div class="px-3 py-2"><div class="skeleton skeleton-line mb-2" style="width:60%"></div><div class="skeleton skeleton-line sm" style="width:40%"></div></div>
+                    <div class="px-3 py-2"><div class="skeleton skeleton-line mb-2" style="width:68%"></div><div class="skeleton skeleton-line sm" style="width:45%"></div></div>
                 </div>
             </div>
-        </div>
-        <div class="col-md-4">
-            <div class="analytics-card">
-                <div class="card-head">
-                    <span class="card-head-title"><i class="bi bi-lightning-charge-fill" style="color:#4f46e5;"></i> Más Operaciones</span>
-                    <span class="badge bg-primary" style="font-size:.65rem;" id="topOpsCount">-</span>
+            <div class="ranking-panel" id="rankingPanel-profit">
+                <div id="topProfitList" class="list-group list-group-flush ranking-list">
+                    <div class="px-3 py-2"><div class="skeleton skeleton-line mb-2" style="width:66%"></div><div class="skeleton skeleton-line sm" style="width:50%"></div></div>
+                    <div class="px-3 py-2"><div class="skeleton skeleton-line mb-2" style="width:78%"></div><div class="skeleton skeleton-line sm" style="width:42%"></div></div>
+                    <div class="px-3 py-2"><div class="skeleton skeleton-line mb-2" style="width:55%"></div><div class="skeleton skeleton-line sm" style="width:38%"></div></div>
                 </div>
-                <div class="card-body">
-                    <div id="topOpsList" class="list-group list-group-flush">
-                        <div class="px-3 py-2"><div class="skeleton skeleton-line mb-2" style="width:62%"></div><div class="skeleton skeleton-line sm" style="width:44%"></div></div>
-                        <div class="px-3 py-2"><div class="skeleton skeleton-line mb-2" style="width:75%"></div><div class="skeleton skeleton-line sm" style="width:36%"></div></div>
-                        <div class="px-3 py-2"><div class="skeleton skeleton-line mb-2" style="width:58%"></div><div class="skeleton skeleton-line sm" style="width:52%"></div></div>
-                    </div>
+            </div>
+            <div class="ranking-panel" id="rankingPanel-ops">
+                <div id="topOpsList" class="list-group list-group-flush ranking-list">
+                    <div class="px-3 py-2"><div class="skeleton skeleton-line mb-2" style="width:62%"></div><div class="skeleton skeleton-line sm" style="width:44%"></div></div>
+                    <div class="px-3 py-2"><div class="skeleton skeleton-line mb-2" style="width:75%"></div><div class="skeleton skeleton-line sm" style="width:36%"></div></div>
+                    <div class="px-3 py-2"><div class="skeleton skeleton-line mb-2" style="width:58%"></div><div class="skeleton skeleton-line sm" style="width:52%"></div></div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Clientes Inactivos -->
-    <div class="analytics-card mb-4">
-        <div class="card-head">
-            <span class="card-head-title"><i class="bi bi-person-dash" style="color:#ef4444;"></i> Clientes sin Operar</span>
-            <div class="d-flex gap-2">
-                <span class="badge bg-warning text-dark" style="font-size:.65rem;" id="badge30d">30d: -</span>
-                <span class="badge bg-danger" style="font-size:.65rem;" id="badge60d">60d: -</span>
-                <span class="badge bg-dark" style="font-size:.65rem;" id="badge90d">90d+: -</span>
+    <!-- Clientes sin Operar — v2 -->
+    <div class="analytics-card mb-4" id="inactiveCard">
+
+        <!-- Header -->
+        <div class="inactive-header">
+            <div class="inactive-header-left">
+                <div class="inactive-header-icon">
+                    <i class="bi bi-person-slash"></i>
+                </div>
+                <div>
+                    <p class="inactive-header-title">Clientes sin Operar</p>
+                    <p class="inactive-header-sub">Requieren seguimiento activo</p>
+                </div>
+            </div>
+            <div class="inactive-stats-row">
+                <div class="inactive-stat-pill amber">
+                    <span class="stat-num" id="badge30d">—</span>
+                    <span class="stat-label">1 mes</span>
+                </div>
+                <div class="inactive-stat-pill red">
+                    <span class="stat-num" id="badge60d">—</span>
+                    <span class="stat-label">2 meses</span>
+                </div>
+                <div class="inactive-stat-pill gray">
+                    <span class="stat-num" id="badge90d">—</span>
+                    <span class="stat-label">3+ m</span>
+                </div>
             </div>
         </div>
-        <div style="padding: 1rem 1.25rem;">
-            <ul class="nav nav-tabs nav-sm mb-3" id="inactiveTabs">
-                <li class="nav-item">
-                    <button class="nav-link active small py-1" data-tab="30" onclick="showInactiveTab('30')">
-                        1 Mes <span class="badge bg-warning text-dark ms-1" id="tab30Count">0</span>
-                    </button>
-                </li>
-                <li class="nav-item">
-                    <button class="nav-link small py-1" data-tab="60" onclick="showInactiveTab('60')">
-                        2 Meses <span class="badge bg-danger ms-1" id="tab60Count">0</span>
-                    </button>
-                </li>
-                <li class="nav-item">
-                    <button class="nav-link small py-1" data-tab="90" onclick="showInactiveTab('90')">
-                        3+ Meses <span class="badge bg-dark ms-1" id="tab90Count">0</span>
-                    </button>
-                </li>
-            </ul>
-            <div id="inactiveClientsContent">
-                <div class="py-1">
-                    <div class="skeleton skeleton-line mb-2" style="width:58%"></div>
-                    <div class="skeleton skeleton-line mb-2" style="width:43%"></div>
-                    <div class="skeleton skeleton-line" style="width:52%"></div>
+
+        <!-- Tabs -->
+        <div class="inactive-tabs">
+            <button class="inactive-tab-btn amber-active active" data-tab="30" onclick="showInactiveTab('30')">
+                <span class="tab-dot amber"></span>
+                1 Mes
+                <span class="tab-badge amber" id="tab30Count">0</span>
+            </button>
+            <button class="inactive-tab-btn" data-tab="60" onclick="showInactiveTab('60')">
+                <span class="tab-dot red"></span>
+                2 Meses
+                <span class="tab-badge red" id="tab60Count">0</span>
+            </button>
+            <button class="inactive-tab-btn" data-tab="90" onclick="showInactiveTab('90')">
+                <span class="tab-dot dark"></span>
+                3+ Meses
+                <span class="tab-badge dark" id="tab90Count">0</span>
+            </button>
+        </div>
+
+        <!-- Lista -->
+        <div class="inactive-list-wrap">
+            <div class="inactive-list" id="inactiveClientsContent">
+                <div style="padding:.5rem 0">
+                    <div class="skeleton skeleton-line mb-2" style="width:65%"></div>
+                    <div class="skeleton skeleton-line mb-2" style="width:50%"></div>
+                    <div class="skeleton skeleton-line" style="width:58%"></div>
                 </div>
             </div>
         </div>

@@ -9,6 +9,18 @@
  *   - getTraderIdFilter()  (master) o CURRENT_TRADER_ID (trader)
  */
 
+// ============================================
+// RANKING CARD — TAB SWITCHER
+// ============================================
+function switchRankingTab(tab) {
+    document.querySelectorAll('.ranking-tab-btn').forEach(function(b) {
+        b.classList.toggle('active', b.dataset.tab === tab);
+    });
+    document.querySelectorAll('.ranking-panel').forEach(function(p) {
+        p.classList.toggle('active', p.id === 'rankingPanel-' + tab);
+    });
+}
+
 /**
  * Resuelve el trader_id que debe enviarse a los endpoints de análisis.
  * Master: usa getTraderIdFilter() (puede ser '' para "todos").
