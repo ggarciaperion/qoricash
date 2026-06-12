@@ -460,6 +460,7 @@
 const fmt   = (n, dec=2) => new Intl.NumberFormat('es-PE', {minimumFractionDigits:dec, maximumFractionDigits:dec}).format(n);
 const fmtUSD = n => `$ ${fmt(n)}`;
 const fmtPEN = n => `S/ ${fmt(n)}`;
+const USER_ROLE = {{ current_user.role | tojson }};
 
 async function loadDashboard() {
     try {
@@ -671,12 +672,14 @@ function renderClosureStatus(closure) {
         const c = closure.today_closure;
         const statusCls = c.is_validated ? 'ok' : 'pending';
         const statusLabel = c.is_validated ? 'Validado' : 'Borrador';
+        const canReopen = c.is_validated && (USER_ROLE === 'Master' || USER_ROLE === 'Presidente de Negocios');
         el.innerHTML = `<div class="d-flex justify-content-between align-items-center">
           <div>
             <span class="closure-badge ${statusCls}"><i class="bi bi-${c.is_validated ? 'check-circle-fill' : 'clock'}"></i> ${statusLabel}</span>
             <div style="font-size:.72rem;color:#64748b;margin-top:4px;">
               Hoy: ${fmtUSD(c.total_volume_usd)} volumen · ${c.operations_completed} op(s)
             </div>
+            ${canReopen ? `<button class="btn btn-sm btn-outline-danger mt-2" style="font-size:.72rem;" onclick="reabrirCierre('${closure.today_date}')"><i class="bi bi-lock-fill me-1"></i>Reabrir día</button>` : ''}
           </div>
           <div style="text-align:right;">
             <div style="font-size:.78rem;font-weight:700;color:${c.net_profit_pen >= 0 ? '#16a34a' : '#dc2626'}">
@@ -742,6 +745,28 @@ function renderRecentMovements(movements) {
         </div>`;
     });
     el.innerHTML = html;
+}
+
+async function reabrirCierre(fecha) {
+    const confirm = await Swal.fire({
+        title: '¿Reabrir cierre?',
+        html: `El cierre del <strong>${fecha}</strong> volverá a estado borrador.`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, reabrir',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#dc2626',
+    });
+    if (!confirm.isConfirmed) return;
+    const res  = await fetch('/treasury/api/cierre/reabrir', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json','X-CSRFToken':document.querySelector('meta[name="csrf-token"]')?.content||''},
+        body: JSON.stringify({fecha})
+    });
+    const data = await res.json();
+    if (!data.success) { Swal.fire('Error', data.error, 'error'); return; }
+    Swal.fire({icon:'success', title:'Cierre reabierto', text: data.message, timer:2000, showConfirmButton:false});
+    loadDashboard();
 }
 
 // Auto-refresh cada 60s

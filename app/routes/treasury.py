@@ -65,21 +65,13 @@ def _bank_account_name(bank_key: str, currency: str) -> str:
 
 def _get_system_balances() -> dict:
     """
-    Retorna los saldos actuales del sistema por banco y moneda.
-    Estructura: {BCP: {USD: x, PEN: y}, INTERBANK: {...}, BANBIF: {...}}
+    Saldos del sistema por banco y moneda — fuente: BankMovement (suma acumulada).
+    Coincide con la columna 'Teórico' de Control de Apertura y Cierre.
     """
     balances = {b: {c: 0.0 for c in CURRENCIES} for b in BANKS}
-    all_bb = BankBalance.query.all()
-    for bb in all_bb:
-        name = bb.bank_name  # ej. "BCP USD (191...)"
-        for bk in BANKS:
-            if name.startswith(bk):
-                for cur in CURRENCIES:
-                    if cur in name:
-                        if cur == 'USD':
-                            balances[bk]['USD'] += float(bb.balance_usd or 0)
-                        else:
-                            balances[bk]['PEN'] += float(bb.balance_pen or 0)
+    for bk in BANKS:
+        for cur in CURRENCIES:
+            balances[bk][cur] = round(BankMovement.compute_running_balance(bk, cur), 2)
     return balances
 
 
