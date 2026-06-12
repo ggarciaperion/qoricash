@@ -26,11 +26,14 @@ from flask import Blueprint, render_template, jsonify, request, abort
 from flask_login import login_required, current_user
 from sqlalchemy import func, and_
 
+from sqlalchemy import or_
+
 from app.extensions import db
 from app.models import (
     BankBalance, Operation, AccountingMatch, AccountingBatch,
     BankMovement, DailyClosure, JournalEntry, ExpenseRecord,
 )
+from app.models.user import User
 from app.utils.formatters import now_peru
 
 _log = logging.getLogger(__name__)
@@ -452,7 +455,7 @@ def api_movimientos():
             q = q.filter(BankMovement.movement_type == mv_type)
 
         total = q.count()
-        movs  = q.order_by(BankMovement.movement_date.desc()).offset(
+        movs  = q.order_by(BankMovement.movement_date.desc(), BankMovement.id.desc()).offset(
             (page - 1) * per_page
         ).limit(per_page).all()
 
@@ -461,6 +464,56 @@ def api_movimientos():
             func.sum(BankMovement.amount)
         ).scalar()
 
+        # ── Saldo acumulado dinámico ──────────────────────────────────────────
+        # Solo calculable cuando se filtra por banco+moneda específicos,
+        # de lo contrario el saldo no tiene contexto semántico.
+        computed_balances = {}
+        if bank_key and currency and movs:
+            oldest = movs[-1]  # último elemento = más antiguo (orden DESC)
+            # Suma de todos los movimientos ANTERIORES (más nuevos en el tiempo)
+            # a la página actual, para ese banco+moneda
+            sum_before = db.session.query(func.sum(BankMovement.amount)).filter(
+                BankMovement.bank_key == bank_key,
+                BankMovement.currency == currency,
+                or_(
+                    BankMovement.movement_date > oldest.movement_date,
+                    and_(
+                        BankMovement.movement_date == oldest.movement_date,
+                        BankMovement.id > oldest.id,
+                    )
+                )
+            ).scalar() or 0
+
+            running = float(sum_before)
+            for mv in reversed(movs):  # más antiguo → más nuevo
+                running = round(running + float(mv.amount), 2)
+                computed_balances[mv.id] = running
+
+        # ── Trader por operación (batch, 2 queries) ────────────────────────
+        op_ids = [mv.operation_id for mv in movs if mv.operation_id]
+        op_map = {}
+        trader_map = {}
+        if op_ids:
+            ops = Operation.query.filter(Operation.id.in_(op_ids)).all()
+            op_map = {op.id: op for op in ops}
+            user_ids = list({op.assigned_operator_id for op in ops if op.assigned_operator_id})
+            if user_ids:
+                users = User.query.filter(User.id.in_(user_ids)).all()
+                trader_map = {u.id: u.username for u in users}
+
+        def _enrich(mv):
+            d = mv.to_dict()
+            # Saldo acumulado calculado dinámicamente
+            if mv.id in computed_balances:
+                d['balance_after'] = computed_balances[mv.id]
+            # Trader del operador asignado a la operación
+            op = op_map.get(mv.operation_id)
+            d['trader_name'] = (
+                trader_map.get(op.assigned_operator_id)
+                if op and op.assigned_operator_id else None
+            )
+            return d
+
         return jsonify({
             'success':   True,
             'total':     total,
@@ -468,7 +521,7 @@ def api_movimientos():
             'per_page':  per_page,
             'pages':     (total + per_page - 1) // per_page,
             'net_amount': round(float(totales or 0), 2),
-            'movimientos': [m.to_dict() for m in movs],
+            'movimientos': [_enrich(m) for m in movs],
         })
     except Exception as e:
         _log.exception('[Treasury] Error en api_movimientos')

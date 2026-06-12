@@ -106,12 +106,13 @@
               <th>Tipo</th>
               <th>Descripción / Referencia</th>
               <th class="text-end">Importe</th>
-              <th class="text-end">Saldo Post-Mov.</th>
+              <th class="text-end">Saldo Acumulado</th>
+              <th>Trader</th>
               <th></th>
             </tr>
           </thead>
           <tbody id="mvTableBody">
-            <tr><td colspan="8" class="text-center py-4 text-muted">Cargando…</td></tr>
+            <tr><td colspan="9" class="text-center py-4 text-muted">Cargando…</td></tr>
           </tbody>
         </table>
       </div>
@@ -235,7 +236,7 @@ async function loadMovimientos(page=1) {
       <span>Página ${data.page}/${data.pages}</span>`;
 
     if (!data.movimientos.length) {
-        document.getElementById('mvTableBody').innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">Sin movimientos para los filtros seleccionados</td></tr>';
+        document.getElementById('mvTableBody').innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4">Sin movimientos para los filtros seleccionados</td></tr>';
         document.getElementById('mvPagInfo').textContent  = '';
         document.getElementById('mvPagButtons').innerHTML = '';
         return;
@@ -247,7 +248,9 @@ async function loadMovimientos(page=1) {
         const cls     = entrada ? 'op_entrada' : 'op_salida';
         const amtStr  = (entrada ? '+' : '') + (m.currency === 'USD' ? fmtUSD(m.amount) : fmtPEN(m.amount));
         const amtColor = entrada ? '#16a34a' : '#dc2626';
-        const balStr  = m.balance_after !== null ? (m.currency === 'USD' ? fmtUSD(m.balance_after) : fmtPEN(m.balance_after)) : '—';
+        const balStr  = m.balance_after !== null && m.balance_after !== undefined
+                        ? (m.currency === 'USD' ? fmtUSD(m.balance_after) : fmtPEN(m.balance_after))
+                        : '<span style="color:#94a3b8;font-size:.75rem;">filtrar banco+moneda</span>';
         const dt = new Date(m.movement_date);
         const dtStr = dt.toLocaleDateString('es-PE', {day:'2-digit',month:'2-digit',year:'numeric'}) +
                       ' ' + dt.toLocaleTimeString('es-PE', {hour:'2-digit',minute:'2-digit'});
@@ -263,6 +266,7 @@ async function loadMovimientos(page=1) {
           </td>
           <td class="text-end" style="font-weight:700;color:${amtColor};">${amtStr}</td>
           <td class="text-end" style="color:#475569;font-size:.8rem;">${balStr}</td>
+          <td style="font-size:.75rem;color:#64748b;white-space:nowrap;">${m.trader_name || '—'}</td>
           <td style="text-align:center;">
             ${m.is_validated ? '<i class="bi bi-patch-check-fill text-success" title="Validado en cierre"></i>' : ''}
           </td>
