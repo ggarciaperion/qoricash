@@ -671,6 +671,51 @@ def api_import_prospectos():
             'valores': [{'valor': v, 'cantidad': c} for v, c in valores],
         })
 
+    if action == 'marcar_bounces':
+        # Marca emails rebotados en prospectos y agrega nota en ActividadProspecto
+        from app.models.prospecto import ActividadProspecto
+        from app.models.user import User
+        emails_list = data.get('emails', [])  # [{"email": "...", "razon": "..."}]
+        bandeja     = data.get('bandeja', 'ggarcia@qoricash.pe')
+        sistema_user = User.query.order_by(User.id.asc()).first()
+        sistema_uid  = sistema_user.id if sistema_user else None
+        marcados = 0
+        no_encontrados = []
+        for item in emails_list:
+            email  = (item.get('email') or '').strip().lower().rstrip('.')
+            razon  = (item.get('razon') or 'Email rebotado — dirección inválida')[:200]
+            if not email or '@' not in email:
+                continue
+            p = Prospecto.query.filter(
+                db.func.lower(Prospecto.email) == email
+            ).first()
+            if not p:
+                no_encontrados.append(email)
+                continue
+            # Marcar estado_email como rebote (NO nullificar email, conservar para referencia)
+            p.estado_email = 'rebote'
+            # Agregar actividad/nota en timeline
+            if sistema_uid:
+                act = ActividadProspecto(
+                    prospecto_id=p.id,
+                    user_id=sistema_uid,
+                    tipo='bounce',
+                    canal='email',
+                    bandeja=bandeja,
+                    descripcion=f'Email inválido / rebote detectado automáticamente. Razón: {razon}',
+                    resultado='Rebote',
+                    nuevo_estado='rebote',
+                )
+                db.session.add(act)
+            marcados += 1
+        db.session.commit()
+        return jsonify({
+            'ok': True,
+            'marcados': marcados,
+            'no_encontrados': len(no_encontrados),
+            'emails_no_encontrados': no_encontrados[:20],
+        })
+
     if action == 'prospeccion_emails':
         # Prospectos NO-LFC con email válido, para campaña de precios
         rows = Prospecto.query.filter(
