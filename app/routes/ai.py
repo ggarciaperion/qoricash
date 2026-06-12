@@ -218,6 +218,83 @@ def api_retention_message(client_id):
 
 
 # ---------------------------------------------------------------------------
+# Lead Hunter Agent
+# ---------------------------------------------------------------------------
+
+@ai_bp.route('/api/leads/hunt', methods=['POST'])
+@csrf.exempt
+@login_required
+@_master_only
+def api_leads_hunt():
+    """Lanza un ciclo completo de caza de prospectos."""
+    data       = request.get_json() or {}
+    sources    = data.get('sources')          # None = todas
+    min_score  = int(data.get('min_score', 35))
+    max_leads  = int(data.get('max_leads', 100))
+    from app.services.ai.lead_hunter_agent import run_hunt
+    result = run_hunt(sources=sources, min_score=min_score, max_new_leads=max_leads)
+    return jsonify(result)
+
+
+@ai_bp.route('/api/leads/search', methods=['POST'])
+@csrf.exempt
+@login_required
+@_ai_required
+def api_leads_search():
+    """Búsqueda puntual de un prospecto por nombre/RUC."""
+    data  = request.get_json() or {}
+    query = (data.get('query') or '').strip()
+    if not query:
+        return jsonify({'ok': False, 'error': 'query requerido'}), 400
+    from app.services.ai.lead_hunter_agent import search_prospect
+    result = search_prospect(query)
+    return jsonify(result)
+
+
+@ai_bp.route('/api/leads/status', methods=['GET'])
+@login_required
+@_ai_required
+def api_leads_status():
+    """Estadísticas del agente de prospección automática."""
+    from app.models.prospecto import Prospecto
+    from app.extensions import db
+    from sqlalchemy import func
+    from app.utils.formatters import now_peru
+    from datetime import timedelta
+
+    today   = now_peru().date()
+    week_ago = today - timedelta(days=7)
+
+    total = Prospecto.query.filter_by(canal='IA-LeadHunter').count()
+    this_week = Prospecto.query.filter(
+        Prospecto.canal == 'IA-LeadHunter',
+        Prospecto.creado_en >= week_ago,
+    ).count()
+
+    by_source = db.session.query(
+        Prospecto.fuente, func.count(Prospecto.id)
+    ).filter(
+        Prospecto.canal == 'IA-LeadHunter'
+    ).group_by(Prospecto.fuente).all()
+
+    top = Prospecto.query.filter_by(
+        canal='IA-LeadHunter'
+    ).order_by(Prospecto.score.desc()).limit(5).all()
+
+    return jsonify({
+        'ok': True,
+        'total_ia_leads': total,
+        'esta_semana': this_week,
+        'por_fuente': [{'fuente': f, 'count': c} for f, c in by_source],
+        'top_prospects': [
+            {'id': p.id, 'razon_social': p.razon_social, 'rubro': p.rubro,
+             'score': p.score, 'fuente': p.fuente}
+            for p in top
+        ],
+    })
+
+
+# ---------------------------------------------------------------------------
 # Chatbot Web (endpoint público — sin login requerido)
 # ---------------------------------------------------------------------------
 

@@ -270,6 +270,60 @@
 
   </div>
 
+  <!-- Lead Hunter -->
+  <p class="section-title">Caza Automática de Prospectos</p>
+  <div class="agent-card" style="max-width:700px;margin-bottom:20px">
+    <div class="agent-card-header">
+      <div class="agent-icon icon-purple"><i class="bi bi-search-heart-fill"></i></div>
+      <div>
+        <div class="agent-name">Lead Hunter IA</div>
+        <p class="agent-desc">
+          Busca prospectos en SUNAT, Páginas Amarillas, Google y noticias.
+          Los califica con Claude y los registra automáticamente en el CRM.
+          Corre automáticamente cada día a las 7 AM Lima.
+        </p>
+      </div>
+    </div>
+
+    <!-- Fuentes -->
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin:4px 0">
+      <label style="font-size:.73rem;display:flex;align-items:center;gap:4px;cursor:pointer">
+        <input type="checkbox" id="src-sunat" checked> SUNAT (CIIU)
+      </label>
+      <label style="font-size:.73rem;display:flex;align-items:center;gap:4px;cursor:pointer">
+        <input type="checkbox" id="src-pages"> Páginas Amarillas
+      </label>
+      <label style="font-size:.73rem;display:flex;align-items:center;gap:4px;cursor:pointer">
+        <input type="checkbox" id="src-google"> Google Search
+      </label>
+      <label style="font-size:.73rem;display:flex;align-items:center;gap:4px;cursor:pointer">
+        <input type="checkbox" id="src-news" checked> Noticias
+      </label>
+      <span style="margin-left:auto;font-size:.71rem;color:var(--muted)">
+        Score mínimo:
+        <select id="hunt-min-score" style="font-size:.71rem;border:1px solid var(--bdr);border-radius:4px;padding:1px 4px">
+          <option value="25">25</option>
+          <option value="35" selected>35</option>
+          <option value="50">50</option>
+          <option value="70">70</option>
+        </select>
+      </span>
+    </div>
+
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn-run" onclick="runLeadHunt()">
+        <span id="hunt-spinner" style="display:none" class="spinner"></span>
+        <i class="bi bi-rocket-takeoff-fill" id="hunt-ico"></i> Cazar prospectos ahora
+      </button>
+      <button class="btn-run" style="background:#7c3aed" onclick="loadHuntStatus()">
+        <i class="bi bi-bar-chart-fill"></i> Ver estadísticas
+      </button>
+    </div>
+
+    <div class="result-panel" id="hunt-result"></div>
+    <div class="result-panel" id="hunt-status"></div>
+  </div>
+
   <!-- Chat Widget -->
   <p class="section-title">Chatbot Web (preview)</p>
   <div class="chat-container" style="max-width:500px">
@@ -466,6 +520,70 @@ async function runRetention() {
   } catch(e) {
     document.getElementById('retention-result').innerHTML = `<span style="color:var(--red)">Error: ${e.message}</span>`;
   } finally { setLoading('retention', false); }
+}
+
+// ── Lead Hunter ───────────────────────────────────────────────────────────────
+async function runLeadHunt() {
+  const spinner = document.getElementById('hunt-spinner');
+  const ico     = document.getElementById('hunt-ico');
+  const panel   = document.getElementById('hunt-result');
+  spinner.style.display = 'inline-block'; ico.style.display = 'none';
+  panel.classList.add('visible');
+  panel.innerHTML = '<em style="color:#94a3b8">Cazando prospectos en SUNAT, webs y noticias… puede tomar 30-60s</em>';
+
+  const sources = [];
+  if (document.getElementById('src-sunat').checked)  sources.push('sunat');
+  if (document.getElementById('src-pages').checked)  sources.push('paginas_amarillas');
+  if (document.getElementById('src-google').checked) sources.push('google');
+  if (document.getElementById('src-news').checked)   sources.push('news');
+  const minScore = parseInt(document.getElementById('hunt-min-score').value);
+
+  try {
+    const d = await postAI('/ai/api/leads/hunt', {sources, min_score: minScore, max_leads: 100});
+    if (!d.ok) { panel.innerHTML = `<span style="color:var(--red)">Error: ${d.error}</span>`; return; }
+    panel.innerHTML = `
+      <div class="metric-row"><span class="metric-label">Encontrados en webs</span><span class="metric-value">${d.encontrados}</span></div>
+      <div class="metric-row"><span class="metric-label">Nuevos (no en CRM)</span><span class="metric-value">${d.nuevos}</span></div>
+      <div class="metric-row"><span class="metric-label">Calificados por IA (score≥${minScore})</span><span class="metric-value" style="color:var(--green)">${d.calificados}</span></div>
+      <div class="metric-row"><span class="metric-label">Insertados en CRM</span><span class="metric-value" style="color:var(--blue);font-size:.95rem">${d.insertados}</span></div>
+      <div style="margin-top:8px;font-size:.75rem;color:#334155;font-style:italic">${d.resumen||''}</div>
+      <div style="margin-top:10px;font-size:.72rem;font-weight:700;color:var(--navy)">Top prospectos encontrados:</div>
+      ${(d.top_leads||[]).map((l,i)=>`
+        <div style="background:#f8fafc;border-radius:6px;padding:6px 10px;margin-top:5px;font-size:.72rem">
+          <b>${i+1}. ${l.razon_social}</b> — ${l.rubro} &nbsp;
+          <span class="score-badge ${l.score>=70?'score-high':l.score>=40?'score-medium':'score-low'}">${l.score}</span>
+          <span style="color:var(--muted);font-size:.68rem"> | ${l.fuente}</span><br>
+          <span style="color:#334155">→ ${l.accion||'—'}</span>
+        </div>`).join('')}
+    `;
+  } catch(e) {
+    panel.innerHTML = `<span style="color:var(--red)">Error: ${e.message}</span>`;
+  } finally {
+    spinner.style.display = 'none'; ico.style.display = 'inline-block';
+  }
+}
+
+async function loadHuntStatus() {
+  const panel = document.getElementById('hunt-status');
+  panel.classList.add('visible');
+  panel.innerHTML = '<em style="color:#94a3b8">Cargando estadísticas...</em>';
+  try {
+    const d = await fetch('/ai/api/leads/status').then(r=>r.json());
+    if (!d.ok) { panel.innerHTML = `<span style="color:var(--red)">Error</span>`; return; }
+    panel.innerHTML = `
+      <div class="metric-row"><span class="metric-label">Total leads IA en CRM</span><span class="metric-value">${d.total_ia_leads}</span></div>
+      <div class="metric-row"><span class="metric-label">Esta semana</span><span class="metric-value" style="color:var(--green)">${d.esta_semana}</span></div>
+      <div style="margin-top:8px;font-size:.72rem;color:var(--muted)">Por fuente: ${(d.por_fuente||[]).map(f=>`${f.fuente}:${f.count}`).join(' | ')}</div>
+      <div style="margin-top:6px;font-size:.72rem;font-weight:700">Top leads:</div>
+      ${(d.top_prospects||[]).map(p=>`
+        <div class="metric-row">
+          <span class="metric-label">${p.razon_social}</span>
+          <span class="metric-value">${p.score}/100</span>
+        </div>`).join('')}
+    `;
+  } catch(e) {
+    panel.innerHTML = `<span style="color:var(--red)">Error: ${e.message}</span>`;
+  }
 }
 
 // ── Chat ──────────────────────────────────────────────────────────────────────

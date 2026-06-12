@@ -1172,6 +1172,35 @@ def start_market_schedulers(app):
 
     _daily_analysis_at_time()
 
+    # ── Lead Hunter: corre diariamente a las 7:00 AM Lima ────────────────────
+    def _lead_hunter_daily():
+        """Caza de prospectos automática — una vez al día a las 7 AM Lima."""
+        import datetime as _dt
+
+        def loop():
+            logging.info('[LEAD_HUNTER] Scheduler iniciado — corre diario a las 7:00 AM Lima')
+            while True:
+                try:
+                    now_l = _dt.datetime.now(_LIMA_TZ)
+                    target = now_l.replace(hour=7, minute=0, second=0, microsecond=0)
+                    if now_l >= target:
+                        target += _dt.timedelta(days=1)
+                    wait_secs = (target - now_l).total_seconds()
+                    logging.info(f'[LEAD_HUNTER] Próxima caza en {wait_secs/3600:.1f}h')
+                    eventlet.sleep(wait_secs)
+                    with app.app_context():
+                        from app.services.ai.lead_hunter_agent import run_hunt
+                        r = run_hunt(sources=['sunat', 'news'], min_score=40, max_new_leads=80)
+                        logging.info(f'[LEAD_HUNTER] Ciclo: {r.get("insertados",0)} nuevos prospectos')
+                except Exception as e:
+                    import traceback
+                    logging.error(f'[LEAD_HUNTER] ❌ {e}\n{traceback.format_exc()}')
+                    eventlet.sleep(3600)  # reintentar en 1h si falla
+
+        eventlet.spawn(loop)
+
+    _lead_hunter_daily()
+
 
 def register_cli_commands(app):
     """Registra CLI commands dentro del factory para que siempre estén disponibles."""
