@@ -86,7 +86,7 @@ function loadTopClients() {
 }
 
 // ============================================
-// CLIENTES INACTIVOS
+// CLIENTES INACTIVOS — v2
 // ============================================
 function loadInactiveClients() {
     const params = new URLSearchParams();
@@ -95,9 +95,9 @@ function loadInactiveClients() {
 
     ajaxRequest(`/dashboard/api/dashboard/inactive-clients?${params.toString()}`, 'GET', null, function(response) {
         inactiveData = response;
-        $('#badge30d').text(`30d: ${response.count_30}`);
-        $('#badge60d').text(`60d: ${response.count_60}`);
-        $('#badge90d').text(`90d+: ${response.count_90}`);
+        $('#badge30d').text(response.count_30);
+        $('#badge60d').text(response.count_60);
+        $('#badge90d').text(response.count_90);
         $('#tab30Count').text(response.count_30);
         $('#tab60Count').text(response.count_60);
         $('#tab90Count').text(response.count_90);
@@ -105,46 +105,76 @@ function loadInactiveClients() {
     });
 }
 
+function _inactiveColor(tab) {
+    return tab === '30' ? 'amber' : (tab === '60' ? 'red' : 'dark');
+}
+
+function _initials(name) {
+    const parts = name.trim().split(/\s+/);
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+function _waLink(phone) {
+    if (!phone) return null;
+    const raw = phone.split(';')[0].replace(/\D/g, '');
+    if (!raw) return null;
+    const num = raw.startsWith('51') ? raw : '51' + raw;
+    return `https://wa.me/${num}`;
+}
+
 function showInactiveTab(tab) {
-    $('#inactiveTabs .nav-link').removeClass('active');
-    $(`#inactiveTabs .nav-link[data-tab="${tab}"]`).addClass('active');
+    $('.inactive-tab-btn').removeClass('active amber-active red-active');
+    const activeBtn = $(`.inactive-tab-btn[data-tab="${tab}"]`);
+    activeBtn.addClass('active');
+    if (tab === '30') activeBtn.addClass('amber-active');
+    if (tab === '60') activeBtn.addClass('red-active');
 
     const list      = inactiveData[`inactive_${tab}`] || [];
     const container = $('#inactiveClientsContent');
+    const color     = _inactiveColor(tab);
 
     if (list.length === 0) {
-        container.html('<div class="text-center text-success py-3 small"><i class="bi bi-check-circle me-1"></i>No hay clientes inactivos en este rango</div>');
+        container.html(`
+            <div class="inactive-empty">
+                <i class="bi bi-check-circle-fill"></i>
+                <span>¡Sin clientes inactivos en este rango!</span>
+            </div>`);
         return;
     }
 
-    const badgeClass = tab === '30' ? 'bg-warning text-dark' : (tab === '60' ? 'bg-danger' : 'bg-dark');
-    let html = `<div class="table-responsive"><table class="table table-sm table-hover mb-0">
-        <thead class="table-light">
-            <tr>
-                <th class="small">Cliente</th>
-                <th class="small">DNI/RUC</th>
-                <th class="small">Última Operación</th>
-                <th class="small text-end">Días sin operar</th>
-                <th class="small text-end">Acción</th>
-            </tr>
-        </thead><tbody>`;
+    let html = '';
+    list.forEach(function(c, i) {
+        const initials = _initials(c.name);
+        const waUrl    = _waLink(c.phone);
+        const delay    = Math.min(i * 0.045, 0.4).toFixed(3);
+        const daysLabel = c.days_inactive + 'd';
 
-    list.forEach(function(c) {
-        html += `<tr>
-            <td class="small fw-semibold">${escapeHtml(c.name)}</td>
-            <td class="small text-muted">${c.dni}</td>
-            <td class="small">${c.last_op || '-'}</td>
-            <td class="text-end"><span class="badge ${badgeClass}">${c.days_inactive}d</span></td>
-            <td class="text-end">
-                <button class="btn btn-outline-primary py-0 px-1" style="font-size:0.7rem"
+        html += `
+        <div class="icard ${color}-card" style="animation-delay:${delay}s">
+            <div class="icard-avatar ${color}">${initials}</div>
+            <div class="icard-info">
+                <div class="icard-name">${escapeHtml(c.name)}</div>
+                <div class="icard-meta">${c.dni} &middot; &uacute;lt. op: ${c.last_op || 'N/A'}</div>
+            </div>
+            <div class="icard-days">
+                <span class="days-badge ${color}">${daysLabel}</span>
+            </div>
+            <div class="icard-actions">
+                <a href="/clients/detail/${c.client_id}" class="icard-btn cta" title="Ver perfil cliente">
+                    <i class="bi bi-arrow-right-circle-fill"></i>
+                </a>
+                <button class="icard-btn hist" title="Ver historial"
                         onclick="loadClientHistory(${c.client_id}, '${escapeHtml(c.name)}', '${c.dni}')">
-                    <i class="bi bi-clock-history"></i> Ver historial
+                    <i class="bi bi-clock-history"></i>
                 </button>
-            </td>
-        </tr>`;
+                ${waUrl ? `<a href="${waUrl}" target="_blank" class="icard-btn wa" title="WhatsApp"><i class="bi bi-whatsapp"></i></a>` : ''}
+            </div>
+        </div>`;
     });
-    html += '</tbody></table></div>';
-    container.html(html);
+
+    container.addClass('tab-entering').html(html);
+    setTimeout(() => container.removeClass('tab-entering'), 300);
 }
 
 // ============================================

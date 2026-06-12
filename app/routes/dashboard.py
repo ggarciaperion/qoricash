@@ -1090,6 +1090,7 @@ def get_inactive_clients():
         Client.apellido_materno,
         Client.razon_social,
         Client.dni,
+        Client.phone,
         subq.c.last_op
     ).join(subq, Client.id == subq.c.client_id).filter(
         subq.c.last_op < date_30
@@ -1112,7 +1113,8 @@ def get_inactive_clients():
             'name': name,
             'dni': r.dni,
             'last_op': r.last_op.strftime('%d/%m/%Y') if r.last_op else None,
-            'days_inactive': days_inactive
+            'days_inactive': days_inactive,
+            'phone': r.phone or None,
         }
 
         if r.last_op < date_90:
