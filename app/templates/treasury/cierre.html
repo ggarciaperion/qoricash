@@ -233,8 +233,8 @@ const fmtPEN = n => `S/ ${fmt(n)}`;
 
 let currentCierre = null;
 
-// Init: set today as default date
-document.getElementById('fechaCierre').value = new Date().toISOString().split('T')[0];
+// Init: set today as default date (Lima timezone)
+document.getElementById('fechaCierre').value = new Date().toLocaleDateString('en-CA', {timeZone: 'America/Lima'});
 
 // Load existing closure if any
 async function loadCierre() {

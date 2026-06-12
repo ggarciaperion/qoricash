@@ -111,7 +111,7 @@ def _get_open_position() -> dict:
 def _get_today_operations(fecha: date = None) -> dict:
     """Resumen de operaciones completadas en la fecha dada (default: hoy)."""
     if fecha is None:
-        fecha = date.today()
+        fecha = now_peru().date()
     start = datetime.combine(fecha, datetime.min.time())
     end   = start + timedelta(days=1)
 
@@ -209,7 +209,7 @@ def _get_realized_profit(fecha_ini=None, fecha_fin=None) -> dict:
 def _get_today_expenses(fecha: date = None) -> float:
     """Gastos del día desde JournalEntry (cuentas 6xxx)."""
     if fecha is None:
-        fecha = date.today()
+        fecha = now_peru().date()
     try:
         from app.models import JournalEntryLine
         result = db.session.query(func.sum(JournalEntryLine.debe)).join(
@@ -226,7 +226,7 @@ def _get_today_expenses(fecha: date = None) -> float:
 
 def _get_closure_status() -> dict:
     """Estado del cierre más reciente y si hay cierre pendiente hoy."""
-    today = date.today()
+    today = now_peru().date()
     yesterday = today - timedelta(days=1)
 
     last_closure = DailyClosure.query.order_by(DailyClosure.closure_date.desc()).first()
@@ -297,7 +297,7 @@ def api_dashboard():
             errors.append(f'{label}: {exc}')
             return default
 
-    today       = date.today()
+    today       = now_peru().date()
     today_start = datetime.combine(today, datetime.min.time())
 
     system_balances = safe(_get_system_balances,  {b: {'USD': 0.0, 'PEN': 0.0} for b in BANKS}, 'saldos')
@@ -369,7 +369,7 @@ def api_posicion():
     _require_master()
     try:
         fecha_str = request.args.get('fecha')
-        fecha = date.fromisoformat(fecha_str) if fecha_str else date.today()
+        fecha = date.fromisoformat(fecha_str) if fecha_str else now_peru().date()
 
         system_balances = _get_system_balances()
 
@@ -576,7 +576,7 @@ def api_ajuste():
             reference_code = ref,
             balance_after  = bal_after,
             created_by     = current_user.id,
-            closure_date   = date.today(),
+            closure_date   = now_peru().date(),
         )
         db.session.add(mv)
         db.session.commit()
@@ -600,7 +600,7 @@ def api_cierre_calcular():
     _require_master()
     try:
         data       = request.get_json() or {}
-        fecha_str  = data.get('fecha', date.today().isoformat())
+        fecha_str  = data.get('fecha', now_peru().date().isoformat())
         fecha      = date.fromisoformat(fecha_str)
 
         start = datetime.combine(fecha, datetime.min.time())
@@ -693,7 +693,7 @@ def api_cierre_validar():
     _require_master()
     try:
         data          = request.get_json() or {}
-        fecha_str     = data.get('fecha', date.today().isoformat())
+        fecha_str     = data.get('fecha', now_peru().date().isoformat())
         fecha         = date.fromisoformat(fecha_str)
         real_balances = data.get('saldos_reales', {})
         notes         = data.get('notas', '')
@@ -729,7 +729,7 @@ def api_cierre_confirmar():
     _require_master()
     try:
         data              = request.get_json() or {}
-        fecha_str         = data.get('fecha', date.today().isoformat())
+        fecha_str         = data.get('fecha', now_peru().date().isoformat())
         fecha             = date.fromisoformat(fecha_str)
         discrepancy_reason = data.get('motivo_discrepancia', '')
 
@@ -774,7 +774,7 @@ def api_cierre_reabrir():
         return jsonify({'success': False, 'error': 'Sin permisos para reabrir un cierre'}), 403
     try:
         data      = request.get_json() or {}
-        fecha_str = data.get('fecha', date.today().isoformat())
+        fecha_str = data.get('fecha', now_peru().date().isoformat())
         fecha     = date.fromisoformat(fecha_str)
 
         closure = DailyClosure.query.filter_by(closure_date=fecha).first()
