@@ -1,0 +1,497 @@
+{% extends "base.html" %}
+{% block title %}Agentes IA — QoriCash{% endblock %}
+
+{% block head %}
+<style>
+:root {
+  --navy:  #0D1B2A;
+  --green: #16a34a;
+  --red:   #dc2626;
+  --amber: #d97706;
+  --blue:  #2563eb;
+  --purple:#7c3aed;
+  --muted: #64748b;
+  --bg:    #f8fafc;
+  --bdr:   #e8ecf0;
+}
+
+/* Header */
+.ai-header {
+  background: var(--navy); border-radius: 10px;
+  padding: 14px 20px; margin-bottom: 18px;
+  display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;
+}
+.ai-header-title { font-size: 1.2rem; font-weight: 800; color: #fff; margin: 0; }
+.ai-header-sub   { font-size: .7rem; color: rgba(255,255,255,.4); margin: 2px 0 0; }
+.ai-badge {
+  background: rgba(99,102,241,.25); color: #a5b4fc;
+  border: 1px solid rgba(99,102,241,.4); border-radius: 20px;
+  padding: 3px 10px; font-size: .68rem; font-weight: 700; letter-spacing: .04em;
+}
+
+/* Agent cards grid */
+.agent-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.agent-card {
+  background: #fff; border: 1px solid var(--bdr); border-radius: 10px;
+  padding: 16px 18px; display: flex; flex-direction: column; gap: 10px;
+  transition: box-shadow .15s;
+}
+.agent-card:hover { box-shadow: 0 3px 14px rgba(0,0,0,.07); }
+
+.agent-card-header {
+  display: flex; align-items: center; gap: 10px;
+}
+.agent-icon {
+  width: 38px; height: 38px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.1rem; flex-shrink: 0;
+}
+.icon-blue   { background: #eff6ff; color: var(--blue); }
+.icon-green  { background: #f0fdf4; color: var(--green); }
+.icon-purple { background: #f5f3ff; color: var(--purple); }
+.icon-amber  { background: #fffbeb; color: var(--amber); }
+.icon-red    { background: #fef2f2; color: var(--red); }
+.icon-navy   { background: #f0f4f8; color: var(--navy); }
+.icon-teal   { background: #f0fdfa; color: #0d9488; }
+
+.agent-name { font-size: .9rem; font-weight: 700; color: var(--navy); }
+.agent-desc { font-size: .76rem; color: var(--muted); margin: 0; }
+
+/* Run button */
+.btn-run {
+  background: var(--navy); color: #fff; border: none; border-radius: 7px;
+  padding: 7px 14px; font-size: .77rem; font-weight: 700; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px; transition: background .15s;
+  align-self: flex-start;
+}
+.btn-run:hover { background: #1e3a5f; }
+.btn-run:disabled { opacity: .5; cursor: not-allowed; }
+.btn-run.running { background: #64748b; }
+
+/* Result panel */
+.result-panel {
+  display: none; background: #f8fafc; border: 1px solid var(--bdr);
+  border-radius: 8px; padding: 12px 14px; font-size: .77rem; line-height: 1.6;
+}
+.result-panel.visible { display: block; }
+.result-panel pre {
+  white-space: pre-wrap; word-break: break-word; margin: 0;
+  font-size: .73rem; font-family: 'Courier New', monospace;
+}
+
+/* Score badge */
+.score-badge {
+  display: inline-block; border-radius: 20px; padding: 2px 9px;
+  font-size: .73rem; font-weight: 700;
+}
+.score-high   { background: #fef2f2; color: var(--red); }
+.score-medium { background: #fffbeb; color: var(--amber); }
+.score-low    { background: #f0fdf4; color: var(--green); }
+
+/* Metric row */
+.metric-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 5px 0; border-bottom: 1px solid var(--bdr); font-size: .77rem;
+}
+.metric-row:last-child { border-bottom: none; }
+.metric-label { color: var(--muted); }
+.metric-value { font-weight: 700; color: var(--navy); }
+
+/* Chat widget */
+.chat-container {
+  background: #fff; border: 1px solid var(--bdr); border-radius: 10px; overflow: hidden;
+}
+.chat-messages {
+  height: 260px; overflow-y: auto; padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.chat-msg {
+  max-width: 80%; padding: 8px 12px; border-radius: 10px; font-size: .8rem; line-height: 1.5;
+}
+.chat-msg.user { background: var(--navy); color: #fff; align-self: flex-end; border-radius: 10px 10px 2px 10px; }
+.chat-msg.bot  { background: #f1f5f9; color: var(--navy); align-self: flex-start; border-radius: 10px 10px 10px 2px; }
+.chat-input-row {
+  display: flex; gap: 8px; padding: 10px 12px;
+  border-top: 1px solid var(--bdr);
+}
+.chat-input {
+  flex: 1; border: 1px solid var(--bdr); border-radius: 7px;
+  padding: 8px 12px; font-size: .8rem; outline: none;
+}
+.chat-input:focus { border-color: #94a3b8; }
+.btn-chat-send {
+  background: var(--navy); color: #fff; border: none; border-radius: 7px;
+  padding: 8px 14px; cursor: pointer; font-size: .8rem; font-weight: 700;
+}
+
+/* Spinner */
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinner {
+  width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.3);
+  border-top-color: #fff; border-radius: 50%; animation: spin .6s linear infinite;
+}
+
+.section-title {
+  font-size: .72rem; font-weight: 700; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .07em; margin: 0 0 10px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-3 py-3">
+
+  <!-- Header -->
+  <div class="ai-header">
+    <div>
+      <h1 class="ai-header-title"><i class="bi bi-cpu-fill me-2"></i>Agentes IA</h1>
+      <p class="ai-header-sub">Motor de inteligencia artificial para QoriCash — potenciado por Claude</p>
+    </div>
+    <span class="ai-badge">CLAUDE SONNET / HAIKU</span>
+  </div>
+
+  <!-- Row 1: Pricing + Market -->
+  <p class="section-title">Análisis de Mercado</p>
+  <div class="agent-grid" style="grid-template-columns: repeat(auto-fill, minmax(340px,1fr))">
+
+    <!-- Pricing Agent -->
+    <div class="agent-card" id="card-pricing">
+      <div class="agent-card-header">
+        <div class="agent-icon icon-blue"><i class="bi bi-graph-up-arrow"></i></div>
+        <div>
+          <div class="agent-name">Pricing Dinámico</div>
+          <p class="agent-desc">TC óptimo en tiempo real vs competencia + gestión de posición</p>
+        </div>
+      </div>
+      <button class="btn-run" onclick="runPricing()">
+        <span id="pricing-spinner" style="display:none" class="spinner"></span>
+        <i class="bi bi-play-fill" id="pricing-ico"></i> Analizar ahora
+      </button>
+      <div class="result-panel" id="pricing-result"></div>
+    </div>
+
+    <!-- Market Analysis -->
+    <div class="agent-card" id="card-market">
+      <div class="agent-card-header">
+        <div class="agent-icon icon-teal"><i class="bi bi-newspaper"></i></div>
+        <div>
+          <div class="agent-name">Análisis de Mercado</div>
+          <p class="agent-desc">Tendencia USD/PEN basada en noticias y datos macro actuales</p>
+        </div>
+      </div>
+      <button class="btn-run" onclick="runMarket()">
+        <span id="market-spinner" style="display:none" class="spinner"></span>
+        <i class="bi bi-play-fill" id="market-ico"></i> Generar análisis
+      </button>
+      <div class="result-panel" id="market-result"></div>
+    </div>
+
+  </div>
+
+  <!-- Row 2: Treasury + Compliance -->
+  <p class="section-title">Operaciones &amp; Riesgo</p>
+  <div class="agent-grid">
+
+    <!-- Treasury -->
+    <div class="agent-card">
+      <div class="agent-card-header">
+        <div class="agent-icon icon-navy"><i class="bi bi-bank2"></i></div>
+        <div>
+          <div class="agent-name">Tesorería IA</div>
+          <p class="agent-desc">Diagnóstico de posición diaria, diferencias y liquidez por banco</p>
+        </div>
+      </div>
+      <button class="btn-run" onclick="runTreasury()">
+        <span id="treasury-spinner" style="display:none" class="spinner"></span>
+        <i class="bi bi-play-fill" id="treasury-ico"></i> Diagnosticar
+      </button>
+      <div class="result-panel" id="treasury-result"></div>
+    </div>
+
+    <!-- Compliance KYC -->
+    <div class="agent-card">
+      <div class="agent-card-header">
+        <div class="agent-icon icon-red"><i class="bi bi-shield-exclamation"></i></div>
+        <div>
+          <div class="agent-name">Compliance KYC</div>
+          <p class="agent-desc">Alertas de riesgo por volumen y comportamiento atípico en portafolio</p>
+        </div>
+      </div>
+      <button class="btn-run" onclick="runComplianceAlerts()">
+        <span id="compliance-spinner" style="display:none" class="spinner"></span>
+        <i class="bi bi-play-fill" id="compliance-ico"></i> Ver alertas
+      </button>
+      <div class="result-panel" id="compliance-result"></div>
+    </div>
+
+  </div>
+
+  <!-- Row 3: Prospecting + Retention -->
+  <p class="section-title">Comercial &amp; Clientes</p>
+  <div class="agent-grid">
+
+    <!-- Prospecting -->
+    <div class="agent-card">
+      <div class="agent-card-header">
+        <div class="agent-icon icon-green"><i class="bi bi-briefcase-fill"></i></div>
+        <div>
+          <div class="agent-name">Prospección Inteligente</div>
+          <p class="agent-desc">Lead scoring: identifica los prospectos con mayor probabilidad de conversión</p>
+        </div>
+      </div>
+      <button class="btn-run" onclick="runProspecting()">
+        <span id="prospect-spinner" style="display:none" class="spinner"></span>
+        <i class="bi bi-play-fill" id="prospect-ico"></i> Puntuar prospectos
+      </button>
+      <div class="result-panel" id="prospect-result"></div>
+    </div>
+
+    <!-- Retention -->
+    <div class="agent-card">
+      <div class="agent-card-header">
+        <div class="agent-icon icon-amber"><i class="bi bi-person-heart"></i></div>
+        <div>
+          <div class="agent-name">Retención de Clientes</div>
+          <p class="agent-desc">Detecta clientes en riesgo de abandono y genera plan de reactivación</p>
+        </div>
+      </div>
+      <button class="btn-run" onclick="runRetention()">
+        <span id="retention-spinner" style="display:none" class="spinner"></span>
+        <i class="bi bi-play-fill" id="retention-ico"></i> Analizar retención
+      </button>
+      <div class="result-panel" id="retention-result"></div>
+    </div>
+
+  </div>
+
+  <!-- Chat Widget -->
+  <p class="section-title">Chatbot Web (preview)</p>
+  <div class="chat-container" style="max-width:500px">
+    <div class="chat-messages" id="chat-messages">
+      <div class="chat-msg bot">Hola, soy el asistente virtual de QoriCash. ¿En qué puedo ayudarte?</div>
+    </div>
+    <div class="chat-input-row">
+      <input class="chat-input" id="chat-input" placeholder="Escribe tu consulta..."
+             onkeydown="if(event.key==='Enter') sendChat()">
+      <button class="btn-chat-send" onclick="sendChat()"><i class="bi bi-send-fill"></i></button>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ── helpers ──────────────────────────────────────────────────────────────────
+function setLoading(key, on) {
+  document.getElementById(`${key}-spinner`).style.display = on ? 'inline-block' : 'none';
+  const ico = document.getElementById(`${key}-ico`);
+  if (ico) ico.style.display = on ? 'none' : 'inline-block';
+  const panel = document.getElementById(`${key}-result`);
+  if (on) { panel.classList.add('visible'); panel.innerHTML = '<em style="color:#94a3b8">Consultando a Claude...</em>'; }
+}
+
+async function postAI(url, body={}) {
+  const r = await fetch(url, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(body),
+  });
+  return r.json();
+}
+
+function renderJSON(panelId, data) {
+  const el = document.getElementById(panelId);
+  el.classList.add('visible');
+  el.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+}
+
+function renderPricing(data) {
+  const a = data.analysis;
+  if (!a) return renderJSON('pricing-result', data);
+  document.getElementById('pricing-result').innerHTML = `
+    <div class="metric-row"><span class="metric-label">Compra sugerida</span><span class="metric-value">${a.sugerido_compra}</span></div>
+    <div class="metric-row"><span class="metric-label">Venta sugerida</span><span class="metric-value" style="color:var(--green)">${a.sugerido_venta}</span></div>
+    <div class="metric-row"><span class="metric-label">Spread</span><span class="metric-value">${a.spread_sugerido}</span></div>
+    <div class="metric-row"><span class="metric-label">Posición mercado</span><span class="metric-value">${a.posicion_mercado || '—'}</span></div>
+    <div class="metric-row"><span class="metric-label">Ranking</span><span class="metric-value">${a.ranking_qoricash || '—'}</span></div>
+    <div style="margin-top:8px;font-size:.76rem;color:#334155">${a.justificacion || ''}</div>
+    ${(a.alertas||[]).map(al=>`<div style="margin-top:4px;font-size:.73rem;color:var(--amber)">⚠ ${al}</div>`).join('')}
+  `;
+}
+
+function renderMarket(data) {
+  if (!data.ok) return renderJSON('market-result', data);
+  const colors = {alcista:'var(--green)',bajista:'var(--red)',lateral:'var(--amber)'};
+  document.getElementById('market-result').innerHTML = `
+    <div class="metric-row"><span class="metric-label">Tendencia</span>
+      <span class="metric-value" style="color:${colors[data.trend]||'#334155'}">${data.trend}</span></div>
+    <div class="metric-row"><span class="metric-label">Confianza</span><span class="metric-value">${data.confidence}%</span></div>
+    <div style="margin-top:8px;font-size:.76rem;font-weight:700;color:var(--navy)">${data.title||''}</div>
+    <div style="margin-top:4px;font-size:.74rem;color:#334155">${data.summary||''}</div>
+    <div style="margin-top:6px;font-size:.73rem;color:var(--muted)">📈 ${data.prediction_text||''}</div>
+  `;
+}
+
+function renderTreasury(data) {
+  if (!data.ok) return renderJSON('treasury-result', data);
+  const a = data.analysis;
+  const colors = {'Saludable':'var(--green)','Atención':'var(--amber)','Crítico':'var(--red)'};
+  document.getElementById('treasury-result').innerHTML = `
+    <div class="metric-row"><span class="metric-label">Estado general</span>
+      <span class="metric-value" style="color:${colors[a.estado_general]||'#334155'}">${a.estado_general}</span></div>
+    <div class="metric-row"><span class="metric-label">Score de cuadre</span><span class="metric-value">${a.score_cuadre}/100</span></div>
+    <div style="margin-top:8px;font-size:.75rem;color:#334155">${a.resumen||''}</div>
+    ${(a.recomendaciones||[]).map(r=>`<div style="margin-top:4px;font-size:.72rem;color:var(--blue)">→ ${r}</div>`).join('')}
+    ${(a.inconsistencias||[]).map(i=>`<div style="margin-top:4px;font-size:.72rem;color:var(--red)">⚠ ${i}</div>`).join('')}
+  `;
+}
+
+function renderCompliance(data) {
+  const el = document.getElementById('compliance-result');
+  if (!data.ok) { renderJSON('compliance-result', data); return; }
+  const alertas = data.alertas || [];
+  el.innerHTML = `
+    <div class="metric-row"><span class="metric-label">Clientes activos (30d)</span><span class="metric-value">${data.total_activos||0}</span></div>
+    <div class="metric-row"><span class="metric-label">Vol. promedio USD</span><span class="metric-value">$${(data.avg_vol_usd||0).toLocaleString()}</span></div>
+    <div style="margin-top:6px;font-size:.74rem;font-weight:600;color:var(--navy)">${data.summary||''}</div>
+    ${alertas.map(a=>`
+      <div style="margin-top:6px;background:#fef2f2;border-radius:6px;padding:7px 10px;font-size:.73rem">
+        <b>${a.nombre}</b> — ${a.vol_usd_30d ? '$'+a.vol_usd_30d.toLocaleString()+' USD' : ''}<br>
+        <span style="color:var(--red)">${a.razon}</span>
+      </div>`).join('')}
+  `;
+}
+
+function renderProspecting(data) {
+  if (!data.ok) return renderJSON('prospect-result', data);
+  const top = (data.scored||[]).slice(0,5);
+  document.getElementById('prospect-result').innerHTML = `
+    <div style="font-size:.73rem;color:var(--muted);margin-bottom:6px">
+      ${data.total} prospectos analizados — Top 5:
+    </div>
+    ${top.map((p,i)=>`
+      <div class="metric-row">
+        <span class="metric-label">${i+1}. ${p.razon_social}</span>
+        <span class="metric-value">${p.score_final||p.score}/100</span>
+      </div>`).join('')}
+    <div style="margin-top:8px;font-size:.73rem;color:#334155;font-style:italic">${data.insight||''}</div>
+  `;
+}
+
+function renderRetention(data) {
+  if (!data.ok) return renderJSON('retention-result', data);
+  const r = data.report || {};
+  const segs = data.segments || {};
+  document.getElementById('retention-result').innerHTML = `
+    <div class="metric-row"><span class="metric-label">Score retención</span><span class="metric-value">${r.score_retencion||0}/100</span></div>
+    <div class="metric-row"><span class="metric-label">Dormidos</span><span class="metric-value" style="color:var(--amber)">${segs.dormido||0}</span></div>
+    <div class="metric-row"><span class="metric-label">Perdidos</span><span class="metric-value" style="color:var(--red)">${segs.perdido||0}</span></div>
+    <div style="margin-top:8px;font-size:.75rem;color:#334155">${r.resumen_ejecutivo||''}</div>
+    <div style="margin-top:6px;font-size:.73rem;color:var(--muted)">${r.insight||''}</div>
+  `;
+}
+
+// ── Agent runners ─────────────────────────────────────────────────────────────
+async function runPricing() {
+  setLoading('pricing', true);
+  try {
+    const d = await postAI('/ai/api/pricing');
+    renderPricing(d);
+  } catch(e) {
+    document.getElementById('pricing-result').innerHTML = `<span style="color:var(--red)">Error: ${e.message}</span>`;
+  } finally { setLoading('pricing', false); }
+}
+
+async function runMarket() {
+  setLoading('market', true);
+  try {
+    // Fetch market data from existing endpoint
+    let mkt = {};
+    try {
+      const snap = await fetch('/market/api/analysis').then(r=>r.json());
+      mkt = snap;
+    } catch(_) {}
+    const d = await postAI('/ai/api/market/analysis', {
+      news_items: mkt.news_items || [],
+      market_data: mkt.market_data || {},
+    });
+    renderMarket(d);
+  } catch(e) {
+    document.getElementById('market-result').innerHTML = `<span style="color:var(--red)">Error: ${e.message}</span>`;
+  } finally { setLoading('market', false); }
+}
+
+async function runTreasury() {
+  setLoading('treasury', true);
+  try {
+    const d = await postAI('/ai/api/treasury/position');
+    renderTreasury(d);
+  } catch(e) {
+    document.getElementById('treasury-result').innerHTML = `<span style="color:var(--red)">Error: ${e.message}</span>`;
+  } finally { setLoading('treasury', false); }
+}
+
+async function runComplianceAlerts() {
+  setLoading('compliance', true);
+  try {
+    const d = await fetch('/ai/api/compliance/alerts').then(r=>r.json());
+    renderCompliance(d);
+  } catch(e) {
+    document.getElementById('compliance-result').innerHTML = `<span style="color:var(--red)">Error: ${e.message}</span>`;
+  } finally { setLoading('compliance', false); }
+}
+
+async function runProspecting() {
+  setLoading('prospect', true);
+  try {
+    const d = await postAI('/ai/api/prospecting/score', {limit: 50});
+    renderProspecting(d);
+  } catch(e) {
+    document.getElementById('prospect-result').innerHTML = `<span style="color:var(--red)">Error: ${e.message}</span>`;
+  } finally { setLoading('prospect', false); }
+}
+
+async function runRetention() {
+  setLoading('retention', true);
+  try {
+    const d = await fetch('/ai/api/retention').then(r=>r.json());
+    renderRetention(d);
+  } catch(e) {
+    document.getElementById('retention-result').innerHTML = `<span style="color:var(--red)">Error: ${e.message}</span>`;
+  } finally { setLoading('retention', false); }
+}
+
+// ── Chat ──────────────────────────────────────────────────────────────────────
+async function sendChat() {
+  const input = document.getElementById('chat-input');
+  const msg = input.value.trim();
+  if (!msg) return;
+  input.value = '';
+
+  const container = document.getElementById('chat-messages');
+  container.innerHTML += `<div class="chat-msg user">${msg}</div>`;
+  container.scrollTop = container.scrollHeight;
+
+  const thinking = document.createElement('div');
+  thinking.className = 'chat-msg bot';
+  thinking.innerHTML = '<em style="color:#94a3b8">Escribiendo...</em>';
+  container.appendChild(thinking);
+  container.scrollTop = container.scrollHeight;
+
+  try {
+    const d = await postAI('/ai/api/chat', {message: msg});
+    thinking.innerHTML = d.reply || '(sin respuesta)';
+  } catch(e) {
+    thinking.innerHTML = 'Error al conectar con el asistente.';
+  }
+  container.scrollTop = container.scrollHeight;
+}
+</script>
+{% endblock %}
