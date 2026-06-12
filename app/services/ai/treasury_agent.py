@@ -167,17 +167,23 @@ def suggest_bank_distribution() -> dict:
             for r in stats
         ) or '  (sin movimientos en 7 días)'
 
-        balances = FinanceEngine.get_balances()
-        saldos_txt = '\n'.join(
-            f"  {bk}: USD {v['USD']:,.2f} | PEN {v['PEN']:,.2f}"
-            for bk, v in balances['by_bank'].items()
-        )
+        cf = FinanceEngine.get_daily_cashflow(today)
+        total_usd = 0.0
+        total_pen = 0.0
+        saldos_lines = []
+        for bk, currencies in cf.get('by_bank', {}).items():
+            usd_teo = float(currencies.get('USD', {}).get('teorico', 0))
+            pen_teo = float(currencies.get('PEN', {}).get('teorico', 0))
+            saldos_lines.append(f"  {bk}: USD {usd_teo:,.2f} | PEN {pen_teo:,.2f}")
+            total_usd += usd_teo
+            total_pen += pen_teo
+        saldos_txt = '\n'.join(saldos_lines) or '  (sin saldos registrados)'
 
         prompt = f"""Eres el tesorero de QoriCash. Analiza la distribución de saldos entre bancos.
 
-SALDOS ACTUALES:
+SALDOS ACTUALES (teórico desde movimientos reales):
 {saldos_txt}
-  TOTAL: USD {balances['total_usd']:,.2f} | PEN {balances['total_pen']:,.2f}
+  TOTAL: USD {total_usd:,.2f} | PEN {total_pen:,.2f}
 
 FLUJO ÚLTIMOS 7 DÍAS:
 {stats_txt}

@@ -48,14 +48,21 @@ def _get_context() -> dict:
             })
     competitors.sort(key=lambda x: x['venta'])  # ordenar por venta asc
 
-    # Saldos por banco (teórico)
-    balances = FinanceEngine.get_balances()
-    saldos = {bk: {'USD': round(v['USD'], 2), 'PEN': round(v['PEN'], 2)}
-              for bk, v in balances['by_bank'].items()}
+    # Saldos teóricos por banco — calculados desde movimientos reales (no BankBalance caché)
+    today = datetime.now(_LIMA).date()
+    cf = FinanceEngine.get_daily_cashflow(today)
+    saldos = {}
+    total_usd = 0.0
+    total_pen = 0.0
+    for bk, currencies in cf.get('by_bank', {}).items():
+        usd_teo = float(currencies.get('USD', {}).get('teorico', 0))
+        pen_teo = float(currencies.get('PEN', {}).get('teorico', 0))
+        saldos[bk] = {'USD': round(usd_teo, 2), 'PEN': round(pen_teo, 2)}
+        total_usd += usd_teo
+        total_pen += pen_teo
 
     # Operaciones del día
-    from app.services.finance_engine import FinanceEngine as FE
-    ops = FE.get_daily_ops(datetime.now(_LIMA).date())
+    ops = FinanceEngine.get_daily_ops(today)
 
     # Hora Lima
     now_lima = datetime.now(_LIMA)
@@ -66,8 +73,8 @@ def _get_context() -> dict:
         'tc_qoricash':  current_tc,
         'competidores': competitors[:10],  # top 10 más relevantes
         'saldos':       saldos,
-        'total_usd':    round(balances['total_usd'], 2),
-        'total_pen':    round(balances['total_pen'], 2),
+        'total_usd':    round(total_usd, 2),
+        'total_pen':    round(total_pen, 2),
         'ops_hoy':      ops,
     }
 
