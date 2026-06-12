@@ -36,11 +36,26 @@ def ask(prompt: str, system: str = '', model: str = HAIKU, max_tokens: int = 102
 def ask_json(prompt: str, system: str = '', model: str = HAIKU, max_tokens: int = 2048) -> dict:
     """
     Llamada que espera JSON en la respuesta. Retorna dict o lanza excepción.
+    Extracción robusta: soporta markdown code blocks, JSON inline, y texto con prefijo.
     """
     import json, re
     text = ask(prompt, system=system, model=model, max_tokens=max_tokens)
-    # Extraer bloque JSON si viene envuelto en markdown
+    if not text:
+        raise ValueError('Respuesta vacía de Claude')
+
+    # 1. Bloque markdown ```json ... ``` o ``` ... ```
     m = re.search(r'```(?:json)?\s*([\s\S]+?)```', text)
     if m:
-        text = m.group(1).strip()
-    return json.loads(text)
+        return json.loads(m.group(1).strip())
+
+    # 2. Primer objeto JSON completo { ... } en el texto
+    m2 = re.search(r'(\{[\s\S]*\})', text)
+    if m2:
+        return json.loads(m2.group(1))
+
+    # 3. Primera array JSON [ ... ]
+    m3 = re.search(r'(\[[\s\S]*\])', text)
+    if m3:
+        return json.loads(m3.group(1))
+
+    raise ValueError(f'No se encontró JSON válido en la respuesta: {text[:200]}')
