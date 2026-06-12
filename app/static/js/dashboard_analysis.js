@@ -123,6 +123,9 @@ function _waLink(phone) {
     return `https://wa.me/${num}`;
 }
 
+// Cache de historial por cliente (evita re-fetch al expandir/colapsar)
+const _inactiveHistCache = {};
+
 function showInactiveTab(tab) {
     $('.inactive-tab-btn').removeClass('active amber-active red-active');
     const activeBtn = $(`.inactive-tab-btn[data-tab="${tab}"]`);
@@ -145,36 +148,120 @@ function showInactiveTab(tab) {
 
     let html = '';
     list.forEach(function(c, i) {
-        const initials = _initials(c.name);
-        const waUrl    = _waLink(c.phone);
-        const delay    = Math.min(i * 0.045, 0.4).toFixed(3);
+        const initials  = _initials(c.name);
+        const waUrl     = _waLink(c.phone);
+        const delay     = Math.min(i * 0.045, 0.4).toFixed(3);
         const daysLabel = c.days_inactive + 'd';
+        const cid       = c.client_id;
+        const safeName  = escapeHtml(c.name);
 
         html += `
-        <div class="icard ${color}-card" style="animation-delay:${delay}s">
-            <div class="icard-avatar ${color}">${initials}</div>
-            <div class="icard-info">
-                <div class="icard-name">${escapeHtml(c.name)}</div>
-                <div class="icard-meta">${c.dni} &middot; &uacute;lt. op: ${c.last_op || 'N/A'}</div>
+        <div class="icard-container">
+            <div class="icard ${color}-card"
+                 style="animation-delay:${delay}s"
+                 onclick="toggleInactiveHistory(event, this, ${cid}, '${safeName}', '${c.dni}')">
+                <div class="icard-avatar ${color}">${initials}</div>
+                <div class="icard-info">
+                    <div class="icard-name">${safeName}</div>
+                    <div class="icard-meta">${c.dni} &middot; &uacute;lt. op: ${c.last_op || 'N/A'}</div>
+                </div>
+                <div class="icard-days">
+                    <span class="days-badge ${color}">${daysLabel}</span>
+                </div>
+                <div class="icard-actions">
+                    <a href="/clients/detail/${cid}" class="icard-btn cta" title="Ver perfil"
+                       onclick="event.stopPropagation()">
+                        <i class="bi bi-arrow-right-circle-fill"></i>
+                    </a>
+                    ${waUrl ? `<a href="${waUrl}" target="_blank" class="icard-btn wa" title="WhatsApp"
+                       onclick="event.stopPropagation()"><i class="bi bi-whatsapp"></i></a>` : ''}
+                </div>
+                <i class="bi bi-chevron-down icard-expand-icon"></i>
             </div>
-            <div class="icard-days">
-                <span class="days-badge ${color}">${daysLabel}</span>
-            </div>
-            <div class="icard-actions">
-                <a href="/clients/detail/${c.client_id}" class="icard-btn cta" title="Ver perfil cliente">
-                    <i class="bi bi-arrow-right-circle-fill"></i>
-                </a>
-                <button class="icard-btn hist" title="Ver historial"
-                        onclick="loadClientHistory(${c.client_id}, '${escapeHtml(c.name)}', '${c.dni}')">
-                    <i class="bi bi-clock-history"></i>
-                </button>
-                ${waUrl ? `<a href="${waUrl}" target="_blank" class="icard-btn wa" title="WhatsApp"><i class="bi bi-whatsapp"></i></a>` : ''}
-            </div>
+            <div class="icard-history ${color}-hist" id="icard-hist-${cid}"></div>
         </div>`;
     });
 
     container.addClass('tab-entering').html(html);
     setTimeout(() => container.removeClass('tab-entering'), 300);
+}
+
+function toggleInactiveHistory(evt, cardEl, clientId, clientName, clientDni) {
+    const panel = document.getElementById('icard-hist-' + clientId);
+    if (!panel) return;
+
+    const isOpen = panel.classList.contains('open');
+
+    // Cerrar todos los paneles abiertos
+    document.querySelectorAll('.icard-history.open').forEach(p => p.classList.remove('open'));
+    document.querySelectorAll('.icard.icard-expanded').forEach(c => c.classList.remove('icard-expanded'));
+
+    if (isOpen) return; // era un toggle — sólo cierra
+
+    cardEl.classList.add('icard-expanded');
+    panel.classList.add('open');
+
+    // Si ya tiene contenido renderizado, no re-fetch
+    if (_inactiveHistCache[clientId]) {
+        _renderInactiveHistory(panel, _inactiveHistCache[clientId], clientId);
+        return;
+    }
+
+    panel.innerHTML = '<div style="text-align:center;padding:.6rem 0"><div class="spinner-border spinner-border-sm text-muted" style="width:16px;height:16px;border-width:2px"></div></div>';
+
+    const p = new URLSearchParams();
+    const tid = typeof _getAnalysisTraderId === 'function' ? _getAnalysisTraderId() : null;
+    if (tid) p.append('trader_id', tid);
+
+    ajaxRequest(`/dashboard/api/dashboard/client-operations/${clientId}?${p}`, 'GET', null, function(r) {
+        _inactiveHistCache[clientId] = r;
+        _renderInactiveHistory(panel, r, clientId);
+    });
+}
+
+function _renderInactiveHistory(panel, data, clientId) {
+    const allOps = data.operations || [];
+    const s      = data.summary   || {};
+    const ops    = allOps.slice(0, 5);
+    const total  = s.total_ops || allOps.length;
+
+    if (!ops.length) {
+        panel.innerHTML = '<p style="text-align:center;font-size:.65rem;color:#94a3b8;padding:.4rem 0;margin:0">Sin operaciones registradas</p>';
+        return;
+    }
+
+    const fmt = (n, d) => parseFloat(n).toLocaleString('es-PE', { minimumFractionDigits: d, maximumFractionDigits: d });
+
+    let html = `
+    <div class="icard-hist-header">
+        <span>Fecha</span><span>Tipo</span><span style="text-align:right">USD</span>
+        <span style="text-align:right">TC</span><span style="text-align:right">Utilidad</span>
+    </div>
+    <div class="icard-hist-ops">`;
+
+    ops.forEach(function(op) {
+        const profitHtml = op.profit_pen != null
+            ? `<span class="${op.profit_pen >= 0 ? 'hist-profit-pos' : 'hist-profit-neg'}">S/ ${fmt(op.profit_pen, 2)}</span>`
+            : '<span class="hist-profit-na">—</span>';
+        html += `
+        <div class="icard-hist-row">
+            <span class="hist-date">${op.date}</span>
+            <span class="hist-type ${op.type === 'Compra' ? 'buy' : 'sell'}">${op.type}</span>
+            <span class="hist-usd">$ ${fmt(op.amount_usd, 0)}</span>
+            <span class="hist-tc">${parseFloat(op.exchange_rate).toFixed(3)}</span>
+            ${profitHtml}
+        </div>`;
+    });
+
+    html += '</div>';
+
+    if (total > 5) {
+        html += `<a href="/clients/detail/${clientId}" class="icard-hist-more">
+            Ver historial completo &middot; ${total} operaciones &rarr;
+        </a>`;
+    }
+
+    panel.innerHTML = html;
 }
 
 // ============================================

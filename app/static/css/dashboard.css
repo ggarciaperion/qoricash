@@ -1279,3 +1279,109 @@
   from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: translateY(0); }
 }
+
+/* ═══════════════════════════════════════════
+   ICARD — HISTORIAL INLINE (accordion)
+═══════════════════════════════════════════ */
+.icard-container { display: flex; flex-direction: column; }
+
+.icard { cursor: pointer; }
+.icard.icard-expanded {
+  border-radius: 10px 10px 0 0;
+  border-bottom-color: transparent !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,.07);
+}
+.icard.icard-expanded.amber-card { background: #fffdf5; }
+.icard.icard-expanded.red-card   { background: #fff8f8; }
+
+/* Panel historial */
+.icard-history {
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-top: none;
+  border-radius: 0 0 10px 10px;
+  border-left-width: 3px;
+  transition: max-height .28s ease, opacity .2s ease, padding .2s ease;
+  padding: 0 .9rem;
+}
+.icard-history.amber-hist { border-left-color: #f59e0b; }
+.icard-history.red-hist   { border-left-color: #ef4444; }
+.icard-history.dark-hist  { border-left-color: #94a3b8; }
+.icard-history.open {
+  max-height: 300px;
+  opacity: 1;
+  padding: .55rem .9rem .65rem;
+}
+
+/* Filas de operaciones */
+.icard-hist-ops { display: flex; flex-direction: column; gap: .25rem; }
+.icard-hist-row {
+  display: grid;
+  grid-template-columns: 68px 46px 1fr 58px 70px;
+  align-items: center;
+  gap: .3rem;
+  padding: .28rem .4rem;
+  border-radius: 6px;
+  transition: background .12s;
+}
+.icard-hist-row:hover { background: #f1f5f9; }
+.hist-date { font-size: .62rem; color: #94a3b8; }
+.hist-type {
+  font-size: .6rem; font-weight: 700;
+  padding: 2px 6px; border-radius: 4px; text-align: center;
+}
+.hist-type.buy  { background: #dbeafe; color: #1d4ed8; }
+.hist-type.sell { background: #fef3c7; color: #92400e; }
+.hist-usd  { font-size: .67rem; font-weight: 600; color: #0f172a; text-align: right; }
+.hist-tc   { font-size: .62rem; color: #64748b; text-align: right; }
+.hist-profit-pos { font-size: .65rem; font-weight: 700; color: #16a34a; text-align: right; }
+.hist-profit-neg { font-size: .65rem; font-weight: 700; color: #dc2626; text-align: right; }
+.hist-profit-na  { font-size: .65rem; color: #cbd5e1; text-align: right; }
+
+/* Header del historial */
+.icard-hist-header {
+  display: grid;
+  grid-template-columns: 68px 46px 1fr 58px 70px;
+  gap: .3rem;
+  padding: .1rem .4rem .35rem;
+  border-bottom: 1px solid #e2e8f0;
+  margin-bottom: .25rem;
+}
+.icard-hist-header span {
+  font-size: .58rem; font-weight: 700;
+  color: #94a3b8; text-transform: uppercase; letter-spacing: .04em;
+}
+.icard-hist-header span:nth-child(n+3) { text-align: right; }
+
+/* Botón ver más */
+.icard-hist-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: .45rem;
+  padding: .35rem .75rem;
+  background: #0f172a;
+  color: #fff;
+  border-radius: 6px;
+  font-size: .65rem;
+  font-weight: 700;
+  text-decoration: none;
+  letter-spacing: .02em;
+  transition: background .15s;
+}
+.icard-hist-more:hover { background: #1e293b; color: #fff; }
+
+/* Expand indicator en el card */
+.icard-expand-icon {
+  flex-shrink: 0;
+  font-size: .7rem;
+  color: #cbd5e1;
+  transition: transform .22s ease, color .15s;
+}
+.icard.icard-expanded .icard-expand-icon {
+  transform: rotate(180deg);
+  color: #94a3b8;
+}
