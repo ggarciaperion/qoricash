@@ -799,6 +799,51 @@ def api_reconciliacion():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@treasury_bp.route('/api/ops-sin-movimientos')
+@login_required
+def api_ops_sin_movimientos():
+    """
+    Monitoreo: operaciones Completadas sin BankMovements en el ledger.
+    Permite detectar fallos silenciosos de apply_operation antes de que
+    afecten los reportes de Tesorería.
+    """
+    _require_master()
+    try:
+        from sqlalchemy import text
+        # Consulta eficiente: ops completadas cuyo id no aparece en bank_movements
+        result = db.session.execute(text("""
+            SELECT o.id, o.operation_id, o.operation_type,
+                   o.amount_usd, o.amount_pen, o.completed_at
+            FROM operations o
+            WHERE o.status = 'Completada'
+              AND NOT EXISTS (
+                  SELECT 1 FROM bank_movements bm
+                  WHERE bm.operation_id = o.id
+                    AND bm.source_type = 'operation'
+              )
+            ORDER BY o.completed_at DESC
+            LIMIT 100
+        """))
+        rows = result.fetchall()
+        ops = [{
+            'id':             r[0],
+            'operation_id':   r[1],
+            'operation_type': r[2],
+            'amount_usd':     float(r[3]) if r[3] else 0,
+            'amount_pen':     float(r[4]) if r[4] else 0,
+            'completed_at':   r[5].isoformat() if r[5] else None,
+        } for r in rows]
+        return jsonify({
+            'success': True,
+            'count':   len(ops),
+            'ops':     ops,
+            'alerta':  len(ops) > 0,
+        })
+    except Exception as e:
+        _log.exception('[Treasury] Error en api_ops_sin_movimientos')
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 # ── API: Libro de Amarres ─────────────────────────────────────────────────────
 
 @treasury_bp.route('/api/libros/amarres')

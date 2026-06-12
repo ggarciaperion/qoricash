@@ -99,12 +99,12 @@ class BankBalance(db.Model):
 
             def _normalize(name):
                 if not (name or '').strip():
-                    return ''  # empty → banco indeterminado, el caller elige fallback
+                    return ''  # empty → banco indeterminado
                 u = name.upper()
                 for alias, banco in _ALIASES.items():
                     if alias in u:
                         return banco
-                return 'INTERBANK'
+                return ''  # banco no reconocido → indeterminado, no imputar a INTERBANK
 
             def _fallback_banco_from_account(account_str):
                 """Deriva banco de QoriCash desde el string de cuenta del cliente."""

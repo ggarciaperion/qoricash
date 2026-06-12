@@ -173,6 +173,49 @@ except Exception as e:
 PYEOF
 echo ""
 
+# ── Patch directo: eliminar constraints positivos de bank_balances ─────────────
+# La migración b1a2n3k4b5a6 fue stampeada sin ejecutarse en producción.
+# Este patch idempotente garantiza que el DROP ocurra en cada deploy.
+echo "⚡ Eliminando constraints positivos de bank_balances (idempotente)..."
+python3 - <<'PYEOF'
+import os, sys
+try:
+    import psycopg2
+except ImportError:
+    print("   psycopg2 no disponible — saltando patch directo")
+    sys.exit(0)
+
+url = os.environ.get('DATABASE_URL', '')
+if not url:
+    print("   DATABASE_URL no definida — saltando patch directo")
+    sys.exit(0)
+
+try:
+    conn = psycopg2.connect(url)
+    conn.autocommit = True
+    cur = conn.cursor()
+    cur.execute("ALTER TABLE bank_balances DROP CONSTRAINT IF EXISTS check_balance_usd_positive")
+    cur.execute("ALTER TABLE bank_balances DROP CONSTRAINT IF EXISTS check_balance_pen_positive")
+    # Verificar que no quedan
+    cur.execute(
+        "SELECT constraint_name FROM information_schema.table_constraints "
+        "WHERE table_name='bank_balances' AND constraint_type='CHECK' "
+        "AND constraint_name IN ('check_balance_usd_positive','check_balance_pen_positive')"
+    )
+    remaining = cur.fetchall()
+    conn.close()
+    if remaining:
+        print(f"   ❌ Constraints aún presentes: {remaining}")
+        sys.exit(1)
+    else:
+        print("   ✅ Constraints positivos eliminados de bank_balances")
+except psycopg2.errors.UndefinedTable:
+    print("   ⏭  bank_balances aún no existe — se creará en upgrade")
+except Exception as e:
+    print(f"   ⚠️  Error en patch directo bank_balances constraints: {e}")
+PYEOF
+echo ""
+
 # ── Detección de estado actual de la DB ──────────────────────────────────────
 # Si la versión en alembic_version NO existe en nuestro historial,
 # es una DB con migraciones antiguas → stampeamos al baseline sin borrar datos.
@@ -204,7 +247,8 @@ if [ -n "$CURRENT" ]; then
         # Registrar todas las ramas conocidas para que flask db upgrade heads
         # pueda arrancar desde el estado correcto en DBs con historial antiguo.
         echo "🔧 Registrando heads de ramas conocidas (solo para DB con historial antiguo)..."
-        for HEAD_REV in a1b2c3d4e5f6 d2a3t4e5c6r7 l1s2o3u4r5c6 p1r2o3s4p5e6 t1e2m3p4l5a6 z9merge_all_heads w1p2r3o4s5p6 pb1r2e3c4i5o b1a2n3k4b5a6 k1y2c3d4e5f6 p1e2r3i4o5d6 a1u2d3i4t5o6 b1c2a3j4a5d6 c1m2e3r4g5e6 p1a2t3c4h5b6 v1a2l3i4d5a6 d1c2a3j4a5d6; do
+        # Nota: b1a2n3k4b5a6 OMITIDO — manejado por patch directo psycopg2 arriba
+        for HEAD_REV in a1b2c3d4e5f6 d2a3t4e5c6r7 l1s2o3u4r5c6 p1r2o3s4p5e6 t1e2m3p4l5a6 z9merge_all_heads w1p2r3o4s5p6 pb1r2e3c4i5o k1y2c3d4e5f6 p1e2r3i4o5d6 a1u2d3i4t5o6 b1c2a3j4a5d6 c1m2e3r4g5e6 p1a2t3c4h5b6 v1a2l3i4d5a6 d1c2a3j4a5d6; do
             flask db stamp "$HEAD_REV" 2>/dev/null || true
         done
         echo "   ✅ Heads registrados."

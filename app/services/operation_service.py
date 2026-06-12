@@ -489,6 +489,26 @@ class OperationService:
                 import logging
                 logging.error(f'[BankBalance] Error en auto-update para {operation.operation_id}: {str(e)}')
 
+            # Validación post-completado: verificar que BankMovements fueron creados
+            try:
+                import logging
+                from app.models.bank_movement import BankMovement
+                mv_count = BankMovement.query.filter_by(
+                    source_type='operation', operation_id=operation.id
+                ).count()
+                if mv_count == 0:
+                    logging.error(
+                        f'[Treasury] ALERTA: Operación {operation.operation_id} completada '
+                        f'sin BankMovements en ledger. Verificar constraints y apply_operation.'
+                    )
+                else:
+                    logging.info(
+                        f'[Treasury] OK: {operation.operation_id} generó {mv_count} movimiento(s).'
+                    )
+            except Exception as _ve:
+                import logging
+                logging.warning(f'[Treasury] No se pudo validar movimientos para {operation.operation_id}: {_ve}')
+
         return True, f'Estado actualizado a {new_status}', operation
     
     @staticmethod

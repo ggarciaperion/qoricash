@@ -39,7 +39,7 @@ def _normalize_banco(name: str) -> str:
     for alias, banco in _ALIASES.items():
         if alias in u:
             return banco
-    return 'INTERBANK'  # fallback igual que apply_operation
+    return ''  # banco no reconocido → indeterminado, no imputar a INTERBANK
 
 
 def _banco_acct_name(banco_key: str, currency: str) -> str:

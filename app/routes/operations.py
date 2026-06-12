@@ -1261,6 +1261,22 @@ def complete_operation(operation_id):
             except Exception:
                 pass
 
+        # Validación post-completado: detectar si apply_operation falló silenciosamente
+        try:
+            from app.models.bank_movement import BankMovement as _BM
+            _mv_count = _BM.query.filter_by(
+                source_type='operation', operation_id=operation_db_id
+            ).count()
+            if _mv_count == 0:
+                logger.error(
+                    f'[Treasury] ALERTA: {operation_code} completada sin BankMovements. '
+                    f'Posible constraint activo en bank_balances o banco no determinable.'
+                )
+            else:
+                logger.info(f'[Treasury] OK: {operation_code} → {_mv_count} movimiento(s) en ledger.')
+        except Exception as _ve:
+            logger.warning(f'[Treasury] No se pudo validar movimientos para {operation_code}: {_ve}')
+
         # Otorgar beneficio de referido si aplica
         try:
             from app.services.referral_service import referral_service
