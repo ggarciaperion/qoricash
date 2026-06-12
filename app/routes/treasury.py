@@ -778,8 +778,8 @@ def api_cierre_confirmar():
 @login_required
 def api_cierre_reabrir():
     """Revierte un cierre validado a borrador (solo rol Master)."""
-    if current_user.role != 'Master':
-        return jsonify({'success': False, 'error': 'Solo el rol Master puede reabrir un cierre'}), 403
+    if current_user.role not in ALLOWED_ROLES:
+        return jsonify({'success': False, 'error': 'Sin permisos para reabrir un cierre'}), 403
     try:
         data      = request.get_json() or {}
         fecha_str = data.get('fecha', date.today().isoformat())

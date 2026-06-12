@@ -162,7 +162,7 @@
           <div style="font-size:2.5rem;color:#16a34a;"><i class="bi bi-patch-check-fill"></i></div>
           <h5 style="font-weight:800;color:#0D1B2A;margin:8px 0 4px;">Cierre Validado</h5>
           <p style="font-size:.83rem;color:#64748b;" id="confirmedMsg">El cierre del día ha sido confirmado.</p>
-          {% if current_user.role == 'Master' %}
+          {% if current_user.role in ('Master', 'Presidente de Negocios') %}
           <button class="btn btn-sm btn-outline-danger mt-2" onclick="reabrirCierre()"
                   style="font-size:.75rem;">
             <i class="bi bi-lock-fill me-1"></i>Reabrir día
