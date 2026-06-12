@@ -777,7 +777,7 @@ def api_caja_cierre():
         from app.models import DailyClosure
 
         data   = request.get_json() or {}
-        fecha  = date.fromisoformat(data.get('fecha', date.today().isoformat()))
+        fecha  = date.fromisoformat(data.get('fecha', now_peru().date().isoformat()))
         bals   = data.get('balances', {})
         notas  = data.get('notas', '').strip()
 
@@ -827,6 +827,44 @@ def api_caja_cierre():
     except Exception as exc:
         db.session.rollback()
         _log.exception('[Finanzas] api_caja_cierre')
+        return jsonify({'ok': False, 'error': str(exc)}), 500
+
+
+# ── API: Caja Diaria — Reabrir (eliminar cierre del día) ─────────────────────
+
+@finanzas_bp.route('/api/caja/reabrir', methods=['POST'])
+@csrf.exempt
+@login_required
+def api_caja_reabrir():
+    """Elimina el saldo final registrado del día, reabriendo el cierre."""
+    _require_role()
+    try:
+        from app.models import DailyClosure
+
+        data  = request.get_json() or {}
+        fecha = date.fromisoformat(data.get('fecha', now_peru().date().isoformat()))
+
+        closure = DailyClosure.query.filter_by(closure_date=fecha).first()
+        if not closure:
+            return jsonify({'ok': False, 'error': 'No existe registro para esa fecha'}), 404
+
+        has_closing = bool(closure.closing_balance_json and closure.closing_balance_json != '{}')
+        if not has_closing:
+            return jsonify({'ok': False, 'error': 'El día ya está abierto'}), 400
+
+        closure.closing_balance_json      = '{}'
+        closure.closing_total_usd         = 0.0
+        closure.closing_total_pen         = 0.0
+        closure.closing_registered_at     = None
+        closure.closing_registered_by     = None
+
+        db.session.commit()
+        _log.info(f'[Finanzas] Cierre {fecha} reabierto por user {current_user.id}')
+
+        return jsonify({'ok': True, 'message': f'Día {fecha.strftime("%d/%m/%Y")} reabierto correctamente.'})
+    except Exception as exc:
+        db.session.rollback()
+        _log.exception('[Finanzas] api_caja_reabrir')
         return jsonify({'ok': False, 'error': str(exc)}), 500
 
 

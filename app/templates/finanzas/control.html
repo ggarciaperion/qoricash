@@ -607,13 +607,12 @@ function renderKPIs(d) {
   const cf   = d.cashflow;
   const ops  = d.daily_ops || {};
 
-  // USD: bancos como protagonistas, total como pie de card
-  const byBank = bal.by_bank || {};
+  // USD: fuente = Teórico del cashflow (ini + ingresos - egresos, más preciso que BankBalance)
   const BK_LABEL = { BCP: 'BCP', INTERBANK: 'Interbank', BANBIF: 'BanBif' };
 
   const usdRows = [];
   for (const bk of ['BCP', 'INTERBANK', 'BANBIF']) {
-    const v = byBank[bk] ? byBank[bk]['USD'] : 0;
+    const v = ((cf?.by_bank?.[bk] || {})['USD'] || {}).teorico ?? 0;
     if (v > 0.005) usdRows.push(
       `<div class="kpi-bank-row">
         <span class="kpi-bank-name">${BK_LABEL[bk]}</span>
@@ -622,12 +621,12 @@ function renderKPIs(d) {
     );
   }
   document.getElementById('kpiUSDSub').innerHTML = usdRows.length ? usdRows.join('') : '<span style="color:#cbd5e1;font-size:.8rem;">Sin saldo</span>';
-  document.getElementById('kpiUSD').textContent = `Total: ${fmtUSD(bal.total_usd)}`;
+  document.getElementById('kpiUSD').textContent = `Total: ${fmtUSD(cf?.total_teo_usd ?? bal.total_usd)}`;
 
-  // PEN: bancos como protagonistas, total como pie de card
+  // PEN: fuente = Teórico del cashflow
   const penRows = [];
   for (const bk of ['BCP', 'INTERBANK', 'BANBIF']) {
-    const v = byBank[bk] ? byBank[bk]['PEN'] : 0;
+    const v = ((cf?.by_bank?.[bk] || {})['PEN'] || {}).teorico ?? 0;
     if (v > 0.005) penRows.push(
       `<div class="kpi-bank-row">
         <span class="kpi-bank-name">${BK_LABEL[bk]}</span>
@@ -636,7 +635,7 @@ function renderKPIs(d) {
     );
   }
   document.getElementById('kpiPENSub').innerHTML = penRows.length ? penRows.join('') : '<span style="color:#cbd5e1;font-size:.8rem;">Sin saldo</span>';
-  document.getElementById('kpiPEN').textContent = `Total: ${fmtPEN(bal.total_pen)}`;
+  document.getElementById('kpiPEN').textContent = `Total: ${fmtPEN(cf?.total_teo_pen ?? bal.total_pen)}`;
 
   const uhEl  = document.getElementById('kpiUtilHoy');
   uhEl.textContent = fmtPEN(phy.total_pen);
@@ -699,7 +698,7 @@ function renderDiaBtn(cf) {
 }
 
 // ── Control de Apertura/Cierre ────────────────────────────────────────────────
-const _IS_MASTER = {{ 'true' if current_user.role == 'Master' else 'false' }};
+const _IS_MASTER = {{ 'true' if current_user.role in ('Master', 'Presidente de Negocios') else 'false' }};
 
 function renderControlSection(cf) {
   const el = document.getElementById('controlSection');
@@ -805,7 +804,12 @@ function renderControlSection(cf) {
   const cBtn  = !hasCierre
     ? `<button class="fn-btn-cierre" style="margin-left:6px;padding:5px 11px;font-size:.72rem;" onclick="abrirCierre()">
          <i class="bi bi-sunset-fill"></i> Cerrar día
-       </button>` : '';
+       </button>`
+    : (_IS_MASTER
+        ? `<button onclick="reabrirCierre()" style="margin-left:6px;padding:5px 11px;font-size:.72rem;border:1px solid #dc2626;background:#fff;color:#dc2626;border-radius:5px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;">
+             <i class="bi bi-lock-fill" style="font-size:.65rem;"></i> Reabrir día
+           </button>`
+        : '');
 
   const modBtn = _IS_MASTER
     ? `<button onclick="abrirModificarApertura()" style="padding:5px 11px;font-size:.72rem;border:1px solid #cbd5e1;background:#f8fafc;color:#475569;border-radius:5px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;">
@@ -1215,8 +1219,8 @@ function abrirCierre() {
   let rows = '';
   for (const bk of BANKS) {
     for (const [cur, ci] of [['USD',0],['PEN',1]]) {
-      const def      = ((byBank[bk] || {})[cur] || 0).toFixed(2);
       const teo      = ((cf?.by_bank?.[bk] || {})[cur] || {}).teorico ?? 0;
+      const def      = teo.toFixed(2);
       const fmt      = cur === 'USD' ? fmtUSD : fmtPEN;
       const bankCell = ci === 0 ? `<td rowspan="2"><span class="tag-bk ${byCls[bk]}">${bk}</span></td>` : '';
       rows += `<tr>
@@ -1282,6 +1286,35 @@ async function _confirmarCierre() {
     setTimeout(() => { _closeModal(); loadDashboard(); }, 1500);
   } catch(e) {
     msg.innerHTML = `<span style="color:var(--red);">Error: ${e.message}</span>`;
+  }
+}
+
+// ── Reabrir día ───────────────────────────────────────────────────────────────
+async function reabrirCierre() {
+  const fecha = new Date().toLocaleDateString('en-CA', {timeZone: 'America/Lima'});
+  const ok = await Swal.fire({
+    title: '¿Reabrir el día?',
+    html: `El cierre del <strong>${fecha}</strong> volverá a estado abierto.<br>
+           Podrás volver a registrar el saldo final.`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'Sí, reabrir',
+    cancelButtonText: 'Cancelar',
+    confirmButtonColor: '#dc2626',
+  });
+  if (!ok.isConfirmed) return;
+  try {
+    const res  = await fetch('/finanzas/api/caja/reabrir', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({fecha})
+    });
+    const data = await res.json();
+    if (!data.ok) { Swal.fire('Error', data.error, 'error'); return; }
+    Swal.fire({icon:'success', title:'Día reabierto', text: data.message, timer:2000, showConfirmButton:false});
+    loadDashboard();
+  } catch(e) {
+    Swal.fire('Error', e.message, 'error');
   }
 }
 
