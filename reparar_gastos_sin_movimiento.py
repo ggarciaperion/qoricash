@@ -1,6 +1,12 @@
 """
-Repara gastos (ExpenseRecord con bank_account_code) que no tienen BankMovement.
-Casos típicos: ITF en soles registrados antes del fix fcfa49b8 (Jun 11 18:40).
+Repara gastos (ExpenseRecord) que no tienen BankMovement.
+
+Cubre dos casos:
+  CASO A — bank_account_code presente en el ExpenseRecord
+            (nuevo_gasto registrado antes del fix fcfa49b8).
+  CASO B — bank_account_code NULL pero el JournalEntry tiene línea HABER en
+            cuenta 104x (pago_cuota registrado antes del fix fcfa49b8, donde
+            la ruta no llamaba a _apply_expense_to_bank_balance).
 
 Uso:
   python3 reparar_gastos_sin_movimiento.py           -> DRY RUN
@@ -43,27 +49,61 @@ with app.app_context():
         '1049': 'BANBIF',    '1050': 'BANBIF',
         '1051': 'PICHINCHA', '1052': 'PICHINCHA',
     }
+    _BANK_ACCOUNTS = set(_CODE_TO_BANK.keys())  # cuentas 104x reconocidas
 
-    # Gastos con cuenta bancaria pero sin BankMovement de tipo 'gasto'
-    gastos = ExpenseRecord.query.filter(
-        ExpenseRecord.bank_account_code.isnot(None)
-    ).all()
+    # ── Recopilar todos los ExpenseRecord sin BankMovement ────────────────────
 
-    pendientes = []
-    for g in gastos:
-        count = BankMovement.query.filter_by(
-            source_type='expense',
-            source_id=g.id
-        ).count()
-        if count == 0:
-            pendientes.append(g)
+    # IDs de gastos que YA tienen BankMovement
+    existing_ids = {
+        row[0] for row in db.session.query(BankMovement.source_id).filter(
+            BankMovement.source_type == 'expense',
+            BankMovement.source_id.isnot(None),
+        ).distinct().all()
+    }
+
+    todos_gastos = ExpenseRecord.query.all()
+
+    # Caso A: bank_account_code presente → podemos leer la cuenta directo
+    caso_a = []
+    for g in todos_gastos:
+        if g.id in existing_ids:
+            continue
+        if g.bank_account_code and g.bank_account_code in _BANK_ACCOUNTS:
+            caso_a.append((g, g.bank_account_code))
+
+    # Caso B: bank_account_code NULL → buscar línea HABER en 104x del JournalEntry
+    caso_b = []
+    for g in todos_gastos:
+        if g.id in existing_ids:
+            continue
+        if g.bank_account_code:
+            continue   # ya cubierto por caso A
+        if not g.journal_entry_id:
+            continue
+        # Buscar la línea HABER en cuenta bancaria dentro del asiento
+        from sqlalchemy import text
+        row = db.session.execute(text("""
+            SELECT account_code, haber
+            FROM journal_entry_lines
+            WHERE journal_entry_id = :je_id
+              AND account_code = ANY(:codes)
+              AND haber > 0
+            ORDER BY id
+            LIMIT 1
+        """), {'je_id': g.journal_entry_id, 'codes': list(_BANK_ACCOUNTS)}).fetchone()
+        if row:
+            caso_b.append((g, row[0]))  # (ExpenseRecord, account_code)
+
+    pendientes = caso_a + caso_b
 
     prefix = '[DRY RUN] ' if DRY_RUN else ''
-    print(f"{prefix}Gastos con cuenta bancaria sin BankMovement: {len(pendientes)}\n")
+    print(f"{prefix}Gastos sin BankMovement: {len(pendientes)} "
+          f"(caso A={len(caso_a)}, caso B={len(caso_b)})\n")
 
-    for g in pendientes:
-        print(f"  ID={g.id}  {g.expense_date}  {g.description}  "
-              f"S/{g.amount_pen}  cuenta={g.bank_account_code}")
+    for g, acct in pendientes:
+        tag = 'A' if g.bank_account_code else 'B'
+        print(f"  [{tag}] ID={g.id}  {g.expense_date}  {g.description}  "
+              f"S/{g.amount_pen}  cuenta={acct}")
 
     if DRY_RUN:
         print("\nModo DRY RUN — usa --apply para crear los movimientos.")
@@ -73,9 +113,8 @@ with app.app_context():
     ok = 0
     fail = 0
 
-    for g in pendientes:
+    for g, account_code in pendientes:
         try:
-            account_code = g.bank_account_code
             currency = _ACCOUNT_LABELS.get(account_code, ('', 'PEN', ''))[1]
             bank_key = _CODE_TO_BANK.get(account_code)
             if not bank_key:
@@ -99,9 +138,12 @@ with app.app_context():
             bank_name_mv = bb.bank_name if bb else f'{bank_key} {currency}'
             mv_date = g.expense_date if g.expense_date else now_peru()
 
-            # Actualizar BankBalance si existe
+            # Actualizar BankBalance si existe (solo para caso B — en caso A ya fue debitado
+            # por la versión antigua del código si bb existía).
+            # Para estar seguros, solo actualizamos BankBalance en caso B (bank_account_code NULL).
             bal_after = None
-            if bb is not None:
+            if bb is not None and g.bank_account_code is None:
+                # Caso B: el saldo NUNCA fue debitado (pago_cuota pre-fix)
                 if currency == 'PEN':
                     bb.balance_pen = round(max(float(bb.balance_pen) - amount_cur, 0.0), 2)
                     bal_after = float(bb.balance_pen)
@@ -109,6 +151,13 @@ with app.app_context():
                     bb.balance_usd = round(max(float(bb.balance_usd) - amount_cur, 0.0), 2)
                     bal_after = float(bb.balance_usd)
                 bb.updated_at = now_peru()
+            elif bb is not None and g.bank_account_code is not None:
+                # Caso A: el saldo YA fue debitado por la versión antigua (si bb existía),
+                # solo calculamos balance_after para el movimiento — sin volver a debitar.
+                if currency == 'PEN':
+                    bal_after = float(bb.balance_pen)
+                else:
+                    bal_after = float(bb.balance_usd)
 
             mv = BankMovement(
                 movement_date  = mv_date,
@@ -127,7 +176,8 @@ with app.app_context():
             )
             db.session.add(mv)
             db.session.commit()
-            print(f"  + ID={g.id}: BankMovement creado ({bank_key} {currency} -{amount_cur})")
+            tag = 'A' if g.bank_account_code else 'B'
+            print(f"  + [{tag}] ID={g.id}: BankMovement creado ({bank_key} {currency} -{amount_cur})")
             ok += 1
 
         except Exception as e:
