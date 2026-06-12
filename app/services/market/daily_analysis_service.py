@@ -148,11 +148,57 @@ class DailyAnalysisService:
             # ── Tendencia y confianza ──────────────────────────────────────
             trend, confidence = DailyAnalysisService._score_to_trend(net_score)
 
-            # ── Texto ─────────────────────────────────────────────────────
-            title, summary = DailyAnalysisService._build_base_text(
-                trend, confidence, net_score, bullish_count, bearish_count,
-                macro_notes, today_events, snap, bcrp,
-            )
+            # ── Texto: Claude genera análisis de trader (fallback a plantilla) ──
+            news_for_claude = [
+                {'title': a.title, 'direction': a.direction,
+                 'impact_level': a.impact_level, 'source': a.source}
+                for a in news_rows
+            ]
+            fed_val  = float(fed.value)  if fed  and fed.value  else None
+            bcrp_val = float(bcrp.value) if bcrp and bcrp.value else None
+
+            try:
+                from app.services.ai.market_agent import generate_trader_analysis
+                ai = generate_trader_analysis(
+                    snap=snap, news_items=news_for_claude, events=today_events,
+                    fed_rate=fed_val, bcrp_rate=bcrp_val,
+                    net_score=net_score, trend=trend, confidence=confidence,
+                    mode='base',
+                )
+                if ai.get('ok'):
+                    title   = ai.get('title') or ''
+                    summary = ai.get('summary') or ''
+                    # Enriquecer key_factors con alertas y niveles de Claude
+                    ai_alerts = [
+                        {'direction': 'alerta', 'text': a, 'impact': 'high'}
+                        for a in (ai.get('alertas') or [])
+                    ]
+                    niveles = ai.get('niveles_clave') or {}
+                    if niveles:
+                        key_factors.append({
+                            'direction': 'niveles',
+                            'text': (
+                                f"Soporte: {niveles.get('soporte_usdpen','—')} | "
+                                f"Resistencia: {niveles.get('resistencia_usdpen','—')} | "
+                                f"Crítico: {niveles.get('nivel_critico','—')}"
+                            ),
+                            'impact': 'high',
+                        })
+                    if ai.get('recomendacion_trader'):
+                        key_factors.append({
+                            'direction': 'recomendacion',
+                            'text': ai['recomendacion_trader'],
+                            'impact': 'high',
+                        })
+                    key_factors = ai_alerts + key_factors
+                else:
+                    raise ValueError(ai.get('error', 'Claude no disponible'))
+            except Exception as ai_err:
+                logger.warning(f'[DailyAnalysis] Claude fallback a plantilla: {ai_err}')
+                title, summary = DailyAnalysisService._build_base_text(
+                    trend, confidence, net_score, bullish_count, bearish_count,
+                    macro_notes, today_events, snap, bcrp,
+                )
 
             # ── Desactivar análisis anteriores del día ────────────────────
             DailyAnalysis.query.filter_by(
@@ -166,7 +212,7 @@ class DailyAnalysisService:
                 confidence           = confidence,
                 title                = title,
                 summary              = summary,
-                key_factors          = json.dumps(key_factors[:12], ensure_ascii=False),
+                key_factors          = json.dumps(key_factors[:15], ensure_ascii=False),
                 news_analyzed        = len(news_rows),
                 bullish_signals      = bullish_count,
                 bearish_signals      = bearish_count,
@@ -267,11 +313,48 @@ class DailyAnalysisService:
             # Snapshot para precios actuales
             snap = MarketSnapshot.query.order_by(MarketSnapshot.captured_at.desc()).first()
 
-            # Construir texto
-            title, summary = DailyAnalysisService._build_intraday_text(
-                trend, confidence, combined_score, delta_score,
-                new_bull, new_bear, new_news, base, snap, now_lima,
-            )
+            # Construir texto: Claude intradía (fallback a plantilla)
+            snap = MarketSnapshot.query.order_by(MarketSnapshot.captured_at.desc()).first()
+            all_news_for_claude = [
+                {'title': a.title, 'direction': a.direction,
+                 'impact_level': a.impact_level, 'source': a.source}
+                for a in new_news
+            ]
+
+            try:
+                from app.services.ai.market_agent import generate_trader_analysis
+                from app.models.market import MacroIndicator
+                fed_i  = MacroIndicator.query.filter_by(key='fed_rate').first()
+                bcrp_i = MacroIndicator.query.filter_by(key='bcrp_rate').first()
+                ai = generate_trader_analysis(
+                    snap=snap, news_items=all_news_for_claude, events=[],
+                    fed_rate=float(fed_i.value)  if fed_i  and fed_i.value  else None,
+                    bcrp_rate=float(bcrp_i.value) if bcrp_i and bcrp_i.value else None,
+                    net_score=combined_score, trend=trend, confidence=confidence,
+                    mode='intraday',
+                )
+                if ai.get('ok'):
+                    title   = ai.get('title') or ''
+                    summary = ai.get('summary') or ''
+                    ai_alerts = [
+                        {'direction': 'alerta', 'text': a, 'impact': 'high'}
+                        for a in (ai.get('alertas') or [])
+                    ]
+                    new_factors = ai_alerts + new_factors
+                    if ai.get('recomendacion_trader'):
+                        new_factors.append({
+                            'direction': 'recomendacion',
+                            'text': ai['recomendacion_trader'],
+                            'impact': 'high',
+                        })
+                else:
+                    raise ValueError(ai.get('error', 'Claude no disponible'))
+            except Exception as ai_err:
+                logger.warning(f'[DailyAnalysis] Claude intraday fallback: {ai_err}')
+                title, summary = DailyAnalysisService._build_intraday_text(
+                    trend, confidence, combined_score, delta_score,
+                    new_bull, new_bear, new_news, base, snap, now_lima,
+                )
 
             # Desactivar análisis activos
             DailyAnalysis.query.filter_by(

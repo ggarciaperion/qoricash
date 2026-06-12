@@ -12,7 +12,15 @@ from typing import Optional
 import feedparser
 import requests
 
-from .news_classifier import classify
+from .news_classifier import classify as _keyword_classify
+
+def classify(title: str, summary: str = '') -> tuple:
+    """Clasifica con Claude Haiku; fallback a keywords si falla."""
+    try:
+        from app.services.ai.market_agent import classify_news
+        return classify_news(title, summary)
+    except Exception:
+        return _keyword_classify(title, summary)
 
 # ── Traducción al español ─────────────────────────────────────────────────────
 try:
