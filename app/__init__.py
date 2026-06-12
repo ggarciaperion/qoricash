@@ -83,6 +83,48 @@ def create_app(config_name=None):
             'Configura REDIS_URL en Render para rate limiting efectivo en producción.'
         )
 
+    # Migración: tabla lead_hunter_queue (idempotente)
+    try:
+        with app.app_context():
+            from app.extensions import db
+            from sqlalchemy import text
+            db.session.execute(text("""
+                CREATE TABLE IF NOT EXISTS lead_hunter_queue (
+                    id                   SERIAL PRIMARY KEY,
+                    found_at             TIMESTAMP DEFAULT NOW(),
+                    razon_social         VARCHAR(300),
+                    ruc                  VARCHAR(20),
+                    rubro                VARCHAR(150),
+                    departamento         VARCHAR(100),
+                    provincia            VARCHAR(100),
+                    distrito             VARCHAR(100),
+                    email                VARCHAR(200),
+                    telefono             VARCHAR(200),
+                    web                  VARCHAR(300),
+                    fuente               VARCHAR(80),
+                    score                INTEGER DEFAULT 0,
+                    potencial            VARCHAR(20),
+                    tamano_empresa       VARCHAR(30),
+                    volumen_estimado_usd NUMERIC(15,2),
+                    accion_sugerida      TEXT,
+                    notas                TEXT,
+                    status               VARCHAR(20) DEFAULT 'pendiente' NOT NULL,
+                    reviewed_by          INTEGER REFERENCES users(id),
+                    reviewed_at          TIMESTAMP,
+                    reject_reason        VARCHAR(200),
+                    prospecto_id         INTEGER REFERENCES prospectos(id)
+                )
+            """))
+            db.session.execute(text(
+                "CREATE INDEX IF NOT EXISTS idx_lhq_status ON lead_hunter_queue(status)"
+            ))
+            db.session.execute(text(
+                "CREATE INDEX IF NOT EXISTS idx_lhq_score ON lead_hunter_queue(score DESC)"
+            ))
+            db.session.commit()
+    except Exception as e:
+        logging.warning(f"[Migration] lead_hunter_queue: {e}")
+
     # Migración: tabla web push subscriptions (idempotente)
     try:
         with app.app_context():

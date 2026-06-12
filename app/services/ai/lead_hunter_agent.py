@@ -444,50 +444,45 @@ Responde SOLO JSON:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Inserción en CRM
+# Inserción en cola de revisión (NO en CRM)
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _insert_prospects(leads: list) -> int:
-    """Inserta leads calificados en la tabla prospectos. Retorna cantidad insertada."""
+def _enqueue_leads(leads: list) -> int:
+    """
+    Inserta leads en lead_hunter_queue con status='pendiente'.
+    NUNCA toca la tabla prospectos directamente.
+    Retorna cantidad encolada.
+    """
     from app.extensions import db
-    from app.models.prospecto import Prospecto
-    from app.utils.formatters import now_peru
+    from app.models.lead_hunter import LeadHunterQueue
 
-    inserted = 0
-    today_str = now_peru().strftime('%Y-%m-%d')
-
+    enqueued = 0
     for lead in leads:
         try:
             vol = lead.get('volumen_estimado_usd')
-            p = Prospecto(
-                razon_social        = (lead.get('razon_social') or '')[:300],
-                ruc                 = (lead.get('ruc') or '')[:20] or None,
-                tipo                = 'Empresa',
-                rubro               = (lead.get('rubro') or '')[:150],
-                departamento        = (lead.get('departamento') or 'Lima')[:100],
-                provincia           = (lead.get('provincia') or '')[:100],
-                distrito            = (lead.get('distrito') or '')[:100],
-                email               = (lead.get('email') or '')[:200] or None,
-                telefono            = (lead.get('telefono') or '')[:200] or None,
-                web                 = (lead.get('web') or '')[:300] or None,
-                fuente              = (lead.get('fuente') or 'LeadHunterIA')[:80],
-                canal               = 'IA-LeadHunter',
-                score               = int(lead.get('score', 30)),
-                prioridad           = lead.get('potencial', 'baja'),
-                tamano_empresa      = lead.get('tamano_empresa', 'MYPE'),
-                volumen_estimado_usd= float(vol) if vol else None,
-                estado_comercial    = 'nuevo',
-                nivel_interes       = 'bajo',
-                notas               = (
-                    f"[IA {today_str}] {lead.get('accion_sugerida', '')}. "
-                    f"{lead.get('notas', '')}"
-                )[:500],
-                fecha_primer_contacto = today_str,
+            q = LeadHunterQueue(
+                razon_social         = (lead.get('razon_social') or '')[:300],
+                ruc                  = (lead.get('ruc') or '')[:20] or None,
+                rubro                = (lead.get('rubro') or '')[:150],
+                departamento         = (lead.get('departamento') or 'Lima')[:100],
+                provincia            = (lead.get('provincia') or '')[:100],
+                distrito             = (lead.get('distrito') or '')[:100],
+                email                = (lead.get('email') or '')[:200] or None,
+                telefono             = (lead.get('telefono') or '')[:200] or None,
+                web                  = (lead.get('web') or '')[:300] or None,
+                fuente               = (lead.get('fuente') or 'LeadHunterIA')[:80],
+                score                = int(lead.get('score', 30)),
+                potencial            = lead.get('potencial', 'bajo'),
+                tamano_empresa       = lead.get('tamano_empresa', 'MYPE'),
+                volumen_estimado_usd = float(vol) if vol else None,
+                accion_sugerida      = (lead.get('accion_sugerida') or '')[:500],
+                notas                = (lead.get('notas') or '')[:500],
+                status               = 'pendiente',
             )
-            db.session.add(p)
-            inserted += 1
+            db.session.add(q)
+            enqueued += 1
         except Exception as e:
-            _log.warning(f'[LeadHunter] insert error for {lead.get("razon_social")}: {e}')
+            _log.warning(f'[LeadHunter] enqueue error for {lead.get("razon_social")}: {e}')
 
     try:
         db.session.commit()
@@ -496,7 +491,99 @@ def _insert_prospects(leads: list) -> int:
         _log.error(f'[LeadHunter] commit error: {e}')
         return 0
 
-    return inserted
+    return enqueued
+
+
+def approve_lead(queue_id: int, user_id: int) -> dict:
+    """
+    Aprueba un lead de la cola y lo transfiere al CRM (tabla prospectos).
+    Solo esta función escribe en prospectos.
+    """
+    from app.extensions import db
+    from app.models.lead_hunter import LeadHunterQueue
+    from app.models.prospecto import Prospecto
+    from app.utils.formatters import now_peru
+
+    item = LeadHunterQueue.query.get(queue_id)
+    if not item:
+        return {'ok': False, 'error': 'Lead no encontrado en la cola'}
+    if item.status != 'pendiente':
+        return {'ok': False, 'error': f'Lead ya fue {item.status}'}
+
+    today_str = now_peru().strftime('%Y-%m-%d')
+    try:
+        p = Prospecto(
+            razon_social         = item.razon_social,
+            ruc                  = item.ruc,
+            tipo                 = 'Empresa',
+            rubro                = item.rubro,
+            departamento         = item.departamento,
+            provincia            = item.provincia,
+            distrito             = item.distrito,
+            email                = item.email,
+            telefono             = item.telefono,
+            web                  = item.web,
+            fuente               = item.fuente,
+            canal                = 'IA-LeadHunter',
+            score                = item.score,
+            prioridad            = item.potencial,
+            tamano_empresa       = item.tamano_empresa,
+            volumen_estimado_usd = item.volumen_estimado_usd,
+            estado_comercial     = 'nuevo',
+            nivel_interes        = 'bajo',
+            notas                = f'[IA aprobado {today_str}] {item.accion_sugerida or ""}. {item.notas or ""}'[:500],
+            fecha_primer_contacto = today_str,
+        )
+        db.session.add(p)
+        db.session.flush()  # obtener ID
+
+        item.status       = 'aprobado'
+        item.reviewed_by  = user_id
+        item.reviewed_at  = now_peru()
+        item.prospecto_id = p.id
+        db.session.commit()
+        return {'ok': True, 'prospecto_id': p.id, 'razon_social': item.razon_social}
+    except Exception as e:
+        db.session.rollback()
+        _log.error(f'[LeadHunter] approve error: {e}', exc_info=True)
+        return {'ok': False, 'error': str(e)}
+
+
+def reject_lead(queue_id: int, user_id: int, reason: str = '') -> dict:
+    """Rechaza un lead de la cola — no toca el CRM."""
+    from app.extensions import db
+    from app.models.lead_hunter import LeadHunterQueue
+    from app.utils.formatters import now_peru
+
+    item = LeadHunterQueue.query.get(queue_id)
+    if not item:
+        return {'ok': False, 'error': 'Lead no encontrado'}
+    if item.status != 'pendiente':
+        return {'ok': False, 'error': f'Lead ya fue {item.status}'}
+
+    item.status        = 'rechazado'
+    item.reviewed_by   = user_id
+    item.reviewed_at   = now_peru()
+    item.reject_reason = reason[:200] if reason else None
+    db.session.commit()
+    return {'ok': True}
+
+
+def get_queue(status: str = 'pendiente', page: int = 1, per_page: int = 50) -> dict:
+    """Obtiene leads de la cola paginados."""
+    from app.models.lead_hunter import LeadHunterQueue
+
+    q = LeadHunterQueue.query.filter_by(status=status)\
+        .order_by(LeadHunterQueue.score.desc(), LeadHunterQueue.found_at.desc())
+    total  = q.count()
+    items  = q.offset((page - 1) * per_page).limit(per_page).all()
+    return {
+        'ok':       True,
+        'total':    total,
+        'page':     page,
+        'per_page': per_page,
+        'items':    [i.to_dict() for i in items],
+    }
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -557,9 +644,9 @@ def run_hunt(
         above_threshold = [l for l in qualified if l.get('score', 0) >= min_score]
         above_threshold.sort(key=lambda x: x.get('score', 0), reverse=True)
 
-        # Insertar en CRM
-        to_insert = above_threshold[:max_new_leads]
-        inserted  = _insert_prospects(to_insert)
+        # Encolar en staging (NO en CRM — requiere revisión humana)
+        to_enqueue = above_threshold[:max_new_leads]
+        enqueued   = _enqueue_leads(to_enqueue)
 
         # Top 10 para el reporte
         top_leads = [
@@ -572,7 +659,7 @@ def run_hunt(
                 'accion':       l.get('accion_sugerida', '—'),
                 'volumen_usd':  l.get('volumen_estimado_usd'),
             }
-            for l in to_insert[:10]
+            for l in to_enqueue[:10]
         ]
 
         # Resumen ejecutivo con Claude
@@ -580,21 +667,22 @@ def run_hunt(
             found=len(raw_leads),
             unique=len(unique_leads),
             qualified=len(above_threshold),
-            inserted=inserted,
+            inserted=enqueued,
             top_leads=top_leads,
         )
 
-        _log.info(f'[LeadHunter] Ciclo completado — {inserted} nuevos prospectos insertados')
+        _log.info(f'[LeadHunter] Ciclo completado — {enqueued} leads en cola de revisión')
 
         return {
             'ok':          True,
             'encontrados': len(raw_leads),
             'nuevos':      len(unique_leads),
             'calificados': len(above_threshold),
-            'insertados':  inserted,
+            'encolados':   enqueued,
             'descartados': len(raw_leads) - len(above_threshold),
             'top_leads':   top_leads,
             'resumen':     resumen,
+            'nota':        f'{enqueued} leads pendientes de revisión en /ai/leads/queue',
         }
 
     except Exception as e:

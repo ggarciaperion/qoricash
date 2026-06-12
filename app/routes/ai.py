@@ -251,44 +251,96 @@ def api_leads_search():
     return jsonify(result)
 
 
+@ai_bp.route('/api/leads/queue', methods=['GET'])
+@login_required
+@_ai_required
+def api_leads_queue():
+    """Cola de leads pendientes de revisión humana."""
+    status   = request.args.get('status', 'pendiente')
+    page     = int(request.args.get('page', 1))
+    per_page = int(request.args.get('per_page', 50))
+    from app.services.ai.lead_hunter_agent import get_queue
+    return jsonify(get_queue(status=status, page=page, per_page=per_page))
+
+
+@ai_bp.route('/api/leads/approve/<int:queue_id>', methods=['POST'])
+@csrf.exempt
+@login_required
+@_ai_required
+def api_leads_approve(queue_id):
+    """Aprueba un lead y lo transfiere al CRM."""
+    from app.services.ai.lead_hunter_agent import approve_lead
+    result = approve_lead(queue_id, user_id=current_user.id)
+    return jsonify(result)
+
+
+@ai_bp.route('/api/leads/reject/<int:queue_id>', methods=['POST'])
+@csrf.exempt
+@login_required
+@_ai_required
+def api_leads_reject(queue_id):
+    """Rechaza un lead — no toca el CRM."""
+    data   = request.get_json() or {}
+    reason = data.get('reason', '')
+    from app.services.ai.lead_hunter_agent import reject_lead
+    result = reject_lead(queue_id, user_id=current_user.id, reason=reason)
+    return jsonify(result)
+
+
+@ai_bp.route('/api/leads/approve-bulk', methods=['POST'])
+@csrf.exempt
+@login_required
+@_master_only
+def api_leads_approve_bulk():
+    """Aprueba múltiples leads de una vez (solo Master/PN)."""
+    data = request.get_json() or {}
+    ids  = data.get('ids', [])
+    if not ids:
+        return jsonify({'ok': False, 'error': 'ids requerido'}), 400
+    from app.services.ai.lead_hunter_agent import approve_lead
+    results = [approve_lead(qid, user_id=current_user.id) for qid in ids]
+    approved = sum(1 for r in results if r.get('ok'))
+    return jsonify({'ok': True, 'aprobados': approved, 'total': len(ids)})
+
+
 @ai_bp.route('/api/leads/status', methods=['GET'])
 @login_required
 @_ai_required
 def api_leads_status():
     """Estadísticas del agente de prospección automática."""
-    from app.models.prospecto import Prospecto
+    from app.models.lead_hunter import LeadHunterQueue
     from app.extensions import db
     from sqlalchemy import func
     from app.utils.formatters import now_peru
     from datetime import timedelta
 
-    today   = now_peru().date()
+    today    = now_peru().date()
     week_ago = today - timedelta(days=7)
 
-    total = Prospecto.query.filter_by(canal='IA-LeadHunter').count()
-    this_week = Prospecto.query.filter(
-        Prospecto.canal == 'IA-LeadHunter',
-        Prospecto.creado_en >= week_ago,
+    pendientes  = LeadHunterQueue.query.filter_by(status='pendiente').count()
+    aprobados   = LeadHunterQueue.query.filter_by(status='aprobado').count()
+    rechazados  = LeadHunterQueue.query.filter_by(status='rechazado').count()
+    esta_semana = LeadHunterQueue.query.filter(
+        LeadHunterQueue.found_at >= week_ago
     ).count()
 
     by_source = db.session.query(
-        Prospecto.fuente, func.count(Prospecto.id)
-    ).filter(
-        Prospecto.canal == 'IA-LeadHunter'
-    ).group_by(Prospecto.fuente).all()
+        LeadHunterQueue.fuente, func.count(LeadHunterQueue.id)
+    ).filter_by(status='pendiente').group_by(LeadHunterQueue.fuente).all()
 
-    top = Prospecto.query.filter_by(
-        canal='IA-LeadHunter'
-    ).order_by(Prospecto.score.desc()).limit(5).all()
+    top = LeadHunterQueue.query.filter_by(status='pendiente')\
+        .order_by(LeadHunterQueue.score.desc()).limit(5).all()
 
     return jsonify({
-        'ok': True,
-        'total_ia_leads': total,
-        'esta_semana': this_week,
-        'por_fuente': [{'fuente': f, 'count': c} for f, c in by_source],
-        'top_prospects': [
+        'ok':           True,
+        'pendientes':   pendientes,
+        'aprobados':    aprobados,
+        'rechazados':   rechazados,
+        'esta_semana':  esta_semana,
+        'por_fuente':   [{'fuente': f, 'count': c} for f, c in by_source],
+        'top_pending':  [
             {'id': p.id, 'razon_social': p.razon_social, 'rubro': p.rubro,
-             'score': p.score, 'fuente': p.fuente}
+             'score': p.score, 'fuente': p.fuente, 'potencial': p.potencial}
             for p in top
         ],
     })

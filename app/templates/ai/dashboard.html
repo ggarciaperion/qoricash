@@ -315,13 +315,35 @@
         <span id="hunt-spinner" style="display:none" class="spinner"></span>
         <i class="bi bi-rocket-takeoff-fill" id="hunt-ico"></i> Cazar prospectos ahora
       </button>
-      <button class="btn-run" style="background:#7c3aed" onclick="loadHuntStatus()">
-        <i class="bi bi-bar-chart-fill"></i> Ver estadísticas
+      <button class="btn-run" style="background:#7c3aed" onclick="openQueue()">
+        <i class="bi bi-inbox-fill"></i> Cola de revisión <span id="queue-badge" style="background:rgba(255,255,255,.25);border-radius:10px;padding:1px 7px;font-size:.7rem"></span>
+      </button>
+      <button class="btn-run" style="background:#475569" onclick="loadHuntStatus()">
+        <i class="bi bi-bar-chart-fill"></i> Estadísticas
       </button>
     </div>
 
     <div class="result-panel" id="hunt-result"></div>
     <div class="result-panel" id="hunt-status"></div>
+  </div>
+
+  <!-- Cola de revisión -->
+  <div id="queue-panel" style="display:none;max-width:900px;margin-bottom:20px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <p class="section-title" style="margin:0">Cola de revisión — aprueba antes de entrar al CRM</p>
+      <div style="display:flex;gap:6px">
+        <button onclick="bulkApproveTop()" style="background:var(--green);color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:.72rem;font-weight:700;cursor:pointer">
+          ✓ Aprobar Top 10
+        </button>
+        <button onclick="document.getElementById('queue-panel').style.display='none'" style="background:#f1f5f9;border:1px solid var(--bdr);border-radius:6px;padding:5px 12px;font-size:.72rem;cursor:pointer">
+          Cerrar
+        </button>
+      </div>
+    </div>
+    <div id="queue-list" style="display:flex;flex-direction:column;gap:8px"></div>
+    <div id="queue-empty" style="display:none;font-size:.8rem;color:var(--muted);padding:20px;text-align:center">
+      No hay leads pendientes de revisión. Ejecuta una caza para encontrar nuevos prospectos.
+    </div>
   </div>
 
   <!-- Chat Widget -->
@@ -560,6 +582,104 @@ async function runLeadHunt() {
     panel.innerHTML = `<span style="color:var(--red)">Error: ${e.message}</span>`;
   } finally {
     spinner.style.display = 'none'; ico.style.display = 'inline-block';
+  }
+}
+
+let _queueItems = [];
+
+async function openQueue() {
+  const panel = document.getElementById('queue-panel');
+  panel.style.display = 'block';
+  panel.scrollIntoView({behavior:'smooth', block:'start'});
+  await loadQueue();
+}
+
+async function loadQueue() {
+  const list  = document.getElementById('queue-list');
+  const empty = document.getElementById('queue-empty');
+  list.innerHTML  = '<em style="color:#94a3b8;font-size:.78rem">Cargando cola...</em>';
+  empty.style.display = 'none';
+
+  const d = await fetch('/ai/api/leads/queue?status=pendiente&per_page=50').then(r=>r.json());
+  _queueItems = d.items || [];
+
+  // Actualizar badge
+  const badge = document.getElementById('queue-badge');
+  if (badge) badge.textContent = d.total > 0 ? d.total : '';
+
+  if (!_queueItems.length) {
+    list.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+
+  list.innerHTML = _queueItems.map(item => `
+    <div id="qitem-${item.id}" style="background:#fff;border:1px solid var(--bdr);border-radius:8px;padding:12px 14px;display:flex;align-items:flex-start;gap:12px">
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span style="font-size:.85rem;font-weight:700;color:var(--navy)">${item.razon_social}</span>
+          <span class="score-badge ${item.score>=70?'score-high':item.score>=40?'score-medium':'score-low'}">${item.score}/100</span>
+          <span style="font-size:.68rem;color:var(--muted);background:#f1f5f9;border-radius:4px;padding:1px 6px">${item.fuente}</span>
+          <span style="font-size:.68rem;color:var(--purple);background:#f5f3ff;border-radius:4px;padding:1px 6px">${item.potencial}</span>
+        </div>
+        <div style="font-size:.74rem;color:var(--muted);margin-top:3px">
+          ${item.rubro} &nbsp;·&nbsp; ${item.departamento}
+          ${item.ruc && item.ruc!='—' ? ' &nbsp;·&nbsp; RUC: '+item.ruc : ''}
+          ${item.email && item.email!='—' ? ' &nbsp;·&nbsp; '+item.email : ''}
+          ${item.telefono && item.telefono!='—' ? ' &nbsp;·&nbsp; '+item.telefono : ''}
+        </div>
+        ${item.accion_sugerida && item.accion_sugerida!='—' ?
+          `<div style="font-size:.72rem;color:var(--blue);margin-top:4px">→ ${item.accion_sugerida}</div>` : ''}
+      </div>
+      <div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0">
+        <button onclick="approveItem(${item.id})"
+          style="background:var(--green);color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:.72rem;font-weight:700;cursor:pointer;white-space:nowrap">
+          ✓ Aprobar
+        </button>
+        <button onclick="rejectItem(${item.id})"
+          style="background:#fff;color:var(--red);border:1px solid var(--red);border-radius:6px;padding:5px 12px;font-size:.72rem;font-weight:600;cursor:pointer;white-space:nowrap">
+          ✗ Rechazar
+        </button>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function approveItem(id) {
+  const el = document.getElementById(`qitem-${id}`);
+  if (el) el.style.opacity = '.4';
+  const d = await postAI(`/ai/api/leads/approve/${id}`);
+  if (d.ok) {
+    if (el) el.remove();
+    if (typeof showNotification === 'function')
+      showNotification(`✓ ${d.razon_social} agregado al CRM`, 'success');
+    await loadQueue();
+  } else {
+    if (el) el.style.opacity = '1';
+    alert(d.error || 'Error al aprobar');
+  }
+}
+
+async function rejectItem(id) {
+  const el = document.getElementById(`qitem-${id}`);
+  if (el) el.style.opacity = '.4';
+  const d = await postAI(`/ai/api/leads/reject/${id}`, {reason: ''});
+  if (d.ok) {
+    if (el) el.remove();
+    await loadQueue();
+  } else {
+    if (el) el.style.opacity = '1';
+  }
+}
+
+async function bulkApproveTop() {
+  const top10 = _queueItems.slice(0, 10).map(i => i.id);
+  if (!top10.length) return;
+  const d = await postAI('/ai/api/leads/approve-bulk', {ids: top10});
+  if (d.ok) {
+    if (typeof showNotification === 'function')
+      showNotification(`✓ ${d.aprobados} leads aprobados y enviados al CRM`, 'success');
+    await loadQueue();
   }
 }
 
