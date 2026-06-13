@@ -224,21 +224,48 @@ def _get_today_expenses(fecha: date = None) -> float:
         return 0.0
 
 
+def _dias_laborables(desde, hasta) -> int:
+    """
+    Cuenta días laborables entre dos fechas (excluyendo domingos).
+    QoriCash opera lunes a sábado; domingo no se trabaja.
+    """
+    total = 0
+    d = desde
+    while d < hasta:
+        if d.weekday() != 6:  # 6 = domingo
+            total += 1
+        d += timedelta(days=1)
+    return total
+
+
 def _get_closure_status() -> dict:
-    """Estado del cierre más reciente y si hay cierre pendiente hoy."""
+    """Estado del cierre más reciente y si hay cierre pendiente hoy.
+    Los domingos nunca requieren apertura ni cierre — no se trabaja."""
     today = now_peru().date()
-    yesterday = today - timedelta(days=1)
+
+    # Domingo: no se opera, sin requerimiento de cierre
+    if today.weekday() == 6:
+        last_closure = DailyClosure.query.order_by(DailyClosure.closure_date.desc()).first()
+        today_closure = DailyClosure.query.filter_by(closure_date=today).first()
+        return {
+            'today_closure':    today_closure.to_dict() if today_closure else None,
+            'last_validated':   last_closure.closure_date.isoformat() if last_closure and last_closure.is_validated else None,
+            'missing_days':     0,
+            'requires_closure': False,
+            'today_date':       today.isoformat(),
+            'is_sunday':        True,
+        }
 
     last_closure = DailyClosure.query.order_by(DailyClosure.closure_date.desc()).first()
     today_closure = DailyClosure.query.filter_by(closure_date=today).first()
 
     missing_days = 0
     if last_closure:
-        delta = (today - last_closure.closure_date).days
         if last_closure.is_validated:
-            missing_days = max(0, delta - 1)
+            # Contar días laborables entre el último cierre y hoy (sin incluir hoy)
+            missing_days = max(0, _dias_laborables(last_closure.closure_date, today) - 1)
         else:
-            missing_days = delta
+            missing_days = _dias_laborables(last_closure.closure_date, today)
     else:
         missing_days = 0  # primer día, sin historial
 
@@ -248,6 +275,7 @@ def _get_closure_status() -> dict:
         'missing_days':     missing_days,
         'requires_closure': missing_days > 0,
         'today_date':       today.isoformat(),
+        'is_sunday':        False,
     }
 
 
