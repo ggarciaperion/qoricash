@@ -1,0 +1,432 @@
+{% extends "base.html" %}
+{% block title %}Auditoría Contable IA — QoriCash{% endblock %}
+
+{% block head %}
+<style>
+.audit-estado-APROBADO  { background: #d1fae5; color: #065f46; border: 1px solid #6ee7b7; }
+.audit-estado-OBSERVADO { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
+.audit-estado-CRITICO   { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+.audit-badge { font-size: .7rem; font-weight: 700; padding: 3px 10px; border-radius: 20px; }
+.hallazgo-CRITICO  { border-left: 4px solid #ef4444; background: #fef2f2; }
+.hallazgo-ALERTA   { border-left: 4px solid #f59e0b; background: #fffbeb; }
+.hallazgo-INFO     { border-left: 4px solid #3b82f6; background: #eff6ff; }
+.kpi-card { border: none; border-radius: 12px; padding: 1.2rem 1.4rem; }
+.kpi-val  { font-size: 1.6rem; font-weight: 800; line-height: 1; }
+.kpi-lbl  { font-size: .68rem; font-weight: 600; text-transform: uppercase;
+            letter-spacing: .06em; color: #6c757d; margin-top: 4px; }
+.section-label {
+    font-size: .7rem; font-weight: 700; letter-spacing: .08em;
+    text-transform: uppercase; color: #6c757d;
+    display: flex; align-items: center; gap: 8px; margin: 1.5rem 0 .8rem;
+}
+.section-label::after { content: ''; flex: 1; height: 1px; background: #e9ecef; }
+.concil-ok    { color: #059669; }
+.concil-bad   { color: #dc2626; font-weight: 700; }
+.spin { animation: spin 1s linear infinite; display: inline-block; }
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-3 px-lg-4 py-3">
+
+  <!-- Header -->
+  <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+    <div>
+      <h4 class="fw-bold mb-0">🤖 Agente Contable IA</h4>
+      <p class="text-muted mb-0" style="font-size:.83rem">
+        Auditoría automática · Régimen MYPE Tributario · PCGE · SSoT
+      </p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+      <!-- Selector período -->
+      <select id="selYear"  class="form-select form-select-sm" style="width:90px">
+        {% for y in range(2024, today.year+1) %}
+          <option value="{{ y }}" {% if y == today.year %}selected{% endif %}>{{ y }}</option>
+        {% endfor %}
+      </select>
+      <select id="selMonth" class="form-select form-select-sm" style="width:120px">
+        {% for m,n in [(1,'Enero'),(2,'Febrero'),(3,'Marzo'),(4,'Abril'),(5,'Mayo'),
+                       (6,'Junio'),(7,'Julio'),(8,'Agosto'),(9,'Septiembre'),
+                       (10,'Octubre'),(11,'Noviembre'),(12,'Diciembre')] %}
+          <option value="{{ m }}" {% if m == today.month %}selected{% endif %}>{{ n }}</option>
+        {% endfor %}
+      </select>
+      <button class="btn btn-sm btn-primary fw-semibold" id="btnAudit" onclick="ejecutarAuditoria()">
+        ▶ Ejecutar Auditoría
+      </button>
+    </div>
+  </div>
+
+  <!-- Estado global último reporte -->
+  {% if ultimo %}
+  <div class="alert audit-estado-{{ ultimo.estado }} d-flex align-items-center gap-3 mb-3 py-2">
+    <span style="font-size:1.5rem">
+      {% if ultimo.estado == 'APROBADO' %}✅
+      {% elif ultimo.estado == 'OBSERVADO' %}⚠️
+      {% else %}🚨{% endif %}
+    </span>
+    <div>
+      <strong>Última auditoría: {{ ultimo.audit_date.strftime('%d/%m/%Y') }}</strong>
+      — Estado: <strong>{{ ultimo.estado }}</strong>
+      — {{ ultimo.total_hallazgos }} hallazgo(s)
+      {% if ultimo.hallazgos_criticos > 0 %}, <strong>{{ ultimo.hallazgos_criticos }} CRÍTICO(s)</strong>{% endif %}
+      — Ejecutada: {{ ultimo.created_at.strftime('%d/%m/%Y %H:%M') if ultimo.created_at else '—' }}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- KPIs G&P -->
+  <div id="kpiArea">
+    {% if ultimo and ultimo.ingresos_pen is not none %}
+    <div class="row g-3 mb-1">
+      {% set utilidad_color = '#059669' if ultimo.utilidad_neta_pen > 0 else '#dc2626' %}
+      <div class="col-6 col-md-3">
+        <div class="kpi-card bg-white shadow-sm">
+          <div class="kpi-val text-success">S/ {{ '{:,.2f}'.format(ultimo.ingresos_pen) }}</div>
+          <div class="kpi-lbl">📈 Ingresos</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="kpi-card bg-white shadow-sm">
+          <div class="kpi-val text-danger">S/ {{ '{:,.2f}'.format(ultimo.gastos_pen) }}</div>
+          <div class="kpi-lbl">📉 Gastos</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="kpi-card bg-white shadow-sm">
+          <div class="kpi-val" style="color:{{ utilidad_color }}">
+            S/ {{ '{:,.2f}'.format(ultimo.utilidad_neta_pen) }}
+          </div>
+          <div class="kpi-lbl">💰 Utilidad Neta</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="kpi-card bg-white shadow-sm">
+          <div class="kpi-val text-warning">S/ {{ '{:,.2f}'.format(ultimo.ir_pago_cuenta_pen) }}</div>
+          <div class="kpi-lbl">🏛 IR Pago Cuenta (1%)</div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="row g-3 mt-0">
+
+    <!-- Hallazgos -->
+    <div class="col-lg-7">
+      <div class="section-label">🔍 Hallazgos del último reporte</div>
+      <div id="hallazgosArea">
+        {% if ultimo and ultimo.hallazgos %}
+          {% for h in ultimo.hallazgos %}
+          <div class="hallazgo-{{ h.severidad }} rounded p-3 mb-2">
+            <div class="d-flex align-items-start gap-2">
+              <span>
+                {% if h.severidad == 'CRÍTICO' %}🚨
+                {% elif h.severidad == 'ALERTA' %}⚠️
+                {% else %}ℹ️{% endif %}
+              </span>
+              <div class="flex-grow-1">
+                <div class="fw-semibold" style="font-size:.9rem">{{ h.titulo }}</div>
+                <div class="text-muted mt-1" style="font-size:.82rem">{{ h.detalle }}</div>
+                {% if h.accion_sugerida %}
+                <div class="mt-1" style="font-size:.8rem; color:#1d4ed8">
+                  💡 <em>{{ h.accion_sugerida }}</em>
+                </div>
+                {% endif %}
+                <span class="badge mt-1" style="font-size:.65rem; background:#e5e7eb; color:#374151">
+                  {{ h.modulo }}
+                </span>
+              </div>
+              <span class="audit-badge audit-estado-{{ 'CRITICO' if h.severidad == 'CRÍTICO' else ('OBSERVADO' if h.severidad == 'ALERTA' else 'APROBADO') }}">
+                {{ h.severidad }}
+              </span>
+            </div>
+          </div>
+          {% endfor %}
+        {% elif ultimo %}
+          <div class="text-center py-4 text-muted">
+            <div style="font-size:2rem">✅</div>
+            <div class="fw-semibold mt-2">Sin hallazgos — Contabilidad limpia</div>
+          </div>
+        {% else %}
+          <div class="text-center py-4 text-muted">
+            <div style="font-size:2rem">🤖</div>
+            <div class="mt-2">Ejecuta la primera auditoría para ver resultados.</div>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Panel derecho -->
+    <div class="col-lg-5">
+
+      <!-- Conciliación rápida -->
+      <div class="section-label">🏦 Conciliación Tesorería vs Libro Diario</div>
+      <div id="concilArea" class="bg-white rounded shadow-sm p-3 mb-3">
+        {% if ultimo and ultimo.conciliacion %}
+          {% for code, d in ultimo.conciliacion.items() %}
+          <div class="d-flex justify-content-between align-items-center py-1 border-bottom">
+            <div>
+              <span class="fw-semibold" style="font-size:.85rem">{{ d.label }}</span>
+              <span class="text-muted ms-1" style="font-size:.75rem">({{ code }})</span>
+            </div>
+            <div class="text-end">
+              {% if d.ok %}
+                <span class="concil-ok fw-bold" style="font-size:.82rem">✓ OK</span>
+              {% else %}
+                <span class="concil-bad" style="font-size:.82rem">
+                  Δ {{ d.moneda }} {{ '{:+,.2f}'.format(d.diferencia) if d.diferencia else '?' }}
+                </span>
+              {% endif %}
+            </div>
+          </div>
+          {% endfor %}
+        {% else %}
+          <div class="text-muted text-center py-3" style="font-size:.85rem">
+            Ejecuta una auditoría para ver la conciliación.
+          </div>
+        {% endif %}
+        <button class="btn btn-sm btn-outline-secondary mt-2 w-100"
+                onclick="cargarConciliacion()">
+          🔄 Actualizar conciliación en tiempo real
+        </button>
+      </div>
+
+      <!-- Resumen contadores -->
+      <div class="section-label">📊 Contadores del período</div>
+      {% if ultimo %}
+      <div class="row g-2">
+        {% set items = [
+          ('Ops sin asiento', ultimo.ops_sin_asiento, '📋', 'danger' if ultimo.ops_sin_asiento > 0 else 'success'),
+          ('Asientos descuadrados', ultimo.asientos_descuadrados, '⚖️', 'danger' if ultimo.asientos_descuadrados > 0 else 'success'),
+          ('Diferencias banco', ultimo.diferencias_banco, '🏦', 'warning' if ultimo.diferencias_banco > 0 else 'success'),
+          ('Gastos s/comprobante', ultimo.gastos_sin_comprobante, '🧾', 'warning' if ultimo.gastos_sin_comprobante > 0 else 'success'),
+          ('Activos s/depreciar', ultimo.activos_sin_depreciar, '🏭', 'warning' if ultimo.activos_sin_depreciar > 0 else 'success'),
+        ] %}
+        {% for label, val, icon, color in items %}
+        <div class="col-6">
+          <div class="kpi-card bg-white shadow-sm py-2 px-3">
+            <div class="kpi-val text-{{ color }}">{{ icon }} {{ val }}</div>
+            <div class="kpi-lbl">{{ label }}</div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <!-- Acciones PLE -->
+      <div class="section-label">📤 Exportar Libros SUNAT (PLE)</div>
+      <div class="d-grid gap-2">
+        <button class="btn btn-sm btn-outline-dark" onclick="descargarPLE('diario')">
+          📄 Libro Diario Formato Simplificado (.txt)
+        </button>
+        <button class="btn btn-sm btn-outline-dark" onclick="descargarPLE('compras')">
+          🛒 Registro de Compras (.txt)
+        </button>
+        <button class="btn btn-sm btn-outline-secondary" onclick="depreciarManual()">
+          🏭 Generar Depreciación del Período
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Historial -->
+  {% if historial %}
+  <div class="section-label mt-3">📅 Historial de auditorías</div>
+  <div class="table-responsive">
+    <table class="table table-sm table-hover" style="font-size:.82rem">
+      <thead>
+        <tr>
+          <th>Fecha auditada</th>
+          <th>Período</th>
+          <th>Estado</th>
+          <th>Hallazgos</th>
+          <th>Críticos</th>
+          <th>Ingresos</th>
+          <th>Utilidad</th>
+          <th>Trigger</th>
+          <th>Tiempo</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in historial %}
+        <tr style="cursor:pointer" onclick="verDetalle({{ r.id }})">
+          <td>{{ r.audit_date.strftime('%d/%m/%Y') }}</td>
+          <td>{{ r.period_label }}</td>
+          <td>
+            <span class="audit-badge audit-estado-{{ r.estado }}">{{ r.estado }}</span>
+          </td>
+          <td>{{ r.total_hallazgos }}</td>
+          <td>
+            {% if r.hallazgos_criticos > 0 %}
+              <span class="text-danger fw-bold">{{ r.hallazgos_criticos }}</span>
+            {% else %}—{% endif %}
+          </td>
+          <td>S/ {{ '{:,.0f}'.format(r.ingresos_pen) }}</td>
+          <td class="{{ 'text-success' if r.utilidad_neta_pen > 0 else 'text-danger' }}">
+            S/ {{ '{:,.0f}'.format(r.utilidad_neta_pen) }}
+          </td>
+          <td><span class="text-muted">{{ r.trigger }}</span></td>
+          <td>{{ '{:.1f}'.format(r.execution_seconds or 0) }}s</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+</div>
+
+<!-- Modal detalle hallazgos -->
+<div class="modal fade" id="modalDetalle" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Detalle de Auditoría</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="modalDetalleBody">
+        <div class="text-center py-3"><span class="spin">⏳</span> Cargando...</div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function selYear()  { return parseInt(document.getElementById('selYear').value); }
+function selMonth() { return parseInt(document.getElementById('selMonth').value); }
+
+async function ejecutarAuditoria() {
+  const btn = document.getElementById('btnAudit');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spin">⏳</span> Ejecutando...';
+
+  try {
+    const r = await fetch('/contabilidad/auditoria/ejecutar', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ year: selYear(), month: selMonth(), auto_depreciate: true }),
+    });
+    const data = await r.json();
+    if (data.success) {
+      mostrarToast('✅ ' + data.message, 'success');
+      setTimeout(() => location.reload(), 1200);
+    } else {
+      mostrarToast('❌ ' + (data.error || 'Error'), 'danger');
+    }
+  } catch(e) {
+    mostrarToast('❌ Error de conexión', 'danger');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '▶ Ejecutar Auditoría';
+  }
+}
+
+async function cargarConciliacion() {
+  const area = document.getElementById('concilArea');
+  area.innerHTML = '<div class="text-center py-3"><span class="spin">⏳</span></div>';
+  try {
+    const r = await fetch('/contabilidad/auditoria/api/conciliacion');
+    const d = await r.json();
+    if (!d.success) { area.innerHTML = '<div class="text-danger">Error</div>'; return; }
+
+    let html = '';
+    for (const [code, item] of Object.entries(d.conciliacion)) {
+      const ok = item.ok;
+      const difStr = item.diferencia !== null
+        ? `${item.diferencia > 0 ? '+' : ''}${parseFloat(item.diferencia).toLocaleString('es-PE', {minimumFractionDigits:2})}`
+        : '?';
+      html += `
+        <div class="d-flex justify-content-between align-items-center py-1 border-bottom">
+          <div>
+            <span class="fw-semibold" style="font-size:.85rem">${item.label}</span>
+            <span class="text-muted ms-1" style="font-size:.75rem">(${code})</span>
+          </div>
+          <div class="text-end">
+            ${ok
+              ? '<span class="concil-ok fw-bold" style="font-size:.82rem">✓ OK</span>'
+              : `<span class="concil-bad" style="font-size:.82rem">Δ ${item.moneda} ${difStr}</span>`
+            }
+          </div>
+        </div>`;
+    }
+    html += `<button class="btn btn-sm btn-outline-secondary mt-2 w-100" onclick="cargarConciliacion()">🔄 Actualizar</button>`;
+    area.innerHTML = html;
+  } catch(e) {
+    area.innerHTML = '<div class="text-danger">Error al cargar</div>';
+  }
+}
+
+function descargarPLE(tipo) {
+  const y = selYear(), m = selMonth();
+  window.location.href = `/contabilidad/auditoria/ple/${tipo}?year=${y}&month=${m}`;
+}
+
+async function depreciarManual() {
+  if (!confirm(`¿Generar asientos de depreciación para ${selMonth().toString().padStart(2,'0')}/${selYear()}?`)) return;
+  try {
+    const r = await fetch('/contabilidad/auditoria/depreciar', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ year: selYear(), month: selMonth() }),
+    });
+    const d = await r.json();
+    mostrarToast(d.success ? '✅ ' + d.message : '❌ ' + d.error, d.success ? 'success' : 'danger');
+  } catch(e) {
+    mostrarToast('❌ Error de conexión', 'danger');
+  }
+}
+
+async function verDetalle(reportId) {
+  const modal = new bootstrap.Modal(document.getElementById('modalDetalle'));
+  document.getElementById('modalDetalleBody').innerHTML = '<div class="text-center py-3"><span class="spin">⏳</span></div>';
+  modal.show();
+
+  try {
+    const r = await fetch(`/contabilidad/auditoria/${reportId}`);
+    const d = await r.json();
+    if (!d.success) return;
+    const rep = d.report;
+
+    let html = `
+      <div class="mb-3">
+        <strong>Período:</strong> ${rep.period_label} &nbsp;
+        <strong>Estado:</strong>
+        <span class="audit-badge audit-estado-${rep.estado}">${rep.estado}</span>
+        &nbsp; <strong>Trigger:</strong> ${rep.trigger}
+      </div>`;
+
+    if (rep.hallazgos.length === 0) {
+      html += '<div class="text-success text-center py-3">✅ Sin hallazgos</div>';
+    } else {
+      rep.hallazgos.forEach(h => {
+        html += `
+          <div class="hallazgo-${h.severidad} rounded p-3 mb-2">
+            <div class="fw-semibold">${h.titulo}</div>
+            <div class="text-muted mt-1" style="font-size:.82rem">${h.detalle}</div>
+            ${h.accion_sugerida ? `<div class="mt-1" style="font-size:.8rem;color:#1d4ed8">💡 ${h.accion_sugerida}</div>` : ''}
+            <span class="badge mt-1" style="background:#e5e7eb;color:#374151;font-size:.65rem">${h.modulo}</span>
+          </div>`;
+      });
+    }
+
+    document.getElementById('modalDetalleBody').innerHTML = html;
+  } catch(e) {
+    document.getElementById('modalDetalleBody').innerHTML = '<div class="text-danger">Error al cargar</div>';
+  }
+}
+
+function mostrarToast(msg, tipo) {
+  const t = document.createElement('div');
+  t.className = `alert alert-${tipo} position-fixed bottom-0 end-0 m-3 shadow`;
+  t.style.cssText = 'z-index:9999;max-width:400px;font-size:.88rem';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 4000);
+}
+</script>
+{% endblock %}

@@ -822,6 +822,7 @@ def register_blueprints(app):
     from app.routes.fx_monitor import fx_monitor_bp
     from app.routes.market import market_bp
     from app.routes.contabilidad import contabilidad_bp
+    from app.routes.auditoria import auditoria_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
@@ -840,6 +841,7 @@ def register_blueprints(app):
     app.register_blueprint(fx_monitor_bp)  # Monitor de competencia
     app.register_blueprint(market_bp)      # Módulo Mercado
     app.register_blueprint(contabilidad_bp, url_prefix='/contabilidad')  # Módulo Contable
+    app.register_blueprint(auditoria_bp,   url_prefix='/contabilidad/auditoria')  # Agente Auditoría IA
 
     from app.routes.notifications import notifications_bp
     app.register_blueprint(notifications_bp)  # API de notificaciones internas
