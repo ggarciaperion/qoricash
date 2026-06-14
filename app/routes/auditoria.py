@@ -255,6 +255,129 @@ def depreciar():
         return jsonify({'success': False, 'error': str(exc)}), 500
 
 
+# ── Regenerar asientos desde operaciones y gastos ────────────────────────────
+
+@auditoria_bp.route('/regenerar-asientos', methods=['POST'])
+@csrf.exempt
+@login_required
+@require_role('Master')
+def regenerar_asientos():
+    """
+    Re-genera asientos contables para todas las operaciones completadas
+    y gastos registrados desde el 01/06/2026 que no tienen asiento vinculado.
+
+    Usar DESPUÉS de ejecutar reset_contabilidad_junio.sql.
+    """
+    from datetime import date as date_type
+    from decimal import Decimal
+    from app.models.operation import Operation
+    from app.models.expense_record import ExpenseRecord
+    from app.models.journal_entry import JournalEntry
+    from app.services.accounting.journal_service import JournalService
+
+    DESDE = date_type(2026, 6, 1)
+
+    ops_ok = 0
+    ops_err = 0
+    gastos_ok = 0
+    gastos_err = 0
+    errores = []
+
+    # ── 1. Operaciones completadas sin asiento ──────────────────────────────
+    ops = Operation.query.filter(
+        Operation.status == 'Completada',
+        Operation.completed_at >= DESDE,
+    ).order_by(Operation.completed_at.asc()).all()
+
+    # IDs de operaciones que ya tienen asiento
+    existing_op_ids = set(
+        row[0] for row in db.session.query(JournalEntry.source_id).filter(
+            JournalEntry.source_type == 'operation',
+            JournalEntry.status == 'activo',
+        ).all() if row[0]
+    )
+
+    for op in ops:
+        if op.id in existing_op_ids:
+            continue
+        try:
+            entry = JournalService.create_entry_for_completed_operation(
+                op, created_by_id=current_user.id
+            )
+            if entry:
+                ops_ok += 1
+            else:
+                ops_err += 1
+                errores.append(f'Op {op.operation_id}: create_entry retornó None')
+        except Exception as exc:
+            ops_err += 1
+            errores.append(f'Op {op.operation_id}: {exc}')
+
+    # ── 2. Gastos sin asiento ───────────────────────────────────────────────
+    gastos = ExpenseRecord.query.filter(
+        ExpenseRecord.expense_date >= DESDE,
+        ExpenseRecord.journal_entry_id.is_(None),
+    ).order_by(ExpenseRecord.expense_date.asc()).all()
+
+    for rec in gastos:
+        try:
+            amount_pen = Decimal(str(rec.amount_pen))
+            bank_code  = rec.bank_account_code
+            category   = rec.category or '6399'
+
+            if bank_code:
+                lines = [
+                    {'account_code': category,  'debe': amount_pen, 'haber': Decimal('0'), 'currency': 'PEN'},
+                    {'account_code': bank_code,  'debe': Decimal('0'), 'haber': amount_pen, 'currency': 'PEN'},
+                ]
+            else:
+                lines = [
+                    {'account_code': category,  'debe': amount_pen, 'haber': Decimal('0'), 'currency': 'PEN'},
+                    {'account_code': '4699',     'debe': Decimal('0'), 'haber': amount_pen, 'currency': 'PEN'},
+                ]
+
+            entry_type = 'activo_fijo' if rec.expense_type == 'activo_fijo' else 'gasto'
+            entry = JournalService.create_entry(
+                entry_type=entry_type,
+                description=f'Gasto: {rec.description}',
+                lines=lines,
+                source_type='expense',
+                source_id=rec.id,
+                entry_date=rec.expense_date,
+                created_by=current_user.id,
+            )
+            if entry:
+                rec.journal_entry_id = entry.id
+                db.session.commit()
+                gastos_ok += 1
+            else:
+                gastos_err += 1
+                errores.append(f'Gasto #{rec.id} ({rec.description[:40]}): create_entry retornó None')
+        except Exception as exc:
+            db.session.rollback()
+            gastos_err += 1
+            errores.append(f'Gasto #{rec.id}: {exc}')
+
+    total_ok  = ops_ok + gastos_ok
+    total_err = ops_err + gastos_err
+
+    return jsonify({
+        'success':    True,
+        'ops_ok':     ops_ok,
+        'ops_err':    ops_err,
+        'gastos_ok':  gastos_ok,
+        'gastos_err': gastos_err,
+        'total_ok':   total_ok,
+        'total_err':  total_err,
+        'errores':    errores[:20],
+        'message':    (
+            f'Regeneración completada. '
+            f'Operaciones: {ops_ok} OK / {ops_err} errores. '
+            f'Gastos: {gastos_ok} OK / {gastos_err} errores.'
+        ),
+    })
+
+
 # ── API: Conciliación en tiempo real ─────────────────────────────────────────
 
 @auditoria_bp.route('/api/conciliacion')
