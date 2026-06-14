@@ -535,24 +535,33 @@ class AuditEngine:
         from app.models.journal_entry_line import JournalEntryLine
         from sqlalchemy import func, extract
 
-        def _sum_cuentas(prefix: str, campo: str) -> Decimal:
+        base_f = [
+            extract('year',  JournalEntry.entry_date) == self.year,
+            extract('month', JournalEntry.entry_date) == self.month,
+            JournalEntry.status == 'activo',
+        ]
+
+        def _sum_cuentas(prefix: str, campo: str, excluir: str = None) -> Decimal:
+            filters = base_f + [JournalEntryLine.account_code.like(f'{prefix}%')]
+            if excluir:
+                filters.append(JournalEntryLine.account_code != excluir)
             result = db.session.query(
                 func.sum(getattr(JournalEntryLine, campo))
             ).join(
                 JournalEntry, JournalEntryLine.journal_entry_id == JournalEntry.id
-            ).filter(
-                JournalEntryLine.account_code.like(f'{prefix}%'),
-                extract('year',  JournalEntry.entry_date) == self.year,
-                extract('month', JournalEntry.entry_date) == self.month,
-                JournalEntry.status == 'activo',
-            ).scalar()
+            ).filter(*filters).scalar()
             return Decimal(str(result or 0))
 
-        # Ingresos 7xxx: se miden por el HABER
-        ingresos = _sum_cuentas('7', 'haber')
-        # Gastos 6xxx: se miden por DEBE - HABER (neto)
-        gastos_d = _sum_cuentas('6', 'debe')
-        gastos_h = _sum_cuentas('6', 'haber')
+        # Ganancias FX brutas (7711 y similares — HABER)
+        ganancias_fx = _sum_cuentas('7', 'haber')
+        # Pérdidas FX (6762 — reverso de operación FX, se netean contra ingresos)
+        perdidas_fx  = max(_sum_cuentas('6762', 'debe') - _sum_cuentas('6762', 'haber'), Decimal('0'))
+        # Ingresos neto FX: lo que realmente ganó QoriCash en diferencial cambiario
+        # Coincide con lo que muestra el módulo Amarres
+        ingresos = ganancias_fx - perdidas_fx
+        # Gastos operativos: 6xxx EXCEPTO 6762 (pérdidas FX ya descontadas de ingresos)
+        gastos_d = _sum_cuentas('6', 'debe',  excluir='6762')
+        gastos_h = _sum_cuentas('6', 'haber', excluir='6762')
         gastos   = max(gastos_d - gastos_h, Decimal('0'))
 
         utilidad = ingresos - gastos
