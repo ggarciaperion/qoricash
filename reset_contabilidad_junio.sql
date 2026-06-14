@@ -28,8 +28,8 @@ INSERT INTO journal_sequences (year, last_number)
   WHERE NOT EXISTS (SELECT 1 FROM journal_sequences WHERE year = 2026);
 
 -- ── PASO 4: Asegurar período junio 2026 abierto ───────────────
-INSERT INTO accounting_periods (year, month, status, created_at)
-  SELECT 2026, 6, 'abierto', NOW()
+INSERT INTO accounting_periods (year, month, status)
+  SELECT 2026, 6, 'abierto'
   WHERE NOT EXISTS (
     SELECT 1 FROM accounting_periods WHERE year = 2026 AND month = 6
   );
