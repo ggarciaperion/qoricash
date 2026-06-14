@@ -525,8 +525,11 @@ class AccountingService:
         Solo registra la ganancia/pérdida neta (spread) — los movimientos bancarios
         individuales ya están en los asientos de cada operación completada.
 
-        Ganancia: DEBE 1041 / HABER 7711
-        Pérdida:  DEBE 6762 / HABER 1041
+        Ganancia: DEBE 3599 / HABER 7711
+        Pérdida:  DEBE 6762 / HABER 3599
+
+        Se usa 3599 (Otras reservas de capital) como contrapartida en lugar de
+        1041 para evitar duplicar el cash ya capturado en los asientos de operaciones.
         """
         from app.services.accounting.journal_service import JournalService
 
@@ -537,8 +540,8 @@ class AccountingService:
         if profit > 0:
             lines = [
                 {
-                    'account_code': '1041',
-                    'description':  f'BCP PEN – diferencial cambiario {batch.batch_code}',
+                    'account_code': '3599',
+                    'description':  f'Diferencial cambiario {batch.batch_code}',
                     'debe':  profit,
                     'haber': Decimal('0'),
                     'currency': 'PEN',
@@ -562,8 +565,8 @@ class AccountingService:
                     'currency': 'PEN',
                 },
                 {
-                    'account_code': '1041',
-                    'description':  f'BCP PEN – diferencial cambiario {batch.batch_code}',
+                    'account_code': '3599',
+                    'description':  f'Diferencial cambiario {batch.batch_code}',
                     'debe':  Decimal('0'),
                     'haber': loss,
                     'currency': 'PEN',
@@ -590,8 +593,11 @@ class AccountingService:
         """
         Reconoce el ingreso por diferencial cambiario en el momento del amarre.
 
-        Ganancia: DEBE 1041 BCP PEN / HABER 7711 Ganancia diferencial
-        Pérdida:  DEBE 6762 Pérdida diferencial / HABER 1041 BCP PEN
+        Ganancia: DEBE 3599 / HABER 7711 Ganancia diferencial
+        Pérdida:  DEBE 6762 Pérdida diferencial / HABER 3599
+
+        Se usa 3599 (Otras reservas de capital) como contrapartida para no
+        duplicar el cash ya registrado en los asientos de operaciones.
 
         El profit_pen representa el spread neto (sell_tc − buy_tc) × USD.
         Se usa source_type='match' y source_id=match.id para trazabilidad.
@@ -611,8 +617,8 @@ class AccountingService:
             if profit > 0:
                 lines = [
                     {
-                        'account_code': '1041',
-                        'description':  f'Spread FX amarre #{match.id} — {buy_id}×{sell_id}',
+                        'account_code': '3599',
+                        'description':  f'Diferencial FX amarre #{match.id}',
                         'debe':  profit,
                         'haber': Decimal('0'),
                         'currency': 'PEN',
@@ -636,8 +642,8 @@ class AccountingService:
                         'currency': 'PEN',
                     },
                     {
-                        'account_code': '1041',
-                        'description':  f'Spread FX amarre #{match.id} — {buy_id}×{sell_id}',
+                        'account_code': '3599',
+                        'description':  f'Diferencial FX amarre #{match.id}',
                         'debe':  Decimal('0'),
                         'haber': loss,
                         'currency': 'PEN',
