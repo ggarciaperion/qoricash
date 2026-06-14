@@ -358,22 +358,86 @@ def regenerar_asientos():
             gastos_err += 1
             errores.append(f'Gasto #{rec.id}: {exc}')
 
-    total_ok  = ops_ok + gastos_ok
-    total_err = ops_err + gastos_err
+    # ── 3. Batches de amarres sin asiento calce_netting ────────────────────
+    batches_ok = 0
+    batches_err = 0
+
+    from app.models.accounting_batch import AccountingBatch
+    from app.services.accounting_service import AccountingService
+
+    existing_batch_ids = set(
+        row[0] for row in db.session.query(JournalEntry.source_id).filter(
+            JournalEntry.source_type == 'batch',
+            JournalEntry.entry_type == 'calce_netting',
+            JournalEntry.status == 'activo',
+        ).all() if row[0]
+    )
+
+    batches = AccountingBatch.query.filter(
+        AccountingBatch.netting_date >= DESDE,
+        AccountingBatch.status == 'cerrado',
+    ).order_by(AccountingBatch.netting_date.asc()).all()
+
+    for batch in batches:
+        if batch.id in existing_batch_ids:
+            continue
+        try:
+            AccountingService._create_journal_entry_for_batch(batch, current_user.id)
+            batches_ok += 1
+        except Exception as exc:
+            batches_err += 1
+            errores.append(f'Batch {batch.batch_code}: {exc}')
+
+    # ── 4. Matches individuales sin asiento calce_match ─────────────────────
+    matches_ok = 0
+    matches_err = 0
+
+    from app.models.accounting_match import AccountingMatch
+
+    existing_match_ids = set(
+        row[0] for row in db.session.query(JournalEntry.source_id).filter(
+            JournalEntry.source_type == 'match',
+            JournalEntry.entry_type == 'calce_match',
+            JournalEntry.status == 'activo',
+        ).all() if row[0]
+    )
+
+    matches = AccountingMatch.query.filter(
+        AccountingMatch.created_at >= DESDE,
+        AccountingMatch.status == 'Activo',
+    ).order_by(AccountingMatch.created_at.asc()).all()
+
+    for match in matches:
+        if match.id in existing_match_ids:
+            continue
+        try:
+            AccountingService._create_income_entry_for_match(match, current_user.id)
+            matches_ok += 1
+        except Exception as exc:
+            matches_err += 1
+            errores.append(f'Match #{match.id}: {exc}')
+
+    total_ok  = ops_ok + gastos_ok + batches_ok + matches_ok
+    total_err = ops_err + gastos_err + batches_err + matches_err
 
     return jsonify({
-        'success':    True,
-        'ops_ok':     ops_ok,
-        'ops_err':    ops_err,
-        'gastos_ok':  gastos_ok,
-        'gastos_err': gastos_err,
-        'total_ok':   total_ok,
-        'total_err':  total_err,
-        'errores':    errores[:20],
-        'message':    (
+        'success':     True,
+        'ops_ok':      ops_ok,
+        'ops_err':     ops_err,
+        'gastos_ok':   gastos_ok,
+        'gastos_err':  gastos_err,
+        'batches_ok':  batches_ok,
+        'batches_err': batches_err,
+        'matches_ok':  matches_ok,
+        'matches_err': matches_err,
+        'total_ok':    total_ok,
+        'total_err':   total_err,
+        'errores':     errores[:30],
+        'message':     (
             f'Regeneración completada. '
-            f'Operaciones: {ops_ok} OK / {ops_err} errores. '
-            f'Gastos: {gastos_ok} OK / {gastos_err} errores.'
+            f'Ops: {ops_ok} OK. Gastos: {gastos_ok} OK. '
+            f'Batches: {batches_ok} OK. Matches: {matches_ok} OK. '
+            f'Errores: {total_err}.'
         ),
     })
 
