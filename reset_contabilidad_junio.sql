@@ -14,20 +14,20 @@
 
 BEGIN;
 
--- ── PASO 1: Limpiar todo el Libro Diario ─────────────────────
+-- ── PASO 1: Limpiar referencias FK antes de borrar journal_entries ────
+UPDATE expense_records SET journal_entry_id = NULL WHERE journal_entry_id IS NOT NULL;
+
+-- ── PASO 2: Limpiar todo el Libro Diario ─────────────────────────────
 DELETE FROM journal_entry_lines;
 DELETE FROM journal_entries;
 
--- Limpiar referencia journal_entry_id en expense_records
-UPDATE expense_records SET journal_entry_id = NULL WHERE journal_entry_id IS NOT NULL;
-
--- ── PASO 2: Resetear secuencia de numeración 2026 ────────────
+-- ── PASO 3: Resetear secuencia de numeración 2026 ────────────
 UPDATE journal_sequences SET last_number = 0 WHERE year = 2026;
 INSERT INTO journal_sequences (year, last_number)
   SELECT 2026, 0
   WHERE NOT EXISTS (SELECT 1 FROM journal_sequences WHERE year = 2026);
 
--- ── PASO 3: Asegurar período junio 2026 abierto ───────────────
+-- ── PASO 4: Asegurar período junio 2026 abierto ───────────────
 INSERT INTO accounting_periods (year, month, status, created_at)
   SELECT 2026, 6, 'abierto', NOW()
   WHERE NOT EXISTS (
@@ -38,7 +38,7 @@ INSERT INTO accounting_periods (year, month, status, created_at)
 UPDATE accounting_periods SET status = 'cerrado'
 WHERE year < 2026 OR (year = 2026 AND month < 6);
 
--- ── PASO 4: Crear asiento de apertura ─────────────────────────
+-- ── PASO 5: Crear asiento de apertura ─────────────────────────
 WITH upd_seq AS (
   UPDATE journal_sequences
   SET last_number = last_number + 1
