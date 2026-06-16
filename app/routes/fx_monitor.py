@@ -70,6 +70,58 @@ def api_scrape_now():
     return jsonify({"success": True, "result": result})
 
 
+@fx_monitor_bp.route("/api/debug")
+@login_required
+@role_required("Master")
+def api_debug():
+    """Diagnóstico del estado interno del monitor FX (solo Master)."""
+    from app.services.fx_monitor import live_cache
+    from app.services.fx_monitor.scrapers.manager import _cb
+    from app.models.competitor_rate import Competitor, CompetitorRateCurrent
+
+    try:
+        competitors_total = Competitor.query.count()
+        competitors_active = Competitor.query.filter_by(is_active=True).count()
+        current_rows = CompetitorRateCurrent.query.count()
+        current_ok = CompetitorRateCurrent.query.filter_by(scrape_ok=True).count()
+        current_with_prices = db.session.query(CompetitorRateCurrent).filter(
+            CompetitorRateCurrent.buy_rate > 0
+        ).count()
+
+        # Detalles por competidor
+        rows = (
+            db.session.query(CompetitorRateCurrent, Competitor)
+            .join(Competitor, CompetitorRateCurrent.competitor_id == Competitor.id)
+            .all()
+        )
+        details = []
+        for curr, comp in rows:
+            details.append({
+                "slug":      comp.slug,
+                "buy":       float(curr.buy_rate),
+                "sell":      float(curr.sell_rate),
+                "scrape_ok": curr.scrape_ok,
+                "updated_at": curr.updated_at.isoformat() if curr.updated_at else None,
+            })
+
+        cb_state = {slug: {"fails": v["fails"], "cooldown_secs": max(0, round(v["open_until"] - __import__('time').monotonic()))}
+                    for slug, v in _cb.items()}
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+    return jsonify({
+        "competitors_total":     competitors_total,
+        "competitors_active":    competitors_active,
+        "current_rows":          current_rows,
+        "current_scrape_ok":     current_ok,
+        "current_with_prices":   current_with_prices,
+        "cache_version":         live_cache.get_version(),
+        "circuit_breaker":       cb_state,
+        "details":               details,
+    })
+
+
 @fx_monitor_bp.route("/api/seed", methods=["POST"])
 @login_required
 @role_required("Master")

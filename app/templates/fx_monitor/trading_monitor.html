@@ -1479,12 +1479,17 @@ window.forceRefresh = async function() {
   try {
     const r = await fetch('/monitor/api/seed', { method:'POST', cache:'no-store' });
     const j = await r.json();
-    btn.textContent = j.success ? '⟳ OK' : '⟳ ERR';
+    if (j.success && j.scrape) {
+      const s = j.scrape;
+      btn.textContent = s.ok > 0 ? '⟳ OK (' + s.ok + '✅ ' + s.errors + '❌)' : '⟳ ERR (' + s.errors + ' fallos)';
+    } else {
+      btn.textContent = j.success ? '⟳ OK' : '⟳ ERR';
+    }
     setTimeout(() => fetchAndRender(), 800);
   } catch(e) {
     btn.textContent = '⟳ ERR';
   }
-  setTimeout(() => { btn.textContent = '⟳ FORZAR'; btn.disabled = false; }, 3000);
+  setTimeout(() => { btn.textContent = '⟳ FORZAR'; btn.disabled = false; }, 5000);
 };
 
 // ── Init ──────────────────────────────────────────────────────
