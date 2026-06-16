@@ -158,15 +158,24 @@ def emit_operation_event(event_type, operation_data):
     Emite un evento de operación a todos los usuarios relevantes
 
     Args:
-        event_type: 'created', 'updated', 'deleted'
+        event_type: 'created', 'updated', 'canceled', 'completed', 'in_process'
         operation_data: Datos de la operación
     """
+    event_map = {
+        'created':    'nueva_operacion',
+        'updated':    'operacion_actualizada',
+        'canceled':   'operacion_cancelada',
+        'completed':  'operacion_completada',
+        'in_process': 'operacion_en_proceso',
+    }
+    event_name = event_map.get(event_type, f'operation_{event_type}')
+
     # Emitir a todos los usuarios autenticados
-    socketio.emit(f'operation_{event_type}', operation_data, room='authenticated')
+    socketio.emit(event_name, operation_data, room='authenticated')
 
     # También emitir específicamente a Masters y Operadores
-    socketio.emit(f'operation_{event_type}', operation_data, room='role_Master')
-    socketio.emit(f'operation_{event_type}', operation_data, room='role_Operador')
+    socketio.emit(event_name, operation_data, room='role_Master')
+    socketio.emit(event_name, operation_data, room='role_Operador')
 
 
 def emit_client_event(event_type, client_data):
