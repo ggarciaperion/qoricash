@@ -836,20 +836,45 @@ function loadDashboardData(month = null, year = null) {
 // SISTEMA DE SEGURIDAD: INACTIVIDAD Y CIERRE DE PESTAÑA
 // ============================================
 
-let inactivityTimeout = null;
-const INACTIVITY_TIME = 20 * 60 * 1000; // 20 minutos en milisegundos
+let inactivityTimeout     = null;
+let scheduleCheckInterval = null;
+const INACTIVITY_TIME  = 20 * 60 * 1000; // 20 minutos
 const SESSION_CHECK_KEY = 'qoricash_session_active';
 
+// Horario laboral: Lunes–Sábado 09:00–13:30 (Perú, UTC-5)
+const BUSINESS_START_MIN = 9 * 60;       // 540 min
+const BUSINESS_END_MIN   = 13 * 60 + 30; // 810 min
+
 /**
- * Resetear el temporizador de inactividad
+ * Devuelve true si ahora mismo es horario laboral en Perú (UTC-5).
+ * Durante ese horario NO se aplica el cierre por inactividad.
+ */
+function isBusinessHours() {
+    // Convertir a hora Perú (UTC-5) de forma explícita
+    const now     = new Date();
+    const utcMs   = now.getTime() + now.getTimezoneOffset() * 60000;
+    const peruDate = new Date(utcMs - 5 * 3600000); // UTC-5
+
+    const day      = peruDate.getDay();                           // 0=Dom … 6=Sáb
+    const totalMin = peruDate.getHours() * 60 + peruDate.getMinutes();
+
+    const isWeekday = day >= 1 && day <= 6;
+    const inWindow  = totalMin >= BUSINESS_START_MIN && totalMin < BUSINESS_END_MIN;
+
+    return isWeekday && inWindow;
+}
+
+/**
+ * Resetear el temporizador de inactividad.
+ * Si estamos en horario laboral, cancela cualquier timer pendiente y no hace nada más.
  */
 function resetInactivityTimer() {
-    // Limpiar timeout anterior
     if (inactivityTimeout) {
         clearTimeout(inactivityTimeout);
+        inactivityTimeout = null;
     }
+    if (isBusinessHours()) return; // horario laboral → sin restricción
 
-    // Crear nuevo timeout
     inactivityTimeout = setTimeout(function() {
         handleInactivityLogout();
     }, INACTIVITY_TIME);
@@ -861,40 +886,60 @@ function resetInactivityTimer() {
 function handleInactivityLogout() {
     console.log('⏰ Sesión cerrada por inactividad (20 minutos sin actividad)');
 
-    // Mostrar mensaje al usuario
     if (typeof Swal !== 'undefined') {
         Swal.fire({
             icon: 'warning',
             title: 'Sesión Cerrada',
-            text: 'Su sesión expiró',
+            text: 'Su sesión expiró por inactividad',
             allowOutsideClick: false,
             allowEscapeKey: false,
             confirmButtonText: 'Entendido'
         }).then(function() {
-            // Redirigir a logout
             window.location.href = '/logout';
         });
     } else {
-        alert('Su sesión expiró');
+        alert('Su sesión expiró por inactividad');
         window.location.href = '/logout';
     }
 }
 
 /**
- * Inicializar sistema de detección de inactividad
+ * Inicializar sistema de detección de inactividad.
+ * Registra los eventos de actividad y evalúa cada minuto si
+ * el horario laboral cambió para activar / desactivar el timer.
  */
 function initInactivityDetection() {
-    // Eventos que resetean el contador de inactividad
     const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
-
     events.forEach(function(event) {
         document.addEventListener(event, resetInactivityTimer, true);
     });
 
-    // Iniciar el temporizador
-    resetInactivityTimer();
+    // Evaluación inicial
+    if (isBusinessHours()) {
+        console.log('✅ Sistema de inactividad: SUSPENDIDO (horario laboral 09:00–13:30)');
+    } else {
+        resetInactivityTimer();
+        console.log('✅ Sistema de detección de inactividad iniciado (20 minutos)');
+    }
 
-    console.log('✅ Sistema de detección de inactividad iniciado (20 minutos)');
+    // Revisar cada minuto si el horario cambia (activa/desactiva sin recargar)
+    if (scheduleCheckInterval) clearInterval(scheduleCheckInterval);
+    scheduleCheckInterval = setInterval(function() {
+        if (isBusinessHours()) {
+            // Si había un timer corriendo, cancelarlo
+            if (inactivityTimeout) {
+                clearTimeout(inactivityTimeout);
+                inactivityTimeout = null;
+                console.log('🟢 Horario laboral iniciado — inactividad suspendida');
+            }
+        } else {
+            // Fuera de horario laboral: asegurar que el timer esté activo
+            if (!inactivityTimeout) {
+                resetInactivityTimer();
+                console.log('🔴 Horario laboral terminado — inactividad activada (20 min)');
+            }
+        }
+    }, 60000); // cada 60 segundos
 }
 
 /**
