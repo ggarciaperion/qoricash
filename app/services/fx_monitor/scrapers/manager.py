@@ -75,11 +75,96 @@ ALL_SCRAPERS = [
 ]
 
 
+# Mapa de slug → ced_path en cuantoestaeldolar.pe
+# Usado como fallback cuando el scraper directo falla (ej. Cloudflare en cloud IPs)
+_CED_FALLBACK = {
+    "cambix":      "cambix",
+    "cambioseguro":"cambio-seguro",
+    "tucambista":  "tu-cambista",
+    "dollarhouse": "dollar-house",
+    "moneyhouse":  "moneyhouse",
+    "inkamoney":   "inkamoney",
+    "dichikash":   "dichikash",
+    "rextie":      "rextie",
+    "kambista":    "kambista",
+    "tkambio":     "tkambio",
+    "cambiosol":   "cambiosol",
+    "cambiafx":    "cambia-fx",
+    "cambiomundial":"cambiomundial",
+    "westernunion":"western-union",
+    "okane":       "okane",
+}
+
+
+def _ced_batch_fallback(failed_slugs: list) -> dict:
+    """
+    Descarga cuantoestaeldolar.pe UNA VEZ y extrae tasas para todos los slugs fallidos.
+    Retorna dict slug → (buy, sell) para los que se encontraron.
+    """
+    from .cuantoestaeldolar import _fetch_ced_rates
+    import re
+    import requests
+
+    slugs_with_path = {s: _CED_FALLBACK[s] for s in failed_slugs if s in _CED_FALLBACK}
+    if not slugs_with_path:
+        return {}
+
+    # Descargar CED una sola vez para todos
+    try:
+        sess = requests.Session()
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                          "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            "Accept":     "text/html,application/xhtml+xml,*/*;q=0.9",
+            "Accept-Language": "es-PE,es;q=0.9,en;q=0.8",
+        }
+        resp = sess.get("https://cuantoestaeldolar.pe", headers=headers, timeout=15, verify=False)
+        resp.raise_for_status()
+
+        chunks = re.findall(r'self\.__next_f\.push\(\[1,"(.+?)"\]\)', resp.text, re.DOTALL)
+        text = ""
+        for chunk in chunks:
+            try:
+                text += chunk.encode().decode("unicode_escape")
+            except Exception:
+                text += chunk
+
+        recovered = {}
+        for slug, ced_path in slugs_with_path.items():
+            try:
+                idx = text.find(f'"path":"{ced_path}"')
+                if idx < 0:
+                    idx = text.find(ced_path)
+                if idx < 0:
+                    continue
+                window = text[idx: idx + 600]
+                buy_m  = re.search(r'"buy"\s*:\s*\{[^}]*"cost"\s*:\s*"([\d.]+)"',  window)
+                sell_m = re.search(r'"sale"\s*:\s*\{[^}]*"cost"\s*:\s*"([\d.]+)"', window)
+                if buy_m and sell_m:
+                    buy  = float(buy_m.group(1))
+                    sell = float(sell_m.group(1))
+                    if buy > 0 and sell > 0:
+                        recovered[slug] = (buy, sell)
+            except Exception:
+                continue
+
+        logger.info(f"[CED-BATCH] Recuperados via CED: {list(recovered.keys())}")
+        return recovered
+
+    except Exception as e:
+        logger.warning(f"[CED-BATCH] Error descargando cuantoestaeldolar.pe: {e}")
+        return {}
+
+
 def scrape_all(active_slugs=None, max_workers=18):
     """
     Ejecuta todos los scrapers activos en paralelo con circuit breaker.
-    Scrapers en cooldown se saltan para no ralentizar el ciclo.
+    Para scrapers que fallan y tienen mapping en CED, intenta recuperar
+    las tasas de cuantoestaeldolar.pe en una sola request (fallback batch).
     """
+    from .base import RateResult
+    from app.utils.formatters import now_peru
+
     scrapers = ALL_SCRAPERS
     if active_slugs is not None:
         scrapers = [s for s in ALL_SCRAPERS if s.slug in active_slugs]
@@ -91,6 +176,8 @@ def scrape_all(active_slugs=None, max_workers=18):
         logger.debug(f"[CB] Saltando {len(skipped)} scrapers en cooldown: {skipped}")
 
     results = []
+    failed_slugs = []
+
     with ThreadPoolExecutor(max_workers=max_workers) as pool:
         futures = {pool.submit(s.safe_fetch): s.slug for s in ready}
         for future in as_completed(futures):
@@ -101,8 +188,26 @@ def scrape_all(active_slugs=None, max_workers=18):
                 results.append(result)
                 status = "✅" if result.success else "❌"
                 logger.info(f"[FX] {status} {slug}: compra={result.buy_rate} venta={result.sell_rate} ({result.response_ms}ms)")
+                if not result.success or result.buy_rate == 0:
+                    failed_slugs.append(slug)
             except Exception as e:
                 _cb_record(slug, False)
                 logger.error(f"[FX] 💥 {slug}: {e}")
+                failed_slugs.append(slug)
+
+    # Fallback CED batch para scrapers que fallaron
+    if failed_slugs:
+        t0 = time.monotonic()
+        recovered = _ced_batch_fallback(failed_slugs)
+        ms = int((time.monotonic() - t0) * 1000)
+        for slug, (buy, sell) in recovered.items():
+            # Reemplazar el resultado fallido con el dato de CED
+            results = [r for r in results if r.slug != slug]
+            results.append(RateResult(
+                slug=slug, buy_rate=buy, sell_rate=sell,
+                scraped_at=now_peru(), response_ms=ms, success=True,
+            ))
+            _cb_record(slug, True)  # resetear circuit breaker
+            logger.info(f"[CED-BATCH] ✅ {slug} recuperado: compra={buy} venta={sell}")
 
     return results
