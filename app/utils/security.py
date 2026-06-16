@@ -52,7 +52,7 @@ def configure_security_headers(app):
             "    https://code.jquery.com https://cdn.socket.io; "
             "style-src 'self' 'unsafe-inline' "
             "    https://cdn.jsdelivr.net https://cdnjs.cloudflare.com "
-            "    https://fonts.googleapis.com; "
+            "    https://fonts.googleapis.com https://cdn.datatables.net; "
             "font-src 'self' data: "
             "    https://fonts.gstatic.com https://cdnjs.cloudflare.com "
             "    https://cdn.jsdelivr.net; "
