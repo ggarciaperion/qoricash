@@ -530,6 +530,13 @@ class AuditEngine:
         """
         Calcula el Estado de Ganancias y Pérdidas del período
         desde el Libro Diario (SSoT) y lo almacena en las métricas del reporte.
+
+        Separación de gastos por entry_type para evitar mezcla con
+        depreciaciones automáticas (6814) y pérdidas FX de calce (6762):
+          gastos_operativos → entry_type IN ('gasto','activo_fijo','manual')
+                              Coincide con /contabilidad/gastos (ExpenseRecord)
+          gastos_depreciacion → entry_type = 'depreciacion'
+          perdidas_fx         → cuenta 6762, entry_type = 'calce_netting'
         """
         from app.models.journal_entry import JournalEntry
         from app.models.journal_entry_line import JournalEntryLine
@@ -541,8 +548,11 @@ class AuditEngine:
             JournalEntry.status == 'activo',
         ]
 
-        def _sum_cuentas(prefix: str, campo: str, excluir: str = None) -> Decimal:
+        def _sum_cuentas(prefix: str, campo: str,
+                         entry_types=None, excluir: str = None) -> Decimal:
             filters = base_f + [JournalEntryLine.account_code.like(f'{prefix}%')]
+            if entry_types:
+                filters.append(JournalEntry.entry_type.in_(entry_types))
             if excluir:
                 filters.append(JournalEntryLine.account_code != excluir)
             result = db.session.query(
@@ -553,24 +563,38 @@ class AuditEngine:
             return Decimal(str(result or 0))
 
         # Ingresos (7xxx) — naturaleza acreedora: HABER − DEBE
-        # Consistente con Estado de Resultados (/contabilidad/resultados)
         ingresos_h = _sum_cuentas('7', 'haber')
         ingresos_d = _sum_cuentas('7', 'debe')
         ingresos   = max(ingresos_h - ingresos_d, Decimal('0'))
-        # Gastos (6xxx) — naturaleza deudora: DEBE − HABER
-        # Incluye 6762 (pérdida FX) para ser consistente con Estado de Resultados y dashboard
-        gastos_d = _sum_cuentas('6', 'debe')
-        gastos_h = _sum_cuentas('6', 'haber')
-        gastos   = max(gastos_d - gastos_h, Decimal('0'))
-        # 6762 por separado — dato informativo (ya incluido dentro de gastos)
-        perdidas_fx = max(_sum_cuentas('6762', 'debe') - _sum_cuentas('6762', 'haber'), Decimal('0'))
+
+        # Gastos operativos — solo los registrados manualmente en el módulo de Gastos
+        # entry_type: 'gasto', 'activo_fijo', 'manual' → vienen de ExpenseRecord
+        _OP = ('gasto', 'activo_fijo', 'manual')
+        gop_d = _sum_cuentas('6', 'debe',  entry_types=_OP)
+        gop_h = _sum_cuentas('6', 'haber', entry_types=_OP)
+        gastos_operativos = max(gop_d - gop_h, Decimal('0'))
+
+        # Depreciación automática (6814) — creada por el agente
+        dep_d = _sum_cuentas('6', 'debe',  entry_types=('depreciacion',))
+        dep_h = _sum_cuentas('6', 'haber', entry_types=('depreciacion',))
+        depreciacion = max(dep_d - dep_h, Decimal('0'))
+
+        # Pérdidas FX (6762) — de operaciones de calce/netting
+        pfx_d = _sum_cuentas('6762', 'debe',  entry_types=('calce_netting',))
+        pfx_h = _sum_cuentas('6762', 'haber', entry_types=('calce_netting',))
+        perdidas_fx = max(pfx_d - pfx_h, Decimal('0'))
+
+        # Gastos totales para P&L contable
+        gastos = gastos_operativos + depreciacion + perdidas_fx
 
         utilidad = ingresos - gastos
         ir_pago  = (utilidad * Decimal('0.01')).quantize(Decimal('0.01')) if utilidad > 0 else Decimal('0')
 
-        report.ingresos_pen      = ingresos
-        report.gastos_pen        = gastos
-        report.utilidad_neta_pen = utilidad
+        # gastos_pen = gastos_operativos (lo que muestra /contabilidad/gastos)
+        # utilidad usa el total contable (incluye depreciación + pérdidas FX)
+        report.ingresos_pen       = ingresos
+        report.gastos_pen         = gastos_operativos
+        report.utilidad_neta_pen  = utilidad
         report.ir_pago_cuenta_pen = ir_pago
 
         # Desglose por cuenta para metricas_json
@@ -589,6 +613,7 @@ class AuditEngine:
 
         rows_gas = db.session.query(
             JournalEntryLine.account_code,
+            JournalEntry.entry_type,
             func.sum(JournalEntryLine.debe).label('td'),
             func.sum(JournalEntryLine.haber).label('th'),
         ).join(
@@ -598,16 +623,18 @@ class AuditEngine:
             extract('year',  JournalEntry.entry_date) == self.year,
             extract('month', JournalEntry.entry_date) == self.month,
             JournalEntry.status == 'activo',
-        ).group_by(JournalEntryLine.account_code).all()
+        ).group_by(JournalEntryLine.account_code, JournalEntry.entry_type).all()
 
         report.metricas = {
-            'year':         self.year,
-            'month':        self.month,
-            'ingresos_pen': float(ingresos),
-            'gastos_pen':   float(gastos),
-            'utilidad_pen': float(utilidad),
-            'ir_1pct':      float(ir_pago),
-            'perdidas_fx':  float(perdidas_fx),   # 6762 — ya incluido en gastos, dato informativo
+            'year':                  self.year,
+            'month':                 self.month,
+            'ingresos_pen':          float(ingresos),
+            'gastos_pen':            float(gastos),            # total contable
+            'gastos_operativos':     float(gastos_operativos), # solo ExpenseRecord
+            'gastos_depreciacion':   float(depreciacion),      # 6814 auto
+            'perdidas_fx':           float(perdidas_fx),       # 6762 calce
+            'utilidad_pen':          float(utilidad),
+            'ir_1pct':               float(ir_pago),
             'ingresos_detalle': [
                 {
                     'cuenta': r.account_code,
@@ -620,7 +647,8 @@ class AuditEngine:
             ],
             'gastos_detalle': [
                 {
-                    'cuenta': r.account_code,
+                    'cuenta':      r.account_code,
+                    'entry_type':  r.entry_type,
                     'monto': float(
                         max(Decimal(str(r.td or 0)) - Decimal(str(r.th or 0)), Decimal('0'))
                     ),
@@ -633,7 +661,9 @@ class AuditEngine:
         logger.info(
             f'[AuditEngine] G&P {self.month:02d}/{self.year}: '
             f'Ingresos S/{float(ingresos):,.2f} | '
-            f'Gastos S/{float(gastos):,.2f} | '
+            f'Gastos op. S/{float(gastos_operativos):,.2f} | '
+            f'Deprec. S/{float(depreciacion):,.2f} | '
+            f'PérdidasFX S/{float(perdidas_fx):,.2f} | '
             f'Utilidad S/{float(utilidad):,.2f} | '
             f'IR 1% S/{float(ir_pago):,.2f}'
         )
