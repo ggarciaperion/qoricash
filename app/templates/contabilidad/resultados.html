@@ -92,8 +92,8 @@
 
       <!-- GASTOS -->
       <div class="card border-0 shadow-sm mb-3">
-        <div class="card-header bg-danger text-white">
-          <h6 class="mb-0"><i class="bi bi-dash-circle me-2"></i>Gastos</h6>
+        <div class="card-header bg-secondary text-white">
+          <h6 class="mb-0"><i class="bi bi-dash-circle me-2"></i>Gastos Operativos <small class="opacity-75">(informativos — no restan utilidad FX)</small></h6>
         </div>
         <div class="card-body p-0">
           {% if gastos %}
@@ -114,9 +114,9 @@
               </tr>
               {% endfor %}
             </tbody>
-            <tfoot class="table-danger fw-bold">
+            <tfoot class="table-secondary fw-bold">
               <tr>
-                <td colspan="2" class="text-end">TOTAL GASTOS</td>
+                <td colspan="2" class="text-end">TOTAL GASTOS (ref.)</td>
                 <td class="text-end">{{ "%.2f"|format(total_gastos|float) }}</td>
               </tr>
             </tfoot>
@@ -142,12 +142,12 @@
           <table class="table table-sm mb-0">
             <tbody>
               <tr class="table-success">
-                <td>Ingresos totales</td>
+                <td>Ingresos netos FX</td>
                 <td class="text-end fw-semibold">S/ {{ "%.2f"|format(total_ingresos|float) }}</td>
               </tr>
-              <tr class="table-danger">
-                <td>(–) Gastos totales</td>
-                <td class="text-end fw-semibold">S/ {{ "%.2f"|format(total_gastos|float) }}</td>
+              <tr class="text-muted">
+                <td class="small ps-3">Gastos operativos <span class="badge bg-secondary" style="font-size:10px;">ref.</span></td>
+                <td class="text-end small text-muted">S/ {{ "%.2f"|format(total_gastos|float) }}</td>
               </tr>
               <tr class="fw-bold border-top border-2">
                 <td>Utilidad antes de IR</td>

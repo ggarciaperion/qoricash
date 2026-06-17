@@ -2954,12 +2954,14 @@ def resultados():
             if neto > 0:
                 gastos.append({'code': code, 'name': acc_name, 'monto': neto})
 
-    # Ingresos netos FX = ganancias 7xxx − pérdidas FX (como muestra el dashboard)
-    total_ingresos = max(sum(i['monto'] for i in ingresos) - fx_losses, Decimal('0'))
-    total_gastos   = sum(g['monto'] for g in gastos)
-    utilidad_antes_ir = total_ingresos - total_gastos
-    ir_estimado = _ir_mype(utilidad_antes_ir)
-    utilidad_neta = utilidad_antes_ir - ir_estimado
+    # Ingresos netos FX = ganancias 7xxx − pérdidas FX (idéntico al dashboard)
+    # Los gastos operativos (ExpenseRecord) se muestran como referencia pero NO
+    # se deducen de la utilidad FX — la utilidad real = margen neto del negocio cambiario.
+    total_ingresos    = max(sum(i['monto'] for i in ingresos) - fx_losses, Decimal('0'))
+    total_gastos      = sum(g['monto'] for g in gastos)
+    utilidad_antes_ir = total_ingresos   # gastos son informativos, no restan utilidad FX
+    ir_estimado       = _ir_mype(utilidad_antes_ir)
+    utilidad_neta     = utilidad_antes_ir - ir_estimado
 
     periods = _get_all_periods()
 
