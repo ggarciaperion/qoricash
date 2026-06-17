@@ -6,7 +6,6 @@ sin credenciales. El scraper intenta obtenerlas y falla de forma controlada si n
 puede acceder.
 Estado 2026-03: Requiere investigación adicional del flujo de autenticación.
 """
-import re
 import time
 import requests
 from app.utils.formatters import now_peru
@@ -52,30 +51,12 @@ class CambixScraper(BaseScraper):
                 except Exception:
                     continue
 
-        # Fallback: intentar extraer del HTML (Angular SSR podría renderizar valores)
-        try:
-            sess = requests.Session()
-            resp = sess.get(_SITE_URL, headers=self.get_headers(), timeout=12, verify=False)
-            ms   = int((time.monotonic() - t0) * 1000)
-            html = resp.content.decode("utf-8", errors="replace")
-
-            rates = []
-            for m in re.finditer(r'\b3\.[2-9]\d{3}\b|\b4\.[0-5]\d{3}\b', html):
-                try:
-                    rates.append(self._parse_rate(m.group()))
-                except Exception:
-                    pass
-            rates = sorted(set(rates))
-            if len(rates) >= 2:
-                return RateResult(slug=self.slug, buy_rate=rates[0], sell_rate=rates[-1],
-                                  scraped_at=now_peru(), response_ms=ms)
-        except Exception:
-            pass
-
+        # El fallback HTML fue eliminado: el site Angular no renderiza tasas en el HTML
+        # estático, por lo que el regex capturaba números arbitrarios de la página
+        # produciendo tasas incorrectas que contaminaban el ranking de mejor compra/venta.
         raise ConnectionError(
             "Cambix: API Azure requiere autenticación JWT. "
-            "Las tasas no están disponibles públicamente. "
-            "Se necesita investigar el flujo de auth para implementar este scraper."
+            "Las tasas no están disponibles públicamente sin credenciales."
         )
 
     def _pick(self, data, keys):

@@ -256,12 +256,41 @@ def api_live():
             c["is_valid"] = True
             valid.append(c)
 
+    # ── Filtro de outliers ────────────────────────────────────────────────────
+    # Excluye tasas que se desvíen >6% de la mediana del grupo válido.
+    # Evita que scrapers con datos erróneos contaminen el ranking de mejor compra/venta.
+    def _median(values):
+        s = sorted(values)
+        n = len(s)
+        return (s[n // 2] + s[n // 2 - 1]) / 2 if n % 2 == 0 else s[n // 2]
+
+    OUTLIER_PCT = 0.06   # 6 % de tolerancia
+
+    if valid:
+        med_buy  = _median([c["buy"]  for c in valid])
+        med_sell = _median([c["sell"] for c in valid])
+        for c in valid[:]:
+            buy_ok  = abs(c["buy"]  - med_buy)  / med_buy  <= OUTLIER_PCT
+            sell_ok = abs(c["sell"] - med_sell) / med_sell <= OUTLIER_PCT
+            if not (buy_ok and sell_ok):
+                logger.warning(
+                    f'[FXMonitor] Outlier excluido del ranking: {c["name"]} '
+                    f'buy={c["buy"]} sell={c["sell"]} '
+                    f'(mediana buy={med_buy:.4f} sell={med_sell:.4f})'
+                )
+                c["is_outlier"] = True
+                c["is_valid"]   = False
+                valid.remove(c)
+                invalid.append(c)
+
     active = valid
     errors = invalid
-    buy_ranked  = sorted(active, key=lambda c: c["buy"],  reverse=True) + errors
-    sell_ranked = sorted(active, key=lambda c: c["sell"]) + errors
+    buy_ranked  = sorted(active, key=lambda c: c["buy"],  reverse=True) + \
+                  sorted(errors, key=lambda c: c["buy"],  reverse=True)
+    sell_ranked = sorted(active, key=lambda c: c["sell"]) + \
+                  sorted(errors, key=lambda c: c["sell"])
 
-    # best_buy / best_sell: primero frescos; si no hay, usar el mejor stale con precios
+    # best_buy / best_sell: mejor entre frescos y válidos; fallback a stale (ya ordenado)
     def _best(ranked, key):
         fresh = [c for c in ranked if c.get("is_valid")]
         if fresh:
