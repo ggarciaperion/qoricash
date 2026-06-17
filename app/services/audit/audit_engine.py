@@ -552,17 +552,18 @@ class AuditEngine:
             ).filter(*filters).scalar()
             return Decimal(str(result or 0))
 
-        # Ganancias FX brutas (7711 y similares — HABER)
-        ganancias_fx = _sum_cuentas('7', 'haber')
-        # Pérdidas FX (6762 — reverso de operación FX, se netean contra ingresos)
-        perdidas_fx  = max(_sum_cuentas('6762', 'debe') - _sum_cuentas('6762', 'haber'), Decimal('0'))
-        # Ingresos neto FX: lo que realmente ganó QoriCash en diferencial cambiario
-        # Coincide con lo que muestra el módulo Amarres
-        ingresos = ganancias_fx - perdidas_fx
-        # Gastos operativos: 6xxx EXCEPTO 6762 (pérdidas FX ya descontadas de ingresos)
-        gastos_d = _sum_cuentas('6', 'debe',  excluir='6762')
-        gastos_h = _sum_cuentas('6', 'haber', excluir='6762')
+        # Ingresos (7xxx) — naturaleza acreedora: HABER − DEBE
+        # Consistente con Estado de Resultados (/contabilidad/resultados)
+        ingresos_h = _sum_cuentas('7', 'haber')
+        ingresos_d = _sum_cuentas('7', 'debe')
+        ingresos   = max(ingresos_h - ingresos_d, Decimal('0'))
+        # Gastos (6xxx) — naturaleza deudora: DEBE − HABER
+        # Incluye 6762 (pérdida FX) para ser consistente con Estado de Resultados y dashboard
+        gastos_d = _sum_cuentas('6', 'debe')
+        gastos_h = _sum_cuentas('6', 'haber')
         gastos   = max(gastos_d - gastos_h, Decimal('0'))
+        # 6762 por separado — dato informativo (ya incluido dentro de gastos)
+        perdidas_fx = max(_sum_cuentas('6762', 'debe') - _sum_cuentas('6762', 'haber'), Decimal('0'))
 
         utilidad = ingresos - gastos
         ir_pago  = (utilidad * Decimal('0.01')).quantize(Decimal('0.01')) if utilidad > 0 else Decimal('0')
@@ -575,12 +576,12 @@ class AuditEngine:
         # Desglose por cuenta para metricas_json
         rows_ing = db.session.query(
             JournalEntryLine.account_code,
-            func.sum(JournalEntryLine.haber).label('total'),
+            func.sum(JournalEntryLine.haber).label('th'),
+            func.sum(JournalEntryLine.debe).label('td'),
         ).join(
             JournalEntry, JournalEntryLine.journal_entry_id == JournalEntry.id
         ).filter(
             JournalEntryLine.account_code.like('7%'),
-            JournalEntryLine.haber > 0,
             extract('year',  JournalEntry.entry_date) == self.year,
             extract('month', JournalEntry.entry_date) == self.month,
             JournalEntry.status == 'activo',
@@ -606,9 +607,16 @@ class AuditEngine:
             'gastos_pen':   float(gastos),
             'utilidad_pen': float(utilidad),
             'ir_1pct':      float(ir_pago),
+            'perdidas_fx':  float(perdidas_fx),   # 6762 — ya incluido en gastos, dato informativo
             'ingresos_detalle': [
-                {'cuenta': r.account_code, 'monto': float(r.total or 0)}
+                {
+                    'cuenta': r.account_code,
+                    'monto': float(
+                        max(Decimal(str(r.th or 0)) - Decimal(str(r.td or 0)), Decimal('0'))
+                    ),
+                }
                 for r in rows_ing
+                if (Decimal(str(r.th or 0)) - Decimal(str(r.td or 0))) > Decimal('0.01')
             ],
             'gastos_detalle': [
                 {
