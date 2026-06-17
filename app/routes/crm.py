@@ -834,6 +834,24 @@ def api_import_prospectos():
             ],
         })
 
+    if action == 'delete_prospecto':
+        from app.models.prospecto import AsignacionProspecto, ActividadProspecto, ProspectoEmail, SeguimientoProspecto
+        email = (data.get('email') or '').strip().lower()
+        if not email:
+            return jsonify({'ok': False, 'error': 'email requerido'}), 400
+        p = Prospecto.query.filter(db.func.lower(Prospecto.email) == email).first()
+        if not p:
+            return jsonify({'ok': False, 'error': f'No encontrado: {email}'}), 404
+        pid = p.id
+        razon = p.razon_social
+        AsignacionProspecto.query.filter_by(prospecto_id=pid).delete()
+        ActividadProspecto.query.filter_by(prospecto_id=pid).delete()
+        ProspectoEmail.query.filter_by(prospecto_id=pid).delete()
+        SeguimientoProspecto.query.filter_by(prospecto_id=pid).delete()
+        db.session.delete(p)
+        db.session.commit()
+        return jsonify({'ok': True, 'eliminado': {'id': pid, 'razon_social': razon, 'email': email}})
+
     registros = data.get('registros', [])
     if not registros:
         return jsonify({'ok': True, 'insertados': 0})
