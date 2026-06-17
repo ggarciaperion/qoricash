@@ -2899,8 +2899,10 @@ def resultados():
     year  = request.args.get('year',  type=int, default=date.today().year)
     month = request.args.get('month', type=int, default=date.today().month)
 
+    # Incluir entry_type para filtrar por origen del asiento
     rows = db.session.query(
         JournalEntryLine.account_code,
+        JournalEntry.entry_type,
         func.sum(JournalEntryLine.debe).label('total_debe'),
         func.sum(JournalEntryLine.haber).label('total_haber'),
     ).join(JournalEntry, JournalEntryLine.journal_entry_id == JournalEntry.id
@@ -2908,36 +2910,52 @@ def resultados():
         extract('year',  JournalEntry.entry_date) == year,
         extract('month', JournalEntry.entry_date) == month,
         JournalEntry.status == 'activo',
-    ).group_by(JournalEntryLine.account_code
+    ).group_by(JournalEntryLine.account_code, JournalEntry.entry_type
     ).order_by(JournalEntryLine.account_code).all()
 
     catalog = _get_accounts_catalog()
 
-    # Clasificar por tipo para P&L
-    ingresos = []
-    gastos   = []
+    # Tipos de asiento que producen gastos operativos reales (registrados en /gastos)
+    _GASTOS_OP = {'gasto', 'activo_fijo', 'manual'}
+    # Tipos que NO deben aparecer en P&L como gastos
+    _EXCLUIR   = {'ajuste_conciliacion', 'depreciacion'}
+
+    ingresos    = []
+    gastos      = []
+    fx_losses   = Decimal('0')   # 6762 de calce_netting — se neta contra ingresos
 
     for r in rows:
-        code = r.account_code
-        acc  = catalog.get(code)
-        acc_type = acc.type if acc else _infer_type(code)
-        acc_name = acc.name if acc else f'Cuenta {code}'
+        code       = r.account_code
+        etype      = r.entry_type or ''
         td = Decimal(str(r.total_debe  or 0))
         th = Decimal(str(r.total_haber or 0))
 
+        # Ajustes de conciliación y depreciación: no van en P&L de resultados
+        if etype in _EXCLUIR:
+            continue
+
+        # Pérdidas FX (6762/calce_netting): se netan contra ingresos, no como gasto
+        if code.startswith('6762') and etype == 'calce_netting':
+            fx_losses += max(td - th, Decimal('0'))
+            continue
+
+        acc      = catalog.get(code)
+        acc_type = acc.type if acc else _infer_type(code)
+        acc_name = acc.name if acc else f'Cuenta {code}'
+
         if acc_type == 'ingreso':
-            # Cuentas de ingreso: naturaleza acreedora → saldo neto = haber - debe
             neto = max(th - td, Decimal('0'))
             if neto > 0:
                 ingresos.append({'code': code, 'name': acc_name, 'monto': neto})
 
-        elif acc_type == 'gasto':
-            # Cuentas de gasto: naturaleza deudora → saldo neto = debe - haber
+        elif acc_type == 'gasto' and etype in _GASTOS_OP:
+            # Solo gastos manuales (ExpenseRecord) — no calce ni otros automáticos
             neto = max(td - th, Decimal('0'))
             if neto > 0:
                 gastos.append({'code': code, 'name': acc_name, 'monto': neto})
 
-    total_ingresos = sum(i['monto'] for i in ingresos)
+    # Ingresos netos FX = ganancias 7xxx − pérdidas FX (como muestra el dashboard)
+    total_ingresos = max(sum(i['monto'] for i in ingresos) - fx_losses, Decimal('0'))
     total_gastos   = sum(g['monto'] for g in gastos)
     utilidad_antes_ir = total_ingresos - total_gastos
     ir_estimado = _ir_mype(utilidad_antes_ir)
