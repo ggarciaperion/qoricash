@@ -562,30 +562,34 @@ class AuditEngine:
             ).filter(*filters).scalar()
             return Decimal(str(result or 0))
 
-        # Ingresos (7xxx) — naturaleza acreedora: HABER − DEBE
-        ingresos_h = _sum_cuentas('7', 'haber')
-        ingresos_d = _sum_cuentas('7', 'debe')
-        ingresos   = max(ingresos_h - ingresos_d, Decimal('0'))
+        # ── Ingresos netos FX ───────────────────────────────────────────────────
+        # ingresos = ganancias 7xxx − pérdidas 6762 (calce negativo)
+        # Refleja exactamente el neto que muestra el módulo Amarres:
+        #   ganó 200, perdió 100 → ingresos = 100
+        # Las pérdidas FX NO van en gastos para evitar doble conteo.
+        ganancias_h = _sum_cuentas('7', 'haber')
+        ganancias_d = _sum_cuentas('7', 'debe')
+        pfx_d = _sum_cuentas('6762', 'debe',  entry_types=('calce_netting',))
+        pfx_h = _sum_cuentas('6762', 'haber', entry_types=('calce_netting',))
+        perdidas_fx = max(pfx_d - pfx_h, Decimal('0'))
+        ingresos = max(ganancias_h - ganancias_d - perdidas_fx, Decimal('0'))
 
-        # Gastos operativos — solo los registrados manualmente en el módulo de Gastos
-        # entry_type: 'gasto', 'activo_fijo', 'manual' → vienen de ExpenseRecord
+        # ── Gastos operativos ────────────────────────────────────────────────────
+        # Solo entry_type IN ('gasto','activo_fijo','manual') → vienen de ExpenseRecord
+        # Coincide exactamente con /contabilidad/gastos (lo que registra el usuario)
         _OP = ('gasto', 'activo_fijo', 'manual')
         gop_d = _sum_cuentas('6', 'debe',  entry_types=_OP)
         gop_h = _sum_cuentas('6', 'haber', entry_types=_OP)
         gastos_operativos = max(gop_d - gop_h, Decimal('0'))
 
-        # Depreciación automática (6814) — creada por el agente
+        # ── Depreciación automática (6814) ───────────────────────────────────────
+        # Generada por el agente en Step 5 — separada para transparencia
         dep_d = _sum_cuentas('6', 'debe',  entry_types=('depreciacion',))
         dep_h = _sum_cuentas('6', 'haber', entry_types=('depreciacion',))
         depreciacion = max(dep_d - dep_h, Decimal('0'))
 
-        # Pérdidas FX (6762) — de operaciones de calce/netting
-        pfx_d = _sum_cuentas('6762', 'debe',  entry_types=('calce_netting',))
-        pfx_h = _sum_cuentas('6762', 'haber', entry_types=('calce_netting',))
-        perdidas_fx = max(pfx_d - pfx_h, Decimal('0'))
-
-        # Gastos totales para P&L contable
-        gastos = gastos_operativos + depreciacion + perdidas_fx
+        # Gastos totales = operativos + depreciación (SIN pérdidas FX, ya en ingresos)
+        gastos = gastos_operativos + depreciacion
 
         utilidad = ingresos - gastos
         ir_pago  = (utilidad * Decimal('0.01')).quantize(Decimal('0.01')) if utilidad > 0 else Decimal('0')
@@ -660,10 +664,10 @@ class AuditEngine:
 
         logger.info(
             f'[AuditEngine] G&P {self.month:02d}/{self.year}: '
-            f'Ingresos S/{float(ingresos):,.2f} | '
-            f'Gastos op. S/{float(gastos_operativos):,.2f} | '
-            f'Deprec. S/{float(depreciacion):,.2f} | '
-            f'PérdidasFX S/{float(perdidas_fx):,.2f} | '
+            f'IngresosFX_neto S/{float(ingresos):,.2f} '
+            f'(ganancias S/{float(ganancias_h):,.2f} - pérdidasFX S/{float(perdidas_fx):,.2f}) | '
+            f'Gastos_op S/{float(gastos_operativos):,.2f} | '
+            f'Deprec S/{float(depreciacion):,.2f} | '
             f'Utilidad S/{float(utilidad):,.2f} | '
             f'IR 1% S/{float(ir_pago):,.2f}'
         )
