@@ -273,3 +273,106 @@ flask db upgrade heads
 echo ""
 echo "✅ MIGRACIONES COMPLETADAS"
 echo "=========================================="
+
+# ── Patch directo: tablas del Centro de Inteligencia Comercial IA ─────────────
+echo "⚡ Garantizando tablas de Inteligencia Comercial IA..."
+python3 - <<'PYEOF'
+import os, sys
+try:
+    import psycopg2
+except ImportError:
+    print("   psycopg2 no disponible — saltando patch directo")
+    sys.exit(0)
+url = os.environ.get('DATABASE_URL', '')
+if not url:
+    print("   DATABASE_URL no definida — saltando patch directo")
+    sys.exit(0)
+try:
+    conn = psycopg2.connect(url)
+    conn.autocommit = True
+    cur = conn.cursor()
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS email_eventos (
+            id SERIAL PRIMARY KEY,
+            cuenta VARCHAR(100) NOT NULL,
+            mensaje_id VARCHAR(400) UNIQUE,
+            remitente VARCHAR(300),
+            asunto VARCHAR(500),
+            tipo VARCHAR(50),
+            confianza FLOAT DEFAULT 1.0,
+            ia_usada BOOLEAN DEFAULT false,
+            ia_tokens INTEGER DEFAULT 0,
+            accion VARCHAR(300),
+            email_afectado VARCHAR(200),
+            email_nuevo VARCHAR(200),
+            sheets_tab VARCHAR(50),
+            crm_updated BOOLEAN DEFAULT false,
+            sheets_updated BOOLEAN DEFAULT false,
+            procesado_en TIMESTAMP WITHOUT TIME ZONE
+        )
+    """)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS oportunidades_comerciales (
+            id SERIAL PRIMARY KEY,
+            empresa VARCHAR(300),
+            contacto VARCHAR(200),
+            cargo VARCHAR(150),
+            email VARCHAR(200),
+            telefono VARCHAR(100),
+            sector VARCHAR(100),
+            prioridad VARCHAR(20),
+            score INTEGER DEFAULT 0,
+            volumen_usd_est INTEGER DEFAULT 0,
+            necesidad TEXT,
+            recomendacion TEXT,
+            cuerpo_email TEXT,
+            estado VARCHAR(50) DEFAULT 'nuevo',
+            cuenta_origen VARCHAR(100),
+            mensaje_id VARCHAR(400),
+            prospecto_creado_id INTEGER REFERENCES prospectos(id),
+            wa_alerta_enviada BOOLEAN DEFAULT false,
+            detectado_en TIMESTAMP WITHOUT TIME ZONE,
+            actualizado_en TIMESTAMP WITHOUT TIME ZONE
+        )
+    """)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS ejecuciones_motor (
+            id SERIAL PRIMARY KEY,
+            motor VARCHAR(50),
+            inicio TIMESTAMP WITHOUT TIME ZONE,
+            fin TIMESTAMP WITHOUT TIME ZONE,
+            duracion_seg FLOAT,
+            correos_analizados INTEGER DEFAULT 0,
+            rebotes INTEGER DEFAULT 0,
+            oportunidades INTEGER DEFAULT 0,
+            actualizaciones INTEGER DEFAULT 0,
+            no_contactar INTEGER DEFAULT 0,
+            ia_tokens INTEGER DEFAULT 0,
+            ia_costo_usd FLOAT DEFAULT 0.0,
+            errores INTEGER DEFAULT 0,
+            estado VARCHAR(20) DEFAULT 'ok',
+            resumen TEXT
+        )
+    """)
+
+    # Crear índices si no existen
+    for idx_sql in [
+        "CREATE INDEX IF NOT EXISTS ix_email_eventos_cuenta ON email_eventos(cuenta)",
+        "CREATE UNIQUE INDEX IF NOT EXISTS ix_email_eventos_mensaje_id ON email_eventos(mensaje_id)",
+        "CREATE INDEX IF NOT EXISTS ix_email_eventos_tipo ON email_eventos(tipo)",
+        "CREATE INDEX IF NOT EXISTS ix_email_eventos_procesado_en ON email_eventos(procesado_en)",
+        "CREATE INDEX IF NOT EXISTS ix_oportunidades_comerciales_email ON oportunidades_comerciales(email)",
+        "CREATE INDEX IF NOT EXISTS ix_oportunidades_comerciales_prioridad ON oportunidades_comerciales(prioridad)",
+        "CREATE INDEX IF NOT EXISTS ix_oportunidades_comerciales_estado ON oportunidades_comerciales(estado)",
+        "CREATE INDEX IF NOT EXISTS ix_oportunidades_comerciales_detectado_en ON oportunidades_comerciales(detectado_en)",
+        "CREATE INDEX IF NOT EXISTS ix_ejecuciones_motor_motor ON ejecuciones_motor(motor)",
+    ]:
+        cur.execute(idx_sql)
+
+    conn.close()
+    print("   ✅ Tablas de Inteligencia Comercial IA confirmadas en PostgreSQL")
+except Exception as e:
+    print(f"   ⚠️  Error en patch Inteligencia: {e}")
+PYEOF
+echo ""
