@@ -1,0 +1,389 @@
+{% extends "base.html" %}
+{% block title %}Centro de Inteligencia Comercial — QoriCash{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+
+  {# ── Header ────────────────────────────────────────────────────────────── #}
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h2 class="mb-0 fw-bold">
+        <i class="bi bi-cpu me-2 text-primary"></i>Centro de Inteligencia Comercial
+        <span class="badge bg-primary ms-2" style="font-size:.55rem;vertical-align:middle;">IA</span>
+      </h2>
+      <small class="text-muted">Motor automático · 90% reglas + 10% Claude AI · Actualiza cada 15 min</small>
+    </div>
+    <div class="d-flex gap-2 align-items-center">
+      <span id="lastUpdate" class="text-muted small"></span>
+      <span class="badge bg-success" id="statusBadge">● Activo</span>
+    </div>
+  </div>
+
+  {# ── KPI Cards ─────────────────────────────────────────────────────────── #}
+  <div class="row g-3 mb-4">
+    <div class="col-6 col-md-2">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body text-center py-3">
+          <div class="fs-2 fw-bold text-dark" id="kpi-correos">{{ stats_hoy.correos }}</div>
+          <div class="small text-muted">Correos hoy</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-2">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body text-center py-3">
+          <div class="fs-2 fw-bold text-danger" id="kpi-rebotes">{{ stats_hoy.rebotes }}</div>
+          <div class="small text-muted">Rebotes</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-2">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body text-center py-3">
+          <div class="fs-2 fw-bold text-success" id="kpi-oportunidades">{{ stats_hoy.oportunidades }}</div>
+          <div class="small text-muted">Oportunidades hoy</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-2">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body text-center py-3">
+          <div class="fs-2 fw-bold text-warning" id="kpi-alta">{{ prioridades.alta }}</div>
+          <div class="small text-muted">Alta prioridad</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-2">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body text-center py-3">
+          <div class="fs-2 fw-bold text-info">{{ stats_hoy.actualizaciones }}</div>
+          <div class="small text-muted">Emails actualizados</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-2">
+      <div class="card border-0 shadow-sm h-100 bg-dark">
+        <div class="card-body text-center py-3">
+          <div class="fs-2 fw-bold text-white">{{ stats_hoy.ia_usada }}</div>
+          <div class="small text-white-50">Análisis IA hoy</div>
+          <div class="small text-white-50" style="font-size:.65rem;">${{ costo_mes }} este mes</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-4">
+
+    {# ── Columna izquierda: Oportunidades ──────────────────────────────────── #}
+    <div class="col-lg-8">
+
+      <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h6 class="mb-0 fw-bold">
+            <i class="bi bi-lightning-fill text-warning me-2"></i>Oportunidades detectadas
+            <span class="badge bg-danger ms-1">{{ prioridades.alta }} alta</span>
+            <span class="badge bg-warning text-dark ms-1">{{ prioridades.media }} media</span>
+          </h6>
+          <div class="d-flex gap-2">
+            <select id="filtroEstado" class="form-select form-select-sm" style="width:130px;">
+              <option value="nuevo">Nuevas</option>
+              <option value="en_seguimiento">En seguimiento</option>
+              <option value="convertido">Convertidas</option>
+              <option value="descartado">Descartadas</option>
+            </select>
+          </div>
+        </div>
+        <div class="card-body p-0">
+          {% if opps %}
+          <div class="table-responsive">
+            <table class="table table-hover table-sm mb-0 align-middle">
+              <thead class="table-light">
+                <tr>
+                  <th style="width:28px;"></th>
+                  <th>Empresa / Contacto</th>
+                  <th class="text-center">Score</th>
+                  <th class="text-center">Prioridad</th>
+                  <th>Necesidad</th>
+                  <th>Acción sugerida</th>
+                  <th class="text-end">Detectado</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="tablaOpps">
+                {% for o in opps %}
+                <tr class="opp-row {% if o.prioridad == 'alta' %}table-danger bg-opacity-25{% endif %}">
+                  <td class="ps-2">
+                    <i class="bi bi-circle-fill text-{{ o.prioridad_badge }}" style="font-size:.55rem;"></i>
+                  </td>
+                  <td>
+                    <div class="fw-semibold small">{{ o.empresa or o.email }}</div>
+                    {% if o.contacto %}
+                    <div class="text-muted" style="font-size:.75rem;">{{ o.contacto }}{% if o.cargo %} · {{ o.cargo }}{% endif %}</div>
+                    {% endif %}
+                    {% if o.email %}
+                    <div class="text-muted" style="font-size:.7rem;">{{ o.email }}</div>
+                    {% endif %}
+                  </td>
+                  <td class="text-center">
+                    <div class="fw-bold {% if o.score >= 70 %}text-danger{% elif o.score >= 40 %}text-warning{% else %}text-muted{% endif %}">
+                      {{ o.score }}
+                    </div>
+                    <div style="height:4px;background:#e9ecef;border-radius:2px;width:40px;margin:0 auto;">
+                      <div style="height:4px;border-radius:2px;width:{{ o.score }}%;background:{% if o.score >= 70 %}#dc3545{% elif o.score >= 40 %}#ffc107{% else %}#6c757d{% endif %};"></div>
+                    </div>
+                  </td>
+                  <td class="text-center">
+                    <span class="badge bg-{{ o.prioridad_badge }}">{{ o.prioridad|upper }}</span>
+                  </td>
+                  <td class="small text-muted" style="max-width:180px;">
+                    {{ o.necesidad[:100] if o.necesidad else '—' }}
+                  </td>
+                  <td class="small" style="max-width:160px;">
+                    {% if o.recomendacion %}
+                    <span class="text-primary">{{ o.recomendacion[:80] }}</span>
+                    {% else %}—{% endif %}
+                  </td>
+                  <td class="text-end text-muted small text-nowrap">{{ o.detectado_en }}</td>
+                  <td class="pe-2">
+                    <div class="dropdown">
+                      <button class="btn btn-sm btn-outline-secondary py-0 px-1" data-bs-toggle="dropdown">
+                        <i class="bi bi-three-dots-vertical"></i>
+                      </button>
+                      <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item small" href="#" onclick="cambiarEstado({{ o.id }},'en_seguimiento')">
+                          <i class="bi bi-arrow-right-circle me-1"></i>En seguimiento</a></li>
+                        <li><a class="dropdown-item small text-success" href="#" onclick="cambiarEstado({{ o.id }},'convertido')">
+                          <i class="bi bi-check-circle me-1"></i>Convertido</a></li>
+                        <li><a class="dropdown-item small text-danger" href="#" onclick="cambiarEstado({{ o.id }},'descartado')">
+                          <i class="bi bi-x-circle me-1"></i>Descartar</a></li>
+                        {% if o.email %}
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item small" href="mailto:{{ o.email }}">
+                          <i class="bi bi-envelope me-1"></i>Escribir email</a></li>
+                        {% endif %}
+                      </ul>
+                    </div>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <div class="text-center text-muted py-5">
+            <i class="bi bi-inbox fs-1 d-block mb-2 opacity-25"></i>
+            Sin oportunidades en los últimos 7 días.<br>
+            <small>El motor comercial detectará oportunidades automáticamente.</small>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      {# ── Emails inválidos ─────────────────────────────────────────────────── #}
+      <div class="card border-0 shadow-sm">
+        <div class="card-header">
+          <h6 class="mb-0 fw-bold">
+            <i class="bi bi-exclamation-triangle-fill text-danger me-2"></i>Emails inválidos recientes
+          </h6>
+        </div>
+        <div class="card-body p-0">
+          {% if invalidos %}
+          <div class="table-responsive">
+            <table class="table table-sm mb-0 align-middle">
+              <thead class="table-light">
+                <tr>
+                  <th>Email afectado</th>
+                  <th>Remitente / Motivo</th>
+                  <th class="text-center">Bandeja</th>
+                  <th class="text-center">Sheets</th>
+                  <th class="text-end">Fecha</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for ev in invalidos %}
+                <tr>
+                  <td class="small font-monospace">{{ ev.email_afectado or ev.remitente or '—' }}</td>
+                  <td class="small text-muted">{{ ev.asunto[:60] if ev.asunto else '—' }}</td>
+                  <td class="text-center">
+                    <span class="badge bg-secondary" style="font-size:.65rem;">{{ ev.cuenta }}</span>
+                  </td>
+                  <td class="text-center">
+                    {% if ev.sheets_updated %}
+                    <i class="bi bi-check-circle-fill text-success"></i>
+                    {% else %}
+                    <i class="bi bi-dash text-muted"></i>
+                    {% endif %}
+                  </td>
+                  <td class="text-end text-muted small">{{ ev.procesado_en }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <div class="text-center text-muted py-4 small">Sin rebotes recientes.</div>
+          {% endif %}
+        </div>
+      </div>
+
+    </div>
+
+    {# ── Columna derecha: IA + Motores ────────────────────────────────────── #}
+    <div class="col-lg-4">
+
+      {# Actividad IA #}
+      <div class="card border-0 shadow-sm mb-4 bg-dark text-white">
+        <div class="card-header bg-dark border-secondary">
+          <h6 class="mb-0 text-white fw-bold">
+            <i class="bi bi-stars me-2 text-warning"></i>Actividad IA — Claude
+          </h6>
+        </div>
+        <div class="card-body p-0">
+          {% if ia_eventos %}
+          <div style="max-height:280px;overflow-y:auto;">
+            {% for ev in ia_eventos %}
+            <div class="px-3 py-2 border-bottom border-secondary">
+              <div class="d-flex justify-content-between align-items-start">
+                <div>
+                  <span class="badge {% if ev.tipo == 'oportunidad' %}bg-warning text-dark{% else %}bg-secondary{% endif %} me-1" style="font-size:.6rem;">
+                    {{ ev.tipo|upper }}
+                  </span>
+                  <span class="small text-white-75">{{ ev.empresa if ev.empresa else (ev.remitente[:35] if ev.remitente else '—') }}</span>
+                </div>
+                <span class="text-white-50" style="font-size:.65rem;">{{ ev.procesado_en }}</span>
+              </div>
+              {% if ev.accion %}
+              <div class="text-white-50 mt-1" style="font-size:.7rem;">{{ ev.accion[:80] }}</div>
+              {% endif %}
+              <div class="text-white-50 mt-1" style="font-size:.65rem;">
+                <i class="bi bi-cpu me-1"></i>{{ ev.ia_tokens }} tokens · confianza {{ "%.0f"|format(ev.confianza * 100) }}%
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+          {% else %}
+          <div class="text-center text-white-50 py-4 small">
+            <i class="bi bi-stars d-block mb-1 fs-4 opacity-50"></i>
+            Sin actividad IA reciente.
+          </div>
+          {% endif %}
+          <div class="px-3 py-2 border-top border-secondary">
+            <div class="d-flex justify-content-between small text-white-50">
+              <span>Tokens este mes: <strong class="text-white">{{ "{:,}".format(tokens_mes) }}</strong></span>
+              <span>Costo: <strong class="text-white">${{ costo_mes }}</strong></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {# Estado de motores #}
+      <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header">
+          <h6 class="mb-0 fw-bold">
+            <i class="bi bi-gear-fill text-secondary me-2"></i>Estado de Motores
+          </h6>
+        </div>
+        <div class="card-body p-0">
+          {% set motores = [('comercial','15 min','primary'),('limpieza','2 horas','info'),('auditoria','Diario 2AM','secondary')] %}
+          {% for nombre, freq, color in motores %}
+          {% set ultima = ejecuciones | selectattr('motor', 'equalto', nombre) | first %}
+          <div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom">
+            <div>
+              <span class="badge bg-{{ color }} me-2" style="font-size:.65rem;">{{ nombre|upper }}</span>
+              <span class="small text-muted">cada {{ freq }}</span>
+            </div>
+            <div class="text-end">
+              {% if ultima %}
+              <div class="small fw-semibold {% if ultima.estado == 'ok' %}text-success{% else %}text-danger{% endif %}">
+                {% if ultima.estado == 'ok' %}<i class="bi bi-check-circle-fill"></i>{% else %}<i class="bi bi-x-circle-fill"></i>{% endif %}
+                {{ ultima.inicio }}
+              </div>
+              <div class="text-muted" style="font-size:.7rem;">
+                {{ ultima.correos_analizados }} correos · {{ ultima.oportunidades }} opp
+              </div>
+              {% else %}
+              <span class="small text-muted">Sin ejecuciones</span>
+              {% endif %}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      {# Distribución prioridades #}
+      <div class="card border-0 shadow-sm">
+        <div class="card-header">
+          <h6 class="mb-0 fw-bold">
+            <i class="bi bi-pie-chart-fill text-primary me-2"></i>Oportunidades por prioridad
+          </h6>
+        </div>
+        <div class="card-body">
+          {% set total_opps = prioridades.alta + prioridades.media + prioridades.baja %}
+          {% for label, val, color in [('Alta', prioridades.alta, 'danger'), ('Media', prioridades.media, 'warning'), ('Baja', prioridades.baja, 'secondary')] %}
+          <div class="mb-2">
+            <div class="d-flex justify-content-between small mb-1">
+              <span class="fw-semibold text-{{ color }}">{{ label }}</span>
+              <span>{{ val }} {% if total_opps > 0 %}({{ "%.0f"|format(val / total_opps * 100) }}%){% endif %}</span>
+            </div>
+            <div class="progress" style="height:8px;">
+              <div class="progress-bar bg-{{ color }}"
+                   style="width:{{ (val / total_opps * 100)|int if total_opps > 0 else 0 }}%"></div>
+            </div>
+          </div>
+          {% endfor %}
+          {% if total_opps == 0 %}
+          <div class="text-center text-muted small py-2">Sin oportunidades pendientes.</div>
+          {% endif %}
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ── Polling de stats cada 60 seg ──────────────────────────────────────────────
+function refreshStats() {
+  fetch('/inteligencia/api/stats')
+    .then(r => r.json())
+    .then(d => {
+      document.getElementById('kpi-correos').textContent      = d.correos;
+      document.getElementById('kpi-rebotes').textContent      = d.rebotes;
+      document.getElementById('kpi-oportunidades').textContent = d.oportunidades;
+      document.getElementById('kpi-alta').textContent         = d.alta_prioridad;
+      document.getElementById('lastUpdate').textContent =
+        'Actualizado: ' + new Date().toLocaleTimeString('es-PE');
+    }).catch(() => {});
+}
+setInterval(refreshStats, 60000);
+refreshStats();
+
+// ── Cambiar estado oportunidad ────────────────────────────────────────────────
+function cambiarEstado(id, estado) {
+  fetch(`/inteligencia/api/oportunidades/${id}/estado`, {
+    method: 'PATCH',
+    headers: {'Content-Type': 'application/json',
+              'X-CSRFToken': document.querySelector('meta[name=csrf-token]')?.content || ''},
+    body: JSON.stringify({estado})
+  }).then(r => r.json()).then(d => {
+    if (d.ok) {
+      const row = document.querySelector(`tr[data-opp-id="${id}"]`);
+      if (row) row.style.opacity = '0.4';
+      Swal?.fire({icon:'success', title:'Actualizado', timer:1200, showConfirmButton:false});
+    }
+  });
+}
+
+// Marcar filas con data attribute
+document.querySelectorAll('.opp-row').forEach((row, i) => {
+  const btn = row.querySelector('[onclick*="cambiarEstado"]');
+  if (btn) {
+    const match = btn.getAttribute('onclick').match(/cambiarEstado\((\d+)/);
+    if (match) row.setAttribute('data-opp-id', match[1]);
+  }
+});
+</script>
+{% endblock %}

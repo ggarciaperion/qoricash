@@ -142,13 +142,24 @@
             {% endif %}
 
 
-            {% if current_user.role == 'Master' %}
+            {% if current_user.role in ('Master', 'Presidente de Negocios') %}
             <div class="sidebar-section-label">CRM</div>
+            {% endif %}
+
+            {% if current_user.role == 'Master' %}
             <a class="sidebar-link {% if request.endpoint and request.endpoint.startswith('crm') %}active{% endif %}"
                href="{{ url_for('crm.whatsapp') }}">
                 <i class="bi bi-whatsapp"></i>
                 <span class="sidebar-link-text">WhatsApp</span>
                 <span id="waBadge" class="sidebar-badge" style="display:none;">0</span>
+            </a>
+            {% endif %}
+
+            {% if current_user.role in ('Master', 'Presidente de Negocios') %}
+            <a class="sidebar-link {% if request.endpoint and request.endpoint.startswith('inteligencia') %}active{% endif %}"
+               href="{{ url_for('inteligencia.dashboard') }}">
+                <i class="bi bi-cpu-fill"></i>
+                <span class="sidebar-link-text">Inteligencia IA</span>
             </a>
             {% endif %}
 
