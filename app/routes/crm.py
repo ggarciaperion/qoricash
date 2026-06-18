@@ -852,6 +852,27 @@ def api_import_prospectos():
         db.session.commit()
         return jsonify({'ok': True, 'eliminado': {'id': pid, 'razon_social': razon, 'email': email}})
 
+    if action == 'delete_por_nombre':
+        from app.models.prospecto import AsignacionProspecto, ActividadProspecto, ProspectoEmail, SeguimientoProspecto
+        nombre = (data.get("nombre") or "").strip()
+        if not nombre or len(nombre) < 3:
+            return jsonify({"ok": False, "error": "nombre requerido (min 3 chars)"}), 400
+        matches = Prospecto.query.filter(Prospecto.razon_social.ilike(f"%{nombre}%")).all()
+        if not matches:
+            return jsonify({"ok": True, "deleted": 0, "eliminados": [], "mensaje": "Ningun prospecto encontrado"})
+        eliminados = []
+        for p in matches:
+            pid = p.id
+            eliminados.append({"id": pid, "razon_social": p.razon_social, "email": p.email})
+            AsignacionProspecto.query.filter_by(prospecto_id=pid).delete()
+            ActividadProspecto.query.filter_by(prospecto_id=pid).delete()
+            ProspectoEmail.query.filter_by(prospecto_id=pid).delete()
+            SeguimientoProspecto.query.filter_by(prospecto_id=pid).delete()
+            db.session.delete(p)
+        db.session.commit()
+        return jsonify({"ok": True, "deleted": len(eliminados), "eliminados": eliminados})
+
+
     registros = data.get('registros', [])
     if not registros:
         return jsonify({'ok': True, 'insertados': 0})
