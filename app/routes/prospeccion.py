@@ -2793,6 +2793,36 @@ def api_limpiar_todo():
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
+
+@prospeccion_bp.route("/api/eliminar-por-nombre", methods=["POST"])
+@csrf.exempt
+@login_required
+@require_role("Master")
+def api_eliminar_por_nombre():
+    """Elimina todos los prospectos cuya razon social coincida con el termino dado. Solo Master."""
+    data   = request.get_json(silent=True) or {}
+    nombre = (data.get("nombre") or "").strip()
+    if not nombre or len(nombre) < 3:
+        return jsonify({"ok": False, "error": "Debe indicar al menos 3 caracteres"}), 400
+    try:
+        ids = [r.id for r in Prospecto.query.filter(
+            Prospecto.razon_social.ilike(f"%{nombre}%")
+        ).all()]
+        if not ids:
+            return jsonify({"ok": True, "deleted": 0, "ids": [], "mensaje": "Ningun prospecto encontrado"})
+        from app.models.prospecto import ProspectoEmail, SeguimientoProspecto
+        db.session.query(ActividadProspecto).filter(ActividadProspecto.prospecto_id.in_(ids)).delete(synchronize_session=False)
+        db.session.query(ProspectoEmail).filter(ProspectoEmail.prospecto_id.in_(ids)).delete(synchronize_session=False)
+        db.session.query(AsignacionProspecto).filter(AsignacionProspecto.prospecto_id.in_(ids)).delete(synchronize_session=False)
+        db.session.query(SeguimientoProspecto).filter(SeguimientoProspecto.prospecto_id.in_(ids)).delete(synchronize_session=False)
+        deleted = db.session.query(Prospecto).filter(Prospecto.id.in_(ids)).delete(synchronize_session=False)
+        db.session.commit()
+        return jsonify({"ok": True, "deleted": deleted, "ids": ids})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
 @prospeccion_bp.route("/api/bulk-campo", methods=["POST"])
 @csrf.exempt
 @login_required
