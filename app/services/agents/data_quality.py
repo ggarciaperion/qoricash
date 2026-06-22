@@ -47,32 +47,45 @@ class DataQualityAgent(BaseAgent):
             invalid_emails = 0
             duplicates = 0
 
+            # 0. Normalizar NULL primero — así step 1 los incluye en este mismo ciclo
+            db.session.execute(db.text(
+                "UPDATE prospecto SET estado_email = 'pendiente' "
+                "WHERE estado_email IS NULL AND email IS NOT NULL"
+            ))
+            db.session.flush()
+
             # 1. Detectar emails con sintaxis inválida + validación MX
             candidates = (Prospecto.query
-                          .filter(Prospecto.estado_email.notin_(['INVALIDO', 'REBOTE', 'NO CONTACTAR']))
+                          .filter(Prospecto.estado_email.notin_(['INVALIDO', 'REBOTE', 'NO CONTACTAR', 'ok']))
                           .filter(Prospecto.email.isnot(None))
                           .limit(2000).all())
 
-            # Caché de dominios ya verificados en este ciclo (evita consultas MX repetidas)
+            # Caché de dominios ya verificados en este ciclo
+            # Cap: máx 100 dominios únicos con DNS por ciclo para evitar timeouts
             _mx_cache: dict = {}
+            _mx_checked = 0
+            _MX_CAP = 100
 
             for p in candidates:
                 email = (p.email or '').strip().lower()
                 if not email:
                     continue
 
-                # 1a. Sintaxis
+                # 1a. Sintaxis (instantáneo — sin cap)
                 if not _valid_email_syntax(email):
                     p.estado_email = 'INVALIDO'
                     invalid_emails += 1
                     fixed += 1
                     continue
 
-                # 1b. Validación MX (solo para emails aún 'pendiente' — no revalidar los OK)
+                # 1b. Validación MX — solo 'pendiente', cap de dominios únicos por ciclo
                 if p.estado_email == 'pendiente':
                     domain = email.split('@')[-1]
                     if domain not in _mx_cache:
+                        if _mx_checked >= _MX_CAP:
+                            continue  # dominio nuevo pero cap alcanzado — dejar para próximo ciclo
                         _mx_cache[domain] = _mx_exists(domain)
+                        _mx_checked += 1
                     if not _mx_cache[domain]:
                         p.estado_email = 'INVALIDO'
                         invalid_emails += 1
@@ -103,13 +116,6 @@ class DataQualityAgent(BaseAgent):
                     d.notas = (d.notas or '') + ' [DUPLICADO FUSIONADO]'
                     duplicates += 1
                     fixed += 1
-
-            # 3. Normalizar estado_email vacío — bulk SQL para cubrir todos los registros
-            #    en el primer arranque (puede haber 200K+ registros con NULL)
-            db.session.execute(db.text(
-                "UPDATE prospecto SET estado_email = 'pendiente' "
-                "WHERE estado_email IS NULL AND email IS NOT NULL"
-            ))
 
             db.session.commit()
 

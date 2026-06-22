@@ -399,8 +399,17 @@ class MailAgent(BaseAgent):
                           .all())
 
             # Refinamiento exacto por días hábiles (sobre conjunto ya pequeño)
-            eligible = [p for p in prospectos
-                        if _business_days_since(p.fecha_ultimo_contacto) >= _DIAS_HABIL_ESPERA]
+            eligible_raw = [p for p in prospectos
+                            if _business_days_since(p.fecha_ultimo_contacto) >= _DIAS_HABIL_ESPERA]
+
+            # Deduplicar por email — si mismo email aparece en 2+ prospectos, conservar
+            # solo el más reciente (mayor id) para evitar doble envío al mismo destinatario
+            _seen_emails: dict = {}
+            for p in eligible_raw:
+                email_key = (p.email or '').strip().lower()
+                if email_key not in _seen_emails or p.id > _seen_emails[email_key].id:
+                    _seen_emails[email_key] = p
+            eligible = list(_seen_emails.values())
 
             # Distribuir por bandeja (hash estable)
             por_bandeja = defaultdict(list)

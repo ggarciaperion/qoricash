@@ -113,16 +113,24 @@ class OutreachAgent(BaseAgent):
                         .limit(30).all())
 
             if vencidos:
-                db.session.add(AgentAlert(
-                    agent_id=self.agent_id,
-                    severity='warning',
-                    title=f'{len(vencidos)} seguimientos vencidos sin completar',
-                    message=(
-                        f'Hay {len(vencidos)} seguimientos programados que no se han marcado '
-                        f'como completados. Revisar agenda de seguimiento.'
-                    ),
-                ))
-                alerts_created += 1
+                # Solo crear alerta si no existe ya una activa del mismo tipo
+                alerta_seg_activa = (AgentAlert.query
+                                     .filter(
+                                         AgentAlert.agent_id == self.agent_id,
+                                         AgentAlert.resolved == False,
+                                         AgentAlert.title.like('%seguimientos vencidos%'),
+                                     ).first())
+                if not alerta_seg_activa:
+                    db.session.add(AgentAlert(
+                        agent_id=self.agent_id,
+                        severity='warning',
+                        title=f'{len(vencidos)} seguimientos vencidos sin completar',
+                        message=(
+                            f'Hay {len(vencidos)} seguimientos programados que no se han marcado '
+                            f'como completados. Revisar agenda de seguimiento.'
+                        ),
+                    ))
+                    alerts_created += 1
 
             # ── 3. Presentados rezagados: contactados pero sin avance en 14+ días ──
             umbral_presentado = (today - timedelta(days=_DIAS_PRESENTADO_REZAGADO)).strftime('%Y-%m-%d')

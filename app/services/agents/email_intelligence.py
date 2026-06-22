@@ -83,8 +83,11 @@ class EmailIntelligenceAgent(BaseAgent):
                     msgs = self._fetch_unread(service)
                     for msg_data in msgs[:50]:  # máx 50 por bandeja por ciclo
                         total_analyzed += 1
+                        # Savepoint por mensaje: si falla, rollback solo de este mensaje
+                        sp = db.session.begin_nested()
                         try:
                             result = self._process_message(msg_data, cuenta, service, db)
+                            sp.commit()
                             # Marcar como leído SOLO si el procesamiento fue exitoso
                             self._mark_read(service, msg_data['id'])
                             if result == 'bounce':
@@ -98,6 +101,7 @@ class EmailIntelligenceAgent(BaseAgent):
                             elif result == 'neutral':
                                 neutrales += 1
                         except Exception as e_msg:
+                            sp.rollback()
                             _log.warning(f'[EmailIntelligence] Error procesando mensaje {msg_data.get("id")}: {e_msg}')
                             # NO marcar como leído — se reintentará en el próximo ciclo
                 except Exception as e:

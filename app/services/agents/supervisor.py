@@ -10,15 +10,18 @@ from .base import BaseAgent
 _log = logging.getLogger(__name__)
 _LIMA = timezone(timedelta(hours=-5))
 
-# Máximo tiempo sin ejecutar para cada agente (segundos)
+# Máximo tiempo sin ejecutar para cada agente (segundos).
+# lead_discovery excluido: base de prospectos se gestiona manualmente.
 _MAX_IDLE = {
-    'lead_discovery':    7200,   # 2h
     'data_quality':      9000,   # 2.5h
     'mail_agent':        3600,   # 1h
     'email_intelligence':1800,   # 30 min
     'outreach':          7200,   # 2h
     'executive':        86400,   # 24h
 }
+
+# Agentes que pueden estar deshabilitados sin generar alertas
+_OPTIONAL_AGENTS = {'lead_discovery'}
 
 
 class SupervisorAgent(BaseAgent):
@@ -43,7 +46,7 @@ class SupervisorAgent(BaseAgent):
             ).all()
 
             for agent in all_agents:
-                if not agent.enabled:
+                if not agent.enabled or agent.agent_id in _OPTIONAL_AGENTS:
                     continue
 
                 issues = []
