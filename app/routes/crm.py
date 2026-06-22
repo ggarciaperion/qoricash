@@ -955,6 +955,26 @@ def api_import_prospectos():
         return jsonify({"ok": True, "deleted": len(eliminados), "eliminados": eliminados})
 
 
+    if action == 'delete_bulk_email':
+        # Elimina prospectos por lista de emails (hasta 300 por llamada)
+        from app.models.prospecto import ActividadProspecto, AsignacionProspecto, ProspectoEmail, SeguimientoProspecto
+        emails_input = [e.strip().lower() for e in data.get('emails', []) if e and e.strip()]
+        if not emails_input:
+            return jsonify({'ok': True, 'eliminados': 0})
+        ids_raw = Prospecto.query.filter(
+            db.func.lower(Prospecto.email).in_(emails_input)
+        ).with_entities(Prospecto.id).all()
+        id_list = [r[0] for r in ids_raw]
+        if not id_list:
+            return jsonify({'ok': True, 'eliminados': 0, 'encontrados': 0})
+        SeguimientoProspecto.query.filter(SeguimientoProspecto.prospecto_id.in_(id_list)).delete(synchronize_session=False)
+        ActividadProspecto.query.filter(ActividadProspecto.prospecto_id.in_(id_list)).delete(synchronize_session=False)
+        AsignacionProspecto.query.filter(AsignacionProspecto.prospecto_id.in_(id_list)).delete(synchronize_session=False)
+        ProspectoEmail.query.filter(ProspectoEmail.prospecto_id.in_(id_list)).delete(synchronize_session=False)
+        Prospecto.query.filter(Prospecto.id.in_(id_list)).delete(synchronize_session=False)
+        db.session.commit()
+        return jsonify({'ok': True, 'eliminados': len(id_list)})
+
     if action == 'purge_sector_publico':
         from app.models.prospecto import ActividadProspecto, AsignacionProspecto, ProspectoEmail, SeguimientoProspecto
         from sqlalchemy import or_, func as _func
