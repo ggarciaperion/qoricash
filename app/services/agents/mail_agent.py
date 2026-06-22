@@ -41,10 +41,21 @@ _BANDEJA_CARGO = {
 
 _EXCLUDE_ESTADOS   = {'NO CONTACTAR', 'REBOTE', 'INVALIDO', 'cliente', 'P4', 'negociando', 'negociacion', 'P3'}
 _EXCLUDE_EMAIL_EST = {'REBOTE', 'INVALIDO', 'NO CONTACTAR'}
-_DIAS_HABIL_ESPERA = 5
-_CALENDAR_DAYS_APPROX = 7   # 5 días hábiles ≈ 7 calendario — filtro SQL previo
-_DAILY_LIMIT       = 490
-_BATCH_PER_CYCLE   = 15
+_DIAS_HABIL_ESPERA    = 5
+_CALENDAR_DAYS_APPROX = 7     # 5 días hábiles ≈ 7 calendario — filtro SQL previo
+_DAILY_LIMIT          = 490   # límite diario por bandeja (margen bajo el límite Gmail)
+
+# Horario y modos de envío
+_HORA_INICIO      = 9.0    # 09:00 Lima
+_HORA_CORTE       = 13.5   # 13:30 — fin modo precios, inicio modo prospección
+_HORA_FIN_TARDE   = 18.0   # 18:00 — fin modo prospección
+
+# Batch sizes por modo (el cap _DAILY_LIMIT actúa de tope duro)
+_BATCH_MAÑANA     = 100    # agresivo: maximizar envíos en ventana de precios
+_BATCH_TARDE      = 50     # moderado: prospección de tarde
+
+# Re-fetch de TC: cada N emails enviados (para capturar actualizaciones del widget)
+_TC_REFRESH_CADA  = 30
 
 # Rutas de imágenes embebidas (relativas al módulo)
 _STATIC_IMAGES = os.path.join(
@@ -310,6 +321,225 @@ def _build_html(nombre_dest: str, nombre_firma: str, cargo: str,
 </body></html>"""
 
 
+def _build_html_prospeccion(nombre_dest: str, nombre_firma: str, cargo: str,
+                             compra: str, venta: str, hoy: str, es_personal: bool) -> str:
+    """Plantilla de prospección para la tarde (13:31–18:00).
+    Foco en presentación institucional; TC como referencia sutil (mercado cerrando)."""
+    if es_personal:
+        intro = (
+            f'Mi nombre es <strong>{nombre_firma}</strong>, Presidente de Negocios de '
+            '<strong>QoriCash SAC</strong>, casa de cambio digital inscrita en el '
+            'Registro de Casas de Cambio de la SBS.<br><br>'
+            'Nos especializamos en operaciones de cambio de divisas para empresas y '
+            'personas, ofreciendo tasas superiores a las de la banca tradicional con '
+            'procesos ágiles, seguros y sin comisiones adicionales.<br><br>'
+            'Me pongo en contacto para presentarle nuestra propuesta de valor y '
+            'conocer c&oacute;mo podemos apoyar las operaciones cambiarias de su empresa.'
+        )
+    else:
+        intro = (
+            'Somos <strong>QoriCash SAC</strong>, casa de cambio digital inscrita en el '
+            'Registro de Casas de Cambio de la SBS.<br><br>'
+            'Nos especializamos en operaciones de cambio de divisas para empresas y '
+            'personas, ofreciendo tasas superiores a las de la banca tradicional con '
+            'procesos &aacute;giles, seguros y sin comisiones adicionales.<br><br>'
+            'Nos ponemos en contacto para presentarle nuestra propuesta de valor y '
+            'conocer c&oacute;mo podemos apoyar las operaciones cambiarias de su empresa.'
+        )
+
+    return f"""\
+<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#F1F5F9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#F1F5F9;padding:28px 0;">
+<tr><td align="center">
+<table width="560" cellpadding="0" cellspacing="0" border="0"
+  style="max-width:560px;width:100%;background:#FFFFFF;border-radius:8px;overflow:hidden;
+         box-shadow:0 4px 24px rgba(0,0,0,.07);">
+
+  <!-- ENCABEZADO IMAGEN -->
+  <tr>
+    <td style="padding:0;line-height:0;background:#08121E;">
+      <img src="cid:encabezado" alt="QoriCash" width="560"
+           style="display:block;width:100%;max-width:560px;">
+    </td>
+  </tr>
+
+  <!-- INTRO -->
+  <tr>
+    <td style="padding:28px 36px 0;">
+      <p style="margin:0 0 14px;font-size:13px;color:#1E293B;line-height:1.65;">
+        Estimado(a) <strong>{nombre_dest}</strong>,</p>
+      <p style="margin:0;font-size:13px;color:#475569;line-height:1.8;text-align:justify;">
+        {intro}
+      </p>
+    </td>
+  </tr>
+
+  <!-- TC DE REFERENCIA (sutil, borde izquierdo verde) -->
+  <tr>
+    <td style="padding:20px 36px;">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0"
+             style="border-left:3px solid #16a34a;background:#F8FAFC;border-radius:0 6px 6px 0;">
+        <tr>
+          <td style="padding:14px 18px;">
+            <p style="margin:0 0 6px;font-size:10px;font-weight:700;color:#94A3B8;
+                      text-transform:uppercase;letter-spacing:1.2px;">
+              Tipo de cambio de referencia &mdash; {hoy}</p>
+            <table cellpadding="0" cellspacing="0" border="0"><tr>
+              <td style="padding-right:24px;">
+                <span style="font-size:10px;color:#64748B;text-transform:uppercase;
+                             letter-spacing:0.8px;">Compramos&nbsp;</span>
+                <span style="font-size:16px;font-weight:700;color:#0D1B2A;">
+                  S/.&thinsp;{compra}</span>
+              </td>
+              <td>
+                <span style="font-size:10px;color:#64748B;text-transform:uppercase;
+                             letter-spacing:0.8px;">Vendemos&nbsp;</span>
+                <span style="font-size:16px;font-weight:700;color:#16a34a;">
+                  S/.&thinsp;{venta}</span>
+              </td>
+            </tr></table>
+            <p style="margin:6px 0 0;font-size:10px;color:#94A3B8;">
+              Tasas de referencia &middot; Sujeto a variaci&oacute;n de mercado</p>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+
+  <!-- CUENTAS BANCARIAS -->
+  <tr>
+    <td style="padding:0 36px 8px;">
+      <p style="margin:0 0 4px;font-size:11px;font-weight:700;color:#94A3B8;
+                text-transform:uppercase;letter-spacing:1px;">Cuentas bancarias</p>
+      <p style="margin:0 0 16px;font-size:13px;color:#475569;">
+        QORICASH S.A.C. &nbsp;&middot;&nbsp; RUC 20615113698
+        &nbsp;&middot;&nbsp; Regulada por la SBS</p>
+      <table width="100%" cellpadding="0" cellspacing="0" border="0"
+             style="border:1px solid #E9EEF4;border-radius:8px;overflow:hidden;">
+        <tr style="border-bottom:1px solid #F1F5F9;">
+          <td style="padding:12px 8px 12px 16px;vertical-align:middle;width:100px;">
+            <img src="cid:logo_bcp" alt="BCP" height="52"
+                 style="display:block;height:52px;"></td>
+          <td style="padding:12px 10px;vertical-align:middle;border-left:1px solid #F1F5F9;">
+            <p style="margin:0;font-size:8px;color:#94A3B8;text-transform:uppercase;
+                      letter-spacing:1px;">Soles</p>
+            <p style="margin:3px 0 0;font-size:12px;font-weight:600;
+                      color:#0D1B2A;">1937353150041</p></td>
+          <td style="padding:12px 16px 12px 10px;vertical-align:middle;
+                     border-left:1px solid #F1F5F9;">
+            <p style="margin:0;font-size:8px;color:#94A3B8;text-transform:uppercase;
+                      letter-spacing:1px;">D&oacute;lares</p>
+            <p style="margin:3px 0 0;font-size:12px;font-weight:600;
+                      color:#0D1B2A;">1917357790119</p></td>
+        </tr>
+        <tr style="border-bottom:1px solid #F1F5F9;">
+          <td style="padding:12px 8px 12px 16px;vertical-align:middle;">
+            <img src="cid:logo_interbank" alt="Interbank" height="40"
+                 style="display:block;height:40px;"></td>
+          <td style="padding:12px 10px;vertical-align:middle;border-left:1px solid #F1F5F9;">
+            <p style="margin:0;font-size:8px;color:#94A3B8;text-transform:uppercase;
+                      letter-spacing:1px;">Soles</p>
+            <p style="margin:3px 0 0;font-size:12px;font-weight:600;
+                      color:#0D1B2A;">200-3007757571</p></td>
+          <td style="padding:12px 16px 12px 10px;vertical-align:middle;
+                     border-left:1px solid #F1F5F9;">
+            <p style="margin:0;font-size:8px;color:#94A3B8;text-transform:uppercase;
+                      letter-spacing:1px;">D&oacute;lares</p>
+            <p style="margin:3px 0 0;font-size:12px;font-weight:600;
+                      color:#0D1B2A;">200-3007757589</p></td>
+        </tr>
+        <tr>
+          <td style="padding:12px 8px 12px 16px;vertical-align:middle;">
+            <img src="cid:logo_banbif" alt="BanBif" height="40"
+                 style="display:block;height:40px;"></td>
+          <td style="padding:12px 10px;vertical-align:middle;border-left:1px solid #F1F5F9;">
+            <p style="margin:0;font-size:8px;color:#94A3B8;text-transform:uppercase;
+                      letter-spacing:1px;">Soles</p>
+            <p style="margin:3px 0 0;font-size:12px;font-weight:600;
+                      color:#0D1B2A;">007000845805</p></td>
+          <td style="padding:12px 16px 12px 10px;vertical-align:middle;
+                     border-left:1px solid #F1F5F9;">
+            <p style="margin:0;font-size:8px;color:#94A3B8;text-transform:uppercase;
+                      letter-spacing:1px;">D&oacute;lares</p>
+            <p style="margin:3px 0 0;font-size:12px;font-weight:600;
+                      color:#0D1B2A;">007000845813</p></td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+
+  <!-- BOTONES -->
+  <tr>
+    <td style="padding:20px 36px 28px;">
+      <table cellpadding="0" cellspacing="0" border="0"><tr>
+        <td style="border-radius:5px;background:#0D1B2A;padding-right:10px;">
+          <a href="https://qoricash.pe/presentacion.pdf"
+             style="display:inline-block;padding:12px 28px;color:#FFFFFF;
+                    text-decoration:none;font-size:12px;font-weight:600;
+                    letter-spacing:0.5px;" target="_blank">
+            Ver presentaci&oacute;n institucional &rarr;</a>
+        </td>
+        <td style="border-radius:5px;background:#F1F5F9;border:1px solid #E2E8F0;">
+          <a href="https://wa.me/51926011920"
+             style="display:inline-block;padding:12px 28px;color:#475569;
+                    text-decoration:none;font-size:12px;font-weight:600;
+                    letter-spacing:0.5px;">Cotizar ahora &rarr;</a>
+        </td>
+      </tr></table>
+    </td>
+  </tr>
+
+  <tr><td style="padding:0 36px;">
+    <div style="height:1px;background:#F1F5F9;"></div>
+  </td></tr>
+
+  <!-- FIRMA -->
+  <tr>
+    <td style="padding:20px 36px;">
+      <table cellpadding="0" cellspacing="0" border="0"><tr>
+        <td style="vertical-align:middle;padding-right:16px;width:44px;">
+          <img src="{LOGO}" width="44" height="44" alt="QoriCash"
+               style="display:block;border-radius:6px;">
+        </td>
+        <td style="vertical-align:middle;border-left:2px solid #E2E8F0;padding-left:16px;">
+          <p style="margin:0;font-size:13px;font-weight:700;color:#0D1B2A;">
+            {nombre_firma}</p>
+          <p style="margin:3px 0 0;font-size:11px;color:#64748B;">
+            {cargo} &nbsp;&middot;&nbsp;
+            <a href="https://wa.me/51926011920"
+               style="color:#64748B;text-decoration:none;">+51 926 011 920</a>
+          </p>
+          <p style="margin:2px 0 0;font-size:11px;">
+            <a href="https://www.qoricash.pe"
+               style="color:#16a34a;text-decoration:none;font-weight:600;">
+              www.qoricash.pe</a>
+            <span style="color:#CBD5E1;">&nbsp;&middot;&nbsp;Pueblo Libre, Lima</span>
+          </p>
+        </td>
+      </tr></table>
+    </td>
+  </tr>
+
+  <!-- PIE -->
+  <tr>
+    <td style="padding:14px 36px;background:#F8FAFC;border-top:1px solid #F1F5F9;">
+      <p style="margin:0;font-size:10px;color:#94A3B8;text-align:center;line-height:1.6;">
+        QORICASH S.A.C. &nbsp;&middot;&nbsp; RUC 20615113698 &nbsp;&middot;&nbsp;
+        Regulada por la SBS &nbsp;&middot;&nbsp; Res. N.&ordm; 00313-2026
+        <br>Para no recibir m&aacute;s comunicaciones responda con el asunto
+        <em>NO CONTACTAR</em>.
+      </p>
+    </td>
+  </tr>
+
+</table>
+</td></tr></table>
+</body></html>"""
+
+
 def _business_days_since(date_str: str) -> int:
     """Días hábiles desde date_str hasta hoy."""
     if not date_str:
@@ -346,23 +576,28 @@ class MailAgent(BaseAgent):
         from collections import defaultdict
 
         with app.app_context():
-            # Horario permitido: 9:00–13:30 Lima, lunes a viernes
-            now_dt = now_peru()
+            now_dt    = now_peru()
+            hour_frac = now_dt.hour + now_dt.minute / 60
+
+            # ── Determinar modo según hora (solo días hábiles) ─────────────────
             if now_dt.weekday() >= 5:
                 return {'tasks': 0, 'message': 'Fuera de horario (fin de semana)'}
-            hour_frac = now_dt.hour + now_dt.minute / 60
-            if not (9.0 <= hour_frac < 13.5):
+
+            if _HORA_INICIO <= hour_frac < _HORA_CORTE:
+                modo       = 'precios'        # TC prominente, mercado activo
+                batch_size = _BATCH_MAÑANA
+            elif _HORA_CORTE <= hour_frac < _HORA_FIN_TARDE:
+                modo       = 'prospeccion'    # presentación institucional + TC de referencia
+                batch_size = _BATCH_TARDE
+            else:
                 return {'tasks': 0, 'message': (
-                    f'Fuera de horario ({now_dt.strftime("%H:%M")} Lima — activo 09:00–13:30)'
+                    f'Fuera de horario ({now_dt.strftime("%H:%M")} Lima — '
+                    f'activo 09:00–18:00 días hábiles)'
                 )}
 
-            # Tasas actuales desde ExchangeRate
-            try:
-                tc = ExchangeRate.get_current()
-                compra = f'{float(tc["compra"]):.3f}'
-                venta  = f'{float(tc["venta"]):.3f}'
-            except Exception:
-                compra, venta = '—', '—'
+            # ── TC inicial desde la misma fuente que el widget ─────────────────
+            compra, venta = self._fetch_tc(ExchangeRate)
+            tc_envios_desde_refresh = 0   # contador para re-fetch periódico
 
             sent_total = 0
             skipped    = 0
@@ -370,48 +605,42 @@ class MailAgent(BaseAgent):
             hoy_str    = today.strftime('%Y-%m-%d')
             hoy_full   = today.strftime('%d/%m/%Y')
 
-            # Usuario bot para registrar actividades
             from app.models.user import User
             bot_user = User.query.filter_by(role='Master').first()
 
-            # FIX 5: filtro de fecha en SQL (7 días calendario ≈ 5 hábiles)
             cutoff = (today - timedelta(days=_CALENDAR_DAYS_APPROX)).strftime('%Y-%m-%d')
 
+            # ── Query de elegibles (pool grande para cubrir los 3 bandejas) ────
             prospectos = (Prospecto.query
                           .filter(
                               ~Prospecto.estado_comercial.in_(_EXCLUDE_ESTADOS),
                               ~Prospecto.estado_email.in_(_EXCLUDE_EMAIL_EST),
                               Prospecto.email.isnot(None),
                               Prospecto.email != '',
-                              # Respetar cooldown de último contacto
                               db.or_(
                                   Prospecto.fecha_ultimo_contacto.is_(None),
                                   Prospecto.fecha_ultimo_contacto <= cutoff,
                               ),
-                              # Respetar fecha_proximo_contacto si fue programada
                               db.or_(
                                   Prospecto.fecha_proximo_contacto.is_(None),
                                   Prospecto.fecha_proximo_contacto <= hoy_str,
                               ),
                           )
                           .order_by(Prospecto.fecha_ultimo_contacto.asc().nullsfirst())
-                          .limit(300)
+                          .limit(600)
                           .all())
 
-            # Refinamiento exacto por días hábiles (sobre conjunto ya pequeño)
             eligible_raw = [p for p in prospectos
                             if _business_days_since(p.fecha_ultimo_contacto) >= _DIAS_HABIL_ESPERA]
 
-            # Deduplicar por email — si mismo email aparece en 2+ prospectos, conservar
-            # solo el más reciente (mayor id) para evitar doble envío al mismo destinatario
+            # Deduplicar por email (mismo email en 2+ prospectos → solo el más reciente)
             _seen_emails: dict = {}
             for p in eligible_raw:
-                email_key = (p.email or '').strip().lower()
-                if email_key not in _seen_emails or p.id > _seen_emails[email_key].id:
-                    _seen_emails[email_key] = p
+                key = (p.email or '').strip().lower()
+                if key not in _seen_emails or p.id > _seen_emails[key].id:
+                    _seen_emails[key] = p
             eligible = list(_seen_emails.values())
 
-            # Distribuir por bandeja (hash estable)
             por_bandeja = defaultdict(list)
             for p in eligible:
                 por_bandeja[self._pick_bandeja(p)].append(p)
@@ -427,27 +656,49 @@ class MailAgent(BaseAgent):
                     _log.info(f'[MailAgent] {bandeja}: límite diario alcanzado ({sent_today})')
                     continue
 
-                batch      = prospects_q[:min(_BATCH_PER_CYCLE, remaining)]
-                bot_nombre = _BANDEJA_NOMBRE.get(bandeja, 'QoriCash')
-                bot_cargo  = _BANDEJA_CARGO.get(bandeja, 'Equipo Comercial')
+                batch       = prospects_q[:min(batch_size, remaining)]
+                bot_nombre  = _BANDEJA_NOMBRE.get(bandeja, 'QoriCash')
+                bot_cargo   = _BANDEJA_CARGO.get(bandeja, 'Equipo Comercial')
                 es_personal = (bandeja == 'ggarcia@qoricash.pe')
 
                 for p in batch:
                     try:
+                        # ── Re-fetch TC cada _TC_REFRESH_CADA envíos ──────────
+                        if tc_envios_desde_refresh >= _TC_REFRESH_CADA:
+                            nuevo_c, nuevo_v = self._fetch_tc(ExchangeRate)
+                            if (nuevo_c, nuevo_v) != (compra, venta):
+                                _log.info(
+                                    f'[MailAgent] TC actualizado: '
+                                    f'{compra}/{venta} → {nuevo_c}/{nuevo_v}'
+                                )
+                                compra, venta = nuevo_c, nuevo_v
+                            tc_envios_desde_refresh = 0
+
                         nombre_dest = (
                             (p.nombre_contacto or p.razon_social or 'equipo')
                             .split()[0].capitalize()
                         )
-                        html = _build_html(
-                            nombre_dest=nombre_dest,
-                            nombre_firma=bot_nombre,
-                            cargo=bot_cargo,
-                            compra=compra,
-                            venta=venta,
-                            hoy=hoy_full,
-                            es_personal=es_personal,
-                        )
-                        subject = 'QoriCash \u2014 Tipo de cambio preferencial'
+
+                        # ── Seleccionar plantilla según modo ─────────────────
+                        if modo == 'precios':
+                            html    = _build_html(
+                                nombre_dest=nombre_dest, nombre_firma=bot_nombre,
+                                cargo=bot_cargo, compra=compra, venta=venta,
+                                hoy=hoy_full, es_personal=es_personal,
+                            )
+                            subject      = 'QoriCash \u2014 Tipo de cambio preferencial'
+                            tipo_envio   = 'precios'
+                            descripcion  = f'Email de precios enviado [TC {compra}/{venta}]'
+                        else:
+                            html    = _build_html_prospeccion(
+                                nombre_dest=nombre_dest, nombre_firma=bot_nombre,
+                                cargo=bot_cargo, compra=compra, venta=venta,
+                                hoy=hoy_full, es_personal=es_personal,
+                            )
+                            subject      = 'QoriCash \u2014 Casa de cambio digital \u00b7 SBS'
+                            tipo_envio   = 'presentacion'
+                            descripcion  = 'Email de presentación institucional enviado'
+
                         ok = self._send_via_gmail(bandeja, p.email, subject, html)
                         if not ok:
                             skipped += 1
@@ -460,30 +711,31 @@ class MailAgent(BaseAgent):
                         p.num_contactos          = (p.num_contactos or 0) + 1
                         p.estado_comercial       = p.estado_comercial or 'presentado'
                         p.remitente              = bandeja
-                        p.tipo_ultimo_envio      = 'presentacion'
+                        p.tipo_ultimo_envio      = tipo_envio
 
                         if bot_user:
-                            act = ActividadProspecto(
+                            db.session.add(ActividadProspecto(
                                 prospecto_id=p.id,
                                 user_id=bot_user.id,
                                 tipo='email',
                                 canal='email',
                                 bandeja=bandeja,
-                                descripcion='Email de presentación enviado por Mail Agent',
+                                descripcion=descripcion,
                                 resultado='enviado',
                                 nuevo_estado=p.estado_comercial,
-                            )
-                            db.session.add(act)
+                            ))
 
                         db.session.flush()
                         sent_total += 1
+                        tc_envios_desde_refresh += 1
 
                     except Exception as e:
                         _log.warning(f'[MailAgent] Error enviando a {p.email}: {e}')
                         skipped += 1
 
             db.session.commit()
-            msg = f'Campaña: {sent_total} emails enviados · {skipped} omitidos · TC {compra}/{venta}'
+            msg = (f'[{modo.upper()}] {sent_total} emails enviados · '
+                   f'{skipped} omitidos · TC {compra}/{venta}')
             return {
                 'tasks':   sent_total,
                 'message': msg,
@@ -491,6 +743,14 @@ class MailAgent(BaseAgent):
             }
 
     # ── Helpers ──────────────────────────────────────────────────────────────
+
+    def _fetch_tc(self, ExchangeRate) -> tuple:
+        """Obtiene compra/venta actuales desde la misma fuente que el widget del sitio."""
+        try:
+            tc = ExchangeRate.get_current()
+            return f'{float(tc["compra"]):.3f}', f'{float(tc["venta"]):.3f}'
+        except Exception:
+            return '—', '—'
 
     def _daily_sent_count(self, db, bandeja: str, today) -> int:
         from app.models.prospecto import ActividadProspecto
