@@ -747,7 +747,7 @@
                data-gastos="{{ rep.gastos_pen|float }}"
                data-utilidad="{{ rep.utilidad_neta_pen|float }}"
                data-ir="{{ rep.ir_pago_cuenta_pen|float }}"
-               data-findings="{{ rep.hallazgos_json | replace('"', '&quot;') }}">
+               data-findings="{{ rep.hallazgos_json or '[]' }}">
             <div class="report-row-head">
               <span class="report-date">{{ rep.audit_date.strftime('%d/%m/%Y') if rep.audit_date else '—' }}</span>
               <span class="estado-badge {{ ec }}">{{ rep.estado }}</span>
@@ -805,7 +805,9 @@
 /* ── Drawer ─────────────────────────────────────────────────── */
 function openDrawer(row) {
   const d = row.dataset;
-  const findings = JSON.parse(d.findings || '[]');
+  let findings;
+  try { findings = JSON.parse(d.findings || '[]'); }
+  catch(e) { console.error('drawer parse error:', e, d.findings); findings = []; }
 
   // Title
   document.getElementById('drawerTitle').textContent =
