@@ -3,257 +3,95 @@
 
 {% block head %}
 <style>
-/* ──────────────────────────────────────────────────────────────────────
-   Agentes de IA — Landing de Cards
-────────────────────────────────────────────────────────────────────── */
 .ai-landing {
-  min-height: 100vh;
   background: #f8fafc;
-  padding: 28px 32px 48px;
-}
-
-/* ── Header ─────────────────────────────────────────────────────────── */
-.ai-landing-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 32px;
+  padding: 36px 40px 60px;
+  min-height: calc(100vh - 56px);
 }
 .ai-landing-title {
-  font-size: 1.5rem;
-  font-weight: 900;
-  color: #0D1B2A;
-  letter-spacing: -.02em;
-  margin: 0;
+  font-size: 1.4rem; font-weight: 900; color: #0D1B2A;
+  letter-spacing: -.02em; margin: 0 0 4px;
 }
 .ai-landing-sub {
-  font-size: .82rem;
-  color: #64748b;
-  margin-top: 4px;
+  font-size: .82rem; color: #64748b; margin: 0 0 36px;
 }
 
-/* ── Stats bar ──────────────────────────────────────────────────────── */
-.ai-stats-bar {
+/* Cards grid */
+.agents-grid {
   display: flex;
-  gap: 12px;
   flex-wrap: wrap;
-  margin-bottom: 32px;
-}
-.stat-chip {
-  background: #fff;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  padding: 10px 18px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex: 1;
-  min-width: 140px;
-}
-.stat-chip-icon {
-  width: 36px; height: 36px;
-  border-radius: 9px;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 1rem;
-  flex-shrink: 0;
-}
-.stat-chip-icon.green  { background: #f0fdf4; color: #16a34a; }
-.stat-chip-icon.blue   { background: #eff6ff; color: #2563eb; }
-.stat-chip-icon.amber  { background: #fffbeb; color: #d97706; }
-.stat-chip-icon.red    { background: #fef2f2; color: #dc2626; }
-.stat-chip-icon.purple { background: #f5f3ff; color: #7c3aed; }
-.stat-chip-val { font-size: 1.25rem; font-weight: 800; color: #0D1B2A; line-height: 1; }
-.stat-chip-lbl { font-size: .68rem; color: #94a3b8; text-transform: uppercase; letter-spacing: .05em; margin-top: 2px; }
-
-/* ── Sección label ──────────────────────────────────────────────────── */
-.section-lbl {
-  font-size: .7rem;
-  font-weight: 700;
-  color: #94a3b8;
-  text-transform: uppercase;
-  letter-spacing: .1em;
-  margin-bottom: 14px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.section-lbl::after {
-  content: '';
-  flex: 1;
-  height: 1px;
-  background: #e2e8f0;
+  gap: 20px;
 }
 
-/* ── Grilla de cards ────────────────────────────────────────────────── */
-.agent-cards-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 16px;
-}
-
-/* ── Card individual ────────────────────────────────────────────────── */
-.agent-cat-card {
+/* Card */
+.agent-card {
   background: #fff;
   border: 1.5px solid #e2e8f0;
   border-radius: 16px;
-  padding: 22px 22px 18px;
-  cursor: pointer;
-  position: relative;
-  overflow: hidden;
-  transition: border-color .18s, box-shadow .18s, transform .18s;
+  padding: 28px 28px 22px;
+  width: 280px;
   text-decoration: none;
+  color: inherit;
   display: flex;
   flex-direction: column;
-  gap: 0;
-  color: inherit;
+  gap: 12px;
+  transition: border-color .18s, box-shadow .18s, transform .18s;
+  position: relative;
+  overflow: hidden;
 }
-.agent-cat-card:hover {
+.agent-card:hover {
   border-color: #16a34a;
   box-shadow: 0 8px 32px rgba(22,163,74,.12), 0 2px 8px rgba(0,0,0,.06);
   transform: translateY(-3px);
+  text-decoration: none;
+  color: inherit;
 }
-.agent-cat-card:hover .card-arrow { transform: translateX(4px); }
-.agent-cat-card:hover .card-glow  { opacity: 1; }
+.agent-card:hover .card-arrow { transform: translateX(4px); }
 
-/* Glow corner */
+/* Glow */
 .card-glow {
-  position: absolute;
-  top: -60px; right: -60px;
-  width: 160px; height: 160px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(22,163,74,.08) 0%, transparent 70%);
-  opacity: 0;
-  transition: opacity .25s;
-  pointer-events: none;
+  position: absolute; top: -50px; right: -50px;
+  width: 140px; height: 140px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(22,163,74,.07) 0%, transparent 70%);
+  opacity: 0; transition: opacity .25s; pointer-events: none;
 }
+.agent-card:hover .card-glow { opacity: 1; }
 
-/* Card top row */
-.card-top {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 14px;
-}
-.card-icon-wrap {
-  width: 48px; height: 48px;
-  border-radius: 12px;
+/* Icon */
+.card-icon {
+  width: 52px; height: 52px; border-radius: 14px;
+  background: #f0fdf4; color: #16a34a;
   display: flex; align-items: center; justify-content: center;
-  font-size: 1.25rem;
-  flex-shrink: 0;
+  font-size: 1.4rem;
 }
-.card-icon-wrap.green  { background: #f0fdf4; color: #16a34a; }
-.card-icon-wrap.blue   { background: #eff6ff; color: #2563eb; }
-.card-icon-wrap.amber  { background: #fffbeb; color: #d97706; }
-.card-icon-wrap.purple { background: #f5f3ff; color: #7c3aed; }
-.card-icon-wrap.teal   { background: #f0fdfa; color: #0d9488; }
-.card-icon-wrap.navy   { background: #f0f4f8; color: #0D1B2A; }
 
-.card-badge {
-  font-size: .65rem;
-  font-weight: 700;
-  padding: 3px 9px;
-  border-radius: 20px;
-  letter-spacing: .04em;
-}
-.badge-active  { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
-.badge-idle    { background: #f1f5f9; color: #64748b; border: 1px solid #e2e8f0; }
-.badge-warning { background: #fffbeb; color: #d97706; border: 1px solid #fde68a; }
-.badge-error   { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
-
-/* Card content */
+/* Text */
 .card-name {
-  font-size: 1rem;
-  font-weight: 800;
-  color: #0D1B2A;
-  margin: 0 0 5px;
-  letter-spacing: -.01em;
+  font-size: 1.05rem; font-weight: 800; color: #0D1B2A;
+  letter-spacing: -.01em; margin: 0;
 }
 .card-desc {
-  font-size: .78rem;
-  color: #64748b;
-  line-height: 1.55;
-  margin-bottom: 16px;
+  font-size: .78rem; color: #64748b; line-height: 1.55; margin: 0;
 }
 
-/* Mini pipeline pills */
-.card-agents-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-  margin-bottom: 16px;
+/* Footer */
+.card-footer {
+  display: flex; align-items: center; justify-content: space-between;
+  padding-top: 14px; border-top: 1px solid #f1f5f9; margin-top: auto;
 }
-.agent-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 20px;
-  padding: 3px 9px;
-  font-size: .66rem;
-  font-weight: 600;
-  color: #475569;
+.card-tag {
+  font-size: .68rem; font-weight: 600; color: #16a34a;
+  background: #f0fdf4; border: 1px solid #bbf7d0;
+  border-radius: 20px; padding: 2px 10px;
 }
-.agent-pill-dot {
-  width: 5px; height: 5px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-.dot-running { background: #4ade80; animation: dot-p 1s ease-in-out infinite; }
-.dot-idle    { background: #94a3b8; }
-.dot-error   { background: #f87171; }
-.dot-stopped { background: #cbd5e1; }
-@keyframes dot-p {
-  0%,100%{opacity:1} 50%{opacity:.3}
-}
-
-/* Card footer */
-.card-footer-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding-top: 12px;
-  border-top: 1px solid #f1f5f9;
-}
-.card-stat-group {
-  display: flex;
-  gap: 16px;
-}
-.card-stat {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-.card-stat .v { font-size: .95rem; font-weight: 800; color: #0D1B2A; }
-.card-stat .l { font-size: .62rem; color: #94a3b8; text-transform: uppercase; letter-spacing: .06em; }
 .card-arrow {
-  color: #16a34a;
-  font-size: 1rem;
+  color: #16a34a; font-size: 1rem;
   transition: transform .18s;
 }
 
-/* ── Card especial "ver todo" ────────────────────────────────────────── */
-.card-all {
-  background: linear-gradient(135deg, #0D1B2A 0%, #1e3a5f 100%);
-  border-color: #0D1B2A;
-}
-.card-all:hover {
-  border-color: #16a34a;
-  box-shadow: 0 8px 32px rgba(13,27,42,.25);
-}
-.card-all .card-name,
-.card-all .card-desc { color: rgba(255,255,255,.9); }
-.card-all .card-desc { color: rgba(255,255,255,.55); }
-.card-all .card-footer-row { border-color: rgba(255,255,255,.08); }
-.card-all .card-stat .v { color: #fff; }
-.card-all .card-stat .l { color: rgba(255,255,255,.35); }
-.card-all .card-arrow { color: #4ade80; }
-
 @media (max-width: 640px) {
-  .ai-landing { padding: 16px; }
-  .agent-cards-grid { grid-template-columns: 1fr; }
+  .ai-landing { padding: 20px 16px 40px; }
+  .agent-card { width: 100%; }
 }
 </style>
 {% endblock %}
@@ -261,311 +99,49 @@
 {% block content %}
 <div class="ai-landing">
 
-  <!-- ── Header ──────────────────────────────────────────────────────── -->
-  <div class="ai-landing-header">
-    <div>
-      <h1 class="ai-landing-title">
-        <i class="bi bi-robot me-2" style="color:#16a34a;"></i>Agentes de IA
-      </h1>
-      <p class="ai-landing-sub">
-        Ecosistema de automatización autónoma — operando 24/7 en la nube
-      </p>
-    </div>
-    <a href="{{ url_for('agentes.mission_control') }}"
-       style="background:#0D1B2A;color:#fff;padding:8px 18px;border-radius:8px;
-              text-decoration:none;font-size:.8rem;font-weight:700;
-              display:flex;align-items:center;gap:6px;flex-shrink:0;">
-      <i class="bi bi-cpu-fill"></i> Mission Control
+  <h1 class="ai-landing-title">
+    <i class="bi bi-robot me-2" style="color:#16a34a;"></i>Agentes de IA
+  </h1>
+  <p class="ai-landing-sub">Ecosistema de automatización autónoma — operando 24/7</p>
+
+  <div class="agents-grid">
+
+    <!-- Agentes de Prospección -->
+    <a href="{{ url_for('agentes.mission_control') }}" class="agent-card">
+      <div class="card-glow"></div>
+      <div class="card-icon">
+        <i class="bi bi-diagram-3-fill"></i>
+      </div>
+      <div>
+        <h3 class="card-name">Agentes de Prospección</h3>
+        <p class="card-desc">
+          Pipeline de 7 agentes autónomos: descubrimiento de leads, calidad de datos,
+          campañas de email, análisis de respuestas, seguimiento y supervisión 24/7.
+        </p>
+      </div>
+      <div class="card-footer">
+        <span class="card-tag">7 agentes activos</span>
+        <i class="bi bi-arrow-right card-arrow"></i>
+      </div>
     </a>
+
+    <!-- Más agentes próximamente -->
+    <div class="agent-card" style="opacity:.45;cursor:default;pointer-events:none;">
+      <div class="card-icon" style="background:#f8fafc;color:#cbd5e1;">
+        <i class="bi bi-plus-circle-dotted"></i>
+      </div>
+      <div>
+        <h3 class="card-name" style="color:#94a3b8;">Próximamente</h3>
+        <p class="card-desc" style="color:#94a3b8;">
+          Nuevos módulos de agentes autónomos en desarrollo.
+        </p>
+      </div>
+      <div class="card-footer">
+        <span class="card-tag" style="background:#f8fafc;border-color:#e2e8f0;color:#94a3b8;">En desarrollo</span>
+        <i class="bi bi-arrow-right card-arrow" style="color:#cbd5e1;"></i>
+      </div>
+    </div>
+
   </div>
-
-  <!-- ── Stats bar ───────────────────────────────────────────────────── -->
-  <div class="ai-stats-bar">
-    <div class="stat-chip">
-      <div class="stat-chip-icon green"><i class="bi bi-robot"></i></div>
-      <div>
-        <div class="stat-chip-val">{{ agents|length }}</div>
-        <div class="stat-chip-lbl">Agentes</div>
-      </div>
-    </div>
-    <div class="stat-chip">
-      <div class="stat-chip-icon {{ 'green' if running > 0 else 'blue' }}">
-        <i class="bi bi-play-circle{{ '-fill' if running > 0 else '' }}"></i>
-      </div>
-      <div>
-        <div class="stat-chip-val">{{ running }}</div>
-        <div class="stat-chip-lbl">En ejecución</div>
-      </div>
-    </div>
-    <div class="stat-chip">
-      <div class="stat-chip-icon blue"><i class="bi bi-people-fill"></i></div>
-      <div>
-        <div class="stat-chip-val">{{ kpis.total_prospectos or 0 }}</div>
-        <div class="stat-chip-lbl">Prospectos</div>
-      </div>
-    </div>
-    <div class="stat-chip">
-      <div class="stat-chip-icon amber"><i class="bi bi-envelope-paper"></i></div>
-      <div>
-        <div class="stat-chip-val">{{ kpis.emails_sent_hoy or 0 }}</div>
-        <div class="stat-chip-lbl">Emails hoy</div>
-      </div>
-    </div>
-    <div class="stat-chip">
-      <div class="stat-chip-icon purple"><i class="bi bi-lightning-charge-fill"></i></div>
-      <div>
-        <div class="stat-chip-val">{{ kpis.oportunidades_semana or 0 }}</div>
-        <div class="stat-chip-lbl">Oport./semana</div>
-      </div>
-    </div>
-    {% if alerts_n > 0 %}
-    <div class="stat-chip" style="border-color:#fecaca;">
-      <div class="stat-chip-icon red"><i class="bi bi-exclamation-triangle-fill"></i></div>
-      <div>
-        <div class="stat-chip-val" style="color:#dc2626;">{{ alerts_n }}</div>
-        <div class="stat-chip-lbl">Alertas</div>
-      </div>
-    </div>
-    {% endif %}
-  </div>
-
-  <!-- ── Cards de agentes ────────────────────────────────────────────── -->
-  {% set agent_map = {} %}
-  {% for a in agents %}{% set _ = agent_map.update({a.agent_id: a}) %}{% endfor %}
-
-  <div class="section-lbl">Módulos de Automatización</div>
-  <div class="agent-cards-grid">
-
-    <!-- ═══ CARD: Agente de Prospección ══════════════════════════════ -->
-    <a href="{{ url_for('agentes.mission_control') }}" class="agent-cat-card">
-      <div class="card-glow"></div>
-      <div class="card-top">
-        <div class="card-icon-wrap green">
-          <i class="bi bi-diagram-3-fill"></i>
-        </div>
-        {% set any_running = namespace(v=false) %}
-        {% for aid in ['lead_discovery','data_quality','mail_agent','email_intelligence','outreach'] %}
-          {% if agent_map.get(aid) and agent_map[aid].status == 'running' %}
-            {% set any_running.v = true %}
-          {% endif %}
-        {% endfor %}
-        <span class="card-badge {{ 'badge-active' if any_running.v else 'badge-idle' }}">
-          {{ 'Activo' if any_running.v else 'En espera' }}
-        </span>
-      </div>
-      <h3 class="card-name">Agente de Prospección</h3>
-      <p class="card-desc">
-        Pipeline completo de 5 agentes: descubrimiento de leads, calidad de datos,
-        envío de campañas, análisis de respuestas y seguimiento automatizado.
-      </p>
-      <div class="card-agents-row">
-        {% for aid, lbl in [
-          ('lead_discovery','Lead Discovery'),
-          ('data_quality','Data Quality'),
-          ('mail_agent','Mail'),
-          ('email_intelligence','Emails'),
-          ('outreach','Outreach'),
-        ] %}
-        {% set a = agent_map.get(aid) %}
-        <span class="agent-pill">
-          <span class="agent-pill-dot dot-{{ a.status if a else 'stopped' }}"></span>
-          {{ lbl }}
-        </span>
-        {% endfor %}
-      </div>
-      <div class="card-footer-row">
-        <div class="card-stat-group">
-          <div class="card-stat">
-            <span class="v">{{ kpis.contactados or 0 }}</span>
-            <span class="l">Contactados</span>
-          </div>
-          <div class="card-stat">
-            <span class="v">{{ kpis.emails_sent_hoy or 0 }}</span>
-            <span class="l">Emails hoy</span>
-          </div>
-          <div class="card-stat">
-            <span class="v">{{ kpis.oportunidades_semana or 0 }}</span>
-            <span class="l">Oportunidades</span>
-          </div>
-        </div>
-        <i class="bi bi-arrow-right card-arrow"></i>
-      </div>
-    </a>
-
-    <!-- ═══ CARD: Supervisor ═════════════════════════════════════════ -->
-    {% set sup = agent_map.get('supervisor') %}
-    <a href="{{ url_for('agentes.auditoria') }}" class="agent-cat-card">
-      <div class="card-glow"></div>
-      <div class="card-top">
-        <div class="card-icon-wrap red">
-          <i class="bi bi-shield-shaded"></i>
-        </div>
-        {% set n_alerts = alerts_n %}
-        <span class="card-badge {{ 'badge-warning' if n_alerts > 0 else 'badge-idle' }}">
-          {{ n_alerts ~ ' alertas' if n_alerts > 0 else 'OK' }}
-        </span>
-      </div>
-      <h3 class="card-name">Supervisor & Auditoría</h3>
-      <p class="card-desc">
-        Monitorea continuamente todos los agentes, detecta fallos, errores de API
-        y genera alertas automáticas. Se auto-corrige cuando es posible.
-      </p>
-      <div class="card-agents-row">
-        <span class="agent-pill">
-          <span class="agent-pill-dot dot-{{ sup.status if sup else 'stopped' }}"></span>
-          Supervisor Agent
-        </span>
-        <span class="agent-pill">
-          <i class="bi bi-bell" style="font-size:.6rem;"></i> Alertas
-        </span>
-        <span class="agent-pill">
-          <i class="bi bi-terminal" style="font-size:.6rem;"></i> Logs
-        </span>
-      </div>
-      <div class="card-footer-row">
-        <div class="card-stat-group">
-          <div class="card-stat">
-            <span class="v" style="{{ 'color:#dc2626;' if alerts_n > 0 else '' }}">{{ alerts_n }}</span>
-            <span class="l">Alertas activas</span>
-          </div>
-          <div class="card-stat">
-            <span class="v">{{ sup.tasks_today if sup else 0 }}</span>
-            <span class="l">Auditorías hoy</span>
-          </div>
-        </div>
-        <i class="bi bi-arrow-right card-arrow"></i>
-      </div>
-    </a>
-
-    <!-- ═══ CARD: Inteligencia Ejecutiva ════════════════════════════ -->
-    {% set exe = agent_map.get('executive') %}
-    <a href="{{ url_for('agentes.dashboard') }}" class="agent-cat-card">
-      <div class="card-glow"></div>
-      <div class="card-top">
-        <div class="card-icon-wrap navy">
-          <i class="bi bi-graph-up-arrow"></i>
-        </div>
-        <span class="card-badge badge-idle">KPIs</span>
-      </div>
-      <h3 class="card-name">Inteligencia Ejecutiva</h3>
-      <p class="card-desc">
-        Genera KPIs, tendencias, tasas de conversión y reportes ejecutivos
-        de toda la operación de prospección en tiempo real.
-      </p>
-      <div class="card-agents-row">
-        <span class="agent-pill">
-          <span class="agent-pill-dot dot-{{ exe.status if exe else 'stopped' }}"></span>
-          Executive Agent
-        </span>
-        <span class="agent-pill"><i class="bi bi-grid" style="font-size:.6rem;"></i> Dashboard</span>
-        <span class="agent-pill"><i class="bi bi-bar-chart" style="font-size:.6rem;"></i> Métricas</span>
-      </div>
-      <div class="card-footer-row">
-        <div class="card-stat-group">
-          <div class="card-stat">
-            <span class="v" style="color:#16a34a;">{{ kpis.clientes or 0 }}</span>
-            <span class="l">Clientes</span>
-          </div>
-          <div class="card-stat">
-            <span class="v">{{ kpis.tasa_conversion or 0 }}%</span>
-            <span class="l">Conversión</span>
-          </div>
-        </div>
-        <i class="bi bi-arrow-right card-arrow"></i>
-      </div>
-    </a>
-
-    <!-- ═══ CARD: Consola en tiempo real ════════════════════════════ -->
-    <a href="{{ url_for('agentes.actividad') }}" class="agent-cat-card">
-      <div class="card-glow"></div>
-      <div class="card-top">
-        <div class="card-icon-wrap teal">
-          <i class="bi bi-terminal-fill"></i>
-        </div>
-        <span class="card-badge badge-active" style="display:flex;align-items:center;gap:4px;">
-          <span style="width:5px;height:5px;border-radius:50%;background:#16a34a;
-            animation:dot-p 1s ease-in-out infinite;"></span>
-          Live
-        </span>
-      </div>
-      <h3 class="card-name">Actividad en Tiempo Real</h3>
-      <p class="card-desc">
-        Consola de logs de todos los agentes, actualizada en tiempo real vía WebSocket.
-        Filtra por agente, nivel o búsqueda libre.
-      </p>
-      <div class="card-agents-row">
-        <span class="agent-pill"><i class="bi bi-filter" style="font-size:.6rem;"></i> Filtros</span>
-        <span class="agent-pill"><i class="bi bi-wifi" style="font-size:.6rem;"></i> SocketIO</span>
-        <span class="agent-pill"><i class="bi bi-clock-history" style="font-size:.6rem;"></i> Historial</span>
-      </div>
-      <div class="card-footer-row">
-        <div class="card-stat-group">
-          <div class="card-stat">
-            <span class="v">{{ agents|length }}</span>
-            <span class="l">Agentes monitoreados</span>
-          </div>
-        </div>
-        <i class="bi bi-arrow-right card-arrow"></i>
-      </div>
-    </a>
-
-    <!-- ═══ CARD: Mission Control (oscura) ══════════════════════════ -->
-    <a href="{{ url_for('agentes.mission_control') }}" class="agent-cat-card card-all">
-      <div class="card-top">
-        <div class="card-icon-wrap" style="background:rgba(74,222,128,.15);color:#4ade80;">
-          <i class="bi bi-cpu-fill"></i>
-        </div>
-        <span class="card-badge" style="background:rgba(74,222,128,.12);color:#4ade80;border:1px solid rgba(74,222,128,.25);">
-          Centro de Comando
-        </span>
-      </div>
-      <h3 class="card-name" style="color:#fff;">Mission Control</h3>
-      <p class="card-desc" style="color:rgba(255,255,255,.5);">
-        Vista unificada del pipeline completo: mapa visual n8n con flujo animado,
-        controles de cada agente y consola de actividad en tiempo real.
-      </p>
-      <div class="card-agents-row">
-        {% for a in agents %}
-        <span class="agent-pill" style="background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.1);color:rgba(255,255,255,.6);">
-          <span class="agent-pill-dot dot-{{ a.status }}"></span>
-          {{ a.name.split(' ')[0] }}
-        </span>
-        {% endfor %}
-      </div>
-      <div class="card-footer-row">
-        <div class="card-stat-group">
-          <div class="card-stat">
-            <span class="v" style="color:#4ade80;">{{ running }}</span>
-            <span class="l">Ejecutando</span>
-          </div>
-          <div class="card-stat">
-            <span class="v">{{ agents|length }}</span>
-            <span class="l">Total agentes</span>
-          </div>
-        </div>
-        <i class="bi bi-arrow-right card-arrow" style="color:#4ade80;"></i>
-      </div>
-    </a>
-
-  </div><!-- /agent-cards-grid -->
 </div>
-{% endblock %}
-
-{% block scripts %}
-<script>
-// Polling ligero cada 30s para actualizar el estado de los dots
-setInterval(async () => {
-  try {
-    const r = await fetch('/agentes/api/status');
-    const agents = await r.json();
-    // Actualizar cada dot por agent_id si existiera en el DOM
-    agents.forEach(a => {
-      document.querySelectorAll(`.agent-pill-dot[data-agent="${a.agent_id}"]`)
-        .forEach(d => {
-          d.className = `agent-pill-dot dot-${a.status}`;
-        });
-    });
-  } catch(e) {}
-}, 30000);
-</script>
 {% endblock %}

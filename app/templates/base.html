@@ -145,7 +145,7 @@
 
             {% if current_user.role in ('Master', 'Presidente de Negocios') %}
             <a class="sidebar-link {% if request.endpoint and request.endpoint.startswith('agentes') %}active{% endif %}"
-               href="{{ url_for('agentes.mission_control') }}"
+               href="{{ url_for('agentes.index') }}"
                style="{% if request.endpoint and request.endpoint.startswith('agentes') %}{% else %}position:relative;{% endif %}">
                 <i class="bi bi-robot"></i>
                 <span class="sidebar-link-text">Agentes de IA</span>
