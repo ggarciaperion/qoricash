@@ -807,6 +807,95 @@ def api_import_prospectos():
         db.session.commit()
         return jsonify({'ok': True, 'updated': updated})
 
+    if action == 'export_all':
+        # Exporta TODOS los prospectos con campos completos (incluyendo LFC)
+        from app.models.prospecto import Prospecto as P, AsignacionProspecto, ActividadProspecto, ProspectoEmail
+        from sqlalchemy import func as _func
+        prosp_all = P.query.order_by(P.id.asc()).all()
+        ids_all   = [p.id for p in prosp_all]
+        # Trader map
+        asigs_all = AsignacionProspecto.query.filter(
+            AsignacionProspecto.prospecto_id.in_(ids_all),
+            AsignacionProspecto.activo == True
+        ).all() if ids_all else []
+        tmap_all = {}
+        for a in asigs_all:
+            if a.prospecto_id not in tmap_all and a.trader:
+                tmap_all[a.prospecto_id] = a.trader.username
+        # Emails extra
+        extras_all = ProspectoEmail.query.filter(
+            ProspectoEmail.prospecto_id.in_(ids_all),
+            ProspectoEmail.activo == True,
+        ).all() if ids_all else []
+        emap_all = {}
+        for e in extras_all:
+            emap_all.setdefault(e.prospecto_id, []).append(e.email)
+        # Última actividad
+        lat_subq = (
+            db.session.query(
+                ActividadProspecto.prospecto_id,
+                _func.max(ActividadProspecto.creado_en).label('max_ts'),
+            ).group_by(ActividadProspecto.prospecto_id).subquery()
+        )
+        act_rows_all = (
+            db.session.query(ActividadProspecto)
+            .join(lat_subq, (ActividadProspecto.prospecto_id == lat_subq.c.prospecto_id) &
+                  (ActividadProspecto.creado_en == lat_subq.c.max_ts))
+            .all()
+        )
+        amap_all = {a.prospecto_id: a for a in act_rows_all}
+        result = []
+        for p in prosp_all:
+            extra_emails = emap_all.get(p.id, [])
+            ult = amap_all.get(p.id)
+            result.append({
+                'id':                     p.id,
+                'razon_social':           p.razon_social or '',
+                'ruc':                    p.ruc or '',
+                'tipo':                   p.tipo or '',
+                'rubro':                  p.rubro or '',
+                'departamento':           p.departamento or '',
+                'provincia':              p.provincia or '',
+                'distrito':               getattr(p, 'distrito', '') or '',
+                'web':                    getattr(p, 'web', '') or '',
+                'nombre_contacto':        p.nombre_contacto or '',
+                'cargo':                  p.cargo or '',
+                'email':                  p.email or '',
+                'email_alt':              p.email_alt or '',
+                'emails_extra':           extra_emails,
+                'telefono':               p.telefono or '',
+                'telefono_alt':           getattr(p, 'telefono_alt', '') or '',
+                'telefono_3':             getattr(p, 'telefono_3', '') or '',
+                'telefono_4':             getattr(p, 'telefono_4', '') or '',
+                'tamano_empresa':         getattr(p, 'tamano_empresa', '') or '',
+                'volumen_estimado_usd':   float(getattr(p, 'volumen_estimado_usd', None) or 0) or None,
+                'prioridad':              getattr(p, 'prioridad', '') or '',
+                'cliente_lfc':            p.cliente_lfc or '',
+                'score':                  p.score or 0,
+                'clasificacion':          p.clasificacion or '',
+                'canal':                  p.canal or '',
+                'fuente':                 p.fuente or '',
+                'remitente':              p.remitente or '',
+                'tipo_ultimo_envio':      p.tipo_ultimo_envio or '',
+                'estado_email':           p.estado_email or '',
+                'estado_comercial':       p.estado_comercial or '',
+                'nivel_interes':          p.nivel_interes or '',
+                'grupo':                  p.grupo or '',
+                'notas':                  p.notas or '',
+                'sin_whatsapp':           getattr(p, 'sin_whatsapp', False) or False,
+                'fecha_primer_contacto':  p.fecha_primer_contacto or '',
+                'fecha_ultimo_contacto':  p.fecha_ultimo_contacto or '',
+                'fecha_proximo_contacto': p.fecha_proximo_contacto or '',
+                'num_contactos':          p.num_contactos or 0,
+                'trader':                 tmap_all.get(p.id, ''),
+                'ult_actividad_tipo':     ult.tipo if ult else '',
+                'ult_actividad_fecha':    ult.creado_en.strftime('%Y-%m-%d %H:%M') if ult and ult.creado_en else '',
+                'ult_actividad_desc':     (ult.descripcion or '')[:200] if ult else '',
+                'creado_en':              p.creado_en.strftime('%Y-%m-%d %H:%M') if p.creado_en else '',
+                'actualizado_en':         p.actualizado_en.strftime('%Y-%m-%d %H:%M') if p.actualizado_en else '',
+            })
+        return jsonify({'ok': True, 'total': len(result), 'prospectos': result})
+
     if action == 'list_identifiers':
         # Devuelve RUC + razon_social de todos los prospectos
         from app.models.client import Client
