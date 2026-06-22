@@ -23,13 +23,6 @@ WA_API_URL        = f'https://graph.facebook.com/v19.0/{WA_PHONE_ID}/messages'
 CRM_API_KEY       = os.environ.get('CRM_API_KEY',        'qoricash_crm_2026')
 
 
-# ── PANEL PRINCIPAL ───────────────────────────────────────────────
-@crm_bp.route('/whatsapp')
-@login_required
-@require_role('Master')
-def whatsapp():
-    return render_template('crm/whatsapp.html')
-
 
 # ── API — lista de conversaciones ────────────────────────────────
 @crm_bp.route('/api/conversaciones')

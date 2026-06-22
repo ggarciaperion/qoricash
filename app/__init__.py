@@ -948,8 +948,6 @@ def register_blueprints(app):
     app.register_blueprint(push_bp)            # Web Push: /api/push/*
     from app.routes.crm import crm_bp
     app.register_blueprint(crm_bp)             # CRM WhatsApp: /crm/*
-    from app.routes.inteligencia import inteligencia_bp
-    app.register_blueprint(inteligencia_bp)    # Centro de Inteligencia Comercial IA: /inteligencia/*
     from app.routes.finanzas import finanzas_bp
     app.register_blueprint(finanzas_bp, url_prefix='/finanzas')  # Control Financiero
     from app.routes.treasury import treasury_bp
