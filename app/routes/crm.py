@@ -955,6 +955,91 @@ def api_import_prospectos():
         return jsonify({"ok": True, "deleted": len(eliminados), "eliminados": eliminados})
 
 
+    if action == 'purge_sector_publico':
+        from app.models.prospecto import ActividadProspecto, AsignacionProspecto, ProspectoEmail, SeguimientoProspecto
+        from sqlalchemy import or_, func as _func
+
+        PATRONES_RS = [
+            '%ministerio%', '%municipalidad%', '%gobierno regional%', '%gobierno local%',
+            '%gobierno distrit%', '%gobierno provinc%',
+            '%essalud%', '%sunat%', '%sunarp%', '%sunass%', '%susalud%',
+            '%indecopi%', '%osinergmin%', '%osiptel%', '%ositran%', '%oefa%', '%osce%',
+            '%poder judicial%', '%ministerio publico%', '%ministerio público%',
+            '%fiscalia%', '%fiscalía%', '%defensoria%', '%defensoría%',
+            '%banco de la nacion%', '%banco de la nación%', '%banco central de reserva%',
+            '%contraloria%', '%contraloría%',
+            '%congreso de la republica%', '%congreso de la república%',
+            '%provias%', '%cofopri%', '%proinversion%', '%proinversión%',
+            '%devida%', '%concytec%', '%sineace%',
+            '%ugel%', '%dirección regional%', '%direccion regional%',
+            '%gerencia regional%', '%gerencia sub regional%',
+            '%sedapal%', '%emapa%', '%eps %',
+            '%proyecto especial%', '%autoridad nacional%', '%autoridad para%',
+            '%tribunal%constitucional%', '%jurado nacional%',
+            '%cuerpo general de bomberos%', '%compañia de bomberos%',
+            '%policia nacional%', '%policía nacional%',
+            '%ejercito del peru%', '%ejército del perú%',
+            '%marina de guerra%', '%fuerza aerea%', '%fuerza aérea%',
+            '%inpe%', '%migraciones%', '%senamhi%',
+            '%foncodes%', '%pronied%', '%agrorural%',
+            '%conadis%', '%seguro integral de salud%',
+            '%promperu%', '%promperú%', '%sierra y selva exportadora%',
+            '%senasa%', '%sernanp%', '%inia%', '%ana %', '% ana%',
+            '%servicio nacional%', '%servicio de agua%',
+            '%electro%oriente%', '%electro%centro%', '%electro%sur%', '%electro%norte%',
+            '%electro%ucayali%', '%electro%puno%',
+            '%luz del sur%sociedad%', '%hidrandina%', '%enosa%', '%electroperu%',
+            '%petroperu%', '%perupetro%',
+            '%enapu%', '%corpac%', '%aeropuerto%peru%',
+            '%instituto peruano%', '%instituto nacional%',
+            '%agencia peruana%', '%agencia de promocion%',
+            '%autoridad portuaria%', '%autoridad de transporte%',
+            '%programa nacional%', '%programa de desarrollo%',
+            '%unidad ejecutora%', '%sede administrativa%',
+            '%red de salud%', '%red asistencial%',
+            '%hospital nacional%', '%hospital regional%',
+            '%hospital de apoyo%', '%instituto especializado%',
+            '%centro de salud%', '% puesto de salud%',
+            '%universidad nacional%',
+            '%superintendencia%',
+        ]
+
+        # Condiciones por email .gob.pe
+        cond_email = or_(
+            Prospecto.email.ilike('%.gob.pe'),
+            Prospecto.email_alt.ilike('%.gob.pe'),
+            Prospecto.email_3.ilike('%.gob.pe'),
+            Prospecto.email_4.ilike('%.gob.pe'),
+        )
+
+        # Condiciones por razón social
+        cond_rs = or_(*[Prospecto.razon_social.ilike(p) for p in PATRONES_RS])
+
+        condicion_total = or_(cond_email, cond_rs)
+
+        # Obtener IDs
+        ids_raw = Prospecto.query.filter(condicion_total).with_entities(Prospecto.id).all()
+        id_list = [r[0] for r in ids_raw]
+
+        if not id_list:
+            return jsonify({'ok': True, 'eliminados': 0, 'msg': 'No se encontraron registros públicos'})
+
+        # Eliminar en lotes de 1000 para evitar timeout
+        CHUNK = 1000
+        eliminados = 0
+        for i in range(0, len(id_list), CHUNK):
+            chunk = id_list[i:i+CHUNK]
+            SeguimientoProspecto.query.filter(SeguimientoProspecto.prospecto_id.in_(chunk)).delete(synchronize_session=False)
+            ActividadProspecto.query.filter(ActividadProspecto.prospecto_id.in_(chunk)).delete(synchronize_session=False)
+            AsignacionProspecto.query.filter(AsignacionProspecto.prospecto_id.in_(chunk)).delete(synchronize_session=False)
+            ProspectoEmail.query.filter(ProspectoEmail.prospecto_id.in_(chunk)).delete(synchronize_session=False)
+            Prospecto.query.filter(Prospecto.id.in_(chunk)).delete(synchronize_session=False)
+            db.session.commit()
+            eliminados += len(chunk)
+
+        total_restante = Prospecto.query.count()
+        return jsonify({'ok': True, 'eliminados': eliminados, 'total_restante': total_restante})
+
     registros = data.get('registros', [])
     if not registros:
         return jsonify({'ok': True, 'insertados': 0})
