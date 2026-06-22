@@ -243,6 +243,19 @@ def alertas():
                            activas=activas, resueltas=resueltas)
 
 
+@agentes_bp.route('/contabilidad')
+@login_required
+@_require_agent_access
+def contabilidad():
+    from app.models.audit_report import AuditReport
+    reports = (AuditReport.query
+               .order_by(AuditReport.audit_date.desc())
+               .limit(10).all())
+    latest = reports[0] if reports else None
+    return render_template('agentes/contabilidad.html',
+                           reports=reports, latest=latest)
+
+
 @agentes_bp.route('/configuracion')
 @login_required
 @_require_agent_access

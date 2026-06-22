@@ -125,16 +125,33 @@
       </div>
     </a>
 
-    <!-- Más agentes próximamente -->
-    <div class="agent-card" style="opacity:.45;cursor:default;pointer-events:none;">
+    <!-- Agentes de Contabilidad -->
+    <a href="{{ url_for('agentes.contabilidad') }}" class="agent-card">
+      <div class="card-glow"></div>
+      <div class="card-icon" style="background:#eff6ff;color:#2563eb;">
+        <i class="bi bi-calculator-fill"></i>
+      </div>
+      <div>
+        <h3 class="card-name">Agentes de Contabilidad</h3>
+        <p class="card-desc">
+          Auditoría contable diaria autónoma: validación de asientos, partida doble,
+          conciliación bancaria, depreciación de activos y estado de resultados.
+        </p>
+      </div>
+      <div class="card-footer">
+        <span class="card-tag" style="background:#eff6ff;border-color:#bfdbfe;color:#2563eb;">Cron 23:00 Lima</span>
+        <i class="bi bi-arrow-right card-arrow"></i>
+      </div>
+    </a>
+
+    <!-- Próximamente -->
+    <div class="agent-card" style="opacity:.4;cursor:default;pointer-events:none;">
       <div class="card-icon" style="background:#f8fafc;color:#cbd5e1;">
         <i class="bi bi-plus-circle-dotted"></i>
       </div>
       <div>
         <h3 class="card-name" style="color:#94a3b8;">Próximamente</h3>
-        <p class="card-desc" style="color:#94a3b8;">
-          Nuevos módulos de agentes autónomos en desarrollo.
-        </p>
+        <p class="card-desc" style="color:#94a3b8;">Nuevos módulos de agentes autónomos en desarrollo.</p>
       </div>
       <div class="card-footer">
         <span class="card-tag" style="background:#f8fafc;border-color:#e2e8f0;color:#94a3b8;">En desarrollo</span>

@@ -1,0 +1,685 @@
+{% extends "base.html" %}
+{% block title %}Agente de Contabilidad — QoriCash{% endblock %}
+
+{% block head %}
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   AGENTE CONTABILIDAD — Pipeline n8n style (light)
+═══════════════════════════════════════════════════════════════ */
+.ac-root {
+  background: #f8fafc;
+  min-height: calc(100vh - 56px);
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header */
+.ac-header {
+  background: #fff; border-bottom: 1px solid #e2e8f0;
+  padding: 10px 20px;
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  flex-shrink: 0;
+}
+.ac-brand {
+  display: flex; align-items: center; gap: 9px;
+  font-size: .85rem; font-weight: 800; color: #0D1B2A;
+  letter-spacing: .04em; text-transform: uppercase;
+}
+.ac-brand-dot {
+  width: 7px; height: 7px; border-radius: 50%; background: #2563eb;
+  animation: ac-pulse 2s ease-in-out infinite;
+}
+@keyframes ac-pulse {
+  0%,100% { box-shadow: 0 0 0 0 rgba(37,99,235,.4); }
+  50%      { box-shadow: 0 0 0 5px rgba(37,99,235,0); }
+}
+.ac-header-stats { display: flex; gap: 22px; align-items: center; }
+.ac-hstat { display: flex; flex-direction: column; align-items: center; }
+.ac-hstat-val { font-size: .95rem; font-weight: 800; color: #2563eb; line-height: 1; font-family: system-ui; }
+.ac-hstat-lbl { font-size: .57rem; color: #94a3b8; text-transform: uppercase; letter-spacing: .08em; font-family: system-ui; }
+.ac-btn {
+  background: #f1f5f9; border: 1px solid #e2e8f0; color: #475569;
+  border-radius: 7px; padding: 5px 12px; font-size: .73rem; font-weight: 600;
+  cursor: pointer; text-decoration: none;
+  display: flex; align-items: center; gap: 5px; transition: all .15s; font-family: system-ui;
+}
+.ac-btn:hover { background: #e2e8f0; color: #0D1B2A; text-decoration: none; }
+
+/* Body */
+.ac-body { flex: 1; display: flex; overflow: hidden; min-height: 0; }
+
+/* Canvas */
+.ac-canvas-wrapper {
+  flex: 1; overflow: auto; background: #f1f5f9; position: relative;
+  background-image: radial-gradient(rgba(0,0,0,.055) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+.ac-canvas-wrapper::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 0;
+  background-image:
+    linear-gradient(rgba(0,0,0,.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,0,0,.025) 1px, transparent 1px);
+  background-size: 88px 88px;
+}
+.ac-canvas {
+  position: relative; width: 820px; height: 580px;
+  margin: 36px 36px; z-index: 1;
+}
+.ac-canvas-label {
+  position: absolute; left: 0; top: -22px;
+  font-size: .6rem; color: #94a3b8;
+  text-transform: uppercase; letter-spacing: .1em; font-family: system-ui; font-weight: 700;
+}
+
+/* SVG */
+.ac-svg {
+  position: absolute; top: 0; left: 0;
+  width: 820px; height: 580px; pointer-events: none; overflow: visible; z-index: 2;
+}
+.ac-conn-base { fill: none; stroke: rgba(0,0,0,.07); stroke-width: 1.5; }
+.ac-conn-flow {
+  fill: none; stroke: rgba(37,99,235,.4); stroke-width: 1.5;
+  stroke-dasharray: 5 12; stroke-linecap: round;
+  animation: ac-flow 2s linear infinite;
+}
+.ac-conn-flow.green  { stroke: rgba(22,163,74,.4);  animation-delay: .4s; }
+.ac-conn-flow.amber  { stroke: rgba(217,119,6,.4);  animation-delay: .8s; }
+.ac-conn-flow.purple { stroke: rgba(124,58,237,.4); animation-delay: 1.2s; }
+.ac-conn-flow.teal   { stroke: rgba(13,148,136,.4); animation-delay: 1.6s; }
+.ac-conn-flow.red    { stroke: rgba(220,38,38,.4);  animation-delay: .2s; }
+.ac-conn-flow.navy   { stroke: rgba(30,58,138,.4);  animation-delay: .6s; }
+.ac-conn-flow.rose   { stroke: rgba(219,39,119,.4); animation-delay: 1.0s; }
+@keyframes ac-flow { from{stroke-dashoffset:100} to{stroke-dashoffset:0} }
+.ac-conn-tip { fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Module node (small) */
+.ac-node {
+  position: absolute; width: 196px;
+  background: #fff; border: 1.5px solid #e2e8f0;
+  border-radius: 10px; overflow: visible;
+  box-shadow: 0 2px 6px rgba(0,0,0,.07);
+  transition: border-color .2s, box-shadow .2s; z-index: 10;
+}
+.ac-node:hover {
+  border-color: #93c5fd;
+  box-shadow: 0 6px 20px rgba(0,0,0,.1);
+  z-index: 20;
+}
+.ac-node.ok      { border-left: 3px solid #22c55e; }
+.ac-node.alerta  { border-left: 3px solid #f59e0b; }
+.ac-node.critico { border-left: 3px solid #ef4444; }
+.ac-node-head {
+  display: flex; align-items: center; gap: 7px;
+  padding: 9px 10px 7px; border-bottom: 1px solid #f1f5f9;
+}
+.ac-node-icon {
+  width: 26px; height: 26px; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: .8rem; flex-shrink: 0;
+}
+.ic-blue   { background: #eff6ff; color: #2563eb; }
+.ic-green  { background: #f0fdf4; color: #16a34a; }
+.ic-amber  { background: #fffbeb; color: #d97706; }
+.ic-purple { background: #f5f3ff; color: #7c3aed; }
+.ic-teal   { background: #f0fdfa; color: #0d9488; }
+.ic-red    { background: #fef2f2; color: #dc2626; }
+.ic-navy   { background: #eff6ff; color: #1e40af; }
+.ic-rose   { background: #fdf2f8; color: #be185d; }
+.ac-node-name {
+  font-size: .72rem; font-weight: 700; color: #0f172a;
+  font-family: system-ui; flex: 1; line-height: 1.2;
+}
+.ac-check {
+  width: 16px; height: 16px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: .6rem; flex-shrink: 0;
+}
+.check-ok     { background: #f0fdf4; color: #16a34a; }
+.check-alerta { background: #fffbeb; color: #d97706; }
+.check-critico{ background: #fef2f2; color: #dc2626; }
+.check-na     { background: #f8fafc; color: #94a3b8; }
+
+.ac-node-body {
+  padding: 6px 10px 8px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.ac-node-metric { font-size: .75rem; font-weight: 700; color: #1e293b; font-family: system-ui; }
+.ac-node-lbl    { font-size: .6rem; color: #94a3b8; font-family: system-ui; }
+
+/* Port */
+.ac-port {
+  position: absolute; width: 10px; height: 10px; border-radius: 50%;
+  background: #fff; border: 2px solid #cbd5e1; z-index: 15;
+}
+.ac-port.right  { right: -6px; top: 50%; transform: translateY(-50%); }
+.ac-port.left   { left: -6px;  top: 50%; transform: translateY(-50%); }
+
+/* AuditReport final node (big) */
+.ac-report-node {
+  position: absolute; width: 240px;
+  background: #fff; border: 2px solid #bfdbfe;
+  border-radius: 14px; overflow: hidden;
+  box-shadow: 0 4px 20px rgba(37,99,235,.1);
+  z-index: 10;
+}
+.ac-report-head {
+  background: linear-gradient(135deg, #1e40af 0%, #2563eb 100%);
+  padding: 12px 14px;
+  display: flex; align-items: center; gap: 9px;
+}
+.ac-report-icon { font-size: 1.1rem; color: #fff; }
+.ac-report-title { font-size: .82rem; font-weight: 800; color: #fff; font-family: system-ui; }
+.ac-report-badge {
+  margin-left: auto; font-size: .62rem; font-weight: 700;
+  padding: 2px 8px; border-radius: 20px; letter-spacing: .04em; font-family: system-ui;
+}
+.badge-aprobado  { background: rgba(74,222,128,.25); color: #4ade80; }
+.badge-observado { background: rgba(251,191,36,.25); color: #fbbf24; }
+.badge-critico   { background: rgba(248,113,113,.25); color: #f87171; }
+.badge-none      { background: rgba(255,255,255,.15); color: rgba(255,255,255,.6); }
+
+.ac-report-body { padding: 12px 14px; }
+.ac-report-metric {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 4px 0; border-bottom: 1px solid #f1f5f9;
+  font-family: system-ui;
+}
+.ac-report-metric:last-child { border-bottom: none; }
+.ac-report-metric .lbl { font-size: .66rem; color: #64748b; }
+.ac-report-metric .val { font-size: .76rem; font-weight: 700; color: #1e293b; }
+.ac-report-metric .val.green  { color: #16a34a; }
+.ac-report-metric .val.red    { color: #dc2626; }
+.ac-report-metric .val.blue   { color: #2563eb; }
+.ac-report-metric .val.amber  { color: #d97706; }
+
+.ac-report-actions { padding: 10px 14px; border-top: 1px solid #f1f5f9; display: flex; gap: 6px; }
+.ac-run-btn {
+  flex: 1; background: #eff6ff; border: 1px solid #bfdbfe; color: #2563eb;
+  border-radius: 7px; padding: 5px 8px; font-size: .7rem; font-weight: 600;
+  cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px;
+  transition: all .15s; font-family: system-ui;
+}
+.ac-run-btn:hover { background: #dbeafe; }
+.ac-run-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+/* Port for report node */
+.ac-port.report-left { left: -6px; top: 50%; transform: translateY(-50%); }
+
+/* Sidebar */
+.ac-sidebar {
+  width: 300px; flex-shrink: 0; background: #fff;
+  border-left: 1px solid #e2e8f0;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.ac-sec-title {
+  font-size: .6rem; font-weight: 700; color: #94a3b8;
+  text-transform: uppercase; letter-spacing: .1em; font-family: system-ui;
+  padding: 11px 14px 6px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: space-between;
+  border-bottom: 1px solid #f8fafc;
+}
+.ac-sec-title a { color: #94a3b8; text-decoration: none; font-size: .6rem; }
+
+/* Cron info */
+.ac-cron-info {
+  padding: 10px 14px; border-bottom: 1px solid #f1f5f9; flex-shrink: 0;
+}
+.ac-cron-row {
+  display: flex; align-items: center; gap: 7px;
+  font-size: .72rem; font-family: system-ui; margin-bottom: 5px;
+}
+.ac-cron-row .ci-icon { font-size: .75rem; color: #2563eb; width: 16px; }
+.ac-cron-row .ci-lbl  { color: #64748b; }
+.ac-cron-row .ci-val  { font-weight: 700; color: #1e293b; margin-left: auto; }
+
+/* Reports list */
+.ac-reports-list { flex: 1; overflow-y: auto; padding: 8px 14px 14px; scrollbar-width: thin; scrollbar-color: #e2e8f0 transparent; }
+.ac-reports-list::-webkit-scrollbar { width: 3px; }
+.ac-reports-list::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 2px; }
+
+.report-row {
+  border: 1px solid #e2e8f0; border-radius: 9px;
+  padding: 9px 11px; margin-bottom: 7px;
+  cursor: pointer; transition: border-color .15s, box-shadow .15s;
+  font-family: system-ui;
+}
+.report-row:hover { border-color: #93c5fd; box-shadow: 0 2px 8px rgba(37,99,235,.07); }
+.report-row-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }
+.report-date { font-size: .75rem; font-weight: 700; color: #1e293b; }
+.estado-badge {
+  font-size: .62rem; font-weight: 700; padding: 2px 8px; border-radius: 20px;
+  letter-spacing: .04em;
+}
+.eb-aprobado  { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+.eb-observado { background: #fffbeb; color: #d97706; border: 1px solid #fde68a; }
+.eb-critico   { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+.report-row-stats {
+  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px;
+}
+.rstat { display: flex; flex-direction: column; align-items: center; }
+.rstat .rv { font-size: .74rem; font-weight: 700; color: #1e293b; }
+.rstat .rl { font-size: .57rem; color: #94a3b8; text-transform: uppercase; letter-spacing: .04em; }
+.rstat .rv.err { color: #dc2626; }
+.rstat .rv.grn { color: #16a34a; }
+
+.no-reports { font-size: .75rem; color: #94a3b8; text-align: center; padding: 24px 0; font-family: system-ui; }
+</style>
+{% endblock %}
+
+{% block content %}
+{# ── Helper macros ──────────────────────────────────────────── #}
+{% macro node_status(count) %}
+  {%- if count is none -%}na
+  {%- elif count == 0 -%}ok
+  {%- elif count <= 2 -%}alerta
+  {%- else -%}critico{%- endif -%}
+{% endmacro %}
+
+{% macro check_icon(count) %}
+  {%- if count is none -%}<i class="bi bi-dash"></i>
+  {%- elif count == 0 -%}<i class="bi bi-check-lg"></i>
+  {%- elif count <= 2 -%}<i class="bi bi-exclamation"></i>
+  {%- else -%}<i class="bi bi-x-lg"></i>{%- endif -%}
+{% endmacro %}
+
+{# Shortcuts from latest report #}
+{% set r = latest %}
+{% set ops     = r.ops_sin_asiento        if r else none %}
+{% set desc    = r.asientos_descuadrados  if r else none %}
+{% set dif     = r.diferencias_banco      if r else none %}
+{% set gastos  = r.gastos_sin_comprobante if r else none %}
+{% set activos = r.activos_sin_depreciar  if r else none %}
+
+<div class="ac-root">
+
+  <!-- HEADER ──────────────────────────────────────────────── -->
+  <div class="ac-header">
+    <div class="ac-brand">
+      <div class="ac-brand-dot"></div>
+      <i class="bi bi-calculator-fill"></i>
+      Agente Contabilidad
+      <span style="color:#94a3b8;font-size:.68rem;font-weight:400;letter-spacing:0;text-transform:none;">— Auditoría Diaria</span>
+    </div>
+    <div class="ac-header-stats">
+      <div class="ac-hstat">
+        <div class="ac-hstat-val">{{ r.total_hallazgos if r else '—' }}</div>
+        <div class="ac-hstat-lbl">Hallazgos</div>
+      </div>
+      <div class="ac-hstat">
+        <div class="ac-hstat-val" style="color:{{ '#dc2626' if r and r.hallazgos_criticos > 0 else '#2563eb' }};">
+          {{ r.hallazgos_criticos if r else '—' }}
+        </div>
+        <div class="ac-hstat-lbl">Críticos</div>
+      </div>
+      <div class="ac-hstat">
+        <div class="ac-hstat-val" style="color:#16a34a;">
+          S/ {{ '{:,.0f}'.format(r.utilidad_neta_pen|float) if r else '—' }}
+        </div>
+        <div class="ac-hstat-lbl">Utilidad neta</div>
+      </div>
+      {% if r %}
+      <div class="ac-hstat">
+        <div class="ac-hstat-val"
+             style="color:{{ '#16a34a' if r.estado == 'APROBADO' else ('#d97706' if r.estado == 'OBSERVADO' else '#dc2626') }};">
+          {{ r.estado }}
+        </div>
+        <div class="ac-hstat-lbl">Último estado</div>
+      </div>
+      {% endif %}
+    </div>
+    <div style="display:flex;gap:7px;align-items:center;">
+      <a href="{{ url_for('agentes.index') }}" class="ac-btn">
+        <i class="bi bi-arrow-left"></i> Agentes IA
+      </a>
+      <a href="{{ url_for('contabilidad.dashboard') }}" class="ac-btn">
+        <i class="bi bi-calculator"></i> Contabilidad
+      </a>
+    </div>
+  </div>
+
+  <!-- BODY ────────────────────────────────────────────────── -->
+  <div class="ac-body">
+
+    <!-- CANVAS ──────────────────────────────────────────── -->
+    <div class="ac-canvas-wrapper">
+      <div class="ac-canvas">
+        <div class="ac-canvas-label">Pipeline Auditoría Contable — Cron 23:00 Lima · Lun–Vie</div>
+
+        <!-- SVG connections ─────────────────────────────── -->
+        <svg class="ac-svg" viewBox="0 0 820 580">
+          {# Left column right edge x=236, right col right=476, report left=540 #}
+          {# node centers y: 40+55=95, 175+55=230, 310+55=365, 445+55=500 #}
+          {# report center y: 160+145=305 #}
+
+          <!-- Base wires from left column to report -->
+          <path class="ac-conn-base" d="M 236 95  C 388 95,  388 305, 540 305"/>
+          <path class="ac-conn-base" d="M 236 230 C 388 230, 388 305, 540 305"/>
+          <path class="ac-conn-base" d="M 236 365 C 388 365, 388 305, 540 305"/>
+          <path class="ac-conn-base" d="M 236 500 C 388 500, 388 305, 540 305"/>
+          <!-- Base wires from right column to report -->
+          <path class="ac-conn-base" d="M 476 95  C 508 95,  508 305, 540 305"/>
+          <path class="ac-conn-base" d="M 476 230 C 508 230, 508 305, 540 305"/>
+          <path class="ac-conn-base" d="M 476 365 C 508 365, 508 305, 540 305"/>
+          <path class="ac-conn-base" d="M 476 500 C 508 500, 508 305, 540 305"/>
+
+          <!-- Animated flows -->
+          <path class="ac-conn-flow"        d="M 236 95  C 388 95,  388 305, 540 305"/>
+          <path class="ac-conn-flow green"  d="M 236 230 C 388 230, 388 305, 540 305"/>
+          <path class="ac-conn-flow amber"  d="M 236 365 C 388 365, 388 305, 540 305"/>
+          <path class="ac-conn-flow purple" d="M 236 500 C 388 500, 388 305, 540 305"/>
+          <path class="ac-conn-flow teal"   d="M 476 95  C 508 95,  508 305, 540 305"/>
+          <path class="ac-conn-flow red"    d="M 476 230 C 508 230, 508 305, 540 305"/>
+          <path class="ac-conn-flow navy"   d="M 476 365 C 508 365, 508 305, 540 305"/>
+          <path class="ac-conn-flow rose"   d="M 476 500 C 508 500, 508 305, 540 305"/>
+
+          <!-- Arrowheads at report left -->
+          <polyline class="ac-conn-tip" points="537,302 543,305 537,308" stroke="rgba(37,99,235,.5)"/>
+        </svg>
+
+        <!-- ── LEFT COLUMN ─ Módulos 1-4 ───────────────── -->
+
+        {# Module 1 — Operaciones sin asiento #}
+        {% set st1 = node_status(ops) %}
+        <div class="ac-node {{ st1 }}" style="left:40px; top:40px;">
+          <div class="ac-port right"></div>
+          <div class="ac-node-head">
+            <div class="ac-node-icon ic-blue"><i class="bi bi-receipt"></i></div>
+            <div class="ac-node-name">Ops sin asiento</div>
+            <div class="ac-check check-{{ st1 }}">{{ check_icon(ops) }}</div>
+          </div>
+          <div class="ac-node-body">
+            <div><div class="ac-node-metric">{{ ops if ops is not none else '—' }}</div><div class="ac-node-lbl">operaciones</div></div>
+            <div style="text-align:right"><div class="ac-node-metric" style="{{ 'color:#dc2626;' if ops and ops > 0 else 'color:#16a34a;' }}">{{ 'ALERTA' if ops and ops > 0 else ('OK' if ops == 0 else '—') }}</div><div class="ac-node-lbl">estado</div></div>
+          </div>
+        </div>
+
+        {# Module 2 — Partida doble #}
+        {% set st2 = node_status(desc) %}
+        <div class="ac-node {{ st2 }}" style="left:40px; top:175px;">
+          <div class="ac-port right"></div>
+          <div class="ac-node-head">
+            <div class="ac-node-icon ic-green"><i class="bi bi-journal-check"></i></div>
+            <div class="ac-node-name">Partida doble</div>
+            <div class="ac-check check-{{ st2 }}">{{ check_icon(desc) }}</div>
+          </div>
+          <div class="ac-node-body">
+            <div><div class="ac-node-metric">{{ desc if desc is not none else '—' }}</div><div class="ac-node-lbl">descuadrados</div></div>
+            <div style="text-align:right"><div class="ac-node-metric" style="{{ 'color:#dc2626;' if desc and desc > 0 else 'color:#16a34a;' }}">{{ 'ALERTA' if desc and desc > 0 else ('OK' if desc == 0 else '—') }}</div><div class="ac-node-lbl">estado</div></div>
+          </div>
+        </div>
+
+        {# Module 3 — Conciliación bancaria #}
+        {% set st3 = node_status(dif) %}
+        <div class="ac-node {{ st3 }}" style="left:40px; top:310px;">
+          <div class="ac-port right"></div>
+          <div class="ac-node-head">
+            <div class="ac-node-icon ic-amber"><i class="bi bi-bank2"></i></div>
+            <div class="ac-node-name">Conciliación bancaria</div>
+            <div class="ac-check check-{{ st3 }}">{{ check_icon(dif) }}</div>
+          </div>
+          <div class="ac-node-body">
+            <div><div class="ac-node-metric">{{ dif if dif is not none else '—' }}</div><div class="ac-node-lbl">diferencias</div></div>
+            <div style="text-align:right"><div class="ac-node-metric" style="{{ 'color:#dc2626;' if dif and dif > 0 else 'color:#16a34a;' }}">{{ 'ALERTA' if dif and dif > 0 else ('OK' if dif == 0 else '—') }}</div><div class="ac-node-lbl">estado</div></div>
+          </div>
+        </div>
+
+        {# Module 4 — Gastos sin comprobante #}
+        {% set st4 = node_status(gastos) %}
+        <div class="ac-node {{ st4 }}" style="left:40px; top:445px;">
+          <div class="ac-port right"></div>
+          <div class="ac-node-head">
+            <div class="ac-node-icon ic-purple"><i class="bi bi-file-earmark-x"></i></div>
+            <div class="ac-node-name">Gastos s/comprobante</div>
+            <div class="ac-check check-{{ st4 }}">{{ check_icon(gastos) }}</div>
+          </div>
+          <div class="ac-node-body">
+            <div><div class="ac-node-metric">{{ gastos if gastos is not none else '—' }}</div><div class="ac-node-lbl">gastos</div></div>
+            <div style="text-align:right"><div class="ac-node-metric" style="{{ 'color:#d97706;' if gastos and gastos > 0 else 'color:#16a34a;' }}">{{ 'ALERTA' if gastos and gastos > 0 else ('OK' if gastos == 0 else '—') }}</div><div class="ac-node-lbl">estado</div></div>
+          </div>
+        </div>
+
+        <!-- ── RIGHT COLUMN ─ Módulos 5-8 ──────────────── -->
+
+        {# Module 5 — Depreciación activos #}
+        {% set st5 = node_status(activos) %}
+        <div class="ac-node {{ st5 }}" style="left:280px; top:40px;">
+          <div class="ac-port right"></div>
+          <div class="ac-node-head">
+            <div class="ac-node-icon ic-teal"><i class="bi bi-building-gear"></i></div>
+            <div class="ac-node-name">Depreciación activos</div>
+            <div class="ac-check check-{{ st5 }}">{{ check_icon(activos) }}</div>
+          </div>
+          <div class="ac-node-body">
+            <div><div class="ac-node-metric">{{ activos if activos is not none else '—' }}</div><div class="ac-node-lbl">pendientes</div></div>
+            <div style="text-align:right"><div class="ac-node-metric" style="{{ 'color:#d97706;' if activos and activos > 0 else 'color:#16a34a;' }}">{{ 'ALERTA' if activos and activos > 0 else ('OK' if activos == 0 else '—') }}</div><div class="ac-node-lbl">estado</div></div>
+          </div>
+        </div>
+
+        {# Module 6 — Cierre diario #}
+        {% if r %}
+          {% set cierre_h = r.hallazgos | selectattr('modulo','equalto','cierre') | list %}
+          {% set st6 = 'ok' if cierre_h|length == 0 else ('critico' if cierre_h|selectattr('severidad','equalto','CRÍTICO')|list|length > 0 else 'alerta') %}
+        {% else %}
+          {% set st6 = 'na' %}
+          {% set cierre_h = [] %}
+        {% endif %}
+        <div class="ac-node {{ st6 }}" style="left:280px; top:175px;">
+          <div class="ac-port right"></div>
+          <div class="ac-node-head">
+            <div class="ac-node-icon ic-red"><i class="bi bi-calendar2-check"></i></div>
+            <div class="ac-node-name">Cierre diario</div>
+            <div class="ac-check check-{{ st6 if st6 != 'na' else 'na' }}">{{ '<i class="bi bi-dash"></i>' | safe if not r else ('<i class="bi bi-check-lg"></i>' | safe if cierre_h|length == 0 else '<i class="bi bi-exclamation"></i>' | safe) }}</div>
+          </div>
+          <div class="ac-node-body">
+            <div><div class="ac-node-metric">{{ cierre_h|length if r else '—' }}</div><div class="ac-node-lbl">hallazgos</div></div>
+            <div style="text-align:right"><div class="ac-node-metric" style="{{ 'color:#16a34a;' if r and cierre_h|length == 0 else 'color:#d97706;' }}">{{ ('OK' if cierre_h|length == 0 else 'ALERTA') if r else '—' }}</div><div class="ac-node-lbl">estado</div></div>
+          </div>
+        </div>
+
+        {# Module 7 — Integridad período #}
+        {% if r %}
+          {% set periodo_h = r.hallazgos | selectattr('modulo','equalto','periodo') | list %}
+          {% set st7 = 'ok' if periodo_h|length == 0 else ('critico' if periodo_h|selectattr('severidad','equalto','CRÍTICO')|list|length > 0 else 'alerta') %}
+        {% else %}
+          {% set st7 = 'na' %}
+          {% set periodo_h = [] %}
+        {% endif %}
+        <div class="ac-node {{ st7 }}" style="left:280px; top:310px;">
+          <div class="ac-port right"></div>
+          <div class="ac-node-head">
+            <div class="ac-node-icon ic-navy"><i class="bi bi-shield-check"></i></div>
+            <div class="ac-node-name">Integridad período</div>
+            <div class="ac-check check-{{ st7 if st7 != 'na' else 'na' }}">{{ '<i class="bi bi-dash"></i>' | safe if not r else ('<i class="bi bi-check-lg"></i>' | safe if periodo_h|length == 0 else '<i class="bi bi-exclamation"></i>' | safe) }}</div>
+          </div>
+          <div class="ac-node-body">
+            <div><div class="ac-node-metric">{{ periodo_h|length if r else '—' }}</div><div class="ac-node-lbl">hallazgos</div></div>
+            <div style="text-align:right"><div class="ac-node-metric" style="{{ 'color:#16a34a;' if r and periodo_h|length == 0 else 'color:#d97706;' }}">{{ ('OK' if periodo_h|length == 0 else 'ALERTA') if r else '—' }}</div><div class="ac-node-lbl">estado</div></div>
+          </div>
+        </div>
+
+        {# Module 8 — Estado de resultados #}
+        <div class="ac-node ok" style="left:280px; top:445px;">
+          <div class="ac-port right"></div>
+          <div class="ac-node-head">
+            <div class="ac-node-icon ic-rose"><i class="bi bi-graph-up"></i></div>
+            <div class="ac-node-name">Estado de resultados</div>
+            <div class="ac-check check-{{ 'ok' if r else 'na' }}">{{ '<i class="bi bi-check-lg"></i>' | safe if r else '<i class="bi bi-dash"></i>' | safe }}</div>
+          </div>
+          <div class="ac-node-body">
+            <div>
+              <div class="ac-node-metric" style="{{ 'color:#16a34a;' if r and r.utilidad_neta_pen and r.utilidad_neta_pen|float > 0 else 'color:#dc2626;' }}">
+                {{ 'S/ {:,.0f}'.format(r.utilidad_neta_pen|float) if r else '—' }}
+              </div>
+              <div class="ac-node-lbl">utilidad neta</div>
+            </div>
+            <div style="text-align:right">
+              <div class="ac-node-metric">{{ 'S/ {:,.0f}'.format(r.ingresos_pen|float) if r else '—' }}</div>
+              <div class="ac-node-lbl">ingresos</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── AUDIT REPORT (final node) ─────────────────── -->
+        {% if r %}
+          {% set estado_cls = 'aprobado' if r.estado == 'APROBADO' else ('observado' if r.estado == 'OBSERVADO' else 'critico') %}
+        {% else %}
+          {% set estado_cls = 'none' %}
+        {% endif %}
+        <div class="ac-report-node" id="report-node" style="left:540px; top:160px;">
+          <div class="ac-port ac-port report-left"></div>
+          <div class="ac-report-head">
+            <i class="bi bi-file-earmark-bar-graph-fill ac-report-icon"></i>
+            <div class="ac-report-title">Audit Report</div>
+            <span class="ac-report-badge badge-{{ estado_cls }}">{{ r.estado if r else 'SIN DATOS' }}</span>
+          </div>
+          <div class="ac-report-body">
+            <div class="ac-report-metric">
+              <span class="lbl">Período</span>
+              <span class="val">{{ r.period_label if r else '—' }}</span>
+            </div>
+            <div class="ac-report-metric">
+              <span class="lbl">Fecha auditoría</span>
+              <span class="val">{{ r.audit_date.strftime('%d/%m/%Y') if r and r.audit_date else '—' }}</span>
+            </div>
+            <div class="ac-report-metric">
+              <span class="lbl">Total hallazgos</span>
+              <span class="val {{ 'amber' if r and r.total_hallazgos > 0 else '' }}">{{ r.total_hallazgos if r else '—' }}</span>
+            </div>
+            <div class="ac-report-metric">
+              <span class="lbl">Críticos</span>
+              <span class="val {{ 'red' if r and r.hallazgos_criticos > 0 else '' }}">{{ r.hallazgos_criticos if r else '—' }}</span>
+            </div>
+            <div class="ac-report-metric">
+              <span class="lbl">Ingresos</span>
+              <span class="val green">{{ 'S/ {:,.2f}'.format(r.ingresos_pen|float) if r else '—' }}</span>
+            </div>
+            <div class="ac-report-metric">
+              <span class="lbl">Gastos</span>
+              <span class="val red">{{ 'S/ {:,.2f}'.format(r.gastos_pen|float) if r else '—' }}</span>
+            </div>
+            <div class="ac-report-metric">
+              <span class="lbl">Utilidad neta</span>
+              <span class="val {{ 'green' if r and r.utilidad_neta_pen and r.utilidad_neta_pen|float >= 0 else 'red' }}">
+                {{ 'S/ {:,.2f}'.format(r.utilidad_neta_pen|float) if r else '—' }}
+              </span>
+            </div>
+            <div class="ac-report-metric">
+              <span class="lbl">IR 1% MYPE</span>
+              <span class="val blue">{{ 'S/ {:,.2f}'.format(r.ir_pago_cuenta_pen|float) if r else '—' }}</span>
+            </div>
+            <div class="ac-report-metric">
+              <span class="lbl">Tiempo ejecución</span>
+              <span class="val">{{ '{:.1f}s'.format(r.execution_seconds|float) if r and r.execution_seconds else '—' }}</span>
+            </div>
+          </div>
+          <div class="ac-report-actions">
+            <button class="ac-run-btn" id="run-audit-btn" onclick="runAudit(this)">
+              <i class="bi bi-play-fill"></i> Ejecutar ahora
+            </button>
+            <a href="{{ url_for('contabilidad.dashboard') }}" class="ac-run-btn" style="text-decoration:none;">
+              <i class="bi bi-eye"></i> Ver full
+            </a>
+          </div>
+        </div>
+
+      </div><!-- /ac-canvas -->
+    </div><!-- /ac-canvas-wrapper -->
+
+    <!-- SIDEBAR ─────────────────────────────────────────── -->
+    <div class="ac-sidebar">
+
+      <!-- Cron info -->
+      <div class="ac-sec-title" style="border-bottom:1px solid #f1f5f9;">
+        <span><i class="bi bi-clock me-1"></i>Programación</span>
+      </div>
+      <div class="ac-cron-info">
+        <div class="ac-cron-row">
+          <i class="bi bi-calendar-week ci-icon"></i>
+          <span class="ci-lbl">Frecuencia</span>
+          <span class="ci-val">Lun — Vie</span>
+        </div>
+        <div class="ac-cron-row">
+          <i class="bi bi-alarm ci-icon"></i>
+          <span class="ci-lbl">Hora</span>
+          <span class="ci-val">23:00 Lima</span>
+        </div>
+        <div class="ac-cron-row">
+          <i class="bi bi-gear ci-icon"></i>
+          <span class="ci-lbl">Trigger</span>
+          <span class="ci-val">Cron Job — Render</span>
+        </div>
+        <div class="ac-cron-row">
+          <i class="bi bi-database ci-icon"></i>
+          <span class="ci-lbl">Total reportes</span>
+          <span class="ci-val">{{ reports|length }}{% if reports|length == 10 %}+{% endif %}</span>
+        </div>
+      </div>
+
+      <!-- Reports list -->
+      <div class="ac-sec-title">
+        <span><i class="bi bi-list-check me-1"></i>Últimas auditorías</span>
+      </div>
+      <div class="ac-reports-list">
+        {% if reports %}
+          {% for rep in reports %}
+          {% set ec = 'eb-aprobado' if rep.estado == 'APROBADO' else ('eb-observado' if rep.estado == 'OBSERVADO' else 'eb-critico') %}
+          <div class="report-row">
+            <div class="report-row-head">
+              <span class="report-date">{{ rep.audit_date.strftime('%d/%m/%Y') if rep.audit_date else '—' }}</span>
+              <span class="estado-badge {{ ec }}">{{ rep.estado }}</span>
+            </div>
+            <div class="report-row-stats">
+              <div class="rstat">
+                <span class="rv {{ 'err' if rep.hallazgos_criticos > 0 else '' }}">{{ rep.hallazgos_criticos }}</span>
+                <span class="rl">Críticos</span>
+              </div>
+              <div class="rstat">
+                <span class="rv {{ 'grn' if rep.utilidad_neta_pen and rep.utilidad_neta_pen|float > 0 else 'err' }}">
+                  S/ {{ '{:,.0f}'.format(rep.utilidad_neta_pen|float) }}
+                </span>
+                <span class="rl">Utilidad</span>
+              </div>
+              <div class="rstat">
+                <span class="rv">{{ '{:.1f}s'.format(rep.execution_seconds|float) if rep.execution_seconds else '—' }}</span>
+                <span class="rl">Tiempo</span>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        {% else %}
+          <div class="no-reports">
+            <i class="bi bi-inbox" style="font-size:1.5rem;display:block;margin-bottom:8px;"></i>
+            Sin reportes aún.<br>El agente corre cada noche a las 23:00.
+          </div>
+        {% endif %}
+      </div>
+
+    </div><!-- /ac-sidebar -->
+  </div><!-- /ac-body -->
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function runAudit(btn) {
+  if (!confirm('¿Ejecutar auditoría contable ahora? El proceso toma ~10-30 segundos.')) return;
+  btn.disabled = true;
+  const orig = btn.innerHTML;
+  btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Ejecutando...';
+  try {
+    const r = await fetch('/contabilidad/api/run-audit', { method: 'POST' });
+    const d = await r.json();
+    if (d.ok || d.success) {
+      btn.innerHTML = '<i class="bi bi-check-lg"></i> Completado';
+      setTimeout(() => location.reload(), 1500);
+    } else {
+      btn.innerHTML = '<i class="bi bi-x-lg"></i> Error';
+      setTimeout(() => { btn.disabled = false; btn.innerHTML = orig; }, 3000);
+    }
+  } catch {
+    btn.innerHTML = '<i class="bi bi-x-lg"></i> Error';
+    setTimeout(() => { btn.disabled = false; btn.innerHTML = orig; }, 3000);
+  }
+}
+</script>
+{% endblock %}
