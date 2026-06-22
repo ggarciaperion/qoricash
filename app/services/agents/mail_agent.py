@@ -1,16 +1,21 @@
 """
 Agente 3: Prospecting Mail Agent — QoriCash
 Ejecuta campañas de email automáticas desde las 3 bandejas de QoriCash.
-Usa la plantilla oficial de prospección con imagen de marca.
+Usa la plantilla oficial con imagen de encabezado y logos de bancos embebidos (CID).
 
 Límites:
   - 490 emails / bandeja / día (margen bajo el límite Gmail de 500)
   - 15 emails / bandeja / ciclo de 30 min
+  - Horario: lunes a viernes, 09:00–13:30 Lima
 """
 import logging
 import os
 import base64
-from datetime import timedelta, timezone
+from datetime import timedelta, timezone, date
+from email.mime.multipart import MIMEMultipart
+from email.mime.text      import MIMEText
+from email.mime.image     import MIMEImage
+from email.utils          import formatdate, make_msgid
 from .base import BaseAgent
 
 _log = logging.getLogger(__name__)
@@ -22,183 +27,291 @@ _BANDEJAS = {
     'info@qoricash.pe':     'GMAIL_REFRESH_TOKEN_INFO',
 }
 
-# Nombre del remitente por bandeja (para el cuerpo del email)
 _BANDEJA_NOMBRE = {
-    'ggarcia@qoricash.pe':  'Giancarlo García',
-    'gerencia@qoricash.pe': 'Gerencia QoriCash',
-    'info@qoricash.pe':     'Equipo QoriCash',
+    'ggarcia@qoricash.pe':  'Gian Pierre García',
+    'gerencia@qoricash.pe': 'QoriCash',
+    'info@qoricash.pe':     'QoriCash',
 }
 
-_EXCLUDE_ESTADOS   = {'NO CONTACTAR', 'REBOTE', 'INVALIDO', 'cliente', 'P4'}
+_BANDEJA_CARGO = {
+    'ggarcia@qoricash.pe':  'Presidente de Negocios',
+    'gerencia@qoricash.pe': 'Equipo Comercial',
+    'info@qoricash.pe':     'Equipo Comercial',
+}
+
+_EXCLUDE_ESTADOS   = {'NO CONTACTAR', 'REBOTE', 'INVALIDO', 'cliente', 'P4', 'negociando', 'negociacion', 'P3'}
+_EXCLUDE_EMAIL_EST = {'REBOTE', 'INVALIDO', 'NO CONTACTAR'}
 _DIAS_HABIL_ESPERA = 5
-_DAILY_LIMIT       = 490   # margen de seguridad bajo el límite Gmail de 500
-_BATCH_PER_CYCLE   = 15    # máx por bandeja por ciclo (3 × 15 = 45 / ciclo)
+_CALENDAR_DAYS_APPROX = 7   # 5 días hábiles ≈ 7 calendario — filtro SQL previo
+_DAILY_LIMIT       = 490
+_BATCH_PER_CYCLE   = 15
+
+# Rutas de imágenes embebidas (relativas al módulo)
+_STATIC_IMAGES = os.path.join(
+    os.path.dirname(__file__), '..', '..', 'static', 'images'
+)
+_IMG_ENCABEZADO = os.path.join(_STATIC_IMAGES, 'encabezado_prospeccion.jpg')
+_IMG_BCP        = os.path.join(_STATIC_IMAGES, 'bcp_logo.png')
+_IMG_INTERBANK  = os.path.join(_STATIC_IMAGES, 'interbank_logo.png')
+_IMG_BANBIF     = os.path.join(_STATIC_IMAGES, 'banbif_logo.png')
+
+LOGO = 'https://www.qoricash.pe/logofirma.png'
 
 # ─────────────────────────────────────────────────────────────────
-# Templates oficiales QoriCash (idénticos a prospeccion.py)
-# Usamos marcadores __XXXXX__ para evitar conflictos con .format()
+# Plantilla HTML oficial unificada (empresa + persona natural)
 # ─────────────────────────────────────────────────────────────────
-_LOGO = "https://www.qoricash.pe/logofirma.png"
 
-_HEADER = (
-    '<tr>'
-    '  <td style="background:#0D1B2A;padding:18px 28px;">'
-    '    <table width="100%" cellpadding="0" cellspacing="0" border="0"><tr>'
-    '      <td><img src="' + _LOGO + '" alt="QoriCash" height="32" style="display:block;height:32px;"></td>'
-    '      <td style="padding-left:6px;vertical-align:middle;">'
-    '        <span style="font-size:14px;font-weight:800;color:#FFFFFF;letter-spacing:2px;">QORICASH</span>'
-    '      </td>'
-    '      <td align="right">'
-    '        <span style="font-size:10px;font-weight:700;color:#5CB85C;text-transform:uppercase;'
-    '                     letter-spacing:1.5px;background:rgba(92,184,92,.12);'
-    '                     padding:4px 10px;border-radius:20px;border:1px solid rgba(92,184,92,.3);">'
-    '          __FECHA__'
-    '        </span>'
-    '      </td>'
-    '    </tr></table>'
-    '  </td>'
-    '</tr>'
-)
+def _build_html(nombre_dest: str, nombre_firma: str, cargo: str,
+                compra: str, venta: str, hoy: str, es_personal: bool) -> str:
+    if es_personal:
+        intro = (
+            f'Mi nombre es <strong>{nombre_firma}</strong>, Presidente de Negocios de '
+            '<strong>QoriCash SAC</strong>, casa de cambio digital inscrita en el '
+            'Registro de Casas de Cambio de la SBS.<br><br>'
+            'Ayudamos a empresas y personas a obtener mejores tasas de cambio que la '
+            'banca tradicional, con operaciones r&aacute;pidas, seguras y sin comisiones '
+            'adicionales.<br><br>'
+            'Le compartimos nuestras tasas referenciales del momento y quedamos atentos '
+            'a cualquier consulta o cotizaci&oacute;n que requiera.'
+        )
+    else:
+        intro = (
+            'Somos <strong>QoriCash SAC</strong>, casa de cambio digital inscrita en el '
+            'Registro de Casas de Cambio de la SBS.<br><br>'
+            'Ayudamos a empresas y personas a obtener mejores tasas de cambio que la '
+            'banca tradicional, con operaciones r&aacute;pidas, seguras y sin comisiones '
+            'adicionales.<br><br>'
+            'Le compartimos nuestras tasas referenciales del momento y quedamos atentos '
+            'a cualquier consulta o cotizaci&oacute;n que requiera.'
+        )
 
-_BANCOS = (
-    '<tr><td style="padding:20px 28px 8px;">'
-    '<p style="margin:0 0 12px;font-size:10px;font-weight:900;color:#94A3B8;text-transform:uppercase;letter-spacing:1.4px;">'
-    '<strong>Operamos con los principales bancos del Per&uacute;</strong></p>'
-    '<table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:12px;">'
-    '<tr><td style="border-left:3px solid #5CB85C;padding-left:10px;">'
-    '<p style="margin:0;font-size:10px;font-weight:700;color:#0D1B2A;">QORICASH S.A.C.</p>'
-    '<p style="margin:2px 0 0;font-size:9px;color:#94A3B8;">RUC 20615113698 &nbsp;&middot;&nbsp; Regulada por la SBS</p>'
-    '</td></tr></table>'
-    '<table width="100%" cellpadding="0" cellspacing="0" border="0"'
-    '       style="border:1px solid #E9EEF4;border-radius:10px;overflow:hidden;margin-bottom:16px;">'
-    '<tr style="border-bottom:1px solid #F1F5F9;">'
-    '<td style="width:90px;padding:12px 8px 12px 18px;vertical-align:middle;">'
-    '<span style="font-size:15px;font-weight:800;color:#F97316;">BCP</span></td>'
-    '<td style="padding:14px 12px;vertical-align:middle;border-left:1px solid #F1F5F9;">'
-    '<p style="margin:0;font-size:9px;color:#94A3B8;text-transform:uppercase;">Soles</p>'
-    '<p style="margin:2px 0 0;font-size:12px;font-weight:700;color:#1E293B;">1937353150041</p></td>'
-    '<td style="padding:14px 18px 14px 12px;vertical-align:middle;border-left:1px solid #F1F5F9;">'
-    '<p style="margin:0;font-size:9px;color:#94A3B8;text-transform:uppercase;">D&oacute;lares</p>'
-    '<p style="margin:2px 0 0;font-size:12px;font-weight:700;color:#1E293B;">1917357790119</p></td>'
-    '</tr>'
-    '<tr style="border-bottom:1px solid #F1F5F9;background:#FAFBFC;">'
-    '<td style="width:90px;padding:12px 8px 12px 18px;vertical-align:middle;">'
-    '<span style="font-size:15px;font-weight:800;color:#00A859;">Interbank</span></td>'
-    '<td style="padding:14px 12px;vertical-align:middle;border-left:1px solid #F1F5F9;">'
-    '<p style="margin:0;font-size:9px;color:#94A3B8;text-transform:uppercase;">Soles</p>'
-    '<p style="margin:2px 0 0;font-size:12px;font-weight:700;color:#1E293B;">200-3007757571</p></td>'
-    '<td style="padding:14px 18px 14px 12px;vertical-align:middle;border-left:1px solid #F1F5F9;">'
-    '<p style="margin:0;font-size:9px;color:#94A3B8;text-transform:uppercase;">D&oacute;lares</p>'
-    '<p style="margin:2px 0 0;font-size:12px;font-weight:700;color:#1E293B;">200-3007757589</p></td>'
-    '</tr>'
-    '<tr>'
-    '<td style="width:90px;padding:12px 8px 12px 18px;vertical-align:middle;">'
-    '<span style="font-size:15px;font-weight:800;color:#004B9D;">BanBif</span></td>'
-    '<td style="padding:14px 12px;vertical-align:middle;border-left:1px solid #F1F5F9;">'
-    '<p style="margin:0;font-size:9px;color:#94A3B8;text-transform:uppercase;">Soles</p>'
-    '<p style="margin:2px 0 0;font-size:12px;font-weight:700;color:#1E293B;">007000845805</p></td>'
-    '<td style="padding:14px 18px 14px 12px;vertical-align:middle;border-left:1px solid #F1F5F9;">'
-    '<p style="margin:0;font-size:9px;color:#94A3B8;text-transform:uppercase;">D&oacute;lares</p>'
-    '<p style="margin:2px 0 0;font-size:12px;font-weight:700;color:#1E293B;">007000845813</p></td>'
-    '</tr>'
-    '</table>'
-    '<p style="margin:0 0 20px;font-size:10px;color:#64748B;line-height:1.6;">'
-    '<strong>Transferencia interbancaria (CCI) disponible desde BBVA, Scotiabank, Pichincha'
-    ' y cualquier banco del Per&uacute;.</strong></p>'
-    '<table cellpadding="0" cellspacing="0" border="0" style="margin-bottom:24px;">'
-    '<tr><td style="border-radius:7px;background:#0D1B2A;box-shadow:0 4px 14px rgba(13,27,42,.25);">'
-    '<a href="https://wa.me/51926011920"'
-    '   style="display:inline-block;padding:13px 30px;color:#FFFFFF;text-decoration:none;'
-    '          font-size:12px;font-weight:700;letter-spacing:0.8px;">'
-    'Cotizar en l&iacute;nea &nbsp;&rarr;</a>'
-    '</td></tr></table>'
-    '</td></tr>'
-)
+    return f"""\
+<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#F1F5F9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#F1F5F9;padding:28px 0;">
+<tr><td align="center">
+<table width="560" cellpadding="0" cellspacing="0" border="0"
+  style="max-width:560px;width:100%;background:#FFFFFF;border-radius:8px;overflow:hidden;
+         box-shadow:0 4px 24px rgba(0,0,0,.07);">
 
-_FIRMA_TPL = (
-    '<tr><td style="padding:16px 28px;border-top:1px solid #F1F5F9;background:#FAFAFA;">'
-    '<table cellpadding="0" cellspacing="0" border="0"><tr>'
-    '<td style="padding-right:12px;vertical-align:middle;">'
-    '<img src="' + _LOGO + '" width="32" height="32" alt="QoriCash" style="display:block;border-radius:4px;"></td>'
-    '<td style="vertical-align:middle;padding-right:24px;">'
-    '<p style="margin:0;font-size:12px;font-weight:700;color:#0D1B2A;">__TRADER_NOMBRE__</p>'
-    '<p style="margin:1px 0 0;font-size:10px;color:#5CB85C;font-weight:600;">__TRADER_CARGO__</p></td>'
-    '<td style="width:1px;background:#E2E8F0;padding:0;"></td>'
-    '<td style="width:24px;"></td>'
-    '<td style="vertical-align:middle;">'
-    '<p style="margin:0;font-size:10px;color:#64748B;">'
-    '<a href="https://wa.me/51926011920" style="color:#64748B;text-decoration:none;">+51 926 011 920</a>'
-    ' &nbsp;&middot;&nbsp; '
-    '<a href="https://www.qoricash.pe" style="color:#5CB85C;text-decoration:none;font-weight:600;">www.qoricash.pe</a></p>'
-    '<p style="margin:2px 0 0;font-size:9px;color:#94A3B8;">Av. Brasil 2790, int. 504 &mdash; Pueblo Libre</p>'
-    '</td>'
-    '</tr></table>'
-    '</td></tr>'
-)
+  <!-- ENCABEZADO IMAGEN -->
+  <tr>
+    <td style="padding:0;line-height:0;background:#08121E;">
+      <img src="cid:encabezado" alt="QoriCash" width="560"
+           style="display:block;width:100%;max-width:560px;">
+    </td>
+  </tr>
 
-_PIE = (
-    '<tr><td style="padding:12px 28px;background:#F8FAFC;border-top:1px solid #F1F5F9;">'
-    '<p style="margin:0;font-size:9px;color:#CBD5E1;text-align:center;">'
-    'Regulada por la SBS &nbsp;&middot;&nbsp; Res. N.&ordm; 00313-2026 &nbsp;&middot;&nbsp;'
-    'Precios sujetos a variaci&oacute;n &nbsp;&middot;&nbsp;'
-    'Para no recibir m&aacute;s comunicaciones, responda con asunto <em>NO CONTACTAR</em>.'
-    '</p>'
-    '</td></tr>'
-)
+  <!-- INTRO -->
+  <tr>
+    <td style="padding:24px 36px 0;">
+      <p style="margin:0 0 14px;font-size:13px;color:#1E293B;line-height:1.65;">
+        Estimado(a) <strong>{nombre_dest}</strong>,</p>
+      <p style="margin:0;font-size:13px;color:#475569;line-height:1.8;text-align:justify;">
+        {intro}
+      </p>
+    </td>
+  </tr>
 
-_BODY_TPL = (
-    '<!DOCTYPE html>'
-    '<html lang="es"><head><meta charset="UTF-8"></head>'
-    '<body style="margin:0;padding:0;background:#F4F6F8;font-family:Arial,sans-serif;">'
-    '<table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#F4F6F8;padding:32px 0;">'
-    '<tr><td align="center">'
-    '<table width="600" cellpadding="0" cellspacing="0" border="0"'
-    '  style="max-width:600px;width:100%;background:#FFFFFF;border-radius:12px;overflow:hidden;'
-    '         box-shadow:0 2px 12px rgba(0,0,0,.07);">'
-    '__HEADER__'
-    '<tr><td style="padding:24px 28px 8px;">'
-    '<p style="margin:0 0 12px;font-size:14px;color:#1E293B;">'
-    'Estimado(a) <strong>__NOMBRE__</strong>,</p>'
-    '<p style="margin:0 0 12px;font-size:14px;color:#475569;line-height:1.7;text-align:justify;">'
-    '__PRESENTACION__</p>'
-    '<p style="margin:0 0 12px;font-size:14px;color:#475569;line-height:1.7;text-align:justify;">'
-    'Trabajamos con empresas que realizan operaciones frecuentes de compra y venta de d&oacute;lares,'
-    ' y que en muchos casos est&aacute;n dejando dinero sobre la mesa al operar con el tipo de cambio'
-    ' que les ofrece su entidad financiera actual.</p>'
-    '<p style="margin:0 0 12px;font-size:14px;color:#475569;line-height:1.7;text-align:justify;">'
-    'Le ofrecemos <strong>tasas que superan consistentemente al sistema bancario tradicional</strong>,'
-    ' sin comisiones, con ejecuci&oacute;n inmediata y atenci&oacute;n personalizada.</p>'
-    '<div style="background:#F7F9FC;border-left:4px solid #4CAF50;border-radius:4px;'
-    '            padding:14px 18px;margin:20px 0;">'
-    '<p style="margin:0 0 4px;font-weight:bold;color:#0D1B2A;font-size:13px;">Le propongo algo concreto:</p>'
-    '<p style="margin:0;color:#4A5568;font-size:13px;text-align:justify;">'
-    'Una comparativa sin compromiso entre las tasas que recibe hoy de su proveedor actual'
-    ' y las que podemos ofrecerle en QoriCash, en tiempo real.</p>'
-    '</div>'
-    '<p style="margin:0 0 16px;font-size:14px;color:#475569;">'
-    'Si desea conocer m&aacute;s, puede ver nuestra presentaci&oacute;n institucional:</p>'
-    '<table cellpadding="0" cellspacing="0" border="0" style="margin-bottom:20px;">'
-    '<tr><td style="border-radius:6px;background:linear-gradient(135deg,#5CB85C 0%,#4a9b4a 100%);">'
-    '<a href="https://qoricash.pe/presentacion.pdf"'
-    '   style="display:inline-block;padding:11px 26px;color:#FFFFFF;text-decoration:none;'
-    '          font-size:13px;font-weight:700;letter-spacing:0.3px;" target="_blank">'
-    'Ver presentaci&oacute;n QoriCash &rarr;</a>'
-    '</td></tr></table>'
-    '<p style="margin:0 0 4px;font-size:13px;color:#475569;">'
-    'Contamos con cuentas en los principales bancos del Per&uacute;:</p>'
-    '</td></tr>'
-    '__BANCOS__'
-    '__FIRMA__'
-    '__PIE__'
-    '</table>'
-    '</td></tr>'
-    '</table>'
-    '</body></html>'
-)
+  <!-- LABEL TC -->
+  <tr>
+    <td style="padding:20px 36px 6px;">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+        <td>
+          <p style="margin:0;font-size:11px;font-weight:700;color:#94A3B8;
+                    text-transform:uppercase;letter-spacing:1.2px;">
+            Tipo de cambio en estos momentos</p>
+          <p style="margin:4px 0 0;font-size:13px;color:#475569;">
+            Tasas actualizadas &mdash; opere con la mejor tasa del mercado.</p>
+        </td>
+        <td align="right" style="white-space:nowrap;vertical-align:top;">
+          <span style="font-size:10px;color:#94A3B8;">{hoy}</span>
+        </td>
+      </tr></table>
+    </td>
+  </tr>
+
+  <!-- BLOQUE TC -->
+  <tr>
+    <td style="padding:16px 36px 28px;">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0"
+             style="border:1px solid #E9EEF4;border-radius:8px;overflow:hidden;">
+        <tr>
+          <td width="50%" style="padding:24px 20px;text-align:center;border-right:1px solid #E9EEF4;">
+            <p style="margin:0 0 8px;font-size:9px;font-weight:700;color:#94A3B8;
+                      text-transform:uppercase;letter-spacing:2px;">Compramos</p>
+            <p style="margin:0;font-size:36px;font-weight:800;color:#0D1B2A;
+                      letter-spacing:-1px;line-height:1;white-space:nowrap;">
+              S/.&thinsp;{compra}</p>
+            <p style="margin:8px 0 0;font-size:10px;color:#94A3B8;">
+              por d&oacute;lar &middot; USD</p>
+          </td>
+          <td width="50%" style="padding:24px 20px;text-align:center;">
+            <p style="margin:0 0 8px;font-size:9px;font-weight:700;color:#94A3B8;
+                      text-transform:uppercase;letter-spacing:2px;">Vendemos</p>
+            <p style="margin:0;font-size:36px;font-weight:800;color:#16a34a;
+                      letter-spacing:-1px;line-height:1;white-space:nowrap;">
+              S/.&thinsp;{venta}</p>
+            <p style="margin:8px 0 0;font-size:10px;color:#94A3B8;">
+              por d&oacute;lar &middot; USD</p>
+          </td>
+        </tr>
+        <tr>
+          <td colspan="2" style="padding:10px 20px;border-top:1px solid #E9EEF4;
+                                  background:#F8FAFC;text-align:center;">
+            <span style="font-size:10px;color:#64748B;">
+              Operaci&oacute;n en minutos &nbsp;&middot;&nbsp; Sin costo de transferencia
+              &nbsp;&middot;&nbsp; <em>Sujeto a variaci&oacute;n de mercado</em>
+            </span>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+
+  <tr><td style="padding:0 36px;">
+    <div style="height:1px;background:#F1F5F9;"></div>
+  </td></tr>
+
+  <!-- BANCOS -->
+  <tr>
+    <td style="padding:24px 36px 8px;">
+      <p style="margin:0 0 4px;font-size:11px;font-weight:700;color:#94A3B8;
+                text-transform:uppercase;letter-spacing:1px;">Cuentas bancarias</p>
+      <p style="margin:0 0 16px;font-size:13px;color:#475569;">
+        QORICASH S.A.C. &nbsp;&middot;&nbsp; RUC 20615113698
+        &nbsp;&middot;&nbsp; Regulada por la SBS</p>
+      <table width="100%" cellpadding="0" cellspacing="0" border="0"
+             style="border:1px solid #E9EEF4;border-radius:8px;overflow:hidden;">
+        <tr style="border-bottom:1px solid #F1F5F9;">
+          <td style="padding:12px 8px 12px 16px;vertical-align:middle;width:100px;">
+            <img src="cid:logo_bcp" alt="BCP" height="52"
+                 style="display:block;height:52px;"></td>
+          <td style="padding:12px 10px;vertical-align:middle;border-left:1px solid #F1F5F9;">
+            <p style="margin:0;font-size:8px;color:#94A3B8;text-transform:uppercase;
+                      letter-spacing:1px;">Soles</p>
+            <p style="margin:3px 0 0;font-size:12px;font-weight:600;
+                      color:#0D1B2A;">1937353150041</p></td>
+          <td style="padding:12px 16px 12px 10px;vertical-align:middle;
+                     border-left:1px solid #F1F5F9;">
+            <p style="margin:0;font-size:8px;color:#94A3B8;text-transform:uppercase;
+                      letter-spacing:1px;">D&oacute;lares</p>
+            <p style="margin:3px 0 0;font-size:12px;font-weight:600;
+                      color:#0D1B2A;">1917357790119</p></td>
+        </tr>
+        <tr style="border-bottom:1px solid #F1F5F9;">
+          <td style="padding:12px 8px 12px 16px;vertical-align:middle;">
+            <img src="cid:logo_interbank" alt="Interbank" height="40"
+                 style="display:block;height:40px;"></td>
+          <td style="padding:12px 10px;vertical-align:middle;border-left:1px solid #F1F5F9;">
+            <p style="margin:0;font-size:8px;color:#94A3B8;text-transform:uppercase;
+                      letter-spacing:1px;">Soles</p>
+            <p style="margin:3px 0 0;font-size:12px;font-weight:600;
+                      color:#0D1B2A;">200-3007757571</p></td>
+          <td style="padding:12px 16px 12px 10px;vertical-align:middle;
+                     border-left:1px solid #F1F5F9;">
+            <p style="margin:0;font-size:8px;color:#94A3B8;text-transform:uppercase;
+                      letter-spacing:1px;">D&oacute;lares</p>
+            <p style="margin:3px 0 0;font-size:12px;font-weight:600;
+                      color:#0D1B2A;">200-3007757589</p></td>
+        </tr>
+        <tr>
+          <td style="padding:12px 8px 12px 16px;vertical-align:middle;">
+            <img src="cid:logo_banbif" alt="BanBif" height="40"
+                 style="display:block;height:40px;"></td>
+          <td style="padding:12px 10px;vertical-align:middle;border-left:1px solid #F1F5F9;">
+            <p style="margin:0;font-size:8px;color:#94A3B8;text-transform:uppercase;
+                      letter-spacing:1px;">Soles</p>
+            <p style="margin:3px 0 0;font-size:12px;font-weight:600;
+                      color:#0D1B2A;">007000845805</p></td>
+          <td style="padding:12px 16px 12px 10px;vertical-align:middle;
+                     border-left:1px solid #F1F5F9;">
+            <p style="margin:0;font-size:8px;color:#94A3B8;text-transform:uppercase;
+                      letter-spacing:1px;">D&oacute;lares</p>
+            <p style="margin:3px 0 0;font-size:12px;font-weight:600;
+                      color:#0D1B2A;">007000845813</p></td>
+        </tr>
+      </table>
+      <p style="margin:10px 0 0;font-size:10px;color:#94A3B8;line-height:1.6;">
+        Transferencia interbancaria (CCI) disponible desde BBVA, Scotiabank,
+        Pichincha y cualquier banco del Per&uacute;.
+      </p>
+    </td>
+  </tr>
+
+  <!-- BOTONES -->
+  <tr>
+    <td style="padding:20px 36px 28px;">
+      <table cellpadding="0" cellspacing="0" border="0"><tr>
+        <td style="border-radius:5px;background:#0D1B2A;padding-right:10px;">
+          <a href="https://wa.me/51926011920"
+             style="display:inline-block;padding:12px 28px;color:#FFFFFF;
+                    text-decoration:none;font-size:12px;font-weight:600;
+                    letter-spacing:0.5px;">Cotizar ahora &rarr;</a>
+        </td>
+        <td style="border-radius:5px;background:#F1F5F9;border:1px solid #E2E8F0;">
+          <a href="https://qoricash.pe/presentacion.pdf"
+             style="display:inline-block;padding:12px 28px;color:#475569;
+                    text-decoration:none;font-size:12px;font-weight:600;
+                    letter-spacing:0.5px;" target="_blank">
+            Ver presentaci&oacute;n &rarr;</a>
+        </td>
+      </tr></table>
+    </td>
+  </tr>
+
+  <tr><td style="padding:0 36px;">
+    <div style="height:1px;background:#F1F5F9;"></div>
+  </td></tr>
+
+  <!-- FIRMA -->
+  <tr>
+    <td style="padding:20px 36px;">
+      <table cellpadding="0" cellspacing="0" border="0"><tr>
+        <td style="vertical-align:middle;padding-right:16px;width:44px;">
+          <img src="{LOGO}" width="44" height="44" alt="QoriCash"
+               style="display:block;border-radius:6px;">
+        </td>
+        <td style="vertical-align:middle;border-left:2px solid #E2E8F0;padding-left:16px;">
+          <p style="margin:0;font-size:13px;font-weight:700;color:#0D1B2A;">
+            {nombre_firma}</p>
+          <p style="margin:3px 0 0;font-size:11px;color:#64748B;">
+            {cargo} &nbsp;&middot;&nbsp;
+            <a href="https://wa.me/51926011920"
+               style="color:#64748B;text-decoration:none;">+51 926 011 920</a>
+          </p>
+          <p style="margin:2px 0 0;font-size:11px;">
+            <a href="https://www.qoricash.pe"
+               style="color:#16a34a;text-decoration:none;font-weight:600;">
+              www.qoricash.pe</a>
+            <span style="color:#CBD5E1;">&nbsp;&middot;&nbsp;Pueblo Libre, Lima</span>
+          </p>
+        </td>
+      </tr></table>
+    </td>
+  </tr>
+
+  <!-- PIE -->
+  <tr>
+    <td style="padding:14px 36px;background:#F8FAFC;border-top:1px solid #F1F5F9;">
+      <p style="margin:0;font-size:10px;color:#94A3B8;text-align:center;line-height:1.6;">
+        QORICASH S.A.C. &nbsp;&middot;&nbsp; RUC 20615113698 &nbsp;&middot;&nbsp;
+        Regulada por la SBS &nbsp;&middot;&nbsp; Res. N.&ordm; 00313-2026
+        <br>Para no recibir m&aacute;s comunicaciones responda con el asunto
+        <em>NO CONTACTAR</em>.
+      </p>
+    </td>
+  </tr>
+
+</table>
+</td></tr></table>
+</body></html>"""
 
 
 def _business_days_since(date_str: str) -> int:
-    """Días hábiles transcurridos desde date_str hasta hoy."""
+    """Días hábiles desde date_str hasta hoy."""
     if not date_str:
         return 999
     try:
@@ -227,37 +340,63 @@ class MailAgent(BaseAgent):
 
     def _execute(self, app) -> dict:
         from app.models.prospecto import Prospecto, ActividadProspecto
+        from app.models.exchange_rate import ExchangeRate
         from app.extensions import db
         from app.utils.formatters import now_peru
         from collections import defaultdict
 
         with app.app_context():
+            # Horario permitido: 9:00–13:30 Lima, lunes a viernes
+            now_dt = now_peru()
+            if now_dt.weekday() >= 5:
+                return {'tasks': 0, 'message': 'Fuera de horario (fin de semana)'}
+            hour_frac = now_dt.hour + now_dt.minute / 60
+            if not (9.0 <= hour_frac < 13.5):
+                return {'tasks': 0, 'message': (
+                    f'Fuera de horario ({now_dt.strftime("%H:%M")} Lima — activo 09:00–13:30)'
+                )}
+
+            # Tasas actuales desde ExchangeRate
+            try:
+                tc = ExchangeRate.get_current()
+                compra = f'{float(tc["compra"]):.3f}'
+                venta  = f'{float(tc["venta"]):.3f}'
+            except Exception:
+                compra, venta = '—', '—'
+
             sent_total = 0
             skipped    = 0
-            today      = now_peru().date()
+            today      = now_dt.date()
+            hoy_str    = today.strftime('%Y-%m-%d')
+            hoy_full   = today.strftime('%d/%m/%Y')
 
             # Usuario bot para registrar actividades
             from app.models.user import User
-            bot_user  = User.query.filter_by(role='Master').first()
-            bot_cargo = 'Ejecutivo Comercial'
+            bot_user = User.query.filter_by(role='Master').first()
 
-            # Prospectos elegibles (más desactualizados primero)
+            # FIX 5: filtro de fecha en SQL (7 días calendario ≈ 5 hábiles)
+            cutoff = (today - timedelta(days=_CALENDAR_DAYS_APPROX)).strftime('%Y-%m-%d')
+
             prospectos = (Prospecto.query
                           .filter(
                               ~Prospecto.estado_comercial.in_(_EXCLUDE_ESTADOS),
-                              ~Prospecto.estado_email.in_({'REBOTE', 'INVALIDO', 'NO CONTACTAR'}),
+                              ~Prospecto.estado_email.in_(_EXCLUDE_EMAIL_EST),
                               Prospecto.email.isnot(None),
                               Prospecto.email != '',
+                              db.or_(
+                                  Prospecto.fecha_ultimo_contacto.is_(None),
+                                  Prospecto.fecha_ultimo_contacto <= cutoff,
+                              ),
                           )
                           .order_by(Prospecto.fecha_ultimo_contacto.asc().nullsfirst())
-                          .limit(600)
+                          .limit(300)
                           .all())
 
-            # Filtrar por días hábiles de espera
+            # Refinamiento exacto por días hábiles (sobre conjunto ya pequeño)
             eligible = [p for p in prospectos
                         if _business_days_since(p.fecha_ultimo_contacto) >= _DIAS_HABIL_ESPERA]
 
-            # Agrupar por bandeja
+            # Distribuir por bandeja (hash estable)
             por_bandeja = defaultdict(list)
             for p in eligible:
                 por_bandeja[self._pick_bandeja(p)].append(p)
@@ -267,7 +406,6 @@ class MailAgent(BaseAgent):
                 if not prospects_q:
                     continue
 
-                # Respetar límite diario por bandeja
                 sent_today = self._daily_sent_count(db, bandeja, today)
                 remaining  = _DAILY_LIMIT - sent_today
                 if remaining <= 0:
@@ -275,19 +413,31 @@ class MailAgent(BaseAgent):
                     continue
 
                 batch      = prospects_q[:min(_BATCH_PER_CYCLE, remaining)]
-                bot_nombre = _BANDEJA_NOMBRE.get(bandeja, 'Equipo QoriCash')
+                bot_nombre = _BANDEJA_NOMBRE.get(bandeja, 'QoriCash')
+                bot_cargo  = _BANDEJA_CARGO.get(bandeja, 'Equipo Comercial')
+                es_personal = (bandeja == 'ggarcia@qoricash.pe')
 
                 for p in batch:
                     try:
-                        html    = self._build_email(p, bandeja, bot_nombre, bot_cargo)
-                        subject = 'QoriCash - El mejor tipo de cambio para empresas'
-
+                        nombre_dest = (
+                            (p.nombre_contacto or p.razon_social or 'equipo')
+                            .split()[0].capitalize()
+                        )
+                        html = _build_html(
+                            nombre_dest=nombre_dest,
+                            nombre_firma=bot_nombre,
+                            cargo=bot_cargo,
+                            compra=compra,
+                            venta=venta,
+                            hoy=hoy_full,
+                            es_personal=es_personal,
+                        )
+                        subject = 'QoriCash \u2014 Tipo de cambio preferencial'
                         ok = self._send_via_gmail(bandeja, p.email, subject, html)
                         if not ok:
                             skipped += 1
                             continue
 
-                        hoy_str   = now_peru().strftime('%Y-%m-%d')
                         next_date = self._next_business_day(5)
                         p.fecha_primer_contacto  = p.fecha_primer_contacto or hoy_str
                         p.fecha_ultimo_contacto  = hoy_str
@@ -318,7 +468,7 @@ class MailAgent(BaseAgent):
                         skipped += 1
 
             db.session.commit()
-            msg = f'Campaña: {sent_total} emails enviados · {skipped} omitidos'
+            msg = f'Campaña: {sent_total} emails enviados · {skipped} omitidos · TC {compra}/{venta}'
             return {
                 'tasks':   sent_total,
                 'message': msg,
@@ -328,7 +478,6 @@ class MailAgent(BaseAgent):
     # ── Helpers ──────────────────────────────────────────────────────────────
 
     def _daily_sent_count(self, db, bandeja: str, today) -> int:
-        """Emails enviados hoy por esta bandeja (desde ActividadProspecto)."""
         from app.models.prospecto import ActividadProspecto
         from sqlalchemy import func
         try:
@@ -342,7 +491,6 @@ class MailAgent(BaseAgent):
             return 0
 
     def _pick_bandeja(self, prospecto) -> str:
-        """Bandeja consistente por hash del email (round-robin estable)."""
         import hashlib
         bandejas = list(_BANDEJAS.keys())
         idx = int(hashlib.md5((prospecto.email or '').encode()).hexdigest(), 16) % len(bandejas)
@@ -358,36 +506,8 @@ class MailAgent(BaseAgent):
                 added += 1
         return d.strftime('%Y-%m-%d')
 
-    def _build_email(self, p, bandeja: str, bot_nombre: str, bot_cargo: str) -> str:
-        """Construye el HTML con la plantilla oficial de prospección."""
-        from app.utils.formatters import now_peru
-        nombre = ((p.nombre_contacto or p.razon_social or 'estimado cliente')
-                  .split()[0].capitalize())
-        fecha  = now_peru().strftime('%d/%m/%Y')
-
-        header = _HEADER.replace('__FECHA__', fecha)
-        firma  = (_FIRMA_TPL
-                  .replace('__TRADER_NOMBRE__', bot_nombre)
-                  .replace('__TRADER_CARGO__',  bot_cargo))
-
-        presentacion = (
-            f'Mi nombre es <strong>{bot_nombre}</strong>, Ejecutivo Comercial de '
-            '<strong>QoriCash SAC</strong>, fintech de cambio de divisas 100&#37; digital, '
-            'regulada por la Superintendencia de Banca, Seguros y AFP del Per&uacute;.'
-        )
-
-        return (_BODY_TPL
-                .replace('__HEADER__',       header)
-                .replace('__NOMBRE__',       nombre)
-                .replace('__PRESENTACION__', presentacion)
-                .replace('__BANCOS__',       _BANCOS)
-                .replace('__FIRMA__',        firma)
-                .replace('__PIE__',          _PIE))
-
     def _send_via_gmail(self, sender: str, to: str, subject: str, html: str) -> bool:
         try:
-            from email.mime.multipart import MIMEMultipart
-            from email.mime.text import MIMEText
             from google.oauth2.credentials import Credentials
             from google.auth.transport.requests import Request
             from googleapiclient.discovery import build
@@ -410,13 +530,34 @@ class MailAgent(BaseAgent):
             creds.refresh(Request())
             service = build('gmail', 'v1', credentials=creds)
 
-            msg = MIMEMultipart('alternative')
-            msg['From']    = sender
-            msg['To']      = to
-            msg['Subject'] = subject
-            msg.attach(MIMEText(html, 'html'))
+            # MIMEMultipart/related para soportar imágenes CID embebidas
+            msg_related = MIMEMultipart('related')
+            msg_related['From']       = sender
+            msg_related['To']         = to
+            msg_related['Subject']    = subject
+            msg_related['Date']       = formatdate(localtime=True)
+            msg_related['Message-ID'] = make_msgid(domain='qoricash.pe')
 
-            raw = base64.urlsafe_b64encode(msg.as_bytes()).decode()
+            msg_alt = MIMEMultipart('alternative')
+            msg_alt.attach(MIMEText(html, 'html'))
+            msg_related.attach(msg_alt)
+
+            # Adjuntar imágenes CID si los archivos existen
+            def _adjuntar(path: str, cid: str, fname: str, tipo: str):
+                if not os.path.exists(path):
+                    return
+                with open(path, 'rb') as f:
+                    part = MIMEImage(f.read(), tipo)
+                part.add_header('Content-ID', f'<{cid}>')
+                part.add_header('Content-Disposition', 'inline', filename=fname)
+                msg_related.attach(part)
+
+            _adjuntar(_IMG_ENCABEZADO, 'encabezado',    'encabezado.jpg', 'jpeg')
+            _adjuntar(_IMG_BCP,        'logo_bcp',      'bcp.png',        'png')
+            _adjuntar(_IMG_INTERBANK,  'logo_interbank','interbank.png',  'png')
+            _adjuntar(_IMG_BANBIF,     'logo_banbif',   'banbif.png',     'png')
+
+            raw = base64.urlsafe_b64encode(msg_related.as_bytes()).decode()
             service.users().messages().send(userId='me', body={'raw': raw}).execute()
             return True
 

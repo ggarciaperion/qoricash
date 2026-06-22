@@ -19,8 +19,8 @@ _log = logging.getLogger(__name__)
 _LIMA = timezone(timedelta(hours=-5))
 
 # Registro global de todos los agentes (orden = flujo del pipeline)
+# LeadDiscoveryAgent deshabilitado: la base de prospectos se carga manualmente
 ALL_AGENTS = [
-    LeadDiscoveryAgent(),
     DataQualityAgent(),
     MailAgent(),
     EmailIntelligenceAgent(),

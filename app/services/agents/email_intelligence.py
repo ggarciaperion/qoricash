@@ -41,6 +41,17 @@ _NO_CONTACT_KEYWORDS = re.compile(
     r'eliminar.mi.correo|no.deseo.recibir)',
     re.I
 )
+_AUTORESPUESTA_RE = re.compile(
+    r'(auto.?reply|auto.?response|fuera.de.oficina|out.of.office|'
+    r'on.vacation|de.vacaciones|respuesta.autom[aá]tica|estoy.de.viaje|'
+    r'currently.out|away.from.the.office|will.be.back|estaré.de.regreso)',
+    re.I
+)
+_RESPUESTA_NEUTRAL = re.compile(
+    r'(recib[ií]|gracias|muchas.gracias|thank.you|lo.revisar|en.breve|'
+    r'a.la.brevedad|tendr[eé].en.cuenta|lo.considerar|lo.consultar[eé])',
+    re.I
+)
 
 
 class EmailIntelligenceAgent(BaseAgent):
@@ -57,9 +68,11 @@ class EmailIntelligenceAgent(BaseAgent):
         from app.extensions import db
 
         with app.app_context():
-            bounces = 0
-            opportunities = 0
-            no_contact = 0
+            bounces        = 0
+            opportunities  = 0
+            no_contact     = 0
+            autorespuestas = 0
+            neutrales      = 0
             total_analyzed = 0
 
             for cuenta, env_key in _BANDEJAS_ENV.items():
@@ -73,16 +86,22 @@ class EmailIntelligenceAgent(BaseAgent):
                         result = self._process_message(msg_data, cuenta, service, db)
                         if result == 'bounce':
                             bounces += 1
-                        elif result == 'opportunity':
+                        elif result == 'oportunidad':
                             opportunities += 1
-                        elif result == 'no_contact':
+                        elif result == 'no_contactar':
                             no_contact += 1
+                        elif result == 'autorespuesta':
+                            autorespuestas += 1
+                        elif result == 'neutral':
+                            neutrales += 1
                 except Exception as e:
                     _log.warning(f'[EmailIntelligence] Error en {cuenta}: {e}')
 
             db.session.commit()
             msg = (f'Analizados {total_analyzed} emails — '
-                   f'{bounces} rebotes · {opportunities} oportunidades · {no_contact} no contactar')
+                   f'{bounces} rebotes · {opportunities} oportunidades · '
+                   f'{no_contact} no contactar · {autorespuestas} auto-respuestas · '
+                   f'{neutrales} respuestas neutras')
             return {
                 'tasks':   total_analyzed,
                 'message': msg,
@@ -90,8 +109,46 @@ class EmailIntelligenceAgent(BaseAgent):
                     'emails_analyzed':   total_analyzed,
                     'bounces_detected':  bounces,
                     'opportunities':     opportunities,
+                    'autorespuestas':    autorespuestas,
+                    'neutrales':         neutrales,
                 },
             }
+
+    def _extract_bounced_email(self, msg_data: dict, subject: str) -> str:
+        """
+        FIX 4: Extrae el email rebotado usando múltiples estrategias:
+          1. Cabecera 'Final-Recipient' (estándar RFC 3464)
+          2. Patrón to=<email> en el subject
+          3. Cualquier email corporativo en el subject
+          4. Cuerpo del mensaje en texto plano
+        """
+        # Estrategia 1: cabeceras de diagnóstico DSN
+        headers = {h['name']: h['value'] for h in
+                   msg_data.get('payload', {}).get('headers', [])}
+        for hdr in ('Final-Recipient', 'Original-Rcpt-To', 'X-Failed-Recipients'):
+            val = headers.get(hdr, '')
+            m = re.search(r'[\w.+\-]+@[\w.\-]+\.\w+', val)
+            if m:
+                return m.group(0).lower()
+
+        # Estrategia 2: to=<email> en subject
+        m = re.search(r'to=<([^>]+)>', subject, re.I)
+        if m:
+            return m.group(1).lower()
+
+        # Estrategia 3: email corporativo en subject (excluye dominios gratuitos)
+        _FREE = {'gmail.com', 'hotmail.com', 'yahoo.com', 'outlook.com', 'live.com'}
+        for candidate in re.findall(r'[\w.+\-]+@[\w.\-]+\.\w+', subject):
+            if candidate.split('@')[-1].lower() not in _FREE:
+                return candidate.lower()
+
+        # Estrategia 4: buscar en partes del cuerpo (snippet o primeras partes)
+        snippet = msg_data.get('snippet', '')
+        for candidate in re.findall(r'[\w.+\-]+@[\w.\-]+\.\w+', snippet):
+            if candidate.split('@')[-1].lower() not in _FREE:
+                return candidate.lower()
+
+        return ''
 
     def _get_gmail_service(self, env_key: str):
         try:
@@ -143,9 +200,10 @@ class EmailIntelligenceAgent(BaseAgent):
 
     def _process_message(self, msg_data: dict, cuenta: str, service, db) -> str:
         from app.models.inteligencia import EmailEvento, Oportunidad
-        from app.models.prospecto import Prospecto
+        from app.models.prospecto import Prospecto, ActividadProspecto, SeguimientoProspecto
         from app.utils.formatters import now_peru
 
+        now_dt = now_peru()
         headers = {h['name']: h['value'] for h in
                    msg_data.get('payload', {}).get('headers', [])}
         sender   = headers.get('From', '')
@@ -156,21 +214,34 @@ class EmailIntelligenceAgent(BaseAgent):
         if EmailEvento.query.filter_by(mensaje_id=msg_id).first():
             return 'duplicate'
 
-        # Clasificar
         tipo = 'irrelevante'
         sender_email = re.search(r'[\w.+\-]+@[\w.\-]+', sender)
         sender_email = sender_email.group(0).lower() if sender_email else ''
 
-        # 1. Rebote
+        bot_user = self._get_bot_user()
+
+        # 1. Rebote: extraer email rebotado y actualizar CRM
         if _BOUNCE_SENDERS.search(sender) or _BOUNCE_SUBJECTS.search(subject):
             tipo = 'bounce'
-            # Extraer email rebotado del asunto/cuerpo
-            bounced = re.search(r'to=<([^>]+)>', subject) or re.search(r'[\w.+]+@[\w.]+\.\w+', subject)
-            bounced_email = bounced.group(1) if bounced else ''
+            bounced_email = self._extract_bounced_email(msg_data, subject)
             if bounced_email:
                 (Prospecto.query
                  .filter_by(email=bounced_email)
                  .update({'estado_email': 'REBOTE'}, synchronize_session=False))
+                # Registrar actividad en el prospecto afectado
+                if bot_user:
+                    prospecto = Prospecto.query.filter_by(email=bounced_email).first()
+                    if prospecto:
+                        db.session.add(ActividadProspecto(
+                            prospecto_id=prospecto.id,
+                            user_id=bot_user.id,
+                            tipo='sistema',
+                            canal='email',
+                            bandeja=cuenta,
+                            descripcion=f'Email rebotado detectado: {subject[:120]}',
+                            resultado='rebote',
+                            nuevo_estado='REBOTE',
+                        ))
 
             # Eliminar mensaje de rebote permanentemente
             try:
@@ -178,17 +249,50 @@ class EmailIntelligenceAgent(BaseAgent):
             except Exception:
                 pass
 
-        # 2. No contactar
-        elif _NO_CONTACT_KEYWORDS.search(subject):
+        # 2. Auto-respuesta (fuera de oficina / vacaciones) — ignorar sin alterar CRM
+        elif _AUTORESPUESTA_RE.search(subject) or _AUTORESPUESTA_RE.search(
+                msg_data.get('snippet', '')):
+            tipo = 'autorespuesta'
+            # No modificar estado comercial; registrar solo como actividad
+            if bot_user and sender_email:
+                prospecto = Prospecto.query.filter_by(email=sender_email).first()
+                if prospecto:
+                    db.session.add(ActividadProspecto(
+                        prospecto_id=prospecto.id,
+                        user_id=bot_user.id,
+                        tipo='sistema',
+                        canal='email',
+                        bandeja=cuenta,
+                        descripcion=f'Auto-respuesta recibida: {subject[:120]}',
+                        resultado='auto-respuesta',
+                    ))
+
+        # 3. No contactar
+        elif _NO_CONTACT_KEYWORDS.search(subject) or _NO_CONTACT_KEYWORDS.search(
+                msg_data.get('snippet', '')):
             tipo = 'no_contactar'
             if sender_email:
                 (Prospecto.query
                  .filter_by(email=sender_email)
                  .update({'estado_comercial': 'NO CONTACTAR',
                           'estado_email': 'NO CONTACTAR'}, synchronize_session=False))
+                if bot_user:
+                    prospecto = Prospecto.query.filter_by(email=sender_email).first()
+                    if prospecto:
+                        db.session.add(ActividadProspecto(
+                            prospecto_id=prospecto.id,
+                            user_id=bot_user.id,
+                            tipo='sistema',
+                            canal='email',
+                            bandeja=cuenta,
+                            descripcion=f'Solicitud de no contacto recibida: {subject[:120]}',
+                            resultado='no_contactar',
+                            nuevo_estado='NO CONTACTAR',
+                        ))
 
-        # 3. Oportunidad / respuesta positiva
-        elif _POSITIVE_KEYWORDS.search(subject):
+        # 4. Oportunidad / respuesta positiva
+        elif _POSITIVE_KEYWORDS.search(subject) or _POSITIVE_KEYWORDS.search(
+                msg_data.get('snippet', '')):
             tipo = 'oportunidad'
             prospecto = Prospecto.query.filter_by(email=sender_email).first()
             opp = Oportunidad(
@@ -207,6 +311,51 @@ class EmailIntelligenceAgent(BaseAgent):
             if prospecto:
                 prospecto.nivel_interes = 'alto'
                 prospecto.estado_comercial = 'negociando'
+                prospecto.fecha_ultimo_contacto = now_dt.strftime('%Y-%m-%d')
+                if bot_user:
+                    db.session.add(ActividadProspecto(
+                        prospecto_id=prospecto.id,
+                        user_id=bot_user.id,
+                        tipo='respuesta',
+                        canal='email',
+                        bandeja=cuenta,
+                        descripcion=f'Respuesta positiva recibida: {subject[:120]}',
+                        resultado='oportunidad',
+                        nuevo_estado='negociando',
+                    ))
+
+        # 5. Respuesta neutral (acuse de recibo, "lo revisaré", etc.)
+        elif _RESPUESTA_NEUTRAL.search(subject) or _RESPUESTA_NEUTRAL.search(
+                msg_data.get('snippet', '')):
+            tipo = 'neutral'
+            if sender_email and bot_user:
+                prospecto = Prospecto.query.filter_by(email=sender_email).first()
+                if prospecto:
+                    # Crear seguimiento para revisión humana
+                    tiene_seg = (SeguimientoProspecto.query
+                                 .filter(
+                                     SeguimientoProspecto.prospecto_id == prospecto.id,
+                                     SeguimientoProspecto.completado == False,
+                                 ).first())
+                    if not tiene_seg:
+                        from datetime import timedelta
+                        db.session.add(SeguimientoProspecto(
+                            prospecto_id=prospecto.id,
+                            user_id=bot_user.id,
+                            tipo='email',
+                            descripcion=f'Respuesta neutral recibida: "{subject[:120]}". Hacer seguimiento.',
+                            fecha_programada=now_dt + timedelta(days=2),
+                            completado=False,
+                        ))
+                    db.session.add(ActividadProspecto(
+                        prospecto_id=prospecto.id,
+                        user_id=bot_user.id,
+                        tipo='respuesta',
+                        canal='email',
+                        bandeja=cuenta,
+                        descripcion=f'Respuesta neutral recibida: {subject[:120]}',
+                        resultado='neutral',
+                    ))
 
         # Registrar evento
         evento = EmailEvento(
@@ -216,7 +365,14 @@ class EmailIntelligenceAgent(BaseAgent):
             asunto=subject[:500],
             tipo=tipo,
             email_afectado=sender_email,
-            crm_updated=(tipo in ('bounce', 'no_contactar', 'oportunidad')),
+            crm_updated=(tipo in ('bounce', 'no_contactar', 'oportunidad', 'neutral')),
         )
         db.session.add(evento)
         return tipo
+
+    def _get_bot_user(self):
+        try:
+            from app.models.user import User
+            return User.query.filter_by(role='Master').first()
+        except Exception:
+            return None

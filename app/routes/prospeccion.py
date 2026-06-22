@@ -24,18 +24,20 @@ _GMAIL_SCOPES    = ["https://mail.google.com/"]
 _GMAIL_REFRESH_ENV = {
     "ggarcia@qoricash.pe":  "GMAIL_REFRESH_TOKEN_GGARCIA",
     "gerencia@qoricash.pe": "GMAIL_REFRESH_TOKEN_GERENCIA",
+    "info@qoricash.pe":     "GMAIL_REFRESH_TOKEN_INFO",       # FIX 3
     "luacosta@qoricash.pe": "GMAIL_REFRESH_TOKEN_LUACOSTA",
 }
 
 # Mapeo email → nombre completo para el cuerpo del correo
 _TRADER_NOMBRES = {
-    "ggarcia@qoricash.pe":  "Gian Garcia",
-    "gerencia@qoricash.pe": "Gian Garcia",
+    "ggarcia@qoricash.pe":  "Gian Pierre García",
+    "gerencia@qoricash.pe": "QoriCash",
+    "info@qoricash.pe":     "QoriCash",
     "luacosta@qoricash.pe": "Luciana Acosta",
 }
 
 # Emails que usan cargo "Presidente de Negocios"
-_EMAILS_PRESIDENTE = {"ggarcia@qoricash.pe", "gerencia@qoricash.pe"}
+_EMAILS_PRESIDENTE = {"ggarcia@qoricash.pe"}
 
 # Estado de campañas masivas activas: trader_id → dict
 _campanas: dict = {}

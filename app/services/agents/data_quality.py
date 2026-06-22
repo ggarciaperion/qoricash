@@ -86,11 +86,12 @@ class DataQualityAgent(BaseAgent):
                     duplicates += 1
                     fixed += 1
 
-            # 3. Normalizar estado_email vacío en registros antiguos
-            Prospecto.query.filter(
-                Prospecto.estado_email.is_(None),
-                Prospecto.email.isnot(None)
-            ).limit(5000).update({'estado_email': 'pendiente'}, synchronize_session=False)
+            # 3. Normalizar estado_email vacío — bulk SQL para cubrir todos los registros
+            #    en el primer arranque (puede haber 200K+ registros con NULL)
+            db.session.execute(db.text(
+                "UPDATE prospecto SET estado_email = 'pendiente' "
+                "WHERE estado_email IS NULL AND email IS NOT NULL"
+            ))
 
             db.session.commit()
 
