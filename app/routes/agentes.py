@@ -250,7 +250,7 @@ def contabilidad():
     from app.models.audit_report import AuditReport
     reports = (AuditReport.query
                .order_by(AuditReport.audit_date.desc())
-               .limit(10).all())
+               .limit(6).all())
     latest = reports[0] if reports else None
     return render_template('agentes/contabilidad.html',
                            reports=reports, latest=latest)
