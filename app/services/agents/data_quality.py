@@ -51,7 +51,7 @@ class DataQualityAgent(BaseAgent):
             candidates = (Prospecto.query
                           .filter(Prospecto.estado_email.notin_(['INVALIDO', 'REBOTE', 'NO CONTACTAR']))
                           .filter(Prospecto.email.isnot(None))
-                          .limit(200).all())
+                          .limit(2000).all())
 
             for p in candidates:
                 email = (p.email or '').strip()
@@ -71,7 +71,7 @@ class DataQualityAgent(BaseAgent):
                          .filter(Prospecto.ruc.isnot(None), Prospecto.email.isnot(None))
                          .group_by(Prospecto.ruc, Prospecto.email)
                          .having(func.count(Prospecto.id) > 1)
-                         .limit(50).all())
+                         .limit(500).all())
 
             for row in dup_query:
                 if not row.ruc or not row.email:
@@ -90,7 +90,7 @@ class DataQualityAgent(BaseAgent):
             Prospecto.query.filter(
                 Prospecto.estado_email.is_(None),
                 Prospecto.email.isnot(None)
-            ).limit(500).update({'estado_email': 'pendiente'}, synchronize_session=False)
+            ).limit(5000).update({'estado_email': 'pendiente'}, synchronize_session=False)
 
             db.session.commit()
 
