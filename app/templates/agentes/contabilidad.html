@@ -263,6 +263,119 @@
 .rstat .rv.grn { color: #16a34a; }
 
 .no-reports { font-size: .75rem; color: #94a3b8; text-align: center; padding: 24px 0; font-family: system-ui; }
+
+/* ── Drawer (slide-in panel) ─────────────────────────────────── */
+.drawer-overlay {
+  position: fixed; inset: 0; background: rgba(15,23,42,.35);
+  z-index: 1040; opacity: 0; pointer-events: none;
+  transition: opacity .28s ease;
+}
+.drawer-overlay.open { opacity: 1; pointer-events: all; }
+
+.drawer {
+  position: fixed; top: 0; right: 0; bottom: 0;
+  width: 480px; max-width: 95vw;
+  background: #fff; border-left: 1px solid #e2e8f0;
+  box-shadow: -8px 0 40px rgba(0,0,0,.12);
+  z-index: 1050;
+  transform: translateX(100%);
+  transition: transform .3s cubic-bezier(.22,1,.36,1);
+  display: flex; flex-direction: column;
+  font-family: system-ui, sans-serif;
+}
+.drawer.open { transform: translateX(0); }
+
+.drawer-header {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+  padding: 18px 20px 14px; border-bottom: 1px solid #f1f5f9; flex-shrink: 0;
+}
+.drawer-title {
+  display: flex; flex-direction: column; gap: 3px;
+}
+.drawer-title-main {
+  font-size: .95rem; font-weight: 800; color: #0f172a;
+}
+.drawer-title-sub {
+  font-size: .72rem; color: #64748b;
+}
+.drawer-close {
+  background: #f8fafc; border: 1px solid #e2e8f0; color: #64748b;
+  border-radius: 7px; padding: 5px 9px; cursor: pointer; font-size: .9rem;
+  transition: all .14s; flex-shrink: 0; line-height: 1;
+}
+.drawer-close:hover { background: #e2e8f0; color: #0f172a; }
+
+/* Summary pills */
+.drawer-summary {
+  display: flex; gap: 8px; padding: 12px 20px; flex-wrap: wrap;
+  border-bottom: 1px solid #f1f5f9; flex-shrink: 0;
+}
+.dpill {
+  display: flex; flex-direction: column; align-items: center;
+  background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 9px;
+  padding: 7px 14px; min-width: 80px; flex: 1;
+}
+.dpill .dv { font-size: .88rem; font-weight: 800; color: #1e293b; line-height: 1; }
+.dpill .dl { font-size: .58rem; color: #94a3b8; text-transform: uppercase; letter-spacing: .06em; margin-top: 3px; }
+.dpill .dv.green  { color: #16a34a; }
+.dpill .dv.red    { color: #dc2626; }
+.dpill .dv.amber  { color: #d97706; }
+.dpill .dv.blue   { color: #2563eb; }
+
+/* Hallazgos list */
+.drawer-body {
+  flex: 1; overflow-y: auto; padding: 14px 20px;
+  scrollbar-width: thin; scrollbar-color: #e2e8f0 transparent;
+}
+.drawer-body::-webkit-scrollbar { width: 4px; }
+.drawer-body::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 2px; }
+
+.drawer-section-lbl {
+  font-size: .65rem; font-weight: 700; color: #94a3b8;
+  text-transform: uppercase; letter-spacing: .1em;
+  margin-bottom: 10px;
+}
+
+.hallazgo-card {
+  border-radius: 10px; padding: 12px 14px; margin-bottom: 10px;
+  border: 1px solid;
+}
+.hallazgo-card.INFO    { background: #f0f9ff; border-color: #bae6fd; }
+.hallazgo-card.ALERTA  { background: #fffbeb; border-color: #fde68a; }
+.hallazgo-card.CRÍTICO { background: #fef2f2; border-color: #fecaca; }
+
+.hallazgo-top {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 6px;
+}
+.sev-badge {
+  font-size: .62rem; font-weight: 700; padding: 2px 8px; border-radius: 20px;
+  letter-spacing: .05em; flex-shrink: 0;
+}
+.sev-INFO    { background: #e0f2fe; color: #0369a1; }
+.sev-ALERTA  { background: #fef3c7; color: #92400e; }
+.sev-CRÍTICO { background: #fee2e2; color: #991b1b; }
+.hallazgo-mod {
+  font-size: .65rem; color: #64748b; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .05em;
+}
+.hallazgo-titulo {
+  font-size: .82rem; font-weight: 700; color: #1e293b; margin-bottom: 4px;
+}
+.hallazgo-detalle {
+  font-size: .76rem; color: #475569; line-height: 1.5; margin-bottom: 6px;
+}
+.hallazgo-accion {
+  font-size: .72rem; color: #2563eb; display: flex; align-items: flex-start; gap: 5px;
+}
+.hallazgo-accion i { margin-top: 2px; flex-shrink: 0; }
+
+.drawer-ok {
+  text-align: center; padding: 32px 20px;
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+}
+.drawer-ok-icon { font-size: 2.5rem; color: #16a34a; }
+.drawer-ok-msg { font-size: .85rem; font-weight: 600; color: #16a34a; }
+.drawer-ok-sub { font-size: .75rem; color: #94a3b8; }
 </style>
 {% endblock %}
 
@@ -623,7 +736,18 @@
         {% if reports %}
           {% for rep in reports %}
           {% set ec = 'eb-aprobado' if rep.estado == 'APROBADO' else ('eb-observado' if rep.estado == 'OBSERVADO' else 'eb-critico') %}
-          <div class="report-row">
+          <div class="report-row" style="cursor:pointer;"
+               onclick="openDrawer(this)"
+               data-date="{{ rep.audit_date.strftime('%d/%m/%Y') if rep.audit_date else '' }}"
+               data-period="{{ rep.period_label or '' }}"
+               data-estado="{{ rep.estado }}"
+               data-hallazgos="{{ rep.total_hallazgos }}"
+               data-criticos="{{ rep.hallazgos_criticos }}"
+               data-ingresos="{{ rep.ingresos_pen|float }}"
+               data-gastos="{{ rep.gastos_pen|float }}"
+               data-utilidad="{{ rep.utilidad_neta_pen|float }}"
+               data-ir="{{ rep.ir_pago_cuenta_pen|float }}"
+               data-findings="{{ rep.hallazgos_json | replace('"', '&quot;') }}">
             <div class="report-row-head">
               <span class="report-date">{{ rep.audit_date.strftime('%d/%m/%Y') if rep.audit_date else '—' }}</span>
               <span class="estado-badge {{ ec }}">{{ rep.estado }}</span>
@@ -657,10 +781,105 @@
     </div><!-- /ac-sidebar -->
   </div><!-- /ac-body -->
 </div>
+
+<!-- ── DRAWER ─────────────────────────────────────────────────── -->
+<div class="drawer-overlay" id="drawerOverlay" onclick="closeDrawer()"></div>
+<div class="drawer" id="drawer">
+
+  <div class="drawer-header">
+    <div class="drawer-title">
+      <div class="drawer-title-main" id="drawerTitle">Hallazgos</div>
+      <div class="drawer-title-sub" id="drawerSub">—</div>
+    </div>
+    <button class="drawer-close" onclick="closeDrawer()"><i class="bi bi-x-lg"></i></button>
+  </div>
+
+  <div class="drawer-summary" id="drawerSummary"></div>
+
+  <div class="drawer-body" id="drawerBody"></div>
+</div>
 {% endblock %}
 
 {% block scripts %}
 <script>
+/* ── Drawer ─────────────────────────────────────────────────── */
+function openDrawer(row) {
+  const d = row.dataset;
+  const findings = JSON.parse(d.findings || '[]');
+
+  // Title
+  document.getElementById('drawerTitle').textContent =
+    'Auditoría ' + (d.date || '—') + (d.period ? '  ·  ' + d.period : '');
+
+  const estadoColor = d.estado === 'APROBADO' ? '#16a34a' : (d.estado === 'OBSERVADO' ? '#d97706' : '#dc2626');
+  document.getElementById('drawerSub').innerHTML =
+    `Estado: <strong style="color:${estadoColor}">${d.estado}</strong>  ·  ${findings.length} hallazgo${findings.length !== 1 ? 's' : ''}`;
+
+  // Summary pills
+  const fmt = n => 'S/ ' + parseFloat(n).toLocaleString('es-PE', {minimumFractionDigits:2, maximumFractionDigits:2});
+  const utilVal = parseFloat(d.utilidad || 0);
+  document.getElementById('drawerSummary').innerHTML = `
+    <div class="dpill">
+      <span class="dv ${parseInt(d.criticos)>0?'red':''}">${d.criticos}</span>
+      <span class="dl">Críticos</span>
+    </div>
+    <div class="dpill">
+      <span class="dv green">${fmt(d.ingresos)}</span>
+      <span class="dl">Ingresos</span>
+    </div>
+    <div class="dpill">
+      <span class="dv red">${fmt(d.gastos)}</span>
+      <span class="dl">Gastos</span>
+    </div>
+    <div class="dpill">
+      <span class="dv ${utilVal>=0?'green':'red'}">${fmt(d.utilidad)}</span>
+      <span class="dl">Utilidad</span>
+    </div>
+  `;
+
+  // Findings body
+  const body = document.getElementById('drawerBody');
+  if (!findings.length) {
+    body.innerHTML = `
+      <div class="drawer-ok">
+        <div class="drawer-ok-icon"><i class="bi bi-check-circle-fill"></i></div>
+        <div class="drawer-ok-msg">Contabilidad limpia</div>
+        <div class="drawer-ok-sub">No se encontraron hallazgos en esta auditoría.</div>
+      </div>`;
+  } else {
+    const sevOrder = { 'CRÍTICO': 0, 'ALERTA': 1, 'INFO': 2 };
+    const sorted = [...findings].sort((a, b) =>
+      (sevOrder[a.severidad] ?? 3) - (sevOrder[b.severidad] ?? 3));
+
+    body.innerHTML = `<div class="drawer-section-lbl">${sorted.length} hallazgo${sorted.length!==1?'s':''} detectado${sorted.length!==1?'s':''}</div>` +
+      sorted.map(h => {
+        const sev = h.severidad || 'INFO';
+        const accion = h.accion_sugerida || h.accion || '';
+        return `
+        <div class="hallazgo-card ${sev}">
+          <div class="hallazgo-top">
+            <span class="sev-badge sev-${sev}">${sev}</span>
+            <span class="hallazgo-mod">${h.modulo || ''}</span>
+          </div>
+          <div class="hallazgo-titulo">${h.titulo || ''}</div>
+          ${h.detalle ? `<div class="hallazgo-detalle">${h.detalle}</div>` : ''}
+          ${accion ? `<div class="hallazgo-accion"><i class="bi bi-arrow-right-circle"></i>${accion}</div>` : ''}
+        </div>`;
+      }).join('');
+  }
+
+  document.getElementById('drawerOverlay').classList.add('open');
+  document.getElementById('drawer').classList.add('open');
+}
+
+function closeDrawer() {
+  document.getElementById('drawerOverlay').classList.remove('open');
+  document.getElementById('drawer').classList.remove('open');
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDrawer(); });
+
+/* ── Run audit ──────────────────────────────────────────────── */
 async function runAudit(btn) {
   if (!confirm('¿Ejecutar auditoría contable ahora? El proceso toma ~10-30 segundos.')) return;
   btn.disabled = true;
