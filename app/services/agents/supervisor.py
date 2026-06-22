@@ -103,12 +103,27 @@ class SupervisorAgent(BaseAgent):
 
             # 5. Resolver alertas antiguas si el agente ya está OK
             for agent in all_agents:
-                if agent.status == 'idle' or agent.status == 'running':
+                if agent.status in ('idle', 'running'):
                     (AgentAlert.query
                      .filter_by(agent_id=agent.agent_id, resolved=False)
                      .filter(AgentAlert.severity.in_(['warning', 'info']))
                      .update({'resolved': True, 'resolved_at': now},
                              synchronize_session=False))
+
+            # 6. Reset diario de contadores tasks_today / errors_today a medianoche
+            today_date = now.date()
+            for agent in all_agents:
+                # Si last_run es de ayer o anterior, resetear contadores del día
+                if agent.last_run and agent.last_run.date() < today_date:
+                    agent.tasks_today  = 0
+                    agent.errors_today = 0
+
+            # 7. Limpiar alertas resueltas de más de 30 días
+            cutoff_alerts = now - timedelta(days=30)
+            (AgentAlert.query
+             .filter(AgentAlert.resolved == True,
+                     AgentAlert.resolved_at < cutoff_alerts)
+             .delete(synchronize_session=False))
 
             db.session.commit()
 

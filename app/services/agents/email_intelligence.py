@@ -83,17 +83,23 @@ class EmailIntelligenceAgent(BaseAgent):
                     msgs = self._fetch_unread(service)
                     for msg_data in msgs[:50]:  # máx 50 por bandeja por ciclo
                         total_analyzed += 1
-                        result = self._process_message(msg_data, cuenta, service, db)
-                        if result == 'bounce':
-                            bounces += 1
-                        elif result == 'oportunidad':
-                            opportunities += 1
-                        elif result == 'no_contactar':
-                            no_contact += 1
-                        elif result == 'autorespuesta':
-                            autorespuestas += 1
-                        elif result == 'neutral':
-                            neutrales += 1
+                        try:
+                            result = self._process_message(msg_data, cuenta, service, db)
+                            # Marcar como leído SOLO si el procesamiento fue exitoso
+                            self._mark_read(service, msg_data['id'])
+                            if result == 'bounce':
+                                bounces += 1
+                            elif result == 'oportunidad':
+                                opportunities += 1
+                            elif result == 'no_contactar':
+                                no_contact += 1
+                            elif result == 'autorespuesta':
+                                autorespuestas += 1
+                            elif result == 'neutral':
+                                neutrales += 1
+                        except Exception as e_msg:
+                            _log.warning(f'[EmailIntelligence] Error procesando mensaje {msg_data.get("id")}: {e_msg}')
+                            # NO marcar como leído — se reintentará en el próximo ciclo
                 except Exception as e:
                     _log.warning(f'[EmailIntelligence] Error en {cuenta}: {e}')
 
@@ -175,6 +181,8 @@ class EmailIntelligenceAgent(BaseAgent):
             return None
 
     def _fetch_unread(self, service) -> list:
+        """Descarga mensajes no leídos SIN marcarlos todavía. El marcado
+        ocurre en _mark_read() tras el procesamiento exitoso."""
         try:
             response = service.users().messages().list(
                 userId='me', q='is:unread', maxResults=50
@@ -188,15 +196,20 @@ class EmailIntelligenceAgent(BaseAgent):
                         metadataHeaders=['From', 'To', 'Subject', 'Message-ID']
                     ).execute()
                     result.append(m)
-                    # Marcar como leído
-                    service.users().messages().modify(
-                        userId='me', id=mid, body={'removeLabelIds': ['UNREAD']}
-                    ).execute()
                 except Exception:
                     pass
             return result
         except Exception:
             return []
+
+    def _mark_read(self, service, msg_id: str):
+        """Marca un mensaje como leído. Llamar solo tras procesamiento exitoso."""
+        try:
+            service.users().messages().modify(
+                userId='me', id=msg_id, body={'removeLabelIds': ['UNREAD']}
+            ).execute()
+        except Exception:
+            pass
 
     def _process_message(self, msg_data: dict, cuenta: str, service, db) -> str:
         from app.models.inteligencia import EmailEvento, Oportunidad

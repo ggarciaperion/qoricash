@@ -383,9 +383,15 @@ class MailAgent(BaseAgent):
                               ~Prospecto.estado_email.in_(_EXCLUDE_EMAIL_EST),
                               Prospecto.email.isnot(None),
                               Prospecto.email != '',
+                              # Respetar cooldown de último contacto
                               db.or_(
                                   Prospecto.fecha_ultimo_contacto.is_(None),
                                   Prospecto.fecha_ultimo_contacto <= cutoff,
+                              ),
+                              # Respetar fecha_proximo_contacto si fue programada
+                              db.or_(
+                                  Prospecto.fecha_proximo_contacto.is_(None),
+                                  Prospecto.fecha_proximo_contacto <= hoy_str,
                               ),
                           )
                           .order_by(Prospecto.fecha_ultimo_contacto.asc().nullsfirst())

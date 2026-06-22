@@ -34,10 +34,38 @@ class OutreachAgent(BaseAgent):
         with app.app_context():
             now   = now_peru()
             today = now.date()
-            alerts_created = 0
-            followups      = 0
+            alerts_created  = 0
+            alerts_resolved = 0
+            followups       = 0
 
             bot_user = self._get_bot_user()
+
+            # ── 0. Auto-resolver alertas de "oportunidad en riesgo" ya superadas ──
+            alertas_abiertas = (AgentAlert.query
+                                .filter_by(agent_id=self.agent_id, resolved=False,
+                                           severity='critical')
+                                .all())
+            for alerta in alertas_abiertas:
+                # Extraer ID del prospecto del título: "[ID] Oportunidad en riesgo: ..."
+                import re as _re
+                m = _re.search(r'\[(\d+)\]', alerta.title or '')
+                if not m:
+                    continue
+                pid = int(m.group(1))
+                p = Prospecto.query.get(pid)
+                if not p:
+                    alerta.resolved    = True
+                    alerta.resolved_at = now
+                    alerts_resolved += 1
+                    continue
+                # Resolver si: cambió de estado, o recibió actividad reciente
+                umbral = (today - timedelta(days=_DIAS_SIN_ACTIVIDAD_NEGOCIANDO)).strftime('%Y-%m-%d')
+                ya_activo = (p.estado_comercial != 'negociando' or
+                             (p.fecha_ultimo_contacto and p.fecha_ultimo_contacto > umbral))
+                if ya_activo:
+                    alerta.resolved    = True
+                    alerta.resolved_at = now
+                    alerts_resolved += 1
 
             # ── 1. Oportunidades en riesgo: 'negociando' sin actividad en 3+ días ──
             umbral_negociando = (today - timedelta(days=_DIAS_SIN_ACTIVIDAD_NEGOCIANDO)).strftime('%Y-%m-%d')
@@ -140,7 +168,8 @@ class OutreachAgent(BaseAgent):
 
             msg = (f'Pipeline: {len(en_riesgo)} oportunidades en riesgo · '
                    f'{len(vencidos)} seguimientos vencidos · '
-                   f'{followups} rezagados encolados')
+                   f'{followups} rezagados encolados · '
+                   f'{alerts_resolved} alertas resueltas')
             return {
                 'tasks':   alerts_created + followups,
                 'message': msg,
@@ -148,6 +177,7 @@ class OutreachAgent(BaseAgent):
                     'opportunities_at_risk': len(en_riesgo),
                     'overdue_followups':     len(vencidos),
                     'stale_prospects':       followups,
+                    'alerts_resolved':       alerts_resolved,
                 },
             }
 

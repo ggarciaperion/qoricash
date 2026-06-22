@@ -47,20 +47,38 @@ class DataQualityAgent(BaseAgent):
             invalid_emails = 0
             duplicates = 0
 
-            # 1. Detectar emails con sintaxis inválida
+            # 1. Detectar emails con sintaxis inválida + validación MX
             candidates = (Prospecto.query
                           .filter(Prospecto.estado_email.notin_(['INVALIDO', 'REBOTE', 'NO CONTACTAR']))
                           .filter(Prospecto.email.isnot(None))
                           .limit(2000).all())
 
+            # Caché de dominios ya verificados en este ciclo (evita consultas MX repetidas)
+            _mx_cache: dict = {}
+
             for p in candidates:
-                email = (p.email or '').strip()
+                email = (p.email or '').strip().lower()
                 if not email:
                     continue
+
+                # 1a. Sintaxis
                 if not _valid_email_syntax(email):
                     p.estado_email = 'INVALIDO'
                     invalid_emails += 1
                     fixed += 1
+                    continue
+
+                # 1b. Validación MX (solo para emails aún 'pendiente' — no revalidar los OK)
+                if p.estado_email == 'pendiente':
+                    domain = email.split('@')[-1]
+                    if domain not in _mx_cache:
+                        _mx_cache[domain] = _mx_exists(domain)
+                    if not _mx_cache[domain]:
+                        p.estado_email = 'INVALIDO'
+                        invalid_emails += 1
+                        fixed += 1
+                    else:
+                        p.estado_email = 'ok'  # dominio verificado
 
             # 2. Detectar duplicados exactos (mismo RUC + mismo email)
             from sqlalchemy import func
