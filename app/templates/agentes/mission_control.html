@@ -7,18 +7,18 @@
    MISSION CONTROL — n8n Canvas Layout
 ═══════════════════════════════════════════════════════════════════ */
 .mc-root {
-  background: #0a1120;
+  background: #f8fafc;
   min-height: calc(100vh - 56px);
   display: flex;
   flex-direction: column;
-  color: #e2e8f0;
+  color: #1e293b;
   overflow: hidden;
 }
 
 /* ── Header ────────────────────────────────────────────────────── */
 .mc-header {
-  background: #0d1628;
-  border-bottom: 1px solid rgba(74,222,128,.18);
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
   padding: 9px 18px;
   display: flex;
   align-items: center;
@@ -29,10 +29,10 @@
 .mc-brand {
   display: flex; align-items: center; gap: 9px;
   font-size: .85rem; font-weight: 800;
-  color: #4ade80; letter-spacing: .06em; text-transform: uppercase;
+  color: #0D1B2A; letter-spacing: .06em; text-transform: uppercase;
 }
 .mc-brand-dot {
-  width: 7px; height: 7px; border-radius: 50%; background: #4ade80;
+  width: 7px; height: 7px; border-radius: 50%; background: #16a34a;
   animation: mc-pulse 1.5s ease-in-out infinite;
 }
 @keyframes mc-pulse {
@@ -44,38 +44,38 @@
 }
 .mc-hstat { display: flex; flex-direction: column; align-items: center; }
 .mc-hstat-val {
-  font-size: .95rem; font-weight: 800; color: #4ade80;
+  font-size: .95rem; font-weight: 800; color: #16a34a;
   line-height: 1; font-family: system-ui;
 }
 .mc-hstat-lbl {
-  font-size: .57rem; color: rgba(255,255,255,.28);
+  font-size: .57rem; color: #94a3b8;
   text-transform: uppercase; letter-spacing: .08em; font-family: system-ui;
 }
 .mc-header-actions { display: flex; gap: 7px; align-items: center; }
 .mc-btn {
-  background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1);
-  color: rgba(255,255,255,.55); border-radius: 7px; padding: 5px 11px;
+  background: #f1f5f9; border: 1px solid #e2e8f0;
+  color: #475569; border-radius: 7px; padding: 5px 11px;
   font-size: .73rem; font-weight: 600; cursor: pointer; text-decoration: none;
   display: flex; align-items: center; gap: 5px; transition: all .15s;
   font-family: system-ui;
 }
-.mc-btn:hover { background: rgba(255,255,255,.1); color: #fff; border-color: rgba(255,255,255,.25); text-decoration: none; }
-.mc-clock { font-size: .7rem; color: rgba(255,255,255,.28); font-family: 'Courier New', monospace; }
+.mc-btn:hover { background: #e2e8f0; color: #0D1B2A; border-color: #cbd5e1; text-decoration: none; }
+.mc-clock { font-size: .7rem; color: #94a3b8; font-family: 'Courier New', monospace; }
 
 /* ── Body ──────────────────────────────────────────────────────── */
 .mc-body { flex: 1; display: flex; overflow: hidden; min-height: 0; }
 
 /* ── Canvas ────────────────────────────────────────────────────── */
 .n8n-canvas-wrapper {
-  flex: 1; overflow: auto; background: #07101d; position: relative;
-  background-image: radial-gradient(rgba(255,255,255,.025) 1px, transparent 1px);
+  flex: 1; overflow: auto; background: #f1f5f9; position: relative;
+  background-image: radial-gradient(rgba(0,0,0,.06) 1px, transparent 1px);
   background-size: 22px 22px;
 }
 .n8n-canvas-wrapper::before {
   content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 0;
   background-image:
-    linear-gradient(rgba(255,255,255,.012) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,.012) 1px, transparent 1px);
+    linear-gradient(rgba(0,0,0,.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,0,0,.03) 1px, transparent 1px);
   background-size: 88px 88px;
 }
 .n8n-canvas {
@@ -106,24 +106,25 @@
 /* ── Node ──────────────────────────────────────────────────────── */
 .n8n-node {
   position: absolute; width: 200px;
-  background: #111c30; border: 1.5px solid rgba(255,255,255,.1);
+  background: #fff; border: 1.5px solid #e2e8f0;
   border-radius: 11px; overflow: visible;
+  box-shadow: 0 2px 8px rgba(0,0,0,.07);
   transition: border-color .2s, box-shadow .2s; z-index: 10;
 }
 .n8n-node:hover {
-  border-color: rgba(255,255,255,.22);
-  box-shadow: 0 6px 28px rgba(0,0,0,.5), 0 0 0 1px rgba(74,222,128,.08);
+  border-color: #cbd5e1;
+  box-shadow: 0 8px 28px rgba(0,0,0,.12), 0 0 0 1px rgba(22,163,74,.1);
   z-index: 20;
 }
-.n8n-node.status-running { border-color: rgba(74,222,128,.38); box-shadow: 0 0 18px rgba(74,222,128,.08); }
-.n8n-node.status-error   { border-color: rgba(248,113,113,.38); box-shadow: 0 0 18px rgba(248,113,113,.08); }
-.n8n-node.status-warning { border-color: rgba(251,191,36,.35); }
+.n8n-node.status-running { border-color: #86efac; box-shadow: 0 2px 8px rgba(0,0,0,.07), 0 0 16px rgba(22,163,74,.1); }
+.n8n-node.status-error   { border-color: #fca5a5; box-shadow: 0 2px 8px rgba(0,0,0,.07), 0 0 16px rgba(220,38,38,.08); }
+.n8n-node.status-warning { border-color: #fde68a; }
 
 /* Node head */
 .n8n-head {
   display: flex; align-items: center; gap: 8px;
   padding: 10px 11px 8px;
-  border-bottom: 1px solid rgba(255,255,255,.06);
+  border-bottom: 1px solid #f1f5f9;
 }
 .n8n-icon {
   width: 28px; height: 28px; border-radius: 7px;
@@ -139,16 +140,16 @@
 .ic-navy   { background: rgba(30,58,138,.3);  color: #93c5fd; }
 
 .n8n-name {
-  font-size: .76rem; font-weight: 700; color: #f1f5f9;
+  font-size: .76rem; font-weight: 700; color: #0f172a;
   font-family: system-ui; flex: 1;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .n8n-sdot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
-.sdot-idle    { background: #4b5563; }
-.sdot-running { background: #4ade80; animation: sdpulse 1s ease-in-out infinite; }
-.sdot-error   { background: #f87171; animation: sdpulse .7s ease-in-out infinite; }
-.sdot-warning { background: #fbbf24; animation: sdpulse .9s ease-in-out infinite; }
-.sdot-stopped { background: #374151; }
+.sdot-idle    { background: #94a3b8; }
+.sdot-running { background: #16a34a; animation: sdpulse 1s ease-in-out infinite; }
+.sdot-error   { background: #dc2626; animation: sdpulse .7s ease-in-out infinite; }
+.sdot-warning { background: #d97706; animation: sdpulse .9s ease-in-out infinite; }
+.sdot-stopped { background: #cbd5e1; }
 @keyframes sdpulse {
   0%,100% { opacity:1; }
   50%      { opacity:.4; }
@@ -157,33 +158,33 @@
 /* Node metrics */
 .n8n-metrics {
   display: flex; padding: 7px 11px;
-  border-bottom: 1px solid rgba(255,255,255,.05);
+  border-bottom: 1px solid #f1f5f9;
 }
 .n8n-metric { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 1px; }
-.n8n-metric + .n8n-metric { border-left: 1px solid rgba(255,255,255,.05); }
-.n8n-mval { font-size: .8rem; font-weight: 700; color: #e2e8f0; font-family: system-ui; line-height: 1; }
-.n8n-mlbl { font-size: .57rem; color: rgba(255,255,255,.22); text-transform: uppercase; letter-spacing: .06em; font-family: system-ui; }
+.n8n-metric + .n8n-metric { border-left: 1px solid #f1f5f9; }
+.n8n-mval { font-size: .8rem; font-weight: 700; color: #1e293b; font-family: system-ui; line-height: 1; }
+.n8n-mlbl { font-size: .57rem; color: #94a3b8; text-transform: uppercase; letter-spacing: .06em; font-family: system-ui; }
 
 /* Node actions */
 .n8n-actions { display: flex; gap: 4px; padding: 6px 7px; }
 .n8n-btn {
-  flex: 1; background: transparent; border: 1px solid rgba(255,255,255,.08);
-  color: rgba(255,255,255,.38); border-radius: 5px; padding: 3px 3px;
+  flex: 1; background: #f8fafc; border: 1px solid #e2e8f0;
+  color: #64748b; border-radius: 5px; padding: 3px 3px;
   font-size: .61rem; font-weight: 600; cursor: pointer;
   display: flex; align-items: center; justify-content: center; gap: 3px;
   transition: all .14s; font-family: system-ui; white-space: nowrap;
 }
-.n8n-btn:hover { background: rgba(255,255,255,.08); color: #fff; border-color: rgba(255,255,255,.2); }
+.n8n-btn:hover { background: #e2e8f0; color: #0f172a; border-color: #cbd5e1; }
 .n8n-btn:disabled { opacity: .5; cursor: not-allowed; }
-.n8n-btn.run   { border-color: rgba(74,222,128,.25); color: #4ade80; }
-.n8n-btn.run:hover   { background: rgba(74,222,128,.1); }
-.n8n-btn.pause { border-color: rgba(251,191,36,.25); color: #fbbf24; }
-.n8n-btn.pause:hover { background: rgba(251,191,36,.1); }
+.n8n-btn.run   { background: #f0fdf4; border-color: #bbf7d0; color: #16a34a; }
+.n8n-btn.run:hover   { background: #dcfce7; border-color: #86efac; }
+.n8n-btn.pause { background: #fffbeb; border-color: #fde68a; color: #d97706; }
+.n8n-btn.pause:hover { background: #fef3c7; }
 
 /* Ports */
 .n8n-port {
   position: absolute; width: 11px; height: 11px; border-radius: 50%;
-  background: #1a2a42; border: 2px solid rgba(255,255,255,.22); z-index: 15;
+  background: #fff; border: 2px solid #cbd5e1; z-index: 15;
 }
 .port-left   { left: -7px; top: 50%; transform: translateY(-50%); }
 .port-right  { right: -7px; top: 50%; transform: translateY(-50%); }
@@ -192,8 +193,8 @@
 
 /* ── Sidebar ───────────────────────────────────────────────────── */
 .mc-sidebar {
-  width: 292px; flex-shrink: 0; background: #0c1525;
-  border-left: 1px solid rgba(255,255,255,.05);
+  width: 292px; flex-shrink: 0; background: #fff;
+  border-left: 1px solid #e2e8f0;
   display: flex; flex-direction: column; overflow: hidden;
 }
 
@@ -201,26 +202,26 @@
 .mc-kpis {
   padding: 11px 11px 10px;
   display: grid; grid-template-columns: 1fr 1fr; gap: 7px;
-  border-bottom: 1px solid rgba(255,255,255,.05); flex-shrink: 0;
+  border-bottom: 1px solid #f1f5f9; flex-shrink: 0;
 }
 .kpi-tile {
-  background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.06);
+  background: #f8fafc; border: 1px solid #e2e8f0;
   border-radius: 8px; padding: 8px 10px;
 }
-.kpi-v { font-size: 1.15rem; font-weight: 800; color: #4ade80; line-height: 1; font-family: system-ui; }
-.kpi-l { font-size: .59rem; color: rgba(255,255,255,.22); text-transform: uppercase; letter-spacing: .06em; font-family: system-ui; margin-top: 3px; }
+.kpi-v { font-size: 1.15rem; font-weight: 800; color: #16a34a; line-height: 1; font-family: system-ui; }
+.kpi-l { font-size: .59rem; color: #94a3b8; text-transform: uppercase; letter-spacing: .06em; font-family: system-ui; margin-top: 3px; }
 
 /* Alerts */
 .mc-alerts-sec {
-  padding: 8px 11px; border-bottom: 1px solid rgba(255,255,255,.05); flex-shrink: 0;
+  padding: 8px 11px; border-bottom: 1px solid #f1f5f9; flex-shrink: 0;
 }
 .mc-sec-title {
-  font-size: .59rem; font-weight: 700; color: rgba(255,255,255,.2);
+  font-size: .59rem; font-weight: 700; color: #94a3b8;
   text-transform: uppercase; letter-spacing: .1em; font-family: system-ui;
   margin-bottom: 7px; display: flex; align-items: center; justify-content: space-between;
 }
-.mc-sec-title a { color: rgba(255,255,255,.2); text-decoration: none; font-size: .59rem; }
-.mc-sec-title a:hover { color: rgba(255,255,255,.45); }
+.mc-sec-title a { color: #94a3b8; text-decoration: none; font-size: .59rem; }
+.mc-sec-title a:hover { color: #475569; }
 .al-row {
   background: rgba(220,38,38,.06); border: 1px solid rgba(220,38,38,.14);
   border-radius: 6px; padding: 6px 8px; margin-bottom: 5px; font-family: system-ui;
@@ -229,7 +230,7 @@
 .al-title { font-size: .69rem; font-weight: 700; color: #f87171; }
 .al-row.warn .al-title { color: #fbbf24; }
 .al-msg { font-size: .64rem; color: rgba(255,255,255,.38); margin-top: 2px; line-height: 1.3; }
-.ok-badge { font-size: .69rem; color: rgba(74,222,128,.6); display: flex; align-items: center; gap: 5px; font-family: system-ui; }
+.ok-badge { font-size: .69rem; color: #16a34a; display: flex; align-items: center; gap: 5px; font-family: system-ui; }
 
 /* Console */
 .mc-console { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
@@ -239,26 +240,26 @@
 }
 .live-badge {
   display: flex; align-items: center; gap: 4px;
-  font-size: .59rem; color: #4ade80; font-family: system-ui;
+  font-size: .59rem; color: #16a34a; font-family: system-ui;
 }
-.live-dot { width: 5px; height: 5px; border-radius: 50%; background: #4ade80; animation: mc-pulse .9s ease-in-out infinite; }
+.live-dot { width: 5px; height: 5px; border-radius: 50%; background: #16a34a; animation: mc-pulse .9s ease-in-out infinite; }
 .console-body {
   flex: 1; overflow-y: auto; padding: 0 11px 10px;
-  scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.07) transparent;
+  scrollbar-width: thin; scrollbar-color: #e2e8f0 transparent;
 }
 .console-body::-webkit-scrollbar { width: 3px; }
-.console-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,.07); border-radius: 2px; }
+.console-body::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 2px; }
 .log-row {
   display: flex; gap: 6px; padding: 3px 0;
   font-size: .64rem; font-family: 'Courier New', monospace;
-  border-bottom: 1px solid rgba(255,255,255,.02); line-height: 1.4;
+  border-bottom: 1px solid #f8fafc; line-height: 1.4;
 }
-.log-t { color: rgba(255,255,255,.18); flex-shrink: 0; width: 48px; }
-.log-a { color: rgba(255,255,255,.22); flex-shrink: 0; width: 70px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: system-ui; }
-.log-m { color: rgba(255,255,255,.55); flex: 1; word-break: break-all; }
-.log-m.SUCCESS { color: #4ade80; }
-.log-m.ERROR   { color: #f87171; }
-.log-m.WARNING { color: #fbbf24; }
+.log-t { color: #94a3b8; flex-shrink: 0; width: 48px; }
+.log-a { color: #64748b; flex-shrink: 0; width: 70px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: system-ui; }
+.log-m { color: #475569; flex: 1; word-break: break-all; }
+.log-m.SUCCESS { color: #16a34a; }
+.log-m.ERROR   { color: #dc2626; }
+.log-m.WARNING { color: #d97706; }
 
 @media (max-width: 1080px) {
   .mc-body { flex-direction: column; }
@@ -300,7 +301,7 @@
       <div class="mc-brand-dot"></div>
       <i class="bi bi-cpu-fill"></i>
       Mission Control
-      <span style="color:rgba(255,255,255,.22);font-size:.68rem;font-weight:400;letter-spacing:0;text-transform:none;">— Pipeline IA</span>
+      <span style="color:#94a3b8;font-size:.68rem;font-weight:400;letter-spacing:0;text-transform:none;">— Pipeline IA</span>
     </div>
     <div class="mc-header-stats">
       <div class="mc-hstat">
@@ -318,7 +319,7 @@
       {% set running_count = agents|selectattr('status','equalto','running')|list|length %}
       <div class="mc-hstat">
         <div class="mc-hstat-val" id="hdr-running"
-             style="color:{{ '#4ade80' if running_count > 0 else '#94a3b8' }};">{{ running_count }}</div>
+             style="color:{{ '#16a34a' if running_count > 0 else '#94a3b8' }};">{{ running_count }}</div>
         <div class="mc-hstat-lbl">Ejecutando</div>
       </div>
     </div>
@@ -331,7 +332,7 @@
         <i class="bi bi-bar-chart-line"></i> Dashboard
       </a>
       {% if alerts|length > 0 %}
-      <a href="{{ url_for('agentes.alertas') }}" class="mc-btn" style="border-color:rgba(248,113,113,.3);color:#f87171;">
+      <a href="{{ url_for('agentes.alertas') }}" class="mc-btn" style="border-color:#fecaca;color:#dc2626;background:#fef2f2;">
         <i class="bi bi-bell-fill"></i> {{ alerts|length }}
       </a>
       {% endif %}
@@ -347,12 +348,12 @@
 
         <!-- Canvas label -->
         <div style="position:absolute;left:0;top:-22px;font-size:.6rem;
-                    color:rgba(255,255,255,.18);text-transform:uppercase;
+                    color:#94a3b8;text-transform:uppercase;
                     letter-spacing:.1em;font-family:system-ui;font-weight:700;">
           Pipeline de Automatización — {{ agents|length }} agentes
         </div>
         <div style="position:absolute;left:820px;top:245px;font-size:.58rem;
-                    color:rgba(255,255,255,.14);font-family:system-ui;font-style:italic;">
+                    color:#b0bec5;font-family:system-ui;font-style:italic;">
           ↩ Ciclo de retorno
         </div>
 
@@ -441,7 +442,7 @@
             </div>
             <div class="n8n-metric">
               <div class="n8n-mval perf-val"
-                   style="{{ 'color:#f87171;' if a and (a.errors_today or 0) > 2 else '' }}">
+                   style="{{ 'color:#dc2626;' if a and (a.errors_today or 0) > 2 else '' }}">
                 {{ (a.performance|round(0)|int)|string ~ '%' if a else '—' }}
               </div>
               <div class="n8n-mlbl">Perf.</div>
@@ -483,15 +484,15 @@
           <div class="kpi-l">Prospectos</div>
         </div>
         <div class="kpi-tile">
-          <div class="kpi-v" id="kpi-clientes" style="color:#60a5fa;">{{ kpis.clientes or 0 }}</div>
+          <div class="kpi-v" id="kpi-clientes" style="color:#2563eb;">{{ kpis.clientes or 0 }}</div>
           <div class="kpi-l">Clientes</div>
         </div>
         <div class="kpi-tile">
-          <div class="kpi-v" id="kpi-rebotes" style="color:#f87171;">{{ kpis.rebotes or 0 }}</div>
+          <div class="kpi-v" id="kpi-rebotes" style="color:#dc2626;">{{ kpis.rebotes or 0 }}</div>
           <div class="kpi-l">Rebotes</div>
         </div>
         <div class="kpi-tile">
-          <div class="kpi-v" id="kpi-conv" style="color:#a78bfa;">{{ kpis.tasa_conversion or 0 }}%</div>
+          <div class="kpi-v" id="kpi-conv" style="color:#7c3aed;">{{ kpis.tasa_conversion or 0 }}%</div>
           <div class="kpi-l">Conversión</div>
         </div>
         <div class="kpi-tile">
