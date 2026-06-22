@@ -190,7 +190,7 @@ def _build_html(nombre_dest: str, nombre_firma: str, cargo: str,
   <tr>
     <td style="padding:24px 36px 8px;">
       <p style="margin:0 0 4px;font-size:11px;font-weight:700;color:#94A3B8;
-                text-transform:uppercase;letter-spacing:1px;">Cuentas bancarias</p>
+                text-transform:uppercase;letter-spacing:1px;">Operamos con los bancos m&aacute;s importantes del Per&uacute;</p>
       <p style="margin:0 0 16px;font-size:13px;color:#475569;">
         QORICASH S.A.C. &nbsp;&middot;&nbsp; RUC 20615113698
         &nbsp;&middot;&nbsp; Regulada por la SBS</p>
@@ -333,8 +333,8 @@ def _build_html_prospeccion(nombre_dest: str, nombre_firma: str, cargo: str,
             'Ayudamos a empresas y personas que regularmente compran y venden d&oacute;lares, '
             'ofreciendo tasas superiores a las de la banca tradicional con procesos '
             '&aacute;giles, seguros y sin comisiones adicionales.<br><br>'
-            'Me pongo en contacto para presentarle nuestra propuesta de valor y '
-            'conocer c&oacute;mo podemos apoyar las operaciones cambiarias de su empresa.'
+            'Me pongo en contacto para presentarle nuestra propuesta de valor y que '
+            'conozca de cerca la rentabilidad que ganan sus operaciones al operar con nosotros.'
         )
     else:
         intro = (
@@ -343,8 +343,8 @@ def _build_html_prospeccion(nombre_dest: str, nombre_firma: str, cargo: str,
             'Ayudamos a empresas y personas que regularmente compran y venden d&oacute;lares, '
             'ofreciendo tasas superiores a las de la banca tradicional con procesos '
             '&aacute;giles, seguros y sin comisiones adicionales.<br><br>'
-            'Nos ponemos en contacto para presentarle nuestra propuesta de valor y '
-            'conocer c&oacute;mo podemos apoyar las operaciones cambiarias de su empresa.'
+            'Nos ponemos en contacto con usted para presentarle nuestra propuesta de valor '
+            'y que conozca de cerca la rentabilidad que ganan sus operaciones al operar con nosotros.'
         )
 
     return f"""\
@@ -413,7 +413,7 @@ def _build_html_prospeccion(nombre_dest: str, nombre_firma: str, cargo: str,
   <tr>
     <td style="padding:0 36px 8px;">
       <p style="margin:0 0 4px;font-size:11px;font-weight:700;color:#94A3B8;
-                text-transform:uppercase;letter-spacing:1px;">Cuentas bancarias</p>
+                text-transform:uppercase;letter-spacing:1px;">Operamos con los bancos m&aacute;s importantes del Per&uacute;</p>
       <p style="margin:0 0 16px;font-size:13px;color:#475569;">
         QORICASH S.A.C. &nbsp;&middot;&nbsp; RUC 20615113698
         &nbsp;&middot;&nbsp; Regulada por la SBS</p>
