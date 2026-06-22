@@ -77,7 +77,7 @@ def _build_html(nombre_dest: str, nombre_firma: str, cargo: str,
     if es_personal:
         intro = (
             f'Mi nombre es <strong>{nombre_firma}</strong>, Presidente de Negocios de '
-            '<strong>QoriCash SAC</strong>, casa de cambio digital inscrita en el '
+            '<strong>QoriCash SAC</strong>, fintech de cambio de divisas digital inscrita en el '
             'Registro de Casas de Cambio de la SBS.<br><br>'
             'Ayudamos a empresas y personas a obtener mejores tasas de cambio que la '
             'banca tradicional, con operaciones r&aacute;pidas, seguras y sin comisiones '
@@ -87,7 +87,7 @@ def _build_html(nombre_dest: str, nombre_firma: str, cargo: str,
         )
     else:
         intro = (
-            'Somos <strong>QoriCash SAC</strong>, casa de cambio digital inscrita en el '
+            'Somos <strong>QoriCash SAC</strong>, fintech de cambio de divisas digital inscrita en el '
             'Registro de Casas de Cambio de la SBS.<br><br>'
             'Ayudamos a empresas y personas a obtener mejores tasas de cambio que la '
             'banca tradicional, con operaciones r&aacute;pidas, seguras y sin comisiones '
@@ -328,21 +328,21 @@ def _build_html_prospeccion(nombre_dest: str, nombre_firma: str, cargo: str,
     if es_personal:
         intro = (
             f'Mi nombre es <strong>{nombre_firma}</strong>, Presidente de Negocios de '
-            '<strong>QoriCash SAC</strong>, casa de cambio digital inscrita en el '
+            '<strong>QoriCash SAC</strong>, fintech de cambio de divisas digital inscrita en el '
             'Registro de Casas de Cambio de la SBS.<br><br>'
-            'Nos especializamos en operaciones de cambio de divisas para empresas y '
-            'personas, ofreciendo tasas superiores a las de la banca tradicional con '
-            'procesos ágiles, seguros y sin comisiones adicionales.<br><br>'
+            'Ayudamos a empresas y personas que regularmente compran y venden d&oacute;lares, '
+            'ofreciendo tasas superiores a las de la banca tradicional con procesos '
+            '&aacute;giles, seguros y sin comisiones adicionales.<br><br>'
             'Me pongo en contacto para presentarle nuestra propuesta de valor y '
             'conocer c&oacute;mo podemos apoyar las operaciones cambiarias de su empresa.'
         )
     else:
         intro = (
-            'Somos <strong>QoriCash SAC</strong>, casa de cambio digital inscrita en el '
+            'Somos <strong>QoriCash SAC</strong>, fintech de cambio de divisas digital inscrita en el '
             'Registro de Casas de Cambio de la SBS.<br><br>'
-            'Nos especializamos en operaciones de cambio de divisas para empresas y '
-            'personas, ofreciendo tasas superiores a las de la banca tradicional con '
-            'procesos &aacute;giles, seguros y sin comisiones adicionales.<br><br>'
+            'Ayudamos a empresas y personas que regularmente compran y venden d&oacute;lares, '
+            'ofreciendo tasas superiores a las de la banca tradicional con procesos '
+            '&aacute;giles, seguros y sin comisiones adicionales.<br><br>'
             'Nos ponemos en contacto para presentarle nuestra propuesta de valor y '
             'conocer c&oacute;mo podemos apoyar las operaciones cambiarias de su empresa.'
         )
