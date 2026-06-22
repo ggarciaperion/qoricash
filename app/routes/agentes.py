@@ -57,7 +57,15 @@ def _require_agent_access(f):
 @login_required
 @_require_agent_access
 def index():
-    return redirect(url_for('agentes.mission_control'))
+    from app.models.agent import AgentStatus, AgentAlert
+    from app.services.agents.executive import ExecutiveAgent
+    agents   = AgentStatus.query.all()
+    alerts_n = AgentAlert.query.filter_by(resolved=False).count()
+    kpis     = ExecutiveAgent.get_kpis()
+    running  = sum(1 for a in agents if a.status == 'running')
+    return render_template('agentes/index.html',
+                           agents=agents, alerts_n=alerts_n,
+                           kpis=kpis, running=running)
 
 
 @agentes_bp.route('/mission-control')
