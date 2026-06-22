@@ -1,0 +1,846 @@
+{% extends "base.html" %}
+{% block title %}Mission Control — Agentes IA{% endblock %}
+
+{% block head %}
+<style>
+/* ═══════════════════════════════════════════════════════════════════════
+   MISSION CONTROL — Centro de Operaciones IA
+═══════════════════════════════════════════════════════════════════════ */
+:root {
+  --navy:  #0D1B2A;
+  --green: #16a34a;
+  --blue:  #2563eb;
+  --amber: #d97706;
+  --red:   #dc2626;
+  --teal:  #0d9488;
+  --purple:#7c3aed;
+  --muted: #64748b;
+  --bdr:   rgba(255,255,255,.08);
+}
+
+.mc-root {
+  background: #070f1a;
+  min-height: 100vh;
+  padding: 0;
+  color: #e2e8f0;
+  font-family: 'Courier New', monospace;
+}
+
+/* ── Header ─────────────────────────────────────────────────────────── */
+.mc-header {
+  background: linear-gradient(135deg, #0a1628 0%, #0f2040 100%);
+  border-bottom: 1px solid rgba(22,163,74,.3);
+  padding: 14px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.mc-title {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #4ade80;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.mc-title-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #4ade80;
+  animation: mc-pulse 1.5s ease-in-out infinite;
+}
+@keyframes mc-pulse {
+  0%,100% { box-shadow: 0 0 0 0 rgba(74,222,128,.6); }
+  50%      { box-shadow: 0 0 0 6px rgba(74,222,128,0); }
+}
+.mc-header-right {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+}
+.mc-stat-pill {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+}
+.mc-stat-pill .val {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #4ade80;
+  line-height: 1;
+}
+.mc-stat-pill .lbl {
+  font-size: .6rem;
+  color: rgba(255,255,255,.35);
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  font-family: system-ui;
+}
+.mc-clock {
+  font-size: .75rem;
+  color: rgba(255,255,255,.4);
+  font-family: system-ui;
+}
+
+/* ── Grid principal ─────────────────────────────────────────────────── */
+.mc-body {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  grid-template-rows: auto 1fr;
+  gap: 0;
+  height: calc(100vh - 60px);
+}
+
+/* ── Pipeline (columna izquierda) ───────────────────────────────────── */
+.mc-pipeline {
+  grid-row: 1 / 3;
+  padding: 20px;
+  overflow-y: auto;
+  border-right: 1px solid rgba(255,255,255,.05);
+}
+
+.pipeline-title {
+  font-size: .65rem;
+  font-weight: 700;
+  color: rgba(255,255,255,.25);
+  text-transform: uppercase;
+  letter-spacing: .12em;
+  margin-bottom: 16px;
+  font-family: system-ui;
+}
+
+/* ── Tarjeta de agente ──────────────────────────────────────────────── */
+.agent-node {
+  position: relative;
+  background: rgba(255,255,255,.03);
+  border: 1px solid rgba(255,255,255,.07);
+  border-radius: 12px;
+  padding: 16px 18px;
+  margin-bottom: 4px;
+  transition: border-color .2s, background .2s;
+  cursor: default;
+}
+.agent-node:hover {
+  background: rgba(255,255,255,.06);
+  border-color: rgba(255,255,255,.15);
+}
+.agent-node.status-running {
+  border-color: rgba(34,197,94,.4);
+  background: rgba(34,197,94,.04);
+}
+.agent-node.status-error {
+  border-color: rgba(220,38,38,.4);
+  background: rgba(220,38,38,.04);
+}
+.agent-node.status-warning {
+  border-color: rgba(217,119,6,.4);
+  background: rgba(217,119,6,.04);
+}
+.agent-node.status-stopped {
+  opacity: .5;
+}
+
+.agent-node-inner {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.agent-icon-wrap {
+  position: relative;
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+}
+.agent-icon {
+  width: 42px; height: 42px;
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.1rem;
+}
+.icon-blue   { background: rgba(37,99,235,.25);  color: #60a5fa; }
+.icon-green  { background: rgba(22,163,74,.25);  color: #4ade80; }
+.icon-purple { background: rgba(124,58,237,.25); color: #a78bfa; }
+.icon-amber  { background: rgba(217,119,6,.25);  color: #fbbf24; }
+.icon-red    { background: rgba(220,38,38,.25);  color: #f87171; }
+.icon-teal   { background: rgba(13,148,136,.25); color: #2dd4bf; }
+.icon-navy   { background: rgba(30,58,138,.3);   color: #93c5fd; }
+
+/* Indicador de estado (punto animado sobre el ícono) */
+.status-dot {
+  position: absolute;
+  bottom: 2px; right: 2px;
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  border: 2px solid #070f1a;
+}
+.dot-idle     { background: #64748b; }
+.dot-running  { background: #4ade80; animation: blink-green 1s ease-in-out infinite; }
+.dot-warning  { background: #fbbf24; animation: blink-amber .8s ease-in-out infinite; }
+.dot-error    { background: #f87171; animation: blink-red .6s ease-in-out infinite; }
+.dot-stopped  { background: #374151; }
+
+@keyframes blink-green { 0%,100%{box-shadow:0 0 0 0 rgba(74,222,128,.7)} 50%{box-shadow:0 0 0 4px rgba(74,222,128,0)} }
+@keyframes blink-amber { 0%,100%{box-shadow:0 0 0 0 rgba(251,191,36,.7)} 50%{box-shadow:0 0 0 4px rgba(251,191,36,0)} }
+@keyframes blink-red   { 0%,100%{box-shadow:0 0 0 0 rgba(248,113,113,.7)} 50%{box-shadow:0 0 0 4px rgba(248,113,113,0)} }
+
+.agent-info { flex: 1; min-width: 0; }
+.agent-name-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.agent-name {
+  font-size: .85rem;
+  font-weight: 700;
+  color: #f1f5f9;
+  font-family: system-ui;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.agent-status-badge {
+  font-size: .62rem;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 20px;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  flex-shrink: 0;
+  font-family: system-ui;
+}
+.badge-idle    { background: rgba(100,116,139,.2); color: #94a3b8; }
+.badge-running { background: rgba(74,222,128,.15); color: #4ade80; }
+.badge-error   { background: rgba(248,113,113,.15);color: #f87171; }
+.badge-warning { background: rgba(251,191,36,.15); color: #fbbf24; }
+.badge-stopped { background: rgba(55,65,81,.2);    color: #6b7280; }
+
+.agent-desc {
+  font-size: .72rem;
+  color: rgba(255,255,255,.35);
+  font-family: system-ui;
+  margin-bottom: 8px;
+  line-height: 1.4;
+}
+.agent-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.agent-meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.agent-meta-item .key {
+  font-size: .58rem;
+  color: rgba(255,255,255,.25);
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  font-family: system-ui;
+}
+.agent-meta-item .val {
+  font-size: .72rem;
+  color: rgba(255,255,255,.7);
+  font-family: system-ui;
+}
+.agent-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+}
+.btn-mc {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,.12);
+  color: rgba(255,255,255,.5);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: .68rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .15s;
+  font-family: system-ui;
+  display: flex; align-items: center; gap: 4px;
+}
+.btn-mc:hover {
+  border-color: rgba(255,255,255,.3);
+  color: #fff;
+  background: rgba(255,255,255,.06);
+}
+.btn-mc.btn-run  { border-color: rgba(74,222,128,.3); color: #4ade80; }
+.btn-mc.btn-run:hover { background: rgba(74,222,128,.1); }
+.btn-mc.btn-pause { border-color: rgba(251,191,36,.3); color: #fbbf24; }
+.btn-mc.btn-reset { border-color: rgba(147,197,253,.3); color: #93c5fd; }
+
+/* ── Conector entre agentes ─────────────────────────────────────────── */
+.pipeline-connector {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 0 0 4px 28px;
+  gap: 0;
+}
+.connector-line {
+  width: 2px;
+  height: 18px;
+  background: linear-gradient(180deg, rgba(74,222,128,.4) 0%, rgba(74,222,128,.1) 100%);
+  position: relative;
+  overflow: hidden;
+}
+.connector-line::after {
+  content: '';
+  position: absolute;
+  top: -100%;
+  left: 0;
+  width: 100%;
+  height: 50%;
+  background: linear-gradient(180deg, transparent 0%, rgba(74,222,128,.8) 50%, transparent 100%);
+  animation: flow-down 1.5s linear infinite;
+}
+@keyframes flow-down {
+  from { top: -100%; }
+  to   { top: 200%; }
+}
+.connector-arrow {
+  color: rgba(74,222,128,.6);
+  font-size: .7rem;
+  line-height: 1;
+}
+
+/* ── Panel derecho (logs + alertas) ─────────────────────────────────── */
+.mc-sidebar {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* KPI bar */
+.mc-kpis {
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(255,255,255,.05);
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+.kpi-card {
+  background: rgba(255,255,255,.03);
+  border: 1px solid rgba(255,255,255,.06);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+.kpi-val {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: #4ade80;
+  line-height: 1;
+  font-family: system-ui;
+}
+.kpi-lbl {
+  font-size: .62rem;
+  color: rgba(255,255,255,.3);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  font-family: system-ui;
+  margin-top: 3px;
+}
+
+/* Alertas activas */
+.mc-alerts {
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(255,255,255,.05);
+  flex-shrink: 0;
+}
+.mc-alerts-title {
+  font-size: .62rem;
+  font-weight: 700;
+  color: rgba(255,255,255,.25);
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  font-family: system-ui;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.alert-item {
+  background: rgba(220,38,38,.08);
+  border: 1px solid rgba(220,38,38,.2);
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin-bottom: 6px;
+  font-size: .7rem;
+  font-family: system-ui;
+}
+.alert-item.warn { background: rgba(217,119,6,.08); border-color: rgba(217,119,6,.2); }
+.alert-item.info { background: rgba(37,99,235,.08); border-color: rgba(37,99,235,.2); }
+.alert-item-title { font-weight: 700; color: #f87171; font-size: .7rem; }
+.alert-item.warn .alert-item-title { color: #fbbf24; }
+.alert-item.info .alert-item-title { color: #60a5fa; }
+.alert-item-msg { color: rgba(255,255,255,.5); font-size: .67rem; margin-top: 2px; line-height: 1.4; }
+.no-alerts { font-size: .72rem; color: rgba(74,222,128,.6); font-family: system-ui;
+             display: flex; align-items: center; gap: 6px; }
+
+/* Consola de actividad */
+.mc-console {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.mc-console-title {
+  padding: 10px 14px 6px;
+  font-size: .62rem;
+  font-weight: 700;
+  color: rgba(255,255,255,.25);
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  font-family: system-ui;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.console-live {
+  display: flex; align-items: center; gap: 5px;
+  font-size: .62rem; color: #4ade80;
+}
+.console-live-dot {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: #4ade80;
+  animation: mc-pulse 1s ease-in-out infinite;
+}
+
+.console-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 14px 14px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,.1) transparent;
+}
+.console-body::-webkit-scrollbar { width: 3px; }
+.console-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); border-radius: 2px; }
+
+.log-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(255,255,255,.03);
+  font-size: .68rem;
+  font-family: 'Courier New', monospace;
+  line-height: 1.4;
+}
+.log-time { color: rgba(255,255,255,.25); flex-shrink: 0; width: 55px; }
+.log-agent { color: rgba(255,255,255,.3); flex-shrink: 0; width: 90px;
+             white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: system-ui; }
+.log-msg { color: rgba(255,255,255,.7); flex: 1; word-break: break-word; }
+.log-msg.level-SUCCESS { color: #4ade80; }
+.log-msg.level-ERROR   { color: #f87171; }
+.log-msg.level-WARNING { color: #fbbf24; }
+.log-msg.level-INFO    { color: rgba(255,255,255,.7); }
+
+@media (max-width: 900px) {
+  .mc-body { grid-template-columns: 1fr; grid-template-rows: auto auto; }
+  .mc-pipeline { border-right: none; border-bottom: 1px solid rgba(255,255,255,.05); }
+  .mc-sidebar  { height: 400px; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mc-root">
+
+  <!-- ── HEADER ─────────────────────────────────────────────────── -->
+  <div class="mc-header">
+    <div class="mc-title">
+      <div class="mc-title-dot"></div>
+      <i class="bi bi-cpu-fill" style="font-size:1.1rem;"></i>
+      MISSION CONTROL — Agentes IA
+    </div>
+    <div class="mc-header-right">
+      <div class="mc-stat-pill">
+        <span class="val" id="hdr-prospectos">{{ kpis.total_prospectos or 0 }}</span>
+        <span class="lbl">Prospectos</span>
+      </div>
+      <div class="mc-stat-pill">
+        <span class="val" id="hdr-contactados">{{ kpis.contactados or 0 }}</span>
+        <span class="lbl">Contactados</span>
+      </div>
+      <div class="mc-stat-pill">
+        <span class="val" id="hdr-opps">{{ kpis.oportunidades_semana or 0 }}</span>
+        <span class="lbl">Oport./semana</span>
+      </div>
+      <div class="mc-stat-pill">
+        <span class="val" id="hdr-emails">{{ kpis.emails_sent_hoy or 0 }}</span>
+        <span class="lbl">Emails hoy</span>
+      </div>
+      <div class="mc-clock" id="mc-clock">—</div>
+      <a href="{{ url_for('agentes.dashboard') }}" class="btn-mc" style="margin-left:8px;">
+        <i class="bi bi-grid"></i> Dashboard
+      </a>
+      <a href="{{ url_for('agentes.alertas') }}" class="btn-mc">
+        <i class="bi bi-bell"></i>
+        {% set n_alerts = alerts|length %}
+        {% if n_alerts > 0 %}<span style="color:#f87171;">{{ n_alerts }}</span>{% endif %}
+      </a>
+    </div>
+  </div>
+
+  <!-- ── BODY ───────────────────────────────────────────────────── -->
+  <div class="mc-body">
+
+    <!-- ═══ PIPELINE (izquierda) ══════════════════════════════════ -->
+    <div class="mc-pipeline">
+      <div class="pipeline-title">
+        <i class="bi bi-diagram-3 me-1"></i>Pipeline de Automatización
+      </div>
+
+      {% set agent_order = [
+        'lead_discovery', 'data_quality', 'mail_agent',
+        'email_intelligence', 'outreach', 'supervisor', 'executive'
+      ] %}
+      {% set agent_map = {} %}
+      {% for a in agents %}{% set _ = agent_map.update({a.agent_id: a}) %}{% endfor %}
+
+      {% for agent_id in agent_order %}
+        {% set a = agent_map.get(agent_id) %}
+        {% if a %}
+        <div class="agent-node status-{{ a.status }}"
+             id="node-{{ a.agent_id }}"
+             data-agent="{{ a.agent_id }}">
+          <div class="agent-node-inner">
+            <div class="agent-icon-wrap">
+              <div class="agent-icon icon-{{ a.color }}">
+                <i class="bi {{ a.icon }}"></i>
+              </div>
+              <div class="status-dot dot-{{ a.status }}"></div>
+            </div>
+            <div class="agent-info">
+              <div class="agent-name-row">
+                <span class="agent-name">{{ a.name }}</span>
+                <span class="agent-status-badge badge-{{ a.status }}">{{ a.status }}</span>
+              </div>
+              <div class="agent-desc">{{ a.description }}</div>
+              <div class="agent-meta">
+                <div class="agent-meta-item">
+                  <span class="key">Último run</span>
+                  <span class="val last-run-val">{{ a.last_run.strftime('%H:%M:%S') if a.last_run else '—' }}</span>
+                </div>
+                <div class="agent-meta-item">
+                  <span class="key">Próximo</span>
+                  <span class="val next-run-val">{{ a.next_run.strftime('%H:%M') if a.next_run else '—' }}</span>
+                </div>
+                <div class="agent-meta-item">
+                  <span class="key">Tareas hoy</span>
+                  <span class="val tasks-val">{{ a.tasks_today or 0 }}</span>
+                </div>
+                <div class="agent-meta-item">
+                  <span class="key">Errores</span>
+                  <span class="val" style="color:{{ '#f87171' if (a.errors_today or 0) > 0 else 'rgba(255,255,255,.7)' }};">
+                    {{ a.errors_today or 0 }}
+                  </span>
+                </div>
+                <div class="agent-meta-item">
+                  <span class="key">Perf.</span>
+                  <span class="val perf-val">{{ a.performance|round(0)|int }}%</span>
+                </div>
+              </div>
+              <div class="agent-actions">
+                <button class="btn-mc btn-run"
+                        onclick="triggerAgent('{{ a.agent_id }}', this)">
+                  <i class="bi bi-play-fill"></i> Ejecutar
+                </button>
+                {% if a.enabled %}
+                <button class="btn-mc btn-pause"
+                        onclick="pauseAgent('{{ a.agent_id }}', this)">
+                  <i class="bi bi-pause-fill"></i> Pausar
+                </button>
+                {% else %}
+                <button class="btn-mc"
+                        style="border-color:rgba(74,222,128,.3);color:#4ade80;"
+                        onclick="resumeAgent('{{ a.agent_id }}', this)">
+                  <i class="bi bi-play-circle"></i> Reanudar
+                </button>
+                {% endif %}
+                <button class="btn-mc btn-reset"
+                        onclick="resetAgent('{{ a.agent_id }}', this)">
+                  <i class="bi bi-arrow-counterclockwise"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {% if not loop.last %}
+        <div class="pipeline-connector">
+          <div class="connector-line"></div>
+          <div class="connector-arrow"><i class="bi bi-caret-down-fill"></i></div>
+          <div class="connector-line"></div>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <!-- agente no registrado aún -->
+        <div class="agent-node status-stopped">
+          <div class="agent-node-inner">
+            <div class="agent-icon-wrap">
+              <div class="agent-icon icon-navy"><i class="bi bi-robot"></i></div>
+              <div class="status-dot dot-stopped"></div>
+            </div>
+            <div class="agent-info">
+              <div class="agent-name-row">
+                <span class="agent-name">{{ agent_id }}</span>
+                <span class="agent-status-badge badge-stopped">pendiente</span>
+              </div>
+              <div class="agent-desc">Iniciando primer ciclo...</div>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+      {% endfor %}
+
+    </div><!-- /mc-pipeline -->
+
+    <!-- ═══ SIDEBAR (derecha) ════════════════════════════════════ -->
+    <div class="mc-sidebar">
+
+      <!-- KPIs -->
+      <div class="mc-kpis">
+        <div class="kpi-card">
+          <div class="kpi-val" id="kpi-prospectos">{{ kpis.total_prospectos or 0 }}</div>
+          <div class="kpi-lbl">Prospectos totales</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-val" id="kpi-clientes">{{ kpis.clientes or 0 }}</div>
+          <div class="kpi-lbl">Clientes</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-val" id="kpi-rebotes">{{ kpis.rebotes or 0 }}</div>
+          <div class="kpi-lbl">Rebotes</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-val" id="kpi-conv" style="color:#60a5fa;">{{ kpis.tasa_conversion or 0 }}%</div>
+          <div class="kpi-lbl">Tasa conversión</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-val" id="kpi-opps">{{ kpis.oportunidades_semana or 0 }}</div>
+          <div class="kpi-lbl">Opor. esta semana</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-val" id="kpi-emails">{{ kpis.emails_sent_hoy or 0 }}</div>
+          <div class="kpi-lbl">Emails enviados hoy</div>
+        </div>
+      </div>
+
+      <!-- Alertas activas -->
+      <div class="mc-alerts">
+        <div class="mc-alerts-title">
+          <span><i class="bi bi-exclamation-triangle me-1"></i>Alertas Activas</span>
+          <a href="{{ url_for('agentes.alertas') }}"
+             style="font-size:.62rem;color:rgba(255,255,255,.3);text-decoration:none;">
+            Ver todas →
+          </a>
+        </div>
+        {% if alerts %}
+          {% for alert in alerts[:3] %}
+          <div class="alert-item {{ 'warn' if alert.severity == 'warning' else '' }}"
+               id="alert-{{ alert.id }}">
+            <div class="alert-item-title">{{ alert.title }}</div>
+            <div class="alert-item-msg">{{ alert.message[:100] }}</div>
+          </div>
+          {% endfor %}
+        {% else %}
+          <div class="no-alerts">
+            <i class="bi bi-check-circle-fill"></i> Todo OK — sin alertas activas
+          </div>
+        {% endif %}
+      </div>
+
+      <!-- Consola de actividad en tiempo real -->
+      <div class="mc-console">
+        <div class="mc-console-title">
+          <span><i class="bi bi-terminal me-1"></i>Actividad en Tiempo Real</span>
+          <div class="console-live">
+            <div class="console-live-dot"></div> LIVE
+          </div>
+        </div>
+        <div class="console-body" id="console-body">
+          {% for log in recent_logs %}
+          <div class="log-line">
+            <span class="log-time">{{ log.created_at.strftime('%H:%M:%S') if log.created_at else '' }}</span>
+            <span class="log-agent">{{ log.agent_id }}</span>
+            <span class="log-msg level-{{ log.level }}">{{ log.message[:120] }}</span>
+          </div>
+          {% else %}
+          <div class="log-line">
+            <span class="log-msg level-INFO" style="color:rgba(255,255,255,.25);">
+              Esperando actividad de los agentes...
+            </span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+    </div><!-- /mc-sidebar -->
+  </div><!-- /mc-body -->
+</div><!-- /mc-root -->
+{% endblock %}
+
+{% block scripts %}
+<script>
+const CSRF = document.querySelector('meta[name="csrf-token"]')?.content || '';
+
+/* ── Reloj ───────────────────────────────────────────────────────── */
+function updateClock() {
+  const now = new Date();
+  document.getElementById('mc-clock').textContent =
+    now.toLocaleTimeString('es-PE', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+/* ── Socket.IO ───────────────────────────────────────────────────── */
+const socket = io({ transports: ['polling', 'websocket'] });
+
+socket.on('agent_status_update', function(data) {
+  updateAgentNode(data);
+});
+
+socket.on('agent_log', function(data) {
+  appendLog(data);
+});
+
+socket.on('executive_kpis', function(kpis) {
+  updateKPIs(kpis);
+});
+
+/* ── Actualizar tarjeta de agente ───────────────────────────────── */
+function updateAgentNode(data) {
+  const node = document.getElementById('node-' + data.agent_id);
+  if (!node) return;
+
+  // Status classes
+  node.className = 'agent-node status-' + data.status;
+
+  // Badge
+  const badge = node.querySelector('.agent-status-badge');
+  if (badge) {
+    badge.className = 'agent-status-badge badge-' + data.status;
+    badge.textContent = data.status;
+  }
+
+  // Status dot
+  const dot = node.querySelector('.status-dot');
+  if (dot) {
+    dot.className = 'status-dot dot-' + data.status;
+  }
+
+  // Métricas
+  const tr = node.querySelector('.tasks-val');
+  if (tr) tr.textContent = data.tasks_today;
+
+  const pr = node.querySelector('.perf-val');
+  if (pr) pr.textContent = data.performance + '%';
+
+  const lr = node.querySelector('.last-run-val');
+  if (lr && data.last_run_iso) {
+    const d = new Date(data.last_run_iso);
+    lr.textContent = d.toLocaleTimeString('es-PE', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  }
+}
+
+/* ── Agregar log a la consola ───────────────────────────────────── */
+function appendLog(data) {
+  const body = document.getElementById('console-body');
+  if (!body) return;
+
+  const line = document.createElement('div');
+  line.className = 'log-line';
+  line.innerHTML =
+    `<span class="log-time">${data.time || ''}</span>` +
+    `<span class="log-agent">${data.agent_id || ''}</span>` +
+    `<span class="log-msg level-${data.level || 'INFO'}">${(data.message || '').substring(0, 120)}</span>`;
+
+  body.insertBefore(line, body.firstChild);
+
+  // Limitar a 200 líneas en pantalla
+  while (body.children.length > 200) {
+    body.removeChild(body.lastChild);
+  }
+}
+
+/* ── Actualizar KPIs ─────────────────────────────────────────────── */
+function updateKPIs(kpis) {
+  const map = {
+    'kpi-prospectos': kpis.total_prospectos,
+    'kpi-clientes':   kpis.clientes,
+    'kpi-rebotes':    kpis.rebotes,
+    'kpi-conv':       (kpis.tasa_conversion || 0) + '%',
+    'kpi-opps':       kpis.oportunidades_semana,
+    'kpi-emails':     kpis.emails_sent_hoy,
+    'hdr-prospectos': kpis.total_prospectos,
+    'hdr-contactados':kpis.contactados,
+    'hdr-opps':       kpis.oportunidades_semana,
+    'hdr-emails':     kpis.emails_sent_hoy,
+  };
+  for (const [id, val] of Object.entries(map)) {
+    const el = document.getElementById(id);
+    if (el && val !== undefined) el.textContent = val;
+  }
+}
+
+/* ── Control de agentes ─────────────────────────────────────────── */
+async function triggerAgent(agentId, btn) {
+  btn.disabled = true;
+  btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Ejecutando...';
+  try {
+    const r = await fetch(`/agentes/api/trigger/${agentId}`, {method:'POST'});
+    const d = await r.json();
+    btn.innerHTML = '<i class="bi bi-check-lg"></i> Listo';
+    setTimeout(() => {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-play-fill"></i> Ejecutar';
+    }, 3000);
+  } catch(e) {
+    btn.innerHTML = '<i class="bi bi-x-lg"></i> Error';
+    setTimeout(() => {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-play-fill"></i> Ejecutar';
+    }, 2000);
+  }
+}
+
+async function pauseAgent(agentId, btn) {
+  const r = await fetch(`/agentes/api/pause/${agentId}`, {method:'POST'});
+  if (r.ok) location.reload();
+}
+
+async function resumeAgent(agentId, btn) {
+  const r = await fetch(`/agentes/api/resume/${agentId}`, {method:'POST'});
+  if (r.ok) location.reload();
+}
+
+async function resetAgent(agentId, btn) {
+  const r = await fetch(`/agentes/api/reset/${agentId}`, {method:'POST'});
+  if (r.ok) {
+    btn.innerHTML = '<i class="bi bi-check-lg"></i>';
+    setTimeout(() => btn.innerHTML = '<i class="bi bi-arrow-counterclockwise"></i>', 2000);
+  }
+}
+
+/* ── Polling de estado cada 15s (fallback si SocketIO falla) ─── */
+async function pollStatus() {
+  try {
+    const r = await fetch('/agentes/api/status');
+    const agents = await r.json();
+    agents.forEach(updateAgentNode);
+  } catch(e) {}
+}
+setInterval(pollStatus, 15000);
+</script>
+{% endblock %}

@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Prospección — Agentes IA{% endblock %}
+{% block content %}
+<div style="padding:16px 20px;max-width:900px;margin:0 auto;">
+  <div style="background:#0D1B2A;border-radius:10px;padding:14px 20px;margin-bottom:18px;
+    display:flex;justify-content:space-between;align-items:center;">
+    <div style="font-size:1.1rem;font-weight:800;color:#fff;">
+      <i class="bi bi-person-lines-fill me-2"></i>Métricas de Prospección
+    </div>
+    <a href="{{ url_for('agentes.mission_control') }}" class="btn btn-sm btn-outline-light">Mission Control</a>
+  </div>
+  <div class="row g-3 mb-4">
+    {% for key, val, lbl, color in [
+      ('total', stats.total, 'Prospectos Totales', '#16a34a'),
+      ('contactados', stats.contactados, 'Contactados', '#2563eb'),
+      ('sin_contacto', stats.sin_contacto, 'Sin Contactar', '#d97706'),
+      ('clientes', stats.clientes, 'Clientes', '#16a34a'),
+      ('negociando', stats.negociando, 'Negociando', '#7c3aed'),
+      ('rebotes', stats.rebotes, 'Rebotes', '#dc2626'),
+      ('no_contactar', stats.no_contactar, 'No Contactar', '#64748b'),
+      ('emails_hoy', stats.emails_hoy, 'Emails Enviados Hoy', '#2563eb'),
+    ] %}
+    <div class="col-6 col-md-3">
+      <div style="background:#fff;border:1px solid #e8ecf0;border-radius:10px;padding:14px 16px;">
+        <div style="font-size:1.8rem;font-weight:800;color:{{ color }};line-height:1;">{{ val }}</div>
+        <div style="font-size:.72rem;color:#64748b;font-weight:600;margin-top:4px;">{{ lbl }}</div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  <div style="text-align:center;margin-top:24px;">
+    <a href="{{ url_for('prospeccion.lista') }}" class="btn btn-primary">
+      <i class="bi bi-arrow-right me-1"></i>Ver base completa de prospectos
+    </a>
+  </div>
+</div>
+{% endblock %}

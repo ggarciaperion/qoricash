@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Auditoría — Agentes IA{% endblock %}
+{% block content %}
+<div style="padding:16px 20px;max-width:1100px;margin:0 auto;">
+  <div style="background:#0D1B2A;border-radius:10px;padding:14px 20px;margin-bottom:18px;
+    display:flex;justify-content:space-between;align-items:center;">
+    <div style="font-size:1.1rem;font-weight:800;color:#fff;">
+      <i class="bi bi-shield-exclamation me-2"></i>Auditoría del Sistema
+    </div>
+    <a href="{{ url_for('agentes.mission_control') }}" class="btn btn-sm btn-outline-light">Mission Control</a>
+  </div>
+  <h6 style="font-weight:800;color:#dc2626;margin-bottom:10px;">
+    <i class="bi bi-x-circle me-1"></i>Errores Recientes
+  </h6>
+  <div class="table-responsive mb-4" style="background:#fff;border:1px solid #e8ecf0;border-radius:10px;overflow:hidden;">
+    <table class="table table-sm mb-0">
+      <thead style="background:#fef2f2;font-size:.72rem;text-transform:uppercase;">
+        <tr><th>Agente</th><th>Mensaje</th><th>Hora</th></tr>
+      </thead>
+      <tbody style="font-size:.78rem;">
+        {% for l in logs_error %}
+        <tr>
+          <td style="font-weight:700;">{{ l.agent_id }}</td>
+          <td style="color:#dc2626;max-width:500px;">{{ l.message[:200] }}</td>
+          <td style="color:#94a3b8;white-space:nowrap;">
+            {{ l.created_at.strftime('%d/%m %H:%M:%S') if l.created_at else '—' }}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="3" class="text-center text-success py-4">
+          <i class="bi bi-check-circle-fill me-1"></i>Sin errores recientes
+        </td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <h6 style="font-weight:800;color:#0D1B2A;margin-bottom:10px;">
+    <i class="bi bi-bell me-1"></i>Historial de Alertas
+  </h6>
+  <div class="table-responsive" style="background:#fff;border:1px solid #e8ecf0;border-radius:10px;overflow:hidden;">
+    <table class="table table-sm mb-0">
+      <thead style="background:#f8fafc;font-size:.72rem;text-transform:uppercase;">
+        <tr><th>Agente</th><th>Severidad</th><th>Título</th><th>Estado</th><th>Fecha</th></tr>
+      </thead>
+      <tbody style="font-size:.78rem;">
+        {% for a in alerts_all %}
+        <tr>
+          <td>{{ a.agent_id or '—' }}</td>
+          <td><span class="badge bg-{{ 'danger' if a.severity in ('error','critical') else 'warning text-dark' if a.severity=='warning' else 'info' }}">{{ a.severity }}</span></td>
+          <td>{{ a.title }}</td>
+          <td><span class="badge bg-{{ 'success' if a.resolved else 'secondary' }}">{{ 'Resuelta' if a.resolved else 'Activa' }}</span></td>
+          <td style="color:#94a3b8;">{{ a.created_at.strftime('%d/%m %H:%M') if a.created_at else '—' }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" class="text-center text-muted py-4">Sin alertas registradas.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

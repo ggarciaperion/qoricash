@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Base de Datos — Agentes IA{% endblock %}
+{% block content %}
+<div style="padding:16px 20px;max-width:1000px;margin:0 auto;">
+  <div style="background:#0D1B2A;border-radius:10px;padding:14px 20px;margin-bottom:18px;
+    display:flex;justify-content:space-between;align-items:center;">
+    <div style="font-size:1.1rem;font-weight:800;color:#fff;">
+      <i class="bi bi-database me-2"></i>Base de Datos — {{ total }} prospectos
+    </div>
+    <a href="{{ url_for('agentes.mission_control') }}" class="btn btn-sm btn-outline-light">Mission Control</a>
+  </div>
+  <div class="row g-4">
+    <div class="col-md-4">
+      <div style="background:#fff;border:1px solid #e8ecf0;border-radius:10px;padding:18px;">
+        <h6 style="font-weight:800;color:#0D1B2A;margin-bottom:14px;">Por Estado Comercial</h6>
+        {% for estado, cnt in por_estado %}
+        <div style="display:flex;justify-content:space-between;padding:6px 0;
+          border-bottom:1px solid #f1f5f9;font-size:.78rem;">
+          <span style="color:#475569;">{{ estado or 'Sin estado' }}</span>
+          <span style="font-weight:700;color:#0D1B2A;">{{ cnt }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div style="background:#fff;border:1px solid #e8ecf0;border-radius:10px;padding:18px;">
+        <h6 style="font-weight:800;color:#0D1B2A;margin-bottom:14px;">Por Departamento</h6>
+        {% for dept, cnt in por_depto %}
+        <div style="display:flex;justify-content:space-between;padding:5px 0;
+          border-bottom:1px solid #f1f5f9;font-size:.78rem;">
+          <span style="color:#475569;">{{ dept or '—' }}</span>
+          <span style="font-weight:700;color:#0D1B2A;">{{ cnt }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div style="background:#fff;border:1px solid #e8ecf0;border-radius:10px;padding:18px;">
+        <h6 style="font-weight:800;color:#0D1B2A;margin-bottom:14px;">Top Rubros</h6>
+        {% for rubro, cnt in por_rubro %}
+        <div style="display:flex;justify-content:space-between;padding:5px 0;
+          border-bottom:1px solid #f1f5f9;font-size:.78rem;">
+          <span style="color:#475569;">{{ rubro or '—' }}</span>
+          <span style="font-weight:700;color:#16a34a;">{{ cnt }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

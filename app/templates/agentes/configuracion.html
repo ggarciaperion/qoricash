@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}Configuración — Agentes IA{% endblock %}
+{% block content %}
+<div style="padding:16px 20px;max-width:900px;margin:0 auto;">
+  <div style="background:#0D1B2A;border-radius:10px;padding:14px 20px;margin-bottom:18px;
+    display:flex;justify-content:space-between;align-items:center;">
+    <div style="font-size:1.1rem;font-weight:800;color:#fff;">
+      <i class="bi bi-gear me-2"></i>Configuración de Agentes
+    </div>
+    <a href="{{ url_for('agentes.mission_control') }}" class="btn btn-sm btn-outline-light">Mission Control</a>
+  </div>
+  <div class="row g-3">
+    {% for a in agents %}
+    <div class="col-12">
+      <div style="background:#fff;border:1px solid #e8ecf0;border-radius:10px;padding:18px 20px;">
+        <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+          <div class="d-flex align-items-center gap-3">
+            <div style="width:38px;height:38px;border-radius:8px;background:#f0fdf4;
+              display:flex;align-items:center;justify-content:center;color:#16a34a;font-size:1rem;">
+              <i class="bi {{ a.icon }}"></i>
+            </div>
+            <div>
+              <div style="font-weight:800;font-size:.9rem;color:#0D1B2A;">{{ a.name }}</div>
+              <div style="font-size:.72rem;color:#64748b;">
+                Cada {{ (a.run_interval // 60) }} min ·
+                Perf: {{ (a.performance or 100)|round(0)|int }}% ·
+                Total tareas: {{ a.total_tasks or 0 }}
+              </div>
+            </div>
+          </div>
+          <div class="d-flex gap-2 align-items-center">
+            <span class="badge bg-{{ 'success' if a.enabled else 'secondary' }}">
+              {{ 'Habilitado' if a.enabled else 'Pausado' }}
+            </span>
+            {% if a.enabled %}
+            <button class="btn btn-sm btn-outline-warning"
+                    onclick="pauseAgent('{{ a.agent_id }}')">
+              <i class="bi bi-pause-fill"></i> Pausar
+            </button>
+            {% else %}
+            <button class="btn btn-sm btn-outline-success"
+                    onclick="resumeAgent('{{ a.agent_id }}')">
+              <i class="bi bi-play-circle"></i> Reanudar
+            </button>
+            {% endif %}
+            <button class="btn btn-sm btn-success"
+                    onclick="triggerAgent('{{ a.agent_id }}', this)">
+              <i class="bi bi-play-fill"></i> Ejecutar ahora
+            </button>
+          </div>
+        </div>
+        {% if a.last_error %}
+        <div style="margin-top:12px;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;
+          padding:8px 12px;font-size:.72rem;color:#dc2626;">
+          <strong>Último error:</strong> {{ a.last_error[:200] }}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+async function triggerAgent(id, btn) {
+  btn.disabled = true;
+  await fetch('/agentes/api/trigger/'+id, {method:'POST'});
+  btn.textContent = '✓ Listo';
+  setTimeout(() => { btn.disabled=false; btn.innerHTML='<i class="bi bi-play-fill"></i> Ejecutar ahora'; }, 3000);
+}
+async function pauseAgent(id) { await fetch('/agentes/api/pause/'+id, {method:'POST'}); location.reload(); }
+async function resumeAgent(id) { await fetch('/agentes/api/resume/'+id, {method:'POST'}); location.reload(); }
+</script>
+{% endblock %}

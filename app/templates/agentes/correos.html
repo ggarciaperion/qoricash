@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Correos — Agentes IA{% endblock %}
+{% block content %}
+<div style="padding:16px 20px;max-width:1100px;margin:0 auto;">
+  <div style="background:#0D1B2A;border-radius:10px;padding:14px 20px;margin-bottom:18px;
+    display:flex;justify-content:space-between;align-items:center;">
+    <div style="font-size:1.1rem;font-weight:800;color:#fff;">
+      <i class="bi bi-envelope-open me-2"></i>Análisis de Correos
+    </div>
+    <a href="{{ url_for('agentes.mission_control') }}" class="btn btn-sm btn-outline-light">Mission Control</a>
+  </div>
+  {% if oportunidades %}
+  <h6 style="font-weight:800;color:#0D1B2A;margin-bottom:12px;">
+    <i class="bi bi-lightning-charge text-warning me-1"></i>Oportunidades Detectadas
+  </h6>
+  <div class="table-responsive mb-4">
+    <table class="table table-sm table-hover bg-white rounded" style="border:1px solid #e8ecf0;">
+      <thead style="background:#f8fafc;font-size:.72rem;text-transform:uppercase;">
+        <tr><th>Empresa</th><th>Email</th><th>Prioridad</th><th>Resumen</th><th>Detectado</th></tr>
+      </thead>
+      <tbody style="font-size:.8rem;">
+        {% for o in oportunidades %}
+        <tr>
+          <td style="font-weight:700;">{{ o.empresa or '—' }}</td>
+          <td>{{ o.email or '—' }}</td>
+          <td>
+            <span class="badge bg-{{ 'danger' if o.prioridad=='alta' else 'warning text-dark' if o.prioridad=='media' else 'secondary' }}">
+              {{ o.prioridad or '—' }}
+            </span>
+          </td>
+          <td style="color:#64748b;max-width:300px;">{{ (o.necesidad or '')[:100] }}</td>
+          <td style="color:#94a3b8;">{{ o.detectado_en.strftime('%d/%m %H:%M') if o.detectado_en else '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  <h6 style="font-weight:800;color:#0D1B2A;margin-bottom:12px;">
+    <i class="bi bi-list-ul me-1"></i>Eventos Recientes
+  </h6>
+  <div class="table-responsive">
+    <table class="table table-sm table-hover bg-white rounded" style="border:1px solid #e8ecf0;">
+      <thead style="background:#f8fafc;font-size:.72rem;text-transform:uppercase;">
+        <tr><th>Tipo</th><th>Remitente</th><th>Asunto</th><th>Cuenta</th><th>Procesado</th></tr>
+      </thead>
+      <tbody style="font-size:.78rem;">
+        {% for e in eventos[:50] %}
+        <tr>
+          <td>
+            <span class="badge bg-{{ 'danger' if e.tipo=='bounce' else 'warning text-dark' if e.tipo=='oportunidad' else 'secondary' }}">
+              {{ e.tipo }}
+            </span>
+          </td>
+          <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+            {{ e.remitente or '—' }}
+          </td>
+          <td style="color:#64748b;max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+            {{ e.asunto or '—' }}
+          </td>
+          <td style="font-size:.68rem;color:#94a3b8;">{{ e.cuenta }}</td>
+          <td style="color:#94a3b8;">{{ e.procesado_en.strftime('%d/%m %H:%M') if e.procesado_en else '—' }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" class="text-center text-muted py-4">Sin eventos procesados aún.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

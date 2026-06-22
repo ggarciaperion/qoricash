@@ -148,6 +148,91 @@ def create_app(config_name=None):
     except Exception as e:
         logging.warning(f"[Migration] push_subscriptions: {e}")
 
+    # Migración: tablas del ecosistema de Agentes IA (idempotente)
+    try:
+        with app.app_context():
+            from app.extensions import db
+            from sqlalchemy import text
+            db.session.execute(text("""
+                CREATE TABLE IF NOT EXISTS agent_status (
+                    id           SERIAL PRIMARY KEY,
+                    agent_id     VARCHAR(50) UNIQUE NOT NULL,
+                    name         VARCHAR(100) NOT NULL,
+                    description  VARCHAR(300),
+                    icon         VARCHAR(50),
+                    color        VARCHAR(20),
+                    status       VARCHAR(20) DEFAULT 'idle',
+                    last_run     TIMESTAMP,
+                    next_run     TIMESTAMP,
+                    run_interval INTEGER DEFAULT 900,
+                    tasks_today  INTEGER DEFAULT 0,
+                    errors_today INTEGER DEFAULT 0,
+                    total_tasks  INTEGER DEFAULT 0,
+                    total_errors INTEGER DEFAULT 0,
+                    last_result  TEXT,
+                    last_error   TEXT,
+                    enabled      BOOLEAN DEFAULT TRUE,
+                    paused_by    INTEGER REFERENCES users(id),
+                    paused_at    TIMESTAMP,
+                    performance  FLOAT DEFAULT 100.0,
+                    created_at   TIMESTAMP DEFAULT NOW(),
+                    updated_at   TIMESTAMP DEFAULT NOW()
+                )
+            """))
+            db.session.execute(text("""
+                CREATE TABLE IF NOT EXISTS agent_logs (
+                    id         SERIAL PRIMARY KEY,
+                    agent_id   VARCHAR(50) NOT NULL,
+                    level      VARCHAR(10) DEFAULT 'INFO',
+                    message    TEXT NOT NULL,
+                    detail     TEXT,
+                    created_at TIMESTAMP DEFAULT NOW()
+                )
+            """))
+            db.session.execute(text(
+                "CREATE INDEX IF NOT EXISTS idx_agent_logs_agent ON agent_logs(agent_id)"
+            ))
+            db.session.execute(text(
+                "CREATE INDEX IF NOT EXISTS idx_agent_logs_created ON agent_logs(created_at DESC)"
+            ))
+            db.session.execute(text("""
+                CREATE TABLE IF NOT EXISTS agent_alerts (
+                    id          SERIAL PRIMARY KEY,
+                    agent_id    VARCHAR(50),
+                    severity    VARCHAR(20) DEFAULT 'warning',
+                    title       VARCHAR(200) NOT NULL,
+                    message     TEXT NOT NULL,
+                    resolved    BOOLEAN DEFAULT FALSE,
+                    resolved_by INTEGER REFERENCES users(id),
+                    resolved_at TIMESTAMP,
+                    created_at  TIMESTAMP DEFAULT NOW()
+                )
+            """))
+            db.session.execute(text("""
+                CREATE TABLE IF NOT EXISTS agent_metrics (
+                    id                  SERIAL PRIMARY KEY,
+                    agent_id            VARCHAR(50) NOT NULL,
+                    date                DATE NOT NULL,
+                    runs                INTEGER DEFAULT 0,
+                    tasks_completed     INTEGER DEFAULT 0,
+                    errors              INTEGER DEFAULT 0,
+                    prospects_found     INTEGER DEFAULT 0,
+                    prospects_validated INTEGER DEFAULT 0,
+                    emails_sent         INTEGER DEFAULT 0,
+                    emails_analyzed     INTEGER DEFAULT 0,
+                    bounces_detected    INTEGER DEFAULT 0,
+                    opportunities       INTEGER DEFAULT 0,
+                    duplicates_removed  INTEGER DEFAULT 0,
+                    followups_scheduled INTEGER DEFAULT 0,
+                    created_at          TIMESTAMP DEFAULT NOW(),
+                    UNIQUE(agent_id, date)
+                )
+            """))
+            db.session.commit()
+            logging.info('[Migration] ✅ Tablas agent_status/logs/alerts/metrics OK')
+    except Exception as e:
+        logging.warning(f'[Migration] agent_tables: {e}')
+
     # Aplicar migraciones de columnas nuevas (idempotente — usa ADD COLUMN IF NOT EXISTS)
     try:
         with app.app_context():
@@ -680,6 +765,14 @@ def create_app(config_name=None):
     # Inicializar schedulers del módulo Mercado
     start_market_schedulers(app)
 
+    # Inicializar Ecosistema de Agentes IA Autónomos
+    try:
+        from app.services.agents.orchestrator import start_all_agents
+        start_all_agents(app)
+        logging.info('[Agents] ✅ Ecosistema de Agentes IA inicializado')
+    except Exception as _agent_err:
+        logging.warning(f'[Agents] No se pudo inicializar el ecosistema de agentes: {_agent_err}')
+
     # Registrar CLI commands (aquí para que estén disponibles sin importar
     # cómo Flask CLI descubra la app — factory o instancia directa)
     register_cli_commands(app)
@@ -863,6 +956,9 @@ def register_blueprints(app):
     app.register_blueprint(treasury_bp, url_prefix='/treasury')  # Tesorería
     from app.routes.ai import ai_bp
     app.register_blueprint(ai_bp)                                # Agentes IA: /ai/*
+
+    from app.routes.agentes import agentes_bp
+    app.register_blueprint(agentes_bp)                           # Ecosistema Agentes IA: /agentes/*
 
 # Service Worker debe servirse desde la raíz del dominio (scope /)
     import os

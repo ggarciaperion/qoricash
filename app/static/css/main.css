@@ -2441,3 +2441,8 @@ body.has-sidebar.sidebar-collapsed .desk-pb-bar {
 }
 .qt-close:hover { color: rgba(255,255,255,.7); }
 .dpb-btn-cancel:hover { color: #fff; border-color: rgba(255,255,255,.3); }
+
+@keyframes sidebar-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(74,222,128,.7); opacity: 1; }
+  50%       { box-shadow: 0 0 0 4px rgba(74,222,128,0); opacity: .6; }
+}

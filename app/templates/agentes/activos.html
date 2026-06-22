@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}Agentes Activos — Agentes IA{% endblock %}
+{% block content %}
+<div style="padding:16px 20px;">
+  <div style="background:#0D1B2A;border-radius:10px;padding:14px 20px;margin-bottom:18px;
+    display:flex;justify-content:space-between;align-items:center;">
+    <div style="font-size:1.1rem;font-weight:800;color:#fff;">
+      <i class="bi bi-robots me-2"></i>Agentes Activos
+    </div>
+    <a href="{{ url_for('agentes.mission_control') }}" class="btn btn-sm btn-outline-light">Mission Control</a>
+  </div>
+  <div class="row g-3">
+    {% for a in agents %}
+    <div class="col-md-6 col-lg-4">
+      <div style="background:#fff;border:1px solid #e8ecf0;border-radius:10px;padding:18px;height:100%;">
+        <div class="d-flex align-items-center gap-3 mb-3">
+          <div style="width:44px;height:44px;border-radius:10px;background:#f0fdf4;
+            display:flex;align-items:center;justify-content:center;color:#16a34a;font-size:1.1rem;">
+            <i class="bi {{ a.icon }}"></i>
+          </div>
+          <div>
+            <div style="font-weight:800;font-size:.9rem;color:#0D1B2A;">{{ a.name }}</div>
+            <span class="badge bg-{{ 'success' if a.status=='running' else 'secondary' if a.status=='idle' else 'danger' }}">
+              {{ a.status }}
+            </span>
+          </div>
+        </div>
+        <div style="font-size:.75rem;color:#64748b;margin-bottom:12px;">{{ a.description }}</div>
+        <div class="row g-2 text-center">
+          <div class="col-4">
+            <div style="font-weight:800;font-size:1.1rem;color:#0D1B2A;">{{ a.tasks_today or 0 }}</div>
+            <div style="font-size:.65rem;color:#94a3b8;text-transform:uppercase;">Tareas hoy</div>
+          </div>
+          <div class="col-4">
+            <div style="font-weight:800;font-size:1.1rem;color:{{ '#dc2626' if (a.errors_today or 0) > 0 else '#0D1B2A' }};">
+              {{ a.errors_today or 0 }}
+            </div>
+            <div style="font-size:.65rem;color:#94a3b8;text-transform:uppercase;">Errores</div>
+          </div>
+          <div class="col-4">
+            <div style="font-weight:800;font-size:1.1rem;color:#16a34a;">{{ (a.performance or 100)|round(0)|int }}%</div>
+            <div style="font-size:.65rem;color:#94a3b8;text-transform:uppercase;">Perf.</div>
+          </div>
+        </div>
+        <div style="font-size:.7rem;color:#94a3b8;margin-top:10px;border-top:1px solid #f1f5f9;padding-top:8px;">
+          Último: {{ a.last_run.strftime('%d/%m %H:%M') if a.last_run else '—' }} ·
+          Próximo: {{ a.next_run.strftime('%H:%M') if a.next_run else '—' }}
+        </div>
+        <div class="d-flex gap-2 mt-3">
+          <button class="btn btn-sm btn-success flex-fill"
+                  onclick="triggerAgent('{{ a.agent_id }}', this)">
+            <i class="bi bi-play-fill"></i> Ejecutar
+          </button>
+          {% if a.enabled %}
+          <button class="btn btn-sm btn-outline-warning"
+                  onclick="pauseAgent('{{ a.agent_id }}')">
+            <i class="bi bi-pause-fill"></i>
+          </button>
+          {% else %}
+          <button class="btn btn-sm btn-outline-success"
+                  onclick="resumeAgent('{{ a.agent_id }}')">
+            <i class="bi bi-play-circle"></i>
+          </button>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+async function triggerAgent(id, btn) {
+  btn.disabled = true; btn.innerHTML = '<i class="bi bi-hourglass-split"></i>';
+  await fetch('/agentes/api/trigger/'+id, {method:'POST'});
+  btn.innerHTML = '<i class="bi bi-check-lg"></i> Listo';
+  setTimeout(() => { btn.disabled=false; btn.innerHTML='<i class="bi bi-play-fill"></i> Ejecutar'; }, 3000);
+}
+async function pauseAgent(id) {
+  await fetch('/agentes/api/pause/'+id, {method:'POST'});
+  location.reload();
+}
+async function resumeAgent(id) {
+  await fetch('/agentes/api/resume/'+id, {method:'POST'});
+  location.reload();
+}
+</script>
+{% endblock %}

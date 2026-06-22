@@ -1,0 +1,204 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — Agentes IA{% endblock %}
+{% block head %}
+<style>
+:root{--navy:#0D1B2A;--green:#16a34a;--blue:#2563eb;--amber:#d97706;--red:#dc2626;--muted:#64748b;--bdr:#e8ecf0;}
+.ag-header{background:var(--navy);border-radius:10px;padding:14px 20px;margin-bottom:18px;
+  display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;}
+.ag-title{font-size:1.1rem;font-weight:800;color:#fff;margin:0;}
+.ag-sub{font-size:.7rem;color:rgba(255,255,255,.4);}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:20px;}
+.kpi-box{background:#fff;border:1px solid var(--bdr);border-radius:10px;padding:14px 16px;
+  display:flex;flex-direction:column;gap:4px;}
+.kpi-box .val{font-size:1.6rem;font-weight:800;color:var(--navy);line-height:1;}
+.kpi-box .lbl{font-size:.72rem;color:var(--muted);font-weight:600;}
+.kpi-box .chg{font-size:.68rem;}
+.kpi-box.green .val{color:var(--green);}
+.kpi-box.blue .val{color:var(--blue);}
+.kpi-box.red .val{color:var(--red);}
+.kpi-box.amber .val{color:var(--amber);}
+
+.agents-table{background:#fff;border:1px solid var(--bdr);border-radius:10px;overflow:hidden;margin-bottom:20px;}
+.agents-table th{background:#f8fafc;font-size:.72rem;font-weight:700;
+  text-transform:uppercase;letter-spacing:.04em;color:var(--muted);padding:10px 14px;border-bottom:1px solid var(--bdr);}
+.agents-table td{padding:10px 14px;font-size:.8rem;border-bottom:1px solid var(--bdr);vertical-align:middle;}
+.agents-table tr:last-child td{border-bottom:none;}
+
+.status-pill{display:inline-flex;align-items:center;gap:5px;border-radius:20px;padding:2px 8px;font-size:.68rem;font-weight:700;}
+.pill-idle   {background:#f1f5f9;color:#64748b;}
+.pill-running{background:#f0fdf4;color:#16a34a;}
+.pill-error  {background:#fef2f2;color:#dc2626;}
+.pill-stopped{background:#f1f5f9;color:#94a3b8;}
+.pill-warning{background:#fffbeb;color:#d97706;}
+.pulse-dot{width:6px;height:6px;border-radius:50%;background:currentColor;}
+.running .pulse-dot{animation:pulse-g 1s ease-in-out infinite;}
+@keyframes pulse-g{0%,100%{opacity:1}50%{opacity:.3}}
+
+.perf-bar{height:4px;border-radius:2px;background:#e2e8f0;overflow:hidden;width:60px;}
+.perf-fill{height:100%;background:var(--green);border-radius:2px;}
+
+.section-title{font-size:.8rem;font-weight:800;color:var(--navy);margin-bottom:10px;
+  display:flex;align-items:center;gap:6px;}
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="padding:16px 20px;max-width:1200px;margin:0 auto;">
+
+  <!-- Header -->
+  <div class="ag-header">
+    <div>
+      <div class="ag-title"><i class="bi bi-grid me-2"></i>Dashboard Ejecutivo — Agentes IA</div>
+      <div class="ag-sub">Métricas en tiempo real del ecosistema de automatización</div>
+    </div>
+    <div class="d-flex gap-2">
+      <a href="{{ url_for('agentes.mission_control') }}" class="btn btn-sm btn-outline-light">
+        <i class="bi bi-cpu-fill me-1"></i>Mission Control
+      </a>
+      {% if alerts_count > 0 %}
+      <a href="{{ url_for('agentes.alertas') }}" class="btn btn-sm btn-danger">
+        <i class="bi bi-exclamation-triangle me-1"></i>{{ alerts_count }} alertas
+      </a>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- KPIs -->
+  <div class="kpi-grid">
+    <div class="kpi-box green">
+      <div class="val">{{ kpis.total_prospectos or 0 }}</div>
+      <div class="lbl">Prospectos Totales</div>
+    </div>
+    <div class="kpi-box">
+      <div class="val">{{ kpis.nuevos_semana or 0 }}</div>
+      <div class="lbl">Nuevos esta semana</div>
+    </div>
+    <div class="kpi-box blue">
+      <div class="val">{{ kpis.contactados or 0 }}</div>
+      <div class="lbl">Contactados</div>
+    </div>
+    <div class="kpi-box">
+      <div class="val">{{ kpis.pendientes or 0 }}</div>
+      <div class="lbl">Sin contactar</div>
+    </div>
+    <div class="kpi-box green">
+      <div class="val">{{ kpis.clientes or 0 }}</div>
+      <div class="lbl">Clientes</div>
+    </div>
+    <div class="kpi-box red">
+      <div class="val">{{ kpis.rebotes or 0 }}</div>
+      <div class="lbl">Rebotes</div>
+    </div>
+    <div class="kpi-box amber">
+      <div class="val">{{ kpis.oportunidades_semana or 0 }}</div>
+      <div class="lbl">Oportunidades/semana</div>
+    </div>
+    <div class="kpi-box blue">
+      <div class="val">{{ kpis.emails_sent_hoy or 0 }}</div>
+      <div class="lbl">Emails enviados hoy</div>
+    </div>
+    <div class="kpi-box green">
+      <div class="val">{{ kpis.tasa_conversion or 0 }}%</div>
+      <div class="lbl">Tasa conversión</div>
+    </div>
+  </div>
+
+  <!-- Estado de agentes -->
+  <div class="section-title"><i class="bi bi-robots"></i>Estado de Agentes</div>
+  <div class="agents-table">
+    <table class="table mb-0">
+      <thead>
+        <tr>
+          <th>Agente</th>
+          <th>Estado</th>
+          <th>Último run</th>
+          <th>Próximo run</th>
+          <th>Tareas hoy</th>
+          <th>Errores hoy</th>
+          <th>Rendimiento</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for a in agents %}
+        <tr>
+          <td>
+            <div class="d-flex align-items-center gap-2">
+              <span style="font-size:.85rem;"><i class="bi {{ a.icon }}"></i></span>
+              <div>
+                <div style="font-weight:700;font-size:.82rem;">{{ a.name }}</div>
+                <div style="font-size:.68rem;color:#94a3b8;">{{ a.description[:50] }}…</div>
+              </div>
+            </div>
+          </td>
+          <td>
+            <span class="status-pill pill-{{ a.status }} {{ a.status }}">
+              <span class="pulse-dot"></span>
+              {{ a.status }}
+            </span>
+          </td>
+          <td style="color:#64748b;">{{ a.last_run.strftime('%d/%m %H:%M') if a.last_run else '—' }}</td>
+          <td style="color:#64748b;">{{ a.next_run.strftime('%d/%m %H:%M') if a.next_run else '—' }}</td>
+          <td style="font-weight:700;">{{ a.tasks_today or 0 }}</td>
+          <td style="color:{{ '#dc2626' if (a.errors_today or 0) > 0 else '#64748b' }};">
+            {{ a.errors_today or 0 }}
+          </td>
+          <td>
+            <div class="d-flex align-items-center gap-6px" style="gap:6px;">
+              <div class="perf-bar">
+                <div class="perf-fill" style="width:{{ [a.performance or 100, 100]|min }}%;
+                  background:{{ '#dc2626' if (a.performance or 100) < 70 else '#d97706' if (a.performance or 100) < 90 else '#16a34a' }};"></div>
+              </div>
+              <span style="font-size:.72rem;">{{ (a.performance or 100)|round(0)|int }}%</span>
+            </div>
+          </td>
+          <td>
+            <a href="{{ url_for('agentes.mission_control') }}#node-{{ a.agent_id }}"
+               class="btn btn-sm" style="background:#f1f5f9;font-size:.7rem;padding:3px 8px;">
+              <i class="bi bi-arrow-right"></i>
+            </a>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8" class="text-center text-muted py-4">
+          Los agentes se inicializarán al próximo reinicio del servidor.
+        </td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Submenú rápido -->
+  <div class="section-title mt-3"><i class="bi bi-compass"></i>Módulos</div>
+  <div class="row g-3">
+    {% for item in [
+      ('actividad', 'bi-terminal', 'Actividad en Tiempo Real', 'Consola de logs de todos los agentes'),
+      ('prospeccion', 'bi-person-lines-fill', 'Prospección', 'Métricas de la base de prospectos'),
+      ('correos', 'bi-envelope-open', 'Análisis de Correos', 'Respuestas, rebotes y oportunidades'),
+      ('base_datos', 'bi-database', 'Base de Datos', 'Calidad y distribución de la base maestra'),
+      ('auditoria', 'bi-shield-exclamation', 'Auditoría', 'Errores y log de auditoría del sistema'),
+      ('alertas', 'bi-bell', 'Centro de Alertas', 'Alertas activas y resueltas'),
+    ] %}
+    <div class="col-md-4">
+      <a href="{{ url_for('agentes.' + item[0]) }}"
+         style="background:#fff;border:1px solid var(--bdr);border-radius:10px;padding:14px 16px;
+                display:flex;align-items:center;gap:12px;text-decoration:none;color:inherit;
+                transition:box-shadow .15s;"
+         onmouseover="this.style.boxShadow='0 3px 14px rgba(0,0,0,.07)'"
+         onmouseout="this.style.boxShadow='none'">
+        <div style="width:38px;height:38px;border-radius:8px;background:#f0fdf4;
+                    display:flex;align-items:center;justify-content:center;
+                    color:var(--green);font-size:1.1rem;">
+          <i class="bi {{ item[1] }}"></i>
+        </div>
+        <div>
+          <div style="font-weight:700;font-size:.85rem;color:var(--navy);">{{ item[2] }}</div>
+          <div style="font-size:.7rem;color:var(--muted);">{{ item[3] }}</div>
+        </div>
+      </a>
+    </div>
+    {% endfor %}
+  </div>
+
+</div>
+{% endblock %}
