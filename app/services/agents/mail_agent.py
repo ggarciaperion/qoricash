@@ -866,25 +866,26 @@ class MailAgent(BaseAgent):
     run_interval = 1800  # cada 30 min
 
     def _execute(self, app) -> dict:
-        from app.models.prospecto import Prospecto, ActividadProspecto
+        import eventlet
+        from app.models.prospecto import Prospecto
         from app.models.exchange_rate import ExchangeRate
         from app.extensions import db
         from app.utils.formatters import now_peru
         from collections import defaultdict
 
+        # ── Fase 1: setup y query en contexto principal ────────────────────────
         with app.app_context():
             now_dt    = now_peru()
             hour_frac = now_dt.hour + now_dt.minute / 60
 
-            # ── Determinar modo según hora (solo días hábiles) ─────────────────
             if now_dt.weekday() >= 5:
                 return {'tasks': 0, 'message': 'Fuera de horario (fin de semana)'}
 
             if _HORA_INICIO <= hour_frac < _HORA_CORTE:
-                modo       = 'precios'        # TC prominente, mercado activo
+                modo       = 'precios'
                 batch_size = _BATCH_MAÑANA
             elif _HORA_CORTE <= hour_frac < _HORA_FIN_TARDE:
-                modo       = 'prospeccion'    # presentación institucional + TC de referencia
+                modo       = 'prospeccion'
                 batch_size = _BATCH_TARDE
             else:
                 return {'tasks': 0, 'message': (
@@ -892,22 +893,14 @@ class MailAgent(BaseAgent):
                     f'activo 09:00–18:00 días hábiles)'
                 )}
 
-            # ── TC inicial desde la misma fuente que el widget ─────────────────
-            compra, venta = self._fetch_tc(ExchangeRate)
-            tc_envios_desde_refresh = 0   # contador para re-fetch periódico
-
-            sent_total = 0
-            skipped    = 0
-            today      = now_dt.date()
-            hoy_str    = today.strftime('%Y-%m-%d')
-            hoy_full   = today.strftime('%d/%m/%Y')
-
-            from app.models.user import User
-            bot_user = User.query.filter_by(role='Master').first()
+            compra_ref, venta_ref = self._fetch_tc(ExchangeRate)
+            today    = now_dt.date()
+            hoy_str  = today.strftime('%Y-%m-%d')
+            hoy_full = today.strftime('%d/%m/%Y')
 
             cutoff = (today - timedelta(days=_CALENDAR_DAYS_APPROX)).strftime('%Y-%m-%d')
 
-            # ── Query de elegibles (pool grande para cubrir los 3 bandejas) ────
+            # Pool ampliado para cubrir las 3 bandejas en paralelo
             prospectos = (Prospecto.query
                           .filter(
                               ~Prospecto.estado_comercial.in_(_EXCLUDE_ESTADOS),
@@ -924,13 +917,12 @@ class MailAgent(BaseAgent):
                               ),
                           )
                           .order_by(Prospecto.fecha_ultimo_contacto.asc().nullsfirst())
-                          .limit(600)
+                          .limit(900)
                           .all())
 
             eligible_raw = [p for p in prospectos
                             if _business_days_since(p.fecha_ultimo_contacto) >= _DIAS_HABIL_ESPERA]
 
-            # Deduplicar por email (mismo email en 2+ prospectos → solo el más reciente)
             _seen_emails: dict = {}
             for p in eligible_raw:
                 key = (p.email or '').strip().lower()
@@ -942,81 +934,98 @@ class MailAgent(BaseAgent):
             for p in eligible:
                 por_bandeja[self._pick_bandeja(p)].append(p)
 
-            # Cargar imágenes una sola vez para todo el ciclo (evita I/O y PIL por email)
-            img_cache = self._load_image_cache()
+            # Pasar solo IDs entre contextos (objetos SQLAlchemy no son seguros entre sesiones)
+            ids_por_bandeja = {b: [p.id for p in por_bandeja.get(b, [])] for b in _BANDEJAS}
 
-            for bandeja in list(_BANDEJAS.keys()):
-                prospects_q = por_bandeja.get(bandeja, [])
-                if not prospects_q:
-                    continue
+        # Cargar imágenes una vez, compartidas entre las 3 greenlets (solo lectura)
+        img_cache = self._load_image_cache()
 
-                sent_today = self._daily_sent_count(db, bandeja, today)
+        # ── Fase 2: worker por bandeja ─────────────────────────────────────────
+        worker_results = []
+
+        def _bandeja_worker(bandeja, prospect_ids):
+            """Greenlet independiente por bandeja — sesión DB propia."""
+            from app.models.prospecto import Prospecto, ActividadProspecto
+            from app.models.exchange_rate import ExchangeRate
+            from app.models.user import User
+            from app.extensions import db
+            from app.utils.formatters import now_peru
+
+            with app.app_context():
+                if not prospect_ids:
+                    worker_results.append({'bandeja': bandeja, 'sent': 0, 'skipped': 0})
+                    return
+
+                today_w    = now_peru().date()
+                hoy_str_w  = today_w.strftime('%Y-%m-%d')
+                hoy_full_w = today_w.strftime('%d/%m/%Y')
+
+                sent_today = self._daily_sent_count(db, bandeja, today_w)
                 remaining  = _DAILY_LIMIT - sent_today
                 if remaining <= 0:
                     _log.info(f'[MailAgent] {bandeja}: límite diario alcanzado ({sent_today})')
-                    continue
+                    worker_results.append({'bandeja': bandeja, 'sent': 0, 'skipped': 0})
+                    return
 
-                batch       = prospects_q[:min(batch_size, remaining)]
+                batch_ids   = prospect_ids[:min(batch_size, remaining)]
                 bot_nombre  = _BANDEJA_NOMBRE.get(bandeja, 'QoriCash')
                 bot_cargo   = _BANDEJA_CARGO.get(bandeja, 'Equipo Comercial')
                 es_personal = (bandeja == 'ggarcia@qoricash.pe')
+                bot_user_w  = User.query.filter_by(role='Master').first()
 
-                # Construir servicio Gmail una vez por bandeja (no por email)
                 gmail_service, gmail_creds = self._build_service(bandeja)
                 if not gmail_service:
-                    _log.warning(f'[MailAgent] Sin servicio Gmail para {bandeja} — saltando bandeja')
-                    skipped += len(batch)
-                    continue
+                    _log.warning(f'[MailAgent] Sin servicio Gmail para {bandeja}')
+                    worker_results.append({'bandeja': bandeja, 'sent': 0, 'skipped': len(batch_ids)})
+                    return
 
-                for p in batch:
+                local_compra, local_venta = self._fetch_tc(ExchangeRate)
+                tc_counter = 0
+                sent = skipped = 0
+
+                for pid in batch_ids:
                     try:
-                        # ── Re-fetch TC cada _TC_REFRESH_CADA envíos ──────────
-                        if tc_envios_desde_refresh >= _TC_REFRESH_CADA:
-                            nuevo_c, nuevo_v = self._fetch_tc(ExchangeRate)
-                            if (nuevo_c, nuevo_v) != (compra, venta):
-                                _log.info(
-                                    f'[MailAgent] TC actualizado: '
-                                    f'{compra}/{venta} → {nuevo_c}/{nuevo_v}'
-                                )
-                                compra, venta = nuevo_c, nuevo_v
-                            tc_envios_desde_refresh = 0
+                        if tc_counter >= _TC_REFRESH_CADA:
+                            local_compra, local_venta = self._fetch_tc(ExchangeRate)
+                            tc_counter = 0
+
+                        p = db.session.get(Prospecto, pid)
+                        if not p or not p.email:
+                            skipped += 1
+                            continue
 
                         nombre_dest = (
                             (p.nombre_contacto or p.razon_social or 'equipo')
                             .split()[0].capitalize()
                         )
 
-                        # ── Seleccionar plantilla según modo y contactos previos ──
                         if modo == 'precios' and (p.num_contactos or 0) >= 1:
-                            # Follow-up: solo precios, sin presentación
-                            html         = _build_html_solo_precios(
+                            html        = _build_html_solo_precios(
                                 nombre_dest=nombre_dest, nombre_firma=bot_nombre,
-                                cargo=bot_cargo, compra=compra, venta=venta,
-                                hoy=hoy_full,
+                                cargo=bot_cargo, compra=local_compra, venta=local_venta,
+                                hoy=hoy_full_w,
                             )
-                            subject      = 'QoriCash \u2014 Tipo de cambio actualizado'
-                            tipo_envio   = 'solo_precios'
-                            descripcion  = f'Follow-up precios enviado [TC {compra}/{venta}]'
+                            subject     = 'QoriCash \u2014 Tipo de cambio actualizado'
+                            tipo_envio  = 'solo_precios'
+                            descripcion = f'Follow-up precios enviado [TC {local_compra}/{local_venta}]'
                         elif modo == 'precios':
-                            # Primer contacto mañana: precios completo
-                            html         = _build_html(
+                            html        = _build_html(
                                 nombre_dest=nombre_dest, nombre_firma=bot_nombre,
-                                cargo=bot_cargo, compra=compra, venta=venta,
-                                hoy=hoy_full, es_personal=es_personal,
+                                cargo=bot_cargo, compra=local_compra, venta=local_venta,
+                                hoy=hoy_full_w, es_personal=es_personal,
                             )
-                            subject      = 'QoriCash \u2014 Tipo de cambio preferencial'
-                            tipo_envio   = 'precios'
-                            descripcion  = f'Email de precios enviado [TC {compra}/{venta}]'
+                            subject     = 'QoriCash \u2014 Tipo de cambio preferencial'
+                            tipo_envio  = 'precios'
+                            descripcion = f'Email de precios enviado [TC {local_compra}/{local_venta}]'
                         else:
-                            # Tarde: prospección institucional (solo primer contacto)
-                            html         = _build_html_prospeccion(
+                            html        = _build_html_prospeccion(
                                 nombre_dest=nombre_dest, nombre_firma=bot_nombre,
-                                cargo=bot_cargo, compra=compra, venta=venta,
-                                hoy=hoy_full, es_personal=es_personal,
+                                cargo=bot_cargo, compra=local_compra, venta=local_venta,
+                                hoy=hoy_full_w, es_personal=es_personal,
                             )
-                            subject      = 'QoriCash \u2014 Casa de cambio digital \u00b7 SBS'
-                            tipo_envio   = 'presentacion'
-                            descripcion  = 'Email de presentación institucional enviado'
+                            subject     = 'QoriCash \u2014 Casa de cambio digital \u00b7 SBS'
+                            tipo_envio  = 'presentacion'
+                            descripcion = 'Email de presentación institucional enviado'
 
                         ok = self._send_with_service(
                             gmail_service, gmail_creds, bandeja,
@@ -1027,18 +1036,18 @@ class MailAgent(BaseAgent):
                             continue
 
                         next_date = self._next_business_day(5)
-                        p.fecha_primer_contacto  = p.fecha_primer_contacto or hoy_str
-                        p.fecha_ultimo_contacto  = hoy_str
+                        p.fecha_primer_contacto  = p.fecha_primer_contacto or hoy_str_w
+                        p.fecha_ultimo_contacto  = hoy_str_w
                         p.fecha_proximo_contacto = next_date
                         p.num_contactos          = (p.num_contactos or 0) + 1
                         p.estado_comercial       = p.estado_comercial or 'presentado'
                         p.remitente              = bandeja
                         p.tipo_ultimo_envio      = tipo_envio
 
-                        if bot_user:
+                        if bot_user_w:
                             db.session.add(ActividadProspecto(
                                 prospecto_id=p.id,
-                                user_id=bot_user.id,
+                                user_id=bot_user_w.id,
                                 tipo='email',
                                 canal='email',
                                 bandeja=bandeja,
@@ -1048,25 +1057,37 @@ class MailAgent(BaseAgent):
                             ))
 
                         db.session.flush()
-                        sent_total += 1
-                        tc_envios_desde_refresh += 1
+                        sent += 1
+                        tc_counter += 1
 
-                        # Pausa entre envíos para evitar ráfagas que activan filtros de spam
-                        import eventlet as _ev
-                        _ev.sleep(5)
+                        # Pausa entre envíos para evitar ráfagas (filtros anti-spam)
+                        eventlet.sleep(5)
 
                     except Exception as e:
-                        _log.warning(f'[MailAgent] Error enviando a {p.email}: {e}')
+                        _log.warning(f'[MailAgent] Error enviando pid={pid} via {bandeja}: {e}')
                         skipped += 1
 
-            db.session.commit()
-            msg = (f'[{modo.upper()}] {sent_total} emails enviados · '
-                   f'{skipped} omitidos · TC {compra}/{venta}')
-            return {
-                'tasks':   sent_total,
-                'message': msg,
-                'metrics': {'emails_sent': sent_total},
-            }
+                db.session.commit()
+                worker_results.append({'bandeja': bandeja, 'sent': sent, 'skipped': skipped})
+
+        # ── Fase 3: lanzar las 3 bandejas en paralelo y esperar ───────────────
+        greenlets = [
+            eventlet.spawn(_bandeja_worker, bandeja, ids_por_bandeja.get(bandeja, []))
+            for bandeja in _BANDEJAS
+        ]
+        for gt in greenlets:
+            gt.wait()
+
+        sent_total  = sum(r['sent']    for r in worker_results)
+        skipped_tot = sum(r['skipped'] for r in worker_results)
+
+        msg = (f'[{modo.upper()}] {sent_total} emails enviados · '
+               f'{skipped_tot} omitidos · TC {compra_ref}/{venta_ref}')
+        return {
+            'tasks':   sent_total,
+            'message': msg,
+            'metrics': {'emails_sent': sent_total},
+        }
 
     # ── Helpers ──────────────────────────────────────────────────────────────
 
