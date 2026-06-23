@@ -3,10 +3,16 @@ Agente 7: Executive Intelligence Agent
 Genera KPIs, reportes y tendencias ejecutivas de toda la operación de prospección.
 """
 import logging
+import time
 from datetime import timedelta, date
 from .base import BaseAgent
 
 _log = logging.getLogger(__name__)
+
+# Cache simple para get_kpis — evita 6 COUNT queries en cada carga de página
+_kpis_cache: dict = {}
+_kpis_cache_ts: float = 0.0
+_KPIS_TTL = 60  # segundos
 
 
 class ExecutiveAgent(BaseAgent):
@@ -85,7 +91,11 @@ class ExecutiveAgent(BaseAgent):
 
     @classmethod
     def get_kpis(cls) -> dict:
-        """Obtener KPIs actuales (llamado desde rutas API)."""
+        """Obtener KPIs actuales con cache de 60s — evita queries repetidas en cada page load."""
+        global _kpis_cache, _kpis_cache_ts
+        if _kpis_cache and (time.time() - _kpis_cache_ts) < _KPIS_TTL:
+            return _kpis_cache
+
         from app.models.prospecto import Prospecto
         from app.models.inteligencia import Oportunidad, EmailEvento
         from app.models.agent import AgentMetric
@@ -105,7 +115,7 @@ class ExecutiveAgent(BaseAgent):
             opps = Oportunidad.query.filter(func.date(Oportunidad.detectado_en) >= week_ago).count()
             emails_hoy = (db.session.query(func.sum(AgentMetric.emails_sent))
                           .filter(AgentMetric.date == today).scalar() or 0)
-            return {
+            result = {
                 'total_prospectos': total,
                 'nuevos_semana': nuevos,
                 'contactados': contactados,
@@ -116,6 +126,9 @@ class ExecutiveAgent(BaseAgent):
                 'emails_sent_hoy': emails_hoy,
                 'tasa_conversion': round(clientes / total * 100, 2) if total else 0,
             }
+            _kpis_cache.update(result)
+            _kpis_cache_ts = time.time()
+            return result
         except Exception as e:
             _log.error(f'[Executive] get_kpis error: {e}')
-            return {}
+            return _kpis_cache or {}  # devuelve cache anterior si existe
