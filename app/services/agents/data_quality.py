@@ -47,12 +47,21 @@ class DataQualityAgent(BaseAgent):
             invalid_emails = 0
             duplicates = 0
 
-            # 0. Normalizar NULL primero — así step 1 los incluye en este mismo ciclo
-            db.session.execute(db.text(
-                "UPDATE prospectos SET estado_email = 'pendiente' "
-                "WHERE estado_email IS NULL AND email IS NOT NULL"
-            ))
-            db.session.flush()
+            # 0. Normalizar NULL en batches de 500 para evitar statement timeout en Render
+            _patched = 1
+            while _patched > 0:
+                result = db.session.execute(db.text(
+                    "UPDATE prospectos SET estado_email = 'pendiente' "
+                    "WHERE id IN ("
+                    "  SELECT id FROM prospectos "
+                    "  WHERE estado_email IS NULL AND email IS NOT NULL "
+                    "  LIMIT 500"
+                    ")"
+                ))
+                _patched = result.rowcount
+                db.session.flush()
+                if _patched > 0:
+                    db.session.commit()  # liberar lock entre batches
 
             # 1. Detectar emails con sintaxis inválida + validación MX
             candidates = (Prospecto.query
