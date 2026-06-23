@@ -537,10 +537,11 @@ class FinanceEngine:
             ini_source    = 'saldo_actual_sistema'
 
         # ── Movimientos del día ────────────────────────────────────────────
-        # Ingresos: solo op_entrada (operaciones completadas)
-        # Egresos:  op_salida + gasto (operaciones + ITF/comisiones bancarias)
-        _ING_TYPES = (BankMovement.TYPE_OP_ENTRADA,)
-        _EGR_TYPES = (BankMovement.TYPE_OP_SALIDA, BankMovement.TYPE_GASTO)
+        # Ingresos: operaciones completadas + traslados internos (entrada)
+        # Egresos:  operaciones completadas + gastos + traslados internos (salida)
+        _ING_TYPES = (BankMovement.TYPE_OP_ENTRADA, BankMovement.TYPE_TRANSFER_ENTRADA)
+        _EGR_TYPES = (BankMovement.TYPE_OP_SALIDA,  BankMovement.TYPE_GASTO,
+                      BankMovement.TYPE_TRANSFER_SALIDA)
 
         ing_rows = db.session.query(
             BankMovement.bank_key, BankMovement.currency,
