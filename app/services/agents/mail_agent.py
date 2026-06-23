@@ -868,7 +868,7 @@ class MailAgent(BaseAgent):
     def _execute(self, app) -> dict:
         import eventlet
         from app.models.prospecto import Prospecto
-        from app.models.exchange_rate import ExchangeRate
+        # ExchangeRate ya no se usa en mail_agent (almacena precios ±20 pips, no el widget)
         from app.extensions import db
         from app.utils.formatters import now_peru
         from collections import defaultdict
@@ -893,7 +893,7 @@ class MailAgent(BaseAgent):
                     f'activo 09:00–18:00 días hábiles)'
                 )}
 
-            compra_ref, venta_ref = self._fetch_tc(ExchangeRate)
+            compra_ref, venta_ref = self._fetch_tc()
             _log.info(f'[MailAgent] Ciclo {modo.upper()} — TC fijado: compra={compra_ref} venta={venta_ref}')
             today    = now_dt.date()
             hoy_str  = today.strftime('%Y-%m-%d')
@@ -1085,12 +1085,24 @@ class MailAgent(BaseAgent):
 
     # ── Helpers ──────────────────────────────────────────────────────────────
 
-    def _fetch_tc(self, ExchangeRate) -> tuple:
-        """Obtiene compra/venta actuales desde la misma fuente que el widget del sitio."""
+    def _fetch_tc(self, _unused=None) -> tuple:
+        """
+        Obtiene compra/venta desde DatatecRate — la MISMA fuente que el widget del encabezado.
+
+        NO usar ExchangeRate: esa tabla almacena precios ajustados con ±20 pips para
+        operaciones internas (mtc_compra/mtc_venta), lo que causaba que los emails
+        mostraran precios distintos al widget (ej. 3.401/3.412 en vez de 3.403/3.410).
+        """
         try:
-            tc = ExchangeRate.get_current_rates()
-            return f'{float(tc["compra"]):.3f}', f'{float(tc["venta"]):.3f}'
-        except Exception:
+            from app.models.datatec_rate import DatatecRate
+            row = DatatecRate.get()
+            compra = float(row.compra)
+            venta  = float(row.venta)
+            if compra <= 0 or venta <= 0:
+                raise ValueError(f'DatatecRate sin precio válido: compra={compra} venta={venta}')
+            return f'{compra:.3f}', f'{venta:.3f}'
+        except Exception as e:
+            _log.warning(f'[MailAgent] _fetch_tc error: {e}')
             return '—', '—'
 
     def _daily_sent_count(self, db, bandeja: str, today) -> int:
