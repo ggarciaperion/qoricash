@@ -767,11 +767,9 @@ def create_app(config_name=None):
 
     # Inicializar Ecosistema de Agentes IA Autónomos
     try:
-        # Registrar modelos de agentes en SQLAlchemy antes de create_all
-        import app.models.inteligencia  # noqa: F401
-        import app.models.prospecto     # noqa: F401
-        with app.app_context():
-            db.create_all()
+        # Registrar modelos con SQLAlchemy (from-import no sobreescribe el nombre 'app')
+        from app.models import inteligencia as _m_intel  # noqa: F401
+        from app.models import prospecto as _m_prosp     # noqa: F401
         from app.services.agents.orchestrator import start_all_agents
         start_all_agents(app)
         logging.info('[Agents] ✅ Ecosistema de Agentes IA inicializado')
