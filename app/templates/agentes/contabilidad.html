@@ -719,7 +719,7 @@
         <div class="ac-cron-row">
           <i class="bi bi-gear ci-icon"></i>
           <span class="ci-lbl">Trigger</span>
-          <span class="ci-val">Cron Job — Render</span>
+          <span class="ci-val">Agente IA — App</span>
         </div>
         <div class="ac-cron-row">
           <i class="bi bi-database ci-icon"></i>
@@ -888,7 +888,7 @@ async function runAudit(btn) {
   const orig = btn.innerHTML;
   btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Ejecutando...';
   try {
-    const r = await fetch('/contabilidad/api/run-audit', { method: 'POST' });
+    const r = await fetch('/contabilidad/auditoria/ejecutar', { method: 'POST' });
     const d = await r.json();
     if (d.ok || d.success) {
       btn.innerHTML = '<i class="bi bi-check-lg"></i> Completado';
