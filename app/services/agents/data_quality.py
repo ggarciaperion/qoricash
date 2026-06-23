@@ -49,7 +49,7 @@ class DataQualityAgent(BaseAgent):
 
             # 0. Normalizar NULL primero — así step 1 los incluye en este mismo ciclo
             db.session.execute(db.text(
-                "UPDATE prospecto SET estado_email = 'pendiente' "
+                "UPDATE prospectos SET estado_email = 'pendiente' "
                 "WHERE estado_email IS NULL AND email IS NOT NULL"
             ))
             db.session.flush()
