@@ -171,6 +171,14 @@
             {% endif %}
 
             {% if current_user.role in ('Master', 'Presidente de Negocios') %}
+            <a class="sidebar-link {% if request.endpoint == 'treasury.traslados' %}active{% endif %}"
+               href="{{ url_for('treasury.traslados') }}">
+                <i class="bi bi-arrow-left-right"></i>
+                <span class="sidebar-link-text">Traslados</span>
+            </a>
+            {% endif %}
+
+            {% if current_user.role in ('Master', 'Presidente de Negocios') %}
             <a class="sidebar-link {% if request.endpoint and request.endpoint.startswith('contabilidad') %}active{% endif %}"
                href="{{ url_for('contabilidad.dashboard') }}">
                 <i class="bi bi-calculator"></i>
