@@ -1051,6 +1051,10 @@ class MailAgent(BaseAgent):
                         sent_total += 1
                         tc_envios_desde_refresh += 1
 
+                        # Pausa entre envíos para evitar ráfagas que activan filtros de spam
+                        import eventlet as _ev
+                        _ev.sleep(5)
+
                     except Exception as e:
                         _log.warning(f'[MailAgent] Error enviando a {p.email}: {e}')
                         skipped += 1
