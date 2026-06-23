@@ -863,6 +863,16 @@ class MailAgent(BaseAgent):
     color        = 'green'
     run_interval = 1800  # cada 30 min
 
+    def run(self, app) -> dict:
+        """Override: saltar el ciclo completo si estamos fuera del horario L-V 09:00-18:00.
+        Evita que base.run() marque status='running' y genere logs de no-op cada 30 min."""
+        from app.utils.formatters import now_peru
+        now_dt    = now_peru()
+        hour_frac = now_dt.hour + now_dt.minute / 60
+        if now_dt.weekday() >= 5 or not (_HORA_INICIO <= hour_frac < _HORA_FIN_TARDE):
+            return {'tasks': 0, 'message': f'Fuera de horario ({now_dt.strftime("%H:%M")} Lima)'}
+        return super().run(app)
+
     def _execute(self, app) -> dict:
         import eventlet
         from app.models.prospecto import Prospecto
