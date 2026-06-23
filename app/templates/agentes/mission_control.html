@@ -640,12 +640,12 @@ function updateClock() {
 setInterval(updateClock, 1000); updateClock();
 
 /* Socket.IO — envuelto en try/catch para evitar que un fallo de CDN congele el script */
-let socket;
+let _mcSocket;
 try {
-  socket = io({ transports: ['polling','websocket'] });
-  socket.on('agent_status_update', updateNode);
-  socket.on('agent_log', appendLog);
-  socket.on('executive_kpis', updateKPIs);
+  _mcSocket = io({ transports: ['polling','websocket'] });
+  _mcSocket.on('agent_status_update', updateNode);
+  _mcSocket.on('agent_log', appendLog);
+  _mcSocket.on('executive_kpis', updateKPIs);
 } catch(e) {
   console.warn('[MC] Socket.IO no disponible:', e);
 }
