@@ -36,22 +36,28 @@ class AccountingAuditAgent(BaseAgent):
     # persiste last_run en DB para visibilidad en el dashboard).
     _last_audit_date: date = None
 
-    def _execute(self, app) -> dict:
-        now = _now_lima()
+    # Bandera para ejecución forzada desde trigger manual (Mission Control).
+    # El orquestador la activa antes de llamar a run().
+    _force_run: bool = False
 
-        # 1. Solo lunes–viernes (0=lunes … 6=domingo)
-        if now.weekday() >= 5:
+    def _execute(self, app) -> dict:
+        now   = _now_lima()
+        today = now.date()
+        force = self._force_run
+        self._force_run = False   # resetear siempre antes de cualquier return
+
+        # 1. Solo lunes–viernes (salvo trigger manual)
+        if not force and now.weekday() >= 5:
             _log.info('[AccountingAudit] Fin de semana — omitiendo.')
             return {'tasks': 0, 'message': 'Fin de semana — sin auditoría.'}
 
-        # 2. Solo ventana 23:00–23:59
-        if now.hour != 23:
+        # 2. Solo ventana 23:00–23:59 (salvo trigger manual)
+        if not force and now.hour != 23:
             _log.debug(f'[AccountingAudit] Fuera de ventana ({now.hour}:xx) — esperando las 23:00.')
             return {'tasks': 0, 'message': f'Esperando ventana 23:00 (hora actual: {now.strftime("%H:%M")}).'}
 
-        # 3. No duplicar si ya corrió hoy
-        today = now.date()
-        if self._last_audit_date == today:
+        # 3. No duplicar si ya corrió hoy (salvo trigger manual explícito)
+        if not force and self._last_audit_date == today:
             _log.info('[AccountingAudit] Auditoría ya ejecutada hoy — omitiendo duplicado.')
             return {'tasks': 0, 'message': f'Auditoría ya ejecutada el {today}.'}
 

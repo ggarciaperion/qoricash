@@ -109,6 +109,10 @@ def trigger_agent(agent_id: str, app) -> dict:
     if not agent:
         return {'error': f'Agente {agent_id} no encontrado'}
     try:
+        # Algunos agentes tienen restricciones horarias (ej. accounting_audit).
+        # Activar el flag de ejecución forzada si el agente lo soporta.
+        if hasattr(agent, '_force_run'):
+            agent._force_run = True
         result = agent.run(app)
         return result
     except Exception as e:
