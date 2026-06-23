@@ -86,14 +86,42 @@ def ejecutar():
         )
         report = engine.run()
 
+        message = (
+            f'Auditoría {month:02d}/{year} completada. '
+            f'Estado: {report.estado}. '
+            f'{report.total_hallazgos} hallazgo(s).'
+        )
+
+        # ── Actualizar AgentStatus para mantener métricas en sync ───────────
+        try:
+            from app.models.agent import AgentStatus, AgentLog
+            from datetime import timedelta
+            s = AgentStatus.query.filter_by(agent_id='accounting_audit').first()
+            if s:
+                s.tasks_today = (s.tasks_today or 0) + 1
+                s.total_tasks = (s.total_tasks or 0) + 1
+                s.last_run    = datetime.utcnow()
+                s.next_run    = datetime.utcnow() + timedelta(hours=1)
+                s.status      = 'idle'
+                s.last_result = (f'Manual ({current_user.username}): '
+                                 f'{report.total_hallazgos} hallazgos. {report.estado}.')
+                s.last_error  = None
+                db.session.add(AgentLog(
+                    agent_id='accounting_audit',
+                    level='SUCCESS',
+                    message=f'Auditoría manual — {report.estado}',
+                    detail=(f'{report.total_hallazgos} hallazgos, '
+                            f'{report.hallazgos_criticos} críticos. '
+                            f'Ejecutado por {current_user.username}.'),
+                ))
+                db.session.commit()
+        except Exception as e_agent:
+            _log.warning(f'[Auditoria] No se pudo actualizar AgentStatus: {e_agent}')
+
         return jsonify({
             'success': True,
             'report':  report.to_dict(),
-            'message': (
-                f'Auditoría {month:02d}/{year} completada. '
-                f'Estado: {report.estado}. '
-                f'{report.total_hallazgos} hallazgo(s).'
-            ),
+            'message': message,
         })
     except Exception as exc:
         _log.exception('[Auditoria] Error al ejecutar auditoría manual')

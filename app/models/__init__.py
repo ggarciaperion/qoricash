@@ -41,6 +41,7 @@ from app.models.comercial_envio import ComercialEnvio
 from app.models.bank_movement import BankMovement
 from app.models.daily_closure import DailyClosure
 from app.models.audit_report import AuditReport
+from app.models.internal_transfer import InternalTransfer
 __all__ = [
     'User', 'Client', 'Operation', 'AuditLog', 'TraderGoal', 'TraderDailyProfit',
     'BankBalance', 'BankBalanceHistory', 'Invoice', 'ExchangeRate', 'Complaint',
@@ -66,7 +67,7 @@ __all__ = [
     # Comercial
     'ComercialEnvio',
     # Tesorería
-    'BankMovement', 'DailyClosure',
+    'BankMovement', 'DailyClosure', 'InternalTransfer',
     # Auditoría IA
     'AuditReport',
 ]

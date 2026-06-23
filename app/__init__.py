@@ -787,6 +787,48 @@ def create_app(config_name=None):
     except Exception as e:
         logging.warning(f"[Migration] treasury tables (bank_movements/daily_closures): {e}")
 
+    # Migración: tabla internal_transfers (traslados internos de fondos propios)
+    try:
+        with app.app_context():
+            from app.extensions import db
+            from sqlalchemy import text
+            db.session.execute(text("""
+                CREATE TABLE IF NOT EXISTS internal_transfers (
+                    id                   SERIAL PRIMARY KEY,
+                    transfer_code        VARCHAR(30)   NOT NULL UNIQUE,
+                    transfer_date        TIMESTAMP     NOT NULL DEFAULT NOW(),
+                    origin_bank          VARCHAR(20)   NOT NULL,
+                    origin_currency      VARCHAR(3)    NOT NULL,
+                    origin_account       VARCHAR(120)  NOT NULL,
+                    dest_bank            VARCHAR(20)   NOT NULL,
+                    dest_currency        VARCHAR(3)    NOT NULL,
+                    dest_account         VARCHAR(120)  NOT NULL,
+                    amount               NUMERIC(15,2) NOT NULL,
+                    commission           NUMERIC(15,2) NOT NULL DEFAULT 0,
+                    itf_amount           NUMERIC(15,2) NOT NULL DEFAULT 0,
+                    description          VARCHAR(500),
+                    reference_code       VARCHAR(100),
+                    journal_entry_id     INTEGER REFERENCES journal_entries(id) ON DELETE SET NULL,
+                    movement_salida_id   INTEGER REFERENCES bank_movements(id)  ON DELETE SET NULL,
+                    movement_entrada_id  INTEGER REFERENCES bank_movements(id)  ON DELETE SET NULL,
+                    status               VARCHAR(20)   NOT NULL DEFAULT 'activo',
+                    created_by           INTEGER REFERENCES users(id),
+                    created_at           TIMESTAMP     DEFAULT NOW(),
+                    anulado_by           INTEGER REFERENCES users(id),
+                    anulado_at           TIMESTAMP,
+                    anulado_reason       VARCHAR(500)
+                )
+            """))
+            db.session.execute(text(
+                "CREATE INDEX IF NOT EXISTS ix_it_transfer_date ON internal_transfers(transfer_date)"
+            ))
+            db.session.execute(text(
+                "CREATE INDEX IF NOT EXISTS ix_it_status ON internal_transfers(status)"
+            ))
+            db.session.commit()
+    except Exception as e:
+        logging.warning(f"[Migration] internal_transfers table: {e}")
+
     # Migración: columnas faltantes en daily_closures (tabla creada con schema reducido)
     try:
         with app.app_context():

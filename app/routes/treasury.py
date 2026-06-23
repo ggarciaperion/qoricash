@@ -1031,3 +1031,299 @@ def api_libro_amarres():
     except Exception as e:
         _log.exception('[Treasury] Error en api_libro_amarres')
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TRASLADOS INTERNOS DE FONDOS PROPIOS
+# ══════════════════════════════════════════════════════════════════════════════
+
+from decimal import Decimal as _Dec
+from app.models.internal_transfer import InternalTransfer
+from app.services.accounting.journal_service import _map_bank as _jmap
+
+
+def _acct_name(bank: str, currency: str) -> str:
+    """Nombre canónico de cuenta: 'BCP USD (1917357790119)'."""
+    return _bank_account_name(bank, currency)
+
+
+def _exec_traslado(data: dict, user_id: int) -> dict:
+    """
+    Lógica central de traslado interno.
+    Actualiza BankBalance, crea BankMovements y JournalEntry en una sola
+    transacción atómica. Retorna el InternalTransfer guardado.
+    """
+    from app.models.bank_movement import BankMovement
+    from app.services.accounting.journal_service import JournalService
+
+    origin_bank = data['origin_bank'].upper()
+    origin_cur  = data['origin_currency'].upper()
+    dest_bank   = data['dest_bank'].upper()
+    dest_cur    = data['dest_currency'].upper()
+    amount      = _Dec(str(data['amount']))
+    commission  = _Dec(str(data.get('commission', 0) or 0))
+    itf_amt     = _Dec(str(data.get('itf_amount',  0) or 0))
+    description = (data.get('description') or '').strip()
+    ref_code    = (data.get('reference_code') or '').strip()
+
+    if amount <= 0:
+        raise ValueError('El monto debe ser mayor a cero.')
+    if commission < 0 or itf_amt < 0:
+        raise ValueError('Comisión e ITF no pueden ser negativos.')
+    if origin_cur != dest_cur:
+        raise ValueError('Solo se permiten traslados en la misma moneda. '
+                         'Para conversiones entre monedas use el módulo de operaciones.')
+
+    origin_acct = _acct_name(origin_bank, origin_cur)
+    dest_acct   = _acct_name(dest_bank, dest_cur)
+
+    if origin_acct == dest_acct:
+        raise ValueError('La cuenta de origen y destino no pueden ser la misma.')
+
+    # ── Verificar saldos ──────────────────────────────────────────────────────
+    origin_bb = BankBalance.query.filter_by(bank_name=origin_acct).first()
+    dest_bb   = BankBalance.query.filter_by(bank_name=dest_acct).first()
+
+    if not origin_bb:
+        raise ValueError(f'Cuenta de origen no encontrada: {origin_acct}')
+    if not dest_bb:
+        raise ValueError(f'Cuenta de destino no encontrada: {dest_acct}')
+
+    total_debit = amount + commission + itf_amt
+    origin_bal  = _Dec(str(origin_bb.balance_usd if origin_cur == 'USD' else origin_bb.balance_pen))
+    dest_bal    = _Dec(str(dest_bb.balance_usd   if dest_cur   == 'USD' else dest_bb.balance_pen))
+
+    if origin_bal < total_debit:
+        raise ValueError(
+            f'Fondos insuficientes en {origin_acct}. '
+            f'Disponible: {origin_cur} {float(origin_bal):,.2f} — '
+            f'Requerido: {float(total_debit):,.2f}.'
+        )
+
+    # ── Actualizar BankBalance ────────────────────────────────────────────────
+    if origin_cur == 'USD':
+        origin_bb.balance_usd = float(origin_bal - total_debit)
+        dest_bb.balance_usd   = float(dest_bal   + amount)
+    else:
+        origin_bb.balance_pen = float(origin_bal - total_debit)
+        dest_bb.balance_pen   = float(dest_bal   + amount)
+
+    # ── BankMovement salida ───────────────────────────────────────────────────
+    new_origin_bal = float(origin_bal - total_debit)
+    mv_salida = BankMovement(
+        movement_date  = now_peru(),
+        bank_name      = origin_acct,
+        bank_key       = origin_bank,
+        currency       = origin_cur,
+        amount         = float(-total_debit),
+        movement_type  = BankMovement.TYPE_TRANSFER_SALIDA,
+        source_type    = 'transfer',
+        description    = (f'Traslado → {dest_acct}' + (f' | {description}' if description else '')),
+        reference_code = ref_code or None,
+        counterpart    = dest_acct,
+        balance_after  = round(new_origin_bal, 2),
+        created_by     = user_id,
+        closure_date   = now_peru().date(),
+    )
+
+    # ── BankMovement entrada ──────────────────────────────────────────────────
+    new_dest_bal = float(dest_bal + amount)
+    mv_entrada = BankMovement(
+        movement_date  = now_peru(),
+        bank_name      = dest_acct,
+        bank_key       = dest_bank,
+        currency       = dest_cur,
+        amount         = float(amount),
+        movement_type  = BankMovement.TYPE_TRANSFER_ENTRADA,
+        source_type    = 'transfer',
+        description    = (f'Traslado ← {origin_acct}' + (f' | {description}' if description else '')),
+        reference_code = ref_code or None,
+        counterpart    = origin_acct,
+        balance_after  = round(new_dest_bal, 2),
+        created_by     = user_id,
+        closure_date   = now_peru().date(),
+    )
+
+    db.session.add(mv_salida)
+    db.session.add(mv_entrada)
+    db.session.flush()   # obtener IDs
+
+    # ── Asiento contable (partida doble) ──────────────────────────────────────
+    origin_pcge = _jmap(origin_bank, origin_cur)
+    dest_pcge   = _jmap(dest_bank,   dest_cur)
+
+    journal_lines = [
+        # Destino: DEBE (entra dinero)
+        {'account_code': dest_pcge,   'debe': amount,  'haber': _Dec('0'), 'currency': dest_cur},
+        # Origen:  HABER (sale dinero total_debit)
+        {'account_code': origin_pcge, 'debe': _Dec('0'), 'haber': total_debit, 'currency': origin_cur},
+    ]
+    if commission > 0:
+        journal_lines.append({
+            'account_code': '6359',
+            'debe':         commission,
+            'haber':        _Dec('0'),
+            'currency':     origin_cur,
+        })
+    if itf_amt > 0:
+        journal_lines.append({
+            'account_code': '6991',
+            'debe':         itf_amt,
+            'haber':        _Dec('0'),
+            'currency':     origin_cur,
+        })
+
+    entry = JournalService.create_entry(
+        entry_type  = 'traslado_interno',
+        description = (f'Traslado {origin_acct} → {dest_acct}'
+                       + (f' | {description}' if description else '')),
+        lines       = journal_lines,
+        source_type = 'transfer',
+        source_id   = None,      # se actualiza tras el flush del InternalTransfer
+        entry_date  = now_peru().date(),
+        created_by  = user_id,
+    )
+
+    # ── Crear InternalTransfer ────────────────────────────────────────────────
+    transfer = InternalTransfer(
+        transfer_code       = InternalTransfer.next_code(),
+        origin_bank         = origin_bank,
+        origin_currency     = origin_cur,
+        origin_account      = origin_acct,
+        dest_bank           = dest_bank,
+        dest_currency       = dest_cur,
+        dest_account        = dest_acct,
+        amount              = amount,
+        commission          = commission,
+        itf_amount          = itf_amt,
+        description         = description or None,
+        reference_code      = ref_code or None,
+        journal_entry_id    = entry.id if entry else None,
+        movement_salida_id  = mv_salida.id,
+        movement_entrada_id = mv_entrada.id,
+        status              = 'activo',
+        created_by          = user_id,
+    )
+    db.session.add(transfer)
+    db.session.commit()
+    return transfer
+
+
+# ── UI ────────────────────────────────────────────────────────────────────────
+
+@treasury_bp.route('/traslados/')
+@login_required
+def traslados():
+    _require_master()
+    from app.config.bank_accounts import QORICASH_ACCOUNTS
+    traslados_list = (InternalTransfer.query
+                      .order_by(InternalTransfer.transfer_date.desc())
+                      .limit(100).all())
+    accounts = [
+        {'bank': b, 'currency': c, 'name': _acct_name(b, c)}
+        for b, currencies in QORICASH_ACCOUNTS.items()
+        for c in currencies
+    ]
+    # Saldos actuales
+    balances = {}
+    for acct in accounts:
+        bb = BankBalance.query.filter_by(bank_name=acct['name']).first()
+        if bb:
+            balances[acct['name']] = (float(bb.balance_usd)
+                                      if acct['currency'] == 'USD'
+                                      else float(bb.balance_pen))
+        else:
+            balances[acct['name']] = None
+    return render_template('treasury/traslados.html',
+                           traslados=traslados_list,
+                           accounts=accounts,
+                           balances=balances)
+
+
+# ── API ───────────────────────────────────────────────────────────────────────
+
+@treasury_bp.route('/api/traslado', methods=['POST'])
+@login_required
+def api_crear_traslado():
+    _require_master()
+    data = request.get_json() or {}
+    try:
+        transfer = _exec_traslado(data, current_user.id)
+        return jsonify({'success': True, 'transfer': transfer.to_dict(),
+                        'message': f'Traslado {transfer.transfer_code} registrado.'})
+    except ValueError as ve:
+        return jsonify({'success': False, 'error': str(ve)}), 400
+    except Exception as e:
+        db.session.rollback()
+        _log.exception('[Treasury] Error en api_crear_traslado')
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@treasury_bp.route('/api/traslados')
+@login_required
+def api_listar_traslados():
+    _require_master()
+    page     = request.args.get('page', 1, type=int)
+    per_page = 20
+    q        = (InternalTransfer.query
+                .order_by(InternalTransfer.transfer_date.desc())
+                .paginate(page=page, per_page=per_page, error_out=False))
+    return jsonify({
+        'success': True,
+        'items':   [t.to_dict() for t in q.items],
+        'total':   q.total,
+        'pages':   q.pages,
+        'page':    page,
+    })
+
+
+@treasury_bp.route('/api/traslado/<int:transfer_id>/anular', methods=['POST'])
+@login_required
+def api_anular_traslado(transfer_id):
+    _require_master()
+    data   = request.get_json() or {}
+    reason = (data.get('reason') or '').strip()
+    if not reason:
+        return jsonify({'success': False, 'error': 'Debe indicar un motivo de anulación.'}), 400
+
+    t = db.get_or_404(InternalTransfer, transfer_id)
+    if t.status != 'activo':
+        return jsonify({'success': False, 'error': 'El traslado ya está anulado.'}), 400
+
+    try:
+        # Revertir saldos en BankBalance
+        origin_bb = BankBalance.query.filter_by(bank_name=t.origin_account).first()
+        dest_bb   = BankBalance.query.filter_by(bank_name=t.dest_account).first()
+
+        total_debit = float(t.amount) + float(t.commission) + float(t.itf_amount)
+
+        if origin_bb:
+            if t.origin_currency == 'USD':
+                origin_bb.balance_usd = round(float(origin_bb.balance_usd) + total_debit, 2)
+            else:
+                origin_bb.balance_pen = round(float(origin_bb.balance_pen) + total_debit, 2)
+
+        if dest_bb:
+            if t.dest_currency == 'USD':
+                dest_bb.balance_usd = round(float(dest_bb.balance_usd) - float(t.amount), 2)
+            else:
+                dest_bb.balance_pen = round(float(dest_bb.balance_pen) - float(t.amount), 2)
+
+        # Anular asiento contable
+        if t.journal_entry_id:
+            from app.models.journal_entry import JournalEntry
+            je = JournalEntry.query.get(t.journal_entry_id)
+            if je:
+                je.status = 'anulado'
+
+        t.status        = 'anulado'
+        t.anulado_by    = current_user.id
+        t.anulado_at    = now_peru()
+        t.anulado_reason= reason
+        db.session.commit()
+
+        return jsonify({'success': True, 'message': f'Traslado {t.transfer_code} anulado.'})
+    except Exception as e:
+        db.session.rollback()
+        _log.exception('[Treasury] Error anulando traslado')
+        return jsonify({'success': False, 'error': str(e)}), 500

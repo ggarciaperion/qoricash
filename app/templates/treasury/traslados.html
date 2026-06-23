@@ -1,0 +1,534 @@
+{% extends "base.html" %}
+{% block title %}Traslados Internos — Tesorería{% endblock %}
+
+{% block head %}
+<style>
+.tr-root { background:#f8fafc; min-height:calc(100vh - 56px); }
+
+/* Header */
+.tr-header {
+  background:#fff; border-bottom:1px solid #e2e8f0;
+  padding:12px 20px;
+  display:flex; align-items:center; justify-content:space-between; gap:16px;
+}
+.tr-brand { font-size:.85rem; font-weight:800; color:#0D1B2A; letter-spacing:.04em; text-transform:uppercase; display:flex; align-items:center; gap:8px; }
+.tr-btn { background:#f1f5f9; border:1px solid #e2e8f0; color:#475569; border-radius:7px; padding:5px 12px; font-size:.73rem; font-weight:600; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; gap:5px; transition:all .15s; }
+.tr-btn:hover { background:#e2e8f0; color:#0D1B2A; text-decoration:none; }
+.tr-btn-primary { background:#0D1B2A; color:#fff; border-color:#0D1B2A; }
+.tr-btn-primary:hover { background:#1e3a5f; color:#fff; }
+
+/* Layout */
+.tr-body { display:flex; gap:0; min-height:0; }
+.tr-main { flex:1; overflow:auto; padding:20px; }
+.tr-panel { width:340px; flex-shrink:0; background:#fff; border-left:1px solid #e2e8f0; overflow-y:auto; padding:18px; }
+
+/* Form */
+.form-section { font-size:.6rem; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:.1em; margin:14px 0 8px; }
+.form-group { margin-bottom:12px; }
+.form-label { display:block; font-size:.72rem; font-weight:600; color:#374151; margin-bottom:4px; }
+.form-control { width:100%; border:1px solid #e2e8f0; border-radius:7px; padding:7px 10px; font-size:.78rem; color:#0f172a; background:#fff; outline:none; transition:border-color .15s; font-family:system-ui; }
+.form-control:focus { border-color:#2563eb; box-shadow:0 0 0 3px rgba(37,99,235,.07); }
+.form-hint { font-size:.67rem; color:#94a3b8; margin-top:3px; }
+
+.bal-chip { display:inline-block; font-size:.67rem; font-weight:700; color:#16a34a; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:5px; padding:1px 7px; margin-top:3px; }
+.bal-chip.low { color:#dc2626; background:#fef2f2; border-color:#fecaca; }
+.bal-chip.unknown { color:#94a3b8; background:#f8fafc; border-color:#e2e8f0; }
+
+.tr-arrow { text-align:center; font-size:1.2rem; color:#94a3b8; margin:6px 0; }
+
+/* Summary box */
+.tr-summary {
+  background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px;
+  padding:10px 12px; margin-bottom:14px; font-size:.75rem; font-family:system-ui;
+}
+.tr-summary-row { display:flex; justify-content:space-between; padding:3px 0; color:#64748b; }
+.tr-summary-row.total { font-weight:700; color:#0f172a; border-top:1px solid #e2e8f0; margin-top:4px; padding-top:7px; }
+
+/* Table */
+.tr-table-wrap { background:#fff; border:1px solid #e2e8f0; border-radius:10px; overflow:hidden; }
+.tr-table { width:100%; border-collapse:collapse; font-size:.78rem; font-family:system-ui; }
+.tr-table th { background:#f8fafc; padding:9px 12px; text-align:left; font-size:.65rem; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:.06em; border-bottom:1px solid #e2e8f0; white-space:nowrap; }
+.tr-table td { padding:10px 12px; border-bottom:1px solid #f1f5f9; vertical-align:middle; }
+.tr-table tr:last-child td { border-bottom:none; }
+.tr-table tr:hover td { background:#f8fafc; }
+
+.tc-code { font-weight:700; font-size:.75rem; color:#0f172a; font-family:monospace; }
+.tc-date { font-size:.7rem; color:#64748b; }
+.tc-route { display:flex; align-items:center; gap:5px; font-size:.72rem; color:#0f172a; }
+.tc-bank { display:inline-flex; align-items:center; gap:3px; background:#f1f5f9; border-radius:5px; padding:2px 7px; font-weight:600; white-space:nowrap; }
+.tc-arrow { color:#94a3b8; font-size:.9rem; }
+.tc-amount { font-weight:800; font-size:.82rem; color:#0f172a; }
+.tc-amount.usd { color:#2563eb; }
+.tc-amount.pen { color:#0D1B2A; }
+.tc-commission { font-size:.68rem; color:#d97706; }
+.tc-desc { font-size:.7rem; color:#64748b; max-width:180px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.tc-ref { font-size:.67rem; color:#94a3b8; font-family:monospace; }
+
+.badge-activo  { background:#f0fdf4; color:#16a34a; border:1px solid #bbf7d0; }
+.badge-anulado { background:#fef2f2; color:#dc2626; border:1px solid #fecaca; }
+.badge-tr { font-size:.62rem; font-weight:700; padding:2px 8px; border-radius:20px; }
+
+.empty-state { text-align:center; padding:40px 20px; color:#94a3b8; font-size:.82rem; }
+.empty-state i { font-size:2rem; display:block; margin-bottom:8px; }
+
+/* Toast */
+#toast-container { position:fixed; bottom:24px; right:24px; z-index:2000; display:flex; flex-direction:column; gap:8px; }
+.toast-msg { background:#1e293b; color:#fff; border-radius:8px; padding:10px 16px; font-size:.78rem; font-weight:500; box-shadow:0 4px 16px rgba(0,0,0,.2); display:flex; align-items:center; gap:8px; min-width:260px; animation:toast-in .25s ease; }
+.toast-msg.success { background:#16a34a; }
+.toast-msg.danger  { background:#dc2626; }
+@keyframes toast-in { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+
+/* Modal anular */
+.modal-backdrop-custom { position:fixed; inset:0; background:rgba(15,23,42,.4); z-index:1040; display:none; align-items:center; justify-content:center; }
+.modal-backdrop-custom.open { display:flex; }
+.modal-box { background:#fff; border-radius:12px; padding:24px; width:400px; max-width:95vw; box-shadow:0 8px 32px rgba(0,0,0,.15); font-family:system-ui; }
+.modal-title { font-size:.95rem; font-weight:800; color:#0f172a; margin-bottom:6px; }
+.modal-sub { font-size:.78rem; color:#64748b; margin-bottom:16px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="tr-root">
+
+  <!-- HEADER -->
+  <div class="tr-header">
+    <div class="tr-brand">
+      <i class="bi bi-arrow-left-right"></i>
+      Traslados Internos de Fondos
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <a href="{{ url_for('treasury.dashboard') }}" class="tr-btn">
+        <i class="bi bi-bank"></i> Tesorería
+      </a>
+    </div>
+  </div>
+
+  <div class="tr-body">
+
+    <!-- MAIN — tabla de traslados -->
+    <div class="tr-main">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+        <div>
+          <div style="font-weight:800;font-size:.95rem;color:#0D1B2A;">Historial de traslados</div>
+          <div style="font-size:.72rem;color:#94a3b8;margin-top:2px;">Últimos 100 movimientos entre cuentas propias</div>
+        </div>
+        <button class="tr-btn tr-btn-primary" onclick="openForm()">
+          <i class="bi bi-plus-lg"></i> Nuevo traslado
+        </button>
+      </div>
+
+      {% if traslados %}
+      <div class="tr-table-wrap">
+        <table class="tr-table">
+          <thead>
+            <tr>
+              <th>Código</th>
+              <th>Fecha</th>
+              <th>Ruta</th>
+              <th>Monto</th>
+              <th>Comisión / ITF</th>
+              <th>Descripción</th>
+              <th>Estado</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for t in traslados %}
+            <tr>
+              <td>
+                <div class="tc-code">{{ t.transfer_code }}</div>
+                {% if t.reference_code %}
+                <div class="tc-ref">{{ t.reference_code }}</div>
+                {% endif %}
+              </td>
+              <td>
+                <div class="tc-date">{{ t.transfer_date.strftime('%d/%m/%Y') if t.transfer_date else '—' }}</div>
+                <div style="font-size:.65rem;color:#94a3b8;">{{ t.transfer_date.strftime('%H:%M') if t.transfer_date else '' }}</div>
+              </td>
+              <td>
+                <div class="tc-route">
+                  <span class="tc-bank">{{ t.origin_bank }} {{ t.origin_currency }}</span>
+                  <i class="bi bi-arrow-right tc-arrow"></i>
+                  <span class="tc-bank">{{ t.dest_bank }} {{ t.dest_currency }}</span>
+                </div>
+              </td>
+              <td>
+                <div class="tc-amount {{ t.origin_currency|lower }}">
+                  {{ t.origin_currency }} {{ '{:,.2f}'.format(t.amount|float) }}
+                </div>
+              </td>
+              <td>
+                {% if t.commission|float > 0 or t.itf_amount|float > 0 %}
+                <div class="tc-commission">
+                  {% if t.commission|float > 0 %}Com: {{ '{:,.2f}'.format(t.commission|float) }}{% endif %}
+                  {% if t.itf_amount|float > 0 %} ITF: {{ '{:,.2f}'.format(t.itf_amount|float) }}{% endif %}
+                </div>
+                {% else %}
+                <span style="color:#94a3b8;font-size:.7rem;">—</span>
+                {% endif %}
+              </td>
+              <td>
+                <div class="tc-desc" title="{{ t.description or '' }}">
+                  {{ t.description or '—' }}
+                </div>
+              </td>
+              <td>
+                <span class="badge-tr {{ 'badge-activo' if t.status == 'activo' else 'badge-anulado' }}">
+                  {{ t.status|upper }}
+                </span>
+              </td>
+              <td>
+                {% if t.status == 'activo' %}
+                <button class="tr-btn" style="font-size:.65rem;padding:3px 8px;color:#dc2626;border-color:#fecaca;"
+                        onclick="openAnular({{ t.id }}, '{{ t.transfer_code }}')">
+                  <i class="bi bi-x-circle"></i> Anular
+                </button>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="tr-table-wrap">
+        <div class="empty-state">
+          <i class="bi bi-arrow-left-right"></i>
+          Sin traslados registrados.<br>
+          <span style="font-size:.72rem;">Usa el panel derecho para registrar el primer traslado.</span>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- PANEL DERECHO — formulario -->
+    <div class="tr-panel" id="formPanel" style="display:none;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+        <div style="font-weight:800;font-size:.88rem;color:#0D1B2A;">Nuevo Traslado</div>
+        <button class="tr-btn" onclick="closeForm()" style="padding:3px 8px;">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </div>
+
+      <!-- ORIGEN -->
+      <div class="form-section">Cuenta de Origen</div>
+      <div class="form-group">
+        <label class="form-label">Banco</label>
+        <select class="form-control" id="origin_bank" onchange="updateBalances()">
+          <option value="">Seleccionar banco...</option>
+          {% for acct in accounts %}
+          <option value="{{ acct.bank }}" data-currency="{{ acct.currency }}" data-name="{{ acct.name }}">
+            {{ acct.bank }} {{ acct.currency }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div id="origin-bal-wrap" style="margin-top:-6px;margin-bottom:10px;display:none;">
+        <span class="bal-chip" id="origin-bal-chip">—</span>
+      </div>
+
+      <div class="tr-arrow"><i class="bi bi-arrow-down-circle-fill"></i></div>
+
+      <!-- DESTINO -->
+      <div class="form-section">Cuenta de Destino</div>
+      <div class="form-group">
+        <label class="form-label">Banco</label>
+        <select class="form-control" id="dest_bank" onchange="updateBalances()">
+          <option value="">Seleccionar banco...</option>
+          {% for acct in accounts %}
+          <option value="{{ acct.bank }}" data-currency="{{ acct.currency }}" data-name="{{ acct.name }}">
+            {{ acct.bank }} {{ acct.currency }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div id="dest-bal-wrap" style="margin-top:-6px;margin-bottom:10px;display:none;">
+        <span class="bal-chip" id="dest-bal-chip">—</span>
+      </div>
+
+      <!-- MONTOS -->
+      <div class="form-section">Montos</div>
+      <div class="form-group">
+        <label class="form-label">Monto a trasladar *</label>
+        <input type="number" class="form-control" id="amount" min="0.01" step="0.01" placeholder="0.00" oninput="updateSummary()">
+        <div class="form-hint">Monto que llegará a la cuenta destino.</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Comisión bancaria</label>
+        <input type="number" class="form-control" id="commission" min="0" step="0.01" placeholder="0.00" value="0" oninput="updateSummary()">
+        <div class="form-hint">Cobro del banco por la transferencia (se descuenta del origen).</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">ITF</label>
+        <input type="number" class="form-control" id="itf_amount" min="0" step="0.01" placeholder="0.00" value="0" oninput="updateSummary()">
+        <div class="form-hint">0.005% del monto si aplica.</div>
+      </div>
+
+      <!-- Resumen -->
+      <div class="tr-summary" id="summary-box" style="display:none;">
+        <div class="tr-summary-row">
+          <span>Monto trasladado</span>
+          <span id="s-amount">—</span>
+        </div>
+        <div class="tr-summary-row">
+          <span>Comisión</span>
+          <span id="s-commission">0.00</span>
+        </div>
+        <div class="tr-summary-row">
+          <span>ITF</span>
+          <span id="s-itf">0.00</span>
+        </div>
+        <div class="tr-summary-row total">
+          <span>Total que sale del origen</span>
+          <span id="s-total">—</span>
+        </div>
+      </div>
+
+      <!-- REFERENCIA -->
+      <div class="form-section">Referencias</div>
+      <div class="form-group">
+        <label class="form-label">Descripción</label>
+        <input type="text" class="form-control" id="description" placeholder="Motivo del traslado...">
+      </div>
+      <div class="form-group">
+        <label class="form-label">N° Operación bancaria</label>
+        <input type="text" class="form-control" id="reference_code" placeholder="Ej: 1234567890">
+        <div class="form-hint">Número de operación generado por el banco.</div>
+      </div>
+
+      <button class="tr-btn tr-btn-primary" id="submitBtn" onclick="submitTraslado()"
+              style="width:100%;justify-content:center;padding:9px 12px;font-size:.8rem;margin-top:8px;">
+        <i class="bi bi-check-lg"></i> Registrar traslado
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<!-- Modal anulación -->
+<div class="modal-backdrop-custom" id="anularModal">
+  <div class="modal-box">
+    <div class="modal-title">Anular traslado</div>
+    <div class="modal-sub" id="anularSub">—</div>
+    <div class="form-group">
+      <label class="form-label">Motivo de anulación *</label>
+      <textarea class="form-control" id="anularReason" rows="3" placeholder="Descripción del motivo..."></textarea>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
+      <button class="tr-btn" onclick="closeAnular()">Cancelar</button>
+      <button class="tr-btn" id="anularBtn"
+              style="background:#dc2626;color:#fff;border-color:#dc2626;"
+              onclick="confirmAnular()">
+        <i class="bi bi-x-circle"></i> Anular traslado
+      </button>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+/* ── State ────────────────────────────────────────────────────────────── */
+let _anularId = null;
+
+const BALANCES = {
+  {% for acct in accounts %}
+  {{ acct.name | tojson }}: {{ balances[acct.name] if balances[acct.name] is not none else 'null' }},
+  {% endfor %}
+};
+
+const ACCOUNTS = {
+  {% for acct in accounts %}
+  '{{ acct.bank }}-{{ acct.currency }}': {{ acct.name | tojson }},
+  {% endfor %}
+};
+
+function _csrf() {
+  const m = document.querySelector('meta[name="csrf-token"]');
+  return m ? m.getAttribute('content') : '';
+}
+
+function fmt(n, cur) {
+  if (n === null || n === undefined) return '—';
+  return cur + ' ' + parseFloat(n).toLocaleString('es-PE', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+
+/* ── Toast ────────────────────────────────────────────────────────────── */
+function toast(msg, type='') {
+  const c = document.getElementById('toast-container');
+  const d = document.createElement('div');
+  d.className = 'toast-msg ' + type;
+  d.innerHTML = `<i class="bi ${type==='success'?'bi-check-circle':type==='danger'?'bi-x-circle':'bi-info-circle'}"></i> ${msg}`;
+  c.appendChild(d);
+  setTimeout(() => d.remove(), 3500);
+}
+
+/* ── Form ─────────────────────────────────────────────────────────────── */
+function openForm() {
+  document.getElementById('formPanel').style.display = 'block';
+}
+function closeForm() {
+  document.getElementById('formPanel').style.display = 'none';
+}
+
+function _getSelOption(selectId) {
+  const sel = document.getElementById(selectId);
+  if (!sel || !sel.value) return null;
+  const opt = sel.options[sel.selectedIndex];
+  return { bank: sel.value, currency: opt.getAttribute('data-currency'), name: opt.getAttribute('data-name') };
+}
+
+function updateBalances() {
+  const origin = _getSelOption('origin_bank');
+  const dest   = _getSelOption('dest_bank');
+
+  if (origin) {
+    const key = `${origin.bank}-${origin.currency}`;
+    const acct = ACCOUNTS[key];
+    const bal = acct ? BALANCES[acct] : null;
+    const chip = document.getElementById('origin-bal-chip');
+    if (bal !== null && bal !== undefined) {
+      chip.textContent = `Saldo: ${fmt(bal, origin.currency)}`;
+      chip.className = 'bal-chip' + (bal < 1 ? ' low' : '');
+    } else {
+      chip.textContent = 'Saldo no disponible';
+      chip.className = 'bal-chip unknown';
+    }
+    document.getElementById('origin-bal-wrap').style.display = 'block';
+  } else {
+    document.getElementById('origin-bal-wrap').style.display = 'none';
+  }
+
+  if (dest) {
+    const key = `${dest.bank}-${dest.currency}`;
+    const acct = ACCOUNTS[key];
+    const bal = acct ? BALANCES[acct] : null;
+    const chip = document.getElementById('dest-bal-chip');
+    if (bal !== null && bal !== undefined) {
+      chip.textContent = `Saldo: ${fmt(bal, dest.currency)}`;
+      chip.className = 'bal-chip';
+    } else {
+      chip.textContent = 'Saldo no disponible';
+      chip.className = 'bal-chip unknown';
+    }
+    document.getElementById('dest-bal-wrap').style.display = 'block';
+  } else {
+    document.getElementById('dest-bal-wrap').style.display = 'none';
+  }
+
+  updateSummary();
+}
+
+function updateSummary() {
+  const amount     = parseFloat(document.getElementById('amount').value)     || 0;
+  const commission = parseFloat(document.getElementById('commission').value) || 0;
+  const itf        = parseFloat(document.getElementById('itf_amount').value) || 0;
+  const origin     = _getSelOption('origin_bank');
+  const cur        = origin ? origin.currency : '';
+
+  if (amount > 0) {
+    const total = amount + commission + itf;
+    document.getElementById('s-amount').textContent     = fmt(amount, cur);
+    document.getElementById('s-commission').textContent = fmt(commission, cur);
+    document.getElementById('s-itf').textContent        = fmt(itf, cur);
+    document.getElementById('s-total').textContent      = fmt(total, cur);
+    document.getElementById('summary-box').style.display = 'block';
+  } else {
+    document.getElementById('summary-box').style.display = 'none';
+  }
+}
+
+async function submitTraslado() {
+  const origin = _getSelOption('origin_bank');
+  const dest   = _getSelOption('dest_bank');
+  const amount = parseFloat(document.getElementById('amount').value) || 0;
+
+  if (!origin) { toast('Selecciona la cuenta de origen.', 'danger'); return; }
+  if (!dest)   { toast('Selecciona la cuenta de destino.', 'danger'); return; }
+  if (amount <= 0) { toast('El monto debe ser mayor a cero.', 'danger'); return; }
+
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Procesando...';
+
+  try {
+    const resp = await fetch('/treasury/api/traslado', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': _csrf(),
+      },
+      body: JSON.stringify({
+        origin_bank:      origin.bank,
+        origin_currency:  origin.currency,
+        dest_bank:        dest.bank,
+        dest_currency:    dest.currency,
+        amount:           parseFloat(document.getElementById('amount').value) || 0,
+        commission:       parseFloat(document.getElementById('commission').value) || 0,
+        itf_amount:       parseFloat(document.getElementById('itf_amount').value) || 0,
+        description:      document.getElementById('description').value.trim(),
+        reference_code:   document.getElementById('reference_code').value.trim(),
+      }),
+    });
+    const data = await resp.json();
+    if (data.success) {
+      toast(data.message, 'success');
+      setTimeout(() => location.reload(), 1500);
+    } else {
+      toast(data.error || 'Error al registrar traslado.', 'danger');
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-check-lg"></i> Registrar traslado';
+    }
+  } catch(e) {
+    toast('Error de conexión.', 'danger');
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-check-lg"></i> Registrar traslado';
+  }
+}
+
+/* ── Anulación ─────────────────────────────────────────────────────────── */
+function openAnular(id, code) {
+  _anularId = id;
+  document.getElementById('anularSub').textContent = `Traslado: ${code}`;
+  document.getElementById('anularReason').value = '';
+  document.getElementById('anularModal').classList.add('open');
+}
+function closeAnular() {
+  _anularId = null;
+  document.getElementById('anularModal').classList.remove('open');
+}
+
+async function confirmAnular() {
+  const reason = document.getElementById('anularReason').value.trim();
+  if (!reason) { toast('Indica el motivo de anulación.', 'danger'); return; }
+  const btn = document.getElementById('anularBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Anulando...';
+
+  try {
+    const resp = await fetch(`/treasury/api/traslado/${_anularId}/anular`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': _csrf() },
+      body: JSON.stringify({ reason }),
+    });
+    const data = await resp.json();
+    if (data.success) {
+      toast(data.message, 'success');
+      setTimeout(() => location.reload(), 1500);
+    } else {
+      toast(data.error || 'Error al anular.', 'danger');
+    }
+  } catch(e) {
+    toast('Error de conexión.', 'danger');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-x-circle"></i> Anular traslado';
+    closeAnular();
+  }
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAnular(); });
+</script>
+{% endblock %}
