@@ -44,7 +44,7 @@ _EXCLUDE_ESTADOS   = {'NO CONTACTAR', 'REBOTE', 'INVALIDO', 'cliente', 'P4', 'ne
 _EXCLUDE_EMAIL_EST = {'REBOTE', 'INVALIDO', 'NO CONTACTAR'}
 _DIAS_HABIL_ESPERA    = 5
 _CALENDAR_DAYS_APPROX = 7     # 5 días hábiles ≈ 7 calendario — filtro SQL previo
-_DAILY_LIMIT          = 490   # límite diario por bandeja (margen bajo el límite Gmail)
+_DAILY_LIMIT          = 1500  # límite diario por bandeja (Google Workspace: 2,000/día)
 
 # Horario y modos de envío
 _HORA_INICIO      = 9.0    # 09:00 Lima
