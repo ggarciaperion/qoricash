@@ -315,9 +315,15 @@ def api_alerts():
 @_require_agent_access
 @csrf.exempt
 def api_trigger(agent_id):
-    from app.services.agents.orchestrator import trigger_agent
-    result = trigger_agent(agent_id, current_app._get_current_object())
-    return jsonify(result)
+    from app.services.agents.orchestrator import _agent_map
+    import eventlet
+    app = current_app._get_current_object()
+    agent = _agent_map.get(agent_id)
+    if not agent:
+        return jsonify({'error': f'Agente {agent_id} no encontrado'})
+    # Ejecutar en greenlet para no bloquear el request
+    eventlet.spawn(agent.run, app)
+    return jsonify({'ok': True, 'message': f'{agent.name} disparado en background'})
 
 
 @agentes_bp.route('/api/pause/<agent_id>', methods=['POST'])
