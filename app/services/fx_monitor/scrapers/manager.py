@@ -156,11 +156,23 @@ def _ced_batch_fallback(failed_slugs: list) -> dict:
         return {}
 
 
+_RATE_MIN = 2.5
+_RATE_MAX = 6.0
+
+
+def _is_valid_rate(buy: float, sell: float) -> bool:
+    """Verifica que las tasas estén en rango razonable para PEN/USD."""
+    return (_RATE_MIN < buy < _RATE_MAX and _RATE_MIN < sell < _RATE_MAX and buy < sell)
+
+
 def scrape_all(active_slugs=None, max_workers=18):
     """
     Ejecuta todos los scrapers activos en paralelo con circuit breaker.
-    Para scrapers que fallan y tienen mapping en CED, intenta recuperar
-    las tasas de cuantoestaeldolar.pe en una sola request (fallback batch).
+    Para scrapers que fallan o están en cooldown y tienen mapping en CED,
+    intenta recuperar las tasas de cuantoestaeldolar.pe en una sola request.
+
+    FIX: Los scrapers en cooldown (circuit breaker) también se intentan via CED
+    para evitar que los precios queden congelados indefinidamente.
     """
     from .base import RateResult
     from app.utils.formatters import now_peru
@@ -173,7 +185,7 @@ def scrape_all(active_slugs=None, max_workers=18):
     ready   = [s for s in scrapers if not _cb_open(s.slug)]
     skipped = [s.slug for s in scrapers if _cb_open(s.slug)]
     if skipped:
-        logger.debug(f"[CB] Saltando {len(skipped)} scrapers en cooldown: {skipped}")
+        logger.warning(f"[CB] {len(skipped)} scrapers en cooldown: {skipped} — se intentará CED fallback")
 
     results = []
     failed_slugs = []
@@ -184,6 +196,18 @@ def scrape_all(active_slugs=None, max_workers=18):
             slug = futures[future]
             try:
                 result = future.result()
+                # Validar rango antes de aceptar el resultado
+                if result.success and result.buy_rate > 0:
+                    if not _is_valid_rate(result.buy_rate, result.sell_rate):
+                        logger.warning(
+                            f"[FX] ⚠️  {slug}: tasas fuera de rango "
+                            f"buy={result.buy_rate} sell={result.sell_rate} — descartando"
+                        )
+                        result = RateResult(slug=slug, buy_rate=0.0, sell_rate=0.0,
+                                            scraped_at=result.scraped_at,
+                                            response_ms=result.response_ms,
+                                            success=False,
+                                            error=f"Fuera de rango: {result.buy_rate}/{result.sell_rate}")
                 _cb_record(slug, result.success)
                 results.append(result)
                 status = "✅" if result.success else "❌"
@@ -195,19 +219,25 @@ def scrape_all(active_slugs=None, max_workers=18):
                 logger.error(f"[FX] 💥 {slug}: {e}")
                 failed_slugs.append(slug)
 
-    # Fallback CED batch para scrapers que fallaron
-    if failed_slugs:
+    # Fallback CED batch para scrapers que fallaron Y para los que estaban en cooldown.
+    # FIX CRÍTICO: los scrapers en cooldown también se intentan via CED para evitar
+    # que sus precios queden congelados cuando el scraper directo está parado.
+    all_fallback_slugs = list(set(failed_slugs + skipped))
+    if all_fallback_slugs:
         t0 = time.monotonic()
-        recovered = _ced_batch_fallback(failed_slugs)
+        recovered = _ced_batch_fallback(all_fallback_slugs)
         ms = int((time.monotonic() - t0) * 1000)
         for slug, (buy, sell) in recovered.items():
+            if not _is_valid_rate(buy, sell):
+                logger.warning(f"[CED-BATCH] ⚠️  {slug}: tasas CED fuera de rango {buy}/{sell} — ignorando")
+                continue
             # Reemplazar el resultado fallido con el dato de CED
             results = [r for r in results if r.slug != slug]
             results.append(RateResult(
                 slug=slug, buy_rate=buy, sell_rate=sell,
                 scraped_at=now_peru(), response_ms=ms, success=True,
             ))
-            _cb_record(slug, True)  # resetear circuit breaker
+            _cb_record(slug, True)  # resetear circuit breaker si CED funciona
             logger.info(f"[CED-BATCH] ✅ {slug} recuperado: compra={buy} venta={sell}")
 
     return results

@@ -110,7 +110,19 @@ class FXMonitorService:
                 )
                 db.session.add(history)
 
-                if not result.success or result.buy_rate == 0:
+                # Validar rango razonable para PEN/USD antes de persistir
+                _valid_range = 2.5 < result.buy_rate < 6.0 and 2.5 < result.sell_rate < 6.0
+                _valid_order = result.buy_rate < result.sell_rate
+                _rate_ok = result.success and result.buy_rate > 0 and _valid_range and _valid_order
+
+                if not _rate_ok:
+                    if result.success and result.buy_rate > 0:
+                        # Éxito técnico pero dato inválido — loguear detalle
+                        logger.warning(
+                            f"[FX] {result.slug}: dato rechazado — "
+                            f"buy={result.buy_rate} sell={result.sell_rate} "
+                            f"(rango_ok={_valid_range} order_ok={_valid_order})"
+                        )
                     error_count += 1
                     prev = slug_to_current.get(result.slug)
                     if prev:
