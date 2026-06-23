@@ -1524,9 +1524,9 @@ def api_set_precio_base():
         db.session.add(DatatecEntry(compra=compra, venta=venta, user_id=current_user.id))
 
         # Actualizar "Mis Tipos de Cambio" automáticamente:
-        # COMPRA: widget - 50 pips → floor a 3 decimales (QoriCash paga menos)
-        # VENTA:  widget + 50 pips → ceil  a 3 decimales (QoriCash cobra más)
-        PIPS = 0.0050
+        # COMPRA: widget - 20 pips → floor a 3 decimales (QoriCash paga menos)
+        # VENTA:  widget + 20 pips → ceil  a 3 decimales (QoriCash cobra más)
+        PIPS = 0.0020
         mtc_compra = math.floor((compra - PIPS) * 1000) / 1000
         mtc_venta  = math.ceil( (venta  + PIPS) * 1000) / 1000
         from app.models.exchange_rate import ExchangeRate
