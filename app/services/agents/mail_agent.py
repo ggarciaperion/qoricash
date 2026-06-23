@@ -942,6 +942,9 @@ class MailAgent(BaseAgent):
             for p in eligible:
                 por_bandeja[self._pick_bandeja(p)].append(p)
 
+            # Cargar imágenes una sola vez para todo el ciclo (evita I/O y PIL por email)
+            img_cache = self._load_image_cache()
+
             for bandeja in list(_BANDEJAS.keys()):
                 prospects_q = por_bandeja.get(bandeja, [])
                 if not prospects_q:
@@ -957,6 +960,13 @@ class MailAgent(BaseAgent):
                 bot_nombre  = _BANDEJA_NOMBRE.get(bandeja, 'QoriCash')
                 bot_cargo   = _BANDEJA_CARGO.get(bandeja, 'Equipo Comercial')
                 es_personal = (bandeja == 'ggarcia@qoricash.pe')
+
+                # Construir servicio Gmail una vez por bandeja (no por email)
+                gmail_service, gmail_creds = self._build_service(bandeja)
+                if not gmail_service:
+                    _log.warning(f'[MailAgent] Sin servicio Gmail para {bandeja} — saltando bandeja')
+                    skipped += len(batch)
+                    continue
 
                 for p in batch:
                     try:
@@ -1008,7 +1018,10 @@ class MailAgent(BaseAgent):
                             tipo_envio   = 'presentacion'
                             descripcion  = 'Email de presentación institucional enviado'
 
-                        ok = self._send_via_gmail(bandeja, p.email, subject, html)
+                        ok = self._send_with_service(
+                            gmail_service, gmail_creds, bandeja,
+                            p.email, subject, html, img_cache,
+                        )
                         if not ok:
                             skipped += 1
                             continue
@@ -1089,6 +1102,100 @@ class MailAgent(BaseAgent):
             if d.weekday() < 5:
                 added += 1
         return d.strftime('%Y-%m-%d')
+
+    def _load_image_cache(self) -> dict:
+        """Carga bytes de todas las imágenes CID en memoria una vez por ciclo.
+        Evita leer disco y ejecutar PIL resize en cada email individual."""
+        cache: dict = {}
+
+        def _load(path: str, cid: str, fname: str, tipo: str):
+            if os.path.exists(path):
+                with open(path, 'rb') as f:
+                    cache[cid] = (f.read(), fname, tipo)
+
+        _load(_IMG_ENCABEZADO, 'encabezado',    'encabezado.jpg', 'jpeg')
+        _load(_IMG_BCP,        'logo_bcp',      'bcp.png',        'png')
+        _load(_IMG_INTERBANK,  'logo_interbank','interbank.png',  'png')
+        _load(_IMG_BANBIF,     'logo_banbif',   'banbif.png',     'png')
+
+        if os.path.exists(_IMG_LOGO):
+            try:
+                from PIL import Image
+                img = Image.open(_IMG_LOGO).convert('RGBA').resize((104, 104), Image.LANCZOS)
+                buf = io.BytesIO()
+                img.save(buf, format='PNG', optimize=True)
+                cache['logo_qori'] = (buf.getvalue(), 'logo.png', 'png')
+            except Exception:
+                with open(_IMG_LOGO, 'rb') as f:
+                    cache['logo_qori'] = (f.read(), 'logo.png', 'png')
+
+        return cache
+
+    def _build_service(self, sender: str):
+        """Construye el servicio Gmail API una vez por bandeja/ciclo.
+        Retorna (service, creds) o (None, None) si faltan credenciales."""
+        from google.oauth2.credentials import Credentials
+        from google.auth.transport.requests import Request
+        from googleapiclient.discovery import build
+
+        env_key       = _BANDEJAS.get(sender)
+        refresh_token = os.environ.get(env_key or '', '').strip()
+        client_id     = os.environ.get('GMAIL_CLIENT_ID', '')
+        client_secret = os.environ.get('GMAIL_CLIENT_SECRET', '')
+
+        if not all([env_key, refresh_token, client_id, client_secret]):
+            _log.warning(f'[MailAgent] Credenciales Gmail faltantes para {sender} (var: {env_key})')
+            return None, None
+
+        try:
+            creds = Credentials(
+                token=None, refresh_token=refresh_token,
+                token_uri='https://oauth2.googleapis.com/token',
+                client_id=client_id, client_secret=client_secret,
+                scopes=['https://mail.google.com/'],
+            )
+            creds.refresh(Request())
+            service = build('gmail', 'v1', credentials=creds)
+            _log.info(f'[MailAgent] Servicio Gmail listo para {sender}')
+            return service, creds
+        except Exception as e:
+            _log.error(f'[MailAgent] Error construyendo servicio Gmail para {sender}: {e}')
+            return None, None
+
+    def _send_with_service(self, service, creds, sender: str, to: str,
+                           subject: str, html: str, img_cache: dict) -> bool:
+        """Envía un email usando el servicio Gmail pre-construido del ciclo.
+        Refresca el token solo si expiró (ciclos > 1h)."""
+        from google.auth.transport.requests import Request
+
+        try:
+            if creds.expired:
+                creds.refresh(Request())
+
+            msg_related = MIMEMultipart('related')
+            msg_related['From']       = sender
+            msg_related['To']         = to
+            msg_related['Subject']    = subject
+            msg_related['Date']       = formatdate(localtime=True)
+            msg_related['Message-ID'] = make_msgid(domain='qoricash.pe')
+
+            msg_alt = MIMEMultipart('alternative')
+            msg_alt.attach(MIMEText(html, 'html'))
+            msg_related.attach(msg_alt)
+
+            for cid, (data, fname, tipo) in img_cache.items():
+                part = MIMEImage(data, tipo)
+                part.add_header('Content-ID', f'<{cid}>')
+                part.add_header('Content-Disposition', 'inline', filename=fname)
+                msg_related.attach(part)
+
+            raw = base64.urlsafe_b64encode(msg_related.as_bytes()).decode()
+            service.users().messages().send(userId='me', body={'raw': raw}).execute()
+            return True
+
+        except Exception as e:
+            _log.error(f'[MailAgent] Gmail send error ({sender} → {to}): {e}')
+            return False
 
     def _send_via_gmail(self, sender: str, to: str, subject: str, html: str) -> bool:
         try:
