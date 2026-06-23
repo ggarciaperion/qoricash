@@ -71,18 +71,30 @@
 {% endblock %}
 {% block scripts %}
 <script>
+function _csrf() {
+  const m = document.querySelector('meta[name="csrf-token"]');
+  return m ? m.getAttribute('content') : '';
+}
 async function triggerAgent(id, btn) {
-  btn.disabled = true; btn.innerHTML = '<i class="bi bi-hourglass-split"></i>';
-  await fetch('/agentes/api/trigger/'+id, {method:'POST'});
-  btn.innerHTML = '<i class="bi bi-check-lg"></i> Listo';
+  btn.disabled = true;
+  btn.innerHTML = '<i class="bi bi-hourglass-split"></i>';
+  try {
+    await fetch('/agentes/api/trigger/'+id, {method:'POST', headers:{'X-CSRFToken':_csrf()}});
+    btn.innerHTML = '<i class="bi bi-check-lg"></i> Listo';
+  } catch(e) {
+    btn.innerHTML = '<i class="bi bi-x-lg"></i> Error';
+    console.error('[Trigger]', e);
+  }
   setTimeout(() => { btn.disabled=false; btn.innerHTML='<i class="bi bi-play-fill"></i> Ejecutar'; }, 3000);
 }
 async function pauseAgent(id) {
-  await fetch('/agentes/api/pause/'+id, {method:'POST'});
+  try { await fetch('/agentes/api/pause/'+id, {method:'POST', headers:{'X-CSRFToken':_csrf()}}); }
+  catch(e) { console.error('[Pause]', e); }
   location.reload();
 }
 async function resumeAgent(id) {
-  await fetch('/agentes/api/resume/'+id, {method:'POST'});
+  try { await fetch('/agentes/api/resume/'+id, {method:'POST', headers:{'X-CSRFToken':_csrf()}}); }
+  catch(e) { console.error('[Resume]', e); }
   location.reload();
 }
 </script>

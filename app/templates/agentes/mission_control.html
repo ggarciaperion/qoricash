@@ -639,11 +639,16 @@ function updateClock() {
 }
 setInterval(updateClock, 1000); updateClock();
 
-/* Socket.IO */
-const socket = io({ transports: ['polling','websocket'] });
-socket.on('agent_status_update', updateNode);
-socket.on('agent_log', appendLog);
-socket.on('executive_kpis', updateKPIs);
+/* Socket.IO — envuelto en try/catch para evitar que un fallo de CDN congele el script */
+let socket;
+try {
+  socket = io({ transports: ['polling','websocket'] });
+  socket.on('agent_status_update', updateNode);
+  socket.on('agent_log', appendLog);
+  socket.on('executive_kpis', updateKPIs);
+} catch(e) {
+  console.warn('[MC] Socket.IO no disponible:', e);
+}
 
 /* Update node card */
 function updateNode(d) {
@@ -689,32 +694,66 @@ function updateKPIs(k) {
   }
 }
 
+/* CSRF helper */
+function _csrf() {
+  const m = document.querySelector('meta[name="csrf-token"]');
+  return m ? m.getAttribute('content') : '';
+}
+
 /* Agent controls */
 async function triggerAgent(id, btn) {
   btn.disabled = true;
   const orig = btn.innerHTML;
   btn.innerHTML = '<i class="bi bi-hourglass-split"></i>';
   try {
-    await fetch(`/agentes/api/trigger/${id}`, {method:'POST'});
-    btn.innerHTML = '<i class="bi bi-check-lg"></i>';
+    const resp = await fetch(`/agentes/api/trigger/${id}`, {
+      method: 'POST',
+      headers: { 'X-CSRFToken': _csrf() }
+    });
+    const d = await resp.json().catch(() => ({}));
+    if (resp.ok && d.ok) {
+      btn.innerHTML = '<i class="bi bi-check-lg"></i>';
+    } else {
+      btn.innerHTML = '<i class="bi bi-x-lg"></i>';
+      console.warn('[Trigger] error:', d.error || resp.status);
+    }
     setTimeout(() => { btn.disabled=false; btn.innerHTML=orig; }, 3000);
-  } catch {
+  } catch(e) {
     btn.innerHTML = '<i class="bi bi-x-lg"></i>';
+    console.error('[Trigger]', e);
     setTimeout(() => { btn.disabled=false; btn.innerHTML=orig; }, 2000);
   }
 }
 async function pauseAgent(id) {
-  await fetch(`/agentes/api/pause/${id}`, {method:'POST'});
+  try {
+    await fetch(`/agentes/api/pause/${id}`, {
+      method: 'POST',
+      headers: { 'X-CSRFToken': _csrf() }
+    });
+  } catch(e) { console.error('[Pause]', e); }
   location.reload();
 }
 async function resumeAgent(id) {
-  await fetch(`/agentes/api/resume/${id}`, {method:'POST'});
+  try {
+    await fetch(`/agentes/api/resume/${id}`, {
+      method: 'POST',
+      headers: { 'X-CSRFToken': _csrf() }
+    });
+  } catch(e) { console.error('[Resume]', e); }
   location.reload();
 }
 async function resetAgent(id, btn) {
   const orig = btn.innerHTML;
-  await fetch(`/agentes/api/reset/${id}`, {method:'POST'});
-  btn.innerHTML = '<i class="bi bi-check-lg"></i>';
+  try {
+    await fetch(`/agentes/api/reset/${id}`, {
+      method: 'POST',
+      headers: { 'X-CSRFToken': _csrf() }
+    });
+    btn.innerHTML = '<i class="bi bi-check-lg"></i>';
+  } catch(e) {
+    btn.innerHTML = '<i class="bi bi-x-lg"></i>';
+    console.error('[Reset]', e);
+  }
   setTimeout(() => btn.innerHTML=orig, 2000);
 }
 
