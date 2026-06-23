@@ -11,6 +11,7 @@ Límites:
 import logging
 import os
 import base64
+import io
 from datetime import timedelta, timezone, date
 from email.mime.multipart import MIMEMultipart
 from email.mime.text      import MIMEText
@@ -65,6 +66,7 @@ _IMG_ENCABEZADO = os.path.join(_STATIC_IMAGES, 'encabezado_prospeccion.jpg')
 _IMG_BCP        = os.path.join(_STATIC_IMAGES, 'bcp_logo.png')
 _IMG_INTERBANK  = os.path.join(_STATIC_IMAGES, 'interbank_logo.png')
 _IMG_BANBIF     = os.path.join(_STATIC_IMAGES, 'banbif_logo.png')
+_IMG_LOGO       = os.path.join(_STATIC_IMAGES, 'logo-email.png')
 
 LOGO = 'https://www.qoricash.pe/logofirma.png'
 
@@ -99,7 +101,13 @@ def _build_html(nombre_dest: str, nombre_firma: str, cargo: str,
     return f"""\
 <!DOCTYPE html>
 <html lang="es">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  .card-bank {{ border:1px solid #E9EEF4;border-radius:10px;background:#FFFFFF;text-align:center;cursor:default; }}
+  .card-bank:hover {{ background:#F0FDF4 !important;border-color:#86efac !important;box-shadow:0 4px 16px rgba(22,163,74,0.12) !important; }}
+  .card-bank:hover .acct-row {{ display:table-row !important; }}
+</style>
+</head>
 <body style="margin:0;padding:0;background:#F1F5F9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
 <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#F1F5F9;padding:28px 0;">
 <tr><td align="center">
@@ -186,68 +194,70 @@ def _build_html(nombre_dest: str, nombre_firma: str, cargo: str,
     <div style="height:1px;background:#F1F5F9;"></div>
   </td></tr>
 
-  <!-- BANCOS -->
+  <!-- BANCOS: 3 CARDS HORIZONTALES -->
   <tr>
-    <td style="padding:24px 36px 8px;">
-      <p style="margin:0 0 4px;font-size:11px;font-weight:700;color:#94A3B8;
-                text-transform:uppercase;letter-spacing:1px;">Operamos con los bancos m&aacute;s importantes del Per&uacute;</p>
-      <p style="margin:0 0 16px;font-size:13px;color:#475569;">
-        QORICASH S.A.C. &nbsp;&middot;&nbsp; RUC 20615113698
-        &nbsp;&middot;&nbsp; Regulada por la SBS</p>
-      <table width="100%" cellpadding="0" cellspacing="0" border="0"
-             style="border:1px solid #E9EEF4;border-radius:8px;overflow:hidden;">
-        <tr style="border-bottom:1px solid #F1F5F9;">
-          <td style="padding:12px 8px 12px 16px;vertical-align:middle;width:100px;">
-            <img src="cid:logo_bcp" alt="BCP" height="52"
-                 style="display:block;height:52px;"></td>
-          <td style="padding:12px 10px;vertical-align:middle;border-left:1px solid #F1F5F9;">
-            <p style="margin:0;font-size:8px;color:#94A3B8;text-transform:uppercase;
-                      letter-spacing:1px;">Soles</p>
-            <p style="margin:3px 0 0;font-size:12px;font-weight:600;
-                      color:#0D1B2A;">1937353150041</p></td>
-          <td style="padding:12px 16px 12px 10px;vertical-align:middle;
-                     border-left:1px solid #F1F5F9;">
-            <p style="margin:0;font-size:8px;color:#94A3B8;text-transform:uppercase;
-                      letter-spacing:1px;">D&oacute;lares</p>
-            <p style="margin:3px 0 0;font-size:12px;font-weight:600;
-                      color:#0D1B2A;">1917357790119</p></td>
-        </tr>
-        <tr style="border-bottom:1px solid #F1F5F9;">
-          <td style="padding:12px 8px 12px 16px;vertical-align:middle;">
-            <img src="cid:logo_interbank" alt="Interbank" height="40"
-                 style="display:block;height:40px;"></td>
-          <td style="padding:12px 10px;vertical-align:middle;border-left:1px solid #F1F5F9;">
-            <p style="margin:0;font-size:8px;color:#94A3B8;text-transform:uppercase;
-                      letter-spacing:1px;">Soles</p>
-            <p style="margin:3px 0 0;font-size:12px;font-weight:600;
-                      color:#0D1B2A;">200-3007757571</p></td>
-          <td style="padding:12px 16px 12px 10px;vertical-align:middle;
-                     border-left:1px solid #F1F5F9;">
-            <p style="margin:0;font-size:8px;color:#94A3B8;text-transform:uppercase;
-                      letter-spacing:1px;">D&oacute;lares</p>
-            <p style="margin:3px 0 0;font-size:12px;font-weight:600;
-                      color:#0D1B2A;">200-3007757589</p></td>
-        </tr>
+    <td style="padding:16px 36px 24px;">
+      <p style="margin:0 0 14px;font-size:11px;font-weight:700;color:#94A3B8;
+                text-transform:uppercase;letter-spacing:1px;">
+        Operamos con los bancos m&aacute;s importantes del Per&uacute;</p>
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
         <tr>
-          <td style="padding:12px 8px 12px 16px;vertical-align:middle;">
-            <img src="cid:logo_banbif" alt="BanBif" height="40"
-                 style="display:block;height:40px;"></td>
-          <td style="padding:12px 10px;vertical-align:middle;border-left:1px solid #F1F5F9;">
-            <p style="margin:0;font-size:8px;color:#94A3B8;text-transform:uppercase;
-                      letter-spacing:1px;">Soles</p>
-            <p style="margin:3px 0 0;font-size:12px;font-weight:600;
-                      color:#0D1B2A;">007000845805</p></td>
-          <td style="padding:12px 16px 12px 10px;vertical-align:middle;
-                     border-left:1px solid #F1F5F9;">
-            <p style="margin:0;font-size:8px;color:#94A3B8;text-transform:uppercase;
-                      letter-spacing:1px;">D&oacute;lares</p>
-            <p style="margin:3px 0 0;font-size:12px;font-weight:600;
-                      color:#0D1B2A;">007000845813</p></td>
+          <td width="32%" style="vertical-align:top;">
+            <table width="100%" cellpadding="0" cellspacing="0" border="0" class="card-bank"
+                   style="border:1px solid #E9EEF4;border-radius:10px;background:#FFFFFF;text-align:center;">
+              <tr><td style="padding:12px 8px 10px;height:64px;vertical-align:middle;">
+                <img src="cid:logo_bcp" alt="BCP" height="44"
+                     style="display:inline-block;height:44px;max-width:90%;">
+              </td></tr>
+              <tr class="acct-row" style="display:none;"><td
+                   style="padding:10px 12px 16px;border-top:1px solid #F1F5F9;">
+                <p style="margin:0;font-size:8px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px;">Soles</p>
+                <p style="margin:3px 0 8px;font-size:11px;font-weight:600;color:#0D1B2A;">1937353150041</p>
+                <p style="margin:0;font-size:8px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px;">D&oacute;lares</p>
+                <p style="margin:3px 0 0;font-size:11px;font-weight:600;color:#0D1B2A;">1917357790119</p>
+              </td></tr>
+            </table>
+          </td>
+          <td width="2%"></td>
+          <td width="32%" style="vertical-align:top;">
+            <table width="100%" cellpadding="0" cellspacing="0" border="0" class="card-bank"
+                   style="border:1px solid #E9EEF4;border-radius:10px;background:#FFFFFF;text-align:center;">
+              <tr><td style="padding:12px 8px 10px;height:64px;vertical-align:middle;">
+                <img src="cid:logo_interbank" alt="Interbank" height="44"
+                     style="display:inline-block;height:44px;max-width:90%;">
+              </td></tr>
+              <tr class="acct-row" style="display:none;"><td
+                   style="padding:10px 12px 16px;border-top:1px solid #F1F5F9;">
+                <p style="margin:0;font-size:8px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px;">Soles</p>
+                <p style="margin:3px 0 8px;font-size:11px;font-weight:600;color:#0D1B2A;">200-3007757571</p>
+                <p style="margin:0;font-size:8px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px;">D&oacute;lares</p>
+                <p style="margin:3px 0 0;font-size:11px;font-weight:600;color:#0D1B2A;">200-3007757589</p>
+              </td></tr>
+            </table>
+          </td>
+          <td width="2%"></td>
+          <td width="32%" style="vertical-align:top;">
+            <table width="100%" cellpadding="0" cellspacing="0" border="0" class="card-bank"
+                   style="border:1px solid #E9EEF4;border-radius:10px;background:#FFFFFF;text-align:center;">
+              <tr><td style="padding:12px 8px 10px;height:64px;vertical-align:middle;">
+                <img src="cid:logo_banbif" alt="BanBif" height="44"
+                     style="display:inline-block;height:44px;max-width:90%;">
+              </td></tr>
+              <tr class="acct-row" style="display:none;"><td
+                   style="padding:10px 12px 16px;border-top:1px solid #F1F5F9;">
+                <p style="margin:0;font-size:8px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px;">Soles</p>
+                <p style="margin:3px 0 8px;font-size:11px;font-weight:600;color:#0D1B2A;">007000845805</p>
+                <p style="margin:0;font-size:8px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px;">D&oacute;lares</p>
+                <p style="margin:3px 0 0;font-size:11px;font-weight:600;color:#0D1B2A;">007000845813</p>
+              </td></tr>
+            </table>
+          </td>
         </tr>
       </table>
-      <p style="margin:10px 0 0;font-size:10px;color:#94A3B8;line-height:1.6;">
-        Transferencia interbancaria (CCI) disponible desde BBVA, Scotiabank,
-        Pichincha y cualquier banco del Per&uacute;.
+      <p style="margin:14px 0 0;font-size:10px;color:#94A3B8;text-align:center;line-height:1.6;">
+        Para operaciones con BBVA, Scotiabank, Pichincha, Banco GNB y otros bancos,
+        realizamos transferencias v&iacute;a <strong style="color:#64748B;">CCI</strong>
+        en un plazo de <strong style="color:#64748B;">2 a 24 horas</strong>.
       </p>
     </td>
   </tr>
@@ -350,7 +360,13 @@ def _build_html_prospeccion(nombre_dest: str, nombre_firma: str, cargo: str,
     return f"""\
 <!DOCTYPE html>
 <html lang="es">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  .card-bank {{ border:1px solid #E9EEF4;border-radius:10px;background:#FFFFFF;text-align:center;cursor:default; }}
+  .card-bank:hover {{ background:#F0FDF4 !important;border-color:#86efac !important;box-shadow:0 4px 16px rgba(22,163,74,0.12) !important; }}
+  .card-bank:hover .acct-row {{ display:table-row !important; }}
+</style>
+</head>
 <body style="margin:0;padding:0;background:#F1F5F9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
 <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#F1F5F9;padding:28px 0;">
 <tr><td align="center">
@@ -409,65 +425,71 @@ def _build_html_prospeccion(nombre_dest: str, nombre_firma: str, cargo: str,
     </td>
   </tr>
 
-  <!-- CUENTAS BANCARIAS -->
+  <!-- CUENTAS BANCARIAS: 3 CARDS HORIZONTALES -->
   <tr>
-    <td style="padding:0 36px 8px;">
-      <p style="margin:0 0 4px;font-size:11px;font-weight:700;color:#94A3B8;
-                text-transform:uppercase;letter-spacing:1px;">Operamos con los bancos m&aacute;s importantes del Per&uacute;</p>
-      <p style="margin:0 0 16px;font-size:13px;color:#475569;">
-        QORICASH S.A.C. &nbsp;&middot;&nbsp; RUC 20615113698
-        &nbsp;&middot;&nbsp; Regulada por la SBS</p>
-      <table width="100%" cellpadding="0" cellspacing="0" border="0"
-             style="border:1px solid #E9EEF4;border-radius:8px;overflow:hidden;">
-        <tr style="border-bottom:1px solid #F1F5F9;">
-          <td style="padding:12px 8px 12px 16px;vertical-align:middle;width:100px;">
-            <img src="cid:logo_bcp" alt="BCP" height="52"
-                 style="display:block;height:52px;"></td>
-          <td style="padding:12px 10px;vertical-align:middle;border-left:1px solid #F1F5F9;">
-            <p style="margin:0;font-size:8px;color:#94A3B8;text-transform:uppercase;
-                      letter-spacing:1px;">Soles</p>
-            <p style="margin:3px 0 0;font-size:12px;font-weight:600;
-                      color:#0D1B2A;">1937353150041</p></td>
-          <td style="padding:12px 16px 12px 10px;vertical-align:middle;
-                     border-left:1px solid #F1F5F9;">
-            <p style="margin:0;font-size:8px;color:#94A3B8;text-transform:uppercase;
-                      letter-spacing:1px;">D&oacute;lares</p>
-            <p style="margin:3px 0 0;font-size:12px;font-weight:600;
-                      color:#0D1B2A;">1917357790119</p></td>
-        </tr>
-        <tr style="border-bottom:1px solid #F1F5F9;">
-          <td style="padding:12px 8px 12px 16px;vertical-align:middle;">
-            <img src="cid:logo_interbank" alt="Interbank" height="40"
-                 style="display:block;height:40px;"></td>
-          <td style="padding:12px 10px;vertical-align:middle;border-left:1px solid #F1F5F9;">
-            <p style="margin:0;font-size:8px;color:#94A3B8;text-transform:uppercase;
-                      letter-spacing:1px;">Soles</p>
-            <p style="margin:3px 0 0;font-size:12px;font-weight:600;
-                      color:#0D1B2A;">200-3007757571</p></td>
-          <td style="padding:12px 16px 12px 10px;vertical-align:middle;
-                     border-left:1px solid #F1F5F9;">
-            <p style="margin:0;font-size:8px;color:#94A3B8;text-transform:uppercase;
-                      letter-spacing:1px;">D&oacute;lares</p>
-            <p style="margin:3px 0 0;font-size:12px;font-weight:600;
-                      color:#0D1B2A;">200-3007757589</p></td>
-        </tr>
+    <td style="padding:0 36px 24px;">
+      <p style="margin:0 0 14px;font-size:11px;font-weight:700;color:#94A3B8;
+                text-transform:uppercase;letter-spacing:1px;">
+        Operamos con los bancos m&aacute;s importantes del Per&uacute;</p>
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
         <tr>
-          <td style="padding:12px 8px 12px 16px;vertical-align:middle;">
-            <img src="cid:logo_banbif" alt="BanBif" height="40"
-                 style="display:block;height:40px;"></td>
-          <td style="padding:12px 10px;vertical-align:middle;border-left:1px solid #F1F5F9;">
-            <p style="margin:0;font-size:8px;color:#94A3B8;text-transform:uppercase;
-                      letter-spacing:1px;">Soles</p>
-            <p style="margin:3px 0 0;font-size:12px;font-weight:600;
-                      color:#0D1B2A;">007000845805</p></td>
-          <td style="padding:12px 16px 12px 10px;vertical-align:middle;
-                     border-left:1px solid #F1F5F9;">
-            <p style="margin:0;font-size:8px;color:#94A3B8;text-transform:uppercase;
-                      letter-spacing:1px;">D&oacute;lares</p>
-            <p style="margin:3px 0 0;font-size:12px;font-weight:600;
-                      color:#0D1B2A;">007000845813</p></td>
+          <td width="32%" style="vertical-align:top;">
+            <table width="100%" cellpadding="0" cellspacing="0" border="0" class="card-bank"
+                   style="border:1px solid #E9EEF4;border-radius:10px;background:#FFFFFF;text-align:center;">
+              <tr><td style="padding:12px 8px 10px;height:64px;vertical-align:middle;">
+                <img src="cid:logo_bcp" alt="BCP" height="44"
+                     style="display:inline-block;height:44px;max-width:90%;">
+              </td></tr>
+              <tr class="acct-row" style="display:none;"><td
+                   style="padding:10px 12px 16px;border-top:1px solid #F1F5F9;">
+                <p style="margin:0;font-size:8px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px;">Soles</p>
+                <p style="margin:3px 0 8px;font-size:11px;font-weight:600;color:#0D1B2A;">1937353150041</p>
+                <p style="margin:0;font-size:8px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px;">D&oacute;lares</p>
+                <p style="margin:3px 0 0;font-size:11px;font-weight:600;color:#0D1B2A;">1917357790119</p>
+              </td></tr>
+            </table>
+          </td>
+          <td width="2%"></td>
+          <td width="32%" style="vertical-align:top;">
+            <table width="100%" cellpadding="0" cellspacing="0" border="0" class="card-bank"
+                   style="border:1px solid #E9EEF4;border-radius:10px;background:#FFFFFF;text-align:center;">
+              <tr><td style="padding:12px 8px 10px;height:64px;vertical-align:middle;">
+                <img src="cid:logo_interbank" alt="Interbank" height="44"
+                     style="display:inline-block;height:44px;max-width:90%;">
+              </td></tr>
+              <tr class="acct-row" style="display:none;"><td
+                   style="padding:10px 12px 16px;border-top:1px solid #F1F5F9;">
+                <p style="margin:0;font-size:8px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px;">Soles</p>
+                <p style="margin:3px 0 8px;font-size:11px;font-weight:600;color:#0D1B2A;">200-3007757571</p>
+                <p style="margin:0;font-size:8px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px;">D&oacute;lares</p>
+                <p style="margin:3px 0 0;font-size:11px;font-weight:600;color:#0D1B2A;">200-3007757589</p>
+              </td></tr>
+            </table>
+          </td>
+          <td width="2%"></td>
+          <td width="32%" style="vertical-align:top;">
+            <table width="100%" cellpadding="0" cellspacing="0" border="0" class="card-bank"
+                   style="border:1px solid #E9EEF4;border-radius:10px;background:#FFFFFF;text-align:center;">
+              <tr><td style="padding:12px 8px 10px;height:64px;vertical-align:middle;">
+                <img src="cid:logo_banbif" alt="BanBif" height="44"
+                     style="display:inline-block;height:44px;max-width:90%;">
+              </td></tr>
+              <tr class="acct-row" style="display:none;"><td
+                   style="padding:10px 12px 16px;border-top:1px solid #F1F5F9;">
+                <p style="margin:0;font-size:8px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px;">Soles</p>
+                <p style="margin:3px 0 8px;font-size:11px;font-weight:600;color:#0D1B2A;">007000845805</p>
+                <p style="margin:0;font-size:8px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px;">D&oacute;lares</p>
+                <p style="margin:3px 0 0;font-size:11px;font-weight:600;color:#0D1B2A;">007000845813</p>
+              </td></tr>
+            </table>
+          </td>
         </tr>
       </table>
+      <p style="margin:14px 0 0;font-size:10px;color:#94A3B8;text-align:center;line-height:1.6;">
+        Para operaciones con BBVA, Scotiabank, Pichincha, Banco GNB y otros bancos,
+        realizamos transferencias v&iacute;a <strong style="color:#64748B;">CCI</strong>
+        en un plazo de <strong style="color:#64748B;">2 a 24 horas</strong>.
+      </p>
     </td>
   </tr>
 
@@ -531,6 +553,281 @@ def _build_html_prospeccion(nombre_dest: str, nombre_firma: str, cargo: str,
         Regulada por la SBS &nbsp;&middot;&nbsp; Res. N.&ordm; 00313-2026
         <br>Para no recibir m&aacute;s comunicaciones responda con el asunto
         <em>NO CONTACTAR</em>.
+      </p>
+    </td>
+  </tr>
+
+</table>
+</td></tr></table>
+</body></html>"""
+
+
+def _build_html_solo_precios(nombre_dest: str, nombre_firma: str, cargo: str,
+                              compra: str, venta: str, hoy: str) -> str:
+    """Follow-up para prospectos ya contactados (num_contactos >= 1).
+    Sin texto de presentación. TC directo, header limpio con logo CID."""
+    return f"""\
+<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  .card-bank {{ border:1px solid #E9EEF4;border-radius:10px;background:#FFFFFF;text-align:center;cursor:default; }}
+  .card-bank:hover {{ background:#F0FDF4 !important;border-color:#86efac !important;box-shadow:0 4px 16px rgba(22,163,74,0.12) !important; }}
+  .card-bank:hover .acct-row {{ display:table-row !important; }}
+</style>
+</head>
+<body style="margin:0;padding:0;background:#F1F5F9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#F1F5F9;padding:28px 0;">
+<tr><td align="center">
+<table width="560" cellpadding="0" cellspacing="0" border="0"
+  style="max-width:560px;width:100%;background:#FFFFFF;border-radius:8px;overflow:hidden;
+         box-shadow:0 4px 24px rgba(0,0,0,.07);">
+
+  <!-- ENCABEZADO BLANCO CON LOGO CID -->
+  <tr>
+    <td style="background:#FFFFFF;border-top:4px solid #16a34a;padding:24px 36px 20px;">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+        <td style="vertical-align:middle;">
+          <table cellpadding="0" cellspacing="0" border="0"><tr>
+            <td style="vertical-align:middle;">
+              <img src="cid:logo_qori" alt="QoriCash" width="44" height="44"
+                   style="display:block;border-radius:7px;box-shadow:0 2px 8px rgba(0,0,0,0.10);">
+            </td>
+            <td style="vertical-align:middle;padding-left:12px;">
+              <p style="margin:0;font-size:20px;font-weight:800;color:#0D1B2A;
+                        letter-spacing:3px;text-transform:uppercase;line-height:1;">QORICASH</p>
+              <table cellpadding="0" cellspacing="0" border="0">
+                <tr><td style="text-align:center;">
+                  <p style="margin:3px 0 0;font-size:7px;font-weight:600;color:#94A3B8;
+                            letter-spacing:3.8px;text-transform:uppercase;">CAMBIO DE DIVISAS</p>
+                </td></tr>
+              </table>
+            </td>
+          </tr></table>
+        </td>
+        <td align="right" style="vertical-align:middle;">
+          <p style="margin:0;font-size:9px;color:#CBD5E1;text-align:right;line-height:1.5;">
+            Res. SBS<br>N.&ordm;&nbsp;00313-2026</p>
+        </td>
+      </tr></table>
+    </td>
+  </tr>
+
+  <!-- SEPARADOR -->
+  <tr><td style="padding:0 36px;">
+    <div style="height:1px;background:#E9EEF4;"></div>
+  </td></tr>
+
+  <!-- SALUDO -->
+  <tr>
+    <td style="padding:20px 36px 0;">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td style="border-left:3px solid #16a34a;background:#F8FAFC;
+                     padding:12px 16px;border-radius:0 6px 6px 0;">
+            <p style="margin:0;font-size:13px;color:#1E293B;line-height:1.6;">
+              Estimado(a) <strong>{nombre_dest}</strong>, le compartimos
+              nuestro tipo de cambio actualizado para el d&iacute;a de hoy.</p>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+
+  <!-- LABEL TC + BADGE EN VIVO -->
+  <tr>
+    <td style="padding:20px 36px 8px;">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+        <td style="vertical-align:middle;">
+          <p style="margin:0;font-size:11px;font-weight:700;color:#94A3B8;
+                    text-transform:uppercase;letter-spacing:1.2px;display:inline;">
+            Tipo de cambio en estos momentos</p>
+          &nbsp;
+          <span style="display:inline-block;background:#dcfce7;color:#16a34a;
+                       font-size:9px;font-weight:700;padding:2px 8px;
+                       border-radius:20px;letter-spacing:0.8px;
+                       text-transform:uppercase;vertical-align:middle;">
+            &#9679;&nbsp;En vivo</span>
+        </td>
+        <td align="right" style="white-space:nowrap;vertical-align:middle;">
+          <span style="font-size:10px;color:#94A3B8;">{hoy}</span>
+        </td>
+      </tr></table>
+    </td>
+  </tr>
+
+  <!-- BLOQUE TC -->
+  <tr>
+    <td style="padding:0 36px 20px;">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0"
+             style="border:1px solid #E9EEF4;border-radius:8px;overflow:hidden;">
+        <tr>
+          <td width="50%" style="padding:28px 20px;text-align:center;border-right:1px solid #E9EEF4;">
+            <p style="margin:0 0 8px;font-size:9px;font-weight:700;color:#94A3B8;
+                      text-transform:uppercase;letter-spacing:2px;">Compramos</p>
+            <p style="margin:0;font-size:40px;font-weight:800;color:#0D1B2A;
+                      letter-spacing:-1px;line-height:1;white-space:nowrap;">
+              S/.&thinsp;{compra}</p>
+            <p style="margin:8px 0 0;font-size:10px;color:#94A3B8;">por d&oacute;lar &middot; USD</p>
+          </td>
+          <td width="50%" style="padding:28px 20px;text-align:center;">
+            <p style="margin:0 0 8px;font-size:9px;font-weight:700;color:#94A3B8;
+                      text-transform:uppercase;letter-spacing:2px;">Vendemos</p>
+            <p style="margin:0;font-size:40px;font-weight:800;color:#16a34a;
+                      letter-spacing:-1px;line-height:1;white-space:nowrap;">
+              S/.&thinsp;{venta}</p>
+            <p style="margin:8px 0 0;font-size:10px;color:#94A3B8;">por d&oacute;lar &middot; USD</p>
+          </td>
+        </tr>
+        <tr>
+          <td colspan="2" style="padding:12px 16px;border-top:1px solid #E9EEF4;background:#F8FAFC;">
+            <table width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+              <td align="center">
+                <span style="display:inline-block;background:#FFFFFF;border:1px solid #E2E8F0;
+                             border-radius:20px;padding:4px 12px;margin:0 3px;
+                             font-size:10px;color:#475569;white-space:nowrap;">
+                  <span style="color:#16a34a;font-weight:700;">&#10003;</span>
+                  &nbsp;Operaci&oacute;n en minutos</span>
+                <span style="display:inline-block;background:#FFFFFF;border:1px solid #E2E8F0;
+                             border-radius:20px;padding:4px 12px;margin:0 3px;
+                             font-size:10px;color:#475569;white-space:nowrap;">
+                  <span style="color:#16a34a;font-weight:700;">&#10003;</span>
+                  &nbsp;Sin costo de transferencia</span>
+                <span style="display:inline-block;background:#FFFFFF;border:1px solid #E2E8F0;
+                             border-radius:20px;padding:4px 12px;margin:0 3px;
+                             font-size:10px;color:#94A3B8;white-space:nowrap;">
+                  Sujeto a variaci&oacute;n de mercado</span>
+              </td>
+            </tr></table>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+
+  <!-- BOTÓN WHATSAPP -->
+  <tr>
+    <td style="padding:0 36px 28px;">
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td style="border-radius:6px;background:#0D1B2A;text-align:center;">
+            <a href="https://wa.me/51926011920"
+               style="display:block;padding:14px 28px;color:#FFFFFF;
+                      text-decoration:none;font-size:13px;font-weight:700;letter-spacing:0.5px;">
+              &#128172;&nbsp;&nbsp;Cotizar ahora por WhatsApp &rarr;</a>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+
+  <tr><td style="padding:0 36px;">
+    <div style="height:1px;background:#F1F5F9;"></div>
+  </td></tr>
+
+  <!-- BANCOS: 3 CARDS -->
+  <tr>
+    <td style="padding:16px 36px 24px;">
+      <p style="margin:0 0 14px;font-size:11px;font-weight:700;color:#94A3B8;
+                text-transform:uppercase;letter-spacing:1px;">
+        Operamos con los bancos m&aacute;s importantes del Per&uacute;</p>
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td width="32%" style="vertical-align:top;">
+            <table width="100%" cellpadding="0" cellspacing="0" border="0" class="card-bank"
+                   style="border:1px solid #E9EEF4;border-radius:10px;background:#FFFFFF;text-align:center;">
+              <tr><td style="padding:12px 8px 10px;height:64px;vertical-align:middle;">
+                <img src="cid:logo_bcp" alt="BCP" height="44"
+                     style="display:inline-block;height:44px;max-width:90%;">
+              </td></tr>
+              <tr class="acct-row" style="display:none;"><td
+                   style="padding:10px 12px 16px;border-top:1px solid #F1F5F9;">
+                <p style="margin:0;font-size:8px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px;">Soles</p>
+                <p style="margin:3px 0 8px;font-size:11px;font-weight:600;color:#0D1B2A;">1937353150041</p>
+                <p style="margin:0;font-size:8px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px;">D&oacute;lares</p>
+                <p style="margin:3px 0 0;font-size:11px;font-weight:600;color:#0D1B2A;">1917357790119</p>
+              </td></tr>
+            </table>
+          </td>
+          <td width="2%"></td>
+          <td width="32%" style="vertical-align:top;">
+            <table width="100%" cellpadding="0" cellspacing="0" border="0" class="card-bank"
+                   style="border:1px solid #E9EEF4;border-radius:10px;background:#FFFFFF;text-align:center;">
+              <tr><td style="padding:12px 8px 10px;height:64px;vertical-align:middle;">
+                <img src="cid:logo_interbank" alt="Interbank" height="44"
+                     style="display:inline-block;height:44px;max-width:90%;">
+              </td></tr>
+              <tr class="acct-row" style="display:none;"><td
+                   style="padding:10px 12px 16px;border-top:1px solid #F1F5F9;">
+                <p style="margin:0;font-size:8px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px;">Soles</p>
+                <p style="margin:3px 0 8px;font-size:11px;font-weight:600;color:#0D1B2A;">200-3007757571</p>
+                <p style="margin:0;font-size:8px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px;">D&oacute;lares</p>
+                <p style="margin:3px 0 0;font-size:11px;font-weight:600;color:#0D1B2A;">200-3007757589</p>
+              </td></tr>
+            </table>
+          </td>
+          <td width="2%"></td>
+          <td width="32%" style="vertical-align:top;">
+            <table width="100%" cellpadding="0" cellspacing="0" border="0" class="card-bank"
+                   style="border:1px solid #E9EEF4;border-radius:10px;background:#FFFFFF;text-align:center;">
+              <tr><td style="padding:12px 8px 10px;height:64px;vertical-align:middle;">
+                <img src="cid:logo_banbif" alt="BanBif" height="44"
+                     style="display:inline-block;height:44px;max-width:90%;">
+              </td></tr>
+              <tr class="acct-row" style="display:none;"><td
+                   style="padding:10px 12px 16px;border-top:1px solid #F1F5F9;">
+                <p style="margin:0;font-size:8px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px;">Soles</p>
+                <p style="margin:3px 0 8px;font-size:11px;font-weight:600;color:#0D1B2A;">007000845805</p>
+                <p style="margin:0;font-size:8px;color:#94A3B8;text-transform:uppercase;letter-spacing:1px;">D&oacute;lares</p>
+                <p style="margin:3px 0 0;font-size:11px;font-weight:600;color:#0D1B2A;">007000845813</p>
+              </td></tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+      <p style="margin:14px 0 0;font-size:10px;color:#94A3B8;text-align:center;line-height:1.6;">
+        Para operaciones con BBVA, Scotiabank, Pichincha, Banco GNB y otros bancos,
+        realizamos transferencias v&iacute;a <strong style="color:#64748B;">CCI</strong>
+        en un plazo de <strong style="color:#64748B;">2 a 24 horas</strong>.
+      </p>
+    </td>
+  </tr>
+
+  <tr><td style="padding:0 36px;">
+    <div style="height:1px;background:#F1F5F9;"></div>
+  </td></tr>
+
+  <!-- FIRMA -->
+  <tr>
+    <td style="padding:20px 36px;">
+      <table cellpadding="0" cellspacing="0" border="0"><tr>
+        <td style="vertical-align:middle;padding-right:16px;width:44px;">
+          <img src="cid:logo_qori" width="44" height="44" alt="QoriCash"
+               style="display:block;border-radius:6px;">
+        </td>
+        <td style="vertical-align:middle;border-left:2px solid #E2E8F0;padding-left:16px;">
+          <p style="margin:0;font-size:13px;font-weight:700;color:#0D1B2A;">{nombre_firma}</p>
+          <p style="margin:3px 0 0;font-size:11px;color:#64748B;">
+            {cargo} &nbsp;&middot;&nbsp;
+            <a href="https://wa.me/51926011920" style="color:#64748B;text-decoration:none;">+51 926 011 920</a>
+          </p>
+          <p style="margin:2px 0 0;font-size:11px;">
+            <a href="https://www.qoricash.pe"
+               style="color:#16a34a;text-decoration:none;font-weight:600;">www.qoricash.pe</a>
+            <span style="color:#CBD5E1;">&nbsp;&middot;&nbsp;Pueblo Libre, Lima</span>
+          </p>
+        </td>
+      </tr></table>
+    </td>
+  </tr>
+
+  <!-- PIE -->
+  <tr>
+    <td style="padding:14px 36px;background:#F8FAFC;border-top:1px solid #F1F5F9;">
+      <p style="margin:0;font-size:10px;color:#94A3B8;text-align:center;line-height:1.6;">
+        QORICASH S.A.C. &nbsp;&middot;&nbsp; RUC 20615113698 &nbsp;&middot;&nbsp;
+        Regulada por la SBS &nbsp;&middot;&nbsp; Res. N.&ordm; 00313-2026
+        <br>Para no recibir m&aacute;s comunicaciones responda con el asunto <em>NO CONTACTAR</em>.
       </p>
     </td>
   </tr>
@@ -679,9 +976,20 @@ class MailAgent(BaseAgent):
                             .split()[0].capitalize()
                         )
 
-                        # ── Seleccionar plantilla según modo ─────────────────
-                        if modo == 'precios':
-                            html    = _build_html(
+                        # ── Seleccionar plantilla según modo y contactos previos ──
+                        if modo == 'precios' and (p.num_contactos or 0) >= 1:
+                            # Follow-up: solo precios, sin presentación
+                            html         = _build_html_solo_precios(
+                                nombre_dest=nombre_dest, nombre_firma=bot_nombre,
+                                cargo=bot_cargo, compra=compra, venta=venta,
+                                hoy=hoy_full,
+                            )
+                            subject      = 'QoriCash \u2014 Tipo de cambio actualizado'
+                            tipo_envio   = 'solo_precios'
+                            descripcion  = f'Follow-up precios enviado [TC {compra}/{venta}]'
+                        elif modo == 'precios':
+                            # Primer contacto mañana: precios completo
+                            html         = _build_html(
                                 nombre_dest=nombre_dest, nombre_firma=bot_nombre,
                                 cargo=bot_cargo, compra=compra, venta=venta,
                                 hoy=hoy_full, es_personal=es_personal,
@@ -690,7 +998,8 @@ class MailAgent(BaseAgent):
                             tipo_envio   = 'precios'
                             descripcion  = f'Email de precios enviado [TC {compra}/{venta}]'
                         else:
-                            html    = _build_html_prospeccion(
+                            # Tarde: prospección institucional (solo primer contacto)
+                            html         = _build_html_prospeccion(
                                 nombre_dest=nombre_dest, nombre_firma=bot_nombre,
                                 cargo=bot_cargo, compra=compra, venta=venta,
                                 hoy=hoy_full, es_personal=es_personal,
@@ -831,6 +1140,22 @@ class MailAgent(BaseAgent):
             _adjuntar(_IMG_BCP,        'logo_bcp',      'bcp.png',        'png')
             _adjuntar(_IMG_INTERBANK,  'logo_interbank','interbank.png',  'png')
             _adjuntar(_IMG_BANBIF,     'logo_banbif',   'banbif.png',     'png')
+
+            # Logo QoriCash redimensionado (solo precios follow-up)
+            if os.path.exists(_IMG_LOGO):
+                try:
+                    from PIL import Image
+                    img = Image.open(_IMG_LOGO).convert('RGBA').resize((104, 104), Image.LANCZOS)
+                    buf = io.BytesIO()
+                    img.save(buf, format='PNG', optimize=True)
+                    logo_bytes = buf.getvalue()
+                except Exception:
+                    with open(_IMG_LOGO, 'rb') as f:
+                        logo_bytes = f.read()
+                part = MIMEImage(logo_bytes, 'png')
+                part.add_header('Content-ID', '<logo_qori>')
+                part.add_header('Content-Disposition', 'inline', filename='logo.png')
+                msg_related.attach(part)
 
             raw = base64.urlsafe_b64encode(msg_related.as_bytes()).decode()
             service.users().messages().send(userId='me', body={'raw': raw}).execute()
