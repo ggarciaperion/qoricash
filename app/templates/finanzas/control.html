@@ -816,13 +816,18 @@ function renderControlSection(cf) {
          <i class="bi bi-pencil-fill" style="font-size:.65rem;"></i> Modificar Apertura
        </button>` : '';
 
+  const traslBtn = _IS_MASTER
+    ? `<button onclick="abrirTraslado()" style="padding:5px 11px;font-size:.72rem;border:1px solid #bfdbfe;background:#eff6ff;color:#2563eb;border-radius:5px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;">
+         <i class="bi bi-arrow-left-right" style="font-size:.65rem;"></i> Traslado interno
+       </button>` : '';
+
   el.innerHTML = `
     <div class="ctrl-card">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
         <span style="font-size:.8rem;font-weight:800;color:var(--navy);">
           <i class="bi bi-bank2 me-1" style="color:var(--blue);"></i> Control de Apertura y Cierre
         </span>
-        <div style="display:flex;align-items:center;gap:6px;">${badge}${modBtn}${cBtn}</div>
+        <div style="display:flex;align-items:center;gap:6px;">${badge}${traslBtn}${modBtn}${cBtn}</div>
       </div>
       <div style="overflow-x:auto;">
         <table class="ctrl-tbl">
@@ -1369,6 +1374,189 @@ async function runBackfill(dryRun) {
     alert('Error en backfill: ' + e.message);
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = 'Reconstruir Ledger'; }
+  }
+}
+
+// ── Traslado Interno ──────────────────────────────────────────────────────────
+const _BANKS_CUR = [
+  {bank:'BCP',       currency:'USD', label:'BCP USD'},
+  {bank:'BCP',       currency:'PEN', label:'BCP PEN'},
+  {bank:'INTERBANK', currency:'USD', label:'INTERBANK USD'},
+  {bank:'INTERBANK', currency:'PEN', label:'INTERBANK PEN'},
+  {bank:'BANBIF',    currency:'USD', label:'BANBIF USD'},
+  {bank:'BANBIF',    currency:'PEN', label:'BANBIF PEN'},
+];
+
+function _traslBalance(bank, currency) {
+  const cf = _snap?.cashflow;
+  if (!cf) return null;
+  return ((cf.by_bank || {})[bank] || {})[currency]?.teorico ?? null;
+}
+
+function _traslUpdateUI() {
+  const oSel = document.getElementById('trl_origin');
+  const dSel = document.getElementById('trl_dest');
+  const amt  = parseFloat(document.getElementById('trl_amount')?.value) || 0;
+  const com  = parseFloat(document.getElementById('trl_commission')?.value) || 0;
+  const itf  = parseFloat(document.getElementById('trl_itf')?.value) || 0;
+
+  if (!oSel || !dSel) return;
+  const oIdx = oSel.value !== '' ? parseInt(oSel.value) : -1;
+  const dIdx = dSel.value !== '' ? parseInt(dSel.value) : -1;
+
+  // Saldo origen
+  const balEl = document.getElementById('trl_bal');
+  if (oIdx >= 0 && balEl) {
+    const {bank, currency} = _BANKS_CUR[oIdx];
+    const bal = _traslBalance(bank, currency);
+    const fmt = currency === 'USD' ? fmtUSD : fmtPEN;
+    const low = bal !== null && bal < (amt + com + itf);
+    balEl.innerHTML = bal !== null
+      ? `Saldo teórico: <strong style="color:${low ? 'var(--red)' : 'var(--green)'};">${fmt(bal)}</strong>`
+      : `<span style="color:var(--muted);">Saldo no disponible</span>`;
+  } else if (balEl) {
+    balEl.innerHTML = '';
+  }
+
+  // Resumen
+  const sumEl = document.getElementById('trl_summary');
+  if (!sumEl) return;
+  if (oIdx >= 0 && amt > 0) {
+    const {currency} = _BANKS_CUR[oIdx];
+    const fmt   = currency === 'USD' ? fmtUSD : fmtPEN;
+    const total = amt + com + itf;
+    sumEl.innerHTML = `
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:7px;padding:9px 12px;font-size:.75rem;margin-top:10px;">
+        <div style="display:flex;justify-content:space-between;color:#64748b;padding:2px 0;">
+          <span>Monto al destino</span><span>${fmt(amt)}</span>
+        </div>
+        ${com > 0 ? `<div style="display:flex;justify-content:space-between;color:#64748b;padding:2px 0;"><span>Comisión</span><span>${fmt(com)}</span></div>` : ''}
+        ${itf > 0 ? `<div style="display:flex;justify-content:space-between;color:#64748b;padding:2px 0;"><span>ITF</span><span>${fmt(itf)}</span></div>` : ''}
+        <div style="display:flex;justify-content:space-between;font-weight:700;color:var(--navy);border-top:1px solid #e2e8f0;margin-top:5px;padding-top:5px;">
+          <span>Sale del origen</span><span>${fmt(total)}</span>
+        </div>
+      </div>`;
+  } else {
+    sumEl.innerHTML = '';
+  }
+}
+
+function abrirTraslado() {
+  const opts = _BANKS_CUR.map((a, i) => `<option value="${i}">${a.label}</option>`).join('');
+  _modal(`
+    <h6 style="margin-bottom:14px;"><i class="bi bi-arrow-left-right me-2" style="color:var(--blue);"></i>Traslado Interno de Fondos</h6>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px;">
+      <div>
+        <label style="font-size:.72rem;font-weight:600;color:var(--navy);display:block;margin-bottom:4px;">Cuenta origen *</label>
+        <select id="trl_origin" onchange="_traslUpdateUI()"
+          style="width:100%;border:1px solid #e2e8f0;border-radius:6px;padding:6px 8px;font-size:.78rem;outline:none;">
+          <option value="">Seleccionar...</option>${opts}
+        </select>
+        <div id="trl_bal" style="font-size:.68rem;margin-top:4px;min-height:16px;"></div>
+      </div>
+      <div>
+        <label style="font-size:.72rem;font-weight:600;color:var(--navy);display:block;margin-bottom:4px;">Cuenta destino *</label>
+        <select id="trl_dest" onchange="_traslUpdateUI()"
+          style="width:100%;border:1px solid #e2e8f0;border-radius:6px;padding:6px 8px;font-size:.78rem;outline:none;">
+          <option value="">Seleccionar...</option>${opts}
+        </select>
+      </div>
+    </div>
+
+    <label style="font-size:.72rem;font-weight:600;color:var(--navy);display:block;margin-bottom:4px;">Monto a trasladar *</label>
+    <input id="trl_amount" type="number" min="0.01" step="0.01" placeholder="0.00" oninput="_traslUpdateUI()"
+      style="width:100%;border:1px solid #e2e8f0;border-radius:6px;padding:6px 10px;font-size:.85rem;font-weight:600;margin-bottom:10px;outline:none;">
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:4px;">
+      <div>
+        <label style="font-size:.72rem;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">Comisión bancaria</label>
+        <input id="trl_commission" type="number" min="0" step="0.01" placeholder="0.00" value="0" oninput="_traslUpdateUI()"
+          style="width:100%;border:1px solid #e2e8f0;border-radius:6px;padding:6px 8px;font-size:.78rem;outline:none;">
+      </div>
+      <div>
+        <label style="font-size:.72rem;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">ITF</label>
+        <input id="trl_itf" type="number" min="0" step="0.01" placeholder="0.00" value="0" oninput="_traslUpdateUI()"
+          style="width:100%;border:1px solid #e2e8f0;border-radius:6px;padding:6px 8px;font-size:.78rem;outline:none;">
+      </div>
+    </div>
+
+    <div id="trl_summary"></div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;">
+      <div>
+        <label style="font-size:.72rem;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">Descripción</label>
+        <input id="trl_desc" type="text" placeholder="Motivo del traslado..."
+          style="width:100%;border:1px solid #e2e8f0;border-radius:6px;padding:6px 8px;font-size:.78rem;outline:none;">
+      </div>
+      <div>
+        <label style="font-size:.72rem;font-weight:600;color:var(--muted);display:block;margin-bottom:4px;">N° Operación bancaria</label>
+        <input id="trl_ref" type="text" placeholder="Ej: 1234567890"
+          style="width:100%;border:1px solid #e2e8f0;border-radius:6px;padding:6px 8px;font-size:.78rem;outline:none;">
+      </div>
+    </div>
+
+    <div class="fn-modal-msg" id="trlMsg"></div>
+    <div class="fn-modal-actions">
+      <button class="btn-cancel" onclick="_closeModal()">Cancelar</button>
+      <button class="btn-confirm" onclick="_confirmarTraslado()">
+        <i class="bi bi-check-lg me-1"></i>Registrar traslado
+      </button>
+    </div>
+  `, true);
+  setTimeout(() => document.getElementById('trl_origin')?.focus(), 50);
+}
+
+async function _confirmarTraslado() {
+  const msg  = document.getElementById('trlMsg');
+  const oIdx = parseInt(document.getElementById('trl_origin')?.value ?? '');
+  const dIdx = parseInt(document.getElementById('trl_dest')?.value ?? '');
+  const amt  = parseFloat(document.getElementById('trl_amount')?.value) || 0;
+  const com  = parseFloat(document.getElementById('trl_commission')?.value) || 0;
+  const itf  = parseFloat(document.getElementById('trl_itf')?.value) || 0;
+  const desc = document.getElementById('trl_desc')?.value?.trim() || '';
+  const ref  = document.getElementById('trl_ref')?.value?.trim() || '';
+
+  if (isNaN(oIdx)) { msg.innerHTML = `<span style="color:var(--red);">Selecciona la cuenta de origen.</span>`; return; }
+  if (isNaN(dIdx)) { msg.innerHTML = `<span style="color:var(--red);">Selecciona la cuenta de destino.</span>`; return; }
+  if (amt <= 0)    { msg.innerHTML = `<span style="color:var(--red);">El monto debe ser mayor a cero.</span>`; return; }
+  if (oIdx === dIdx) { msg.innerHTML = `<span style="color:var(--red);">Origen y destino no pueden ser la misma cuenta.</span>`; return; }
+
+  const origin = _BANKS_CUR[oIdx];
+  const dest   = _BANKS_CUR[dIdx];
+
+  msg.innerHTML = `<span style="color:var(--muted);">Procesando traslado…</span>`;
+  const btn = document.querySelector('#fnOverlay .btn-confirm');
+  if (btn) btn.disabled = true;
+
+  try {
+    const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+    const res  = await fetch('/treasury/api/traslado', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json', 'X-CSRFToken': csrf},
+      body: JSON.stringify({
+        origin_bank:     origin.bank,
+        origin_currency: origin.currency,
+        dest_bank:       dest.bank,
+        dest_currency:   dest.currency,
+        amount:          amt,
+        commission:      com,
+        itf_amount:      itf,
+        description:     desc,
+        reference_code:  ref,
+      }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      msg.innerHTML = `<span style="color:var(--green);font-weight:700;">✓ ${data.message}</span>`;
+      setTimeout(() => { _closeModal(); loadDashboard(); }, 1000);
+    } else {
+      msg.innerHTML = `<span style="color:var(--red);">${data.error || 'Error al registrar traslado.'}</span>`;
+      if (btn) btn.disabled = false;
+    }
+  } catch(e) {
+    msg.innerHTML = `<span style="color:var(--red);">Error de conexión: ${e.message}</span>`;
+    if (btn) btn.disabled = false;
   }
 }
 
