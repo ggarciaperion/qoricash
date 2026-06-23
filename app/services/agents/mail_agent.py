@@ -865,12 +865,34 @@ class MailAgent(BaseAgent):
 
     def run(self, app) -> dict:
         """Override: saltar el ciclo completo si estamos fuera del horario L-V 09:00-18:00.
-        Evita que base.run() marque status='running' y genere logs de no-op cada 30 min."""
+        Evita que base.run() marque status='running' y genere logs de no-op cada 30 min.
+        Actualiza next_run al siguiente día hábil a las 09:00 para que el dashboard lo muestre."""
         from app.utils.formatters import now_peru
+        from datetime import timedelta
         now_dt    = now_peru()
         hour_frac = now_dt.hour + now_dt.minute / 60
-        if now_dt.weekday() >= 5 or not (_HORA_INICIO <= hour_frac < _HORA_FIN_TARDE):
-            return {'tasks': 0, 'message': f'Fuera de horario ({now_dt.strftime("%H:%M")} Lima)'}
+        in_schedule = now_dt.weekday() < 5 and _HORA_INICIO <= hour_frac < _HORA_FIN_TARDE
+        if not in_schedule:
+            # Calcular próximo inicio: siguiente día hábil (L-V) a las 09:00
+            next_start = now_dt.replace(hour=9, minute=0, second=0, microsecond=0)
+            if hour_frac >= _HORA_FIN_TARDE:
+                # Ya pasó las 18:00 hoy — ir al día siguiente
+                next_start += timedelta(days=1)
+            # Saltar fin de semana
+            while next_start.weekday() >= 5:
+                next_start += timedelta(days=1)
+            # Actualizar next_run en DB sin tocar el resto del estado
+            try:
+                with app.app_context():
+                    from app.models.agent import AgentStatus
+                    from app.extensions import db
+                    s = AgentStatus.query.filter_by(agent_id=self.agent_id).first()
+                    if s:
+                        s.next_run = next_start
+                        db.session.commit()
+            except Exception:
+                pass
+            return {'tasks': 0, 'message': f'Fuera de horario ({now_dt.strftime("%H:%M")} Lima) — próximo run {next_start.strftime("%d/%m %H:%M")}'}
         return super().run(app)
 
     def _execute(self, app) -> dict:
