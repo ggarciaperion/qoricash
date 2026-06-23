@@ -1056,7 +1056,7 @@ class MailAgent(BaseAgent):
     def _fetch_tc(self, ExchangeRate) -> tuple:
         """Obtiene compra/venta actuales desde la misma fuente que el widget del sitio."""
         try:
-            tc = ExchangeRate.get_current()
+            tc = ExchangeRate.get_current_rates()
             return f'{float(tc["compra"]):.3f}', f'{float(tc["venta"]):.3f}'
         except Exception:
             return '—', '—'
