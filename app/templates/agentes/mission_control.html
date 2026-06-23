@@ -154,8 +154,11 @@
   box-shadow: 0 12px 36px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.1);
   z-index: 20;
 }
+.n8n-node.status-idle {
+  border-color: rgba(34,197,94,.25);
+}
 .n8n-node.status-running {
-  border-color: rgba(34,197,94,.45);
+  border-color: rgba(34,197,94,.55);
   animation: node-in .45s cubic-bezier(.34,1.56,.64,1) both, glow-run 2.5s ease-in-out infinite;
 }
 .n8n-node.status-error {
@@ -163,6 +166,7 @@
   animation: node-in .45s cubic-bezier(.34,1.56,.64,1) both, glow-err 2s ease-in-out infinite;
 }
 .n8n-node.status-warning { border-color: rgba(251,191,36,.35); }
+.n8n-node.status-stopped { border-color: rgba(100,116,139,.2); opacity: .7; }
 
 /* Node head */
 .n8n-head {
@@ -189,11 +193,12 @@
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .n8n-sdot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
-.sdot-idle    { background: var(--mc-muted); }
-.sdot-running { background: var(--mc-green); box-shadow: 0 0 6px rgba(34,197,94,.8); animation: sdpulse 1.2s ease-in-out infinite; }
+.sdot-idle    { background: var(--mc-green); box-shadow: 0 0 5px rgba(34,197,94,.5); }
+.sdot-running { background: var(--mc-green); box-shadow: 0 0 8px rgba(34,197,94,.9); animation: sdpulse 1.2s ease-in-out infinite; }
 .sdot-error   { background: var(--mc-red);   box-shadow: 0 0 6px rgba(248,113,113,.8); animation: sdpulse .8s ease-in-out infinite; }
 .sdot-warning { background: var(--mc-amber); box-shadow: 0 0 6px rgba(251,191,36,.8); animation: sdpulse 1s ease-in-out infinite; }
-.sdot-stopped { background: #2a3a50; }
+.sdot-stopped { background: #4a5568; }
+.sdot-paused  { background: #4a5568; }
 
 /* Node metrics */
 .n8n-metrics {
@@ -386,11 +391,11 @@
         <div class="mc-hstat-val" id="hdr-opps">{{ kpis.oportunidades_semana or 0 }}</div>
         <div class="mc-hstat-lbl">Oportunidades</div>
       </div>
-      {% set running_count = agents|selectattr('status','equalto','running')|list|length %}
+      {% set active_count = agents|selectattr('status','in',['running','idle'])|selectattr('enabled')|list|length %}
       <div class="mc-hstat">
         <div class="mc-hstat-val" id="hdr-running"
-             style="color:{{ '#16a34a' if running_count > 0 else '#94a3b8' }};">{{ running_count }}</div>
-        <div class="mc-hstat-lbl">Ejecutando</div>
+             style="color:{{ '#16a34a' if active_count > 0 else '#94a3b8' }};">{{ active_count }}</div>
+        <div class="mc-hstat-lbl">Activos</div>
       </div>
     </div>
     <div class="mc-header-actions">
