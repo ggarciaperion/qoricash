@@ -90,7 +90,7 @@ _CED_FALLBACK = {
     "tkambio":     "tkambio",
     "cambiosol":   "cambiosol",
     "cambiafx":    "cambia-fx",
-    "cambiomundial":"cambiomundial",
+    # "cambiomundial": CED desactualizado desde 2026-05 — usa API directa ahora
     "westernunion":"western-union",
     "okane":       "okane",
 }
