@@ -369,3 +369,46 @@ def api_resolve_alert(alert_id):
     alert.resolved_at = now_peru()
     db.session.commit()
     return jsonify({'ok': True})
+
+
+@agentes_bp.route('/api/test-gmail', methods=['GET'])
+@login_required
+@_require_agent_access
+def api_test_gmail():
+    """Diagnóstico: prueba autenticación Gmail para cada bandeja."""
+    import os
+    from app.services.agents.mail_agent import _BANDEJAS
+
+    results = []
+    for bandeja, env_var in _BANDEJAS.items():
+        token = os.environ.get(env_var, '')
+        client_id     = os.environ.get('GMAIL_CLIENT_ID', '')
+        client_secret = os.environ.get('GMAIL_CLIENT_SECRET', '')
+
+        if not token:
+            results.append({'bandeja': bandeja, 'ok': False, 'error': f'Variable {env_var} no encontrada en env'})
+            continue
+        if not client_id or not client_secret:
+            results.append({'bandeja': bandeja, 'ok': False, 'error': 'GMAIL_CLIENT_ID o GMAIL_CLIENT_SECRET faltantes'})
+            continue
+
+        try:
+            from google.oauth2.credentials import Credentials
+            from google.auth.transport.requests import Request
+            from googleapiclient.discovery import build
+
+            creds = Credentials(
+                token=None, refresh_token=token,
+                token_uri='https://oauth2.googleapis.com/token',
+                client_id=client_id, client_secret=client_secret,
+                scopes=['https://mail.google.com/'],
+            )
+            creds.refresh(Request())
+            build('gmail', 'v1', credentials=creds)
+            results.append({'bandeja': bandeja, 'ok': True, 'error': None,
+                            'token_preview': token[:10] + '…'})
+        except Exception as e:
+            results.append({'bandeja': bandeja, 'ok': False, 'error': str(e),
+                            'token_preview': token[:10] + '…'})
+
+    return jsonify({'results': results})
