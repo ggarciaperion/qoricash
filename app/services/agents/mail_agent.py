@@ -4,9 +4,10 @@ Ejecuta campañas de email automáticas desde las 3 bandejas de QoriCash.
 Usa la plantilla oficial con imagen de encabezado y logos de bancos embebidos (CID).
 
 Límites:
-  - 490 emails / bandeja / día (margen bajo el límite Gmail de 500)
-  - 15 emails / bandeja / ciclo de 30 min
-  - Horario: lunes a viernes, 09:00–13:30 Lima
+  - 1500 emails / bandeja / día (Google Workspace: 2000/día hard limit)
+  - Mañana  09:00–13:30: modo precios      — 100 emails/bandeja/ciclo (30 min)
+  - Tarde   13:30–18:00: modo prospección  —  50 emails/bandeja/ciclo (30 min)
+  - Horario: lunes a viernes, Lima (UTC-5)
 """
 import logging
 import os
@@ -54,9 +55,6 @@ _HORA_FIN_TARDE   = 18.0   # 18:00 — fin modo prospección
 # Batch sizes por modo (el cap _DAILY_LIMIT actúa de tope duro)
 _BATCH_MAÑANA     = 100    # agresivo: maximizar envíos en ventana de precios
 _BATCH_TARDE      = 50     # moderado: prospección de tarde
-
-# Re-fetch de TC: cada N emails enviados (para capturar actualizaciones del widget)
-_TC_REFRESH_CADA  = 30
 
 # Rutas de imágenes embebidas (relativas al módulo)
 _STATIC_IMAGES = os.path.join(

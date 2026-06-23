@@ -13,11 +13,12 @@ _LIMA = timezone(timedelta(hours=-5))
 # Máximo tiempo sin ejecutar para cada agente (segundos).
 # lead_discovery excluido: base de prospectos se gestiona manualmente.
 _MAX_IDLE = {
-    'data_quality':      9000,   # 2.5h
-    'mail_agent':        3600,   # 1h
-    'email_intelligence':1800,   # 30 min
-    'outreach':          7200,   # 2h
-    'executive':        86400,   # 24h
+    'data_quality':       9000,   # 2.5h  (run_interval 2h)
+    'mail_agent':         3600,   # 1h    (run_interval 30 min)
+    'email_intelligence': 1800,   # 30 min (run_interval 15 min)
+    'outreach':           7200,   # 2h    (run_interval 1h)
+    'executive':          7200,   # 2h    (run_interval 1h)
+    'accounting_audit':  86400,   # 24h   (run_interval 1h, pero solo actúa a las 23:00)
 }
 
 # Agentes que pueden estar deshabilitados sin generar alertas
@@ -111,7 +112,7 @@ class SupervisorAgent(BaseAgent):
                      .filter_by(agent_id=agent.agent_id, resolved=False)
                      .filter(AgentAlert.severity.in_(['warning', 'info']))
                      .update({'resolved': True, 'resolved_at': now},
-                             synchronize_session=False))
+                             synchronize_session='fetch'))
 
             # 6. Reset diario de contadores tasks_today / errors_today a medianoche
             today_date = now.date()
