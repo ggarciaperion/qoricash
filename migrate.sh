@@ -376,3 +376,113 @@ except Exception as e:
     print(f"   ⚠️  Error en patch Inteligencia: {e}")
 PYEOF
 echo ""
+
+# ── Patch directo: tablas del Ecosistema de Agentes IA ───────────────────────
+echo "⚡ Garantizando tablas de Agentes IA..."
+python3 - <<'PYEOF'
+import os, sys
+try:
+    import psycopg2
+except ImportError:
+    print("   psycopg2 no disponible — saltando patch directo")
+    sys.exit(0)
+url = os.environ.get('DATABASE_URL', '')
+if not url:
+    print("   DATABASE_URL no definida — saltando patch directo")
+    sys.exit(0)
+try:
+    conn = psycopg2.connect(url)
+    conn.autocommit = True
+    cur = conn.cursor()
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS agent_status (
+            id SERIAL PRIMARY KEY,
+            agent_id VARCHAR(50) UNIQUE NOT NULL,
+            name VARCHAR(100) NOT NULL,
+            description VARCHAR(300),
+            icon VARCHAR(50),
+            color VARCHAR(20),
+            status VARCHAR(20) NOT NULL DEFAULT 'idle',
+            last_run TIMESTAMP WITHOUT TIME ZONE,
+            next_run TIMESTAMP WITHOUT TIME ZONE,
+            run_interval INTEGER DEFAULT 900,
+            tasks_today INTEGER DEFAULT 0,
+            errors_today INTEGER DEFAULT 0,
+            total_tasks INTEGER DEFAULT 0,
+            total_errors INTEGER DEFAULT 0,
+            last_result TEXT,
+            last_error TEXT,
+            enabled BOOLEAN NOT NULL DEFAULT true,
+            paused_by INTEGER REFERENCES users(id),
+            paused_at TIMESTAMP WITHOUT TIME ZONE,
+            performance FLOAT DEFAULT 100.0,
+            created_at TIMESTAMP WITHOUT TIME ZONE,
+            updated_at TIMESTAMP WITHOUT TIME ZONE
+        )
+    """)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS agent_logs (
+            id SERIAL PRIMARY KEY,
+            agent_id VARCHAR(50) NOT NULL REFERENCES agent_status(agent_id),
+            level VARCHAR(10) DEFAULT 'INFO',
+            message TEXT NOT NULL,
+            detail TEXT,
+            created_at TIMESTAMP WITHOUT TIME ZONE
+        )
+    """)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS agent_alerts (
+            id SERIAL PRIMARY KEY,
+            agent_id VARCHAR(50) REFERENCES agent_status(agent_id),
+            severity VARCHAR(20) DEFAULT 'warning',
+            title VARCHAR(200) NOT NULL,
+            message TEXT NOT NULL,
+            resolved BOOLEAN DEFAULT false,
+            resolved_by INTEGER REFERENCES users(id),
+            resolved_at TIMESTAMP WITHOUT TIME ZONE,
+            created_at TIMESTAMP WITHOUT TIME ZONE
+        )
+    """)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS agent_metrics (
+            id SERIAL PRIMARY KEY,
+            agent_id VARCHAR(50) NOT NULL,
+            date DATE NOT NULL,
+            runs INTEGER DEFAULT 0,
+            tasks_completed INTEGER DEFAULT 0,
+            errors INTEGER DEFAULT 0,
+            prospects_found INTEGER DEFAULT 0,
+            prospects_validated INTEGER DEFAULT 0,
+            emails_sent INTEGER DEFAULT 0,
+            emails_analyzed INTEGER DEFAULT 0,
+            bounces_detected INTEGER DEFAULT 0,
+            opportunities INTEGER DEFAULT 0,
+            duplicates_removed INTEGER DEFAULT 0,
+            followups_scheduled INTEGER DEFAULT 0,
+            created_at TIMESTAMP WITHOUT TIME ZONE,
+            CONSTRAINT uq_agent_metric_day UNIQUE (agent_id, date)
+        )
+    """)
+
+    for idx_sql in [
+        "CREATE INDEX IF NOT EXISTS ix_agent_status_agent_id ON agent_status(agent_id)",
+        "CREATE INDEX IF NOT EXISTS ix_agent_status_status ON agent_status(status)",
+        "CREATE INDEX IF NOT EXISTS ix_agent_logs_agent_id ON agent_logs(agent_id)",
+        "CREATE INDEX IF NOT EXISTS ix_agent_logs_level ON agent_logs(level)",
+        "CREATE INDEX IF NOT EXISTS ix_agent_logs_created_at ON agent_logs(created_at)",
+        "CREATE INDEX IF NOT EXISTS ix_agent_alerts_agent_id ON agent_alerts(agent_id)",
+        "CREATE INDEX IF NOT EXISTS ix_agent_alerts_severity ON agent_alerts(severity)",
+        "CREATE INDEX IF NOT EXISTS ix_agent_alerts_resolved ON agent_alerts(resolved)",
+        "CREATE INDEX IF NOT EXISTS ix_agent_alerts_created_at ON agent_alerts(created_at)",
+        "CREATE INDEX IF NOT EXISTS ix_agent_metrics_agent_id ON agent_metrics(agent_id)",
+        "CREATE INDEX IF NOT EXISTS ix_agent_metrics_date ON agent_metrics(date)",
+    ]:
+        cur.execute(idx_sql)
+
+    conn.close()
+    print("   ✅ Tablas de Agentes IA confirmadas en PostgreSQL")
+except Exception as e:
+    print(f"   ⚠️  Error en patch Agentes IA: {e}")
+PYEOF
+echo ""
