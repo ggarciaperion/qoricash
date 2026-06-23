@@ -905,6 +905,99 @@ def cuota_prestamo():
         return jsonify({'success': False, 'error': str(e)}), 400
 
 
+# ── Corrección movimiento bancario de cuota préstamo ──────────────────────────
+
+@contabilidad_bp.route('/gastos/cuota-prestamo/recalcular-movimiento', methods=['POST'])
+@csrf.exempt
+@login_required
+@require_role('Master')
+def recalcular_movimiento_cuota():
+    """
+    Corrige el BankMovement de una cuota de préstamo ya registrada cuyo monto
+    no refleja el total real (capital + intereses + ITF).
+
+    Busca el JournalEntry de tipo 'cuota_prestamo' vinculado al ExpenseRecord,
+    lee el total_debe correcto, y ajusta el BankMovement + BankBalance por la
+    diferencia faltante.
+
+    Body JSON: { "expense_record_id": <int> }
+    """
+    from app.models.expense_record import ExpenseRecord
+    from app.models.journal_entry import JournalEntry
+    from app.models.bank_movement import BankMovement
+    from app.models.bank_balance import BankBalance
+
+    data = request.get_json() or {}
+    record_id = data.get('expense_record_id')
+    if not record_id:
+        return jsonify({'success': False, 'error': 'expense_record_id requerido'}), 400
+
+    try:
+        record = db.session.get(ExpenseRecord, record_id)
+        if not record:
+            return jsonify({'success': False, 'error': f'ExpenseRecord {record_id} no encontrado'}), 404
+
+        # Obtener JournalEntry de cuota_prestamo vinculado
+        entry = JournalEntry.query.filter_by(
+            entry_type='cuota_prestamo',
+            source_type='expense',
+            source_id=record.id,
+        ).first()
+        if not entry:
+            return jsonify({'success': False, 'error': 'No se encontró asiento de cuota_prestamo para este registro'}), 404
+
+        total_correcto = float(entry.total_debe)
+
+        # Buscar BankMovement existente (TYPE_GASTO vinculado al expense)
+        mv = BankMovement.query.filter_by(
+            source_type='expense',
+            source_id=record.id,
+            movement_type=BankMovement.TYPE_GASTO,
+        ).first()
+
+        if not mv:
+            return jsonify({'success': False, 'error': 'No se encontró BankMovement para esta cuota'}), 404
+
+        monto_actual   = abs(float(mv.amount))
+        diferencia     = round(total_correcto - monto_actual, 2)
+
+        if abs(diferencia) < 0.01:
+            return jsonify({
+                'success': True,
+                'message': f'El movimiento ya tiene el monto correcto ({monto_actual:.2f}). No se requiere corrección.',
+                'diferencia': 0,
+            })
+
+        # Actualizar BankMovement al monto correcto
+        mv.amount      = round(-total_correcto, 2)
+        mv.description = (mv.description or '') + f' [corregido: +{diferencia:.2f}]'
+
+        # Actualizar BankBalance (descontar la diferencia faltante)
+        bb = BankBalance.query.filter(
+            BankBalance.bank_name.ilike(f'%{mv.bank_key}%{mv.currency}%')
+        ).first()
+        if bb:
+            if mv.currency == 'PEN':
+                bb.balance_pen = round(max(float(bb.balance_pen) - diferencia, 0.0), 2)
+            else:
+                bb.balance_usd = round(max(float(bb.balance_usd) - diferencia, 0.0), 2)
+            bb.updated_at = now_peru()
+
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': f'BankMovement corregido. Diferencia ajustada: S/ {diferencia:.2f}',
+            'monto_anterior': monto_actual,
+            'monto_corregido': total_correcto,
+            'diferencia': diferencia,
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+
 # ── Pago de Proveedores ────────────────────────────────────────────────────────
 
 @contabilidad_bp.route('/gastos/<int:record_id>/pagar', methods=['POST'])
