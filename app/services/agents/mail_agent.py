@@ -894,6 +894,7 @@ class MailAgent(BaseAgent):
                 )}
 
             compra_ref, venta_ref = self._fetch_tc(ExchangeRate)
+            _log.info(f'[MailAgent] Ciclo {modo.upper()} — TC fijado: compra={compra_ref} venta={venta_ref}')
             today    = now_dt.date()
             hoy_str  = today.strftime('%Y-%m-%d')
             hoy_full = today.strftime('%d/%m/%Y')
@@ -943,10 +944,10 @@ class MailAgent(BaseAgent):
         # ── Fase 2: worker por bandeja ─────────────────────────────────────────
         worker_results = []
 
-        def _bandeja_worker(bandeja, prospect_ids):
-            """Greenlet independiente por bandeja — sesión DB propia."""
+        def _bandeja_worker(bandeja, prospect_ids, compra_tc, venta_tc):
+            """Greenlet independiente por bandeja — sesión DB propia.
+            compra_tc/venta_tc: TC fijado al inicio del ciclo, igual para las 3 bandejas."""
             from app.models.prospecto import Prospecto, ActividadProspecto
-            from app.models.exchange_rate import ExchangeRate
             from app.models.user import User
             from app.extensions import db
             from app.utils.formatters import now_peru
@@ -979,15 +980,10 @@ class MailAgent(BaseAgent):
                     worker_results.append({'bandeja': bandeja, 'sent': 0, 'skipped': len(batch_ids)})
                     return
 
-                local_compra, local_venta = self._fetch_tc(ExchangeRate)
-                tc_counter = 0
                 sent = skipped = 0
 
                 for pid in batch_ids:
                     try:
-                        if tc_counter >= _TC_REFRESH_CADA:
-                            local_compra, local_venta = self._fetch_tc(ExchangeRate)
-                            tc_counter = 0
 
                         p = db.session.get(Prospecto, pid)
                         if not p or not p.email:
@@ -1002,25 +998,25 @@ class MailAgent(BaseAgent):
                         if modo == 'precios' and (p.num_contactos or 0) >= 1:
                             html        = _build_html_solo_precios(
                                 nombre_dest=nombre_dest, nombre_firma=bot_nombre,
-                                cargo=bot_cargo, compra=local_compra, venta=local_venta,
+                                cargo=bot_cargo, compra=compra_tc, venta=venta_tc,
                                 hoy=hoy_full_w,
                             )
                             subject     = 'QoriCash \u2014 Tipo de cambio actualizado'
                             tipo_envio  = 'solo_precios'
-                            descripcion = f'Follow-up precios enviado [TC {local_compra}/{local_venta}]'
+                            descripcion = f'Follow-up precios enviado [TC {compra_tc}/{venta_tc}]'
                         elif modo == 'precios':
                             html        = _build_html(
                                 nombre_dest=nombre_dest, nombre_firma=bot_nombre,
-                                cargo=bot_cargo, compra=local_compra, venta=local_venta,
+                                cargo=bot_cargo, compra=compra_tc, venta=venta_tc,
                                 hoy=hoy_full_w, es_personal=es_personal,
                             )
                             subject     = 'QoriCash \u2014 Tipo de cambio preferencial'
                             tipo_envio  = 'precios'
-                            descripcion = f'Email de precios enviado [TC {local_compra}/{local_venta}]'
+                            descripcion = f'Email de precios enviado [TC {compra_tc}/{venta_tc}]'
                         else:
                             html        = _build_html_prospeccion(
                                 nombre_dest=nombre_dest, nombre_firma=bot_nombre,
-                                cargo=bot_cargo, compra=local_compra, venta=local_venta,
+                                cargo=bot_cargo, compra=compra_tc, venta=venta_tc,
                                 hoy=hoy_full_w, es_personal=es_personal,
                             )
                             subject     = 'QoriCash \u2014 Casa de cambio digital \u00b7 SBS'
@@ -1058,8 +1054,6 @@ class MailAgent(BaseAgent):
 
                         db.session.flush()
                         sent += 1
-                        tc_counter += 1
-
                         # Pausa entre envíos para evitar ráfagas (filtros anti-spam)
                         eventlet.sleep(5)
 
@@ -1072,7 +1066,7 @@ class MailAgent(BaseAgent):
 
         # ── Fase 3: lanzar las 3 bandejas en paralelo y esperar ───────────────
         greenlets = [
-            eventlet.spawn(_bandeja_worker, bandeja, ids_por_bandeja.get(bandeja, []))
+            eventlet.spawn(_bandeja_worker, bandeja, ids_por_bandeja.get(bandeja, []), compra_ref, venta_ref)
             for bandeja in _BANDEJAS
         ]
         for gt in greenlets:
