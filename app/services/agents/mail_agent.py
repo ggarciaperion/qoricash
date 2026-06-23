@@ -1128,9 +1128,14 @@ class MailAgent(BaseAgent):
                 added += 1
         return d.strftime('%Y-%m-%d')
 
+    # Cache de imágenes a nivel de clase — PIL corre UNA sola vez en toda la vida del proceso
+    _img_cache_built: dict = {}
+
     def _load_image_cache(self) -> dict:
-        """Carga bytes de todas las imágenes CID en memoria una vez por ciclo.
-        Evita leer disco y ejecutar PIL resize en cada email individual."""
+        """Retorna el cache de imágenes CID. Lo construye solo la primera vez."""
+        if MailAgent._img_cache_built:
+            return MailAgent._img_cache_built
+
         cache: dict = {}
 
         def _load(path: str, cid: str, fname: str, tipo: str):
@@ -1154,7 +1159,9 @@ class MailAgent(BaseAgent):
                 with open(_IMG_LOGO, 'rb') as f:
                     cache['logo_qori'] = (f.read(), 'logo.png', 'png')
 
-        return cache
+        MailAgent._img_cache_built = cache
+        _log.info(f'[MailAgent] Image cache construido: {len(cache)} imágenes')
+        return MailAgent._img_cache_built
 
     def _build_service(self, sender: str):
         """Construye el servicio Gmail API una vez por bandeja/ciclo.
