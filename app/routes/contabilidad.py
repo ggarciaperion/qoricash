@@ -881,7 +881,9 @@ def cuota_prestamo():
         db.session.commit()
 
         # Reflejar débito en BankBalance + crear BankMovement para Tesorería
-        gasto_a_banco = intereses + itf  # el capital solo reclasifica pasivo, no es gasto
+        # El total (capital + intereses + ITF) sale físicamente de la cuenta bancaria.
+        # El capital reclasifica pasivo en el asiento, pero el cash flow es el total.
+        gasto_a_banco = total  # capital + intereses + itf
         if gasto_a_banco > 0:
             try:
                 _apply_expense_to_bank_balance(bank_account, gasto_a_banco, record)
