@@ -7,13 +7,14 @@ import logging
 import eventlet
 from datetime import timedelta, timezone, datetime
 
-from .lead_discovery  import LeadDiscoveryAgent
-from .data_quality    import DataQualityAgent
-from .mail_agent      import MailAgent
+from .lead_discovery     import LeadDiscoveryAgent
+from .data_quality       import DataQualityAgent
+from .mail_agent         import MailAgent
 from .email_intelligence import EmailIntelligenceAgent
-from .outreach        import OutreachAgent
-from .supervisor      import SupervisorAgent
-from .executive       import ExecutiveAgent
+from .outreach           import OutreachAgent
+from .supervisor         import SupervisorAgent
+from .executive          import ExecutiveAgent
+from .accounting_audit   import AccountingAuditAgent
 
 _log = logging.getLogger(__name__)
 _LIMA = timezone(timedelta(hours=-5))
@@ -27,6 +28,7 @@ ALL_AGENTS = [
     OutreachAgent(),
     SupervisorAgent(),
     ExecutiveAgent(),
+    AccountingAuditAgent(),
 ]
 
 _agent_map = {a.agent_id: a for a in ALL_AGENTS}
@@ -62,7 +64,7 @@ def _spawn_agent(app, agent):
         # Delay inicial escalonado para no saturar el arranque
         delay = {'lead_discovery': 60, 'data_quality': 90, 'mail_agent': 120,
                  'email_intelligence': 30, 'outreach': 150, 'supervisor': 45,
-                 'executive': 180}.get(agent.agent_id, 60)
+                 'executive': 180, 'accounting_audit': 120}.get(agent.agent_id, 60)
         eventlet.sleep(delay)
 
         _log.info(f'[Agent] 🟢 {agent.name} iniciado (cada {agent.run_interval}s)')
