@@ -1320,9 +1320,16 @@ def start_market_schedulers(app):
                 try:
                     with app.app_context():
                         fn()
+                        db.session.remove()  # liberar sesión al terminar cada ciclo
                 except Exception as e:
                     import traceback
                     logging.error(f"[MARKET] ❌ {job_name}: {e}\n{traceback.format_exc()}")
+                    try:
+                        db.session.remove()
+                    except Exception:
+                        pass
+                import gc
+                gc.collect()
                 eventlet.sleep(interval_sec)
         eventlet.spawn(loop)
 
@@ -1362,6 +1369,7 @@ def start_market_schedulers(app):
     # Nivel 2 — watchdog: si el greenlet muere por cualquier razón, lo respawnea.
     def _fx_monitor_loop():
         import eventlet as _ev
+        import gc as _gc
         from datetime import datetime, timezone, timedelta
         _LIMA = timezone(timedelta(hours=-5))
         _log  = logging.getLogger(__name__)
@@ -1372,21 +1380,25 @@ def start_market_schedulers(app):
             try:
                 with app.app_context():
                     _fx_monitor()
+                    db.session.remove()
                 consecutive_errors = 0
-                # ── Horario de mercado Lima ──────────────────────────────
-                # 09:00–13:30 → back-to-back (tiempo real, cada ~5–10s)
-                # Fuera de horario → cada 30 minutos (ahorro de recursos)
                 t = datetime.now(_LIMA).time()
                 from datetime import time as _time
                 in_market = _time(9, 0) <= t < _time(13, 30)
-                if not in_market:
+                _gc.collect()
+                if in_market:
+                    _ev.sleep(45)   # horario de mercado: ciclo cada 45s
+                else:
                     _log.info('[FX-WATCH] Fuera de horario — próximo ciclo en 30 min')
                     _ev.sleep(1800)
             except Exception as e:
                 import traceback
                 consecutive_errors += 1
                 _log.error(f'[FX-WATCH] ❌ Error #{consecutive_errors}: {e}\n{traceback.format_exc()}')
-                # Backoff progresivo ante errores repetidos
+                try:
+                    db.session.remove()
+                except Exception:
+                    pass
                 backoff = min(2 * consecutive_errors, 30)
                 _ev.sleep(backoff)
 
