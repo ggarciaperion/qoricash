@@ -607,35 +607,43 @@ function renderKPIs(d) {
   const cf   = d.cashflow;
   const ops  = d.daily_ops || {};
 
-  // USD: fuente = Teórico del cashflow (ini + ingresos - egresos, más preciso que BankBalance)
+  // USD/PEN: fuente = saldo inicial de apertura por banco (Control de Apertura y Cierre)
   const BK_LABEL = { BCP: 'BCP', INTERBANK: 'Interbank', BANBIF: 'BanBif' };
 
   const usdRows = [];
+  let totalUSD = 0;
   for (const bk of ['BCP', 'INTERBANK', 'BANBIF']) {
-    const v = ((cf?.by_bank?.[bk] || {})['USD'] || {}).teorico ?? 0;
-    if (v > 0.005) usdRows.push(
-      `<div class="kpi-bank-row">
-        <span class="kpi-bank-name">${BK_LABEL[bk]}</span>
-        <span class="kpi-bank-amount" style="color:var(--blue);">${fmtUSD(v)}</span>
-      </div>`
-    );
+    const v = ((cf?.by_bank?.[bk] || {})['USD'] || {}).inicial ?? 0;
+    if (v > 0.005) {
+      totalUSD += v;
+      usdRows.push(
+        `<div class="kpi-bank-row">
+          <span class="kpi-bank-name">${BK_LABEL[bk]}</span>
+          <span class="kpi-bank-amount" style="color:var(--blue);">${fmtUSD(v)}</span>
+        </div>`
+      );
+    }
   }
-  document.getElementById('kpiUSDSub').innerHTML = usdRows.length ? usdRows.join('') : '<span style="color:#cbd5e1;font-size:.8rem;">Sin saldo</span>';
-  document.getElementById('kpiUSD').textContent = `Total: ${fmtUSD(cf?.total_teo_usd ?? bal.total_usd)}`;
+  document.getElementById('kpiUSDSub').innerHTML = usdRows.length ? usdRows.join('') : '<span style="color:#cbd5e1;font-size:.8rem;">Sin apertura</span>';
+  document.getElementById('kpiUSD').textContent = `Total: ${fmtUSD(totalUSD || bal.total_usd)}`;
 
-  // PEN: fuente = Teórico del cashflow
+  // PEN: saldo inicial de apertura por banco
   const penRows = [];
+  let totalPEN = 0;
   for (const bk of ['BCP', 'INTERBANK', 'BANBIF']) {
-    const v = ((cf?.by_bank?.[bk] || {})['PEN'] || {}).teorico ?? 0;
-    if (v > 0.005) penRows.push(
-      `<div class="kpi-bank-row">
-        <span class="kpi-bank-name">${BK_LABEL[bk]}</span>
-        <span class="kpi-bank-amount" style="color:var(--navy);">${fmtPEN(v)}</span>
-      </div>`
-    );
+    const v = ((cf?.by_bank?.[bk] || {})['PEN'] || {}).inicial ?? 0;
+    if (v > 0.005) {
+      totalPEN += v;
+      penRows.push(
+        `<div class="kpi-bank-row">
+          <span class="kpi-bank-name">${BK_LABEL[bk]}</span>
+          <span class="kpi-bank-amount" style="color:var(--navy);">${fmtPEN(v)}</span>
+        </div>`
+      );
+    }
   }
-  document.getElementById('kpiPENSub').innerHTML = penRows.length ? penRows.join('') : '<span style="color:#cbd5e1;font-size:.8rem;">Sin saldo</span>';
-  document.getElementById('kpiPEN').textContent = `Total: ${fmtPEN(cf?.total_teo_pen ?? bal.total_pen)}`;
+  document.getElementById('kpiPENSub').innerHTML = penRows.length ? penRows.join('') : '<span style="color:#cbd5e1;font-size:.8rem;">Sin apertura</span>';
+  document.getElementById('kpiPEN').textContent = `Total: ${fmtPEN(totalPEN || bal.total_pen)}`;
 
   const uhEl  = document.getElementById('kpiUtilHoy');
   uhEl.textContent = fmtPEN(phy.total_pen);
