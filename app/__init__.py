@@ -896,13 +896,17 @@ def create_app(config_name=None):
     start_market_schedulers(app)
 
     # Inicializar Ecosistema de Agentes IA Autónomos
+    # QORI_MODE=web  → solo importa el orquestador (trigger manual OK) pero NO
+    # arranca los greenlets de ciclo. Los ciclos corren en el Background Worker.
     try:
-        # Registrar modelos con SQLAlchemy (from-import no sobreescribe el nombre 'app')
         from app.models import inteligencia as _m_intel  # noqa: F401
         from app.models import prospecto as _m_prosp     # noqa: F401
-        from app.services.agents.orchestrator import start_all_agents
-        start_all_agents(app)
-        logging.info('[Agents] ✅ Ecosistema de Agentes IA inicializado')
+        from app.services.agents.orchestrator import start_all_agents  # noqa (pobla _agent_map)
+        if os.environ.get('QORI_MODE') != 'web':
+            start_all_agents(app)
+            logging.info('[Agents] ✅ Ecosistema de Agentes IA inicializado (modo worker)')
+        else:
+            logging.info('[Agents] Modo WEB — orquestador importado, greenlets en Background Worker')
     except Exception as _agent_err:
         logging.warning(f'[Agents] No se pudo inicializar el ecosistema de agentes: {_agent_err}')
 
