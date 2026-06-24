@@ -3173,6 +3173,160 @@ def api_wa_campana_elegibles():
     return jsonify({'ok': True, 'total': len(resultado), 'prospectos': resultado})
 
 
+# ── API — Campaña Nuevos Prospectos ───────────────────────────────────────────
+
+_ESTADOS_EXCLUIDOS_CAMPANA = {
+    'no_contactar', 'correo_invalido', 'correo_rebotado', 'rebote',
+    'cliente', 'no_interesado', 'inactivo',
+}
+
+
+@prospeccion_bp.route("/api/campana-nuevos-elegibles")
+@csrf.exempt
+def api_campana_nuevos_elegibles():
+    """
+    Retorna prospectos sin contactar elegibles para Campaña Nuevos Prospectos.
+    Auth: X-API-Key = CRM_API_KEY env var.
+    """
+    api_key = request.headers.get('X-API-Key', '')
+    crm_key = os.environ.get('CRM_API_KEY', 'qoricash_crm_2026')
+    if api_key != crm_key:
+        return jsonify({'ok': False, 'error': 'Unauthorized'}), 401
+
+    prospectos = (
+        Prospecto.query
+        .filter(Prospecto.email.isnot(None))
+        .filter(Prospecto.email != '')
+        .filter(
+            or_(
+                Prospecto.fecha_ultimo_contacto.is_(None),
+                Prospecto.fecha_ultimo_contacto == '',
+            )
+        )
+        .filter(
+            or_(
+                Prospecto.fecha_primer_contacto.is_(None),
+                Prospecto.fecha_primer_contacto == '',
+            )
+        )
+        .filter(
+            or_(
+                Prospecto.estado_comercial.is_(None),
+                Prospecto.estado_comercial == '',
+                ~Prospecto.estado_comercial.in_(_ESTADOS_EXCLUIDOS_CAMPANA),
+            )
+        )
+        .order_by(Prospecto.id.asc())
+        .all()
+    )
+
+    result = []
+    for p in prospectos:
+        result.append({
+            'id':              p.id,
+            'razon_social':    p.razon_social or '',
+            'nombre_contacto': p.nombre_contacto or '',
+            'email':           p.email,
+            'email_alt':       p.email_alt or '',
+            'num_contactos':   p.num_contactos or 0,
+        })
+
+    return jsonify({'ok': True, 'total': len(result), 'prospectos': result})
+
+
+@prospeccion_bp.route("/api/campana-registrar-envio", methods=["POST"])
+@csrf.exempt
+def api_campana_registrar_envio():
+    """
+    Registra un envío de Campaña Nuevos Prospectos.
+    Actualiza el prospecto y loggea la actividad.
+    Auth: X-API-Key = CRM_API_KEY env var.
+    Body: {
+        prospecto_id, remitente, bandeja, tipo,
+        ok (bool), fecha_envio (YYYY-MM-DD HH:MM),
+        fecha_proximo_contacto (YYYY-MM-DD),
+        gmail_message_id (str, opcional),
+        error (str, opcional)
+    }
+    """
+    api_key = request.headers.get('X-API-Key', '')
+    crm_key = os.environ.get('CRM_API_KEY', 'qoricash_crm_2026')
+    if api_key != crm_key:
+        return jsonify({'ok': False, 'error': 'Unauthorized'}), 401
+
+    data = request.get_json(force=True)
+    pid  = data.get('prospecto_id')
+    if not pid:
+        return jsonify({'ok': False, 'error': 'prospecto_id requerido'}), 400
+
+    p = db.session.get(Prospecto, int(pid))
+    if not p:
+        return jsonify({'ok': False, 'error': 'Prospecto no encontrado'}), 404
+
+    enviado_ok  = data.get('ok', True)
+    remitente   = (data.get('remitente') or '').strip()
+    bandeja     = (data.get('bandeja') or remitente).strip()
+    tipo        = (data.get('tipo') or 'presentacion').strip()
+    fecha_envio = (data.get('fecha_envio') or now_peru().strftime('%Y-%m-%d %H:%M')).strip()
+    fecha_prox  = (data.get('fecha_proximo_contacto') or '').strip()
+    msg_id      = (data.get('gmail_message_id') or '').strip()
+    error_txt   = (data.get('error') or '').strip()
+
+    # Obtener usuario sistema para actividad
+    bot_user = (
+        User.query.filter_by(role='Master').order_by(User.id.asc()).first()
+        or User.query.order_by(User.id.asc()).first()
+    )
+
+    if not enviado_ok:
+        if bot_user:
+            act = ActividadProspecto(
+                prospecto_id=p.id,
+                user_id=bot_user.id,
+                tipo='sistema',
+                canal='email',
+                bandeja=bandeja,
+                descripcion=f'Campaña Nuevos Prospectos — error de envío: {error_txt}',
+                resultado='Error',
+            )
+            db.session.add(act)
+            db.session.commit()
+        return jsonify({'ok': True, 'updated': False})
+
+    _NO_DEGRADAR = {'negociando', 'negociacion', 'P3', 'cliente', 'P4'}
+    if (p.estado_comercial or '') not in _NO_DEGRADAR:
+        p.estado_comercial = 'presentado'
+
+    p.tipo_ultimo_envio     = tipo
+    p.remitente             = remitente
+    p.bandeja               = bandeja
+    p.fecha_ultimo_contacto = fecha_envio
+    p.num_contactos         = (p.num_contactos or 0) + 1
+    if not p.fecha_primer_contacto:
+        p.fecha_primer_contacto = fecha_envio
+    if fecha_prox:
+        p.fecha_proximo_contacto = fecha_prox
+
+    if bot_user:
+        desc = 'Campaña Nuevos Prospectos — correo de presentación enviado'
+        if msg_id:
+            desc += f' [ID: {msg_id}]'
+        act = ActividadProspecto(
+            prospecto_id=p.id,
+            user_id=bot_user.id,
+            tipo='email',
+            canal='email',
+            bandeja=bandeja,
+            descripcion=desc,
+            resultado='Enviado',
+            nuevo_estado='presentado',
+        )
+        db.session.add(act)
+
+    db.session.commit()
+    return jsonify({'ok': True, 'updated': True})
+
+
 def _verificar_acceso(p):
     """Trader solo puede ver sus prospectos asignados. Llama abort(403) si no tiene acceso."""
     if current_user.role in ('Master', 'Presidente de Negocios'):
