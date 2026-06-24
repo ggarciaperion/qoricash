@@ -16,35 +16,11 @@ _log = logging.getLogger(__name__)
 
 def classify_news(title: str, summary: str = '') -> tuple[str, str, float]:
     """
-    Clasifica una noticia financiera.
+    Clasifica una noticia financiera usando el clasificador de keywords.
     Retorna: (impact_level, direction, sentiment_score)
-    - impact_level: 'high' | 'medium' | 'low'
-    - direction:    'bullish_usd' | 'bearish_usd' | 'neutral'
-    - sentiment_score: -1.0 a +1.0
-
-    Fallback al clasificador de keywords si falla.
     """
-    try:
-        prompt = f"""Clasifica esta noticia financiera para su impacto en el tipo de cambio USD/PEN de Perú.
-
-TÍTULO: {title}
-RESUMEN: {summary[:300] if summary else '(sin resumen)'}
-
-Responde SOLO JSON:
-{{"impact": "high|medium|low", "direction": "bullish_usd|bearish_usd|neutral", "score": <float -1.0 a 1.0>}}
-
-Donde:
-- impact: high=mueve mercados (Fed, BCRP, NFP, crisis), medium=relevante, low=ruido
-- direction: bullish_usd=dólar sube vs sol, bearish_usd=dólar baja, neutral=sin impacto claro
-- score: -1.0=muy bearish USD, 0=neutral, +1.0=muy bullish USD"""
-
-        r = ask_json(prompt, model=HAIKU, max_tokens=100)
-        return r.get('impact', 'low'), r.get('direction', 'neutral'), float(r.get('score', 0.0))
-
-    except Exception as e:
-        _log.warning(f'[MarketAgent] classify_news fallback: {e}')
-        from app.services.market.news_classifier import classify as _legacy
-        return _legacy(title, summary)
+    from app.services.market.news_classifier import classify as _legacy
+    return _legacy(title, summary)
 
 
 def generate_trader_analysis(snap, news_items: list, events: list,
