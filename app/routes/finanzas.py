@@ -1191,3 +1191,99 @@ def api_db_diagnostico():
         result['error'] = str(exc)
 
     return jsonify(result)
+
+
+# ── Admin: corregir banco de movimientos de una operación ─────────────────────
+
+@finanzas_bp.route('/api/admin/fix-bank-movement', methods=['POST'])
+@csrf.exempt
+def api_admin_fix_bank_movement():
+    """
+    Corrige el bank_key de los BankMovements de una operación y actualiza
+    destination_bank_name / source_bank_name en la operación.
+    Auth: X-API-Key = CRM_API_KEY env var.
+    Body: {
+        "operation_id": "EXP-598",
+        "from_bank":    "INTERBANK",
+        "to_bank":      "BCP",
+        "field":        "destination"   # "source" | "destination" | "both"
+    }
+    """
+    import os as _os
+    from app.models.operation import Operation
+    from app.models.bank_movement import BankMovement
+
+    api_key = request.headers.get('X-API-Key', '')
+    crm_key = _os.environ.get('CRM_API_KEY', 'qoricash_crm_2026')
+    if api_key != crm_key:
+        return jsonify({'ok': False, 'error': 'Unauthorized'}), 401
+
+    data         = request.get_json(force=True)
+    op_id_str    = data.get('operation_id', '').strip()
+    from_bank    = (data.get('from_bank', '') or '').strip().upper()
+    to_bank      = (data.get('to_bank',   '') or '').strip().upper()
+    field        = (data.get('field', 'destination') or 'destination').strip().lower()
+
+    if not op_id_str or not from_bank or not to_bank:
+        return jsonify({'ok': False, 'error': 'operation_id, from_bank y to_bank son requeridos'}), 400
+
+    op = Operation.query.filter_by(operation_id=op_id_str).first()
+    if not op:
+        return jsonify({'ok': False, 'error': f'Operación {op_id_str} no encontrada'}), 404
+
+    # Snapshot previo
+    before = {
+        'source_bank_name':      op.source_bank_name,
+        'destination_bank_name': op.destination_bank_name,
+    }
+
+    # Corregir movimientos bancarios
+    movs = BankMovement.query.filter_by(operation_id=op.id, bank_key=from_bank).all()
+    movs_corregidos = []
+    for m in movs:
+        m.bank_key = to_bank
+        movs_corregidos.append({
+            'id': m.id, 'currency': m.currency,
+            'amount': float(m.amount), 'type': m.movement_type,
+        })
+
+    # Corregir campo banco en la operación
+    if field in ('destination', 'both'):
+        if op.destination_bank_name and from_bank.lower() in op.destination_bank_name.lower():
+            op.destination_bank_name = to_bank.capitalize() if to_bank == 'BCP' else to_bank.title()
+    if field in ('source', 'both'):
+        if op.source_bank_name and from_bank.lower() in op.source_bank_name.lower():
+            op.source_bank_name = to_bank.capitalize() if to_bank == 'BCP' else to_bank.title()
+
+    # client_payments_json — actualizar cuenta_destino si corresponde
+    import json
+    try:
+        payments = json.loads(op.client_payments_json or '[]')
+        updated_payments = False
+        for pay in payments:
+            cd = (pay.get('cuenta_destino') or '').upper()
+            if from_bank in cd:
+                pay['cuenta_destino'] = pay['cuenta_destino'].upper().replace(from_bank, to_bank)
+                updated_payments = True
+        if updated_payments:
+            op.client_payments_json = json.dumps(payments, ensure_ascii=False)
+    except Exception:
+        pass
+
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+    return jsonify({
+        'ok':               True,
+        'operation_id':     op_id_str,
+        'movimientos_corregidos': len(movs_corregidos),
+        'movimientos':      movs_corregidos,
+        'antes':            before,
+        'despues': {
+            'source_bank_name':      op.source_bank_name,
+            'destination_bank_name': op.destination_bank_name,
+        },
+    })
