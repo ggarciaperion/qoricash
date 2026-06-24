@@ -1087,8 +1087,7 @@ def register_blueprints(app):
     from app.routes.ai import ai_bp
     app.register_blueprint(ai_bp)                                # Agentes IA: /ai/*
 
-    from app.routes.agentes import agentes_bp
-    app.register_blueprint(agentes_bp)                           # Ecosistema Agentes IA: /agentes/*
+    # agentes_bp desactivado — panel de Agentes IA removido del sistema
 
 # Service Worker debe servirse desde la raíz del dominio (scope /)
     import os

@@ -143,20 +143,6 @@
 
 
 
-            {% if current_user.role in ('Master', 'Presidente de Negocios') %}
-            <a class="sidebar-link {% if request.endpoint and request.endpoint.startswith('agentes') %}active{% endif %}"
-               href="{{ url_for('agentes.index') }}"
-               style="{% if request.endpoint and request.endpoint.startswith('agentes') %}{% else %}position:relative;{% endif %}">
-                <i class="bi bi-robot"></i>
-                <span class="sidebar-link-text">Agentes de IA</span>
-                <span id="agents-live-dot" style="
-                    width:6px;height:6px;border-radius:50%;background:#4ade80;
-                    position:absolute;right:12px;top:50%;transform:translateY(-50%);
-                    animation:sidebar-pulse 1.5s ease-in-out infinite;
-                    display:none;
-                "></span>
-            </a>
-            {% endif %}
 
             {% if current_user.role in ['Master', 'Presidente de Negocios', 'Middle Office', 'Trader', 'Operador'] %}
             <div class="sidebar-section-label">Compliance</div>
@@ -1257,29 +1243,6 @@
     {% endif %}
     <!-- ── /Web Push Notifications ─────────────────────────────────────── -->
 
-    <!-- ── Agentes IA — indicador de actividad en sidebar ─────────────── -->
-    {% if current_user.is_authenticated and current_user.role in ('Master', 'Presidente de Negocios') %}
-    <script>
-    (function() {
-      // Mostrar punto verde en "Agentes de IA" si alguno está running
-      function checkAgentStatus() {
-        fetch('/agentes/api/status')
-          .then(r => r.json())
-          .then(agents => {
-            const dot = document.getElementById('agents-live-dot');
-            if (!dot) return;
-            const anyRunning = agents.some(a => a.status === 'running');
-            dot.style.display = anyRunning ? 'block' : 'none';
-          })
-          .catch(() => {});
-      }
-      // Verificar cada 30s
-      checkAgentStatus();
-      setInterval(checkAgentStatus, 30000);
-    })();
-    </script>
-    {% endif %}
-    <!-- ── /Agentes IA sidebar ──────────────────────────────────────────── -->
 
 </body>
 </html>
