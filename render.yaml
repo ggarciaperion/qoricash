@@ -1,6 +1,4 @@
 services:
-  # ── Servidor Web (HTTP + SocketIO) ───────────────────────────────────────
-  # Sin greenlets de agentes IA: puede correr en plan Starter (512MB).
   - type: web
     name: qoricash
     env: python
@@ -18,29 +16,3 @@ services:
         value: production
       - key: TZ
         value: America/Lima
-      - key: QORI_MODE
-        value: web
-
-  # ── Background Worker (Agentes IA) ───────────────────────────────────────
-  # Corre exclusivamente los 7 agentes IA como greenlets de eventlet.
-  # No sirve HTTP. Plan Starter (512MB) es suficiente.
-  - type: worker
-    name: qoricash-worker
-    env: python
-    region: oregon
-    buildCommand: pip install -r requirements.txt
-    startCommand: python worker.py
-    envVars:
-      - key: PYTHON_VERSION
-        value: 3.11.6
-      - key: FLASK_ENV
-        value: production
-      - key: TZ
-        value: America/Lima
-      - key: QORI_MODE
-        value: worker
-      # Las siguientes variables deben copiarse desde qoricash-trading en Render:
-      # DATABASE_URL, SECRET_KEY, GMAIL_REFRESH_TOKEN_GGARCIA,
-      # GMAIL_REFRESH_TOKEN_GERENCIA, GMAIL_REFRESH_TOKEN_INFO,
-      # GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, y cualquier otra API key
-      # que usen los agentes (OpenAI, etc.)

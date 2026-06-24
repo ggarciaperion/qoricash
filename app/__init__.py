@@ -895,20 +895,15 @@ def create_app(config_name=None):
     # Inicializar schedulers del módulo Mercado
     start_market_schedulers(app)
 
-    # Inicializar Ecosistema de Agentes IA Autónomos
-    # QORI_MODE=web  → solo importa el orquestador (trigger manual OK) pero NO
-    # arranca los greenlets de ciclo. Los ciclos corren en el Background Worker.
+    # Agentes IA desactivados: reemplazados por scripts directos y cron jobs.
+    # La auditoría contable corre via cron_auditoria_diaria.py (Render Cron Job).
+    # Los modelos se importan para que SQLAlchemy registre las tablas correctamente.
     try:
         from app.models import inteligencia as _m_intel  # noqa: F401
         from app.models import prospecto as _m_prosp     # noqa: F401
-        from app.services.agents.orchestrator import start_all_agents  # noqa (pobla _agent_map)
-        if os.environ.get('QORI_MODE') != 'web':
-            start_all_agents(app)
-            logging.info('[Agents] ✅ Ecosistema de Agentes IA inicializado (modo worker)')
-        else:
-            logging.info('[Agents] Modo WEB — orquestador importado, greenlets en Background Worker')
+        logging.info('[Agents] Modelos registrados — agentes IA desactivados (usar scripts directos)')
     except Exception as _agent_err:
-        logging.warning(f'[Agents] No se pudo inicializar el ecosistema de agentes: {_agent_err}')
+        logging.warning(f'[Agents] Error registrando modelos: {_agent_err}')
 
     # Registrar CLI commands (aquí para que estén disponibles sin importar
     # cómo Flask CLI descubra la app — factory o instancia directa)
