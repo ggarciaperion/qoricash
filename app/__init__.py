@@ -1447,6 +1447,7 @@ def start_market_schedulers(app):
     def _lead_hunter_daily():
         """Caza de prospectos automática — una vez al día a las 7 AM Lima."""
         import datetime as _dt
+        _LIMA_TZ = _dt.timezone(_dt.timedelta(hours=-5))
 
         def loop():
             logging.info('[LEAD_HUNTER] Scheduler iniciado — corre diario a las 7:00 AM Lima')
