@@ -10,7 +10,7 @@ from flask import Blueprint, render_template, request, jsonify, flash, redirect,
 from flask_login import login_required, current_user
 from sqlalchemy import or_, func
 from app.extensions import db, csrf
-from app.models.prospecto import Prospecto, AsignacionProspecto, ActividadProspecto, SeguimientoProspecto
+from app.models.prospecto import Prospecto, AsignacionProspecto, ActividadProspecto, SeguimientoProspecto, ProspectoEmail
 from app.models.user import User
 from app.utils.decorators import require_role
 from app.utils.formatters import now_peru
@@ -3325,6 +3325,211 @@ def api_campana_registrar_envio():
 
     db.session.commit()
     return jsonify({'ok': True, 'updated': True})
+
+
+# ── API — Limpiar Bandejas (integración comercial) ────────────────────────────
+
+_BOUNCE_ESTADOS_NO_DEGRADAR = {'negociando', 'negociacion', 'P3', 'cliente', 'P4'}
+_INTERES_ESTADOS_NO_SOBREESCRIBIR = {
+    'interesado', 'negociando', 'negociacion', 'cliente',
+    'precio_enviado', 'P2', 'P3', 'P4',
+}
+
+
+def _find_prospecto_by_email(email_lower: str):
+    """Busca un Prospecto por email en todos los campos de email disponibles."""
+    p = Prospecto.query.filter(
+        or_(
+            func.lower(Prospecto.email)     == email_lower,
+            func.lower(Prospecto.email_alt) == email_lower,
+            func.lower(Prospecto.email_3)   == email_lower,
+            func.lower(Prospecto.email_4)   == email_lower,
+        )
+    ).first()
+    if not p:
+        pe = ProspectoEmail.query.filter(
+            func.lower(ProspectoEmail.email) == email_lower,
+            ProspectoEmail.activo == True,
+        ).first()
+        if pe:
+            p = db.session.get(Prospecto, pe.prospecto_id)
+    return p
+
+
+@prospeccion_bp.route("/api/limpiar-bandejas/registrar-batch", methods=["POST"])
+@csrf.exempt
+def api_limpiar_bandejas_registrar_batch():
+    """
+    Registra en batch todos los eventos detectados durante la limpieza de bandejas.
+    Auth: X-API-Key = CRM_API_KEY env var.
+
+    Body: {
+        "eventos": [
+            {
+                "email":         str,          # email afectado
+                "tipo_evento":   str,          # bounce | no_contactar | respuesta_positiva |
+                                               #  consulta_tc | oportunidad | auto_reply
+                "tipo_rebote":   str|null,     # hard | soft (solo para bounce)
+                "motivo":        str,          # motivo / asunto del evento
+                "cuenta_origen": str,          # bandeja que lo recibió
+                "fecha":         str,          # YYYY-MM-DD HH:MM
+                "asunto":        str,          # asunto del correo
+                "observaciones": str           # texto adicional
+            }
+        ]
+    }
+    """
+    api_key = request.headers.get('X-API-Key', '')
+    crm_key = os.environ.get('CRM_API_KEY', 'qoricash_crm_2026')
+    if api_key != crm_key:
+        return jsonify({'ok': False, 'error': 'Unauthorized'}), 401
+
+    data    = request.get_json(force=True)
+    eventos = data.get('eventos', [])
+    if not eventos:
+        return jsonify({'ok': True, 'procesados': 0, 'actualizados': 0})
+
+    # Usuario sistema para actividades
+    bot_user = (
+        User.query.filter_by(role='Master').order_by(User.id.asc()).first()
+        or User.query.order_by(User.id.asc()).first()
+    )
+    bot_id = bot_user.id if bot_user else None
+
+    procesados          = 0
+    prospectos_encontrados = 0
+    prospectos_actualizados = 0
+    fuera_de_crm        = []
+
+    for ev in eventos:
+        email       = (ev.get('email') or '').strip().lower()
+        tipo        = (ev.get('tipo_evento') or '').strip()
+        tipo_rebote = (ev.get('tipo_rebote') or 'hard').strip()
+        motivo      = (ev.get('motivo') or '').strip()[:200]
+        cuenta      = (ev.get('cuenta_origen') or '').strip()
+        fecha       = (ev.get('fecha') or now_peru().strftime('%Y-%m-%d %H:%M')).strip()
+        asunto      = (ev.get('asunto') or '').strip()[:150]
+        obs         = (ev.get('observaciones') or '').strip()[:300]
+        procesados += 1
+
+        if not email or '@' not in email:
+            continue
+
+        p = _find_prospecto_by_email(email)
+
+        if not p:
+            fuera_de_crm.append(email)
+            continue
+
+        prospectos_encontrados += 1
+        cambios = False
+
+        if tipo == 'bounce':
+            # Hard bounce → bloqueo permanente de futuras campañas
+            # Soft bounce → solo registra en estado_email
+            p.estado_email = 'correo_rebotado'
+            if tipo_rebote == 'hard':
+                if (p.estado_comercial or '') not in _BOUNCE_ESTADOS_NO_DEGRADAR:
+                    p.estado_comercial = 'correo_rebotado'
+            nota = f'[REBOTE {tipo_rebote.upper()} {fecha}] {motivo or asunto}'
+            p.notas = ((p.notas or '') + '\n' + nota).strip()[-2000:]
+            p.fecha_ultimo_contacto = fecha
+            if bot_id:
+                db.session.add(ActividadProspecto(
+                    prospecto_id=p.id, user_id=bot_id,
+                    tipo='bounce', canal='email', bandeja=cuenta,
+                    descripcion=nota,
+                    resultado=f'Rebote {tipo_rebote}',
+                    nuevo_estado='correo_rebotado' if tipo_rebote == 'hard' else p.estado_comercial,
+                ))
+            cambios = True
+
+        elif tipo == 'no_contactar':
+            p.estado_comercial  = 'no_contactar'
+            p.fecha_ultimo_contacto = fecha
+            nota = f'[NO CONTACTAR {fecha}] {asunto or obs}'
+            p.notas = ((p.notas or '') + '\n' + nota).strip()[-2000:]
+            if bot_id:
+                db.session.add(ActividadProspecto(
+                    prospecto_id=p.id, user_id=bot_id,
+                    tipo='email', canal='email', bandeja=cuenta,
+                    descripcion=nota,
+                    resultado='No desea ser contactado',
+                    nuevo_estado='no_contactar',
+                ))
+            cambios = True
+
+        elif tipo == 'respuesta_positiva':
+            p.fecha_ultimo_contacto = fecha
+            if (p.estado_comercial or '') not in _INTERES_ESTADOS_NO_SOBREESCRIBIR:
+                p.estado_comercial = 'interesado'
+            desc = f'[RESPUESTA POSITIVA {fecha}] {asunto} — {obs}'
+            if bot_id:
+                db.session.add(ActividadProspecto(
+                    prospecto_id=p.id, user_id=bot_id,
+                    tipo='email', canal='email', bandeja=cuenta,
+                    descripcion=desc,
+                    resultado='Respuesta positiva',
+                    nuevo_estado=p.estado_comercial,
+                ))
+            cambios = True
+
+        elif tipo == 'consulta_tc':
+            p.fecha_ultimo_contacto = fecha
+            if (p.estado_comercial or '') not in _INTERES_ESTADOS_NO_SOBREESCRIBIR:
+                p.estado_comercial = 'interesado'
+            desc = f'[CONSULTA TC {fecha}] {asunto} — {obs}'
+            if bot_id:
+                db.session.add(ActividadProspecto(
+                    prospecto_id=p.id, user_id=bot_id,
+                    tipo='email', canal='email', bandeja=cuenta,
+                    descripcion=desc,
+                    resultado='Consulta tipo de cambio',
+                    nuevo_estado=p.estado_comercial,
+                ))
+            cambios = True
+
+        elif tipo == 'oportunidad':
+            p.fecha_ultimo_contacto = fecha
+            desc = f'[OPORTUNIDAD {fecha}] {asunto} — {obs}'
+            if bot_id:
+                db.session.add(ActividadProspecto(
+                    prospecto_id=p.id, user_id=bot_id,
+                    tipo='email', canal='email', bandeja=cuenta,
+                    descripcion=desc,
+                    resultado='Oportunidad comercial',
+                ))
+            cambios = True
+
+        elif tipo == 'auto_reply':
+            desc = f'[AUTO-REPLY {fecha}] {obs or asunto}'
+            p.notas = ((p.notas or '') + '\n' + desc).strip()[-2000:]
+            if bot_id:
+                db.session.add(ActividadProspecto(
+                    prospecto_id=p.id, user_id=bot_id,
+                    tipo='sistema', canal='email', bandeja=cuenta,
+                    descripcion=desc,
+                    resultado='Auto-respuesta detectada',
+                ))
+            cambios = True
+
+        if cambios:
+            prospectos_actualizados += 1
+
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+    return jsonify({
+        'ok':                      True,
+        'procesados':              procesados,
+        'prospectos_encontrados':  prospectos_encontrados,
+        'prospectos_actualizados': prospectos_actualizados,
+        'fuera_de_crm':            fuera_de_crm,
+        'fuera_de_crm_count':      len(fuera_de_crm),
+    })
 
 
 def _verificar_acceso(p):
