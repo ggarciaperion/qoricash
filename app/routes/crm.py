@@ -612,6 +612,25 @@ def api_import_prospectos():
             } for r in rows],
         })
 
+    if action == 'restore_lfc_batch':
+        emails_list = data.get('emails', [])
+        if not emails_list:
+            return jsonify({'ok': False, 'error': 'emails requerido'}), 400
+        emails_lower = {e.lower().strip() for e in emails_list}
+        updated = 0
+        not_found = []
+        for email in emails_lower:
+            p = Prospecto.query.filter(
+                db.func.lower(Prospecto.email) == email
+            ).first()
+            if p:
+                p.cliente_lfc = 'LFC'
+                updated += 1
+            else:
+                not_found.append(email)
+        db.session.commit()
+        return jsonify({'ok': True, 'updated': updated, 'not_found': len(not_found)})
+
     if action == 'update_contacto_batch':
         from app.models.prospecto import ActividadProspecto
         from app.models.user import User
