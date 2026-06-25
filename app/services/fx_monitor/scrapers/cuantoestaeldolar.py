@@ -64,12 +64,21 @@ def _get_ced_text(session, headers, timeout: int = 15) -> str:
     return text
 
 
+# Umbral máximo de antigüedad de datos CED.
+# Si CED no ha actualizado el dato en más de este tiempo, se rechaza.
+# Evidencia (2026-06-25): dollarhouse/cambiosol/westernunion ≈ 87 min.
+# TKambio = 14d, CambiaFX = 21d, Okane = 174d, Cambix = 908d → todos rechazados.
+_CED_MAX_STALE_HOURS = 4.0
+
+
 def _extract_rates_from_text(text: str, ced_path: str) -> tuple:
     """
     Extrae (buy, sell) para `ced_path` desde el texto ya decodificado de CED.
     Retorna (buy_float, sell_float) o lanza ValueError.
-    Ventana ampliada a 1500 chars para cubrir estructuras JSON más largas.
+    Valida que updated_at de CED no supere _CED_MAX_STALE_HOURS.
     """
+    from datetime import datetime, timezone
+
     # Búsqueda exacta primero, luego fallback sin comillas (encoding alternativo)
     idx = text.find(f'"path":"{ced_path}"')
     if idx < 0:
@@ -79,6 +88,26 @@ def _extract_rates_from_text(text: str, ced_path: str) -> tuple:
 
     # Ventana de 1500 chars — más robusta ante estructuras JSON con campos adicionales
     window = text[idx: idx + 1500]
+
+    # ── Validar antigüedad del dato CED ──────────────────────────────────────
+    upd_m = re.search(r'"updated_at"\s*:\s*"([^"]+)"', window)
+    if upd_m:
+        try:
+            upd_str = upd_m.group(1)
+            upd_dt  = datetime.fromisoformat(upd_str.replace("Z", "+00:00"))
+            now_utc = datetime.now(timezone.utc)
+            stale_h = (now_utc - upd_dt).total_seconds() / 3600
+            if stale_h > _CED_MAX_STALE_HOURS:
+                raise ValueError(
+                    f"CED: datos de '{ced_path}' tienen {stale_h:.1f}h de antigüedad "
+                    f"(updated_at={upd_str}) — excede límite de {_CED_MAX_STALE_HOURS}h. "
+                    f"CED dejó de actualizar este competidor."
+                )
+        except ValueError:
+            raise
+        except Exception:
+            pass  # Si no se puede parsear el timestamp, no bloqueamos
+
     buy_m  = re.search(r'"buy"\s*:\s*\{[^}]*"cost"\s*:\s*"([\d.]+)"',  window)
     sell_m = re.search(r'"sale"\s*:\s*\{[^}]*"cost"\s*:\s*"([\d.]+)"', window)
 

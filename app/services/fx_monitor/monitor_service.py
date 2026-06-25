@@ -213,10 +213,18 @@ class FXMonitorService:
             .all()
         )
 
+        from datetime import timezone as _tz
+        _LIMA_TZ_OFF = _tz(timedelta(hours=-5))
         competitors = []
         for current, comp in rows:
             buy  = float(current.buy_rate)
             sell = float(current.sell_rate)
+            ts   = current.updated_at
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=_LIMA_TZ_OFF)
+            ts_epoch  = int(ts.timestamp())
+            now_epoch = int(now_peru().timestamp())
+            stale_min = round((now_epoch - ts_epoch) / 60, 1)
             competitors.append({
                 "slug":           comp.slug,
                 "name":           comp.name,
@@ -229,6 +237,8 @@ class FXMonitorService:
                 "prev_buy":       float(current.prev_buy_rate)  if current.prev_buy_rate  else None,
                 "prev_sell":      float(current.prev_sell_rate) if current.prev_sell_rate else None,
                 "updated_at":     current.updated_at.strftime("%H:%M"),
+                "updated_epoch":  ts_epoch,
+                "stale_min":      stale_min,
                 "scrape_ok":      current.scrape_ok,
             })
 

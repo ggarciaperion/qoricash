@@ -138,6 +138,20 @@ def _ced_batch_fallback(failed_slugs: list) -> dict:
                 if idx < 0:
                     continue
                 window = text[idx: idx + 600]
+
+                # Validar antigüedad del dato antes de usar
+                from datetime import datetime, timezone
+                upd_m = re.search(r'"updated_at"\s*:\s*"([^"]+)"', window)
+                if upd_m:
+                    try:
+                        upd_dt  = datetime.fromisoformat(upd_m.group(1).replace("Z", "+00:00"))
+                        stale_h = (datetime.now(timezone.utc) - upd_dt).total_seconds() / 3600
+                        if stale_h > 4.0:
+                            logger.warning(f"[CED-BATCH] {slug}: dato CED tiene {stale_h:.1f}h — ignorando")
+                            continue
+                    except Exception:
+                        pass
+
                 buy_m  = re.search(r'"buy"\s*:\s*\{[^}]*"cost"\s*:\s*"([\d.]+)"',  window)
                 sell_m = re.search(r'"sale"\s*:\s*\{[^}]*"cost"\s*:\s*"([\d.]+)"', window)
                 if buy_m and sell_m:
