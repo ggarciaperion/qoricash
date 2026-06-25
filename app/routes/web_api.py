@@ -40,6 +40,19 @@ def after_request(response):
     return response
 
 
+@web_api_bp.route('/check-document', methods=['OPTIONS', 'GET'])
+@csrf.exempt
+def check_document():
+    """Verifica si un número de documento ya está registrado como cliente."""
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+    dni = request.args.get('dni', '').strip()
+    if not dni:
+        return jsonify({'exists': False}), 200
+    client = Client.query.filter_by(dni=dni).first()
+    return jsonify({'exists': client is not None}), 200
+
+
 @web_api_bp.route('/register', methods=['OPTIONS', 'POST'])
 @csrf.exempt
 @limiter.limit("3 per minute", methods=["POST"])
@@ -104,8 +117,8 @@ def register_from_web():
         password = data.get('password', '').strip()
         accept_promotions = data.get('accept_promotions', False)
 
-        # Validar campos obligatorios
-        if not all([dni, email, telefono, direccion, departamento, provincia, distrito, password]):
+        # Validar campos obligatorios (ubicación es opcional en registro web)
+        if not all([dni, email, telefono, password]):
             return jsonify({
                 'success': False,
                 'message': 'Faltan campos obligatorios'
@@ -595,34 +608,56 @@ def create_operation_web():
                 'message': f'Ya tienes una operación en estado "{active_operation.status}" ({active_operation.operation_id}). Debes completarla o cancelarla antes de crear una nueva.'
             }), 400
 
-        # CRÍTICO: Procesar código de referido si se proporcionó
-        referral_code = data.get('referral_code', '').strip().upper()
-        if referral_code:
-            # Verificar que el cliente no haya usado un código anteriormente
-            if client.used_referral_code:
-                return jsonify({
-                    'success': False,
-                    'message': 'Ya has usado un código de referido en una operación anterior'
-                }), 400
+        # Procesar cupón/código si se proporcionó (referido o recompensa).
+        # IMPORTANTE: el código solo se marca como "utilizado" cuando la operación
+        # alcanza el estado "Completada". Aquí solo se valida y se asocia a la operación.
+        coupon_code = (data.get('coupon_code') or data.get('referral_code') or '').strip().upper()
+        if coupon_code:
+            from app.models.reward_code import RewardCode
+            from app.utils.referral import is_valid_referral_code_format
 
-            # Validar que el código exista y no sea su propio código
-            referrer = Client.query.filter_by(referral_code=referral_code).first()
-            if not referrer:
-                return jsonify({
-                    'success': False,
-                    'message': 'Código de referido no válido'
-                }), 400
+            reward_code_obj = RewardCode.query.filter_by(code=coupon_code).first()
 
-            if referrer.id == client.id:
-                return jsonify({
-                    'success': False,
-                    'message': 'No puedes usar tu propio código de referido'
-                }), 400
+            if reward_code_obj:
+                # Es un código de recompensa
+                if reward_code_obj.is_used:
+                    return jsonify({
+                        'success': False,
+                        'message': 'Este código de recompensa ya fue utilizado en una operación completada'
+                    }), 400
+                if reward_code_obj.client_id != client.id:
+                    return jsonify({
+                        'success': False,
+                        'message': 'Este código de recompensa no te pertenece'
+                    }), 400
+            else:
+                # Intentar como código de referido de otro cliente
+                if not is_valid_referral_code_format(coupon_code):
+                    return jsonify({
+                        'success': False,
+                        'message': 'Formato de cupón inválido'
+                    }), 400
 
-            # Guardar el código usado y quién lo refirió
-            client.used_referral_code = referral_code
-            client.referred_by = referrer.id
-            logger.info(f"✅ Cliente {client.dni} usó código de referido {referral_code} de {referrer.full_name}")
+                referrer = Client.query.filter_by(referral_code=coupon_code).first()
+                if not referrer:
+                    return jsonify({
+                        'success': False,
+                        'message': 'Cupón no encontrado'
+                    }), 400
+
+                if referrer.id == client.id:
+                    return jsonify({
+                        'success': False,
+                        'message': 'No puedes usar tu propio código de referido'
+                    }), 400
+
+                if client.used_referral_code:
+                    return jsonify({
+                        'success': False,
+                        'message': 'Ya has usado un código de referido en una operación completada'
+                    }), 400
+
+            logger.info(f"🎟️ Cupón '{coupon_code}' asociado a la operación de cliente {client.dni} (se activará al completar)")
 
         # Obtener tipo de cambio actual
         from app.models.exchange_rate import ExchangeRate
@@ -688,19 +723,12 @@ def create_operation_web():
             origen='web',  # Marcar como operación desde web
             source_account=source_account,  # Cuenta del cliente desde donde transferirá
             destination_account=destination_account,  # Cuenta del cliente donde recibirá el pago
+            coupon_code=coupon_code or None,  # Guardado para procesar al completar
             created_at=now_peru()
         )
 
         db.session.add(new_operation)
         db.session.commit()
-
-        # Contabilizar uso del código de referido (independiente de si se completa la operación)
-        if referral_code:
-            try:
-                from app.services.referral_service import referral_service
-                referral_service.count_referral_use(client)
-            except Exception as e:
-                logger.warning(f"⚠️ Error al contabilizar uso de referido: {str(e)}")
 
         logger.info(f"✅ Operación {new_operation.operation_id} creada desde WEB para cliente {client.dni}")
         logger.info(f"   📊 Estado: {new_operation.status} | Origen: {new_operation.origen} | Creada: {new_operation.created_at}")
