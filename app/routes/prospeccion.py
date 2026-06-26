@@ -3234,6 +3234,49 @@ def api_campana_nuevos_elegibles():
     return jsonify({'ok': True, 'total': len(result), 'prospectos': result})
 
 
+@prospeccion_bp.route("/api/campana-precios-elegibles")
+@csrf.exempt
+def api_campana_precios_elegibles():
+    """
+    Retorna prospectos ya contactados elegibles para Campaña de Precios.
+    Elegibles: fecha_primer_contacto != NULL, no excluidos, con email válido.
+    El cutoff de 5 días hábiles se evalúa en el script cliente.
+    Auth: X-API-Key = CRM_API_KEY env var.
+    """
+    api_key = request.headers.get('X-API-Key', '')
+    crm_key = os.environ.get('CRM_API_KEY', 'qoricash_crm_2026')
+    if api_key != crm_key:
+        return jsonify({'ok': False, 'error': 'Unauthorized'}), 401
+
+    prospectos = (
+        Prospecto.query
+        .filter(Prospecto.email.isnot(None))
+        .filter(Prospecto.email != '')
+        .filter(Prospecto.fecha_primer_contacto.isnot(None))
+        .filter(Prospecto.fecha_primer_contacto != '')
+        .filter(
+            or_(
+                Prospecto.estado_comercial.is_(None),
+                Prospecto.estado_comercial == '',
+                ~Prospecto.estado_comercial.in_(_ESTADOS_EXCLUIDOS_CAMPANA),
+            )
+        )
+        .order_by(Prospecto.fecha_ultimo_contacto.asc())
+        .all()
+    )
+
+    result = []
+    for p in prospectos:
+        result.append({
+            'id':                   p.id,
+            'razon_social':         p.razon_social or '',
+            'email':                p.email,
+            'fecha_ultimo_contacto': p.fecha_ultimo_contacto or '',
+        })
+
+    return jsonify({'ok': True, 'total': len(result), 'prospectos': result})
+
+
 @prospeccion_bp.route("/api/campana-registrar-envio", methods=["POST"])
 @csrf.exempt
 def api_campana_registrar_envio():
@@ -3363,21 +3406,8 @@ def api_limpiar_bandejas_registrar_batch():
     Registra en batch todos los eventos detectados durante la limpieza de bandejas.
     Auth: X-API-Key = CRM_API_KEY env var.
 
-    Body: {
-        "eventos": [
-            {
-                "email":         str,          # email afectado
-                "tipo_evento":   str,          # bounce | no_contactar | respuesta_positiva |
-                                               #  consulta_tc | oportunidad | auto_reply
-                "tipo_rebote":   str|null,     # hard | soft (solo para bounce)
-                "motivo":        str,          # motivo / asunto del evento
-                "cuenta_origen": str,          # bandeja que lo recibió
-                "fecha":         str,          # YYYY-MM-DD HH:MM
-                "asunto":        str,          # asunto del correo
-                "observaciones": str           # texto adicional
-            }
-        ]
-    }
+    Optimizado: bulk-lookup de emails (2 queries totales por batch) en lugar de
+    1 query por email, para evitar timeouts en Render con batches grandes.
     """
     api_key = request.headers.get('X-API-Key', '')
     crm_key = os.environ.get('CRM_API_KEY', 'qoricash_crm_2026')
@@ -3389,34 +3419,90 @@ def api_limpiar_bandejas_registrar_batch():
     if not eventos:
         return jsonify({'ok': True, 'procesados': 0, 'actualizados': 0})
 
-    # Usuario sistema para actividades
+    # ── Pre-procesar eventos ────────────────────────────────────────────────────
+    evs_parsed = []
+    emails_lower = set()
+    for ev in eventos:
+        email = (ev.get('email') or '').strip().lower()
+        if not email or '@' not in email:
+            continue
+        emails_lower.add(email)
+        evs_parsed.append({
+            'email':       email,
+            'tipo':        (ev.get('tipo_evento') or '').strip(),
+            'tipo_rebote': (ev.get('tipo_rebote') or 'hard').strip(),
+            'motivo':      (ev.get('motivo') or '').strip()[:200],
+            'cuenta':      (ev.get('cuenta_origen') or '').strip(),
+            'fecha':       (ev.get('fecha') or now_peru().strftime('%Y-%m-%d %H:%M')).strip(),
+            'asunto':      (ev.get('asunto') or '').strip()[:150],
+            'obs':         (ev.get('observaciones') or '').strip()[:300],
+        })
+
+    if not evs_parsed:
+        return jsonify({'ok': True, 'procesados': 0, 'actualizados': 0})
+
+    # ── Bulk lookup: 2 queries para todos los emails del batch ─────────────────
+    email_list = list(emails_lower)
+
+    # Query 1: campos directos de Prospecto
+    prospectos_directos = Prospecto.query.filter(
+        or_(
+            func.lower(Prospecto.email).in_(email_list),
+            func.lower(Prospecto.email_alt).in_(email_list),
+            func.lower(Prospecto.email_3).in_(email_list),
+            func.lower(Prospecto.email_4).in_(email_list),
+        )
+    ).all()
+
+    # Construir mapa email → Prospecto
+    email_map: dict = {}
+    for p in prospectos_directos:
+        for campo in [p.email, p.email_alt, p.email_3, p.email_4]:
+            if campo:
+                k = campo.strip().lower()
+                if k in emails_lower and k not in email_map:
+                    email_map[k] = p
+
+    # Query 2: ProspectoEmail para los que no se encontraron
+    emails_faltantes = [e for e in email_list if e not in email_map]
+    if emails_faltantes:
+        pes = ProspectoEmail.query.filter(
+            func.lower(ProspectoEmail.email).in_(emails_faltantes),
+            ProspectoEmail.activo == True,
+        ).all()
+        if pes:
+            ids_extra = list({pe.prospecto_id for pe in pes})
+            prospectos_extra = Prospecto.query.filter(Prospecto.id.in_(ids_extra)).all()
+            id_map = {p.id: p for p in prospectos_extra}
+            for pe in pes:
+                k = pe.email.strip().lower()
+                if k not in email_map and pe.prospecto_id in id_map:
+                    email_map[k] = id_map[pe.prospecto_id]
+
+    # ── Usuario sistema para actividades ───────────────────────────────────────
     bot_user = (
         User.query.filter_by(role='Master').order_by(User.id.asc()).first()
         or User.query.order_by(User.id.asc()).first()
     )
     bot_id = bot_user.id if bot_user else None
 
-    procesados          = 0
-    prospectos_encontrados = 0
+    procesados              = len(evs_parsed)
+    prospectos_encontrados  = 0
     prospectos_actualizados = 0
-    fuera_de_crm        = []
+    fuera_de_crm            = []
 
-    for ev in eventos:
-        email       = (ev.get('email') or '').strip().lower()
-        tipo        = (ev.get('tipo_evento') or '').strip()
-        tipo_rebote = (ev.get('tipo_rebote') or 'hard').strip()
-        motivo      = (ev.get('motivo') or '').strip()[:200]
-        cuenta      = (ev.get('cuenta_origen') or '').strip()
-        fecha       = (ev.get('fecha') or now_peru().strftime('%Y-%m-%d %H:%M')).strip()
-        asunto      = (ev.get('asunto') or '').strip()[:150]
-        obs         = (ev.get('observaciones') or '').strip()[:300]
-        procesados += 1
+    # ── Procesar eventos usando el mapa en memoria ─────────────────────────────
+    for ev in evs_parsed:
+        email       = ev['email']
+        tipo        = ev['tipo']
+        tipo_rebote = ev['tipo_rebote']
+        motivo      = ev['motivo']
+        cuenta      = ev['cuenta']
+        fecha       = ev['fecha']
+        asunto      = ev['asunto']
+        obs         = ev['obs']
 
-        if not email or '@' not in email:
-            continue
-
-        p = _find_prospecto_by_email(email)
-
+        p = email_map.get(email)
         if not p:
             fuera_de_crm.append(email)
             continue
@@ -3425,8 +3511,6 @@ def api_limpiar_bandejas_registrar_batch():
         cambios = False
 
         if tipo == 'bounce':
-            # Hard bounce → bloqueo permanente de futuras campañas
-            # Soft bounce → solo registra en estado_email
             p.estado_email = 'correo_rebotado'
             if tipo_rebote == 'hard':
                 if (p.estado_comercial or '') not in _BOUNCE_ESTADOS_NO_DEGRADAR:
@@ -3445,7 +3529,7 @@ def api_limpiar_bandejas_registrar_batch():
             cambios = True
 
         elif tipo == 'no_contactar':
-            p.estado_comercial  = 'no_contactar'
+            p.estado_comercial      = 'no_contactar'
             p.fecha_ultimo_contacto = fecha
             nota = f'[NO CONTACTAR {fecha}] {asunto or obs}'
             p.notas = ((p.notas or '') + '\n' + nota).strip()[-2000:]
