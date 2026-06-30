@@ -3399,6 +3399,40 @@ def _find_prospecto_by_email(email_lower: str):
     return p
 
 
+@prospeccion_bp.route("/api/todos-emails")
+@csrf.exempt
+def api_todos_emails():
+    """
+    Retorna todos los prospectos con email (todos los estados).
+    Usado por el script de validación MX masiva.
+    Auth: X-API-Key = CRM_API_KEY env var.
+    """
+    api_key = request.headers.get('X-API-Key', '')
+    crm_key = os.environ.get('CRM_API_KEY', 'qoricash_crm_2026')
+    if api_key != crm_key:
+        return jsonify({'ok': False, 'error': 'Unauthorized'}), 401
+
+    # Excluir los que ya están marcados como inválidos o rebotados
+    EXCLUIR = {'correo_invalido', 'correo_rebotado', 'Dominio inválido'}
+    prospectos = (
+        Prospecto.query
+        .filter(Prospecto.email.isnot(None))
+        .filter(Prospecto.email != '')
+        .filter(
+            or_(
+                Prospecto.estado_email.is_(None),
+                Prospecto.estado_email == '',
+                ~Prospecto.estado_email.in_(list(EXCLUIR)),
+            )
+        )
+        .order_by(Prospecto.id.asc())
+        .all()
+    )
+
+    result = [{'id': p.id, 'email': p.email, 'estado_email': p.estado_email or ''} for p in prospectos]
+    return jsonify({'ok': True, 'total': len(result), 'prospectos': result})
+
+
 @prospeccion_bp.route("/api/limpiar-bandejas/registrar-batch", methods=["POST"])
 @csrf.exempt
 def api_limpiar_bandejas_registrar_batch():
@@ -3582,6 +3616,20 @@ def api_limpiar_bandejas_registrar_batch():
                     tipo='email', canal='email', bandeja=cuenta,
                     descripcion=desc,
                     resultado='Oportunidad comercial',
+                ))
+            cambios = True
+
+        elif tipo == 'mx_invalido':
+            p.estado_email = 'correo_invalido'
+            nota = f'[MX INVALIDO {fecha}] Dominio sin registro MX — {motivo or obs}'
+            p.notas = ((p.notas or '') + '\n' + nota).strip()[-2000:]
+            if bot_id:
+                db.session.add(ActividadProspecto(
+                    prospecto_id=p.id, user_id=bot_id,
+                    tipo='sistema', canal='email', bandeja='validacion_mx',
+                    descripcion=nota,
+                    resultado='Dominio sin MX — correo inválido',
+                    nuevo_estado=p.estado_comercial,
                 ))
             cambios = True
 
