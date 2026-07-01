@@ -911,6 +911,77 @@ def api_reconciliacion():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+# ── TEMP: Forzar reconciliación de saldos — ELIMINAR después de usar ──────────
+
+@treasury_bp.route('/api/_reconciliar-forzar', methods=['POST'])
+@login_required
+def api_reconciliar_forzar():
+    """ENDPOINT TEMPORAL — Fuerza saldo_movs y bank_balances a los valores target.
+    Crea un BankMovement de ajuste por la diferencia y actualiza BankBalance directo.
+    ELIMINAR después de usar.
+    """
+    _require_master()
+    try:
+        data    = request.get_json() or {}
+        targets = data.get('targets', {})
+        motivo  = data.get('motivo', 'Reconciliación cierre junio 2026')
+
+        resultados = []
+        for bank_key, monedas in targets.items():
+            if bank_key not in BANKS:
+                continue
+            for currency, target_val in monedas.items():
+                if currency not in CURRENCIES:
+                    continue
+                target_val = round(float(target_val), 2)
+                acct_name  = _bank_account_name(bank_key, currency)
+
+                saldo_movs = round(BankMovement.compute_running_balance(bank_key, currency), 2)
+                delta      = round(target_val - saldo_movs, 2)
+
+                if abs(delta) >= 0.01:
+                    mv_type = 'ajuste_entrada' if delta >= 0 else 'ajuste_salida'
+                    mv = BankMovement(
+                        movement_date  = now_peru(),
+                        bank_name      = acct_name,
+                        bank_key       = bank_key,
+                        currency       = currency,
+                        amount         = delta,
+                        movement_type  = mv_type,
+                        source_type    = 'adjustment',
+                        description    = motivo,
+                        reference_code = 'RECON-2026-06',
+                        balance_after  = target_val,
+                        created_by     = current_user.id,
+                        closure_date   = date(2026, 6, 30),
+                    )
+                    db.session.add(mv)
+
+                bb = BankBalance.query.filter_by(bank_name=acct_name).first()
+                if bb:
+                    if currency == 'USD':
+                        bb.balance_usd = target_val
+                    else:
+                        bb.balance_pen = target_val
+                    bb.updated_at = now_peru()
+                    bb.updated_by = current_user.id
+
+                resultados.append({
+                    'banco':             bank_key,
+                    'moneda':            currency,
+                    'saldo_movs_antes':  saldo_movs,
+                    'delta':             delta,
+                    'target':            target_val,
+                })
+
+        db.session.commit()
+        return jsonify({'success': True, 'resultados': resultados})
+    except Exception as e:
+        db.session.rollback()
+        _log.exception('[Treasury] Error en api_reconciliar_forzar')
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @treasury_bp.route('/api/ops-sin-movimientos')
 @login_required
 def api_ops_sin_movimientos():
