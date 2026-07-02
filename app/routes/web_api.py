@@ -12,6 +12,12 @@ from werkzeug.security import generate_password_hash
 from app.utils.formatters import now_peru
 from app.utils.referral import generate_referral_code
 import logging
+import random
+import string
+import time
+
+# In-memory store para códigos de verificación de email: email → {code, expires}
+_verification_codes: dict = {}
 
 logger = logging.getLogger(__name__)
 
@@ -172,6 +178,7 @@ def register_from_web():
         elif tipo_persona == 'Jurídica':
             razon_social = data.get('razon_social', '').strip().upper()
             persona_contacto = data.get('persona_contacto', '').strip().upper()
+            relacion_empresa = data.get('relacion_empresa', '').strip()
 
             if not all([razon_social, persona_contacto]):
                 return jsonify({
@@ -216,7 +223,7 @@ def register_from_web():
                 email='web@qoricash.pe',
                 dni='22222222',  # DNI ficticio para usuario Web
                 role='Web',
-                password_hash=generate_password_hash(secrets.token_urlsafe(32)),
+                password_hash=generate_password_hash(secrets.token_urlsafe(32), method='pbkdf2:sha256'),
                 status='Activo',
                 created_at=now_peru()
             )
@@ -242,7 +249,7 @@ def register_from_web():
                 distrito=distrito,
                 status='Inactivo',  # Cambio: Inicia inactivo hasta validación KYC
                 has_complete_documents=False,  # Sin documentos al registrarse
-                password_hash=generate_password_hash(password),
+                password_hash=generate_password_hash(password, method='pbkdf2:sha256'),
                 requires_password_change=False,
                 created_by=web_user.id,
                 registration_canal='web',
@@ -255,6 +262,7 @@ def register_from_web():
                 email=email,
                 razon_social=razon_social,
                 persona_contacto=persona_contacto,
+                relacion_empresa=relacion_empresa or None,
                 phone=telefono,
                 direccion=direccion,
                 departamento=departamento,
@@ -262,7 +270,7 @@ def register_from_web():
                 distrito=distrito,
                 status='Inactivo',  # Cambio: Inicia inactivo hasta validación KYC
                 has_complete_documents=False,  # Sin documentos al registrarse
-                password_hash=generate_password_hash(password),
+                password_hash=generate_password_hash(password, method='pbkdf2:sha256'),
                 requires_password_change=False,
                 created_by=web_user.id,
                 registration_canal='web',
@@ -1465,3 +1473,138 @@ def public_ruc_lookup():
     except Exception as e:
         logger.error(f'[public RUC lookup] {e}')
         return jsonify({'success': False, 'message': 'Error interno — ingrese los datos manualmente'}), 500
+
+
+@web_api_bp.route('/send-verification-code', methods=['OPTIONS', 'POST'])
+@csrf.exempt
+@limiter.limit("5 per hour", methods=["POST"])
+def send_verification_code():
+    """
+    Genera y envía un código de verificación de 6 caracteres (3 letras + 3 dígitos)
+    al correo indicado. Se usa en el paso 3 del registro web.
+    """
+    if request.method == 'OPTIONS':
+        return '', 204
+
+    data = request.get_json(silent=True) or {}
+    email = (data.get('email') or '').strip().lower()
+
+    if not email or '@' not in email:
+        return jsonify({'success': False, 'message': 'Email inválido'}), 400
+
+    # Generar código: 3 letras mayúsculas + 3 dígitos
+    letters = ''.join(random.choices(string.ascii_uppercase, k=3))
+    digits  = ''.join(random.choices(string.digits, k=3))
+    code    = letters + digits
+
+    # Guardar con TTL de 10 minutos
+    _verification_codes[email] = {'code': code, 'expires': time.time() + 600}
+
+    # Enviar email
+    try:
+        import os
+        import smtplib
+        import threading
+        from email.mime.multipart import MIMEMultipart
+        from email.mime.text import MIMEText
+        from app.services.email_service import EmailService
+
+        body_html = f"""
+        <p style="margin:0 0 16px;color:#334155;">Hola,</p>
+        <p style="margin:0 0 24px;color:#334155;">
+          Ingresa el siguiente código para verificar tu correo y completar tu
+          registro en <strong style="color:#0D1B2A;">QoriCash</strong>:
+        </p>
+        <div style="text-align:center;margin:32px 0;">
+          <div style="display:inline-block;background:#F8FAFC;border:2px solid #E2E8F0;
+                      border-radius:14px;padding:20px 40px;">
+            <span style="font-size:40px;font-weight:900;letter-spacing:12px;
+                         color:#0D1B2A;font-family:monospace;">{code}</span>
+          </div>
+        </div>
+        <p style="color:#64748b;font-size:13px;text-align:center;">
+          Este código vence en <strong>10 minutos</strong>.
+        </p>
+        <p style="color:#94a3b8;font-size:12px;text-align:center;margin-top:24px;">
+          Si no solicitaste este código, puedes ignorar este mensaje.
+        </p>
+        """
+
+        html      = EmailService.build_email_html(
+            title='Verifica tu correo',
+            body_html=body_html,
+            subtitle='Código de verificación para tu registro'
+        )
+        plain     = EmailService._html_to_text(html)
+        subject   = 'Tu código de verificación — QoriCash'
+
+        # Credenciales dedicadas para info@qoricash.pe (env: MAIL_INFO_USERNAME / MAIL_INFO_PASSWORD)
+        # Si no están, usa el MAIL_USERNAME genérico como fallback
+        info_user = (
+            os.environ.get('MAIL_INFO_USERNAME') or
+            os.environ.get('MAIL_USERNAME') or ''
+        ).strip()
+        info_pass = (
+            os.environ.get('MAIL_INFO_PASSWORD') or
+            os.environ.get('MAIL_PASSWORD') or ''
+        ).strip()
+
+        def _send_smtp():
+            try:
+                msg = MIMEMultipart('alternative')
+                msg['From']    = f'QoriCash <{info_user}>'
+                msg['To']      = email
+                msg['Subject'] = subject
+                msg.attach(MIMEText(plain, 'plain', 'utf-8'))
+                msg.attach(MIMEText(html,  'html',  'utf-8'))
+                with smtplib.SMTP('smtp.gmail.com', 587, timeout=15) as s:
+                    s.ehlo()
+                    s.starttls()
+                    s.login(info_user, info_pass)
+                    s.sendmail(info_user, [email], msg.as_string())
+                logger.info(f'[VERIF] Código de verificación enviado a {email}')
+            except Exception as exc:
+                logger.error(f'[VERIF] Error SMTP: {exc}')
+
+        if info_user and info_pass:
+            threading.Thread(target=_send_smtp, daemon=True).start()
+        else:
+            logger.error('[VERIF] No hay credenciales SMTP configuradas (MAIL_INFO_USERNAME/MAIL_INFO_PASSWORD)')
+            return jsonify({'success': False, 'message': 'Configuración de email incompleta'}), 500
+
+        return jsonify({'success': True}), 200
+
+    except Exception as e:
+        logger.error(f'[VERIF] Error inesperado: {e}')
+        return jsonify({'success': False, 'message': 'Error al enviar el código. Intenta nuevamente.'}), 500
+
+
+@web_api_bp.route('/verify-code', methods=['OPTIONS', 'POST'])
+@csrf.exempt
+def verify_verification_code():
+    """
+    Valida el código de verificación ingresado por el usuario.
+    """
+    if request.method == 'OPTIONS':
+        return '', 204
+
+    data  = request.get_json(silent=True) or {}
+    email = (data.get('email') or '').strip().lower()
+    code  = (data.get('code') or '').strip().upper()
+
+    if not email or not code:
+        return jsonify({'success': False, 'message': 'Email y código requeridos'}), 400
+
+    entry = _verification_codes.get(email)
+
+    if not entry:
+        return jsonify({'success': False, 'message': 'No hay código activo para este email'}), 400
+
+    if time.time() > entry['expires']:
+        _verification_codes.pop(email, None)
+        return jsonify({'success': False, 'message': 'El código ha expirado. Solicita uno nuevo.'}), 400
+
+    if code != entry['code']:
+        return jsonify({'success': False, 'message': 'Código incorrecto'}), 400
+
+    return jsonify({'success': True}), 200
