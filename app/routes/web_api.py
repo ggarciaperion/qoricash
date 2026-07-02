@@ -1500,13 +1500,9 @@ def send_verification_code():
     # Guardar con TTL de 10 minutos
     _verification_codes[email] = {'code': code, 'expires': time.time() + 600}
 
-    # Enviar email
+    # Enviar email usando Flask-Mail + eventlet (mismo patrón que el resto del sistema)
     try:
-        import os
-        import smtplib
-        import threading
-        from email.mime.multipart import MIMEMultipart
-        from email.mime.text import MIMEText
+        from flask_mail import Message as MailMessage
         from app.services.email_service import EmailService
 
         body_html = f"""
@@ -1530,48 +1526,20 @@ def send_verification_code():
         </p>
         """
 
-        html      = EmailService.build_email_html(
+        html = EmailService.build_email_html(
             title='Verifica tu correo',
             body_html=body_html,
             subtitle='Código de verificación para tu registro'
         )
-        plain     = EmailService._html_to_text(html)
-        subject   = 'Tu código de verificación — QoriCash'
 
-        # Credenciales dedicadas para info@qoricash.pe (env: MAIL_INFO_USERNAME / MAIL_INFO_PASSWORD)
-        # Si no están, usa el MAIL_USERNAME genérico como fallback
-        info_user = (
-            os.environ.get('MAIL_INFO_USERNAME') or
-            os.environ.get('MAIL_USERNAME') or ''
-        ).strip()
-        info_pass = (
-            os.environ.get('MAIL_INFO_PASSWORD') or
-            os.environ.get('MAIL_PASSWORD') or ''
-        ).strip()
+        msg = MailMessage(
+            subject='Tu código de verificación — QoriCash',
+            recipients=[email],
+            html=html,
+        )
 
-        def _send_smtp():
-            try:
-                msg = MIMEMultipart('alternative')
-                msg['From']    = f'QoriCash <{info_user}>'
-                msg['To']      = email
-                msg['Subject'] = subject
-                msg.attach(MIMEText(plain, 'plain', 'utf-8'))
-                msg.attach(MIMEText(html,  'html',  'utf-8'))
-                with smtplib.SMTP('smtp.gmail.com', 587, timeout=15) as s:
-                    s.ehlo()
-                    s.starttls()
-                    s.login(info_user, info_pass)
-                    s.sendmail(info_user, [email], msg.as_string())
-                logger.info(f'[VERIF] Código de verificación enviado a {email}')
-            except Exception as exc:
-                logger.error(f'[VERIF] Error SMTP: {exc}')
-
-        if info_user and info_pass:
-            threading.Thread(target=_send_smtp, daemon=True).start()
-        else:
-            logger.error('[VERIF] No hay credenciales SMTP configuradas (MAIL_INFO_USERNAME/MAIL_INFO_PASSWORD)')
-            return jsonify({'success': False, 'message': 'Configuración de email incompleta'}), 500
-
+        EmailService._send_async(msg)
+        logger.info(f'[VERIF] Código {code} encolado para {email}')
         return jsonify({'success': True}), 200
 
     except Exception as e:
