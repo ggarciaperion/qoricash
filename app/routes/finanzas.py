@@ -1297,3 +1297,46 @@ def api_admin_fix_bank_movement():
             'destination_bank_name': op.destination_bank_name,
         },
     })
+
+
+@finanzas_bp.route('/api/admin/fix-movement-bankname', methods=['POST'])
+@csrf.exempt
+def api_admin_fix_movement_bankname():
+    """
+    Corrige el bank_name de un BankMovement específico por ID.
+    Auth: X-API-Key = CRM_API_KEY env var.
+    Body: { "movement_id": 521, "bank_name": "BCP PEN (1937353150041)" }
+    """
+    import os as _os
+    from app.models.bank_movement import BankMovement
+
+    api_key = request.headers.get('X-API-Key', '')
+    crm_key = _os.environ.get('CRM_API_KEY', 'qoricash_crm_2026')
+    if api_key != crm_key:
+        return jsonify({'ok': False, 'error': 'Unauthorized'}), 401
+
+    data        = request.get_json(force=True)
+    movement_id = data.get('movement_id')
+    new_name    = (data.get('bank_name') or '').strip()
+
+    if not movement_id or not new_name:
+        return jsonify({'ok': False, 'error': 'movement_id y bank_name son requeridos'}), 400
+
+    mv = BankMovement.query.get(movement_id)
+    if not mv:
+        return jsonify({'ok': False, 'error': f'Movimiento {movement_id} no encontrado'}), 404
+
+    old_name   = mv.bank_name
+    mv.bank_name = new_name
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+    return jsonify({
+        'ok': True,
+        'movement_id': movement_id,
+        'bank_name_antes': old_name,
+        'bank_name_nuevo': new_name,
+    })
