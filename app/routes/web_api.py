@@ -1576,3 +1576,41 @@ def verify_verification_code():
         return jsonify({'success': False, 'message': 'Código incorrecto'}), 400
 
     return jsonify({'success': True}), 200
+
+
+@web_api_bp.route('/update-address', methods=['OPTIONS', 'POST'])
+@csrf.exempt
+def update_address():
+    """
+    Actualiza los campos de dirección del cliente desde el perfil web.
+    """
+    if request.method == 'OPTIONS':
+        return '', 204
+
+    data       = request.get_json(silent=True) or {}
+    dni        = (data.get('dni') or '').strip()
+    direccion  = (data.get('direccion') or '').strip()
+    departamento = (data.get('departamento') or '').strip()
+    provincia  = (data.get('provincia') or '').strip()
+    distrito   = (data.get('distrito') or '').strip()
+
+    if not dni:
+        return jsonify({'success': False, 'message': 'DNI requerido'}), 400
+
+    client = Client.query.filter_by(dni=dni).first()
+    if not client:
+        return jsonify({'success': False, 'message': 'Cliente no encontrado'}), 404
+
+    client.direccion    = direccion    or client.direccion
+    client.departamento = departamento or client.departamento
+    client.provincia    = provincia    or client.provincia
+    client.distrito     = distrito     or client.distrito
+
+    try:
+        db.session.commit()
+        logger.info(f'[ADDR] Dirección actualizada para DNI {dni}')
+        return jsonify({'success': True}), 200
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f'[ADDR] Error actualizando dirección: {e}')
+        return jsonify({'success': False, 'message': 'Error al guardar la dirección'}), 500
