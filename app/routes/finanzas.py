@@ -1340,3 +1340,57 @@ def api_admin_fix_movement_bankname():
         'bank_name_antes': old_name,
         'bank_name_nuevo': new_name,
     })
+
+
+@finanzas_bp.route('/api/admin/fix-journal-line', methods=['POST'])
+@csrf.exempt
+def api_admin_fix_journal_line():
+    """
+    Corrige el account_code en líneas de un JournalEntry específico.
+    Auth: X-API-Key = CRM_API_KEY env var.
+    Body: { "entry_id": 779, "from_account": "1049", "to_account": "1041" }
+    """
+    import os as _os
+    from app.models.journal_entry import JournalEntry
+    from app.models.journal_entry_line import JournalEntryLine
+
+    api_key = request.headers.get('X-API-Key', '')
+    crm_key = _os.environ.get('CRM_API_KEY', 'qoricash_crm_2026')
+    if api_key != crm_key:
+        return jsonify({'ok': False, 'error': 'Unauthorized'}), 401
+
+    data         = request.get_json(force=True)
+    entry_id     = data.get('entry_id')
+    from_account = (data.get('from_account') or '').strip()
+    to_account   = (data.get('to_account') or '').strip()
+
+    if not entry_id or not from_account or not to_account:
+        return jsonify({'ok': False, 'error': 'entry_id, from_account y to_account son requeridos'}), 400
+
+    entry = JournalEntry.query.get(entry_id)
+    if not entry:
+        return jsonify({'ok': False, 'error': f'JournalEntry {entry_id} no encontrado'}), 404
+
+    lines = JournalEntryLine.query.filter_by(
+        journal_entry_id=entry_id, account_code=from_account
+    ).all()
+    if not lines:
+        return jsonify({'ok': False, 'error': f'No se encontraron líneas con account_code={from_account} en entry {entry_id}'}), 404
+
+    for line in lines:
+        line.account_code = to_account
+
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+    return jsonify({
+        'ok': True,
+        'entry_id': entry_id,
+        'entry_number': entry.entry_number,
+        'lineas_corregidas': len(lines),
+        'from_account': from_account,
+        'to_account': to_account,
+    })
