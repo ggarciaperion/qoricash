@@ -1238,13 +1238,23 @@ def api_admin_fix_bank_movement():
     }
 
     # Corregir movimientos bancarios
+    from app.config.bank_accounts import QORICASH_ACCOUNTS
+    _acct_names = {
+        banco: {cur: f"{banco} {cur} ({data['numero']})"
+                for cur, data in monedas.items()}
+        for banco, monedas in QORICASH_ACCOUNTS.items()
+    }
     movs = BankMovement.query.filter_by(operation_id=op.id, bank_key=from_bank).all()
     movs_corregidos = []
     for m in movs:
         m.bank_key = to_bank
+        new_bank_name = _acct_names.get(to_bank, {}).get(m.currency)
+        if new_bank_name:
+            m.bank_name = new_bank_name
         movs_corregidos.append({
             'id': m.id, 'currency': m.currency,
             'amount': float(m.amount), 'type': m.movement_type,
+            'bank_name_new': new_bank_name,
         })
 
     # Corregir campo banco en la operación
