@@ -92,6 +92,10 @@ class Operation(db.Model):
     # Notas
     notes = db.Column(db.Text)
 
+    # Cupón/código de referido aplicado en esta operación.
+    # Se marca como utilizado SOLO cuando la operación alcanza "Completada".
+    coupon_code = db.Column(db.String(20), nullable=True)
+
     # IDs de usuarios que han leído las notas (JSON array de IDs)
     # Ej: [1, 3, 5] significa que los usuarios con ID 1, 3 y 5 ya vieron las notas
     notes_read_by_json = db.Column(db.Text, default='[]')
@@ -313,6 +317,7 @@ class Operation(db.Model):
             'estado': status_map.get(self.status, self.status.lower().replace(' ', '_')),  # Para frontend
             'notes': self.notes,
             'notas': self.notes,  # Para frontend
+            'coupon_code': self.coupon_code,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'fecha_creacion': self.created_at.isoformat() if self.created_at else None,  # Para frontend
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
