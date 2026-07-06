@@ -399,6 +399,18 @@ def create_app(config_name=None):
     except Exception as e:
         logging.warning(f"[Migration] operations bank name columns: {e}")
 
+    # Migración: coupon_code en operations
+    try:
+        with app.app_context():
+            from app.extensions import db
+            from sqlalchemy import text
+            db.session.execute(text(
+                "ALTER TABLE operations ADD COLUMN IF NOT EXISTS coupon_code VARCHAR(20)"
+            ))
+            db.session.commit()
+    except Exception as e:
+        logging.warning(f"[Migration] operations coupon_code: {e}")
+
     # Migracion: tabla notifications si no existe
     try:
         with app.app_context():
@@ -633,6 +645,18 @@ def create_app(config_name=None):
             db.session.commit()
     except Exception as e:
         logging.warning(f"[Clients] Error añadiendo columna reassigned_at: {e}")
+
+    # Migración: columna relacion_empresa en clients (rol del contacto en empresa RUC)
+    try:
+        with app.app_context():
+            from app.extensions import db
+            from sqlalchemy import text
+            db.session.execute(text(
+                "ALTER TABLE clients ADD COLUMN IF NOT EXISTS relacion_empresa VARCHAR(100)"
+            ))
+            db.session.commit()
+    except Exception as e:
+        logging.warning(f"[Clients] Error añadiendo columna relacion_empresa: {e}")
 
     # Migración: tabla sanctions_entries (screening OFAC/ONU)
     try:
@@ -942,6 +966,8 @@ def initialize_extensions(flask_app):
     allowed_origins = [
         "http://localhost:3000",
         "http://localhost:3001",
+        "http://localhost:3002",
+        "http://localhost:3003",
         "https://qoricash.vercel.app",
         "https://www.qoricash.pe",
         "https://qoricash.pe",
