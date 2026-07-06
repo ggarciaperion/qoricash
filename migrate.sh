@@ -173,6 +173,41 @@ except Exception as e:
 PYEOF
 echo ""
 
+# ── Patch directo: columna coupon_code en operations ─────────────────────────
+# La migración a5907b pudo no ejecutarse si Alembic encontró conflicto de heads.
+# Patch 100% idempotente (ADD COLUMN IF NOT EXISTS). Sin riesgo de pérdida de datos.
+echo "⚡ Garantizando columna coupon_code en operations..."
+python3 - <<'PYEOF'
+import os, sys
+try:
+    import psycopg2
+except ImportError:
+    print("   psycopg2 no disponible — saltando patch directo")
+    sys.exit(0)
+url = os.environ.get('DATABASE_URL', '')
+if not url:
+    print("   DATABASE_URL no definida — saltando patch directo")
+    sys.exit(0)
+try:
+    conn = psycopg2.connect(url)
+    conn.autocommit = True
+    cur = conn.cursor()
+    cur.execute("ALTER TABLE operations ADD COLUMN IF NOT EXISTS coupon_code VARCHAR(20)")
+    cur.execute("SELECT column_name FROM information_schema.columns WHERE table_name='operations' AND column_name='coupon_code'")
+    exists = cur.fetchone()
+    conn.close()
+    if exists:
+        print("   ✅ coupon_code: confirmada en operations")
+    else:
+        print("   ❌ coupon_code: NO se pudo crear")
+        sys.exit(1)
+except psycopg2.errors.UndefinedTable:
+    print("   ⏭  operations aún no existe — se creará en upgrade")
+except Exception as e:
+    print(f"   ⚠️  Error en patch directo coupon_code: {e}")
+PYEOF
+echo ""
+
 # ── Patch directo: eliminar constraints positivos de bank_balances ─────────────
 # La migración b1a2n3k4b5a6 fue stampeada sin ejecutarse en producción.
 # Este patch idempotente garantiza que el DROP ocurra en cada deploy.
@@ -248,7 +283,7 @@ if [ -n "$CURRENT" ]; then
         # pueda arrancar desde el estado correcto en DBs con historial antiguo.
         echo "🔧 Registrando heads de ramas conocidas (solo para DB con historial antiguo)..."
         # Nota: b1a2n3k4b5a6 OMITIDO — manejado por patch directo psycopg2 arriba
-        for HEAD_REV in a1b2c3d4e5f6 d2a3t4e5c6r7 l1s2o3u4r5c6 p1r2o3s4p5e6 t1e2m3p4l5a6 z9merge_all_heads w1p2r3o4s5p6 pb1r2e3c4i5o k1y2c3d4e5f6 p1e2r3i4o5d6 a1u2d3i4t5o6 b1c2a3j4a5d6 c1m2e3r4g5e6 p1a2t3c4h5b6 v1a2l3i4d5a6 d1c2a3j4a5d6 aa1s2i3n4w5a6 i1a2i3n4t5e6; do
+        for HEAD_REV in a1b2c3d4e5f6 d2a3t4e5c6r7 l1s2o3u4r5c6 p1r2o3s4p5e6 t1e2m3p4l5a6 z9merge_all_heads w1p2r3o4s5p6 pb1r2e3c4i5o k1y2c3d4e5f6 p1e2r3i4o5d6 a1u2d3i4t5o6 b1c2a3j4a5d6 c1m2e3r4g5e6 p1a2t3c4h5b6 v1a2l3i4d5a6 d1c2a3j4a5d6 aa1s2i3n4w5a6 i1a2i3n4t5e6 a5907b; do
             flask db stamp "$HEAD_REV" 2>/dev/null || true
         done
         echo "   ✅ Heads registrados."
