@@ -1475,22 +1475,52 @@ def public_ruc_lookup():
         return jsonify({'success': False, 'message': 'Error interno — ingrese los datos manualmente'}), 500
 
 
+def _send_sms_code(phone_e164: str, code: str) -> bool:
+    """Envía el código OTP por SMS vía Twilio. Retorna True si tuvo éxito."""
+    try:
+        import os
+        from twilio.rest import Client as TwilioClient
+        account_sid = os.environ.get('TWILIO_ACCOUNT_SID', '')
+        auth_token  = os.environ.get('TWILIO_AUTH_TOKEN', '')
+        from_number = os.environ.get('TWILIO_FROM_NUMBER', '')
+        if not account_sid or not auth_token or not from_number or account_sid.startswith('ACxxx'):
+            logger.warning('[SMS] Twilio no configurado — omitiendo envío SMS')
+            return False
+        client = TwilioClient(account_sid, auth_token)
+        client.messages.create(
+            body=f'Tu código QoriCash es: {code}. Válido por 10 minutos. No lo compartas.',
+            from_=from_number,
+            to=phone_e164,
+        )
+        logger.info(f'[SMS] Código enviado a {phone_e164}')
+        return True
+    except Exception as e:
+        logger.error(f'[SMS] Error al enviar SMS: {e}')
+        return False
+
+
 @web_api_bp.route('/send-verification-code', methods=['OPTIONS', 'POST'])
 @csrf.exempt
 @limiter.limit("5 per hour", methods=["POST"])
 def send_verification_code():
     """
     Genera y envía un código de verificación de 6 caracteres (3 letras + 3 dígitos)
-    al correo indicado. Se usa en el paso 3 del registro web.
+    al correo indicado. Si se incluye telefono + telefonoCodigo también lo envía por SMS.
+    Se usa en el paso 3 del registro web.
     """
     if request.method == 'OPTIONS':
         return '', 204
 
-    data = request.get_json(silent=True) or {}
+    data  = request.get_json(silent=True) or {}
     email = (data.get('email') or '').strip().lower()
 
     if not email or '@' not in email:
         return jsonify({'success': False, 'message': 'Email inválido'}), 400
+
+    # Número de teléfono opcional para SMS (ej: "987654321" + "+51")
+    telefono      = (data.get('telefono') or '').strip()
+    telefono_cod  = (data.get('telefonoCodigo') or '+51').strip()
+    phone_e164    = f'{telefono_cod}{telefono}' if telefono else None
 
     # Generar código: 3 letras mayúsculas + 3 dígitos
     letters = ''.join(random.choices(string.ascii_uppercase, k=3))
@@ -1500,7 +1530,7 @@ def send_verification_code():
     # Guardar con TTL de 10 minutos
     _verification_codes[email] = {'code': code, 'expires': time.time() + 600}
 
-    # Enviar email usando Flask-Mail + eventlet (mismo patrón que el resto del sistema)
+    # ── Enviar email ──────────────────────────────────────────────────────────
     try:
         from flask_mail import Message as MailMessage
         from app.services.email_service import EmailService
@@ -1540,11 +1570,17 @@ def send_verification_code():
 
         EmailService._send_async(msg)
         logger.info(f'[VERIF] Código {code} encolado para {email}')
-        return jsonify({'success': True}), 200
 
     except Exception as e:
-        logger.error(f'[VERIF] Error inesperado: {e}')
+        logger.error(f'[VERIF] Error al enviar email: {e}')
         return jsonify({'success': False, 'message': 'Error al enviar el código. Intenta nuevamente.'}), 500
+
+    # ── Enviar SMS (opcional, no bloquea si falla) ────────────────────────────
+    sms_enviado = False
+    if phone_e164:
+        sms_enviado = _send_sms_code(phone_e164, code)
+
+    return jsonify({'success': True, 'sms': sms_enviado}), 200
 
 
 @web_api_bp.route('/verify-code', methods=['OPTIONS', 'POST'])
