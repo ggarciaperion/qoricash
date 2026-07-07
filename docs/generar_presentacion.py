@@ -387,7 +387,7 @@ corp = [
     ("Registro SBS",    "Res. N° 00313-2026"),
     ("Dirección",       "Av. Brasil N° 2790, Int. 504 — Pueblo Libre, Lima"),
     ("Horario",         "Lun–Vie: 9:00am–6:00pm  ·  Sáb: 9:00am–1:00pm"),
-    ("Contacto",        "info@qoricash.pe  ·  +51 926 011 920"),
+    ("Contacto",        "info@qoricash.pe  ·  +51 910 624 404"),
 ]
 ry = y0 + Inches(0.72)
 for lbl, val in corp:
@@ -639,7 +639,7 @@ channels = [
     ("🌐", "Plataforma Web",  "www.qoricash.pe — disponible desde cualquier navegador"),
     ("📱", "App Móvil",       "iOS y Android — opere desde su celular"),
     ("📊", "Dashboard",       "Historial, cuentas y seguimiento en tiempo real"),
-    ("💬", "WhatsApp",        "+51 926 011 920 — soporte por operadores humanos"),
+    ("💬", "WhatsApp",        "+51 910 624 404 — soporte por operadores humanos"),
 ]
 cy2 = y0 + Inches(0.52)
 for icon_ch, ch, desc in channels:
@@ -1015,7 +1015,7 @@ rect(sl, Inches(2.0), Inches(3.72), Inches(9.30), Inches(0.015), fill=GREEN_D)
 
 contacts = [
     ("🌐",  "Sitio Web",  "www.qoricash.pe"),
-    ("📞",  "WhatsApp",   "+51 926 011 920"),
+    ("📞",  "WhatsApp",   "+51 910 624 404"),
     ("✉",   "Email",      "info@qoricash.pe"),
     ("📍",  "Dirección",  "Av. Brasil N° 2790, Int. 504 — Pueblo Libre, Lima"),
     ("🕐",  "Horario",    "Lun–Vie: 9am–6pm  ·  Sáb: 9am–1pm"),

@@ -190,7 +190,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation }) => {
   };
 
   const openWhatsApp = () => {
-    const phoneNumber = '51926011920'; // Mismo número para enviar comprobantes
+    const phoneNumber = '51910624404'; // Mismo número para enviar comprobantes
     const message = `Hola, soy ${client?.full_name} (DNI: ${client?.dni}). Necesito ayuda con mi cuenta de QoriCash.`;
     const url = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
 

@@ -44,10 +44,10 @@ import re
 # Agrega aquí cada nuevo trader con su número personal.
 _TRADER_WHATSAPP: dict[str, tuple[str, str]] = {
     "ggarcia@qoricash.pe":  ("51926011920", "+51 926 011 920"),
-    "gerencia@qoricash.pe": ("51926011920", "+51 926 011 920"),
+    "gerencia@qoricash.pe": ("51910624404", "+51 910 624 404"),
     "luacosta@qoricash.pe": ("51905566165", "+51 905 566 165"),
 }
-_WA_DEFAULT = ("51926011920", "+51 926 011 920")  # fallback para nuevos traders sin configurar
+_WA_DEFAULT = ("51910624404", "+51 910 624 404")  # fallback para nuevos traders sin configurar
 
 # ── Logo en base64 (cacheado) para el preview ─────────────────────────────────
 _logo_b64_cache: str = ""
@@ -628,8 +628,8 @@ def _build_email_html(c, compra, venta, sender_email, nombre_completo, cargo="Tr
         pie=PIE,
     )
     # Reemplazar el número hardcodeado por el del trader correspondiente
-    html = html.replace("51926011920", wa_num)
-    html = html.replace("+51 926 011 920", wa_display)
+    html = html.replace("51910624404", wa_num)
+    html = html.replace("+51 910 624 404", wa_display)
     return html
 
 

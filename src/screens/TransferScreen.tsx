@@ -350,7 +350,7 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
   };
 
   const handleOpenWhatsApp = () => {
-    const phoneNumber = '51926011920';
+    const phoneNumber = '51910624404';
     const message = `Hola, quiero enviar mi comprobante para la operación ${operation.operation_id}`;
     const url = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
 
@@ -605,7 +605,7 @@ export const TransferScreen: React.FC<TransferScreenProps> = ({ navigation, rout
               <TouchableOpacity onPress={handleOpenWhatsApp} activeOpacity={0.8} style={styles.contactRow}>
                 <IconButton icon="phone" size={20} iconColor="#25D366" style={styles.contactIcon} />
                 <Text style={styles.whatsappLink}>
-                  +51 926 011 920
+                  +51 910 624 404
                 </Text>
               </TouchableOpacity>
             </View>

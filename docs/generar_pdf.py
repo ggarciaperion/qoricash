@@ -317,7 +317,7 @@ corp = [
     ("Registro SBS",     "Resolución N° 00313-2026"),
     ("Dirección",        "Av. Brasil N° 2790, Int. 504 — Pueblo Libre, Lima, Perú"),
     ("Horario",          "Lunes a viernes: 9:00 a.m. – 6:00 p.m.  ·  Sábados: 9:00 a.m. – 1:00 p.m."),
-    ("Teléfono/WhatsApp","926 011 920"),
+    ("Teléfono/WhatsApp","910 624 404"),
     ("Correo",           "info@qoricash.pe"),
     ("Sitio Web",        "www.qoricash.pe"),
 ]
@@ -452,7 +452,7 @@ channels_data = [
     ["Plataforma Web",    "www.qoricash.pe — disponible desde cualquier navegador"],
     ["App Móvil",         "Aplicación iOS y Android — opere desde su celular"],
     ["Dashboard",         "Historial completo, gestión de cuentas y seguimiento en tiempo real"],
-    ["Atención WhatsApp", "+51 926 011 920 — soporte especializado por operadores humanos"],
+    ["Atención WhatsApp", "+51 910 624 404 — soporte especializado por operadores humanos"],
 ]
 ch_t = Table(
     [[Paragraph(f"<b>{r[0]}</b>" if i == 0 else r[0],
@@ -714,7 +714,7 @@ story.append(Spacer(1, 0.6*cm))
 story.append(Paragraph("Información de Contacto", style_h2))
 contact_rows = [
     ("Sitio Web",        "www.qoricash.pe"),
-    ("WhatsApp",         "+51 926 011 920"),
+    ("WhatsApp",         "+51 910 624 404"),
     ("Correo",           "info@qoricash.pe"),
     ("Dirección",        "Av. Brasil N° 2790, Int. 504 — Pueblo Libre, Lima, Perú"),
     ("Horario",          "Lun–Vie: 9:00 a.m. – 6:00 p.m.  ·  Sáb: 9:00 a.m. – 1:00 p.m."),

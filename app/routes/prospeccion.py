@@ -1067,7 +1067,7 @@ BANCOS_HTML = """\
     </p>
     <table cellpadding="0" cellspacing="0" border="0" style="margin-bottom:28px;">
       <tr><td style="border-radius:7px;background:#0D1B2A;box-shadow:0 4px 14px rgba(13,27,42,.25);">
-        <a href="https://wa.me/51926011920" style="display:inline-block;padding:13px 30px;color:#FFFFFF;text-decoration:none;font-size:12px;font-weight:700;letter-spacing:0.8px;">
+        <a href="https://wa.me/51910624404" style="display:inline-block;padding:13px 30px;color:#FFFFFF;text-decoration:none;font-size:12px;font-weight:700;letter-spacing:0.8px;">
           Cotizar en l&iacute;nea &nbsp;&rarr;
         </a>
       </td></tr>
@@ -1090,7 +1090,7 @@ FIRMA_HTML = f"""\
       <td style="width:24px;"></td>
       <td style="vertical-align:middle;">
         <p style="margin:0;font-size:10px;color:#64748B;">
-          <a href="https://wa.me/51926011920" style="color:#64748B;text-decoration:none;">+51 926 011 920</a>
+          <a href="https://wa.me/51910624404" style="color:#64748B;text-decoration:none;">+51 910 624 404</a>
           &nbsp;&middot;&nbsp;
           <a href="https://www.qoricash.pe" style="color:#5CB85C;text-decoration:none;font-weight:600;">www.qoricash.pe</a>
         </p>
@@ -1225,7 +1225,7 @@ MENSAJE_SEG_HTML = """\
     </p>
     <table cellpadding="0" cellspacing="0" border="0" style="margin-bottom:28px;">
       <tr><td style="border-radius:7px;background:#5CB85C;box-shadow:0 4px 14px rgba(92,184,92,.3);">
-        <a href="https://wa.me/51926011920"
+        <a href="https://wa.me/51910624404"
            style="display:inline-block;padding:12px 28px;color:#FFFFFF;text-decoration:none;font-size:13px;font-weight:700;letter-spacing:0.5px;">
           Coordinar llamada &nbsp;&rarr;
         </a>

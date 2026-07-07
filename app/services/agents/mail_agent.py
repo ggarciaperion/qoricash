@@ -129,7 +129,7 @@ def build_html_oficial(nombre_dest: str, nombre_firma: str, cargo: str,
   <tr>
     <td style="padding:24px 36px 0;">
       <p style="margin:0 0 14px;font-size:13px;color:#1E293B;line-height:1.65;">
-        Estimado(a) <strong>{nombre_dest}</strong>,</p>
+        Estimado/a representante de <strong>{nombre_dest}</strong>,</p>
       <p style="margin:0;font-size:13px;color:#475569;line-height:1.8;text-align:justify;">
         {intro}
       </p>
@@ -250,7 +250,7 @@ def build_html_oficial(nombre_dest: str, nombre_firma: str, cargo: str,
     <td style="padding:20px 36px 28px;">
       <table cellpadding="0" cellspacing="0" border="0"><tr>
         <td style="border-radius:5px;background:#0D1B2A;padding-right:10px;">
-          <a href="https://wa.me/51926011920"
+          <a href="https://wa.me/51910624404"
              style="display:inline-block;padding:12px 28px;color:#FFFFFF;
                     text-decoration:none;font-size:12px;font-weight:600;letter-spacing:0.5px;">
             Cotizar ahora &rarr;</a>
@@ -278,10 +278,10 @@ def build_html_oficial(nombre_dest: str, nombre_firma: str, cargo: str,
         <td style="vertical-align:middle;border-left:2px solid #E2E8F0;padding-left:16px;">
           {''.join([
             f'<p style="margin:0;font-size:13px;font-weight:700;color:#0D1B2A;">{nombre_firma}</p>',
-            f'<p style="margin:3px 0 0;font-size:11px;color:#64748B;">{cargo} &nbsp;&middot;&nbsp;<a href="https://wa.me/51926011920" style="color:#64748B;text-decoration:none;">+51 926 011 920</a></p>',
+            f'<p style="margin:3px 0 0;font-size:11px;color:#64748B;">{cargo} &nbsp;&middot;&nbsp;<a href="https://wa.me/51910624404" style="color:#64748B;text-decoration:none;">+51 910 624 404</a></p>',
           ]) if es_personal else ''.join([
             '<p style="margin:0;font-size:13px;font-weight:700;color:#0D1B2A;">QoriCash SAC</p>',
-            '<p style="margin:3px 0 0;font-size:11px;color:#64748B;">Equipo Comercial &nbsp;&middot;&nbsp;<a href="https://wa.me/51926011920" style="color:#64748B;text-decoration:none;">+51 926 011 920</a></p>',
+            '<p style="margin:3px 0 0;font-size:11px;color:#64748B;">Equipo Comercial &nbsp;&middot;&nbsp;<a href="https://wa.me/51910624404" style="color:#64748B;text-decoration:none;">+51 910 624 404</a></p>',
           ])}
           <p style="margin:2px 0 0;font-size:11px;">
             <a href="https://www.qoricash.pe"
@@ -368,7 +368,7 @@ def _build_html_legacy(nombre_dest: str, nombre_firma: str, cargo: str,
   <tr>
     <td style="padding:24px 36px 0;">
       <p style="margin:0 0 14px;font-size:13px;color:#1E293B;line-height:1.65;">
-        Estimado(a) <strong>{nombre_dest}</strong>,</p>
+        Estimado/a representante de <strong>{nombre_dest}</strong>,</p>
       <p style="margin:0;font-size:13px;color:#475569;line-height:1.8;text-align:justify;">
         {intro}
       </p>
@@ -508,7 +508,7 @@ def _build_html_legacy(nombre_dest: str, nombre_firma: str, cargo: str,
     <td style="padding:20px 36px 28px;">
       <table cellpadding="0" cellspacing="0" border="0"><tr>
         <td style="border-radius:5px;background:#0D1B2A;padding-right:10px;">
-          <a href="https://wa.me/51926011920"
+          <a href="https://wa.me/51910624404"
              style="display:inline-block;padding:12px 28px;color:#FFFFFF;
                     text-decoration:none;font-size:12px;font-weight:600;
                     letter-spacing:0.5px;">Cotizar ahora &rarr;</a>
@@ -541,8 +541,8 @@ def _build_html_legacy(nombre_dest: str, nombre_firma: str, cargo: str,
             {nombre_firma}</p>
           <p style="margin:3px 0 0;font-size:11px;color:#64748B;">
             {cargo} &nbsp;&middot;&nbsp;
-            <a href="https://wa.me/51926011920"
-               style="color:#64748B;text-decoration:none;">+51 926 011 920</a>
+            <a href="https://wa.me/51910624404"
+               style="color:#64748B;text-decoration:none;">+51 910 624 404</a>
           </p>
           <p style="margin:2px 0 0;font-size:11px;">
             <a href="https://www.qoricash.pe"
@@ -627,7 +627,7 @@ def _build_html_prospeccion(nombre_dest: str, nombre_firma: str, cargo: str,
   <tr>
     <td style="padding:28px 36px 0;">
       <p style="margin:0 0 14px;font-size:13px;color:#1E293B;line-height:1.65;">
-        Estimado(a) <strong>{nombre_dest}</strong>,</p>
+        Estimado/a representante de <strong>{nombre_dest}</strong>,</p>
       <p style="margin:0;font-size:13px;color:#475569;line-height:1.8;text-align:justify;">
         {intro}
       </p>
@@ -746,7 +746,7 @@ def _build_html_prospeccion(nombre_dest: str, nombre_firma: str, cargo: str,
             Ver presentaci&oacute;n institucional &rarr;</a>
         </td>
         <td style="border-radius:5px;background:#F1F5F9;border:1px solid #E2E8F0;">
-          <a href="https://wa.me/51926011920"
+          <a href="https://wa.me/51910624404"
              style="display:inline-block;padding:12px 28px;color:#475569;
                     text-decoration:none;font-size:12px;font-weight:600;
                     letter-spacing:0.5px;">Cotizar ahora &rarr;</a>
@@ -772,8 +772,8 @@ def _build_html_prospeccion(nombre_dest: str, nombre_firma: str, cargo: str,
             {nombre_firma}</p>
           <p style="margin:3px 0 0;font-size:11px;color:#64748B;">
             {cargo} &nbsp;&middot;&nbsp;
-            <a href="https://wa.me/51926011920"
-               style="color:#64748B;text-decoration:none;">+51 926 011 920</a>
+            <a href="https://wa.me/51910624404"
+               style="color:#64748B;text-decoration:none;">+51 910 624 404</a>
           </p>
           <p style="margin:2px 0 0;font-size:11px;">
             <a href="https://www.qoricash.pe"
@@ -952,7 +952,7 @@ def _build_html_solo_precios(nombre_dest: str, nombre_firma: str, cargo: str,
       <table width="100%" cellpadding="0" cellspacing="0" border="0">
         <tr>
           <td style="border-radius:6px;background:#0D1B2A;text-align:center;">
-            <a href="https://wa.me/51926011920"
+            <a href="https://wa.me/51910624404"
                style="display:block;padding:14px 28px;color:#FFFFFF;
                       text-decoration:none;font-size:13px;font-weight:700;letter-spacing:0.5px;">
               &#128172;&nbsp;&nbsp;Cotizar ahora por WhatsApp &rarr;</a>
@@ -1050,7 +1050,7 @@ def _build_html_solo_precios(nombre_dest: str, nombre_firma: str, cargo: str,
           <p style="margin:0;font-size:13px;font-weight:700;color:#0D1B2A;">{nombre_firma}</p>
           <p style="margin:3px 0 0;font-size:11px;color:#64748B;">
             {cargo} &nbsp;&middot;&nbsp;
-            <a href="https://wa.me/51926011920" style="color:#64748B;text-decoration:none;">+51 926 011 920</a>
+            <a href="https://wa.me/51910624404" style="color:#64748B;text-decoration:none;">+51 910 624 404</a>
           </p>
           <p style="margin:2px 0 0;font-size:11px;">
             <a href="https://www.qoricash.pe"
