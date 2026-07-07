@@ -21,6 +21,35 @@ _GREEN    = '#5CB85C'
 _DARK     = '#0D1B2A'
 _SBS_TAG  = 'Regulada por la SBS &nbsp;&middot;&nbsp; Res. N.&ordm; 00313-2026'
 
+# ── TEMA POR TIPO DE CLIENTE ──────────────────────────────────────
+_THEMES = {
+    'persona': {
+        'accent':   '#22C55E',
+        'bg':       '#F0FDF4',
+        'info_bg':  '#F0FDF4',
+        'info_txt': '#14532d',
+        'banner':   'https://app.qoricash.pe/static/images/encabezado_personal.jpg',
+    },
+    'empresa': {
+        'accent':   '#1A3D58',
+        'bg':       '#EEF2F8',
+        'info_bg':  '#EEF4FF',
+        'info_txt': '#1e3a5f',
+        'banner':   'https://app.qoricash.pe/static/images/encabezado_corporativo.jpg',
+    },
+}
+
+def _get_theme(doc_type: str) -> str:
+    return 'empresa' if doc_type == 'RUC' else 'persona'
+
+def _apply_theme_colors(html: str, theme: str) -> str:
+    t = _THEMES[theme]
+    return (html
+        .replace(_GREEN,    t['accent'])
+        .replace('#F0FDF4', t['info_bg'])
+        .replace('#14532d', t['info_txt'])
+    )
+
 _HEADER_BLOCK = f"""
       <tr>
         <td style="padding:20px 36px 18px;border-bottom:1px solid #E2E8F0;">
@@ -84,6 +113,39 @@ _EMAIL_CSS = """
     }
 """
 
+
+def _wrap_email_themed_svc(body_html: str, theme: str = 'persona') -> str:
+    """Wrapper temático con banner persona o empresa según tipo de cliente."""
+    t = _THEMES[theme]
+    return f"""<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>{_EMAIL_CSS}</style>
+</head>
+<body style="margin:0;padding:0;background:{t['bg']};font-family:Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" class="email-outer-wrap" style="background:{t['bg']};padding:28px 16px;">
+  <tr><td align="center">
+    <table width="560" cellpadding="0" cellspacing="0"
+           style="max-width:560px;width:100%;background:#ffffff;border-radius:12px;
+                  overflow:hidden;box-shadow:0 2px 16px rgba(13,27,42,0.08);">
+      <tr>
+        <td style="padding:0;line-height:0;">
+          <img src="{t['banner']}" alt="QoriCash" width="560" style="display:block;width:100%;max-width:560px;">
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:8px 36px;border-bottom:1px solid #E2E8F0;text-align:right;background:#ffffff;">
+          <span style="font-size:10px;color:#64748B;">{_SBS_TAG}</span>
+        </td>
+      </tr>
+      {{body_html}}
+      {_FOOTER_BLOCK}
+    </table>
+  </td></tr>
+</table>
+</body></html>""".replace('{{body_html}}', body_html)
 
 def _wrap_email_svc(body_html: str) -> str:
     """Wrapper base de email QoriCash para email_service."""
@@ -382,6 +444,8 @@ class EmailService:
     @staticmethod
     def _render_new_operation_template(operation):
         """Renderizar plantilla HTML para nueva operación"""
+        _doc = getattr(getattr(operation, 'client', None), 'document_type', 'DNI')
+        _theme = _get_theme(_doc)
         body = """
       <tr>
         <td class="email-body-cell" style="padding:32px 36px;color:#334155;font-size:14px;line-height:1.65;">
@@ -501,18 +565,21 @@ class EmailService:
         </td>
       </tr>"""
         from app.config.bank_accounts import get_accounts_for_currency, QORICASH_TITULAR, QORICASH_RUC
-        return render_template_string(
-            _wrap_email_svc(body),
+        html = render_template_string(
+            _wrap_email_themed_svc(body, _theme),
             operation=operation,
             usd_accounts=get_accounts_for_currency('USD'),
             pen_accounts=get_accounts_for_currency('PEN'),
             qoricash_titular=QORICASH_TITULAR,
             qoricash_ruc=QORICASH_RUC,
         )
+        return _apply_theme_colors(html, _theme)
 
     @staticmethod
     def _render_completed_operation_template(operation):
         """Renderizar plantilla HTML para operación completada"""
+        _doc = getattr(getattr(operation, 'client', None), 'document_type', 'DNI')
+        _theme = _get_theme(_doc)
         body = """
       <tr>
         <td class="email-body-cell" style="padding:32px 36px;color:#334155;font-size:14px;line-height:1.65;">
@@ -607,7 +674,8 @@ class EmailService:
 
         </td>
       </tr>"""
-        return render_template_string(_wrap_email_svc(body), operation=operation)
+        html = render_template_string(_wrap_email_themed_svc(body, _theme), operation=operation)
+        return _apply_theme_colors(html, _theme)
 
     @staticmethod
     def send_canceled_operation_email(operation, reason=None):
@@ -707,6 +775,8 @@ class EmailService:
     @staticmethod
     def _render_amount_modified_template(operation, old_amount_usd, old_amount_pen):
         """Renderizar plantilla HTML para notificación de modificación de importe"""
+        _doc = getattr(getattr(operation, 'client', None), 'document_type', 'DNI')
+        _theme = _get_theme(_doc)
         body = """
       <tr>
         <td class="email-body-cell" style="padding:32px 36px;color:#334155;font-size:14px;line-height:1.65;">
@@ -823,8 +893,8 @@ class EmailService:
         </td>
       </tr>"""
         from app.config.bank_accounts import get_accounts_for_currency, QORICASH_TITULAR, QORICASH_RUC
-        return render_template_string(
-            _wrap_email_svc(body),
+        html = render_template_string(
+            _wrap_email_themed_svc(body, _theme),
             operation=operation,
             old_amount_usd=old_amount_usd,
             old_amount_pen=old_amount_pen,
@@ -833,10 +903,13 @@ class EmailService:
             qoricash_titular=QORICASH_TITULAR,
             qoricash_ruc=QORICASH_RUC,
         )
+        return _apply_theme_colors(html, _theme)
 
     @staticmethod
     def _render_canceled_operation_template(operation, reason=None):
         """Renderizar plantilla HTML para operación cancelada"""
+        _doc = getattr(getattr(operation, 'client', None), 'document_type', 'DNI')
+        _theme = _get_theme(_doc)
         body = """
       <tr>
         <td class="email-body-cell" style="padding:32px 36px;color:#334155;font-size:14px;line-height:1.65;">
@@ -908,7 +981,8 @@ class EmailService:
 
         </td>
       </tr>"""
-        return render_template_string(_wrap_email_svc(body), operation=operation, reason=reason)
+        html = render_template_string(_wrap_email_themed_svc(body, _theme), operation=operation, reason=reason)
+        return _apply_theme_colors(html, _theme)
 
     @staticmethod
     def send_new_client_registration_email(client, trader):
@@ -1181,10 +1255,12 @@ class EmailService:
           <p style="margin:0;font-size:12px;color:#94a3b8;">Este correo fue generado automáticamente. Por favor no respondas a este mensaje.</p>
         </td>
       </tr>"""
-        return render_template_string(_wrap_email_svc(body), client_name=client_name, temp_password=temp_password)
+        html = render_template_string(_wrap_email_themed_svc(body, 'persona'), client_name=client_name, temp_password=temp_password)
+        return _apply_theme_colors(html, 'persona')
 
     @staticmethod
     def _render_new_client_template(client, trader, shared_clients=None):
+        _theme = _get_theme(getattr(client, 'document_type', 'DNI'))
         """Renderizar plantilla HTML para nuevo cliente registrado"""
         from app.services.email_templates import _build_shared_email_block
         shared_block = _build_shared_email_block(shared_clients or [])
@@ -1252,10 +1328,12 @@ class EmailService:
           <p style="margin:0;font-size:12px;color:#94a3b8;">Este es un correo automático.</p>
         </td>
       </tr>"""
-        return render_template_string(_wrap_email_svc(body), client=client, trader=trader, bank_accounts_text=bank_accounts_text, shared_block=shared_block)
+        html = render_template_string(_wrap_email_themed_svc(body, _theme), client=client, trader=trader, bank_accounts_text=bank_accounts_text, shared_block=shared_block)
+        return _apply_theme_colors(html, _theme)
 
     @staticmethod
     def _render_client_activation_template(client, trader, temporary_password=None):
+        _theme = _get_theme(getattr(client, 'document_type', 'DNI'))
         """Renderizar plantilla HTML para cliente activado"""
         body = """
       <tr>
@@ -1340,7 +1418,8 @@ class EmailService:
           <p style="margin:0;font-size:12px;color:#94a3b8;">Para su primera operación, contacte a <strong>{{ trader.username }}</strong>{% if trader.email %} en <a href="mailto:{{ trader.email }}" style="color:#5CB85C;">{{ trader.email }}</a>{% endif %}. Gracias por confiar en QoriCash.</p>
         </td>
       </tr>"""
-        return render_template_string(_wrap_email_svc(body), client=client, trader=trader, temporary_password=temporary_password)
+        html = render_template_string(_wrap_email_themed_svc(body, _theme), client=client, trader=trader, temporary_password=temporary_password)
+        return _apply_theme_colors(html, _theme)
 
     @staticmethod
     def send_complaint_email(complaint_data):
@@ -1414,6 +1493,7 @@ class EmailService:
     @staticmethod
     def _render_complaint_template(complaint_data):
         """Renderizar plantilla HTML para reclamo/queja del libro de reclamaciones"""
+        _theme = _get_theme(complaint_data.get('tipo_documento', 'DNI'))
         body = """
       <tr>
         <td class="email-body-cell" style="padding:32px 36px;color:#334155;font-size:14px;line-height:1.65;">
@@ -1489,12 +1569,13 @@ class EmailService:
         tz_peru = pytz.timezone('America/Lima')
         fecha_actual = datetime.now(tz_peru).strftime('%d/%m/%Y %H:%M:%S')
         complaint_number = complaint_data.get('complaint_number', 'N/A')
-        return render_template_string(
-            _wrap_email_svc(body),
+        html = render_template_string(
+            _wrap_email_themed_svc(body, _theme),
             complaint_data=complaint_data,
             fecha_actual=fecha_actual,
             complaint_number=complaint_number
         )
+        return _apply_theme_colors(html, _theme)
 
     @staticmethod
     def send_fx_alert_email(competitor_name: str, change: dict, recipients: list):

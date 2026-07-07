@@ -33,6 +33,37 @@ _DARK      = '#0D1B2A'
 _SBS_TAG   = 'Regulada por la SBS &nbsp;&middot;&nbsp; Res. N.&ordm; 00313-2026'
 
 # ============================================
+# TEMA POR TIPO DE CLIENTE
+# ============================================
+_THEMES = {
+    'persona': {
+        'accent':   '#22C55E',
+        'bg':       '#F0FDF4',
+        'info_bg':  '#F0FDF4',
+        'info_txt': '#14532d',
+        'banner':   'https://app.qoricash.pe/static/images/encabezado_personal.jpg',
+    },
+    'empresa': {
+        'accent':   '#1A3D58',
+        'bg':       '#EEF2F8',
+        'info_bg':  '#EEF4FF',
+        'info_txt': '#1e3a5f',
+        'banner':   'https://app.qoricash.pe/static/images/encabezado_corporativo.jpg',
+    },
+}
+
+def _get_theme(doc_type: str) -> str:
+    return 'empresa' if doc_type == 'RUC' else 'persona'
+
+def _apply_theme_colors(html: str, theme: str) -> str:
+    t = _THEMES[theme]
+    return (html
+        .replace(_GREEN,    t['accent'])
+        .replace('#F0FDF4', t['info_bg'])
+        .replace('#14532d', t['info_txt'])
+    )
+
+# ============================================
 # CSS BASE: solo @media queries (estilos inline en las plantillas)
 # ============================================
 _EMAIL_CSS = """
@@ -122,6 +153,39 @@ def _build_shared_email_block(shared_clients: list) -> str:
         f'</div>'
     )
 
+
+def _wrap_email_themed(body_html: str, theme: str = 'persona') -> str:
+    """Wrapper temático: banner persona (verde) o empresa (navy) según tipo de cliente."""
+    t = _THEMES[theme]
+    return f"""<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>{_EMAIL_CSS}</style>
+</head>
+<body style="margin:0;padding:0;background:{t['bg']};font-family:Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:{t['bg']};padding:28px 16px;">
+  <tr><td align="center">
+    <table width="560" cellpadding="0" cellspacing="0"
+           style="max-width:560px;width:100%;background:#ffffff;border-radius:12px;
+                  overflow:hidden;box-shadow:0 2px 16px rgba(13,27,42,0.08);">
+      <tr>
+        <td style="padding:0;line-height:0;">
+          <img src="{t['banner']}" alt="QoriCash" width="560" style="display:block;width:100%;max-width:560px;">
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:8px 36px;border-bottom:1px solid #E2E8F0;text-align:right;background:#ffffff;">
+          <span style="font-size:10px;color:#64748B;">{_SBS_TAG}</span>
+        </td>
+      </tr>
+      {{body_html}}
+      {_FOOTER_BLOCK}
+    </table>
+  </td></tr>
+</table>
+</body></html>""".replace('{{body_html}}', body_html)
 
 def _wrap_email(body_html: str) -> str:
     """Envuelve contenido HTML en el wrapper base de email QoriCash."""
@@ -369,6 +433,7 @@ class EmailTemplates:
         """Plantilla para registro desde móvil"""
         client_name = client.full_name or client.razon_social or 'Cliente'
         shared_block = _build_shared_email_block(shared_clients or [])
+        theme = _get_theme(getattr(client, 'document_type', 'DNI'))
 
         body = """
       <!-- BODY -->
@@ -424,19 +489,21 @@ class EmailTemplates:
         </td>
       </tr>"""
 
-        return render_template_string(
-            _wrap_email(body),
+        html = render_template_string(
+            _wrap_email_themed(body, theme),
             client_name=client_name,
             client_dni=client.dni,
             client_email=client.email,
             shared_block=shared_block
         )
+        return _apply_theme_colors(html, theme)
 
     @staticmethod
     def _render_web_welcome_template(client, shared_clients=None):
         """Plantilla para registro desde web"""
         client_name = client.full_name or client.razon_social or 'Cliente'
         shared_block = _build_shared_email_block(shared_clients or [])
+        theme = _get_theme(getattr(client, 'document_type', 'DNI'))
 
         body = """
       <tr>
@@ -492,19 +559,21 @@ class EmailTemplates:
         </td>
       </tr>"""
 
-        return render_template_string(
-            _wrap_email(body),
+        html = render_template_string(
+            _wrap_email_themed(body, theme),
             client_name=client_name,
             client_dni=client.dni,
             client_email=client.email,
             shared_block=shared_block
         )
+        return _apply_theme_colors(html, theme)
 
     @staticmethod
     def _render_trader_activation_template(client, trader, temporary_password):
         """Plantilla para activación con contraseña temporal (cliente creado por Trader)"""
         client_name = client.full_name or client.razon_social or 'Cliente'
         trader_name = trader.username if trader else 'QoriCash'
+        theme = _get_theme(getattr(client, 'document_type', 'DNI'))
 
         body = """
       <tr>
@@ -583,18 +652,20 @@ class EmailTemplates:
         </td>
       </tr>"""
 
-        return render_template_string(
-            _wrap_email(body),
+        html = render_template_string(
+            _wrap_email_themed(body, theme),
             client_name=client_name,
             client_dni=client.dni,
             trader_name=trader_name,
             temporary_password=temporary_password
         )
+        return _apply_theme_colors(html, theme)
 
     @staticmethod
     def _render_auto_activation_template(client):
         """Plantilla para activación sin contraseña (cliente auto-registrado)"""
         client_name = client.full_name or client.razon_social or 'Cliente'
+        theme = _get_theme(getattr(client, 'document_type', 'DNI'))
 
         body = """
       <tr>
@@ -658,8 +729,9 @@ class EmailTemplates:
         </td>
       </tr>"""
 
-        return render_template_string(
-            _wrap_email(body),
+        html = render_template_string(
+            _wrap_email_themed(body, theme),
             client_name=client_name,
             client_dni=client.dni
         )
+        return _apply_theme_colors(html, theme)
