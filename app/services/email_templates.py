@@ -164,8 +164,8 @@ def _wrap_email_themed(body_html: str, theme: str = 'persona') -> str:
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>{_EMAIL_CSS}</style>
 </head>
-<body style="margin:0;padding:0;background:{t['bg']};font-family:Arial,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:{t['bg']};padding:28px 16px;">
+<body style="margin:0;padding:0;background:#f5f7fa;font-family:Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f7fa;padding:28px 16px;">
   <tr><td align="center">
     <table width="560" cellpadding="0" cellspacing="0"
            style="max-width:560px;width:100%;background:#ffffff;border-radius:12px;
@@ -180,12 +180,15 @@ def _wrap_email_themed(body_html: str, theme: str = 'persona') -> str:
           <span style="font-size:10px;color:#64748B;">{_SBS_TAG}</span>
         </td>
       </tr>
+      <tr>
+        <td style="height:3px;background:{t['accent']};padding:0;line-height:0;font-size:0;">&nbsp;</td>
+      </tr>
       {{body_html}}
       {_FOOTER_BLOCK}
     </table>
   </td></tr>
 </table>
-</body></html>""".replace('{{body_html}}', body_html)
+</body></html>""".replace('{body_html}', body_html)
 
 def _wrap_email(body_html: str) -> str:
     """Envuelve contenido HTML en el wrapper base de email QoriCash."""
@@ -429,25 +432,27 @@ class EmailTemplates:
     # ============================================
 
     @staticmethod
-    def _render_mobile_welcome_template(client, shared_clients=None):
-        """Plantilla para registro desde móvil"""
-        client_name = client.full_name or client.razon_social or 'Cliente'
-        shared_block = _build_shared_email_block(shared_clients or [])
-        theme = _get_theme(getattr(client, 'document_type', 'DNI'))
+    def _render_mobile_welcome_template(client, shared_clients=None, canal='movil'):
+        """Plantilla unificada de bienvenida — móvil y web comparten el mismo HTML."""
+        client_name     = client.full_name or client.razon_social or 'Cliente'
+        shared_block    = _build_shared_email_block(shared_clients or [])
+        doc_type        = getattr(client, 'document_type', 'DNI')
+        theme           = _get_theme(doc_type)
+        client_phone    = getattr(client, 'phone', None)
+        client_contacto = getattr(client, 'full_name', None) if doc_type == 'RUC' else None
 
         body = """
-      <!-- BODY -->
       <tr>
         <td class="email-body-cell" style="padding:32px 36px;color:#334155;font-size:14px;line-height:1.65;">
 
-          <div style="margin:0 0 16px 0;">
-            <span style="display:inline-block;background:#F0FDF4;color:""" + _GREEN + """;font-size:10px;font-weight:700;
-                         text-transform:uppercase;letter-spacing:1.4px;padding:4px 10px;border-radius:4px;">
-              Registro recibido
+          <div style="margin:0 0 20px 0;">
+            <span style="display:inline-block;background:#ffffff;color:""" + _GREEN + """;font-size:10px;font-weight:700;
+                         text-transform:uppercase;letter-spacing:1.4px;padding:5px 14px;border-radius:20px;
+                         border:1.5px solid """ + _GREEN + """;box-shadow:0 2px 8px rgba(0,0,0,0.07);">
+              Registro recibido con éxito
             </span>
           </div>
 
-          <h1 style="margin:0 0 6px 0;font-size:21px;font-weight:700;color:""" + _DARK + """;line-height:1.3;">Tu cuenta ha sido creada</h1>
           <p style="margin:0 0 24px 0;color:#64748b;font-size:14px;">
             Hola <strong style="color:#1e293b;">{{ client_name }}</strong>, te damos la bienvenida a QoriCash.
           </p>
@@ -455,30 +460,67 @@ class EmailTemplates:
           <table width="100%" cellspacing="0" cellpadding="0"
                  style="border-collapse:collapse;border:1px solid #E2E8F0;border-radius:8px;overflow:hidden;margin:0 0 24px 0;">
             <tr style="border-bottom:1px solid #F1F5F9;">
-              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:top;">Documento</td>
-              <td style="padding:11px 18px;color:#1e293b;font-size:13px;font-weight:500;vertical-align:top;">{{ client_dni }}</td>
+              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle;">Documento</td>
+              <td style="padding:11px 18px;color:#1e293b;font-size:13px;font-weight:500;vertical-align:middle;">{{ client_dni }}</td>
             </tr>
             <tr style="border-bottom:1px solid #F1F5F9;">
-              <td style="padding:11px 18px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:top;">Correo electrónico</td>
-              <td style="padding:11px 18px;color:#1e293b;font-size:13px;font-weight:500;vertical-align:top;">{{ client_email }}</td>
+              <td style="padding:11px 18px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle;">Correo electrónico</td>
+              <td style="padding:11px 18px;color:#1e293b;font-size:13px;font-weight:500;vertical-align:middle;">{{ client_email }}</td>
             </tr>
+            {% if client_phone %}
+            <tr style="border-bottom:1px solid #F1F5F9;">
+              <td style="padding:11px 18px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle;">Teléfono</td>
+              <td style="padding:11px 18px;color:#1e293b;font-size:13px;font-weight:500;vertical-align:middle;">{{ client_phone }}</td>
+            </tr>
+            {% endif %}
+            {% if client_contacto %}
+            <tr style="border-bottom:1px solid #F1F5F9;">
+              <td style="padding:11px 18px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle;">Persona de contacto</td>
+              <td style="padding:11px 18px;color:#1e293b;font-size:13px;font-weight:500;vertical-align:middle;">{{ client_contacto }}</td>
+            </tr>
+            {% endif %}
             <tr>
-              <td style="padding:11px 18px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:top;">Estado</td>
-              <td style="padding:11px 18px;color:#d97706;font-size:13px;font-weight:600;vertical-align:top;">Pendiente de verificación</td>
+              <td style="padding:11px 18px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle;">Estado</td>
+              <td style="padding:11px 18px;vertical-align:middle;">
+                <span style="display:inline-block;background:#ffffff;border:1px solid #E2E8F0;border-radius:8px;
+                             padding:4px 14px;font-size:13px;font-weight:600;color:#1e293b;
+                             box-shadow:0 2px 8px rgba(0,0,0,0.05);">
+                  Pendiente de verificación
+                </span>
+              </td>
             </tr>
           </table>
 
-          <p style="margin:0 0 10px 0;font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1.2px;">Próximos pasos</p>
+          <p style="margin:0 0 10px 0;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1.2px;padding-left:10px;border-left:3px solid #5CB85C;">Próximos pasos</p>
+
+          {% if doc_type == 'RUC' %}
           <div style="border-radius:6px;padding:13px 16px;margin:0 0 12px 0;font-size:13px;line-height:1.65;
-                      background:#FFFBEB;border-left:3px solid #F59E0B;color:#78350f;">
+                      background:#F0FDF4;border-left:3px solid """ + _GREEN + """;color:#14532d;">
+            Para realizar su primera operación, necesitamos validar su información. Envíe su ficha RUC
+            desde la app, la web o respondiendo a este correo. La validación se completará en un plazo
+            máximo de 10 minutos y le notificaremos cuando haya sido aprobada.
+          </div>
+          {% else %}
+          <div style="border-radius:6px;padding:13px 16px;margin:0 0 12px 0;font-size:13px;line-height:1.65;
+                      background:#F0FDF4;border-left:3px solid """ + _GREEN + """;color:#14532d;">
             Para realizar tu primera operación debemos validar tu identidad. Por favor sube tu documento de identidad
             desde la aplicación móvil. Recibirás una notificación cuando sea aprobado.
           </div>
+          {% endif %}
+
+          {% if canal == 'movil' %}
           <div style="border-radius:6px;padding:13px 16px;margin:0 0 24px 0;font-size:13px;line-height:1.65;
                       background:#F0FDF4;border-left:3px solid """ + _GREEN + """;color:#14532d;">
             <strong>Acceso web:</strong> También puedes ingresar desde <strong>www.qoricash.pe</strong>
             usando tu número de documento y la contraseña que registraste en la app.
           </div>
+          {% else %}
+          <div style="border-radius:6px;padding:13px 16px;margin:0 0 24px 0;font-size:13px;line-height:1.65;
+                      background:#F0FDF4;border-left:3px solid """ + _GREEN + """;color:#14532d;">
+            Próximamente publicaremos nuestra app para <strong>iOS</strong> y <strong>Android</strong>.
+            Te notificaremos cuando esté disponible para descargar.
+          </div>
+          {% endif %}
 
           {{ shared_block }}
           <div style="height:1px;background-color:#F1F5F9;margin:20px 0;"></div>
@@ -494,160 +536,183 @@ class EmailTemplates:
             client_name=client_name,
             client_dni=client.dni,
             client_email=client.email,
+            client_phone=client_phone,
+            client_contacto=client_contacto,
+            doc_type=doc_type,
+            canal=canal,
             shared_block=shared_block
         )
         return _apply_theme_colors(html, theme)
 
     @staticmethod
     def _render_web_welcome_template(client, shared_clients=None):
-        """Plantilla para registro desde web"""
-        client_name = client.full_name or client.razon_social or 'Cliente'
-        shared_block = _build_shared_email_block(shared_clients or [])
-        theme = _get_theme(getattr(client, 'document_type', 'DNI'))
-
-        body = """
-      <tr>
-        <td class="email-body-cell" style="padding:32px 36px;color:#334155;font-size:14px;line-height:1.65;">
-
-          <div style="margin:0 0 16px 0;">
-            <span style="display:inline-block;background:#F0FDF4;color:""" + _GREEN + """;font-size:10px;font-weight:700;
-                         text-transform:uppercase;letter-spacing:1.4px;padding:4px 10px;border-radius:4px;">
-              Registro recibido
-            </span>
-          </div>
-
-          <h1 style="margin:0 0 6px 0;font-size:21px;font-weight:700;color:""" + _DARK + """;line-height:1.3;">Tu cuenta ha sido creada</h1>
-          <p style="margin:0 0 24px 0;color:#64748b;font-size:14px;">
-            Hola <strong style="color:#1e293b;">{{ client_name }}</strong>,
-            te damos la bienvenida a la plataforma web de QoriCash.
-          </p>
-
-          <table width="100%" cellspacing="0" cellpadding="0"
-                 style="border-collapse:collapse;border:1px solid #E2E8F0;border-radius:8px;overflow:hidden;margin:0 0 24px 0;">
-            <tr style="border-bottom:1px solid #F1F5F9;">
-              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:top;">Documento</td>
-              <td style="padding:11px 18px;color:#1e293b;font-size:13px;font-weight:500;vertical-align:top;">{{ client_dni }}</td>
-            </tr>
-            <tr style="border-bottom:1px solid #F1F5F9;">
-              <td style="padding:11px 18px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:top;">Correo electrónico</td>
-              <td style="padding:11px 18px;color:#1e293b;font-size:13px;font-weight:500;vertical-align:top;">{{ client_email }}</td>
-            </tr>
-            <tr>
-              <td style="padding:11px 18px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:top;">Estado</td>
-              <td style="padding:11px 18px;color:#d97706;font-size:13px;font-weight:600;vertical-align:top;">Pendiente de verificación</td>
-            </tr>
-          </table>
-
-          <p style="margin:0 0 10px 0;font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1.2px;">Próximos pasos</p>
-          <div style="border-radius:6px;padding:13px 16px;margin:0 0 12px 0;font-size:13px;line-height:1.65;
-                      background:#FFFBEB;border-left:3px solid #F59E0B;color:#78350f;">
-            Para realizar tu primera operación debemos validar tu identidad. Al crear tu primera operación
-            se te solicitará subir tu documento de identidad. Recibirás una notificación cuando sea aprobado.
-          </div>
-          <div style="border-radius:6px;padding:13px 16px;margin:0 0 24px 0;font-size:13px;line-height:1.65;
-                      background:#F0FDF4;border-left:3px solid """ + _GREEN + """;color:#14532d;">
-            Próximamente publicaremos nuestra app para <strong>iOS</strong> y <strong>Android</strong>.
-            Te notificaremos cuando esté disponible para descargar.
-          </div>
-
-          {{ shared_block }}
-          <div style="height:1px;background-color:#F1F5F9;margin:20px 0;"></div>
-          <p style="margin:0;font-size:12px;color:#94a3b8;">
-            ¿Tienes alguna consulta? Escríbenos a
-            <a href="mailto:info@qoricash.pe" style="color:""" + _GREEN + """;">info@qoricash.pe</a>
-          </p>
-        </td>
-      </tr>"""
-
-        html = render_template_string(
-            _wrap_email_themed(body, theme),
-            client_name=client_name,
-            client_dni=client.dni,
-            client_email=client.email,
-            shared_block=shared_block
-        )
-        return _apply_theme_colors(html, theme)
+        """Delegado al template unificado de bienvenida (canal web)."""
+        return EmailTemplates._render_mobile_welcome_template(client, shared_clients, canal='web')
 
     @staticmethod
-    def _render_trader_activation_template(client, trader, temporary_password):
-        """Plantilla para activación con contraseña temporal (cliente creado por Trader)"""
-        client_name = client.full_name or client.razon_social or 'Cliente'
-        trader_name = trader.username if trader else 'QoriCash'
-        theme = _get_theme(getattr(client, 'document_type', 'DNI'))
+    def _render_trader_activation_template(client, trader, temporary_password=None):
+        """Plantilla unificada de activación de cuenta (con o sin contraseña temporal)."""
+        client_name  = client.full_name or client.razon_social or 'Cliente'
+        trader_name  = trader.username if trader else 'QoriCash'
+        trader_email = getattr(trader, 'email', '') or ''
+        doc_number   = getattr(client, 'document_number', None) or getattr(client, 'dni', '')
+        doc_type     = getattr(client, 'document_type', 'DNI')
+        theme        = _get_theme(doc_type)
 
         body = """
       <tr>
         <td class="email-body-cell" style="padding:32px 36px;color:#334155;font-size:14px;line-height:1.65;">
 
-          <div style="margin:0 0 16px 0;">
-            <span style="display:inline-block;background:#F0FDF4;color:""" + _GREEN + """;font-size:10px;font-weight:700;
-                         text-transform:uppercase;letter-spacing:1.4px;padding:4px 10px;border-radius:4px;">
+          <div style="margin:0 0 20px 0;">
+            {% if doc_type == 'RUC' %}
+            <span style="display:inline-block;background:linear-gradient(135deg,#1A6EAD 0%,#1A3D58 100%);color:#ffffff;
+                         font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.4px;
+                         padding:7px 18px;border-radius:20px;box-shadow:0 4px 14px rgba(26,61,88,0.35);">
               ✓ Cuenta Activada
             </span>
+            {% else %}
+            <span style="display:inline-block;background:linear-gradient(135deg,#22C55E 0%,#16a34a 100%);color:#ffffff;
+                         font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.4px;
+                         padding:7px 18px;border-radius:20px;box-shadow:0 4px 14px rgba(34,197,94,0.35);">
+              ✓ Cuenta Activada
+            </span>
+            {% endif %}
           </div>
 
           <h1 style="margin:0 0 6px 0;font-size:21px;font-weight:700;color:""" + _DARK + """;line-height:1.3;">¡Ya puedes comenzar a operar!</h1>
           <p style="margin:0 0 24px 0;color:#64748b;font-size:14px;">
             Hola <strong style="color:#1e293b;">{{ client_name }}</strong>,
-            tu identidad ha sido verificada y aprobada. Tu cuenta está activa y lista para operar.
+            tu identidad ha sido verificada y aprobada. Tu cuenta está activa.
           </p>
 
+          {% if doc_type == 'RUC' %}
+          <table width="100%" cellspacing="0" cellpadding="0"
+                 style="border-collapse:collapse;border:1px solid rgba(26,110,173,0.20);border-radius:8px;overflow:hidden;margin:0 0 24px 0;">
+            <!-- Estado -->
+            <tr style="border-bottom:1px solid #F1F5F9;">
+              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle;">Estado</td>
+              <td style="padding:11px 18px;vertical-align:middle;">
+                <span style="display:inline-block;background:linear-gradient(135deg,#1A6EAD 0%,#1A3D58 100%);border-radius:20px;padding:5px 16px;font-size:12px;font-weight:700;color:#ffffff;box-shadow:0 3px 10px rgba(26,61,88,0.3);">Activo</span>
+              </td>
+            </tr>
+            <!-- Ejecutivo -->
+            <tr style="border-bottom:1px solid #F1F5F9;">
+              <td style="padding:11px 18px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle;">Ejecutivo</td>
+              <td style="padding:11px 18px;color:#1e293b;font-size:13px;font-weight:600;vertical-align:middle;">{{ trader_name }}</td>
+            </tr>
+            {% if temporary_password %}
+            <!-- Separador sección clave -->
+            <tr>
+              <td colspan="2" style="padding:10px 18px 6px 18px;background:rgba(26,110,173,0.05);border-top:1px solid rgba(26,110,173,0.12);">
+                <p style="margin:0 0 1px 0;font-size:10px;font-weight:700;color:#1A3D58;text-transform:uppercase;letter-spacing:1.1px;">Clave de acceso corporativo</p>
+                <p style="margin:0;font-size:11px;color:#94a3b8;">Para ingresar a la página web y la app móvil de QoriCash</p>
+              </td>
+            </tr>
+            <!-- Contraseña -->
+            <tr style="border-top:1px solid rgba(26,110,173,0.08);">
+              <td style="padding:11px 18px;color:#1A3D58;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle;background:rgba(26,110,173,0.04);">Contraseña temporal</td>
+              <td style="padding:11px 18px;vertical-align:middle;background:rgba(26,110,173,0.04);">
+                <span style="font-family:'Courier New',Courier,monospace;font-size:15px;font-weight:700;letter-spacing:2px;color:#1A3D58;">{{ temporary_password }}</span>
+              </td>
+            </tr>
+            <!-- Pie -->
+            <tr>
+              <td colspan="2" style="padding:8px 18px;background:rgba(26,110,173,0.04);border-top:1px solid rgba(26,110,173,0.08);">
+                <span style="font-size:11px;color:#94a3b8;">Cópiala exactamente · Deberás cambiarla en tu primer acceso · No la compartas con nadie</span>
+              </td>
+            </tr>
+            {% endif %}
+          </table>
+          {% else %}
+          <table width="100%" cellspacing="0" cellpadding="0"
+                 style="border-collapse:collapse;border:1px solid rgba(34,197,94,0.20);border-radius:8px;overflow:hidden;margin:0 0 24px 0;">
+            <!-- Estado -->
+            <tr style="border-bottom:1px solid #F1F5F9;">
+              <td style="padding:11px 18px;width:160px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle;">Estado</td>
+              <td style="padding:11px 18px;vertical-align:middle;">
+                <span style="display:inline-block;background:linear-gradient(135deg,#22C55E 0%,#16a34a 100%);border-radius:20px;padding:5px 16px;font-size:12px;font-weight:700;color:#ffffff;box-shadow:0 3px 10px rgba(34,197,94,0.3);">Activo</span>
+              </td>
+            </tr>
+            <!-- Ejecutivo -->
+            <tr style="border-bottom:1px solid #F1F5F9;">
+              <td style="padding:11px 18px;color:#94a3b8;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle;">Ejecutivo</td>
+              <td style="padding:11px 18px;color:#1e293b;font-size:13px;font-weight:600;vertical-align:middle;">{{ trader_name }}</td>
+            </tr>
+            {% if temporary_password %}
+            <!-- Separador sección clave -->
+            <tr>
+              <td colspan="2" style="padding:10px 18px 6px 18px;background:rgba(34,197,94,0.05);border-top:1px solid rgba(34,197,94,0.12);">
+                <p style="margin:0 0 1px 0;font-size:10px;font-weight:700;color:#14532d;text-transform:uppercase;letter-spacing:1.1px;">Tu clave de acceso temporal</p>
+                <p style="margin:0;font-size:11px;color:#94a3b8;">Para ingresar a la página web y la app móvil de QoriCash</p>
+              </td>
+            </tr>
+            <!-- Contraseña -->
+            <tr style="border-top:1px solid rgba(34,197,94,0.08);">
+              <td style="padding:11px 18px;color:#14532d;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle;background:rgba(34,197,94,0.04);">Contraseña temporal</td>
+              <td style="padding:11px 18px;vertical-align:middle;background:rgba(34,197,94,0.04);">
+                <span style="font-family:'Courier New',Courier,monospace;font-size:15px;font-weight:700;letter-spacing:2px;color:#14532d;">{{ temporary_password }}</span>
+              </td>
+            </tr>
+            <!-- Pie -->
+            <tr>
+              <td colspan="2" style="padding:8px 18px;background:rgba(34,197,94,0.04);border-top:1px solid rgba(34,197,94,0.08);">
+                <span style="font-size:11px;color:#94a3b8;">Cópiala exactamente · Deberás cambiarla en tu primer acceso · No la compartas con nadie</span>
+              </td>
+            </tr>
+            {% endif %}
+          </table>
+          {% endif %}
+
+          <p style="margin:0 0 10px 0;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1.2px;padding-left:10px;border-left:3px solid #5CB85C;">¿Qué puedes hacer ahora?</p>
           <table width="100%" cellspacing="0" cellpadding="0"
                  style="border-collapse:collapse;border:1px solid #E2E8F0;border-radius:8px;overflow:hidden;margin:0 0 24px 0;">
             <tr style="border-bottom:1px solid #F1F5F9;">
-              <td style="padding:12px 18px;font-size:13px;color:#1e293b;vertical-align:top;">
-                <span style="color:""" + _GREEN + """;font-weight:700;margin-right:10px;">&#10003;</span>Tu identidad ha sido verificada
+              <td style="padding:10px 18px;font-size:13px;color:#1e293b;vertical-align:top;">
+                <span style="color:""" + _GREEN + """;font-weight:700;margin-right:10px;">&#10003;</span>Realizar operaciones de compra y venta de dólares
               </td>
             </tr>
             <tr style="border-bottom:1px solid #F1F5F9;">
-              <td style="padding:12px 18px;font-size:13px;color:#1e293b;vertical-align:top;">
-                <span style="color:""" + _GREEN + """;font-weight:700;margin-right:10px;">&#10003;</span>Puedes crear operaciones de compra y venta de dólares
+              <td style="padding:10px 18px;font-size:13px;color:#1e293b;vertical-align:top;">
+                <span style="color:""" + _GREEN + """;font-weight:700;margin-right:10px;">&#10003;</span>Acceder a tipos de cambio competitivos en tiempo real
+              </td>
+            </tr>
+            <tr style="border-bottom:1px solid #F1F5F9;">
+              <td style="padding:10px 18px;font-size:13px;color:#1e293b;vertical-align:top;">
+                <span style="color:""" + _GREEN + """;font-weight:700;margin-right:10px;">&#10003;</span>Recibir atención personalizada de tu ejecutivo
               </td>
             </tr>
             <tr>
-              <td style="padding:12px 18px;font-size:13px;color:#1e293b;vertical-align:top;">
-                <span style="color:""" + _GREEN + """;font-weight:700;margin-right:10px;">&#10003;</span>Acceso completo a todas las funcionalidades
+              <td style="padding:10px 18px;font-size:13px;color:#1e293b;vertical-align:top;">
+                <span style="color:""" + _GREEN + """;font-weight:700;margin-right:10px;">&#10003;</span>Transferencias rápidas y seguras a tu cuenta bancaria
               </td>
             </tr>
           </table>
-
-          <p style="margin:0 0 10px 0;font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1.2px;">Tu contraseña temporal</p>
-          <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin:0 0 12px 0;">
-            <tr>
-              <td style="background-color:""" + _DARK + """;border-radius:10px;padding:22px 24px;text-align:center;">
-                <p style="margin:0 0 10px 0;color:rgba(255,255,255,0.50);font-size:10px;letter-spacing:0.8px;text-transform:uppercase;">Contraseña de acceso</p>
-                <p style="margin:0 0 10px 0;color:""" + _GREEN + """;font-size:28px;font-family:'Courier New',Courier,monospace;font-weight:700;letter-spacing:4px;">{{ temporary_password }}</p>
-                <p style="margin:0;color:rgba(255,255,255,0.35);font-size:11px;">Cópiala exactamente como aparece</p>
-              </td>
-            </tr>
-          </table>
-          <div style="border-radius:6px;padding:13px 16px;margin:0 0 12px 0;font-size:13px;line-height:1.65;
-                      background:#F0FDF4;border-left:3px solid """ + _GREEN + """;color:#14532d;">
-            Usa esta contraseña para iniciar sesión en <strong>www.qoricash.pe</strong>.
-            El sistema te pedirá crear una nueva contraseña en tu primer acceso.
-          </div>
-          <div style="border-radius:6px;padding:13px 16px;margin:0 0 24px 0;font-size:13px;line-height:1.65;
-                      background:#FEF2F2;border-left:3px solid #EF4444;color:#7f1d1d;">
-            <strong>Importante:</strong> Por seguridad, deberás cambiar esta contraseña temporal la primera vez que inicies sesión.
-          </div>
 
           <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin:0 0 24px 0;">
             <tr>
               <td align="center">
-                <a href="https://www.qoricash.pe"
+                {% if doc_type == 'RUC' %}
+                <a href="https://qoricash.pe/empresa"
                    style="display:inline-block;background-color:""" + _GREEN + """;color:#ffffff;font-weight:700;
                           font-size:14px;padding:13px 36px;border-radius:8px;text-decoration:none;letter-spacing:0.3px;">
                   Ingresar a QoriCash
                 </a>
+                {% else %}
+                <a href="https://qoricash.pe"
+                   style="display:inline-block;background-color:""" + _GREEN + """;color:#ffffff;font-weight:700;
+                          font-size:14px;padding:13px 36px;border-radius:8px;text-decoration:none;letter-spacing:0.3px;">
+                  Ingresar a QoriCash
+                </a>
+                {% endif %}
               </td>
             </tr>
           </table>
 
-          <div style="height:1px;background-color:#F1F5F9;margin:20px 0;"></div>
+          <div style="height:1px;background-color:#F1F5F9;margin:0 0 20px 0;"></div>
           <p style="margin:0;font-size:12px;color:#94a3b8;">
-            ¿Tienes alguna consulta? Contacta a tu asesor
-            <strong style="color:#1e293b;">{{ trader_name }}</strong> o escríbenos a
-            <a href="mailto:info@qoricash.pe" style="color:""" + _GREEN + """;">info@qoricash.pe</a>
+            Para tu primera operación contacta a <strong style="color:#1e293b;">{{ trader_name }}</strong>
+            {% if trader_email %} en <a href="mailto:{{ trader_email }}" style="color:""" + _GREEN + """;">{{ trader_email }}</a>{% endif %}
+            o escríbenos a <a href="mailto:info@qoricash.pe" style="color:""" + _GREEN + """;">info@qoricash.pe</a>.
           </p>
         </td>
       </tr>"""
@@ -655,9 +720,12 @@ class EmailTemplates:
         html = render_template_string(
             _wrap_email_themed(body, theme),
             client_name=client_name,
-            client_dni=client.dni,
+            doc_number=doc_number,
+            client_email=client.email,
             trader_name=trader_name,
-            temporary_password=temporary_password
+            trader_email=trader_email,
+            temporary_password=temporary_password,
+            doc_type=doc_type
         )
         return _apply_theme_colors(html, theme)
 
@@ -665,17 +733,27 @@ class EmailTemplates:
     def _render_auto_activation_template(client):
         """Plantilla para activación sin contraseña (cliente auto-registrado)"""
         client_name = client.full_name or client.razon_social or 'Cliente'
-        theme = _get_theme(getattr(client, 'document_type', 'DNI'))
+        doc_type    = getattr(client, 'document_type', 'DNI')
+        theme       = _get_theme(doc_type)
 
         body = """
       <tr>
         <td class="email-body-cell" style="padding:32px 36px;color:#334155;font-size:14px;line-height:1.65;">
 
-          <div style="margin:0 0 16px 0;">
-            <span style="display:inline-block;background:#F0FDF4;color:""" + _GREEN + """;font-size:10px;font-weight:700;
-                         text-transform:uppercase;letter-spacing:1.4px;padding:4px 10px;border-radius:4px;">
+          <div style="margin:0 0 20px 0;">
+            {% if doc_type == 'RUC' %}
+            <span style="display:inline-block;background:linear-gradient(135deg,#1A6EAD 0%,#1A3D58 100%);color:#ffffff;
+                         font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.4px;
+                         padding:7px 18px;border-radius:20px;box-shadow:0 4px 14px rgba(26,61,88,0.35);">
               ✓ Cuenta Activada
             </span>
+            {% else %}
+            <span style="display:inline-block;background:linear-gradient(135deg,#22C55E 0%,#16a34a 100%);color:#ffffff;
+                         font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.4px;
+                         padding:7px 18px;border-radius:20px;box-shadow:0 4px 14px rgba(34,197,94,0.35);">
+              ✓ Cuenta Activada
+            </span>
+            {% endif %}
           </div>
 
           <h1 style="margin:0 0 6px 0;font-size:21px;font-weight:700;color:""" + _DARK + """;line-height:1.3;">¡Ya puedes comenzar a operar!</h1>
@@ -706,19 +784,31 @@ class EmailTemplates:
           <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin:0 0 16px 0;">
             <tr>
               <td align="center">
-                <a href="https://www.qoricash.pe"
+                {% if doc_type == 'RUC' %}
+                <a href="https://qoricash.pe/empresa"
                    style="display:inline-block;background-color:""" + _GREEN + """;color:#ffffff;font-weight:700;
                           font-size:14px;padding:13px 36px;border-radius:8px;text-decoration:none;letter-spacing:0.3px;">
                   Ingresar a QoriCash
                 </a>
+                {% else %}
+                <a href="https://qoricash.pe"
+                   style="display:inline-block;background-color:""" + _GREEN + """;color:#ffffff;font-weight:700;
+                          font-size:14px;padding:13px 36px;border-radius:8px;text-decoration:none;letter-spacing:0.3px;">
+                  Ingresar a QoriCash
+                </a>
+                {% endif %}
               </td>
             </tr>
           </table>
 
           <div style="border-radius:6px;padding:13px 16px;margin:0 0 24px 0;font-size:13px;line-height:1.65;
                       background:#F0FDF4;border-left:3px solid """ + _GREEN + """;color:#14532d;">
+            {% if doc_type == 'RUC' %}
+            Ingresa desde <strong>www.qoricash.pe/empresa</strong> usando tu RUC y la contraseña que definiste al registrarte.
+            {% else %}
             Ingresa desde <strong>www.qoricash.pe</strong> o nuestra app móvil usando tu número de documento
             y la contraseña que definiste al registrarte.
+            {% endif %}
           </div>
 
           <div style="height:1px;background-color:#F1F5F9;margin:20px 0;"></div>
@@ -732,6 +822,7 @@ class EmailTemplates:
         html = render_template_string(
             _wrap_email_themed(body, theme),
             client_name=client_name,
-            client_dni=client.dni
+            client_dni=client.dni,
+            doc_type=doc_type
         )
         return _apply_theme_colors(html, theme)
