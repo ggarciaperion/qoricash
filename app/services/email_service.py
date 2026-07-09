@@ -627,7 +627,7 @@ class EmailService:
               <td style="padding:7px 14px;color:#94a3b8;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Moneda</td>
             </tr>
             {% for acc in client_accounts %}
-            {% if (operation.operation_type == 'Compra' and acc.get('currency') == 'PEN') or (operation.operation_type != 'Compra' and acc.get('currency') == 'USD') %}
+            {% if (operation.operation_type == 'Compra' and acc.get('currency') in ('PEN', 'S/')) or (operation.operation_type != 'Compra' and acc.get('currency') in ('USD', '$')) %}
             <tr style="border-top:1px solid #F1F5F9;">
               <td style="padding:10px 14px;font-size:12px;font-weight:700;color:#1e293b;white-space:nowrap;">{{ acc.bank_name }}</td>
               <td style="padding:10px 14px;font-size:12px;color:#64748b;">{{ acc.get('account_type', 'Cuenta Bancaria') }}</td>
@@ -1000,7 +1000,7 @@ class EmailService:
               <td style="padding:7px 14px;color:#94a3b8;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Moneda</td>
             </tr>
             {% for acc in client_accounts %}
-            {% if (operation.operation_type == 'Compra' and acc.get('currency') == 'PEN') or (operation.operation_type != 'Compra' and acc.get('currency') == 'USD') %}
+            {% if (operation.operation_type == 'Compra' and acc.get('currency') in ('PEN', 'S/')) or (operation.operation_type != 'Compra' and acc.get('currency') in ('USD', '$')) %}
             <tr style="border-top:1px solid #F1F5F9;">
               <td style="padding:10px 14px;font-size:12px;font-weight:700;color:#1e293b;white-space:nowrap;">{{ acc.bank_name }}</td>
               <td style="padding:10px 14px;font-size:12px;color:#64748b;">{{ acc.get('account_type', 'Cuenta Bancaria') }}</td>
