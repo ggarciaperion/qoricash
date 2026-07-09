@@ -455,13 +455,31 @@ class EmailService:
 
         # Cuentas bancarias del cliente (para sección "¿Dónde recibirás tu pago?")
         client_accounts = []
-        if _client and hasattr(_client, 'bank_accounts') and _client.bank_accounts:
+        destination_acc = None
+        if _client:
             try:
-                ba = _client.bank_accounts
+                ba = _client.bank_accounts  # @property → list
                 ba = _json.loads(ba) if isinstance(ba, str) else ba
                 client_accounts = ba if isinstance(ba, list) else []
             except Exception:
-                pass
+                logger.warning(f'[email] No se pudo leer bank_accounts del cliente {getattr(_client, "id", "?")}')
+
+        # Encontrar la cuenta destino exacta por número de cuenta
+        dest_num = getattr(operation, 'destination_account', None)
+        if dest_num and client_accounts:
+            for acc in client_accounts:
+                if acc.get('account_number') == dest_num:
+                    destination_acc = acc
+                    break
+        # Fallback: si no coincide por número, tomar la primera cuenta de la moneda correcta
+        if destination_acc is None and client_accounts:
+            op_type = getattr(operation, 'operation_type', '')
+            target_currencies = ('PEN', 'S/') if op_type == 'Compra' else ('USD', '$')
+            for acc in client_accounts:
+                if acc.get('currency') in target_currencies:
+                    destination_acc = acc
+                    break
+        logger.info(f'[email] nueva_op {getattr(operation, "operation_id", "?")} dest_num={dest_num} accounts={len(client_accounts)} destination_acc={destination_acc}')
 
         from app.config.bank_accounts import get_accounts_for_currency, QORICASH_TITULAR, QORICASH_RUC
         usd_accounts = get_accounts_for_currency('USD')
@@ -617,7 +635,7 @@ class EmailService:
           <p style="margin:0 0 10px 0;font-size:11px;color:#94a3b8;padding-left:13px;">
             Qoricash acreditará en la siguiente cuenta
           </p>
-          {% if client_accounts %}
+          {% if destination_acc %}
           <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #E2E8F0;border-radius:8px;overflow:hidden;margin:0 0 24px 0;">
             <tr style="background:#0D1B2A;">
               <td style="padding:7px 14px;color:#94a3b8;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Banco</td>
@@ -626,17 +644,13 @@ class EmailService:
               <td style="padding:7px 14px;color:#94a3b8;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">N° Cuenta</td>
               <td style="padding:7px 14px;color:#94a3b8;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Moneda</td>
             </tr>
-            {% for acc in client_accounts %}
-            {% if (operation.operation_type == 'Compra' and acc.get('currency') in ('PEN', 'S/')) or (operation.operation_type != 'Compra' and acc.get('currency') in ('USD', '$')) %}
             <tr style="border-top:1px solid #F1F5F9;">
-              <td style="padding:10px 14px;font-size:12px;font-weight:700;color:#1e293b;white-space:nowrap;">{{ acc.bank_name }}</td>
-              <td style="padding:10px 14px;font-size:12px;color:#64748b;">{{ acc.get('account_type', 'Cuenta Bancaria') }}</td>
+              <td style="padding:10px 14px;font-size:12px;font-weight:700;color:#1e293b;white-space:nowrap;">{{ destination_acc.get('bank_name', '') }}</td>
+              <td style="padding:10px 14px;font-size:12px;color:#64748b;">{{ destination_acc.get('account_type', 'Cuenta Bancaria') }}</td>
               <td style="padding:10px 14px;font-size:12px;color:#1e293b;">{{ operation.client.full_name or operation.client.razon_social }}</td>
-              <td style="padding:10px 14px;font-family:'Courier New',monospace;font-size:11px;font-weight:600;color:#0D1B2A;">{{ acc.account_number }}</td>
-              <td style="padding:10px 14px;font-size:12px;color:#64748b;">{{ acc.get('currency', '') }}</td>
+              <td style="padding:10px 14px;font-family:'Courier New',monospace;font-size:11px;font-weight:600;color:#0D1B2A;">{{ destination_acc.get('account_number', '') }}</td>
+              <td style="padding:10px 14px;font-size:12px;color:#64748b;">{{ destination_acc.get('currency', '') }}</td>
             </tr>
-            {% endif %}
-            {% endfor %}
           </table>
           {% else %}
           <div style="border-radius:6px;padding:12px 16px;margin:0 0 24px 0;background:#F8FAFC;border:1px solid #E2E8F0;font-size:12px;color:#94a3b8;text-align:center;">
@@ -671,6 +685,7 @@ class EmailService:
             qoricash_titular=QORICASH_TITULAR,
             qoricash_ruc=QORICASH_RUC,
             client_accounts=client_accounts,
+            destination_acc=destination_acc,
         )
         return _apply_theme_colors(html, _theme)
 
@@ -884,13 +899,27 @@ class EmailService:
         _theme  = _get_theme(_doc)
         is_ruc  = (_doc == 'RUC')
         client_accounts = []
-        if _client and hasattr(_client, 'bank_accounts') and _client.bank_accounts:
+        destination_acc = None
+        if _client:
             try:
                 ba = _client.bank_accounts
                 ba = _json.loads(ba) if isinstance(ba, str) else ba
                 client_accounts = ba if isinstance(ba, list) else []
             except Exception:
                 pass
+        dest_num = getattr(operation, 'destination_account', None)
+        if dest_num and client_accounts:
+            for acc in client_accounts:
+                if acc.get('account_number') == dest_num:
+                    destination_acc = acc
+                    break
+        if destination_acc is None and client_accounts:
+            op_type = getattr(operation, 'operation_type', '')
+            target_currencies = ('PEN', 'S/') if op_type == 'Compra' else ('USD', '$')
+            for acc in client_accounts:
+                if acc.get('currency') in target_currencies:
+                    destination_acc = acc
+                    break
         body = """
       <tr>
         <td class="email-body-cell" style="padding:32px 36px;color:#334155;font-size:14px;line-height:1.65;">
@@ -990,7 +1019,7 @@ class EmailService:
           <p style="margin:0 0 10px 0;font-size:11px;color:#94a3b8;padding-left:13px;">
             Qoricash acreditará en la siguiente cuenta
           </p>
-          {% if client_accounts %}
+          {% if destination_acc %}
           <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #E2E8F0;border-radius:8px;overflow:hidden;margin:0 0 24px 0;">
             <tr style="background:#0D1B2A;">
               <td style="padding:7px 14px;color:#94a3b8;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Banco</td>
@@ -999,17 +1028,13 @@ class EmailService:
               <td style="padding:7px 14px;color:#94a3b8;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">N° Cuenta</td>
               <td style="padding:7px 14px;color:#94a3b8;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Moneda</td>
             </tr>
-            {% for acc in client_accounts %}
-            {% if (operation.operation_type == 'Compra' and acc.get('currency') in ('PEN', 'S/')) or (operation.operation_type != 'Compra' and acc.get('currency') in ('USD', '$')) %}
             <tr style="border-top:1px solid #F1F5F9;">
-              <td style="padding:10px 14px;font-size:12px;font-weight:700;color:#1e293b;white-space:nowrap;">{{ acc.bank_name }}</td>
-              <td style="padding:10px 14px;font-size:12px;color:#64748b;">{{ acc.get('account_type', 'Cuenta Bancaria') }}</td>
+              <td style="padding:10px 14px;font-size:12px;font-weight:700;color:#1e293b;white-space:nowrap;">{{ destination_acc.get('bank_name', '') }}</td>
+              <td style="padding:10px 14px;font-size:12px;color:#64748b;">{{ destination_acc.get('account_type', 'Cuenta Bancaria') }}</td>
               <td style="padding:10px 14px;font-size:12px;color:#1e293b;">{{ operation.client.full_name or operation.client.razon_social }}</td>
-              <td style="padding:10px 14px;font-family:'Courier New',monospace;font-size:11px;font-weight:600;color:#0D1B2A;">{{ acc.account_number }}</td>
-              <td style="padding:10px 14px;font-size:12px;color:#64748b;">{{ acc.get('currency', '') }}</td>
+              <td style="padding:10px 14px;font-family:'Courier New',monospace;font-size:11px;font-weight:600;color:#0D1B2A;">{{ destination_acc.get('account_number', '') }}</td>
+              <td style="padding:10px 14px;font-size:12px;color:#64748b;">{{ destination_acc.get('currency', '') }}</td>
             </tr>
-            {% endif %}
-            {% endfor %}
           </table>
           {% else %}
           <div style="border-radius:6px;padding:12px 16px;margin:0 0 24px 0;background:#F8FAFC;border:1px solid #E2E8F0;font-size:12px;color:#94a3b8;text-align:center;">
@@ -1038,6 +1063,7 @@ class EmailService:
             qoricash_titular=QORICASH_TITULAR,
             qoricash_ruc=QORICASH_RUC,
             client_accounts=client_accounts,
+            destination_acc=destination_acc,
         )
         return _apply_theme_colors(html, _theme)
 
