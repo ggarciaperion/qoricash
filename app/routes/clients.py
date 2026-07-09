@@ -239,26 +239,32 @@ def change_status(client_id):
 
     success, message, client = ClientService.change_client_status(current_user=current_user, client_id=client_id, new_status=new_status)
     if success:
-        # Si el cliente fue activado (de Inactivo a Activo), generar contraseña y enviar email
+        # Si el cliente fue activado (de Inactivo a Activo), enviar email diferenciado
         if old_status == 'Inactivo' and new_status == 'Activo':
             try:
-                from app.services.email_service import EmailService
+                from app.services.email_templates import EmailTemplates
                 from app.utils.password_generator import generate_simple_password
                 from app.extensions import db
 
-                # Generar contraseña temporal SOLO al activar la cuenta
-                temporary_password = generate_simple_password(length=10)
+                # Solo generar contraseña temporal si fue creado manualmente por un Trader
+                creator_role = None
+                if hasattr(client, 'creator') and client.creator:
+                    creator_role = client.creator.role if hasattr(client.creator, 'role') else None
 
-                # Establecer contraseña en el cliente
-                client.set_password(temporary_password)
-                client.requires_password_change = True
-                db.session.commit()
+                if creator_role == 'Trader':
+                    # Cliente creado por Trader: generar contraseña temporal y enviar con ella
+                    temporary_password = generate_simple_password(length=10)
+                    client.set_password(temporary_password)
+                    client.requires_password_change = True
+                    db.session.commit()
+                    logger.info(f'✅ Contraseña temporal generada para cliente {client.dni} (creado por Trader)')
+                    trader = client.creator
+                    EmailTemplates.send_activation_with_temp_password(client, trader, temporary_password)
+                else:
+                    # Cliente auto-registrado: ya tiene su propia contraseña, NO sobrescribir
+                    logger.info(f'ℹ️ Cliente {client.dni} auto-registrado — NO se genera contraseña temporal')
+                    EmailTemplates.send_activation_without_password(client)
 
-                logger.info(f'✅ Contraseña temporal generada para cliente {client.dni} al activar cuenta')
-
-                # Enviar correo con contraseña temporal y el trader que creó al cliente
-                trader = client.creator if hasattr(client, 'creator') and client.creator else current_user
-                EmailService.send_client_activation_email(client, trader, temporary_password)
             except Exception as e:
                 # No bloquear por errores de email
                 logger.warning(f'Error al enviar email de cliente activado: {str(e)}')
