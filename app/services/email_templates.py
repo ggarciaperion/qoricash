@@ -435,7 +435,6 @@ class EmailTemplates:
     def _render_mobile_welcome_template(client, shared_clients=None, canal='movil'):
         """Plantilla unificada de bienvenida — móvil y web comparten el mismo HTML."""
         client_name     = client.full_name or client.razon_social or 'Cliente'
-        shared_block    = _build_shared_email_block(shared_clients or [])
         doc_type        = getattr(client, 'document_type', 'DNI')
         theme           = _get_theme(doc_type)
         client_phone    = getattr(client, 'phone', None)
@@ -522,7 +521,6 @@ class EmailTemplates:
           </div>
           {% endif %}
 
-          {{ shared_block }}
           <div style="height:1px;background-color:#F1F5F9;margin:20px 0;"></div>
           <p style="margin:0;font-size:12px;color:#94a3b8;">
             ¿Tienes alguna consulta? Escríbenos a
@@ -540,7 +538,6 @@ class EmailTemplates:
             client_contacto=client_contacto,
             doc_type=doc_type,
             canal=canal,
-            shared_block=shared_block
         )
         return _apply_theme_colors(html, theme)
 
