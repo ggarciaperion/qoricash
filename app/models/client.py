@@ -29,6 +29,7 @@ class Client(db.Model):
     # Información empresa (para RUC)
     razon_social = db.Column(db.String(200))
     persona_contacto = db.Column(db.String(200))
+    relacion_empresa = db.Column(db.String(100))  # Rol del contacto en la empresa
 
     # Número de documento
     dni = db.Column(db.String(20), unique=True, nullable=False, index=True)
