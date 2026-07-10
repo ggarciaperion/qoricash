@@ -502,8 +502,7 @@ class EmailTemplates:
           {% else %}
           <div style="border-radius:6px;padding:13px 16px;margin:0 0 12px 0;font-size:13px;line-height:1.65;
                       background:#F0FDF4;border-left:3px solid """ + _GREEN + """;color:#14532d;">
-            Para realizar tu primera operación debemos validar tu identidad. Por favor sube tu documento de identidad
-            desde la aplicación móvil. Recibirás una notificación cuando sea aprobado.
+            Sube tu DNI (anverso y reverso) desde la web, la app móvil o respondiendo a este correo. Te notificaremos cuando sea aprobado.
           </div>
           {% endif %}
 
