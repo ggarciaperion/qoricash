@@ -95,6 +95,14 @@ class BankBalance(db.Model):
                 'BCP': 'BCP', 'CREDITO': 'BCP', 'CRÉDITO': 'BCP',
                 'INTERBANK': 'INTERBANK', 'IBK': 'INTERBANK',
                 'BANBIF': 'BANBIF', 'BIF': 'BANBIF',
+                # Bancos externos → QoriCash opera vía transferencia interbancaria
+                # desde sus cuentas INTERBANK (misma lógica que _map_bank en journal_service)
+                'BBVA': 'INTERBANK', 'CONTINENTAL': 'INTERBANK',
+                'SCOTIABANK': 'INTERBANK', 'SCOTIA': 'INTERBANK',
+                'PICHINCHA': 'INTERBANK', 'NACION': 'INTERBANK',
+                'NACIÓN': 'INTERBANK', 'GNB': 'INTERBANK',
+                'RIPLEY': 'INTERBANK', 'FALABELLA': 'INTERBANK',
+                'ALFIN': 'INTERBANK', 'MIBANCO': 'INTERBANK',
             }
 
             def _normalize(name):
@@ -104,7 +112,7 @@ class BankBalance(db.Model):
                 for alias, banco in _ALIASES.items():
                     if alias in u:
                         return banco
-                return ''  # banco no reconocido → indeterminado, no imputar a INTERBANK
+                return 'INTERBANK'  # fallback: cualquier banco no reconocido opera vía interbancario INTERBANK
 
             def _fallback_banco_from_account(account_str):
                 """Deriva banco de QoriCash desde el string de cuenta del cliente."""

@@ -1597,6 +1597,86 @@ def generar_asientos_retroactivos():
     })
 
 
+@contabilidad_bp.route('/periodos/generar-movimientos-bancarios', methods=['POST'])
+@csrf.exempt
+@login_required
+@require_role('Master')
+def generar_movimientos_bancarios():
+    """
+    Genera movimientos bancarios retroactivos para operaciones Completadas que
+    no tienen BankMovements registrados. Útil para corregir operaciones con bancos
+    externos (BBVA, Scotiabank, etc.) que fallaron silenciosamente en apply_operation.
+    """
+    from app.models.bank_balance import BankBalance
+    from app.models.bank_movement import BankMovement
+
+    data  = request.get_json() or {}
+    year  = int(data.get('year',  date.today().year))
+    month = int(data.get('month', date.today().month))
+
+    op_code = data.get('operation_id')  # opcional: filtrar por código específico
+
+    # IDs de operaciones que ya tienen movimientos bancarios
+    existing_op_ids = set(
+        row[0] for row in db.session.query(BankMovement.operation_id).filter(
+            BankMovement.source_type == 'operation',
+        ).distinct().all() if row[0]
+    )
+
+    # Operaciones completadas en el período sin movimientos (excluir demo)
+    from app.models.user import User as _User
+    _demo_id = _User.get_demo_user_id()
+    _ops_q = Operation.query.filter(
+        Operation.status == 'Completada',
+        extract('year',  Operation.completed_at) == year,
+        extract('month', Operation.completed_at) == month,
+        ~Operation.id.in_(existing_op_ids) if existing_op_ids else True,
+    )
+    if op_code:
+        _ops_q = _ops_q.filter(Operation.operation_id == op_code)
+    if _demo_id:
+        _ops_q = _ops_q.filter(Operation.user_id != _demo_id)
+    ops = _ops_q.order_by(Operation.completed_at.asc()).all()
+
+    if not ops:
+        return jsonify({
+            'success': True,
+            'message': 'Todas las operaciones del período ya tienen movimientos bancarios.',
+            'generados': 0,
+            'errores': 0,
+        })
+
+    generados = 0
+    errores   = []
+
+    for op in ops:
+        try:
+            BankBalance.apply_operation(op)
+            # Verificar que se crearon movimientos
+            mvs = BankMovement.query.filter_by(
+                source_type='operation', operation_id=op.id
+            ).count()
+            if mvs > 0:
+                generados += 1
+            else:
+                errores.append(op.operation_id)
+        except Exception as exc:
+            errores.append(op.operation_id)
+            import logging
+            logging.getLogger(__name__).error(
+                f'[generar-movimientos] Error en op {op.operation_id}: {exc}'
+            )
+
+    return jsonify({
+        'success': True,
+        'message': f'{generados} operación(es) con movimientos generados. {len(errores)} error(es).',
+        'generados': generados,
+        'errores': len(errores),
+        'operaciones_con_error': errores,
+        'total_sin_movimientos': len(ops),
+    })
+
+
 # ── Libro Caja y Bancos ────────────────────────────────────────────────────────
 
 # Mapa código PCGE → etiqueta legible
