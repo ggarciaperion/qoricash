@@ -319,8 +319,11 @@ def client_register():
         logger.info(f'Data recibida: {list(data.keys())}')
 
         # Validar campos requeridos básicos
-        required_fields = ['email', 'telefono', 'direccion', 'departamento',
-                          'provincia', 'distrito', 'password']
+        tipo_persona = data.get('tipo_persona', 'Natural')
+        required_fields = ['email', 'telefono', 'password']
+        # Dirección y ubicación solo obligatorias para Jurídica
+        if tipo_persona != 'Natural':
+            required_fields += ['direccion', 'departamento', 'provincia', 'distrito']
 
         for field in required_fields:
             if not data.get(field):
@@ -328,8 +331,6 @@ def client_register():
                     'success': False,
                     'message': f'El campo {field} es requerido'
                 }), 400
-
-        tipo_persona = data.get('tipo_persona', 'Natural')
         email = data.get('email', '').strip()
         telefono = data.get('telefono', '').strip()
         password = data.get('password', '').strip()
