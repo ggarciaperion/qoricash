@@ -330,6 +330,15 @@ def webhook_receive():
                     ) + ']'
                 else:
                     texto = '[Contacto]'
+            elif tipo == 'interactive':
+                interactive = msg.get('interactive', {})
+                i_type = interactive.get('type', '')
+                if i_type == 'button_reply':
+                    texto = interactive.get('button_reply', {}).get('id', '')
+                elif i_type == 'list_reply':
+                    texto = interactive.get('list_reply', {}).get('id', '')
+                else:
+                    texto = f'[interactive:{i_type}]'
             else:
                 texto = f'[{tipo}]'
 
@@ -395,6 +404,40 @@ def webhook_receive():
 
         db.session.commit()
         log.info(f'[CRM Webhook] {len(messages)} mensaje(s) recibido(s)')
+
+        # ── Bot automático ────────────────────────────────────────
+        try:
+            from app.services.wa_bot import handle_message as _bot
+            for msg in messages:
+                numero_b = f"+{msg.get('from', '')}"
+                tipo_b   = msg.get('type', '')
+                if tipo_b == 'text':
+                    texto_b   = msg['text']['body']
+                    media_b   = ''
+                elif tipo_b == 'interactive':
+                    interactive_b = msg.get('interactive', {})
+                    i_type_b = interactive_b.get('type', '')
+                    if i_type_b == 'button_reply':
+                        texto_b = interactive_b.get('button_reply', {}).get('id', '')
+                    elif i_type_b == 'list_reply':
+                        texto_b = interactive_b.get('list_reply', {}).get('id', '')
+                    else:
+                        texto_b = ''
+                    media_b = ''
+                elif tipo_b == 'image':
+                    texto_b = msg.get('image', {}).get('caption', '')
+                    media_b = msg.get('image', {}).get('id', '')
+                elif tipo_b == 'document':
+                    texto_b = msg.get('document', {}).get('filename', '')
+                    media_b = msg.get('document', {}).get('id', '')
+                else:
+                    texto_b = ''
+                    media_b = ''
+                contacto_b = next((c for c in contacts if c.get('wa_id') == msg.get('from')), {})
+                nombre_b   = contacto_b.get('profile', {}).get('name', '')
+                _bot(numero_b, nombre_b, tipo_b, texto_b, media_b)
+        except Exception as _eb:
+            log.warning(f'[CRM Webhook] Bot error: {_eb}')
 
         # Emitir evento real-time para cada mensaje entrante nuevo
         if messages:

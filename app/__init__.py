@@ -492,6 +492,25 @@ def create_app(config_name=None):
             db.session.execute(text("ALTER TABLE wa_messages ADD COLUMN IF NOT EXISTS media_id   VARCHAR(120) DEFAULT ''"))
             db.session.execute(text("ALTER TABLE wa_messages ADD COLUMN IF NOT EXISTS media_tipo VARCHAR(20)  DEFAULT ''"))
             db.session.commit()
+            # Tabla de sesiones del bot WhatsApp
+            if "wa_bot_sessions" not in existing:
+                db.session.execute(text("""
+                    CREATE TABLE IF NOT EXISTS wa_bot_sessions (
+                        id         SERIAL PRIMARY KEY,
+                        numero     VARCHAR(25)  NOT NULL UNIQUE,
+                        estado     VARCHAR(50)  NOT NULL DEFAULT 'inicio',
+                        tipo       VARCHAR(20)  DEFAULT '',
+                        dni_front  VARCHAR(120) DEFAULT '',
+                        dni_back   VARCHAR(120) DEFAULT '',
+                        ruc_doc    VARCHAR(120) DEFAULT '',
+                        nombre     VARCHAR(120) DEFAULT '',
+                        created_at TIMESTAMP    DEFAULT NOW(),
+                        updated_at TIMESTAMP    DEFAULT NOW()
+                    )
+                """))
+                db.session.execute(text("CREATE INDEX IF NOT EXISTS ix_wa_bot_sessions_numero ON wa_bot_sessions(numero)"))
+                db.session.commit()
+                logging.info("[WaBot] Tabla wa_bot_sessions creada.")
             if "asignaciones_prospecto" not in existing:
                 db.session.execute(text("""
                     CREATE TABLE IF NOT EXISTS asignaciones_prospecto (
