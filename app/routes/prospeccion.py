@@ -3193,6 +3193,8 @@ def api_campana_nuevos_elegibles():
     if api_key != crm_key:
         return jsonify({'ok': False, 'error': 'Unauthorized'}), 401
 
+    _ESTADOS_EMAIL_EXCLUIR = {'correo_rebotado', 'correo_invalido', 'Dominio inválido'}
+
     prospectos = (
         Prospecto.query
         .filter(Prospecto.email.isnot(None))
@@ -3214,6 +3216,13 @@ def api_campana_nuevos_elegibles():
                 Prospecto.estado_comercial.is_(None),
                 Prospecto.estado_comercial == '',
                 ~Prospecto.estado_comercial.in_(_ESTADOS_EXCLUIDOS_CAMPANA),
+            )
+        )
+        .filter(
+            or_(
+                Prospecto.estado_email.is_(None),
+                Prospecto.estado_email == '',
+                ~Prospecto.estado_email.in_(list(_ESTADOS_EMAIL_EXCLUIR)),
             )
         )
         .order_by(Prospecto.id.asc())
@@ -3248,6 +3257,8 @@ def api_campana_precios_elegibles():
     if api_key != crm_key:
         return jsonify({'ok': False, 'error': 'Unauthorized'}), 401
 
+    _ESTADOS_EMAIL_EXCLUIR = {'correo_rebotado', 'correo_invalido', 'Dominio inválido'}
+
     prospectos = (
         Prospecto.query
         .filter(Prospecto.email.isnot(None))
@@ -3259,6 +3270,13 @@ def api_campana_precios_elegibles():
                 Prospecto.estado_comercial.is_(None),
                 Prospecto.estado_comercial == '',
                 ~Prospecto.estado_comercial.in_(_ESTADOS_EXCLUIDOS_CAMPANA),
+            )
+        )
+        .filter(
+            or_(
+                Prospecto.estado_email.is_(None),
+                Prospecto.estado_email == '',
+                ~Prospecto.estado_email.in_(list(_ESTADOS_EMAIL_EXCLUIR)),
             )
         )
         .order_by(Prospecto.fecha_ultimo_contacto.asc())
