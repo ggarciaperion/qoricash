@@ -1232,6 +1232,96 @@ def upload_deposit_proof(operation_id):
         return jsonify({'success': False, 'message': f'Error: {str(e)}'}), 500
 
 
+@client_auth_bp.route('/submit-transfer-code/<int:operation_id>', methods=['POST'])
+@csrf.exempt
+def submit_transfer_code(operation_id):
+    """
+    Registrar código de operación de transferencia desde app móvil.
+    Cambia estado a 'En proceso' sin requerir imagen.
+
+    Request JSON:
+    {
+        "codigo_operacion": "12345678"
+    }
+    """
+    try:
+        from app.models.operation import Operation
+        from app.services.notification_service import NotificationService
+        from app.services.operation_service import OperationService
+        from app.utils.formatters import now_peru
+        from sqlalchemy.orm.attributes import flag_modified
+
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'message': 'No se recibieron datos'}), 400
+
+        codigo_operacion = data.get('codigo_operacion', '').strip()
+        if not codigo_operacion:
+            return jsonify({'success': False, 'message': 'El código de operación es requerido'}), 400
+
+        operation = db.session.get(Operation, operation_id)
+        if not operation:
+            return jsonify({'success': False, 'message': 'Operación no encontrada'}), 404
+
+        if operation.status not in ['Pendiente']:
+            return jsonify({'success': False, 'message': f'No se puede procesar una operación en estado {operation.status}'}), 400
+
+        # Registrar código en client_deposits
+        deposits = operation.client_deposits or []
+        if not deposits:
+            deposits.append({})
+        deposits[0]['codigo_operacion'] = codigo_operacion
+        if operation.source_account:
+            deposits[0]['cuenta_cargo'] = operation.source_account
+        operation.client_deposits = deposits
+        flag_modified(operation, 'client_deposits_json')
+
+        # Cambiar estado a En proceso
+        old_status = operation.status
+        operation.status = 'En proceso'
+        operation.in_process_since = now_peru()
+
+        # Auto-asignar operador
+        try:
+            operator_id = OperationService.assign_operator_balanced()
+            if operator_id:
+                operation.assigned_operator_id = operator_id
+                logger.info(f"✅ Operador {operator_id} auto-asignado a {operation.operation_id}")
+        except Exception as e:
+            logger.error(f"Error auto-asignando operador: {e}")
+
+        db.session.commit()
+
+        # Auto-crear pago si no existe
+        if operation.origen == 'plataforma' and not operation.client_payments:
+            if operation.operation_type == 'Compra':
+                total_pago = float(operation.amount_usd or 0) * float(operation.exchange_rate or 0)
+            else:
+                total_pago = float(operation.amount_usd or 0)
+            operation.client_payments = [{'importe': total_pago, 'cuenta_destino': operation.destination_account}]
+            flag_modified(operation, 'client_payments_json')
+            db.session.commit()
+
+        # Notificar via Socket.IO
+        try:
+            NotificationService.notify_operation_updated(operation, old_status)
+        except Exception as e:
+            logger.warning(f"Error en NotificationService: {e}")
+
+        logger.info(f"✅ Código de operación '{codigo_operacion}' registrado para {operation.operation_id}")
+
+        return jsonify({
+            'success': True,
+            'message': 'Código registrado exitosamente',
+            'operation': operation.to_dict()
+        }), 200
+
+    except Exception as e:
+        logger.error(f"Error al registrar código de transferencia: {str(e)}")
+        db.session.rollback()
+        return jsonify({'success': False, 'message': f'Error: {str(e)}'}), 500
+
+
 @client_auth_bp.route('/cancel-operation/<int:operation_id>', methods=['POST'])
 @csrf.exempt
 def cancel_operation(operation_id):
