@@ -48,10 +48,9 @@ with engine.begin() as conn:
     conn.execute(text("""
         UPDATE operations
         SET status = 'Cancelado',
-            cancellation_reason = :motivo,
             updated_at = :now
         WHERE id = :id
-    """), {'motivo': motivo, 'now': now, 'id': op_db_id})
+    """), {'now': now, 'id': op_db_id})
 
     print(f"\nOperacion {OPERATION_ID} cancelada exitosamente.")
     print(f"Motivo: {motivo}")
