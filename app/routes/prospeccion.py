@@ -3295,6 +3295,91 @@ def api_campana_precios_elegibles():
     return jsonify({'ok': True, 'total': len(result), 'prospectos': result})
 
 
+@prospeccion_bp.route("/api/export-full")
+@csrf.exempt
+def api_export_full():
+    """
+    Exporta todos los prospectos de forma paginada para migración a Google Sheets.
+    Auth: X-API-Key = CRM_API_KEY env var.
+    Query params: page (default 1), per_page (default 2000, max 5000)
+    """
+    api_key = request.headers.get('X-API-Key', '')
+    crm_key = os.environ.get('CRM_API_KEY', 'qoricash_crm_2026')
+    if api_key != crm_key:
+        return jsonify({'ok': False, 'error': 'Unauthorized'}), 401
+
+    page     = max(1, request.args.get('page', 1, type=int))
+    per_page = min(5000, max(1, request.args.get('per_page', 2000, type=int)))
+    offset   = (page - 1) * per_page
+
+    total = db.session.query(func.count(Prospecto.id)).scalar() or 0
+    prospectos = Prospecto.query.order_by(Prospecto.id.asc()).offset(offset).limit(per_page).all()
+
+    pids = [p.id for p in prospectos]
+    asigs = {}
+    if pids:
+        for a in AsignacionProspecto.query.filter(
+            AsignacionProspecto.prospecto_id.in_(pids),
+            AsignacionProspecto.activo == True,
+        ).all():
+            if a.prospecto_id not in asigs and a.trader:
+                asigs[a.prospecto_id] = a.trader.username
+
+    rows = []
+    for p in prospectos:
+        contactado = bool(p.fecha_primer_contacto and str(p.fecha_primer_contacto).strip())
+        rows.append({
+            'id':                   p.id,
+            'razon_social':         p.razon_social or '',
+            'ruc':                  p.ruc or '',
+            'tipo':                 p.tipo or '',
+            'rubro':                p.rubro or '',
+            'departamento':         p.departamento or '',
+            'provincia':            p.provincia or '',
+            'distrito':             getattr(p, 'distrito', '') or '',
+            'web':                  getattr(p, 'web', '') or '',
+            'nombre_contacto':      p.nombre_contacto or '',
+            'cargo':                p.cargo or '',
+            'email':                p.email or '',
+            'email_alt':            p.email_alt or '',
+            'telefono':             p.telefono or '',
+            'telefono_alt':         getattr(p, 'telefono_alt', '') or '',
+            'estado_comercial':     p.estado_comercial or '',
+            'nivel_interes':        p.nivel_interes or '',
+            'grupo':                p.grupo or '',
+            'canal':                p.canal or '',
+            'fuente':               p.fuente or '',
+            'prioridad':            getattr(p, 'prioridad', '') or '',
+            'tamano_empresa':       getattr(p, 'tamano_empresa', '') or '',
+            'notas':                (p.notas or '')[:500],
+            'tipo_ultimo_envio':    p.tipo_ultimo_envio or '',
+            'remitente':            p.remitente or '',
+            'bandeja':              p.bandeja or '',
+            'num_contactos':        p.num_contactos or 0,
+            'fecha_primer_contacto':  str(p.fecha_primer_contacto or ''),
+            'fecha_ultimo_contacto':  str(p.fecha_ultimo_contacto or ''),
+            'fecha_proximo_contacto': str(p.fecha_proximo_contacto or ''),
+            'estado_email':         p.estado_email or '',
+            'cliente_lfc':          getattr(p, 'cliente_lfc', '') or '',
+            'contacto_wa':          getattr(p, 'contacto_wa', '') or '',
+            'trader_asignado':      asigs.get(p.id, ''),
+            'contactado':           'SI' if contactado else 'NO',
+            'creado_en':            p.creado_en.strftime('%Y-%m-%d %H:%M') if p.creado_en else '',
+            'actualizado_en':       p.actualizado_en.strftime('%Y-%m-%d %H:%M') if p.actualizado_en else '',
+        })
+
+    pages_total = (total + per_page - 1) // per_page
+    return jsonify({
+        'ok': True,
+        'total': total,
+        'page': page,
+        'per_page': per_page,
+        'pages_total': pages_total,
+        'count': len(rows),
+        'rows': rows,
+    })
+
+
 @prospeccion_bp.route("/api/campana-registrar-envio", methods=["POST"])
 @csrf.exempt
 def api_campana_registrar_envio():
