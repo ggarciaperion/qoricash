@@ -140,16 +140,16 @@ export const VerifyIdentityScreen = () => {
   };
 
   const handleSubmit = async () => {
-    if (!frontImage || !backImage) {
-      const docType = isLegalEntity ? 'DNI del representante legal' : 'DNI';
+    // Para persona natural: obligatorio ambas fotos del DNI
+    if (!isLegalEntity && (!frontImage || !backImage)) {
       Alert.alert(
         'Faltan Imágenes',
-        `Por favor adjunta ambas fotos de tu ${docType} (anverso y reverso)`
+        'Por favor adjunta ambas fotos de tu DNI (anverso y reverso)'
       );
       return;
     }
 
-    // Validar Ficha RUC para persona jurídica
+    // Para empresa: solo se requiere Ficha RUC
     if (isLegalEntity && !rucDocument) {
       Alert.alert(
         'Falta Ficha RUC',
@@ -164,19 +164,22 @@ export const VerifyIdentityScreen = () => {
       const formData = new FormData();
       formData.append('dni', client?.dni || '');
 
-      // Agregar imagen del anverso
-      formData.append('dni_front', {
-        uri: frontImage,
-        type: 'image/jpeg',
-        name: `dni_front_${client?.dni}.jpg`,
-      } as any);
+      // Agregar imágenes del DNI (obligatorio para persona natural, opcional para empresa)
+      if (frontImage) {
+        formData.append('dni_front', {
+          uri: frontImage,
+          type: 'image/jpeg',
+          name: `dni_front_${client?.dni}.jpg`,
+        } as any);
+      }
 
-      // Agregar imagen del reverso
-      formData.append('dni_back', {
-        uri: backImage,
-        type: 'image/jpeg',
-        name: `dni_back_${client?.dni}.jpg`,
-      } as any);
+      if (backImage) {
+        formData.append('dni_back', {
+          uri: backImage,
+          type: 'image/jpeg',
+          name: `dni_back_${client?.dni}.jpg`,
+        } as any);
+      }
 
       // Agregar Ficha RUC si es persona jurídica
       if (isLegalEntity && rucDocument) {

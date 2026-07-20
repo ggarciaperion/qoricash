@@ -696,14 +696,14 @@ def upload_dni_documents():
         dni_back = request.files.get('dni_back')
         ruc_ficha = request.files.get('ruc_ficha')  # Opcional para RUC
 
-        if not dni_front or not dni_back:
-            doc_type = 'DNI del representante legal' if client.document_type == 'RUC' else 'DNI'
+        # Para persona natural: obligatorio ambas fotos del DNI
+        if client.document_type != 'RUC' and (not dni_front or not dni_back):
             return jsonify({
                 'success': False,
-                'message': f'Se requieren ambas fotos del {doc_type} (anverso y reverso)'
+                'message': 'Se requieren ambas fotos del DNI (anverso y reverso)'
             }), 400
 
-        # Validar Ficha RUC para persona jurídica
+        # Para empresa: solo se requiere Ficha RUC
         if client.document_type == 'RUC' and not ruc_ficha:
             return jsonify({
                 'success': False,
@@ -713,49 +713,47 @@ def upload_dni_documents():
         # Determinar si es persona jurídica (RUC)
         is_legal_entity = client.document_type == 'RUC'
 
-        # Subir DNI anverso
-        if is_legal_entity:
-            # Para RUC: subir como DNI del representante legal
-            front_result = cloudinary.uploader.upload(
-                dni_front,
-                folder=f"qoricash/clients/{dni}",
-                public_id=f"dni_representante_front_{dni}",
-                overwrite=True,
-                resource_type="image"
-            )
-            client.dni_representante_front_url = front_result.get('secure_url')
-        else:
-            # Para DNI/CE: subir como DNI normal
-            front_result = cloudinary.uploader.upload(
-                dni_front,
-                folder=f"qoricash/clients/{dni}",
-                public_id=f"dni_front_{dni}",
-                overwrite=True,
-                resource_type="image"
-            )
-            client.dni_front_url = front_result.get('secure_url')
+        # Subir DNI anverso (solo persona natural, o empresa si lo adjunta opcionalmente)
+        if dni_front:
+            if is_legal_entity:
+                front_result = cloudinary.uploader.upload(
+                    dni_front,
+                    folder=f"qoricash/clients/{dni}",
+                    public_id=f"dni_representante_front_{dni}",
+                    overwrite=True,
+                    resource_type="image"
+                )
+                client.dni_representante_front_url = front_result.get('secure_url')
+            else:
+                front_result = cloudinary.uploader.upload(
+                    dni_front,
+                    folder=f"qoricash/clients/{dni}",
+                    public_id=f"dni_front_{dni}",
+                    overwrite=True,
+                    resource_type="image"
+                )
+                client.dni_front_url = front_result.get('secure_url')
 
-        # Subir DNI reverso
-        if is_legal_entity:
-            # Para RUC: subir como DNI del representante legal
-            back_result = cloudinary.uploader.upload(
-                dni_back,
-                folder=f"qoricash/clients/{dni}",
-                public_id=f"dni_representante_back_{dni}",
-                overwrite=True,
-                resource_type="image"
-            )
-            client.dni_representante_back_url = back_result.get('secure_url')
-        else:
-            # Para DNI/CE: subir como DNI normal
-            back_result = cloudinary.uploader.upload(
-                dni_back,
-                folder=f"qoricash/clients/{dni}",
-                public_id=f"dni_back_{dni}",
-                overwrite=True,
-                resource_type="image"
-            )
-            client.dni_back_url = back_result.get('secure_url')
+        # Subir DNI reverso (solo persona natural, o empresa si lo adjunta opcionalmente)
+        if dni_back:
+            if is_legal_entity:
+                back_result = cloudinary.uploader.upload(
+                    dni_back,
+                    folder=f"qoricash/clients/{dni}",
+                    public_id=f"dni_representante_back_{dni}",
+                    overwrite=True,
+                    resource_type="image"
+                )
+                client.dni_representante_back_url = back_result.get('secure_url')
+            else:
+                back_result = cloudinary.uploader.upload(
+                    dni_back,
+                    folder=f"qoricash/clients/{dni}",
+                    public_id=f"dni_back_{dni}",
+                    overwrite=True,
+                    resource_type="image"
+                )
+                client.dni_back_url = back_result.get('secure_url')
 
         # Subir Ficha RUC si es persona jurídica
         if is_legal_entity and ruc_ficha:
