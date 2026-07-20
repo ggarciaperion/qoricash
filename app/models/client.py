@@ -399,13 +399,8 @@ class Client(db.Model):
             bool: True si tiene todos los documentos requeridos subidos
         """
         if self.document_type == 'RUC':
-            # RUC requiere: DNI representante (ambos lados), ficha RUC, validación OC
-            return all([
-                self.dni_representante_front_url,
-                self.dni_representante_back_url,
-                self.ficha_ruc_url,
-                self.validation_oc_url
-            ])
+            # RUC requiere solo ficha RUC (DNI representante es opcional)
+            return bool(self.ficha_ruc_url)
         else:
             # DNI/CE requiere: DNI (ambos lados), validación OC
             return all([

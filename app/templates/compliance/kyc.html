@@ -258,13 +258,11 @@ function validarDocumentosCliente(clientId) {
                 // Validar según tipo de documento
                 // NOTA: Cuentas bancarias son OPCIONALES durante registro desde app móvil
                 if (client.document_type === 'RUC') {
-                    const hasDniRepFront = isValidUrl(client.dni_representante_front_url);
-                    const hasDniRepBack = isValidUrl(client.dni_representante_back_url);
                     const hasFichaRuc = isValidUrl(client.ficha_ruc_url);
 
-                    isValid = hasDniRepFront && hasDniRepBack && hasFichaRuc;
+                    isValid = hasFichaRuc;
 
-                    console.log(`Cliente ${clientId} (RUC) - DNI Rep Front: ${hasDniRepFront}, DNI Rep Back: ${hasDniRepBack}, Ficha RUC: ${hasFichaRuc}`);
+                    console.log(`Cliente ${clientId} (RUC) - Ficha RUC: ${hasFichaRuc}`);
                 } else {
                     const hasDniFront = isValidUrl(client.dni_front_url);
                     const hasDniBack = isValidUrl(client.dni_back_url);

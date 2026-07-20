@@ -451,17 +451,9 @@ def approve_documents(client_id):
                     'message': f'El cliente aún no tiene documentos completos. Faltan: {docs_faltantes}'
                 }), 400
             else:  # RUC
-                missing = []
-                if not client.dni_representante_front_url:
-                    missing.append('DNI representante frente')
-                if not client.dni_representante_back_url:
-                    missing.append('DNI representante reverso')
-                if not client.ficha_ruc_url:
-                    missing.append('Ficha RUC')
-                docs_faltantes = ', '.join(missing)
                 return jsonify({
                     'success': False,
-                    'message': f'El cliente aún no tiene documentos completos. Faltan: {docs_faltantes}'
+                    'message': 'El cliente aún no tiene documentos completos. Falta: Ficha RUC'
                 }), 400
 
         # Guardar estado anterior para auditoría
