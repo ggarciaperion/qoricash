@@ -13,6 +13,9 @@ logger = logging.getLogger(__name__)
 # Tiempo límite de producción: 15 minutos
 OPERATION_TIMEOUT_MINUTES = 15
 
+# Hora de cierre diario (22:00 hora Perú)
+END_OF_DAY_HOUR = 22
+
 
 class OperationExpiryService:
     """Servicio para manejar expiración automática de operaciones"""
@@ -116,6 +119,67 @@ class OperationExpiryService:
 
         except Exception as e:
             logger.error(f"Error en expire_old_operations: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
+            db.session.rollback()
+            return 0
+
+    @staticmethod
+    def cancel_end_of_day_operations():
+        """
+        Cancela TODAS las operaciones Pendiente o En proceso a las 10pm hora Peru.
+        Se llama desde el scheduler cuando la hora actual es >= 22:00 y < 22:02
+        para asegurar que solo se ejecuta una vez por dia.
+
+        Returns:
+            int: Numero de operaciones canceladas
+        """
+        try:
+            now = now_peru()
+
+            # Solo actuar entre 22:00:00 y 22:01:59 (ventana de 2 minutos)
+            if not (now.hour == END_OF_DAY_HOUR and now.minute < 2):
+                return 0
+
+            pending_ops = Operation.query.filter(
+                Operation.status.in_(['Pendiente', 'En proceso'])
+            ).all()
+
+            if not pending_ops:
+                logger.info("[EOD] No hay operaciones Pendiente/En proceso para cancelar.")
+                return 0
+
+            cancelled_count = 0
+            motivo = "[SISTEMA] Cierre automatico diario 10pm - operacion no completada"
+
+            for operation in pending_ops:
+                try:
+                    operation.status = 'Cancelado'
+                    operation.cancellation_reason = motivo
+                    operation.updated_at = now_peru()
+                    db.session.commit()
+
+                    logger.info(f"[EOD] Operacion {operation.operation_id} cancelada automaticamente a las 10pm")
+
+                    try:
+                        NotificationService.notify_operation_canceled(operation, motivo)
+                    except Exception as notif_error:
+                        logger.error(f"[EOD] Error notificando {operation.operation_id}: {notif_error}")
+
+                    cancelled_count += 1
+
+                except Exception as op_error:
+                    logger.error(f"[EOD] Error cancelando {operation.operation_id}: {op_error}")
+                    db.session.rollback()
+                    continue
+
+            if cancelled_count > 0:
+                logger.info(f"[EOD] {cancelled_count} operaciones canceladas por cierre diario 10pm")
+
+            return cancelled_count
+
+        except Exception as e:
+            logger.error(f"Error en cancel_end_of_day_operations: {str(e)}")
             import traceback
             logger.error(traceback.format_exc())
             db.session.rollback()

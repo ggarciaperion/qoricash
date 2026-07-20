@@ -8,6 +8,8 @@ import {
   TouchableOpacity,
   Alert,
   SafeAreaView,
+  Image,
+  Linking,
 } from 'react-native';
 import {
   Text,
@@ -16,7 +18,7 @@ import {
   IconButton,
 } from 'react-native-paper';
 import { CommonActions } from '@react-navigation/native';
-import { Operation } from '../types';
+import { Operation, BankAccount } from '../types';
 import { Colors } from '../constants/colors';
 import { formatCurrency, formatDateTime } from '../utils/formatters';
 import socketService from '../services/socket';
@@ -34,23 +36,47 @@ interface ReceiveScreenProps {
 export const ReceiveScreen: React.FC<ReceiveScreenProps> = ({ navigation, route }) => {
   const { operation } = route.params;
   const rotateAnim = useRef(new Animated.Value(0)).current;
+  const clockOpacity = useRef(new Animated.Value(1)).current;
+  const checkScale = useRef(new Animated.Value(0)).current;
+  const checkOpacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    // Ocultar el botón de atrás
-    navigation.setOptions({
-      headerLeft: () => null,
-      gestureEnabled: false,
-    });
+    navigation.setOptions({ headerLeft: () => null, gestureEnabled: false });
 
-    // Animación de rotación continua
-    Animated.loop(
-      Animated.timing(rotateAnim, {
-        toValue: 1,
-        duration: 2000,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      })
-    ).start();
+    // Ciclo: reloj gira 2.4s → check aparece 1.2s → vuelve a reloj → ...
+    const clockLoop = Animated.loop(
+      Animated.timing(rotateAnim, { toValue: 1, duration: 800, easing: Easing.linear, useNativeDriver: true })
+    );
+
+    const runCycle = () => {
+      rotateAnim.setValue(0);
+      clockOpacity.setValue(1);
+      checkScale.setValue(0);
+      checkOpacity.setValue(0);
+      clockLoop.start();
+
+      setTimeout(() => {
+        // Fade out reloj
+        clockLoop.stop();
+        Animated.timing(clockOpacity, { toValue: 0, duration: 250, useNativeDriver: true }).start(() => {
+          // Aparece check con spring
+          Animated.parallel([
+            Animated.spring(checkScale, { toValue: 1, useNativeDriver: true }),
+            Animated.timing(checkOpacity, { toValue: 1, duration: 200, useNativeDriver: true }),
+          ]).start(() => {
+            // Pausa con check visible, luego vuelve al reloj
+            setTimeout(() => {
+              Animated.parallel([
+                Animated.timing(checkOpacity, { toValue: 0, duration: 250, useNativeDriver: true }),
+                Animated.timing(checkScale, { toValue: 0, duration: 250, useNativeDriver: true }),
+              ]).start(() => runCycle());
+            }, 1200);
+          });
+        });
+      }, 2400);
+    };
+
+    runCycle();
   }, [navigation]);
 
   // Escuchar actualizaciones de Socket.IO
@@ -203,16 +229,21 @@ export const ReceiveScreen: React.FC<ReceiveScreenProps> = ({ navigation, route 
       {/* Processing Status Card */}
       <Card style={styles.statusCard}>
         <Card.Content>
-          <View style={styles.statusHeader}>
-            <Animated.View style={{ transform: [{ rotate: spin }] }}>
-              <IconButton icon="clock-outline" size={60} iconColor="#2196F3" />
-            </Animated.View>
-            <Text variant="headlineSmall" style={styles.statusTitle}>
-              Procesando tu operación
-            </Text>
-            <Text style={styles.statusSubtitle}>
-              Nuestro equipo está verificando tu comprobante
-            </Text>
+          <View style={styles.timeInfoRow}>
+            <View style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}>
+              <Animated.View style={{ position: 'absolute', opacity: clockOpacity, transform: [{ rotate: spin }] }}>
+                <IconButton icon="clock-outline" size={26} iconColor="#22c55e" style={{ margin: 0 }} />
+              </Animated.View>
+              <Animated.View style={{ position: 'absolute', opacity: checkOpacity, transform: [{ scale: checkScale }] }}>
+                <IconButton icon="check-circle" size={26} iconColor="#22c55e" style={{ margin: 0 }} />
+              </Animated.View>
+            </View>
+            <View style={styles.timeInfoTextContainer}>
+              <Text variant="titleMedium" style={styles.statusTitle}>
+                Procesando tu operación
+              </Text>
+              <Text style={styles.timeInfoTitle}>Tiempo promedio: 15 - 30 minutos</Text>
+            </View>
           </View>
         </Card.Content>
       </Card>
@@ -221,6 +252,12 @@ export const ReceiveScreen: React.FC<ReceiveScreenProps> = ({ navigation, route 
       <Card style={styles.summaryCard}>
         <Card.Content>
           <View style={styles.summaryHeader}>
+            <Image
+              source={require('../../assets/logo-principal.png')}
+              style={styles.summaryHeaderLogo}
+              resizeMode="contain"
+              tintColor="#fff"
+            />
             <Text variant="titleMedium" style={styles.summaryHeaderText}>
               Detalles de la operación
             </Text>
@@ -235,7 +272,9 @@ export const ReceiveScreen: React.FC<ReceiveScreenProps> = ({ navigation, route 
 
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Tipo:</Text>
-            <Text style={styles.detailValue}>{operation.operation_type}</Text>
+            <Text style={styles.detailValue}>
+              Qoricash {operation.operation_type === 'Compra' ? 'compra' : 'venta'}
+            </Text>
           </View>
 
           <View style={styles.detailRow}>
@@ -247,7 +286,9 @@ export const ReceiveScreen: React.FC<ReceiveScreenProps> = ({ navigation, route 
 
           <View style={styles.summaryRow}>
             <View style={styles.summaryBox}>
-              <Text style={styles.summaryLabel}>Enviaste</Text>
+              <Text style={styles.summaryLabel}>
+                {operation.operation_type === 'Compra' ? '🇺🇸 ' : '🇵🇪 '}Enviaste
+              </Text>
               <Text style={styles.summaryAmount}>
                 {operation.operation_type === 'Compra'
                   ? formatCurrency(operation.amount_usd, 'USD')
@@ -260,7 +301,9 @@ export const ReceiveScreen: React.FC<ReceiveScreenProps> = ({ navigation, route 
               <Text style={styles.summaryAmount}>{operation.exchange_rate.toFixed(3)}</Text>
             </View>
             <View style={styles.summaryBox}>
-              <Text style={styles.summaryLabel}>Recibirás</Text>
+              <Text style={styles.summaryLabel}>
+                {operation.operation_type === 'Compra' ? '🇵🇪 ' : '🇺🇸 '}Recibirás
+              </Text>
               <Text style={styles.summaryAmount}>
                 {operation.operation_type === 'Compra'
                   ? formatCurrency(operation.amount_pen, 'PEN')
@@ -280,33 +323,50 @@ export const ReceiveScreen: React.FC<ReceiveScreenProps> = ({ navigation, route 
           </Text>
 
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Banco:</Text>
-            <Text style={styles.detailValue}>{operation.destination_bank_name || 'Por definir'}</Text>
+            <Text style={styles.destLabel}>Titular:</Text>
+            <Text style={styles.destValue}>
+              {(() => {
+                const full = ((operation as any).client_name || '').trim();
+                const parts = full.split(/\s+/);
+                if (parts.length <= 2) return full || 'Por definir';
+                return `${parts[0]} ${parts[Math.max(1, parts.length - 2)]}`;
+              })()}
+            </Text>
           </View>
 
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Número de cuenta:</Text>
-            <Text style={styles.detailValue}>{operation.destination_account || 'Por definir'}</Text>
+            <Text style={styles.destLabel}>Banco:</Text>
+            {operation.destination_bank_name && BANK_LOGOS[operation.destination_bank_name] ? (
+              <View style={styles.destBankLogoWrapper}>
+                <Image
+                  source={BANK_LOGOS[operation.destination_bank_name]}
+                  style={styles.destBankLogo}
+                  resizeMode="contain"
+                />
+              </View>
+            ) : (
+              <Text style={styles.destValue}>{operation.destination_bank_name || 'Por definir'}</Text>
+            )}
           </View>
 
-          <View style={styles.infoBox}>
-            <IconButton icon="information-outline" size={20} iconColor="#2196F3" />
-            <Text style={styles.infoText}>
-              Te notificaremos cuando tu operación sea completada
+          <View style={styles.detailRow}>
+            <Text style={styles.destLabel}>Tipo / Moneda:</Text>
+            <Text style={styles.destValue}>
+              {(() => {
+                const accounts: BankAccount[] = (operation as any).client_bank_accounts || [];
+                const acc = accounts.find((a: BankAccount) => a.account_number === operation.destination_account);
+                const tipo = acc?.account_type || 'Por definir';
+                const moneda = acc?.currency
+                  ? (acc.currency === 'S/' ? 'Soles (S/)' : 'Dólares ($)')
+                  : (operation.operation_type === 'Compra' ? 'Soles (S/)' : 'Dólares ($)');
+                return `${tipo} - ${moneda}`;
+              })()}
             </Text>
           </View>
-        </Card.Content>
-      </Card>
 
-      {/* Status Information */}
-      <Card style={styles.timeInfoCard}>
-        <Card.Content>
-          <View style={styles.timeInfoRow}>
-            <IconButton icon="clock-check-outline" size={24} iconColor="#22c55e" />
-            <View style={styles.timeInfoTextContainer}>
-              <Text style={styles.timeInfoTitle}>Tiempo promedio de procesamiento</Text>
-              <Text style={styles.timeInfoValue}>15 - 30 minutos</Text>
-            </View>
+          <View style={styles.detailRow}>
+            <Text style={styles.destLabel}>Número de cuenta:</Text>
+            <Text style={styles.destValue}>{operation.destination_account || 'Por definir'}</Text>
           </View>
         </Card.Content>
       </Card>
@@ -319,9 +379,30 @@ export const ReceiveScreen: React.FC<ReceiveScreenProps> = ({ navigation, route 
       >
         <Text style={styles.acceptButtonText}>ACEPTAR</Text>
       </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.supportLink}
+        activeOpacity={0.7}
+        onPress={() => {
+          const msg = `Hola, necesito ayuda con mi operación ${operation.operation_id}`;
+          Linking.openURL(`https://wa.me/51910624404?text=${encodeURIComponent(msg)}`);
+        }}
+      >
+        <Text style={styles.supportLinkText}>Contactar con soporte</Text>
+      </TouchableOpacity>
     </ScrollView>
     </SafeAreaView>
   );
+};
+
+const BANK_LOGOS: Record<string, any> = {
+  'BCP': require('../../assets/banks/bcp.png'),
+  'INTERBANK': require('../../assets/banks/interbank.png'),
+  'BANBIF': require('../../assets/banks/banbif.png'),
+  'BBVA': require('../../assets/banks/bbva.png'),
+  'Scotiabank': require('../../assets/banks/scotiabank.png'),
+  'SCOTIABANK': require('../../assets/banks/scotiabank.png'),
+  'PICHINCHA': require('../../assets/banks/pichincha.png'),
 };
 
 const styles = StyleSheet.create({
@@ -380,19 +461,18 @@ const styles = StyleSheet.create({
   // Status Card Styles
   statusCard: {
     marginHorizontal: 16,
-    marginBottom: 16,
+    marginBottom: 8,
     backgroundColor: Colors.surface,
   },
   statusHeader: {
-    alignItems: 'center',
-    paddingVertical: 20,
+    alignItems: 'flex-start',
+    paddingVertical: 0,
+    paddingBottom: 0,
   },
   statusTitle: {
     fontWeight: 'bold',
     color: Colors.textDark,
-    marginTop: 8,
-    marginBottom: 8,
-    textAlign: 'center',
+    marginBottom: 2,
   },
   statusSubtitle: {
     fontSize: 14,
@@ -403,18 +483,26 @@ const styles = StyleSheet.create({
   // Summary Card Styles
   summaryCard: {
     marginHorizontal: 16,
-    marginBottom: 16,
-    backgroundColor: Colors.surface,
+    marginBottom: 8,
+    backgroundColor: '#22c55e',
   },
   summaryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 8,
+    gap: 8,
+  },
+  summaryHeaderLogo: {
+    width: 24,
+    height: 24,
   },
   summaryHeaderText: {
     fontWeight: 'bold',
-    color: Colors.textDark,
+    color: '#ffffff',
   },
   summaryDivider: {
     marginVertical: 12,
+    backgroundColor: 'rgba(255,255,255,0.3)',
   },
   detailRow: {
     flexDirection: 'row',
@@ -424,12 +512,12 @@ const styles = StyleSheet.create({
   },
   detailLabel: {
     fontSize: 13,
-    color: '#666666',
+    color: 'rgba(255,255,255,0.75)',
   },
   detailValue: {
     fontSize: 14,
     fontWeight: '600',
-    color: Colors.textDark,
+    color: '#ffffff',
     textAlign: 'right',
     flex: 1,
     marginLeft: 16,
@@ -441,31 +529,54 @@ const styles = StyleSheet.create({
   },
   summaryBox: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: 'rgba(0,0,0,0.15)',
     padding: 12,
     borderRadius: 8,
   },
   summaryLabel: {
     fontSize: 11,
-    color: '#666666',
+    color: 'rgba(255,255,255,0.75)',
     marginBottom: 4,
   },
   summaryAmount: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: Colors.textDark,
+    color: '#ffffff',
   },
 
   // Destination Card Styles
   destinationCard: {
     marginHorizontal: 16,
-    marginBottom: 16,
+    marginBottom: 8,
     backgroundColor: Colors.surface,
   },
   destinationTitle: {
     fontWeight: 'bold',
-    marginBottom: 16,
+    marginBottom: 8,
     color: Colors.textDark,
+  },
+  destLabel: {
+    fontSize: 13,
+    color: '#666666',
+  },
+  destValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.textDark,
+    textAlign: 'right',
+    flex: 1,
+    marginLeft: 16,
+  },
+  destBankLogoWrapper: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginLeft: 16,
+  },
+  destBankLogo: {
+    width: 80,
+    height: 26,
+    backgroundColor: 'transparent',
   },
   infoBox: {
     flexDirection: 'row',
@@ -511,8 +622,9 @@ const styles = StyleSheet.create({
   acceptButton: {
     backgroundColor: Colors.primary,
     marginHorizontal: 16,
-    marginVertical: 24,
-    paddingVertical: 16,
+    marginTop: 8,
+    marginBottom: 12,
+    paddingVertical: 14,
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
@@ -527,5 +639,16 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     letterSpacing: 1,
+  },
+  supportLink: {
+    alignItems: 'center',
+    paddingBottom: 24,
+    marginTop: 4,
+  },
+  supportLinkText: {
+    fontSize: 14,
+    color: '#25D366',
+    fontWeight: '600',
+    textDecorationLine: 'underline',
   },
 });

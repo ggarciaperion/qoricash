@@ -1341,6 +1341,9 @@ def start_operation_expiry_scheduler(app):
                     expired_count = OperationExpiryService.expire_old_operations()
                     if expired_count > 0:
                         logging.info(f"[SCHEDULER] ⏱️ {expired_count} operaciones canceladas automáticamente")
+                    eod_count = OperationExpiryService.cancel_end_of_day_operations()
+                    if eod_count > 0:
+                        logging.info(f"[SCHEDULER] 🌙 {eod_count} operaciones canceladas por cierre 10pm")
             except Exception as e:
                 logging.error(f"[SCHEDULER] ❌ Error en scheduler de expiración: {str(e)}")
                 import traceback
