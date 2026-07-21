@@ -968,6 +968,27 @@ def create_app(config_name=None):
             pb = False
         return dict(pb_access=pb)
 
+    # ── Patch de arranque: columnas cotiz_* en wa_bot_sessions ──────────────
+    # Garantiza que las columnas existan en la DB antes de recibir cualquier
+    # request. Idempotente (ADD COLUMN IF NOT EXISTS). Solo corre en producción.
+    try:
+        import psycopg2 as _pg2
+        import os as _os
+        _db_url = _os.environ.get('DATABASE_URL', '')
+        if _db_url:
+            _conn = _pg2.connect(_db_url)
+            _conn.autocommit = True
+            _cur = _conn.cursor()
+            _cur.execute("SELECT 1 FROM information_schema.tables WHERE table_name='wa_bot_sessions'")
+            if _cur.fetchone():
+                _cur.execute("ALTER TABLE wa_bot_sessions ADD COLUMN IF NOT EXISTS cotiz_op VARCHAR(10) DEFAULT ''")
+                _cur.execute("ALTER TABLE wa_bot_sessions ADD COLUMN IF NOT EXISTS cotiz_importe FLOAT DEFAULT 0")
+                _cur.execute("ALTER TABLE wa_bot_sessions ADD COLUMN IF NOT EXISTS cotiz_tc FLOAT DEFAULT 0")
+                print("[STARTUP] ✅ cotiz_* columns confirmed in wa_bot_sessions")
+            _conn.close()
+    except Exception as _e:
+        print(f"[STARTUP] ⚠️ cotiz_* patch: {_e}")
+
     return app
 
 
