@@ -24,6 +24,14 @@ CRM_API_KEY       = os.environ.get('CRM_API_KEY',        'qoricash_crm_2026')
 
 
 
+# ── Panel CRM WhatsApp ───────────────────────────────────────────
+@crm_bp.route('/whatsapp')
+@login_required
+@require_role('Master')
+def whatsapp_panel():
+    return render_template('crm/whatsapp.html')
+
+
 # ── API — lista de conversaciones ────────────────────────────────
 @crm_bp.route('/api/conversaciones')
 @login_required
