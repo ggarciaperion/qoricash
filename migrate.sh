@@ -283,7 +283,7 @@ if [ -n "$CURRENT" ]; then
         # pueda arrancar desde el estado correcto en DBs con historial antiguo.
         echo "🔧 Registrando heads de ramas conocidas (solo para DB con historial antiguo)..."
         # Nota: b1a2n3k4b5a6 OMITIDO — manejado por patch directo psycopg2 arriba
-        for HEAD_REV in a1b2c3d4e5f6 d2a3t4e5c6r7 l1s2o3u4r5c6 p1r2o3s4p5e6 t1e2m3p4l5a6 z9merge_all_heads w1p2r3o4s5p6 pb1r2e3c4i5o k1y2c3d4e5f6 p1e2r3i4o5d6 a1u2d3i4t5o6 b1c2a3j4a5d6 c1m2e3r4g5e6 p1a2t3c4h5b6 v1a2l3i4d5a6 d1c2a3j4a5d6 aa1s2i3n4w5a6 i1a2i3n4t5e6 a5907b; do
+        for HEAD_REV in a1b2c3d4e5f6 d2a3t4e5c6r7 l1s2o3u4r5c6 p1r2o3s4p5e6 t1e2m3p4l5a6 z9merge_all_heads w1p2r3o4s5p6 pb1r2e3c4i5o k1y2c3d4e5f6 p1e2r3i4o5d6 a1u2d3i4t5o6 b1c2a3j4a5d6 c1m2e3r4g5e6 p1a2t3c4h5b6 v1a2l3i4d5a6 d1c2a3j4a5d6 aa1s2i3n4w5a6 i1a2i3n4t5e6 a5907b w1a2b3o4t5s6; do
             flask db stamp "$HEAD_REV" 2>/dev/null || true
         done
         echo "   ✅ Heads registrados."
@@ -519,5 +519,48 @@ try:
     print("   ✅ Tablas de Agentes IA confirmadas en PostgreSQL")
 except Exception as e:
     print(f"   ⚠️  Error en patch Agentes IA: {e}")
+PYEOF
+echo ""
+
+# ── Patch directo: columnas cotiz_* en wa_bot_sessions ───────────────────────
+# La migración w1a2b3o4t5s6 puede no haberse ejecutado en producción,
+# causando que el bot no responda (SQLAlchemy falla al acceder session.cotiz_op).
+echo "⚡ Garantizando columnas cotiz_* en wa_bot_sessions..."
+python3 - <<'PYEOF'
+import os, sys
+try:
+    import psycopg2
+except ImportError:
+    print("   psycopg2 no disponible — saltando patch directo")
+    sys.exit(0)
+url = os.environ.get('DATABASE_URL', '')
+if not url:
+    print("   DATABASE_URL no definida — saltando patch directo")
+    sys.exit(0)
+try:
+    conn = psycopg2.connect(url)
+    conn.autocommit = True
+    cur = conn.cursor()
+    cur.execute("SELECT 1 FROM information_schema.tables WHERE table_name='wa_bot_sessions'")
+    if not cur.fetchone():
+        print("   ⏭  wa_bot_sessions aún no existe — se creará en upgrade")
+        conn.close()
+        sys.exit(0)
+    cur.execute("ALTER TABLE wa_bot_sessions ADD COLUMN IF NOT EXISTS cotiz_op VARCHAR(10) DEFAULT ''")
+    cur.execute("ALTER TABLE wa_bot_sessions ADD COLUMN IF NOT EXISTS cotiz_importe FLOAT DEFAULT 0")
+    cur.execute("ALTER TABLE wa_bot_sessions ADD COLUMN IF NOT EXISTS cotiz_tc FLOAT DEFAULT 0")
+    cur.execute(
+        "SELECT column_name FROM information_schema.columns "
+        "WHERE table_name='wa_bot_sessions' AND column_name IN ('cotiz_op','cotiz_importe','cotiz_tc')"
+    )
+    found = [r[0] for r in cur.fetchall()]
+    conn.close()
+    if len(found) == 3:
+        print("   ✅ cotiz_op, cotiz_importe, cotiz_tc confirmadas en wa_bot_sessions")
+    else:
+        print(f"   ❌ Solo se encontraron: {found}")
+        sys.exit(1)
+except Exception as e:
+    print(f"   ⚠️  Error en patch cotiz_* wa_bot_sessions: {e}")
 PYEOF
 echo ""
