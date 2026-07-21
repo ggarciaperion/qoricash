@@ -1229,3 +1229,22 @@ def api_limpiar_telefonos():
         db.session.rollback()
         log.error(f'[CRM] limpiar-telefonos error: {e}')
         return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+# ── Limpieza historial WA anterior a julio 2026 ───────────────────
+@crm_bp.route('/api/limpiar-wa-historial', methods=['POST'])
+@login_required
+@require_role('Master')
+def api_limpiar_wa_historial():
+    from datetime import date
+    from app.models.wa_bot_session import WaBotSession
+    cutoff = datetime(2026, 7, 1)
+    msgs_del = WaMessage.query.filter(WaMessage.created_at < cutoff).delete()
+    # Eliminar sesiones cuyos números no tengan mensajes después del cutoff
+    numeros_activos = {r[0] for r in db.session.query(WaMessage.numero).distinct().all()}
+    sesiones_del = WaBotSession.query.filter(
+        ~WaBotSession.numero.in_(numeros_activos)
+    ).delete(synchronize_session='fetch')
+    db.session.commit()
+    log.info(f'[CRM] Limpieza WA: {msgs_del} mensajes, {sesiones_del} sesiones eliminadas')
+    return jsonify({'ok': True, 'mensajes_eliminados': msgs_del, 'sesiones_eliminadas': sesiones_del})
