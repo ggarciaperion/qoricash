@@ -346,6 +346,13 @@ def _registrar_lead(numero, session):
 
 # ── Handler principal ──────────────────────────────────────────────
 
+def _nombre_valido(nombre):
+    """Retorna el nombre solo si contiene al menos una letra del alfabeto."""
+    if not nombre:
+        return ''
+    return nombre if re.search(r'[a-zA-ZáéíóúüñÁÉÍÓÚÜÑ]', nombre) else ''
+
+
 def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
     """
     Punto de entrada desde webhook_receive().
@@ -354,6 +361,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
     """
     try:
         session = WaBotSession.get_or_create(numero)
+        nombre = _nombre_valido(nombre)
         if nombre and not session.nombre:
             session.nombre = nombre
 
