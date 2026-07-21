@@ -9,13 +9,18 @@ body .main-wrapper {
   height: 100vh !important;
   min-height: unset !important;
   overflow: hidden !important;
+  /* Forzar padding exacto para que la CRM header quede pegada a la price bar */
+  padding-top: 88px !important;
+}
+body.has-pb-bar.has-sidebar .main-wrapper {
+  padding-top: 88px !important;
 }
 .footer { display: none !important; }
 .flash-container { display: none !important; }
 .main-content {
   flex: 1 !important;
   min-height: 0 !important;
-  height: 100% !important;
+  height: calc(100% - 0px) !important;
   padding: 0 !important;
   overflow: hidden !important;
   display: flex !important;
@@ -48,7 +53,7 @@ body .main-wrapper {
   justify-content: space-between;
   padding: 12px 16px;
   background: #202c33;
-  min-height: 60px;
+  height: 88px;
   flex-shrink: 0;
 }
 .crm-sb-logo {
@@ -260,7 +265,7 @@ body .main-wrapper {
   gap: 12px;
   padding: 10px 16px;
   background: #202c33;
-  min-height: 60px;
+  height: 88px;
   flex-shrink: 0;
 }
 .crm-chat-avatar {
