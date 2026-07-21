@@ -172,6 +172,71 @@ def api_enviar():
         return jsonify({'ok': False, 'error': resp.json().get('error', {}).get('message', 'Error API')}), 400
 
 
+# ── API — enviar imagen ──────────────────────────────────────────
+@crm_bp.route('/api/enviar-imagen', methods=['POST'])
+@login_required
+@require_role('Master')
+def api_enviar_imagen():
+    numero  = request.form.get('numero', '').strip()
+    caption = request.form.get('caption', '').strip()
+    imagen  = request.files.get('imagen')
+
+    if not numero or not imagen:
+        return jsonify({'ok': False, 'error': 'Faltan datos'}), 400
+
+    digits = ''.join(c for c in numero if c.isdigit())
+    if not digits.startswith('51'):
+        digits = f'51{digits}'
+    destino = f'+{digits}'
+
+    auth_hdr = {'Authorization': f'Bearer {WA_ACCESS_TOKEN}'}
+    mime     = imagen.mimetype or 'image/jpeg'
+
+    # 1. Subir media a WhatsApp
+    upload_url = f'https://graph.facebook.com/v19.0/{WA_PHONE_ID}/media'
+    try:
+        up = http_req.post(
+            upload_url,
+            headers=auth_hdr,
+            files={'file': (imagen.filename, imagen.stream, mime)},
+            data={'messaging_product': 'whatsapp', 'type': mime},
+            timeout=30,
+        )
+        up.raise_for_status()
+        media_id = up.json().get('id')
+    except Exception as e:
+        log.error(f'[CRM] Error subiendo imagen: {e}')
+        return jsonify({'ok': False, 'error': 'Error al subir imagen'}), 400
+
+    # 2. Enviar mensaje de imagen
+    payload = {
+        'messaging_product': 'whatsapp',
+        'to': destino,
+        'type': 'image',
+        'image': {'id': media_id},
+    }
+    if caption:
+        payload['image']['caption'] = caption
+
+    resp = http_req.post(
+        WA_API_URL,
+        headers={**auth_hdr, 'Content-Type': 'application/json'},
+        json=payload, timeout=15,
+    )
+    if resp.status_code == 200:
+        msg = WaMessage(
+            numero=destino, mensaje=caption or '[Imagen]',
+            direccion='saliente', leido=True, media_tipo='image',
+        )
+        db.session.add(msg)
+        db.session.commit()
+        return jsonify({'ok': True})
+    else:
+        err = resp.json().get('error', {}).get('message', 'Error API')
+        log.error(f'[CRM] Error enviando imagen a {destino}: {err}')
+        return jsonify({'ok': False, 'error': err}), 400
+
+
 # ── API — registro desde campana externa (script local) ──────────
 @crm_bp.route('/api/registro-campana', methods=['POST'])
 @csrf.exempt

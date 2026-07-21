@@ -3,423 +3,818 @@
 
 {% block head %}
 <style>
-  /* ── Layout ── */
-  .crm-wrap {
-    display: flex;
-    height: calc(100vh - 70px);
-    border-radius: 12px;
-    overflow: hidden;
-    background: var(--qori-gray-100, #f8f9fa);
-    border: 1px solid var(--qori-gray-200, #e9ecef);
-  }
+/* ── Anula padding del main-content para layout full-bleed ── */
+.main-content {
+  padding: 0 !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
 
-  /* ── Lista conversaciones ── */
-  .crm-sidebar {
-    width: 320px;
-    min-width: 280px;
-    background: #fff;
-    border-right: 1px solid #e9ecef;
-    display: flex;
-    flex-direction: column;
-  }
-  .crm-sidebar-header {
-    padding: 16px;
-    border-bottom: 1px solid #e9ecef;
-    background: #0D1B2A;
-  }
-  .crm-sidebar-header h6 {
-    color: #fff;
-    margin: 0;
-    font-weight: 700;
-    font-size: 0.95rem;
-  }
-  .crm-search {
-    padding: 10px 12px;
-    border-bottom: 1px solid #f1f3f5;
-  }
-  .crm-search input {
-    border-radius: 20px;
-    font-size: 0.82rem;
-    background: #f8f9fa;
-    border: 1px solid #e9ecef;
-    padding: 6px 14px;
-  }
-  .crm-conv-list {
-    flex: 1;
-    overflow-y: auto;
-  }
-  .crm-conv-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 12px 14px;
-    cursor: pointer;
-    border-bottom: 1px solid #f8f9fa;
-    transition: background .15s;
-  }
-  .crm-conv-item:hover   { background: #f8f9fa; }
-  .crm-conv-item.active  { background: rgba(0,222,168,.08); border-left: 3px solid #00DEA8; }
-  .crm-conv-avatar {
-    width: 42px; height: 42px;
-    border-radius: 50%;
-    background: #0D1B2A;
-    display: flex; align-items: center; justify-content: center;
-    color: #00DEA8;
-    font-weight: 700;
-    font-size: 1rem;
-    flex-shrink: 0;
-  }
-  .crm-conv-info { flex: 1; min-width: 0; }
-  .crm-conv-name {
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: #1e293b;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .crm-conv-preview {
-    font-size: 0.75rem;
-    color: #94a3b8;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .crm-conv-meta {
-    text-align: right;
-    flex-shrink: 0;
-  }
-  .crm-conv-time { font-size: 0.7rem; color: #94a3b8; }
-  .crm-badge {
-    background: #00DEA8;
-    color: #0D1B2A;
-    font-size: 0.65rem;
-    font-weight: 700;
-    padding: 1px 6px;
-    border-radius: 10px;
-    margin-top: 2px;
-    display: inline-block;
-  }
-  .crm-estado {
-    font-size: 0.62rem;
-    font-weight: 600;
-    padding: 1px 6px;
-    border-radius: 10px;
-    margin-top: 2px;
-    display: inline-block;
-  }
-  .crm-estado.respondio  { background: #dcfce7; color: #16a34a; }
-  .crm-estado.contactado { background: #fef9c3; color: #a16207; }
-  .crm-estado.nuevo      { background: #f1f5f9; color: #64748b; }
+/* ── Raiz ── */
+.crm-page {
+  display: flex;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #111b21;
+}
 
-  /* ── Chat area ── */
-  .crm-chat {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-  }
-  .crm-chat-header {
-    padding: 14px 20px;
-    background: #fff;
-    border-bottom: 1px solid #e9ecef;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
-  .crm-chat-avatar {
-    width: 38px; height: 38px;
-    border-radius: 50%;
-    background: #0D1B2A;
-    display: flex; align-items: center; justify-content: center;
-    color: #00DEA8;
-    font-weight: 700;
-    font-size: 0.95rem;
-  }
-  .crm-chat-name  { font-weight: 700; font-size: 0.9rem; color: #1e293b; }
-  .crm-chat-num   { font-size: 0.75rem; color: #94a3b8; }
-  .crm-messages {
-    flex: 1;
-    overflow-y: auto;
-    padding: 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    background: #f0f2f5;
-  }
-  .crm-empty {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    color: #94a3b8;
-    background: #f0f2f5;
-  }
-  .crm-empty i { font-size: 3rem; color: #cbd5e1; margin-bottom: 12px; }
+/* ══ SIDEBAR ══════════════════════════════════════════════ */
+.crm-sidebar {
+  width: 360px;
+  min-width: 260px;
+  display: flex;
+  flex-direction: column;
+  background: #111b21;
+  border-right: 1px solid #222e35;
+  flex-shrink: 0;
+}
 
-  /* ── Burbujas ── */
-  .crm-bubble-wrap {
-    display: flex;
-    align-items: flex-end;
-    gap: 6px;
-  }
-  .crm-bubble-wrap.saliente { flex-direction: row-reverse; }
-  .crm-bubble {
-    max-width: 70%;
-    padding: 8px 12px;
-    border-radius: 12px;
-    font-size: 0.85rem;
-    line-height: 1.45;
-    word-break: break-word;
-  }
-  .crm-bubble.entrante {
-    background: #fff;
-    color: #1e293b;
-    border-bottom-left-radius: 3px;
-    box-shadow: 0 1px 2px rgba(0,0,0,.08);
-  }
-  .crm-bubble.saliente {
-    background: #00DEA8;
-    color: #0D1B2A;
-    border-bottom-right-radius: 3px;
-    font-weight: 500;
-  }
-  .crm-bubble-time {
-    font-size: 0.68rem;
-    color: #94a3b8;
-    margin-top: 2px;
-    text-align: right;
-  }
-  .crm-bubble.saliente + .crm-bubble-time { color: rgba(13,27,42,.5); }
+.crm-sb-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: #202c33;
+  min-height: 60px;
+  flex-shrink: 0;
+}
+.crm-sb-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #e9edef;
+  font-weight: 700;
+  font-size: .95rem;
+}
+.crm-sb-logo i { color: #00DEA8; font-size: 1.4rem; }
+.crm-sb-badge {
+  background: #00DEA8;
+  color: #111b21;
+  font-size: .65rem;
+  font-weight: 700;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 9px;
+  padding: 0 5px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+.crm-sb-actions { display: flex; gap: 4px; }
+.crm-sb-actions button {
+  background: none;
+  border: none;
+  color: #aebac1;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.05rem;
+  cursor: pointer;
+  transition: all .15s;
+}
+.crm-sb-actions button:hover { background: rgba(255,255,255,.07); color: #e9edef; }
 
-  /* ── Media ── */
-  .crm-media-img {
-    max-width: 240px; max-height: 280px;
-    border-radius: 10px; display: block;
-    cursor: zoom-in; object-fit: cover;
-  }
-  .crm-sticker {
-    max-width: 120px; max-height: 120px;
-    background: transparent; object-fit: contain;
-  }
-  .crm-media-caption {
-    font-size: .8rem; color: #cbd5e1; margin-top: 4px;
-  }
-  .crm-media-audio {
-    display: block; width: 220px; margin: 2px 0;
-    filter: invert(0.85) hue-rotate(180deg); /* dark theme */
-  }
-  .crm-media-video {
-    max-width: 240px; max-height: 220px;
-    border-radius: 10px; display: block;
-  }
-  .crm-media-doc {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 6px 10px; border-radius: 8px;
-    background: rgba(255,255,255,.08); color: #e2e8f0;
-    text-decoration: none; font-size: .85rem;
-    border: 1px solid rgba(255,255,255,.12);
-  }
-  .crm-media-doc:hover { background: rgba(255,255,255,.14); color: #fff; }
-  .crm-bubble.saliente .crm-media-doc {
-    background: rgba(13,27,42,.12); color: #0d1b2a;
-    border-color: rgba(13,27,42,.2);
-  }
-  .crm-bubble.saliente .crm-media-doc:hover { background: rgba(13,27,42,.2); }
+/* Filter tabs */
+.crm-filter-tabs {
+  display: flex;
+  padding: 8px 12px;
+  gap: 6px;
+  background: #111b21;
+  border-bottom: 1px solid #222e35;
+  flex-shrink: 0;
+}
+.crm-ftab {
+  padding: 5px 14px;
+  border-radius: 20px;
+  border: none;
+  background: #202c33;
+  font-size: .75rem;
+  font-weight: 600;
+  color: #aebac1;
+  cursor: pointer;
+  transition: all .15s;
+}
+.crm-ftab.active { background: #00DEA8; color: #111b21; }
+.crm-ftab:hover:not(.active) { background: #2a3942; color: #e9edef; }
 
-  /* ── Input reply ── */
-  .crm-reply {
-    padding: 12px 16px;
-    background: #fff;
-    border-top: 1px solid #e9ecef;
-    display: flex;
-    gap: 10px;
-    align-items: flex-end;
-  }
-  .crm-reply textarea {
-    flex: 1;
-    border-radius: 20px;
-    border: 1px solid #e9ecef;
-    padding: 9px 16px;
-    font-size: 0.85rem;
-    resize: none;
-    max-height: 120px;
-    min-height: 42px;
-    line-height: 1.4;
-    background: #f8f9fa;
-  }
-  .crm-reply textarea:focus {
-    outline: none;
-    border-color: #00DEA8;
-    background: #fff;
-  }
-  .btn-send {
-    width: 42px; height: 42px;
-    border-radius: 50%;
-    background: #00DEA8;
-    color: #0D1B2A;
-    border: none;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 1.1rem;
-    flex-shrink: 0;
-    transition: background .15s;
-  }
-  .btn-send:hover { background: #00FFAA; }
-  .btn-send:disabled { background: #e9ecef; color: #94a3b8; }
+/* Search */
+.crm-search {
+  padding: 8px 12px;
+  background: #111b21;
+  flex-shrink: 0;
+}
+.crm-search-inner {
+  display: flex;
+  align-items: center;
+  background: #202c33;
+  border-radius: 8px;
+  padding: 7px 12px;
+  gap: 8px;
+}
+.crm-search-inner i { color: #8696a0; font-size: .9rem; flex-shrink: 0; }
+.crm-search-inner input {
+  border: none; outline: none;
+  font-size: .85rem; flex: 1;
+  color: #e9edef;
+  background: transparent;
+}
+.crm-search-inner input::placeholder { color: #8696a0; }
+.crm-search-inner .crm-clear-x {
+  color: #8696a0; cursor: pointer; font-size: .85rem;
+  display: none; flex-shrink: 0;
+}
+.crm-search-inner .crm-clear-x:hover { color: #e9edef; }
 
-  /* ── Scrollbar ── */
-  .crm-conv-list::-webkit-scrollbar,
-  .crm-messages::-webkit-scrollbar { width: 4px; }
-  .crm-conv-list::-webkit-scrollbar-thumb,
-  .crm-messages::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 4px; }
+/* Conv list */
+.crm-conv-list {
+  flex: 1;
+  overflow-y: auto;
+}
+.crm-conv-list::-webkit-scrollbar { width: 4px; }
+.crm-conv-list::-webkit-scrollbar-thumb { background: #2a3942; border-radius: 4px; }
+
+.crm-conv-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  cursor: pointer;
+  border-bottom: 1px solid #222e35;
+  transition: background .1s;
+}
+.crm-conv-item:hover  { background: #182229; }
+.crm-conv-item.active { background: #2a3942; }
+
+.crm-conv-avatar {
+  width: 48px; height: 48px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #1a3a5c, #0D1B2A);
+  display: flex; align-items: center; justify-content: center;
+  color: #00DEA8;
+  font-weight: 700;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+  text-transform: uppercase;
+}
+.crm-conv-body { flex: 1; min-width: 0; }
+.crm-conv-top {
+  display: flex; align-items: center;
+  justify-content: space-between; gap: 6px;
+  margin-bottom: 3px;
+}
+.crm-conv-name {
+  font-size: .9rem; font-weight: 600;
+  color: #e9edef;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.crm-conv-time { font-size: .7rem; color: #8696a0; white-space: nowrap; }
+.crm-conv-bottom {
+  display: flex; align-items: center;
+  justify-content: space-between; gap: 6px;
+}
+.crm-conv-preview {
+  font-size: .8rem; color: #8696a0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  flex: 1;
+}
+.crm-conv-badge {
+  background: #00DEA8; color: #111b21;
+  font-size: .65rem; font-weight: 700;
+  min-width: 20px; height: 20px;
+  border-radius: 10px; padding: 0 6px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.crm-estado { font-size: .68rem; font-weight: 600; padding: 2px 7px; border-radius: 10px; }
+.crm-estado.respondio  { background: rgba(0,222,168,.15); color: #00DEA8; }
+.crm-estado.contactado { background: rgba(255,203,107,.12); color: #ffcb6b; }
+.crm-estado.nuevo      { background: rgba(134,150,160,.12); color: #8696a0; }
+
+.crm-no-results {
+  text-align: center; padding: 50px 20px;
+  color: #8696a0; font-size: .85rem;
+}
+.crm-no-results i { font-size: 2.5rem; display: block; margin-bottom: 10px; color: #2a3942; }
+
+/* ══ MAIN CHAT ════════════════════════════════════════════ */
+.crm-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: #0b141a;
+  /* WhatsApp-style subtle pattern */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80'%3E%3Cg opacity='.03' fill='%23e9edef'%3E%3Ccircle cx='20' cy='20' r='3'/%3E%3Ccircle cx='60' cy='20' r='3'/%3E%3Ccircle cx='20' cy='60' r='3'/%3E%3Ccircle cx='60' cy='60' r='3'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+/* Empty state */
+.crm-empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #8696a0;
+}
+.crm-empty-icon {
+  width: 100px; height: 100px;
+  background: rgba(134,150,160,.08);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 2.8rem; margin-bottom: 24px;
+}
+.crm-empty-state h5 { color: #e9edef; font-weight: 300; font-size: 1.1rem; margin-bottom: 8px; }
+.crm-empty-state p  { font-size: .82rem; text-align: center; max-width: 280px; line-height: 1.6; }
+.crm-empty-state hr { border-color: #222e35; width: 60px; margin: 20px auto; }
+
+/* Chat panel */
+.crm-chat-panel {
+  display: none;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+.crm-chat-panel.visible { display: flex; }
+
+/* Chat header */
+.crm-chat-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: #202c33;
+  min-height: 60px;
+  flex-shrink: 0;
+}
+.crm-chat-avatar {
+  width: 42px; height: 42px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #0D1B2A, #1a3a5c);
+  border: 2px solid rgba(0,222,168,.25);
+  display: flex; align-items: center; justify-content: center;
+  color: #00DEA8; font-weight: 700; font-size: 1rem;
+  flex-shrink: 0;
+}
+.crm-chat-info   { flex: 1; min-width: 0; }
+.crm-chat-name   { font-weight: 700; font-size: .95rem; color: #e9edef; }
+.crm-chat-num    { font-size: .75rem; color: #8696a0; }
+.crm-hdr-actions { display: flex; gap: 4px; }
+.crm-hdr-actions button {
+  background: none; border: none; color: #aebac1;
+  width: 36px; height: 36px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1rem; cursor: pointer; transition: all .15s;
+}
+.crm-hdr-actions button:hover { background: rgba(255,255,255,.07); color: #e9edef; }
+
+/* Messages area */
+.crm-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 8%;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 0;
+}
+.crm-messages::-webkit-scrollbar { width: 5px; }
+.crm-messages::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); border-radius: 4px; }
+
+/* Date separator */
+.crm-date-sep {
+  display: flex; align-items: center; justify-content: center;
+  margin: 10px 0;
+}
+.crm-date-sep span {
+  background: #182229;
+  color: #8696a0;
+  font-size: .72rem;
+  font-weight: 500;
+  padding: 4px 12px;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.3);
+}
+
+/* Bubbles */
+.crm-bubble-row { display: flex; margin-bottom: 1px; }
+.crm-bubble-row.out { justify-content: flex-end; }
+.crm-bubble-row.in  { justify-content: flex-start; }
+
+.crm-bubble {
+  max-width: 65%;
+  padding: 7px 12px 5px;
+  border-radius: 8px;
+  position: relative;
+  word-break: break-word;
+  font-size: .875rem;
+  line-height: 1.48;
+  box-shadow: 0 1px 2px rgba(0,0,0,.25);
+}
+.crm-bubble.in {
+  background: #202c33;
+  color: #e9edef;
+  border-top-left-radius: 0;
+}
+.crm-bubble.out {
+  background: #005c4b;
+  color: #e9edef;
+  border-top-right-radius: 0;
+}
+
+/* Tails */
+.crm-bubble.in::before {
+  content: '';
+  position: absolute;
+  top: 0; left: -8px;
+  border: 8px solid transparent;
+  border-top-color: #202c33;
+  border-right: 0;
+  border-left: 0;
+}
+.crm-bubble.out::before {
+  content: '';
+  position: absolute;
+  top: 0; right: -8px;
+  border: 8px solid transparent;
+  border-top-color: #005c4b;
+  border-left: 0;
+  border-right: 0;
+}
+
+.crm-bubble-meta {
+  display: flex; align-items: center;
+  justify-content: flex-end; gap: 4px;
+  margin-top: 3px;
+}
+.crm-bubble-time { font-size: .68rem; color: rgba(233,237,239,.55); }
+.crm-tick { font-size: .8rem; color: #53bdeb; }
+
+/* Skeleton */
+.crm-skel {
+  border-radius: 8px;
+  background: linear-gradient(90deg, #202c33 25%, #2a3942 50%, #202c33 75%);
+  background-size: 200% 100%;
+  animation: skel-shine 1.3s infinite;
+  height: 38px;
+  box-shadow: 0 1px 2px rgba(0,0,0,.2);
+}
+@keyframes skel-shine {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Media */
+.crm-img {
+  max-width: 260px; max-height: 300px;
+  border-radius: 6px; display: block;
+  cursor: zoom-in; object-fit: cover;
+}
+.crm-sticker { max-width: 130px; max-height: 130px; object-fit: contain; display: block; }
+.crm-audio   { display: block; width: 220px; margin: 2px 0; filter: invert(.85) hue-rotate(180deg); }
+.crm-video   { max-width: 260px; max-height: 220px; border-radius: 6px; display: block; }
+.crm-doc {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 8px 12px; border-radius: 8px;
+  background: rgba(255,255,255,.06); color: #e9edef;
+  text-decoration: none; font-size: .82rem;
+  border: 1px solid rgba(255,255,255,.08);
+  transition: background .12s;
+}
+.crm-doc:hover { background: rgba(255,255,255,.1); color: #fff; }
+.crm-caption { font-size: .78rem; color: rgba(233,237,239,.6); margin-top: 4px; }
+
+/* ── Footer ── */
+.crm-footer {
+  background: #202c33;
+  border-top: 1px solid #2a3942;
+  flex-shrink: 0;
+  padding: 8px 12px;
+}
+
+/* Image preview bar */
+.crm-img-preview-bar {
+  display: none;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0 10px;
+}
+.crm-img-preview-bar img {
+  height: 64px; width: auto;
+  border-radius: 6px; object-fit: cover;
+  box-shadow: 0 2px 6px rgba(0,0,0,.4);
+}
+.crm-img-preview-bar .crm-rm-img {
+  background: #f31260; color: #fff; border: none;
+  border-radius: 50%; width: 22px; height: 22px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: .7rem; cursor: pointer; flex-shrink: 0;
+}
+.crm-img-preview-name {
+  font-size: .78rem; color: #8696a0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* Input row */
+.crm-footer-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  position: relative;
+}
+.crm-footer-icon-btn {
+  width: 42px; height: 42px;
+  border-radius: 50%; border: none;
+  background: none; color: #8696a0;
+  font-size: 1.3rem;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; flex-shrink: 0;
+  transition: all .15s;
+}
+.crm-footer-icon-btn:hover { color: #00DEA8; background: rgba(0,222,168,.08); }
+
+.crm-input-wrap {
+  flex: 1;
+  background: #2a3942;
+  border-radius: 24px;
+  display: flex;
+  align-items: flex-end;
+  padding: 8px 14px;
+  min-height: 42px;
+  gap: 8px;
+  transition: box-shadow .15s;
+}
+.crm-input-wrap:focus-within { box-shadow: 0 0 0 1px #00DEA8; }
+.crm-textarea {
+  flex: 1; border: none; outline: none; resize: none;
+  font-size: .875rem; line-height: 1.45;
+  max-height: 120px; min-height: 22px;
+  background: transparent; color: #e9edef;
+  padding: 0; font-family: inherit;
+}
+.crm-textarea::placeholder { color: #8696a0; }
+
+.crm-send-btn {
+  width: 42px; height: 42px;
+  border-radius: 50%; border: none;
+  background: #00DEA8; color: #111b21;
+  font-size: 1.05rem;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; flex-shrink: 0;
+  transition: all .15s;
+  box-shadow: 0 2px 8px rgba(0,222,168,.3);
+}
+.crm-send-btn:hover   { background: #00ffaa; transform: scale(1.06); }
+.crm-send-btn:disabled { background: #2a3942; color: #8696a0; box-shadow: none; transform: none; cursor: default; }
+
+/* ── Emoji picker ── */
+.crm-emoji-picker {
+  position: absolute;
+  bottom: 54px;
+  left: 0;
+  width: 330px;
+  background: #233138;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,.5);
+  display: none;
+  flex-direction: column;
+  z-index: 100;
+  border: 1px solid #2a3942;
+  overflow: hidden;
+}
+.crm-emoji-picker.open { display: flex; }
+
+.crm-emoji-cats {
+  display: flex;
+  padding: 8px 8px 0;
+  gap: 2px;
+  border-bottom: 1px solid #2a3942;
+  overflow-x: auto;
+}
+.crm-emoji-cats::-webkit-scrollbar { display: none; }
+.crm-emoji-cat-btn {
+  padding: 6px 10px; border: none;
+  background: none; font-size: 1.1rem;
+  border-radius: 6px 6px 0 0; cursor: pointer;
+  border-bottom: 2px solid transparent; flex-shrink: 0;
+  transition: all .1s;
+}
+.crm-emoji-cat-btn.active { border-bottom-color: #00DEA8; background: rgba(0,222,168,.08); }
+.crm-emoji-cat-btn:hover  { background: rgba(255,255,255,.06); }
+
+.crm-emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 1px;
+  padding: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+.crm-emoji-grid::-webkit-scrollbar { width: 4px; }
+.crm-emoji-grid::-webkit-scrollbar-thumb { background: #2a3942; border-radius: 4px; }
+.crm-emoji-btn {
+  font-size: 1.3rem; border: none; background: none;
+  border-radius: 6px; cursor: pointer; padding: 4px;
+  transition: background .08s; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+}
+.crm-emoji-btn:hover { background: rgba(255,255,255,.08); }
+
+/* ── Lightbox ── */
+.crm-lightbox {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.92); z-index: 9999;
+  align-items: center; justify-content: center;
+  backdrop-filter: blur(4px);
+}
+.crm-lightbox.open { display: flex; }
+.crm-lightbox img {
+  max-width: 90vw; max-height: 90vh;
+  border-radius: 8px;
+  box-shadow: 0 8px 40px rgba(0,0,0,.6);
+}
+.crm-lightbox-close {
+  position: absolute; top: 16px; right: 20px;
+  background: rgba(255,255,255,.1); border: none;
+  color: #fff; font-size: 1.4rem; cursor: pointer;
+  width: 40px; height: 40px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .15s;
+}
+.crm-lightbox-close:hover { background: rgba(255,255,255,.2); }
+
+/* ── Toast ── */
+.crm-toast {
+  position: fixed; bottom: 80px; right: 20px;
+  z-index: 9999; padding: 10px 18px;
+  border-radius: 8px; font-size: .85rem; font-weight: 500;
+  box-shadow: 0 4px 16px rgba(0,0,0,.4);
+  animation: toast-in .25s ease;
+}
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Spin animation ── */
+@keyframes spin { to { transform: rotate(360deg); } }
+.spin { animation: spin .7s linear infinite; display: inline-block; }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container-fluid py-3 px-3 px-md-4">
-  <div class="d-flex align-items-center mb-3 gap-2">
-    <i class="bi bi-whatsapp fs-5" style="color:#25D366;"></i>
-    <h5 class="mb-0 fw-bold">CRM WhatsApp</h5>
-    <span class="badge ms-1" id="totalBadge" style="background:#00DEA8;color:#0D1B2A;display:none;"></span>
-  </div>
+<div class="crm-page">
 
-  <div class="crm-wrap">
-    <!-- Sidebar conversaciones -->
-    <div class="crm-sidebar">
-      <div class="crm-sidebar-header">
-        <h6><i class="bi bi-chat-dots me-2"></i>Conversaciones</h6>
-      </div>
-      <div class="crm-search">
-        <input type="text" id="searchInput" class="form-control" placeholder="Buscar...">
-      </div>
-      <div class="crm-conv-list" id="convList">
-        <div class="text-center text-muted py-4" style="font-size:.82rem;">
-          <i class="bi bi-arrow-clockwise spin me-1"></i> Cargando...
-        </div>
-      </div>
-    </div>
+  <!-- ════ SIDEBAR ════ -->
+  <aside class="crm-sidebar">
 
-    <!-- Chat -->
-    <div class="crm-chat">
-      <!-- Header (oculto hasta seleccionar) -->
-      <div class="crm-chat-header" id="chatHeader" style="display:none!important;">
-        <div class="crm-chat-avatar" id="chatAvatar">?</div>
-        <div>
-          <div class="crm-chat-name" id="chatName">—</div>
-          <div class="crm-chat-num"  id="chatNum">—</div>
-        </div>
+    <div class="crm-sb-header">
+      <div class="crm-sb-logo">
+        <i class="bi bi-whatsapp"></i>
+        <span>CRM WhatsApp</span>
+        <span class="crm-sb-badge" id="totalBadge"></span>
       </div>
-
-      <!-- Mensajes -->
-      <div class="crm-messages" id="chatMessages">
-        <div class="crm-empty" id="emptyState">
-          <i class="bi bi-chat-square-dots"></i>
-          <div style="font-size:.9rem;font-weight:600;color:#64748b;">Selecciona una conversación</div>
-          <div style="font-size:.78rem;margin-top:4px;">para ver los mensajes</div>
-        </div>
-      </div>
-
-      <!-- Reply -->
-      <div class="crm-reply" id="chatReply" style="display:none!important;">
-        <textarea id="replyInput" rows="1" placeholder="Escribe un mensaje..."></textarea>
-        <button class="btn-send" id="sendBtn" title="Enviar">
-          <i class="bi bi-send-fill"></i>
+      <div class="crm-sb-actions">
+        <button id="refreshBtn" title="Actualizar" onclick="loadConversaciones()">
+          <i class="bi bi-arrow-clockwise" id="refreshIcon"></i>
         </button>
       </div>
     </div>
-  </div>
+
+    <div class="crm-filter-tabs">
+      <button class="crm-ftab active" onclick="setFilter('todos',this)">Todos</button>
+      <button class="crm-ftab" onclick="setFilter('no_leidos',this)">No leídos</button>
+      <button class="crm-ftab" onclick="setFilter('respondio',this)">Respondieron</button>
+    </div>
+
+    <div class="crm-search">
+      <div class="crm-search-inner">
+        <i class="bi bi-search"></i>
+        <input type="text" id="searchInput" placeholder="Buscar conversación...">
+        <i class="bi bi-x-lg crm-clear-x" id="clearX" onclick="clearSearch()"></i>
+      </div>
+    </div>
+
+    <div class="crm-conv-list" id="convList">
+      <div class="crm-no-results">
+        <i class="bi bi-arrow-clockwise spin"></i>
+        Cargando...
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- ════ MAIN ════ -->
+  <main class="crm-main">
+
+    <!-- Empty state -->
+    <div class="crm-empty-state" id="emptyState">
+      <div class="crm-empty-icon"><i class="bi bi-whatsapp" style="color:#00DEA8;"></i></div>
+      <h5>CRM WhatsApp QoriCash</h5>
+      <p>Selecciona una conversación para ver los mensajes y responder en tiempo real.</p>
+      <hr>
+      <p style="font-size:.75rem;">Los mensajes se actualizan automáticamente cada 5 segundos.</p>
+    </div>
+
+    <!-- Chat panel (oculto hasta seleccionar) -->
+    <div class="crm-chat-panel" id="chatPanel">
+
+      <!-- Header -->
+      <div class="crm-chat-header">
+        <div class="crm-chat-avatar" id="chatAvatar">?</div>
+        <div class="crm-chat-info">
+          <div class="crm-chat-name" id="chatName">—</div>
+          <div class="crm-chat-num"  id="chatNum">—</div>
+        </div>
+        <div class="crm-hdr-actions">
+          <button title="Refrescar" onclick="reloadChat()"><i class="bi bi-arrow-clockwise"></i></button>
+        </div>
+      </div>
+
+      <!-- Messages -->
+      <div class="crm-messages" id="chatMessages"></div>
+
+      <!-- Footer -->
+      <div class="crm-footer">
+
+        <!-- Preview imagen adjunta -->
+        <div class="crm-img-preview-bar" id="imgPreviewBar">
+          <img id="imgPreviewThumb" src="" alt="preview">
+          <div class="crm-img-preview-name" id="imgPreviewName"></div>
+          <button class="crm-rm-img" onclick="removeImage()" title="Quitar">✕</button>
+        </div>
+
+        <!-- Fila de input -->
+        <div class="crm-footer-row">
+
+          <!-- Emoji picker (flotante) -->
+          <div class="crm-emoji-picker" id="emojiPicker">
+            <div class="crm-emoji-cats" id="emojiCats"></div>
+            <div class="crm-emoji-grid" id="emojiGrid"></div>
+          </div>
+
+          <!-- Botón emoji -->
+          <button class="crm-footer-icon-btn" id="emojiBtn"
+            title="Emojis" onclick="toggleEmoji(event)">
+            <i class="bi bi-emoji-smile"></i>
+          </button>
+
+          <!-- Botón adjuntar imagen -->
+          <button class="crm-footer-icon-btn" title="Adjuntar imagen"
+            onclick="document.getElementById('fileInput').click()">
+            <i class="bi bi-paperclip"></i>
+          </button>
+          <input type="file" id="fileInput" accept="image/*,image/gif"
+            style="display:none" onchange="onFileSelect(event)">
+
+          <!-- Área de texto -->
+          <div class="crm-input-wrap">
+            <textarea class="crm-textarea" id="replyInput" rows="1"
+              placeholder="Escribe un mensaje..."></textarea>
+          </div>
+
+          <!-- Enviar -->
+          <button class="crm-send-btn" id="sendBtn" title="Enviar (Enter)">
+            <i class="bi bi-send-fill"></i>
+          </button>
+
+        </div>
+      </div><!-- /footer -->
+
+    </div><!-- /chatPanel -->
+
+  </main>
+
+</div><!-- /crm-page -->
+
+<!-- Lightbox -->
+<div class="crm-lightbox" id="lightbox" onclick="closeLightbox()">
+  <button class="crm-lightbox-close" onclick="closeLightbox()">
+    <i class="bi bi-x-lg"></i>
+  </button>
+  <img id="lightboxImg" src="" alt="">
 </div>
 {% endblock %}
 
+
 {% block scripts %}
 <script>
-let activeNum = null;
-let allConvs  = [];
-let pollTimer = null;
+// ══════════════════════════════════════════════════════
+//  Estado global
+// ══════════════════════════════════════════════════════
+let activeNum    = null;
+let allConvs     = [];
+let activeFilter = 'todos';
+let pollTimer    = null;
+let pendingFile  = null;
 
-// ── Cargar conversaciones ──────────────────────────────────────────
+// ══════════════════════════════════════════════════════
+//  Conversaciones
+// ══════════════════════════════════════════════════════
 async function loadConversaciones() {
+  const icon = document.getElementById('refreshIcon');
+  icon.classList.add('spin');
   try {
     const res = await fetch('/crm/api/conversaciones', { credentials: 'same-origin' });
-    if (!res.ok) {
-      document.getElementById('convList').innerHTML =
-        `<div class="text-center text-danger py-4" style="font-size:.8rem;">Error ${res.status}: ${res.statusText}</div>`;
-      return;
-    }
+    if (!res.ok) throw new Error(res.statusText);
     allConvs = await res.json();
-  } catch(e) {
+  } catch (e) {
     document.getElementById('convList').innerHTML =
-      `<div class="text-center text-danger py-4" style="font-size:.8rem;">Error: ${e.message}</div>`;
+      `<div class="crm-no-results"><i class="bi bi-wifi-off"></i>Sin conexión<br><small>${e.message}</small></div>`;
     return;
+  } finally {
+    icon.classList.remove('spin');
   }
-  renderConvs(allConvs);
-
-  const total = allConvs.reduce((s, c) => s + c.no_leidos, 0);
-  const badge = document.getElementById('totalBadge');
-  if (total > 0) {
-    badge.textContent = total;
-    badge.style.display = '';
-  } else {
-    badge.style.display = 'none';
-  }
+  renderConvs();
+  updateBadge();
 }
 
-function renderConvs(convs) {
-  const q    = document.getElementById('searchInput').value.toLowerCase();
-  const list = convs.filter(c =>
-    c.nombre.toLowerCase().includes(q) ||
+function updateBadge() {
+  const total = allConvs.reduce((s, c) => s + (c.no_leidos || 0), 0);
+  const b = document.getElementById('totalBadge');
+  b.textContent = total;
+  b.style.display = total > 0 ? 'flex' : 'none';
+}
+
+function setFilter(f, btn) {
+  activeFilter = f;
+  document.querySelectorAll('.crm-ftab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderConvs();
+}
+
+function clearSearch() {
+  document.getElementById('searchInput').value = '';
+  document.getElementById('clearX').style.display = 'none';
+  renderConvs();
+}
+
+function renderConvs() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  let list = allConvs.filter(c =>
+    (c.nombre || '').toLowerCase().includes(q) ||
     c.numero.includes(q) ||
-    c.empresa.toLowerCase().includes(q)
+    (c.empresa || '').toLowerCase().includes(q)
   );
+  if (activeFilter === 'no_leidos') list = list.filter(c => c.no_leidos > 0);
+  if (activeFilter === 'respondio') list = list.filter(c => c.estado === 'respondio');
+
   const el = document.getElementById('convList');
   if (!list.length) {
-    el.innerHTML = '<div class="text-center text-muted py-4" style="font-size:.82rem;">Sin conversaciones</div>';
+    el.innerHTML = `<div class="crm-no-results">
+      <i class="bi bi-chat-square"></i>Sin conversaciones</div>`;
     return;
   }
-  el.innerHTML = list.map(c => `
-    <div class="crm-conv-item ${c.numero === activeNum ? 'active' : ''}"
-         onclick="selectConv('${c.numero}', '${escHtml(c.nombre)}', '${escHtml(c.empresa)}')">
-      <div class="crm-conv-avatar">${(c.nombre || c.numero).charAt(0).toUpperCase()}</div>
-      <div class="crm-conv-info">
-        <div class="crm-conv-name">${escHtml(c.nombre)}</div>
-        <div class="crm-conv-preview">${c.direccion === 'saliente' ? '↗ ' : ''}${escHtml(c.ultimo)}</div>
+
+  el.innerHTML = list.map(c => {
+    const init   = (c.nombre || c.numero).charAt(0).toUpperCase();
+    const isAct  = c.numero === activeNum;
+    const arrow  = c.direccion === 'saliente'
+      ? `<i class="bi bi-check2" style="color:#8696a0;font-size:.75rem;"></i> ` : '';
+    const badge  = c.no_leidos > 0
+      ? `<span class="crm-conv-badge">${c.no_leidos}</span>`
+      : `<span class="crm-estado ${c.estado}">${estadoLabel(c.estado)}</span>`;
+    return `<div class="crm-conv-item${isAct ? ' active' : ''}"
+        onclick="selectConv('${c.numero}','${esc(c.nombre)}','${esc(c.empresa)}')">
+      <div class="crm-conv-avatar">${init}</div>
+      <div class="crm-conv-body">
+        <div class="crm-conv-top">
+          <span class="crm-conv-name">${esc(c.nombre || c.numero)}</span>
+          <span class="crm-conv-time">${c.hora}</span>
+        </div>
+        <div class="crm-conv-bottom">
+          <span class="crm-conv-preview">${arrow}${esc(c.ultimo)}</span>
+          ${badge}
+        </div>
       </div>
-      <div class="crm-conv-meta">
-        <div class="crm-conv-time">${c.hora}</div>
-        ${c.no_leidos > 0
-          ? `<span class="crm-badge">${c.no_leidos}</span>`
-          : `<span class="crm-estado ${c.estado}">${estadoLabel(c.estado)}</span>`
-        }
-      </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
-// ── Seleccionar conversación ───────────────────────────────────────
+// ══════════════════════════════════════════════════════
+//  Seleccionar conversación
+// ══════════════════════════════════════════════════════
 async function selectConv(numero, nombre, empresa) {
   activeNum = numero;
-  renderConvs(allConvs);
+  renderConvs();
 
-  document.getElementById('chatHeader').style.cssText = '';
-  document.getElementById('chatReply').style.cssText  = '';
   document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('chatPanel').classList.add('visible');
 
-  const initial = (nombre || numero).charAt(0).toUpperCase();
-  document.getElementById('chatAvatar').textContent = initial;
+  const init = (nombre || numero).charAt(0).toUpperCase();
+  document.getElementById('chatAvatar').textContent = init;
   document.getElementById('chatName').textContent   = nombre || numero;
   document.getElementById('chatNum').textContent    = numero + (empresa ? ` · ${empresa}` : '');
 
-  // Mostrar skeleton inmediatamente
-  const el = document.getElementById('chatMessages');
-  el.innerHTML = `<div style="display:flex;flex-direction:column;gap:10px;padding:4px 0;">
-    ${[70,45,80,55,65].map((w,i) => `
-    <div class="crm-bubble-wrap ${i%2===0?'entrante':'saliente'}" style="opacity:.35;">
-      <div class="crm-bubble ${i%2===0?'entrante':'saliente'}"
-           style="width:${w}%;height:34px;border-radius:12px;background:${i%2===0?'#e2e8f0':'#b2f5e0'};"></div>
-    </div>`).join('')}
-  </div>`;
+  showSkeleton();
+  document.getElementById('replyInput').focus();
 
-  // Cargar mensajes y refrescar badges en paralelo
+  // Paralelo: mensajes + badges
   const [msgs] = await Promise.all([
     fetch(`/crm/api/mensajes/${encodeURIComponent(numero)}`).then(r => r.json()),
     loadConversaciones(),
@@ -427,133 +822,376 @@ async function selectConv(numero, nombre, empresa) {
   if (activeNum === numero) renderMensajes(msgs);
 }
 
-async function loadMensajes(numero) {
-  const msgs = await fetch(`/crm/api/mensajes/${encodeURIComponent(numero)}`).then(r => r.json());
-  if (activeNum === numero) renderMensajes(msgs);
+function reloadChat() {
+  if (!activeNum) return;
+  showSkeleton();
+  fetch(`/crm/api/mensajes/${encodeURIComponent(activeNum)}`)
+    .then(r => r.json()).then(msgs => { if (activeNum) renderMensajes(msgs); });
 }
 
-function renderBubbleContent(m) {
-  const mid = m.media_id;
-  const tipo = m.media_tipo;
-  const url = mid ? `/crm/api/media/${mid}` : '';
-  if (tipo === 'image' || tipo === 'sticker') {
-    const label = m.mensaje && m.mensaje !== '[Imagen]' && m.mensaje !== '[Sticker]'
-      ? `<div class="crm-media-caption">${escHtml(m.mensaje)}</div>` : '';
-    return `<img class="crm-media-img${tipo === 'sticker' ? ' crm-sticker' : ''}"
-      src="${url}" alt="${tipo}" loading="lazy"
-      onclick="window.open('${url}','_blank')">${label}`;
-  }
-  if (tipo === 'audio') {
-    return `<audio class="crm-media-audio" controls preload="none">
-      <source src="${url}"><span style="color:#94a3b8;font-size:.8rem">🎤 Audio de voz</span>
-    </audio>`;
-  }
-  if (tipo === 'video') {
-    const caption = m.mensaje && m.mensaje !== '[Video]'
-      ? `<div class="crm-media-caption">${escHtml(m.mensaje)}</div>` : '';
-    return `<video class="crm-media-video" controls preload="none">
-      <source src="${url}">
-    </video>${caption}`;
-  }
-  if (tipo === 'document') {
-    return `<a class="crm-media-doc" href="${url}" download="${escHtml(m.mensaje)}" target="_blank">
-      <i class="bi bi-file-earmark-arrow-down"></i> ${escHtml(m.mensaje)}
-    </a>`;
-  }
-  // Tarjeta de contacto compartida por WhatsApp
-  if (m.mensaje && m.mensaje.startsWith('[CONTACTO:')) {
-    try {
-      const data = JSON.parse(m.mensaje.slice(10, -1));
-      const phones = (data.phones || []).map(p =>
-        `<a href="https://wa.me/${p.replace(/\D/g,'')}" target="_blank" style="color:#4ade80;text-decoration:none;">${escHtml(p)}</a>`
-      ).join('<br>');
-      const emails = (data.emails || []).map(e =>
-        `<a href="mailto:${escHtml(e)}" style="color:#93c5fd;text-decoration:none;">${escHtml(e)}</a>`
-      ).join('<br>');
-      return `<div style="display:flex;align-items:flex-start;gap:10px;background:rgba(255,255,255,.07);border-radius:10px;padding:10px 12px;min-width:180px;">
-        <div style="font-size:1.5rem;line-height:1;">👤</div>
-        <div>
-          <div style="font-weight:700;font-size:.9rem;margin-bottom:3px;">${escHtml(data.name||'Contacto')}</div>
-          ${phones ? `<div style="font-size:.78rem;margin-bottom:2px;">${phones}</div>` : ''}
-          ${emails ? `<div style="font-size:.75rem;">${emails}</div>` : ''}
-        </div>
-      </div>`;
-    } catch(e) { /* fallback */ }
-  }
-  return escHtml(m.mensaje);
+function showSkeleton() {
+  const widths = [52, 37, 68, 45, 58, 33, 61];
+  document.getElementById('chatMessages').innerHTML =
+    widths.map((w, i) =>
+      `<div class="crm-bubble-row ${i % 2 === 0 ? 'in' : 'out'}">
+        <div class="crm-skel" style="width:${w}%;max-width:65%;"></div>
+      </div>`
+    ).join('');
 }
 
+// ══════════════════════════════════════════════════════
+//  Render mensajes
+// ══════════════════════════════════════════════════════
 function renderMensajes(msgs) {
   const el = document.getElementById('chatMessages');
   if (!msgs.length) {
-    el.innerHTML = '<div style="text-align:center;color:#94a3b8;font-size:.8rem;margin-top:20px;">Sin mensajes aún</div>';
+    el.innerHTML = `<div style="text-align:center;color:#8696a0;font-size:.82rem;
+      margin-top:40px;">Sin mensajes aún</div>`;
     return;
   }
-  el.innerHTML = msgs.map(m => `
-    <div class="crm-bubble-wrap ${m.direccion}">
-      <div>
-        <div class="crm-bubble ${m.direccion}">${renderBubbleContent(m)}</div>
-        <div class="crm-bubble-time">${m.created_at}</div>
+  let html = '';
+  let lastDate = '';
+  msgs.forEach(m => {
+    const dateStr = (m.created_at || '').split(' ')[0];
+    if (dateStr && dateStr !== lastDate) {
+      html += `<div class="crm-date-sep"><span>${fmtDate(dateStr)}</span></div>`;
+      lastDate = dateStr;
+    }
+    const dir  = m.direccion === 'saliente' ? 'out' : 'in';
+    const time = (m.created_at || '').split(' ')[1] || '';
+    const tick = dir === 'out'
+      ? `<i class="bi bi-check2-all crm-tick" title="Enviado"></i>` : '';
+    html += `<div class="crm-bubble-row ${dir}">
+      <div class="crm-bubble ${dir}">
+        ${renderContent(m)}
+        <div class="crm-bubble-meta">
+          <span class="crm-bubble-time">${time}</span>
+          ${tick}
+        </div>
       </div>
-    </div>`).join('');
+    </div>`;
+  });
+  el.innerHTML = html;
   el.scrollTop = el.scrollHeight;
 }
 
-// ── Enviar mensaje ─────────────────────────────────────────────────
+function renderContent(m) {
+  const mid  = m.media_id;
+  const tipo = m.media_tipo;
+  const url  = mid ? `/crm/api/media/${mid}` : '';
+
+  if (tipo === 'image') {
+    const cap = m.mensaje && !['[Imagen]', '[image]'].includes(m.mensaje)
+      ? `<div class="crm-caption">${esc(m.mensaje)}</div>` : '';
+    return `<img class="crm-img" src="${url}" loading="lazy"
+      onclick="openLightbox('${url}')">${cap}`;
+  }
+  if (tipo === 'sticker') {
+    return `<img class="crm-sticker" src="${url}" alt="sticker">`;
+  }
+  if (tipo === 'audio') {
+    return `<audio class="crm-audio" controls preload="none">
+      <source src="${url}"><span style="font-size:.8rem;">🎤 Audio</span></audio>`;
+  }
+  if (tipo === 'video') {
+    const cap = m.mensaje && m.mensaje !== '[Video]'
+      ? `<div class="crm-caption">${esc(m.mensaje)}</div>` : '';
+    return `<video class="crm-video" controls preload="none">
+      <source src="${url}"></video>${cap}`;
+  }
+  if (tipo === 'document') {
+    return `<a class="crm-doc" href="${url}" download="${esc(m.mensaje)}" target="_blank">
+      <i class="bi bi-file-earmark-arrow-down"></i>${esc(m.mensaje)}</a>`;
+  }
+  if (m.mensaje && m.mensaje.startsWith('[CONTACTO:')) {
+    try {
+      const d = JSON.parse(m.mensaje.slice(10, -1));
+      return `<div style="display:flex;align-items:flex-start;gap:8px;">
+        <span style="font-size:1.5rem;">👤</span>
+        <div>
+          <div style="font-weight:700;">${esc(d.name || 'Contacto')}</div>
+          ${(d.phones || []).map(p =>
+            `<div style="font-size:.8rem;color:#00DEA8;">${esc(p)}</div>`
+          ).join('')}
+        </div>
+      </div>`;
+    } catch (e) { /* fallback texto */ }
+  }
+  return esc(m.mensaje);
+}
+
+function fmtDate(ddmmyyyy) {
+  if (!ddmmyyyy) return '';
+  const [d, mo, y] = ddmmyyyy.split('/');
+  const dt    = new Date(+y, mo - 1, +d);
+  const today = new Date();
+  const ayer  = new Date(); ayer.setDate(today.getDate() - 1);
+  if (dt.toDateString() === today.toDateString()) return 'Hoy';
+  if (dt.toDateString() === ayer.toDateString())  return 'Ayer';
+  return dt.toLocaleDateString('es-PE', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+// ══════════════════════════════════════════════════════
+//  Enviar texto
+// ══════════════════════════════════════════════════════
 document.getElementById('sendBtn').addEventListener('click', enviar);
 document.getElementById('replyInput').addEventListener('keydown', e => {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviar(); }
 });
+document.getElementById('replyInput').addEventListener('input', function () {
+  this.style.height = 'auto';
+  this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+});
 
 async function enviar() {
-  const input  = document.getElementById('replyInput');
-  const texto  = input.value.trim();
-  if (!texto || !activeNum) return;
+  if (!activeNum) return;
+  if (pendingFile) { await enviarImagen(); return; }
+
+  const input = document.getElementById('replyInput');
+  const texto = input.value.trim();
+  if (!texto) return;
 
   const btn = document.getElementById('sendBtn');
   btn.disabled = true;
-  input.value  = '';
+  const textoEnv = texto;
+  input.value = '';
+  input.style.height = 'auto';
 
-  const res = await fetch('/crm/api/enviar', {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
-    body:    JSON.stringify({ numero: activeNum, mensaje: texto }),
-  });
-  const data = await res.json();
-  btn.disabled = false;
+  // Burbuja optimista
+  const el  = document.getElementById('chatMessages');
+  const now = new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
+  el.innerHTML += `<div class="crm-bubble-row out">
+    <div class="crm-bubble out">
+      ${esc(textoEnv)}
+      <div class="crm-bubble-meta">
+        <span class="crm-bubble-time">${now}</span>
+        <i class="bi bi-check2 crm-tick"></i>
+      </div>
+    </div>
+  </div>`;
+  el.scrollTop = el.scrollHeight;
 
-  if (data.ok) {
-    await loadMensajes(activeNum);
-  } else {
-    alert('Error al enviar: ' + (data.error || 'Intenta de nuevo'));
+  try {
+    const res = await fetch('/crm/api/enviar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+      body:   JSON.stringify({ numero: activeNum, mensaje: textoEnv }),
+    });
+    const data = await res.json();
+    if (!data.ok) showToast('Error: ' + (data.error || 'Intenta de nuevo'), 'error');
+  } catch (e) {
+    showToast('Error de conexión', 'error');
+  } finally {
+    btn.disabled = false;
   }
 }
 
-// ── Polling cada 5s ────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════
+//  Adjuntar imagen
+// ══════════════════════════════════════════════════════
+function onFileSelect(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  pendingFile = file;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    document.getElementById('imgPreviewThumb').src = ev.target.result;
+    document.getElementById('imgPreviewName').textContent = file.name;
+    document.getElementById('imgPreviewBar').style.display = 'flex';
+    document.getElementById('replyInput').placeholder = 'Agrega un caption (opcional)...';
+    document.getElementById('replyInput').focus();
+  };
+  reader.readAsDataURL(file);
+  e.target.value = '';
+}
+
+function removeImage() {
+  pendingFile = null;
+  document.getElementById('imgPreviewThumb').src = '';
+  document.getElementById('imgPreviewBar').style.display = 'none';
+  document.getElementById('replyInput').placeholder = 'Escribe un mensaje...';
+}
+
+async function enviarImagen() {
+  if (!pendingFile || !activeNum) return;
+  const btn = document.getElementById('sendBtn');
+  btn.disabled = true;
+  showToast('Enviando imagen...', 'info');
+
+  const caption = document.getElementById('replyInput').value.trim();
+  const fd = new FormData();
+  fd.append('numero',  activeNum);
+  fd.append('imagen',  pendingFile);
+  if (caption) fd.append('caption', caption);
+
+  try {
+    const res  = await fetch('/crm/api/enviar-imagen', {
+      method:  'POST',
+      headers: { 'X-CSRFToken': getCsrf() },
+      body:    fd,
+    });
+    const data = await res.json();
+    if (data.ok) {
+      removeImage();
+      document.getElementById('replyInput').value = '';
+      document.getElementById('replyInput').style.height = 'auto';
+      showToast('Imagen enviada', 'ok');
+      reloadChat();
+    } else {
+      showToast('Error: ' + (data.error || 'No se pudo enviar'), 'error');
+    }
+  } catch (e) {
+    showToast('Error de conexión', 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ══════════════════════════════════════════════════════
+//  Emoji picker
+// ══════════════════════════════════════════════════════
+const EMOJIS = {
+  '😊': ['😀','😃','😄','😁','😆','😅','😂','🤣','😊','😇','🙂','😉','😍','🥰','😘',
+          '😋','😛','😜','🤪','😎','🤩','🥳','😏','😒','😢','😭','😤','😠','🤬','🤯',
+          '😳','😱','😨','🤗','🤔','🤫','🤥','😐','😑','😬','🙄','😮','😴','🥱','😷'],
+  '👋': ['👋','✋','🤚','🖖','👌','✌️','🤞','🤟','🤘','🤙','👈','👉','👆','👇','☝️',
+          '👍','👎','✊','👊','🤛','🤜','👏','🙌','🤝','🙏','💪','🫶','🤲'],
+  '❤️': ['❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔','❣️','💕','💞','💓','💗',
+          '💖','💘','💝','🥹','😻','💋','👫','💑','💏','🌹','🌸'],
+  '🎉': ['🎉','🎊','🎈','🎁','🎀','🏆','🥇','🥈','🥉','🏅','🎖️','🎪','🎭','🎨','🎬',
+          '🎤','🎧','🎵','🎶','🎸','🎹','🎺','🎻','🥁','🎮','🎲','🎯','🎳'],
+  '💼': ['💼','📊','📈','📉','💰','💵','💳','💸','🏦','💱','🪙','📋','📌','📍','📎',
+          '✂️','🔒','🔑','💻','📱','☎️','📧','📨','📤','📥','📦','🗂️','🖨️','⌨️'],
+  '✅': ['✅','❌','⭕','🚫','💯','‼️','❓','❗','✔️','☑️','🔴','🟠','🟡','🟢','🔵',
+          '🟣','⚫','⚪','🔺','🔻','🔷','🔶','▶️','⏸️','⏭️','🔃','🔄','💬','💭'],
+};
+const CAT_KEYS = Object.keys(EMOJIS);
+let activeCat = CAT_KEYS[0];
+
+function buildEmojiPicker() {
+  document.getElementById('emojiCats').innerHTML = CAT_KEYS.map(k =>
+    `<button class="crm-emoji-cat-btn${k === activeCat ? ' active' : ''}"
+      onclick="switchCat('${k}',this)">${k}</button>`
+  ).join('');
+  renderEmojiGrid(activeCat);
+}
+
+function switchCat(cat, btn) {
+  activeCat = cat;
+  document.querySelectorAll('.crm-emoji-cat-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderEmojiGrid(cat);
+}
+
+function renderEmojiGrid(cat) {
+  document.getElementById('emojiGrid').innerHTML =
+    EMOJIS[cat].map(e =>
+      `<button class="crm-emoji-btn" onclick="insertEmoji('${e}')">${e}</button>`
+    ).join('');
+}
+
+function insertEmoji(emoji) {
+  const ta  = document.getElementById('replyInput');
+  const s   = ta.selectionStart, e2 = ta.selectionEnd;
+  ta.value  = ta.value.slice(0, s) + emoji + ta.value.slice(e2);
+  ta.selectionStart = ta.selectionEnd = s + emoji.length;
+  ta.focus();
+}
+
+function toggleEmoji(ev) {
+  ev.stopPropagation();
+  document.getElementById('emojiPicker').classList.toggle('open');
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('#emojiPicker') && !e.target.closest('#emojiBtn'))
+    document.getElementById('emojiPicker').classList.remove('open');
+});
+
+// ══════════════════════════════════════════════════════
+//  Lightbox
+// ══════════════════════════════════════════════════════
+function openLightbox(url) {
+  document.getElementById('lightboxImg').src = url;
+  document.getElementById('lightbox').classList.add('open');
+}
+function closeLightbox() {
+  document.getElementById('lightbox').classList.remove('open');
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
+
+// ══════════════════════════════════════════════════════
+//  Toast
+// ══════════════════════════════════════════════════════
+function showToast(msg, type = 'info') {
+  const colors = { ok: '#00DEA8', error: '#f31260', info: '#2a3942' };
+  const textC  = type === 'ok' ? '#111b21' : '#e9edef';
+  const t = document.createElement('div');
+  t.className  = 'crm-toast';
+  t.style.cssText = `background:${colors[type]||colors.info};color:${textC};`;
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3200);
+}
+
+// ══════════════════════════════════════════════════════
+//  Socket.IO — mensajes en tiempo real
+// ══════════════════════════════════════════════════════
+if (typeof io !== 'undefined') {
+  const sock = io({ transports: ['websocket'] });
+  sock.on('wa_message', () => {
+    loadConversaciones();
+    if (activeNum) {
+      fetch(`/crm/api/mensajes/${encodeURIComponent(activeNum)}`)
+        .then(r => r.json()).then(msgs => { if (activeNum) renderMensajes(msgs); });
+    }
+  });
+}
+
+// ══════════════════════════════════════════════════════
+//  Polling fallback cada 6s
+// ══════════════════════════════════════════════════════
 function startPolling() {
   pollTimer = setInterval(() => {
     const tasks = [loadConversaciones()];
-    if (activeNum) tasks.push(loadMensajes(activeNum));
+    if (activeNum) {
+      tasks.push(
+        fetch(`/crm/api/mensajes/${encodeURIComponent(activeNum)}`)
+          .then(r => r.json())
+          .then(msgs => { if (activeNum) renderMensajes(msgs); })
+      );
+    }
     Promise.all(tasks);
-  }, 5000);
+  }, 6000);
 }
 
-// ── Búsqueda ───────────────────────────────────────────────────────
-document.getElementById('searchInput').addEventListener('input', () => renderConvs(allConvs));
+// ══════════════════════════════════════════════════════
+//  Búsqueda
+// ══════════════════════════════════════════════════════
+document.getElementById('searchInput').addEventListener('input', function () {
+  document.getElementById('clearX').style.display = this.value ? '' : 'none';
+  renderConvs();
+});
 
-// ── Helpers ────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════
+//  Helpers
+// ══════════════════════════════════════════════════════
 function estadoLabel(e) {
   return e === 'respondio' ? 'Respondió' : e === 'contactado' ? 'Contactado' : 'Nuevo';
 }
-
-function escHtml(str) {
-  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+function esc(str) {
+  return String(str || '')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 function getCsrf() {
   return document.querySelector('meta[name="csrf-token"]')?.content || '';
 }
 
-// ── Init ───────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════
+//  Init
+// ══════════════════════════════════════════════════════
+buildEmojiPicker();
 loadConversaciones().then(startPolling);
 </script>
 {% endblock %}
