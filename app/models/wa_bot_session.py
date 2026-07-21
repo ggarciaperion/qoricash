@@ -17,6 +17,10 @@ class WaBotSession(db.Model):
     dni_back   = db.Column(db.String(120), default='')     # media_id de imagen DNI posterior
     ruc_doc    = db.Column(db.String(120), default='')     # media_id de ficha RUC
     nombre     = db.Column(db.String(120), default='')
+    # Cotización en curso
+    cotiz_op      = db.Column(db.String(10),  default='')   # 'compra' | 'venta'
+    cotiz_importe = db.Column(db.Float,       default=0.0)  # monto en USD
+    cotiz_tc      = db.Column(db.Float,       default=0.0)  # TC ofrecido
     created_at = db.Column(db.DateTime, default=now_peru, nullable=False)
     updated_at = db.Column(db.DateTime, default=now_peru, onupdate=now_peru, nullable=False)
 
