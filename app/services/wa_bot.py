@@ -187,26 +187,30 @@ def _flujo_mostrar_cotizacion(numero, session):
     importe = session.cotiz_importe
 
     if op == 'compra':
-        tc_base = compra
-        tc_final = round(tc_base + MEJORA_TC, 3) if importe >= MONTO_ESPECIAL else tc_base
-        soles    = round(importe * tc_final, 2)
-        resumen  = (
-            f'💵 *Cotización — Compra de dólares*\n\n'
-            f'  Monto:         *USD {importe:,.2f}*\n'
-            f'  Tipo de cambio: *S/ {tc_final:.3f}*\n'
-            f'  Recibes:        *S/ {soles:,.2f}*'
-        )
-        if importe >= MONTO_ESPECIAL:
-            resumen += f'\n\n  ✨ _TC preferencial por monto especial_'
-    else:
+        # Cliente compra dólares → empresa vende → TC de venta
+        # Mejora: TC de venta más bajo (mejor para el cliente)
         tc_base  = venta
         tc_final = round(tc_base - MEJORA_TC, 3) if importe >= MONTO_ESPECIAL else tc_base
         soles    = round(importe * tc_final, 2)
         resumen  = (
-            f'💵 *Cotización — Venta de dólares*\n\n'
-            f'  Monto:         *USD {importe:,.2f}*\n'
+            f'💵 *Cotización — Usted compra dólares*\n\n'
+            f'  Envías:         *S/ {soles:,.2f}*\n'
             f'  Tipo de cambio: *S/ {tc_final:.3f}*\n'
-            f'  Entregas:       *S/ {soles:,.2f}*'
+            f'  Recibes:        *USD {importe:,.2f}*'
+        )
+        if importe >= MONTO_ESPECIAL:
+            resumen += f'\n\n  ✨ _TC preferencial por monto especial_'
+    else:
+        # Cliente vende dólares → empresa compra → TC de compra
+        # Mejora: TC de compra más alto (mejor para el cliente)
+        tc_base  = compra
+        tc_final = round(tc_base + MEJORA_TC, 3) if importe >= MONTO_ESPECIAL else tc_base
+        soles    = round(importe * tc_final, 2)
+        resumen  = (
+            f'💵 *Cotización — Usted vende dólares*\n\n'
+            f'  Envías:         *USD {importe:,.2f}*\n'
+            f'  Tipo de cambio: *S/ {tc_final:.3f}*\n'
+            f'  Recibes:        *S/ {soles:,.2f}*'
         )
         if importe >= MONTO_ESPECIAL:
             resumen += f'\n\n  ✨ _TC preferencial por monto especial_'
