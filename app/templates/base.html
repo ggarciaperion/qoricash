@@ -116,6 +116,13 @@
                 <span class="sidebar-link-text">Trading Monitor</span>
             </a>
             {% endif %}
+            {% if current_user.role == 'Master' %}
+            <a class="sidebar-link {% if request.endpoint == 'crm.whatsapp_panel' %}active{% endif %}"
+               href="{{ url_for('crm.whatsapp_panel') }}">
+                <i class="bi bi-whatsapp"></i>
+                <span class="sidebar-link-text">Chat Bot</span>
+            </a>
+            {% endif %}
 
             {% if current_user.role in ['Master', 'Presidente de Negocios', 'Trader'] %}
             <a class="sidebar-link {% if request.endpoint and request.endpoint.startswith('comercial') %}active{% endif %}"
