@@ -581,6 +581,91 @@ body.has-pb-bar.has-sidebar .main-wrapper {
 /* ── Spin animation ── */
 @keyframes spin { to { transform: rotate(360deg); } }
 .spin { animation: spin .7s linear infinite; display: inline-block; }
+
+/* ══ REFINAMIENTOS MINIMALISTAS ══════════════════════════ */
+.crm-main { background: #f7f8fa; }
+.crm-conv-item { border-bottom: none; border-radius: 4px; margin: 1px 6px; padding: 10px; }
+.crm-conv-item:hover  { background: #1a2830; }
+.crm-conv-item.active { background: #2a3942; }
+.crm-conv-list { padding: 4px 0; }
+.crm-bubble.out  { background: #d1f7e8; }
+.crm-bubble.out::before { border-top-color: #d1f7e8; }
+.crm-footer { background: #f7f8fa; border-top: 1px solid #e8eaed; }
+.crm-input-wrap { box-shadow: none; background: #fff; border-color: #dde1e5; }
+.crm-chat-header { box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+.crm-sb-header { box-shadow: 0 1px 0 rgba(0,0,0,.2); }
+.crm-empty-state { background: #f7f8fa; }
+.crm-empty-icon { background: rgba(0,222,168,.08); }
+.crm-date-sep span { background: rgba(255,255,255,.92); }
+
+/* ── Botón volver (mobile) ── */
+.crm-back-btn {
+  display: none;
+  background: none; border: none; color: #aebac1;
+  width: 36px; height: 36px; border-radius: 50%;
+  align-items: center; justify-content: center;
+  font-size: 1.1rem; cursor: pointer; flex-shrink: 0;
+  transition: all .15s;
+}
+.crm-back-btn:hover { background: rgba(255,255,255,.07); color: #e9edef; }
+
+/* ══ RESPONSIVO MÓVIL ══════════════════════════════════════ */
+@media (max-width: 768px) {
+  body.has-sidebar .main-wrapper,
+  body .main-wrapper {
+    padding-top: 56px !important;
+  }
+  .crm-page { position: relative; overflow: hidden; }
+
+  /* Sidebar ocupa pantalla completa por defecto */
+  .crm-sidebar {
+    width: 100%;
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+    transition: transform .25s cubic-bezier(.4,0,.2,1);
+  }
+
+  /* Chat panel desliza desde la derecha */
+  .crm-main {
+    position: absolute;
+    inset: 0;
+    z-index: 9;
+    transform: translateX(100%);
+    transition: transform .25s cubic-bezier(.4,0,.2,1);
+  }
+
+  /* Estado: conversación abierta */
+  .crm-page.mobile-chat-open .crm-sidebar {
+    transform: translateX(-100%);
+  }
+  .crm-page.mobile-chat-open .crm-main {
+    transform: translateX(0);
+  }
+
+  /* Mostrar botón volver */
+  .crm-back-btn { display: flex; }
+
+  /* Ajustes de contenido */
+  .crm-messages { padding: 10px 3%; }
+  .crm-bubble   { max-width: 82%; font-size: .85rem; }
+  .crm-chat-avatar { width: 36px; height: 36px; font-size: .9rem; }
+  .crm-conv-avatar  { width: 44px; height: 44px; font-size: 1rem; }
+
+  /* Emoji picker ocupa ancho disponible */
+  .crm-emoji-picker { width: calc(100vw - 20px); left: 0; }
+
+  /* Footer más compacto */
+  .crm-footer { padding: 6px 10px; }
+  .crm-footer-icon-btn { width: 38px; height: 38px; font-size: 1.15rem; }
+  .crm-send-btn { width: 38px; height: 38px; font-size: .95rem; }
+}
+
+@media (max-width: 420px) {
+  .crm-bubble { max-width: 88%; }
+  .crm-filter-tabs { gap: 4px; padding: 6px 8px; }
+  .crm-ftab { padding: 4px 10px; font-size: .72rem; }
+}
 </style>
 {% endblock %}
 
@@ -649,6 +734,9 @@ body.has-pb-bar.has-sidebar .main-wrapper {
           <div class="crm-chat-num"  id="chatNum">—</div>
         </div>
         <div class="crm-hdr-actions">
+          <button class="crm-back-btn" onclick="goBack()" title="Volver">
+            <i class="bi bi-arrow-left"></i>
+          </button>
           <button title="Refrescar" onclick="reloadChat()"><i class="bi bi-arrow-clockwise"></i></button>
         </div>
       </div>
@@ -816,12 +904,21 @@ function renderConvs() {
 // ══════════════════════════════════════════════════════
 //  Seleccionar conversación
 // ══════════════════════════════════════════════════════
+function goBack() {
+  activeNum = null;
+  document.querySelector('.crm-page').classList.remove('mobile-chat-open');
+  document.getElementById('chatPanel').classList.remove('visible');
+  document.getElementById('emptyState').style.display = '';
+  renderConvs();
+}
+
 async function selectConv(numero, nombre, empresa) {
   activeNum = numero;
   renderConvs();
 
   document.getElementById('emptyState').style.display = 'none';
   document.getElementById('chatPanel').classList.add('visible');
+  document.querySelector('.crm-page').classList.add('mobile-chat-open');
 
   const init = (nombre || numero).charAt(0).toUpperCase();
   document.getElementById('chatAvatar').textContent = init;
