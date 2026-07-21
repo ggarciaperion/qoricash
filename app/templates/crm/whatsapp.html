@@ -409,14 +409,27 @@ async function selectConv(numero, nombre, empresa) {
   document.getElementById('chatName').textContent   = nombre || numero;
   document.getElementById('chatNum').textContent    = numero + (empresa ? ` · ${empresa}` : '');
 
-  await loadMensajes(numero);
+  // Mostrar skeleton inmediatamente
+  const el = document.getElementById('chatMessages');
+  el.innerHTML = `<div style="display:flex;flex-direction:column;gap:10px;padding:4px 0;">
+    ${[70,45,80,55,65].map((w,i) => `
+    <div class="crm-bubble-wrap ${i%2===0?'entrante':'saliente'}" style="opacity:.35;">
+      <div class="crm-bubble ${i%2===0?'entrante':'saliente'}"
+           style="width:${w}%;height:34px;border-radius:12px;background:${i%2===0?'#e2e8f0':'#b2f5e0'};"></div>
+    </div>`).join('')}
+  </div>`;
+
+  // Cargar mensajes y refrescar badges en paralelo
+  const [msgs] = await Promise.all([
+    fetch(`/crm/api/mensajes/${encodeURIComponent(numero)}`).then(r => r.json()),
+    loadConversaciones(),
+  ]);
+  if (activeNum === numero) renderMensajes(msgs);
 }
 
 async function loadMensajes(numero) {
-  const res  = await fetch(`/crm/api/mensajes/${encodeURIComponent(numero)}`);
-  const msgs = await res.json();
-  renderMensajes(msgs);
-  await loadConversaciones(); // refrescar badges
+  const msgs = await fetch(`/crm/api/mensajes/${encodeURIComponent(numero)}`).then(r => r.json());
+  if (activeNum === numero) renderMensajes(msgs);
 }
 
 function renderBubbleContent(m) {
@@ -518,9 +531,10 @@ async function enviar() {
 
 // ── Polling cada 5s ────────────────────────────────────────────────
 function startPolling() {
-  pollTimer = setInterval(async () => {
-    await loadConversaciones();
-    if (activeNum) await loadMensajes(activeNum);
+  pollTimer = setInterval(() => {
+    const tasks = [loadConversaciones()];
+    if (activeNum) tasks.push(loadMensajes(activeNum));
+    Promise.all(tasks);
   }, 5000);
 }
 
