@@ -240,7 +240,8 @@ def _parse_monto(texto):
 # ── Flujos del bot ─────────────────────────────────────────────────
 
 def _bienvenida(numero, nombre):
-    saludo = f'Hola {nombre} 👋' if nombre else 'Hola 👋'
+    primer_nombre = nombre.split()[0] if nombre else ''
+    saludo = f'Hola {primer_nombre} 👋' if primer_nombre else 'Hola 👋'
     base_compra, base_venta = _get_tc()
     # Aplicar spread igual que en la cotización:
     # compra (bot compra USD del cliente) = base_compra - SPREAD_TC
