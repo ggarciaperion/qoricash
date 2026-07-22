@@ -350,6 +350,14 @@ def _crear_operacion(session, client):
     )
     db.session.add(op)
     db.session.flush()
+
+    # Enviar email de confirmación igual que las operaciones creadas por otros canales
+    try:
+        from app.services.email_service import EmailService
+        EmailService.send_new_operation_email(op)
+    except Exception as _email_err:
+        log.warning(f'[WaBot] No se pudo enviar email nueva op {op.operation_id}: {_email_err}')
+
     return op
 
 
