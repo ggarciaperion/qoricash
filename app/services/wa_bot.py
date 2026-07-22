@@ -701,9 +701,10 @@ def _flujo_pedir_email(numero):
 
 def _flujo_confirmar_registro(numero, session):
     if session.tipo == 'natural':
+        tipo_doc = 'CE' if len(session.cotiz_doc) == 9 else 'DNI'
         msg = (
             '✅ *¡Solicitud de registro recibida!*\n\n'
-            'Nuestro equipo verificará tu DNI/CE y activará tu cuenta en un máximo de *15 minutos*.\n\n'
+            f'Nuestro equipo verificará tu {tipo_doc} y activará tu cuenta en un máximo de *15 minutos*.\n\n'
             'Te notificaremos por este mismo WhatsApp cuando esté lista para operar.'
         )
         tipo_desc = 'Persona Natural'
