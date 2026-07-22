@@ -353,17 +353,20 @@ def _crear_operacion(session, client):
     return op
 
 
-def _flujo_op_creada(numero, op, session):
+def _flujo_op_creada(numero, op, session, client):
     """Envía confirmación de operación creada con datos de transferencia y solicita código."""
     moneda_enviar = 'PEN' if session.cotiz_op == 'compra' else 'USD'
     simbolo       = 'S/' if moneda_enviar == 'PEN' else 'USD'
     monto_enviar  = float(op.amount_pen) if moneda_enviar == 'PEN' else float(op.amount_usd)
+    titular       = (client.full_name or '').title() if client else ''
 
     cuentas = _texto_cuentas_qoricash(moneda_enviar)
 
     msg = (
         f'✅ *Operación creada exitosamente*\n'
-        f'📋 *Nro:* {op.operation_id}\n\n'
+        f'📋 *Nro:* {op.operation_id}\n'
+        + (f'👤 *Titular:* {titular}\n' if titular else '')
+        + f'\n'
         f'Tienes *15 minutos* para realizar la transferencia, de lo contrario se cancelará automáticamente.\n\n'
         f'*Transfiere {simbolo} {monto_enviar:,.2f} a:*\n\n'
         f'{cuentas}\n\n'
@@ -679,7 +682,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                             try:
                                 op = _crear_operacion(session, client)
                                 session.cotiz_op_id = op.operation_id
-                                _flujo_op_creada(numero, op, session)
+                                _flujo_op_creada(numero, op, session, client)
                                 session.estado = 'op_pendiente_pago'
                             except Exception as _oe:
                                 log.error(f'[WaBot] Error creando op: {_oe}')
