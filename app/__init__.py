@@ -1368,6 +1368,9 @@ def start_operation_expiry_scheduler(app):
                     eod_count = OperationExpiryService.cancel_end_of_day_operations()
                     if eod_count > 0:
                         logging.info(f"[SCHEDULER] 🌙 {eod_count} operaciones canceladas por cierre 10pm")
+                    session_count = OperationExpiryService.expire_inactive_bot_sessions()
+                    if session_count > 0:
+                        logging.info(f"[SCHEDULER] 🔒 {session_count} sesiones bot cerradas por inactividad")
             except Exception as e:
                 logging.error(f"[SCHEDULER] ❌ Error en scheduler de expiración: {str(e)}")
                 import traceback

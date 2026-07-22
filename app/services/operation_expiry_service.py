@@ -210,3 +210,65 @@ class OperationExpiryService:
             logger.error(traceback.format_exc())
             db.session.rollback()
             return 0
+
+    @staticmethod
+    def expire_inactive_bot_sessions():
+        """
+        Cierra sesiones de WhatsApp bot con más de 20 minutos de inactividad.
+        Envía mensaje de sesión cerrada y resetea el estado a 'inicio'.
+
+        Returns:
+            int: Número de sesiones cerradas
+        """
+        try:
+            from app.models.wa_bot_session import WaBotSession
+            from app.services.wa_bot import send_text as _wa_send
+
+            cutoff = now_peru() - timedelta(minutes=20)
+
+            inactive_sessions = WaBotSession.query.filter(
+                WaBotSession.estado != 'inicio',
+                WaBotSession.updated_at < cutoff,
+            ).all()
+
+            if not inactive_sessions:
+                return 0
+
+            closed_count = 0
+            for session in inactive_sessions:
+                try:
+                    # Notificar al cliente
+                    _wa_send(
+                        session.numero,
+                        '🔒 Tu sesión ha sido cerrada por inactividad.\n\n'
+                        'Cuando desees volver a operar, escríbenos y te atenderemos de inmediato.'
+                    )
+
+                    # Resetear estado y datos en curso
+                    session.estado       = 'inicio'
+                    session.cotiz_op     = ''
+                    session.cotiz_importe = 0.0
+                    session.cotiz_tc     = 0.0
+                    session.cotiz_doc    = ''
+                    session.cotiz_email  = ''
+                    session.cotiz_op_id  = ''
+                    session.cotiz_cuenta = ''
+                    db.session.commit()
+
+                    logger.info(f"[SESSION] Sesión cerrada por inactividad: {session.numero}")
+                    closed_count += 1
+
+                except Exception as sess_err:
+                    logger.error(f"[SESSION] Error cerrando sesión {session.numero}: {sess_err}")
+                    db.session.rollback()
+                    continue
+
+            if closed_count > 0:
+                logger.info(f"[SESSION] {closed_count} sesiones bot cerradas por inactividad")
+
+            return closed_count
+
+        except Exception as e:
+            logger.error(f"Error en expire_inactive_bot_sessions: {str(e)}")
+            db.session.rollback()
+            return 0

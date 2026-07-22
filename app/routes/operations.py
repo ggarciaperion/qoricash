@@ -1351,13 +1351,15 @@ def complete_operation(operation_id):
             from app.services.wa_bot import wa_notify_client
             _op_ref = fresh_op or operation
             _client = getattr(_op_ref, 'client', None)
-            _email_cliente = getattr(_client, 'email', '') or ''
             _titular = _client.full_name if _client else _op_ref.operation_id
+            _email_raw = (getattr(_client, 'email', '') or '')
+            _emails = [e.strip() for e in _email_raw.split(';') if e.strip() and '@' in e]
+            _email_txt = f'en el correo registrado: *{_emails[0]}*' if len(_emails) == 1 else 'en los correos registrados'
             wa_notify_client(
                 _client,
                 f'✅ ¡Tu operación *{_op_ref.operation_id}* a nombre de *{_titular}* fue completada con éxito!\n\n'
                 f'Tus fondos han sido transferidos a tu cuenta.\n\n'
-                f'Puedes validar tu comprobante de pago en el correo registrado: *{_email_cliente}*'
+                f'Puedes validar tu comprobante de pago {_email_txt}.'
             )
             logger.info(f'[COMPLETE] WhatsApp enviado para {operation_code}')
         except Exception as e_wa:
