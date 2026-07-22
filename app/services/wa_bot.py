@@ -851,7 +851,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                 if codigo:
                     _flujo_registrar_codigo_op(numero, codigo, session)
                 else:
-                    send_text(numero, 'Ingresa el número de operación de tu comprobante bancario.')
+                    send_text(numero, 'Ingresa el código de operación de tu comprobante bancario.')
 
             elif estado == 'esperando_email':
                 email = texto.strip()
