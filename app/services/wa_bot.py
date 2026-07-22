@@ -15,6 +15,18 @@ WA_API_URL      = f'https://graph.facebook.com/v19.0/{WA_PHONE_ID}/messages'
 
 ASESOR_NUMERO   = os.environ.get('WA_ASESOR_NUMERO', '51910624404')
 
+# Números de administración que reciben alertas del bot
+ADMIN_WA_NUMEROS = ['51926011920', '51906237356']
+
+
+def _notificar_admins_wa(mensaje):
+    """Envía un mensaje WA a todos los números de administración."""
+    for num in ADMIN_WA_NUMEROS:
+        try:
+            send_text(num, mensaje)
+        except Exception as e:
+            log.warning(f'[WaBot] Error notificando admin {num}: {e}')
+
 # 1 pip = 0.0001 (estándar forex para pares con PEN)
 SPREAD_TC = 0.0020   # 20 pips: spread que aplica el bot sobre el TC oficial
 
@@ -628,6 +640,21 @@ def _crear_op_y_confirmar(numero, session, client):
             NotificationService.notify_dashboard_update()
         except Exception as _notif_err:
             log.warning(f'[WaBot] Error notificando nueva op al sistema: {_notif_err}')
+        # Notificar a admins por WA
+        try:
+            titular = client.full_name or client.razon_social or numero
+            tipo_op = 'Compra USD' if op.operation_type == 'Compra' else 'Venta USD'
+            _notificar_admins_wa(
+                f'💱 *Nueva operación desde el bot*\n\n'
+                f'Op:      {op.operation_id}\n'
+                f'Cliente: {titular}\n'
+                f'Tipo:    {tipo_op}\n'
+                f'Monto:   USD {session.cotiz_importe:,.2f}\n'
+                f'TC:      S/ {session.cotiz_tc:.4f}\n\n'
+                f'Esperando transferencia del cliente.'
+            )
+        except Exception as _wa_err:
+            log.warning(f'[WaBot] Error notificando nueva op a admins: {_wa_err}')
     except Exception as _oe:
         log.error(f'[WaBot] Error creando op: {_oe}')
         send_text(numero,
@@ -690,6 +717,11 @@ def _flujo_asesor(numero):
         'En breve un asesor se pondrá en contacto contigo por este mismo chat para brindarte el soporte que necesitas.'
     )
     log.info(f'[WaBot] {numero} solicitó hablar con asesor.')
+    _notificar_admins_wa(
+        f'💬 *Cliente solicita asesor*\n\n'
+        f'WA: {numero}\n\n'
+        f'Ingresa al panel para atenderlo: https://app.qoricash.pe/crm/whatsapp'
+    )
 
 
 def _flujo_tipo_cliente(numero):
@@ -796,21 +828,18 @@ def _notificar_admin_registro(numero, session, tipo_desc):
     except Exception as e:
         log.warning(f'[WaBot] No se pudo preparar email de registro: {e}')
 
-    # ── WhatsApp: mensaje directo a 51926011920 ──────────────────────
-    try:
-        wa_msg = (
-            f'🔔 *Nuevo registro pendiente — {tipo_desc}*\n\n'
-            f'Nombre:   {nombre}\n'
-            f'DNI/RUC:  {doc}\n'
-            f'Email:    {email_cl}\n'
-            f'WA:       {numero}\n\n'
-            f'⏱ Tiempo máximo de activación: *15 minutos*\n'
-            f'Revisa el panel de KYC para activar la cuenta.'
-        )
-        send_text('51926011920', wa_msg)
-        log.info(f'[WaBot] Notificación WA de registro enviada a admin para {numero}')
-    except Exception as e:
-        log.warning(f'[WaBot] No se pudo enviar WA de registro a admin: {e}')
+    # ── WhatsApp: notificar a todos los admins ───────────────────────
+    wa_msg = (
+        f'🔔 *Nuevo registro pendiente — {tipo_desc}*\n\n'
+        f'Nombre:   {nombre}\n'
+        f'DNI/RUC:  {doc}\n'
+        f'Email:    {email_cl}\n'
+        f'WA:       {numero}\n\n'
+        f'⏱ Tiempo máximo de activación: *15 minutos*\n'
+        f'Revisa el panel de KYC para activar la cuenta.'
+    )
+    _notificar_admins_wa(wa_msg)
+    log.info(f'[WaBot] Notificación WA de registro enviada a admins para {numero}')
 
 
 def _registrar_lead(numero, session):
