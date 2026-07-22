@@ -1249,16 +1249,48 @@ function showToast(msg, type = 'info') {
 }
 
 // ══════════════════════════════════════════════════════
+//  Push Notifications (browser)
+// ══════════════════════════════════════════════════════
+function solicitarPermiso() {
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
+}
+
+function mostrarNotifWA(data) {
+  // No notificar si el tab está visible Y es la conversación activa
+  if (document.visibilityState === 'visible' && activeNum === data.numero) return;
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+
+  const n = new Notification(`💬 ${data.nombre || data.numero}`, {
+    body   : data.preview || 'Nuevo mensaje de WhatsApp',
+    tag    : `wa-${data.numero}`,   // agrupa notifs del mismo número
+    renotify: true,
+    silent : false,
+  });
+
+  n.onclick = () => {
+    window.focus();
+    selectConv(data.numero, data.nombre || data.numero, data.empresa || '');
+    n.close();
+  };
+
+  // Auto-cerrar a los 8s
+  setTimeout(() => n.close(), 8000);
+}
+
+// ══════════════════════════════════════════════════════
 //  Socket.IO — mensajes en tiempo real
 // ══════════════════════════════════════════════════════
 if (typeof io !== 'undefined') {
   const sock = io({ transports: ['websocket'] });
-  sock.on('wa_message', () => {
+  sock.on('wa_message', data => {
     loadConversaciones();
-    if (activeNum) {
+    if (activeNum && activeNum === data.numero) {
       fetch(`/crm/api/mensajes/${encodeURIComponent(activeNum)}`)
         .then(r => r.json()).then(msgs => { if (activeNum) renderMensajes(msgs); });
     }
+    mostrarNotifWA(data);
   });
 }
 
@@ -1307,5 +1339,6 @@ function getCsrf() {
 // ══════════════════════════════════════════════════════
 buildEmojiPicker();
 loadConversaciones().then(startPolling);
+solicitarPermiso();
 </script>
 {% endblock %}

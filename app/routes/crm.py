@@ -13,6 +13,52 @@ from app.utils.formatters import now_peru
 
 crm_bp = Blueprint('crm', __name__, url_prefix='/crm')
 log    = logging.getLogger(__name__)
+# ── Notificación email — nueva conversación WhatsApp ─────────────
+_NOTIF_DEST = 'gerencia@qoricash.pe'
+_CONV_GAP_H = 4   # horas de inactividad para considerar conversación nueva
+
+def _enviar_notif_wa_email(numero: str, nombre: str, preview: str):
+    """Envía alerta a gerencia cuando inicia nueva conversación entrante."""
+    try:
+        from flask_mail import Message as _MailMsg
+        from app.extensions import mail as _mail
+        hora        = now_peru().strftime('%d/%m/%Y %H:%M')
+        nombre_disp = nombre or numero
+        html_parts  = [
+            '<div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;'
+            'background:#fff;border-radius:10px;overflow:hidden;border:1px solid #e0e0e0;">',
+            '<div style="background:#075e54;padding:18px 22px;">',
+            '<p style="margin:0;color:rgba(255,255,255,.7);font-size:.8rem;">QORICASH CRM WHATSAPP</p>',
+            '<h2 style="margin:4px 0 0;color:#fff;font-size:1.1rem;">💬 Nuevo mensaje</h2>',
+            '</div>',
+            '<div style="padding:22px;">',
+            '<p style="margin:0 0 6px;color:#555;font-size:.85rem;">Contacto</p>',
+            f'<p style="margin:0 0 14px;color:#111;font-weight:600;font-size:1rem;">{nombre_disp} &middot; {numero}</p>',
+            '<p style="margin:0 0 6px;color:#555;font-size:.85rem;">Hora</p>',
+            f'<p style="margin:0 0 16px;color:#111;">{hora}</p>',
+            '<div style="background:#f0fdf4;border-left:3px solid #25d366;'
+            'padding:12px 15px;border-radius:0 6px 6px 0;'
+            f'color:#333;font-size:.9rem;line-height:1.5;margin-bottom:20px;">{preview}</div>',
+            '<a href="https://app.qoricash.pe/crm/whatsapp"'
+            ' style="display:block;text-align:center;background:#075e54;color:#fff;'
+            'padding:11px 0;border-radius:7px;text-decoration:none;font-size:.9rem;font-weight:600;">'
+            'Abrir conversación →</a>',
+            '</div>',
+            '<div style="padding:10px;text-align:center;border-top:1px solid #f0f0f0;">',
+            '<span style="color:#bbb;font-size:.72rem;">QoriCash · Notificación automática</span>',
+            '</div></div>',
+        ]
+        html = ''.join(html_parts)
+        msg = _MailMsg(
+            subject=f'💬 WA: {nombre_disp} escribió',
+            recipients=[_NOTIF_DEST],
+            html=html,
+        )
+        _mail.send(msg)
+        log.info(f'[CRM] Notif email WA enviado a {_NOTIF_DEST} ({nombre_disp} {numero})')
+    except Exception as _e:
+        log.warning(f'[CRM] Notif email WA falló: {_e}')
+
 
 WA_VERIFY_TOKEN   = os.environ.get('WA_VERIFY_TOKEN',    'qoricash_wa_verify_2026')
 WA_ACCESS_TOKEN   = os.environ.get('WA_ACCESS_TOKEN',    '')
@@ -534,6 +580,38 @@ def webhook_receive():
                     }, namespace='/', room='role_Master')
             except Exception as _es:
                 log.warning(f'[CRM Webhook] Socket emit error: {_es}')
+
+        # ── Email: notificar gerencia cuando inicia conversación nueva ──
+        try:
+            nums_seen = set()
+            for msg in messages:
+                if msg.get('type') not in ('text','image','audio','video','document','sticker','contacts','interactive'):
+                    continue
+                numero_n = f"+{msg.get('from','')}"
+                if numero_n in nums_seen:
+                    continue
+                nums_seen.add(numero_n)
+                # Contar mensajes entrantes previos (sin el que acabamos de guardar)
+                prev_entrantes = (WaMessage.query
+                    .filter_by(numero=numero_n, direccion='entrante')
+                    .order_by(WaMessage.created_at.desc())
+                    .limit(2).all())
+                es_nueva = False
+                if len(prev_entrantes) <= 1:
+                    es_nueva = True   # primer mensaje de este número
+                else:
+                    penultimo = prev_entrantes[1]
+                    if penultimo.created_at:
+                        delta = now_peru() - penultimo.created_at
+                        es_nueva = delta > timedelta(hours=_CONV_GAP_H)
+                if es_nueva:
+                    contacto_n = next((c for c in contacts if c.get('wa_id') == msg.get('from')), {})
+                    nombre_n   = contacto_n.get('profile', {}).get('name', '') or numero_n
+                    tipo_n     = msg.get('type', '')
+                    preview_n  = msg['text']['body'][:200] if tipo_n == 'text' else f'[{tipo_n}]'
+                    _enviar_notif_wa_email(numero_n, nombre_n, preview_n)
+        except Exception as _en:
+            log.warning(f'[CRM Webhook] Notif email error: {_en}')
 
     except Exception as e:
         log.error(f'[CRM Webhook] Error: {e}')
