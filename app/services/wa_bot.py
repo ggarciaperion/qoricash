@@ -274,7 +274,7 @@ def _flujo_como_funciona(numero):
         '🛡️ *Tu seguridad es nuestra prioridad #1.*\n'
         'Somos una fintech 100% regulada y supervisada por la *Superintendencia de Banca, Seguros y AFP (SBS)*.\n'
         '📋 Res. N.° 00313-2026\n\n'
-        '🕐 Atención: lunes a viernes de 9:00 AM a 10:00 PM.\n\n'
+        '🕐 Atención: lunes a viernes de 9:00 AM a 6:00 PM.\n\n'
         '¿Deseas comenzar ahora?'
     )
     send_buttons(numero, msg, [
