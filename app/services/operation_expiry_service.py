@@ -105,6 +105,19 @@ class OperationExpiryService:
                     except Exception as push_error:
                         logger.error(f"❌ Error enviando push notification: {str(push_error)}")
 
+                    # Notificar al cliente vía WhatsApp
+                    try:
+                        from app.services.wa_bot import wa_notify_client
+                        titular = operation.client.full_name if operation.client else operation.operation_id
+                        wa_notify_client(
+                            operation.client,
+                            f'⏱️ Tu operación *{operation.operation_id}* a nombre de *{titular}* fue cancelada automáticamente '
+                            f'porque no se registró la transferencia dentro del plazo de *15 minutos*.\n\n'
+                            f'Puedes iniciar una nueva cotización cuando lo desees.'
+                        )
+                    except Exception as wa_err:
+                        logger.warning(f"[EXPIRY] Error WA para {operation.operation_id}: {wa_err}")
+
                     expired_count += 1
 
                 except Exception as op_error:
@@ -165,6 +178,19 @@ class OperationExpiryService:
                         NotificationService.notify_operation_canceled(operation, motivo)
                     except Exception as notif_error:
                         logger.error(f"[EOD] Error notificando {operation.operation_id}: {notif_error}")
+
+                    # Notificar al cliente vía WhatsApp
+                    try:
+                        from app.services.wa_bot import wa_notify_client
+                        titular = operation.client.full_name if operation.client else operation.operation_id
+                        wa_notify_client(
+                            operation.client,
+                            f'🌙 Tu operación *{operation.operation_id}* a nombre de *{titular}* fue cancelada automáticamente '
+                            f'por cierre de operaciones del día (10:00 PM).\n\n'
+                            f'Puedes iniciar una nueva cotización mañana.'
+                        )
+                    except Exception as wa_err:
+                        logger.warning(f"[EOD] Error WA para {operation.operation_id}: {wa_err}")
 
                     cancelled_count += 1
 

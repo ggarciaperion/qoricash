@@ -51,6 +51,19 @@ def _save_outgoing(numero, texto):
         log.warning(f'[WaBot] No se pudo guardar saliente: {e}')
 
 
+def wa_notify_client(client, mensaje):
+    """Envía un mensaje WA al cliente si tiene teléfono registrado. Uso externo."""
+    if not client:
+        return
+    phone_raw = (getattr(client, 'phone', None) or '').split(';')[0].strip()
+    phone_digits = ''.join(c for c in phone_raw if c.isdigit())
+    if not phone_digits:
+        return
+    if not phone_digits.startswith('51'):
+        phone_digits = '51' + phone_digits
+    send_text(phone_digits, mensaje)
+
+
 def send_text(numero, texto):
     payload = {
         'messaging_product': 'whatsapp',
@@ -501,6 +514,13 @@ def _crear_op_y_confirmar(numero, session, client):
         session.cotiz_op_id = op.operation_id
         _flujo_op_creada(numero, op, session, client)
         session.estado = 'op_pendiente_pago'
+        # Notificar al sistema en tiempo real para que aparezca sin recargar
+        try:
+            from app.services.notification_service import NotificationService
+            NotificationService.notify_new_operation(op)
+            NotificationService.notify_dashboard_update()
+        except Exception as _notif_err:
+            log.warning(f'[WaBot] Error notificando nueva op al sistema: {_notif_err}')
     except Exception as _oe:
         log.error(f'[WaBot] Error creando op: {_oe}')
         send_text(numero,

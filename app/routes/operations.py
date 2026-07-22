@@ -730,8 +730,20 @@ def cancel_operation(operation_id):
             from app.services.email_service import EmailService
             EmailService.send_canceled_operation_email(operation, reason)
         except Exception as e:
-            # No bloquear por errores de email
             logger.warning(f'Error al enviar email de operación cancelada: {str(e)}')
+
+        # Notificar al cliente vía WhatsApp
+        try:
+            from app.services.wa_bot import wa_notify_client
+            titular = operation.client.full_name if operation.client else operation.operation_id
+            wa_notify_client(
+                operation.client,
+                f'❌ Tu operación *{operation.operation_id}* a nombre de *{titular}* ha sido cancelada.\n\n'
+                f'*Motivo:* {reason}\n\n'
+                f'Si tienes alguna consulta, escríbenos por este chat y un asesor te atenderá.'
+            )
+        except Exception as e_wa:
+            logger.warning(f'Error al enviar WA de cancelación para {operation.operation_id}: {e_wa}')
 
         return jsonify({
             'success': True,
@@ -1336,22 +1348,18 @@ def complete_operation(operation_id):
 
         # Notificar vía WhatsApp al cliente si tiene teléfono registrado
         try:
-            from app.services.wa_bot import send_text as _wa_send
+            from app.services.wa_bot import wa_notify_client
             _op_ref = fresh_op or operation
             _client = getattr(_op_ref, 'client', None)
-            _phone_raw = (getattr(_client, 'phone', None) or '').split(';')[0].strip()
-            _phone_digits = ''.join(c for c in _phone_raw if c.isdigit())
-            if _phone_digits:
-                if not _phone_digits.startswith('51'):
-                    _phone_digits = '51' + _phone_digits
-                _email_cliente = getattr(_client, 'email', '') or ''
-                _wa_msg = (
-                    f'✅ ¡Tu operación *{_op_ref.operation_id}* fue completada con éxito!\n\n'
-                    f'Tus fondos han sido transferidos a tu cuenta.\n\n'
-                    f'Puedes validar tu comprobante de pago en el correo registrado: *{_email_cliente}*'
-                )
-                _wa_send(_phone_digits, _wa_msg)
-                logger.info(f'[COMPLETE] WhatsApp enviado a {_phone_digits} para {operation_code}')
+            _email_cliente = getattr(_client, 'email', '') or ''
+            _titular = _client.full_name if _client else _op_ref.operation_id
+            wa_notify_client(
+                _client,
+                f'✅ ¡Tu operación *{_op_ref.operation_id}* a nombre de *{_titular}* fue completada con éxito!\n\n'
+                f'Tus fondos han sido transferidos a tu cuenta.\n\n'
+                f'Puedes validar tu comprobante de pago en el correo registrado: *{_email_cliente}*'
+            )
+            logger.info(f'[COMPLETE] WhatsApp enviado para {operation_code}')
         except Exception as e_wa:
             logger.warning(f'[COMPLETE] Error WhatsApp para {operation_code}: {e_wa}')
 
