@@ -294,12 +294,13 @@ def _flujo_cotiz_aceptada(numero, session):
 
 def _flujo_pedir_doc_verificacion(numero):
     send_text(numero,
-        '🔎 Ingresa tu *DNI* (8 dígitos) o *RUC* (11 dígitos) para verificar tu cuenta:'
+        '🔎 Ingresa tu *DNI/CE* (8-9 dígitos) o *RUC* (11 dígitos) para verificar tu cuenta:'
     )
 
 
 def _es_dni(t):
-    return bool(re.match(r'^\d{8}$', t.strip()))
+    """DNI peruano (8 dígitos) o Carnet de Extranjería (9 dígitos)."""
+    return bool(re.match(r'^\d{8,9}$', t.strip()))
 
 
 def _es_ruc(t):
@@ -558,7 +559,7 @@ def _flujo_no_encontrado(numero):
 
 def _flujo_pedir_numero_doc(numero, tipo):
     if tipo == 'natural':
-        send_text(numero, '🪪 Ingresa tu número de *DNI* (8 dígitos):')
+        send_text(numero, '🪪 Ingresa tu número de *DNI o CE* (8-9 dígitos):')
     else:
         send_text(numero, '🏢 Ingresa el *RUC* de tu empresa (11 dígitos):')
 
@@ -606,7 +607,7 @@ def _flujo_confirmar_registro(numero, session):
     if session.tipo == 'natural':
         msg = (
             '✅ *¡Solicitud de registro recibida!*\n\n'
-            'Nuestro equipo verificará tu DNI y activará tu cuenta en un máximo de *15 minutos*.\n\n'
+            'Nuestro equipo verificará tu DNI/CE y activará tu cuenta en un máximo de *15 minutos*.\n\n'
             'Te notificaremos por este mismo WhatsApp cuando esté lista para operar.'
         )
         tipo_desc = 'Persona Natural'
@@ -886,7 +887,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                         session.estado = 'inicio'
                 else:
                     send_text(numero,
-                        'Ingresa un *DNI* válido (8 dígitos) o *RUC* válido (11 dígitos).'
+                        'Ingresa un *DNI/CE* válido (8-9 dígitos) o *RUC* válido (11 dígitos).'
                     )
 
             elif estado == 'esperando_cuenta_destino':
@@ -920,7 +921,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
             elif estado == 'esperando_numero_doc':
                 # DNI/RUC durante el proceso de registro
                 doc = texto.strip()
-                esperado = 'DNI (8 dígitos)' if session.tipo == 'natural' else 'RUC (11 dígitos)'
+                esperado = 'DNI/CE (8-9 dígitos)' if session.tipo == 'natural' else 'RUC (11 dígitos)'
                 valido = _es_dni(doc) if session.tipo == 'natural' else _es_ruc(doc)
                 if valido:
                     session.cotiz_doc = doc
