@@ -355,6 +355,27 @@ function connectSocketIO() {
     });
 
     // ============================================
+    // EVENTOS DE WHATSAPP
+    // ============================================
+
+    socket.on('wa_message', function(data) {
+        if (window.currentUserRole !== 'Master') return;
+        var nombre  = data.nombre || data.numero || 'WhatsApp';
+        var preview = data.preview || 'Nuevo mensaje';
+        qoriToast({
+            title:    '💬 Nuevo mensaje WA',
+            message:  nombre + ': ' + preview,
+            type:     'info',
+            sound:    true,
+            duration: 7000,
+        });
+        // Incrementar badge solo si NO estamos en la página de WhatsApp
+        if (window.location.pathname.indexOf('/crm/whatsapp') !== 0) {
+            if (window._menuBadgeInc) window._menuBadgeInc('wa');
+        }
+    });
+
+    // ============================================
     // EVENTOS DE USUARIOS
     // ============================================
 

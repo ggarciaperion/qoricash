@@ -1281,18 +1281,29 @@ function mostrarNotifWA(data) {
 
 // ══════════════════════════════════════════════════════
 //  Socket.IO — mensajes en tiempo real
+//  Usa el socket global de common.js si ya está conectado
 // ══════════════════════════════════════════════════════
-if (typeof io !== 'undefined') {
-  const sock = io({ transports: ['websocket'] });
-  sock.on('wa_message', data => {
-    loadConversaciones();
-    if (activeNum && activeNum === data.numero) {
-      fetch(`/crm/api/mensajes/${encodeURIComponent(activeNum)}`)
-        .then(r => r.json()).then(msgs => { if (activeNum) renderMensajes(msgs); });
-    }
-    mostrarNotifWA(data);
-  });
-}
+(function() {
+  function bindWaSocket(sock) {
+    sock.on('wa_message', data => {
+      loadConversaciones();
+      if (activeNum && activeNum === data.numero) {
+        fetch(`/crm/api/mensajes/${encodeURIComponent(activeNum)}`)
+          .then(r => r.json()).then(msgs => { if (activeNum) renderMensajes(msgs); });
+      }
+      mostrarNotifWA(data);
+    });
+  }
+
+  if (window._qoriSocket) {
+    bindWaSocket(window._qoriSocket);
+  } else if (typeof io !== 'undefined') {
+    // Fallback: esperar a que common.js inicialice el socket
+    document.addEventListener('socketConnected', function() {
+      if (window._qoriSocket) bindWaSocket(window._qoriSocket);
+    }, { once: true });
+  }
+})();
 
 // ══════════════════════════════════════════════════════
 //  Polling fallback cada 6s

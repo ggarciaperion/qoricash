@@ -121,6 +121,7 @@
                href="{{ url_for('crm.whatsapp_panel') }}">
                 <i class="bi bi-whatsapp"></i>
                 <span class="sidebar-link-text">Chat Bot</span>
+                <span id="waBadge" style="display:none;background:#25d366;color:#fff;font-size:10px;font-weight:700;border-radius:10px;padding:1px 6px;margin-left:4px;min-width:18px;text-align:center;">0</span>
             </a>
             {% endif %}
 
@@ -657,15 +658,16 @@
     // ── BADGES DE MENÚ: nuevos registros desde la última visita ─────────────
     // Lógica: socket event → badge +1  |  usuario entra al menú → badge = 0
     (function() {
-        var KEYS = { ops: 'qori_new_ops', clients: 'qori_new_clients' };
+        var KEYS = { ops: 'qori_new_ops', clients: 'qori_new_clients', wa: 'qori_new_wa' };
+        var BADGE_IDS = { ops: 'opsBadge', clients: 'clientsBadge', wa: 'waBadge' };
         function _get(k) { return parseInt(sessionStorage.getItem(KEYS[k]) || '0'); }
         function _set(k, n) {
             n = Math.max(0, n);
             sessionStorage.setItem(KEYS[k], n);
-            var el = document.getElementById(k === 'ops' ? 'opsBadge' : 'clientsBadge');
+            var el = document.getElementById(BADGE_IDS[k]);
             if (!el) return;
             el.textContent = n > 99 ? '99+' : n;
-            el.style.display = n > 0 ? 'inline-flex' : 'none';
+            el.style.display = n > 0 ? 'inline-block' : 'none';
         }
         // common.js llama esto cuando llega un socket event
         window._menuBadgeInc = function(k) { _set(k, _get(k) + 1); };
@@ -675,6 +677,7 @@
             var p = window.location.pathname;
             _set('ops',     p.indexOf('/operations') === 0 ? 0 : _get('ops'));
             _set('clients', p.indexOf('/clients')    === 0 ? 0 : _get('clients'));
+            _set('wa',      p.indexOf('/crm/whatsapp') === 0 ? 0 : _get('wa'));
         });
     })();
     </script>
