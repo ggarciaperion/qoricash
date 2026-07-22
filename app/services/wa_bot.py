@@ -176,11 +176,15 @@ def _bienvenida(numero, nombre):
         '¿En qué te podemos ayudar?'
     ).strip()
 
-    send_buttons(numero, msg, [
-        {'id': 'btn_cotizar',  'title': '💱 Cotizar'},
-        {'id': 'btn_registro', 'title': '📝 Registrarme'},
-        {'id': 'btn_asesor',   'title': '💬 Hablar con asesor'},
-    ])
+    send_list(numero, msg, [{
+        'title': 'Opciones',
+        'rows': [
+            {'id': 'btn_cotizar',       'title': '💱 Cotizar'},
+            {'id': 'btn_registro',      'title': '📝 Registrarme'},
+            {'id': 'btn_asesor',        'title': '💬 Hablar con asesor'},
+            {'id': 'btn_como_funciona', 'title': '❓ ¿Cómo funciona?'},
+        ]
+    }])
 
 
 def _flujo_cotizar_inicio(numero):
@@ -258,6 +262,26 @@ def _menu_rapido(numero):
             {'id': 'btn_asesor',   'title': '💬 Hablar con asesor'},
         ]
     )
+
+
+def _flujo_como_funciona(numero):
+    """Explica el proceso de cambio y destaca seguridad / regulación SBS."""
+    msg = (
+        '🏦 *¿Cómo funciona Qoricash?*\n\n'
+        '1️⃣ *Cotiza* — Ingresa el monto y obtén el tipo de cambio en tiempo real, sin compromisos.\n\n'
+        '2️⃣ *Transfiere* — Realiza la transferencia bancaria a nuestra cuenta y compártenos el código de operación.\n\n'
+        '3️⃣ *Recibe* — Verificamos tu pago y depositamos los fondos en tu cuenta en minutos.\n\n'
+        '🛡️ *Tu seguridad es nuestra prioridad #1.*\n'
+        'Somos una fintech 100% regulada y supervisada por la *Superintendencia de Banca, Seguros y AFP (SBS)*.\n'
+        '📋 Res. N.° 00313-2026\n\n'
+        '🕐 Atención: lunes a viernes de 9:00 AM a 10:00 PM.\n\n'
+        '¿Deseas comenzar ahora?'
+    )
+    send_buttons(numero, msg, [
+        {'id': 'btn_cotizar',  'title': '💱 Cotizar ahora'},
+        {'id': 'btn_registro', 'title': '📝 Registrarme'},
+        {'id': 'btn_asesor',   'title': '💬 Hablar con asesor'},
+    ])
 
 
 def _flujo_cotiz_expirada(numero):
@@ -825,6 +849,10 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
 
             elif btn_id == 'btn_asesor':
                 _flujo_asesor(numero)
+                session.estado = 'inicio'
+
+            elif btn_id == 'btn_como_funciona':
+                _flujo_como_funciona(numero)
                 session.estado = 'inicio'
 
             elif btn_id == 'btn_natural':
