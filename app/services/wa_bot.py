@@ -17,9 +17,9 @@ ASESOR_NUMERO   = os.environ.get('WA_ASESOR_NUMERO', '51910624404')
 
 # Importe mínimo para mejora de TC (en USD)
 MONTO_ESPECIAL  = 5000
-# Mejora en pips (0.001 por pip)
-PIPS_MEJORA     = 15
-MEJORA_TC       = PIPS_MEJORA * 0.001   # = 0.015
+# 1 pip = 0.0001 (estándar forex para pares con PEN)
+SPREAD_TC       = 0.0020   # 20 pips: spread que aplica el bot sobre el TC oficial
+MEJORA_TC       = 0.0015   # 15 pips: mejora adicional para montos >= MONTO_ESPECIAL
 
 
 # ── Envío de mensajes ──────────────────────────────────────────────
@@ -187,29 +187,27 @@ def _flujo_mostrar_cotizacion(numero, session):
     importe = session.cotiz_importe
 
     if op == 'compra':
-        # Cliente compra dólares → empresa vende → TC de venta
-        # Mejora: TC de venta más bajo (mejor para el cliente)
-        tc_base  = venta
-        tc_final = round(tc_base - MEJORA_TC, 3) if importe >= MONTO_ESPECIAL else tc_base
+        # Cliente compra dólares → empresa le vende → usa TC venta + spread
+        tc_base  = round(venta + SPREAD_TC, 4)
+        tc_final = round(tc_base - MEJORA_TC, 4) if importe >= MONTO_ESPECIAL else tc_base
         soles    = round(importe * tc_final, 2)
         resumen  = (
             f'💵 *Cotización — Usted compra dólares*\n\n'
             f'  Envías:         *S/ {soles:,.2f}*\n'
-            f'  Tipo de cambio: *S/ {tc_final:.3f}*\n'
+            f'  Tipo de cambio: *S/ {tc_final:.4f}*\n'
             f'  Recibes:        *USD {importe:,.2f}*'
         )
         if importe >= MONTO_ESPECIAL:
             resumen += f'\n\n  ✨ _TC preferencial por monto especial_'
     else:
-        # Cliente vende dólares → empresa compra → TC de compra
-        # Mejora: TC de compra más alto (mejor para el cliente)
-        tc_base  = compra
-        tc_final = round(tc_base + MEJORA_TC, 3) if importe >= MONTO_ESPECIAL else tc_base
+        # Cliente vende dólares → empresa le compra → usa TC compra - spread
+        tc_base  = round(compra - SPREAD_TC, 4)
+        tc_final = round(tc_base + MEJORA_TC, 4) if importe >= MONTO_ESPECIAL else tc_base
         soles    = round(importe * tc_final, 2)
         resumen  = (
             f'💵 *Cotización — Usted vende dólares*\n\n'
             f'  Envías:         *USD {importe:,.2f}*\n'
-            f'  Tipo de cambio: *S/ {tc_final:.3f}*\n'
+            f'  Tipo de cambio: *S/ {tc_final:.4f}*\n'
             f'  Recibes:        *S/ {soles:,.2f}*'
         )
         if importe >= MONTO_ESPECIAL:
