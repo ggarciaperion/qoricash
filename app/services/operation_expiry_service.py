@@ -278,7 +278,7 @@ class OperationExpiryService:
                         'type': 'text',
                         'text': {'body': mensaje},
                     }
-                    _req.post(wa_url, json=payload, headers=headers, timeout=10)
+                    requests.post(wa_url, json=payload, headers=headers, timeout=10)
                     logger.info(f"[SESSION] Sesión cerrada y WA enviado: {numero}")
                     closed_count += 1
                 except Exception as wa_err:
