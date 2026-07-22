@@ -172,8 +172,7 @@ def _bienvenida(numero, nombre):
         f'{saludo} Bienvenido a *Qoricash* 🏦\n'
         'Fintech de cambio de divisas, segura y regulada por la SBS.\n\n'
         f'{tc_texto}\n'
-        '⭐ _Tasa preferencial para importes mayores a $3,000 USD_\n\n'
-        '¿En qué te podemos ayudar?'
+        '⭐ _Tasa preferencial para importes mayores a $3,000 USD_'
     ).strip()
 
     send_buttons(numero, msg, [
