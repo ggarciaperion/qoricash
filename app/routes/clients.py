@@ -17,6 +17,9 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# DNI del usuario "BOT" — único trader cuyas activaciones envían WA al cliente
+BOT_TRADER_DNI = '99999999'
+
 clients_bp = Blueprint('clients', __name__, url_prefix='/clients')
 
 
@@ -268,6 +271,21 @@ def change_status(client_id):
             except Exception as e:
                 # No bloquear por errores de email
                 logger.warning(f'Error al enviar email de cliente activado: {str(e)}')
+
+            # WA de cuenta activa: solo para clientes registrados por el usuario BOT
+            try:
+                creator_dni = (getattr(getattr(client, 'creator', None), 'dni', None) or '')
+                if creator_dni == BOT_TRADER_DNI:
+                    from app.services.wa_bot import wa_notify_client
+                    nombre = client.full_name or client.razon_social or 'Cliente'
+                    wa_notify_client(client,
+                        f'✅ *¡Tu cuenta en Qoricash está activa!*\n\n'
+                        f'Hola *{nombre}*, ya puedes realizar cambio de dólares con nosotros.\n\n'
+                        f'Escríbenos aquí mismo cuando desees cotizar. 💱'
+                    )
+                    logger.info(f'📲 WA de activación enviado a cliente {client.dni}')
+            except Exception as e:
+                logger.warning(f'Error enviando WA de activación: {str(e)}')
         return jsonify({'success': True, 'message': message, 'client': client.to_dict()})
     else:
         return jsonify({'success': False, 'message': message}), 400
@@ -502,6 +520,21 @@ def approve_documents(client_id):
                 EmailService.send_client_activation_email(client, current_user, temporary_password)
             except Exception as e:
                 logger.warning(f'Error al enviar email de activación: {str(e)}')
+
+            # WA de cuenta activa: solo para clientes registrados por el usuario BOT
+            try:
+                creator_dni = (getattr(getattr(client, 'creator', None), 'dni', None) or '')
+                if creator_dni == BOT_TRADER_DNI:
+                    from app.services.wa_bot import wa_notify_client
+                    nombre = client.full_name or client.razon_social or 'Cliente'
+                    wa_notify_client(client,
+                        f'✅ *¡Tu cuenta en Qoricash está activa!*\n\n'
+                        f'Hola *{nombre}*, ya puedes realizar cambio de dólares con nosotros.\n\n'
+                        f'Escríbenos aquí mismo cuando desees cotizar. 💱'
+                    )
+                    logger.info(f'📲 WA de activación enviado a cliente {client.dni} (approve_documents)')
+            except Exception as e:
+                logger.warning(f'Error enviando WA de activación (approve_documents): {str(e)}')
 
         # Enviar notificación Socket.IO al cliente
         logger.info(f'📡 Enviando notificación Socket.IO a cliente {client.dni}...')
