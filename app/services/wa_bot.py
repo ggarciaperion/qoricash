@@ -336,11 +336,24 @@ def _crear_operacion(session, client):
     sys_user = User.query.filter_by(role='Master').order_by(User.id).first()
     uid = sys_user.id if sys_user else 1
 
+    import json as _json
+
     cuenta_raw = session.cotiz_cuenta or ''
     if '|' in cuenta_raw:
         banco_dest, num_dest = cuenta_raw.split('|', 1)
     else:
         banco_dest, num_dest = None, cuenta_raw or None
+
+    # Importe a pagar al cliente: Venta → USD, Compra → PEN (convención del sistema)
+    pago_importe = float(amount_u) if op_type == 'Venta' else float(amount_p)
+
+    # Pre-poblar pago al cliente con la cuenta que eligió en el bot
+    client_payments = _json.dumps([{
+        'importe':        pago_importe,
+        'cuenta_destino': num_dest or '',
+        'qc_bank':        banco_dest or '',
+        'comprobante_url': '',
+    }]) if num_dest else '[]'
 
     op = Operation(
         operation_id          = Operation.generate_operation_id(),
@@ -354,6 +367,7 @@ def _crear_operacion(session, client):
         status                = 'Pendiente',
         destination_account   = num_dest,
         destination_bank_name = banco_dest,
+        client_payments_json  = client_payments,
         notes                 = 'Operación generada vía WhatsApp bot',
     )
     db.session.add(op)
@@ -529,9 +543,7 @@ def _flujo_pedir_numero_doc(numero, tipo):
 
 def _flujo_asesor(numero):
     send_text(numero,
-        '✅ Perfecto, en un momento un asesor te atenderá.\n\n'
-        '📞 También puedes escribirnos directamente:\n'
-        '*+51 910 624 404*'
+        'En breve un asesor se pondrá en contacto contigo por este mismo chat para brindarte el soporte que necesitas.'
     )
     log.info(f'[WaBot] {numero} solicitó hablar con asesor.')
 
