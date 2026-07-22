@@ -609,17 +609,82 @@ def _flujo_confirmar_registro(numero, session):
             'Nuestro equipo verificará tu DNI y activará tu cuenta en un máximo de *15 minutos*.\n\n'
             'Te notificaremos por este mismo WhatsApp cuando esté lista para operar.'
         )
+        tipo_desc = 'Persona Natural'
     else:
         msg = (
             '✅ *¡Solicitud de registro de empresa recibida!*\n\n'
             'Nuestro equipo verificará la ficha RUC y activará la cuenta corporativa en máximo *15 minutos*.\n\n'
             'Te notificaremos por WhatsApp cuando esté habilitada.'
         )
+        tipo_desc = 'Empresa'
     send_buttons(numero, msg, [
         {'id': 'btn_cotizar', 'title': '💱 Cotizar'},
         {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
     ])
     _registrar_lead(numero, session)
+    _notificar_admin_registro(numero, session, tipo_desc)
+
+
+def _notificar_admin_registro(numero, session, tipo_desc):
+    """Notifica a gerencia por email y WhatsApp cuando hay un registro pendiente desde el bot."""
+    nombre   = session.nombre or numero
+    doc      = session.cotiz_doc or 'no indicado'
+    email_cl = session.cotiz_email or 'no indicado'
+
+    # ── Email: info@qoricash.pe → gerencia@qoricash.pe ──────────────
+    try:
+        from flask_mail import Message
+        from app.extensions import mail
+        from flask import current_app
+        app = current_app._get_current_object()
+
+        asunto = f'[Bot WA] Nuevo registro pendiente — {tipo_desc}: {nombre}'
+        cuerpo = (
+            f'Se ha recibido una nueva solicitud de registro a través del bot de WhatsApp.\n\n'
+            f'Tipo:     {tipo_desc}\n'
+            f'Nombre:   {nombre}\n'
+            f'DNI/RUC:  {doc}\n'
+            f'Email:    {email_cl}\n'
+            f'Número WA: {numero}\n\n'
+            f'Tiempo máximo de respuesta: 15 minutos.\n\n'
+            f'Revisa el panel de KYC/Clientes para activar la cuenta.'
+        )
+        email_msg = Message(
+            subject=asunto,
+            sender='info@qoricash.pe',
+            recipients=['gerencia@qoricash.pe'],
+            body=cuerpo,
+        )
+
+        import eventlet as _ev
+
+        def _do_send():
+            with app.app_context():
+                try:
+                    mail.send(email_msg)
+                    log.info(f'[WaBot] Email de registro enviado a gerencia para {numero}')
+                except Exception as _e:
+                    log.warning(f'[WaBot] Error enviando email de registro: {_e}')
+
+        _ev.spawn_n(_do_send)
+    except Exception as e:
+        log.warning(f'[WaBot] No se pudo preparar email de registro: {e}')
+
+    # ── WhatsApp: mensaje directo a 51926011920 ──────────────────────
+    try:
+        wa_msg = (
+            f'🔔 *Nuevo registro pendiente — {tipo_desc}*\n\n'
+            f'Nombre:   {nombre}\n'
+            f'DNI/RUC:  {doc}\n'
+            f'Email:    {email_cl}\n'
+            f'WA:       {numero}\n\n'
+            f'⏱ Tiempo máximo de activación: *15 minutos*\n'
+            f'Revisa el panel de KYC para activar la cuenta.'
+        )
+        send_text('51926011920', wa_msg)
+        log.info(f'[WaBot] Notificación WA de registro enviada a admin para {numero}')
+    except Exception as e:
+        log.warning(f'[WaBot] No se pudo enviar WA de registro a admin: {e}')
 
 
 def _registrar_lead(numero, session):
