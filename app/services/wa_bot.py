@@ -624,6 +624,21 @@ def _flujo_sin_kyc(numero, kyc_status):
     ])
 
 
+def _flujo_recordatorio_registro(numero, estado):
+    """Recuerda al cliente en qué paso del registro se quedó y ofrece volver al inicio."""
+    mensajes = {
+        'esperando_dni_front': '📋 ¡Tienes un registro en curso! Solo necesitamos la foto del frente de tu DNI para continuar. 😊',
+        'esperando_dni_back':  '📋 ¡Ya casi terminas! Falta la foto del reverso de tu DNI.',
+        'esperando_ruc':       '📋 ¡Tienes un registro en curso! Solo falta que nos envíes la Ficha RUC de tu empresa.',
+        'esperando_email':     '📋 ¡Casi listo! Solo falta tu correo electrónico para completar el registro.',
+    }
+    msg = mensajes.get(estado, '📋 Tienes un registro en curso.')
+    send_buttons(numero, msg, [
+        {'id': 'btn_volver_inicio', 'title': '🔙 Volver al inicio'},
+        {'id': 'btn_asesor',        'title': '💬 Hablar con asesor'},
+    ])
+
+
 def _flujo_no_encontrado(numero):
     send_buttons(numero,
         '🔍 No encontramos tu cuenta en Qoricash.\n\n'
@@ -911,6 +926,16 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                 _flujo_como_funciona(numero)
                 session.estado = 'inicio'
 
+            elif btn_id == 'btn_volver_inicio':
+                session.estado      = 'inicio'
+                session.tipo        = ''
+                session.cotiz_doc   = ''
+                session.cotiz_email = ''
+                session.dni_front   = ''
+                session.dni_back    = ''
+                session.ruc_doc     = ''
+                _bienvenida(numero, session.nombre)
+
             elif btn_id == 'btn_natural':
                 session.tipo = 'natural'
                 _flujo_pedir_numero_doc(numero, 'natural')
@@ -1053,6 +1078,9 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                     _flujo_como_funciona(numero)
                 else:
                     _bienvenida(numero, session.nombre)
+
+            elif estado in ('esperando_dni_front', 'esperando_dni_back', 'esperando_ruc', 'esperando_email'):
+                _flujo_recordatorio_registro(numero, estado)
 
             else:
                 send_text(numero,
