@@ -941,7 +941,7 @@ async function selectConv(numero, nombre, empresa) {
     fetch(`/crm/api/mensajes/${encodeURIComponent(numero)}`).then(r => r.json()),
     loadConversaciones(),
   ]);
-  if (activeNum === numero) renderMensajes(msgs);
+  if (activeNum === numero) renderMensajes(msgs, true);
   // Actualizar badge del sidebar tras marcar como leídos
   if (typeof updateWaBadge === 'function') updateWaBadge();
 }
@@ -966,8 +966,10 @@ function showSkeleton() {
 // ══════════════════════════════════════════════════════
 //  Render mensajes
 // ══════════════════════════════════════════════════════
-function renderMensajes(msgs) {
+function renderMensajes(msgs, forceScroll = false) {
   const el = document.getElementById('chatMessages');
+  // Guardar posición antes de renderizar para saber si el usuario estaba abajo
+  const wasAtBottom = (el.scrollHeight - el.scrollTop - el.clientHeight) < 150;
   if (!msgs.length) {
     el.innerHTML = `<div style="text-align:center;color:#8696a0;font-size:.82rem;
       margin-top:40px;">Sin mensajes aún</div>`;
@@ -996,7 +998,10 @@ function renderMensajes(msgs) {
     </div>`;
   });
   el.innerHTML = html;
-  el.scrollTop = el.scrollHeight;
+  // Solo bajar automáticamente si el usuario ya estaba al fondo o se fuerza (apertura de chat)
+  if (forceScroll || wasAtBottom) {
+    el.scrollTop = el.scrollHeight;
+  }
 }
 
 function renderContent(m) {
@@ -1299,7 +1304,7 @@ function mostrarNotifWA(data) {
       loadConversaciones();
       if (activeNum && activeNum === data.numero) {
         fetch(`/crm/api/mensajes/${encodeURIComponent(activeNum)}`)
-          .then(r => r.json()).then(msgs => { if (activeNum) renderMensajes(msgs); });
+          .then(r => r.json()).then(msgs => { if (activeNum) renderMensajes(msgs, true); });
       }
       mostrarNotifWA(data);
     });
