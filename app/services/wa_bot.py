@@ -106,12 +106,11 @@ def send_list(numero, body, sections):
 # ── Helpers de TC ──────────────────────────────────────────────────
 
 def _get_tc():
+    """Lee el TC desde DatatecRate — la misma fuente que el gadget de precios."""
     try:
-        from app.models.exchange_rate import ExchangeRate
-        rates  = ExchangeRate.get_current_rates()
-        compra = rates.get('compra', 0)
-        venta  = rates.get('venta', 0)
-        return compra, venta
+        from app.models.datatec_rate import DatatecRate
+        row = DatatecRate.get()
+        return float(row.compra), float(row.venta)
     except Exception:
         return 0, 0
 
