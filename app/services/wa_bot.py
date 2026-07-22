@@ -241,7 +241,12 @@ def _parse_monto(texto):
 
 def _bienvenida(numero, nombre):
     saludo = f'Hola {nombre} 👋' if nombre else 'Hola 👋'
-    compra, venta = _get_tc()
+    base_compra, base_venta = _get_tc()
+    # Aplicar spread igual que en la cotización:
+    # compra (bot compra USD del cliente) = base_compra - SPREAD_TC
+    # venta  (bot vende USD al cliente)   = base_venta  + SPREAD_TC
+    compra = round(base_compra - SPREAD_TC, 3) if base_compra else 0
+    venta  = round(base_venta  + SPREAD_TC, 3) if base_venta  else 0
     tc_texto = (
         f'💱 *Tipo de cambio ahora:*\n'
         f'  • Compra: S/ {compra:.3f}\n'
