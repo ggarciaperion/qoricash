@@ -20,6 +20,64 @@ SPREAD_TC = 0.0020   # 20 pips: spread que aplica el bot sobre el TC oficial
 
 COTIZ_VALIDEZ_MIN = 15   # minutos de validez de la cotización
 
+def _lookup_dni(dni):
+    """
+    Consulta RENIEC vía decolecta.com (primario) o apis.net.pe (fallback).
+    Retorna nombre completo en formato 'Nombres Apellidos' o None si no encuentra.
+    """
+    import json as _json
+    token = (os.environ.get('APIS_NET_PE_TOKEN') or '').strip()
+    try:
+        if token:
+            url  = f'https://api.decolecta.com/v1/reniec/dni?numero={dni}'
+            hdrs = {'Accept': 'application/json', 'User-Agent': 'QoriCash/2.0',
+                    'Authorization': f'Bearer {token}'}
+        else:
+            url  = f'https://api.apis.net.pe/v1/dni?numero={dni}'
+            hdrs = {'Accept': 'application/json', 'User-Agent': 'QoriCash/2.0'}
+
+        r = requests.get(url, headers=hdrs, timeout=5)
+        if r.status_code != 200:
+            return None
+        data    = r.json()
+        nombres = (data.get('nombres') or data.get('nombre') or '').strip().title()
+        ap_pat  = (data.get('apellidoPaterno') or data.get('apellido_paterno') or '').strip().title()
+        ap_mat  = (data.get('apellidoMaterno') or data.get('apellido_materno') or '').strip().title()
+        if not nombres and not ap_pat:
+            return None
+        return f'{nombres} {ap_pat} {ap_mat}'.strip()
+    except Exception as e:
+        log.warning(f'[WaBot] _lookup_dni error: {e}')
+        return None
+
+
+def _lookup_ruc(ruc):
+    """
+    Consulta SUNAT vía decolecta.com (primario) o apis.net.pe (fallback).
+    Retorna razón social en título o None si no encuentra.
+    """
+    import json as _json
+    token = (os.environ.get('APIS_NET_PE_TOKEN') or '').strip()
+    try:
+        if token:
+            url  = f'https://api.decolecta.com/v1/sunat/ruc?numero={ruc}'
+            hdrs = {'Accept': 'application/json', 'User-Agent': 'QoriCash/2.0',
+                    'Authorization': f'Bearer {token}'}
+        else:
+            url  = f'https://api.apis.net.pe/v1/ruc?numero={ruc}'
+            hdrs = {'Accept': 'application/json', 'User-Agent': 'QoriCash/2.0'}
+
+        r = requests.get(url, headers=hdrs, timeout=5)
+        if r.status_code != 200:
+            return None
+        data = r.json()
+        razon = (data.get('razon_social') or data.get('nombre') or data.get('razonSocial') or '').strip().title()
+        return razon or None
+    except Exception as e:
+        log.warning(f'[WaBot] _lookup_ruc error: {e}')
+        return None
+
+
 def _mejora_tc(importe):
     """Retorna la mejora de TC (en valor absoluto) según el importe en USD."""
     if importe >= 10000:
@@ -601,9 +659,10 @@ def _flujo_tipo_cliente(numero):
     )
 
 
-def _flujo_pedir_dni_front(numero):
+def _flujo_pedir_dni_front(numero, nombre=None):
+    saludo = f'Hola *{nombre}* 👋 ' if nombre else ''
     send_text(numero,
-        '📷 Por favor envíanos una *foto del frente de tu DNI*.\n\n'
+        f'{saludo}📷 Por favor envíanos una *foto del frente de tu DNI*.\n\n'
         'Asegúrate de que sea legible y que los 4 bordes sean visibles.'
     )
 
@@ -612,8 +671,10 @@ def _flujo_pedir_dni_back(numero):
     send_text(numero, '📷 Ahora envíanos una *foto del reverso de tu DNI*.')
 
 
-def _flujo_pedir_ruc(numero):
+def _flujo_pedir_ruc(numero, razon_social=None):
+    empresa = f' de *{razon_social}*' if razon_social else ''
     send_text(numero,
+        f'✅ Empresa verificada{empresa}.\n\n'
         '📄 Por favor envíanos la *Ficha RUC de tu empresa*.\n\n'
         'Puedes descargarla desde sunat.gob.pe → Consulta RUC.'
     )
@@ -950,10 +1011,20 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                 if valido:
                     session.cotiz_doc = doc
                     if session.tipo == 'natural':
-                        _flujo_pedir_dni_front(numero)
+                        # Consultar RENIEC solo para DNI (8 dígitos); CE no tiene lookup
+                        nombre_reniec = None
+                        if len(doc) == 8:
+                            nombre_reniec = _lookup_dni(doc)
+                            if nombre_reniec:
+                                session.nombre = nombre_reniec
+                        _flujo_pedir_dni_front(numero, nombre_reniec)
                         session.estado = 'esperando_dni_front'
                     else:
-                        _flujo_pedir_ruc(numero)
+                        # Consultar SUNAT para RUC
+                        razon_social = _lookup_ruc(doc)
+                        if razon_social:
+                            session.nombre = razon_social
+                        _flujo_pedir_ruc(numero, razon_social)
                         session.estado = 'esperando_ruc'
                 else:
                     send_text(numero, f'Ingresa un *{esperado}* válido.')
