@@ -438,10 +438,13 @@ def _flujo_registrar_codigo_op(numero, codigo, session):
 
 
 def _cuentas_cliente_por_moneda(client, moneda):
-    """Retorna las cuentas del cliente filtradas por moneda ('USD' o 'PEN')."""
+    """Retorna las cuentas del cliente filtradas por moneda ('USD' o 'PEN').
+    El campo currency se almacena como '$' o 'S/' en el sistema."""
+    equiv = {'USD': ('$', 'USD'), 'PEN': ('S/', 'PEN')}
+    aceptadas = equiv.get(moneda.upper(), (moneda,))
     return [
         a for a in (client.bank_accounts or [])
-        if a.get('currency', '').upper() == moneda.upper()
+        if a.get('currency', '').strip() in aceptadas
     ]
 
 
