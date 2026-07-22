@@ -367,10 +367,11 @@ def _flujo_op_creada(numero, op, session):
         f'Tienes *15 minutos* para realizar la transferencia, de lo contrario se cancelará automáticamente.\n\n'
         f'*Transfiere {simbolo} {monto_enviar:,.2f} a:*\n\n'
         f'{cuentas}\n\n'
-        f'_Una vez realizada la transferencia, envíanos el *número de operación* '
-        f'de tu comprobante bancario para procesar tu cambio de inmediato._'
+        f'_Una vez que hayas transferido, presiona el botón para registrar tu comprobante._'
     )
-    send_text(numero, msg)
+    send_buttons(numero, msg, [
+        {'id': 'btn_ya_transferi', 'title': '✅ Ya transferí'},
+    ])
 
 
 def _flujo_registrar_codigo_op(numero, codigo, session):
@@ -616,6 +617,12 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                 _flujo_cotiz_aceptada(numero, session)
                 session.estado = 'decidiendo_registro'
 
+            elif btn_id == 'btn_ya_transferi':
+                send_text(numero,
+                    '🔢 Ingresa el *número de operación* de tu comprobante bancario:'
+                )
+                session.estado = 'esperando_codigo_op'
+
             elif btn_id == 'btn_tengo_cuenta':
                 _flujo_pedir_doc_verificacion(numero)
                 session.estado = 'esperando_doc'
@@ -673,7 +680,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                                 op = _crear_operacion(session, client)
                                 session.cotiz_op_id = op.operation_id
                                 _flujo_op_creada(numero, op, session)
-                                session.estado = 'esperando_codigo_op'
+                                session.estado = 'op_pendiente_pago'
                             except Exception as _oe:
                                 log.error(f'[WaBot] Error creando op: {_oe}')
                                 send_text(numero,
