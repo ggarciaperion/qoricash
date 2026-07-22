@@ -176,15 +176,11 @@ def _bienvenida(numero, nombre):
         '¿En qué te podemos ayudar?'
     ).strip()
 
-    send_list(numero, msg, [{
-        'title': 'Opciones',
-        'rows': [
-            {'id': 'btn_cotizar',       'title': '💱 Cotizar'},
-            {'id': 'btn_registro',      'title': '📝 Registrarme'},
-            {'id': 'btn_asesor',        'title': '💬 Hablar con asesor'},
-            {'id': 'btn_como_funciona', 'title': '❓ ¿Cómo funciona?'},
-        ]
-    }])
+    send_buttons(numero, msg, [
+        {'id': 'btn_cotizar',  'title': '💱 Cotizar'},
+        {'id': 'btn_registro', 'title': '📝 Registrarme'},
+        {'id': 'btn_asesor',   'title': '💬 Hablar con asesor'},
+    ])
 
 
 def _flujo_cotizar_inicio(numero):
@@ -982,7 +978,11 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                     )
 
             elif estado == 'inicio':
-                _bienvenida(numero, session.nombre)
+                txt_lower = texto.lower()
+                if any(k in txt_lower for k in ('como funciona', 'cómo funciona', 'como opera', 'es seguro', 'es confiable')):
+                    _flujo_como_funciona(numero)
+                else:
+                    _bienvenida(numero, session.nombre)
 
             else:
                 send_text(numero,
