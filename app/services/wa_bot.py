@@ -18,9 +18,13 @@ ASESOR_NUMERO   = os.environ.get('WA_ASESOR_NUMERO', '51910624404')
 # 1 pip = 0.0001 (estándar forex para pares con PEN)
 SPREAD_TC = 0.0020   # 20 pips: spread que aplica el bot sobre el TC oficial
 
+COTIZ_VALIDEZ_MIN = 15   # minutos de validez de la cotización
+
 def _mejora_tc(importe):
     """Retorna la mejora de TC (en valor absoluto) según el importe en USD."""
-    if importe >= 5000:
+    if importe >= 10000:
+        return 0.0020   # 20 pips
+    elif importe >= 5000:
         return 0.0015   # 15 pips
     elif importe >= 3000:
         return 0.0010   # 10 pips
@@ -219,6 +223,8 @@ def _flujo_mostrar_cotizacion(numero, session):
     if mejora > 0:
         resumen += f'\n\n  ✨ _TC preferencial por monto especial_'
 
+    resumen += f'\n\n  ⏱ _Válido por {COTIZ_VALIDEZ_MIN} minutos_'
+
     session.cotiz_tc = tc_final
 
     send_buttons(numero, resumen, [
@@ -226,6 +232,39 @@ def _flujo_mostrar_cotizacion(numero, session):
         {'id': 'btn_volver_cotizar', 'title': '🔄 Volver a cotizar'},
         {'id': 'btn_asesor',         'title': '💬 Hablar con asesor'},
     ])
+
+
+def _menu_rapido(numero):
+    """Menú de opciones sin el saludo de bienvenida (para clientes que ya fueron bienvenidos)."""
+    send_buttons(numero,
+        '¿En qué te podemos ayudar?',
+        [
+            {'id': 'btn_cotizar',  'title': '💱 Cotizar'},
+            {'id': 'btn_registro', 'title': '📝 Registrarme'},
+            {'id': 'btn_asesor',   'title': '💬 Hablar con asesor'},
+        ]
+    )
+
+
+def _flujo_cotiz_expirada(numero):
+    """Avisa que la cotización venció y ofrece volver a cotizar."""
+    send_buttons(numero,
+        f'⏱ Tu cotización ha vencido (validez: {COTIZ_VALIDEZ_MIN} min).\n\n'
+        '¿Deseas obtener un nuevo precio?',
+        [
+            {'id': 'btn_cotizar', 'title': '💱 Nueva cotización'},
+            {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
+        ]
+    )
+
+
+def _cotiz_expirada(session):
+    """Retorna True si la cotización lleva más de COTIZ_VALIDEZ_MIN sin ser aceptada."""
+    from datetime import timedelta
+    from app.utils.formatters import now_peru
+    if not session.updated_at:
+        return False
+    return (now_peru() - session.updated_at) > timedelta(minutes=COTIZ_VALIDEZ_MIN)
 
 
 def _flujo_cotiz_aceptada(numero, session):
@@ -371,6 +410,13 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
 
         estado = session.estado
 
+        # ── Verificar expiración de cotización ────────────────────
+        if estado == 'viendo_cotizacion' and _cotiz_expirada(session):
+            _flujo_cotiz_expirada(numero)
+            session.estado = 'inicio'
+            db.session.commit()
+            return
+
         # ── Botones interactivos ───────────────────────────────────
         if tipo_msg == 'interactive':
             btn_id = texto
@@ -434,7 +480,11 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                     )
 
             elif estado == 'inicio':
-                _bienvenida(numero, session.nombre)
+                # Si ya fue bienvenido antes, mostrar solo el menú
+                if session.nombre or session.created_at != session.updated_at:
+                    _menu_rapido(numero)
+                else:
+                    _bienvenida(numero, session.nombre)
 
             else:
                 send_text(numero,

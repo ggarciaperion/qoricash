@@ -1374,6 +1374,36 @@ def api_limpiar_telefonos():
         return jsonify({'ok': False, 'error': str(e)}), 500
 
 
+# ── Expiración proactiva de cotizaciones vencidas ────────────────
+@crm_bp.route('/api/bot/expirar-cotizaciones', methods=['POST'])
+@csrf.exempt
+def api_expirar_cotizaciones():
+    """Llamado por scheduler/cron cada minuto. Envía aviso de vencimiento a sesiones expiradas."""
+    api_key = request.headers.get('X-Api-Key', '')
+    if api_key != CRM_API_KEY:
+        return jsonify({'ok': False, 'error': 'Unauthorized'}), 401
+    try:
+        from datetime import timedelta
+        from app.models.wa_bot_session import WaBotSession
+        from app.services.wa_bot import _flujo_cotiz_expirada, COTIZ_VALIDEZ_MIN
+        from app.utils.formatters import now_peru
+        cutoff = now_peru() - timedelta(minutes=COTIZ_VALIDEZ_MIN)
+        expiradas = WaBotSession.query.filter_by(estado='viendo_cotizacion').filter(
+            WaBotSession.updated_at < cutoff
+        ).all()
+        enviados = 0
+        for s in expiradas:
+            _flujo_cotiz_expirada(s.numero)
+            s.estado = 'inicio'
+            enviados += 1
+        db.session.commit()
+        log.info(f'[CRM Bot] {enviados} cotizaciones expiradas notificadas')
+        return jsonify({'ok': True, 'expiradas': enviados})
+    except Exception as e:
+        log.error(f'[CRM Bot] Error expirando cotizaciones: {e}')
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
 # ── Limpieza historial WA anterior a julio 2026 ───────────────────
 @crm_bp.route('/api/limpiar-wa-historial', methods=['POST'])
 @login_required
