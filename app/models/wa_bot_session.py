@@ -21,6 +21,9 @@ class WaBotSession(db.Model):
     cotiz_op      = db.Column(db.String(10),  default='')   # 'compra' | 'venta'
     cotiz_importe = db.Column(db.Float,       default=0.0)  # monto en USD
     cotiz_tc      = db.Column(db.Float,       default=0.0)  # TC ofrecido
+    # Registro / verificación de identidad
+    cotiz_doc     = db.Column(db.String(20),  default='')   # DNI o RUC ingresado
+    cotiz_email   = db.Column(db.String(120), default='')   # email para registro
     created_at = db.Column(db.DateTime, default=now_peru, nullable=False)
     updated_at = db.Column(db.DateTime, default=now_peru, onupdate=now_peru, nullable=False)
 

@@ -555,8 +555,16 @@ try:
     )
     found = [r[0] for r in cur.fetchall()]
     conn.close()
-    if len(found) == 3:
-        print("   ✅ cotiz_op, cotiz_importe, cotiz_tc confirmadas en wa_bot_sessions")
+    cur.execute("ALTER TABLE wa_bot_sessions ADD COLUMN IF NOT EXISTS cotiz_doc VARCHAR(20) DEFAULT ''")
+    cur.execute("ALTER TABLE wa_bot_sessions ADD COLUMN IF NOT EXISTS cotiz_email VARCHAR(120) DEFAULT ''")
+    cur.execute(
+        "SELECT column_name FROM information_schema.columns "
+        "WHERE table_name='wa_bot_sessions' AND column_name IN ('cotiz_op','cotiz_importe','cotiz_tc','cotiz_doc','cotiz_email')"
+    )
+    found = [r[0] for r in cur.fetchall()]
+    conn.close()
+    if len(found) == 5:
+        print("   ✅ cotiz_* (5 cols) confirmadas en wa_bot_sessions")
     else:
         print(f"   ❌ Solo se encontraron: {found}")
         sys.exit(1)

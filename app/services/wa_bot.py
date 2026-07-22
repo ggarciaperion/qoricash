@@ -268,23 +268,140 @@ def _cotiz_expirada(session):
 
 
 def _flujo_cotiz_aceptada(numero, session):
-    """Cliente aceptó el precio. Confirmar y redirigir."""
-    op      = 'compra' if session.cotiz_op == 'compra' else 'venta'
-    importe = session.cotiz_importe
-    tc      = session.cotiz_tc
+    """Cliente aceptó el precio — verificar si tiene cuenta."""
+    log.info(f'[WaBot] {numero} aceptó cotización: {session.cotiz_op} USD {session.cotiz_importe} a S/ {session.cotiz_tc}')
+    send_buttons(numero,
+        '✅ *¡Precio aceptado!*\n\n¿Ya tienes una cuenta registrada en Qoricash?',
+        [
+            {'id': 'btn_tengo_cuenta', 'title': '✅ Sí, tengo cuenta'},
+            {'id': 'btn_registrarme',  'title': '📝 No, quiero registrarme'},
+        ]
+    )
+
+
+def _flujo_pedir_doc_verificacion(numero):
+    send_text(numero,
+        '🔎 Ingresa tu *DNI* (8 dígitos) o *RUC* (11 dígitos) para verificar tu cuenta:'
+    )
+
+
+def _es_dni(t):
+    return bool(re.match(r'^\d{8}$', t.strip()))
+
+
+def _es_ruc(t):
+    return bool(re.match(r'^\d{11}$', t.strip()))
+
+
+def _es_email(t):
+    return bool(re.match(r'^[^@\s]+@[^@\s]+\.[^@\s]+$', t.strip()))
+
+
+def _buscar_cliente(doc):
+    """Busca un cliente por DNI o RUC."""
+    try:
+        from app.models.client import Client
+        doc = doc.strip()
+        return Client.query.filter_by(dni=doc).first()
+    except Exception as e:
+        log.warning(f'[WaBot] Error buscando cliente {doc}: {e}')
+        return None
+
+
+def _texto_cuentas_qoricash(moneda):
+    """Devuelve texto formateado con las cuentas BCP e INTERBANK para la moneda dada."""
+    from app.config.bank_accounts import QORICASH_ACCOUNTS, QORICASH_TITULAR, QORICASH_RUC
+    lineas = [f'*Titular:* {QORICASH_TITULAR}', f'*RUC:* {QORICASH_RUC}', '']
+    for banco in ('BCP', 'INTERBANK'):
+        data = QORICASH_ACCOUNTS.get(banco, {}).get(moneda)
+        if data:
+            lineas.append(f'🏦 *{banco}*')
+            lineas.append(f'  Cuenta: `{data["numero"]}`')
+            lineas.append(f'  CCI:    `{data["cci"]}`')
+            lineas.append('')
+    return '\n'.join(lineas).strip()
+
+
+def _crear_operacion(session, client):
+    """Crea la Operation en el sistema y la retorna."""
+    from app.models.operation import Operation
+    from app.models.user import User
+    from app.extensions import db
+
+    op_type  = 'Compra' if session.cotiz_op == 'compra' else 'Venta'
+    amount_u = session.cotiz_importe
+    tc       = session.cotiz_tc
+    amount_p = round(amount_u * tc, 2)
+
+    sys_user = User.query.filter_by(role='Master').order_by(User.id).first()
+    uid = sys_user.id if sys_user else 1
+
+    op = Operation(
+        client_id      = client.id,
+        user_id        = uid,
+        operation_type = op_type,
+        origen         = 'app',
+        amount_usd     = amount_u,
+        exchange_rate  = tc,
+        amount_pen     = amount_p,
+        status         = 'Pendiente',
+        notes          = f'Operación generada vía WhatsApp bot',
+    )
+    db.session.add(op)
+    db.session.flush()   # para obtener operation_id
+    return op
+
+
+def _flujo_op_creada(numero, op, session):
+    """Envía confirmación de operación creada con datos de transferencia."""
+    moneda_enviar = 'PEN' if session.cotiz_op == 'compra' else 'USD'
+    simbolo       = 'S/' if moneda_enviar == 'PEN' else 'USD'
+    monto_enviar  = float(op.amount_pen) if moneda_enviar == 'PEN' else float(op.amount_usd)
+
+    cuentas = _texto_cuentas_qoricash(moneda_enviar)
 
     msg = (
-        f'✅ *¡Perfecto! Tu cotización ha sido registrada.*\n\n'
-        f'  Operación:     {"Compra" if op == "compra" else "Venta"} de USD {importe:,.2f}\n'
-        f'  Tipo de cambio: S/ {tc:.3f}\n\n'
-        'Un asesor te contactará en breve para coordinar la operación.\n\n'
-        '📞 O escríbenos directamente: *+51 910 624 404*'
+        f'✅ *Operación creada exitosamente*\n'
+        f'📋 *Nro:* {op.operation_id}\n\n'
+        f'Tienes *15 minutos* para realizar la transferencia, de lo contrario se cancelará automáticamente.\n\n'
+        f'*Transfiere {simbolo} {monto_enviar:,.2f} a:*\n\n'
+        f'{cuentas}\n\n'
+        f'_Una vez realizada la transferencia, un asesor procesará tu operación._'
     )
+    send_text(numero, msg)
+
+
+def _flujo_sin_kyc(numero, kyc_status):
+    if kyc_status in ('pendiente', 'en_revision'):
+        msg = ('⏳ Tu cuenta está siendo revisada por nuestro equipo.\n\n'
+               'Te notificaremos cuando esté aprobada para que puedas operar.\n\n'
+               '¿Tienes dudas? Escríbenos: *+51 910 624 404*')
+    else:
+        msg = ('❌ Tu cuenta no está habilitada para operar.\n\n'
+               'Contáctate con un asesor para más información.\n\n'
+               '📞 *+51 910 624 404*')
     send_buttons(numero, msg, [
-        {'id': 'btn_cotizar',  'title': '💱 Nueva cotización'},
-        {'id': 'btn_registro', 'title': '📝 Registrarme'},
+        {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
+        {'id': 'btn_cotizar', 'title': '💱 Nueva cotización'},
     ])
-    log.info(f'[WaBot] {numero} ACEPTÓ cotización: {op} USD {importe} a S/ {tc}')
+
+
+def _flujo_no_encontrado(numero):
+    send_buttons(numero,
+        '🔍 No encontramos tu cuenta en Qoricash.\n\n'
+        '¿Deseas registrarte ahora? El proceso toma solo unos minutos.',
+        [
+            {'id': 'btn_registrarme', 'title': '📝 Registrarme'},
+            {'id': 'btn_asesor',      'title': '💬 Hablar con asesor'},
+        ]
+    )
+
+
+def _flujo_pedir_numero_doc(numero, tipo):
+    if tipo == 'natural':
+        send_text(numero, '🪪 Ingresa tu número de *DNI* (8 dígitos):')
+    else:
+        send_text(numero, '🏢 Ingresa el *RUC* de tu empresa (11 dígitos):')
 
 
 def _flujo_asesor(numero):
@@ -324,24 +441,26 @@ def _flujo_pedir_ruc(numero):
     )
 
 
+def _flujo_pedir_email(numero):
+    send_text(numero, '📧 Por último, ingresa tu *correo electrónico*:')
+
+
 def _flujo_confirmar_registro(numero, session):
     if session.tipo == 'natural':
         msg = (
-            '✅ *¡Documentos recibidos!*\n\n'
-            'Hemos registrado tu solicitud. Un asesor verificará tus datos '
-            'y te confirmará la activación de tu cuenta en breve.\n\n'
-            '¿Tienes alguna otra consulta?'
+            '✅ *¡Solicitud de registro recibida!*\n\n'
+            'Nuestro equipo verificará tu DNI y activará tu cuenta en un máximo de *24 horas*.\n\n'
+            'Te notificaremos por este mismo WhatsApp cuando esté lista para operar.'
         )
     else:
         msg = (
-            '✅ *¡Ficha RUC recibida!*\n\n'
-            'Hemos registrado tu empresa. Un asesor verificará los datos '
-            'y te activará la cuenta corporativa en breve.\n\n'
-            '¿Tienes alguna otra consulta?'
+            '✅ *¡Solicitud de registro de empresa recibida!*\n\n'
+            'Nuestro equipo verificará la ficha RUC y activará la cuenta corporativa en máximo *24 horas*.\n\n'
+            'Te notificaremos por WhatsApp cuando esté habilitada.'
         )
     send_buttons(numero, msg, [
-        {'id': 'btn_cotizar',  'title': '💱 Cotizar'},
-        {'id': 'btn_asesor',   'title': '💬 Hablar con asesor'},
+        {'id': 'btn_cotizar', 'title': '💱 Cotizar'},
+        {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
     ])
     _registrar_lead(numero, session)
 
@@ -365,9 +484,14 @@ def _registrar_lead(numero, session):
                 nombre_comercial = session.nombre or f'Lead WA {numero}',
                 telefono         = digits,
                 contacto_wa      = digits,
+                email            = session.cotiz_email or None,
                 estado_comercial = 'interesado',
                 canal_captacion  = 'whatsapp_bot',
-                notas            = f'Registro vía bot WhatsApp — {tipo_desc}',
+                notas            = (
+                    f'Registro vía bot WhatsApp — {tipo_desc}. '
+                    f'Doc: {session.cotiz_doc or "pendiente"}. '
+                    'DNI/RUC pendiente de validación.'
+                ),
             )
             db.session.add(p)
             sys_user = User.query.filter_by(role='Master').order_by(User.id).first()
@@ -437,13 +561,17 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
 
             elif btn_id == 'btn_aceptar_cotiz':
                 _flujo_cotiz_aceptada(numero, session)
-                session.estado = 'inicio'
+                session.estado = 'decidiendo_registro'
+
+            elif btn_id == 'btn_tengo_cuenta':
+                _flujo_pedir_doc_verificacion(numero)
+                session.estado = 'esperando_doc'
 
             elif btn_id == 'btn_volver_cotizar':
                 _flujo_cotizar_inicio(numero)
                 session.estado = 'eligiendo_operacion'
 
-            elif btn_id == 'btn_registro':
+            elif btn_id in ('btn_registro', 'btn_registrarme'):
                 _flujo_tipo_cliente(numero)
                 session.estado = 'eligiendo_tipo'
 
@@ -453,16 +581,16 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
 
             elif btn_id == 'btn_natural':
                 session.tipo = 'natural'
-                _flujo_pedir_dni_front(numero)
-                session.estado = 'esperando_dni_front'
+                _flujo_pedir_numero_doc(numero, 'natural')
+                session.estado = 'esperando_numero_doc'
 
             elif btn_id == 'btn_empresa':
                 session.tipo = 'empresa'
-                _flujo_pedir_ruc(numero)
-                session.estado = 'esperando_ruc'
+                _flujo_pedir_numero_doc(numero, 'empresa')
+                session.estado = 'esperando_numero_doc'
 
             else:
-                _bienvenida(numero, session.nombre)
+                _menu_rapido(numero)
                 session.estado = 'inicio'
 
         # ── Texto libre ───────────────────────────────────────────
@@ -477,6 +605,64 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                 else:
                     send_text(numero,
                         'No entendí el monto. Por favor escribe solo el número. Ejemplo: *1000*'
+                    )
+
+            elif estado == 'esperando_doc':
+                # Verificar DNI/RUC de cliente existente
+                doc = texto.strip()
+                if _es_dni(doc) or _es_ruc(doc):
+                    session.cotiz_doc = doc
+                    client = _buscar_cliente(doc)
+                    if client:
+                        kyc = (client.kyc_status or '').lower()
+                        if kyc in ('completo', 'aprobado'):
+                            try:
+                                op = _crear_operacion(session, client)
+                                _flujo_op_creada(numero, op, session)
+                                session.estado = 'inicio'
+                            except Exception as _oe:
+                                log.error(f'[WaBot] Error creando op: {_oe}')
+                                send_text(numero,
+                                    'Ocurrió un error al crear la operación. '
+                                    'Por favor contacta a un asesor: *+51 910 624 404*'
+                                )
+                                session.estado = 'inicio'
+                        else:
+                            _flujo_sin_kyc(numero, kyc)
+                            session.estado = 'inicio'
+                    else:
+                        _flujo_no_encontrado(numero)
+                        session.estado = 'inicio'
+                else:
+                    send_text(numero,
+                        'Ingresa un *DNI* válido (8 dígitos) o *RUC* válido (11 dígitos).'
+                    )
+
+            elif estado == 'esperando_numero_doc':
+                # DNI/RUC durante el proceso de registro
+                doc = texto.strip()
+                esperado = 'DNI (8 dígitos)' if session.tipo == 'natural' else 'RUC (11 dígitos)'
+                valido = _es_dni(doc) if session.tipo == 'natural' else _es_ruc(doc)
+                if valido:
+                    session.cotiz_doc = doc
+                    if session.tipo == 'natural':
+                        _flujo_pedir_dni_front(numero)
+                        session.estado = 'esperando_dni_front'
+                    else:
+                        _flujo_pedir_ruc(numero)
+                        session.estado = 'esperando_ruc'
+                else:
+                    send_text(numero, f'Ingresa un *{esperado}* válido.')
+
+            elif estado == 'esperando_email':
+                email = texto.strip()
+                if _es_email(email):
+                    session.cotiz_email = email
+                    _flujo_confirmar_registro(numero, session)
+                    session.estado = 'completado'
+                else:
+                    send_text(numero,
+                        'Ingresa un correo electrónico válido.\nEjemplo: *nombre@correo.com*'
                     )
 
             elif estado == 'inicio':
@@ -501,13 +687,13 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
 
             elif estado == 'esperando_dni_back' and media_id:
                 session.dni_back = media_id
-                _flujo_confirmar_registro(numero, session)
-                session.estado = 'completado'
+                _flujo_pedir_email(numero)
+                session.estado = 'esperando_email'
 
             elif estado == 'esperando_ruc' and media_id:
                 session.ruc_doc = media_id
-                _flujo_confirmar_registro(numero, session)
-                session.estado = 'completado'
+                _flujo_pedir_email(numero)
+                session.estado = 'esperando_email'
 
             elif estado == 'completado':
                 _bienvenida(numero, session.nombre)

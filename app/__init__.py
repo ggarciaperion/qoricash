@@ -984,6 +984,8 @@ def create_app(config_name=None):
                 _cur.execute("ALTER TABLE wa_bot_sessions ADD COLUMN IF NOT EXISTS cotiz_op VARCHAR(10) DEFAULT ''")
                 _cur.execute("ALTER TABLE wa_bot_sessions ADD COLUMN IF NOT EXISTS cotiz_importe FLOAT DEFAULT 0")
                 _cur.execute("ALTER TABLE wa_bot_sessions ADD COLUMN IF NOT EXISTS cotiz_tc FLOAT DEFAULT 0")
+                _cur.execute("ALTER TABLE wa_bot_sessions ADD COLUMN IF NOT EXISTS cotiz_doc VARCHAR(20) DEFAULT ''")
+                _cur.execute("ALTER TABLE wa_bot_sessions ADD COLUMN IF NOT EXISTS cotiz_email VARCHAR(120) DEFAULT ''")
                 print("[STARTUP] ✅ cotiz_* columns confirmed in wa_bot_sessions")
             _conn.close()
     except Exception as _e:
