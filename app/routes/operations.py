@@ -1334,6 +1334,27 @@ def complete_operation(operation_id):
             logger.error(f'[COMPLETE] Excepcion email para {operation_code}: {str(e)}')
             logger.exception(e)
 
+        # Notificar vía WhatsApp al cliente si tiene teléfono registrado
+        try:
+            from app.services.wa_bot import send_text as _wa_send
+            _op_ref = fresh_op or operation
+            _client = getattr(_op_ref, 'client', None)
+            _phone_raw = (getattr(_client, 'phone', None) or '').split(';')[0].strip()
+            _phone_digits = ''.join(c for c in _phone_raw if c.isdigit())
+            if _phone_digits:
+                if not _phone_digits.startswith('51'):
+                    _phone_digits = '51' + _phone_digits
+                _email_cliente = getattr(_client, 'email', '') or ''
+                _wa_msg = (
+                    f'✅ ¡Tu operación *{_op_ref.operation_id}* fue completada con éxito!\n\n'
+                    f'Tus fondos han sido transferidos a tu cuenta.\n\n'
+                    f'Puedes validar tu comprobante de pago en el correo registrado: *{_email_cliente}*'
+                )
+                _wa_send(_phone_digits, _wa_msg)
+                logger.info(f'[COMPLETE] WhatsApp enviado a {_phone_digits} para {operation_code}')
+        except Exception as e_wa:
+            logger.warning(f'[COMPLETE] Error WhatsApp para {operation_code}: {e_wa}')
+
         # Notificar
         try:
             NotificationService.notify_operation_completed(fresh_op or operation)
