@@ -2,6 +2,8 @@
 Servicio para expirar operaciones automáticamente
 """
 import logging
+import os
+import requests
 from datetime import timedelta
 from app.extensions import db
 from app.models.operation import Operation
@@ -215,14 +217,13 @@ class OperationExpiryService:
     def expire_inactive_bot_sessions():
         """
         Cierra sesiones de WhatsApp bot con más de 20 minutos de inactividad.
-        Envía mensaje de sesión cerrada y resetea el estado a 'inicio'.
+        Primero hace todos los resets en DB, luego envía los mensajes WA.
 
         Returns:
             int: Número de sesiones cerradas
         """
         try:
             from app.models.wa_bot_session import WaBotSession
-            from app.services.wa_bot import send_text as _wa_send
 
             cutoff = now_peru() - timedelta(minutes=20)
 
@@ -234,34 +235,55 @@ class OperationExpiryService:
             if not inactive_sessions:
                 return 0
 
-            closed_count = 0
+            logger.info(f"[SESSION] Encontradas {len(inactive_sessions)} sesiones inactivas >20min")
+
+            # Paso 1: recopilar números y resetear DB — sin enviar WA todavía
+            numeros_a_notificar = []
             for session in inactive_sessions:
                 try:
-                    # Notificar al cliente
-                    _wa_send(
-                        session.numero,
-                        '🔒 Tu sesión ha sido cerrada por inactividad.\n\n'
-                        'Cuando desees volver a operar, escríbenos y te atenderemos de inmediato.'
-                    )
-
-                    # Resetear estado y datos en curso
-                    session.estado       = 'inicio'
-                    session.cotiz_op     = ''
+                    numeros_a_notificar.append(session.numero)
+                    session.estado        = 'inicio'
+                    session.cotiz_op      = ''
                     session.cotiz_importe = 0.0
-                    session.cotiz_tc     = 0.0
-                    session.cotiz_doc    = ''
-                    session.cotiz_email  = ''
-                    session.cotiz_op_id  = ''
-                    session.cotiz_cuenta = ''
-                    db.session.commit()
+                    session.cotiz_tc      = 0.0
+                    session.cotiz_doc     = ''
+                    session.cotiz_email   = ''
+                    session.cotiz_op_id   = ''
+                    session.cotiz_cuenta  = ''
+                except Exception as e:
+                    logger.error(f"[SESSION] Error preparando reset {session.numero}: {e}")
 
-                    logger.info(f"[SESSION] Sesión cerrada por inactividad: {session.numero}")
+            # Commit único para todos los resets
+            try:
+                db.session.commit()
+                logger.info(f"[SESSION] {len(numeros_a_notificar)} sesiones reseteadas en DB")
+            except Exception as commit_err:
+                logger.error(f"[SESSION] Error en commit de resets: {commit_err}")
+                db.session.rollback()
+                return 0
+
+            # Paso 2: enviar WA a cada número (ya fuera del commit de DB)
+            wa_url   = f"https://graph.facebook.com/v19.0/{os.environ.get('WA_PHONE_NUMBER_ID','1118979324636599')}/messages"
+            wa_token = os.environ.get('WA_ACCESS_TOKEN', '')
+            headers  = {'Authorization': f'Bearer {wa_token}', 'Content-Type': 'application/json'}
+            mensaje  = ('🔒 Tu sesión ha sido cerrada por inactividad.\n\n'
+                        'Cuando desees volver a operar, escríbenos y te atenderemos de inmediato.')
+
+            closed_count = 0
+            for numero in numeros_a_notificar:
+                try:
+                    payload = {
+                        'messaging_product': 'whatsapp',
+                        'to': numero.lstrip('+'),
+                        'type': 'text',
+                        'text': {'body': mensaje},
+                    }
+                    _req.post(wa_url, json=payload, headers=headers, timeout=10)
+                    logger.info(f"[SESSION] Sesión cerrada y WA enviado: {numero}")
                     closed_count += 1
-
-                except Exception as sess_err:
-                    logger.error(f"[SESSION] Error cerrando sesión {session.numero}: {sess_err}")
-                    db.session.rollback()
-                    continue
+                except Exception as wa_err:
+                    logger.warning(f"[SESSION] WA no enviado a {numero}: {wa_err}")
+                    closed_count += 1  # la sesión SÍ fue reseteada aunque falle el WA
 
             if closed_count > 0:
                 logger.info(f"[SESSION] {closed_count} sesiones bot cerradas por inactividad")
@@ -270,5 +292,7 @@ class OperationExpiryService:
 
         except Exception as e:
             logger.error(f"Error en expire_inactive_bot_sessions: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
             db.session.rollback()
             return 0
