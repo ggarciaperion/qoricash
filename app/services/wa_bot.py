@@ -337,16 +337,17 @@ def _crear_operacion(session, client):
     uid = sys_user.id if sys_user else 1
 
     op = Operation(
-        operation_id   = Operation.generate_operation_id(),
-        client_id      = client.id,
-        user_id        = uid,
-        operation_type = op_type,
-        origen         = 'app',
-        amount_usd     = amount_u,
-        exchange_rate  = tc,
-        amount_pen     = amount_p,
-        status         = 'Pendiente',
-        notes          = 'Operación generada vía WhatsApp bot',
+        operation_id        = Operation.generate_operation_id(),
+        client_id           = client.id,
+        user_id             = uid,
+        operation_type      = op_type,
+        origen              = 'app',
+        amount_usd          = amount_u,
+        exchange_rate       = tc,
+        amount_pen          = amount_p,
+        status              = 'Pendiente',
+        destination_account = session.cotiz_cuenta or None,
+        notes               = 'Operación generada vía WhatsApp bot',
     )
     db.session.add(op)
     db.session.flush()
@@ -434,6 +435,52 @@ def _flujo_registrar_codigo_op(numero, codigo, session):
     except Exception as e:
         log.error(f'[WaBot] Error registrando código op {numero}: {e}')
         send_text(numero, '⚠️ Ocurrió un error. Contacta a un asesor: *+51 910 624 404*')
+
+
+def _cuentas_cliente_por_moneda(client, moneda):
+    """Retorna las cuentas del cliente filtradas por moneda ('USD' o 'PEN')."""
+    return [
+        a for a in (client.bank_accounts or [])
+        if a.get('currency', '').upper() == moneda.upper()
+    ]
+
+
+def _flujo_elegir_cuenta(numero, cuentas, moneda):
+    """Muestra botones para que el cliente elija su cuenta de destino."""
+    simbolo = 'USD' if moneda == 'USD' else 'S/'
+    cuerpo  = f'¿A qué cuenta {simbolo} deseas recibir tu dinero?'
+    botones = []
+    for i, a in enumerate(cuentas[:3]):
+        banco   = a.get('bank_name', 'Banco')
+        numero_ = a.get('account_number', '')
+        ultimos = numero_[-4:] if len(numero_) >= 4 else numero_
+        botones.append({'id': f'btn_cuenta_{numero_}', 'title': f'{banco} ···{ultimos}'})
+    send_buttons(numero, cuerpo, botones)
+
+
+def _flujo_pedir_cuenta_destino(numero, moneda):
+    """Pide al cliente su número de cuenta cuando no tiene ninguna registrada."""
+    simbolo = 'USD' if moneda == 'USD' else 'soles (PEN)'
+    send_text(numero,
+        f'No tenemos una cuenta {simbolo} registrada a tu nombre.\n\n'
+        f'Por favor ingresa tu *número de cuenta {simbolo}* donde deseas recibir el dinero:'
+    )
+
+
+def _crear_op_y_confirmar(numero, session, client):
+    """Crea la operación y envía confirmación. Centraliza la lógica de creación."""
+    try:
+        op = _crear_operacion(session, client)
+        session.cotiz_op_id = op.operation_id
+        _flujo_op_creada(numero, op, session, client)
+        session.estado = 'op_pendiente_pago'
+    except Exception as _oe:
+        log.error(f'[WaBot] Error creando op: {_oe}')
+        send_text(numero,
+            'Ocurrió un error al crear la operación. '
+            'Por favor contacta a un asesor: *+51 910 624 404*'
+        )
+        session.estado = 'inicio'
 
 
 def _flujo_sin_kyc(numero, kyc_status):
@@ -628,6 +675,15 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                 _flujo_cotiz_aceptada(numero, session)
                 session.estado = 'decidiendo_registro'
 
+            elif btn_id.startswith('btn_cuenta_') and estado == 'eligiendo_cuenta_destino':
+                session.cotiz_cuenta = btn_id[len('btn_cuenta_'):]
+                client = _buscar_cliente(session.cotiz_doc)
+                if client:
+                    _crear_op_y_confirmar(numero, session, client)
+                else:
+                    send_text(numero, '⚠️ Error de sesión. Contacta a un asesor: *+51 910 624 404*')
+                    session.estado = 'inicio'
+
             elif btn_id == 'btn_ya_transferi':
                 send_text(numero,
                     '🔢 Ingresa el *número de operación* de tu comprobante bancario:'
@@ -687,18 +743,22 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                     if client:
                         kyc = (client.kyc_status or '').lower()
                         if kyc in ('completo', 'aprobado'):
-                            try:
-                                op = _crear_operacion(session, client)
-                                session.cotiz_op_id = op.operation_id
-                                _flujo_op_creada(numero, op, session, client)
-                                session.estado = 'op_pendiente_pago'
-                            except Exception as _oe:
-                                log.error(f'[WaBot] Error creando op: {_oe}')
-                                send_text(numero,
-                                    'Ocurrió un error al crear la operación. '
-                                    'Por favor contacta a un asesor: *+51 910 624 404*'
-                                )
-                                session.estado = 'inicio'
+                            # Determinar moneda que recibirá el cliente
+                            moneda_recibe = 'USD' if session.cotiz_op == 'compra' else 'PEN'
+                            cuentas = _cuentas_cliente_por_moneda(client, moneda_recibe)
+                            if len(cuentas) == 1:
+                                # Una sola cuenta: auto-seleccionar
+                                session.cotiz_cuenta = cuentas[0].get('account_number', '')
+                                _crear_op_y_confirmar(numero, session, client)
+                            elif len(cuentas) > 1:
+                                # Múltiples cuentas: elegir
+                                _flujo_elegir_cuenta(numero, cuentas, moneda_recibe)
+                                session.estado = 'eligiendo_cuenta_destino'
+                            else:
+                                # Sin cuenta de esa moneda: pedir
+                                session.cotiz_cuenta = ''
+                                _flujo_pedir_cuenta_destino(numero, moneda_recibe)
+                                session.estado = 'esperando_cuenta_destino'
                         else:
                             _flujo_sin_kyc(numero, kyc)
                             session.estado = 'inicio'
@@ -709,6 +769,16 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                     send_text(numero,
                         'Ingresa un *DNI* válido (8 dígitos) o *RUC* válido (11 dígitos).'
                     )
+
+            elif estado == 'esperando_cuenta_destino':
+                # Cliente ingresa número de cuenta manualmente
+                session.cotiz_cuenta = texto.strip()
+                client = _buscar_cliente(session.cotiz_doc)
+                if client:
+                    _crear_op_y_confirmar(numero, session, client)
+                else:
+                    send_text(numero, '⚠️ Error de sesión. Contacta a un asesor: *+51 910 624 404*')
+                    session.estado = 'inicio'
 
             elif estado == 'esperando_numero_doc':
                 # DNI/RUC durante el proceso de registro
