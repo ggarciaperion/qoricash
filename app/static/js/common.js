@@ -369,9 +369,16 @@ function connectSocketIO() {
             sound:    true,
             duration: 7000,
         });
-        // Incrementar badge solo si NO estamos en la página de WhatsApp
+        // Actualizar badge con el count real del servidor (excepto si ya estamos en la página)
         if (window.location.pathname.indexOf('/crm/whatsapp') !== 0) {
-            if (window._menuBadgeInc) window._menuBadgeInc('wa');
+            var badge = document.getElementById('waBadge');
+            if (badge) {
+                var n = parseInt(data.unread || 0);
+                if (n > 0) {
+                    badge.textContent = n > 99 ? '99+' : n;
+                    badge.style.display = 'inline-flex';
+                }
+            }
         }
     });
 
