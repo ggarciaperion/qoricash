@@ -606,13 +606,13 @@ def _flujo_confirmar_registro(numero, session):
     if session.tipo == 'natural':
         msg = (
             '✅ *¡Solicitud de registro recibida!*\n\n'
-            'Nuestro equipo verificará tu DNI y activará tu cuenta en un máximo de *24 horas*.\n\n'
+            'Nuestro equipo verificará tu DNI y activará tu cuenta en un máximo de *15 minutos*.\n\n'
             'Te notificaremos por este mismo WhatsApp cuando esté lista para operar.'
         )
     else:
         msg = (
             '✅ *¡Solicitud de registro de empresa recibida!*\n\n'
-            'Nuestro equipo verificará la ficha RUC y activará la cuenta corporativa en máximo *24 horas*.\n\n'
+            'Nuestro equipo verificará la ficha RUC y activará la cuenta corporativa en máximo *15 minutos*.\n\n'
             'Te notificaremos por WhatsApp cuando esté habilitada.'
         )
     send_buttons(numero, msg, [
