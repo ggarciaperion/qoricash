@@ -276,13 +276,8 @@ def change_status(client_id):
             try:
                 creator_dni = (getattr(getattr(client, 'creator', None), 'dni', None) or '')
                 if creator_dni == BOT_TRADER_DNI:
-                    from app.services.wa_bot import wa_notify_client
-                    nombre = client.full_name or client.razon_social or 'Cliente'
-                    wa_notify_client(client,
-                        f'✅ *¡Tu cuenta en Qoricash está activa!*\n\n'
-                        f'Hola *{nombre}*, ya puedes realizar cambio de dólares con nosotros.\n\n'
-                        f'Escríbenos aquí mismo cuando desees cotizar. 💱'
-                    )
+                    from app.services.wa_bot import wa_notify_cuenta_activa
+                    wa_notify_cuenta_activa(client)
                     logger.info(f'📲 WA de activación enviado a cliente {client.dni}')
             except Exception as e:
                 logger.warning(f'Error enviando WA de activación: {str(e)}')
@@ -525,13 +520,8 @@ def approve_documents(client_id):
             try:
                 creator_dni = (getattr(getattr(client, 'creator', None), 'dni', None) or '')
                 if creator_dni == BOT_TRADER_DNI:
-                    from app.services.wa_bot import wa_notify_client
-                    nombre = client.full_name or client.razon_social or 'Cliente'
-                    wa_notify_client(client,
-                        f'✅ *¡Tu cuenta en Qoricash está activa!*\n\n'
-                        f'Hola *{nombre}*, ya puedes realizar cambio de dólares con nosotros.\n\n'
-                        f'Escríbenos aquí mismo cuando desees cotizar. 💱'
-                    )
+                    from app.services.wa_bot import wa_notify_cuenta_activa
+                    wa_notify_cuenta_activa(client)
                     logger.info(f'📲 WA de activación enviado a cliente {client.dni} (approve_documents)')
             except Exception as e:
                 logger.warning(f'Error enviando WA de activación (approve_documents): {str(e)}')

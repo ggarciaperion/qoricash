@@ -122,6 +122,28 @@ def wa_notify_client(client, mensaje):
     send_text(phone_digits, mensaje)
 
 
+def wa_notify_cuenta_activa(client):
+    """Envía WA de cuenta activada con botón de asesor. Uso externo (clients.py)."""
+    if not client:
+        return
+    phone_raw = (getattr(client, 'phone', None) or '').split(';')[0].strip()
+    phone_digits = ''.join(c for c in phone_raw if c.isdigit())
+    if not phone_digits:
+        return
+    if not phone_digits.startswith('51'):
+        phone_digits = '51' + phone_digits
+    nombre = getattr(client, 'full_name', None) or getattr(client, 'razon_social', None) or 'Cliente'
+    msg = (
+        f'✅ *¡Tu cuenta en Qoricash está activa!*\n\n'
+        f'Hola *{nombre}*, ya puedes realizar cambio de dólares con nosotros.\n\n'
+        f'Escríbenos aquí mismo cuando desees cotizar. 💱'
+    )
+    send_buttons(phone_digits, msg, [
+        {'id': 'btn_cotizar', 'title': '💱 Cotizar'},
+        {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
+    ])
+
+
 def send_text(numero, texto):
     payload = {
         'messaging_product': 'whatsapp',
