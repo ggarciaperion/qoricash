@@ -15,11 +15,17 @@ WA_API_URL      = f'https://graph.facebook.com/v19.0/{WA_PHONE_ID}/messages'
 
 ASESOR_NUMERO   = os.environ.get('WA_ASESOR_NUMERO', '51910624404')
 
-# Importe mínimo para mejora de TC (en USD)
-MONTO_ESPECIAL  = 5000
 # 1 pip = 0.0001 (estándar forex para pares con PEN)
-SPREAD_TC       = 0.0020   # 20 pips: spread que aplica el bot sobre el TC oficial
-MEJORA_TC       = 0.0015   # 15 pips: mejora adicional para montos >= MONTO_ESPECIAL
+SPREAD_TC = 0.0020   # 20 pips: spread que aplica el bot sobre el TC oficial
+
+def _mejora_tc(importe):
+    """Retorna la mejora de TC (en valor absoluto) según el importe en USD."""
+    if importe >= 5000:
+        return 0.0015   # 15 pips
+    elif importe >= 3000:
+        return 0.0010   # 10 pips
+    else:
+        return 0.0000   # sin mejora
 
 
 # ── Envío de mensajes ──────────────────────────────────────────────
@@ -185,10 +191,12 @@ def _flujo_mostrar_cotizacion(numero, session):
     op      = session.cotiz_op
     importe = session.cotiz_importe
 
+    mejora = _mejora_tc(importe)
+
     if op == 'compra':
         # Cliente compra dólares → empresa le vende → usa TC venta + spread
         tc_base  = round(venta + SPREAD_TC, 4)
-        tc_final = round(tc_base - MEJORA_TC, 4) if importe >= MONTO_ESPECIAL else tc_base
+        tc_final = round(tc_base - mejora, 4)
         soles    = round(importe * tc_final, 2)
         resumen  = (
             f'💵 *Cotización — Usted compra dólares*\n\n'
@@ -196,12 +204,10 @@ def _flujo_mostrar_cotizacion(numero, session):
             f'  Tipo de cambio: *S/ {tc_final:.4f}*\n'
             f'  Recibes:        *USD {importe:,.2f}*'
         )
-        if importe >= MONTO_ESPECIAL:
-            resumen += f'\n\n  ✨ _TC preferencial por monto especial_'
     else:
         # Cliente vende dólares → empresa le compra → usa TC compra - spread
         tc_base  = round(compra - SPREAD_TC, 4)
-        tc_final = round(tc_base + MEJORA_TC, 4) if importe >= MONTO_ESPECIAL else tc_base
+        tc_final = round(tc_base + mejora, 4)
         soles    = round(importe * tc_final, 2)
         resumen  = (
             f'💵 *Cotización — Usted vende dólares*\n\n'
@@ -209,8 +215,9 @@ def _flujo_mostrar_cotizacion(numero, session):
             f'  Tipo de cambio: *S/ {tc_final:.4f}*\n'
             f'  Recibes:        *S/ {soles:,.2f}*'
         )
-        if importe >= MONTO_ESPECIAL:
-            resumen += f'\n\n  ✨ _TC preferencial por monto especial_'
+
+    if mejora > 0:
+        resumen += f'\n\n  ✨ _TC preferencial por monto especial_'
 
     session.cotiz_tc = tc_final
 
