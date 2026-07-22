@@ -271,9 +271,9 @@ def _flujo_cotiz_aceptada(numero, session):
     """Cliente aceptó el precio — verificar si tiene cuenta."""
     log.info(f'[WaBot] {numero} aceptó cotización: {session.cotiz_op} USD {session.cotiz_importe} a S/ {session.cotiz_tc}')
     send_buttons(numero,
-        '✅ *¡Precio aceptado!*\n\n¿Ya tienes una cuenta registrada en Qoricash?',
+        '✅ *¡Precio aceptado!*\n\n¿Ya eres cliente en Qoricash?',
         [
-            {'id': 'btn_tengo_cuenta', 'title': '✅ Sí, tengo cuenta'},
+            {'id': 'btn_tengo_cuenta', 'title': '✅ Sí, soy cliente'},
             {'id': 'btn_registrarme',  'title': '📝 No, quiero registrarme'},
         ]
     )
@@ -336,18 +336,25 @@ def _crear_operacion(session, client):
     sys_user = User.query.filter_by(role='Master').order_by(User.id).first()
     uid = sys_user.id if sys_user else 1
 
+    cuenta_raw = session.cotiz_cuenta or ''
+    if '|' in cuenta_raw:
+        banco_dest, num_dest = cuenta_raw.split('|', 1)
+    else:
+        banco_dest, num_dest = None, cuenta_raw or None
+
     op = Operation(
-        operation_id        = Operation.generate_operation_id(),
-        client_id           = client.id,
-        user_id             = uid,
-        operation_type      = op_type,
-        origen              = 'app',
-        amount_usd          = amount_u,
-        exchange_rate       = tc,
-        amount_pen          = amount_p,
-        status              = 'Pendiente',
-        destination_account = session.cotiz_cuenta or None,
-        notes               = 'Operación generada vía WhatsApp bot',
+        operation_id          = Operation.generate_operation_id(),
+        client_id             = client.id,
+        user_id               = uid,
+        operation_type        = op_type,
+        origen                = 'app',
+        amount_usd            = amount_u,
+        exchange_rate         = tc,
+        amount_pen            = amount_p,
+        status                = 'Pendiente',
+        destination_account   = num_dest,
+        destination_bank_name = banco_dest,
+        notes                 = 'Operación generada vía WhatsApp bot',
     )
     db.session.add(op)
     db.session.flush()
@@ -379,7 +386,7 @@ def _flujo_op_creada(numero, op, session, client):
         f'Tienes *15 minutos* para realizar la transferencia, de lo contrario se cancelará automáticamente.\n\n'
         f'*Transfiere {simbolo} {monto_enviar:,.2f} a:*\n\n'
         f'{cuentas}\n\n'
-        f'_Una vez que hayas transferido, presiona el botón para registrar tu comprobante._'
+        f'_Una vez hayas transferido, presiona el botón para registrar el número de la transferencia bancaria._'
     )
     send_buttons(numero, msg, [
         {'id': 'btn_ya_transferi', 'title': '✅ Ya transferí'},
@@ -449,15 +456,16 @@ def _cuentas_cliente_por_moneda(client, moneda):
 
 
 def _flujo_elegir_cuenta(numero, cuentas, moneda):
-    """Muestra botones para que el cliente elija su cuenta de destino."""
+    """Muestra botones para que el cliente elija su cuenta de destino (máx 2 + 'Otra cuenta')."""
     simbolo = 'USD' if moneda == 'USD' else 'S/'
     cuerpo  = f'¿A qué cuenta {simbolo} deseas recibir tu dinero?'
     botones = []
-    for i, a in enumerate(cuentas[:3]):
+    for a in cuentas[:2]:
         banco   = a.get('bank_name', 'Banco')
         numero_ = a.get('account_number', '')
         ultimos = numero_[-4:] if len(numero_) >= 4 else numero_
         botones.append({'id': f'btn_cuenta_{numero_}', 'title': f'{banco} ···{ultimos}'})
+    botones.append({'id': 'btn_otra_cuenta', 'title': '🏦 Otra cuenta'})
     send_buttons(numero, cuerpo, botones)
 
 
@@ -687,6 +695,15 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                     send_text(numero, '⚠️ Error de sesión. Contacta a un asesor: *+51 910 624 404*')
                     session.estado = 'inicio'
 
+            elif btn_id == 'btn_otra_cuenta':
+                moneda_recibe = 'USD' if session.cotiz_op == 'compra' else 'PEN'
+                simbolo = 'USD ($)' if moneda_recibe == 'USD' else 'soles (S/)'
+                send_text(numero,
+                    f'🏦 Ingresa el *nombre del banco* y tu *número de cuenta {simbolo}*.\n\n'
+                    f'Ejemplo: *BCP 1234567890*'
+                )
+                session.estado = 'esperando_cuenta_nueva'
+
             elif btn_id == 'btn_ya_transferi':
                 send_text(numero,
                     '🔢 Ingresa el *número de operación* de tu comprobante bancario:'
@@ -774,7 +791,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                     )
 
             elif estado == 'esperando_cuenta_destino':
-                # Cliente ingresa número de cuenta manualmente
+                # Cliente sin cuentas registradas ingresa número de cuenta manualmente
                 session.cotiz_cuenta = texto.strip()
                 client = _buscar_cliente(session.cotiz_doc)
                 if client:
@@ -782,6 +799,24 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                 else:
                     send_text(numero, '⚠️ Error de sesión. Contacta a un asesor: *+51 910 624 404*')
                     session.estado = 'inicio'
+
+            elif estado == 'esperando_cuenta_nueva':
+                # Cliente ingresa "BANCO NUMERO" para una nueva cuenta
+                partes = texto.strip().split(None, 1)
+                if len(partes) >= 2:
+                    banco, num = partes[0].upper(), partes[1].strip()
+                    session.cotiz_cuenta = f'{banco}|{num}'
+                    client = _buscar_cliente(session.cotiz_doc)
+                    if client:
+                        _crear_op_y_confirmar(numero, session, client)
+                    else:
+                        send_text(numero, '⚠️ Error de sesión. Contacta a un asesor: *+51 910 624 404*')
+                        session.estado = 'inicio'
+                else:
+                    send_text(numero,
+                        'Formato incorrecto. Escribe el banco seguido del número de cuenta.\n\n'
+                        'Ejemplo: *BCP 1234567890*'
+                    )
 
             elif estado == 'esperando_numero_doc':
                 # DNI/RUC durante el proceso de registro
