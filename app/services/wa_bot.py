@@ -337,6 +337,7 @@ def _crear_operacion(session, client):
     uid = sys_user.id if sys_user else 1
 
     op = Operation(
+        operation_id   = Operation.generate_operation_id(),
         client_id      = client.id,
         user_id        = uid,
         operation_type = op_type,
@@ -345,10 +346,10 @@ def _crear_operacion(session, client):
         exchange_rate  = tc,
         amount_pen     = amount_p,
         status         = 'Pendiente',
-        notes          = f'Operación generada vía WhatsApp bot',
+        notes          = 'Operación generada vía WhatsApp bot',
     )
     db.session.add(op)
-    db.session.flush()   # para obtener operation_id
+    db.session.flush()
     return op
 
 
