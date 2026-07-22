@@ -328,7 +328,9 @@ def _crear_operacion(session, client):
     from app.models.user import User
     from app.extensions import db
 
-    op_type  = 'Compra' if session.cotiz_op == 'compra' else 'Venta'
+    # cotiz_op='compra' = cliente compra $ → QoriCash vende → Venta
+    # cotiz_op='venta'  = cliente vende $ → QoriCash compra → Compra
+    op_type  = 'Venta' if session.cotiz_op == 'compra' else 'Compra'
     amount_u = session.cotiz_importe
     tc       = session.cotiz_tc
     amount_p = round(amount_u * tc, 2)
