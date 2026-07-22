@@ -887,11 +887,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                     )
 
             elif estado == 'inicio':
-                # Si ya fue bienvenido antes, mostrar solo el menú
-                if session.nombre or session.created_at != session.updated_at:
-                    _menu_rapido(numero)
-                else:
-                    _bienvenida(numero, session.nombre)
+                _bienvenida(numero, session.nombre)
 
             else:
                 send_text(numero,
