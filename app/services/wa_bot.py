@@ -354,7 +354,7 @@ def _crear_operacion(session, client):
 
 
 def _flujo_op_creada(numero, op, session):
-    """Envía confirmación de operación creada con datos de transferencia."""
+    """Envía confirmación de operación creada con datos de transferencia y solicita código."""
     moneda_enviar = 'PEN' if session.cotiz_op == 'compra' else 'USD'
     simbolo       = 'S/' if moneda_enviar == 'PEN' else 'USD'
     monto_enviar  = float(op.amount_pen) if moneda_enviar == 'PEN' else float(op.amount_usd)
@@ -367,9 +367,61 @@ def _flujo_op_creada(numero, op, session):
         f'Tienes *15 minutos* para realizar la transferencia, de lo contrario se cancelará automáticamente.\n\n'
         f'*Transfiere {simbolo} {monto_enviar:,.2f} a:*\n\n'
         f'{cuentas}\n\n'
-        f'_Una vez realizada la transferencia, un asesor procesará tu operación._'
+        f'_Una vez realizada la transferencia, envíanos el *número de operación* '
+        f'de tu comprobante bancario para procesar tu cambio de inmediato._'
     )
     send_text(numero, msg)
+
+
+def _flujo_registrar_codigo_op(numero, codigo, session):
+    """Registra el código de operación bancaria del cliente y pasa la op a En proceso."""
+    try:
+        from app.models.operation import Operation
+        op = Operation.query.filter_by(operation_id=session.cotiz_op_id).first()
+        if not op:
+            send_text(numero, '⚠️ No encontramos tu operación. Contacta a un asesor: *+51 910 624 404*')
+            return
+
+        if op.status not in ('Pendiente', 'En proceso'):
+            send_text(numero, f'ℹ️ Tu operación *{op.operation_id}* ya fue procesada o cancelada.')
+            session.estado = 'inicio'
+            return
+
+        # Agregar abono con el código de operación
+        deposits = op.client_deposits or []
+        deposits.append({
+            'importe':           float(op.amount_pen) if session.cotiz_op == 'compra' else float(op.amount_usd),
+            'codigo_operacion':  codigo,
+            'cuenta_cargo':      '',
+            'comprobante_url':   '',
+        })
+        op.client_deposits = deposits
+
+        # Cambiar estado a En proceso
+        from app.utils.formatters import now_peru
+        op.status        = 'En proceso'
+        op.in_process_since = now_peru()
+
+        db.session.commit()
+        log.info(f'[WaBot] {numero} envió código op {codigo} para {op.operation_id} → En proceso')
+
+        send_buttons(numero,
+            f'✅ *¡Código registrado!*\n\n'
+            f'📋 *Operación:* {op.operation_id}\n'
+            f'🔢 *Código bancario:* {codigo}\n\n'
+            f'Tu operación pasó a *En proceso*. Un asesor verificará tu transferencia y completará el cambio en breve.\n\n'
+            f'¿Tienes alguna consulta?',
+            [
+                {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
+                {'id': 'btn_cotizar', 'title': '💱 Nueva cotización'},
+            ]
+        )
+        session.cotiz_op_id = ''
+        session.estado = 'inicio'
+
+    except Exception as e:
+        log.error(f'[WaBot] Error registrando código op {numero}: {e}')
+        send_text(numero, '⚠️ Ocurrió un error. Contacta a un asesor: *+51 910 624 404*')
 
 
 def _flujo_sin_kyc(numero, kyc_status):
@@ -619,8 +671,9 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                         if kyc in ('completo', 'aprobado'):
                             try:
                                 op = _crear_operacion(session, client)
+                                session.cotiz_op_id = op.operation_id
                                 _flujo_op_creada(numero, op, session)
-                                session.estado = 'inicio'
+                                session.estado = 'esperando_codigo_op'
                             except Exception as _oe:
                                 log.error(f'[WaBot] Error creando op: {_oe}')
                                 send_text(numero,
@@ -654,6 +707,13 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                         session.estado = 'esperando_ruc'
                 else:
                     send_text(numero, f'Ingresa un *{esperado}* válido.')
+
+            elif estado == 'esperando_codigo_op':
+                codigo = texto.strip()
+                if codigo:
+                    _flujo_registrar_codigo_op(numero, codigo, session)
+                else:
+                    send_text(numero, 'Ingresa el número de operación de tu comprobante bancario.')
 
             elif estado == 'esperando_email':
                 email = texto.strip()
