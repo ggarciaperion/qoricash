@@ -156,6 +156,50 @@ def wa_notify_cuenta_activa(client):
     ])
 
 
+def send_template(numero, template_name, lang_code, params):
+    """
+    Envía una plantilla aprobada por Meta.
+    params: lista de strings con los valores de cada variable {{1}}, {{2}}...
+    Funciona aunque el cliente nunca haya escrito al bot (sin ventana de 24h).
+    """
+    payload = {
+        'messaging_product': 'whatsapp',
+        'to': numero.lstrip('+'),
+        'type': 'template',
+        'template': {
+            'name': template_name,
+            'language': {'code': lang_code},
+            'components': [{
+                'type': 'body',
+                'parameters': [{'type': 'text', 'text': str(p)} for p in params]
+            }]
+        }
+    }
+    try:
+        r = requests.post(WA_API_URL, json=payload, headers=_headers(), timeout=10)
+        r.raise_for_status()
+        _save_outgoing(numero, f'[template:{template_name}] ' + ' | '.join(str(p) for p in params))
+        log.info(f'[WaBot] Template {template_name} enviado a {numero}')
+    except Exception as e:
+        log.error(f'[WaBot] Error send_template {template_name} a {numero}: {e}')
+
+
+def wa_notify_operacion_completada(client, op_id, titular, email_txt):
+    """
+    Envía notificación de operación completada usando plantilla aprobada.
+    Llega a cualquier número aunque no haya ventana de 24h activa.
+    """
+    if not client:
+        return
+    phone_raw = (getattr(client, 'phone', None) or '').split(';')[0].strip()
+    phone_digits = ''.join(c for c in phone_raw if c.isdigit())
+    if not phone_digits:
+        return
+    if not phone_digits.startswith('51'):
+        phone_digits = '51' + phone_digits
+    send_template(phone_digits, 'qoricash_operacion_completada', 'es', [op_id, titular, email_txt])
+
+
 def send_text(numero, texto):
     payload = {
         'messaging_product': 'whatsapp',

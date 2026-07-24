@@ -1346,22 +1346,18 @@ def complete_operation(operation_id):
             logger.error(f'[COMPLETE] Excepcion email para {operation_code}: {str(e)}')
             logger.exception(e)
 
-        # Notificar vía WhatsApp al cliente si tiene teléfono registrado
+        # Notificar vía WhatsApp al cliente usando plantilla aprobada por Meta
+        # (funciona aunque el cliente no haya escrito al bot previamente)
         try:
-            from app.services.wa_bot import wa_notify_client
+            from app.services.wa_bot import wa_notify_operacion_completada
             _op_ref = fresh_op or operation
             _client = getattr(_op_ref, 'client', None)
-            _titular = _client.full_name if _client else _op_ref.operation_id
+            _titular = _client.full_name or _client.razon_social if _client else _op_ref.operation_id
             _email_raw = (getattr(_client, 'email', '') or '')
             _emails = [e.strip() for e in _email_raw.split(';') if e.strip() and '@' in e]
-            _email_txt = f'en el correo registrado: *{_emails[0]}*' if len(_emails) == 1 else 'en los correos registrados'
-            wa_notify_client(
-                _client,
-                f'✅ ¡Tu operación *{_op_ref.operation_id}* a nombre de *{_titular}* fue completada con éxito!\n\n'
-                f'Tus fondos han sido transferidos a tu cuenta.\n\n'
-                f'Puedes validar tu comprobante de pago {_email_txt}.'
-            )
-            logger.info(f'[COMPLETE] WhatsApp enviado para {operation_code}')
+            _email_txt = _emails[0] if _emails else 'correo registrado'
+            wa_notify_operacion_completada(_client, _op_ref.operation_id, _titular, _email_txt)
+            logger.info(f'[COMPLETE] WhatsApp template enviado para {operation_code}')
         except Exception as e_wa:
             logger.warning(f'[COMPLETE] Error WhatsApp para {operation_code}: {e_wa}')
 
