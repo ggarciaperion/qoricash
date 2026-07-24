@@ -739,6 +739,24 @@ def approve_kyc(client_id):
         except Exception as e:
             logger.warning(f'Error al enviar notificación interna KYC: {str(e)}')
 
+        # ENVIAR WA AL CLIENTE si vino del bot (creado por BOT trader o tiene sesión WA)
+        try:
+            from app.services.wa_bot import wa_notify_cuenta_activa
+            from app.models.wa_bot_session import WaBotSession
+            phone_raw = (getattr(client, 'phone', None) or '').split(';')[0].strip()
+            phone_digits = ''.join(c for c in phone_raw if c.isdigit())
+            if not phone_digits.startswith('51'):
+                phone_digits = '51' + phone_digits
+            creator_dni = (getattr(getattr(client, 'creator', None), 'dni', None) or '')
+            tiene_sesion = WaBotSession.query.filter_by(numero=phone_digits).first()
+            if creator_dni == '99999999' or tiene_sesion:
+                wa_notify_cuenta_activa(client)
+                logger.info(f'📲 [KYC APPROVE] WA de activación enviado a cliente {client.dni} ({phone_digits})')
+            else:
+                logger.info(f'ℹ️ [KYC APPROVE] Cliente {client.dni} no es de canal bot — sin WA de activación')
+        except Exception as e:
+            logger.warning(f'Error enviando WA de activación desde KYC: {str(e)}')
+
         return jsonify({
             'success': True,
             'message': 'KYC aprobado - Cliente ACTIVADO para operar'
