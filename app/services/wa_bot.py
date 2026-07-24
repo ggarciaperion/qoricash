@@ -15,7 +15,7 @@ WA_API_URL      = f'https://graph.facebook.com/v19.0/{WA_PHONE_ID}/messages'
 
 ASESOR_NUMERO   = os.environ.get('WA_ASESOR_NUMERO', '51910624404')
 
-# Números de administración que reciben alertas del bot
+# Números de administración que reciben alertas del bot (registro, asesor, nueva op)
 ADMIN_WA_NUMEROS = ['51926011920', '51906237356']
 
 
