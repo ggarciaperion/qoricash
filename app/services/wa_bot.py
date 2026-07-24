@@ -20,10 +20,19 @@ ADMIN_WA_NUMEROS = ['51926011920', '51906237356']
 
 
 def _notificar_admins_wa(mensaje):
-    """Envía un mensaje WA a todos los números de administración."""
+    """Envía un mensaje WA directo a todos los números de administración.
+    Usa requests.post directo (sin _save_outgoing) para evitar conflictos de DB."""
     for num in ADMIN_WA_NUMEROS:
         try:
-            send_text(num, mensaje)
+            payload = {
+                'messaging_product': 'whatsapp',
+                'to': num,
+                'type': 'text',
+                'text': {'body': mensaje},
+            }
+            r = requests.post(WA_API_URL, json=payload, headers=_headers(), timeout=10)
+            r.raise_for_status()
+            log.info(f'[WaBot] Notificación admin enviada a {num}')
         except Exception as e:
             log.warning(f'[WaBot] Error notificando admin {num}: {e}')
 

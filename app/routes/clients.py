@@ -272,7 +272,7 @@ def change_status(client_id):
                 # No bloquear por errores de email
                 logger.warning(f'Error al enviar email de cliente activado: {str(e)}')
 
-            # WA de cuenta activa: solo si el cliente tiene sesión en el bot WA
+            # WA de cuenta activa: si fue registrado por usuario BOT o tiene sesión WA bot
             try:
                 from app.services.wa_bot import wa_notify_cuenta_activa
                 from app.models.wa_bot_session import WaBotSession
@@ -281,12 +281,13 @@ def change_status(client_id):
                 if not phone_digits.startswith('51'):
                     phone_digits = '51' + phone_digits
                 wa_numero = f'+{phone_digits}'
+                creator_dni = (getattr(getattr(client, 'creator', None), 'dni', None) or '')
                 tiene_sesion = WaBotSession.query.filter_by(numero=wa_numero).first()
-                if tiene_sesion:
+                if creator_dni == BOT_TRADER_DNI or tiene_sesion:
                     wa_notify_cuenta_activa(client)
                     logger.info(f'📲 WA de activación enviado a cliente {client.dni} ({wa_numero})')
                 else:
-                    logger.info(f'ℹ️ Cliente {client.dni} sin sesión bot WA — no se envía WA de activación')
+                    logger.info(f'ℹ️ Cliente {client.dni} no es de canal bot — sin WA de activación')
             except Exception as e:
                 logger.warning(f'Error enviando WA de activación: {str(e)}')
         return jsonify({'success': True, 'message': message, 'client': client.to_dict()})
