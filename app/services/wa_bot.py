@@ -144,7 +144,7 @@ def wa_notify_client(client, mensaje):
 
 
 def wa_notify_cuenta_activa(client):
-    """Envía WA de cuenta activada con botón de asesor. Uso externo (clients.py)."""
+    """Envía WA de cuenta activada usando plantilla aprobada. Sin restricción de 24h."""
     if not client:
         return
     phone_raw = (getattr(client, 'phone', None) or '').split(';')[0].strip()
@@ -153,16 +153,28 @@ def wa_notify_cuenta_activa(client):
         return
     if not phone_digits.startswith('51'):
         phone_digits = '51' + phone_digits
-    nombre = getattr(client, 'full_name', None) or getattr(client, 'razon_social', None) or 'Cliente'
-    msg = (
-        f'✅ *¡Tu cuenta en Qoricash está activa!*\n\n'
-        f'Hola *{nombre}*, ya puedes realizar cambio de dólares con nosotros.\n\n'
-        f'Escríbenos aquí mismo cuando desees cotizar. 💱'
-    )
-    send_buttons(phone_digits, msg, [
-        {'id': 'btn_cotizar', 'title': '💱 Cotizar'},
-        {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
-    ])
+    nombre_completo = getattr(client, 'full_name', None) or getattr(client, 'razon_social', None) or 'Cliente'
+    primer_nombre = nombre_completo.split()[0] if nombre_completo else 'Cliente'
+    payload = {
+        'messaging_product': 'whatsapp',
+        'to': phone_digits,
+        'type': 'template',
+        'template': {
+            'name': 'qoricash_cuenta_activa',
+            'language': {'code': 'es_PE'},
+            'components': [{
+                'type': 'body',
+                'parameters': [{'type': 'text', 'parameter_name': 'nombre', 'text': primer_nombre}]
+            }]
+        }
+    }
+    try:
+        r = requests.post(WA_API_URL, json=payload, headers=_headers(), timeout=10)
+        r.raise_for_status()
+        _save_outgoing(phone_digits, f'[template:qoricash_cuenta_activa] nombre={primer_nombre}')
+        log.info(f'[WaBot] Template cuenta_activa enviado a {phone_digits}')
+    except Exception as e:
+        log.error(f'[WaBot] Error enviando cuenta_activa a {phone_digits}: {e}')
 
 
 def send_template(numero, template_name, lang_code, params):
