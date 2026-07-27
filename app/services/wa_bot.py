@@ -31,8 +31,10 @@ def _notificar_admins_wa(mensaje):
                 'text': {'body': mensaje},
             }
             r = requests.post(WA_API_URL, json=payload, headers=_headers(), timeout=10)
-            r.raise_for_status()
-            log.info(f'[WaBot] Notificación admin enviada a {num}')
+            if r.ok:
+                log.info(f'[WaBot] Notificación admin enviada a {num}')
+            else:
+                log.warning(f'[WaBot] Meta rechazó notif admin a {num}: {r.status_code} — {r.text}')
         except Exception as e:
             log.warning(f'[WaBot] Error notificando admin {num}: {e}')
 
