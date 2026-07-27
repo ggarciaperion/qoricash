@@ -1215,10 +1215,31 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                 _flujo_recordatorio_registro(numero, estado)
 
             else:
-                send_text(numero,
-                    'Por favor usa los botones para continuar. 😊\n\n'
-                    'Si necesitas ayuda escríbenos al *+51 910 624 404*'
-                )
+                # Re-enviar el paso donde quedó el cliente según su estado
+                if estado == 'eligiendo_operacion':
+                    _flujo_cotizar_inicio(numero)
+
+                elif estado == 'esperando_importe':
+                    _flujo_pedir_importe(numero, session.cotiz_op or 'compra')
+
+                elif estado == 'eligiendo_tipo':
+                    _flujo_tipo_cliente(numero)
+
+                elif estado in ('eligiendo_cuenta_destino', 'esperando_cuenta_destino', 'esperando_cuenta_nueva'):
+                    moneda = 'USD' if session.cotiz_op == 'compra' else 'PEN'
+                    _flujo_pedir_cuenta_destino(numero, moneda)
+                    session.estado = 'esperando_cuenta_destino'
+
+                elif estado == 'completado':
+                    send_buttons(numero,
+                        '⏳ Tu registro está siendo verificado por nuestro equipo.\n\n'
+                        'Te avisaremos por aquí mismo cuando tu cuenta esté activa. '
+                        'Si tienes dudas, habla con un asesor.',
+                        [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
+                    )
+
+                else:
+                    _bienvenida(numero, session.nombre)
 
         # ── Imágenes / documentos ─────────────────────────────────
         elif tipo_msg in ('image', 'document'):
