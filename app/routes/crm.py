@@ -13,6 +13,19 @@ from app.utils.formatters import now_peru
 
 crm_bp = Blueprint('crm', __name__, url_prefix='/crm')
 log    = logging.getLogger(__name__)
+
+def _fmt_hora_conv(dt):
+    """Devuelve HH:MM para hoy, 'Ayer' para ayer, 'DD/MM' para más antiguo."""
+    if not dt:
+        return ''
+    hoy  = now_peru().date()
+    ayer = hoy - timedelta(days=1)
+    if dt.date() == hoy:
+        return dt.strftime('%H:%M')
+    if dt.date() == ayer:
+        return 'Ayer'
+    return dt.strftime('%d/%m')
+
 # ── Notificación email — nueva conversación WhatsApp ─────────────
 _NOTIF_DEST = 'gerencia@qoricash.pe'
 _CONV_GAP_H = 4   # horas de inactividad para considerar conversación nueva
@@ -139,18 +152,14 @@ def api_conversaciones():
                 'nombre':    m.nombre or num,
                 'empresa':   m.empresa,
                 'ultimo':    m.mensaje[:60] + ('...' if len(m.mensaje) > 60 else ''),
-                'hora':      m.created_at.strftime('%H:%M') if m.created_at else '',
+                'hora':      _fmt_hora_conv(m.created_at),
                 'direccion': m.direccion,
                 'no_leidos': no_leidos_map.get(num, 0),
                 'estado':    estado,
             })
 
-        # Ordenar: 1º no leídos, 2º respondieron (leídos), 3º solo salientes
-        result.sort(key=lambda x: (
-            0 if x['no_leidos'] > 0 else
-            1 if x['estado'] == 'respondio' else
-            2
-        ))
+        # Ordenar: no leídos primero, luego por fecha más reciente (estable — el query ya viene desc)
+        result.sort(key=lambda x: 0 if x['no_leidos'] > 0 else 1)
         return jsonify(result)
     except Exception as e:
         log.error(f'[CRM] api_conversaciones error: {e}')
@@ -558,28 +567,20 @@ def webhook_receive():
         except Exception as _eb:
             log.warning(f'[CRM Webhook] Bot error: {_eb}')
 
-        # Emitir evento real-time para cada mensaje entrante nuevo
+        # Emitir notificación real-time para cada mensaje entrante nuevo
         if messages:
             try:
-                from app.extensions import socketio as _sio
+                from app.services.notification_service import NotificationService
                 unread = WaMessage.query.filter_by(leido=False, direccion='entrante').count()
                 for msg in messages:
                     numero_ev = f"+{msg.get('from', '')}"
                     contacto_ev = next((c for c in contacts if c.get('wa_id') == msg.get('from')), {})
                     nombre_ev = contacto_ev.get('profile', {}).get('name', numero_ev)
                     tipo_ev = msg.get('type', '')
-                    if tipo_ev == 'text':
-                        preview = msg['text']['body'][:60]
-                    else:
-                        preview = f'[{tipo_ev}]'
-                    _sio.emit('wa_message', {
-                        'numero': numero_ev,
-                        'nombre': nombre_ev,
-                        'preview': preview,
-                        'unread': unread,
-                    }, namespace='/', room='role_Master')
+                    preview = msg['text']['body'][:60] if tipo_ev == 'text' else f'[{tipo_ev}]'
+                    NotificationService.notify_new_wa_message(numero_ev, nombre_ev, preview, unread)
             except Exception as _es:
-                log.warning(f'[CRM Webhook] Socket emit error: {_es}')
+                log.warning(f'[CRM Webhook] Notif error: {_es}')
 
         # ── Email: notificar gerencia cuando inicia conversación nueva ──
         try:

@@ -612,6 +612,43 @@ class NotificationService:
             logger.error(f'[NOTIF] notify_client_activated_kyc error: {e}')
 
     @staticmethod
+    def notify_new_wa_message(numero, nombre, preview, unread):
+        """Nuevo mensaje WA entrante → Master, Operador, Trader, Middle Office."""
+        try:
+            roles = ['Master', 'Operador', 'Trader', 'Middle Office']
+            display = nombre or numero or 'WhatsApp'
+            preview_short = (preview or 'Nuevo mensaje')[:80]
+            data = {
+                'numero':  numero,
+                'nombre':  nombre,
+                'preview': preview_short,
+                'unread':  unread,
+                'title':   '💬 Nuevo mensaje WA',
+                'message': f'{display}: {preview_short}',
+                'type':    'info',
+                'sound':   True,
+            }
+            _emit_to_roles('wa_message', data, roles)
+            _save_to_db(
+                roles,
+                '💬 Nuevo mensaje WA',
+                f'{display}: {preview_short}',
+                notif_type='info',
+                category='whatsapp',
+                link='/crm/whatsapp'
+            )
+            _push_unread_counts_for_roles(roles)
+            _web_push_to_roles(roles, {
+                'title': '💬 Nuevo mensaje WA',
+                'body':  f'{display}: {preview_short}',
+                'type':  'info',
+                'url':   '/crm/whatsapp',
+                'tag':   f'wa-{numero}',
+            })
+        except Exception as e:
+            logger.error(f'[NOTIF] notify_new_wa_message error: {e}')
+
+    @staticmethod
     def notify_operation_expired(operation):
         try:
             if not operation.client:

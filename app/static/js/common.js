@@ -359,17 +359,21 @@ function connectSocketIO() {
     // ============================================
 
     socket.on('wa_message', function(data) {
-        if (window.currentUserRole !== 'Master') return;
+        var rolesWa = ['Master', 'Operador', 'Trader', 'Middle Office'];
+        if (rolesWa.indexOf(window.currentUserRole) === -1) return;
         var nombre  = data.nombre || data.numero || 'WhatsApp';
         var preview = data.preview || 'Nuevo mensaje';
-        qoriToast({
-            title:    '💬 Nuevo mensaje WA',
-            message:  nombre + ': ' + preview,
-            type:     'info',
-            sound:    true,
-            duration: 7000,
-        });
-        // Actualizar badge con el count real del servidor (excepto si ya estamos en la página)
+        // No mostrar toast si ya estamos en la página de WhatsApp
+        if (window.location.pathname.indexOf('/crm/whatsapp') !== 0) {
+            qoriToast({
+                title:    '💬 Nuevo mensaje WA',
+                message:  nombre + ': ' + preview,
+                type:     'info',
+                sound:    true,
+                duration: 7000,
+            });
+        }
+        // Actualizar badge con el count real del servidor
         if (window.location.pathname.indexOf('/crm/whatsapp') !== 0) {
             var badge = document.getElementById('waBadge');
             if (badge) {
