@@ -153,8 +153,9 @@ def wa_notify_cuenta_activa(client):
         return
     if not phone_digits.startswith('51'):
         phone_digits = '51' + phone_digits
-    nombre_completo = getattr(client, 'full_name', None) or getattr(client, 'razon_social', None) or 'Cliente'
-    primer_nombre = nombre_completo.split()[0] if nombre_completo else 'Cliente'
+    # Usar campo 'nombres' para obtener el primer nombre (no apellido)
+    nombres_raw = getattr(client, 'nombres', None) or getattr(client, 'razon_social', None) or 'Cliente'
+    primer_nombre = nombres_raw.strip().split()[0].title() if nombres_raw.strip() else 'Cliente'
     payload = {
         'messaging_product': 'whatsapp',
         'to': phone_digits,
@@ -175,6 +176,15 @@ def wa_notify_cuenta_activa(client):
         log.info(f'[WaBot] Template cuenta_activa enviado a {phone_digits}')
     except Exception as e:
         log.error(f'[WaBot] Error enviando cuenta_activa a {phone_digits}: {e}')
+        return
+    # Enviar botones de acción (requiere ventana 24h — falla silenciosamente si no aplica)
+    try:
+        send_buttons(phone_digits, '¿Qué deseas hacer?', [
+            {'id': 'btn_cotizar', 'title': '💱 Cotizar'},
+            {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
+        ])
+    except Exception:
+        pass
 
 
 def send_template(numero, template_name, lang_code, params):
@@ -841,8 +851,7 @@ def _flujo_confirmar_registro(numero, session):
         )
         tipo_desc = 'Empresa'
     send_buttons(numero, msg, [
-        {'id': 'btn_cotizar', 'title': '💱 Cotizar'},
-        {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
+        {'id': 'btn_asesor', 'title': '💬 Hablar con asesor'},
     ])
     _registrar_lead(numero, session)
     _notificar_admin_registro(numero, session, tipo_desc)
