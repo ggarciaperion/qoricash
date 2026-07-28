@@ -964,6 +964,38 @@ def _registrar_lead(numero, session):
         log.warning(f'[WaBot] No se pudo registrar lead: {e}')
 
 
+# ── Horario de atención ────────────────────────────────────────────
+
+def _is_horario_atencion():
+    """
+    Retorna True si estamos dentro del horario de atención:
+      Lun–Vie  09:00 – 18:00
+      Sábado   09:00 – 14:00
+      Domingo  cerrado
+    """
+    from app.utils.formatters import now_peru
+    now = now_peru()
+    day  = now.weekday()   # 0=Lun … 4=Vie, 5=Sáb, 6=Dom
+    hour = now.hour
+    if 0 <= day <= 4:          # Lun–Vie
+        return 9 <= hour < 18
+    if day == 5:               # Sábado
+        return 9 <= hour < 14
+    return False               # Domingo
+
+
+def _flujo_fuera_horario(numero):
+    """Notifica al cliente que estamos fuera de horario."""
+    send_text(numero,
+        '🕐 *Estamos fuera de horario de atención*\n\n'
+        'Nuestro horario es:\n'
+        '• Lunes a Viernes: *9:00 AM – 6:00 PM*\n'
+        '• Sábados: *9:00 AM – 2:00 PM*\n\n'
+        'En cuanto abramos atenderemos tu solicitud. '
+        'Puedes volver a escribirnos en nuestro próximo horario. 😊'
+    )
+
+
 # ── Handler principal ──────────────────────────────────────────────
 
 def _nombre_valido(nombre):
@@ -998,7 +1030,16 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
         if tipo_msg == 'interactive':
             btn_id = texto
 
-            if btn_id == 'btn_cotizar':
+            # Botones que requieren horario de atención
+            _BTNS_CON_HORARIO = {
+                'btn_cotizar', 'btn_comprar', 'btn_vender',
+                'btn_aceptar_cotiz', 'btn_registro', 'btn_registrarme',
+                'btn_asesor', 'btn_volver_cotizar',
+            }
+            if btn_id in _BTNS_CON_HORARIO and not _is_horario_atencion():
+                _flujo_fuera_horario(numero)
+
+            elif btn_id == 'btn_cotizar':
                 _flujo_cotizar_inicio(numero)
                 session.estado = 'eligiendo_operacion'
 
@@ -1087,7 +1128,17 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
         # ── Texto libre ───────────────────────────────────────────
         elif tipo_msg == 'text':
 
-            if estado == 'esperando_importe':
+            # Estados activos (no inicio) bloqueados fuera de horario
+            _ESTADOS_CON_HORARIO = {
+                'eligiendo_operacion', 'esperando_importe',
+                'eligiendo_tipo', 'esperando_numero_doc',
+                'esperando_cuenta_destino', 'esperando_cuenta_nueva',
+                'eligiendo_cuenta_destino',
+            }
+            if estado in _ESTADOS_CON_HORARIO and not _is_horario_atencion():
+                _flujo_fuera_horario(numero)
+
+            elif estado == 'esperando_importe':
                 monto = _parse_monto(texto)
                 if monto and monto > 0:
                     session.cotiz_importe = monto
