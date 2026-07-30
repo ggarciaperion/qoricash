@@ -41,7 +41,8 @@ def _notificar_admins_wa(mensaje):
 # 1 pip = 0.0001 (estándar forex para pares con PEN)
 SPREAD_TC = 0.0020   # 20 pips: spread que aplica el bot sobre el TC oficial
 
-COTIZ_VALIDEZ_MIN = 15   # minutos de validez de la cotización
+COTIZ_VALIDEZ_MIN      = 15   # minutos de validez de la cotización
+SESSION_INACTIVIDAD_MIN = 15  # minutos de inactividad para expirar sesión
 
 def _lookup_dni(dni):
     """
@@ -473,6 +474,36 @@ def _cotiz_expirada(session):
     if not session.updated_at:
         return False
     return (now_peru() - session.updated_at) > timedelta(minutes=COTIZ_VALIDEZ_MIN)
+
+
+def _flujo_sesion_expirada(numero):
+    """Avisa al cliente que la sesión expiró por inactividad."""
+    send_text(numero,
+        '⏰ Tu sesión ha expirado por inactividad.\n\n'
+        'Si deseas continuar, escríbenos y te atendemos de inmediato. 😊'
+    )
+
+
+def _reset_sesion(session):
+    """Limpia todos los datos de la sesión y la devuelve a inicio."""
+    session.estado        = 'inicio'
+    session.cotiz_op      = ''
+    session.cotiz_importe = 0.0
+    session.cotiz_tc      = 0.0
+    session.cotiz_doc     = ''
+    session.cotiz_email   = ''
+    session.cotiz_op_id   = ''
+    session.cotiz_cuenta  = ''
+    session.tipo          = ''
+
+
+def _sesion_inactiva(session):
+    """Retorna True si la sesión lleva más de SESSION_INACTIVIDAD_MIN sin actividad."""
+    from datetime import timedelta
+    from app.utils.formatters import now_peru
+    if not session.updated_at:
+        return False
+    return (now_peru() - session.updated_at) > timedelta(minutes=SESSION_INACTIVIDAD_MIN)
 
 
 def _flujo_cotiz_aceptada(numero, session):
@@ -1051,6 +1082,13 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
             log.info(f'[WaBot] {numero} — bot pausado (asesor activo), mensaje ignorado.')
             db.session.commit()
             return
+
+        # ── Sesión expirada por inactividad (cliente escribe tras 15 min) ──
+        if estado != 'inicio' and _sesion_inactiva(session):
+            log.info(f'[WaBot] {numero} — sesión inactiva ({estado}), reiniciando.')
+            _reset_sesion(session)
+            db.session.commit()
+            estado = 'inicio'
 
         # ── Verificar expiración de cotización ────────────────────
         if estado == 'viendo_cotizacion' and _cotiz_expirada(session):

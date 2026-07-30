@@ -1409,6 +1409,49 @@ def api_expirar_cotizaciones():
         return jsonify({'ok': False, 'error': str(e)}), 500
 
 
+# ── API — Expirar sesiones inactivas (cron cada minuto) ──────────
+@crm_bp.route('/api/bot/expirar-sesiones', methods=['POST'])
+@csrf.exempt
+def api_expirar_sesiones():
+    """Llamado por cron cada minuto. Envía aviso de inactividad y resetea sesiones."""
+    api_key = request.headers.get('X-Api-Key', '')
+    if api_key != CRM_API_KEY:
+        return jsonify({'ok': False, 'error': 'Unauthorized'}), 401
+    try:
+        from datetime import timedelta
+        from app.models.wa_bot_session import WaBotSession
+        from app.services.wa_bot import _flujo_sesion_expirada, _reset_sesion, SESSION_INACTIVIDAD_MIN
+        from app.utils.formatters import now_peru
+
+        # Ventana: entre 15 y 30 min de inactividad → notificar exactamente una vez
+        ahora    = now_peru()
+        cutoff_max = ahora - timedelta(minutes=SESSION_INACTIVIDAD_MIN)
+        cutoff_min = ahora - timedelta(minutes=SESSION_INACTIVIDAD_MIN * 2)
+
+        expiradas = WaBotSession.query.filter(
+            WaBotSession.bot_pausado == False,
+            WaBotSession.updated_at <= cutoff_max,
+            WaBotSession.updated_at >= cutoff_min,
+        ).all()
+
+        enviados = 0
+        for s in expiradas:
+            try:
+                _flujo_sesion_expirada(s.numero)
+                _reset_sesion(s)
+                enviados += 1
+            except Exception as ex:
+                log.warning(f'[CRM Bot] Error expirando sesión {s.numero}: {ex}')
+
+        if enviados:
+            db.session.commit()
+        log.info(f'[CRM Bot] {enviados} sesiones expiradas por inactividad')
+        return jsonify({'ok': True, 'expiradas': enviados})
+    except Exception as e:
+        log.error(f'[CRM Bot] Error expirando sesiones: {e}')
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
 # ── API — Toggle bot pausado por número ──────────────────────────
 @crm_bp.route('/api/bot-toggle/<numero>', methods=['POST'])
 @login_required
