@@ -5,7 +5,7 @@ Webhook + Panel de conversaciones para Master
 import os, json, logging, requests as http_req
 from datetime import datetime, timedelta
 from flask import Blueprint, render_template, request, jsonify, abort
-from flask_login import login_required
+from flask_login import login_required, current_user
 from app.extensions import db, csrf
 from app.models.wa_message import WaMessage
 from app.utils.decorators import require_role
@@ -1459,14 +1459,14 @@ def api_bot_toggle(numero):
     """Pausa o reactiva el bot para un número de WhatsApp."""
     from app.models.wa_bot_session import WaBotSession
     try:
-        session = WaBotSession.query.filter_by(numero=numero).first()
-        if not session:
+        bot_session = WaBotSession.query.filter_by(numero=numero).first()
+        if not bot_session:
             return jsonify({'ok': False, 'error': 'Sesión no encontrada'}), 404
-        session.bot_pausado = not session.bot_pausado
+        bot_session.bot_pausado = not bot_session.bot_pausado
         db.session.commit()
-        estado = 'pausado' if session.bot_pausado else 'activo'
+        estado = 'pausado' if bot_session.bot_pausado else 'activo'
         log.info(f'[CRM] Bot {estado} para {numero} por {current_user.username}')
-        return jsonify({'ok': True, 'bot_pausado': session.bot_pausado})
+        return jsonify({'ok': True, 'bot_pausado': bot_session.bot_pausado})
     except Exception as e:
         log.error(f'[CRM] Error toggling bot para {numero}: {e}')
         return jsonify({'ok': False, 'error': str(e)}), 500

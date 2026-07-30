@@ -1363,7 +1363,7 @@ function mostrarNotifWA(data) {
       loadConversaciones();
       if (activeNum && activeNum === data.numero) {
         fetch(`/crm/api/mensajes/${encodeURIComponent(activeNum)}`)
-          .then(r => r.json()).then(msgs => { if (activeNum) renderMensajes(msgs, true); });
+          .then(r => r.json()).then(data => { if (activeNum) { renderMensajes(data.mensajes || data, true); renderBotToggle(data.bot_pausado || false); } });
       }
       mostrarNotifWA(data);
     });
@@ -1389,7 +1389,7 @@ function startPolling() {
       tasks.push(
         fetch(`/crm/api/mensajes/${encodeURIComponent(activeNum)}`)
           .then(r => r.json())
-          .then(msgs => { if (activeNum) renderMensajes(msgs); })
+          .then(data => { if (activeNum) { renderMensajes(data.mensajes || data); renderBotToggle(data.bot_pausado || false); } })
       );
     }
     Promise.all(tasks);
