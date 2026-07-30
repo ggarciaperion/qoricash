@@ -613,9 +613,9 @@ class NotificationService:
 
     @staticmethod
     def notify_new_wa_message(numero, nombre, preview, unread):
-        """Nuevo mensaje WA entrante → Master, Operador, Trader, Middle Office."""
+        """Nuevo mensaje WA entrante → solo Master."""
         try:
-            roles = ['Master', 'Operador', 'Trader', 'Middle Office']
+            roles = ['Master']
             display = nombre or numero or 'WhatsApp'
             preview_short = (preview or 'Nuevo mensaje')[:80]
             data = {
