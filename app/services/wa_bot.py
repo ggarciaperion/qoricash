@@ -146,6 +146,19 @@ def wa_notify_client(client, mensaje):
     send_text(phone_digits, mensaje)
 
 
+def wa_notify_client_buttons(client, mensaje, buttons):
+    """Envía un mensaje WA con botones interactivos al cliente. Uso externo."""
+    if not client:
+        return
+    phone_raw = (getattr(client, 'phone', None) or '').split(';')[0].strip()
+    phone_digits = ''.join(c for c in phone_raw if c.isdigit())
+    if not phone_digits:
+        return
+    if not phone_digits.startswith('51'):
+        phone_digits = '51' + phone_digits
+    send_buttons(phone_digits, mensaje, buttons)
+
+
 def wa_notify_cuenta_activa(client):
     """Envía WA de cuenta activada usando plantilla aprobada. Sin restricción de 24h."""
     if not client:

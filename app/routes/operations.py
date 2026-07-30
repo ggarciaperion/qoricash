@@ -734,13 +734,14 @@ def cancel_operation(operation_id):
 
         # Notificar al cliente vía WhatsApp
         try:
-            from app.services.wa_bot import wa_notify_client
+            from app.services.wa_bot import wa_notify_client_buttons
             titular = operation.client.full_name if operation.client else operation.operation_id
-            wa_notify_client(
+            wa_notify_client_buttons(
                 operation.client,
                 f'❌ Tu operación *{operation.operation_id}* a nombre de *{titular}* ha sido cancelada.\n\n'
                 f'*Motivo:* {reason}\n\n'
-                f'Si tienes alguna consulta, escríbenos por este chat y un asesor te atenderá.'
+                f'Si tienes alguna consulta puedes hablar con un asesor.',
+                [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
             )
         except Exception as e_wa:
             logger.warning(f'Error al enviar WA de cancelación para {operation.operation_id}: {e_wa}')

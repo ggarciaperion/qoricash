@@ -109,13 +109,14 @@ class OperationExpiryService:
 
                     # Notificar al cliente vía WhatsApp
                     try:
-                        from app.services.wa_bot import wa_notify_client
+                        from app.services.wa_bot import wa_notify_client_buttons
                         titular = operation.client.full_name if operation.client else operation.operation_id
-                        wa_notify_client(
+                        wa_notify_client_buttons(
                             operation.client,
                             f'⏱️ Tu operación *{operation.operation_id}* a nombre de *{titular}* fue cancelada automáticamente '
                             f'porque no se registró la transferencia dentro del plazo de *15 minutos*.\n\n'
-                            f'Puedes iniciar una nueva cotización cuando lo desees.'
+                            f'Puedes iniciar una nueva cotización cuando lo desees o hablar con un asesor.',
+                            [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
                         )
                     except Exception as wa_err:
                         logger.warning(f"[EXPIRY] Error WA para {operation.operation_id}: {wa_err}")
@@ -183,13 +184,14 @@ class OperationExpiryService:
 
                     # Notificar al cliente vía WhatsApp
                     try:
-                        from app.services.wa_bot import wa_notify_client
+                        from app.services.wa_bot import wa_notify_client_buttons
                         titular = operation.client.full_name if operation.client else operation.operation_id
-                        wa_notify_client(
+                        wa_notify_client_buttons(
                             operation.client,
                             f'🌙 Tu operación *{operation.operation_id}* a nombre de *{titular}* fue cancelada automáticamente '
                             f'por cierre de operaciones del día (10:00 PM).\n\n'
-                            f'Puedes iniciar una nueva cotización mañana.'
+                            f'Puedes iniciar una nueva cotización mañana o hablar con un asesor.',
+                            [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
                         )
                     except Exception as wa_err:
                         logger.warning(f"[EOD] Error WA para {operation.operation_id}: {wa_err}")
