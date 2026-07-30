@@ -68,6 +68,37 @@ except Exception as e:
 PYEOF
 echo ""
 
+# ── Patch directo: bot_pausado en wa_bot_sessions ─────────────────────────────
+echo "⚡ Garantizando columna bot_pausado en wa_bot_sessions..."
+python3 - <<'PYEOF'
+import os, sys
+try:
+    import psycopg2
+except ImportError:
+    print("   psycopg2 no disponible — saltando patch directo")
+    sys.exit(0)
+
+url = os.environ.get('DATABASE_URL', '')
+if not url:
+    print("   DATABASE_URL no definida — saltando patch directo")
+    sys.exit(0)
+
+try:
+    conn = psycopg2.connect(url)
+    conn.autocommit = True
+    cur = conn.cursor()
+    cur.execute("""
+        ALTER TABLE wa_bot_sessions
+        ADD COLUMN IF NOT EXISTS bot_pausado BOOLEAN NOT NULL DEFAULT FALSE;
+    """)
+    print("   ✅ bot_pausado: OK")
+    cur.close()
+    conn.close()
+except Exception as e:
+    print(f"   ⚠️  Error en patch bot_pausado: {e}")
+PYEOF
+echo ""
+
 # ── Patch directo: columnas apertura/cierre/resultado en daily_closures ──────
 # Ejecuta SQL puro con psycopg2 ANTES de Alembic.
 # Totalmente idempotente (IF NOT EXISTS). Soluciona el caso donde migrate.sh

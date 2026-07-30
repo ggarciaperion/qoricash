@@ -182,7 +182,11 @@ def api_mensajes(numero):
     WaMessage.query.filter_by(numero=numero, leido=False, direccion='entrante').update({'leido': True})
     db.session.commit()
 
-    return jsonify([m.to_dict() for m in mensajes])
+    from app.models.wa_bot_session import WaBotSession
+    session = WaBotSession.query.filter_by(numero=numero).first()
+    bot_pausado = session.bot_pausado if session else False
+
+    return jsonify({'mensajes': [m.to_dict() for m in mensajes], 'bot_pausado': bot_pausado})
 
 
 # ── API — enviar mensaje de texto libre ──────────────────────────
@@ -1402,6 +1406,26 @@ def api_expirar_cotizaciones():
         return jsonify({'ok': True, 'expiradas': enviados})
     except Exception as e:
         log.error(f'[CRM Bot] Error expirando cotizaciones: {e}')
+        return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+# ── API — Toggle bot pausado por número ──────────────────────────
+@crm_bp.route('/api/bot-toggle/<numero>', methods=['POST'])
+@login_required
+def api_bot_toggle(numero):
+    """Pausa o reactiva el bot para un número de WhatsApp."""
+    from app.models.wa_bot_session import WaBotSession
+    try:
+        session = WaBotSession.query.filter_by(numero=numero).first()
+        if not session:
+            return jsonify({'ok': False, 'error': 'Sesión no encontrada'}), 404
+        session.bot_pausado = not session.bot_pausado
+        db.session.commit()
+        estado = 'pausado' if session.bot_pausado else 'activo'
+        log.info(f'[CRM] Bot {estado} para {numero} por {current_user.username}')
+        return jsonify({'ok': True, 'bot_pausado': session.bot_pausado})
+    except Exception as e:
+        log.error(f'[CRM] Error toggling bot para {numero}: {e}')
         return jsonify({'ok': False, 'error': str(e)}), 500
 
 

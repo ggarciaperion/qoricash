@@ -26,6 +26,8 @@ class WaBotSession(db.Model):
     cotiz_email   = db.Column(db.String(120), default='')   # email para registro
     cotiz_op_id   = db.Column(db.String(20),  default='')   # operation_id creado (EXP-XXX)
     cotiz_cuenta  = db.Column(db.String(50),  default='')   # cuenta destino del cliente
+    # Control de atención humana
+    bot_pausado   = db.Column(db.Boolean, default=False, nullable=False)
     created_at = db.Column(db.DateTime, default=now_peru, nullable=False)
     updated_at = db.Column(db.DateTime, default=now_peru, onupdate=now_peru, nullable=False)
 

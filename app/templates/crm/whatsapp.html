@@ -734,6 +734,12 @@ body.has-pb-bar.has-sidebar .main-wrapper {
           <div class="crm-chat-num"  id="chatNum">—</div>
         </div>
         <div class="crm-hdr-actions">
+          <!-- Toggle bot -->
+          <button id="btnBotToggle" onclick="toggleBot()" title="Pausar / Reactivar bot"
+            style="display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600;border:none;cursor:pointer;transition:all .2s;">
+            <span id="botToggleIcon">🤖</span>
+            <span id="botToggleLabel">Bot activo</span>
+          </button>
           <button class="crm-back-btn" onclick="goBack()" title="Volver">
             <i class="bi bi-arrow-left"></i>
           </button>
@@ -937,11 +943,14 @@ async function selectConv(numero, nombre, empresa) {
   document.getElementById('replyInput').focus();
 
   // Paralelo: mensajes + badges
-  const [msgs] = await Promise.all([
+  const [data] = await Promise.all([
     fetch(`/crm/api/mensajes/${encodeURIComponent(numero)}`).then(r => r.json()),
     loadConversaciones(),
   ]);
-  if (activeNum === numero) renderMensajes(msgs, true);
+  if (activeNum === numero) {
+    renderMensajes(data.mensajes || data, true);
+    renderBotToggle(data.bot_pausado || false);
+  }
   // Actualizar badge del sidebar tras marcar como leídos
   if (typeof updateWaBadge === 'function') updateWaBadge();
 }
@@ -950,7 +959,57 @@ function reloadChat() {
   if (!activeNum) return;
   showSkeleton();
   fetch(`/crm/api/mensajes/${encodeURIComponent(activeNum)}`)
-    .then(r => r.json()).then(msgs => { if (activeNum) renderMensajes(msgs); });
+    .then(r => r.json()).then(data => {
+      if (activeNum) {
+        renderMensajes(data.mensajes || data);
+        renderBotToggle(data.bot_pausado || false);
+      }
+    });
+}
+
+// ── Bot toggle ────────────────────────────────────────────────────
+function renderBotToggle(pausado) {
+  const btn   = document.getElementById('btnBotToggle');
+  const icon  = document.getElementById('botToggleIcon');
+  const label = document.getElementById('botToggleLabel');
+  if (!btn) return;
+  if (pausado) {
+    btn.style.background   = '#fef3c7';
+    btn.style.color        = '#92400e';
+    btn.style.border       = '1.5px solid #f59e0b';
+    icon.textContent  = '👤';
+    label.textContent = 'Asesor activo';
+  } else {
+    btn.style.background   = '#dcfce7';
+    btn.style.color        = '#166534';
+    btn.style.border       = '1.5px solid #22c55e';
+    icon.textContent  = '🤖';
+    label.textContent = 'Bot activo';
+  }
+  btn.dataset.pausado = pausado ? '1' : '0';
+}
+
+async function toggleBot() {
+  if (!activeNum) return;
+  const btn = document.getElementById('btnBotToggle');
+  btn.disabled = true;
+  try {
+    const csrf = document.querySelector('meta[name="csrf-token"]');
+    const r = await fetch(`/crm/api/bot-toggle/${encodeURIComponent(activeNum)}`, {
+      method: 'POST',
+      headers: csrf ? { 'X-CSRFToken': csrf.content } : {}
+    });
+    const j = await r.json();
+    if (j.ok) {
+      renderBotToggle(j.bot_pausado);
+      showToast(j.bot_pausado ? '👤 Bot pausado — asesor en control' : '🤖 Bot reactivado', j.bot_pausado ? 'warning' : 'success');
+    } else {
+      showToast('Error al cambiar estado del bot', 'error');
+    }
+  } catch(e) {
+    showToast('Error de conexión', 'error');
+  }
+  btn.disabled = false;
 }
 
 function showSkeleton() {
