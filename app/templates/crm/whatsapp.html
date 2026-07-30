@@ -943,13 +943,14 @@ async function selectConv(numero, nombre, empresa) {
   document.getElementById('replyInput').focus();
 
   // Paralelo: mensajes + badges
-  const [data] = await Promise.all([
+  const [msgs, botStatus] = await Promise.all([
     fetch(`/crm/api/mensajes/${encodeURIComponent(numero)}`).then(r => r.json()),
+    fetch(`/crm/api/bot-status/${encodeURIComponent(numero)}`).then(r => r.json()),
     loadConversaciones(),
   ]);
   if (activeNum === numero) {
-    renderMensajes(data.mensajes || data, true);
-    renderBotToggle(data.bot_pausado || false);
+    renderMensajes(msgs, true);
+    renderBotToggle(botStatus.bot_pausado || false);
   }
   // Actualizar badge del sidebar tras marcar como leídos
   if (typeof updateWaBadge === 'function') updateWaBadge();
@@ -958,13 +959,15 @@ async function selectConv(numero, nombre, empresa) {
 function reloadChat() {
   if (!activeNum) return;
   showSkeleton();
-  fetch(`/crm/api/mensajes/${encodeURIComponent(activeNum)}`)
-    .then(r => r.json()).then(data => {
-      if (activeNum) {
-        renderMensajes(data.mensajes || data);
-        renderBotToggle(data.bot_pausado || false);
-      }
-    });
+  Promise.all([
+    fetch(`/crm/api/mensajes/${encodeURIComponent(activeNum)}`).then(r => r.json()),
+    fetch(`/crm/api/bot-status/${encodeURIComponent(activeNum)}`).then(r => r.json()),
+  ]).then(([msgs, botStatus]) => {
+    if (activeNum) {
+      renderMensajes(msgs);
+      renderBotToggle(botStatus.bot_pausado || false);
+    }
+  });
 }
 
 // ── Bot toggle ────────────────────────────────────────────────────
@@ -1363,7 +1366,7 @@ function mostrarNotifWA(data) {
       loadConversaciones();
       if (activeNum && activeNum === data.numero) {
         fetch(`/crm/api/mensajes/${encodeURIComponent(activeNum)}`)
-          .then(r => r.json()).then(data => { if (activeNum) { renderMensajes(data.mensajes || data, true); renderBotToggle(data.bot_pausado || false); } });
+          .then(r => r.json()).then(msgs => { if (activeNum) renderMensajes(msgs, true); });
       }
       mostrarNotifWA(data);
     });
@@ -1389,7 +1392,7 @@ function startPolling() {
       tasks.push(
         fetch(`/crm/api/mensajes/${encodeURIComponent(activeNum)}`)
           .then(r => r.json())
-          .then(data => { if (activeNum) { renderMensajes(data.mensajes || data); renderBotToggle(data.bot_pausado || false); } })
+          .then(msgs => { if (activeNum) renderMensajes(msgs); })
       );
     }
     Promise.all(tasks);

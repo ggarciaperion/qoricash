@@ -182,11 +182,21 @@ def api_mensajes(numero):
     WaMessage.query.filter_by(numero=numero, leido=False, direccion='entrante').update({'leido': True})
     db.session.commit()
 
-    from app.models.wa_bot_session import WaBotSession
-    session = WaBotSession.query.filter_by(numero=numero).first()
-    bot_pausado = session.bot_pausado if session else False
+    return jsonify([m.to_dict() for m in mensajes])
 
-    return jsonify({'mensajes': [m.to_dict() for m in mensajes], 'bot_pausado': bot_pausado})
+
+# ── API — Estado del bot para un número ──────────────────────────
+@crm_bp.route('/api/bot-status/<path:numero>')
+@login_required
+def api_bot_status(numero):
+    """Devuelve si el bot está pausado para un número."""
+    try:
+        from app.models.wa_bot_session import WaBotSession
+        bot_session = WaBotSession.query.filter_by(numero=numero).first()
+        bot_pausado = bot_session.bot_pausado if bot_session else False
+        return jsonify({'ok': True, 'bot_pausado': bot_pausado})
+    except Exception as e:
+        return jsonify({'ok': True, 'bot_pausado': False})
 
 
 # ── API — enviar mensaje de texto libre ──────────────────────────
