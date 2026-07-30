@@ -279,7 +279,7 @@ body.has-pb-bar.has-sidebar .main-wrapper {
 .crm-chat-info   { flex: 1; min-width: 0; }
 .crm-chat-name   { font-weight: 700; font-size: .95rem; color: #e9edef; }
 .crm-chat-num    { font-size: .75rem; color: #8696a0; }
-.crm-hdr-actions { display: flex; gap: 4px; }
+.crm-hdr-actions { display: flex; align-items: center; gap: 6px; }
 .crm-hdr-actions button {
   background: none; border: none; color: #aebac1;
   width: 36px; height: 36px; border-radius: 50%;
@@ -287,6 +287,42 @@ body.has-pb-bar.has-sidebar .main-wrapper {
   font-size: 1rem; cursor: pointer; transition: all .15s;
 }
 .crm-hdr-actions button:hover { background: rgba(255,255,255,.07); color: #e9edef; }
+
+/* ── Toggle bot ── */
+#btnBotToggle {
+  width: auto !important; height: 30px !important; border-radius: 15px !important;
+  padding: 0 12px !important; gap: 6px; font-size: 11.5px; font-weight: 600;
+  letter-spacing: .3px; border: none !important; cursor: pointer;
+  transition: background .25s, box-shadow .25s, color .25s;
+  white-space: nowrap;
+}
+#btnBotToggle.bot-on {
+  background: rgba(34,197,94,.15);
+  color: #4ade80;
+  box-shadow: 0 0 0 1px rgba(34,197,94,.3);
+}
+#btnBotToggle.bot-on:hover {
+  background: rgba(34,197,94,.25);
+  box-shadow: 0 0 0 1px rgba(34,197,94,.5);
+  color: #86efac;
+}
+#btnBotToggle.bot-off {
+  background: rgba(251,191,36,.15);
+  color: #fbbf24;
+  box-shadow: 0 0 0 1px rgba(251,191,36,.3);
+}
+#btnBotToggle.bot-off:hover {
+  background: rgba(251,191,36,.25);
+  box-shadow: 0 0 0 1px rgba(251,191,36,.5);
+  color: #fcd34d;
+}
+#btnBotToggle:disabled { opacity: .5; cursor: not-allowed; }
+#btnBotToggle .bot-dot {
+  width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+  transition: background .25s;
+}
+#btnBotToggle.bot-on  .bot-dot { background: #4ade80; box-shadow: 0 0 4px #4ade80; }
+#btnBotToggle.bot-off .bot-dot { background: #fbbf24; box-shadow: 0 0 4px #fbbf24; }
 
 /* Messages area */
 .crm-messages {
@@ -735,9 +771,8 @@ body.has-pb-bar.has-sidebar .main-wrapper {
         </div>
         <div class="crm-hdr-actions">
           <!-- Toggle bot -->
-          <button id="btnBotToggle" onclick="toggleBot()" title="Pausar / Reactivar bot"
-            style="display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600;border:none;cursor:pointer;transition:all .2s;">
-            <span id="botToggleIcon">🤖</span>
+          <button id="btnBotToggle" onclick="toggleBot()" title="Pausar / Reactivar bot automático" class="bot-on">
+            <span class="bot-dot"></span>
             <span id="botToggleLabel">Bot activo</span>
           </button>
           <button class="crm-back-btn" onclick="goBack()" title="Volver">
@@ -973,22 +1008,12 @@ function reloadChat() {
 // ── Bot toggle ────────────────────────────────────────────────────
 function renderBotToggle(pausado) {
   const btn   = document.getElementById('btnBotToggle');
-  const icon  = document.getElementById('botToggleIcon');
   const label = document.getElementById('botToggleLabel');
   if (!btn) return;
-  if (pausado) {
-    btn.style.background   = '#fef3c7';
-    btn.style.color        = '#92400e';
-    btn.style.border       = '1.5px solid #f59e0b';
-    icon.textContent  = '👤';
-    label.textContent = 'Asesor activo';
-  } else {
-    btn.style.background   = '#dcfce7';
-    btn.style.color        = '#166534';
-    btn.style.border       = '1.5px solid #22c55e';
-    icon.textContent  = '🤖';
-    label.textContent = 'Bot activo';
-  }
+  btn.classList.toggle('bot-on',  !pausado);
+  btn.classList.toggle('bot-off',  pausado);
+  label.textContent = pausado ? 'Asesor activo' : 'Bot activo';
+  btn.title = pausado ? 'Clic para reactivar el bot' : 'Clic para pausar el bot';
   btn.dataset.pausado = pausado ? '1' : '0';
 }
 
