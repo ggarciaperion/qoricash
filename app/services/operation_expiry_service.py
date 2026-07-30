@@ -218,70 +218,126 @@ class OperationExpiryService:
     @staticmethod
     def expire_inactive_bot_sessions():
         """
-        Cierra sesiones de WhatsApp bot con más de 20 minutos de inactividad.
-        Primero hace todos los resets en DB, luego envía los mensajes WA.
+        Envía mensaje de cierre de sesión por inactividad (15 min) en DOS casos:
+
+        Caso A — sesión activa (estado != 'inicio'):
+            updated_at < ahora - 15 min → resetear + notificar.
+
+        Caso B — sesión en 'inicio' con mensaje saliente sin respuesta:
+            El bot envió algo (cancelación de operación, etc.) hace > 15 min y el
+            cliente no ha respondido. Se detecta via WaMessage: el mensaje saliente
+            más reciente para ese número es posterior a session.updated_at y fue
+            enviado hace > 15 min sin ningún entrante posterior.
+            → tocar updated_at (previene re-disparo) + notificar.
 
         Returns:
-            int: Número de sesiones cerradas
+            int: Número de sesiones notificadas
         """
         try:
             from app.models.wa_bot_session import WaBotSession
+            from app.models.wa_message import WaMessage
+            from sqlalchemy import text as sa_text
 
-            cutoff = now_peru() - timedelta(minutes=20)
+            now = now_peru()
+            cutoff = now - timedelta(minutes=15)
 
-            inactive_sessions = WaBotSession.query.filter(
+            # ── Caso A: sesiones con flujo activo inactivas > 15 min ──────────
+            active_inactive = WaBotSession.query.filter(
                 WaBotSession.estado != 'inicio',
                 WaBotSession.updated_at < cutoff,
             ).all()
 
-            if not inactive_sessions:
+            sessions_to_notify = []
+
+            for s in active_inactive:
+                s.estado        = 'inicio'
+                s.cotiz_op      = ''
+                s.cotiz_importe = 0.0
+                s.cotiz_tc      = 0.0
+                s.cotiz_doc     = ''
+                s.cotiz_email   = ''
+                s.cotiz_op_id   = ''
+                s.cotiz_cuenta  = ''
+                s.updated_at    = now
+                sessions_to_notify.append(s.numero)
+
+            # ── Caso B: sesiones en 'inicio' donde bot envió algo y cliente no respondió ─
+            # Busca sesiones donde exista un WaMessage saliente:
+            #   - posterior a session.updated_at (fue enviado DESPUÉS del último cambio de estado)
+            #   - anterior a cutoff (hace > 15 min)
+            #   - sin WaMessage entrante posterior a ese saliente
+            inicio_sessions = WaBotSession.query.filter(
+                WaBotSession.estado == 'inicio',
+            ).all()
+
+            for s in inicio_sessions:
+                if s.numero in sessions_to_notify:
+                    continue
+                try:
+                    # Último mensaje saliente para este número posterior a updated_at
+                    last_out = (WaMessage.query
+                                .filter(
+                                    WaMessage.numero == s.numero,
+                                    WaMessage.direccion == 'saliente',
+                                    WaMessage.created_at > s.updated_at,
+                                    WaMessage.created_at < cutoff,
+                                )
+                                .order_by(WaMessage.created_at.desc())
+                                .first())
+                    if not last_out:
+                        continue
+                    # Verificar que no hay entrante posterior a ese saliente
+                    has_reply = WaMessage.query.filter(
+                        WaMessage.numero == s.numero,
+                        WaMessage.direccion == 'entrante',
+                        WaMessage.created_at > last_out.created_at,
+                    ).first()
+                    if has_reply:
+                        continue
+                    # Califica: tocar updated_at para prevenir re-disparo
+                    s.updated_at = now
+                    sessions_to_notify.append(s.numero)
+                except Exception as e_b:
+                    logger.error(f"[SESSION] Error caso B para {s.numero}: {e_b}")
+
+            if not sessions_to_notify:
                 return 0
 
-            logger.info(f"[SESSION] Encontradas {len(inactive_sessions)} sesiones inactivas >20min")
-
-            # Paso 1: recopilar números y resetear DB — sin enviar WA todavía
-            numeros_a_notificar = []
-            for session in inactive_sessions:
-                try:
-                    numeros_a_notificar.append(session.numero)
-                    session.estado        = 'inicio'
-                    session.cotiz_op      = ''
-                    session.cotiz_importe = 0.0
-                    session.cotiz_tc      = 0.0
-                    session.cotiz_doc     = ''
-                    session.cotiz_email   = ''
-                    session.cotiz_op_id   = ''
-                    session.cotiz_cuenta  = ''
-                except Exception as e:
-                    logger.error(f"[SESSION] Error preparando reset {session.numero}: {e}")
-
-            # Commit único para todos los resets
             try:
                 db.session.commit()
-                logger.info(f"[SESSION] {len(numeros_a_notificar)} sesiones reseteadas en DB")
+                logger.info(f"[SESSION] {len(sessions_to_notify)} sesiones marcadas para notificación")
             except Exception as commit_err:
-                logger.error(f"[SESSION] Error en commit de resets: {commit_err}")
+                logger.error(f"[SESSION] Error en commit: {commit_err}")
                 db.session.rollback()
                 return 0
 
-            # Paso 2: enviar WA a cada número (ya fuera del commit de DB)
+            # ── Enviar mensaje de cierre de sesión ────────────────────────────
             wa_url   = f"https://graph.facebook.com/v19.0/{os.environ.get('WA_PHONE_NUMBER_ID','1118979324636599')}/messages"
             wa_token = os.environ.get('WA_ACCESS_TOKEN', '')
             headers  = {'Authorization': f'Bearer {wa_token}', 'Content-Type': 'application/json'}
-            mensaje  = ('🔒 Tu sesión ha sido cerrada por inactividad.\n\n'
-                        'Cuando desees volver a operar, escríbenos y te atenderemos de inmediato.')
+            cuerpo   = ('⏰ Tu sesión ha expirado por inactividad.\n\n'
+                        'Cuando desees volver a operar, escríbenos y comenzamos de nuevo.')
 
             closed_count = 0
-            for numero in numeros_a_notificar:
+            for numero in sessions_to_notify:
                 try:
+                    # Enviar con botón "Hablar con asesor" (interactive)
                     payload = {
                         'messaging_product': 'whatsapp',
                         'to': numero.lstrip('+'),
-                        'type': 'text',
-                        'text': {'body': mensaje},
+                        'type': 'interactive',
+                        'interactive': {
+                            'type': 'button',
+                            'body': {'text': cuerpo},
+                            'action': {
+                                'buttons': [
+                                    {'type': 'reply', 'reply': {'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}}
+                                ]
+                            }
+                        }
                     }
                     requests.post(wa_url, json=payload, headers=headers, timeout=10)
-                    logger.info(f"[SESSION] Sesión cerrada y WA enviado: {numero}")
+                    logger.info(f"[SESSION] Sesión expirada, WA enviado: {numero}")
                     closed_count += 1
                 except Exception as wa_err:
                     logger.warning(f"[SESSION] WA no enviado a {numero}: {wa_err}")

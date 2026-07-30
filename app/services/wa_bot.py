@@ -491,9 +491,10 @@ def _cotiz_expirada(session):
 
 def _flujo_sesion_expirada(numero):
     """Avisa al cliente que la sesión expiró por inactividad."""
-    send_text(numero,
+    send_buttons(numero,
         '⏰ Tu sesión ha expirado por inactividad.\n\n'
-        'Si deseas continuar, escríbenos y te atendemos de inmediato. 😊'
+        'Cuando desees volver a operar, escríbenos y comenzamos de nuevo.',
+        [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
     )
 
 
