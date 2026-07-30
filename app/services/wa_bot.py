@@ -799,6 +799,33 @@ def _flujo_asesor(numero):
         f'WA: {numero}\n\n'
         f'Ingresa al panel para atenderlo: https://app.qoricash.pe/crm/whatsapp'
     )
+    # ── Email a gerencia ─────────────────────────────────────────────
+    try:
+        from flask_mail import Message
+        from app.extensions import mail
+        from flask import current_app
+        import eventlet as _ev
+        app = current_app._get_current_object()
+        email_msg = Message(
+            subject=f'[Bot WA] Cliente solicita hablar con asesor — {numero}',
+            sender='info@qoricash.pe',
+            recipients=['gerencia@qoricash.pe'],
+            body=(
+                f'Un cliente ha solicitado hablar con un asesor a través del bot de WhatsApp.\n\n'
+                f'Número WA: {numero}\n\n'
+                f'Atiéndelo en: https://app.qoricash.pe/crm/whatsapp'
+            ),
+        )
+        def _do_send():
+            with app.app_context():
+                try:
+                    mail.send(email_msg)
+                    log.info(f'[WaBot] Email asesor enviado a gerencia para {numero}')
+                except Exception as e:
+                    log.warning(f'[WaBot] Error enviando email asesor: {e}')
+        _ev.spawn_n(_do_send)
+    except Exception as e:
+        log.warning(f'[WaBot] No se pudo enviar email asesor: {e}')
 
 
 def _flujo_tipo_cliente(numero):
