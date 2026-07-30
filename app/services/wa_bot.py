@@ -642,7 +642,7 @@ def _flujo_op_creada(numero, op, session, client):
         f'Tienes *15 minutos* para realizar la transferencia, de lo contrario se cancelará automáticamente.\n\n'
         f'*Transfiere {simbolo} {monto_enviar:,.2f} a:*\n\n'
         f'{cuentas}\n\n'
-        f'_Una vez hayas transferido, presiona el botón para registrar el número de la transferencia bancaria._'
+        f'_Una vez hayas transferido, presiona el botón para registrar el número de la operación bancaria._'
     )
     send_buttons(numero, msg, [
         {'id': 'btn_ya_transferi', 'title': '✅ Ya transferí'},
