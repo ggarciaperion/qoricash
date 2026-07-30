@@ -1078,7 +1078,11 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
         estado = session.estado
 
         # ── Bot pausado: asesor atendiendo manualmente ─────────────
-        if session.bot_pausado:
+        try:
+            _bot_pausado = session.bot_pausado
+        except Exception:
+            _bot_pausado = False
+        if _bot_pausado:
             log.info(f'[WaBot] {numero} — bot pausado (asesor activo), mensaje ignorado.')
             db.session.commit()
             return

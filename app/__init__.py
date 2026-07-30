@@ -148,6 +148,18 @@ def create_app(config_name=None):
     except Exception as e:
         logging.warning(f"[Migration] push_subscriptions: {e}")
 
+    # Migración: columna bot_pausado en wa_bot_sessions (idempotente)
+    try:
+        with app.app_context():
+            from app.extensions import db
+            from sqlalchemy import text
+            db.session.execute(text(
+                "ALTER TABLE wa_bot_sessions ADD COLUMN IF NOT EXISTS bot_pausado BOOLEAN NOT NULL DEFAULT FALSE"
+            ))
+            db.session.commit()
+    except Exception as e:
+        logging.warning(f"[Migration] wa_bot_sessions.bot_pausado: {e}")
+
     # Migración: tablas del ecosistema de Agentes IA (idempotente)
     try:
         with app.app_context():
