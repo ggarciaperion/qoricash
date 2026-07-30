@@ -192,10 +192,19 @@ def api_bot_status(numero):
     """Devuelve si el bot está pausado para un número."""
     try:
         from app.models.wa_bot_session import WaBotSession
+        from sqlalchemy import text
+        # Garantizar columna existe
+        try:
+            db.session.execute(text(
+                "ALTER TABLE wa_bot_sessions ADD COLUMN IF NOT EXISTS bot_pausado BOOLEAN NOT NULL DEFAULT FALSE"
+            ))
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
         bot_session = WaBotSession.query.filter_by(numero=numero).first()
         bot_pausado = bot_session.bot_pausado if bot_session else False
         return jsonify({'ok': True, 'bot_pausado': bot_pausado})
-    except Exception as e:
+    except Exception:
         return jsonify({'ok': True, 'bot_pausado': False})
 
 
@@ -1468,7 +1477,17 @@ def api_expirar_sesiones():
 def api_bot_toggle(numero):
     """Pausa o reactiva el bot para un número de WhatsApp."""
     from app.models.wa_bot_session import WaBotSession
+    from sqlalchemy import text
     try:
+        # Garantizar que la columna existe (idempotente)
+        try:
+            db.session.execute(text(
+                "ALTER TABLE wa_bot_sessions ADD COLUMN IF NOT EXISTS bot_pausado BOOLEAN NOT NULL DEFAULT FALSE"
+            ))
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+
         bot_session = WaBotSession.query.filter_by(numero=numero).first()
         if not bot_session:
             return jsonify({'ok': False, 'error': 'Sesión no encontrada'}), 404
