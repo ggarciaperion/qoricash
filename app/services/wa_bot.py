@@ -1141,9 +1141,17 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
             elif estado == 'esperando_importe':
                 monto = _parse_monto(texto)
                 if monto and monto > 0:
-                    session.cotiz_importe = monto
-                    _flujo_mostrar_cotizacion(numero, session)
-                    session.estado = 'viendo_cotizacion'
+                    if monto > 20000:
+                        send_buttons(numero,
+                            '💼 Para operaciones superiores a *USD 20,000* te atendemos de forma personalizada con condiciones especiales.\n\n'
+                            'Un asesor te contactará para brindarte el mejor tipo de cambio.',
+                            [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
+                        )
+                        session.estado = 'inicio'
+                    else:
+                        session.cotiz_importe = monto
+                        _flujo_mostrar_cotizacion(numero, session)
+                        session.estado = 'viendo_cotizacion'
                 else:
                     send_text(numero,
                         'No entendí el monto. Por favor escribe solo el número. Ejemplo: *1000*'

@@ -1477,7 +1477,12 @@ window.forceRefresh = async function() {
   btn.textContent = '⟳ ...';
   btn.disabled = true;
   try {
-    const r = await fetch('/monitor/api/seed', { method:'POST', cache:'no-store' });
+    const csrf = document.querySelector('meta[name="csrf-token"]');
+    const r = await fetch('/monitor/api/seed', {
+      method: 'POST',
+      cache: 'no-store',
+      headers: csrf ? { 'X-CSRFToken': csrf.content } : {}
+    });
     const j = await r.json();
     if (j.success && j.scrape) {
       const s = j.scrape;
