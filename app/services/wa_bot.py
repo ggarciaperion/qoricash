@@ -659,15 +659,19 @@ def _flujo_sesion_expirada(numero):
 
 def _reset_sesion(session):
     """Limpia todos los datos de la sesión y la devuelve a inicio."""
-    session.estado        = 'inicio'
-    session.cotiz_op      = ''
-    session.cotiz_importe = 0.0
-    session.cotiz_tc      = 0.0
-    session.cotiz_doc     = ''
-    session.cotiz_email   = ''
-    session.cotiz_op_id   = ''
-    session.cotiz_cuenta  = ''
-    session.tipo          = ''
+    session.estado         = 'inicio'
+    session.cotiz_op       = ''
+    session.cotiz_importe  = 0.0
+    session.cotiz_tc       = 0.0
+    session.cotiz_doc      = ''
+    session.cotiz_email    = ''
+    session.cotiz_op_id    = ''
+    session.cotiz_cuenta   = ''
+    session.tipo           = ''
+    try:
+        session.cotiz_intentos = 0
+    except Exception:
+        pass
 
 
 def _sesion_inactiva(session):
@@ -1473,6 +1477,11 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
             elif estado == 'esperando_importe':
                 monto = _parse_monto(texto)
                 if monto and monto > 0:
+                    # Monto válido → resetear contador de intentos
+                    try:
+                        session.cotiz_intentos = 0
+                    except Exception:
+                        pass
                     if monto < MONTO_MINIMO_USD:
                         send_text(numero,
                             f'El monto mínimo de operación es *USD {MONTO_MINIMO_USD:,.0f}*.\n\n'
@@ -1490,9 +1499,34 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                         _flujo_mostrar_cotizacion(numero, session)
                         session.estado = 'viendo_cotizacion'
                 else:
-                    send_text(numero,
-                        'No entendí el monto. Por favor escribe solo el número en USD. Ejemplo: *1000*'
-                    )
+                    # Monto inválido → incrementar contador
+                    try:
+                        session.cotiz_intentos = (session.cotiz_intentos or 0) + 1
+                        intentos = session.cotiz_intentos
+                    except Exception:
+                        intentos = 1
+
+                    if intentos >= 2:
+                        # Tras 2 intentos fallidos: ofrecer salida clara
+                        send_buttons(numero,
+                            '🤔 Parece que hay una dificultad con el monto.\n\n'
+                            'Escribe solo el número en dólares, por ejemplo: *1000*\n\n'
+                            '¿Prefieres que un asesor te ayude?',
+                            [
+                                {'id': 'btn_asesor',        'title': '💬 Hablar con asesor'},
+                                {'id': 'btn_volver_inicio', 'title': '🔙 Volver al inicio'},
+                            ]
+                        )
+                        try:
+                            session.cotiz_intentos = 0
+                        except Exception:
+                            pass
+                        session.estado = 'inicio'
+                    else:
+                        send_text(numero,
+                            'No entendí el monto. Escribe solo el número en dólares.\n\n'
+                            'Ejemplo: *1000*  o  *2500*  o  *5 mil*'
+                        )
 
             elif estado == 'esperando_doc':
                 # Verificar DNI/RUC de cliente existente

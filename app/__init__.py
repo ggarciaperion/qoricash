@@ -160,6 +160,18 @@ def create_app(config_name=None):
     except Exception as e:
         logging.warning(f"[Migration] wa_bot_sessions.bot_pausado: {e}")
 
+    # Migración: columna cotiz_intentos en wa_bot_sessions (idempotente)
+    try:
+        with app.app_context():
+            from app.extensions import db
+            from sqlalchemy import text
+            db.session.execute(text(
+                "ALTER TABLE wa_bot_sessions ADD COLUMN IF NOT EXISTS cotiz_intentos INTEGER NOT NULL DEFAULT 0"
+            ))
+            db.session.commit()
+    except Exception as e:
+        logging.warning(f"[Migration] wa_bot_sessions.cotiz_intentos: {e}")
+
     # Migración: tablas del ecosistema de Agentes IA (idempotente)
     try:
         with app.app_context():
