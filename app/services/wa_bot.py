@@ -117,6 +117,7 @@ SPREAD_TC = 0.0020   # 20 pips: spread que aplica el bot sobre el TC oficial
 
 COTIZ_VALIDEZ_MIN      = 15   # minutos de validez de la cotización
 SESSION_INACTIVIDAD_MIN = 15  # minutos de inactividad para expirar sesión
+MONTO_MINIMO_USD       = 50   # mínimo de operación en USD
 
 def _lookup_dni(dni):
     """
@@ -267,9 +268,24 @@ def wa_notify_cuenta_activa(client):
     except Exception as e:
         log.error(f'[WaBot] Error enviando cuenta_activa a {phone_digits}: {e}')
         return
+    # P3 — Si el cliente tenía una cotización pendiente antes de registrarse, recordarla
+    try:
+        from app.models.wa_bot_session import WaBotSession as _WBS
+        _bot_s = _WBS.query.filter_by(numero=phone_digits).first()
+        if _bot_s and _bot_s.cotiz_op and _bot_s.cotiz_importe:
+            _op_txt = 'comprar' if _bot_s.cotiz_op == 'compra' else 'vender'
+            cta_body = (
+                f'¡Tu cuenta está activa! Recuerda que querías {_op_txt} '
+                f'*USD {_bot_s.cotiz_importe:,.0f}*. ¿Cotizamos ahora?'
+            )
+        else:
+            cta_body = '¿Qué deseas hacer?'
+    except Exception:
+        cta_body = '¿Qué deseas hacer?'
+
     # Enviar botones de acción (requiere ventana 24h — falla silenciosamente si no aplica)
     try:
-        send_buttons(phone_digits, '¿Qué deseas hacer?', [
+        send_buttons(phone_digits, cta_body, [
             {'id': 'btn_cotizar', 'title': '💱 Cotizar'},
             {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
         ])
@@ -396,20 +412,69 @@ def _get_tc():
 
 
 def _parse_monto(texto):
-    """Extrae un número de un texto libre. Ej: '5000', '5,000', '$5000', '5 mil' → 5000.0"""
+    """
+    Extrae un número de texto libre con soporte para formatos peruanos/internacionales.
+    Ejemplos:
+      '5000'     → 5000.0
+      '5,000'    → 5000.0   (coma como separador de miles)
+      '5.000'    → 5000.0   (punto como separador de miles — formato peruano)
+      '5,000.50' → 5000.5
+      '5.000,50' → 5000.5   (formato europeo/peruano con decimal)
+      '5 mil'    → 5000.0
+      '$5000'    → 5000.0
+      '1.5'      → 1.5      (punto decimal)
+      '1,5'      → 1.5      (coma decimal)
+    """
     t = texto.lower().strip()
     # "5 mil" o "5mil"
     m = re.match(r'^(\d+(?:[.,]\d+)?)\s*mil$', t)
     if m:
         return float(m.group(1).replace(',', '.')) * 1000
-    # Número normal (quita símbolos y comas de miles)
-    limpio = re.sub(r'[^\d.]', '', t.replace(',', '.'))
-    # Si hay más de un punto, quitar todos menos el último
-    partes = limpio.split('.')
-    if len(partes) > 2:
-        limpio = ''.join(partes[:-1]) + '.' + partes[-1]
-    try:
+
+    # Quitar símbolos de moneda y espacios, conservar dígitos, puntos y comas
+    limpio = re.sub(r'[^\d.,]', '', t)
+    if not limpio:
+        return None
+
+    # Caso 1: solo dígitos
+    if re.match(r'^\d+$', limpio):
         return float(limpio)
+
+    # Caso 2: separador de miles puro — X.000 / X,000 / X.000.000 / X,000,000
+    if re.match(r'^\d{1,3}([.,]\d{3})+$', limpio):
+        return float(re.sub(r'[.,]', '', limpio))
+
+    # Caso 3: miles + decimal — X.000,50 / X,000.50 / X.000.000,50
+    m2 = re.match(r'^(\d{1,3}(?:[.,]\d{3})+)[.,](\d{1,2})$', limpio)
+    if m2:
+        entero = re.sub(r'[.,]', '', m2.group(1))
+        return float(f'{entero}.{m2.group(2)}')
+
+    # Caso 4: un solo separador
+    if '.' in limpio and ',' not in limpio:
+        partes = limpio.split('.')
+        if len(partes) == 2:
+            # X.YYY con exactamente 3 decimales → separador de miles
+            if len(partes[1]) == 3 and partes[1].isdigit() and len(partes[0]) <= 3:
+                return float(partes[0] + partes[1])
+            # Resto → punto decimal normal
+            return float(limpio)
+    if ',' in limpio and '.' not in limpio:
+        partes = limpio.split(',')
+        if len(partes) == 2:
+            # X,YYY con exactamente 3 decimales → separador de miles
+            if len(partes[1]) == 3 and partes[1].isdigit() and len(partes[0]) <= 3:
+                return float(partes[0] + partes[1])
+            # Resto → coma decimal
+            return float(limpio.replace(',', '.'))
+
+    # Fallback: eliminar todo excepto dígitos y último separador
+    limpio2 = limpio.replace(',', '.')
+    partes2 = limpio2.split('.')
+    if len(partes2) > 2:
+        limpio2 = ''.join(partes2[:-1]) + '.' + partes2[-1]
+    try:
+        return float(limpio2)
     except ValueError:
         return None
 
@@ -433,7 +498,7 @@ def _bienvenida(numero, nombre):
 
     msg = (
         f'{saludo} Bienvenido a *Qoricash* 🏦\n'
-        'Fintech de cambio de divisas, segura y regulada por la SBS.\n\n'
+        'Casa de cambio digital — rápida, segura y regulada por la SBS.\n\n'
         f'{tc_texto}\n\n'
         '⭐ _Tasa preferencial para importes mayores a $3,000 USD_'
     ).strip()
@@ -461,17 +526,37 @@ def _flujo_pedir_importe(numero, operacion):
     op_texto = 'comprar' if operacion == 'compra' else 'vender'
     send_text(numero,
         f'¿Cuántos dólares deseas {op_texto}?\n\n'
-        'Escribe el monto en USD. Ejemplo: *1000*'
+        f'Escribe el monto en USD. Ejemplo: *1000*\n'
+        f'_(Mínimo: USD {MONTO_MINIMO_USD:,.0f})_'
     )
 
 
 def _flujo_mostrar_cotizacion(numero, session):
     """Muestra el TC final (con mejora si aplica) y botones de aceptar/volver."""
+    from datetime import timedelta
+    from app.utils.formatters import now_peru
+
     compra, venta = _get_tc()
+
+    # P16 — Validar que el TC esté disponible
+    if not compra or not venta:
+        send_buttons(numero,
+            '⚠️ El tipo de cambio no está disponible en este momento.\n\n'
+            'Por favor intenta en unos minutos o habla con un asesor.',
+            [
+                {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
+                {'id': 'btn_cotizar', 'title': '🔄 Reintentar'},
+            ]
+        )
+        session.estado = 'inicio'
+        return
+
     op      = session.cotiz_op
     importe = session.cotiz_importe
+    mejora  = _mejora_tc(importe)
 
-    mejora = _mejora_tc(importe)
+    # Hora de expiración de la cotización
+    expira_hora = (now_peru() + timedelta(minutes=COTIZ_VALIDEZ_MIN)).strftime('%I:%M %p').lstrip('0')
 
     if op == 'compra':
         # Cliente compra dólares → empresa le vende → usa TC venta + spread
@@ -479,7 +564,7 @@ def _flujo_mostrar_cotizacion(numero, session):
         tc_final = round(tc_base - mejora, 4)
         soles    = round(importe * tc_final, 2)
         resumen  = (
-            f'💵 *Cotización — Usted compra dólares*\n\n'
+            f'💵 *Cotización — Compra de dólares*\n\n'
             f'  Envías:         *S/ {soles:,.2f}*\n'
             f'  Tipo de cambio: *S/ {tc_final:.4f}*\n'
             f'  Recibes:        *USD {importe:,.2f}*'
@@ -490,7 +575,7 @@ def _flujo_mostrar_cotizacion(numero, session):
         tc_final = round(tc_base + mejora, 4)
         soles    = round(importe * tc_final, 2)
         resumen  = (
-            f'💵 *Cotización — Usted vende dólares*\n\n'
+            f'💵 *Cotización — Venta de dólares*\n\n'
             f'  Envías:         *USD {importe:,.2f}*\n'
             f'  Tipo de cambio: *S/ {tc_final:.4f}*\n'
             f'  Recibes:        *S/ {soles:,.2f}*'
@@ -499,7 +584,7 @@ def _flujo_mostrar_cotizacion(numero, session):
     if mejora > 0:
         resumen += f'\n\n  ✨ _TC preferencial por monto especial_'
 
-    resumen += f'\n\n  ⏱ _Válido por {COTIZ_VALIDEZ_MIN} minutos_'
+    resumen += f'\n\n  ⏱ _Válido hasta las {expira_hora}_'
 
     session.cotiz_tc = tc_final
 
@@ -636,6 +721,42 @@ def _buscar_cliente(doc):
         return None
 
 
+def _buscar_clientes_por_telefono(numero):
+    """
+    Busca todos los clientes con KYC aprobado cuyo campo phone contenga
+    los últimos 9 dígitos del número WA (número local peruano sin código de país).
+    Puede retornar más de uno si el mismo teléfono tiene cuenta personal y empresa.
+    """
+    try:
+        from app.models.client import Client
+        digits = re.sub(r'\D', '', numero)
+        local = digits[-9:] if len(digits) >= 9 else digits
+        if not local:
+            return []
+        todos = Client.query.filter(Client.phone.ilike(f'%{local}%')).all()
+        return [c for c in todos if (c.kyc_status or '').lower() in ('completo', 'aprobado')]
+    except Exception as e:
+        log.warning(f'[WaBot] Error buscando clientes por teléfono {numero}: {e}')
+        return []
+
+
+def _flujo_elegir_cliente_telefono(numero, clientes):
+    """
+    Cuando un número de WA tiene múltiples cuentas aprobadas (ej: personal + empresa),
+    muestra botones para que el usuario elija con cuál operar.
+    """
+    botones = []
+    for c in clientes[:2]:
+        nombre = (c.full_name or c.razon_social or c.dni or 'Cliente').strip()
+        titulo = nombre[:20]
+        botones.append({'id': f'btn_cliente_{c.dni}', 'title': titulo})
+    botones.append({'id': 'btn_tengo_cuenta', 'title': '🔎 Ingresar DNI/RUC'})
+    send_buttons(numero,
+        '¿Con cuál de tus cuentas deseas realizar la operación?',
+        botones
+    )
+
+
 def _texto_cuentas_qoricash(moneda):
     """Devuelve texto formateado con las cuentas BCP e INTERBANK para la moneda dada."""
     from app.config.bank_accounts import QORICASH_ACCOUNTS, QORICASH_TITULAR, QORICASH_RUC
@@ -673,6 +794,13 @@ def _crear_operacion(session, client):
         banco_dest, num_dest = cuenta_raw.split('|', 1)
     else:
         banco_dest, num_dest = None, cuenta_raw or None
+
+    # Si solo tenemos número de cuenta (sin banco), resolver el banco desde las cuentas del cliente
+    if not banco_dest and num_dest and client:
+        for acct in (getattr(client, 'bank_accounts', None) or []):
+            if getattr(acct, 'account_number', None) == num_dest:
+                banco_dest = getattr(acct, 'bank_name', None)
+                break
 
     # Importe a pagar al cliente: Venta → USD, Compra → PEN (convención del sistema)
     pago_importe = float(amount_u) if op_type == 'Venta' else float(amount_p)
@@ -730,7 +858,7 @@ def _flujo_op_creada(numero, op, session, client):
         f'Tienes *15 minutos* para realizar la transferencia, de lo contrario se cancelará automáticamente.\n\n'
         f'*Transfiere {simbolo} {monto_enviar:,.2f} a:*\n\n'
         f'{cuentas}\n\n'
-        f'_Una vez hayas transferido, presiona el botón para registrar el número de la operación bancaria._'
+        f'_Una vez transferido, presiona el botón y te pediremos el código de tu voucher (número de 8 a 12 dígitos que aparece en tu constancia bancaria)._'
     )
     send_buttons(numero, msg, [
         {'id': 'btn_ya_transferi', 'title': '✅ Ya transferí'},
@@ -981,6 +1109,15 @@ def _flujo_confirmar_registro(numero, session):
             'Te notificaremos por WhatsApp cuando esté habilitada.'
         )
         tipo_desc = 'Empresa'
+
+    # P3 — Si venía de una cotización aceptada, recordarle que puede retomar
+    if session.cotiz_op and session.cotiz_importe:
+        op_texto = 'comprar' if session.cotiz_op == 'compra' else 'vender'
+        msg += (
+            f'\n\n💡 _Recuerda que querías {op_texto} USD {session.cotiz_importe:,.0f}. '
+            f'Una vez activa tu cuenta, cotiza de nuevo para obtener el tipo de cambio del momento._'
+        )
+
     send_buttons(numero, msg, [
         {'id': 'btn_asesor', 'title': '💬 Hablar con asesor'},
     ])
@@ -1118,14 +1255,15 @@ def _is_horario_atencion():
 
 
 def _flujo_fuera_horario(numero):
-    """Notifica al cliente que estamos fuera de horario."""
-    send_text(numero,
-        '🕐 *Estamos fuera de horario de atención*\n\n'
-        'Nuestro horario es:\n'
+    """Notifica al cliente que estamos fuera de horario de operación."""
+    send_buttons(numero,
+        '🕐 *Fuera de horario de operación*\n\n'
+        'Para ejecutar operaciones, registrarte o hablar con un asesor, '
+        'necesitamos estar en horario:\n'
         '• Lunes a Viernes: *9:00 AM – 6:00 PM*\n'
         '• Sábados: *9:00 AM – 2:00 PM*\n\n'
-        'En cuanto abramos atenderemos tu solicitud. '
-        'Puedes volver a escribirnos en nuestro próximo horario. 😊'
+        'Puedes cotizar el tipo de cambio ahora de forma indicativa. 😊',
+        [{'id': 'btn_cotizar', 'title': '💱 Ver tipo de cambio'}]
     )
 
 
@@ -1180,11 +1318,10 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
         if tipo_msg == 'interactive':
             btn_id = texto
 
-            # Botones que requieren horario de atención
+            # Botones que requieren horario de atención (ejecutar operación / registrarse / asesor)
+            # Cotizar es permitido fuera de horario de forma indicativa
             _BTNS_CON_HORARIO = {
-                'btn_cotizar', 'btn_comprar', 'btn_vender',
-                'btn_aceptar_cotiz', 'btn_registro', 'btn_registrarme',
-                'btn_asesor', 'btn_volver_cotizar',
+                'btn_aceptar_cotiz', 'btn_registro', 'btn_registrarme', 'btn_asesor',
             }
             if btn_id in _BTNS_CON_HORARIO and not _is_horario_atencion():
                 _flujo_fuera_horario(numero)
@@ -1204,8 +1341,53 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                 session.estado = 'esperando_importe'
 
             elif btn_id == 'btn_aceptar_cotiz':
-                _flujo_cotiz_aceptada(numero, session)
-                session.estado = 'decidiendo_registro'
+                # P2 — Buscar cliente por número de teléfono antes de preguntar DNI
+                clientes_tel = _buscar_clientes_por_telefono(numero)
+                if len(clientes_tel) == 1:
+                    # Un único cliente aprobado → saltar verificación de DNI
+                    client_tel = clientes_tel[0]
+                    session.cotiz_doc = client_tel.dni
+                    moneda_recibe_tel = 'USD' if session.cotiz_op == 'compra' else 'PEN'
+                    cuentas_tel = _cuentas_cliente_por_moneda(client_tel, moneda_recibe_tel)
+                    if len(cuentas_tel) == 1:
+                        session.cotiz_cuenta = cuentas_tel[0].get('account_number', '')
+                        _crear_op_y_confirmar(numero, session, client_tel)
+                    elif len(cuentas_tel) > 1:
+                        _flujo_elegir_cuenta(numero, cuentas_tel, moneda_recibe_tel)
+                        session.estado = 'eligiendo_cuenta_destino'
+                    else:
+                        _flujo_pedir_cuenta_destino(numero, moneda_recibe_tel)
+                        session.estado = 'esperando_cuenta_destino'
+                elif len(clientes_tel) > 1:
+                    # Múltiples cuentas (ej. personal + empresa) → elegir
+                    _flujo_elegir_cliente_telefono(numero, clientes_tel)
+                    session.estado = 'eligiendo_cliente_telefono'
+                else:
+                    # No encontrado → flujo estándar con DNI
+                    _flujo_cotiz_aceptada(numero, session)
+                    session.estado = 'decidiendo_registro'
+
+            elif btn_id.startswith('btn_cliente_') and estado == 'eligiendo_cliente_telefono':
+                # P2 — Cliente eligió con qué cuenta operar (múltiples cuentas en mismo teléfono)
+                doc_sel = btn_id[len('btn_cliente_'):]
+                session.cotiz_doc = doc_sel
+                client_sel = _buscar_cliente(doc_sel)
+                if client_sel and (client_sel.kyc_status or '').lower() in ('completo', 'aprobado'):
+                    moneda_sel = 'USD' if session.cotiz_op == 'compra' else 'PEN'
+                    cuentas_sel = _cuentas_cliente_por_moneda(client_sel, moneda_sel)
+                    if len(cuentas_sel) == 1:
+                        session.cotiz_cuenta = cuentas_sel[0].get('account_number', '')
+                        _crear_op_y_confirmar(numero, session, client_sel)
+                    elif len(cuentas_sel) > 1:
+                        _flujo_elegir_cuenta(numero, cuentas_sel, moneda_sel)
+                        session.estado = 'eligiendo_cuenta_destino'
+                    else:
+                        _flujo_pedir_cuenta_destino(numero, moneda_sel)
+                        session.estado = 'esperando_cuenta_destino'
+                else:
+                    send_text(numero, '⚠️ No encontramos esa cuenta activa. Ingresa tu documento manualmente.')
+                    _flujo_pedir_doc_verificacion(numero)
+                    session.estado = 'esperando_doc'
 
             elif btn_id.startswith('btn_cuenta_') and estado == 'eligiendo_cuenta_destino':
                 session.cotiz_cuenta = btn_id[len('btn_cuenta_'):]
@@ -1227,7 +1409,10 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
 
             elif btn_id == 'btn_ya_transferi':
                 send_text(numero,
-                    '🔢 Ingresa el *número de operación* de tu comprobante bancario:'
+                    '🔢 Ingresa el *código de tu transferencia*.\n\n'
+                    'Es el número de 8 a 12 dígitos que aparece en tu voucher o constancia bancaria '
+                    '(puede llamarse "número de operación", "referencia" o "código de transacción").\n\n'
+                    'Ejemplo: *12345678*'
                 )
                 session.estado = 'esperando_codigo_op'
 
@@ -1278,12 +1463,9 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
         # ── Texto libre ───────────────────────────────────────────
         elif tipo_msg == 'text':
 
-            # Estados activos (no inicio) bloqueados fuera de horario
+            # Solo el registro requiere horario en texto (cotizar y cuenta destino se permiten siempre)
             _ESTADOS_CON_HORARIO = {
-                'eligiendo_operacion', 'esperando_importe',
                 'eligiendo_tipo', 'esperando_numero_doc',
-                'esperando_cuenta_destino', 'esperando_cuenta_nueva',
-                'eligiendo_cuenta_destino',
             }
             if estado in _ESTADOS_CON_HORARIO and not _is_horario_atencion():
                 _flujo_fuera_horario(numero)
@@ -1291,7 +1473,12 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
             elif estado == 'esperando_importe':
                 monto = _parse_monto(texto)
                 if monto and monto > 0:
-                    if monto > 20000:
+                    if monto < MONTO_MINIMO_USD:
+                        send_text(numero,
+                            f'El monto mínimo de operación es *USD {MONTO_MINIMO_USD:,.0f}*.\n\n'
+                            f'¿Cuántos dólares deseas cambiar?'
+                        )
+                    elif monto > 20000:
                         send_buttons(numero,
                             '💼 Para operaciones superiores a *USD 20,000* te atendemos de forma personalizada con condiciones especiales.\n\n'
                             'Un asesor te contactará para brindarte el mejor tipo de cambio.',
@@ -1304,7 +1491,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                         session.estado = 'viendo_cotizacion'
                 else:
                     send_text(numero,
-                        'No entendí el monto. Por favor escribe solo el número. Ejemplo: *1000*'
+                        'No entendí el monto. Por favor escribe solo el número en USD. Ejemplo: *1000*'
                     )
 
             elif estado == 'esperando_doc':
@@ -1355,20 +1542,34 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
 
             elif estado == 'esperando_cuenta_nueva':
                 # Cliente ingresa "BANCO NUMERO" para una nueva cuenta
-                partes = texto.strip().split(None, 1)
+                # P8 — Normalizar: eliminar "Banco"/"Bank" prefijo antes de parsear
+                raw_cuenta = texto.strip()
+                raw_upper = raw_cuenta.upper()
+                if raw_upper.startswith('BANCO ') or raw_upper.startswith('BANK '):
+                    raw_cuenta = raw_cuenta.split(None, 1)[1].strip()
+                partes = raw_cuenta.split(None, 1)
                 if len(partes) >= 2:
                     banco, num = partes[0].upper(), partes[1].strip()
-                    session.cotiz_cuenta = f'{banco}|{num}'
-                    client = _buscar_cliente(session.cotiz_doc)
-                    if client:
-                        _crear_op_y_confirmar(numero, session, client)
+                    # Validar que num contiene dígitos
+                    num_digits = re.sub(r'\D', '', num)
+                    if len(num_digits) >= 6:
+                        session.cotiz_cuenta = f'{banco}|{num_digits}'
+                        client = _buscar_cliente(session.cotiz_doc)
+                        if client:
+                            _crear_op_y_confirmar(numero, session, client)
+                        else:
+                            send_text(numero, '⚠️ Error de sesión. Contacta a un asesor: *+51 910 624 404*')
+                            session.estado = 'inicio'
                     else:
-                        send_text(numero, '⚠️ Error de sesión. Contacta a un asesor: *+51 910 624 404*')
-                        session.estado = 'inicio'
+                        send_text(numero,
+                            'El número de cuenta debe tener al menos 6 dígitos.\n\n'
+                            'Ejemplo: *BCP 1234567890*'
+                        )
                 else:
                     send_text(numero,
-                        'Formato incorrecto. Escribe el banco seguido del número de cuenta.\n\n'
-                        'Ejemplo: *BCP 1234567890*'
+                        'Escribe el banco seguido del número de cuenta.\n\n'
+                        'Ejemplo: *BCP 1234567890*\n'
+                        'También puedes escribir: *Interbank 123456789*'
                     )
 
             elif estado == 'esperando_numero_doc':
@@ -1378,6 +1579,8 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                 valido = _es_dni(doc) if session.tipo == 'natural' else _es_ruc(doc)
                 if valido:
                     session.cotiz_doc = doc
+                    # P10 — Feedback inmediato antes del lookup externo (evita silencio)
+                    send_text(numero, '🔍 Verificando tu documento...')
                     if session.tipo == 'natural':
                         # Consultar RENIEC solo para DNI (8 dígitos); CE no tiene lookup
                         nombre_reniec = None
@@ -1419,6 +1622,36 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                 txt_lower = texto.lower()
                 if any(k in txt_lower for k in ('como funciona', 'cómo funciona', 'como opera', 'es seguro', 'es confiable')):
                     _flujo_como_funciona(numero)
+                elif any(k in txt_lower for k in ('horario', 'hora', 'atienden', 'trabajan', 'abren', 'cierran')):
+                    _flujo_como_funciona(numero)  # incluye horario en el texto
+                elif any(k in txt_lower for k in ('cancelar', 'salir', 'exit', 'stop', 'no gracias')):
+                    send_text(numero,
+                        'No hay ningún proceso activo. Cuando quieras operar, estamos aquí. 😊'
+                    )
+                elif any(k in txt_lower for k in ('euro', 'eur ', 'libra', 'gbp', 'yuan', 'yen', 'otra moneda')):
+                    send_buttons(numero,
+                        '💱 Por el momento operamos solo cambio de *USD ↔ PEN* (dólares americanos a soles).\n\n'
+                        '¿Deseas cotizar el tipo de cambio dólar / sol?',
+                        [
+                            {'id': 'btn_cotizar', 'title': '💱 Cotizar USD'},
+                            {'id': 'btn_asesor',  'title': '💬 Hablar con asesor'},
+                        ]
+                    )
+                elif any(k in txt_lower for k in ('registr', 'mi cuenta', 'activar', 'cuándo activan', 'cuando activan', 'estado de mi cuenta')):
+                    if session.cotiz_doc:
+                        send_buttons(numero,
+                            '⏳ Tu solicitud de registro está siendo revisada por nuestro equipo.\n\n'
+                            'Te notificaremos por aquí mismo cuando tu cuenta esté activa.',
+                            [{'id': 'btn_asesor', 'title': '💬 Hablar con asesor'}]
+                        )
+                    else:
+                        send_buttons(numero,
+                            '¿Deseas registrarte en Qoricash?',
+                            [
+                                {'id': 'btn_registro', 'title': '📝 Registrarme'},
+                                {'id': 'btn_asesor',   'title': '💬 Hablar con asesor'},
+                            ]
+                        )
                 else:
                     _bienvenida(numero, session.nombre)
 
@@ -1426,7 +1659,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                 _flujo_recordatorio_registro(numero, estado)
 
             else:
-                # Re-enviar el paso donde quedó el cliente según su estado
+                # P1 — Re-enviar el paso donde quedó el cliente según su estado
                 if estado == 'eligiendo_operacion':
                     _flujo_cotizar_inicio(numero)
 
@@ -1440,6 +1673,40 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
                     moneda = 'USD' if session.cotiz_op == 'compra' else 'PEN'
                     _flujo_pedir_cuenta_destino(numero, moneda)
                     session.estado = 'esperando_cuenta_destino'
+
+                elif estado == 'viendo_cotizacion':
+                    # P1 — Cliente escribió texto en lugar de usar los botones de cotización
+                    _flujo_mostrar_cotizacion(numero, session)
+
+                elif estado == 'decidiendo_registro':
+                    # P1 — Cliente escribió texto en lugar de usar los botones "¿Ya eres cliente?"
+                    _flujo_cotiz_aceptada(numero, session)
+
+                elif estado == 'op_pendiente_pago':
+                    # P1 — Cliente escribió en lugar de presionar "Ya transferí"
+                    from app.models.operation import Operation as _Op2
+                    op_act = _Op2.query.filter_by(operation_id=session.cotiz_op_id).first() if session.cotiz_op_id else None
+                    if op_act and op_act.status == 'Pendiente':
+                        moneda_e = 'PEN' if session.cotiz_op == 'compra' else 'USD'
+                        simbolo_e = 'S/' if moneda_e == 'PEN' else 'USD'
+                        monto_e = float(op_act.amount_pen) if moneda_e == 'PEN' else float(op_act.amount_usd)
+                        send_buttons(numero,
+                            f'📋 Tu operación *{op_act.operation_id}* sigue pendiente de pago.\n\n'
+                            f'Transfiere *{simbolo_e} {monto_e:,.2f}* y luego presiona el botón.',
+                            [{'id': 'btn_ya_transferi', 'title': '✅ Ya transferí'}]
+                        )
+                    else:
+                        _bienvenida(numero, session.nombre)
+                        session.estado = 'inicio'
+
+                elif estado == 'eligiendo_cliente_telefono':
+                    # Re-enviar selección de cuenta
+                    clientes_re = _buscar_clientes_por_telefono(numero)
+                    if clientes_re:
+                        _flujo_elegir_cliente_telefono(numero, clientes_re)
+                    else:
+                        _flujo_pedir_doc_verificacion(numero)
+                        session.estado = 'esperando_doc'
 
                 elif estado == 'completado':
                     send_buttons(numero,
@@ -1476,9 +1743,15 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
             else:
                 send_text(numero, 'Gracias por enviar el archivo. Un asesor lo revisará pronto.')
 
-        # ── Cualquier otro tipo ───────────────────────────────────
+        # ── Cualquier otro tipo (audio, video, ubicación, sticker, etc.) ─────
         else:
-            if estado == 'inicio':
+            # P13 — En estados activos, avisar que solo se aceptan texto y fotos
+            if estado != 'inicio':
+                send_text(numero,
+                    'Solo puedo procesar texto y fotos por ahora 😊\n'
+                    'Por favor usa las opciones del menú o escribe tu respuesta.'
+                )
+            else:
                 _bienvenida(numero, session.nombre)
 
         db.session.commit()
