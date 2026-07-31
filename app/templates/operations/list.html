@@ -168,7 +168,14 @@
                                     {%- else -%}
                                         {% set source_bank = get_bank_name(op, op.source_account) %}
                                         {% set dest_bank = get_bank_name(op, op.destination_account) %}
-                                        <small>{{ source_bank|trim or 'N/A' }} / {{ dest_bank|trim or 'N/A' }}</small>
+                                        {%- set sb = source_bank|trim -%}
+                                        {%- set db = dest_bank|trim -%}
+                                        <small>
+                                        {%- if sb and sb != 'N/A' and db and db != 'N/A' -%}{{ sb }} / {{ db }}
+                                        {%- elif db and db != 'N/A' -%}{{ db }}
+                                        {%- elif sb and sb != 'N/A' -%}{{ sb }}
+                                        {%- else -%}—{%- endif -%}
+                                        </small>
                                     {%- endif -%}
                                 </td>
                                 <td class="text-center d-none d-md-table-cell">
