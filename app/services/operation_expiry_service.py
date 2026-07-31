@@ -241,6 +241,28 @@ class OperationExpiryService:
             now = now_peru()
             cutoff = now - timedelta(minutes=15)
 
+            # Helper: verifica si el número WA tiene una operación En proceso
+            from app.models.client import Client as _Client
+            from app.models.operation import Operation as _Operation
+            import re as _re
+
+            def _tiene_op_en_proceso(numero_wa):
+                """Retorna True si el cliente tiene una operación actualmente En proceso."""
+                try:
+                    digits = _re.sub(r'\D', '', numero_wa)
+                    local = digits[-9:] if len(digits) >= 9 else digits
+                    if not local:
+                        return False
+                    client = _Client.query.filter(_Client.phone.ilike(f'%{local}%')).first()
+                    if not client:
+                        return False
+                    return _Operation.query.filter(
+                        _Operation.client_id == client.id,
+                        _Operation.status == 'En proceso'
+                    ).first() is not None
+                except Exception:
+                    return False
+
             # ── Caso A: sesiones con flujo activo inactivas > 15 min ──────────
             active_inactive = WaBotSession.query.filter(
                 WaBotSession.estado != 'inicio',
@@ -250,6 +272,11 @@ class OperationExpiryService:
             sessions_to_notify = []
 
             for s in active_inactive:
+                # No expirar si el cliente tiene una operación En proceso —
+                # el operador puede tardar más de 15 min en depositar los fondos.
+                if _tiene_op_en_proceso(s.numero):
+                    logger.info(f"[SESSION] {s.numero} — op En proceso activa, no expirar sesión.")
+                    continue
                 s.estado        = 'inicio'
                 s.cotiz_op      = ''
                 s.cotiz_importe = 0.0
@@ -272,6 +299,10 @@ class OperationExpiryService:
 
             for s in inicio_sessions:
                 if s.numero in sessions_to_notify:
+                    continue
+                # No enviar mensaje de sesión expirada si hay op En proceso
+                if _tiene_op_en_proceso(s.numero):
+                    logger.info(f"[SESSION] {s.numero} — op En proceso activa, no enviar cierre de sesión.")
                     continue
                 try:
                     # Último mensaje saliente para este número posterior a updated_at

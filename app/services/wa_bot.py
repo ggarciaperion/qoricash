@@ -1338,11 +1338,17 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
             return
 
         # ── Sesión expirada por inactividad (cliente escribe tras 15 min) ──
+        # Excepción: si el cliente tiene una operación En proceso, no expirar —
+        # el operador puede tardar más de 15 min en depositar los fondos.
         if estado != 'inicio' and _sesion_inactiva(session):
-            log.info(f'[WaBot] {numero} — sesión inactiva ({estado}), reiniciando.')
-            _reset_sesion(session)
-            db.session.commit()
-            estado = 'inicio'
+            _op_ep = _operacion_activa_cliente(numero)
+            if _op_ep and _op_ep.status == 'En proceso':
+                log.info(f'[WaBot] {numero} — sesión inactiva pero op {_op_ep.operation_id} En proceso, no expirar.')
+            else:
+                log.info(f'[WaBot] {numero} — sesión inactiva ({estado}), reiniciando.')
+                _reset_sesion(session)
+                db.session.commit()
+                estado = 'inicio'
 
         # ── Verificar expiración de cotización ────────────────────
         if estado == 'viendo_cotizacion' and _cotiz_expirada(session):
