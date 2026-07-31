@@ -498,7 +498,7 @@ def _bienvenida(numero, nombre):
 
     msg = (
         f'{saludo} Bienvenido a *Qoricash* 🏦\n'
-        'Casa de cambio digital — rápida, segura y regulada por la SBS.\n\n'
+        'Casa de cambio digital — rápida, segura y regulada por la *SBS*.\n\n'
         f'{tc_texto}\n\n'
         '⭐ _Tasa preferencial para importes mayores a $3,000 USD_'
     ).strip()
@@ -858,7 +858,7 @@ def _flujo_op_creada(numero, op, session, client):
         f'Tienes *15 minutos* para realizar la transferencia, de lo contrario se cancelará automáticamente.\n\n'
         f'*Transfiere {simbolo} {monto_enviar:,.2f} a:*\n\n'
         f'{cuentas}\n\n'
-        f'_Una vez transferido, presiona el botón y te pediremos el código de tu voucher (número de 8 a 12 dígitos que aparece en tu constancia bancaria)._'
+        f'_Una vez transferido, presiona el botón y te pediremos el código de tu voucher (el número que aparece en tu constancia bancaria)._'
     )
     send_buttons(numero, msg, [
         {'id': 'btn_ya_transferi', 'title': '✅ Ya transferí'},
@@ -1410,7 +1410,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
             elif btn_id == 'btn_ya_transferi':
                 send_text(numero,
                     '🔢 Ingresa el *código de tu transferencia*.\n\n'
-                    'Es el número de 8 a 12 dígitos que aparece en tu voucher o constancia bancaria '
+                    'Es el número que aparece en tu voucher o constancia bancaria '
                     '(puede llamarse "número de operación", "referencia" o "código de transacción").\n\n'
                     'Ejemplo: *12345678*'
                 )
@@ -1748,7 +1748,7 @@ def handle_message(numero, nombre, tipo_msg, texto, media_id=''):
             # P13 — En estados activos, avisar que solo se aceptan texto y fotos
             if estado != 'inicio':
                 send_text(numero,
-                    'Solo puedo procesar texto y fotos por ahora 😊\n'
+                    'Solo puedo procesar texto, fotos y documentos por ahora 😊\n'
                     'Por favor usa las opciones del menú o escribe tu respuesta.'
                 )
             else:
